@@ -7,6 +7,7 @@ import {
   type Clock,
 } from "@psyche/protocol";
 import { canonicalJSON, sha256 } from "../canonical.ts";
+import { captureModelVisible } from "../capture.ts";
 import { FakeClock, toIso } from "../clock.ts";
 
 /** Hash of an entry per security §15.1: canonical JSON of everything except `hash`. */
@@ -36,6 +37,7 @@ export class FakeAuditLog implements AuditLog {
     };
     if (input.subject !== undefined) base.subject = structuredClone(input.subject);
     const entry: AuditEntry = { ...base, hash: auditEntryHash(base) };
+    captureModelVisible("audit", entry, { where: "FakeAuditLog.append" });
     this.#entries.push(entry);
     return structuredClone(entry);
   }

@@ -20,6 +20,8 @@
 //   let artifact = try? JSONDecoder().decode(Artifact.self, from: jsonData)
 //   let artifactBlock = try? JSONDecoder().decode(ArtifactBlock.self, from: jsonData)
 //   let artifactType = try? JSONDecoder().decode(ArtifactType.self, from: jsonData)
+//   let artifactsGetParams = try? JSONDecoder().decode(ArtifactsGetParams.self, from: jsonData)
+//   let artifactsGetResult = try? JSONDecoder().decode(ArtifactsGetResult.self, from: jsonData)
 //   let auditActor = try? JSONDecoder().decode(AuditActor.self, from: jsonData)
 //   let auditEntry = try? JSONDecoder().decode(AuditEntry.self, from: jsonData)
 //   let automation = try? JSONDecoder().decode(Automation.self, from: jsonData)
@@ -37,6 +39,8 @@
 //   let bridgeCDPSendParams = try? JSONDecoder().decode(BridgeCDPSendParams.self, from: jsonData)
 //   let bridgeCDPSendResult = try? JSONDecoder().decode(BridgeCDPSendResult.self, from: jsonData)
 //   let bridgeControlChangedPayload = try? JSONDecoder().decode(BridgeControlChangedPayload.self, from: jsonData)
+//   let bridgeControlVia = try? JSONDecoder().decode(BridgeControlVia.self, from: jsonData)
+//   let bridgeDebuggerDetachedPayload = try? JSONDecoder().decode(BridgeDebuggerDetachedPayload.self, from: jsonData)
 //   let bridgeDownloadPayload = try? JSONDecoder().decode(BridgeDownloadPayload.self, from: jsonData)
 //   let bridgeDownloadState = try? JSONDecoder().decode(BridgeDownloadState.self, from: jsonData)
 //   let bridgeHelloParams = try? JSONDecoder().decode(BridgeHelloParams.self, from: jsonData)
@@ -45,6 +49,7 @@
 //   let bridgeTabIDParams = try? JSONDecoder().decode(BridgeTabIDParams.self, from: jsonData)
 //   let bridgeTabOpenParams = try? JSONDecoder().decode(BridgeTabOpenParams.self, from: jsonData)
 //   let bridgeTabResult = try? JSONDecoder().decode(BridgeTabResult.self, from: jsonData)
+//   let bridgeTabStatusParams = try? JSONDecoder().decode(BridgeTabStatusParams.self, from: jsonData)
 //   let bridgeTabsListParams = try? JSONDecoder().decode(BridgeTabsListParams.self, from: jsonData)
 //   let bridgeTabsListResult = try? JSONDecoder().decode(BridgeTabsListResult.self, from: jsonData)
 //   let browserCloseParams = try? JSONDecoder().decode(BrowserCloseParams.self, from: jsonData)
@@ -61,12 +66,29 @@
 //   let browserTabsResult = try? JSONDecoder().decode(BrowserTabsResult.self, from: jsonData)
 //   let capabilityManifest = try? JSONDecoder().decode(CapabilityManifest.self, from: jsonData)
 //   let channel = try? JSONDecoder().decode(Channel.self, from: jsonData)
+//   let channelIdentity = try? JSONDecoder().decode(ChannelIdentity.self, from: jsonData)
 //   let channelRef = try? JSONDecoder().decode(ChannelRef.self, from: jsonData)
 //   let channelType = try? JSONDecoder().decode(ChannelType.self, from: jsonData)
+//   let channelsAllowlistUpdateParams = try? JSONDecoder().decode(ChannelsAllowlistUpdateParams.self, from: jsonData)
+//   let channelsAllowlistUpdateResult = try? JSONDecoder().decode(ChannelsAllowlistUpdateResult.self, from: jsonData)
+//   let channelsConfigureParams = try? JSONDecoder().decode(ChannelsConfigureParams.self, from: jsonData)
+//   let channelsConfigureResult = try? JSONDecoder().decode(ChannelsConfigureResult.self, from: jsonData)
 //   let channelsGetParams = try? JSONDecoder().decode(ChannelsGetParams.self, from: jsonData)
 //   let channelsGetResult = try? JSONDecoder().decode(ChannelsGetResult.self, from: jsonData)
+//   let channelsIdentitiesDeleteParams = try? JSONDecoder().decode(ChannelsIdentitiesDeleteParams.self, from: jsonData)
+//   let channelsIdentitiesListParams = try? JSONDecoder().decode(ChannelsIdentitiesListParams.self, from: jsonData)
+//   let channelsIdentitiesListResult = try? JSONDecoder().decode(ChannelsIdentitiesListResult.self, from: jsonData)
+//   let channelsIdentitiesUpsertParams = try? JSONDecoder().decode(ChannelsIdentitiesUpsertParams.self, from: jsonData)
+//   let channelsIdentitiesUpsertResult = try? JSONDecoder().decode(ChannelsIdentitiesUpsertResult.self, from: jsonData)
 //   let channelsListParams = try? JSONDecoder().decode(ChannelsListParams.self, from: jsonData)
 //   let channelsListResult = try? JSONDecoder().decode(ChannelsListResult.self, from: jsonData)
+//   let channelsPairingApproveParams = try? JSONDecoder().decode(ChannelsPairingApproveParams.self, from: jsonData)
+//   let channelsPairingApproveResult = try? JSONDecoder().decode(ChannelsPairingApproveResult.self, from: jsonData)
+//   let channelsPairingDenyParams = try? JSONDecoder().decode(ChannelsPairingDenyParams.self, from: jsonData)
+//   let channelsPairingDenyResult = try? JSONDecoder().decode(ChannelsPairingDenyResult.self, from: jsonData)
+//   let channelsPairingListParams = try? JSONDecoder().decode(ChannelsPairingListParams.self, from: jsonData)
+//   let channelsPairingListResult = try? JSONDecoder().decode(ChannelsPairingListResult.self, from: jsonData)
+//   let channelsUpdatedPayload = try? JSONDecoder().decode(ChannelsUpdatedPayload.self, from: jsonData)
 //   let chatBlockPayload = try? JSONDecoder().decode(ChatBlockPayload.self, from: jsonData)
 //   let chatCancelParams = try? JSONDecoder().decode(ChatCancelParams.self, from: jsonData)
 //   let chatCancelResult = try? JSONDecoder().decode(ChatCancelResult.self, from: jsonData)
@@ -103,6 +125,9 @@
 //   let credentialBinding = try? JSONDecoder().decode(CredentialBinding.self, from: jsonData)
 //   let credentialKind = try? JSONDecoder().decode(CredentialKind.self, from: jsonData)
 //   let credentialMeta = try? JSONDecoder().decode(CredentialMeta.self, from: jsonData)
+//   let credentialSecretInput = try? JSONDecoder().decode(CredentialSecretInput.self, from: jsonData)
+//   let credentialUpdatedPayload = try? JSONDecoder().decode(CredentialUpdatedPayload.self, from: jsonData)
+//   let credentialUse = try? JSONDecoder().decode(CredentialUse.self, from: jsonData)
 //   let decidedBy = try? JSONDecoder().decode(DecidedBy.self, from: jsonData)
 //   let decision = try? JSONDecoder().decode(Decision.self, from: jsonData)
 //   let delivery = try? JSONDecoder().decode(Delivery.self, from: jsonData)
@@ -130,12 +155,26 @@
 //   let eventsSubscribeParams = try? JSONDecoder().decode(EventsSubscribeParams.self, from: jsonData)
 //   let eventsSubscribeResult = try? JSONDecoder().decode(EventsSubscribeResult.self, from: jsonData)
 //   let feedFeedback = try? JSONDecoder().decode(FeedFeedback.self, from: jsonData)
+//   let feedFeedbackParams = try? JSONDecoder().decode(FeedFeedbackParams.self, from: jsonData)
+//   let feedFeedbackResult = try? JSONDecoder().decode(FeedFeedbackResult.self, from: jsonData)
+//   let feedListParams = try? JSONDecoder().decode(FeedListParams.self, from: jsonData)
+//   let feedListResult = try? JSONDecoder().decode(FeedListResult.self, from: jsonData)
 //   let feedPost = try? JSONDecoder().decode(FeedPost.self, from: jsonData)
+//   let feedPostPayload = try? JSONDecoder().decode(FeedPostPayload.self, from: jsonData)
 //   let fileBlock = try? JSONDecoder().decode(FileBlock.self, from: jsonData)
 //   let frame = try? JSONDecoder().decode(Frame.self, from: jsonData)
 //   let gatewayShutdownPayload = try? JSONDecoder().decode(GatewayShutdownPayload.self, from: jsonData)
 //   let goal = try? JSONDecoder().decode(Goal.self, from: jsonData)
 //   let goalCategory = try? JSONDecoder().decode(GoalCategory.self, from: jsonData)
+//   let goalDecision = try? JSONDecoder().decode(GoalDecision.self, from: jsonData)
+//   let goalStatus = try? JSONDecoder().decode(GoalStatus.self, from: jsonData)
+//   let goalUpdatedPayload = try? JSONDecoder().decode(GoalUpdatedPayload.self, from: jsonData)
+//   let goalsDecideParams = try? JSONDecoder().decode(GoalsDecideParams.self, from: jsonData)
+//   let goalsDecideResult = try? JSONDecoder().decode(GoalsDecideResult.self, from: jsonData)
+//   let goalsGetParams = try? JSONDecoder().decode(GoalsGetParams.self, from: jsonData)
+//   let goalsGetResult = try? JSONDecoder().decode(GoalsGetResult.self, from: jsonData)
+//   let goalsListParams = try? JSONDecoder().decode(GoalsListParams.self, from: jsonData)
+//   let goalsListResult = try? JSONDecoder().decode(GoalsListResult.self, from: jsonData)
 //   let grant = try? JSONDecoder().decode(Grant.self, from: jsonData)
 //   let grantScope = try? JSONDecoder().decode(GrantScope.self, from: jsonData)
 //   let grantsListParams = try? JSONDecoder().decode(GrantsListParams.self, from: jsonData)
@@ -143,7 +182,17 @@
 //   let grantsRevokeParams = try? JSONDecoder().decode(GrantsRevokeParams.self, from: jsonData)
 //   let grantsRevokeResult = try? JSONDecoder().decode(GrantsRevokeResult.self, from: jsonData)
 //   let idea = try? JSONDecoder().decode(Idea.self, from: jsonData)
+//   let ideaDismissReason = try? JSONDecoder().decode(IdeaDismissReason.self, from: jsonData)
+//   let ideaStatus = try? JSONDecoder().decode(IdeaStatus.self, from: jsonData)
+//   let ideaUpdatedPayload = try? JSONDecoder().decode(IdeaUpdatedPayload.self, from: jsonData)
+//   let ideasAcceptParams = try? JSONDecoder().decode(IdeasAcceptParams.self, from: jsonData)
+//   let ideasAcceptResult = try? JSONDecoder().decode(IdeasAcceptResult.self, from: jsonData)
+//   let ideasDismissParams = try? JSONDecoder().decode(IdeasDismissParams.self, from: jsonData)
+//   let ideasDismissResult = try? JSONDecoder().decode(IdeasDismissResult.self, from: jsonData)
+//   let ideasListParams = try? JSONDecoder().decode(IdeasListParams.self, from: jsonData)
+//   let ideasListResult = try? JSONDecoder().decode(IdeasListResult.self, from: jsonData)
 //   let inputRequest = try? JSONDecoder().decode(InputRequest.self, from: jsonData)
+//   let inputRequestResult = try? JSONDecoder().decode(InputRequestResult.self, from: jsonData)
 //   let inputRequestStatus = try? JSONDecoder().decode(InputRequestStatus.self, from: jsonData)
 //   let libraryDeleteParams = try? JSONDecoder().decode(LibraryDeleteParams.self, from: jsonData)
 //   let libraryGetParams = try? JSONDecoder().decode(LibraryGetParams.self, from: jsonData)
@@ -235,15 +284,25 @@
 //   let provenance = try? JSONDecoder().decode(Provenance.self, from: jsonData)
 //   let provenanceOut = try? JSONDecoder().decode(ProvenanceOut.self, from: jsonData)
 //   let question = try? JSONDecoder().decode(Question.self, from: jsonData)
+//   let questionAnswers = try? JSONDecoder().decode(QuestionAnswers.self, from: jsonData)
 //   let questionBlock = try? JSONDecoder().decode(QuestionBlock.self, from: jsonData)
 //   let questionCreatedPayload = try? JSONDecoder().decode(QuestionCreatedPayload.self, from: jsonData)
 //   let questionOption = try? JSONDecoder().decode(QuestionOption.self, from: jsonData)
+//   let questionUpdatedPayload = try? JSONDecoder().decode(QuestionUpdatedPayload.self, from: jsonData)
+//   let questionsAnswerParams = try? JSONDecoder().decode(QuestionsAnswerParams.self, from: jsonData)
+//   let questionsGetParams = try? JSONDecoder().decode(QuestionsGetParams.self, from: jsonData)
+//   let questionsListParams = try? JSONDecoder().decode(QuestionsListParams.self, from: jsonData)
+//   let questionsListResult = try? JSONDecoder().decode(QuestionsListResult.self, from: jsonData)
 //   let queueMode = try? JSONDecoder().decode(QueueMode.self, from: jsonData)
 //   let queuedMessageResult = try? JSONDecoder().decode(QueuedMessageResult.self, from: jsonData)
 //   let receipt = try? JSONDecoder().decode(Receipt.self, from: jsonData)
 //   let receiptBlock = try? JSONDecoder().decode(ReceiptBlock.self, from: jsonData)
 //   let receiptCreatedPayload = try? JSONDecoder().decode(ReceiptCreatedPayload.self, from: jsonData)
 //   let receiptOutcome = try? JSONDecoder().decode(ReceiptOutcome.self, from: jsonData)
+//   let receiptsGetParams = try? JSONDecoder().decode(ReceiptsGetParams.self, from: jsonData)
+//   let receiptsGetResult = try? JSONDecoder().decode(ReceiptsGetResult.self, from: jsonData)
+//   let receiptsListParams = try? JSONDecoder().decode(ReceiptsListParams.self, from: jsonData)
+//   let receiptsListResult = try? JSONDecoder().decode(ReceiptsListResult.self, from: jsonData)
 //   let reqFrame = try? JSONDecoder().decode(ReqFrame.self, from: jsonData)
 //   let resErrFrame = try? JSONDecoder().decode(ResErrFrame.self, from: jsonData)
 //   let resFrame = try? JSONDecoder().decode(ResFrame.self, from: jsonData)
@@ -311,10 +370,34 @@
 //   let toolSpec = try? JSONDecoder().decode(ToolSpec.self, from: jsonData)
 //   let usage = try? JSONDecoder().decode(Usage.self, from: jsonData)
 //   let usageRecord = try? JSONDecoder().decode(UsageRecord.self, from: jsonData)
+//   let vaultAddParams = try? JSONDecoder().decode(VaultAddParams.self, from: jsonData)
+//   let vaultAddResult = try? JSONDecoder().decode(VaultAddResult.self, from: jsonData)
+//   let vaultConfirmRecoveryParams = try? JSONDecoder().decode(VaultConfirmRecoveryParams.self, from: jsonData)
+//   let vaultConfirmRecoveryResult = try? JSONDecoder().decode(VaultConfirmRecoveryResult.self, from: jsonData)
+//   let vaultDeleteParams = try? JSONDecoder().decode(VaultDeleteParams.self, from: jsonData)
+//   let vaultDeleteResult = try? JSONDecoder().decode(VaultDeleteResult.self, from: jsonData)
 //   let vaultGetParams = try? JSONDecoder().decode(VaultGetParams.self, from: jsonData)
 //   let vaultGetResult = try? JSONDecoder().decode(VaultGetResult.self, from: jsonData)
+//   let vaultImportParams = try? JSONDecoder().decode(VaultImportParams.self, from: jsonData)
+//   let vaultImportResult = try? JSONDecoder().decode(VaultImportResult.self, from: jsonData)
+//   let vaultKeySlot = try? JSONDecoder().decode(VaultKeySlot.self, from: jsonData)
 //   let vaultListParams = try? JSONDecoder().decode(VaultListParams.self, from: jsonData)
 //   let vaultListResult = try? JSONDecoder().decode(VaultListResult.self, from: jsonData)
+//   let vaultLockParams = try? JSONDecoder().decode(VaultLockParams.self, from: jsonData)
+//   let vaultLockResult = try? JSONDecoder().decode(VaultLockResult.self, from: jsonData)
+//   let vaultLockedPayload = try? JSONDecoder().decode(VaultLockedPayload.self, from: jsonData)
+//   let vaultSetupParams = try? JSONDecoder().decode(VaultSetupParams.self, from: jsonData)
+//   let vaultSetupResult = try? JSONDecoder().decode(VaultSetupResult.self, from: jsonData)
+//   let vaultStatus = try? JSONDecoder().decode(VaultStatus.self, from: jsonData)
+//   let vaultStatusParams = try? JSONDecoder().decode(VaultStatusParams.self, from: jsonData)
+//   let vaultStatusResult = try? JSONDecoder().decode(VaultStatusResult.self, from: jsonData)
+//   let vaultUnlockParams = try? JSONDecoder().decode(VaultUnlockParams.self, from: jsonData)
+//   let vaultUnlockResult = try? JSONDecoder().decode(VaultUnlockResult.self, from: jsonData)
+//   let vaultUnlockedPayload = try? JSONDecoder().decode(VaultUnlockedPayload.self, from: jsonData)
+//   let vaultUpdateParams = try? JSONDecoder().decode(VaultUpdateParams.self, from: jsonData)
+//   let vaultUpdateResult = try? JSONDecoder().decode(VaultUpdateResult.self, from: jsonData)
+//   let vaultUsesParams = try? JSONDecoder().decode(VaultUsesParams.self, from: jsonData)
+//   let vaultUsesResult = try? JSONDecoder().decode(VaultUsesResult.self, from: jsonData)
 //   let viewCommandName = try? JSONDecoder().decode(ViewCommandName.self, from: jsonData)
 //   let viewCommandPayload = try? JSONDecoder().decode(ViewCommandPayload.self, from: jsonData)
 //   let viewLayout = try? JSONDecoder().decode(ViewLayout.self, from: jsonData)
@@ -326,6 +409,7 @@
 //   let viewPaneRef = try? JSONDecoder().decode(ViewPaneRef.self, from: jsonData)
 //   let viewPaneState = try? JSONDecoder().decode(ViewPaneState.self, from: jsonData)
 //   let viewPlacement = try? JSONDecoder().decode(ViewPlacement.self, from: jsonData)
+//   let viewReportParams = try? JSONDecoder().decode(ViewReportParams.self, from: jsonData)
 //   let wrapUpAction = try? JSONDecoder().decode(WrapUpAction.self, from: jsonData)
 //   let wrapUpBlock = try? JSONDecoder().decode(WrapUpBlock.self, from: jsonData)
 
@@ -388,13 +472,17 @@ public enum ApprovalBlockType: String, Codable, Sendable {
 
 // MARK: - ApprovalCreatedPayload
 public struct ApprovalCreatedPayload: Codable, Sendable {
+    /// This connection's surface token, if any
+    public let answerToken: String?
     public let approval: ApprovalRequest
 
     public enum CodingKeys: String, CodingKey {
+        case answerToken = "answerToken"
         case approval = "approval"
     }
 
-    public init(approval: ApprovalRequest) {
+    public init(answerToken: String?, approval: ApprovalRequest) {
+        self.answerToken = answerToken
         self.approval = approval
     }
 }
@@ -596,13 +684,16 @@ public enum TargetKind: String, Codable, Sendable {
 
 // MARK: - ApprovalResult
 public struct ApprovalResult: Codable, Sendable {
+    public let answerToken: String?
     public let approval: ApprovalRequest
 
     public enum CodingKeys: String, CodingKey {
+        case answerToken = "answerToken"
         case approval = "approval"
     }
 
-    public init(approval: ApprovalRequest) {
+    public init(answerToken: String?, approval: ApprovalRequest) {
+        self.answerToken = answerToken
         self.approval = approval
     }
 }
@@ -720,17 +811,70 @@ public struct ApprovalsListParams: Codable, Sendable {
 
 // MARK: - ApprovalsListResult
 public struct ApprovalsListResult: Codable, Sendable {
+    /// approvalId → this surface's unused answer token
+    public let answerTokens: [String: String]?
     public let approvals: [ApprovalRequest]
     public let nextCursor: String?
 
     public enum CodingKeys: String, CodingKey {
+        case answerTokens = "answerTokens"
         case approvals = "approvals"
         case nextCursor = "nextCursor"
     }
 
-    public init(approvals: [ApprovalRequest], nextCursor: String?) {
+    public init(answerTokens: [String: String]?, approvals: [ApprovalRequest], nextCursor: String?) {
+        self.answerTokens = answerTokens
         self.approvals = approvals
         self.nextCursor = nextCursor
+    }
+}
+
+// MARK: - ArtifactBlock
+public struct ArtifactBlock: Codable, Sendable {
+    public let artifactID: String
+    public let preview: String?
+    public let type: ArtifactBlockType
+
+    public enum CodingKeys: String, CodingKey {
+        case artifactID = "artifactId"
+        case preview = "preview"
+        case type = "type"
+    }
+
+    public init(artifactID: String, preview: String?, type: ArtifactBlockType) {
+        self.artifactID = artifactID
+        self.preview = preview
+        self.type = type
+    }
+}
+
+public enum ArtifactBlockType: String, Codable, Sendable {
+    case artifact = "artifact"
+}
+
+// MARK: - ArtifactsGetParams
+public struct ArtifactsGetParams: Codable, Sendable {
+    public let artifactID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case artifactID = "artifactId"
+    }
+
+    public init(artifactID: String) {
+        self.artifactID = artifactID
+    }
+}
+
+// MARK: - ArtifactsGetResult
+public struct ArtifactsGetResult: Codable, Sendable {
+    public let artifact: Artifact
+
+    public enum CodingKeys: String, CodingKey {
+        case artifact = "artifact"
+    }
+
+    public init(artifact: Artifact) {
+        self.artifact = artifact
     }
 }
 
@@ -776,29 +920,6 @@ public enum ArtifactType: String, Codable, Sendable {
     case pdf = "pdf"
     case react = "react"
     case sheet = "sheet"
-}
-
-// MARK: - ArtifactBlock
-public struct ArtifactBlock: Codable, Sendable {
-    public let artifactID: String
-    public let preview: String?
-    public let type: ArtifactBlockType
-
-    public enum CodingKeys: String, CodingKey {
-        case artifactID = "artifactId"
-        case preview = "preview"
-        case type = "type"
-    }
-
-    public init(artifactID: String, preview: String?, type: ArtifactBlockType) {
-        self.artifactID = artifactID
-        self.preview = preview
-        self.type = type
-    }
-}
-
-public enum ArtifactBlockType: String, Codable, Sendable {
-    case artifact = "artifact"
 }
 
 // MARK: - AuditEntry
@@ -1173,15 +1294,18 @@ public struct BridgeCDPSendResult: Codable, Sendable {
 public struct BridgeControlChangedPayload: Codable, Sendable {
     public let state: BrowserController
     public let tabID: String
+    public let via: BridgeControlVia?
 
     public enum CodingKeys: String, CodingKey {
         case state = "state"
         case tabID = "tabId"
+        case via = "via"
     }
 
-    public init(state: BrowserController, tabID: String) {
+    public init(state: BrowserController, tabID: String, via: BridgeControlVia?) {
         self.state = state
         self.tabID = tabID
+        self.via = via
     }
 }
 
@@ -1189,6 +1313,31 @@ public enum BrowserController: String, Codable, Sendable {
     case agent = "agent"
     case paused = "paused"
     case user = "user"
+}
+
+/// What changed control: user input, the Take control button, Release or idle timeout
+public enum BridgeControlVia: String, Codable, Sendable {
+    case button = "button"
+    case idle = "idle"
+    case keyboard = "keyboard"
+    case mouse = "mouse"
+    case release = "release"
+}
+
+// MARK: - BridgeDebuggerDetachedPayload
+public struct BridgeDebuggerDetachedPayload: Codable, Sendable {
+    public let reason: String
+    public let tabID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+        case tabID = "tabId"
+    }
+
+    public init(reason: String, tabID: String) {
+        self.reason = reason
+        self.tabID = tabID
+    }
 }
 
 // MARK: - BridgeDownloadPayload
@@ -1287,17 +1436,24 @@ public struct BridgeTabIDParams: Codable, Sendable {
 public struct BridgeTabOpenParams: Codable, Sendable {
     public let background: Bool?
     public let profile: BrowserProfile?
+    public let taskID: String?
+    /// Shown in the pane: "<title> keeps running"
+    public let taskTitle: String?
     public let url: String
 
     public enum CodingKeys: String, CodingKey {
         case background = "background"
         case profile = "profile"
+        case taskID = "taskId"
+        case taskTitle = "taskTitle"
         case url = "url"
     }
 
-    public init(background: Bool?, profile: BrowserProfile?, url: String) {
+    public init(background: Bool?, profile: BrowserProfile?, taskID: String?, taskTitle: String?, url: String) {
         self.background = background
         self.profile = profile
+        self.taskID = taskID
+        self.taskTitle = taskTitle
         self.url = url
     }
 }
@@ -1324,29 +1480,82 @@ public struct BridgeTabResult: Codable, Sendable {
 public struct BridgeTab: Codable, Sendable {
     /// A CDP debugger session is attached
     public let attached: Bool
+    /// Electron window-open disposition, e.g. new-window, foreground-tab
+    public let disposition: String?
+    public let openerTabID: String?
     /// Electron session partition, e.g. persist:psyche
     public let partition: String
     public let profile: BrowserProfile
     public let tabID: String
+    public let taskID: String?
     public let title: String
     public let url: String
 
     public enum CodingKeys: String, CodingKey {
         case attached = "attached"
+        case disposition = "disposition"
+        case openerTabID = "openerTabId"
         case partition = "partition"
         case profile = "profile"
         case tabID = "tabId"
+        case taskID = "taskId"
         case title = "title"
         case url = "url"
     }
 
-    public init(attached: Bool, partition: String, profile: BrowserProfile, tabID: String, title: String, url: String) {
+    public init(attached: Bool, disposition: String?, openerTabID: String?, partition: String, profile: BrowserProfile, tabID: String, taskID: String?, title: String, url: String) {
         self.attached = attached
+        self.disposition = disposition
+        self.openerTabID = openerTabID
         self.partition = partition
         self.profile = profile
         self.tabID = tabID
+        self.taskID = taskID
         self.title = title
         self.url = url
+    }
+}
+
+// MARK: - BridgeTabStatusParams
+public struct BridgeTabStatusParams: Codable, Sendable {
+    /// Element being acted on, CSS pixels in the viewport; outlined for 600 ms
+    public let highlight: Highlight?
+    public let tabID: String
+    public let text: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case highlight = "highlight"
+        case tabID = "tabId"
+        case text = "text"
+    }
+
+    public init(highlight: Highlight?, tabID: String, text: String?) {
+        self.highlight = highlight
+        self.tabID = tabID
+        self.text = text
+    }
+}
+
+/// Element being acted on, CSS pixels in the viewport; outlined for 600 ms
+// MARK: - Highlight
+public struct Highlight: Codable, Sendable {
+    public let height: Double
+    public let width: Double
+    public let x: Double
+    public let y: Double
+
+    public enum CodingKeys: String, CodingKey {
+        case height = "height"
+        case width = "width"
+        case x = "x"
+        case y = "y"
+    }
+
+    public init(height: Double, width: Double, x: Double, y: Double) {
+        self.height = height
+        self.width = width
+        self.x = x
+        self.y = y
     }
 }
 
@@ -1582,21 +1791,36 @@ public enum DevicePlatform: String, Codable, Sendable {
     case web = "web"
 }
 
-// MARK: - ChannelsGetParams
-public struct ChannelsGetParams: Codable, Sendable {
+// MARK: - ChannelsAllowlistUpdateParams
+public struct ChannelsAllowlistUpdateParams: Codable, Sendable {
+    public let add: [String]?
     public let channelID: String
+    public let list: List
+    public let remove: [String]?
 
     public enum CodingKeys: String, CodingKey {
+        case add = "add"
         case channelID = "channelId"
+        case list = "list"
+        case remove = "remove"
     }
 
-    public init(channelID: String) {
+    public init(add: [String]?, channelID: String, list: List, remove: [String]?) {
+        self.add = add
         self.channelID = channelID
+        self.list = list
+        self.remove = remove
     }
 }
 
-// MARK: - ChannelsGetResult
-public struct ChannelsGetResult: Codable, Sendable {
+public enum List: String, Codable, Sendable {
+    case allowFrom = "allowFrom"
+    case groupAllowFrom = "groupAllowFrom"
+    case ownerIDS = "ownerIds"
+}
+
+// MARK: - ChannelsAllowlistUpdateResult
+public struct ChannelsAllowlistUpdateResult: Codable, Sendable {
     public let channel: Channel
 
     public enum CodingKeys: String, CodingKey {
@@ -1692,6 +1916,192 @@ public enum ChannelType: String, Codable, Sendable {
     case whatsapp = "whatsapp"
 }
 
+// MARK: - ChannelsConfigureParams
+public struct ChannelsConfigureParams: Codable, Sendable {
+    public let account: String?
+    public let allowFrom: [String]?
+    public let channelID: String?
+    public let config: [String: JSONAny]?
+    public let dmPolicy: DmPolicy?
+    public let dmScope: DmScope?
+    public let groupAllowFrom: [String]?
+    public let nodeID: String?
+    public let ownerIDS: [String]?
+    public let requireMention: Bool?
+    public let status: ChannelsConfigureParamsStatus?
+    public let type: ChannelType?
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case allowFrom = "allowFrom"
+        case channelID = "channelId"
+        case config = "config"
+        case dmPolicy = "dmPolicy"
+        case dmScope = "dmScope"
+        case groupAllowFrom = "groupAllowFrom"
+        case nodeID = "nodeId"
+        case ownerIDS = "ownerIds"
+        case requireMention = "requireMention"
+        case status = "status"
+        case type = "type"
+    }
+
+    public init(account: String?, allowFrom: [String]?, channelID: String?, config: [String: JSONAny]?, dmPolicy: DmPolicy?, dmScope: DmScope?, groupAllowFrom: [String]?, nodeID: String?, ownerIDS: [String]?, requireMention: Bool?, status: ChannelsConfigureParamsStatus?, type: ChannelType?) {
+        self.account = account
+        self.allowFrom = allowFrom
+        self.channelID = channelID
+        self.config = config
+        self.dmPolicy = dmPolicy
+        self.dmScope = dmScope
+        self.groupAllowFrom = groupAllowFrom
+        self.nodeID = nodeID
+        self.ownerIDS = ownerIDS
+        self.requireMention = requireMention
+        self.status = status
+        self.type = type
+    }
+}
+
+public enum ChannelsConfigureParamsStatus: String, Codable, Sendable {
+    case active = "active"
+    case paused = "paused"
+}
+
+// MARK: - ChannelsConfigureResult
+public struct ChannelsConfigureResult: Codable, Sendable {
+    public let channel: Channel
+
+    public enum CodingKeys: String, CodingKey {
+        case channel = "channel"
+    }
+
+    public init(channel: Channel) {
+        self.channel = channel
+    }
+}
+
+// MARK: - ChannelsGetParams
+public struct ChannelsGetParams: Codable, Sendable {
+    public let channelID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case channelID = "channelId"
+    }
+
+    public init(channelID: String) {
+        self.channelID = channelID
+    }
+}
+
+// MARK: - ChannelsGetResult
+public struct ChannelsGetResult: Codable, Sendable {
+    public let channel: Channel
+
+    public enum CodingKeys: String, CodingKey {
+        case channel = "channel"
+    }
+
+    public init(channel: Channel) {
+        self.channel = channel
+    }
+}
+
+// MARK: - ChannelsIdentitiesDeleteParams
+public struct ChannelsIdentitiesDeleteParams: Codable, Sendable {
+    public let identityID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case identityID = "identityId"
+    }
+
+    public init(identityID: String) {
+        self.identityID = identityID
+    }
+}
+
+// MARK: - ChannelsIdentitiesListResult
+public struct ChannelsIdentitiesListResult: Codable, Sendable {
+    public let identities: [ChannelIdentity]
+
+    public enum CodingKeys: String, CodingKey {
+        case identities = "identities"
+    }
+
+    public init(identities: [ChannelIdentity]) {
+        self.identities = identities
+    }
+}
+
+// MARK: - ChannelIdentity
+public struct ChannelIdentity: Codable, Sendable {
+    public let createdAt: String
+    public let delegatedPersona: String?
+    public let display: String
+    public let id: String
+    /// Sender ids merged into this identity
+    public let links: [String]
+    public let toolAllow: [String]?
+    public let updatedAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case delegatedPersona = "delegatedPersona"
+        case display = "display"
+        case id = "id"
+        case links = "links"
+        case toolAllow = "toolAllow"
+        case updatedAt = "updatedAt"
+    }
+
+    public init(createdAt: String, delegatedPersona: String?, display: String, id: String, links: [String], toolAllow: [String]?, updatedAt: String) {
+        self.createdAt = createdAt
+        self.delegatedPersona = delegatedPersona
+        self.display = display
+        self.id = id
+        self.links = links
+        self.toolAllow = toolAllow
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - ChannelsIdentitiesUpsertParams
+public struct ChannelsIdentitiesUpsertParams: Codable, Sendable {
+    public let delegatedPersona: String?
+    public let display: String
+    public let identityID: String?
+    public let links: [String]
+    public let toolAllow: [String]?
+
+    public enum CodingKeys: String, CodingKey {
+        case delegatedPersona = "delegatedPersona"
+        case display = "display"
+        case identityID = "identityId"
+        case links = "links"
+        case toolAllow = "toolAllow"
+    }
+
+    public init(delegatedPersona: String?, display: String, identityID: String?, links: [String], toolAllow: [String]?) {
+        self.delegatedPersona = delegatedPersona
+        self.display = display
+        self.identityID = identityID
+        self.links = links
+        self.toolAllow = toolAllow
+    }
+}
+
+// MARK: - ChannelsIdentitiesUpsertResult
+public struct ChannelsIdentitiesUpsertResult: Codable, Sendable {
+    public let identity: ChannelIdentity
+
+    public enum CodingKeys: String, CodingKey {
+        case identity = "identity"
+    }
+
+    public init(identity: ChannelIdentity) {
+        self.identity = identity
+    }
+}
+
 // MARK: - ChannelsListResult
 public struct ChannelsListResult: Codable, Sendable {
     public let channels: [Channel]
@@ -1702,6 +2112,173 @@ public struct ChannelsListResult: Codable, Sendable {
 
     public init(channels: [Channel]) {
         self.channels = channels
+    }
+}
+
+// MARK: - ChannelsPairingApproveParams
+public struct ChannelsPairingApproveParams: Codable, Sendable {
+    public let channelID: String?
+    public let code: String?
+    public let requestID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case channelID = "channelId"
+        case code = "code"
+        case requestID = "requestId"
+    }
+
+    public init(channelID: String?, code: String?, requestID: String?) {
+        self.channelID = channelID
+        self.code = code
+        self.requestID = requestID
+    }
+}
+
+// MARK: - ChannelsPairingApproveResult
+public struct ChannelsPairingApproveResult: Codable, Sendable {
+    public let pairingRequest: PairingRequest
+
+    public enum CodingKeys: String, CodingKey {
+        case pairingRequest = "pairingRequest"
+    }
+
+    public init(pairingRequest: PairingRequest) {
+        self.pairingRequest = pairingRequest
+    }
+}
+
+// MARK: - PairingRequest
+public struct PairingRequest: Codable, Sendable {
+    public let channelID: String?
+    public let code: String
+    public let createdAt: String
+    public let decidedAt: String?
+    public let decidedByDeviceID: String?
+    public let deviceID: String?
+    public let display: String
+    public let expiresAt: String
+    public let id: String
+    public let kind: PairingRequestKind
+    public let senderID: String?
+    public let status: PairingStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case channelID = "channelId"
+        case code = "code"
+        case createdAt = "createdAt"
+        case decidedAt = "decidedAt"
+        case decidedByDeviceID = "decidedByDeviceId"
+        case deviceID = "deviceId"
+        case display = "display"
+        case expiresAt = "expiresAt"
+        case id = "id"
+        case kind = "kind"
+        case senderID = "senderId"
+        case status = "status"
+    }
+
+    public init(channelID: String?, code: String, createdAt: String, decidedAt: String?, decidedByDeviceID: String?, deviceID: String?, display: String, expiresAt: String, id: String, kind: PairingRequestKind, senderID: String?, status: PairingStatus) {
+        self.channelID = channelID
+        self.code = code
+        self.createdAt = createdAt
+        self.decidedAt = decidedAt
+        self.decidedByDeviceID = decidedByDeviceID
+        self.deviceID = deviceID
+        self.display = display
+        self.expiresAt = expiresAt
+        self.id = id
+        self.kind = kind
+        self.senderID = senderID
+        self.status = status
+    }
+}
+
+public enum PairingRequestKind: String, Codable, Sendable {
+    case channelSender = "channel-sender"
+    case device = "device"
+}
+
+public enum PairingStatus: String, Codable, Sendable {
+    case approved = "approved"
+    case denied = "denied"
+    case expired = "expired"
+    case pending = "pending"
+}
+
+// MARK: - ChannelsPairingDenyParams
+public struct ChannelsPairingDenyParams: Codable, Sendable {
+    public let channelID: String?
+    public let code: String?
+    public let requestID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case channelID = "channelId"
+        case code = "code"
+        case requestID = "requestId"
+    }
+
+    public init(channelID: String?, code: String?, requestID: String?) {
+        self.channelID = channelID
+        self.code = code
+        self.requestID = requestID
+    }
+}
+
+// MARK: - ChannelsPairingDenyResult
+public struct ChannelsPairingDenyResult: Codable, Sendable {
+    public let pairingRequest: PairingRequest
+
+    public enum CodingKeys: String, CodingKey {
+        case pairingRequest = "pairingRequest"
+    }
+
+    public init(pairingRequest: PairingRequest) {
+        self.pairingRequest = pairingRequest
+    }
+}
+
+// MARK: - ChannelsPairingListParams
+public struct ChannelsPairingListParams: Codable, Sendable {
+    public let channelID: String?
+    public let status: PairingStatus?
+
+    public enum CodingKeys: String, CodingKey {
+        case channelID = "channelId"
+        case status = "status"
+    }
+
+    public init(channelID: String?, status: PairingStatus?) {
+        self.channelID = channelID
+        self.status = status
+    }
+}
+
+// MARK: - ChannelsPairingListResult
+public struct ChannelsPairingListResult: Codable, Sendable {
+    public let requests: [PairingRequest]
+
+    public enum CodingKeys: String, CodingKey {
+        case requests = "requests"
+    }
+
+    public init(requests: [PairingRequest]) {
+        self.requests = requests
+    }
+}
+
+// MARK: - ChannelsUpdatedPayload
+public struct ChannelsUpdatedPayload: Codable, Sendable {
+    public let channel: Channel
+    public let detail: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case channel = "channel"
+        case detail = "detail"
+    }
+
+    public init(channel: Channel, detail: String?) {
+        self.channel = channel
+        self.detail = detail
     }
 }
 
@@ -2507,6 +3084,106 @@ public struct ConnectorsListResult: Codable, Sendable {
     }
 }
 
+// MARK: - CredentialUpdatedPayload
+public struct CredentialUpdatedPayload: Codable, Sendable {
+    public let change: Change
+    public let credential: CredentialMeta?
+    public let credentialID: String
+    public let ownerConnectorID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case change = "change"
+        case credential = "credential"
+        case credentialID = "credentialId"
+        case ownerConnectorID = "ownerConnectorId"
+    }
+
+    public init(change: Change, credential: CredentialMeta?, credentialID: String, ownerConnectorID: String?) {
+        self.change = change
+        self.credential = credential
+        self.credentialID = credentialID
+        self.ownerConnectorID = ownerConnectorID
+    }
+}
+
+public enum Change: String, Codable, Sendable {
+    case created = "created"
+    case deleted = "deleted"
+    case revoked = "revoked"
+    case rotated = "rotated"
+    case updated = "updated"
+    case used = "used"
+}
+
+// MARK: - CredentialMeta
+public struct CredentialMeta: Codable, Sendable {
+    public let bindings: [CredentialBinding]
+    public let createdAt: String
+    public let id: String
+    public let kind: CredentialKind
+    public let lastUsedAt: String?
+    public let name: String
+    public let ownerConnectorID: String?
+    public let slug: String
+    public let updatedAt: String
+    public let useCount: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case bindings = "bindings"
+        case createdAt = "createdAt"
+        case id = "id"
+        case kind = "kind"
+        case lastUsedAt = "lastUsedAt"
+        case name = "name"
+        case ownerConnectorID = "ownerConnectorId"
+        case slug = "slug"
+        case updatedAt = "updatedAt"
+        case useCount = "useCount"
+    }
+
+    public init(bindings: [CredentialBinding], createdAt: String, id: String, kind: CredentialKind, lastUsedAt: String?, name: String, ownerConnectorID: String?, slug: String, updatedAt: String, useCount: Int) {
+        self.bindings = bindings
+        self.createdAt = createdAt
+        self.id = id
+        self.kind = kind
+        self.lastUsedAt = lastUsedAt
+        self.name = name
+        self.ownerConnectorID = ownerConnectorID
+        self.slug = slug
+        self.updatedAt = updatedAt
+        self.useCount = useCount
+    }
+}
+
+// MARK: - CredentialBinding
+public struct CredentialBinding: Codable, Sendable {
+    public let origin: String?
+    public let host: String?
+    public let connector: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case origin = "origin"
+        case host = "host"
+        case connector = "connector"
+    }
+
+    public init(origin: String?, host: String?, connector: String?) {
+        self.origin = origin
+        self.host = host
+        self.connector = connector
+    }
+}
+
+public enum CredentialKind: String, Codable, Sendable {
+    case apiKey = "api_key"
+    case login = "login"
+    case note = "note"
+    case oauthToken = "oauth_token"
+    case paymentLink = "payment_link"
+    case signingKey = "signing_key"
+    case sshKey = "ssh_key"
+}
+
 // MARK: - DecidedBy
 public struct DecidedBy: Codable, Sendable {
     public let deviceID: String?
@@ -2644,64 +3321,6 @@ public struct DevicesDenyResult: Codable, Sendable {
     public init(pairingRequest: PairingRequest) {
         self.pairingRequest = pairingRequest
     }
-}
-
-// MARK: - PairingRequest
-public struct PairingRequest: Codable, Sendable {
-    public let channelID: String?
-    public let code: String
-    public let createdAt: String
-    public let decidedAt: String?
-    public let decidedByDeviceID: String?
-    public let deviceID: String?
-    public let display: String
-    public let expiresAt: String
-    public let id: String
-    public let kind: PairingRequestKind
-    public let senderID: String?
-    public let status: PairingStatus
-
-    public enum CodingKeys: String, CodingKey {
-        case channelID = "channelId"
-        case code = "code"
-        case createdAt = "createdAt"
-        case decidedAt = "decidedAt"
-        case decidedByDeviceID = "decidedByDeviceId"
-        case deviceID = "deviceId"
-        case display = "display"
-        case expiresAt = "expiresAt"
-        case id = "id"
-        case kind = "kind"
-        case senderID = "senderId"
-        case status = "status"
-    }
-
-    public init(channelID: String?, code: String, createdAt: String, decidedAt: String?, decidedByDeviceID: String?, deviceID: String?, display: String, expiresAt: String, id: String, kind: PairingRequestKind, senderID: String?, status: PairingStatus) {
-        self.channelID = channelID
-        self.code = code
-        self.createdAt = createdAt
-        self.decidedAt = decidedAt
-        self.decidedByDeviceID = decidedByDeviceID
-        self.deviceID = deviceID
-        self.display = display
-        self.expiresAt = expiresAt
-        self.id = id
-        self.kind = kind
-        self.senderID = senderID
-        self.status = status
-    }
-}
-
-public enum PairingRequestKind: String, Codable, Sendable {
-    case channelSender = "channel-sender"
-    case device = "device"
-}
-
-public enum PairingStatus: String, Codable, Sendable {
-    case approved = "approved"
-    case denied = "denied"
-    case expired = "expired"
-    case pending = "pending"
 }
 
 // MARK: - DevicesListParams
@@ -2854,6 +3473,46 @@ public struct EventsSubscribeResult: Codable, Sendable {
     }
 }
 
+// MARK: - FeedFeedbackParams
+public struct FeedFeedbackParams: Codable, Sendable {
+    public let feedback: FeedFeedback?
+    public let postID: String
+    public let topic: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case feedback = "feedback"
+        case postID = "postId"
+        case topic = "topic"
+    }
+
+    public init(feedback: FeedFeedback?, postID: String, topic: String?) {
+        self.feedback = feedback
+        self.postID = postID
+        self.topic = topic
+    }
+}
+
+public enum FeedFeedback: String, Codable, Sendable {
+    case followTopic = "follow_topic"
+    case hideSource = "hide_source"
+    case like = "like"
+    case notInterested = "not_interested"
+    case save = "save"
+}
+
+// MARK: - FeedFeedbackResult
+public struct FeedFeedbackResult: Codable, Sendable {
+    public let post: FeedPost
+
+    public enum CodingKeys: String, CodingKey {
+        case post = "post"
+    }
+
+    public init(post: FeedPost) {
+        self.post = post
+    }
+}
+
 // MARK: - FeedPost
 public struct FeedPost: Codable, Sendable {
     public let bodyMd: String
@@ -2917,12 +3576,59 @@ public struct Citation: Codable, Sendable {
     }
 }
 
-public enum FeedFeedback: String, Codable, Sendable {
-    case followTopic = "follow_topic"
-    case hideSource = "hide_source"
-    case like = "like"
-    case notInterested = "not_interested"
-    case save = "save"
+// MARK: - FeedListParams
+public struct FeedListParams: Codable, Sendable {
+    public let briefingID: String?
+    /// Opaque cursor
+    public let cursor: String?
+    public let limit: Int?
+    public let since: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case briefingID = "briefingId"
+        case cursor = "cursor"
+        case limit = "limit"
+        case since = "since"
+    }
+
+    public init(briefingID: String?, cursor: String?, limit: Int?, since: String?) {
+        self.briefingID = briefingID
+        self.cursor = cursor
+        self.limit = limit
+        self.since = since
+    }
+}
+
+// MARK: - FeedListResult
+public struct FeedListResult: Codable, Sendable {
+    public let nextBriefAt: String?
+    public let nextCursor: String?
+    public let posts: [FeedPost]
+
+    public enum CodingKeys: String, CodingKey {
+        case nextBriefAt = "nextBriefAt"
+        case nextCursor = "nextCursor"
+        case posts = "posts"
+    }
+
+    public init(nextBriefAt: String?, nextCursor: String?, posts: [FeedPost]) {
+        self.nextBriefAt = nextBriefAt
+        self.nextCursor = nextCursor
+        self.posts = posts
+    }
+}
+
+// MARK: - FeedPostPayload
+public struct FeedPostPayload: Codable, Sendable {
+    public let post: FeedPost
+
+    public enum CodingKeys: String, CodingKey {
+        case post = "post"
+    }
+
+    public init(post: FeedPost) {
+        self.post = post
+    }
 }
 
 // MARK: - FileBlock
@@ -3021,11 +3727,13 @@ public enum ErrorCode: String, Codable, Sendable {
     case bindingMismatch = "binding_mismatch"
     case cancelled = "cancelled"
     case conflict = "conflict"
+    case debuggerDetached = "debugger_detached"
     case errorCodeInternal = "internal"
     case forbidden = "forbidden"
     case idempotencyConflict = "idempotency_conflict"
     case invalidFrame = "invalid_frame"
     case invalidParams = "invalid_params"
+    case methodNotAllowed = "method_not_allowed"
     case notFound = "not_found"
     case notImplemented = "not_implemented"
     case notPaired = "not_paired"
@@ -3034,11 +3742,13 @@ public enum ErrorCode: String, Codable, Sendable {
     case policyDenied = "policy_denied"
     case protocolVersionMismatch = "protocol_version_mismatch"
     case rateLimited = "rate_limited"
+    case tabNotFound = "tab_not_found"
     case taintBlocked = "taint_blocked"
     case timeout = "timeout"
     case unauthorized = "unauthorized"
     case unavailable = "unavailable"
     case unknownMethod = "unknown_method"
+    case userInControl = "user_in_control"
 }
 
 public enum FrameType: String, Codable, Sendable {
@@ -3057,6 +3767,19 @@ public struct GatewayShutdownPayload: Codable, Sendable {
 
     public init(reason: String) {
         self.reason = reason
+    }
+}
+
+// MARK: - GoalUpdatedPayload
+public struct GoalUpdatedPayload: Codable, Sendable {
+    public let goal: Goal
+
+    public enum CodingKeys: String, CodingKey {
+        case goal = "goal"
+    }
+
+    public init(goal: Goal) {
+        self.goal = goal
     }
 }
 
@@ -3125,6 +3848,99 @@ public enum GoalStatus: String, Codable, Sendable {
     case paused = "paused"
 }
 
+// MARK: - GoalsDecideParams
+public struct GoalsDecideParams: Codable, Sendable {
+    public let decision: GoalDecision
+    public let goalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case decision = "decision"
+        case goalID = "goalId"
+    }
+
+    public init(decision: GoalDecision, goalID: String) {
+        self.decision = decision
+        self.goalID = goalID
+    }
+}
+
+public enum GoalDecision: String, Codable, Sendable {
+    case confirm = "confirm"
+    case later = "later"
+    case reject = "reject"
+}
+
+// MARK: - GoalsDecideResult
+public struct GoalsDecideResult: Codable, Sendable {
+    public let goal: Goal
+
+    public enum CodingKeys: String, CodingKey {
+        case goal = "goal"
+    }
+
+    public init(goal: Goal) {
+        self.goal = goal
+    }
+}
+
+// MARK: - GoalsGetParams
+public struct GoalsGetParams: Codable, Sendable {
+    public let goalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case goalID = "goalId"
+    }
+
+    public init(goalID: String) {
+        self.goalID = goalID
+    }
+}
+
+// MARK: - GoalsGetResult
+public struct GoalsGetResult: Codable, Sendable {
+    public let goal: Goal
+    public let taskIDS: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case goal = "goal"
+        case taskIDS = "taskIds"
+    }
+
+    public init(goal: Goal, taskIDS: [String]) {
+        self.goal = goal
+        self.taskIDS = taskIDS
+    }
+}
+
+// MARK: - GoalsListParams
+public struct GoalsListParams: Codable, Sendable {
+    public let category: GoalCategory?
+    public let status: [GoalStatus]?
+
+    public enum CodingKeys: String, CodingKey {
+        case category = "category"
+        case status = "status"
+    }
+
+    public init(category: GoalCategory?, status: [GoalStatus]?) {
+        self.category = category
+        self.status = status
+    }
+}
+
+// MARK: - GoalsListResult
+public struct GoalsListResult: Codable, Sendable {
+    public let goals: [Goal]
+
+    public enum CodingKeys: String, CodingKey {
+        case goals = "goals"
+    }
+
+    public init(goals: [Goal]) {
+        self.goals = goals
+    }
+}
+
 // MARK: - GrantsListParams
 public struct GrantsListParams: Codable, Sendable {
     public let includeRevoked: Bool?
@@ -3177,6 +3993,19 @@ public struct GrantsRevokeResult: Codable, Sendable {
 
     public init(grant: Grant) {
         self.grant = grant
+    }
+}
+
+// MARK: - IdeaUpdatedPayload
+public struct IdeaUpdatedPayload: Codable, Sendable {
+    public let idea: Idea
+
+    public enum CodingKeys: String, CodingKey {
+        case idea = "idea"
+    }
+
+    public init(idea: Idea) {
+        self.idea = idea
     }
 }
 
@@ -3237,6 +4066,240 @@ public enum IdeaStatus: String, Codable, Sendable {
     case edited = "edited"
     case expired = "expired"
     case proposed = "proposed"
+}
+
+// MARK: - IdeasAcceptParams
+public struct IdeasAcceptParams: Codable, Sendable {
+    public let brief: String?
+    public let ideaID: String
+    public let recurring: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case brief = "brief"
+        case ideaID = "ideaId"
+        case recurring = "recurring"
+    }
+
+    public init(brief: String?, ideaID: String, recurring: Bool?) {
+        self.brief = brief
+        self.ideaID = ideaID
+        self.recurring = recurring
+    }
+}
+
+// MARK: - IdeasAcceptResult
+public struct IdeasAcceptResult: Codable, Sendable {
+    public let automationID: String?
+    public let idea: Idea
+    public let taskID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case automationID = "automationId"
+        case idea = "idea"
+        case taskID = "taskId"
+    }
+
+    public init(automationID: String?, idea: Idea, taskID: String?) {
+        self.automationID = automationID
+        self.idea = idea
+        self.taskID = taskID
+    }
+}
+
+// MARK: - IdeasDismissParams
+public struct IdeasDismissParams: Codable, Sendable {
+    public let ideaID: String
+    public let reason: IdeaDismissReason
+
+    public enum CodingKeys: String, CodingKey {
+        case ideaID = "ideaId"
+        case reason = "reason"
+    }
+
+    public init(ideaID: String, reason: IdeaDismissReason) {
+        self.ideaID = ideaID
+        self.reason = reason
+    }
+}
+
+public enum IdeaDismissReason: String, Codable, Sendable {
+    case neverFromSource = "never_from_source"
+    case notInterested = "not_interested"
+    case notNow = "not_now"
+}
+
+// MARK: - IdeasDismissResult
+public struct IdeasDismissResult: Codable, Sendable {
+    public let idea: Idea
+
+    public enum CodingKeys: String, CodingKey {
+        case idea = "idea"
+    }
+
+    public init(idea: Idea) {
+        self.idea = idea
+    }
+}
+
+// MARK: - IdeasListParams
+public struct IdeasListParams: Codable, Sendable {
+    /// Opaque cursor
+    public let cursor: String?
+    public let limit: Int?
+    public let status: [IdeaStatus]?
+
+    public enum CodingKeys: String, CodingKey {
+        case cursor = "cursor"
+        case limit = "limit"
+        case status = "status"
+    }
+
+    public init(cursor: String?, limit: Int?, status: [IdeaStatus]?) {
+        self.cursor = cursor
+        self.limit = limit
+        self.status = status
+    }
+}
+
+// MARK: - IdeasListResult
+public struct IdeasListResult: Codable, Sendable {
+    public let ideas: [Idea]
+    public let nextCursor: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case ideas = "ideas"
+        case nextCursor = "nextCursor"
+    }
+
+    public init(ideas: [Idea], nextCursor: String?) {
+        self.ideas = ideas
+        self.nextCursor = nextCursor
+    }
+}
+
+// MARK: - InputRequestResult
+public struct InputRequestResult: Codable, Sendable {
+    public let inputRequest: InputRequest
+
+    public enum CodingKeys: String, CodingKey {
+        case inputRequest = "inputRequest"
+    }
+
+    public init(inputRequest: InputRequest) {
+        self.inputRequest = inputRequest
+    }
+}
+
+// MARK: - InputRequest
+public struct InputRequest: Codable, Sendable {
+    public let answer: [String: Answer]?
+    public let answeredAt: String?
+    public let answeredByDeviceID: String?
+    public let createdAt: String
+    public let id: String
+    public let questions: [Question]
+    public let status: InputRequestStatus
+    public let taskID: String?
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case answer = "answer"
+        case answeredAt = "answeredAt"
+        case answeredByDeviceID = "answeredByDeviceId"
+        case createdAt = "createdAt"
+        case id = "id"
+        case questions = "questions"
+        case status = "status"
+        case taskID = "taskId"
+        case threadID = "threadId"
+    }
+
+    public init(answer: [String: Answer]?, answeredAt: String?, answeredByDeviceID: String?, createdAt: String, id: String, questions: [Question], status: InputRequestStatus, taskID: String?, threadID: String) {
+        self.answer = answer
+        self.answeredAt = answeredAt
+        self.answeredByDeviceID = answeredByDeviceID
+        self.createdAt = createdAt
+        self.id = id
+        self.questions = questions
+        self.status = status
+        self.taskID = taskID
+        self.threadID = threadID
+    }
+}
+
+public enum Answer: Codable, Sendable {
+    case string(String)
+    case stringArray([String])
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let x = try? container.decode([String].self) {
+            self = .stringArray(x)
+            return
+        }
+        if let x = try? container.decode(String.self) {
+            self = .string(x)
+            return
+        }
+        throw DecodingError.typeMismatch(Answer.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Answer"))
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .string(let x):
+            try container.encode(x)
+        case .stringArray(let x):
+            try container.encode(x)
+        }
+    }
+}
+
+// MARK: - Question
+public struct Question: Codable, Sendable {
+    public let header: String
+    public let multiSelect: Bool
+    public let options: [QuestionOption]
+    public let question: String
+
+    public enum CodingKeys: String, CodingKey {
+        case header = "header"
+        case multiSelect = "multiSelect"
+        case options = "options"
+        case question = "question"
+    }
+
+    public init(header: String, multiSelect: Bool, options: [QuestionOption], question: String) {
+        self.header = header
+        self.multiSelect = multiSelect
+        self.options = options
+        self.question = question
+    }
+}
+
+// MARK: - QuestionOption
+public struct QuestionOption: Codable, Sendable {
+    public let description: String?
+    public let label: String
+    public let preview: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case description = "description"
+        case label = "label"
+        case preview = "preview"
+    }
+
+    public init(description: String?, label: String, preview: String?) {
+        self.description = description
+        self.label = label
+        self.preview = preview
+    }
+}
+
+public enum InputRequestStatus: String, Codable, Sendable {
+    case answered = "answered"
+    case cancelled = "cancelled"
+    case inputRequestStatusOpen = "open"
 }
 
 // MARK: - LibraryDeleteParams
@@ -4747,116 +5810,95 @@ public struct QuestionCreatedPayload: Codable, Sendable {
     }
 }
 
-// MARK: - InputRequest
-public struct InputRequest: Codable, Sendable {
-    public let answer: [String: Answer]?
-    public let answeredAt: String?
-    public let answeredByDeviceID: String?
-    public let createdAt: String
-    public let id: String
-    public let questions: [Question]
-    public let status: InputRequestStatus
-    public let taskID: String?
-    public let threadID: String
+// MARK: - QuestionUpdatedPayload
+public struct QuestionUpdatedPayload: Codable, Sendable {
+    public let inputRequest: InputRequest
+
+    public enum CodingKeys: String, CodingKey {
+        case inputRequest = "inputRequest"
+    }
+
+    public init(inputRequest: InputRequest) {
+        self.inputRequest = inputRequest
+    }
+}
+
+// MARK: - QuestionsAnswerParams
+public struct QuestionsAnswerParams: Codable, Sendable {
+    public let answer: QuestionAnswers
+    public let inputRequestID: String
 
     public enum CodingKeys: String, CodingKey {
         case answer = "answer"
-        case answeredAt = "answeredAt"
-        case answeredByDeviceID = "answeredByDeviceId"
-        case createdAt = "createdAt"
-        case id = "id"
-        case questions = "questions"
+        case inputRequestID = "inputRequestId"
+    }
+
+    public init(answer: QuestionAnswers, inputRequestID: String) {
+        self.answer = answer
+        self.inputRequestID = inputRequestID
+    }
+}
+
+// MARK: - QuestionAnswers
+public struct QuestionAnswers: Codable, Sendable {
+
+    public init() {
+    }
+}
+
+// MARK: - QuestionsGetParams
+public struct QuestionsGetParams: Codable, Sendable {
+    public let inputRequestID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case inputRequestID = "inputRequestId"
+    }
+
+    public init(inputRequestID: String) {
+        self.inputRequestID = inputRequestID
+    }
+}
+
+// MARK: - QuestionsListParams
+public struct QuestionsListParams: Codable, Sendable {
+    /// Opaque cursor
+    public let cursor: String?
+    public let limit: Int?
+    public let status: [InputRequestStatus]?
+    public let taskID: String?
+    public let threadID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case cursor = "cursor"
+        case limit = "limit"
         case status = "status"
         case taskID = "taskId"
         case threadID = "threadId"
     }
 
-    public init(answer: [String: Answer]?, answeredAt: String?, answeredByDeviceID: String?, createdAt: String, id: String, questions: [Question], status: InputRequestStatus, taskID: String?, threadID: String) {
-        self.answer = answer
-        self.answeredAt = answeredAt
-        self.answeredByDeviceID = answeredByDeviceID
-        self.createdAt = createdAt
-        self.id = id
-        self.questions = questions
+    public init(cursor: String?, limit: Int?, status: [InputRequestStatus]?, taskID: String?, threadID: String?) {
+        self.cursor = cursor
+        self.limit = limit
         self.status = status
         self.taskID = taskID
         self.threadID = threadID
     }
 }
 
-public enum Answer: Codable, Sendable {
-    case string(String)
-    case stringArray([String])
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        if let x = try? container.decode([String].self) {
-            self = .stringArray(x)
-            return
-        }
-        if let x = try? container.decode(String.self) {
-            self = .string(x)
-            return
-        }
-        throw DecodingError.typeMismatch(Answer.self, DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Wrong type for Answer"))
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        switch self {
-        case .string(let x):
-            try container.encode(x)
-        case .stringArray(let x):
-            try container.encode(x)
-        }
-    }
-}
-
-// MARK: - Question
-public struct Question: Codable, Sendable {
-    public let header: String
-    public let multiSelect: Bool
-    public let options: [QuestionOption]
-    public let question: String
+// MARK: - QuestionsListResult
+public struct QuestionsListResult: Codable, Sendable {
+    public let inputRequests: [InputRequest]
+    public let nextCursor: String?
 
     public enum CodingKeys: String, CodingKey {
-        case header = "header"
-        case multiSelect = "multiSelect"
-        case options = "options"
-        case question = "question"
+        case inputRequests = "inputRequests"
+        case nextCursor = "nextCursor"
     }
 
-    public init(header: String, multiSelect: Bool, options: [QuestionOption], question: String) {
-        self.header = header
-        self.multiSelect = multiSelect
-        self.options = options
-        self.question = question
+    public init(inputRequests: [InputRequest], nextCursor: String?) {
+        self.inputRequests = inputRequests
+        self.nextCursor = nextCursor
     }
-}
-
-// MARK: - QuestionOption
-public struct QuestionOption: Codable, Sendable {
-    public let description: String?
-    public let label: String
-    public let preview: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case description = "description"
-        case label = "label"
-        case preview = "preview"
-    }
-
-    public init(description: String?, label: String, preview: String?) {
-        self.description = description
-        self.label = label
-        self.preview = preview
-    }
-}
-
-public enum InputRequestStatus: String, Codable, Sendable {
-    case answered = "answered"
-    case cancelled = "cancelled"
-    case inputRequestStatusOpen = "open"
 }
 
 // MARK: - QueuedMessageResult
@@ -4902,6 +5944,68 @@ public struct ReceiptCreatedPayload: Codable, Sendable {
 
     public init(receipt: Receipt) {
         self.receipt = receipt
+    }
+}
+
+// MARK: - ReceiptsGetParams
+public struct ReceiptsGetParams: Codable, Sendable {
+    public let receiptID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case receiptID = "receiptId"
+    }
+
+    public init(receiptID: String) {
+        self.receiptID = receiptID
+    }
+}
+
+// MARK: - ReceiptsGetResult
+public struct ReceiptsGetResult: Codable, Sendable {
+    public let receipt: Receipt
+
+    public enum CodingKeys: String, CodingKey {
+        case receipt = "receipt"
+    }
+
+    public init(receipt: Receipt) {
+        self.receipt = receipt
+    }
+}
+
+// MARK: - ReceiptsListParams
+public struct ReceiptsListParams: Codable, Sendable {
+    /// Opaque cursor
+    public let cursor: String?
+    public let limit: Int?
+    public let taskID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case cursor = "cursor"
+        case limit = "limit"
+        case taskID = "taskId"
+    }
+
+    public init(cursor: String?, limit: Int?, taskID: String?) {
+        self.cursor = cursor
+        self.limit = limit
+        self.taskID = taskID
+    }
+}
+
+// MARK: - ReceiptsListResult
+public struct ReceiptsListResult: Codable, Sendable {
+    public let nextCursor: String?
+    public let receipts: [Receipt]
+
+    public enum CodingKeys: String, CodingKey {
+        case nextCursor = "nextCursor"
+        case receipts = "receipts"
+    }
+
+    public init(nextCursor: String?, receipts: [Receipt]) {
+        self.nextCursor = nextCursor
+        self.receipts = receipts
     }
 }
 
@@ -6255,6 +7359,174 @@ public struct UsageRecord: Codable, Sendable {
     }
 }
 
+// MARK: - VaultAddParams
+public struct VaultAddParams: Codable, Sendable {
+    public let bindings: [CredentialBinding]
+    public let kind: CredentialKind
+    public let name: String
+    public let requireAuthEachUse: Bool?
+    public let secret: CredentialSecretInput
+    public let slug: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case bindings = "bindings"
+        case kind = "kind"
+        case name = "name"
+        case requireAuthEachUse = "requireAuthEachUse"
+        case secret = "secret"
+        case slug = "slug"
+    }
+
+    public init(bindings: [CredentialBinding], kind: CredentialKind, name: String, requireAuthEachUse: Bool?, secret: CredentialSecretInput, slug: String?) {
+        self.bindings = bindings
+        self.kind = kind
+        self.name = name
+        self.requireAuthEachUse = requireAuthEachUse
+        self.secret = secret
+        self.slug = slug
+    }
+}
+
+// MARK: - CredentialSecretInput
+public struct CredentialSecretInput: Codable, Sendable {
+    public let headerName: String?
+    public let headerPrefix: String?
+    public let password: String?
+    public let privateKey: String?
+    public let text: String?
+    public let token: String?
+    public let totpSecret: String?
+    public let username: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case headerName = "headerName"
+        case headerPrefix = "headerPrefix"
+        case password = "password"
+        case privateKey = "privateKey"
+        case text = "text"
+        case token = "token"
+        case totpSecret = "totpSecret"
+        case username = "username"
+    }
+
+    public init(headerName: String?, headerPrefix: String?, password: String?, privateKey: String?, text: String?, token: String?, totpSecret: String?, username: String?) {
+        self.headerName = headerName
+        self.headerPrefix = headerPrefix
+        self.password = password
+        self.privateKey = privateKey
+        self.text = text
+        self.token = token
+        self.totpSecret = totpSecret
+        self.username = username
+    }
+}
+
+// MARK: - VaultAddResult
+public struct VaultAddResult: Codable, Sendable {
+    public let credential: CredentialMeta
+
+    public enum CodingKeys: String, CodingKey {
+        case credential = "credential"
+    }
+
+    public init(credential: CredentialMeta) {
+        self.credential = credential
+    }
+}
+
+// MARK: - VaultConfirmRecoveryParams
+public struct VaultConfirmRecoveryParams: Codable, Sendable {
+    public let lastGroup: String
+
+    public enum CodingKeys: String, CodingKey {
+        case lastGroup = "lastGroup"
+    }
+
+    public init(lastGroup: String) {
+        self.lastGroup = lastGroup
+    }
+}
+
+// MARK: - VaultConfirmRecoveryResult
+public struct VaultConfirmRecoveryResult: Codable, Sendable {
+    public let status: VaultStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: VaultStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - VaultStatus
+public struct VaultStatus: Codable, Sendable {
+    public let autoLockMinutes: Int
+    public let itemCount: Int
+    public let lockAt: String?
+    public let recoveryConfirmed: Bool
+    public let slots: [VaultKeySlot]
+    public let state: State
+
+    public enum CodingKeys: String, CodingKey {
+        case autoLockMinutes = "autoLockMinutes"
+        case itemCount = "itemCount"
+        case lockAt = "lockAt"
+        case recoveryConfirmed = "recoveryConfirmed"
+        case slots = "slots"
+        case state = "state"
+    }
+
+    public init(autoLockMinutes: Int, itemCount: Int, lockAt: String?, recoveryConfirmed: Bool, slots: [VaultKeySlot], state: State) {
+        self.autoLockMinutes = autoLockMinutes
+        self.itemCount = itemCount
+        self.lockAt = lockAt
+        self.recoveryConfirmed = recoveryConfirmed
+        self.slots = slots
+        self.state = state
+    }
+}
+
+public enum VaultKeySlot: String, Codable, Sendable {
+    case keyFile = "key_file"
+    case keychain = "keychain"
+    case recovery = "recovery"
+    case safeStorage = "safe_storage"
+}
+
+public enum State: String, Codable, Sendable {
+    case locked = "locked"
+    case uninitialized = "uninitialized"
+    case unlocked = "unlocked"
+}
+
+// MARK: - VaultDeleteParams
+public struct VaultDeleteParams: Codable, Sendable {
+    public let credentialID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case credentialID = "credentialId"
+    }
+
+    public init(credentialID: String) {
+        self.credentialID = credentialID
+    }
+}
+
+// MARK: - VaultDeleteResult
+public struct VaultDeleteResult: Codable, Sendable {
+    public let deleted: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case deleted = "deleted"
+    }
+
+    public init(deleted: Bool) {
+        self.deleted = deleted
+    }
+}
+
 // MARK: - VaultGetParams
 public struct VaultGetParams: Codable, Sendable {
     public let credentialID: String
@@ -6281,73 +7553,59 @@ public struct VaultGetResult: Codable, Sendable {
     }
 }
 
-// MARK: - CredentialMeta
-public struct CredentialMeta: Codable, Sendable {
-    public let bindings: [CredentialBinding]
-    public let createdAt: String
-    public let id: String
-    public let kind: CredentialKind
-    public let lastUsedAt: String?
-    public let name: String
-    public let ownerConnectorID: String?
-    public let slug: String
-    public let updatedAt: String
-    public let useCount: Int
+// MARK: - VaultImportParams
+public struct VaultImportParams: Codable, Sendable {
+    public let csv: String
+    public let format: Format
 
     public enum CodingKeys: String, CodingKey {
-        case bindings = "bindings"
-        case createdAt = "createdAt"
-        case id = "id"
-        case kind = "kind"
-        case lastUsedAt = "lastUsedAt"
-        case name = "name"
-        case ownerConnectorID = "ownerConnectorId"
-        case slug = "slug"
-        case updatedAt = "updatedAt"
-        case useCount = "useCount"
+        case csv = "csv"
+        case format = "format"
     }
 
-    public init(bindings: [CredentialBinding], createdAt: String, id: String, kind: CredentialKind, lastUsedAt: String?, name: String, ownerConnectorID: String?, slug: String, updatedAt: String, useCount: Int) {
-        self.bindings = bindings
-        self.createdAt = createdAt
-        self.id = id
-        self.kind = kind
-        self.lastUsedAt = lastUsedAt
-        self.name = name
-        self.ownerConnectorID = ownerConnectorID
-        self.slug = slug
-        self.updatedAt = updatedAt
-        self.useCount = useCount
+    public init(csv: String, format: Format) {
+        self.csv = csv
+        self.format = format
     }
 }
 
-// MARK: - CredentialBinding
-public struct CredentialBinding: Codable, Sendable {
-    public let origin: String?
-    public let host: String?
-    public let connector: String?
+public enum Format: String, Codable, Sendable {
+    case auto = "auto"
+    case bitwarden = "bitwarden"
+    case chrome = "chrome"
+    case the1Password = "1password"
+}
+
+// MARK: - VaultImportResult
+public struct VaultImportResult: Codable, Sendable {
+    public let imported: [CredentialMeta]
+    public let skipped: [Skipped]
 
     public enum CodingKeys: String, CodingKey {
-        case origin = "origin"
-        case host = "host"
-        case connector = "connector"
+        case imported = "imported"
+        case skipped = "skipped"
     }
 
-    public init(origin: String?, host: String?, connector: String?) {
-        self.origin = origin
-        self.host = host
-        self.connector = connector
+    public init(imported: [CredentialMeta], skipped: [Skipped]) {
+        self.imported = imported
+        self.skipped = skipped
     }
 }
 
-public enum CredentialKind: String, Codable, Sendable {
-    case apiKey = "api_key"
-    case login = "login"
-    case note = "note"
-    case oauthToken = "oauth_token"
-    case paymentLink = "payment_link"
-    case signingKey = "signing_key"
-    case sshKey = "ssh_key"
+// MARK: - Skipped
+public struct Skipped: Codable, Sendable {
+    public let reason: String
+    public let row: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+        case row = "row"
+    }
+
+    public init(reason: String, row: Int) {
+        self.reason = reason
+        self.row = row
+    }
 }
 
 // MARK: - VaultListParams
@@ -6374,6 +7632,253 @@ public struct VaultListResult: Codable, Sendable {
     public init(credentials: [CredentialMeta]) {
         self.credentials = credentials
     }
+}
+
+// MARK: - VaultLockResult
+public struct VaultLockResult: Codable, Sendable {
+    public let status: VaultStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: VaultStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - VaultLockedPayload
+public struct VaultLockedPayload: Codable, Sendable {
+    public let reason: Reason
+    public let status: VaultStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+        case status = "status"
+    }
+
+    public init(reason: Reason, status: VaultStatus) {
+        self.reason = reason
+        self.status = status
+    }
+}
+
+public enum Reason: String, Codable, Sendable {
+    case idle = "idle"
+    case manual = "manual"
+    case screenLock = "screen_lock"
+    case shutdown = "shutdown"
+    case sleep = "sleep"
+}
+
+// MARK: - VaultSetupParams
+public struct VaultSetupParams: Codable, Sendable {
+    public let slot: Slot
+
+    public enum CodingKeys: String, CodingKey {
+        case slot = "slot"
+    }
+
+    public init(slot: Slot) {
+        self.slot = slot
+    }
+}
+
+public enum Slot: String, Codable, Sendable {
+    case keyFile = "key_file"
+    case keychain = "keychain"
+    case safeStorage = "safe_storage"
+}
+
+// MARK: - VaultSetupResult
+public struct VaultSetupResult: Codable, Sendable {
+    public let recoveryKey: String
+    public let status: VaultStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case recoveryKey = "recoveryKey"
+        case status = "status"
+    }
+
+    public init(recoveryKey: String, status: VaultStatus) {
+        self.recoveryKey = recoveryKey
+        self.status = status
+    }
+}
+
+// MARK: - VaultStatusResult
+public struct VaultStatusResult: Codable, Sendable {
+    public let status: VaultStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: VaultStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - VaultUnlockParams
+public struct VaultUnlockParams: Codable, Sendable {
+    public let reason: String
+    public let recoveryKey: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+        case recoveryKey = "recoveryKey"
+    }
+
+    public init(reason: String, recoveryKey: String?) {
+        self.reason = reason
+        self.recoveryKey = recoveryKey
+    }
+}
+
+// MARK: - VaultUnlockResult
+public struct VaultUnlockResult: Codable, Sendable {
+    public let status: VaultStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: VaultStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - VaultUnlockedPayload
+public struct VaultUnlockedPayload: Codable, Sendable {
+    public let status: VaultStatus
+    public let via: VaultKeySlot
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+        case via = "via"
+    }
+
+    public init(status: VaultStatus, via: VaultKeySlot) {
+        self.status = status
+        self.via = via
+    }
+}
+
+// MARK: - VaultUpdateParams
+public struct VaultUpdateParams: Codable, Sendable {
+    public let bindings: [CredentialBinding]?
+    public let credentialID: String
+    public let name: String?
+    public let requireAuthEachUse: Bool?
+    public let secret: CredentialSecretInput?
+
+    public enum CodingKeys: String, CodingKey {
+        case bindings = "bindings"
+        case credentialID = "credentialId"
+        case name = "name"
+        case requireAuthEachUse = "requireAuthEachUse"
+        case secret = "secret"
+    }
+
+    public init(bindings: [CredentialBinding]?, credentialID: String, name: String?, requireAuthEachUse: Bool?, secret: CredentialSecretInput?) {
+        self.bindings = bindings
+        self.credentialID = credentialID
+        self.name = name
+        self.requireAuthEachUse = requireAuthEachUse
+        self.secret = secret
+    }
+}
+
+// MARK: - VaultUpdateResult
+public struct VaultUpdateResult: Codable, Sendable {
+    public let credential: CredentialMeta
+
+    public enum CodingKeys: String, CodingKey {
+        case credential = "credential"
+    }
+
+    public init(credential: CredentialMeta) {
+        self.credential = credential
+    }
+}
+
+// MARK: - VaultUsesParams
+public struct VaultUsesParams: Codable, Sendable {
+    public let credentialID: String
+    public let limit: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case credentialID = "credentialId"
+        case limit = "limit"
+    }
+
+    public init(credentialID: String, limit: Int?) {
+        self.credentialID = credentialID
+        self.limit = limit
+    }
+}
+
+// MARK: - VaultUsesResult
+public struct VaultUsesResult: Codable, Sendable {
+    public let uses: [CredentialUse]
+
+    public enum CodingKeys: String, CodingKey {
+        case uses = "uses"
+    }
+
+    public init(uses: [CredentialUse]) {
+        self.uses = uses
+    }
+}
+
+// MARK: - CredentialUse
+public struct CredentialUse: Codable, Sendable {
+    public let approvalID: String?
+    public let createdAt: String
+    public let credentialID: String
+    public let executor: Executor
+    public let id: String
+    public let outcome: Outcome
+    public let reason: String?
+    public let target: String
+    public let taskID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case createdAt = "createdAt"
+        case credentialID = "credentialId"
+        case executor = "executor"
+        case id = "id"
+        case outcome = "outcome"
+        case reason = "reason"
+        case target = "target"
+        case taskID = "taskId"
+    }
+
+    public init(approvalID: String?, createdAt: String, credentialID: String, executor: Executor, id: String, outcome: Outcome, reason: String?, target: String, taskID: String?) {
+        self.approvalID = approvalID
+        self.createdAt = createdAt
+        self.credentialID = credentialID
+        self.executor = executor
+        self.id = id
+        self.outcome = outcome
+        self.reason = reason
+        self.target = target
+        self.taskID = taskID
+    }
+}
+
+public enum Executor: String, Codable, Sendable {
+    case browser = "browser"
+    case connector = "connector"
+    case sandbox = "sandbox"
+    case ssh = "ssh"
+}
+
+public enum Outcome: String, Codable, Sendable {
+    case denied = "denied"
+    case failed = "failed"
+    case filled = "filled"
 }
 
 // MARK: - ViewCommandPayload
@@ -6537,6 +8042,19 @@ public struct ViewPaneRef: Codable, Sendable {
     }
 }
 
+// MARK: - ViewReportParams
+public struct ViewReportParams: Codable, Sendable {
+    public let layout: ViewLayout
+
+    public enum CodingKeys: String, CodingKey {
+        case layout = "layout"
+    }
+
+    public init(layout: ViewLayout) {
+        self.layout = layout
+    }
+}
+
 // MARK: - WrapUpBlock
 public struct WrapUpBlock: Codable, Sendable {
     public let actions: [WrapUpAction]?
@@ -6564,6 +8082,7 @@ public enum WrapUpBlockType: String, Codable, Sendable {
 }
 
 public typealias BridgeTabsListParams = [String: JSONAny]
+public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]
@@ -6572,6 +8091,8 @@ public typealias MemoryStatusParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]
 public typealias SandboxListParams = [String: JSONAny]
 public typealias Settings = [String: JSONAny]
+public typealias VaultLockParams = [String: JSONAny]
+public typealias VaultStatusParams = [String: JSONAny]
 public typealias ViewLayoutParams = [String: JSONAny]
 
 // MARK: - Encode/decode helpers

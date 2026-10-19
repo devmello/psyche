@@ -20,7 +20,11 @@ export interface ApprovalBlock {
 export type ApprovalBlockType = "approval";
 
 export interface ApprovalCreatedPayload {
-    approval: ApprovalRequest;
+    /**
+     * This connection's surface token, if any
+     */
+    answerToken?: string;
+    approval:     ApprovalRequest;
 }
 
 export interface ApprovalRequest {
@@ -88,7 +92,8 @@ export interface Target {
 export type TargetKind = "origin" | "path" | "account" | "command" | "recipient" | "app";
 
 export interface ApprovalResult {
-    approval: ApprovalRequest;
+    answerToken?: string;
+    approval:     ApprovalRequest;
 }
 
 export interface ApprovalUpdatedPayload {
@@ -130,8 +135,28 @@ export interface ApprovalsListParams {
 }
 
 export interface ApprovalsListResult {
-    approvals:   ApprovalRequest[];
-    nextCursor?: null | string;
+    /**
+     * approvalId → this surface's unused answer token
+     */
+    answerTokens?: { [key: string]: string };
+    approvals:     ApprovalRequest[];
+    nextCursor?:   null | string;
+}
+
+export interface ArtifactBlock {
+    artifactId: string;
+    preview?:   string;
+    type:       ArtifactBlockType;
+}
+
+export type ArtifactBlockType = "artifact";
+
+export interface ArtifactsGetParams {
+    artifactId: string;
+}
+
+export interface ArtifactsGetResult {
+    artifact: Artifact;
 }
 
 export interface Artifact {
@@ -146,14 +171,6 @@ export interface Artifact {
 }
 
 export type ArtifactType = "markdown" | "html" | "react" | "pdf" | "sheet" | "itinerary" | "dashboard";
-
-export interface ArtifactBlock {
-    artifactId: string;
-    preview?:   string;
-    type:       ArtifactBlockType;
-}
-
-export type ArtifactBlockType = "artifact";
 
 export interface AuditEntry {
     actor: AuditActor;
@@ -301,9 +318,20 @@ export interface BridgeCDPSendResult {
 export interface BridgeControlChangedPayload {
     state: BrowserController;
     tabId: string;
+    via?:  BridgeControlVia;
 }
 
 export type BrowserController = "agent" | "user" | "paused";
+
+/**
+ * What changed control: user input, the Take control button, Release or idle timeout
+ */
+export type BridgeControlVia = "keyboard" | "mouse" | "button" | "release" | "idle";
+
+export interface BridgeDebuggerDetachedPayload {
+    reason: string;
+    tabId:  string;
+}
 
 export interface BridgeDownloadPayload {
     at:              string;
@@ -337,7 +365,12 @@ export interface BridgeTabIDParams {
 export interface BridgeTabOpenParams {
     background?: boolean;
     profile?:    BrowserProfile;
-    url:         string;
+    taskId?:     string;
+    /**
+     * Shown in the pane: "<title> keeps running"
+     */
+    taskTitle?: string;
+    url:        string;
 }
 
 export type BrowserProfile = "logged-in" | "clean";
@@ -352,13 +385,38 @@ export interface BridgeTab {
      */
     attached: boolean;
     /**
+     * Electron window-open disposition, e.g. new-window, foreground-tab
+     */
+    disposition?: string;
+    openerTabId?: null | string;
+    /**
      * Electron session partition, e.g. persist:psyche
      */
     partition: string;
     profile:   BrowserProfile;
     tabId:     string;
+    taskId?:   null | string;
     title:     string;
     url:       string;
+}
+
+export interface BridgeTabStatusParams {
+    /**
+     * Element being acted on, CSS pixels in the viewport; outlined for 600 ms
+     */
+    highlight?: Highlight;
+    tabId:      string;
+    text?:      null | string;
+}
+
+/**
+ * Element being acted on, CSS pixels in the viewport; outlined for 600 ms
+ */
+export interface Highlight {
+    height: number;
+    width:  number;
+    x:      number;
+    y:      number;
 }
 
 export interface BridgeTabsListResult {
@@ -442,11 +500,16 @@ export interface NodeCapability {
 
 export type DevicePlatform = "macos" | "ios" | "android" | "web" | "linux";
 
-export interface ChannelsGetParams {
+export interface ChannelsAllowlistUpdateParams {
+    add?:      string[];
     channelId: string;
+    list:      List;
+    remove?:   string[];
 }
 
-export interface ChannelsGetResult {
+export type List = "allowFrom" | "groupAllowFrom" | "ownerIds";
+
+export interface ChannelsAllowlistUpdateResult {
     channel: Channel;
 }
 
@@ -475,8 +538,123 @@ export type ChannelStatus = "active" | "paused" | "error" | "disconnected";
 
 export type ChannelType = "webchat" | "telegram" | "imessage" | "whatsapp" | "signal" | "slack" | "discord" | "email" | "sms";
 
+export interface ChannelsConfigureParams {
+    account?:        string;
+    allowFrom?:      string[];
+    channelId?:      string;
+    config?:         { [key: string]: unknown };
+    dmPolicy?:       DmPolicy;
+    dmScope?:        DmScope;
+    groupAllowFrom?: string[];
+    nodeId?:         null | string;
+    ownerIds?:       string[];
+    requireMention?: boolean;
+    status?:         ChannelsConfigureParamsStatus;
+    type?:           ChannelType;
+}
+
+export type ChannelsConfigureParamsStatus = "active" | "paused";
+
+export interface ChannelsConfigureResult {
+    channel: Channel;
+}
+
+export interface ChannelsGetParams {
+    channelId: string;
+}
+
+export interface ChannelsGetResult {
+    channel: Channel;
+}
+
+export interface ChannelsIdentitiesDeleteParams {
+    identityId: string;
+}
+
+export interface ChannelsIdentitiesListResult {
+    identities: ChannelIdentity[];
+}
+
+export interface ChannelIdentity {
+    createdAt:         string;
+    delegatedPersona?: null | string;
+    display:           string;
+    id:                string;
+    /**
+     * Sender ids merged into this identity
+     */
+    links:      string[];
+    toolAllow?: string[] | null;
+    updatedAt:  string;
+}
+
+export interface ChannelsIdentitiesUpsertParams {
+    delegatedPersona?: null | string;
+    display:           string;
+    identityId?:       string;
+    links:             string[];
+    toolAllow?:        string[] | null;
+}
+
+export interface ChannelsIdentitiesUpsertResult {
+    identity: ChannelIdentity;
+}
+
 export interface ChannelsListResult {
     channels: Channel[];
+}
+
+export interface ChannelsPairingApproveParams {
+    channelId?: string;
+    code?:      string;
+    requestId?: string;
+}
+
+export interface ChannelsPairingApproveResult {
+    pairingRequest: PairingRequest;
+}
+
+export interface PairingRequest {
+    channelId?:         null | string;
+    code:               string;
+    createdAt:          string;
+    decidedAt?:         null | string;
+    decidedByDeviceId?: null | string;
+    deviceId?:          null | string;
+    display:            string;
+    expiresAt:          string;
+    id:                 string;
+    kind:               PairingRequestKind;
+    senderId?:          null | string;
+    status:             PairingStatus;
+}
+
+export type PairingRequestKind = "device" | "channel-sender";
+
+export type PairingStatus = "pending" | "approved" | "denied" | "expired";
+
+export interface ChannelsPairingDenyParams {
+    channelId?: string;
+    code?:      string;
+    requestId?: string;
+}
+
+export interface ChannelsPairingDenyResult {
+    pairingRequest: PairingRequest;
+}
+
+export interface ChannelsPairingListParams {
+    channelId?: string;
+    status?:    PairingStatus;
+}
+
+export interface ChannelsPairingListResult {
+    requests: PairingRequest[];
+}
+
+export interface ChannelsUpdatedPayload {
+    channel: Channel;
+    detail?: string;
 }
 
 export interface ChatBlockPayload {
@@ -765,6 +943,36 @@ export interface ConnectorsListResult {
     connectors: Connector[];
 }
 
+export interface CredentialUpdatedPayload {
+    change:            Change;
+    credential?:       CredentialMeta | null;
+    credentialId:      string;
+    ownerConnectorId?: null | string;
+}
+
+export type Change = "created" | "updated" | "deleted" | "rotated" | "revoked" | "used";
+
+export interface CredentialMeta {
+    bindings:          CredentialBinding[];
+    createdAt:         string;
+    id:                string;
+    kind:              CredentialKind;
+    lastUsedAt?:       null | string;
+    name:              string;
+    ownerConnectorId?: null | string;
+    slug:              string;
+    updatedAt:         string;
+    useCount:          number;
+}
+
+export interface CredentialBinding {
+    origin?:    string;
+    host?:      string;
+    connector?: string;
+}
+
+export type CredentialKind = "login" | "api_key" | "oauth_token" | "ssh_key" | "note" | "payment_link" | "signing_key";
+
 export interface DecidedBy {
     deviceId?: string;
     /**
@@ -817,25 +1025,6 @@ export interface DevicesDenyResult {
     pairingRequest: PairingRequest;
 }
 
-export interface PairingRequest {
-    channelId?:         null | string;
-    code:               string;
-    createdAt:          string;
-    decidedAt?:         null | string;
-    decidedByDeviceId?: null | string;
-    deviceId?:          null | string;
-    display:            string;
-    expiresAt:          string;
-    id:                 string;
-    kind:               PairingRequestKind;
-    senderId?:          null | string;
-    status:             PairingStatus;
-}
-
-export type PairingRequestKind = "device" | "channel-sender";
-
-export type PairingStatus = "pending" | "approved" | "denied" | "expired";
-
 export interface DevicesListParams {
     includeRevoked?: boolean;
 }
@@ -886,6 +1075,18 @@ export interface EventsSubscribeResult {
     stateVersion: number;
 }
 
+export interface FeedFeedbackParams {
+    feedback?: FeedFeedback | null;
+    postId:    string;
+    topic?:    string;
+}
+
+export type FeedFeedback = "like" | "save" | "not_interested" | "hide_source" | "follow_topic";
+
+export interface FeedFeedbackResult {
+    post: FeedPost;
+}
+
 export interface FeedPost {
     bodyMd:      string;
     briefingId?: null | string;
@@ -909,7 +1110,25 @@ export interface Citation {
     url:     string;
 }
 
-export type FeedFeedback = "like" | "save" | "not_interested" | "hide_source" | "follow_topic";
+export interface FeedListParams {
+    briefingId?: string;
+    /**
+     * Opaque cursor
+     */
+    cursor?: string;
+    limit?:  number;
+    since?:  string;
+}
+
+export interface FeedListResult {
+    nextBriefAt?: null | string;
+    nextCursor?:  null | string;
+    posts:        FeedPost[];
+}
+
+export interface FeedPostPayload {
+    post: FeedPost;
+}
 
 export interface FileBlock {
     libraryItemId: string;
@@ -942,12 +1161,16 @@ export interface ErrorPayload {
 /**
  * Machine-readable error code
  */
-export type ErrorCode = "not_implemented" | "invalid_frame" | "invalid_params" | "unknown_method" | "protocol_version_mismatch" | "unauthorized" | "forbidden" | "not_paired" | "pairing_pending" | "origin_rejected" | "not_found" | "conflict" | "idempotency_conflict" | "rate_limited" | "timeout" | "cancelled" | "unavailable" | "approval_required" | "approval_expired" | "approval_invalidated" | "approval_not_armed" | "answer_late" | "answer_replayed" | "binding_mismatch" | "taint_blocked" | "policy_denied" | "internal";
+export type ErrorCode = "not_implemented" | "invalid_frame" | "invalid_params" | "unknown_method" | "protocol_version_mismatch" | "unauthorized" | "forbidden" | "not_paired" | "pairing_pending" | "origin_rejected" | "not_found" | "conflict" | "idempotency_conflict" | "rate_limited" | "timeout" | "cancelled" | "unavailable" | "approval_required" | "approval_expired" | "approval_invalidated" | "approval_not_armed" | "answer_late" | "answer_replayed" | "binding_mismatch" | "taint_blocked" | "policy_denied" | "internal" | "user_in_control" | "debugger_detached" | "tab_not_found" | "method_not_allowed";
 
 export type FrameType = "req" | "res" | "event";
 
 export interface GatewayShutdownPayload {
     reason: string;
+}
+
+export interface GoalUpdatedPayload {
+    goal: Goal;
 }
 
 export interface Goal {
@@ -969,6 +1192,35 @@ export type GoalCategory = "health" | "finance" | "career" | "relationships" | "
 
 export type GoalStatus = "candidate" | "active" | "paused" | "done" | "archived";
 
+export interface GoalsDecideParams {
+    decision: GoalDecision;
+    goalId:   string;
+}
+
+export type GoalDecision = "confirm" | "reject" | "later";
+
+export interface GoalsDecideResult {
+    goal: Goal;
+}
+
+export interface GoalsGetParams {
+    goalId: string;
+}
+
+export interface GoalsGetResult {
+    goal:    Goal;
+    taskIds: string[];
+}
+
+export interface GoalsListParams {
+    category?: GoalCategory;
+    status?:   GoalStatus[];
+}
+
+export interface GoalsListResult {
+    goals: Goal[];
+}
+
 export interface GrantsListParams {
     includeRevoked?: boolean;
     kind?:           ApprovalKind;
@@ -984,6 +1236,10 @@ export interface GrantsRevokeParams {
 
 export interface GrantsRevokeResult {
     grant: Grant;
+}
+
+export interface IdeaUpdatedPayload {
+    idea: Idea;
 }
 
 export interface Idea {
@@ -1003,6 +1259,76 @@ export interface Idea {
 export type IdeaKind = "task" | "automation" | "skill" | "goal" | "connector";
 
 export type IdeaStatus = "proposed" | "accepted" | "edited" | "dismissed" | "expired";
+
+export interface IdeasAcceptParams {
+    brief?:     string;
+    ideaId:     string;
+    recurring?: boolean;
+}
+
+export interface IdeasAcceptResult {
+    automationId?: null | string;
+    idea:          Idea;
+    taskId?:       null | string;
+}
+
+export interface IdeasDismissParams {
+    ideaId: string;
+    reason: IdeaDismissReason;
+}
+
+export type IdeaDismissReason = "not_now" | "not_interested" | "never_from_source";
+
+export interface IdeasDismissResult {
+    idea: Idea;
+}
+
+export interface IdeasListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?: string;
+    limit?:  number;
+    status?: IdeaStatus[];
+}
+
+export interface IdeasListResult {
+    ideas:       Idea[];
+    nextCursor?: null | string;
+}
+
+export interface InputRequestResult {
+    inputRequest: InputRequest;
+}
+
+export interface InputRequest {
+    answer?:             { [key: string]: Answer } | null;
+    answeredAt?:         null | string;
+    answeredByDeviceId?: null | string;
+    createdAt:           string;
+    id:                  string;
+    questions:           Question[];
+    status:              InputRequestStatus;
+    taskId?:             null | string;
+    threadId:            string;
+}
+
+export type Answer = string[] | string;
+
+export interface Question {
+    header:      string;
+    multiSelect: boolean;
+    options:     QuestionOption[];
+    question:    string;
+}
+
+export interface QuestionOption {
+    description?: string;
+    label:        string;
+    preview?:     string;
+}
+
+export type InputRequestStatus = "open" | "answered" | "cancelled";
 
 export interface LibraryDeleteParams {
     itemId: string;
@@ -1496,34 +1822,37 @@ export interface QuestionCreatedPayload {
     inputRequest: InputRequest;
 }
 
-export interface InputRequest {
-    answer?:             { [key: string]: Answer } | null;
-    answeredAt?:         null | string;
-    answeredByDeviceId?: null | string;
-    createdAt:           string;
-    id:                  string;
-    questions:           Question[];
-    status:              InputRequestStatus;
-    taskId?:             null | string;
-    threadId:            string;
+export interface QuestionUpdatedPayload {
+    inputRequest: InputRequest;
 }
 
-export type Answer = string[] | string;
-
-export interface Question {
-    header:      string;
-    multiSelect: boolean;
-    options:     QuestionOption[];
-    question:    string;
+export interface QuestionsAnswerParams {
+    answer:         QuestionAnswers;
+    inputRequestId: string;
 }
 
-export interface QuestionOption {
-    description?: string;
-    label:        string;
-    preview?:     string;
+export interface QuestionAnswers {
 }
 
-export type InputRequestStatus = "open" | "answered" | "cancelled";
+export interface QuestionsGetParams {
+    inputRequestId: string;
+}
+
+export interface QuestionsListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:   string;
+    limit?:    number;
+    status?:   InputRequestStatus[];
+    taskId?:   string;
+    threadId?: string;
+}
+
+export interface QuestionsListResult {
+    inputRequests: InputRequest[];
+    nextCursor?:   null | string;
+}
 
 export interface QueuedMessageResult {
     messageId: string;
@@ -1538,6 +1867,28 @@ export type ReceiptBlockType = "receipt";
 
 export interface ReceiptCreatedPayload {
     receipt: Receipt;
+}
+
+export interface ReceiptsGetParams {
+    receiptId: string;
+}
+
+export interface ReceiptsGetResult {
+    receipt: Receipt;
+}
+
+export interface ReceiptsListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?: string;
+    limit?:  number;
+    taskId?: string;
+}
+
+export interface ReceiptsListResult {
+    nextCursor?: null | string;
+    receipts:    Receipt[];
 }
 
 export interface ReqFrame {
@@ -1992,6 +2343,59 @@ export interface UsageRecord {
     runId?:     null | string;
 }
 
+export interface VaultAddParams {
+    bindings:            CredentialBinding[];
+    kind:                CredentialKind;
+    name:                string;
+    requireAuthEachUse?: boolean;
+    secret:              CredentialSecretInput;
+    slug?:               string;
+}
+
+export interface CredentialSecretInput {
+    headerName?:   string;
+    headerPrefix?: string;
+    password?:     string;
+    privateKey?:   string;
+    text?:         string;
+    token?:        string;
+    totpSecret?:   string;
+    username?:     string;
+}
+
+export interface VaultAddResult {
+    credential: CredentialMeta;
+}
+
+export interface VaultConfirmRecoveryParams {
+    lastGroup: string;
+}
+
+export interface VaultConfirmRecoveryResult {
+    status: VaultStatus;
+}
+
+export interface VaultStatus {
+    autoLockMinutes:   number;
+    itemCount:         number;
+    lockAt?:           null | string;
+    recoveryConfirmed: boolean;
+    slots:             VaultKeySlot[];
+    state:             State;
+}
+
+export type VaultKeySlot = "keychain" | "safe_storage" | "key_file" | "recovery";
+
+export type State = "uninitialized" | "locked" | "unlocked";
+
+export interface VaultDeleteParams {
+    credentialId: string;
+}
+
+export interface VaultDeleteResult {
+    deleted: boolean;
+}
+
 export interface VaultGetParams {
     credentialId: string;
 }
@@ -2000,26 +2404,22 @@ export interface VaultGetResult {
     credential: CredentialMeta;
 }
 
-export interface CredentialMeta {
-    bindings:          CredentialBinding[];
-    createdAt:         string;
-    id:                string;
-    kind:              CredentialKind;
-    lastUsedAt?:       null | string;
-    name:              string;
-    ownerConnectorId?: null | string;
-    slug:              string;
-    updatedAt:         string;
-    useCount:          number;
+export interface VaultImportParams {
+    csv:    string;
+    format: Format;
 }
 
-export interface CredentialBinding {
-    origin?:    string;
-    host?:      string;
-    connector?: string;
+export type Format = "auto" | "1password" | "bitwarden" | "chrome";
+
+export interface VaultImportResult {
+    imported: CredentialMeta[];
+    skipped:  Skipped[];
 }
 
-export type CredentialKind = "login" | "api_key" | "oauth_token" | "ssh_key" | "note" | "payment_link" | "signing_key";
+export interface Skipped {
+    reason: string;
+    row:    number;
+}
 
 export interface VaultListParams {
     kind?: CredentialKind;
@@ -2028,6 +2428,83 @@ export interface VaultListParams {
 export interface VaultListResult {
     credentials: CredentialMeta[];
 }
+
+export interface VaultLockResult {
+    status: VaultStatus;
+}
+
+export interface VaultLockedPayload {
+    reason: Reason;
+    status: VaultStatus;
+}
+
+export type Reason = "manual" | "idle" | "sleep" | "screen_lock" | "shutdown";
+
+export interface VaultSetupParams {
+    slot: Slot;
+}
+
+export type Slot = "keychain" | "safe_storage" | "key_file";
+
+export interface VaultSetupResult {
+    recoveryKey: string;
+    status:      VaultStatus;
+}
+
+export interface VaultStatusResult {
+    status: VaultStatus;
+}
+
+export interface VaultUnlockParams {
+    reason:       string;
+    recoveryKey?: string;
+}
+
+export interface VaultUnlockResult {
+    status: VaultStatus;
+}
+
+export interface VaultUnlockedPayload {
+    status: VaultStatus;
+    via:    VaultKeySlot;
+}
+
+export interface VaultUpdateParams {
+    bindings?:           CredentialBinding[];
+    credentialId:        string;
+    name?:               string;
+    requireAuthEachUse?: boolean;
+    secret?:             CredentialSecretInput;
+}
+
+export interface VaultUpdateResult {
+    credential: CredentialMeta;
+}
+
+export interface VaultUsesParams {
+    credentialId: string;
+    limit?:       number;
+}
+
+export interface VaultUsesResult {
+    uses: CredentialUse[];
+}
+
+export interface CredentialUse {
+    approvalId?:  null | string;
+    createdAt:    string;
+    credentialId: string;
+    executor:     Executor;
+    id:           string;
+    outcome:      Outcome;
+    reason?:      null | string;
+    target:       string;
+    taskId?:      null | string;
+}
+
+export type Executor = "browser" | "connector" | "sandbox" | "ssh";
+
+export type Outcome = "filled" | "denied" | "failed";
 
 export interface ViewCommandPayload {
     args:       { [key: string]: unknown };
@@ -2081,6 +2558,10 @@ export interface ViewOpenResult {
 export interface ViewPaneRef {
     pane?:   ViewPane;
     paneId?: string;
+}
+
+export interface ViewReportParams {
+    layout: ViewLayout;
 }
 
 export interface WrapUpBlock {

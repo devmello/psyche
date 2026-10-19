@@ -16,7 +16,13 @@ export interface ChannelCapabilities {
   attachments: boolean;
   groups: boolean;
   maxMessageChars?: number;
+  /** Typing / recording indicators (`sendTyping`). */
+  typing?: boolean;
+  /** Rich text the adapter renders from Markdown; absent means plain text only. */
+  markdown?: boolean;
 }
+
+export type ChannelAttachmentKind = "image" | "voice" | "audio" | "video" | "file";
 
 export interface ChannelAttachment {
   name: string;
@@ -24,6 +30,27 @@ export interface ChannelAttachment {
   size: number;
   /** Library item once ingested. */
   libraryItemId?: string;
+  /** `voice` = a voice note (sent as one, transcribed on receipt). Default `file`. */
+  kind?: ChannelAttachmentKind;
+  /** Inbound: adapter-opaque handle for `fetchAttachment` (never a URL carrying credentials). */
+  ref?: string;
+  durationMs?: number;
+  /** Outbound, in-process only: the bytes to send. */
+  data?: Uint8Array;
+}
+
+/** Original author of forwarded content (review design-22: it is not the sender). */
+export interface ForwardedFrom {
+  senderId?: string;
+  senderName?: string;
+}
+
+/** The message this one quotes or replies to; context only, never an instruction. */
+export interface QuotedMessage {
+  text: string;
+  senderId?: string;
+  /** The quoted message was sent by this bot / account. */
+  fromSelf?: boolean;
 }
 
 export interface InboundMessage {
@@ -41,6 +68,19 @@ export interface InboundMessage {
   replyToMessageId?: string;
   /** Epoch ms. */
   receivedAt: number;
+  /**
+   * `weak`: the transport identity is forgeable or shared (SMS / RCS behind an iMessage handle,
+   * email `From:`, Telegram anonymous admins and channel posts). A weak sender never matches an
+   * owner identity (review design-21). Default `strong`.
+   */
+  identityStrength?: "strong" | "weak";
+  /** Set when the content was forwarded from someone else. */
+  forwardedFrom?: ForwardedFrom;
+  quoted?: QuotedMessage;
+  /** This is an edit of the earlier inbound message `editOf` (never a new instruction). */
+  editOf?: string;
+  /** Telegram anonymous admin, channel post or similar: the sender is a chat, not a person. */
+  senderIsChat?: boolean;
 }
 
 export interface OutboundMessage {
@@ -48,6 +88,15 @@ export interface OutboundMessage {
   text: string;
   attachments?: ChannelAttachment[];
   replyToMessageId?: string;
+  /** `markdown`: adapters with `capabilities().markdown` render it; others get plain text. Default `plain`. */
+  format?: "plain" | "markdown";
+}
+
+export interface ChannelHealth {
+  ok: boolean;
+  detail?: string;
+  /** Epoch ms of the last event received from the transport. */
+  lastEventAt?: number;
 }
 
 export interface SendResult {
@@ -77,4 +126,8 @@ export interface ChannelAdapter {
   onApprovalAnswer?(handler: (answer: ChannelApprovalAnswer) => void | Promise<void>): Unsubscribe;
   /** Pairing (dmPolicy `pairing`): deliver the code an unknown sender must have approved. */
   sendPairingCode?(chatId: string, code: string, expiresAt: number): Promise<SendResult>;
+  sendTyping?(chatId: string, action?: "typing" | "recording_voice"): Promise<void>;
+  /** Download an inbound attachment by its `ref`. */
+  fetchAttachment?(ref: string, signal?: AbortSignal): Promise<Uint8Array>;
+  health?(): Promise<ChannelHealth>;
 }

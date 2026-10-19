@@ -18,6 +18,41 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S06 vault)
+
+Additive, for S06 (vault), S08 (browser fill), S09 (connector OAuth), S11/S12 (Settings → Credentials), S01 (dispatch).
+
+- `CredentialBroker.ts`: `FillElement`, `fillElementAccepts()` (field-class rule from S23 design-01: a password only into a password field, never a textarea / contenteditable / search box), `ResolveOptions.element` and `ResolveOptions.selector`. Brokers refuse a browser resolve without `element`.
+- `ConnectorCredentialStore` (`store`, `accessToken`, `rotate`, `revoke`, `onRevoked`) and `OAuthTokenSet`, `ConnectorTokenInput`, `CredentialRevokedEvent` for connector-owned OAuth items (G13).
+- Schemas: `CredentialUse`, `VaultKeySlot`, `VaultStatus`, `CredentialSecretInput` (client → Gateway only).
+- Methods: `vault.status`, `vault.setup`, `vault.confirmRecovery`, `vault.unlock`, `vault.lock`, `vault.add`, `vault.update`, `vault.delete`, `vault.import`, `vault.uses`.
+- Events: `vault.locked`, `vault.unlocked`, `credential.updated`.
+- `FakeCredentialBroker`: checks `element` for browser resolves, never matches opaque (`"null"`) origins (S23 design-13), implements `ConnectorCredentialStore`. Conformance: a browser-fill element case.
+### 2026-10-19 — browser bridge amendments and `view.report` (S11)
+
+Needed by S11 (desktop) and S08 (CDP driver); from `docs/spikes/spike-01-cdp-bridge.md`.
+
+- `BRIDGE_MAX_FRAME_BYTES` (16 MiB) and `parseFrame(raw, { maxBytes })`: raw AX trees exceed 1 MiB. Other transports keep `MAX_FRAME_BYTES`.
+- `ErrorCode` gains `user_in_control`, `debugger_detached`, `tab_not_found`, `method_not_allowed`.
+- `BridgeTab` gains optional `openerTabId`, `disposition`, `taskId`; `bridge.tab.open` gains optional `taskId`, `taskTitle`.
+- New method `bridge.tab.status` (Gateway → desktop): status pill text and the action highlight rectangle (I5).
+- `bridge.control.changed` gains optional `via` (`keyboard | mouse | button | release | idle`); new event `bridge.debugger.detached {tabId, reason}`.
+- New method `view.report {layout}` (desktop → Gateway) so `view.layout` has something to return.
+### v1 additive — 2026-10-19 (S10 channels)
+
+- `ChannelAdapter` (all optional, additive): `InboundMessage.identityStrength` (`weak` senders never match an owner, review design-21), `forwardedFrom`, `quoted`, `editOf`, `senderIsChat` (design-22); `ChannelAttachment.kind / ref / durationMs / data`; `OutboundMessage.format`; `ChannelCapabilities.typing / markdown`; adapter methods `sendTyping`, `fetchAttachment`, `health` (`ChannelHealth`). `FakeChannelAdapter` implements the new methods and records typing, attachments and format.
+- Schema `ChannelIdentity` (data model §8 `identities`).
+- Methods `channels.configure`, `channels.allowlist.update`, `channels.pairing.{list,approve,deny}`, `channels.identities.{list,upsert,delete}`; every change is `operator.admin` and side-effecting.
+- Event `channels.updated`.
+
+### v1 (additive) — 2026-10-19 (S12 UI kit)
+
+Needed by `packages/ui` to render and answer every block type in data model §9.1 and the Feed, Ideas and Goals screens (UI design §3.4, §3.9–§3.11). Owners of the semantics: S02/S04 (questions), S05 (receipts, answer tokens), S15 (feed, ideas, goals).
+
+- New methods: `questions.list`, `questions.get`, `questions.answer` (answers keyed by question `header`; side-effecting); `receipts.get`, `receipts.list`; `artifacts.get`; `feed.list` (with `nextBriefAt`), `feed.feedback` (`null` clears, for undo); `ideas.list`, `ideas.accept` (optional `recurring` and edited `brief`; side-effecting), `ideas.dismiss` (`not_now | not_interested | never_from_source`); `goals.list`, `goals.get` (with linked `taskIds`), `goals.decide` (`confirm | reject | later`).
+- New events (appended): `question.updated`, `feed.post`, `idea.updated`, `goal.updated`.
+- Optional `answerToken` on `approval.created` and on `approvals.get`'s result, and an optional `answerTokens` map on `approvals.list`'s result: the calling device's own single-use surface token (security §3.7), so a client can call `approvals.answer`. Never another surface's token.
+
 ### v1 additive — 2026-10-19 (S02 agent runtime)
 
 - `AgentLoop.explainContext?(runId)` returning `ContextExplanation` (system prompt, ordered `ContextSection`s with budget / truncated / missing / untrusted flags, tools, message count) for the prompt viewer (feature C11).

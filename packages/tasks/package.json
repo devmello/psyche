@@ -16,9 +16,12 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@psyche/db": "workspace:*",
     "@psyche/protocol": "workspace:*"
   },
   "devDependencies": {
-    "@psyche/testing": "workspace:*"
+    "@psyche/testing": "workspace:*",
+    "@sinclair/typebox": "0.34.52",
+    "fast-check": "4.10.2"
   }
 }
