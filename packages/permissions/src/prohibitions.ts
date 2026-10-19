@@ -1,0 +1,501 @@
+import { createHash } from "node:crypto";
+import { posix } from "node:path";
+import { cardDigits, findSensitiveNormalized as findSensitive } from "@psyche/audit";
+import { PLACEHOLDER_PATTERN } from "@psyche/protocol";
+import { dangerousEnvNames } from "./binding.ts";
+import {
+  type CanonicalUrl,
+  canonicalUrl,
+  isLoopbackAddress,
+  isLoopbackName,
+  isUnder,
+  TargetError,
+} from "./targets.ts";
+import type { PolicyCall, PolicyContext } from "./types.ts";
+
+/**
+ * Hard prohibitions (security §3.9, §3.10; architecture §4.6; feature F11). Not configurable and
+ * evaluated first: a match is terminal. Each returns a rule id `prohibition:<id>` for the audit log.
+ * Two of them do not deny outright: permanent deletion needs the owner's typed confirmation word on
+ * the card, and third-party account creation always asks.
+ */
+
+export type ProhibitionResult =
+  | { effect: "deny"; id: string; reason: string }
+  | { effect: "confirm"; id: string; reason: string; word: string }
+  | { effect: "ask"; id: string; reason: string };
+
+export interface LoopbackCheck {
+  ok: boolean;
+  reason: string;
+}
+
+/**
+ * Decides whether a loopback URL is the owner's own project (security §3.10, S23 design-03): the
+ * host must resolve to a loopback address, the listening socket must belong to a process Psyche
+ * started this session, and the port must not be one of Psyche's own.
+ */
+export interface LocalProjectVerifier {
+  check(url: CanonicalUrl): Promise<LoopbackCheck>;
+}
+
+/** Default: no loopback origin is the owner's project (fail closed). */
+export const DENY_ALL_LOOPBACK: LocalProjectVerifier = {
+  check: async () => ({ ok: false, reason: "unverified" }),
+};
+
+export interface LocalProjectProbes {
+  /** Addresses the host resolves to, resolved by Psyche (never trusting the name). */
+  resolve(host: string): Promise<string[]>;
+  /** PID listening on 127.0.0.1/::1 at `port`, if any. */
+  listenerPid(port: number): Promise<number | undefined>;
+  /** Whether `pid` descends from a process Psyche spawned this session from a granted folder. */
+  spawnedByPsyche(pid: number): Promise<boolean>;
+  /** Psyche's own ports: Gateway, browser bridge, CDP, OAuth loopback listener. */
+  psychePorts: readonly number[];
+}
+
+/** Well-known local services that are never "the owner's project". */
+export const LOCAL_SERVICE_PORTS = [631, 7979, 9222, 11434];
+
+export function createLocalProjectVerifier(probes: LocalProjectProbes): LocalProjectVerifier {
+  return {
+    async check(url) {
+      const port = url.port ?? (url.scheme === "https" ? 443 : 80);
+      if (probes.psychePorts.includes(port)) return { ok: false, reason: "psyche_port" };
+      if (LOCAL_SERVICE_PORTS.includes(port)) return { ok: false, reason: "local_service_port" };
+      const addrs = await probes.resolve(url.host.replace(/^\[|\]$/g, ""));
+      if (addrs.length === 0 || !addrs.every(isLoopbackAddress)) {
+        return { ok: false, reason: "resolved_non_loopback" };
+      }
+      const pid = await probes.listenerPid(port);
+      if (pid === undefined) return { ok: false, reason: "no_listener" };
+      if (!(await probes.spawnedByPsyche(pid)))
+        return { ok: false, reason: "listener_not_spawned_by_psyche" };
+      return { ok: true, reason: "own_project" };
+    },
+  };
+}
+
+export interface ProhibitionEnv {
+  /** `$PSYCHE_HOME`, whose control-plane files no tool call may write. */
+  psycheHome?: string;
+  /** Origins of the Gateway UI (loopback bind, `publicOrigin`). */
+  gatewayOrigins: readonly string[];
+  localProject: LocalProjectVerifier;
+  /** Env names the owner typed on a card or in policy (`exec.allowEnv`). */
+  allowEnv: readonly string[];
+}
+
+/**
+ * Stripe's and other providers' published test card numbers (allowed only under §3.10), kept as
+ * SHA-256 of the digits so no card-shaped literal sits in the source (the repo secret scan).
+ */
+export const PUBLISHED_TEST_CARD_HASHES: ReadonlySet<string> = new Set([
+  "477bba133c182267fe5f086924abdc5db71f77bfc27f01f2843f2cdc69d89f05",
+  "68594afe9c9cda525f6aca7a7316ca06c9db4952ba6f5217944581dc4a07e0b6",
+  "2f725bbd1f405a1ed0336abaf85ddfeb6902a9984a76fd877c3b5cc3b5085a82",
+  "576c15a8072461c216efb9bd7306a6fc6039b43a6763c4c1a05930a2dd7b788f",
+  "b40e9bc7a74d50ab4f006ab0d3e85a8b96a5092989d5934623555f94ae48c836",
+  "304945e91de3deff52a61d08733141d72dd42ec9d47972f1060534d54c0c7f90",
+  "3a134ef77d4e2e4cdad2d2945ff1f76c1a23296c93c851f6244220a8cedea130",
+  "53a8fc816e63b7a5ccd17aaff93f28bcf13abbf418209dcd93947722d7c326ba",
+  "19ff47cc8024c133d5845d3f8938caca289929031e7d508c3adf7adff177f0c2",
+  "d8086d483c15c711ebba19f966b97d3c2adcba74025ff8d7e07c3698c9531deb",
+  "10f6a49b3088d98187bf43161da352a767662efa07658531b811edcf1b34fed6",
+  "20e6583871d36495e2beca33ecfc369c90a53f32987a81b2ce732df48b438c7b",
+  "d79449f462cec9af0d857c3e1af888d4fa8bbdaa511b9eaaafcd2805c4ea6471",
+  "7cbcc57fc39e4317fa8d55bb2d442f829f0c21ffa4c4683c48e7263faf1a871a",
+  "9bbef19476623ca56c17da75fd57734dbf82530686043a6e491c6d71befe8f6e",
+  "acd08f29a41f2e55ab0c4f774b1562b03ff01a905ed5b100f4facd43af572b1b",
+  "e5de3c3d9fcb43b15abddceb57a9f70055fdfb4b504765336054c926abeb88de",
+]);
+
+export function isPublishedTestCard(digits: string): boolean {
+  return PUBLISHED_TEST_CARD_HASHES.has(createHash("sha256").update(digits).digest("hex"));
+}
+
+// ---- helpers ----------------------------------------------------------------------------------
+
+interface StringAt {
+  path: string;
+  value: string;
+  tooDeep?: boolean;
+}
+
+function strings(value: unknown, path = "$", out: StringAt[] = [], depth = 0): StringAt[] {
+  if (depth > 32) {
+    out.push({ path: `${path}.<too_deep>`, value: "", tooDeep: true });
+    return out;
+  }
+  if (typeof value === "string") out.push({ path, value });
+  else if (Array.isArray(value)) {
+    for (const [i, v] of value.entries()) strings(v, `${path}[${i}]`, out, depth + 1);
+  } else if (typeof value === "object" && value !== null) {
+    for (const [k, v] of Object.entries(value)) {
+      strings(k, `${path}.<key>`, out, depth + 1);
+      strings(v, `${path}.${k}`, out, depth + 1);
+    }
+  }
+  return out;
+}
+
+const TYPING_TOOL = /(^|\.)(type|fill|key|keys|insert_text|set_value|paste)$/;
+/** Lowercase words of a tool name: separators `._-`, camelCase and `mcp__server__tool` split. */
+export function toolWords(tool: string): string[] {
+  return tool
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w !== "");
+}
+const TRANSFER_WORDS = new Set([
+  "transfer",
+  "transfers",
+  "wire",
+  "withdraw",
+  "withdrawal",
+  "trade",
+  "trades",
+  "payout",
+  "payouts",
+  "swap",
+  "stake",
+  "unstake",
+  "remit",
+  "remittance",
+]);
+const TRANSFER_PAIRS = [
+  ["send", "money"],
+  ["send", "payment"],
+  ["send", "funds"],
+  ["move", "money"],
+  ["submit", "order"],
+  ["place", "order"],
+  ["create", "trade"],
+];
+/** MCP servers / namespaces whose actions move money or trade. */
+const FINANCIAL_NAMESPACES = new Set([
+  "bank",
+  "banking",
+  "broker",
+  "brokerage",
+  "crypto",
+  "exchange",
+  "wallet",
+  "venmo",
+  "zelle",
+  "cashapp",
+  "alpaca",
+  "coinbase",
+  "robinhood",
+  "binance",
+  "kraken",
+  "schwab",
+  "fidelity",
+  "wise",
+  "revolut",
+]);
+
+export function isFinancialTransfer(tool: string): boolean {
+  const words = toolWords(tool);
+  if (words.some((w) => TRANSFER_WORDS.has(w))) return true;
+  if (TRANSFER_PAIRS.some(([a, b]) => words.includes(a ?? "") && words.includes(b ?? "")))
+    return true;
+  const ns = tool.startsWith("mcp__") ? (tool.split("__")[1] ?? "") : (tool.split(/[._]/)[0] ?? "");
+  return FINANCIAL_NAMESPACES.has(ns.toLowerCase());
+}
+const PERMANENT_DELETE_TOOL =
+  /(^|[._])(purge|expunge|empty_trash|delete_permanently|permanent_delete|permanently_delete|hard_delete|destroy|wipe|shred)([._]|$)/i;
+const ACCOUNT_CREATION_TOOL =
+  /(^|[._])(signup|sign_up|register|create_account|account_create)([._]|$)/i;
+const CAPTCHA = /captcha|recaptcha|hcaptcha|turnstile|arkose|funcaptcha/i;
+const CONTROL_PLANE_TOOL =
+  /^(settings|config|grants|approvals|devices|device|pairing|policy|permissions|vault|security|gateway)[._]/i;
+const PERMANENT_RM = new Set(["rm", "rmdir", "shred", "srm", "unlink"]);
+export const CONFIRMATION_WORD = "DELETE";
+
+/** Paths Safari, Passwords and the keychain keep credentials in (macos notes, KQ7). */
+const SYSTEM_CREDENTIAL_PATHS = [
+  /^\/Users\/[^/]+\/Library\/Keychains(\/|$)/i,
+  /^\/Library\/Keychains(\/|$)/i,
+  /^\/Users\/[^/]+\/Library\/Safari(\/|$)/i,
+  /^\/Users\/[^/]+\/Library\/Containers\/com\.apple\.Safari(\/|$)/i,
+  /^\/Users\/[^/]+\/Library\/Cookies(\/|$)/i,
+  /^\/Users\/[^/]+\/Library\/Application Support\/com\.apple\.Passwords/i,
+  /^\/Users\/[^/]+\/Library\/Group Containers\/[^/]*com\.apple\.Passwords/i,
+  /^\/private\/var\/db\/SystemKey/i,
+];
+
+function targetUrl(call: PolicyCall): CanonicalUrl | "invalid" | undefined {
+  if (call.target?.kind !== "origin") return undefined;
+  try {
+    return canonicalUrl(call.target.value);
+  } catch (e) {
+    if (e instanceof TargetError) return "invalid";
+    throw e;
+  }
+}
+
+/** Normalized and lowercased: APFS is case-insensitive, so `/Users/o/.PSYCHE` is `.psyche`. */
+function targetPath(call: PolicyCall): string | undefined {
+  if (call.target?.kind !== "path") return undefined;
+  return call.target.value.startsWith("/")
+    ? posix.normalize(call.target.value).toLowerCase()
+    : undefined;
+}
+
+function deny(id: string, reason: string): ProhibitionResult {
+  return { effect: "deny", id: `prohibition:${id}`, reason };
+}
+
+// ---- the checks -------------------------------------------------------------------------------
+
+export async function checkProhibitions(
+  call: PolicyCall,
+  ctx: PolicyContext,
+  env: ProhibitionEnv,
+  effectiveKind: string,
+): Promise<ProhibitionResult | undefined> {
+  const meta = call.meta ?? {};
+  const tool = call.tool;
+  const params = strings(call.params);
+  const writePlus = call.sideEffect !== "none" && call.sideEffect !== "read";
+
+  // Instructions found in content are never followed (security §3.9).
+  if (ctx.initiator === "content") {
+    return deny("instruction_from_content", "the call was requested by content, not the owner");
+  }
+
+  // Edits to the Permission Broker, grant ledger, security config or pairing from a tool call.
+  if (CONTROL_PLANE_TOOL.test(tool)) {
+    return deny("control_plane", "settings, grants, devices and pairing have no tool path");
+  }
+  const path = targetPath(call);
+  if (path !== undefined && env.psycheHome !== undefined) {
+    const home = posix.normalize(env.psycheHome).toLowerCase();
+    if (isUnder(path, posix.join(home, "vault")))
+      return deny("psyche_state", "the vault is not a file target");
+    const controlPlane = ["config.json", "state", "audit", "run", "policy.json"].some((p) =>
+      isUnder(path, posix.join(home, p)),
+    );
+    if (controlPlane && call.sideEffect !== "read" && call.sideEffect !== "none") {
+      return deny("psyche_state", "Psyche's config, state and audit are not writable by tools");
+    }
+  }
+  if (path !== undefined && SYSTEM_CREDENTIAL_PATHS.some((re) => re.test(path))) {
+    return deny("system_credentials", "Safari, Passwords and keychain credentials are never read");
+  }
+
+  if (params.some((s) => s.tooDeep === true)) {
+    return deny(
+      "arguments_too_deep",
+      "arguments nested deeper than 32 levels are not inspected, so refused",
+    );
+  }
+
+  // A model-visible secret is never used, even one the owner pasted.
+  for (const s of params) {
+    const hit = findSensitive(s.value).find((m) =>
+      ["private_key", "api_key", "bearer_token", "jwt", "url_credentials"].includes(m.kind),
+    );
+    if (hit !== undefined) {
+      return deny("visible_secret", `a ${hit.kind} is visible in the arguments; use the vault`);
+    }
+  }
+
+  // Placeholders resolve only in fill-capable executors (security §4.5).
+  const fillTool = /^credentials\./.test(tool);
+  for (const s of params) {
+    if (!PLACEHOLDER_PATTERN.test(s.value)) continue;
+    const execEnv =
+      (effectiveKind === "exec" || effectiveKind === "exec_host") && s.path.startsWith("$.env.");
+    if (!fillTool && !execEnv) {
+      return deny(
+        "placeholder_outside_fill",
+        "credential placeholders are only resolved by credentials.request",
+      );
+    }
+  }
+
+  // Passwords are typed by the owner or filled from the vault, never typed by the model.
+  const field = meta.field;
+  const passwordField =
+    field?.secure === true ||
+    field?.type?.toLowerCase() === "password" ||
+    /password/i.test(field?.autocomplete ?? "");
+  if (TYPING_TOOL.test(tool) && passwordField) {
+    return deny("password_typing", "the agent never types into a password field");
+  }
+
+  // Credential fills only into a matching field class (S23 design-01).
+  if (effectiveKind === "credential_fill") {
+    const mismatch = fillFieldMismatch(call.binding);
+    if (mismatch !== undefined) return deny("fill_field_mismatch", mismatch);
+  }
+
+  // CAPTCHA: never solved, bypassed or outsourced.
+  if (
+    meta.captcha === true ||
+    CAPTCHA.test(tool) ||
+    params.some((s) => s.path.includes("<key>") && CAPTCHA.test(s.value))
+  ) {
+    return deny("captcha", "CAPTCHAs are never solved or bypassed");
+  }
+  if (field !== undefined && CAPTCHA.test(`${field.name ?? ""} ${field.role ?? ""}`)) {
+    return deny("captcha", "CAPTCHAs are never solved or bypassed");
+  }
+
+  // Financial transfers and trades.
+  if (isFinancialTransfer(tool)) {
+    return deny("financial_transfer", "Psyche never moves money or trades");
+  }
+
+  // Loopback origins that are not the owner's own project (§3.10, design-03).
+  const url = targetUrl(call);
+  if (url === "invalid")
+    return deny(
+      "invalid_target",
+      "the target URL is not canonical (userinfo, opaque or malformed)",
+    );
+  let loopbackOwned = false;
+  if (url !== undefined) {
+    const loopbackLike = isLoopbackName(url.host);
+    const port = url.port ?? (url.scheme === "https" ? 443 : 80);
+    const gatewayPorts = env.gatewayOrigins.flatMap((o) => {
+      try {
+        const g = canonicalUrl(o);
+        return [g.port ?? (g.scheme === "https" ? 443 : 80)];
+      } catch {
+        return [];
+      }
+    });
+    if (env.gatewayOrigins.includes(url.origin) || (loopbackLike && gatewayPorts.includes(port))) {
+      return deny("gateway_origin", "the agent never acts on the Psyche Gateway's own UI");
+    }
+    if (loopbackLike) {
+      const check = await env.localProject.check(url);
+      if (!check.ok)
+        return deny(
+          "loopback_not_owned",
+          `loopback origin is not the owner's project (${check.reason})`,
+        );
+      loopbackOwned = true;
+    }
+  }
+  if (meta.testCredential === true && !loopbackOwned) {
+    return deny(
+      "test_credential_scope",
+      "test credentials are only used on the owner's own local project",
+    );
+  }
+
+  // Card numbers, bank accounts and government identifiers are never entered.
+  if (writePlus || TYPING_TOOL.test(tool)) {
+    for (const s of params) {
+      for (const m of findSensitive(s.value)) {
+        if (m.kind === "card_number") {
+          const digits = cardDigits(s.value.slice(m.index, m.index + m.length));
+          if (digits !== undefined && isPublishedTestCard(digits) && loopbackOwned) continue;
+          return deny("card_entry", "card numbers are never entered; purchases go through Link");
+        }
+        if (m.kind === "iban")
+          return deny("bank_account_entry", "bank account numbers are never entered");
+        if (m.kind === "us_ssn")
+          return deny("government_id_entry", "government identifiers are never entered");
+      }
+    }
+  }
+
+  // Dangerous interpreter / loader variables in an exec env (design-14).
+  if (effectiveKind === "exec" || effectiveKind === "exec_host") {
+    const envVars = execEnv(call);
+    const bad = dangerousEnvNames(envVars).filter((n) => !env.allowEnv.includes(n));
+    if (bad.length > 0) return deny("dangerous_env", `exec env sets ${bad.join(", ")}`);
+  }
+
+  // Untrusted-derived writes never reach the protected memory files (security §3.6, §8).
+  if (effectiveKind === "memory_protected_write" && ctx.taint) {
+    return deny(
+      "untrusted_memory_promotion",
+      "a tainted turn cannot write USER.md / MEMORY.md / SOUL.md / AGENTS.md",
+    );
+  }
+
+  // Permanent deletion needs the owner's typed confirmation word.
+  if (
+    meta.permanentDelete === true ||
+    PERMANENT_DELETE_TOOL.test(tool) ||
+    permanentRm(call, effectiveKind)
+  ) {
+    const claims = params.some((s) =>
+      /(^|\.)(confirmation|typedConfirmation|confirm)$/.test(s.path),
+    );
+    if (claims)
+      return deny(
+        "self_confirmed_delete",
+        "the confirmation word must come from the owner, not the call",
+      );
+    return {
+      effect: "confirm",
+      id: "prohibition:permanent_delete",
+      reason: `permanent deletion needs the owner to type ${CONFIRMATION_WORD}`,
+      word: CONFIRMATION_WORD,
+    };
+  }
+
+  // Third-party account creation always asks.
+  if (meta.accountCreation === true || ACCOUNT_CREATION_TOOL.test(tool)) {
+    return {
+      effect: "ask",
+      id: "prohibition:account_creation",
+      reason: "creating a third-party account needs approval",
+    };
+  }
+  return undefined;
+}
+
+function execEnv(call: PolicyCall): Record<string, string> | undefined {
+  const fromBinding = (call.binding as { env?: Record<string, string> } | undefined)?.env;
+  const fromParams = (call.params as { env?: Record<string, string> } | undefined)?.env;
+  const env = fromBinding ?? fromParams;
+  return typeof env === "object" && env !== null ? env : undefined;
+}
+
+function permanentRm(call: PolicyCall, kind: string): boolean {
+  if (kind !== "exec_host") return false;
+  const argv =
+    (call.binding as { argv?: unknown } | undefined)?.argv ??
+    (call.params as { argv?: unknown })?.argv;
+  if (!Array.isArray(argv) || typeof argv[0] !== "string") return false;
+  return PERMANENT_RM.has(posix.basename(argv[0]));
+}
+
+function fillFieldMismatch(binding: unknown): string | undefined {
+  if (typeof binding !== "object" || binding === null) return undefined;
+  const b = binding as { field?: string; elementType?: string };
+  const t = (b.elementType ?? "").toLowerCase();
+  if (["textarea", "contenteditable", "select", "hidden", "search", "url"].includes(t)) {
+    return `a credential is never filled into a ${t} element`;
+  }
+  switch (b.field) {
+    case "password":
+      return t === "password"
+        ? undefined
+        : `password fields fill only input[type=password], not ${t || "unknown"}`;
+    case "username":
+      return ["text", "email", "tel"].includes(t)
+        ? undefined
+        : `usernames fill only text/email inputs, not ${t || "unknown"}`;
+    case "totp":
+      return ["text", "number", "tel", "password"].includes(t)
+        ? undefined
+        : `one-time codes fill only short inputs, not ${t || "unknown"}`;
+    case "token":
+      return ["text", "password"].includes(t)
+        ? undefined
+        : `tokens fill only text/password inputs, not ${t || "unknown"}`;
+    default:
+      return undefined;
+  }
+}
