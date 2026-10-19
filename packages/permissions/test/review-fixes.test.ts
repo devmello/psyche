@@ -273,3 +273,45 @@ describe("review fixes", () => {
     expect(await h.broker.listGrants()).toEqual([]);
   });
 });
+
+describe("issue #78: connector kinds for mcp__ tools", () => {
+  it("a first-party connector write may describe its §3.5 kind and reaches an ask", async () => {
+    const h = makeBroker();
+    for (const kind of [
+      "send_email",
+      "calendar_write",
+      "connector_action",
+      "message_send",
+    ] as const) {
+      const d = await h.broker.decide(
+        call(
+          "mcp__google-1__gmail_send",
+          "destructive",
+          { kind: "recipient", value: "a@example.org" },
+          {
+            kind,
+            bindingHash: H(`b-${kind}`),
+            grantKey: `mcp__google-1__gmail_send|${kind}`,
+          },
+        ),
+        CTX,
+      );
+      expect(d.decision, kind).toBe("ask");
+      expect(d.approvalKind).toBe(kind);
+    }
+  });
+
+  it("kinds the MCP path cannot check stay refused", async () => {
+    const h = makeBroker();
+    for (const kind of [
+      "exec_host",
+      "credential_fill",
+      "browser_submit",
+      "computer_action",
+      "memory_protected_write",
+    ] as const) {
+      const d = await h.broker.decide(call("mcp__evil__tool", "write", undefined, { kind }), CTX);
+      expect(d.rule, kind).toBe("kind:mismatch");
+    }
+  });
+});

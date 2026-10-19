@@ -1,5 +1,10 @@
 import type { AgentToolRegistration, ToolRunContext } from "@psyche/agent-core";
-import { bindingHash, type ConnectorRegistry, sendBinding, sha256 } from "@psyche/connectors";
+import {
+  type ConnectorRegistry,
+  sendBinding,
+  sha256,
+  toolCallBindingHash,
+} from "@psyche/connectors";
 import type { ApprovalRequest, Receipt, ToolCallDescription } from "@psyche/protocol";
 import { assertNoSecrets, registerSecret, unregisterSecret } from "@psyche/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -15,15 +20,11 @@ import { answer, type PartsSkeleton, startWithParts } from "./harness.ts";
  * part, the desktop's own client, the scripted model and a fake Google behind the injected
  * `fetch`. Each `it` is one step and depends on the previous.
  *
- * KNOWN GAP (see the skipped case below): the agent loop cannot complete a connector write yet.
- * S05's policy infers kind `mcp_tool` (strict) for every `mcp__*` tool and denies the
- * `send_email` / `calendar_write` / `connector_action` kinds the Google tools describe
- * (`kind:mismatch`), so no approval card is created. Past that, the loop's approval binding is
- * `bindingHash(kind, { tool, paramsHash, fields })` and a `once` approval is consumed by the loop's
- * own `verifyBinding`, while the connector registry re-verifies `bindingHash(kind, fields)` on the
- * same approval right before dispatch: it would fail `binding_mismatch` / `consumed`. Until that
- * is settled the write steps run the registry's executor directly with an approval issued by the
- * real broker and answered over the wire, which is everything after the loop's policy decision.
+ * Connector writes go through the loop (issue #78, fixed): the Google tools describe their §3.5
+ * kind, the loop binds `bindingHash(kind, { tool, paramsHash, fields })` and consumes the `once`
+ * approval right before dispatch, and the registry confirms (without consuming) that the approval
+ * belongs to the call and binds the same recipe (`toolCallBindingHash`). The binding-mismatch and
+ * deny steps still drive the registry's executor directly, to hand it changed arguments.
  */
 
 type Json = Record<string, unknown>;
@@ -75,7 +76,7 @@ async function requestCard(name: string, params: unknown, callId: string) {
       params: params as Json,
       ...(desc.target ? { target: desc.target } : {}),
     },
-    bindingHash: bindingHash(desc.kind ?? "connector_action", desc.bindingFields ?? {}),
+    bindingHash: toolCallBindingHash(tool(name), params, desc),
     grantKey: desc.grantKey ?? tool(name),
     requestedBy: { runId: null, taskId: null, threadId, toolCallId: callId },
     sideEffect: desc.sideEffect ?? "write",
@@ -182,6 +183,24 @@ describe("scenario 2: Google with the scripted model (CI-safe)", () => {
       { threadId, content: "triage my inbox and draft replies to anything from Alice" },
       true,
     );
+    // The draft and the send each get a card; the owner declines both here.
+    const draftCard = await c.event<{ approval: ApprovalRequest }>(
+      "approval.created",
+      (p) => p.approval.requestedBy.toolCallId === "c3",
+      from,
+    );
+    await answer(c, draftCard.approval.id, "deny");
+    const sendCard = await c.event<{ approval: ApprovalRequest }>(
+      "approval.created",
+      (p) => p.approval.requestedBy.toolCallId === "c4",
+      from,
+    );
+    expect(sendCard.approval).toMatchObject({
+      kind: "send_email",
+      taint: true,
+      target: { kind: "recipient", value: ALICE },
+    });
+    await answer(c, sendCard.approval.id, "deny");
     await c.event<{ run: { status: string } }>("run.updated", (p) => p.run.status === "done", from);
     const results = model.chat.requests
       .flatMap((r) => r.messages)
@@ -196,14 +215,10 @@ describe("scenario 2: Google with the scripted model (CI-safe)", () => {
     // records carry `taintOut: false` for every call today, so the provenance above is the check.
     expect(fake.requests.some((r) => r.url.pathname.endsWith("/threads/ta"))).toBe(true);
 
-    // KNOWN GAP: connector writes fail closed in the loop today: no card, nothing written.
+    // Declined cards: nothing written, and the model is told so.
     expect(byCall.get("c3")).toMatchObject({ isError: true });
     expect(byCall.get("c4")).toMatchObject({ isError: true });
-    // When this starts failing, the gap is closed: un-skip the loop-path case at the end.
-    expect(JSON.stringify(byCall.get("c4")?.output)).toContain(
-      "is a mcp_tool call, not send_email",
-    );
-    expect(c.events.slice(from).some((e) => e.event === "approval.created")).toBe(false);
+    expect(JSON.stringify(byCall.get("c4")?.output)).not.toContain("kind:mismatch");
     expect(fake.drafts).toHaveLength(0);
     expect(fake.sent).toHaveLength(0);
   });
@@ -236,7 +251,10 @@ describe("scenario 2: Google with the scripted model (CI-safe)", () => {
       bodyHash: sha256(reply.body),
     });
     expect(created.approval.bindingHash).toBe(
-      bindingHash("send_email", sendBinding(OWNER, reply).bindingFields),
+      toolCallBindingHash(tool("gmail_send"), reply, {
+        kind: "send_email",
+        bindingFields: sendBinding(OWNER, reply).bindingFields,
+      }),
     );
     // Not sent before the owner answers.
     await expect(dispatch("gmail_send", reply, "call-send-0")).rejects.toMatchObject({
@@ -310,22 +328,21 @@ describe("scenario 2: Google with the scripted model (CI-safe)", () => {
       { threadId, content: "put the dentist appointment from that email on my calendar" },
       true,
     );
-    await c.event<{ run: { status: string } }>("run.updated", (p) => p.run.status === "done", from);
-    expect(fake.events).toHaveLength(0);
-
-    const { approvalId } = await requestCard("calendar_create_event", dentist, "call-cal-1");
+    // The loop's own card for c6; nothing is written before the owner answers.
     const created = await c.event<{ approval: ApprovalRequest }>(
       "approval.created",
-      (p) => p.approval.id === approvalId,
+      (p) => p.approval.requestedBy.toolCallId === "c6",
       from,
     );
     const shown = performance.now();
+    expect(fake.events).toHaveLength(0);
+    const approvalId = created.approval.id;
     expect(created.approval).toMatchObject({
       kind: "calendar_write",
       target: { kind: "account", value: OWNER },
     });
     await answer(c, approvalId, "approve");
-    await dispatch("calendar_create_event", dentist, "call-cal-1", approvalId);
+    await c.event<{ run: { status: string } }>("run.updated", (p) => p.run.status === "done", from);
     const receipt = await c.event<{ receipt: Receipt }>(
       "receipt.created",
       (p) => p.receipt.approvalId === approvalId,
@@ -358,8 +375,7 @@ describe("scenario 2: Google with the scripted model (CI-safe)", () => {
     console.log(`INT-2 timings ${JSON.stringify(timings)}`);
   });
 
-  it.skip("KNOWN GAP (S05 kind:mismatch for mcp__ tools; S02/S09 binding shape and once-consumption): the loop itself asks, sends and records the receipt", async () => {
-    // Runs unchanged once connector writes complete through the loop.
+  it("the loop itself asks, sends once and records the receipt (issue #78)", async () => {
     model.chat.script([
       calls(["c7", tool("gmail_send"), { ...reply, body: "Loop path." }]),
       say("Sent."),
