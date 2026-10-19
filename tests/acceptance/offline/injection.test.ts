@@ -41,8 +41,7 @@ const files = [...corpus.files.map((f) => `${CORPUS_DIR}/${f}`), EXAMPLE];
  * tests/integration/injection/injection.test.ts; an entry that stops failing must be removed.
  */
 const KNOWN_FAILURES: Record<string, string> = {
-  "web-hidden-001[manual]":
-    "S18 corpus fix: the example expects scopes once,task in manual, but security §3.2 has manual-mode destructive actions offer once only, which the broker does",
+  // web-hidden-001[manual] was pinned until S18's corpus fix (#93) landed; nothing is pinned now.
 };
 
 let rig: Int2Rig;
