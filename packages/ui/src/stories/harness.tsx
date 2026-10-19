@@ -1,5 +1,5 @@
 import type { Decorator } from "@storybook/react-vite";
-import { type ReactElement, type ReactNode, useMemo } from "react";
+import { createContext, type ReactElement, type ReactNode, useContext, useMemo } from "react";
 import { DisclosureProvider } from "../blocks/disclosure.tsx";
 import { Toaster } from "../components/ui/sonner.tsx";
 import { TooltipProvider } from "../components/ui/tooltip.tsx";
@@ -21,6 +21,8 @@ export interface StoryWorldProps {
   children?: ReactNode;
 }
 
+const InWorld = createContext(false);
+
 /** Mock Gateway + store + slots around a story or test (no network). */
 export function StoryWorld({
   edit,
@@ -29,6 +31,8 @@ export function StoryWorld({
   slots,
   children,
 }: StoryWorldProps): ReactElement {
+  // A story-level world nested in the meta-level one wins; only the outer one renders a Toaster.
+  const nested = useContext(InWorld);
   const { gateway, store } = useMemo(() => {
     const world = createFixtureWorld();
     edit?.(world);
@@ -39,14 +43,16 @@ export function StoryWorld({
     // biome-ignore lint/correctness/useExhaustiveDependencies: built once per mount
   }, []);
   return (
-    <GatewayProvider client={gateway} store={store}>
-      <UiSlotsProvider value={{ persona: { name: PERSONA.name, creature: "moth" }, ...slots }}>
-        <TooltipProvider>
-          <DisclosureProvider keyboard={false}>{children}</DisclosureProvider>
-        </TooltipProvider>
-        <Toaster />
-      </UiSlotsProvider>
-    </GatewayProvider>
+    <InWorld.Provider value={true}>
+      <GatewayProvider client={gateway} store={store}>
+        <UiSlotsProvider value={{ persona: { name: PERSONA.name, creature: "moth" }, ...slots }}>
+          <TooltipProvider>
+            <DisclosureProvider keyboard={false}>{children}</DisclosureProvider>
+          </TooltipProvider>
+          {nested ? null : <Toaster />}
+        </UiSlotsProvider>
+      </GatewayProvider>
+    </InWorld.Provider>
   );
 }
 

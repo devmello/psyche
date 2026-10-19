@@ -15,6 +15,8 @@ import {
   type Idea,
   type InputRequest,
   type LibraryItem,
+  type MemoryChunk,
+  type MemoryClaim,
   type Message,
   type MethodName,
   type MethodParams,
@@ -73,6 +75,7 @@ export interface MockWorld {
   credentials: CredentialMeta[];
   settings: Record<string, unknown>;
   memoryFiles: Record<string, string>;
+  memoryClaims: MemoryClaim[];
   searchHits: SearchHit[];
 }
 
@@ -104,6 +107,7 @@ export const EMPTY_WORLD: MockWorld = {
   credentials: [],
   settings: {},
   memoryFiles: {},
+  memoryClaims: [],
   searchHits: [],
 };
 
@@ -764,6 +768,53 @@ export class MockGateway implements GatewayClient {
       this.world.settings["memory.paused"] = p.paused;
       return { paused: p.paused };
     },
+    "memory.search": (p) => {
+      const q = p.query.toLowerCase();
+      const hits = Object.entries(this.world.memoryFiles).flatMap(([path, content]) =>
+        content
+          .split("\n")
+          .flatMap((line, i) =>
+            line.toLowerCase().includes(q)
+              ? [{ chunk: this.chunk(path, i + 1, line), score: 1 / (i + 1) }]
+              : [],
+          ),
+      );
+      return { hits: hits.slice(0, p.limit ?? 20) };
+    },
+    "memory.claims.list": (p) => ({
+      claims: this.world.memoryClaims.filter(
+        (c) => p.includeRetracted === true || c.retractedAt == null,
+      ),
+    }),
+    "memory.explain": (p) => {
+      const claim = this.find(this.world.memoryClaims, p.claimId, "claim");
+      const chunks = claim.sources.map((source, i) => this.chunk(source, i + 1, claim.text));
+      return { claim, chunks };
+    },
+    "memory.forget": (p) => {
+      const q = p.subject.toLowerCase();
+      const files = Object.entries(this.world.memoryFiles)
+        .filter(([, c]) => c.toLowerCase().includes(q))
+        .map(([path]) => path);
+      const claims = this.world.memoryClaims.filter((c) => c.text.toLowerCase().includes(q));
+      if (p.dryRun !== true) {
+        for (const path of files) {
+          const content = this.world.memoryFiles[path] ?? "";
+          this.world.memoryFiles[path] = content
+            .split("\n")
+            .filter((l) => !l.toLowerCase().includes(q))
+            .join("\n");
+        }
+      }
+      return { retractedClaimIds: claims.map((c) => c.id), removedChunkIds: [], files };
+    },
+    "memory.export": () => ({
+      filename: "psyche-memory.zip",
+      mime: "application/zip" as const,
+      // An empty zip archive (end-of-central-directory record only).
+      data: "UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==",
+      bytes: 22,
+    }),
     "memory.reset": (p) => ({
       files: Object.keys(this.world.memoryFiles),
       chunks: 128,
@@ -778,6 +829,21 @@ export class MockGateway implements GatewayClient {
     "nodes.list": () => ({ nodes: this.world.nodes }),
     "vault.list": () => ({ credentials: this.world.credentials }),
   };
+
+  private chunk(source: string, line: number, text: string): MemoryChunk {
+    return {
+      id: `chunk_${source.replace(/[^a-z0-9]/gi, "_")}_${line}`,
+      source,
+      lineStart: line,
+      lineEnd: line,
+      text,
+      provenance: "owner",
+      claimId: null,
+      tokenCount: Math.ceil(text.length / 4),
+      createdAt: this.now(),
+      updatedAt: this.now(),
+    };
+  }
 
   private delay(): Promise<void> {
     return this.latency > 0 ? sleep(this.latency) : Promise.resolve();
