@@ -8,6 +8,7 @@ import {
   FsQuarantineWriter,
   type LibraryWriter,
   type OriginPolicyOptions,
+  type PartitionMode,
   registerBrowserTools,
 } from "@psyche/browser";
 import {
@@ -41,6 +42,14 @@ export interface BrowserSetup {
   record?: boolean;
   /** Starting origin policy for new sessions; empty (every origin asks) by default. */
   policy?: OriginPolicyOptions;
+  /**
+   * Which partition tasks browse in (feature I15, security §6): `clean` (logged out),
+   * `profile` (the owner's sign-ins) or `auto` (default: the profile only for tabs on
+   * `signedInOrigins`, logged out everywhere else). Never remembered per task.
+   */
+  partition?: PartitionMode;
+  /** Origins the owner has signed into in the agent profile, for `auto`. */
+  signedInOrigins?: string[];
 }
 
 export interface ComposedBrowser extends ComposedPart {
@@ -145,6 +154,8 @@ export function composeBrowser(
         ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
         ...(setup.policy === undefined ? {} : { policy: structuredClone(setup.policy) }),
         ...(recording === undefined ? {} : { recording }),
+        ...(setup.partition === undefined ? {} : { partition: setup.partition }),
+        ...(setup.signedInOrigins === undefined ? {} : { signedInOrigins: setup.signedInOrigins }),
       });
       session.catch(() => sessions.delete(key));
       sessions.set(key, session);
@@ -253,11 +264,15 @@ function browserHandlers(
   driver: () => CdpBridgeDriver,
   agentSessions: () => Promise<DriverSession[]>,
 ): Record<string, HandlerDef> {
-  const toTab = (t: { id: string; url: string; title: string }, taskId: string | null) => ({
+  const toTab = (
+    t: { id: string; url: string; title: string; partition: "profile" | "clean" },
+    taskId: string | null,
+  ) => ({
     tabId: t.id,
     url: t.url,
     title: t.title,
-    profile: "logged-in" as const,
+    // The pane's indicator (I15): which partition the tab runs in.
+    profile: t.partition === "clean" ? ("clean" as const) : ("logged-in" as const),
     controller: "agent" as const,
     taskId,
     driver: "cdp" as const,

@@ -58,7 +58,7 @@ Checkpoints (one per step; the worker uses the tool call id) are `pending | runn
 - Unattended runs (§4.3): tasks created with `mode: "unattended"` (automations, heartbeat) start their turns with `mode: "unattended"`; `NO_REPLY` settles the task `done` with `outcome.result = "no_reply"` and no notification.
 - Budgets: `maxSteps` (tool calls), `maxTokens` (input + output), `maxWallMs` per turn; exceeding one cancels the turn and fails the task with the reason.
 
-Data model deviations (all in S04's own `tasks` table, `packages/db/migrations/202610191200_tasks_init.sql`): `lease_token`, `run_mode`, `budget`, `resume`, `awaiting`, `taint`; `task_checkpoints.updated_at`. `input_requests.question` holds the array of questions.
+Data model deviations (all in S04's own `tasks` table, `packages/db/migrations/202610191200_tasks_init.sql`): `lease_token`, `run_mode`, `budget`, `resume`, `awaiting`, `taint`, `taint_sources` (`202610201700_tasks_taint_sources.sql`: the creating turn's `TaintSource[]`, kept for the life of the task so every run starts tainted with them and approval cards name the origins, S23 design-08); `task_checkpoints.updated_at`. `input_requests.question` holds the array of questions.
 
 ## What is stubbed
 

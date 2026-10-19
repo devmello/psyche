@@ -6,6 +6,7 @@ import {
 } from "@psyche/protocol";
 import type { BridgeClient } from "../bridge/bridge.ts";
 import type { CdpTarget } from "../cdp/page.ts";
+import type { TabPartition } from "../origin/partition.ts";
 import { DriverBase, type DriverDeps, type SessionState, type TabState } from "./base.ts";
 
 /**
@@ -36,13 +37,15 @@ export class CdpBridgeDriver extends DriverBase {
   protected async createTab(
     s: SessionState,
     url: string | undefined,
+    partition: TabPartition,
   ): Promise<{ id: string; target: CdpTarget; url: string }> {
     // `bridge.tab.open` requires an http(s) URL in protocol v1; the policy already approved
     // `url`. Without one the desktop opens its blank start page (request filed to S11/protocol
-    // to make `url` optional and to load only after attach).
+    // to make `url` optional and to load only after attach). `profile` is the pane's
+    // indicator (I15): `clean` is an ephemeral partition the desktop keeps per task.
     const params: Parameters<BridgeClient["call"]>[1] & Record<string, unknown> = {
       url: url ?? "https://about.invalid/",
-      profile: s.session.partition === "clean" ? "clean" : "logged-in",
+      profile: partition === "clean" ? "clean" : "logged-in",
       background: true,
     };
     if (s.session.taskId !== undefined) params.taskId = s.session.taskId;

@@ -53,6 +53,12 @@ import {
   type SandboxLimits,
   WORKSPACE_PATH,
 } from "./limits.ts";
+import {
+  MemoryProvenanceStore,
+  type ProvenanceStore,
+  WorkspaceProvenance,
+  type WriteProvenance,
+} from "./provenance.ts";
 import { clampDim, createPtySession, type PtyOptions, type SandboxPty } from "./pty.ts";
 import {
   BASH,
@@ -114,6 +120,12 @@ export interface ContainerSandboxRunnerOptions extends DetectOptions {
   driver?: CliDriver;
   /** Replaces host detection (tests). */
   detect?: () => Promise<DetectedBackend[]>;
+  /**
+   * Where each scope's file provenance index lives (design-07). Default: in memory, so a
+   * restart forgets it and every file reads as untrusted until it is written again. Pass a
+   * `FileProvenanceStore` under `$PSYCHE_HOME` to keep it across restarts.
+   */
+  provenanceStore?: ProvenanceStore;
 }
 
 interface Entry {
@@ -130,6 +142,8 @@ interface Entry {
   starting: Promise<void> | undefined;
   lastUsed: number;
   stopping: Promise<void> | undefined;
+  /** File provenance of this scope's workspace (design-07). */
+  provenance: WorkspaceProvenance;
 }
 
 const CONFIG_LABEL = `${LABEL_PREFIX}.config`;
@@ -170,6 +184,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
   readonly #options: ContainerSandboxRunnerOptions;
   readonly #driver: CliDriver;
   readonly #limits: SandboxLimits;
+  readonly #provenanceStore: ProvenanceStore;
   readonly #prefix: string;
   #detected: Promise<DetectedBackend[]> | undefined;
   readonly #byId = new Map<string, Entry>();
@@ -188,7 +203,11 @@ export class ContainerSandboxRunner implements SandboxRunner {
     this.#driver = options.driver ?? nodeCliDriver;
     this.#limits = { ...DEFAULT_LIMITS, ...options.limits };
     this.#prefix = options.namePrefix ?? "psyche";
-    this.files = new WorkspaceFiles((id, argv, opts) => this.#helper(id, argv, opts));
+    this.#provenanceStore = options.provenanceStore ?? new MemoryProvenanceStore();
+    this.files = new WorkspaceFiles(
+      (id, argv, opts) => this.#helper(id, argv, opts),
+      (id) => this.#entry(id).provenance,
+    );
   }
 
   /** The backend `ensureSandbox` uses, or `null` when there is none. */
@@ -252,7 +271,10 @@ export class ContainerSandboxRunner implements SandboxRunner {
       await this.#ensureRunning(entry);
       // The signal may have fired while the slot or the container start was awaited.
       if (isAborted(request.signal)) fail("cancelled", "exec aborted before start");
-      return await this.#runCommand(entry, request.argv, cwd, envPairs, timeoutMs, request.signal);
+      return await this.#runCommand(entry, request.argv, cwd, envPairs, timeoutMs, request.signal, {
+        ...(request.provenance === undefined ? {} : { provenance: request.provenance }),
+        ...(request.taintSources === undefined ? {} : { sources: request.taintSources }),
+      });
     } finally {
       release();
       this.#idle(entry);
@@ -283,6 +305,9 @@ export class ContainerSandboxRunner implements SandboxRunner {
     const backend = await this.#primary();
     const entry = this.#byScope.get(scopeKey(scope));
     if (entry) this.#forget(entry);
+    // The files are gone, and so is what was known about them.
+    await entry?.provenance.clear();
+    await this.#provenanceStore.remove(scopeKey(scope));
     const { container, volume } = this.#names(scope);
     await this.#cli(backend, removeArgs(backend.kind, container), { timeoutMs: 60_000 });
     const r = await this.#cli(backend, volumeRemoveArgs(backend.kind, volume), {
@@ -358,6 +383,12 @@ export class ContainerSandboxRunner implements SandboxRunner {
   }
 
   // ---- internals -------------------------------------------------------------------------
+
+  #entry(sandboxId: string): Entry {
+    const entry = this.#byId.get(sandboxId);
+    if (!entry) return fail("not_found", `sandbox ${sandboxId} not found`);
+    return entry;
+  }
 
   #detect(): Promise<DetectedBackend[]> {
     this.#detected ??= (
@@ -457,6 +488,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
       env,
     };
     await this.#ensureVolume(backend, volume, image);
+    const provenance = await WorkspaceProvenance.load(this.#provenanceStore, scopeKey(scope));
     const entry: Entry = {
       instance: {
         id,
@@ -478,6 +510,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
       starting: undefined,
       lastUsed: this.#tick++,
       stopping: undefined,
+      provenance,
     };
     await this.#ensureRunning(entry);
     if (this.#disposed) {
@@ -716,6 +749,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
     envPairs: string[],
     timeoutMs: number,
     signal: AbortSignal | undefined,
+    write: WriteProvenance,
   ): Promise<ExecResult> {
     const execId = randomBytes(8).toString("hex");
     const wrapped = [
@@ -760,6 +794,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
       signal?.removeEventListener("abort", onAbort);
     }
     const filesChanged = await this.#filesChanged(entry, execId);
+    const provenance = await this.#recordExecWrites(entry, filesChanged, write);
     // `timeout` exits 124 (TERM) or 137 (KILL after the grace) when the bound was hit.
     const boundHit = (r.exitCode === 124 || r.exitCode === 137) && r.durationMs >= timeoutMs - 50;
     const timedOut = interrupted === "timeout" || (interrupted === undefined && boundHit);
@@ -771,13 +806,38 @@ export class ContainerSandboxRunner implements SandboxRunner {
       stderr: r.stderr.toString("utf8"),
       durationMs: r.durationMs,
       truncated: r.stdoutTruncated || r.stderrTruncated,
-      filesChanged,
+      filesChanged: filesChanged ?? [],
       timedOut,
       outcome: killed ? "uncertain" : exitCode === 0 ? "ok" : "failed",
+      provenance,
     };
   }
 
-  async #filesChanged(entry: Entry, execId: string): Promise<string[]> {
+  /**
+   * Design-07: what a command wrote carries the calling turn's provenance, and once the
+   * workspace holds an untrusted file every command's output and writes are untrusted too (a
+   * command may have copied the content). `null` means the changes could not be listed.
+   */
+  async #recordExecWrites(
+    entry: Entry,
+    filesChanged: string[] | null,
+    write: WriteProvenance,
+  ): Promise<"trusted" | "untrusted"> {
+    const index = entry.provenance;
+    const tainted = write.provenance !== "trusted" || index.hasUntrusted();
+    if (!tainted) {
+      await index.record(filesChanged ?? [], { provenance: "trusted" });
+      return "trusted";
+    }
+    const sources = [...(write.sources ?? []), ...index.untrustedSources()];
+    if (filesChanged === null || filesChanged.length >= FILES_CHANGED_CAP) {
+      await index.markUnrecordedUntrusted();
+    }
+    await index.record(filesChanged ?? [], { provenance: "untrusted", sources });
+    return "untrusted";
+  }
+
+  async #filesChanged(entry: Entry, execId: string): Promise<string[] | null> {
     try {
       const r = await this.#cli(
         entry.backend,
@@ -795,11 +855,11 @@ export class ContainerSandboxRunner implements SandboxRunner {
         // The script always exits 0, so this is the CLI: the container may be gone. The
         // next call re-inspects it instead of trusting the cached state.
         entry.running = false;
-        return [];
+        return null;
       }
       return r.stdout.toString("utf8").split("\0").filter(plainRelative);
     } catch {
-      return [];
+      return null;
     }
   }
 
@@ -808,8 +868,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
     argv: string[],
     options: { input?: Uint8Array | string; maxBytes: number },
   ): Promise<CliResult> {
-    const entry = this.#byId.get(sandboxId);
-    if (!entry) return fail("not_found", `sandbox ${sandboxId} not found`);
+    const entry = this.#entry(sandboxId);
     this.#busy(entry);
     try {
       await this.#ensureRunning(entry);
