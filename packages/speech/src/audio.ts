@@ -5,6 +5,25 @@ export const PCM_16K_MONO: AudioFormat = { encoding: "pcm_s16le", sampleRate: 16
 /** Kokoro-82M and OpenAI `pcm` output. */
 export const PCM_24K_MONO: AudioFormat = { encoding: "pcm_s16le", sampleRate: 24_000, channels: 1 };
 
+/** Bounds for raw PCM this package will process (guards allocation from untrusted headers). */
+export const PCM_LIMITS = { minSampleRate: 8_000, maxSampleRate: 192_000, maxChannels: 8 } as const;
+
+/** Throws `invalid_params` unless the format is raw PCM within `PCM_LIMITS`. */
+export function assertPcmFormat(format: AudioFormat): void {
+  if (!isPcm(format)) throw new PsycheError("invalid_params", `${format.encoding} is not raw PCM`);
+  const { sampleRate, channels } = format;
+  if (
+    !Number.isInteger(sampleRate) ||
+    sampleRate < PCM_LIMITS.minSampleRate ||
+    sampleRate > PCM_LIMITS.maxSampleRate
+  ) {
+    throw new PsycheError("invalid_params", `unsupported sample rate ${sampleRate}`);
+  }
+  if (!Number.isInteger(channels) || channels < 1 || channels > PCM_LIMITS.maxChannels) {
+    throw new PsycheError("invalid_params", `unsupported channel count ${channels}`);
+  }
+}
+
 export function isPcm(format: AudioFormat): boolean {
   return format.encoding === "pcm_s16le" || format.encoding === "pcm_f32le";
 }
@@ -71,8 +90,47 @@ export function resample(samples: Float32Array, from: number, to: number): Float
   return out;
 }
 
+/**
+ * Linear resampler for a stream of chunks: carries the last input sample and the fractional
+ * read position across `push` calls, so chunk boundaries add no drift and no phase reset.
+ */
+export class StreamingResampler {
+  readonly #ratio: number;
+  #t = 0;
+  #last: number | undefined;
+
+  constructor(from: number, to: number) {
+    this.#ratio = from / to;
+  }
+
+  push(input: Float32Array): Float32Array {
+    if (this.#ratio === 1) return input;
+    const v = this.#last === undefined ? input : new Float32Array(input.length + 1);
+    if (this.#last !== undefined) {
+      v[0] = this.#last;
+      v.set(input, 1);
+    }
+    if (v.length < 2) {
+      if (v.length === 1) this.#last = v[0];
+      return new Float32Array(0);
+    }
+    const out: number[] = [];
+    let t = this.#t;
+    while (Math.floor(t) + 1 <= v.length - 1) {
+      const i0 = Math.floor(t);
+      const frac = t - i0;
+      out.push((v[i0] ?? 0) * (1 - frac) + (v[i0 + 1] ?? 0) * frac);
+      t += this.#ratio;
+    }
+    this.#last = v[v.length - 1];
+    this.#t = t - (v.length - 1);
+    return Float32Array.from(out);
+  }
+}
+
 /** Converts any raw PCM to 16 kHz mono s16le, the recognizer input format. */
 export function toPcm16kMono(data: Uint8Array, format: AudioFormat): Uint8Array {
+  assertPcmFormat(format);
   if (
     format.encoding === "pcm_s16le" &&
     format.sampleRate === 16_000 &&
@@ -139,6 +197,7 @@ export function decodeWav(file: Uint8Array): { data: Uint8Array; format: AudioFo
     const size = v.getUint32(off + 4, true);
     const body = off + 8;
     if (id === "fmt ") {
+      if (size < 16 || body + 16 > file.byteLength) return undefined;
       const code = v.getUint16(body, true);
       const bits = v.getUint16(body + 14, true);
       const encoding =
@@ -153,6 +212,11 @@ export function decodeWav(file: Uint8Array): { data: Uint8Array; format: AudioFo
         channels: v.getUint16(body + 2, true),
         sampleRate: v.getUint32(body + 4, true),
       };
+      try {
+        assertPcmFormat(format);
+      } catch {
+        return undefined;
+      }
     } else if (id === "data" && format !== undefined) {
       const end = Math.min(file.byteLength, body + size);
       return { data: file.subarray(body, end), format };

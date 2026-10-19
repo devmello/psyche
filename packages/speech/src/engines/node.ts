@@ -171,7 +171,8 @@ export class NodeSpeechEngine implements SpeechEngine {
     const segments = new AsyncQueue<TranscriptSegment>();
     const abort = new AbortController();
     const onAbort = () => abort.abort();
-    options.signal?.addEventListener("abort", onAbort, { once: true });
+    if (options.signal?.aborted === true) abort.abort();
+    else options.signal?.addEventListener("abort", onAbort, { once: true });
     let resolveId: (id: string) => void = () => {};
     let rejectId: (e: unknown) => void = () => {};
     const streamId = new Promise<string>((res, rej) => {
@@ -203,7 +204,8 @@ export class NodeSpeechEngine implements SpeechEngine {
       let res: NodeInvokeResult;
       try {
         res = await node.invoke(NODE_SPEECH_CAPABILITIES.transcribeStream, params, {
-          ...this.#invokeOptions(abort.signal),
+          // The call stays open for the whole stream; the node registry's default is 60 s.
+          ...this.#invokeOptions(abort.signal, NODE_SPEECH_LIMITS.maxDurationMs + 60_000),
           onEvent: (e) => {
             const ev = e.data as HelperEvent | null;
             if (ev?.type === "speech.started" && typeof ev.streamId === "string") {
@@ -217,8 +219,12 @@ export class NodeSpeechEngine implements SpeechEngine {
         // Settles the pump: once the helper call ended, no stream id will arrive.
         rejectId(new PsycheError("internal", "the Mac node ended the stream before it started"));
       }
+      if (!res.ok) {
+        // Stop pushing now; the pump may be parked waiting for the next audio chunk.
+        abort.abort();
+        throw toError(res);
+      }
       const pumpError = await pump;
-      if (!res.ok) throw toError(res);
       if (pumpError !== undefined && !abort.signal.aborted) throw pumpError;
       return (res.result ?? {}) as HelperTranscript;
     })();
@@ -293,13 +299,17 @@ export class NodeSpeechEngine implements SpeechEngine {
         "the Mac node synthesizes PCM; transcode for other formats",
       );
     }
+    if (options.signal?.aborted === true) return;
     for (const piece of packText(text, NODE_SPEECH_LIMITS.maxSynthesisText)) {
       const chunks = new AsyncQueue<AudioChunk>();
+      const abort = new AbortController();
+      const onAbort = () => abort.abort();
+      options.signal?.addEventListener("abort", onAbort, { once: true });
       const params: Record<string, unknown> = { text: piece, format: encoding };
       if (options.voice !== undefined) params.voice = options.voice;
       const done = node
         .invoke(NODE_SPEECH_CAPABILITIES.synthesize, params, {
-          ...this.#invokeOptions(options.signal),
+          ...this.#invokeOptions(abort.signal, SYNTHESIS_TIMEOUT_MS),
           onEvent: (e) => {
             const ev = e.data as HelperEvent | null;
             if (ev?.type !== "speech.audio" || ev.data === undefined || ev.format === undefined)
@@ -311,11 +321,20 @@ export class NodeSpeechEngine implements SpeechEngine {
           (res) => (res.ok ? chunks.end() : chunks.fail(toError(res))),
           (err: unknown) => chunks.fail(err),
         );
+      let finished = false;
       try {
         yield* chunks;
+        finished = true;
       } finally {
-        await done;
+        options.signal?.removeEventListener("abort", onAbort);
+        if (finished) await done;
+        else {
+          // Consumer stopped early or the signal fired: cancel the helper call, do not wait for it.
+          abort.abort();
+          void done.catch(() => {});
+        }
       }
+      if (isAborted(options.signal)) return;
     }
   }
 
@@ -330,12 +349,24 @@ export class NodeSpeechEngine implements SpeechEngine {
     return (list ?? []).map((v) => ({ id: v.id, name: v.name, language: v.language, local: true }));
   }
 
-  #invokeOptions(signal?: AbortSignal): { signal?: AbortSignal; timeoutMs?: number } {
+  #invokeOptions(
+    signal?: AbortSignal,
+    timeoutMs?: number,
+  ): { signal?: AbortSignal; timeoutMs?: number } {
     const o: { signal?: AbortSignal; timeoutMs?: number } = {};
     if (signal !== undefined) o.signal = signal;
-    if (this.#opts.timeoutMs !== undefined) o.timeoutMs = this.#opts.timeoutMs;
+    const t = timeoutMs ?? this.#opts.timeoutMs;
+    if (t !== undefined) o.timeoutMs = t;
     return o;
   }
+}
+
+/** One `speech.synthesize` call renders ≤ 5000 characters; allow it a generous 5 minutes. */
+const SYNTHESIS_TIMEOUT_MS = 5 * 60_000;
+
+/** Reads `aborted` through a call so TS does not keep an earlier narrowing. */
+function isAborted(signal: AbortSignal | undefined): boolean {
+  return signal?.aborted === true;
 }
 
 function segment(ev: HelperEvent | TranscriptSegment): TranscriptSegment {

@@ -13,14 +13,17 @@ import {
   type Voice,
 } from "@psyche/protocol";
 import {
+  assertPcmFormat,
   bytesPerSample,
   concatBytes,
   decodeWav,
   encodeWav,
+  float32ToS16le,
   isPcm,
   PCM_16K_MONO,
   pcmToFloat32,
   rms,
+  StreamingResampler,
   toPcm16kMono,
 } from "../audio.ts";
 import { assertOk, findBinary, LocalProcessRunner, type ProcessRunner } from "../process.ts";
@@ -334,7 +337,9 @@ export class WhisperEngine implements SpeechEngine {
     const cfg = { ...this.#stream, ...overrides };
     const frameBytes = (16_000 * cfg.frameMs * 2) / 1000;
     const language = this.#language(options);
+    assertPcmFormat(format);
     const inFrame = bytesPerSample(format) * format.channels;
+    const resampler = new StreamingResampler(format.sampleRate, 16_000);
 
     let carry: Uint8Array = new Uint8Array(0); // input bytes short of a whole frame
     let pending: Uint8Array = new Uint8Array(0); // 16 kHz PCM not yet through the VAD
@@ -348,8 +353,7 @@ export class WhisperEngine implements SpeechEngine {
     let lastFinal = "";
 
     const infer = async (frames: Uint8Array[]): Promise<string> => {
-      const context = lastFinal === "" ? [] : [lastFinal.slice(-120)];
-      const prompt = whisperPrompt([...(options.vocabulary ?? []), ...context]);
+      const prompt = whisperPrompt(options.vocabulary, undefined, lastFinal.slice(-200));
       const req: WhisperRequest = { pcm: concatBytes(frames), language };
       if (prompt !== undefined) req.prompt = prompt;
       if (options.signal !== undefined) req.signal = options.signal;
@@ -376,7 +380,8 @@ export class WhisperEngine implements SpeechEngine {
       const input = concatBytes([carry, chunk]);
       const whole = input.byteLength - (input.byteLength % inFrame);
       carry = input.slice(whole);
-      pending = concatBytes([pending, toPcm16kMono(input.subarray(0, whole), format)]);
+      const mono = pcmToFloat32(input.subarray(0, whole), format);
+      pending = concatBytes([pending, float32ToS16le(resampler.push(mono))]);
       while (pending.byteLength >= frameBytes) {
         const frame = pending.slice(0, frameBytes);
         pending = pending.slice(frameBytes);

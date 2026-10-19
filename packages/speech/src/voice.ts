@@ -106,6 +106,8 @@ interface Session {
 export class VoiceSessionManager {
   readonly #opts: VoiceSessionOptions;
   readonly #sessions = new Map<string, Session>();
+  /** Starts in flight per device (they hold a slot until the session exists). */
+  readonly #starting = new Map<string, number>();
   #counter = 0;
 
   constructor(options: VoiceSessionOptions) {
@@ -119,6 +121,27 @@ export class VoiceSessionManager {
   }
 
   async start(params: VoiceStartParams, ctx: VoiceCallContext): Promise<VoiceStartResult> {
+    // Reserve the device's slot before the first await, so concurrent starts cannot all pass.
+    const open = [...this.#sessions.values()].filter(
+      (s) => s.deviceId === ctx.deviceId && !s.settled,
+    ).length;
+    const starting = this.#starting.get(ctx.deviceId) ?? 0;
+    if (open + starting >= (this.#opts.maxPerDevice ?? 2)) {
+      throw new PsycheError("rate_limited", "too many dictation sessions on this device", {
+        retryable: true,
+      });
+    }
+    this.#starting.set(ctx.deviceId, starting + 1);
+    try {
+      return await this.#start(params, ctx);
+    } finally {
+      const n = (this.#starting.get(ctx.deviceId) ?? 1) - 1;
+      if (n <= 0) this.#starting.delete(ctx.deviceId);
+      else this.#starting.set(ctx.deviceId, n);
+    }
+  }
+
+  async #start(params: VoiceStartParams, ctx: VoiceCallContext): Promise<VoiceStartResult> {
     const sel = await this.#opts.selector.select({ purpose: "dictation", caller: ctx.caller });
     if (sel.location === "client" || sel.engine === undefined) {
       return { sessionId: null, location: "client", engine: sel.id };
@@ -128,14 +151,6 @@ export class VoiceSessionManager {
     }
     if (params.format.sampleRate < 8_000 || params.format.sampleRate > 48_000) {
       throw new PsycheError("invalid_params", "sample rate must be 8–48 kHz");
-    }
-    const mine = [...this.#sessions.values()].filter(
-      (s) => s.deviceId === ctx.deviceId && !s.settled,
-    );
-    if (mine.length >= (this.#opts.maxPerDevice ?? 2)) {
-      throw new PsycheError("rate_limited", "too many dictation sessions on this device", {
-        retryable: true,
-      });
     }
     const defaults = (await this.#opts.vocabulary?.()) ?? [];
     const vocabulary = mergeVocabulary(params.vocabulary, defaults);

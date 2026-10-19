@@ -77,14 +77,35 @@ export function mergeVocabulary(...lists: (readonly string[] | undefined)[]): st
 export function whisperPrompt(
   vocabulary: readonly string[] | undefined,
   maxChars: number = WHISPER_PROMPT_MAX_CHARS,
+  /** Preceding transcript (the last final), appended after the glossary for continuity. */
+  context?: string,
 ): string | undefined {
   const terms = buildVocabulary({ custom: vocabulary ?? [] });
-  if (terms.length === 0) return undefined;
   let text = "";
   for (const t of terms) {
     const next = text === "" ? t : `${text}, ${t}`;
     if (next.length + 1 > maxChars) break;
     text = next;
   }
-  return text === "" ? undefined : `${text}.`;
+  if (text !== "") text = `${text}.`;
+  const tail = cleanContext(context ?? "");
+  if (tail !== "") {
+    const room = maxChars - text.length - 1;
+    if (room > 0) text = `${text}${text === "" ? "" : " "}${tail.slice(-room).trimStart()}`;
+  }
+  return text === "" ? undefined : text;
+}
+
+/** Context text with control characters, placeholders and markup removed. */
+function cleanContext(text: string): string {
+  return [...text]
+    .map((ch) => {
+      const c = ch.charCodeAt(0);
+      return c < 0x20 || c === 0x7f ? " " : ch;
+    })
+    .join("")
+    .replace(/\{\{[^}]*\}\}/g, " ")
+    .replace(/[<>{}]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }

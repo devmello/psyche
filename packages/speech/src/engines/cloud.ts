@@ -107,26 +107,35 @@ export class CloudTtsEngine implements SpeechEngine {
       if (res.body === null) continue;
       let odd: number | undefined;
       const reader = res.body.getReader();
-      for (;;) {
-        if (options.signal?.aborted === true) {
-          await reader.cancel();
-          return;
+      let complete = false;
+      try {
+        for (;;) {
+          if (options.signal?.aborted === true) {
+            await reader.cancel();
+            return;
+          }
+          const { value, done } = await reader.read();
+          if (done) {
+            complete = true;
+            break;
+          }
+          // Keep chunks sample-aligned (2 bytes) across network reads.
+          let bytes: Uint8Array = value;
+          if (odd !== undefined) {
+            bytes = new Uint8Array(value.byteLength + 1);
+            bytes[0] = odd;
+            bytes.set(value, 1);
+            odd = undefined;
+          }
+          if (bytes.byteLength % 2 === 1) {
+            odd = bytes[bytes.byteLength - 1];
+            bytes = bytes.subarray(0, bytes.byteLength - 1);
+          }
+          if (bytes.byteLength > 0) yield { data: bytes, format: PCM_24K_MONO };
         }
-        const { value, done } = await reader.read();
-        if (done) break;
-        // Keep chunks sample-aligned (2 bytes) across network reads.
-        let bytes: Uint8Array = value;
-        if (odd !== undefined) {
-          bytes = new Uint8Array(value.byteLength + 1);
-          bytes[0] = odd;
-          bytes.set(value, 1);
-          odd = undefined;
-        }
-        if (bytes.byteLength % 2 === 1) {
-          odd = bytes[bytes.byteLength - 1];
-          bytes = bytes.subarray(0, bytes.byteLength - 1);
-        }
-        if (bytes.byteLength > 0) yield { data: bytes, format: PCM_24K_MONO };
+      } finally {
+        // An early return or a consumer that stopped must not leave the socket open.
+        if (!complete) await reader.cancel().catch(() => {});
       }
     }
   }
