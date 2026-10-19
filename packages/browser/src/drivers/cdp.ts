@@ -40,11 +40,13 @@ export class CdpBridgeDriver extends DriverBase {
     // `bridge.tab.open` requires an http(s) URL in protocol v1; the policy already approved
     // `url`. Without one the desktop opens its blank start page (request filed to S11/protocol
     // to make `url` optional and to load only after attach).
-    const r = await this.#bridge.call("bridge.tab.open", {
+    const params: Parameters<BridgeClient["call"]>[1] & Record<string, unknown> = {
       url: url ?? "https://about.invalid/",
       profile: s.session.partition === "clean" ? "clean" : "logged-in",
       background: true,
-    });
+    };
+    if (s.session.taskId !== undefined) params.taskId = s.session.taskId;
+    const r = await this.#bridge.call("bridge.tab.open", params as { url: string });
     await this.#bridge.call("bridge.attach", { tabId: r.tab.tabId });
     return { id: r.tab.tabId, target: this.#bridge.target(r.tab.tabId), url: r.tab.url };
   }
@@ -59,8 +61,9 @@ export class CdpBridgeDriver extends DriverBase {
         // Popups (OAuth windows, target=_blank) arrive here with the opener's id (spike 01
         // amendment, bridge event field `openerTabId`). Tabs we opened ourselves are already
         // known; tabs with an unknown opener are not ours and stay unattached.
-        const tab = p.tab as { tabId: string; url: string };
-        const opener = typeof p.openerTabId === "string" ? this.tabs.get(p.openerTabId) : undefined;
+        const tab = p.tab as { tabId: string; url: string; openerTabId?: string | null };
+        const openerId = tab.openerTabId;
+        const opener = typeof openerId === "string" ? this.tabs.get(openerId) : undefined;
         if (opener === undefined || this.tabs.has(tab.tabId)) return;
         try {
           await this.#bridge.call("bridge.attach", { tabId: tab.tabId });
@@ -73,6 +76,18 @@ export class CdpBridgeDriver extends DriverBase {
           );
         } catch {
           // The popup closed before we attached; nothing to adopt.
+        }
+        return;
+      }
+      case "bridge.debugger.detached": {
+        // Renderer crash or forced detach: re-attach and re-enable domains; refs go stale.
+        const t = this.tabs.get(String(p.tabId));
+        if (t === undefined) return;
+        try {
+          await this.#bridge.call("bridge.attach", { tabId: t.tab.id });
+          await t.page.reattached();
+        } catch {
+          this.forgetTab(t.tab.id);
         }
         return;
       }

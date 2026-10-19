@@ -1,5 +1,6 @@
 import type { Duplex } from "node:stream";
 import {
+  BRIDGE_MAX_FRAME_BYTES,
   createValidator,
   type ErrorCode,
   errRes,
@@ -15,7 +16,8 @@ import {
  * Gateway side and the mock desktop use it. The browser bridge carries raw AX trees, so its cap
  * is 16 MiB rather than the node socket's 1 MiB (spike 01, amendment 2).
  */
-export const BRIDGE_MAX_FRAME_BYTES = 16 * 1024 * 1024;
+export { BRIDGE_MAX_FRAME_BYTES };
+
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 const frameValidator = createValidator(Frame);

@@ -48,9 +48,7 @@ export class MockDesktop {
         const tab = this.browser.openTab({ opener });
         const state = this.#adopt(tab, parent?.profile ?? "logged-in");
         this.#event("bridge.tab.created", {
-          tab: this.#tabInfo(state),
-          openerTabId: opener.id,
-          disposition: "new-window",
+          tab: { ...this.#tabInfo(state), openerTabId: opener.id, disposition: "new-window" },
         });
         // Load after the Gateway had a chance to attach, as Electron's createWindow does.
         setTimeout(() => void tab.navigateTo(url, "GET"), 5);
@@ -117,7 +115,7 @@ export class MockDesktop {
 
   #state(tabId: unknown): TabState {
     const s = this.#tabs.get(String(tabId));
-    if (s === undefined) throw new PsycheError("not_found", `tab ${String(tabId)} not found`);
+    if (s === undefined) throw new PsycheError("tab_not_found", `tab ${String(tabId)} not found`);
     return s;
   }
 
@@ -130,6 +128,15 @@ export class MockDesktop {
     const s = this.#state(tabId);
     s.control = "user";
     this.#event("bridge.control.changed", { tabId, state: "user", via });
+  }
+
+  /** Renderer crash / forced detach: the CDP session ends and enabled domains are gone. */
+  detachDebugger(tabId: string, reason = "target crashed"): void {
+    const s = this.#state(tabId);
+    s.off?.();
+    s.attached = false;
+    s.world = { contexts: new Set(), objects: new Set() };
+    this.#event("bridge.debugger.detached", { tabId, reason });
   }
 
   release(tabId: string): void {
@@ -187,13 +194,10 @@ export class MockDesktop {
     const check = checkCdpCommand(method, params, s.world);
     if (!check.ok) {
       this.refused.push({ method, reason: check.reason });
-      throw new PsycheError("forbidden", check.reason, {
-        details: { reason: "method_not_allowed" },
-      });
+      throw new PsycheError("method_not_allowed", check.reason);
     }
     if (method.startsWith("Input.") && s.control !== "agent") {
-      throw new PsycheError("conflict", "the user is in control of this tab", {
-        details: { reason: "user_in_control" },
+      throw new PsycheError("user_in_control", "the user is in control of this tab", {
         retryable: true,
       });
     }

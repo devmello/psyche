@@ -94,8 +94,20 @@ export class BridgeClient {
         if (!check.ok) throw new PsycheError("forbidden", check.reason);
         const body: BridgeMethodParams<"bridge.cdp.send"> = { tabId, method };
         if (params !== undefined) body.params = params;
-        const r = await this.call("bridge.cdp.send", body);
-        return r.result as T;
+        try {
+          const r = await this.call("bridge.cdp.send", body);
+          return r.result as T;
+        } catch (err) {
+          // The BrowserDriver contract reports Take control as `conflict`; the desktop uses
+          // the bridge code `user_in_control` (spike 01, amendment 3).
+          if (err instanceof PsycheError && err.code === "user_in_control") {
+            throw new PsycheError("conflict", err.message, {
+              details: { reason: "user_in_control" },
+              retryable: true,
+            });
+          }
+          throw err;
+        }
       },
       on: (listener) => {
         let set = this.#cdpListeners.get(tabId);

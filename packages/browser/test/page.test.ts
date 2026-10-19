@@ -91,3 +91,36 @@ describe("PageController over the mock CDP page", () => {
     expect((await page.snapshot()).captcha).toBe(true);
   });
 });
+
+describe("CDP bridge driver lifecycle", () => {
+  it("re-attaches after bridge.debugger.detached and keeps working", async () => {
+    const { mkdtemp, rm } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { MockDesktop } = await import("../src/testing/mock-desktop.ts");
+    const { CdpBridgeDriver } = await import("../src/drivers/cdp.ts");
+    const { FsQuarantineWriter } = await import("../src/downloads/library.ts");
+    const dir = await mkdtemp(join(tmpdir(), "psyche-detach-"));
+    const desktop = new MockDesktop({ quarantineDir: dir });
+    const driver = new CdpBridgeDriver(await desktop.connect(), {
+      library: new FsQuarantineWriter(dir),
+    });
+    const s = await driver.openSession({
+      policy: { devPreview: true, readWritable: [desktop.browser.origin("a")] },
+    });
+    const t = await driver.openTab(s.id, desktop.browser.url("a/login"));
+    const before = await driver.snapshot(t.id);
+    const user = before.refs.find((r) => r.name === "Username")?.ref ?? "";
+    desktop.detachDebugger(t.id);
+    await new Promise((r) => setTimeout(r, 30));
+    // Same document after re-attach: backend node ids, and so refs, stay valid.
+    const after = await driver.snapshot(t.id);
+    expect(after.refs.find((r) => r.name === "Username")?.ref).toBe(user);
+    await driver.type(t.id, user, "ada");
+    expect(desktop.tab(t.id).fieldValue("username")).toBe("ada");
+    expect(desktop.refused).toEqual([]);
+    driver.dispose();
+    desktop.disconnect();
+    await rm(dir, { recursive: true, force: true });
+  });
+});

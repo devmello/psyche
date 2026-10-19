@@ -195,6 +195,13 @@ export class PageController {
     if (this.#o.recording !== undefined) await this.startRecording();
   }
 
+  /** The desktop re-attached after `bridge.debugger.detached`: enabled domains are gone. */
+  async reattached(): Promise<void> {
+    this.#recording = false;
+    this.#worlds.clear();
+    await this.init();
+  }
+
   dispose(): void {
     this.#closed = true;
     this.#off();
