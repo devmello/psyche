@@ -65,9 +65,10 @@ function plausibleCard(digits: string): boolean {
   return false;
 }
 
-// 13–19 digits, optionally grouped by single spaces or hyphens, not glued to other digits or
-// to a decimal point (the fraction of a float is not a card).
-const CARD_RE = /(?<![\d.-])\d(?:[ -]?\d){12,18}(?![\d-]|\.\d)/g;
+// 13–19 digits, optionally grouped by single spaces or hyphens, not glued to other digits, to
+// letters or underscores (a digit run inside a hex hash or an id is not a card) or to a decimal
+// point (the fraction of a float is not a card).
+const CARD_RE = /(?<![\dA-Za-z_.-])\d(?:[ -]?\d){12,18}(?![\dA-Za-z_-]|\.\d)/g;
 
 function findCards(text: string, out: PatternMatch[]): void {
   for (const m of text.matchAll(CARD_RE)) {

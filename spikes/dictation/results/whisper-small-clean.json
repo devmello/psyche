@@ -1,0 +1,52 @@
+{
+  "engine" : "whisper-small",
+  "footprintAfterPrepareMB" : 31.328994750976562,
+  "input" : "audio\/clean.wav",
+  "machine" : "Apple M5 16 GB",
+  "notes" : [
+    "openai_whisper-small.en; partials = AudioStreamTranscriber-style loop (confirm all but last 2 segments)"
+  ],
+  "os" : "Version 27.0.1 (Build 26A434)",
+  "peakFootprintMB" : 149.6416778564453,
+  "prepareSeconds" : 5.209065791917965,
+  "sessions" : [
+    {
+      "audioSeconds" : 4,
+      "finalLatency" : 0.7481205419171602,
+      "firstPartialFromKeyDown" : 2.679148375056684,
+      "firstPartialFromSpeech" : 2.0766463330946863,
+      "firstPartialText" : "On Dean, send a message.",
+      "label" : "first utterance (4 s)",
+      "meanUpdateInterval" : 0.5382990839425474,
+      "partialCount" : 3,
+      "transcript" : "On Dean, send a message to Ngozi Adeyemi and tell him to come back."
+    },
+    {
+      "audioSeconds" : 87.785,
+      "finalLatency" : 0.3967285421676934,
+      "firstPartialFromKeyDown" : 2.181166375055909,
+      "firstPartialFromSpeech" : 1.5748160001821816,
+      "firstPartialText" : "On Dean, send a message.",
+      "label" : "full script (warm)",
+      "meanUpdateInterval" : 1.051850770059743,
+      "partialCount" : 82,
+      "transcript" : "On Dean, send a message to Ngozi Adeyemi and tell her I am running about 15 minutes late for lunch because the train is stuck outside the station. Ask her to order the soup for me if the kitchen is busy. Next, draft an email to Cavifer Oxid with the subject line and quarterly planning. Say that the slides look good, but the budget section still needs the revised hiring numbers from finance before we can share it with the wider team. Mention that I would like to review the final version on Thursday afternoon. On Dean, remind me tomorrow morning to call Marisol Echeverria about the apartment lease. We wanted to know whether we are renewing for another year or moving out in the spring, I promise her an answer this week. add a note to my reading list. I want to finish the book about the history of navigation, the one that explains how sailors use the stars and simple clocks to find their position on the open ocean. On Dean, please look at my calendar for next week and find a quiet hour on Wednesday or Friday for a long walk. If both days are full, move the dentist appointment to the following Monday and let the office know by email. Keep the message polite and short and copy Marisol so she knows I will be free that evening. Finally, on Dean, Czekweather Ngozi replied to the invitation for Saturday. And if Kave has not confirmed by tonight, send him a short and friendly reminder. Thank you, that is everything for now.",
+      "vocabularyHits" : {
+        "Adeyemi" : "1\/1",
+        "Echeverria" : "1\/1",
+        "Farrokhzad" : "0\/1",
+        "Kaveh" : "0\/2",
+        "Marisol" : "2\/2",
+        "Ngozi" : "2\/2",
+        "Ondine" : "0\/4"
+      },
+      "wer" : {
+        "deletions" : 2,
+        "insertions" : 4,
+        "referenceWords" : 263,
+        "substitutions" : 12,
+        "wer" : 0.06844106463878327
+      }
+    }
+  ]
+}

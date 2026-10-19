@@ -114,23 +114,17 @@ export function buildClassifierInput(
   return input;
 }
 
+/** Access, sharing, deletion and outward communication are never routine in auto mode. */
 const SENSITIVE_TOOLS =
-  /(delete|remove|revoke|share|invite|publish|post|forward|transfer|permission|settings|password|login|oauth|consent)/i;
+  /(delete|remove|revoke|share|invite|publish|post|forward|transfer|permission|settings|password|login|oauth|consent|send|reply|message|comment|tweet|dm)/i;
 
 /** Default: deterministic rules, no model. */
 export class RulesClassifier implements ActionClassifier {
   readonly id = "rules";
 
   async classify(input: ClassifierInput): Promise<ClassifierOutput> {
-    if (input.sideEffect === "financial")
-      return { label: "prohibited", reason: "financial actions are never routine" };
-    if (input.sideEffect !== "write")
-      return { label: "sensitive", reason: `${input.sideEffect} is not routine` };
-    if (input.taint.tainted)
-      return { label: "sensitive", reason: "the turn read untrusted content" };
-    if (input.task.goalTainted)
-      return { label: "sensitive", reason: "the task goal came from a tainted turn" };
-    if (input.sensitiveTarget) return { label: "sensitive", reason: "sensitive-category target" };
+    const floor = deterministicFloor(input);
+    if (floor.label !== "routine") return floor;
     if (SENSITIVE_TOOLS.test(input.tool))
       return { label: "sensitive", reason: `${input.tool} changes access or shares` };
     const bulk = Object.entries(input.argMeta).find(
@@ -172,7 +166,9 @@ export class ModelClassifier implements ActionClassifier {
       {
         model: this.#model,
         system: SYSTEM_PROMPT,
-        messages: [{ role: "user", parts: [{ type: "text", text: JSON.stringify(input) }] }],
+        messages: [
+          { role: "user", parts: [{ type: "text", text: JSON.stringify(boundedInput(input)) }] },
+        ],
         toolChoice: "none",
         maxOutputTokens: 200,
         temperature: 0,
@@ -181,12 +177,54 @@ export class ModelClassifier implements ActionClassifier {
     );
     for await (const ev of stream) {
       if (ev.type === "text_delta") text += ev.text;
+      if (text.length > 4000) return { label: "sensitive", reason: "classifier output too long" };
       if (ev.type === "finish" && ev.reason !== "stop") {
         return { label: "sensitive", reason: `classifier finished with ${ev.reason}` };
       }
     }
-    return parseClassifierOutput(text);
+    return atLeastFloor(parseClassifierOutput(text), input);
   }
+}
+
+/** Owner text capped (10 messages, 1,000 characters each) so one request cannot crowd the prompt. */
+export function boundedInput(input: ClassifierInput): ClassifierInput {
+  return {
+    ...input,
+    ownerMessages: input.ownerMessages
+      .slice(-10)
+      .map((m) => (m.length > 1000 ? `${m.slice(0, 1000)}…` : m)),
+  };
+}
+
+const RANK: Record<ClassifierLabel, number> = { routine: 0, sensitive: 1, prohibited: 2 };
+
+/**
+ * The deterministic floor no model may go below: taint, a tainted goal, a sensitive target, no
+ * owner request or a class above `write` is never `routine`; `financial` is `prohibited`.
+ */
+export function deterministicFloor(input: ClassifierInput): ClassifierOutput {
+  if (input.sideEffect === "financial") {
+    return { label: "prohibited", reason: "financial actions are never routine" };
+  }
+  if (input.sideEffect !== "write") {
+    return { label: "sensitive", reason: `${input.sideEffect} is not routine` };
+  }
+  if (input.taint.tainted) return { label: "sensitive", reason: "the turn read untrusted content" };
+  if (input.task.goalTainted) {
+    return { label: "sensitive", reason: "the task goal came from a tainted turn" };
+  }
+  if (input.sensitiveTarget) return { label: "sensitive", reason: "sensitive-category target" };
+  if (input.ownerMessages.length === 0) {
+    return { label: "sensitive", reason: "no owner request to align with" };
+  }
+  return { label: "routine", reason: "" };
+}
+
+/** A model may raise the label, never lower it below the deterministic floor. */
+export function atLeastFloor(out: ClassifierOutput, input: ClassifierInput): ClassifierOutput {
+  const floor = deterministicFloor(input);
+  if (RANK[out.label] >= RANK[floor.label]) return out;
+  return { label: floor.label, reason: `${floor.reason} (model said ${out.label})` };
 }
 
 export function parseClassifierOutput(text: string): ClassifierOutput {

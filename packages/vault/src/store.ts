@@ -22,6 +22,10 @@ export interface ItemAttrs {
   headerName?: string;
   headerPrefix?: string;
   requireAuthEachUse?: boolean;
+  /** G9: the secret lives in the system keychain; `items.secret` is `{}`. */
+  backend?: "keychain";
+  /** Secret fields present (keychain items), so `resolve` can check them without a prompt. */
+  fields?: string[];
 }
 
 export interface ItemRow {

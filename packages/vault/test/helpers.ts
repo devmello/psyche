@@ -8,17 +8,19 @@ import type {
   CredentialField,
   FillElement,
   GrantScope,
+  NodeCapability,
+  NodeClient,
+  NodeInfo,
+  NodeInvokeOptions,
+  NodeInvokeResult,
 } from "@psyche/protocol";
-import {
-  createIdGenerator,
-  FakeAuditLog,
-  FakeClock,
-  FakeNodeClient,
-  FakePermissionBroker,
-} from "@psyche/testing";
+import { createIdGenerator, FakeAuditLog, FakeClock, FakePermissionBroker } from "@psyche/testing";
 import {
   credentialFillApproval,
   KEYCHAIN_CAPABILITIES,
+  KEYCHAIN_ITEM_CAPABILITIES,
+  KEYCHAIN_NAME_RE,
+  KeychainItemStore,
   KeychainWrapper,
   type KeyWrapper,
   type SafeStorageAdapter,
@@ -35,45 +37,144 @@ export function tmpHome(): { home: string; cleanup: () => void } {
   return { home, cleanup: () => rmSync(home, { recursive: true, force: true }) };
 }
 
+/** Thrown inside a fake capability: becomes `{code, message, details: {reason}}` like S14's CapabilityError. */
+export class HelperError extends Error {
+  readonly code: string;
+  readonly reason: string;
+
+  constructor(code: string, reason: string) {
+    super(`${code}/${reason}`);
+    this.code = code;
+    this.reason = reason;
+  }
+}
+
+type Handler = (params: Record<string, unknown>) => unknown;
+
+/** Minimal node with S14's error wire shape (FakeNodeClient flattens codes to `internal`). */
+class HelperNode implements NodeClient {
+  readonly nodeId = "node_helper";
+  readonly invocations: { capability: string; params: unknown }[] = [];
+  readonly #caps = new Map<string, { cap: NodeCapability; fn: Handler }>();
+
+  handle(name: string, sideEffect: NodeCapability["sideEffect"], fn: Handler): void {
+    this.#caps.set(name, { cap: { name, description: name, sideEffect }, fn });
+  }
+
+  async info(): Promise<NodeInfo> {
+    return {
+      id: this.nodeId,
+      deviceId: "dev_helper",
+      kind: "mac-helper",
+      status: "online",
+      lastHeartbeatAt: null,
+      capabilities: await this.capabilities(),
+    };
+  }
+
+  async capabilities(): Promise<NodeCapability[]> {
+    return [...this.#caps.values()].map((c) => ({ ...c.cap }));
+  }
+
+  async invoke(
+    capability: string,
+    params: unknown,
+    options: NodeInvokeOptions = {},
+  ): Promise<NodeInvokeResult> {
+    const h = this.#caps.get(capability);
+    if (h === undefined)
+      return {
+        ok: false,
+        error: { code: "not_found", message: `unknown capability ${capability}` },
+      };
+    // The Gateway's NodeClient contract: destructive capabilities need an approval id.
+    if (h.cap.sideEffect === "destructive" && options.approvalId === undefined) {
+      return {
+        ok: false,
+        error: { code: "approval_required", message: `${capability} needs an approval` },
+      };
+    }
+    this.invocations.push({ capability, params: structuredClone(params) });
+    try {
+      return { ok: true, result: await h.fn(params as Record<string, unknown>) };
+    } catch (err) {
+      const e = err instanceof HelperError ? err : new HelperError("internal", "keychain_error");
+      return {
+        ok: false,
+        error: { code: e.code as never, message: e.message, details: { reason: e.reason } },
+      };
+    }
+  }
+}
+
 /**
- * Fake mac helper: `keychain.set` / `vault.unlock` / `keychain.delete` over an in-memory
- * keychain. `touchId` decides each prompt; every prompt reason is recorded.
+ * Fake mac helper on S14's registered contract (`keychain.set`, `vault.unlock`, `keychain.delete`
+ * (destructive), `keychain.status`) over an in-memory keychain. With `items: true` it also offers
+ * the G9 item capabilities (`keychain.store`, `keychain.retrieve`, `keychain.delete_item`).
+ * `state.touchId` decides each prompt; every prompt reason is recorded.
  */
-export function fakeHelper() {
+export function fakeHelper(options: { items?: boolean } = {}) {
   const items = new Map<string, string>();
+  const kcItems = new Map<string, { value: string; requireAuth: boolean }>();
   const prompts: string[] = [];
   const sets: unknown[] = [];
-  const state = { touchId: "approve" as "approve" | "cancel" | "fail" };
-  const node = new FakeNodeClient({ nodeId: "node_helper" });
-  node.handle({
-    capability: { name: KEYCHAIN_CAPABILITIES.set, description: "store", sideEffect: "write" },
-    handle: (p) => {
-      const params = p as { service: string; account: string; value: string };
-      sets.push(p);
-      items.set(`${params.service}|${params.account}`, params.value);
-      return { stored: true };
-    },
+  const state = {
+    touchId: "approve" as "approve" | "cancel" | "fail",
+    dataProtection: "available",
+  };
+  const node = new HelperNode();
+  const prompt = (reason: unknown) => {
+    const text = String(reason ?? "");
+    if (text.length < 1 || text.length > 120 || /[\r\n]/.test(text))
+      throw new HelperError("invalid_params", "invalid_params");
+    prompts.push(text);
+    if (state.touchId === "cancel") throw new HelperError("cancelled", "user_cancelled");
+    if (state.touchId === "fail") throw new HelperError("forbidden", "auth_failed");
+  };
+  node.handle(KEYCHAIN_CAPABILITIES.set, "write", (p) => {
+    if (p.service !== "com.psyche.vault") throw new HelperError("invalid_params", "invalid_params");
+    sets.push(p);
+    items.set(`${String(p.service)}|${String(p.account)}`, String(p.value));
+    return {};
   });
-  node.handle({
-    capability: { name: KEYCHAIN_CAPABILITIES.unlock, description: "read", sideEffect: "read" },
-    handle: (p) => {
-      const params = p as { service: string; account: string; reason: string };
-      prompts.push(params.reason);
-      if (state.touchId === "cancel") throw new Error("user cancelled");
-      const value = items.get(`${params.service}|${params.account}`);
-      if (value === undefined) throw new Error("errSecItemNotFound");
-      return { value };
-    },
+  node.handle(KEYCHAIN_CAPABILITIES.unlock, "read", (p) => {
+    prompt(p.reason);
+    const value = items.get(`${String(p.service)}|${String(p.account)}`);
+    if (value === undefined) throw new HelperError("not_found", "item_not_found");
+    return { value };
   });
-  node.handle({
-    capability: { name: KEYCHAIN_CAPABILITIES.delete, description: "delete", sideEffect: "write" },
-    handle: (p) => {
-      const params = p as { service: string; account: string };
-      items.delete(`${params.service}|${params.account}`);
-      return {};
-    },
+  node.handle(KEYCHAIN_CAPABILITIES.delete, "destructive", (p) => {
+    items.delete(`${String(p.service)}|${String(p.account)}`);
+    return {};
   });
-  return { node, items, prompts, sets, state };
+  node.handle(KEYCHAIN_ITEM_CAPABILITIES.status, "read", () => ({
+    dataProtectionKeychain: state.dataProtection,
+    probeStatus: null,
+    accessGroup: "TEAMID.com.psyche.shared",
+    biometry: { available: true },
+  }));
+  if (options.items === true) {
+    const nameOk = (n: unknown) => typeof n === "string" && KEYCHAIN_NAME_RE.test(n);
+    node.handle(KEYCHAIN_ITEM_CAPABILITIES.store, "write", (p) => {
+      if (!nameOk(p.name)) throw new HelperError("invalid_params", "invalid_params");
+      const name = String(p.name);
+      if (kcItems.has(name) && p.replace !== true)
+        throw new HelperError("conflict", "duplicate_item");
+      kcItems.set(name, { value: String(p.value), requireAuth: p.requireAuth !== false });
+      return { name, stored: true, requireAuth: p.requireAuth !== false, replaced: false };
+    });
+    node.handle(KEYCHAIN_ITEM_CAPABILITIES.retrieve, "read", (p) => {
+      const item = kcItems.get(String(p.name));
+      if (item === undefined) throw new HelperError("not_found", "item_not_found");
+      if (item.requireAuth) prompt(p.reason);
+      return { name: p.name, value: item.value };
+    });
+    node.handle(KEYCHAIN_ITEM_CAPABILITIES.deleteItem, "write", (p) => {
+      if (!kcItems.delete(String(p.name))) throw new HelperError("not_found", "item_not_found");
+      return { deleted: true };
+    });
+  }
+  return { node, items, kcItems, prompts, sets, state };
 }
 
 /** Fake Electron safeStorage: AES-256-GCM under a per-adapter key; backend switchable. */
@@ -118,11 +219,17 @@ export interface Harness {
 }
 
 export function makeHarness(
-  options: { wrapper?: KeyWrapper; overrides?: Partial<VaultOptions>; home?: string } = {},
+  options: {
+    wrapper?: KeyWrapper;
+    overrides?: Partial<VaultOptions>;
+    home?: string;
+    /** G9: put new items' secrets in the (fake) system keychain. */
+    keychainMode?: boolean;
+  } = {},
 ): Harness {
   const tmp = options.home === undefined ? tmpHome() : { home: options.home, cleanup: () => {} };
   const clock = new FakeClock();
-  const helper = fakeHelper();
+  const helper = fakeHelper({ items: options.keychainMode === true });
   const db = openDb(":memory:");
   const meta = new SqliteMetaMirror(db.sqlite);
   const permissions = new FakePermissionBroker({ clock });
@@ -137,6 +244,12 @@ export function makeHarness(
     clock,
     newId: () => ids.next("id"),
     argon2: TEST_ARGON2,
+    ...(options.keychainMode === true
+      ? {
+          itemBackend: "keychain" as const,
+          keychainItems: new KeychainItemStore({ helper: helper.node }),
+        }
+      : {}),
     ...options.overrides,
   };
   return {

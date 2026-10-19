@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { composeBrowser } from "./browser.ts";
 import { channelsSetupFromEnv, composeChannels } from "./channels.ts";
 import { composeConnectors } from "./connectors.ts";
+import { composeHelper } from "./helper.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | ComposedPart;
@@ -13,7 +14,10 @@ type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | Compos
  * - connectors, with Google's consent page opened in the owner's default browser on macOS. On a
  *   server the link goes to the owner as a notification instead, since the daemon has no screen;
  * - channels: WebChat, and Telegram when `PSYCHE_TELEGRAM_BOT_TOKEN_FILE` (a Compose secret) or
- *   `PSYCHE_TELEGRAM_BOT_TOKEN` and `PSYCHE_TELEGRAM_BOT_USERNAME` are set.
+ *   `PSYCHE_TELEGRAM_BOT_TOKEN` and `PSYCHE_TELEGRAM_BOT_USERNAME` are set;
+ * - approvals on the Mac through a connected helper's notifications. No presence key is
+ *   registered yet (the helper does not sign, S14 issue), so approvals that need Touch ID
+ *   stay refused there; Approve / Deny works for the rest.
  */
 export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
   const parts: PartFactory[] = [];
@@ -28,6 +32,7 @@ export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
   // Read (and validated) at boot, so a bad token file stops psyched instead of a silent channel.
   const channels = channelsSetupFromEnv(env, (path) => readFileSync(path, "utf8"));
   parts.push((s) => composeChannels(s, channels));
+  parts.push((s) => composeHelper(s));
   return parts;
 }
 

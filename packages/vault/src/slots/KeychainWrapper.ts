@@ -1,6 +1,7 @@
 import type { NodeClient } from "@psyche/protocol";
 import { open, randomKey, type SealedBox, seal, zeroize } from "../crypto.ts";
 import { fail } from "../errors.ts";
+import { promptReason } from "./helper.ts";
 import type { KeyWrapper, UnwrapContext, WrappedKey } from "./KeyWrapper.ts";
 
 /**
@@ -100,7 +101,7 @@ export class KeychainWrapper implements KeyWrapper {
     const params: VaultUnlockParams = {
       service: String(wrapped.service ?? this.#service),
       account: String(wrapped.account ?? this.#account),
-      reason: ctx.reason,
+      reason: promptReason(ctx.reason),
       reuseDurationSeconds: 0,
     };
     const res = await this.#helper.invoke(KEYCHAIN_CAPABILITIES.unlock, params);
@@ -118,11 +119,21 @@ export class KeychainWrapper implements KeyWrapper {
     }
   }
 
-  async destroy(wrapped: WrappedKey): Promise<void> {
-    await this.#helper.invoke(KEYCHAIN_CAPABILITIES.delete, {
-      service: String(wrapped.service ?? this.#service),
-      account: String(wrapped.account ?? this.#account),
-    });
+  /**
+   * Delete the key item. `keychain.delete` is destructive in the helper's manifest, so the
+   * Gateway's NodeClient requires an approved `approvalId` (the vault then opens only with the
+   * recovery key).
+   */
+  async destroy(wrapped: WrappedKey, approvalId?: string): Promise<void> {
+    const res = await this.#helper.invoke(
+      KEYCHAIN_CAPABILITIES.delete,
+      {
+        service: String(wrapped.service ?? this.#service),
+        account: String(wrapped.account ?? this.#account),
+      },
+      approvalId === undefined ? {} : { approvalId },
+    );
+    if (!res.ok) return fail(res.error?.code ?? "internal", "keychain.delete failed");
   }
 
   #aad(): string {

@@ -98,13 +98,19 @@ const make = (accounts = ["a@example.com"]) => {
 };
 
 describe("binding hash", () => {
-  it("is order-independent, NFC-normalized and refuses ambiguous values", () => {
-    expect(canonicalJSON({ b: 1, a: "é" })).toBe('{"a":"é","b":1}');
+  it("is order-independent, never NFC-folds and refuses ambiguous values (design-13)", () => {
+    expect(canonicalJSON({ b: 1, a: "x" })).toBe('{"a":"x","b":1}');
     expect(bindingHash("k", { a: 1, b: 2 })).toBe(bindingHash("k", { b: 2, a: 1 }));
     expect(bindingHash("k", { a: 1 })).not.toBe(bindingHash("j", { a: 1 }));
     expect(() => canonicalJSON({ x: Number.NaN })).toThrow();
     expect(() => canonicalJSON({ x: new Map() })).toThrow();
-    expect(() => canonicalJSON({ é: 1, é: 2 })).toThrow(/collide/);
+    // NFC and NFD are different strings for executors and providers, so they bind differently.
+    const nfc = "caf\u00e9";
+    const nfd = "cafe\u0301";
+    expect(bindingHash("k", { argv: ["rm", nfc] })).not.toBe(
+      bindingHash("k", { argv: ["rm", nfd] }),
+    );
+    expect(canonicalJSON({ [nfc]: 1, [nfd]: 2 })).toContain(nfd);
   });
 });
 
