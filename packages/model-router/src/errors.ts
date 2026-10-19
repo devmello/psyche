@@ -75,7 +75,7 @@ export class ModelCallError extends Error {
 }
 
 const CONTEXT_OVERFLOW =
-  /context[_ ]length|context window|prompt is too long|too many tokens|maximum context|input is too long|exceeds the (?:model'?s )?(?:maximum|context)/i;
+  /context[_ ]length|context window|prompt is too long|too many tokens|maximum context|input is too long|exceeds the (?:model'?s |available )?(?:maximum|context)|exceed_context_size/i;
 const BILLING = /credit balance|insufficient[_ ]quota|billing|payment required|quota exceeded/i;
 const MODEL_NOT_FOUND =
   /model[_ ]not[_ ]found|no such model|unknown model|model .* (?:does not exist|not found)|not_found_error/i;
@@ -171,8 +171,13 @@ export function classifyError(
   if (name === "AbortError") return new ModelCallError("cancelled", "cancelled");
   // Streamed error parts (Anthropic `overloaded_error`, OpenAI `response.failed`, …).
   if (typeof err === "object" && err !== null) {
-    const typed = err as { type?: unknown; error?: { type?: unknown; code?: unknown } };
-    const t = `${String(typed.error?.type ?? typed.type ?? "")} ${String(typed.error?.code ?? "")}`;
+    // `{type, error: {type, code}}` (Anthropic, OpenAI) or `{code, message}` (OpenRouter chunks).
+    const typed = err as {
+      type?: unknown;
+      code?: unknown;
+      error?: { type?: unknown; code?: unknown };
+    };
+    const t = `${String(typed.error?.type ?? typed.type ?? "")} ${String(typed.error?.code ?? typed.code ?? "")}`;
     if (/rate_limit/i.test(t)) return new ModelCallError("rate_limited", redact(shorten(text)));
     if (/overloaded/i.test(t)) return new ModelCallError("overloaded", redact(shorten(text)));
     if (/authentication|permission/i.test(t))
@@ -181,7 +186,7 @@ export function classifyError(
       return new ModelCallError("server_error", redact(shorten(text)));
     if (/insufficient_quota|billing/i.test(t))
       return new ModelCallError("billing", redact(shorten(text)));
-    if (/context_length|context_window/i.test(t))
+    if (/context_length|context_window|exceed_context_size/i.test(t))
       return new ModelCallError("context_overflow", redact(shorten(text)));
     if (/invalid_request/i.test(t)) {
       return new ModelCallError(
