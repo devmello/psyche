@@ -1,4 +1,9 @@
-import { Connector as ConnectorSchema, PsycheError } from "@psyche/protocol";
+import {
+  Connector as ConnectorSchema,
+  type Grant,
+  PsycheError,
+  type ToolCallAuthority,
+} from "@psyche/protocol";
 import { FakeClock } from "@psyche/testing";
 import { Value } from "@sinclair/typebox/value";
 import { describe, expect, it } from "vitest";
@@ -341,5 +346,187 @@ describe("write enforcement fails closed", () => {
       code: "approval_required",
     });
     await expect(setup({}).call("sneaky")).resolves.toMatchObject({ output: "done" });
+  });
+});
+
+describe("standing grants (ToolRunContext.authority)", () => {
+  const liveGrant: Grant = {
+    id: "grt_1",
+    kind: "connector_action",
+    scope: "always",
+    grantKey: "mcp__demo-1__keyed|demo.write:a@example.com",
+    subject: {},
+    binding: null,
+    expiresAt: null,
+    useCount: 3,
+    lastUsedAt: null,
+    createdFromApprovalId: "apr_0",
+    taskId: null,
+    createdAt: "2026-10-19T00:00:00.000Z",
+    revokedAt: null,
+  };
+  const setup = (opts: {
+    authority?: ToolCallAuthority;
+    grants?: Grant[];
+    approvalFor?: () => string | undefined;
+    now?: number;
+  }) => {
+    const tools = new Map<string, { execute: (...a: unknown[]) => Promise<unknown> }>();
+    const executed: unknown[] = [];
+    const receipts: unknown[] = [];
+    const factory: ConnectorFactory = {
+      entry,
+      create: (record) => ({
+        id: record.id,
+        type: "demo",
+        connect: async () => ({ account: "a@example.com", scopes: [] }),
+        disconnect: async () => {},
+        actions: () => entry.actions,
+        tools: () => [
+          {
+            name: "keyed",
+            action: "demo.write",
+            description: "write with a grant key",
+            inputSchema: { type: "object" },
+            sideEffect: "write",
+            describeCall: () => ({ grantKey: "demo.write:a@example.com" }),
+            execute: async (_p, ctx) => {
+              executed.push(ctx.authority ?? null);
+              return { output: "written", provenance: "untrusted" };
+            },
+          },
+          {
+            name: "bare",
+            action: "demo.write",
+            description: "write without a grant key",
+            inputSchema: { type: "object" },
+            sideEffect: "write",
+            execute: async () => ({ output: "written", provenance: "untrusted" }),
+          },
+          {
+            name: "wipe",
+            action: "demo.delete",
+            description: "destructive with a grant key",
+            inputSchema: { type: "object" },
+            sideEffect: "destructive",
+            describeCall: () => ({ grantKey: "demo.delete:a@example.com" }),
+            execute: async () => ({ output: "gone", provenance: "untrusted" }),
+          },
+        ],
+        health: async () => ({ ok: true, status: "connected", checkedAt: 0 }),
+      }),
+    };
+    const clock = new FakeClock();
+    if (opts.now !== undefined) clock.set(opts.now);
+    const registry = new ConnectorRegistry({
+      factories: [factory],
+      context: {
+        clock,
+        fetch,
+        tokens: { load: async () => undefined, save: async () => {}, clear: async () => {} },
+      },
+      tools: {
+        list: () => [],
+        get: () => undefined,
+        register: (r) => {
+          tools.set(r.spec.name, r as never);
+          return () => tools.delete(r.spec.name);
+        },
+      },
+      broker: {
+        get: async () => undefined,
+        listGrants: async () => structuredClone(opts.grants ?? [liveGrant]),
+        recordReceipt: async (input: unknown) => {
+          receipts.push(input);
+          return { id: "r" };
+        },
+      } as never,
+      authorityFor: () => opts.authority,
+      ...(opts.approvalFor === undefined ? {} : { approvalFor: opts.approvalFor }),
+      newId: () => "demo-1",
+    });
+    const call = (name: string) =>
+      registry
+        .connect({ catalogueId: "demo", scopeMode: "read_act" })
+        .then(() =>
+          tools
+            .get(`mcp__demo-1__${name}`)
+            ?.execute("c", { x: 1 }, new AbortController().signal, () => {}),
+        );
+    return { call, executed, receipts };
+  };
+  const byGrant: ToolCallAuthority = {
+    rule: "grant:grt_1",
+    bindingHash: "sha256:00",
+    grantKey: liveGrant.grantKey,
+    grantId: "grt_1",
+    scope: "always",
+  };
+
+  it("a live grant whose key matches the call's own description dispatches, with a receipt", async () => {
+    const { call, executed, receipts } = setup({ authority: byGrant });
+    await expect(call("keyed")).resolves.toMatchObject({ output: "written", receiptId: "r" });
+    expect(executed).toEqual([byGrant]);
+    expect(receipts).toEqual([expect.objectContaining({ kind: "demo.write", approvalId: null })]);
+  });
+
+  it("a grant the ledger no longer has, or that expired, is refused", async () => {
+    await expect(setup({ authority: byGrant, grants: [] }).call("keyed")).rejects.toMatchObject({
+      code: "binding_mismatch",
+      message: expect.stringContaining("not_found"),
+    });
+    const expired = { ...liveGrant, expiresAt: "2026-10-19T01:00:00.000Z" };
+    await expect(
+      setup({ authority: byGrant, grants: [expired], now: Date.parse(expired.expiresAt) }).call(
+        "keyed",
+      ),
+    ).rejects.toMatchObject({
+      code: "binding_mismatch",
+      message: expect.stringContaining("expired"),
+    });
+  });
+
+  it("a grant for another key, or for a tool without a key of its own, never covers the call", async () => {
+    const other = { ...liveGrant, grantKey: "mcp__demo-1__keyed|demo.write:b@example.com" };
+    await expect(
+      setup({ authority: byGrant, grants: [other] }).call("keyed"),
+    ).rejects.toMatchObject({
+      code: "binding_mismatch",
+      message: expect.stringContaining("grant_key_mismatch"),
+    });
+    await expect(setup({ authority: byGrant }).call("bare")).rejects.toMatchObject({
+      code: "binding_mismatch",
+      message: expect.stringContaining("no_grant_key"),
+    });
+  });
+
+  it("destructive actions take only task grants, as security §3.4 says", async () => {
+    const taskGrant = {
+      ...liveGrant,
+      scope: "task" as const,
+      taskId: "task_1",
+      grantKey: "mcp__demo-1__wipe|demo.delete:a@example.com",
+    };
+    const authority = { ...byGrant, grantKey: taskGrant.grantKey, scope: "task" as const };
+    await expect(setup({ authority, grants: [taskGrant] }).call("wipe")).resolves.toMatchObject({
+      output: "gone",
+    });
+    const always = { ...taskGrant, scope: "always" as const, taskId: null };
+    await expect(
+      setup({ authority: { ...authority, scope: "always" }, grants: [always] }).call("wipe"),
+    ).rejects.toMatchObject({
+      code: "binding_mismatch",
+      message: expect.stringContaining("scope_always_not_allowed_for_destructive"),
+    });
+  });
+
+  it("an answered approval on the authority is checked as an approval, never as a grant", async () => {
+    // The approval path asks the broker for the approval record, which this broker lacks.
+    await expect(
+      setup({ authority: { ...byGrant, approvalId: "apr_9" } }).call("keyed"),
+    ).rejects.toMatchObject({
+      code: "binding_mismatch",
+      message: expect.stringContaining("not_found"),
+    });
   });
 });

@@ -16,8 +16,8 @@ First-party connectors behind one framework: a `Connector` interface, a `Connect
 Tools register into the agent-core `ToolRegistry` as `mcp__<connectorId>__<tool>`, the same naming as MCP tools, so allow / ask / deny rules look the same everywhere (ToolSpec contract). Each registration carries `describeCall`, which gives the broker the approval kind, target, binding fields and grant key for that call. The executor wrapper then:
 
 1. refuses `deny` rows (`policy_denied`) and write tools on a read-only connection. Read-only connections don't even register write tools;
-2. refuses an `ask` row with no approval when an `approvalFor` resolver is wired (`approval_required`);
-3. re-checks the approval right before dispatch with `PermissionBroker.verifyBinding(approvalId, bindingHash(kind, bindingFields))`, failing `binding_mismatch` if the arguments changed;
+2. refuses an `ask` row with neither an answered approval nor a standing grant on the call's authority (`approval_required`). The agent loop hands both over as `ToolCallAuthority` through the `authorityFor(callId)` resolver (`approvalFor` still works for the approval id alone);
+3. confirms, without consuming, what the loop verified right before dispatch: an approval must be `approved`, belong to this call and bind these exact arguments (`toolCallBindingHash`); a standing grant must be live in the ledger and keyed by this call's own `namespacedGrantKey(tool, describeCall().grantKey)`, so a tool without a grant key of its own can only be covered by an approval, and a `destructive` action only by a `task` grant. Anything else fails `binding_mismatch`;
 4. records a receipt for every write: `ok`, `failed`, or `uncertain` when the call threw mid-flight.
 
 `setMatrix` refuses unknown actions, and refuses `allow` on `destructive` / `financial` rows (security §3.4: no standing grants). The registry emits `invalidated` when the account behind a connection changes, when a connection is narrowed to read-only, disconnected, or its token is revoked. Tasks and approvals bound to that connection must be dropped (M5).

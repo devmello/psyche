@@ -117,6 +117,7 @@ export function composeConnectors(
     tools: services.tools,
     broker: services.broker,
     approvalFor: (callId) => services.calls.approvalFor(callId),
+    authorityFor: (callId) => services.calls.authorityFor(callId),
     onEvent: (event) => {
       onConnectorEvent(services, event);
       setup.onEvent?.(event);

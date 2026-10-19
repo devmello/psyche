@@ -10,7 +10,7 @@
 | `file-tools.ts` | stand-in `read_file` / `write_file` / `list_dir` until P9 ships (#49) |
 | `models.ts` | `PSYCHE_MODEL` → router config with env keys (dev and live tests); `NO_MODEL` |
 | `services.ts` | `ComposeServices` handed to each part; `ComposedPart`; `ApprovalRelay` (approvals over chat) |
-| `call-context.ts` | the loop's per-call decision context (thread, run, task, taint, approval id) for package executors |
+| `call-context.ts` | the loop's per-call decision context (thread, run, task, taint and its sources, requester, approval id, and `authorityFor`: the approval or standing grant that allowed the call) for package executors |
 | `browser.ts` | bridge socket, `CdpBridgeDriver` per desktop, `browser.*` tools with per-task sessions and recordings, status pill, client `browser.*` methods |
 | `connectors.ts` | `ConnectorRegistry` with Google, token vault stand-in, sync timer, `connectors.list` / `get` |
 | `channels.ts` | `ChannelService` with Telegram and WebChat, inbound → chat turns, replies, `channels.*`, approvals over chat |
