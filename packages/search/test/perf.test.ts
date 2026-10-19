@@ -7,7 +7,10 @@ import { DAY, NOW, setup } from "./helpers.ts";
 // the relative check below still catches a lost index there, since it compares two timings taken on
 // the same machine.
 const STRICT = !process.env.CI || process.env.PSYCHE_PERF === "1";
-const BUDGET_MS = STRICT ? 1000 : 3000;
+// The security workflow reruns every package's tests with model-visible capture on (PSYCHE_CAPTURE_DIR),
+// which adds file writes to every call; that job checks for leaks, not speed, so it gets a looser budget.
+const CAPTURED = process.env.PSYCHE_CAPTURE_DIR !== undefined;
+const BUDGET_MS = STRICT ? 1000 : CAPTURED ? 6000 : 3000;
 // Each query runs once untimed (cold statement cache, first page-in), then RUNS times; we assert on
 // the median so one scheduler hiccup on a shared runner cannot fail the build.
 const RUNS = 3;
