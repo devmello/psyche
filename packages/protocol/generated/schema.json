@@ -259,6 +259,11 @@
         "payload": "#/$defs/SettingsChangedPayload"
       },
       {
+        "description": "Skills changed: a reload, an install or removal, or a skill whose files no longer match its approved hash.",
+        "name": "skills.changed",
+        "payload": "#/$defs/SkillChangeEvent"
+      },
+      {
         "description": "One chunk of read-aloud PCM for progressive playback; last marks the end of audio.",
         "name": "speech.audio",
         "payload": "#/$defs/SpeechAudioPayload"
@@ -361,6 +366,30 @@
         "name": "artifacts.get",
         "params": "#/$defs/ArtifactsGetParams",
         "result": "#/$defs/ArtifactsGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Exports entries in a time window (default jsonl). Large logs: export a window at a time or use `psyche audit export`.",
+        "name": "audit.export",
+        "params": "#/$defs/AuditExportParams",
+        "result": "#/$defs/AuditExportResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists audit entries matching the filters (since inclusive, until exclusive). Page with sinceSeq.",
+        "name": "audit.list",
+        "params": "#/$defs/AuditListParams",
+        "result": "#/$defs/AuditListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Re-verifies the hash chain and anchors; reports the first broken entry.",
+        "name": "audit.verify",
+        "params": "#/$defs/AuditVerifyParams",
+        "result": "#/$defs/AuditVerifyResult",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -1114,6 +1143,94 @@
         "params": "#/$defs/SettingsSetParams",
         "result": "#/$defs/SettingsSetResult",
         "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Enabled user-invocable skills as composer slash commands.",
+        "name": "skills.commands",
+        "params": "#/$defs/EmptyParams",
+        "result": "#/$defs/SkillsCommandsResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "One skill and its SKILL.md text; the winning source unless `source` is given.",
+        "name": "skills.get",
+        "params": "#/$defs/SkillsGetParams",
+        "result": "#/$defs/SkillsGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "The staged proposal (full text, files, findings, diff) for an approval card on any device.",
+        "name": "skills.getProposal",
+        "params": "#/$defs/SkillsGetProposalParams",
+        "result": "#/$defs/SkillsGetProposalResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: installs a proposal; fails with approval_required without its approved skill_install.",
+        "name": "skills.install",
+        "params": "#/$defs/SkillsInstallParams",
+        "result": "#/$defs/SkillsInstallResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Every discovered skill with status, findings and overrides (Settings → Skills).",
+        "name": "skills.list",
+        "params": "#/$defs/EmptyParams",
+        "result": "#/$defs/SkillsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: opens a skill_install approval for a workspace skill draft or changed workspace skill.",
+        "name": "skills.proposeApproval",
+        "params": "#/$defs/SkillsProposeApprovalParams",
+        "result": "#/$defs/SkillProposalResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting: fetches and scans a skill and opens a device-only skill_install approval.",
+        "name": "skills.proposeInstall",
+        "params": "#/$defs/SkillsProposeInstallParams",
+        "result": "#/$defs/SkillProposalResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting: stages an update of an installed skill (with a diff) and opens a skill_install approval.",
+        "name": "skills.proposeUpdate",
+        "params": "#/$defs/SkillsProposeUpdateParams",
+        "result": "#/$defs/SkillProposalResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting: removes an installed skill (receipt kind skill_remove).",
+        "name": "skills.remove",
+        "params": "#/$defs/SkillsRemoveParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Skills whose name or description match the query.",
+        "name": "skills.search",
+        "params": "#/$defs/SkillsSearchParams",
+        "result": "#/$defs/SkillsSearchResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: sets the owner's switch for a skill.",
+        "name": "skills.setEnabled",
+        "params": "#/$defs/SkillsSetEnabledParams",
+        "result": "#/$defs/SkillsSetEnabledResult",
+        "scope": "operator.admin",
         "sideEffecting": true
       },
       {
@@ -2075,6 +2192,163 @@
         "data",
         "prev",
         "hash"
+      ],
+      "type": "object"
+    },
+    "AuditExportFormat": {
+      "enum": [
+        "jsonl",
+        "json"
+      ],
+      "type": "string"
+    },
+    "AuditExportParams": {
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/AuditExportFormat"
+        },
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "until": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "AuditExportResult": {
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/AuditExportFormat"
+        },
+        "data": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "format",
+        "data"
+      ],
+      "type": "object"
+    },
+    "AuditListParams": {
+      "properties": {
+        "kind": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kindPrefix": {
+          "description": "\"approval.\" matches every approval kind",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "until": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "sinceSeq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "limit": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "order": {
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "AuditListResult": {
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/AuditEntry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "type": "object"
+    },
+    "AuditVerifyParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "AuditVerifyResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "anchors": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "lastHash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "brokenAtSeq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "reason": {
+          "enum": [
+            "hash_mismatch",
+            "prev_mismatch",
+            "seq_gap",
+            "unparsable",
+            "truncated",
+            "anchor_mismatch",
+            "anchor_missing",
+            "anchor_signature"
+          ],
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ok"
       ],
       "type": "object"
     },
@@ -6655,6 +6929,22 @@
       ],
       "type": "object"
     },
+    "HighlightRange": {
+      "additionalItems": false,
+      "items": [
+        {
+          "minimum": 0,
+          "type": "integer"
+        },
+        {
+          "minimum": 0,
+          "type": "integer"
+        }
+      ],
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
     "HttpUrl": {
       "maxLength": 8192,
       "pattern": "^https?://",
@@ -10181,6 +10471,52 @@
       ],
       "type": "object"
     },
+    "ScanFinding": {
+      "properties": {
+        "rule": {
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "info",
+            "warn",
+            "high"
+          ],
+          "type": "string"
+        },
+        "message": {
+          "description": "Never quotes the matched text",
+          "type": "string"
+        },
+        "line": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "file": {
+          "description": "Path inside the skill folder",
+          "type": "string"
+        }
+      },
+      "required": [
+        "rule",
+        "severity",
+        "message"
+      ],
+      "type": "object"
+    },
+    "SearchGroup": {
+      "enum": [
+        "threads",
+        "tasks",
+        "memory",
+        "library",
+        "feed",
+        "ideas",
+        "goals",
+        "connectors"
+      ],
+      "type": "string"
+    },
     "SearchHit": {
       "properties": {
         "scope": {
@@ -10223,6 +10559,32 @@
               "type": "null"
             }
           ]
+        },
+        "kind": {
+          "$ref": "#/$defs/SearchIndexDocKind"
+        },
+        "group": {
+          "$ref": "#/$defs/SearchGroup"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "createdAt": {
+          "description": "Epoch ms",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "snippetHighlights": {
+          "items": {
+            "$ref": "#/$defs/HighlightRange"
+          },
+          "type": "array"
+        },
+        "titleHighlights": {
+          "items": {
+            "$ref": "#/$defs/HighlightRange"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -10233,6 +10595,44 @@
         "score"
       ],
       "type": "object"
+    },
+    "SearchHitGroup": {
+      "properties": {
+        "group": {
+          "$ref": "#/$defs/SearchGroup"
+        },
+        "count": {
+          "description": "Distinct results in the group (after collapsing messages onto threads)",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hits": {
+          "items": {
+            "$ref": "#/$defs/SearchHit"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "group",
+        "count",
+        "hits"
+      ],
+      "type": "object"
+    },
+    "SearchIndexDocKind": {
+      "enum": [
+        "thread",
+        "message",
+        "task",
+        "memory",
+        "library",
+        "feed",
+        "idea",
+        "goal",
+        "connector"
+      ],
+      "type": "string"
     },
     "SearchQueryParams": {
       "properties": {
@@ -10265,6 +10665,23 @@
             "$ref": "#/$defs/SearchHit"
           },
           "type": "array"
+        },
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/SearchHitGroup"
+          },
+          "type": "array"
+        },
+        "total": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "warnings": {
+          "description": "Filter tokens that were not understood",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -10279,7 +10696,10 @@
         "tasks",
         "memory",
         "library",
-        "feed"
+        "feed",
+        "ideas",
+        "goals",
+        "connectors"
       ],
       "type": "string"
     },
@@ -10395,6 +10815,748 @@
         "financial"
       ],
       "type": "string"
+    },
+    "SkillChangeEvent": {
+      "anyOf": [
+        {
+          "properties": {
+            "type": {
+              "const": "reloaded",
+              "type": "string"
+            },
+            "added": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "removed": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "changed": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "type",
+            "added",
+            "removed",
+            "changed"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "hash_mismatch",
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "source": {
+              "$ref": "#/$defs/SkillSource"
+            },
+            "path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "name",
+            "source",
+            "path"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "installed",
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "hash": {
+              "type": "string"
+            },
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "name",
+            "hash",
+            "enabled"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "removed",
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "source": {
+              "$ref": "#/$defs/SkillSource"
+            }
+          },
+          "required": [
+            "type",
+            "name",
+            "source"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "SkillCommand": {
+      "properties": {
+        "command": {
+          "description": "`/inbox-triage`",
+          "pattern": "^/",
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/SkillSource"
+        },
+        "trust": {
+          "$ref": "#/$defs/SkillTrust"
+        }
+      },
+      "required": [
+        "command",
+        "name",
+        "description",
+        "source",
+        "trust"
+      ],
+      "type": "object"
+    },
+    "SkillDetails": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/SkillSource"
+        },
+        "path": {
+          "type": "string"
+        },
+        "trust": {
+          "$ref": "#/$defs/SkillTrust"
+        },
+        "userInvocable": {
+          "type": "boolean"
+        },
+        "disableModelInvocation": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "description": "Effective state: the owner's switch and the gates",
+          "type": "boolean"
+        },
+        "hash": {
+          "description": "Tree hash; empty for a skill that could not be read",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/SkillStatus"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/ScanFinding"
+          },
+          "type": "array"
+        },
+        "userEnabled": {
+          "description": "The owner's switch (`enabled` is the effective state)",
+          "type": "boolean"
+        },
+        "overrides": {
+          "description": "Lower-precedence sources this skill overrides",
+          "items": {
+            "$ref": "#/$defs/SkillSource"
+          },
+          "type": "array"
+        },
+        "version": {
+          "type": "string"
+        },
+        "commit": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "source",
+        "path",
+        "trust",
+        "userInvocable",
+        "disableModelInvocation",
+        "enabled",
+        "hash",
+        "status",
+        "reasons",
+        "findings",
+        "userEnabled",
+        "overrides"
+      ],
+      "type": "object"
+    },
+    "SkillInstallSource": {
+      "anyOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "path",
+              "type": "string"
+            },
+            "path": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "path"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "git",
+              "type": "string"
+            },
+            "url": {
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            "ref": {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "url",
+            "ref"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "zip",
+              "type": "string"
+            },
+            "path": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "path"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "SkillProposal": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/SkillInstallSource"
+        },
+        "text": {
+          "description": "Full `SKILL.md` text, shown before enabling",
+          "type": "string"
+        },
+        "hash": {
+          "type": "string"
+        },
+        "trust": {
+          "$ref": "#/$defs/SkillTrust"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/ScanFinding"
+          },
+          "type": "array"
+        },
+        "approvalKind": {
+          "const": "skill_install",
+          "type": "string"
+        },
+        "files": {
+          "description": "Every file of the skill (security §11)",
+          "items": {
+            "$ref": "#/$defs/SkillProposalFile"
+          },
+          "type": "array"
+        },
+        "scope": {
+          "enum": [
+            "home",
+            "workspace"
+          ],
+          "type": "string"
+        },
+        "bindingHash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "grantKey": {
+          "type": "string"
+        },
+        "commit": {
+          "type": "string"
+        },
+        "update": {
+          "description": "Updates and re-approvals: the installed hash and the diff",
+          "properties": {
+            "fromHash": {
+              "type": "string"
+            },
+            "upToDate": {
+              "type": "boolean"
+            },
+            "diff": {
+              "description": "Unified diff per file",
+              "type": "string"
+            }
+          },
+          "required": [
+            "fromHash",
+            "upToDate",
+            "diff"
+          ],
+          "type": "object"
+        },
+        "expiresAt": {
+          "description": "Epoch ms",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "source",
+        "text",
+        "hash",
+        "trust",
+        "findings",
+        "approvalKind",
+        "files",
+        "scope",
+        "bindingHash",
+        "grantKey",
+        "expiresAt"
+      ],
+      "type": "object"
+    },
+    "SkillProposalFile": {
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "executable": {
+          "type": "boolean"
+        },
+        "text": {
+          "description": "Absent for binary files",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "bytes",
+        "executable"
+      ],
+      "type": "object"
+    },
+    "SkillProposalResult": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/SkillProposal"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        }
+      },
+      "required": [
+        "proposal",
+        "approval"
+      ],
+      "type": "object"
+    },
+    "SkillSource": {
+      "enum": [
+        "workspace",
+        "home",
+        "bundled"
+      ],
+      "type": "string"
+    },
+    "SkillStatus": {
+      "enum": [
+        "active",
+        "disabled",
+        "draft",
+        "unlocked",
+        "hash_mismatch",
+        "invalid",
+        "blocked",
+        "ineligible",
+        "shadowed"
+      ],
+      "type": "string"
+    },
+    "SkillSummary": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/SkillSource"
+        },
+        "path": {
+          "type": "string"
+        },
+        "trust": {
+          "$ref": "#/$defs/SkillTrust"
+        },
+        "userInvocable": {
+          "type": "boolean"
+        },
+        "disableModelInvocation": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "description": "Effective state: the owner's switch and the gates",
+          "type": "boolean"
+        },
+        "hash": {
+          "description": "Tree hash; empty for a skill that could not be read",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "source",
+        "path",
+        "trust",
+        "userInvocable",
+        "disableModelInvocation",
+        "enabled",
+        "hash"
+      ],
+      "type": "object"
+    },
+    "SkillTrust": {
+      "enum": [
+        "bundled",
+        "verified",
+        "local",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "SkillsCommandsResult": {
+      "properties": {
+        "commands": {
+          "items": {
+            "$ref": "#/$defs/SkillCommand"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "commands"
+      ],
+      "type": "object"
+    },
+    "SkillsGetParams": {
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/SkillSource"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "SkillsGetProposalParams": {
+      "properties": {
+        "proposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId"
+      ],
+      "type": "object"
+    },
+    "SkillsGetProposalResult": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/SkillProposal"
+        }
+      },
+      "required": [
+        "proposal"
+      ],
+      "type": "object"
+    },
+    "SkillsGetResult": {
+      "properties": {
+        "skill": {
+          "$ref": "#/$defs/SkillDetails"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "`SKILL.md` text; null when it cannot be read"
+        }
+      },
+      "required": [
+        "skill",
+        "text"
+      ],
+      "type": "object"
+    },
+    "SkillsInstallParams": {
+      "properties": {
+        "proposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId",
+        "approvalId"
+      ],
+      "type": "object"
+    },
+    "SkillsInstallResult": {
+      "properties": {
+        "skill": {
+          "$ref": "#/$defs/SkillSummary"
+        }
+      },
+      "required": [
+        "skill"
+      ],
+      "type": "object"
+    },
+    "SkillsListResult": {
+      "properties": {
+        "skills": {
+          "items": {
+            "$ref": "#/$defs/SkillDetails"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "skills"
+      ],
+      "type": "object"
+    },
+    "SkillsProposeApprovalParams": {
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "SkillsProposeInstallParams": {
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/SkillInstallSource"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "type": "object"
+    },
+    "SkillsProposeUpdateParams": {
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "type": "string"
+        },
+        "ref": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "SkillsRemoveParams": {
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "SkillsSearchParams": {
+      "properties": {
+        "query": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    },
+    "SkillsSearchResult": {
+      "properties": {
+        "skills": {
+          "items": {
+            "$ref": "#/$defs/SkillSummary"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "skills"
+      ],
+      "type": "object"
+    },
+    "SkillsSetEnabledParams": {
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "source": {
+          "$ref": "#/$defs/SkillSource"
+        }
+      },
+      "required": [
+        "name",
+        "enabled"
+      ],
+      "type": "object"
+    },
+    "SkillsSetEnabledResult": {
+      "properties": {
+        "skill": {
+          "$ref": "#/$defs/SkillDetails"
+        }
+      },
+      "required": [
+        "skill"
+      ],
+      "type": "object"
     },
     "SpeechAudioPayload": {
       "properties": {

@@ -1,14 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  Placeholder entitlements for com.psyche.helper (hardened runtime, Developer ID; not sandboxed).
-  Not wired into SwiftPM. S14 owns the final set: keychain access group, and
-  com.apple.security.virtualization for VM mode (M3). TCC grants key on the code signature, so dev
-  builds must be signed with a stable identity (security §12).
+  Hardened-runtime entitlements for com.psyche.helper (Developer ID, not sandboxed). These need no
+  provisioning profile. scripts/build-app.sh adds the profile-backed ones (keychain-access-groups,
+  application-identifier, team-identifier, time-sensitive notifications) only when a profile is
+  embedded: a restricted entitlement without a profile makes AMFI refuse to launch the app.
+  com.apple.security.virtualization is added for VM mode (M3).
 -->
 <plist version="1.0">
 <dict>
+  <!-- Apple Events / Shortcuts (J4); Automation is still asked per target app. -->
   <key>com.apple.security.automation.apple-events</key>
+  <true/>
+  <!-- Microphone under the hardened runtime (speech.transcribe_stream). -->
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
+  <!-- EventKit and Contacts under the hardened runtime (J6, M2). -->
+  <key>com.apple.security.personal-information.calendars</key>
+  <true/>
+  <key>com.apple.security.personal-information.addressbook</key>
   <true/>
 </dict>
 </plist>
