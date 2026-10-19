@@ -21,12 +21,22 @@ export interface ExtractInput {
   provenance?: Provenance;
 }
 
+/**
+ * One recognised line. `bbox` is normalised to the page (0..1, origin top-left), the shape
+ * Apple Vision returns after flipping its bottom-left origin; Tesseract's pixel boxes divide by
+ * the image size.
+ */
+export interface OcrLine {
+  text: string;
+  bbox: { x: number; y: number; width: number; height: number };
+}
+
 /** OCR backend: the Mac node's Vision capability or Tesseract in the sandbox (injected). */
 export interface OcrProvider {
   recognize(
     input: { bytes: Uint8Array; mime: string; page?: number },
     opts?: { signal?: AbortSignal },
-  ): Promise<{ text: string }>;
+  ): Promise<{ text: string; lines?: OcrLine[] }>;
 }
 
 export interface ExtractOptions {
