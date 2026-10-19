@@ -39,6 +39,21 @@ private final class FakeGatewayEnd: @unchecked Sendable {
         return res
     }
 
+    /// The blocking reads run on a GCD thread, never on Swift's cooperative pool: a CI runner has few
+    /// cooperative threads, and blocking them starves the session's handler tasks (node.result never
+    /// arrives).
+    func awaitRequest(_ method: String) async throws -> WireReqFrame {
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<WireReqFrame, Error>) in
+            DispatchQueue.global().async { cont.resume(with: Result { try self.request(method) }) }
+        }
+    }
+
+    func awaitResponse(_ id: String) async throws -> WireResFrame {
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<WireResFrame, Error>) in
+            DispatchQueue.global().async { cont.resume(with: Result { try self.response(id) }) }
+        }
+    }
+
     func request(_ method: String) throws -> WireReqFrame {
         guard case .req(let req) = try next(where: { if case .req(let r) = $0 { return r.method == method } else { return false } }) else {
             throw NodeSocketError.closedByPeer
@@ -77,59 +92,59 @@ private let needsAX = Capability(CapabilitySpec(name: "test.ax", description: "a
     CapabilityOutput(true)
 }
 
-@Suite("node session")
+@Suite("node session", .serialized)
 struct NodeSessionTests {
-    @Test func acceptsThenStreamsEventsThenResult() throws {
+    @Test func acceptsThenStreamsEventsThenResult() async throws {
         let (_, gw) = makeSession([echo])
         try gw.invoke("i1", "test.echo", ["x": "y"])
-        let accepted = try gw.response("g-i1")
+        let accepted = try await gw.awaitResponse("g-i1")
         #expect(accepted.ok && accepted.payload == ["accepted": true])
-        let event = try gw.request("node.event")
+        let event = try await gw.awaitRequest("node.event")
         #expect(event.params?["invocationId"] == "i1" && event.params?["data"] == ["step": 1])
-        let result = try gw.request("node.result")
+        let result = try await gw.awaitRequest("node.result")
         #expect(result.params?["ok"] == true && result.params?["result"] == ["x": "y"])
         #expect(result.params?["receipt"] == nil)
     }
 
-    @Test func sideEffectsCarryAReceipt() throws {
+    @Test func sideEffectsCarryAReceipt() async throws {
         let (_, gw) = makeSession([write])
         try gw.invoke("i2", "test.write", approvalId: "appr_1")
-        let result = try gw.request("node.result")
+        let result = try await gw.awaitRequest("node.result")
         let receipt = try #require(result.params?["receipt"])
         #expect(receipt["kind"] == "computer_action" && receipt["outcome"] == "ok" && receipt["approvalId"] == "appr_1")
         #expect(receipt["id"]?.stringValue?.hasPrefix("rcpt_") == true)
         #expect(receipt["taskId"] == .null && receipt["payload"] == .null)
     }
 
-    @Test func errorsCarryAReasonAndAFailedReceipt() throws {
+    @Test func errorsCarryAReasonAndAFailedReceipt() async throws {
         let (_, gw) = makeSession([failing])
         try gw.invoke("i3", "test.fail")
-        let result = try gw.request("node.result")
+        let result = try await gw.awaitRequest("node.result")
         #expect(result.params?["ok"] == false)
         #expect(result.params?["error"]?["code"] == "conflict")
         #expect(result.params?["error"]?["details"]?["reason"] == "stale_ref")
         #expect(result.params?["receipt"]?["outcome"] == "failed")
     }
 
-    @Test func unknownCapabilityIsNotFound() throws {
+    @Test func unknownCapabilityIsNotFound() async throws {
         let (_, gw) = makeSession([echo])
         try gw.invoke("i4", "nope.nothing")
-        let res = try gw.response("g-i4")
+        let res = try await gw.awaitResponse("g-i4")
         #expect(!res.ok && res.error?.code == "not_found")
     }
 
-    @Test func missingPermissionIsReportedWithoutRunningTheHandler() throws {
+    @Test func missingPermissionIsReportedWithoutRunningTheHandler() async throws {
         let (_, gw) = makeSession([needsAX], denied: [.accessibility])
         try gw.invoke("i5", "test.ax")
-        let result = try gw.request("node.result")
+        let result = try await gw.awaitRequest("node.result")
         #expect(result.params?["error"]?["details"]?["reason"] == "permission_missing")
         #expect(result.params?["error"]?["details"]?["permission"] == "accessibility")
     }
 
-    @Test func unknownGatewayMethodIsRejected() throws {
+    @Test func unknownGatewayMethodIsRejected() async throws {
         let (_, gw) = makeSession([echo])
         try gw.channel.send(.req(WireReqFrame(id: "x", method: "shell.exec")))
-        #expect(try gw.response("x").error?.code == "unknown_method")
+        #expect(try await gw.awaitResponse("x").error?.code == "unknown_method")
     }
 
     @Test func manifestDeclaresSideEffects() {
@@ -142,7 +157,7 @@ struct NodeSessionTests {
         #expect(entries[0]["inputSchema"]?["type"] == "object")
     }
 
-    @Test func paramsDecodeErrorsBecomeInvalidParams() throws {
+    @Test func paramsDecodeErrorsBecomeInvalidParams() async throws {
         struct P: Decodable { var app: String }
         let ctx = InvocationContext(invocationId: "i", capability: "c", params: ["app": 3], approvalId: nil, emit: { _ in })
         #expect(throws: CapabilityError.self) { try ctx.decode(P.self) }
