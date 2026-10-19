@@ -5,6 +5,8 @@ import { listMigrationFiles, openDb } from "../src/index.ts";
 import { makeTmpDir, memoryDb } from "./helpers.ts";
 
 const TABLES = [
+  "automation_runs",
+  "automations",
   "devices",
   "input_requests",
   "messages",
@@ -18,6 +20,7 @@ const TABLES = [
   "threads",
   "tool_calls",
   "usage",
+  "watches",
 ];
 
 function tableNames(db: ReturnType<typeof memoryDb>): string[] {
