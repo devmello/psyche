@@ -32,6 +32,9 @@ export const DEFAULT_MAX_TIMEOUT_MS = 30 * 60_000;
 export const DEFAULT_IDLE_TIMEOUT_MS = 10 * 60_000;
 export const DEFAULT_MAX_CONCURRENT_EXECS = 4;
 export const DEFAULT_MAX_PTYS = 4;
+/** Apple `container` VMs keep ~240 MB each and do not return freed memory (spike 02). */
+export const DEFAULT_MAX_RUNNING_APPLE = 3;
+export const DEFAULT_MAX_RUNNING_SANDBOXES = 8;
 
 /** `filesChanged` lists at most this many paths. */
 export const FILES_CHANGED_CAP = 1_000;

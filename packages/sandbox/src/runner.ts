@@ -43,6 +43,8 @@ import {
   DEFAULT_LIMITS,
   DEFAULT_MAX_CONCURRENT_EXECS,
   DEFAULT_MAX_PTYS,
+  DEFAULT_MAX_RUNNING_APPLE,
+  DEFAULT_MAX_RUNNING_SANDBOXES,
   DEFAULT_MAX_TIMEOUT_MS,
   EXEC_OUTPUT_CAP_BYTES,
   FILES_CHANGED_CAP,
@@ -88,6 +90,12 @@ export interface ContainerSandboxRunnerOptions extends DetectOptions {
   maxConcurrentExecs?: number;
   /** Open PTYs per scope. Default 4. */
   maxPtys?: number;
+  /**
+   * Running containers across all scopes; above it the least recently used idle one is
+   * stopped. Default 3 on Apple `container` (each is a VM that keeps freed guest memory,
+   * spike 02) and 8 elsewhere.
+   */
+  maxRunningSandboxes?: number;
   /** Largest accepted `timeoutMs`. Default 30 min. */
   maxTimeoutMs?: number;
   egressProxy?: EgressProxyConfig;
@@ -112,6 +120,7 @@ interface Entry {
   ptys: number;
   idleTimer: NodeJS.Timeout | undefined;
   starting: Promise<void> | undefined;
+  lastUsed: number;
 }
 
 const CONFIG_LABEL = `${LABEL_PREFIX}.config`;
@@ -160,6 +169,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
   readonly #pending = new Map<string, Promise<Entry>>();
   readonly #appleServiceChecked = new Set<string>();
   #disposed = false;
+  #tick = 0;
 
   constructor(options: ContainerSandboxRunnerOptions = {}) {
     this.#options = options;
@@ -386,6 +396,14 @@ export class ContainerSandboxRunner implements SandboxRunner {
     let netName = "none";
     const env: Record<string, string> = {};
     if (network === "proxy") {
+      if (backend.kind === "apple-container") {
+        // Spike 02: an --internal vmnet exposes every host service bound to 0.0.0.0, so
+        // Apple needs the --publish-socket bridge profile, which is not implemented yet.
+        return fail(
+          "unavailable",
+          "network proxy is not supported on Apple container yet (needs the socket bridge)",
+        );
+      }
       const proxy = this.#options.egressProxy;
       if (!proxy) {
         return fail("unavailable", "network proxy requested but no egress proxy is configured");
@@ -442,6 +460,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
       ptys: 0,
       idleTimer: undefined,
       starting: undefined,
+      lastUsed: this.#tick++,
     };
     await this.#ensureRunning(entry);
     this.#byId.set(id, entry);
@@ -523,6 +542,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
   #ensureRunning(entry: Entry): Promise<void> {
     if (entry.running) return Promise.resolve();
     entry.starting ??= (async () => {
+      await this.#makeRoom(entry);
       const state = await this.#inspect(entry);
       const { backend } = entry;
       if (state && state.labels[CONFIG_LABEL] === entry.spec.labels[CONFIG_LABEL]) {
@@ -574,7 +594,31 @@ export class ContainerSandboxRunner implements SandboxRunner {
     this.#byScope.delete(scopeKey(entry.instance.scope));
   }
 
+  /** Keeps the number of running containers under `maxRunningSandboxes`. */
+  async #makeRoom(entry: Entry): Promise<void> {
+    const max =
+      this.#options.maxRunningSandboxes ??
+      (entry.backend.kind === "apple-container"
+        ? DEFAULT_MAX_RUNNING_APPLE
+        : DEFAULT_MAX_RUNNING_SANDBOXES);
+    const others = [...this.#byId.values()].filter((e) => e !== entry && e.running);
+    let excess = others.length + 1 - max;
+    if (excess <= 0) return;
+    const idle = others
+      .filter((e) => e.active === 0 && e.starting === undefined)
+      .sort((a, b) => a.lastUsed - b.lastUsed);
+    for (const victim of idle) {
+      if (excess <= 0) break;
+      await this.#stop(victim);
+      excess -= 1;
+    }
+    if (excess > 0) {
+      fail("rate_limited", `${max} sandboxes are already running and busy; try again later`);
+    }
+  }
+
   #busy(entry: Entry): void {
+    entry.lastUsed = this.#tick++;
     entry.active += 1;
     if (entry.idleTimer) clearTimeout(entry.idleTimer);
     entry.idleTimer = undefined;
