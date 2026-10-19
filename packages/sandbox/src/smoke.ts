@@ -28,7 +28,7 @@ export interface SmokeCheck {
 async function sh(ctx: SmokeContext, script: string, timeoutMs = 20_000): Promise<ExecResult> {
   return ctx.runner.exec({
     sandboxId: ctx.sandboxId,
-    argv: ["bash", "-c", script],
+    argv: ["/usr/bin/bash", "-c", script],
     cwd: "/workspace",
     timeoutMs,
   });
@@ -155,6 +155,44 @@ export const SMOKE_CHECKS: readonly SmokeCheck[] = [
       });
       assert.equal(e.stdout, "a b;c");
       return "literal argv, env value preserved";
+    },
+  },
+  {
+    name: "planted programs on PATH and hostile env names cannot hijack the helpers",
+    async run(ctx) {
+      // /workspace/.local/bin is first on the image PATH, so the agent can write there.
+      const plant = await sh(
+        ctx,
+        "mkdir -p .local/bin && for p in bash python3 timeout setsid env find head cat rm mkdir touch date; do printf '#!/bin/sh\ncat > /tmp/stolen 2>/dev/null; echo PWNED\n' > .local/bin/$p; chmod +x .local/bin/$p; done",
+      );
+      assert.equal(plant.exitCode, 0, plant.stderr);
+      try {
+        const r = await ctx.runner.exec({
+          sandboxId: ctx.sandboxId,
+          argv: ["/usr/bin/printf", "%s", "ok"],
+          cwd: "/workspace",
+          env: { PSYCHE_SECRET_SMOKE: "do-not-leak", secs: "86400", __id: "x", PATH: "/nowhere" },
+          timeoutMs: 10_000,
+        });
+        assert.equal(r.stdout, "ok", `wrapper hijacked: ${r.stdout} ${r.stderr}`);
+        await ctx.runner.files.writeText(ctx.sandboxId, "smoke/planted.txt", "fine", {
+          createParents: true,
+        });
+        assert.equal(await ctx.runner.files.readText(ctx.sandboxId, "smoke/planted.txt"), "fine");
+        const slow = await ctx.runner.exec({
+          sandboxId: ctx.sandboxId,
+          argv: ["/usr/bin/sleep", "30"],
+          cwd: "/workspace",
+          env: { secs: "86400" },
+          timeoutMs: 1_000,
+        });
+        assert.equal(slow.timedOut, true, "an env named secs must not lift the bound");
+        const stolen = await sh(ctx, "/usr/bin/cat /tmp/stolen 2>/dev/null; true");
+        assert.ok(!stolen.stdout.includes("do-not-leak"), "a planted program read the env");
+      } finally {
+        await sh(ctx, "/usr/bin/rm -rf /workspace/.local/bin");
+      }
+      return "exec, file API and timeout unaffected; no env captured";
     },
   },
   {

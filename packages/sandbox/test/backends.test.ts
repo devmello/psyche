@@ -130,7 +130,8 @@ describe("other argv builders", () => {
       "v",
     ]);
     const init = volumeInitArgs("apple-container", "v", "img");
-    expect(init).toContain("chown");
+    // Absolute path: the image PATH starts with /workspace/.local/bin.
+    expect(init).toContain("/usr/bin/chown");
     expect(init).not.toContain("bash");
     expect(volumeInitArgs("docker", "v", "img")).toBeNull();
   });

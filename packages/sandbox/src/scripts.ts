@@ -9,37 +9,56 @@
 export const STATE_DIR = "/tmp/.psyche";
 
 /**
+ * Absolute paths for every program the helpers start. The image PATH puts
+ * /workspace/.local/bin first, so a bare `bash`, `python3` or `timeout` could be a program the
+ * agent wrote (security §5.1, PATH injection). Builtins (`read`, `kill`, `[`) are safe.
+ */
+export const BASH = "/usr/bin/bash";
+export const PYTHON = "/usr/bin/python3";
+
+/**
  * Exec wrapper. `$1` = exec id, `$2` = timeout seconds, `$3` = "--", the rest is the argv.
  * stdin carries NUL-terminated `KEY=value` pairs (so env values, including vault-injected
- * secrets, never appear in host `ps` output); the command itself gets `/dev/null`.
+ * secrets, never appear in host `ps` output). They are applied only to the command itself via
+ * `env --`, never to this shell, so a name like `PATH` or `secs` cannot disturb the wrapper.
+ * The command gets `/dev/null` as stdin.
  *
  * The command runs in its own session with a pid file so an interrupt can kill the whole
  * process group from a second exec: signalling the host `exec` client does not stop the
  * process in the container (spike 02). `timeout -k 2` bounds it inside the container too.
+ * The `filesChanged` marker is back-dated 50 ms because ctime uses the coarse kernel clock.
  */
 export const EXEC_WRAPPER = `set -u
-id=$1; secs=$2; shift 3
-d=${STATE_DIR}
-mkdir -p "$d" 2>/dev/null
-if ! : > "$d/$id.mark"; then echo "psyche-sandbox: /tmp is not writable" >&2; exit 125; fi
-while IFS= read -r -d '' kv; do export "$kv" || exit 125; done
-exec setsid --wait bash -c 'echo $$ > "$1"; shift; exec timeout --kill-after=2 "$@"' psyche-session "$d/$id.pid" "$secs" "$@" </dev/null`;
+__id=$1; __secs=$2; shift 3
+__d=${STATE_DIR}
+/usr/bin/mkdir -p "$__d" 2>/dev/null
+__ts=$(( $(/usr/bin/date +%s%N) - 50000000 ))
+if ! /usr/bin/touch -d "@\${__ts:0:-9}.\${__ts: -9}" "$__d/$__id.mark"; then
+  echo "psyche-sandbox: /tmp is not writable" >&2; exit 125
+fi
+__env=()
+while IFS= read -r -d '' __kv; do __env+=("$__kv"); done
+exec /usr/bin/setsid --wait ${BASH} -c 'echo $$ > "$1"; shift; exec /usr/bin/timeout --kill-after=2 "$@"' psyche-session "$__d/$__id.pid" "$__secs" /usr/bin/env -- "\${__env[@]}" "$@" </dev/null`;
 
 /** Signals the process group recorded by `EXEC_WRAPPER`. `$1` = exec id, `$2` = signal. */
-export const KILL_GROUP = `p=$(cat "${STATE_DIR}/$1.pid" 2>/dev/null) || exit 0
-[ -n "$p" ] && kill -s "$2" -- "-$p" 2>/dev/null
+export const KILL_GROUP = `__p=
+IFS= read -r __p < "${STATE_DIR}/$1.pid" 2>/dev/null
+case $__p in ''|*[!0-9]*) exit 0 ;; esac
+kill -s "$2" -- "-$__p" 2>/dev/null
 exit 0`;
 
 /**
  * Lists workspace files created or changed since the exec started (ctime newer than the
  * marker, so preserved mtimes still count), NUL-separated, at most $2 entries, then
- * removes the bookkeeping files. Tool caches under /workspace/.cache are skipped.
+ * removes the bookkeeping files. Tool caches under /workspace/.cache are skipped. Concurrent
+ * execs in one scope see each other's changes (the walk cannot attribute them).
  */
-export const FILES_CHANGED = `d=${STATE_DIR}; id=$1; cap=$2
-if [ -f "$d/$id.mark" ]; then
-  find /workspace -xdev -path /workspace/.cache -prune -o \\( -type f -o -type l \\) -cnewer "$d/$id.mark" -printf '%P\\0' 2>/dev/null | head -z -n "$cap"
+export const FILES_CHANGED = `__d=${STATE_DIR}; __id=$1; __cap=$2
+if [ -f "$__d/$__id.mark" ]; then
+  /usr/bin/find /workspace -xdev -path /workspace/.cache -prune -o \\( -type f -o -type l \\) -cnewer "$__d/$__id.mark" -printf '%P\\0' 2>/dev/null | /usr/bin/head -z -n "$__cap"
 fi
-rm -f "$d/$id.mark" "$d/$id.pid"`;
+/usr/bin/rm -f "$__d/$__id.mark" "$__d/$__id.pid"
+exit 0`;
 
 /**
  * Workspace file API. Every path is walked from an fd on /workspace one component at a time
@@ -324,6 +343,11 @@ if pid == 0:
         os.write(2, ("psyche-sandbox: cannot run %s: %s\n" % (argv[0], e.strerror)).encode())
     os._exit(127)
 os.close(slave)
+# Input for the terminal is queued and written only when the master is writable, so a
+# large paste into a busy program cannot stop the relay from draining its output.
+pending = bytearray()
+MAX_PENDING = 1 << 20
+
 def drain_frames():
     while True:
         fr = next_frame()
@@ -331,7 +355,7 @@ def drain_frames():
             return
         t, p = fr
         if t == 0:
-            write_all(master, p)
+            pending.extend(p)
         elif t == 1 and len(p) == 4:
             c, r = struct.unpack(">HH", p)
             set_size(master, c, r)
@@ -341,19 +365,31 @@ with open(pidfile, "w") as f:
     f.write(str(pid))
 # Frames that arrived together with the env frame.
 drain_frames()
+fcntl.fcntl(master, fcntl.F_SETFL, fcntl.fcntl(master, fcntl.F_GETFL) | os.O_NONBLOCK)
 stdin_open = True
 while True:
-    watch = [master] + ([0] if stdin_open else [])
-    ready, _, _ = select.select(watch, [], [])
+    watch = [master] + ([0] if stdin_open and len(pending) < MAX_PENDING else [])
+    ready, writable, _ = select.select(watch, [master] if pending else [], [])
+    if master in writable:
+        try:
+            n = os.write(master, pending[:65536])
+            del pending[:n]
+        except BlockingIOError:
+            pass
+        except OSError:
+            pending.clear()
     if master in ready:
         try:
             data = os.read(master, 65536)
+        except BlockingIOError:
+            data = None
         except OSError:
             data = b""
-        if not data:
+        if data == b"":
             break
-        write_all(1, data)
-    if stdin_open and 0 in ready:
+        if data:
+            write_all(1, data)
+    if 0 in ready:
         chunk = os.read(0, 65536)
         if not chunk:
             stdin_open = False

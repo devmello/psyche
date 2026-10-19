@@ -85,11 +85,12 @@ The runner only ever runs the fixed CLI with argument arrays (`shell: false`). T
 ## Exec semantics
 
 - `argv` is passed to the container as separate arguments and is never a shell string. The runner runs a fixed in-container wrapper (`src/scripts.ts`). The wrapper puts the command in its own session with a pid file and runs it under `timeout --kill-after=2 <s>`, with stdin set to `/dev/null`.
-- **Env travels over stdin** as NUL-separated pairs, so vault-injected `PSYCHE_SECRET_*` values never appear in host `ps` output. Container-level env (proxy URLs) is passed as `-e NAME`, with the value inherited from the CLI's own environment.
+- **Env travels over stdin** as NUL-separated pairs, so vault-injected `PSYCHE_SECRET_*` values never appear in host `ps` output. It is applied only to the command itself (`env -- NAME=value… argv`), never to the wrapper shell, so a name such as `PATH` or `secs` cannot change how the wrapper behaves. This is also why `argv[0]` may not contain `=`. Container-level env (proxy URLs) is passed as `-e NAME`, with the value inherited from the CLI's own environment.
+- **Helpers never use PATH.** The image PATH puts `/workspace/.local/bin` first, which the agent can write. So every helper and every tool inside the helpers is started by absolute path (`/usr/bin/bash`, `/usr/bin/python3`, `/usr/bin/timeout`, …), and Python runs with `-I -S`. Helper output (`filesChanged`, directory listings) is validated on the host as untrusted data. The smoke test plants fake binaries to check this.
 - Timeouts are enforced twice: by `timeout` in the container (TERM, then KILL after 2 s), and by a host watchdog 7 s later in case the exec channel hangs.
 - **Interrupts** (an aborted `signal`) kill the process group from a second exec, because killing the host `exec` client does not stop the process (spike 02). The sequence is TERM, then KILL after 2 s, then the client itself.
 - Results follow the contract. A timed-out command has `timedOut: true`, `exitCode: null` and `outcome: "uncertain"`. An interrupted one has `exitCode: null` and `outcome: "uncertain"`. Interrupted commands are never replayed. stdout and stderr are each capped at 128 KB (`EXEC_OUTPUT_CAP_BYTES`, architecture §9), with `truncated` set when either cap is hit.
-- `filesChanged` lists workspace files with a ctime newer than the start of the command (created, written or chmod-ed; deletions are not listed). `/workspace/.cache` is skipped and the list is capped at 1,000 entries.
+- `filesChanged` lists workspace files with a ctime newer than the start of the command (created, written or chmod-ed; deletions are not listed). The start marker is back-dated 50 ms because ctime uses the coarse kernel clock. `/workspace/.cache` is skipped and the list is capped at 1,000 entries. Execs that run at the same time in one scope see each other's changes, and the walk covers the whole workspace, so a very large tree (for example `node_modules`) slows every exec.
 
 ## File API
 
@@ -130,7 +131,7 @@ pnpm sandbox:smoke --backend apple-container --variant base --build
 pnpm sandbox:build --backend docker --variant base
 ```
 
-The smoke test is the OpenMuse one plus PTY and concurrency checks (`src/smoke.ts`): nonroot, read-only system files, no network, capped output, timeout and interrupt recorded as `uncertain` with no processes left, `filesChanged`, text edit, symlink and FIFO rejection, PDF byte round trip, persistence across a restart, PTY echo and resize, and the concurrency limit. `pnpm test` runs the same checks on every detected backend (`test/integration.test.ts`), plus the protocol conformance suite. Set `PSYCHE_SANDBOX_TESTS=0` to skip them, or `PSYCHE_SANDBOX_TEST_BACKENDS=docker` to restrict them. When no backend is present they are skipped with a message.
+The smoke test is the OpenMuse one plus PATH-hijack, PTY and concurrency checks (`src/smoke.ts`, 15 checks): nonroot, read-only system files, no network, capped output, timeout and interrupt recorded as `uncertain` with no processes left, `filesChanged`, text edit, symlink and FIFO rejection, PDF byte round trip, persistence across a restart, PTY echo and resize, and the concurrency limit. `pnpm test` runs the same checks on every detected backend (`test/integration.test.ts`), plus the protocol conformance suite. Set `PSYCHE_SANDBOX_TESTS=0` to skip them, or `PSYCHE_SANDBOX_TEST_BACKENDS=docker` to restrict them. When no backend is present they are skipped with a message.
 
 ## Not implemented / stubbed
 

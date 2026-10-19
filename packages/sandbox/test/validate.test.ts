@@ -44,7 +44,8 @@ describe("request validation", () => {
     expect(code(() => validateArgv("ls -la"))).toBe("invalid_params");
     expect(code(() => validateArgv(["ls", 1]))).toBe("invalid_params");
     expect(code(() => validateArgv(["ls", "a\0b"]))).toBe("invalid_params");
-    expect(code(() => validateArgv(["ls", "-la"]))).toBeUndefined();
+    expect(code(() => validateArgv(["A=1", "ls"]))).toBe("invalid_params");
+    expect(code(() => validateArgv(["ls", "-la", "a=b"]))).toBeUndefined();
   });
 
   it("cwd must be absolute", () => {

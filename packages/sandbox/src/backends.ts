@@ -219,7 +219,7 @@ export function volumeInitArgs(
     "--volume",
     `${volume}:${WORKSPACE_PATH}`,
     image,
-    "chown",
+    "/usr/bin/chown",
     `${SANDBOX_UID}:${SANDBOX_GID}`,
     WORKSPACE_PATH,
   ];

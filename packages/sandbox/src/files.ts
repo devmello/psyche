@@ -2,7 +2,7 @@ import { type ErrorCode, PsycheError } from "@psyche/protocol";
 import type { CliResult } from "./cli.ts";
 import { fail } from "./errors.ts";
 import { TEXT_FILE_CAP_BYTES, TRANSFER_FILE_CAP_BYTES } from "./limits.ts";
-import { FILES_HELPER } from "./scripts.ts";
+import { FILES_HELPER, PYTHON } from "./scripts.ts";
 import { workspaceRelative } from "./validate.ts";
 
 export type WorkspaceEntryKind = "file" | "dir" | "symlink" | "other";
@@ -47,7 +47,20 @@ export class WorkspaceFiles {
     sandboxId: string,
     path = "",
   ): Promise<{ entries: WorkspaceEntry[]; truncated: boolean }> {
-    return this.#json(sandboxId, ["list", workspaceRelative(path)]);
+    const listed = await this.#json<{ entries: WorkspaceEntry[]; truncated: boolean }>(sandboxId, [
+      "list",
+      workspaceRelative(path),
+    ]);
+    // Names come from inside the sandbox; drop anything that is not a single path component.
+    const entries = listed.entries.filter(
+      (e) =>
+        typeof e.name === "string" &&
+        e.name !== "" &&
+        !/[/\0]/.test(e.name) &&
+        e.name !== "." &&
+        e.name !== "..",
+    );
+    return { entries, truncated: listed.truncated === true };
   }
 
   async stat(sandboxId: string, path: string): Promise<Omit<WorkspaceEntry, "name">> {
@@ -154,7 +167,7 @@ export class WorkspaceFiles {
     args: string[],
     options: { input?: Uint8Array | string; maxBytes: number },
   ): Promise<CliResult> {
-    const r = await this.#exec(sandboxId, ["python3", "-I", "-S", "-c", FILES_HELPER, ...args], {
+    const r = await this.#exec(sandboxId, [PYTHON, "-I", "-S", "-c", FILES_HELPER, ...args], {
       input: options.input ?? "",
       maxBytes: options.maxBytes,
     });

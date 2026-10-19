@@ -26,6 +26,10 @@ export function validateArgv(argv: unknown): asserts argv is string[] {
     if (typeof arg !== "string") fail("invalid_params", "every argv entry must be a string");
     if (arg.includes("\0")) fail("invalid_params", "argv entries must not contain NUL bytes");
   }
+  // The wrapper runs `env -- NAME=value… argv`, which would read such an argv[0] as a variable.
+  if ((argv[0] as string).includes("=")) {
+    fail("invalid_params", "argv[0] must not contain '='");
+  }
 }
 
 /** Container-side working directory: absolute, normalized, no NUL. */

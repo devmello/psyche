@@ -139,6 +139,44 @@ describe("ContainerSandboxRunner (fake CLI)", () => {
     expect(r.filesChanged).toEqual(["a.txt", "dir/b.pdf"]);
   });
 
+  it("drops filesChanged entries that are not plain workspace-relative paths", async () => {
+    const { driver, runner } = setup();
+    const sbx = await runner.ensureSandbox(scope);
+    driver.respond = (args) =>
+      args.includes("psyche-changed")
+        ? { stdout: Buffer.from("ok.txt\0../../etc/x\0/abs\0a/../b\0") }
+        : undefined;
+    const r = await runner.exec({ sandboxId: sbx.id, argv: ["x"], cwd: "/", timeoutMs: 1_000 });
+    expect(r.filesChanged).toEqual(["ok.txt"]);
+  });
+
+  it("starts every helper by absolute path, never a PATH lookup", async () => {
+    const { driver, runner } = setup();
+    const sbx = await runner.ensureSandbox(scope);
+    await runner.exec({ sandboxId: sbx.id, argv: ["true"], cwd: "/", timeoutMs: 1_000 });
+    await runner.files.list(sbx.id).catch(() => undefined);
+    // Docker exec argv: exec --interactive --user U --workdir CWD NAME <program> …
+    const helpers = driver.find("exec").map((c) => c.args[7]);
+    expect(helpers.length).toBeGreaterThanOrEqual(3);
+    for (const h of helpers) expect(h).toMatch(/^\/usr\/bin\/(bash|python3)$/);
+  });
+
+  it("holds maxRunningSandboxes when many scopes start at once", async () => {
+    const { driver, runner } = setup({ maxRunningSandboxes: 3 });
+    let live = 0;
+    let peak = 0;
+    driver.respond = (args) => {
+      if (args[0] === "run") peak = Math.max(peak, ++live);
+      if (args[0] === "stop") live -= 1;
+      return notFound(args);
+    };
+    await Promise.all(
+      Array.from({ length: 6 }, (_, i) => runner.ensureSandbox({ kind: "task", id: `p${i}` })),
+    );
+    expect(peak).toBe(3);
+    expect(driver.find("stop")).toHaveLength(3);
+  });
+
   it("validates requests before touching the CLI", async () => {
     const { driver, runner } = setup();
     const sbx = await runner.ensureSandbox(scope);

@@ -53,8 +53,16 @@ import {
   type SandboxLimits,
   WORKSPACE_PATH,
 } from "./limits.ts";
-import { createPtySession, type PtyOptions, type SandboxPty } from "./pty.ts";
-import { EXEC_WRAPPER, FILES_CHANGED, KILL_GROUP, PTY_RELAY, STATE_DIR } from "./scripts.ts";
+import { clampDim, createPtySession, type PtyOptions, type SandboxPty } from "./pty.ts";
+import {
+  BASH,
+  EXEC_WRAPPER,
+  FILES_CHANGED,
+  KILL_GROUP,
+  PTY_RELAY,
+  PYTHON,
+  STATE_DIR,
+} from "./scripts.ts";
 import { Semaphore } from "./sync.ts";
 import {
   validateArgv,
@@ -121,6 +129,7 @@ interface Entry {
   idleTimer: NodeJS.Timeout | undefined;
   starting: Promise<void> | undefined;
   lastUsed: number;
+  stopping: Promise<void> | undefined;
 }
 
 const CONFIG_LABEL = `${LABEL_PREFIX}.config`;
@@ -144,10 +153,9 @@ function settledWithin(p: Promise<unknown>, ms: number): Promise<boolean> {
   });
 }
 
-/** CLI errors (container gone, daemon down) rather than the command's own failure. */
-function looksLikeCliError(r: CliResult): boolean {
-  const text = r.stderr.toString("utf8", 0, Math.min(r.stderr.length, 512));
-  return /^(Error response from daemon|Error: |Error: container|error: )/m.test(text);
+/** Helper output is data from inside the sandbox: keep only plain workspace-relative paths. */
+function plainRelative(path: string): boolean {
+  return path !== "" && !path.startsWith("/") && !path.split("/").includes("..");
 }
 
 /**
@@ -170,6 +178,10 @@ export class ContainerSandboxRunner implements SandboxRunner {
   readonly #appleServiceChecked = new Set<string>();
   #disposed = false;
   #tick = 0;
+  /** Entries this runner believes are running or starting (for `maxRunningSandboxes`). */
+  readonly #live = new Set<Entry>();
+  /** Serialises container starts so the running-sandbox cap holds under concurrency. */
+  readonly #startLock = new Semaphore(1);
 
   constructor(options: ContainerSandboxRunnerOptions = {}) {
     this.#options = options;
@@ -208,6 +220,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
         );
       }
       await this.#ensureRunning(existing);
+      this.#idle(existing, false);
       return structuredClone(existing.instance);
     }
     let pending = this.#pending.get(key);
@@ -251,6 +264,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
     const entry = this.#byId.get(sandboxId);
     if (!entry) return;
     this.#forget(entry);
+    await this.#settle(entry);
     await this.#cli(entry.backend, removeArgs(entry.backend.kind, entry.container), {
       timeoutMs: 60_000,
     });
@@ -299,9 +313,9 @@ export class ContainerSandboxRunner implements SandboxRunner {
     try {
       await this.#ensureRunning(entry);
       const id = randomBytes(8).toString("hex");
-      const cols = String(Math.max(1, Math.trunc(options.cols ?? 80)));
-      const rows = String(Math.max(1, Math.trunc(options.rows ?? 24)));
-      const relay = ["python3", "-I", "-S", "-c", PTY_RELAY, `${STATE_DIR}/${id}.pid`, cols, rows];
+      const cols = String(clampDim(options.cols ?? 80));
+      const rows = String(clampDim(options.rows ?? 24));
+      const relay = [PYTHON, "-I", "-S", "-c", PTY_RELAY, `${STATE_DIR}/${id}.pid`, cols, rows];
       const stream = this.#driver.stream(
         entry.backend.cli,
         execArgs(entry.backend.kind, entry.container, cwd, [...relay, ...argv]),
@@ -329,10 +343,12 @@ export class ContainerSandboxRunner implements SandboxRunner {
   /** Stops (or with `remove`, deletes) every container this runner started. Volumes stay. */
   async dispose(options: { remove?: boolean } = {}): Promise<void> {
     this.#disposed = true;
+    await Promise.allSettled([...this.#pending.values()]);
     const entries = [...this.#byId.values()];
     await Promise.all(
       entries.map(async (entry) => {
         this.#forget(entry);
+        await this.#settle(entry);
         const args = options.remove
           ? removeArgs(entry.backend.kind, entry.container)
           : stopArgs(entry.backend.kind, entry.container);
@@ -461,8 +477,15 @@ export class ContainerSandboxRunner implements SandboxRunner {
       idleTimer: undefined,
       starting: undefined,
       lastUsed: this.#tick++,
+      stopping: undefined,
     };
     await this.#ensureRunning(entry);
+    if (this.#disposed) {
+      // dispose() ran while this sandbox was starting; do not leave an orphan behind.
+      this.#live.delete(entry);
+      await this.#cli(backend, removeArgs(backend.kind, container), { timeoutMs: 60_000 });
+      return fail("unavailable", "sandbox runner is disposed");
+    }
     this.#byId.set(id, entry);
     this.#byScope.set(scopeKey(scope), entry);
     this.#idle(entry, false);
@@ -542,31 +565,17 @@ export class ContainerSandboxRunner implements SandboxRunner {
   #ensureRunning(entry: Entry): Promise<void> {
     if (entry.running) return Promise.resolve();
     entry.starting ??= (async () => {
-      await this.#makeRoom(entry);
-      const state = await this.#inspect(entry);
-      const { backend } = entry;
-      if (state && state.labels[CONFIG_LABEL] === entry.spec.labels[CONFIG_LABEL]) {
-        if (!state.running) {
-          const r = await this.#cli(backend, startArgs(backend.kind, entry.container), {
-            timeoutMs: 120_000,
-          });
-          if (r.exitCode !== 0) {
-            fail("unavailable", `could not start ${entry.container}: ${r.stderr.toString("utf8")}`);
-          }
-        }
-      } else {
-        if (state) {
-          await this.#cli(backend, removeArgs(backend.kind, entry.container), {
-            timeoutMs: 60_000,
-          });
-        }
-        const r = await this.#cli(backend, runArgs(backend.kind, entry.spec), {
-          timeoutMs: 300_000,
-          env: { ...process.env, ...entry.spec.env },
-        });
-        if (r.exitCode !== 0) {
-          fail("unavailable", `could not start the sandbox: ${r.stderr.toString("utf8").trim()}`);
-        }
+      if (entry.stopping) await entry.stopping;
+      const release = await this.#startLock.acquire();
+      try {
+        await this.#makeRoom(entry);
+        this.#live.add(entry);
+        await this.#startContainer(entry);
+      } catch (e) {
+        this.#live.delete(entry);
+        throw e;
+      } finally {
+        release();
       }
       entry.running = true;
       entry.instance.status = "ready";
@@ -576,20 +585,69 @@ export class ContainerSandboxRunner implements SandboxRunner {
     return entry.starting;
   }
 
+  /** Adopts a container with a matching config (starting it if stopped), or (re)creates it. */
+  async #startContainer(entry: Entry): Promise<void> {
+    const state = await this.#inspect(entry);
+    const { backend } = entry;
+    if (state && state.labels[CONFIG_LABEL] === entry.spec.labels[CONFIG_LABEL]) {
+      if (!state.running) {
+        const r = await this.#cli(backend, startArgs(backend.kind, entry.container), {
+          timeoutMs: 120_000,
+        });
+        if (r.exitCode !== 0) {
+          fail("unavailable", `could not start ${entry.container}: ${r.stderr.toString("utf8")}`);
+        }
+      }
+    } else {
+      if (state) {
+        await this.#cli(backend, removeArgs(backend.kind, entry.container), {
+          timeoutMs: 60_000,
+        });
+      }
+      const r = await this.#cli(backend, runArgs(backend.kind, entry.spec), {
+        timeoutMs: 300_000,
+        env: { ...process.env, ...entry.spec.env },
+      });
+      if (r.exitCode !== 0) {
+        fail("unavailable", `could not start the sandbox: ${r.stderr.toString("utf8").trim()}`);
+      }
+    }
+  }
+
+  /** Waits for an in-flight start or stop of this entry. */
+  async #settle(entry: Entry): Promise<void> {
+    if (entry.starting) await entry.starting.catch(() => undefined);
+    if (entry.stopping) await entry.stopping;
+  }
+
+  /** Stops the container; a start that follows waits for the stop to finish. */
   async #stop(entry: Entry): Promise<void> {
+    if (entry.starting) await entry.starting.catch(() => undefined);
     if (entry.idleTimer) clearTimeout(entry.idleTimer);
     entry.idleTimer = undefined;
-    entry.running = false;
-    entry.instance.status = "stopped";
-    await this.#cli(entry.backend, stopArgs(entry.backend.kind, entry.container), {
-      timeoutMs: 60_000,
-    });
+    if (!entry.stopping) {
+      entry.running = false;
+      entry.instance.status = "stopped";
+      this.#live.delete(entry);
+      entry.stopping = this.#cli(entry.backend, stopArgs(entry.backend.kind, entry.container), {
+        timeoutMs: 60_000,
+      })
+        .then(
+          () => undefined,
+          () => undefined,
+        )
+        .finally(() => {
+          entry.stopping = undefined;
+        });
+    }
+    await entry.stopping;
   }
 
   #forget(entry: Entry): void {
     if (entry.idleTimer) clearTimeout(entry.idleTimer);
     entry.idleTimer = undefined;
     entry.running = false;
+    this.#live.delete(entry);
     this.#byId.delete(entry.instance.id);
     this.#byScope.delete(scopeKey(entry.instance.scope));
   }
@@ -601,14 +659,14 @@ export class ContainerSandboxRunner implements SandboxRunner {
       (entry.backend.kind === "apple-container"
         ? DEFAULT_MAX_RUNNING_APPLE
         : DEFAULT_MAX_RUNNING_SANDBOXES);
-    const others = [...this.#byId.values()].filter((e) => e !== entry && e.running);
+    const others = [...this.#live].filter((e) => e !== entry);
     let excess = others.length + 1 - max;
     if (excess <= 0) return;
-    const idle = others
-      .filter((e) => e.active === 0 && e.starting === undefined)
-      .sort((a, b) => a.lastUsed - b.lastUsed);
-    for (const victim of idle) {
+    const candidates = others.sort((a, b) => a.lastUsed - b.lastUsed);
+    for (const victim of candidates) {
       if (excess <= 0) break;
+      // Re-checked just before stopping: an earlier stop may have let this one get busy.
+      if (victim.active !== 0 || victim.starting !== undefined || !victim.running) continue;
       await this.#stop(victim);
       excess -= 1;
     }
@@ -640,7 +698,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
     await this.#cli(
       entry.backend,
       execArgs(entry.backend.kind, entry.container, "/", [
-        "bash",
+        BASH,
         "-c",
         KILL_GROUP,
         "psyche-kill",
@@ -661,7 +719,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
   ): Promise<ExecResult> {
     const execId = randomBytes(8).toString("hex");
     const wrapped = [
-      "bash",
+      BASH,
       "-c",
       EXEC_WRAPPER,
       "psyche-exec",
@@ -701,7 +759,6 @@ export class ContainerSandboxRunner implements SandboxRunner {
       clearTimeout(watchdog);
       signal?.removeEventListener("abort", onAbort);
     }
-    if (r.exitCode !== 0 && looksLikeCliError(r)) entry.running = false;
     const filesChanged = await this.#filesChanged(entry, execId);
     // `timeout` exits 124 (TERM) or 137 (KILL after the grace) when the bound was hit.
     const boundHit = (r.exitCode === 124 || r.exitCode === 137) && r.durationMs >= timeoutMs - 50;
@@ -721,12 +778,11 @@ export class ContainerSandboxRunner implements SandboxRunner {
   }
 
   async #filesChanged(entry: Entry, execId: string): Promise<string[]> {
-    if (!entry.running) return [];
     try {
       const r = await this.#cli(
         entry.backend,
         execArgs(entry.backend.kind, entry.container, "/", [
-          "bash",
+          BASH,
           "-c",
           FILES_CHANGED,
           "psyche-changed",
@@ -735,11 +791,13 @@ export class ContainerSandboxRunner implements SandboxRunner {
         ]),
         { timeoutMs: 30_000, maxBytes: 4 * 1024 * 1024 },
       );
-      if (r.exitCode !== 0) return [];
-      return r.stdout
-        .toString("utf8")
-        .split("\0")
-        .filter((p) => p !== "");
+      if (r.exitCode !== 0) {
+        // The script always exits 0, so this is the CLI: the container may be gone. The
+        // next call re-inspects it instead of trusting the cached state.
+        entry.running = false;
+        return [];
+      }
+      return r.stdout.toString("utf8").split("\0").filter(plainRelative);
     } catch {
       return [];
     }
