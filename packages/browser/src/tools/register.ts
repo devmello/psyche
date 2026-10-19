@@ -131,7 +131,8 @@ export function browserToolDefs(deps: BrowserToolDeps) {
   return [
     def({
       name: "browser.tabs",
-      description: "List this task's browser tabs (id, url, title, active).",
+      description:
+        "List this task's browser tabs (id, url, title, active, partition: profile = the owner's sign-ins, clean = logged out).",
       schema: Type.Object({}),
       sideEffect: "none",
       run: async (_p, { callId }) => ({ tabs: await d.listTabs(await deps.session(callId)) }),

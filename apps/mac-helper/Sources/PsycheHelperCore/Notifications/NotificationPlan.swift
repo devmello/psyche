@@ -56,12 +56,14 @@ public struct NotificationPlan: Sendable, Equatable {
     public var playSound: Bool
     public var approvalId: String?
     public var requireBiometry: Bool
+    public var presenceChallenge: String? = nil
 
     /// The ids-only metadata stored in the OS notification's `userInfo`.
     public var userInfo: NotificationUserInfo {
         NotificationUserInfo(
             notificationId: id, kind: kind.rawValue, approvalId: approvalId, requireBiometry: requireBiometry,
-            destructiveActionIds: category.actions.filter(\.destructive).map(\.id)
+            destructiveActionIds: category.actions.filter(\.destructive).map(\.id),
+            presenceChallenge: requireBiometry ? presenceChallenge : nil
         )
     }
 }
@@ -111,7 +113,8 @@ extension NotificationPlan {
             body: NotificationLimits.truncate(p.body, max: NotificationLimits.maxBody),
             threadId: p.threadId, category: category,
             interruption: level, requestedInterruption: requested, quietHoursApplied: inQuietHours,
-            playSound: sound, approvalId: p.approvalId, requireBiometry: p.requireBiometry ?? false
+            playSound: sound, approvalId: p.approvalId, requireBiometry: p.requireBiometry ?? false,
+            presenceChallenge: p.presenceChallenge
         )
     }
 

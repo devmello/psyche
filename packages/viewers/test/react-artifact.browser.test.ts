@@ -139,9 +139,11 @@ describe.skipIf(skipBrowserSuites)(
           timeout: 20_000,
         },
       );
-      // Playwright can report the frame's URL a beat after the bundler's first message.
+      // Playwright can report the frame's URL a beat after the bundler's first message; on shared
+      // CI runners that beat has been over 5 s (ci on PRs 105/114, 2026-10-19), so wait up to 30 s there.
+      const frameWaitTicks = process.env.CI ? 300 : 50;
       let frame = page.frames().find((f) => f.url().startsWith(bundler.origin));
-      for (let i = 0; frame === undefined && i < 50; i++) {
+      for (let i = 0; frame === undefined && i < frameWaitTicks; i++) {
         await page.waitForTimeout(100);
         frame = page.frames().find((f) => f.url().startsWith(bundler.origin));
       }

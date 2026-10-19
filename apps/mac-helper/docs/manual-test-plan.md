@@ -142,6 +142,10 @@ Run `computer.ax_tree` against each app with the window frontmost, then again in
 | 9.8 | Focus on, time-sensitive allowed / disallowed / no entitlement | Approval breaks through / does not / falls back to active |
 | 9.9 | Three clicks with no subscriber, then subscribe | All three arrive in order |
 | 9.10 | `notify.withdraw`; re-show the same id | Removed; replaced, not stacked |
+| 9.11a | Profile-signed build: `presence.public_key` | 65-byte X9.63 key, `keyId` = SHA-256; same key on every call and after restart |
+| 9.11b | Approval with `requireBiometry` + `presenceChallenge`; Approve | One Touch ID prompt; event has `presence {signature, keyId}`; Gateway accepts it once the key is registered |
+| 9.11c | Same, Cancel / use password / re-enrol a finger | Cancel → no presence; password alone cannot sign (`biometryCurrentSet`); after re-enrolment the old key fails: record what happens and re-register |
+| 9.11d | Unsigned build, approval with a challenge | `presenceError: missing_entitlement`; the Gateway keeps the approval refused |
 | 9.11 | S15's Notifier payload (`category`, `interruptionLevel`, `textInput` action) | Accepted; the text-input action becomes the reply field |
 
 ## 10. Speech (Q1)

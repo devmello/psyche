@@ -298,6 +298,23 @@ export class Stack {
       ids: this.ids,
       timeZone: this.world.tz,
       hooks: {
+        // A live model's arguments are known only to the loop until the call's final event
+        // (details travel with it); a parked call must be replayable before that.
+        before_tool_call: ({ toolCallId, tool, params, runId }) => {
+          if (gen !== this.gen) return undefined;
+          const c = this.calls.get(toolCallId);
+          const args = structuredClone(params) as Json;
+          if (c === undefined) {
+            this.calls.set(toolCallId, { id: toolCallId, tool, args, step: this.step, runId });
+          } else if (
+            Object.keys(c.args).length === 0 &&
+            args !== null &&
+            typeof args === "object"
+          ) {
+            c.args = args;
+          }
+          return undefined;
+        },
         tool_result_persist: ({ record }) => {
           if (gen !== this.gen) return;
           const c = this.calls.get(record.id);

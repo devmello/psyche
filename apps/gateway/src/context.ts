@@ -77,6 +77,11 @@ export interface GatewayContext {
    * Gateway-owned handlers win; `startGateway` refuses a name that both define.
    */
   readonly extraHandlers: Readonly<Record<string, HandlerDef>>;
+  /**
+   * Called after a device's revocation commits, so its standing grants end with it (design-28;
+   * the composition root wires `PsychePermissionBroker.revokeGrantsByDevice`).
+   */
+  readonly onDeviceRevoked: ((deviceId: string) => Promise<unknown>) | null;
   serverOrigin(): string;
   connections(): Iterable<LiveConnection>;
 }

@@ -52,14 +52,18 @@ Each run writes `out/acceptance/live-<provider>-<model>.json` with the hard and 
 
 ### How live mode differs from scripted mode
 
-The driver (`live/driver.ts`) uses S18's `Stack` (real agent loop, Permission Broker, audit chain; fixture Gmail, Calendar, search, sites; frozen clock) with a real model behind `StackOverrides.provider`:
+The driver (`live/driver.ts`) uses S18's `Stack` (real agent loop, Permission Broker, audit chain; fixture Gmail, Calendar, search, sites; frozen clock) with a real model behind `StackOverrides.provider`. A live model chooses its own call ids, card order, wording and questions, so the driver is model-agnostic:
 
 - steps limited to `scripted` are skipped, and so are the `approve` steps that answer them;
 - every assertion runs at `liveSeverity ?? severity`;
-- an `approve` step answers the card its `approval_requested` assertion bound; if that assertion is soft in live mode and nothing matched, the step is skipped and reported;
+- scripted call ids (`callRef`) never match a live call. An `approval_requested` assertion picks its card among the step's cards by kind, tool, target and `mustShow` (preferring a card that shows every string, then the latest); the card it binds and the live call behind it stand in for the scripted ids in later assertions, `approve` steps and `fault` steps;
+- **sibling cards** (same kind and tool as an expected card, in the same step, e.g. one draft card per email where the script had one) do not count against `max`; the `approve` step answers them with the same decision and scope as the expected card. Every other unexpected card gets the scenario's `approverPolicy` (V1 and V2: deny);
+- an `approve` step whose assertion is soft in live mode and matched nothing is skipped and reported; a `stale` answer must be refused as re-issued;
+- `ask_user` questions are answered at once from `live/answers.ts` (a rule per scenario by header or question pattern; default: the first option, a list of it for multi-select), never waited out;
 - `harness.live.stepTimeoutSeconds` and `maxToolCallsPerStep` cancel a runaway run and fail the step;
-- after `restart_gateway` the parked call is replayed from the driver's records (security §3.7), not asked of the model again;
-- the scenario tools get real descriptions and schemas (`live/tool-specs.ts`) and the first owner message carries the session context (owner, zone, clock, connected accounts).
+- after `restart_gateway` the parked call is replayed from the driver's records (security §3.7), not asked of the model again, so the re-issued card is the one it waits on;
+- the scenario tools get real descriptions and schemas (`live/tool-specs.ts`) and the first owner message carries the session context (owner, zone, clock, connected accounts);
+- the report records every card (id, kind, tool, summary, scopes, status, re-issue link, details without message bodies), every answer (step, sibling, policy or stale, with the broker's verdict) and every question with the answer given, so a failed run is triaged from `out/acceptance/live-<model>.json` alone. Partial runs (`PSYCHE_LIVE_SCENARIOS`) replace their scenarios' rows in that file and keep the rest.
 
 ## What is stubbed or not covered here
 
