@@ -1,0 +1,96 @@
+# CI for the Psyche monorepo (S00 owns this file).
+# The job names "ci (ubuntu-latest)" and "ci (macos-26)" are used as required status checks;
+# change them only together with the branch protection settings.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Tests never launch Electron, so skip the ~100 MB binary download.
+  ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+  # No telemetry, including from our tools (docs/05-security-and-permissions.md).
+  TURBO_TELEMETRY_DISABLED: "1"
+  DO_NOT_TRACK: "1"
+  # Live tests (real network, real providers) stay off in CI.
+  PSYCHE_LIVE_TESTS: "0"
+
+jobs:
+  ci:
+    name: ci (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-26 is the newest GA Apple-silicon image (actions/runner-images, 2026-10).
+        os: [ubuntu-latest, macos-26]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm (version from packageManager in package.json)
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node (version from .nvmrc)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Secret grep gate
+        # Cheap pattern check for obvious tokens and credentials in URLs.
+        # TODO(S18): replace or extend with the real secret-leak checker from packages/testing.
+        run: scripts/ci/secret-grep.sh
+
+      - name: Typecheck
+        run: pnpm -w typecheck
+
+      - name: Lint
+        run: pnpm -w lint
+
+      - name: Test
+        run: pnpm -r test
+
+      - name: Protocol codegen is fresh
+        run: |
+          pnpm protocol:check
+          git diff --exit-code -- packages/protocol/generated apps/mac-helper/Sources/PsycheProtocol
+          untracked="$(git status --porcelain --untracked-files=all -- packages/protocol/generated apps/mac-helper/Sources/PsycheProtocol)"
+          if [ -n "$untracked" ]; then
+            echo "::error::Generated protocol files are stale or uncommitted. Run 'pnpm protocol:gen' and commit the result."
+            echo "$untracked"
+            exit 1
+          fi
+
+      - name: Swift build (mac-helper)
+        if: runner.os == 'macOS'
+        run: |
+          swift --version
+          swift build --package-path apps/mac-helper
+
+      - name: Swift test (mac-helper)
+        if: runner.os == 'macOS'
+        run: |
+          if [ -d apps/mac-helper/Tests ]; then
+            swift test --package-path apps/mac-helper
+          else
+            echo "apps/mac-helper/Tests does not exist yet; skipping swift test."
+          fi
