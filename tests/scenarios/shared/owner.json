@@ -1,0 +1,95 @@
+{
+  "$comment": "The owner every acceptance scenario runs as. Fictional person; fake ids. Connector credentials are vault references by registry id (tests/fixtures/secrets/registry.json), never values.",
+  "version": 1,
+  "owner": {
+    "name": "Avery Lin",
+    "email": "owner@example.com",
+    "timezone": "America/Los_Angeles",
+    "locale": "en-US",
+    "workingHours": {
+      "days": ["MO", "TU", "WE", "TH", "FR"],
+      "start": "09:00",
+      "end": "17:30",
+      "noMeetingsBefore": "09:00",
+      "lunch": { "start": "12:00", "end": "13:00", "protected": true }
+    },
+    "ownerChatIds": { "webchat": "owner", "telegram": 700000101 },
+    "people": [
+      { "name": "Maya Okafor", "email": "maya@example.com", "relation": "manager" },
+      { "name": "Jordan Reyes", "email": "jordan@example.com", "relation": "direct report" },
+      { "name": "Sam Kim", "email": "sam.kim@example.com", "relation": "colleague" },
+      {
+        "name": "Dana Whitfield",
+        "email": "dana@example.org",
+        "relation": "external, prospective partner"
+      },
+      {
+        "name": "Priya Nair",
+        "email": "priya@partner.example.net",
+        "relation": "external partner, London"
+      },
+      { "name": "Lena Park", "email": "lena@studio.example.net", "relation": "friend, designer" },
+      { "name": "Alex Lin", "email": "alex.lin@example.net", "relation": "sibling" }
+    ]
+  },
+  "agent": { "name": "Wren", "persona": "calm, concise, asks before acting" },
+  "devices": [
+    {
+      "id": "dev_mbp",
+      "name": "Avery's MacBook Pro",
+      "platform": "macos",
+      "role": "both",
+      "scopes": ["operator.read", "operator.write", "operator.approvals", "operator.admin", "node"]
+    }
+  ],
+  "permissions": {
+    "defaultMode": "balanced",
+    "approvals": { "ttlMinutes": 30 },
+    "$comment": "Connector matrices list only what the owner set explicitly. `allow` acts as a standing grant for that action; an unset action falls through to the mode default (docs/05 §3.2-§3.3). gmail.draft and calendar writes are deliberately unset: in balanced they ask, and the scenarios check that a `task` grant from the first card covers later drafts.",
+    "connectors": {
+      "google": {
+        "gmail.read": "allow",
+        "gmail.send": "ask",
+        "gmail.delete": "deny",
+        "calendar.read": "allow",
+        "calendar.delete": "ask",
+        "drive.write": "deny"
+      },
+      "search:brave": { "search.web": "allow" }
+    },
+    "standingGrants": [
+      {
+        "id": "grt_fx_energy_agency",
+        "scope": "site",
+        "kind": "new_origin",
+        "subject": { "origin": "https://energy-agency.example" },
+        "createdAt": "2026-10-02T17:12:00Z",
+        "expiresAt": "2026-11-01T17:12:00Z",
+        "uses": 3,
+        "$comment": "Read grant from an earlier research task; V7 checks that it is honored (no card)."
+      }
+    ]
+  },
+  "connectors": [
+    {
+      "id": "con_google",
+      "type": "google",
+      "account": "owner@example.com",
+      "scopeMode": "read_act",
+      "scopes": ["gmail.modify", "calendar", "drive.file"],
+      "secretRef": "google-oauth"
+    },
+    {
+      "id": "con_search_brave",
+      "type": "search:brave",
+      "account": "brave",
+      "scopeMode": "read",
+      "secretRef": "brave-search-key"
+    }
+  ],
+  "clock": {
+    "start": "2026-10-19T08:30:00-07:00",
+    "$comment": "Monday. FakeClock is frozen between steps and moves only on advance_clock steps. US DST ends 2026-11-01; UK DST ended 2026-10-25, so London is 7 h ahead of the owner from Oct 25 to Nov 1 and 8 h otherwise."
+  },
+  "thread": { "id": "thr_main", "kind": "main", "permissionMode": "balanced" }
+}

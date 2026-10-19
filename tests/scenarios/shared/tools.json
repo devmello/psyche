@@ -1,0 +1,129 @@
+{
+  "$comment": "Tool registry shared by the scenario scripts. Names are the scenario vocabulary; the real registry may prefix connector tools (mcp__<server>__<tool>) and the runner maps them. sideEffect / targetKind follow docs/05 §3.1; approvalKind follows docs/04 §4 approvals.kind; receiptKind follows the docs/05 §3.11 receipt example.",
+  "version": 1,
+  "tools": [
+    {
+      "name": "gmail.search",
+      "sideEffect": "read",
+      "targetKind": "account",
+      "provenanceOut": "untrusted",
+      "connector": "google"
+    },
+    {
+      "name": "gmail.get",
+      "sideEffect": "read",
+      "targetKind": "account",
+      "provenanceOut": "untrusted",
+      "connector": "google"
+    },
+    {
+      "name": "gmail.draft",
+      "sideEffect": "write",
+      "targetKind": "account",
+      "provenanceOut": "trusted",
+      "connector": "google",
+      "approvalKind": "connector_action",
+      "receiptKind": "email.draft",
+      "note": "A draft stays in the owner's mailbox: write, not destructive (docs/05 §3.1)."
+    },
+    {
+      "name": "gmail.send",
+      "sideEffect": "destructive",
+      "targetKind": "recipient",
+      "provenanceOut": "trusted",
+      "connector": "google",
+      "approvalKind": "send_email",
+      "receiptKind": "email.send"
+    },
+    {
+      "name": "gmail.forward",
+      "sideEffect": "destructive",
+      "targetKind": "recipient",
+      "provenanceOut": "trusted",
+      "connector": "google",
+      "approvalKind": "send_email",
+      "receiptKind": "email.send",
+      "note": "Listed so tool_not_called can name it; the scripts never call it."
+    },
+    {
+      "name": "library.save",
+      "sideEffect": "none",
+      "targetKind": null,
+      "provenanceOut": "trusted",
+      "note": "Psyche's own store: `none` per docs/05 §3.1 (architecture §4.3 lists Library items under write; see README decisions)."
+    },
+    {
+      "name": "calendar.list",
+      "sideEffect": "read",
+      "targetKind": "account",
+      "provenanceOut": "untrusted",
+      "connector": "google"
+    },
+    {
+      "name": "calendar.freebusy",
+      "sideEffect": "read",
+      "targetKind": "account",
+      "provenanceOut": "trusted",
+      "connector": "google",
+      "note": "Busy intervals only, no titles or descriptions, so the result is not tainting."
+    },
+    {
+      "name": "calendar.create",
+      "sideEffect": "write",
+      "targetKind": "account",
+      "provenanceOut": "trusted",
+      "connector": "google",
+      "approvalKind": "calendar_write",
+      "receiptKind": "calendar.create"
+    },
+    {
+      "name": "calendar.update",
+      "sideEffect": "write",
+      "targetKind": "account",
+      "provenanceOut": "trusted",
+      "connector": "google",
+      "approvalKind": "calendar_write",
+      "receiptKind": "calendar.update"
+    },
+    {
+      "name": "reminders.create",
+      "sideEffect": "none",
+      "targetKind": null,
+      "provenanceOut": "trusted",
+      "note": "A Psyche reminder (Upcoming + notification kind reminder), not Apple Reminders."
+    },
+    {
+      "name": "search.web",
+      "sideEffect": "read",
+      "targetKind": "origin",
+      "provenanceOut": "untrusted",
+      "connector": "search:brave"
+    },
+    {
+      "name": "fetch",
+      "sideEffect": "read",
+      "targetKind": "origin",
+      "provenanceOut": "untrusted",
+      "approvalKind": "new_origin"
+    },
+    {
+      "name": "browser.navigate",
+      "sideEffect": "read",
+      "targetKind": "origin",
+      "provenanceOut": "untrusted",
+      "approvalKind": "new_origin"
+    },
+    {
+      "name": "artifacts.write",
+      "sideEffect": "none",
+      "targetKind": null,
+      "provenanceOut": "trusted"
+    },
+    {
+      "name": "artifacts.export_pdf",
+      "sideEffect": "none",
+      "targetKind": null,
+      "provenanceOut": "trusted"
+    }
+  ]
+}

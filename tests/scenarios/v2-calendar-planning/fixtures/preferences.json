@@ -1,0 +1,19 @@
+{
+  "$comment": "Owner scheduling preferences for V2. The slot checker reads these with calendar.json busyRules.",
+  "version": 1,
+  "timezone": "America/Los_Angeles",
+  "workingHours": {
+    "MO": ["09:00", "17:30"],
+    "TU": ["09:00", "17:30"],
+    "WE": ["09:00", "17:30"],
+    "TH": ["09:00", "17:30"],
+    "FR": ["09:00", "17:30"]
+  },
+  "noMeetingsBefore": "09:00",
+  "lunch": { "start": "12:00", "end": "13:00", "protected": true },
+  "focusBlocksAreBusy": true,
+  "bufferMinutes": 0,
+  "slotGranularityMinutes": 15,
+  "defaultMeetingMinutes": 30,
+  "defaultReminderMinutes": 10
+}
