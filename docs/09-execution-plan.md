@@ -20,7 +20,7 @@ psyche/
     web/            S11  same React app served by the Gateway
     mac-helper/     S14  Swift helper (node): AX, screenshots, Apple Events, Keychain, notifications, speech, VM
     node/           S19  psyche-node for VM guests and remote machines (M2)
-    cli/            C2   psyche CLI
+    cli/            S22   psyche CLI
   packages/
     protocol/       S00  schemas, interfaces, codegen (changes via "protocol:" PRs only)
     db/             S00→S01  SQLite, drizzle, migrations (each package adds its own migration files)
@@ -34,7 +34,7 @@ psyche/
     vault/          S06  SQLCipher vault, key wrapping, placeholders, fill protocol
     memory/         S07  workspace files, index, memory tools, flush, dreaming
     browser/        S08  BrowserDriver, CDP driver, Playwright driver, snapshots, origin policy, bridge protocol
-    sandbox/        C1   container runner backends, image, receipts, srt wrapper
+    sandbox/        S21   container runner backends, image, receipts, srt wrapper
     mcp-host/       S09  MCP client host, trust tiers, tool policy integration
     connectors/     S09  Google (Gmail/Calendar/Drive), search/fetch, IMAP/JMAP later
     channels/       S10  channel framework, WebChat, Telegram; iMessage glue later
@@ -47,7 +47,7 @@ psyche/
     speech/         S17  STT/TTS abstractions, whisper.cpp path, voice-note transcoding
   skills/           S20  bundled SKILL.md files
   templates/        S20  default SOUL.md / AGENTS.md / USER.md / IDENTITY.md / interests.md
-  deploy/           C2   Dockerfile, compose, launchd plists, Tailscale/Cloudflare examples
+  deploy/           S22   Dockerfile, compose, launchd plists, Tailscale/Cloudflare examples
   spikes/           SP*  throwaway prototypes (never imported by packages)
   docs/             all  (each session may add docs/plans/<id>.md and docs/status/<id>.md)
   prompts/          S00  session prompts
@@ -62,9 +62,9 @@ Each package owns the database tables listed for it in [04-data-model.md](04-dat
 | **0 — Init** | You (or this session): `git init`, commit docs + prompts, create the GitHub repo | now | `main` exists with docs and prompts |
 | **0 — Bootstrap** | S00 | after init | scaffold + protocol v0 + fakes merged to `main`; `pnpm -r test` green in CI |
 | **1 — Spikes and content** (parallel with Bootstrap; no shared code) | SP1–SP6, S20, S18 (corpus and scenario scripts only) | after init | spike write-ups in `docs/spikes/`; findings folded into prompts if they change a decision |
-| **2 — Core packages** | S01–S10, S12–S17, C1 | after Bootstrap merges | each package: contract tests green against fakes, README, status file |
+| **2 — Core packages** | S01–S10, S12–S17, S21 | after Bootstrap merges | each package: contract tests green against fakes, README, status file |
 | **2b — Shells** | S11 (desktop/web), S14 (helper) | after Bootstrap merges | shells run against fakes/mock Gateway |
-| **3 — Integration** | INT-1 walking skeleton, INT-2 server mode, INT-3 acceptance V1/V2/V7, C2 CLI/deploy | when the packages a scenario needs are merged | Milestone 1 acceptance in [08-roadmap.md](08-roadmap.md) |
+| **3 — Integration** | INT-1 walking skeleton, INT-2 server mode, INT-3 acceptance V1/V2/V7, S22 CLI/deploy | when the packages a scenario needs are merged | Milestone 1 acceptance in [08-roadmap.md](08-roadmap.md) |
 | **4 — M2 features** | re-use the same sessions with M2 scopes | after M1 | — |
 
 The integrator (S00 after bootstrap) merges in this order whenever PRs are ready: protocol → db → testing → everything else → apps.
@@ -75,7 +75,7 @@ The integrator (S00 after bootstrap) merges in this order whenever PRs are ready
 | --- | --- | --- | --- | --- | --- |
 | S00 | Bootstrap, then Integrator | root configs, `packages/protocol`, `packages/db` v0, `packages/testing` skeleton, CI | A1, A3, A4, A5 | — | `prompts/s00-bootstrap-integrator.md` |
 | S01 | Gateway core | `apps/gateway`, `packages/db` evolution | A2, N14, E1/E2/E3 persistence and session controller | agent-core, tasks, permissions, memory | `prompts/s01-gateway-core.md` |
-| S02 | Agent runtime | `packages/agent-core` | C1–C5, C8, C9, C11, B7 (C6, C7) | model-router, permissions, memory | `prompts/s02-agent-runtime.md` |
+| S02 | Agent runtime | `packages/agent-core` | S21–C5, C8, C9, C11, B7 (C6, C7) | model-router, permissions, memory | `prompts/s02-agent-runtime.md` |
 | S03 | Model router | `packages/model-router` | B1–B6 | vault | `prompts/s03-model-router.md` |
 | S04 | Tasks and scheduler | `packages/tasks`, `packages/scheduler` | D1–D3, D6, O1, O4 (O2, O3) | agent-core, permissions, notifications | `prompts/s04-tasks-scheduler.md` |
 | S05 | Permissions and audit | `packages/permissions`, `packages/audit` | F1–F12, U3 | vault (for fill approvals), notifications | `prompts/s05-permissions-audit.md` |
@@ -119,9 +119,9 @@ Running fewer sessions: merge S02+S03, S04+S05, S12+S13, S16+S17+S20, and run th
 
 These three are the most self-contained pieces; they run as ordinary Claude sessions:
 
-1. **C1 sandbox** (best fit): the nonroot container image, the `SandboxRunner` implementation for Apple `container`, Docker and Colima, receipts, and the smoke test adapted from OpenMuse's (nonroot, read-only system files, disabled network, capped output, interruption, workspace persistence).
-2. **C2 CLI and deploy**: `psyche` CLI commands that only call the Gateway API, the Dockerfile and Compose, launchd plists, release workflow.
-3. **C3 adversarial review**: a red-team read of `docs/05` and the permissions/vault PRs: binding-hash gaps, approval replay, taint bypasses, placeholder leaks, with concrete failing test cases.
+1. **S21 sandbox** (best fit): the nonroot container image, the `SandboxRunner` implementation for Apple `container`, Docker and Colima, receipts, and the smoke test adapted from OpenMuse's (nonroot, read-only system files, disabled network, capped output, interruption, workspace persistence).
+2. **S22 CLI and deploy**: `psyche` CLI commands that only call the Gateway API, the Dockerfile and Compose, launchd plists, release workflow.
+3. **S23 adversarial review**: a red-team read of `docs/05` and the permissions/vault PRs: binding-hash gaps, approval replay, taint bypasses, placeholder leaks, with concrete failing test cases.
 
 ## 7. Integration milestones (map to roadmap M1)
 
@@ -133,6 +133,6 @@ These three are the most self-contained pieces; they run as ordinary Claude sess
 
 1. Init: `git init`, commit docs and prompts, create a private GitHub repo, push `main`.
 2. Start S00 (bootstrap). In parallel start SP1–SP6, S20 and S18's corpus work; they do not touch the scaffold.
-3. When S00's bootstrap PR merges (target: end of day 1), start S01–S17 and C1 from the prompts.
-4. S00 becomes the integrator; C3 starts reviewing as soon as the first permissions/vault PRs appear.
-5. After the core packages land, start INT-1 and C2; then INT-2 and INT-3.
+3. When S00's bootstrap PR merges (target: end of day 1), start S01–S17 and S21 from the prompts.
+4. S00 becomes the integrator; S23 starts reviewing as soon as the first permissions/vault PRs appear.
+5. After the core packages land, start INT-1 and S22; then INT-2 and INT-3.
