@@ -1021,12 +1021,18 @@ importers:
       '@psyche/agent-core':
         specifier: workspace:*
         version: link:../../packages/agent-core
+      '@psyche/connectors':
+        specifier: workspace:*
+        version: link:../../packages/connectors
       '@psyche/db':
         specifier: workspace:*
         version: link:../../packages/db
       '@psyche/gateway':
         specifier: workspace:*
         version: link:../../apps/gateway
+      '@psyche/permissions':
+        specifier: workspace:*
+        version: link:../../packages/permissions
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

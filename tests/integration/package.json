@@ -13,8 +13,10 @@
   "devDependencies": {
     "@playwright/test": "1.64.1",
     "@psyche/agent-core": "workspace:*",
+    "@psyche/connectors": "workspace:*",
     "@psyche/db": "workspace:*",
     "@psyche/gateway": "workspace:*",
+    "@psyche/permissions": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@psyche/testing": "workspace:*",
     "@psyche/web": "workspace:*"
