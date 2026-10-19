@@ -267,7 +267,8 @@ function main(argv: string[]): number {
   const md = scorecard(secrets);
   writeFileSync(join(PKG, "SCORECARD.md"), md);
   process.stdout.write(`\nwrote tests/acceptance/SCORECARD.md\n`);
-  return process.exitCode ?? 0;
+  // process.exitCode is typed string | number | undefined in recent @types/node.
+  return Number(process.exitCode ?? 0);
 }
 
 const entry = process.argv[1];
