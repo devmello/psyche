@@ -74,7 +74,7 @@ export interface QuestionCardProps {
   persona?: string;
   /** Avatar node shown in the header. */
   avatar?: ReactNode;
-  onAnswer?: (answers: Answers) => Promise<unknown> | void;
+  onAnswer?: (answers: Answers) => unknown;
   onSkip?: () => void;
   /** Renders an option preview in the artifact sandbox (shell slot). Plain text otherwise. */
   renderPreview?: (preview: string) => ReactNode;
@@ -161,7 +161,6 @@ export function QuestionCard({
 
   const n = request.questions.length;
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: ⌘Return answers from anywhere in the card
     <section
       aria-labelledby={headingId}
       onKeyDown={onKeyDown}

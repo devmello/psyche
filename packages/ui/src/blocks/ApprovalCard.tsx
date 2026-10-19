@@ -31,7 +31,7 @@ export interface ApprovalCardProps {
   mode?: string;
   /** Surface labels for "Also sent to" (other than this one). */
   otherSurfaces?: readonly string[];
-  onAnswer?: (decision: "approve" | "deny", scope?: GrantScope) => Promise<unknown> | void;
+  onAnswer?: (decision: "approve" | "deny", scope?: GrantScope) => unknown;
   /** Fixed clock (stories, tests). */
   now?: number;
   /** Move focus to the heading on mount unless the user is typing (§4.11). */
@@ -169,14 +169,12 @@ export function ApprovalCard({
     .join("; ");
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: the group handles ⌘Return / ⌘D for its controls
-    <section
-      role="group"
+    <fieldset
       aria-labelledby={headingId}
       onKeyDown={onKeyDown}
       data-status={stale ? "stale" : expiredByClock ? "expired" : approval.status}
       className={cn(
-        "rounded-lg border bg-approval-surface p-4 text-sm psy-enter-still",
+        "m-0 min-w-0 rounded-lg border bg-approval-surface p-4 text-sm psy-enter-still",
         pending && !stale ? "border-approval-border" : "border-gray-6 bg-gray-2",
         className,
       )}
@@ -322,7 +320,7 @@ export function ApprovalCard({
           </Button>
         </div>
       ) : null}
-    </section>
+    </fieldset>
   );
 }
 

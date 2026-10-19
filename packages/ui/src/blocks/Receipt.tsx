@@ -59,8 +59,6 @@ export function ReceiptLine({
       {content}
     </button>
   ) : (
-    <p className={cls} aria-label={`Receipt: ${receipt.summary}`}>
-      {content}
-    </p>
+    <p className={cls}>{content}</p>
   );
 }
