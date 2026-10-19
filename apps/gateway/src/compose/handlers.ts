@@ -1,8 +1,15 @@
 import { getDevice, type PsycheDb } from "@psyche/db";
 import type { Caller, PermissionHandlers } from "@psyche/permissions";
-import { type InputRequest, type MethodParams, PsycheError } from "@psyche/protocol";
+import {
+  type ApprovalRequest,
+  type InputRequest,
+  type MethodParams,
+  PsycheError,
+  type Surface,
+} from "@psyche/protocol";
 import type { SqliteTaskEngine } from "@psyche/tasks";
 import type { Call, HandlerDef } from "../context.ts";
+import type { ApprovalTokens } from "./approval-tokens.ts";
 
 /**
  * Adapters from the package handler maps (`(params)` or `(params, caller)`) to the Gateway's
@@ -29,6 +36,7 @@ export function surfaceOf(db: PsycheDb, deviceId: string): "desktop" | "web" {
 export function mountPermissions(
   db: PsycheDb,
   handlers: PermissionHandlers,
+  tokens: ApprovalTokens,
 ): Record<string, HandlerDef> {
   const out: Record<string, HandlerDef> = {};
   for (const [name, fn] of Object.entries(handlers) as [
@@ -38,16 +46,44 @@ export function mountPermissions(
     // `audit.*` is not in the protocol yet (docs/status/s05.md); the Gateway refuses unknown names.
     if (name.startsWith("audit.")) continue;
     out[name] = {
-      run: (call: Call, params: never) =>
-        fn(params, {
+      async run(call: Call, params: never) {
+        const surface = surfaceOf(db, call.identity.deviceId);
+        const result = await fn(params, {
           deviceId: call.identity.deviceId,
           scopes: call.identity.scopes,
-          surface: surfaceOf(db, call.identity.deviceId),
+          surface,
           role: call.identity.role,
-        }),
+        });
+        return withAnswerTokens(name, result, surface, tokens);
+      },
     };
   }
   return out;
+}
+
+/** Adds the caller's own surface token to `approvals.get` / `approvals.list` (security §3.7). */
+function withAnswerTokens(
+  method: string,
+  result: unknown,
+  surface: Surface,
+  tokens: ApprovalTokens,
+): unknown {
+  if (method === "approvals.get") {
+    const r = result as { approval: ApprovalRequest };
+    const token =
+      r.approval.status === "pending" ? tokens.tokenFor(r.approval.id, surface) : undefined;
+    return token === undefined ? r : { ...r, answerToken: token };
+  }
+  if (method === "approvals.list") {
+    const r = result as { approvals: ApprovalRequest[]; nextCursor: string | null };
+    const answerTokens: Record<string, string> = {};
+    for (const a of r.approvals) {
+      const token = a.status === "pending" ? tokens.tokenFor(a.id, surface) : undefined;
+      if (token !== undefined) answerTokens[a.id] = token;
+    }
+    return { ...r, answerTokens };
+  }
+  return result;
 }
 
 /** What the composed loop offers for attended questions (concrete `PsycheAgentLoop` extras). */

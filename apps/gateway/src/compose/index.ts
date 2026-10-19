@@ -25,7 +25,6 @@ import {
   type Clock,
   type EventName,
   type EventPayload,
-  type IssuedApproval,
   type ModelProvider,
   type ModelRef,
   PsycheError,
@@ -43,6 +42,7 @@ import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
 import { createLogger } from "../log.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
+import { ApprovalTokens } from "./approval-tokens.ts";
 import { fileTools } from "./file-tools.ts";
 import { mountParamsOnly, mountPermissions, questionHandlers, surfaceOf } from "./handlers.ts";
 
@@ -111,30 +111,6 @@ function providerFor(
   };
 }
 
-/**
- * Boot-time `broker.reissue()` happens inside `startGateway`; the worker pool needs its result
- * (docs/status/s04.md), so the Gateway gets a view of the broker that remembers it.
- */
-function rememberReissue(broker: PsychePermissionBroker): {
-  view: PsychePermissionBroker;
-  reissued: () => IssuedApproval[];
-} {
-  let last: IssuedApproval[] = [];
-  const view = new Proxy(broker, {
-    get(target, key) {
-      if (key === "reissue") {
-        return async () => {
-          last = await target.reissue();
-          return last;
-        };
-      }
-      const v = Reflect.get(target, key, target) as unknown;
-      return typeof v === "function" ? (v as (...a: unknown[]) => unknown).bind(target) : v;
-    },
-  });
-  return { view, reissued: () => last };
-}
-
 export async function composeGateway(options: ComposeOptions): Promise<ComposedGateway> {
   const {
     model,
@@ -166,7 +142,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     clock,
   });
   const storedPolicy = getSetting(db, "permissions.policy")?.value as PolicyConfig | undefined;
-  const broker = new PsychePermissionBroker({
+  const tokens = new ApprovalTokens();
+  const rawBroker = new PsychePermissionBroker({
     approvers: {
       async device(deviceId) {
         const d = getDevice(db, deviceId);
@@ -187,7 +164,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ? {}
       : { policy: (policy ?? storedPolicy) as PolicyConfig }),
   });
+  const broker = tokens.wrap(rawBroker);
   broker.subscribe((e) => {
+    if (
+      e.type === "approval.decided" ||
+      e.type === "approval.expired" ||
+      e.type === "approval.invalidated"
+    ) {
+      tokens.forget(e.approval.id);
+    }
     if (
       e.type === "approval.decided" ||
       e.type === "approval.expired" ||
@@ -271,7 +256,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
   const handlers: Record<string, HandlerDef> = {
-    ...mountPermissions(db, createPermissionHandlers(broker, audit)),
+    ...mountPermissions(db, createPermissionHandlers(rawBroker, audit), tokens),
     ...mountParamsOnly(createMemoryHandlers(memory) as never),
     ...mountParamsOnly(createTaskHandlers({ engine: tasks, pool, broker }) as never),
     ...mountParamsOnly(createAutomationHandlers(scheduler) as never),
@@ -279,12 +264,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...questionHandlers(loop, tasks),
   };
 
-  const { view, reissued } = rememberReissue(broker);
   const gateway = await startGateway({
     ...gwOptions,
     db,
     agent: loop,
-    broker: view,
+    broker,
     memory,
     handlers,
   });
@@ -293,7 +277,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
 
   if (background) {
     pool.start();
-    pool.onApprovalsReissued(reissued());
+    pool.onApprovalsReissued(tokens.reissued);
     await scheduler.start();
   }
 
