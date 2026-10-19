@@ -207,7 +207,10 @@ export const WatchConfig = Type.Object(
     url: Type.String({ minLength: 1 }),
     check: WatchCheck,
     selector: Type.Optional(
-      Type.String({ description: "Regex over the fetched text; capture group 1 is the value" }),
+      Type.String({
+        maxLength: 200,
+        description: "Literal marker (not a regex); the check reads the text after it",
+      }),
     ),
     text: Type.Optional(Type.String({ description: "text_present: the text to look for" })),
     threshold: Type.Optional(Type.Number({ description: "price_below / price_above" })),
