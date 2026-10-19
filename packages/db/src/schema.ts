@@ -8,6 +8,9 @@
  * converts rows into the `@psyche/protocol` shapes.
  */
 import { blob, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { s04Schema } from "./schema-s04.ts";
+
+export * from "./schema-s04.ts";
 
 // §1 Identity --------------------------------------------------------------------------------
 
@@ -161,6 +164,7 @@ export const schema = {
   toolCalls,
   settings,
   usage,
+  ...s04Schema,
 };
 export type Schema = typeof schema;
 

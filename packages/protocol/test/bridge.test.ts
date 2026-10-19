@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  BRIDGE_MAX_FRAME_BYTES,
   BridgeEvents,
   BridgeMethods,
   type ErrorCode,
   PsycheError,
+  parseFrame,
   validateBridgeEventPayload,
   validateBridgeParams,
 } from "../src/index.ts";
@@ -130,5 +132,97 @@ describe("browser bridge registry", () => {
     ).toBe("invalid_params");
     expect(codeOf(() => validateBridgeParams("bridge.eval", {}))).toBe("unknown_method");
     expect(codeOf(() => validateBridgeEventPayload("bridge.nope", {}))).toBe("invalid_params");
+  });
+});
+
+describe("browser bridge amendments (spike 01, S11)", () => {
+  it("accepts popup metadata and task ids on tabs", () => {
+    const tab = {
+      tabId: "t2",
+      url: "https://accounts.example.com/oauth",
+      title: "Sign in",
+      partition: "persist:agent-default",
+      profile: "logged-in",
+      attached: true,
+      openerTabId: "t1",
+      disposition: "new-window",
+      taskId: "01JBXY6Q8Z0000000000000000",
+    };
+    expect(validateBridgeEventPayload("bridge.tab.created", { tab })).toBeTruthy();
+    expect(
+      validateBridgeParams("bridge.tab.open", {
+        url: "https://acme.com",
+        taskId: "01JBXY6Q8Z0000000000000000",
+        taskTitle: "Dentist booking",
+      }),
+    ).toBeTruthy();
+  });
+
+  it("validates status pill and highlight requests", () => {
+    expect(
+      validateBridgeParams("bridge.tab.status", {
+        tabId: "t1",
+        text: "Typing in Preferred date",
+        highlight: { x: 10, y: 20, width: 100, height: 24 },
+      }),
+    ).toBeTruthy();
+    expect(validateBridgeParams("bridge.tab.status", { tabId: "t1", text: null })).toBeTruthy();
+    expect(
+      codeOf(() =>
+        validateBridgeParams("bridge.tab.status", {
+          tabId: "t1",
+          text: null,
+          highlight: { x: 0, y: 0, width: -1, height: 1 },
+        }),
+      ),
+    ).toBe("invalid_params");
+  });
+
+  it("carries control source and debugger detach events", () => {
+    expect(
+      validateBridgeEventPayload("bridge.control.changed", {
+        tabId: "t1",
+        state: "user",
+        via: "keyboard",
+      }),
+    ).toBeTruthy();
+    expect(
+      codeOf(() =>
+        validateBridgeEventPayload("bridge.control.changed", {
+          tabId: "t1",
+          state: "user",
+          via: "x",
+        }),
+      ),
+    ).toBe("invalid_params");
+    expect(
+      validateBridgeEventPayload("bridge.debugger.detached", {
+        tabId: "t1",
+        reason: "target closed",
+      }),
+    ).toBeTruthy();
+  });
+
+  it("allows 16 MiB frames on the bridge only when asked", () => {
+    const big = JSON.stringify({
+      type: "res",
+      id: "r1",
+      ok: true,
+      payload: { result: "x".repeat(2 * 1_048_576) },
+    });
+    expect(codeOf(() => parseFrame(big))).toBe("invalid_frame");
+    expect(parseFrame(big, { maxBytes: BRIDGE_MAX_FRAME_BYTES }).type).toBe("res");
+    expect(BRIDGE_MAX_FRAME_BYTES).toBe(16 * 1_048_576);
+  });
+
+  it("has the bridge error codes", () => {
+    for (const code of [
+      "user_in_control",
+      "debugger_detached",
+      "tab_not_found",
+      "method_not_allowed",
+    ]) {
+      expect(new PsycheError(code as ErrorCode, "x").toPayload().code).toBe(code);
+    }
   });
 });

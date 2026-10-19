@@ -16,6 +16,11 @@
         "payload": "#/$defs/BridgeControlChangedPayload"
       },
       {
+        "description": "desktop → Gateway: the CDP session ended (renderer crash, target closed). Enabled domains are gone; the Gateway re-attaches and re-enables them.",
+        "name": "bridge.debugger.detached",
+        "payload": "#/$defs/BridgeDebuggerDetachedPayload"
+      },
+      {
         "description": "desktop → Gateway: download progress; files land in quarantine.",
         "name": "bridge.download",
         "payload": "#/$defs/BridgeDownloadPayload"
@@ -86,6 +91,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Gateway → desktop: status pill text and action highlight for a tab (I5). Display only; the desktop never reads page content back.",
+        "name": "bridge.tab.status",
+        "params": "#/$defs/BridgeTabStatusParams",
+        "result": "#/$defs/OkResult",
+        "scope": "none",
+        "sideEffecting": false
+      },
+      {
         "description": "Gateway → desktop: lists bridge tabs.",
         "name": "bridge.tabs.list",
         "params": "#/$defs/BridgeTabsListParams",
@@ -106,6 +119,26 @@
         "payload": "#/$defs/ApprovalUpdatedPayload"
       },
       {
+        "description": "An automation run ended (done, no_reply, failed, cancelled, skipped).",
+        "name": "automation.run.finished",
+        "payload": "#/$defs/AutomationRunFinishedPayload"
+      },
+      {
+        "description": "A scheduled or manual automation run started (missed ticks coalesced).",
+        "name": "automation.run.started",
+        "payload": "#/$defs/AutomationRunStartedPayload"
+      },
+      {
+        "description": "An automation was created, edited, paused, run or deleted (`enabled: false`).",
+        "name": "automation.updated",
+        "payload": "#/$defs/AutomationUpdatedPayload"
+      },
+      {
+        "description": "A channel was configured, connected, disconnected or changed status.",
+        "name": "channels.updated",
+        "payload": "#/$defs/ChannelsUpdatedPayload"
+      },
+      {
         "description": "A structured block (plan, checklist, approval, question, artifact, receipt, …) was added to a message.",
         "name": "chat.block",
         "payload": "#/$defs/ChatBlockPayload"
@@ -119,6 +152,11 @@
         "description": "A message was committed (user, agent, system or tool).",
         "name": "chat.message",
         "payload": "#/$defs/ChatMessagePayload"
+      },
+      {
+        "description": "A vault item was added, edited, deleted, used, rotated or revoked; revocation invalidates connection-bound work.",
+        "name": "credential.updated",
+        "payload": "#/$defs/CredentialUpdatedPayload"
       },
       {
         "description": "A device was paired, changed scopes or was revoked.",
@@ -216,6 +254,16 @@
         "payload": "#/$defs/ToolCallUpdatedPayload"
       },
       {
+        "description": "The vault locked and its key was zeroized.",
+        "name": "vault.locked",
+        "payload": "#/$defs/VaultLockedPayload"
+      },
+      {
+        "description": "The vault unlocked through a key slot.",
+        "name": "vault.unlocked",
+        "payload": "#/$defs/VaultUnlockedPayload"
+      },
+      {
         "description": "Gateway → desktop pane RPC for view.* (only the desktop shell acts on it).",
         "name": "view.command",
         "payload": "#/$defs/ViewCommandPayload"
@@ -294,6 +342,22 @@
         "sideEffecting": true
       },
       {
+        "description": "Run history of one automation, newest first.",
+        "name": "automations.runs",
+        "params": "#/$defs/AutomationsRunsParams",
+        "result": "#/$defs/AutomationsRunsResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Everything scheduled (automations, reminders, briefings, heartbeat, watches) with next run times, soonest first; open input requests last (Upcoming view, O4).",
+        "name": "automations.upcoming",
+        "params": "#/$defs/AutomationsUpcomingParams",
+        "result": "#/$defs/AutomationsUpcomingResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Updates the given fields of an automation.",
         "name": "automations.update",
         "params": "#/$defs/AutomationsUpdateParams",
@@ -334,6 +398,22 @@
         "sideEffecting": false
       },
       {
+        "description": "Adds or removes sender / group ids on one of a channel's allowlists. Side-effecting.",
+        "name": "channels.allowlist.update",
+        "params": "#/$defs/ChannelsAllowlistUpdateParams",
+        "result": "#/$defs/ChannelsAllowlistUpdateResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Creates a channel or changes its access policy and settings. Side-effecting.",
+        "name": "channels.configure",
+        "params": "#/$defs/ChannelsConfigureParams",
+        "result": "#/$defs/ChannelsConfigureResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Returns one channel.",
         "name": "channels.get",
         "params": "#/$defs/ChannelsGetParams",
@@ -342,10 +422,58 @@
         "sideEffecting": false
       },
       {
+        "description": "Deletes an identity; its senders fall back to per-sender sessions. Side-effecting.",
+        "name": "channels.identities.delete",
+        "params": "#/$defs/ChannelsIdentitiesDeleteParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Lists identities (identity links and designated persons).",
+        "name": "channels.identities.list",
+        "params": "#/$defs/ChannelsIdentitiesListParams",
+        "result": "#/$defs/ChannelsIdentitiesListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Creates or replaces an identity; a sender id may belong to one identity only. Side-effecting.",
+        "name": "channels.identities.upsert",
+        "params": "#/$defs/ChannelsIdentitiesUpsertParams",
+        "result": "#/$defs/ChannelsIdentitiesUpsertResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Lists configured channels.",
         "name": "channels.list",
         "params": "#/$defs/ChannelsListParams",
         "result": "#/$defs/ChannelsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Approves a pending pairing request; the sender joins the channel's allowFrom. Side-effecting.",
+        "name": "channels.pairing.approve",
+        "params": "#/$defs/ChannelsPairingApproveParams",
+        "result": "#/$defs/ChannelsPairingApproveResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Denies a pending pairing request. Side-effecting.",
+        "name": "channels.pairing.deny",
+        "params": "#/$defs/ChannelsPairingDenyParams",
+        "result": "#/$defs/ChannelsPairingDenyResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Lists channel-sender pairing requests, newest first.",
+        "name": "channels.pairing.list",
+        "params": "#/$defs/ChannelsPairingListParams",
+        "result": "#/$defs/ChannelsPairingListResult",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -982,6 +1110,30 @@
         "sideEffecting": false
       },
       {
+        "description": "Adds an item. Card numbers, CVVs, bank account numbers and government ids are refused (policy_denied). Side-effecting.",
+        "name": "vault.add",
+        "params": "#/$defs/VaultAddParams",
+        "result": "#/$defs/VaultAddResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Completes setup once the owner proves the recovery key is stored. Side-effecting.",
+        "name": "vault.confirmRecovery",
+        "params": "#/$defs/VaultConfirmRecoveryParams",
+        "result": "#/$defs/VaultConfirmRecoveryResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Overwrites and deletes an item. Side-effecting.",
+        "name": "vault.delete",
+        "params": "#/$defs/VaultDeleteParams",
+        "result": "#/$defs/VaultDeleteResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Returns one credential's metadata (never its value).",
         "name": "vault.get",
         "params": "#/$defs/VaultGetParams",
@@ -990,10 +1142,66 @@
         "sideEffecting": false
       },
       {
+        "description": "Imports a CSV export from 1Password, Bitwarden or Chrome; refused rows are reported, never their values. Side-effecting.",
+        "name": "vault.import",
+        "params": "#/$defs/VaultImportParams",
+        "result": "#/$defs/VaultImportResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Lists credential metadata (never values).",
         "name": "vault.list",
         "params": "#/$defs/VaultListParams",
         "result": "#/$defs/VaultListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Locks the vault and zeroizes the key in memory. Side-effecting.",
+        "name": "vault.lock",
+        "params": "#/$defs/VaultLockParams",
+        "result": "#/$defs/VaultLockResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Creates the vault with a random key wrapped by the chosen slot plus a recovery key, returned once. Side-effecting.",
+        "name": "vault.setup",
+        "params": "#/$defs/VaultSetupParams",
+        "result": "#/$defs/VaultSetupResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Returns whether the vault exists and is locked, its key slots and idle lock time.",
+        "name": "vault.status",
+        "params": "#/$defs/VaultStatusParams",
+        "result": "#/$defs/VaultStatusResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Unlocks the vault through its key slot (Touch ID on macOS) or the recovery key. Side-effecting.",
+        "name": "vault.unlock",
+        "params": "#/$defs/VaultUnlockParams",
+        "result": "#/$defs/VaultUnlockResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Edits an item's name, bindings or secret fields. Side-effecting.",
+        "name": "vault.update",
+        "params": "#/$defs/VaultUpdateParams",
+        "result": "#/$defs/VaultUpdateResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Lists an item's recent fills and denials, newest first (default 50).",
+        "name": "vault.uses",
+        "params": "#/$defs/VaultUsesParams",
+        "result": "#/$defs/VaultUsesResult",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -1026,6 +1234,14 @@
         "name": "view.open",
         "params": "#/$defs/ViewOpenParams",
         "result": "#/$defs/ViewOpenResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "desktop → Gateway: the desktop's current pane layout, sent after every change; view.layout returns the last report.",
+        "name": "view.report",
+        "params": "#/$defs/ViewReportParams",
+        "result": "#/$defs/OkResult",
         "scope": "operator.write",
         "sideEffecting": false
       }
@@ -1743,6 +1959,13 @@
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
+        },
+        "watch": {
+          "$ref": "#/$defs/WatchConfig"
+        },
+        "lightContext": {
+          "description": "Heartbeat: skip workspace bootstrap files (feature O2)",
+          "type": "boolean"
         }
       },
       "required": [
@@ -1761,16 +1984,174 @@
       "type": "object"
     },
     "AutomationKind": {
+      "description": "`reminder` is a one-shot: `schedule` is an ISO-8601 instant",
       "enum": [
         "cron",
         "interval",
         "watch",
         "heartbeat",
-        "briefing"
+        "briefing",
+        "reminder"
       ],
       "type": "string"
     },
     "AutomationResult": {
+      "properties": {
+        "automation": {
+          "$ref": "#/$defs/Automation"
+        }
+      },
+      "required": [
+        "automation"
+      ],
+      "type": "object"
+    },
+    "AutomationRun": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trigger": {
+          "enum": [
+            "schedule",
+            "manual"
+          ],
+          "type": "string"
+        },
+        "scheduledFor": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "coalesced": {
+          "description": "Missed ticks folded into this run",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/AutomationRunStatus"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notificationId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "automationId",
+        "trigger",
+        "scheduledFor",
+        "coalesced",
+        "startedAt",
+        "status"
+      ],
+      "type": "object"
+    },
+    "AutomationRunFinishedPayload": {
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/AutomationRun"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "type": "object"
+    },
+    "AutomationRunStartedPayload": {
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/AutomationRun"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "type": "object"
+    },
+    "AutomationRunStatus": {
+      "enum": [
+        "running",
+        "done",
+        "no_reply",
+        "failed",
+        "cancelled",
+        "skipped"
+      ],
+      "type": "string"
+    },
+    "AutomationUpdatedPayload": {
       "properties": {
         "automation": {
           "$ref": "#/$defs/Automation"
@@ -1814,6 +2195,12 @@
           "$ref": "#/$defs/Delivery"
         },
         "enabled": {
+          "type": "boolean"
+        },
+        "watch": {
+          "$ref": "#/$defs/WatchConfig"
+        },
+        "lightContext": {
           "type": "boolean"
         }
       },
@@ -1906,6 +2293,87 @@
       },
       "type": "object"
     },
+    "AutomationsRunsParams": {
+      "properties": {
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "automationId"
+      ],
+      "type": "object"
+    },
+    "AutomationsRunsResult": {
+      "properties": {
+        "runs": {
+          "items": {
+            "$ref": "#/$defs/AutomationRun"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "runs"
+      ],
+      "type": "object"
+    },
+    "AutomationsUpcomingParams": {
+      "properties": {
+        "horizonHours": {
+          "maximum": 8784,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "AutomationsUpcomingResult": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/UpcomingItem"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "type": "object"
+    },
     "AutomationsUpdateParams": {
       "properties": {
         "automationId": {
@@ -1943,6 +2411,23 @@
         },
         "enabled": {
           "type": "boolean"
+        },
+        "watch": {
+          "$ref": "#/$defs/WatchConfig"
+        },
+        "lightContext": {
+          "type": "boolean"
+        },
+        "scratch": {
+          "anyOf": [
+            {
+              "maxLength": 20000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -2055,11 +2540,40 @@
         },
         "state": {
           "$ref": "#/$defs/BrowserController"
+        },
+        "via": {
+          "$ref": "#/$defs/BridgeControlVia"
         }
       },
       "required": [
         "tabId",
         "state"
+      ],
+      "type": "object"
+    },
+    "BridgeControlVia": {
+      "description": "What changed control: user input, the Take control button, Release or idle timeout",
+      "enum": [
+        "keyboard",
+        "mouse",
+        "button",
+        "release",
+        "idle"
+      ],
+      "type": "string"
+    },
+    "BridgeDebuggerDetachedPayload": {
+      "properties": {
+        "tabId": {
+          "$ref": "#/$defs/BridgeTabId"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tabId",
+        "reason"
       ],
       "type": "object"
     },
@@ -2198,6 +2712,34 @@
         "attached": {
           "description": "A CDP debugger session is attached",
           "type": "boolean"
+        },
+        "openerTabId": {
+          "anyOf": [
+            {
+              "description": "Tab whose window.open created this one (popups, OAuth)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "disposition": {
+          "description": "Electron window-open disposition, e.g. new-window, foreground-tab",
+          "type": "string"
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -2238,6 +2780,17 @@
         },
         "background": {
           "type": "boolean"
+        },
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskTitle": {
+          "description": "Shown in the pane: \"<title> keeps running\"",
+          "maxLength": 200,
+          "type": "string"
         }
       },
       "required": [
@@ -2253,6 +2806,55 @@
       },
       "required": [
         "tab"
+      ],
+      "type": "object"
+    },
+    "BridgeTabStatusParams": {
+      "properties": {
+        "tabId": {
+          "$ref": "#/$defs/BridgeTabId"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "description": "Current action in present progressive for the status pill; null clears it",
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "highlight": {
+          "description": "Element being acted on, CSS pixels in the viewport; outlined for 600 ms",
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "width": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "height": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "x",
+            "y",
+            "width",
+            "height"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "tabId"
       ],
       "type": "object"
     },
@@ -2592,6 +3194,70 @@
       ],
       "type": "object"
     },
+    "ChannelIdentity": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "display": {
+          "type": "string"
+        },
+        "links": {
+          "description": "Sender ids merged into this identity",
+          "items": {
+            "description": "\"<channel>:<senderId>\"",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "delegatedPersona": {
+          "anyOf": [
+            {
+              "description": "Persona overlay name (feature N10)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "toolAllow": {
+          "anyOf": [
+            {
+              "description": "Tool name globs",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "updatedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "display",
+        "links",
+        "createdAt",
+        "updatedAt"
+      ],
+      "type": "object"
+    },
     "ChannelRef": {
       "properties": {
         "channel": {
@@ -2625,6 +3291,156 @@
       ],
       "type": "string"
     },
+    "ChannelsAllowlistUpdateParams": {
+      "properties": {
+        "channelId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "list": {
+          "enum": [
+            "allowFrom",
+            "groupAllowFrom",
+            "ownerIds"
+          ],
+          "type": "string"
+        },
+        "add": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "remove": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        }
+      },
+      "required": [
+        "channelId",
+        "list"
+      ],
+      "type": "object"
+    },
+    "ChannelsAllowlistUpdateResult": {
+      "properties": {
+        "channel": {
+          "$ref": "#/$defs/Channel"
+        }
+      },
+      "required": [
+        "channel"
+      ],
+      "type": "object"
+    },
+    "ChannelsConfigureParams": {
+      "properties": {
+        "channelId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/ChannelType"
+        },
+        "account": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dmPolicy": {
+          "$ref": "#/$defs/DmPolicy"
+        },
+        "allowFrom": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "groupAllowFrom": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "requireMention": {
+          "type": "boolean"
+        },
+        "ownerIds": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "dmScope": {
+          "enum": [
+            "main",
+            "per-peer",
+            "per-channel-peer"
+          ],
+          "type": "string"
+        },
+        "nodeId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "active",
+            "paused"
+          ],
+          "type": "string"
+        },
+        "config": {
+          "description": "JSON object",
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "ChannelsConfigureResult": {
+      "properties": {
+        "channel": {
+          "$ref": "#/$defs/Channel"
+        }
+      },
+      "required": [
+        "channel"
+      ],
+      "type": "object"
+    },
     "ChannelsGetParams": {
       "properties": {
         "channelId": {
@@ -2650,6 +3466,103 @@
       ],
       "type": "object"
     },
+    "ChannelsIdentitiesDeleteParams": {
+      "properties": {
+        "identityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "identityId"
+      ],
+      "type": "object"
+    },
+    "ChannelsIdentitiesListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "ChannelsIdentitiesListResult": {
+      "properties": {
+        "identities": {
+          "items": {
+            "$ref": "#/$defs/ChannelIdentity"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "identities"
+      ],
+      "type": "object"
+    },
+    "ChannelsIdentitiesUpsertParams": {
+      "properties": {
+        "identityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "display": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "links": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "delegatedPersona": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "toolAllow": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "display",
+        "links"
+      ],
+      "type": "object"
+    },
+    "ChannelsIdentitiesUpsertResult": {
+      "properties": {
+        "identity": {
+          "$ref": "#/$defs/ChannelIdentity"
+        }
+      },
+      "required": [
+        "identity"
+      ],
+      "type": "object"
+    },
     "ChannelsListParams": {
       "properties": {},
       "type": "object"
@@ -2665,6 +3578,114 @@
       },
       "required": [
         "channels"
+      ],
+      "type": "object"
+    },
+    "ChannelsPairingApproveParams": {
+      "properties": {
+        "requestId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "channelId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "code": {
+          "maxLength": 16,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ChannelsPairingApproveResult": {
+      "properties": {
+        "pairingRequest": {
+          "$ref": "#/$defs/PairingRequest"
+        }
+      },
+      "required": [
+        "pairingRequest"
+      ],
+      "type": "object"
+    },
+    "ChannelsPairingDenyParams": {
+      "properties": {
+        "requestId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "channelId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "code": {
+          "maxLength": 16,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ChannelsPairingDenyResult": {
+      "properties": {
+        "pairingRequest": {
+          "$ref": "#/$defs/PairingRequest"
+        }
+      },
+      "required": [
+        "pairingRequest"
+      ],
+      "type": "object"
+    },
+    "ChannelsPairingListParams": {
+      "properties": {
+        "channelId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/PairingStatus"
+        }
+      },
+      "type": "object"
+    },
+    "ChannelsPairingListResult": {
+      "properties": {
+        "requests": {
+          "items": {
+            "$ref": "#/$defs/PairingRequest"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "requests"
+      ],
+      "type": "object"
+    },
+    "ChannelsUpdatedPayload": {
+      "properties": {
+        "channel": {
+          "$ref": "#/$defs/Channel"
+        },
+        "detail": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel"
       ],
       "type": "object"
     },
@@ -3530,6 +4551,168 @@
       ],
       "type": "object"
     },
+    "CredentialSecretInput": {
+      "additionalProperties": false,
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "totpSecret": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        },
+        "headerName": {
+          "type": "string"
+        },
+        "headerPrefix": {
+          "type": "string"
+        },
+        "privateKey": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "CredentialUpdatedPayload": {
+      "properties": {
+        "credentialId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "change": {
+          "enum": [
+            "created",
+            "updated",
+            "deleted",
+            "rotated",
+            "revoked",
+            "used"
+          ],
+          "type": "string"
+        },
+        "credential": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CredentialMeta"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ownerConnectorId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "credentialId",
+        "change"
+      ],
+      "type": "object"
+    },
+    "CredentialUse": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "credentialId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "approvalId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "executor": {
+          "enum": [
+            "browser",
+            "connector",
+            "sandbox",
+            "ssh"
+          ],
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "filled",
+            "denied",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "credentialId",
+        "executor",
+        "target",
+        "outcome",
+        "createdAt"
+      ],
+      "type": "object"
+    },
     "DecidedBy": {
       "anyOf": [
         {
@@ -3891,7 +5074,11 @@
         "binding_mismatch",
         "taint_blocked",
         "policy_denied",
-        "internal"
+        "internal",
+        "user_in_control",
+        "debugger_detached",
+        "tab_not_found",
+        "method_not_allowed"
       ],
       "type": "string"
     },
@@ -9386,6 +10573,70 @@
       ],
       "type": "object"
     },
+    "UpcomingItem": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "automation",
+            "reminder",
+            "briefing",
+            "heartbeat",
+            "watch",
+            "input_request"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "nextRunAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schedule": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "title",
+        "enabled"
+      ],
+      "type": "object"
+    },
     "Usage": {
       "properties": {
         "input": {
@@ -9502,6 +10753,100 @@
       ],
       "type": "object"
     },
+    "VaultAddParams": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/CredentialKind"
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "slug": {
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+          "type": "string"
+        },
+        "bindings": {
+          "items": {
+            "$ref": "#/$defs/CredentialBinding"
+          },
+          "type": "array"
+        },
+        "secret": {
+          "$ref": "#/$defs/CredentialSecretInput"
+        },
+        "requireAuthEachUse": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "bindings",
+        "secret"
+      ],
+      "type": "object"
+    },
+    "VaultAddResult": {
+      "properties": {
+        "credential": {
+          "$ref": "#/$defs/CredentialMeta"
+        }
+      },
+      "required": [
+        "credential"
+      ],
+      "type": "object"
+    },
+    "VaultConfirmRecoveryParams": {
+      "properties": {
+        "lastGroup": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "lastGroup"
+      ],
+      "type": "object"
+    },
+    "VaultConfirmRecoveryResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultDeleteParams": {
+      "properties": {
+        "credentialId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "credentialId"
+      ],
+      "type": "object"
+    },
+    "VaultDeleteResult": {
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deleted"
+      ],
+      "type": "object"
+    },
     "VaultGetParams": {
       "properties": {
         "credentialId": {
@@ -9527,6 +10872,70 @@
       ],
       "type": "object"
     },
+    "VaultImportParams": {
+      "properties": {
+        "format": {
+          "enum": [
+            "auto",
+            "1password",
+            "bitwarden",
+            "chrome"
+          ],
+          "type": "string"
+        },
+        "csv": {
+          "maxLength": 10000000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "format",
+        "csv"
+      ],
+      "type": "object"
+    },
+    "VaultImportResult": {
+      "properties": {
+        "imported": {
+          "items": {
+            "$ref": "#/$defs/CredentialMeta"
+          },
+          "type": "array"
+        },
+        "skipped": {
+          "items": {
+            "properties": {
+              "row": {
+                "type": "integer"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "row",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "imported",
+        "skipped"
+      ],
+      "type": "object"
+    },
+    "VaultKeySlot": {
+      "enum": [
+        "keychain",
+        "safe_storage",
+        "key_file",
+        "recovery"
+      ],
+      "type": "string"
+    },
     "VaultListParams": {
       "properties": {
         "kind": {
@@ -9546,6 +10955,261 @@
       },
       "required": [
         "credentials"
+      ],
+      "type": "object"
+    },
+    "VaultLockParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "VaultLockResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultLockedPayload": {
+      "properties": {
+        "reason": {
+          "enum": [
+            "manual",
+            "idle",
+            "sleep",
+            "screen_lock",
+            "shutdown"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "reason",
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultSetupParams": {
+      "properties": {
+        "slot": {
+          "enum": [
+            "keychain",
+            "safe_storage",
+            "key_file"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "slot"
+      ],
+      "type": "object"
+    },
+    "VaultSetupResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        },
+        "recoveryKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "recoveryKey"
+      ],
+      "type": "object"
+    },
+    "VaultStatus": {
+      "properties": {
+        "state": {
+          "enum": [
+            "uninitialized",
+            "locked",
+            "unlocked"
+          ],
+          "type": "string"
+        },
+        "slots": {
+          "items": {
+            "$ref": "#/$defs/VaultKeySlot"
+          },
+          "type": "array"
+        },
+        "recoveryConfirmed": {
+          "type": "boolean"
+        },
+        "autoLockMinutes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "lockAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "itemCount": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "state",
+        "slots",
+        "recoveryConfirmed",
+        "autoLockMinutes",
+        "itemCount"
+      ],
+      "type": "object"
+    },
+    "VaultStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "VaultStatusResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultUnlockParams": {
+      "properties": {
+        "reason": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "recoveryKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "type": "object"
+    },
+    "VaultUnlockResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultUnlockedPayload": {
+      "properties": {
+        "via": {
+          "enum": [
+            "keychain",
+            "safe_storage",
+            "key_file",
+            "recovery"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "via",
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultUpdateParams": {
+      "properties": {
+        "credentialId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "bindings": {
+          "items": {
+            "$ref": "#/$defs/CredentialBinding"
+          },
+          "type": "array"
+        },
+        "secret": {
+          "$ref": "#/$defs/CredentialSecretInput"
+        },
+        "requireAuthEachUse": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "credentialId"
+      ],
+      "type": "object"
+    },
+    "VaultUpdateResult": {
+      "properties": {
+        "credential": {
+          "$ref": "#/$defs/CredentialMeta"
+        }
+      },
+      "required": [
+        "credential"
+      ],
+      "type": "object"
+    },
+    "VaultUsesParams": {
+      "properties": {
+        "credentialId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "credentialId"
+      ],
+      "type": "object"
+    },
+    "VaultUsesResult": {
+      "properties": {
+        "uses": {
+          "items": {
+            "$ref": "#/$defs/CredentialUse"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "uses"
       ],
       "type": "object"
     },
@@ -9754,6 +11418,54 @@
         "split"
       ],
       "type": "string"
+    },
+    "ViewReportParams": {
+      "properties": {
+        "layout": {
+          "$ref": "#/$defs/ViewLayout"
+        }
+      },
+      "required": [
+        "layout"
+      ],
+      "type": "object"
+    },
+    "WatchCheck": {
+      "enum": [
+        "change",
+        "text_present",
+        "price_below",
+        "price_above"
+      ],
+      "type": "string"
+    },
+    "WatchConfig": {
+      "properties": {
+        "url": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "check": {
+          "$ref": "#/$defs/WatchCheck"
+        },
+        "selector": {
+          "description": "Regex over the fetched text; capture group 1 is the value",
+          "type": "string"
+        },
+        "text": {
+          "description": "text_present: the text to look for",
+          "type": "string"
+        },
+        "threshold": {
+          "description": "price_below / price_above",
+          "type": "number"
+        }
+      },
+      "required": [
+        "url",
+        "check"
+      ],
+      "type": "object"
     },
     "WorkspacePath": {
       "description": "Workspace-relative path, e.g. \"memory/2026-10-18.md\"",

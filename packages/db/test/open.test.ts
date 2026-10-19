@@ -1,16 +1,20 @@
 import { statSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { openDb } from "../src/index.ts";
+import { listMigrationFiles, openDb } from "../src/index.ts";
 import { makeTmpDir, memoryDb } from "./helpers.ts";
 
 const TABLES = [
   "devices",
+  "input_requests",
   "messages",
   "nodes",
   "pairing_requests",
   "runs",
   "settings",
+  "task_actions",
+  "task_checkpoints",
+  "tasks",
   "threads",
   "tool_calls",
   "usage",
@@ -68,7 +72,10 @@ describe("openDb", () => {
     db.close();
 
     const again = openDb(file);
-    expect(again.migrate()).toEqual({ applied: [], skipped: ["202610182200_db_init"] });
+    expect(again.migrate()).toEqual({
+      applied: [],
+      skipped: listMigrationFiles().map((f) => f.id),
+    });
     again.close();
 
     const ro = openDb(file, { readonly: true });
