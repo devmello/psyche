@@ -64,7 +64,10 @@ export function CodeViewer(props: ViewerProps & { language?: string }) {
 export function CodeView(props: ViewerProps & { text: string; language: string }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
-  const { text, language, onSelectionChange } = props;
+  const { text, language } = props;
+  // Callbacks live in a ref so a parent re-render never rebuilds the editor (and loses selection).
+  const onSelection = useRef(props.onSelectionChange);
+  onSelection.current = props.onSelectionChange;
 
   useEffect(() => {
     if (host.current === null) return;
@@ -85,6 +88,7 @@ export function CodeView(props: ViewerProps & { text: string; language: string }
           keymap.of(searchKeymap),
           shikiField,
           EditorView.updateListener.of((u) => {
+            const onSelectionChange = onSelection.current;
             if (!u.selectionSet || onSelectionChange === undefined) return;
             const sel = u.state.selection.main;
             if (sel.empty) return onSelectionChange(null);
@@ -112,7 +116,7 @@ export function CodeView(props: ViewerProps & { text: string; language: string }
       v.destroy();
       view.current = null;
     };
-  }, [text, language, onSelectionChange, props.item.name]);
+  }, [text, language, props.item.name]);
 
   const sendSelection = () => {
     const v = view.current;

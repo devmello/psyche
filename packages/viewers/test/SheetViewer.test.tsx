@@ -4,6 +4,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import * as XLSX from "xlsx";
 import { parseFilter } from "../src/core/sheet.ts";
 import { SheetViewer } from "../src/react/SheetViewer.tsx";
+import { budgetMs } from "./fixtures/budget.ts";
 import { bigCsv } from "./fixtures/sheets.ts";
 
 afterEach(cleanup);
@@ -72,7 +73,7 @@ describe("SheetViewer", () => {
     const t0 = performance.now();
     render(<SheetViewer item={csvItem} load={async () => bytes} />);
     await screen.findByText("50,000 rows");
-    expect(performance.now() - t0).toBeLessThan(2000);
+    expect(performance.now() - t0).toBeLessThan(budgetMs(2000));
     const rows = screen.getAllByRole("row");
     expect(rows.length).toBeGreaterThan(5);
     expect(rows.length).toBeLessThan(80);

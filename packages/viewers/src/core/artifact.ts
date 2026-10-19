@@ -16,10 +16,16 @@ import type { Artifact } from "@psyche/protocol";
  *   host page owns the sandboxed inner frame. A sandbox escape then lands on an origin with
  *   nothing in it.
  *
- * Residual channel: a sandboxed frame may still navigate itself (`location = ...`). The bridge
- * turns link clicks into `open-link` requests, `ArtifactFrame` tears the frame down on any
- * second load, and the desktop shell must cancel subframe navigations away from the artifacts
- * origin (Electron `will-frame-navigate`).
+ * Residual channels (CSP cannot close them):
+ * - Self-navigation (`location = ...`). The bridge turns trusted link clicks into `open-link`
+ *   requests, `ArtifactFrame` tears the frame down on any second load, and the desktop shell must
+ *   cancel subframe navigations away from the artifacts origin (Electron `will-frame-navigate`).
+ * - WebRTC ICE (STUN/TURN to any host) and DNS prefetch. The bridge removes `RTCPeerConnection`
+ *   as defense in depth (a child about:blank frame can bring it back); the shell must restrict
+ *   WebRTC (`webRTCIPHandlingPolicy: "disable_non_proxied_udp"` or a Chromium switch).
+ * - `open-link` messages can be forged by artifact script. `ArtifactFrame` only honours them
+ *   right after the user interacted with the frame and rate-limits them; the shell opens them in
+ *   the browser pane, never silently in the background.
  */
 
 export const ARTIFACT_SANDBOX = "allow-scripts";
@@ -71,11 +77,12 @@ export function buildArtifactCsp(policy: ArtifactPolicy, nonce: string): string 
 export function bridgeScript(channel: string): string {
   return `(function(){
 var C=${JSON.stringify(channel)},T=${JSON.stringify(BRIDGE_TAG)};
+try{["RTCPeerConnection","webkitRTCPeerConnection","RTCDataChannel"].forEach(function(k){Object.defineProperty(window,k,{value:undefined,configurable:false,writable:false})})}catch(e){}
 function post(m){m.tag=T;m.channel=C;try{parent.postMessage(m,"*")}catch(e){}}
 var last=-1;function size(){var h=Math.ceil(Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0));if(h!==last){last=h;post({type:"resize",height:h})}}
 if(typeof ResizeObserver==="function"){new ResizeObserver(size).observe(document.documentElement)}
 addEventListener("load",function(){size();post({type:"ready"})});
-document.addEventListener("click",function(e){var t=e.target,a=t&&t.closest?t.closest("a[href]"):null;if(!a)return;var h=a.getAttribute("href")||"";if(h.charAt(0)==="#")return;e.preventDefault();post({type:"open-link",href:String(a.href).slice(0,4096)})},true);
+document.addEventListener("click",function(e){var t=e.target,a=t&&t.closest?t.closest("a[href],area[href]"):null;if(!a)return;if(!e.isTrusted){e.preventDefault();return}var h=a.getAttribute("href")||"";if(h.charAt(0)==="#")return;e.preventDefault();post({type:"open-link",href:String(a.href).slice(0,4096)})},true);
 addEventListener("error",function(e){post({type:"error",message:String(e.message||"error").slice(0,500)})});
 })();`;
 }
@@ -180,7 +187,7 @@ addEventListener("message",function(e){
   if(inner)inner.remove();ch=e.data.channel;inner=document.createElement("iframe");
   inner.setAttribute("sandbox",${JSON.stringify(ARTIFACT_SANDBOX)});inner.setAttribute("referrerpolicy","no-referrer");
   inner.style.cssText="border:0;width:100%;height:100%;display:block";var loads=0,me=inner;inner.addEventListener("load",function(){if(++loads>1&&me===inner){parent.postMessage({tag:T,channel:ch,type:"navigated"},P);inner.remove();inner=null}});inner.srcdoc=e.data.srcdoc;document.body.appendChild(inner);return}
- if(inner&&e.source===inner.contentWindow&&e.data&&e.data.tag===T&&e.data.channel===ch){parent.postMessage(e.data,P)}
+ if(inner&&e.source===inner.contentWindow&&e.data&&e.data.tag===T&&e.data.channel===ch&&e.data.type!=="host-ready"&&e.data.type!=="navigated"){parent.postMessage(e.data,P)}
 });
 parent.postMessage({tag:T,type:"host-ready"},P);
 })();`;

@@ -166,7 +166,7 @@ export async function extractText(
     case "pdf":
       return { ...base, ...(await extractPdf(input.bytes, maxChars, opts, base.warnings)) };
     case "sheet":
-      return { ...base, ...(await extractSheet(input, maxChars, opts)) };
+      return { ...base, ...(await extractSheet(input, maxChars, opts, base.warnings)) };
     case "slides":
       return { ...base, ...(await extractSlides(input.bytes, maxChars, opts)) };
     case "docx":
@@ -291,12 +291,18 @@ async function extractPdf(
   }
 }
 
-async function extractSheet(input: ExtractInput, maxChars: number, opts: ExtractOptions) {
+async function extractSheet(
+  input: ExtractInput,
+  maxChars: number,
+  opts: ExtractOptions,
+  warnings: string[],
+) {
   const wb = await parseWorkbook(input.bytes, input.name);
   const c = decodeCursor(opts.cursor, "sheet");
   const out = new Builder(maxChars);
   let next: Cursor | undefined;
   let totalRows = 0;
+  let rowsThisCall = 0;
   for (const s of wb.sheets) totalRows += s.rows.length;
   outer: for (let si = c.a; si < wb.sheets.length; si++) {
     const sheet = wb.sheets[si];
@@ -318,9 +324,26 @@ async function extractSheet(input: ExtractInput, maxChars: number, opts: Extract
       const ref = `${sheet.name}!${cellRef(sheet, r, 0)}:${cellRef(sheet, r, Math.max(0, sheet.columnCount - 1))}`;
       const line = `${cellRef(sheet, r, 0).replace(/^[A-Z]+/, "")}: ${row.join(" | ")}`;
       if (out.room < line.length + 2) {
-        next = { k: "sheet", a: si, b: r };
+        if (rowsThisCall > 0) {
+          next = { k: "sheet", a: si, b: r };
+          break outer;
+        }
+        // A single row larger than the whole budget: emit it truncated and move on, so paging
+        // always makes progress.
+        const cut = `${line.slice(0, Math.max(0, out.room - 2))}…`;
+        const start = out.text.length + 1;
+        out.text += `\n${cut}`;
+        out.refs.push({ ref, start, end: out.text.length });
+        warnings.push(`Row ${ref} was truncated to fit the output budget`);
+        if (r + 1 < sheet.rows.length || si + 1 < wb.sheets.length) {
+          next =
+            r + 1 < sheet.rows.length
+              ? { k: "sheet", a: si, b: r + 1 }
+              : { k: "sheet", a: si + 1, b: 0 };
+        }
         break outer;
       }
+      rowsThisCall++;
       // Rows are joined with single newlines; Builder adds "\n\n" between units, so append directly.
       const start = out.text.length + 1;
       out.text += `\n${line}`;
@@ -355,13 +378,22 @@ async function extractSlides(bytes: Uint8Array, maxChars: number, opts: ExtractO
       .map((p) =>
         [...p.matchAll(/<a:t>([^<]*)<\/a:t>/g)].map((m) => unescapeXml(m[1] ?? "")).join(""),
       );
-    const body = paras.filter((p) => p.trim() !== "").join("\n");
-    const header = `[slide ${slide.n}]\n`;
-    if (out.room < header.length + Math.min(body.length, 200) && out.text.length > 0) {
-      next = { k: "slides", a: i, b: 0 };
+    const offset = i === c.a ? c.b : 0;
+    const body = paras
+      .filter((p) => p.trim() !== "")
+      .join("\n")
+      .slice(offset);
+    const header = `[slide ${slide.n}${offset > 0 ? " cont." : ""}]\n`;
+    // Keep slides whole unless one slide alone exceeds the budget; then continue it next call.
+    if (out.text.length > 0 && header.length + body.length + 2 > out.room) {
+      next = { k: "slides", a: i, b: offset };
       break;
     }
-    out.add(`slide ${slide.n}`, header, body);
+    const took = out.add(`slide ${slide.n}`, header, body);
+    if (took < body.length) {
+      next = { k: "slides", a: i, b: offset + took };
+      break;
+    }
   }
   return {
     text: out.text,

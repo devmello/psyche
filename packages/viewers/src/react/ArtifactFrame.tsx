@@ -29,6 +29,7 @@ export interface ArtifactFrameProps {
 }
 
 const DEFAULT_POLICY: ArtifactPolicy = { allowScripts: true };
+const LINK_INTERVAL_MS = 1000;
 
 /**
  * Renders untrusted HTML in the artifact sandbox (P6). The iframe never gets
@@ -59,6 +60,8 @@ export function ArtifactFrame(props: ArtifactFrameProps) {
   const [blocked, setBlocked] = useState(false);
   const callbacks = useRef(props);
   callbacks.current = props;
+  const lastLink = useRef(0);
+  const answeredHost = useRef<string | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset per render of a new document.
   useEffect(() => setBlocked(false), [built]);
@@ -69,6 +72,9 @@ export function ArtifactFrame(props: ArtifactFrameProps) {
       const frame = ref.current;
       if (frame === null || e.source !== frame.contentWindow) return;
       if (hostOrigin !== undefined && e.origin === hostOrigin && isHostReady(e.data)) {
+        // Answer once per document: a relayed or replayed host-ready must not loop renders.
+        if (answeredHost.current === built.channel) return;
+        answeredHost.current = built.channel;
         frame.contentWindow?.postMessage(
           { type: HOST_RENDER, channel: built.channel, srcdoc: built.srcdoc },
           hostOrigin,
@@ -84,8 +90,14 @@ export function ArtifactFrame(props: ArtifactFrameProps) {
       if (msg.type === "resize") {
         const max = cb.maxHeight ?? 4000;
         setHeight(Math.min(max, Math.max(cb.minHeight ?? 40, msg.height)));
-      } else if (msg.type === "open-link") cb.onOpenLink?.(msg.href);
-      else if (msg.type === "error") cb.onError?.(msg.message);
+      } else if (msg.type === "open-link") {
+        // Artifact script can forge this message, so only honour it while the user is
+        // interacting with the frame (focus is inside it after a click), at most once a second.
+        const now = Date.now();
+        if (document.activeElement !== frame || now - lastLink.current < LINK_INTERVAL_MS) return;
+        lastLink.current = now;
+        cb.onOpenLink?.(msg.href);
+      } else if (msg.type === "error") cb.onError?.(msg.message);
       else if (msg.type === "navigated") {
         setBlocked(true);
         cb.onBlockedNavigation?.();

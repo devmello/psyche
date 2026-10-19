@@ -9,6 +9,7 @@ import {
   parseWorkbook,
   toNumber,
 } from "../src/core/sheet.ts";
+import { budgetMs } from "./fixtures/budget.ts";
 import { bigCsv } from "./fixtures/sheets.ts";
 
 const enc = (s: string) => new TextEncoder().encode(s);
@@ -38,7 +39,7 @@ describe("workbooks", () => {
     const t0 = performance.now();
     const wb = await parseWorkbook(bytes, "transactions.csv");
     const elapsed = performance.now() - t0;
-    expect(elapsed).toBeLessThan(2000);
+    expect(elapsed).toBeLessThan(budgetMs(2000));
     const sheet = wb.sheets[0];
     expect(sheet?.header).toEqual(["id", "date", "merchant", "category", "amount", "note"]);
     expect(sheet?.rows).toHaveLength(50_000);

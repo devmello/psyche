@@ -134,6 +134,9 @@ const FORBID_ATTR = [
 ];
 
 const REMOTE_URL_IN_CSS = /url\(\s*(['"]?)\s*(?!data:|cid:)[^)]*\1\s*\)/gi;
+/** Any remote-looking reference in CSS, including escapes (`u\72l(`) and `image-set(`. */
+const looksRemote = (css: string) => /https?:|\\[0-9a-f]{1,6}|image-set\(/i.test(css);
+
 const BLOCKED_PIXEL =
   "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E";
 
@@ -148,7 +151,13 @@ export function sanitizeEmailHtml(html: string, opts: SanitizeEmailOptions = {})
     if (el.tagName === "IMG") {
       const src = (el.getAttribute("src") ?? "").trim();
       if (/^cid:/i.test(src)) {
-        const url = opts.resolveCid?.(decodeURIComponent(src.slice(4)));
+        let id: string | undefined;
+        try {
+          id = decodeURIComponent(src.slice(4));
+        } catch {
+          id = undefined;
+        }
+        const url = id === undefined ? undefined : opts.resolveCid?.(id);
         if (url === undefined) el.removeAttribute("src");
         else el.setAttribute("src", url);
       } else if (/^https?:/i.test(src) && !opts.allowRemoteImages) {
@@ -169,6 +178,10 @@ export function sanitizeEmailHtml(html: string, opts: SanitizeEmailOptions = {})
       REMOTE_URL_IN_CSS.lastIndex = 0;
       el.setAttribute("style", style.replace(REMOTE_URL_IN_CSS, "none"));
       blocked++;
+    } else if (style !== null && !opts.allowRemoteImages && looksRemote(style)) {
+      // Escaped or image-set() forms the regex misses: the frame CSP blocks the load; count it
+      // so the "Load remote images" banner still appears.
+      blocked++;
     }
     REMOTE_URL_IN_CSS.lastIndex = 0;
   });
@@ -177,7 +190,7 @@ export function sanitizeEmailHtml(html: string, opts: SanitizeEmailOptions = {})
       const el = node as Element;
       const css = el.textContent ?? "";
       const cleaned = css.replace(/@import[^;]*;?/gi, "").replace(REMOTE_URL_IN_CSS, "none");
-      if (cleaned !== css) {
+      if (cleaned !== css || looksRemote(cleaned)) {
         blocked++;
         el.textContent = cleaned;
       }

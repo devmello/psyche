@@ -41,7 +41,8 @@ interface ViewerProps {
 ```
 
 `<ViewerHost item load … registry? components? artifactHostUrl? onTrust? />` resolves the viewer,
-lazy-loads it (one chunk per viewer) and gates quarantined downloads behind an explicit Open.
+lazy-loads it (one chunk per viewer), wraps it in an error boundary and gates quarantined downloads behind an
+explicit Open (per item).
 Shells override a render kind with `components={{ pdf: MyPdf }}`.
 
 ## Viewers
@@ -78,11 +79,15 @@ and any file with frontmatter get a YAML panel; the block is preserved byte-for-
   nonce'd bridge.
 - Bridge (no iframe-resizer): `resize`, `open-link` (http/https/mailto only, opened in the browser
   pane), `error`, `ready`. The parent checks `event.source`, origin and a per-render channel.
+  Artifact script can forge bridge messages, so `open-link` is honoured only while focus is inside
+  the frame (the user clicked it) and at most once a second; the bridge itself only reports trusted
+  clicks on `a[href]` / `area[href]`.
 - Placements: **inline** (srcdoc in the app; inherits the app's CSP) and **hosted**: the Gateway
   serves `artifactHostPage(appOrigin, nonce)` with `artifactHostHeaders(appOrigin)` on a separate
   origin (distinct loopback port or `artifacts.` host); the app frames it and posts the srcdoc.
 - A frame that navigates itself is torn down (second `load` inline; `navigated` from the host page).
-  The desktop shell must also cancel subframe navigations (see status).
+  The desktop shell must also cancel subframe navigations and restrict WebRTC (see status): CSP
+  covers neither self-navigation nor STUN/TURN or DNS prefetch.
 - Update by name: `upsertArtifact(existing, { title, type })` bumps the version of the same slug.
 - Proof: `test/sandbox.browser.test.ts` runs in a local Chrome (playwright-core, no download;
   skipped when Chrome is absent) and shows a hostile artifact cannot read the parent, cookies or

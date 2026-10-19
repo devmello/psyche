@@ -5,6 +5,7 @@ import {
   type ExtractResult,
   extractText,
 } from "../src/core/extract.ts";
+import { budgetMs } from "./fixtures/budget.ts";
 import { MALICIOUS_EML } from "./fixtures/email.ts";
 import { sampleDocx, samplePptx } from "./fixtures/office.ts";
 import { manyPagePdf, rawPdf, xfaPdf } from "./fixtures/pdf.ts";
@@ -29,7 +30,7 @@ describe("extractText", () => {
     expect(bytes.byteLength).toBeGreaterThan(20 * 1024 * 1024);
     const t0 = performance.now();
     const r = await extractText({ bytes, name: "big.pdf" }, { maxChars: 2000 });
-    expect(performance.now() - t0).toBeLessThan(5000);
+    expect(performance.now() - t0).toBeLessThan(budgetMs(5000));
     expect(r.kind).toBe("pdf");
     expect(r.text.length).toBeLessThanOrEqual(2000);
     expect(r.total).toEqual({ unit: "page", count: 300 });
@@ -133,5 +134,31 @@ describe("extractText", () => {
     await expect(
       extractText({ bytes: enc("x"), name: "a.txt" }, { cursor: "../etc" }),
     ).rejects.toThrow(ExtractError);
+  });
+});
+
+describe("extractText paging edge cases (review)", () => {
+  it("makes progress when one CSV row exceeds the budget", async () => {
+    const csv = `a,b\n${"x".repeat(3000)},1\nsmall,2\n`;
+    const chunks = await all({ bytes: enc(csv), name: "wide.csv" }, 600);
+    expect(chunks.length).toBeLessThan(10);
+    expect(chunks.at(-1)?.nextCursor).toBeUndefined();
+    expect(chunks.map((c) => c.text).join("\n")).toContain("small | 2");
+    expect(chunks.some((c) => c.warnings.some((w) => /truncated/.test(w)))).toBe(true);
+  });
+
+  it("continues a long slide instead of dropping its tail", async () => {
+    const JSZip = (await import("jszip")).default;
+    const zip = await JSZip.loadAsync(await samplePptx());
+    const long = `${"word ".repeat(400)}TAIL-MARKER`;
+    zip.file(
+      "ppt/slides/slide2.xml",
+      `<p:sld xmlns:p="p" xmlns:a="a"><a:p><a:r><a:t>${long}</a:t></a:r></a:p></p:sld>`,
+    );
+    const bytes = await zip.generateAsync({ type: "uint8array" });
+    const chunks = await all({ bytes, name: "d.pptx" }, 600);
+    const text = chunks.map((c) => c.text).join("");
+    expect(text).toContain("TAIL-MARKER");
+    expect(text).toContain("Appendix");
   });
 });

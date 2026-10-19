@@ -55,12 +55,18 @@ export function MarkdownEditor(props: MarkdownEditorProps) {
     return () => session.dispose();
   }, [session]);
   const { onSaved, remote } = props;
-  const lastSaved = useRef<string | null>(null);
+  // onSaved fires only when one of our own saves lands (not on load, remote follow or "Take theirs").
+  const prevStatus = useRef(state.status);
   useEffect(() => {
-    if (state.status === "clean" && lastSaved.current !== state.etag) {
-      if (lastSaved.current !== null) onSaved?.({ content: state.saved, etag: state.etag });
-      lastSaved.current = state.etag;
+    if (
+      prevStatus.current === "saving" &&
+      state.status !== "saving" &&
+      state.status !== "error" &&
+      state.status !== "conflict"
+    ) {
+      onSaved?.({ content: state.saved, etag: state.etag });
     }
+    prevStatus.current = state.status;
   }, [state, onSaved]);
   useEffect(() => {
     if (remote !== undefined) session.remoteChanged(remote);

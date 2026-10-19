@@ -55,7 +55,7 @@ describe("ArtifactFrame", () => {
     expect(frame.style.height).toBe("900px");
   });
 
-  it("routes link clicks to the browser pane and drops unsafe schemes", () => {
+  it("routes link clicks to the browser pane only while the user is in the frame, rate-limited", () => {
     const onOpenLink = vi.fn();
     render(
       <ArtifactFrame
@@ -66,8 +66,16 @@ describe("ArtifactFrame", () => {
     );
     const frame = screen.getByTitle("Dash") as HTMLIFrameElement;
     const ch = channelOf(frame);
-    post(frame, { tag: BRIDGE_TAG, channel: ch, type: "open-link", href: "javascript:alert(1)" });
-    post(frame, { tag: BRIDGE_TAG, channel: ch, type: "open-link", href: "https://x.example/" });
+    const link = { tag: BRIDGE_TAG, channel: ch, type: "open-link", href: "https://x.example/" };
+    // No user interaction with the frame: a forged message is ignored.
+    post(frame, link);
+    expect(onOpenLink).not.toHaveBeenCalled();
+    frame.tabIndex = 0;
+    frame.focus();
+    expect(document.activeElement).toBe(frame);
+    post(frame, { ...link, href: "javascript:alert(1)" });
+    post(frame, link);
+    post(frame, link); // within the rate limit
     expect(onOpenLink).toHaveBeenCalledTimes(1);
     expect(onOpenLink).toHaveBeenCalledWith("https://x.example/");
   });
@@ -104,8 +112,9 @@ describe("ArtifactFrame", () => {
     const [msg, origin] = sent[0] as [{ type: string; srcdoc: string }, string];
     expect(origin).toBe("http://127.0.0.1:7790");
     expect(msg.srcdoc).toContain("<p>hosted</p>");
-    // host-ready from another origin is ignored.
+    // host-ready from another origin, or a replay, is ignored.
     post(frame, { tag: BRIDGE_TAG, type: "host-ready" }, { origin: "http://127.0.0.1:9999" });
+    post(frame, { tag: BRIDGE_TAG, type: "host-ready" }, { origin: "http://127.0.0.1:7790" });
     expect(sent).toHaveLength(1);
   });
 });

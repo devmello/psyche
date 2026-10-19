@@ -17,7 +17,7 @@ export interface FrontmatterSplit {
   body: string;
 }
 
-const FM = /^---[ \t]*\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/;
+const FM = /^---[ \t]*\r?\n(?:([\s\S]*?)\r?\n)?(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/;
 
 export function splitFrontmatter(text: string): FrontmatterSplit {
   const m = FM.exec(text);
@@ -34,7 +34,8 @@ export function joinFrontmatter(
   if (yaml === null) return body;
   if (yaml === original.yaml) return original.block + body;
   const nl = original.block.includes("\r\n") ? "\r\n" : "\n";
-  return `---${nl}${yaml.replace(/\s+$/, "")}${nl}---${nl}${body}`;
+  // Keep the YAML exactly as typed (trailing spaces, a new empty line for the next key).
+  return `---${nl}${yaml}${yaml === "" || yaml.endsWith("\n") ? "" : nl}---${nl}${body}`;
 }
 
 export type FrontmatterParse =
@@ -106,7 +107,8 @@ export function lineDiffStats(before: string, after: string): { added: number; r
       .map((line) => {
         let id = ids.get(line);
         if (id === undefined) {
-          id = String.fromCharCode(0xe000 + (ids.size % 0x1900));
+          // One UTF-16 code unit per distinct line, below the surrogate range (~55k ids).
+          id = String.fromCharCode(0x100 + Math.min(ids.size, 0xd6ff));
           ids.set(line, id);
         }
         return id;

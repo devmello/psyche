@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { openPdf, PdfPasswordError } from "../src/core/pdf.ts";
+import { budgetMs } from "./fixtures/budget.ts";
 import { acroFormPdf, manyPagePdf, xfaPdf } from "./fixtures/pdf.ts";
 
 describe("PDF core", () => {
@@ -7,7 +8,7 @@ describe("PDF core", () => {
     const bytes = manyPagePdf(100);
     const t0 = performance.now();
     const pdf = await openPdf(bytes);
-    expect(performance.now() - t0).toBeLessThan(2000);
+    expect(performance.now() - t0).toBeLessThan(budgetMs(2000));
     expect(pdf.info).toMatchObject({ numPages: 100, formKind: "none", isPureXfa: false });
     expect(await pdf.pageText(1)).toContain("Page 1 of 100");
     const outline = await pdf.outline();

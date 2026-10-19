@@ -1,5 +1,13 @@
 import type { ViewerRegistry, ViewerRenderKind } from "@psyche/protocol";
-import { type ComponentType, lazy, Suspense, useMemo, useState } from "react";
+import {
+  type ComponentType,
+  lazy,
+  Component as ReactComponent,
+  type ReactNode,
+  Suspense,
+  useMemo,
+  useState,
+} from "react";
 import { createDefaultViewerRegistry } from "../core/registry.ts";
 import type { ViewerComponentMap, ViewerProps } from "./contract.ts";
 import { ViewerMessage } from "./states.tsx";
@@ -40,6 +48,29 @@ export interface ViewerHostProps extends ViewerProps {
   onTrust?: () => void;
 }
 
+/** Any viewer crash (bad file, parser bug) becomes an error state, never a blank pane. */
+export class ViewerErrorBoundary extends ReactComponent<
+  { name: string; children: ReactNode },
+  { error: Error | null }
+> {
+  override state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  override render() {
+    if (this.state.error !== null) {
+      return (
+        <ViewerMessage
+          kind="error"
+          title={`${this.props.name} could not be shown`}
+          detail={this.state.error.message}
+        />
+      );
+    }
+    return this.props.children;
+  }
+}
+
 let fallbackRegistry: ViewerRegistry | undefined;
 function defaultRegistry(): ViewerRegistry {
   fallbackRegistry ??= createDefaultViewerRegistry();
@@ -57,7 +88,9 @@ export function ViewerHost(props: ViewerHostProps) {
     () => reg.resolve(props.item.mime, props.item.name),
     [reg, props.item.mime, props.item.name],
   );
-  const [opened, setOpened] = useState(false);
+  // Keyed by item: opening one quarantined file never opens the next one.
+  const [openedId, setOpenedId] = useState<string | null>(null);
+  const opened = openedId === props.item.id;
   if (spec === undefined) {
     return (
       <ViewerMessage
@@ -85,7 +118,7 @@ export function ViewerHost(props: ViewerHostProps) {
         detail={`${props.item.name} came from the web and has not been opened yet.`}
         action={
           <span>
-            <button type="button" onClick={() => setOpened(true)}>
+            <button type="button" onClick={() => setOpenedId(props.item.id)}>
               Open
             </button>
             {onTrust ? (
@@ -100,10 +133,12 @@ export function ViewerHost(props: ViewerHostProps) {
   }
   const Component = components?.[spec.render] ?? DEFAULT_VIEWER_COMPONENTS[spec.render];
   return (
-    <Suspense fallback={<ViewerMessage kind="loading" title={`Opening ${props.item.name}…`} />}>
-      <div className="psy-viewer" data-viewer={spec.id} data-provenance={props.item.provenance}>
-        <Component {...viewer} />
-      </div>
-    </Suspense>
+    <ViewerErrorBoundary key={props.item.id} name={props.item.name}>
+      <Suspense fallback={<ViewerMessage kind="loading" title={`Opening ${props.item.name}…`} />}>
+        <div className="psy-viewer" data-viewer={spec.id} data-provenance={props.item.provenance}>
+          <Component {...viewer} />
+        </div>
+      </Suspense>
+    </ViewerErrorBoundary>
   );
 }

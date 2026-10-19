@@ -46,11 +46,21 @@ export function PdfViewer(props: PdfViewerProps) {
       await pdf.close();
       throw new DOMException("aborted", "AbortError");
     }
-    const [fields, outline, first] = await Promise.all([
-      pdf.fields(),
-      pdf.outline(),
-      pdf.doc.getPage(1),
-    ]);
+    let fields: PdfFormField[];
+    let outline: PdfOutlineNode[];
+    let first: PDFPageProxy;
+    try {
+      [fields, outline, first] = await Promise.all([
+        pdf.fields(),
+        pdf.outline(),
+        pdf.doc.getPage(1),
+      ]);
+      if (signal.aborted) throw new DOMException("aborted", "AbortError");
+    } catch (err) {
+      // Never leak the worker and bytes when the load is abandoned or fails half-way.
+      await pdf.close();
+      throw err;
+    }
     const vp = first.getViewport({ scale: 1 });
     return {
       pdf,
