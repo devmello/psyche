@@ -282,6 +282,24 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     handlers,
   });
   bus = gateway.bus;
+  // The owner's folder grants and rules apply without a restart (settings.set → broker policy).
+  const unsubscribePolicy = gateway.bus.subscribe(["operator.read"], (frame) => {
+    const f = JSON.parse(frame) as {
+      event?: string;
+      payload?: { entries?: { key: string; value: unknown }[] };
+    };
+    if (f.event !== "settings.changed") return;
+    for (const entry of f.payload?.entries ?? []) {
+      if (entry.key !== "permissions.policy") continue;
+      try {
+        rawBroker.setPolicy((entry.value ?? {}) as PolicyConfig);
+      } catch (err) {
+        gwOptions.logger?.log("warn", "invalid permissions.policy ignored", {
+          code: PsycheError.from(err).code,
+        });
+      }
+    }
+  });
   memory.watch();
 
   if (background) {
@@ -306,6 +324,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       await pool.stop();
       scheduler.stop();
       memory.unwatch();
+      unsubscribePolicy();
       await gateway.stop(reason);
     },
   };

@@ -1,3 +1,5 @@
+import { join } from "node:path";
+import { updateDevice } from "@psyche/db";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, expect, it } from "vitest";
 import { type Skeleton, startSkeleton } from "./harness.ts";
@@ -46,4 +48,16 @@ it("boots the composed Gateway, pairs the desktop client and streams a first tur
   );
   expect(searchMs).toBeLessThan(100);
   await c.event<{ run: { status: string } }>("run.updated", (p) => p.run.status === "done", from);
+});
+
+it("applies a folder grant from Settings without a restart", async () => {
+  sk = await startSkeleton({ model: { provider: new FakeModelProvider(), model: "fake/main" } });
+  // Security settings need operator.admin (what `psyched devices grant` gives the owner's device).
+  updateDevice(sk.composed.db, sk.deviceId, {
+    scopes: ["operator.read", "operator.write", "operator.approvals", "operator.admin"],
+  });
+  const folders = [{ path: join(sk.home, "more"), mode: "ro" as const }];
+  await sk.client.call("settings.set", { key: "permissions.policy", value: { folders } }, true);
+  await sk.client.until(() => sk?.composed.broker.policy.folders?.length === 1, "policy applied");
+  expect(sk.composed.broker.policy.folders).toEqual(folders);
 });

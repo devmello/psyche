@@ -20,6 +20,8 @@ export interface Skeleton {
   /** A folder the owner granted read-write. */
   granted: string;
   client: Client;
+  /** The desktop's device id (the same key across relaunches). */
+  deviceId: string;
   /** A new connection with the same device key: the desktop after a relaunch. */
   connect(): Promise<Client>;
   stop(): Promise<void>;
@@ -178,6 +180,7 @@ export async function startSkeleton(
     home,
     granted,
     client,
+    deviceId: key.deviceId,
     connect,
     async stop() {
       for (const c of clients) c.stop();

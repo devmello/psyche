@@ -4,7 +4,7 @@
 
 Psyche is the open alternative to Meta's Muse: one persistent conversation with a named, customizable agent that remembers you in files you can read, browses in a browser you can watch and take over, reads and sends your mail and messages, fills forms, shops, runs commands in a sandbox, controls your Mac apps, writes you a Feed, proposes Ideas, tracks Goals, and keeps working after you close the window. It asks before anything that matters, keeps a receipt for everything it does, never sees your passwords, and runs on whichever model you choose, including local ones. Run it on your Mac, inside a macOS virtual machine that Psyche creates, or on a Linux server that answers you on Telegram or iMessage.
 
-> Status: **design phase**. No code yet. The documents below are the complete architecture and implementation plan.
+> Status: **Milestone 1 integration**. The packages are on `main` and the walking skeleton (below) runs end to end against a scripted model in CI. The documents below are the architecture and implementation plan.
 
 ## Documents
 
@@ -23,6 +23,33 @@ Psyche is the open alternative to Meta's Muse: one persistent conversation with 
 | [prompts/](prompts/README.md) | One ready-to-paste prompt per session: bootstrap/integrator, 20 workstreams, 6 spikes, 3 integration sessions, plus sandbox, CLI/deploy and adversarial-review sessions |
 | [reports/Psyche personal agent landscape.md](reports/Psyche%20personal%20agent%20landscape.md) | Research report: what Muse, the Claude desktop app, OpenMuse, OpenClaw, Codex/ChatGPT and browser-agent frameworks do, and what to build on |
 | [research_notes/](research_notes/Psyche%20personal%20agent%20landscape/) | Seven sourced research files (~1 MB, ~2,000 citations) behind the report |
+
+## Run the skeleton
+
+The walking skeleton is one path through the real Gateway, agent loop, model router, Permission Broker, memory and task engine: onboarding writes the persona files, a chat turn streams, the agent reads a file in a granted folder and proposes a write, you approve it once and get a receipt, it asks a question with chips, the checklist and wrap-up box update, a delegated task keeps running after the window closes, the memory flush writes today's daily note, and the workspace exports as a zip.
+
+```bash
+pnpm install
+pnpm --filter @psyche/integration-tests test
+```
+
+That runs the scenario in [tests/integration/walking-skeleton/](tests/integration/walking-skeleton/) with the scripted model, as CI does. To run it against a live model (Anthropic, OpenAI or a local `agent-capable` model through Ollama), set the model and its key:
+
+```bash
+PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=anthropic/claude-sonnet-5-5 ANTHROPIC_API_KEY=… pnpm --filter @psyche/integration-tests test
+```
+
+To run the Gateway itself (`psyched`) with a model, then point the desktop app at it:
+
+```bash
+PSYCHE_MODEL=ollama/qwen3.8:27b pnpm --filter @psyche/gateway start
+```
+
+```bash
+pnpm --filter @psyche/desktop dev
+```
+
+Without `PSYCHE_MODEL`, `psyched` still starts and answers each turn with "No model is configured yet". Grant the agent a folder by setting `permissions.policy` to `{"folders":[{"path":"/Users/you/Notes","mode":"rw"}]}` from a device with `operator.admin` (`psyched devices grant`); the broker applies it without a restart. Settings does not have a folder picker yet. Remaining gaps per package are in [docs/status/int-1.md](docs/status/int-1.md).
 
 ## Architecture in one picture
 

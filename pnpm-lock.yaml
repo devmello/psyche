@@ -964,6 +964,9 @@ importers:
 
   tests/integration:
     devDependencies:
+      '@psyche/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@psyche/gateway':
         specifier: workspace:*
         version: link:../../apps/gateway
