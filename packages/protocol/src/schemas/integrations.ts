@@ -97,6 +97,23 @@ export const Channel = Type.Object(
 );
 export type Channel = Static<typeof Channel>;
 
+/** Data model §8 `identities`: one person across channels (`identityLinks`, designated persons). */
+export const ChannelIdentity = Type.Object(
+  {
+    id: Id,
+    display: Type.String(),
+    links: Type.Array(Type.String({ description: '"<channel>:<senderId>"' }), {
+      description: "Sender ids merged into this identity",
+    }),
+    delegatedPersona: Nullable(Type.String({ description: "Persona overlay name (feature N10)" })),
+    toolAllow: Nullable(Type.Array(Type.String(), { description: "Tool name globs" })),
+    createdAt: IsoDateTime,
+    updatedAt: IsoDateTime,
+  },
+  { $id: "ChannelIdentity" },
+);
+export type ChannelIdentity = Static<typeof ChannelIdentity>;
+
 export const AutomationKind = StringEnum(["cron", "interval", "watch", "heartbeat", "briefing"], {
   $id: "AutomationKind",
 });

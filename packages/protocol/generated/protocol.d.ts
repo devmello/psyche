@@ -459,11 +459,16 @@ export interface NodeCapability {
 
 export type DevicePlatform = "macos" | "ios" | "android" | "web" | "linux";
 
-export interface ChannelsGetParams {
+export interface ChannelsAllowlistUpdateParams {
+    add?:      string[];
     channelId: string;
+    list:      List;
+    remove?:   string[];
 }
 
-export interface ChannelsGetResult {
+export type List = "allowFrom" | "groupAllowFrom" | "ownerIds";
+
+export interface ChannelsAllowlistUpdateResult {
     channel: Channel;
 }
 
@@ -479,7 +484,7 @@ export interface Channel {
     nodeId?:        null | string;
     ownerIds:       string[];
     requireMention: boolean;
-    status:         Status;
+    status:         ChannelStatus;
     type:           ChannelType;
     updatedAt:      string;
 }
@@ -488,12 +493,127 @@ export type DmPolicy = "pairing" | "allowlist" | "open" | "disabled";
 
 export type DmScope = "main" | "per-peer" | "per-channel-peer";
 
-export type Status = "active" | "paused" | "error" | "disconnected";
+export type ChannelStatus = "active" | "paused" | "error" | "disconnected";
 
 export type ChannelType = "webchat" | "telegram" | "imessage" | "whatsapp" | "signal" | "slack" | "discord" | "email" | "sms";
 
+export interface ChannelsConfigureParams {
+    account?:        string;
+    allowFrom?:      string[];
+    channelId?:      string;
+    config?:         { [key: string]: unknown };
+    dmPolicy?:       DmPolicy;
+    dmScope?:        DmScope;
+    groupAllowFrom?: string[];
+    nodeId?:         null | string;
+    ownerIds?:       string[];
+    requireMention?: boolean;
+    status?:         ChannelsConfigureParamsStatus;
+    type?:           ChannelType;
+}
+
+export type ChannelsConfigureParamsStatus = "active" | "paused";
+
+export interface ChannelsConfigureResult {
+    channel: Channel;
+}
+
+export interface ChannelsGetParams {
+    channelId: string;
+}
+
+export interface ChannelsGetResult {
+    channel: Channel;
+}
+
+export interface ChannelsIdentitiesDeleteParams {
+    identityId: string;
+}
+
+export interface ChannelsIdentitiesListResult {
+    identities: ChannelIdentity[];
+}
+
+export interface ChannelIdentity {
+    createdAt:         string;
+    delegatedPersona?: null | string;
+    display:           string;
+    id:                string;
+    /**
+     * Sender ids merged into this identity
+     */
+    links:      string[];
+    toolAllow?: string[] | null;
+    updatedAt:  string;
+}
+
+export interface ChannelsIdentitiesUpsertParams {
+    delegatedPersona?: null | string;
+    display:           string;
+    identityId?:       string;
+    links:             string[];
+    toolAllow?:        string[] | null;
+}
+
+export interface ChannelsIdentitiesUpsertResult {
+    identity: ChannelIdentity;
+}
+
 export interface ChannelsListResult {
     channels: Channel[];
+}
+
+export interface ChannelsPairingApproveParams {
+    channelId?: string;
+    code?:      string;
+    requestId?: string;
+}
+
+export interface ChannelsPairingApproveResult {
+    pairingRequest: PairingRequest;
+}
+
+export interface PairingRequest {
+    channelId?:         null | string;
+    code:               string;
+    createdAt:          string;
+    decidedAt?:         null | string;
+    decidedByDeviceId?: null | string;
+    deviceId?:          null | string;
+    display:            string;
+    expiresAt:          string;
+    id:                 string;
+    kind:               PairingRequestKind;
+    senderId?:          null | string;
+    status:             PairingStatus;
+}
+
+export type PairingRequestKind = "device" | "channel-sender";
+
+export type PairingStatus = "pending" | "approved" | "denied" | "expired";
+
+export interface ChannelsPairingDenyParams {
+    channelId?: string;
+    code?:      string;
+    requestId?: string;
+}
+
+export interface ChannelsPairingDenyResult {
+    pairingRequest: PairingRequest;
+}
+
+export interface ChannelsPairingListParams {
+    channelId?: string;
+    status?:    PairingStatus;
+}
+
+export interface ChannelsPairingListResult {
+    requests: PairingRequest[];
+}
+
+export interface ChannelsUpdatedPayload {
+    channel: Channel;
+    detail?: string;
 }
 
 export interface ChatBlockPayload {
@@ -833,25 +953,6 @@ export interface DevicesDenyParams {
 export interface DevicesDenyResult {
     pairingRequest: PairingRequest;
 }
-
-export interface PairingRequest {
-    channelId?:         null | string;
-    code:               string;
-    createdAt:          string;
-    decidedAt?:         null | string;
-    decidedByDeviceId?: null | string;
-    deviceId?:          null | string;
-    display:            string;
-    expiresAt:          string;
-    id:                 string;
-    kind:               PairingRequestKind;
-    senderId?:          null | string;
-    status:             PairingStatus;
-}
-
-export type PairingRequestKind = "device" | "channel-sender";
-
-export type PairingStatus = "pending" | "approved" | "denied" | "expired";
 
 export interface DevicesListParams {
     includeRevoked?: boolean;

@@ -4,6 +4,7 @@ import { PsycheError } from "./errors.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
 import { Block } from "./schemas/blocks.ts";
 import { Device, NodeInfo, PairingRequest } from "./schemas/identity.ts";
+import { Channel } from "./schemas/integrations.ts";
 import { MemoryChangeSource, MemoryJob } from "./schemas/memory.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
 import { FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surfaces.ts";
@@ -99,6 +100,14 @@ export const Events = {
   "pairing.requested": defineEvent({
     payload: Type.Object({ pairingRequest: PairingRequest }),
     description: "A new pairing request awaits the owner's approval.",
+  }),
+  "channels.updated": defineEvent({
+    payload: Type.Object({
+      channel: Channel,
+      /** Adapter health detail when `status` is `error` or `disconnected`. */
+      detail: Type.Optional(Type.String()),
+    }),
+    description: "A channel was configured, connected, disconnected or changed status.",
   }),
   "view.command": defineEvent({
     payload: Type.Object({
