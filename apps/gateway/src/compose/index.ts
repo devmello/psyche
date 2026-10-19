@@ -408,8 +408,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
 
 export { type BrowserSetup, type ComposedBrowser, composeBrowser } from "./browser.ts";
 export { CallContexts } from "./call-context.ts";
+export {
+  type ConnectorsSetup,
+  composeConnectors,
+  MemoryTokenVault,
+} from "./connectors.ts";
 export { fileTools } from "./file-tools.ts";
 export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
+export { partsFromEnv } from "./parts.ts";
 export type { ApprovalRelay, ComposedPart, ComposeServices } from "./services.ts";
 export { createLogger, surfaceOf };
 
