@@ -8,7 +8,7 @@ import {
   type ToolResult,
   type Unsubscribe,
 } from "@psyche/protocol";
-import { bindingHash } from "./binding.ts";
+import { toolCallBindingHash } from "./binding.ts";
 import type {
   ActionRule,
   CatalogueEntry,
@@ -368,18 +368,24 @@ export class ConnectorRegistry {
       if (broker === undefined) {
         throw new PsycheError("unavailable", "no permission broker to verify the approval");
       }
-      const kind = desc?.kind ?? "connector_action";
-      const fields = desc?.bindingFields ?? {
-        connectorId,
-        tool: tool.name,
-        paramsHash: bindingHash("params", params ?? {}),
-      };
-      const v = await broker.verifyBinding(approvalId, bindingHash(kind, fields));
-      if (!v.ok) {
-        throw new PsycheError(
-          "binding_mismatch",
-          `approval does not cover this call (${v.reason})`,
-        );
+      // The loop is the single verifier: it consumed the approval (`verifyBinding`) right before
+      // dispatch. Here the executor only confirms, without consuming, that the approval it was
+      // handed is approved, belongs to this call and binds these exact arguments (issue #78).
+      const approval = await broker.get(approvalId);
+      const expected = toolCallBindingHash(toolName(connectorId, tool.name), params, desc);
+      const reason =
+        approval === undefined
+          ? "not_found"
+          : approval.status !== "approved"
+            ? `not_approved (${approval.status})`
+            : approval.requestedBy.toolCallId !== undefined &&
+                approval.requestedBy.toolCallId !== callId
+              ? "another_call"
+              : approval.bindingHash !== expected
+                ? "binding_mismatch"
+                : undefined;
+      if (reason !== undefined) {
+        throw new PsycheError("binding_mismatch", `approval does not cover this call (${reason})`);
       }
     }
     try {
