@@ -78,19 +78,30 @@ describe.skipIf(chrome === undefined)("Univer sheet editor in Chrome", () => {
     await tab.goto(`${app.origin}/`);
     await tab.waitForFunction(
       () => (window as unknown as { harness?: unknown }).harness !== undefined,
+      undefined,
+      { timeout: 60_000 },
     );
     await tab.evaluate(
       (d) =>
         (window as unknown as { harness: { mount(d: unknown): Promise<void> } }).harness.mount(d),
       snap.data,
     );
+    type H = { harness: { changes: number } };
+    const changes = () => tab.evaluate(() => (window as unknown as H).harness.changes);
+    // Wait for the grid canvas to be laid out (slow CI runners take seconds), then let the
+    // opening recalculation settle.
+    await tab.waitForFunction(
+      () =>
+        [...document.querySelectorAll("canvas")].some((c) => {
+          const r = c.getBoundingClientRect();
+          return r.width > 400 && r.height > 300;
+        }),
+      undefined,
+      { timeout: 60_000 },
+    );
     await tab.waitForTimeout(1500);
     // Opening (formula recalculation, layout) is not an edit.
-    expect(
-      await tab.evaluate(
-        () => (window as unknown as { harness: { changes: number } }).harness.changes,
-      ),
-    ).toBe(0);
+    expect(await changes()).toBe(0);
 
     // A1 sits right of the row header and below the column header on the grid canvas.
     const grid = await tab.evaluate(() => {
@@ -100,12 +111,19 @@ describe.skipIf(chrome === undefined)("Univer sheet editor in Chrome", () => {
       return c === undefined ? undefined : { x: c.x, y: c.y };
     });
     expect(grid).toBeDefined();
-    await tab.mouse.click((grid?.x ?? 0) + 90, (grid?.y ?? 0) + 33);
-    await tab.keyboard.type("10");
-    await tab.keyboard.press("Enter");
-    await tab.waitForFunction(
-      () => (window as unknown as { harness: { changes: number } }).harness.changes > 0,
-    );
+    // The first click can land before Univer has focus wired up on a slow runner: retry.
+    for (let attempt = 0; attempt < 6 && (await changes()) === 0; attempt++) {
+      await tab.mouse.click((grid?.x ?? 0) + 90, (grid?.y ?? 0) + 33);
+      await tab.waitForTimeout(300);
+      await tab.keyboard.type("10");
+      await tab.keyboard.press("Enter");
+      await tab
+        .waitForFunction(() => (window as unknown as H).harness.changes > 0, undefined, {
+          timeout: 5_000,
+        })
+        .catch(() => undefined);
+    }
+    expect(await changes()).toBeGreaterThan(0);
     await tab.waitForTimeout(300);
     const edited = await tab.evaluate(() =>
       (window as unknown as { harness: { snapshot(): unknown } }).harness.snapshot(),
@@ -124,5 +142,5 @@ describe.skipIf(chrome === undefined)("Univer sheet editor in Chrome", () => {
     expect([back.B1?.f, back.B2?.f, back.B3?.f]).toEqual(["A1*2", "A2*2", "A3*2"]);
     expect([back.B1?.v, back.B2?.v, back.B3?.v]).toEqual([20, 4, 24]);
     expect(external).toEqual([]);
-  }, 120_000);
+  }, 180_000);
 });
