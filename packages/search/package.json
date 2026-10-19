@@ -1,0 +1,24 @@
+{
+  "name": "@psyche/search",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Unified index and query across threads, tasks, memory, library, feed.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@psyche/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@psyche/testing": "workspace:*"
+  }
+}

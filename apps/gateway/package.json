@@ -1,0 +1,14 @@
+{
+  "name": "@psyche/gateway",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The psyched Gateway",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": { ".": { "types": "./src/index.ts", "default": "./src/index.ts" } },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": { "@psyche/protocol": "workspace:*" }
+}

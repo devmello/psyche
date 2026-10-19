@@ -1,0 +1,26 @@
+{
+  "name": "@psyche/viewers",
+  "version": "0.0.0",
+  "private": true,
+  "description": "PDF, sheets, DOCX, code, Markdown editor, artifact frame, extraction, generators.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@psyche/protocol": "workspace:*",
+    "react": "19.3.1"
+  },
+  "devDependencies": {
+    "@psyche/testing": "workspace:*",
+    "@types/react": "19.3.0"
+  }
+}
