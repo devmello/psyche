@@ -194,17 +194,29 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     };
   }, [platform.kind, store, layout, threadId, env, popOutPane, route]);
 
-  const newSideChat = useCallback(() => {
-    void store
-      .call<{ thread: Thread }>("threads.create", { kind: "side" })
-      .then((r) => {
-        if (r?.thread) {
-          void store.refresh();
-          navigate(`/chat/${r.thread.id}`);
-        }
-      })
-      .catch(() => store.toast("Psyche couldn't create a side chat.", "error"));
-  }, [store, navigate]);
+  const newChat = useCallback(
+    (kind: "side" | "incognito") => {
+      void store
+        .call<{ thread: Thread }>("threads.create", { kind })
+        .then((r) => {
+          if (r?.thread) {
+            void store.refresh();
+            navigate(`/chat/${r.thread.id}`);
+          }
+        })
+        .catch(() =>
+          store.toast(
+            kind === "incognito"
+              ? "Psyche couldn't create an incognito chat."
+              : "Psyche couldn't create a side chat.",
+            "error",
+          ),
+        );
+    },
+    [store, navigate],
+  );
+  const newSideChat = useCallback(() => newChat("side"), [newChat]);
+  const newIncognitoChat = useCallback(() => newChat("incognito"), [newChat]);
 
   const cycleMode = useCallback(() => {
     if (!thread) return;
@@ -323,6 +335,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
 
   const actions: PaletteAction[] = [
     { id: "new", label: "New side chat", run: newSideChat },
+    { id: "incognito", label: "New incognito chat (memory-only, 24 h)", run: newIncognitoChat },
     {
       id: "browser",
       label: "Open browser pane",

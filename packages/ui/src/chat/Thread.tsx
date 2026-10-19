@@ -6,9 +6,9 @@ import {
 } from "@assistant-ui/react";
 import type { Message, QueueMode } from "@psyche/protocol";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
-import { DisclosureProvider } from "../blocks/disclosure.tsx";
-import { useConnection, useStoreState, useThread, useThreads } from "../data/index.ts";
-import { usePersona } from "../slots.tsx";
+import { type DisclosureLevel, DisclosureProvider } from "../blocks/disclosure.tsx";
+import { useCall, useConnection, useStoreState, useThread, useThreads } from "../data/index.ts";
+import { usePersona, useSlots } from "../slots.tsx";
 import { ApprovalDock } from "./ApprovalDock.tsx";
 import { Composer } from "./Composer.tsx";
 import { FollowUpQueue } from "./FollowUpQueue.tsx";
@@ -27,6 +27,16 @@ export interface ChatThreadProps {
   onDictate?: () => void;
   /** Fixed clock for cards (stories, tests). */
   now?: number;
+  /** Transcript view mode (E11): 0 tools collapsed, 1 actions, 2 raw I/O. Uncontrolled when absent. */
+  disclosure?: DisclosureLevel;
+  onDisclosureChange?: (level: DisclosureLevel) => void;
+}
+
+/** `/incognito [first message]` typed in the composer (UI design §3.2, feature E9). */
+export function parseIncognitoCommand(text: string): { text: string } | null {
+  const m = /^\/incognito(?:\s+([\s\S]*))?$/i.exec(text.trim());
+  if (m === null) return null;
+  return { text: (m[1] ?? "").trim() };
 }
 
 /**
@@ -34,9 +44,18 @@ export interface ChatThreadProps {
  * the messages; assistant-ui provides the viewport (autoscroll), the message list and the
  * composer primitives. Blocks render through `MessageBlocks`, never through assistant-ui parts.
  */
-export function ChatThread({ threadId, onAttach, onDictate, now }: ChatThreadProps): ReactElement {
+export function ChatThread({
+  threadId,
+  onAttach,
+  onDictate,
+  now,
+  disclosure,
+  onDisclosureChange,
+}: ChatThreadProps): ReactElement {
   const t = useThread(threadId);
-  const { fork } = useThreads();
+  const { fork, create } = useThreads();
+  const call = useCall();
+  const { navigate } = useSlots();
   const { state: connection } = useConnection();
   const tasks = useStoreState((s) => s.tasks);
   const persona = usePersona();
@@ -92,11 +111,21 @@ export function ChatThread({ threadId, onAttach, onDictate, now }: ChatThreadPro
         .join("")
         .trim();
       if (text === "") return;
+      const incognito = parseIncognitoCommand(text);
+      if (incognito !== null) {
+        // A memory-only side chat that expires after 24 h (E9); the first message goes there.
+        const thread = await create({ kind: "incognito", parentThreadId: threadId });
+        if (incognito.text !== "") {
+          await call("chat.send", { threadId: thread.id, content: incognito.text });
+        }
+        navigate?.(`/chat/${thread.id}`);
+        return;
+      }
       await t.send(text, { mode, replyToMessageId: quoting?.id ?? null });
       setQuoting(null);
       setMode("followUp");
     },
-    [t, mode, quoting],
+    [t, mode, quoting, threadId, create, call, navigate],
   );
 
   const runtime = useExternalStoreRuntime<DisplayMessage>({
@@ -118,8 +147,29 @@ export function ChatThread({ threadId, onAttach, onDictate, now }: ChatThreadPro
 
   const byId = useMemo(() => new Map(t.messages.map((m) => [m.id, m])), [t.messages]);
 
+  /**
+   * Edit and resend (E5): a side chat forked just before the edited message (or a fresh side
+   * chat when it was the first), the edited text sent there, then navigation to it. The
+   * original thread keeps its transcript.
+   */
+  const editAndResend = useCallback(
+    async (message: Message, text: string) => {
+      const index = t.messages.findIndex((m) => m.id === message.id);
+      const before = index > 0 ? t.messages[index - 1] : undefined;
+      const thread = before
+        ? await fork(threadId, before.id)
+        : await create({ kind: "side", parentThreadId: threadId });
+      await call("chat.send", { threadId: thread.id, content: text });
+      navigate?.(`/chat/${thread.id}`);
+    },
+    [t.messages, threadId, fork, create, call, navigate],
+  );
+
   return (
-    <DisclosureProvider>
+    <DisclosureProvider
+      {...(disclosure === undefined ? {} : { level: disclosure })}
+      {...(onDisclosureChange === undefined ? {} : { onLevelChange: onDisclosureChange })}
+    >
       <AssistantRuntimeProvider runtime={runtime}>
         <ThreadPrimitive.Root className="flex h-full min-w-[min(100%,var(--chat-min-width))] flex-col">
           {offline ? <OfflineBanner state={connection} /> : null}
@@ -152,6 +202,7 @@ export function ChatThread({ threadId, onAttach, onDictate, now }: ChatThreadPro
                       }
                       onReply={setQuoting}
                       onFork={(msg) => void fork(threadId, msg.id)}
+                      onEdit={(msg, text) => void editAndResend(msg, text)}
                       onJumpTo={(id) =>
                         document
                           .getElementById(`message-${id}`)

@@ -492,3 +492,71 @@ describe("threads", () => {
     expect(JSON.parse(json.content).messages).toHaveLength(6);
   });
 });
+
+describe("quote-reply (E5)", () => {
+  it("stores replyToMessageId and puts the quoted text ahead of the turn for the agent", async () => {
+    const c = await setup();
+    const thread = await newThread(c);
+    agent.script([
+      { type: "chat.delta", messageId: "a1", delta: "Three slots work on Tuesday." },
+      { type: "end", outcome: "final" },
+    ]);
+    await c.call("chat.send", { threadId: thread.id, content: "Book the dentist" }, ik());
+    await t.gateway.context.sessions.idle();
+    const agentMessage = transcript(thread.id)[1] as Message;
+    expect(agentMessage.role).toBe("agent");
+
+    await c.call(
+      "chat.send",
+      { threadId: thread.id, content: "The earliest one", replyToMessageId: agentMessage.id },
+      ik(),
+    );
+    await t.gateway.context.sessions.idle();
+    const reply = transcript(thread.id)[2] as Message;
+    expect(reply.replyToMessageId).toBe(agentMessage.id);
+    expect(texts(thread.id)[2]).toBe("The earliest one"); // the transcript keeps the user's words
+    expect(agent.turns[1]?.input.text).toBe(
+      `[Replying to your earlier message ${agentMessage.id}]\n> Three slots work on Tuesday.\n\nThe earliest one`,
+    );
+  });
+
+  it("refuses a reply to a message of another thread", async () => {
+    const c = await setup();
+    const a = await newThread(c);
+    const b = await newThread(c);
+    await c.call("chat.send", { threadId: a.id, content: "in a" }, ik());
+    await t.gateway.context.sessions.idle();
+    const fromA = transcript(a.id)[0] as Message;
+    const res = await c.request(
+      "chat.send",
+      { threadId: b.id, content: "reply", replyToMessageId: fromA.id },
+      ik(),
+    );
+    expect(res).toMatchObject({ ok: false, error: { code: "invalid_params" } });
+    expect(transcript(b.id)).toHaveLength(0);
+  });
+
+  it("steers with the quote too", async () => {
+    const c = await setup();
+    const thread = await newThread(c);
+    agent.script([
+      { type: "wait", gate: "g" },
+      { type: "end", outcome: "final" },
+    ]);
+    await c.call("chat.send", { threadId: thread.id, content: "go" }, ik());
+    await agent.started(1);
+    const user = transcript(thread.id)[0] as Message;
+    await c.call(
+      "chat.send",
+      { threadId: thread.id, content: "faster", mode: "steer", replyToMessageId: user.id },
+      ik(),
+    );
+    await new Promise((r) => setTimeout(r, 10));
+    expect(agent.steers[0]?.text).toBe(
+      `[Replying to the user's earlier message ${user.id}]\n> go\n\nfaster`,
+    );
+    expect(transcript(thread.id)[1]?.replyToMessageId).toBe(user.id);
+    agent.open("g");
+    await t.gateway.context.sessions.idle();
+  });
+});

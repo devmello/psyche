@@ -80,6 +80,12 @@ export function ThreadList(props: {
               onClick={() => props.onOpen(thread.id)}
             >
               {thread.kind === "main" ? "Main chat" : thread.title || "Untitled"}
+              {thread.kind === "incognito" ? (
+                <span className="muted" title="Incognito: memory-only, expires after 24 h">
+                  {" "}
+                  · incognito
+                </span>
+              ) : null}
               {activity.running + activity.awaitingApproval + activity.awaitingInput > 0
                 ? " •"
                 : ""}
