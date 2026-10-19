@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { SearchDoc } from "../src/types.ts";
 import { DAY, NOW, setup } from "./helpers.ts";
 
+// GitHub-hosted runners are 2-3x slower than a dev Mac; keep the 1 s budget locally and allow 3 s on CI.
+const BUDGET_MS = process.env.CI ? 3000 : 1000;
+
 // A year of personal data: 100k documents across every kind, deterministic text.
 const WORDS = (
   "dentist lisbon flight hotel invoice receipt school museum permission slip calendar meeting " +
@@ -78,11 +81,11 @@ describe("performance on a year of data (100k documents)", () => {
       const res = await index.search({ q });
       const ms = performance.now() - t0;
       if (process.env.PSYCHE_PERF_LOG === "1") console.warn(`search ${q}: ${ms.toFixed(0)} ms`);
-      expect(ms, `search ${q} took ${ms.toFixed(0)} ms`).toBeLessThan(1000);
-      expect(res.tookMs).toBeLessThan(1000);
+      expect(ms, `search ${q} took ${ms.toFixed(0)} ms`).toBeLessThan(BUDGET_MS);
+      expect(res.tookMs).toBeLessThan(BUDGET_MS);
       const t1 = performance.now();
       await index.query({ q, limit: 20 });
-      expect(performance.now() - t1, `query ${q}`).toBeLessThan(1000);
+      expect(performance.now() - t1, `query ${q}`).toBeLessThan(BUDGET_MS);
     }
     expect((await index.search({ q: "zanzibar" })).total).toBe(101);
   });
