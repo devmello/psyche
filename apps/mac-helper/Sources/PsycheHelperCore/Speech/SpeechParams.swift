@@ -132,6 +132,15 @@ public struct TranscribeRequest: Sendable, Equatable {
     public var format: PCMAudioFormat?
     public var maxDurationMs: Int
     public var volatile: Bool
+
+    public init(source: SpeechSource, locale: String?, vocabulary: [String], format: PCMAudioFormat?, maxDurationMs: Int, volatile: Bool) {
+        self.source = source
+        self.locale = locale
+        self.vocabulary = vocabulary
+        self.format = format
+        self.maxDurationMs = maxDurationMs
+        self.volatile = volatile
+    }
 }
 
 // MARK: - speech.audio_push / speech.stop
