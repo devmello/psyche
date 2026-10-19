@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import { ApprovalCard } from "../blocks/ApprovalCard.tsx";
+import { displaySummary } from "../lib/cards.ts";
 import { useApprovals, useGatewayQuery, useStoreState } from "../data/index.ts";
 import { formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
@@ -84,7 +85,7 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
             {deferred.map((v) => (
               <li key={v.approval.id}>
                 {tasks[v.approval.requestedBy.taskId ?? ""]?.title ?? "An automation"} wanted to:{" "}
-                {v.approval.summary}
+                {displaySummary(v.approval)}
               </li>
             ))}
           </ul>
@@ -101,7 +102,7 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
           <ul className="flex flex-col divide-y divide-gray-4 text-sm">
             {recentList.map((v) => (
               <li key={v.approval.id} className="flex items-center gap-2 py-1.5">
-                <span className="min-w-0 flex-1 truncate">{v.approval.summary}</span>
+                <span className="min-w-0 flex-1 truncate">{displaySummary(v.approval)}</span>
                 <span className="shrink-0 text-xs text-muted-foreground">
                   {v.approval.status === "approved"
                     ? `Approved${decidedWhere(v.approval.decidedBy)}`

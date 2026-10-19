@@ -144,6 +144,7 @@ describe("approval cards", () => {
       kind: "credential_fill",
       deviceOnly: true,
       requiresAuthentication: true,
+      taint: false,
       target: { kind: "origin", value: "https://acme.example" },
       details: { item: "acme-login", origin: "https://acme.example", field: "password" },
     });
@@ -155,7 +156,12 @@ describe("approval cards", () => {
     expect(card.text).not.toContain("acme");
     // The pointer for an approval the chat may not answer carries no arguments either.
     expect(renderDevicePointer(surface, { ...fill, deviceOnly: false })).toBe(card.text);
-    const pay = approval({ kind: "purchase", sideEffect: "financial", details: { amount: "12.00" } });
+    const pay = approval({
+      kind: "purchase",
+      sideEffect: "financial",
+      taint: false,
+      details: { amount: "12.00" },
+    });
     expect(renderDevicePointer(surface, pay)).toBe(`Pay · financial\n${DEVICE_ONLY_TEXT}`);
   });
 

@@ -15,6 +15,7 @@ import { usePersona, useSlots } from "../slots.tsx";
 import { ArtifactCard, FileCard } from "./ArtifactCard.tsx";
 import { Checklist, PlanCard } from "./Checklist.tsx";
 import { Markdown } from "./Markdown.tsx";
+import { displaySummary } from "../lib/cards.ts";
 import { QuestionCard } from "./QuestionCard.tsx";
 import { ReceiptLine } from "./Receipt.tsx";
 import { TaskCard } from "./TaskCard.tsx";
@@ -64,7 +65,7 @@ function ApprovalPointer({ approvalId }: { approvalId: string }): ReactElement {
   return (
     <p className="my-1 inline-flex items-center gap-1.5 rounded-full border border-approval-border bg-approval-surface px-2.5 py-0.5 text-sm">
       <ShieldCheck className="size-3.5 text-approval-text" aria-hidden="true" />
-      <span className="text-foreground">{approval.summary}</span>
+      <span className="text-foreground">{displaySummary(approval)}</span>
       <span className="text-muted-foreground">
         {pending ? "· approval needed, above the composer" : `· ${approval.status}`}
       </span>
