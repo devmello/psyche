@@ -943,7 +943,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Sets one setting. Keys under an admin root (permissions, exec, vault, devices, gateway, channels, grants, approvals) also need operator.admin. Side-effecting.",
+        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges) also needs operator.admin. Side-effecting.",
         "name": "settings.set",
         "params": "#/$defs/SettingsSetParams",
         "result": "#/$defs/SettingsSetResult",
@@ -4615,6 +4615,12 @@
           },
           "minItems": 1,
           "type": "array"
+        },
+        "code": {
+          "description": "The code shown on the new device; when given it must match the request",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -7855,6 +7861,22 @@
               "type": "null"
             }
           ]
+        },
+        "publicKeyFingerprint": {
+          "description": "Device requests: \"sha256:\" + hex SHA-256 of the raw Ed25519 public key the owner approves",
+          "type": "string"
+        },
+        "transport": {
+          "description": "Device requests: how the device connected",
+          "enum": [
+            "ws",
+            "unix"
+          ],
+          "type": "string"
+        },
+        "remoteAddress": {
+          "description": "Device requests: peer address as the Gateway saw it",
+          "type": "string"
         }
       },
       "required": [
@@ -9954,6 +9976,12 @@
         },
         "pinnedOnly": {
           "type": "boolean"
+        },
+        "query": {
+          "description": "Case-insensitive substring match on the title",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
         },
         "cursor": {
           "description": "Opaque cursor",

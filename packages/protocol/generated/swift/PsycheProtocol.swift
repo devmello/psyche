@@ -2159,8 +2159,14 @@ public struct PairingRequest: Codable, Sendable {
     public let expiresAt: String
     public let id: String
     public let kind: PairingRequestKind
+    /// Device requests: "sha256:" + hex SHA-256 of the raw Ed25519 public key the owner approves
+    public let publicKeyFingerprint: String?
+    /// Device requests: peer address as the Gateway saw it
+    public let remoteAddress: String?
     public let senderID: String?
     public let status: PairingStatus
+    /// Device requests: how the device connected
+    public let transport: Transport?
 
     public enum CodingKeys: String, CodingKey {
         case channelID = "channelId"
@@ -2173,11 +2179,14 @@ public struct PairingRequest: Codable, Sendable {
         case expiresAt = "expiresAt"
         case id = "id"
         case kind = "kind"
+        case publicKeyFingerprint = "publicKeyFingerprint"
+        case remoteAddress = "remoteAddress"
         case senderID = "senderId"
         case status = "status"
+        case transport = "transport"
     }
 
-    public init(channelID: String?, code: String, createdAt: String, decidedAt: String?, decidedByDeviceID: String?, deviceID: String?, display: String, expiresAt: String, id: String, kind: PairingRequestKind, senderID: String?, status: PairingStatus) {
+    public init(channelID: String?, code: String, createdAt: String, decidedAt: String?, decidedByDeviceID: String?, deviceID: String?, display: String, expiresAt: String, id: String, kind: PairingRequestKind, publicKeyFingerprint: String?, remoteAddress: String?, senderID: String?, status: PairingStatus, transport: Transport?) {
         self.channelID = channelID
         self.code = code
         self.createdAt = createdAt
@@ -2188,8 +2197,11 @@ public struct PairingRequest: Codable, Sendable {
         self.expiresAt = expiresAt
         self.id = id
         self.kind = kind
+        self.publicKeyFingerprint = publicKeyFingerprint
+        self.remoteAddress = remoteAddress
         self.senderID = senderID
         self.status = status
+        self.transport = transport
     }
 }
 
@@ -2203,6 +2215,12 @@ public enum PairingStatus: String, Codable, Sendable {
     case denied = "denied"
     case expired = "expired"
     case pending = "pending"
+}
+
+/// Device requests: how the device connected
+public enum Transport: String, Codable, Sendable {
+    case unix = "unix"
+    case ws = "ws"
 }
 
 // MARK: - ChannelsPairingDenyParams
@@ -3266,16 +3284,20 @@ public enum DeviceRole: String, Codable, Sendable {
 
 // MARK: - DevicesApproveParams
 public struct DevicesApproveParams: Codable, Sendable {
+    /// The code shown on the new device; when given it must match the request
+    public let code: String?
     public let pairingRequestID: String
     /// Owner-chosen scopes; never taken from the client
     public let scopes: [DeviceScope]
 
     public enum CodingKeys: String, CodingKey {
+        case code = "code"
         case pairingRequestID = "pairingRequestId"
         case scopes = "scopes"
     }
 
-    public init(pairingRequestID: String, scopes: [DeviceScope]) {
+    public init(code: String?, pairingRequestID: String, scopes: [DeviceScope]) {
+        self.code = code
         self.pairingRequestID = pairingRequestID
         self.scopes = scopes
     }
@@ -7071,6 +7093,8 @@ public struct ThreadsListParams: Codable, Sendable {
     public let kind: ThreadKind?
     public let limit: Int?
     public let pinnedOnly: Bool?
+    /// Case-insensitive substring match on the title
+    public let query: String?
 
     public enum CodingKeys: String, CodingKey {
         case cursor = "cursor"
@@ -7078,14 +7102,16 @@ public struct ThreadsListParams: Codable, Sendable {
         case kind = "kind"
         case limit = "limit"
         case pinnedOnly = "pinnedOnly"
+        case query = "query"
     }
 
-    public init(cursor: String?, includeArchived: Bool?, kind: ThreadKind?, limit: Int?, pinnedOnly: Bool?) {
+    public init(cursor: String?, includeArchived: Bool?, kind: ThreadKind?, limit: Int?, pinnedOnly: Bool?, query: String?) {
         self.cursor = cursor
         self.includeArchived = includeArchived
         self.kind = kind
         self.limit = limit
         self.pinnedOnly = pinnedOnly
+        self.query = query
     }
 }
 
