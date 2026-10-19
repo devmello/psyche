@@ -46,6 +46,7 @@ Permission mode: balanced.
 - ask_user (none)
 - update_plan (none)
 - wrap_up (none)
+- subagent.spawn (none)
 - memory (none)
 - task.start (none)
 - schedule (write)
@@ -68,6 +69,7 @@ Permission mode: balanced.
 ask_user none trusted
 update_plan none trusted
 wrap_up none trusted
+subagent.spawn none trusted
 memory none trusted
 task.start none trusted
 schedule write trusted

@@ -112,6 +112,18 @@ const off = loop.registry.register({
 | `task.start` | none | `TaskEngine.create` (inherits taint), `task` block. |
 | `schedule` | write | `Scheduler.create` (unattended automation). |
 | `notify` | write | `Notifier.notify`. |
+| `subagent.spawn` | none | A child run of this loop (C6), below. |
+
+### Subagents (C6)
+
+`subagent.spawn {context: "fork" | "fresh", title, brief}` runs a child run to completion and returns `{subagentId, outcome, result, steps}` as the tool result: that is the announcement into the parent run.
+
+- `fork` copies the parent's transcript (and compaction summary) up to the last fully answered step; `fresh` sees only the brief.
+- Same model, permission mode, broker, hooks and tools, minus `ask_user`, `exit_plan_mode`, `wrap_up`, `subagent.spawn` (no nesting), `task.start`, `schedule`, `notify` and every tool whose `targetKind` is `recipient` (no messaging).
+- No approval authority: a call the broker would `ask` about (or a hook would suspend) is blocked with a message telling the subagent to report instead; no approval request is issued.
+- Taint flows both ways: a tainted parent starts the child tainted, and a tainted child makes its result `untrusted` and taints the parent.
+- Budgets: `subagentMaxSteps` (20) per child; the child's tokens are added to the parent's `maxRunTokens`; at most `maxConcurrentSubagents` (4) at once. Parallel spawns in one model response run concurrently.
+- Cancelling the parent cancels its children. `subagents(threadId)` lists them; each has its own thread (`<parent>:sub:<id>`) whose `threadState` is the view-only transcript, and `onSubagentEvent(info, event)` streams their events for the Subagents pane.
 
 ## How this maps to the docs
 
@@ -122,7 +134,7 @@ const off = loop.registry.register({
 
 ## What is stubbed or deferred
 
-- Subagents (C6), the evaluator (C7) and harness plugins (C10) are M2.
+- The evaluator (C7) and harness plugins (C10) are M2 and come next.
 - `memory` `delete` / `rename` return `not_implemented` until `MemoryStore` has them (S07).
 - The default `ThreadStateStore` is in memory; the Gateway (S01) persists threads.
 - Tool names with dots (`task.start`) are kept; the model router (S03) maps names a provider rejects.
