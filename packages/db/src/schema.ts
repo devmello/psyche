@@ -54,6 +54,9 @@ export const pairingRequests = sqliteTable("pairing_requests", {
   decidedByDeviceId: text("decided_by_device_id"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  publicKeyFingerprint: text("public_key_fingerprint"),
+  transport: text("transport"),
+  remoteAddress: text("remote_address"),
 });
 
 // §2 Threads, messages, runs, tool calls ------------------------------------------------------
@@ -130,6 +133,39 @@ export const toolCalls = sqliteTable("tool_calls", {
   updatedAt: text("updated_at").notNull(),
 });
 
+export const chatQueue = sqliteTable("chat_queue", {
+  id: text("id").primaryKey(),
+  threadId: text("thread_id").notNull(),
+  position: integer("position").notNull(),
+  content: text("content").notNull(),
+  attachments: text("attachments").notNull(),
+  deviceId: text("device_id"),
+  status: text("status").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const toolPayloads = sqliteTable("tool_payloads", {
+  id: text("id").primaryKey(),
+  toolCallId: text("tool_call_id").notNull(),
+  kind: text("kind").notNull(),
+  mime: text("mime").notNull(),
+  data: blob("data", { mode: "buffer" }).notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+// §11 Idempotency -----------------------------------------------------------------------------
+
+export const gatewayIdempotency = sqliteTable("gateway_idempotency", {
+  id: text("id").primaryKey(),
+  deviceId: text("device_id").notNull(),
+  method: text("method").notNull(),
+  idempotencyKey: text("idempotency_key").notNull(),
+  paramsHash: text("params_hash").notNull(),
+  result: text("result").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
 // §10 Settings and usage ----------------------------------------------------------------------
 
 export const settings = sqliteTable("settings", {
@@ -162,6 +198,9 @@ export const schema = {
   messages,
   runs,
   toolCalls,
+  chatQueue,
+  toolPayloads,
+  gatewayIdempotency,
   settings,
   usage,
   ...s04Schema,
@@ -182,6 +221,9 @@ export type RunRow = typeof runs.$inferSelect;
 export type NewRunRow = typeof runs.$inferInsert;
 export type ToolCallRow = typeof toolCalls.$inferSelect;
 export type NewToolCallRow = typeof toolCalls.$inferInsert;
+export type ChatQueueRow = typeof chatQueue.$inferSelect;
+export type ToolPayloadRow = typeof toolPayloads.$inferSelect;
+export type GatewayIdempotencyRow = typeof gatewayIdempotency.$inferSelect;
 export type SettingRow = typeof settings.$inferSelect;
 export type NewSettingRow = typeof settings.$inferInsert;
 export type UsageRow = typeof usage.$inferSelect;

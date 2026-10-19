@@ -2,7 +2,7 @@
   "name": "@psyche/sandbox",
   "version": "0.0.0",
   "private": true,
-  "description": "Container runner backends (Apple container, Docker, Colima), image, receipts, srt wrapper.",
+  "description": "Sandbox container runner (Apple container, Docker, Podman), command receipts, workspace file API and PTY",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
@@ -13,7 +13,9 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "sandbox:smoke": "node bin/smoke.ts",
+    "sandbox:build": "node bin/smoke.ts --build-only"
   },
   "dependencies": {
     "@psyche/protocol": "workspace:*"

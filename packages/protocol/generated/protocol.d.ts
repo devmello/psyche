@@ -728,13 +728,30 @@ export interface PairingRequest {
     expiresAt:          string;
     id:                 string;
     kind:               PairingRequestKind;
-    senderId?:          null | string;
-    status:             PairingStatus;
+    /**
+     * Device requests: "sha256:" + hex SHA-256 of the raw Ed25519 public key the owner approves
+     */
+    publicKeyFingerprint?: string;
+    /**
+     * Device requests: peer address as the Gateway saw it
+     */
+    remoteAddress?: string;
+    senderId?:      null | string;
+    status:         PairingStatus;
+    /**
+     * Device requests: how the device connected
+     */
+    transport?: Transport;
 }
 
 export type PairingRequestKind = "device" | "channel-sender";
 
 export type PairingStatus = "pending" | "approved" | "denied" | "expired";
+
+/**
+ * Device requests: how the device connected
+ */
+export type Transport = "ws" | "unix";
 
 export interface ChannelsPairingDenyParams {
     channelId?: string;
@@ -879,6 +896,37 @@ export type MessageRole = "user" | "agent" | "system" | "tool";
 
 export interface ChatMessagePayload {
     message: Message;
+}
+
+export interface ChatQueueListParams {
+    threadId: string;
+}
+
+export interface ChatQueueListResult {
+    items: QueuedMessage[];
+}
+
+export interface QueuedMessage {
+    attachments: string[];
+    content:     string;
+    createdAt:   string;
+    messageId:   string;
+    position:    number;
+    threadId:    string;
+}
+
+export interface ChatQueueRemoveParams {
+    messageId: string;
+    threadId:  string;
+}
+
+export interface ChatQueueRemoveResult {
+    removed: boolean;
+}
+
+export interface ChatQueueUpdatedPayload {
+    items:    QueuedMessage[];
+    threadId: string;
 }
 
 export interface ChatSendParams {
@@ -1108,6 +1156,10 @@ export interface Device {
 export type DeviceRole = "client" | "node" | "both";
 
 export interface DevicesApproveParams {
+    /**
+     * The code shown on the new device; when given it must match the request
+     */
+    code?:            string;
     pairingRequestId: string;
     /**
      * Owner-chosen scopes; never taken from the client
@@ -2402,6 +2454,10 @@ export interface TextBlock {
 
 export type TextBlockType = "text";
 
+export interface ThreadDeletedPayload {
+    threadId: string;
+}
+
 export interface ThreadIDParams {
     threadId: string;
 }
@@ -2474,6 +2530,10 @@ export interface ThreadsListParams {
     kind?:            ThreadKind;
     limit?:           number;
     pinnedOnly?:      boolean;
+    /**
+     * Case-insensitive substring match on the title
+     */
+    query?: string;
 }
 
 export interface ThreadsListResult {
