@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S06 vault, follow-up)
+
+- `fillElementAccepts`: a password (or a login's primary secret) goes only into `type=password`. The `type=text` + `autocomplete=current-password` exception is gone: a show-password field would put the value on screen. Found by the S06 adversarial review after #12's merged head.
+
 ### v1 additive — 2026-10-19 (S04 tasks and scheduler)
 
 - `AutomationKind` gains `reminder` (one-shot; `schedule` is an ISO-8601 instant), so Upcoming (O4) can tell reminders from recurring automations.
