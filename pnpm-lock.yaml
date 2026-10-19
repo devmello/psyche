@@ -686,6 +686,9 @@ importers:
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
+      phonemize:
+        specifier: 2.0.1
+        version: 2.0.1
     devDependencies:
       '@psyche/testing':
         specifier: workspace:*
@@ -5151,6 +5154,9 @@ packages:
     engines: {node: ^20.17.0 || >=22.9.0}
     hasBin: true
 
+  number-to-words@1.2.5:
+    resolution: {integrity: sha512-AuqAoOgs43P+bw2gccDCcFyu5FIHn6ArbrAFEwP+QjYcV6WvceWr0B0UAjiSIH9MNshephlmWqsKqwUjfs4OLQ==}
+
   object-assign@4.1.1:
     resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
     engines: {node: '>=0.10.0'}
@@ -5257,12 +5263,18 @@ packages:
     resolution: {integrity: sha512-nh39Mo1eGWmZS7y+mK/dQIqg7S1lp38DpRxkyoHf0ZcUs/HDc+yyTjuOtTvSMZHmfSLuSQaX945u05Y2Q6UWZg==}
     engines: {node: '>=14', npm: '>=7'}
 
+  phonemize@2.0.1:
+    resolution: {integrity: sha512-BTucYeBh/7YnWv08HXS2bB+6hG49fMJRb7HJYz3dGruAng8OajV9CNPG48IpJhFSn4RnFRL+HVb4bEUgSumxiQ==}
+
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
 
   picomatch@4.0.7:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
+
+  pinyin-pro@3.29.5:
+    resolution: {integrity: sha512-Fk5YoRmtdHqJWqAuzYVG/NzvzeCbaG+ZEwbY6Nbps3QAIrvQQEtcm49frcyCM8i2b5najnzPDtYqrHRYTTiuwQ==}
 
   pkce-challenge@5.0.1:
     resolution: {integrity: sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ==}
@@ -10483,6 +10495,8 @@ snapshots:
     dependencies:
       abbrev: 4.0.0
 
+  number-to-words@1.2.5: {}
+
   object-assign@4.1.1: {}
 
   object-inspect@1.13.4: {}
@@ -10623,9 +10637,16 @@ snapshots:
 
   pe-library@1.0.1: {}
 
+  phonemize@2.0.1:
+    dependencies:
+      number-to-words: 1.2.5
+      pinyin-pro: 3.29.5
+
   picocolors@1.1.1: {}
 
   picomatch@4.0.7: {}
+
+  pinyin-pro@3.29.5: {}
 
   pkce-challenge@5.0.1: {}
 
