@@ -13,6 +13,8 @@ allowBuilds:
   electron: true
   esbuild: true
   node-pty: true
+  # Pulled in by @univerjs/protocol -> @grpc/grpc-js; its postinstall only prints a notice (S13).
+  protobufjs: false
 engineStrict: true
 autoInstallPeers: true
 
