@@ -229,6 +229,11 @@
         "payload": "#/$defs/PairingRequestedPayload"
       },
       {
+        "description": "IDENTITY.md changed: clients refresh the header; maybe regenerate the avatar.",
+        "name": "persona.updated",
+        "payload": "#/$defs/PersonaUpdatedPayload"
+      },
+      {
         "description": "The agent asked the user structured questions (ask_user); no timeout.",
         "name": "question.created",
         "payload": "#/$defs/QuestionCreatedPayload"
@@ -894,6 +899,22 @@
         "result": "#/$defs/MemoryPauseResult",
         "scope": "operator.write",
         "sideEffecting": true
+      },
+      {
+        "description": "The owner edits the persona in words or fields; IDENTITY.md is rewritten and persona.updated is emitted. Side-effecting.",
+        "name": "memory.persona.edit",
+        "params": "#/$defs/MemoryPersonaEditParams",
+        "result": "#/$defs/MemoryPersonaEditResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "The persona from IDENTITY.md (name, creature, vibe, tagline, emoji, avatar, voice).",
+        "name": "memory.persona.get",
+        "params": "#/$defs/MemoryPersonaGetParams",
+        "result": "#/$defs/MemoryPersonaGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "Reads a workspace memory file, optionally a line range.",
@@ -7919,6 +7940,111 @@
       ],
       "type": "object"
     },
+    "MemoryPersonaEditParams": {
+      "properties": {
+        "instruction": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "fields": {
+          "properties": {
+            "name": {
+              "maxLength": 80,
+              "type": "string"
+            },
+            "creature": {
+              "maxLength": 300,
+              "type": "string"
+            },
+            "vibe": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "tagline": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "emoji": {
+              "maxLength": 16,
+              "type": "string"
+            },
+            "avatar": {
+              "description": "Asset id of the avatar",
+              "maxLength": 200,
+              "type": "string"
+            },
+            "voice": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "description": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "etag": {
+          "maxLength": 128,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "MemoryPersonaEditResult": {
+      "properties": {
+        "identity": {
+          "$ref": "#/$defs/PersonaIdentity"
+        },
+        "description": {
+          "type": "string"
+        },
+        "etag": {
+          "type": "string"
+        },
+        "changed": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "avatarRequested": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "identity",
+        "description",
+        "etag",
+        "changed",
+        "avatarRequested"
+      ],
+      "type": "object"
+    },
+    "MemoryPersonaGetParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "MemoryPersonaGetResult": {
+      "properties": {
+        "identity": {
+          "$ref": "#/$defs/PersonaIdentity"
+        },
+        "description": {
+          "type": "string"
+        },
+        "etag": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "identity",
+        "description",
+        "etag"
+      ],
+      "type": "object"
+    },
     "MemoryReadParams": {
       "properties": {
         "path": {
@@ -9042,6 +9168,62 @@
         "auto"
       ],
       "type": "string"
+    },
+    "PersonaIdentity": {
+      "properties": {
+        "name": {
+          "maxLength": 80,
+          "type": "string"
+        },
+        "creature": {
+          "maxLength": 300,
+          "type": "string"
+        },
+        "vibe": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "tagline": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "emoji": {
+          "maxLength": 16,
+          "type": "string"
+        },
+        "avatar": {
+          "description": "Asset id of the avatar",
+          "maxLength": 200,
+          "type": "string"
+        },
+        "voice": {
+          "maxLength": 120,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "PersonaUpdatedPayload": {
+      "properties": {
+        "identity": {
+          "$ref": "#/$defs/PersonaIdentity"
+        },
+        "changed": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "avatarRequested": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "identity",
+        "changed",
+        "avatarRequested"
+      ],
+      "type": "object"
     },
     "PlanBlock": {
       "properties": {

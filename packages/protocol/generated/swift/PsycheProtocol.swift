@@ -259,6 +259,10 @@
 //   let memoryJobUpdatedPayload = try? JSONDecoder().decode(MemoryJobUpdatedPayload.self, from: jsonData)
 //   let memoryPauseParams = try? JSONDecoder().decode(MemoryPauseParams.self, from: jsonData)
 //   let memoryPauseResult = try? JSONDecoder().decode(MemoryPauseResult.self, from: jsonData)
+//   let memoryPersonaEditParams = try? JSONDecoder().decode(MemoryPersonaEditParams.self, from: jsonData)
+//   let memoryPersonaEditResult = try? JSONDecoder().decode(MemoryPersonaEditResult.self, from: jsonData)
+//   let memoryPersonaGetParams = try? JSONDecoder().decode(MemoryPersonaGetParams.self, from: jsonData)
+//   let memoryPersonaGetResult = try? JSONDecoder().decode(MemoryPersonaGetResult.self, from: jsonData)
 //   let memoryReadParams = try? JSONDecoder().decode(MemoryReadParams.self, from: jsonData)
 //   let memoryReadResult = try? JSONDecoder().decode(MemoryReadResult.self, from: jsonData)
 //   let memoryRememberParams = try? JSONDecoder().decode(MemoryRememberParams.self, from: jsonData)
@@ -307,6 +311,8 @@
 //   let pairingRequestedPayload = try? JSONDecoder().decode(PairingRequestedPayload.self, from: jsonData)
 //   let pairingStatus = try? JSONDecoder().decode(PairingStatus.self, from: jsonData)
 //   let permissionMode = try? JSONDecoder().decode(PermissionMode.self, from: jsonData)
+//   let personaIdentity = try? JSONDecoder().decode(PersonaIdentity.self, from: jsonData)
+//   let personaUpdatedPayload = try? JSONDecoder().decode(PersonaUpdatedPayload.self, from: jsonData)
 //   let planBlock = try? JSONDecoder().decode(PlanBlock.self, from: jsonData)
 //   let planStep = try? JSONDecoder().decode(PlanStep.self, from: jsonData)
 //   let planStepStatus = try? JSONDecoder().decode(PlanStepStatus.self, from: jsonData)
@@ -5749,6 +5755,136 @@ public struct MemoryPauseResult: Codable, Sendable {
     }
 }
 
+// MARK: - MemoryPersonaEditParams
+public struct MemoryPersonaEditParams: Codable, Sendable {
+    public let description: String?
+    public let etag: String?
+    public let fields: Fields?
+    public let instruction: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case description = "description"
+        case etag = "etag"
+        case fields = "fields"
+        case instruction = "instruction"
+    }
+
+    public init(description: String?, etag: String?, fields: Fields?, instruction: String?) {
+        self.description = description
+        self.etag = etag
+        self.fields = fields
+        self.instruction = instruction
+    }
+}
+
+// MARK: - Fields
+public struct Fields: Codable, Sendable {
+    /// Asset id of the avatar
+    public let avatar: String?
+    public let creature: String?
+    public let emoji: String?
+    public let name: String?
+    public let tagline: String?
+    public let vibe: String?
+    public let voice: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case avatar = "avatar"
+        case creature = "creature"
+        case emoji = "emoji"
+        case name = "name"
+        case tagline = "tagline"
+        case vibe = "vibe"
+        case voice = "voice"
+    }
+
+    public init(avatar: String?, creature: String?, emoji: String?, name: String?, tagline: String?, vibe: String?, voice: String?) {
+        self.avatar = avatar
+        self.creature = creature
+        self.emoji = emoji
+        self.name = name
+        self.tagline = tagline
+        self.vibe = vibe
+        self.voice = voice
+    }
+}
+
+// MARK: - MemoryPersonaEditResult
+public struct MemoryPersonaEditResult: Codable, Sendable {
+    public let avatarRequested: Bool
+    public let changed: [String]
+    public let description: String
+    public let etag: String
+    public let identity: PersonaIdentity
+
+    public enum CodingKeys: String, CodingKey {
+        case avatarRequested = "avatarRequested"
+        case changed = "changed"
+        case description = "description"
+        case etag = "etag"
+        case identity = "identity"
+    }
+
+    public init(avatarRequested: Bool, changed: [String], description: String, etag: String, identity: PersonaIdentity) {
+        self.avatarRequested = avatarRequested
+        self.changed = changed
+        self.description = description
+        self.etag = etag
+        self.identity = identity
+    }
+}
+
+// MARK: - PersonaIdentity
+public struct PersonaIdentity: Codable, Sendable {
+    /// Asset id of the avatar
+    public let avatar: String?
+    public let creature: String?
+    public let emoji: String?
+    public let name: String?
+    public let tagline: String?
+    public let vibe: String?
+    public let voice: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case avatar = "avatar"
+        case creature = "creature"
+        case emoji = "emoji"
+        case name = "name"
+        case tagline = "tagline"
+        case vibe = "vibe"
+        case voice = "voice"
+    }
+
+    public init(avatar: String?, creature: String?, emoji: String?, name: String?, tagline: String?, vibe: String?, voice: String?) {
+        self.avatar = avatar
+        self.creature = creature
+        self.emoji = emoji
+        self.name = name
+        self.tagline = tagline
+        self.vibe = vibe
+        self.voice = voice
+    }
+}
+
+// MARK: - MemoryPersonaGetResult
+public struct MemoryPersonaGetResult: Codable, Sendable {
+    public let description: String
+    public let etag: String
+    public let identity: PersonaIdentity
+
+    public enum CodingKeys: String, CodingKey {
+        case description = "description"
+        case etag = "etag"
+        case identity = "identity"
+    }
+
+    public init(description: String, etag: String, identity: PersonaIdentity) {
+        self.description = description
+        self.etag = etag
+        self.identity = identity
+    }
+}
+
 // MARK: - MemoryReadParams
 public struct MemoryReadParams: Codable, Sendable {
     public let lineEnd: Int?
@@ -6539,6 +6675,25 @@ public struct PairingRequestedPayload: Codable, Sendable {
 
     public init(pairingRequest: PairingRequest) {
         self.pairingRequest = pairingRequest
+    }
+}
+
+// MARK: - PersonaUpdatedPayload
+public struct PersonaUpdatedPayload: Codable, Sendable {
+    public let avatarRequested: Bool
+    public let changed: [String]
+    public let identity: PersonaIdentity
+
+    public enum CodingKeys: String, CodingKey {
+        case avatarRequested = "avatarRequested"
+        case changed = "changed"
+        case identity = "identity"
+    }
+
+    public init(avatarRequested: Bool, changed: [String], identity: PersonaIdentity) {
+        self.avatarRequested = avatarRequested
+        self.changed = changed
+        self.identity = identity
     }
 }
 
@@ -9239,6 +9394,7 @@ public typealias ChannelsListParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]
 public typealias MemoryExportParams = [String: JSONAny]
+public typealias MemoryPersonaGetParams = [String: JSONAny]
 public typealias MemoryStatusParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]
 public typealias SandboxListParams = [String: JSONAny]
