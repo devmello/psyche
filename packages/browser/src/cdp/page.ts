@@ -695,6 +695,11 @@ export class PageController {
     return extractText(ax.nodes, opts);
   }
 
+  /** Synchronous element facts for per-call classification; undefined for unknown refs. */
+  peek(ref: string): ElementMeta | undefined {
+    return this.refs.has(ref) ? { ...this.refs.resolve(ref).meta } : undefined;
+  }
+
   async describe(ref: string): Promise<ElementMeta> {
     this.#assertReadable();
     return { ...this.refs.resolve(ref).meta };

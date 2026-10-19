@@ -151,6 +151,13 @@ export interface BrowserDriverEx extends BrowserDriver {
   openSession(options: OpenSessionOptions): ReturnType<BrowserDriver["openSession"]>;
   snapshot(tabId: string, options?: SnapshotOptions): Promise<BrowserSnapshot>;
   policy(sessionId: string): OriginPolicy;
+  /** `clear` replaces the field's value (select-all, delete) before typing. */
+  type(
+    tabId: string,
+    ref: string,
+    text: string,
+    options?: { submit?: boolean; clear?: boolean },
+  ): Promise<void>;
   reload(tabId: string): Promise<NavigateResult>;
   pointer(tabId: string, target: ActionTarget, action: PointerAction): Promise<void>;
   /** Key chord like `Enter`, `Shift+Tab`, `Meta+A`; focuses `ref` first when given. */
@@ -162,6 +169,10 @@ export interface BrowserDriverEx extends BrowserDriver {
   handleDialog(tabId: string, accept: boolean, promptText?: string): Promise<void>;
   pendingDialog(tabId: string): DialogInfo | undefined;
   describe(tabId: string, ref: string): Promise<ElementMeta>;
+  /** Synchronous `describe` for `describeCall`; undefined when the ref is unknown or stale. */
+  peek(tabId: string, ref: string): ElementMeta | undefined;
+  /** After an approved `new_origin`: lift the content block or replay a stopped navigation. */
+  retryBlocked(tabId: string): Promise<"unblocked" | "renavigated" | "unchanged">;
   /** Current top-frame origin of a tab (canonical), or undefined before the first navigation. */
   tabOrigin(tabId: string): string | undefined;
   /**
