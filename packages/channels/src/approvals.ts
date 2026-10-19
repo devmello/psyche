@@ -64,6 +64,9 @@ export function approvalErrorReply(error: unknown): string {
   return ERROR_REPLIES[code] ?? "Could not record the answer. Try again from Psyche.";
 }
 
+/** Channels whose chats may carry approval cards; WebChat clients use the device card instead. */
+const CHAT_APPROVAL_CHANNELS = (channel: Channel): boolean => channel.type !== "webchat";
+
 export class ChatApprovals {
   #broker: PermissionBroker;
   #host: ApprovalHost;
@@ -104,6 +107,12 @@ export class ChatApprovals {
         continue;
       }
       for (const { channel, adapter } of targets) {
+        // WebChat clients are paired devices with real approval cards (`approvals.*` and the
+        // `operator.approvals` scope); a chat card there would bypass that scope.
+        if (!CHAT_APPROVAL_CHANNELS(channel)) {
+          reports.push({ surface, delivered: false, reason: "not_a_chat_surface" });
+          continue;
+        }
         const eligibility = chatEligibility(approval, {
           allowDestructive: channelSettings(channel).allowDestructiveApprovals,
         });
@@ -111,19 +120,27 @@ export class ChatApprovals {
           reports.push({ surface, delivered: false, reason: eligibility.reason });
           continue;
         }
-        const ref = approvalRef(approval.id);
-        if (adapter.sendApprovalButtons !== undefined && adapter.capabilities().buttons) {
-          await adapter.sendApprovalButtons(peerId, approval, answerToken);
-        } else {
-          const card = renderApprovalCard(approval, {
-            ref,
-            now: this.#host.now(),
-            commandFallback: true,
-            ...(adapter.capabilities().maxMessageChars === undefined
-              ? {}
-              : { maxChars: adapter.capabilities().maxMessageChars }),
-          });
-          await this.#host.sendText(channel, peerId, card.text);
+        const caps = adapter.capabilities();
+        const buttons = adapter.sendApprovalButtons !== undefined && caps.buttons;
+        const card = renderApprovalCard(approval, {
+          ref: approvalRef(approval.id),
+          now: this.#host.now(),
+          commandFallback: !buttons,
+          ...(caps.maxMessageChars === undefined ? {} : { maxChars: caps.maxMessageChars }),
+        });
+        try {
+          if (!card.answerable) {
+            // Too long to show in full: point to a paired device and accept no chat answer.
+            await this.#host.sendText(channel, peerId, card.text);
+            reports.push({ surface, delivered: false, reason: "too_long_for_chat" });
+            continue;
+          }
+          if (buttons) await adapter.sendApprovalButtons?.(peerId, approval, answerToken);
+          else await this.#host.sendText(channel, peerId, card.text);
+        } catch (error) {
+          const code = error instanceof PsycheError ? error.code : "internal";
+          reports.push({ surface, delivered: false, reason: `send_failed:${code}` });
+          continue;
         }
         pending.deliveries.push({ channelId: channel.id, chatId: peerId, surface, answerToken });
         reports.push({ surface, delivered: true });
@@ -167,6 +184,10 @@ export class ChatApprovals {
     ref: string,
     decision: "approve" | "deny",
   ): Promise<void> {
+    if (!CHAT_APPROVAL_CHANNELS(channel)) {
+      await this.#host.sendText(channel, chatId, "Answer approvals on the approval card.");
+      return;
+    }
     if (!this.#host.isOwner(channel, senderId)) {
       await this.#host.sendText(channel, chatId, "Only the owner can answer approvals.");
       return;
@@ -194,6 +215,10 @@ export class ChatApprovals {
     chatId: string,
     answer: { approvalId: string; answerToken: string; decision: "approve" | "deny" },
   ): Promise<void> {
+    if (!CHAT_APPROVAL_CHANNELS(channel)) {
+      await this.#host.sendText(channel, chatId, "Answer approvals on the approval card.");
+      return;
+    }
     if (!this.#host.isOwner(channel, senderId)) {
       await this.#host.sendText(channel, chatId, "Only the owner can answer approvals.");
       return;

@@ -84,7 +84,10 @@ export function authorizeInbound(
   if (!listed(senders, message.senderId)) return { action: "drop", reason: "group_sender_denied" };
   if (!sender.strong && !listed(senders, "*")) return { action: "drop", reason: "weak_identity" };
   const requireMention = group.requireMention ?? channel.requireMention;
-  const activated = message.mentioned === true || message.quoted?.fromSelf === true;
+  // A forwarded message's mention entities are someone else's (design-22).
+  const activated =
+    (message.mentioned === true && message.forwardedFrom === undefined) ||
+    message.quoted?.fromSelf === true;
   if (requireMention && !activated) return { action: "drop", reason: "not_mentioned" };
 
   let role: SenderRole = owner ? "owner" : "allowed";

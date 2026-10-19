@@ -15,7 +15,8 @@ export function chunkMessage(
   const flavor = options.flavor ?? "plain";
   const markdown = options.format === "markdown";
   const render = (s: string) => (markdown ? renderMarkdown(s, flavor) : renderPlain(s, flavor));
-  const fits = (s: string) => render(s).length <= limit;
+  // Both the source (what adapters length-check) and the rendered text must fit.
+  const fits = (s: string) => s.length <= limit && render(s).length <= limit;
   if (fits(text)) return text.trim() === "" ? [] : [text];
 
   const pieces: string[] = [];

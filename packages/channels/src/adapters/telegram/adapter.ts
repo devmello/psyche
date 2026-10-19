@@ -34,6 +34,8 @@ import {
 export interface TelegramAdapterOptions {
   /** Bot token, resolved by the vault in the Gateway. Never logged, never in error messages. */
   token: string;
+  /** Mirror of the channel's `config.allowDestructiveApprovals` (default false). */
+  allowDestructiveApprovals?: boolean;
   /** Channel account label; default the bot username from getMe. */
   account?: string;
   /** Skip getMe (tests). */
@@ -82,6 +84,8 @@ export class TelegramAdapter implements ChannelAdapter {
   readonly type = "telegram" as const;
 
   readonly #token: string;
+
+  #allowDestructive: boolean;
   readonly #accountOverride: string | undefined;
   readonly #bot: Bot;
   readonly #fetch: typeof fetch;
@@ -105,6 +109,7 @@ export class TelegramAdapter implements ChannelAdapter {
 
   constructor(options: TelegramAdapterOptions) {
     this.#token = options.token;
+    this.#allowDestructive = options.allowDestructiveApprovals === true;
     this.#accountOverride = options.account;
     this.#fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.#apiRoot = (options.apiRoot ?? DEFAULT_API_ROOT).replace(/\/+$/, "");
@@ -213,6 +218,27 @@ export class TelegramAdapter implements ChannelAdapter {
   }
 
   async send(message: OutboundMessage): Promise<SendResult> {
+    try {
+      return await this.#send(message);
+    } catch (error) {
+      // Telegram rejects HTML it cannot parse; resend once as plain text rather than lose the reply.
+      if (
+        message.format === "markdown" &&
+        error instanceof PsycheError &&
+        error.code === "invalid_params" &&
+        /parse entities/i.test(error.message)
+      ) {
+        return this.#send({
+          ...message,
+          format: "plain",
+          text: renderMarkdown(message.text, "plain"),
+        });
+      }
+      throw error;
+    }
+  }
+
+  async #send(message: OutboundMessage): Promise<SendResult> {
     if (message.text.length > TELEGRAM_MAX_MESSAGE_CHARS) {
       throw new PsycheError("invalid_params", "message too long", {
         details: { max: TELEGRAM_MAX_MESSAGE_CHARS, length: message.text.length },
@@ -287,7 +313,7 @@ export class TelegramAdapter implements ChannelAdapter {
     if (approval.deviceOnly) {
       throw new PsycheError("forbidden", "deviceOnly approvals are never sent to chat");
     }
-    const eligibility = chatEligibility(approval);
+    const eligibility = chatEligibility(approval, { allowDestructive: this.#allowDestructive });
     if (!eligibility.ok) {
       throw new PsycheError("forbidden", "approval cannot be answered from chat", {
         details: { reason: eligibility.reason },

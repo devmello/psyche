@@ -55,6 +55,7 @@ export class RateLimiter {
     limits: { key: string; ratePerSec: number; burst: number }[],
     signal?: AbortSignal,
   ): Promise<void> {
+    limits = limits.map((l) => ({ ...l, burst: Math.max(1, l.burst) }));
     const queueKey = limits.map((l) => l.key).join("|");
     const previous = this.#queues.get(queueKey) ?? Promise.resolve();
     const run = previous.then(async () => {

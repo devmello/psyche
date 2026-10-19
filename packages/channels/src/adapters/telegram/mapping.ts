@@ -160,7 +160,11 @@ function mapQuoted(message: Message, bot: BotIdentity): QuotedMessage | undefine
   const quoted: QuotedMessage = {
     text: message.quote?.text ?? reply.text ?? reply.caption ?? "",
   };
-  if (reply.from !== undefined) {
+  if (reply.forward_origin !== undefined) {
+    // The quoted message was itself forwarded: its author is the forward origin, not the person
+    // who forwarded it (review design-22). Leave the author unset so it stays untrusted.
+    quoted.fromSelf = false;
+  } else if (reply.from !== undefined) {
     quoted.senderId = String(reply.from.id);
     quoted.fromSelf = reply.from.id === bot.id;
   } else if (reply.sender_chat !== undefined) {
@@ -207,7 +211,8 @@ export function mapMessage(
     chatId: String(message.chat.id),
     senderId,
     isGroup: message.chat.type === "group" || message.chat.type === "supergroup",
-    mentioned: isMentioned(message, bot),
+    // Entities survive forwarding; a forwarded mention is not a mention (design-22).
+    mentioned: message.forward_origin === undefined && isMentioned(message, bot),
     text: message.text ?? message.caption ?? "",
     receivedAt: (edited ? (message.edit_date ?? message.date) : message.date) * 1000,
     identityStrength: senderIsChat ? "weak" : "strong",

@@ -108,12 +108,25 @@ const inlineHtml: Inline = (text) => {
     links.push(html);
     return `\uE000${links.length - 1}\uE000`;
   });
-  return escapeHtml(withMarks)
+  const html = escapeHtml(withMarks)
     .replace(BOLD, "<b>$2</b>")
     .replace(STRIKE, "<s>$1</s>")
-    .replace(ITALIC, "$1<i>$3</i>")
-    .replace(/\uE000(\d+)\uE000/g, (_m, n: string) => links[Number(n)] ?? "");
+    .replace(ITALIC, "$1<i>$3</i>");
+  // Overlapping emphasis (`**a _b** c_`) would produce mis-nested tags that Telegram rejects;
+  // fall back to the escaped plain rendering of this span instead.
+  const safe = wellNested(html) ? html : escapeHtml(inlinePlain(text.replace(/\uE000/g, "")));
+  return safe.replace(/\uE000(\d+)\uE000/g, (_m, n: string) => links[Number(n)] ?? "");
 };
+
+/** True when every `<b>`, `<i>`, `<s>` tag closes in stack order. */
+export function wellNested(html: string): boolean {
+  const stack: string[] = [];
+  for (const m of html.matchAll(/<(\/?)([bis])>/g)) {
+    if (m[1] === "") stack.push(m[2] ?? "");
+    else if (stack.pop() !== m[2]) return false;
+  }
+  return stack.length === 0;
+}
 
 function textBlock(body: string, flavor: Flavor): string {
   return body

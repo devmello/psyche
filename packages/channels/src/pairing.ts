@@ -41,6 +41,8 @@ export class PairingService {
   #random: (max: number) => number;
   #resendAfterMs: number;
   #lastSent = new Map<string, number>();
+  /** Per-channel queue: the pending count check and the insert must not interleave. */
+  #locks = new Map<string, Promise<unknown>>();
 
   constructor(options: {
     store: ChannelStore;
@@ -63,6 +65,18 @@ export class PairingService {
   }
 
   async request(channelId: string, senderId: string, display: string): Promise<PairingOutcome> {
+    const previous = this.#locks.get(channelId) ?? Promise.resolve();
+    const run = previous.then(() => this.#request(channelId, senderId, display));
+    const settled = run.catch(() => undefined);
+    this.#locks.set(channelId, settled);
+    try {
+      return await run;
+    } finally {
+      if (this.#locks.get(channelId) === settled) this.#locks.delete(channelId);
+    }
+  }
+
+  async #request(channelId: string, senderId: string, display: string): Promise<PairingOutcome> {
     await this.expire();
     const pending = await this.#store.listPairings({ channelId, status: "pending" });
     const mine = pending.find((p) => p.senderId === senderId);

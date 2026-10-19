@@ -81,7 +81,8 @@ export function channelSettings(channel: Pick<Channel, "type" | "config">): Chan
     rateLimit: {
       perChatPerSec: positive(rate.perChatPerSec, base.perChatPerSec),
       perChannelPerSec: positive(rate.perChannelPerSec, base.perChannelPerSec),
-      burst: positive(rate.burst, base.burst),
+      // At least one whole token, or a bucket can never fill and sends wait forever.
+      burst: Math.max(1, Math.floor(positive(rate.burst, base.burst))),
     },
     maxAttachmentBytes: positive(c.maxAttachmentBytes, 20 * 1024 * 1024),
     replyToUnauthorizedCommands: c.replyToUnauthorizedCommands !== false,

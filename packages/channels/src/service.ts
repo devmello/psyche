@@ -234,7 +234,10 @@ export class ChannelService {
     const out = new Set<string>();
     for (const [id] of this.#attached) {
       const channel = this.#channels.get(id);
-      if (channel === undefined || channel.status === "paused") continue;
+      // WebChat clients answer on the device approval card (operator.approvals), not in chat.
+      if (channel === undefined || channel.status === "paused" || channel.type === "webchat") {
+        continue;
+      }
       for (const ownerId of channel.ownerIds) out.add(`${channel.type}:${ownerId}`);
       for (const q of this.#ownerAllowFrom) {
         if (q.startsWith(`${channel.type}:`)) out.add(q);
@@ -560,8 +563,12 @@ export class ChannelService {
       return;
     }
     const { route } = decision;
-    const command = parseCommand(message.text, attached.adapter.account);
-    if (command !== undefined && message.editOf === undefined) {
+    // Forwarded or edited text is never a command (design-22): only words the sender typed.
+    const command =
+      message.forwardedFrom === undefined && message.editOf === undefined
+        ? parseCommand(message.text, attached.adapter.account)
+        : undefined;
+    if (command !== undefined) {
       await this.#command(channel, route, message, command);
       return;
     }
