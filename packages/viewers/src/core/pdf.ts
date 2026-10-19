@@ -7,6 +7,8 @@ export interface PdfFormField {
   /** pdf.js annotation id, used to write fill-preview values. */
   id: string;
   name: string;
+  /** Tooltip / alternate name (`/TU`), the human label when the form author set one. */
+  label?: string;
   type: PdfFieldType;
   value: string | string[] | boolean | null;
   /** 1-based page number. */
@@ -16,6 +18,9 @@ export interface PdfFormField {
   readOnly: boolean;
   required: boolean;
   multiline?: boolean;
+  /** Choice field shown as a list box (not a dropdown); `multiSelect` when several may be picked. */
+  listBox?: boolean;
+  multiSelect?: boolean;
   maxLen?: number;
   options?: { value: string; label: string }[];
   /** Export value for checkboxes / radios ("Yes", "On", ...). */
@@ -73,12 +78,15 @@ interface RawAnnotation {
   id: string;
   subtype?: string;
   fieldName?: string;
+  alternativeText?: string;
   fieldType?: string;
   fieldValue?: unknown;
   rect: number[];
   readOnly?: boolean;
   required?: boolean;
   multiLine?: boolean;
+  combo?: boolean;
+  multiSelect?: boolean;
   maxLen?: number;
   checkBox?: boolean;
   radioButton?: boolean;
@@ -115,7 +123,11 @@ function toField(a: RawAnnotation, page: number): PdfFormField | undefined {
     readOnly: a.readOnly === true,
     required: a.required === true,
   };
+  const label = a.alternativeText?.trim();
+  if (label) field.label = label;
   if (a.multiLine) field.multiline = true;
+  if (type === "choice" && a.combo === false) field.listBox = true;
+  if (type === "choice" && a.multiSelect === true) field.multiSelect = true;
   if (typeof a.maxLen === "number" && a.maxLen > 0) field.maxLen = a.maxLen;
   if (a.options !== undefined)
     field.options = a.options.map((o) => ({ value: o.exportValue, label: o.displayValue }));
