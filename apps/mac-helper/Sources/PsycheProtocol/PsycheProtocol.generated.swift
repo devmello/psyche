@@ -357,6 +357,7 @@
 //   let textBlock = try? JSONDecoder().decode(TextBlock.self, from: jsonData)
 //   let thread = try? JSONDecoder().decode(Thread.self, from: jsonData)
 //   let threadActivity = try? JSONDecoder().decode(ThreadActivity.self, from: jsonData)
+//   let threadDeletedPayload = try? JSONDecoder().decode(ThreadDeletedPayload.self, from: jsonData)
 //   let threadIDParams = try? JSONDecoder().decode(ThreadIDParams.self, from: jsonData)
 //   let threadKind = try? JSONDecoder().decode(ThreadKind.self, from: jsonData)
 //   let threadListEntry = try? JSONDecoder().decode(ThreadListEntry.self, from: jsonData)
@@ -7005,6 +7006,19 @@ public struct TextBlock: Codable, Sendable {
 
 public enum TextBlockType: String, Codable, Sendable {
     case text = "text"
+}
+
+// MARK: - ThreadDeletedPayload
+public struct ThreadDeletedPayload: Codable, Sendable {
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case threadID = "threadId"
+    }
+
+    public init(threadID: String) {
+        self.threadID = threadID
+    }
 }
 
 // MARK: - ThreadIDParams

@@ -234,6 +234,11 @@
         "payload": "#/$defs/TaskUpdatedPayload"
       },
       {
+        "description": "A thread and its transcript were deleted.",
+        "name": "thread.deleted",
+        "payload": "#/$defs/ThreadDeletedPayload"
+      },
+      {
         "description": "A thread was created, renamed, pinned, archived or restored.",
         "name": "thread.updated",
         "payload": "#/$defs/ThreadUpdatedPayload"
@@ -9980,6 +9985,20 @@
         "running",
         "awaitingInput",
         "awaitingApproval"
+      ],
+      "type": "object"
+    },
+    "ThreadDeletedPayload": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "threadId"
       ],
       "type": "object"
     },
