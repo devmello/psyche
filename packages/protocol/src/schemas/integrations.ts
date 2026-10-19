@@ -35,6 +35,69 @@ export const CredentialMeta = Type.Object(
 );
 export type CredentialMeta = Static<typeof CredentialMeta>;
 
+/** Data model §6 `credential_uses`: one row per resolve attempt, never a value (feature G14). */
+export const CredentialUse = Type.Object(
+  {
+    id: Id,
+    credentialId: Id,
+    taskId: Nullable(Id),
+    approvalId: Nullable(Type.String()),
+    executor: StringEnum(["browser", "connector", "sandbox", "ssh"]),
+    /** Origin or host. */
+    target: Type.String(),
+    outcome: StringEnum(["filled", "denied", "failed"]),
+    /** Denial reason (`target_mismatch`, `approval_expired`, …) when not filled. */
+    reason: Nullable(Type.String()),
+    createdAt: IsoDateTime,
+  },
+  { $id: "CredentialUse" },
+);
+export type CredentialUse = Static<typeof CredentialUse>;
+
+/** Key slot that unlocks the vault (security §4.2). */
+export const VaultKeySlot = StringEnum(["keychain", "safe_storage", "key_file", "recovery"], {
+  $id: "VaultKeySlot",
+});
+export type VaultKeySlot = Static<typeof VaultKeySlot>;
+
+export const VaultStatus = Type.Object(
+  {
+    state: StringEnum(["uninitialized", "locked", "unlocked"]),
+    /** Slots present on disk. */
+    slots: Type.Array(VaultKeySlot),
+    /** The owner confirmed the recovery key is stored (setup is incomplete until then). */
+    recoveryConfirmed: Type.Boolean(),
+    autoLockMinutes: Type.Integer({ minimum: 1 }),
+    /** When the idle timer locks the vault, if unlocked. */
+    lockAt: Nullable(IsoDateTime),
+    itemCount: Type.Integer({ minimum: 0 }),
+  },
+  { $id: "VaultStatus" },
+);
+export type VaultStatus = Static<typeof VaultStatus>;
+
+/**
+ * Secret part of a vault item, client → Gateway only (add / edit). Results and events never
+ * carry it. Fields per data model §6 `items.secret`.
+ */
+export const CredentialSecretInput = Type.Object(
+  {
+    username: Type.Optional(Type.String()),
+    password: Type.Optional(Type.String()),
+    /** TOTP seed (base32 or an `otpauth://` URI); `.totp` resolves to the current code. */
+    totpSecret: Type.Optional(Type.String()),
+    token: Type.Optional(Type.String()),
+    /** Header the token is sent in (`Authorization`, `X-Api-Key`). Not secret. */
+    headerName: Type.Optional(Type.String()),
+    /** Prefix before the token in the header value, e.g. `Bearer `. Not secret. */
+    headerPrefix: Type.Optional(Type.String()),
+    privateKey: Type.Optional(Type.String()),
+    text: Type.Optional(Type.String()),
+  },
+  { $id: "CredentialSecretInput", additionalProperties: false },
+);
+export type CredentialSecretInput = Static<typeof CredentialSecretInput>;
+
 /** Data model §8. */
 export const ConnectorStatus = StringEnum(["connected", "disconnected", "error", "needs_auth"], {
   $id: "ConnectorStatus",

@@ -18,6 +18,17 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S06 vault)
+
+Additive, for S06 (vault), S08 (browser fill), S09 (connector OAuth), S11/S12 (Settings → Credentials), S01 (dispatch).
+
+- `CredentialBroker.ts`: `FillElement`, `fillElementAccepts()` (field-class rule from S23 design-01: a password only into a password field, never a textarea / contenteditable / search box), `ResolveOptions.element` and `ResolveOptions.selector`. Brokers refuse a browser resolve without `element`.
+- `ConnectorCredentialStore` (`store`, `accessToken`, `rotate`, `revoke`, `onRevoked`) and `OAuthTokenSet`, `ConnectorTokenInput`, `CredentialRevokedEvent` for connector-owned OAuth items (G13).
+- Schemas: `CredentialUse`, `VaultKeySlot`, `VaultStatus`, `CredentialSecretInput` (client → Gateway only).
+- Methods: `vault.status`, `vault.setup`, `vault.confirmRecovery`, `vault.unlock`, `vault.lock`, `vault.add`, `vault.update`, `vault.delete`, `vault.import`, `vault.uses`.
+- Events: `vault.locked`, `vault.unlocked`, `credential.updated`.
+- `FakeCredentialBroker`: checks `element` for browser resolves, never matches opaque (`"null"`) origins (S23 design-13), implements `ConnectorCredentialStore`. Conformance: a browser-fill element case.
+
 ### v1 additive — 2026-10-19 (S02 agent runtime)
 
 - `AgentLoop.explainContext?(runId)` returning `ContextExplanation` (system prompt, ordered `ContextSection`s with budget / truncated / missing / untrusted flags, tools, message count) for the prompt viewer (feature C11).
