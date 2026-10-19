@@ -54,7 +54,7 @@ describe("SecretRedactor property tests", () => {
         (secrets, before, after, enc) => {
           const r = new SecretRedactor();
           for (const s of secrets) r.add(s);
-          const [, encode] = encodings[enc] ?? encodings[0];
+          const encode = (encodings[enc] ?? ["raw", (s: string) => s])[1];
           const text = `${before}${secrets.map((s) => encode(s)).join(before)}${after}`;
           const out = r.redact(text);
           for (const s of secrets) {
@@ -79,7 +79,7 @@ describe("SecretRedactor property tests", () => {
         (secret, f, noise) => {
           const r = new SecretRedactor();
           r.add(secret);
-          const [, encode] = fuzzy[f] ?? fuzzy[0];
+          const encode = (fuzzy[f] ?? ["spaced", (s: string) => s])[1];
           const out = r.redact(`${noise}[${encode(secret)}]${noise}`);
           expect(out).toContain(MASK);
           expect(r.contains(out)).toBe(false);

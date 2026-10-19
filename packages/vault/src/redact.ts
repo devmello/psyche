@@ -86,6 +86,8 @@ export function encodingsOf(value: string): string[] {
   const b64 = base64Fragments(bytes);
   const hex = bytes.toString("hex");
   const b32 = base32Encode(bytes);
+  // design-18: `location.hash = btoa(reversed value)`.
+  const b64Reversed = base64Fragments(Buffer.from(reverse(value), "utf8"));
   const forms = [
     value,
     encodeURIComponent(value),
@@ -100,6 +102,8 @@ export function encodingsOf(value: string): string[] {
     b32.toLowerCase(),
     reverse(value),
     rot13(value),
+    ...b64Reversed,
+    ...b64Reversed.map((f) => f.replace(/\+/g, "-").replace(/\//g, "_")),
   ];
   // Long keys: providers echo truncated keys ("invalid key sk-…k3Xz"); mask a long prefix and the tail.
   if ([...value].length >= 20) forms.push(value.slice(0, 12), value.slice(-8));
