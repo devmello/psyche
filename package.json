@@ -23,7 +23,8 @@
     "protocol:check": "pnpm --filter @psyche/protocol run gen:check",
     "changeset": "changeset",
     "check:secrets": "tsx packages/testing/src/cli/check-secrets.ts",
-    "check:injection": "tsx packages/testing/src/cli/run-injection.ts"
+    "check:injection": "tsx packages/testing/src/cli/run-injection.ts",
+    "check:scenarios": "tsx packages/testing/src/scenarios/cli.ts --out out/security/scenarios-report.json"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
