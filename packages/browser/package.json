@@ -2,13 +2,21 @@
   "name": "@psyche/browser",
   "version": "0.0.0",
   "private": true,
-  "description": "BrowserDriver implementations (CDP, Playwright), snapshots, origin policy, bridge protocol client.",
+  "description": "Agent browser: BrowserDriver over the desktop CDP bridge and Playwright, snapshots, origin policy, browser.* tools",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./testing": {
+      "types": "./src/testing/index.ts",
+      "default": "./src/testing/index.ts"
+    },
+    "./conformance": {
+      "types": "./src/conformance/index.ts",
+      "default": "./src/conformance/index.ts"
     }
   },
   "scripts": {
@@ -22,5 +30,13 @@
   },
   "devDependencies": {
     "@psyche/testing": "workspace:*"
+  },
+  "peerDependencies": {
+    "vitest": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
   }
 }
