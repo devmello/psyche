@@ -19,6 +19,7 @@ const TABLES = [
   "memory_claims",
   "memory_files",
   "memory_jobs",
+  "memory_recalls",
   "memory_state",
   "messages",
   "nodes",

@@ -95,11 +95,14 @@ export function isEvergreen(path: string): boolean {
   return path === "MEMORY.md" || path === "USER.md" || PROTECTED_FILES.has(path);
 }
 
-/** Files whose text is indexed. Skills and acceptance scripts are not memory. */
+/**
+ * Files whose text is indexed. Skills are not memory, the ritual is an instruction, and the
+ * dreaming diary only repeats what `MEMORY.md` already holds.
+ */
 export function isIndexed(path: string): boolean {
-  if (!path.endsWith(".md")) return false;
-  if (canonicalCase(path).startsWith("skills/")) return false;
-  return path !== "BOOTSTRAP.md";
+  const p = canonicalCase(path);
+  if (!p.endsWith(".md") || p.startsWith("skills/")) return false;
+  return p !== "BOOTSTRAP.md" && p !== "DREAMS.md";
 }
 
 /** Daily note path for a date. */

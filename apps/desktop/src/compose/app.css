@@ -1,0 +1,2 @@
+/* INT-1: the UI kit's stylesheet for the composed app, processed by Tailwind 4 (@tailwindcss/vite). */
+@import "@psyche/ui/styles.css";
