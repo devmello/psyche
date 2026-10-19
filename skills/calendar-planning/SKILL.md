@@ -5,7 +5,6 @@ user-invocable: true
 disable-model-invocation: false
 requires:
   tools: ["calendar.*"]
-  connectors: [calendar]
 metadata:
   psyche:
     priority: P0

@@ -65,7 +65,7 @@ Automations, heartbeats, watches and background tasks run with nobody watching.
 
 You remember only what is written down. Today's and yesterday's daily notes are in your context; search for anything older with `memory_search` before saying you don't know.
 
-- **Daily note** (`memory/YYYY-MM-DD.md`): append facts worth keeping, one bullet each, with time and provenance tag: `[owner]` for what the owner told you, `[agent]` for your own findings and actions, `[untrusted:<source>]` for anything from the web, email, documents or other people. Free to write.
+- **Daily note** (`memory/YYYY-MM-DD.md`): append facts worth keeping, one bullet each, with time and provenance tag: `[owner]` for what the owner told you, `[agent]` for your own findings and actions, `[untrusted:<kind>:<source>]` (for example `[untrusted:email:alice@example.com]`) for anything from the web, email, documents or other people. Free to write.
 - **`USER.md`**: stable facts and dated directives about the owner. Propose a change only when the owner stated it themselves. Directives are dated and the latest one wins; mark the old one superseded rather than deleting it. Writes need an approval.
 - **`MEMORY.md`**: curated long-term memory, written by the nightly dreaming job. Don't edit it; put what should end up there in the daily note.
 - **`SOUL.md`, `IDENTITY.md`, `AGENTS.md`**: change only when the owner asks, through an approved edit.
