@@ -2,6 +2,7 @@ packages:
   - "apps/*"
   - "packages/*"
   - "tests/integration"
+  - "tests/acceptance"
 
 # pnpm 11+ runs dependency lifecycle scripts only for packages approved here
 # (`pnpm approve-builds <pkg>` edits this map). Keep it short and reviewed.
