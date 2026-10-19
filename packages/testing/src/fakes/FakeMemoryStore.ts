@@ -6,10 +6,13 @@ import {
   type MemoryChunk,
   type MemoryClaim,
   type MemoryFile,
+  type MemoryFlushOptions,
+  type MemoryFlushResult,
   type MemoryHit,
   type MemorySearchOptions,
   type MemoryStore,
   type MemoryWriteOptions,
+  type ModelMessage,
   PROTECTED_MEMORY_FILES,
   type Provenance,
 } from "@psyche/protocol";
@@ -52,6 +55,8 @@ export class FakeMemoryStore implements MemoryStore {
   #files = new Map<string, { content: string; etag: string; provenance: Provenance }>();
   #chunks = new Map<string, MemoryChunk>();
   #claims = new Map<string, MemoryClaim>();
+  /** Every `flush` call, for assertions (the private copy is cloned). */
+  readonly flushes: { threadId: string; messages: ModelMessage[]; taint: boolean }[] = [];
 
   constructor(options: FakeMemoryStoreOptions = {}) {
     this.clock = options.clock ?? new FakeClock();
@@ -237,5 +242,29 @@ export class FakeMemoryStore implements MemoryStore {
       for (const id of chunkIds) this.#chunks.delete(id);
     }
     return { retractedClaimIds: claims.map((c) => c.id), removedChunkIds: chunkIds };
+  }
+
+  /**
+   * Records the call and notes one daily-note line per user text part that starts with
+   * `remember:` (enough for tests; S07 runs a model over the private copy).
+   */
+  async flush(
+    threadId: string,
+    privateCopy: readonly ModelMessage[],
+    options: MemoryFlushOptions = {},
+  ): Promise<MemoryFlushResult> {
+    const taint = options.taint === true;
+    this.flushes.push({ threadId, messages: structuredClone([...privateCopy]), taint });
+    let appended = 0;
+    for (const message of privateCopy) {
+      if (message.role !== "user") continue;
+      for (const part of message.parts) {
+        if (part.type !== "text" || !/^remember:/i.test(part.text)) continue;
+        const text = part.text.replace(/^remember:\s*/i, "");
+        await this.appendDailyNote({ text, provenance: taint ? "untrusted" : "agent" });
+        appended += 1;
+      }
+    }
+    return { appended };
   }
 }

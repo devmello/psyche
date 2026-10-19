@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentLoop, StartTurnInput } from "@psyche/protocol";
+import type { AgentEvent, AgentLoop, ContextExplanation, StartTurnInput } from "@psyche/protocol";
 
 /** A scripted turn: events without `runId` (filled in from the turn input). */
 export type ScriptedAgentEvent = AgentEvent extends infer E
@@ -60,5 +60,23 @@ export class FakeAgentLoop implements AgentLoop {
 
   async cancel(runId: string): Promise<void> {
     this.cancelled.add(runId);
+  }
+
+  /** A one-section explanation for any recorded run (`base` section holding the input text). */
+  async explainContext(runId: string): Promise<ContextExplanation | undefined> {
+    const turn = this.turns.find((t) => t.runId === runId);
+    if (turn === undefined) return undefined;
+    const system = "You are Psyche (fake).";
+    return {
+      runId,
+      threadId: turn.threadId,
+      model: "fake/model",
+      permissionMode: turn.permissionMode,
+      system,
+      sections: [{ id: "base", kind: "base", title: "Base prompt", text: system }],
+      tools: [],
+      messageCount: 1,
+      assembledAt: new Date(0).toISOString(),
+    };
   }
 }
