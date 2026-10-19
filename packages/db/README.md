@@ -2,7 +2,7 @@
 
 **Owner:** S00 (bootstrap) → S01 (`prompts/s00-bootstrap-integrator.md` §4, `prompts/s01-gateway-core.md`). Feature ids: A4 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
 
-The single relational store (ADR-004): `$PSYCHE_HOME/state/psyche.sqlite`, opened with better-sqlite3, queried with drizzle, migrated from timestamped SQL files. Schema v0 covers [docs/04-data-model.md](../../docs/04-data-model.md) §1 (`devices`, `nodes`, `pairing_requests`), §2 (`threads`, `messages`, `runs`, `tool_calls`) and §10 (`settings`, `usage`).
+The single relational store (ADR-004): `$PSYCHE_HOME/state/psyche.sqlite`, opened with better-sqlite3, queried with drizzle, migrated from timestamped SQL files. Schema v0 covers [docs/04-data-model.md](../../docs/04-data-model.md) §1 (`devices`, `nodes`, `pairing_requests`), §2 (`threads`, `messages`, `runs`, `tool_calls`) and §10 (`settings`, `usage`). S01's `202610190900_gateway_core` adds pairing key fingerprints, `chat_queue`, `tool_payloads` and `gateway_idempotency` (§2, §11, §12).
 
 ## Decision: better-sqlite3 (not libsql)
 
@@ -22,7 +22,7 @@ The single relational store (ADR-004): `$PSYCHE_HOME/state/psyche.sqlite`, opene
 - Migrations: `runMigrations(sqlite, { dir?, logger?, now? }) → { applied, skipped }`, `listMigrationFiles(dir?)`, `checksumOf(sql)`, `MIGRATION_FILE_PATTERN`, `DEFAULT_MIGRATIONS_DIR`, `MigrationError`.
 - Schema: drizzle tables `devices, nodes, pairingRequests, threads, messages, runs, toolCalls, settings, usage`, the `schema` object, and `*Row` / `New*Row` types.
 - Writer guard (`src/writer-guard.ts`): `claimWriter(db, threadId, runId) → previous | null`, `releaseWriter(db, threadId, runId) → boolean`, `appendMessage(db, NewMessage, { expectedWriterRunId }) → Message`, `nextSeq(db, threadId)`.
-- Repositories (`src/repos/`): `getSetting`, `getSettings(keys?) → Settings` map, `setSetting(key, value) → SettingEntry`; `insertDevice`, `getDevice`, `listDevices`, `revokeDevice`, `touchLastSeen`; `createPairingRequest`, `getPairingRequest`, `decidePairingRequest`, `expirePairingRequests(now?)`; `createThread`, `getThread`, `listThreads`; `createRun`, `getRun`, `finishRun`.
+- Repositories (`src/repos/`): `getSetting`, `getSettings(keys?) → Settings` map, `setSetting(key, value) → SettingEntry`; `insertDevice`, `getDevice`, `listDevices`, `revokeDevice`, `touchLastSeen`; `createPairingRequest`, `getPairingRequest`, `decidePairingRequest`, `expirePairingRequests(now?)`; `createThread`, `getThread`, `listThreads`, `listThreadsPage` (title `query`, pinned, offset), `updateThread`, `deleteThread`, `findThreadBySessionKey`, `threadActivity`, `listExpiredThreads`; `createRun`, `getRun`, `updateRun`, `finishRun`, `listRunsByStatus`; messages `getMessage`, `listMessagesPage` (backwards by seq), `listAllMessages`, `copyMessagesForFork`; tool calls `upsertToolCall`, `getToolCall`, `listToolCallsForRun`, `markInterruptedToolCalls`, `putToolPayload`, `deleteToolPayloadsBefore`, `countToolPayloads`; nodes `upsertNode`, `getNode`, `getNodeByDevice`, `listNodes`, `setNodeStatus`, `markAllNodesOffline`; `enqueueMessage`, `listQueue`, `removeQueued`, `takeNextQueued`, `threadsWithQueuedMessages`; `getIdempotencyRecord`, `putIdempotencyRecord`, `pruneIdempotencyRecords`; pairing `listPairingRequests`, `findPendingPairingForDevice`, `expirePendingPairingsForDevice`, `countPendingPairings`, `countPairingsFromAddress`; `updateDevice`.
 - Mappers (`src/mappers.ts`): `deviceFromRow`, `nodeFromRow`, `pairingRequestFromRow`, `threadFromRow`, `messageFromRow`, `runFromRow`, `toolCallFromRow`, `settingFromRow`, `usageFromRow` (snake_case rows → protocol shapes; JSON parsed, INTEGER booleans → booleans, BLOB public keys → base64url). Tests validate their output with TypeBox `Value.Check` against the `@psyche/protocol` schemas.
 
 ## Writer guard rule
@@ -49,5 +49,5 @@ The single relational store (ADR-004): `$PSYCHE_HOME/state/psyche.sqlite`, opene
 ## What is stubbed
 
 - Backup / restore (A4: `psyche backup`, age-encrypted archives) — not implemented.
-- Retention jobs (data model §12: incognito expiry after 24 h, `cleanupPeriodDays` for level-3 tool payloads) — S01 owns them; `threads_expires_at_idx` exists for the sweep.
-- Repository helpers are minimal; S01 grows them (thread rename/archive/fork, chat history paging, nodes, tool calls, usage ledger).
+- The retention job and restart recovery live in `apps/gateway` (`src/retention.ts`, `src/recovery.ts`) on top of these repos.
+- No usage-ledger repo yet (S03).

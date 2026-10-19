@@ -246,8 +246,12 @@ memory_claims (
   provenance TEXT, confidence REAL, sources TEXT JSON,
   superseded_by FK memory_claims NULL, retracted_at NULL, created_at, updated_at
 )
-memory_jobs (id, kind, status, started_at, ended_at, summary)   -- flush | dreaming | reindex | import
+memory_jobs (id, kind, status, started_at, ended_at, summary, created_at)   -- flush | dreaming | reindex | import; status running | ok | failed | skipped
+memory_files (path PK, sha256, bytes, provenance, mtime_ms, indexed_at, created_at, updated_at)  -- per-file index state; external edits count as owner
+memory_state (key PK, value JSON, updated_at)                    -- pause flag, vector width, first-run marker
 ```
+
+`memory_chunks` also has `embedding_model` (the vector space of `embedding`) and an explicit `rowid INTEGER PRIMARY KEY` (so the FTS5 mapping survives VACUUM; `id` stays the unique text key); chunk ids derive from source, first line and text, so unchanged chunks keep their embedding and claim link across reindexes. `memory_vec` is created at run time when sqlite-vec loads (its width follows the embedder); without it search computes cosine in process. The migration is `packages/db/migrations/202610191230_memory_index.sql` (S07).
 
 Ranking: `score = bm25_norm * 0.4 + cosine * 0.5 + recency(0.5^(ageDays/30)) * 0.1`, with a provenance filter (callers may exclude `untrusted`). Untrusted chunks are never promoted into `memory_claims` with `owner` provenance.
 
@@ -352,8 +356,18 @@ goal_milestones (id, goal_id FK, title, due_at, done_at)
 goal_links (goal_id FK, task_id FK NULL, automation_id FK NULL, watch_id FK NULL)
 notifications (
   id TEXT PK, kind TEXT,                           -- approval | input_needed | task_done | task_failed | proactive | briefing | reminder | system
-  title, body, task_id NULL, approval_id NULL, actions TEXT JSON, surfaces TEXT JSON,
-  delivered TEXT JSON, read_at, resolved_at, created_at
+  title, body, task_id NULL, approval_id NULL, route TEXT NULL, actions TEXT JSON, surfaces TEXT JSON,
+  delivered TEXT JSON, read_at, resolved_at,
+  stale_at NULL, stale_reason NULL,                -- set by restart reconciliation
+  dedupe_key TEXT NULL,                            -- unique among unresolved rows; default "<kind>:<task_id>"
+  seq INTEGER,                                     -- inbox order; bumped when a de-duplicated notify replaces the content
+  created_at, updated_at
+)
+notification_deliveries (                          -- one row per notification × surface
+  notification_id FK notifications, surface TEXT,  -- desktop | web | notification | <channel>:<peerId>
+  status TEXT,                                     -- pending | deferred (quiet hours) | delivered | failed | suppressed
+  attempts INTEGER, due_at NULL, delivered_at NULL, detail TEXT NULL, created_at, updated_at,
+  PRIMARY KEY (notification_id, surface)
 )
 ```
 
