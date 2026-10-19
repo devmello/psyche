@@ -16,6 +16,11 @@
         "payload": "#/$defs/BridgeControlChangedPayload"
       },
       {
+        "description": "desktop → Gateway: the CDP session ended (renderer crash, target closed). Enabled domains are gone; the Gateway re-attaches and re-enables them.",
+        "name": "bridge.debugger.detached",
+        "payload": "#/$defs/BridgeDebuggerDetachedPayload"
+      },
+      {
         "description": "desktop → Gateway: download progress; files land in quarantine.",
         "name": "bridge.download",
         "payload": "#/$defs/BridgeDownloadPayload"
@@ -82,6 +87,14 @@
         "name": "bridge.tab.open",
         "params": "#/$defs/BridgeTabOpenParams",
         "result": "#/$defs/BridgeTabResult",
+        "scope": "none",
+        "sideEffecting": false
+      },
+      {
+        "description": "Gateway → desktop: status pill text and action highlight for a tab (I5). Display only; the desktop never reads page content back.",
+        "name": "bridge.tab.status",
+        "params": "#/$defs/BridgeTabStatusParams",
+        "result": "#/$defs/OkResult",
         "scope": "none",
         "sideEffecting": false
       },
@@ -1192,6 +1205,14 @@
         "result": "#/$defs/ViewOpenResult",
         "scope": "operator.write",
         "sideEffecting": false
+      },
+      {
+        "description": "desktop → Gateway: the desktop's current pane layout, sent after every change; view.layout returns the last report.",
+        "name": "view.report",
+        "params": "#/$defs/ViewReportParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.write",
+        "sideEffecting": false
       }
     ],
     "protocolVersion": 1
@@ -2219,11 +2240,40 @@
         },
         "state": {
           "$ref": "#/$defs/BrowserController"
+        },
+        "via": {
+          "$ref": "#/$defs/BridgeControlVia"
         }
       },
       "required": [
         "tabId",
         "state"
+      ],
+      "type": "object"
+    },
+    "BridgeControlVia": {
+      "description": "What changed control: user input, the Take control button, Release or idle timeout",
+      "enum": [
+        "keyboard",
+        "mouse",
+        "button",
+        "release",
+        "idle"
+      ],
+      "type": "string"
+    },
+    "BridgeDebuggerDetachedPayload": {
+      "properties": {
+        "tabId": {
+          "$ref": "#/$defs/BridgeTabId"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tabId",
+        "reason"
       ],
       "type": "object"
     },
@@ -2362,6 +2412,34 @@
         "attached": {
           "description": "A CDP debugger session is attached",
           "type": "boolean"
+        },
+        "openerTabId": {
+          "anyOf": [
+            {
+              "description": "Tab whose window.open created this one (popups, OAuth)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "disposition": {
+          "description": "Electron window-open disposition, e.g. new-window, foreground-tab",
+          "type": "string"
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -2402,6 +2480,17 @@
         },
         "background": {
           "type": "boolean"
+        },
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskTitle": {
+          "description": "Shown in the pane: \"<title> keeps running\"",
+          "maxLength": 200,
+          "type": "string"
         }
       },
       "required": [
@@ -2417,6 +2506,55 @@
       },
       "required": [
         "tab"
+      ],
+      "type": "object"
+    },
+    "BridgeTabStatusParams": {
+      "properties": {
+        "tabId": {
+          "$ref": "#/$defs/BridgeTabId"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "description": "Current action in present progressive for the status pill; null clears it",
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "highlight": {
+          "description": "Element being acted on, CSS pixels in the viewport; outlined for 600 ms",
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "width": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "height": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "x",
+            "y",
+            "width",
+            "height"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "tabId"
       ],
       "type": "object"
     },
@@ -4636,7 +4774,11 @@
         "binding_mismatch",
         "taint_blocked",
         "policy_denied",
-        "internal"
+        "internal",
+        "user_in_control",
+        "debugger_detached",
+        "tab_not_found",
+        "method_not_allowed"
       ],
       "type": "string"
     },
@@ -10912,6 +11054,17 @@
         "split"
       ],
       "type": "string"
+    },
+    "ViewReportParams": {
+      "properties": {
+        "layout": {
+          "$ref": "#/$defs/ViewLayout"
+        }
+      },
+      "required": [
+        "layout"
+      ],
+      "type": "object"
     },
     "WorkspacePath": {
       "description": "Workspace-relative path, e.g. \"memory/2026-10-18.md\"",

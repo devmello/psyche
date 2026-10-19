@@ -39,6 +39,8 @@
 //   let bridgeCDPSendParams = try? JSONDecoder().decode(BridgeCDPSendParams.self, from: jsonData)
 //   let bridgeCDPSendResult = try? JSONDecoder().decode(BridgeCDPSendResult.self, from: jsonData)
 //   let bridgeControlChangedPayload = try? JSONDecoder().decode(BridgeControlChangedPayload.self, from: jsonData)
+//   let bridgeControlVia = try? JSONDecoder().decode(BridgeControlVia.self, from: jsonData)
+//   let bridgeDebuggerDetachedPayload = try? JSONDecoder().decode(BridgeDebuggerDetachedPayload.self, from: jsonData)
 //   let bridgeDownloadPayload = try? JSONDecoder().decode(BridgeDownloadPayload.self, from: jsonData)
 //   let bridgeDownloadState = try? JSONDecoder().decode(BridgeDownloadState.self, from: jsonData)
 //   let bridgeHelloParams = try? JSONDecoder().decode(BridgeHelloParams.self, from: jsonData)
@@ -47,6 +49,7 @@
 //   let bridgeTabIDParams = try? JSONDecoder().decode(BridgeTabIDParams.self, from: jsonData)
 //   let bridgeTabOpenParams = try? JSONDecoder().decode(BridgeTabOpenParams.self, from: jsonData)
 //   let bridgeTabResult = try? JSONDecoder().decode(BridgeTabResult.self, from: jsonData)
+//   let bridgeTabStatusParams = try? JSONDecoder().decode(BridgeTabStatusParams.self, from: jsonData)
 //   let bridgeTabsListParams = try? JSONDecoder().decode(BridgeTabsListParams.self, from: jsonData)
 //   let bridgeTabsListResult = try? JSONDecoder().decode(BridgeTabsListResult.self, from: jsonData)
 //   let browserCloseParams = try? JSONDecoder().decode(BrowserCloseParams.self, from: jsonData)
@@ -406,6 +409,7 @@
 //   let viewPaneRef = try? JSONDecoder().decode(ViewPaneRef.self, from: jsonData)
 //   let viewPaneState = try? JSONDecoder().decode(ViewPaneState.self, from: jsonData)
 //   let viewPlacement = try? JSONDecoder().decode(ViewPlacement.self, from: jsonData)
+//   let viewReportParams = try? JSONDecoder().decode(ViewReportParams.self, from: jsonData)
 //   let wrapUpAction = try? JSONDecoder().decode(WrapUpAction.self, from: jsonData)
 //   let wrapUpBlock = try? JSONDecoder().decode(WrapUpBlock.self, from: jsonData)
 
@@ -1290,15 +1294,18 @@ public struct BridgeCDPSendResult: Codable, Sendable {
 public struct BridgeControlChangedPayload: Codable, Sendable {
     public let state: BrowserController
     public let tabID: String
+    public let via: BridgeControlVia?
 
     public enum CodingKeys: String, CodingKey {
         case state = "state"
         case tabID = "tabId"
+        case via = "via"
     }
 
-    public init(state: BrowserController, tabID: String) {
+    public init(state: BrowserController, tabID: String, via: BridgeControlVia?) {
         self.state = state
         self.tabID = tabID
+        self.via = via
     }
 }
 
@@ -1306,6 +1313,31 @@ public enum BrowserController: String, Codable, Sendable {
     case agent = "agent"
     case paused = "paused"
     case user = "user"
+}
+
+/// What changed control: user input, the Take control button, Release or idle timeout
+public enum BridgeControlVia: String, Codable, Sendable {
+    case button = "button"
+    case idle = "idle"
+    case keyboard = "keyboard"
+    case mouse = "mouse"
+    case release = "release"
+}
+
+// MARK: - BridgeDebuggerDetachedPayload
+public struct BridgeDebuggerDetachedPayload: Codable, Sendable {
+    public let reason: String
+    public let tabID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+        case tabID = "tabId"
+    }
+
+    public init(reason: String, tabID: String) {
+        self.reason = reason
+        self.tabID = tabID
+    }
 }
 
 // MARK: - BridgeDownloadPayload
@@ -1404,17 +1436,24 @@ public struct BridgeTabIDParams: Codable, Sendable {
 public struct BridgeTabOpenParams: Codable, Sendable {
     public let background: Bool?
     public let profile: BrowserProfile?
+    public let taskID: String?
+    /// Shown in the pane: "<title> keeps running"
+    public let taskTitle: String?
     public let url: String
 
     public enum CodingKeys: String, CodingKey {
         case background = "background"
         case profile = "profile"
+        case taskID = "taskId"
+        case taskTitle = "taskTitle"
         case url = "url"
     }
 
-    public init(background: Bool?, profile: BrowserProfile?, url: String) {
+    public init(background: Bool?, profile: BrowserProfile?, taskID: String?, taskTitle: String?, url: String) {
         self.background = background
         self.profile = profile
+        self.taskID = taskID
+        self.taskTitle = taskTitle
         self.url = url
     }
 }
@@ -1441,29 +1480,82 @@ public struct BridgeTabResult: Codable, Sendable {
 public struct BridgeTab: Codable, Sendable {
     /// A CDP debugger session is attached
     public let attached: Bool
+    /// Electron window-open disposition, e.g. new-window, foreground-tab
+    public let disposition: String?
+    public let openerTabID: String?
     /// Electron session partition, e.g. persist:psyche
     public let partition: String
     public let profile: BrowserProfile
     public let tabID: String
+    public let taskID: String?
     public let title: String
     public let url: String
 
     public enum CodingKeys: String, CodingKey {
         case attached = "attached"
+        case disposition = "disposition"
+        case openerTabID = "openerTabId"
         case partition = "partition"
         case profile = "profile"
         case tabID = "tabId"
+        case taskID = "taskId"
         case title = "title"
         case url = "url"
     }
 
-    public init(attached: Bool, partition: String, profile: BrowserProfile, tabID: String, title: String, url: String) {
+    public init(attached: Bool, disposition: String?, openerTabID: String?, partition: String, profile: BrowserProfile, tabID: String, taskID: String?, title: String, url: String) {
         self.attached = attached
+        self.disposition = disposition
+        self.openerTabID = openerTabID
         self.partition = partition
         self.profile = profile
         self.tabID = tabID
+        self.taskID = taskID
         self.title = title
         self.url = url
+    }
+}
+
+// MARK: - BridgeTabStatusParams
+public struct BridgeTabStatusParams: Codable, Sendable {
+    /// Element being acted on, CSS pixels in the viewport; outlined for 600 ms
+    public let highlight: Highlight?
+    public let tabID: String
+    public let text: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case highlight = "highlight"
+        case tabID = "tabId"
+        case text = "text"
+    }
+
+    public init(highlight: Highlight?, tabID: String, text: String?) {
+        self.highlight = highlight
+        self.tabID = tabID
+        self.text = text
+    }
+}
+
+/// Element being acted on, CSS pixels in the viewport; outlined for 600 ms
+// MARK: - Highlight
+public struct Highlight: Codable, Sendable {
+    public let height: Double
+    public let width: Double
+    public let x: Double
+    public let y: Double
+
+    public enum CodingKeys: String, CodingKey {
+        case height = "height"
+        case width = "width"
+        case x = "x"
+        case y = "y"
+    }
+
+    public init(height: Double, width: Double, x: Double, y: Double) {
+        self.height = height
+        self.width = width
+        self.x = x
+        self.y = y
     }
 }
 
@@ -3635,11 +3727,13 @@ public enum ErrorCode: String, Codable, Sendable {
     case bindingMismatch = "binding_mismatch"
     case cancelled = "cancelled"
     case conflict = "conflict"
+    case debuggerDetached = "debugger_detached"
     case errorCodeInternal = "internal"
     case forbidden = "forbidden"
     case idempotencyConflict = "idempotency_conflict"
     case invalidFrame = "invalid_frame"
     case invalidParams = "invalid_params"
+    case methodNotAllowed = "method_not_allowed"
     case notFound = "not_found"
     case notImplemented = "not_implemented"
     case notPaired = "not_paired"
@@ -3648,11 +3742,13 @@ public enum ErrorCode: String, Codable, Sendable {
     case policyDenied = "policy_denied"
     case protocolVersionMismatch = "protocol_version_mismatch"
     case rateLimited = "rate_limited"
+    case tabNotFound = "tab_not_found"
     case taintBlocked = "taint_blocked"
     case timeout = "timeout"
     case unauthorized = "unauthorized"
     case unavailable = "unavailable"
     case unknownMethod = "unknown_method"
+    case userInControl = "user_in_control"
 }
 
 public enum FrameType: String, Codable, Sendable {
@@ -7943,6 +8039,19 @@ public struct ViewPaneRef: Codable, Sendable {
     public init(pane: ViewPane?, paneID: String?) {
         self.pane = pane
         self.paneID = paneID
+    }
+}
+
+// MARK: - ViewReportParams
+public struct ViewReportParams: Codable, Sendable {
+    public let layout: ViewLayout
+
+    public enum CodingKeys: String, CodingKey {
+        case layout = "layout"
+    }
+
+    public init(layout: ViewLayout) {
+        self.layout = layout
     }
 }
 
