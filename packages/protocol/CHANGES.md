@@ -24,6 +24,7 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 - `PairingRequest`: optional `publicKeyFingerprint` (`sha256:<hex>` of the raw key), `transport` (`ws | unix`) and `remoteAddress`, so the owner approves a key, not a name (S23 review PR-1-B).
 - `devices.approve`: optional `code`; when present it must equal the code shown on the new device.
 - `threads.list`: optional `query`, a case-insensitive substring match on titles (feature E1 "search").
+- `thread.deleted` event so every client drops a deleted thread (feature N14).
 - `chat.queue.list` / `chat.queue.remove`, the `QueuedMessage` schema and the `chat.queue.updated` event: the follow-up queue is visible and removable (feature E3).
 - `AgentLoop`: `AgentEvent` `tool_call` gains optional `details: ToolCallDetails` (redacted params, params hash, side effect, target, decision, approval, taint, provenance, receipt) so the Gateway can persist `tool_calls` rows and emit full `tool_call.updated` payloads. Needed by S01; S02 fills it.
 

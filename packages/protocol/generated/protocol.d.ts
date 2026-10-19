@@ -1702,6 +1702,10 @@ export interface TextBlock {
 
 export type TextBlockType = "text";
 
+export interface ThreadDeletedPayload {
+    threadId: string;
+}
+
 export interface ThreadIDParams {
     threadId: string;
 }

@@ -87,6 +87,10 @@ export const Events = {
     payload: Type.Object({ thread: Thread }),
     description: "A thread was created, renamed, pinned, archived or restored.",
   }),
+  "thread.deleted": defineEvent({
+    payload: Type.Object({ threadId: Id }),
+    description: "A thread and its transcript were deleted.",
+  }),
   "node.updated": defineEvent({
     payload: Type.Object({ node: NodeInfo }),
     description: "A node connected, disconnected or changed capabilities.",
