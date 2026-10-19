@@ -1231,28 +1231,43 @@ export interface NotificationCreatedPayload {
 }
 
 export interface Notification {
-    actions:     NotificationAction[];
-    approvalId?: null | string;
-    body:        string;
-    createdAt:   string;
-    delivered:   { [key: string]: string };
-    id:          string;
-    kind:        NotificationKind;
-    readAt?:     null | string;
-    resolvedAt?: null | string;
-    route?:      null | string;
-    surfaces:    string[];
-    taskId?:     null | string;
-    title:       string;
+    actions:      NotificationAction[];
+    approvalId?:  null | string;
+    body:         string;
+    createdAt:    string;
+    delivered:    { [key: string]: string };
+    id:           string;
+    kind:         NotificationKind;
+    readAt?:      null | string;
+    resolvedAt?:  null | string;
+    route?:       null | string;
+    staleAt?:     null | string;
+    staleReason?: null | string;
+    surfaces:     string[];
+    taskId?:      null | string;
+    title:        string;
 }
 
 export interface NotificationAction {
-    destructive?: boolean;
-    id:           string;
-    label:        string;
+    /**
+     * OS delivery requires device authentication (Touch ID) before the action runs; set for
+     * purchase and credential-fill approvals (security §3.5)
+     */
+    authenticationRequired?: boolean;
+    destructive?:            boolean;
+    id:                      string;
+    label:                   string;
 }
 
 export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system";
+
+export interface NotificationResolvedPayload {
+    notification: Notification;
+}
+
+export interface NotificationUpdatedPayload {
+    notification: Notification;
+}
 
 export interface NotificationsListParams {
     /**

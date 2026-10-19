@@ -141,6 +141,16 @@
         "payload": "#/$defs/NotificationCreatedPayload"
       },
       {
+        "description": "A notification was resolved (by the user, an action, a superseding state or restart reconciliation).",
+        "name": "notification.resolved",
+        "payload": "#/$defs/NotificationResolvedPayload"
+      },
+      {
+        "description": "A notification changed: read, re-delivered, or replaced by a de-duplicated notify (same id).",
+        "name": "notification.updated",
+        "payload": "#/$defs/NotificationUpdatedPayload"
+      },
+      {
         "description": "A new pairing request awaits the owner's approval.",
         "name": "pairing.requested",
         "payload": "#/$defs/PairingRequestedPayload"
@@ -5378,6 +5388,29 @@
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
+        },
+        "staleAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "staleReason": {
+          "anyOf": [
+            {
+              "description": "Why restart reconciliation marked the notification stale (architecture §4.12)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -5401,6 +5434,10 @@
           "type": "string"
         },
         "destructive": {
+          "type": "boolean"
+        },
+        "authenticationRequired": {
+          "description": "OS delivery requires device authentication (Touch ID) before the action runs; set for purchase and credential-fill approvals (security §3.5)",
           "type": "boolean"
         }
       },
@@ -5433,6 +5470,28 @@
         "system"
       ],
       "type": "string"
+    },
+    "NotificationResolvedPayload": {
+      "properties": {
+        "notification": {
+          "$ref": "#/$defs/Notification"
+        }
+      },
+      "required": [
+        "notification"
+      ],
+      "type": "object"
+    },
+    "NotificationUpdatedPayload": {
+      "properties": {
+        "notification": {
+          "$ref": "#/$defs/Notification"
+        }
+      },
+      "required": [
+        "notification"
+      ],
+      "type": "object"
     },
     "NotificationsListParams": {
       "properties": {

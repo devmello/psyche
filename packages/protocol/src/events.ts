@@ -106,6 +106,16 @@ export const Events = {
     payload: Type.Object({ reason: Type.String() }),
     description: "The Gateway is shutting down; clients reconnect with backoff.",
   }),
+  "notification.updated": defineEvent({
+    payload: Type.Object({ notification: Notification }),
+    description:
+      "A notification changed: read, re-delivered, or replaced by a de-duplicated notify (same id).",
+  }),
+  "notification.resolved": defineEvent({
+    payload: Type.Object({ notification: Notification }),
+    description:
+      "A notification was resolved (by the user, an action, a superseding state or restart reconciliation).",
+  }),
 } as const;
 
 export type EventName = keyof typeof Events;
