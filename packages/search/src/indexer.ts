@@ -1,6 +1,19 @@
-import type { ApprovalRequest, Message, Receipt, Task, TaskAction, Thread } from "@psyche/protocol";
+import type {
+  ApprovalRequest,
+  FeedPost,
+  Goal,
+  Idea,
+  Message,
+  Receipt,
+  Task,
+  TaskAction,
+  Thread,
+} from "@psyche/protocol";
 import {
+  feedDoc,
+  goalDoc,
   hasAttachment,
+  ideaDoc,
   isIncognito,
   messageDoc,
   taskActionDoc,
@@ -33,8 +46,10 @@ export interface SearchIndexerOptions {
 
 /**
  * Incremental indexing from Gateway events (`src/events.ts` in `@psyche/protocol`):
- * `thread.updated`, `chat.message`, `task.updated`, `task.action`, `approval.created`,
- * `receipt.created`. Feed in every event (`handle(name, payload)`); unknown events are ignored.
+ * `thread.updated`, `thread.deleted`, `chat.message`, `task.updated`, `task.action`,
+ * `approval.created`, `receipt.created`, `feed.post`, `feed.updated`, `idea.updated`,
+ * `goal.updated`. Library items and connector caches have no events yet: their owners call
+ * `libraryDoc` / `connectorDoc` and `index()` directly. Feed in every event (`handle(name, payload)`); unknown events are ignored.
  * A thread that becomes incognito is removed with everything under it.
  */
 export class SearchIndexer {
@@ -71,6 +86,19 @@ export class SearchIndexer {
         return this.onApproval(p.approval as ApprovalRequest);
       case "receipt.created":
         return this.onReceipt(p.receipt as Receipt);
+      case "thread.deleted":
+        this.#threads.delete(p.threadId as string);
+        await this.#index.removeThread(p.threadId as string);
+        return;
+      case "feed.post":
+        return this.#index.index(feedDoc(p.post as FeedPost));
+      case "feed.updated":
+        for (const post of p.posts as FeedPost[]) await this.#index.index(feedDoc(post));
+        return;
+      case "idea.updated":
+        return this.#index.index(ideaDoc(p.idea as Idea));
+      case "goal.updated":
+        return this.#index.index(goalDoc(p.goal as Goal));
       default:
         return;
     }

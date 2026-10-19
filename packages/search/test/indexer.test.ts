@@ -151,6 +151,66 @@ describe("incremental indexing from Gateway events", () => {
     ]);
   });
 
+  it("indexes feed posts, ideas and goals and removes deleted threads", async () => {
+    const { index, indexer } = wire();
+    await indexer.handle("thread.updated", { thread: thread() });
+    await indexer.handle("chat.message", { message: message() });
+    await indexer.handle("feed.post", {
+      post: {
+        id: "F1",
+        title: "Robotics roundup",
+        bodyMd: "Humanoid robots",
+        citations: [{ title: "Src", url: "https://e.example" }],
+        cluster: null,
+        score: 1,
+        reasons: ["robotics"],
+        exploration: false,
+        briefingId: null,
+        feedback: null,
+        createdAt: "2026-10-18T07:00:00Z",
+      },
+    });
+    await indexer.handle("idea.updated", {
+      idea: {
+        id: "I1",
+        kind: "automation",
+        title: "Weekly robotics digest",
+        bodyMd: "Collect robot news",
+        evidence: [],
+        effort: "5 min",
+        acceptanceProb: 0.5,
+        status: "proposed",
+        resultRef: null,
+        createdAt: "2026-10-18T07:00:00Z",
+        decidedAt: null,
+      },
+    });
+    await indexer.handle("goal.updated", {
+      goal: {
+        id: "G1",
+        title: "Build a robot arm",
+        category: "learning",
+        status: "active",
+        inferred: false,
+        confirmedAt: null,
+        plan: null,
+        cadence: "weekly",
+        nextCheckinAt: null,
+        archivedAt: null,
+        createdAt: "2026-10-18T07:00:00Z",
+        updatedAt: "2026-10-18T07:00:00Z",
+      },
+    });
+    const r = await index.search({ q: "robot" });
+    expect(r.groups.map((g) => [g.group, g.hits[0]?.provenance])).toEqual([
+      ["feed", "untrusted"],
+      ["ideas", "agent"],
+      ["goals", "owner"],
+    ]);
+    await indexer.handle("thread.deleted", { threadId: SAMPLE_THREAD.id });
+    expect(await index.count()).toBe(3);
+  });
+
   it("reports handler errors instead of throwing into the event bus", async () => {
     const { indexer, errors } = wire();
     await indexer.handle("chat.message", { message: { id: "broken" } });
