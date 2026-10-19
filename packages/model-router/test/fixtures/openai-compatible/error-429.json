@@ -1,0 +1,15 @@
+{
+  "name": "openai-compatible 429 (proxy in front of the local server)",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 429,
+    "headers": {
+      "content-type": "application/json",
+      "retry-after": "3"
+    },
+    "body": "{\"error\":{\"code\":429,\"message\":\"Too many concurrent requests\",\"type\":\"rate_limit_error\"}}"
+  }
+}
