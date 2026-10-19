@@ -1,5 +1,10 @@
 import { join } from "node:path";
-import { AgentToolRegistry, createAgentLoop, type PsycheAgentLoop } from "@psyche/agent-core";
+import {
+  AgentToolRegistry,
+  type CompactionPolicy,
+  createAgentLoop,
+  type PsycheAgentLoop,
+} from "@psyche/agent-core";
 import { createAuditLog, type HashChainAuditLog } from "@psyche/audit";
 import { getDevice, getSetting, openDb, type PsycheDb } from "@psyche/db";
 import {
@@ -70,6 +75,8 @@ export interface ComposeOptions
   background?: boolean;
   /** Worker pool poll interval (default 1 s). */
   taskPollMs?: number;
+  /** Compaction policy for the loop (tests lower the threshold to exercise the memory flush). */
+  compaction?: Partial<CompactionPolicy>;
 }
 
 export interface ComposedGateway {
@@ -119,6 +126,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     timeZone,
     background = true,
     taskPollMs,
+    compaction,
     ...gwOptions
   } = options;
   const clock =
@@ -242,6 +250,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     clock,
     ...(timeZone === undefined ? {} : { timeZone }),
     approvalSurfaces: ["desktop", "web"],
+    ...(compaction === undefined ? {} : { compaction }),
   });
   const pool = new TaskWorkerPool({
     engine: tasks,

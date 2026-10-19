@@ -26,7 +26,11 @@ it("boots the composed Gateway, pairs the desktop client and streams a first tur
   );
   expect(main.kind).toBe("main");
   const from = c.mark;
-  const sent = await c.call<{ runId: string }>("chat.send", { threadId: main.id, content: "hi" }, true);
+  const sent = await c.call<{ runId: string }>(
+    "chat.send",
+    { threadId: main.id, content: "hi" },
+    true,
+  );
   expect(sent.runId).toBeTruthy();
   await c.event("chat.delta", () => true, from);
   await c.event<{ run: { status: string } }>("run.updated", (p) => p.run.status === "done", from);

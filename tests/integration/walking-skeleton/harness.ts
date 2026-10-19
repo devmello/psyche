@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type ComposedGateway, type ComposeOptions, composeGateway } from "@psyche/gateway/compose";
 import { PROTOCOL_VERSION } from "@psyche/protocol";
-import { type GatewayEvent, GatewayConnection, type GatewayStatus } from "@psyche/web/client";
+import { GatewayConnection, type GatewayEvent, type GatewayStatus } from "@psyche/web/client";
 
 /**
  * The walking skeleton's test rig: a composed `psyched` (real packages) in a temporary
@@ -20,6 +20,8 @@ export interface Skeleton {
   /** A folder the owner granted read-write. */
   granted: string;
   client: Client;
+  /** A new connection with the same device key: the desktop after a relaunch. */
+  connect(): Promise<Client>;
   stop(): Promise<void>;
 }
 
@@ -30,7 +32,12 @@ export class Client {
   status: GatewayStatus | null = null;
   #idem = 0;
 
-  constructor(conn: (onStatus: (s: GatewayStatus) => void, onEvent: (e: GatewayEvent) => void) => GatewayConnection) {
+  constructor(
+    conn: (
+      onStatus: (s: GatewayStatus) => void,
+      onEvent: (e: GatewayEvent) => void,
+    ) => GatewayConnection,
+  ) {
     this.#conn = conn(
       (s) => {
         this.status = s;
@@ -55,7 +62,11 @@ export class Client {
     this.#conn.stop();
   }
 
-  call<T = Record<string, unknown>>(method: string, params: unknown = {}, sideEffecting = false): Promise<T> {
+  call<T = Record<string, unknown>>(
+    method: string,
+    params: unknown = {},
+    sideEffecting = false,
+  ): Promise<T> {
     const options = sideEffecting ? { idempotencyKey: `ik_${Date.now()}_${++this.#idem}` } : {};
     return this.#conn.call(method, params, options) as Promise<T>;
   }
@@ -73,7 +84,11 @@ export class Client {
       };
       const timer = setTimeout(() => {
         this.#waiters.delete(check);
-        reject(new Error(`timed out waiting for ${label}; events: ${this.events.map((e) => e.event).join(", ")}`));
+        reject(
+          new Error(
+            `timed out waiting for ${label}; events: ${this.events.map((e) => e.event).join(", ")}`,
+          ),
+        );
       }, timeoutMs);
       this.#waiters.add(check);
       check();
@@ -88,7 +103,10 @@ export class Client {
     timeoutMs?: number,
   ): Promise<P> {
     return this.until(
-      () => this.events.slice(from).find((e) => e.event === name && pred(e.payload as P))?.payload as P | undefined,
+      () =>
+        this.events.slice(from).find((e) => e.event === name && pred(e.payload as P))?.payload as
+          | P
+          | undefined,
       name,
       timeoutMs,
     );
@@ -108,7 +126,7 @@ function deviceKey() {
 }
 
 export async function startSkeleton(
-  options: Pick<ComposeOptions, "model" | "clock" | "timeZone" | "taskPollMs"> & {
+  options: Pick<ComposeOptions, "model" | "clock" | "timeZone" | "taskPollMs" | "compaction"> & {
     readOnly?: string[];
   },
 ): Promise<Skeleton> {
@@ -125,35 +143,44 @@ export async function startSkeleton(
   });
   const { gateway } = composed;
   const key = deviceKey();
-  const client = new Client(
-    (onStatus, onEvent) =>
-      new GatewayConnection({
-        wsUrl: `ws://127.0.0.1:${gateway.port}/ws`,
-        healthUrl: `${gateway.origin}/healthz`,
-        connectParams: () => ({
-          protocolVersion: { min: 1, max: PROTOCOL_VERSION },
-          deviceId: key.deviceId,
-          publicKey: key.publicKey,
-          role: "client",
-          platform: "macos",
-          deviceFamily: "desktop",
-          name: "INT-1 desktop",
-          handshakeSecret: gateway.handshakeSecret,
+  const clients: Client[] = [];
+  const connect = async () => {
+    const client = newClient();
+    clients.push(client);
+    client.start();
+    await client.until(() => client.status?.phase === "paired", "pairing");
+    return client;
+  };
+  const newClient = () =>
+    new Client(
+      (onStatus, onEvent) =>
+        new GatewayConnection({
+          wsUrl: `ws://127.0.0.1:${gateway.port}/ws`,
+          healthUrl: `${gateway.origin}/healthz`,
+          connectParams: () => ({
+            protocolVersion: { min: 1, max: PROTOCOL_VERSION },
+            deviceId: key.deviceId,
+            publicKey: key.publicKey,
+            role: "client",
+            platform: "macos",
+            deviceFamily: "desktop",
+            name: "INT-1 desktop",
+            handshakeSecret: gateway.handshakeSecret,
+          }),
+          sign: (payload) => sign(null, payload, key.privateKey).toString("base64url"),
+          onStatus,
+          onEvent,
         }),
-        sign: (payload) => sign(null, payload, key.privateKey).toString("base64url"),
-        onStatus,
-        onEvent,
-      }),
-  );
-  client.start();
-  await client.until(() => client.status?.phase === "paired", "pairing");
+    );
+  const client = await connect();
   return {
     composed,
     home,
     granted,
     client,
+    connect,
     async stop() {
-      client.stop();
+      for (const c of clients) c.stop();
       await composed.stop("test");
       rmSync(home, { recursive: true, force: true });
     },
