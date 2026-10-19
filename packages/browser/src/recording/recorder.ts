@@ -213,9 +213,17 @@ export class FileRecordingSink implements RecordingSink {
     if (this.#flushTimer !== undefined) return;
     this.#flushTimer = setTimeout(() => {
       this.#flushTimer = undefined;
-      void this.flush();
+      // A recording deleted or moved underneath a pending flush is not an error worth raising.
+      void this.flush().catch(() => undefined);
     }, 250);
     this.#flushTimer.unref?.();
+  }
+
+  #cancelFlush(): void {
+    if (this.#flushTimer !== undefined) {
+      clearTimeout(this.#flushTimer);
+      this.#flushTimer = undefined;
+    }
   }
 
   async flush(): Promise<void> {
@@ -225,15 +233,13 @@ export class FileRecordingSink implements RecordingSink {
 
   /** Writes the index. Only `end()` marks the recording finished. */
   async close(): Promise<void> {
+    this.#cancelFlush();
     await this.flush();
   }
 
   /** The session is over: stamp `endedAt` and write the final index. */
   async end(): Promise<ReplayIndex> {
-    if (this.#flushTimer !== undefined) {
-      clearTimeout(this.#flushTimer);
-      this.#flushTimer = undefined;
-    }
+    this.#cancelFlush();
     if (!this.#closed) {
       this.#closed = true;
       this.index.endedAt = Date.now();
