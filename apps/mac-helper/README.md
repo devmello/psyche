@@ -122,7 +122,20 @@ User tiers come from `$PSYCHE_HOME/config/computer-use.json`, written by the Gat
 
 Script and shortcut sources are approved verbatim by the Gateway (binding hash); the denylist is defense in depth, not a sandbox (security §5.4: no host-shell fallback).
 
-KEYCHAIN_SECTION
+### Keychain (G1, S06's contract)
+
+The vault (`packages/vault`, `KeychainWrapper`) seals the DEK itself; the helper only holds the key-encryption key in the **data-protection keychain** (`kSecUseDataProtectionKeychain`, never synchronized, this device only), with `SecAccessControlCreateWithFlags(kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly, [.biometryCurrentSet, .or, .devicePasscode])`. There is no fallback to the legacy file keychain. These capabilities are Gateway-internal: no agent tool may reach them.
+
+| Capability | Side effect | Params → result |
+| --- | --- | --- |
+| `keychain.set` | write | `service: "com.psyche.vault"`, `account`, `value` (base64, 16–64 bytes), `accessControl: ["biometryCurrentSet","or","devicePasscode"]`, `accessible: "whenPasscodeSetThisDeviceOnly"`, `synchronizable: false`, `dataProtection: true` (anything weaker is refused) → `{}`; replaces an existing key; no prompt |
+| `vault.unlock` | read | `service`, `account`, `reason` (prompt text, ≤ 120 chars), `reuseDurationSeconds` (0–300) → `{value}` base64, **a secret**; user cancel → `cancelled` |
+| `keychain.delete` | destructive | `service`, `account` → `{}` |
+| `keychain.status` | read | `{dataProtectionKeychain: available \| missing_entitlement \| error, accessGroup, biometry: {...}}`; never prompts |
+
+Errors (`details.reason`): `-34018` → `unavailable/missing_entitlement`; `-25300` → `not_found/item_not_found`; `-128` or LA cancel → `cancelled/user_cancelled`; `-25293` → `forbidden/auth_failed`; `-25308` → `unavailable/interaction_not_allowed` (retryable); LA lockout → `forbidden/biometry_lockout`; `-50` → `internal/keychain_param`. Without the entitlement, add/delete return `-34018` but a read of a missing item returns `-25300`, so status and unlock probe with a delete to tell them apart.
+
+**Device identity:** a keychain item (`com.psyche.helper.identity`, `AfterFirstUnlockThisDeviceOnly`, no user presence: it is needed at launch). Builds without the entitlement fall back to `$PSYCHE_HOME/helper/device.key` (base64url Ed25519, dir 0700, file 0600; refused if wider, owned by someone else or a symlink); a later entitled build migrates it with the same device id. Logs say `identity_store=keychain|file`, never the key.
 
 ### Notifications (O10)
 
