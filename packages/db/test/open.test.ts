@@ -39,7 +39,8 @@ describe("openDb", () => {
 
   it("creates schema v0 in memory with foreign keys on", () => {
     const db = memoryDb();
-    expect(tableNames(db)).toEqual(TABLES);
+    // Other packages add their own tables through later migrations.
+    expect(tableNames(db)).toEqual(expect.arrayContaining(TABLES));
     expect(db.sqlite.pragma("foreign_keys", { simple: true })).toBe(1);
     expect(db.sqlite.pragma("busy_timeout", { simple: true })).toBe(5000);
     expect(db.sqlite.pragma("journal_mode", { simple: true })).toBe("memory");
@@ -58,7 +59,8 @@ describe("openDb", () => {
     const dir = join(tmp.dir, "home", "state");
     const file = join(dir, "psyche.sqlite");
     const db = openDb(file);
-    expect(tableNames(db)).toEqual(TABLES);
+    // Other packages add their own tables through later migrations.
+    expect(tableNames(db)).toEqual(expect.arrayContaining(TABLES));
     expect(db.path).toBe(file);
     expect(db.sqlite.pragma("journal_mode", { simple: true })).toBe("wal");
     expect(db.sqlite.pragma("synchronous", { simple: true })).toBe(1); // NORMAL
@@ -80,7 +82,7 @@ describe("openDb", () => {
 
     const ro = openDb(file, { readonly: true });
     expect(ro.sqlite.readonly).toBe(true);
-    expect(tableNames(ro)).toEqual(TABLES);
+    expect(tableNames(ro)).toEqual(expect.arrayContaining(TABLES));
     ro.close();
   });
 });

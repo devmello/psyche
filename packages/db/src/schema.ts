@@ -153,6 +153,33 @@ export const usage = sqliteTable("usage", {
   createdAt: text("created_at").notNull(),
 });
 
+// §6 Credentials (metadata mirror; owner S06, migration 202610191000_vault_credentials) --------
+
+export const credentialMeta = sqliteTable("credential_meta", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull(),
+  bindings: text("bindings").notNull(),
+  ownerConnectorId: text("owner_connector_id"),
+  lastUsedAt: text("last_used_at"),
+  useCount: integer("use_count").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const credentialUses = sqliteTable("credential_uses", {
+  id: text("id").primaryKey(),
+  credentialId: text("credential_id").notNull(),
+  taskId: text("task_id"),
+  approvalId: text("approval_id"),
+  executor: text("executor").notNull(),
+  target: text("target").notNull(),
+  outcome: text("outcome").notNull(),
+  reason: text("reason"),
+  createdAt: text("created_at").notNull(),
+});
+
 /** Every table defined by this package, keyed by drizzle name. */
 export const schema = {
   devices,
@@ -165,6 +192,8 @@ export const schema = {
   settings,
   usage,
   ...s04Schema,
+  credentialMeta,
+  credentialUses,
 };
 export type Schema = typeof schema;
 
@@ -184,5 +213,7 @@ export type ToolCallRow = typeof toolCalls.$inferSelect;
 export type NewToolCallRow = typeof toolCalls.$inferInsert;
 export type SettingRow = typeof settings.$inferSelect;
 export type NewSettingRow = typeof settings.$inferInsert;
+export type CredentialMetaRow = typeof credentialMeta.$inferSelect;
+export type CredentialUseRow = typeof credentialUses.$inferSelect;
 export type UsageRow = typeof usage.$inferSelect;
 export type NewUsageRow = typeof usage.$inferInsert;
