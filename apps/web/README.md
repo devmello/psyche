@@ -1,37 +1,51 @@
 # @psyche/web
 
-**Owner:** S11 (`prompts/s11-desktop-web-shell.md`). Feature ids: A8, Q1 UI in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
+**Owner:** S11 (`prompts/s11-desktop-web-shell.md`). Features A8, E10 and the shell side of D5, I1, I6, K6, Q1 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md); screens from [docs/06-ui-design.md](../../docs/06-ui-design.md).
 
-The same React app as the desktop renderer, served by the Gateway at `/`.
-
-## Status
-
-Bootstrap hello page from S00: "Psyche", Gateway health (`fetch("/healthz")`) and the pairing
-phase. Browser connections are never auto-approved (security §10), so against a fresh Gateway it
-shows **pending pairing** with the code to approve from a paired device.
+The Psyche React shell, served by the Gateway at `/` and hosted by the desktop renderer. One codebase, two hosts: the shell talks to a `ShellPlatform` port, and each host provides it.
 
 ## Run
 
 ```sh
 pnpm --filter @psyche/web dev        # Vite on http://127.0.0.1:5173, proxies /healthz and /ws to 127.0.0.1:7979
-pnpm --filter @psyche/web build      # → apps/web/dist (gitignored); the Gateway serves it at /
-pnpm --filter @psyche/web test       # vitest (URL builder, handshake signing)
+pnpm --filter @psyche/web build      # → apps/web/dist; the Gateway serves it at /
+pnpm --filter @psyche/web test       # vitest: client, shell store, layout engine, keyboard, voice, terminal pane,
+                                     # and the production build served by a real Gateway (startGateway)
 pnpm --filter @psyche/web typecheck
 ```
 
-When built, the Gateway serves `apps/web/dist` at `http://127.0.0.1:7979/` (Vite `base: "/"`).
+## Public API (package exports)
 
-## Gateway connection
+| Export | What |
+| --- | --- |
+| `@psyche/web/client` | `GatewayConnection` (handshake → RPC + events, idempotency keys for side-effecting methods, validated events, `seq`-gap resync, reconnect with backoff), `Handshake`, `connectSigningPayload`, status reducer, base64url. No DOM, no Node built-ins; the desktop main process uses it too |
+| `@psyche/web/platform` | `ShellPlatform` and its ports: `GatewayPort`, `BrowserPort`, `TerminalPort`, `WindowPort`, `NotifyPort`, `KeyValueStore`, `ShellCommand` |
+| `@psyche/web/shell` | `ShellApp`, `ShellStore`, the pane layout engine (`reduceLayout`, `presentation`, `applyViewCommand`, `toViewLayout`, `createLayoutStore`), the keyboard map |
+| `@psyche/web/testing` | `MockGateway` (test only): verifies the Ed25519 challenge, answers RPCs from handlers, pushes events, and plays the Gateway end of the browser bridge |
 
-- **Only `location.origin`** (security §10, ADR-015, CVE-2026-25253): `src/lib/ws-url.ts` builds
-  `new URL("/ws", location.origin)` with `http→ws` / `https→wss`. It takes the origin alone, so
-  `location.search` and `location.hash` can never supply a Gateway address or token
-  (`test/ws-url.test.ts` asserts this). No deep-link or query parameter is read anywhere.
-- Frames (wire spec v1, docs/plans/s00.md): `req connect {protocolVersion:{min:1,max:PROTOCOL_VERSION}, deviceId, publicKey, role:"client", platform:"web", deviceFamily:"web", name:"Psyche Web"}` (no `handshakeSecret`), then on the challenge `req connect.verify {nonce, signature}` where the signature is WebCrypto Ed25519 over `connectSigningPayload`. Reconnects with exponential backoff.
-- CSP meta: `default-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; ...`. The dev server alone relaxes `script-src` for the React refresh preamble. The dev proxy maps the Origin of upgrades from the dev page (only) to the Gateway's own origin; other origins pass through and are rejected by the Gateway.
+## Shell layout
 
-## Stubbed / for S11
+| Path | What |
+| --- | --- |
+| `src/shell/ShellApp.tsx` | Rail, thread list, chat, pane area; routes (docs/06 §2.7); keyboard handler; `view.command` → layout → `view.report`; quick entry and pop-out routes |
+| `src/shell/store.ts` | Threads, messages, streaming deltas, pending approvals with this surface's answer tokens, notifications, toasts; refetch on resync |
+| `src/shell/layout/` | Pure pane layout engine, persisted per thread |
+| `src/shell/components/` | Chat (messages, approval dock, composer, quick entry), browser pane chrome, panes, palette, shortcut sheet, model picker, banners |
+| `src/shell/panes/TerminalPane.tsx` | xterm tabs over `TerminalPort` |
+| `src/shell/voice.ts` | Dictation capture: 16 kHz PCM to `voice.*` |
+| `src/platform.ts`, `src/gateway.ts` | The web host: browser WebSocket to `location.origin`, `localStorage` |
 
-- Device key: an in-memory WebCrypto Ed25519 pair with a non-extractable private key; no IndexedDB yet, so every reload is a new device and a new pairing request. S11 persists it (IndexedDB, non-extractable `CryptoKey`) and adds passkey login (INT-2).
-- `src/lib/{frames,signing,handshake,status,backoff}.ts` duplicate `apps/desktop/src/lib`; replace with `@psyche/protocol` frame helpers and one shared client module.
-- No RPC after the handshake; events are ignored. The bundle includes all of `@psyche/protocol` (TypeBox) for `PROTOCOL_VERSION`.
+## Web specifics (docs/06 §3.24)
+
+- **Only `location.origin`** (security §10, CVE-2026-25253): `src/lib/ws-url.ts` takes the origin alone, so neither a query string nor a hash can supply a Gateway address or token (`test/ws-url.test.ts`).
+- Browser connections are never auto-approved: a new browser shows the pairing banner with its code until a paired device approves it.
+- Below 720 px the rail becomes a bottom tab bar (Chat, Feed, Ideas, Goals, Library), the thread list is hidden and panes open one at a time full screen.
+- No native panes: the browser pane says it lives in the desktop app (the server sidecar screencast is S08's), the terminal is desktop-only, notifications stay in the in-app inbox.
+- CSP meta: `default-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'`. The dev server alone relaxes `script-src` for the React refresh preamble.
+
+## Stubbed
+
+- Device key: an in-memory WebCrypto Ed25519 pair (non-extractable); every reload is a new device. Persisting it in IndexedDB and passkey login are INT-2 (hooks: the pairing banner and `createWebGatewayConnection`).
+- Components are structural stand-ins until S12's kit (`@psyche/ui`) lands; Feed, Ideas, Goals, Library, Search and Settings show placeholders.
+- Methods the protocol lacks are treated as unavailable: `commands.list`, `threads.update` (mode, model), `library.upload` (attachments), `voice.*`, `terminal.open`, `chat.queue.*` (S01's protocol branch).
+- Web Push, the server-mode browser screencast, and a keyboard-operable pane resizer.
