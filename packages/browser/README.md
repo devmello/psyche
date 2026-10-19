@@ -170,6 +170,18 @@ This is the wire spec v1 from `packages/protocol/src/bridge.ts`, with the spike 
   - `access()` is `read` or `write` from the set. A bare loopback dev server is `write` in dev preview.
   - Write classes still go through the broker. The set says where the agent may go, and the broker says what it may do there.
 
+## Partitions: logged out by default (I15)
+
+Security §6: each task chooses `logged-in` or `logged-out` explicitly, with a persistent indicator, and the choice is never silently remembered. `src/origin/partition.ts`:
+
+- A session's `partition` is `profile` (the owner's sign-ins), `clean` (an ephemeral partition, "browse without my sign-ins") or `auto`, the default.
+- In `auto`, a tab opens in the profile only when its first origin matches one of the task's `signedInOrigins` patterns (`https://github.com`, `https://*.google.com`); every other tab, and every blank tab, is `clean`. Popups inherit the opener's partition, so an OAuth window stays with its flow.
+- The bridge driver sends the choice as `bridge.tab.open {profile: "logged-in" | "clean"}`, which the pane shows; the Playwright driver keeps one ephemeral context per session beside the persistent profile, created on first use, so a logged-out task never opens the profile.
+- `listTabs` and `browser.tabs` report `partition` per tab; the driver emits `tab_partition {tabId, partition, reason, label}` for Activity.
+- The fixture site has a `user` cookie set by `/submit/login` and read by `a/account` (`Signed in as ada` / `Not signed in`), with one cookie jar per partition in the mock, so the conformance suite proves the isolation on both drivers.
+
+The Gateway reads `PSYCHE_BROWSER_PARTITION` and `PSYCHE_BROWSER_SIGNED_IN_ORIGINS` until Settings → Browser exists; the desktop is asked to key `clean` partitions by task.
+
 ## Testing
 
 - `pnpm --filter @psyche/browser test` runs the following without network or a browser:
@@ -192,6 +204,7 @@ This is the wire spec v1 from `packages/protocol/src/bridge.ts`, with the spike 
   - iframes;
   - dialogs;
   - Take control refusal and re-snapshot;
+  - logged-out partitions kept apart from the profile (I15);
   - sparse and CAPTCHA detection;
   - history and SPA navigation;
   - scrolling;
