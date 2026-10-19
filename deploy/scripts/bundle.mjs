@@ -16,7 +16,9 @@ const common = {
   format: "esm",
   legalComments: "none",
   // CommonJS dependencies (ws, better-sqlite3's loader) call require().
-  banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" },
+  banner: {
+    js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
+  },
   define: { __PSYCHE_VERSION__: JSON.stringify(version) },
   logLevel: "info",
 };

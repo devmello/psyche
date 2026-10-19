@@ -18,7 +18,8 @@ for (const group of ["apps", "packages"]) {
     if (!match) continue;
     const version = match[0].split("\n")[0].replace(/^## /, "");
     const body = match[1].trim();
-    if (body) sections.push(`### ${JSON.parse(readFileSync(pkg, "utf8")).name} ${version}\n\n${body}`);
+    if (body)
+      sections.push(`### ${JSON.parse(readFileSync(pkg, "utf8")).name} ${version}\n\n${body}`);
   }
 }
 
@@ -42,5 +43,7 @@ if (image && !image.endsWith("@")) {
     "",
   );
 }
-out.push("`SHA256SUMS` lists every attached file. macOS binaries are unsigned unless the release secrets were configured.");
+out.push(
+  "`SHA256SUMS` lists every attached file. macOS binaries are unsigned unless the release secrets were configured.",
+);
 process.stdout.write(`${out.join("\n")}\n`);
