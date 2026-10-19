@@ -57,6 +57,20 @@ export const DecidedBy = Type.Union(
 );
 export type DecidedBy = Static<typeof DecidedBy>;
 
+/** Where taint came from (security §3.6): `{sourceKind, origin or sender, toolCallId}`. */
+export const TaintSource = Type.Object(
+  {
+    sourceKind: Type.String({
+      description: "Tool name or source kind (web, email, transcript, task, …)",
+    }),
+    origin: Type.Optional(Type.String()),
+    sender: Type.Optional(Type.String()),
+    toolCallId: Type.Optional(Type.String()),
+  },
+  { $id: "TaintSource" },
+);
+export type TaintSource = Static<typeof TaintSource>;
+
 /** Wire shape (data model §4.1, security §3.7). Answer tokens are never on the wire to clients that did not receive them. */
 export const ApprovalRequest = Type.Object(
   {

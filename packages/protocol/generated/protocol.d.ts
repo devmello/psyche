@@ -2797,10 +2797,14 @@ export interface Task {
     /**
      * Inherited from a tainted creating turn
      */
-    taint?:    boolean;
-    threadId:  string;
-    title:     string;
-    updatedAt: string;
+    taint?: boolean;
+    /**
+     * The creating turn's taint sources; every run starts tainted with them
+     */
+    taintSources?: TaintSource[];
+    threadId:      string;
+    title:         string;
+    updatedAt:     string;
 }
 
 export type TaskOrigin = "chat" | "automation" | "idea" | "goal" | "channel" | "subagent";
@@ -2820,6 +2824,16 @@ export interface PlanStep {
 export type PlanStepStatus = "pending" | "running" | "done" | "failed" | "skipped";
 
 export type TaskStatus = "queued" | "running" | "awaiting_input" | "awaiting_approval" | "paused" | "done" | "failed" | "cancelled";
+
+export interface TaintSource {
+    origin?: string;
+    sender?: string;
+    /**
+     * Tool name or source kind (web, email, transcript, task, …)
+     */
+    sourceKind:  string;
+    toolCallId?: string;
+}
 
 export interface TaskUpdatedPayload {
     task: Task;
