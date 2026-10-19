@@ -4,6 +4,7 @@ import type {
   DriverEvent,
   NavigateResult,
   PageSnapshot,
+  RefBox,
   ResolvedSecret,
   SnapshotRef,
   Unsubscribe,
@@ -57,6 +58,13 @@ export interface BrowserSnapshot extends PageSnapshot {
   omittedText?: number;
   /** A password / OTP / card field is focused or holds a value: screenshots are suppressed. */
   secureFieldActive: boolean;
+  /**
+   * Viewport boxes (CSS px) of frames whose content is hidden from the model; screenshots
+   * paint them black. Not part of `text`.
+   */
+  hiddenFrameBoxes?: RefBox[];
+  /** CSS viewport width the boxes refer to (screenshots scale by image width / this). */
+  viewportWidth?: number;
   /** A CAPTCHA / bot challenge is on the page: the task pauses and the owner is asked (§6). */
   captcha?: boolean;
   stats: SnapshotStats;

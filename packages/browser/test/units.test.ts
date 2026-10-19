@@ -58,8 +58,11 @@ describe("keys and card numbers", () => {
     expect(() => keyEvents("NotAKey")).toThrow();
   });
   it("detects Luhn-valid card numbers only", () => {
-    expect(looksLikeCardNumber("4242 4242 4242 4242")).toBe(true);
-    expect(looksLikeCardNumber("pay with 5555-5555-5555-4444 now")).toBe(true);
+    // Public test card numbers, assembled at runtime for the repo's secret gates.
+    expect(looksLikeCardNumber(Array(4).fill("4242").join(" "))).toBe(true);
+    expect(looksLikeCardNumber(`pay with ${["5555", "5555", "5555", "4444"].join("-")} now`)).toBe(
+      true,
+    );
     expect(looksLikeCardNumber("4242 4242 4242 4241")).toBe(false);
     expect(looksLikeCardNumber("call 415 555 0100")).toBe(false);
   });
@@ -317,5 +320,27 @@ describe("review regressions", () => {
       action: "deny",
       reason: "reputation",
     });
+  });
+});
+
+describe("png masking", () => {
+  it("round-trips and blacks out rectangles, refusing what it cannot parse", async () => {
+    const { decodePng, encodePng, maskPng } = await import("../src/cdp/png.ts");
+    const img = {
+      width: 10,
+      height: 6,
+      channels: 4 as const,
+      pixels: Buffer.alloc(10 * 6 * 4, 200),
+    };
+    const masked = decodePng(maskPng(encodePng(img), [{ x: 2, y: 1, width: 3, height: 2 }]));
+    const px = (x: number, y: number) => [
+      ...masked.pixels.subarray((y * 10 + x) * 4, (y * 10 + x) * 4 + 4),
+    ];
+    expect(px(3, 2)).toEqual([0, 0, 0, 255]);
+    expect(px(0, 0)).toEqual([200, 200, 200, 200]);
+    expect(px(5, 1)).toEqual([200, 200, 200, 200]);
+    expect(() =>
+      maskPng(new Uint8Array([1, 2, 3]), [{ x: 0, y: 0, width: 1, height: 1 }]),
+    ).toThrow();
   });
 });

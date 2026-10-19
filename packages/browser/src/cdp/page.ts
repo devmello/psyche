@@ -23,6 +23,7 @@ import type {
   SnapshotOptions,
 } from "../types.ts";
 import { keyEvents } from "./keys.ts";
+import { decodePngHeader, maskPng } from "./png.ts";
 import type {
   AXNode,
   CaptureSnapshotResult,
@@ -826,7 +827,7 @@ export class PageController {
     this.#assertReadable();
     // Re-check: a secure field focused or holding a value suppresses screenshots (§4.7), and so
     // does any vault fill on this page, secure field or not (review finding 6b).
-    await this.snapshot({ maxChars: 1000, maxRefs: 1 });
+    const snap = await this.snapshot({ maxChars: 1000, maxRefs: 1 });
     if (this.#secureActive || this.#filledSinceNav) {
       throw new PsycheError(
         "policy_denied",
@@ -835,7 +836,26 @@ export class PageController {
       );
     }
     const r = await this.#t.send<{ data: string }>("Page.captureScreenshot", { format: "png" });
-    return { mime: "image/png", data: new Uint8Array(Buffer.from(r.data, "base64")) };
+    const png = new Uint8Array(Buffer.from(r.data, "base64"));
+    const boxes = snap.hiddenFrameBoxes ?? [];
+    if (boxes.length === 0) return { mime: "image/png", data: png };
+    // Cross-origin frames are hidden from snapshots, so they are blacked out here too
+    // (security §6; review finding 7). A PNG that cannot be masked is not returned.
+    try {
+      const { width } = decodePngHeader(png);
+      const scale = width / Math.max(1, snap.viewportWidth ?? width);
+      const rects = boxes.map((b) => ({
+        x: b.x * scale,
+        y: b.y * scale,
+        width: b.width * scale,
+        height: b.height * scale,
+      }));
+      return { mime: "image/png", data: maskPng(png, rects) };
+    } catch (err) {
+      throw new PsycheError("policy_denied", "the screenshot could not be masked", {
+        details: { reason: "mask_failed", error: err instanceof Error ? err.message : String(err) },
+      });
+    }
   }
 
   // --- actions -----------------------------------------------------------------------------

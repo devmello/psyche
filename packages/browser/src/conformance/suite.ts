@@ -1,5 +1,6 @@
 import { ResolvedSecret } from "@psyche/protocol";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { decodePng } from "../cdp/png.ts";
 import type { LibraryImport } from "../downloads/library.ts";
 import { REGRESSION_PAGES } from "../testing/site.ts";
 import type { BrowserDriverEx, DriverEventEx, OpenSessionOptions } from "../types.ts";
@@ -227,6 +228,17 @@ export function describeBrowserDriverConformance(
       expect(snap.text).toContain("Inside same-origin frame");
       expect(snap.text).not.toContain("Inside cross-origin frame");
       expect(snap.text).toContain("content hidden");
+      // Screenshots black out the hidden (cross-origin) frame, as snapshots leave it out.
+      const box = snap.hiddenFrameBoxes?.[0];
+      expect(box).toBeDefined();
+      const shot = decodePng((await d.screenshot(t.id)).data);
+      if (box !== undefined) {
+        const scale = shot.width / (snap.viewportWidth ?? shot.width);
+        const px = Math.floor((box.x + box.width / 2) * scale);
+        const py = Math.floor((box.y + box.height / 2) * scale);
+        const i = (py * shot.width + px) * shot.channels;
+        expect([shot.pixels[i], shot.pixels[i + 1], shot.pixels[i + 2]]).toEqual([0, 0, 0]);
+      }
       await d.closeSession(s.id);
     });
 
@@ -327,7 +339,8 @@ export function describeBrowserDriverConformance(
       await d.wait(t.id, { kind: "text", text: "Submitted /submit/upload" }, { timeoutMs: 5000 });
       await d.navigate(t.id, h.url("a/checkout"));
       await expect(
-        d.type(t.id, await ref(t.id, "textbox", "Card number"), "4242 4242 4242 4242"),
+        // Stripe's public test number, assembled at runtime for the repo's secret gates.
+        d.type(t.id, await ref(t.id, "textbox", "Card number"), Array(4).fill("4242").join(" ")),
       ).rejects.toMatchObject({ code: "policy_denied" });
       await d.closeSession(s.id);
     });

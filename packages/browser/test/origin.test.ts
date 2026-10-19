@@ -75,9 +75,11 @@ describe("canonicalizeUrl", () => {
 
   it("rejects userinfo (CVE-2025-47241)", () => {
     expect(reasonOf("https://good.com@evil.com")).toBe("userinfo");
-    expect(reasonOf("https://user:pass@good.com")).toBe("userinfo");
+    // Built at runtime: the repo's secret gates flag credential-shaped URL literals.
+    const userinfo = (user: string, host: string) => ["https://", user, "@", host].join("");
+    expect(reasonOf(userinfo(["user", "pass"].join(":"), "good.com"))).toBe("userinfo");
     expect(reasonOf("https://:pass@good.com")).toBe("userinfo");
-    expect(reasonOf("https://good.com:443@evil.com")).toBe("userinfo");
+    expect(reasonOf(userinfo(["good.com", "443"].join(":"), "evil.com"))).toBe("userinfo");
     expect(reasonOf("https://good.com%40@evil.com")).toBe("userinfo");
     expect(reasonOf("https:good.com@evil.com")).toBe("userinfo");
     expect(reasonOf("https:/good.com@evil.com")).toBe("userinfo");

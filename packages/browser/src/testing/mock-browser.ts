@@ -1,5 +1,6 @@
 import { PsycheError, type Unsubscribe } from "@psyche/protocol";
 import type { CdpTarget } from "../cdp/page.ts";
+import { encodePng } from "../cdp/png.ts";
 import type { AXNode, CaptureSnapshotResult, DocumentSnapshot } from "../cdp/types.ts";
 import {
   FIXTURE_SITE,
@@ -605,10 +606,16 @@ export class MockTab implements CdpTarget {
           this.#run(d.onConfirm);
         return {};
       }
-      case "Page.captureScreenshot":
-        return {
-          data: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).toString("base64"),
+      case "Page.captureScreenshot": {
+        // A real 128×80 RGB PNG (a tenth of the CSS viewport), white, so masking is testable.
+        const img = {
+          width: 128,
+          height: 80,
+          channels: 3 as const,
+          pixels: Buffer.alloc(128 * 80 * 3, 255),
         };
+        return { data: Buffer.from(encodePng(img)).toString("base64") };
+      }
       case "Page.startScreencast":
         this.#screencast = true;
         void this.#frames();

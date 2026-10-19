@@ -231,6 +231,7 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
   let depthTruncated = false;
   let secureFieldActive = false;
   let captcha = false;
+  const hiddenFrameBoxes: RefBox[] = [];
 
   const boxOf = (info: DomNodeInfo | undefined): { box?: RefBox; offscreen: boolean } => {
     if (info?.box === undefined) return { offscreen: false };
@@ -357,6 +358,8 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
         visit(child.ax[0], childById, depth + 1, rawDepth + 1, name, false);
       } else {
         const origin = doc?.origin ?? srcOrigin(info?.attrs.src, input.url) ?? "unknown origin";
+        const { box: frameBox, offscreen: frameOff } = boxOf(info);
+        if (frameBox !== undefined && !frameOff) hiddenFrameBoxes.push(frameBox);
         lines.push({
           kind: "node",
           text: `${indent}- iframe${name ? ` "${clip(name, opts.nameMax)}"` : ""} (content hidden: ${origin === topOrigin ? "not loaded" : `cross-origin ${origin}`})`,
@@ -496,6 +499,8 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
   if (omittedText !== undefined) snap.omittedText = omittedText;
   if (sparse) snap.sparse = true;
   if (captcha) snap.captcha = true;
+  if (hiddenFrameBoxes.length > 0) snap.hiddenFrameBoxes = hiddenFrameBoxes;
+  snap.viewportWidth = vp.clientWidth;
   return snap;
 }
 
