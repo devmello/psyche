@@ -1,0 +1,407 @@
+import type { Thread } from "@psyche/protocol";
+import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChatView, PERMISSION_MODES, QuickEntry } from "./components/Chat.tsx";
+import {
+  GatewayPill,
+  OfflineBanner,
+  Rail,
+  SectionPlaceholder,
+  ThreadList,
+  Toasts,
+} from "./components/Chrome.tsx";
+import {
+  CommandPalette,
+  ModelPicker,
+  type PaletteAction,
+  ShortcutSheet,
+} from "./components/Overlays.tsx";
+import { PaneArea } from "./components/Panes.tsx";
+import { ShellProvider, useShell, useShellState } from "./context.tsx";
+import { matchShortcut, type ShortcutAction } from "./keyboard.ts";
+import {
+  BREAKPOINT_MEDIUM,
+  createLayoutStore,
+  type LayoutAction,
+  type LayoutEnv,
+  type LayoutStore,
+  randomIds,
+  toViewLayout,
+} from "./layout/index.ts";
+import type { ShellPlatform } from "./platform.ts";
+import { ShellStore } from "./store.ts";
+import "./shell.css";
+
+/**
+ * The shared shell (docs/06 §3.1): rail, thread list, chat column and pane area, with the
+ * keyboard map, palette, offline banner and `view.*` handling. Hosts pass a `ShellPlatform`.
+ */
+
+function initialRoute(): string {
+  const p = globalThis.location?.pathname ?? "/chat";
+  return p === "/" || p.endsWith("index.html") ? "/chat" : p;
+}
+
+function useWindowWidth(): number {
+  const [w, setW] = useState(() => globalThis.innerWidth ?? 1280);
+  useEffect(() => {
+    const on = () => setW(window.innerWidth);
+    window.addEventListener("resize", on);
+    return () => window.removeEventListener("resize", on);
+  }, []);
+  return w;
+}
+
+function isTextTarget(t: EventTarget | null): boolean {
+  const el = t as HTMLElement | null;
+  return (
+    !!el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT" || el.isContentEditable === true)
+  );
+}
+
+export function ShellApp({ platform }: { platform: ShellPlatform }): ReactElement {
+  const store = useMemo(() => new ShellStore(platform.gateway), [platform]);
+  const layout = useMemo(() => createLayoutStore(platform.storage), [platform]);
+  useEffect(() => {
+    store.start();
+    return () => store.stop();
+  }, [store]);
+  const mac =
+    /Mac|iPhone|iPad/.test(globalThis.navigator?.platform ?? "") || platform.kind === "desktop";
+  return (
+    <ShellProvider platform={platform} store={store} mac={mac}>
+      <Shell layout={layout} />
+    </ShellProvider>
+  );
+}
+
+type Overlay = "palette" | "shortcuts" | "model" | null;
+
+function Shell({ layout }: { layout: LayoutStore }): ReactElement {
+  const { platform, store, mac } = useShell();
+  const status = useShellState((s) => s.status);
+  const threads = useShellState((s) => s.threads);
+  const [route, setRoute] = useState(initialRoute);
+  const [listHidden, setListHidden] = useState(false);
+  const [overlay, setOverlay] = useState<Overlay>(null);
+  const [focusToken, setFocusToken] = useState(0);
+  const width = useWindowWidth();
+  const compact = width < BREAKPOINT_MEDIUM;
+  const newId = useRef(randomIds()).current;
+  const createdMain = useRef(false);
+
+  const mainThread: Thread | undefined = threads.find((t) => t.thread.kind === "main")?.thread;
+  const routeThreadId = /^\/chat\/([^/]+)/.exec(route)?.[1];
+  const threadId = routeThreadId ?? mainThread?.id ?? null;
+  const thread = threads.find((t) => t.thread.id === threadId)?.thread ?? null;
+  const popOutPane = /^\/chat\/[^/]+\/pane\/([^/]+)$/.exec(route)?.[1];
+
+  const env = useCallback(
+    (): LayoutEnv => ({
+      width,
+      contentWidth: Math.max(0, width - (compact ? 0 : 56) - (listHidden || compact ? 0 : 260)),
+      now: () => new Date().toISOString(),
+      newId,
+    }),
+    [width, compact, listHidden, newId],
+  );
+
+  const navigate = useCallback((to: string) => {
+    setRoute(to);
+    try {
+      globalThis.history?.pushState(null, "", to);
+    } catch {
+      // app:// and file:// hosts may refuse; the in-memory route still changes
+    }
+  }, []);
+
+  const dispatch = useCallback(
+    (action: LayoutAction) => {
+      if (threadId) layout.dispatch(threadId, action, env());
+    },
+    [layout, threadId, env],
+  );
+
+  // The main chat always exists (docs/06 §4.13); create it once if the Gateway has none yet.
+  useEffect(() => {
+    if (status.phase !== "paired" || mainThread || createdMain.current || threads.length > 0)
+      return;
+    const t = setTimeout(() => {
+      if (createdMain.current) return;
+      createdMain.current = true;
+      void store
+        .call("threads.create", { kind: "main" })
+        .then(() => store.refresh())
+        .catch(() => undefined);
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [status.phase, mainThread, threads.length, store]);
+
+  // Re-fit layouts when the window narrows or widens.
+  useEffect(() => {
+    if (threadId) layout.dispatch(threadId, { type: "fitToWidth" }, env());
+  }, [layout, threadId, env]);
+
+  // view.* RPC from the Gateway (the agent opening, closing and focusing panes), then report.
+  useEffect(() => {
+    if (platform.kind !== "desktop") return;
+    const offCmd = store.tap((e) => {
+      if (e.event !== "view.command" || !threadId) return;
+      const out = layout.applyViewCommand(e.payload, threadId, env());
+      if (!out.ok)
+        store.toast(`The agent asked for a pane Psyche couldn't open (${out.error.code}).`, "warn");
+    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const offLayout = layout.subscribe((changed) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        void store
+          .call("view.report", {
+            layout: toViewLayout(layout.forThread(changed), () => new Date().toISOString()),
+          })
+          .catch(() => undefined);
+      }, 100);
+    });
+    return () => {
+      offCmd();
+      offLayout();
+      clearTimeout(timer);
+    };
+  }, [platform.kind, store, layout, threadId, env]);
+
+  const newSideChat = useCallback(() => {
+    void store
+      .call<{ thread: Thread }>("threads.create", { kind: "side" })
+      .then((r) => {
+        if (r?.thread) {
+          void store.refresh();
+          navigate(`/chat/${r.thread.id}`);
+        }
+      })
+      .catch(() => store.toast("Psyche couldn't create a side chat.", "error"));
+  }, [store, navigate]);
+
+  const cycleMode = useCallback(() => {
+    if (!thread) return;
+    const i = PERMISSION_MODES.indexOf(thread.permissionMode);
+    const next = PERMISSION_MODES[(i + 1) % PERMISSION_MODES.length];
+    void store
+      .call("threads.update", { threadId: thread.id, permissionMode: next })
+      .then((r) => {
+        if (r === undefined)
+          store.toast("Changing the permission mode needs a newer Gateway.", "warn");
+        else void store.refresh();
+      })
+      .catch(() => store.toast("Changing the permission mode needs a newer Gateway.", "warn"));
+  }, [thread, store]);
+
+  useEffect(
+    () =>
+      platform.windows?.onCommand((c) => {
+        if (c.type === "navigate") navigate(c.route);
+        if (c.type === "newSideChat") newSideChat();
+        if (c.type === "palette") setOverlay("palette");
+        if (c.type === "closeThreadView") {
+          if (popOutPane || route === "/quick") platform.windows?.closeWindow();
+          else if (routeThreadId && routeThreadId !== mainThread?.id) navigate("/chat");
+        }
+      }),
+    [platform.windows, navigate, newSideChat, popOutPane, route, routeThreadId, mainThread?.id],
+  );
+
+  const run = useCallback(
+    (a: ShortcutAction): boolean => {
+      switch (a) {
+        case "palette":
+          setOverlay((o) => (o === "palette" ? null : "palette"));
+          return true;
+        case "shortcutList":
+          setOverlay((o) => (o === "shortcuts" ? null : "shortcuts"));
+          return true;
+        case "newSideChat":
+          newSideChat();
+          return true;
+        case "toggleThreadList":
+          setListHidden((h) => !h);
+          return true;
+        case "openBrowserPane":
+          dispatch({ type: "open", pane: "browser" });
+          return true;
+        case "openDiffPane":
+          dispatch({ type: "open", pane: "diff" });
+          return true;
+        case "toggleTerminalPane": {
+          const has = threadId
+            ? layout.forThread(threadId).panes.some((p) => p.pane === "terminal")
+            : false;
+          dispatch(has ? { type: "close", pane: "terminal" } : { type: "open", pane: "terminal" });
+          return true;
+        }
+        case "closePane":
+          dispatch({ type: "closeFocused" });
+          return true;
+        case "permissionMode":
+          cycleMode();
+          return true;
+        case "modelPicker":
+          setOverlay("model");
+          return true;
+        case "agentActivity":
+          navigate("/agent/activity");
+          return true;
+        case "agentApprovals":
+          navigate("/agent/approvals");
+          return true;
+        case "cycleThreads": {
+          if (threads.length === 0) return true;
+          const i = threads.findIndex((t) => t.thread.id === threadId);
+          const next = threads[(i + 1) % threads.length];
+          if (next) navigate(`/chat/${next.thread.id}`);
+          return true;
+        }
+        case "stop":
+          if (overlay) {
+            setOverlay(null);
+            return true;
+          }
+          if (thread?.activeWriterRunId) void store.call("chat.cancel", { threadId: thread.id });
+          return true;
+        case "approve":
+        case "deny": {
+          const btn = document.querySelector<HTMLButtonElement>(
+            `[data-testid="approval-dock"] button[data-action="${a}"]`,
+          );
+          if (btn && !btn.disabled) {
+            btn.click();
+            return true;
+          }
+          return false;
+        }
+        default:
+          return false;
+      }
+    },
+    [newSideChat, dispatch, threadId, layout, cycleMode, navigate, threads, overlay, thread, store],
+  );
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const action = matchShortcut(e, { mac, inText: isTextTarget(e.target) });
+      if (action && run(action)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [mac, run]);
+
+  const actions: PaletteAction[] = [
+    { id: "new", label: "New side chat", run: newSideChat },
+    {
+      id: "browser",
+      label: "Open browser pane",
+      run: () => dispatch({ type: "open", pane: "browser" }),
+    },
+    {
+      id: "terminal",
+      label: "Open terminal pane",
+      run: () => dispatch({ type: "open", pane: "terminal" }),
+    },
+    { id: "tasks", label: "Open tasks pane", run: () => dispatch({ type: "open", pane: "tasks" }) },
+    { id: "model", label: "/model", run: () => setOverlay("model") },
+    { id: "mode", label: "Switch permission mode", run: cycleMode },
+    { id: "settings", label: "Settings", run: () => navigate("/settings/general") },
+    { id: "shortcuts", label: "Keyboard shortcuts", run: () => setOverlay("shortcuts") },
+  ];
+
+  if (route === "/quick") {
+    return (
+      <div className="shell" style={{ gridTemplateColumns: "1fr" }} data-testid="quick-entry">
+        <QuickEntry thread={mainThread ?? null} onDone={() => platform.windows?.closeWindow()} />
+      </div>
+    );
+  }
+
+  if (popOutPane && threadId) {
+    return (
+      <div className="shell" style={{ gridTemplateColumns: "1fr" }} data-testid="popout">
+        <PaneArea
+          layout={layout}
+          threadId={threadId}
+          width={width}
+          covered={overlay !== null}
+          dispatch={dispatch}
+        />
+        <Toasts />
+      </div>
+    );
+  }
+
+  const onChat = route.startsWith("/chat");
+  return (
+    <div className="shell" data-compact={compact} data-testid="shell">
+      <Rail route={route} compact={compact} onNavigate={navigate} />
+      {onChat && !compact ? (
+        <ThreadList
+          hidden={listHidden}
+          currentThreadId={threadId}
+          onOpen={(id) => navigate(`/chat/${id}`)}
+          onNew={newSideChat}
+        />
+      ) : (
+        <span />
+      )}
+      <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
+        <OfflineBanner status={status} />
+        <div style={{ position: "absolute", top: 8, right: 12 }}>
+          <GatewayPill status={status} />
+        </div>
+        {onChat ? (
+          <ChatView
+            thread={thread}
+            onModeCycle={cycleMode}
+            onModelPicker={() => setOverlay("model")}
+            focusToken={focusToken}
+          />
+        ) : (
+          <SectionPlaceholder route={route} />
+        )}
+      </div>
+      {onChat && threadId ? (
+        <PaneArea
+          layout={layout}
+          threadId={threadId}
+          width={width}
+          covered={overlay !== null}
+          dispatch={dispatch}
+        />
+      ) : (
+        <span />
+      )}
+      {overlay === "palette" ? (
+        <CommandPalette actions={actions} onClose={() => setOverlay(null)} onNavigate={navigate} />
+      ) : null}
+      {overlay === "shortcuts" ? <ShortcutSheet onClose={() => setOverlay(null)} /> : null}
+      {overlay === "model" ? (
+        <ModelPicker
+          current={thread?.modelRef ?? null}
+          onClose={() => {
+            setOverlay(null);
+            setFocusToken((n) => n + 1);
+          }}
+          onPick={(modelRef) => {
+            if (!thread) return;
+            void store
+              .call("threads.update", { threadId: thread.id, modelRef })
+              .then(
+                (r) =>
+                  r === undefined && store.toast("Picking a model needs a newer Gateway.", "warn"),
+              )
+              .catch(() => store.toast("Picking a model needs a newer Gateway.", "warn"));
+          }}
+        />
+      ) : null}
+      <Toasts />
+    </div>
+  );
+}

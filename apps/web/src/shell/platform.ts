@@ -126,7 +126,8 @@ export type ShellCommand =
   | { type: "navigate"; route: string }
   | { type: "newSideChat" }
   | { type: "palette" }
-  | { type: "approvalAnswer"; approvalId: string; decision: "approve" | "deny" };
+  /** ⌘W: closes a pop-out or quick-entry window, or leaves the current thread view. */
+  | { type: "closeThreadView" };
 
 export interface NotifyPort {
   /** OS notification (desktop: mac helper when present, else Electron); web: none yet. */
