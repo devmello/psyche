@@ -12,54 +12,74 @@ import {
   type TranscriptSegment,
   type Voice,
 } from "@psyche/protocol";
+import { decodeWav, isPcm } from "../audio.ts";
 import { AsyncQueue, fromBase64, toBase64 } from "../queue.ts";
+import { splitSentences } from "../ssml.ts";
 import { sequenceSegments } from "../stream.ts";
 
 /**
- * `SpeechEngine` over the Mac helper's `speech.*` node capabilities (architecture §6). The
- * helper owns the engines (SpeechAnalyzer / SpeechTranscriber / DictationTranscriber on macOS
- * 26+, FluidAudio Parakeet or WhisperKit on 14–15, AVSpeechSynthesizer); this adapter only
- * moves audio and segments over the node protocol. Audio travels base64-encoded because node
- * frames are JSON. The capability shapes below are S17's proposal to S14 (docs/status/s17.md).
+ * `SpeechEngine` over the Mac helper's `speech.*` node capabilities (architecture §6; S14,
+ * `apps/mac-helper` README "Speech"). The helper owns the engines (SpeechAnalyzer /
+ * DictationTranscriber on macOS 26+, on-device SFSpeechRecognizer before that, AVSpeechSynthesizer);
+ * this adapter moves audio and segments over the node protocol. Audio travels base64-encoded
+ * because node frames are JSON.
+ *
+ * Push transcription: `speech.transcribe_stream {source: "push", format, locale?, vocabulary?,
+ * volatile}` stays pending for the whole stream and emits `{type: "speech.started", streamId}`,
+ * then `{type: "speech.partial" | "speech.final", text, startMs, endMs, final, confidence?}`; it
+ * resolves with `{streamId, text, segments, language, …}`. Audio goes in with
+ * `speech.audio_push {streamId, data, final?}` (≤ 512 KiB decoded each); the last push carries
+ * `final: true`. Synthesis: `speech.synthesize {text ≤ 5000, voice?, format}` emits
+ * `{type: "speech.audio", seq, data, format}`.
  */
 export const NODE_SPEECH_CAPABILITIES = {
-  /** `{audio, format, language?, vocabulary?}` → `Transcript`. */
-  transcribe: "speech.transcribe",
-  /**
-   * `{streamId, format, language?, vocabulary?}`. Stays pending for the whole stream, emitting
-   * `{segment: TranscriptSegment}` events; resolves with the final `Transcript` after
-   * `speech.stream.finish`. Aborting the invocation cancels the stream.
-   */
-  streamOpen: "speech.stream.open",
-  /** `{streamId, audio}` → `{}`. Chunks for one stream arrive in order. */
-  streamPush: "speech.stream.push",
-  /** `{streamId}` → `{}`. Flushes; the open invocation resolves after its last final. */
-  streamFinish: "speech.stream.finish",
-  /** `{text, voice?, format?}`; emits `{audio, format}` chunk events, resolves `{format}`. */
+  transcribeStream: "speech.transcribe_stream",
+  audioPush: "speech.audio_push",
+  stop: "speech.stop",
   synthesize: "speech.synthesize",
-  /** `{}` → `{voices: Voice[]}`. */
   voices: "speech.voices",
+  status: "speech.status",
+} as const;
+
+/** Helper limits (`SpeechLimits` in the Swift helper). */
+export const NODE_SPEECH_LIMITS = {
+  maxPushBytes: 512 * 1024,
+  maxVocabularyEntries: 100,
+  maxVocabularyEntryLength: 64,
+  maxSynthesisText: 5_000,
+  /** Helper accepts 1 s … 10 min per stream. */
+  maxDurationMs: 10 * 60 * 1000,
 } as const;
 
 export interface NodeSpeechEngineOptions {
   /** Resolves the Mac node to use now, or `undefined` when none is online. */
   node: () => NodeClient | undefined | Promise<NodeClient | undefined>;
-  /** Stream ids are unique per Gateway; injectable for tests. */
-  newStreamId?: () => string;
   timeoutMs?: number;
+  /** Size of each `speech.audio_push` for files (default and maximum 512 KiB). */
+  pushBytes?: number;
 }
 
-interface SegmentEvent {
-  segment: TranscriptSegment;
+interface HelperEvent {
+  type?: string;
+  streamId?: string;
+  text?: string;
+  startMs?: number;
+  endMs?: number;
+  final?: boolean;
+  confidence?: number;
+  seq?: number;
+  data?: string;
+  format?: AudioFormat;
 }
-interface AudioEvent {
-  audio: string;
-  format: AudioFormat;
+
+interface HelperTranscript {
+  text?: string;
+  segments?: TranscriptSegment[];
+  language?: string;
 }
 
 export class NodeSpeechEngine implements SpeechEngine {
   readonly #opts: NodeSpeechEngineOptions;
-  #counter = 0;
 
   constructor(options: NodeSpeechEngineOptions) {
     this.#opts = options;
@@ -67,17 +87,19 @@ export class NodeSpeechEngine implements SpeechEngine {
 
   async #node(): Promise<NodeClient> {
     const node = await this.#opts.node();
-    if (node === undefined)
+    if (node === undefined) {
       throw new PsycheError("unavailable", "no Mac node is online", { retryable: true });
+    }
     return node;
   }
 
-  /** `true` when a node is online and offers `speech.transcribe`. */
-  async available(capability: string = NODE_SPEECH_CAPABILITIES.transcribe): Promise<boolean> {
+  /** `true` when a node is online and offers `capability`. */
+  async available(
+    capability: string = NODE_SPEECH_CAPABILITIES.transcribeStream,
+  ): Promise<boolean> {
     const node = await this.#opts.node();
     if (node === undefined) return false;
-    const caps = await node.capabilities();
-    return caps.some((c) => c.name === capability);
+    return (await node.capabilities()).some((c) => c.name === capability);
   }
 
   async capabilities(): Promise<SpeechCapabilities> {
@@ -85,10 +107,9 @@ export class NodeSpeechEngine implements SpeechEngine {
     const names = new Set((await node?.capabilities())?.map((c) => c.name) ?? []);
     return {
       engine: "mac-node",
-      streaming: names.has(NODE_SPEECH_CAPABILITIES.streamOpen),
+      streaming: names.has(NODE_SPEECH_CAPABILITIES.transcribeStream),
       synthesis: names.has(NODE_SPEECH_CAPABILITIES.synthesize),
-      // The helper reports locales through `speech.voices` / SpeechTranscriber.supportedLocales;
-      // the Gateway does not know them up front.
+      // Locales come from `speech.status`; the Gateway does not know them up front.
       languages: [],
     };
   }
@@ -98,116 +119,203 @@ export class NodeSpeechEngine implements SpeechEngine {
     format: AudioFormat,
     options: TranscribeOptions = {},
   ): Promise<Transcript> {
-    const node = await this.#node();
-    const res = await node.invoke(
-      NODE_SPEECH_CAPABILITIES.transcribe,
-      { audio: toBase64(data), format, ...transcribeParams(options) },
-      this.#invokeOptions(options.signal),
+    let pcm = data;
+    let fmt = format;
+    if (format.encoding === "wav") {
+      const wav = decodeWav(data);
+      if (wav === undefined) throw new PsycheError("invalid_params", "not a PCM WAV file");
+      pcm = wav.data;
+      fmt = wav.format;
+    }
+    const size = Math.min(
+      this.#opts.pushBytes ?? NODE_SPEECH_LIMITS.maxPushBytes,
+      NODE_SPEECH_LIMITS.maxPushBytes,
     );
-    return unwrap(res) as Transcript;
+    const run = this.#run(chunked(pcm, size), fmt, options, false);
+    for await (const _ of run.segments) {
+      // Finals also arrive in the result; draining keeps the event queue bounded.
+    }
+    const r = await run.result;
+    const t: Transcript = { text: r.text ?? "", segments: (r.segments ?? []).map(segment) };
+    if (r.language !== undefined) t.language = r.language;
+    return t;
   }
 
-  async *transcribeStream(
+  transcribeStream(
     audio: AsyncIterable<Uint8Array>,
     format: AudioFormat,
     options: TranscribeOptions = {},
   ): AsyncIterable<TranscriptSegment> {
-    const node = await this.#node();
-    const streamId =
-      this.#opts.newStreamId?.() ?? `sst_${Date.now().toString(36)}_${++this.#counter}`;
+    const run = this.#run(audio, format, options, true);
+    run.result.catch(() => {});
+    return sequenceSegments(run.segments, options.signal);
+  }
+
+  #run(
+    audio: AsyncIterable<Uint8Array>,
+    format: AudioFormat,
+    options: TranscribeOptions,
+    volatile: boolean,
+  ): { segments: AsyncIterable<TranscriptSegment>; result: Promise<HelperTranscript> } {
+    if (
+      !isPcm(format) ||
+      format.channels > 2 ||
+      format.sampleRate < 8_000 ||
+      format.sampleRate > 48_000
+    ) {
+      throw new PsycheError(
+        "invalid_params",
+        "the Mac node takes 8–48 kHz mono or stereo PCM (pcm_s16le / pcm_f32le)",
+      );
+    }
     const segments = new AsyncQueue<TranscriptSegment>();
     const abort = new AbortController();
     const onAbort = () => abort.abort();
     options.signal?.addEventListener("abort", onAbort, { once: true });
+    let resolveId: (id: string) => void = () => {};
+    let rejectId: (e: unknown) => void = () => {};
+    const streamId = new Promise<string>((res, rej) => {
+      resolveId = res;
+      rejectId = rej;
+    });
+    streamId.catch(() => {});
 
-    const open = node
-      .invoke(
-        NODE_SPEECH_CAPABILITIES.streamOpen,
-        { streamId, format, ...transcribeParams(options) },
-        {
+    const result = (async (): Promise<HelperTranscript> => {
+      const node = await this.#node();
+      const params: Record<string, unknown> = {
+        source: "push",
+        format: {
+          encoding: format.encoding,
+          sampleRate: format.sampleRate,
+          channels: format.channels,
+        },
+        volatile,
+        maxDurationMs: NODE_SPEECH_LIMITS.maxDurationMs,
+      };
+      if (options.language !== undefined) params.locale = options.language;
+      const vocab = helperVocabulary(options.vocabulary);
+      if (vocab.length > 0) params.vocabulary = vocab;
+      const pump = this.#pump(node, audio, streamId, abort);
+      // Fail the consumer as soon as a push fails; do not wait for the node to honour the abort.
+      void pump.then((err) => {
+        if (err !== undefined) segments.fail(err);
+      });
+      let res: NodeInvokeResult;
+      try {
+        res = await node.invoke(NODE_SPEECH_CAPABILITIES.transcribeStream, params, {
           ...this.#invokeOptions(abort.signal),
           onEvent: (e) => {
-            const seg = (e.data as Partial<SegmentEvent> | null)?.segment;
-            if (seg !== undefined) segments.push(seg);
+            const ev = e.data as HelperEvent | null;
+            if (ev?.type === "speech.started" && typeof ev.streamId === "string") {
+              resolveId(ev.streamId);
+            } else if (ev?.type === "speech.partial" || ev?.type === "speech.final") {
+              segments.push(segment(ev));
+            }
           },
-        },
-      )
-      .then(
-        (res) => {
-          if (res.ok) segments.end();
-          else segments.fail(toError(res));
-        },
-        (err: unknown) => segments.fail(err),
-      );
+        });
+      } finally {
+        // Settles the pump: once the helper call ended, no stream id will arrive.
+        rejectId(new PsycheError("internal", "the Mac node ended the stream before it started"));
+      }
+      const pumpError = await pump;
+      if (!res.ok) throw toError(res);
+      if (pumpError !== undefined && !abort.signal.aborted) throw pumpError;
+      return (res.result ?? {}) as HelperTranscript;
+    })();
 
-    const pump = (async () => {
+    result.then(
+      () => segments.end(),
+      (err: unknown) => segments.fail(err),
+    );
+    void result
+      .finally(() => options.signal?.removeEventListener("abort", onAbort))
+      .catch(() => {});
+
+    async function* guarded(): AsyncIterable<TranscriptSegment> {
       try {
-        for await (const chunk of audio) {
-          if (abort.signal.aborted || segments.ended) return;
+        yield* segments;
+      } finally {
+        // Consumer stopped early: cancel the helper stream (node.cancel via the abort signal).
+        if (!segments.ended) abort.abort();
+      }
+    }
+    return { segments: guarded(), result };
+  }
+
+  /** Pushes audio once the helper announced its stream id; returns the first error, if any. */
+  async #pump(
+    node: NodeClient,
+    audio: AsyncIterable<Uint8Array>,
+    streamIdP: Promise<string>,
+    abort: AbortController,
+  ): Promise<unknown> {
+    let streamId: string;
+    try {
+      streamId = await streamIdP;
+    } catch {
+      // The helper call ended before `speech.started`; its own result carries the error.
+      return undefined;
+    }
+    try {
+      for await (const chunk of audio) {
+        if (abort.signal.aborted) return undefined;
+        for (const part of chunked1(chunk, NODE_SPEECH_LIMITS.maxPushBytes)) {
           unwrap(
             await node.invoke(
-              NODE_SPEECH_CAPABILITIES.streamPush,
-              { streamId, audio: toBase64(chunk) },
+              NODE_SPEECH_CAPABILITIES.audioPush,
+              { streamId, data: toBase64(part) },
               this.#invokeOptions(abort.signal),
             ),
           );
         }
-        if (abort.signal.aborted) return;
-        unwrap(
-          await node.invoke(
-            NODE_SPEECH_CAPABILITIES.streamFinish,
-            { streamId },
-            this.#invokeOptions(abort.signal),
-          ),
-        );
-      } catch (err) {
-        segments.fail(err);
-        abort.abort();
       }
-    })();
-
-    try {
-      yield* sequenceSegments(segments, abort.signal);
-    } finally {
-      options.signal?.removeEventListener("abort", onAbort);
-      if (!segments.ended) abort.abort();
-      await Promise.allSettled([open, pump]);
+      if (abort.signal.aborted) return undefined;
+      unwrap(
+        await node.invoke(
+          NODE_SPEECH_CAPABILITIES.audioPush,
+          { streamId, data: "", final: true },
+          this.#invokeOptions(abort.signal),
+        ),
+      );
+      return undefined;
+    } catch (err) {
+      abort.abort();
+      return err;
     }
   }
 
   async *synthesize(text: string, options: SynthesizeOptions = {}): AsyncIterable<AudioChunk> {
     const node = await this.#node();
-    const chunks = new AsyncQueue<AudioChunk>();
-    const params: Record<string, unknown> = { text };
-    if (options.voice !== undefined) params.voice = options.voice;
-    if (options.format !== undefined) params.format = options.format;
-    let emitted = false;
-    const done = node
-      .invoke(NODE_SPEECH_CAPABILITIES.synthesize, params, {
-        ...this.#invokeOptions(options.signal),
-        onEvent: (e) => {
-          const ev = e.data as Partial<AudioEvent> | null;
-          if (ev?.audio === undefined || ev.format === undefined) return;
-          emitted = true;
-          chunks.push({ data: fromBase64(ev.audio), format: ev.format });
-        },
-      })
-      .then(
-        (res) => {
-          if (!res.ok) return chunks.fail(toError(res));
-          // A helper may return the whole clip in the result instead of streaming it.
-          const r = res.result as Partial<AudioEvent> | null;
-          if (!emitted && r?.audio !== undefined && r.format !== undefined) {
-            chunks.push({ data: fromBase64(r.audio), format: r.format });
-          }
-          chunks.end();
-        },
-        (err: unknown) => chunks.fail(err),
+    const encoding = options.format?.encoding ?? "pcm_s16le";
+    if (encoding !== "pcm_s16le" && encoding !== "pcm_f32le") {
+      throw new PsycheError(
+        "invalid_params",
+        "the Mac node synthesizes PCM; transcode for other formats",
       );
-    try {
-      yield* chunks;
-    } finally {
-      await done;
+    }
+    for (const piece of packText(text, NODE_SPEECH_LIMITS.maxSynthesisText)) {
+      const chunks = new AsyncQueue<AudioChunk>();
+      const params: Record<string, unknown> = { text: piece, format: encoding };
+      if (options.voice !== undefined) params.voice = options.voice;
+      const done = node
+        .invoke(NODE_SPEECH_CAPABILITIES.synthesize, params, {
+          ...this.#invokeOptions(options.signal),
+          onEvent: (e) => {
+            const ev = e.data as HelperEvent | null;
+            if (ev?.type !== "speech.audio" || ev.data === undefined || ev.format === undefined)
+              return;
+            chunks.push({ data: fromBase64(ev.data), format: ev.format });
+          },
+        })
+        .then(
+          (res) => (res.ok ? chunks.end() : chunks.fail(toError(res))),
+          (err: unknown) => chunks.fail(err),
+        );
+      try {
+        yield* chunks;
+      } finally {
+        await done;
+      }
     }
   }
 
@@ -216,10 +324,10 @@ export class NodeSpeechEngine implements SpeechEngine {
     if (node === undefined) return [];
     const res = await node.invoke(NODE_SPEECH_CAPABILITIES.voices, {}, this.#invokeOptions());
     if (!res.ok) return [];
-    return ((res.result as { voices?: Voice[] } | null)?.voices ?? []).map((v) => ({
-      ...v,
-      local: true,
-    }));
+    const list = (
+      res.result as { voices?: { id: string; name: string; language: string }[] } | null
+    )?.voices;
+    return (list ?? []).map((v) => ({ id: v.id, name: v.name, language: v.language, local: true }));
   }
 
   #invokeOptions(signal?: AbortSignal): { signal?: AbortSignal; timeoutMs?: number } {
@@ -230,13 +338,53 @@ export class NodeSpeechEngine implements SpeechEngine {
   }
 }
 
-function transcribeParams(options: TranscribeOptions): Record<string, unknown> {
-  const p: Record<string, unknown> = {};
-  if (options.language !== undefined) p.language = options.language;
-  if (options.vocabulary !== undefined && options.vocabulary.length > 0) {
-    p.vocabulary = options.vocabulary;
+function segment(ev: HelperEvent | TranscriptSegment): TranscriptSegment {
+  const s: TranscriptSegment = {
+    text: ev.text ?? "",
+    startMs: ev.startMs ?? 0,
+    endMs: ev.endMs ?? ev.startMs ?? 0,
+    final: ev.final === true,
+  };
+  if (typeof ev.confidence === "number") s.confidence = ev.confidence;
+  return s;
+}
+
+/** Vocabulary within the helper's limits (≤ 100 entries of ≤ 64 characters). */
+function helperVocabulary(vocab: readonly string[] | undefined): string[] {
+  const out: string[] = [];
+  for (const raw of vocab ?? []) {
+    const t = raw.trim();
+    if (t === "" || t.length > NODE_SPEECH_LIMITS.maxVocabularyEntryLength || out.includes(t))
+      continue;
+    out.push(t);
+    if (out.length === NODE_SPEECH_LIMITS.maxVocabularyEntries) break;
   }
-  return p;
+  return out;
+}
+
+/** Splits text at sentence boundaries into requests the helper accepts. */
+function packText(text: string, max: number): string[] {
+  if (text.length <= max) return [text];
+  const out: string[] = [];
+  let cur = "";
+  for (const s of splitSentences(text, max)) {
+    if (cur !== "" && cur.length + 1 + s.length > max) {
+      out.push(cur);
+      cur = s;
+    } else {
+      cur = cur === "" ? s : `${cur} ${s}`;
+    }
+  }
+  if (cur !== "") out.push(cur);
+  return out;
+}
+
+function* chunked1(data: Uint8Array, size: number): Iterable<Uint8Array> {
+  for (let off = 0; off < data.byteLength; off += size) yield data.subarray(off, off + size);
+}
+
+async function* chunked(data: Uint8Array, size: number): AsyncIterable<Uint8Array> {
+  yield* chunked1(data, size);
 }
 
 function toError(res: NodeInvokeResult): PsycheError {

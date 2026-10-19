@@ -25,7 +25,7 @@ Speech-to-text and text-to-speech behind the `SpeechEngine` contract, engine sel
 
 Transcription order (setting `speech.stt.order`, default `["mac-node", "whisper", "web-speech"]`):
 
-1. **mac-node**: a paired, online Mac helper offering `speech.transcribe` (SpeechAnalyzer on macOS 26+, FluidAudio Parakeet or WhisperKit on 14–15).
+1. **mac-node**: a paired, online Mac helper offering `speech.transcribe_stream` (SpeechAnalyzer / DictationTranscriber on macOS 26+; on-device SFSpeechRecognizer on macOS 15 until spike 03 picks Parakeet or WhisperKit).
 2. **whisper**: whisper.cpp on the Gateway host, when `whisper-cli` and the model are present.
 3. **web-speech**: only when the caller is the web client (`location: "client"`); Electron has no Web Speech backend and channels or the agent cannot use a browser engine.
 
@@ -39,7 +39,7 @@ Measured on an Apple M5 (16 GB, macOS 27.0.1) on 2026-10-19 unless marked otherw
 
 | Engine | Where | Streaming | Latency / speed | Memory | Notes |
 | --- | --- | --- | --- | --- | --- |
-| SpeechAnalyzer (Mac node) | macOS 26+ helper | yes (volatile + final) | not measured here (spike 03) | system-managed, outside the process | Best default on a Mac; S14 |
+| SpeechAnalyzer (Mac node) | macOS 26+ helper | yes (volatile + final) | first partial ≈ 1.04 s (SpeechTranscriber) / 0.75 s (DictationTranscriber), finalize 55–115 ms (S14 bench, M5) | helper ≈ 42 MiB; models system-managed | Best default on a Mac; S14 |
 | Parakeet / WhisperKit (Mac node) | macOS 14–15 helper | yes | ~0.19 s short clip (Parakeet, research KQ6) | 0.3–1.5 GB | S14 |
 | whisper.cpp `tiny.en` | Gateway | chunked (partial every 1 s of speech) | 4.5 s clip in 0.48 s for two utterances (Metal, model reloaded per call) | ~273 MB | Drops speech after long pauses unless split (we split) |
 | whisper.cpp `base.en` (default) | Gateway | chunked | not measured; ~2× tiny | ~388 MB | Default model id `whisper-base.en` |
@@ -109,7 +109,7 @@ Synthesize once to PCM, then encode per channel. Caps are upload limits; when a 
 ## Stubbed or open
 
 - `voice.*` and `speech.readAloud` method/event schemas are not in `packages/protocol` yet; this package defines matching local types (`src/voice.ts`, `src/readAloud.ts`) and the Gateway (S01) wires them once the protocol change lands.
-- Node capability shapes for `speech.*` are a proposal to S14 (see `src/engines/node.ts`).
+- `NodeSpeechEngine` follows the helper's capability spec in devmello/psyche#47 (`speech.transcribe_stream` with `source: "push"`, `speech.audio_push`, `speech.synthesize`, `speech.voices`), tested against a fake helper; not yet run against the real helper because #47 is unmerged.
 - Moonshine is not wired: there is no maintained Node binding; `@huggingface/transformers` would work but pulls `sharp` (LGPL libvips).
 - The Library writer and message reader for read-aloud are injected interfaces; no contract exists for them yet.
 - M2: voice mode with barge-in (Q5), per-persona voice selection UI, diarization.

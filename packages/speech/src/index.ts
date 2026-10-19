@@ -94,7 +94,7 @@ export function createSpeechStack(options: SpeechStackOptions = {}): SpeechStack
       location: "node",
       supports: { transcribe: true, stream: true, synthesize: true },
       engine: node,
-      available: () => node.available(NODE_SPEECH_CAPABILITIES.transcribe),
+      available: () => node.available(NODE_SPEECH_CAPABILITIES.transcribeStream),
     });
   }
 
