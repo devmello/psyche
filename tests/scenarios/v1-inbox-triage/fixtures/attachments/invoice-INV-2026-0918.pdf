@@ -1,0 +1,50 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 535 >>
+stream
+BT
+/F1 11 Tf
+14 TL
+72 720 Td
+(CloudHost Inc. - INVOICE) Tj T*
+(Invoice number: INV-2026-0918) Tj T*
+(Invoice date: 2026-10-16    Due: 2026-11-15) Tj T*
+(Billed to: Avery Lin <owner@example.com>) Tj T*
+(Period: 2026-09-01 to 2026-09-30) Tj T*
+(Compute \(2 small instances\)      USD 64.00) Tj T*
+(Object storage \(120 GB\)          USD 14.40) Tj T*
+(Bandwidth \(80 GB\)                USD  8.00) Tj T*
+(Total due                        USD 86.40) Tj T*
+(Paid automatically with the card on file \(ending 4242\) on 2026-11-15.) Tj T*
+ET
+endstream
+endobj
+6 0 obj
+<< /Title (Invoice INV-2026-0918) /Producer (psyche test fixture) >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000311 00000 n 
+0000000896 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R /Info 6 0 R >>
+startxref
+980
+%%EOF
