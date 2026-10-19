@@ -75,7 +75,7 @@ The integrator (S00 after bootstrap) merges in this order whenever PRs are ready
 | --- | --- | --- | --- | --- | --- |
 | S00 | Bootstrap, then Integrator | root configs, `packages/protocol`, `packages/db` v0, `packages/testing` skeleton, CI | A1, A3, A4, A5 | — | `prompts/s00-bootstrap-integrator.md` |
 | S01 | Gateway core | `apps/gateway`, `packages/db` evolution | A2, N14, E1/E2/E3 persistence and session controller | agent-core, tasks, permissions, memory | `prompts/s01-gateway-core.md` |
-| S02 | Agent runtime | `packages/agent-core` | S21–C5, C8, C9, C11, B7 (C6, C7) | model-router, permissions, memory | `prompts/s02-agent-runtime.md` |
+| S02 | Agent runtime | `packages/agent-core` | C1–C5, C8, C9, C11, B7 (C6, C7) | model-router, permissions, memory | `prompts/s02-agent-runtime.md` |
 | S03 | Model router | `packages/model-router` | B1–B6 | vault | `prompts/s03-model-router.md` |
 | S04 | Tasks and scheduler | `packages/tasks`, `packages/scheduler` | D1–D3, D6, O1, O4 (O2, O3) | agent-core, permissions, notifications | `prompts/s04-tasks-scheduler.md` |
 | S05 | Permissions and audit | `packages/permissions`, `packages/audit` | F1–F12, U3 | vault (for fill approvals), notifications | `prompts/s05-permissions-audit.md` |

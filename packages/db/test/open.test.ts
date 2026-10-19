@@ -1,0 +1,79 @@
+import { statSync } from "node:fs";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
+import { openDb } from "../src/index.ts";
+import { makeTmpDir, memoryDb } from "./helpers.ts";
+
+const TABLES = [
+  "devices",
+  "messages",
+  "nodes",
+  "pairing_requests",
+  "runs",
+  "settings",
+  "threads",
+  "tool_calls",
+  "usage",
+];
+
+function tableNames(db: ReturnType<typeof memoryDb>): string[] {
+  return (
+    db.sqlite
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '_migrations' ORDER BY name",
+      )
+      .all() as { name: string }[]
+  ).map((r) => r.name);
+}
+
+describe("openDb", () => {
+  let cleanup: (() => void) | undefined;
+  afterEach(() => {
+    cleanup?.();
+    cleanup = undefined;
+  });
+
+  it("creates schema v0 in memory with foreign keys on", () => {
+    const db = memoryDb();
+    expect(tableNames(db)).toEqual(TABLES);
+    expect(db.sqlite.pragma("foreign_keys", { simple: true })).toBe(1);
+    expect(db.sqlite.pragma("busy_timeout", { simple: true })).toBe(5000);
+    expect(db.sqlite.pragma("journal_mode", { simple: true })).toBe("memory");
+    db.close();
+  });
+
+  it("bundles FTS5 (needed by S06/S01 search)", () => {
+    const db = memoryDb({ migrate: false });
+    db.sqlite.exec("CREATE VIRTUAL TABLE t USING fts5(body)");
+    db.close();
+  });
+
+  it("creates an on-disk db in WAL mode with private modes", () => {
+    const tmp = makeTmpDir();
+    cleanup = tmp.cleanup;
+    const dir = join(tmp.dir, "home", "state");
+    const file = join(dir, "psyche.sqlite");
+    const db = openDb(file);
+    expect(tableNames(db)).toEqual(TABLES);
+    expect(db.path).toBe(file);
+    expect(db.sqlite.pragma("journal_mode", { simple: true })).toBe("wal");
+    expect(db.sqlite.pragma("synchronous", { simple: true })).toBe(1); // NORMAL
+    db.sqlite.prepare("INSERT INTO settings VALUES ('a', '1', 'x', 'x')").run();
+    if (process.platform !== "win32") {
+      expect(statSync(file).mode & 0o777).toBe(0o600);
+      expect(statSync(`${file}-wal`).mode & 0o777).toBe(0o600);
+      expect(statSync(dir).mode & 0o777).toBe(0o700);
+      expect(statSync(join(tmp.dir, "home")).mode & 0o777).toBe(0o700);
+    }
+    db.close();
+
+    const again = openDb(file);
+    expect(again.migrate()).toEqual({ applied: [], skipped: ["202610182200_db_init"] });
+    again.close();
+
+    const ro = openDb(file, { readonly: true });
+    expect(ro.sqlite.readonly).toBe(true);
+    expect(tableNames(ro)).toEqual(TABLES);
+    ro.close();
+  });
+});

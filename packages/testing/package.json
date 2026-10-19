@@ -1,0 +1,35 @@
+{
+  "name": "@psyche/testing",
+  "version": "0.0.0",
+  "private": true,
+  "description": "In-memory fakes, fixtures, conformance suites and the secret-leak checker",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./conformance": {
+      "types": "./src/conformance/index.ts",
+      "default": "./src/conformance/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@psyche/protocol": "workspace:*",
+    "@sinclair/typebox": "0.34.52",
+    "ulid": "3.0.2"
+  },
+  "peerDependencies": {
+    "vitest": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@psyche/protocol",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Psyche protocol: TypeBox schemas, WS frames, method/event registry, node and browser-bridge protocol, codegen and the cross-package contract interfaces",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./schema.json": "./generated/schema.json"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "gen": "tsx scripts/gen.ts",
+    "gen:check": "tsx scripts/gen.ts --check"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "0.34.52"
+  },
+  "devDependencies": {
+    "quicktype-core": "26.0.0"
+  }
+}

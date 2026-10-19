@@ -1,0 +1,26 @@
+{
+  "name": "@psyche/ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "React components: message blocks, cards, screens, theme.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.tsx",
+      "default": "./src/index.tsx"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@psyche/protocol": "workspace:*",
+    "react": "19.3.1"
+  },
+  "devDependencies": {
+    "@psyche/testing": "workspace:*",
+    "@types/react": "19.3.0"
+  }
+}

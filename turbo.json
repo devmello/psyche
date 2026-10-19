@@ -1,0 +1,25 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "stream",
+  "tasks": {
+    "gen": {
+      "outputs": ["generated/**"]
+    },
+    "build": {
+      "dependsOn": ["^build", "gen"],
+      "outputs": ["dist/**", "out/**", ".vite/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck", "gen"],
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["gen"],
+      "outputs": []
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

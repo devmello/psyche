@@ -1,0 +1,36 @@
+{
+  "name": "psyche",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Open-source, self-hosted personal AI agent for macOS and your own server",
+  "license": "Apache-2.0",
+  "type": "module",
+  "packageManager": "pnpm@12.4.1",
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=12.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "typecheck": "turbo run typecheck",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "protocol:gen": "pnpm --filter @psyche/protocol run gen",
+    "protocol:check": "pnpm --filter @psyche/protocol run gen:check",
+    "changeset": "changeset"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@changesets/cli": "3.0.3",
+    "@types/node": "24.19.2",
+    "tsx": "4.23.15",
+    "turbo": "2.11.9",
+    "typescript": "5.9.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.5"
+  }
+}

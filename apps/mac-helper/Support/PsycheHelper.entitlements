@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Placeholder entitlements for com.psyche.helper (hardened runtime, Developer ID; not sandboxed).
+  Not wired into SwiftPM. S14 owns the final set: keychain access group, and
+  com.apple.security.virtualization for VM mode (M3). TCC grants key on the code signature, so dev
+  builds must be signed with a stable identity (security §12).
+-->
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.automation.apple-events</key>
+  <true/>
+</dict>
+</plist>

@@ -1,0 +1,36 @@
+{
+  "name": "@psyche/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Electron desktop shell",
+  "productName": "Psyche",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": ".vite/build/main.cjs",
+  "scripts": {
+    "dev": "electron-forge start",
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@psyche/protocol": "workspace:*",
+    "@psyche/ui": "workspace:*",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "8.0.1",
+    "@electron-forge/maker-zip": "8.0.1",
+    "@electron-forge/plugin-fuses": "8.0.1",
+    "@electron-forge/plugin-vite": "8.0.1",
+    "@electron-forge/shared-types": "8.0.1",
+    "@electron/fuses": "2.1.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "electron": "44.9.0"
+  }
+}
