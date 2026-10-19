@@ -38,6 +38,12 @@ import {
   type ToolUpdate,
   type Usage,
 } from "@psyche/protocol";
+import {
+  type HarnessAction,
+  type HarnessGateResult,
+  HarnessRegistry,
+  harnessDelegateTool,
+} from "./builtins/harness.ts";
 import { memoryTool, notifyTool, scheduleTool, taskStartTool } from "./builtins/services.ts";
 import {
   type SpawnSubagentInput,
@@ -147,6 +153,8 @@ export interface AgentLoopOptions {
    * `model`, else `utilityModel`, else the run's model.
    */
   evaluator?: { enabled?: boolean; model?: ModelRef; maxReopens?: number };
+  /** Coding harness plugins (C10); `harness.delegate` is offered when one is registered. */
+  harnesses?: HarnessRegistry;
   /** Every event of a subagent run, for the Subagents pane's view-only transcript (C6). */
   onSubagentEvent?: (info: SubagentInfo, event: AgentEvent) => void;
 }
@@ -212,6 +220,9 @@ interface RunState {
   children: number;
   /** Times the evaluator reopened this run (C7). */
   reopens: number;
+  /** Harness actions gated in this run, and those allowed but not yet reported (C10). */
+  harnessActions: number;
+  harnessPending: Map<string, Gated>;
 }
 
 interface Gated {
@@ -281,6 +292,7 @@ class RunEnd extends Error {
 export class PsycheAgentLoop implements AgentLoop {
   readonly registry: AgentToolRegistry;
   readonly hooks: HookRegistry;
+  readonly harnesses: HarnessRegistry;
   #o: AgentLoopOptions;
   #clock: Clock;
   #ids: IdSource;
@@ -304,6 +316,7 @@ export class PsycheAgentLoop implements AgentLoop {
     this.hooks =
       options.hooks instanceof HookRegistry ? options.hooks : new HookRegistry(options.hooks);
     this.registry = options.registry ?? new AgentToolRegistry();
+    this.harnesses = options.harnesses ?? new HarnessRegistry();
     if (options.builtins !== false) this.#registerBuiltins();
   }
 
@@ -316,6 +329,7 @@ export class PsycheAgentLoop implements AgentLoop {
     if (o.tasks !== undefined) tools.push(taskStartTool(o.tasks));
     if (o.scheduler !== undefined) tools.push(scheduleTool(o.scheduler, tz));
     if (o.notifier !== undefined) tools.push(notifyTool(o.notifier));
+    tools.push(harnessDelegateTool(this.harnesses));
     for (const tool of tools) {
       if (this.registry.get(tool.spec.name) === undefined) this.registry.register(tool);
     }
@@ -458,6 +472,8 @@ export class PsycheAgentLoop implements AgentLoop {
       emit,
       children: 0,
       reopens: 0,
+      harnessActions: 0,
+      harnessPending: new Map(),
       ...(child === undefined
         ? {}
         : { subagent: { parentRunId: child.parent.runId, maxSteps: child.maxSteps } }),
@@ -756,6 +772,11 @@ export class PsycheAgentLoop implements AgentLoop {
       subagent: run.subagent !== undefined,
       ...(toggles === undefined ? {} : { toggles }),
     });
+    if (this.harnesses.list().length === 0) {
+      // Offered only once a coding harness is installed (C10).
+      tools = tools.filter((t) => t.spec.name !== "harness.delegate");
+      hidden.set("harness.delegate", "no coding harness is installed");
+    }
     const ctx = await assembleContext({
       basePrompt: this.#o.basePrompt ?? DEFAULT_BASE_PROMPT,
       ...(this.#o.memory === undefined ? {} : { memory: this.#o.memory }),
@@ -1058,9 +1079,10 @@ export class PsycheAgentLoop implements AgentLoop {
   async #gate(
     run: RunState,
     call: { id: string; name: string; input: unknown },
+    override?: AgentToolRegistration,
   ): Promise<GateOutcome> {
     const startedAt = toIso(this.#clock.now());
-    const reg = run.active.get(call.name);
+    const reg = override ?? run.active.get(call.name);
     if (reg === undefined) {
       const why = run.hidden.get(call.name);
       return this.#blocked(
@@ -1451,6 +1473,10 @@ export class PsycheAgentLoop implements AgentLoop {
       },
       ask: (questions) => this.#ask(run, questions),
       spawnSubagent: (input) => this.#spawn(run, toolCallId, input),
+      gateHarnessAction: (harnessId, callId, action) =>
+        this.#gateHarness(run, harnessId, callId, action),
+      harnessActionDone: (actionId, outcome, summary) =>
+        this.#harnessDone(run, actionId, outcome, summary),
       exitPlan: (plan) => this.#exitPlan(run, toolCallId, plan),
     };
   }
@@ -1588,6 +1614,105 @@ export class PsycheAgentLoop implements AgentLoop {
       tainted: child.taint,
       steps,
     };
+  }
+
+  /**
+   * C10: one action of an embedded harness, gated exactly like a native call named
+   * `harness__<id>__<tool>`: hooks, broker, approval card, binding check. The session is
+   * treated as tainted (the harness reads repository files and the web).
+   */
+  async #gateHarness(
+    run: RunState,
+    harnessId: string,
+    callId: string,
+    action: HarnessAction,
+  ): Promise<HarnessGateResult> {
+    run.harnessActions += 1;
+    const actionId = `${callId}:${run.harnessActions}`;
+    if (!run.taintSources.some((s) => s.sourceKind === "harness")) {
+      this.#taint(run, { sourceKind: "harness", toolCallId: callId });
+    }
+    const name = `harness__${harnessId}__${action.tool}`.slice(0, 128);
+    const reg: AgentToolRegistration = {
+      spec: {
+        name,
+        description: `${harnessId} ${action.tool}`,
+        inputSchema: { type: "object" },
+        sideEffect: action.sideEffect,
+        provenanceOut: "untrusted",
+        ...(action.targetKind === undefined ? {} : { targetKind: action.targetKind }),
+      },
+      execute: () =>
+        Promise.reject(new PsycheError("internal", "harness actions run in the harness")),
+      describeCall: () => ({
+        summary: action.summary,
+        ...(action.target === undefined ? {} : { target: action.target }),
+      }),
+    };
+    this.#toolEvent(run, actionId, name, "pending", action.summary);
+    const outcome = await this.#gate(run, { id: actionId, name, input: action.input }, reg);
+    if ("done" in outcome) {
+      const part = outcome.done;
+      const output = part.type === "tool_result" ? (part.output as { error?: string }) : {};
+      return { allowed: false, actionId, reason: output.error ?? "not allowed" };
+    }
+    run.harnessPending.set(actionId, outcome.proceed);
+    this.#toolEvent(run, actionId, name, "running", action.summary);
+    return {
+      allowed: true,
+      actionId,
+      ...(outcome.proceed.approvalId === undefined
+        ? {}
+        : { approvalId: outcome.proceed.approvalId }),
+    };
+  }
+
+  async #harnessDone(
+    run: RunState,
+    actionId: string,
+    outcome: "ok" | "failed" | "uncertain",
+    summary?: string,
+  ): Promise<void> {
+    const g = run.harnessPending.get(actionId);
+    if (g === undefined)
+      throw new PsycheError("not_found", `no allowed harness action ${actionId}`);
+    run.harnessPending.delete(actionId);
+    const level1 = summary ?? g.desc.summary ?? g.call.name;
+    let receiptId: string | undefined;
+    if (SEVERITY[g.sideEffect] >= SEVERITY.write) {
+      const receipt = await this.#o.broker.recordReceipt({
+        kind: g.approvalKind ?? g.call.name,
+        outcome,
+        summary: level1,
+        taskId: run.taskId ?? null,
+        toolCallId: actionId,
+        approvalId: g.approvalId ?? null,
+      });
+      receiptId = receipt.id;
+      this.#block(run, { type: "receipt", receiptId });
+    }
+    const status: ToolCallStatus =
+      outcome === "ok" ? "ok" : outcome === "failed" ? "failed" : "uncertain";
+    this.#toolEvent(run, actionId, g.call.name, status, level1);
+    const result: ToolResult = {
+      output: { outcome, summary: level1 },
+      ...(outcome === "ok" ? {} : { isError: true }),
+      provenance: "untrusted",
+      ...(receiptId === undefined ? {} : { receiptId }),
+    };
+    await this.#persist(
+      run,
+      g,
+      status,
+      {
+        type: "tool_result",
+        callId: actionId,
+        name: g.call.name,
+        output: result.output,
+        provenance: "untrusted",
+      },
+      result,
+    );
   }
 
   /** Subagents of a thread (or all), newest last, for the Subagents pane (C6). */

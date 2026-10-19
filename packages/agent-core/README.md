@@ -125,6 +125,16 @@ const off = loop.registry.register({
 - Budgets: `subagentMaxSteps` (20) per child; the child's tokens are added to the parent's `maxRunTokens`; at most `maxConcurrentSubagents` (4) at once. Parallel spawns in one model response run concurrently.
 - Cancelling the parent cancels its children. `subagents(threadId)` lists them; each has its own thread (`<parent>:sub:<id>`) whose `threadState` is the view-only transcript, and `onSubagentEvent(info, event)` streams their events for the Subagents pane.
 
+### Harness plugins (C10)
+
+`loop.harnesses.register(plugin)` installs a coding harness (Claude Code, Codex, pi). A `HarnessPlugin` is `{id, name, available(), run(ctx)}`; its adapter turns the harness's own approval hook (Agent SDK `canUseTool`, Codex approval policy, pi `beforeToolCall`) into `ctx.gate(action)`, where the plugin classifies each action as `{tool, input, sideEffect, target?, summary}`.
+
+- `harness.delegate {harness, cwd, brief}` (side effect `write`, target the folder) is offered only when a harness is installed, and never in plan mode or to subagents that would need approval.
+- Every action is gated exactly like a native call named `harness__<id>__<tool>`: hooks, `decide`, the same approval card, binding verification. A denied action comes back to the harness as `{allowed: false, reason}`.
+- The session is tainted from its first action (the harness reads repository files and the web), so writes to targets the owner did not name ask.
+- `ctx.actionDone(actionId, outcome)` records a receipt for write+ actions; the report returns to the model as `untrusted`.
+- Cancelling the run aborts the session through `ctx.signal`.
+
 ### Evaluator (C7)
 
 When a run with a `taskId` would end `final` and the task has receipts, the loop checks them against the task's goal before the Gateway's task worker can mark it done (architecture §4.3 "Verification"):
@@ -143,7 +153,7 @@ When a run with a `taskId` would end `final` and the task has receipts, the loop
 
 ## What is stubbed or deferred
 
-- Harness plugins (C10) are M2 and come next.
+- No concrete harness adapter ships yet: the Claude Code / Codex / pi adapters are plugins built on this seam.
 - `memory` `delete` / `rename` return `not_implemented` until `MemoryStore` has them (S07).
 - The default `ThreadStateStore` is in memory; the Gateway (S01) persists threads.
 - Tool names with dots (`task.start`) are kept; the model router (S03) maps names a provider rejects.
