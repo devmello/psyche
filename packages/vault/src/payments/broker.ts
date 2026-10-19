@@ -248,13 +248,10 @@ export class PaymentBroker {
     if (!/^[a-z]{3}$/.test(input.currency))
       fail("invalid_params", "currency must be a lowercase ISO 4217 code");
     exponent(input.currency.toUpperCase());
-    let url: URL;
-    try {
-      url = new URL(input.merchantUrl);
-    } catch {
-      return fail("invalid_params", "merchantUrl must be a URL");
+    if (!URL.canParse(input.merchantUrl)) fail("invalid_params", "merchantUrl must be a URL");
+    if (new URL(input.merchantUrl).protocol !== "https:") {
+      fail("invalid_params", "merchantUrl must be https");
     }
-    if (url.protocol !== "https:") fail("invalid_params", "merchantUrl must be https");
     if (input.merchantName.trim().length === 0 || input.merchantName.length > 200) {
       fail("invalid_params", "merchantName is required");
     }
