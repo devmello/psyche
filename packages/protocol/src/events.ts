@@ -183,6 +183,21 @@ export const Events = {
     payload: Type.Object({ goal: Goal }),
     description: "A goal was created, confirmed, changed or archived.",
   }),
+  "feed.updated": defineEvent({
+    payload: Type.Object({ posts: Type.Array(FeedPost), briefingId: Type.Optional(Id) }),
+    description:
+      "A whole brief or briefing batch was generated (clients refresh the Feed once instead of per feed.post).",
+  }),
+  "notification.updated": defineEvent({
+    payload: Type.Object({ notification: Notification }),
+    description:
+      "A notification changed: read, re-delivered, or replaced by a de-duplicated notify (same id).",
+  }),
+  "notification.resolved": defineEvent({
+    payload: Type.Object({ notification: Notification }),
+    description:
+      "A notification was resolved (by the user, an action, a superseding state or restart reconciliation).",
+  }),
   "automation.updated": defineEvent({
     payload: Type.Object({ automation: Automation }),
     description: "An automation was created, edited, paused, run or deleted (`enabled: false`).",
