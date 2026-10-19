@@ -139,6 +139,11 @@
         "payload": "#/$defs/ChatMessagePayload"
       },
       {
+        "description": "A vault item was added, edited, deleted, used, rotated or revoked; revocation invalidates connection-bound work.",
+        "name": "credential.updated",
+        "payload": "#/$defs/CredentialUpdatedPayload"
+      },
+      {
         "description": "A device was paired, changed scopes or was revoked.",
         "name": "device.updated",
         "payload": "#/$defs/DeviceUpdatedPayload"
@@ -232,6 +237,16 @@
         "description": "A tool call changed status (params are redacted; never secrets).",
         "name": "tool_call.updated",
         "payload": "#/$defs/ToolCallUpdatedPayload"
+      },
+      {
+        "description": "The vault locked and its key was zeroized.",
+        "name": "vault.locked",
+        "payload": "#/$defs/VaultLockedPayload"
+      },
+      {
+        "description": "The vault unlocked through a key slot.",
+        "name": "vault.unlocked",
+        "payload": "#/$defs/VaultUnlockedPayload"
       },
       {
         "description": "Gateway → desktop pane RPC for view.* (only the desktop shell acts on it).",
@@ -1064,6 +1079,30 @@
         "sideEffecting": false
       },
       {
+        "description": "Adds an item. Card numbers, CVVs, bank account numbers and government ids are refused (policy_denied). Side-effecting.",
+        "name": "vault.add",
+        "params": "#/$defs/VaultAddParams",
+        "result": "#/$defs/VaultAddResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Completes setup once the owner proves the recovery key is stored. Side-effecting.",
+        "name": "vault.confirmRecovery",
+        "params": "#/$defs/VaultConfirmRecoveryParams",
+        "result": "#/$defs/VaultConfirmRecoveryResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Overwrites and deletes an item. Side-effecting.",
+        "name": "vault.delete",
+        "params": "#/$defs/VaultDeleteParams",
+        "result": "#/$defs/VaultDeleteResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Returns one credential's metadata (never its value).",
         "name": "vault.get",
         "params": "#/$defs/VaultGetParams",
@@ -1072,10 +1111,66 @@
         "sideEffecting": false
       },
       {
+        "description": "Imports a CSV export from 1Password, Bitwarden or Chrome; refused rows are reported, never their values. Side-effecting.",
+        "name": "vault.import",
+        "params": "#/$defs/VaultImportParams",
+        "result": "#/$defs/VaultImportResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Lists credential metadata (never values).",
         "name": "vault.list",
         "params": "#/$defs/VaultListParams",
         "result": "#/$defs/VaultListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Locks the vault and zeroizes the key in memory. Side-effecting.",
+        "name": "vault.lock",
+        "params": "#/$defs/VaultLockParams",
+        "result": "#/$defs/VaultLockResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Creates the vault with a random key wrapped by the chosen slot plus a recovery key, returned once. Side-effecting.",
+        "name": "vault.setup",
+        "params": "#/$defs/VaultSetupParams",
+        "result": "#/$defs/VaultSetupResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Returns whether the vault exists and is locked, its key slots and idle lock time.",
+        "name": "vault.status",
+        "params": "#/$defs/VaultStatusParams",
+        "result": "#/$defs/VaultStatusResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Unlocks the vault through its key slot (Touch ID on macOS) or the recovery key. Side-effecting.",
+        "name": "vault.unlock",
+        "params": "#/$defs/VaultUnlockParams",
+        "result": "#/$defs/VaultUnlockResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Edits an item's name, bindings or secret fields. Side-effecting.",
+        "name": "vault.update",
+        "params": "#/$defs/VaultUpdateParams",
+        "result": "#/$defs/VaultUpdateResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Lists an item's recent fills and denials, newest first (default 50).",
+        "name": "vault.uses",
+        "params": "#/$defs/VaultUsesParams",
+        "result": "#/$defs/VaultUsesResult",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -4153,6 +4248,168 @@
         "useCount",
         "createdAt",
         "updatedAt"
+      ],
+      "type": "object"
+    },
+    "CredentialSecretInput": {
+      "additionalProperties": false,
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "totpSecret": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        },
+        "headerName": {
+          "type": "string"
+        },
+        "headerPrefix": {
+          "type": "string"
+        },
+        "privateKey": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "CredentialUpdatedPayload": {
+      "properties": {
+        "credentialId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "change": {
+          "enum": [
+            "created",
+            "updated",
+            "deleted",
+            "rotated",
+            "revoked",
+            "used"
+          ],
+          "type": "string"
+        },
+        "credential": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CredentialMeta"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ownerConnectorId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "credentialId",
+        "change"
+      ],
+      "type": "object"
+    },
+    "CredentialUse": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "credentialId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "approvalId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "executor": {
+          "enum": [
+            "browser",
+            "connector",
+            "sandbox",
+            "ssh"
+          ],
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "filled",
+            "denied",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "credentialId",
+        "executor",
+        "target",
+        "outcome",
+        "createdAt"
       ],
       "type": "object"
     },
@@ -10132,6 +10389,100 @@
       ],
       "type": "object"
     },
+    "VaultAddParams": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/CredentialKind"
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "slug": {
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+          "type": "string"
+        },
+        "bindings": {
+          "items": {
+            "$ref": "#/$defs/CredentialBinding"
+          },
+          "type": "array"
+        },
+        "secret": {
+          "$ref": "#/$defs/CredentialSecretInput"
+        },
+        "requireAuthEachUse": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "bindings",
+        "secret"
+      ],
+      "type": "object"
+    },
+    "VaultAddResult": {
+      "properties": {
+        "credential": {
+          "$ref": "#/$defs/CredentialMeta"
+        }
+      },
+      "required": [
+        "credential"
+      ],
+      "type": "object"
+    },
+    "VaultConfirmRecoveryParams": {
+      "properties": {
+        "lastGroup": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "lastGroup"
+      ],
+      "type": "object"
+    },
+    "VaultConfirmRecoveryResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultDeleteParams": {
+      "properties": {
+        "credentialId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "credentialId"
+      ],
+      "type": "object"
+    },
+    "VaultDeleteResult": {
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deleted"
+      ],
+      "type": "object"
+    },
     "VaultGetParams": {
       "properties": {
         "credentialId": {
@@ -10157,6 +10508,70 @@
       ],
       "type": "object"
     },
+    "VaultImportParams": {
+      "properties": {
+        "format": {
+          "enum": [
+            "auto",
+            "1password",
+            "bitwarden",
+            "chrome"
+          ],
+          "type": "string"
+        },
+        "csv": {
+          "maxLength": 10000000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "format",
+        "csv"
+      ],
+      "type": "object"
+    },
+    "VaultImportResult": {
+      "properties": {
+        "imported": {
+          "items": {
+            "$ref": "#/$defs/CredentialMeta"
+          },
+          "type": "array"
+        },
+        "skipped": {
+          "items": {
+            "properties": {
+              "row": {
+                "type": "integer"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "row",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "imported",
+        "skipped"
+      ],
+      "type": "object"
+    },
+    "VaultKeySlot": {
+      "enum": [
+        "keychain",
+        "safe_storage",
+        "key_file",
+        "recovery"
+      ],
+      "type": "string"
+    },
     "VaultListParams": {
       "properties": {
         "kind": {
@@ -10176,6 +10591,261 @@
       },
       "required": [
         "credentials"
+      ],
+      "type": "object"
+    },
+    "VaultLockParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "VaultLockResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultLockedPayload": {
+      "properties": {
+        "reason": {
+          "enum": [
+            "manual",
+            "idle",
+            "sleep",
+            "screen_lock",
+            "shutdown"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "reason",
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultSetupParams": {
+      "properties": {
+        "slot": {
+          "enum": [
+            "keychain",
+            "safe_storage",
+            "key_file"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "slot"
+      ],
+      "type": "object"
+    },
+    "VaultSetupResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        },
+        "recoveryKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "recoveryKey"
+      ],
+      "type": "object"
+    },
+    "VaultStatus": {
+      "properties": {
+        "state": {
+          "enum": [
+            "uninitialized",
+            "locked",
+            "unlocked"
+          ],
+          "type": "string"
+        },
+        "slots": {
+          "items": {
+            "$ref": "#/$defs/VaultKeySlot"
+          },
+          "type": "array"
+        },
+        "recoveryConfirmed": {
+          "type": "boolean"
+        },
+        "autoLockMinutes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "lockAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "itemCount": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "state",
+        "slots",
+        "recoveryConfirmed",
+        "autoLockMinutes",
+        "itemCount"
+      ],
+      "type": "object"
+    },
+    "VaultStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "VaultStatusResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultUnlockParams": {
+      "properties": {
+        "reason": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "recoveryKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "type": "object"
+    },
+    "VaultUnlockResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultUnlockedPayload": {
+      "properties": {
+        "via": {
+          "enum": [
+            "keychain",
+            "safe_storage",
+            "key_file",
+            "recovery"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "via",
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultUpdateParams": {
+      "properties": {
+        "credentialId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "bindings": {
+          "items": {
+            "$ref": "#/$defs/CredentialBinding"
+          },
+          "type": "array"
+        },
+        "secret": {
+          "$ref": "#/$defs/CredentialSecretInput"
+        },
+        "requireAuthEachUse": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "credentialId"
+      ],
+      "type": "object"
+    },
+    "VaultUpdateResult": {
+      "properties": {
+        "credential": {
+          "$ref": "#/$defs/CredentialMeta"
+        }
+      },
+      "required": [
+        "credential"
+      ],
+      "type": "object"
+    },
+    "VaultUsesParams": {
+      "properties": {
+        "credentialId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "credentialId"
+      ],
+      "type": "object"
+    },
+    "VaultUsesResult": {
+      "properties": {
+        "uses": {
+          "items": {
+            "$ref": "#/$defs/CredentialUse"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "uses"
       ],
       "type": "object"
     },

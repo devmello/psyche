@@ -943,6 +943,36 @@ export interface ConnectorsListResult {
     connectors: Connector[];
 }
 
+export interface CredentialUpdatedPayload {
+    change:            Change;
+    credential?:       CredentialMeta | null;
+    credentialId:      string;
+    ownerConnectorId?: null | string;
+}
+
+export type Change = "created" | "updated" | "deleted" | "rotated" | "revoked" | "used";
+
+export interface CredentialMeta {
+    bindings:          CredentialBinding[];
+    createdAt:         string;
+    id:                string;
+    kind:              CredentialKind;
+    lastUsedAt?:       null | string;
+    name:              string;
+    ownerConnectorId?: null | string;
+    slug:              string;
+    updatedAt:         string;
+    useCount:          number;
+}
+
+export interface CredentialBinding {
+    origin?:    string;
+    host?:      string;
+    connector?: string;
+}
+
+export type CredentialKind = "login" | "api_key" | "oauth_token" | "ssh_key" | "note" | "payment_link" | "signing_key";
+
 export interface DecidedBy {
     deviceId?: string;
     /**
@@ -2313,6 +2343,59 @@ export interface UsageRecord {
     runId?:     null | string;
 }
 
+export interface VaultAddParams {
+    bindings:            CredentialBinding[];
+    kind:                CredentialKind;
+    name:                string;
+    requireAuthEachUse?: boolean;
+    secret:              CredentialSecretInput;
+    slug?:               string;
+}
+
+export interface CredentialSecretInput {
+    headerName?:   string;
+    headerPrefix?: string;
+    password?:     string;
+    privateKey?:   string;
+    text?:         string;
+    token?:        string;
+    totpSecret?:   string;
+    username?:     string;
+}
+
+export interface VaultAddResult {
+    credential: CredentialMeta;
+}
+
+export interface VaultConfirmRecoveryParams {
+    lastGroup: string;
+}
+
+export interface VaultConfirmRecoveryResult {
+    status: VaultStatus;
+}
+
+export interface VaultStatus {
+    autoLockMinutes:   number;
+    itemCount:         number;
+    lockAt?:           null | string;
+    recoveryConfirmed: boolean;
+    slots:             VaultKeySlot[];
+    state:             State;
+}
+
+export type VaultKeySlot = "keychain" | "safe_storage" | "key_file" | "recovery";
+
+export type State = "uninitialized" | "locked" | "unlocked";
+
+export interface VaultDeleteParams {
+    credentialId: string;
+}
+
+export interface VaultDeleteResult {
+    deleted: boolean;
+}
+
 export interface VaultGetParams {
     credentialId: string;
 }
@@ -2321,26 +2404,22 @@ export interface VaultGetResult {
     credential: CredentialMeta;
 }
 
-export interface CredentialMeta {
-    bindings:          CredentialBinding[];
-    createdAt:         string;
-    id:                string;
-    kind:              CredentialKind;
-    lastUsedAt?:       null | string;
-    name:              string;
-    ownerConnectorId?: null | string;
-    slug:              string;
-    updatedAt:         string;
-    useCount:          number;
+export interface VaultImportParams {
+    csv:    string;
+    format: Format;
 }
 
-export interface CredentialBinding {
-    origin?:    string;
-    host?:      string;
-    connector?: string;
+export type Format = "auto" | "1password" | "bitwarden" | "chrome";
+
+export interface VaultImportResult {
+    imported: CredentialMeta[];
+    skipped:  Skipped[];
 }
 
-export type CredentialKind = "login" | "api_key" | "oauth_token" | "ssh_key" | "note" | "payment_link" | "signing_key";
+export interface Skipped {
+    reason: string;
+    row:    number;
+}
 
 export interface VaultListParams {
     kind?: CredentialKind;
@@ -2349,6 +2428,83 @@ export interface VaultListParams {
 export interface VaultListResult {
     credentials: CredentialMeta[];
 }
+
+export interface VaultLockResult {
+    status: VaultStatus;
+}
+
+export interface VaultLockedPayload {
+    reason: Reason;
+    status: VaultStatus;
+}
+
+export type Reason = "manual" | "idle" | "sleep" | "screen_lock" | "shutdown";
+
+export interface VaultSetupParams {
+    slot: Slot;
+}
+
+export type Slot = "keychain" | "safe_storage" | "key_file";
+
+export interface VaultSetupResult {
+    recoveryKey: string;
+    status:      VaultStatus;
+}
+
+export interface VaultStatusResult {
+    status: VaultStatus;
+}
+
+export interface VaultUnlockParams {
+    reason:       string;
+    recoveryKey?: string;
+}
+
+export interface VaultUnlockResult {
+    status: VaultStatus;
+}
+
+export interface VaultUnlockedPayload {
+    status: VaultStatus;
+    via:    VaultKeySlot;
+}
+
+export interface VaultUpdateParams {
+    bindings?:           CredentialBinding[];
+    credentialId:        string;
+    name?:               string;
+    requireAuthEachUse?: boolean;
+    secret?:             CredentialSecretInput;
+}
+
+export interface VaultUpdateResult {
+    credential: CredentialMeta;
+}
+
+export interface VaultUsesParams {
+    credentialId: string;
+    limit?:       number;
+}
+
+export interface VaultUsesResult {
+    uses: CredentialUse[];
+}
+
+export interface CredentialUse {
+    approvalId?:  null | string;
+    createdAt:    string;
+    credentialId: string;
+    executor:     Executor;
+    id:           string;
+    outcome:      Outcome;
+    reason?:      null | string;
+    target:       string;
+    taskId?:      null | string;
+}
+
+export type Executor = "browser" | "connector" | "sandbox" | "ssh";
+
+export type Outcome = "filled" | "denied" | "failed";
 
 export interface ViewCommandPayload {
     args:       { [key: string]: unknown };

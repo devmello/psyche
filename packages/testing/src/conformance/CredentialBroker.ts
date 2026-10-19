@@ -1,5 +1,5 @@
 import { inspect } from "node:util";
-import type { CredentialBroker, Target } from "@psyche/protocol";
+import type { CredentialBroker, ResolveOptions, Target } from "@psyche/protocol";
 import { afterEach, describe, expect, it } from "vitest";
 import { assertNoSecrets, clearSecrets, registerSecret } from "../secrets.ts";
 import {
@@ -118,6 +118,65 @@ export function describeCredentialBrokerConformance(
           "policy_denied",
         );
       }
+    });
+
+    it("browser fills check the focused element and its frame (S23 design-01)", async () => {
+      const broker = await setup();
+      const password = {
+        tagName: "input",
+        type: "password",
+        autocomplete: "current-password",
+        frameOrigin: SEED.origin,
+        formActionOrigin: SEED.origin,
+        formHasPassword: true,
+      };
+      const denied: [string, ResolveOptions][] = [
+        ["no element", { executor: "browser" }],
+        [
+          "textarea",
+          { executor: "browser", element: { tagName: "textarea", frameOrigin: SEED.origin } },
+        ],
+        [
+          "search box",
+          {
+            executor: "browser",
+            element: { tagName: "input", type: "search", frameOrigin: SEED.origin },
+          },
+        ],
+        [
+          "plain text field",
+          {
+            executor: "browser",
+            element: { tagName: "input", type: "text", frameOrigin: SEED.origin },
+          },
+        ],
+        [
+          "cross-origin frame",
+          {
+            executor: "browser",
+            element: { ...password, frameOrigin: "https://evil.example.com" },
+          },
+        ],
+        [
+          "form posting elsewhere",
+          {
+            executor: "browser",
+            element: { ...password, formActionOrigin: "https://evil.example.com" },
+          },
+        ],
+      ];
+      for (const [label, options] of denied) {
+        const err = await broker.resolve(placeholder, target, SEED.approvalId, options).then(
+          () => undefined,
+          (e: unknown) => e,
+        );
+        expect((err as { code?: string } | undefined)?.code, label).toBe("policy_denied");
+      }
+      const ok = await broker.resolve(placeholder, target, SEED.approvalId, {
+        executor: "browser",
+        element: password,
+      });
+      expect(ok.use((v) => v === SEED.password)).toBe(true);
     });
 
     it("refuses without an approved approval", async () => {
