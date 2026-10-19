@@ -1,0 +1,14 @@
+{
+  "name": "ollama 500 runner crashed",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/api/chat"
+  },
+  "response": {
+    "status": 500,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":\"llama runner process has terminated: exit status 2\"}"
+  }
+}
