@@ -1,0 +1,17 @@
+{
+  "name": "ollama /api/chat two parallel tool calls",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/api/chat"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/x-ndjson"
+    },
+    "chunks": [
+      "{\"model\":\"qwen3.8:27b\",\"created_at\":\"2026-10-19T09:00:00.000000Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":[{\"id\":\"call_paris\",\"function\":{\"index\":0,\"name\":\"weather\",\"arguments\":{\"city\":\"Paris\"}}},{\"id\":\"call_tokyo\",\"function\":{\"index\":1,\"name\":\"weather\",\"arguments\":{\"city\":\"Tokyo\"}}}]},\"done\":false}\n",
+      "{\"model\":\"qwen3.8:27b\",\"created_at\":\"2026-10-19T09:00:00.000000Z\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"total_duration\":1,\"load_duration\":1,\"prompt_eval_count\":180,\"prompt_eval_duration\":1,\"eval_count\":31,\"eval_duration\":1}\n"
+    ]
+  }
+}

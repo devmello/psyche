@@ -16,9 +16,13 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@psyche/protocol": "workspace:*"
+    "@psyche/protocol": "workspace:*",
+    "better-sqlite3-multiple-ciphers": "13.0.3"
   },
   "devDependencies": {
-    "@psyche/testing": "workspace:*"
+    "@psyche/db": "workspace:*",
+    "@psyche/testing": "workspace:*",
+    "@types/better-sqlite3": "9.6.0",
+    "fast-check": "4.10.2"
   }
 }

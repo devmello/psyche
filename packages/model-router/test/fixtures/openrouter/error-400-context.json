@@ -1,0 +1,14 @@
+{
+  "name": "openrouter 400 context length",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 400,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":{\"code\":400,\"message\":\"This endpoint's maximum context length is 1000000 tokens. However, you requested about 1200000 tokens (1200000 of text input). Please reduce the length of either one, or use the \\\"middle-out\\\" transform to compress your prompt automatically.\"}}"
+  }
+}
