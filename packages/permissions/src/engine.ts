@@ -19,6 +19,7 @@ import {
 } from "./kinds.ts";
 import { type CompiledPolicy, isSensitiveHost, ruleMatches } from "./policy.ts";
 import { checkProhibitions, type LocalProjectVerifier } from "./prohibitions.ts";
+import { checkRequester } from "./requester.ts";
 import type { StoredGrant } from "./store.ts";
 import { canonicalPath, canonicalUrl, isUnder } from "./targets.ts";
 import type { PolicyCall, PolicyContext, PolicyDecision } from "./types.ts";
@@ -372,6 +373,15 @@ export class PolicyEngine {
     const allowRule = p.allow.find((r) => ruleMatches(r, call.tool, call.target));
     if (allowRule !== undefined) allowances.push({ rule: `policy:allow:${allowRule.raw}` });
 
+    // Non-owner requesters (security §9): persona limits, tool list and per-identity matrix.
+    const requesterAllowances: Allowance[] = [];
+    for (const v of checkRequester(call, ctx, kind, se, p.designated)) {
+      if (v === undefined) continue;
+      if (v.effect === "deny") return done("deny", v.rule, v.reason);
+      if (v.effect === "ask") floors.push({ rule: v.rule, reason: v.reason });
+      else requesterAllowances.push({ rule: v.rule });
+    }
+
     const connector = call.meta?.connector ?? mcpConnector(call.tool);
     if (connector !== undefined) {
       const effect = p.config.connectors?.[connector.id]?.[connector.action];
@@ -558,6 +568,12 @@ export class PolicyEngine {
     if (sensitiveRead) {
       if (escalation !== undefined) return ask(escalation.rule, escalation.reason, ["once"]);
       return ask(`mode:${mode}/read:sensitive`, "sensitive-category source", ["once"]);
+    }
+
+    // The owner's configured allowances are the owner's authority: a designated person gets only
+    // their own matrix's `allow` rules (and their own grants, matched by requester).
+    if (ctx.requester !== undefined && ctx.requester.role !== "owner") {
+      allowances.splice(0, allowances.length, ...requesterAllowances);
     }
 
     // 5. Standing grants and configured allowances.

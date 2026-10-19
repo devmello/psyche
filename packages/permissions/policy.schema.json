@@ -192,6 +192,41 @@
         "type": "string"
       }
     },
+    "designated": {
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {
+          "additionalProperties": false,
+          "type": "object",
+          "properties": {
+            "allow": {
+              "description": "Rules: \"<tool glob>\", \"<tool glob>(<target glob>)\", or \"<origin|path|recipient|app|account|command>:<glob>\"",
+              "type": "array",
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "ask": {
+              "description": "Rules: \"<tool glob>\", \"<tool glob>(<target glob>)\", or \"<origin|path|recipient|app|account|command>:<glob>\"",
+              "type": "array",
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "deny": {
+              "description": "Rules: \"<tool glob>\", \"<tool glob>(<target glob>)\", or \"<origin|path|recipient|app|account|command>:<glob>\"",
+              "type": "array",
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
     "sensitiveOrigins": {
       "type": "array",
       "items": {

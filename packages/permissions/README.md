@@ -54,6 +54,19 @@ Calls of `browser_submit`, `credential_fill` and `mcp_tool` without kind-specifi
 
 The broker floors declared side-effect classes (`src/kinds.ts`): a registry or node can make a tool stricter, never laxer (design-20).
 
+## Designated persons and other senders (M2)
+
+`PolicyContext.requester` says who asked for the call. S02 fills it from S10's `RouteContext`: `role`, `identityId`, `links`, `toolAllow`. Absent means the owner. Security §9:
+
+- **`designated`:**
+  - Fixed persona limits: no `exec`, vault or credential fills, purchases, browser or app writes, protected memory, skill installs, pairing or policy changes (`designated:persona_limit`).
+  - The identity's `toolAllow` globs apply (`designated:not_in_tool_allow`).
+  - So does the owner's per-person matrix, `policy.designated[identityId] = { allow, ask, deny }`.
+  - Every `destructive` action asks the owner.
+  - The owner's own configured allowances do not apply.
+- **`allowed`** (allowlisted, neither owner nor designated): nothing above `read` (`requester:not_owner`).
+- **Grants are per requester:** `grants.requester_id` (migration `202610201600_permissions_requester.sql`). The owner's grants never cover anyone else, and a grant approved for one person's request covers only that person.
+- **Approval cards** go to the owner's surfaces. The requester's own chats (`links`, `channel:senderId`) are stripped, and `details.requestedFor` names the person.
 ## Approval friction metrics (M2)
 
 `frictionMetrics(entries)` (and the `audit.friction` handler, `operator.read`) summarizes the audit log. It reads only the `tool_call.decided`, `approval.*`, `grant.created` and `classifier.labeled` entries, never arguments. It reports:

@@ -25,7 +25,23 @@ export interface TaintSource {
 /** Who caused this call. `content` is a hard prohibition (instructions found in content). */
 export type Initiator = "owner" | "agent" | "subagent" | "automation" | "content" | "mcp_app";
 
+/** Who asked for the call (S10 `RouteContext`; security §9). Absent means the owner. */
+export interface Requester {
+  role: "owner" | "designated" | "allowed";
+  /** `identities.id` for designated persons. */
+  identityId?: string;
+  display?: string;
+  channel?: string;
+  senderId?: string;
+  chatId?: string;
+  /** `identities.links` (`<channel>:<senderId>`). */
+  links?: string[];
+  /** `identities.tool_allow` globs; absent = no extra limit beyond the persona limits. */
+  toolAllow?: string[];
+}
+
 export interface PolicyContext extends DecisionContext {
+  requester?: Requester;
   taintSources?: TaintSource[];
   initiator?: Initiator;
   /** The Task's origin sets (security §6). */

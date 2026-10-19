@@ -82,6 +82,16 @@ export const PolicyConfig = Type.Object(
     ),
     /** Always-rw roots (the per-thread sandbox `/workspace`). */
     workspaceRoots: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
+    /** Per-sender grant matrices for designated persons, keyed by identity id (security §9). */
+    designated: Type.Optional(
+      Type.Record(
+        Type.String({ minLength: 1 }),
+        Type.Object(
+          { allow: Type.Optional(Rules), ask: Type.Optional(Rules), deny: Type.Optional(Rules) },
+          { additionalProperties: false },
+        ),
+      ),
+    ),
     /** Sensitive categories: host globs that always ask for reads and pause when unwatched. */
     sensitiveOrigins: Type.Optional(Type.Array(Type.String({ minLength: 1 }))),
     exec: Type.Optional(
@@ -154,6 +164,9 @@ export function parsePolicy(input: unknown): PolicyConfig {
     );
   }
   for (const list of [input.deny, input.ask, input.allow]) for (const r of list ?? []) parseRule(r);
+  for (const m of Object.values(input.designated ?? {})) {
+    for (const list of [m.deny, m.ask, m.allow]) for (const r of list ?? []) parseRule(r);
+  }
   return input;
 }
 
@@ -279,6 +292,7 @@ export interface CompiledPolicy {
   folders: { path: string; mode: "ro" | "rw" }[];
   workspaceRoots: string[];
   sites: { pattern: RegExp; effect: RuleEffect; raw: string }[];
+  designated: Map<string, { allow: Rule[]; ask: Rule[]; deny: Rule[] }>;
 }
 
 export function compilePolicy(config: PolicyConfig = DEFAULT_POLICY): CompiledPolicy {
@@ -304,6 +318,16 @@ export function compilePolicy(config: PolicyConfig = DEFAULT_POLICY): CompiledPo
       effect,
       pattern: globToRegExp(raw.includes("://") ? raw : raw, "plain"),
     })),
+    designated: new Map(
+      Object.entries(parsed.designated ?? {}).map(([id, m]) => [
+        id,
+        {
+          allow: (m.allow ?? []).map(parseRule),
+          ask: (m.ask ?? []).map(parseRule),
+          deny: (m.deny ?? []).map(parseRule),
+        },
+      ]),
+    ),
   };
 }
 

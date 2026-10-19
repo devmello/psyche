@@ -65,6 +65,7 @@ export const grants = sqliteTable("grants", {
   revokedAt: text("revoked_at"),
   revokedReason: text("revoked_reason"),
   updatedAt: text("updated_at").notNull(),
+  requesterId: text("requester_id"),
 });
 
 export const policyRules = sqliteTable("policy_rules", {
