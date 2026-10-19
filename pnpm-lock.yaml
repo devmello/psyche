@@ -685,10 +685,22 @@ importers:
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
+      fflate:
+        specifier: 0.8.3
+        version: 0.8.3
+      yaml:
+        specifier: 2.9.1
+        version: 2.9.1
     devDependencies:
+      '@psyche/db':
+        specifier: workspace:*
+        version: link:../db
       '@psyche/testing':
         specifier: workspace:*
         version: link:../testing
+      '@types/better-sqlite3':
+        specifier: 9.6.0
+        version: 9.6.0
 
   packages/speech:
     dependencies:
