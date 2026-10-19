@@ -121,7 +121,16 @@ export const devicesHandlers: Record<string, HandlerDef> = {
       call.ctx.bus.bumpStateVersion();
       call.emit("device.updated", { device });
       if (offline) call.emit("node.updated", { node: offline });
-      call.afterCommit(() => closeDeviceConnections(call.ctx, device.id, "device revoked"));
+      call.afterCommit(() => {
+        closeDeviceConnections(call.ctx, device.id, "device revoked");
+        // Grants the device approved end with it (design-28). Failure is logged, not fatal: the
+        // device is already revoked and cannot use them.
+        call.ctx.onDeviceRevoked?.(device.id).catch((err) =>
+          call.ctx.log.log("warn", "grant revocation for a revoked device failed", {
+            code: PsycheError.from(err).code,
+          }),
+        );
+      });
       return { device };
     },
   },

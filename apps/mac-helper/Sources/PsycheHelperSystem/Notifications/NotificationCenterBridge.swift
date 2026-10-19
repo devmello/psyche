@@ -16,14 +16,19 @@ public final class NotificationCenterBridge: NSObject, UNUserNotificationCenterD
     public let hub: NotificationResponseHub
     private let center: UNUserNotificationCenter?
     private let log: HelperLog
+    private let presence: (any PresenceSigning)?
     private let lock = NSLock()
     /// Every category registered so far: `setNotificationCategories` replaces the whole set.
     private var categories: [String: UNNotificationCategory] = [:]
 
     /// - Parameter bundleIdentifier: injected for tests; nil means "not bundled".
-    public init(hub: NotificationResponseHub = NotificationResponseHub(), bundleIdentifier: String? = Bundle.main.bundleIdentifier, log: HelperLog = HelperLog()) {
+    public init(
+        hub: NotificationResponseHub = NotificationResponseHub(), bundleIdentifier: String? = Bundle.main.bundleIdentifier,
+        log: HelperLog = HelperLog(), presence: (any PresenceSigning)? = nil
+    ) {
         self.hub = hub
         self.log = log
+        self.presence = presence
         self.center = bundleIdentifier == nil ? nil : UNUserNotificationCenter.current()
         super.init()
     }
@@ -199,20 +204,51 @@ public final class NotificationCenterBridge: NSObject, UNUserNotificationCenterD
             return
         }
         let reason = Self.authReason(kind: info.kind)
+        let presence = self.presence
         _Concurrency.Task { [weak self] in
-            var answer = base
-            let authError = await Self.authenticate(reason: reason)
-            answer.authenticated = authError == nil
-            answer.authError = authError
+            let answer = await Self.answer(base, challenge: info.presenceChallenge, presence: presence, reason: reason)
             self?.forward(answer)
             done.call()
         }
     }
 
+    /// Authenticates an answer. With a presence challenge, Touch ID for the presence key's access
+    /// control and the signature happen in one step (`authenticated` then means "signed"); without
+    /// a usable key it falls back to device-owner authentication and reports `presenceError`, which
+    /// the Gateway treats as no presence (issue #84).
+    static func answer(
+        _ base: NotificationResponse, challenge: String?, presence: (any PresenceSigning)?, reason: String,
+        authenticate: @Sendable (String) async -> String? = { await NotificationCenterBridge.authenticate(reason: $0) }
+    ) async -> NotificationResponse {
+        var answer = base
+        if let challenge, let presence {
+            do {
+                answer.presence = try await presence.sign(challenge: challenge, reason: reason)
+                answer.authenticated = true
+                return answer
+            } catch let e as CapabilityError where e.code == .cancelled || e.code == .forbidden {
+                // The owner cancelled or failed Touch ID: no answer is authenticated.
+                answer.authenticated = false
+                answer.authError = e.reason
+                return answer
+            } catch let e as CapabilityError {
+                answer.presenceError = e.reason
+            } catch {
+                answer.presenceError = "presence_failed"
+            }
+        } else if challenge != nil {
+            answer.presenceError = "presence_unavailable"
+        }
+        let authError = await authenticate(reason)
+        answer.authenticated = authError == nil
+        answer.authError = authError
+        return answer
+    }
+
     private func forward(_ response: NotificationResponse) {
         hub.publish(response)
         log.info(
-            "notify: response action=\(Self.logActionClass(response.actionId)) reply=\(response.replyText != nil) authenticated=\(response.authenticated)"
+            "notify: response action=\(Self.logActionClass(response.actionId)) reply=\(response.replyText != nil) authenticated=\(response.authenticated) presence=\(response.presence != nil)"
         )
     }
 

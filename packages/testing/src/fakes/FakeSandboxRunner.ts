@@ -44,6 +44,7 @@ function cap(text: string): { text: string; truncated: boolean } {
  */
 export class FakeSandboxRunner implements SandboxRunner {
   readonly execs: ExecRequest[] = [];
+  readonly #untrusted = new Map<string, Set<string>>();
   #backend: SandboxBackendKind | null;
   #ids: IdGenerator;
   #sandboxes = new Map<string, SandboxInstance>();
@@ -98,6 +99,15 @@ export class FakeSandboxRunner implements SandboxRunner {
       typeof match === "function" ? match(request) : match.every((a, i) => request.argv[i] === a),
     )?.result;
     const r = scripted ?? builtin(request.argv);
+    // Design-07: a command from a tainted turn leaves untrusted files behind; from then on
+    // every exec in that workspace is untrusted (a command may have copied the content).
+    const untrustedWrite = request.provenance !== "trusted";
+    const untrustedFiles = this.#untrustedFiles(request.sandboxId);
+    for (const path of r.filesChanged ?? []) {
+      if (untrustedWrite || untrustedFiles.size > 0) untrustedFiles.add(path);
+      else untrustedFiles.delete(path);
+    }
+    const provenance = untrustedWrite || untrustedFiles.size > 0 ? "untrusted" : "trusted";
     const timedOut = r.timedOut === true;
     const stdout = cap(r.stdout ?? "");
     const stderr = cap(r.stderr ?? "");
@@ -118,7 +128,22 @@ export class FakeSandboxRunner implements SandboxRunner {
       filesChanged: [...(r.filesChanged ?? [])],
       timedOut,
       outcome: timedOut ? "uncertain" : exitCode === 0 ? "ok" : "failed",
+      provenance,
     };
+  }
+
+  /** Workspace-relative paths this fake holds as untrusted (design-07), per sandbox. */
+  untrustedFiles(sandboxId: string): string[] {
+    return [...this.#untrustedFiles(sandboxId)].sort();
+  }
+
+  #untrustedFiles(sandboxId: string): Set<string> {
+    let set = this.#untrusted.get(sandboxId);
+    if (!set) {
+      set = new Set();
+      this.#untrusted.set(sandboxId, set);
+    }
+    return set;
   }
 
   async destroy(sandboxId: string): Promise<void> {

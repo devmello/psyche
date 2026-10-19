@@ -45,6 +45,7 @@ export class MockDesktop {
     this.browser.hooks = {
       onPopup: (opener, url) => {
         const parent = [...this.#tabs.values()].find((s) => s.tab === opener);
+        // Popups open in the opener's partition (setWindowOpenHandler keeps the session).
         const tab = this.browser.openTab({ opener });
         const state = this.#adopt(tab, parent?.profile ?? "logged-in");
         this.#event("bridge.tab.created", {
@@ -107,10 +108,15 @@ export class MockDesktop {
       tabId: s.tab.id,
       url: s.tab.url,
       title: s.tab.title,
-      partition: s.profile === "clean" ? "agent-clean" : "persist:agent-default",
+      partition: s.tab.partition,
       profile: s.profile,
       attached: s.attached,
     };
+  }
+
+  /** The pane's indicator for a tab: which profile `bridge.tab.open` asked for (I15). */
+  profileOf(tabId: string): "logged-in" | "clean" {
+    return this.#state(tabId).profile;
   }
 
   #state(tabId: unknown): TabState {
@@ -150,8 +156,15 @@ export class MockDesktop {
       case "bridge.tabs.list":
         return { tabs: [...this.#tabs.values()].map((s) => this.#tabInfo(s)) };
       case "bridge.tab.open": {
-        const tab = this.browser.openTab();
-        const s = this.#adopt(tab, p.profile === "clean" ? "clean" : "logged-in");
+        // `clean` is an ephemeral partition per task (request to S11: key it by taskId), so
+        // two logged-out tasks never share cookies either; `logged-in` is the agent profile.
+        const profile = p.profile === "clean" ? "clean" : "logged-in";
+        const partition =
+          profile === "clean"
+            ? `agent-clean:${typeof p.taskId === "string" ? p.taskId : "untasked"}`
+            : "persist:agent-default";
+        const tab = this.browser.openTab({ partition });
+        const s = this.#adopt(tab, profile);
         this.#event("bridge.tab.created", { tab: this.#tabInfo(s) });
         // The desktop loads the URL only after the Gateway attached (it calls attach next);
         // the driver navigates itself, so this mock opens at about:blank.
