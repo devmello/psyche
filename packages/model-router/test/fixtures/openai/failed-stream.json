@@ -1,0 +1,19 @@
+{
+  "name": "openai responses: response.failed before output",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/responses"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream",
+      "x-request-id": "req_fixture"
+    },
+    "chunks": [
+      "event: response.created\ndata: {\"type\":\"response.created\",\"sequence_number\":0,\"response\":{\"id\":\"resp_fx_failed_0001\",\"object\":\"response\",\"created_at\":1760000000,\"status\":\"in_progress\",\"model\":\"gpt-6.1-sol\",\"output\":[],\"store\":false}}\n\n",
+      "event: response.in_progress\ndata: {\"type\":\"response.in_progress\",\"sequence_number\":1,\"response\":{\"id\":\"resp_fx_failed_0001\",\"object\":\"response\",\"created_at\":1760000000,\"status\":\"in_progress\",\"model\":\"gpt-6.1-sol\",\"output\":[],\"store\":false}}\n\n",
+      "event: response.failed\ndata: {\"type\":\"response.failed\",\"sequence_number\":2,\"response\":{\"id\":\"resp_fx_failed_0001\",\"object\":\"response\",\"created_at\":1760000000,\"status\":\"failed\",\"model\":\"gpt-6.1-sol\",\"output\":[],\"store\":false,\"error\":{\"code\":\"server_error\",\"message\":\"The model failed to generate a response.\"},\"incomplete_details\":null,\"usage\":null}}\n\n"
+    ]
+  }
+}
