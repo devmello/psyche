@@ -1,0 +1,32 @@
+{
+  "name": "openai responses: reasoning summary + text",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/responses"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream",
+      "x-request-id": "req_fixture"
+    },
+    "chunks": [
+      "event: response.created\ndata: {\"type\":\"response.created\",\"sequence_number\":0,\"response\":{\"id\":\"resp_fx_text_0001\",\"object\":\"response\",\"created_at\":1760000000,\"status\":\"in_progress\",\"model\":\"gpt-6.1-sol\",\"output\":[],\"store\":false}}\n\n",
+      "event: response.in_progress\ndata: {\"type\":\"response.in_progress\",\"sequence_number\":1,\"response\":{\"id\":\"resp_fx_text_0001\",\"object\":\"response\",\"created_at\":1760000000,\"status\":\"in_progress\",\"model\":\"gpt-6.1-sol\",\"output\":[],\"store\":false}}\n\n",
+      "event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"sequence_number\":2,\"output_index\":0,\"item\":{\"id\":\"rs_fx_0001\",\"type\":\"reasoning\",\"summary\":[]}}\n\n",
+      "event: response.reasoning_summary_part.added\ndata: {\"type\":\"response.reasoning_summary_part.added\",\"sequence_number\":3,\"item_id\":\"rs_fx_0001\",\"output_index\":0,\"summary_index\":0,\"part\":{\"type\":\"summary_text\",\"text\":\"\"}}\n\n",
+      "event: response.reasoning_summary_text.delta\ndata: {\"type\":\"response.reasoning_summary_text.delta\",\"sequence_number\":4,\"item_id\":\"rs_fx_0001\",\"output_index\":0,\"summary_index\":0,\"delta\":\"The user wants a greeting.\",\"obfuscation\":\"fx\"}\n\n",
+      "event: response.reasoning_summary_text.done\ndata: {\"type\":\"response.reasoning_summary_text.done\",\"sequence_number\":5,\"item_id\":\"rs_fx_0001\",\"output_index\":0,\"summary_index\":0,\"text\":\"The user wants a greeting.\"}\n\n",
+      "event: response.reasoning_summary_part.done\ndata: {\"type\":\"response.reasoning_summary_part.done\",\"sequence_number\":6,\"item_id\":\"rs_fx_0001\",\"output_index\":0,\"summary_index\":0,\"part\":{\"type\":\"summary_text\",\"text\":\"The user wants a greeting.\"}}\n\n",
+      "event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"sequence_number\":7,\"output_index\":0,\"item\":{\"id\":\"rs_fx_0001\",\"type\":\"reasoning\",\"encrypted_content\":\"gAAAAABofixture-encrypted-reasoning-0001\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"The user wants a greeting.\"}]}}\n\n",
+      "event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"sequence_number\":8,\"output_index\":1,\"item\":{\"id\":\"msg_fx_0001\",\"type\":\"message\",\"status\":\"in_progress\",\"content\":[],\"role\":\"assistant\"}}\n\n",
+      "event: response.content_part.added\ndata: {\"type\":\"response.content_part.added\",\"sequence_number\":9,\"item_id\":\"msg_fx_0001\",\"output_index\":1,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"annotations\":[],\"logprobs\":[],\"text\":\"\"}}\n\n",
+      "event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"sequence_number\":10,\"item_id\":\"msg_fx_0001\",\"output_index\":1,\"content_index\":0,\"delta\":\"Hello\",\"logprobs\":[],\"obfuscation\":\"fx\"}\n\n",
+      "event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"sequence_number\":11,\"item_id\":\"msg_fx_0001\",\"output_index\":1,\"content_index\":0,\"delta\":\", world.\",\"logprobs\":[],\"obfuscation\":\"fx\"}\n\n",
+      "event: response.output_text.done\ndata: {\"type\":\"response.output_text.done\",\"sequence_number\":12,\"item_id\":\"msg_fx_0001\",\"output_index\":1,\"content_index\":0,\"text\":\"Hello, world.\",\"logprobs\":[]}\n\n",
+      "event: response.content_part.done\ndata: {\"type\":\"response.content_part.done\",\"sequence_number\":13,\"item_id\":\"msg_fx_0001\",\"output_index\":1,\"content_index\":0,\"part\":{\"type\":\"output_text\",\"annotations\":[],\"logprobs\":[],\"text\":\"Hello, world.\"}}\n\n",
+      "event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"sequence_number\":14,\"output_index\":1,\"item\":{\"id\":\"msg_fx_0001\",\"type\":\"message\",\"status\":\"completed\",\"role\":\"assistant\",\"content\":[{\"type\":\"output_text\",\"annotations\":[],\"logprobs\":[],\"text\":\"Hello, world.\"}]}}\n\n",
+      "event: response.completed\ndata: {\"type\":\"response.completed\",\"sequence_number\":15,\"response\":{\"id\":\"resp_fx_text_0001\",\"object\":\"response\",\"created_at\":1760000000,\"status\":\"completed\",\"model\":\"gpt-6.1-sol\",\"output\":[],\"store\":false,\"incomplete_details\":null,\"usage\":{\"input_tokens\":5000,\"input_tokens_details\":{\"cached_tokens\":4096},\"output_tokens\":120,\"output_tokens_details\":{\"reasoning_tokens\":64},\"total_tokens\":5120}}}\n\n"
+    ]
+  }
+}

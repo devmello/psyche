@@ -1,0 +1,16 @@
+{
+  "name": "openai 429 rate limit",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/responses"
+  },
+  "response": {
+    "status": 429,
+    "headers": {
+      "content-type": "application/json",
+      "retry-after": "7",
+      "x-ratelimit-remaining-requests": "0"
+    },
+    "body": "{\"error\":{\"message\":\"Rate limit reached for gpt-6.1-sol in organization org-fixture on requests per min (RPM): Limit 500, Used 500, Requested 1.\",\"type\":\"requests\",\"param\":null,\"code\":\"rate_limit_exceeded\"}}"
+  }
+}

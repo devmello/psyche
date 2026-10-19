@@ -1,0 +1,14 @@
+{
+  "name": "ollama 404 model not found",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/api/chat"
+  },
+  "response": {
+    "status": 404,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":\"model \\\"qwen3.8:27b\\\" not found, try pulling it first\"}"
+  }
+}

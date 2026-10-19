@@ -1,0 +1,14 @@
+{
+  "name": "openrouter 503",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 503,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":{\"code\":503,\"message\":\"No allowed providers are available for the selected model.\"}}"
+  }
+}

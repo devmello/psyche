@@ -1,0 +1,226 @@
+/*
+ * Structural styles for @psyche/viewers. Colors come from the app theme (S12 tokens) through
+ * CSS variables with neutral fallbacks; the shell imports this file once.
+ */
+.psy-viewer {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.psy-viewer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--psy-border, rgba(127, 127, 127, 0.25));
+}
+.psy-viewer-state {
+  padding: 24px;
+  text-align: center;
+  color: var(--psy-text-muted, inherit);
+}
+.psy-viewer-state__title {
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+.psy-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.psy-segmented {
+  display: inline-flex;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  gap: 2px;
+}
+.psy-segmented > button[aria-pressed="true"] {
+  font-weight: 600;
+  background: var(--psy-accent-subtle, rgba(127, 127, 127, 0.18));
+}
+
+.psy-pdf {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.psy-pdf__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.psy-pdf__pages {
+  flex: 1;
+  overflow: auto;
+  background: var(--psy-canvas, rgba(127, 127, 127, 0.12));
+}
+.psy-pdf__page {
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.psy-pdf__outline,
+.psy-pdf__fields {
+  width: 260px;
+  overflow: auto;
+  padding: 8px;
+  border-inline: 1px solid var(--psy-border, rgba(127, 127, 127, 0.25));
+}
+.psy-pdf__field {
+  outline: 2px solid var(--psy-accent, #6d5efc);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+.psy-pdf__fields li[data-source="agent"] small {
+  color: var(--psy-accent, #6d5efc);
+}
+.psy-pdf__hit {
+  background: rgba(255, 213, 0, 0.45);
+}
+/* PDF.js text layer (selection over the canvas). */
+.psy-pdf .textLayer {
+  overflow: hidden;
+  line-height: 1;
+  opacity: 1;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+  z-index: 2;
+}
+.psy-pdf .textLayer :is(span, br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0% 0%;
+}
+.psy-pdf .textLayer ::selection {
+  background: rgba(0, 100, 255, 0.25);
+}
+
+.psy-sheet {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.psy-sheet__grid {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.psy-sheet__scroll {
+  flex: 1;
+}
+.psy-sheet__table th,
+.psy-sheet__table td {
+  box-sizing: border-box;
+  padding: 4px 6px;
+  border-right: 1px solid var(--psy-border, rgba(127, 127, 127, 0.2));
+  border-bottom: 1px solid var(--psy-border, rgba(127, 127, 127, 0.2));
+  font-variant-numeric: tabular-nums;
+  text-align: start;
+}
+.psy-sheet__head {
+  background: var(--psy-surface, #fafafa);
+}
+.psy-sheet__head input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.psy-sheet__stats {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  background: var(--psy-surface, #fff);
+  border: 1px solid var(--psy-border, rgba(127, 127, 127, 0.3));
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+.psy-sheet__stats dl {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px 12px;
+  margin: 0;
+}
+
+.psy-code__editor .cm-editor {
+  height: 100%;
+  font-size: 13px;
+}
+.psy-json__tree,
+.psy-json__tree ul {
+  list-style: none;
+  padding-left: 16px;
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+}
+.psy-json__toggle {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+}
+.psy-json__string {
+  color: #0a7d3b;
+}
+.psy-json__number {
+  color: #1d5bd6;
+}
+.psy-json__boolean,
+.psy-json__null {
+  color: #a3329b;
+}
+
+.psy-email__head dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+}
+.psy-email__badge {
+  font-size: 12px;
+  color: var(--psy-text-muted, #777);
+}
+.psy-email__banner {
+  padding: 6px 8px;
+  background: var(--psy-warning-subtle, rgba(255, 196, 0, 0.15));
+}
+
+.psy-md {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.psy-md__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--psy-border, rgba(127, 127, 127, 0.25));
+}
+.psy-md__editor,
+.psy-md__diff {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.psy-md__conflict {
+  padding: 8px;
+  background: var(--psy-warning-subtle, rgba(255, 196, 0, 0.15));
+}
+.psy-md__frontmatter textarea {
+  width: 100%;
+  min-height: 6em;
+  font-family: ui-monospace, monospace;
+}
+.psy-artifact {
+  background: transparent;
+  color-scheme: normal;
+}
