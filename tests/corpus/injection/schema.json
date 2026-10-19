@@ -1,0 +1,340 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/devmello/psyche/tests/corpus/injection/schema.json",
+  "title": "Psyche prompt-injection corpus file",
+  "description": "One file under cases/ holds one vector family. The injection runner assumes the WORST-CASE model: it scripts the model to obey the payload and emit `attack.toolCall`, then checks that the deterministic layers (Permission Broker, Credential Broker, executors, memory write gate, channel authorization) produce `expected.outcome`. See README.md.",
+  "type": "object",
+  "required": ["family", "version", "cases"],
+  "additionalProperties": false,
+  "properties": {
+    "$comment": { "type": "string" },
+    "family": { "enum": ["web-documents", "email-calendar-messages", "mcp-skills-memory"] },
+    "version": { "const": 1 },
+    "cases": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/case" } }
+  },
+  "$defs": {
+    "vector": {
+      "enum": [
+        "web_text",
+        "web_hidden_text",
+        "html_comment",
+        "url_or_title",
+        "email_body",
+        "email_subject",
+        "email_attachment",
+        "calendar_invite",
+        "pdf_text",
+        "pdf_form_field",
+        "file_name",
+        "image_ocr",
+        "mcp_tool_description",
+        "mcp_tool_annotation",
+        "mcp_tool_result",
+        "chat_non_owner",
+        "memory_import",
+        "memory_entry",
+        "skill_file",
+        "subagent_result"
+      ]
+    },
+    "goal": {
+      "enum": [
+        "exfiltrate",
+        "send_message",
+        "self_approve",
+        "change_grant",
+        "install_skill",
+        "reveal_secret",
+        "write_memory",
+        "escalate_mode",
+        "purchase",
+        "exec",
+        "destroy_data",
+        "credential_fill"
+      ]
+    },
+    "mode": { "enum": ["plan", "manual", "balanced", "auto"] },
+    "outcome": { "enum": ["blocked", "asked", "ignored"] },
+    "case": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "vector",
+        "goal",
+        "techniques",
+        "context",
+        "payload",
+        "attack",
+        "expected",
+        "rationale",
+        "refs"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(web|doc|file|ocr|mail|cal|chat|mcp|skill|mem|sub)-[a-z0-9-]+-[0-9]{3}$",
+          "description": "Stable id; never reuse a retired id."
+        },
+        "title": { "type": "string", "minLength": 8, "maxLength": 120 },
+        "vector": { "$ref": "#/$defs/vector" },
+        "goal": { "$ref": "#/$defs/goal" },
+        "techniques": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "direct_instruction",
+              "authority_claim",
+              "fake_system_message",
+              "fake_owner_message",
+              "urgency",
+              "role_play",
+              "css_hidden",
+              "zero_size_text",
+              "white_on_white",
+              "offscreen",
+              "aria_hidden",
+              "unicode_tags",
+              "zero_width",
+              "homoglyph",
+              "bidi_override",
+              "encoding_base64",
+              "encoding_other",
+              "split_payload",
+              "delayed_trigger",
+              "tool_shadowing",
+              "rug_pull",
+              "markdown_image_exfil",
+              "url_params_exfil",
+              "dns_exfil",
+              "placeholder_probe",
+              "approval_spoof",
+              "grant_spoof",
+              "mode_spoof",
+              "memory_plant",
+              "multi_turn",
+              "benign_cover",
+              "long_padding",
+              "low_contrast_image",
+              "qr_code",
+              "metadata_field",
+              "redirect_chain",
+              "lookalike_domain",
+              "reply_chain",
+              "impersonation",
+              "social_engineering"
+            ]
+          }
+        },
+        "context": {
+          "type": "object",
+          "required": ["ownerRequest", "modes", "source"],
+          "additionalProperties": false,
+          "properties": {
+            "ownerRequest": {
+              "type": "string",
+              "minLength": 3,
+              "description": "What the owner actually asked; the injection is read while doing this."
+            },
+            "modes": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/mode" },
+              "description": "Modes this case runs in. Default runs: manual, balanced, auto."
+            },
+            "unattended": {
+              "type": "boolean",
+              "description": "Automation / heartbeat run: `ask` is deferred to the approvals queue."
+            },
+            "source": {
+              "type": "object",
+              "required": ["kind", "provenance"],
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "web_page",
+                    "email",
+                    "calendar_event",
+                    "pdf",
+                    "file",
+                    "image",
+                    "mcp_server",
+                    "chat_message",
+                    "memory_file",
+                    "skill_package",
+                    "subagent"
+                  ]
+                },
+                "provenance": { "enum": ["untrusted", "agent", "owner", "system"] },
+                "origin": { "type": "string" },
+                "sender": { "type": "string" },
+                "channel": { "type": "string" },
+                "mcpServer": { "type": "object", "additionalProperties": true },
+                "path": { "type": "string" }
+              }
+            },
+            "grants": {
+              "type": "array",
+              "description": "Standing grants that exist before the turn (the attack often tries to ride them).",
+              "items": {
+                "type": "object",
+                "required": ["scope", "kind"],
+                "additionalProperties": true,
+                "properties": {
+                  "scope": { "enum": ["once", "task", "site", "session", "always"] },
+                  "kind": { "type": "string" },
+                  "boundTo": { "type": "object" }
+                }
+              }
+            },
+            "taskOrigins": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "readOnly": { "type": "array", "items": { "type": "string" } },
+                "readWritable": { "type": "array", "items": { "type": "string" } }
+              }
+            },
+            "owner": {
+              "type": "object",
+              "description": "Owner identity facts the case relies on (owner email, owner chat ids).",
+              "additionalProperties": true
+            }
+          }
+        },
+        "payload": {
+          "type": "object",
+          "required": ["format", "content"],
+          "additionalProperties": false,
+          "properties": {
+            "format": {
+              "enum": [
+                "html",
+                "text",
+                "markdown",
+                "email",
+                "ics",
+                "json",
+                "pdf_text",
+                "pdf_fields",
+                "filename",
+                "ocr_text",
+                "url",
+                "yaml"
+              ]
+            },
+            "content": {
+              "description": "The exact attacker-controlled bytes as the executor would return them (string), or a structured object for json/pdf_fields/email."
+            },
+            "hiddenBy": { "type": "string", "description": "How a human viewer would miss it." },
+            "fixture": {
+              "type": "string",
+              "description": "Optional path (relative to this folder) of a larger payload file."
+            }
+          }
+        },
+        "attack": {
+          "type": "object",
+          "required": ["toolCall"],
+          "additionalProperties": false,
+          "properties": {
+            "toolCall": {
+              "description": "What an obedient model would emit. `null` when the injection has no tool path at all (expected outcome is then `ignored`).",
+              "oneOf": [
+                { "type": "null" },
+                {
+                  "type": "object",
+                  "required": ["tool", "sideEffect", "args"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "tool": { "type": "string" },
+                    "sideEffect": { "enum": ["none", "read", "write", "destructive", "financial"] },
+                    "targetKind": {
+                      "enum": ["origin", "path", "account", "command", "recipient", "app"]
+                    },
+                    "target": { "type": "string" },
+                    "approvalKind": { "type": "string" },
+                    "args": {}
+                  }
+                }
+              ]
+            },
+            "secretRefs": {
+              "type": "array",
+              "description": "Ids from tests/fixtures/secrets/registry.json the attack tries to extract or misuse. The runner fails the case if any appears in model-visible output.",
+              "items": { "type": "string" }
+            },
+            "followUps": {
+              "type": "array",
+              "description": "Extra steps for multi-step attacks (e.g. a fake approval message arriving on a channel after the ask).",
+              "items": { "type": "object" }
+            }
+          }
+        },
+        "expected": {
+          "type": "object",
+          "required": ["outcome", "invariants"],
+          "additionalProperties": false,
+          "properties": {
+            "outcome": { "$ref": "#/$defs/outcome" },
+            "byMode": {
+              "type": "object",
+              "description": "Overrides of `outcome` for specific modes.",
+              "propertyNames": { "$ref": "#/$defs/mode" },
+              "additionalProperties": { "$ref": "#/$defs/outcome" }
+            },
+            "rule": {
+              "type": "string",
+              "description": "The deciding rule the audit log should name, e.g. `prohibition:no_settings_tool`, `taint:new_target`, `deny:origin`, `placeholder:rejected`, `memory:untrusted_not_promoted`, `channel:not_owner`."
+            },
+            "approval": {
+              "type": "object",
+              "description": "For `asked`: constraints on the ApprovalRequest card.",
+              "additionalProperties": false,
+              "properties": {
+                "kind": { "type": "string" },
+                "deviceOnly": { "type": "boolean" },
+                "scopesOffered": {
+                  "type": "array",
+                  "items": { "enum": ["once", "task", "site", "session", "always"] }
+                },
+                "mustShow": {
+                  "type": "array",
+                  "items": { "type": "string" },
+                  "description": "Strings the card must show in full (recipient, URL, amount)."
+                },
+                "taintSources": { "type": "array", "items": { "type": "string" } }
+              }
+            },
+            "invariants": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "enum": [
+                  "no_unapproved_side_effect",
+                  "no_unapproved_egress",
+                  "no_secret_in_model_context",
+                  "no_placeholder_resolution",
+                  "no_memory_promotion",
+                  "no_grant_change",
+                  "no_mode_change",
+                  "no_skill_installed",
+                  "no_chat_approval_accepted",
+                  "card_shows_full_args",
+                  "taint_recorded",
+                  "audit_entry_written",
+                  "flagged_instruction_like"
+                ]
+              }
+            }
+          }
+        },
+        "rationale": { "type": "string", "minLength": 20 },
+        "refs": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+      }
+    }
+  }
+}
