@@ -1,0 +1,46 @@
+import type { Preview } from "@storybook/react-vite";
+import "../src/styles/index.css";
+import { ThemeProvider } from "../src/theme/ThemeProvider.tsx";
+
+const preview: Preview = {
+  globalTypes: {
+    theme: {
+      description: "Appearance",
+      toolbar: { title: "Theme", items: ["light", "dark"], dynamicTitle: true },
+    },
+    accent: {
+      description: "Accent seed",
+      toolbar: {
+        title: "Accent",
+        items: ["#6e56cf", "#0090ff", "#e54d2e", "#46a758", "#ffc53d"],
+        dynamicTitle: true,
+      },
+    },
+    motion: {
+      description: "Reduced motion",
+      toolbar: { title: "Motion", items: ["full", "reduced"], dynamicTitle: true },
+    },
+  },
+  initialGlobals: { theme: "light", accent: "#6e56cf", motion: "full" },
+  parameters: {
+    layout: "padded",
+    a11y: { test: "error" },
+  },
+  decorators: [
+    (Story, ctx) => (
+      <ThemeProvider
+        settings={{
+          theme: ctx.globals.theme === "dark" ? "dark" : "light",
+          accentSeed: String(ctx.globals.accent ?? "#6e56cf"),
+          reduceMotion: ctx.globals.motion === "reduced",
+        }}
+      >
+        <div className="bg-background text-foreground">
+          <Story />
+        </div>
+      </ThemeProvider>
+    ),
+  ],
+};
+
+export default preview;
