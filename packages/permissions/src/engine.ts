@@ -1,5 +1,5 @@
 import type { ApprovalKind, GrantScope, JsonObject, SideEffect } from "@psyche/protocol";
-import { effectiveTier, TIER_RANK, tierRequired } from "./apps.ts";
+import { appCap, effectiveTier, TIER_RANK, tierRequired } from "./apps.ts";
 import { type Binding, bindingFor, genericBindingFor, readsCwdConfig } from "./binding.ts";
 import {
   type ActionClassifier,
@@ -372,6 +372,9 @@ export class PolicyEngine {
       const { tier, capped, reason } = effectiveTier(app, p.config.apps?.[app]);
       const needed = tierRequired(call.meta?.action ?? call.tool);
       if (tier === "off") return done("deny", "app_tier:off", reason || `${app} is off`);
+      const cap = appCap(app);
+      if (TIER_RANK[cap.cap] < TIER_RANK[needed])
+        return done("deny", `app_tier:${cap.cap}`, cap.reason);
       if (tier !== undefined && TIER_RANK[tier] < TIER_RANK[needed]) {
         return done(
           "deny",
@@ -531,7 +534,7 @@ export class PolicyEngine {
       case "write":
         return ask(modeRule);
       case "destructive":
-        return ask(modeRule, undefined, ["once", "task"]);
+        return ask(modeRule);
       case "financial":
         return ask(modeRule, undefined, ["once"]);
     }

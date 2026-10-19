@@ -97,8 +97,9 @@ export function allowedScopes(
   if (sideEffect === "financial" || kind === "purchase") return ["once"];
   if (["pairing", "policy_change", "plan_exit", "skill_install"].includes(kind)) return ["once"];
   if (kind === "credential_fill") return ["once", "site"];
-  if (sideEffect === "destructive") return ["once", "task"];
+  // Security §5.4: exec_host offers `once` or an `always` bound to exact argv + cwd + binary.
   if (kind === "exec_host") return ["once", "always"];
+  if (sideEffect === "destructive") return ["once", "task"];
   return ALL_SCOPES;
 }
 
