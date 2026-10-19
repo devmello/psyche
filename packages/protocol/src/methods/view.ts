@@ -95,6 +95,13 @@ export const ViewMethods = {
     scope: "operator.write",
     description: "Asks the desktop to focus a pane.",
   }),
+  "view.report": defineMethod({
+    params: Type.Object({ layout: ViewLayout }),
+    result: OkResult,
+    scope: "operator.write",
+    description:
+      "desktop → Gateway: the desktop's current pane layout, sent after every change; view.layout returns the last report.",
+  }),
   "view.layout": defineMethod({
     params: Type.Object({}),
     result: Type.Object({ layout: Nullable(ViewLayout) }),
