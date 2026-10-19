@@ -1,0 +1,13 @@
+{
+  "kind": "calendar#freeBusy",
+  "calendars": {
+    "primary": {
+      "busy": [
+        {
+          "start": "2026-10-23T12:00:00Z",
+          "end": "2026-10-23T13:00:00Z"
+        }
+      ]
+    }
+  }
+}

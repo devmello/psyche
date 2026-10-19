@@ -1,0 +1,20 @@
+{
+  "items": [
+    {
+      "id": "e1",
+      "status": "confirmed",
+      "summary": "Lunch with Ana",
+      "start": {
+        "dateTime": "2026-10-23T12:00:00Z"
+      },
+      "end": {
+        "dateTime": "2026-10-23T13:00:00Z"
+      },
+      "organizer": {
+        "email": "owner@example.com"
+      },
+      "updated": "2026-10-19T08:00:00Z"
+    }
+  ],
+  "nextPageToken": "p2"
+}
