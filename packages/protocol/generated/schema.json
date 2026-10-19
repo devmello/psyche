@@ -370,6 +370,30 @@
         "sideEffecting": false
       },
       {
+        "description": "Exports entries in a time window (default jsonl). Large logs: export a window at a time or use `psyche audit export`.",
+        "name": "audit.export",
+        "params": "#/$defs/AuditExportParams",
+        "result": "#/$defs/AuditExportResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists audit entries matching the filters (since inclusive, until exclusive). Page with sinceSeq.",
+        "name": "audit.list",
+        "params": "#/$defs/AuditListParams",
+        "result": "#/$defs/AuditListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Re-verifies the hash chain and anchors; reports the first broken entry.",
+        "name": "audit.verify",
+        "params": "#/$defs/AuditVerifyParams",
+        "result": "#/$defs/AuditVerifyResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Creates an automation (enabled by default). Side-effecting.",
         "name": "automations.create",
         "params": "#/$defs/AutomationsCreateParams",
@@ -2168,6 +2192,163 @@
         "data",
         "prev",
         "hash"
+      ],
+      "type": "object"
+    },
+    "AuditExportFormat": {
+      "enum": [
+        "jsonl",
+        "json"
+      ],
+      "type": "string"
+    },
+    "AuditExportParams": {
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/AuditExportFormat"
+        },
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "until": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "AuditExportResult": {
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/AuditExportFormat"
+        },
+        "data": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "format",
+        "data"
+      ],
+      "type": "object"
+    },
+    "AuditListParams": {
+      "properties": {
+        "kind": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kindPrefix": {
+          "description": "\"approval.\" matches every approval kind",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "until": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "sinceSeq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "limit": {
+          "maximum": 1000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "order": {
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "AuditListResult": {
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/AuditEntry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "type": "object"
+    },
+    "AuditVerifyParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "AuditVerifyResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "count": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "anchors": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "lastHash": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "brokenAtSeq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "reason": {
+          "enum": [
+            "hash_mismatch",
+            "prev_mismatch",
+            "seq_gap",
+            "unparsable",
+            "truncated",
+            "anchor_mismatch",
+            "anchor_missing",
+            "anchor_signature"
+          ],
+          "type": "string"
+        },
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ok"
       ],
       "type": "object"
     },

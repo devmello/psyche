@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+**/out
+**/.turbo
+**/.vite
+**/coverage
+.git
+.claude
+apps/mac-helper
+spikes
+research_notes
+reports
+tests/corpus
+**/*.log
+**/.env*
+tests/integration/server-mode/secrets

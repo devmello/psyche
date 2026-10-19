@@ -1,6 +1,6 @@
 import { PsycheError } from "@psyche/protocol";
 import { runCli } from "./cli.ts";
-import { composeGateway, modelSetupFromEnv, NO_MODEL } from "./compose/index.ts";
+import { composeGateway, modelSetupFromEnv, NO_MODEL, partsFromEnv } from "./compose/index.ts";
 import { createLogger } from "./log.ts";
 
 const args = process.argv.slice(2);
@@ -11,7 +11,11 @@ const log = createLogger();
 try {
   const model = modelSetupFromEnv(process.env);
   if (model === null) log.log("warn", "no model configured (set PSYCHE_MODEL)", {});
-  const gateway = await composeGateway({ logger: log, model: model ?? NO_MODEL });
+  const gateway = await composeGateway({
+    logger: log,
+    model: model ?? NO_MODEL,
+    parts: partsFromEnv(process.env),
+  });
   const shutdown = (signal: string) => {
     log.log("info", "signal received", { signal });
     gateway.stop(signal).then(
