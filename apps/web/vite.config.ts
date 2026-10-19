@@ -1,3 +1,4 @@
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 
@@ -20,7 +21,7 @@ function devCsp(): Plugin {
 
 export default defineConfig({
   base: "/",
-  plugins: [react(), devCsp()],
+  plugins: [react(), tailwindcss(), devCsp()],
   resolve: { dedupe: ["react", "react-dom"] },
   build: { outDir: "dist", emptyOutDir: true, sourcemap: true },
   server: {
