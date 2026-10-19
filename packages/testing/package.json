@@ -14,6 +14,10 @@
       "types": "./src/conformance/index.ts",
       "default": "./src/conformance/index.ts"
     },
+    "./resumability": {
+      "types": "./src/resumability/index.ts",
+      "default": "./src/resumability/index.ts"
+    },
     "./scenarios": {
       "types": "./src/scenarios/index.ts",
       "default": "./src/scenarios/index.ts"

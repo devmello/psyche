@@ -28,9 +28,10 @@ public enum NodeSocketError: Error, Equatable, CustomStringConvertible {
 }
 
 /// Blocking AF_UNIX stream socket (POSIX; no Network.framework).
-public final class UnixSocketConnection {
+public final class UnixSocketConnection: @unchecked Sendable {
     public let fd: Int32
     private var closed = false
+    private let lock = NSLock()
 
     /// Wraps an already-connected descriptor (tests use `socketpair`).
     public init(fd: Int32) {
@@ -70,13 +71,35 @@ public final class UnixSocketConnection {
 
     deinit { close() }
 
+    /// Closes the descriptor. Writes after this throw instead of reaching a reused fd number.
     public func close() {
+        lock.lock()
+        defer { lock.unlock() }
         guard !closed else { return }
         closed = true
+        Darwin.shutdown(fd, SHUT_RDWR)
         Darwin.close(fd)
     }
 
+    /// Wakes a blocked reader with EOF without releasing the fd (safe from any thread); the owner
+    /// closes once its read loop has returned.
+    public func shutdown() {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !closed else { return }
+        Darwin.shutdown(fd, SHUT_RDWR)
+    }
+
+    public var isClosed: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return closed
+    }
+
     public func write(_ data: Data) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !closed else { throw NodeSocketError.closedByPeer }
         try data.withUnsafeBytes { (buf: UnsafeRawBufferPointer) in
             var offset = 0
             while offset < buf.count {
@@ -93,6 +116,7 @@ public final class UnixSocketConnection {
     /// Reads whatever is available before `deadline`. Returns `nil` on EOF.
     public func read(before deadline: Date, maxBytes: Int = 64 * 1024) throws -> Data? {
         while true {
+            if isClosed { return nil }
             let remainingMs = Int32(max(0, min(Double(Int32.max), deadline.timeIntervalSinceNow * 1000)))
             if remainingMs == 0 { throw NodeSocketError.timedOut }
             var pfd = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)

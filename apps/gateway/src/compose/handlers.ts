@@ -39,7 +39,7 @@ export function surfaceOf(db: PsycheDb, deviceId: string): Surface {
   return `device:${platform ?? "unknown"}`;
 }
 
-/** `approvals.*`, `grants.*` (and `audit.*` once the protocol has it): caller from the connection. */
+/** `approvals.*`, `grants.*` and `audit.*`: caller from the connection. */
 export function mountPermissions(
   db: PsycheDb,
   handlers: PermissionHandlers,
@@ -50,8 +50,6 @@ export function mountPermissions(
     string,
     (p: unknown, c: Caller) => Promise<unknown>,
   ][]) {
-    // `audit.*` is not in the protocol yet (docs/status/s05.md); the Gateway refuses unknown names.
-    if (name.startsWith("audit.")) continue;
     out[name] = {
       async run(call: Call, params: never) {
         const surface = surfaceOf(db, call.identity.deviceId);

@@ -1,6 +1,7 @@
 import type { Static } from "@sinclair/typebox";
 import { PsycheError } from "../errors.ts";
 import { ApprovalsMethods } from "./approvals.ts";
+import { AuditMethods } from "./audit.ts";
 import { AutomationsMethods } from "./automations.ts";
 import { BrowserMethods } from "./browser.ts";
 import { ChannelsMethods } from "./channels.ts";
@@ -22,6 +23,7 @@ import { ArtifactsMethods, ReceiptsMethods } from "./receipts.ts";
 import { SandboxMethods } from "./sandbox.ts";
 import { SearchMethods } from "./search.ts";
 import { SettingsMethods } from "./settings.ts";
+import { SkillsMethods } from "./skills.ts";
 import { TasksMethods } from "./tasks.ts";
 import { ThreadsMethods } from "./threads.ts";
 import { VaultMethods } from "./vault.ts";
@@ -29,6 +31,7 @@ import { ViewMethods } from "./view.ts";
 import { VoiceMethods } from "./voice.ts";
 
 export * from "./approvals.ts";
+export * from "./audit.ts";
 export * from "./automations.ts";
 export * from "./browser.ts";
 export * from "./channels.ts";
@@ -50,6 +53,7 @@ export * from "./receipts.ts";
 export * from "./sandbox.ts";
 export * from "./search.ts";
 export * from "./settings.ts";
+export * from "./skills.ts";
 export * from "./tasks.ts";
 export * from "./threads.ts";
 export * from "./vault.ts";
@@ -81,6 +85,7 @@ export const Methods = {
   ...ViewMethods,
   ...BrowserMethods,
   ...SandboxMethods,
+  ...AuditMethods,
   ...EventsMethods,
   ...NodeMethods,
   ...QuestionsMethods,
@@ -90,6 +95,7 @@ export const Methods = {
   ...IdeasMethods,
   ...GoalsMethods,
   ...VoiceMethods,
+  ...SkillsMethods,
 } as const;
 
 export type MethodName = keyof typeof Methods;

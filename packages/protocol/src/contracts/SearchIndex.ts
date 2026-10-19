@@ -31,6 +31,15 @@ export interface SearchIndexDoc {
   /** Epoch ms. */
   createdAt: number;
   updatedAt?: number;
+  /**
+   * Who may see the document: `owner` (default) or the session key of a designated-person
+   * thread (`telegram:peer:123`). A delegated viewer sees only its own scope.
+   */
+  scopeKey?: string;
+  /** Hits collapse onto their parent in grouped results (a task action → its task). */
+  parentId?: string;
+  /** Producer id for bulk removal (a connector id, `library`, …). */
+  source?: string;
 }
 
 export interface SearchIndexFilters {

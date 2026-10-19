@@ -128,7 +128,10 @@ function deviceKey() {
 }
 
 export async function startSkeleton(
-  options: Pick<ComposeOptions, "model" | "clock" | "timeZone" | "taskPollMs" | "compaction"> & {
+  options: Pick<
+    ComposeOptions,
+    "model" | "clock" | "timeZone" | "taskPollMs" | "compaction" | "parts"
+  > & {
     readOnly?: string[];
   },
 ): Promise<Skeleton> {
