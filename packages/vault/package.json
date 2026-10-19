@@ -1,0 +1,28 @@
+{
+  "name": "@psyche/vault",
+  "version": "0.0.0",
+  "private": true,
+  "description": "SQLCipher vault, key wrapping, {{cred:slug}} placeholders, fill protocol.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@psyche/protocol": "workspace:*",
+    "better-sqlite3-multiple-ciphers": "13.0.3"
+  },
+  "devDependencies": {
+    "@psyche/db": "workspace:*",
+    "@psyche/testing": "workspace:*",
+    "@types/better-sqlite3": "9.6.0",
+    "fast-check": "4.10.2"
+  }
+}

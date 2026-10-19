@@ -1,0 +1,14 @@
+{
+  "name": "anthropic 500",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/messages"
+  },
+  "response": {
+    "status": 500,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"type\":\"error\",\"error\":{\"type\":\"api_error\",\"message\":\"Internal server error\"}}"
+  }
+}

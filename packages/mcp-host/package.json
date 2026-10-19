@@ -1,0 +1,29 @@
+{
+  "name": "@psyche/mcp-host",
+  "version": "0.0.0",
+  "private": true,
+  "description": "MCP client host (spec 2026-07-28), trust tiers, tool policy integration.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/client": "2.3.1",
+    "@psyche/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/node": "2.1.1",
+    "@modelcontextprotocol/server": "2.3.1",
+    "@modelcontextprotocol/server-filesystem": "2026.8.31",
+    "@psyche/testing": "workspace:*",
+    "zod": "4.6.7"
+  }
+}

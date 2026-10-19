@@ -1,0 +1,29 @@
+{
+  "name": "@psyche/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "SQLite storage, drizzle schema and migrations",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@psyche/protocol": "workspace:*",
+    "better-sqlite3": "13.0.3",
+    "drizzle-orm": "0.45.4",
+    "ulid": "3.0.2"
+  },
+  "devDependencies": {
+    "@sinclair/typebox": "0.34.52",
+    "@types/better-sqlite3": "9.6.0",
+    "drizzle-kit": "0.31.11"
+  }
+}

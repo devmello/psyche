@@ -1,0 +1,27 @@
+{
+  "id": "t2",
+  "messages": [
+    {
+      "id": "t2m1",
+      "threadId": "t2",
+      "labelIds": ["INBOX", "UNREAD"],
+      "snippet": "snippet of Invoice 42",
+      "payload": {
+        "headers": [
+          {
+            "name": "From",
+            "value": "billing@vendor.example"
+          },
+          {
+            "name": "Subject",
+            "value": "Invoice 42"
+          },
+          {
+            "name": "Date",
+            "value": "Mon, 19 Oct 2026 09:00:00 +0000"
+          }
+        ]
+      }
+    }
+  ]
+}

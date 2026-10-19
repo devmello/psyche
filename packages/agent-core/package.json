@@ -1,0 +1,25 @@
+{
+  "name": "@psyche/agent-core",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The agent loop: steer/follow-up queues, tool registry, context assembly, compaction, ask_user, plan and checklist.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@psyche/protocol": "workspace:*",
+    "@sinclair/typebox": "0.34.52"
+  },
+  "devDependencies": {
+    "@psyche/testing": "workspace:*"
+  }
+}

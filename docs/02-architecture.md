@@ -308,6 +308,7 @@ $PSYCHE_HOME (default ~/.psyche; identical on macOS and Linux)
   state/psyche.sqlite         threads, messages, tasks, approvals, grants, receipts,
                               notifications, feed, ideas, goals, automations,
                               connectors, channels, devices, memory index, usage
+  state/search.sqlite         unified search index (derived; delete to rebuild)
   workspace/                  SOUL.md IDENTITY.md USER.md AGENTS.md MEMORY.md
                               memory/YYYY-MM-DD.md interests.md skills/ DREAMS.md
   library/                    artifacts and files the agent made or received
@@ -320,7 +321,8 @@ $PSYCHE_HOME (default ~/.psyche; identical on macOS and Linux)
   browser/profiles/<name>/    persistent agent browser profiles
   sandbox/<thread-or-project>/workspace/
   vm/<name>/                  Disk.img, AuxiliaryStorage, HardwareModel, MachineIdentifier
-  skills/                     installed skills (managed)
+  skills/                     installed skills (managed) + skills.lock.json (pins and
+                              owner approvals of installed and workspace skills)
   plugins/                    installed plugins / connectors
   audit/YYYY-MM.jsonl         hash-chained audit log
   logs/

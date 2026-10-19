@@ -1,0 +1,56 @@
+# @psyche/testing
+
+**Owner:** S00 (bootstrap) → S18 (security and test harness). Feature ids: cross-cutting acceptance criteria in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
+
+Deterministic in-memory fakes for every contract in [`packages/protocol/src/contracts`](../protocol/src/contracts/README.md), conformance suites that real implementations run, fixtures, a fake clock, deterministic ids and the skeleton of the secret-leak checker.
+
+## Public API (`src/index.ts`)
+
+- **Fakes** (`src/fakes/`): `FakeModelProvider` (`.script([...turns])`, records `requests`), `FakeAgentLoop` (`.script([...])`), `FakePermissionBroker` (`.policy({default, byTool, bySideEffect, prohibited})`, full approval lifecycle: 30 min expiry on an injectable clock, 400 ms arm delay, one single-use answer token per surface, first answer wins, `verifyBinding` with `once` consumption, `revokeRunAuthority`, `reissue()` / `restart()`), `FakeCredentialBroker` (`add`, `approve(id, {slug, origin, scope})` with `once` consumed on use; secrets auto-registered with the leak checker; resolves only for a matching binding and an approved id), `FakeMemoryStore`, `FakeTaskEngine` (leases on the clock), `FakeScheduler`, `FakeBrowserDriver.site(fixture)`, `FakeSandboxRunner` (scripted results; `backend: null` = no backend, no host fallback; never spawns anything), `FakeMcpHost` (`serve`, rug-pull hash check), `FakeChannelAdapter` (`receive`, `press`, `sent`), `FakeNodeClient` (`handle`; `system.echo` built in), `FakeNotifier`, `FakeSearchIndex`, `FakeSkillLoader`, `FakeSpeechEngine`, `FakeViewerRegistry`, `FakeAuditLog` (real sha256 chain, `tamper` hook).
+- **Conformance** (`src/conformance/`, imported from `@psyche/testing/conformance` because it depends on vitest): `describe<Contract>Conformance(name, factory, options?)` for ModelProvider, PermissionBroker, CredentialBroker, MemoryStore, TaskEngine, SandboxRunner, Notifier, NodeClient, AuditLog, SearchIndex. The factory receives a context with a `FakeClock` (time moves only when the suite advances it) and an id generator, plus contract-specific setup (deny-rule tools, a credential seed, an approved memory approval id, `backendAvailable`).
+- **Utilities**: `FakeClock` (`now`, `iso`, `advance`, `set`, `setTimer`), `createIdGenerator` (counter ids or seeded ULIDs), `canonicalJSON`, `sha256`, `bindingHash` (security §3.5), `collect(asyncIterable)`, `expectPsycheError`.
+- **Fixtures** (`src/fixtures/`): `SAMPLE_THREAD`, `SAMPLE_RUN`, `SAMPLE_MESSAGES` (valid against the protocol TypeBox schemas), `SAMPLE_APPROVAL_REQUEST` (data model §4.1), `SAMPLE_GMAIL_THREAD` (fictional example.com people, a PDF attachment and one injection line), `SAMPLE_PDF_FORM` / `SAMPLE_PDF_FORM_BYTES` (hand-written one-page AcroForm with fields `student_name`, `parent_name`, `emergency_phone`, `consent`).
+- **Secret-leak checker** (security §4.4–§4.7, §15.4 items 4 and 7):
+  - `src/secrets.ts`: `registerSecret(value, label?)`, `clearSecrets()`, `findSecrets(textOrObject)`, `assertNoSecrets(textOrObject, where?)`, and `SecretSet` for an independent registry. Finds raw, URL-encoded, hex, and base64 / base64url forms at any of the three byte alignments (so `base64("user:" + pw)` is caught) anywhere in nested objects, Map / Set entries and Error message / stack / cause (keys and `toJSON` output included).
+  - `src/secret-registry.ts`: the shared fake secrets in [`tests/fixtures/secrets/registry.json`](../../tests/fixtures/secrets/README.md): `fixtureSecret(id, field?)`, `fixtureVaultItem(id)`, `fixtureSecrets()`, `fixtureSecretSet()`. Values are derived from recipes, so none is committed. Tests take secrets from here, never inline.
+  - `src/secret-patterns.ts`: `findPatterns(text, allow?)` for cards (issuer prefix + Luhn), US SSNs, IBANs (mod 97), routing + account numbers (ABA checksum + keywords), passports (keyword) and private-key blocks.
+  - `src/capture.ts`: `captureModelVisible(kind, value, {where, allow})` records every model-visible value (`prompt`, `tool_result`, `transcript`, `log`, `audit`, `notification`, `receipt`, `approval_card`, …). The fakes call it: `FakeModelProvider` (prompts), `FakeAgentLoop` (deltas, blocks, tool calls), `FakeBrowserDriver` (snapshots, `readText`; password fields are masked `•••`), `FakeMcpHost` and `FakeSandboxRunner` (results), `FakeAuditLog`, `FakeNotifier`, `FakePermissionBroker` (approval cards, receipts), `FakeChannelAdapter` (outbound). `scanCaptures` / `assertNoModelVisibleLeaks` report leaks as `placeholder_resolution` (a vault field's resolved value), `registered_secret` or a pattern kind, with label, path and offset, never the value. With `PSYCHE_CAPTURE_DIR` set, captures are also appended as JSONL (0600).
+  - `@psyche/testing/vitest`: `secretLeakGuard()` plugin (or `setupFiles: ["@psyche/testing/vitest-setup"]`) fails any test whose captures leak. This package runs under it.
+  - `pnpm check:secrets` (`src/cli/check-secrets.ts`): scans tracked files (fixture values only in the registry; pattern hits only in `REPO_ALLOW`) and JSONL captures (`--captures <dir> [--require-captures]`); `--json` for CI. CI: `security / secret-leak` in `.github/workflows/security.yml`.
+
+- **Injection runner** (`src/injection/`, security §7.4, F9): `loadCorpus(dir)`, `runCase(case, mode, stack?)`, `runCorpus(cases)` → a diffable `InjectionReport` (no timestamps, sorted). It assumes the worst-case model: the payload is returned as an untrusted tool result and the model emits `attack.toolCall`. A `ToolGate` decides; `ReferenceToolGate` composes the fakes with the deterministic rules docs/05 gives the agent loop and executors (no control-plane tools, `exec_host` off, placeholders only in fill executors, fill origin binding, the protected-memory gate), then the Permission Broker. Comparison: executed or less safe than expected fails, safer warns; invariants checked include secret leaks (via capture), grant changes, protected-memory changes, audit entries, card contents and forged non-owner answers (`followUps: [{type: "approval_answer", ...}]`). Swap in real packages with a custom `StackFactory`; the report records which components were real. CLI: `pnpm check:injection [--corpus dir] [--out file] [--strict]`.
+
+- **Resumability harness** (`@psyche/testing/resumability`, cross-cutting "Resumability"; architecture §4.5; security §3.7, §3.11): `runWithKill({ script, killAt })` runs a scripted Task on the real stack (`SqliteTaskEngine` + `TaskWorkerPool` + the agent-core loop + `PsychePermissionBroker` and receipts, all on one temporary SQLite file). It kills the Gateway once at `killAt` (the promise there never resolves, its timers stop, every later durable call throws), boots a fresh Gateway on the same file, moves the clock past the lease, re-issues approvals, runs `recoverExpired()`, reconciles uncertain steps against a provider ledger (never by replaying), and runs turns until the Task settles. Kill points: `after_model_event:<n>`, `while_awaiting_approval:<step>`, `before_dispatch:<step>`, `after_dispatch:<step>` (reads), `before_receipt:<step>`, `after_receipt:<step>`; `enumerateKillPoints(script)` lists them and `exploreKillPoints({ script, sample?, seed? })` runs all or a seeded subset. Violations: duplicate side effects, effects or Activity lines without a receipt, receipts without effects, unreconciled `uncertain` steps, stale approvals, answers claiming a send with no receipt, model-visible secret leaks, an unexpected outcome. The scripted model learns only from the resume text and the current turn's results, so lost state shows up as a repeated call. `crash: "instant"` kills without letting queued work persist; `faults` plant bugs to prove detection. The real packages are imported by relative path, because they devDepend on `@psyche/testing` and a package dependency would be a turbo cycle. CLI: `pnpm check:resumability`.
+- **Scenario runner** (`@psyche/testing/scenarios`, V1 / V2 / V7, INT-3): `runScenario(dir, { stack?, mutate? })` and `runAllScenarios()` run each `tests/scenarios/*/scenario.json` in scripted mode: the real agent-core loop driven by each step's `script`, the real `PsychePermissionBroker` (in-memory store, owner connector rules and standing grants seeded), real audit chain and receipts, the connectors package's `braveProvider` and `safeFetch` over fixture HTTP fakes (Brave answers only when the real fixture key arrives in the header), `FakeBrowserDriver.site()` from the V7 manifest, and in-memory Gmail, Calendar, Library, artifacts and reminders built from the fixtures. Every assertion type in the scenario README is evaluated (hard / soft, `unchecked` with a reason when the stack cannot observe it), plus built-ins: secret leaks over all registry secrets, egress, audit hash chain. Report: stable ordering, no timestamps. CLI: `pnpm check:scenarios` (fails on hard failures not listed with an issue in `tests/scenarios/known-failures.json`, and on stale entries). Glue a real Gateway would own: taint sources and connector rule keys on broker calls (#71), executor-side binding re-check (#70), redirect allowlist (#72).
+
+## Using it from another package
+
+Add `"@psyche/testing": "workspace:*"` to `devDependencies`, then:
+
+```ts
+// my-broker.conformance.test.ts
+import { describePermissionBrokerConformance } from "@psyche/testing/conformance";
+import { createBroker } from "../src/index.ts";
+
+describePermissionBrokerConformance("permissions", ({ clock, deniedTools }) =>
+  createBroker({ now: () => clock.now(), denyRules: deniedTools }),
+);
+```
+
+Build features against fakes, for example `FakeModelProvider.script([[{type: "text_delta", text: "hi"}, {type: "finish", reason: "stop"}]])`. `test/conformance.test.ts` runs every suite against its fake; that is the proof that the fakes satisfy their contracts.
+
+## What is stubbed (S18 completes)
+
+- Fakes simplify policy (no classifier, no sensitive-category list, read asks only in `manual`), scheduling (UTC-only cron subset) and search ranking (term overlap). Contracts without a conformance suite yet: AgentLoop, Scheduler, BrowserDriver, McpHost, ChannelAdapter, SkillLoader, SpeechEngine, ViewerRegistry.
+- Injection runner: the reference gate stands in for S02's `before_tool_call` until it lands; no probe scanner (`flagged_instruction_like` is reported as unchecked); `ApprovalRequest` has no taint-source list, so `approval.taintSources` is unchecked.
+- No scenario runner or mock Gateway server yet. The resumability harness's `crash: "instant"` mode documents a known duplicate-send gap (see `docs/status/s18.md`).
+
+## How this package maps to the docs
+
+- Architecture: [docs/02-architecture.md](../../docs/02-architecture.md) §4–§9, §13
+- Data model: [docs/04-data-model.md](../../docs/04-data-model.md) §2–§7
+- Security: [docs/05-security-and-permissions.md](../../docs/05-security-and-permissions.md) §3, §4.5–§4.7, §15.1
+
+## Rules
+
+Edit only this package (see `prompts/_shared-rules.md`). Cross-package needs go through `packages/protocol` contracts and the fakes here.

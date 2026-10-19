@@ -1,0 +1,49 @@
+{
+  "name": "@psyche/gateway",
+  "version": "0.0.0",
+  "private": true,
+  "description": "psyched: the Psyche Gateway (bootstrap skeleton; S01 takes it from here)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./compose": {
+      "types": "./src/compose/index.ts",
+      "default": "./src/compose/index.ts"
+    }
+  },
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@psyche/agent-core": "workspace:*",
+    "@psyche/audit": "workspace:*",
+    "@psyche/browser": "workspace:*",
+    "@psyche/channels": "workspace:*",
+    "@psyche/connectors": "workspace:*",
+    "@psyche/db": "workspace:*",
+    "@psyche/memory": "workspace:*",
+    "@psyche/model-router": "workspace:*",
+    "@psyche/notifications": "workspace:*",
+    "@psyche/permissions": "workspace:*",
+    "@psyche/protocol": "workspace:*",
+    "@psyche/scheduler": "workspace:*",
+    "@psyche/tasks": "workspace:*",
+    "@sinclair/typebox": "0.34.52",
+    "ulid": "3.0.2",
+    "ws": "8.22.0"
+  },
+  "devDependencies": {
+    "@psyche/testing": "workspace:*",
+    "@types/ws": "8.18.2"
+  },
+  "bin": {
+    "psyched": "./src/main.ts"
+  }
+}

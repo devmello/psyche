@@ -1,0 +1,212 @@
+import { type Static, Type } from "@sinclair/typebox";
+import { Id, IsoDateTime, JsonObject, Nullable, StringEnum } from "../common.ts";
+import {
+  FeedFeedback,
+  FeedPost,
+  Goal,
+  GoalCategory,
+  GoalLink,
+  GoalMilestone,
+  Idea,
+} from "../schemas/surfaces.ts";
+import { defineMethod, nextCursor, OkResult, pageParams } from "./define.ts";
+
+/** `feed.*`, `ideas.*`, `goals.*` (architecture §4.11; UI design §3.9–§3.11). */
+
+export const IdeaStatus = StringEnum(["proposed", "accepted", "edited", "dismissed", "expired"], {
+  $id: "IdeaStatus",
+});
+
+export const GoalStatus = StringEnum(["candidate", "active", "paused", "done", "archived"], {
+  $id: "GoalStatus",
+});
+
+/** Why an idea was dismissed; feeds the acceptance model (UI design §3.10). */
+export const IdeaDismissReason = StringEnum(["not_now", "not_interested", "never_from_source"], {
+  $id: "IdeaDismissReason",
+});
+export type IdeaDismissReason = Static<typeof IdeaDismissReason>;
+
+/** Full goal page: the goal, linked task ids, milestones and links. */
+const GoalDetail = Type.Object({
+  goal: Goal,
+  taskIds: Type.Array(Id),
+  milestones: Type.Array(GoalMilestone),
+  links: Type.Array(GoalLink),
+});
+
+export const FeedMethods = {
+  "feed.list": defineMethod({
+    params: Type.Object({
+      since: Type.Optional(IsoDateTime),
+      briefingId: Type.Optional(Id),
+      ...pageParams,
+    }),
+    result: Type.Object({
+      posts: Type.Array(FeedPost),
+      nextBriefAt: Nullable(IsoDateTime),
+      ...nextCursor,
+    }),
+    scope: "operator.read",
+    description: "Lists feed posts, newest batch first, with the time of the next brief.",
+  }),
+  "feed.feedback": defineMethod({
+    params: Type.Object({
+      postId: Id,
+      feedback: Nullable(FeedFeedback),
+      topic: Type.Optional(Type.String({ maxLength: 200 })),
+    }),
+    result: Type.Object({
+      post: FeedPost,
+      ledgerChanges: Type.Optional(
+        Type.Array(Type.String(), { description: "interests.md lines the feedback changed" }),
+      ),
+    }),
+    scope: "operator.write",
+    description:
+      "Records feedback on a post in the interest ledger (null clears it, which is how undo works).",
+  }),
+  "feed.generate": defineMethod({
+    params: Type.Object({ briefingId: Type.Optional(Id) }),
+    result: Type.Object({ posts: Type.Array(FeedPost) }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Generates the daily brief (or one briefing) now instead of at its schedule (first-run state). Side-effecting.",
+  }),
+} as const;
+
+export const IdeasMethods = {
+  "ideas.list": defineMethod({
+    params: Type.Object({ status: Type.Optional(Type.Array(IdeaStatus)), ...pageParams }),
+    result: Type.Object({ ideas: Type.Array(Idea), ...nextCursor }),
+    scope: "operator.read",
+    description: "Lists ideas (default: proposed), newest first.",
+  }),
+  "ideas.accept": defineMethod({
+    params: Type.Object({
+      ideaId: Id,
+      recurring: Type.Optional(Type.Boolean()),
+      brief: Type.Optional(Type.String({ minLength: 1, maxLength: 20_000 })),
+      /** Cron or ISO-8601 duration for a recurring accept; default proposed by the idea. */
+      schedule: Type.Optional(Type.String({ minLength: 1 })),
+      timezone: Type.Optional(Type.String()),
+      /** Thread the task card lands in; default the main chat. */
+      threadId: Type.Optional(Id),
+    }),
+    result: Type.Object({ idea: Idea, taskId: Nullable(Id), automationId: Nullable(Id) }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Accepts an idea (optionally with an edited brief or as a recurring automation); it becomes a Task or an Automation. Side-effecting.",
+  }),
+  "ideas.dismiss": defineMethod({
+    params: Type.Object({ ideaId: Id, reason: IdeaDismissReason }),
+    result: Type.Object({ idea: Idea }),
+    scope: "operator.write",
+    description: "Dismisses an idea with a reason that feeds the acceptance model.",
+  }),
+} as const;
+
+export const GoalsMethods = {
+  "goals.list": defineMethod({
+    params: Type.Object({
+      status: Type.Optional(Type.Array(GoalStatus)),
+      category: Type.Optional(GoalCategory),
+    }),
+    result: Type.Object({ goals: Type.Array(Goal) }),
+    scope: "operator.read",
+    description: "Lists goals (default: active and candidate), grouped client-side by category.",
+  }),
+  "goals.get": defineMethod({
+    params: Type.Object({ goalId: Id }),
+    result: Type.Object({
+      goal: Goal,
+      taskIds: Type.Array(Id),
+      milestones: Type.Optional(Type.Array(GoalMilestone)),
+      links: Type.Optional(Type.Array(GoalLink)),
+    }),
+    scope: "operator.read",
+    description: "Returns one goal with its linked task ids, milestones and links.",
+  }),
+  "goals.decide": defineMethod({
+    params: Type.Object({
+      goalId: Id,
+      decision: StringEnum(["confirm", "reject", "later"], { $id: "GoalDecision" }),
+    }),
+    result: Type.Object({ goal: Goal }),
+    scope: "operator.write",
+    description:
+      "Confirms, rejects or defers an inferred candidate goal; nothing is created before confirm.",
+  }),
+  "goals.create": defineMethod({
+    params: Type.Object({
+      title: Type.String({ minLength: 1 }),
+      category: GoalCategory,
+      plan: Type.Optional(Nullable(JsonObject)),
+      cadence: Type.Optional(Nullable(Type.String())),
+      timezone: Type.Optional(Type.String()),
+      milestones: Type.Optional(
+        Type.Array(
+          Type.Object({
+            title: Type.String({ minLength: 1 }),
+            dueAt: Type.Optional(Nullable(IsoDateTime)),
+          }),
+        ),
+      ),
+    }),
+    result: GoalDetail,
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Creates a stated goal (active at once); a cadence schedules check-ins. Inferred goals are never created here. Side-effecting.",
+  }),
+  "goals.update": defineMethod({
+    params: Type.Object({
+      goalId: Id,
+      title: Type.Optional(Type.String({ minLength: 1 })),
+      category: Type.Optional(GoalCategory),
+      status: Type.Optional(StringEnum(["active", "paused", "done"])),
+      plan: Type.Optional(Nullable(JsonObject)),
+      cadence: Type.Optional(Nullable(Type.String())),
+    }),
+    result: GoalDetail,
+    scope: "operator.write",
+    sideEffecting: true,
+    description: "Edits a goal; changing the cadence reschedules its check-ins. Side-effecting.",
+  }),
+  "goals.archive": defineMethod({
+    params: Type.Object({ goalId: Id }),
+    result: Type.Object({ goal: Goal }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description: "Archives a goal and disables its check-ins. Side-effecting.",
+  }),
+  "goals.milestone": defineMethod({
+    params: Type.Object({
+      goalId: Id,
+      milestoneId: Type.Optional(Id),
+      title: Type.Optional(Type.String({ minLength: 1 })),
+      dueAt: Type.Optional(Nullable(IsoDateTime)),
+      done: Type.Optional(Type.Boolean()),
+      remove: Type.Optional(Type.Boolean()),
+    }),
+    result: GoalDetail,
+    scope: "operator.write",
+    sideEffecting: true,
+    description: "Adds (no milestoneId), edits, completes or removes a milestone. Side-effecting.",
+  }),
+  "goals.link": defineMethod({
+    params: Type.Object({
+      goalId: Id,
+      taskId: Type.Optional(Id),
+      automationId: Type.Optional(Id),
+      watchId: Type.Optional(Id),
+      unlink: Type.Optional(Type.Boolean()),
+    }),
+    result: OkResult,
+    scope: "operator.write",
+    sideEffecting: true,
+    description: "Links (or unlinks) one task, automation or watch to a goal. Side-effecting.",
+  }),
+} as const;

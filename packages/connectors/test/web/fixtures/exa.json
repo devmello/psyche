@@ -1,0 +1,24 @@
+{
+  "requestId": "b5947044c4b78efa9552a7c89b306d95",
+  "searchType": "auto",
+  "results": [
+    {
+      "id": "https://example.org/exa-1",
+      "title": "Exa result one",
+      "url": "https://example.org/exa-1",
+      "publishedDate": "2026-08-15T00:00:00.000Z",
+      "author": "A. Writer",
+      "highlights": ["First highlight about agents.", "Second highlight."],
+      "highlightScores": [0.9, 0.7]
+    },
+    {
+      "id": "https://example.org/exa-2",
+      "title": "Exa result two",
+      "url": "https://example.org/exa-2",
+      "publishedDate": null,
+      "author": null,
+      "summary": "Summary fallback text."
+    }
+  ],
+  "costDollars": { "total": 0.005 }
+}

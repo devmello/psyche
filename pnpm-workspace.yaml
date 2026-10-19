@@ -1,0 +1,23 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+  - "tests/integration"
+
+# pnpm 11+ runs dependency lifecycle scripts only for packages approved here
+# (`pnpm approve-builds <pkg>` edits this map). Keep it short and reviewed.
+allowBuilds:
+  better-sqlite3: true
+  # Prebuilt binaries ship in the tarball; the only "script" is pnpm's implicit
+  # `node-gyp rebuild` for binding.gyp, which is a no-op here (S06).
+  better-sqlite3-multiple-ciphers: false
+  electron: true
+  esbuild: true
+  node-pty: true
+engineStrict: true
+autoInstallPeers: true
+
+# Electron Forge refuses to run under pnpm unless node-linker=hoisted or an explicit hoist
+# pattern is configured. Keep the isolated layout and publicly hoist only Electron itself
+# (the desktop bundles everything else with Vite).
+publicHoistPattern:
+  - electron

@@ -1,0 +1,36 @@
+{
+  "name": "@psyche/model-router",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Provider adapters on AI SDK v7, the router (roles, fallbacks, cooldowns), usage ledger, price table, capability probe.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "prices:update": "node scripts/prices-update.ts",
+    "test:live": "PSYCHE_LIVE_TESTS=1 vitest run test/live.test.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "4.0.82",
+    "@ai-sdk/google": "4.0.99",
+    "@ai-sdk/openai": "4.0.96",
+    "@ai-sdk/openai-compatible": "3.0.71",
+    "@ai-sdk/provider": "4.0.29",
+    "@openrouter/ai-sdk-provider": "3.1.0",
+    "@psyche/protocol": "workspace:*",
+    "ai": "7.0.143",
+    "ollama-ai-provider-v2": "4.0.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@psyche/db": "workspace:*",
+    "@psyche/testing": "workspace:*"
+  }
+}

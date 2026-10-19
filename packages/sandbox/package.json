@@ -1,0 +1,26 @@
+{
+  "name": "@psyche/sandbox",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Sandbox container runner (Apple container, Docker, Podman), command receipts, workspace file API and PTY",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "sandbox:smoke": "node bin/smoke.ts",
+    "sandbox:build": "node bin/smoke.ts --build-only"
+  },
+  "dependencies": {
+    "@psyche/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@psyche/testing": "workspace:*"
+  }
+}

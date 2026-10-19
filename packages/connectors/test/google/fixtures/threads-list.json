@@ -1,0 +1,16 @@
+{
+  "threads": [
+    {
+      "id": "t1",
+      "snippet": "Lunch?",
+      "historyId": "8999"
+    },
+    {
+      "id": "t2",
+      "snippet": "Invoice",
+      "historyId": "9000"
+    }
+  ],
+  "nextPageToken": "page-2",
+  "resultSizeEstimate": 2
+}

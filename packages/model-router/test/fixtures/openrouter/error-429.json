@@ -1,0 +1,15 @@
+{
+  "name": "openrouter 429",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 429,
+    "headers": {
+      "content-type": "application/json",
+      "retry-after": "11"
+    },
+    "body": "{\"error\":{\"code\":429,\"message\":\"Rate limit exceeded: anthropic/claude-sonnet-5-5 is temporarily rate-limited upstream.\"},\"user_id\":\"user_fixture\"}"
+  }
+}

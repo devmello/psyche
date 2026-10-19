@@ -1,0 +1,44 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
+<style>
+  body { font: 12px -apple-system, system-ui; margin: 0; padding: 10px; background: #1e1f22; color: #ddd; }
+  h1 { font-size: 12px; text-transform: uppercase; color: #888; margin: 4px 0 10px; }
+  .tab { padding: 6px 8px; border-radius: 6px; margin-bottom: 4px; cursor: pointer; overflow: hidden; }
+  .tab.active { background: #34363b; }
+  .tab .title { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+  .tab .meta { color: #888; font-size: 11px; }
+  .pill { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 10px; }
+  .user { background: #b8860b; color: #000; } .agent { background: #2e7d32; color: #fff; }
+  button { width: 100%; margin-top: 8px; padding: 6px; border-radius: 6px; border: 0; background: #4a6cf7; color: #fff; }
+  #dl { margin-top: 14px; color: #999; font-size: 11px; word-break: break-all; }
+</style></head>
+<body>
+<h1>Agent tabs</h1>
+<div id="tabs"></div>
+<button id="take">Take control</button>
+<button id="release">Release</button>
+<div id="dl"></div>
+<script>
+  let state = { tabs: [] };
+  const active = () => state.tabs.find((t) => t.active);
+  document.getElementById('take').onclick = () => active() && bridge.send({ op: 'take', tabId: active().tabId });
+  document.getElementById('release').onclick = () => active() && bridge.send({ op: 'release', tabId: active().tabId });
+  bridge.onState((s) => {
+    state = s;
+    const root = document.getElementById('tabs');
+    root.replaceChildren(...s.tabs.map((t) => {
+      const d = document.createElement('div');
+      d.className = 'tab' + (t.active ? ' active' : '');
+      const title = document.createElement('div'); title.className = 'title'; title.textContent = t.title || t.url || t.tabId;
+      const meta = document.createElement('div'); meta.className = 'meta';
+      const pill = document.createElement('span'); pill.className = 'pill ' + (t.userInControl ? 'user' : 'agent'); pill.textContent = t.userInControl ? 'you' : 'agent';
+      meta.append(`${t.tabId}${t.openerTabId ? ' ← ' + t.openerTabId : ''} ${t.attached ? 'cdp' : 'detached'} `, pill);
+      d.append(title, meta);
+      d.onclick = () => bridge.send({ op: 'activate', tabId: t.tabId });
+      return d;
+    }));
+    document.getElementById('dl').textContent = s.downloads.length ? 'Downloads: ' + s.downloads.map((x) => `${x.filename} (${x.state}, ${x.bytes} B)`).join(', ') : '';
+  });
+</script>
+</body></html>

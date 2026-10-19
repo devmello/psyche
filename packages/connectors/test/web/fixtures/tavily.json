@@ -1,0 +1,23 @@
+{
+  "query": "psyche agent",
+  "answer": null,
+  "images": [],
+  "results": [
+    {
+      "title": "Tavily hit",
+      "url": "https://news.example.com/story",
+      "content": "Snippet text from Tavily.\n\nWith   extra whitespace.",
+      "score": 0.81,
+      "published_date": "Mon, 05 Oct 2026 12:00:00 GMT",
+      "raw_content": null
+    },
+    {
+      "title": "No date",
+      "url": "https://example.net/",
+      "content": "Undated snippet",
+      "score": 0.5
+    }
+  ],
+  "response_time": 1.2,
+  "request_id": "123e4567-e89b-12d3-a456-426614174111"
+}

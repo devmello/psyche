@@ -1,0 +1,31 @@
+{
+  "name": "@psyche/notifications",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Durable notification inbox, delivery routing (desktop, OS via the mac helper, channels), quiet hours and restart reconciliation.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@psyche/protocol": "workspace:*",
+    "ulid": "3.0.2"
+  },
+  "devDependencies": {
+    "@psyche/testing": "workspace:*",
+    "@types/better-sqlite3": "9.6.0",
+    "better-sqlite3": "13.0.3"
+  },
+  "files": [
+    "src",
+    "migrations"
+  ]
+}

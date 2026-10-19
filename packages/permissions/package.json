@@ -1,0 +1,30 @@
+{
+  "name": "@psyche/permissions",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Policy engine, approvals, grants, binding hashes, classifier hook.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "gen:schema": "tsx scripts/gen-policy-schema.ts"
+  },
+  "dependencies": {
+    "@psyche/audit": "workspace:*",
+    "@psyche/protocol": "workspace:*",
+    "@sinclair/typebox": "0.34.52",
+    "ulid": "3.0.2"
+  },
+  "devDependencies": {
+    "@psyche/db": "workspace:*",
+    "@psyche/testing": "workspace:*",
+    "fast-check": "4.10.2"
+  }
+}

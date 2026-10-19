@@ -1,0 +1,24 @@
+{
+  "name": "@psyche/cli",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The psyche CLI; talks only to the Gateway API.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@psyche/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@psyche/testing": "workspace:*"
+  }
+}

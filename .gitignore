@@ -42,3 +42,13 @@ Thumbs.db
 logs/
 *.log
 tmp/
+
+# Swift Package Manager
+.swiftpm/
+Package.resolved.lock
+
+# protocol codegen scratch
+packages/protocol/generated/.tmp/
+
+# local Psyche dev homes
+.psyche-dev/

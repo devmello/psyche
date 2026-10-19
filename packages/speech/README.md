@@ -1,0 +1,119 @@
+# @psyche/speech
+
+**Owner:** S17 ([prompts/s17-speech.md](../../prompts/s17-speech.md)). Features Q1 (TS side), Q3, Q4 and N11 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md); architecture §5 (dictation), §4.10 (voice notes), §11 (`voice.*`); ADR-014.
+
+Speech-to-text and text-to-speech behind the `SpeechEngine` contract, engine selection, the whisper.cpp and Kokoro engines on the Gateway host, cloud voices, the Web Speech fallback for the web client, `voice.*` dictation sessions, read-aloud, and voice-note transcoding per channel. The Mac-native engines (SpeechAnalyzer, Parakeet, WhisperKit, AVSpeechSynthesizer) live in the Swift helper (S14); this package reaches them as node capabilities.
+
+## Public API
+
+| Export | What it does |
+| --- | --- |
+| `createSpeechStack(opts)` / `createSpeechEngine(opts)` | Wires the default engines and returns `{selector, engine, transcoder, models}`; `engine` is a `SpeechEngine` that routes per call |
+| `SpeechEngineSelector`, `RoutedSpeechEngine`, `DEFAULT_SPEECH_SETTINGS` | Selection policy (below); `explain()` lists each engine and why it is or is not eligible |
+| `NodeSpeechEngine`, `NODE_SPEECH_CAPABILITIES` | `SpeechEngine` over the Mac helper's `speech.*` capabilities |
+| `WhisperEngine`, `WhisperCliBackend`, `WhisperServerBackend` | whisper.cpp: per-request `whisper-cli`, or a loopback `whisper-server` that keeps the model loaded |
+| `KokoroEngine`, `KokoroOnnxRuntime`, `PhonemizePhonemizer`, `ipaToMisaki` | Kokoro-82M on an injected `onnxruntime-node` |
+| `CloudTtsEngine` | OpenAI and ElevenLabs voices; the key comes from the vault as a one-shot `ResolvedSecret` |
+| `webSpeechDictation`, `WEB_SPEECH_ENTRY` | Client-side helper for psyche-web (browser owns the mic) |
+| `VoiceSessionManager` | `voice.start / push / stop / cancel` and `voice.segment` / `voice.ended` events |
+| `ReadAloudService` | `speech.readAloud(messageId)`: streams `speech.audio` events, saves an MP3 Library item |
+| `VoiceNoteTranscoder`, `transcribeVoiceNote`, `VOICE_NOTE_PROFILES`, `oggOpusToCaf` | Voice notes per channel and inbound decode → transcript |
+| `ModelManager`, `MODEL_CATALOG` | Checksummed model downloads into `$PSYCHE_HOME/models/` |
+| `SegmentSequencer`, `buildVocabulary`, `parseSsmlLite`, PCM helpers | Building blocks shared by the engines |
+
+## Engine selection
+
+Transcription order (setting `speech.stt.order`, default `["mac-node", "whisper", "web-speech"]`):
+
+1. **mac-node**: a paired, online Mac helper offering `speech.transcribe_stream` (SpeechAnalyzer / DictationTranscriber on macOS 26+; on-device SFSpeechRecognizer on macOS 15 until spike 03 picks Parakeet or WhisperKit).
+2. **whisper**: whisper.cpp on the Gateway host, when `whisper-cli` and the model are present.
+3. **web-speech**: only when the caller is the web client (`location: "client"`); Electron has no Web Speech backend and channels or the agent cannot use a browser engine.
+
+Synthesis order (`speech.tts.order`, default `["kokoro", "mac-node"]`, voice `kokoro:af_heart`). A persona voice `<engine>:<voice>` (IDENTITY.md `voice:`) puts its engine first. Cloud voices (`openai`, `elevenlabs`) are registered only when a vault key resolver is configured and are used only if the owner names them in the order or as the persona voice, because they send text off the machine.
+
+Each engine has a cheap `available()` probe (binary and model present, node online, key configured); a throwing probe counts as unavailable. `select()` rejects `unavailable` (retryable) with the reason per engine.
+
+## Engine matrix
+
+Measured on an Apple M5 (16 GB, macOS 27.0.1) on 2026-10-19 unless marked otherwise.
+
+| Engine | Where | Streaming | Latency / speed | Memory | Notes |
+| --- | --- | --- | --- | --- | --- |
+| SpeechAnalyzer (Mac node) | macOS 26+ helper | yes (volatile + final) | first partial ≈ 1.04 s (SpeechTranscriber) / 0.75 s (DictationTranscriber), finalize 55–115 ms (S14 bench, M5) | helper ≈ 42 MiB; models system-managed | Best default on a Mac; S14 |
+| Parakeet / WhisperKit (Mac node) | macOS 14–15 helper | yes | ~0.19 s short clip (Parakeet, research KQ6) | 0.3–1.5 GB | S14 |
+| whisper.cpp `tiny.en` | Gateway | chunked (partial every 1 s of speech) | 4.5 s clip in 0.48 s for two utterances (Metal, model reloaded per call) | ~273 MB | Drops speech after long pauses unless split (we split) |
+| whisper.cpp `base.en` (default) | Gateway | chunked | not measured; ~2× tiny | ~388 MB | Default model id `whisper-base.en` |
+| whisper.cpp `large-v3-turbo-q5_0` | Gateway | file only advised | not measured | ~1.5 GB | Use with `whisper-server` |
+| Web Speech | web client | yes | browser-dependent | — | Chrome sends audio to Google; last resort |
+| Kokoro-82M q8 (ONNX, CPU) | Gateway | per sentence | RTF 0.47–0.60 (6 s of audio in 2.8–3.6 s) | +110–220 MB RSS | Linux x64 not measured; expect slower |
+| AVSpeechSynthesizer (Mac node) | helper | per utterance | — | — | Personal Voice has non-commercial terms |
+| OpenAI / ElevenLabs | cloud | per request | network-bound | — | 24 kHz PCM requested from both |
+
+**Streaming dictation with whisper.cpp** is VAD-gated chunked inference: a 30 ms-frame energy VAD with an adaptive noise floor finds utterances (210 ms pre-roll, 600 ms of silence ends one, 15 s cap); while an utterance grows the engine re-transcribes it every second of speech and emits a volatile partial; at its end it emits the final. Custom vocabulary and the tail of the previous final go into whisper's `--prompt`. File transcription uses the same splitter (25 s cap) because tiny/base models stop decoding after a long pause and silently drop the rest.
+
+**Partial/final contract** (all engines, `SegmentSequencer`): finals are committed and in time order (an overlapping final is clamped to start where the previous ended); a partial is the volatile tail after the last final; repeated and empty partials are dropped; a partial still pending when the stream ends is promoted to a final, so the last thing a client sees is a final.
+
+**Custom vocabulary** (`buildVocabulary`): agent name, owner name, the owner's custom terms, contact names, recent topics, in that order; de-duplicated, at most 64 terms of ≤ 48 characters, with placeholders and markup dropped. `voice.start` merges request terms with the session default.
+
+## Model download policy
+
+- Nothing downloads on its own. `ModelManager.ensure(id)` runs only when the owner picks a model (Settings → Voice & dictation, onboarding, a CLI command). Until then the engine reports unavailable and selection falls through.
+- Every model is pinned in `src/catalog.ts` to an HTTPS URL and a SHA-256 (whisper.cpp: Hugging Face LFS hashes, cross-checked with the SHA-1 list in whisper.cpp `models/README.md`; Kokoro: pinned to repo commit `1939ad2`). Bytes are hashed while streaming into `<file>.part`; a size or hash mismatch deletes the partial and rejects. Only verified files are renamed into place.
+- Layout: `$PSYCHE_HOME/models/whisper/ggml-<name>.bin`, `models/vad/…`, `models/kokoro/{model_quantized.onnx, tokenizer.json, voices/<id>.bin}`. Directories 0700, files 0600.
+- Catalog: whisper `tiny(.en)`, `base(.en)`, `small(.en)`, `large-v3-turbo(-q5_0)`, Silero VAD v6.2.0; Kokoro q8 model, tokenizer, 28 English voices.
+
+## Runtime dependencies (not bundled)
+
+| Need | How | Why not bundled |
+| --- | --- | --- |
+| `ffmpeg`, `ffprobe` with libopus + libmp3lame | `brew install ffmpeg`, `apt install ffmpeg` (Debian trixie ships 7.1) | Static and Homebrew builds are GPL; running a separate binary is fine, shipping one is the packager's decision |
+| `whisper-cli` (whisper.cpp ≥ 1.9) | `brew install whisper-cpp`, or `cmake -B build && cmake --build build` | Native; `whisper-server` is not in the Homebrew formula (build it from source for the server backend) |
+| `onnxruntime-node` (MIT, ~300 MB unpacked) | installed by the Gateway and passed as `ort` | Too heavy for every consumer of this package |
+| `phonemize` (MIT) | dependency of this package | Loaded with `require`: its ESM build imports JSON without import attributes, which Node 24 rejects |
+
+`kokoro-js` and `sherpa-onnx-node` are deliberately not used: both embed espeak-ng (GPL-3.0) despite their Apache-2.0 labels, and packages may not depend on GPL code.
+
+All binaries run through a `ProcessRunner` with an argv array and a minimal environment (`PATH`, `HOME`, `LANG`, `TMPDIR`); the Gateway can wrap it (`srt` on macOS via `prefix`, the sandbox on Linux) because inbound audio is untrusted input to a large C decoder.
+
+## Voice-note formats
+
+Synthesize once to PCM, then encode per channel. Caps are upload limits; when a clip would exceed one, the encoder walks down the bitrate ladder and refuses if the lowest rung does not fit.
+
+| Channel | Container | Rate | Bitrate ladder (kbps) | Cap | Native bubble |
+| --- | --- | --- | --- | --- | --- |
+| Telegram (`sendVoice`) | OGG/Opus `audio/ogg` | 48 kHz mono | 48, 32, 24, 16 | 50 MB | yes |
+| WhatsApp (PTT) | OGG/Opus | 48 kHz mono | 48, 32, 24, 16 | 16 MB | yes |
+| Signal | OGG/Opus | 48 kHz mono | 48, 32, 24, 16 | 100 MB (unverified) | yes |
+| iMessage | CAF/Opus `audio/x-caf`, `Audio Message.caf` | 48 kHz mono | 32, 24, 16 | 100 MB (unverified) | yes (see caveat) |
+| Slack | MP3 `audio/mpeg` | 44.1 kHz mono | 64, 48, 32 | 1 GB | no |
+| Discord | MP3 | 44.1 kHz mono | 64, 48, 32 | 10 MB (unverified) | no |
+| Email | MP3 | 44.1 kHz mono | 64, 48, 32 | 18 MB (25 MB minus base64) | no |
+| SMS (MMS) | MP3 | 44.1 kHz mono | 64, 48, 32 | 5 MB (unverified) | no |
+| Web chat, Library | MP3 | 44.1 kHz mono | 64, 48, 32 | 50 MB | no |
+
+**iMessage caveat.** Apple documents only "CAF" for inline voice notes; Opus inside CAF is community-reported (OpenClaw/BlueBubbles skills), and the message must also be flagged as an audio message by the sender. ffmpeg cannot write Opus (or AAC) into CAF (`cafenc.c`: "muxing codec currently unsupported"), so `oggOpusToCaf` remuxes ffmpeg's Ogg packets into CAF in-process, with the chunk layout `afconvert -f caff -d opus` produces (`desc`, `kuki`, `chan`, `pakt`, `data`). Apple's `afinfo` and `afconvert` read and decode the result on macOS 27; whether Messages renders it as a bubble must be checked end to end with the Mac node (S14/S10).
+
+**Inbound.** `transcribeVoiceNote(engine, transcoder, file)` writes the file to a private temp dir (CAF and moov-at-end M4A cannot be decoded from a pipe), decodes to 16 kHz mono s16le with ffmpeg and transcribes with the selected engine. Channel adapters (S10) call it.
+
+## Tests and gates
+
+`pnpm --filter @psyche/speech test` runs everything that needs no external binary. Gated suites skip themselves:
+
+| Suite | Gate | Covers |
+| --- | --- | --- |
+| whisper.cpp on the fixture clip | `whisper-cli` on PATH (or `PSYCHE_WHISPER_CLI`) and a model at `PSYCHE_WHISPER_MODEL` (default `$PSYCHE_HOME/models/whisper/ggml-tiny.en.bin`) | File and streaming transcription of `test/fixtures/remind-alice.wav` |
+| Transcoding matrix | `ffmpeg` and `ffprobe` with libopus and libmp3lame | 4 PCM input formats × 6 channels verified with ffprobe, decode round trip, CAF remux |
+
+`test/fixtures/remind-alice.wav` is 4.5 s of Kokoro-82M (Apache-2.0) voice `af_heart` saying "Hello Psyche. Remind me to call Alice at noon tomorrow.", 16 kHz mono. `test/fixtures/kokoro-tokenizer.json` is the Kokoro v1.0 ONNX tokenizer (Apache-2.0).
+
+## Stubbed or open
+
+- `voice.*` and `speech.readAloud` method/event schemas are in devmello/psyche#56 (unmerged); this package defines matching local types (`src/voice.ts`, `src/readAloud.ts`) and the Gateway (S01) wires them once it lands.
+- `NodeSpeechEngine` follows the helper's capability spec in devmello/psyche#47 (`speech.transcribe_stream` with `source: "push"`, `speech.audio_push`, `speech.synthesize`, `speech.voices`), tested against a fake helper; not yet run against the real helper because #47 is unmerged.
+- Moonshine is not wired: there is no maintained Node binding; `@huggingface/transformers` would work but pulls `sharp` (LGPL libvips).
+- The Library writer and message reader for read-aloud are injected interfaces; no contract exists for them yet.
+- M2: voice mode with barge-in (Q5), per-persona voice selection UI, diarization.
+
+## Rules
+
+Edit only this package (see `prompts/_shared-rules.md`). Cross-package needs go through `packages/protocol` contracts and the fakes in `packages/testing`.

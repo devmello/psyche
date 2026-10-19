@@ -1,0 +1,14 @@
+{
+  "name": "openai 503",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/responses"
+  },
+  "response": {
+    "status": 503,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":{\"message\":\"Service unavailable. Please retry your request after a brief wait.\",\"type\":\"server_error\",\"param\":null,\"code\":\"service_unavailable\"}}"
+  }
+}
