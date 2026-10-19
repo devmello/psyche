@@ -236,10 +236,9 @@ export const Settings = Type.Record(Type.String(), Type.Unknown(), { $id: "Setti
 export type Settings = Static<typeof Settings>;
 
 /**
- * Setting roots that require `operator.admin` plus fresh presence (security §10, plus the grant
- * and approval lifetimes from security §3.4 and §3.7). A key is admin-only when its first
- * segment equals a root, compared case-insensitively: `permissions`, `permissions.mode` and
- * `Permissions.mode` all match.
+ * Setting roots named by security §10 as admin-only. Kept for reference and older callers; the
+ * check itself is now an allowlist (`USER_SETTING_PREFIXES`), so a root missing from this list is
+ * still admin-only.
  */
 export const ADMIN_SETTING_ROOTS = [
   "permissions",
@@ -252,7 +251,32 @@ export const ADMIN_SETTING_ROOTS = [
   "approvals",
 ] as const;
 
+/**
+ * The only settings an `operator.write` device may change without `operator.admin`: cosmetic and
+ * per-client preferences. Every other key (owner identity, sessions, MCP, connectors, skills,
+ * plugins, models, updates, browser, VM, memory, backup, and roots nobody has named yet) is
+ * admin-only (S23 review PR-1-C). A prefix matches whole dotted segments, case-insensitively:
+ * `appearance` matches `appearance` and `Appearance.theme`, not `appearancex`.
+ */
+export const USER_SETTING_PREFIXES = [
+  "appearance",
+  "ui",
+  "editor",
+  "shortcuts",
+  "locale",
+  "notifications.sound",
+  "notifications.badges",
+] as const;
+
+export function isUserSettingKey(key: string): boolean {
+  const segments = key.toLowerCase().split(".");
+  return USER_SETTING_PREFIXES.some((prefix) => {
+    const want = prefix.split(".");
+    return want.length <= segments.length && want.every((part, i) => segments[i] === part);
+  });
+}
+
+/** `true` unless the key is on the cosmetic allowlist (`USER_SETTING_PREFIXES`). */
 export function isAdminSettingKey(key: string): boolean {
-  const root = key.split(".", 1)[0]?.toLowerCase() ?? "";
-  return (ADMIN_SETTING_ROOTS as readonly string[]).includes(root);
+  return !isUserSettingKey(key);
 }

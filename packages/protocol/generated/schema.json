@@ -154,6 +154,11 @@
         "payload": "#/$defs/ChatMessagePayload"
       },
       {
+        "description": "The thread's follow-up queue changed (queued, removed or started).",
+        "name": "chat.queue.updated",
+        "payload": "#/$defs/ChatQueueUpdatedPayload"
+      },
+      {
         "description": "A vault item was added, edited, deleted, used, rotated or revoked; revocation invalidates connection-bound work.",
         "name": "credential.updated",
         "payload": "#/$defs/CredentialUpdatedPayload"
@@ -257,6 +262,11 @@
         "description": "A task changed status, plan or checklist.",
         "name": "task.updated",
         "payload": "#/$defs/TaskUpdatedPayload"
+      },
+      {
+        "description": "A thread and its transcript were deleted.",
+        "name": "thread.deleted",
+        "payload": "#/$defs/ThreadDeletedPayload"
       },
       {
         "description": "A thread was created, renamed, pinned, archived or restored.",
@@ -522,6 +532,22 @@
         "params": "#/$defs/ChatHistoryParams",
         "result": "#/$defs/ChatHistoryResult",
         "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists the thread's queued follow-ups in the order they will run.",
+        "name": "chat.queue.list",
+        "params": "#/$defs/ChatQueueListParams",
+        "result": "#/$defs/ChatQueueListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Removes a queued follow-up before it starts; false when it already started or is unknown.",
+        "name": "chat.queue.remove",
+        "params": "#/$defs/ChatQueueRemoveParams",
+        "result": "#/$defs/ChatQueueRemoveResult",
+        "scope": "operator.write",
         "sideEffecting": false
       },
       {
@@ -1037,7 +1063,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Sets one setting. Keys under an admin root (permissions, exec, vault, devices, gateway, channels, grants, approvals) also need operator.admin. Side-effecting.",
+        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges) also needs operator.admin. Side-effecting.",
         "name": "settings.set",
         "params": "#/$defs/SettingsSetParams",
         "result": "#/$defs/SettingsSetResult",
@@ -3962,6 +3988,87 @@
       ],
       "type": "object"
     },
+    "ChatQueueListParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "threadId"
+      ],
+      "type": "object"
+    },
+    "ChatQueueListResult": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/QueuedMessage"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "type": "object"
+    },
+    "ChatQueueRemoveParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "messageId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "threadId",
+        "messageId"
+      ],
+      "type": "object"
+    },
+    "ChatQueueRemoveResult": {
+      "properties": {
+        "removed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "removed"
+      ],
+      "type": "object"
+    },
+    "ChatQueueUpdatedPayload": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/QueuedMessage"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "threadId",
+        "items"
+      ],
+      "type": "object"
+    },
     "ChatSendParams": {
       "properties": {
         "threadId": {
@@ -4978,6 +5085,12 @@
           },
           "minItems": 1,
           "type": "array"
+        },
+        "code": {
+          "description": "The code shown on the new device; when given it must match the request",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -8776,6 +8889,22 @@
               "type": "null"
             }
           ]
+        },
+        "publicKeyFingerprint": {
+          "description": "Device requests: \"sha256:\" + hex SHA-256 of the raw Ed25519 public key the owner approves",
+          "type": "string"
+        },
+        "transport": {
+          "description": "Device requests: how the device connected",
+          "enum": [
+            "ws",
+            "unix"
+          ],
+          "type": "string"
+        },
+        "remoteAddress": {
+          "description": "Device requests: peer address as the Gateway saw it",
+          "type": "string"
         }
       },
       "required": [
@@ -9168,6 +9297,52 @@
         "interrupt"
       ],
       "type": "string"
+    },
+    "QueuedMessage": {
+      "properties": {
+        "messageId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "position": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "content": {
+          "type": "string"
+        },
+        "attachments": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "messageId",
+        "threadId",
+        "position",
+        "content",
+        "attachments",
+        "createdAt"
+      ],
+      "type": "object"
     },
     "QueuedMessageResult": {
       "properties": {
@@ -10734,6 +10909,20 @@
       ],
       "type": "object"
     },
+    "ThreadDeletedPayload": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "threadId"
+      ],
+      "type": "object"
+    },
     "ThreadIdParams": {
       "properties": {
         "threadId": {
@@ -10875,6 +11064,12 @@
         },
         "pinnedOnly": {
           "type": "boolean"
+        },
+        "query": {
+          "description": "Case-insensitive substring match on the title",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
         },
         "cursor": {
           "description": "Opaque cursor",
