@@ -1,6 +1,7 @@
 import type { SearchHit } from "@psyche/protocol";
 import { type ReactElement, useEffect, useState } from "react";
 import {
+  Command,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -80,43 +81,49 @@ export function CommandPalette({
       title="Command palette"
       description="Search Psyche or run a command"
     >
-      <CommandInput placeholder="Search or type a command" value={query} onValueChange={setQuery} />
-      <CommandList>
-        <CommandEmpty>{search.loading ? "Searching…" : "Nothing found."}</CommandEmpty>
-        {[...search.groups.entries()].map(([scope, hits]) => (
-          <CommandGroup key={scope} heading={`${scope} (${hits.length})`}>
-            {hits.map((h: SearchHit) => (
+      <Command shouldFilter={search.hits.length === 0}>
+        <CommandInput
+          placeholder="Search or type a command"
+          value={query}
+          onValueChange={setQuery}
+        />
+        <CommandList>
+          <CommandEmpty>{search.loading ? "Searching…" : "Nothing found."}</CommandEmpty>
+          {[...search.groups.entries()].map(([scope, hits]) => (
+            <CommandGroup key={scope} heading={`${scope} (${hits.length})`}>
+              {hits.map((h: SearchHit) => (
+                <CommandItem
+                  key={`${scope}:${h.id}`}
+                  value={`${scope} ${h.title} ${h.snippet}`}
+                  onSelect={() => h.route && go(h.route)}
+                >
+                  <span className="truncate">{h.title}</span>
+                  <span className="ml-2 truncate text-xs text-muted-foreground">{h.snippet}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ))}
+          <CommandGroup heading="Threads">
+            {threads.all.slice(0, 6).map((t) => (
               <CommandItem
-                key={`${scope}:${h.id}`}
-                value={`${scope} ${h.title} ${h.snippet}`}
-                onSelect={() => h.route && go(h.route)}
+                key={t.thread.id}
+                value={`thread ${t.thread.title}`}
+                onSelect={() => go(`/chat/${t.thread.id}`)}
               >
-                <span className="truncate">{h.title}</span>
-                <span className="ml-2 truncate text-xs text-muted-foreground">{h.snippet}</span>
+                {t.thread.title}
               </CommandItem>
             ))}
           </CommandGroup>
-        ))}
-        <CommandGroup heading="Threads">
-          {threads.all.slice(0, 6).map((t) => (
-            <CommandItem
-              key={t.thread.id}
-              value={`thread ${t.thread.title}`}
-              onSelect={() => go(`/chat/${t.thread.id}`)}
-            >
-              {t.thread.title}
-            </CommandItem>
-          ))}
-        </CommandGroup>
-        <CommandGroup heading="Actions">
-          {[...actions, ...DEFAULT_ACTIONS].map((a) => (
-            <CommandItem key={a.id} value={a.label} onSelect={() => run(a)}>
-              {a.label}
-              {shortcutFor(a) ? <CommandShortcut>{shortcutFor(a)}</CommandShortcut> : null}
-            </CommandItem>
-          ))}
-        </CommandGroup>
-      </CommandList>
+          <CommandGroup heading="Actions">
+            {[...actions, ...DEFAULT_ACTIONS].map((a) => (
+              <CommandItem key={a.id} value={a.label} onSelect={() => run(a)}>
+                {a.label}
+                {shortcutFor(a) ? <CommandShortcut>{shortcutFor(a)}</CommandShortcut> : null}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </Command>
     </CommandDialog>
   );
 }
