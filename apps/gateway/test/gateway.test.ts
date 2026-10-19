@@ -269,3 +269,21 @@ describe("node socket", () => {
     socket.destroy();
   });
 });
+
+describe("startup", () => {
+  it("refuses a second Gateway on the same node socket without clobbering the first one's secret", async () => {
+    const { startGateway } = await import("../src/server.ts");
+    const { silentLogger } = await import("../src/log.ts");
+    await expect(
+      startGateway({
+        config: { home: t.home, port: 0, dbPath: ":memory:", webRoot: null },
+        env: {},
+        logger: silentLogger,
+      }),
+    ).rejects.toMatchObject({ code: "conflict" });
+    expect(readFileSync(join(t.home, "run", "handshake.secret"), "utf8").trim()).toBe(
+      t.gateway.handshakeSecret,
+    );
+    expect(statSync(t.gateway.config.nodeSocketPath).isSocket()).toBe(true);
+  });
+});

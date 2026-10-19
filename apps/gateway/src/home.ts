@@ -15,8 +15,15 @@ export function ensureHome(home: string): void {
  * Written to `$PSYCHE_HOME/run/handshake.secret` with mode 0600; the desktop shell and the
  * mac helper read it; a browser page cannot.
  */
-export function writeHandshakeSecret(home: string): { secret: string; path: string } {
-  const secret = randomBytes(32).toString("base64url");
+export function newHandshakeSecret(): string {
+  return randomBytes(32).toString("base64url");
+}
+
+/** Call only once the Gateway is listening, so a failed second start never clobbers a live secret. */
+export function writeHandshakeSecret(
+  home: string,
+  secret: string,
+): { secret: string; path: string } {
   const path = join(home, "run", "handshake.secret");
   rmSync(path, { force: true });
   writeFileSync(path, `${secret}\n`, { mode: 0o600 });

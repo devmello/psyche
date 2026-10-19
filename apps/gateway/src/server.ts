@@ -1,14 +1,25 @@
 import { chmodSync, existsSync, rmSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { createServer as createNetServer, type Server as NetServer, type Socket } from "node:net";
+import {
+  createConnection,
+  createServer as createNetServer,
+  type Server as NetServer,
+  type Socket,
+} from "node:net";
 import type { Duplex } from "node:stream";
+import { PsycheError } from "@psyche/protocol";
 import { type WebSocket, WebSocketServer } from "ws";
 import { type GatewayConfig, resolveConfig } from "./config.ts";
 import { Connection, type ConnectionDeps, IdempotencyCache } from "./connection.ts";
 import { openGatewayStore } from "./db-store.ts";
 import { EventBus } from "./event-bus.ts";
-import { ensureHome, removeHandshakeSecret, writeHandshakeSecret } from "./home.ts";
+import {
+  ensureHome,
+  newHandshakeSecret,
+  removeHandshakeSecret,
+  writeHandshakeSecret,
+} from "./home.ts";
 import { handleHttp } from "./http.ts";
 import { createLogger, type Logger } from "./log.ts";
 import type { GatewayStore } from "./store.ts";
@@ -36,6 +47,17 @@ export interface Gateway {
   stop(reason?: string): Promise<void>;
 }
 
+function socketIsLive(path: string): Promise<boolean> {
+  return new Promise((resolveLive) => {
+    const probe = createConnection(path);
+    probe.once("connect", () => {
+      probe.destroy();
+      resolveLive(true);
+    });
+    probe.once("error", () => resolveLive(false));
+  });
+}
+
 function isLoopbackAddress(addr: string | undefined): boolean {
   return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
 }
@@ -49,7 +71,8 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   ensureHome(config.home);
   const store = options.store ?? openGatewayStore(config.dbPath, now);
   const bus = new EventBus(store.readStateVersion(), (v) => store.writeStateVersion(v));
-  const { secret: handshakeSecret, path: secretPath } = writeHandshakeSecret(config.home);
+  // The secret is written to disk only after both listeners are up (see below).
+  const handshakeSecret = newHandshakeSecret();
   const connections = new Set<Connection>();
   let connSeq = 0;
   let origin = "";
@@ -113,18 +136,34 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     });
   });
 
-  await new Promise<void>((resolveListen, reject) => {
-    http.once("error", reject);
-    http.listen(config.port, config.host, () => {
-      http.off("error", reject);
-      resolveListen();
+  try {
+    await new Promise<void>((resolveListen, reject) => {
+      http.once("error", reject);
+      http.listen(config.port, config.host, () => {
+        http.off("error", reject);
+        resolveListen();
+      });
     });
-  });
+  } catch (err) {
+    store.close();
+    throw err;
+  }
   const port = (http.address() as AddressInfo).port;
   origin = `http://${config.host.includes(":") ? `[${config.host}]` : config.host}:${port}`;
 
-  // Unix socket for local nodes (mac helper): NDJSON frames, mode 0600.
-  if (existsSync(config.nodeSocketPath)) rmSync(config.nodeSocketPath, { force: true });
+  // Unix socket for local nodes (mac helper): NDJSON frames, mode 0600. A socket that still
+  // accepts connections belongs to another running Gateway: refuse instead of stealing it.
+  if (existsSync(config.nodeSocketPath)) {
+    if (await socketIsLive(config.nodeSocketPath)) {
+      await new Promise<void>((r) => http.close(() => r()));
+      store.close();
+      throw new PsycheError(
+        "conflict",
+        `Another Gateway is already listening on ${config.nodeSocketPath}`,
+      );
+    }
+    rmSync(config.nodeSocketPath, { force: true });
+  }
   const nodeServer: NetServer = createNetServer((socket: Socket) => {
     socket.setEncoding("utf8");
     const decoder = new NdjsonDecoder();
@@ -156,6 +195,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     });
   });
   chmodSync(config.nodeSocketPath, 0o600);
+  const { path: secretPath } = writeHandshakeSecret(config.home, handshakeSecret);
 
   log.log("info", "gateway listening", { origin, nodeSocket: config.nodeSocketPath });
 
