@@ -18,6 +18,19 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S05 M2: audit.friction)
+
+- `audit.friction` (`since`, `until`; `operator.read`) returning `AuditFrictionResult` (with `AuditFrictionKind`): approval-friction metrics computed by `@psyche/permissions` `frictionMetrics` from the audit log's decision, approval, grant and classifier entries.
+### v1 additive — 2026-10-19 (S02 loop: standing grants, requester, taint persistence)
+
+For S02 (`packages/agent-core`), S05 (`packages/permissions`, PR #89), S09 (`packages/connectors`), S01 (Gateway call context, channels), S04 (`packages/tasks`).
+
+- New schema `TaintSource` (`{sourceKind, origin?, sender?, toolCallId?}`, security §3.6), the shape `@psyche/permissions` already used.
+- New `Requester` (`role: owner | designated | allowed`, `identityId`, `display`, `channel`, `senderId`, `chatId`, `links`, `toolAllow`; security §9, S10 `RouteContext`). `DecisionContext` gains optional `requester` and `taintSources`; `ApprovalRequestInput` gains optional `context: DecisionContext` so cards name the person and the taint sources and the requester's own chats are never approval surfaces.
+- `StartTurnInput` gains optional `requester`: the loop taints a non-owner's turn, never treats their text as the owner's words, and decides every call as theirs.
+- New `ToolCallAuthority` (`rule`, `bindingHash`, `grantKey?`, `approvalId?`, `grantId?`, `scope?`): what authorized a dispatch, as the loop verified it, for executors with their own enforcement (connectors, browser). New helper `namespacedGrantKey(tool, grantKey)`, the loop's grant-key namespacing, so executors can recompute the key a standing grant must match.
+- `TaskCreateInput` and `Task` gain optional `taintSources` (S23 design-08): a Task starts every run tainted with its creating turn's sources. `FakeTaskEngine` keeps them; the SQLite engine (S04) does not persist them yet.
+
 ### v1 additive — 2026-10-20 (S01 Gateway M2: audit)
 
 - `audit.list` (`kind`, `kindPrefix`, `taskId`, `approvalId`, `since`, `until`, `sinceSeq`, `limit`, `order`; `operator.read`), `audit.verify` (`AuditVerifyResult`; `operator.read`) and `audit.export` (`jsonl` / `json`, time window; `operator.admin`). Shapes and scopes are those of the handlers S05 already ships in `@psyche/permissions`, which the Gateway now mounts.

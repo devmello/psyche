@@ -1,8 +1,10 @@
 import {
   type Clock,
+  namespacedGrantKey,
   type PermissionBroker,
   PsycheError,
   type SideEffect,
+  type ToolCallAuthority,
   type ToolCallDescription,
   type ToolRegistry,
   type ToolResult,
@@ -55,6 +57,12 @@ export interface ConnectorRegistryOptions {
   broker?: PermissionBroker;
   /** The approval id the broker issued for a tool call (from the agent loop), if any. */
   approvalFor?: (callId: string) => string | undefined;
+  /**
+   * What authorized a tool call as the agent loop verified it (`ToolRunContext.authority`): an
+   * approval the owner answered, or a standing `task` / `site` / `session` / `always` grant.
+   * Preferred over `approvalFor`, which cannot carry a standing grant.
+   */
+  authorityFor?: (callId: string) => ToolCallAuthority | undefined;
   onEvent?: (event: ConnectorEvent) => void;
   newId?: () => string;
 }
@@ -358,11 +366,16 @@ export class ConnectorRegistry {
     if (writes && record.scopeMode === "read") {
       throw new PsycheError("policy_denied", "this connection is read-only");
     }
-    const approvalId = this.#opts.approvalFor?.(callId);
-    // Fail closed: an `ask` write needs an approval and a broker to verify it against.
-    if (writes && rule === "ask" && approvalId === undefined) {
+    const authority = this.#opts.authorityFor?.(callId);
+    const approvalId = authority?.approvalId ?? this.#opts.approvalFor?.(callId);
+    // A standing grant the loop verified, when no approval was answered for this very call.
+    const grantId = approvalId === undefined ? authority?.grantId : undefined;
+    // Fail closed: an `ask` write needs an approval or a standing grant, and a broker to verify
+    // it against.
+    if (writes && rule === "ask" && approvalId === undefined && grantId === undefined) {
       throw new PsycheError("approval_required", `${tool.action} needs the owner's approval`);
     }
+    const name = toolName(connectorId, tool.name);
     if (writes && approvalId !== undefined) {
       const broker = this.#opts.broker;
       if (broker === undefined) {
@@ -372,7 +385,7 @@ export class ConnectorRegistry {
       // dispatch. Here the executor only confirms, without consuming, that the approval it was
       // handed is approved, belongs to this call and binds these exact arguments (issue #78).
       const approval = await broker.get(approvalId);
-      const expected = toolCallBindingHash(toolName(connectorId, tool.name), params, desc);
+      const expected = toolCallBindingHash(name, params, desc);
       const reason =
         approval === undefined
           ? "not_found"
@@ -387,12 +400,47 @@ export class ConnectorRegistry {
       if (reason !== undefined) {
         throw new PsycheError("binding_mismatch", `approval does not cover this call (${reason})`);
       }
+    } else if (writes && grantId !== undefined) {
+      const broker = this.#opts.broker;
+      if (broker === undefined) {
+        throw new PsycheError("unavailable", "no permission broker to verify the grant");
+      }
+      // The same check for a standing grant (security §3.4, §3.7 "Dispatch"): the grant is live
+      // and its key is the one these exact arguments produce. A tool without a grant key of its
+      // own can only be covered by an approval, never by a grant (PR #86 note).
+      const grant = (await broker.listGrants()).find((g) => g.id === grantId);
+      const expected =
+        desc?.grantKey === undefined ? undefined : namespacedGrantKey(name, desc.grantKey);
+      const now = this.#opts.context.clock.now();
+      const reason =
+        grant === undefined
+          ? "not_found"
+          : grant.revokedAt != null
+            ? "revoked"
+            : grant.expiresAt != null && Date.parse(grant.expiresAt) <= now
+              ? "expired"
+              : expected === undefined
+                ? "no_grant_key"
+                : grant.grantKey !== expected
+                  ? "grant_key_mismatch"
+                  : effect === "financial"
+                    ? "no_standing_grants_for_financial"
+                    : effect === "destructive" && grant.scope !== "task"
+                      ? `scope_${grant.scope}_not_allowed_for_destructive`
+                      : undefined;
+      if (reason !== undefined) {
+        throw new PsycheError(
+          "binding_mismatch",
+          `standing grant does not cover this call (${reason})`,
+        );
+      }
     }
     try {
       const out = await tool.execute(params, {
         signal,
         callId,
         ...(approvalId === undefined ? {} : { approvalId }),
+        ...(authority === undefined ? {} : { authority }),
       });
       let receiptId: string | undefined;
       if (writes && this.#opts.broker !== undefined) {

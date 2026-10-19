@@ -99,3 +99,24 @@ describe("SqliteNotificationStore", () => {
     ).toThrow(/CHECK/);
   });
 });
+
+describe("SqliteNotificationStore migration", () => {
+  it("is restart-safe: opening the same database twice with migrate: true does not throw", () => {
+    const path = fileDb();
+    const first = new Database(path);
+    new SqliteNotificationStore(first, { migrate: true });
+    first.exec(
+      "INSERT INTO notifications (id, kind, title, body, seq, created_at, updated_at) " +
+        "VALUES ('01JNTF0000000000000000000A', 'system', 't', 'b', 1, '2026-10-19T00:00:00.000Z', '2026-10-19T00:00:00.000Z')",
+    );
+    first.close();
+    // The Gateway's composition root passes { migrate: true } on every start (apps/gateway compose);
+    // the Compose smoke test restarts the container against the same volume.
+    const second = new Database(path);
+    expect(() => new SqliteNotificationStore(second, { migrate: true })).not.toThrow();
+    expect(
+      (second.prepare("SELECT count(*) AS n FROM notifications").get() as { n: number }).n,
+    ).toBe(1);
+    second.close();
+  });
+});

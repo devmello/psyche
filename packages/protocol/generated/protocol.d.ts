@@ -185,6 +185,55 @@ export interface AuditExportResult {
     format: AuditExportFormat;
 }
 
+export interface AuditFrictionParams {
+    since?: string;
+    until?: string;
+}
+
+export interface AuditFrictionResult {
+    allowedByGrant:   number;
+    answerRate:       number;
+    answerRejections: { [key: string]: number };
+    approveRate:      number;
+    askRate:          number;
+    asks:             number;
+    asksPerAskingRun: number;
+    byKind:           AuditFrictionKind[];
+    byMode:           { [key: string]: ByMode };
+    classifier:       { [key: string]: number };
+    decisions:        number;
+    from?:            null | string;
+    grantsCreated:    { [key: string]: number };
+    p50AnswerMs?:     number | null;
+    p90AnswerMs?:     number | null;
+    to?:              null | string;
+    topAskRules:      TopAskRule[];
+}
+
+export interface AuditFrictionKind {
+    allows:       number;
+    approved:     number;
+    asks:         number;
+    decisions:    number;
+    declined:     number;
+    denies:       number;
+    expired:      number;
+    invalidated:  number;
+    kind:         string;
+    p50AnswerMs?: number | null;
+    p90AnswerMs?: number | null;
+}
+
+export interface ByMode {
+    asks:      number;
+    decisions: number;
+}
+
+export interface TopAskRule {
+    count: number;
+    rule:  string;
+}
+
 export interface AuditListParams {
     approvalId?: string;
     kind?:       string;
@@ -2797,10 +2846,14 @@ export interface Task {
     /**
      * Inherited from a tainted creating turn
      */
-    taint?:    boolean;
-    threadId:  string;
-    title:     string;
-    updatedAt: string;
+    taint?: boolean;
+    /**
+     * The creating turn's taint sources; every run starts tainted with them
+     */
+    taintSources?: TaintSource[];
+    threadId:      string;
+    title:         string;
+    updatedAt:     string;
 }
 
 export type TaskOrigin = "chat" | "automation" | "idea" | "goal" | "channel" | "subagent";
@@ -2820,6 +2873,16 @@ export interface PlanStep {
 export type PlanStepStatus = "pending" | "running" | "done" | "failed" | "skipped";
 
 export type TaskStatus = "queued" | "running" | "awaiting_input" | "awaiting_approval" | "paused" | "done" | "failed" | "cancelled";
+
+export interface TaintSource {
+    origin?: string;
+    sender?: string;
+    /**
+     * Tool name or source kind (web, email, transcript, task, …)
+     */
+    sourceKind:  string;
+    toolCallId?: string;
+}
 
 export interface TaskUpdatedPayload {
     task: Task;

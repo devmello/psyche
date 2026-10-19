@@ -28,6 +28,9 @@
 //   let auditExportFormat = try? JSONDecoder().decode(AuditExportFormat.self, from: jsonData)
 //   let auditExportParams = try? JSONDecoder().decode(AuditExportParams.self, from: jsonData)
 //   let auditExportResult = try? JSONDecoder().decode(AuditExportResult.self, from: jsonData)
+//   let auditFrictionKind = try? JSONDecoder().decode(AuditFrictionKind.self, from: jsonData)
+//   let auditFrictionParams = try? JSONDecoder().decode(AuditFrictionParams.self, from: jsonData)
+//   let auditFrictionResult = try? JSONDecoder().decode(AuditFrictionResult.self, from: jsonData)
 //   let auditListParams = try? JSONDecoder().decode(AuditListParams.self, from: jsonData)
 //   let auditListResult = try? JSONDecoder().decode(AuditListResult.self, from: jsonData)
 //   let auditVerifyParams = try? JSONDecoder().decode(AuditVerifyParams.self, from: jsonData)
@@ -412,6 +415,7 @@
 //   let speechReadAloudFailedPayload = try? JSONDecoder().decode(SpeechReadAloudFailedPayload.self, from: jsonData)
 //   let speechReadAloudParams = try? JSONDecoder().decode(SpeechReadAloudParams.self, from: jsonData)
 //   let speechReadAloudResult = try? JSONDecoder().decode(SpeechReadAloudResult.self, from: jsonData)
+//   let taintSource = try? JSONDecoder().decode(TaintSource.self, from: jsonData)
 //   let target = try? JSONDecoder().decode(Target.self, from: jsonData)
 //   let targetKind = try? JSONDecoder().decode(TargetKind.self, from: jsonData)
 //   let task = try? JSONDecoder().decode(Task.self, from: jsonData)
@@ -1057,6 +1061,158 @@ public struct AuditExportResult: Codable, Sendable {
     public init(data: String, format: AuditExportFormat) {
         self.data = data
         self.format = format
+    }
+}
+
+// MARK: - AuditFrictionParams
+public struct AuditFrictionParams: Codable, Sendable {
+    public let since: String?
+    public let until: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case since = "since"
+        case until = "until"
+    }
+
+    public init(since: String?, until: String?) {
+        self.since = since
+        self.until = until
+    }
+}
+
+// MARK: - AuditFrictionResult
+public struct AuditFrictionResult: Codable, Sendable {
+    public let allowedByGrant: Int
+    public let answerRate: Double
+    public let answerRejections: [String: Int]
+    public let approveRate: Double
+    public let askRate: Double
+    public let asks: Int
+    public let asksPerAskingRun: Double
+    public let byKind: [AuditFrictionKind]
+    public let byMode: [String: ByMode]
+    public let classifier: [String: Int]
+    public let decisions: Int
+    public let from: String?
+    public let grantsCreated: [String: Int]
+    public let p50AnswerMS: Double?
+    public let p90AnswerMS: Double?
+    public let to: String?
+    public let topAskRules: [TopAskRule]
+
+    public enum CodingKeys: String, CodingKey {
+        case allowedByGrant = "allowedByGrant"
+        case answerRate = "answerRate"
+        case answerRejections = "answerRejections"
+        case approveRate = "approveRate"
+        case askRate = "askRate"
+        case asks = "asks"
+        case asksPerAskingRun = "asksPerAskingRun"
+        case byKind = "byKind"
+        case byMode = "byMode"
+        case classifier = "classifier"
+        case decisions = "decisions"
+        case from = "from"
+        case grantsCreated = "grantsCreated"
+        case p50AnswerMS = "p50AnswerMs"
+        case p90AnswerMS = "p90AnswerMs"
+        case to = "to"
+        case topAskRules = "topAskRules"
+    }
+
+    public init(allowedByGrant: Int, answerRate: Double, answerRejections: [String: Int], approveRate: Double, askRate: Double, asks: Int, asksPerAskingRun: Double, byKind: [AuditFrictionKind], byMode: [String: ByMode], classifier: [String: Int], decisions: Int, from: String?, grantsCreated: [String: Int], p50AnswerMS: Double?, p90AnswerMS: Double?, to: String?, topAskRules: [TopAskRule]) {
+        self.allowedByGrant = allowedByGrant
+        self.answerRate = answerRate
+        self.answerRejections = answerRejections
+        self.approveRate = approveRate
+        self.askRate = askRate
+        self.asks = asks
+        self.asksPerAskingRun = asksPerAskingRun
+        self.byKind = byKind
+        self.byMode = byMode
+        self.classifier = classifier
+        self.decisions = decisions
+        self.from = from
+        self.grantsCreated = grantsCreated
+        self.p50AnswerMS = p50AnswerMS
+        self.p90AnswerMS = p90AnswerMS
+        self.to = to
+        self.topAskRules = topAskRules
+    }
+}
+
+// MARK: - AuditFrictionKind
+public struct AuditFrictionKind: Codable, Sendable {
+    public let allows: Int
+    public let approved: Int
+    public let asks: Int
+    public let decisions: Int
+    public let declined: Int
+    public let denies: Int
+    public let expired: Int
+    public let invalidated: Int
+    public let kind: String
+    public let p50AnswerMS: Double?
+    public let p90AnswerMS: Double?
+
+    public enum CodingKeys: String, CodingKey {
+        case allows = "allows"
+        case approved = "approved"
+        case asks = "asks"
+        case decisions = "decisions"
+        case declined = "declined"
+        case denies = "denies"
+        case expired = "expired"
+        case invalidated = "invalidated"
+        case kind = "kind"
+        case p50AnswerMS = "p50AnswerMs"
+        case p90AnswerMS = "p90AnswerMs"
+    }
+
+    public init(allows: Int, approved: Int, asks: Int, decisions: Int, declined: Int, denies: Int, expired: Int, invalidated: Int, kind: String, p50AnswerMS: Double?, p90AnswerMS: Double?) {
+        self.allows = allows
+        self.approved = approved
+        self.asks = asks
+        self.decisions = decisions
+        self.declined = declined
+        self.denies = denies
+        self.expired = expired
+        self.invalidated = invalidated
+        self.kind = kind
+        self.p50AnswerMS = p50AnswerMS
+        self.p90AnswerMS = p90AnswerMS
+    }
+}
+
+// MARK: - ByMode
+public struct ByMode: Codable, Sendable {
+    public let asks: Int
+    public let decisions: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case asks = "asks"
+        case decisions = "decisions"
+    }
+
+    public init(asks: Int, decisions: Int) {
+        self.asks = asks
+        self.decisions = decisions
+    }
+}
+
+// MARK: - TopAskRule
+public struct TopAskRule: Codable, Sendable {
+    public let count: Int
+    public let rule: String
+
+    public enum CodingKeys: String, CodingKey {
+        case count = "count"
+        case rule = "rule"
+    }
+
+    public init(count: Int, rule: String) {
+        self.count = count
+        self.rule = rule
     }
 }
 
@@ -8601,6 +8757,8 @@ public struct Task: Codable, Sendable {
     public let summary: String?
     /// Inherited from a tainted creating turn
     public let taint: Bool?
+    /// The creating turn's taint sources; every run starts tainted with them
+    public let taintSources: [TaintSource]?
     public let threadID: String
     public let title: String
     public let updatedAt: String
@@ -8623,12 +8781,13 @@ public struct Task: Codable, Sendable {
         case status = "status"
         case summary = "summary"
         case taint = "taint"
+        case taintSources = "taintSources"
         case threadID = "threadId"
         case title = "title"
         case updatedAt = "updatedAt"
     }
 
-    public init(attempt: Int, browserSessionID: String?, checklist: [ChecklistItem], completedAt: String?, createdAt: String, createdFrom: TaskOrigin, currentStepID: String?, goal: String, id: String, leaseOwner: String?, leaseUntil: String?, outcome: [String: JSONAny]?, plan: TaskPlan?, sandboxID: String?, status: TaskStatus, summary: String?, taint: Bool?, threadID: String, title: String, updatedAt: String) {
+    public init(attempt: Int, browserSessionID: String?, checklist: [ChecklistItem], completedAt: String?, createdAt: String, createdFrom: TaskOrigin, currentStepID: String?, goal: String, id: String, leaseOwner: String?, leaseUntil: String?, outcome: [String: JSONAny]?, plan: TaskPlan?, sandboxID: String?, status: TaskStatus, summary: String?, taint: Bool?, taintSources: [TaintSource]?, threadID: String, title: String, updatedAt: String) {
         self.attempt = attempt
         self.browserSessionID = browserSessionID
         self.checklist = checklist
@@ -8646,6 +8805,7 @@ public struct Task: Codable, Sendable {
         self.status = status
         self.summary = summary
         self.taint = taint
+        self.taintSources = taintSources
         self.threadID = threadID
         self.title = title
         self.updatedAt = updatedAt
@@ -8716,6 +8876,29 @@ public enum TaskStatus: String, Codable, Sendable {
     case paused = "paused"
     case queued = "queued"
     case running = "running"
+}
+
+// MARK: - TaintSource
+public struct TaintSource: Codable, Sendable {
+    public let origin: String?
+    public let sender: String?
+    /// Tool name or source kind (web, email, transcript, task, …)
+    public let sourceKind: String
+    public let toolCallID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case origin = "origin"
+        case sender = "sender"
+        case sourceKind = "sourceKind"
+        case toolCallID = "toolCallId"
+    }
+
+    public init(origin: String?, sender: String?, sourceKind: String, toolCallID: String?) {
+        self.origin = origin
+        self.sender = sender
+        self.sourceKind = sourceKind
+        self.toolCallID = toolCallID
+    }
 }
 
 // MARK: - TaskUpdatedPayload

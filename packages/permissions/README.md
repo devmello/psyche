@@ -67,6 +67,17 @@ The broker floors declared side-effect classes (`src/kinds.ts`): a registry or n
 - **`allowed`** (allowlisted, neither owner nor designated): nothing above `read` (`requester:not_owner`).
 - **Grants are per requester:** `grants.requester_id` (migration `202610201600_permissions_requester.sql`). The owner's grants never cover anyone else, and a grant approved for one person's request covers only that person.
 - **Approval cards** go to the owner's surfaces. The requester's own chats (`links`, `channel:senderId`) are stripped, and `details.requestedFor` names the person.
+## Approval friction metrics (M2)
+
+`frictionMetrics(entries)` (and the `audit.friction` handler, `operator.read`) summarizes the audit log. It reads only the `tool_call.decided`, `approval.*`, `grant.created` and `classifier.labeled` entries, never arguments. It reports:
+
+- **Asks:** ask rate, asks per asking run, ask rule families (`mode:balanced/write`, `taint:new_target`, …) most frequent first.
+- **Answers:** answer rate (answered before expiry), approve rate, p50 / p90 owner answer latency, answer rejections by reason.
+- **Grants:** calls a standing grant allowed without a card, grants created by scope.
+- **Classifier:** labels.
+- **Breakdowns:** per approval kind and per permission mode.
+
+The roadmap uses it to see where cards cost the owner the most.
 ## Classifier evaluation (M2)
 
 `eval/classifier-cases.json` holds 32 labelled classifier inputs: routine owner-aligned writes; sensitive cases (taint, tainted goals, sharing, bulk, sensitive targets, misalignment, outward messages); and destructive or financial calls. Each case lists the labels a safe classifier may return. `evaluateClassifier(classifier, cases)` reports `unsafe` (a label below the lowest acceptable one), `overCautious`, a confusion table and latency. The gate is `unsafe = 0`: `passes` must be true before a model may serve `auto` mode (security §7.3).
