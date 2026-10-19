@@ -1,5 +1,4 @@
-import { domainToASCII } from "node:url";
-import type { ApprovalRequest, JsonObject } from "@psyche/protocol";
+import type { ApprovalRequest, InputRequest, JsonObject, Question } from "@psyche/protocol";
 
 /**
  * Approval card text (security §3.7 "Delivery", S23 design-12). Every surface renders a fixed
@@ -7,7 +6,11 @@ import type { ApprovalRequest, JsonObject } from "@psyche/protocol";
  * quoted value slots, with format characters (bidi controls, zero-width, tag block) shown as
  * `⟨U+XXXX⟩`, CR/LF collapsed to `⏎`, and hosts shown as punycode. Chat text is plain (no parse
  * mode); a card that does not fit a surface gets no buttons and a pointer to the Mac instead of a
- * truncated card.
+ * truncated card; a `deviceOnly` approval never gets a card on a chat surface, only the header and
+ * "Answer this on your Mac." (security §9).
+ *
+ * This module has no Node-only imports: the UI kit (`@psyche/ui`) renders the desktop card
+ * through it too, so the two surfaces cannot drift (`@psyche/permissions/cards`).
  */
 
 // Unicode general category Cf, plus line / paragraph separators and other invisibles.
@@ -24,6 +27,17 @@ export function sanitizeDisplay(value: string, maxLength = 2000): string {
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "�");
   if (s.length > maxLength) s = `${s.slice(0, maxLength)}…`;
   return s;
+}
+
+/**
+ * Like `sanitizeDisplay` but keeps line breaks: for a value a surface shows as its own delimited
+ * block (an email body, a diff, an option preview), where a line break cannot forge a card line.
+ */
+export function sanitizeBlock(value: string): string {
+  return value
+    .split(/\r\n|\r|\n/)
+    .map((line) => sanitizeDisplay(line, Number.POSITIVE_INFINITY))
+    .join("\n");
 }
 
 /**
@@ -48,17 +62,35 @@ export function sanitizeDetails(value: unknown, depth = 0): unknown {
   return value;
 }
 
+/**
+ * Punycode (IDNA) form of a host, in Node and browsers alike. Returns "" when `host` is not a
+ * bare host (a user-info, port, path or forbidden code point would otherwise let `new URL` pick
+ * a different host than the one on screen) or already carries a `⟨U+XXXX⟩` / `�` marker, which
+ * must stay visible rather than vanish into a punycode label.
+ */
+function hostToASCII(host: string): string {
+  if (host === "" || /[\s@/\\?#:[\]%<>"'`^|{}⟨⟩�]/u.test(host)) return "";
+  try {
+    const u = new URL(`http://${host}`);
+    if (u.username !== "" || u.port !== "" || u.pathname !== "/" || u.search !== "" || u.hash !== "")
+      return "";
+    return u.hostname;
+  } catch {
+    return "";
+  }
+}
+
 /** Hosts inside a string, rewritten to punycode (Chromium-style display of IDNs). */
 export function punycodeHosts(text: string): string {
   return text
     .replace(/(https?:\/\/)([^/\s:?#⏎]+)/giu, (_m, scheme: string, host: string) => {
-      const ascii = domainToASCII(host.toLowerCase());
+      const ascii = hostToASCII(host.toLowerCase());
       return `${scheme}${ascii === "" ? host : ascii}`;
     })
     .replace(
       /([A-Za-z0-9._%+-]+)@([^\s@,;⏎<>]+\.[^\s@,;⏎<>]+)/gu,
       (_m, local: string, domain: string) => {
-        const ascii = domainToASCII(domain.toLowerCase());
+        const ascii = hostToASCII(domain.toLowerCase());
         return `${local}@${ascii === "" ? domain : ascii}`;
       },
     );
@@ -126,6 +158,11 @@ export const SURFACE_LIMITS: Record<CardSurfaceKind, number> = {
   chat: 1000,
 };
 
+/** Second line of a card a chat surface may not answer (security §3.7, §9). */
+export const DEVICE_ONLY_TEXT = "Answer this on your Mac.";
+/** Second line of a card that did not fit its surface. */
+export const TOO_LONG_TEXT = "Open on your Mac to review.";
+
 export interface RenderedCard {
   text: string;
   /** Never set: chat adapters send plain text (design-12). */
@@ -133,6 +170,8 @@ export interface RenderedCard {
   buttons: { label: string; decision: "approve" | "deny" }[];
   /** The card did not fit; the surface shows "Open on your Mac to review". */
   truncated: boolean;
+  /** A chat surface was given the header and "Answer this on your Mac." only. */
+  deviceOnly: boolean;
 }
 
 function valueText(v: unknown): string {
@@ -156,13 +195,62 @@ export function surfaceKind(surface: string): CardSurfaceKind {
   return "chat";
 }
 
+/** Chat surfaces: everything that is not the paired device itself (desktop, web, notification). */
+export function isChatSurface(surface: string): boolean {
+  const kind = surfaceKind(surface);
+  return kind !== "desktop" && kind !== "web" && kind !== "notification";
+}
+
+/**
+ * Display-safe copy of an approval for structured (desktop) rendering: the same value-slot rules
+ * as the text card, applied to `summary`, `target` and every `details` value. Keys listed in
+ * `blockKeys` keep their line breaks (they are shown as delimited blocks, never as card lines).
+ */
+export function sanitizeApproval(
+  a: ApprovalRequest,
+  blockKeys: readonly string[] = ["body", "bodyPreview", "diff", "preview", "text"],
+): ApprovalRequest {
+  const details = sanitizeDetails(a.details) as JsonObject;
+  for (const key of blockKeys) {
+    const raw = (a.details as Record<string, unknown>)[key];
+    if (typeof raw === "string") details[sanitizeDisplay(key, 200)] = sanitizeBlock(raw);
+  }
+  return {
+    ...a,
+    summary: punycodeHosts(sanitizeDisplay(a.summary)),
+    details,
+    ...(a.target === undefined
+      ? {}
+      : {
+          target: {
+            ...a.target,
+            value: punycodeHosts(sanitizeDisplay(a.target.value, Number.POSITIVE_INFINITY)),
+            ...(a.target.display === undefined
+              ? {}
+              : {
+                  display: punycodeHosts(
+                    sanitizeDisplay(a.target.display, Number.POSITIVE_INFINITY),
+                  ),
+                }),
+          },
+        }),
+    ...(a.invalidatedReason === undefined
+      ? {}
+      : { invalidatedReason: sanitizeDisplay(a.invalidatedReason, 500) }),
+  };
+}
+
 /** Fixed template: header, target, key fields, then the rest; never the free-text summary first. */
 export function renderForSurface(surface: string, a: ApprovalRequest): RenderedCard {
   const kind = surfaceKind(surface);
   const header = cardHeader(a);
   if (kind === "notification") {
     // Notifications show the header only and send the owner to the card (design-12).
-    return { text: header, buttons: [], truncated: false };
+    return { text: header, buttons: [], truncated: false, deviceOnly: false };
+  }
+  if (a.deviceOnly && isChatSurface(surface)) {
+    // Never the arguments, never buttons: a chat sender is not a presence-checked device (§9).
+    return { text: `${header}\n${DEVICE_ONLY_TEXT}`, buttons: [], truncated: false, deviceOnly: true };
   }
   const lines = [header];
   if (a.target !== undefined) {
@@ -187,7 +275,7 @@ export function renderForSurface(surface: string, a: ApprovalRequest): RenderedC
   lines.push(`Expires: ${a.expiresAt}`);
   const text = lines.join("\n");
   if (text.length > SURFACE_LIMITS[kind]) {
-    return { text: `${header}\nOpen on your Mac to review.`, buttons: [], truncated: true };
+    return { text: `${header}\n${TOO_LONG_TEXT}`, buttons: [], truncated: true, deviceOnly: false };
   }
   return {
     text,
@@ -196,5 +284,54 @@ export function renderForSurface(surface: string, a: ApprovalRequest): RenderedC
       { label: "Deny", decision: "deny" },
     ],
     truncated: false,
+    deviceOnly: false,
   };
+}
+
+export interface RenderedQuestion {
+  /** Plain text for a chat surface; the header line, then one numbered block per question. */
+  text: string;
+  /** The questions with every model-authored string sanitized; what a structured surface shows. */
+  questions: Question[];
+  /** Never set: chat adapters send plain text. */
+  parseMode?: undefined;
+  /** The text did not fit; the surface shows the header and a pointer to the Mac. */
+  truncated: boolean;
+}
+
+export const QUESTION_HEADER = "Psyche needs an answer before continuing";
+
+/**
+ * Question card (`ask_user`, UI design §3.4) for a surface. Questions are written by the model,
+ * which may be echoing untrusted content, so headers, questions, labels and descriptions are
+ * value slots like approval details; previews keep their line breaks (shown as blocks).
+ */
+export function renderQuestionForSurface(
+  surface: string,
+  request: Pick<InputRequest, "questions">,
+): RenderedQuestion {
+  const kind = surfaceKind(surface);
+  const questions: Question[] = request.questions.map((q) => ({
+    ...q,
+    header: sanitizeDisplay(q.header, 60),
+    question: sanitizeDisplay(q.question, 2000),
+    options: q.options.map((o) => ({
+      ...o,
+      label: sanitizeDisplay(o.label, 200),
+      ...(o.description === undefined ? {} : { description: sanitizeDisplay(o.description) }),
+      ...(o.preview === undefined ? {} : { preview: sanitizeBlock(o.preview) }),
+    })),
+  }));
+  const lines = [QUESTION_HEADER];
+  questions.forEach((q, i) => {
+    lines.push(`${i + 1}. “${q.header}”: “${q.question}”${q.multiSelect ? " (pick any)" : ""}`);
+    for (const o of q.options) {
+      lines.push(`   - “${o.label}”${o.description === undefined ? "" : ` — “${o.description}”`}`);
+    }
+  });
+  const text = lines.join("\n");
+  if (text.length > SURFACE_LIMITS[kind]) {
+    return { text: `${QUESTION_HEADER}\n${TOO_LONG_TEXT}`, questions, truncated: true };
+  }
+  return { text, questions, truncated: false };
 }

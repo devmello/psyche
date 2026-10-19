@@ -39,6 +39,7 @@
   "dependencies": {
     "@assistant-ui/react": "0.15.29",
     "@base-ui/react": "1.9.0",
+    "@psyche/permissions": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@tanstack/react-table": "9.3.1",
     "bezier-easing": "3.2.0",
