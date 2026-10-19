@@ -16,9 +16,13 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@psyche/protocol": "workspace:*"
+    "@psyche/db": "workspace:*",
+    "@psyche/protocol": "workspace:*",
+    "@psyche/tasks": "workspace:*",
+    "cron-parser": "5.10.2"
   },
   "devDependencies": {
-    "@psyche/testing": "workspace:*"
+    "@psyche/testing": "workspace:*",
+    "@sinclair/typebox": "0.34.52"
   }
 }
