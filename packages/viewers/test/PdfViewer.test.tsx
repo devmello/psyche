@@ -94,3 +94,17 @@ describe("PdfViewer", () => {
     expect(await screen.findByText("This PDF could not be opened")).toBeTruthy();
   });
 });
+
+describe("PdfViewer teardown", () => {
+  it("unmounting while pages are still loading leaves no unhandled rejection", async () => {
+    const bytes = manyPagePdf(100);
+    const { unmount } = render(<PdfViewer item={item("t.pdf")} load={async () => bytes} />);
+    const pageInput = await screen.findByLabelText("Page number");
+    // Jump far so a new window of pages starts loading, then close the document at once.
+    fireEvent.change(pageInput, { target: { value: "80" } });
+    unmount();
+    // Give the worker time to reject the in-flight getPage calls; Vitest fails the run on any
+    // unhandled rejection.
+    await new Promise((r) => setTimeout(r, 300));
+  });
+});
