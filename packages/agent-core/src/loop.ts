@@ -16,11 +16,13 @@ import {
   type ModelProvider,
   type ModelRef,
   type Notifier,
+  namespacedGrantKey,
   type PermissionBroker,
   type PermissionMode,
   type ProvenanceOut,
   PsycheError,
   type Question,
+  type Requester,
   type RunOutcome,
   type RunStatus,
   type Scheduler,
@@ -28,10 +30,13 @@ import {
   type SkillLoader,
   type StartTurnInput,
   type Surface,
+  type TaintSource,
   type Target,
   type TaskEngine,
   type ToolCall,
+  type ToolCallAuthority,
   type ToolCallDescription,
+  type ToolCallDetails,
   type ToolCallStatus,
   type ToolResult,
   type ToolSpec,
@@ -80,6 +85,7 @@ import {
 } from "./state.ts";
 import {
   bindingHash,
+  dedupeSources,
   deferred,
   errorMessage,
   type IdSource,
@@ -179,12 +185,6 @@ interface ChildSpec {
   maxSteps: number;
 }
 
-interface TaintSource {
-  sourceKind: string;
-  toolCallId?: string;
-  origin?: string;
-}
-
 interface PendingQuestion {
   request: InputRequest;
   resolve: (answer: QuestionAnswer) => void;
@@ -197,7 +197,10 @@ interface RunState {
   taskId?: string;
   mode: StartTurnInput["mode"];
   permissionMode: PermissionMode;
+  /** The owner's own words this turn (target matching); empty for a non-owner requester. */
   ownerText: string;
+  /** Who asked for the turn (security §9); absent means the owner. */
+  requester?: Requester;
   abort: AbortController;
   steer: string[];
   taint: boolean;
@@ -235,6 +238,8 @@ interface Gated {
   decision?: DecisionResult;
   approvalKind?: ApprovalKind;
   approvalId?: string;
+  /** What authorized the dispatch, once the gate let the call through. */
+  authority?: ToolCallAuthority;
   taintIn: boolean;
   startedAt: string;
 }
@@ -449,13 +454,17 @@ export class PsycheAgentLoop implements AgentLoop {
     const abort = new AbortController();
     const onExternalAbort = () => void this.cancel(runId, "signal");
     input.signal?.addEventListener("abort", onExternalAbort, { once: true });
+    const requester = input.requester;
+    const ownerSent = requester === undefined || requester.role === "owner";
     const run: RunState = {
       runId,
       threadId,
       ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
       mode: input.mode,
       permissionMode: input.permissionMode,
-      ownerText: input.input.text,
+      // Only the owner's words name targets the agent may act on (security §3.6, §9).
+      ownerText: ownerSent ? input.input.text : "",
+      ...(requester === undefined ? {} : { requester }),
       abort,
       steer: [],
       taint: false,
@@ -492,17 +501,36 @@ export class PsycheAgentLoop implements AgentLoop {
               checklist: [],
               ...(child.summary === undefined ? {} : { summary: child.summary }),
             };
-      // A subagent works for a parent that may already have read untrusted content.
-      if (child?.parent.taint === true) this.#taint(run, { sourceKind: "parent" });
+      // A subagent works for a parent that may already have read untrusted content; it starts
+      // with the parent's sources so its cards name the real origins (design-08).
+      if (child?.parent.taint === true) {
+        this.#taint(run, { sourceKind: "parent" });
+        for (const s of child.parent.taintSources) this.#taint(run, { ...s });
+      }
       // Untrusted content still in context keeps steering the model, so the turn starts
-      // tainted while it is there (security §3.6: taint survives compaction).
+      // tainted while it is there (security §3.6: taint survives compaction, and the saved
+      // sources survive a kill/restart with the thread state).
       if (containsUntrusted(run.thread.messages) || run.thread.summary?.untrusted === true) {
         this.#taint(run, { sourceKind: "transcript" });
+        for (const s of run.thread.taint?.sources ?? []) this.#taint(run, { ...s });
       }
       if (input.taskId !== undefined && this.#o.tasks !== undefined) {
         const task = await this.#o.tasks.get(input.taskId);
-        // A Task created from a tainted turn inherits the taint (architecture §4.6).
-        if (task?.taint === true) this.#taint(run, { sourceKind: "task" });
+        // A Task created from a tainted turn inherits the taint and its sources, for every run
+        // until the owner re-approves its goal (architecture §4.6; design-08).
+        if (task?.taint === true) {
+          this.#taint(run, { sourceKind: "task" });
+          for (const s of task.taintSources ?? []) this.#taint(run, { ...s });
+        }
+      }
+      // A non-owner's message is content, never instructions (security §3.6, §9).
+      if (!ownerSent && requester !== undefined) {
+        this.#taint(run, {
+          sourceKind: "channel_message",
+          ...(requester.channel === undefined && requester.senderId === undefined
+            ? {}
+            : { sender: `${requester.channel ?? "?"}:${requester.senderId ?? "?"}` }),
+        });
       }
       run.model = await this.#resolveModel(run);
       run.thread.messages.push({ role: "user", parts: [{ type: "text", text: userText(input) }] });
@@ -520,6 +548,9 @@ export class PsycheAgentLoop implements AgentLoop {
       input.signal?.removeEventListener("abort", onExternalAbort);
       closeDanglingCalls(run.thread.messages, outcome === "cancelled" ? "cancelled" : "not run");
       for (const q of run.questions.values()) q.reject(new RunEnd("cancelled"));
+      // The sources outlive the turn with the untrusted content that caused them.
+      if (run.taint) run.thread.taint = { sources: dedupeSources(run.taintSources) };
+      else delete run.thread.taint;
       try {
         await this.#state.save(threadId, run.thread);
       } catch (err) {
@@ -973,6 +1004,7 @@ export class PsycheAgentLoop implements AgentLoop {
     status: ToolCallStatus,
     level1: string,
     update?: ToolUpdate,
+    details?: ToolCallDetails,
   ): void {
     run.emit({
       type: "tool_call",
@@ -982,7 +1014,29 @@ export class PsycheAgentLoop implements AgentLoop {
       status,
       level1,
       ...(update === undefined ? {} : { update }),
+      ...(details === undefined ? {} : { details }),
     });
+  }
+
+  /**
+   * What the Gateway persists in `tool_calls` (data model §2): the decision, the approval, the
+   * taint in and out and the receipt. Sent with the call's final event so taint survives a
+   * kill/restart on the stored row, not only in this process (design-07).
+   */
+  #details(g: Gated, provenanceOut: ProvenanceOut, receiptId?: string): ToolCallDetails {
+    return {
+      paramsRedacted: structuredClone(g.call.input),
+      paramsHash: g.hash,
+      sideEffect: g.sideEffect,
+      target: g.target ?? null,
+      decision: g.decision?.decision ?? null,
+      decisionRule: g.decision?.rule ?? null,
+      approvalId: g.approvalId ?? null,
+      taintIn: g.taintIn,
+      taintOut: provenanceOut === "untrusted",
+      provenanceOut,
+      receiptId: receiptId ?? null,
+    };
   }
 
   /**
@@ -1061,8 +1115,17 @@ export class PsycheAgentLoop implements AgentLoop {
     call: { id: string; name: string },
     message: string,
     status: ToolCallStatus = "blocked",
+    gated?: Gated,
   ): GateOutcome {
-    this.#toolEvent(run, call.id, call.name, status, message);
+    this.#toolEvent(
+      run,
+      call.id,
+      call.name,
+      status,
+      message,
+      undefined,
+      gated === undefined ? undefined : this.#details(gated, "trusted"),
+    );
     return {
       done: {
         type: "tool_result",
@@ -1168,11 +1231,8 @@ export class PsycheAgentLoop implements AgentLoop {
           });
     // Grant keys are namespaced by tool so a description cannot borrow another tool's grants.
     const grantKey =
-      desc.grantKey === undefined
-        ? undefined
-        : desc.grantKey.startsWith(`${call.name}|`)
-          ? desc.grantKey
-          : `${call.name}|${desc.grantKey}`;
+      desc.grantKey === undefined ? undefined : namespacedGrantKey(call.name, desc.grantKey);
+    const context = this.#decisionContext(run, target, sideEffect);
     const decision = await this.#o.broker.decide(
       {
         tool: call.name,
@@ -1187,15 +1247,7 @@ export class PsycheAgentLoop implements AgentLoop {
         ...(intentBinding === undefined ? {} : { bindingHash: intentBinding }),
         ...(grantKey === undefined ? {} : { grantKey }),
       },
-      {
-        threadId: run.threadId,
-        runId: run.runId,
-        ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
-        permissionMode: run.permissionMode,
-        taint: run.taint,
-        newTarget: this.#isNewTarget(run, target, sideEffect),
-        unattended: run.mode === "unattended",
-      },
+      context,
     );
     this.#checkAbort(run);
     gated.decision = decision;
@@ -1206,6 +1258,34 @@ export class PsycheAgentLoop implements AgentLoop {
       // Subagents have no approval authority (C6): the parent decides whether to ask.
       return this.#finishBlocked(run, gated, NO_APPROVAL_AUTHORITY);
     }
+    if (decision.decision === "allow") {
+      const binding =
+        decision.bindingHash ??
+        intentBinding ??
+        bindingHash(kind ?? "connector_action", { tool: call.name, paramsHash: hash });
+      const authority: ToolCallAuthority = {
+        rule: decision.rule,
+        bindingHash: binding,
+        ...(grantKey === undefined ? {} : { grantKey }),
+      };
+      if (decision.grantId !== undefined) {
+        // A standing grant allowed the call: confirm it is still live right before dispatch
+        // (security §3.4, §3.7 "Dispatch"), the way `verifyBinding` does for an approval.
+        const grant = await this.#liveGrant(decision.grantId);
+        this.#checkAbort(run);
+        if (grant === undefined) {
+          return this.#finishBlocked(
+            run,
+            gated,
+            `grant check failed (grant ${decision.grantId} is not live)`,
+          );
+        }
+        authority.grantId = grant.id;
+        authority.scope = grant.scope;
+        if (authority.grantKey === undefined) authority.grantKey = grant.grantKey;
+      }
+      gated.authority = authority;
+    }
     if (decision.decision === "ask") {
       const approvalKind = decision.approvalKind ?? kind ?? "connector_action";
       gated.approvalKind = approvalKind;
@@ -1214,6 +1294,7 @@ export class PsycheAgentLoop implements AgentLoop {
         intentBinding ??
         bindingHash(approvalKind, { tool: call.name, paramsHash: hash });
       const issued = await this.#o.broker.requestApproval({
+        context,
         kind: approvalKind,
         summary: desc.summary ?? `${call.name}`,
         details: {
@@ -1259,7 +1340,15 @@ export class PsycheAgentLoop implements AgentLoop {
           })
           .catch(() => undefined);
         const note = "deferred: queued for the owner's approval; continue without this action";
-        this.#toolEvent(run, call.id, call.name, "blocked", note);
+        this.#toolEvent(
+          run,
+          call.id,
+          call.name,
+          "blocked",
+          note,
+          undefined,
+          this.#details(gated, "trusted"),
+        );
         const part: ModelPart = {
           type: "tool_result",
           callId: call.id,
@@ -1279,8 +1368,43 @@ export class PsycheAgentLoop implements AgentLoop {
         return this.#finishBlocked(run, gated, `approval check failed (${verified.reason})`);
       // Only targets the owner approved count as known for later calls (security §3.6).
       if (target !== undefined && target.value !== "") run.targets.add(target.value);
+      gated.authority = {
+        rule: `approval:${approvalId}`,
+        bindingHash: binding,
+        grantKey: verified.approval.grantKey,
+        approvalId,
+        ...(verified.approval.grantId == null ? {} : { grantId: verified.approval.grantId }),
+        ...(verified.approval.scopeGranted == null
+          ? {}
+          : { scope: verified.approval.scopeGranted }),
+      };
     }
     return { proceed: gated };
+  }
+
+  /** The broker's view of the run for `decide` and the card (security §3.6, §9). */
+  #decisionContext(run: RunState, target: Target | undefined, sideEffect: SideEffect) {
+    return {
+      threadId: run.threadId,
+      runId: run.runId,
+      ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
+      permissionMode: run.permissionMode,
+      taint: run.taint,
+      ...(run.taint ? { taintSources: dedupeSources(run.taintSources) } : {}),
+      newTarget: this.#isNewTarget(run, target, sideEffect),
+      unattended: run.mode === "unattended",
+      ...(run.requester === undefined ? {} : { requester: structuredClone(run.requester) }),
+    };
+  }
+
+  /** A standing grant as the ledger has it now, or `undefined` when revoked, expired or gone. */
+  async #liveGrant(grantId: string) {
+    const grant = (await this.#o.broker.listGrants()).find((g) => g.id === grantId);
+    if (grant === undefined || grant.revokedAt != null) return undefined;
+    if (grant.expiresAt != null && Date.parse(grant.expiresAt) <= this.#clock.now()) {
+      return undefined;
+    }
+    return grant;
   }
 
   /**
@@ -1318,7 +1442,7 @@ export class PsycheAgentLoop implements AgentLoop {
   }
 
   async #finishBlocked(run: RunState, gated: Gated, message: string): Promise<GateOutcome> {
-    const outcome = this.#blocked(run, gated.call, message);
+    const outcome = this.#blocked(run, gated.call, message, "blocked", gated);
     await this.#persist(run, gated, "blocked", (outcome as { done: ModelPart }).done, undefined);
     return outcome;
   }
@@ -1338,9 +1462,12 @@ export class PsycheAgentLoop implements AgentLoop {
       runId: run.runId,
       ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
       taint: run.taint,
+      taintSources: dedupeSources(run.taintSources),
       permissionMode: run.permissionMode,
       mode: run.mode,
       ...(g.approvalId === undefined ? {} : { approvalId: g.approvalId }),
+      ...(g.authority === undefined ? {} : { authority: structuredClone(g.authority) }),
+      ...(run.requester === undefined ? {} : { requester: structuredClone(run.requester) }),
       signal: run.abort.signal,
       onUpdate: (update) => this.#toolEvent(run, call.id, call.name, "running", level1, update),
       turn: this.#turnApi(run, call.id),
@@ -1401,7 +1528,15 @@ export class PsycheAgentLoop implements AgentLoop {
     if (result.receiptId !== undefined)
       this.#block(run, { type: "receipt", receiptId: result.receiptId });
     const status: ToolCallStatus = failed ? "failed" : "ok";
-    this.#toolEvent(run, call.id, call.name, status, level1);
+    this.#toolEvent(
+      run,
+      call.id,
+      call.name,
+      status,
+      level1,
+      undefined,
+      this.#details(g, result.provenance, result.receiptId),
+    );
     const part: ModelPart = {
       type: "tool_result",
       callId: call.id,
@@ -1735,6 +1870,7 @@ export class PsycheAgentLoop implements AgentLoop {
     this.#block(run, { type: "plan", planId });
     const binding = bindingHash("plan_exit", { planId, planHash: sha256(plan.plan) });
     const issued = await this.#o.broker.requestApproval({
+      context: this.#decisionContext(run, undefined, "write"),
       kind: "plan_exit",
       summary: `Approve plan: ${plan.title}`,
       details: { planId, title: plan.title, plan: plan.plan },

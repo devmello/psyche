@@ -1,7 +1,8 @@
 # @psyche/viewers
 
 **Owner:** S13. Features: P1 (PDF), P3 (sheets), P4 (documents, slides, images, code, JSON, email),
-P5 (Markdown editor), P6 (artifact runtime), P9 (text extraction); M2: P2, P8.
+P5 (Markdown editor), P6 (artifact runtime), P9 (text extraction); M2: P2, P8, Univer sheet
+editing, Sandpack React artifacts.
 
 In-app viewers, the Markdown editor, the artifact sandbox and text extraction for the agent's file
 tools. Plan: [docs/plans/s13.md](../../docs/plans/s13.md). Status: [docs/status/s13.md](../../docs/status/s13.md).
@@ -12,6 +13,7 @@ tools. Plan: [docs/plans/s13.md](../../docs/plans/s13.md). Status: [docs/status/
 | --- | --- | --- |
 | `@psyche/viewers` | React components + everything in `core` | renderer (desktop, web) |
 | `@psyche/viewers/core` | registry, detection, `extractText`, PDF/sheet/DOCX/email parsing, conversion, artifact sandbox builders, Markdown session, form fill (P2), file generators (P8) | Gateway (Node) and renderer; no React |
+| `@psyche/viewers/bundler` | `reactBundlerResponse(path, { appOrigin, bundlerOrigin })`: the self-hosted React artifact bundler's files (page, runtime, vendored React 19, Babel standalone) | Gateway only (Node: reads `node_modules`) |
 | `@psyche/viewers/styles.css` | structural styles (`psy-*` classes, theme via `--psy-*` variables) | renderer |
 
 ## Registry contract (protocol `ViewerRegistry`)
@@ -50,7 +52,8 @@ Shells override a render kind with `components={{ pdf: MyPdf }}`.
 | Kind | Component | Library | Notes |
 | --- | --- | --- | --- |
 | pdf | `PdfViewer` | PDF.js 6.4 (self-hosted worker) | virtualized pages, text layer, search, outline, zoom/fit, AcroForm field outlines + side list + fill preview (`proposedValues` marks agent values), explicit **XFA not supported** state, export, print; document JS never runs |
-| sheet | `SheetViewer` | SheetJS CE 0.20.3 (vendor tarball), TanStack Table 9 + Virtual | tabs, filters (`>100`, `=Rent`, `empty`, text), column stats, CSV/TSV via our parser; 50k rows < 2 s |
+| sheet | `SheetViewer` | SheetJS CE 0.20.3 (vendor tarball), TanStack Table 9 + Virtual | tabs, filters (`>100`, `=Rent`, `empty`, text), column stats, CSV/TSV via our parser; 50k rows < 2 s; **Edit** (below) when the host passes `onSave` |
+| sheet (edit) | `SheetEditor` | Univer 1.0.3 (Apache-2.0), lazily loaded | see "Spreadsheet editing" |
 | document | `DocumentViewer` | docx-preview, mammoth | Layout / Text toggle; sanitized and shown in the sandbox frame (scripts off); falls back to mammoth |
 | slides | `SlidesViewer` | `ConversionService` | converted PDF → PDF viewer, or a Quick Look thumbnail, else a placeholder with each slide's text |
 | image / media | `ImageViewer` / `MediaViewer` | native | always `<img>` (SVG included), fit / 100 % / zoom |
@@ -58,6 +61,32 @@ Shells override a render kind with `components={{ pdf: MyPdf }}`.
 | json | `JsonViewer` | — | collapsible tree, paged arrays, JSON Lines, Raw toggle |
 | email | `EmailViewer` | postal-mime, DOMPurify | headers, attachments, sanitized HTML in the sandbox, remote images blocked until "Load remote images", marked untrusted |
 | artifact | `ArtifactViewer` / `ArtifactFrame` | — | see below |
+
+## Spreadsheet editing
+
+`SheetViewer` shows **Edit** when the host passes `onSave(file)` and the file is xlsx, xls, ods,
+csv or tsv (not xlsm: SheetJS CE would drop the macros). Edit swaps the grid for `SheetEditor`:
+Univer's sheets UI (formulas, number formats, merges, sizing, undo) over a snapshot that
+`toUniverSnapshot` built with SheetJS CE, because xlsx import/export is a Univer Pro feature.
+**Save** is explicit; `fromUniverSnapshot` writes the edited snapshot back to the file's own format
+and `onSave` receives `{ name, mime, bytes }`. Kept: values and types, formulas with Univer's
+recalculated results (filled or pasted formulas are resolved per cell before saving), number
+formats, merges, column widths, row heights, hidden rows, columns and sheets, sheet names and
+order; carried around Univer: defined names (formulas using them show `#NAME?` in the editor but
+keep working in the file) and the 1904 date system. Not kept (a note says which apply before
+saving): fonts, fills, borders, comments, images, hyperlinks; array formulas become ordinary
+formulas. CSV/TSV keep their delimiter, BOM, line endings and final newline, never reformat
+numbers (`007`, `1.50`, 19-digit ids stay as written), and write the first sheet's values. Sheets
+over 2M cells stay read-only. Opening a file is not an edit (formula recalculation and view
+changes do not mark it dirty). **Done** asks before discarding unsaved edits; the grid re-reads
+the file afterwards.
+
+Univer (≈ 7 MB minified, 1.8 MB gzip, plus 116 KB CSS) is only imported when Edit is pressed
+(`react/univer.ts`); formulas run on the main thread, so no worker origin is needed, and it makes
+no network request (its telemetry package is an interface only). The editor glue in the sheet
+chunk is ≈ 5 KB gzip. Tests: `sheet-edit.test.ts` (bridge round trips), `SheetEditor.test.tsx`
+(fake runtime), `univer.browser.test.ts` (real Univer in Chrome under a strict CSP: a typed edit
+recalculates a formula and saves back to xlsx, no external request).
 
 ## Markdown editor
 
@@ -93,6 +122,43 @@ and any file with frontmatter get a YAML panel; the block is preserved byte-for-
   skipped when Chrome is absent) and shows a hostile artifact cannot read the parent, cookies or
   storage, and that fetch, XHR, WebSocket, EventSource, beacon, images, CSS, `@import`, scripts,
   workers, forms, popups and top navigation never reach another host.
+
+## React artifacts (Sandpack, self-hosted bundler)
+
+`ArtifactViewer` runs items of type `application/vnd.psyche.artifact+react` with
+`ReactArtifactFrame` when the host passes `reactBundlerUrl`. Source is one component (rendered
+from its default export) or JSON `{"files": {"/App.tsx": "…", "/styles.css": "…"}}`;
+`parseReactArtifact` validates paths and size (5 MB).
+
+- The app runs `@codesandbox/sandpack-client` 2.19.8 (Apache-2.0; ≈ 29 KB gzip, lazily loaded),
+  which frames the bundler with `sandbox="allow-scripts"`: an opaque origin, like every artifact.
+  The client posts to the bundler URL's origin, which an opaque frame never matches, so
+  `mountReactArtifact` targets `"*"`. Messages go to that frame's window; if the frame navigated
+  elsewhere first they would follow it, which the app's `frame-src` (no other origin can load in
+  the frame) and the teardown on a second load prevent. Replies are accepted only from that
+  frame's window, and only the first `initialized` is honoured (artifact code cannot make the app
+  re-post its files in a loop).
+- The bundler is ours and speaks Sandpack's runtime protocol (`initialized`, `register-frame`,
+  `compile` → `start`/`status`/`action show-error`/`done`). The Gateway serves it with
+  `reactBundlerResponse` on its own loopback origin: `/` (page), `/runtime.js`, `/vendor.js`
+  (React 19 production CJS from `node_modules`), `/babel.min.js` (`@babel/standalone` 8.0.6, MIT).
+  Imports are limited to `react`, `react/jsx-runtime`, `react-dom`, `react-dom/client`; nothing is
+  fetched from npm or a CDN. CodeSandbox's own bundler would be protocol-compatible but fetches
+  dependencies from its packager CDN, so it is not used.
+- `reactBundlerHeaders` is `buildArtifactCsp` with the bundler origin as the only library origin
+  plus `'unsafe-eval'` (the bundler evaluates what it transpiles), and `frame-ancestors` the app.
+  `connect-src 'none'` blocks every request, to the bundler origin too.
+- Bridge: the bundler page carries the artifact bridge with the channel from the URL fragment
+  (`resize`, `open-link`, `error`). Any load after the first (the frame navigating itself) tears
+  the frame down. A recompile (update by name) unmounts every root made through
+  `react-dom/client` first.
+- Serve the bundler on a dedicated loopback port that answers only its four paths: its origin is
+  in the page's `script-src`, so artifact code can send GETs to it.
+- Proof: `test/react-artifact.browser.test.ts` (Chrome): a TypeScript counter compiles and runs;
+  a hostile artifact cannot read the parent, cookies, storage or IndexedDB, and fetch (other hosts
+  and the bundler origin), XHR, beacon, WebSocket, workers, service workers, images, scripts, CSS,
+  forms, popups and top navigation never reach another host; an app CSP with
+  `frame-src <bundler origin>` also stops self-navigation (the frame lands on an error page).
 
 ## Extraction (P9)
 
@@ -184,12 +250,19 @@ import "@psyche/viewers/styles.css";
 configurePdfJs({ workerSrc, standardFontDataUrl: "/pdfjs/standard_fonts/", cMapUrl: "/pdfjs/cmaps/" });
 ```
 
+The app CSP needs `frame-src` for the artifacts origin and the React bundler origin (and nothing
+else: that also stops artifact frames from navigating themselves). The Univer editor was tested
+under `script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'none'; worker-src 'none'`.
+
 ## Licenses
 
 All runtime dependencies are permissive: pdfjs-dist (Apache-2.0), SheetJS CE `xlsx` 0.20.3 from
 `cdn.sheetjs.com` (Apache-2.0; npm `xlsx` 0.18.5 is excluded by ADR-013), TanStack Table/Virtual
 (MIT), docx-preview (Apache-2.0), mammoth (BSD-2-Clause), jszip (MIT option of MIT/GPL dual),
-@cantoo/pdf-lib (MIT), docx (MIT), pptxgenjs (MIT),
+@cantoo/pdf-lib (MIT), docx (MIT), pptxgenjs (MIT), Univer 1.0.3 (`@univerjs/*`, Apache-2.0; its
+transitive tree is MIT/Apache/BSD/ISC; `protobufjs` comes in through `@univerjs/protocol` and its
+install script is disabled), rxjs (Apache-2.0), @codesandbox/sandpack-client (Apache-2.0),
+@babel/standalone (MIT), React/react-dom (MIT),
 DOMPurify (Apache-2.0 option of MPL/Apache dual), postal-mime (MIT-0), CodeMirror 6 (MIT), Shiki
 (MIT), yaml (ISC). Excluded per ADR-013: iframe-resizer, Handsontable/HyperFormula, BlockNote XL,
 ONLYOFFICE, Monaco.
@@ -197,7 +270,10 @@ ONLYOFFICE, Monaco.
 ## Stubbed / not yet
 
 - OCR and Office conversion run only when the Gateway injects an `OcrProvider` / `ConversionService`.
-- Univer spreadsheet editing and Sandpack React artifacts (M2) are not started.
+- The React bundler origin is served by the Gateway (S01) with `reactBundlerResponse`; the app
+  passes its URL as `reactBundlerUrl`. React artifacts can import React and react-dom only.
+- Univer runs without its xlsx/Pro plugins, so cell styling, charts, pivots, comments and images
+  are not editable or saved.
 - P2 orchestration (ask_user, reply draft, approval, send) is S04/S09; OCR overlays need an
   `OcrProvider` that returns line boxes. Non-Latin form values need an embedded Unicode font.
 - The PDF generator uses the standard fonts (WinAnsi); Chromium print of `docToHtml` is the

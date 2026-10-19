@@ -132,17 +132,25 @@ function crossCheck(c, path, errors) {
   for (const m of Object.keys(exp.byMode ?? {}))
     if (!c.context.modes.includes(m))
       errors.push(`${path}: byMode.${m} but mode not in context.modes`);
-  if (exp.approval) {
-    const scopes = exp.approval.scopesOffered ?? [];
+  for (const m of Object.keys(exp.approvalByMode ?? {}))
+    if (!c.context.modes.includes(m))
+      errors.push(`${path}: approvalByMode.${m} but mode not in context.modes`);
+  for (const mode of exp.approval ? c.context.modes : []) {
+    const approval = { ...exp.approval, ...(exp.approvalByMode?.[mode] ?? {}) };
+    const scopes = approval.scopesOffered ?? [];
+    const at = `${path}[${mode}]`;
     if (
       call?.sideEffect === "financial" &&
-      (scopes.some((s) => s !== "once") || exp.approval.deviceOnly !== true)
+      (scopes.some((s) => s !== "once") || approval.deviceOnly !== true)
     )
-      errors.push(`${path}: financial approvals are once-only and deviceOnly`);
+      errors.push(`${at}: financial approvals are once-only and deviceOnly`);
     if (call?.sideEffect === "destructive" && scopes.some((s) => !["once", "task"].includes(s)))
-      errors.push(`${path}: destructive approvals offer only once|task`);
-    if (DEVICE_ONLY_KINDS.has(exp.approval.kind) && exp.approval.deviceOnly !== true)
-      errors.push(`${path}: ${exp.approval.kind} approvals are deviceOnly`);
+      errors.push(`${at}: destructive approvals offer only once|task`);
+    // security §3.2: manual mode asks destructive actions with `once` only.
+    if (mode === "manual" && call?.sideEffect === "destructive" && scopes.some((s) => s !== "once"))
+      errors.push(`${at}: manual-mode destructive approvals offer only once (security §3.2)`);
+    if (DEVICE_ONLY_KINDS.has(approval.kind) && approval.deviceOnly !== true)
+      errors.push(`${at}: ${approval.kind} approvals are deviceOnly`);
   }
   for (const ref of c.attack.secretRefs ?? [])
     if (!secretIds.has(ref)) errors.push(`${path}: unknown secretRef ${ref}`);

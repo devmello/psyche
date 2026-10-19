@@ -5,6 +5,7 @@ import type {
   ModelEvent,
   ModelRequest,
   PermissionMode,
+  Requester,
   RunMode,
   StartTurnInput,
   ToolResult,
@@ -107,6 +108,7 @@ export interface TurnOptions {
   mode?: RunMode;
   permissionMode?: PermissionMode;
   signal?: AbortSignal;
+  requester?: Requester;
 }
 
 export function turnInput(text: string, o: TurnOptions = {}): StartTurnInput {
@@ -119,6 +121,7 @@ export function turnInput(text: string, o: TurnOptions = {}): StartTurnInput {
     mode: o.mode ?? "attended",
     permissionMode: o.permissionMode ?? "balanced",
     ...(o.signal === undefined ? {} : { signal: o.signal }),
+    ...(o.requester === undefined ? {} : { requester: o.requester }),
   };
 }
 

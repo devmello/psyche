@@ -104,10 +104,12 @@ class GatewayBroker implements PermissionBroker {
     this.s = s;
   }
 
-  decide(call: ToolCallIntent, ctx: DecisionContext) {
-    const connector = connectorOf(this.s.toolInfo.get(call.tool));
-    const pc: PolicyCall = { ...call, ...(connector === undefined ? {} : { meta: { connector } }) };
-    const taintSources = this.s.ledger
+  /**
+   * The world's taint sources for a thread (sender or origin of each untrusted result), ahead of
+   * the loop's own coarser `{tool, target}` entries: what the owner should see on a card.
+   */
+  #context(ctx: DecisionContext): PolicyContext {
+    const world = this.s.ledger
       .filter((l) => l.thread === ctx.threadId)
       .flatMap((l) => l.sources)
       .map((src) => {
@@ -117,11 +119,19 @@ class GatewayBroker implements PermissionBroker {
           ? { sourceKind: "web", origin: v }
           : { sourceKind: kind ?? "", sender: v };
       });
-    const pctx: PolicyContext = { ...ctx, ...(taintSources.length > 0 ? { taintSources } : {}) };
-    return this.inner.decide(pc, pctx);
+    const taintSources = [...world, ...(ctx.taintSources ?? [])];
+    return { ...ctx, ...(taintSources.length > 0 ? { taintSources } : {}) };
   }
 
-  async requestApproval(input: ApprovalRequestInput): Promise<IssuedApproval> {
+  decide(call: ToolCallIntent, ctx: DecisionContext) {
+    const connector = connectorOf(this.s.toolInfo.get(call.tool));
+    const pc: PolicyCall = { ...call, ...(connector === undefined ? {} : { meta: { connector } }) };
+    return this.inner.decide(pc, this.#context(ctx));
+  }
+
+  async requestApproval(raw: ApprovalRequestInput): Promise<IssuedApproval> {
+    const input: ApprovalRequestInput =
+      raw.context === undefined ? raw : { ...raw, context: this.#context(raw.context) };
     const i = this.adoptable.findIndex(
       (a) =>
         a.approval.bindingHash === input.bindingHash &&

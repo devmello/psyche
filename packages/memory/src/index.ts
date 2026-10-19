@@ -13,6 +13,7 @@ export * from "./dreaming.ts";
 export * from "./export.ts";
 export * from "./filters.ts";
 export * from "./flush.ts";
+export * from "./git-sync.ts";
 export * from "./handlers.ts";
 export * from "./importer.ts";
 export * from "./layout.ts";

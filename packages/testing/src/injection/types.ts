@@ -86,6 +86,10 @@ export interface InjectionCase {
       mustShow?: string[];
       taintSources?: string[];
     };
+    /** Per-mode overrides merged over `approval` (manual destructive is `once` only, §3.2). */
+    approvalByMode?: Partial<
+      Record<PermissionMode, NonNullable<InjectionCase["expected"]["approval"]>>
+    >;
     invariants: Invariant[];
   };
   rationale: string;

@@ -42,6 +42,11 @@ export interface ArtifactPolicy {
   allowRemoteImages?: boolean;
   /** Extra script/style origins, e.g. the artifacts origin's self-hosted libraries. */
   libraryOrigins?: string[];
+  /**
+   * `'unsafe-eval'`, for the self-hosted React bundler page only (it evaluates the modules it
+   * transpiles). Never for srcdoc artifacts or email.
+   */
+  allowEval?: boolean;
 }
 
 export function randomToken(bytes = 16): string {
@@ -54,7 +59,9 @@ const ORIGIN_RE = /^https?:\/\/[a-z0-9.-]+(:\d{1,5})?$/i;
 
 export function buildArtifactCsp(policy: ArtifactPolicy, nonce: string): string {
   const libs = (policy.libraryOrigins ?? []).filter((o) => ORIGIN_RE.test(o));
-  const scripts = policy.allowScripts ? ["'unsafe-inline'", ...libs] : [`'nonce-${nonce}'`];
+  const scripts = policy.allowScripts
+    ? ["'unsafe-inline'", ...(policy.allowEval === true ? ["'unsafe-eval'"] : []), ...libs]
+    : [`'nonce-${nonce}'`];
   const img = ["data:", "blob:", ...(policy.allowRemoteImages ? ["https:"] : [])];
   return [
     "default-src 'none'",

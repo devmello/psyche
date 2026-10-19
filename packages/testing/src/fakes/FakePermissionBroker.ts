@@ -19,6 +19,7 @@ import {
   PsycheError,
   type Receipt,
   type ReceiptInput,
+  type Requester,
   type SideEffect,
   type Surface,
   type ToolCallIntent,
@@ -36,6 +37,33 @@ export interface FakePolicy {
   bySideEffect?: Partial<Record<SideEffect, Decision>>;
   /** Tools that hit a hard prohibition (always deny). */
   prohibited?: string[];
+  /**
+   * Per-person matrices for designated persons (security §9; S05 PR #89), keyed by identity id.
+   * The owner's `default` / `byTool` / `bySideEffect` never apply to a non-owner requester: a
+   * designated person gets their own matrix, then the mode table; an `allowed` sender gets
+   * nothing above `read`. Standing grants never cross requesters.
+   */
+  designated?: Record<string, { byTool?: Record<string, Decision> }>;
+}
+
+/** Grant-ledger key of a requester: `null` for the owner (mirrors `@psyche/permissions`). */
+export function requesterKey(requester: Requester | undefined): string | null {
+  if (requester === undefined || requester.role === "owner") return null;
+  if (requester.role === "designated") return `identity:${requester.identityId ?? "?"}`;
+  return `sender:${requester.channel ?? "?"}:${requester.senderId ?? "?"}`;
+}
+
+/** Surfaces that reach the requester themselves: never approval surfaces (security §9). */
+export function requesterSurfaces(requester: Requester | undefined): string[] {
+  if (requester === undefined || requester.role === "owner") return [];
+  const own = [...(requester.links ?? [])];
+  if (requester.channel !== undefined && requester.senderId !== undefined) {
+    own.push(`${requester.channel}:${requester.senderId}`);
+  }
+  if (requester.channel !== undefined && requester.chatId !== undefined) {
+    own.push(`${requester.channel}:${requester.chatId}`);
+  }
+  return own;
 }
 
 export interface FakePermissionBrokerOptions {
@@ -112,6 +140,8 @@ interface GrantEntry {
   grant: Grant;
   /** Side-effect class the grant was approved for; it never covers a more severe call. */
   sideEffect: SideEffect;
+  /** `requesterKey` of the person whose request created it; grants never cross requesters. */
+  requesterId: string | null;
 }
 
 /**
@@ -167,7 +197,11 @@ export class FakePermissionBroker implements PermissionBroker {
       computeBindingHash(kind, { tool: call.tool, paramsHash: call.paramsHash });
     const askInfo = {
       approvalKind: kind,
-      scopesOffered: allowedScopes(se, kind),
+      // security §3.2: manual mode asks destructive actions with `once` only.
+      scopesOffered:
+        ctx.permissionMode === "manual" && se === "destructive"
+          ? ["once" as const]
+          : allowedScopes(se, kind),
       bindingHash,
       grantKey,
     };
@@ -191,11 +225,31 @@ export class FakePermissionBroker implements PermissionBroker {
     if (ctx.permissionMode === "plan" && se !== "none") {
       return deny("mode:plan", "plan mode is read-only");
     }
+    // Non-owner requesters (security §9): an allowed sender never changes anything; a
+    // designated person is limited to their own matrix and the mode table.
+    const requester = ctx.requester;
+    const requesterId = requesterKey(requester);
+    const designated = requester !== undefined && requester.role === "designated";
+    if (requester !== undefined && requester.role === "allowed" && WRITE_PLUS.includes(se)) {
+      return deny(
+        "requester:not_owner",
+        "only the owner or a designated person can request changes",
+      );
+    }
+    if (designated && se === "financial") {
+      return deny("designated:persona_limit", "a delegated persona cannot move money");
+    }
+    const personal = designated
+      ? p.designated?.[requester.identityId ?? ""]?.byTool?.[call.tool]
+      : undefined;
+    if (personal === "deny") {
+      return deny(`designated:deny:${call.tool}`, "the owner denies this for this person");
+    }
     const taintEscalates = ctx.taint && ctx.newTarget === true && WRITE_PLUS.includes(se);
 
     const consultGrants = !(ctx.permissionMode === "manual" && WRITE_PLUS.includes(se));
     if (consultGrants && se !== "financial") {
-      const grant = this.#matchGrant(grantKey, ctx.taskId, se, kind);
+      const grant = this.#matchGrant(grantKey, ctx.taskId, se, kind, requesterId);
       if (grant !== undefined) {
         if (taintEscalates) return ask("taint:new_target", "tainted turn, new target");
         grant.grant.useCount += 1;
@@ -204,12 +258,23 @@ export class FakePermissionBroker implements PermissionBroker {
       }
     }
 
-    let value: Decision | undefined = p.byTool?.[call.tool] ?? p.bySideEffect?.[se];
-    let rule =
-      value === undefined ? "" : `policy:${p.byTool?.[call.tool] !== undefined ? call.tool : se}`;
-    if (value === undefined && p.default !== undefined) {
-      value = p.default;
-      rule = "policy:default";
+    let value: Decision | undefined;
+    let rule = "";
+    if (designated) {
+      // The owner's configured allowances are the owner's authority, never the person's.
+      if (se === "destructive") return ask("designated:owner_approves", "the owner approves this");
+      if (personal !== undefined) {
+        value = personal;
+        rule = `designated:${personal}:${call.tool}`;
+      }
+    } else {
+      value = p.byTool?.[call.tool] ?? p.bySideEffect?.[se];
+      rule =
+        value === undefined ? "" : `policy:${p.byTool?.[call.tool] !== undefined ? call.tool : se}`;
+      if (value === undefined && p.default !== undefined) {
+        value = p.default;
+        rule = "policy:default";
+      }
     }
     if (value === undefined) {
       value = modeDefault(se, ctx);
@@ -230,12 +295,15 @@ export class FakePermissionBroker implements PermissionBroker {
     taskId: string | undefined,
     se: SideEffect,
     kind: ApprovalKind,
+    requesterId: string | null,
   ): GrantEntry | undefined {
     const now = this.clock.now();
     const allowed = allowedScopes(se, kind);
     for (const entry of this.#grants.values()) {
       const g = entry.grant;
       if (g.revokedAt != null || g.grantKey !== grantKey) continue;
+      // Grants never cross requesters (security §9).
+      if (entry.requesterId !== requesterId) continue;
       if (g.expiresAt != null && Date.parse(g.expiresAt) <= now) continue;
       if (!allowed.includes(g.scope)) continue;
       if (SEVERITY[se] > SEVERITY[entry.sideEffect]) continue;
@@ -257,9 +325,12 @@ export class FakePermissionBroker implements PermissionBroker {
     const deviceOnly =
       DEVICE_ONLY_KINDS.includes(input.kind) || se === "destructive" || se === "financial";
     const requiresAuthentication = AUTH_KINDS.includes(input.kind) || se === "financial";
-    let surfaces = deviceOnly
-      ? input.surfaces.filter((s) => !s.includes(":"))
-      : [...input.surfaces];
+    // A non-owner requester never sees the card for their own request (security §9).
+    const requester = input.context?.requester;
+    const own = new Set(requesterSurfaces(requester));
+    let surfaces = (
+      deviceOnly ? input.surfaces.filter((s) => !s.includes(":")) : [...input.surfaces]
+    ).filter((s) => !own.has(s));
     if (surfaces.length === 0) surfaces = ["desktop"];
     surfaces = [...new Set(surfaces)];
     const allowed = allowedScopes(se, input.kind);
@@ -293,6 +364,17 @@ export class FakePermissionBroker implements PermissionBroker {
     if (se !== undefined) approval.sideEffect = se;
     if (input.targetKind !== undefined) approval.targetKind = input.targetKind;
     if (input.target !== undefined) approval.target = { ...input.target };
+    if (requester !== undefined && requester.role !== "owner") {
+      approval.details.requestedFor = `${requester.role}: ${
+        requester.display ?? requester.identityId ?? requester.senderId ?? "unknown"
+      }`;
+    }
+    const sources = input.context?.taintSources;
+    if (sources !== undefined && sources.length > 0) {
+      approval.details.taintSources = sources.map((s) =>
+        [s.sourceKind, s.origin ?? s.sender].filter((x) => x !== undefined).join(":"),
+      );
+    }
     const tokens = new Map<string, { surface: Surface; used: boolean }>();
     const answerTokens: Record<Surface, string> = {};
     for (const surface of surfaces) {
@@ -373,7 +455,11 @@ export class FakePermissionBroker implements PermissionBroker {
         };
         const sideEffect = entry.input.sideEffect;
         grant.subject.sideEffect = sideEffect;
-        this.#grants.set(grant.id, { grant, sideEffect });
+        this.#grants.set(grant.id, {
+          grant,
+          sideEffect,
+          requesterId: requesterKey(entry.input.context?.requester),
+        });
         a.grantId = grant.id;
       }
     }

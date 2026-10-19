@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { requesterFromRoute } from "@psyche/agent-core";
 import {
   type ChannelInboundEvent,
   type ChannelLogger,
@@ -27,6 +28,7 @@ import {
   type InboundMessage,
   type Message,
   PsycheError,
+  type Requester,
   type Run,
   type SpeechEngine,
   type Thread,
@@ -169,6 +171,8 @@ export function turnText(parts: readonly InboundPart[]): string {
 interface Pending {
   target: OutboundTarget;
   content: string;
+  /** Who sent it (S10 `RouteContext` → `Requester`); the broker decides the turn as theirs. */
+  requester: Requester;
 }
 
 export function composeChannels(
@@ -297,6 +301,7 @@ export function composeChannels(
           threadId,
           content: pending.content,
           deviceId: `channel:${pending.target.channelId}`,
+          requester: pending.requester,
         },
         hooks,
       ),
@@ -327,10 +332,12 @@ export function composeChannels(
       await reply(target, "Edits are not applied to a request. Send a new message instead.");
       return;
     }
-    // Only the owner's private chats run turns. The session controller records every turn as
-    // owner text with MEMORY.md injected and the full tool set, so designated persons, allowed
-    // senders and groups (no memory, persona overlay, tool allowlist, untrusted provenance) wait
-    // for S01/S02 to carry `RouteContext` into a turn (docs/status/int-2.md).
+    // Only the owner's private chats run turns. The loop now takes the sender as `requester`
+    // (taints a non-owner's turn, decides its calls as theirs, keeps their grants apart), but the
+    // session controller still records every turn as owner text with MEMORY.md injected and the
+    // full tool set, so designated persons, allowed senders and groups (no memory, persona
+    // overlay, tool allowlist) wait for S01 to carry the rest of `RouteContext` into a turn
+    // (docs/status/int-2.md).
     if (route.role !== "owner" || !route.injectMemory) {
       await reply(target, "Psyche can't take requests in this chat yet.");
       return;
@@ -342,7 +349,7 @@ export function composeChannels(
     }
     const content = turnText(event.parts);
     if (content.trim() === "") return;
-    startTurn(thread.id, { target, content });
+    startTurn(thread.id, { target, content, requester: requesterFromRoute(route) });
   }
 
   async function onCommand(
