@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { CdpPolicy, isAllowedNavigationUrl } from "../../src/main/browser/cdp-policy.ts";
+import {
+  CdpPolicy,
+  filterCdpEvent,
+  isAgentActionMethod,
+  isAllowedNavigationUrl,
+} from "../../src/main/browser/cdp-policy.ts";
 
 function allowed(p: CdpPolicy, method: string, params?: Record<string, unknown>, sid?: string) {
   return p.check(method, params, sid).ok;
@@ -367,5 +372,74 @@ describe("Runtime.callFunctionOn", () => {
         executionContextId: 99,
       }),
     ).toBe(false);
+  });
+});
+
+describe("review hardening", () => {
+  it("refuses main-world script smuggled through Page.reload and universal-access worlds", () => {
+    const p = new CdpPolicy();
+    expect(p.check("Page.reload", { ignoreCache: true }).ok).toBe(true);
+    expect(p.check("Page.reload", {}).ok).toBe(true);
+    expect(p.check("Page.reload", { scriptToEvaluateOnLoad: "steal()" }).ok).toBe(false);
+    expect(p.check("Page.createIsolatedWorld", { frameId: "F", worldName: "w" }).ok).toBe(true);
+    expect(
+      p.check("Page.createIsolatedWorld", { frameId: "F", grantUniveralAccess: true }).ok,
+    ).toBe(false);
+  });
+
+  it("refuses clipboard editor commands and long synthesized gestures", () => {
+    const p = new CdpPolicy();
+    expect(p.check("Input.dispatchKeyEvent", { type: "keyDown", key: "a" }).ok).toBe(true);
+    expect(p.check("Input.dispatchKeyEvent", { type: "keyDown", commands: ["selectAll"] }).ok).toBe(
+      true,
+    );
+    for (const c of ["paste", "Paste", "copy", "cut", "pasteAndMatchStyle"])
+      expect(p.check("Input.dispatchKeyEvent", { type: "keyDown", commands: [c] }).ok, c).toBe(
+        false,
+      );
+    for (const m of [
+      "Input.synthesizeScrollGesture",
+      "Input.synthesizeTapGesture",
+      "Input.setInterceptDrags",
+    ])
+      expect(p.check(m, {}).ok, m).toBe(false);
+  });
+
+  it("marks page-changing methods so they wait for the user", () => {
+    expect(isAgentActionMethod("Input.insertText")).toBe(true);
+    expect(isAgentActionMethod("Page.navigate")).toBe(true);
+    expect(isAgentActionMethod("Runtime.callFunctionOn")).toBe(true);
+    expect(isAgentActionMethod("Accessibility.getFullAXTree")).toBe(false);
+    expect(isAgentActionMethod("Page.captureScreenshot")).toBe(false);
+  });
+
+  it("drops ExtraInfo network events and redacts cookies and auth headers", () => {
+    expect(
+      filterCdpEvent("Network.requestWillBeSentExtraInfo", { headers: { Cookie: "sid=1" } }),
+    ).toBeNull();
+    expect(
+      filterCdpEvent("Network.responseReceivedExtraInfo", { headers: { "Set-Cookie": "x" } }),
+    ).toBeNull();
+    const sent = filterCdpEvent("Network.requestWillBeSent", {
+      request: {
+        url: "https://acme.com",
+        headers: { Cookie: "sid=1", Authorization: "Bearer t", Accept: "*/*" },
+      },
+      redirectResponse: { headers: { "set-cookie": "sid=2" } },
+    }) as {
+      request: { headers: Record<string, string> };
+      redirectResponse: { headers: Record<string, string> };
+    };
+    expect(sent.request.headers).toEqual({
+      Cookie: "[redacted]",
+      Authorization: "[redacted]",
+      Accept: "*/*",
+    });
+    expect(sent.redirectResponse.headers["set-cookie"]).toBe("[redacted]");
+    const got = filterCdpEvent("Network.responseReceived", {
+      response: { headers: { "Set-Cookie": "sid=3" }, headersText: "Set-Cookie: sid=3" },
+    }) as { response: { headers: Record<string, string>; headersText: string } };
+    expect(JSON.stringify(got)).not.toContain("sid=3");
+    expect(filterCdpEvent("Page.loadEventFired", { timestamp: 1 })).toEqual({ timestamp: 1 });
   });
 });

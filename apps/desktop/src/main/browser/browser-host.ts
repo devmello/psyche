@@ -17,7 +17,12 @@ import {
   TypedEmitter,
   type Unsubscribe,
 } from "../bridge/bridge-host.ts";
-import { CdpPolicy, isAllowedNavigationUrl } from "./cdp-policy.ts";
+import {
+  CdpPolicy,
+  filterCdpEvent,
+  isAgentActionMethod,
+  isAllowedNavigationUrl,
+} from "./cdp-policy.ts";
 import { ensureQuarantineDir, quarantinePath, setQuarantineAttribute } from "./downloads.ts";
 import {
   cleanPartition,
@@ -63,6 +68,8 @@ interface Tab {
   taskTitle: string | null;
   policy: CdpPolicy;
   control: TakeControl;
+  /** Serializes agent Input.* commands. */
+  inputChain: Promise<unknown>;
   /** `<sessionId>|<Domain>` enabled by the Gateway through `Domain.enable`. */
   enabled: Set<string>;
   screencast: Set<string>;
@@ -366,6 +373,7 @@ export class BrowserHost implements BridgeTabHost {
       taskId: o.taskId,
       taskTitle: o.taskTitle,
       policy: new CdpPolicy(),
+      inputChain: Promise.resolve(),
       control: new TakeControl(this.idleMs === undefined ? {} : { idleMs: this.idleMs }),
       enabled: new Set(),
       screencast: new Set(),
@@ -495,10 +503,13 @@ export class BrowserHost implements BridgeTabHost {
       const domain = method.slice(0, method.indexOf("."));
       if (!t.enabled.has(domainKey(sid, domain))) return;
       if (method === "Page.screencastFrame" && !t.screencast.has(sid ?? "")) return;
+      // Cookies and Authorization headers never leave the desktop (review finding).
+      const filtered = filterCdpEvent(method, params);
+      if (filtered === null) return;
       this.emitter.emit("cdpEvent", {
         tabId: t.id,
         method,
-        params,
+        params: filtered,
         ...(sid === undefined ? {} : { sessionId: sid }),
       });
     });
@@ -561,10 +572,36 @@ export class BrowserHost implements BridgeTabHost {
     const decision = t.policy.check(method, params, sessionId);
     if (!decision.ok) throw new PsycheError("method_not_allowed", decision.reason);
     const isInput = method.startsWith("Input.");
-    if (isInput && t.control.isUserInControl())
-      throw new PsycheError("user_in_control", "the user is in control of this tab", {
-        retryable: true,
-      });
+    const refuseWhileUser = () => {
+      // Input and page-changing calls wait for the user: "user input pauses the agent at once".
+      if (isAgentActionMethod(method) && t.control.isUserInControl())
+        throw new PsycheError("user_in_control", "the user is in control of this tab", {
+          retryable: true,
+        });
+    };
+    refuseWhileUser();
+    if (isInput) {
+      // One agent Input.* at a time per tab, so the in-flight window that hides user mouse
+      // events stays one command long.
+      const run = t.inputChain.then(
+        () => this.sendChecked(t, method, params, sessionId, refuseWhileUser),
+        () => this.sendChecked(t, method, params, sessionId, refuseWhileUser),
+      );
+      t.inputChain = run.catch(() => undefined);
+      return run;
+    }
+    return this.sendChecked(t, method, params, sessionId, refuseWhileUser);
+  }
+
+  private async sendChecked(
+    t: Tab,
+    method: string,
+    params: Record<string, unknown> | undefined,
+    sessionId: string | undefined,
+    refuseWhileUser: () => void,
+  ): Promise<unknown> {
+    refuseWhileUser();
+    const isInput = method.startsWith("Input.");
     const generation = t.policy.generation;
     let result: unknown;
     if (isInput) t.control.agentInputStart(method, params);

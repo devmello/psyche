@@ -80,7 +80,101 @@ const ALLOWED_METHODS = new Set([
  * - `setIgnoreInputEvents` would lock the user out of their own tab (Take control).
  * `Input.dispatchDragEvent` is checked separately: `data.files` would drop local files on a page.
  */
-const DENIED_INPUT = new Set(["Input.setIgnoreInputEvents"]);
+const DENIED_INPUT = new Set([
+  "Input.setIgnoreInputEvents",
+  "Input.setInterceptDrags",
+  // Long-running synthesized gestures hold the agent-input depth up and would keep the user's
+  // clicks from taking control; agents dispatch individual mouse/touch events instead.
+  "Input.synthesizeScrollGesture",
+  "Input.synthesizeTapGesture",
+  "Input.synthesizePinchGesture",
+]);
+
+/**
+ * Editor commands `Input.dispatchKeyEvent` may carry. Clipboard commands (paste, copy, cut) are
+ * refused: pasting would hand the user's clipboard (a password just copied) to the page.
+ */
+const KEY_COMMAND_OK =
+  /^(selectAll|undo|redo|delete[A-Za-z]*|move[A-Za-z]*|insertNewline|insertTab|insertLineBreak|insertBacktab|scroll[A-Za-z]*)$/;
+
+/** Parameters each allowed method may carry beyond its own; anything else is refused. */
+const PARAM_RULES: Record<string, (p: Record<string, unknown>) => string | null> = {
+  // scriptToEvaluateOnLoad would inject main-world script into every frame after the reload.
+  "Page.reload": (p) =>
+    Object.keys(p).every((k) => k === "ignoreCache" || k === "loaderId")
+      ? null
+      : "Page.reload accepts only ignoreCache",
+  // grantUniveralAccess (sic, CDP's spelling) loosens same-origin checks inside the world.
+  "Page.createIsolatedWorld": (p) =>
+    p.grantUniveralAccess === true || p.grantUniversalAccess === true
+      ? "isolated worlds with universal access are not allowed"
+      : null,
+};
+
+/** Methods that change the page; refused (like Input.*) while the user holds the tab. */
+export const PAGE_MUTATING = new Set([
+  "Page.navigate",
+  "Page.reload",
+  "Page.navigateToHistoryEntry",
+  "Page.stopLoading",
+  "Runtime.evaluate",
+  "Runtime.callFunctionOn",
+  "DOM.focus",
+  "DOM.scrollIntoViewIfNeeded",
+]);
+
+export function isAgentActionMethod(method: string): boolean {
+  return method.startsWith("Input.") || PAGE_MUTATING.has(method);
+}
+
+const SECRET_HEADERS = new Set(["cookie", "set-cookie", "authorization", "proxy-authorization"]);
+
+function redactHeaders(h: unknown): unknown {
+  if (!isRecord(h)) return h;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(h))
+    out[k] = SECRET_HEADERS.has(k.toLowerCase()) ? "[redacted]" : v;
+  return out;
+}
+
+/**
+ * Filters a CDP event before it leaves the desktop. Network events would otherwise carry every
+ * cookie (HttpOnly included) and Authorization header of the logged-in profile, which the
+ * allowlist already refuses to return through Network.getCookies. Returns null to drop.
+ */
+export function filterCdpEvent(method: string, params: unknown): unknown | null {
+  if (!method.startsWith("Network.")) return params;
+  if (method.endsWith("ExtraInfo")) return null;
+  if (!isRecord(params)) return params;
+  const p: Record<string, unknown> = { ...params };
+  for (const key of ["request", "response"]) {
+    const part = p[key];
+    if (isRecord(part)) {
+      p[key] = {
+        ...part,
+        ...(part.headers !== undefined ? { headers: redactHeaders(part.headers) } : {}),
+        ...(part.requestHeaders !== undefined
+          ? { requestHeaders: redactHeaders(part.requestHeaders) }
+          : {}),
+        ...(part.headersText !== undefined ? { headersText: "[redacted]" } : {}),
+        ...(part.requestHeadersText !== undefined ? { requestHeadersText: "[redacted]" } : {}),
+      };
+    }
+  }
+  if (isRecord(p.redirectResponse)) {
+    const r = p.redirectResponse;
+    p.redirectResponse = {
+      ...r,
+      headers: redactHeaders(r.headers),
+      ...(r.requestHeaders !== undefined
+        ? { requestHeaders: redactHeaders(r.requestHeaders) }
+        : {}),
+      ...(r.headersText !== undefined ? { headersText: "[redacted]" } : {}),
+      ...(r.requestHeadersText !== undefined ? { requestHeadersText: "[redacted]" } : {}),
+    };
+  }
+  return p;
+}
 
 /**
  * Domains named here are denied wholesale; listed for the reason text only (everything not
@@ -152,10 +246,25 @@ export class CdpPolicy {
     const dot = method.indexOf(".");
     if (dot <= 0) return deny(`${method} is not a CDP method`);
     const domain = method.slice(0, dot);
+    const rule = PARAM_RULES[method];
+    if (rule) {
+      const reason = rule(isRecord(params) ? params : {});
+      if (reason) return deny(reason);
+    }
     if (ALLOWED_DOMAINS.has(domain)) return OK;
     if (ALLOWED_METHODS.has(method)) return OK;
     if (domain === "Input") {
       if (DENIED_INPUT.has(method)) return deny(`${method} is not allowed`);
+      if (method === "Input.dispatchKeyEvent") {
+        const cmds = isRecord(params) ? params.commands : undefined;
+        if (cmds !== undefined) {
+          if (
+            !Array.isArray(cmds) ||
+            !cmds.every((c) => typeof c === "string" && KEY_COMMAND_OK.test(c))
+          )
+            return deny("clipboard and unknown editor commands are not allowed");
+        }
+      }
       if (method === "Input.dispatchDragEvent") {
         const data = isRecord(params) ? params.data : undefined;
         if (isRecord(data) && Array.isArray(data.files) && data.files.length > 0)
