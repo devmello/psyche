@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import type { NodeClient, ResolvedSecret, SpeechEngine } from "@psyche/protocol";
+import { DecodingSpeechEngine } from "./adapters.ts";
 import { DEFAULT_KOKORO_MODEL, DEFAULT_WHISPER_MODEL, MODEL_CATALOG } from "./catalog.ts";
 import { CloudTtsEngine } from "./engines/cloud.ts";
 import {
@@ -22,6 +23,7 @@ import {
 import type { ProcessRunner } from "./process.ts";
 import { VoiceNoteTranscoder } from "./transcode/ffmpeg.ts";
 
+export * from "./adapters.ts";
 export * from "./audio.ts";
 export * from "./catalog.ts";
 export * from "./engines/cloud.ts";
@@ -42,6 +44,7 @@ export * from "./transcode/ffmpeg.ts";
 export * from "./transcode/formats.ts";
 export * from "./vocabulary.ts";
 export * from "./voice.ts";
+export * from "./voices.ts";
 
 export interface SpeechStackOptions {
   /** `$PSYCHE_HOME`; models live under `models/`. */
@@ -65,7 +68,7 @@ export interface SpeechStackOptions {
 
 export interface SpeechStack {
   selector: SpeechEngineSelector;
-  /** Per-call routed engine for the Gateway's own use (channels, read-aloud). */
+  /** Per-call routed engine for the Gateway's own use (channels, read-aloud); decodes compressed input. */
   engine: SpeechEngine;
   transcoder: VoiceNoteTranscoder;
   models: ModelManager;
@@ -155,7 +158,12 @@ export function createSpeechStack(options: SpeechStackOptions = {}): SpeechStack
     });
   }
 
-  return { selector, engine: new RoutedSpeechEngine(selector), transcoder, models };
+  return {
+    selector,
+    engine: new DecodingSpeechEngine(new RoutedSpeechEngine(selector), transcoder),
+    transcoder,
+    models,
+  };
 }
 
 /** The Gateway's routed `SpeechEngine` (contract entry point). */
