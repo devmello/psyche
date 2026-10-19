@@ -2,7 +2,7 @@
 
 **Owner:** S00 (bootstrap) → S01 (`prompts/s00-bootstrap-integrator.md` §4, `prompts/s01-gateway-core.md`). Feature ids: A4 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
 
-The single relational store (ADR-004): `$PSYCHE_HOME/state/psyche.sqlite`, opened with better-sqlite3, queried with drizzle, migrated from timestamped SQL files. Schema v0 covers [docs/04-data-model.md](../../docs/04-data-model.md) §1 (`devices`, `nodes`, `pairing_requests`), §2 (`threads`, `messages`, `runs`, `tool_calls`) and §10 (`settings`, `usage`). S01's `202610190900_gateway_core` adds pairing key fingerprints, `chat_queue`, `tool_payloads` and `gateway_idempotency` (§2, §11, §12).
+The single relational store (ADR-004): `$PSYCHE_HOME/state/psyche.sqlite`, opened with better-sqlite3, queried with drizzle, migrated from timestamped SQL files. Schema v0 covers [docs/04-data-model.md](../../docs/04-data-model.md) §1 (`devices`, `nodes`, `pairing_requests`), §2 (`threads`, `messages`, `runs`, `tool_calls`) and §10 (`settings`, `usage`). S01's `202610190900_gateway_core` adds pairing key fingerprints, `chat_queue`, `tool_payloads` and `gateway_idempotency` (§2, §11, §12); `202610190200_notifications_init` registers S15's `notifications` and `notification_deliveries` (§8; `IF NOT EXISTS`, because older databases got them from the store itself). The schema-parity test understands composite primary keys.
 
 ## Decision: better-sqlite3 (not libsql)
 

@@ -1,4 +1,5 @@
 import { getTableColumns, getTableName } from "drizzle-orm";
+import { getTableConfig, type SQLiteTable } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 import { schema } from "../src/index.ts";
 import { memoryDb } from "./helpers.ts";
@@ -35,10 +36,20 @@ describe("drizzle schema mirrors the SQL migrations", () => {
         pk: number;
       }[];
       const cols = Object.values(getTableColumns(table));
+      // Composite primary keys (e.g. notification_deliveries) are declared on the table.
+      const composite = new Set(
+        getTableConfig(table as SQLiteTable).primaryKeys.flatMap((pk) =>
+          pk.columns.map((c) => c.name),
+        ),
+      );
       expect(cols.map((c) => c.name)).toEqual(info.map((c) => c.name));
       for (const col of cols) {
         const sqlCol = info.find((c) => c.name === col.name);
-        expect({ col: col.name, notNull: col.notNull, pk: col.primary }).toEqual({
+        expect({
+          col: col.name,
+          notNull: col.notNull,
+          pk: col.primary || composite.has(col.name),
+        }).toEqual({
           col: col.name,
           notNull: sqlCol?.notnull === 1,
           pk: (sqlCol?.pk ?? 0) > 0,

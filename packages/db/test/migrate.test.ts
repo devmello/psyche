@@ -9,7 +9,7 @@ import {
   openDb,
   runMigrations,
 } from "../src/index.ts";
-import { makeTmpDir } from "./helpers.ts";
+import { makeTmpDir, memoryDb } from "./helpers.ts";
 
 describe("migrations", () => {
   let dir: string;
@@ -148,5 +148,20 @@ describe("concurrent migrators", () => {
     } finally {
       cleanup();
     }
+  });
+});
+
+describe("notifications migration (registered from @psyche/notifications)", () => {
+  it("applies over a database whose notifications tables already exist", () => {
+    const db = memoryDb();
+    expect(
+      db.sqlite
+        .prepare("SELECT 1 FROM _migrations WHERE id = '202610190200_notifications_init'")
+        .get(),
+    ).toBeDefined();
+    // Databases created before the file was registered: tables present, ledger row absent.
+    db.sqlite.prepare("DELETE FROM _migrations WHERE id = '202610190200_notifications_init'").run();
+    expect(db.migrate().applied).toEqual(["202610190200_notifications_init"]);
+    db.close();
   });
 });
