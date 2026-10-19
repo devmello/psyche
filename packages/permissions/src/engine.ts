@@ -503,7 +503,17 @@ export class PolicyEngine {
           rule: "taint:new_target",
           reason: "untrusted content was read and the target is new",
         };
-      } else if (kind === "new_origin" && newTarget) {
+      } else if (
+        kind === "new_origin" &&
+        newTarget &&
+        // A read of an origin the owner already approved with a live standing grant is not new
+        // (security §3.2 balanced reads honor standing grants; §3.6 lets taint override
+        // site / session / always grants only for write and above).
+        !(
+          SEVERITY[se] <= SEVERITY.read &&
+          d.matchGrant(binding.grantKey, kind, se, ctx, origin) !== undefined
+        )
+      ) {
         escalation = {
           rule: "taint:new_origin",
           reason: "navigation to a new origin in a tainted turn",

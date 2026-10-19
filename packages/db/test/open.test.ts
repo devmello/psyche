@@ -23,6 +23,8 @@ const TABLES = [
   "memory_state",
   "messages",
   "nodes",
+  "notification_deliveries",
+  "notifications",
   "pairing_requests",
   "policy_rules",
   "receipts",
