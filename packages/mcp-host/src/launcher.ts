@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join } from "node:path";
 import type { McpTrustTier } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
 
@@ -13,7 +13,10 @@ import { PsycheError } from "@psyche/protocol";
 export interface McpSandboxPolicy {
   /** Domains the server may reach through srt's proxy; empty means no network. */
   allowedDomains: string[];
-  /** Paths the server may write; empty means none. */
+  /**
+   * Paths the server may write. Must be empty under `srt`: security §5.3 allows writes only to
+   * the per-process scratch directory the launcher creates.
+   */
   allowWrite: string[];
   /** Extra read denials on top of the defaults (Psyche home, SSH / cloud credentials). */
   denyRead: string[];
@@ -62,55 +65,101 @@ export function directLauncher(): StdioLauncher {
 }
 
 export interface SrtLauncherOptions {
-  /** Path of the `srt` executable (`@anthropic-ai/sandbox-runtime`). */
+  /** Absolute path of the `srt` executable (`@anthropic-ai/sandbox-runtime`). */
   srtPath: string;
-  /** Directory for per-launch settings files (mode 0700). */
+  /** Directory for per-launch settings files and scratch directories (mode 0700). */
   settingsDir: string;
-  /** Psyche home (vault, state); always read-denied. Default `~/.psyche`. */
+  /** Psyche home (vault, state, audit, browser profiles); always read- and write-denied. */
   psycheHome?: string;
 }
 
-/** Read-denied for every MCP server regardless of its policy. */
+/** Read-denied for every MCP server regardless of its policy (security §5.3, plus common token files). */
 export function defaultDenyRead(psycheHome: string): string[] {
   const home = homedir();
+  const h = (...p: string[]) => join(home, ...p);
   return [
     psycheHome,
-    join(home, ".ssh"),
-    join(home, ".aws"),
-    join(home, ".gnupg"),
-    join(home, ".config", "gcloud"),
-    join(home, ".kube"),
-    join(home, "Library", "Keychains"),
+    h(".ssh"),
+    h(".aws"),
+    h(".gnupg"),
+    h(".netrc"),
+    h(".git-credentials"),
+    h(".npmrc"),
+    h(".docker"),
+    h(".kube"),
+    h(".config", "gh"),
+    h(".config", "gcloud"),
+    h("Library", "Keychains"),
+    h("Library", "Cookies"),
+    h("Library", "Application Support", "Google", "Chrome"),
+    h("Library", "Application Support", "Firefox"),
+    h("Library", "Safari"),
   ];
 }
 
-/** srt settings file for one server (filesystem deny-read / allow-write, domain allowlist). */
-export function srtSettings(spec: StdioLaunchSpec, psycheHome: string): Record<string, unknown> {
+/**
+ * srt settings for one server (security §5.3): deny-read list, writes only to the per-process
+ * scratch directory, network only through srt's proxies with the server's allowlist, and the
+ * documented escape hatches (`allowLocalBinding`, `allowAppleEvents`,
+ * `enableWeakerNetworkIsolation`, weaker nested sandboxes) pinned off.
+ */
+export function srtSettings(
+  spec: StdioLaunchSpec,
+  psycheHome: string,
+  scratchDir: string,
+): Record<string, unknown> {
   return {
     filesystem: {
       denyRead: [...new Set([...defaultDenyRead(psycheHome), ...spec.sandbox.denyRead])],
-      allowWrite: [...spec.sandbox.allowWrite],
+      allowRead: [],
+      allowWrite: [scratchDir],
       denyWrite: [psycheHome],
     },
-    network: { allowedDomains: [...spec.sandbox.allowedDomains], deniedDomains: [] },
+    network: {
+      allowedDomains: [...spec.sandbox.allowedDomains],
+      deniedDomains: [],
+      allowUnixSockets: [],
+      allowLocalBinding: false,
+    },
+    enableWeakerNestedSandbox: false,
+    allowNestedUserNamespaces: false,
+    enableWeakerNetworkIsolation: false,
+    allowAppleEvents: false,
   };
 }
 
 export function srtLauncher(options: SrtLauncherOptions): StdioLauncher {
+  if (!isAbsolute(options.srtPath)) {
+    throw new PsycheError("invalid_params", "srtPath must be absolute (no PATH lookup)");
+  }
   const psycheHome = options.psycheHome ?? join(homedir(), ".psyche");
   return {
     isolation: "srt",
     async prepare(spec) {
       if (spec.command.length === 0) throw new PsycheError("invalid_params", "empty command");
+      if (spec.sandbox.allowWrite.length > 0) {
+        throw new PsycheError(
+          "policy_denied",
+          "stdio MCP servers may write only to their scratch directory (security §5.3)",
+        );
+      }
       await mkdir(options.settingsDir, { recursive: true, mode: 0o700 });
-      const file = join(options.settingsDir, `srt-${spec.serverId}-${randomUUID()}.json`);
-      await writeFile(file, JSON.stringify(srtSettings(spec, psycheHome)), { mode: 0o600 });
+      const id = `${spec.serverId}-${randomUUID()}`;
+      const scratch = join(options.settingsDir, `scratch-${id}`);
+      await mkdir(scratch, { mode: 0o700 });
+      const file = join(options.settingsDir, `srt-${id}.json`);
+      await writeFile(file, JSON.stringify(srtSettings(spec, psycheHome, scratch)), {
+        mode: 0o600,
+      });
       return {
         command: options.srtPath,
         args: ["--settings", file, "--", ...spec.command],
-        env: spec.env,
-        ...(spec.cwd === undefined ? {} : { cwd: spec.cwd }),
-        cleanup: () => rm(file, { force: true }),
+        env: { ...spec.env, TMPDIR: scratch },
+        cwd: spec.cwd ?? scratch,
+        cleanup: async () => {
+          await rm(file, { force: true });
+          await rm(scratch, { recursive: true, force: true });
+        },
       };
     },
   };

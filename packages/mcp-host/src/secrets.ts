@@ -32,10 +32,12 @@ export function mcpCredentialTarget(serverId: string): Target {
 }
 
 /**
- * Env names a config may not set: they would steer the launcher (`srt` is a Node process) or
- * the dynamic loader before the sandbox applies.
+ * Env names a config may not set (case-insensitive): they would steer the launcher (`srt` is a
+ * Node process spawned with this env), its PATH lookups (`node`, `sandbox-exec`, `bwrap`), shell
+ * start-up files, TLS trust or proxies, or the dynamic loader before the sandbox applies.
  */
-const BLOCKED_ENV = /^(NODE_OPTIONS|NODE_PATH|SRT_.*|DYLD_.*|LD_.*|ELECTRON_RUN_AS_NODE)$/;
+const BLOCKED_ENV =
+  /^(PATH|HOME|USER|LOGNAME|SHELL|TMPDIR|TMP|TEMP|IFS|PS4|ENV|BASH_ENV|ZDOTDIR|PROMPT_COMMAND|NODE_.*|NPM_CONFIG_.*|COREPACK_.*|SRT_.*|DYLD_.*|LD_.*|ELECTRON_.*|SSL_CERT_.*|REQUESTS_CA_BUNDLE|CURL_CA_BUNDLE|(HTTPS?|ALL|NO|FTP)_PROXY|PYTHONPATH|PYTHONSTARTUP|PERL5LIB|PERL5OPT|RUBYOPT|RUBYLIB|GIT_.*|XDG_CONFIG_HOME)$/i;
 
 export function assertNoPlaceholders(value: string, where: string): void {
   if (new RegExp(PLACEHOLDER_PATTERN.source).test(value) || value.includes("{{cred:")) {
