@@ -29,7 +29,7 @@ Branch `int/2-browser-connectors-channels`. Plan: [docs/plans/int-2.md](../plans
 
 ## The scenarios
 
-All CI-safe parts run in `pnpm -r test` (`tests/integration`, 42 pass, 4 skipped, 3 todo) with the scripted model.
+All CI-safe parts run in `pnpm -r test` (`tests/integration`: 45 pass, 4 skipped, 3 todo) with the scripted model.
 
 | Scenario step | CI (scripted) | Manual / live |
 | --- | --- | --- |
