@@ -1,0 +1,22 @@
+{
+  "history": [
+    {
+      "id": "9004",
+      "messagesAdded": [
+        {
+          "message": {
+            "id": "n2",
+            "threadId": "t9"
+          }
+        },
+        {
+          "message": {
+            "id": "n3",
+            "threadId": "t10"
+          }
+        }
+      ]
+    }
+  ],
+  "historyId": "9004"
+}

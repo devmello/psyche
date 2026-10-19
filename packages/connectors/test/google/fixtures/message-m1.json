@@ -1,0 +1,83 @@
+{
+  "id": "m1",
+  "threadId": "t1",
+  "payload": {
+    "mimeType": "multipart/mixed",
+    "headers": [
+      {
+        "name": "From",
+        "value": "Ana <ana@example.org>"
+      },
+      {
+        "name": "To",
+        "value": "owner@example.com"
+      },
+      {
+        "name": "Subject",
+        "value": "Lunch on Friday?"
+      },
+      {
+        "name": "Date",
+        "value": "Mon, 19 Oct 2026 09:00:00 +0000"
+      },
+      {
+        "name": "Message-ID",
+        "value": "<m1@example.org>"
+      }
+    ],
+    "parts": [
+      {
+        "partId": "0",
+        "mimeType": "multipart/alternative",
+        "parts": [
+          {
+            "partId": "0.0",
+            "mimeType": "text/plain",
+            "headers": [
+              {
+                "name": "Content-Type",
+                "value": "text/plain; charset=UTF-8"
+              }
+            ],
+            "body": {
+              "size": 30,
+              "data": "SGkhIEx1bmNoIG9uIEZyaWRheSBhdCBub29uPyDigJQgQW5h"
+            }
+          },
+          {
+            "partId": "0.1",
+            "mimeType": "text/html",
+            "body": {
+              "size": 40,
+              "data": "PHA-SGkhIEx1bmNoIG9uIEZyaWRheSBhdCBub29uPzwvcD4"
+            }
+          }
+        ]
+      },
+      {
+        "partId": "1",
+        "mimeType": "application/pdf",
+        "filename": "../../menu.pdf",
+        "headers": [
+          {
+            "name": "Content-Disposition",
+            "value": "attachment; filename=menu.pdf"
+          }
+        ],
+        "body": {
+          "size": 2048,
+          "attachmentId": "att-small"
+        }
+      },
+      {
+        "partId": "2",
+        "mimeType": "video/mp4",
+        "filename": "huge.mp4",
+        "body": {
+          "size": 31457280,
+          "attachmentId": "att-huge"
+        }
+      }
+    ]
+  }
+}

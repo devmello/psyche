@@ -1,0 +1,28 @@
+{
+  "history": [
+    {
+      "id": "9002",
+      "messagesAdded": [
+        {
+          "message": {
+            "id": "n1",
+            "threadId": "t9"
+          }
+        }
+      ]
+    },
+    {
+      "id": "9003",
+      "messagesAdded": [
+        {
+          "message": {
+            "id": "n2",
+            "threadId": "t9"
+          }
+        }
+      ]
+    }
+  ],
+  "historyId": "9003",
+  "nextPageToken": "h2"
+}

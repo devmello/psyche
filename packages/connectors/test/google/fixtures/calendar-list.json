@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "id": "primary-id",
+      "summary": "Owner",
+      "primary": true,
+      "accessRole": "owner",
+      "timeZone": "Europe/Lisbon"
+    },
+    {
+      "id": "team@group.calendar.google.com",
+      "summary": "Team",
+      "accessRole": "reader"
+    }
+  ]
+}
