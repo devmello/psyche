@@ -13,6 +13,7 @@ import {
 import { checkCdpCommand } from "../bridge/allowlist.ts";
 import type { CdpTarget } from "../cdp/page.ts";
 import { safeFilename } from "../downloads/library.ts";
+import type { TabPartition } from "../origin/partition.ts";
 import { listProfileNames, profileDir, psycheHome } from "../profiles.ts";
 import type { OpenSessionOptions } from "../types.ts";
 import { DriverBase, type DriverDeps, newId, type SessionState, type TabState } from "./base.ts";
@@ -42,6 +43,17 @@ interface ContextEntry {
   /** Ephemeral (clean partition) context: closed and deleted with its session. */
   tempDir?: string;
   persistentKey?: string;
+}
+
+/**
+ * A session's contexts by partition (feature I15): the persistent profile (shared between
+ * sessions on the same profile) and an ephemeral context that lives and dies with the session.
+ * Both are created on first use, so a logged-out task never opens the profile at all.
+ */
+interface SessionContexts {
+  profileId: string;
+  profile?: ContextEntry;
+  clean?: ContextEntry;
 }
 
 function cdpTarget(session: CDPSession): CdpTarget {
@@ -75,7 +87,7 @@ function cdpTarget(session: CDPSession): CdpTarget {
 export class PlaywrightDriver extends DriverBase {
   #o: PlaywrightDriverOptions;
   #browser: Browser | undefined;
-  #contexts = new Map<string, ContextEntry>();
+  #contexts = new Map<string, SessionContexts>();
   #persistent = new Map<string, ContextEntry>();
   #pages = new Map<string, Page>();
   #dialogs = new Map<string, Dialog>();
@@ -127,10 +139,21 @@ export class PlaywrightDriver extends DriverBase {
   }
 
   protected override async onSessionOpened(s: SessionState, o: OpenSessionOptions): Promise<void> {
+    this.#contexts.set(s.session.id, { profileId: o.profileId ?? "default" });
+    // Contexts open lazily per partition; the session's default one opens now so a launch
+    // failure surfaces here rather than on the first tab.
+    await this.#contextFor(s, s.partitions.defaultPartition);
+  }
+
+  async #contextFor(s: SessionState, partition: TabPartition): Promise<BrowserContext> {
+    const sc = this.#contexts.get(s.session.id);
+    if (sc === undefined) throw new PsycheError("not_found", "session has no browser context");
+    const existing = sc[partition];
+    if (existing !== undefined) return existing.context;
     const viewport = this.#o.viewport ?? { width: 1280, height: 800 };
     let entry: ContextEntry;
-    if (s.session.partition === "clean") {
-      // Logged-out task (feature I15): a fresh context that is never written to a profile.
+    if (partition === "clean") {
+      // Logged-out tabs (feature I15): a fresh context that is never written to a profile.
       const browser = await this.#sharedBrowser();
       entry = { context: await browser.newContext({ viewport, acceptDownloads: true }), refs: 1 };
     } else if (this.#o.mode === "connect") {
@@ -140,11 +163,11 @@ export class PlaywrightDriver extends DriverBase {
         throw new PsycheError("unavailable", "Chrome has no default context");
       entry = { context, refs: 1, persistentKey: "connect" };
     } else {
-      const name = o.profileId ?? "default";
-      const existing = this.#persistent.get(name);
-      if (existing !== undefined) {
-        existing.refs += 1;
-        entry = existing;
+      const name = sc.profileId;
+      const shared = this.#persistent.get(name);
+      if (shared !== undefined) {
+        shared.refs += 1;
+        entry = shared;
       } else {
         const dir = await profileDir(name, this.#o.psycheHome ?? psycheHome());
         const context = await chromium.launchPersistentContext(dir, {
@@ -158,32 +181,31 @@ export class PlaywrightDriver extends DriverBase {
         for (const p of context.pages()) await p.close().catch(() => undefined);
       }
     }
-    this.#contexts.set(s.session.id, entry);
+    sc[partition] = entry;
+    return entry.context;
   }
 
   protected override async onSessionClosed(s: SessionState): Promise<void> {
-    const entry = this.#contexts.get(s.session.id);
+    const sc = this.#contexts.get(s.session.id);
     this.#contexts.delete(s.session.id);
-    if (entry === undefined) return;
-    entry.refs -= 1;
-    if (entry.refs > 0) return;
-    if (entry.persistentKey === "connect") return; // never close the user's Chrome
-    if (entry.persistentKey !== undefined) this.#persistent.delete(entry.persistentKey);
-    await entry.context.close().catch(() => undefined);
-    if (entry.tempDir !== undefined) await rm(entry.tempDir, { recursive: true, force: true });
-  }
-
-  #context(s: SessionState): BrowserContext {
-    const e = this.#contexts.get(s.session.id);
-    if (e === undefined) throw new PsycheError("not_found", "session has no browser context");
-    return e.context;
+    if (sc === undefined) return;
+    for (const entry of [sc.profile, sc.clean]) {
+      if (entry === undefined) continue;
+      entry.refs -= 1;
+      if (entry.refs > 0) continue;
+      if (entry.persistentKey === "connect") continue; // never close the user's Chrome
+      if (entry.persistentKey !== undefined) this.#persistent.delete(entry.persistentKey);
+      await entry.context.close().catch(() => undefined);
+      if (entry.tempDir !== undefined) await rm(entry.tempDir, { recursive: true, force: true });
+    }
   }
 
   protected async createTab(
     s: SessionState,
     _url: string | undefined,
+    partition: TabPartition,
   ): Promise<{ id: string; target: CdpTarget; url: string }> {
-    const page = await this.#context(s).newPage();
+    const page = await (await this.#contextFor(s, partition)).newPage();
     const id = newId("pwtab");
     return { id, target: await this.#wire(s, id, page), url: page.url() };
   }
