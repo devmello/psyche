@@ -6,7 +6,7 @@ import type { Device, DeviceScope, PairingRequest, SettingEntry, Settings } from
  */
 export interface GatewayStore {
   getDevice(id: string): Device | null;
-  /** Inserts or replaces an unpaired or paired device row. */
+  /** Inserts a device, or updates name, key, scopes and pairing time of a non-revoked one. */
   upsertDevice(device: Device): void;
   touchDevice(id: string, at: string): void;
 
@@ -16,6 +16,8 @@ export interface GatewayStore {
     expiresAt: string;
   }): PairingRequest;
   findPendingPairingForDevice(deviceId: string, now: string): PairingRequest | null;
+  expirePendingPairingsForDevice(deviceId: string, now: string): void;
+  countPendingPairings(now: string): number;
 
   getSettings(keys?: string[]): Settings;
   setSetting(key: string, value: unknown): SettingEntry;

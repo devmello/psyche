@@ -73,6 +73,21 @@ export function openGatewayStore(path: string, now: () => Date): GatewayStore {
         .get(deviceId, nowIso) as { id: string } | undefined;
       return row === undefined ? null : (getPairingRequest(db, row.id) ?? null);
     },
+    expirePendingPairingsForDevice(deviceId, nowIso) {
+      db.sqlite
+        .prepare(
+          "UPDATE pairing_requests SET status = 'expired', decided_at = ?, updated_at = ? WHERE device_id = ? AND status = 'pending'",
+        )
+        .run(nowIso, nowIso, deviceId);
+    },
+    countPendingPairings(nowIso) {
+      const row = db.sqlite
+        .prepare(
+          "SELECT count(*) AS n FROM pairing_requests WHERE status = 'pending' AND expires_at > ?",
+        )
+        .get(nowIso) as { n: number };
+      return row.n;
+    },
     getSettings: (keys) => getSettings(db, keys),
     setSetting: (key, value) => setSetting(db, key, value),
     transaction: (fn) => db.sqlite.transaction(fn)(),

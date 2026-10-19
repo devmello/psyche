@@ -14,6 +14,8 @@ import { type GatewayStore, OPERATOR_SCOPES } from "./store.ts";
 
 export const CHALLENGE_TTL_MS = 60_000;
 export const PAIRING_TTL_MS = 5 * 60_000;
+/** Cap on outstanding pairing requests, so unauthenticated peers cannot flood the owner (security §10). */
+export const MAX_PENDING_PAIRINGS = 20;
 
 /** What the transport knows about the peer (security §10). */
 export interface PeerInfo {
@@ -137,22 +139,29 @@ export function verifyChallenge(
   if (!ok) throw new PsycheError("unauthorized", "Bad challenge signature");
 
   const nowIso = now.toISOString();
-  const role = params.role === "node" ? "node" : "client";
   const existing = deps.store.getDevice(params.deviceId);
-  if (existing) {
-    if (existing.revokedAt)
-      return { result: { phase: "denied", reason: "device revoked" }, identity: null };
+  if (existing?.revokedAt)
+    return { result: { phase: "denied", reason: "device revoked" }, identity: null };
+  if (existing?.pairedAt) {
+    // A paired device must present its pairing key, and keeps the role it was paired with.
     if (existing.publicKey !== params.publicKey) {
       return { result: { phase: "denied", reason: "device key mismatch" }, identity: null };
     }
-    if (existing.pairedAt) {
-      deps.store.touchDevice(existing.id, nowIso);
-      return {
-        result: pairedResult(existing.id, existing.scopes, nowIso),
-        identity: { deviceId: existing.id, scopes: existing.scopes, role },
-      };
+    if (existing.role !== "both" && existing.role !== params.role) {
+      return { result: { phase: "denied", reason: "device role mismatch" }, identity: null };
     }
+    deps.store.touchDevice(existing.id, nowIso);
+    return {
+      result: pairedResult(existing.id, existing.scopes, nowIso),
+      identity: { deviceId: existing.id, scopes: existing.scopes, role: params.role },
+    };
   }
+  // Unpaired rows carry no authority. If the key changed (a re-keyed device, or another local
+  // process squatting on the id), the old pending request no longer describes this device.
+  if (existing && existing.publicKey !== params.publicKey) {
+    deps.store.expirePendingPairingsForDevice(existing.id, nowIso);
+  }
+  const role = params.role;
 
   const scopes = autoPairScopes(params, peer, deps.handshakeSecret);
   const device: Device = {
@@ -176,15 +185,23 @@ export function verifyChallenge(
 
   // Not eligible for auto-approval: the owner approves via devices.approve (S01).
   const request = deps.store.transaction(() => {
-    if (!existing) deps.store.upsertDevice(device);
-    return (
-      deps.store.findPendingPairingForDevice(device.id, nowIso) ??
-      deps.store.createPairingRequest({
-        deviceId: device.id,
-        display: `${params.name} (${params.platform}, ${params.deviceFamily})`,
-        expiresAt: new Date(now.getTime() + PAIRING_TTL_MS).toISOString(),
-      })
-    );
+    deps.store.upsertDevice(device);
+    const pending = deps.store.findPendingPairingForDevice(device.id, nowIso);
+    if (pending) return pending;
+    if (deps.store.countPendingPairings(nowIso) >= MAX_PENDING_PAIRINGS) {
+      throw new PsycheError(
+        "rate_limited",
+        "Too many pending pairing requests; approve or deny some first",
+        {
+          retryable: true,
+        },
+      );
+    }
+    return deps.store.createPairingRequest({
+      deviceId: device.id,
+      display: `${params.name} (${params.platform}, ${params.deviceFamily})`,
+      expiresAt: new Date(now.getTime() + PAIRING_TTL_MS).toISOString(),
+    });
   });
   return {
     result: { phase: "pending", pairingRequestId: request.id, code: request.code },

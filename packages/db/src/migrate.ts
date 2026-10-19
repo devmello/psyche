@@ -116,6 +116,7 @@ export function runMigrations(
   const insert = sqlite.prepare(
     "INSERT INTO _migrations (id, name, checksum, applied_at) VALUES (?, ?, ?, ?)",
   );
+  const appliedChecksum = sqlite.prepare("SELECT checksum FROM _migrations WHERE id = ?");
   const result: MigrationResult = { applied: [], skipped: [] };
   for (const file of files) {
     const previous = applied.get(file.id);
@@ -129,9 +130,21 @@ export function runMigrations(
       result.skipped.push(file.id);
       continue;
     }
+    let ranHere = true;
     try {
       sqlite
         .transaction(() => {
+          // Re-check under the write lock: another process may have applied it since we looked.
+          const raced = appliedChecksum.get(file.id) as { checksum: string } | undefined;
+          if (raced !== undefined) {
+            if (raced.checksum !== file.checksum) {
+              throw new Error(
+                `checksum ${raced.checksum} != ${file.checksum} after a concurrent apply`,
+              );
+            }
+            ranHere = false;
+            return;
+          }
           sqlite.exec(file.sql);
           insert.run(file.id, file.name, file.checksum, now());
         })
@@ -139,6 +152,10 @@ export function runMigrations(
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       throw new MigrationError(`migration "${file.name}" failed: ${message}`, file.id);
+    }
+    if (!ranHere) {
+      result.skipped.push(file.id);
+      continue;
     }
     result.applied.push(file.id);
     opts.logger?.info?.("db.migration.applied", { id: file.id });

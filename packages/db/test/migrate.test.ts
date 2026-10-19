@@ -1,11 +1,13 @@
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   DEFAULT_MIGRATIONS_DIR,
   listMigrationFiles,
   MigrationError,
   openDb,
+  runMigrations,
 } from "../src/index.ts";
 import { makeTmpDir } from "./helpers.ts";
 
@@ -112,5 +114,39 @@ describe("migrations", () => {
     expect(tables).toEqual([]);
     expect(db.sqlite.prepare("SELECT count(*) AS n FROM _migrations").get()).toEqual({ n: 0 });
     db.close();
+  });
+});
+
+describe("concurrent migrators", () => {
+  it("skips a migration another connection applied after this one listed the table", () => {
+    const { dir, cleanup } = makeTmpDir();
+    try {
+      const file = join(dir, "race.sqlite");
+      const a = new Database(file);
+      const b = new Database(file);
+      // `a` creates the bookkeeping table, then `b` applies everything before `a` gets the lock.
+      a.exec(
+        "CREATE TABLE IF NOT EXISTS _migrations (id TEXT PRIMARY KEY, name TEXT NOT NULL, checksum TEXT NOT NULL, applied_at TEXT NOT NULL)",
+      );
+      const original = a.prepare.bind(a);
+      let raced = false;
+      a.prepare = ((sql: string) => {
+        const stmt = original(sql);
+        if (!raced && sql.startsWith("SELECT id, checksum FROM _migrations")) {
+          raced = true;
+          const rows = stmt.all();
+          runMigrations(b);
+          return { all: () => rows } as unknown as ReturnType<typeof original>;
+        }
+        return stmt;
+      }) as typeof a.prepare;
+      const result = runMigrations(a);
+      expect(result.applied).toEqual([]);
+      expect(result.skipped.length).toBeGreaterThan(0);
+      a.close();
+      b.close();
+    } finally {
+      cleanup();
+    }
   });
 });

@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import {
-  ADMIN_SETTING_PREFIXES,
   type ConnectParams,
   type ConnectVerifyParams,
   type DeviceScope,
   errRes,
+  isAdminSettingKey,
   isMethodName,
   methodSpec,
   okRes,
@@ -61,6 +61,9 @@ export class IdempotencyCache {
   }
 }
 
+/** Reply id used when a malformed request carried no usable id. */
+export const UNKNOWN_FRAME_ID = "_unknown";
+
 type Phase = "new" | "challenged" | "paired" | "pending" | "closed";
 
 /** One client or node connection: handshake state machine + method dispatch. */
@@ -106,6 +109,12 @@ export class Connection {
       this.#transport.send(JSON.stringify(okRes(frame.id, payload)));
     } catch (err) {
       const e = PsycheError.from(err);
+      // A frame that failed to parse may still have carried an id (parseFrame puts it in details).
+      if (id === "") {
+        const details = e.details as { id?: unknown } | undefined;
+        id =
+          typeof details?.id === "string" && details.id.length > 0 ? details.id : UNKNOWN_FRAME_ID;
+      }
       this.#deps.log.log(e.code === "internal" ? "error" : "info", "request failed", {
         conn: this.id,
         code: e.code,
@@ -210,7 +219,9 @@ export class Connection {
     if (result.phase === "paired" && identity) {
       this.#phase = "paired";
       this.#identity = identity;
-      this.#unsubscribe = this.#deps.bus.subscribe((frame) => this.#transport.send(frame));
+      this.#unsubscribe = this.#deps.bus.subscribe(identity.scopes, (frame) =>
+        this.#transport.send(frame),
+      );
       return { ...result, stateVersion: this.#deps.bus.stateVersion };
     }
     if (result.phase === "pending") {
@@ -254,10 +265,7 @@ export class Connection {
       );
     }
     // Security §10: security settings need operator.admin (fresh user presence is added by S01).
-    if (
-      ADMIN_SETTING_PREFIXES.some((p) => key.startsWith(p)) &&
-      !identity.scopes.includes("operator.admin")
-    ) {
+    if (isAdminSettingKey(key) && !identity.scopes.includes("operator.admin")) {
       throw new PsycheError("forbidden", `Changing ${key} requires operator.admin`);
     }
     const { store, bus } = this.#deps;
@@ -265,7 +273,7 @@ export class Connection {
       const stored = store.setSetting(key, value);
       return { entry: stored, stateVersion: bus.bumpStateVersion() };
     });
-    bus.publish("settings.changed", { entries: [entry] });
+    bus.publish("settings.changed", { entries: [entry] }, "operator.read");
     return { entry, stateVersion };
   }
 }

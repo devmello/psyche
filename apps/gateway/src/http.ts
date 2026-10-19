@@ -90,12 +90,19 @@ function serveStatic(pathname: string, res: ServerResponse, webRoot: string | nu
     // SPA fallback: unknown routes render the app shell.
     file = join(root, "index.html");
   }
-  res.writeHead(200, {
+  const headers = {
     "content-type": MIME[extname(file)] ?? "application/octet-stream",
     "content-security-policy": CSP,
     "x-content-type-options": "nosniff",
     "referrer-policy": "no-referrer",
     "cache-control": file.endsWith("index.html") ? "no-store" : "public, max-age=3600",
+  };
+  const stream = createReadStream(file);
+  stream.once("open", () => res.writeHead(200, headers));
+  stream.on("error", () => {
+    // EACCES or a file removed after the stat: never let a read error crash the Gateway.
+    if (!res.headersSent) send(res, 500, JSON.stringify({ ok: false, error: "read failed" }));
+    else res.destroy();
   });
-  createReadStream(file).pipe(res);
+  stream.pipe(res);
 }

@@ -209,7 +209,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     async stop(reason = "shutdown") {
       if (stopped) return;
       stopped = true;
-      bus.publish("gateway.shutdown", { reason });
+      bus.publish("gateway.shutdown", { reason }, null);
       for (const conn of connections) conn.close(reason);
       connections.clear();
       for (const client of wss.clients) client.terminate();

@@ -287,3 +287,80 @@ describe("startup", () => {
     expect(statSync(t.gateway.config.nodeSocketPath).isSocket()).toBe(true);
   });
 });
+
+describe("review regressions", () => {
+  it("lets the real desktop pair even if another process squatted on its device id", async () => {
+    const squatter = await TestClient.open(wsUrl);
+    const squat = await handshake(squatter, t.gateway.origin, { deviceId: "dev-desktop" });
+    expect(squat.verifyRes).toMatchObject({ ok: true, payload: { phase: "pending" } });
+    squatter.close();
+    const real = await TestClient.open(wsUrl);
+    const res = await handshake(real, t.gateway.origin, {
+      deviceId: "dev-desktop",
+      handshakeSecret: t.gateway.handshakeSecret,
+    });
+    expect(res.verifyRes).toMatchObject({ ok: true, payload: { phase: "paired" } });
+    real.close();
+  });
+
+  it("keeps the stored role of a paired device", async () => {
+    const key = newDeviceKey();
+    const a = await TestClient.open(wsUrl);
+    await handshake(a, t.gateway.origin, {
+      key,
+      deviceId: "dev-r",
+      handshakeSecret: t.gateway.handshakeSecret,
+    });
+    a.close();
+    const b = await TestClient.open(wsUrl);
+    const res = await handshake(b, t.gateway.origin, { key, deviceId: "dev-r", role: "node" });
+    expect(res.verifyRes).toMatchObject({
+      ok: true,
+      payload: { phase: "denied", reason: "device role mismatch" },
+    });
+  });
+
+  it("caps pending pairing requests", async () => {
+    for (let i = 0; i < 20; i++) {
+      const c = await TestClient.open(wsUrl);
+      const r = await handshake(c, t.gateway.origin, { deviceId: `flood-${i}` });
+      expect(r.verifyRes).toMatchObject({ payload: { phase: "pending" } });
+      c.close();
+    }
+    const c = await TestClient.open(wsUrl);
+    const r = await handshake(c, t.gateway.origin, { deviceId: "flood-20" });
+    expect(r.verifyRes).toMatchObject({ ok: false, error: { code: "rate_limited" } });
+    c.close();
+  });
+
+  it("answers a malformed request with its own id when it had one", async () => {
+    const c = await TestClient.open(wsUrl);
+    c.sendRaw(JSON.stringify({ type: "req", id: "abc", method: 42 }));
+    expect(await c.nextResponse()).toMatchObject({
+      id: "abc",
+      ok: false,
+      error: { code: "invalid_frame" },
+    });
+    c.sendRaw("{nope");
+    expect(await c.nextResponse()).toMatchObject({ id: "_unknown", ok: false });
+    c.close();
+  });
+
+  it("does not send operator events to node-only devices", async () => {
+    const op = await TestClient.open(wsUrl);
+    await handshake(op, t.gateway.origin, { handshakeSecret: t.gateway.handshakeSecret });
+    const node = await TestClient.open(wsUrl);
+    const n = await handshake(node, t.gateway.origin, {
+      role: "node",
+      deviceFamily: "mac-helper",
+      handshakeSecret: t.gateway.handshakeSecret,
+    });
+    expect(n.verifyRes).toMatchObject({ ok: true, payload: { phase: "paired", scopes: ["node"] } });
+    await op.request("settings.set", { key: "appearance.theme", value: "dark" }, "e1");
+    await new Promise((r) => setTimeout(r, 20));
+    expect(op.events.some((e) => e.event === "settings.changed")).toBe(true);
+    expect(node.events.some((e) => e.event === "settings.changed")).toBe(false);
+    op.close();
+    node.close();
+  });
+});
