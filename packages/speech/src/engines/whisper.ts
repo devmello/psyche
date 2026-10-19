@@ -303,13 +303,14 @@ export class WhisperEngine implements SpeechEngine {
   ): Promise<Transcript> {
     const pcm = await this.#toPcm(data, format, options.signal);
     const language = this.#language(options);
-    const req: WhisperRequest = { pcm, language, vad: true };
-    const prompt = whisperPrompt(options.vocabulary);
-    if (prompt !== undefined) req.prompt = prompt;
-    if (options.signal !== undefined) req.signal = options.signal;
-    const segs = await this.#opts.backend.transcribe(req);
+    // Whisper (tiny/base especially) tends to stop decoding after a long pause, dropping
+    // everything that follows; one call per utterance avoids that and yields real timestamps.
     const seq = new SegmentSequencer();
-    for (const s of segs) seq.push({ ...s, final: true });
+    const utterances = this.#segments(once(pcm), PCM_16K_MONO, options, {
+      partialIntervalMs: 0,
+      maxUtteranceMs: FILE_MAX_UTTERANCE_MS,
+    });
+    for await (const s of utterances) seq.push(s);
     return seq.transcript(language === "auto" ? undefined : language);
   }
 
@@ -328,8 +329,9 @@ export class WhisperEngine implements SpeechEngine {
     audio: AsyncIterable<Uint8Array>,
     format: AudioFormat,
     options: TranscribeOptions,
+    overrides: Partial<WhisperStreamOptions> = {},
   ): AsyncIterable<TranscriptSegment> {
-    const cfg = this.#stream;
+    const cfg = { ...this.#stream, ...overrides };
     const frameBytes = (16_000 * cfg.frameMs * 2) / 1000;
     const language = this.#language(options);
     const inFrame = bytesPerSample(format) * format.channels;
@@ -424,6 +426,13 @@ export class WhisperEngine implements SpeechEngine {
   async voices(): Promise<Voice[]> {
     return [];
   }
+}
+
+/** Files are cut into utterances of at most this length (whisper's window is 30 s). */
+const FILE_MAX_UTTERANCE_MS = 25_000;
+
+async function* once(data: Uint8Array): AsyncIterable<Uint8Array> {
+  yield data;
 }
 
 /** `.en` model detection from a model file name (`ggml-base.en.bin`). */
