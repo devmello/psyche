@@ -65,6 +65,13 @@ The broker floors declared side-effect classes (`src/kinds.ts`): a registry or n
 - **Breakdowns:** per approval kind and per permission mode.
 
 The roadmap uses it to see where cards cost the owner the most.
+## Classifier evaluation (M2)
+
+`eval/classifier-cases.json` holds 32 labelled classifier inputs: routine owner-aligned writes; sensitive cases (taint, tainted goals, sharing, bulk, sensitive targets, misalignment, outward messages); and destructive or financial calls. Each case lists the labels a safe classifier may return. `evaluateClassifier(classifier, cases)` reports `unsafe` (a label below the lowest acceptable one), `overCautious`, a confusion table and latency. The gate is `unsafe = 0`: `passes` must be true before a model may serve `auto` mode (security §7.3).
+
+- `RulesClassifier` (the default) passes the gate (`test/classifier-eval.test.ts`).
+- `ModelClassifier` may raise a label but never go below `deterministicFloor(input)` (taint, a tainted goal, a sensitive target, no owner request or a class above `write`; `financial` is `prohibited`). Owner text is capped (10 messages, 1,000 characters each), output over 4,000 characters is `sensitive`, and every failure is `sensitive`.
+- Live run against a real utility model: `PSYCHE_LIVE_TESTS=1 ANTHROPIC_API_KEY=… pnpm --filter @psyche/permissions test classifier-live` (`PSYCHE_LIVE_CLASSIFIER_MODEL` picks the model).
 
 ## Binding hashes
 

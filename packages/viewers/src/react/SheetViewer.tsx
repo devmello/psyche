@@ -13,6 +13,7 @@ import {
   type WorkbookData,
 } from "../core/sheet.ts";
 import type { ViewerProps } from "./contract.ts";
+import { canEditSheet, SheetEditor } from "./SheetEditor.tsx";
 import { Toolbar, ViewerMessage } from "./states.tsx";
 import { useLoadable } from "./useBytes.ts";
 
@@ -29,6 +30,29 @@ const helper = createColumnHelper<typeof features, RowRef>();
  * 50k-row file never copies the data.
  */
 export function SheetViewer(props: ViewerProps) {
+  const [editing, setEditing] = useState(false);
+  // Bumped when the editor closes so the grid re-reads the saved file.
+  const [revision, setRevision] = useState(0);
+  if (editing)
+    return (
+      <SheetEditor
+        {...props}
+        onClose={() => {
+          setEditing(false);
+          setRevision((r) => r + 1);
+        }}
+      />
+    );
+  return (
+    <SheetGrid
+      key={revision}
+      {...props}
+      onEdit={canEditSheet(props) ? () => setEditing(true) : undefined}
+    />
+  );
+}
+
+function SheetGrid(props: ViewerProps & { onEdit: (() => void) | undefined }) {
   const state = useLoadable(props.item.id, async (signal) =>
     parseWorkbook(await props.load(signal), props.item.name),
   );
@@ -47,7 +71,7 @@ export function SheetViewer(props: ViewerProps) {
   return <Workbook {...props} wb={state.value} />;
 }
 
-function Workbook(props: ViewerProps & { wb: WorkbookData }) {
+function Workbook(props: ViewerProps & { wb: WorkbookData; onEdit: (() => void) | undefined }) {
   const names = props.wb.sheets.map((s) => s.name);
   const initial =
     props.pageState?.sheet !== undefined && names.includes(props.pageState.sheet)
@@ -81,7 +105,7 @@ function Workbook(props: ViewerProps & { wb: WorkbookData }) {
   );
 }
 
-function Grid(props: ViewerProps & { sheet: SheetData }) {
+function Grid(props: ViewerProps & { sheet: SheetData; onEdit: (() => void) | undefined }) {
   const { sheet } = props;
   const [filterText, setFilterText] = useState<Record<number, string>>({});
   const [statsCol, setStatsCol] = useState<number | null>(null);
@@ -146,6 +170,11 @@ function Grid(props: ViewerProps & { sheet: SheetData }) {
         {filters.size > 0 ? (
           <button type="button" onClick={() => setFilterText({})}>
             Clear filters
+          </button>
+        ) : null}
+        {props.onEdit ? (
+          <button type="button" onClick={props.onEdit}>
+            Edit
           </button>
         ) : null}
         {props.onSendToChat ? (

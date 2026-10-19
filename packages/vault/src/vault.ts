@@ -54,6 +54,7 @@ import { type ImportFormat, importRows } from "./import.ts";
 import type { MetaMirror } from "./meta.ts";
 import { SecretRedactor } from "./redact.ts";
 import { findRefusal, REFUSAL_EXPLANATION } from "./refusals.ts";
+import type { KeychainItemStore } from "./slots/KeychainItems.ts";
 import type { KeyWrapper, WrappedKey } from "./slots/KeyWrapper.ts";
 import { type ItemRow, type ItemSecret, VaultStore } from "./store.ts";
 import { parseTotpSeed, totpCode } from "./totp.ts";
@@ -90,6 +91,13 @@ export interface VaultOptions {
   autoLockMinutes?: number;
   /** Prompt the key slot (Touch ID) on the first fill while locked. Default true. */
   unlockOnFill?: boolean;
+  /**
+   * Where new items' secrets live (G9): the vault database (default) or the system keychain
+   * through the helper (`keychainItems` required). Connector OAuth tokens always stay in the
+   * vault: they are refreshed unattended.
+   */
+  itemBackend?: "vault" | "keychain";
+  keychainItems?: KeychainItemStore;
   /** Recovery-slot KDF parameters (tests lower them). */
   argon2?: Argon2Params;
   redactor?: SecretRedactor;
@@ -197,6 +205,32 @@ function secretValues(s: ItemSecret): string[] {
   return [s.password, s.token, s.refreshToken, s.privateKey, s.totpSecret, s.text].filter(
     (v): v is string => v !== undefined && v.length > 0,
   );
+}
+
+/** Which `ItemSecret` key a placeholder field reads for an item kind. */
+function secretKeyFor(
+  kind: CredentialKind,
+  field: CredentialField | undefined,
+): keyof ItemSecret | undefined {
+  switch (field) {
+    case "username":
+      return "username";
+    case "password":
+      return kind === "login" ? "password" : undefined;
+    case "totp":
+      return "totpSecret";
+    case "token":
+    case "header":
+      return "token";
+    default:
+      return kind === "login"
+        ? "password"
+        : kind === "ssh_key"
+          ? "privateKey"
+          : kind === "note"
+            ? "text"
+            : "token";
+  }
 }
 
 /**
@@ -458,7 +492,10 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       try {
         store = VaultStore.open(this.#dbPath, dek);
         if ((await this.#o.wrapper.unavailableReason()) === null) {
-          const wrapped = await this.#o.wrapper.wrap(dek);
+          const wrapped = await this.#o.wrapper.wrap(dek, {
+            replace: true,
+            reason: "Re-create the Psyche vault key after recovery",
+          });
           this.#writeJson(this.#slotsPath, {
             ...slots,
             slots: { ...slots.slots, [this.#o.wrapper.slot]: wrapped },
@@ -593,13 +630,35 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     return fail("conflict", "no free slug");
   }
 
-  #insert(
+  #keychainItems(): KeychainItemStore {
+    const kc = this.#o.keychainItems;
+    if (kc === undefined) return fail("unavailable", "system keychain mode needs the mac helper");
+    return kc;
+  }
+
+  /** Read an item's secret: from the row, or from the system keychain (prompts) for G9 items. */
+  async #secretOf(item: ItemRow, reason: string): Promise<ItemSecret> {
+    if (item.attrs.backend !== "keychain") return item.secret;
+    const raw = await this.#keychainItems().get(item.id, reason);
+    try {
+      const secret = JSON.parse(raw.toString("utf8")) as ItemSecret;
+      for (const v of secretValues(secret)) this.#redactor.add(v);
+      return secret;
+    } catch {
+      return fail("internal", "keychain item is not a Psyche credential");
+    } finally {
+      zeroize(raw);
+    }
+  }
+
+  async #insert(
     u: Unlocked,
     input: { kind: CredentialKind; name: string; slug?: string; bindings: CredentialBinding[] },
     secret: ItemSecret,
     attrs: ItemRow["attrs"],
     owner: string | null,
-  ): CredentialMeta {
+    backend: "vault" | "keychain" = "vault",
+  ): Promise<CredentialMeta> {
     const now = toIso(this.clock.now());
     const item: ItemRow = {
       id: this.#newId(),
@@ -613,7 +672,25 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       createdAt: now,
       updatedAt: now,
     };
-    u.store.insert(item);
+    if (backend === "keychain") {
+      const kc = this.#keychainItems();
+      const json = Buffer.from(JSON.stringify(secret), "utf8");
+      try {
+        await kc.put(item.id, json);
+      } finally {
+        zeroize(json);
+      }
+      item.secret = {};
+      item.attrs = { ...attrs, backend: "keychain", fields: Object.keys(secret) };
+      try {
+        u.store.insert(item);
+      } catch (err) {
+        await kc.remove(item.id).catch(() => undefined);
+        throw err;
+      }
+    } else {
+      u.store.insert(item);
+    }
     const meta = this.#metaOf(item);
     this.#o.meta.upsert(meta);
     for (const v of secretValues(secret)) this.#redactor.add(v);
@@ -647,11 +724,13 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     if (input.secret.headerPrefix !== undefined) attrs.headerPrefix = input.secret.headerPrefix;
     const authEachUse = input.requireAuthEachUse ?? input.kind === "ssh_key";
     if (authEachUse) attrs.requireAuthEachUse = true;
-    const meta = this.#insert(u, input, secret, attrs, null);
+    const backend = this.#o.itemBackend ?? "vault";
+    const meta = await this.#insert(u, input, secret, attrs, null, backend);
     await this.#audit("credential.created", {
       credentialId: meta.id,
       kind: meta.kind,
       slug: meta.slug,
+      backend,
     });
     return structuredClone(meta);
   }
@@ -667,13 +746,26 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     this.#checkRefusals(name, patch.secret ?? {});
     const next: ItemRow = { ...item, name: name.trim(), updatedAt: toIso(this.clock.now()) };
     if (patch.bindings !== undefined) next.bindings = this.#checkBindings(patch.bindings);
+    let newSecret: ItemSecret | undefined;
     if (patch.secret !== undefined) {
-      const merged: CredentialSecretInput = { ...item.secret };
+      const current = await this.#secretOf(item, `Edit “${item.name}”`);
+      const merged: CredentialSecretInput = { ...(current as CredentialSecretInput) };
       for (const [k, v] of Object.entries(patch.secret)) {
         if (v !== undefined) (merged as Record<string, string>)[k] = v;
       }
-      next.secret = secretFor(item.kind, merged);
+      newSecret = secretFor(item.kind, merged);
+      next.secret = newSecret;
       next.attrs = { ...item.attrs };
+      if (item.attrs.backend === "keychain") {
+        const json = Buffer.from(JSON.stringify(newSecret), "utf8");
+        try {
+          await this.#keychainItems().put(item.id, json, { replace: true });
+        } finally {
+          zeroize(json);
+        }
+        next.secret = {};
+        next.attrs.fields = Object.keys(newSecret);
+      }
       if (patch.secret.headerName !== undefined) next.attrs.headerName = patch.secret.headerName;
       if (patch.secret.headerPrefix !== undefined)
         next.attrs.headerPrefix = patch.secret.headerPrefix;
@@ -682,7 +774,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       next.attrs = { ...next.attrs, requireAuthEachUse: patch.requireAuthEachUse };
     }
     u.store.update(next);
-    for (const v of secretValues(next.secret)) this.#redactor.add(v);
+    for (const v of secretValues(newSecret ?? next.secret)) this.#redactor.add(v);
     const meta = this.#metaOf(next, this.#o.meta.get(credentialId));
     this.#o.meta.upsert(meta);
     this.#emit("credential.updated", {
@@ -703,12 +795,13 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     if (item.ownerConnectorId !== null) {
       return fail("forbidden", "disconnect the connector to remove its token");
     }
-    this.#remove(u, item, "deleted");
+    await this.#remove(u, item, "deleted");
     await this.#audit("credential.deleted", { credentialId, slug: item.slug });
     return true;
   }
 
-  #remove(u: Unlocked, item: ItemRow, change: "deleted" | "revoked"): void {
+  async #remove(u: Unlocked, item: ItemRow, change: "deleted" | "revoked"): Promise<void> {
+    if (item.attrs.backend === "keychain") await this.#keychainItems().remove(item.id);
     u.store.delete(item.id);
     u.store.checkpoint();
     this.#o.meta.delete(item.id);
@@ -738,7 +831,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       }
       try {
         const secret = secretFor(row.kind, row.secret as CredentialSecretInput);
-        imported.push(this.#insert(u, row, secret, {}, null));
+        imported.push(await this.#insert(u, row, secret, {}, null, this.#o.itemBackend ?? "vault"));
       } catch (err) {
         skipped.push({
           row: row.row,
@@ -913,11 +1006,29 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
         return deny("policy_denied", check.reason, "the focused element cannot take this field");
       }
     }
-    if (this.#valueOf(item, field) === undefined) {
+    const key = secretKeyFor(item.kind, field);
+    const hasField =
+      key !== undefined &&
+      (item.attrs.backend === "keychain"
+        ? (item.attrs.fields ?? []).includes(key)
+        : item.secret[key] !== undefined);
+    if (!hasField) {
       failed("no_such_field");
       return fail("not_found", `credential ${slug} has no ${field ?? "secret"}`);
     }
-    if (item.attrs.requireAuthEachUse === true) {
+    let secret = item.secret;
+    if (item.attrs.backend === "keychain") {
+      // G9: reading the keychain item is itself the presence prompt.
+      try {
+        secret = await this.#secretOf(
+          item,
+          `Fill “${item.name}” on ${canonicalOrigin(target.value) ?? target.value}`,
+        );
+      } catch (err) {
+        failed("keychain_refused");
+        throw err;
+      }
+    } else if (item.attrs.requireAuthEachUse === true) {
       // Per-fill presence: the slot prompts again (LAContext reuse duration 0).
       const wrapped = this.#readSlots()?.slots[this.#o.wrapper.slot];
       if (wrapped === undefined) {
@@ -963,7 +1074,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       );
     }
     // TOTP codes are computed at the moment of use.
-    const value = this.#valueOf(item, field);
+    const value = this.#valueOf(item, secret, field);
     if (value === undefined) return fail("internal", "credential changed during resolve");
     this.#redactor.markSticky(value);
     this.#recordUse(meta.id, executor, target.value, approvalId, options.taskId, "filled", null);
@@ -983,33 +1094,71 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     });
   }
 
-  #valueOf(item: ItemRow, field: CredentialField | undefined): string | undefined {
-    const s = item.secret;
-    switch (field) {
-      case "username":
-        return s.username;
-      case "password":
-        return item.kind === "login" ? s.password : undefined;
-      case "totp":
-        return s.totpSecret === undefined
-          ? undefined
-          : totpCode(parseTotpSeed(s.totpSecret), this.clock.now());
-      case "token":
-        return s.token;
-      case "header":
-        return s.token === undefined ? undefined : `${item.attrs.headerPrefix ?? ""}${s.token}`;
-      default:
-        switch (item.kind) {
-          case "login":
-            return s.password;
-          case "ssh_key":
-            return s.privateKey;
-          case "note":
-            return s.text;
-          default:
-            return s.token;
-        }
+  #valueOf(
+    item: ItemRow,
+    secret: ItemSecret,
+    field: CredentialField | undefined,
+  ): string | undefined {
+    const key = secretKeyFor(item.kind, field);
+    if (key === undefined) return undefined;
+    if (key === "totpSecret") {
+      return secret.totpSecret === undefined
+        ? undefined
+        : totpCode(parseTotpSeed(secret.totpSecret), this.clock.now());
     }
+    const raw = secret[key];
+    if (typeof raw !== "string") return undefined;
+    return field === "header" ? `${item.attrs.headerPrefix ?? ""}${raw}` : raw;
+  }
+
+  /**
+   * Move an item's secret between the vault database and the system keychain (G9). Moving out
+   * of the keychain reads it (one prompt).
+   */
+  async setBackend(credentialId: string, backend: "vault" | "keychain"): Promise<CredentialMeta> {
+    const u = this.#requireUnlocked();
+    const item = u.store.get(credentialId);
+    if (item === undefined) return fail("not_found", "credential not found");
+    if (item.ownerConnectorId !== null) {
+      return fail("forbidden", "connector tokens stay in the vault");
+    }
+    const current = item.attrs.backend === "keychain" ? "keychain" : "vault";
+    if (current !== backend) {
+      const kc = this.#keychainItems();
+      const next: ItemRow = {
+        ...item,
+        attrs: { ...item.attrs },
+        updatedAt: toIso(this.clock.now()),
+      };
+      if (backend === "keychain") {
+        const json = Buffer.from(JSON.stringify(item.secret), "utf8");
+        try {
+          await kc.put(item.id, json, { replace: true });
+        } finally {
+          zeroize(json);
+        }
+        next.secret = {};
+        next.attrs.backend = "keychain";
+        next.attrs.fields = Object.keys(item.secret);
+        u.store.update(next);
+      } else {
+        next.secret = await this.#secretOf(item, `Move “${item.name}” into the Psyche vault`);
+        delete next.attrs.backend;
+        delete next.attrs.fields;
+        u.store.update(next);
+        await kc.remove(item.id);
+      }
+      await this.#audit("credential.moved", { credentialId, backend });
+    }
+    const meta = this.#metaOf(u.store.get(credentialId) ?? item, this.#o.meta.get(credentialId));
+    return structuredClone(meta);
+  }
+
+  /** Where an item's secret lives (G9). */
+  backendOf(credentialId: string): "vault" | "keychain" | undefined {
+    const item = this.#requireUnlocked().store.get(credentialId);
+    if (item === undefined) return undefined;
+    return item.attrs.backend === "keychain" ? "keychain" : "vault";
   }
 
   /** Header name for `.header` fills (not secret). */
@@ -1058,7 +1207,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     if (input.tokens.refreshToken !== undefined) secret.refreshToken = input.tokens.refreshToken;
     if (input.tokens.expiresAt !== undefined) secret.expiresAt = input.tokens.expiresAt;
     if (input.tokens.scopes !== undefined) secret.scopes = input.tokens.scopes;
-    const meta = this.#insert(
+    const meta = await this.#insert(
       u,
       { kind: "oauth_token", name: input.name, slug: input.slug, bindings: input.bindings },
       secret,
@@ -1145,7 +1294,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     reason: CredentialRevokedEvent["reason"] = "disconnect",
   ): Promise<void> {
     const { u, item } = this.#owned(credentialId, connectorId);
-    this.#remove(u, item, "revoked");
+    await this.#remove(u, item, "revoked");
     const event: CredentialRevokedEvent = {
       credentialId,
       slug: item.slug,

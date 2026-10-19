@@ -1,0 +1,54 @@
+{
+  "engine" : "dictation",
+  "footprintAfterPrepareMB" : 4.3444366455078125,
+  "input" : "audio\/music.wav",
+  "machine" : "Apple M5 16 GB",
+  "notes" : [
+    "asset status before: installed",
+    "reserved locales: [\"en_US\"] of max 5",
+    "analyzer format: 16000 Hz int16 1 ch"
+  ],
+  "os" : "Version 27.0.1 (Build 26A434)",
+  "peakFootprintMB" : 15.375732421875,
+  "prepareSeconds" : 0.4586893329396844,
+  "sessions" : [
+    {
+      "audioSeconds" : 4,
+      "finalLatency" : 0.49420920806005597,
+      "firstPartialFromKeyDown" : 1.3730715829879045,
+      "firstPartialFromSpeech" : 1.2650141660124063,
+      "firstPartialText" : "On",
+      "label" : "first utterance (4 s)",
+      "meanUpdateInterval" : 0.3374111191369593,
+      "partialCount" : 11,
+      "transcript" : "On Dean, send a message to Go Daddy"
+    },
+    {
+      "audioSeconds" : 87.785,
+      "finalLatency" : 1.1074531669728458,
+      "firstPartialFromKeyDown" : 1.330140917096287,
+      "firstPartialFromSpeech" : 1.2286020840983838,
+      "firstPartialText" : "On",
+      "label" : "full script (warm)",
+      "meanUpdateInterval" : 0.2787889482513551,
+      "partialCount" : 311,
+      "transcript" : "On Dean, send a message to Go Daddy and tell her I am running about 15 minutes late for lunch because the train is stuck outside the station. Ask her to order the soup for me if the kitchen is busy next draft an email to Caide with the subject line quarterly planning say that the slides look good, but the budget section still needs the revised hiring numbers from finance before we can share it with the wider team. Mention that I would like to review the final version on Thursday afternoon on Dean remind me tomorrow morning to call Marisol Echevarria about the apartment lease. She wanted to know whether we are renewing for another year or moving out in the spring and I promised her an answer this week. Also add a note to my reading list. I want to finish the book about the history of navigation. The one that explains how sailors use the stars and simple clocks to find their position on the open ocean on Dean please look at my calendar for next week and find a quiet hour on Wednesday or Friday for a long walk. If both days are full move the dentist appointment to the following Monday and let the office know by email. Keep the message, polite and short and copy Marisol so she knows I will be free that evening finally on Dean check whether and Gozie replied to the invitation for Saturday and if Cave has not confirmed by tonight, send him a short and friendly reminder thank you that is everything for now",
+      "vocabularyHits" : {
+        "Adeyemi" : "0\/1",
+        "Echeverria" : "0\/1",
+        "Farrokhzad" : "0\/1",
+        "Kaveh" : "0\/2",
+        "Marisol" : "2\/2",
+        "Ngozi" : "0\/2",
+        "Ondine" : "0\/4"
+      },
+      "wer" : {
+        "deletions" : 1,
+        "insertions" : 5,
+        "referenceWords" : 263,
+        "substitutions" : 11,
+        "wer" : 0.06463878326996197
+      }
+    }
+  ]
+}

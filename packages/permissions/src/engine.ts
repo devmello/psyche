@@ -110,6 +110,23 @@ const STRICT_KINDS: readonly ApprovalKind[] = [
   "memory_protected_write",
 ];
 
+/**
+ * Kinds an `mcp__<server>__<tool>` registration may describe itself as. These tools are
+ * registered by first-party code (the connectors registry, the MCP host), which names the §3.5
+ * kind in `describeCall` (`send_email` for gmail_send, `connector_action` for third-party MCP
+ * tools with the `tools/list` hash in their grant key). Kinds that need executor checks the
+ * MCP path cannot give (`exec*`, fills, form submits, computer use, protected memory) stay
+ * refused (issue #78).
+ */
+const MCP_DESCRIBABLE_KINDS: readonly ApprovalKind[] = [
+  "mcp_tool",
+  "connector_action",
+  "send_email",
+  "calendar_write",
+  "message_send",
+  "purchase",
+];
+
 /** Kinds whose checks read the binding fields: without arguments they never get standing grants. */
 const FIELD_CHECKED_KINDS: readonly ApprovalKind[] = [
   "browser_submit",
@@ -296,7 +313,12 @@ export class PolicyEngine {
       x: object = {},
     ) => this.#out(call, ctx, trace, decision, rule, reason, { ...base, ...x });
 
-    if (call.kind !== undefined && call.kind !== inferred && STRICT_KINDS.includes(inferred)) {
+    const relabel =
+      call.kind !== undefined &&
+      call.kind !== inferred &&
+      STRICT_KINDS.includes(inferred) &&
+      !(inferred === "mcp_tool" && MCP_DESCRIBABLE_KINDS.includes(call.kind));
+    if (relabel) {
       return done("deny", "kind:mismatch", `${call.tool} is a ${inferred} call, not ${call.kind}`);
     }
     let binding: Binding;

@@ -53,7 +53,9 @@ export const GOOGLE_ACTIONS: ConnectorAction[] = [
   {
     id: "gmail.send",
     title: "Send mail",
-    sideEffect: "write",
+    // Sending to a third party is irreversible and outward-facing (security §3.1): destructive,
+    // so standing grants stop at `task` and the card is device-only.
+    sideEffect: "destructive",
     approvalKind: "send_email",
     defaultRule: "ask",
   },
@@ -227,8 +229,8 @@ export function sendBinding(account: string, params: unknown): ToolCallDescripti
       to,
       cc,
       bcc,
-      subject: m.subject.normalize("NFC"),
-      bodyHash: sha256(m.body.normalize("NFC")),
+      subject: m.subject,
+      bodyHash: sha256(m.body),
       attachmentHashes: [],
       threadId: m.threadId ?? null,
       inReplyTo: m.inReplyTo ?? null,
@@ -562,7 +564,7 @@ export class GoogleConnector implements Connector {
         description:
           "Send an email (plain text). Requires the owner's approval of the exact recipients, subject and body.",
         inputSchema: mailSchema,
-        sideEffect: "write",
+        sideEffect: "destructive",
         describeCall: (p) => sendBinding(account(), p),
         execute: (p, ctx) =>
           this.#guard(async () => {

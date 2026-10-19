@@ -1,0 +1,54 @@
+{
+  "engine" : "dictation-vocab",
+  "footprintAfterPrepareMB" : 4.297538757324219,
+  "input" : "audio\/clean.wav",
+  "machine" : "Apple M5 16 GB",
+  "notes" : [
+    "asset status before: installed",
+    "reserved locales: [\"en_US\"] of max 5",
+    "analyzer format: 16000 Hz int16 1 ch"
+  ],
+  "os" : "Version 27.0.1 (Build 26A434)",
+  "peakFootprintMB" : 15.344482421875,
+  "prepareSeconds" : 0.3088552919216454,
+  "sessions" : [
+    {
+      "audioSeconds" : 4,
+      "finalLatency" : 0.4335722499527037,
+      "firstPartialFromKeyDown" : 1.3787680419627577,
+      "firstPartialFromSpeech" : 0.772894375026226,
+      "firstPartialText" : "On",
+      "label" : "first utterance (4 s)",
+      "meanUpdateInterval" : 0.33763951784931123,
+      "partialCount" : 10,
+      "transcript" : "Ondine send a message to Cozy"
+    },
+    {
+      "audioSeconds" : 87.785,
+      "finalLatency" : 2.342603374971077,
+      "firstPartialFromKeyDown" : 1.3416096670553088,
+      "firstPartialFromSpeech" : 0.7347054579295218,
+      "firstPartialText" : "On",
+      "label" : "full script (warm)",
+      "meanUpdateInterval" : 0.2726854819933699,
+      "partialCount" : 319,
+      "transcript" : "Ondine send a message to Gomi and tell her I am running about 15 minutes late for lunch because the train is stuck outside the station. Ask her to order the soup for me if the kitchen is busy next draft an email to Cavafe oxide with the subject line quarterly planning say that the slides look good, but the budget section still needs the revised hiring numbers from finance before we can share it with the wider team. Mention that I would like to review the final version on Thursday afternoon Ondine remind me tomorrow morning to call Marisol Echeverria about the apartment lease. She wanted to know whether we are renewing for another year or moving out in the spring, and I promised her an answer this week also add a note to my reading list. I want to finish the book about the history of navigation the one that explains how sailors use the stars and simple clocks to find their position on the open ocean Ondine please look at my calendar for next week and find a quiet hour on Wednesday or Friday for a long walk . If both days are full move the dentist appointment to the following Monday and let the office know by email keep the message polite and short and copy Marisol so she knows I will be free that evening finally Ondine check whether in Gozie replied to the invitation for Saturday and if Cave has not confirmed by tonight, send him a short and friendly reminder thank you that is everything for now.",
+      "vocabularyHits" : {
+        "Adeyemi" : "0\/1",
+        "Echeverria" : "1\/1",
+        "Farrokhzad" : "0\/1",
+        "Kaveh" : "0\/2",
+        "Marisol" : "2\/2",
+        "Ngozi" : "0\/2",
+        "Ondine" : "4\/4"
+      },
+      "wer" : {
+        "deletions" : 1,
+        "insertions" : 1,
+        "referenceWords" : 263,
+        "substitutions" : 6,
+        "wer" : 0.030418250950570342
+      }
+    }
+  ]
+}

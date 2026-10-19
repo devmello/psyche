@@ -1,0 +1,51 @@
+{
+  "engine" : "whisper-base-final",
+  "footprintAfterPrepareMB" : 24.703994750976562,
+  "input" : "audio\/music.wav",
+  "machine" : "Apple M5 16 GB",
+  "notes" : [
+    "openai_whisper-base.en; partials = AudioStreamTranscriber-style loop (confirm all but last 2 segments)"
+  ],
+  "os" : "Version 27.0.1 (Build 26A434)",
+  "peakFootprintMB" : 123.54783630371094,
+  "prepareSeconds" : 20.536721208132803,
+  "sessions" : [
+    {
+      "audioSeconds" : 4,
+      "finalLatency" : 7.094191957963631,
+      "firstPartialFromKeyDown" : 8.582848875084892,
+      "firstPartialFromSpeech" : 8.481693499954417,
+      "firstPartialText" : "On Dean, send a message.",
+      "label" : "first utterance (4 s)",
+      "partialCount" : 1,
+      "transcript" : "On Dean, send a message to Ngozi Adiyemi and tell me about it."
+    },
+    {
+      "audioSeconds" : 87.785,
+      "finalLatency" : 4.448081917129457,
+      "firstPartialFromKeyDown" : 3.993498541181907,
+      "firstPartialFromSpeech" : 3.8361781251151115,
+      "firstPartialText" : "On Dean, send a message.",
+      "label" : "full script (warm)",
+      "meanUpdateInterval" : 3.336744369994849,
+      "partialCount" : 26,
+      "transcript" : "On Dean, send a message to Ngozi Adiyemi and tell her I am running about 15 minutes late for lunch because the train is stuck outside the station. Ask her to order the soup for me if the kitchen is busy. Next, draft an email to Kava for Oxid with the subject line quarterly planning. Say that the slides look good, but the budget section still needs the revised hiring numbers from finance before we can share it with the wider team.  Please look at my calendar for next week and find a quiet hour on Wednesday or Friday for a long walk. If both days are full, move the dentist appointment to the following Monday and let the office know by email. Keep the message polite in short and copy Marisol so she knows I will be free that evening. Finally, on Dean, check whether Gozi replied to the invitation for Saturday. And if Kave has not confirmed by tonight, send him a short and friendly reminder. Thank you. That is everything for now.",
+      "vocabularyHits" : {
+        "Adeyemi" : "0\/1",
+        "Echeverria" : "0\/1",
+        "Farrokhzad" : "0\/1",
+        "Kaveh" : "0\/2",
+        "Marisol" : "1\/2",
+        "Ngozi" : "1\/2",
+        "Ondine" : "0\/4"
+      },
+      "wer" : {
+        "deletions" : 91,
+        "insertions" : 3,
+        "referenceWords" : 263,
+        "substitutions" : 8,
+        "wer" : 0.38783269961977185
+      }
+    }
+  ]
+}
