@@ -57,20 +57,35 @@ function optionsOf(metadata: ProviderMetadata | undefined): SharedV4ProviderOpti
   return structuredClone(metadata) as SharedV4ProviderOptions;
 }
 
-function convertToolResultOutput(part: Extract<ModelPart, { type: "tool_result" }>): LanguageModelV4ToolResultOutput {
+function convertToolResultOutput(
+  part: Extract<ModelPart, { type: "tool_result" }>,
+): LanguageModelV4ToolResultOutput {
   const { output } = part;
   if (part.isError === true) {
-    return typeof output === "string" ? { type: "error-text", value: output } : { type: "error-json", value: toJsonValue(output) };
+    return typeof output === "string"
+      ? { type: "error-text", value: output }
+      : { type: "error-json", value: toJsonValue(output) };
   }
   if (typeof output === "string") return { type: "text", value: output };
   // A list of text / image parts (screenshots from computer use, rendered pages).
-  if (Array.isArray(output) && output.length > 0 && output.every((p) => isRecord(p) && (p.type === "text" || p.type === "image"))) {
+  if (
+    Array.isArray(output) &&
+    output.length > 0 &&
+    output.every((p) => isRecord(p) && (p.type === "text" || p.type === "image"))
+  ) {
     const value: Extract<LanguageModelV4ToolResultOutput, { type: "content" }>["value"] = [];
     for (const p of output as Record<string, unknown>[]) {
-      if (p.type === "text" && typeof p.text === "string") value.push({ type: "text", text: p.text });
+      if (p.type === "text" && typeof p.text === "string")
+        value.push({ type: "text", text: p.text });
       else if (p.type === "image" && typeof p.mime === "string") {
-        if (typeof p.data === "string") value.push({ type: "file", mediaType: p.mime, data: { type: "data", data: p.data } });
-        else if (typeof p.url === "string") value.push({ type: "file", mediaType: p.mime, data: { type: "url", url: new URL(p.url) } });
+        if (typeof p.data === "string")
+          value.push({ type: "file", mediaType: p.mime, data: { type: "data", data: p.data } });
+        else if (typeof p.url === "string")
+          value.push({
+            type: "file",
+            mediaType: p.mime,
+            data: { type: "url", url: new URL(p.url) },
+          });
       }
     }
     return { type: "content", value };
@@ -79,13 +94,18 @@ function convertToolResultOutput(part: Extract<ModelPart, { type: "tool_result" 
 }
 
 function imagePart(part: Extract<ModelPart, { type: "image" }>): UserContent[number] | undefined {
-  if (part.data !== undefined) return { type: "file", mediaType: part.mime, data: { type: "data", data: part.data } };
-  if (part.url !== undefined) return { type: "file", mediaType: part.mime, data: { type: "url", url: new URL(part.url) } };
+  if (part.data !== undefined)
+    return { type: "file", mediaType: part.mime, data: { type: "data", data: part.data } };
+  if (part.url !== undefined)
+    return { type: "file", mediaType: part.mime, data: { type: "url", url: new URL(part.url) } };
   return undefined;
 }
 
 /** True when an envelope was produced by this provider and model (else it is dropped). */
-function ownEnvelope(part: Extract<ModelPart, { type: "reasoning" }>, ctx: ConvertContext): OpaqueEnvelope | undefined {
+function ownEnvelope(
+  part: Extract<ModelPart, { type: "reasoning" }>,
+  ctx: ConvertContext,
+): OpaqueEnvelope | undefined {
   if (part.provider !== ctx.config.id || !isEnvelope(part.data)) return undefined;
   return part.data.model === ctx.modelId ? part.data : undefined;
 }
@@ -127,7 +147,11 @@ function convertMessage(
     for (const p of message.parts) {
       if (p.type !== "reasoning") continue;
       const env = ownEnvelope(p, ctx);
-      if (env?.kind === "part-metadata" && env.part === "tool_call" && env.toolCallId !== undefined) {
+      if (
+        env?.kind === "part-metadata" &&
+        env.part === "tool_call" &&
+        env.toolCallId !== undefined
+      ) {
         callMeta.set(env.toolCallId, env.metadata);
       }
     }
@@ -157,7 +181,10 @@ function convertMessage(
           const env = ownEnvelope(p, ctx);
           if (env === undefined) break;
           if (env.kind === "reasoning") {
-            const part: Extract<AssistantContent[number], { type: "reasoning" }> = { type: "reasoning", text: env.text };
+            const part: Extract<AssistantContent[number], { type: "reasoning" }> = {
+              type: "reasoning",
+              text: env.text,
+            };
             const po = optionsOf(env.metadata);
             if (po !== undefined) part.providerOptions = po;
             content.push(part);
@@ -181,7 +208,10 @@ function convertMessage(
                 type: "tool-result",
                 toolCallId: env.toolCallId,
                 toolName: env.toolName,
-                output: env.isError === true ? { type: "error-json", value: toJsonValue(env.result) } : { type: "json", value: toJsonValue(env.result) },
+                output:
+                  env.isError === true
+                    ? { type: "error-json", value: toJsonValue(env.result) }
+                    : { type: "json", value: toJsonValue(env.result) },
               });
             }
           }
@@ -219,7 +249,10 @@ function applyPromptCaching(prompt: LanguageModelV4Prompt, ttl: "5m" | "1h" | un
   const cacheControl = ttl === "1h" ? { type: "ephemeral", ttl: "1h" } : { type: "ephemeral" };
   const mark = (m: LanguageModelV4Message | undefined) => {
     if (m === undefined) return;
-    m.providerOptions = { ...m.providerOptions, anthropic: { ...m.providerOptions?.anthropic, cacheControl } };
+    m.providerOptions = {
+      ...m.providerOptions,
+      anthropic: { ...m.providerOptions?.anthropic, cacheControl },
+    };
   };
   mark(prompt.find((m) => m.role === "system"));
   const last = prompt.at(-1);
@@ -237,7 +270,12 @@ function convertTools(
       return { type: "provider", id: "anthropic.memory_20250818", name: "memory", args: {} };
     }
     if (pt?.computer === true && t.name === "computer") {
-      return { type: "provider", id: "anthropic.computer_toolset_20260801", name: "computer", args: {} };
+      return {
+        type: "provider",
+        id: "anthropic.computer_toolset_20260801",
+        name: "computer",
+        args: {},
+      };
     }
     return {
       type: "function",
@@ -248,7 +286,9 @@ function convertTools(
   });
 }
 
-function convertToolChoice(choice: ModelRequest["toolChoice"]): LanguageModelV4ToolChoice | undefined {
+function convertToolChoice(
+  choice: ModelRequest["toolChoice"],
+): LanguageModelV4ToolChoice | undefined {
   if (choice === undefined) return undefined;
   if (typeof choice === "string") return { type: choice };
   return { type: "tool", toolName: choice.tool };
@@ -267,14 +307,19 @@ function deepMerge(base: JsonObject, over: JsonObject): JsonObject {
  * `providerOptions` for the call: kind defaults, then the config's defaults, then the request's
  * options keyed by the adapter id or by the package key (`anthropic`, `openai`, …).
  */
-export function providerOptionsFor(request: ModelRequest, ctx: ConvertContext): SharedV4ProviderOptions {
+export function providerOptionsFor(
+  request: ModelRequest,
+  ctx: ConvertContext,
+): SharedV4ProviderOptions {
   const key = packageKey(ctx.config);
   let merged = deepMerge(defaultOptions(ctx), ctx.config.defaultOptions ?? {});
   const fromKey = request.providerOptions?.[key];
   if (fromKey !== undefined) merged = deepMerge(merged, fromKey);
   const fromId = ctx.config.id !== key ? request.providerOptions?.[ctx.config.id] : undefined;
   if (fromId !== undefined) merged = deepMerge(merged, fromId);
-  return Object.keys(merged).length === 0 ? {} : ({ [key]: structuredClone(merged) } as SharedV4ProviderOptions);
+  return Object.keys(merged).length === 0
+    ? {}
+    : ({ [key]: structuredClone(merged) } as SharedV4ProviderOptions);
 }
 
 export function convertRequest(

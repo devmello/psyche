@@ -100,8 +100,14 @@ export function priceProviderOf(config: ProviderConfig): string | undefined {
   }
 }
 
-export const DEFAULT_TIMEOUTS: Required<ProviderTimeouts> = { firstEventMs: 60_000, idleMs: 120_000 };
-export const LOCAL_TIMEOUTS: Required<ProviderTimeouts> = { firstEventMs: 300_000, idleMs: 300_000 };
+export const DEFAULT_TIMEOUTS: Required<ProviderTimeouts> = {
+  firstEventMs: 60_000,
+  idleMs: 120_000,
+};
+export const LOCAL_TIMEOUTS: Required<ProviderTimeouts> = {
+  firstEventMs: 300_000,
+  idleMs: 300_000,
+};
 
 export function timeoutsOf(config: ProviderConfig): Required<ProviderTimeouts> {
   const base = isLocalKind(config.kind) ? LOCAL_TIMEOUTS : DEFAULT_TIMEOUTS;

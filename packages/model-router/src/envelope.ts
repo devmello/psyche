@@ -92,7 +92,9 @@ export class TurnAccumulator {
   }
 
   toolCalls(): Extract<ModelPart, { type: "tool_call" }>[] {
-    return this.parts.filter((p): p is Extract<ModelPart, { type: "tool_call" }> => p.type === "tool_call");
+    return this.parts.filter(
+      (p): p is Extract<ModelPart, { type: "tool_call" }> => p.type === "tool_call",
+    );
   }
 
   text(): string {

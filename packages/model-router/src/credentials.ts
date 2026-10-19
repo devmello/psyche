@@ -16,7 +16,11 @@ export const KEY_SENTINEL = "psyche-key-injected-at-fetch";
 /** Where provider keys come from. The default is the vault (`brokerKeySource`). */
 export interface KeySource {
   /** Resolve the profile's key for a request to `target` (the request's origin). */
-  resolve(profile: AuthProfile, target: Target, signal?: AbortSignal): Promise<ResolvedSecret | undefined>;
+  resolve(
+    profile: AuthProfile,
+    target: Target,
+    signal?: AbortSignal,
+  ): Promise<ResolvedSecret | undefined>;
   /** Scrub known secret values from text bound for errors or logs. */
   redact(text: string): string;
 }
@@ -49,7 +53,7 @@ export const NO_KEYS: KeySource = {
   redact: (text) => text,
 };
 
-function requestUrl(input: RequestInfo | URL): string {
+function requestUrl(input: string | URL | Request): string {
   if (typeof input === "string") return input;
   if (input instanceof URL) return input.href;
   return input.url;
@@ -64,8 +68,10 @@ export function keyInjectingFetch(
   keys: KeySource,
   profile: AuthProfile | undefined,
 ): typeof fetch {
-  const wrapped = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+  const wrapped = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+    const headers = new Headers(
+      init?.headers ?? (input instanceof Request ? input.headers : undefined),
+    );
     let keyHeader: string | undefined;
     for (const [name, value] of headers) {
       if (value.includes(KEY_SENTINEL)) keyHeader = name;
@@ -74,7 +80,10 @@ export function keyInjectingFetch(
     const template = headers.get(keyHeader) ?? "";
     const url = requestUrl(input);
     const target: Target = { kind: "origin", value: new URL(url).origin };
-    const secret = profile === undefined ? undefined : await keys.resolve(profile, target, init?.signal ?? undefined);
+    const secret =
+      profile === undefined
+        ? undefined
+        : await keys.resolve(profile, target, init?.signal ?? undefined);
     if (secret === undefined) {
       headers.delete(keyHeader);
       return base(input, { ...init, headers });

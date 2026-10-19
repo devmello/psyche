@@ -66,7 +66,8 @@ export class Prices {
     const inRate = (long ? p.aboveTokens?.input : undefined) ?? p.input;
     const outRate = (long ? p.aboveTokens?.output : undefined) ?? p.output;
     const readRate = (long ? p.aboveTokens?.cacheRead : undefined) ?? p.cacheRead ?? inRate;
-    const writeRate = (options.cacheTtl === "1h" ? p.cacheWrite1h : undefined) ?? p.cacheWrite ?? inRate;
+    const writeRate =
+      (options.cacheTtl === "1h" ? p.cacheWrite1h : undefined) ?? p.cacheWrite ?? inRate;
     const usd =
       (usage.input * inRate +
         usage.cacheRead * readRate +

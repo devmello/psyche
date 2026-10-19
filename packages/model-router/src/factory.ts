@@ -25,7 +25,10 @@ interface Built {
 
 function needBaseURL(config: ProviderConfig): string {
   if (config.baseURL === undefined || config.baseURL.length === 0) {
-    throw new PsycheError("invalid_params", `provider "${config.id}" (${config.kind}) needs a baseURL`);
+    throw new PsycheError(
+      "invalid_params",
+      `provider "${config.id}" (${config.kind}) needs a baseURL`,
+    );
   }
   return config.baseURL;
 }
@@ -40,7 +43,11 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
   switch (config.kind) {
     case "anthropic":
     case "anthropic-compatible": {
-      const settings: Parameters<typeof createAnthropic>[0] = { apiKey: KEY_SENTINEL, fetch, name: config.id };
+      const settings: Parameters<typeof createAnthropic>[0] = {
+        apiKey: KEY_SENTINEL,
+        fetch,
+        name: config.id,
+      };
       if (config.kind === "anthropic-compatible") settings.baseURL = needBaseURL(config);
       else if (config.baseURL !== undefined) settings.baseURL = config.baseURL;
       if (headers !== undefined) settings.headers = headers;
@@ -48,14 +55,22 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
       return { language: (id) => p.languageModel(id) };
     }
     case "openai": {
-      const settings: Parameters<typeof createOpenAI>[0] = { apiKey: KEY_SENTINEL, fetch, name: config.id };
+      const settings: Parameters<typeof createOpenAI>[0] = {
+        apiKey: KEY_SENTINEL,
+        fetch,
+        name: config.id,
+      };
       if (config.baseURL !== undefined) settings.baseURL = config.baseURL;
       if (headers !== undefined) settings.headers = headers;
       const p = createOpenAI(settings);
       return { language: (id) => p.responses(id), embedding: (id) => p.embedding(id) };
     }
     case "google": {
-      const settings: Parameters<typeof createGoogle>[0] = { apiKey: KEY_SENTINEL, fetch, name: config.id };
+      const settings: Parameters<typeof createGoogle>[0] = {
+        apiKey: KEY_SENTINEL,
+        fetch,
+        name: config.id,
+      };
       if (config.baseURL !== undefined) settings.baseURL = config.baseURL;
       if (headers !== undefined) settings.headers = headers;
       const p = createGoogle(settings);

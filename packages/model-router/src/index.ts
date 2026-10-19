@@ -1,9 +1,11 @@
-import { type ModelProvider, NotImplementedError } from "@psyche/protocol";
-
-/**
- * Placeholder for the `ModelProvider` implementation owned by S03.
- * Build against `FakeModelProvider` from `@psyche/testing` until this lands.
- */
-export function createModelRouter(): ModelProvider {
-  throw new NotImplementedError("@psyche/model-router", "createModelRouter");
-}
+export * from "./adapter.ts";
+export * from "./config.ts";
+export * from "./convert-request.ts";
+export * from "./convert-stream.ts";
+export * from "./credentials.ts";
+export * from "./envelope.ts";
+export * from "./errors.ts";
+export * from "./factory.ts";
+export * from "./prices.ts";
+export * from "./refs.ts";
+export * from "./usage.ts";

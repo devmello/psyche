@@ -19,12 +19,21 @@ export function normalizeUsage(u: LanguageModelV4Usage | undefined): Usage {
   const cacheWrite = int(u.inputTokens.cacheWrite);
   const total = int(u.inputTokens.total);
   const input =
-    u.inputTokens.noCache !== undefined ? int(u.inputTokens.noCache) : Math.max(0, total - cacheRead - cacheWrite);
+    u.inputTokens.noCache !== undefined
+      ? int(u.inputTokens.noCache)
+      : Math.max(0, total - cacheRead - cacheWrite);
   const reasoning = int(u.outputTokens.reasoning);
   const outputTotal = u.outputTokens.total;
   const output =
     outputTotal !== undefined ? int(outputTotal) : int(u.outputTokens.text) + reasoning;
-  return { input, output, cacheRead, cacheWrite, reasoning: Math.min(reasoning, output), costUsd: 0 };
+  return {
+    input,
+    output,
+    cacheRead,
+    cacheWrite,
+    reasoning: Math.min(reasoning, output),
+    costUsd: 0,
+  };
 }
 
 function int(n: number | undefined): number {
