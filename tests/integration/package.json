@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "@psyche/agent-core": "workspace:*",
     "@psyche/db": "workspace:*",
     "@psyche/gateway": "workspace:*",
     "@psyche/protocol": "workspace:*",

@@ -27,9 +27,15 @@ export function mountParamsOnly(handlers: ParamsOnly): Record<string, HandlerDef
   return out;
 }
 
-/** The approval surface a device answers for: the web client or the desktop app. */
-export function surfaceOf(db: PsycheDb, deviceId: string): "desktop" | "web" {
-  return getDevice(db, deviceId)?.platform === "web" ? "web" : "desktop";
+/**
+ * The approval surface a device answers for. Approvals are issued for `desktop` and `web`; a phone
+ * or other client gets its own surface name and therefore no token (security §3.7).
+ */
+export function surfaceOf(db: PsycheDb, deviceId: string): Surface {
+  const platform = getDevice(db, deviceId)?.platform;
+  if (platform === "macos") return "desktop";
+  if (platform === "web") return "web";
+  return `device:${platform ?? "unknown"}`;
 }
 
 /** `approvals.*`, `grants.*` (and `audit.*` once the protocol has it): caller from the connection. */
@@ -115,7 +121,8 @@ export function questionHandlers(
       run(_call: Call, p: MethodParams<"questions.list">) {
         const statuses = p.status ?? ["open"];
         const items = [
-          ...loop.openQuestions(p.threadId),
+          // Attended questions belong to chat turns, never to a task.
+          ...(p.taskId === undefined ? loop.openQuestions(p.threadId) : []),
           ...engine.inputRequests(p.taskId === undefined ? {} : { taskId: p.taskId }),
         ].filter(
           (r, i, arr) =>

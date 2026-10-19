@@ -10,7 +10,8 @@ Branch `int/1-walking-skeleton`. Plan: [docs/plans/int-1.md](../plans/int-1.md).
 - **Answer tokens** reach the right surface through `approvals.get` / `approvals.list` (`compose/approval-tokens.ts`; see #50).
 - **Folder grants**: `permissions.policy` is applied to the broker at boot and on every `settings.changed`.
 - **Onboarding writes** `@psyche/web/compose` `writeOnboarding()`: IDENTITY.md (name, creature, tagline), USER.md (name, timezone), SOUL.md when a preset is chosen.
-- **File tools** stand-in (`read_file`, `write_file`, `list_dir`) until P9 has an owner (#49).
+- **File tools** stand-in (`read_file`, `write_file`, `list_dir`) until P9 has an owner (#49). The broker checks paths as text, so the tools refuse any path that goes through a symlink (including a dangling final link) and open files with `O_NOFOLLOW`; granted folders must be real paths (on macOS `/private/tmp`, not `/tmp`).
+- **Independent review** (subagent, before the PR): 8 findings, all fixed with tests in `tests/integration/compose/file-tools.test.ts`: symlink escapes in reads and writes, Gateway origins without a scheme, a bad stored policy stopping the next boot, phones answering as the desktop surface, an unawaited reissue rebind and token leaks, `questions.list` by task, `$` patterns in onboarding values, task events without a thread id.
 
 ## The scenario
 

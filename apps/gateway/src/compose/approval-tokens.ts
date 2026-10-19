@@ -10,23 +10,34 @@ import type { IssuedApproval, Surface } from "@psyche/protocol";
  */
 export class ApprovalTokens {
   readonly #tokens = new Map<string, Record<Surface, string>>();
+  /** Approvals settled before `requestApproval` returned (bounded), so no token outlives them. */
+  readonly #settled = new Set<string>();
   #reissued: IssuedApproval[] = [];
 
   remember(issued: IssuedApproval): void {
+    if (this.#settled.delete(issued.approval.id)) return;
     this.#tokens.set(issued.approval.id, { ...issued.answerTokens });
   }
 
   forget(approvalId: string): void {
-    this.#tokens.delete(approvalId);
+    if (!this.#tokens.delete(approvalId)) {
+      this.#settled.add(approvalId);
+      if (this.#settled.size > 1000) {
+        const oldest = this.#settled.values().next().value;
+        if (oldest !== undefined) this.#settled.delete(oldest);
+      }
+    }
   }
 
   tokenFor(approvalId: string, surface: Surface): string | undefined {
     return this.#tokens.get(approvalId)?.[surface];
   }
 
-  /** The approvals re-issued at boot (the worker pool needs them, docs/status/s04.md). */
-  get reissued(): IssuedApproval[] {
-    return this.#reissued;
+  /** The approvals re-issued at boot, handed once to the worker pool (docs/status/s04.md). */
+  takeReissued(): IssuedApproval[] {
+    const out = this.#reissued;
+    this.#reissued = [];
+    return out;
   }
 
   /**

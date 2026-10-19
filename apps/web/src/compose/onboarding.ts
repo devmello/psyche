@@ -42,7 +42,8 @@ export function setFrontmatter(content: string, fields: Record<string, string>):
 export function fillUserFacts(content: string, facts: Record<string, string>): string {
   let out = content;
   for (const [label, value] of Object.entries(facts)) {
-    out = out.replace(new RegExp(`^- ${label}:[ \\t]*$`, "m"), `- ${label}: ${value}`);
+    // A replacer function: `$&` or `$1` in the owner's text stay literal.
+    out = out.replace(new RegExp(`^- ${label}:[ \\t]*$`, "m"), () => `- ${label}: ${value}`);
   }
   return out;
 }

@@ -21,6 +21,7 @@ import {
   toGatewayEvent,
 } from "@psyche/notifications";
 import {
+  compilePolicy,
   createPermissionHandlers,
   type PolicyConfig,
   PsychePermissionBroker,
@@ -118,6 +119,20 @@ function providerFor(
   };
 }
 
+/** A stored policy that fails validation must not stop the next boot; the defaults apply instead. */
+function validPolicy(value: unknown, log: ComposeOptions["logger"]): PolicyConfig | undefined {
+  if (value === undefined || value === null) return undefined;
+  try {
+    compilePolicy(value as PolicyConfig);
+    return value as PolicyConfig;
+  } catch (err) {
+    log?.log("warn", "stored permissions.policy is invalid; using the default policy", {
+      code: PsycheError.from(err).code,
+    });
+    return undefined;
+  }
+}
+
 export async function composeGateway(options: ComposeOptions): Promise<ComposedGateway> {
   const {
     model,
@@ -149,7 +164,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     store: new SqliteNotificationStore(db.sqlite, { migrate: true }),
     clock,
   });
-  const storedPolicy = getSetting(db, "permissions.policy")?.value as PolicyConfig | undefined;
+  const storedPolicy = validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger);
   const tokens = new ApprovalTokens();
   const rawBroker = new PsychePermissionBroker({
     approvers: {
@@ -167,7 +182,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     notifier,
     clock,
     psycheHome: config.home,
-    gatewayOrigins: [`127.0.0.1:${config.port}`, `localhost:${config.port}`],
+    // The agent never acts on Psyche's own UI (prohibitions `gateway_origin`): every origin it is served on.
+    gatewayOrigins: [
+      `http://127.0.0.1:${config.port}`,
+      `http://localhost:${config.port}`,
+      ...config.allowedOrigins.filter((o) => /^https?:\/\//.test(o)),
+    ],
     ...((policy ?? storedPolicy) === undefined
       ? {}
       : { policy: (policy ?? storedPolicy) as PolicyConfig }),
@@ -209,7 +229,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
 
   const tasks = new SqliteTaskEngine({ db, clock });
-  tasks.subscribe((e) => publish(e.event, e.payload as never));
+  tasks.subscribe((e) => {
+    const threadId =
+      e.event === "task.updated" ? (e.payload.task.threadId ?? undefined) : undefined;
+    publish(e.event, e.payload as never, threadId);
+  });
   notifier.subscribe((e) => {
     const { event, payload } = toGatewayEvent(e);
     publish(event, payload as never);
@@ -304,7 +328,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
 
   if (background) {
     pool.start();
-    pool.onApprovalsReissued(tokens.reissued);
+    try {
+      await pool.onApprovalsReissued(tokens.takeReissued());
+    } catch (err) {
+      gwOptions.logger?.log("warn", "rebinding reissued approvals failed", {
+        code: PsycheError.from(err).code,
+      });
+    }
     await scheduler.start();
   }
 
@@ -330,5 +360,6 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   };
 }
 
+export { fileTools } from "./file-tools.ts";
 export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { createLogger, surfaceOf };
