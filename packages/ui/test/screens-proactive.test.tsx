@@ -325,7 +325,10 @@ describe("InboxScreen", () => {
     const row = await rowFor("Send email to jane.ortiz@example.com");
     expect(within(row).getByText("Approval")).toBeTruthy();
     expect(await within(row).findByText("28:41")).toBeTruthy();
-    await user.click(await within(row).findByRole("button", { name: "Approve" }));
+    const approve = await within(row).findByRole("button", { name: /^Approve once:/ });
+    // Inline buttons arm 400 ms after they appear.
+    await waitFor(() => expect((approve as HTMLButtonElement).disabled).toBe(false));
+    await user.click(approve);
     await waitFor(() => expect(callsTo("approvals.answer")).toHaveLength(1));
     expect(callsTo("approvals.answer")[0]?.params).toMatchObject({
       approvalId: IDS.approvals.sendEmail,
@@ -345,7 +348,7 @@ describe("InboxScreen", () => {
     });
     const row = await rowFor("Send email to jane.ortiz@example.com");
     const open = await within(row).findByRole("button", { name: "Open card" });
-    expect(within(row).queryByRole("button", { name: "Approve" })).toBeNull();
+    expect(within(row).queryByRole("button", { name: /^Approve/ })).toBeNull();
     await user.click(open);
     expect(navigate).toHaveBeenCalledWith(`/chat/${IDS.threads.dentist}`);
   });

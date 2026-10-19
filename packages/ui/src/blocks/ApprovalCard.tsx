@@ -45,7 +45,7 @@ const SCOPE_LABEL: Record<GrantScope, string> = {
   once: "Allow once",
   task: "Allow for this task",
   site: "Allow for this site",
-  session: "Always allow",
+  session: "Allow for this session",
   always: "Always allow",
 };
 
@@ -97,18 +97,13 @@ export function ApprovalCard({
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [choice, setChoice] = useState<ApprovalChoice>("deny");
+  // The narrower lifetime is the default (until this session ends), when it is offered.
   const [alwaysScope, setAlwaysScope] = useState<"always" | "session">(
-    approval.scopesOffered.includes("always") ? "always" : "session",
+    approval.scopesOffered.includes("session") ? "session" : "always",
   );
   const [armed, setArmed] = useState(armDelayMs === 0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (armDelayMs === 0) return;
-    const t = setTimeout(() => setArmed(true), armDelayMs);
-    return () => clearTimeout(t);
-  }, [armDelayMs]);
 
   useEffect(() => {
     if (!autoFocus) return;
@@ -124,6 +119,19 @@ export function ApprovalCard({
   const expiredByClock = approval.status === "pending" && remaining <= 0;
   const pending = approval.status === "pending" && !expiredByClock;
   const interactive = pending && canAnswer && !stale && onAnswer !== undefined;
+
+  // Buttons arm 400 ms after the card becomes answerable, including when a stale card is
+  // re-issued under the same key (UI design §3.3).
+  useEffect(() => {
+    if (!interactive) return;
+    if (armDelayMs === 0) {
+      setArmed(true);
+      return;
+    }
+    setArmed(false);
+    const t = setTimeout(() => setArmed(true), armDelayMs);
+    return () => clearTimeout(t);
+  }, [interactive, armDelayMs]);
   const site = originOf(approval);
   const offered = approval.scopesOffered;
   const hasAlways = offered.includes("always") || offered.includes("session");
@@ -164,9 +172,14 @@ export function ApprovalCard({
 
   const status = statusText(approval, now);
   const taint = approval.taint ? "this turn read untrusted content" : null;
-  const why = [mode ? `${mode} mode` : null, approval.sideEffect ?? null, taint]
-    .filter(Boolean)
-    .join("; ");
+  // The Broker's own reason when the Gateway sends one (docs/status/s12.md, gap 3).
+  const reason = (approval.details as Record<string, unknown>).reason;
+  const why =
+    typeof reason === "string" && reason.trim() !== ""
+      ? reason
+      : [mode ? `${mode} mode` : null, approval.sideEffect ?? null, taint]
+          .filter(Boolean)
+          .join("; ");
 
   return (
     <fieldset
@@ -313,7 +326,11 @@ export function ApprovalCard({
           </Button>
           <Button
             disabled={!armed || busy || choice === "deny"}
-            onClick={() => void submit("approve")}
+            onClick={(e) => {
+              // Return and Space on this button never approve; only ⌘Return or a pointer does.
+              if (e.detail === 0) return;
+              void submit("approve");
+            }}
             aria-keyshortcuts="Meta+Enter"
           >
             Allow with scope

@@ -11,6 +11,7 @@ import {
   useQuestion,
   useTasks,
   useThread,
+  useThreads,
 } from "../src/data/index.ts";
 import { MockGateway } from "../src/data/mock-gateway.ts";
 
@@ -379,5 +380,88 @@ describe("stateVersion reconciliation", () => {
     expect(result.current.posts).toHaveLength(0);
     await act(() => result.current.feedback("p2", null));
     expect(result.current.posts).toHaveLength(1);
+  });
+});
+
+describe("review regressions", () => {
+  it("treats open → offline → connecting → open as a reconnect", async () => {
+    const { gateway, wrapper } = setup({
+      approvals: [approval("ap_r1")],
+      answerTokens: { ap_r1: "at_r1" },
+    });
+    const { result } = renderHook(() => useApprovals(), { wrapper });
+    await waitFor(() => expect(result.current.pending[0]?.canAnswer).toBe(true));
+    gateway.world.answerTokens = {};
+    act(() => gateway.setConnection("offline"));
+    act(() => gateway.setConnection("connecting"));
+    act(() => gateway.setConnection("open"));
+    await waitFor(() =>
+      expect(gateway.calls.filter((c) => c.method === "events.subscribe")).toHaveLength(1),
+    );
+    // The pre-restart token is dropped; the re-issued card has no token for this surface.
+    await waitFor(() => expect(result.current.pending[0]?.canAnswer).toBe(false));
+  });
+
+  it("sends a queued follow-up once even when two components watch the thread", async () => {
+    const { gateway, wrapper } = setup({ runs: [run("running")] });
+    const { result } = renderHook(() => ({ a: useThread("thr_main"), b: useThread("thr_main") }), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.a.loading).toBe(false));
+    act(() => gateway.setRun(run("running")));
+    await act(() => result.current.a.send("also check Thursday"));
+    act(() => gateway.setRun({ ...run("done"), endedAt: NOW }));
+    await waitFor(() => expect(result.current.a.queue).toEqual([]));
+    await new Promise((r) => setTimeout(r, 30));
+    expect(gateway.calls.filter((c) => c.method === "chat.send")).toHaveLength(1);
+  });
+
+  it("parks a follow-up whose send fails instead of retrying in a loop", async () => {
+    const { gateway, wrapper } = setup({ runs: [run("running")] });
+    const { result } = renderHook(() => useThread("thr_main"), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    act(() => gateway.setRun(run("running")));
+    await act(() => result.current.send("also check Thursday"));
+    gateway.failNext("chat.send", "unavailable");
+    act(() => gateway.setRun({ ...run("done"), endedAt: NOW }));
+    await waitFor(() => expect(result.current.queue[0]?.failed).toBe(true));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(gateway.calls.filter((c) => c.method === "chat.send")).toHaveLength(1);
+    act(() => result.current.retryQueued(result.current.queue[0]?.id as string));
+    await waitFor(() => expect(result.current.queue).toEqual([]));
+    expect(gateway.calls.filter((c) => c.method === "chat.send")).toHaveLength(2);
+  });
+
+  it("keeps refreshing a shared loader key after one of its users unmounts", async () => {
+    const { gateway, wrapper } = setup({ approvals: [approval("ap_r2")] });
+    const first = renderHook(() => useApprovals(), { wrapper });
+    const second = renderHook(() => useApprovals(), { wrapper });
+    await waitFor(() => expect(second.result.current.pending).toHaveLength(1));
+    second.unmount();
+    act(() => gateway.requestApproval(approval("ap_r4")));
+    const before = gateway.calls.filter((c) => c.method === "approvals.list").length;
+    gateway.skipEvents(1);
+    act(() => gateway.requestApproval(approval("ap_r3")));
+    await waitFor(() =>
+      expect(gateway.calls.filter((c) => c.method === "approvals.list").length).toBeGreaterThan(
+        before,
+      ),
+    );
+    first.unmount();
+  });
+
+  it("does not let an older thread list overwrite a newer thread.updated", async () => {
+    const gateway = new MockGateway({ threads: [thread] }, { now: () => NOW, latency: 40 });
+    const store = new GatewayStore(gateway, { now: () => NOW });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <GatewayProvider client={gateway} store={store}>
+        {children}
+      </GatewayProvider>
+    );
+    const { result } = renderHook(() => useThreads(), { wrapper });
+    // The rename lands while threads.list is in flight; the list still has the old title.
+    act(() => gateway.emit("thread.updated", { thread: { ...thread.thread, title: "Renamed" } }));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.main?.thread.title).toBe("Renamed");
   });
 });

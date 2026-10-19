@@ -149,11 +149,13 @@ export function useThreads(options: { includeArchived?: boolean } = {}) {
   const includeArchived = options.includeArchived ?? true;
   const threadsDict = useStoreState((s) => s.threads);
   const load = useLoader(`threads:${includeArchived}`, async (store) => {
+    const version = store.version();
     const { threads } = await store.call("threads.list", { includeArchived });
     store.update((s) => {
       const next: Record<string, ThreadListEntry> = { ...s.threads };
       for (const t of threads) {
-        if ((s.touched[`threads:${t.thread.id}`] ?? -1) > s.stateVersion) continue;
+        // A thread.updated event after the request started is newer than this list.
+        if ((s.touched[`threads:${t.thread.id}`] ?? -1) > version) continue;
         next[t.thread.id] = t;
       }
       return { ...s, threads: next, threadsLoaded: true };
@@ -299,7 +301,10 @@ export function useThread(threadId: string | null) {
       for (const m of fetched) byId.set(m.id, m);
       return {
         ...s,
-        threads: { ...s.threads, [threadId]: entry },
+        threads:
+          (s.touched[`threads:${threadId}`] ?? -1) > version
+            ? s.threads
+            : { ...s.threads, [threadId]: entry },
         messages: { ...s.messages, [threadId]: [...byId.values()].sort((a, b) => a.seq - b.seq) },
         historyCursor: { ...s.historyCursor, [threadId]: history.nextCursor ?? null },
       };
@@ -345,20 +350,23 @@ export function useThread(threadId: string | null) {
   // Drain the follow-up queue once the run settles.
   const queued = view.queue;
   const running = view.running;
+  // The store hands each item to one caller only, so several components watching the same
+  // thread never send it twice; a failure parks the item (marked failed) instead of retrying.
   useEffect(() => {
-    if (running || queued.length === 0) return;
-    const [next] = queued;
-    if (next === undefined) return;
-    store.update((s) => ({ ...s, queue: s.queue.filter((q) => q.id !== next.id) }));
-    void sendNow(next.content, undefined).catch(() => {
-      store.update((s) => ({ ...s, queue: [next, ...s.queue] }));
-    });
-  }, [running, queued, store, sendNow]);
+    if (running || threadId === null || queued.length === 0) return;
+    const next = store.takeQueued(threadId);
+    if (next === null) return;
+    void sendNow(next.content, undefined).then(
+      () => store.sentQueued(next),
+      () => store.failQueued(next),
+    );
+  }, [running, queued, store, sendNow, threadId]);
 
   return {
     ...view,
     ...load,
     send,
+    retryQueued: (id: string) => store.retryQueued(id),
     removeQueued: (id: string) =>
       store.update((s) => ({ ...s, queue: s.queue.filter((q) => q.id !== id) })),
     cancel: async () => {
@@ -880,16 +888,25 @@ export function useGoal(
   goalId: string | null,
 ): LoadState & { goal: Goal | null; taskIds: string[]; milestones: GoalMilestone[] | null } {
   const goal = useStoreState((s) => (goalId === null ? undefined : s.goals[goalId]));
-  const [taskIds, setTaskIds] = useState<string[]>([]);
-  const [milestones, setMilestones] = useState<GoalMilestone[] | null>(null);
+  // Keyed by goal id, so a slow response for the previous goal never shows under this one.
+  const [detail, setDetail] = useState<{
+    goalId: string;
+    taskIds: string[];
+    milestones: GoalMilestone[] | null;
+  } | null>(null);
   const load = useLoader(goalId === null ? null : `goal:${goalId}`, async (st) => {
     if (goalId === null) return;
     const res = await st.call("goals.get", { goalId });
     st.update((s) => put(s, "goals", res.goal));
-    setTaskIds(res.taskIds);
-    setMilestones(res.milestones ?? null);
+    setDetail({ goalId, taskIds: res.taskIds, milestones: res.milestones ?? null });
   });
-  return { ...load, goal: goal ?? null, taskIds, milestones };
+  const current = detail?.goalId === goalId ? detail : null;
+  return {
+    ...load,
+    goal: goal ?? null,
+    taskIds: current?.taskIds ?? [],
+    milestones: current?.milestones ?? null,
+  };
 }
 
 // --- Inbox, settings, automations, search, memory ---------------------------------------------
@@ -942,12 +959,19 @@ export function useSettings() {
   const store = useStore();
   const settings = useStoreState((s) => s.settings);
   const load = useLoader("settings", async (st) => {
+    const version = st.version();
     const res = await st.call("settings.get", {});
-    st.update((s) => ({
-      ...s,
-      settings: { ...res.settings, ...pick(s.settings, res.stateVersion, s) },
-      stateVersion: Math.max(s.stateVersion, res.stateVersion),
-    }));
+    st.update((s) => {
+      // Keys a settings.changed event touched after the request started are newer than the
+      // snapshot; every other key takes the snapshot's value.
+      const settings: Record<string, unknown> = { ...res.settings };
+      for (const [key, value] of Object.entries(s.settings)) {
+        if ((s.touched[`settings:${key}`] ?? -1) > Math.max(version, res.stateVersion)) {
+          settings[key] = value;
+        }
+      }
+      return { ...s, settings, stateVersion: Math.max(s.stateVersion, res.stateVersion) };
+    });
   });
   return {
     ...load,
@@ -963,15 +987,6 @@ export function useSettings() {
         }),
       }),
   };
-}
-
-/** Settings changed by events after the server's snapshot version win over the snapshot. */
-function pick(
-  current: UiState["settings"],
-  snapshotVersion: number,
-  s: UiState,
-): Record<string, unknown> {
-  return s.stateVersion > snapshotVersion ? { ...current } : {};
 }
 
 export function useAutomations() {
@@ -1012,7 +1027,9 @@ export function useSearch(query: string, scopes?: SearchScope[]) {
 export function useMemoryFile(path: string | null) {
   const store = useStore();
   const etag = useStoreState((s) => (path === null ? undefined : s.memoryEtags[path]));
-  const [file, setFile] = useState<{
+  // Keyed by path, so a slow read of the previous file never shows (or saves) under this one.
+  const [loaded, setFile] = useState<{
+    path: string;
     content: string;
     etag: string | null;
     updatedAt: string;
@@ -1020,8 +1037,9 @@ export function useMemoryFile(path: string | null) {
   const load = useLoader(path === null ? null : `memory:${path}:${etag ?? ""}`, async (st) => {
     if (path === null) return;
     const res = await st.call("memory.read", { path });
-    setFile({ content: res.content, etag: res.etag ?? null, updatedAt: res.updatedAt });
+    setFile({ path, content: res.content, etag: res.etag ?? null, updatedAt: res.updatedAt });
   });
+  const file = loaded !== null && loaded.path === path ? loaded : null;
   return {
     ...load,
     file,
@@ -1033,7 +1051,7 @@ export function useMemoryFile(path: string | null) {
         content,
         ...(file?.etag == null ? {} : { etag: file.etag }),
       });
-      setFile({ content, etag: res.etag ?? null, updatedAt: res.updatedAt });
+      setFile({ path, content, etag: res.etag ?? null, updatedAt: res.updatedAt });
     },
   };
 }

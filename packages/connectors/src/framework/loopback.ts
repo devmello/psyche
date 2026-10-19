@@ -78,8 +78,12 @@ export async function startLoopback(
           const params = result as URLSearchParams;
           // error_description is attacker-influenced; report the error code only.
           if (params.has("error")) {
+            const code = params.get("error") ?? "";
             return reject(
-              new PsycheError("unauthorized", `authorization failed: ${params.get("error")}`),
+              new PsycheError(
+                "unauthorized",
+                `authorization failed: ${/^[a-z_]{1,64}$/.test(code) ? code : "invalid_error_code"}`,
+              ),
             );
           }
           resolve(params);

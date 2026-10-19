@@ -170,7 +170,7 @@ export function ChatThread({ threadId, onAttach, onDictate, now }: ChatThreadPro
               {...(t.thread ? { mode: t.thread.thread.permissionMode } : {})}
               {...(now === undefined ? {} : { now })}
             />
-            <FollowUpQueue items={t.queue} onRemove={t.removeQueued} />
+            <FollowUpQueue items={t.queue} onRemove={t.removeQueued} onRetry={t.retryQueued} />
             <Composer
               persona={persona.name}
               running={t.running}
