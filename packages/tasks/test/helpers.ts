@@ -9,13 +9,12 @@ import { SqliteTaskEngine, type SqliteTaskEngineOptions } from "../src/index.ts"
 export const THREAD = "thr_test";
 
 /** An in-memory (or on-disk) database with the S04 migrations and one thread. */
-export function testDb(
-  clock: Clock,
-  path = ":memory:",
-  threadIds: string[] = [THREAD],
-): PsycheDb {
+export function testDb(clock: Clock, path = ":memory:", threadIds: string[] = [THREAD]): PsycheDb {
   const ids = createIdGenerator({ prefix: "db" });
-  const db = openDb(path, { now: () => new Date(clock.now()).toISOString(), newId: () => ids.next() });
+  const db = openDb(path, {
+    now: () => new Date(clock.now()).toISOString(),
+    newId: () => ids.next(),
+  });
   for (const id of threadIds) {
     if (db.sqlite.prepare("SELECT 1 FROM threads WHERE id = ?").get(id) === undefined) {
       createThread(db, { id, kind: "main", sessionKey: `main:${id}` });

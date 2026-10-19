@@ -520,6 +520,9 @@ importers:
       '@psyche/testing':
         specifier: workspace:*
         version: link:../testing
+      '@sinclair/typebox':
+        specifier: 0.34.52
+        version: 0.34.52
       fast-check:
         specifier: 4.10.2
         version: 4.10.2

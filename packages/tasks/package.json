@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@psyche/testing": "workspace:*",
+    "@sinclair/typebox": "0.34.52",
     "fast-check": "4.10.2"
   }
 }
