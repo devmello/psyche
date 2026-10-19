@@ -54,6 +54,18 @@ Calls of `browser_submit`, `credential_fill` and `mcp_tool` without kind-specifi
 
 The broker floors declared side-effect classes (`src/kinds.ts`): a registry or node can make a tool stricter, never laxer (design-20).
 
+## Approval friction metrics (M2)
+
+`frictionMetrics(entries)` (and the `audit.friction` handler, `operator.read`) summarizes the audit log. It reads only the `tool_call.decided`, `approval.*`, `grant.created` and `classifier.labeled` entries, never arguments. It reports:
+
+- **Asks:** ask rate, asks per asking run, ask rule families (`mode:balanced/write`, `taint:new_target`, …) most frequent first.
+- **Answers:** answer rate (answered before expiry), approve rate, p50 / p90 owner answer latency, answer rejections by reason.
+- **Grants:** calls a standing grant allowed without a card, grants created by scope.
+- **Classifier:** labels.
+- **Breakdowns:** per approval kind and per permission mode.
+
+The roadmap uses it to see where cards cost the owner the most.
+
 ## Binding hashes
 
 `bindingHash = sha256("psyche.binding.v1|" + kind + "|" + canonicalJSON(fields))`, `grantKey = sha256("psyche.grantkey.v1|" + kind + "|" + canonicalJSON(keyFields))`, over the strict canonical JSON in `@psyche/audit` (throws on NaN, ±Infinity, -0, non-plain objects, `undefined` in arrays, lone surrogates; no NFC folding; design-13). Security §3.5 is the normative table; extra fields from data model §4.2 and S23 are included:

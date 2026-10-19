@@ -12,6 +12,7 @@ import {
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import type { PsychePermissionBroker } from "./broker.ts";
+import { type FrictionReport, frictionMetrics } from "./friction.ts";
 import type { PresenceAssertion } from "./types.ts";
 
 /**
@@ -53,6 +54,13 @@ export const AuditMethods = {
     }),
     scope: "operator.admin" as const,
   },
+  "audit.friction": {
+    params: Type.Object({
+      since: Type.Optional(Type.String()),
+      until: Type.Optional(Type.String()),
+    }),
+    scope: "operator.read" as const,
+  },
 };
 
 function check<T extends TSchema>(schema: T, params: unknown): Static<T> {
@@ -87,6 +95,7 @@ export interface PermissionHandlers {
   "audit.list"(p: unknown, c: Caller): Promise<{ entries: AuditEntry[] }>;
   "audit.verify"(p: unknown, c: Caller): Promise<DetailedVerification>;
   "audit.export"(p: unknown, c: Caller): Promise<{ format: "jsonl" | "json"; data: string }>;
+  "audit.friction"(p: unknown, c: Caller): Promise<FrictionReport>;
 }
 
 export function createPermissionHandlers(
@@ -170,6 +179,25 @@ export function createPermissionHandlers(
       const params = check(AuditMethods["audit.export"].params, p);
       const format = params.format ?? "jsonl";
       return { format, data: await needAudit().export({ ...params, format }) };
+    },
+    async "audit.friction"(p, c) {
+      requireScope(c, AuditMethods["audit.friction"].scope);
+      const params = check(AuditMethods["audit.friction"].params, p);
+      const entries = await needAudit().query({
+        ...(params.since === undefined ? {} : { since: params.since }),
+        ...(params.until === undefined ? {} : { until: params.until }),
+        kinds: [
+          "tool_call.decided",
+          "approval.created",
+          "approval.decided",
+          "approval.expired",
+          "approval.invalidated",
+          "approval.answer_rejected",
+          "grant.created",
+          "classifier.labeled",
+        ],
+      });
+      return frictionMetrics(entries);
     },
   };
 }
