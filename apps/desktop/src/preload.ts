@@ -1,26 +1,91 @@
 import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
 import { IPC } from "./lib/ipc.ts";
-import type { GatewayStatus } from "./lib/status.ts";
 
 /**
- * Minimal typed bridge (architecture §5): status only. No Node APIs, no secrets, no generic
- * `invoke`/`send` passthrough reach the renderer.
+ * Typed bridge (architecture §5). The renderer gets these functions and nothing else: no Node
+ * APIs, no generic `invoke`/`send`, no secrets. Main validates every payload. Gateway calls go
+ * through main, which holds the connection and the device key.
  */
-export interface PsycheBridge {
-  getStatus(): Promise<GatewayStatus>;
-  /** Subscribe to status updates; returns an unsubscribe function. */
-  onStatus(cb: (status: GatewayStatus) => void): () => void;
+
+interface Envelope {
+  ok: boolean;
+  value?: unknown;
+  error?: { code: string; message: string; retryable?: boolean };
 }
 
-const bridge: PsycheBridge = {
-  getStatus: () => ipcRenderer.invoke(IPC.getStatus) as Promise<GatewayStatus>,
-  onStatus(cb) {
-    const listener = (_event: IpcRendererEvent, status: GatewayStatus) => cb(status);
-    ipcRenderer.on(IPC.status, listener);
-    return () => {
-      ipcRenderer.removeListener(IPC.status, listener);
-    };
+class BridgeError extends Error {
+  readonly code: string;
+  readonly retryable: boolean;
+  constructor(e: { code: string; message: string; retryable?: boolean }) {
+    super(e.message);
+    this.name = "PsycheError";
+    this.code = e.code;
+    this.retryable = e.retryable ?? false;
+  }
+}
+
+async function invoke(channel: string, arg?: unknown): Promise<unknown> {
+  const res = (await ipcRenderer.invoke(channel, arg)) as Envelope;
+  if (!res.ok) throw new BridgeError(res.error ?? { code: "internal", message: "IPC failed" });
+  return res.value;
+}
+
+function listen<T>(channel: string, cb: (payload: T) => void): () => void {
+  const listener = (_e: IpcRendererEvent, payload: T) => cb(payload);
+  ipcRenderer.on(channel, listener);
+  return () => {
+    ipcRenderer.removeListener(channel, listener);
+  };
+}
+
+const bridge = {
+  platform: process.platform,
+  gateway: {
+    getStatus: () => invoke(IPC.getStatus),
+    onStatus: (cb: (s: unknown) => void) => listen(IPC.status, cb),
+    call: (method: string, params: unknown) => invoke(IPC.call, { method, params }),
+    onEvent: (cb: (e: unknown) => void) => listen(IPC.event, cb),
+    onResync: (cb: () => void) => listen(IPC.resync, () => cb()),
+  },
+  browser: {
+    getState: () => invoke(IPC.browserGetState),
+    onState: (cb: (s: unknown) => void) => listen(IPC.browserState, cb),
+    onDownload: (cb: (d: unknown) => void) => listen(IPC.browserDownload, cb),
+    setViewport: (rect: unknown) => ipcRenderer.send(IPC.browserViewport, rect),
+    openTab: (url: string, profile?: string) => invoke(IPC.browserOpen, { url, profile }),
+    closeTab: (tabId: string) => invoke(IPC.browserClose, tabId),
+    activateTab: (tabId: string) => invoke(IPC.browserActivate, tabId),
+    navigate: (tabId: string, action: string) => invoke(IPC.browserNavigate, { tabId, action }),
+    find: (tabId: string, text: string, opts?: { forward?: boolean }) =>
+      invoke(IPC.browserFind, { tabId, text, forward: opts?.forward }),
+    stopFind: (tabId: string) => invoke(IPC.browserStopFind, tabId),
+    setControl: (tabId: string, take: boolean) => invoke(IPC.browserSetControl, { tabId, take }),
+    popOut: (tabId: string, fullScreen?: boolean) =>
+      invoke(IPC.browserPopOut, { tabId, fullScreen }),
+    clearBrowsingData: (profile: string) => invoke(IPC.browserClearData, profile),
+  },
+  terminal: {
+    open: (opts: unknown) => invoke(IPC.terminalOpen, opts),
+    write: (sessionId: string, data: string) =>
+      ipcRenderer.send(IPC.terminalWrite, { sessionId, data }),
+    resize: (sessionId: string, cols: number, rows: number) =>
+      ipcRenderer.send(IPC.terminalResize, { sessionId, cols, rows }),
+    close: (sessionId: string) => ipcRenderer.send(IPC.terminalClose, sessionId),
+    onData: (cb: (p: { sessionId: string; data: string }) => void) => listen(IPC.terminalData, cb),
+    onExit: (cb: (p: { sessionId: string; exitCode: number }) => void) =>
+      listen(IPC.terminalExit, cb),
+  },
+  windows: {
+    popOutPane: (route: string, title: string) => invoke(IPC.windowPopOut, { route, title }),
+    closeWindow: () => ipcRenderer.send(IPC.windowClose),
+    onCommand: (cb: (c: unknown) => void) => listen(IPC.shellCommand, cb),
+  },
+  notify: {
+    show: (n: { title: string; body: string; route?: string }) =>
+      ipcRenderer.send(IPC.notifyShow, n),
   },
 };
+
+export type PsycheBridge = typeof bridge;
 
 contextBridge.exposeInMainWorld("psyche", bridge);
