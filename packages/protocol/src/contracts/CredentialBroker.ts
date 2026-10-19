@@ -154,7 +154,7 @@ const autocompleteTokens = (el: FillElement): string[] =>
 
 /**
  * Field-class rule shared by every `CredentialBroker` (S23 design-01): `password` (and a login's
- * primary secret) only into `type=password` or a `current-password` / `new-password` field;
+ * primary secret) only into `type=password`;
  * `username` only into an email / text / tel field marked `username` / `email` or inside a form
  * that also holds a password; `totp` only into a `one-time-code` field or a short numeric one;
  * `token` / `header` only into `type=password`. Never `textarea`, `contenteditable`, `select`,
@@ -174,11 +174,8 @@ export function fillElementAccepts(
   const resolved = field === "secret" ? (kind === "login" ? "password" : "token") : field;
   switch (resolved) {
     case "password":
-      if (type === "password") return { ok: true };
-      if ((ac.includes("current-password") || ac.includes("new-password")) && type === "text") {
-        return { ok: true };
-      }
-      return { ok: false, reason: "not_password_field" };
+      // Only `type=password`: a "show password" text field would put the value on screen.
+      return type === "password" ? { ok: true } : { ok: false, reason: "not_password_field" };
     case "username":
       if (!["email", "text", "tel"].includes(type)) return { ok: false, reason: "not_text_field" };
       if (ac.includes("username") || ac.includes("email") || element.formHasPassword === true) {
