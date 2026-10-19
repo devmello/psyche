@@ -2,16 +2,17 @@ import type { ModelRequest } from "@psyche/protocol";
 import { collect, FakeCredentialBroker } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { type AiSdkAdapter, accumulate, type CallOutcome, isEnvelope } from "../src/index.ts";
-import { makeAdapter, textRequest, weatherTool } from "./helpers/adapters.ts";
+import { fakeKey, makeAdapter, textRequest, weatherTool } from "./helpers/adapters.ts";
 import { loadFixture, replayFetch } from "./helpers/replay.ts";
 
 const fx = (name: string) => loadFixture(`anthropic/${name}.json`);
 const REF = "anthropic/claude-sonnet-5-5";
+const SECRET = fakeKey("anthropic");
 
 function setup(...fixtures: string[]) {
   const replay = replayFetch(...fixtures.map(fx));
   const { adapter, broker } = makeAdapter({ id: "anthropic", kind: "anthropic" }, replay.fetch, {
-    secret: "sk-ant-fixture-key-000111222",
+    secret: SECRET,
     origin: "https://api.anthropic.com",
   });
   return { adapter, broker, replay };
@@ -69,9 +70,9 @@ describe("anthropic adapter (recorded fixtures)", () => {
     const { adapter, replay } = setup("text");
     await run(adapter, textRequest(REF));
     const sent = replay.requests[0];
-    expect(sent?.headers["x-api-key"]).toBe("sk-ant-fixture-key-000111222");
+    expect(sent?.headers["x-api-key"]).toBe(SECRET);
     expect(sent?.url).toBe("https://api.anthropic.com/v1/messages");
-    expect(JSON.stringify(sent?.body)).not.toContain("sk-ant-fixture");
+    expect(JSON.stringify(sent?.body)).not.toContain(SECRET);
   });
 
   it("emits parallel tool calls with parsed input", async () => {
@@ -185,7 +186,7 @@ describe("anthropic adapter (recorded fixtures)", () => {
     expect(outcome?.error?.kind).toBe(kind);
     expect(outcome?.error?.retryAfterSec).toBe(retryAfter);
     expect(outcome?.contentStarted).toBe(false);
-    expect(JSON.stringify(events)).not.toContain("sk-ant-fixture");
+    expect(JSON.stringify(events)).not.toContain(SECRET);
   });
 
   it("ends with finish{cancelled} when aborted mid-stream", async () => {

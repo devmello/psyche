@@ -10,13 +10,13 @@ import {
   isEnvelope,
   type ProviderConfig,
 } from "../src/index.ts";
-import { makeAdapter, textRequest, weatherTool } from "./helpers/adapters.ts";
+import { fakeKey, makeAdapter, textRequest, weatherTool } from "./helpers/adapters.ts";
 import { repeatFetchLocal } from "./helpers/repeat-local.ts";
 import { loadFixture, replayFetch } from "./helpers/replay.ts";
 
 const fx = (name: string) => loadFixture(`google/${name}.json`);
 const REF = "google/gemini-4-argon";
-const SECRET = "AIzaSy-fixture-key-000111222333";
+const SECRET = fakeKey("google");
 const ORIGIN = "https://generativelanguage.googleapis.com";
 const CONFIG: ProviderConfig = { id: "google", kind: "google" };
 const PNG = "iVBORw0KGgoAAAANSUhEUg==";

@@ -10,14 +10,14 @@ import {
   isEnvelope,
   type ProviderConfig,
 } from "../src/index.ts";
-import { makeAdapter, textRequest, weatherTool } from "./helpers/adapters.ts";
+import { fakeKey, makeAdapter, textRequest, weatherTool } from "./helpers/adapters.ts";
 import { repeatFetch } from "./helpers/repeat.ts";
 import { loadFixture, replayFetch } from "./helpers/replay.ts";
 
 const fx = (name: string) => loadFixture(`openai/${name}.json`);
 const MODEL = "gpt-6.1-sol";
 const REF = `openai/${MODEL}`;
-const KEY = { secret: "sk-fx-openai-000111222", origin: "https://api.openai.com" };
+const KEY = { secret: fakeKey("openai"), origin: "https://api.openai.com" };
 const CONFIG: ProviderConfig = {
   id: "openai",
   kind: "openai",

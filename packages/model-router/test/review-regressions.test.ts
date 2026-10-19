@@ -10,10 +10,10 @@ import {
   type UsageAggregate,
   UsageLedger,
 } from "../src/index.ts";
-import { makeAdapter, textRequest } from "./helpers/adapters.ts";
+import { fakeKey, makeAdapter, textRequest } from "./helpers/adapters.ts";
 import { type Fixture, loadFixture, replayFetch } from "./helpers/replay.ts";
 
-const KEY = { secret: "sk-ant-review-key-998877", origin: "https://api.anthropic.com" };
+const KEY = { secret: fakeKey("review"), origin: "https://api.anthropic.com" };
 const REF = "anthropic/claude-sonnet-5-5";
 
 describe("review regressions", () => {

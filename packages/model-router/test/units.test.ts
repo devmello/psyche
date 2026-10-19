@@ -101,8 +101,8 @@ describe("error classification", () => {
   });
 
   it("redacts known secrets", () => {
-    const e = classifyError(new Error("bad key sk-live-123456"), (t) =>
-      t.replace("sk-live-123456", "•••"),
+    const e = classifyError(new Error("bad key fx-live-000000"), (t) =>
+      t.replace("fx-live-000000", "•••"),
     );
     expect(e.message).toBe("bad key •••");
   });

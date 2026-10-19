@@ -9,14 +9,14 @@ import {
   isEnvelope,
   type ProviderConfig,
 } from "../src/index.ts";
-import { makeAdapter, textRequest, weatherTool } from "./helpers/adapters.ts";
+import { fakeKey, makeAdapter, textRequest, weatherTool } from "./helpers/adapters.ts";
 import { repeatFetch } from "./helpers/repeat.ts";
 import { loadFixture, replayFetch } from "./helpers/replay.ts";
 
 const fx = (name: string) => loadFixture(`openrouter/${name}.json`);
 const MODEL = "anthropic/claude-sonnet-5-5";
 const REF = `openrouter/${MODEL}`;
-const KEY = { secret: "sk-or-v1-fixture-000111222", origin: "https://openrouter.ai" };
+const KEY = { secret: fakeKey("openrouter"), origin: "https://openrouter.ai" };
 const CONFIG: ProviderConfig = {
   id: "openrouter",
   kind: "openrouter",

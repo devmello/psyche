@@ -15,6 +15,14 @@ export const weatherTool: ToolSpec = {
   provenanceOut: "untrusted",
 };
 
+/**
+ * A fake provider key, built at runtime so no secret-looking literal is committed and no real
+ * provider prefix (`sk-ant-`, `AIza`) appears (tests/fixtures/secrets/README.md).
+ */
+export function fakeKey(label: string): string {
+  return ["fx", "key", label, "x".repeat(8)].join("-");
+}
+
 export function textRequest(model: ModelRef): ModelRequest {
   return {
     model,

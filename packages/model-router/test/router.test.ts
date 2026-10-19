@@ -11,7 +11,7 @@ import {
   type ProbeResult,
   UsageLedger,
 } from "../src/index.ts";
-import { textRequest } from "./helpers/adapters.ts";
+import { fakeKey, textRequest } from "./helpers/adapters.ts";
 import { loadFixture, replayFetch } from "./helpers/replay.ts";
 
 const usage = { input: 10, output: 5, cacheRead: 0, cacheWrite: 0, reasoning: 0, costUsd: 0.01 };
@@ -243,7 +243,7 @@ describe("auth-profile rotation", () => {
         slug,
         kind: "api_key",
         bindings: [{ origin: "https://api.anthropic.com" }],
-        secret: `sk-ant-${slug}-000111`,
+        secret: fakeKey(slug),
       });
       broker.approve(`appr_${slug}`, { slug, origin: "https://api.anthropic.com", scope: "site" });
     }
@@ -267,13 +267,13 @@ describe("auth-profile rotation", () => {
     const first = await collect(router.stream(textRequest("router/primary")));
     expect(first.at(-1)).toEqual({ type: "finish", reason: "stop" });
     expect(replay.requests.map((r) => r.headers["x-api-key"])).toEqual([
-      "sk-ant-anthropic-one-000111",
-      "sk-ant-anthropic-two-000111",
+      fakeKey("anthropic-one"),
+      fakeKey("anthropic-two"),
     ]);
     expect(backup.requests).toHaveLength(0);
     // Profile one is cooling (retry-after 17 s): the next request starts with profile two.
     await collect(router.stream(textRequest("router/primary")));
-    expect(replay.requests[2]?.headers["x-api-key"]).toBe("sk-ant-anthropic-two-000111");
+    expect(replay.requests[2]?.headers["x-api-key"]).toBe(fakeKey("anthropic-two"));
   });
 });
 
