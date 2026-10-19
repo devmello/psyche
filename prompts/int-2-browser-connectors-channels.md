@@ -12,7 +12,7 @@ Three scenarios pass:
 3. **Telegram + server mode**: run the Gateway in Docker Compose on a Linux box (or a local container) behind Tailscale Serve; pair the Mac app as a remote node; the owner pairs on Telegram with a code; sends "what's on my calendar tomorrow" from the phone and gets the answer; a purchase-sized approval requested from the server shows on the Mac with Touch ID-required notification and as Telegram buttons; the first authorized answer wins and the other surface dismisses.
 
 ## Work
-Composition for the browser bridge (desktop) ↔ CDP driver (gateway); connector and channel mounting; trusted-proxy/passkey auth for the web client; Compose file from C2 (or a temporary one if C2 has not landed); the three integration tests (scripted provider for CI; live behind the env gate); timing measurements for snapshots and approval round trips.
+Composition for the browser bridge (desktop) ↔ CDP driver (gateway); connector and channel mounting; trusted-proxy/passkey auth for the web client; Compose file from S22 (or a temporary one if S22 has not landed); the three integration tests (scripted provider for CI; live behind the env gate); timing measurements for snapshots and approval round trips.
 
 ## Definition of done
 Scenarios 1–3 pass manually and the CI-safe parts pass automatically; `docs/status/int-2.md` lists gaps; the injection corpus runner (S18) is executed against the real browser and connector packages and the report is attached to the PR.

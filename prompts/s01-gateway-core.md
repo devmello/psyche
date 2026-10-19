@@ -22,7 +22,7 @@ You are building Psyche (read `README.md`). You are session **S01 — Gateway co
 - **Retention**: `cleanupPeriodDays` job for level-3 tool payloads; incognito thread expiry.
 
 ## Out of scope
-Agent logic (S02), model calls (S03), task engine internals (S04), policy decisions (S05), UI (S11/S12), channels (S10), CLI (C2).
+Agent logic (S02), model calls (S03), task engine internals (S04), policy decisions (S05), UI (S11/S12), channels (S10), CLI (S22).
 
 ## Interfaces
 - You consume via fakes: `AgentLoop`, `TaskEngine`, `PermissionBroker`, `MemoryStore`, `Notifier`, `SearchIndex`.
@@ -31,7 +31,7 @@ Agent logic (S02), model calls (S03), task engine internals (S04), policy decisi
 ## Definition of done
 - Contract tests: pairing (loopback auto, remote approval, revoked token, bad signature, bad Origin), idempotent `chat.send`, event ordering and `stateVersion` refresh, fork lineage, writer guard rejecting a superseded run, restart mid-turn (process killed between model events) leaving a consistent transcript with no duplicated side effects, retention job.
 - Load test: 10 concurrent threads streaming without cross-talk.
-- `apps/gateway/README.md` documents config keys, the process model (launchd/systemd handled by C2), and the API surface; `docs/status/s01.md` updated.
+- `apps/gateway/README.md` documents config keys, the process model (launchd/systemd handled by S22), and the API surface; `docs/status/s01.md` updated.
 
 ## Suggested plan and subagents
 Plan file → server + frames → pairing/auth → session controller → threads/messages → agent wiring → nodes → retention. Subagents: one to write the pairing/auth test matrix, one to build the fake-node harness, one to review the diff for the security doc's control-plane rules.

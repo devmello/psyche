@@ -1,6 +1,6 @@
 # Session S19 — Node agent (psyche-node)
 
-You are building Psyche (read `README.md`). You are session **S19 — Node agent**: `apps/node`, the headless process that runs inside the macOS guest VM or on remote machines and offers exec, filesystem, browser and (via a co-located Mac helper) computer-use capabilities to a Gateway through the node protocol. Start this session only after S01 (Gateway), S08 (browser) and C1 (sandbox) have merged. Work in your own worktree on branch `ws/s19-node-agent`. You own `apps/node/**`.
+You are building Psyche (read `README.md`). You are session **S19 — Node agent**: `apps/node`, the headless process that runs inside the macOS guest VM or on remote machines and offers exec, filesystem, browser and (via a co-located Mac helper) computer-use capabilities to a Gateway through the node protocol. Start this session only after S01 (Gateway), S08 (browser) and S21 (sandbox) have merged. Work in your own worktree on branch `ws/s19-node-agent`. You own `apps/node/**`.
 
 ## Read first
 1. `prompts/_shared-rules.md`

@@ -18,4 +18,4 @@ Milestone 1 is done when:
 Automate the three scenarios with fixtures (fake mailbox and calendar servers, the fixture website set, scripted provider) and live gates; run the corpus and harnesses; triage every failure to an owner with a failing test; write `docs/release-notes/0.1.md` and update `docs/status/int-3.md` with the scorecard (per scenario × model × run).
 
 ## Definition of done
-All checks green in CI on `main`; the scorecard committed; a tagged `v0.1.0-alpha` with the DMG and Docker image from C2.
+All checks green in CI on `main`; the scorecard committed; a tagged `v0.1.0-alpha` with the DMG and Docker image from S22.
