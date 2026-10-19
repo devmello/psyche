@@ -12,7 +12,8 @@ public final class HelperRuntime: @unchecked Sendable {
     public init(log: HelperLog = HelperLog(), environment: [String: String] = ProcessInfo.processInfo.environment) {
         self.log = log
         computer = ComputerUse(environment: environment, log: log)
-        notifications = NotificationCenterBridge(log: log)
+        let presence = PresenceKey()
+        notifications = NotificationCenterBridge(log: log, presence: presence)
         var handlers: [any CapabilityHandler] = []
         handlers += PermissionsCapabilities.make(preflight: preflight)
         handlers += ComputerCapabilities.make(computer)
@@ -21,6 +22,7 @@ public final class HelperRuntime: @unchecked Sendable {
         handlers += NotifyCapabilities.make(bridge: notifications)
         handlers += SpeechCapabilities.make(preflight: preflight, log: log)
         handlers += KeychainCapabilities.make()
+        handlers += PresenceCapabilities.make(key: presence)
         registry = CapabilityRegistry(handlers)
     }
 

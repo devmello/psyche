@@ -272,9 +272,9 @@ export class SqliteTaskEngine implements TaskEngine {
       this.#db.sqlite
         .prepare(
           `INSERT INTO tasks (id, thread_id, title, goal, status, created_from, plan, checklist,
-            attempt, run_mode, budget, taint, created_at, updated_at)
+            attempt, run_mode, budget, taint, taint_sources, created_at, updated_at)
            VALUES (@id, @thread_id, @title, @goal, 'queued', @created_from, @plan, @checklist,
-            0, @run_mode, @budget, @taint, @now, @now)`,
+            0, @run_mode, @budget, @taint, @taint_sources, @now, @now)`,
         )
         .run({
           id,
@@ -287,6 +287,8 @@ export class SqliteTaskEngine implements TaskEngine {
           run_mode: input.mode ?? "attended",
           budget: json(input.budget ?? null),
           taint: input.taint === undefined ? null : input.taint ? 1 : 0,
+          // The creating turn's sources stay with the task for its whole life (design-08).
+          taint_sources: json(input.taintSources),
           now,
         });
       return this.#updated(id);
