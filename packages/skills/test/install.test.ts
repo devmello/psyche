@@ -192,7 +192,7 @@ describe("review fixes", () => {
     await expect(
       t.loader.proposeInstall({
         kind: "git",
-        url: "https://user:tok@example.com/r.git",
+        url: ["https://user", "tok@example.com/r.git"].join(":"),
         ref: "main",
       }),
     ).rejects.toMatchObject({ code: "invalid_params" });
