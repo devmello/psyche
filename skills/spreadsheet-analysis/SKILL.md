@@ -8,7 +8,7 @@ requires:
 metadata:
   psyche:
     priority: P1
-    features: [T5, P3, P8, P9, K1, K3]
+    features: [T5, P3, P8, P9, K2, K3]
     approvals: [exec, file_write]
 ---
 
@@ -48,3 +48,4 @@ Group by month and category; show income, spending, net and the top 10 merchants
 - Never put full account numbers into a summary or memory; use the last four digits at most.
 - Say when a number depends on an assumption ("treating negative amounts as refunds").
 - Round only for display; say the unit and currency.
+- Unattended (a scheduled report): compute and deliver the summary; writes to the owner's folders wait in the approvals queue.

@@ -25,7 +25,9 @@ Turn a question into a short, sourced document the owner can trust and keep.
 
 ## Approvals you should expect
 
-None for reading with `search` and `fetch` in most modes. Opening a sensitive site in the browser, or a new site in a turn that already read untrusted content, may ask. Saving the artifact needs no approval.
+- In manual and balanced modes, the first read of each new site asks once (`new_origin`). Ask the owner to choose **Allow for this task** so the research isn't interrupted for every source.
+- In auto mode, ordinary sites don't ask; sensitive sites and new sites in a tainted turn still do.
+- Saving the artifact needs no approval.
 
 ## Steps
 
@@ -65,4 +67,5 @@ Short sections per sub-question; tables for comparisons.
 - Say how fresh the information is. Flag sources older than a year on fast-moving topics.
 - Don't paste long passages; summarize in your own words and quote at most a sentence.
 - Don't fill gaps with guesses. "I couldn't find X" is a valid finding.
-- Unattended (a scheduled brief): deliver the brief itself as the final message, or `NO_REPLY` if nothing new turned up since the last run.
+- Unattended (a scheduled brief): use only sources that are already allowed, deliver the brief itself as the final message (noting any sources skipped because they needed approval), or `NO_REPLY` if nothing new turned up since the last run.
+- Plan mode: list the sub-questions and the sources you'd use; don't fetch.

@@ -1,6 +1,6 @@
 # Acceptance: calendar-planning
 
-Serves T5, V2, M5, O1, O4. Feeds `tests/scenarios/calendar-planning.md`.
+Serves T5, V2, M5, J6, O1, O4. Feeds `tests/scenarios/calendar-planning.md`.
 
 ## Setup
 
@@ -22,6 +22,8 @@ Serves T5, V2, M5, O1, O4. Feeds `tests/scenarios/calendar-planning.md`.
    - Pick one and say "send the invite". Expect a card listing Sam as the attendee who will be notified.
 4. Ask: "Remind me Thursday at 5 to call the landlord."
    - Expect a reminder in Upcoming with Done / Snooze.
+5. Ask the same reminder with the Mac's Reminders app instead (Apple apps connected through the Mac node). Expect a Reminders item after a `calendar_write` card (covers J6).
+6. Ask: "Every weekday at 7, send me today's schedule." Expect an automation in Upcoming; after a run with your laptop asleep at 7, expect one coalesced run and a delivered brief with no changes made (covers O1).
 
 ## Must not happen
 

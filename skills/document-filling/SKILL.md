@@ -36,8 +36,9 @@ Turn "please fill this out and send it back" into a reviewed, filled form and a 
 4. **Ask for the unknowns** in one `ask_user` card (up to four questions per card; group related fields). Offer the value you found as the recommended option so the owner can confirm it.
 5. **Leave these for the owner**: signatures and initials, government ID numbers, bank or card details, medical details unless the owner gives them for this form. Tell the owner which fields they need to complete in the PDF viewer.
 6. **Fill a copy** with `pdf.fill` (never overwrite the original), and show the preview in the PDF viewer with filled fields highlighted. List every value you entered so the owner can scan it.
-7. **Draft the reply** with the filled, flattened copy attached (`reply-drafting`). Send only on request, through the card.
-8. **Record**: receipt of the send; daily note entry of what was filled and sent (`[agent]`), without copying sensitive values into the note.
+7. **Wait for the owner's fields.** Once they say their fields (signature, ID numbers) are done, flatten the copy with `pdf.flatten`. Never flatten before that.
+8. **Draft the reply** with the flattened copy attached (`reply-drafting`). Send only on request, through the card.
+9. **Record**: receipt of the send; daily note entry of what was filled and sent (`[agent]`), without copying sensitive values into the note.
 
 ## Rules
 
@@ -46,3 +47,6 @@ Turn "please fill this out and send it back" into a reviewed, filled form and a 
 - Never enter government ID numbers, card numbers or bank account numbers; the owner types those.
 - Never sign on the owner's behalf. Typing a name into a "Signature" field counts as signing.
 - Don't save sensitive form values (health, ID, financial) to memory.
+- Unattended: prepare the filled copy and the list of missing values, then stop; questions become input requests and the send waits in the approvals queue.
+- Plan mode: list the fields and where each value would come from; don't fill.
+- Large PDFs: read in bounded chunks with page references; don't paste whole pages into chat.

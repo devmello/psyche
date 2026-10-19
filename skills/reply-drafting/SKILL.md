@@ -8,7 +8,7 @@ requires:
 metadata:
   psyche:
     priority: P0
-    features: [T5, V1, V6, M5, N11]
+    features: [T5, V1, V6, M5, J7, N4, N5, N11]
     approvals: [send_email, message_send]
 ---
 
@@ -18,8 +18,8 @@ Write the reply the owner would have written, then let them send it with one tap
 
 ## Tools
 
-- `email.read`, `email.draft`, `email.send`
-- `messages.read`, `messages.send` (iMessage, Telegram and other channels, when connected)
+- `email.search`, `email.read`, `email.draft`, `email.send`
+- `messages.read`, `messages.send` (iMessage, Telegram and other channels, when connected; pass `voice: true` with the text to send it as a voice note where the channel supports one)
 - `memory_search` (how the owner writes to this person, relationship, past threads), `calendar.freebusy` (when proposing times)
 - `ask_user`
 
@@ -27,7 +27,7 @@ Write the reply the owner would have written, then let them send it with one tap
 
 - **`send_email`** for every email send. The card shows the account, exact recipients (to, cc, bcc), subject, body and attachments. Any edit after approval voids it.
 - **`message_send`** for every message to someone other than the owner.
-- If the thread came from someone new, or you read untrusted content this turn, expect a card even where the owner normally allows sends.
+- Sends to other people are irreversible, so they can only be allowed once or for the current task, never always. If the thread came from someone new, or you read untrusted content this turn, expect a card even with a task grant.
 
 ## Steps
 
@@ -45,4 +45,6 @@ Write the reply the owner would have written, then let them send it with one tap
 - Never include passwords, codes, account numbers or ID numbers in a reply, even if asked.
 - Don't commit the owner to money, dates or promises they haven't agreed to. Draft "I'll check and get back to you" instead.
 - Never send without the approval card, and never resend after a denial or an uncertain receipt.
-- Voice notes (where the channel supports them) follow the same approval as text.
+- Voice notes (where the channel supports them) follow the same approval as text; the card shows the transcript.
+- Unattended: draft only. Sends go to the approvals queue; say which drafts are waiting.
+- Plan mode: describe the reply you'd write; don't create drafts.

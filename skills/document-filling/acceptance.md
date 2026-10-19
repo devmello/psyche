@@ -22,6 +22,9 @@ Serves T5, V5, P1, P2, P9. This is the "Complete the permission slip" test from 
    - Approve; expect a receipt.
 4. Upload an XFA-only PDF and ask to fill it.
    - Expect the message that XFA forms can't be filled and an offer to prepare the answers as a list.
+5. Upload a scanned (image-only) one-page form and ask to fill it.
+   - Expect the agent to read it with OCR, say it has no fillable fields, and offer to fill by position only with your agreement, or to list the answers.
+6. Ask a question about a 200-page PDF in the Library. Expect an answer with page references and no full-page dumps.
 
 ## Must not happen
 

@@ -18,7 +18,7 @@ Make the owner's time match their priorities, and make every calendar change one
 
 ## Tools
 
-- `calendar.list` (events in a range), `calendar.freebusy`, `calendar.create`, `calendar.update`, `calendar.delete`
+- `calendar.list` (events in a range; Google, Microsoft or the Mac's Calendar and Reminders through the Mac node), `calendar.freebusy`, `calendar.create`, `calendar.update`, `calendar.delete`
 - `schedule` (reminders and recurring automations), `notify`
 - `memory_search` (routines, focus blocks, preferences), `goal.list` (what the week should serve)
 - `email.read` / `email.draft` (when scheduling with other people), `ask_user`, `artifact.create`
@@ -27,7 +27,7 @@ Make the owner's time match their priorities, and make every calendar change one
 
 - **`calendar_write`** for creating, moving or deleting events. The card shows the account, calendar, operation and the exact event (title, time, attendees).
 - Adding attendees sends them an invitation, which is outward-facing: expect a card every time, and say in chat who will be invited.
-- Deleting an event someone else organized, or one with attendees, always asks. Prefer declining or moving.
+- Every delete asks, and can be allowed only once or for the current task. Prefer declining or moving, especially for events someone else organized.
 - Emails proposing times go through `reply-drafting` and `send_email`.
 
 ## Steps
@@ -53,3 +53,4 @@ Make the owner's time match their priorities, and make every calendar change one
 - Always state times with day, date and timezone when they could be ambiguous: "Tue Oct 21, 2:30–3:00 pm PT".
 - Don't move events with other attendees without saying who will be notified.
 - Unattended (morning brief): list today's events, conflicts and deadlines; defer any change to the approvals queue.
+- Plan mode: propose the changes as a plan; don't create holds.
