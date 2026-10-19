@@ -428,13 +428,14 @@ describe("OriginPolicy", () => {
     expect(p.devPreview).toBe(true);
     for (const raw of [
       "http://localhost:5173",
-      "http://app.localhost",
       "http://127.0.0.1:8080",
       "http://[::1]:3000",
       "http://0.0.0.0:3000",
     ]) {
       expect(p.evaluateSync(raw), raw).toMatchObject({ action: "allow", access: "write" });
     }
+    // Named *.localhost hosts are allowed but need a set entry.
+    expect(p.evaluateSync("http://app.localhost").action).toBe("approve");
     // devPreview is not a private-network grant.
     expect(denyReason(p.evaluateSync("http://192.168.1.10:3000"))).toBe("private_network");
     expect(p.evaluateSync("https://example.com").action).toBe("approve");

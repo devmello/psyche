@@ -96,7 +96,15 @@ export class OriginPolicy {
       if (e.access === "write") return "write";
       best = "read";
     }
-    if (best === undefined && this.#devPreview && classifyHost(url.host, url.hostKind).loopback) {
+    // Dev preview: the owner's own dev server on a bare loopback host is read-writable. Named
+    // `*.localhost` hosts still need an explicit set entry, so they can stand in for distinct
+    // sites in tests and multi-app setups.
+    if (
+      best === undefined &&
+      this.#devPreview &&
+      classifyHost(url.host, url.hostKind).loopback &&
+      !url.host.endsWith(".localhost")
+    ) {
       return "write";
     }
     return best;

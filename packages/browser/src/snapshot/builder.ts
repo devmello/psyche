@@ -322,10 +322,18 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
       return;
     }
     const info = dom.get(node.backendDOMNodeId);
-    const name = redact(norm(axString(node.name)));
-    const isInteractive =
-      INTERACTIVE_ROLES.has(role) ||
-      (info?.clickable === true && (role === "generic" || role === "none") && name !== "");
+    let name = redact(norm(axString(node.name)));
+    // A `<div onclick>` is `generic` with no name in Chromium; name it from its text, unless it
+    // wraps real controls or a whole page region (frameworks put listeners on root containers).
+    let clickableGeneric = false;
+    if (info?.clickable === true && (role === "generic" || role === "none") && name === "") {
+      const t = descendantText(node, byId);
+      if (t.text !== "" && t.text.length <= 200 && !t.hasInteractive) {
+        name = redact(norm(t.text));
+        clickableGeneric = true;
+      }
+    }
+    const isInteractive = INTERACTIVE_ROLES.has(role) || clickableGeneric;
     if (role === "iframe") {
       kept++;
       const cd = info?.contentDocIndex;
@@ -341,7 +349,7 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
         const childById = new Map(child.ax.map((n) => [n.nodeId, n]));
         visit(child.ax[0], childById, depth + 1, rawDepth + 1, name, false);
       } else {
-        const origin = doc?.origin ?? "unknown origin";
+        const origin = doc?.origin ?? srcOrigin(info?.attrs.src, input.url) ?? "unknown origin";
         lines.push({
           kind: "node",
           text: `${indent}- iframe${name ? ` "${clip(name, opts.nameMax)}"` : ""} (content hidden: ${origin === topOrigin ? "not loaded" : `cross-origin ${origin}`})`,
@@ -482,6 +490,33 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
   if (sparse) snap.sparse = true;
   if (captcha) snap.captcha = true;
   return snap;
+}
+
+function srcOrigin(src: string | undefined, base: string): string | undefined {
+  if (src === undefined) return undefined;
+  try {
+    return tryOrigin(new URL(src, base).href);
+  } catch {
+    return undefined;
+  }
+}
+
+function descendantText(
+  node: AXNode,
+  byId: Map<string, AXNode>,
+): { text: string; hasInteractive: boolean } {
+  let text = "";
+  let hasInteractive = false;
+  let visited = 0;
+  const walk = (n: AXNode | undefined) => {
+    if (n === undefined || visited++ > 200 || text.length > 400) return;
+    const r = roleOf(n);
+    if (INTERACTIVE_ROLES.has(r)) hasInteractive = true;
+    if (r === "statictext") text += ` ${axString(n.name)}`;
+    for (const id of n.childIds ?? []) walk(byId.get(id));
+  };
+  for (const id of node.childIds ?? []) walk(byId.get(id));
+  return { text: norm(text), hasInteractive };
 }
 
 function shortHref(href: string, topOrigin: string): string {
