@@ -2,7 +2,7 @@
 -- Shipped in @psyche/notifications until S01 registers it under packages/db/migrations
 -- (adding it there needs a matching drizzle table in @psyche/db's schema.ts; see docs/status/s15.md).
 CREATE TABLE IF NOT EXISTS notifications (
-  id TEXT PRIMARY KEY,
+  id TEXT PRIMARY KEY NOT NULL,
   kind TEXT NOT NULL CHECK (kind IN ('approval', 'input_needed', 'task_done', 'task_failed', 'proactive', 'briefing', 'reminder', 'system')),
   title TEXT NOT NULL,
   body TEXT NOT NULL,
