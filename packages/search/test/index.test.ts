@@ -26,6 +26,16 @@ describe("ranking", () => {
     expect(r.hits[0]?.score ?? 0).toBeGreaterThan(r.hits[2]?.score ?? 0);
   });
 
+  it("strips highlight markers from content so ranges cannot be forged", async () => {
+    const { index } = setup();
+    await index.index(
+      doc({ id: "x", title: "a\u0002fake\u0003 b", text: "plain \u0002fake\u0003 tokens" }),
+    );
+    const [hit] = (await index.search({ q: "tokens" })).hits;
+    expect(hit?.title).toBe("afake b");
+    expect(hit?.titleHighlights).toEqual([]);
+  });
+
   it("recency does not beat a much better text match", async () => {
     const { index } = setup();
     await index.index(
@@ -42,12 +52,32 @@ describe("ranking", () => {
     expect((await index.query({ q: "lisbon" })).hits[0]?.id).toBe("strong");
   });
 
-  it("matches the last word as a prefix and folds diacritics", async () => {
+  it("matches words as prefixes while typing, folds plurals and diacritics", async () => {
     const { index } = setup();
-    await index.index(doc({ id: "a", text: "Café Résumé review" }));
-    expect((await index.query({ q: "resume" })).hits.map((h) => h.id)).toEqual(["a"]);
-    expect((await index.query({ q: "revi" })).hits.map((h) => h.id)).toEqual(["a"]);
-    expect((await index.query({ q: "revi " })).hits).toHaveLength(0);
+    await index.index(doc({ id: "a", text: "Café Résumé review, running shoes" }));
+    for (const q of ["resume", "revi", "revi ", "runni", "runnin", "reviews", "cafe"]) {
+      expect(
+        (await index.query({ q })).hits.map((h) => h.id),
+        q,
+      ).toEqual(["a"]);
+    }
+    expect((await index.query({ q: '"runni"' })).hits).toHaveLength(0);
+  });
+
+  it("binds OR inside its chain: dentist alice OR bob", async () => {
+    const { index } = setup();
+    await index.index(doc({ id: "bob", text: "bob groceries" }));
+    await index.index(doc({ id: "hit", text: "dentist with bob" }));
+    expect((await index.query({ q: "dentist alice OR bob" })).hits.map((h) => h.id)).toEqual([
+      "hit",
+    ]);
+  });
+
+  it("returns nothing for input with nothing searchable", async () => {
+    const { index } = setup();
+    await index.index(doc({ id: "a", text: "anything" }));
+    for (const q of ['"', "OR", "?"]) expect((await index.search({ q })).total, q).toBe(0);
+    expect((await index.query({ q: "" })).total).toBe(1);
   });
 
   it("supports phrases, OR and exclusions", async () => {
@@ -113,6 +143,8 @@ describe("filters", () => {
     expect(await ids(index, "dentist from:alice")).toEqual(["pdf1"]);
     expect(await ids(index, "dentist from:ALICE@EXAMPLE")).toEqual(["pdf1"]);
     expect(await ids(index, "dentist from:bob in:threads")).toEqual(["m1"]);
+    await index.index(doc({ id: "emile", text: "dentist", from: "Émile Zola" }));
+    expect(await ids(index, "dentist from:émile")).toEqual(["emile"]);
   });
 
   it("before:, after:, is:, thread:", async () => {
@@ -123,12 +155,13 @@ describe("filters", () => {
     expect(await ids(index, "thread:T1")).toEqual(["m1"]);
   });
 
-  it("has:approval matches documents, their thread or their parent task", async () => {
+  it("has:approval matches the flagged document and actions of a flagged task", async () => {
     const index = await fixtures();
     await index.index(doc({ id: "a1", kind: "task", parentId: "t1", text: "drafted reply" }));
     await index.setFlag("t1", "approval");
     await index.setFlag("T1", "approval");
-    expect(await ids(index, "has:approval")).toEqual(["a1", "m1", "t1"]);
+    // a flag on thread T1 marks the thread, not every message in it
+    expect(await ids(index, "has:approval")).toEqual(["a1", "t1"]);
     expect(await ids(index, "has:approval in:tasks")).toEqual(["a1", "t1"]);
     expect(await ids(index, "has:receipt")).toEqual([]);
   });

@@ -30,6 +30,38 @@ describe("search.query handler", () => {
     expect(messages.hits.map((x) => x.id)).toEqual(["m1"]);
   });
 
+  it("maps scopes to kinds before ranking (review fixes)", async () => {
+    const { index } = setup();
+    await index.indexMany([
+      doc({
+        id: "T1",
+        kind: "thread",
+        threadId: "T1",
+        title: "Dentist dentist",
+        text: "Dentist dentist dentist",
+      }),
+      doc({ id: "m1", kind: "message", threadId: "T1", title: "Dentist", text: "dentist at nine" }),
+      doc({ id: "m2", kind: "message", threadId: "T1", title: "Dentist", text: "dentist moved" }),
+      doc({ id: "K1", kind: "task", title: "Book dentist", text: "dentist" }),
+      ...Array.from({ length: 5 }, (_, i) =>
+        doc({
+          id: `I${i}`,
+          kind: "idea",
+          title: "Dentist dentist",
+          text: "dentist dentist dentist",
+        }),
+      ),
+    ]);
+    const h = createSearchHandlers(index);
+    const mt = await h["search.query"]({ query: "dentist", scopes: ["messages", "tasks"] });
+    expect(mt.hits.map((x) => x.id).sort()).toEqual(["K1", "m1", "m2"]);
+    const m = await h["search.query"]({ query: "dentist", scopes: ["messages"] });
+    expect(m.hits.map((x) => x.id).sort()).toEqual(["m1", "m2"]);
+    const limited = await h["search.query"]({ query: "dentist", limit: 2 });
+    expect(limited.hits).toHaveLength(2);
+    expect(limited.hits.every((x) => !x.id.startsWith("I"))).toBe(true);
+  });
+
   it("applies the caller's viewer scope", async () => {
     const { index } = setup();
     await index.index(doc({ id: "a", text: "secret", scopeKey: "owner" }));

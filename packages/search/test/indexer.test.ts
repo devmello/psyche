@@ -213,8 +213,78 @@ describe("incremental indexing from Gateway events", () => {
 
   it("reports handler errors instead of throwing into the event bus", async () => {
     const { indexer, errors } = wire();
-    await indexer.handle("chat.message", { message: { id: "broken" } });
+    await indexer.handle("feed.updated", { posts: null });
     expect(errors).toHaveLength(1);
+  });
+
+  it("fails closed for content of unknown threads and tasks (incognito leak)", async () => {
+    const { index, indexer } = wire();
+    await indexer.handle("chat.message", { message: message() });
+    await indexer.handle("task.updated", { task });
+    await indexer.handle("task.action", {
+      action: {
+        id: "A9",
+        taskId: "K-unknown",
+        idx: 0,
+        toolCallId: null,
+        level1: "Searched for divorce lawyer",
+        level2: { tool: "search" },
+        level3Ref: null,
+        createdAt: "2026-10-18T20:10:40Z",
+      },
+    });
+    expect(await index.count()).toBe(0);
+
+    const { index: idx2 } = setup();
+    const withLookups = new SearchIndexer(idx2, {
+      lookupTask: async () => ({ title: "secret", threadId: "INC" }),
+      lookupThread: async (id) =>
+        id === "INC" ? thread({ id: "INC", kind: "incognito" }) : undefined,
+    });
+    await withLookups.handle("task.action", {
+      action: {
+        id: "A9",
+        taskId: "K9",
+        idx: 0,
+        toolCallId: null,
+        level1: "Searched for divorce lawyer",
+        level2: { tool: "search" },
+        level3Ref: null,
+        createdAt: "2026-10-18T20:10:40Z",
+      },
+    });
+    expect(await idx2.count()).toBe(0);
+  });
+
+  it("removeThread takes the thread's tasks, actions and flags but not Library items", async () => {
+    const { index, indexer } = wire();
+    await indexer.handle("thread.updated", { thread: thread() });
+    await indexer.handle("task.updated", { task });
+    await indexer.handle("task.action", {
+      action: {
+        id: "A1",
+        taskId: "K1",
+        idx: 0,
+        toolCallId: null,
+        level1: "opened portal",
+        level2: { tool: "browser.navigate" },
+        level3Ref: null,
+        createdAt: "2026-10-18T20:10:40Z",
+      },
+    });
+    await index.index({
+      id: "L1",
+      kind: "library",
+      title: "slip.pdf",
+      text: "slip",
+      provenance: "owner",
+      threadId: SAMPLE_THREAD.id,
+      createdAt: 1,
+    });
+    await index.setFlag("A1", "receipt");
+    expect(await index.removeThread(SAMPLE_THREAD.id)).toBe(3);
+    expect((await index.query({ q: "" })).hits.map((h) => h.id)).toEqual(["L1"]);
+    expect(index.db.prepare("SELECT count(*) AS n FROM search_flags").get()).toEqual({ n: 0 });
   });
 
   it("looks up threads it has not seen an event for", async () => {

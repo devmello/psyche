@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { parseDate, parseQuery, toFtsExclusion, toFtsMatch } from "../src/query-parser.ts";
+import {
+  foldPlural,
+  parseDate,
+  parseQuery,
+  toFtsExclusion,
+  toFtsMatch,
+} from "../src/query-parser.ts";
 
 const NOW = Date.UTC(2026, 9, 18, 15, 30);
 const p = (q: string) => parseQuery(q, { now: NOW });
@@ -54,19 +60,56 @@ describe("query parser", () => {
     expect(p("foo:bar").terms[0]?.text).toBe("foo:bar");
   });
 
-  it("handles phrases, exclusions, OR and a prefix on the last word", () => {
-    const q = p('"three slots" dentist OR doctor -cancelled appoi');
+  it("handles phrases, exclusions and OR chains (parenthesized: FTS5 binds AND tighter)", () => {
+    const q = p('"three slots" dentist alice OR bob -cancelled appoi');
     expect(q.terms).toEqual([
       { text: "three slots", prefix: false, phrase: true, or: false },
-      { text: "dentist", prefix: false, phrase: false, or: false },
-      { text: "doctor", prefix: false, phrase: false, or: true },
+      { text: "dentist", prefix: true, phrase: false, or: false },
+      { text: "alice", prefix: true, phrase: false, or: false },
+      { text: "bob", prefix: true, phrase: false, or: true },
       { text: "appoi", prefix: true, phrase: false, or: false },
     ]);
     expect(q.excluded.map((t) => t.text)).toEqual(["cancelled"]);
-    expect(toFtsMatch(q.terms)).toBe('"three slots" AND "dentist" OR "doctor" AND "appoi"*');
-    expect(toFtsExclusion(q.excluded)).toBe('"cancelled"');
-    // trailing space: the user finished the word
-    expect(p("appoi ").terms[0]?.prefix).toBe(false);
+    expect(toFtsMatch(q.terms)).toBe(
+      '"three slots" AND "dentist"* AND ("alice"* OR "bob"*) AND "appoi"*',
+    );
+    expect(toFtsExclusion(q.excluded)).toBe('"cancelled"*');
+  });
+
+  it("matches bare words as prefixes with a plural fold", () => {
+    expect(foldPlural("dentists")).toBe("dentist");
+    expect(foldPlural("parties")).toBe("part");
+    expect(foldPlural("boxes")).toBe("box");
+    expect(foldPlural("glass")).toBe("glass");
+    expect(toFtsMatch(p("runni").terms)).toBe('"runni"*');
+    expect(toFtsMatch(p("tv").terms)).toBe('"tv"');
+  });
+
+  it("does not let an OR jump over an exclusion", () => {
+    const q = p("dentist OR -alice carol");
+    expect(q.terms.map((t) => t.or)).toEqual([false, false]);
+  });
+
+  it("rejects negated filters with a warning instead of applying them", () => {
+    const q = p("-in:tasks -from:alice dentist");
+    expect(q.filters).toEqual({});
+    expect(q.warnings).toEqual(["-in:tasks", "-from:alice"]);
+    expect(q.terms.map((t) => t.text)).toEqual(["dentist"]);
+  });
+
+  it("covers whole months with on:YYYY-MM and rejects impossible dates", () => {
+    expect(p("on:2026-09").filters).toEqual({
+      after: Date.UTC(2026, 8, 1),
+      before: Date.UTC(2026, 9, 1),
+    });
+    expect(p("on:2026-02-31").warnings).toEqual(["on:2026-02-31"]);
+    expect(p("before:2026-13-01").filters.before).toBeUndefined();
+  });
+
+  it("marks input with nothing searchable as matching nothing", () => {
+    for (const q of ['"', '-"', "OR", "*** ---", "?"]) expect(p(q).matchesNothing, q).toBe(true);
+    expect(p("").matchesNothing).toBe(false);
+    expect(p("in:library").matchesNothing).toBe(false);
   });
 
   it("escapes FTS syntax so user input never becomes an FTS operator", () => {

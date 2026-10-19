@@ -98,6 +98,10 @@ export interface SearchRequest {
   groupLimit?: number;
   /** Restrict to these groups in addition to `in:` filters. */
   groups?: SearchGroup[];
+  /** Restrict to these document kinds (intersected with `groups`). */
+  kinds?: SearchIndexDocKind[];
+  /** Collapse messages onto threads and actions onto tasks (default true). */
+  collapse?: boolean;
 }
 
 export interface SearchResponse {

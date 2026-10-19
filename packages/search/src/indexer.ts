@@ -38,6 +38,8 @@ type ThreadInfo = Pick<Thread, "id" | "title" | "kind" | "personaOverlay" | "ses
 export interface SearchIndexerOptions {
   /** Loads a thread the indexer has not seen an event for yet (Gateway: the threads repo). */
   lookupThread?: (threadId: string) => Promise<ThreadInfo | undefined>;
+  /** Loads a task for a `task.action` that arrives before (or without) its `task.updated`. */
+  lookupTask?: (taskId: string) => Promise<Pick<Task, "title" | "threadId"> | undefined>;
   /** Display name / address of a message's sender for `from:` (channel peers, email senders). */
   senderOf?: (message: Message, thread: ThreadInfo | undefined) => string | undefined;
   /** Called with errors from event handling; indexing never throws into the event bus. */
@@ -49,8 +51,9 @@ export interface SearchIndexerOptions {
  * `thread.updated`, `thread.deleted`, `chat.message`, `task.updated`, `task.action`,
  * `approval.created`, `receipt.created`, `feed.post`, `feed.updated`, `idea.updated`,
  * `goal.updated`. Library items and connector caches have no events yet: their owners call
- * `libraryDoc` / `connectorDoc` and `index()` directly. Feed in every event (`handle(name, payload)`); unknown events are ignored.
- * A thread that becomes incognito is removed with everything under it.
+ * `libraryDoc` / `connectorDoc` and `index()` directly. Feed in every event
+ * (`handle(name, payload)`); unknown events are ignored. A thread that becomes incognito is
+ * removed with everything under it; content of an unknown thread is skipped (fail closed).
  */
 export class SearchIndexer {
   #index: IndexWriter;
@@ -113,22 +116,25 @@ export class SearchIndexer {
     }
     await this.#index.index(threadDoc(thread));
     if (
-      prev !== undefined &&
-      (prev.title !== thread.title || threadScope(prev) !== threadScope(thread))
+      prev === undefined ||
+      prev.title !== thread.title ||
+      threadScope(prev) !== threadScope(thread)
     ) {
       await this.#index.retitleThread(thread.id, thread.title, threadScope(thread));
     }
   }
 
+  /**
+   * Messages, tasks and actions are indexed only when their thread is known: without it the
+   * indexer cannot tell an incognito or designated-person thread from the owner's, so it fails
+   * closed (configure `lookupThread` / `lookupTask` so nothing is lost).
+   */
   async onMessage(message: Message): Promise<void> {
     const thread = await this.#thread(message.threadId);
-    if (thread !== undefined && isIncognito(thread)) return;
+    if (thread === undefined || isIncognito(thread)) return;
     const sender = this.#opts.senderOf?.(message, thread);
     await this.#index.index(
-      messageDoc(message, {
-        ...(thread === undefined ? {} : { thread }),
-        ...(sender === undefined ? {} : { sender }),
-      }),
+      messageDoc(message, { thread, ...(sender === undefined ? {} : { sender }) }),
     );
     if (hasAttachment(message)) {
       await this.#index.setFlag(message.id, "attachment");
@@ -139,17 +145,15 @@ export class SearchIndexer {
   async onTask(task: Task): Promise<void> {
     this.#tasks.set(task.id, { title: task.title, threadId: task.threadId });
     const thread = await this.#thread(task.threadId);
-    if (thread !== undefined && isIncognito(thread)) return;
+    if (thread === undefined || isIncognito(thread)) return;
     await this.#index.index(taskDoc(task, thread));
   }
 
   async onTaskAction(action: TaskAction): Promise<void> {
-    const task = this.#tasks.get(action.taskId);
+    const task = await this.#task(action.taskId);
     const thread = task === undefined ? undefined : await this.#thread(task.threadId);
-    if (thread !== undefined && isIncognito(thread)) return;
-    await this.#index.index(
-      taskActionDoc(action, task, thread === undefined ? undefined : threadScope(thread)),
-    );
+    if (task === undefined || thread === undefined || isIncognito(thread)) return;
+    await this.#index.index(taskActionDoc(action, task, threadScope(thread)));
   }
 
   async onApproval(approval: ApprovalRequest): Promise<void> {
@@ -160,6 +164,15 @@ export class SearchIndexer {
 
   async onReceipt(receipt: Receipt): Promise<void> {
     if (receipt.taskId != null) await this.#index.setFlag(receipt.taskId, "receipt");
+  }
+
+  async #task(id: string): Promise<Pick<Task, "title" | "threadId"> | undefined> {
+    const cached = this.#tasks.get(id);
+    if (cached !== undefined) return cached;
+    const loaded = await this.#opts.lookupTask?.(id);
+    if (loaded !== undefined)
+      this.#tasks.set(id, { title: loaded.title, threadId: loaded.threadId });
+    return loaded;
   }
 
   async #thread(id: string): Promise<ThreadInfo | undefined> {

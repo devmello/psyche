@@ -16,7 +16,7 @@ const handlers = createSearchHandlers(index); // { "search.query": (params, { vi
 ```
 
 - `SqliteSearchIndex` implements the `SearchIndex` contract (`index`, `remove`, `query`) and adds:
-  - `search({ q, viewer?, limit?, groupLimit?, groups? })` → `{ hits, groups, total, warnings, tookMs }`: hits collapsed (messages onto their thread, task actions onto their task), grouped by pane in UI order (`threads, tasks, memory, library, feed, ideas, goals, connectors`) with per-group counts, plain snippets plus `[start, end)` highlight ranges for snippet and title, provenance on every hit;
+  - `search({ q, viewer?, limit?, groupLimit?, groups?, kinds?, collapse? })` → `{ hits, groups, total, warnings, tookMs }`: hits collapsed (messages onto their thread, task actions onto their task), grouped by pane in UI order (`threads, tasks, memory, library, feed, ideas, goals, connectors`) with per-group counts, plain snippets plus `[start, end)` highlight ranges for snippet and title, provenance on every hit;
   - `indexMany(docs)` (one transaction), `removeThread(id)`, `removeSource(source)`, `retitleThread(id, title, scopeKey)`, `setFlag(targetId, "approval" | "receipt" | "attachment")`, `count()`, `optimize()`.
 - `SearchDoc` = the contract's `SearchIndexDoc` plus optional `scopeKey`, `parentId`, `source` (proposed for the contract in a `protocol:` PR).
 - Adapters (pure): `threadDoc`, `messageDoc`, `blocksText`, `taskDoc`, `taskActionDoc`, `libraryDoc(item, extractedText)`, `feedDoc`, `ideaDoc`, `goalDoc`, `connectorDoc(connectorId, item)`.
@@ -27,29 +27,29 @@ const handlers = createSearchHandlers(index); // { "search.query": (params, { vi
 
 | Syntax | Meaning |
 | --- | --- |
-| `dentist booking` | both words (porter stemming, diacritics folded); the **last word also matches as a prefix** while typing (`dent` → dentist) |
-| `"three slots"` | phrase |
-| `dentist OR doctor` | either |
+| `dentist booking` | both words; **every word of three or more letters matches as a prefix** (`runni` → running), with a light plural fold (`dentists` → `dentist*`, `parties` → `part*`); diacritics folded |
+| `"three slots"` | exact phrase (no prefix) |
+| `dentist alice OR bob` | `dentist AND (alice OR bob)`: an OR chain binds tighter than AND |
 | `-cancelled` | exclude |
 | `in:threads` `in:tasks` / `in:activity` `in:memory` `in:library` / `in:files` `in:feed` `in:ideas` `in:goals` `in:connectors` `in:messages` | pane (document kinds) |
 | `type:pdf` `type:image` `type:doc` `type:sheet` `type:slides` `type:audio` `type:video` `type:md` `type:text` `type:application/zip` | file type (MIME family); a kind name (`type:task`) also works |
-| `from:alice` | sender contains `alice` (case-insensitive; name or address); quoted values allowed: `from:"Alice Chen"` |
-| `after:2026-09-01` `before:2026-10-01` `on:2026-10-02` | creation date; `after:` inclusive, `before:` exclusive; also `today`, `yesterday`, `7d`, `2w`, `3m`, `1y` |
-| `has:approval` `has:receipt` `has:attachment` | the document, its thread or its task carries that fact |
+| `from:alice` | sender contains `alice` (Unicode case-insensitive; name or address); quoted values allowed: `from:"Alice Chen"`, `from:émile` |
+| `after:2026-09-01` `before:2026-10-01` `on:2026-10-02` `on:2026-10` | creation date; `after:` inclusive, `before:` exclusive, `on:` a day or a whole month; also `today`, `yesterday`, `7d`, `2w`, `3m`, `1y`; impossible dates are rejected |
+| `has:approval` `has:receipt` `has:attachment` | the document carries that fact (a flagged thread or task matches itself; actions of a flagged task match too) |
 | `is:owner` `is:agent` `is:untrusted` `is:system` | provenance |
 | `thread:<id>` | inside one thread |
 
-Unknown `key:value` tokens are searched as text and returned in `warnings`. User input never becomes FTS5 syntax: every token is quoted, punctuation splits tokens like the tokenizer does, and a query of only punctuation matches nothing.
+Unknown `key:value` tokens are searched as text and returned in `warnings`; negated filters (`-in:tasks`) are not supported and are returned in `warnings` without being applied. Input with nothing searchable left (`"`, `OR`, punctuation) matches nothing. User input never becomes FTS5 syntax: every token is quoted, punctuation splits tokens like the tokenizer does, and a query of only punctuation matches nothing.
 
 ## Ranking
 
-`score = BM25(title ×3, body ×1, sender/tags ×0.5) × (1 + 1.0 × 0.5^(age / 30 days))`: a document from today gets up to twice the score of an equally relevant one from last year (half-life and weight are options). Filter-only queries (`in:library type:pdf`) list newest first. In grouped results the flat list fuses the local ranking with memory hits by reciprocal rank fusion (k = 60), so the two scorers never need comparable scales.
+`score = BM25(title ×3, body ×1, sender/tags ×0.5) × (1 + 1.0 × 0.5^(age / 30 days))`, computed inline in SQL: a document from today gets up to twice the score of an equally relevant one from last year (half-life and weight are options). Filter-only queries (`in:library type:pdf`) list newest first. In grouped results the flat list fuses the local ranking with memory hits by reciprocal rank fusion (k = 60), so the two scorers never need comparable scales.
 
-Ranking runs in two steps: every match is scored once into a `TEMP` table (collapsing in SQL), then top-N slices are read per group and for the flat list, and snippets are built only for the rows returned. On 100 000 documents a term matching 70 % of the corpus answers in about 130 ms on an M-series laptop; rare terms and filtered queries in under 25 ms (`test/perf.test.ts`, `PSYCHE_PERF_LOG=1` prints timings).
+Ranking runs in two steps: every match is scored once into a `TEMP` table (collapsing in SQL), then top-N slices are read per group and for the flat list, and snippets are built only for the rows returned. On 100 000 documents a term matching 70 % of the corpus answers in about 130 ms on an M-series laptop, three common prefixes in about 260 ms, rare terms and filtered queries in under 40 ms (`test/perf.test.ts`, `PSYCHE_PERF_LOG=1` prints timings).
 
 ## Permissions and privacy
 
-- **Incognito content is never stored.** Indexing a document with `incognito: true` deletes any existing row with that id; a thread that becomes incognito is removed with everything under it; messages and tasks of incognito threads are skipped.
+- **Incognito content is never stored.** Indexing a document with `incognito: true` deletes any existing row with that id; a thread that becomes incognito is removed with its messages, tasks, actions and flags; messages and tasks of incognito threads are skipped. The indexer **fails closed**: a message, task or action whose thread (or task) it cannot resolve through the cache, `lookupThread` or `lookupTask` is not indexed.
 - **Designated-person scoping.** Threads with a persona overlay (architecture §4.10) carry their session key as `scopeKey`; messages, tasks and actions inherit it. The owner (any paired operator device) sees every scope. A delegated viewer (`{ kind: "delegated", scopeKey }`, e.g. the agent answering a designated person) sees only its own scope and never memory.
 - **Provenance travels with every hit**, so the UI can show the chip and an agent-side caller can taint the turn for `untrusted` hits. Feed posts and connector content are `untrusted`; downloads, connector and channel files in the Library are `untrusted`.
 - **Memory is not copied.** `MemoryStore.search` is queried per request, so `forget` and dreaming are reflected immediately. Filters memory chunks cannot satisfy (`from:`, `has:`, `type:`, `thread:`) drop memory instead of being ignored.

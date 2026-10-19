@@ -1,7 +1,8 @@
 import type Database from "better-sqlite3";
 
 /**
- * Schema of the search index. The index is derived data: it can be deleted and rebuilt from the
+ * Schema of the search index (unstemmed `unicode61` tokens with diacritics folded; prefix
+ * queries do the work stemming would). The index is derived data: it can be deleted and rebuilt from the
  * Gateway's stores at any time, so it lives in its own file (`state/search.sqlite`) and manages
  * its own schema instead of adding FTS5 shadow tables to `psyche.sqlite` (see README).
  *
@@ -9,7 +10,7 @@ import type Database from "better-sqlite3";
  * it kept in sync by triggers; `search_flags` records `has:` facts (an approval on a task) that
  * may arrive before the document they describe.
  */
-export const SEARCH_SCHEMA_VERSION = 1;
+export const SEARCH_SCHEMA_VERSION = 2;
 
 const DDL = `
 CREATE TABLE IF NOT EXISTS search_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -27,6 +28,7 @@ CREATE TABLE IF NOT EXISTS search_docs (
   collapse_key TEXT NOT NULL,
   scope_key TEXT NOT NULL,
   sender TEXT,
+  sender_key TEXT,                                 -- NFC + Unicode lower case, for from:
   mime TEXT,
   tags TEXT NOT NULL CHECK (json_valid(tags)),
   source TEXT,
@@ -45,7 +47,7 @@ CREATE TABLE IF NOT EXISTS search_flags (
 CREATE VIRTUAL TABLE IF NOT EXISTS search_fts USING fts5(
   title, body, extra,
   content='search_docs', content_rowid='rowid',
-  tokenize='porter unicode61 remove_diacritics 2',
+  tokenize='unicode61 remove_diacritics 2',
   prefix='2 3'
 );
 CREATE TRIGGER IF NOT EXISTS search_docs_ai AFTER INSERT ON search_docs BEGIN
@@ -62,19 +64,43 @@ CREATE TRIGGER IF NOT EXISTS search_docs_au AFTER UPDATE ON search_docs BEGIN
 END;
 `;
 
-/** Creates the tables if missing; throws when the file holds a newer schema. */
+const DROP = `
+DROP TRIGGER IF EXISTS search_docs_ai;
+DROP TRIGGER IF EXISTS search_docs_ad;
+DROP TRIGGER IF EXISTS search_docs_au;
+DROP TABLE IF EXISTS search_fts;
+DROP TABLE IF EXISTS search_flags;
+DROP TABLE IF EXISTS search_docs;
+DROP TABLE IF EXISTS search_meta;
+`;
+
+/**
+ * Creates the tables if missing. An index from an older build is dropped and recreated (it is
+ * derived data; the caller backfills); a newer one is refused.
+ */
 export function ensureSearchSchema(db: Database.Database): void {
-  db.exec(DDL);
-  const row = db.prepare("SELECT value FROM search_meta WHERE key = 'schema_version'").get() as
-    | { value: string }
-    | undefined;
-  if (row === undefined) {
-    db.prepare("INSERT INTO search_meta (key, value) VALUES ('schema_version', ?)").run(
-      String(SEARCH_SCHEMA_VERSION),
-    );
-  } else if (Number(row.value) > SEARCH_SCHEMA_VERSION) {
+  const hasMeta = db
+    .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'search_meta'")
+    .get();
+  const row = hasMeta
+    ? (db.prepare("SELECT value FROM search_meta WHERE key = 'schema_version'").get() as
+        | { value: string }
+        | undefined)
+    : undefined;
+  const version = row === undefined ? undefined : Number(row.value);
+  if (version !== undefined && version > SEARCH_SCHEMA_VERSION) {
     throw new Error(
-      `search index schema ${row.value} is newer than this build (${SEARCH_SCHEMA_VERSION}); delete the index file to rebuild it`,
+      `search index schema ${version} is newer than this build (${SEARCH_SCHEMA_VERSION}); delete the index file to rebuild it`,
     );
   }
+  if (version !== undefined && version < SEARCH_SCHEMA_VERSION) db.exec(DROP);
+  db.exec(DDL);
+  db.prepare(
+    "INSERT INTO search_meta (key, value) VALUES ('schema_version', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+  ).run(String(SEARCH_SCHEMA_VERSION));
+}
+
+/** True when the index was just created or rebuilt and the caller should backfill it. */
+export function searchIndexIsEmpty(db: Database.Database): boolean {
+  return db.prepare("SELECT 1 FROM search_docs LIMIT 1").get() === undefined;
 }

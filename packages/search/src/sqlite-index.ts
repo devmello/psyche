@@ -116,24 +116,18 @@ export class SqliteSearchIndex implements SearchIndex {
     ensureSearchSchema(db);
     db.pragma("temp_store = MEMORY");
     db.exec("CREATE TEMP TABLE IF NOT EXISTS search_hits (rid INTEGER, grp TEXT, score REAL)");
-    db.function(
-      "psyche_recency",
-      { deterministic: true },
-      (created: unknown, now: unknown, halfLife: unknown, weight: unknown) => {
-        const age = Math.max(0, Number(now) - Number(created));
-        return 1 + Number(weight) * 0.5 ** (age / Number(halfLife));
-      },
-    );
     this.#upsert = db.prepare(`
       INSERT INTO search_docs (id, kind, grp, title, body, extra, provenance, thread_id, parent_id,
-        collapse_key, scope_key, sender, mime, tags, source, created_ms, updated_ms)
+        collapse_key, scope_key, sender, sender_key, mime, tags, source, created_ms, updated_ms)
       VALUES (@id, @kind, @grp, @title, @body, @extra, @provenance, @thread_id, @parent_id,
-        @collapse_key, @scope_key, @sender, @mime, @tags, @source, @created_ms, @updated_ms)
+        @collapse_key, @scope_key, @sender, @sender_key, @mime, @tags, @source, @created_ms,
+        @updated_ms)
       ON CONFLICT (id) DO UPDATE SET kind = excluded.kind, grp = excluded.grp,
         title = excluded.title, body = excluded.body, extra = excluded.extra,
         provenance = excluded.provenance, thread_id = excluded.thread_id,
         parent_id = excluded.parent_id, collapse_key = excluded.collapse_key,
-        scope_key = excluded.scope_key, sender = excluded.sender, mime = excluded.mime,
+        scope_key = excluded.scope_key, sender = excluded.sender,
+        sender_key = excluded.sender_key, mime = excluded.mime,
         tags = excluded.tags, source = excluded.source, created_ms = excluded.created_ms,
         updated_ms = excluded.updated_ms`);
     this.#delete = db.prepare("DELETE FROM search_docs WHERE id = ?");
@@ -163,19 +157,23 @@ export class SqliteSearchIndex implements SearchIndex {
       this.#delete.run(doc.id);
       return;
     }
+    const body = doc.text.length > this.#maxBody ? doc.text.slice(0, this.#maxBody) : doc.text;
+    const extra = [doc.from, ...(doc.tags ?? [])].filter((x) => x !== undefined && x !== "");
     this.#upsert.run({
       id: doc.id,
       kind: doc.kind,
       grp: GROUP_OF_KIND[doc.kind],
-      title: doc.title,
-      body: doc.text.length > this.#maxBody ? doc.text.slice(0, this.#maxBody) : doc.text,
-      extra: [doc.from, ...(doc.tags ?? [])].filter((x) => x !== undefined && x !== "").join(" "),
+      // The highlight markers can never come from content, so ranges cannot be forged.
+      title: clean(doc.title),
+      body: clean(body),
+      extra: clean(extra.join(" ")),
       provenance: doc.provenance,
       thread_id: doc.threadId ?? null,
       parent_id: doc.parentId ?? null,
       collapse_key: collapseKey(doc),
       scope_key: doc.scopeKey ?? OWNER_SCOPE,
       sender: doc.from ?? null,
+      sender_key: doc.from === undefined ? null : doc.from.normalize("NFC").toLowerCase(),
       mime: doc.mime ?? null,
       tags: JSON.stringify(doc.tags ?? []),
       source: doc.source ?? null,
@@ -189,13 +187,31 @@ export class SqliteSearchIndex implements SearchIndex {
     this.db.prepare("DELETE FROM search_flags WHERE target_id = ?").run(id);
   }
 
-  /** Removes a thread and everything indexed under it (thread deleted or turned incognito). */
+  /**
+   * Removes a thread and the conversation indexed under it: messages, tasks and their actions,
+   * and their flags (thread deleted or turned incognito). Library items keep their own life.
+   */
   async removeThread(threadId: string): Promise<number> {
-    const r = this.db
-      .prepare("DELETE FROM search_docs WHERE id = ? OR thread_id = ?")
-      .run(threadId, threadId);
-    this.db.prepare("DELETE FROM search_flags WHERE target_id = ?").run(threadId);
-    return r.changes;
+    return this.db.transaction(() => {
+      const ids = (
+        this.db
+          .prepare(
+            `SELECT id FROM search_docs
+             WHERE (id = ? AND kind = 'thread')
+                OR (thread_id = ? AND kind IN ('thread', 'message', 'task'))
+                OR parent_id IN (SELECT id FROM search_docs WHERE thread_id = ? AND kind = 'task')`,
+          )
+          .all(threadId, threadId, threadId) as { id: string }[]
+      ).map((r) => r.id);
+      const delDoc = this.db.prepare("DELETE FROM search_docs WHERE id = ?");
+      const delFlags = this.db.prepare("DELETE FROM search_flags WHERE target_id = ?");
+      for (const id of ids) {
+        delDoc.run(id);
+        delFlags.run(id);
+      }
+      delFlags.run(threadId);
+      return ids.length;
+    })();
   }
 
   /** A thread was renamed or re-scoped: carry it to the messages and tasks indexed under it. */
@@ -267,15 +283,14 @@ export class SqliteSearchIndex implements SearchIndex {
     const limit = clampLimit(request.limit, 20);
     const groupLimit = clampLimit(request.groupLimit, 5);
     const where = this.#where(parsed.filters, undefined, viewer);
-    if (request.groups !== undefined) {
-      const kinds = (Object.keys(GROUP_OF_KIND) as SearchIndexDocKind[]).filter((k) =>
-        request.groups?.includes(GROUP_OF_KIND[k]),
-      );
+    const kinds = allowedKinds(request);
+    if (kinds !== undefined) {
       where.sql.push(`d.kind IN (${kinds.map(() => "?").join(", ") || "NULL"})`);
       where.params.push(...kinds);
     }
 
-    const ranked = this.#rank(parsed, where, { collapse: true, limit, groupLimit });
+    const collapse = request.collapse ?? true;
+    const ranked = this.#rank(parsed, where, { collapse, limit, groupLimit });
     const local = this.#materialize(parsed, ranked.rows);
     const byRid = new Map(ranked.rows.map((r, i) => [r.rid, local[i]] as const));
 
@@ -293,7 +308,7 @@ export class SqliteSearchIndex implements SearchIndex {
 
     let total = ranked.total;
     let flat = flatLocal;
-    const memory = await this.#searchMemory(parsed, viewer, request.groups, groupLimit, limit);
+    const memory = await this.#searchMemory(parsed, viewer, kinds, groupLimit, limit);
     if (memory.length > 0) {
       groups.set("memory", {
         group: "memory",
@@ -319,13 +334,13 @@ export class SqliteSearchIndex implements SearchIndex {
   async #searchMemory(
     parsed: ParsedQuery,
     viewer: SearchViewer,
-    groups: SearchGroup[] | undefined,
+    kinds: SearchIndexDocKind[] | undefined,
     groupLimit: number,
     limit: number,
   ): Promise<RichHit[]> {
     const f = parsed.filters;
-    if (this.#memory === undefined || viewer.kind !== "owner") return [];
-    if (groups !== undefined && !groups.includes("memory")) return [];
+    if (this.#memory === undefined || viewer.kind !== "owner" || parsed.matchesNothing) return [];
+    if (kinds !== undefined && !kinds.includes("memory")) return [];
     if (f.kinds !== undefined && !f.kinds.includes("memory")) return [];
     // Filters memory chunks cannot satisfy exclude memory rather than being ignored.
     if (f.from !== undefined || f.has !== undefined || f.mimes !== undefined) return [];
@@ -362,8 +377,8 @@ export class SqliteSearchIndex implements SearchIndex {
       params.push(...parsed.mimes.map((m) => m.replace(/\*$/, "%")));
     }
     if (parsed.from !== undefined) {
-      sql.push(`(${parsed.from.map(() => "instr(lower(d.sender), ?) > 0").join(" OR ")})`);
-      params.push(...parsed.from);
+      sql.push(`(${parsed.from.map(() => "instr(d.sender_key, ?) > 0").join(" OR ")})`);
+      params.push(...parsed.from.map((f) => f.normalize("NFC").toLowerCase()));
     }
     if (contract?.from !== undefined) {
       sql.push("d.sender = ?");
@@ -392,7 +407,7 @@ export class SqliteSearchIndex implements SearchIndex {
     }
     for (const flag of parsed.has ?? []) {
       sql.push(
-        "EXISTS (SELECT 1 FROM search_flags f WHERE f.flag = ? AND f.target_id IN (d.id, d.thread_id, d.parent_id))",
+        "EXISTS (SELECT 1 FROM search_flags f WHERE f.flag = ? AND f.target_id IN (d.id, d.parent_id))",
       );
       params.push(flag);
     }
@@ -413,11 +428,13 @@ export class SqliteSearchIndex implements SearchIndex {
       params.push(exclusion);
     }
     // Terms that tokenize to nothing (only punctuation) match nothing rather than everything.
-    if (match === undefined && parsed.terms.length > 0) {
+    if (parsed.matchesNothing || (match === undefined && parsed.terms.length > 0)) {
       return { rows: [], total: 0, groupCounts: new Map() };
     }
-    const recency = "psyche_recency(d.created_ms, ?, ?, ?)";
-    const recencyParams = [this.#now(), this.#halfLifeMs, this.#weight];
+    // 1 + weight × 0.5^(age / halfLife), inline (SQLite math functions): a JS function called
+    // per matching row dominated common-term queries.
+    const recency = "(1 + ? * exp(-0.6931471805599453 * max(0, ? - d.created_ms) / ?))";
+    const recencyParams = [this.#weight, this.#now(), this.#halfLifeMs];
     const whereSql = sql.length === 0 ? "" : ` AND ${sql.join(" AND ")}`;
     const m =
       match === undefined
@@ -527,7 +544,27 @@ export class SqliteSearchIndex implements SearchIndex {
   }
 }
 
+/** Kinds allowed by `groups` and `kinds` (intersection), or `undefined` for all. */
+function allowedKinds(request: SearchRequest): SearchIndexDocKind[] | undefined {
+  let kinds: SearchIndexDocKind[] | undefined;
+  if (request.groups !== undefined) {
+    kinds = (Object.keys(GROUP_OF_KIND) as SearchIndexDocKind[]).filter((k) =>
+      request.groups?.includes(GROUP_OF_KIND[k]),
+    );
+  }
+  if (request.kinds !== undefined) {
+    const wanted = request.kinds;
+    kinds = (kinds ?? wanted).filter((k) => wanted.includes(k));
+  }
+  return kinds;
+}
+
 function clampLimit(value: number | undefined, fallback: number): number {
   if (value === undefined || !Number.isFinite(value)) return fallback;
   return Math.max(1, Math.min(200, Math.trunc(value)));
+}
+
+const MARKERS = new RegExp(`[${HL_OPEN}${HL_CLOSE}]`, "g");
+function clean(text: string): string {
+  return text.replace(MARKERS, "");
 }

@@ -5,8 +5,8 @@ import type { Provenance, SearchIndexDocKind } from "@psyche/protocol";
  *
  *   dentist in:threads from:alice after:2026-09-01 has:approval "three slots" -cancelled
  *
- * Bare words are ANDed, `OR` between two terms makes an alternative, `"…"` is a phrase, `-x`
- * excludes, and the last bare word of the query also matches as a prefix (typing in ⌘K).
+ * Bare words are ANDed and match as prefixes (so ⌘K results stay while a word is half typed),
+ * `OR` between two terms makes an alternative, `"…"` is an exact phrase, `-x` excludes.
  * Filters: `in:` (pane), `type:` (file type or document kind), `from:`, `before:`, `after:`,
  * `on:`, `has:` (`approval`, `receipt`, `attachment`), `is:` (provenance), `thread:`.
  * An unknown `key:value` is searched as text.
@@ -14,7 +14,10 @@ import type { Provenance, SearchIndexDocKind } from "@psyche/protocol";
 
 export interface QueryTerm {
   text: string;
-  /** Matches any token starting with `text`. */
+  /**
+   * Matches tokens that start with the term (bare words of three or more letters, with a light
+   * plural fold: `dentists` → `dentist*`). Phrases match exactly.
+   */
   prefix: boolean;
   /** `"…"` phrase (may hold several tokens). */
   phrase: boolean;
@@ -46,6 +49,11 @@ export interface ParsedQuery {
   text: string;
   /** Filter tokens that could not be understood (shown to the user as hints). */
   warnings: string[];
+  /**
+   * The input was not blank but nothing searchable was left (a lone `"`, `OR`, punctuation):
+   * the query matches nothing instead of listing everything.
+   */
+  matchesNothing: boolean;
 }
 
 export interface ParseOptions {
@@ -182,6 +190,12 @@ function tokenize(input: string): Token[] {
 
 /** Calendar date `YYYY-MM-DD` → epoch ms of its local midnight; relative forms supported. */
 export function parseDate(value: string, opts: ParseOptions = {}): number | undefined {
+  const v = value.toLowerCase();
+  if (/^(?:today|yesterday|\d{1,4}[dwmy])$/.test(v)) return parseRelative(v, opts);
+  return parseDateRange(value, opts)?.start;
+}
+
+function parseRelative(value: string, opts: ParseOptions): number | undefined {
   const now = opts.now ?? Date.now();
   const tz = (opts.tzOffsetMinutes ?? 0) * 60_000;
   const startOfDay = (ms: number) => Math.floor((ms + tz) / DAY_MS) * DAY_MS - tz;
@@ -195,10 +209,35 @@ export function parseDate(value: string, opts: ParseOptions = {}): number | unde
     const days = unit === "d" ? 1 : unit === "w" ? 7 : unit === "m" ? 30 : 365;
     return now - count * days * DAY_MS;
   }
+  return undefined;
+}
+
+/**
+ * A calendar date as a `[start, end)` range: `2026-10-02` is that day, `2026-10` the month,
+ * `today` / `yesterday` the day; relative forms (`7d`) start then and last a day. Impossible
+ * dates (`2026-02-31`) are rejected rather than rolled over.
+ */
+export function parseDateRange(
+  value: string,
+  opts: ParseOptions = {},
+): { start: number; end: number } | undefined {
+  const tz = (opts.tzOffsetMinutes ?? 0) * 60_000;
+  const v = value.toLowerCase();
   const iso = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec(v);
   if (iso !== null) {
-    const ms = Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3] ?? "1"));
-    return Number.isNaN(ms) ? undefined : ms - tz;
+    const y = Number(iso[1]);
+    const m = Number(iso[2]) - 1;
+    const d = iso[3] === undefined ? 1 : Number(iso[3]);
+    const start = Date.UTC(y, m, d);
+    const check = new Date(start);
+    if (check.getUTCFullYear() !== y || check.getUTCMonth() !== m || check.getUTCDate() !== d)
+      return undefined;
+    const end = iso[3] === undefined ? Date.UTC(y, m + 1, 1) : start + DAY_MS;
+    return { start: start - tz, end: end - tz };
+  }
+  if (/^(?:today|yesterday|\d{1,4}[dwmy])$/.test(v)) {
+    const start = parseRelative(v, opts);
+    return start === undefined ? undefined : { start, end: start + DAY_MS };
   }
   return undefined;
 }
@@ -227,6 +266,7 @@ export function parseQuery(input: string, opts: ParseOptions = {}): ParsedQuery 
     };
     if (t.negated) {
       excluded.push(term);
+      pendingOr = false;
       return;
     }
     term.or = pendingOr && terms.length > 0;
@@ -246,6 +286,11 @@ export function parseQuery(input: string, opts: ParseOptions = {}): ParsedQuery 
     }
     const value = t.value.trim();
     const lower = value.toLowerCase();
+    if (t.negated) {
+      // `-in:tasks` / `-from:alice` are not supported: say so instead of applying them positively.
+      warnings.push(`-${t.key}:${value}`);
+      continue;
+    }
     const unknown = () => {
       warnings.push(`${t.key}:${value}`);
       addTerm({ ...t, value: `${t.key}:${value}`, key: undefined });
@@ -272,19 +317,21 @@ export function parseQuery(input: string, opts: ParseOptions = {}): ParsedQuery 
         else filters.from = pushUnique(filters.from, [lower]);
         break;
       case "before":
-      case "after":
-      case "on": {
+      case "after": {
         const ms = parseDate(value, opts);
-        if (ms === undefined) {
+        if (ms === undefined) unknown();
+        else if (t.key === "before") filters.before = Math.min(filters.before ?? Infinity, ms);
+        else filters.after = Math.max(filters.after ?? -Infinity, ms);
+        break;
+      }
+      case "on": {
+        const range = parseDateRange(value, opts);
+        if (range === undefined) {
           unknown();
           break;
         }
-        if (t.key === "before") filters.before = Math.min(filters.before ?? Infinity, ms);
-        else if (t.key === "after") filters.after = Math.max(filters.after ?? -Infinity, ms);
-        else {
-          filters.after = Math.max(filters.after ?? -Infinity, ms);
-          filters.before = Math.min(filters.before ?? Infinity, ms + DAY_MS);
-        }
+        filters.after = Math.max(filters.after ?? -Infinity, range.start);
+        filters.before = Math.min(filters.before ?? Infinity, range.end);
         break;
       }
       case "has": {
@@ -307,22 +354,13 @@ export function parseQuery(input: string, opts: ParseOptions = {}): ParsedQuery 
     }
   }
 
-  // The last bare word also matches as a prefix while the user is still typing it.
-  const lastToken = tokens[tokens.length - 1];
-  const lastTerm = terms[terms.length - 1];
-  if (
-    lastToken?.last === true &&
-    lastToken.key === undefined &&
-    !lastToken.quoted &&
-    !lastToken.negated &&
-    lastTerm !== undefined &&
-    !lastTerm.phrase &&
-    lastTerm.text === lastToken.value
-  ) {
-    lastTerm.prefix = true;
-  }
-
-  return { terms, excluded, filters, text: text.join(" "), warnings };
+  for (const term of [...terms, ...excluded]) term.prefix = !term.phrase;
+  const matchesNothing =
+    input.trim().length > 0 &&
+    toFtsMatch(terms) === undefined &&
+    toFtsExclusion(excluded) === undefined &&
+    Object.keys(filters).length === 0;
+  return { terms, excluded, filters, text: text.join(" "), warnings, matchesNothing };
 }
 
 /** Splits a term into FTS tokens the way the `unicode61` tokenizer would (letters and digits). */
@@ -334,6 +372,18 @@ function quote(text: string): string {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
+/**
+ * Light English plural fold for prefix matching (the index is not stemmed, so a word typed
+ * halfway still matches): `parties` → `part`, `boxes` → `box`, `dentists` → `dentist`.
+ */
+export function foldPlural(token: string): string {
+  const t = token.toLowerCase();
+  if (t.length > 4 && t.endsWith("ies")) return t.slice(0, -3);
+  if (t.length > 4 && /(?:s|x|z|ch|sh)es$/.test(t)) return t.slice(0, -2);
+  if (t.length > 3 && t.endsWith("s") && !t.endsWith("ss")) return t.slice(0, -1);
+  return t;
+}
+
 function termExpr(term: QueryTerm): string | undefined {
   const tokens = ftsTokens(term.text);
   if (tokens.length === 0) return undefined;
@@ -341,18 +391,28 @@ function termExpr(term: QueryTerm): string | undefined {
     // "a-b" or "a.b" is a phrase of its tokens, like FTS5 does for unquoted punctuation.
     return quote(tokens.join(" "));
   }
-  return `${quote(tokens[0] ?? "")}${term.prefix ? "*" : ""}`;
+  const token = tokens[0] ?? "";
+  if (!term.prefix) return quote(token);
+  const folded = foldPlural(token);
+  // One- and two-letter prefixes would match half the vocabulary: exact match instead.
+  return folded.length >= 3 ? `${quote(folded)}*` : quote(token);
 }
 
-/** FTS5 MATCH expression for the positive terms, or `undefined` when there are none. */
+/**
+ * FTS5 MATCH expression for the positive terms, or `undefined` when there are none. Terms are
+ * ANDed; an `OR` chain is parenthesized (FTS5 binds AND tighter than OR).
+ */
 export function toFtsMatch(terms: QueryTerm[]): string | undefined {
-  let expr = "";
+  const chains: string[][] = [];
   for (const term of terms) {
     const e = termExpr(term);
     if (e === undefined) continue;
-    expr = expr.length === 0 ? e : `${expr} ${term.or ? "OR" : "AND"} ${e}`;
+    const last = chains[chains.length - 1];
+    if (term.or && last !== undefined) last.push(e);
+    else chains.push([e]);
   }
-  return expr.length === 0 ? undefined : expr;
+  if (chains.length === 0) return undefined;
+  return chains.map((c) => (c.length === 1 ? c[0] : `(${c.join(" OR ")})`)).join(" AND ");
 }
 
 /** FTS5 MATCH expression that matches any excluded term, or `undefined`. */
@@ -363,5 +423,5 @@ export function toFtsExclusion(excluded: QueryTerm[]): string | undefined {
 
 /** Lower-case word tokens of the positive terms, used for highlighting outside FTS. */
 export function highlightTokens(parsed: ParsedQuery): string[] {
-  return parsed.terms.flatMap((t) => ftsTokens(t.text.toLowerCase()));
+  return parsed.terms.flatMap((t) => ftsTokens(t.text.toLowerCase()).map(foldPlural));
 }
