@@ -63,7 +63,21 @@ export const memoryState = sqliteTable("memory_state", {
   updatedAt: text("updated_at").notNull(),
 });
 
-export const s07Schema = { memoryFiles, memoryClaims, memoryChunks, memoryJobs, memoryState };
+export const memoryRecalls = sqliteTable("memory_recalls", {
+  id: integer("id").primaryKey(),
+  chunkId: text("chunk_id").notNull(),
+  queryHash: text("query_hash").notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const s07Schema = {
+  memoryFiles,
+  memoryClaims,
+  memoryChunks,
+  memoryJobs,
+  memoryState,
+  memoryRecalls,
+};
 
 export type MemoryFileRow = typeof memoryFiles.$inferSelect;
 export type MemoryClaimRow = typeof memoryClaims.$inferSelect;

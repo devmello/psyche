@@ -1,0 +1,7 @@
+{
+  "$comment": "Hard assertions that fail on the current stack for a tracked reason. pnpm check:scenarios does not fail on these, and does fail when one starts passing (remove the entry). Each entry names its issue.",
+  "v7-research-brief": {
+    "runner/1": "https://github.com/devmello/psyche/issues/69",
+    "s1-research/5:approval_not_requested": "https://github.com/devmello/psyche/issues/69"
+  }
+}

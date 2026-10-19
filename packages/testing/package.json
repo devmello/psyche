@@ -18,6 +18,10 @@
       "types": "./src/resumability/index.ts",
       "default": "./src/resumability/index.ts"
     },
+    "./scenarios": {
+      "types": "./src/scenarios/index.ts",
+      "default": "./src/scenarios/index.ts"
+    },
     "./vitest": {
       "types": "./src/vitest.ts",
       "default": "./src/vitest.ts"

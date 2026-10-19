@@ -119,6 +119,36 @@ jobs:
         run: |
           node -e 'const r=require("./out/security/injection-report.json");console.log(JSON.stringify({stack:r.stack,summary:r.summary},null,2))' >> "$GITHUB_STEP_SUMMARY" || true
 
+  scenarios:
+    name: security / scenarios-scripted
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm (version from packageManager in package.json)
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node (version from .nvmrc)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Real agent loop and Permission Broker, fixture-backed services; hard assertions gate, known
+      # failures (tests/scenarios/known-failures.json) are allowed until their issue is fixed.
+      - name: Run V1, V2 and V7 in scripted mode
+        run: pnpm check:scenarios
+
   resumability:
     name: security / resumability
     runs-on: ubuntu-latest
