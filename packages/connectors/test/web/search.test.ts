@@ -15,6 +15,7 @@ interface Recorded {
   method: string;
   headers: Record<string, string>;
   body: unknown;
+  redirect?: RequestInit["redirect"];
 }
 
 function fakeFetch(reply: { status?: number; json?: unknown; text?: string }): FetchFn & {
@@ -33,6 +34,7 @@ function fakeFetch(reply: { status?: number; json?: unknown; text?: string }): F
       method: init?.method ?? "GET",
       headers,
       body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined,
+      redirect: init?.redirect,
     });
     const body = reply.text ?? JSON.stringify(reply.json ?? {});
     return new Response(body, {
@@ -79,6 +81,15 @@ function setup(provider: Keyed, reply: Parameters<typeof fakeFetch>[0]) {
   const make = { brave: braveProvider, exa: exaProvider, tavily: tavilyProvider }[provider];
   return { provider: make(opts), fetch, credentials, approvals, key: s.key };
 }
+
+describe("keys never follow redirects", () => {
+  it.each(["brave", "exa", "tavily"] as const)("%s calls use redirect: error", async (id) => {
+    const json = fixture(`${id}.json`);
+    const { provider, fetch } = setup(id, { json });
+    await provider.search("q", { count: 1 });
+    expect(fetch.calls[0]?.redirect).toBe("error");
+  });
+});
 
 describe("Brave", () => {
   it("maps request and response", async () => {

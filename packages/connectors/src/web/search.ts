@@ -171,7 +171,8 @@ async function callApi(
 ): Promise<unknown> {
   let res: Response;
   try {
-    res = await fetchFn(url, init);
+    // Never follow a redirect: provider keys ride in custom headers that fetch would forward.
+    res = await fetchFn(url, { ...init, redirect: "error" });
   } catch (err) {
     if (init.signal?.aborted === true) {
       throw new PsycheError("cancelled", `${provider} search was cancelled`);
@@ -401,6 +402,9 @@ export function searxngProvider(opts: SearxngProviderOptions): SearchProvider {
       const q = checkQuery(query);
       const count = clampCount(options.count);
       // Owner-configured, but still vetted: private hosts need an explicit allowlist entry.
+      // Known gap (low): this call goes through `opts.fetch`, which resolves DNS again, so the
+      // vetted address is not pinned as in `safeFetch`. The base URL comes only from the owner's
+      // settings, never from the model; pinning is a follow-up.
       if (!isAllowlisted(base, opts.privateAllowlist)) {
         await vetUrl(base, {
           ...(opts.lookup === undefined ? {} : { lookup: opts.lookup }),
