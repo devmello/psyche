@@ -63,6 +63,11 @@ export interface GatewayContext {
   readonly idempotency: Idempotency;
   readonly sessions: SessionController;
   readonly nodes: NodeRegistry;
+  /**
+   * Handlers mounted by the composition root (package APIs such as `approvals.*` or `memory.*`).
+   * Gateway-owned handlers win; `startGateway` refuses a name that both define.
+   */
+  readonly extraHandlers: Readonly<Record<string, HandlerDef>>;
   serverOrigin(): string;
   connections(): Iterable<LiveConnection>;
 }
