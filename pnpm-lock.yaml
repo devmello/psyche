@@ -276,12 +276,39 @@ importers:
 
   apps/gateway:
     dependencies:
+      '@psyche/agent-core':
+        specifier: workspace:*
+        version: link:../../packages/agent-core
+      '@psyche/audit':
+        specifier: workspace:*
+        version: link:../../packages/audit
       '@psyche/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@psyche/memory':
+        specifier: workspace:*
+        version: link:../../packages/memory
+      '@psyche/model-router':
+        specifier: workspace:*
+        version: link:../../packages/model-router
+      '@psyche/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
+      '@psyche/permissions':
+        specifier: workspace:*
+        version: link:../../packages/permissions
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@psyche/scheduler':
+        specifier: workspace:*
+        version: link:../../packages/scheduler
+      '@psyche/tasks':
+        specifier: workspace:*
+        version: link:../../packages/tasks
+      '@sinclair/typebox':
+        specifier: 0.34.52
+        version: 0.34.52
       ulid:
         specifier: 3.0.2
         version: 3.0.2
