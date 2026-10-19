@@ -80,7 +80,7 @@ type Highlighter = {
   getLoadedLanguages(): string[];
   codeToTokensBase(
     code: string,
-    opts: { lang: string; theme: string },
+    opts: { lang: string; theme: string; tokenizeTimeLimit?: number },
   ): { content: string; offset: number; color?: string; fontStyle?: number }[][];
 };
 
@@ -118,7 +118,13 @@ export async function highlightTokens(
     return [];
   }
   const out: CodeToken[] = [];
-  for (const line of hl.codeToTokensBase(code, { lang, theme: CODE_THEMES[theme] })) {
+  for (const line of hl.codeToTokensBase(code, {
+    lang,
+    theme: CODE_THEMES[theme],
+    // Shiki stops tokenizing a line after this long and leaves the rest uncolored; the first
+    // line pays for regex compilation, so allow more than the 500 ms default.
+    tokenizeTimeLimit: 2000,
+  })) {
     for (const t of line) {
       if (t.content.length === 0) continue;
       const tok: CodeToken = { from: t.offset, to: t.offset + t.content.length };
