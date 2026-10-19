@@ -1,8 +1,8 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, Nullable, Provenance, StringEnum } from "./common.ts";
 import { PsycheError } from "./errors.ts";
-import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
 import { QueuedMessage } from "./methods/chat.ts";
+import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
 import { Block } from "./schemas/blocks.ts";
 import { Device, NodeInfo, PairingRequest } from "./schemas/identity.ts";
 import { Channel, CredentialMeta, VaultStatus } from "./schemas/integrations.ts";
