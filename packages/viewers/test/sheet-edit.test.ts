@@ -47,7 +47,7 @@ describe("sheet edit bridge (SheetJS ⇄ Univer snapshot)", () => {
     const styleId = cells[1]?.[1]?.s as string;
     expect(data.styles[styleId]?.n?.pattern).toBe("$#,##0.00");
     expect(budget?.mergeData).toEqual([{ startRow: 5, startColumn: 0, endRow: 5, endColumn: 2 }]);
-    expect((budget?.columnData as Record<number, { w: number }>)[0]?.w).toBe(120);
+    expect(budget?.columnData?.[0]?.w).toBe(120);
   });
 
   it("round-trips an xlsx through Univer's snapshot without losing data", async () => {
@@ -56,7 +56,7 @@ describe("sheet edit bridge (SheetJS ⇄ Univer snapshot)", () => {
     const budget = snap.data.sheets[snap.data.sheetOrder[0] as string];
     const cells = budget?.cellData as Record<number, Record<number, Record<string, unknown>>>;
     (cells[2] as Record<number, unknown>)[1] = { v: 400, t: UNIVER_CELL.NUMBER };
-    (cells[6] ??= {})[0] = { p: { body: { dataStream: "typed note\r\n" } } };
+    cells[6] = { 0: { p: { body: { dataStream: "typed note\r\n" } } } };
     const out = await fromUniverSnapshot(snap.data, snap.format);
     const wb = XLSX.read(out, { type: "array", cellFormula: true, cellNF: true, cellStyles: true });
     expect(wb.SheetNames).toEqual(["Budget", "Notes"]);

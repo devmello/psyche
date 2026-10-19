@@ -98,6 +98,17 @@ function snapshotShell(name: string): IWorkbookData {
   };
 }
 
+function setCell(
+  cells: Record<number, Record<number, ICellData>>,
+  r: number,
+  c: number,
+  cell: ICellData,
+): void {
+  const row = cells[r] ?? {};
+  row[c] = cell;
+  cells[r] = row;
+}
+
 function guardCells(count: number): void {
   if (count > MAX_EDIT_CELLS) {
     throw new RangeError(`too large to edit (${count} cells, limit ${MAX_EDIT_CELLS})`);
@@ -122,7 +133,7 @@ export async function toUniverSnapshot(bytes: Uint8Array, name: string): Promise
     parsed.rows.forEach((row, r) => {
       row.forEach((raw, c) => {
         const cell = csvCell(raw);
-        if (cell !== undefined) (ws.cellData[r] ??= {})[c] = cell;
+        if (cell !== undefined) setCell(ws.cellData, r, c, cell);
       });
     });
     data.sheetOrder.push(ws.id as string);
@@ -158,7 +169,7 @@ export async function toUniverSnapshot(bytes: Uint8Array, name: string): Promise
         if (cell.c !== undefined && cell.c.length > 0) loss.comments = true;
         const s = (cell as { s?: Record<string, unknown> }).s;
         if (s !== undefined && Object.keys(s).some((k) => k !== "patternType")) loss.styled = true;
-        if (out !== undefined) (ws.cellData[r] ??= {})[c] = out;
+        if (out !== undefined) setCell(ws.cellData, r, c, out);
       });
     });
     for (const m of src["!merges"] ?? []) {

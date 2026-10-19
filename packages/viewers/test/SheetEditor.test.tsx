@@ -41,7 +41,13 @@ function fakeRuntime() {
 }
 
 const csv = "name,qty\napple,3\n";
-const item = { id: "f1", name: "fruit.csv", mime: "text/csv", size: csv.length };
+const item = {
+  id: "f1",
+  name: "fruit.csv",
+  mime: "text/csv",
+  size: csv.length,
+  provenance: "trusted" as const,
+};
 const load = async () => new TextEncoder().encode(csv);
 
 describe("SheetEditor", () => {
