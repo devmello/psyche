@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { backoffDelay } from "../src/lib/backoff.ts";
+import { backoffDelay } from "../../src/client/backoff.ts";
 
 describe("backoffDelay", () => {
   it("doubles from the base and caps at max", () => {

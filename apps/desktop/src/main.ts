@@ -1,7 +1,8 @@
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import type { GatewayConnection } from "@psyche/web/client";
 import { app, BaseWindow, ipcMain, session, type WebContents, WebContentsView } from "electron";
-import { GatewayClient } from "./gateway-client.ts";
+import { createDesktopGateway } from "./gateway-client.ts";
 import { loadOrCreateDeviceKey } from "./lib/device-key.ts";
 import { IPC } from "./lib/ipc.ts";
 
@@ -18,7 +19,7 @@ if (!app.requestSingleInstanceLock()) app.quit();
 
 let mainWindow: BaseWindow | undefined;
 let appView: WebContentsView | undefined;
-let gateway: GatewayClient | undefined;
+let gateway: GatewayConnection | undefined;
 
 function rendererEntry(): string {
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) return MAIN_WINDOW_VITE_DEV_SERVER_URL;
@@ -87,7 +88,7 @@ void app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler(() => false);
 
   const deviceKey = loadOrCreateDeviceKey(join(app.getPath("userData"), "device-key.json"));
-  gateway = new GatewayClient({
+  gateway = createDesktopGateway({
     deviceKey,
     onStatus: (status) => appView?.webContents.send(IPC.status, status),
   });

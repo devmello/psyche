@@ -1,6 +1,6 @@
+import type { GatewayStatus } from "@psyche/web/client";
 import { contextBridge, type IpcRendererEvent, ipcRenderer } from "electron";
 import { IPC } from "./lib/ipc.ts";
-import type { GatewayStatus } from "./lib/status.ts";
 
 /**
  * Minimal typed bridge (architecture §5): status only. No Node APIs, no secrets, no generic

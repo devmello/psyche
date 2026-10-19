@@ -1,4 +1,4 @@
-import { toBase64Url } from "./encoding.ts";
+import { toBase64Url } from "../client/encoding.ts";
 
 /**
  * Ephemeral browser device identity: a WebCrypto Ed25519 key pair with a non-extractable private

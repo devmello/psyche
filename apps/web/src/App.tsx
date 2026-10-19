@@ -1,7 +1,7 @@
 import { PsycheMark, StatusPill, type StatusTone } from "@psyche/ui";
 import { type ReactElement, useEffect, useState } from "react";
-import { WebGatewayClient } from "./gateway.ts";
-import { type GatewayStatus, INITIAL_STATUS, type PairingPhase } from "./lib/status.ts";
+import { type GatewayStatus, INITIAL_STATUS, type PairingPhase } from "./client/status.ts";
+import { createWebGatewayConnection } from "./gateway.ts";
 
 const PHASE_LABEL: Record<PairingPhase, { label: string; tone: StatusTone }> = {
   idle: { label: "idle", tone: "neutral" },
@@ -19,7 +19,7 @@ export function App(): ReactElement {
   const [status, setStatus] = useState<GatewayStatus>(INITIAL_STATUS);
 
   useEffect(() => {
-    const client = new WebGatewayClient(setStatus);
+    const client = createWebGatewayConnection({ onStatus: setStatus });
     client.start();
     return () => client.stop();
   }, []);

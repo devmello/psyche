@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { connectSigningPayload } from "../src/lib/signing.ts";
+import { connectSigningPayload } from "../../src/client/signing.ts";
 
 // Shared fixture with apps/mac-helper/Tests (SigningPayloadTests) and the wire spec.
 const NONCE = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8";

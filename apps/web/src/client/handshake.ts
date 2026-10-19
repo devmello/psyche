@@ -1,4 +1,4 @@
-import { reqFrame, type WireFrame, type WireReq } from "./frames.ts";
+import { type Frame, type ReqFrame, reqFrame } from "@psyche/protocol";
 import { connectSigningPayload } from "./signing.ts";
 import type { StatusAction } from "./status.ts";
 
@@ -18,7 +18,7 @@ export interface ConnectParams {
 export type Signer = (payload: Uint8Array<ArrayBuffer>) => string | Promise<string>;
 
 export interface HandshakeStep {
-  send?: WireReq;
+  send?: ReqFrame;
   status?: StatusAction;
   /** The handshake reached a terminal phase (paired / pending / denied) or failed. */
   done?: boolean;
@@ -41,11 +41,11 @@ export class Handshake {
     this.sign = sign;
   }
 
-  start(): WireReq {
+  start(): ReqFrame {
     return reqFrame("connect", "connect", this.params);
   }
 
-  async onFrame(frame: WireFrame): Promise<HandshakeStep> {
+  async onFrame(frame: Frame): Promise<HandshakeStep> {
     if (frame.type !== "res") return {};
     if (!frame.ok) return { status: { type: "error", code: frame.error.code }, done: true };
     const payload = frame.payload;

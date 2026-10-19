@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { INITIAL_STATUS, reduceStatus, type StatusAction } from "../src/lib/status.ts";
+import { INITIAL_STATUS, reduceStatus, type StatusAction } from "../../src/client/status.ts";
 
 const run = (actions: StatusAction[]) => actions.reduce(reduceStatus, INITIAL_STATUS);
 

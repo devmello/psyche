@@ -1,6 +1,6 @@
 import { PsycheMark, StatusPill, type StatusTone } from "@psyche/ui";
+import { type GatewayStatus, INITIAL_STATUS, type PairingPhase } from "@psyche/web/client";
 import { type ReactElement, useEffect, useState } from "react";
-import { type GatewayStatus, INITIAL_STATUS, type PairingPhase } from "../lib/status.ts";
 import "./bridge.ts";
 
 const PHASE_LABEL: Record<PairingPhase, { label: string; tone: StatusTone }> = {
