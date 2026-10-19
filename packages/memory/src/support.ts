@@ -102,7 +102,8 @@ export function brokerApprovalCheck(broker: Pick<PermissionBroker, "get">): Appr
 
 export type MemoryEvent =
   | { event: "memory.file.changed"; payload: EventPayload<"memory.file.changed"> }
-  | { event: "memory.job.updated"; payload: EventPayload<"memory.job.updated"> };
+  | { event: "memory.job.updated"; payload: EventPayload<"memory.job.updated"> }
+  | { event: "persona.updated"; payload: EventPayload<"persona.updated"> };
 
 export type MemoryEventSink = (event: MemoryEvent) => void;
 

@@ -87,6 +87,8 @@ const REQUIRED_METHODS: MethodName[] = [
   "memory.reset",
   "memory.status",
   "memory.pause",
+  "memory.persona.get",
+  "memory.persona.edit",
   "library.list",
   "library.get",
   "library.delete",
@@ -178,6 +180,7 @@ const REQUIRED_EVENTS = [
   "view.command",
   "memory.file.changed",
   "memory.job.updated",
+  "persona.updated",
   "gateway.shutdown",
 ];
 

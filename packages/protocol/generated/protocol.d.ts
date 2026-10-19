@@ -1816,6 +1816,53 @@ export interface MemoryPauseResult {
     paused: boolean;
 }
 
+export interface MemoryPersonaEditParams {
+    description?: string;
+    etag?:        string;
+    fields?:      Fields;
+    instruction?: string;
+}
+
+export interface Fields {
+    /**
+     * Asset id of the avatar
+     */
+    avatar?:   string;
+    creature?: string;
+    emoji?:    string;
+    name?:     string;
+    tagline?:  string;
+    vibe?:     string;
+    voice?:    string;
+}
+
+export interface MemoryPersonaEditResult {
+    avatarRequested: boolean;
+    changed:         string[];
+    description:     string;
+    etag:            string;
+    identity:        PersonaIdentity;
+}
+
+export interface PersonaIdentity {
+    /**
+     * Asset id of the avatar
+     */
+    avatar?:   string;
+    creature?: string;
+    emoji?:    string;
+    name?:     string;
+    tagline?:  string;
+    vibe?:     string;
+    voice?:    string;
+}
+
+export interface MemoryPersonaGetResult {
+    description: string;
+    etag:        string;
+    identity:    PersonaIdentity;
+}
+
 export interface MemoryReadParams {
     lineEnd?:   number;
     lineStart?: number;
@@ -2071,6 +2118,12 @@ export interface OkResult {
 
 export interface PairingRequestedPayload {
     pairingRequest: PairingRequest;
+}
+
+export interface PersonaUpdatedPayload {
+    avatarRequested: boolean;
+    changed:         string[];
+    identity:        PersonaIdentity;
 }
 
 export interface PlanBlock {

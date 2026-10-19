@@ -1,6 +1,6 @@
 # @psyche/memory
 
-**Owner:** S07 (`prompts/s07-memory.md`). Feature ids: H1–H5, H7, H8 (M1); H6, H10 (M2); H9 in devmello/psyche#67 ([docs/03-feature-spec.md](../../docs/03-feature-spec.md)).
+**Owner:** S07 (`prompts/s07-memory.md`). Feature ids: H1–H5, H7, H8 (M1); H6, H9, H10 (M2) ([docs/03-feature-spec.md](../../docs/03-feature-spec.md)).
 
 The workspace the owner can read (`$PSYCHE_HOME/workspace/`, Markdown files, the source of truth) plus the index the agent searches (FTS5 + vectors in `state/psyche.sqlite`). Implements the `MemoryStore` contract and passes its conformance suite.
 
@@ -12,7 +12,8 @@ Docs: architecture §2 principle 6 and §4.8, data model §7, security §8, ADR-
 - `SqliteMemoryStore` — the contract (`readFile`, `writeFile`, `listFiles`, `search`, `appendDailyNote`, `addClaim`, `listClaims`, `explain`, `forget`, `flush`) plus `writeFileAsOwner`, `delete`, `rename`, `listFileInfo`, `sync()` / `watch()` / `unwatch()`, `setPaused` / `paused`, `status()`, `reset({ dryRun })`, `startJob` / `finishJob` / `listJobs`, `idle()`, `close()`.
 - `bootstrapContext(store, { session: "private" | "delegated" | "shared" })` → persona files under budgets with markers, today's and yesterday's notes, parsed identity.
 - Tools: `memoryToolSpecs`, `MemoryTools#execute(name, input, ctx)` for `memory` (Anthropic `memory_20250818`), `memory_search`, `memory_explain`, `forget`, `remember`, `sessions_search`; `classifyMemoryCommand(input)` tells the broker the side effect and whether a `memory_protected_write` approval is needed.
-- Gateway: `createMemoryHandlers(store)` for every `memory.*` method; `MEMORY_METHODS`.
+- Gateway: `createMemoryHandlers(store, { persona? })` for every `memory.*` method; `MEMORY_METHODS`.
+- Persona (H9): `readPersona`, `applyPersonaChange(store, change, { actor, approvalId?, etag? })`, `interpretPersonaInstruction(model, words, current)`; the `persona_update` tool; `classifyMemoryCall(name, input)` classifies every memory tool for the broker.
 - Git sync (H10): `WorkspaceGit(store)` with `init()`, `setRemote(url)`, `sync({ remote?, branch?, localOnly? })`; `validateRemoteUrl`, `GITIGNORE`.
 - Import / export: `importMemory` (ChatGPT, Claude, free text), `importOpenClaw` + `readWorkspaceFolder`, `confirmClaim`, `exportMemory` (zip).
 - Jobs: `flushMemory` (also `store.flush`); `runDreaming(store, options)`, `dreamingDue`; `ensureDreamingAutomation(scheduler, { timezone })` and `withDreaming(store, launcher)` for the nightly run through `@psyche/scheduler`; `store.recordRecall` / `recallStats` (fed by `memory_search`).
@@ -78,6 +79,10 @@ Nightly at 03:00 local, as a system automation in `@psyche/scheduler` (`ensureDr
 5. **Owner wins**: bullets without sources are never changed; a promoted bullet the owner deleted is remembered by a keyword hash and never promoted again.
 6. **Diary**: `DREAMS.md` gets `## YYYY-MM-DD` with Promoted / Merged / Superseded / Dropped lines and counts of what was not promoted (never the untrusted or sensitive text).
 
+## Persona edits (H9)
+
+`memory.persona.edit { instruction }` (the "Describe a change" pencil) sends the owner's words and the current persona to the utility model, which may answer only with persona fields as JSON (`name, creature, vibe, tagline, emoji, voice, description`; it can never set `avatar`, and other keys are ignored). Explicit `fields` / `description` apply on top. The change is an owner write to `IDENTITY.md` that keeps unknown frontmatter keys and the owner's guidance comments. It emits `persona.updated { identity, changed, avatarRequested }` right away, so the header changes within the turn. `avatarRequested` is true when the creature or name changed: the avatar renderer makes a new image and stores its asset id with `memory.persona.edit { fields: { avatar } }`, which does not request another one. The agent's `persona_update` tool does the same through a `memory_protected_write` approval, is refused in tainted turns, and refuses text that reads like an instruction (a persona is injected into every session, so it must not become a persistent injection).
+
 ## Git sync (H10)
 
 `WorkspaceGit` syncs the workspace with the owner's own private repository (backing `psyche workspace sync`, S22). It runs the system `git` through `execFile` (never a shell) with `GIT_TERMINAL_PROMPT=0`, using the owner's SSH agent or credential helper; Psyche stores no git secret. `init()` writes a generated `.gitignore` (temp files, OS junk, `memory/imports/`) and later only adds missing lines. Remotes must be `https://`, `ssh://`, `user@host:path` or an absolute local path, never with credentials in the URL. Every file about to be committed is scanned and a credential or card number stops the sync, naming the file but not the value. `sync()` commits, fetches, rebases onto the remote branch (a conflict aborts the rebase, is reported, and nothing is pushed or forced), reindexes pulled files as the owner's edits, then pushes. There is no agent tool for it: only the owner starts a sync.
@@ -92,7 +97,6 @@ Imports are data (security §8): ChatGPT and Claude exports (JSON shapes with `c
 
 ## What is stubbed
 
-- H9 (persona edit by natural language) lands in devmello/psyche#67.
 - `sessions_search` needs the Gateway's transcript query (`TranscriptQuery`, S01).
 - Token counts are estimates; a real tokenizer per embedder is not wired.
 - A forgotten subject can come back if the owner states it again later (by design) or if an old transcript copy is flushed again; no "forgotten" list is kept, because storing the subject would defeat forgetting.
