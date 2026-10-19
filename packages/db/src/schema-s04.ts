@@ -32,6 +32,8 @@ export const tasks = sqliteTable("tasks", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   completedAt: text("completed_at"),
+  // 202610201700_tasks_taint_sources.sql
+  taintSources: text("taint_sources"),
 });
 
 export const taskCheckpoints = sqliteTable("task_checkpoints", {

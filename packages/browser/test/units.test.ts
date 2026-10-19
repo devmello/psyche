@@ -8,6 +8,7 @@ import { looksLikeCardNumber } from "../src/cdp/page.ts";
 import type { AXNode, CaptureSnapshotResult } from "../src/cdp/types.ts";
 import { safeFilename } from "../src/downloads/library.ts";
 import { sniff } from "../src/downloads/sniff.ts";
+import { choosePartition, PartitionChooser } from "../src/origin/partition.ts";
 import { FileRecordingSink } from "../src/recording/recorder.ts";
 import { buildSnapshot } from "../src/snapshot/builder.ts";
 import { RefRegistry } from "../src/snapshot/refs.ts";
@@ -155,6 +156,51 @@ describe("bridge allowlist", () => {
       false,
     );
     expect(checkCdpCommand("Fetch.fulfillRequest", { requestId: "1" }).ok).toBe(false);
+  });
+});
+
+describe("partition choice (I15)", () => {
+  it("is logged out by default and uses the profile only where the owner signed in", () => {
+    const auto = { mode: "auto" as const, signedInOrigins: ["https://github.com", "google.com"] };
+    expect(choosePartition("https://github.com/psyche", auto)).toMatchObject({
+      partition: "profile",
+      reason: "signed_in",
+    });
+    expect(choosePartition("https://google.com/", auto).partition).toBe("profile");
+    // Subdomains are separate origins (security §6); a wildcard would be needed.
+    expect(choosePartition("https://gist.github.com/", auto)).toMatchObject({
+      partition: "clean",
+      reason: "not_signed_in",
+    });
+    expect(choosePartition("https://example.com/", auto).partition).toBe("clean");
+    expect(choosePartition(undefined, auto)).toMatchObject({
+      partition: "clean",
+      reason: "no_url",
+    });
+    expect(choosePartition("not a url", auto).partition).toBe("clean");
+    expect(choosePartition("https://example.com/").partition).toBe("clean");
+  });
+
+  it("follows an explicit task choice for every tab", () => {
+    const signedIn = ["https://github.com"];
+    expect(
+      choosePartition("https://example.com/", { mode: "profile", signedInOrigins: signedIn }),
+    ).toMatchObject({
+      partition: "profile",
+      reason: "task_profile",
+      label: "Using your sign-ins",
+    });
+    expect(
+      choosePartition("https://github.com/", { mode: "clean", signedInOrigins: signedIn }),
+    ).toMatchObject({
+      partition: "clean",
+      reason: "task_clean",
+      label: "Browsing without your sign-ins",
+    });
+    const chooser = new PartitionChooser({ mode: "clean" });
+    expect(chooser.defaultPartition).toBe("clean");
+    expect(new PartitionChooser({ mode: "profile" }).defaultPartition).toBe("profile");
+    expect(new PartitionChooser().defaultPartition).toBe("clean");
   });
 });
 

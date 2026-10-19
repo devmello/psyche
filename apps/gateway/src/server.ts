@@ -61,6 +61,8 @@ export interface GatewayOptions {
   broker?: PermissionBroker;
   memory?: MemoryStore;
   limits?: Partial<GatewayLimits>;
+  /** After a device is revoked (composition root: end the grants it approved). */
+  onDeviceRevoked?: (deviceId: string) => Promise<unknown>;
   /** Package handlers to mount (composition root); a name the Gateway already handles is refused. */
   handlers?: Readonly<Record<string, HandlerDef>>;
   /** Run the retention sweep on this interval (0 disables the timer; tests call it directly). */
@@ -134,6 +136,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     broker,
     memory: options.memory ?? null,
     extraHandlers: checkExtraHandlers(options.handlers ?? {}),
+    onDeviceRevoked: options.onDeviceRevoked ?? null,
     limits,
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>
       now().getTime(),

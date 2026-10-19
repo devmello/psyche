@@ -2,6 +2,7 @@ import type {
   BrowserDriver,
   CallOptions,
   DriverEvent,
+  DriverTab,
   NavigateResult,
   PageSnapshot,
   RefBox,
@@ -9,6 +10,7 @@ import type {
   SnapshotRef,
   Unsubscribe,
 } from "@psyche/protocol";
+import type { PartitionMode, PartitionReason, TabPartition } from "./origin/partition.ts";
 import type { OriginPolicy, OriginPolicyOptions } from "./origin/policy.ts";
 
 /**
@@ -148,12 +150,32 @@ export type DriverEventEx =
   | { type: "approval_needed"; tabId: string; url: string; origin: string; hop: string }
   | { type: "secure_field"; tabId: string; active: boolean }
   | { type: "popup"; tabId: string; openerTabId: string; url: string }
-  | { type: "captcha"; tabId: string; url: string };
+  | { type: "captcha"; tabId: string; url: string }
+  /** Which partition a tab opened in and why (feature I15); the pane shows the label. */
+  | {
+      type: "tab_partition";
+      tabId: string;
+      partition: TabPartition;
+      reason: PartitionReason;
+      label: string;
+    };
+
+/** A tab with the partition it runs in (feature I15); `DriverTab` plus one field. */
+export interface DriverTabEx extends DriverTab {
+  partition: TabPartition;
+}
 
 export interface OpenSessionOptions {
   profileId?: string;
   taskId?: string;
-  partition?: "profile" | "clean";
+  /**
+   * `profile` (the owner's sign-ins), `clean` (ephemeral, "browse without my sign-ins") or
+   * `auto` (the default: the profile only for tabs whose origin is in `signedInOrigins`,
+   * `clean` for everything else). See `src/origin/partition.ts`.
+   */
+  partition?: PartitionMode;
+  /** Origins the owner has signed into in the agent profile; `auto` mode uses the profile there. */
+  signedInOrigins?: string[];
   /** The task's origin policy; a fresh empty policy (every origin needs approval) by default. */
   policy?: OriginPolicy | OriginPolicyOptions;
   /** Opt-in screencast recording for the session's tabs (feature I10). */
@@ -162,6 +184,10 @@ export interface OpenSessionOptions {
 
 export interface BrowserDriverEx extends BrowserDriver {
   openSession(options: OpenSessionOptions): ReturnType<BrowserDriver["openSession"]>;
+  listTabs(sessionId: string): Promise<DriverTabEx[]>;
+  openTab(sessionId: string, url?: string): Promise<DriverTabEx>;
+  /** The partition a tab runs in (feature I15). */
+  tabPartition(tabId: string): TabPartition;
   snapshot(tabId: string, options?: SnapshotOptions): Promise<BrowserSnapshot>;
   policy(sessionId: string): OriginPolicy;
   /** `clear` replaces the field's value (select-all, delete) before typing. */

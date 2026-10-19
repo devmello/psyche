@@ -73,12 +73,16 @@ public struct NotifyShowParams: Codable, Sendable, Equatable {
     public var requireBiometry: Bool?
     public var quietHours: NotifyQuietHoursParams?
     public var sound: Bool?
+    /// Hex SHA-256 from the Gateway (`presenceChallenge(approvalId, bindingHash, answerToken)`);
+    /// the helper signs it with its Secure Enclave key after Touch ID (issue #84).
+    public var presenceChallenge: String?
 
     public init(
         id: String, kind: NotificationKind, title: String, body: String, subtitle: String? = nil,
         actions: [NotifyActionParams]? = nil, reply: NotifyReplyParams? = nil, threadId: String? = nil,
         route: String? = nil, interruption: NotifyInterruptionLevel? = nil, approvalId: String? = nil,
-        requireBiometry: Bool? = nil, quietHours: NotifyQuietHoursParams? = nil, sound: Bool? = nil
+        requireBiometry: Bool? = nil, quietHours: NotifyQuietHoursParams? = nil, sound: Bool? = nil,
+        presenceChallenge: String? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -94,13 +98,14 @@ public struct NotifyShowParams: Codable, Sendable, Equatable {
         self.requireBiometry = requireBiometry
         self.quietHours = quietHours
         self.sound = sound
+        self.presenceChallenge = presenceChallenge
     }
 }
 
 extension NotifyShowParams {
     private enum CodingKeys: String, CodingKey {
         case id, kind, title, body, subtitle, actions, reply, threadId, route, interruption, approvalId, requireBiometry,
-             quietHours, sound
+             quietHours, sound, presenceChallenge
         // S15's `NotifyShowParams` (packages/notifications/src/surfaces.ts) names.
         case category, interruptionLevel
     }
@@ -152,6 +157,10 @@ extension NotifyShowParams {
         requireBiometry = try c.decodeIfPresent(Bool.self, forKey: .requireBiometry)
         quietHours = try c.decodeIfPresent(NotifyQuietHoursParams.self, forKey: .quietHours)
         sound = try c.decodeIfPresent(Bool.self, forKey: .sound)
+        presenceChallenge = try c.decodeIfPresent(String.self, forKey: .presenceChallenge)
+        if let pc = presenceChallenge, !PresenceMessage.isValidChallenge(pc) {
+            throw DecodingError.dataCorruptedError(forKey: .presenceChallenge, in: c, debugDescription: "presenceChallenge must be 64 hex characters")
+        }
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -170,6 +179,7 @@ extension NotifyShowParams {
         try c.encodeIfPresent(requireBiometry, forKey: .requireBiometry)
         try c.encodeIfPresent(quietHours, forKey: .quietHours)
         try c.encodeIfPresent(sound, forKey: .sound)
+        try c.encodeIfPresent(presenceChallenge, forKey: .presenceChallenge)
     }
 }
 
