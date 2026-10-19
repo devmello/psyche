@@ -243,3 +243,24 @@ export function columnStats(
   }
   return stats;
 }
+
+/**
+ * Parses the filter box syntax: ">100", ">=5", "<0", "<=3", "=Rent", "empty", "!empty", or plain
+ * text (contains). Returns undefined for an empty box.
+ */
+export function parseFilter(input: string): ColumnFilter | undefined {
+  const s = input.trim();
+  if (s === "") return undefined;
+  if (s === "empty") return { kind: "empty" };
+  if (s === "!empty") return { kind: "notEmpty" };
+  const m = /^(>=|<=|>|<)\s*(.+)$/.exec(s);
+  if (m !== null) {
+    const n = toNumber(m[2] ?? "");
+    if (!Number.isNaN(n)) {
+      const op = m[1] === ">=" ? "gte" : m[1] === "<=" ? "lte" : m[1] === ">" ? "gt" : "lt";
+      return { kind: op, value: n };
+    }
+  }
+  if (s.startsWith("=")) return { kind: "equals", value: s.slice(1) };
+  return { kind: "contains", value: s };
+}
