@@ -3,6 +3,7 @@ import { PsycheError } from "../errors.ts";
 import { ApprovalsMethods } from "./approvals.ts";
 import { AuditMethods } from "./audit.ts";
 import { AutomationsMethods } from "./automations.ts";
+import { BackupMethods } from "./backup.ts";
 import { BrowserMethods } from "./browser.ts";
 import { ChannelsMethods } from "./channels.ts";
 import { ChatMethods } from "./chat.ts";
@@ -13,6 +14,7 @@ import { DevicesMethods } from "./devices.ts";
 import { EventsMethods } from "./events.ts";
 import { GrantsMethods } from "./grants.ts";
 import { LibraryMethods } from "./library.ts";
+import { LogsMethods } from "./logs.ts";
 import { MemoryMethods } from "./memory.ts";
 import { NodeMethods } from "./node.ts";
 import { NodesMethods } from "./nodes.ts";
@@ -33,6 +35,7 @@ import { VoiceMethods } from "./voice.ts";
 export * from "./approvals.ts";
 export * from "./audit.ts";
 export * from "./automations.ts";
+export * from "./backup.ts";
 export * from "./browser.ts";
 export * from "./channels.ts";
 export * from "./chat.ts";
@@ -43,6 +46,7 @@ export * from "./devices.ts";
 export * from "./events.ts";
 export * from "./grants.ts";
 export * from "./library.ts";
+export * from "./logs.ts";
 export * from "./memory.ts";
 export * from "./node.ts";
 export * from "./nodes.ts";
@@ -96,6 +100,8 @@ export const Methods = {
   ...GoalsMethods,
   ...VoiceMethods,
   ...SkillsMethods,
+  ...BackupMethods,
+  ...LogsMethods,
 } as const;
 
 export type MethodName = keyof typeof Methods;

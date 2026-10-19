@@ -1,4 +1,6 @@
 import {
+  AboutSection,
+  DataControlsSection,
   FileAccessPanel,
   type FolderGrant,
   SETTINGS_SECTIONS,
@@ -9,13 +11,16 @@ import {
 } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useMemo, useState } from "react";
 import type { ShellPlatform } from "../shell/platform.ts";
+import { BackupsPanel } from "./backups.tsx";
+import { LogViewer } from "./logs.tsx";
 
 /**
  * Settings in the composed app (docs/06 §3.18): the kit's `SettingsScreen` at
  * `/settings/:section`, with S11's own File access section. The kit's section keeps folder
  * grants under a UI-local key; the Gateway applies `permissions.policy.folders` to the broker
  * (INT-1), so this section reads and writes the policy and, on the desktop, adds a native folder
- * picker ("Settings does not have a folder picker yet" in the README).
+ * picker ("Settings does not have a folder picker yet" in the README). Data controls gains the
+ * Backups panel (U4) and About the log viewer (U5).
  */
 
 /** The broker policy setting (security §10: admin-only). */
@@ -169,7 +174,21 @@ export function settingsRoute(
       <SettingsScreen
         section={section}
         onSectionChange={(id) => navigate(`/settings/${id}`)}
-        sections={{ files: <FileAccessSettings platform={platform} /> }}
+        sections={{
+          files: <FileAccessSettings platform={platform} />,
+          data: (
+            <div className="flex flex-col gap-4">
+              <DataControlsSection />
+              <BackupsPanel />
+            </div>
+          ),
+          about: (
+            <div className="flex flex-col gap-4">
+              <AboutSection info={null} />
+              <LogViewer />
+            </div>
+          ),
+        }}
       />
     </section>
   );
