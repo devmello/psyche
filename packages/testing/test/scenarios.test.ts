@@ -37,7 +37,8 @@ describe("acceptance scenarios (scripted)", () => {
     expect(failures(v1 as never)).toEqual([]);
     expect(failures(v2 as never)).toEqual([]);
     expect(failures(v7 as never)).toEqual(V7_KNOWN);
-    expect(v7?.assertions.find((a) => a.id === "runner/1")?.detail).toContain("c_v7_fetch_agency");
+    // #69 fixed: the standing site grant covers the tainted fetch, so the runner sees no card.
+    expect(v7?.assertions.filter((a) => a.id.startsWith("runner/"))).toEqual([]);
     for (const s of report.scenarios) {
       expect(s.summary.soft.fail).toBe(0);
       expect(s.assertions.filter((a) => a.status === "unchecked")).toEqual([]);
