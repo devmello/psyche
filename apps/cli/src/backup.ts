@@ -15,7 +15,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
-import { Readable, type Writable } from "node:stream";
+import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createGunzip, createGzip } from "node:zlib";
 import { Decrypter, Encrypter } from "age-encryption";
@@ -251,31 +251,29 @@ export async function extractAndVerify(
   const dir = mkdtempSync(join(near, ".psyche-restore-"));
   chmodSync(dir, 0o700);
   try {
-    const input = await plaintextStream(file, dec);
-    const tar = tarProcess(["-xf", "-", "-C", dir]);
-    const exited = waitExit(tar, "tar -x");
-    // Wait for both the pipeline and tar, so neither failure goes unhandled and tar is done
-    // writing before the directory is inspected or removed.
-    const [pipeErr, tarErr] = await Promise.all([
-      pipeline(input, createGunzip(), tar.stdin as Writable).then(
-        () => null,
-        (err: unknown) => {
-          tar.kill();
-          return err;
-        },
-      ),
-      exited.then(
-        () => null,
-        (err: unknown) => err,
-      ),
-    ]);
-    if (pipeErr) {
-      throw new CliError(
-        "failure",
-        `${file} is damaged or the key is wrong: ${pipeErr instanceof Error ? pipeErr.message : pipeErr}`,
-      );
+    // Decrypt and decompress the whole archive into a 0600 file first, then extract it. Nothing
+    // is extracted before age has authenticated every chunk, and tar never sees a pipe it may
+    // close early (GNU tar stops reading at the end-of-archive marker: "Premature close").
+    const plain = `${dir}.tar`;
+    try {
+      try {
+        await pipeline(
+          await plaintextStream(file, dec),
+          createGunzip(),
+          createWriteStream(plain, { mode: 0o600 }),
+        );
+      } catch (err) {
+        throw new CliError(
+          "failure",
+          `${file} is damaged or the key is wrong: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+      const tar = tarProcess(["-xf", plain, "-C", dir]);
+      tar.stdin.end();
+      await waitExit(tar, "tar -x");
+    } finally {
+      rmSync(plain, { force: true });
     }
-    if (tarErr) throw tarErr;
     const manifestPath = join(dir, MANIFEST);
     if (!existsSync(manifestPath))
       throw new CliError("failure", `${file} is not a Psyche backup (no ${MANIFEST})`);

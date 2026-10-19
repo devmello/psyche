@@ -30,6 +30,9 @@ export const nodeExec: Exec = (cmd, args, opts = {}) =>
     });
     child.on("error", (err) => resolve({ code: 127, stdout, stderr: stderr + err.message }));
     child.on("close", (code) => resolve({ code: code ?? 1, stdout, stderr }));
+    // A child that exits before reading stdin (`command -v`, launchctl) makes this write fail
+    // with EPIPE; that is not an error of the command.
+    child.stdin.on("error", () => {});
     child.stdin.end(opts.input ?? "");
   });
 

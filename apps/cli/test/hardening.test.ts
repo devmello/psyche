@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { parseManifest } from "../src/backup.ts";
 import { validateConfig } from "../src/config-file.ts";
-import type { Exec } from "../src/exec.ts";
+import { type Exec, nodeExec } from "../src/exec.ts";
 import { serviceCommand } from "../src/supervisor.ts";
 
 /** Regressions from the S22 review: untrusted manifests, node shims, non-loopback hosts. */
@@ -88,5 +88,12 @@ describe("validateConfig", () => {
   it("refuses a non-loopback gateway.host like the Gateway does", () => {
     expect(validateConfig({ gateway: { host: "0.0.0.0" } }).join()).toMatch(/not loopback/);
     expect(validateConfig({ gateway: { host: "::1" } })).toEqual([]);
+  });
+});
+
+describe("nodeExec", () => {
+  it("does not crash when the child exits before reading its stdin (EPIPE)", async () => {
+    const r = await nodeExec("/bin/sh", ["-c", "exit 3"], { input: "x".repeat(4 << 20) });
+    expect(r.code).toBe(3);
   });
 });
