@@ -35,15 +35,8 @@ export function BudgetMeter({ used, budget }: { used: number; budget: number }):
   const over = used > budget;
   return (
     <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-      <span
-        className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-4"
-        role="meter"
-        aria-label="File budget"
-        aria-valuemin={0}
-        aria-valuemax={budget}
-        aria-valuenow={used}
-        aria-valuetext={`${(used / 1000).toFixed(1)}k of ${budget / 1000}k characters`}
-      >
+      <meter className="sr-only" min={0} max={budget} value={used} aria-label="File budget" />
+      <span className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-4" aria-hidden="true">
         <span
           className={cn(
             "block h-full",
@@ -79,6 +72,8 @@ export function MemoryFileEditor({ path, budget }: { path: string; budget: numbe
   const [draft, setDraft] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Switching files drops the unsaved draft of the previous one.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset on path change only
   useEffect(() => setDraft(null), [path]);
   if (file === null) {
     return loading ? (

@@ -112,7 +112,7 @@ describe("SoulMemoryPanel", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => {
       const call = ref.gateway?.calls.find((c) => c.method === "memory.write");
-      expect((call?.params as { etag?: string }).etag).toBeTruthy();
+      expect((call?.params as { etag?: string } | undefined)?.etag).toBeTruthy();
     });
     expect(ref.gateway?.world.memoryFiles["SOUL.md"]).toContain("I keep receipts.");
   });

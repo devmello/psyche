@@ -33,14 +33,13 @@ export function StoryWorld({
 }: StoryWorldProps): ReactElement {
   // A story-level world nested in the meta-level one wins; only the outer one renders a Toaster.
   const nested = useContext(InWorld);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the world is built once per mount
   const { gateway, store } = useMemo(() => {
     const world = createFixtureWorld();
     edit?.(world);
     const gateway = new MockGateway(world, { now: () => FIXTURE_NOW, ...options });
     onGateway?.(gateway);
     return { gateway, store: new GatewayStore(gateway, { now: () => FIXTURE_NOW }) };
-    // The world is built once per story mount.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: built once per mount
   }, []);
   return (
     <InWorld.Provider value={true}>

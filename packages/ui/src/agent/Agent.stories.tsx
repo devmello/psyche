@@ -66,15 +66,33 @@ export const ActivityTaskDetail: Story = {
   render: () => <ActivityPanel initialTaskId={IDS.tasks.dentist} now={STORY_NOW} />,
 };
 export const ActivityEmpty: Story = {
-  decorators: [withWorld({ edit: (w) => void (w.tasks = []) })],
+  decorators: [
+    withWorld({
+      edit: (w) => {
+        w.tasks = [];
+      },
+    }),
+  ],
   render: () => <ActivityPanel now={STORY_NOW} />,
 };
 export const ApprovalsNothingNeedsYou: Story = {
-  decorators: [withWorld({ edit: (w) => void (w.approvals = []) })],
+  decorators: [
+    withWorld({
+      edit: (w) => {
+        w.approvals = [];
+      },
+    }),
+  ],
   render: () => <ApprovalsPanel now={STORY_NOW} />,
 };
 export const UpcomingEmpty: Story = {
-  decorators: [withWorld({ edit: (w) => void (w.automations = []) })],
+  decorators: [
+    withWorld({
+      edit: (w) => {
+        w.automations = [];
+      },
+    }),
+  ],
   render: () => <UpcomingPanel now={STORY_NOW} />,
 };
 export const SoulDailyNote: Story = {
