@@ -11,6 +11,7 @@ allowBuilds:
   better-sqlite3-multiple-ciphers: false
   electron: true
   esbuild: true
+  node-pty: true
 engineStrict: true
 autoInstallPeers: true
 

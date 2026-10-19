@@ -1138,7 +1138,7 @@ public enum AutomationKind: String, Codable, Sendable {
 // MARK: - WatchConfig
 public struct WatchConfig: Codable, Sendable {
     public let check: WatchCheck
-    /// Regex over the fetched text; capture group 1 is the value
+    /// Literal marker (not a regex); the check reads the text after it
     public let selector: String?
     /// text_present: the text to look for
     public let text: String?
