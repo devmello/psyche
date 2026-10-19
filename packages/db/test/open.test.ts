@@ -27,6 +27,7 @@ const TABLES = [
   "receipts",
   "runs",
   "settings",
+  "skills",
   "task_actions",
   "task_checkpoints",
   "tasks",
