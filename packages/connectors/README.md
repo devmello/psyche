@@ -1,6 +1,6 @@
 # @psyche/connectors
 
-**Owner:** S09 (`prompts/s09-mcp-connectors.md`). Features M4 (directory data), M5 (Google), M8 (web search and fetch), M11 (action matrices) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md); M5 lands in the next PR. Later: M6 Microsoft, M7 IMAP / JMAP, M10 shopping helpers.
+**Owner:** S09 (`prompts/s09-mcp-connectors.md`). Features M4 (directory data), M5 (Google), M8 (web search and fetch), M11 (action matrices) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md). Later: M6 Microsoft, M7 IMAP / JMAP, M10 shopping helpers.
 
 First-party connectors behind one framework: a `Connector` interface, a `ConnectorRegistry` that enforces the owner's action matrix and scope mode, a catalogue for the Connectors directory, and `connectors.*` API handlers for the Gateway.
 
@@ -9,6 +9,7 @@ First-party connectors behind one framework: a `Connector` interface, a `Connect
 - **Framework** (`src/framework/`): `ConnectorRegistry` (`catalogue`, `list`, `get`, `connect`, `disconnect`, `remove`, `status`, `setMatrix`, `sync`, `permissionRows`, `instance`), `MemoryConnectorStore`, the types in `types.ts`, `bindingHash` / `canonicalJSON` (security §3.5), `startLoopback` / `createPkce` (installed-app OAuth), `REMOTE_MCP_PRESETS` (Slack, Notion, Linear, GitHub) and `VERIFIED_MCP_HOSTS`, `COMING_SOON`.
 - **Gateway API**: `connectorHandlers(registry)` and `CONNECTOR_METHODS` for `connectors.catalogue | list | get | connect | disconnect | status | setMatrix`.
 - **Web** (`src/web/`): `safeFetch`, `vetUrl`, `checkAddress`, `htmlToMarkdown`; search providers `braveProvider`, `exaProvider`, `tavilyProvider`, `searxngProvider`; factories `webSearchFactory` / `webFetchFactory`.
+- **Google** (`src/google/`): `googleFactory({ openBrowser, approveSecret? })`, `GOOGLE_CATALOGUE`, `GOOGLE_ACTIONS`, and the Gmail / Calendar / Drive clients.
 
 ## How the registry enforces policy
 
@@ -31,11 +32,31 @@ Tools register into the agent-core `ToolRegistry` as `mcp__<connectorId>__<tool>
    - Use `ctx.fetch` for every network call, so tests run on recorded fixtures.
    - `sync(cursor)` returns the next cursor (stored as `lastSync`); `health()` probes cheaply.
 3. Export a `ConnectorFactory` and pass it to `ConnectorRegistry({ factories })`.
-4. Tests: recorded response fixtures through a fake `fetch` (the Google tests' `fake-google.ts` is the worked example), `assertNoSecrets` over outputs, records and events, a binding-mismatch case for every write tool, and no network.
+4. Tests: recorded response fixtures through a fake `fetch` (see `test/google/fake-google.ts`), `assertNoSecrets` over outputs, records and events, a binding-mismatch case for every write tool, and no network.
 
-## Google (M5)
+## Google setup guide (M5)
 
-The Google connector (Gmail, Calendar, Drive) and its setup guide land in the next PR, stacked on this one.
+The owner creates their own Desktop OAuth client. The steps and copy are in [docs/copy/onboarding.md "Setting up Google"](../../docs/copy/onboarding.md#setting-up-google):
+
+1. Create a Google Cloud project, and enable the Gmail API, the Google Calendar API and the Google Drive API.
+2. Google Auth Platform → Branding: set the audience to **External**. Under Audience, **Publish app** so its status is **In production**. Leaving it in **Testing** makes Google expire refresh tokens 7 days after consent. In production, an unverified app used only by its owner falls under Google's personal-use exemption (fewer than 100 users) and needs no verification or CASA assessment. The owner clicks through the "unverified app" screen once.
+3. Clients → Create client → **Desktop app**. Psyche needs the client id. Store the client secret in the vault and pass it as `{{cred:<slug>}}`; Google desktop secrets are not confidential, but they still never go in config.
+4. Connect with `connectors.connect { catalogueId: "google", scopeMode, config: { clientId, clientSecret?, gmailScopes? } }`. Psyche opens Google's consent page and receives the code on `http://127.0.0.1:<random port>/callback`. It checks `state`, verifies PKCE S256 and requests `access_type=offline`.
+
+Scopes:
+- `read_act`: `gmail.modify` (or `gmail.readonly` + `gmail.send` with `gmailScopes: "readonly_send"`, which drops labelling), `calendar`, `drive.file`.
+- `read`: `gmail.readonly`, `calendar.readonly`, `drive.file`.
+
+A grant that lacks a requested scope fails the connect. A refresh token that dies roughly 7 days after consent is reported as the Testing-mode expiry (copy in docs/copy/system-messages.md). Any other revocation moves the connector to `needs_auth` and emits `invalidated`.
+
+Tools: `gmail_search_threads`, `gmail_read_thread` (text/plain preferred; HTML stripped of hidden elements, scripts and comments), `gmail_list_labels`, `gmail_save_attachment` (to the Library, 25 MB limit), `gmail_modify_labels`, `gmail_create_draft`, `gmail_send` (`send_email` binding: account, recipients lowercased and sorted, subject, body hash), `calendar_list_calendars`, `calendar_list_events` (bounded, at most 366 days), `calendar_free_busy`, `calendar_create_event` / `calendar_update_event` / `calendar_delete_event` (`calendar_write` binding; delete is `destructive`), `drive_download` (Google Docs exported as PDF), `drive_upload` (text).
+
+Sync (`registry.sync(id)`, run by the Gateway every 1–5 min):
+- Gmail: `history.list` from the saved `historyId`. A 404 triggers a full resync of recent inbox messages.
+- Calendar: `events.list` with the saved `syncToken`. A 410 triggers a full sync.
+- The cursor is `{ gmail: { historyId }, calendars: { <id>: syncToken }, newMessageIds }`.
+
+Parsing hardening (`src/google/mime.ts`) caps part depth (16), part count (300) and body text (200k characters). Undecodable parts and unknown charsets produce warnings instead of errors. Attachment names are sanitized, and attachments over 25 MB are listed but never downloaded. Outgoing MIME refuses line breaks in headers and validates addresses (no header injection), and RFC 2047-encodes non-ASCII subjects.
 
 ## Web search and fetch (M8)
 
@@ -47,4 +68,5 @@ The Google connector (Gmail, Calendar, Drive) and its setup guide land in the ne
 - Persistence: `ConnectorStore` is in memory. The `connectors` table needs a migration plus `schema.ts` from S01 (docs/status/s09.md).
 - Token storage: `TokenVault` is injected and needs the S06 vault write API.
 - `connectors.*` beyond `list` / `get` are not in packages/protocol yet. `CONNECTOR_METHODS` is the proposal for a `protocol:` PR.
-- Microsoft Graph (M6), IMAP / JMAP (M7), shopping helpers (M10).
+- Drive upload takes text content only. Uploading Library items needs a Library reader (S13).
+- Gmail attachments on outgoing mail (the builder supports them; no tool exposes them yet), Microsoft Graph (M6), IMAP / JMAP (M7), shopping helpers (M10).
