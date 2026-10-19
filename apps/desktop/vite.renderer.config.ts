@@ -22,6 +22,8 @@ function devCsp(): Plugin {
 
 export default defineConfig({
   root: `${projectDir}src/renderer`,
+  // Forge defaults to "./"; nested routes (/chat/:id/pane/:paneId pop-outs) need absolute assets.
+  base: "/",
   build: {
     // Forge's main process loads .vite/renderer/<name>/index.html relative to the app path.
     outDir: `${projectDir}.vite/renderer/main_window`,

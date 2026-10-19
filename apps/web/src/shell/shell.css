@@ -1,0 +1,354 @@
+/*
+ * Structural styles for the shell (docs/06 §3.1, §4.1). Visual tokens are S12's
+ * (@psyche/ui); these fall back to neutral values until the theme lands.
+ */
+:root {
+  --shell-bg: var(--gray-1, #fcfcfc);
+  --shell-panel: var(--gray-2, #f9f9f9);
+  --shell-border: var(--gray-6, #dddddd);
+  --shell-text: var(--gray-12, #202020);
+  --shell-muted: var(--gray-11, #646464);
+  --shell-accent: var(--accent-9, #6e56cf);
+  --shell-approval: var(--approval, #ffc53d);
+  --shell-danger: var(--danger, #e54d2e);
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --shell-bg: var(--gray-1, #111111);
+    --shell-panel: var(--gray-2, #191919);
+    --shell-border: var(--gray-6, #3a3a3a);
+    --shell-text: var(--gray-12, #eeeeee);
+    --shell-muted: var(--gray-11, #b4b4b4);
+  }
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+body {
+  background: var(--shell-bg);
+  color: var(--shell-text);
+  font:
+    15px / 22px -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    "Segoe UI",
+    Roboto,
+    Inter,
+    sans-serif;
+}
+button {
+  font: inherit;
+}
+.shell {
+  display: grid;
+  grid-template-columns: 56px auto minmax(480px, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+}
+.shell[data-compact="true"] {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr auto;
+}
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 4px;
+  border-right: 1px solid var(--shell-border);
+  background: var(--shell-panel);
+}
+.rail button {
+  border: 0;
+  background: transparent;
+  padding: 8px 2px;
+  border-radius: 8px;
+  font-size: 11px;
+  color: var(--shell-muted);
+  cursor: pointer;
+}
+.rail button[aria-current="page"] {
+  color: var(--shell-text);
+  background: var(--shell-bg);
+}
+.rail .spacer {
+  flex: 1;
+}
+.shell[data-compact="true"] .rail {
+  flex-direction: row;
+  justify-content: space-around;
+  border-right: 0;
+  border-top: 1px solid var(--shell-border);
+  order: 3;
+}
+.threads {
+  width: 260px;
+  border-right: 1px solid var(--shell-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.threads[hidden] {
+  display: none;
+}
+.threads ul {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  overflow: auto;
+}
+.threads li button {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.threads li button[aria-current="true"] {
+  background: var(--shell-panel);
+}
+.chat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.chat header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--shell-border);
+}
+.chat header .grow {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--shell-muted);
+}
+.pill {
+  border: 1px solid var(--shell-border);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 13px;
+  background: transparent;
+  cursor: pointer;
+}
+.messages {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.msg-user {
+  align-self: flex-end;
+  background: var(--gray-3, #f0f0f0);
+  border-radius: 16px;
+  padding: 8px 12px;
+  max-width: 68ch;
+}
+.msg-agent {
+  max-width: 68ch;
+  white-space: pre-wrap;
+}
+.msg-system {
+  align-self: center;
+  font-size: 13px;
+  color: var(--shell-muted);
+}
+.dock {
+  border: 1px solid var(--shell-approval);
+  border-radius: 10px;
+  margin: 0 16px 8px;
+  padding: 12px;
+  background: var(--shell-panel);
+}
+.dock .row {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.composer {
+  border-top: 1px solid var(--shell-border);
+  padding: 8px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.composer textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  min-height: 44px;
+  border: 1px solid var(--shell-border);
+  border-radius: 8px;
+  padding: 8px;
+  font: inherit;
+  background: var(--shell-bg);
+  color: inherit;
+}
+.composer .bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.composer .bar .grow {
+  flex: 1;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.chip {
+  border: 1px solid var(--shell-border);
+  border-radius: 999px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+.suggest {
+  border: 1px solid var(--shell-border);
+  border-radius: 8px;
+  background: var(--shell-bg);
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+}
+.suggest li[aria-selected="true"] {
+  background: var(--shell-panel);
+}
+.banner {
+  background: var(--shell-approval);
+  color: #000;
+  padding: 6px 16px;
+  font-size: 13px;
+}
+.panes {
+  display: flex;
+  min-width: 0;
+  border-left: 1px solid var(--shell-border);
+}
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 360px;
+  min-height: 0;
+  border-left: 1px solid var(--shell-border);
+}
+.pane > header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--shell-border);
+  font-size: 13px;
+}
+.pane > header .tabs {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+  overflow: hidden;
+}
+.pane > header button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.pane > header button[aria-selected="true"] {
+  background: var(--shell-panel);
+}
+.pane .body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.resizer {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+}
+.resizer:hover {
+  background: var(--shell-border);
+}
+.browser-viewport {
+  position: absolute;
+  inset: 0;
+  background: var(--shell-panel);
+}
+.browser-viewport[data-control="user"] {
+  outline: 2px solid var(--shell-accent);
+  outline-offset: -2px;
+}
+.status-pill {
+  align-self: center;
+  margin: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--shell-panel);
+  border: 1px solid var(--shell-border);
+  font-size: 13px;
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 20%);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+  z-index: 10;
+}
+.dialog {
+  background: var(--shell-bg);
+  border: 1px solid var(--shell-border);
+  border-radius: 14px;
+  width: min(640px, 92vw);
+  max-height: 70vh;
+  overflow: auto;
+  padding: 12px;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 20%);
+}
+.dialog input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--shell-border);
+  font: inherit;
+  background: transparent;
+  color: inherit;
+}
+.toasts {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 20;
+}
+.toast {
+  background: var(--shell-panel);
+  border: 1px solid var(--shell-border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  max-width: 360px;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override component transitions */
+    transition-duration: 0ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override component animations */
+    animation: none !important;
+  }
+}

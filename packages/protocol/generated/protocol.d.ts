@@ -247,7 +247,7 @@ export type AutomationKind = "cron" | "interval" | "watch" | "heartbeat" | "brie
 export interface WatchConfig {
     check: WatchCheck;
     /**
-     * Regex over the fetched text; capture group 1 is the value
+     * Literal marker (not a regex); the check reads the text after it
      */
     selector?: string;
     /**
