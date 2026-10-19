@@ -3,17 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "description": "Electron desktop shell",
+  "productName": "Psyche",
   "license": "Apache-2.0",
   "type": "module",
-  "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
-    }
-  },
+  "main": ".vite/build/main.cjs",
   "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
   },
   "dependencies": {
     "@psyche/protocol": "workspace:*",

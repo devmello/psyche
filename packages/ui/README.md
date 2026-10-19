@@ -6,7 +6,15 @@ React components: message blocks, cards, screens, theme.
 
 ## Status
 
-Placeholder created by S00 (bootstrap). Nothing is implemented yet.
+Placeholder created by S00 (bootstrap). The only exports are two tiny components used by the
+hello windows in `apps/desktop` and `apps/web`:
+
+- `PsycheMark({ size?, withWordmark? })`: an inline-SVG glyph plus the "Psyche" word mark.
+- `StatusPill({ tone: "ok" | "warn" | "error" | "neutral", label, title? })`: a coloured status chip.
+
+They use inline styles only (no CSS framework, no theme yet). S12 replaces them with the real kit
+(docs/06-ui-design.md); keep the names or update both apps in the same PR. The entry point is
+`src/index.tsx` (`tsconfig.json` uses `jsx: react-jsx` and the DOM lib).
 
 ## How this package maps to the docs
 

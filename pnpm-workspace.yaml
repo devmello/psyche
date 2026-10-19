@@ -10,3 +10,9 @@ allowBuilds:
   esbuild: true
 engineStrict: true
 autoInstallPeers: true
+
+# Electron Forge refuses to run under pnpm unless node-linker=hoisted or an explicit hoist
+# pattern is configured. Keep the isolated layout and publicly hoist only Electron itself
+# (the desktop bundles everything else with Vite).
+publicHoistPattern:
+  - electron

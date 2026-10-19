@@ -7,8 +7,8 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
+      "types": "./src/index.tsx",
+      "default": "./src/index.tsx"
     }
   },
   "scripts": {
