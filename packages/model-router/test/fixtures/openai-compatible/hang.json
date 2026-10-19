@@ -1,0 +1,19 @@
+{
+  "name": "llama.cpp: stalls after one text delta",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream",
+      "server": "llama.cpp"
+    },
+    "hang": true,
+    "chunks": [
+      "data: {\"choices\":[{\"finish_reason\":null,\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null}}],\"created\":1760000000,\"id\":\"chatcmpl-fxHang0001\",\"model\":\"qwen3-8b\",\"system_fingerprint\":\"b6100-fixture\",\"object\":\"chat.completion.chunk\"}\n\n",
+      "data: {\"choices\":[{\"finish_reason\":null,\"index\":0,\"delta\":{\"content\":\"Partial\"}}],\"created\":1760000000,\"id\":\"chatcmpl-fxHang0001\",\"model\":\"qwen3-8b\",\"system_fingerprint\":\"b6100-fixture\",\"object\":\"chat.completion.chunk\"}\n\n"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "ollama /v1/messages 404",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/v1/messages"
+  },
+  "response": {
+    "status": 404,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"type\":\"error\",\"error\":{\"type\":\"not_found_error\",\"message\":\"model 'gpt-oss:20b' not found\"}}"
+  }
+}

@@ -16,7 +16,9 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@psyche/protocol": "workspace:*"
+    "@psyche/db": "workspace:*",
+    "@psyche/protocol": "workspace:*",
+    "grammy": "1.46.0"
   },
   "devDependencies": {
     "@psyche/testing": "workspace:*"

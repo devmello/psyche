@@ -1,6 +1,10 @@
 import { PsycheError } from "@psyche/protocol";
+import { runCli } from "./cli.ts";
 import { createLogger } from "./log.ts";
 import { startGateway } from "./server.ts";
+
+const args = process.argv.slice(2);
+if (args.length > 0) process.exit(runCli(args));
 
 const log = createLogger();
 

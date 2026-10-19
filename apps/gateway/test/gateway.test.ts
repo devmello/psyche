@@ -9,6 +9,7 @@ import {
   startTestGateway,
   TestClient,
   type TestGateway,
+  verified,
 } from "./helpers.ts";
 
 let t: TestGateway;
@@ -65,9 +66,12 @@ describe("pairing", () => {
       handshakeSecret: t.gateway.handshakeSecret,
     });
     expect(verifyRes).toMatchObject({ ok: true, payload: { phase: "paired" } });
-    expect(verifyRes?.payload).toMatchObject({
-      scopes: expect.arrayContaining(["operator.admin"]),
-    });
+    // The handshake secret never buys operator.admin (S23 review PR-1-A).
+    expect(verified<{ scopes: string[] }>({ verifyRes }).scopes).toEqual([
+      "operator.read",
+      "operator.write",
+      "operator.approvals",
+    ]);
     c.close();
   });
 
@@ -189,14 +193,16 @@ describe("frames, settings and events", () => {
 
   it("requires idempotency keys and replays duplicates", async () => {
     const c = await paired();
-    expect(await c.request("settings.set", { key: "a.b", value: 1 })).toMatchObject({
+    expect(await c.request("settings.set", { key: "appearance.b", value: 1 })).toMatchObject({
       ok: false,
       error: { code: "invalid_params" },
     });
-    const first = await c.request("settings.set", { key: "a.b", value: 1 }, "same");
-    const replay = await c.request("settings.set", { key: "a.b", value: 1 }, "same");
+    const first = await c.request("settings.set", { key: "appearance.b", value: 1 }, "same");
+    const replay = await c.request("settings.set", { key: "appearance.b", value: 1 }, "same");
     expect(replay.payload).toEqual(first.payload);
-    expect(await c.request("settings.set", { key: "a.b", value: 2 }, "same")).toMatchObject({
+    expect(
+      await c.request("settings.set", { key: "appearance.b", value: 2 }, "same"),
+    ).toMatchObject({
       ok: false,
       error: { code: "idempotency_conflict" },
     });
@@ -220,7 +226,7 @@ describe("frames, settings and events", () => {
 
   it("returns not_implemented for methods S01 has not built yet", async () => {
     const c = await paired();
-    expect(await c.request("threads.list", {})).toMatchObject({
+    expect(await c.request("tasks.list", {})).toMatchObject({
       ok: false,
       error: { code: "not_implemented" },
     });
@@ -321,6 +327,9 @@ describe("review regressions", () => {
   });
 
   it("caps pending pairing requests", async () => {
+    await t.cleanup();
+    t = await startTestGateway({ limits: { pairingsPerHour: 1000, maxPendingPairings: 20 } });
+    wsUrl = `ws://127.0.0.1:${t.gateway.port}/ws`;
     for (let i = 0; i < 20; i++) {
       const c = await TestClient.open(wsUrl);
       const r = await handshake(c, t.gateway.origin, { deviceId: `flood-${i}` });

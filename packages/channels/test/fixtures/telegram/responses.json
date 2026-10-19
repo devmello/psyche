@@ -1,0 +1,160 @@
+{
+  "getMe": {
+    "ok": true,
+    "result": {
+      "id": 7012345678,
+      "is_bot": true,
+      "first_name": "Psyche",
+      "username": "psyche_bot",
+      "can_join_groups": true,
+      "can_read_all_group_messages": false,
+      "supports_inline_queries": false,
+      "can_connect_to_business": false,
+      "has_main_web_app": false
+    }
+  },
+  "sendMessage": {
+    "ok": true,
+    "result": {
+      "message_id": 901,
+      "from": {
+        "id": 7012345678,
+        "is_bot": true,
+        "first_name": "Psyche",
+        "username": "psyche_bot"
+      },
+      "chat": {
+        "id": 48151623,
+        "first_name": "Ada",
+        "last_name": "Lovelace",
+        "username": "ada_l",
+        "type": "private"
+      },
+      "date": 1792361400,
+      "text": "ok"
+    }
+  },
+  "sendVoice": {
+    "ok": true,
+    "result": {
+      "message_id": 902,
+      "from": {
+        "id": 7012345678,
+        "is_bot": true,
+        "first_name": "Psyche",
+        "username": "psyche_bot"
+      },
+      "chat": {
+        "id": 48151623,
+        "first_name": "Ada",
+        "last_name": "Lovelace",
+        "username": "ada_l",
+        "type": "private"
+      },
+      "date": 1792361401,
+      "voice": {
+        "duration": 3,
+        "mime_type": "audio/ogg",
+        "file_id": "AwACAgEAAxkDAAIB_2Zib3Qtdm9pY2UAAk8F",
+        "file_unique_id": "AgADTwUAAkQ",
+        "file_size": 9120
+      }
+    }
+  },
+  "sendPhoto": {
+    "ok": true,
+    "result": {
+      "message_id": 903,
+      "from": {
+        "id": 7012345678,
+        "is_bot": true,
+        "first_name": "Psyche",
+        "username": "psyche_bot"
+      },
+      "chat": {
+        "id": 48151623,
+        "first_name": "Ada",
+        "last_name": "Lovelace",
+        "username": "ada_l",
+        "type": "private"
+      },
+      "date": 1792361402,
+      "photo": [
+        {
+          "file_id": "AgACAgEAAxkDAAIC",
+          "file_unique_id": "AQADsmall",
+          "file_size": 1200,
+          "width": 90,
+          "height": 90
+        }
+      ]
+    }
+  },
+  "sendDocument": {
+    "ok": true,
+    "result": {
+      "message_id": 904,
+      "from": {
+        "id": 7012345678,
+        "is_bot": true,
+        "first_name": "Psyche",
+        "username": "psyche_bot"
+      },
+      "chat": {
+        "id": 48151623,
+        "first_name": "Ada",
+        "last_name": "Lovelace",
+        "username": "ada_l",
+        "type": "private"
+      },
+      "date": 1792361403,
+      "document": {
+        "file_name": "notes.txt",
+        "mime_type": "text/plain",
+        "file_id": "BQACAgEAAxkDAAIC",
+        "file_unique_id": "AgADnotes",
+        "file_size": 12
+      }
+    }
+  },
+  "getFile": {
+    "ok": true,
+    "result": {
+      "file_id": "AwACAgEAAxkBAAIB_GZ2b2ljZS1ub3RlLWZpbGUtaWQAAk4F",
+      "file_unique_id": "AgADTgUAAkQ",
+      "file_size": 23456,
+      "file_path": "voice/file_12.oga"
+    }
+  },
+  "answerCallbackQuery": {
+    "ok": true,
+    "result": true
+  },
+  "sendChatAction": {
+    "ok": true,
+    "result": true
+  },
+  "error429": {
+    "ok": false,
+    "error_code": 429,
+    "description": "Too Many Requests: retry after 17",
+    "parameters": {
+      "retry_after": 17
+    }
+  },
+  "error403": {
+    "ok": false,
+    "error_code": 403,
+    "description": "Forbidden: bot was blocked by the user"
+  },
+  "error401": {
+    "ok": false,
+    "error_code": 401,
+    "description": "Unauthorized"
+  },
+  "error400": {
+    "ok": false,
+    "error_code": 400,
+    "description": "Bad Request: chat not found"
+  }
+}

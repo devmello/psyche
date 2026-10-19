@@ -1,0 +1,14 @@
+{
+  "name": "ollama 400 context length",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/api/chat"
+  },
+  "response": {
+    "status": 400,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":\"the input length exceeds the context length\"}"
+  }
+}
