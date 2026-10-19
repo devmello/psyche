@@ -84,6 +84,10 @@ struct ComputerPolicyTests {
         #expect(lock.activeSession == "run_b")
         lock.release("run_b")
         #expect(lock.activeSession == nil)
+        try lock.acquire("run_c")
+        #expect(lock.stopActive() == "run_c")
+        #expect(throws: CapabilityError.stopped) { try lock.acquire("run_c") }
+        try lock.acquire("run_d")
     }
 
     @Test func stopSignalTripsAndResets() throws {
@@ -143,5 +147,18 @@ struct ComputerPolicyTests {
         }
         #expect(PermissionCatalog.entry(.fullDiskAccess).style == .settingsOnly)
         #expect(PermissionCatalog.order.count == TCCPermission.allCases.count)
+    }
+}
+
+@Suite("risky labels")
+struct RiskLabelTests {
+    @Test func destructiveAndDataCreatingLabelsAreRisky() {
+        #expect(RiskLabels.isRisky(label: "Move to Trash"))
+        #expect(RiskLabels.isRisky(label: nil, customAction: "trash"))
+        #expect(RiskLabels.isRisky(label: "Add List: Groceries"))
+        #expect(RiskLabels.isRisky(label: "Send"))
+        #expect(!RiskLabels.isRisky(label: "New Note"))
+        #expect(!RiskLabels.isRisky(label: "Sender details"))  // whole words only
+        #expect(!RiskLabels.isRisky(label: "Add Reminder"))
     }
 }

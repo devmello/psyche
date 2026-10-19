@@ -275,6 +275,7 @@ public final class TierPolicy: @unchecked Sendable {
 public final class ComputerSessionLock: @unchecked Sendable {
     private let lock = NSLock()
     private var holder: (id: String, lastUse: Date)?
+    private var stopped: [String] = []
     public let idleTimeout: TimeInterval
     private let now: @Sendable () -> Date
 
@@ -288,6 +289,7 @@ public final class ComputerSessionLock: @unchecked Sendable {
     public func acquire(_ session: String) throws {
         lock.lock()
         defer { lock.unlock() }
+        if stopped.contains(session) { throw CapabilityError.stopped }
         let t = now()
         if let h = holder, h.id != session, t.timeIntervalSince(h.lastUse) < idleTimeout {
             throw CapabilityError(
@@ -296,6 +298,19 @@ public final class ComputerSessionLock: @unchecked Sendable {
             )
         }
         holder = (session, t)
+    }
+
+    /// Esc: ends the active session for good. Later calls from it fail with `user_stopped`, so the
+    /// agent cannot simply carry on; the Gateway starts a new run (new session id) if the user wants.
+    @discardableResult
+    public func stopActive() -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let h = holder else { return nil }
+        holder = nil
+        stopped.append(h.id)
+        if stopped.count > 64 { stopped.removeFirst(stopped.count - 64) }
+        return h.id
     }
 
     public func release(_ session: String) {
