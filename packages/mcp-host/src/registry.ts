@@ -1,5 +1,32 @@
-import type { McpHost, ToolRegistry, Unsubscribe } from "@psyche/protocol";
+import type { McpHost, ToolCallDescription, ToolRegistry, Unsubscribe } from "@psyche/protocol";
+import { sha256, strictCanonicalJSON } from "./canonical.ts";
 import { mcpToolName, parseMcpToolName } from "./naming.ts";
+
+/**
+ * Security §3.5 / data model §4.2 for `connector_action` / MCP tool calls: the binding covers
+ * server id, tool name, `tools/list` hash and an args hash; standing grants bind to server +
+ * tool + hash, so a changed listing never inherits a grant.
+ */
+export function describeMcpCall(
+  serverId: string,
+  tool: string,
+  toolsListHash: string,
+  params: unknown,
+): ToolCallDescription {
+  let argsHash: string;
+  try {
+    argsHash = sha256(strictCanonicalJSON(params ?? {}));
+  } catch {
+    argsHash = sha256(String(params));
+  }
+  return {
+    kind: "connector_action",
+    target: { kind: "account", value: `mcp:${serverId}`, display: `MCP server ${serverId}` },
+    bindingFields: { serverId, tool, toolsListHash, argsHash },
+    grantKey: `mcp:${serverId}:${tool}:${toolsListHash}`,
+    summary: `Called ${tool} on ${serverId}`,
+  };
+}
 
 /**
  * Registers a server's tools into the agent-core registry as `mcp__<server>__<tool>`. Each
@@ -10,6 +37,8 @@ import { mcpToolName, parseMcpToolName } from "./naming.ts";
 export interface McpRegistration {
   /** Re-list and re-register; returns the hash now registered. */
   sync(): Promise<string>;
+  /** The `tools/list` hash the current registrations are bound to. */
+  readonly hash: string;
   unregister(): void;
 }
 
@@ -28,6 +57,7 @@ export async function registerMcpServerTools(
   serverId: string,
 ): Promise<McpRegistration> {
   let unsubs: Unsubscribe[] = [];
+  let registered = "";
   const unregister = () => {
     for (const u of unsubs) u();
     unsubs = [];
@@ -46,6 +76,7 @@ export async function registerMcpServerTools(
       unsubs.push(
         registry.register({
           spec,
+          describeCall: (params) => describeMcpCall(serverId, tool, toolsListHash, params),
           execute: async (_callId, params, signal) => {
             const r = await host.callTool(serverId, tool, params, { toolsListHash, signal });
             return { output: r.content, isError: r.isError, provenance: r.provenance };
@@ -53,8 +84,15 @@ export async function registerMcpServerTools(
         }),
       );
     }
+    registered = toolsListHash;
     return toolsListHash;
   };
   await sync();
-  return { sync, unregister };
+  return {
+    sync,
+    unregister,
+    get hash() {
+      return registered;
+    },
+  };
 }

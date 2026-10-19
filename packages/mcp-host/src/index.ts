@@ -43,7 +43,7 @@ export {
   PsycheOAuthProvider,
 } from "./oauth.ts";
 export { provenanceFor, requiresUserInteraction, sideEffectFor } from "./policy.ts";
-export { type McpRegistration, registerMcpServerTools } from "./registry.ts";
+export { describeMcpCall, type McpRegistration, registerMcpServerTools } from "./registry.ts";
 export {
   assertNoPlaceholders,
   mcpCredentialTarget,

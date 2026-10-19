@@ -269,6 +269,16 @@ describe("agent-core registration", () => {
     const reg = await registerMcpServerTools(host, registry, "echo");
     const exec = registry.get("mcp__echo__echo");
     expect(exec?.spec.sideEffect).toBe("write");
+    const described = exec?.describeCall?.({ text: "yo" });
+    expect(described).toMatchObject({
+      kind: "connector_action",
+      target: { kind: "account", value: "mcp:echo" },
+      bindingFields: { serverId: "echo", tool: "echo", toolsListHash: reg.hash },
+    });
+    expect(described?.grantKey).toBe(`mcp:echo:echo:${reg.hash}`);
+    expect(exec?.describeCall?.({ text: "other" })?.bindingFields).not.toEqual(
+      described?.bindingFields,
+    );
     const ac = new AbortController();
     const out = await exec?.execute("c1", { text: "yo" }, ac.signal, () => {});
     expect(out).toMatchObject({ isError: false, provenance: "untrusted" });
