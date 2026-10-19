@@ -406,8 +406,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   };
 }
 
+export { type BrowserSetup, type ComposedBrowser, composeBrowser } from "./browser.ts";
+export { CallContexts } from "./call-context.ts";
 export { fileTools } from "./file-tools.ts";
 export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
+export type { ApprovalRelay, ComposedPart, ComposeServices } from "./services.ts";
 export { createLogger, surfaceOf };
 
 /**
