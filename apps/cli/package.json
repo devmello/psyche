@@ -12,13 +12,20 @@
     }
   },
   "scripts": {
+    "start": "node src/main.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@psyche/protocol": "workspace:*"
+    "@psyche/protocol": "workspace:*",
+    "age-encryption": "0.3.1"
   },
   "devDependencies": {
-    "@psyche/testing": "workspace:*"
+    "@psyche/gateway": "workspace:*",
+    "@psyche/testing": "workspace:*",
+    "@psyche/web": "workspace:*"
+  },
+  "bin": {
+    "psyche": "./src/main.ts"
   }
 }

@@ -1,0 +1,26 @@
+#!/bin/sh
+# Restore a backup into a Compose deployment's volume.
+#
+#   deploy/backup/restore.sh /srv/psyche-backups/psyche-<time>.tar.gz.age [identity-file]
+#
+# Verifies every file first. Existing state is moved to $PSYCHE_HOME/.pre-restore-<time>/.
+# On a new machine, unlock the vault afterwards with its recovery key:
+#   docker compose -f deploy/docker-compose.yml exec gateway psyche vault unlock --recovery
+set -eu
+. "$(cd "$(dirname "$0")" && pwd)/common.sh"
+
+file="${1:?usage: restore.sh <backup-file> [age-identity-file]}"
+identity="${2:-}"
+file="$(abspath "$file")"
+dir="$(dirname "$file")"
+name="$(basename "$file")"
+check_dir "$dir"
+
+stop_gateway
+if [ -n "$identity" ]; then
+  # The identity goes in on stdin: never copied next to the backup or into the container.
+  psyche_run "$dir" backup restore "/backup/$name" --force --identity - <"$identity"
+else
+  psyche_run "$dir" backup restore "/backup/$name" --force
+fi
+echo "restored $file"

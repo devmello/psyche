@@ -1,0 +1,17 @@
+# Build context filter for deploy/Dockerfile (BuildKit reads <Dockerfile>.dockerignore).
+**/node_modules
+**/dist
+**/out
+**/.turbo
+**/.vite
+**/coverage
+.git
+.claude
+apps/mac-helper
+spikes
+research_notes
+reports
+tests/corpus
+**/*.log
+.env
+**/.env*
