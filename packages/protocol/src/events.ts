@@ -19,7 +19,7 @@ import {
   CredentialMeta,
   VaultStatus,
 } from "./schemas/integrations.ts";
-import { MemoryChangeSource, MemoryJob } from "./schemas/memory.ts";
+import { MemoryChangeSource, MemoryJob, PersonaIdentity } from "./schemas/memory.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
 import { FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surfaces.ts";
 import { InputRequest, Task, TaskAction } from "./schemas/tasks.ts";
@@ -149,6 +149,18 @@ export const Events = {
     }),
     description:
       "A workspace file was created, changed or deleted (by a tool, the API, a job, or outside Psyche).",
+  }),
+  "persona.updated": defineEvent({
+    payload: Type.Object({
+      identity: PersonaIdentity,
+      changed: Type.Array(Type.String()),
+      /**
+       * The creature or name changed: the avatar renderer should make a new avatar from
+       * `identity` and store its asset id with `memory.persona.edit { fields: { avatar } }`.
+       */
+      avatarRequested: Type.Boolean(),
+    }),
+    description: "IDENTITY.md changed: clients refresh the header; maybe regenerate the avatar.",
   }),
   "memory.job.updated": defineEvent({
     payload: Type.Object({ job: MemoryJob }),
