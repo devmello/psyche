@@ -9,6 +9,7 @@ export * from "./clock.ts";
 export * from "./fakes/index.ts";
 export * from "./fixtures/index.ts";
 export * from "./ids.ts";
+export * from "./injection/index.ts";
 export * from "./secret-patterns.ts";
 export * from "./secret-registry.ts";
 export * from "./secrets.ts";

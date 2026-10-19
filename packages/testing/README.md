@@ -18,6 +18,8 @@ Deterministic in-memory fakes for every contract in [`packages/protocol/src/cont
   - `@psyche/testing/vitest`: `secretLeakGuard()` plugin (or `setupFiles: ["@psyche/testing/vitest-setup"]`) fails any test whose captures leak. This package runs under it.
   - `pnpm check:secrets` (`src/cli/check-secrets.ts`): scans tracked files (fixture values only in the registry; pattern hits only in `REPO_ALLOW`) and JSONL captures (`--captures <dir> [--require-captures]`); `--json` for CI. CI: `security / secret-leak` in `.github/workflows/security.yml`.
 
+- **Injection runner** (`src/injection/`, security §7.4, F9): `loadCorpus(dir)`, `runCase(case, mode, stack?)`, `runCorpus(cases)` → a diffable `InjectionReport` (no timestamps, sorted). It assumes the worst-case model: the payload is returned as an untrusted tool result and the model emits `attack.toolCall`. A `ToolGate` decides; `ReferenceToolGate` composes the fakes with the deterministic rules docs/05 gives the agent loop and executors (no control-plane tools, `exec_host` off, placeholders only in fill executors, fill origin binding, the protected-memory gate), then the Permission Broker. Comparison: executed or less safe than expected fails, safer warns; invariants checked include secret leaks (via capture), grant changes, protected-memory changes, audit entries, card contents and forged non-owner answers (`followUps: [{type: "approval_answer", ...}]`). Swap in real packages with a custom `StackFactory`; the report records which components were real. CLI: `pnpm check:injection [--corpus dir] [--out file] [--strict]`.
+
 ## Using it from another package
 
 Add `"@psyche/testing": "workspace:*"` to `devDependencies`, then:
@@ -37,7 +39,8 @@ Build features against fakes, for example `FakeModelProvider.script([[{type: "te
 ## What is stubbed (S18 completes)
 
 - Fakes simplify policy (no classifier, no sensitive-category list, read asks only in `manual`), scheduling (UTC-only cron subset) and search ranking (term overlap). Contracts without a conformance suite yet: AgentLoop, Scheduler, BrowserDriver, McpHost, ChannelAdapter, SkillLoader, SpeechEngine, ViewerRegistry.
-- No injection corpus, scenario runner, resumability harness or mock Gateway server yet.
+- Injection runner: the reference gate stands in for S02's `before_tool_call` until it lands; no probe scanner (`flagged_instruction_like` is reported as unchecked); `ApprovalRequest` has no taint-source list, so `approval.taintSources` is unchecked.
+- No scenario runner, resumability harness or mock Gateway server yet.
 
 ## How this package maps to the docs
 
