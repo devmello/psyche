@@ -57,6 +57,8 @@ export interface BrowserSnapshot extends PageSnapshot {
   omittedText?: number;
   /** A password / OTP / card field is focused or holds a value: screenshots are suppressed. */
   secureFieldActive: boolean;
+  /** A CAPTCHA / bot challenge is on the page: the task pauses and the owner is asked (§6). */
+  captcha?: boolean;
   stats: SnapshotStats;
 }
 
@@ -132,7 +134,8 @@ export type DriverEventEx =
   | { type: "blocked"; tabId: string; url: string; reason: string }
   | { type: "approval_needed"; tabId: string; url: string; origin: string; hop: string }
   | { type: "secure_field"; tabId: string; active: boolean }
-  | { type: "popup"; tabId: string; openerTabId: string; url: string };
+  | { type: "popup"; tabId: string; openerTabId: string; url: string }
+  | { type: "captcha"; tabId: string; url: string };
 
 export interface OpenSessionOptions {
   profileId?: string;

@@ -126,7 +126,8 @@ export class OriginPolicy {
         message: err instanceof Error ? err.message : String(err),
       };
     }
-    if (this.#deny.some((p) => matchesPattern(url, p))) {
+    // Deny rules ignore scheme and port: "deny example.com" means every way of reaching it.
+    if (this.#deny.some((p) => matchesPattern(url, { ...p, scheme: url.scheme, port: url.port }))) {
       return {
         action: "deny",
         reason: "deny_rule",

@@ -86,7 +86,9 @@ export function canonicalizeUrl(raw: string): CanonicalUrl {
   }
   let host = url.hostname;
   if (host.endsWith(".")) host = host.slice(0, -1);
-  if (host === "" || host.includes("..")) invalid("URL has no host", { reason: "invalid_url" });
+  if (host === "" || host.includes("..") || host.endsWith(".")) {
+    invalid("URL has no host", { reason: "invalid_url" });
+  }
   let hostKind: HostKind = "domain";
   if (host.startsWith("[") && host.endsWith("]")) {
     host = host.slice(1, -1);
@@ -130,10 +132,10 @@ function isPrivateIpv4(host: string): { loopback: boolean; private: boolean } {
   const o = ipv4Octets(host);
   if (o === undefined) return { loopback: false, private: false };
   const [a = 0, b = 0] = o;
-  const loopback = a === 127;
+  // 0.0.0.0/8 reaches the local machine on macOS and Linux ("0.0.0.0 day"), so it counts as loopback.
+  const loopback = a === 127 || a === 0;
   const priv =
     loopback ||
-    a === 0 ||
     a === 10 ||
     (a === 100 && b >= 64 && b <= 127) || // CGNAT
     (a === 169 && b === 254) || // link-local (cloud metadata lives here)
@@ -148,9 +150,10 @@ function isPrivateIpv4(host: string): { loopback: boolean; private: boolean } {
 function isPrivateIpv6(host: string): { loopback: boolean; private: boolean } {
   const h = host.toLowerCase();
   if (h === "::1") return { loopback: true, private: true };
-  if (h === "::") return { loopback: false, private: true };
-  // IPv4-mapped (`::ffff:7f00:1`, as the WHATWG parser prints it).
-  const mapped = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(h);
+  if (h === "::") return { loopback: true, private: true };
+  // IPv4-mapped (`::ffff:7f00:1`, as the WHATWG parser prints it), IPv4-translated
+  // (`::ffff:0:7f00:1`) and deprecated IPv4-compatible (`::7f00:1`) addresses.
+  const mapped = /^::(?:ffff:(?:0:)?)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(h);
   if (mapped !== null) {
     const hi = Number.parseInt(mapped[1] ?? "0", 16);
     const lo = Number.parseInt(mapped[2] ?? "0", 16);
@@ -158,6 +161,7 @@ function isPrivateIpv6(host: string): { loopback: boolean; private: boolean } {
   }
   const first = Number.parseInt(h.split(":")[0] || "0", 16);
   const priv =
+    first === 0 || // ::/16 is reserved (unspecified, loopback, embedded IPv4)
     (first & 0xfe00) === 0xfc00 || // fc00::/7 unique local
     (first & 0xffc0) === 0xfe80 || // fe80::/10 link-local
     (first & 0xff00) === 0xff00; // multicast
@@ -167,7 +171,7 @@ function isPrivateIpv6(host: string): { loopback: boolean; private: boolean } {
 const PRIVATE_SUFFIXES = [".local", ".internal", ".lan", ".home.arpa", ".intranet", ".corp"];
 
 export interface NetworkClass {
-  /** `localhost`, `*.localhost`, 127/8 or ::1. */
+  /** `localhost`, `*.localhost`, 127/8, 0/8, ::1 or ::. */
   loopback: boolean;
   /** Loopback, RFC 1918, link-local, CGNAT, ULA, single-label and private-use names. */
   private: boolean;

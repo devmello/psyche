@@ -11,6 +11,17 @@ export interface ReputationCheck {
   check(origin: string): Promise<ReputationVerdict>;
 }
 
+/** Canonical (lowercased, IDNA-normalized, no trailing dot) form of a bare host. */
+function normalizeHost(host: string): string {
+  const h = host.trim().replace(/\.$/, "");
+  if (h.length === 0) return "";
+  try {
+    return canonicalizeUrl(`http://${h.includes(":") && !h.startsWith("[") ? `[${h}]` : h}`).host;
+  } catch {
+    return h.toLowerCase();
+  }
+}
+
 /** Host-suffix blocklist: `evil.example` blocks `evil.example` and every subdomain of it. */
 export class LocalBlocklist implements ReputationCheck {
   #hosts = new Set<string>();
@@ -20,12 +31,12 @@ export class LocalBlocklist implements ReputationCheck {
   }
 
   add(host: string): void {
-    const h = host.trim().toLowerCase().replace(/\.$/, "");
+    const h = normalizeHost(host);
     if (h.length > 0) this.#hosts.add(h);
   }
 
   has(host: string): boolean {
-    let h = host.toLowerCase();
+    let h = normalizeHost(host);
     for (;;) {
       if (this.#hosts.has(h)) return true;
       const dot = h.indexOf(".");
@@ -65,7 +76,8 @@ export class ChainedReputation implements ReputationCheck {
     try {
       v = await this.#o.remote.check(origin);
     } catch {
-      v = this.#o.failClosed === true ? "block" : "unknown";
+      // Not cached: a transient failure must not pin the verdict for the rest of the run.
+      return this.#o.failClosed === true ? "block" : "unknown";
     }
     this.#cache.set(origin, v);
     return v;
