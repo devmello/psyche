@@ -5,10 +5,19 @@
   "description": "In-memory fakes, fixtures, conformance suites and the secret-leak checker",
   "license": "Apache-2.0",
   "type": "module",
-  "exports": { ".": { "types": "./src/index.ts", "default": "./src/index.ts" } },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run --passWithNoTests"
   },
-  "dependencies": { "@psyche/protocol": "workspace:*" }
+  "dependencies": {
+    "@psyche/protocol": "workspace:*",
+    "@sinclair/typebox": "0.34.52",
+    "ulid": "3.0.2"
+  }
 }

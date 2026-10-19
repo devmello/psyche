@@ -8,3 +8,5 @@ allowBuilds:
   better-sqlite3: true
   electron: true
   esbuild: true
+engineStrict: true
+autoInstallPeers: true
