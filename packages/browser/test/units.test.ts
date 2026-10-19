@@ -141,6 +141,17 @@ describe("bridge allowlist", () => {
     );
     expect(checkCdpCommand("Runtime.callFunctionOn", { objectId: "main" }, world).ok).toBe(false);
     expect(checkCdpCommand("Runtime.callFunctionOn", { objectId: "o1" }, world).ok).toBe(true);
+    const doc = {
+      patterns: [{ urlPattern: "*", resourceType: "Document", requestStage: "Request" }],
+    };
+    expect(checkCdpCommand("Fetch.enable", doc).ok).toBe(true);
+    expect(checkCdpCommand("Fetch.enable", { patterns: [{ urlPattern: "*" }] }).ok).toBe(false);
+    expect(checkCdpCommand("Fetch.enable", { ...doc, handleAuthRequests: true }).ok).toBe(false);
+    expect(checkCdpCommand("Fetch.continueRequest", { requestId: "1" }).ok).toBe(true);
+    expect(checkCdpCommand("Fetch.continueRequest", { requestId: "1", url: "https://x" }).ok).toBe(
+      false,
+    );
+    expect(checkCdpCommand("Fetch.fulfillRequest", { requestId: "1" }).ok).toBe(false);
   });
 });
 

@@ -124,3 +124,22 @@ describe("CDP bridge driver lifecycle", () => {
     await rm(dir, { recursive: true, force: true });
   });
 });
+
+describe("pre-request blocking (Fetch interception)", () => {
+  it("never lets a request to an origin outside the set leave", async () => {
+    const { browser, tab, page } = await setup();
+    await expect(page.navigate(browser.url("a/redirect-b"))).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    expect(tab.sentRequests).not.toContain(browser.url("b/landing"));
+    expect(tab.blockedRequests).toContain(browser.url("b/landing"));
+    await page.navigate(browser.url("a/script-nav"));
+    const snap = await page.snapshot();
+    const btn = snap.refs.find((r) => r.name === "Continue to partner")?.ref ?? "";
+    await page.pointer({ ref: btn }, "click");
+    await new Promise((r) => setTimeout(r, 30));
+    expect(tab.sentRequests).not.toContain(browser.url("evil/landing"));
+    expect(tab.blockedRequests).toContain(browser.url("evil/landing"));
+    await expect(page.snapshot()).rejects.toMatchObject({ code: "approval_required" });
+  });
+});

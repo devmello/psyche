@@ -174,6 +174,43 @@ export class MockTab implements CdpTarget {
   #objects = new Map<string, number>();
   #nextObj = 1;
   #screencast = false;
+  #fetch = false;
+  #nextLoader = 1;
+  lastLoaderId = "";
+  #paused = new Map<string, (verdict: "continue" | "fail") => void>();
+  #nextPause = 1;
+  /** URLs that "left the machine" (continued past interception), and the ones blocked. */
+  readonly sentRequests: string[] = [];
+  readonly blockedRequests: string[] = [];
+
+  /** Chromium commits an error page at the blocked URL (`chrome-error://chromewebdata/`). */
+  #commitError(url: string, loaderId: string): void {
+    this.#loader++;
+    this.url = url;
+    this.title = url;
+    this.#doc = this.#build(
+      {
+        title: url,
+        body: [{ kind: "text", text: "This page has been blocked (ERR_BLOCKED_BY_CLIENT)" }],
+      },
+      url,
+      "a",
+      this.#frameId,
+      false,
+    );
+    this.#emit("Page.frameNavigated", {
+      frame: {
+        id: this.#frameId,
+        url,
+        loaderId,
+        securityOrigin: safeOrigin(url),
+        unreachableUrl: url,
+      },
+      type: "Navigation",
+    });
+    this.#emit("Page.loadEventFired", { timestamp: Date.now() / 1000 });
+  }
+
   /** Methods received, for assertions about what the driver sent. */
   readonly calls: string[] = [];
 
@@ -430,7 +467,7 @@ export class MockTab implements CdpTarget {
         const final = this.#finalTarget(url);
         void this.navigateTo(url, "GET");
         if (final === "download") return { frameId: this.#frameId, errorText: "net::ERR_ABORTED" };
-        return { frameId: this.#frameId, loaderId: `L${this.#loader + 1}` };
+        return { frameId: this.#frameId, loaderId: this.lastLoaderId };
       }
       case "Page.navigateToHistoryEntry": {
         const i = this.#history.findIndex((e) => e.id === p.entryId);
@@ -442,6 +479,20 @@ export class MockTab implements CdpTarget {
       case "Page.reload":
         void this.navigateTo(this.url, "GET", { historyIndex: this.#index });
         return {};
+      case "Fetch.enable":
+        this.#fetch = true;
+        return {};
+      case "Fetch.disable":
+        this.#fetch = false;
+        return {};
+      case "Fetch.continueRequest":
+      case "Fetch.failRequest": {
+        const r = this.#paused.get(String(p.requestId));
+        if (r === undefined) throw new PsycheError("invalid_params", "Invalid InterceptionId.");
+        this.#paused.delete(String(p.requestId));
+        r(method === "Fetch.continueRequest" ? "continue" : "fail");
+        return {};
+      }
       case "Page.stopLoading":
         if (this.#nav !== undefined) this.#nav.stopped = true;
         return {};
@@ -803,7 +854,8 @@ export class MockTab implements CdpTarget {
     this.#nav = nav;
     const b = this.browser;
     const requestId = b.requestId();
-    const loaderId = `L${this.#loader + 1}`;
+    const loaderId = `L${this.#nextLoader++}`;
+    this.lastLoaderId = loaderId;
     let current = url;
     let redirectResponse: unknown;
     this.#emit("Page.frameStartedLoading", { frameId: this.#frameId });
@@ -818,7 +870,31 @@ export class MockTab implements CdpTarget {
         timestamp: Date.now() / 1000,
       };
       if (redirectResponse !== undefined) ev.redirectResponse = redirectResponse;
+      if (this.#fetch) {
+        // Request stage interception: nothing leaves until the client answers.
+        const interceptionId = `I${this.#nextPause++}`;
+        const verdict = await new Promise<"continue" | "fail">((resolve) => {
+          this.#paused.set(interceptionId, resolve);
+          this.#emit("Fetch.requestPaused", {
+            requestId: interceptionId,
+            request: { url: current, method },
+            frameId: this.#frameId,
+            resourceType: "Document",
+            networkId: requestId,
+          });
+        });
+        if (verdict === "fail") {
+          this.blockedRequests.push(current);
+          this.#emit("Network.loadingFailed", {
+            requestId,
+            errorText: "net::ERR_BLOCKED_BY_CLIENT",
+          });
+          this.#commitError(current, loaderId);
+          return;
+        }
+      }
       this.#emit("Network.requestWillBeSent", ev);
+      this.sentRequests.push(current);
       await tick(b.latencyMs);
       if (nav.stopped || this.closed) {
         this.#emit("Network.loadingFailed", {

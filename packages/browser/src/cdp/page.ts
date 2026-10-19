@@ -93,11 +93,23 @@ export interface PageControllerOptions {
   recording?: RecordingSink;
   /** Bridge method allowlists drop `Network.enable` in some setups; navigation still works. */
   enableNetwork?: boolean;
+  /** Pause document requests with a narrow `Fetch.enable` (default true). */
+  interceptDocuments?: boolean;
 }
 
 interface Waiter {
   resolve: () => void;
   reject: (err: unknown) => void;
+  /** Only a load after this navigation's own commit counts (review finding 11). */
+  requireCommit: boolean;
+  committed: boolean;
+  /** The loader this navigation creates, once `Page.navigate` reported it. */
+  loader?: string;
+  /** Loaders committed / loaded while waiting, before `loader` was known. */
+  seenCommits: Set<string>;
+  seenLoads: Set<string>;
+  /** History and reload report no loader: the first commit after the command counts. */
+  anyLoader: boolean;
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
@@ -171,6 +183,9 @@ export class PageController {
   #recording = false;
   #closed = false;
   #stoppedUrl: string | undefined;
+  #fetching = false;
+  /** Main-frame document requests since the current navigation started (0 = initial hop). */
+  #docHops = 0;
 
   constructor(options: PageControllerOptions) {
     this.tabId = options.tabId;
@@ -184,6 +199,19 @@ export class PageController {
     const enables = [this.#t.send("Page.enable"), this.#t.send("Runtime.enable")];
     if (this.#o.enableNetwork !== false) enables.push(this.#t.send("Network.enable"));
     await Promise.all(enables);
+    // Pause top-level document requests before they leave, so a new origin (or a redirect to
+    // one) is blocked rather than stopped after the fact (review finding 1). Falls back to
+    // stop-on-requestWillBeSent when the endpoint refuses Fetch.
+    if (this.#o.interceptDocuments !== false) {
+      this.#fetching = await this.#t
+        .send("Fetch.enable", {
+          patterns: [{ urlPattern: "*", resourceType: "Document", requestStage: "Request" }],
+        })
+        .then(
+          () => true,
+          () => false,
+        );
+    }
     const tree = await this.#t.send<{ frameTree: FrameTree }>("Page.getFrameTree");
     this.#mainFrameId = tree.frameTree.frame.id;
     this.#url = tree.frameTree.frame.url;
@@ -259,6 +287,11 @@ export class PageController {
         this.#dialog = undefined;
         this.#setSecure(false);
         this.refs.setDocument(`${this.#loaderId}|${this.#url}`);
+        this.#docHops = 0;
+        for (const w of this.#loadWaiters) {
+          w.seenCommits.add(frame.loaderId);
+          if (w.loader === frame.loaderId || w.anyLoader) w.committed = true;
+        }
         this.#checkCommit(frame.url);
         this.#o.emit({ type: "navigated", tabId: this.tabId, url: frame.url });
         return;
@@ -271,12 +304,20 @@ export class PageController {
         return;
       }
       case "Page.frameStartedLoading":
-        if (p.frameId === this.#mainFrameId) this.#loaded = false;
+        if (p.frameId === this.#mainFrameId) {
+          this.#loaded = false;
+          this.#docHops = 0;
+        }
+        return;
+      case "Fetch.requestPaused":
+        void this.#onPaused(p);
         return;
       case "Page.loadEventFired": {
         this.#loaded = true;
-        for (const w of this.#loadWaiters) w.resolve();
-        this.#loadWaiters.clear();
+        for (const w of [...this.#loadWaiters]) {
+          w.seenLoads.add(this.#loaderId);
+          if (!w.requireCommit || w.committed) w.resolve();
+        }
         return;
       }
       case "Network.requestWillBeSent":
@@ -351,21 +392,43 @@ export class PageController {
       }
     }
     // Every top-level document request is a hop: the initial load, link clicks, form posts,
-    // script-driven location changes and each redirect (security §6: "on every hop").
-    if (p.type !== "Document" || p.frameId !== this.#mainFrameId) return;
+    // script-driven location changes and each redirect (security §6: "on every hop"). With
+    // Fetch interception the hop was already judged before it left; this is the fallback.
+    if (this.#fetching || p.type !== "Document" || p.frameId !== this.#mainFrameId) return;
     const hop: Hop = p.redirectResponse !== undefined ? "redirect" : "initial";
-    if (this.#o.userInControl()) {
-      this.#ownerNavigated(req.url);
-      return;
+    if (!this.#judgeHop(req.url, req.method, hop)) {
+      void this.#t.send("Page.stopLoading").catch(() => undefined);
     }
-    const v = this.#o.policy().evaluateSync(req.url, hop);
-    if (v.action === "allow") return;
-    void this.#t.send("Page.stopLoading").catch(() => undefined);
-    // A stopped GET can be replayed once the origin is approved; a POST is never replayed.
+  }
+
+  async #onPaused(p: Record<string, unknown>): Promise<void> {
+    const requestId = String(p.requestId);
+    const req = p.request as { url: string; method: string };
+    let allow = true;
+    if (p.frameId === this.#mainFrameId || this.#mainFrameId === undefined) {
+      const hop: Hop = this.#docHops++ === 0 ? "initial" : "redirect";
+      allow = this.#judgeHop(req.url, req.method, hop);
+    }
+    await this.#t
+      .send(
+        allow ? "Fetch.continueRequest" : "Fetch.failRequest",
+        allow ? { requestId } : { requestId, errorReason: "BlockedByClient" },
+      )
+      .catch(() => undefined);
+  }
+
+  /**
+   * Judge one top-level document hop. While the user holds the tab their navigations pass
+   * (the commit check still withholds content from origins outside the set; nothing is granted
+   * on their behalf, since a page script can navigate too). Returns whether the hop may go.
+   */
+  #judgeHop(url: string, method: string, hop: Hop): boolean {
+    if (this.#o.userInControl()) return true;
+    const v = this.#o.policy().evaluateSync(url, hop);
+    if (v.action === "allow") return true;
+    // A blocked GET can be replayed once the origin is approved; a POST is never replayed.
     this.#stoppedUrl =
-      v.action === "approve" && (req.method === "GET" || req.method === "HEAD")
-        ? req.url
-        : undefined;
+      v.action === "approve" && (method === "GET" || method === "HEAD") ? url : undefined;
     if (v.action === "approve") {
       this.#navError = new PsycheError(
         "approval_required",
@@ -381,23 +444,13 @@ export class PageController {
       });
     } else {
       this.#navError = new PsycheError("policy_denied", v.message, {
-        details: { reason: v.reason, url: req.url.slice(0, 2048), hop },
+        details: { reason: v.reason, url: url.slice(0, 2048), hop },
       });
-      this.#o.emit({ type: "blocked", tabId: this.tabId, url: req.url, reason: v.reason });
+      this.#o.emit({ type: "blocked", tabId: this.tabId, url, reason: v.reason });
     }
     for (const w of this.#loadWaiters) w.reject(this.#navError);
     this.#loadWaiters.clear();
-  }
-
-  /** The owner navigated while holding the tab: that origin joins the task's read-only set. */
-  #ownerNavigated(url: string): void {
-    const origin = tryOrigin(url);
-    if (origin === undefined) return;
-    try {
-      this.#o.policy().grant(origin, "read");
-    } catch {
-      // Not a grantable origin (loopback outside dev preview, etc.): the commit check gates it.
-    }
+    return false;
   }
 
   /**
@@ -409,7 +462,9 @@ export class PageController {
     if (stopped !== undefined && this.#o.policy().evaluateSync(stopped).action === "allow") {
       this.#stoppedUrl = undefined;
       await this.#runNavigation(async () => {
-        await this.#t.send("Page.navigate", { url: stopped });
+        this.#o.assertAgent();
+        const r = await this.#t.send<{ loaderId?: string }>("Page.navigate", { url: stopped });
+        return r.loaderId === undefined ? { sameDocument: true } : { loaderId: r.loaderId };
       }, {});
       return "renavigated";
     }
@@ -426,7 +481,6 @@ export class PageController {
       this.#blocked = undefined;
       return;
     }
-    if (this.#o.userInControl()) this.#ownerNavigated(url);
     const v = this.#o.policy().evaluateSync(url, "commit");
     if (v.action === "allow") {
       this.#blocked = undefined;
@@ -522,8 +576,13 @@ export class PageController {
 
   // --- navigation --------------------------------------------------------------------------
 
-  #waitLoad(timeoutMs: number, signal?: AbortSignal): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
+  #waitLoad(
+    timeoutMs: number,
+    signal?: AbortSignal,
+    requireCommit = false,
+  ): { promise: Promise<void>; waiter: Waiter } {
+    let waiter: Waiter | undefined;
+    const promise = new Promise<void>((resolve, reject) => {
       const w: Waiter = {
         resolve: () => {
           cleanup();
@@ -533,7 +592,13 @@ export class PageController {
           cleanup();
           reject(e);
         },
+        requireCommit,
+        committed: false,
+        seenCommits: new Set(),
+        seenLoads: new Set(),
+        anyLoader: false,
       };
+      waiter = w;
       const timer = setTimeout(
         () => w.reject(new PsycheError("timeout", `load did not finish in ${timeoutMs} ms`)),
         timeoutMs,
@@ -547,6 +612,7 @@ export class PageController {
       signal?.addEventListener("abort", onAbort, { once: true });
       this.#loadWaiters.add(w);
     });
+    return { promise, waiter: waiter as unknown as Waiter };
   }
 
   async #checkInitial(url: string): Promise<string> {
@@ -563,14 +629,30 @@ export class PageController {
   }
 
   async #runNavigation(
-    start: () => Promise<void>,
+    start: () => Promise<{ loaderId?: string; sameDocument?: boolean } | undefined>,
     options: CallOptions & { timeoutMs?: number },
   ): Promise<NavigateResult> {
     this.#navError = undefined;
     this.#mainStatus = undefined;
-    const loaded = this.#waitLoad(options.timeoutMs ?? DEFAULT_NAV_TIMEOUT_MS, options.signal);
+    const { promise: loaded, waiter } = this.#waitLoad(
+      options.timeoutMs ?? DEFAULT_NAV_TIMEOUT_MS,
+      options.signal,
+      true,
+    );
     loaded.catch(() => undefined);
-    await start();
+    let started: { loaderId?: string; sameDocument?: boolean } | undefined;
+    try {
+      started = await start();
+    } catch (err) {
+      waiter.reject(err);
+      throw err;
+    }
+    if (started?.sameDocument === true) waiter.resolve();
+    else if (started?.loaderId !== undefined) {
+      waiter.loader = started.loaderId;
+      if (waiter.seenCommits.has(started.loaderId)) waiter.committed = true;
+      if (waiter.seenLoads.has(started.loaderId)) waiter.resolve();
+    } else waiter.anyLoader = true;
     await loaded;
     if (this.#navError !== undefined) throw this.#navError;
     this.#assertReadable();
@@ -596,12 +678,17 @@ export class PageController {
     this.#o.assertAgent();
     const href = await this.#checkInitial(url);
     return this.#runNavigation(async () => {
-      const r = await this.#t.send<{ errorText?: string }>("Page.navigate", { url: href });
-      if (r.errorText !== undefined && r.errorText !== "" && this.#navError === undefined) {
+      const r = await this.#t.send<{ errorText?: string; loaderId?: string }>("Page.navigate", {
+        url: href,
+      });
+      if (this.#navError !== undefined) throw this.#navError;
+      if (r.errorText !== undefined && r.errorText !== "") {
         throw new PsycheError("unavailable", `navigation failed: ${r.errorText}`, {
           details: { url: href },
         });
       }
+      // No loaderId: a same-document (fragment) navigation, which fires no load event.
+      return r.loaderId === undefined ? { sameDocument: true } : { loaderId: r.loaderId };
     }, options);
   }
 
@@ -615,7 +702,8 @@ export class PageController {
     if (entry === undefined) return { url: this.#url, title: this.#title };
     await this.#checkInitial(entry.url);
     return this.#runNavigation(
-      () => this.#t.send("Page.navigateToHistoryEntry", { entryId: entry.id }).then(() => {}),
+      () =>
+        this.#t.send("Page.navigateToHistoryEntry", { entryId: entry.id }).then(() => undefined),
       {},
     );
   }
@@ -623,7 +711,7 @@ export class PageController {
   async reload(): Promise<NavigateResult> {
     this.#assertReadable();
     this.#o.assertAgent();
-    return this.#runNavigation(() => this.#t.send("Page.reload", {}).then(() => {}), {});
+    return this.#runNavigation(() => this.#t.send("Page.reload", {}).then(() => undefined), {});
   }
 
   // --- reading -----------------------------------------------------------------------------
@@ -1016,7 +1104,7 @@ export class PageController {
         return;
       case "load":
         if (this.#loaded) return;
-        await this.#waitLoad(timeoutMs, options.signal);
+        await this.#waitLoad(timeoutMs, options.signal).promise;
         if (this.#navError !== undefined) throw this.#navError;
         return;
       case "network_idle":
