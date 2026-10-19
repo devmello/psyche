@@ -1,6 +1,7 @@
 import type { Static } from "@sinclair/typebox";
 import { PsycheError } from "../errors.ts";
 import { ApprovalsMethods } from "./approvals.ts";
+import { AuditMethods } from "./audit.ts";
 import { AutomationsMethods } from "./automations.ts";
 import { BrowserMethods } from "./browser.ts";
 import { ChannelsMethods } from "./channels.ts";
@@ -30,6 +31,7 @@ import { ViewMethods } from "./view.ts";
 import { VoiceMethods } from "./voice.ts";
 
 export * from "./approvals.ts";
+export * from "./audit.ts";
 export * from "./automations.ts";
 export * from "./browser.ts";
 export * from "./channels.ts";
@@ -83,6 +85,7 @@ export const Methods = {
   ...ViewMethods,
   ...BrowserMethods,
   ...SandboxMethods,
+  ...AuditMethods,
   ...EventsMethods,
   ...NodeMethods,
   ...QuestionsMethods,

@@ -172,6 +172,40 @@ export interface Artifact {
 
 export type ArtifactType = "markdown" | "html" | "react" | "pdf" | "sheet" | "itinerary" | "dashboard";
 
+export interface AuditExportParams {
+    format?: AuditExportFormat;
+    since?:  string;
+    until?:  string;
+}
+
+export type AuditExportFormat = "jsonl" | "json";
+
+export interface AuditExportResult {
+    data:   string;
+    format: AuditExportFormat;
+}
+
+export interface AuditListParams {
+    approvalId?: string;
+    kind?:       string;
+    /**
+     * "approval." matches every approval kind
+     */
+    kindPrefix?: string;
+    limit?:      number;
+    order?:      Order;
+    since?:      string;
+    sinceSeq?:   number;
+    taskId?:     string;
+    until?:      string;
+}
+
+export type Order = "asc" | "desc";
+
+export interface AuditListResult {
+    entries: AuditEntry[];
+}
+
 export interface AuditEntry {
     actor: AuditActor;
     data:  { [key: string]: unknown };
@@ -198,6 +232,19 @@ export interface AuditActor {
 }
 
 export type AuditActorType = "agent" | "device" | "channel" | "system" | "user";
+
+export interface AuditVerifyResult {
+    anchors?:     number;
+    brokenAtSeq?: number;
+    count?:       number;
+    file?:        string;
+    lastHash?:    string;
+    line?:        number;
+    ok:           boolean;
+    reason?:      AuditVerifyResultReason;
+}
+
+export type AuditVerifyResultReason = "hash_mismatch" | "prev_mismatch" | "seq_gap" | "unparsable" | "truncated" | "anchor_mismatch" | "anchor_missing" | "anchor_signature";
 
 export interface AutomationResult {
     automation: Automation;
@@ -3085,11 +3132,11 @@ export interface VaultLockResult {
 }
 
 export interface VaultLockedPayload {
-    reason: Reason;
+    reason: VaultLockedPayloadReason;
     status: VaultStatus;
 }
 
-export type Reason = "manual" | "idle" | "sleep" | "screen_lock" | "shutdown";
+export type VaultLockedPayloadReason = "manual" | "idle" | "sleep" | "screen_lock" | "shutdown";
 
 export interface VaultSetupParams {
     slot: Slot;
