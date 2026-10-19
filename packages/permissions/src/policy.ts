@@ -199,7 +199,8 @@ export function globToRegExp(glob: string, flavor: "path" | "plain"): RegExp {
       re += escapeRe(c);
     }
   }
-  return new RegExp(`^${re}$`, flavor === "path" ? "" : "i");
+  // Case-insensitive throughout: APFS paths and host names compare without case (review #13).
+  return new RegExp(`^${re}$`, "i");
 }
 
 export function parseRule(raw: string): Rule {
@@ -287,8 +288,12 @@ export function compilePolicy(config: PolicyConfig = DEFAULT_POLICY): CompiledPo
     deny: (parsed.deny ?? []).map(parseRule),
     ask: (parsed.ask ?? []).map(parseRule),
     allow: (parsed.allow ?? []).map(parseRule),
-    sensitive: (parsed.sensitiveOrigins ?? DEFAULT_SENSITIVE_ORIGINS).map((g) =>
-      globToRegExp(g, "plain"),
+    // A sensitive `*.chase.com` also covers `chase.com` itself (review #9); allow / deny rules keep
+    // the strict "*. never covers the bare domain" reading.
+    sensitive: (parsed.sensitiveOrigins ?? DEFAULT_SENSITIVE_ORIGINS).flatMap((g) =>
+      g.startsWith("*.")
+        ? [globToRegExp(g, "plain"), globToRegExp(g.slice(2), "plain")]
+        : [globToRegExp(g, "plain")],
     ),
     folders: (parsed.folders ?? [])
       .map((f) => ({ path: canonicalPath(f.path), mode: f.mode }))

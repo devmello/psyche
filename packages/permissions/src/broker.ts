@@ -167,7 +167,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #tasks = new Map<string, TaskState>();
   readonly #recent = new Map<
     string,
-    { call: PolicyCall; ctx: PolicyContext; binding: Binding; decision: PolicyDecision }
+    { call: PolicyCall; ctx: PolicyContext; binding: Binding; decision: PolicyDecision; at: number }
   >();
   readonly #answerTimes = new Map<string, number[]>();
 
@@ -283,18 +283,22 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#sweep();
     const { decision, binding } = await this.engine.evaluate(call, ctx);
     if (decision.decision === "ask" && binding !== undefined) {
-      const key = `${ctx.runId}|${binding.bindingHash}`;
+      // Keyed by the binding alone, kept for twice the approval lifetime: requestApproval restores
+      // the broker's floors (side-effect class, scopes, typed confirmation) from it (review #1).
+      const key = binding.bindingHash;
+      const now = this.clock.now();
       this.#recent.delete(key);
       this.#recent.set(key, {
         call: structuredClone(decision.call),
         ctx: structuredClone(ctx),
         binding,
         decision,
+        at: now,
       });
-      while (this.#recent.size > 500) {
-        const first = this.#recent.keys().next().value;
-        if (first === undefined) break;
-        this.#recent.delete(first);
+      const horizon = now - 2 * this.#approvalTtl();
+      for (const [k, v] of this.#recent) {
+        if (v.at >= horizon && this.#recent.size <= 20_000) break;
+        this.#recent.delete(k);
       }
     }
     await this.#log(
@@ -430,7 +434,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   #issue(raw: PolicyApprovalInput): IssuedApproval {
     const now = this.clock.now();
     const input: PolicyApprovalInput & GrantFields = structuredClone(raw);
-    const recent = this.#recent.get(`${input.requestedBy.runId ?? ""}|${input.bindingHash}`);
+    const recent = this.#recent.get(input.bindingHash);
     if (recent !== undefined) {
       input.call ??= recent.call;
       input.context ??= recent.ctx;
@@ -617,6 +621,20 @@ export class PsychePermissionBroker implements PermissionBroker {
     if (rec === undefined)
       return this.#reject(undefined, id, by, "not_found", "not_found", `approval ${id} not found`);
     const a = rec.approval;
+    if (a.status === "pending" && rec.bootId !== this.#bootId) {
+      // Issued by an earlier Gateway boot and not yet re-issued (review #14).
+      return this.#reject(
+        rec,
+        id,
+        by,
+        "invalidated",
+        "approval_invalidated",
+        "approval invalidated (re-issued)",
+        {
+          reason: "re-issued",
+        },
+      );
+    }
     if (a.status === "expired")
       return this.#reject(rec, id, by, "late", "approval_expired", "approval expired", {
         late: true,
@@ -797,11 +815,16 @@ export class PsychePermissionBroker implements PermissionBroker {
     }
 
     // First authorized answer wins: re-read, check, mark the token and decide atomically.
+    // Re-read the clock after the awaited approver and presence checks (review #14).
     const now = this.clock.now();
     let grant: StoredGrant | undefined;
     const decided = this.#store.transaction(() => {
       const fresh = this.#store.getApproval(id);
-      if (fresh === undefined || fresh.approval.status !== "pending") return undefined;
+      if (fresh === undefined) return undefined;
+      if (fresh.approval.status === "expired" || now >= Date.parse(fresh.approval.expiresAt)) {
+        return "expired" as const;
+      }
+      if (fresh.approval.status !== "pending") return undefined;
       const t = fresh.tokens.find((x) => x.hash === tokenHash);
       if (t === undefined || t.usedAt !== null) return undefined;
       t.usedAt = new Date(now).toISOString();
@@ -821,6 +844,12 @@ export class PsychePermissionBroker implements PermissionBroker {
       this.#store.updateApproval(fresh);
       return fresh;
     });
+    if (decided === "expired") {
+      this.#sweep();
+      return this.#reject(rec, id, by, "late", "approval_expired", "approval expired", {
+        late: true,
+      });
+    }
     if (decided === undefined)
       return this.#reject(rec, id, by, "late", "answer_late", "approval was answered concurrently");
     this.#timers.get(id)?.();

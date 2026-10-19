@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { posix } from "node:path";
-import { cardDigits, findSensitive } from "@psyche/audit";
+import { cardDigits, findSensitiveNormalized as findSensitive } from "@psyche/audit";
 import { PLACEHOLDER_PATTERN } from "@psyche/protocol";
 import { dangerousEnvNames } from "./binding.ts";
 import {
@@ -120,10 +120,14 @@ export function isPublishedTestCard(digits: string): boolean {
 interface StringAt {
   path: string;
   value: string;
+  tooDeep?: boolean;
 }
 
 function strings(value: unknown, path = "$", out: StringAt[] = [], depth = 0): StringAt[] {
-  if (depth > 32) return out;
+  if (depth > 32) {
+    out.push({ path: `${path}.<too_deep>`, value: "", tooDeep: true });
+    return out;
+  }
   if (typeof value === "string") out.push({ path, value });
   else if (Array.isArray(value)) {
     for (const [i, v] of value.entries()) strings(v, `${path}[${i}]`, out, depth + 1);
@@ -137,10 +141,70 @@ function strings(value: unknown, path = "$", out: StringAt[] = [], depth = 0): S
 }
 
 const TYPING_TOOL = /(^|\.)(type|fill|key|keys|insert_text|set_value|paste)$/;
-const TRANSFER_TOOL =
-  /(^|[._])(transfer|transfers|wire|withdraw|withdrawal|trade|trades|order_stock|send_money|payout|swap|stake|unstake|bridge_funds)([._]|$)/i;
-const TRANSFER_NAMESPACE =
-  /^(bank|banking|broker|brokerage|crypto|exchange|wallet|venmo|zelle|cashapp)\./i;
+/** Lowercase words of a tool name: separators `._-`, camelCase and `mcp__server__tool` split. */
+export function toolWords(tool: string): string[] {
+  return tool
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w !== "");
+}
+const TRANSFER_WORDS = new Set([
+  "transfer",
+  "transfers",
+  "wire",
+  "withdraw",
+  "withdrawal",
+  "trade",
+  "trades",
+  "payout",
+  "payouts",
+  "swap",
+  "stake",
+  "unstake",
+  "remit",
+  "remittance",
+]);
+const TRANSFER_PAIRS = [
+  ["send", "money"],
+  ["send", "payment"],
+  ["send", "funds"],
+  ["move", "money"],
+  ["submit", "order"],
+  ["place", "order"],
+  ["create", "trade"],
+];
+/** MCP servers / namespaces whose actions move money or trade. */
+const FINANCIAL_NAMESPACES = new Set([
+  "bank",
+  "banking",
+  "broker",
+  "brokerage",
+  "crypto",
+  "exchange",
+  "wallet",
+  "venmo",
+  "zelle",
+  "cashapp",
+  "alpaca",
+  "coinbase",
+  "robinhood",
+  "binance",
+  "kraken",
+  "schwab",
+  "fidelity",
+  "wise",
+  "revolut",
+]);
+
+export function isFinancialTransfer(tool: string): boolean {
+  const words = toolWords(tool);
+  if (words.some((w) => TRANSFER_WORDS.has(w))) return true;
+  if (TRANSFER_PAIRS.some(([a, b]) => words.includes(a ?? "") && words.includes(b ?? "")))
+    return true;
+  const ns = tool.startsWith("mcp__") ? (tool.split("__")[1] ?? "") : (tool.split(/[._]/)[0] ?? "");
+  return FINANCIAL_NAMESPACES.has(ns.toLowerCase());
+}
 const PERMANENT_DELETE_TOOL =
   /(^|[._])(purge|expunge|empty_trash|delete_permanently|permanent_delete|permanently_delete|hard_delete|destroy|wipe|shred)([._]|$)/i;
 const ACCOUNT_CREATION_TOOL =
@@ -153,14 +217,14 @@ export const CONFIRMATION_WORD = "DELETE";
 
 /** Paths Safari, Passwords and the keychain keep credentials in (macos notes, KQ7). */
 const SYSTEM_CREDENTIAL_PATHS = [
-  /^\/Users\/[^/]+\/Library\/Keychains(\/|$)/,
-  /^\/Library\/Keychains(\/|$)/,
-  /^\/Users\/[^/]+\/Library\/Safari(\/|$)/,
-  /^\/Users\/[^/]+\/Library\/Containers\/com\.apple\.Safari(\/|$)/,
-  /^\/Users\/[^/]+\/Library\/Cookies(\/|$)/,
-  /^\/Users\/[^/]+\/Library\/Application Support\/com\.apple\.Passwords/,
-  /^\/Users\/[^/]+\/Library\/Group Containers\/[^/]*com\.apple\.Passwords/,
-  /^\/private\/var\/db\/SystemKey/,
+  /^\/Users\/[^/]+\/Library\/Keychains(\/|$)/i,
+  /^\/Library\/Keychains(\/|$)/i,
+  /^\/Users\/[^/]+\/Library\/Safari(\/|$)/i,
+  /^\/Users\/[^/]+\/Library\/Containers\/com\.apple\.Safari(\/|$)/i,
+  /^\/Users\/[^/]+\/Library\/Cookies(\/|$)/i,
+  /^\/Users\/[^/]+\/Library\/Application Support\/com\.apple\.Passwords/i,
+  /^\/Users\/[^/]+\/Library\/Group Containers\/[^/]*com\.apple\.Passwords/i,
+  /^\/private\/var\/db\/SystemKey/i,
 ];
 
 function targetUrl(call: PolicyCall): CanonicalUrl | "invalid" | undefined {
@@ -173,9 +237,12 @@ function targetUrl(call: PolicyCall): CanonicalUrl | "invalid" | undefined {
   }
 }
 
+/** Normalized and lowercased: APFS is case-insensitive, so `/Users/o/.PSYCHE` is `.psyche`. */
 function targetPath(call: PolicyCall): string | undefined {
   if (call.target?.kind !== "path") return undefined;
-  return call.target.value.startsWith("/") ? posix.normalize(call.target.value) : undefined;
+  return call.target.value.startsWith("/")
+    ? posix.normalize(call.target.value).toLowerCase()
+    : undefined;
 }
 
 function deny(id: string, reason: string): ProhibitionResult {
@@ -206,7 +273,7 @@ export async function checkProhibitions(
   }
   const path = targetPath(call);
   if (path !== undefined && env.psycheHome !== undefined) {
-    const home = posix.normalize(env.psycheHome);
+    const home = posix.normalize(env.psycheHome).toLowerCase();
     if (isUnder(path, posix.join(home, "vault")))
       return deny("psyche_state", "the vault is not a file target");
     const controlPlane = ["config.json", "state", "audit", "run", "policy.json"].some((p) =>
@@ -218,6 +285,13 @@ export async function checkProhibitions(
   }
   if (path !== undefined && SYSTEM_CREDENTIAL_PATHS.some((re) => re.test(path))) {
     return deny("system_credentials", "Safari, Passwords and keychain credentials are never read");
+  }
+
+  if (params.some((s) => s.tooDeep === true)) {
+    return deny(
+      "arguments_too_deep",
+      "arguments nested deeper than 32 levels are not inspected, so refused",
+    );
   }
 
   // A model-visible secret is never used, even one the owner pasted.
@@ -273,7 +347,7 @@ export async function checkProhibitions(
   }
 
   // Financial transfers and trades.
-  if (TRANSFER_TOOL.test(tool) || TRANSFER_NAMESPACE.test(tool)) {
+  if (isFinancialTransfer(tool)) {
     return deny("financial_transfer", "Psyche never moves money or trades");
   }
 
@@ -286,10 +360,20 @@ export async function checkProhibitions(
     );
   let loopbackOwned = false;
   if (url !== undefined) {
-    if (env.gatewayOrigins.includes(url.origin)) {
+    const loopbackLike = isLoopbackName(url.host);
+    const port = url.port ?? (url.scheme === "https" ? 443 : 80);
+    const gatewayPorts = env.gatewayOrigins.flatMap((o) => {
+      try {
+        const g = canonicalUrl(o);
+        return [g.port ?? (g.scheme === "https" ? 443 : 80)];
+      } catch {
+        return [];
+      }
+    });
+    if (env.gatewayOrigins.includes(url.origin) || (loopbackLike && gatewayPorts.includes(port))) {
       return deny("gateway_origin", "the agent never acts on the Psyche Gateway's own UI");
     }
-    if (isLoopbackName(url.host) || isLoopbackAddress(url.host)) {
+    if (loopbackLike) {
       const check = await env.localProject.check(url);
       if (!check.ok)
         return deny(

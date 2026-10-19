@@ -6,6 +6,7 @@ import type {
   Target,
   TargetKind,
 } from "@psyche/protocol";
+import { canonicalEmail, canonicalUrl } from "./targets.ts";
 import type { ClassifierLabel, PolicyCall, PolicyContext } from "./types.ts";
 
 /**
@@ -46,7 +47,9 @@ export interface ActionClassifier {
 export function argumentMetadata(params: unknown): Record<string, number | boolean> {
   const meta: Record<string, number | boolean> = {};
   if (typeof params !== "object" || params === null) return meta;
-  for (const [k, v] of Object.entries(params)) {
+  for (const [rawKey, v] of Object.entries(params)) {
+    // Keys come from the model's arguments: only plain identifiers reach the classifier (review #10).
+    const k = /^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(rawKey) ? rawKey : "arg";
     if (typeof v === "string") meta[`${k}.length`] = v.length;
     else if (Array.isArray(v)) meta[`${k}.count`] = v.length;
     else if (typeof v === "boolean") meta[k] = v;
@@ -54,6 +57,19 @@ export function argumentMetadata(params: unknown): Record<string, number | boole
       meta[k] = v;
   }
   return meta;
+}
+
+/** Canonical origin or addr-spec only; paths, argv and free text never reach the classifier. */
+function classifierTarget(target: Target | undefined): string | undefined {
+  if (target === undefined) return undefined;
+  try {
+    if (target.kind === "origin") return canonicalUrl(target.value).origin;
+    if (target.kind === "recipient") return canonicalEmail(target.value).address;
+    if (target.kind === "app" && /^[A-Za-z0-9.-]{1,200}$/.test(target.value)) return target.value;
+  } catch {
+    return undefined;
+  }
+  return undefined;
 }
 
 export function buildClassifierInput(
@@ -86,8 +102,8 @@ export function buildClassifierInput(
     sensitiveTarget: extra.sensitiveTarget,
   };
   if (call.targetKind !== undefined) input.targetKind = call.targetKind;
-  const target: Target | undefined = call.target;
-  if (target !== undefined) input.target = target.value;
+  const target = classifierTarget(call.target);
+  if (target !== undefined) input.target = target;
   if (extra.grant !== undefined) {
     input.grant = {
       scope: extra.grant.scope,

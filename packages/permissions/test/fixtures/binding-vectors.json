@@ -18,7 +18,7 @@
       }
     },
     "bindingHash": "sha256:6c9dd826655e28843765f554c2d6e75388365354c9aeec1378186f2a357b5440",
-    "grantKey": "sha256:7e85e17b890058a1e6f7e811785fd192c1de0bc8f407cb6e2035f683dea5d4b6"
+    "grantKey": "sha256:e8da5101a130717baa3971405e499f63ed58cda775cfea6b4f36fe7aaa18aa86"
   },
   {
     "name": "exec_host: binary hash",
@@ -30,7 +30,7 @@
       "executableSha256": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
     },
     "bindingHash": "sha256:627e157c7b79442ae0ff2aa19ddbc4cdd93839364c4bc817f9f4e82092ba6900",
-    "grantKey": "sha256:0f032328a5ad38f6fac00c4586098f7971e40cc8ed04613eb87bfc9a530ad3de"
+    "grantKey": "sha256:abdf1d5c822eba48c0b9a22ddde74f969fa2a3a9f0fc287b87cfd548f975ed01"
   },
   {
     "name": "send_email: recipients, display name, IDN, headers, attachments",

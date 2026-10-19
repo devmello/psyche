@@ -26,14 +26,23 @@ export function sanitizeDisplay(value: string, maxLength = 2000): string {
   return s;
 }
 
+/**
+ * Display-safe copy of approval details. Values are never truncated (security §3.7: commands,
+ * recipients, amounts and URLs are shown in full; review #8); keys that sanitize to the same text
+ * get a `#n` suffix instead of overwriting each other.
+ */
 export function sanitizeDetails(value: unknown, depth = 0): unknown {
   if (depth > 16) return "…";
-  if (typeof value === "string") return sanitizeDisplay(value);
+  if (typeof value === "string") return sanitizeDisplay(value, Number.POSITIVE_INFINITY);
   if (Array.isArray(value)) return value.map((v) => sanitizeDetails(v, depth + 1));
   if (typeof value === "object" && value !== null) {
     const out: JsonObject = {};
-    for (const [k, v] of Object.entries(value))
-      out[sanitizeDisplay(k, 200)] = sanitizeDetails(v, depth + 1);
+    for (const [k, v] of Object.entries(value)) {
+      const base = sanitizeDisplay(k, 200);
+      let key = base;
+      for (let n = 2; Object.hasOwn(out, key); n += 1) key = `${base}#${n}`;
+      out[key] = sanitizeDetails(v, depth + 1);
+    }
     return out;
   }
   return value;
@@ -157,7 +166,9 @@ export function renderForSurface(surface: string, a: ApprovalRequest): RenderedC
   }
   const lines = [header];
   if (a.target !== undefined) {
-    lines.push(`Target: “${punycodeHosts(sanitizeDisplay(a.target.display ?? a.target.value))}”`);
+    lines.push(
+      `Target: “${punycodeHosts(sanitizeDisplay(a.target.display ?? a.target.value, Number.POSITIVE_INFINITY))}”`,
+    );
   }
   const details = a.details as Record<string, unknown>;
   const order = KEY_FIELDS[a.kind] ?? [];
@@ -169,7 +180,7 @@ export function renderForSurface(surface: string, a: ApprovalRequest): RenderedC
   ];
   for (const k of keys) {
     lines.push(
-      `${sanitizeDisplay(k, 60)}: “${punycodeHosts(sanitizeDisplay(valueText(details[k])))}”`,
+      `${sanitizeDisplay(k, 60)}: “${punycodeHosts(sanitizeDisplay(valueText(details[k]), Number.POSITIVE_INFINITY))}”`,
     );
   }
   lines.push(`Summary: “${punycodeHosts(sanitizeDisplay(a.summary))}”`);

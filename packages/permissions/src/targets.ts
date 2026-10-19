@@ -80,21 +80,46 @@ export function canonicalHost(input: string): string {
 const LOOPBACK_NAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 /** Names the localhost exception considers (security §3.10). A name, not proof of an address. */
+/** Wildcard DNS services that resolve any embedded IP (`127.0.0.1.nip.io`). */
+const WILDCARD_DNS =
+  /(^|\.)(nip\.io|sslip\.io|xip\.io|traefik\.me|localtest\.me|lvh\.me|vcap\.me|lacolhost\.com)$/;
+
+/**
+ * Names and literals the localhost exception and the loopback prohibition consider (security
+ * §3.10). A name is not proof of an address: anything loopback-like here must also pass the
+ * `LocalProjectVerifier`, which resolves it.
+ */
 export function isLoopbackName(host: string): boolean {
   return (
     LOOPBACK_NAMES.has(host) ||
     host.endsWith(".localhost") ||
     host.endsWith(".test") ||
-    /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)
+    WILDCARD_DNS.test(host) ||
+    isLoopbackAddress(host)
   );
 }
 
-/** Literal loopback addresses (`127.0.0.0/8`, `::1`, IPv4-mapped loopback). */
+/**
+ * Literal loopback or unspecified addresses: `127.0.0.0/8`, `0.0.0.0/8`, `::1`, `::` and their
+ * IPv4-mapped forms, including the hex form WHATWG serializes (`[::ffff:7f00:1]`).
+ */
 export function isLoopbackAddress(address: string): boolean {
   const a = address.replace(/^\[|\]$/g, "").toLowerCase();
-  if (a === "::1" || a === "0:0:0:0:0:0:0:1") return true;
-  const v4 = a.startsWith("::ffff:") ? a.slice(7) : a;
-  return /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v4);
+  if (
+    a === "::1" ||
+    a === "::" ||
+    /^(0{1,4}:){7}0{0,3}1$/.test(a) ||
+    /^(0{1,4}:){7}0{1,4}$/.test(a)
+  )
+    return true;
+  let v4 = a.startsWith("::ffff:") ? a.slice(7) : a;
+  const hex = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(v4);
+  if (hex?.[1] !== undefined && hex[2] !== undefined) {
+    const hi = Number.parseInt(hex[1], 16);
+    const lo = Number.parseInt(hex[2], 16);
+    v4 = `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+  }
+  return /^(127|0)\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v4);
 }
 
 /**

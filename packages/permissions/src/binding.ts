@@ -151,6 +151,7 @@ export interface ComputerBindingArgs {
   tierRequired: "read" | "click" | "interact";
   action: string;
   elementRefSha256?: string;
+  textSha256?: string;
 }
 
 export interface NewOriginBindingArgs {
@@ -368,7 +369,19 @@ function execBinding(kind: "exec" | "exec_host", raw: unknown): [JsonObject, Jso
     cwdConfigHashes: cwdConfig,
   });
   // Security §3.5: the grant key is "the same four fields" (plus the config hashes when bound).
-  const key = compact({ argv, cwd, env, executable, executableSha256, cwdConfigHashes: cwdConfig });
+  // The four fields of security §3.5, plus what changes what runs or where it can reach: stdin,
+  // network mode, sandbox and cwd config (S23 design-14; S05 review #2).
+  const key = compact({
+    argv,
+    cwd,
+    env,
+    executable,
+    executableSha256,
+    cwdConfigHashes: cwdConfig,
+    stdinSha256: fields.stdinSha256,
+    network,
+    sandboxId: fields.sandboxId,
+  });
   return [fields, key];
 }
 
@@ -572,6 +585,8 @@ function computerBinding(raw: unknown): [JsonObject, JsonObject] {
       tierRequired,
       action,
       elementRefSha256: optSha(k, "elementRefSha256", a.elementRefSha256),
+      /** SHA-256 of typed text or keys, so "type X" never verifies "type Y". */
+      textSha256: optSha(k, "textSha256", a.textSha256),
     }),
     { app, tierRequired },
   ];

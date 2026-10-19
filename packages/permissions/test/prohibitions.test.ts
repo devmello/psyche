@@ -299,12 +299,29 @@ describe("localhost test-credential exception (security §3.10, S23 design-03)",
     expect(real.rule).toBe("prohibition:card_entry");
   });
 
-  it("5: trailing dots are canonicalized; nip.io is not loopback", async () => {
+  it("5: trailing dots are canonicalized; wildcard-DNS names must pass the verifier", async () => {
     expect((await decideOn("http://localhost.:3000/")).reason).toContain(
       "listener_not_spawned_by_psyche",
     );
     const nip = await decideOn("http://127.0.0.1.nip.io/", { meta: { testCredential: true } });
-    expect(nip.rule).toBe("prohibition:test_credential_scope");
+    expect(nip.rule).toBe("prohibition:loopback_not_owned");
+  });
+
+  it("unspecified and IPv4-mapped loopback forms reach neither the Gateway nor CDP (review #3)", async () => {
+    const { broker } = makeBroker({ policy: { allow: ["*"] } });
+    for (const u of [
+      "http://0.0.0.0:7979/",
+      "http://[::]:9222/json",
+      "http://[::ffff:127.0.0.1]:7979/",
+      "http://127.0.0.1.nip.io:7979/",
+    ]) {
+      const d = await broker.decide(call("browser.navigate", "read", origin(u)), {
+        ...CTX,
+        permissionMode: "auto",
+      });
+      expect(d.decision, u).toBe("deny");
+      expect(["prohibition:gateway_origin", "prohibition:loopback_not_owned"], u).toContain(d.rule);
+    }
   });
 
   it("by default no loopback origin qualifies (fail closed)", async () => {

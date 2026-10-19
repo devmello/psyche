@@ -94,6 +94,29 @@ export interface EngineDeps {
   ): Promise<void>;
 }
 
+class BindingMismatch extends Error {}
+
+/** Kinds whose checks need kind-specific arguments; a caller cannot relabel a call out of them. */
+const STRICT_KINDS: readonly ApprovalKind[] = [
+  "exec",
+  "exec_host",
+  "send_email",
+  "browser_submit",
+  "credential_fill",
+  "purchase",
+  "file_write",
+  "mcp_tool",
+  "computer_action",
+  "memory_protected_write",
+];
+
+/** Kinds whose checks read the binding fields: without arguments they never get standing grants. */
+const FIELD_CHECKED_KINDS: readonly ApprovalKind[] = [
+  "browser_submit",
+  "credential_fill",
+  "mcp_tool",
+];
+
 export interface Evaluation {
   decision: PolicyDecision;
   binding: Binding | undefined;
@@ -146,36 +169,43 @@ export class PolicyEngine {
   }
 
   binding(call: PolicyCall, kind: ApprovalKind): Binding {
-    if (call.bindingHash !== undefined && call.grantKey !== undefined) {
-      return {
-        kind,
-        fields: {},
-        grantFields: {},
-        bindingHash: call.bindingHash as Binding["bindingHash"],
-        grantKey: call.grantKey as Binding["grantKey"],
-      };
-    }
-    let b: Binding;
-    if (call.binding !== undefined) {
-      let args = call.binding;
-      if (kind === "file_write" && typeof args === "object" && args !== null && !("root" in args)) {
-        const p = (args as { realPath?: unknown }).realPath;
-        if (typeof p === "string") {
-          const root = this.folderFor(canonicalPath(p))?.path;
-          if (root !== undefined) args = { ...args, root };
-        }
+    const precomputed = call.bindingHash !== undefined && call.grantKey !== undefined;
+    if (call.binding === undefined) {
+      if (precomputed) {
+        return {
+          kind,
+          fields: {},
+          grantFields: {},
+          bindingHash: call.bindingHash as Binding["bindingHash"],
+          grantKey: call.grantKey as Binding["grantKey"],
+        };
       }
-      b = bindingFor(kind, args);
-    } else {
       const target = call.target?.value;
-      b = genericBindingFor(kind, {
+      const b = genericBindingFor(kind, {
         tool: call.tool,
         paramsHash: call.paramsHash,
         ...(target === undefined ? {} : { target }),
       });
+      return call.bindingHash === undefined
+        ? b
+        : { ...b, bindingHash: call.bindingHash as Binding["bindingHash"] };
     }
-    if (call.bindingHash !== undefined)
-      b = { ...b, bindingHash: call.bindingHash as Binding["bindingHash"] };
+    let args = call.binding;
+    if (kind === "file_write" && typeof args === "object" && args !== null && !("root" in args)) {
+      const p = (args as { realPath?: unknown }).realPath;
+      if (typeof p === "string") {
+        const root = this.folderFor(canonicalPath(p))?.path;
+        if (root !== undefined) args = { ...args, root };
+      }
+    }
+    const b = bindingFor(kind, args);
+    // A caller's precomputed hash must equal the one the arguments give (S05 review #11).
+    if (call.bindingHash !== undefined && call.bindingHash !== b.bindingHash) {
+      throw new BindingMismatch("the precomputed bindingHash does not match the arguments");
+    }
+    if (call.grantKey !== undefined && call.grantKey !== b.grantKey) {
+      throw new BindingMismatch("the precomputed grantKey does not match the arguments");
+    }
     return b;
   }
 
@@ -249,7 +279,8 @@ export class PolicyEngine {
   ): Promise<Evaluation | { rewrite: PolicyCall; hook: string }> {
     const d = this.#d;
     const p = d.policy();
-    const kind = call.kind ?? inferApprovalKind(call.tool);
+    const inferred = inferApprovalKind(call.tool);
+    const kind = call.kind ?? inferred;
     const se = effectiveSideEffect(call.tool, call.sideEffect);
     if (se !== call.sideEffect) trace.push(`floor:${call.sideEffect}->${se}`);
     const tainted = ctx.taint || ctx.initiator === "mcp_app";
@@ -265,12 +296,19 @@ export class PolicyEngine {
       x: object = {},
     ) => this.#out(call, ctx, trace, decision, rule, reason, { ...base, ...x });
 
+    if (call.kind !== undefined && call.kind !== inferred && STRICT_KINDS.includes(inferred)) {
+      return done("deny", "kind:mismatch", `${call.tool} is a ${inferred} call, not ${call.kind}`);
+    }
     let binding: Binding;
     try {
       binding = this.binding(call, kind);
     } catch (e) {
+      if (e instanceof BindingMismatch) return done("deny", "binding:mismatch", e.message);
       return done("deny", "binding:invalid", e instanceof Error ? e.message : "binding failed");
     }
+    // Without kind-specific arguments the field checks cannot run (cross-origin form actions,
+    // fill field class, the MCP tools/list hash), so such calls get `once` only (review #7, #11).
+    const unbound = call.binding === undefined && FIELD_CHECKED_KINDS.includes(kind);
     if (state.paused)
       return done("deny", "classifier:task_paused", "paused after repeated prohibited actions");
 
@@ -369,7 +407,12 @@ export class PolicyEngine {
 
     const app = call.meta?.app ?? (call.target?.kind === "app" ? call.target.value : undefined);
     if (kind === "computer_action" && app !== undefined) {
-      const { tier, capped, reason } = effectiveTier(app, p.config.apps?.[app]);
+      const { tier, capped, reason } = effectiveTier(
+        app,
+        Object.entries(p.config.apps ?? {}).find(
+          ([k]) => k.toLowerCase() === app.toLowerCase(),
+        )?.[1],
+      );
       const needed = tierRequired(call.meta?.action ?? call.tool);
       if (tier === "off") return done("deny", "app_tier:off", reason || `${app} is off`);
       const cap = appCap(app);
@@ -448,7 +491,9 @@ export class PolicyEngine {
       }
       if (
         (kind === "exec" || kind === "exec_host") &&
-        (call.meta?.network === "proxy" || call.meta?.writesOutsideWorkspace === true)
+        (call.meta?.network === "proxy" ||
+          (binding.fields as { network?: string }).network === "proxy" ||
+          call.meta?.writesOutsideWorkspace === true)
       ) {
         escalation = {
           rule: "taint:exec_egress",
@@ -463,6 +508,7 @@ export class PolicyEngine {
       for (const f of floors)
         if (f.scopes !== undefined) s = s.filter((x) => f.scopes?.includes(x));
       if (noAlways) s = s.filter((x) => x !== "always");
+      if (unbound) s = s.filter((x) => x === "once");
       if (ctx.taskId === undefined) s = s.filter((x) => x !== "task");
       if (kind !== "credential_fill" && origin === undefined) s = s.filter((x) => x !== "site");
       return s.length === 0 ? (["once"] as GrantScope[]) : s;
@@ -498,7 +544,7 @@ export class PolicyEngine {
     let allowed: Allowance | undefined;
     if (consult) {
       const g = d.matchGrant(binding.grantKey, kind, se, ctx, origin);
-      if (g !== undefined) allowed = { rule: `grant:${g.grant.id}`, grant: g };
+      if (g !== undefined && !unbound) allowed = { rule: `grant:${g.grant.id}`, grant: g };
       else if (SEVERITY[se] <= SEVERITY.write) allowed = allowances[0];
     }
     if (allowed !== undefined) {

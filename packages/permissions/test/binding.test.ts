@@ -214,9 +214,9 @@ const execMutations = (host: boolean): Mutation[] => [
   field("env", envArb, true, (x, y) => differs(x ?? {}, y)),
   field("executable", absPath, true),
   field("executableSha256", host ? shaArb : opt(shaArb), true),
-  field("sandboxId", opt(ident), false),
-  field("stdinSha256", opt(shaArb), false),
-  field("network", fc.constantFrom("none", "proxy"), false, (x, y) => (x ?? "none") !== y),
+  field("sandboxId", opt(ident), true),
+  field("stdinSha256", opt(shaArb), true),
+  field("network", fc.constantFrom("none", "proxy"), true, (x, y) => (x ?? "none") !== y),
   field("cwdConfigHashes", opt(cfgArb), true),
 ];
 
@@ -1202,14 +1202,14 @@ describe("design-14: exec stdin, cwd config and host binaries", () => {
     cwdConfigHashes: { ".git/config": SHA_A },
   });
 
-  it("stdinSha256 change changes the hash (grant key unchanged)", () => {
+  it("stdinSha256 change changes the hash and the grant key (S05 review #2)", () => {
     const b = bindingFor("exec", {
       ...EXEC,
       stdinSha256: SHA_B,
       cwdConfigHashes: { ".git/config": SHA_A },
     });
     expect(b.bindingHash).not.toBe(a.bindingHash);
-    expect(b.grantKey).toBe(a.grantKey);
+    expect(b.grantKey).not.toBe(a.grantKey);
   });
 
   it("cwdConfigHashes change changes the hash and the grant key", () => {

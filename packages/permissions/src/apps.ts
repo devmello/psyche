@@ -59,10 +59,13 @@ export const LOCKED_OFF_APPS = [
   "com.chase.*",
 ];
 
+/** Bundle ids compare without case: LaunchServices treats them case-insensitively (review #13). */
 function matchesAny(bundleId: string, patterns: readonly string[]): boolean {
-  return patterns.some((p) =>
-    p.endsWith(".*") ? bundleId.startsWith(p.slice(0, -1)) : bundleId === p,
-  );
+  const id = bundleId.toLowerCase();
+  return patterns.some((raw) => {
+    const p = raw.toLowerCase();
+    return p.endsWith(".*") ? id.startsWith(p.slice(0, -1)) : id === p;
+  });
 }
 
 export function appCap(bundleId: string): { cap: AppTier; reason: string } {
