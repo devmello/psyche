@@ -5,5 +5,6 @@ export default defineConfig({
     // PDF.js and SheetJS cold starts are slow on CI runners.
     testTimeout: 30_000,
     passWithNoTests: true,
+    setupFiles: ["./test/setup-dom.ts"],
   },
 });
