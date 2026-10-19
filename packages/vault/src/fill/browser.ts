@@ -26,7 +26,7 @@ export interface BrowserFillInput {
 
 export interface BrowserFillResult {
   ok: boolean;
-  /** The field is a password field: screenshots are suppressed while it holds the value (G6). */
+  /** Always true once a value may be in the field: screenshots are suppressed (G6). */
   secureField: boolean;
   origin: string | null;
   /** Machine-readable denial or failure reason; never a value. */
@@ -38,7 +38,15 @@ const DESCRIBE = `function () {
   const el = this;
   const form = el.form || (el.closest && el.closest("form"));
   let action;
-  if (form) { try { action = new URL(form.getAttribute("action") || "", document.baseURI).origin; } catch (e) { action = "null"; } }
+  if (form) {
+    // The form's action and every submitter's formaction must agree, or the check fails.
+    const targets = [form.getAttribute("action") || ""];
+    for (const b of form.querySelectorAll("button, input[type=submit], input[type=image]")) {
+      if (b.hasAttribute("formaction")) targets.push(b.getAttribute("formaction") || "");
+    }
+    const origins = new Set(targets.map((t) => { try { return new URL(t, document.baseURI).origin; } catch (e) { return "null"; } }));
+    action = origins.size === 1 ? [...origins][0] : "null";
+  }
   const out = {
     tagName: String(el.tagName || "").toLowerCase(),
     type: typeof el.type === "string" ? el.type.toLowerCase() : undefined,
@@ -119,7 +127,8 @@ export async function fillBrowserField(input: BrowserFillInput): Promise<Browser
     if (element.tagName === "iframe" || element.tagName === "frame") {
       return { ok: false, secureField: false, origin, reason: "cross_frame_focus" };
     }
-    const secureField = element.type === "password";
+    // Every vault value is treated as screen-sensitive while it sits in the field (G6).
+    const secureField = true;
     let handle: Awaited<ReturnType<CredentialBroker["resolve"]>>;
     try {
       handle = await input.broker.resolve(
@@ -135,6 +144,12 @@ export async function fillBrowserField(input: BrowserFillInput): Promise<Browser
       );
     } catch (err) {
       return { ok: false, secureField, origin, reason: reasonOf(err) ?? "denied" };
+    }
+    // Touch ID may have taken seconds: re-check origin and focus right before typing.
+    const still = await stillTargeted(cdp, objectId, origin, input.backendNodeId);
+    if (still !== null) {
+      handle.dispose();
+      return { ok: false, secureField, origin, reason: still };
     }
     let expected = -1;
     try {
@@ -161,6 +176,33 @@ export async function fillBrowserField(input: BrowserFillInput): Promise<Browser
   } finally {
     await cdp.send("Runtime.releaseObject", { objectId }).catch(() => undefined);
   }
+}
+
+const IS_FOCUSED = `function () { return document.activeElement === this && this.isConnected; }`;
+
+/** `null` when the page and focus are unchanged, else the reason to abort. */
+async function stillTargeted(
+  cdp: CdpSession,
+  objectId: string,
+  origin: string,
+  backendNodeId: number | undefined,
+): Promise<string | null> {
+  const tree = (await cdp.send("Page.getFrameTree")) as FrameTree;
+  const frame = tree.frameTree?.frame;
+  if (canonicalOrigin(frame?.securityOrigin ?? frame?.url ?? "") !== origin) return "navigated";
+  const focused = (await cdp.send("Runtime.callFunctionOn", {
+    objectId,
+    functionDeclaration: IS_FOCUSED,
+    returnByValue: true,
+  })) as { result?: { value?: unknown } };
+  if (focused.result?.value !== true) return "focus_moved";
+  if (backendNodeId !== undefined) {
+    const desc = (await cdp.send("DOM.describeNode", { objectId })) as {
+      node?: { backendNodeId?: number };
+    };
+    if (desc.node?.backendNodeId !== backendNodeId) return "focus_moved";
+  }
+  return null;
 }
 
 /**

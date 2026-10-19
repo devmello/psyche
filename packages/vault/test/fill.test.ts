@@ -37,9 +37,13 @@ function fakePage(
     element?: FillElement | null;
     backendNodeId?: number;
     swallow?: boolean;
+    /** The page changes while resolve waits (Touch ID): after this many frame-tree reads. */
+    navigateTo?: { after: number; origin: string };
+    blurAfterResolve?: boolean;
   } = {},
 ) {
   const calls: string[] = [];
+  let frameReads = 0;
   const typed: string[] = [];
   let value = "";
   const element = opts.element === undefined ? PASSWORD_FIELD : opts.element;
@@ -47,16 +51,14 @@ function fakePage(
     async send(method, params = {}) {
       calls.push(method);
       switch (method) {
-        case "Page.getFrameTree":
-          return {
-            frameTree: {
-              frame: {
-                id: "F1",
-                url: `${opts.origin ?? "https://github.com"}/login`,
-                securityOrigin: opts.origin ?? "https://github.com",
-              },
-            },
-          };
+        case "Page.getFrameTree": {
+          frameReads += 1;
+          const now =
+            opts.navigateTo !== undefined && frameReads > opts.navigateTo.after
+              ? opts.navigateTo.origin
+              : (opts.origin ?? "https://github.com");
+          return { frameTree: { frame: { id: "F1", url: `${now}/login`, securityOrigin: now } } };
+        }
         case "Page.createIsolatedWorld":
           return { executionContextId: 7 };
         case "Runtime.evaluate":
@@ -65,6 +67,8 @@ function fakePage(
           return { node: { backendNodeId: opts.backendNodeId ?? 42 } };
         case "Runtime.callFunctionOn": {
           const fn = String(params.functionDeclaration);
+          if (fn.includes("isConnected"))
+            return { result: { value: opts.blurAfterResolve !== true } };
           if (fn.includes("formHasPassword")) return { result: { value: element } };
           if (fn.includes("activeElement === this"))
             return { result: { value: [...value].length } };
@@ -141,6 +145,15 @@ describe("browser fill (G5, G6)", () => {
     expect(await fill(fakePage({ element: null }), await approve())).toMatchObject({
       reason: "no_focused_element",
     });
+  });
+
+  it("re-checks origin and focus after resolve, before typing (review: TOCTOU)", async () => {
+    const nav = fakePage({ navigateTo: { after: 1, origin: "https://evil.example" } });
+    expect(await fill(nav, await approve())).toMatchObject({ ok: false, reason: "navigated" });
+    expect(nav.typed).toEqual([]);
+    const blur = fakePage({ blurAfterResolve: true });
+    expect(await fill(blur, await approve())).toMatchObject({ ok: false, reason: "focus_moved" });
+    expect(blur.typed).toEqual([]);
   });
 
   it("clears the field when the value did not land", async () => {

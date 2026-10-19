@@ -20,6 +20,7 @@ export function canonicalOrigin(value: string): string | null {
     return null;
   }
   if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  if (url.hostname.includes("*")) return null;
   if (url.username !== "" || url.password !== "") return null;
   return url.origin;
 }
@@ -37,13 +38,72 @@ export function canonicalHost(value: string): string | null {
   }
 }
 
+/**
+ * Suffixes under which anyone can get a subdomain, so `https://*.<suffix>` would match an
+ * attacker's site. Not the full Public Suffix List: wildcard bindings also need two labels
+ * below the TLD's registrable part, and the UI shows the pattern on every fill card.
+ */
+const SHARED_SUFFIXES = new Set([
+  "github.io",
+  "gitlab.io",
+  "pages.dev",
+  "workers.dev",
+  "vercel.app",
+  "netlify.app",
+  "herokuapp.com",
+  "web.app",
+  "firebaseapp.com",
+  "appspot.com",
+  "blogspot.com",
+  "azurewebsites.net",
+  "cloudfront.net",
+  "s3.amazonaws.com",
+  "amazonaws.com",
+  "fly.dev",
+  "onrender.com",
+  "glitch.me",
+  "repl.co",
+  "ngrok.io",
+  "ngrok-free.app",
+  "trycloudflare.com",
+  "co.uk",
+  "org.uk",
+  "ac.uk",
+  "gov.uk",
+  "com.au",
+  "net.au",
+  "org.au",
+  "co.jp",
+  "co.nz",
+  "com.br",
+  "com.cn",
+  "com.mx",
+  "co.in",
+  "co.za",
+  "com.tr",
+  "com.sg",
+  "com.hk",
+]);
+
+function wildcardProblem(suffix: string): string | null {
+  const host = canonicalHost(suffix);
+  if (host === null || host.includes("*") || host.includes(":")) return "invalid subdomain pattern";
+  const labels = host.split(".");
+  if (labels.length < 2 || labels.some((l) => l.length === 0)) {
+    return "a subdomain pattern needs a registrable domain";
+  }
+  if (SHARED_SUFFIXES.has(host)) {
+    return "a subdomain pattern over a shared or public suffix matches anyone's site";
+  }
+  return null;
+}
+
 /** Validates a binding as entered (add / edit / import). Returns a reason when unusable. */
 export function bindingProblem(b: CredentialBinding): string | null {
   if ("origin" in b) {
-    const wildcard = /^https:\/\/\*\.([^/*]+)$/.exec(b.origin);
-    if (wildcard !== null) {
-      return canonicalHost(wildcard[1] ?? "") === null ? "invalid subdomain pattern" : null;
-    }
+    const wildcard = /^https:\/\/\*\.([^/*]+)$/i.exec(b.origin);
+    if (wildcard !== null) return wildcardProblem(wildcard[1] ?? "");
+    if (b.origin.includes("*")) return "only https://*.domain patterns are allowed";
     if (canonicalOrigin(b.origin) === null) return "origin must be an http(s) origin";
     const url = new URL(b.origin);
     if (url.pathname !== "/" || url.search !== "" || url.hash !== "") {
@@ -168,7 +228,11 @@ export function fieldClass(field: CredentialField | "secret", kind: string): str
   return field;
 }
 
-/** `credential_fill|<item>|<origin>|<field class>`: what a `site` grant matches. */
+/**
+ * `credential_fill|<item>|<origin>|<field class>|<executor>`: what a `site` grant matches. The
+ * executor is part of it, so a browser login grant never covers a sandbox or connector fill of
+ * the same password.
+ */
 export function credentialFillGrantKey(input: CredentialFillBindingInput, kind: string): string {
-  return `credential_fill|${input.itemId}|${input.target}|${fieldClass(input.field, kind)}`;
+  return `credential_fill|${input.itemId}|${input.target}|${fieldClass(input.field, kind)}|${input.executor}`;
 }

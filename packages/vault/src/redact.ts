@@ -92,6 +92,10 @@ export function encodingsOf(value: string): string[] {
     value,
     encodeURIComponent(value),
     encodeURIComponent(value).replace(/%20/g, "+"),
+    // application/x-www-form-urlencoded also escapes !'()~ (URLSearchParams, HTML forms).
+    new URLSearchParams({ v: value }).toString().slice(2),
+    // Some encoders write lowercase percent-hex.
+    encodeURIComponent(value).replace(/%[0-9A-F]{2}/g, (m) => m.toLowerCase()),
     JSON.stringify(value).slice(1, -1),
     htmlEscape(value),
     ...b64,

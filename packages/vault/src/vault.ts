@@ -332,6 +332,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     if (unavailable !== null) return fail("unavailable", unavailable);
     const dek = randomKey();
     const recovery = randomKey();
+    let handedOff = false;
     try {
       const wrapped = await this.#o.wrapper.wrap(dek);
       const recoveryKey = formatRecoveryKey(recovery);
@@ -359,10 +360,12 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       store.setHeader("slots", JSON.stringify(Object.keys(slots.slots)));
       this.#writeJson(this.#slotsPath, slots);
       this.#opened(store, dek, this.#o.wrapper.slot);
+      handedOff = true;
       await this.#audit("vault.created", { slot: this.#o.wrapper.slot });
       return { recoveryKey, status: this.status() };
     } catch (err) {
-      zeroize(dek);
+      // Once the open vault owns the DEK, `lock` zeroizes it.
+      if (!handedOff) zeroize(dek);
       throw err;
     } finally {
       zeroize(recovery);
@@ -393,7 +396,8 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       this.#touch();
       return this.status();
     }
-    this.#unlocking ??= (async () => {
+    await this.#serialized(async () => {
+      if (this.#unlocked !== undefined) return;
       const slots = this.#readSlots();
       if (slots === undefined) return fail("not_found", "no vault: run setup first");
       const wrapped = slots.slots[this.#o.wrapper.slot];
@@ -408,11 +412,23 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       }
       this.#opened(store, dek, this.#o.wrapper.slot);
       await this.#audit("vault.unlocked", { via: this.#o.wrapper.slot });
-    })().finally(() => {
-      this.#unlocking = undefined;
-    });
-    await this.#unlocking;
+    }, true);
     return this.status();
+  }
+
+  /**
+   * Run unlock paths one at a time. `share` lets concurrent `unlock` calls wait on the one in
+   * flight (one Touch ID prompt); recovery always queues behind it.
+   */
+  async #serialized(fn: () => Promise<void>, share = false): Promise<void> {
+    if (share && this.#unlocking !== undefined) return this.#unlocking;
+    const previous = this.#unlocking ?? Promise.resolve();
+    const run = previous.catch(() => undefined).then(fn);
+    const tracked = run.finally(() => {
+      if (this.#unlocking === tracked) this.#unlocking = undefined;
+    });
+    this.#unlocking = tracked;
+    return tracked;
   }
 
   /**
@@ -420,34 +436,52 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
    * then re-wrap the key for the current primary slot.
    */
   async unlockWithRecovery(recoveryKey: string): Promise<VaultStatus> {
-    const slots = this.#readSlots();
-    if (slots === undefined || !existsSync(this.#recoveryPath))
-      return fail("not_found", "no vault");
-    const file = JSON.parse(readFileSync(this.#recoveryPath, "utf8")) as RecoverySlotFile;
-    const secret = parseRecoveryKey(recoveryKey);
-    const kek = deriveArgon2id(secret, Buffer.from(file.salt, "base64"), file.params);
-    zeroize(secret);
-    let dek: Buffer;
-    try {
-      dek = open(kek, file.box, "psyche.vault.slot.v1|recovery");
-    } finally {
-      zeroize(kek);
-    }
-    if (this.#unlocked !== undefined) this.lock("manual");
-    const store = VaultStore.open(this.#dbPath, dek);
-    if ((await this.#o.wrapper.unavailableReason()) === null) {
-      const wrapped = await this.#o.wrapper.wrap(dek);
-      this.#writeJson(this.#slotsPath, {
-        ...slots,
-        slots: { ...slots.slots, [this.#o.wrapper.slot]: wrapped },
-      });
-    }
-    this.#opened(store, dek, "recovery");
-    await this.#audit("vault.unlocked", { via: "recovery" });
+    await this.#serialized(async () => {
+      const slots = this.#readSlots();
+      if (slots === undefined || !existsSync(this.#recoveryPath)) {
+        return fail("not_found", "no vault");
+      }
+      const file = JSON.parse(readFileSync(this.#recoveryPath, "utf8")) as RecoverySlotFile;
+      const secret = parseRecoveryKey(recoveryKey);
+      let dek: Buffer;
+      try {
+        const kek = deriveArgon2id(secret, Buffer.from(file.salt, "base64"), file.params);
+        try {
+          dek = open(kek, file.box, "psyche.vault.slot.v1|recovery");
+        } finally {
+          zeroize(kek);
+        }
+      } finally {
+        zeroize(secret);
+      }
+      let store: VaultStore | undefined;
+      try {
+        store = VaultStore.open(this.#dbPath, dek);
+        if ((await this.#o.wrapper.unavailableReason()) === null) {
+          const wrapped = await this.#o.wrapper.wrap(dek);
+          this.#writeJson(this.#slotsPath, {
+            ...slots,
+            slots: { ...slots.slots, [this.#o.wrapper.slot]: wrapped },
+          });
+        }
+      } catch (err) {
+        store?.close();
+        zeroize(dek);
+        throw err;
+      }
+      if (this.#unlocked !== undefined) this.lock("manual");
+      this.#opened(store, dek, "recovery");
+      await this.#audit("vault.unlocked", { via: "recovery" });
+    });
     return this.status();
   }
 
   #opened(store: VaultStore, dek: Buffer, via: VaultKeySlot): void {
+    const previous = this.#unlocked;
+    if (previous !== undefined && previous.store !== store) {
+      previous.store.close();
+      if (previous.dek !== dek) zeroize(previous.dek);
+    }
     this.#unlocked = { store, dek };
     for (const item of store.all())
       for (const v of secretValues(item.secret)) this.#redactor.add(v);
@@ -828,6 +862,75 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       if (!check.ok)
         return deny("policy_denied", check.reason, "the focused element cannot take this field");
     }
+    // Everything that can fail without the approval runs before `verifyBinding` consumes it.
+    const failed = (reason: string) =>
+      this.#recordUse(
+        meta.id,
+        executor,
+        target.value,
+        approvalId,
+        options.taskId,
+        "failed",
+        reason,
+      );
+    if (this.locked) {
+      if (!this.#o.unlockOnFill) {
+        failed("locked");
+        return fail("unavailable", "the vault is locked", { reason: "locked" });
+      }
+      try {
+        await this.unlock(
+          `Fill “${meta.name}” on ${canonicalOrigin(target.value) ?? target.value}`,
+        );
+      } catch (err) {
+        failed("unlock_refused");
+        throw err;
+      }
+    }
+    const u = this.#requireUnlocked();
+    // The encrypted store is authoritative; the plaintext mirror only screened the request.
+    const item = u.store.get(meta.id);
+    if (item === undefined || item.slug !== slug) {
+      return fail("not_found", `credential ${slug} not found`);
+    }
+    if (item.ownerConnectorId !== null) {
+      return deny(
+        "policy_denied",
+        "connector_owned",
+        "connector tokens are read by their connector only",
+      );
+    }
+    if (!bindingMatches(item.bindings, target)) {
+      return deny(
+        "policy_denied",
+        "target_mismatch",
+        "target does not match the credential's bindings",
+      );
+    }
+    if (executor === "browser" && options.element !== undefined) {
+      const check = fillElementAccepts(field ?? "secret", options.element, item.kind);
+      if (!check.ok) {
+        return deny("policy_denied", check.reason, "the focused element cannot take this field");
+      }
+    }
+    if (this.#valueOf(item, field) === undefined) {
+      failed("no_such_field");
+      return fail("not_found", `credential ${slug} has no ${field ?? "secret"}`);
+    }
+    if (item.attrs.requireAuthEachUse === true) {
+      // Per-fill presence: the slot prompts again (LAContext reuse duration 0).
+      const wrapped = this.#readSlots()?.slots[this.#o.wrapper.slot];
+      if (wrapped === undefined) {
+        failed("no_presence_slot");
+        return fail("unavailable", "no key slot for per-use authentication");
+      }
+      try {
+        zeroize(await this.#o.wrapper.unwrap(wrapped, { reason: `Use “${item.name}”` }));
+      } catch (err) {
+        failed("presence_refused");
+        throw err;
+      }
+    }
     const bindingInput = fillBindingInput({
       credential: meta,
       target: target.value,
@@ -850,9 +953,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
         not_approved: "the approval is not approved",
         not_found: "no such approval",
       } as const;
-      const code = "approval_required";
-      const message = messages[verified.reason];
-      return deny(code, `approval_${verified.reason}`, message);
+      return deny("approval_required", `approval_${verified.reason}`, messages[verified.reason]);
     }
     if (verified.approval.kind !== "credential_fill") {
       return deny(
@@ -861,35 +962,9 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
         "the approval is not a credential_fill",
       );
     }
-    if (this.locked) {
-      if (!this.#o.unlockOnFill)
-        return fail("unavailable", "the vault is locked", { reason: "locked" });
-      await this.unlock(`Fill “${meta.name}” on ${bindingInput.target}`);
-    }
-    const u = this.#requireUnlocked();
-    const item = u.store.get(meta.id);
-    if (item === undefined) return fail("not_found", `credential ${slug} not found`);
-    if (item.attrs.requireAuthEachUse === true) {
-      // Per-fill presence: the slot prompts again (LAContext reuse duration 0).
-      const slots = this.#readSlots();
-      const wrapped = slots?.slots[this.#o.wrapper.slot];
-      if (wrapped === undefined)
-        return fail("unavailable", "no key slot for per-use authentication");
-      zeroize(await this.#o.wrapper.unwrap(wrapped, { reason: `Use “${meta.name}”` }));
-    }
+    // TOTP codes are computed at the moment of use.
     const value = this.#valueOf(item, field);
-    if (value === undefined) {
-      this.#recordUse(
-        meta.id,
-        executor,
-        target.value,
-        approvalId,
-        options.taskId,
-        "failed",
-        "no_such_field",
-      );
-      return fail("not_found", `credential ${slug} has no ${field ?? "secret"}`);
-    }
+    if (value === undefined) return fail("internal", "credential changed during resolve");
     this.#redactor.markSticky(value);
     this.#recordUse(meta.id, executor, target.value, approvalId, options.taskId, "filled", null);
     await this.#audit("credential.filled", {

@@ -217,7 +217,9 @@ describe("resolve (G4, G5, G7)", () => {
       },
     });
     expect(issued.approval.scopesOffered).toEqual(expect.arrayContaining(["once", "site"]));
-    expect(issued.approval.grantKey).toBe(`credential_fill|${meta.id}|https://github.com|password`);
+    expect(issued.approval.grantKey).toBe(
+      `credential_fill|${meta.id}|https://github.com|password|browser`,
+    );
   });
 
   it("prompts Touch ID on the first fill while locked, naming item and site", async () => {

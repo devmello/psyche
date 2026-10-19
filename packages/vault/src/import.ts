@@ -71,6 +71,10 @@ function bindingsFrom(uris: string, warnings: string[]): CredentialBinding[] {
   for (const raw of uris.split(/[\n,]/)) {
     const uri = raw.trim();
     if (uri.length === 0) continue;
+    if (uri.includes("*")) {
+      warnings.push("skipped a wildcard URI");
+      continue;
+    }
     const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(uri) ? uri : `https://${uri}`;
     const origin = canonicalOrigin(withScheme);
     if (origin === null) {
@@ -151,13 +155,21 @@ export function importRows(
       if (value.trim().length === 0) continue;
       const byName = refusedFieldName(name);
       if (byName !== null || (!known.has(name) && /number|cvv|cvc|verification|expir/.test(name))) {
-        rows.push({ ok: false, row: rowNo, reason: refused(byName ?? "card_number", name) });
+        rows.push({ ok: false, row: rowNo, reason: refused(byName ?? "card_number", "a column") });
         return;
       }
     }
     const type = col(r, "type").trim().toLowerCase();
-    if (/card|identity|bank|passport|license|ssn/.test(type)) {
-      rows.push({ ok: false, row: rowNo, reason: `refused: ${type} items` });
+    // Report a fixed category, never the cell (it can hold anything, a card number included).
+    const refusedType = /card/.test(type)
+      ? "card"
+      : /bank/.test(type)
+        ? "bank account"
+        : /identity|passport|license|ssn/.test(type)
+          ? "identity"
+          : null;
+    if (refusedType !== null) {
+      rows.push({ ok: false, row: rowNo, reason: `refused: ${refusedType} items` });
       return;
     }
     const name = col(r, "name", "title").trim() || "Imported item";

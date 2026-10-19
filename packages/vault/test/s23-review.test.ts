@@ -74,7 +74,7 @@ describe("design-01: a site grant cannot type a password into a comment box", ()
       taint: true,
     });
     expect(issued.approval.grantKey).toBe(
-      `credential_fill|${credential.id}|https://github.com|username`,
+      `credential_fill|${credential.id}|https://github.com|username|browser`,
     );
   });
 

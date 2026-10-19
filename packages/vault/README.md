@@ -39,18 +39,23 @@ Do not log the params of `vault.add`, `vault.update`, `vault.import` or `vault.u
 
 ### Resolve order
 
-1. The placeholder must match the grammar exactly (`invalid_params`). The item must exist (`not_found`).
-2. An approval id must be present. Connector-owned tokens never go through `resolve`.
-3. The target must match a binding: the exact origin, a declared `https://*.domain` pattern, the host over HTTPS only, or the connector account. Opaque origins never match.
-4. Browser fills only:
-   - the element is required;
-   - its frame origin and its form's action origin must both equal the target;
-   - the field class must fit (`fillElementAccepts`).
-5. `PermissionBroker.verifyBinding(approvalId, hash)`, where the hash covers item id, target, field, executor, selector and element (security §3.5). The approval must be a `credential_fill`.
-6. If the vault is locked, unlock it with a Touch ID prompt that names the item and the site. Items flagged `requireAuthEachUse` (SSH keys by default) prompt again on every use.
-7. Read the value: `.totp` gives the current code, never the seed; `.header` gives the prefix plus the token. The value becomes sticky in the redactor. A `credential_uses` row and a `credential.filled` audit entry are written.
+1. Screen the request against the metadata mirror:
+   - the placeholder must match the grammar exactly (`invalid_params`), and the item must exist (`not_found`);
+   - an approval id must be present;
+   - the item must not be connector-owned;
+   - the target must match a binding: the exact origin, a declared `https://*.domain` pattern (refused over shared or public suffixes such as `github.io` or `co.uk`), the host over HTTPS only, or the connector account; opaque origins never match;
+   - browser fills only: the element is required, its frame origin and its form's action origin (including every submitter's `formaction`) must both equal the target, and the field class must fit (`fillElementAccepts`: a password only into `type=password`).
+2. If the vault is locked, unlock it with a Touch ID prompt naming the item and site. With `unlockOnFill: false`, fail.
+3. Re-check against the encrypted store, which is authoritative: owner, bindings, kind, and that the field exists. A tampered mirror row changes nothing.
+4. Items flagged `requireAuthEachUse` (SSH keys by default) prompt again here.
+5. `PermissionBroker.verifyBinding(approvalId, hash)`, where the hash covers item id, target, field, executor, selector and element (security §3.5). The approval must be a `credential_fill`. This is the only step that consumes a `once` approval: nothing that can fail without it (lock, cancelled Touch ID, missing field) runs after it.
+6. Read the value: `.totp` gives the current code, never the seed; `.header` gives the prefix plus the token. The value becomes sticky in the redactor. A `credential_uses` row and a `credential.filled` audit entry are written.
 
-Denials in steps 2–5 write a `denied` use row with the reason and a `credential.fill_denied` audit entry. Steps 2–4 run before the approval check, so they never consume a `once` approval.
+Each denial writes a `denied` use row with the reason and a `credential.fill_denied` audit entry. Each failure (locked, unlock refused, no such field) writes a `failed` row.
+
+The `site` grant key is `credential_fill|<item>|<origin>|<field class>|<executor>`, so a browser login grant never covers a sandbox or connector use of the same password.
+
+`fillBrowserField` re-reads the top-frame origin and checks that the approved node still has focus *after* `resolve` returns. Resolve can wait seconds on Touch ID, and the page may have navigated in that time. It reports `secureField: true` for every fill.
 
 ### Mac helper contract (S14)
 

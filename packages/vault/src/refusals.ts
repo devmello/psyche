@@ -58,21 +58,63 @@ function knownIssuer(d: string): boolean {
   return false;
 }
 
-/** 13–19 digits, optionally grouped by single spaces or dashes. */
-const CARD_RE = /(?<![\d])(?:\d[ -]?){12,18}\d(?![\d])/g;
 const CVV_RE =
-  /\b(?:cvv2?|cvc2?|cid|csc|card\s*security\s*code|security\s*code)\b\s*[:=#-]?\s*\d{3,4}\b/i;
-const IBAN_RE = /\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]){11,30}\b/g;
-const SSN_RE = /\b(?!000|666|9\d\d)\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b/;
+  /\b(?:cvv2?|cvc2?|cid|csc|card\s*security\s*code|security\s*code)\b[^\d\n]{0,16}\d{3,4}\b/i;
+const SSN_RE = /\b(?!000|666|9\d\d)\d{3}[- ](?!00)\d{2}[- ](?!0000)\d{4}\b/;
 const UK_NINO_RE =
   /\b(?![DFIQUV])[A-CEGHJ-PR-TW-Z](?![DFIQUVO])[A-CEGHJ-NPR-TW-Z] ?\d{2} ?\d{2} ?\d{2} ?[A-D]\b/;
 const GOV_KEYWORD_RE =
-  /\b(?:passport|social\s*security|ssn|driver'?s?\s*licen[cs]e|national\s*(?:id|identity|insurance)|tax\s*(?:id|number)|aadhaar|personnummer|steuer-?id)\b[^\n]{0,24}?\b(?=[A-Z0-9-]*\d{5})[A-Z0-9-]{6,}\b/i;
+  /\b(?:passport|social\s*security|ssn|driver'?s?\s*licen[cs]e|national\s*(?:id|identity|insurance)|tax\s*(?:id|number)|aadhaar|personnummer|steuer-?id)\b/gi;
+/** Within the 40 characters after a keyword: an id-like token with at least five digits. */
+const ID_TOKEN_RE = /(?:^|[^A-Z0-9-])(?=[A-Z0-9-]{0,20}\d{5})[A-Z0-9-]{6,20}(?![A-Z0-9-])/i;
 const BANK_KEYWORD_RE =
-  /\b(?:routing|aba|sort\s*code|bsb|account\s*(?:number|no\.?|#))\b[^\n]{0,16}?\b\d[\d -]{5,20}\d\b/i;
+  /\b(?:routing|aba|sort\s*code|bsb|account\s*(?:number|no\.?|#))\b[^\n\d]{0,16}\d[\d -]{5,20}\d\b/i;
 
-function ibanValid(raw: string): boolean {
-  const s = raw.replace(/ /g, "");
+/** Separators people put between card-number groups. */
+const GROUP_SEP = /^[ \t._/-]{1,3}$/;
+
+/**
+ * Card numbers: digit groups joined by short separators (spaces, dots, dashes, slashes), any
+ * contiguous run of groups totalling 13–19 digits, with a known issuer prefix and a valid Luhn.
+ */
+function hasCardNumber(text: string): boolean {
+  const groups = [...text.matchAll(/\d+/g)].map((m) => ({
+    d: m[0],
+    start: m.index,
+    end: m.index + m[0].length,
+  }));
+  for (let i = 0; i < groups.length; i += 1) {
+    let digits = "";
+    for (let j = i; j < groups.length && j < i + 19; j += 1) {
+      const g = groups[j];
+      if (g === undefined) break;
+      if (j > i) {
+        const prev = groups[j - 1];
+        if (prev === undefined || !GROUP_SEP.test(text.slice(prev.end, g.start))) break;
+      }
+      digits += g.d;
+      if (digits.length > 19) break;
+      if (digits.length >= 13 && knownIssuer(digits) && luhnValid(digits)) return true;
+    }
+  }
+  return false;
+}
+
+/** IBANs: every start of `CCdd`, every compact length 15–34, single spaces allowed. */
+function hasIban(upper: string): boolean {
+  for (const m of upper.matchAll(/(?<![A-Z0-9])[A-Z]{2}\d{2}/g)) {
+    let compact = "";
+    for (let k = m.index; k < upper.length && compact.length < 34; k += 1) {
+      const ch = upper[k] ?? "";
+      if (/[A-Z0-9]/.test(ch)) compact += ch;
+      else if (ch !== " " || upper[k + 1] === " ") break;
+      if (compact.length >= 15 && ibanValid(compact)) return true;
+    }
+  }
+  return false;
+}
+
+function ibanValid(s: string): boolean {
   if (s.length < 15 || s.length > 34) return false;
   const moved = s.slice(4) + s.slice(0, 4);
   let rem = 0;
@@ -84,21 +126,16 @@ function ibanValid(raw: string): boolean {
   return rem === 1;
 }
 
-/** The first refused category found in `text`, if any. */
-export function scanText(text: string): RefusalCategory | null {
-  for (const m of text.matchAll(CARD_RE)) {
-    const digits = m[0].replace(/[ -]/g, "");
-    if (digits.length >= 13 && digits.length <= 19 && knownIssuer(digits) && luhnValid(digits)) {
-      return "card_number";
-    }
-  }
+/** The first refused category found in `text`, if any. Text is NFKC-normalized first. */
+export function scanText(raw: string): RefusalCategory | null {
+  const text = raw.normalize("NFKC");
+  if (hasCardNumber(text)) return "card_number";
   if (CVV_RE.test(text)) return "card_security_code";
-  for (const m of text.toUpperCase().matchAll(IBAN_RE)) {
-    if (ibanValid(m[0])) return "bank_account";
-  }
-  if (BANK_KEYWORD_RE.test(text)) return "bank_account";
-  if (SSN_RE.test(text) || UK_NINO_RE.test(text) || GOV_KEYWORD_RE.test(text)) {
-    return "government_id";
+  if (hasIban(text.toUpperCase()) || BANK_KEYWORD_RE.test(text)) return "bank_account";
+  if (SSN_RE.test(text) || UK_NINO_RE.test(text)) return "government_id";
+  for (const m of text.matchAll(GOV_KEYWORD_RE)) {
+    const after = text.slice(m.index + m[0].length, m.index + m[0].length + 40);
+    if (ID_TOKEN_RE.test(after)) return "government_id";
   }
   return null;
 }
