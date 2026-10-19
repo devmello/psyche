@@ -323,6 +323,18 @@ export class MockTab implements CdpTarget {
           leaf(el, 600);
           return;
         }
+        case "console_log":
+          // Logged once the document is built, like an inline script on load.
+          setTimeout(() => {
+            if (this.#doc.els === els) {
+              this.#emit("Runtime.consoleAPICalled", {
+                type: "log",
+                args: [{ type: "string", value: n.text }],
+                timestamp: Date.now(),
+              });
+            }
+          }, 0);
+          return;
         case "signed_in": {
           const user = b.jar(this.partition, host).get(SESSION_COOKIE);
           const el = mk("P", parent, { fx: n, text: signedInText(user) });

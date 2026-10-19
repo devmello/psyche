@@ -54,7 +54,9 @@ export type FxNode =
    * Who the `user` cookie says is signed in (`Signed in as <name>` / `Not signed in`), as a
    * `status` element: the partition-isolation proof for I15. `/submit/login` sets the cookie.
    */
-  | { kind: "signed_in" };
+  | { kind: "signed_in" }
+  /** `console.log(text)` when the page loads: the dev-preview console fixture (I12). */
+  | { kind: "console_log"; text: string };
 
 export interface FxPage {
   title: string;
@@ -168,6 +170,14 @@ export const FIXTURE_SITE: FxSite = {
             { kind: "button", text: "Sign in", type: "submit" },
           ],
         },
+      ],
+    },
+    "a/dev": {
+      title: "Dev server",
+      body: [
+        { kind: "heading", level: 1, text: "Vite app" },
+        { kind: "console_log", text: "hello from the dev server" },
+        { kind: "status", id: "status", text: "Ready" },
       ],
     },
     "a/account": {

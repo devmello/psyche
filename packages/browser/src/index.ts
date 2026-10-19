@@ -6,6 +6,7 @@ export * from "./bridge/allowlist.ts";
 export * from "./bridge/bridge.ts";
 export { BRIDGE_MAX_FRAME_BYTES, FrameConnection } from "./bridge/framing.ts";
 export { type CdpTarget, looksLikeCardNumber, PageController } from "./cdp/page.ts";
+export * from "./devpreview/gate.ts";
 export * from "./downloads/library.ts";
 export * from "./downloads/sniff.ts";
 export { DriverBase, type DriverDeps } from "./drivers/base.ts";
@@ -22,5 +23,10 @@ export { buildSnapshot, extractText, SECURE_MASK } from "./snapshot/builder.ts";
 export { RefRegistry } from "./snapshot/refs.ts";
 export { bindingHash, canonicalJson, classifyActivation } from "./tools/classify.ts";
 export { ApprovalGate, type CallContext } from "./tools/gate.ts";
-export { type BrowserToolDeps, browserToolDefs, registerBrowserTools } from "./tools/register.ts";
+export {
+  type BrowserToolDeps,
+  browserToolDefs,
+  registerBrowserTools,
+  type SessionKind,
+} from "./tools/register.ts";
 export * from "./types.ts";

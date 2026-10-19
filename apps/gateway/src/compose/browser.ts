@@ -4,6 +4,8 @@ import {
   BridgeServer,
   type BrowserDriverEx,
   CdpBridgeDriver,
+  DevServerRegistry,
+  type DevServerRegistryOptions,
   FileRecordingSink,
   FsQuarantineWriter,
   type LibraryWriter,
@@ -11,6 +13,7 @@ import {
   type PartitionMode,
   RecordingStore,
   registerBrowserTools,
+  type SessionKind,
 } from "@psyche/browser";
 import {
   type CredentialBroker,
@@ -51,6 +54,11 @@ export interface BrowserSetup {
   partition?: PartitionMode;
   /** Origins the owner has signed into in the agent profile, for `auto`. */
   signedInOrigins?: string[];
+  /**
+   * Dev preview (feature I12, security §3.10): which loopback servers tasks may open. Absent
+   * means none; the sandbox / exec layer registers servers it starts on `devServers`.
+   */
+  devPreview?: DevServerRegistryOptions;
 }
 
 export interface ComposedBrowser extends ComposedPart {
@@ -62,6 +70,8 @@ export interface ComposedBrowser extends ComposedPart {
   readonly recordings: ReadonlyMap<string, FileRecordingSink>;
   /** Reads recordings back for `browser.recordings.*`. */
   readonly recordingStore: RecordingStore;
+  /** Dev servers tasks may preview; `started` / `stopped` are for whoever launches them. */
+  readonly devServers: DevServerRegistry;
 }
 
 /** Retention for recordings (data model §12: 7 days when enabled). */
@@ -105,8 +115,9 @@ export function composeBrowser(
   let client: BridgeClient | undefined;
   let driver: CdpBridgeDriver | undefined;
   let server: BridgeServer | undefined;
-  /** Session key (task or thread) → browser session on the current driver. */
+  /** Session key (task or thread, `#dev` for dev preview) → session on the current driver. */
   const sessions = new Map<string, Promise<DriverSession>>();
+  const devServers = new DevServerRegistry(setup.devPreview ?? {});
   const recordings = new Map<string, FileRecordingSink>();
   /** Recording id → Library item id, once a finished recording was imported. */
   const recordingItems = new Map<string, string>();
@@ -195,9 +206,15 @@ export function composeBrowser(
     },
   });
 
-  const sessionFor = (callId: string): Promise<string> => {
+  const keyFor = (callId: string, kind: SessionKind = "web"): string => {
     const ctx = services.calls.context(callId);
-    const key = ctx.taskId ?? `thread:${ctx.threadId}`;
+    const base = ctx.taskId ?? `thread:${ctx.threadId}`;
+    return kind === "dev_preview" ? `${base}#dev` : base;
+  };
+
+  const sessionFor = (callId: string, kind: SessionKind = "web"): Promise<string> => {
+    const ctx = services.calls.context(callId);
+    const key = keyFor(callId, kind);
     let session = sessions.get(key);
     if (session === undefined) {
       let recording: FileRecordingSink | undefined;
@@ -212,12 +229,20 @@ export function composeBrowser(
         });
         recordings.set(key, recording);
       }
+      // The dev-preview session (I12) is logged out and pinned to the approved ports; the
+      // tool adds each port and origin after the owner's approval.
       session = current().openSession({
         ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
-        ...(setup.policy === undefined ? {} : { policy: structuredClone(setup.policy) }),
+        ...(kind === "dev_preview"
+          ? { policy: { devPreview: true, loopbackPorts: [] }, partition: "clean" }
+          : {
+              ...(setup.policy === undefined ? {} : { policy: structuredClone(setup.policy) }),
+              ...(setup.partition === undefined ? {} : { partition: setup.partition }),
+              ...(setup.signedInOrigins === undefined
+                ? {}
+                : { signedInOrigins: setup.signedInOrigins }),
+            }),
         ...(recording === undefined ? {} : { recording }),
-        ...(setup.partition === undefined ? {} : { partition: setup.partition }),
-        ...(setup.signedInOrigins === undefined ? {} : { signedInOrigins: setup.signedInOrigins }),
       });
       session.catch(() => sessions.delete(key));
       sessions.set(key, session);
@@ -262,6 +287,15 @@ export function composeBrowser(
     ...(setup.credentials === undefined ? {} : { credentials: setup.credentials }),
     context: (callId) => services.calls.context(callId),
     session: sessionFor,
+    openSessions: async (callId) => {
+      const ids: string[] = [];
+      for (const kind of ["web", "dev_preview"] as const) {
+        const s = sessions.get(keyFor(callId, kind));
+        if (s !== undefined) ids.push((await s).id);
+      }
+      return ids;
+    },
+    devPreview: devServers,
   });
 
   const attach = (next: BridgeClient): CdpBridgeDriver => {
@@ -299,6 +333,7 @@ export function composeBrowser(
     },
     recordings,
     recordingStore,
+    devServers,
     async start(gateway: Gateway) {
       // Retention runs at boot; recordings are opt-in and short-lived (data model §12).
       void recordingStore.prune(RECORDING_RETENTION_MS).catch(() => undefined);

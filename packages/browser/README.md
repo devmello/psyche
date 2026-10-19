@@ -1,6 +1,6 @@
 # @psyche/browser
 
-**Owner:** S08 (`prompts/s08-browser.md`). **Features:** I2–I4, I7–I10 and I15, plus the M1 part of I12 ([docs/03-feature-spec.md](../../docs/03-feature-spec.md)).
+**Owner:** S08 (`prompts/s08-browser.md`). **Features:** I2–I4, I7–I10, I12 (except the element picker) and I15 ([docs/03-feature-spec.md](../../docs/03-feature-spec.md)).
 
 This package is the agent-owned browser. It has:
 
@@ -25,6 +25,7 @@ The pane UI and the Electron `WebContentsView` host belong to S11.
 | `src/bridge/` | `FrameConnection` (NDJSON), `BridgeServer` / `BridgeClient`, the CDP allowlist |
 | `src/drivers/` | `DriverBase`, `CdpBridgeDriver`, `PlaywrightDriver` |
 | `src/downloads/` | magic-byte `sniff`, `LibraryWriter`, `FsQuarantineWriter` |
+| `src/devpreview/` | `DevServerRegistry`, the gate that says which loopback servers a task may preview (security §3.10) |
 | `src/recording/` | `FileRecordingSink` (frames, snapshots and the event log), `RecordingStore` (reads them back for `browser.recordings.*`) |
 | `src/tools/` | `registerBrowserTools`, `classifyActivation`, `ApprovalGate` |
 | `@psyche/browser/testing` | fixture site DSL, `FixtureServer`, `MockBrowser`, `MockDesktop` |
@@ -103,7 +104,8 @@ Every click by ref is hit-tested first (`conflict {reason: "obscured"}` when ano
 | `browser.wait` | `tabId, for, timeoutMs?` | none | load, text, ref, network_idle, timeout |
 | `browser.dialog` | `tabId, accept, promptText?` | read → write when accepting a confirm | |
 | `browser.fill_credential` | `tabId, ref, placeholder` | write (`credential_fill`) | see below |
-| `browser.console` / `network` | `tabId` | read | dev-preview tasks only (I12) |
+| `browser.dev_preview` | `url` | read (`new_origin`) | opens the owner's own dev server in the task's dev-preview session (I12, below) |
+| `browser.console` / `network` | `tabId` | read | dev-preview tabs only (I12) |
 
 **Credential fill** (security §4.6) runs in this order:
 
@@ -202,6 +204,15 @@ Redaction is at write time, in `FileRecordingSink`:
 
 `RecordingStore` serves the Gateway's `browser.recordings.list | get | frame | snapshot | delete`: a live recording from the sink's memory (`get {sinceSeq}` follows it), a finished one from disk. Finished recordings go to the Library through `LibraryWriter.importRecording` (`kind: recording`; `FsQuarantineWriter` keeps them in memory until the Library owner ships), and `prune` applies the 7-day retention at Gateway start. The Gateway publishes `browser.recording.updated` while a recording grows. The Activity UI itself is S12's.
 
+## Dev preview (I12)
+
+Loopback is not the web: `localhost:<port>` may be the owner's Vite app or a local service that trusts the machine. Security §3.10 allows the agent on a local server only when the owner's own setup names it, so:
+
+- `DevServerRegistry` (`src/devpreview/gate.ts`) answers `check(url, {taskId})` from three sources: servers Psyche started this session (`started({port, cwd, name, taskId})`, which the sandbox / exec layer or the terminal pane calls; a server started for one task is that task's only), the project's launch config, and the owner's allowlist (`PSYCHE_DEV_PREVIEW_PORTS` until Settings → Browser exists). The host must be exactly `localhost`, `127.0.0.1`, `[::1]` or a `.localhost` name; a LAN address is never a dev server.
+- `browser.dev_preview {url}` runs the gate, asks the broker once per task (`new_origin` with `devPreview: true`, the source and the folder on the card), and opens the URL in the task's **dev-preview session**: a second session, logged out (`clean`), whose policy is `devPreview: true` pinned to the approved ports (`loopbackPorts`), so a redirect or link to another local port is refused. `browser.console` and `browser.network` read that tab's console and requests (capped at 500 entries, kept for dev-preview sessions only); every other tool works on the tab as usual.
+- Without a `DevPreviewGate` the tool refuses; the Gateway passes `ComposedBrowser.devServers`.
+- The element picker (⌘⇧S) is the pane's; its protocol is a follow-up for S11 / S12.
+
 ## Testing
 
 - `pnpm --filter @psyche/browser test` runs the following without network or a browser:
@@ -226,6 +237,7 @@ Redaction is at write time, in `FileRecordingSink`:
   - Take control refusal and re-snapshot;
   - logged-out partitions kept apart from the profile (I15);
   - recording of navigations, snapshots and actions with fills redacted, and the store (`test/recording.test.ts`);
+  - console and network on a dev-preview session pinned to its port (I12), plus the gate and the tool (`test/devpreview.test.ts`);
   - sparse and CAPTCHA detection;
   - history and SPA navigation;
   - scrolling;
