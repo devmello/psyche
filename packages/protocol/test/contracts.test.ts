@@ -6,6 +6,7 @@ import {
   AUDIT_GENESIS_HASH,
   CREDENTIAL_FIELDS,
   EXEC_OUTPUT_CAP_BYTES,
+  fillElementAccepts,
   PLACEHOLDER_PATTERN,
   PROTECTED_MEMORY_FILES,
   parsePlaceholders,
@@ -39,6 +40,66 @@ describe("contracts: placeholders (security §4.5)", () => {
     }
     expect(PLACEHOLDER_PATTERN.flags).not.toContain("g");
     expect(CREDENTIAL_FIELDS).toEqual(["username", "password", "totp", "token", "header"]);
+  });
+});
+
+describe("contracts: fillElementAccepts (S23 design-01)", () => {
+  const o = "https://github.com";
+  it("puts passwords only into password fields", () => {
+    expect(
+      fillElementAccepts("password", { tagName: "input", type: "password", frameOrigin: o }).ok,
+    ).toBe(true);
+    expect(
+      fillElementAccepts("secret", { tagName: "input", type: "password", frameOrigin: o }).ok,
+    ).toBe(true);
+    for (const el of [
+      { tagName: "textarea", frameOrigin: o },
+      { tagName: "div", contentEditable: true, frameOrigin: o },
+      { tagName: "input", type: "text", frameOrigin: o },
+      { tagName: "input", type: "search", frameOrigin: o },
+      { tagName: "input", type: "password", contentEditable: true, frameOrigin: o },
+    ]) {
+      expect(fillElementAccepts("password", el).ok, JSON.stringify(el)).toBe(false);
+    }
+  });
+  it("accepts usernames in login forms and codes in one-time-code fields", () => {
+    expect(
+      fillElementAccepts("username", { tagName: "input", type: "email", frameOrigin: o }).ok,
+    ).toBe(false);
+    expect(
+      fillElementAccepts("username", {
+        tagName: "input",
+        type: "email",
+        formHasPassword: true,
+        frameOrigin: o,
+      }).ok,
+    ).toBe(true);
+    expect(
+      fillElementAccepts("username", {
+        tagName: "input",
+        autocomplete: "section-a username",
+        frameOrigin: o,
+      }).ok,
+    ).toBe(true);
+    expect(
+      fillElementAccepts("totp", {
+        tagName: "input",
+        autocomplete: "one-time-code",
+        frameOrigin: o,
+      }).ok,
+    ).toBe(true);
+    expect(
+      fillElementAccepts("totp", {
+        tagName: "input",
+        inputMode: "numeric",
+        maxLength: 6,
+        frameOrigin: o,
+      }).ok,
+    ).toBe(true);
+    expect(fillElementAccepts("totp", { tagName: "input", frameOrigin: o }).ok).toBe(false);
+    expect(fillElementAccepts("secret", { tagName: "input", frameOrigin: o }, "api_key").ok).toBe(
+      false,
+    );
   });
 });
 

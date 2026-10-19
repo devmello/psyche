@@ -10,7 +10,10 @@ import { createValidator } from "./methods/define.ts";
  * `validateResult`, `validateEventPayload`).
  */
 
-/** Largest accepted frame, in UTF-8 bytes (1 MiB), on every transport. */
+/**
+ * Largest accepted frame, in UTF-8 bytes (1 MiB), on every transport except the browser bridge
+ * (`BRIDGE_MAX_FRAME_BYTES`), where raw accessibility trees exceed 1 MiB (spike 01).
+ */
 export const MAX_FRAME_BYTES = 1_048_576;
 
 /** Correlates a `res` with its `req`. Chosen by the sender, unique per connection. */
@@ -129,21 +132,23 @@ function describeInvalid(value: unknown): string {
  * malformed JSON or a shape outside the wire spec. When the frame carried a usable string `id`,
  * the error's `details.id` holds it so the receiver can answer with `errRes(id, …)`.
  */
-export function parseFrame(raw: string): Frame {
+export interface ParseFrameOptions {
+  /** Byte limit for this transport; defaults to `MAX_FRAME_BYTES`. */
+  maxBytes?: number;
+}
+
+export function parseFrame(raw: string, options: ParseFrameOptions = {}): Frame {
   if (typeof raw !== "string") {
     throw new PsycheError("invalid_frame", "frame must be a string");
   }
+  const limit = options.maxBytes ?? MAX_FRAME_BYTES;
   // Each UTF-16 code unit encodes to at most 3 UTF-8 bytes, so short frames skip the count.
-  if (raw.length * 3 > MAX_FRAME_BYTES) {
+  if (raw.length * 3 > limit) {
     const bytes = utf8ByteLength(raw);
-    if (bytes > MAX_FRAME_BYTES) {
-      throw new PsycheError(
-        "invalid_frame",
-        `frame is ${bytes} bytes; the limit is ${MAX_FRAME_BYTES}`,
-        {
-          details: { bytes, limit: MAX_FRAME_BYTES },
-        },
-      );
+    if (bytes > limit) {
+      throw new PsycheError("invalid_frame", `frame is ${bytes} bytes; the limit is ${limit}`, {
+        details: { bytes, limit },
+      });
     }
   }
   let value: unknown;

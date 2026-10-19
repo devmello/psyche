@@ -27,18 +27,29 @@
 //   let automation = try? JSONDecoder().decode(Automation.self, from: jsonData)
 //   let automationKind = try? JSONDecoder().decode(AutomationKind.self, from: jsonData)
 //   let automationResult = try? JSONDecoder().decode(AutomationResult.self, from: jsonData)
+//   let automationRun = try? JSONDecoder().decode(AutomationRun.self, from: jsonData)
+//   let automationRunFinishedPayload = try? JSONDecoder().decode(AutomationRunFinishedPayload.self, from: jsonData)
+//   let automationRunStartedPayload = try? JSONDecoder().decode(AutomationRunStartedPayload.self, from: jsonData)
+//   let automationRunStatus = try? JSONDecoder().decode(AutomationRunStatus.self, from: jsonData)
+//   let automationUpdatedPayload = try? JSONDecoder().decode(AutomationUpdatedPayload.self, from: jsonData)
 //   let automationsCreateParams = try? JSONDecoder().decode(AutomationsCreateParams.self, from: jsonData)
 //   let automationsDeleteParams = try? JSONDecoder().decode(AutomationsDeleteParams.self, from: jsonData)
 //   let automationsListParams = try? JSONDecoder().decode(AutomationsListParams.self, from: jsonData)
 //   let automationsListResult = try? JSONDecoder().decode(AutomationsListResult.self, from: jsonData)
 //   let automationsRunParams = try? JSONDecoder().decode(AutomationsRunParams.self, from: jsonData)
 //   let automationsRunResult = try? JSONDecoder().decode(AutomationsRunResult.self, from: jsonData)
+//   let automationsRunsParams = try? JSONDecoder().decode(AutomationsRunsParams.self, from: jsonData)
+//   let automationsRunsResult = try? JSONDecoder().decode(AutomationsRunsResult.self, from: jsonData)
+//   let automationsUpcomingParams = try? JSONDecoder().decode(AutomationsUpcomingParams.self, from: jsonData)
+//   let automationsUpcomingResult = try? JSONDecoder().decode(AutomationsUpcomingResult.self, from: jsonData)
 //   let automationsUpdateParams = try? JSONDecoder().decode(AutomationsUpdateParams.self, from: jsonData)
 //   let block = try? JSONDecoder().decode(Block.self, from: jsonData)
 //   let bridgeCDPEventPayload = try? JSONDecoder().decode(BridgeCDPEventPayload.self, from: jsonData)
 //   let bridgeCDPSendParams = try? JSONDecoder().decode(BridgeCDPSendParams.self, from: jsonData)
 //   let bridgeCDPSendResult = try? JSONDecoder().decode(BridgeCDPSendResult.self, from: jsonData)
 //   let bridgeControlChangedPayload = try? JSONDecoder().decode(BridgeControlChangedPayload.self, from: jsonData)
+//   let bridgeControlVia = try? JSONDecoder().decode(BridgeControlVia.self, from: jsonData)
+//   let bridgeDebuggerDetachedPayload = try? JSONDecoder().decode(BridgeDebuggerDetachedPayload.self, from: jsonData)
 //   let bridgeDownloadPayload = try? JSONDecoder().decode(BridgeDownloadPayload.self, from: jsonData)
 //   let bridgeDownloadState = try? JSONDecoder().decode(BridgeDownloadState.self, from: jsonData)
 //   let bridgeHelloParams = try? JSONDecoder().decode(BridgeHelloParams.self, from: jsonData)
@@ -47,6 +58,7 @@
 //   let bridgeTabIDParams = try? JSONDecoder().decode(BridgeTabIDParams.self, from: jsonData)
 //   let bridgeTabOpenParams = try? JSONDecoder().decode(BridgeTabOpenParams.self, from: jsonData)
 //   let bridgeTabResult = try? JSONDecoder().decode(BridgeTabResult.self, from: jsonData)
+//   let bridgeTabStatusParams = try? JSONDecoder().decode(BridgeTabStatusParams.self, from: jsonData)
 //   let bridgeTabsListParams = try? JSONDecoder().decode(BridgeTabsListParams.self, from: jsonData)
 //   let bridgeTabsListResult = try? JSONDecoder().decode(BridgeTabsListResult.self, from: jsonData)
 //   let browserCloseParams = try? JSONDecoder().decode(BrowserCloseParams.self, from: jsonData)
@@ -122,6 +134,9 @@
 //   let credentialBinding = try? JSONDecoder().decode(CredentialBinding.self, from: jsonData)
 //   let credentialKind = try? JSONDecoder().decode(CredentialKind.self, from: jsonData)
 //   let credentialMeta = try? JSONDecoder().decode(CredentialMeta.self, from: jsonData)
+//   let credentialSecretInput = try? JSONDecoder().decode(CredentialSecretInput.self, from: jsonData)
+//   let credentialUpdatedPayload = try? JSONDecoder().decode(CredentialUpdatedPayload.self, from: jsonData)
+//   let credentialUse = try? JSONDecoder().decode(CredentialUse.self, from: jsonData)
 //   let decidedBy = try? JSONDecoder().decode(DecidedBy.self, from: jsonData)
 //   let decision = try? JSONDecoder().decode(Decision.self, from: jsonData)
 //   let delivery = try? JSONDecoder().decode(Delivery.self, from: jsonData)
@@ -378,12 +393,37 @@
 //   let toolCallStatus = try? JSONDecoder().decode(ToolCallStatus.self, from: jsonData)
 //   let toolCallUpdatedPayload = try? JSONDecoder().decode(ToolCallUpdatedPayload.self, from: jsonData)
 //   let toolSpec = try? JSONDecoder().decode(ToolSpec.self, from: jsonData)
+//   let upcomingItem = try? JSONDecoder().decode(UpcomingItem.self, from: jsonData)
 //   let usage = try? JSONDecoder().decode(Usage.self, from: jsonData)
 //   let usageRecord = try? JSONDecoder().decode(UsageRecord.self, from: jsonData)
+//   let vaultAddParams = try? JSONDecoder().decode(VaultAddParams.self, from: jsonData)
+//   let vaultAddResult = try? JSONDecoder().decode(VaultAddResult.self, from: jsonData)
+//   let vaultConfirmRecoveryParams = try? JSONDecoder().decode(VaultConfirmRecoveryParams.self, from: jsonData)
+//   let vaultConfirmRecoveryResult = try? JSONDecoder().decode(VaultConfirmRecoveryResult.self, from: jsonData)
+//   let vaultDeleteParams = try? JSONDecoder().decode(VaultDeleteParams.self, from: jsonData)
+//   let vaultDeleteResult = try? JSONDecoder().decode(VaultDeleteResult.self, from: jsonData)
 //   let vaultGetParams = try? JSONDecoder().decode(VaultGetParams.self, from: jsonData)
 //   let vaultGetResult = try? JSONDecoder().decode(VaultGetResult.self, from: jsonData)
+//   let vaultImportParams = try? JSONDecoder().decode(VaultImportParams.self, from: jsonData)
+//   let vaultImportResult = try? JSONDecoder().decode(VaultImportResult.self, from: jsonData)
+//   let vaultKeySlot = try? JSONDecoder().decode(VaultKeySlot.self, from: jsonData)
 //   let vaultListParams = try? JSONDecoder().decode(VaultListParams.self, from: jsonData)
 //   let vaultListResult = try? JSONDecoder().decode(VaultListResult.self, from: jsonData)
+//   let vaultLockParams = try? JSONDecoder().decode(VaultLockParams.self, from: jsonData)
+//   let vaultLockResult = try? JSONDecoder().decode(VaultLockResult.self, from: jsonData)
+//   let vaultLockedPayload = try? JSONDecoder().decode(VaultLockedPayload.self, from: jsonData)
+//   let vaultSetupParams = try? JSONDecoder().decode(VaultSetupParams.self, from: jsonData)
+//   let vaultSetupResult = try? JSONDecoder().decode(VaultSetupResult.self, from: jsonData)
+//   let vaultStatus = try? JSONDecoder().decode(VaultStatus.self, from: jsonData)
+//   let vaultStatusParams = try? JSONDecoder().decode(VaultStatusParams.self, from: jsonData)
+//   let vaultStatusResult = try? JSONDecoder().decode(VaultStatusResult.self, from: jsonData)
+//   let vaultUnlockParams = try? JSONDecoder().decode(VaultUnlockParams.self, from: jsonData)
+//   let vaultUnlockResult = try? JSONDecoder().decode(VaultUnlockResult.self, from: jsonData)
+//   let vaultUnlockedPayload = try? JSONDecoder().decode(VaultUnlockedPayload.self, from: jsonData)
+//   let vaultUpdateParams = try? JSONDecoder().decode(VaultUpdateParams.self, from: jsonData)
+//   let vaultUpdateResult = try? JSONDecoder().decode(VaultUpdateResult.self, from: jsonData)
+//   let vaultUsesParams = try? JSONDecoder().decode(VaultUsesParams.self, from: jsonData)
+//   let vaultUsesResult = try? JSONDecoder().decode(VaultUsesResult.self, from: jsonData)
 //   let viewCommandName = try? JSONDecoder().decode(ViewCommandName.self, from: jsonData)
 //   let viewCommandPayload = try? JSONDecoder().decode(ViewCommandPayload.self, from: jsonData)
 //   let viewLayout = try? JSONDecoder().decode(ViewLayout.self, from: jsonData)
@@ -395,6 +435,9 @@
 //   let viewPaneRef = try? JSONDecoder().decode(ViewPaneRef.self, from: jsonData)
 //   let viewPaneState = try? JSONDecoder().decode(ViewPaneState.self, from: jsonData)
 //   let viewPlacement = try? JSONDecoder().decode(ViewPlacement.self, from: jsonData)
+//   let viewReportParams = try? JSONDecoder().decode(ViewReportParams.self, from: jsonData)
+//   let watchCheck = try? JSONDecoder().decode(WatchCheck.self, from: jsonData)
+//   let watchConfig = try? JSONDecoder().decode(WatchConfig.self, from: jsonData)
 //   let wrapUpAction = try? JSONDecoder().decode(WrapUpAction.self, from: jsonData)
 //   let wrapUpBlock = try? JSONDecoder().decode(WrapUpBlock.self, from: jsonData)
 
@@ -998,6 +1041,8 @@ public struct Automation: Codable, Sendable {
     public let kind: AutomationKind
     public let lastRunAt: String?
     public let lastStatus: String?
+    /// Heartbeat: skip workspace bootstrap files (feature O2)
+    public let lightContext: Bool?
     public let nextRunAt: String?
     public let prompt: String
     /// cron expression, ISO-8601 duration or watch interval
@@ -1008,6 +1053,7 @@ public struct Automation: Codable, Sendable {
     public let timezone: String
     public let title: String
     public let updatedAt: String
+    public let watch: WatchConfig?
 
     public enum CodingKeys: String, CodingKey {
         case createdAt = "createdAt"
@@ -1017,6 +1063,7 @@ public struct Automation: Codable, Sendable {
         case kind = "kind"
         case lastRunAt = "lastRunAt"
         case lastStatus = "lastStatus"
+        case lightContext = "lightContext"
         case nextRunAt = "nextRunAt"
         case prompt = "prompt"
         case schedule = "schedule"
@@ -1025,9 +1072,10 @@ public struct Automation: Codable, Sendable {
         case timezone = "timezone"
         case title = "title"
         case updatedAt = "updatedAt"
+        case watch = "watch"
     }
 
-    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String?, lastStatus: String?, nextRunAt: String?, prompt: String, schedule: String, scratch: String?, sessionTarget: String, timezone: String, title: String, updatedAt: String) {
+    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String?, lastStatus: String?, lightContext: Bool?, nextRunAt: String?, prompt: String, schedule: String, scratch: String?, sessionTarget: String, timezone: String, title: String, updatedAt: String, watch: WatchConfig?) {
         self.createdAt = createdAt
         self.delivery = delivery
         self.enabled = enabled
@@ -1035,6 +1083,7 @@ public struct Automation: Codable, Sendable {
         self.kind = kind
         self.lastRunAt = lastRunAt
         self.lastStatus = lastStatus
+        self.lightContext = lightContext
         self.nextRunAt = nextRunAt
         self.prompt = prompt
         self.schedule = schedule
@@ -1043,6 +1092,7 @@ public struct Automation: Codable, Sendable {
         self.timezone = timezone
         self.title = title
         self.updatedAt = updatedAt
+        self.watch = watch
     }
 }
 
@@ -1068,12 +1118,149 @@ public struct Delivery: Codable, Sendable {
     }
 }
 
+/// `reminder` is a one-shot: `schedule` is an ISO-8601 instant
 public enum AutomationKind: String, Codable, Sendable {
     case briefing = "briefing"
     case cron = "cron"
     case heartbeat = "heartbeat"
     case interval = "interval"
+    case reminder = "reminder"
     case watch = "watch"
+}
+
+// MARK: - WatchConfig
+public struct WatchConfig: Codable, Sendable {
+    public let check: WatchCheck
+    /// Regex over the fetched text; capture group 1 is the value
+    public let selector: String?
+    /// text_present: the text to look for
+    public let text: String?
+    /// price_below / price_above
+    public let threshold: Double?
+    public let url: String
+
+    public enum CodingKeys: String, CodingKey {
+        case check = "check"
+        case selector = "selector"
+        case text = "text"
+        case threshold = "threshold"
+        case url = "url"
+    }
+
+    public init(check: WatchCheck, selector: String?, text: String?, threshold: Double?, url: String) {
+        self.check = check
+        self.selector = selector
+        self.text = text
+        self.threshold = threshold
+        self.url = url
+    }
+}
+
+public enum WatchCheck: String, Codable, Sendable {
+    case change = "change"
+    case priceAbove = "price_above"
+    case priceBelow = "price_below"
+    case textPresent = "text_present"
+}
+
+// MARK: - AutomationRunFinishedPayload
+public struct AutomationRunFinishedPayload: Codable, Sendable {
+    public let run: AutomationRun
+
+    public enum CodingKeys: String, CodingKey {
+        case run = "run"
+    }
+
+    public init(run: AutomationRun) {
+        self.run = run
+    }
+}
+
+// MARK: - AutomationRun
+public struct AutomationRun: Codable, Sendable {
+    public let automationID: String
+    /// Missed ticks folded into this run
+    public let coalesced: Int
+    public let endedAt: String?
+    public let id: String
+    public let notificationID: String?
+    public let scheduledFor: String
+    public let startedAt: String
+    public let status: AutomationRunStatus
+    public let summary: String?
+    public let taskID: String?
+    public let threadID: String?
+    public let trigger: Trigger
+
+    public enum CodingKeys: String, CodingKey {
+        case automationID = "automationId"
+        case coalesced = "coalesced"
+        case endedAt = "endedAt"
+        case id = "id"
+        case notificationID = "notificationId"
+        case scheduledFor = "scheduledFor"
+        case startedAt = "startedAt"
+        case status = "status"
+        case summary = "summary"
+        case taskID = "taskId"
+        case threadID = "threadId"
+        case trigger = "trigger"
+    }
+
+    public init(automationID: String, coalesced: Int, endedAt: String?, id: String, notificationID: String?, scheduledFor: String, startedAt: String, status: AutomationRunStatus, summary: String?, taskID: String?, threadID: String?, trigger: Trigger) {
+        self.automationID = automationID
+        self.coalesced = coalesced
+        self.endedAt = endedAt
+        self.id = id
+        self.notificationID = notificationID
+        self.scheduledFor = scheduledFor
+        self.startedAt = startedAt
+        self.status = status
+        self.summary = summary
+        self.taskID = taskID
+        self.threadID = threadID
+        self.trigger = trigger
+    }
+}
+
+public enum AutomationRunStatus: String, Codable, Sendable {
+    case cancelled = "cancelled"
+    case done = "done"
+    case failed = "failed"
+    case noReply = "no_reply"
+    case running = "running"
+    case skipped = "skipped"
+}
+
+public enum Trigger: String, Codable, Sendable {
+    case manual = "manual"
+    case schedule = "schedule"
+}
+
+// MARK: - AutomationRunStartedPayload
+public struct AutomationRunStartedPayload: Codable, Sendable {
+    public let run: AutomationRun
+
+    public enum CodingKeys: String, CodingKey {
+        case run = "run"
+    }
+
+    public init(run: AutomationRun) {
+        self.run = run
+    }
+}
+
+// MARK: - AutomationUpdatedPayload
+public struct AutomationUpdatedPayload: Codable, Sendable {
+    public let automation: Automation
+
+    public enum CodingKeys: String, CodingKey {
+        case automation = "automation"
+    }
+
+    public init(automation: Automation) {
+        self.automation = automation
+    }
 }
 
 // MARK: - AutomationsCreateParams
@@ -1081,6 +1268,7 @@ public struct AutomationsCreateParams: Codable, Sendable {
     public let delivery: Delivery?
     public let enabled: Bool?
     public let kind: AutomationKind
+    public let lightContext: Bool?
     public let prompt: String
     /// cron expression, ISO-8601 duration or watch interval
     public let schedule: String
@@ -1089,27 +1277,32 @@ public struct AutomationsCreateParams: Codable, Sendable {
     /// IANA zone; defaults to the Gateway's
     public let timezone: String?
     public let title: String
+    public let watch: WatchConfig?
 
     public enum CodingKeys: String, CodingKey {
         case delivery = "delivery"
         case enabled = "enabled"
         case kind = "kind"
+        case lightContext = "lightContext"
         case prompt = "prompt"
         case schedule = "schedule"
         case sessionTarget = "sessionTarget"
         case timezone = "timezone"
         case title = "title"
+        case watch = "watch"
     }
 
-    public init(delivery: Delivery?, enabled: Bool?, kind: AutomationKind, prompt: String, schedule: String, sessionTarget: String?, timezone: String?, title: String) {
+    public init(delivery: Delivery?, enabled: Bool?, kind: AutomationKind, lightContext: Bool?, prompt: String, schedule: String, sessionTarget: String?, timezone: String?, title: String, watch: WatchConfig?) {
         self.delivery = delivery
         self.enabled = enabled
         self.kind = kind
+        self.lightContext = lightContext
         self.prompt = prompt
         self.schedule = schedule
         self.sessionTarget = sessionTarget
         self.timezone = timezone
         self.title = title
+        self.watch = watch
     }
 }
 
@@ -1181,40 +1374,160 @@ public struct AutomationsRunResult: Codable, Sendable {
     }
 }
 
+// MARK: - AutomationsRunsParams
+public struct AutomationsRunsParams: Codable, Sendable {
+    public let automationID: String
+    /// Opaque cursor
+    public let cursor: String?
+    public let limit: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case automationID = "automationId"
+        case cursor = "cursor"
+        case limit = "limit"
+    }
+
+    public init(automationID: String, cursor: String?, limit: Int?) {
+        self.automationID = automationID
+        self.cursor = cursor
+        self.limit = limit
+    }
+}
+
+// MARK: - AutomationsRunsResult
+public struct AutomationsRunsResult: Codable, Sendable {
+    public let nextCursor: String?
+    public let runs: [AutomationRun]
+
+    public enum CodingKeys: String, CodingKey {
+        case nextCursor = "nextCursor"
+        case runs = "runs"
+    }
+
+    public init(nextCursor: String?, runs: [AutomationRun]) {
+        self.nextCursor = nextCursor
+        self.runs = runs
+    }
+}
+
+// MARK: - AutomationsUpcomingParams
+public struct AutomationsUpcomingParams: Codable, Sendable {
+    public let horizonHours: Int?
+    public let limit: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case horizonHours = "horizonHours"
+        case limit = "limit"
+    }
+
+    public init(horizonHours: Int?, limit: Int?) {
+        self.horizonHours = horizonHours
+        self.limit = limit
+    }
+}
+
+// MARK: - AutomationsUpcomingResult
+public struct AutomationsUpcomingResult: Codable, Sendable {
+    public let items: [UpcomingItem]
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+    }
+
+    public init(items: [UpcomingItem]) {
+        self.items = items
+    }
+}
+
+// MARK: - UpcomingItem
+public struct UpcomingItem: Codable, Sendable {
+    public let automationID: String?
+    public let enabled: Bool
+    public let id: String
+    public let kind: UpcomingItemKind
+    public let nextRunAt: String?
+    public let schedule: String?
+    public let taskID: String?
+    public let timezone: String?
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case automationID = "automationId"
+        case enabled = "enabled"
+        case id = "id"
+        case kind = "kind"
+        case nextRunAt = "nextRunAt"
+        case schedule = "schedule"
+        case taskID = "taskId"
+        case timezone = "timezone"
+        case title = "title"
+    }
+
+    public init(automationID: String?, enabled: Bool, id: String, kind: UpcomingItemKind, nextRunAt: String?, schedule: String?, taskID: String?, timezone: String?, title: String) {
+        self.automationID = automationID
+        self.enabled = enabled
+        self.id = id
+        self.kind = kind
+        self.nextRunAt = nextRunAt
+        self.schedule = schedule
+        self.taskID = taskID
+        self.timezone = timezone
+        self.title = title
+    }
+}
+
+public enum UpcomingItemKind: String, Codable, Sendable {
+    case automation = "automation"
+    case briefing = "briefing"
+    case heartbeat = "heartbeat"
+    case inputRequest = "input_request"
+    case reminder = "reminder"
+    case watch = "watch"
+}
+
 // MARK: - AutomationsUpdateParams
 public struct AutomationsUpdateParams: Codable, Sendable {
     public let automationID: String
     public let delivery: Delivery?
     public let enabled: Bool?
+    public let lightContext: Bool?
     public let prompt: String?
     /// cron expression, ISO-8601 duration or watch interval
     public let schedule: String?
+    public let scratch: String?
     /// main | isolated | named:<id>
     public let sessionTarget: String?
     /// IANA zone; defaults to the Gateway's
     public let timezone: String?
     public let title: String?
+    public let watch: WatchConfig?
 
     public enum CodingKeys: String, CodingKey {
         case automationID = "automationId"
         case delivery = "delivery"
         case enabled = "enabled"
+        case lightContext = "lightContext"
         case prompt = "prompt"
         case schedule = "schedule"
+        case scratch = "scratch"
         case sessionTarget = "sessionTarget"
         case timezone = "timezone"
         case title = "title"
+        case watch = "watch"
     }
 
-    public init(automationID: String, delivery: Delivery?, enabled: Bool?, prompt: String?, schedule: String?, sessionTarget: String?, timezone: String?, title: String?) {
+    public init(automationID: String, delivery: Delivery?, enabled: Bool?, lightContext: Bool?, prompt: String?, schedule: String?, scratch: String?, sessionTarget: String?, timezone: String?, title: String?, watch: WatchConfig?) {
         self.automationID = automationID
         self.delivery = delivery
         self.enabled = enabled
+        self.lightContext = lightContext
         self.prompt = prompt
         self.schedule = schedule
+        self.scratch = scratch
         self.sessionTarget = sessionTarget
         self.timezone = timezone
         self.title = title
+        self.watch = watch
     }
 }
 
@@ -1279,15 +1592,18 @@ public struct BridgeCDPSendResult: Codable, Sendable {
 public struct BridgeControlChangedPayload: Codable, Sendable {
     public let state: BrowserController
     public let tabID: String
+    public let via: BridgeControlVia?
 
     public enum CodingKeys: String, CodingKey {
         case state = "state"
         case tabID = "tabId"
+        case via = "via"
     }
 
-    public init(state: BrowserController, tabID: String) {
+    public init(state: BrowserController, tabID: String, via: BridgeControlVia?) {
         self.state = state
         self.tabID = tabID
+        self.via = via
     }
 }
 
@@ -1295,6 +1611,31 @@ public enum BrowserController: String, Codable, Sendable {
     case agent = "agent"
     case paused = "paused"
     case user = "user"
+}
+
+/// What changed control: user input, the Take control button, Release or idle timeout
+public enum BridgeControlVia: String, Codable, Sendable {
+    case button = "button"
+    case idle = "idle"
+    case keyboard = "keyboard"
+    case mouse = "mouse"
+    case release = "release"
+}
+
+// MARK: - BridgeDebuggerDetachedPayload
+public struct BridgeDebuggerDetachedPayload: Codable, Sendable {
+    public let reason: String
+    public let tabID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+        case tabID = "tabId"
+    }
+
+    public init(reason: String, tabID: String) {
+        self.reason = reason
+        self.tabID = tabID
+    }
 }
 
 // MARK: - BridgeDownloadPayload
@@ -1393,17 +1734,24 @@ public struct BridgeTabIDParams: Codable, Sendable {
 public struct BridgeTabOpenParams: Codable, Sendable {
     public let background: Bool?
     public let profile: BrowserProfile?
+    public let taskID: String?
+    /// Shown in the pane: "<title> keeps running"
+    public let taskTitle: String?
     public let url: String
 
     public enum CodingKeys: String, CodingKey {
         case background = "background"
         case profile = "profile"
+        case taskID = "taskId"
+        case taskTitle = "taskTitle"
         case url = "url"
     }
 
-    public init(background: Bool?, profile: BrowserProfile?, url: String) {
+    public init(background: Bool?, profile: BrowserProfile?, taskID: String?, taskTitle: String?, url: String) {
         self.background = background
         self.profile = profile
+        self.taskID = taskID
+        self.taskTitle = taskTitle
         self.url = url
     }
 }
@@ -1430,29 +1778,82 @@ public struct BridgeTabResult: Codable, Sendable {
 public struct BridgeTab: Codable, Sendable {
     /// A CDP debugger session is attached
     public let attached: Bool
+    /// Electron window-open disposition, e.g. new-window, foreground-tab
+    public let disposition: String?
+    public let openerTabID: String?
     /// Electron session partition, e.g. persist:psyche
     public let partition: String
     public let profile: BrowserProfile
     public let tabID: String
+    public let taskID: String?
     public let title: String
     public let url: String
 
     public enum CodingKeys: String, CodingKey {
         case attached = "attached"
+        case disposition = "disposition"
+        case openerTabID = "openerTabId"
         case partition = "partition"
         case profile = "profile"
         case tabID = "tabId"
+        case taskID = "taskId"
         case title = "title"
         case url = "url"
     }
 
-    public init(attached: Bool, partition: String, profile: BrowserProfile, tabID: String, title: String, url: String) {
+    public init(attached: Bool, disposition: String?, openerTabID: String?, partition: String, profile: BrowserProfile, tabID: String, taskID: String?, title: String, url: String) {
         self.attached = attached
+        self.disposition = disposition
+        self.openerTabID = openerTabID
         self.partition = partition
         self.profile = profile
         self.tabID = tabID
+        self.taskID = taskID
         self.title = title
         self.url = url
+    }
+}
+
+// MARK: - BridgeTabStatusParams
+public struct BridgeTabStatusParams: Codable, Sendable {
+    /// Element being acted on, CSS pixels in the viewport; outlined for 600 ms
+    public let highlight: Highlight?
+    public let tabID: String
+    public let text: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case highlight = "highlight"
+        case tabID = "tabId"
+        case text = "text"
+    }
+
+    public init(highlight: Highlight?, tabID: String, text: String?) {
+        self.highlight = highlight
+        self.tabID = tabID
+        self.text = text
+    }
+}
+
+/// Element being acted on, CSS pixels in the viewport; outlined for 600 ms
+// MARK: - Highlight
+public struct Highlight: Codable, Sendable {
+    public let height: Double
+    public let width: Double
+    public let x: Double
+    public let y: Double
+
+    public enum CodingKeys: String, CodingKey {
+        case height = "height"
+        case width = "width"
+        case x = "x"
+        case y = "y"
+    }
+
+    public init(height: Double, width: Double, x: Double, y: Double) {
+        self.height = height
+        self.width = width
+        self.x = x
+        self.y = y
     }
 }
 
@@ -2981,6 +3382,106 @@ public struct ConnectorsListResult: Codable, Sendable {
     }
 }
 
+// MARK: - CredentialUpdatedPayload
+public struct CredentialUpdatedPayload: Codable, Sendable {
+    public let change: Change
+    public let credential: CredentialMeta?
+    public let credentialID: String
+    public let ownerConnectorID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case change = "change"
+        case credential = "credential"
+        case credentialID = "credentialId"
+        case ownerConnectorID = "ownerConnectorId"
+    }
+
+    public init(change: Change, credential: CredentialMeta?, credentialID: String, ownerConnectorID: String?) {
+        self.change = change
+        self.credential = credential
+        self.credentialID = credentialID
+        self.ownerConnectorID = ownerConnectorID
+    }
+}
+
+public enum Change: String, Codable, Sendable {
+    case created = "created"
+    case deleted = "deleted"
+    case revoked = "revoked"
+    case rotated = "rotated"
+    case updated = "updated"
+    case used = "used"
+}
+
+// MARK: - CredentialMeta
+public struct CredentialMeta: Codable, Sendable {
+    public let bindings: [CredentialBinding]
+    public let createdAt: String
+    public let id: String
+    public let kind: CredentialKind
+    public let lastUsedAt: String?
+    public let name: String
+    public let ownerConnectorID: String?
+    public let slug: String
+    public let updatedAt: String
+    public let useCount: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case bindings = "bindings"
+        case createdAt = "createdAt"
+        case id = "id"
+        case kind = "kind"
+        case lastUsedAt = "lastUsedAt"
+        case name = "name"
+        case ownerConnectorID = "ownerConnectorId"
+        case slug = "slug"
+        case updatedAt = "updatedAt"
+        case useCount = "useCount"
+    }
+
+    public init(bindings: [CredentialBinding], createdAt: String, id: String, kind: CredentialKind, lastUsedAt: String?, name: String, ownerConnectorID: String?, slug: String, updatedAt: String, useCount: Int) {
+        self.bindings = bindings
+        self.createdAt = createdAt
+        self.id = id
+        self.kind = kind
+        self.lastUsedAt = lastUsedAt
+        self.name = name
+        self.ownerConnectorID = ownerConnectorID
+        self.slug = slug
+        self.updatedAt = updatedAt
+        self.useCount = useCount
+    }
+}
+
+// MARK: - CredentialBinding
+public struct CredentialBinding: Codable, Sendable {
+    public let origin: String?
+    public let host: String?
+    public let connector: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case origin = "origin"
+        case host = "host"
+        case connector = "connector"
+    }
+
+    public init(origin: String?, host: String?, connector: String?) {
+        self.origin = origin
+        self.host = host
+        self.connector = connector
+    }
+}
+
+public enum CredentialKind: String, Codable, Sendable {
+    case apiKey = "api_key"
+    case login = "login"
+    case note = "note"
+    case oauthToken = "oauth_token"
+    case paymentLink = "payment_link"
+    case signingKey = "signing_key"
+    case sshKey = "ssh_key"
+}
+
 // MARK: - DecidedBy
 public struct DecidedBy: Codable, Sendable {
     public let deviceID: String?
@@ -3570,11 +4071,13 @@ public enum ErrorCode: String, Codable, Sendable {
     case bindingMismatch = "binding_mismatch"
     case cancelled = "cancelled"
     case conflict = "conflict"
+    case debuggerDetached = "debugger_detached"
     case errorCodeInternal = "internal"
     case forbidden = "forbidden"
     case idempotencyConflict = "idempotency_conflict"
     case invalidFrame = "invalid_frame"
     case invalidParams = "invalid_params"
+    case methodNotAllowed = "method_not_allowed"
     case notFound = "not_found"
     case notImplemented = "not_implemented"
     case notPaired = "not_paired"
@@ -3583,11 +4086,13 @@ public enum ErrorCode: String, Codable, Sendable {
     case policyDenied = "policy_denied"
     case protocolVersionMismatch = "protocol_version_mismatch"
     case rateLimited = "rate_limited"
+    case tabNotFound = "tab_not_found"
     case taintBlocked = "taint_blocked"
     case timeout = "timeout"
     case unauthorized = "unauthorized"
     case unavailable = "unavailable"
     case unknownMethod = "unknown_method"
+    case userInControl = "user_in_control"
 }
 
 public enum FrameType: String, Codable, Sendable {
@@ -7520,6 +8025,174 @@ public struct UsageRecord: Codable, Sendable {
     }
 }
 
+// MARK: - VaultAddParams
+public struct VaultAddParams: Codable, Sendable {
+    public let bindings: [CredentialBinding]
+    public let kind: CredentialKind
+    public let name: String
+    public let requireAuthEachUse: Bool?
+    public let secret: CredentialSecretInput
+    public let slug: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case bindings = "bindings"
+        case kind = "kind"
+        case name = "name"
+        case requireAuthEachUse = "requireAuthEachUse"
+        case secret = "secret"
+        case slug = "slug"
+    }
+
+    public init(bindings: [CredentialBinding], kind: CredentialKind, name: String, requireAuthEachUse: Bool?, secret: CredentialSecretInput, slug: String?) {
+        self.bindings = bindings
+        self.kind = kind
+        self.name = name
+        self.requireAuthEachUse = requireAuthEachUse
+        self.secret = secret
+        self.slug = slug
+    }
+}
+
+// MARK: - CredentialSecretInput
+public struct CredentialSecretInput: Codable, Sendable {
+    public let headerName: String?
+    public let headerPrefix: String?
+    public let password: String?
+    public let privateKey: String?
+    public let text: String?
+    public let token: String?
+    public let totpSecret: String?
+    public let username: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case headerName = "headerName"
+        case headerPrefix = "headerPrefix"
+        case password = "password"
+        case privateKey = "privateKey"
+        case text = "text"
+        case token = "token"
+        case totpSecret = "totpSecret"
+        case username = "username"
+    }
+
+    public init(headerName: String?, headerPrefix: String?, password: String?, privateKey: String?, text: String?, token: String?, totpSecret: String?, username: String?) {
+        self.headerName = headerName
+        self.headerPrefix = headerPrefix
+        self.password = password
+        self.privateKey = privateKey
+        self.text = text
+        self.token = token
+        self.totpSecret = totpSecret
+        self.username = username
+    }
+}
+
+// MARK: - VaultAddResult
+public struct VaultAddResult: Codable, Sendable {
+    public let credential: CredentialMeta
+
+    public enum CodingKeys: String, CodingKey {
+        case credential = "credential"
+    }
+
+    public init(credential: CredentialMeta) {
+        self.credential = credential
+    }
+}
+
+// MARK: - VaultConfirmRecoveryParams
+public struct VaultConfirmRecoveryParams: Codable, Sendable {
+    public let lastGroup: String
+
+    public enum CodingKeys: String, CodingKey {
+        case lastGroup = "lastGroup"
+    }
+
+    public init(lastGroup: String) {
+        self.lastGroup = lastGroup
+    }
+}
+
+// MARK: - VaultConfirmRecoveryResult
+public struct VaultConfirmRecoveryResult: Codable, Sendable {
+    public let status: VaultStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: VaultStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - VaultStatus
+public struct VaultStatus: Codable, Sendable {
+    public let autoLockMinutes: Int
+    public let itemCount: Int
+    public let lockAt: String?
+    public let recoveryConfirmed: Bool
+    public let slots: [VaultKeySlot]
+    public let state: State
+
+    public enum CodingKeys: String, CodingKey {
+        case autoLockMinutes = "autoLockMinutes"
+        case itemCount = "itemCount"
+        case lockAt = "lockAt"
+        case recoveryConfirmed = "recoveryConfirmed"
+        case slots = "slots"
+        case state = "state"
+    }
+
+    public init(autoLockMinutes: Int, itemCount: Int, lockAt: String?, recoveryConfirmed: Bool, slots: [VaultKeySlot], state: State) {
+        self.autoLockMinutes = autoLockMinutes
+        self.itemCount = itemCount
+        self.lockAt = lockAt
+        self.recoveryConfirmed = recoveryConfirmed
+        self.slots = slots
+        self.state = state
+    }
+}
+
+public enum VaultKeySlot: String, Codable, Sendable {
+    case keyFile = "key_file"
+    case keychain = "keychain"
+    case recovery = "recovery"
+    case safeStorage = "safe_storage"
+}
+
+public enum State: String, Codable, Sendable {
+    case locked = "locked"
+    case uninitialized = "uninitialized"
+    case unlocked = "unlocked"
+}
+
+// MARK: - VaultDeleteParams
+public struct VaultDeleteParams: Codable, Sendable {
+    public let credentialID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case credentialID = "credentialId"
+    }
+
+    public init(credentialID: String) {
+        self.credentialID = credentialID
+    }
+}
+
+// MARK: - VaultDeleteResult
+public struct VaultDeleteResult: Codable, Sendable {
+    public let deleted: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case deleted = "deleted"
+    }
+
+    public init(deleted: Bool) {
+        self.deleted = deleted
+    }
+}
+
 // MARK: - VaultGetParams
 public struct VaultGetParams: Codable, Sendable {
     public let credentialID: String
@@ -7546,73 +8219,59 @@ public struct VaultGetResult: Codable, Sendable {
     }
 }
 
-// MARK: - CredentialMeta
-public struct CredentialMeta: Codable, Sendable {
-    public let bindings: [CredentialBinding]
-    public let createdAt: String
-    public let id: String
-    public let kind: CredentialKind
-    public let lastUsedAt: String?
-    public let name: String
-    public let ownerConnectorID: String?
-    public let slug: String
-    public let updatedAt: String
-    public let useCount: Int
+// MARK: - VaultImportParams
+public struct VaultImportParams: Codable, Sendable {
+    public let csv: String
+    public let format: Format
 
     public enum CodingKeys: String, CodingKey {
-        case bindings = "bindings"
-        case createdAt = "createdAt"
-        case id = "id"
-        case kind = "kind"
-        case lastUsedAt = "lastUsedAt"
-        case name = "name"
-        case ownerConnectorID = "ownerConnectorId"
-        case slug = "slug"
-        case updatedAt = "updatedAt"
-        case useCount = "useCount"
+        case csv = "csv"
+        case format = "format"
     }
 
-    public init(bindings: [CredentialBinding], createdAt: String, id: String, kind: CredentialKind, lastUsedAt: String?, name: String, ownerConnectorID: String?, slug: String, updatedAt: String, useCount: Int) {
-        self.bindings = bindings
-        self.createdAt = createdAt
-        self.id = id
-        self.kind = kind
-        self.lastUsedAt = lastUsedAt
-        self.name = name
-        self.ownerConnectorID = ownerConnectorID
-        self.slug = slug
-        self.updatedAt = updatedAt
-        self.useCount = useCount
+    public init(csv: String, format: Format) {
+        self.csv = csv
+        self.format = format
     }
 }
 
-// MARK: - CredentialBinding
-public struct CredentialBinding: Codable, Sendable {
-    public let origin: String?
-    public let host: String?
-    public let connector: String?
+public enum Format: String, Codable, Sendable {
+    case auto = "auto"
+    case bitwarden = "bitwarden"
+    case chrome = "chrome"
+    case the1Password = "1password"
+}
+
+// MARK: - VaultImportResult
+public struct VaultImportResult: Codable, Sendable {
+    public let imported: [CredentialMeta]
+    public let skipped: [Skipped]
 
     public enum CodingKeys: String, CodingKey {
-        case origin = "origin"
-        case host = "host"
-        case connector = "connector"
+        case imported = "imported"
+        case skipped = "skipped"
     }
 
-    public init(origin: String?, host: String?, connector: String?) {
-        self.origin = origin
-        self.host = host
-        self.connector = connector
+    public init(imported: [CredentialMeta], skipped: [Skipped]) {
+        self.imported = imported
+        self.skipped = skipped
     }
 }
 
-public enum CredentialKind: String, Codable, Sendable {
-    case apiKey = "api_key"
-    case login = "login"
-    case note = "note"
-    case oauthToken = "oauth_token"
-    case paymentLink = "payment_link"
-    case signingKey = "signing_key"
-    case sshKey = "ssh_key"
+// MARK: - Skipped
+public struct Skipped: Codable, Sendable {
+    public let reason: String
+    public let row: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+        case row = "row"
+    }
+
+    public init(reason: String, row: Int) {
+        self.reason = reason
+        self.row = row
+    }
 }
 
 // MARK: - VaultListParams
@@ -7639,6 +8298,253 @@ public struct VaultListResult: Codable, Sendable {
     public init(credentials: [CredentialMeta]) {
         self.credentials = credentials
     }
+}
+
+// MARK: - VaultLockResult
+public struct VaultLockResult: Codable, Sendable {
+    public let status: VaultStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: VaultStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - VaultLockedPayload
+public struct VaultLockedPayload: Codable, Sendable {
+    public let reason: Reason
+    public let status: VaultStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+        case status = "status"
+    }
+
+    public init(reason: Reason, status: VaultStatus) {
+        self.reason = reason
+        self.status = status
+    }
+}
+
+public enum Reason: String, Codable, Sendable {
+    case idle = "idle"
+    case manual = "manual"
+    case screenLock = "screen_lock"
+    case shutdown = "shutdown"
+    case sleep = "sleep"
+}
+
+// MARK: - VaultSetupParams
+public struct VaultSetupParams: Codable, Sendable {
+    public let slot: Slot
+
+    public enum CodingKeys: String, CodingKey {
+        case slot = "slot"
+    }
+
+    public init(slot: Slot) {
+        self.slot = slot
+    }
+}
+
+public enum Slot: String, Codable, Sendable {
+    case keyFile = "key_file"
+    case keychain = "keychain"
+    case safeStorage = "safe_storage"
+}
+
+// MARK: - VaultSetupResult
+public struct VaultSetupResult: Codable, Sendable {
+    public let recoveryKey: String
+    public let status: VaultStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case recoveryKey = "recoveryKey"
+        case status = "status"
+    }
+
+    public init(recoveryKey: String, status: VaultStatus) {
+        self.recoveryKey = recoveryKey
+        self.status = status
+    }
+}
+
+// MARK: - VaultStatusResult
+public struct VaultStatusResult: Codable, Sendable {
+    public let status: VaultStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: VaultStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - VaultUnlockParams
+public struct VaultUnlockParams: Codable, Sendable {
+    public let reason: String
+    public let recoveryKey: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case reason = "reason"
+        case recoveryKey = "recoveryKey"
+    }
+
+    public init(reason: String, recoveryKey: String?) {
+        self.reason = reason
+        self.recoveryKey = recoveryKey
+    }
+}
+
+// MARK: - VaultUnlockResult
+public struct VaultUnlockResult: Codable, Sendable {
+    public let status: VaultStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: VaultStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - VaultUnlockedPayload
+public struct VaultUnlockedPayload: Codable, Sendable {
+    public let status: VaultStatus
+    public let via: VaultKeySlot
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+        case via = "via"
+    }
+
+    public init(status: VaultStatus, via: VaultKeySlot) {
+        self.status = status
+        self.via = via
+    }
+}
+
+// MARK: - VaultUpdateParams
+public struct VaultUpdateParams: Codable, Sendable {
+    public let bindings: [CredentialBinding]?
+    public let credentialID: String
+    public let name: String?
+    public let requireAuthEachUse: Bool?
+    public let secret: CredentialSecretInput?
+
+    public enum CodingKeys: String, CodingKey {
+        case bindings = "bindings"
+        case credentialID = "credentialId"
+        case name = "name"
+        case requireAuthEachUse = "requireAuthEachUse"
+        case secret = "secret"
+    }
+
+    public init(bindings: [CredentialBinding]?, credentialID: String, name: String?, requireAuthEachUse: Bool?, secret: CredentialSecretInput?) {
+        self.bindings = bindings
+        self.credentialID = credentialID
+        self.name = name
+        self.requireAuthEachUse = requireAuthEachUse
+        self.secret = secret
+    }
+}
+
+// MARK: - VaultUpdateResult
+public struct VaultUpdateResult: Codable, Sendable {
+    public let credential: CredentialMeta
+
+    public enum CodingKeys: String, CodingKey {
+        case credential = "credential"
+    }
+
+    public init(credential: CredentialMeta) {
+        self.credential = credential
+    }
+}
+
+// MARK: - VaultUsesParams
+public struct VaultUsesParams: Codable, Sendable {
+    public let credentialID: String
+    public let limit: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case credentialID = "credentialId"
+        case limit = "limit"
+    }
+
+    public init(credentialID: String, limit: Int?) {
+        self.credentialID = credentialID
+        self.limit = limit
+    }
+}
+
+// MARK: - VaultUsesResult
+public struct VaultUsesResult: Codable, Sendable {
+    public let uses: [CredentialUse]
+
+    public enum CodingKeys: String, CodingKey {
+        case uses = "uses"
+    }
+
+    public init(uses: [CredentialUse]) {
+        self.uses = uses
+    }
+}
+
+// MARK: - CredentialUse
+public struct CredentialUse: Codable, Sendable {
+    public let approvalID: String?
+    public let createdAt: String
+    public let credentialID: String
+    public let executor: Executor
+    public let id: String
+    public let outcome: Outcome
+    public let reason: String?
+    public let target: String
+    public let taskID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case createdAt = "createdAt"
+        case credentialID = "credentialId"
+        case executor = "executor"
+        case id = "id"
+        case outcome = "outcome"
+        case reason = "reason"
+        case target = "target"
+        case taskID = "taskId"
+    }
+
+    public init(approvalID: String?, createdAt: String, credentialID: String, executor: Executor, id: String, outcome: Outcome, reason: String?, target: String, taskID: String?) {
+        self.approvalID = approvalID
+        self.createdAt = createdAt
+        self.credentialID = credentialID
+        self.executor = executor
+        self.id = id
+        self.outcome = outcome
+        self.reason = reason
+        self.target = target
+        self.taskID = taskID
+    }
+}
+
+public enum Executor: String, Codable, Sendable {
+    case browser = "browser"
+    case connector = "connector"
+    case sandbox = "sandbox"
+    case ssh = "ssh"
+}
+
+public enum Outcome: String, Codable, Sendable {
+    case denied = "denied"
+    case failed = "failed"
+    case filled = "filled"
 }
 
 // MARK: - ViewCommandPayload
@@ -7802,6 +8708,19 @@ public struct ViewPaneRef: Codable, Sendable {
     }
 }
 
+// MARK: - ViewReportParams
+public struct ViewReportParams: Codable, Sendable {
+    public let layout: ViewLayout
+
+    public enum CodingKeys: String, CodingKey {
+        case layout = "layout"
+    }
+
+    public init(layout: ViewLayout) {
+        self.layout = layout
+    }
+}
+
 // MARK: - WrapUpBlock
 public struct WrapUpBlock: Codable, Sendable {
     public let actions: [WrapUpAction]?
@@ -7838,6 +8757,8 @@ public typealias MemoryStatusParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]
 public typealias SandboxListParams = [String: JSONAny]
 public typealias Settings = [String: JSONAny]
+public typealias VaultLockParams = [String: JSONAny]
+public typealias VaultStatusParams = [String: JSONAny]
 public typealias ViewLayoutParams = [String: JSONAny]
 
 // MARK: - Encode/decode helpers

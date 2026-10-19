@@ -4,7 +4,13 @@ import { PsycheError } from "./errors.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
 import { Block } from "./schemas/blocks.ts";
 import { Device, NodeInfo, PairingRequest } from "./schemas/identity.ts";
-import { Channel } from "./schemas/integrations.ts";
+import {
+  Automation,
+  AutomationRun,
+  Channel,
+  CredentialMeta,
+  VaultStatus,
+} from "./schemas/integrations.ts";
 import { MemoryChangeSource, MemoryJob } from "./schemas/memory.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
 import { FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surfaces.ts";
@@ -136,6 +142,31 @@ export const Events = {
     payload: Type.Object({ reason: Type.String() }),
     description: "The Gateway is shutting down; clients reconnect with backoff.",
   }),
+  "vault.locked": defineEvent({
+    payload: Type.Object({
+      reason: StringEnum(["manual", "idle", "sleep", "screen_lock", "shutdown"]),
+      status: VaultStatus,
+    }),
+    description: "The vault locked and its key was zeroized.",
+  }),
+  "vault.unlocked": defineEvent({
+    payload: Type.Object({
+      via: StringEnum(["keychain", "safe_storage", "key_file", "recovery"]),
+      status: VaultStatus,
+    }),
+    description: "The vault unlocked through a key slot.",
+  }),
+  "credential.updated": defineEvent({
+    payload: Type.Object({
+      credentialId: Id,
+      change: StringEnum(["created", "updated", "deleted", "rotated", "revoked", "used"]),
+      /** Metadata after the change; `null` once deleted or revoked. Never values. */
+      credential: Nullable(CredentialMeta),
+      ownerConnectorId: Nullable(Id),
+    }),
+    description:
+      "A vault item was added, edited, deleted, used, rotated or revoked; revocation invalidates connection-bound work.",
+  }),
   "question.updated": defineEvent({
     payload: Type.Object({ inputRequest: InputRequest }),
     description: "An input request was answered or cancelled.",
@@ -166,6 +197,18 @@ export const Events = {
     payload: Type.Object({ notification: Notification }),
     description:
       "A notification was resolved (by the user, an action, a superseding state or restart reconciliation).",
+  }),
+  "automation.updated": defineEvent({
+    payload: Type.Object({ automation: Automation }),
+    description: "An automation was created, edited, paused, run or deleted (`enabled: false`).",
+  }),
+  "automation.run.started": defineEvent({
+    payload: Type.Object({ run: AutomationRun }),
+    description: "A scheduled or manual automation run started (missed ticks coalesced).",
+  }),
+  "automation.run.finished": defineEvent({
+    payload: Type.Object({ run: AutomationRun }),
+    description: "An automation run ended (done, no_reply, failed, cancelled, skipped).",
   }),
 } as const;
 
