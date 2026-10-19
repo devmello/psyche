@@ -5,13 +5,17 @@ import { listMigrationFiles, openDb } from "../src/index.ts";
 import { makeTmpDir, memoryDb } from "./helpers.ts";
 
 const TABLES = [
+  "approvals",
   "chat_queue",
   "devices",
   "gateway_idempotency",
+  "grants",
   "input_requests",
   "messages",
   "nodes",
   "pairing_requests",
+  "policy_rules",
+  "receipts",
   "runs",
   "settings",
   "task_actions",
