@@ -1,0 +1,157 @@
+import type { Receipt, ToolCall, ToolCallStatus } from "@psyche/protocol";
+import { ChevronRight, ShieldAlert } from "lucide-react";
+import { type ReactElement, useState } from "react";
+import { formatDuration, formatTime, plural, toolFamily } from "../lib/format.ts";
+import { cn } from "../lib/utils.ts";
+import { DISCLOSURE_LABEL, useDisclosure } from "./disclosure.tsx";
+import type { ToolCallBlock } from "./types.ts";
+
+/** One tool call: the block from the message plus the live ToolCall row when it is known. */
+export interface ToolCallItem {
+  block: ToolCallBlock;
+  call?: ToolCall | null;
+  receipt?: Receipt | null;
+}
+
+const STATUS_LABEL: Record<ToolCallStatus, string> = {
+  pending: "pending",
+  running: "running",
+  ok: "ok",
+  failed: "failed",
+  uncertain: "outcome unknown",
+  blocked: "blocked",
+};
+
+const STATUS_DOT: Record<ToolCallStatus, string> = {
+  pending: "bg-gray-8",
+  running: "bg-accent-9 animate-pulse",
+  ok: "bg-success",
+  failed: "bg-danger",
+  uncertain: "bg-approval",
+  blocked: "bg-danger",
+};
+
+export function StatusDot({ status }: { status: ToolCallStatus }): ReactElement {
+  return (
+    <span
+      className={cn("inline-block size-2 shrink-0 rounded-full", STATUS_DOT[status])}
+      aria-hidden="true"
+    />
+  );
+}
+
+/** "3 actions · browser, calendar" (UI design §3.2). */
+export function summarizeRun(items: readonly ToolCallItem[]): string {
+  const families = [...new Set(items.map((i) => toolFamily(i.block.tool)))];
+  return `${plural(items.length, "action")} · ${families.join(", ")}`;
+}
+
+function duration(call: ToolCall | null | undefined): string | null {
+  if (call?.endedAt == null) return null;
+  return formatDuration(Date.parse(call.endedAt) - Date.parse(call.startedAt));
+}
+
+/** A level-1 row: time, tool family, the status line, outcome, duration and receipt id. */
+export function ToolCallRow({
+  item,
+  raw = false,
+}: {
+  item: ToolCallItem;
+  raw?: boolean;
+}): ReactElement {
+  const { block, call, receipt } = item;
+  const untrusted = call?.provenanceOut === "untrusted";
+  return (
+    <li className="flex flex-col gap-1 py-1 text-sm">
+      <div className="flex items-center gap-2">
+        <span className="w-11 shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
+          {call ? formatTime(call.startedAt) : ""}
+        </span>
+        <span className="w-16 shrink-0 truncate font-mono text-xs text-gray-11">
+          {toolFamily(block.tool)}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-foreground">{block.level1}</span>
+        <StatusDot status={block.status} />
+        <span className="sr-only">{STATUS_LABEL[block.status]}</span>
+        <span className="text-xs text-muted-foreground" aria-hidden="true">
+          {block.status === "ok" ? "ok" : STATUS_LABEL[block.status]}
+        </span>
+        {duration(call) ? (
+          <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">
+            {duration(call)}
+          </span>
+        ) : null}
+        {receipt?.shortId ? (
+          <span className="font-mono text-xs text-success-text">{receipt.shortId}</span>
+        ) : null}
+      </div>
+      {raw && call ? (
+        <div className="ml-13 flex flex-col gap-1 rounded-md bg-gray-2 p-2">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span className="font-mono text-foreground">{block.tool}</span>
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full border px-1.5",
+                untrusted ? "border-untrusted text-approval-text" : "border-border",
+              )}
+            >
+              {untrusted ? <ShieldAlert className="size-3" aria-hidden="true" /> : null}
+              {untrusted ? "untrusted output" : "trusted output"}
+            </span>
+            {call.decision ? (
+              <span>
+                Broker: {call.decision}
+                {call.decisionRule ? ` (${call.decisionRule})` : ""}
+              </span>
+            ) : null}
+            {call.taintIn ? <span>turn tainted</span> : null}
+          </div>
+          <pre className="max-h-48 overflow-auto font-mono text-xs whitespace-pre-wrap text-foreground">
+            {JSON.stringify(call.paramsRedacted, null, 2)}
+          </pre>
+          {call.resultRef ? (
+            <span className="font-mono text-xs text-muted-foreground">
+              result: {call.resultRef}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+/**
+ * A folded run of tool calls (UI design §3.2). Level 0 shows the summary only, level 1 the rows,
+ * level 2 the rows with raw I/O. The summary toggles one more level for this run alone.
+ */
+export function ToolRun({ items }: { items: readonly ToolCallItem[] }): ReactElement {
+  const { level } = useDisclosure();
+  const [extra, setExtra] = useState(false);
+  const shown = Math.min(2, level + (extra ? 1 : 0));
+  const running = items.some((i) => i.block.status === "running");
+  const failed = items.some((i) => i.block.status === "failed" || i.block.status === "uncertain");
+  return (
+    <div className="my-1" data-disclosure={DISCLOSURE_LABEL[shown as 0 | 1 | 2]}>
+      <button
+        type="button"
+        className="inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-sm text-gray-11 hover:bg-gray-3"
+        aria-expanded={shown > 0}
+        onClick={() => setExtra((e) => !e)}
+      >
+        <ChevronRight
+          className={cn("size-3.5 transition-transform duration-120", shown > 0 && "rotate-90")}
+          aria-hidden="true"
+        />
+        <span>{summarizeRun(items)}</span>
+        {running ? <StatusDot status="running" /> : failed ? <StatusDot status="failed" /> : null}
+      </button>
+      {shown > 0 ? (
+        <ul className="ml-1 border-l border-gray-5 pl-2" aria-label={summarizeRun(items)}>
+          {items.map((item) => (
+            <ToolCallRow key={item.block.toolCallId} item={item} raw={shown === 2} />
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}

@@ -11,6 +11,7 @@ import type { Duplex } from "node:stream";
 import { openDb, type PsycheDb } from "@psyche/db";
 import {
   type AgentLoop,
+  isMethodName,
   type MemoryStore,
   type PermissionBroker,
   PsycheError,
@@ -18,9 +19,15 @@ import {
 import { type WebSocket, WebSocketServer } from "ws";
 import { type GatewayConfig, resolveConfig } from "./config.ts";
 import { Connection } from "./connection.ts";
-import { DEFAULT_LIMITS, type GatewayContext, type GatewayLimits } from "./context.ts";
+import {
+  DEFAULT_LIMITS,
+  type GatewayContext,
+  type GatewayLimits,
+  type HandlerDef,
+} from "./context.ts";
 import { LockedPermissionBroker, UnavailableAgentLoop } from "./defaults.ts";
 import { EventBus } from "./event-bus.ts";
+import { HANDLERS } from "./handlers/index.ts";
 import {
   ensureHome,
   newHandshakeSecret,
@@ -54,6 +61,8 @@ export interface GatewayOptions {
   broker?: PermissionBroker;
   memory?: MemoryStore;
   limits?: Partial<GatewayLimits>;
+  /** Package handlers to mount (composition root); a name the Gateway already handles is refused. */
+  handlers?: Readonly<Record<string, HandlerDef>>;
   /** Run the retention sweep on this interval (0 disables the timer; tests call it directly). */
   retentionIntervalMs?: number;
 }
@@ -85,6 +94,18 @@ function isLoopbackAddress(addr: string | undefined): boolean {
   return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
 }
 
+function checkExtraHandlers(
+  handlers: Readonly<Record<string, HandlerDef>>,
+): Readonly<Record<string, HandlerDef>> {
+  for (const name of Object.keys(handlers)) {
+    if (!isMethodName(name)) throw new PsycheError("invalid_params", `Unknown method ${name}`);
+    if (Object.hasOwn(HANDLERS, name)) {
+      throw new PsycheError("conflict", `${name} is already handled by the Gateway`);
+    }
+  }
+  return handlers;
+}
+
 /** Boots the Gateway: DB + recovery, HTTP (`/healthz`, `/version`, static UI), WS clients, Unix-socket nodes. */
 export async function startGateway(options: GatewayOptions = {}): Promise<Gateway> {
   const config = resolveConfig(options.env ?? process.env, options.config ?? {});
@@ -112,6 +133,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     agent: options.agent ?? new UnavailableAgentLoop(),
     broker,
     memory: options.memory ?? null,
+    extraHandlers: checkExtraHandlers(options.handlers ?? {}),
     limits,
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>
       now().getTime(),

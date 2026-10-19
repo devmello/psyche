@@ -1,0 +1,331 @@
+/*
+  @psyche/ui stylesheet. Shells import "@psyche/ui/styles.css" from a CSS file processed by
+  Tailwind 4 (@tailwindcss/vite). Design language: docs/06-ui-design.md §4.
+*/
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./theme-default.css";
+@import "./semantic.css";
+
+/* Scan the kit's own sources wherever the shell's Tailwind runs from. */
+@source "../";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+@custom-variant high-contrast (&:where([data-contrast="high"], [data-contrast="high"] *));
+@custom-variant reduced (&:where([data-reduce-motion="true"], [data-reduce-motion="true"] *));
+
+/* An accent change animates in 200 ms (§4.10). */
+@property --accent-9 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.55 0.2 290);
+}
+@property --accent-10 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: oklch(0.52 0.2 290);
+}
+
+:root {
+  /* shadcn names, mapped once (§4.10). */
+  --background: var(--gray-1);
+  --foreground: var(--gray-12);
+  --card: var(--gray-2);
+  --card-foreground: var(--gray-12);
+  --popover: var(--gray-1);
+  --popover-foreground: var(--gray-12);
+  --primary: var(--accent-9);
+  --primary-foreground: var(--accent-contrast);
+  --secondary: var(--gray-3);
+  --secondary-foreground: var(--gray-12);
+  --muted: var(--gray-3);
+  --muted-foreground: var(--gray-11);
+  --accent: var(--gray-4);
+  --accent-foreground: var(--gray-12);
+  --destructive: var(--tomato-11);
+  --border: var(--gray-6);
+  --input: var(--gray-7);
+  --ring: var(--accent-8);
+
+  /* Semantic tokens (§4.8). */
+  --approval: var(--amber-9);
+  --approval-border: var(--amber-7);
+  --approval-surface: var(--amber-2);
+  --approval-text: var(--amber-11);
+  --danger: var(--tomato-9);
+  --danger-surface: var(--tomato-3);
+  --danger-text: var(--tomato-11);
+  --success: var(--grass-9);
+  --success-text: var(--grass-11);
+  --info: var(--sky-9);
+  --info-text: var(--sky-11);
+  --untrusted: var(--amber-8);
+
+  /* Layout (§4.1), radius (§4.3), motion (§4.5), elevation (§4.4). */
+  --spacing: 4px;
+  --radius: 10px;
+  --rail-width: 56px;
+  --thread-list-width: 260px;
+  --chat-min-width: 480px;
+  --prose-width: 68ch;
+  --ease-psyche: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration-fast: 120ms;
+  --duration-card: 200ms;
+  --duration-sheet: 320ms;
+  --shadow-level-2: 0 4px 16px oklch(0 0 0 / 12%);
+  --shadow-level-3: 0 12px 40px oklch(0 0 0 / 20%);
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Inter, sans-serif;
+  --font-mono: "SF Mono", Menlo, "JetBrains Mono", ui-monospace, monospace;
+
+  transition:
+    --accent-9 200ms var(--ease-psyche),
+    --accent-10 200ms var(--ease-psyche);
+}
+
+:root[data-theme="dark"] {
+  --popover: var(--gray-3);
+  --card: var(--gray-2);
+  /* Dark mode steps surfaces up instead of deepening shadows (§4.4). */
+  --shadow-level-2: 0 0 0 1px var(--gray-7);
+  --shadow-level-3: 0 0 0 1px var(--gray-7), 0 12px 40px oklch(0 0 0 / 40%);
+}
+
+/* High contrast: borders step 8, text step 12, 2 px solid focus rings (§4.11). */
+:root[data-contrast="high"] {
+  --border: var(--gray-8);
+  --input: var(--gray-8);
+  --muted-foreground: var(--gray-12);
+  --ring: var(--accent-11);
+}
+
+/* Density sets the base unit to 3.5 or 4 px (§4.10). */
+:root[data-density="compact"] {
+  --spacing: 3.5px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-approval: var(--approval);
+  --color-approval-border: var(--approval-border);
+  --color-approval-surface: var(--approval-surface);
+  --color-approval-text: var(--approval-text);
+  --color-danger: var(--danger);
+  --color-danger-surface: var(--danger-surface);
+  --color-danger-text: var(--danger-text);
+  --color-success: var(--success);
+  --color-success-text: var(--success-text);
+  --color-info: var(--info);
+  --color-info-text: var(--info-text);
+  --color-untrusted: var(--untrusted);
+
+  --color-accent-1: var(--accent-1);
+  --color-accent-2: var(--accent-2);
+  --color-accent-3: var(--accent-3);
+  --color-accent-4: var(--accent-4);
+  --color-accent-5: var(--accent-5);
+  --color-accent-6: var(--accent-6);
+  --color-accent-7: var(--accent-7);
+  --color-accent-8: var(--accent-8);
+  --color-accent-9: var(--accent-9);
+  --color-accent-10: var(--accent-10);
+  --color-accent-11: var(--accent-11);
+  --color-accent-12: var(--accent-12);
+  --color-accent-a3: var(--accent-a3);
+  --color-accent-a4: var(--accent-a4);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-accent-surface: var(--accent-surface);
+  --color-gray-1: var(--gray-1);
+  --color-gray-2: var(--gray-2);
+  --color-gray-3: var(--gray-3);
+  --color-gray-4: var(--gray-4);
+  --color-gray-5: var(--gray-5);
+  --color-gray-6: var(--gray-6);
+  --color-gray-7: var(--gray-7);
+  --color-gray-8: var(--gray-8);
+  --color-gray-9: var(--gray-9);
+  --color-gray-10: var(--gray-10);
+  --color-gray-11: var(--gray-11);
+  --color-gray-12: var(--gray-12);
+  --color-gray-a3: var(--gray-a3);
+  --color-gray-a4: var(--gray-a4);
+  --color-amber-3: var(--amber-3);
+  --color-amber-9: var(--amber-9);
+  --color-amber-11: var(--amber-11);
+  --color-tomato-3: var(--tomato-3);
+  --color-tomato-9: var(--tomato-9);
+  --color-tomato-11: var(--tomato-11);
+  --color-grass-3: var(--grass-3);
+  --color-grass-9: var(--grass-9);
+  --color-grass-11: var(--grass-11);
+  --color-sky-3: var(--sky-3);
+  --color-sky-11: var(--sky-11);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  /* Type scale (§4.2): body 15/22, small 13/18, caption 12/16, label 11/14, h3 16/22, h2 20/26, h1 24/30. */
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 18px;
+  --text-base: 15px;
+  --text-base--line-height: 22px;
+  --text-lg: 16px;
+  --text-lg--line-height: 22px;
+  --text-xl: 20px;
+  --text-xl--line-height: 26px;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 30px;
+  --text-label: 11px;
+  --text-label--line-height: 14px;
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 6px);
+
+  --ease-psyche: var(--ease-psyche);
+  --shadow-level-2: var(--shadow-level-2);
+  --shadow-level-3: var(--shadow-level-3);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-background text-foreground text-base;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .text-label {
+    font-size: var(--text-label);
+    line-height: var(--text-label--line-height);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+  .prose-width {
+    max-width: var(--prose-width);
+  }
+  .elevation-1 {
+    background: var(--gray-2);
+    border: 1px solid var(--gray-6);
+  }
+  .elevation-2 {
+    box-shadow: var(--shadow-level-2);
+  }
+  .elevation-3 {
+    box-shadow: var(--shadow-level-3);
+  }
+  /* Cards enter with fade + 8 px rise, 200 ms (§4.5). Approval cards use .psy-enter-still. */
+  .psy-enter {
+    animation: psy-rise var(--duration-card) var(--ease-psyche) both;
+  }
+  .psy-enter-still {
+    animation: psy-fade var(--duration-card) var(--ease-psyche) both;
+  }
+}
+
+@keyframes psy-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes psy-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes psy-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+@keyframes psy-type {
+  0%,
+  49.9% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes psy-pulse-ring {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--approval);
+  }
+  50% {
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--approval) 40%, transparent);
+  }
+}
+@keyframes psy-underline {
+  from {
+    background-position: 0 100%;
+  }
+  to {
+    background-position: 200% 100%;
+  }
+}
+
+/* Reduced motion (§4.5): loops become static frames, transitions become 0 ms opacity changes. */
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-reduce-motion="false"]) *,
+  :root:not([data-reduce-motion="false"]) *::before,
+  :root:not([data-reduce-motion="false"]) *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+  }
+}
+:root[data-reduce-motion="true"] *,
+:root[data-reduce-motion="true"] *::before,
+:root[data-reduce-motion="true"] *::after {
+  animation-duration: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0ms !important;
+}
