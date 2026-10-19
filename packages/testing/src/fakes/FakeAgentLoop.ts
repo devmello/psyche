@@ -1,4 +1,5 @@
 import type { AgentEvent, AgentLoop, ContextExplanation, StartTurnInput } from "@psyche/protocol";
+import { captureModelVisible } from "../capture.ts";
 
 /** A scripted turn: events without `runId` (filled in from the turn input). */
 export type ScriptedAgentEvent = AgentEvent extends infer E
@@ -44,6 +45,9 @@ export class FakeAgentLoop implements AgentLoop {
         return;
       }
       const event = { ...e, runId } as AgentEvent;
+      if (event.type === "chat.delta" || event.type === "block" || event.type === "tool_call") {
+        captureModelVisible("transcript", event, { where: "FakeAgentLoop.startTurn" });
+      }
       yield event;
       if (event.type === "end") return;
     }
