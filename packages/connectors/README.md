@@ -63,10 +63,22 @@ Parsing hardening (`src/google/mime.ts`) caps part depth (16), part count (300) 
 - `safeFetch(url)` allows http(s) only. It resolves the host and refuses loopback, private, link-local (including `169.254.169.254`), CGNAT, multicast, IPv4-mapped IPv6 and `localhost` / `.internal` / `.local` names, then connects to the exact address it checked (DNS-rebinding guard). Redirects are followed manually (at most 5, each re-vetted, no https→http downgrade). The body is capped at 5 MB, the Markdown at about 200k characters, and the default timeout is 20 s. HTML becomes Markdown via `turndown` with scripts, forms and hidden elements dropped; JSON is fenced; binary is refused. Results are `untrusted`.
 - Search providers are Brave, Exa, Tavily and SearXNG (local instances need the owner's explicit `privateAllowlist`). API keys are `{{cred:slug}}` placeholders resolved per call for the provider's origin only, and they never appear in results or errors.
 
+## Other mail: IMAP / SMTP and JMAP (M7)
+
+`src/mail/` gives any mailbox Gmail's tool surface: `mail_search_messages`, `mail_read_message`, `mail_list_mailboxes`, `mail_save_attachment` (read), `mail_modify_flags` (flags and moves; `connector_action` binding), `mail_create_draft` (`connector_action`), `mail_send` (`destructive`, the same `send_email` binding as `gmail_send`: account, recipients lowercased and sorted, subject, body hash). The matrix rows are `mail.read`, `mail.attachments`, `mail.labels`, `mail.draft`, `mail.send` with Gmail's side effects and defaults, so the owner's Permissions screen looks the same for every mail account. One `MailConnector` runs over a `MailBackend`:
+
+- **JMAP** (`jmapFactory`, catalogue id `jmap`, Fastmail by default): `config: { token: "{{cred:<slug>}}", account: "<address>", sessionUrl?, extraHosts? }`. RFC 8620 / 8621 / 8617 subset: session resource, `Mailbox/get`, `Email/query` + `Email/get`, blob download for the raw message, `Email/set` for keywords and mailboxes, blob upload + `Email/import` for drafts, `Identity/get` + `EmailSubmission/set` for sending, `Email/changes` for sync (full sync on `cannotCalculateChanges`). The bearer token is sent only over HTTPS to the session host plus `extraHosts` (Fastmail's download host is implied for `api.fastmail.com`); redirects are refused. Fastmail: create an API token with the Mail scope at Settings → Privacy & Security → Integrations, store it in the vault, pass the placeholder.
+- **IMAP / SMTP** (`imapFactory`, catalogue id `imap`, app passwords): next PR (M7b).
+
+Credentials: the token or app password is a vault item bound to `{ connector: <connectorId> }` and is resolved through `CredentialBroker.resolve` for every call (`executor: "connector"`), handed once to the backend's `open`, and disposed after the call. Reads need a standing approval the Gateway supplies (`MailFactoryOptions.approveCredential`; without it, only a tool call's own approval id can resolve the credential, and `connect` makes no network call). A rejected credential moves the connector to `needs_auth` and emits `invalidated`, like a revoked Google token.
+
+Raw messages (IMAP `BODY[]`, JMAP blobs) are parsed by `src/mail/rfc822.ts` into Gmail's part shape and then by the same bounded `parsePayload`: RFC 2047 header words, RFC 2231 parameters, base64 and quoted-printable transfer encodings, nested multiparts (depth and part-count limits reported as warnings), attachments by part id; HTML bodies go through the hidden-text-dropping converter. Tests run against `FakeMailStore` + `FakeJmapServer` from `@psyche/testing`, with the token registered in the secret-leak checker.
+
 ## Stubbed / not yet
 
 - Persistence: `ConnectorStore` is in memory. The `connectors` table needs a migration plus `schema.ts` from S01 (docs/status/s09.md).
 - Token storage: `TokenVault` is injected and needs the S06 vault write API.
 - `connectors.*` beyond `list` / `get` are not in packages/protocol yet. `CONNECTOR_METHODS` is the proposal for a `protocol:` PR.
+- Mail: IMAP / SMTP backend (M7b); threads for JMAP (messages carry `threadId`, there is no thread tool yet); attachments on outgoing mail; the Gateway does not compose `jmapFactory` yet (INT).
 - Drive upload takes text content only. Uploading Library items needs a Library reader (S13).
 - Gmail attachments on outgoing mail (the builder supports them; no tool exposes them yet), Microsoft Graph (M6), IMAP / JMAP (M7), shopping helpers (M10).
