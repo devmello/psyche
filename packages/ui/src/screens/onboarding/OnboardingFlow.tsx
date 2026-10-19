@@ -202,7 +202,12 @@ export function OnboardingFlow({
   const isLast = current === "done";
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+    <div
+      // A centered column (UI design §4.1: prose width plus the preview column) with gutters on
+      // every side, so the wizard never hugs the window's top edge or the traffic lights.
+      className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-8 sm:px-10 sm:py-12"
+      data-testid="onboarding-flow"
+    >
       <nav aria-label="Onboarding progress">
         <ol className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
           {ONBOARDING_STEP_IDS.map((s, i) => {
