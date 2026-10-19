@@ -18,6 +18,14 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S01 Gateway core)
+
+- **Security fix, behavior change (needs S00 sign-off):** `isAdminSettingKey` is now an allowlist. Every key needs `operator.admin` unless it is under one of `USER_SETTING_PREFIXES` (`appearance`, `ui`, `editor`, `shortcuts`, `locale`, `notifications.sound`, `notifications.badges`), matched by whole segments, case-insensitively. New export `isUserSettingKey`. `ADMIN_SETTING_ROOTS` stays exported for reference. Fixes S23 review PR-1-C (owner identity, sessions, MCP, connectors, skills, plugins, models, updates, browser, VM, memory and backup keys were writable with `operator.write`).
+- `PairingRequest`: optional `publicKeyFingerprint` (`sha256:<hex>` of the raw key), `transport` (`ws | unix`) and `remoteAddress`, so the owner approves a key, not a name (S23 review PR-1-B).
+- `devices.approve`: optional `code`; when present it must equal the code shown on the new device.
+- `threads.list`: optional `query`, a case-insensitive substring match on titles (feature E1 "search").
+- `AgentLoop`: `AgentEvent` `tool_call` gains optional `details: ToolCallDetails` (redacted params, params hash, side effect, target, decision, approval, taint, provenance, receipt) so the Gateway can persist `tool_calls` rows and emit full `tool_call.updated` payloads. Needed by S01; S02 fills it.
+
 ### v1 — 2026-10-18 (S00 bootstrap)
 
 - Domain schemas from `docs/04-data-model.md`; WS frames (`req` / `res` / `event` with `seq` and `stateVersion`); the M1 method and event registry; pairing handshake (`connect`, `connect.verify`); node protocol; desktop ↔ Gateway browser bridge; contract interfaces in `src/contracts/`; codegen to JSON Schema, TypeScript declarations and Swift `Codable` models.

@@ -1,4 +1,11 @@
-import type { PermissionMode, ProvenanceOut, Usage } from "../common.ts";
+import type {
+  Decision,
+  PermissionMode,
+  ProvenanceOut,
+  SideEffect,
+  Target,
+  Usage,
+} from "../common.ts";
 import type { Block, ToolCallStatus } from "../schemas/blocks.ts";
 import type { ApprovalRequest } from "../schemas/permissions.ts";
 import type { InputRequest } from "../schemas/tasks.ts";
@@ -68,11 +75,33 @@ export type AgentEvent =
       status: ToolCallStatus;
       level1?: string;
       update?: ToolUpdate;
+      /** What the Gateway persists in `tool_calls`; send it with the first event of a call. */
+      details?: ToolCallDetails;
     }
   | { type: "approval_requested"; runId: string; approval: ApprovalRequest }
   | { type: "question"; runId: string; inputRequest: InputRequest }
   | { type: "usage"; runId: string; usage: Usage }
   | { type: "end"; runId: string; outcome: RunOutcome; error?: string };
+
+/**
+ * Persisted facts about a tool call (data model §2 `tool_calls`). Params are redacted
+ * (`{{cred:…}}` placeholders kept, never secrets). Later events may repeat or extend it
+ * (decision, approval, receipt); absent fields keep their stored value.
+ */
+export interface ToolCallDetails {
+  paramsRedacted?: unknown;
+  paramsHash?: string;
+  sideEffect?: SideEffect;
+  target?: Target | null;
+  decision?: Decision | null;
+  decisionRule?: string | null;
+  approvalId?: string | null;
+  taintIn?: boolean;
+  taintOut?: boolean;
+  resultRef?: string | null;
+  provenanceOut?: ProvenanceOut;
+  receiptId?: string | null;
+}
 
 export interface AgentLoop {
   /** Runs one turn; the iterable ends after exactly one `end` event. */

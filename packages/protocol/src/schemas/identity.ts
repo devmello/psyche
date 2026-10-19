@@ -89,6 +89,18 @@ export const PairingRequest = Type.Object(
     expiresAt: IsoDateTime,
     decidedAt: Nullable(IsoDateTime),
     decidedByDeviceId: Nullable(Id),
+    publicKeyFingerprint: Type.Optional(
+      Type.String({
+        description:
+          'Device requests: "sha256:" + hex SHA-256 of the raw Ed25519 public key the owner approves',
+      }),
+    ),
+    transport: Type.Optional(
+      StringEnum(["ws", "unix"], { description: "Device requests: how the device connected" }),
+    ),
+    remoteAddress: Type.Optional(
+      Type.String({ description: "Device requests: peer address as the Gateway saw it" }),
+    ),
   },
   { $id: "PairingRequest" },
 );

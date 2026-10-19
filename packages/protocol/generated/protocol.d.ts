@@ -797,6 +797,10 @@ export interface Device {
 export type DeviceRole = "client" | "node" | "both";
 
 export interface DevicesApproveParams {
+    /**
+     * The code shown on the new device; when given it must match the request
+     */
+    code?:            string;
     pairingRequestId: string;
     /**
      * Owner-chosen scopes; never taken from the client
@@ -828,13 +832,30 @@ export interface PairingRequest {
     expiresAt:          string;
     id:                 string;
     kind:               PairingRequestKind;
-    senderId?:          null | string;
-    status:             PairingStatus;
+    /**
+     * Device requests: "sha256:" + hex SHA-256 of the raw Ed25519 public key the owner approves
+     */
+    publicKeyFingerprint?: string;
+    /**
+     * Device requests: peer address as the Gateway saw it
+     */
+    remoteAddress?: string;
+    senderId?:      null | string;
+    status:         PairingStatus;
+    /**
+     * Device requests: how the device connected
+     */
+    transport?: Transport;
 }
 
 export type PairingRequestKind = "device" | "channel-sender";
 
 export type PairingStatus = "pending" | "approved" | "denied" | "expired";
+
+/**
+ * Device requests: how the device connected
+ */
+export type Transport = "ws" | "unix";
 
 export interface DevicesListParams {
     includeRevoked?: boolean;
@@ -1722,6 +1743,10 @@ export interface ThreadsListParams {
     kind?:            ThreadKind;
     limit?:           number;
     pinnedOnly?:      boolean;
+    /**
+     * Case-insensitive substring match on the title
+     */
+    query?: string;
 }
 
 export interface ThreadsListResult {

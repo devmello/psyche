@@ -19,6 +19,13 @@ export const DevicesMethods = {
         minItems: 1,
         description: "Owner-chosen scopes; never taken from the client",
       }),
+      code: Type.Optional(
+        Type.String({
+          minLength: 1,
+          maxLength: 32,
+          description: "The code shown on the new device; when given it must match the request",
+        }),
+      ),
     }),
     result: Type.Object({ device: Device }),
     scope: "operator.admin",
