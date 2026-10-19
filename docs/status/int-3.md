@@ -1,10 +1,10 @@
-# INT-3 status: Milestone 1 acceptance (2026-10-19)
+# INT-3 status: Milestone 1 acceptance (2026-10-19, updated after the first live runs)
 
-Branch `int/3-acceptance`. Plan: [docs/plans/int-3.md](../plans/int-3.md). Scorecard: [tests/acceptance/SCORECARD.md](../../tests/acceptance/SCORECARD.md) (generated; evidence in `out/acceptance/*.json`). Release notes draft: [docs/release-notes/0.1.md](../release-notes/0.1.md). Package: [tests/acceptance/README.md](../../tests/acceptance/README.md).
+Branches `int/3-acceptance` (PR #95, merged) and `int/3-live-driver` (the model-agnostic live driver and the first live numbers). Plan: [docs/plans/int-3.md](../plans/int-3.md). Scorecard: [tests/acceptance/SCORECARD.md](../../tests/acceptance/SCORECARD.md) (generated; evidence in `out/acceptance/*.json`). Release notes draft: [docs/release-notes/0.1.md](../release-notes/0.1.md). Package: [tests/acceptance/README.md](../../tests/acceptance/README.md).
 
 ## Verdict
 
-Milestone 1 is **done offline and not yet done live**. Every check that runs without a hosted model passes on `main` with the scripted provider and fixtures; the live gates (three scenarios × Anthropic, OpenAI and a local `agent-capable` model × three runs) are wired and runnable but have not been run, because this machine has no model keys and no Ollama. Do not tag `v0.1.0-alpha` until they pass and PR #60 (S22 CLI / deploy) is merged.
+Milestone 1 is **done offline; live, two of the three scenarios pass on a hosted model and the local model passes the one scenario it was run on**. Every check that runs without a hosted model passes on `main`. On `anthropic/claude-haiku-5-5` (the cheapest hosted model, three runs each): V1 inbox triage 3/3 hard-clean, V7 research brief 3/3 hard-clean, V2 calendar planning 2/3 hard-clean (the third run tried two unasked calendar writes while planning the week; the broker asked, the policy denied, and the scenario counts the attempt against the model). On `ollama/qwen3.5:9b` V7 passes 2/3 (one brief had no citations). OpenAI has not been run (no key). Do not tag `v0.1.0-alpha` until V2 passes on a hosted model, an OpenAI model has been run, and PR #60 is merged (it is).
 
 ## What passed
 
@@ -35,15 +35,25 @@ Milestone 1 is **done offline and not yet done live**. Every check that runs wit
 
 No new issue was needed: every failure already had one, or is a corpus / fixture fix.
 
-## What still needs a live model
+## Live gates: what ran and what it showed
 
-- The live gates: `PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=<provider>/<model> pnpm --filter @psyche/acceptance-tests live`, once per model. Variables the user must set:
-  - `ANTHROPIC_API_KEY` with `PSYCHE_MODEL=anthropic/<model>` (e.g. `anthropic/claude-sonnet-5-5`);
-  - `OPENAI_API_KEY` with `PSYCHE_MODEL=openai/<model>` (e.g. `openai/gpt-6-luna`);
-  - a running Ollama with the model pulled and `PSYCHE_MODEL=ollama/qwen3.5:9b` (spike 05, PR #76: reasoning off), `PSYCHE_OLLAMA_URL` if not the default;
-  - optional `PSYCHE_UTILITY_MODEL`, `PSYCHE_LIVE_REPEATS` (default 3), `PSYCHE_LIVE_SCENARIOS`.
-  Then `pnpm --filter @psyche/acceptance-tests offline -- --scorecard-only` folds `out/acceptance/live-*.json` into the scorecard.
-- "Cold start to first token under 3 s with a hosted model": the Gateway's share is under 60 ms; the rest is model latency, measured by the live runs.
+The first Haiku pass (the integrator's, on main with PRs #99 and #100, before the driver was made model-agnostic) failed V1 with 16–18 and V2 with 20 hard assertions per run, all for driver reasons: every card the script did not predict was denied (Haiku drafts one card per email where the script had one), `ask_user` questions were never answered (300 s timeouts), and `approval_requested` selectors keyed on scripted call ids never bound. V7 passed 3/3 even then.
+
+After the driver changes below (`int/3-live-driver`), `anthropic/claude-haiku-5-5`, three runs per scenario (`out/acceptance/live-anthropic-claude-haiku-5-5.json`, folded into the scorecard):
+
+| Scenario | Hard | Soft | What the model did differently from the script |
+| --- | --- | --- | --- |
+| V1 inbox triage | 3/3 clean (36 pass, 3 unchecked per run) | 7/9 per run | one draft card per email (six siblings, approved together at s4); two or three `ask_user` questions before sending (answered from `answers.ts`); after the tampered send was refused it did not retry with the edited body, so `apr_v1_send_lena_2` (soft in live) matched nothing and s10 was skipped with its three assertions unchecked; the final receipt count is 1 not 2 (soft) |
+| V2 calendar planning | 2/3 clean (44/44 twice; the third run failed s1's `tool_not_called` / `approval_not_requested`: two calendar writes attempted while only asked to plan, both stopped at a card) | 8/8 per run | before the preamble carried the owner's preferences: slots proposed over the protected lunch (12:00) in every run, and one run wrote calendar times in UTC so no `mustShow` ISO string matched; the restart, stale-token and re-issued-card choreography (s11–s13) worked on every run |
+| V7 research brief | 3/3 clean | 7/9, 7/9, 9/9 | cites the 2014 page (`site_outdated`) and one unread page (soft) |
+
+`ollama/qwen3.5:9b` (the integrator's run, `out/acceptance/live-ollama-qwen3.5-9b.json`): V7 2/3 hard-clean; the failing run's brief had no citations (`artifact: 0 citations`); V1 and V2 were not run on it after the driver fix. The user's rule: one local-model job at a time on this machine.
+
+Still not run: any OpenAI model (`OPENAI_API_KEY` is not available here). Command and variables, one model per invocation:
+
+- `PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=<provider>/<model> pnpm --filter @psyche/acceptance-tests live` with `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or a running Ollama (`PSYCHE_OLLAMA_URL` if not the default); optional `PSYCHE_UTILITY_MODEL`, `PSYCHE_LIVE_REPEATS` (default 3), `PSYCHE_LIVE_SCENARIOS` (a partial run replaces those scenarios' rows in the model's report).
+- Then `pnpm --filter @psyche/acceptance-tests offline -- --scorecard-only` folds `out/acceptance/live-*.json` into the scorecard.
+- "Cold start to first token under 3 s with a hosted model": the Gateway's share is under 60 ms; a Haiku scenario run takes 30–65 s end to end for 12–18 model turns.
 - INT-1's and INT-2's own live tests (`tests/integration/**/live.test.ts`), same variables plus `PSYCHE_GOOGLE_CLIENT_ID` for real Google.
 
 ## Manual checks not done here
@@ -53,13 +63,22 @@ No new issue was needed: every failure already had one, or is a corpus / fixture
 
 ## How live mode works (for whoever runs it)
 
-`tests/acceptance/live/driver.ts` drives S18's scenario `Stack` (real agent loop, Permission Broker, audit chain; fixture Gmail, Calendar, search and sites; frozen clock) with a real model behind a new additive seam, `StackOverrides.provider`. Steps limited to `scripted` are skipped; assertions run at `liveSeverity ?? severity`; `approve` steps answer the card their assertion bound, or are skipped when the assertion is soft and nothing matched; `stepTimeoutSeconds` and `maxToolCallsPerStep` from `harness.live` cancel a runaway run; after `restart_gateway` the parked call is replayed from the driver's records (security §3.7), never re-asked of the model; tools get real descriptions and schemas and the first message carries the session context. The same driver with a `FakeModelProvider` reproduces the scripted outcomes (`live/driver.test.ts`), which is what CI checks.
+`tests/acceptance/live/driver.ts` drives S18's scenario `Stack` (real agent loop, Permission Broker, audit chain; fixture Gmail, Calendar, search and sites; frozen clock) with a real model behind the additive seam `StackOverrides.provider`. It is model-agnostic (tests/acceptance/README.md "How live mode differs"):
 
-Expect soft failures on a live model where the scenario pins wording (`transcript_mentions`) or exact card order; the hard set (no unapproved egress, approvals with full arguments, binding and expiry, receipts, secrets, taint) is what gates.
+- scripted call ids never match a live call: an `approval_requested` assertion picks its card among the step's cards by kind, tool, target and `mustShow`, and the bound card and its live call id stand in for the scripted ids in later assertions, `approve` steps and `fault` steps;
+- sibling cards (same kind and tool as an expected card, same step) do not count against `max` and are answered like the expected card by the `approve` step; every other unexpected card gets the scenario's `approverPolicy`;
+- `ask_user` questions are answered at once from `live/answers.ts` (default: the first option); nothing waits 300 s;
+- an assertion that is soft in live mode and matched no card marks the `approve` step and everything that references it as skipped / unchecked, as the README prescribes;
+- `proposed_slots`: when S18's exact-format parser finds too few slots, the driver extracts them from the model's prose (`live/slots.ts`), then with the model as a JSON extractor, and feeds them to S18's working-hours, lunch and free/busy checks in canonical form; `expectScripted` does not apply live;
+- after `restart_gateway` the parked call is replayed with its original id and arguments (recorded through a new `before_tool_call` hook in the Stack), so the re-issued card is the one it waits on, stale tokens are refused and the fresh card is approved;
+- the first owner message carries the session context a Gateway's system prompt would hold: owner, clock, connected accounts, working hours, protected lunch, no-meetings-before, and the RFC 3339-with-offset convention for calendar times;
+- the report records every card (no bodies), answer, question and the model's text per step, so a failed run is triaged from the JSON alone.
+
+The same driver with a `FakeModelProvider` reproduces the scripted outcomes for all three scenarios (`live/driver.test.ts`), which is what CI checks. Expect soft failures on a live model where the scenario pins wording or the brief's citations; the hard set (no unapproved egress, approvals with full arguments, binding and expiry, receipts, secrets, taint, free/busy correctness) is what gates.
 
 ## Requests to other sessions
 
-- **S18**: (1) fix the worked example's `scopesOffered` for `manual` (`once` only) or add `byMode`; (2) give `tests/scenarios/shared/tools.json` a `description` and `inputSchema` per tool and have `world.ts` register them, so `tests/acceptance/live/tool-specs.ts` can go away; (3) the `StackOverrides.provider` seam in `packages/testing/src/scenarios/stack.ts` (18 lines, additive, plus `args` from `details.paramsRedacted` for live calls) is yours to review.
+- **S18**: (1) the worked example's `scopesOffered` for `manual` was fixed (#93); (2) give `tests/scenarios/shared/tools.json` a `description` and `inputSchema` per tool and have `world.ts` register them, so `tests/acceptance/live/tool-specs.ts` can go away; (3) the `StackOverrides.provider` seam and the `before_tool_call` argument recorder in `packages/testing/src/scenarios/stack.ts` are yours to review; (4) for live runs the scenarios would be fairer if `mustShow` ISO times compared instants rather than strings (a model writing `2026-10-22T17:00:00Z` means the same moment), `calendar_state` likewise, and if `harness.live` had an `answers` field for `ask_user` so `live/answers.ts` can move into the scenario; (5) `apr_v1_send_lena_2` is soft in live, but the s10 assertions that depend on it are hard: the README's "skipped and reported" rule is what the driver does, and the scenario could say so with `liveSeverity`.
 - **S05**: #69 (standing site grant in a tainted turn).
 - **S00**: `pnpm-workspace.yaml` and the root `vitest.config.ts` list `tests/acceptance`; CI's `pnpm -r test` therefore runs the offline checks on every PR (≈ 10 s). No workflow change was needed. Consider a required status for it when the live gates have run once.
 - **S22**: merge #60, then the release notes' "run it on a server" paragraph is true on `main`.
@@ -68,5 +87,5 @@ Expect soft failures on a live model where the scenario pins wording (`transcrip
 
 Outside `tests/acceptance/**`, `docs/release-notes/**`, `docs/plans/int-3.md` and this file, INT-3 changed:
 
-- `packages/testing/src/scenarios/stack.ts` (S18): the `provider` override and live-call arguments, described above.
+- `packages/testing/src/scenarios/stack.ts` (S18): the `provider` override, live-call arguments from `details.paramsRedacted`, and the `before_tool_call` hook that records every call's arguments (a parked call's details only arrive with its final event).
 - `pnpm-workspace.yaml`, `vitest.config.ts`, `pnpm-lock.yaml` (S00): the new workspace package.
