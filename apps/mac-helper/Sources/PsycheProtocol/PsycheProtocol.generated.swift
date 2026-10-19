@@ -27,12 +27,21 @@
 //   let automation = try? JSONDecoder().decode(Automation.self, from: jsonData)
 //   let automationKind = try? JSONDecoder().decode(AutomationKind.self, from: jsonData)
 //   let automationResult = try? JSONDecoder().decode(AutomationResult.self, from: jsonData)
+//   let automationRun = try? JSONDecoder().decode(AutomationRun.self, from: jsonData)
+//   let automationRunFinishedPayload = try? JSONDecoder().decode(AutomationRunFinishedPayload.self, from: jsonData)
+//   let automationRunStartedPayload = try? JSONDecoder().decode(AutomationRunStartedPayload.self, from: jsonData)
+//   let automationRunStatus = try? JSONDecoder().decode(AutomationRunStatus.self, from: jsonData)
+//   let automationUpdatedPayload = try? JSONDecoder().decode(AutomationUpdatedPayload.self, from: jsonData)
 //   let automationsCreateParams = try? JSONDecoder().decode(AutomationsCreateParams.self, from: jsonData)
 //   let automationsDeleteParams = try? JSONDecoder().decode(AutomationsDeleteParams.self, from: jsonData)
 //   let automationsListParams = try? JSONDecoder().decode(AutomationsListParams.self, from: jsonData)
 //   let automationsListResult = try? JSONDecoder().decode(AutomationsListResult.self, from: jsonData)
 //   let automationsRunParams = try? JSONDecoder().decode(AutomationsRunParams.self, from: jsonData)
 //   let automationsRunResult = try? JSONDecoder().decode(AutomationsRunResult.self, from: jsonData)
+//   let automationsRunsParams = try? JSONDecoder().decode(AutomationsRunsParams.self, from: jsonData)
+//   let automationsRunsResult = try? JSONDecoder().decode(AutomationsRunsResult.self, from: jsonData)
+//   let automationsUpcomingParams = try? JSONDecoder().decode(AutomationsUpcomingParams.self, from: jsonData)
+//   let automationsUpcomingResult = try? JSONDecoder().decode(AutomationsUpcomingResult.self, from: jsonData)
 //   let automationsUpdateParams = try? JSONDecoder().decode(AutomationsUpdateParams.self, from: jsonData)
 //   let block = try? JSONDecoder().decode(Block.self, from: jsonData)
 //   let bridgeCDPEventPayload = try? JSONDecoder().decode(BridgeCDPEventPayload.self, from: jsonData)
@@ -368,6 +377,7 @@
 //   let toolCallStatus = try? JSONDecoder().decode(ToolCallStatus.self, from: jsonData)
 //   let toolCallUpdatedPayload = try? JSONDecoder().decode(ToolCallUpdatedPayload.self, from: jsonData)
 //   let toolSpec = try? JSONDecoder().decode(ToolSpec.self, from: jsonData)
+//   let upcomingItem = try? JSONDecoder().decode(UpcomingItem.self, from: jsonData)
 //   let usage = try? JSONDecoder().decode(Usage.self, from: jsonData)
 //   let usageRecord = try? JSONDecoder().decode(UsageRecord.self, from: jsonData)
 //   let vaultAddParams = try? JSONDecoder().decode(VaultAddParams.self, from: jsonData)
@@ -410,6 +420,8 @@
 //   let viewPaneState = try? JSONDecoder().decode(ViewPaneState.self, from: jsonData)
 //   let viewPlacement = try? JSONDecoder().decode(ViewPlacement.self, from: jsonData)
 //   let viewReportParams = try? JSONDecoder().decode(ViewReportParams.self, from: jsonData)
+//   let watchCheck = try? JSONDecoder().decode(WatchCheck.self, from: jsonData)
+//   let watchConfig = try? JSONDecoder().decode(WatchConfig.self, from: jsonData)
 //   let wrapUpAction = try? JSONDecoder().decode(WrapUpAction.self, from: jsonData)
 //   let wrapUpBlock = try? JSONDecoder().decode(WrapUpBlock.self, from: jsonData)
 
@@ -1013,6 +1025,8 @@ public struct Automation: Codable, Sendable {
     public let kind: AutomationKind
     public let lastRunAt: String?
     public let lastStatus: String?
+    /// Heartbeat: skip workspace bootstrap files (feature O2)
+    public let lightContext: Bool?
     public let nextRunAt: String?
     public let prompt: String
     /// cron expression, ISO-8601 duration or watch interval
@@ -1023,6 +1037,7 @@ public struct Automation: Codable, Sendable {
     public let timezone: String
     public let title: String
     public let updatedAt: String
+    public let watch: WatchConfig?
 
     public enum CodingKeys: String, CodingKey {
         case createdAt = "createdAt"
@@ -1032,6 +1047,7 @@ public struct Automation: Codable, Sendable {
         case kind = "kind"
         case lastRunAt = "lastRunAt"
         case lastStatus = "lastStatus"
+        case lightContext = "lightContext"
         case nextRunAt = "nextRunAt"
         case prompt = "prompt"
         case schedule = "schedule"
@@ -1040,9 +1056,10 @@ public struct Automation: Codable, Sendable {
         case timezone = "timezone"
         case title = "title"
         case updatedAt = "updatedAt"
+        case watch = "watch"
     }
 
-    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String?, lastStatus: String?, nextRunAt: String?, prompt: String, schedule: String, scratch: String?, sessionTarget: String, timezone: String, title: String, updatedAt: String) {
+    public init(createdAt: String, delivery: Delivery, enabled: Bool, id: String, kind: AutomationKind, lastRunAt: String?, lastStatus: String?, lightContext: Bool?, nextRunAt: String?, prompt: String, schedule: String, scratch: String?, sessionTarget: String, timezone: String, title: String, updatedAt: String, watch: WatchConfig?) {
         self.createdAt = createdAt
         self.delivery = delivery
         self.enabled = enabled
@@ -1050,6 +1067,7 @@ public struct Automation: Codable, Sendable {
         self.kind = kind
         self.lastRunAt = lastRunAt
         self.lastStatus = lastStatus
+        self.lightContext = lightContext
         self.nextRunAt = nextRunAt
         self.prompt = prompt
         self.schedule = schedule
@@ -1058,6 +1076,7 @@ public struct Automation: Codable, Sendable {
         self.timezone = timezone
         self.title = title
         self.updatedAt = updatedAt
+        self.watch = watch
     }
 }
 
@@ -1083,12 +1102,149 @@ public struct Delivery: Codable, Sendable {
     }
 }
 
+/// `reminder` is a one-shot: `schedule` is an ISO-8601 instant
 public enum AutomationKind: String, Codable, Sendable {
     case briefing = "briefing"
     case cron = "cron"
     case heartbeat = "heartbeat"
     case interval = "interval"
+    case reminder = "reminder"
     case watch = "watch"
+}
+
+// MARK: - WatchConfig
+public struct WatchConfig: Codable, Sendable {
+    public let check: WatchCheck
+    /// Regex over the fetched text; capture group 1 is the value
+    public let selector: String?
+    /// text_present: the text to look for
+    public let text: String?
+    /// price_below / price_above
+    public let threshold: Double?
+    public let url: String
+
+    public enum CodingKeys: String, CodingKey {
+        case check = "check"
+        case selector = "selector"
+        case text = "text"
+        case threshold = "threshold"
+        case url = "url"
+    }
+
+    public init(check: WatchCheck, selector: String?, text: String?, threshold: Double?, url: String) {
+        self.check = check
+        self.selector = selector
+        self.text = text
+        self.threshold = threshold
+        self.url = url
+    }
+}
+
+public enum WatchCheck: String, Codable, Sendable {
+    case change = "change"
+    case priceAbove = "price_above"
+    case priceBelow = "price_below"
+    case textPresent = "text_present"
+}
+
+// MARK: - AutomationRunFinishedPayload
+public struct AutomationRunFinishedPayload: Codable, Sendable {
+    public let run: AutomationRun
+
+    public enum CodingKeys: String, CodingKey {
+        case run = "run"
+    }
+
+    public init(run: AutomationRun) {
+        self.run = run
+    }
+}
+
+// MARK: - AutomationRun
+public struct AutomationRun: Codable, Sendable {
+    public let automationID: String
+    /// Missed ticks folded into this run
+    public let coalesced: Int
+    public let endedAt: String?
+    public let id: String
+    public let notificationID: String?
+    public let scheduledFor: String
+    public let startedAt: String
+    public let status: AutomationRunStatus
+    public let summary: String?
+    public let taskID: String?
+    public let threadID: String?
+    public let trigger: Trigger
+
+    public enum CodingKeys: String, CodingKey {
+        case automationID = "automationId"
+        case coalesced = "coalesced"
+        case endedAt = "endedAt"
+        case id = "id"
+        case notificationID = "notificationId"
+        case scheduledFor = "scheduledFor"
+        case startedAt = "startedAt"
+        case status = "status"
+        case summary = "summary"
+        case taskID = "taskId"
+        case threadID = "threadId"
+        case trigger = "trigger"
+    }
+
+    public init(automationID: String, coalesced: Int, endedAt: String?, id: String, notificationID: String?, scheduledFor: String, startedAt: String, status: AutomationRunStatus, summary: String?, taskID: String?, threadID: String?, trigger: Trigger) {
+        self.automationID = automationID
+        self.coalesced = coalesced
+        self.endedAt = endedAt
+        self.id = id
+        self.notificationID = notificationID
+        self.scheduledFor = scheduledFor
+        self.startedAt = startedAt
+        self.status = status
+        self.summary = summary
+        self.taskID = taskID
+        self.threadID = threadID
+        self.trigger = trigger
+    }
+}
+
+public enum AutomationRunStatus: String, Codable, Sendable {
+    case cancelled = "cancelled"
+    case done = "done"
+    case failed = "failed"
+    case noReply = "no_reply"
+    case running = "running"
+    case skipped = "skipped"
+}
+
+public enum Trigger: String, Codable, Sendable {
+    case manual = "manual"
+    case schedule = "schedule"
+}
+
+// MARK: - AutomationRunStartedPayload
+public struct AutomationRunStartedPayload: Codable, Sendable {
+    public let run: AutomationRun
+
+    public enum CodingKeys: String, CodingKey {
+        case run = "run"
+    }
+
+    public init(run: AutomationRun) {
+        self.run = run
+    }
+}
+
+// MARK: - AutomationUpdatedPayload
+public struct AutomationUpdatedPayload: Codable, Sendable {
+    public let automation: Automation
+
+    public enum CodingKeys: String, CodingKey {
+        case automation = "automation"
+    }
+
+    public init(automation: Automation) {
+        self.automation = automation
+    }
 }
 
 // MARK: - AutomationsCreateParams
@@ -1096,6 +1252,7 @@ public struct AutomationsCreateParams: Codable, Sendable {
     public let delivery: Delivery?
     public let enabled: Bool?
     public let kind: AutomationKind
+    public let lightContext: Bool?
     public let prompt: String
     /// cron expression, ISO-8601 duration or watch interval
     public let schedule: String
@@ -1104,27 +1261,32 @@ public struct AutomationsCreateParams: Codable, Sendable {
     /// IANA zone; defaults to the Gateway's
     public let timezone: String?
     public let title: String
+    public let watch: WatchConfig?
 
     public enum CodingKeys: String, CodingKey {
         case delivery = "delivery"
         case enabled = "enabled"
         case kind = "kind"
+        case lightContext = "lightContext"
         case prompt = "prompt"
         case schedule = "schedule"
         case sessionTarget = "sessionTarget"
         case timezone = "timezone"
         case title = "title"
+        case watch = "watch"
     }
 
-    public init(delivery: Delivery?, enabled: Bool?, kind: AutomationKind, prompt: String, schedule: String, sessionTarget: String?, timezone: String?, title: String) {
+    public init(delivery: Delivery?, enabled: Bool?, kind: AutomationKind, lightContext: Bool?, prompt: String, schedule: String, sessionTarget: String?, timezone: String?, title: String, watch: WatchConfig?) {
         self.delivery = delivery
         self.enabled = enabled
         self.kind = kind
+        self.lightContext = lightContext
         self.prompt = prompt
         self.schedule = schedule
         self.sessionTarget = sessionTarget
         self.timezone = timezone
         self.title = title
+        self.watch = watch
     }
 }
 
@@ -1196,40 +1358,160 @@ public struct AutomationsRunResult: Codable, Sendable {
     }
 }
 
+// MARK: - AutomationsRunsParams
+public struct AutomationsRunsParams: Codable, Sendable {
+    public let automationID: String
+    /// Opaque cursor
+    public let cursor: String?
+    public let limit: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case automationID = "automationId"
+        case cursor = "cursor"
+        case limit = "limit"
+    }
+
+    public init(automationID: String, cursor: String?, limit: Int?) {
+        self.automationID = automationID
+        self.cursor = cursor
+        self.limit = limit
+    }
+}
+
+// MARK: - AutomationsRunsResult
+public struct AutomationsRunsResult: Codable, Sendable {
+    public let nextCursor: String?
+    public let runs: [AutomationRun]
+
+    public enum CodingKeys: String, CodingKey {
+        case nextCursor = "nextCursor"
+        case runs = "runs"
+    }
+
+    public init(nextCursor: String?, runs: [AutomationRun]) {
+        self.nextCursor = nextCursor
+        self.runs = runs
+    }
+}
+
+// MARK: - AutomationsUpcomingParams
+public struct AutomationsUpcomingParams: Codable, Sendable {
+    public let horizonHours: Int?
+    public let limit: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case horizonHours = "horizonHours"
+        case limit = "limit"
+    }
+
+    public init(horizonHours: Int?, limit: Int?) {
+        self.horizonHours = horizonHours
+        self.limit = limit
+    }
+}
+
+// MARK: - AutomationsUpcomingResult
+public struct AutomationsUpcomingResult: Codable, Sendable {
+    public let items: [UpcomingItem]
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+    }
+
+    public init(items: [UpcomingItem]) {
+        self.items = items
+    }
+}
+
+// MARK: - UpcomingItem
+public struct UpcomingItem: Codable, Sendable {
+    public let automationID: String?
+    public let enabled: Bool
+    public let id: String
+    public let kind: UpcomingItemKind
+    public let nextRunAt: String?
+    public let schedule: String?
+    public let taskID: String?
+    public let timezone: String?
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case automationID = "automationId"
+        case enabled = "enabled"
+        case id = "id"
+        case kind = "kind"
+        case nextRunAt = "nextRunAt"
+        case schedule = "schedule"
+        case taskID = "taskId"
+        case timezone = "timezone"
+        case title = "title"
+    }
+
+    public init(automationID: String?, enabled: Bool, id: String, kind: UpcomingItemKind, nextRunAt: String?, schedule: String?, taskID: String?, timezone: String?, title: String) {
+        self.automationID = automationID
+        self.enabled = enabled
+        self.id = id
+        self.kind = kind
+        self.nextRunAt = nextRunAt
+        self.schedule = schedule
+        self.taskID = taskID
+        self.timezone = timezone
+        self.title = title
+    }
+}
+
+public enum UpcomingItemKind: String, Codable, Sendable {
+    case automation = "automation"
+    case briefing = "briefing"
+    case heartbeat = "heartbeat"
+    case inputRequest = "input_request"
+    case reminder = "reminder"
+    case watch = "watch"
+}
+
 // MARK: - AutomationsUpdateParams
 public struct AutomationsUpdateParams: Codable, Sendable {
     public let automationID: String
     public let delivery: Delivery?
     public let enabled: Bool?
+    public let lightContext: Bool?
     public let prompt: String?
     /// cron expression, ISO-8601 duration or watch interval
     public let schedule: String?
+    public let scratch: String?
     /// main | isolated | named:<id>
     public let sessionTarget: String?
     /// IANA zone; defaults to the Gateway's
     public let timezone: String?
     public let title: String?
+    public let watch: WatchConfig?
 
     public enum CodingKeys: String, CodingKey {
         case automationID = "automationId"
         case delivery = "delivery"
         case enabled = "enabled"
+        case lightContext = "lightContext"
         case prompt = "prompt"
         case schedule = "schedule"
+        case scratch = "scratch"
         case sessionTarget = "sessionTarget"
         case timezone = "timezone"
         case title = "title"
+        case watch = "watch"
     }
 
-    public init(automationID: String, delivery: Delivery?, enabled: Bool?, prompt: String?, schedule: String?, sessionTarget: String?, timezone: String?, title: String?) {
+    public init(automationID: String, delivery: Delivery?, enabled: Bool?, lightContext: Bool?, prompt: String?, schedule: String?, scratch: String?, sessionTarget: String?, timezone: String?, title: String?, watch: WatchConfig?) {
         self.automationID = automationID
         self.delivery = delivery
         self.enabled = enabled
+        self.lightContext = lightContext
         self.prompt = prompt
         self.schedule = schedule
+        self.scratch = scratch
         self.sessionTarget = sessionTarget
         self.timezone = timezone
         self.title = title
+        self.watch = watch
     }
 }
 
