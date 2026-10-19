@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { IWorkbookData } from "@univerjs/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { UNIVER_CELL } from "../src/core/sheet-edit.ts";
@@ -37,7 +37,13 @@ function fakeRuntime() {
       };
     },
   };
-  return { runtime, state };
+  /** Plays a user edit once the editor has mounted and subscribed. */
+  const edit = async () => {
+    await waitFor(() => expect(state.emit).toBeDefined());
+    act(() => state.emit?.());
+    await screen.findByText("Unsaved changes");
+  };
+  return { runtime, state, edit };
 }
 
 const csv = "name,qty\napple,3\n";
@@ -52,7 +58,7 @@ const load = async () => new TextEncoder().encode(csv);
 
 describe("SheetEditor", () => {
   it("mounts Univer on the snapshot, saves edits back as CSV, and disposes", async () => {
-    const { runtime, state } = fakeRuntime();
+    const { runtime, state, edit } = fakeRuntime();
     const onSave = vi.fn(async () => {});
     const onClose = vi.fn();
     const view = render(
@@ -75,8 +81,7 @@ describe("SheetEditor", () => {
 
     // The user types 5 into B2.
     (cells[1] as Record<number, unknown>)[1] = { v: 5, t: UNIVER_CELL.NUMBER };
-    state.emit?.();
-    await screen.findByText("Unsaved changes");
+    await edit();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await screen.findByText("Saved");
     expect(onSave).toHaveBeenCalledTimes(1);
@@ -93,7 +98,7 @@ describe("SheetEditor", () => {
   });
 
   it("asks before discarding unsaved edits", async () => {
-    const { runtime, state } = fakeRuntime();
+    const { runtime, edit } = fakeRuntime();
     const onClose = vi.fn();
     render(
       <SheetEditor
@@ -105,8 +110,7 @@ describe("SheetEditor", () => {
       />,
     );
     await screen.findByText("No changes");
-    state.emit?.();
-    await screen.findByText("Unsaved changes");
+    await edit();
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
@@ -116,7 +120,7 @@ describe("SheetEditor", () => {
   });
 
   it("shows the save error and keeps the edits", async () => {
-    const { runtime, state } = fakeRuntime();
+    const { runtime, edit } = fakeRuntime();
     render(
       <SheetEditor
         item={item}
@@ -129,8 +133,7 @@ describe("SheetEditor", () => {
       />,
     );
     await screen.findByText("No changes");
-    state.emit?.();
-    await screen.findByText("Unsaved changes");
+    await edit();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect((await screen.findByRole("alert")).textContent).toMatch(/etag conflict/);
     expect(screen.getByText("Unsaved changes")).toBeTruthy();

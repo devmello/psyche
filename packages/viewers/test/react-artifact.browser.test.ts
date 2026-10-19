@@ -139,7 +139,12 @@ describe.skipIf(skipBrowserSuites)(
           timeout: 20_000,
         },
       );
-      const frame = page.frames().find((f) => f.url().startsWith(bundler.origin));
+      // Playwright can report the frame's URL a beat after the bundler's first message.
+      let frame = page.frames().find((f) => f.url().startsWith(bundler.origin));
+      for (let i = 0; frame === undefined && i < 50; i++) {
+        await page.waitForTimeout(100);
+        frame = page.frames().find((f) => f.url().startsWith(bundler.origin));
+      }
       expect(frame).toBeDefined();
       await frame?.getByRole("button").click();
       await frame?.getByText("count: 1").waitFor({ timeout: 5_000 });
