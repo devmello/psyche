@@ -92,7 +92,9 @@ export function primarySource(post: FeedPost): string | null {
 export function withCitationLinks(md: string, citations: FeedPost["citations"]): string {
   return md.replace(/\[(\d+)\](?!\()/g, (whole, n: string) => {
     const c = citations[Number(n) - 1];
-    if (c === undefined) return whole;
+    // Streamdown's link hardening only passes web links; in-app sources (psyche://…) stay
+    // plain markers and are listed in the sources row instead.
+    if (c === undefined || !/^https?:\/\//i.test(c.url)) return whole;
     const url = c.url.replace(/ /g, "%20").replace(/\(/g, "%28").replace(/\)/g, "%29");
     return `[\\[${n}\\]](${url})`;
   });
