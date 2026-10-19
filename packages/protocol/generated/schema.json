@@ -131,6 +131,16 @@
         "payload": "#/$defs/GatewayShutdownPayload"
       },
       {
+        "description": "A workspace file was created, changed or deleted (by a tool, the API, a job, or outside Psyche).",
+        "name": "memory.file.changed",
+        "payload": "#/$defs/MemoryFileChangedPayload"
+      },
+      {
+        "description": "A memory job (flush, dreaming, reindex, import) started or finished.",
+        "name": "memory.job.updated",
+        "payload": "#/$defs/MemoryJobUpdatedPayload"
+      },
+      {
         "description": "A node connected, disconnected or changed capabilities.",
         "name": "node.updated",
         "payload": "#/$defs/NodeUpdatedPayload"
@@ -480,6 +490,78 @@
         "sideEffecting": false
       },
       {
+        "description": "The owner confirms an agent or imported claim; it becomes an owner claim that supersedes it. Claims derived from untrusted sources are refused. Side-effecting.",
+        "name": "memory.claims.confirm",
+        "params": "#/$defs/MemoryClaimsConfirmParams",
+        "result": "#/$defs/MemoryClaimsConfirmResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Lists memory claims (retracted ones only when asked).",
+        "name": "memory.claims.list",
+        "params": "#/$defs/MemoryClaimsListParams",
+        "result": "#/$defs/MemoryClaimsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Daily notes newest first, for the daily-notes browser.",
+        "name": "memory.daily.list",
+        "params": "#/$defs/MemoryDailyListParams",
+        "result": "#/$defs/MemoryDailyListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Why a fact is believed: the claim with its source chunks and provenance.",
+        "name": "memory.explain",
+        "params": "#/$defs/MemoryExplainParams",
+        "result": "#/$defs/MemoryExplainResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Exports the whole workspace and the claims as a zip.",
+        "name": "memory.export",
+        "params": "#/$defs/MemoryExportParams",
+        "result": "#/$defs/MemoryExportResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists workspace files (Soul & Memory sheet), optionally under a path prefix.",
+        "name": "memory.files.list",
+        "params": "#/$defs/MemoryFilesListParams",
+        "result": "#/$defs/MemoryFilesListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Retracts matching claims, removes linked daily-note lines and chunks and rebuilds the index; dryRun reports without changing. Side-effecting.",
+        "name": "memory.forget",
+        "params": "#/$defs/MemoryForgetParams",
+        "result": "#/$defs/MemoryForgetResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Imports memory from another assistant as data: parsed into agent-provenance claims, scanned and size-capped (security §8). Side-effecting.",
+        "name": "memory.import",
+        "params": "#/$defs/MemoryImportParams",
+        "result": "#/$defs/MemoryImportResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Pauses or resumes memory: while paused nothing is flushed, remembered or indexed from chats. Side-effecting.",
+        "name": "memory.pause",
+        "params": "#/$defs/MemoryPauseParams",
+        "result": "#/$defs/MemoryPauseResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Reads a workspace memory file, optionally a line range.",
         "name": "memory.read",
         "params": "#/$defs/MemoryReadParams",
@@ -488,10 +570,34 @@
         "sideEffecting": false
       },
       {
+        "description": "Appends an owner-provenance entry to today's daily note. Side-effecting.",
+        "name": "memory.remember",
+        "params": "#/$defs/MemoryRememberParams",
+        "result": "#/$defs/MemoryRememberResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Deletes every workspace file, chunk and claim and re-creates the templates; the UI asks for a typed confirmation first. Side-effecting.",
+        "name": "memory.reset",
+        "params": "#/$defs/MemoryResetParams",
+        "result": "#/$defs/MemoryResetResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Hybrid search (FTS5 + vectors) over memory chunks.",
         "name": "memory.search",
         "params": "#/$defs/MemorySearchParams",
         "result": "#/$defs/MemorySearchResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Memory health for the Soul & Memory sheet: pause flag, index mode, counts, jobs.",
+        "name": "memory.status",
+        "params": "#/$defs/MemoryStatusParams",
+        "result": "#/$defs/MemoryStatusResult",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -4598,6 +4704,15 @@
       ],
       "type": "object"
     },
+    "MemoryChangeSource": {
+      "enum": [
+        "tool",
+        "api",
+        "external",
+        "job"
+      ],
+      "type": "string"
+    },
     "MemoryChunk": {
       "properties": {
         "id": {
@@ -4748,6 +4863,301 @@
       ],
       "type": "object"
     },
+    "MemoryClaimsConfirmParams": {
+      "properties": {
+        "claimId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "claimId"
+      ],
+      "type": "object"
+    },
+    "MemoryClaimsConfirmResult": {
+      "properties": {
+        "claim": {
+          "$ref": "#/$defs/MemoryClaim"
+        }
+      },
+      "required": [
+        "claim"
+      ],
+      "type": "object"
+    },
+    "MemoryClaimsListParams": {
+      "properties": {
+        "includeRetracted": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "MemoryClaimsListResult": {
+      "properties": {
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/MemoryClaim"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "claims"
+      ],
+      "type": "object"
+    },
+    "MemoryDailyListParams": {
+      "properties": {
+        "before": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 366,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "MemoryDailyListResult": {
+      "properties": {
+        "notes": {
+          "items": {
+            "properties": {
+              "date": {
+                "type": "string"
+              },
+              "path": {
+                "$ref": "#/$defs/WorkspacePath"
+              },
+              "entries": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "bytes": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "date",
+              "path",
+              "entries",
+              "bytes"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "notes"
+      ],
+      "type": "object"
+    },
+    "MemoryExplainParams": {
+      "properties": {
+        "claimId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "claimId"
+      ],
+      "type": "object"
+    },
+    "MemoryExplainResult": {
+      "properties": {
+        "claim": {
+          "$ref": "#/$defs/MemoryClaim"
+        },
+        "chunks": {
+          "items": {
+            "$ref": "#/$defs/MemoryChunk"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "claim",
+        "chunks"
+      ],
+      "type": "object"
+    },
+    "MemoryExportParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "MemoryExportResult": {
+      "properties": {
+        "filename": {
+          "type": "string"
+        },
+        "mime": {
+          "const": "application/zip",
+          "type": "string"
+        },
+        "data": {
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "filename",
+        "mime",
+        "data",
+        "bytes"
+      ],
+      "type": "object"
+    },
+    "MemoryFileChangedPayload": {
+      "properties": {
+        "path": {
+          "description": "Workspace path",
+          "type": "string"
+        },
+        "etag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/MemoryChangeSource"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        }
+      },
+      "required": [
+        "path",
+        "source"
+      ],
+      "type": "object"
+    },
+    "MemoryFileInfo": {
+      "properties": {
+        "path": {
+          "description": "Workspace path, e.g. \"SOUL.md\"",
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "etag": {
+          "type": "string"
+        },
+        "protected": {
+          "type": "boolean"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "updatedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "bytes",
+        "etag",
+        "protected",
+        "provenance",
+        "updatedAt"
+      ],
+      "type": "object"
+    },
+    "MemoryFilesListParams": {
+      "properties": {
+        "prefix": {
+          "maxLength": 1024,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "MemoryFilesListResult": {
+      "properties": {
+        "files": {
+          "items": {
+            "$ref": "#/$defs/MemoryFileInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "files"
+      ],
+      "type": "object"
+    },
+    "MemoryForgetParams": {
+      "properties": {
+        "subject": {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "subject"
+      ],
+      "type": "object"
+    },
+    "MemoryForgetResult": {
+      "properties": {
+        "retractedClaimIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "removedChunkIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/WorkspacePath"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "retractedClaimIds",
+        "removedChunkIds",
+        "files"
+      ],
+      "type": "object"
+    },
     "MemoryHit": {
       "properties": {
         "chunk": {
@@ -4766,6 +5176,190 @@
       "required": [
         "chunk",
         "score"
+      ],
+      "type": "object"
+    },
+    "MemoryImportFormat": {
+      "enum": [
+        "chatgpt",
+        "claude",
+        "text",
+        "openclaw"
+      ],
+      "type": "string"
+    },
+    "MemoryImportParams": {
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/MemoryImportFormat"
+        },
+        "content": {
+          "maxLength": 2000000,
+          "type": "string"
+        },
+        "files": {
+          "items": {
+            "properties": {
+              "path": {
+                "$ref": "#/$defs/WorkspacePath"
+              },
+              "content": {
+                "maxLength": 1000000,
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "content"
+            ],
+            "type": "object"
+          },
+          "maxItems": 2000,
+          "type": "array"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "format"
+      ],
+      "type": "object"
+    },
+    "MemoryImportResult": {
+      "properties": {
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/MemoryClaim"
+          },
+          "type": "array"
+        },
+        "flagged": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/WorkspacePath"
+          },
+          "type": "array"
+        },
+        "skipped": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "claims",
+        "flagged",
+        "files",
+        "skipped"
+      ],
+      "type": "object"
+    },
+    "MemoryJob": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/MemoryJobKind"
+        },
+        "status": {
+          "$ref": "#/$defs/MemoryJobStatus"
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "status",
+        "startedAt"
+      ],
+      "type": "object"
+    },
+    "MemoryJobKind": {
+      "enum": [
+        "flush",
+        "dreaming",
+        "reindex",
+        "import"
+      ],
+      "type": "string"
+    },
+    "MemoryJobStatus": {
+      "enum": [
+        "running",
+        "ok",
+        "failed",
+        "skipped"
+      ],
+      "type": "string"
+    },
+    "MemoryJobUpdatedPayload": {
+      "properties": {
+        "job": {
+          "$ref": "#/$defs/MemoryJob"
+        }
+      },
+      "required": [
+        "job"
+      ],
+      "type": "object"
+    },
+    "MemoryPauseParams": {
+      "properties": {
+        "paused": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "paused"
+      ],
+      "type": "object"
+    },
+    "MemoryPauseResult": {
+      "properties": {
+        "paused": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "paused"
       ],
       "type": "object"
     },
@@ -4800,12 +5394,79 @@
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
+        },
+        "etag": {
+          "type": "string"
         }
       },
       "required": [
         "path",
         "content",
         "updatedAt"
+      ],
+      "type": "object"
+    },
+    "MemoryRememberParams": {
+      "properties": {
+        "text": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
+    "MemoryRememberResult": {
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/WorkspacePath"
+        },
+        "chunk": {
+          "$ref": "#/$defs/MemoryChunk"
+        }
+      },
+      "required": [
+        "path",
+        "chunk"
+      ],
+      "type": "object"
+    },
+    "MemoryResetParams": {
+      "properties": {
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "MemoryResetResult": {
+      "properties": {
+        "files": {
+          "items": {
+            "$ref": "#/$defs/WorkspacePath"
+          },
+          "type": "array"
+        },
+        "chunks": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "claims": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "dryRun": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "files",
+        "chunks",
+        "claims",
+        "dryRun"
       ],
       "type": "object"
     },
@@ -4820,6 +5481,21 @@
           "maximum": 100,
           "minimum": 1,
           "type": "integer"
+        },
+        "provenance": {
+          "items": {
+            "$ref": "#/$defs/Provenance"
+          },
+          "maxItems": 4,
+          "type": "array"
+        },
+        "sources": {
+          "items": {
+            "maxLength": 1024,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "type": "array"
         }
       },
       "required": [
@@ -4841,6 +5517,55 @@
       ],
       "type": "object"
     },
+    "MemoryStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "MemoryStatusResult": {
+      "properties": {
+        "paused": {
+          "type": "boolean"
+        },
+        "vectorSearch": {
+          "$ref": "#/$defs/MemoryVectorMode"
+        },
+        "files": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "chunks": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "claims": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "lastJobs": {
+          "items": {
+            "$ref": "#/$defs/MemoryJob"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "paused",
+        "vectorSearch",
+        "files",
+        "chunks",
+        "claims",
+        "lastJobs"
+      ],
+      "type": "object"
+    },
+    "MemoryVectorMode": {
+      "enum": [
+        "sqlite-vec",
+        "brute-force",
+        "off"
+      ],
+      "type": "string"
+    },
     "MemoryWriteMode": {
       "enum": [
         "replace",
@@ -4859,6 +5584,10 @@
         },
         "mode": {
           "$ref": "#/$defs/MemoryWriteMode"
+        },
+        "etag": {
+          "maxLength": 128,
+          "type": "string"
         }
       },
       "required": [
@@ -4879,6 +5608,9 @@
         "updatedAt": {
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "etag": {
           "type": "string"
         }
       },
