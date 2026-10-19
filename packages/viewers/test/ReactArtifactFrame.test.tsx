@@ -18,7 +18,7 @@ vi.mock("../src/react/sandpack.ts", () => ({
       iframe,
       files,
       bundlerUrl: opts.bundlerUrl,
-      updates: [],
+      updates: [] as Record<string, string>[],
       destroyed: false,
       onError: opts.onError,
     };
