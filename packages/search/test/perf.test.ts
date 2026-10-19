@@ -9,8 +9,24 @@ const WORDS = (
   "birthday gift partner vacation passport visa train ticket concert review subscription " +
   "netflix spotify gym yoga plumber electrician garden tomato basil laptop backup photo album"
 ).split(" ");
-const KINDS = ["message", "message", "message", "thread", "task", "library", "feed", "idea", "goal", "connector"] as const;
-const SENDERS = ["alice@example.com", "bob@example.com", "carol@example.org", "school@district.edu"];
+const KINDS = [
+  "message",
+  "message",
+  "message",
+  "thread",
+  "task",
+  "library",
+  "feed",
+  "idea",
+  "goal",
+  "connector",
+] as const;
+const SENDERS = [
+  "alice@example.com",
+  "bob@example.com",
+  "carol@example.org",
+  "school@district.edu",
+];
 
 function rng(seed: number) {
   let s = seed;
@@ -61,6 +77,7 @@ describe("performance on a year of data (100k documents)", () => {
       const t0 = performance.now();
       const res = await index.search({ q });
       const ms = performance.now() - t0;
+      if (process.env.PSYCHE_PERF_LOG === "1") console.warn(`search ${q}: ${ms.toFixed(0)} ms`);
       expect(ms, `search ${q} took ${ms.toFixed(0)} ms`).toBeLessThan(1000);
       expect(res.tookMs).toBeLessThan(1000);
       const t1 = performance.now();

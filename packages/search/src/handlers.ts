@@ -89,9 +89,7 @@ export function createSearchHandlers(index: SqliteSearchIndex): SearchHandlers {
         ...(groups === undefined ? {} : { groups }),
       });
       const onlyMessages =
-        params.scopes !== undefined &&
-        params.scopes.includes("messages") &&
-        !params.scopes.includes("threads");
+        params.scopes?.includes("messages") === true && !params.scopes.includes("threads");
       const hits: SearchHit[] = [];
       for (const h of res.hits) {
         const scope = scopeOf(h);

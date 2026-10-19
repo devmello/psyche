@@ -311,8 +311,7 @@ export function parseQuery(input: string, opts: ParseOptions = {}): ParsedQuery 
   const lastToken = tokens[tokens.length - 1];
   const lastTerm = terms[terms.length - 1];
   if (
-    lastToken !== undefined &&
-    lastToken.last &&
+    lastToken?.last === true &&
     lastToken.key === undefined &&
     !lastToken.quoted &&
     !lastToken.negated &&

@@ -114,6 +114,7 @@ export class SqliteSearchIndex implements SearchIndex {
     this.#memory = options.memory;
     this.#tz = options.tzOffsetMinutes ?? 0;
     ensureSearchSchema(db);
+    db.pragma("temp_store = MEMORY");
     db.exec("CREATE TEMP TABLE IF NOT EXISTS search_hits (rid INTEGER, grp TEXT, score REAL)");
     db.function(
       "psyche_recency",
@@ -435,7 +436,9 @@ export class SqliteSearchIndex implements SearchIndex {
       : "SELECT rid, grp, score FROM m";
     this.db.prepare("DELETE FROM temp.search_hits").run();
     this.db
-      .prepare(`WITH m AS MATERIALIZED (${m}) INSERT INTO temp.search_hits (rid, grp, score) ${pick}`)
+      .prepare(
+        `WITH m AS MATERIALIZED (${m}) INSERT INTO temp.search_hits (rid, grp, score) ${pick}`,
+      )
       .run(...mParams);
     const counts = this.db
       .prepare("SELECT grp, count(*) AS n FROM temp.search_hits GROUP BY grp")
@@ -447,7 +450,9 @@ export class SqliteSearchIndex implements SearchIndex {
     const top = this.db
       .prepare(`SELECT rid, grp, score FROM temp.search_hits ${order} LIMIT ?`)
       .all(opts.limit) as { rid: number; grp: SearchGroup; score: number }[];
-    top.forEach((r, i) => byRid.set(r.rid, { ...r, grn: i + 1, rn: Infinity }));
+    top.forEach((r, i) => {
+      byRid.set(r.rid, { ...r, grn: i + 1, rn: Infinity });
+    });
     if (opts.groupLimit > 0) {
       const perGroup = this.db.prepare(
         `SELECT rid, grp, score FROM temp.search_hits WHERE grp = ? ${order} LIMIT ?`,
@@ -497,7 +502,7 @@ export class SqliteSearchIndex implements SearchIndex {
       if (d === undefined) return [];
       const m = marked.get(r.rid);
       const snip =
-        m !== undefined && m.snip.includes(HL_OPEN)
+        m?.snip.includes(HL_OPEN) === true && m !== undefined
           ? stripMarkers(m.snip)
           : snippetFor(d.body, tokens);
       const title = m !== undefined ? stripMarkers(m.title) : { text: d.title, ranges: [] };

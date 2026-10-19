@@ -78,7 +78,9 @@ describe("incremental indexing from Gateway events", () => {
     const r = await index.search({ q: "zoo" });
     expect(r.groups[0]?.count).toBe(1);
     const hits = await index.query({ q: "zoo" });
-    expect(hits.hits.map((h) => h.id).sort()).toEqual([SAMPLE_MESSAGES[0]?.id, SAMPLE_THREAD.id].sort());
+    expect(hits.hits.map((h) => h.id).sort()).toEqual(
+      [SAMPLE_MESSAGES[0]?.id, SAMPLE_THREAD.id].sort(),
+    );
   });
 
   it("drops a thread that turns incognito and never indexes incognito messages", async () => {
@@ -94,11 +96,19 @@ describe("incremental indexing from Gateway events", () => {
   it("scopes designated-person threads to their session key", async () => {
     const { index, indexer } = wire();
     await indexer.handle("thread.updated", {
-      thread: thread({ id: "P", kind: "channel", personaOverlay: "Wren", sessionKey: "imessage:peer:7" }),
+      thread: thread({
+        id: "P",
+        kind: "channel",
+        personaOverlay: "Wren",
+        sessionKey: "imessage:peer:7",
+      }),
     });
     await indexer.handle("chat.message", { message: message({ id: "pm", threadId: "P" }) });
     await indexer.handle("chat.message", { message: message({ id: "om" }) });
-    const partner = await index.search({ q: "slip", viewer: { kind: "delegated", scopeKey: "imessage:peer:7" } });
+    const partner = await index.search({
+      q: "slip",
+      viewer: { kind: "delegated", scopeKey: "imessage:peer:7" },
+    });
     expect(partner.hits.map((h) => h.threadId)).toEqual(["P"]);
   });
 
@@ -107,7 +117,13 @@ describe("incremental indexing from Gateway events", () => {
     await indexer.handle("thread.updated", { thread: thread() });
     await indexer.handle("task.updated", { task });
     await indexer.handle("chat.message", {
-      message: message({ id: "att", blocks: [{ type: "text", md: "here" }, { type: "file", libraryItemId: "L1" }] }),
+      message: message({
+        id: "att",
+        blocks: [
+          { type: "text", md: "here" },
+          { type: "file", libraryItemId: "L1" },
+        ],
+      }),
     });
     const approval: ApprovalRequest = {
       ...SAMPLE_APPROVAL_REQUEST,
@@ -115,11 +131,24 @@ describe("incremental indexing from Gateway events", () => {
     };
     await indexer.handle("approval.created", { approval });
     await indexer.handle("receipt.created", {
-      receipt: { id: "R1", kind: "send_email", taskId: "K1", toolCallId: null, approvalId: null, outcome: "ok", summary: "sent", externalRefs: {}, payload: null, createdAt: "2026-10-18T20:12:00Z" },
+      receipt: {
+        id: "R1",
+        kind: "send_email",
+        taskId: "K1",
+        toolCallId: null,
+        approvalId: null,
+        outcome: "ok",
+        summary: "sent",
+        externalRefs: {},
+        payload: null,
+        createdAt: "2026-10-18T20:12:00Z",
+      },
     });
     expect((await index.query({ q: "has:approval" })).hits.map((h) => h.id)).toEqual(["K1"]);
     expect((await index.query({ q: "has:receipt" })).hits.map((h) => h.id)).toEqual(["K1"]);
-    expect((await index.query({ q: "has:attachment in:messages" })).hits.map((h) => h.id)).toEqual(["att"]);
+    expect((await index.query({ q: "has:attachment in:messages" })).hits.map((h) => h.id)).toEqual([
+      "att",
+    ]);
   });
 
   it("reports handler errors instead of throwing into the event bus", async () => {
