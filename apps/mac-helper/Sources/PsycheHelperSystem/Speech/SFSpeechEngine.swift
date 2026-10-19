@@ -51,7 +51,7 @@ final class SFSpeechEngine: TranscriptionEngine, @unchecked Sendable {
         }
     }
 
-    func transcribe(_ input: AsyncStream<PCMBufferBox>, inputFormat: AVAudioFormat, onSegment: @escaping @Sendable (TranscriptSegment) async -> Void) async throws {
+    func transcribe(_ input: AsyncStream<PCMBufferBox>, inputFormat: AVAudioFormat, onSegment: @escaping @Sendable (SpeechSegment) async -> Void) async throws {
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = volatile
@@ -60,7 +60,7 @@ final class SFSpeechEngine: TranscriptionEngine, @unchecked Sendable {
         request.taskHint = .dictation
         let converter = try PCMBufferConverter(from: inputFormat, to: request.nativeAudioFormat)
 
-        let (results, sink) = AsyncThrowingStream.makeStream(of: TranscriptSegment.self)
+        let (results, sink) = AsyncThrowingStream.makeStream(of: SpeechSegment.self)
         let task = recognizer.recognitionTask(with: request) { result, error in
             if let result {
                 sink.yield(Self.segment(result))
@@ -94,7 +94,7 @@ final class SFSpeechEngine: TranscriptionEngine, @unchecked Sendable {
         lock.withLock { task }?.cancel()
     }
 
-    static func segment(_ result: SFSpeechRecognitionResult) -> TranscriptSegment {
+    static func segment(_ result: SFSpeechRecognitionResult) -> SpeechSegment {
         let t = result.bestTranscription
         let segments = t.segments
         let start = segments.first?.timestamp ?? 0
@@ -102,7 +102,7 @@ final class SFSpeechEngine: TranscriptionEngine, @unchecked Sendable {
         // Confidence is 0 on partial results; only report it for finals.
         let confidence: Double? = result.isFinal && !segments.isEmpty
             ? segments.map { Double($0.confidence) }.reduce(0, +) / Double(segments.count) : nil
-        return TranscriptSegment(text: t.formattedString, startSeconds: start, endSeconds: end, final: result.isFinal, confidence: confidence)
+        return SpeechSegment(text: t.formattedString, startSeconds: start, endSeconds: end, final: result.isFinal, confidence: confidence)
     }
 
     private struct RequestBox: @unchecked Sendable {

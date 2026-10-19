@@ -87,7 +87,7 @@ enum SpeechTranscription {
         func markStarted() { lock.withLock { startedAt = clock.now } }
 
         /// Returns true when this is the first non-empty result.
-        func ingest(_ s: TranscriptSegment) -> Bool {
+        func ingest(_ s: SpeechSegment) -> Bool {
             lock.withLock {
                 accumulator.ingest(s)
                 guard firstResultMs == nil, !s.text.isEmpty, let startedAt else { return false }

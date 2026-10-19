@@ -221,17 +221,17 @@ struct SpeechParamsTests {
 @Suite("speech events")
 struct SpeechEventTests {
     @Test func segmentPayloads() {
-        let partial = TranscriptSegment(text: "hel", startMs: 0, endMs: 300, final: false)
+        let partial = SpeechSegment(text: "hel", startMs: 0, endMs: 300, final: false)
         #expect(SpeechEvent.segment(partial) == ["type": "speech.partial", "text": "hel", "startMs": 0, "endMs": 300, "final": false])
-        let final = TranscriptSegment(text: "hello", startSeconds: 0.25, endSeconds: 0.9, final: true, confidence: 0.87)
+        let final = SpeechSegment(text: "hello", startSeconds: 0.25, endSeconds: 0.9, final: true, confidence: 0.87)
         #expect(SpeechEvent.segment(final) == ["type": "speech.final", "text": "hello", "startMs": 250, "endMs": 900, "final": true, "confidence": .number(0.87)])
     }
 
     @Test func segmentClamps() {
-        let s = TranscriptSegment(text: "x", startSeconds: .nan, endSeconds: -1, final: true, confidence: 1.7)
+        let s = SpeechSegment(text: "x", startSeconds: .nan, endSeconds: -1, final: true, confidence: 1.7)
         #expect(s.startMs == 0 && s.endMs == 0)
         #expect(s.json["confidence"] == .number(1))
-        #expect(TranscriptSegment(text: "x", startMs: 500, endMs: 100, final: true).endMs == 500)
+        #expect(SpeechSegment(text: "x", startMs: 500, endMs: 100, final: true).endMs == 500)
     }
 
     @Test func otherEvents() {
@@ -250,16 +250,16 @@ struct SpeechEventTests {
 
     @Test func accumulatorAndSummary() {
         var acc = TranscriptAccumulator()
-        acc.ingest(TranscriptSegment(text: "hel", startMs: 0, endMs: 200, final: false))
-        acc.ingest(TranscriptSegment(text: "hello wor", startMs: 0, endMs: 500, final: false))
+        acc.ingest(SpeechSegment(text: "hel", startMs: 0, endMs: 200, final: false))
+        acc.ingest(SpeechSegment(text: "hello wor", startMs: 0, endMs: 500, final: false))
         #expect(acc.volatile?.text == "hello wor")
-        acc.ingest(TranscriptSegment(text: " Hello world.", startMs: 0, endMs: 900, final: true))
+        acc.ingest(SpeechSegment(text: " Hello world.", startMs: 0, endMs: 900, final: true))
         #expect(acc.volatile == nil)
-        acc.ingest(TranscriptSegment(text: "", startMs: 900, endMs: 1000, final: true))
-        acc.ingest(TranscriptSegment(text: "how", startMs: 1000, endMs: 1200, final: false))
-        acc.ingest(TranscriptSegment(text: "  ", startMs: 1000, endMs: 1200, final: false))
+        acc.ingest(SpeechSegment(text: "", startMs: 900, endMs: 1000, final: true))
+        acc.ingest(SpeechSegment(text: "how", startMs: 1000, endMs: 1200, final: false))
+        acc.ingest(SpeechSegment(text: "  ", startMs: 1000, endMs: 1200, final: false))
         #expect(acc.volatile == nil)
-        acc.ingest(TranscriptSegment(text: "How are you?", startMs: 1000, endMs: 1800, final: false))
+        acc.ingest(SpeechSegment(text: "How are you?", startMs: 1000, endMs: 1800, final: false))
         acc.promoteVolatile()
         #expect(acc.text == "Hello world. How are you?")
         #expect(acc.finals.count == 2 && acc.finals.allSatisfy(\.final))

@@ -13,7 +13,7 @@ protocol TranscriptionEngine: AnyObject, Sendable {
     /// Installs model assets (emitting `speech.model_download`) and warms the model.
     func prepare(inputFormat: AVAudioFormat, emit: @escaping @Sendable (JSONValue) async -> Void) async throws
     /// Consumes `input` until it ends, then finalizes; segments are reported in order.
-    func transcribe(_ input: AsyncStream<PCMBufferBox>, inputFormat: AVAudioFormat, onSegment: @escaping @Sendable (TranscriptSegment) async -> Void) async throws
+    func transcribe(_ input: AsyncStream<PCMBufferBox>, inputFormat: AVAudioFormat, onSegment: @escaping @Sendable (SpeechSegment) async -> Void) async throws
     /// Abandons the run (invocation cancelled).
     func cancel() async
 }
@@ -96,7 +96,7 @@ final class AnalyzerEngine: TranscriptionEngine, @unchecked Sendable {
         }
     }
 
-    func transcribe(_ input: AsyncStream<PCMBufferBox>, inputFormat: AVAudioFormat, onSegment: @escaping @Sendable (TranscriptSegment) async -> Void) async throws {
+    func transcribe(_ input: AsyncStream<PCMBufferBox>, inputFormat: AVAudioFormat, onSegment: @escaping @Sendable (SpeechSegment) async -> Void) async throws {
         let (analyzer, format) = lock.withLock { (self.analyzer, self.analyzerFormat) }
         guard let analyzer, let format else {
             throw CapabilityError(.errorCodeInternal, reason: "engine_not_prepared", "The speech engine was not prepared")
@@ -127,7 +127,7 @@ final class AnalyzerEngine: TranscriptionEngine, @unchecked Sendable {
         await analyzer?.cancelAndFinishNow()
     }
 
-    private func resultsTask(_ onSegment: @escaping @Sendable (TranscriptSegment) async -> Void) -> _Concurrency.Task<Void, any Error> {
+    private func resultsTask(_ onSegment: @escaping @Sendable (SpeechSegment) async -> Void) -> _Concurrency.Task<Void, any Error> {
         switch module {
         case .speech(let m):
             _Concurrency.Task {
@@ -144,7 +144,7 @@ final class AnalyzerEngine: TranscriptionEngine, @unchecked Sendable {
         }
     }
 
-    static func segment(_ text: AttributedString, range: CMTimeRange, final: Bool) -> TranscriptSegment {
+    static func segment(_ text: AttributedString, range: CMTimeRange, final: Bool) -> SpeechSegment {
         var weighted = 0.0
         var count = 0
         for run in text.runs {
@@ -153,7 +153,7 @@ final class AnalyzerEngine: TranscriptionEngine, @unchecked Sendable {
             weighted += c * Double(n)
             count += n
         }
-        return TranscriptSegment(
+        return SpeechSegment(
             text: String(text.characters), startSeconds: range.start.seconds, endSeconds: range.end.seconds,
             final: final, confidence: count > 0 ? weighted / Double(count) : nil)
     }

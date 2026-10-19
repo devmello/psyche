@@ -1,9 +1,9 @@
 import Foundation
 import PsycheProtocol
 
-/// One transcript segment; wire shape `TranscriptSegment` in packages/protocol SpeechEngine.ts.
+/// One transcript segment; wire shape `SpeechSegment` in packages/protocol SpeechEngine.ts.
 /// `final == false` is a volatile partial that a later segment replaces.
-public struct TranscriptSegment: Codable, Sendable, Equatable {
+public struct SpeechSegment: Codable, Sendable, Equatable {
     public var text: String
     public var startMs: Int
     public var endMs: Int
@@ -52,7 +52,7 @@ public enum SpeechEvent {
     public static let audio = "speech.audio"
 
     /// `{type: "speech.partial"|"speech.final", text, startMs, endMs, final, confidence?}`.
-    public static func segment(_ s: TranscriptSegment) -> JSONValue {
+    public static func segment(_ s: SpeechSegment) -> JSONValue {
         guard case .object(var o) = s.json else { return .null }
         o["type"] = .string(s.final ? final : partial)
         return .object(o)
@@ -87,12 +87,12 @@ public enum SpeechEvent {
 /// Folds a stream of volatile and final segments into the transcript. A final segment is kept and
 /// clears the pending volatile one; a volatile segment replaces the previous volatile one.
 public struct TranscriptAccumulator: Sendable, Equatable {
-    public private(set) var finals: [TranscriptSegment] = []
-    public private(set) var volatile: TranscriptSegment?
+    public private(set) var finals: [SpeechSegment] = []
+    public private(set) var volatile: SpeechSegment?
 
     public init() {}
 
-    public mutating func ingest(_ segment: TranscriptSegment) {
+    public mutating func ingest(_ segment: SpeechSegment) {
         let empty = segment.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         if segment.final {
             volatile = nil
