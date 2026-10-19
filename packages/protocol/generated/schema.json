@@ -254,6 +254,21 @@
         "payload": "#/$defs/SettingsChangedPayload"
       },
       {
+        "description": "One chunk of read-aloud PCM for progressive playback; last marks the end of audio.",
+        "name": "speech.audio",
+        "payload": "#/$defs/SpeechAudioPayload"
+      },
+      {
+        "description": "A read-aloud clip was saved to the Library.",
+        "name": "speech.readAloud.completed",
+        "payload": "#/$defs/SpeechReadAloudCompletedPayload"
+      },
+      {
+        "description": "A read-aloud failed before its Library item was saved.",
+        "name": "speech.readAloud.failed",
+        "payload": "#/$defs/SpeechReadAloudFailedPayload"
+      },
+      {
         "description": "A new Activity line for a task.",
         "name": "task.action",
         "payload": "#/$defs/TaskActionPayload"
@@ -292,6 +307,16 @@
         "description": "Gateway → desktop pane RPC for view.* (only the desktop shell acts on it).",
         "name": "view.command",
         "payload": "#/$defs/ViewCommandPayload"
+      },
+      {
+        "description": "A dictation session ended (stopped, cancelled, idle timeout or engine error).",
+        "name": "voice.ended",
+        "payload": "#/$defs/VoiceEndedPayload"
+      },
+      {
+        "description": "A dictation partial or final, in order, sent only to the device that started the session.",
+        "name": "voice.segment",
+        "payload": "#/$defs/VoiceSegmentPayload"
       }
     ],
     "frames": [
@@ -1071,6 +1096,14 @@
         "sideEffecting": true
       },
       {
+        "description": "Side-effecting: reads a message aloud, streams speech.audio events and saves the clip as a Library audio item.",
+        "name": "speech.readAloud",
+        "params": "#/$defs/SpeechReadAloudParams",
+        "result": "#/$defs/SpeechReadAloudResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Pages a task's Activity lines (level 1 and 2; level 3 is fetched by ref).",
         "name": "tasks.actions",
         "params": "#/$defs/TasksActionsParams",
@@ -1331,6 +1364,38 @@
         "name": "view.report",
         "params": "#/$defs/ViewReportParams",
         "result": "#/$defs/OkResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Cancels a dictation session without a final transcript.",
+        "name": "voice.cancel",
+        "params": "#/$defs/VoiceCancelParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Appends one audio chunk to the caller's dictation session.",
+        "name": "voice.push",
+        "params": "#/$defs/VoicePushParams",
+        "result": "#/$defs/VoicePushResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Starts a dictation session (raw PCM only); null sessionId + location client means dictate in the browser.",
+        "name": "voice.start",
+        "params": "#/$defs/VoiceStartParams",
+        "result": "#/$defs/VoiceStartResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Ends the audio and answers with the final transcript once the engine flushed.",
+        "name": "voice.stop",
+        "params": "#/$defs/VoiceStopParams",
+        "result": "#/$defs/VoiceStopResult",
         "scope": "operator.write",
         "sideEffecting": false
       }
@@ -1868,6 +1933,37 @@
       },
       "required": [
         "artifact"
+      ],
+      "type": "object"
+    },
+    "AudioFormat": {
+      "properties": {
+        "encoding": {
+          "enum": [
+            "pcm_s16le",
+            "pcm_f32le",
+            "opus",
+            "mp3",
+            "wav",
+            "caf"
+          ],
+          "type": "string"
+        },
+        "sampleRate": {
+          "maximum": 192000,
+          "minimum": 8000,
+          "type": "integer"
+        },
+        "channels": {
+          "maximum": 8,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "encoding",
+        "sampleRate",
+        "channels"
       ],
       "type": "object"
     },
@@ -10118,6 +10214,128 @@
       ],
       "type": "string"
     },
+    "SpeechAudioPayload": {
+      "properties": {
+        "streamId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "audio": {
+          "description": "Base64 PCM",
+          "type": "string"
+        },
+        "format": {
+          "$ref": "#/$defs/AudioFormat"
+        },
+        "last": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "streamId",
+        "seq",
+        "audio",
+        "format",
+        "last"
+      ],
+      "type": "object"
+    },
+    "SpeechEngineLocation": {
+      "enum": [
+        "node",
+        "gateway",
+        "client",
+        "cloud"
+      ],
+      "type": "string"
+    },
+    "SpeechReadAloudCompletedPayload": {
+      "properties": {
+        "streamId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "messageId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "item": {
+          "$ref": "#/$defs/LibraryItem"
+        },
+        "durationMs": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "streamId",
+        "messageId",
+        "item",
+        "durationMs"
+      ],
+      "type": "object"
+    },
+    "SpeechReadAloudFailedPayload": {
+      "properties": {
+        "streamId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "messageId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "error": {
+          "$ref": "#/$defs/ErrorPayload"
+        }
+      },
+      "required": [
+        "streamId",
+        "messageId",
+        "error"
+      ],
+      "type": "object"
+    },
+    "SpeechReadAloudParams": {
+      "properties": {
+        "messageId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "voice": {
+          "description": "<engine>:<voice>",
+          "maxLength": 128,
+          "type": "string"
+        }
+      },
+      "required": [
+        "messageId"
+      ],
+      "type": "object"
+    },
+    "SpeechReadAloudResult": {
+      "properties": {
+        "streamId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "streamId"
+      ],
+      "type": "object"
+    },
     "SurfaceAnswerToken": {
       "minLength": 1,
       "type": "string"
@@ -11389,6 +11607,58 @@
       ],
       "type": "object"
     },
+    "Transcript": {
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "segments": {
+          "items": {
+            "$ref": "#/$defs/TranscriptSegment"
+          },
+          "type": "array"
+        },
+        "language": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "text",
+        "segments"
+      ],
+      "type": "object"
+    },
+    "TranscriptSegment": {
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "startMs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "endMs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "final": {
+          "description": "false = volatile partial a later segment replaces",
+          "type": "boolean"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "text",
+        "startMs",
+        "endMs",
+        "final"
+      ],
+      "type": "object"
+    },
     "UpcomingItem": {
       "properties": {
         "kind": {
@@ -12243,6 +12513,177 @@
       },
       "required": [
         "layout"
+      ],
+      "type": "object"
+    },
+    "VoiceCancelParams": {
+      "properties": {
+        "sessionId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "type": "object"
+    },
+    "VoiceEndReason": {
+      "enum": [
+        "stopped",
+        "cancelled",
+        "timeout",
+        "error"
+      ],
+      "type": "string"
+    },
+    "VoiceEndedPayload": {
+      "properties": {
+        "sessionId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "reason": {
+          "$ref": "#/$defs/VoiceEndReason"
+        },
+        "error": {
+          "$ref": "#/$defs/ErrorPayload"
+        }
+      },
+      "required": [
+        "sessionId",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "VoicePushParams": {
+      "properties": {
+        "sessionId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "seq": {
+          "description": "0, 1, 2… per session; out of order is rejected",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "audio": {
+          "description": "Base64 PCM in the session format",
+          "maxLength": 512000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "seq",
+        "audio"
+      ],
+      "type": "object"
+    },
+    "VoicePushResult": {
+      "properties": {},
+      "type": "object"
+    },
+    "VoiceSegmentPayload": {
+      "properties": {
+        "sessionId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "segment": {
+          "$ref": "#/$defs/TranscriptSegment"
+        }
+      },
+      "required": [
+        "sessionId",
+        "segment"
+      ],
+      "type": "object"
+    },
+    "VoiceStartParams": {
+      "properties": {
+        "format": {
+          "$ref": "#/$defs/AudioFormat"
+        },
+        "language": {
+          "description": "BCP 47",
+          "maxLength": 35,
+          "type": "string"
+        },
+        "vocabulary": {
+          "description": "Extra terms; merged with the agent name, contacts and recent topics",
+          "items": {
+            "maxLength": 48,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "format"
+      ],
+      "type": "object"
+    },
+    "VoiceStartResult": {
+      "properties": {
+        "sessionId": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "location": {
+          "$ref": "#/$defs/SpeechEngineLocation"
+        },
+        "engine": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId",
+        "location",
+        "engine"
+      ],
+      "type": "object"
+    },
+    "VoiceStopParams": {
+      "properties": {
+        "sessionId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "type": "object"
+    },
+    "VoiceStopResult": {
+      "properties": {
+        "transcript": {
+          "$ref": "#/$defs/Transcript"
+        }
+      },
+      "required": [
+        "transcript"
       ],
       "type": "object"
     },

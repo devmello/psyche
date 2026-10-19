@@ -2315,6 +2315,50 @@ export interface SettingsSetResult {
     stateVersion: number;
 }
 
+export interface SpeechAudioPayload {
+    /**
+     * Base64 PCM
+     */
+    audio:    string;
+    format:   AudioFormat;
+    last:     boolean;
+    seq:      number;
+    streamId: string;
+}
+
+export interface AudioFormat {
+    channels:   number;
+    encoding:   Encoding;
+    sampleRate: number;
+}
+
+export type Encoding = "pcm_s16le" | "pcm_f32le" | "opus" | "mp3" | "wav" | "caf";
+
+export interface SpeechReadAloudCompletedPayload {
+    durationMs: number;
+    item:       LibraryItem;
+    messageId:  string;
+    streamId:   string;
+}
+
+export interface SpeechReadAloudFailedPayload {
+    error:     ErrorPayload;
+    messageId: string;
+    streamId:  string;
+}
+
+export interface SpeechReadAloudParams {
+    messageId: string;
+    /**
+     * <engine>:<voice>
+     */
+    voice?: string;
+}
+
+export interface SpeechReadAloudResult {
+    streamId: string;
+}
+
 export interface TaskActionPayload {
     action: TaskAction;
 }
@@ -2848,6 +2892,81 @@ export interface ViewPaneRef {
 
 export interface ViewReportParams {
     layout: ViewLayout;
+}
+
+export interface VoiceCancelParams {
+    sessionId: string;
+}
+
+export interface VoiceEndedPayload {
+    error?:    ErrorPayload;
+    reason:    VoiceEndReason;
+    sessionId: string;
+}
+
+export type VoiceEndReason = "stopped" | "cancelled" | "timeout" | "error";
+
+export interface VoicePushParams {
+    /**
+     * Base64 PCM in the session format
+     */
+    audio: string;
+    /**
+     * 0, 1, 2… per session; out of order is rejected
+     */
+    seq:       number;
+    sessionId: string;
+}
+
+export interface VoiceSegmentPayload {
+    segment:   TranscriptSegment;
+    sessionId: string;
+}
+
+export interface TranscriptSegment {
+    confidence?: number;
+    endMs:       number;
+    /**
+     * false = volatile partial a later segment replaces
+     */
+    final:   boolean;
+    startMs: number;
+    text:    string;
+}
+
+export interface VoiceStartParams {
+    format: AudioFormat;
+    /**
+     * BCP 47
+     */
+    language?: string;
+    threadId?: string;
+    /**
+     * Extra terms; merged with the agent name, contacts and recent topics
+     */
+    vocabulary?: string[];
+}
+
+export interface VoiceStartResult {
+    engine:    string;
+    location:  SpeechEngineLocation;
+    sessionId: null | string;
+}
+
+export type SpeechEngineLocation = "node" | "gateway" | "client" | "cloud";
+
+export interface VoiceStopParams {
+    sessionId: string;
+}
+
+export interface VoiceStopResult {
+    transcript: Transcript;
+}
+
+export interface Transcript {
+    language?: string;
+    segments:  TranscriptSegment[];
+    text:      string;
 }
 
 export interface WrapUpBlock {

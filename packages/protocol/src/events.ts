@@ -3,6 +3,13 @@ import { Id, Nullable, Provenance, StringEnum } from "./common.ts";
 import { PsycheError } from "./errors.ts";
 import { QueuedMessage } from "./methods/chat.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
+import {
+  ReadAloudCompletedPayload,
+  ReadAloudFailedPayload,
+  SpeechAudioPayload,
+  VoiceEndedPayload,
+  VoiceSegmentPayload,
+} from "./methods/voice.ts";
 import { Block } from "./schemas/blocks.ts";
 import { Device, NodeInfo, PairingRequest } from "./schemas/identity.ts";
 import {
@@ -218,6 +225,28 @@ export const Events = {
   "automation.run.finished": defineEvent({
     payload: Type.Object({ run: AutomationRun }),
     description: "An automation run ended (done, no_reply, failed, cancelled, skipped).",
+  }),
+  "voice.segment": defineEvent({
+    payload: VoiceSegmentPayload,
+    description:
+      "A dictation partial or final, in order, sent only to the device that started the session.",
+  }),
+  "voice.ended": defineEvent({
+    payload: VoiceEndedPayload,
+    description: "A dictation session ended (stopped, cancelled, idle timeout or engine error).",
+  }),
+  "speech.audio": defineEvent({
+    payload: SpeechAudioPayload,
+    description:
+      "One chunk of read-aloud PCM for progressive playback; last marks the end of audio.",
+  }),
+  "speech.readAloud.completed": defineEvent({
+    payload: ReadAloudCompletedPayload,
+    description: "A read-aloud clip was saved to the Library.",
+  }),
+  "speech.readAloud.failed": defineEvent({
+    payload: ReadAloudFailedPayload,
+    description: "A read-aloud failed before its Library item was saved.",
   }),
 } as const;
 
