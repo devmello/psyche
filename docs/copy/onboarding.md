@@ -118,7 +118,7 @@ Global controls on every step: **Back**, **Skip** (where allowed), **Continue**.
 
 | Connector | Card text | Notes shown on connect |
 | --- | --- | --- |
-| Google (Gmail, Calendar, Drive) | "Mail, calendar and the Drive files you pick." | "Google will warn that it hasn't verified this app. That's expected: Psyche uses your own sign-in on this Mac, not a company server, so there's nothing for Google to verify. Choose Advanced → Go to Psyche to continue." · "Drive access is limited to files {agent} creates or you open with it." |
+| Google (Gmail, Calendar, Drive) | "Mail, calendar and the Drive files you pick." | See "Setting up Google" below. · "Drive access is limited to files {agent} creates or you open with it." |
 | Microsoft (Outlook, OneDrive) | "Outlook mail and calendar, OneDrive files." | "Sign in with your Microsoft account in the window that opens." |
 | Other mail (IMAP) | "Any mail account with IMAP and SMTP." | "Use an app password from your mail provider, not your main password. Psyche stores it in the vault; {agent} never sees it." |
 | Fastmail | "Mail and calendar through Fastmail's API." | "Create an API token in Fastmail → Settings → Privacy & Security, then paste it here. It goes straight into the vault." |
@@ -127,6 +127,20 @@ Global controls on every step: **Back**, **Skip** (where allowed), **Continue**.
 | Slack | "Read channels and DMs, draft and send messages." | "You choose the workspace in Slack's own window." |
 | Notion · Linear · GitHub | "Pages and databases" · "Issues and projects" · "Repos, issues and pull requests" | "Connects to the service's own MCP server. You can set each tool to Allow, Ask or Deny afterwards." |
 | Stripe Link | "Lets {agent} pay with one-time cards you approve." | "Psyche never stores card numbers. When {agent} wants to buy something, you approve the exact items and total on this Mac with Touch ID, then again in Link. Each purchase gets a single-use card." |
+
+### Setting up Google
+
+Google requires every app that reads Gmail to have its own sign-in client. Psyche uses one that you own, so your mail never passes through anyone else's server. It takes about five minutes, once.
+
+1. "Open the Google Cloud console and create a project. Any name works, for example "Psyche"." Button: **Open Google Cloud console**
+2. "Turn on the Gmail API and the Google Calendar API for the project."
+3. "Under Google Auth Platform → Branding, set the audience to External. Under Audience, choose **Publish app** so its status is **In production**."
+   - Warning (always shown): "Leave it in Testing and Google signs you out every 7 days. In production with only you as a user, Google doesn't require a review."
+4. "Under Clients, create an OAuth client of type **Desktop app**. Paste its client ID and client secret here." Fields: **Client ID** · **Client secret** (stored in the vault).
+5. "Sign in with Google." Button: **Sign in with Google**
+   - Before the browser opens: "Google will show "Google hasn't verified this app". That's expected for a client only you use. Choose **Advanced**, then **Go to Psyche (unsafe)**, then allow the permissions Psyche lists."
+   - Scopes shown before sign-in: Read only → "Read your mail and calendar". Read and act → "Read, draft, label and send mail; read and change your calendar; files you open with Psyche in Drive".
+6. Success: "Connected · {account}". Failure: "Google didn't finish the sign-in ({reason}). Check that the client type is Desktop app and the app is In production, then try again."
 
 - Connected state on a card: "Connected · {account} · {Read only | Read and act}"
 - Failed: "Couldn't connect to {service} ({reason}). Nothing was saved. Try again."
