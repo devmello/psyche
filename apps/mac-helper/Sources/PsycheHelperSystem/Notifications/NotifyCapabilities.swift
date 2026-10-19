@@ -46,6 +46,7 @@ public enum NotifyCapabilities {
             "interruption": Schema.string("Overrides the kind's default level", enum: NotifyInterruptionLevel.allCases.map(\.rawValue)),
             "approvalId": idSchema("Approval answered by this notification"),
             "requireBiometry": Schema.boolean("Run device-owner authentication before forwarding a non-destructive action"),
+            "presenceChallenge": Schema.string("Hex SHA-256 the Secure Enclave presence key signs after Touch ID (with requireBiometry)", maxLength: 64),
             "quietHours": Schema.object(
                 ["start": Schema.string("HH:mm"), "end": Schema.string("HH:mm")], required: ["end", "start"],
                 description: "Local-time window during which the notification is passive and silent"
