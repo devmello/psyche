@@ -28,14 +28,14 @@ The `ci` workflow on `7457b0c` was still running when this was written; `desktop
 | --- | --- | --- | --- | --- |
 | #27 `ws/s12-ui-kit` | S12 | draft, conflicts with `main` | `packages/ui` screens: onboarding, chat blocks, approval and question cards, checklist, Settings → Soul & Memory | merged locally into `int/1-walking-skeleton`; INT-1 rebases onto `main` when #27 lands and never edits `packages/ui` |
 | #44 `ws/s13-viewers-m2` | S13 | open | nothing (P2 forms, P8 generators are M2) | not consumed |
-| #32 `ws/s08-browser` | S08 | open | nothing for INT-1 (browser is INT-2) | not consumed |
-| #38, #39 `ws/s09-*` | S09 | open | nothing for INT-1 (connectors are INT-2) | not consumed |
+| #32 `ws/s08-browser` | S08 | merged | nothing for INT-1 (browser is INT-2) | not consumed |
+| #38 / #39 `ws/s09-*` | S09 | #38 merged, #39 open | nothing for INT-1 (connectors are INT-2) | not consumed |
 | #20 `ws/s18-injection-runner` | S18 | open | nothing for INT-1 (INT-3 runs it) | not consumed |
 
 ## Start conditions per integration prompt
 
 - **INT-1** (`prompts/int-1-walking-skeleton.md`): every listed package is on `main` except `packages/ui` (#27). INT-1 starts now against the local merge of #27, as instructed.
-- **INT-2** (`prompts/int-2-browser-connectors-channels.md`): blocked on #32 (browser) and #38/#39 (connectors). Channels are merged.
+- **INT-2** (`prompts/int-2-browser-connectors-channels.md`): browser (#32), the connector framework (#38) and channels are merged; the Google connector (#39) is still open. INT-2 can start on the INT-1 composition root.
 - **INT-3** (`prompts/int-3-acceptance.md`): blocked on INT-1, INT-2 and #20.
 
 ## Gaps found before wiring (from `docs/status/*.md`)
@@ -48,4 +48,4 @@ These are the "Requests to S01" in the package status files. INT-1 does them in 
 
 ## INT-1 progress
 
-`int/1-walking-skeleton` wires the composition root and passes the scenario with the scripted model; see [int-1.md](int-1.md). It depends on #45 (Gateway handler hook, S01) and on #27 for the screens.
+`int/1-walking-skeleton` wires the composition root and passes the scenario with the scripted model; see [int-1.md](int-1.md). The Gateway handler hook (#45) is merged; the screens wait on #27.
