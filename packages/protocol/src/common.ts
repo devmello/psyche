@@ -61,21 +61,30 @@ export const Sha256 = Type.String({ pattern: "^sha256:[0-9a-f]{64}$" });
 export type Sha256 = Static<typeof Sha256>;
 
 /** `provider/model`, e.g. `anthropic/claude-sonnet-5-5` or `ollama/qwen3:8b`. */
-export const ModelRef = Type.String({ pattern: "^[a-z0-9][a-z0-9_.-]*/.+$", description: "provider/model" });
+export const ModelRef = Type.String({
+  pattern: "^[a-z0-9][a-z0-9_.-]*/.+$",
+  description: "provider/model",
+});
 export type ModelRef = Static<typeof ModelRef>;
 
 /** Arbitrary JSON object (opaque payloads, JSON Schema documents, connector config). */
-export const JsonObject = Type.Record(Type.String(), Type.Unknown(), { description: "JSON object" });
+export const JsonObject = Type.Record(Type.String(), Type.Unknown(), {
+  description: "JSON object",
+});
 export type JsonObject = Static<typeof JsonObject>;
 
 /** A JSON Schema document (tool input schemas). Validated structurally, not semantically. */
-export const JsonSchema = Type.Record(Type.String(), Type.Unknown(), { description: "JSON Schema" });
+export const JsonSchema = Type.Record(Type.String(), Type.Unknown(), {
+  description: "JSON Schema",
+});
 export type JsonSchema = Static<typeof JsonSchema>;
 
 // --- Vocabulary (architecture §4.3, §4.6; security §3.1) ---------------------------------------
 
 /** Where content came from. Nothing `untrusted` is ever an instruction (security §3.6). */
-export const Provenance = StringEnum(["owner", "agent", "untrusted", "system"], { $id: "Provenance" });
+export const Provenance = StringEnum(["owner", "agent", "untrusted", "system"], {
+  $id: "Provenance",
+});
 export type Provenance = Static<typeof Provenance>;
 
 /** Side-effect class every tool and node capability declares. */
@@ -94,7 +103,9 @@ export type TargetKind = Static<typeof TargetKind>;
 export const Target = Type.Object(
   {
     kind: TargetKind,
-    value: Type.String({ description: "Canonical form: origin, absolute path, account id, argv, recipient, bundle id" }),
+    value: Type.String({
+      description: "Canonical form: origin, absolute path, account id, argv, recipient, bundle id",
+    }),
     display: Type.Optional(Type.String({ description: "Human-readable form for cards and logs" })),
   },
   { $id: "Target" },
@@ -106,7 +117,9 @@ export const ProvenanceOut = StringEnum(["trusted", "untrusted"], { $id: "Proven
 export type ProvenanceOut = Static<typeof ProvenanceOut>;
 
 /** Thread permission mode (security §3.2). */
-export const PermissionMode = StringEnum(["plan", "manual", "balanced", "auto"], { $id: "PermissionMode" });
+export const PermissionMode = StringEnum(["plan", "manual", "balanced", "auto"], {
+  $id: "PermissionMode",
+});
 export type PermissionMode = Static<typeof PermissionMode>;
 
 /** Broker decision. */
@@ -114,7 +127,9 @@ export const Decision = StringEnum(["allow", "ask", "deny"], { $id: "Decision" }
 export type Decision = Static<typeof Decision>;
 
 /** Grant scopes (architecture §4.6). `session` is stored as `always` with a session expiry. */
-export const GrantScope = StringEnum(["once", "task", "site", "session", "always"], { $id: "GrantScope" });
+export const GrantScope = StringEnum(["once", "task", "site", "session", "always"], {
+  $id: "GrantScope",
+});
 export type GrantScope = Static<typeof GrantScope>;
 
 /** Device token scopes (security §10). Chosen by the owner, never declared by the client. */

@@ -1,8 +1,18 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { DeviceScope, Id, IsoDateTime, Nullable, SideEffect, StringEnum, TargetKind } from "../common.ts";
+import {
+  DeviceScope,
+  Id,
+  IsoDateTime,
+  Nullable,
+  SideEffect,
+  StringEnum,
+  TargetKind,
+} from "../common.ts";
 
 /** Data model §1. */
-export const DevicePlatform = StringEnum(["macos", "ios", "android", "web", "linux"], { $id: "DevicePlatform" });
+export const DevicePlatform = StringEnum(["macos", "ios", "android", "web", "linux"], {
+  $id: "DevicePlatform",
+});
 export type DevicePlatform = Static<typeof DevicePlatform>;
 
 export const DeviceRole = StringEnum(["client", "node", "both"], { $id: "DeviceRole" });
@@ -39,7 +49,9 @@ export const NodeCapability = Type.Object(
 );
 export type NodeCapability = Static<typeof NodeCapability>;
 
-export const NodeKind = StringEnum(["mac-helper", "vm-guest", "remote", "phone"], { $id: "NodeKind" });
+export const NodeKind = StringEnum(["mac-helper", "vm-guest", "remote", "phone"], {
+  $id: "NodeKind",
+});
 export type NodeKind = Static<typeof NodeKind>;
 
 export const NodeStatus = StringEnum(["online", "offline", "degraded"], { $id: "NodeStatus" });
@@ -58,7 +70,9 @@ export const NodeInfo = Type.Object(
 );
 export type NodeInfo = Static<typeof NodeInfo>;
 
-export const PairingStatus = StringEnum(["pending", "approved", "denied", "expired"], { $id: "PairingStatus" });
+export const PairingStatus = StringEnum(["pending", "approved", "denied", "expired"], {
+  $id: "PairingStatus",
+});
 export type PairingStatus = Static<typeof PairingStatus>;
 
 export const PairingRequest = Type.Object(

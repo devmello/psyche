@@ -7,9 +7,12 @@ export const Citation = Type.Object(
   { $id: "Citation" },
 );
 
-export const FeedFeedback = StringEnum(["like", "save", "not_interested", "hide_source", "follow_topic"], {
-  $id: "FeedFeedback",
-});
+export const FeedFeedback = StringEnum(
+  ["like", "save", "not_interested", "hide_source", "follow_topic"],
+  {
+    $id: "FeedFeedback",
+  },
+);
 
 export const FeedPost = Type.Object(
   {
@@ -72,7 +75,16 @@ export const Goal = Type.Object(
 export type Goal = Static<typeof Goal>;
 
 export const NotificationKind = StringEnum(
-  ["approval", "input_needed", "task_done", "task_failed", "proactive", "briefing", "reminder", "system"],
+  [
+    "approval",
+    "input_needed",
+    "task_done",
+    "task_failed",
+    "proactive",
+    "briefing",
+    "reminder",
+    "system",
+  ],
   { $id: "NotificationKind" },
 );
 export type NotificationKind = Static<typeof NotificationKind>;
@@ -128,9 +140,12 @@ export const LibraryItem = Type.Object(
 );
 export type LibraryItem = Static<typeof LibraryItem>;
 
-export const ArtifactType = StringEnum(["markdown", "html", "react", "pdf", "sheet", "itinerary", "dashboard"], {
-  $id: "ArtifactType",
-});
+export const ArtifactType = StringEnum(
+  ["markdown", "html", "react", "pdf", "sheet", "itinerary", "dashboard"],
+  {
+    $id: "ArtifactType",
+  },
+);
 
 export const Artifact = Type.Object(
   {

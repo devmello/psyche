@@ -45,7 +45,10 @@ export const ActionRule = StringEnum(["allow", "ask", "deny"], { $id: "ActionRul
 export const Connector = Type.Object(
   {
     id: Id,
-    type: Type.String({ description: "google | microsoft | imap | jmap | stripe_link | mcp | apple:<app> | search:<provider>" }),
+    type: Type.String({
+      description:
+        "google | microsoft | imap | jmap | stripe_link | mcp | apple:<app> | search:<provider>",
+    }),
     label: Type.String(),
     account: Nullable(Type.String()),
     scopes: Type.Array(Type.String()),
@@ -68,7 +71,9 @@ export const ChannelType = StringEnum(
 );
 export type ChannelType = Static<typeof ChannelType>;
 
-export const DmPolicy = StringEnum(["pairing", "allowlist", "open", "disabled"], { $id: "DmPolicy" });
+export const DmPolicy = StringEnum(["pairing", "allowlist", "open", "disabled"], {
+  $id: "DmPolicy",
+});
 export type DmPolicy = Static<typeof DmPolicy>;
 
 export const Channel = Type.Object(

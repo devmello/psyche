@@ -881,7 +881,9 @@
         "skill_install",
         "mcp_tool",
         "archive_thread",
-        "memory_protected_write"
+        "memory_protected_write",
+        "pairing",
+        "policy_change"
       ],
       "type": "string"
     },
@@ -3603,6 +3605,9 @@
         "approval_required",
         "approval_expired",
         "approval_invalidated",
+        "approval_not_armed",
+        "answer_late",
+        "answer_replayed",
         "binding_mismatch",
         "taint_blocked",
         "policy_denied",
@@ -4043,6 +4048,19 @@
           ]
         },
         "createdFromApprovalId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "taskId": {
           "anyOf": [
             {
               "description": "ULID in production",

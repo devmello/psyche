@@ -482,7 +482,9 @@ public enum ApprovalKind: String, Codable, Sendable {
     case memoryProtectedWrite = "memory_protected_write"
     case messageSend = "message_send"
     case newOrigin = "new_origin"
+    case pairing = "pairing"
     case planExit = "plan_exit"
+    case policyChange = "policy_change"
     case purchase = "purchase"
     case sendEmail = "send_email"
     case skillInstall = "skill_install"
@@ -614,6 +616,7 @@ public struct Grant: Codable, Sendable {
     public let revokedAt: String?
     public let scope: GrantScope
     public let subject: [String: JSONAny]
+    public let taskID: String?
     public let useCount: Int
 
     public enum CodingKeys: String, CodingKey {
@@ -628,10 +631,11 @@ public struct Grant: Codable, Sendable {
         case revokedAt = "revokedAt"
         case scope = "scope"
         case subject = "subject"
+        case taskID = "taskId"
         case useCount = "useCount"
     }
 
-    public init(binding: [String: JSONAny]?, createdAt: String, createdFromApprovalID: String?, expiresAt: String?, grantKey: String, id: String, kind: ApprovalKind, lastUsedAt: String?, revokedAt: String?, scope: GrantScope, subject: [String: JSONAny], useCount: Int) {
+    public init(binding: [String: JSONAny]?, createdAt: String, createdFromApprovalID: String?, expiresAt: String?, grantKey: String, id: String, kind: ApprovalKind, lastUsedAt: String?, revokedAt: String?, scope: GrantScope, subject: [String: JSONAny], taskID: String?, useCount: Int) {
         self.binding = binding
         self.createdAt = createdAt
         self.createdFromApprovalID = createdFromApprovalID
@@ -643,6 +647,7 @@ public struct Grant: Codable, Sendable {
         self.revokedAt = revokedAt
         self.scope = scope
         self.subject = subject
+        self.taskID = taskID
         self.useCount = useCount
     }
 }
@@ -2974,8 +2979,11 @@ public struct ErrorPayload: Codable, Sendable {
 
 /// Machine-readable error code
 public enum ErrorCode: String, Codable, Sendable {
+    case answerLate = "answer_late"
+    case answerReplayed = "answer_replayed"
     case approvalExpired = "approval_expired"
     case approvalInvalidated = "approval_invalidated"
+    case approvalNotArmed = "approval_not_armed"
     case approvalRequired = "approval_required"
     case bindingMismatch = "binding_mismatch"
     case cancelled = "cancelled"

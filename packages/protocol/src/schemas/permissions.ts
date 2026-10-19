@@ -33,14 +33,19 @@ export const ApprovalKind = StringEnum(
     "mcp_tool",
     "archive_thread",
     "memory_protected_write",
+    "pairing",
+    "policy_change",
   ],
   { $id: "ApprovalKind" },
 );
 export type ApprovalKind = Static<typeof ApprovalKind>;
 
-export const ApprovalStatus = StringEnum(["pending", "approved", "denied", "expired", "invalidated"], {
-  $id: "ApprovalStatus",
-});
+export const ApprovalStatus = StringEnum(
+  ["pending", "approved", "denied", "expired", "invalidated"],
+  {
+    $id: "ApprovalStatus",
+  },
+);
 export type ApprovalStatus = Static<typeof ApprovalStatus>;
 
 export const DecidedBy = Type.Union(
@@ -112,6 +117,7 @@ export const Grant = Type.Object(
     useCount: Type.Integer({ minimum: 0 }),
     lastUsedAt: Nullable(IsoDateTime),
     createdFromApprovalId: Nullable(Id),
+    taskId: Nullable(Id),
     createdAt: IsoDateTime,
     revokedAt: Nullable(IsoDateTime),
   },
@@ -139,7 +145,9 @@ export type ReceiptOutcome = Static<typeof ReceiptOutcome>;
 export const Receipt = Type.Object(
   {
     id: Id,
-    shortId: Type.Optional(Type.String({ description: "Client-visible short id for the receipt line" })),
+    shortId: Type.Optional(
+      Type.String({ description: "Client-visible short id for the receipt line" }),
+    ),
     kind: Type.String({ description: "ApprovalKind vocabulary plus read kinds" }),
     taskId: Nullable(Id),
     toolCallId: Nullable(Id),

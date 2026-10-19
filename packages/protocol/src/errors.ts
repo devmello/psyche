@@ -27,6 +27,9 @@ export const ErrorCode = StringEnum(
     "approval_required",
     "approval_expired",
     "approval_invalidated",
+    "approval_not_armed",
+    "answer_late",
+    "answer_replayed",
     "binding_mismatch",
     "taint_blocked",
     "policy_denied",
@@ -85,7 +88,9 @@ export class NotImplementedError extends PsycheError {
   constructor(pkg: string, member?: string) {
     super(
       "not_implemented",
-      member === undefined ? `${pkg} is not implemented yet` : `${pkg}: ${member} is not implemented yet`,
+      member === undefined
+        ? `${pkg} is not implemented yet`
+        : `${pkg}: ${member} is not implemented yet`,
     );
     this.name = "NotImplementedError";
   }

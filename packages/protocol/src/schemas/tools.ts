@@ -35,7 +35,9 @@ export const ToolCall = Type.Object(
     runId: Id,
     messageId: Nullable(Id),
     tool: Type.String(),
-    paramsRedacted: Type.Unknown({ description: "Params with {{cred:…}} placeholders kept; never secrets" }),
+    paramsRedacted: Type.Unknown({
+      description: "Params with {{cred:…}} placeholders kept; never secrets",
+    }),
     paramsHash: Type.String(),
     sideEffect: SideEffect,
     target: Nullable(Target),

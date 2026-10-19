@@ -4,14 +4,26 @@ import { ChecklistItem } from "./blocks.ts";
 
 /** Data model §3; architecture §4.5. */
 export const TaskStatus = StringEnum(
-  ["queued", "running", "awaiting_input", "awaiting_approval", "paused", "done", "failed", "cancelled"],
+  [
+    "queued",
+    "running",
+    "awaiting_input",
+    "awaiting_approval",
+    "paused",
+    "done",
+    "failed",
+    "cancelled",
+  ],
   { $id: "TaskStatus" },
 );
 export type TaskStatus = Static<typeof TaskStatus>;
 
-export const TaskOrigin = StringEnum(["chat", "automation", "idea", "goal", "channel", "subagent"], {
-  $id: "TaskOrigin",
-});
+export const TaskOrigin = StringEnum(
+  ["chat", "automation", "idea", "goal", "channel", "subagent"],
+  {
+    $id: "TaskOrigin",
+  },
+);
 export type TaskOrigin = Static<typeof TaskOrigin>;
 
 export const PlanStepStatus = StringEnum(["pending", "running", "done", "failed", "skipped"], {
@@ -118,7 +130,9 @@ export const Question = Type.Object(
 );
 export type Question = Static<typeof Question>;
 
-export const InputRequestStatus = StringEnum(["open", "answered", "cancelled"], { $id: "InputRequestStatus" });
+export const InputRequestStatus = StringEnum(["open", "answered", "cancelled"], {
+  $id: "InputRequestStatus",
+});
 
 export const InputRequest = Type.Object(
   {
@@ -127,7 +141,9 @@ export const InputRequest = Type.Object(
     threadId: Id,
     questions: Type.Array(Question, { minItems: 1, maxItems: 4 }),
     status: InputRequestStatus,
-    answer: Nullable(Type.Record(Type.String(), Type.Union([Type.String(), Type.Array(Type.String())]))),
+    answer: Nullable(
+      Type.Record(Type.String(), Type.Union([Type.String(), Type.Array(Type.String())])),
+    ),
     createdAt: IsoDateTime,
     answeredAt: Nullable(IsoDateTime),
     answeredByDeviceId: Nullable(Id),

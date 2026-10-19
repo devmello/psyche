@@ -1,11 +1,23 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id, IsoDateTime, ModelRef, Nullable, PermissionMode, Provenance, StringEnum, Usage } from "../common.ts";
+import {
+  Id,
+  IsoDateTime,
+  ModelRef,
+  Nullable,
+  PermissionMode,
+  Provenance,
+  StringEnum,
+  Usage,
+} from "../common.ts";
 import { Block } from "./blocks.ts";
 
 /** Data model §2. */
-export const ThreadKind = StringEnum(["main", "side", "incognito", "channel", "automation", "subagent"], {
-  $id: "ThreadKind",
-});
+export const ThreadKind = StringEnum(
+  ["main", "side", "incognito", "channel", "automation", "subagent"],
+  {
+    $id: "ThreadKind",
+  },
+);
 export type ThreadKind = Static<typeof ThreadKind>;
 
 export const Thread = Type.Object(
@@ -59,7 +71,9 @@ export const Message = Type.Object(
     seq: Type.Integer({ minimum: 0 }),
     role: MessageRole,
     blocks: Type.Array(Block),
-    providerNative: Nullable(Type.Unknown({ description: "Opaque provider turn, round-tripped verbatim" })),
+    providerNative: Nullable(
+      Type.Unknown({ description: "Opaque provider turn, round-tripped verbatim" }),
+    ),
     provenance: Provenance,
     replyToMessageId: Nullable(Id),
     channelRef: Nullable(ChannelRef),
