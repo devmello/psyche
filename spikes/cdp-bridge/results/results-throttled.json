@@ -1,0 +1,792 @@
+{
+  "startedAt": "2026-10-19T08:08:33.441Z",
+  "experiments": {
+    "session": {
+      "ok": true,
+      "partition": "persist:agent-spike",
+      "storagePath": ".userdata/Partitions/agent-spike",
+      "isPersistent": true,
+      "userData": ".userdata",
+      "storageFiles": [
+        "Cache",
+        "Code Cache",
+        "Cookies",
+        "Cookies-journal",
+        "DIPS",
+        "DIPS-wal",
+        "DawnGraphiteCache",
+        "DawnWebGPUCache",
+        "GPUCache",
+        "IndexedDB",
+        "Local Storage",
+        "Network Persistent State",
+        "Preferences",
+        "Session Storage",
+        "Shared Dictionary",
+        "TransportSecurity",
+        "Trust Tokens",
+        "Trust Tokens-journal",
+        "WebStorage",
+        "blob_storage",
+        "declarative_performance_observer.db",
+        "declarative_performance_observer.db-journal"
+      ],
+      "cookiesFromPreviousRun": [
+        "spike_login=1792397286942"
+      ],
+      "wallMs": 3.4
+    },
+    "memoryBaseline": {
+      "ok": true,
+      "tabs": {
+        "t1": {
+          "pids": [
+            16254
+          ],
+          "procs": [
+            {
+              "pid": 16254,
+              "type": "Tab",
+              "workingSetKB": 90496,
+              "peakKB": 90496
+            }
+          ],
+          "workingSetKB": 90496
+        },
+        "t2": {
+          "pids": [
+            16255
+          ],
+          "procs": [
+            {
+              "pid": 16255,
+              "type": "Tab",
+              "workingSetKB": 86816,
+              "peakKB": 86816
+            }
+          ],
+          "workingSetKB": 86816
+        }
+      },
+      "processes": [
+        {
+          "pid": 16228,
+          "type": "Browser",
+          "workingSetKB": 164768
+        },
+        {
+          "pid": 16241,
+          "type": "GPU",
+          "workingSetKB": 81440
+        },
+        {
+          "pid": 16242,
+          "type": "Utility",
+          "name": "Network Service",
+          "workingSetKB": 50000
+        },
+        {
+          "pid": 16253,
+          "type": "Tab",
+          "workingSetKB": 98816
+        },
+        {
+          "pid": 16254,
+          "type": "Tab",
+          "workingSetKB": 90496
+        },
+        {
+          "pid": 16255,
+          "type": "Tab",
+          "workingSetKB": 86816
+        }
+      ],
+      "wallMs": 1
+    },
+    "roundTrip": {
+      "ok": true,
+      "runtimeEvaluateViaBridgeMs": {
+        "n": 500,
+        "min": 0.1,
+        "p50": 0.1,
+        "p90": 0.1,
+        "p99": 0.4,
+        "max": 1.1,
+        "mean": 0.1
+      },
+      "socketOnlyBridgeListTabsMs": {
+        "n": 500,
+        "min": 0,
+        "p50": 0,
+        "p90": 0,
+        "p99": 0.1,
+        "max": 5.1,
+        "mean": 0
+      },
+      "runtimeEvaluateInProcessMs": {
+        "n": 500,
+        "min": 0,
+        "p50": 0,
+        "p90": 0.1,
+        "p99": 0.1,
+        "max": 0.2,
+        "mean": 0
+      },
+      "inputDispatchMouseMovedViaBridgeMs": {
+        "n": 200,
+        "min": 0.5,
+        "p50": 8.3,
+        "p90": 8.9,
+        "p99": 9.2,
+        "max": 9.2,
+        "mean": 8.2
+      },
+      "pipelined1000": {
+        "totalMs": 16.2,
+        "perSecond": 61821
+      },
+      "wallMs": 1969.1
+    },
+    "snapshots": {
+      "ok": true,
+      "rows": [
+        {
+          "name": "hn",
+          "url": "https://news.ycombinator.com/",
+          "loadMs": 818.4,
+          "loadEventFired": true,
+          "cold": {
+            "rawNodes": 1634,
+            "keptNodes": 480,
+            "interactive": 231,
+            "refs": 233,
+            "axBytes": 633462,
+            "domSnapshotBytes": 117157,
+            "snapshotChars": 21364,
+            "approxTokens": 5341,
+            "axMs": 67.53516600000012,
+            "domSnapshotMs": 68.31695900000022,
+            "layoutMs": 68.3120829999998,
+            "fetchMs": 68.41512499999999,
+            "buildMs": 2.7595830000000205,
+            "totalMs": 71.17470800000001
+          },
+          "warm": {
+            "rawNodes": 1634,
+            "keptNodes": 480,
+            "interactive": 231,
+            "refs": 233,
+            "axBytes": 633462,
+            "domSnapshotBytes": 117157,
+            "snapshotChars": 21364,
+            "approxTokens": 5341,
+            "axMs": 35.41154099999994,
+            "domSnapshotMs": 35.93825000000015,
+            "layoutMs": 35.93704200000002,
+            "fetchMs": 35.98408299999983,
+            "buildMs": 3.560375000000022,
+            "totalMs": 39.54445799999985
+          },
+          "warm2": {
+            "rawNodes": 1634,
+            "keptNodes": 480,
+            "interactive": 231,
+            "refs": 233,
+            "axBytes": 633462,
+            "domSnapshotBytes": 117157,
+            "snapshotChars": 21364,
+            "approxTokens": 5341,
+            "axMs": 34.909250000000156,
+            "domSnapshotMs": 35.43650000000025,
+            "layoutMs": 35.43554099999983,
+            "fetchMs": 35.492457999999715,
+            "buildMs": 0.9267500000000837,
+            "totalMs": 36.4192079999998
+          },
+          "refsStableAcrossSnapshots": true,
+          "tabWorkingSetMB": 111.3,
+          "tabProcesses": 1
+        },
+        {
+          "name": "wikipedia",
+          "url": "https://en.wikipedia.org/wiki/Electron_(software_framework)",
+          "loadMs": 1071.6,
+          "loadEventFired": true,
+          "cold": {
+            "rawNodes": 5343,
+            "keptNodes": 1042,
+            "interactive": 368,
+            "refs": 385,
+            "axBytes": 1983490,
+            "domSnapshotBytes": 810546,
+            "snapshotChars": 61017,
+            "approxTokens": 15254,
+            "axMs": 187.12141599999995,
+            "domSnapshotMs": 198.88895800000046,
+            "layoutMs": 198.88516600000003,
+            "fetchMs": 199.0136249999996,
+            "buildMs": 3.107625000000553,
+            "totalMs": 202.12125000000015
+          },
+          "warm": {
+            "rawNodes": 5343,
+            "keptNodes": 1042,
+            "interactive": 368,
+            "refs": 385,
+            "axBytes": 1983490,
+            "domSnapshotBytes": 810546,
+            "snapshotChars": 61017,
+            "approxTokens": 15254,
+            "axMs": 140.24304100000063,
+            "domSnapshotMs": 149.77849999999944,
+            "layoutMs": 149.77683400000024,
+            "fetchMs": 149.82587499999954,
+            "buildMs": 3.1206670000001395,
+            "totalMs": 152.94654199999968
+          },
+          "warm2": {
+            "rawNodes": 5343,
+            "keptNodes": 1042,
+            "interactive": 368,
+            "refs": 385,
+            "axBytes": 1983490,
+            "domSnapshotBytes": 810546,
+            "snapshotChars": 61017,
+            "approxTokens": 15254,
+            "axMs": 128.9019159999998,
+            "domSnapshotMs": 137.96862500000043,
+            "layoutMs": 137.96670799999993,
+            "fetchMs": 138.01991699999962,
+            "buildMs": 2.329917000000023,
+            "totalMs": 140.34983399999965
+          },
+          "refsStableAcrossSnapshots": true,
+          "tabWorkingSetMB": 164.7,
+          "tabProcesses": 1,
+          "largePayload": {
+            "inProcessMs": {
+              "n": 5,
+              "min": 61.8,
+              "p50": 64.4,
+              "p90": 68.3,
+              "p99": 68.3,
+              "max": 68.3,
+              "mean": 64.7
+            },
+            "viaBridgeMs": {
+              "n": 5,
+              "min": 120.1,
+              "p50": 120.9,
+              "p90": 127.7,
+              "p99": 127.7,
+              "max": 127.7,
+              "mean": 122.9
+            },
+            "bytes": 1983490
+          }
+        },
+        {
+          "name": "bbc-news",
+          "url": "https://www.bbc.com/news",
+          "loadMs": 2987.4,
+          "loadEventFired": true,
+          "cold": {
+            "rawNodes": 1694,
+            "keptNodes": 316,
+            "interactive": 123,
+            "refs": 229,
+            "axBytes": 643335,
+            "domSnapshotBytes": 378132,
+            "snapshotChars": 25094,
+            "approxTokens": 6274,
+            "axMs": 55.998499999999694,
+            "domSnapshotMs": 61.4057499999999,
+            "layoutMs": 61.40337499999987,
+            "fetchMs": 61.50316700000076,
+            "buildMs": 1.4130420000001322,
+            "totalMs": 62.91620900000089
+          },
+          "warm": {
+            "rawNodes": 1694,
+            "keptNodes": 316,
+            "interactive": 123,
+            "refs": 229,
+            "axBytes": 643335,
+            "domSnapshotBytes": 378132,
+            "snapshotChars": 25094,
+            "approxTokens": 6274,
+            "axMs": 37.347750000000815,
+            "domSnapshotMs": 40.27820799999972,
+            "layoutMs": 40.29254099999889,
+            "fetchMs": 40.35704200000146,
+            "buildMs": 1.128791999999521,
+            "totalMs": 41.48583400000098
+          },
+          "warm2": {
+            "rawNodes": 1694,
+            "keptNodes": 316,
+            "interactive": 123,
+            "refs": 229,
+            "axBytes": 643335,
+            "domSnapshotBytes": 378132,
+            "snapshotChars": 25094,
+            "approxTokens": 6274,
+            "axMs": 43.003624999999374,
+            "domSnapshotMs": 45.38554199999999,
+            "layoutMs": 45.38362500000039,
+            "fetchMs": 45.42670800000087,
+            "buildMs": 1.0645839999997406,
+            "totalMs": 46.49129200000061
+          },
+          "refsStableAcrossSnapshots": true,
+          "tabWorkingSetMB": 407.4,
+          "tabProcesses": 3
+        },
+        {
+          "name": "github",
+          "url": "https://github.com/electron/electron",
+          "loadMs": 1972.2,
+          "loadEventFired": true,
+          "cold": {
+            "rawNodes": 2894,
+            "keptNodes": 681,
+            "interactive": 331,
+            "refs": 387,
+            "axBytes": 1563504,
+            "domSnapshotBytes": 515503,
+            "snapshotChars": 41792,
+            "approxTokens": 10448,
+            "axMs": 129.28379099999984,
+            "domSnapshotMs": 134.1663329999992,
+            "layoutMs": 134.1805000000004,
+            "fetchMs": 134.36995799999931,
+            "buildMs": 1.69183300000077,
+            "totalMs": 136.06179100000008
+          },
+          "warm": {
+            "rawNodes": 2894,
+            "keptNodes": 681,
+            "interactive": 331,
+            "refs": 387,
+            "axBytes": 1563504,
+            "domSnapshotBytes": 515503,
+            "snapshotChars": 41792,
+            "approxTokens": 10448,
+            "axMs": 94.93833300000006,
+            "domSnapshotMs": 99.78850000000057,
+            "layoutMs": 99.8119999999999,
+            "fetchMs": 99.8544579999998,
+            "buildMs": 1.6745840000003227,
+            "totalMs": 101.52904200000012
+          },
+          "warm2": {
+            "rawNodes": 2894,
+            "keptNodes": 681,
+            "interactive": 331,
+            "refs": 387,
+            "axBytes": 1563504,
+            "domSnapshotBytes": 515503,
+            "snapshotChars": 41792,
+            "approxTokens": 10448,
+            "axMs": 90.23283300000003,
+            "domSnapshotMs": 96.87533299999996,
+            "layoutMs": 96.89679199999955,
+            "fetchMs": 96.93341700000019,
+            "buildMs": 1.9026670000002923,
+            "totalMs": 98.83608400000048
+          },
+          "refsStableAcrossSnapshots": true,
+          "tabWorkingSetMB": 253.7,
+          "tabProcesses": 1
+        },
+        {
+          "name": "mdn",
+          "url": "https://developer.mozilla.org/en-US/docs/Web/API/Window/open",
+          "loadMs": 106.8,
+          "loadEventFired": true,
+          "cold": {
+            "rawNodes": 3740,
+            "keptNodes": 457,
+            "interactive": 211,
+            "refs": 252,
+            "axBytes": 1361978,
+            "domSnapshotBytes": 562986,
+            "snapshotChars": 48259,
+            "approxTokens": 12065,
+            "axMs": 110.30554200000006,
+            "domSnapshotMs": 114.35683299999982,
+            "layoutMs": 114.3483750000014,
+            "fetchMs": 114.42045800000051,
+            "buildMs": 2.457125000000815,
+            "totalMs": 116.87758300000132
+          },
+          "warm": {
+            "rawNodes": 3740,
+            "keptNodes": 457,
+            "interactive": 211,
+            "refs": 252,
+            "axBytes": 1361978,
+            "domSnapshotBytes": 562986,
+            "snapshotChars": 48259,
+            "approxTokens": 12065,
+            "axMs": 91.61654199999975,
+            "domSnapshotMs": 95.47633400000086,
+            "layoutMs": 95.47479199999907,
+            "fetchMs": 95.51458400000047,
+            "buildMs": 2.0229159999998956,
+            "totalMs": 97.53750000000036
+          },
+          "warm2": {
+            "rawNodes": 3740,
+            "keptNodes": 457,
+            "interactive": 211,
+            "refs": 252,
+            "axBytes": 1361978,
+            "domSnapshotBytes": 562986,
+            "snapshotChars": 48259,
+            "approxTokens": 12065,
+            "axMs": 89.85916599999837,
+            "domSnapshotMs": 95.15129200000047,
+            "layoutMs": 95.14962500000001,
+            "fetchMs": 95.1859999999997,
+            "buildMs": 2.033957999999984,
+            "totalMs": 97.21995799999968
+          },
+          "refsStableAcrossSnapshots": true,
+          "tabWorkingSetMB": 171,
+          "tabProcesses": 1
+        },
+        {
+          "name": "login-fixture",
+          "url": "http://127.0.0.1:64519/login",
+          "loadMs": 54.6,
+          "loadEventFired": true,
+          "cold": {
+            "rawNodes": 28,
+            "keptNodes": 9,
+            "interactive": 5,
+            "refs": 6,
+            "axBytes": 13449,
+            "domSnapshotBytes": 3422,
+            "snapshotChars": 430,
+            "approxTokens": 108,
+            "axMs": 5.448917000001529,
+            "domSnapshotMs": 5.402749999997468,
+            "layoutMs": 5.38812500000131,
+            "fetchMs": 5.750540999997611,
+            "buildMs": 0.11929199999940465,
+            "totalMs": 5.869832999997016
+          },
+          "warm": {
+            "rawNodes": 28,
+            "keptNodes": 9,
+            "interactive": 5,
+            "refs": 6,
+            "axBytes": 13449,
+            "domSnapshotBytes": 3422,
+            "snapshotChars": 430,
+            "approxTokens": 108,
+            "axMs": 1.256416000000172,
+            "domSnapshotMs": 1.3029590000005555,
+            "layoutMs": 1.3013749999990978,
+            "fetchMs": 1.3337080000019341,
+            "buildMs": 0.05574999999953434,
+            "totalMs": 1.3894580000014685
+          },
+          "warm2": {
+            "rawNodes": 28,
+            "keptNodes": 9,
+            "interactive": 5,
+            "refs": 6,
+            "axBytes": 13449,
+            "domSnapshotBytes": 3422,
+            "snapshotChars": 430,
+            "approxTokens": 108,
+            "axMs": 1.2634160000015981,
+            "domSnapshotMs": 1.2874999999985448,
+            "layoutMs": 1.284458000001905,
+            "fetchMs": 1.3088339999994787,
+            "buildMs": 0.026999999998224666,
+            "totalMs": 1.3358339999977034
+          },
+          "refsStableAcrossSnapshots": true,
+          "tabWorkingSetMB": 99,
+          "tabProcesses": 1
+        }
+      ],
+      "wallMs": 14291.6
+    },
+    "loginByRef": {
+      "ok": true,
+      "refs": {
+        "user": "ref_2",
+        "pass": "ref_3",
+        "remember": "ref_4",
+        "submit": "ref_5"
+      },
+      "refsStableAfterTyping": true,
+      "timings": {
+        "clickMs": 5.9,
+        "typeMs": 1.7,
+        "submitClickMs": 6.7
+      },
+      "resultText": "Welcome ada (password 16 chars, remember=true)",
+      "isolatedWorld": {
+        "seesPageGlobal": "undefined",
+        "mainWorldSeesPageGlobal": "string",
+        "seesDomValue": "ada"
+      },
+      "snapshotAfterTyping": "- RootWebArea \"Sign in — fixture\" [focused]\n  - heading \"Sign in\" [ref=ref_1] [level=1] @40,40,980x38\n  - form\n    - text \"Username\"\n    - textbox \"Username\" [ref=ref_2] value=\"ada\" @118,103,193x35\n      - text \"ada\"\n    - text \"Password\"\n    - textbox \"Password\" [ref=ref_3] value=\"••••••••••••••••\" @114,156,193x35\n      - text \"••••••••••••••••\"\n    - checkbox \"Remember me\" [ref=ref_4] [focused] [checked] @40,209,13x13\n    - button \"Sign in\" [ref=ref_5] @40,230,65x35\n  - status\n  - link \"Forgot password?\" [ref=ref_6] @40,285,129x19",
+      "wallMs": 143.5
+    },
+    "screencast": {
+      "ok": true,
+      "frames": 10,
+      "firstFrameMs": 29.5,
+      "intervalMs": {
+        "n": 9,
+        "min": 5.8,
+        "p50": 9.8,
+        "p90": 18.6,
+        "p99": 18.6,
+        "max": 18.6,
+        "mean": 10.7
+      },
+      "frameKB": {
+        "n": 10,
+        "min": 8.8,
+        "p50": 8.8,
+        "p90": 8.9,
+        "p99": 8.9,
+        "max": 8.9,
+        "mean": 8.8
+      },
+      "deviceSize": "1060x828",
+      "hiddenViewFramesIn2s": 1,
+      "hiddenViewRafCounter": "18",
+      "wallMs": 2156.1
+    },
+    "takeControl": {
+      "ok": true,
+      "phaseA": {
+        "falsePositiveControlEvents": 0,
+        "echoesFiltered": 245
+      },
+      "phaseB": {
+        "attempts": 169,
+        "refused": 70,
+        "acceptedWhileUserActive": 0,
+        "userTypingMs": 403.9,
+        "firstRefusalAfterUserStartMs": 0.1,
+        "resumeAfterUserEndMs": 1442.4,
+        "controlEvents": [
+          {
+            "atMs": 504.1,
+            "active": true,
+            "via": "keyboard",
+            "type": "keyDown"
+          },
+          {
+            "atMs": 2332.9,
+            "active": false
+          },
+          {
+            "atMs": 6830.2,
+            "active": true,
+            "via": "mouse",
+            "type": "mouseDown"
+          },
+          {
+            "atMs": 8336.3,
+            "active": false
+          },
+          {
+            "atMs": 9343.9,
+            "active": true,
+            "via": "button"
+          },
+          {
+            "atMs": 11346.9,
+            "active": false
+          }
+        ],
+        "fieldValue": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxxxxxxxxxxxxxxxxxxxHUMANxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "keydownTrusted": "[[\"k\",true],[\"e\",true],[\"y\",true],[\"h\",true],[\"u\",true],[\"m\",true],[\"a\",true],[\"n\",true]]"
+      },
+      "phaseB2": {
+        "attempts": 112,
+        "refused": 56,
+        "firstRefusalAfterClickMs": 21.2,
+        "resumeAfterClickMs": 1506.7
+      },
+      "phaseC": {
+        "buttonHoldRefused": true,
+        "stillRefusedAfter2s": true,
+        "resumedAfterRelease": true
+      },
+      "counters": {
+        "user": 6,
+        "agentEcho": 245,
+        "refused": 128
+      },
+      "wallMs": 12356.3
+    },
+    "focus": {
+      "ok": true,
+      "rows": [
+        {
+          "state": "focused",
+          "window": {
+            "windowFocused": true,
+            "minimized": false,
+            "wcFocused": true,
+            "visible": true
+          },
+          "before": {
+            "hasFocus": true,
+            "visibility": "visible"
+          },
+          "cdpClickRegistered": true,
+          "cdpInsertTextRegistered": true,
+          "cdpErrors": [],
+          "sendInputEventRegistered": true,
+          "finalValue": "cdpsi"
+        },
+        {
+          "state": "blurred",
+          "window": {
+            "windowFocused": false,
+            "minimized": false,
+            "wcFocused": false,
+            "visible": true
+          },
+          "before": {
+            "hasFocus": false,
+            "visibility": "visible"
+          },
+          "cdpClickRegistered": true,
+          "cdpInsertTextRegistered": true,
+          "cdpErrors": [],
+          "sendInputEventRegistered": true,
+          "finalValue": "cdpsi"
+        },
+        {
+          "state": "minimized",
+          "window": {
+            "windowFocused": false,
+            "minimized": false,
+            "wcFocused": false,
+            "visible": true
+          },
+          "before": {
+            "hasFocus": true,
+            "visibility": "hidden"
+          },
+          "cdpClickRegistered": true,
+          "cdpInsertTextRegistered": true,
+          "cdpErrors": [],
+          "sendInputEventRegistered": true,
+          "finalValue": "cdpsi"
+        },
+        {
+          "state": "viewHidden",
+          "window": {
+            "windowFocused": true,
+            "minimized": false,
+            "wcFocused": false,
+            "visible": false
+          },
+          "before": {
+            "hasFocus": true,
+            "visibility": "hidden"
+          },
+          "cdpClickRegistered": true,
+          "cdpInsertTextRegistered": true,
+          "cdpErrors": [],
+          "sendInputEventRegistered": true,
+          "finalValue": "cdpsi"
+        }
+      ],
+      "wallMs": 6140.6
+    },
+    "popupOAuth": {
+      "ok": true,
+      "childTab": "t3",
+      "url": "http://127.0.0.1:64519/oauth/authorize?client_id=spike&state=xyz",
+      "disposition": "new-window",
+      "childUrl": "http://127.0.0.1:64519/oauth/authorize?client_id=spike&state=xyz complete",
+      "openerTabId": "t1",
+      "openerVisibleInPopup": "opener: document.write(window.opener ? 'present' : 'missing')present",
+      "childSnapshot": "- RootWebArea \"Authorize — fixture\" [focused]\n  - heading \"Provider\" [ref=ref_1] [level=1] @40,40,980x38\n  - text \"Allow\"\n  - text \"Example app\"\n  - text \"to read your profile?\"\n  - text \"opener:\"\n  - text \"present\"\n  - button \"Approve\" [ref=ref_2] @40,173,77x35",
+      "popupClosedItself": true,
+      "openerReceived": "token tok_123 from http://127.0.0.1:64519",
+      "popupRequestCookies": "spike_login=1792397329731; spike_app=1",
+      "wallMs": 310.8
+    },
+    "downloads": {
+      "ok": true,
+      "inlineDoc": "{\"type\":\"application/pdf\",\"embeds\":0}",
+      "attachment": {
+        "url": "http://127.0.0.1:64519/file.pdf",
+        "filename": "report.pdf",
+        "mime": "application/pdf",
+        "savePath": ".out/quarantine/1792397350866-report.pdf",
+        "state": "completed",
+        "bytes": 590,
+        "tabId": "t1",
+        "bytesOnDisk": 590,
+        "headerStartsPdf": "%PDF-"
+      },
+      "inlinePdf": {
+        "becameDownload": false,
+        "tabUrl": "http://127.0.0.1:64519/inline.pdf"
+      },
+      "wallMs": 7628.6
+    },
+    "memoryTwoTabs": {
+      "ok": true,
+      "tabs": {
+        "t1": {
+          "workingSetMB": 148.9,
+          "procs": 1
+        },
+        "t2": {
+          "workingSetMB": 91.7,
+          "procs": 1
+        }
+      },
+      "totalByProcessTypeMB": {
+        "Browser": 148.6,
+        "GPU": 98.6,
+        "Utility": 56,
+        "Tab": 325.5
+      },
+      "wallMs": 1592.9
+    },
+    "devtoolsDetach": {
+      "ok": true,
+      "detachEvent": null,
+      "stateWhileDevToolsOpen": {
+        "attached": true,
+        "devToolsOpen": true
+      },
+      "commandWhileDevToolsOpen": 21,
+      "reattachedOnClose": true,
+      "evalAfterClose": 42,
+      "pageEventsAfterReattach": true,
+      "wallMs": 5118.7
+    },
+    "forcedDetach": {
+      "ok": true,
+      "detachEvent": {
+        "reason": "target closed"
+      },
+      "commandWhileDetached": "DETACHED",
+      "pageEventsWithoutReenable": false,
+      "wallMs": 4003.6
+    }
+  },
+  "finishedAt": "2026-10-19T08:09:29.184Z",
+  "bridgeBytesIn": 36358393,
+  "backgroundThrottling": true
+}

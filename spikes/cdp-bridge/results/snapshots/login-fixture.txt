@@ -1,0 +1,11 @@
+- RootWebArea "Sign in — fixture" [focused]
+  - heading "Sign in" [ref=ref_1] [level=1] @40,40,980x38
+  - form
+    - text "Username"
+    - textbox "Username" [ref=ref_2] @118,103,193x35
+    - text "Password"
+    - textbox "Password" [ref=ref_3] @114,156,193x35
+    - checkbox "Remember me" [ref=ref_4] @40,209,13x13
+    - button "Sign in" [ref=ref_5] @40,230,65x35
+  - status
+  - link "Forgot password?" [ref=ref_6] @40,285,129x19

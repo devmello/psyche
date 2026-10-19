@@ -1,0 +1,15 @@
+{
+  "name": "psyche-spike-cdp-bridge",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Spike 01: Electron WebContentsView + webContents.debugger bridged to an external Node process over a Unix socket",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "start": "node run.mjs",
+    "app": "electron main.mjs"
+  },
+  "devDependencies": {
+    "electron": "44.9.0"
+  }
+}
