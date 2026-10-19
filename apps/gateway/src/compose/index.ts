@@ -93,20 +93,21 @@ export interface ComposeOptions
   /**
    * Subsystems mounted on the composed services (INT-2: browser, connectors, channels). Each
    * returns handlers, tools (registered through `services.tools`) and start / stop hooks; a
-   * part with a `relay` delivers approvals to chat and names owner senders.
+   * part with a `relay` delivers approvals beyond the in-app surfaces (chat, the Mac helper).
    */
   parts?: ReadonlyArray<(services: ComposeServices) => Promise<ComposedPart> | ComposedPart>;
   /**
-   * Touch ID (mac helper) or passkey assertions for approvals that require authentication
-   * (purchase, credential fill, host exec; security §3.7). Defaults to refusing every assertion.
+   * Passkey assertions for approvals that require authentication (purchase, credential fill,
+   * host exec; security §3.7). Helper (Touch ID) assertions go to the helper part's verifier.
+   * Defaults to refusing every assertion.
    */
   presence?: PresenceVerifier;
 }
 
 /**
- * No presence verifier is wired yet (S14 helper Touch ID, S01 passkeys), and the broker only
- * checks presence when it has one. Fail closed: approvals that require authentication cannot be
- * answered until a real verifier is configured.
+ * The broker only checks presence when it has a verifier. Fail closed: an assertion kind no
+ * verifier handles (passkeys until S01 #79) is refused, so approvals that require
+ * authentication cannot be answered with it.
  */
 const NO_PRESENCE: PresenceVerifier = { verify: async () => false };
 
@@ -199,25 +200,38 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   const storedPolicy = validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger);
   const tokens = new ApprovalTokens();
-  let relay: ApprovalRelay | undefined;
+  const relays: ApprovalRelay[] = [];
+  const parts: ComposedPart[] = [];
+  const presenceByKind = new Map<string, PresenceVerifier>();
   const rawBroker = new PsychePermissionBroker({
     approvers: {
       async device(deviceId) {
         const d = getDevice(db, deviceId);
-        return d === undefined
-          ? undefined
-          : { scopes: d.scopes, ...(d.revokedAt ? { revoked: true } : {}) };
+        if (d === undefined) return undefined;
+        // The mac helper answers only through its part's relay, on the `notification` surface.
+        const viaPart = parts.some((p) => p.approver?.(deviceId) === true);
+        return {
+          scopes: viaPart ? [...d.scopes, "operator.approvals"] : d.scopes,
+          ...(d.revokedAt ? { revoked: true } : {}),
+        };
       },
       // Channel owners (S10) come from the channels part, when one is mounted.
-      isOwnerSender: async (channel, senderId) =>
-        (await relay?.isOwnerSender(channel, senderId)) ?? false,
+      async isOwnerSender(channel, senderId) {
+        for (const r of relays) {
+          if ((await r.isOwnerSender(channel, senderId)) === true) return true;
+        }
+        return false;
+      },
     },
     store: new SqlitePermissionStore(db.sqlite),
     audit,
     notifier,
     clock,
     psycheHome: config.home,
-    presence,
+    presence: {
+      verify: (assertion, challenge, deviceId) =>
+        (presenceByKind.get(assertion.kind) ?? presence).verify(assertion, challenge, deviceId),
+    },
     // The agent never acts on Psyche's own UI (prohibitions `gateway_origin`): every origin it is served on.
     gatewayOrigins: [
       `http://127.0.0.1:${config.port}`,
@@ -228,7 +242,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ? {}
       : { policy: (policy ?? storedPolicy) as PolicyConfig }),
   });
-  const broker = withRelay(tokens.wrap(rawBroker), () => relay, gwOptions.logger);
+  const broker = withRelay(tokens.wrap(rawBroker), relays, gwOptions.logger);
   broker.subscribe((e) => {
     if (
       e.type === "approval.decided" ||
@@ -291,11 +305,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     publish,
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   };
-  const parts: ComposedPart[] = [];
   for (const factory of partFactories) {
     const part = await factory(services);
     parts.push(part);
-    if (part.relay !== undefined) relay = part.relay;
+    if (part.relay !== undefined) relays.push(part.relay);
+    if (part.presence !== undefined) presenceByKind.set(part.presence.kind, part.presence.verifier);
   }
 
   // scheduler → launcher → worker pool → loop → scheduler: the launcher is bound once the pool exists.
@@ -437,33 +451,41 @@ export {
   MemoryTokenVault,
 } from "./connectors.ts";
 export { fileTools } from "./file-tools.ts";
+export {
+  composeHelper,
+  HELPER_SURFACE,
+  type HelperSetup,
+  helperPresenceMessage,
+  helperPresenceVerifier,
+} from "./helper.ts";
 export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { partsFromEnv } from "./parts.ts";
 export type { ApprovalRelay, ComposedPart, ComposeServices } from "./services.ts";
 export { createLogger, surfaceOf };
 
 /**
- * Approvals also go to the owner's chat surfaces (S10 `ownerSurfaces`, `deliverApproval`). The
- * broker drops chat surfaces from device-only kinds itself (security §3.7), and the channel
- * service refuses ineligible kinds, so delivery is best-effort and never blocks the request.
+ * Approvals also go to the owner's chat surfaces (S10 `ownerSurfaces`, `deliverApproval`) and
+ * to the Mac helper's notifications. The broker drops chat surfaces from device-only kinds
+ * itself (security §3.7), and the channel service refuses ineligible kinds, so delivery is
+ * best-effort and never blocks the request.
  */
 function withRelay<B extends PermissionBroker>(
   broker: B,
-  relay: () => ApprovalRelay | undefined,
+  relays: readonly ApprovalRelay[],
   log: ComposeOptions["logger"],
 ): B {
   const deliver = (issued: IssuedApproval) => {
-    const r = relay();
-    if (r === undefined) return;
-    r.deliver(issued).catch((err) =>
-      log?.log("warn", "approval delivery to chat failed", { code: PsycheError.from(err).code }),
-    );
+    for (const r of relays) {
+      r.deliver(issued).catch((err) =>
+        log?.log("warn", "approval delivery failed", { code: PsycheError.from(err).code }),
+      );
+    }
   };
   return new Proxy(broker, {
     get(target, prop, receiver) {
       if (prop === "requestApproval") {
         return async (input: ApprovalRequestInput) => {
-          const extra = relay()?.surfaces() ?? [];
+          const extra = relays.flatMap((r) => r.surfaces());
           const issued = await target.requestApproval(
             extra.length === 0
               ? input
