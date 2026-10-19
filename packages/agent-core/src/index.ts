@@ -11,5 +11,12 @@ export * from "./hooks.ts";
 export * from "./loop.ts";
 export * from "./questions.ts";
 export * from "./registry.ts";
+export * from "./requester.ts";
 export * from "./state.ts";
-export { bindingHash, canonicalJSON, type IdSource, paramsHash } from "./util.ts";
+export {
+  bindingHash,
+  canonicalJSON,
+  dedupeSources,
+  type IdSource,
+  paramsHash,
+} from "./util.ts";

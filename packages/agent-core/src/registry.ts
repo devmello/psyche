@@ -2,9 +2,12 @@ import {
   type PermissionMode,
   type ProvenanceOut,
   PsycheError,
+  type Requester,
   type RunMode,
   type SideEffect,
+  type TaintSource,
   type TargetKind,
+  type ToolCallAuthority,
   type ToolCallDescription,
   type ToolExecutor,
   type ToolRegistration,
@@ -25,10 +28,20 @@ export interface ToolRunContext {
   taskId?: string;
   /** The turn has read untrusted content: writes must carry `untrusted` provenance. */
   taint: boolean;
+  /** Where the taint came from (security §3.6), oldest first; absent or empty when not tainted. */
+  taintSources?: readonly TaintSource[];
   permissionMode: PermissionMode;
   mode: RunMode;
-  /** Approval that authorized this dispatch, when the broker asked. */
+  /** Approval that authorized this dispatch, when the broker asked (= `authority.approvalId`). */
   approvalId?: string;
+  /**
+   * What authorized this dispatch (security §3.3): the broker's decision as the loop verified
+   * it right before the call. Executors with their own enforcement confirm, without consuming,
+   * that the approval or standing grant it names is live and covers these exact arguments.
+   */
+  authority?: ToolCallAuthority;
+  /** Who asked for the turn (security §9); absent means the owner. */
+  requester?: Requester;
   signal: AbortSignal;
   onUpdate: (update: ToolUpdate) => void;
 }

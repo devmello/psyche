@@ -1,5 +1,18 @@
 import { createHash, randomUUID } from "node:crypto";
-import type { Clock, SideEffect } from "@psyche/protocol";
+import type { Clock, SideEffect, TaintSource } from "@psyche/protocol";
+
+/** Taint sources without repeats, first occurrence first (cards and task records stay short). */
+export function dedupeSources(sources: readonly TaintSource[]): TaintSource[] {
+  const seen = new Set<string>();
+  const out: TaintSource[] = [];
+  for (const s of sources) {
+    const key = canonicalJSON(s);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ ...s });
+  }
+  return out;
+}
 
 /**
  * Canonical JSON (security §3.5): sorted keys, no insignificant whitespace, NFC strings,
