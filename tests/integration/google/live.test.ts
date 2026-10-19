@@ -13,8 +13,8 @@ import { answer, type PartsSkeleton, startWithParts } from "./harness.ts";
  *
  * Skeleton only: tokens live in the in-memory stand-in vault, and a Desktop client whose token
  * exchange insists on the client secret cannot connect until the secret can come from the vault
- * (`{{cred:…}}` with `approveSecret`, S06). Writes stop at the loop's `kind:mismatch` (see
- * google.test.ts) until that gap closes, so this run checks the reads and prints timings.
+ * (`{{cred:…}}` with `approveSecret`, S06). It checks the reads and prints timings; the write
+ * path through the loop (issue #78, fixed) is covered by google.test.ts.
  */
 
 const LIVE =
