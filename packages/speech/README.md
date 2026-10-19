@@ -108,7 +108,7 @@ Synthesize once to PCM, then encode per channel. Caps are upload limits; when a 
 
 ## Stubbed or open
 
-- `voice.*` and `speech.readAloud` method/event schemas are not in `packages/protocol` yet; this package defines matching local types (`src/voice.ts`, `src/readAloud.ts`) and the Gateway (S01) wires them once the protocol change lands.
+- `voice.*` and `speech.readAloud` method/event schemas are in devmello/psyche#56 (unmerged); this package defines matching local types (`src/voice.ts`, `src/readAloud.ts`) and the Gateway (S01) wires them once it lands.
 - `NodeSpeechEngine` follows the helper's capability spec in devmello/psyche#47 (`speech.transcribe_stream` with `source: "push"`, `speech.audio_push`, `speech.synthesize`, `speech.voices`), tested against a fake helper; not yet run against the real helper because #47 is unmerged.
 - Moonshine is not wired: there is no maintained Node binding; `@huggingface/transformers` would work but pulls `sharp` (LGPL libvips).
 - The Library writer and message reader for read-aloud are injected interfaces; no contract exists for them yet.
