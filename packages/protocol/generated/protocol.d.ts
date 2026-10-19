@@ -211,8 +211,12 @@ export interface Automation {
     kind:        AutomationKind;
     lastRunAt?:  null | string;
     lastStatus?: null | string;
-    nextRunAt?:  null | string;
-    prompt:      string;
+    /**
+     * Heartbeat: skip workspace bootstrap files (feature O2)
+     */
+    lightContext?: boolean;
+    nextRunAt?:    null | string;
+    prompt:        string;
     /**
      * cron expression, ISO-8601 duration or watch interval
      */
@@ -225,6 +229,7 @@ export interface Automation {
     timezone:      string;
     title:         string;
     updatedAt:     string;
+    watch?:        WatchConfig;
 }
 
 export interface Delivery {
@@ -234,13 +239,70 @@ export interface Delivery {
     webhook?: string;
 }
 
-export type AutomationKind = "cron" | "interval" | "watch" | "heartbeat" | "briefing";
+/**
+ * `reminder` is a one-shot: `schedule` is an ISO-8601 instant
+ */
+export type AutomationKind = "cron" | "interval" | "watch" | "heartbeat" | "briefing" | "reminder";
+
+export interface WatchConfig {
+    check: WatchCheck;
+    /**
+     * Regex over the fetched text; capture group 1 is the value
+     */
+    selector?: string;
+    /**
+     * text_present: the text to look for
+     */
+    text?: string;
+    /**
+     * price_below / price_above
+     */
+    threshold?: number;
+    url:        string;
+}
+
+export type WatchCheck = "change" | "text_present" | "price_below" | "price_above";
+
+export interface AutomationRunFinishedPayload {
+    run: AutomationRun;
+}
+
+export interface AutomationRun {
+    automationId: string;
+    /**
+     * Missed ticks folded into this run
+     */
+    coalesced:       number;
+    endedAt?:        null | string;
+    id:              string;
+    notificationId?: null | string;
+    scheduledFor:    string;
+    startedAt:       string;
+    status:          AutomationRunStatus;
+    summary?:        null | string;
+    taskId?:         null | string;
+    threadId?:       null | string;
+    trigger:         Trigger;
+}
+
+export type AutomationRunStatus = "running" | "done" | "no_reply" | "failed" | "cancelled" | "skipped";
+
+export type Trigger = "schedule" | "manual";
+
+export interface AutomationRunStartedPayload {
+    run: AutomationRun;
+}
+
+export interface AutomationUpdatedPayload {
+    automation: Automation;
+}
 
 export interface AutomationsCreateParams {
-    delivery?: Delivery;
-    enabled?:  boolean;
-    kind:      AutomationKind;
-    prompt:    string;
+    delivery?:     Delivery;
+    enabled?:      boolean;
+    kind:          AutomationKind;
+    lightContext?: boolean;
+    prompt:        string;
     /**
      * cron expression, ISO-8601 duration or watch interval
      */
@@ -254,6 +316,7 @@ export interface AutomationsCreateParams {
      */
     timezone?: string;
     title:     string;
+    watch?:    WatchConfig;
 }
 
 export interface AutomationsDeleteParams {
@@ -277,15 +340,54 @@ export interface AutomationsRunResult {
     taskId?: null | string;
 }
 
-export interface AutomationsUpdateParams {
+export interface AutomationsRunsParams {
     automationId: string;
-    delivery?:    Delivery;
-    enabled?:     boolean;
-    prompt?:      string;
+    /**
+     * Opaque cursor
+     */
+    cursor?: string;
+    limit?:  number;
+}
+
+export interface AutomationsRunsResult {
+    nextCursor?: null | string;
+    runs:        AutomationRun[];
+}
+
+export interface AutomationsUpcomingParams {
+    horizonHours?: number;
+    limit?:        number;
+}
+
+export interface AutomationsUpcomingResult {
+    items: UpcomingItem[];
+}
+
+export interface UpcomingItem {
+    automationId?: string;
+    enabled:       boolean;
+    id:            string;
+    kind:          UpcomingItemKind;
+    nextRunAt?:    null | string;
+    schedule?:     string;
+    taskId?:       string;
+    timezone?:     string;
+    title:         string;
+}
+
+export type UpcomingItemKind = "automation" | "reminder" | "briefing" | "heartbeat" | "watch" | "input_request";
+
+export interface AutomationsUpdateParams {
+    automationId:  string;
+    delivery?:     Delivery;
+    enabled?:      boolean;
+    lightContext?: boolean;
+    prompt?:       string;
     /**
      * cron expression, ISO-8601 duration or watch interval
      */
     schedule?: string;
+    scratch?:  null | string;
     /**
      * main | isolated | named:<id>
      */
@@ -295,6 +397,7 @@ export interface AutomationsUpdateParams {
      */
     timezone?: string;
     title?:    string;
+    watch?:    WatchConfig;
 }
 
 export interface BridgeCDPEventPayload {
@@ -1084,7 +1187,11 @@ export interface FeedFeedbackParams {
 export type FeedFeedback = "like" | "save" | "not_interested" | "hide_source" | "follow_topic";
 
 export interface FeedFeedbackResult {
-    post: FeedPost;
+    /**
+     * interests.md lines the feedback changed
+     */
+    ledgerChanges?: string[];
+    post:           FeedPost;
 }
 
 export interface FeedPost {
@@ -1110,6 +1217,14 @@ export interface Citation {
     url:     string;
 }
 
+export interface FeedGenerateParams {
+    briefingId?: string;
+}
+
+export interface FeedGenerateResult {
+    posts: FeedPost[];
+}
+
 export interface FeedListParams {
     briefingId?: string;
     /**
@@ -1128,6 +1243,11 @@ export interface FeedListResult {
 
 export interface FeedPostPayload {
     post: FeedPost;
+}
+
+export interface FeedUpdatedPayload {
+    briefingId?: string;
+    posts:       FeedPost[];
 }
 
 export interface FileBlock {
@@ -1192,6 +1312,50 @@ export type GoalCategory = "health" | "finance" | "career" | "relationships" | "
 
 export type GoalStatus = "candidate" | "active" | "paused" | "done" | "archived";
 
+export interface GoalsArchiveParams {
+    goalId: string;
+}
+
+export interface GoalsArchiveResult {
+    goal: Goal;
+}
+
+export interface GoalsCreateParams {
+    cadence?:    null | string;
+    category:    GoalCategory;
+    milestones?: Milestone[];
+    plan?:       { [key: string]: unknown } | null;
+    timezone?:   string;
+    title:       string;
+}
+
+export interface Milestone {
+    dueAt?: null | string;
+    title:  string;
+}
+
+export interface GoalsCreateResult {
+    goal:       Goal;
+    links:      GoalLink[];
+    milestones: GoalMilestone[];
+    taskIds:    string[];
+}
+
+export interface GoalLink {
+    automationId?: null | string;
+    goalId:        string;
+    taskId?:       null | string;
+    watchId?:      null | string;
+}
+
+export interface GoalMilestone {
+    doneAt?: null | string;
+    dueAt?:  null | string;
+    goalId:  string;
+    id:      string;
+    title:   string;
+}
+
 export interface GoalsDecideParams {
     decision: GoalDecision;
     goalId:   string;
@@ -1208,8 +1372,18 @@ export interface GoalsGetParams {
 }
 
 export interface GoalsGetResult {
-    goal:    Goal;
-    taskIds: string[];
+    goal:        Goal;
+    links?:      GoalLink[];
+    milestones?: GoalMilestone[];
+    taskIds:     string[];
+}
+
+export interface GoalsLinkParams {
+    automationId?: string;
+    goalId:        string;
+    taskId?:       string;
+    unlink?:       boolean;
+    watchId?:      string;
 }
 
 export interface GoalsListParams {
@@ -1219,6 +1393,40 @@ export interface GoalsListParams {
 
 export interface GoalsListResult {
     goals: Goal[];
+}
+
+export interface GoalsMilestoneParams {
+    done?:        boolean;
+    dueAt?:       null | string;
+    goalId:       string;
+    milestoneId?: string;
+    remove?:      boolean;
+    title?:       string;
+}
+
+export interface GoalsMilestoneResult {
+    goal:       Goal;
+    links:      GoalLink[];
+    milestones: GoalMilestone[];
+    taskIds:    string[];
+}
+
+export interface GoalsUpdateParams {
+    cadence?:  null | string;
+    category?: GoalCategory;
+    goalId:    string;
+    plan?:     { [key: string]: unknown } | null;
+    status?:   GoalsUpdateParamsStatus;
+    title?:    string;
+}
+
+export type GoalsUpdateParamsStatus = "active" | "paused" | "done";
+
+export interface GoalsUpdateResult {
+    goal:       Goal;
+    links:      GoalLink[];
+    milestones: GoalMilestone[];
+    taskIds:    string[];
 }
 
 export interface GrantsListParams {
@@ -1264,6 +1472,9 @@ export interface IdeasAcceptParams {
     brief?:     string;
     ideaId:     string;
     recurring?: boolean;
+    schedule?:  string;
+    threadId?:  string;
+    timezone?:  string;
 }
 
 export interface IdeasAcceptResult {
@@ -1732,28 +1943,43 @@ export interface NotificationCreatedPayload {
 }
 
 export interface Notification {
-    actions:     NotificationAction[];
-    approvalId?: null | string;
-    body:        string;
-    createdAt:   string;
-    delivered:   { [key: string]: string };
-    id:          string;
-    kind:        NotificationKind;
-    readAt?:     null | string;
-    resolvedAt?: null | string;
-    route?:      null | string;
-    surfaces:    string[];
-    taskId?:     null | string;
-    title:       string;
+    actions:      NotificationAction[];
+    approvalId?:  null | string;
+    body:         string;
+    createdAt:    string;
+    delivered:    { [key: string]: string };
+    id:           string;
+    kind:         NotificationKind;
+    readAt?:      null | string;
+    resolvedAt?:  null | string;
+    route?:       null | string;
+    staleAt?:     null | string;
+    staleReason?: null | string;
+    surfaces:     string[];
+    taskId?:      null | string;
+    title:        string;
 }
 
 export interface NotificationAction {
-    destructive?: boolean;
-    id:           string;
-    label:        string;
+    /**
+     * OS delivery requires device authentication (Touch ID) before the action runs; set for
+     * purchase and credential-fill approvals (security §3.5)
+     */
+    authenticationRequired?: boolean;
+    destructive?:            boolean;
+    id:                      string;
+    label:                   string;
 }
 
 export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system";
+
+export interface NotificationResolvedPayload {
+    notification: Notification;
+}
+
+export interface NotificationUpdatedPayload {
+    notification: Notification;
+}
 
 export interface NotificationsListParams {
     /**
