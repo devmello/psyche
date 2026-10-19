@@ -1,7 +1,7 @@
 -- S15 notifications inbox (data model §8 `notifications`, plus routing state).
 -- Shipped in @psyche/notifications until S01 registers it under packages/db/migrations
 -- (adding it there needs a matching drizzle table in @psyche/db's schema.ts; see docs/status/s15.md).
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
   id TEXT PRIMARY KEY,
   kind TEXT NOT NULL CHECK (kind IN ('approval', 'input_needed', 'task_done', 'task_failed', 'proactive', 'briefing', 'reminder', 'system')),
   title TEXT NOT NULL,
@@ -21,12 +21,12 @@ CREATE TABLE notifications (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
-CREATE INDEX notifications_seq_idx ON notifications (seq);
-CREATE UNIQUE INDEX notifications_open_dedupe_idx ON notifications (dedupe_key)
+CREATE INDEX IF NOT EXISTS notifications_seq_idx ON notifications (seq);
+CREATE UNIQUE INDEX IF NOT EXISTS notifications_open_dedupe_idx ON notifications (dedupe_key)
   WHERE dedupe_key IS NOT NULL AND resolved_at IS NULL;
-CREATE INDEX notifications_open_task_idx ON notifications (task_id) WHERE resolved_at IS NULL;
+CREATE INDEX IF NOT EXISTS notifications_open_task_idx ON notifications (task_id) WHERE resolved_at IS NULL;
 
-CREATE TABLE notification_deliveries (
+CREATE TABLE IF NOT EXISTS notification_deliveries (
   notification_id TEXT NOT NULL REFERENCES notifications (id) ON DELETE CASCADE,
   surface TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('pending', 'deferred', 'delivered', 'failed', 'suppressed')),
@@ -38,5 +38,5 @@ CREATE TABLE notification_deliveries (
   updated_at TEXT NOT NULL,
   PRIMARY KEY (notification_id, surface)
 );
-CREATE INDEX notification_deliveries_due_idx ON notification_deliveries (due_at)
+CREATE INDEX IF NOT EXISTS notification_deliveries_due_idx ON notification_deliveries (due_at)
   WHERE status IN ('pending', 'deferred');
