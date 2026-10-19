@@ -17,7 +17,9 @@
       "!**/.build",
       "!research_notes",
       "!reports",
-      "!pnpm-lock.yaml"
+      "!pnpm-lock.yaml",
+      "!spikes",
+      "!tests/corpus/review-cases"
     ]
   },
   "formatter": {
