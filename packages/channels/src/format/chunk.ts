@@ -1,9 +1,10 @@
 import { type Flavor, renderMarkdown, renderPlain, splitBlocks } from "./markdown.ts";
 
 /**
- * Splits a message into pieces whose *rendered* length fits the channel limit (feature N1).
- * Splits prefer paragraph, then line, then word boundaries; code fences are closed and reopened
- * around a split so every piece renders on its own.
+ * Splits a message into source pieces whose *rendered* length fits the channel limit (feature
+ * N1). Pieces stay in the input format (the adapter renders them). Splits prefer paragraph, then
+ * line, then word boundaries; code fences are closed and reopened around a split so every piece
+ * renders on its own.
  */
 export function chunkMessage(
   text: string,
@@ -15,7 +16,7 @@ export function chunkMessage(
   const markdown = options.format === "markdown";
   const render = (s: string) => (markdown ? renderMarkdown(s, flavor) : renderPlain(s, flavor));
   const fits = (s: string) => render(s).length <= limit;
-  if (fits(text)) return text.trim() === "" ? [] : [render(text)];
+  if (fits(text)) return text.trim() === "" ? [] : [text];
 
   const pieces: string[] = [];
   const units = markdown ? markdownUnits(text) : text.split(/\n{2,}/);
@@ -36,7 +37,7 @@ export function chunkMessage(
     }
   }
   if (current !== "") out.push(current);
-  return out.map(render);
+  return out;
 }
 
 /** Paragraphs of text, and each fenced code block as one unit (re-fenced). */
