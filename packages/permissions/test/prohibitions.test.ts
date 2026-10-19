@@ -1,9 +1,22 @@
+import { luhnValid } from "@psyche/audit";
+import { fixtureSecret, loadSecretRegistry, resolveSample } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { createLocalProjectVerifier, type LocalProjectVerifier } from "../src/index.ts";
 import { CTX, call, makeBroker, origin, path } from "./helpers.ts";
 
-// Secret-shaped strings are built at runtime so scripts/ci/secret-grep.sh never matches them.
+// Secret-shaped strings are built at runtime or read from the S18 fixture registry, so the repo
+// secret scans never match a tracked line.
 const j = (...p: string[]) => p.join("");
+const registry = loadSecretRegistry();
+const sample = (k: "card" | "iban" | "us_ssn") =>
+  resolveSample(registry.patternSamples[k]?.mustMatch?.[0] ?? "");
+const TEST_CARD = fixtureSecret("link-virtual-card").replace(/\D/g, "");
+/** A Luhn-valid number that is not a published test card. */
+function realCard(): string {
+  const body = `4${"7".repeat(14)}`;
+  for (let d = 0; d < 10; d += 1) if (luhnValid(`${body}${d}`)) return `${body}${d}`;
+  throw new Error("unreachable");
+}
 
 /** Security §3.9 / §3.10, feature F11: one test per hard prohibition. All are non-configurable. */
 describe("hard prohibitions", () => {
@@ -67,9 +80,9 @@ describe("hard prohibitions", () => {
 
   it("never enters a card number, bank account or government id", async () => {
     const cases: [string, string][] = [
-      ["4242 4242 4242 4242", "prohibition:card_entry"],
-      ["DE89370400440532013000", "prohibition:bank_account_entry"],
-      ["123-45-6789", "prohibition:government_id_entry"],
+      [sample("card"), "prohibition:card_entry"],
+      [sample("iban"), "prohibition:bank_account_entry"],
+      [sample("us_ssn"), "prohibition:government_id_entry"],
     ];
     for (const [text, rule] of cases) {
       const d = await decide(["browser.type", "write", origin("https://shop.example.com")], {
@@ -276,12 +289,12 @@ describe("localhost test-credential exception (security §3.10, S23 design-03)",
 
   it("4: Psyche's own dev server accepts seeded test values and published test cards", async () => {
     const d = await decideOn("http://localhost:5173/checkout", {
-      params: { text: "4242424242424242" },
+      params: { text: TEST_CARD },
       meta: { testCredential: true },
     });
     expect(d.decision).toBe("allow");
     const real = await decideOn("http://localhost:5173/checkout", {
-      params: { text: "4012 8888 8888 1881" },
+      params: { text: realCard() },
     });
     expect(real.rule).toBe("prohibition:card_entry");
   });

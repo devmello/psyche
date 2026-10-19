@@ -1,3 +1,4 @@
+import { fixtureSecret, loadSecretRegistry, resolveSample } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import {
   cardDigits,
@@ -9,23 +10,32 @@ import {
   redactSensitive,
 } from "../src/index.ts";
 
-// Secret-shaped strings are assembled at runtime so scripts/ci/secret-grep.sh never matches them.
+// Secret-shaped strings are assembled at runtime or read from the S18 fixture registry, so the repo
+// secret scans (scripts/ci/secret-grep.sh, pnpm check:secrets) never match a tracked line.
 const j = (...parts: string[]) => parts.join("");
+const registry = loadSecretRegistry();
+type SampleKind = "card" | "iban" | "us_ssn";
+const samples = (k: SampleKind, which: "mustMatch" | "mustNotMatch" = "mustMatch") =>
+  (registry.patternSamples[k]?.[which] ?? []).map((s) => resolveSample(s));
+const TEST_CARD = fixtureSecret("link-virtual-card").replace(/\D/g, "");
+const group = (d: string, sep: string) => d.replace(/(\d{4})(?=\d)/g, `$1${sep}`);
+const bump = (s: string) => s.slice(0, -1) + String((Number(s.at(-1)) + 1) % 10);
+const IBAN = samples("iban")[0] ?? "";
 
 describe("sensitive detectors", () => {
   it("validates Luhn and IBAN checksums", () => {
-    expect(luhnValid("4242424242424242")).toBe(true);
-    expect(luhnValid("4242424242424241")).toBe(false);
-    expect(ibanValid("GB82 WEST 1234 5698 7654 32")).toBe(true);
-    expect(ibanValid("GB82 WEST 1234 5698 7654 33")).toBe(false);
+    expect(luhnValid(TEST_CARD)).toBe(true);
+    expect(luhnValid(bump(TEST_CARD))).toBe(false);
+    expect(ibanValid(IBAN)).toBe(true);
+    expect(ibanValid(bump(IBAN))).toBe(false);
   });
 
   it("finds Luhn-valid card numbers, grouped or not, and ignores other digit runs", () => {
-    expect(cardDigits("4242 4242 4242 4242")).toBe("4242424242424242");
-    expect(cardDigits("4111-1111-1111-1111")).toBe("4111111111111111");
+    expect(cardDigits(group(TEST_CARD, " "))).toBe(TEST_CARD);
+    expect(cardDigits(group(TEST_CARD, "-"))).toBe(TEST_CARD);
     expect(containsSensitive("order 1234567890123 shipped")).toBe(false);
     expect(containsSensitive("0000000000000000")).toBe(false);
-    expect(findSensitive("pay with 4242424242424242 now")[0]).toMatchObject({
+    expect(findSensitive(`pay with ${TEST_CARD} now`)[0]).toMatchObject({
       kind: "card_number",
       index: 9,
     });
@@ -50,12 +60,22 @@ describe("sensitive detectors", () => {
     ],
     ["pem", j("-----BEGIN ", "RSA PRIVATE KEY-----\nMIIB\n-----END RSA PRIVATE KEY-----")],
     ["url credentials", j("https:", "//user:hunter22", "@example.com/")],
-    ["iban", "DE89370400440532013000"],
-    ["ssn", "123-45-6789"],
+    ["iban", IBAN],
+    ["ssn", samples("us_ssn")[0] ?? ""],
   ])("flags %s", (_n, value) => {
     expect(containsSensitive(`before ${value} after`)).toBe(true);
     expect(redactSensitive(`before ${value} after`)).not.toContain(value);
   });
+});
+
+describe("agreement with the S18 pattern registry", () => {
+  const kinds: Record<SampleKind, string> = { card: "card_number", iban: "iban", us_ssn: "us_ssn" };
+  for (const k of ["card", "iban", "us_ssn"] as const) {
+    it(`${k}: every mustMatch sample is found, no mustNotMatch sample is`, () => {
+      for (const v of samples(k)) expect(findSensitive(v).map((m) => m.kind)).toContain(kinds[k]);
+      for (const v of samples(k, "mustNotMatch")) expect(findSensitive(v)).toEqual([]);
+    });
+  }
 });
 
 describe("redactForAudit", () => {
