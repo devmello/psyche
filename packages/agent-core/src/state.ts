@@ -1,0 +1,33 @@
+import type { ChecklistItem, ModelMessage } from "@psyche/protocol";
+
+/** What the loop keeps per thread between turns. The Gateway (S01) supplies a durable store. */
+export interface ThreadState {
+  /** Transcript after the last compaction; provider-native parts are kept verbatim. */
+  messages: ModelMessage[];
+  /** Summary of compacted turns; `untrusted` when it summarized untrusted content. */
+  summary?: { text: string; untrusted: boolean };
+  /** The `update_plan` checklist pinned under the latest message (C5). */
+  checklist: ChecklistItem[];
+}
+
+export interface ThreadStateStore {
+  load(threadId: string): Promise<ThreadState | undefined>;
+  save(threadId: string, state: ThreadState): Promise<void>;
+}
+
+export function emptyThreadState(): ThreadState {
+  return { messages: [], checklist: [] };
+}
+
+export class InMemoryThreadStateStore implements ThreadStateStore {
+  #threads = new Map<string, ThreadState>();
+
+  async load(threadId: string): Promise<ThreadState | undefined> {
+    const state = this.#threads.get(threadId);
+    return state === undefined ? undefined : structuredClone(state);
+  }
+
+  async save(threadId: string, state: ThreadState): Promise<void> {
+    this.#threads.set(threadId, structuredClone(state));
+  }
+}
