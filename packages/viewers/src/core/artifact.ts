@@ -109,7 +109,9 @@ export type BridgeMessage =
   | { type: "ready" }
   | { type: "resize"; height: number }
   | { type: "open-link"; href: string }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  /** Hosted placement only: the host page saw the inner frame navigate away and removed it. */
+  | { type: "navigated" };
 
 /**
  * Validates a message from an artifact frame. The caller must already have checked
@@ -137,6 +139,8 @@ export function parseBridgeMessage(
       const href = safeLink(m.href);
       return href === undefined ? undefined : { type: "open-link", href };
     }
+    case "navigated":
+      return { type: "navigated" };
     case "error":
       return typeof m.message === "string"
         ? { type: "error", message: m.message.slice(0, 500) }
@@ -175,7 +179,7 @@ addEventListener("message",function(e){
  if(e.source===parent&&e.origin===P&&e.data&&e.data.type===R&&typeof e.data.srcdoc==="string"&&typeof e.data.channel==="string"){
   if(inner)inner.remove();ch=e.data.channel;inner=document.createElement("iframe");
   inner.setAttribute("sandbox",${JSON.stringify(ARTIFACT_SANDBOX)});inner.setAttribute("referrerpolicy","no-referrer");
-  inner.style.cssText="border:0;width:100%;height:100%;display:block";inner.srcdoc=e.data.srcdoc;document.body.appendChild(inner);return}
+  inner.style.cssText="border:0;width:100%;height:100%;display:block";var loads=0,me=inner;inner.addEventListener("load",function(){if(++loads>1&&me===inner){parent.postMessage({tag:T,channel:ch,type:"navigated"},P);inner.remove();inner=null}});inner.srcdoc=e.data.srcdoc;document.body.appendChild(inner);return}
  if(inner&&e.source===inner.contentWindow&&e.data&&e.data.tag===T&&e.data.channel===ch){parent.postMessage(e.data,P)}
 });
 parent.postMessage({tag:T,type:"host-ready"},P);
