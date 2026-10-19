@@ -100,7 +100,10 @@ public struct NotificationResponse: Sendable, Equatable {
             "actionId": .string(actionId),
             "authenticated": .bool(authenticated),
         ]
-        if let replyText { o["replyText"] = .string(replyText) }
+        if let replyText {
+            o["replyText"] = .string(replyText)
+            o["text"] = .string(replyText)  // S15's Notifier reads `text` (docs/status/s15.md)
+        }
         if let approvalId { o["approvalId"] = .string(approvalId) }
         if let authError { o["authError"] = .string(authError) }
         return .object(o)

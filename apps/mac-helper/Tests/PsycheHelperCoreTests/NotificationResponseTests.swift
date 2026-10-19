@@ -13,7 +13,7 @@ struct NotificationResponseTests {
         )
 
         let reply = NotificationResponse(notificationId: "ntf_2", actionId: "reply", replyText: "Use ~/Documents")
-        #expect(reply.payload == ["type": "notify.response", "notificationId": "ntf_2", "actionId": "reply", "replyText": "Use ~/Documents", "authenticated": false])
+        #expect(reply.payload == ["type": "notify.response", "notificationId": "ntf_2", "actionId": "reply", "replyText": "Use ~/Documents", "text": "Use ~/Documents", "authenticated": false])
 
         let refused = NotificationResponse(notificationId: "ntf_1", actionId: "approve", approvalId: "apr_1", authenticated: false, authError: "user_cancelled")
         #expect(refused.payload["authenticated"] == false)

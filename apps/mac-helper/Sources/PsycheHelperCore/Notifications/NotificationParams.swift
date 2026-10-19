@@ -97,6 +97,82 @@ public struct NotifyShowParams: Codable, Sendable, Equatable {
     }
 }
 
+extension NotifyShowParams {
+    private enum CodingKeys: String, CodingKey {
+        case id, kind, title, body, subtitle, actions, reply, threadId, route, interruption, approvalId, requireBiometry,
+             quietHours, sound
+        // S15's `NotifyShowParams` (packages/notifications/src/surfaces.ts) names.
+        case category, interruptionLevel
+    }
+
+    /// S15 action shape: `{id, label, destructive, authenticationRequired, textInput}`.
+    private struct WireAction: Decodable {
+        var id: String
+        var label: String
+        var destructive: Bool?
+        var requiresAuth: Bool?
+        var authenticationRequired: Bool?
+        var textInput: Bool?
+    }
+
+    /// Accepts both this helper's names and S15's (`category` for `kind`, `interruptionLevel`
+    /// for `interruption`, `authenticationRequired` for `requiresAuth`, a `textInput` action for
+    /// `reply`). `null` optionals decode as absent.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        guard let k = try c.decodeIfPresent(NotificationKind.self, forKey: .kind)
+            ?? c.decodeIfPresent(NotificationKind.self, forKey: .category)
+        else { throw DecodingError.keyNotFound(CodingKeys.kind, .init(codingPath: c.codingPath, debugDescription: "kind or category")) }
+        kind = k
+        title = try c.decode(String.self, forKey: .title)
+        body = try c.decode(String.self, forKey: .body)
+        subtitle = try c.decodeIfPresent(String.self, forKey: .subtitle)
+        reply = try c.decodeIfPresent(NotifyReplyParams.self, forKey: .reply)
+        if let wire = try c.decodeIfPresent([WireAction].self, forKey: .actions) {
+            var buttons: [NotifyActionParams] = []
+            for a in wire {
+                if a.textInput == true {
+                    reply = reply ?? NotifyReplyParams(label: a.label)
+                } else {
+                    buttons.append(NotifyActionParams(id: a.id, label: a.label, destructive: a.destructive,
+                                                      requiresAuth: a.requiresAuth ?? a.authenticationRequired))
+                }
+            }
+            // An empty list from S15 means "use the kind's defaults".
+            actions = buttons.isEmpty ? nil : buttons
+        } else {
+            actions = nil
+        }
+        threadId = try c.decodeIfPresent(String.self, forKey: .threadId)
+        route = try c.decodeIfPresent(String.self, forKey: .route)
+        interruption = try c.decodeIfPresent(NotifyInterruptionLevel.self, forKey: .interruption)
+            ?? c.decodeIfPresent(NotifyInterruptionLevel.self, forKey: .interruptionLevel)
+        approvalId = try c.decodeIfPresent(String.self, forKey: .approvalId)
+        requireBiometry = try c.decodeIfPresent(Bool.self, forKey: .requireBiometry)
+        quietHours = try c.decodeIfPresent(NotifyQuietHoursParams.self, forKey: .quietHours)
+        sound = try c.decodeIfPresent(Bool.self, forKey: .sound)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(kind, forKey: .kind)
+        try c.encode(title, forKey: .title)
+        try c.encode(body, forKey: .body)
+        try c.encodeIfPresent(subtitle, forKey: .subtitle)
+        try c.encodeIfPresent(actions, forKey: .actions)
+        try c.encodeIfPresent(reply, forKey: .reply)
+        try c.encodeIfPresent(threadId, forKey: .threadId)
+        try c.encodeIfPresent(route, forKey: .route)
+        try c.encodeIfPresent(interruption, forKey: .interruption)
+        try c.encodeIfPresent(approvalId, forKey: .approvalId)
+        try c.encodeIfPresent(requireBiometry, forKey: .requireBiometry)
+        try c.encodeIfPresent(quietHours, forKey: .quietHours)
+        try c.encodeIfPresent(sound, forKey: .sound)
+    }
+}
+
 /// `notify.withdraw` parameters.
 public struct NotifyWithdrawParams: Codable, Sendable, Equatable {
     public var id: String

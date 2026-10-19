@@ -234,3 +234,28 @@ struct NotificationLimitsTests {
         #expect(p.actions?.first?.destructive == true)
     }
 }
+
+@Suite("notify.show S15 wire shape")
+struct NotifyShowS15ShapeTests {
+    @Test func acceptsTheNotifierParams() throws {
+        // packages/notifications/src/surfaces.ts toNotifyShowParams()
+        let json = #"""
+        {"id":"ntf_1","category":"input_needed","title":"Question","body":"Which file?","interruptionLevel":"timeSensitive",
+         "threadId":null,"route":"/tasks/t1","actions":[{"id":"reply","label":"Answer","destructive":false,
+         "authenticationRequired":false,"textInput":true},{"id":"open","label":"Open","destructive":false,
+         "authenticationRequired":true,"textInput":false}]}
+        """#
+        let p = try JSONDecoder().decode(NotifyShowParams.self, from: Data(json.utf8))
+        #expect(p.kind == .inputNeeded && p.interruption == .timeSensitive && p.threadId == nil)
+        #expect(p.reply == NotifyReplyParams(label: "Answer"))
+        #expect(p.actions == [NotifyActionParams(id: "open", label: "Open", destructive: false, requiresAuth: true)])
+        let roundTrip = try JSONDecoder().decode(NotifyShowParams.self, from: JSONEncoder().encode(p))
+        #expect(roundTrip == p)
+    }
+
+    @Test func emptyActionsMeanKindDefaults() throws {
+        let json = #"{"id":"n","category":"approval","title":"t","body":"b","interruptionLevel":"active","threadId":"t1","route":null,"actions":[]}"#
+        let p = try JSONDecoder().decode(NotifyShowParams.self, from: Data(json.utf8))
+        #expect(p.actions == nil && p.kind == .approval)
+    }
+}
