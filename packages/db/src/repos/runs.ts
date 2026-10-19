@@ -1,6 +1,6 @@
 import type { Run, RunStatus, Usage } from "@psyche/protocol";
 import { EMPTY_USAGE, PsycheError } from "@psyche/protocol";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, notInArray } from "drizzle-orm";
 import { runFromRow } from "../mappers.ts";
 import type { PsycheDb } from "../open.ts";
 import { runs } from "../schema.ts";
@@ -70,7 +70,11 @@ export function finishRun(db: PsycheDb, id: string, input: FinishRun): Run {
   return runFromRow(row);
 }
 
-/** Sets a non-terminal status (`running`, `awaiting_approval`, `awaiting_input`) or usage. */
+/**
+ * Sets a non-terminal status (`running`, `awaiting_approval`, `awaiting_input`) or usage. A run
+ * that already finished (`done`, `failed`, `cancelled`) is returned unchanged: a late event from
+ * a superseded run cannot reopen it.
+ */
 export function updateRun(
   db: PsycheDb,
   id: string,
@@ -81,9 +85,16 @@ export function updateRun(
   if (patch.usage !== undefined) set.usage = JSON.stringify(patch.usage);
   if (patch.error !== undefined) set.error = patch.error;
   if (patch.endedAt !== undefined) set.endedAt = patch.endedAt;
-  const row = db.drizzle.update(runs).set(set).where(eq(runs.id, id)).returning().get();
-  if (row === undefined) throw new PsycheError("not_found", `run ${id} not found`);
-  return runFromRow(row);
+  const row = db.drizzle
+    .update(runs)
+    .set(set)
+    .where(and(eq(runs.id, id), notInArray(runs.status, ["done", "failed", "cancelled"])))
+    .returning()
+    .get();
+  if (row !== undefined) return runFromRow(row);
+  const existing = getRun(db, id);
+  if (existing === undefined) throw new PsycheError("not_found", `run ${id} not found`);
+  return existing;
 }
 
 export function listRunsByStatus(db: PsycheDb, statuses: readonly RunStatus[]): Run[] {

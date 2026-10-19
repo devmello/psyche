@@ -9,7 +9,7 @@ import type {
 import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import { encodeJson, fromBool, toolCallFromRow } from "../mappers.ts";
 import type { PsycheDb } from "../open.ts";
-import { toolCalls, toolPayloads } from "../schema.ts";
+import { runs, toolCalls, toolPayloads } from "../schema.ts";
 
 export interface ToolCallUpsert {
   readonly id: string;
@@ -113,15 +113,25 @@ export function listToolCallsForRun(db: PsycheDb, runId: string): ToolCall[] {
 }
 
 /**
- * Restart recovery: tool calls still `pending` or `running` were interrupted, so whether their
- * side effect happened is unknown. They become `uncertain` and are never re-dispatched.
+ * Restart recovery: tool calls still `pending` or `running` in a run that was still `running`
+ * were interrupted, so whether their side effect happened is unknown. They become `uncertain` and
+ * are never re-dispatched. Calls of runs suspended for an approval or input are left alone: the
+ * suspended work resumes them.
  */
 export function markInterruptedToolCalls(db: PsycheDb): ToolCall[] {
   const at = db.now();
   return db.drizzle
     .update(toolCalls)
     .set({ status: "uncertain", endedAt: at, updatedAt: at })
-    .where(inArray(toolCalls.status, ["pending", "running"]))
+    .where(
+      and(
+        inArray(toolCalls.status, ["pending", "running"]),
+        inArray(
+          toolCalls.runId,
+          db.drizzle.select({ id: runs.id }).from(runs).where(eq(runs.status, "running")),
+        ),
+      ),
+    )
     .returning()
     .all()
     .map(toolCallFromRow);
