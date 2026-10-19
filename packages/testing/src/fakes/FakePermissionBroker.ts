@@ -53,7 +53,20 @@ const GRANT_TTL_MS: Record<Exclude<GrantScope, "once">, number> = {
   always: 90 * 24 * HOUR,
 };
 const ALL_SCOPES: GrantScope[] = ["once", "task", "site", "session", "always"];
-const DEVICE_ONLY_KINDS: ApprovalKind[] = ["credential_fill", "exec_host", "purchase"];
+const DEVICE_ONLY_KINDS: ApprovalKind[] = [
+  "credential_fill",
+  "exec_host",
+  "purchase",
+  "pairing",
+  "policy_change",
+];
+const SEVERITY: Record<SideEffect, number> = {
+  none: 0,
+  read: 1,
+  write: 2,
+  destructive: 3,
+  financial: 4,
+};
 const AUTH_KINDS: ApprovalKind[] = ["credential_fill", "purchase"];
 const WRITE_PLUS: SideEffect[] = ["write", "destructive", "financial"];
 
@@ -96,7 +109,8 @@ interface ApprovalEntry {
 
 interface GrantEntry {
   grant: Grant;
-  taskId?: string;
+  /** Side-effect class the grant was approved for; it never covers a more severe call. */
+  sideEffect: SideEffect;
 }
 
 /**
@@ -180,7 +194,7 @@ export class FakePermissionBroker implements PermissionBroker {
 
     const consultGrants = !(ctx.permissionMode === "manual" && WRITE_PLUS.includes(se));
     if (consultGrants && se !== "financial") {
-      const grant = this.#matchGrant(grantKey, ctx.taskId);
+      const grant = this.#matchGrant(grantKey, ctx.taskId, se, kind);
       if (grant !== undefined) {
         if (taintEscalates) return ask("taint:new_target", "tainted turn, new target");
         grant.grant.useCount += 1;
@@ -210,13 +224,21 @@ export class FakePermissionBroker implements PermissionBroker {
     return { decision: "allow", rule };
   }
 
-  #matchGrant(grantKey: string, taskId: string | undefined): GrantEntry | undefined {
+  #matchGrant(
+    grantKey: string,
+    taskId: string | undefined,
+    se: SideEffect,
+    kind: ApprovalKind,
+  ): GrantEntry | undefined {
     const now = this.clock.now();
+    const allowed = allowedScopes(se, kind);
     for (const entry of this.#grants.values()) {
       const g = entry.grant;
       if (g.revokedAt != null || g.grantKey !== grantKey) continue;
       if (g.expiresAt != null && Date.parse(g.expiresAt) <= now) continue;
-      if (g.scope === "task" && entry.taskId !== taskId) continue;
+      if (!allowed.includes(g.scope)) continue;
+      if (SEVERITY[se] > SEVERITY[entry.sideEffect]) continue;
+      if (g.scope === "task" && (g.taskId == null || g.taskId !== taskId)) continue;
       return entry;
     }
     return undefined;
@@ -239,7 +261,10 @@ export class FakePermissionBroker implements PermissionBroker {
     if (surfaces.length === 0) surfaces = ["desktop"];
     surfaces = [...new Set(surfaces)];
     const allowed = allowedScopes(se, input.kind);
-    let scopesOffered = (input.scopesOffered ?? allowed).filter((s) => allowed.includes(s));
+    const hasTask = input.requestedBy.taskId != null;
+    let scopesOffered = (input.scopesOffered ?? allowed).filter(
+      (s) => allowed.includes(s) && (s !== "task" || hasTask),
+    );
     if (scopesOffered.length === 0) scopesOffered = ["once"];
     const id = this.#ids.next("apr");
     const approval: ApprovalRequest = {
@@ -307,11 +332,10 @@ export class FakePermissionBroker implements PermissionBroker {
     }
     const token = entry.tokens.get(input.answerToken);
     if (token === undefined) return fail("forbidden", "unknown answer token");
-    if (token.used) return fail("forbidden", "answer token already used", { replayed: true });
-    if (a.status !== "pending")
-      return fail("conflict", `approval already ${a.status}`, { late: true });
+    if (token.used) return fail("answer_replayed", "answer token already used");
+    if (a.status !== "pending") return fail("answer_late", `approval already ${a.status}`);
     if (this.clock.now() < Date.parse(a.requestedAt) + this.#armDelayMs) {
-      return fail("forbidden", "approval card is not armed yet");
+      return fail("approval_not_armed", "approval card is not armed yet");
     }
     const scope: GrantScope = input.scope ?? "once";
     if (input.decision === "approve" && !a.scopesOffered.includes(scope)) {
@@ -341,12 +365,13 @@ export class FakePermissionBroker implements PermissionBroker {
           useCount: 0,
           lastUsedAt: null,
           createdFromApprovalId: a.id,
+          taskId: scope === "task" ? (a.requestedBy.taskId ?? null) : null,
           createdAt: toIso(now),
           revokedAt: null,
         };
-        const taskId = a.requestedBy.taskId ?? undefined;
-        if (scope === "task" && taskId !== undefined) grant.subject.taskId = taskId;
-        this.#grants.set(grant.id, taskId === undefined ? { grant } : { grant, taskId });
+        const sideEffect = entry.input.sideEffect;
+        grant.subject.sideEffect = sideEffect;
+        this.#grants.set(grant.id, { grant, sideEffect });
         a.grantId = grant.id;
       }
     }
@@ -387,8 +412,12 @@ export class FakePermissionBroker implements PermissionBroker {
     if (entry.revoked || a.status === "invalidated") return { ok: false, reason: "revoked" };
     if (a.status === "expired") return { ok: false, reason: "expired" };
     if (a.status !== "approved") return { ok: false, reason: "not_approved" };
-    if (a.grantId != null && this.#grants.get(a.grantId)?.grant.revokedAt != null) {
-      return { ok: false, reason: "revoked" };
+    if (a.grantId != null) {
+      const g = this.#grants.get(a.grantId)?.grant;
+      if (g === undefined || g.revokedAt != null) return { ok: false, reason: "revoked" };
+      if (g.expiresAt != null && this.clock.now() >= Date.parse(g.expiresAt)) {
+        return { ok: false, reason: "expired" };
+      }
     }
     if (bindingHash !== a.bindingHash) return { ok: false, reason: "binding_mismatch" };
     if (a.scopeGranted === "once") {
@@ -420,6 +449,11 @@ export class FakePermissionBroker implements PermissionBroker {
     for (const entry of pending) {
       this.#invalidate(entry, "gateway_restart");
       issued.push(this.#issue(entry.input));
+    }
+    // Session grants end at a Gateway restart (security §3.4).
+    const now = toIso(this.clock.now());
+    for (const { grant } of this.#grants.values()) {
+      if (grant.scope === "session" && grant.revokedAt == null) grant.revokedAt = now;
     }
     return issued;
   }

@@ -33,16 +33,39 @@ export const MIN_SECRET_LENGTH = 6;
 
 const registry = new Map<string, Registered>();
 
+/**
+ * Base64 fragments of `bytes` that appear in the encoding of any byte string containing it,
+ * whatever precedes or follows (e.g. HTTP Basic `base64("user:" + password)`). For each of the
+ * three alignments the secret can start at, the characters that mix in neighbouring bytes are
+ * trimmed from both edges. Returned without padding, in the standard alphabet.
+ */
+export function base64Fragments(bytes: Uint8Array): string[] {
+  const out: string[] = [];
+  const startChar = [0, 2, 3];
+  for (let k = 0; k < 3; k += 1) {
+    const padded = Buffer.concat([Buffer.alloc(k), Buffer.from(bytes)]);
+    const full = padded.toString("base64").replace(/=+$/, "");
+    const rem = padded.length % 3;
+    const end = Math.floor(padded.length / 3) * 4 + (rem === 0 ? 0 : rem === 1 ? 1 : 2);
+    const fragment = full.slice(startChar[k], end);
+    if (fragment.length >= 4) out.push(fragment);
+  }
+  return [...new Set(out)];
+}
+
+const toBase64Url = (b64: string) => b64.replace(/\+/g, "-").replace(/\//g, "_");
+
 function formsOf(value: string): Registered["forms"] {
   const bytes = Buffer.from(value, "utf8");
+  const fragments = base64Fragments(bytes);
   const forms: Registered["forms"] = [
     { encoding: "raw", text: value },
-    { encoding: "base64", text: bytes.toString("base64").replace(/=+$/, "") },
-    { encoding: "base64url", text: bytes.toString("base64url") },
+    ...fragments.map((text) => ({ encoding: "base64" as const, text })),
+    ...fragments.map((text) => ({ encoding: "base64url" as const, text: toBase64Url(text) })),
     { encoding: "url", text: encodeURIComponent(value) },
     { encoding: "hex", text: bytes.toString("hex") },
   ];
-  // Drop encodings identical to the raw value (e.g. URL-encoding of a plain token).
+  // Drop duplicate texts (e.g. URL-encoding of a plain token equals the raw value).
   const seen = new Set<string>();
   return forms.filter((f) => {
     if (seen.has(f.text)) return false;
@@ -110,6 +133,28 @@ function walk(value: unknown, path: string, out: SecretMatch[], seen: Set<object
       walk(v, `${path}[${i}]`, out, seen);
     });
     return;
+  }
+  if (value instanceof Map) {
+    let i = 0;
+    for (const [k, v] of value) {
+      walk(k, `${path}.<mapKey ${i}>`, out, seen);
+      walk(v, `${path}.<mapValue ${i}>`, out, seen);
+      i += 1;
+    }
+    return;
+  }
+  if (value instanceof Set) {
+    let i = 0;
+    for (const v of value) walk(v, `${path}.<set ${i++}>`, out, seen);
+    return;
+  }
+  if (value instanceof Error) {
+    // name, message, stack and cause are non-enumerable but end up in logs.
+    walk(value.name, `${path}.name`, out, seen);
+    walk(value.message, `${path}.message`, out, seen);
+    walk(value.stack, `${path}.stack`, out, seen);
+    walk(value.cause, `${path}.cause`, out, seen);
+    if (value instanceof AggregateError) walk(value.errors, `${path}.errors`, out, seen);
   }
   for (const [k, v] of Object.entries(value)) {
     scanString(k, `${path}.<key>`, out);

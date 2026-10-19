@@ -67,6 +67,7 @@ export function describePermissionBrokerConformance(
       scopesOffered?: GrantScope[];
       kind?: ApprovalKind;
       runId?: string;
+      taskId?: string | null;
     } = {},
   ): Promise<IssuedApproval> {
     const d = await broker.decide(call, CTX);
@@ -78,7 +79,7 @@ export function describePermissionBrokerConformance(
       grantKey: d.grantKey ?? `${call.tool}|${call.target?.value ?? "*"}`,
       requestedBy: {
         runId: options.runId ?? CTX.runId,
-        taskId: CTX.taskId ?? null,
+        taskId: options.taskId === undefined ? (CTX.taskId ?? null) : options.taskId,
         threadId: CTX.threadId,
       },
       sideEffect: call.sideEffect,
@@ -96,6 +97,16 @@ export function describePermissionBrokerConformance(
   }
 
   const by = { deviceId: "dev_conf" };
+
+  function approveWith(broker: PermissionBroker, issued: IssuedApproval, scope: GrantScope) {
+    return broker.answer({
+      approvalId: issued.approval.id,
+      answerToken: token(issued, "desktop"),
+      decision: "approve",
+      scope,
+      decidedBy: by,
+    });
+  }
 
   describe(`PermissionBroker conformance: ${name}`, () => {
     it("plan mode denies anything with a side effect", async () => {
@@ -228,6 +239,7 @@ export function describePermissionBrokerConformance(
           decision: "approve",
           decidedBy: by,
         }),
+        "approval_not_armed",
       );
       expect((await broker.get(issued.approval.id))?.status).toBe("pending");
     });
@@ -262,8 +274,8 @@ export function describePermissionBrokerConformance(
           decidedBy: by,
         });
       expect((await answer("desktop", "deny")).status).toBe("denied");
-      await expectPsycheError(answer("desktop", "approve"));
-      await expectPsycheError(answer("web", "approve"));
+      await expectPsycheError(answer("desktop", "approve"), "answer_replayed");
+      await expectPsycheError(answer("web", "approve"), "answer_late");
       await expectPsycheError(
         broker.answer({
           approvalId: issued.approval.id,
@@ -390,6 +402,95 @@ export function describePermissionBrokerConformance(
         decidedBy: by,
       });
       expect(ok.status).toBe("approved");
+    });
+
+    it("a grant never covers a more severe side-effect class", async () => {
+      const { broker, clock } = await setup();
+      const write = intent("email.send", "write");
+      const issued = await request(broker, write);
+      clock.advance(APPROVAL_ARM_DELAY_MS + 100);
+      await approveWith(broker, issued, "always");
+      expect((await broker.decide(write, CTX)).decision).toBe("allow");
+      expect((await broker.decide(intent("email.send", "destructive"), CTX)).decision).not.toBe(
+        "allow",
+      );
+      expect((await broker.decide(intent("email.send", "financial"), CTX)).decision).not.toBe(
+        "allow",
+      );
+    });
+
+    it("a task grant covers only calls of its own task", async () => {
+      const { broker, clock } = await setup();
+      const call = intent("calendar.create", "write");
+      const issued = await request(broker, call);
+      clock.advance(APPROVAL_ARM_DELAY_MS + 100);
+      await approveWith(broker, issued, "task");
+      expect((await broker.decide(call, CTX)).decision).toBe("allow");
+      expect((await broker.decide(call, { ...CTX, taskId: "task_other" })).decision).not.toBe(
+        "allow",
+      );
+      const { taskId: _omit, ...noTask } = CTX;
+      expect((await broker.decide(call, noTask)).decision).not.toBe("allow");
+    });
+
+    it("a task-less approval never yields a task grant that matches task-less calls", async () => {
+      const { broker, clock } = await setup();
+      const call = intent("calendar.create", "write");
+      const issued = await request(broker, call, { taskId: null, scopesOffered: ["once", "task"] });
+      clock.advance(APPROVAL_ARM_DELAY_MS + 100);
+      if (issued.approval.scopesOffered.includes("task")) await approveWith(broker, issued, "task");
+      const { taskId: _omit, ...noTask } = CTX;
+      expect((await broker.decide(call, noTask)).decision).not.toBe("allow");
+    });
+
+    it("destructive chat-capable kinds stay device-only with narrowed scopes", async () => {
+      const { broker } = await setup();
+      const issued = await request(broker, intent("messages.send", "destructive"), {
+        kind: "message_send",
+        surfaces: ["desktop", "telegram:4242"],
+        scopesOffered: ["once", "task", "site", "session", "always"],
+      });
+      expect(issued.approval.deviceOnly).toBe(true);
+      expect(issued.approval.surfaces).not.toContain("telegram:4242");
+      for (const s of issued.approval.scopesOffered) expect(["once", "task"]).toContain(s);
+    });
+
+    it("pairing and policy changes are device-only", async () => {
+      const { broker } = await setup();
+      for (const kind of ["pairing", "policy_change"] as const) {
+        const issued = await request(broker, intent(`conformance.${kind}`, "write"), {
+          kind,
+          surfaces: ["desktop", "telegram:4242"],
+        });
+        expect(issued.approval.deviceOnly, kind).toBe(true);
+        expect(issued.approval.surfaces).not.toContain("telegram:4242");
+      }
+    });
+
+    it("verifyBinding stops accepting a standing approval once its grant expires", async () => {
+      const { broker, clock } = await setup();
+      const issued = await request(broker, intent("calendar.create", "write"));
+      clock.advance(APPROVAL_ARM_DELAY_MS + 100);
+      await approveWith(broker, issued, "task");
+      expect((await broker.verifyBinding(issued.approval.id, issued.approval.bindingHash)).ok).toBe(
+        true,
+      );
+      clock.advance(25 * 3_600_000);
+      expect(await broker.verifyBinding(issued.approval.id, issued.approval.bindingHash)).toEqual({
+        ok: false,
+        reason: "expired",
+      });
+    });
+
+    it("session grants end at a restart", async () => {
+      const { broker, clock } = await setup();
+      const call = intent("calendar.create", "write");
+      const issued = await request(broker, call);
+      clock.advance(APPROVAL_ARM_DELAY_MS + 100);
+      await approveWith(broker, issued, "session");
+      expect((await broker.decide(call, CTX)).decision).toBe("allow");
+      await broker.reissue();
+      expect((await broker.decide(call, CTX)).decision).not.toBe("allow");
     });
 
     it("records receipts and finds them by task", async () => {

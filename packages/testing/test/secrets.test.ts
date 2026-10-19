@@ -38,6 +38,35 @@ describe("secret-leak checker", () => {
     expect(matches.map((m) => m.path).sort()).toEqual(["$.<key>", "$.a[0].b", "$.c.hidden"].sort());
   });
 
+  it("finds base64 forms at any alignment, embedded in longer data (HTTP Basic)", () => {
+    const pw = "correct-horse-battery-staple";
+    registerSecret(pw, "pw");
+    for (const prefix of ["", "a", "bob:", "alice:", "xy"]) {
+      for (const suffix of ["", "X", "XY", ":tail"]) {
+        const raw = Buffer.from(`${prefix}${pw}${suffix}`);
+        for (const encoded of [raw.toString("base64"), raw.toString("base64url")]) {
+          expect(
+            findSecrets(`Authorization: Basic ${encoded}`).length,
+            `${prefix}|${suffix}`,
+          ).toBeGreaterThan(0);
+        }
+      }
+    }
+    expect(findSecrets(Buffer.from("bob:something-else-entirely").toString("base64"))).toEqual([]);
+  });
+
+  it("walks Error message, stack and cause, and Map / Set contents", () => {
+    registerSecret(SECRET, "api-key");
+    expect(findSecrets(new Error(`bad key ${SECRET}`)).length).toBeGreaterThan(0);
+    expect(
+      findSecrets(new Error("outer", { cause: new Error(SECRET) })).map((m) => m.path),
+    ).toContain("$.cause.message");
+    expect(findSecrets({ e: new AggregateError([new Error(SECRET)]) }).length).toBeGreaterThan(0);
+    expect(findSecrets(new Map([["k", SECRET]])).length).toBeGreaterThan(0);
+    expect(findSecrets(new Map([[SECRET, 1]])).length).toBeGreaterThan(0);
+    expect(findSecrets(new Set([{ nested: SECRET }])).length).toBeGreaterThan(0);
+  });
+
   it("assertNoSecrets throws with label and offset, never the value", () => {
     registerSecret(SECRET, "api-key");
     let caught: unknown;

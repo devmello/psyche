@@ -12,7 +12,7 @@ import {
 } from "@psyche/protocol";
 import { FakeClock, toIso } from "../clock.ts";
 import { createIdGenerator, type IdGenerator } from "../ids.ts";
-import { registerSecret } from "../secrets.ts";
+import { base64Fragments, registerSecret } from "../secrets.ts";
 import { fail } from "./errors.ts";
 
 export interface FakeCredentialInput {
@@ -36,8 +36,20 @@ export type ApprovalVerifier = (
 export interface FakeCredentialBrokerOptions {
   clock?: Clock;
   ids?: IdGenerator;
-  /** Decides whether `approvalId` authorizes this fill. Default: any approval id passed to `approve()`. */
+  /**
+   * Decides whether `approvalId` authorizes this fill. Default: an approval registered with
+   * `approve(id, {slug, origin, scope})` for exactly this item and origin; `once` approvals are
+   * consumed by the first successful resolve.
+   */
   verifyApproval?: ApprovalVerifier;
+}
+
+/** What a `credential_fill` approval is bound to (security §3.5: item id + origin). */
+export interface FakeFillApproval {
+  slug: string;
+  origin: string;
+  /** `once` (default) is consumed on use; `site` is a standing grant for that origin. */
+  scope?: "once" | "site";
 }
 
 interface Item {
@@ -80,7 +92,7 @@ export class FakeCredentialBroker implements CredentialBroker {
   readonly clock: Clock;
   #ids: IdGenerator;
   #items = new Map<string, Item>();
-  #approved = new Set<string>();
+  #approved = new Map<string, FakeFillApproval & { used: boolean }>();
   #verify: ApprovalVerifier;
   /** Every successful resolve (no values), like `credential_uses`. */
   readonly uses: { credentialId: string; target: string; approvalId: string; executor?: string }[] =
@@ -89,7 +101,17 @@ export class FakeCredentialBroker implements CredentialBroker {
   constructor(options: FakeCredentialBrokerOptions = {}) {
     this.clock = options.clock ?? new FakeClock();
     this.#ids = options.ids ?? createIdGenerator();
-    this.#verify = options.verifyApproval ?? ((id) => this.#approved.has(id));
+    this.#verify =
+      options.verifyApproval ??
+      ((id, meta, target) => {
+        const a = this.#approved.get(id);
+        if (a === undefined || a.used) return false;
+        if (a.slug !== meta.slug || canonicalOrigin(a.origin) !== canonicalOrigin(target.value)) {
+          return false;
+        }
+        if ((a.scope ?? "once") === "once") a.used = true;
+        return true;
+      });
   }
 
   /** Add an item; its values are registered with the secret-leak checker. */
@@ -122,9 +144,9 @@ export class FakeCredentialBroker implements CredentialBroker {
     return structuredClone(meta);
   }
 
-  /** Mark an approval id as an approved `credential_fill` (default verifier). */
-  approve(approvalId: string): this {
-    this.#approved.add(approvalId);
+  /** Record an approved `credential_fill` for one item and origin (default verifier). */
+  approve(approvalId: string, binding: FakeFillApproval): this {
+    this.#approved.set(approvalId, { ...binding, used: false });
     return this;
   }
 
@@ -187,12 +209,13 @@ export class FakeCredentialBroker implements CredentialBroker {
     for (const item of this.#items.values()) {
       for (const [field, value] of Object.entries(item.values)) {
         if (value === undefined || value.length === 0 || field === "username") continue;
+        const fragments = base64Fragments(Buffer.from(value, "utf8"));
         const forms = [
           value,
           encodeURIComponent(value),
-          Buffer.from(value).toString("base64").replace(/=+$/, ""),
-          Buffer.from(value).toString("base64url"),
-        ];
+          ...fragments,
+          ...fragments.map((f) => f.replace(/\+/g, "-").replace(/\//g, "_")),
+        ].sort((a, b) => b.length - a.length);
         for (const form of forms) out = out.split(form).join("•••");
       }
     }

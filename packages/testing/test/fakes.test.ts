@@ -114,6 +114,49 @@ describe("FakeCredentialBroker", () => {
   });
 });
 
+describe("FakeCredentialBroker approvals and redaction", () => {
+  afterEach(() => clearSecrets());
+  const target = { kind: "origin" as const, value: "https://bank.example.com" };
+
+  it("binds approvals to slug + origin, consumes once and keeps site", async () => {
+    const broker = new FakeCredentialBroker();
+    broker.add({
+      slug: "gh",
+      bindings: [{ origin: "https://bank.example.com" }],
+      secret: "gh-secret-0001",
+    });
+    broker.add({
+      slug: "bank",
+      bindings: [{ origin: "https://bank.example.com" }],
+      secret: "bank-secret-0002",
+    });
+    broker.approve("apr_once", { slug: "gh", origin: "https://bank.example.com" });
+    broker.approve("apr_site", { slug: "gh", origin: "https://bank.example.com", scope: "site" });
+    (await broker.resolve("{{cred:gh}}", target, "apr_once")).dispose();
+    await expect(broker.resolve("{{cred:gh}}", target, "apr_once")).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    await expect(broker.resolve("{{cred:bank}}", target, "apr_site")).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    (await broker.resolve("{{cred:gh}}", target, "apr_site")).dispose();
+    (await broker.resolve("{{cred:gh}}", target, "apr_site")).dispose();
+  });
+
+  it("redacts base64 of the secret inside longer data", () => {
+    const broker = new FakeCredentialBroker();
+    const pw = "hunter2-hunter2-hunter2";
+    broker.add({
+      slug: "basic",
+      bindings: [{ host: "api.example.com" }],
+      username: "bob",
+      secret: pw,
+    });
+    const header = `Basic ${Buffer.from(`bob:${pw}`).toString("base64")} and ${Buffer.from(`${pw}X`).toString("base64")}`;
+    assertNoSecrets(broker.redact(header), "redacted header");
+  });
+});
+
 describe("FakeScheduler", () => {
   it("parses durations and cron", () => {
     expect(parseIsoDuration("PT30M")).toBe(30 * 60_000);

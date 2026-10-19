@@ -57,7 +57,12 @@ describeCredentialBrokerConformance("FakeCredentialBroker", ({ clock, ids, seed 
     username: seed.username,
     secret: seed.password,
   });
-  return broker.approve(seed.approvalId);
+  broker.add({
+    slug: seed.other.slug,
+    bindings: [{ origin: seed.origin }],
+    secret: seed.other.password,
+  });
+  return broker.approve(seed.approvalId, { slug: seed.slug, origin: seed.origin });
 });
 
 describeMemoryStoreConformance(

@@ -15,8 +15,13 @@ export interface CredentialSeed {
   origin: string;
   username: string;
   password: string;
-  /** An approval id the factory must treat as an approved `credential_fill` for this item. */
+  /**
+   * An approval id the factory must treat as an approved `once` `credential_fill` for this
+   * item and origin only (not for `other`), consumed by its first successful resolve.
+   */
   approvalId: string;
+  /** A second login item bound to the same origin; the factory creates it too. */
+  other: { slug: string; password: string };
 }
 
 export interface CredentialBrokerConformanceContext extends ConformanceContext {
@@ -30,6 +35,7 @@ const SEED: CredentialSeed = {
   username: "pat@example.com",
   password: "correct-horse-battery-staple-42",
   approvalId: "apr_conformance_fill",
+  other: { slug: "conformance-other", password: "other-items-secret-value-77" },
 };
 
 /** Architecture §4.7, security §4.5: placeholders resolve only for executors, never leak. */
@@ -67,6 +73,20 @@ export function describeCredentialBrokerConformance(
       expect(JSON.stringify({ ...handle })).not.toContain(SEED.password);
       assertNoSecrets({ handle, keys: Object.keys(handle) }, "ResolvedSecret");
       expect(handle.use((v) => v === SEED.password)).toBe(true);
+    });
+
+    it("binds the approval to its item and consumes it on use", async () => {
+      const broker = await setup();
+      await expectPsycheError(
+        broker.resolve(`{{cred:${SEED.other.slug}}}`, target, SEED.approvalId),
+        "approval_required",
+      );
+      const first = await broker.resolve(placeholder, target, SEED.approvalId);
+      first.dispose();
+      await expectPsycheError(
+        broker.resolve(placeholder, target, SEED.approvalId),
+        "approval_required",
+      );
     });
 
     it("handles are one-shot", async () => {
