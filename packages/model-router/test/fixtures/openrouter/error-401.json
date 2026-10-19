@@ -1,0 +1,14 @@
+{
+  "name": "openrouter 401",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 401,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":{\"code\":401,\"message\":\"No auth credentials found\"}}"
+  }
+}

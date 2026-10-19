@@ -1,0 +1,14 @@
+{
+  "name": "gemini 401",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/interactions"
+  },
+  "response": {
+    "status": 401,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":{\"code\":401,\"message\":\"Request had invalid authentication credentials.\",\"status\":\"UNAUTHENTICATED\"}}"
+  }
+}

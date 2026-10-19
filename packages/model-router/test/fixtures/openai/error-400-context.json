@@ -1,0 +1,14 @@
+{
+  "name": "openai 400 context length",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/responses"
+  },
+  "response": {
+    "status": 400,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":{\"message\":\"Your input exceeds the context window of this model. Please adjust your input and try again. This model's maximum context length is 922000 tokens.\",\"type\":\"invalid_request_error\",\"param\":\"input\",\"code\":\"context_length_exceeded\"}}"
+  }
+}
