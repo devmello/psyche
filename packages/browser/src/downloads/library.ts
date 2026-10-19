@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, open, rename, stat } from "node:fs/promises";
+import { copyFile, mkdir, open, rename, rm, stat } from "node:fs/promises";
 import { basename, join } from "node:path";
 import type { SniffResult } from "./sniff.ts";
 
@@ -86,7 +86,13 @@ export class FsQuarantineWriter implements LibraryWriter {
     await mkdir(this.#dir, { recursive: true, mode: 0o700 });
     const id = randomUUID();
     const storedPath = join(this.#dir, `${id}-${safeFilename(file.filename)}`);
-    await rename(file.path, storedPath);
+    try {
+      await rename(file.path, storedPath);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EXDEV") throw err;
+      await copyFile(file.path, storedPath);
+      await rm(file.path, { force: true });
+    }
     const { sha256, size } = await headAndHash(storedPath);
     const s = await stat(storedPath);
     const item: LibraryImport = {

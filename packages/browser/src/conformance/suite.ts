@@ -233,15 +233,17 @@ export function describeBrowserDriverConformance(
     it("surfaces dialogs, blocks input while one is open, and answers them", async () => {
       const s = await session();
       const t = await d.openTab(s.id, h.url("a/dialogs"));
+      const del = await ref(t.id, "button", "Delete draft");
       await d.click(t.id, await ref(t.id, "button", "Alert me"));
       await eventually(() => expect(d.pendingDialog(t.id)?.message).toBe("Hello there"));
       expect(events.some((e) => e.type === "dialog" && e.message === "Hello there")).toBe(true);
-      await expect(d.click(t.id, await ref(t.id, "button", "Delete"))).rejects.toMatchObject({
+      await expect(d.click(t.id, del)).rejects.toMatchObject({
         code: "conflict",
         details: { reason: "dialog_open" },
       });
+      await expect(d.snapshot(t.id)).rejects.toMatchObject({ details: { reason: "dialog_open" } });
       await d.handleDialog(t.id, true);
-      await d.click(t.id, await ref(t.id, "button", "Delete draft"));
+      await d.click(t.id, del);
       await eventually(() => expect(d.pendingDialog(t.id)?.type).toBe("confirm"));
       await d.handleDialog(t.id, true);
       await d.wait(t.id, { kind: "text", text: "Draft deleted" }, { timeoutMs: 5000 });

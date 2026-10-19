@@ -154,7 +154,10 @@ export class PageController {
   #loaderId = "";
   #loaded = false;
   #loadWaiters = new Set<Waiter>();
-  #inflight = new Set<string>();
+  /** In-flight requests by id → start time; child-frame documents are not tracked (OOPIF
+   *  documents finish in another target, so their `loadingFinished` never reaches us). */
+  #inflight = new Map<string, number>();
+  #dialogListeners = new Set<() => void>();
   #lastNetworkActivity = 0;
   #mainStatus: number | undefined;
   #navError: PsycheError | undefined;
@@ -296,6 +299,7 @@ export class PageController {
         const info: DialogInfo = { type, message: String(p.message ?? "") };
         if (typeof p.defaultPrompt === "string") info.defaultPrompt = p.defaultPrompt;
         this.#dialog = info;
+        for (const l of [...this.#dialogListeners]) l();
         this.#o.emit({ type: "dialog", tabId: this.tabId, message: info.message });
         return;
       }
@@ -323,7 +327,8 @@ export class PageController {
   #onRequest(p: Record<string, unknown>): void {
     const id = String(p.requestId);
     const req = p.request as { url: string; method: string };
-    this.#inflight.add(id);
+    const childDocument = p.type === "Document" && p.frameId !== this.#mainFrameId;
+    if (!childDocument) this.#inflight.set(id, Date.now());
     this.#lastNetworkActivity = Date.now();
     if (this.#o.policy().devPreview) {
       this.#network.set(id, {
@@ -470,6 +475,15 @@ export class PageController {
           },
         },
       );
+    }
+  }
+
+  /** A JavaScript dialog blocks the renderer: AX and DOM reads would hang until it closes. */
+  #assertNoDialog(): void {
+    if (this.#dialog !== undefined) {
+      throw new PsycheError("conflict", `a ${this.#dialog.type} dialog is open; answer it first`, {
+        details: { reason: "dialog_open" },
+      });
     }
   }
 
@@ -630,6 +644,7 @@ export class PageController {
 
   async snapshot(options: SnapshotOptions = {}): Promise<BrowserSnapshot> {
     this.#assertReadable();
+    this.#assertNoDialog();
     const t0 = performance.now();
     const [ax, dom, lm, frames] = await Promise.all([
       this.#t.send<{ nodes: AXNode[] }>("Accessibility.getFullAXTree", {}),
@@ -669,6 +684,7 @@ export class PageController {
     options: { maxChars?: number } = {},
   ): Promise<{ text: string; truncated: boolean }> {
     this.#assertReadable();
+    this.#assertNoDialog();
     const [ax, frames] = await Promise.all([
       this.#t.send<{ nodes: AXNode[] }>("Accessibility.getFullAXTree", {}),
       this.#frames(),
@@ -726,6 +742,18 @@ export class PageController {
     return { x: target.x, y: target.y };
   }
 
+  #untilDialog(p: Promise<unknown>): Promise<unknown> {
+    if (this.#dialog !== undefined) return Promise.resolve();
+    let off = () => {};
+    const opened = new Promise<void>((resolve) => {
+      const l = () => resolve();
+      this.#dialogListeners.add(l);
+      off = () => this.#dialogListeners.delete(l);
+    });
+    p.catch(() => undefined);
+    return Promise.race([p, opened]).finally(off);
+  }
+
   #mouse(params: Record<string, unknown>): Promise<unknown> {
     return this.#t.send("Input.dispatchMouseEvent", params);
   }
@@ -740,12 +768,16 @@ export class PageController {
     const clicks = action === "double_click" ? 2 : 1;
     for (let c = 1; c <= clicks; c++) {
       await this.#mouse({ type: "mousePressed", x, y, button, clickCount: c });
-      await this.#mouse({ type: "mouseReleased", x, y, button, clickCount: c });
+      // A click handler that calls alert()/confirm() blocks the input ack until the dialog is
+      // answered, so the release resolves early once a dialog opens.
+      await this.#untilDialog(this.#mouse({ type: "mouseReleased", x, y, button, clickCount: c }));
     }
   }
 
   async #key(chord: string): Promise<void> {
-    for (const e of keyEvents(chord)) await this.#t.send("Input.dispatchKeyEvent", { ...e });
+    for (const e of keyEvents(chord)) {
+      await this.#untilDialog(this.#t.send("Input.dispatchKeyEvent", { ...e }));
+    }
   }
 
   async press(keys: string, options: { ref?: string } = {}): Promise<void> {
@@ -976,11 +1008,12 @@ export class PageController {
         if (this.#navError !== undefined) throw this.#navError;
         return;
       case "network_idle":
-        await until(
-          () =>
-            this.#inflight.size === 0 && Date.now() - this.#lastNetworkActivity >= NETWORK_IDLE_MS,
-          "network idle",
-        );
+        await until(() => {
+          // Requests open for over 10 s (long-poll, beacons) do not hold idle forever.
+          const now = Date.now();
+          for (const [id, t] of this.#inflight) if (now - t > 10_000) this.#inflight.delete(id);
+          return this.#inflight.size === 0 && now - this.#lastNetworkActivity >= NETWORK_IDLE_MS;
+        }, "network idle");
         return;
       case "text":
         await until(
