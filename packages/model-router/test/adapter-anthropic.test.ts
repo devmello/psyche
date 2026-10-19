@@ -82,7 +82,8 @@ describe("anthropic adapter (recorded fixtures)", () => {
       { type: "tool_call", id: "toolu_01B", name: "weather", input: { city: "Tokyo" } },
     ]);
     expect(events.at(-1)).toEqual({ type: "finish", reason: "tool_calls" });
-    const tools = (replay.requests[0]?.body as { tools: { name: string }[] }).tools;
+    const tools =
+      (replay.requests[0]?.body as { tools?: { name: string }[] } | undefined)?.tools ?? [];
     expect(tools.map((t) => t.name)).toEqual(["weather"]);
   });
 
@@ -163,7 +164,8 @@ describe("anthropic adapter (recorded fixtures)", () => {
       ...textRequest("anthropic/claude-opus-5-5"),
       tools: [tool("memory"), tool("computer")],
     });
-    const tools = (replay.requests[0]?.body as { tools: { type: string }[] }).tools;
+    const tools =
+      (replay.requests[0]?.body as { tools?: { type: string }[] } | undefined)?.tools ?? [];
     expect(tools.map((t) => t.type)).toEqual(["memory_20250818", "computer_toolset_20260801"]);
   });
 
