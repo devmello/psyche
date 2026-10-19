@@ -7,6 +7,7 @@ import type {
   ModelRef,
   ModelRequest,
 } from "@psyche/protocol";
+import { captureModelVisible } from "../capture.ts";
 
 export type ScriptedTurn = ModelEvent[] | ((request: ModelRequest) => ModelEvent[]);
 
@@ -67,6 +68,7 @@ export class FakeModelProvider implements ModelProvider {
 
   async *stream(request: ModelRequest, options: CallOptions = {}): AsyncIterable<ModelEvent> {
     this.requests.push(structuredClone(request));
+    captureModelVisible("prompt", request, { where: `FakeModelProvider(${this.id}).stream` });
     const turn = this.#turns.shift() ?? DEFAULT_TURN;
     const events = typeof turn === "function" ? turn(request) : turn;
     const signal = options.signal;

@@ -28,6 +28,20 @@ Needed by S11 (desktop) and S08 (CDP driver); from `docs/spikes/spike-01-cdp-bri
 - New method `bridge.tab.status` (Gateway → desktop): status pill text and the action highlight rectangle (I5).
 - `bridge.control.changed` gains optional `via` (`keyboard | mouse | button | release | idle`); new event `bridge.debugger.detached {tabId, reason}`.
 - New method `view.report {layout}` (desktop → Gateway) so `view.layout` has something to return.
+### v1 additive — 2026-10-19 (S10 channels)
+
+- `ChannelAdapter` (all optional, additive): `InboundMessage.identityStrength` (`weak` senders never match an owner, review design-21), `forwardedFrom`, `quoted`, `editOf`, `senderIsChat` (design-22); `ChannelAttachment.kind / ref / durationMs / data`; `OutboundMessage.format`; `ChannelCapabilities.typing / markdown`; adapter methods `sendTyping`, `fetchAttachment`, `health` (`ChannelHealth`). `FakeChannelAdapter` implements the new methods and records typing, attachments and format.
+- Schema `ChannelIdentity` (data model §8 `identities`).
+- Methods `channels.configure`, `channels.allowlist.update`, `channels.pairing.{list,approve,deny}`, `channels.identities.{list,upsert,delete}`; every change is `operator.admin` and side-effecting.
+- Event `channels.updated`.
+
+### v1 (additive) — 2026-10-19 (S12 UI kit)
+
+Needed by `packages/ui` to render and answer every block type in data model §9.1 and the Feed, Ideas and Goals screens (UI design §3.4, §3.9–§3.11). Owners of the semantics: S02/S04 (questions), S05 (receipts, answer tokens), S15 (feed, ideas, goals).
+
+- New methods: `questions.list`, `questions.get`, `questions.answer` (answers keyed by question `header`; side-effecting); `receipts.get`, `receipts.list`; `artifacts.get`; `feed.list` (with `nextBriefAt`), `feed.feedback` (`null` clears, for undo); `ideas.list`, `ideas.accept` (optional `recurring` and edited `brief`; side-effecting), `ideas.dismiss` (`not_now | not_interested | never_from_source`); `goals.list`, `goals.get` (with linked `taskIds`), `goals.decide` (`confirm | reject | later`).
+- New events (appended): `question.updated`, `feed.post`, `idea.updated`, `goal.updated`.
+- Optional `answerToken` on `approval.created` and on `approvals.get`'s result, and an optional `answerTokens` map on `approvals.list`'s result: the calling device's own single-use surface token (security §3.7), so a client can call `approvals.answer`. Never another surface's token.
 
 ### v1 additive — 2026-10-19 (S02 agent runtime)
 

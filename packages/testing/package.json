@@ -13,6 +13,14 @@
     "./conformance": {
       "types": "./src/conformance/index.ts",
       "default": "./src/conformance/index.ts"
+    },
+    "./vitest": {
+      "types": "./src/vitest.ts",
+      "default": "./src/vitest.ts"
+    },
+    "./vitest-setup": {
+      "types": "./src/vitest-setup.ts",
+      "default": "./src/vitest-setup.ts"
     }
   },
   "scripts": {
@@ -31,5 +39,8 @@
     "vitest": {
       "optional": true
     }
+  },
+  "bin": {
+    "psyche-check-secrets": "./src/cli/check-secrets.ts"
   }
 }

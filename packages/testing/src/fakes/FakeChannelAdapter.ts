@@ -2,23 +2,28 @@ import type {
   ApprovalRequest,
   ChannelAdapter,
   ChannelApprovalAnswer,
+  ChannelAttachment,
   ChannelCapabilities,
+  ChannelHealth,
   ChannelType,
   InboundMessage,
   OutboundMessage,
   SendResult,
   Unsubscribe,
 } from "@psyche/protocol";
+import { captureModelVisible } from "../capture.ts";
 import { createIdGenerator, type IdGenerator } from "../ids.ts";
 import { fail } from "./errors.ts";
 
 export interface SentRecord {
-  kind: "message" | "approval_buttons" | "pairing_code";
+  kind: "message" | "approval_buttons" | "pairing_code" | "typing";
   chatId: string;
   text: string;
   messageId: string;
   approvalId?: string;
   answerToken?: string;
+  attachments?: ChannelAttachment[];
+  format?: "plain" | "markdown";
 }
 
 /**
@@ -30,7 +35,10 @@ export class FakeChannelAdapter implements ChannelAdapter {
   readonly type: ChannelType;
   readonly account: string;
   readonly sent: SentRecord[] = [];
+  /** Bytes served by `fetchAttachment`, keyed by attachment `ref`. */
+  readonly files = new Map<string, Uint8Array>();
   started = false;
+  healthy = true;
   #caps: ChannelCapabilities;
   #ids: IdGenerator;
   #inbound = new Set<(m: InboundMessage) => void | Promise<void>>();
@@ -55,6 +63,8 @@ export class FakeChannelAdapter implements ChannelAdapter {
       attachments: true,
       groups: true,
       maxMessageChars: 4096,
+      typing: true,
+      markdown: false,
       ...options.capabilities,
     };
   }
@@ -113,7 +123,14 @@ export class FakeChannelAdapter implements ChannelAdapter {
   async send(message: OutboundMessage): Promise<SendResult> {
     const max = this.#caps.maxMessageChars;
     if (max !== undefined && message.text.length > max) fail("invalid_params", "message too long");
-    return this.#record({ kind: "message", chatId: message.chatId, text: message.text });
+    captureModelVisible("transcript", message, { where: `FakeChannelAdapter(${this.type}).send` });
+    return this.#record({
+      kind: "message",
+      chatId: message.chatId,
+      text: message.text,
+      ...(message.attachments === undefined ? {} : { attachments: message.attachments }),
+      ...(message.format === undefined ? {} : { format: message.format }),
+    });
   }
 
   async sendApprovalButtons(
@@ -135,5 +152,21 @@ export class FakeChannelAdapter implements ChannelAdapter {
 
   async sendPairingCode(chatId: string, code: string): Promise<SendResult> {
     return this.#record({ kind: "pairing_code", chatId, text: code });
+  }
+
+  async sendTyping(chatId: string, action: "typing" | "recording_voice" = "typing"): Promise<void> {
+    if (this.#caps.typing === false) fail("not_implemented", "channel has no typing indicator");
+    this.#record({ kind: "typing", chatId, text: action });
+  }
+
+  async fetchAttachment(ref: string): Promise<Uint8Array> {
+    const data = this.files.get(ref);
+    return data ?? fail("not_found", `no attachment ${ref}`);
+  }
+
+  async health(): Promise<ChannelHealth> {
+    return this.healthy && this.started
+      ? { ok: true }
+      : { ok: false, detail: this.started ? "unhealthy" : "stopped" };
   }
 }

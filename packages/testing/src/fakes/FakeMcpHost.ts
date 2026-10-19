@@ -8,6 +8,7 @@ import type {
   ToolSpec,
 } from "@psyche/protocol";
 import { canonicalJSON, sha256 } from "../canonical.ts";
+import { captureModelVisible } from "../capture.ts";
 import { fail } from "./errors.ts";
 
 export interface FakeMcpTool {
@@ -122,18 +123,23 @@ export class FakeMcpHost implements McpHost {
     if (t === undefined) return fail("not_found", `tool ${tool} not found on ${serverId}`);
     this.calls.push({ serverId, tool, args: structuredClone(args) });
     const provenance = s.config.trust === "bundled" ? "trusted" : "untrusted";
+    let result: McpToolResult;
     try {
-      return {
+      result = {
         content: t.handler === undefined ? null : t.handler(args),
         isError: false,
         provenance,
       };
     } catch (err) {
-      return {
+      result = {
         content: err instanceof Error ? err.message : String(err),
         isError: true,
         provenance,
       };
     }
+    captureModelVisible("tool_result", result.content, {
+      where: `FakeMcpHost(${serverId}).${tool}`,
+    });
+    return result;
   }
 }

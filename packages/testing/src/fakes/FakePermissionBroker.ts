@@ -24,6 +24,7 @@ import {
   type ToolCallIntent,
 } from "@psyche/protocol";
 import { bindingHash as computeBindingHash } from "../canonical.ts";
+import { captureModelVisible } from "../capture.ts";
 import { FakeClock, toIso } from "../clock.ts";
 import { createIdGenerator, type IdGenerator } from "../ids.ts";
 import { fail } from "./errors.ts";
@@ -246,6 +247,7 @@ export class FakePermissionBroker implements PermissionBroker {
 
   async requestApproval(input: ApprovalRequestInput): Promise<IssuedApproval> {
     this.#sweep();
+    captureModelVisible("approval_card", input, { where: "FakePermissionBroker.requestApproval" });
     return this.#issue(input);
   }
 
@@ -482,6 +484,7 @@ export class FakePermissionBroker implements PermissionBroker {
       createdAt: toIso(this.clock.now()),
     };
     this.#receipts.push(receipt);
+    captureModelVisible("receipt", receipt, { where: "FakePermissionBroker.recordReceipt" });
     return structuredClone(receipt);
   }
 

@@ -4,9 +4,10 @@ import { PsycheError } from "./errors.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
 import { Block } from "./schemas/blocks.ts";
 import { Device, NodeInfo, PairingRequest } from "./schemas/identity.ts";
+import { Channel } from "./schemas/integrations.ts";
 import { MemoryChangeSource, MemoryJob } from "./schemas/memory.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
-import { Notification, SettingEntry } from "./schemas/surfaces.ts";
+import { FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surfaces.ts";
 import { InputRequest, Task, TaskAction } from "./schemas/tasks.ts";
 import { Message, Run, Thread } from "./schemas/threads.ts";
 import { ToolCall } from "./schemas/tools.ts";
@@ -56,7 +57,12 @@ export const Events = {
     description: "A new Activity line for a task.",
   }),
   "approval.created": defineEvent({
-    payload: Type.Object({ approval: ApprovalRequest }),
+    payload: Type.Object({
+      approval: ApprovalRequest,
+      answerToken: Type.Optional(
+        Type.String({ minLength: 1, description: "This connection's surface token, if any" }),
+      ),
+    }),
     description: "A new approval request is pending.",
   }),
   "approval.updated": defineEvent({
@@ -95,6 +101,14 @@ export const Events = {
     payload: Type.Object({ pairingRequest: PairingRequest }),
     description: "A new pairing request awaits the owner's approval.",
   }),
+  "channels.updated": defineEvent({
+    payload: Type.Object({
+      channel: Channel,
+      /** Adapter health detail when `status` is `error` or `disconnected`. */
+      detail: Type.Optional(Type.String()),
+    }),
+    description: "A channel was configured, connected, disconnected or changed status.",
+  }),
   "view.command": defineEvent({
     payload: Type.Object({
       commandId: Type.Optional(Type.String()),
@@ -121,6 +135,22 @@ export const Events = {
   "gateway.shutdown": defineEvent({
     payload: Type.Object({ reason: Type.String() }),
     description: "The Gateway is shutting down; clients reconnect with backoff.",
+  }),
+  "question.updated": defineEvent({
+    payload: Type.Object({ inputRequest: InputRequest }),
+    description: "An input request was answered or cancelled.",
+  }),
+  "feed.post": defineEvent({
+    payload: Type.Object({ post: FeedPost }),
+    description: "A feed post was published or its feedback changed.",
+  }),
+  "idea.updated": defineEvent({
+    payload: Type.Object({ idea: Idea }),
+    description: "An idea was proposed, accepted, edited, dismissed or expired.",
+  }),
+  "goal.updated": defineEvent({
+    payload: Type.Object({ goal: Goal }),
+    description: "A goal was created, confirmed, changed or archived.",
   }),
 } as const;
 
