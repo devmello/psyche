@@ -18,67 +18,66 @@ struct KeychainCapabilitiesTests {
         return try await handler.invoke(ctx)
     }
 
-    @Test func declaresTheManifest() {
+    static let setParams: JSONValue = [
+        "service": "com.psyche.vault", "account": "01JABCDEF", "value": .string(Data(repeating: 7, count: 32).base64EncodedString()),
+        "accessControl": ["biometryCurrentSet", "or", "devicePasscode"], "accessible": "whenPasscodeSetThisDeviceOnly",
+        "synchronizable": false, "dataProtection": true,
+    ]
+
+    @Test func declaresS06sContract() {
         let specs = Dictionary(uniqueKeysWithValues: registry.ordered.map { ($0.spec.name, $0.spec) })
-        #expect(Set(specs.keys) == [
-            "keychain.wrap_key", "keychain.unwrap_key", "keychain.store", "keychain.retrieve", "keychain.delete", "keychain.status",
-        ])
-        #expect(specs["keychain.wrap_key"]?.sideEffect == .write)
-        #expect(specs["keychain.wrap_key"]?.receiptKind == "vault_key")
-        #expect(specs["keychain.unwrap_key"]?.sideEffect == .read)
-        #expect(specs["keychain.unwrap_key"]?.description.contains("SECRET") == true)
-        #expect(specs["keychain.store"]?.sideEffect == .write)
-        #expect(specs["keychain.retrieve"]?.sideEffect == .read)
+        #expect(Set(specs.keys) == ["keychain.set", "vault.unlock", "keychain.delete", "keychain.status"])
+        #expect(specs["keychain.set"]?.sideEffect == .write && specs["keychain.set"]?.receiptKind == "vault_key")
+        #expect(specs["vault.unlock"]?.sideEffect == .read && specs["vault.unlock"]?.description.contains("secret") == true)
         #expect(specs["keychain.delete"]?.sideEffect == .destructive)
-        #expect(specs["keychain.status"]?.sideEffect == .read)
-        #expect(specs["keychain.unwrap_key"]?.inputSchema["required"] == ["reason", "slot", "wrapped"])
+        #expect(specs["vault.unlock"]?.inputSchema["required"] == ["account", "reason", "service"])
     }
 
-    @Test func wrapUnwrapThroughCapabilities() async throws {
-        let dek = Base64URL.encode(Data(repeating: 7, count: 32))
-        let wrap = try await invoke("keychain.wrap_key", ["slot": "vault.main", "dek": .string(dek)])
-        #expect(wrap.receipt?.outcome == .ok)
-        #expect(wrap.result["replaced"] == false)
-        #expect(wrap.result["dek"] == nil)
-        #expect(!wrap.result.jsonString().contains(dek))
-        let wrapped = try #require(wrap.result["wrapped"]?.stringValue)
-        let unwrap = try await invoke("keychain.unwrap_key", ["slot": "vault.main", "wrapped": .string(wrapped), "reason": "unlock your vault"])
-        #expect(unwrap.result["dek"] == .string(dek))
-        #expect(unwrap.receipt == nil)
+    @Test func setThenUnlockRoundTripsTheKey() async throws {
+        let set = try await invoke("keychain.set", Self.setParams)
+        #expect(set.result == [:] && set.receipt?.outcome == .ok)
+        let item = try #require(backend.snapshot()[.init(service: "com.psyche.vault", account: "01JABCDEF")])
+        #expect(item.protection == .accessControl(.whenPasscodeSetThisDeviceOnly, [.biometryCurrentSet, .or, .devicePasscode]))
+        let out = try await invoke("vault.unlock", ["service": "com.psyche.vault", "account": "01JABCDEF", "reason": "unlock your Psyche vault",
+                                                    "reuseDurationSeconds": 0])
+        #expect(out.result["value"] == .string(Data(repeating: 7, count: 32).base64EncodedString()))
+        #expect(backend.prompts.last == "unlock your Psyche vault")
+        // Setting again replaces (vault creation and rekey).
+        _ = try await invoke("keychain.set", Self.setParams)
+        _ = try await invoke("keychain.delete", ["service": "com.psyche.vault", "account": "01JABCDEF"])
+        #expect(backend.snapshot().isEmpty)
     }
 
-    @Test func storeNeverEchoesTheValue() async throws {
-        let value = Base64URL.encode(Data("s3cret-value".utf8))
-        let out = try await invoke("keychain.store", ["name": "api.key", "value": .string(value)])
-        #expect(!out.result.jsonString().contains(value))
-        #expect(out.result["requireAuth"] == true)
-        #expect(out.receipt?.summary.contains("s3cret") == false)
-        let back = try await invoke("keychain.retrieve", ["name": "api.key", "reason": "use the key"])
-        #expect(back.result["value"] == .string(value))
-        let del = try await invoke("keychain.delete", ["name": "api.key"])
-        #expect(del.result["kind"] == "item")
-        #expect(del.receipt != nil)
+    @Test func refusesWeakerProtectionOrOtherServices() async {
+        func expectInvalid(_ name: String, _ params: JSONValue) async {
+            do {
+                _ = try await invoke(name, params)
+                Issue.record("\(name) accepted \(params)")
+            } catch let e as CapabilityError {
+                #expect(e.code == .invalidParams)
+            } catch { Issue.record("unexpected \(error)") }
+        }
+        var weak = Self.setParams.objectValue!
+        weak["accessControl"] = ["biometryCurrentSet", "devicePasscode"]
+        await expectInvalid("keychain.set", .object(weak))
+        var sync = Self.setParams.objectValue!
+        sync["synchronizable"] = true
+        await expectInvalid("keychain.set", .object(sync))
+        var other = Self.setParams.objectValue!
+        other["service"] = "com.example.other"
+        await expectInvalid("keychain.set", .object(other))
+        await expectInvalid("vault.unlock", ["service": "com.psyche.vault", "account": "a/b", "reason": "x"])
+        await expectInvalid("vault.unlock", ["service": "com.psyche.vault", "account": "a", "reason": ""])
     }
 
-    @Test func validatesParams() async {
-        await expectCapabilityError(.invalidParams, "invalid_params") {
-            _ = try await invoke("keychain.unwrap_key", ["slot": "s", "wrapped": "x"]) // reason missing
-        }
-        await expectCapabilityError(.invalidParams, "invalid_params") {
-            _ = try await invoke("keychain.retrieve", ["name": "n", "reason": .string(String(repeating: "x", count: 121))])
-        }
-        await expectCapabilityError(.invalidParams, "invalid_params") {
-            _ = try await invoke("keychain.delete", ["slot": "s", "name": "n"])
-        }
-        await expectCapabilityError(.invalidParams, "invalid_params") {
-            _ = try await invoke("keychain.delete", [:])
-        }
-        await expectCapabilityError(.invalidParams, "invalid_params") {
-            _ = try await invoke("keychain.wrap_key", ["slot": "s", "dek": "!!"])
-        }
-        await expectCapabilityError(.invalidParams, "invalid_params") {
-            _ = try await invoke("keychain.store", ["name": "UPPER", "value": "AQ"])
-        }
+    @Test func missingEntitlementIsUnavailable() async {
+        backend.failMutationsWith = -34018
+        do {
+            _ = try await invoke("keychain.set", Self.setParams)
+            Issue.record("expected missing_entitlement")
+        } catch let e as CapabilityError {
+            #expect(e.code == .unavailable && e.reason == "missing_entitlement")
+        } catch { Issue.record("unexpected \(error)") }
     }
 
     @Test func statusCapability() async throws {

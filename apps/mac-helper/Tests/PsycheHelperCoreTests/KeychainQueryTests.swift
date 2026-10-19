@@ -126,7 +126,7 @@ struct KeychainQueryTests {
         #expect(KeychainNames.isValid(name))
     }
 
-    @Test(arguments: ["", "Vault", "a b", "a/b", "é", String(repeating: "a", count: 65), "a\n", "*"])
+    @Test(arguments: ["", "a b", "a/b", "é", String(repeating: "a", count: 65), "a\n", "*"])
     func rejectsInvalidNames(_ name: String) {
         #expect(!KeychainNames.isValid(name))
         #expect(throws: CapabilityError.self) { try KeychainNames.validate(name, field: "slot") }

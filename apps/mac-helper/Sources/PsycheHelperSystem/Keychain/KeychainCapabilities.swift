@@ -2,12 +2,110 @@ import Foundation
 import PsycheHelperCore
 import PsycheProtocol
 
-/// `keychain.*` capabilities (architecture §6, security §4.2, feature G1). Results never echo secret
-/// values except `unwrap_key` (the DEK) and `retrieve` (the item); the Gateway must treat both as
-/// secrets: never in model-visible text, tool results, logs or notifications.
+/// Keychain capabilities on S06's contract (`packages/vault` README "Mac helper contract"; security
+/// §4.2; G1): `keychain.set`, `vault.unlock`, `keychain.delete`, plus `keychain.status`. The Gateway
+/// seals the DEK itself; the helper only holds the KEK behind Touch ID. These are Gateway-internal:
+/// no agent tool may reach them through `nodes.invoke`, and `vault.unlock`'s result is a secret.
+/// (`wrapKey` / `store` on `KeychainVault` remain for helper-side use; they are not exposed.)
 public enum KeychainCapabilities {
     public static func make(vault: KeychainVault = KeychainVault()) -> [any CapabilityHandler] {
-        [wrapKey(vault), unwrapKey(vault), store(vault), retrieve(vault), delete(vault), status(vault)]
+        [set(vault), unlock(vault), deleteKey(vault), status(vault)]
+    }
+
+    static let service = "com.psyche.vault"
+    static let accessControl = ["biometryCurrentSet", "or", "devicePasscode"]
+
+    struct SetParams: Decodable {
+        var service: String
+        var account: String
+        var value: String
+        var accessControl: [String]
+        var accessible: String
+        var synchronizable: Bool
+        var dataProtection: Bool
+    }
+
+    struct UnlockParams: Decodable {
+        var service: String
+        var account: String
+        var reason: String
+        var reuseDurationSeconds: Double?
+    }
+
+    struct DeleteKeyParams: Decodable {
+        var service: String
+        var account: String
+    }
+
+    static func checkService(_ s: String) throws {
+        guard s == service else { throw CapabilityError.invalidParams("service must be \(service)", field: "service") }
+    }
+
+    static let accountSchema = Schema.string("Vault account (one key item per vault), ^[A-Za-z0-9._-]{1,64}$", maxLength: KeychainNames.maxLength)
+
+    static func set(_ vault: KeychainVault) -> Capability {
+        Capability(CapabilitySpec(
+            name: "keychain.set",
+            description: "Store the vault's key-encryption key in the data-protection keychain behind Touch ID or the device passcode "
+                + "([biometryCurrentSet, or, devicePasscode], whenPasscodeSetThisDeviceOnly, not synchronized). Replaces an existing "
+                + "key for the account. No prompt. Gateway-internal: never reachable from agent tools.",
+            sideEffect: .write,
+            inputSchema: Schema.object([
+                "service": Schema.string(enum: [service]), "account": accountSchema,
+                "value": Schema.string("base64 key bytes", maxLength: 128),
+                "accessControl": Schema.array(Schema.string(enum: accessControl)),
+                "accessible": Schema.string(enum: ["whenPasscodeSetThisDeviceOnly"]),
+                "synchronizable": Schema.boolean(), "dataProtection": Schema.boolean(),
+            ], required: ["service", "account", "value", "accessControl", "accessible", "synchronizable", "dataProtection"]),
+            receiptKind: "vault_key"
+        )) { ctx in
+            let p = try ctx.decode(SetParams.self)
+            try checkService(p.service)
+            // The protection is fixed by security §4.2; refuse anything else rather than weaken it.
+            guard p.accessControl == accessControl, p.accessible == "whenPasscodeSetThisDeviceOnly", !p.synchronizable, p.dataProtection else {
+                throw CapabilityError.invalidParams("only [biometryCurrentSet, or, devicePasscode], whenPasscodeSetThisDeviceOnly, non-synchronizable, data protection keychain is supported")
+            }
+            guard let value = Data(base64Encoded: p.value) else { throw CapabilityError.invalidParams("value must be base64", field: "value") }
+            let replaced = try await vault.setVaultKey(account: p.account, value: value)
+            return CapabilityOutput([:], receipt: ReceiptDraft(outcome: .ok, summary: replaced ? "Replaced the vault key" : "Stored the vault key",
+                                                               externalRefs: ["account": .string(p.account)]))
+        }
+    }
+
+    static func unlock(_ vault: KeychainVault) -> Capability {
+        Capability(CapabilitySpec(
+            name: "vault.unlock",
+            description: "Read the vault's key-encryption key: shows the Touch ID / password prompt with `reason`. Returns {value} (base64), "
+                + "a secret: never in model-visible text, logs or notifications. Cancel → cancelled. Gateway-internal.",
+            sideEffect: .read,
+            inputSchema: Schema.object([
+                "service": Schema.string(enum: [service]), "account": accountSchema,
+                "reason": Schema.string("Prompt text (1–120 characters)", maxLength: KeychainNames.reasonMaxLength),
+                "reuseDurationSeconds": Schema.number("Touch ID reuse window, 0–300 (0 for per-fill items)", min: 0, max: 300),
+            ], required: ["service", "account", "reason"])
+        )) { ctx in
+            let p = try ctx.decode(UnlockParams.self)
+            try checkService(p.service)
+            let reason = try KeychainNames.validateReason(p.reason, required: true) ?? p.reason
+            let reuse = min(300, max(0, p.reuseDurationSeconds ?? 0))
+            let value = try await vault.unlockVaultKey(account: p.account, reason: reason, reuseSeconds: reuse)
+            return CapabilityOutput(["value": .string(value.base64EncodedString())])
+        }
+    }
+
+    static func deleteKey(_ vault: KeychainVault) -> Capability {
+        Capability(CapabilitySpec(
+            name: "keychain.delete",
+            description: "Delete the vault's key-encryption key (the vault then opens only with the recovery key). Gateway-internal.",
+            sideEffect: .destructive,
+            inputSchema: Schema.object(["service": Schema.string(enum: [service]), "account": accountSchema], required: ["service", "account"]),
+            receiptKind: "vault_key"
+        )) { ctx in
+            let p = try ctx.decode(DeleteKeyParams.self)
+            try checkService(p.service)
+            try await vault.delete(.slot(try KeychainNames.validate(p.account, field: "account")))
+            return CapabilityOutput([:], receipt: ReceiptDraft(outcome: .ok, summary: "Deleted the vault key", externalRefs: ["account": .string(p.account)]))
+        }
     }
 
     // MARK: - Schemas

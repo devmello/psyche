@@ -219,13 +219,13 @@ public enum KeychainNames {
     public static func isValid(_ name: String) -> Bool {
         guard (1...maxLength).contains(name.utf8.count) else { return false }
         return name.utf8.allSatisfy { b in
-            (b >= 0x61 && b <= 0x7A) || (b >= 0x30 && b <= 0x39) || b == 0x2E || b == 0x5F || b == 0x2D
+            (b >= 0x61 && b <= 0x7A) || (b >= 0x41 && b <= 0x5A) || (b >= 0x30 && b <= 0x39) || b == 0x2E || b == 0x5F || b == 0x2D
         }
     }
 
     public static func validate(_ name: String, field: String) throws(CapabilityError) -> String {
         guard isValid(name) else {
-            throw CapabilityError.invalidParams("\(field) must match ^[a-z0-9._-]{1,64}$", field: field)
+            throw CapabilityError.invalidParams("\(field) must match ^[A-Za-z0-9._-]{1,64}$", field: field)
         }
         return name
     }

@@ -20,6 +20,7 @@ public final class HelperRuntime: @unchecked Sendable {
         handlers += AppsCapabilities.make(computer)
         handlers += NotifyCapabilities.make(bridge: notifications)
         handlers += SpeechCapabilities.make(preflight: preflight, log: log)
+        handlers += KeychainCapabilities.make()
         registry = CapabilityRegistry(handlers)
     }
 

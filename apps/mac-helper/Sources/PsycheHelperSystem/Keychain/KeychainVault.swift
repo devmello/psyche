@@ -81,6 +81,29 @@ public final class KeychainVault: Sendable {
         }
     }
 
+    // MARK: - S06 vault contract (keychain.set / vault.unlock / keychain.delete)
+
+    /// Stores the Gateway's KEK for vault `account` (S06 seals the DEK itself). Replaces an
+    /// existing item: the vault calls this on creation and on rekey. No prompt.
+    public func setVaultKey(account: String, value: Data) async throws -> Bool {
+        let account = try KeychainNames.validate(account, field: "account")
+        guard (16...64).contains(value.count) else {
+            throw CapabilityError.invalidParams("value must be a 16–64 byte key", field: "value")
+        }
+        return try await addReplacing(
+            KeychainQueries.addVaultKEK(slot: account, accessGroup: accessGroup),
+            delete: KeychainQueries.deleteVaultKEK(slot: account, accessGroup: accessGroup),
+            value: value, replace: true
+        )
+    }
+
+    /// Reads vault `account`'s KEK, prompting Touch ID / password with `reason`.
+    public func unlockVaultKey(account: String, reason: String, reuseSeconds: TimeInterval) async throws -> Data {
+        let account = try KeychainNames.validate(account, field: "account")
+        return try await read(KeychainQueries.readVaultKEK(slot: account, accessGroup: accessGroup), prompt: reason,
+                              what: "vault key \(account)", reuseSeconds: reuseSeconds)
+    }
+
     // MARK: - Items
 
     /// Stores `value` under `name`. `requireAuth` (default) protects it like a vault KEK; otherwise
@@ -190,7 +213,7 @@ public final class KeychainVault: Sendable {
         }
     }
 
-    private func read(_ query: KeychainQuery, prompt: String, what: String) async throws -> Data {
+    private func read(_ query: KeychainQuery, prompt: String, what: String, reuseSeconds: TimeInterval = 0) async throws -> Data {
         let backend = self.backend
         let probe = KeychainQueries.probe(accessGroup: accessGroup)
         let canceller = AuthenticationCanceller()
@@ -198,7 +221,7 @@ public final class KeychainVault: Sendable {
             let data = try await withTaskCancellationHandler {
                 try await onQueue { () throws -> Data in
                     do {
-                        return try backend.copyData(query, prompt: prompt, canceller: canceller)
+                        return try backend.copyData(query, prompt: prompt, reuseSeconds: reuseSeconds, canceller: canceller)
                     } catch let e as KeychainOSStatusError where e.isNotFound {
                         // Unentitled reads of absent items report not-found; tell the two apart.
                         do {

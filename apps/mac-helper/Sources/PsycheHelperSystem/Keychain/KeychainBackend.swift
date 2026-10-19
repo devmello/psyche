@@ -12,6 +12,14 @@ public protocol KeychainBackend: Sendable {
     /// nil means no UI may be shown (`interactionNotAllowed`).
     func copyData(_ query: KeychainQuery, prompt: String?, canceller: AuthenticationCanceller?) throws -> Data
     func delete(_ query: KeychainQuery) throws
+    /// Like `copyData`, letting one Touch ID match cover reads for `reuseSeconds` (0–300).
+    func copyData(_ query: KeychainQuery, prompt: String?, reuseSeconds: TimeInterval, canceller: AuthenticationCanceller?) throws -> Data
+}
+
+extension KeychainBackend {
+    public func copyData(_ query: KeychainQuery, prompt: String?, reuseSeconds: TimeInterval, canceller: AuthenticationCanceller?) throws -> Data {
+        try copyData(query, prompt: prompt, canceller: canceller)
+    }
 }
 
 /// Lets an async caller invalidate the `LAContext` of an in-flight read (task cancellation), which
@@ -95,8 +103,12 @@ public struct SecItemKeychainBackend: KeychainBackend {
     }
 
     public func copyData(_ query: KeychainQuery, prompt: String?, canceller: AuthenticationCanceller?) throws -> Data {
+        try copyData(query, prompt: prompt, reuseSeconds: 0, canceller: canceller)
+    }
+
+    public func copyData(_ query: KeychainQuery, prompt: String?, reuseSeconds: TimeInterval, canceller: AuthenticationCanceller?) throws -> Data {
         let context = LAContext()
-        context.touchIDAuthenticationAllowableReuseDuration = 0
+        context.touchIDAuthenticationAllowableReuseDuration = min(LATouchIDAuthenticationMaximumAllowableReuseDuration, max(0, reuseSeconds))
         if let prompt {
             context.localizedReason = prompt
         } else {
