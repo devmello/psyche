@@ -13,7 +13,9 @@
     "package": "electron-forge package",
     "make": "electron-forge make",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "e2e": "playwright test -c e2e/playwright.config.ts",
+    "build:e2e": "electron-forge package"
   },
   "dependencies": {
     "@psyche/protocol": "workspace:*",

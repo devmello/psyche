@@ -60,7 +60,8 @@ protocol.registerSchemesAsPrivileged([
 app.enableSandbox();
 
 // Tests and side-by-side dev profiles: a separate userData dir, never honoured by packaged builds.
-if (!app.isPackaged && process.env.PSYCHE_USER_DATA) app.setPath("userData", process.env.PSYCHE_USER_DATA);
+if (!app.isPackaged && process.env.PSYCHE_USER_DATA)
+  app.setPath("userData", process.env.PSYCHE_USER_DATA);
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
@@ -468,7 +469,8 @@ void app.whenReady().then(async () => {
   );
 
   // ⌥Space by default (docs/06 §3.21); ⌃⌥Space when another utility owns it.
-  if (!globalShortcut.register("Alt+Space", () => windows?.toggleQuickEntry()))
+  const skipShortcuts = !app.isPackaged && process.env.PSYCHE_DISABLE_GLOBAL_SHORTCUTS === "1";
+  if (!skipShortcuts && !globalShortcut.register("Alt+Space", () => windows?.toggleQuickEntry()))
     globalShortcut.register("Control+Alt+Space", () => windows?.toggleQuickEntry());
 
   windows.showMain();
