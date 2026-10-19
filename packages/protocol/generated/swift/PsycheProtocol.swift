@@ -25,6 +25,13 @@
 //   let audioFormat = try? JSONDecoder().decode(AudioFormat.self, from: jsonData)
 //   let auditActor = try? JSONDecoder().decode(AuditActor.self, from: jsonData)
 //   let auditEntry = try? JSONDecoder().decode(AuditEntry.self, from: jsonData)
+//   let auditExportFormat = try? JSONDecoder().decode(AuditExportFormat.self, from: jsonData)
+//   let auditExportParams = try? JSONDecoder().decode(AuditExportParams.self, from: jsonData)
+//   let auditExportResult = try? JSONDecoder().decode(AuditExportResult.self, from: jsonData)
+//   let auditListParams = try? JSONDecoder().decode(AuditListParams.self, from: jsonData)
+//   let auditListResult = try? JSONDecoder().decode(AuditListResult.self, from: jsonData)
+//   let auditVerifyParams = try? JSONDecoder().decode(AuditVerifyParams.self, from: jsonData)
+//   let auditVerifyResult = try? JSONDecoder().decode(AuditVerifyResult.self, from: jsonData)
 //   let automation = try? JSONDecoder().decode(Automation.self, from: jsonData)
 //   let automationKind = try? JSONDecoder().decode(AutomationKind.self, from: jsonData)
 //   let automationResult = try? JSONDecoder().decode(AutomationResult.self, from: jsonData)
@@ -1013,6 +1020,102 @@ public enum ArtifactType: String, Codable, Sendable {
     case sheet = "sheet"
 }
 
+// MARK: - AuditExportParams
+public struct AuditExportParams: Codable, Sendable {
+    public let format: AuditExportFormat?
+    public let since: String?
+    public let until: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case format = "format"
+        case since = "since"
+        case until = "until"
+    }
+
+    public init(format: AuditExportFormat?, since: String?, until: String?) {
+        self.format = format
+        self.since = since
+        self.until = until
+    }
+}
+
+public enum AuditExportFormat: String, Codable, Sendable {
+    case json = "json"
+    case jsonl = "jsonl"
+}
+
+// MARK: - AuditExportResult
+public struct AuditExportResult: Codable, Sendable {
+    public let data: String
+    public let format: AuditExportFormat
+
+    public enum CodingKeys: String, CodingKey {
+        case data = "data"
+        case format = "format"
+    }
+
+    public init(data: String, format: AuditExportFormat) {
+        self.data = data
+        self.format = format
+    }
+}
+
+// MARK: - AuditListParams
+public struct AuditListParams: Codable, Sendable {
+    public let approvalID: String?
+    public let kind: String?
+    /// "approval." matches every approval kind
+    public let kindPrefix: String?
+    public let limit: Int?
+    public let order: Order?
+    public let since: String?
+    public let sinceSeq: Int?
+    public let taskID: String?
+    public let until: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case kind = "kind"
+        case kindPrefix = "kindPrefix"
+        case limit = "limit"
+        case order = "order"
+        case since = "since"
+        case sinceSeq = "sinceSeq"
+        case taskID = "taskId"
+        case until = "until"
+    }
+
+    public init(approvalID: String?, kind: String?, kindPrefix: String?, limit: Int?, order: Order?, since: String?, sinceSeq: Int?, taskID: String?, until: String?) {
+        self.approvalID = approvalID
+        self.kind = kind
+        self.kindPrefix = kindPrefix
+        self.limit = limit
+        self.order = order
+        self.since = since
+        self.sinceSeq = sinceSeq
+        self.taskID = taskID
+        self.until = until
+    }
+}
+
+public enum Order: String, Codable, Sendable {
+    case asc = "asc"
+    case desc = "desc"
+}
+
+// MARK: - AuditListResult
+public struct AuditListResult: Codable, Sendable {
+    public let entries: [AuditEntry]
+
+    public enum CodingKeys: String, CodingKey {
+        case entries = "entries"
+    }
+
+    public init(entries: [AuditEntry]) {
+        self.entries = entries
+    }
+}
+
 // MARK: - AuditEntry
 public struct AuditEntry: Codable, Sendable {
     public let actor: AuditActor
@@ -1080,6 +1183,51 @@ public enum AuditActorType: String, Codable, Sendable {
     case device = "device"
     case system = "system"
     case user = "user"
+}
+
+// MARK: - AuditVerifyResult
+public struct AuditVerifyResult: Codable, Sendable {
+    public let anchors: Int?
+    public let brokenAtSeq: Int?
+    public let count: Int?
+    public let file: String?
+    public let lastHash: String?
+    public let line: Int?
+    public let ok: Bool
+    public let reason: AuditVerifyResultReason?
+
+    public enum CodingKeys: String, CodingKey {
+        case anchors = "anchors"
+        case brokenAtSeq = "brokenAtSeq"
+        case count = "count"
+        case file = "file"
+        case lastHash = "lastHash"
+        case line = "line"
+        case ok = "ok"
+        case reason = "reason"
+    }
+
+    public init(anchors: Int?, brokenAtSeq: Int?, count: Int?, file: String?, lastHash: String?, line: Int?, ok: Bool, reason: AuditVerifyResultReason?) {
+        self.anchors = anchors
+        self.brokenAtSeq = brokenAtSeq
+        self.count = count
+        self.file = file
+        self.lastHash = lastHash
+        self.line = line
+        self.ok = ok
+        self.reason = reason
+    }
+}
+
+public enum AuditVerifyResultReason: String, Codable, Sendable {
+    case anchorMismatch = "anchor_mismatch"
+    case anchorMissing = "anchor_missing"
+    case anchorSignature = "anchor_signature"
+    case hashMismatch = "hash_mismatch"
+    case prevMismatch = "prev_mismatch"
+    case seqGap = "seq_gap"
+    case truncated = "truncated"
+    case unparsable = "unparsable"
 }
 
 // MARK: - AutomationResult
@@ -9480,7 +9628,7 @@ public struct VaultLockResult: Codable, Sendable {
 
 // MARK: - VaultLockedPayload
 public struct VaultLockedPayload: Codable, Sendable {
-    public let reason: Reason
+    public let reason: VaultLockedPayloadReason
     public let status: VaultStatus
 
     public enum CodingKeys: String, CodingKey {
@@ -9488,13 +9636,13 @@ public struct VaultLockedPayload: Codable, Sendable {
         case status = "status"
     }
 
-    public init(reason: Reason, status: VaultStatus) {
+    public init(reason: VaultLockedPayloadReason, status: VaultStatus) {
         self.reason = reason
         self.status = status
     }
 }
 
-public enum Reason: String, Codable, Sendable {
+public enum VaultLockedPayloadReason: String, Codable, Sendable {
     case idle = "idle"
     case manual = "manual"
     case screenLock = "screen_lock"
@@ -10109,6 +10257,7 @@ public enum WrapUpBlockType: String, Codable, Sendable {
     case wrapUp = "wrap_up"
 }
 
+public typealias AuditVerifyParams = [String: JSONAny]
 public typealias BridgeTabsListParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]

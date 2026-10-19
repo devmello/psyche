@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S01 Gateway M2: audit)
+
+- `audit.list` (`kind`, `kindPrefix`, `taskId`, `approvalId`, `since`, `until`, `sinceSeq`, `limit`, `order`; `operator.read`), `audit.verify` (`AuditVerifyResult`; `operator.read`) and `audit.export` (`jsonl` / `json`, time window; `operator.admin`). Shapes and scopes are those of the handlers S05 already ships in `@psyche/permissions`, which the Gateway now mounts.
+
 ### v1 additive — 2026-10-19 (S16 search and skills)
 
 For S16 (`packages/search`, `packages/skills`), S01 (dispatch), S02 (skills prompt index), S11/S12 (Search screen, Settings → Skills).
