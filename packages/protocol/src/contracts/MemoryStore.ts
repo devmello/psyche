@@ -4,11 +4,18 @@ import type { MemoryChunk, MemoryClaim, MemoryHit } from "../schemas/memory.ts";
 /**
  * Memory store contract (architecture §4.8; data model §7; security §8; owner S07).
  * Paths are relative to the workspace; `..` and absolute paths are rejected (`invalid_params`).
- * `SOUL.md`, `IDENTITY.md`, `USER.md` and `MEMORY.md` are protected: writes need an approved
- * `memory_protected_write` (`approvalId`) and `untrusted` content can never be written there.
+ * `SOUL.md`, `IDENTITY.md`, `USER.md`, `MEMORY.md` and `AGENTS.md` are protected (security §8):
+ * writes need an approved `memory_protected_write` (`approvalId`) and `untrusted` content can
+ * never be written there.
  */
 
-export const PROTECTED_MEMORY_FILES = ["SOUL.md", "IDENTITY.md", "USER.md", "MEMORY.md"] as const;
+export const PROTECTED_MEMORY_FILES = [
+  "SOUL.md",
+  "IDENTITY.md",
+  "USER.md",
+  "MEMORY.md",
+  "AGENTS.md",
+] as const;
 
 export interface MemoryFile {
   path: string;
@@ -53,6 +60,8 @@ export interface ClaimInput {
 export interface ForgetResult {
   retractedClaimIds: string[];
   removedChunkIds: string[];
+  /** Workspace files whose lines were removed (or would be, on a dry run). */
+  files?: string[];
 }
 
 export interface MemoryStore {

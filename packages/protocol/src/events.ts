@@ -1,9 +1,10 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id, StringEnum } from "./common.ts";
+import { Id, Nullable, Provenance, StringEnum } from "./common.ts";
 import { PsycheError } from "./errors.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
 import { Block } from "./schemas/blocks.ts";
 import { Device, NodeInfo, PairingRequest } from "./schemas/identity.ts";
+import { MemoryChangeSource, MemoryJob } from "./schemas/memory.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
 import { Notification, SettingEntry } from "./schemas/surfaces.ts";
 import { InputRequest, Task, TaskAction } from "./schemas/tasks.ts";
@@ -101,6 +102,21 @@ export const Events = {
       args: Type.Record(Type.String(), Type.Unknown()),
     }),
     description: "Gateway → desktop pane RPC for view.* (only the desktop shell acts on it).",
+  }),
+  "memory.file.changed": defineEvent({
+    payload: Type.Object({
+      path: Type.String({ description: "Workspace path" }),
+      /** New etag; `null` when the file was deleted. */
+      etag: Nullable(Type.String()),
+      source: MemoryChangeSource,
+      provenance: Type.Optional(Provenance),
+    }),
+    description:
+      "A workspace file was created, changed or deleted (by a tool, the API, a job, or outside Psyche).",
+  }),
+  "memory.job.updated": defineEvent({
+    payload: Type.Object({ job: MemoryJob }),
+    description: "A memory job (flush, dreaming, reindex, import) started or finished.",
   }),
   "gateway.shutdown": defineEvent({
     payload: Type.Object({ reason: Type.String() }),

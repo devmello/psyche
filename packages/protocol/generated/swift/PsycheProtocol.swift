@@ -152,13 +152,46 @@
 //   let libraryItemKind = try? JSONDecoder().decode(LibraryItemKind.self, from: jsonData)
 //   let libraryListParams = try? JSONDecoder().decode(LibraryListParams.self, from: jsonData)
 //   let libraryListResult = try? JSONDecoder().decode(LibraryListResult.self, from: jsonData)
+//   let memoryChangeSource = try? JSONDecoder().decode(MemoryChangeSource.self, from: jsonData)
 //   let memoryChunk = try? JSONDecoder().decode(MemoryChunk.self, from: jsonData)
 //   let memoryClaim = try? JSONDecoder().decode(MemoryClaim.self, from: jsonData)
+//   let memoryClaimsConfirmParams = try? JSONDecoder().decode(MemoryClaimsConfirmParams.self, from: jsonData)
+//   let memoryClaimsConfirmResult = try? JSONDecoder().decode(MemoryClaimsConfirmResult.self, from: jsonData)
+//   let memoryClaimsListParams = try? JSONDecoder().decode(MemoryClaimsListParams.self, from: jsonData)
+//   let memoryClaimsListResult = try? JSONDecoder().decode(MemoryClaimsListResult.self, from: jsonData)
+//   let memoryDailyListParams = try? JSONDecoder().decode(MemoryDailyListParams.self, from: jsonData)
+//   let memoryDailyListResult = try? JSONDecoder().decode(MemoryDailyListResult.self, from: jsonData)
+//   let memoryExplainParams = try? JSONDecoder().decode(MemoryExplainParams.self, from: jsonData)
+//   let memoryExplainResult = try? JSONDecoder().decode(MemoryExplainResult.self, from: jsonData)
+//   let memoryExportParams = try? JSONDecoder().decode(MemoryExportParams.self, from: jsonData)
+//   let memoryExportResult = try? JSONDecoder().decode(MemoryExportResult.self, from: jsonData)
+//   let memoryFileChangedPayload = try? JSONDecoder().decode(MemoryFileChangedPayload.self, from: jsonData)
+//   let memoryFileInfo = try? JSONDecoder().decode(MemoryFileInfo.self, from: jsonData)
+//   let memoryFilesListParams = try? JSONDecoder().decode(MemoryFilesListParams.self, from: jsonData)
+//   let memoryFilesListResult = try? JSONDecoder().decode(MemoryFilesListResult.self, from: jsonData)
+//   let memoryForgetParams = try? JSONDecoder().decode(MemoryForgetParams.self, from: jsonData)
+//   let memoryForgetResult = try? JSONDecoder().decode(MemoryForgetResult.self, from: jsonData)
 //   let memoryHit = try? JSONDecoder().decode(MemoryHit.self, from: jsonData)
+//   let memoryImportFormat = try? JSONDecoder().decode(MemoryImportFormat.self, from: jsonData)
+//   let memoryImportParams = try? JSONDecoder().decode(MemoryImportParams.self, from: jsonData)
+//   let memoryImportResult = try? JSONDecoder().decode(MemoryImportResult.self, from: jsonData)
+//   let memoryJob = try? JSONDecoder().decode(MemoryJob.self, from: jsonData)
+//   let memoryJobKind = try? JSONDecoder().decode(MemoryJobKind.self, from: jsonData)
+//   let memoryJobStatus = try? JSONDecoder().decode(MemoryJobStatus.self, from: jsonData)
+//   let memoryJobUpdatedPayload = try? JSONDecoder().decode(MemoryJobUpdatedPayload.self, from: jsonData)
+//   let memoryPauseParams = try? JSONDecoder().decode(MemoryPauseParams.self, from: jsonData)
+//   let memoryPauseResult = try? JSONDecoder().decode(MemoryPauseResult.self, from: jsonData)
 //   let memoryReadParams = try? JSONDecoder().decode(MemoryReadParams.self, from: jsonData)
 //   let memoryReadResult = try? JSONDecoder().decode(MemoryReadResult.self, from: jsonData)
+//   let memoryRememberParams = try? JSONDecoder().decode(MemoryRememberParams.self, from: jsonData)
+//   let memoryRememberResult = try? JSONDecoder().decode(MemoryRememberResult.self, from: jsonData)
+//   let memoryResetParams = try? JSONDecoder().decode(MemoryResetParams.self, from: jsonData)
+//   let memoryResetResult = try? JSONDecoder().decode(MemoryResetResult.self, from: jsonData)
 //   let memorySearchParams = try? JSONDecoder().decode(MemorySearchParams.self, from: jsonData)
 //   let memorySearchResult = try? JSONDecoder().decode(MemorySearchResult.self, from: jsonData)
+//   let memoryStatusParams = try? JSONDecoder().decode(MemoryStatusParams.self, from: jsonData)
+//   let memoryStatusResult = try? JSONDecoder().decode(MemoryStatusResult.self, from: jsonData)
+//   let memoryVectorMode = try? JSONDecoder().decode(MemoryVectorMode.self, from: jsonData)
 //   let memoryWriteMode = try? JSONDecoder().decode(MemoryWriteMode.self, from: jsonData)
 //   let memoryWriteParams = try? JSONDecoder().decode(MemoryWriteParams.self, from: jsonData)
 //   let memoryWriteResult = try? JSONDecoder().decode(MemoryWriteResult.self, from: jsonData)
@@ -3362,6 +3395,32 @@ public struct LibraryListResult: Codable, Sendable {
     }
 }
 
+// MARK: - MemoryClaimsConfirmParams
+public struct MemoryClaimsConfirmParams: Codable, Sendable {
+    public let claimID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case claimID = "claimId"
+    }
+
+    public init(claimID: String) {
+        self.claimID = claimID
+    }
+}
+
+// MARK: - MemoryClaimsConfirmResult
+public struct MemoryClaimsConfirmResult: Codable, Sendable {
+    public let claim: MemoryClaim
+
+    public enum CodingKeys: String, CodingKey {
+        case claim = "claim"
+    }
+
+    public init(claim: MemoryClaim) {
+        self.claim = claim
+    }
+}
+
 // MARK: - MemoryClaim
 public struct MemoryClaim: Codable, Sendable {
     public let confidence: Double
@@ -3410,92 +3469,109 @@ public enum MemoryClaimKind: String, Codable, Sendable {
     case relationship = "relationship"
 }
 
-// MARK: - MemoryReadParams
-public struct MemoryReadParams: Codable, Sendable {
-    public let lineEnd: Int?
-    public let lineStart: Int?
-    public let path: String
+// MARK: - MemoryClaimsListParams
+public struct MemoryClaimsListParams: Codable, Sendable {
+    public let includeRetracted: Bool?
 
     public enum CodingKeys: String, CodingKey {
-        case lineEnd = "lineEnd"
-        case lineStart = "lineStart"
-        case path = "path"
+        case includeRetracted = "includeRetracted"
     }
 
-    public init(lineEnd: Int?, lineStart: Int?, path: String) {
-        self.lineEnd = lineEnd
-        self.lineStart = lineStart
-        self.path = path
+    public init(includeRetracted: Bool?) {
+        self.includeRetracted = includeRetracted
     }
 }
 
-// MARK: - MemoryReadResult
-public struct MemoryReadResult: Codable, Sendable {
-    public let content: String
-    public let path: String
-    public let updatedAt: String
+// MARK: - MemoryClaimsListResult
+public struct MemoryClaimsListResult: Codable, Sendable {
+    public let claims: [MemoryClaim]
 
     public enum CodingKeys: String, CodingKey {
-        case content = "content"
-        case path = "path"
-        case updatedAt = "updatedAt"
+        case claims = "claims"
     }
 
-    public init(content: String, path: String, updatedAt: String) {
-        self.content = content
-        self.path = path
-        self.updatedAt = updatedAt
+    public init(claims: [MemoryClaim]) {
+        self.claims = claims
     }
 }
 
-// MARK: - MemorySearchParams
-public struct MemorySearchParams: Codable, Sendable {
+// MARK: - MemoryDailyListParams
+public struct MemoryDailyListParams: Codable, Sendable {
+    public let before: String?
     public let limit: Int?
-    public let query: String
 
     public enum CodingKeys: String, CodingKey {
+        case before = "before"
         case limit = "limit"
-        case query = "query"
     }
 
-    public init(limit: Int?, query: String) {
+    public init(before: String?, limit: Int?) {
+        self.before = before
         self.limit = limit
-        self.query = query
     }
 }
 
-// MARK: - MemorySearchResult
-public struct MemorySearchResult: Codable, Sendable {
-    public let hits: [MemoryHit]
+// MARK: - MemoryDailyListResult
+public struct MemoryDailyListResult: Codable, Sendable {
+    public let notes: [Note]
 
     public enum CodingKeys: String, CodingKey {
-        case hits = "hits"
+        case notes = "notes"
     }
 
-    public init(hits: [MemoryHit]) {
-        self.hits = hits
+    public init(notes: [Note]) {
+        self.notes = notes
     }
 }
 
-// MARK: - MemoryHit
-public struct MemoryHit: Codable, Sendable {
-    public let bm25: Double?
-    public let chunk: MemoryChunk
-    public let cosine: Double?
-    public let score: Double
+// MARK: - Note
+public struct Note: Codable, Sendable {
+    public let bytes: Int
+    public let date: String
+    public let entries: Int
+    public let path: String
 
     public enum CodingKeys: String, CodingKey {
-        case bm25 = "bm25"
-        case chunk = "chunk"
-        case cosine = "cosine"
-        case score = "score"
+        case bytes = "bytes"
+        case date = "date"
+        case entries = "entries"
+        case path = "path"
     }
 
-    public init(bm25: Double?, chunk: MemoryChunk, cosine: Double?, score: Double) {
-        self.bm25 = bm25
-        self.chunk = chunk
-        self.cosine = cosine
-        self.score = score
+    public init(bytes: Int, date: String, entries: Int, path: String) {
+        self.bytes = bytes
+        self.date = date
+        self.entries = entries
+        self.path = path
+    }
+}
+
+// MARK: - MemoryExplainParams
+public struct MemoryExplainParams: Codable, Sendable {
+    public let claimID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case claimID = "claimId"
+    }
+
+    public init(claimID: String) {
+        self.claimID = claimID
+    }
+}
+
+// MARK: - MemoryExplainResult
+public struct MemoryExplainResult: Codable, Sendable {
+    public let chunks: [MemoryChunk]
+    public let claim: MemoryClaim
+
+    public enum CodingKeys: String, CodingKey {
+        case chunks = "chunks"
+        case claim = "claim"
+    }
+
+    public init(chunks: [MemoryChunk], claim: MemoryClaim) {
+        self.chunks = chunks
+        self.claim = claim
     }
 }
 
@@ -3540,20 +3616,513 @@ public struct MemoryChunk: Codable, Sendable {
     }
 }
 
+// MARK: - MemoryExportResult
+public struct MemoryExportResult: Codable, Sendable {
+    public let bytes: Int
+    public let data: String
+    public let filename: String
+    public let mime: MIME
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case data = "data"
+        case filename = "filename"
+        case mime = "mime"
+    }
+
+    public init(bytes: Int, data: String, filename: String, mime: MIME) {
+        self.bytes = bytes
+        self.data = data
+        self.filename = filename
+        self.mime = mime
+    }
+}
+
+public enum MIME: String, Codable, Sendable {
+    case applicationZip = "application/zip"
+}
+
+// MARK: - MemoryFileChangedPayload
+public struct MemoryFileChangedPayload: Codable, Sendable {
+    public let etag: String?
+    /// Workspace path
+    public let path: String
+    public let provenance: Provenance?
+    public let source: MemoryChangeSource
+
+    public enum CodingKeys: String, CodingKey {
+        case etag = "etag"
+        case path = "path"
+        case provenance = "provenance"
+        case source = "source"
+    }
+
+    public init(etag: String?, path: String, provenance: Provenance?, source: MemoryChangeSource) {
+        self.etag = etag
+        self.path = path
+        self.provenance = provenance
+        self.source = source
+    }
+}
+
+public enum MemoryChangeSource: String, Codable, Sendable {
+    case api = "api"
+    case external = "external"
+    case job = "job"
+    case tool = "tool"
+}
+
+// MARK: - MemoryFilesListParams
+public struct MemoryFilesListParams: Codable, Sendable {
+    public let memoryFilesListParamsPrefix: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case memoryFilesListParamsPrefix = "prefix"
+    }
+
+    public init(memoryFilesListParamsPrefix: String?) {
+        self.memoryFilesListParamsPrefix = memoryFilesListParamsPrefix
+    }
+}
+
+// MARK: - MemoryFilesListResult
+public struct MemoryFilesListResult: Codable, Sendable {
+    public let files: [MemoryFileInfo]
+
+    public enum CodingKeys: String, CodingKey {
+        case files = "files"
+    }
+
+    public init(files: [MemoryFileInfo]) {
+        self.files = files
+    }
+}
+
+// MARK: - MemoryFileInfo
+public struct MemoryFileInfo: Codable, Sendable {
+    public let bytes: Int
+    public let etag: String
+    /// Workspace path, e.g. "SOUL.md"
+    public let path: String
+    public let protected: Bool
+    public let provenance: Provenance
+    public let updatedAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case etag = "etag"
+        case path = "path"
+        case protected = "protected"
+        case provenance = "provenance"
+        case updatedAt = "updatedAt"
+    }
+
+    public init(bytes: Int, etag: String, path: String, protected: Bool, provenance: Provenance, updatedAt: String) {
+        self.bytes = bytes
+        self.etag = etag
+        self.path = path
+        self.protected = protected
+        self.provenance = provenance
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - MemoryForgetParams
+public struct MemoryForgetParams: Codable, Sendable {
+    public let dryRun: Bool?
+    public let subject: String
+
+    public enum CodingKeys: String, CodingKey {
+        case dryRun = "dryRun"
+        case subject = "subject"
+    }
+
+    public init(dryRun: Bool?, subject: String) {
+        self.dryRun = dryRun
+        self.subject = subject
+    }
+}
+
+// MARK: - MemoryForgetResult
+public struct MemoryForgetResult: Codable, Sendable {
+    public let files: [String]
+    public let removedChunkIDS: [String]
+    public let retractedClaimIDS: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case files = "files"
+        case removedChunkIDS = "removedChunkIds"
+        case retractedClaimIDS = "retractedClaimIds"
+    }
+
+    public init(files: [String], removedChunkIDS: [String], retractedClaimIDS: [String]) {
+        self.files = files
+        self.removedChunkIDS = removedChunkIDS
+        self.retractedClaimIDS = retractedClaimIDS
+    }
+}
+
+// MARK: - MemoryImportParams
+public struct MemoryImportParams: Codable, Sendable {
+    public let content: String?
+    public let dryRun: Bool?
+    public let files: [File]?
+    public let format: MemoryImportFormat
+
+    public enum CodingKeys: String, CodingKey {
+        case content = "content"
+        case dryRun = "dryRun"
+        case files = "files"
+        case format = "format"
+    }
+
+    public init(content: String?, dryRun: Bool?, files: [File]?, format: MemoryImportFormat) {
+        self.content = content
+        self.dryRun = dryRun
+        self.files = files
+        self.format = format
+    }
+}
+
+// MARK: - File
+public struct File: Codable, Sendable {
+    public let content: String
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case content = "content"
+        case path = "path"
+    }
+
+    public init(content: String, path: String) {
+        self.content = content
+        self.path = path
+    }
+}
+
+public enum MemoryImportFormat: String, Codable, Sendable {
+    case chatgpt = "chatgpt"
+    case claude = "claude"
+    case openclaw = "openclaw"
+    case text = "text"
+}
+
+// MARK: - MemoryImportResult
+public struct MemoryImportResult: Codable, Sendable {
+    public let claims: [MemoryClaim]
+    public let files: [String]
+    public let flagged: [String]
+    public let skipped: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case claims = "claims"
+        case files = "files"
+        case flagged = "flagged"
+        case skipped = "skipped"
+    }
+
+    public init(claims: [MemoryClaim], files: [String], flagged: [String], skipped: Int) {
+        self.claims = claims
+        self.files = files
+        self.flagged = flagged
+        self.skipped = skipped
+    }
+}
+
+// MARK: - MemoryJobUpdatedPayload
+public struct MemoryJobUpdatedPayload: Codable, Sendable {
+    public let job: MemoryJob
+
+    public enum CodingKeys: String, CodingKey {
+        case job = "job"
+    }
+
+    public init(job: MemoryJob) {
+        self.job = job
+    }
+}
+
+// MARK: - MemoryJob
+public struct MemoryJob: Codable, Sendable {
+    public let endedAt: String?
+    public let id: String
+    public let kind: MemoryJobKind
+    public let startedAt: String
+    public let status: MemoryJobStatus
+    public let summary: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case endedAt = "endedAt"
+        case id = "id"
+        case kind = "kind"
+        case startedAt = "startedAt"
+        case status = "status"
+        case summary = "summary"
+    }
+
+    public init(endedAt: String?, id: String, kind: MemoryJobKind, startedAt: String, status: MemoryJobStatus, summary: String?) {
+        self.endedAt = endedAt
+        self.id = id
+        self.kind = kind
+        self.startedAt = startedAt
+        self.status = status
+        self.summary = summary
+    }
+}
+
+public enum MemoryJobKind: String, Codable, Sendable {
+    case dreaming = "dreaming"
+    case flush = "flush"
+    case memoryJobKindImport = "import"
+    case reindex = "reindex"
+}
+
+public enum MemoryJobStatus: String, Codable, Sendable {
+    case failed = "failed"
+    case ok = "ok"
+    case running = "running"
+    case skipped = "skipped"
+}
+
+// MARK: - MemoryPauseParams
+public struct MemoryPauseParams: Codable, Sendable {
+    public let paused: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case paused = "paused"
+    }
+
+    public init(paused: Bool) {
+        self.paused = paused
+    }
+}
+
+// MARK: - MemoryPauseResult
+public struct MemoryPauseResult: Codable, Sendable {
+    public let paused: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case paused = "paused"
+    }
+
+    public init(paused: Bool) {
+        self.paused = paused
+    }
+}
+
+// MARK: - MemoryReadParams
+public struct MemoryReadParams: Codable, Sendable {
+    public let lineEnd: Int?
+    public let lineStart: Int?
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case lineEnd = "lineEnd"
+        case lineStart = "lineStart"
+        case path = "path"
+    }
+
+    public init(lineEnd: Int?, lineStart: Int?, path: String) {
+        self.lineEnd = lineEnd
+        self.lineStart = lineStart
+        self.path = path
+    }
+}
+
+// MARK: - MemoryReadResult
+public struct MemoryReadResult: Codable, Sendable {
+    public let content: String
+    public let etag: String?
+    public let path: String
+    public let updatedAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case content = "content"
+        case etag = "etag"
+        case path = "path"
+        case updatedAt = "updatedAt"
+    }
+
+    public init(content: String, etag: String?, path: String, updatedAt: String) {
+        self.content = content
+        self.etag = etag
+        self.path = path
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - MemoryRememberParams
+public struct MemoryRememberParams: Codable, Sendable {
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case text = "text"
+    }
+
+    public init(text: String) {
+        self.text = text
+    }
+}
+
+// MARK: - MemoryRememberResult
+public struct MemoryRememberResult: Codable, Sendable {
+    public let chunk: MemoryChunk
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case chunk = "chunk"
+        case path = "path"
+    }
+
+    public init(chunk: MemoryChunk, path: String) {
+        self.chunk = chunk
+        self.path = path
+    }
+}
+
+// MARK: - MemoryResetParams
+public struct MemoryResetParams: Codable, Sendable {
+    public let dryRun: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case dryRun = "dryRun"
+    }
+
+    public init(dryRun: Bool?) {
+        self.dryRun = dryRun
+    }
+}
+
+// MARK: - MemoryResetResult
+public struct MemoryResetResult: Codable, Sendable {
+    public let chunks: Int
+    public let claims: Int
+    public let dryRun: Bool
+    public let files: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case chunks = "chunks"
+        case claims = "claims"
+        case dryRun = "dryRun"
+        case files = "files"
+    }
+
+    public init(chunks: Int, claims: Int, dryRun: Bool, files: [String]) {
+        self.chunks = chunks
+        self.claims = claims
+        self.dryRun = dryRun
+        self.files = files
+    }
+}
+
+// MARK: - MemorySearchParams
+public struct MemorySearchParams: Codable, Sendable {
+    public let limit: Int?
+    public let provenance: [Provenance]?
+    public let query: String
+    public let sources: [String]?
+
+    public enum CodingKeys: String, CodingKey {
+        case limit = "limit"
+        case provenance = "provenance"
+        case query = "query"
+        case sources = "sources"
+    }
+
+    public init(limit: Int?, provenance: [Provenance]?, query: String, sources: [String]?) {
+        self.limit = limit
+        self.provenance = provenance
+        self.query = query
+        self.sources = sources
+    }
+}
+
+// MARK: - MemorySearchResult
+public struct MemorySearchResult: Codable, Sendable {
+    public let hits: [MemoryHit]
+
+    public enum CodingKeys: String, CodingKey {
+        case hits = "hits"
+    }
+
+    public init(hits: [MemoryHit]) {
+        self.hits = hits
+    }
+}
+
+// MARK: - MemoryHit
+public struct MemoryHit: Codable, Sendable {
+    public let bm25: Double?
+    public let chunk: MemoryChunk
+    public let cosine: Double?
+    public let score: Double
+
+    public enum CodingKeys: String, CodingKey {
+        case bm25 = "bm25"
+        case chunk = "chunk"
+        case cosine = "cosine"
+        case score = "score"
+    }
+
+    public init(bm25: Double?, chunk: MemoryChunk, cosine: Double?, score: Double) {
+        self.bm25 = bm25
+        self.chunk = chunk
+        self.cosine = cosine
+        self.score = score
+    }
+}
+
+// MARK: - MemoryStatusResult
+public struct MemoryStatusResult: Codable, Sendable {
+    public let chunks: Int
+    public let claims: Int
+    public let files: Int
+    public let lastJobs: [MemoryJob]
+    public let paused: Bool
+    public let vectorSearch: MemoryVectorMode
+
+    public enum CodingKeys: String, CodingKey {
+        case chunks = "chunks"
+        case claims = "claims"
+        case files = "files"
+        case lastJobs = "lastJobs"
+        case paused = "paused"
+        case vectorSearch = "vectorSearch"
+    }
+
+    public init(chunks: Int, claims: Int, files: Int, lastJobs: [MemoryJob], paused: Bool, vectorSearch: MemoryVectorMode) {
+        self.chunks = chunks
+        self.claims = claims
+        self.files = files
+        self.lastJobs = lastJobs
+        self.paused = paused
+        self.vectorSearch = vectorSearch
+    }
+}
+
+public enum MemoryVectorMode: String, Codable, Sendable {
+    case bruteForce = "brute-force"
+    case off = "off"
+    case sqliteVec = "sqlite-vec"
+}
+
 // MARK: - MemoryWriteParams
 public struct MemoryWriteParams: Codable, Sendable {
     public let content: String
+    public let etag: String?
     public let mode: MemoryWriteMode?
     public let path: String
 
     public enum CodingKeys: String, CodingKey {
         case content = "content"
+        case etag = "etag"
         case mode = "mode"
         case path = "path"
     }
 
-    public init(content: String, mode: MemoryWriteMode?, path: String) {
+    public init(content: String, etag: String?, mode: MemoryWriteMode?, path: String) {
         self.content = content
+        self.etag = etag
         self.mode = mode
         self.path = path
     }
@@ -3567,17 +4136,20 @@ public enum MemoryWriteMode: String, Codable, Sendable {
 // MARK: - MemoryWriteResult
 public struct MemoryWriteResult: Codable, Sendable {
     public let bytes: Int
+    public let etag: String?
     public let path: String
     public let updatedAt: String
 
     public enum CodingKeys: String, CodingKey {
         case bytes = "bytes"
+        case etag = "etag"
         case path = "path"
         case updatedAt = "updatedAt"
     }
 
-    public init(bytes: Int, path: String, updatedAt: String) {
+    public init(bytes: Int, etag: String?, path: String, updatedAt: String) {
         self.bytes = bytes
+        self.etag = etag
         self.path = path
         self.updatedAt = updatedAt
     }
@@ -5995,6 +6567,8 @@ public typealias BridgeTabsListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]
+public typealias MemoryExportParams = [String: JSONAny]
+public typealias MemoryStatusParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]
 public typealias SandboxListParams = [String: JSONAny]
 public typealias Settings = [String: JSONAny]
