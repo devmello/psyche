@@ -167,6 +167,7 @@ export class PageController {
   #needsSnapshot = false;
   #recording = false;
   #closed = false;
+  #stoppedUrl: string | undefined;
 
   constructor(options: PageControllerOptions) {
     this.tabId = options.tabId;
@@ -186,6 +187,8 @@ export class PageController {
     this.#loaderId = tree.frameTree.frame.loaderId;
     this.refs.setDocument(`${this.#loaderId}|${this.#url}`);
     this.#loaded = true;
+    // A tab the desktop loaded before we attached is judged like any committed navigation.
+    this.#checkCommit(this.#url);
     if (this.#o.recording !== undefined) await this.startRecording();
   }
 
@@ -346,6 +349,11 @@ export class PageController {
     const v = this.#o.policy().evaluateSync(req.url, hop);
     if (v.action === "allow") return;
     void this.#t.send("Page.stopLoading").catch(() => undefined);
+    // A stopped GET can be replayed once the origin is approved; a POST is never replayed.
+    this.#stoppedUrl =
+      v.action === "approve" && (req.method === "GET" || req.method === "HEAD")
+        ? req.url
+        : undefined;
     if (v.action === "approve") {
       this.#navError = new PsycheError(
         "approval_required",
@@ -378,6 +386,26 @@ export class PageController {
     } catch {
       // Not a grantable origin (loopback outside dev preview, etc.): the commit check gates it.
     }
+  }
+
+  /**
+   * After the tool layer widened the policy (an approved `new_origin`): lift a content block
+   * whose origin is now allowed, and replay a stopped GET navigation. Returns what it did.
+   */
+  async retryBlocked(): Promise<"unblocked" | "renavigated" | "unchanged"> {
+    const stopped = this.#stoppedUrl;
+    if (stopped !== undefined && this.#o.policy().evaluateSync(stopped).action === "allow") {
+      this.#stoppedUrl = undefined;
+      await this.#runNavigation(async () => {
+        await this.#t.send("Page.navigate", { url: stopped });
+      }, {});
+      return "renavigated";
+    }
+    if (this.#blocked !== undefined) {
+      this.#checkCommit(this.#url);
+      if (this.#blocked === undefined) return "unblocked";
+    }
+    return "unchanged";
   }
 
   /** A committed main-frame URL the policy does not allow gates every page read and action. */
