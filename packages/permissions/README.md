@@ -50,6 +50,8 @@ All optional, so callers that only know the contract get the strict defaults (`s
 6. **Mode default** (security §3.2 table).
 7. **Classifier** in `auto` mode for writes that would be allowed. Fails closed to `sensitive`; two `prohibited` pause the Task, three consecutive `sensitive` downgrade it to `balanced`.
 
+Calls of `browser_submit`, `credential_fill` and `mcp_tool` without kind-specific `binding` arguments get `once` only, because the field checks (cross-origin form actions, fill field class, the `tools/list` hash) cannot run. A precomputed `bindingHash` / `grantKey` must equal what the arguments give, and a call whose tool implies a strict kind (`exec_host`, `purchase`, …) cannot be relabelled with another `kind`. Path rules, protected paths and bundle ids compare without case (APFS).
+
 The broker floors declared side-effect classes (`src/kinds.ts`): a registry or node can make a tool stricter, never laxer (design-20).
 
 ## Binding hashes
@@ -58,7 +60,7 @@ The broker floors declared side-effect classes (`src/kinds.ts`): a registry or n
 
 | Kind | Bound fields | Grant key |
 | --- | --- | --- |
-| `exec`, `exec_host` | argv (exact), cwd, env (`k=v`, sorted), executable, executableSha256 (required for `exec_host`), sandboxId, stdinSha256, network, cwdConfigHashes | argv, cwd, env, executable, executableSha256, cwdConfigHashes |
+| `exec`, `exec_host` | argv (exact), cwd, env (`k=v`, sorted), executable, executableSha256 (required for `exec_host`), sandboxId, stdinSha256, network, cwdConfigHashes | argv, cwd, env, executable, executableSha256, cwdConfigHashes, stdinSha256, network, sandboxId |
 | `send_email` | account, to / cc / bcc (addr-spec, lowercased, punycode, sorted), subject, bodySha256, htmlSha256, mimeSha256, from, sender, replyTo, inReplyTo, references, other headers, attachments | account + exact recipient set |
 | `calendar_write` | account, calendarId, operation, eventSha256 | account, calendarId, operation |
 | `message_send` | channel, account, recipient, bodySha256, attachments | channel, account, recipient |
@@ -67,7 +69,7 @@ The broker floors declared side-effect classes (`src/kinds.ts`): a registry or n
 | `purchase` | merchant, amountMinor (safe integer), currency, line-item hash, paymentSourceId | — (`once` only) |
 | `file_write` | realPath, operation, contentSha256, mode | folder-grant root, operation |
 | `mcp_tool` | serverId, tool, toolsListHash, argsSha256 | serverId, tool, toolsListHash |
-| `computer_action` | app, tierRequired, action, elementRefSha256 | app, tierRequired |
+| `computer_action` | app, tierRequired, action, elementRefSha256, textSha256 | app, tierRequired |
 | `new_origin` | origin, taskId | origin |
 | other kinds | tool, paramsHash, target | tool, target |
 
