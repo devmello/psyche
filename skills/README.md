@@ -58,8 +58,8 @@ Skills name tools as the architecture lists them (§4.3): `browser.*`, `email.*`
 
 ## Budgets
 
-- The prompt index carries only `name` and `description`. Twelve bundled skills cost about 3,000 characters.
-- `SKILL.md` bodies load on demand through `skills_read`. Keep each under 6,000 characters; the bundled ones are 3,000–4,600.
+- The prompt index carries only `name` and `description`. Twelve bundled skills cost about 2,800 characters before wrapping.
+- `SKILL.md` bodies load on demand through `skills_read`. Keep each under 6,000 characters; the bundled ones are about 3,000–5,700.
 - Sizes are recorded in `docs/status/s20.md`.
 
 ## Writing a new bundled skill
