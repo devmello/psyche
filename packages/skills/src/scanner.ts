@@ -134,7 +134,8 @@ const LINE_RULES: LineRule[] = [
 
 const INVISIBLE = /[​-‏‪-‮⁠-⁤⁦-⁩﻿\u{E0000}-\u{E007F}]/u;
 const URL = /\bhttps?:\/\/([^\s/)>"'`]+)/gi;
-const NETWORK_CMD = /\b(?:curl|wget|git\s+clone|invoke-webrequest|iwr|scp|rsync|nc|ncat)\b|\bhttps?:\/\//i;
+/** Commands that fetch from the network (a URL alone is a reference, not a fetch). */
+const NETWORK_CMD = /\b(?:curl|wget|git\s+clone|invoke-webrequest|iwr|scp|rsync|ncat|aria2c)\b/i;
 const PREREQ_HEADING =
   /^#{1,6}\s*(?:prerequisites?|requirements|setup|set\s*up|installation|install(?:ing)?|before\s+you\s+(?:begin|start)|getting\s+started|dependencies)\b/i;
 const BROAD_DESCRIPTION =
