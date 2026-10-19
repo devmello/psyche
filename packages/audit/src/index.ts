@@ -44,6 +44,7 @@ export {
   cardDigits,
   containsSensitive,
   findSensitive,
+  findSensitiveNormalized,
   ibanValid,
   luhnValid,
   REDACTED,

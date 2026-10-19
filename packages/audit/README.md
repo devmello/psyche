@@ -29,5 +29,5 @@ Architecture §4.12; data model §5 (receipts table in `packages/db/migrations/2
 
 ## What is stubbed
 
-- Signing anchors needs the mac helper (S14) or the server device key; tests use an HMAC-style stand-in.
+- Signing anchors needs the mac helper (S14) or the server device key; tests use an HMAC-style stand-in. `verifyDetailed` requires an anchor at every boundary below the last entry, but a tail cut together with the anchors past it looks like a shorter log: the signer must also remember the last anchored seq (S14) and `psyche audit verify` compare it.
 - `psyche audit verify` / export CLI wiring is S22's; it calls `verifyDetailed` and `export`.

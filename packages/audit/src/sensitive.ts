@@ -22,28 +22,37 @@ export interface SensitiveMatch {
   length: number;
 }
 
+// Every pattern that starts with a repeatable class is anchored by a negative lookbehind on that
+// class, so a match can only start at the beginning of a run: linear time on adversarial input
+// such as "a.a.a…" or "eyJ-eyJ-…" (the \b-anchored versions backtracked quadratically).
 const CREDENTIAL_PATTERNS: { kind: SensitiveKind; re: RegExp }[] = [
   {
     kind: "private_key",
-    re: /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)/g,
+    re: /-----BEGIN [A-Z ]{0,40}PRIVATE KEY-----/g,
   },
-  { kind: "api_key", re: /\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}/g },
-  { kind: "api_key", re: /\b[rs]k_(?:live|test)_[A-Za-z0-9]{16,}/g },
-  { kind: "api_key", re: /\bgh[pousr]_[A-Za-z0-9]{36,}/g },
-  { kind: "api_key", re: /\bgithub_pat_[A-Za-z0-9_]{22,}/g },
-  { kind: "api_key", re: /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g },
-  { kind: "api_key", re: /\bAIza[0-9A-Za-z_-]{35}/g },
-  { kind: "api_key", re: /\bxox[abprs]-[A-Za-z0-9-]{10,}/g },
-  { kind: "api_key", re: /\b\d{8,10}:AA[A-Za-z0-9_-]{33}\b/g },
-  { kind: "bearer_token", re: /\bBearer\s+[A-Za-z0-9._~+/-]{20,}=*/g },
-  { kind: "jwt", re: /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g },
-  { kind: "url_credentials", re: /\b[a-z][a-z0-9+.-]*:\/\/[^/\s:@"'<>]+:[^/\s@"'<>]{3,}@/g },
+  { kind: "api_key", re: /(?<![A-Za-z0-9_-])sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}/g },
+  { kind: "api_key", re: /(?<![A-Za-z0-9_])[rs]k_(?:live|test)_[A-Za-z0-9]{16,}/g },
+  { kind: "api_key", re: /(?<![A-Za-z0-9_])gh[pousr]_[A-Za-z0-9]{36,}/g },
+  { kind: "api_key", re: /(?<![A-Za-z0-9_])github_pat_[A-Za-z0-9_]{22,}/g },
+  { kind: "api_key", re: /(?<![A-Za-z0-9])(?:AKIA|ASIA)[0-9A-Z]{16}(?![0-9A-Z])/g },
+  { kind: "api_key", re: /(?<![A-Za-z0-9_-])AIza[0-9A-Za-z_-]{35}/g },
+  { kind: "api_key", re: /(?<![A-Za-z0-9-])xox[abprs]-[A-Za-z0-9-]{10,}/g },
+  { kind: "api_key", re: /(?<!\d)\d{8,10}:AA[A-Za-z0-9_-]{33}(?![A-Za-z0-9_-])/g },
+  { kind: "bearer_token", re: /\bBearer[ \t]+[A-Za-z0-9._~+/-]{20,}=*/g },
+  {
+    kind: "jwt",
+    re: /(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g,
+  },
+  {
+    kind: "url_credentials",
+    re: /(?<![a-z0-9+.-])[a-z][a-z0-9+.-]{0,31}:\/\/[^/\s:@"'<>]{1,256}:[^/\s@"'<>]{3,256}@/gi,
+  },
 ];
 
-/** 13–19 digits, optionally grouped by single spaces or dashes. */
-const CARD_CANDIDATE = /(?<![\d-])\d(?:[ -]?\d){12,18}(?![\d-])/g;
-const IBAN_CANDIDATE = /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]){11,30}\b/g;
-const SSN_CANDIDATE = /(?<!\d)(?!000|666|9\d\d)\d{3}-(?!00)\d{2}-(?!0000)\d{4}(?!\d)/g;
+/** 13–19 digits, optionally grouped by single spaces, dots, tabs or dashes. */
+const CARD_CANDIDATE = /(?<!\d)\d(?:[ .\t-]?\d){12,18}(?!\d)/g;
+const IBAN_CANDIDATE = /(?<![A-Za-z0-9])[A-Za-z]{2}\d{2}(?: ?[A-Za-z0-9]){11,30}(?![A-Za-z0-9])/g;
+const SSN_CANDIDATE = /(?<!\d)(?!000|666|9\d\d)\d{3}[- ](?!00)\d{2}[- ](?!0000)\d{4}(?!\d)/g;
 
 export function luhnValid(digits: string): boolean {
   let sum = 0;
@@ -62,7 +71,7 @@ export function luhnValid(digits: string): boolean {
 }
 
 export function ibanValid(raw: string): boolean {
-  const iban = raw.replace(/ /g, "");
+  const iban = raw.replace(/ /g, "").toUpperCase();
   if (iban.length < 15 || iban.length > 34) return false;
   const rearranged = iban.slice(4) + iban.slice(0, 4);
   let rem = 0;
@@ -76,7 +85,7 @@ export function ibanValid(raw: string): boolean {
 
 /** Card number digits (separators removed) when `candidate` is a Luhn-valid PAN. */
 export function cardDigits(candidate: string): string | undefined {
-  const digits = candidate.replace(/[ -]/g, "");
+  const digits = candidate.replace(/[ .\t-]/g, "");
   if (digits.length < 13 || digits.length > 19) return undefined;
   if (/^(\d)\1+$/.test(digits)) return undefined;
   return luhnValid(digits) ? digits : undefined;
@@ -85,7 +94,15 @@ export function cardDigits(candidate: string): string | undefined {
 export function findSensitive(text: string): SensitiveMatch[] {
   const out: SensitiveMatch[] = [];
   for (const { kind, re } of CREDENTIAL_PATTERNS) {
-    for (const m of text.matchAll(re)) out.push({ kind, index: m.index, length: m[0].length });
+    for (const m of text.matchAll(re)) {
+      let length = m[0].length;
+      if (kind === "private_key") {
+        // The whole block, up to its END line (or the end of the text), found without backtracking.
+        const end = text.indexOf("PRIVATE KEY-----", m.index + length);
+        length = end === -1 ? text.length - m.index : end + "PRIVATE KEY-----".length - m.index;
+      }
+      out.push({ kind, index: m.index, length });
+    }
   }
   for (const m of text.matchAll(CARD_CANDIDATE)) {
     if (cardDigits(m[0]) !== undefined) {
@@ -93,7 +110,15 @@ export function findSensitive(text: string): SensitiveMatch[] {
     }
   }
   for (const m of text.matchAll(IBAN_CANDIDATE)) {
-    if (ibanValid(m[0])) out.push({ kind: "iban", index: m.index, length: m[0].length });
+    // The candidate may run into a following word; take the longest prefix that validates.
+    for (let end = m[0].length; end >= 15; end -= 1) {
+      const head = m[0].slice(0, end);
+      if (head.endsWith(" ")) continue;
+      if (ibanValid(head)) {
+        out.push({ kind: "iban", index: m.index, length: end });
+        break;
+      }
+    }
   }
   for (const m of text.matchAll(SSN_CANDIDATE)) {
     out.push({ kind: "us_ssn", index: m.index, length: m[0].length });
@@ -101,8 +126,17 @@ export function findSensitive(text: string): SensitiveMatch[] {
   return out.sort((a, b) => a.index - b.index || b.length - a.length);
 }
 
+/**
+ * Matches on the NFKC form with format characters removed, so full-width digits, zero-width
+ * joiners and similar encodings are caught. Indices refer to the normalized text.
+ */
+export function findSensitiveNormalized(text: string): SensitiveMatch[] {
+  const normalized = text.normalize("NFKC").replace(/[\p{Cf}]/gu, "");
+  return normalized === text ? findSensitive(text) : findSensitive(normalized);
+}
+
 export function containsSensitive(text: string): boolean {
-  return findSensitive(text).length > 0;
+  return findSensitiveNormalized(text).length > 0;
 }
 
 export const REDACTED = "[redacted]";
@@ -110,7 +144,11 @@ export const REDACTED = "[redacted]";
 /** Replace every sensitive match with `[redacted:<kind>]`. */
 export function redactSensitive(text: string): string {
   const matches = findSensitive(text);
-  if (matches.length === 0) return text;
+  if (matches.length === 0) {
+    // Encoded forms (full-width digits, zero-width separators) redact the whole string.
+    const hidden = findSensitiveNormalized(text)[0];
+    return hidden === undefined ? text : `[redacted:${hidden.kind}]`;
+  }
   let out = "";
   let at = 0;
   for (const m of matches) {

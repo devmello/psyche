@@ -8,6 +8,15 @@ import {
 } from "@psyche/protocol";
 import { monotonicFactory } from "ulid";
 import { redactForAudit } from "./redact.ts";
+import { redactSensitive } from "./sensitive.ts";
+
+const MAX_SUMMARY = 2048;
+
+/** Receipt summaries stay strings: scrubbed of secrets and cut to `MAX_SUMMARY` characters. */
+function redactSummary(summary: string, redact: ((t: string) => string) | undefined): string {
+  const s = redactSensitive(redact === undefined ? summary : redact(summary));
+  return s.length > MAX_SUMMARY ? `${s.slice(0, MAX_SUMMARY)}…` : s;
+}
 
 /**
  * Receipts store (data model §5, security §3.11, §15.2): the evaluator's evidence and the Activity
@@ -228,7 +237,7 @@ export class Receipts {
       toolCallId: input.toolCallId ?? null,
       approvalId: input.approvalId ?? null,
       outcome: input.outcome,
-      summary: redactForAudit(input.summary, opts),
+      summary: redactSummary(input.summary, this.#redact),
       externalRefs: redactForAudit({ ...(input.externalRefs ?? {}) }, opts),
       payload: input.payload == null ? null : (redactForAudit(input.payload, opts) as JsonObject),
       createdAt: new Date(this.#clock.now()).toISOString(),
@@ -265,7 +274,13 @@ export class Receipts {
     const next: Receipt = {
       ...current,
       outcome: input.outcome,
-      externalRefs: { ...current.externalRefs, ...(input.externalRefs ?? {}) },
+      externalRefs: {
+        ...current.externalRefs,
+        ...redactForAudit(
+          { ...(input.externalRefs ?? {}) },
+          this.#redact === undefined ? {} : { redact: this.#redact },
+        ),
+      },
     };
     this.store.update(next);
     await this.#audit?.append({

@@ -67,6 +67,7 @@ export type DetailedVerification =
         | "unparsable"
         | "truncated"
         | "anchor_mismatch"
+        | "anchor_missing"
         | "anchor_signature";
       file?: string;
       line?: number;
@@ -262,7 +263,15 @@ export class HashChainAuditLog implements AuditLog {
       expected += 1;
     }
     let anchors = 0;
-    for (const a of this.store.anchors()) {
+    const anchorList = [...this.store.anchors()];
+    if (this.#verifier !== undefined || this.#signer !== undefined) {
+      // Every boundary must carry an anchor, or deleting anchors.jsonl hides a truncation.
+      const have = new Set(anchorList.map((a) => a.seq));
+      for (let seq = this.#anchorEvery - 1; seq < expected; seq += this.#anchorEvery) {
+        if (!have.has(seq)) return { ok: false, brokenAtSeq: seq, reason: "anchor_missing" };
+      }
+    }
+    for (const a of anchorList) {
       const h = hashes.get(a.seq);
       if (h === undefined) return { ok: false, brokenAtSeq: expected, reason: "truncated" };
       if (h !== a.hash) return { ok: false, brokenAtSeq: a.seq, reason: "anchor_mismatch" };
