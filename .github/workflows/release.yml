@@ -350,7 +350,7 @@ jobs:
           DIGEST: ${{ needs.image.outputs.digest }}
           TAG: ${{ github.ref_name }}
         run: |
-          node deploy/build/release-notes.mjs . "$TAG" "${IMAGE}@${DIGEST}" > notes.md
+          node deploy/scripts/release-notes.mjs . "$TAG" "${IMAGE}@${DIGEST}" > notes.md
           cd artifacts && find . -type f -print0 | sort -z | xargs -0 sha256sum > ../SHA256SUMS
       - name: Create the release
         env:

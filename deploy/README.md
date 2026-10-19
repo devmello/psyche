@@ -8,9 +8,9 @@ Every recipe runs the same `psyched` with the same rules: it binds `127.0.0.1` o
 | --- | --- |
 | `Dockerfile` | Multi-stage image: esbuild bundles of `psyched` and `psyche`, Node 24 slim, uid 10001, healthcheck on `/healthz` |
 | `Dockerfile.dockerignore` | Build-context filter (BuildKit reads it for this Dockerfile) |
-| `build/bundle.mjs` | The esbuild step the Dockerfile runs |
+| `scripts/bundle.mjs` | The esbuild step the Dockerfile runs |
 | `docker-compose.yml` | Gateway + optional `tailscale`, `cloudflare`, `browser` profiles; named volume for `$PSYCHE_HOME` |
-| `.env.example` | Variables Compose reads from `deploy/.env` |
+| `env.example` | Variables Compose reads from `deploy/.env` |
 | `launchd/com.psyche.gateway.plist` | The LaunchAgent `psyche start` installs on macOS (example paths) |
 | `systemd/psyche-gateway.service` | The systemd user unit `psyche start` installs on Linux (example paths) |
 | `tailscale/` | Tailscale Serve config and guide |
@@ -38,7 +38,7 @@ psyche security audit
 
 ```bash
 git clone https://github.com/devmello/psyche && cd psyche
-cp deploy/.env.example deploy/.env           # set PSYCHE_IMAGE to a pinned digest for production
+cp deploy/env.example deploy/.env           # set PSYCHE_IMAGE to a pinned digest for production
 docker compose -f deploy/docker-compose.yml up -d --wait
 docker compose -f deploy/docker-compose.yml exec gateway psyche status
 docker compose -f deploy/docker-compose.yml exec gateway psyche doctor

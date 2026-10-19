@@ -33,7 +33,7 @@ ARG PSYCHE_VERSION=0.0.0-dev
 RUN set -eux; \
     mkdir -p /tmp/esbuild /out/app/web; \
     npm install --prefix /tmp/esbuild --no-audit --no-fund "esbuild@${ESBUILD_VERSION}"; \
-    cp deploy/build/bundle.mjs /tmp/esbuild/; \
+    cp deploy/scripts/bundle.mjs /tmp/esbuild/; \
     node /tmp/esbuild/bundle.mjs /src /out/app "${PSYCHE_VERSION}"; \
     # @psyche/db resolves migrations as new URL("../migrations/", import.meta.url): bin/../migrations.
     cp -r packages/db/migrations /out/app/migrations; \

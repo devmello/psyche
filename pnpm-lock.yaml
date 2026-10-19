@@ -200,6 +200,9 @@ importers:
         specifier: 0.3.1
         version: 0.3.1
     devDependencies:
+      '@psyche/gateway':
+        specifier: workspace:*
+        version: link:../gateway
       '@psyche/testing':
         specifier: workspace:*
         version: link:../../packages/testing
