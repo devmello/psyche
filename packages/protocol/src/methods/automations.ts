@@ -1,7 +1,14 @@
 import { Type } from "@sinclair/typebox";
 import { Id, Nullable } from "../common.ts";
-import { Automation, AutomationKind, Delivery } from "../schemas/integrations.ts";
-import { defineMethod, OkResult } from "./define.ts";
+import {
+  Automation,
+  AutomationKind,
+  AutomationRun,
+  Delivery,
+  UpcomingItem,
+  WatchConfig,
+} from "../schemas/integrations.ts";
+import { defineMethod, nextCursor, OkResult, pageParams } from "./define.ts";
 
 /** `automations.*` (architecture §4: scheduler; data model §8). */
 
@@ -40,6 +47,8 @@ export const AutomationsMethods = {
       sessionTarget: Type.Optional(automationFields.sessionTarget),
       delivery: Type.Optional(automationFields.delivery),
       enabled: Type.Optional(automationFields.enabled),
+      watch: Type.Optional(WatchConfig),
+      lightContext: Type.Optional(Type.Boolean()),
     }),
     result: AutomationResult,
     scope: "operator.write",
@@ -56,6 +65,9 @@ export const AutomationsMethods = {
       sessionTarget: Type.Optional(automationFields.sessionTarget),
       delivery: Type.Optional(automationFields.delivery),
       enabled: Type.Optional(automationFields.enabled),
+      watch: Type.Optional(WatchConfig),
+      lightContext: Type.Optional(Type.Boolean()),
+      scratch: Type.Optional(Nullable(Type.String({ maxLength: 20_000 }))),
     }),
     result: AutomationResult,
     scope: "operator.write",
@@ -74,5 +86,21 @@ export const AutomationsMethods = {
     sideEffecting: true,
     description:
       "Runs an automation now, outside its schedule. Side-effecting: a duplicate would run it twice.",
+  }),
+  "automations.runs": defineMethod({
+    params: Type.Object({ automationId: Id, ...pageParams }),
+    result: Type.Object({ runs: Type.Array(AutomationRun), ...nextCursor }),
+    scope: "operator.read",
+    description: "Run history of one automation, newest first.",
+  }),
+  "automations.upcoming": defineMethod({
+    params: Type.Object({
+      horizonHours: Type.Optional(Type.Integer({ minimum: 1, maximum: 24 * 366 })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })),
+    }),
+    result: Type.Object({ items: Type.Array(UpcomingItem) }),
+    scope: "operator.read",
+    description:
+      "Everything scheduled (automations, reminders, briefings, heartbeat, watches) with next run times, soonest first; open input requests last (Upcoming view, O4).",
   }),
 } as const;

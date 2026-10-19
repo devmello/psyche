@@ -18,6 +18,14 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S04 tasks and scheduler)
+
+- `AutomationKind` gains `reminder` (one-shot; `schedule` is an ISO-8601 instant), so Upcoming (O4) can tell reminders from recurring automations.
+- `Automation` gains optional `watch: WatchConfig` (`url`, `check: change | text_present | price_below | price_above`, `selector?`, `text?`, `threshold?`; data model §8 `watches`) and `lightContext` (heartbeat, O2). `automations.create` takes both; `automations.update` takes both plus `scratch` (the per-job scratch note).
+- New schemas `AutomationRun` (`AutomationRunStatus`; data model §8 `automation_runs`) and `UpcomingItem`.
+- New methods `automations.runs` (history, paged) and `automations.upcoming` (Upcoming view).
+- New events `automation.updated`, `automation.run.started`, `automation.run.finished`.
+- `FakeScheduler` fires `reminder` once and then clears `nextRunAt`.
 ### v1 additive — 2026-10-19 (S06 vault)
 
 Additive, for S06 (vault), S08 (browser fill), S09 (connector OAuth), S11/S12 (Settings → Credentials), S01 (dispatch).

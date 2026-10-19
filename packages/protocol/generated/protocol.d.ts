@@ -211,8 +211,12 @@ export interface Automation {
     kind:        AutomationKind;
     lastRunAt?:  null | string;
     lastStatus?: null | string;
-    nextRunAt?:  null | string;
-    prompt:      string;
+    /**
+     * Heartbeat: skip workspace bootstrap files (feature O2)
+     */
+    lightContext?: boolean;
+    nextRunAt?:    null | string;
+    prompt:        string;
     /**
      * cron expression, ISO-8601 duration or watch interval
      */
@@ -225,6 +229,7 @@ export interface Automation {
     timezone:      string;
     title:         string;
     updatedAt:     string;
+    watch?:        WatchConfig;
 }
 
 export interface Delivery {
@@ -234,13 +239,70 @@ export interface Delivery {
     webhook?: string;
 }
 
-export type AutomationKind = "cron" | "interval" | "watch" | "heartbeat" | "briefing";
+/**
+ * `reminder` is a one-shot: `schedule` is an ISO-8601 instant
+ */
+export type AutomationKind = "cron" | "interval" | "watch" | "heartbeat" | "briefing" | "reminder";
+
+export interface WatchConfig {
+    check: WatchCheck;
+    /**
+     * Regex over the fetched text; capture group 1 is the value
+     */
+    selector?: string;
+    /**
+     * text_present: the text to look for
+     */
+    text?: string;
+    /**
+     * price_below / price_above
+     */
+    threshold?: number;
+    url:        string;
+}
+
+export type WatchCheck = "change" | "text_present" | "price_below" | "price_above";
+
+export interface AutomationRunFinishedPayload {
+    run: AutomationRun;
+}
+
+export interface AutomationRun {
+    automationId: string;
+    /**
+     * Missed ticks folded into this run
+     */
+    coalesced:       number;
+    endedAt?:        null | string;
+    id:              string;
+    notificationId?: null | string;
+    scheduledFor:    string;
+    startedAt:       string;
+    status:          AutomationRunStatus;
+    summary?:        null | string;
+    taskId?:         null | string;
+    threadId?:       null | string;
+    trigger:         Trigger;
+}
+
+export type AutomationRunStatus = "running" | "done" | "no_reply" | "failed" | "cancelled" | "skipped";
+
+export type Trigger = "schedule" | "manual";
+
+export interface AutomationRunStartedPayload {
+    run: AutomationRun;
+}
+
+export interface AutomationUpdatedPayload {
+    automation: Automation;
+}
 
 export interface AutomationsCreateParams {
-    delivery?: Delivery;
-    enabled?:  boolean;
-    kind:      AutomationKind;
-    prompt:    string;
+    delivery?:     Delivery;
+    enabled?:      boolean;
+    kind:          AutomationKind;
+    lightContext?: boolean;
+    prompt:        string;
     /**
      * cron expression, ISO-8601 duration or watch interval
      */
@@ -254,6 +316,7 @@ export interface AutomationsCreateParams {
      */
     timezone?: string;
     title:     string;
+    watch?:    WatchConfig;
 }
 
 export interface AutomationsDeleteParams {
@@ -277,15 +340,54 @@ export interface AutomationsRunResult {
     taskId?: null | string;
 }
 
-export interface AutomationsUpdateParams {
+export interface AutomationsRunsParams {
     automationId: string;
-    delivery?:    Delivery;
-    enabled?:     boolean;
-    prompt?:      string;
+    /**
+     * Opaque cursor
+     */
+    cursor?: string;
+    limit?:  number;
+}
+
+export interface AutomationsRunsResult {
+    nextCursor?: null | string;
+    runs:        AutomationRun[];
+}
+
+export interface AutomationsUpcomingParams {
+    horizonHours?: number;
+    limit?:        number;
+}
+
+export interface AutomationsUpcomingResult {
+    items: UpcomingItem[];
+}
+
+export interface UpcomingItem {
+    automationId?: string;
+    enabled:       boolean;
+    id:            string;
+    kind:          UpcomingItemKind;
+    nextRunAt?:    null | string;
+    schedule?:     string;
+    taskId?:       string;
+    timezone?:     string;
+    title:         string;
+}
+
+export type UpcomingItemKind = "automation" | "reminder" | "briefing" | "heartbeat" | "watch" | "input_request";
+
+export interface AutomationsUpdateParams {
+    automationId:  string;
+    delivery?:     Delivery;
+    enabled?:      boolean;
+    lightContext?: boolean;
+    prompt?:       string;
     /**
      * cron expression, ISO-8601 duration or watch interval
      */
     schedule?: string;
+    scratch?:  null | string;
     /**
      * main | isolated | named:<id>
      */
@@ -295,6 +397,7 @@ export interface AutomationsUpdateParams {
      */
     timezone?: string;
     title?:    string;
+    watch?:    WatchConfig;
 }
 
 export interface BridgeCDPEventPayload {

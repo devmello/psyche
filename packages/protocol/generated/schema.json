@@ -119,6 +119,21 @@
         "payload": "#/$defs/ApprovalUpdatedPayload"
       },
       {
+        "description": "An automation run ended (done, no_reply, failed, cancelled, skipped).",
+        "name": "automation.run.finished",
+        "payload": "#/$defs/AutomationRunFinishedPayload"
+      },
+      {
+        "description": "A scheduled or manual automation run started (missed ticks coalesced).",
+        "name": "automation.run.started",
+        "payload": "#/$defs/AutomationRunStartedPayload"
+      },
+      {
+        "description": "An automation was created, edited, paused, run or deleted (`enabled: false`).",
+        "name": "automation.updated",
+        "payload": "#/$defs/AutomationUpdatedPayload"
+      },
+      {
         "description": "A channel was configured, connected, disconnected or changed status.",
         "name": "channels.updated",
         "payload": "#/$defs/ChannelsUpdatedPayload"
@@ -340,6 +355,22 @@
         "result": "#/$defs/AutomationsRunResult",
         "scope": "operator.write",
         "sideEffecting": true
+      },
+      {
+        "description": "Run history of one automation, newest first.",
+        "name": "automations.runs",
+        "params": "#/$defs/AutomationsRunsParams",
+        "result": "#/$defs/AutomationsRunsResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Everything scheduled (automations, reminders, briefings, heartbeat, watches) with next run times, soonest first; open input requests last (Upcoming view, O4).",
+        "name": "automations.upcoming",
+        "params": "#/$defs/AutomationsUpcomingParams",
+        "result": "#/$defs/AutomationsUpcomingResult",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "Updates the given fields of an automation.",
@@ -1991,6 +2022,13 @@
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
+        },
+        "watch": {
+          "$ref": "#/$defs/WatchConfig"
+        },
+        "lightContext": {
+          "description": "Heartbeat: skip workspace bootstrap files (feature O2)",
+          "type": "boolean"
         }
       },
       "required": [
@@ -2009,16 +2047,174 @@
       "type": "object"
     },
     "AutomationKind": {
+      "description": "`reminder` is a one-shot: `schedule` is an ISO-8601 instant",
       "enum": [
         "cron",
         "interval",
         "watch",
         "heartbeat",
-        "briefing"
+        "briefing",
+        "reminder"
       ],
       "type": "string"
     },
     "AutomationResult": {
+      "properties": {
+        "automation": {
+          "$ref": "#/$defs/Automation"
+        }
+      },
+      "required": [
+        "automation"
+      ],
+      "type": "object"
+    },
+    "AutomationRun": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trigger": {
+          "enum": [
+            "schedule",
+            "manual"
+          ],
+          "type": "string"
+        },
+        "scheduledFor": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "coalesced": {
+          "description": "Missed ticks folded into this run",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/AutomationRunStatus"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notificationId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "automationId",
+        "trigger",
+        "scheduledFor",
+        "coalesced",
+        "startedAt",
+        "status"
+      ],
+      "type": "object"
+    },
+    "AutomationRunFinishedPayload": {
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/AutomationRun"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "type": "object"
+    },
+    "AutomationRunStartedPayload": {
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/AutomationRun"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "type": "object"
+    },
+    "AutomationRunStatus": {
+      "enum": [
+        "running",
+        "done",
+        "no_reply",
+        "failed",
+        "cancelled",
+        "skipped"
+      ],
+      "type": "string"
+    },
+    "AutomationUpdatedPayload": {
       "properties": {
         "automation": {
           "$ref": "#/$defs/Automation"
@@ -2062,6 +2258,12 @@
           "$ref": "#/$defs/Delivery"
         },
         "enabled": {
+          "type": "boolean"
+        },
+        "watch": {
+          "$ref": "#/$defs/WatchConfig"
+        },
+        "lightContext": {
           "type": "boolean"
         }
       },
@@ -2154,6 +2356,87 @@
       },
       "type": "object"
     },
+    "AutomationsRunsParams": {
+      "properties": {
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "automationId"
+      ],
+      "type": "object"
+    },
+    "AutomationsRunsResult": {
+      "properties": {
+        "runs": {
+          "items": {
+            "$ref": "#/$defs/AutomationRun"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "runs"
+      ],
+      "type": "object"
+    },
+    "AutomationsUpcomingParams": {
+      "properties": {
+        "horizonHours": {
+          "maximum": 8784,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "AutomationsUpcomingResult": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/UpcomingItem"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "type": "object"
+    },
     "AutomationsUpdateParams": {
       "properties": {
         "automationId": {
@@ -2191,6 +2474,23 @@
         },
         "enabled": {
           "type": "boolean"
+        },
+        "watch": {
+          "$ref": "#/$defs/WatchConfig"
+        },
+        "lightContext": {
+          "type": "boolean"
+        },
+        "scratch": {
+          "anyOf": [
+            {
+              "maxLength": 20000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -10894,6 +11194,70 @@
       ],
       "type": "object"
     },
+    "UpcomingItem": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "automation",
+            "reminder",
+            "briefing",
+            "heartbeat",
+            "watch",
+            "input_request"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "nextRunAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schedule": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "title",
+        "enabled"
+      ],
+      "type": "object"
+    },
     "Usage": {
       "properties": {
         "input": {
@@ -11684,6 +12048,43 @@
       },
       "required": [
         "layout"
+      ],
+      "type": "object"
+    },
+    "WatchCheck": {
+      "enum": [
+        "change",
+        "text_present",
+        "price_below",
+        "price_above"
+      ],
+      "type": "string"
+    },
+    "WatchConfig": {
+      "properties": {
+        "url": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "check": {
+          "$ref": "#/$defs/WatchCheck"
+        },
+        "selector": {
+          "description": "Regex over the fetched text; capture group 1 is the value",
+          "type": "string"
+        },
+        "text": {
+          "description": "text_present: the text to look for",
+          "type": "string"
+        },
+        "threshold": {
+          "description": "price_below / price_above",
+          "type": "number"
+        }
+      },
+      "required": [
+        "url",
+        "check"
       ],
       "type": "object"
     },
