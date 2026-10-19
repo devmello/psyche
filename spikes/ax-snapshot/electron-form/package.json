@@ -1,1 +1,6 @@
-{ "name": "axsnap-electron-form", "version": "0.0.0", "private": true, "main": "main.js" }
+{
+  "name": "axsnap-electron-form",
+  "version": "0.0.0",
+  "private": true,
+  "main": "main.js"
+}

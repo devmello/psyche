@@ -1,5 +1,5 @@
 <!doctype html>
-<html><head><meta charset="utf-8">
+<html lang="en"><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'">
 <style>
   body { font: 12px -apple-system, system-ui; margin: 0; padding: 10px; background: #1e1f22; color: #ddd; }
@@ -16,8 +16,8 @@
 <body>
 <h1>Agent tabs</h1>
 <div id="tabs"></div>
-<button id="take">Take control</button>
-<button id="release">Release</button>
+<button type="button" id="take">Take control</button>
+<button type="button" id="release">Release</button>
 <div id="dl"></div>
 <script>
   let state = { tabs: [] };
@@ -29,16 +29,16 @@
     const root = document.getElementById('tabs');
     root.replaceChildren(...s.tabs.map((t) => {
       const d = document.createElement('div');
-      d.className = 'tab' + (t.active ? ' active' : '');
+      d.className = `tab${t.active ? ' active' : ''}`;
       const title = document.createElement('div'); title.className = 'title'; title.textContent = t.title || t.url || t.tabId;
       const meta = document.createElement('div'); meta.className = 'meta';
-      const pill = document.createElement('span'); pill.className = 'pill ' + (t.userInControl ? 'user' : 'agent'); pill.textContent = t.userInControl ? 'you' : 'agent';
-      meta.append(`${t.tabId}${t.openerTabId ? ' ← ' + t.openerTabId : ''} ${t.attached ? 'cdp' : 'detached'} `, pill);
+      const pill = document.createElement('span'); pill.className = `pill ${t.userInControl ? 'user' : 'agent'}`; pill.textContent = t.userInControl ? 'you' : 'agent';
+      meta.append(`${t.tabId}${t.openerTabId ? ` ← ${t.openerTabId}` : ''} ${t.attached ? 'cdp' : 'detached'} `, pill);
       d.append(title, meta);
       d.onclick = () => bridge.send({ op: 'activate', tabId: t.tabId });
       return d;
     }));
-    document.getElementById('dl').textContent = s.downloads.length ? 'Downloads: ' + s.downloads.map((x) => `${x.filename} (${x.state}, ${x.bytes} B)`).join(', ') : '';
+    document.getElementById('dl').textContent = s.downloads.length ? `Downloads: ${s.downloads.map((x) => `${x.filename} (${x.state}, ${x.bytes} B)`).join(', ')}` : '';
   });
 </script>
 </body></html>

@@ -31,18 +31,14 @@
         "declarative_performance_observer.db",
         "declarative_performance_observer.db-journal"
       ],
-      "cookiesFromPreviousRun": [
-        "spike_login=1792397286942"
-      ],
+      "cookiesFromPreviousRun": ["spike_login=1792397286942"],
       "wallMs": 3.4
     },
     "memoryBaseline": {
       "ok": true,
       "tabs": {
         "t1": {
-          "pids": [
-            16254
-          ],
+          "pids": [16254],
           "procs": [
             {
               "pid": 16254,
@@ -54,9 +50,7 @@
           "workingSetKB": 90496
         },
         "t2": {
-          "pids": [
-            16255
-          ],
+          "pids": [16255],
           "procs": [
             {
               "pid": 16255,

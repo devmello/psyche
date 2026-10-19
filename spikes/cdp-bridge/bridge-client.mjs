@@ -1,17 +1,21 @@
 // Minimal client for the NDJSON bridge (runs in a plain Node process, not Electron).
-import net from 'node:net';
-import { EventEmitter } from 'node:events';
+
+import { EventEmitter } from "node:events";
+import net from "node:net";
 
 export class BridgeError extends Error {
-  constructor(code, message) { super(`${code}: ${message}`); this.code = code; }
+  constructor(code, message) {
+    super(`${code}: ${message}`);
+    this.code = code;
+  }
 }
 
 export class BridgeClient extends EventEmitter {
   static connect(socketPath) {
     return new Promise((resolve, reject) => {
       const sock = net.createConnection(socketPath);
-      sock.once('connect', () => resolve(new BridgeClient(sock)));
-      sock.once('error', reject);
+      sock.once("connect", () => resolve(new BridgeClient(sock)));
+      sock.once("error", reject);
     });
   }
 
@@ -21,14 +25,14 @@ export class BridgeClient extends EventEmitter {
     this.nextId = 1;
     this.pending = new Map();
     this.bytesIn = 0;
-    let buf = '';
-    sock.setEncoding('utf8');
-    sock.on('data', (chunk) => {
+    let buf = "";
+    sock.setEncoding("utf8");
+    sock.on("data", (chunk) => {
       this.bytesIn += chunk.length;
       buf += chunk;
-      let nl;
-      while ((nl = buf.indexOf('\n')) >= 0) {
-        const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+      for (let nl = buf.indexOf("\n"); nl >= 0; nl = buf.indexOf("\n")) {
+        const line = buf.slice(0, nl);
+        buf = buf.slice(nl + 1);
         if (line) this.#onFrame(JSON.parse(line));
       }
     });
@@ -43,15 +47,21 @@ export class BridgeClient extends EventEmitter {
       else p.resolve(f.result);
       return;
     }
-    this.emit('event', f);
+    this.emit("event", f);
   }
 
   send(tabId, method, params, sessionId) {
     const id = this.nextId++;
-    const frame = { id, tabId, method, ...(params ? { params } : {}), ...(sessionId ? { sessionId } : {}) };
+    const frame = {
+      id,
+      tabId,
+      method,
+      ...(params ? { params } : {}),
+      ...(sessionId ? { sessionId } : {}),
+    };
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
-      this.sock.write(JSON.stringify(frame) + '\n');
+      this.sock.write(`${JSON.stringify(frame)}\n`);
     });
   }
 
@@ -59,14 +69,25 @@ export class BridgeClient extends EventEmitter {
   waitFor(tabId, method, pred = () => true, timeoutMs = 15000) {
     return new Promise((resolve, reject) => {
       const onEv = (f) => {
-        if ((tabId == null || f.tabId === tabId) && f.method === method && pred(f.params ?? {}, f)) {
-          clearTimeout(timer); this.off('event', onEv); resolve(f);
+        if (
+          (tabId == null || f.tabId === tabId) &&
+          f.method === method &&
+          pred(f.params ?? {}, f)
+        ) {
+          clearTimeout(timer);
+          this.off("event", onEv);
+          resolve(f);
         }
       };
-      const timer = setTimeout(() => { this.off('event', onEv); reject(new BridgeError('TIMEOUT', `waiting for ${method} on ${tabId}`)); }, timeoutMs);
-      this.on('event', onEv);
+      const timer = setTimeout(() => {
+        this.off("event", onEv);
+        reject(new BridgeError("TIMEOUT", `waiting for ${method} on ${tabId}`));
+      }, timeoutMs);
+      this.on("event", onEv);
     });
   }
 
-  close() { this.sock.end(); }
+  close() {
+    this.sock.end();
+  }
 }
