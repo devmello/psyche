@@ -1,0 +1,23 @@
+{
+  "name": "spike-local-models",
+  "private": true,
+  "type": "module",
+  "description": "Spike 05: probe local models' tool calling through AI SDK v7 providers. Throwaway.",
+  "scripts": {
+    "probe": "tsx src/run.ts",
+    "quirks": "tsx src/quirks.ts",
+    "report": "tsx src/report.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "4.0.82",
+    "@ai-sdk/openai-compatible": "3.0.71",
+    "ai": "7.0.143",
+    "ollama-ai-provider-v2": "4.0.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
