@@ -18,6 +18,7 @@ import {
 import { type CdpTarget, PageController } from "../cdp/page.ts";
 import { headAndHash, type LibraryWriter } from "../downloads/library.ts";
 import { sniff } from "../downloads/sniff.ts";
+import { PartitionChooser, type TabPartition } from "../origin/partition.ts";
 import { OriginPolicy } from "../origin/policy.ts";
 import type {
   ActionTarget,
@@ -26,6 +27,7 @@ import type {
   ConsoleEntry,
   DialogInfo,
   DriverEventEx,
+  DriverTabEx,
   ElementMeta,
   NetworkEntry,
   OpenSessionOptions,
@@ -52,6 +54,8 @@ export interface DriverDeps {
 export interface SessionState {
   session: DriverSession;
   policy: OriginPolicy;
+  /** Which partition each new tab gets (feature I15). */
+  partitions: PartitionChooser;
   recording?: RecordingSink;
   tabs: Set<string>;
   /** Tabs held by the user (Take control); the session is `user` while any is. */
@@ -62,6 +66,7 @@ export interface TabState {
   tab: DriverTab;
   page: PageController;
   session: SessionState;
+  partition: TabPartition;
 }
 
 interface DownloadWaiter {
@@ -88,10 +93,14 @@ export abstract class DriverBase implements BrowserDriverEx {
   }
 
   abstract listProfiles(): Promise<DriverProfile[]>;
-  /** Create a tab (blank, or at `url` after the policy check) and return its id and target. */
+  /**
+   * Create a tab (blank, or at `url` after the policy check) in `partition` and return its id
+   * and target.
+   */
   protected abstract createTab(
     s: SessionState,
     url: string | undefined,
+    partition: TabPartition,
   ): Promise<{ id: string; target: CdpTarget; url: string }>;
   protected abstract destroyTab(t: TabState): Promise<void>;
   protected async onSessionOpened(_s: SessionState, _o: OpenSessionOptions): Promise<void> {}
@@ -143,16 +152,30 @@ export abstract class DriverBase implements BrowserDriverEx {
   }
 
   async openSession(options: OpenSessionOptions = {}): Promise<DriverSession> {
+    // Logged-out by default (security §6): the persistent profile is used only when the task
+    // says so, or per tab for origins the owner signed into (`auto`).
+    const partitions = new PartitionChooser({
+      mode: options.partition ?? "auto",
+      ...(options.signedInOrigins === undefined
+        ? {}
+        : { signedInOrigins: options.signedInOrigins }),
+    });
     const session: DriverSession = {
       id: newId("bsess"),
       profileId: options.profileId ?? "default",
-      partition: options.partition ?? "profile",
+      partition: partitions.defaultPartition,
       controlState: "agent",
     };
     if (options.taskId !== undefined) session.taskId = options.taskId;
     const policy =
       options.policy instanceof OriginPolicy ? options.policy : new OriginPolicy(options.policy);
-    const s: SessionState = { session, policy, tabs: new Set(), userTabs: new Set() };
+    const s: SessionState = {
+      session,
+      policy,
+      partitions,
+      tabs: new Set(),
+      userTabs: new Set(),
+    };
     if (options.recording !== undefined) s.recording = options.recording;
     this.sessions.set(session.id, s);
     await this.onSessionOpened(s, options);
@@ -216,14 +239,22 @@ export abstract class DriverBase implements BrowserDriverEx {
 
   // --- tabs --------------------------------------------------------------------------------
 
-  /** Register a tab created by `createTab`, a popup or an adopted page. */
+  /**
+   * Register a tab created by `createTab`, a popup or an adopted page. A popup inherits its
+   * opener's partition (the desktop and Playwright open it in the opener's context anyway).
+   */
   protected async adoptTab(
     s: SessionState,
     id: string,
     target: CdpTarget,
     url: string,
     opener?: string,
+    partition?: TabPartition,
   ): Promise<TabState> {
+    const part =
+      partition ??
+      (opener === undefined ? undefined : this.tabs.get(opener)?.partition) ??
+      s.partitions.defaultPartition;
     const options: ConstructorParameters<typeof PageController>[0] = {
       tabId: id,
       target,
@@ -242,7 +273,7 @@ export abstract class DriverBase implements BrowserDriverEx {
       if (o !== undefined) o.tab.active = false;
     }
     const tab: DriverTab = { id, sessionId: s.session.id, url, title: "", active: true };
-    const t: TabState = { tab, page, session: s };
+    const t: TabState = { tab, page, session: s, partition: part };
     this.tabs.set(id, t);
     s.tabs.add(id);
     await page.init();
@@ -250,6 +281,16 @@ export abstract class DriverBase implements BrowserDriverEx {
     this.emit({ type: "tab_opened", tabId: id });
     if (opener !== undefined) this.emit({ type: "popup", tabId: id, openerTabId: opener, url });
     return t;
+  }
+
+  /** `DriverTab` plus the partition, from the live page state. */
+  #tabInfo(t: TabState): DriverTabEx {
+    return { ...t.tab, url: t.page.url, title: t.page.title, partition: t.partition };
+  }
+
+  /** The partition a tab runs in (feature I15). */
+  tabPartition(tabId: string): TabPartition {
+    return this.tabState(tabId).partition;
   }
 
   protected forgetTab(tabId: string): void {
@@ -272,15 +313,15 @@ export abstract class DriverBase implements BrowserDriverEx {
     this.emit(e);
   }
 
-  async listTabs(sessionId: string): Promise<DriverTab[]> {
+  async listTabs(sessionId: string): Promise<DriverTabEx[]> {
     const s = this.sessionState(sessionId);
     return [...s.tabs].flatMap((id) => {
       const t = this.tabs.get(id);
-      return t === undefined ? [] : [{ ...t.tab, url: t.page.url, title: t.page.title }];
+      return t === undefined ? [] : [this.#tabInfo(t)];
     });
   }
 
-  async openTab(sessionId: string, url?: string): Promise<DriverTab> {
+  async openTab(sessionId: string, url?: string): Promise<DriverTabEx> {
     const s = this.sessionState(sessionId);
     this.assertAgent(s);
     if (url !== undefined) {
@@ -294,12 +335,21 @@ export abstract class DriverBase implements BrowserDriverEx {
         });
       }
     }
-    const created = await this.createTab(s, url);
-    const t = await this.adoptTab(s, created.id, created.target, created.url);
+    const choice = s.partitions.choose(url);
+    const created = await this.createTab(s, url, choice.partition);
+    const t = await this.adoptTab(
+      s,
+      created.id,
+      created.target,
+      created.url,
+      undefined,
+      choice.partition,
+    );
+    this.emit({ type: "tab_partition", tabId: t.tab.id, ...choice });
     if (url !== undefined && (t.page.url === "about:blank" || t.page.url === "")) {
       await t.page.navigate(url);
     }
-    return { ...t.tab, url: t.page.url, title: t.page.title };
+    return this.#tabInfo(t);
   }
 
   async focusTab(tabId: string): Promise<void> {

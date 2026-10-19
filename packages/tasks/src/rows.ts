@@ -3,6 +3,7 @@ import type {
   InputRequest,
   JsonObject,
   Question,
+  TaintSource,
   Task,
   TaskAction,
   TaskCheckpoint,
@@ -11,7 +12,10 @@ import type {
   TaskStatus,
 } from "@psyche/protocol";
 
-/** Raw better-sqlite3 rows of the S04 tables (migrations/202610191200_tasks_init.sql). */
+/**
+ * Raw better-sqlite3 rows of the S04 tables (migrations/202610191200_tasks_init.sql and
+ * 202610201700_tasks_taint_sources.sql).
+ */
 export interface TaskRow {
   id: string;
   thread_id: string;
@@ -38,6 +42,8 @@ export interface TaskRow {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
+  /** JSON array of `TaintSource`; NULL when the creating turn was not tainted (design-08). */
+  taint_sources: string | null;
 }
 
 export interface CheckpointRow {
@@ -107,6 +113,8 @@ export function taskFromRow(r: TaskRow): Task {
     completedAt: r.completed_at,
   };
   if (r.taint !== null) task.taint = r.taint === 1;
+  const sources = parseJson<TaintSource[]>(r.taint_sources);
+  if (sources !== null) task.taintSources = sources;
   return task;
 }
 

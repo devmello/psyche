@@ -49,7 +49,12 @@ export type FxNode =
   | { kind: "clickable"; text: string; onClick: FxAction }
   | { kind: "spacer"; height: number }
   /** A full-viewport `position: fixed` layer (clickjacking fixture). */
-  | { kind: "overlay"; text: string; onClick: FxAction };
+  | { kind: "overlay"; text: string; onClick: FxAction }
+  /**
+   * Who the `user` cookie says is signed in (`Signed in as <name>` / `Not signed in`), as a
+   * `status` element: the partition-isolation proof for I15. `/submit/login` sets the cookie.
+   */
+  | { kind: "signed_in" };
 
 export interface FxPage {
   title: string;
@@ -163,6 +168,14 @@ export const FIXTURE_SITE: FxSite = {
             { kind: "button", text: "Sign in", type: "submit" },
           ],
         },
+      ],
+    },
+    "a/account": {
+      title: "Account",
+      body: [
+        { kind: "heading", level: 1, text: "Account" },
+        { kind: "signed_in" },
+        { kind: "link", text: "Sign in", href: "/login" },
       ],
     },
     "a/search": {
@@ -467,12 +480,28 @@ export const REGRESSION_PAGES = [
   "a/overlay",
 ] as const;
 
+/** The cookie a login submission sets (`user=<username>`), read by `signed_in` nodes. */
+export const SESSION_COOKIE = "user";
+
+/** The username a `/submit/login` post signs in, or undefined when it is not a login. */
+export function loginUser(path: string, fields: [string, string][]): string | undefined {
+  if (path !== "/submit/login") return undefined;
+  const user = fields.find(([k]) => k === "username")?.[1];
+  return user === undefined || user === "" ? undefined : user;
+}
+
+/** Text of a `signed_in` node for a cookie value. */
+export function signedInText(user: string | undefined): string {
+  return user === undefined ? "Not signed in" : `Signed in as ${user}`;
+}
+
 /** Echo page for a form submission: password-like fields show only their length. */
 export function submissionPage(path: string, fields: [string, string][]): FxPage {
   return {
     title: "Submitted",
     body: [
       { kind: "heading", level: 1, text: `Submitted ${path}` },
+      ...(loginUser(path, fields) === undefined ? [] : [{ kind: "signed_in" } as FxNode]),
       ...fields.map(
         ([k, v]): FxNode => ({
           kind: "text",

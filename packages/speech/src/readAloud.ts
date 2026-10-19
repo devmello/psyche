@@ -1,6 +1,7 @@
 import {
   type AudioFormat,
   type LibraryItem,
+  type Provenance,
   PsycheError,
   type SpeechEngine,
 } from "@psyche/protocol";
@@ -24,14 +25,25 @@ export interface MessageSource {
   get(messageId: string): Promise<{ text: string; threadId: string | null }>;
 }
 
+/** What the Gateway's Library needs to store a clip (read-aloud) or a recording (voice memo). */
+export interface LibrarySaveInput {
+  data: Uint8Array;
+  name: string;
+  mime: string;
+  threadId: string | null;
+  tags: string[];
+  /** Default `audio` (synthesized); voice memos are `recording`. */
+  kind?: "audio" | "recording";
+  /** Default `agent`; a composer memo is `upload`, a channel voice note `channel`. */
+  origin?: LibraryItem["origin"];
+  /** Who produced the content; `untrusted` recordings follow the quarantine rules (data model §9). */
+  provenance?: Provenance;
+  /** Plain text of the audio (a transcript), stored as the item's text extract. */
+  textExtract?: string;
+}
+
 export interface LibraryWriter {
-  saveAudio(file: {
-    data: Uint8Array;
-    name: string;
-    mime: string;
-    threadId: string | null;
-    tags: string[];
-  }): Promise<LibraryItem>;
+  saveAudio(file: LibrarySaveInput): Promise<LibraryItem>;
 }
 
 export type ReadAloudEvent =

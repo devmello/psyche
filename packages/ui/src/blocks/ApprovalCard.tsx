@@ -1,6 +1,15 @@
+import { renderForSurface, sanitizeApproval } from "@psyche/permissions/cards";
 import type { ApprovalRequest, GrantScope } from "@psyche/protocol";
 import { Fingerprint, ShieldCheck } from "lucide-react";
-import { type KeyboardEvent, type ReactElement, useEffect, useId, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  type ReactElement,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Button } from "../components/ui/button.tsx";
 import { Label } from "../components/ui/label.tsx";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group.tsx";
@@ -13,6 +22,11 @@ import { ApprovalDetails } from "./approval-details.tsx";
  * Approval card (UI design §3.3). Host-rendered, fixed structure and button order, never inside a
  * message (§1.2 principle 4). Deny is preselected; Return does nothing; ⌘Return submits the
  * selected choice; ⌘D denies; buttons arm 400 ms after the card appears and never move.
+ *
+ * What the card shows is the desktop rendering from `@psyche/permissions/cards` (review
+ * design-12): the fixed template header (`renderForSurface("desktop", …)`) and a copy of the
+ * request whose summary, target and details went through the same value-slot sanitizer every
+ * other surface uses, so the desktop card and the chat cards cannot drift.
  */
 
 export type ApprovalChoice = "deny" | "once" | "task" | "site" | "always" | "session";
@@ -79,7 +93,7 @@ function statusText(approval: ApprovalRequest, now: number): string | null {
 }
 
 export function ApprovalCard({
-  approval,
+  approval: raw,
   canAnswer,
   stale = false,
   persona = "The agent",
@@ -93,6 +107,9 @@ export function ApprovalCard({
   armDelayMs = 400,
   className,
 }: ApprovalCardProps): ReactElement {
+  const approval = useMemo(() => sanitizeApproval(raw), [raw]);
+  // First line of the per-surface template: kind · side effect · taint (never attacker text).
+  const header = useMemo(() => renderForSurface("desktop", raw).text.split("\n")[0] ?? "", [raw]);
   const now = useNow(1000, fixedNow);
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -208,11 +225,14 @@ export function ApprovalCard({
           </span>
         ) : null}
       </div>
+      <p className="mt-1 text-xs font-medium text-muted-foreground" data-card-header>
+        {header}
+      </p>
       <h3
         id={headingId}
         ref={headingRef}
         tabIndex={-1}
-        className="mt-1 text-base font-semibold text-foreground outline-none"
+        className="mt-0.5 text-base font-semibold text-foreground outline-none"
       >
         {approval.summary}
       </h3>
