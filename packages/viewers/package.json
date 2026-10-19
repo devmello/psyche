@@ -14,6 +14,10 @@
       "types": "./src/core/index.ts",
       "default": "./src/core/index.ts"
     },
+    "./bundler": {
+      "types": "./src/bundler/index.ts",
+      "default": "./src/bundler/index.ts"
+    },
     "./styles.css": "./src/styles.css"
   },
   "scripts": {
@@ -47,6 +51,7 @@
     "postal-mime": "4.0.8",
     "pptxgenjs": "4.0.1",
     "react": "19.3.1",
+    "react-dom": "19.3.1",
     "rxjs": "7.8.2",
     "shiki": "4.5.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
@@ -61,7 +66,6 @@
     "@types/react-dom": "19.3.0",
     "esbuild": "0.28.2",
     "jsdom": "30.1.3",
-    "playwright-core": "1.64.1",
-    "react-dom": "19.3.1"
+    "playwright-core": "1.64.1"
   }
 }
