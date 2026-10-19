@@ -379,6 +379,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     broker,
     memory,
     handlers,
+    onDeviceRevoked: (deviceId) => rawBroker.revokeGrantsByDevice(deviceId),
   });
   bus = gateway.bus;
   // The owner's folder grants and rules apply without a restart (settings.set → broker policy).
@@ -461,6 +462,7 @@ export {
   helperPresenceMessage,
   helperPresenceVerifier,
 } from "./helper.ts";
+export { type McpGrantRevoker, type McpLifecycleEvent, mcpGrantRevocation } from "./mcp-grants.ts";
 export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { partsFromEnv } from "./parts.ts";
 export type { ApprovalRelay, ComposedPart, ComposeServices } from "./services.ts";

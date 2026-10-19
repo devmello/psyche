@@ -9,13 +9,19 @@ public struct NotificationUserInfo: Sendable, Equatable {
     public var approvalId: String?
     public var requireBiometry: Bool
     public var destructiveActionIds: [String]
+    /// What the presence key signs after Touch ID (not a secret: the answer token stays in the Gateway).
+    public var presenceChallenge: String?
 
-    public init(notificationId: String, kind: String, approvalId: String?, requireBiometry: Bool, destructiveActionIds: [String]) {
+    public init(
+        notificationId: String, kind: String, approvalId: String?, requireBiometry: Bool, destructiveActionIds: [String],
+        presenceChallenge: String? = nil
+    ) {
         self.notificationId = notificationId
         self.kind = kind
         self.approvalId = approvalId
         self.requireBiometry = requireBiometry
         self.destructiveActionIds = destructiveActionIds
+        self.presenceChallenge = presenceChallenge
     }
 
     enum Key {
@@ -24,6 +30,7 @@ public struct NotificationUserInfo: Sendable, Equatable {
         static let approvalId = "psyche.approvalId"
         static let requireBiometry = "psyche.requireBiometry"
         static let destructive = "psyche.destructiveActionIds"
+        static let presenceChallenge = "psyche.presenceChallenge"
     }
 
     /// Property-list form for `UNMutableNotificationContent.userInfo`.
@@ -35,6 +42,7 @@ public struct NotificationUserInfo: Sendable, Equatable {
             Key.destructive: destructiveActionIds,
         ]
         if let approvalId { d[Key.approvalId] = approvalId }
+        if let presenceChallenge { d[Key.presenceChallenge] = presenceChallenge }
         return d
     }
 
@@ -46,6 +54,7 @@ public struct NotificationUserInfo: Sendable, Equatable {
         self.approvalId = d[Key.approvalId] as? String
         self.requireBiometry = d[Key.requireBiometry] as? Bool ?? false
         self.destructiveActionIds = d[Key.destructive] as? [String] ?? []
+        self.presenceChallenge = (d[Key.presenceChallenge] as? String).flatMap { PresenceMessage.isValidChallenge($0) ? $0 : nil }
     }
 
     /// Whether answering with `actionId` must pass device-owner authentication first: only when the
@@ -72,6 +81,10 @@ public struct NotificationResponse: Sendable, Equatable {
     public var authenticated: Bool
     /// Machine reason when authentication was required and failed (`user_cancelled`, …).
     public var authError: String?
+    /// The Secure Enclave assertion over `PresenceMessage.bytes(challenge)` (issue #84).
+    public var presence: PresenceAssertion?
+    /// Why no assertion was made although one was asked for (e.g. `missing_entitlement`).
+    public var presenceError: String?
 
     public init(
         notificationId: String, actionId: String, replyText: String? = nil, approvalId: String? = nil,
@@ -106,6 +119,8 @@ public struct NotificationResponse: Sendable, Equatable {
         }
         if let approvalId { o["approvalId"] = .string(approvalId) }
         if let authError { o["authError"] = .string(authError) }
+        if let presence { o["presence"] = ["signature": .string(presence.signature), "keyId": .string(presence.keyId)] }
+        if let presenceError { o["presenceError"] = .string(presenceError) }
         return .object(o)
     }
 }

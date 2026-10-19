@@ -21,6 +21,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 ### v1 additive — 2026-10-19 (S11 M2: quote-reply)
 
 For S11 / S12 (chat column), S01 (session controller). `chat.send` gains optional `replyToMessageId` (feature E5): the message this one answers, in the same thread. The Gateway stores it as `Message.replyToMessageId` (already in the schema) and puts the quoted text ahead of the new message in what the agent sees, so replies carry a quote reference the agent reads.
+### v1 additive — 2026-10-20 (S21 sandbox: file provenance, design-07; issue #97)
+
+For S21 (`packages/sandbox`) and the owner of the `exec` / workspace file tools (S01).
+
+- `ExecRequest` gains optional `provenance: ProvenanceOut` and `taintSources: TaintSource[]`: the provenance of what the command writes. Files it creates or changes are recorded with it; absent means `untrusted` (the safe default), so an untainted turn passes `"trusted"`.
+- `ExecResult` gains optional `provenance: ProvenanceOut`: `untrusted` when the request was untrusted or `/workspace` holds any untrusted-provenance file. The `exec` tool reports it as the result's provenance so the loop taints the turn.
+- `FakeSandboxRunner` mirrors the rule (per-sandbox `untrustedFiles(sandboxId)` from `filesChanged`); no other fake change.
 
 ### v1 additive — 2026-10-20 (S05 M2: audit.friction)
 

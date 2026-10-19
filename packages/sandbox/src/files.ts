@@ -1,7 +1,18 @@
-import { type ErrorCode, PsycheError } from "@psyche/protocol";
+import {
+  type ErrorCode,
+  type ProvenanceOut,
+  PsycheError,
+  type TaintSource,
+} from "@psyche/protocol";
 import type { CliResult } from "./cli.ts";
 import { fail } from "./errors.ts";
 import { TEXT_FILE_CAP_BYTES, TRANSFER_FILE_CAP_BYTES } from "./limits.ts";
+import {
+  type FileProvenance,
+  sha256Hex,
+  type WorkspaceProvenance,
+  type WriteProvenance,
+} from "./provenance.ts";
 import { FILES_HELPER, PYTHON } from "./scripts.ts";
 import { workspaceRelative } from "./validate.ts";
 
@@ -13,7 +24,26 @@ export interface WorkspaceEntry {
   kind: WorkspaceEntryKind;
   size: number;
   mtimeMs: number;
+  /**
+   * For files: the provenance of the latest recorded write (design-07). Names are data from
+   * inside the sandbox either way; a listing that holds any untrusted entry is `untrusted`.
+   */
+  provenance?: ProvenanceOut;
 }
+
+export interface WorkspaceListing {
+  entries: WorkspaceEntry[];
+  truncated: boolean;
+  /** `untrusted` when any entry is a file of untrusted provenance or a symlink / special file. */
+  provenance: ProvenanceOut;
+}
+
+export interface WriteOptions extends WriteProvenance {
+  createParents?: boolean;
+}
+
+/** Looks up the provenance index of a sandbox; `not_found` for an unknown sandbox. */
+export type ProvenanceLookup = (sandboxId: string) => WorkspaceProvenance;
 
 /** Runs the files helper in the sandbox: `python3 -c FILES_HELPER <args>` with stdin. */
 export type HelperExec = (
@@ -38,19 +68,20 @@ const KNOWN_CODES: ReadonlySet<string> = new Set<ErrorCode>([
  */
 export class WorkspaceFiles {
   readonly #exec: HelperExec;
+  readonly #provenance: ProvenanceLookup;
 
-  constructor(exec: HelperExec) {
+  constructor(exec: HelperExec, provenance: ProvenanceLookup) {
     this.#exec = exec;
+    this.#provenance = provenance;
   }
 
-  async list(
-    sandboxId: string,
-    path = "",
-  ): Promise<{ entries: WorkspaceEntry[]; truncated: boolean }> {
+  async list(sandboxId: string, path = ""): Promise<WorkspaceListing> {
+    const dir = workspaceRelative(path);
     const listed = await this.#json<{ entries: WorkspaceEntry[]; truncated: boolean }>(sandboxId, [
       "list",
-      workspaceRelative(path),
+      dir,
     ]);
+    const index = this.#provenance(sandboxId);
     // Names come from inside the sandbox; drop anything that is not a single path component.
     const entries = listed.entries.filter(
       (e) =>
@@ -60,79 +91,129 @@ export class WorkspaceFiles {
         e.name !== "." &&
         e.name !== "..",
     );
-    return { entries, truncated: listed.truncated === true };
+    let provenance: ProvenanceOut = "trusted";
+    for (const e of entries) {
+      if (e.kind === "file") {
+        e.provenance = index.lookup(dir === "" ? e.name : `${dir}/${e.name}`).provenance;
+        if (e.provenance === "untrusted") provenance = "untrusted";
+      } else if (e.kind !== "dir") {
+        // Symlinks and special files are never written through the API: nobody vouches for them.
+        provenance = "untrusted";
+      }
+    }
+    return { entries, truncated: listed.truncated === true, provenance };
   }
 
-  async stat(sandboxId: string, path: string): Promise<Omit<WorkspaceEntry, "name">> {
-    return this.#json(sandboxId, ["stat", workspaceRelative(path)]);
+  async stat(
+    sandboxId: string,
+    path: string,
+  ): Promise<Omit<WorkspaceEntry, "name" | "provenance"> & FileProvenance> {
+    const rel = workspaceRelative(path);
+    const st = await this.#json<Omit<WorkspaceEntry, "name" | "provenance">>(sandboxId, [
+      "stat",
+      rel,
+    ]);
+    const p =
+      st.kind === "file" || rel === ""
+        ? this.#provenance(sandboxId).lookup(rel)
+        : { provenance: "untrusted" as const, sources: [] };
+    return rel === "" && st.kind === "dir"
+      ? { ...st, provenance: "trusted", sources: [] }
+      : { ...st, ...p };
   }
 
-  /** UTF-8 text up to 256 KB; larger or binary files reject with `invalid_params`. */
-  async readText(sandboxId: string, path: string): Promise<string> {
-    const bytes = await this.#read(sandboxId, path, TEXT_FILE_CAP_BYTES);
+  /**
+   * UTF-8 text up to 256 KB; larger or binary files reject with `invalid_params`. The
+   * provenance is that of the latest recorded write; a file with no record, or whose content
+   * differs from it, is `untrusted` with its sources (design-07).
+   */
+  async readText(sandboxId: string, path: string): Promise<{ text: string } & FileProvenance> {
+    const { bytes, ...provenance } = await this.#read(sandboxId, path, TEXT_FILE_CAP_BYTES);
     try {
-      return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+      return { text: new TextDecoder("utf-8", { fatal: true }).decode(bytes), ...provenance };
     } catch {
       return fail("invalid_params", `${path} is not UTF-8 text; use exportFile`);
     }
   }
 
-  /** Atomic replace (temp file + rename). Keeps the mode of an existing file. */
+  /**
+   * Atomic replace (temp file + rename). Keeps the mode of an existing file. Records the
+   * write's provenance: pass `provenance: "untrusted"` with the turn's `sources` from a
+   * tainted turn, `"trusted"` from an untainted one; absent means `untrusted`.
+   */
   async writeText(
     sandboxId: string,
     path: string,
     text: string,
-    options: { createParents?: boolean } = {},
-  ): Promise<{ size: number }> {
+    options: WriteOptions = {},
+  ): Promise<{ size: number; provenance: ProvenanceOut }> {
     const bytes = Buffer.from(text, "utf8");
     if (bytes.length > TEXT_FILE_CAP_BYTES) {
       fail("invalid_params", `text is larger than ${TEXT_FILE_CAP_BYTES} bytes`);
     }
-    return this.#write(sandboxId, path, bytes, TEXT_FILE_CAP_BYTES, options.createParents);
+    return this.#write(sandboxId, path, bytes, TEXT_FILE_CAP_BYTES, options);
   }
 
   /**
    * Replaces `oldText` with `newText`. It must occur exactly once unless `replaceAll`
-   * (`not_found` when absent, `conflict` when ambiguous). Atomic.
+   * (`not_found` when absent, `conflict` when ambiguous). Atomic. The edited file takes the
+   * provenance of this write (absent means `untrusted`).
    */
   async edit(
     sandboxId: string,
     path: string,
     edit: { oldText: string; newText: string; replaceAll?: boolean },
-  ): Promise<{ replacements: number }> {
+    options: WriteProvenance = {},
+  ): Promise<{ replacements: number; provenance: ProvenanceOut }> {
     if (typeof edit.oldText !== "string" || edit.oldText === "") {
       fail("invalid_params", "oldText must be a non-empty string");
     }
     if (typeof edit.newText !== "string") fail("invalid_params", "newText must be a string");
+    const rel = workspaceRelative(path);
     const input = JSON.stringify({ old: edit.oldText, new: edit.newText, all: edit.replaceAll });
-    return this.#json(sandboxId, ["edit", workspaceRelative(path), String(TEXT_FILE_CAP_BYTES)], {
-      input,
-    });
+    const r = await this.#json<{ replacements: number }>(
+      sandboxId,
+      ["edit", rel, String(TEXT_FILE_CAP_BYTES)],
+      { input },
+    );
+    // The result's bytes were not seen on the host, so the record carries no hash.
+    await this.#provenance(sandboxId).record([rel], options, null);
+    return { replacements: r.replacements, provenance: provenanceOf(options) };
   }
 
-  /** Byte-exact copy into the workspace (PDFs, images), up to 10 MB. */
+  /**
+   * Byte-exact copy into the workspace (PDFs, images), up to 10 MB. Downloads and attachments
+   * are `untrusted` at birth: pass `provenance: "trusted"` only for the owner's own files.
+   */
   async importFile(
     sandboxId: string,
     path: string,
     bytes: Uint8Array,
-    options: { createParents?: boolean } = {},
-  ): Promise<{ size: number }> {
+    options: WriteOptions = {},
+  ): Promise<{ size: number; provenance: ProvenanceOut }> {
     if (bytes.length > TRANSFER_FILE_CAP_BYTES) {
       fail("invalid_params", `file is larger than ${TRANSFER_FILE_CAP_BYTES} bytes`);
     }
-    return this.#write(sandboxId, path, bytes, TRANSFER_FILE_CAP_BYTES, options.createParents);
+    return this.#write(sandboxId, path, bytes, TRANSFER_FILE_CAP_BYTES, options);
   }
 
-  /** Byte-exact copy out of the workspace, up to 10 MB. */
-  async exportFile(sandboxId: string, path: string): Promise<Uint8Array> {
+  /** Byte-exact copy out of the workspace, up to 10 MB, with the file's provenance. */
+  async exportFile(
+    sandboxId: string,
+    path: string,
+  ): Promise<{ bytes: Uint8Array } & FileProvenance> {
     return this.#read(sandboxId, path, TRANSFER_FILE_CAP_BYTES);
   }
 
-  async #read(sandboxId: string, path: string, cap: number): Promise<Uint8Array> {
-    const r = await this.#run(sandboxId, ["read", workspaceRelative(path), String(cap)], {
-      maxBytes: cap + 1,
-    });
-    return new Uint8Array(r.stdout.buffer, r.stdout.byteOffset, r.stdout.length);
+  async #read(
+    sandboxId: string,
+    path: string,
+    cap: number,
+  ): Promise<{ bytes: Uint8Array } & FileProvenance> {
+    const rel = workspaceRelative(path);
+    const r = await this.#run(sandboxId, ["read", rel, String(cap)], { maxBytes: cap + 1 });
+    const bytes = new Uint8Array(r.stdout.buffer, r.stdout.byteOffset, r.stdout.length);
+    return { bytes, ...this.#provenance(sandboxId).lookup(rel, bytes) };
   }
 
   async #write(
@@ -140,13 +221,17 @@ export class WorkspaceFiles {
     path: string,
     bytes: Uint8Array,
     cap: number,
-    createParents = false,
-  ): Promise<{ size: number }> {
+    options: WriteOptions,
+  ): Promise<{ size: number; provenance: ProvenanceOut }> {
     const rel = workspaceRelative(path);
     if (rel === "") fail("invalid_params", "path names the workspace root");
-    return this.#json(sandboxId, ["write", rel, String(cap), createParents ? "1" : "0"], {
-      input: bytes,
-    });
+    const r = await this.#json<{ size: number }>(
+      sandboxId,
+      ["write", rel, String(cap), options.createParents ? "1" : "0"],
+      { input: bytes },
+    );
+    await this.#provenance(sandboxId).record([rel], options, sha256Hex(bytes));
+    return { size: r.size, provenance: provenanceOf(options) };
   }
 
   async #json<T>(
@@ -175,6 +260,12 @@ export class WorkspaceFiles {
     throw helperError(r);
   }
 }
+
+function provenanceOf(write: WriteProvenance): ProvenanceOut {
+  return write.provenance === "trusted" ? "trusted" : "untrusted";
+}
+
+export type { TaintSource };
 
 export function helperError(r: CliResult): PsycheError {
   const text = r.stderr.toString("utf8").trim();
