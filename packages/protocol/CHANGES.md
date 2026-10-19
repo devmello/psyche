@@ -18,6 +18,14 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S04 tasks and scheduler)
+
+- `AutomationKind` gains `reminder` (one-shot; `schedule` is an ISO-8601 instant), so Upcoming (O4) can tell reminders from recurring automations.
+- `Automation` gains optional `watch: WatchConfig` (`url`, `check: change | text_present | price_below | price_above`, `selector?`, `text?`, `threshold?`; data model §8 `watches`) and `lightContext` (heartbeat, O2). `automations.create` takes both; `automations.update` takes both plus `scratch` (the per-job scratch note).
+- New schemas `AutomationRun` (`AutomationRunStatus`; data model §8 `automation_runs`) and `UpcomingItem`.
+- New methods `automations.runs` (history, paged) and `automations.upcoming` (Upcoming view).
+- New events `automation.updated`, `automation.run.started`, `automation.run.finished`.
+- `FakeScheduler` fires `reminder` once and then clears `nextRunAt`.
 ### v1 additive — 2026-10-19 (S06 vault)
 
 Additive, for S06 (vault), S08 (browser fill), S09 (connector OAuth), S11/S12 (Settings → Credentials), S01 (dispatch).
@@ -61,6 +69,21 @@ Needed by `packages/ui` to render and answer every block type in data model §9.
 - `thread.deleted` event so every client drops a deleted thread (feature N14).
 - `chat.queue.list` / `chat.queue.remove`, the `QueuedMessage` schema and the `chat.queue.updated` event: the follow-up queue is visible and removable (feature E3).
 - `AgentLoop`: `AgentEvent` `tool_call` gains optional `details: ToolCallDetails` (redacted params, params hash, side effect, target, decision, approval, taint, provenance, receipt) so the Gateway can persist `tool_calls` rows and emit full `tool_call.updated` payloads. Needed by S01; S02 fills it.
+### v1 (additive) — 2026-10-19 (S15 proactive, on top of S12's `feed.*` / `ideas.*` / `goals.*`)
+
+- `feed.feedback` result gains optional `ledgerChanges` (the `interests.md` lines it changed, for the undo toast).
+- New `feed.generate` (first-run "Generate the first one"), side-effecting.
+- `ideas.accept` gains optional `schedule`, `timezone` (recurring accepts) and `threadId`.
+- `goals.get` result gains optional `milestones` and `links`; new schemas `GoalMilestone`, `GoalLink` (data model §8).
+- New `goals.create`, `goals.update`, `goals.archive`, `goals.milestone`, `goals.link` (all side-effecting). Inferred goals still only become active through S12's `goals.decide`.
+- New event `feed.updated` (one per generated batch), alongside `feed.post`.
+
+### v1 (additive) — 2026-10-19 (S15 notifications)
+
+- Events `notification.updated` and `notification.resolved` (the inbox already emitted `notification.created`; read, de-duplicated updates, resolution and restart reconciliation had no event).
+- `Notification.staleAt` / `staleReason` (optional, nullable): restart reconciliation marks stale notifications (architecture §4.12, UI §3.20).
+- `NotificationAction.authenticationRequired` (optional): the mac helper shows the action with `authenticationRequired` (Touch ID) for purchase and credential-fill approvals (security §3.5, O10).
+- No fake change: `FakeNotifier` already emits `created` / `updated` / `resolved`; the new fields are optional.
 
 ### v1 additive — 2026-10-19 (S02 agent runtime)
 
