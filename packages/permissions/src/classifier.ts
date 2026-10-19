@@ -1,4 +1,11 @@
-import type { Grant, ModelProvider, ModelRef, SideEffect, Target, TargetKind } from "@psyche/protocol";
+import type {
+  Grant,
+  ModelProvider,
+  ModelRef,
+  SideEffect,
+  Target,
+  TargetKind,
+} from "@psyche/protocol";
 import type { ClassifierLabel, PolicyCall, PolicyContext } from "./types.ts";
 
 /**
@@ -43,7 +50,8 @@ export function argumentMetadata(params: unknown): Record<string, number | boole
     if (typeof v === "string") meta[`${k}.length`] = v.length;
     else if (Array.isArray(v)) meta[`${k}.count`] = v.length;
     else if (typeof v === "boolean") meta[k] = v;
-    else if (typeof v === "number" && /amount|qty|quantity|count|size|bytes|price/i.test(k)) meta[k] = v;
+    else if (typeof v === "number" && /amount|qty|quantity|count|size|bytes|price/i.test(k))
+      meta[k] = v;
   }
   return meta;
 }
@@ -54,10 +62,13 @@ export function buildClassifierInput(
   extra: { grant?: Grant; sensitiveTarget: boolean },
 ): ClassifierInput {
   const sources = ctx.taintSources ?? [];
-  const goalTainted = ctx.task?.goalTainted === true || (ctx.taint && ctx.task?.goalAuthoredBy !== "owner");
+  const goalTainted =
+    ctx.task?.goalTainted === true || (ctx.taint && ctx.task?.goalAuthoredBy !== "owner");
   const task: ClassifierInput["task"] = { goalTainted };
-  if (ctx.task?.title !== undefined && ctx.task.goalAuthoredBy === "owner" && !goalTainted) task.title = ctx.task.title;
-  if (ctx.task?.goal !== undefined && ctx.task.goalAuthoredBy === "owner" && !goalTainted) task.goal = ctx.task.goal;
+  if (ctx.task?.title !== undefined && ctx.task.goalAuthoredBy === "owner" && !goalTainted)
+    task.title = ctx.task.title;
+  if (ctx.task?.goal !== undefined && ctx.task.goalAuthoredBy === "owner" && !goalTainted)
+    task.goal = ctx.task.goal;
   if (ctx.task?.goalAuthoredBy !== undefined) task.goalAuthoredBy = ctx.task.goalAuthoredBy;
   const input: ClassifierInput = {
     ownerMessages: (ctx.ownerMessages ?? []).slice(-10),
@@ -68,7 +79,9 @@ export function buildClassifierInput(
     taint: {
       tainted: ctx.taint,
       sourceKinds: [...new Set(sources.map((s) => s.sourceKind))].sort(),
-      origins: [...new Set(sources.flatMap((s) => (s.origin === undefined ? [] : [s.origin])))].sort(),
+      origins: [
+        ...new Set(sources.flatMap((s) => (s.origin === undefined ? [] : [s.origin]))),
+      ].sort(),
     },
     sensitiveTarget: extra.sensitiveTarget,
   };
@@ -76,27 +89,41 @@ export function buildClassifierInput(
   const target: Target | undefined = call.target;
   if (target !== undefined) input.target = target.value;
   if (extra.grant !== undefined) {
-    input.grant = { scope: extra.grant.scope, kind: extra.grant.kind, useCount: extra.grant.useCount };
+    input.grant = {
+      scope: extra.grant.scope,
+      kind: extra.grant.kind,
+      useCount: extra.grant.useCount,
+    };
   }
   return input;
 }
 
-const SENSITIVE_TOOLS = /(delete|remove|revoke|share|invite|publish|post|forward|transfer|permission|settings|password|login|oauth|consent)/i;
+const SENSITIVE_TOOLS =
+  /(delete|remove|revoke|share|invite|publish|post|forward|transfer|permission|settings|password|login|oauth|consent)/i;
 
 /** Default: deterministic rules, no model. */
 export class RulesClassifier implements ActionClassifier {
   readonly id = "rules";
 
   async classify(input: ClassifierInput): Promise<ClassifierOutput> {
-    if (input.sideEffect === "financial") return { label: "prohibited", reason: "financial actions are never routine" };
-    if (input.sideEffect !== "write") return { label: "sensitive", reason: `${input.sideEffect} is not routine` };
-    if (input.taint.tainted) return { label: "sensitive", reason: "the turn read untrusted content" };
-    if (input.task.goalTainted) return { label: "sensitive", reason: "the task goal came from a tainted turn" };
+    if (input.sideEffect === "financial")
+      return { label: "prohibited", reason: "financial actions are never routine" };
+    if (input.sideEffect !== "write")
+      return { label: "sensitive", reason: `${input.sideEffect} is not routine` };
+    if (input.taint.tainted)
+      return { label: "sensitive", reason: "the turn read untrusted content" };
+    if (input.task.goalTainted)
+      return { label: "sensitive", reason: "the task goal came from a tainted turn" };
     if (input.sensitiveTarget) return { label: "sensitive", reason: "sensitive-category target" };
-    if (SENSITIVE_TOOLS.test(input.tool)) return { label: "sensitive", reason: `${input.tool} changes access or shares` };
-    const bulk = Object.entries(input.argMeta).find(([k, v]) => k.endsWith(".count") && typeof v === "number" && v > 20);
-    if (bulk !== undefined) return { label: "sensitive", reason: `bulk action (${bulk[0]} = ${bulk[1]})` };
-    if (input.ownerMessages.length === 0) return { label: "sensitive", reason: "no owner request to align with" };
+    if (SENSITIVE_TOOLS.test(input.tool))
+      return { label: "sensitive", reason: `${input.tool} changes access or shares` };
+    const bulk = Object.entries(input.argMeta).find(
+      ([k, v]) => k.endsWith(".count") && typeof v === "number" && v > 20,
+    );
+    if (bulk !== undefined)
+      return { label: "sensitive", reason: `bulk action (${bulk[0]} = ${bulk[1]})` };
+    if (input.ownerMessages.length === 0)
+      return { label: "sensitive", reason: "no owner request to align with" };
     return { label: "routine", reason: "write within existing grants, untainted" };
   }
 }

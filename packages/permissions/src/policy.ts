@@ -36,7 +36,9 @@ export const PolicyConfig = Type.Object(
         {
           siteExpiryDays: Type.Optional(Type.Number({ exclusiveMinimum: 0, maximum: 365 })),
           alwaysExpiryDays: Type.Optional(Type.Number({ exclusiveMinimum: 0, maximum: 365 })),
-          execHostAlwaysExpiryDays: Type.Optional(Type.Number({ exclusiveMinimum: 0, maximum: 90 })),
+          execHostAlwaysExpiryDays: Type.Optional(
+            Type.Number({ exclusiveMinimum: 0, maximum: 90 }),
+          ),
           sessionIdleHours: Type.Optional(Type.Number({ exclusiveMinimum: 0, maximum: 24 })),
           sessionMaxHours: Type.Optional(Type.Number({ exclusiveMinimum: 0, maximum: 72 })),
           taskHours: Type.Optional(Type.Number({ exclusiveMinimum: 0, maximum: 168 })),
@@ -63,7 +65,10 @@ export const PolicyConfig = Type.Object(
     ask: Type.Optional(Rules),
     allow: Type.Optional(Rules),
     connectors: Type.Optional(
-      Type.Record(Type.String({ minLength: 1 }), Type.Record(Type.String({ minLength: 1 }), RuleEffect)),
+      Type.Record(
+        Type.String({ minLength: 1 }),
+        Type.Record(Type.String({ minLength: 1 }), RuleEffect),
+      ),
     ),
     apps: Type.Optional(Type.Record(Type.String({ minLength: 1 }), AppTier)),
     sites: Type.Optional(Type.Record(Type.String({ minLength: 1 }), RuleEffect)),
@@ -164,7 +169,14 @@ export interface Rule {
   target?: RegExp;
 }
 
-const TARGET_PREFIXES: RuleTargetKind[] = ["origin", "path", "recipient", "app", "account", "command"];
+const TARGET_PREFIXES: RuleTargetKind[] = [
+  "origin",
+  "path",
+  "recipient",
+  "app",
+  "account",
+  "command",
+];
 
 function escapeRe(s: string): string {
   return s.replace(/[.+^${}()|[\]\\]/g, "\\$&");
@@ -195,8 +207,13 @@ export function parseRule(raw: string): Rule {
   for (const kind of TARGET_PREFIXES) {
     if (s.startsWith(`${kind}:`)) {
       const pattern = s.slice(kind.length + 1);
-      if (pattern === "") throw new PsycheError("invalid_params", `policy rule "${raw}" has no pattern`);
-      return { raw, targetKind: kind, target: globToRegExp(pattern, kind === "path" ? "path" : "plain") };
+      if (pattern === "")
+        throw new PsycheError("invalid_params", `policy rule "${raw}" has no pattern`);
+      return {
+        raw,
+        targetKind: kind,
+        target: globToRegExp(pattern, kind === "path" ? "path" : "plain"),
+      };
     }
   }
   const call = /^([^()]+)\((.+)\)$/.exec(s);
@@ -208,7 +225,8 @@ export function parseRule(raw: string): Rule {
       target: globToRegExp(arg, arg.startsWith("/") || arg.startsWith("**") ? "path" : "plain"),
     };
   }
-  if (/[()\s]/.test(s)) throw new PsycheError("invalid_params", `policy rule "${raw}" is malformed`);
+  if (/[()\s]/.test(s))
+    throw new PsycheError("invalid_params", `policy rule "${raw}" is malformed`);
   return { raw, tool: globToRegExp(s, "plain") };
 }
 

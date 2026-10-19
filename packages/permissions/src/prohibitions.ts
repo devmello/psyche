@@ -2,7 +2,14 @@ import { posix } from "node:path";
 import { cardDigits, findSensitive } from "@psyche/audit";
 import { PLACEHOLDER_PATTERN } from "@psyche/protocol";
 import { dangerousEnvNames } from "./binding.ts";
-import { type CanonicalUrl, canonicalUrl, isLoopbackAddress, isLoopbackName, isUnder, TargetError } from "./targets.ts";
+import {
+  type CanonicalUrl,
+  canonicalUrl,
+  isLoopbackAddress,
+  isLoopbackName,
+  isUnder,
+  TargetError,
+} from "./targets.ts";
 import type { PolicyCall, PolicyContext } from "./types.ts";
 
 /**
@@ -62,7 +69,8 @@ export function createLocalProjectVerifier(probes: LocalProjectProbes): LocalPro
       }
       const pid = await probes.listenerPid(port);
       if (pid === undefined) return { ok: false, reason: "no_listener" };
-      if (!(await probes.spawnedByPsyche(pid))) return { ok: false, reason: "listener_not_spawned_by_psyche" };
+      if (!(await probes.spawnedByPsyche(pid)))
+        return { ok: false, reason: "listener_not_spawned_by_psyche" };
       return { ok: true, reason: "own_project" };
     },
   };
@@ -109,8 +117,9 @@ interface StringAt {
 function strings(value: unknown, path = "$", out: StringAt[] = [], depth = 0): StringAt[] {
   if (depth > 32) return out;
   if (typeof value === "string") out.push({ path, value });
-  else if (Array.isArray(value)) value.forEach((v, i) => strings(v, `${path}[${i}]`, out, depth + 1));
-  else if (typeof value === "object" && value !== null) {
+  else if (Array.isArray(value)) {
+    for (const [i, v] of value.entries()) strings(v, `${path}[${i}]`, out, depth + 1);
+  } else if (typeof value === "object" && value !== null) {
     for (const [k, v] of Object.entries(value)) {
       strings(k, `${path}.<key>`, out, depth + 1);
       strings(v, `${path}.${k}`, out, depth + 1);
@@ -122,10 +131,12 @@ function strings(value: unknown, path = "$", out: StringAt[] = [], depth = 0): S
 const TYPING_TOOL = /(^|\.)(type|fill|key|keys|insert_text|set_value|paste)$/;
 const TRANSFER_TOOL =
   /(^|[._])(transfer|transfers|wire|withdraw|withdrawal|trade|trades|order_stock|send_money|payout|swap|stake|unstake|bridge_funds)([._]|$)/i;
-const TRANSFER_NAMESPACE = /^(bank|banking|broker|brokerage|crypto|exchange|wallet|venmo|zelle|cashapp)\./i;
+const TRANSFER_NAMESPACE =
+  /^(bank|banking|broker|brokerage|crypto|exchange|wallet|venmo|zelle|cashapp)\./i;
 const PERMANENT_DELETE_TOOL =
   /(^|[._])(purge|expunge|empty_trash|delete_permanently|permanent_delete|permanently_delete|hard_delete|destroy|wipe|shred)([._]|$)/i;
-const ACCOUNT_CREATION_TOOL = /(^|[._])(signup|sign_up|register|create_account|account_create)([._]|$)/i;
+const ACCOUNT_CREATION_TOOL =
+  /(^|[._])(signup|sign_up|register|create_account|account_create)([._]|$)/i;
 const CAPTCHA = /captcha|recaptcha|hcaptcha|turnstile|arkose|funcaptcha/i;
 const CONTROL_PLANE_TOOL =
   /^(settings|config|grants|approvals|devices|device|pairing|policy|permissions|vault|security|gateway)[._]/i;
@@ -188,7 +199,8 @@ export async function checkProhibitions(
   const path = targetPath(call);
   if (path !== undefined && env.psycheHome !== undefined) {
     const home = posix.normalize(env.psycheHome);
-    if (isUnder(path, posix.join(home, "vault"))) return deny("psyche_state", "the vault is not a file target");
+    if (isUnder(path, posix.join(home, "vault")))
+      return deny("psyche_state", "the vault is not a file target");
     const controlPlane = ["config.json", "state", "audit", "run", "policy.json"].some((p) =>
       isUnder(path, posix.join(home, p)),
     );
@@ -214,9 +226,13 @@ export async function checkProhibitions(
   const fillTool = /^credentials\./.test(tool);
   for (const s of params) {
     if (!PLACEHOLDER_PATTERN.test(s.value)) continue;
-    const execEnv = (effectiveKind === "exec" || effectiveKind === "exec_host") && s.path.startsWith("$.env.");
+    const execEnv =
+      (effectiveKind === "exec" || effectiveKind === "exec_host") && s.path.startsWith("$.env.");
     if (!fillTool && !execEnv) {
-      return deny("placeholder_outside_fill", "credential placeholders are only resolved by credentials.request");
+      return deny(
+        "placeholder_outside_fill",
+        "credential placeholders are only resolved by credentials.request",
+      );
     }
   }
 
@@ -237,7 +253,11 @@ export async function checkProhibitions(
   }
 
   // CAPTCHA: never solved, bypassed or outsourced.
-  if (meta.captcha === true || CAPTCHA.test(tool) || params.some((s) => s.path.includes("<key>") && CAPTCHA.test(s.value))) {
+  if (
+    meta.captcha === true ||
+    CAPTCHA.test(tool) ||
+    params.some((s) => s.path.includes("<key>") && CAPTCHA.test(s.value))
+  ) {
     return deny("captcha", "CAPTCHAs are never solved or bypassed");
   }
   if (field !== undefined && CAPTCHA.test(`${field.name ?? ""} ${field.role ?? ""}`)) {
@@ -251,7 +271,11 @@ export async function checkProhibitions(
 
   // Loopback origins that are not the owner's own project (§3.10, design-03).
   const url = targetUrl(call);
-  if (url === "invalid") return deny("invalid_target", "the target URL is not canonical (userinfo, opaque or malformed)");
+  if (url === "invalid")
+    return deny(
+      "invalid_target",
+      "the target URL is not canonical (userinfo, opaque or malformed)",
+    );
   let loopbackOwned = false;
   if (url !== undefined) {
     if (env.gatewayOrigins.includes(url.origin)) {
@@ -259,12 +283,19 @@ export async function checkProhibitions(
     }
     if (isLoopbackName(url.host) || isLoopbackAddress(url.host)) {
       const check = await env.localProject.check(url);
-      if (!check.ok) return deny("loopback_not_owned", `loopback origin is not the owner's project (${check.reason})`);
+      if (!check.ok)
+        return deny(
+          "loopback_not_owned",
+          `loopback origin is not the owner's project (${check.reason})`,
+        );
       loopbackOwned = true;
     }
   }
   if (meta.testCredential === true && !loopbackOwned) {
-    return deny("test_credential_scope", "test credentials are only used on the owner's own local project");
+    return deny(
+      "test_credential_scope",
+      "test credentials are only used on the owner's own local project",
+    );
   }
 
   // Card numbers, bank accounts and government identifiers are never entered.
@@ -276,8 +307,10 @@ export async function checkProhibitions(
           if (digits !== undefined && PUBLISHED_TEST_CARDS.has(digits) && loopbackOwned) continue;
           return deny("card_entry", "card numbers are never entered; purchases go through Link");
         }
-        if (m.kind === "iban") return deny("bank_account_entry", "bank account numbers are never entered");
-        if (m.kind === "us_ssn") return deny("government_id_entry", "government identifiers are never entered");
+        if (m.kind === "iban")
+          return deny("bank_account_entry", "bank account numbers are never entered");
+        if (m.kind === "us_ssn")
+          return deny("government_id_entry", "government identifiers are never entered");
       }
     }
   }
@@ -291,13 +324,26 @@ export async function checkProhibitions(
 
   // Untrusted-derived writes never reach the protected memory files (security §3.6, §8).
   if (effectiveKind === "memory_protected_write" && ctx.taint) {
-    return deny("untrusted_memory_promotion", "a tainted turn cannot write USER.md / MEMORY.md / SOUL.md / AGENTS.md");
+    return deny(
+      "untrusted_memory_promotion",
+      "a tainted turn cannot write USER.md / MEMORY.md / SOUL.md / AGENTS.md",
+    );
   }
 
   // Permanent deletion needs the owner's typed confirmation word.
-  if (meta.permanentDelete === true || PERMANENT_DELETE_TOOL.test(tool) || permanentRm(call, effectiveKind)) {
-    const claims = params.some((s) => /(^|\.)(confirmation|typedConfirmation|confirm)$/.test(s.path));
-    if (claims) return deny("self_confirmed_delete", "the confirmation word must come from the owner, not the call");
+  if (
+    meta.permanentDelete === true ||
+    PERMANENT_DELETE_TOOL.test(tool) ||
+    permanentRm(call, effectiveKind)
+  ) {
+    const claims = params.some((s) =>
+      /(^|\.)(confirmation|typedConfirmation|confirm)$/.test(s.path),
+    );
+    if (claims)
+      return deny(
+        "self_confirmed_delete",
+        "the confirmation word must come from the owner, not the call",
+      );
     return {
       effect: "confirm",
       id: "prohibition:permanent_delete",
@@ -308,7 +354,11 @@ export async function checkProhibitions(
 
   // Third-party account creation always asks.
   if (meta.accountCreation === true || ACCOUNT_CREATION_TOOL.test(tool)) {
-    return { effect: "ask", id: "prohibition:account_creation", reason: "creating a third-party account needs approval" };
+    return {
+      effect: "ask",
+      id: "prohibition:account_creation",
+      reason: "creating a third-party account needs approval",
+    };
   }
   return undefined;
 }
@@ -322,7 +372,9 @@ function execEnv(call: PolicyCall): Record<string, string> | undefined {
 
 function permanentRm(call: PolicyCall, kind: string): boolean {
   if (kind !== "exec_host") return false;
-  const argv = (call.binding as { argv?: unknown } | undefined)?.argv ?? (call.params as { argv?: unknown })?.argv;
+  const argv =
+    (call.binding as { argv?: unknown } | undefined)?.argv ??
+    (call.params as { argv?: unknown })?.argv;
   if (!Array.isArray(argv) || typeof argv[0] !== "string") return false;
   return PERMANENT_RM.has(posix.basename(argv[0]));
 }
@@ -336,13 +388,21 @@ function fillFieldMismatch(binding: unknown): string | undefined {
   }
   switch (b.field) {
     case "password":
-      return t === "password" ? undefined : `password fields fill only input[type=password], not ${t || "unknown"}`;
+      return t === "password"
+        ? undefined
+        : `password fields fill only input[type=password], not ${t || "unknown"}`;
     case "username":
-      return ["text", "email", "tel"].includes(t) ? undefined : `usernames fill only text/email inputs, not ${t || "unknown"}`;
+      return ["text", "email", "tel"].includes(t)
+        ? undefined
+        : `usernames fill only text/email inputs, not ${t || "unknown"}`;
     case "totp":
-      return ["text", "number", "tel", "password"].includes(t) ? undefined : `one-time codes fill only short inputs, not ${t || "unknown"}`;
+      return ["text", "number", "tel", "password"].includes(t)
+        ? undefined
+        : `one-time codes fill only short inputs, not ${t || "unknown"}`;
     case "token":
-      return ["text", "password"].includes(t) ? undefined : `tokens fill only text/password inputs, not ${t || "unknown"}`;
+      return ["text", "password"].includes(t)
+        ? undefined
+        : `tokens fill only text/password inputs, not ${t || "unknown"}`;
     default:
       return undefined;
   }

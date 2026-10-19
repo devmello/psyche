@@ -220,7 +220,8 @@ function int(kind: string, name: string, v: unknown, min = 0): number {
 }
 
 function obj(kind: string, v: unknown): Record<string, unknown> {
-  if (typeof v !== "object" || v === null || Array.isArray(v)) bad(kind, "arguments must be an object");
+  if (typeof v !== "object" || v === null || Array.isArray(v))
+    bad(kind, "arguments must be an object");
   return v as Record<string, unknown>;
 }
 
@@ -310,7 +311,9 @@ export const CWD_CONFIG_EXECUTABLES = new Set([
 
 export function readsCwdConfig(executable: string): boolean {
   const name = basename(executable);
-  return CWD_CONFIG_EXECUTABLES.has(name) || CWD_CONFIG_EXECUTABLES.has(name.replace(/[\d.]+$/, ""));
+  return (
+    CWD_CONFIG_EXECUTABLES.has(name) || CWD_CONFIG_EXECUTABLES.has(name.replace(/[\d.]+$/, ""))
+  );
 }
 
 // ---- builders ---------------------------------------------------------------------------------
@@ -492,7 +495,9 @@ function purchaseBinding(raw: unknown): [JsonObject, JsonObject] {
   const merchantRaw = str(k, "merchant", a.merchant);
   let merchant = merchantRaw;
   try {
-    merchant = canonicalUrl(merchantRaw.includes("://") ? merchantRaw : `https://${merchantRaw}`).host;
+    merchant = canonicalUrl(
+      merchantRaw.includes("://") ? merchantRaw : `https://${merchantRaw}`,
+    ).host;
   } catch (e) {
     if (!(e instanceof TargetError)) throw e;
   }
@@ -515,8 +520,7 @@ function fileBinding(raw: unknown): [JsonObject, JsonObject] {
     bad(k, "unknown operation");
   }
   const realPath = canonicalPath(str(k, "realPath", a.realPath));
-  const contentSha256 =
-    a.contentSha256 === null ? null : sha(k, "contentSha256", a.contentSha256);
+  const contentSha256 = a.contentSha256 === null ? null : sha(k, "contentSha256", a.contentSha256);
   if (contentSha256 === null && operation !== "delete") bad(k, "contentSha256 required");
   const root = a.root === undefined ? realPath : canonicalPath(str(k, "root", a.root));
   return [
@@ -549,7 +553,12 @@ function computerBinding(raw: unknown): [JsonObject, JsonObject] {
   if (!["read", "click", "interact"].includes(tierRequired)) bad(k, "unknown tier");
   const action = str(k, "action", a.action);
   return [
-    compact({ app, tierRequired, action, elementRefSha256: optSha(k, "elementRefSha256", a.elementRefSha256) }),
+    compact({
+      app,
+      tierRequired,
+      action,
+      elementRefSha256: optSha(k, "elementRefSha256", a.elementRefSha256),
+    }),
     { app, tierRequired },
   ];
 }

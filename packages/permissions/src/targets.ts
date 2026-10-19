@@ -53,7 +53,8 @@ export function canonicalUrl(input: string): CanonicalUrl {
   const scheme = url.protocol === "https:" ? "https" : "http";
   // URL already drops default ports; keep the explicit check for clarity.
   const port = url.port === "" ? null : Number(url.port);
-  const portPart = port === null || (scheme === "https" ? port === 443 : port === 80) ? "" : `:${port}`;
+  const portPart =
+    port === null || (scheme === "https" ? port === 443 : port === 80) ? "" : `:${port}`;
   const origin = `${scheme}://${host}${portPart}`;
   const search = url.search;
   return {
@@ -113,9 +114,11 @@ export function canonicalEmail(input: string): CanonicalEmail {
   let raw = input.trim();
   const angle = /<([^<>]*)>\s*$/.exec(raw);
   if (angle?.[1] !== undefined) raw = angle[1].trim();
-  if (/[\s<>(),;:"\\[\]]/.test(raw)) throw new TargetError(`not an addr-spec: ${JSON.stringify(input)}`);
+  if (/[\s<>(),;:"\\[\]]/.test(raw))
+    throw new TargetError(`not an addr-spec: ${JSON.stringify(input)}`);
   const at = raw.lastIndexOf("@");
-  if (at <= 0 || at === raw.length - 1) throw new TargetError(`not an addr-spec: ${JSON.stringify(input)}`);
+  if (at <= 0 || at === raw.length - 1)
+    throw new TargetError(`not an addr-spec: ${JSON.stringify(input)}`);
   const local = raw.slice(0, at);
   const domain = raw.slice(at + 1);
   if (!LOCAL_ATOM.test(local)) {
@@ -124,7 +127,8 @@ export function canonicalEmail(input: string): CanonicalEmail {
     });
   }
   const ascii = domainToASCII(domain.toLowerCase());
-  if (ascii === "" || !ascii.includes(".")) throw new TargetError(`invalid domain in ${JSON.stringify(input)}`);
+  if (ascii === "" || !ascii.includes("."))
+    throw new TargetError(`invalid domain in ${JSON.stringify(input)}`);
   return {
     address: `${local.toLowerCase()}@${ascii}`,
     idn: ascii !== domain.toLowerCase(),
@@ -133,7 +137,8 @@ export function canonicalEmail(input: string): CanonicalEmail {
 
 /** Lexically normalized absolute POSIX path; the executor supplies the real path (realpath). */
 export function canonicalPath(input: string): string {
-  if (!input.startsWith("/")) throw new TargetError(`path is not absolute: ${JSON.stringify(input)}`);
+  if (!input.startsWith("/"))
+    throw new TargetError(`path is not absolute: ${JSON.stringify(input)}`);
   if (input.includes("\0")) throw new TargetError("NUL in path");
   const p = posix.normalize(input);
   return p.length > 1 && p.endsWith("/") ? p.slice(0, -1) : p;

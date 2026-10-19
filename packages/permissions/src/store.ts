@@ -268,7 +268,9 @@ export class SqlitePermissionStore implements PermissionStore {
   }
 
   getApproval(id: string): StoredApproval | undefined {
-    const row = this.#db.prepare("SELECT * FROM approvals WHERE id = ?").get(id) as ApprovalRow | undefined;
+    const row = this.#db.prepare("SELECT * FROM approvals WHERE id = ?").get(id) as
+      | ApprovalRow
+      | undefined;
     return row === undefined ? undefined : approvalFromRow(row);
   }
 
@@ -276,7 +278,9 @@ export class SqlitePermissionStore implements PermissionStore {
     const rows = (
       filter.status === undefined
         ? this.#db.prepare("SELECT * FROM approvals ORDER BY requested_at, rowid").all()
-        : this.#db.prepare("SELECT * FROM approvals WHERE status = ? ORDER BY requested_at, rowid").all(filter.status)
+        : this.#db
+            .prepare("SELECT * FROM approvals WHERE status = ? ORDER BY requested_at, rowid")
+            .all(filter.status)
     ) as ApprovalRow[];
     return rows.map(approvalFromRow);
   }
@@ -341,12 +345,16 @@ export class SqlitePermissionStore implements PermissionStore {
   }
 
   getGrant(id: string): StoredGrant | undefined {
-    const row = this.#db.prepare("SELECT * FROM grants WHERE id = ?").get(id) as GrantRow | undefined;
+    const row = this.#db.prepare("SELECT * FROM grants WHERE id = ?").get(id) as
+      | GrantRow
+      | undefined;
     return row === undefined ? undefined : grantFromRow(row);
   }
 
   listGrants(): StoredGrant[] {
-    return (this.#db.prepare("SELECT * FROM grants ORDER BY created_at, rowid").all() as GrantRow[]).map(grantFromRow);
+    return (
+      this.#db.prepare("SELECT * FROM grants ORDER BY created_at, rowid").all() as GrantRow[]
+    ).map(grantFromRow);
   }
 }
 
@@ -379,7 +387,8 @@ function approvalFromRow(r: ApprovalRow): StoredApproval {
     grantId: r.grant_id,
   };
   if (r.side_effect !== null) approval.sideEffect = r.side_effect as SideEffect;
-  if (r.target_kind !== null) approval.targetKind = r.target_kind as NonNullable<ApprovalRequest["targetKind"]>;
+  if (r.target_kind !== null)
+    approval.targetKind = r.target_kind as NonNullable<ApprovalRequest["targetKind"]>;
   if (r.target !== null) approval.target = parse<NonNullable<ApprovalRequest["target"]>>(r.target);
   if (r.invalidated_reason !== null) approval.invalidatedReason = r.invalidated_reason;
   return {

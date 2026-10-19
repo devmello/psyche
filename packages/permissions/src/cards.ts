@@ -11,12 +11,15 @@ import type { ApprovalRequest, JsonObject } from "@psyche/protocol";
  */
 
 // Unicode general category Cf, plus line / paragraph separators and other invisibles.
-const FORMAT_CHARS = /[\p{Cf}  ᅟᅠㅤﾠ᠎]/gu;
+const FORMAT_CHARS = /[\p{Cf}\u2028\u2029\u115F\u1160\u3164\uFFA0\u180E]/gu;
 
 export function sanitizeDisplay(value: string, maxLength = 2000): string {
   let s = value
     .replace(/\r\n|\r|\n/g, "⏎")
-    .replace(FORMAT_CHARS, (c) => `⟨U+${(c.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}⟩`)
+    .replace(
+      FORMAT_CHARS,
+      (c) => `⟨U+${(c.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}⟩`,
+    )
     // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping control characters is the point
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "�");
   if (s.length > maxLength) s = `${s.slice(0, maxLength)}…`;
@@ -29,7 +32,8 @@ export function sanitizeDetails(value: unknown, depth = 0): unknown {
   if (Array.isArray(value)) return value.map((v) => sanitizeDetails(v, depth + 1));
   if (typeof value === "object" && value !== null) {
     const out: JsonObject = {};
-    for (const [k, v] of Object.entries(value)) out[sanitizeDisplay(k, 200)] = sanitizeDetails(v, depth + 1);
+    for (const [k, v] of Object.entries(value))
+      out[sanitizeDisplay(k, 200)] = sanitizeDetails(v, depth + 1);
     return out;
   }
   return value;
@@ -42,10 +46,13 @@ export function punycodeHosts(text: string): string {
       const ascii = domainToASCII(host.toLowerCase());
       return `${scheme}${ascii === "" ? host : ascii}`;
     })
-    .replace(/([A-Za-z0-9._%+-]+)@([^\s@,;⏎<>]+\.[^\s@,;⏎<>]+)/gu, (_m, local: string, domain: string) => {
-      const ascii = domainToASCII(domain.toLowerCase());
-      return `${local}@${ascii === "" ? domain : ascii}`;
-    });
+    .replace(
+      /([A-Za-z0-9._%+-]+)@([^\s@,;⏎<>]+\.[^\s@,;⏎<>]+)/gu,
+      (_m, local: string, domain: string) => {
+        const ascii = domainToASCII(domain.toLowerCase());
+        return `${local}@${ascii === "" ? domain : ascii}`;
+      },
+    );
 }
 
 const KIND_TITLES: Record<string, string> = {
@@ -86,7 +93,16 @@ const KEY_FIELDS: Record<string, string[]> = {
   computer_action: ["app", "action"],
 };
 
-export type CardSurfaceKind = "desktop" | "web" | "notification" | "telegram" | "imessage" | "slack" | "discord" | "signal" | "chat";
+export type CardSurfaceKind =
+  | "desktop"
+  | "web"
+  | "notification"
+  | "telegram"
+  | "imessage"
+  | "slack"
+  | "discord"
+  | "signal"
+  | "chat";
 
 /** Characters a surface can show before a card would be cut. */
 export const SURFACE_LIMITS: Record<CardSurfaceKind, number> = {
@@ -126,7 +142,8 @@ export function cardHeader(a: Pick<ApprovalRequest, "kind" | "sideEffect" | "tai
 export function surfaceKind(surface: string): CardSurfaceKind {
   if (surface === "desktop" || surface === "web" || surface === "notification") return surface;
   const channel = surface.split(":")[0] ?? "";
-  if (["telegram", "imessage", "slack", "discord", "signal"].includes(channel)) return channel as CardSurfaceKind;
+  if (["telegram", "imessage", "slack", "discord", "signal"].includes(channel))
+    return channel as CardSurfaceKind;
   return "chat";
 }
 
@@ -144,9 +161,16 @@ export function renderForSurface(surface: string, a: ApprovalRequest): RenderedC
   }
   const details = a.details as Record<string, unknown>;
   const order = KEY_FIELDS[a.kind] ?? [];
-  const keys = [...order.filter((k) => k in details), ...Object.keys(details).filter((k) => !order.includes(k)).sort()];
+  const keys = [
+    ...order.filter((k) => k in details),
+    ...Object.keys(details)
+      .filter((k) => !order.includes(k))
+      .sort(),
+  ];
   for (const k of keys) {
-    lines.push(`${sanitizeDisplay(k, 60)}: “${punycodeHosts(sanitizeDisplay(valueText(details[k])))}”`);
+    lines.push(
+      `${sanitizeDisplay(k, 60)}: “${punycodeHosts(sanitizeDisplay(valueText(details[k])))}”`,
+    );
   }
   lines.push(`Summary: “${punycodeHosts(sanitizeDisplay(a.summary))}”`);
   lines.push(`Expires: ${a.expiresAt}`);

@@ -67,7 +67,10 @@ function matchesAny(bundleId: string, patterns: readonly string[]): boolean {
 
 export function appCap(bundleId: string): { cap: AppTier; reason: string } {
   if (matchesAny(bundleId, LOCKED_OFF_APPS)) {
-    return { cap: "off", reason: "password managers, banking, trading and system settings are off" };
+    return {
+      cap: "off",
+      reason: "password managers, banking, trading and system settings are off",
+    };
   }
   if (matchesAny(bundleId, BROWSER_APPS)) {
     return { cap: "read", reason: "browsers are read-only; the agent browser acts on the web" };
@@ -81,8 +84,10 @@ export function appCap(bundleId: string): { cap: AppTier; reason: string } {
 /** Tier an action needs. Unknown actions need `interact`. */
 export function tierRequired(action: string): AppTier {
   const a = action.replace(/^computer\./, "");
-  if (["screenshot", "ax_tree", "snapshot", "read", "find", "zoom", "list_windows"].includes(a)) return "read";
-  if (["click", "left_click", "double_click", "scroll", "hover", "open_app", "focus"].includes(a)) return "click";
+  if (["screenshot", "ax_tree", "snapshot", "read", "find", "zoom", "list_windows"].includes(a))
+    return "read";
+  if (["click", "left_click", "double_click", "scroll", "hover", "open_app", "focus"].includes(a))
+    return "click";
   return "interact";
 }
 
@@ -95,7 +100,8 @@ export function effectiveTier(
   configured: AppTier | undefined,
 ): { tier: AppTier | undefined; capped: boolean; reason: string } {
   const { cap, reason } = appCap(bundleId);
-  if (configured === undefined) return { tier: cap === "off" ? "off" : undefined, capped: cap === "off", reason };
+  if (configured === undefined)
+    return { tier: cap === "off" ? "off" : undefined, capped: cap === "off", reason };
   if (TIER_RANK[configured] > TIER_RANK[cap]) return { tier: cap, capped: true, reason };
   return { tier: configured, capped: false, reason: "" };
 }

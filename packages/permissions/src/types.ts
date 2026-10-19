@@ -77,6 +77,7 @@ export interface CallMeta {
 }
 
 export interface PolicyCall extends ToolCallIntent {
+  toolCallId?: string;
   /** Kind-specific binding arguments (see `binding.ts`); else `{tool, paramsHash, target}`. */
   binding?: unknown;
   meta?: CallMeta;
