@@ -20,7 +20,11 @@ export interface ApprovalBlock {
 export type ApprovalBlockType = "approval";
 
 export interface ApprovalCreatedPayload {
-    approval: ApprovalRequest;
+    /**
+     * This connection's surface token, if any
+     */
+    answerToken?: string;
+    approval:     ApprovalRequest;
 }
 
 export interface ApprovalRequest {
@@ -88,7 +92,8 @@ export interface Target {
 export type TargetKind = "origin" | "path" | "account" | "command" | "recipient" | "app";
 
 export interface ApprovalResult {
-    approval: ApprovalRequest;
+    answerToken?: string;
+    approval:     ApprovalRequest;
 }
 
 export interface ApprovalUpdatedPayload {
@@ -130,8 +135,28 @@ export interface ApprovalsListParams {
 }
 
 export interface ApprovalsListResult {
-    approvals:   ApprovalRequest[];
-    nextCursor?: null | string;
+    /**
+     * approvalId → this surface's unused answer token
+     */
+    answerTokens?: { [key: string]: string };
+    approvals:     ApprovalRequest[];
+    nextCursor?:   null | string;
+}
+
+export interface ArtifactBlock {
+    artifactId: string;
+    preview?:   string;
+    type:       ArtifactBlockType;
+}
+
+export type ArtifactBlockType = "artifact";
+
+export interface ArtifactsGetParams {
+    artifactId: string;
+}
+
+export interface ArtifactsGetResult {
+    artifact: Artifact;
 }
 
 export interface Artifact {
@@ -146,14 +171,6 @@ export interface Artifact {
 }
 
 export type ArtifactType = "markdown" | "html" | "react" | "pdf" | "sheet" | "itinerary" | "dashboard";
-
-export interface ArtifactBlock {
-    artifactId: string;
-    preview?:   string;
-    type:       ArtifactBlockType;
-}
-
-export type ArtifactBlockType = "artifact";
 
 export interface AuditEntry {
     actor: AuditActor;
@@ -462,7 +479,7 @@ export interface Channel {
     nodeId?:        null | string;
     ownerIds:       string[];
     requireMention: boolean;
-    status:         ChannelStatus;
+    status:         Status;
     type:           ChannelType;
     updatedAt:      string;
 }
@@ -471,7 +488,7 @@ export type DmPolicy = "pairing" | "allowlist" | "open" | "disabled";
 
 export type DmScope = "main" | "per-peer" | "per-channel-peer";
 
-export type ChannelStatus = "active" | "paused" | "error" | "disconnected";
+export type Status = "active" | "paused" | "error" | "disconnected";
 
 export type ChannelType = "webchat" | "telegram" | "imessage" | "whatsapp" | "signal" | "slack" | "discord" | "email" | "sms";
 
@@ -886,6 +903,18 @@ export interface EventsSubscribeResult {
     stateVersion: number;
 }
 
+export interface FeedFeedbackParams {
+    feedback?: FeedFeedback | null;
+    postId:    string;
+    topic?:    string;
+}
+
+export type FeedFeedback = "like" | "save" | "not_interested" | "hide_source" | "follow_topic";
+
+export interface FeedFeedbackResult {
+    post: FeedPost;
+}
+
 export interface FeedPost {
     bodyMd:      string;
     briefingId?: null | string;
@@ -909,7 +938,25 @@ export interface Citation {
     url:     string;
 }
 
-export type FeedFeedback = "like" | "save" | "not_interested" | "hide_source" | "follow_topic";
+export interface FeedListParams {
+    briefingId?: string;
+    /**
+     * Opaque cursor
+     */
+    cursor?: string;
+    limit?:  number;
+    since?:  string;
+}
+
+export interface FeedListResult {
+    nextBriefAt?: null | string;
+    nextCursor?:  null | string;
+    posts:        FeedPost[];
+}
+
+export interface FeedPostPayload {
+    post: FeedPost;
+}
 
 export interface FileBlock {
     libraryItemId: string;
@@ -950,6 +997,10 @@ export interface GatewayShutdownPayload {
     reason: string;
 }
 
+export interface GoalUpdatedPayload {
+    goal: Goal;
+}
+
 export interface Goal {
     archivedAt?:    null | string;
     cadence?:       null | string;
@@ -969,6 +1020,35 @@ export type GoalCategory = "health" | "finance" | "career" | "relationships" | "
 
 export type GoalStatus = "candidate" | "active" | "paused" | "done" | "archived";
 
+export interface GoalsDecideParams {
+    decision: GoalDecision;
+    goalId:   string;
+}
+
+export type GoalDecision = "confirm" | "reject" | "later";
+
+export interface GoalsDecideResult {
+    goal: Goal;
+}
+
+export interface GoalsGetParams {
+    goalId: string;
+}
+
+export interface GoalsGetResult {
+    goal:    Goal;
+    taskIds: string[];
+}
+
+export interface GoalsListParams {
+    category?: GoalCategory;
+    status?:   GoalStatus[];
+}
+
+export interface GoalsListResult {
+    goals: Goal[];
+}
+
 export interface GrantsListParams {
     includeRevoked?: boolean;
     kind?:           ApprovalKind;
@@ -984,6 +1064,10 @@ export interface GrantsRevokeParams {
 
 export interface GrantsRevokeResult {
     grant: Grant;
+}
+
+export interface IdeaUpdatedPayload {
+    idea: Idea;
 }
 
 export interface Idea {
@@ -1003,6 +1087,76 @@ export interface Idea {
 export type IdeaKind = "task" | "automation" | "skill" | "goal" | "connector";
 
 export type IdeaStatus = "proposed" | "accepted" | "edited" | "dismissed" | "expired";
+
+export interface IdeasAcceptParams {
+    brief?:     string;
+    ideaId:     string;
+    recurring?: boolean;
+}
+
+export interface IdeasAcceptResult {
+    automationId?: null | string;
+    idea:          Idea;
+    taskId?:       null | string;
+}
+
+export interface IdeasDismissParams {
+    ideaId: string;
+    reason: IdeaDismissReason;
+}
+
+export type IdeaDismissReason = "not_now" | "not_interested" | "never_from_source";
+
+export interface IdeasDismissResult {
+    idea: Idea;
+}
+
+export interface IdeasListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?: string;
+    limit?:  number;
+    status?: IdeaStatus[];
+}
+
+export interface IdeasListResult {
+    ideas:       Idea[];
+    nextCursor?: null | string;
+}
+
+export interface InputRequestResult {
+    inputRequest: InputRequest;
+}
+
+export interface InputRequest {
+    answer?:             { [key: string]: Answer } | null;
+    answeredAt?:         null | string;
+    answeredByDeviceId?: null | string;
+    createdAt:           string;
+    id:                  string;
+    questions:           Question[];
+    status:              InputRequestStatus;
+    taskId?:             null | string;
+    threadId:            string;
+}
+
+export type Answer = string[] | string;
+
+export interface Question {
+    header:      string;
+    multiSelect: boolean;
+    options:     QuestionOption[];
+    question:    string;
+}
+
+export interface QuestionOption {
+    description?: string;
+    label:        string;
+    preview?:     string;
+}
+
+export type InputRequestStatus = "open" | "answered" | "cancelled";
 
 export interface LibraryDeleteParams {
     itemId: string;
@@ -1496,34 +1650,37 @@ export interface QuestionCreatedPayload {
     inputRequest: InputRequest;
 }
 
-export interface InputRequest {
-    answer?:             { [key: string]: Answer } | null;
-    answeredAt?:         null | string;
-    answeredByDeviceId?: null | string;
-    createdAt:           string;
-    id:                  string;
-    questions:           Question[];
-    status:              InputRequestStatus;
-    taskId?:             null | string;
-    threadId:            string;
+export interface QuestionUpdatedPayload {
+    inputRequest: InputRequest;
 }
 
-export type Answer = string[] | string;
-
-export interface Question {
-    header:      string;
-    multiSelect: boolean;
-    options:     QuestionOption[];
-    question:    string;
+export interface QuestionsAnswerParams {
+    answer:         QuestionAnswers;
+    inputRequestId: string;
 }
 
-export interface QuestionOption {
-    description?: string;
-    label:        string;
-    preview?:     string;
+export interface QuestionAnswers {
 }
 
-export type InputRequestStatus = "open" | "answered" | "cancelled";
+export interface QuestionsGetParams {
+    inputRequestId: string;
+}
+
+export interface QuestionsListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:   string;
+    limit?:    number;
+    status?:   InputRequestStatus[];
+    taskId?:   string;
+    threadId?: string;
+}
+
+export interface QuestionsListResult {
+    inputRequests: InputRequest[];
+    nextCursor?:   null | string;
+}
 
 export interface QueuedMessageResult {
     messageId: string;
@@ -1538,6 +1695,28 @@ export type ReceiptBlockType = "receipt";
 
 export interface ReceiptCreatedPayload {
     receipt: Receipt;
+}
+
+export interface ReceiptsGetParams {
+    receiptId: string;
+}
+
+export interface ReceiptsGetResult {
+    receipt: Receipt;
+}
+
+export interface ReceiptsListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?: string;
+    limit?:  number;
+    taskId?: string;
+}
+
+export interface ReceiptsListResult {
+    nextCursor?: null | string;
+    receipts:    Receipt[];
 }
 
 export interface ReqFrame {
