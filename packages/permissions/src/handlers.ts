@@ -9,15 +9,15 @@ import {
   PsycheError,
   type Surface,
 } from "@psyche/protocol";
-import { type Static, type TSchema, Type } from "@sinclair/typebox";
+import type { Static, TSchema } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import type { PsychePermissionBroker } from "./broker.ts";
 import { type FrictionReport, frictionMetrics } from "./friction.ts";
 import type { PresenceAssertion } from "./types.ts";
 
 /**
- * Handlers for the Gateway to mount: `approvals.*`, `grants.*` (protocol method families) and
- * `audit.*` (local schemas until the additive protocol PR lands; see docs/status/s05.md). The
+ * Handlers for the Gateway to mount: the protocol's `approvals.*`, `grants.*` and `audit.*` method
+ * families, validated against the protocol's own schemas. The
  * caller identity comes from the authenticated connection, never from params, so a client cannot
  * claim another device's surface. Scope checks are repeated here as defence in depth.
  */
@@ -30,37 +30,12 @@ export interface Caller {
   role?: "client" | "node" | "both";
 }
 
-export const AuditMethods = {
-  "audit.list": {
-    params: Type.Object({
-      kind: Type.Optional(Type.String()),
-      kindPrefix: Type.Optional(Type.String()),
-      taskId: Type.Optional(Type.String()),
-      approvalId: Type.Optional(Type.String()),
-      since: Type.Optional(Type.String()),
-      until: Type.Optional(Type.String()),
-      sinceSeq: Type.Optional(Type.Integer({ minimum: 0 })),
-      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 1000 })),
-      order: Type.Optional(Type.Union([Type.Literal("asc"), Type.Literal("desc")])),
-    }),
-    scope: "operator.read" as const,
-  },
-  "audit.verify": { params: Type.Object({}), scope: "operator.read" as const },
-  "audit.export": {
-    params: Type.Object({
-      format: Type.Optional(Type.Union([Type.Literal("jsonl"), Type.Literal("json")])),
-      since: Type.Optional(Type.String()),
-      until: Type.Optional(Type.String()),
-    }),
-    scope: "operator.admin" as const,
-  },
-  "audit.friction": {
-    params: Type.Object({
-      since: Type.Optional(Type.String()),
-      until: Type.Optional(Type.String()),
-    }),
-    scope: "operator.read" as const,
-  },
+/** The protocol's `audit.*` definitions (params, result, scope); the Gateway checks the same. */
+const AuditMethods = {
+  "audit.list": Methods["audit.list"],
+  "audit.verify": Methods["audit.verify"],
+  "audit.export": Methods["audit.export"],
+  "audit.friction": Methods["audit.friction"],
 };
 
 function check<T extends TSchema>(schema: T, params: unknown): Static<T> {

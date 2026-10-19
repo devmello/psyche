@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S05 M2: audit.friction)
+
+- `audit.friction` (`since`, `until`; `operator.read`) returning `AuditFrictionResult` (with `AuditFrictionKind`): approval-friction metrics computed by `@psyche/permissions` `frictionMetrics` from the audit log's decision, approval, grant and classifier entries.
+
 ### v1 additive — 2026-10-20 (S01 Gateway M2: audit)
 
 - `audit.list` (`kind`, `kindPrefix`, `taskId`, `approvalId`, `since`, `until`, `sinceSeq`, `limit`, `order`; `operator.read`), `audit.verify` (`AuditVerifyResult`; `operator.read`) and `audit.export` (`jsonl` / `json`, time window; `operator.admin`). Shapes and scopes are those of the handlers S05 already ships in `@psyche/permissions`, which the Gateway now mounts.

@@ -1,3 +1,5 @@
+import { AuditFrictionResult } from "@psyche/protocol";
+import { Value } from "@sinclair/typebox/value";
 import { describe, expect, it } from "vitest";
 import { createPermissionHandlers, frictionMetrics, ruleFamily } from "../src/index.ts";
 import { approve, CTX, call, DEVICE, makeBroker, origin } from "./helpers.ts";
@@ -74,6 +76,8 @@ describe("friction metrics", () => {
     expect(r.byKind.find((k) => k.kind === "connector_action")).toMatchObject({ expired: 1 });
     expect(r.topAskRules[0]).toMatchObject({ rule: "mode:balanced/write" });
     expect(r.byMode.plan).toEqual({ decisions: 1, asks: 0 });
+    // The wire shape the Gateway serves (protocol `audit.friction`).
+    expect([...Value.Errors(AuditFrictionResult, r)]).toEqual([]);
   });
 
   it("is served as audit.friction to operator.read devices", async () => {
