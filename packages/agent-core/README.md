@@ -125,6 +125,15 @@ const off = loop.registry.register({
 - Budgets: `subagentMaxSteps` (20) per child; the child's tokens are added to the parent's `maxRunTokens`; at most `maxConcurrentSubagents` (4) at once. Parallel spawns in one model response run concurrently.
 - Cancelling the parent cancels its children. `subagents(threadId)` lists them; each has its own thread (`<parent>:sub:<id>`) whose `threadState` is the view-only transcript, and `onSubagentEvent(info, event)` streams their events for the Subagents pane.
 
+### Evaluator (C7)
+
+When a run with a `taskId` would end `final` and the task has receipts, the loop checks them against the task's goal before the Gateway's task worker can mark it done (architecture §4.3 "Verification"):
+
+- Failed receipts reopen the run with the gaps (`[evaluator] … Failed: …` as a user message); uncertain receipts escalate. No model call is needed for either.
+- Otherwise the utility model (`evaluator.model`, else `utilityModel`) judges from the goal, the receipts and, for untainted runs only, the final report, and replies with a JSON verdict: `done | reopen | escalate` with gaps. An unparseable answer or a failed call escalates (fail closed).
+- `reopen` continues the run up to `evaluator.maxReopens` (1) times; after that, or on `escalate`, an attended task run asks the owner ("Not verified": mark done / try again / I'll handle it) and ends `awaiting_input`; an unattended run ends `failed` with `not_verified: …`, so the owner is notified and the task is never reported done.
+- A visible `[evaluator: …]` marker records each verdict. Disable with `evaluator: { enabled: false }`.
+
 ## How this maps to the docs
 
 - Request lifecycle and runtime: [architecture §4.2–§4.3](../../docs/02-architecture.md); hook names: §13.
@@ -134,7 +143,7 @@ const off = loop.registry.register({
 
 ## What is stubbed or deferred
 
-- The evaluator (C7) and harness plugins (C10) are M2 and come next.
+- Harness plugins (C10) are M2 and come next.
 - `memory` `delete` / `rename` return `not_implemented` until `MemoryStore` has them (S07).
 - The default `ThreadStateStore` is in memory; the Gateway (S01) persists threads.
 - Tool names with dots (`task.start`) are kept; the model router (S03) maps names a provider rejects.

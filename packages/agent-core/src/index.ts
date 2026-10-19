@@ -5,6 +5,7 @@ export * from "./checklist.ts";
 export * from "./commands.ts";
 export * from "./compaction.ts";
 export * from "./context.ts";
+export * from "./evaluator.ts";
 export * from "./hooks.ts";
 export * from "./loop.ts";
 export * from "./questions.ts";

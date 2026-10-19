@@ -61,6 +61,7 @@ import {
   DEFAULT_CONTEXT_BUDGETS,
   renderSystemPrompt,
 } from "./context.ts";
+import { type Evaluation, evaluateTask } from "./evaluator.ts";
 import { EventQueue } from "./events.ts";
 import { type HookMap, HookRegistry } from "./hooks.ts";
 import { type QuestionAnswer, validateAnswer } from "./questions.ts";
@@ -141,6 +142,11 @@ export interface AgentLoopOptions {
   subagentMaxSteps?: number;
   /** Subagents one run may have in flight at once (default 4). */
   maxConcurrentSubagents?: number;
+  /**
+   * C7 evaluator for task runs that produced receipts (default on when `tasks` is given). Uses
+   * `model`, else `utilityModel`, else the run's model.
+   */
+  evaluator?: { enabled?: boolean; model?: ModelRef; maxReopens?: number };
   /** Every event of a subagent run, for the Subagents pane's view-only transcript (C6). */
   onSubagentEvent?: (info: SubagentInfo, event: AgentEvent) => void;
 }
@@ -204,6 +210,8 @@ interface RunState {
   subagent?: { parentRunId: string; maxSteps: number };
   /** Subagents of this run currently in flight. */
   children: number;
+  /** Times the evaluator reopened this run (C7). */
+  reopens: number;
 }
 
 interface Gated {
@@ -449,6 +457,7 @@ export class PsycheAgentLoop implements AgentLoop {
       hidden: new Map(),
       emit,
       children: 0,
+      reopens: 0,
       ...(child === undefined
         ? {}
         : { subagent: { parentRunId: child.parent.runId, maxSteps: child.maxSteps } }),
@@ -596,6 +605,23 @@ export class PsycheAgentLoop implements AgentLoop {
         const final = pendingText.trim();
         if (final === NO_REPLY) return "no_reply";
         if (final === "") throw new RunEnd("failed", "empty_final");
+      }
+      // C7: a task's run is checked against its receipts before it may end as done.
+      const evaluation = await this.#evaluate(run, pendingText);
+      if (evaluation !== undefined && evaluation.verdict !== "done") {
+        const maxReopens = this.#o.evaluator?.maxReopens ?? 1;
+        if (evaluation.verdict === "reopen" && run.reopens < maxReopens) {
+          run.reopens += 1;
+          pendingText = "";
+          run.thread.messages.push({
+            role: "user",
+            parts: [{ type: "text", text: reopenMessage(evaluation) }],
+          });
+          continue;
+        }
+        return this.#escalate(run, evaluation);
+      }
+      if (run.mode === "unattended") {
         run.emit({
           type: "chat.delta",
           runId: run.runId,
@@ -605,6 +631,56 @@ export class PsycheAgentLoop implements AgentLoop {
       }
       return "final";
     }
+  }
+
+  async #evaluate(run: RunState, finalText: string): Promise<Evaluation | undefined> {
+    const tasks = this.#o.tasks;
+    if (run.taskId === undefined || tasks === undefined || run.subagent !== undefined)
+      return undefined;
+    if (this.#o.evaluator?.enabled === false) return undefined;
+    const receipts = await this.#o.broker.listReceipts({ taskId: run.taskId });
+    if (receipts.length === 0) return undefined;
+    const task = await tasks.get(run.taskId);
+    const evaluation = await evaluateTask(
+      this.#o.provider,
+      this.#o.evaluator?.model ?? this.#o.utilityModel ?? run.model,
+      {
+        goal: task?.goal ?? run.ownerText,
+        receipts,
+        // A tainted run's report may carry injected text; the receipts are the evidence.
+        ...(run.taint ? {} : { finalReport: finalText }),
+      },
+      { signal: run.abort.signal },
+    );
+    this.#checkAbort(run);
+    const gaps = evaluation.gaps.length === 0 ? "" : `: ${evaluation.gaps.join("; ")}`;
+    this.#marker(
+      run,
+      `[evaluator: ${evaluation.verdict} after checking ${evaluation.receiptsChecked} receipt${evaluation.receiptsChecked === 1 ? "" : "s"}${gaps}]`,
+    );
+    return evaluation;
+  }
+
+  /**
+   * The evaluator could not confirm the task: attended task runs ask the owner (the task parks
+   * in `awaiting_input`); unattended runs fail so the owner is notified, never "done".
+   */
+  async #escalate(run: RunState, evaluation: Evaluation): Promise<RunOutcome> {
+    if (run.mode === "attended" && run.taskId !== undefined && this.#o.tasks !== undefined) {
+      const question: Question = {
+        question: `I could not confirm this task is done. ${evaluation.reason}`.slice(0, 500),
+        header: "Not verified",
+        multiSelect: false,
+        options: [
+          { label: "Mark it done", description: "The receipts are enough; close the task" },
+          { label: "Try again", description: "Work on the gaps the check found" },
+          { label: "I'll handle it", description: "Stop here; leave the task to me" },
+        ],
+      };
+      await this.#ask(run, [question]);
+      return "awaiting_input";
+    }
+    throw new RunEnd("failed", `not_verified: ${evaluation.reason}`);
   }
 
   async #finishDecision(run: RunState, text: string): Promise<FinishTurnDecision> {
@@ -1616,6 +1692,16 @@ function userText(input: StartTurnInput): string {
 }
 
 /** The transcript up to the last message whose tool calls all have results. */
+function reopenMessage(e: Evaluation): string {
+  return [
+    "[evaluator] The receipts do not show this task is done yet. Address these gaps, then report again:",
+    ...e.gaps.map((g) => `- ${g}`),
+    e.reason === "" ? "" : `Reason: ${e.reason}`,
+  ]
+    .filter((l) => l !== "")
+    .join("\n");
+}
+
 function answeredPrefix(messages: ModelMessage[]): ModelMessage[] {
   const answered = new Set<string>();
   for (const m of messages)
