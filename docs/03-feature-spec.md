@@ -117,7 +117,7 @@ Build notes: follow the Claude desktop split (thin Electron shell, downloaded/up
 
 | ID | Feature | Pri | Done when |
 | --- | --- | --- | --- |
-| G1 | **Vault**: SQLCipher database, key wrapped by the data-protection keychain with `userPresence` + Touch ID (mac helper) or `safeStorage` elsewhere, recovery key shown once at creation, lock after idle | P0 | Vault opens with Touch ID; a copied `vault.db` is useless without the keychain item or recovery key |
+| G1 | **Vault**: SQLCipher database, key wrapped by the data-protection keychain with biometry-or-passcode access control and Touch ID (mac helper) or `safeStorage` elsewhere, recovery key shown once at creation, lock after idle | P0 | Vault opens with Touch ID; a copied `vault.db` is useless without the keychain item or recovery key |
 | G2 | **Item kinds**: login (origin-bound, username, password, TOTP secret), API key/token (host-bound header), OAuth token (connector-owned), SSH key, note; refused: card numbers, government IDs | P0 | Adding a card number is rejected with an explanation and a pointer to Stripe Link |
 | G3 | **Credentials UI**: list with origin bindings, last used, which tasks used them; add/edit/delete; CSV import from 1Password/Bitwarden/Chrome exports; search | P0 | A login can be bound to several origins |
 | G4 | **Placeholders**: `{{cred:<slug>}}` / `{{cred:<slug>.totp}}`; the model sees only placeholders; resolution happens in executors | P0 | Grep of all model-visible text in tests finds no secret |

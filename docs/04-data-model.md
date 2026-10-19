@@ -114,9 +114,11 @@ approvals (
   id TEXT PK, kind TEXT,                           -- exec | exec_host | send_email | calendar_write | message_send | browser_submit |
                                                    -- credential_fill | purchase | file_write | connector_action | computer_action |
                                                    -- new_origin | plan_exit | skill_install | mcp_tool | archive_thread
-  summary TEXT, details TEXT JSON, binding_hash TEXT,
+  summary TEXT, details TEXT JSON, binding_hash TEXT, grant_key TEXT,
+  device_only INTEGER, requires_authentication INTEGER, taint INTEGER,
   requested_by_run_id FK NULL, task_id FK NULL, thread_id FK NULL,
   surfaces TEXT JSON,                              -- ["desktop","notification","web","telegram:12345"]
+  answer_tokens TEXT JSON,                         -- per-surface single-use tokens (hashed)
   status TEXT,                                     -- pending | approved | denied | expired | invalidated
   scope_granted TEXT NULL,                         -- once | task | site | session | always
   decided_by TEXT JSON NULL,                       -- {deviceId} or {channel, senderId}
@@ -124,6 +126,7 @@ approvals (
 )
 grants (
   id TEXT PK, kind TEXT, scope TEXT,
+  grant_key TEXT,                                  -- coarse match key: tool + target class (see 02-architecture §4.6)
   subject TEXT JSON,                               -- {origin} | {tool} | {path, mode} | {app, tier} | {recipient} | {argv, cwd} | {connector, action}
   binding TEXT JSON NULL, expires_at NULL, use_count INTEGER, last_used_at,
   created_from_approval_id FK NULL, created_at, revoked_at
@@ -146,9 +149,14 @@ policy_rules (                                     -- user-authored allow/deny r
     "bodyPreview": "Hi Alice, attached is the signed…", "attachments": [{"name": "slip-filled.pdf", "sha256": "…"}]
   },
   "bindingHash": "sha256:…",
+  "grantKey": "email.send|gmail:pranav@example.com|example.com",
   "requestedBy": {"runId": "01JAX4…", "taskId": "01JAX3…", "threadId": "01JAX2…", "agent": "Pip"},
-  "surfaces": ["desktop", "notification", "telegram:12345"],
-  "scopesOffered": ["once", "task", "always"],
+  "surfaces": ["desktop", "notification"],
+  "scopesOffered": ["once", "task"],
+  "deviceOnly": true,
+  "requiresAuthentication": false,
+  "taint": true,
+  "status": "pending",
   "requestedAt": "2026-10-18T20:11:05Z",
   "expiresAt": "2026-10-18T20:41:05Z"
 }

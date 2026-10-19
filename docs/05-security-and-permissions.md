@@ -55,8 +55,7 @@ MUST / MUST NOT / SHOULD are normative. Numbers labelled "default" are Psyche de
  +-----------^-----------------------------^-----------------------------+
              | WS, signed device challenge | JSON-RPC over Unix socket
    psyche-desktop / psyche-web (no secrets)   psyche-mac helper (TCC, keychain, Touch ID)
-             ^ pairing codes, allowlists, dmPolicy
-   phone / chat channels (weakest surface, §9)
+   phone / chat channels: pairing codes, allowlists, dmPolicy (weakest surface, §9)
 ```
 
 Only the Gateway talks to model providers, holds the vault key in memory, and decides allow / ask / deny. Executors are assumed compromisable by content; the Gateway is not.
@@ -75,7 +74,7 @@ Hostile multi-tenancy (one trusted boundary per Gateway; mutually untrusted user
 | **Memory poisoning** | A7, A3 | Only owner-provenance content becomes `USER.md` / `MEMORY.md` facts; dreaming is the sole `MEMORY.md` writer and excludes `untrusted` / `system`; agent writes marked; import validation; `forget` (§8) | Poisoning rose from 4/10 to >80 % once an agent consulted memory (models/memory/MCP notes, Memory 5) |
 | **Tool poisoning, shadowing, rug pulls** | A1–A5 | Trust tiers; grants bound to a `tools/list` hash; annotations untrusted; full argument previews; srt / container sandboxing; secrets via env (§11) | Sandboxing does not stop instruction-following attacks (models/memory/MCP notes, MCP 5); misuse of a trusted tool is caught only by approvals |
 | **Credential theft** | A1 | SQLCipher vault; DEK in the data-protection keychain behind Touch ID / password; per-fill approval; placeholders; origin-bound fills; masking (§4) | Same-user malware while unlocked; Windows `safeStorage` is per-user, not per-app (browser/credentials notes, KQ1) |
-| **Exfiltration** | A3 | Sandbox `network none`; host egress proxy with per-task allowlists; origin sets; `fetch` SSRF policy; new-origin asks in tainted turns; deterministic URL checks | The lethal trifecta cannot be filtered away: a granted read-writable origin can receive data in a field or URL |
+| **Exfiltration** | A3 | Sandbox `network none`; host egress proxy with per-task allowlists; origin sets; `fetch` SSRF policy; new-origin asks in tainted turns; deterministic URL checks | The lethal trifecta cannot be filtered away: any granted read-writable origin can receive data |
 | **Approval replay / scope creep** | A4–A6 | Binding hash over exact arguments; single-use `answerToken` per surface; `once` consumed and re-checked at dispatch; 30-minute expiry then deny; restart invalidates; `always` grants bound to kind-specific grant keys with expiry and use counters (§3) | OpenClaw's advisories "approvals could outlive their reviewed working directory" and "reusable approvals could authorize changed arguments" (openclaw notes, 2l) are the targeted failures |
 | **Sandbox escape** | A5 | Nonroot, read-only rootfs, capabilities dropped, no network, `/workspace` only; argv arrays; mount validation; inline-eval as whole commands (§5) | Docker shares the host kernel (openclaw notes, 1h); Apple `container` is VM-per-container but macOS 26+ only (macos notes, KQ2) |
 | **Control-plane takeover** (a page connects a UI to an attacker Gateway or steals a token; token + admin scope becomes exec) | A6 → A5 | No `gatewayUrl` parameter; UI connects only to its own origin; WebSocket Origin validation; tokens never in URLs; owner-granted scopes; security settings need `operator.admin` plus fresh user presence, unreachable from `node.invoke` or tools (§10) | CVE-2026-25253 was exploitable on loopback-only instances (openclaw notes, 2l); any feature accepting a remote address from a link gets reviewed against this row |
@@ -115,7 +114,7 @@ For every tool call and `node.invoke`, the first terminal result wins:
 6. **Mode default** (table above) → `allow` or `ask`.
 7. **Classifier** (auto mode only, §3.8) for residual `write` actions → `allow` / `ask` / `deny`.
 
-`ask` creates an ApprovalRequest and parks the turn or the Task in `awaiting_approval`. Unattended runs defer every `ask` into the approvals queue with a notification and continue without that action (architecture §4.3).
+`ask` creates an ApprovalRequest and parks the turn or Task in `awaiting_approval`; unattended runs defer it into the approvals queue with a notification and continue without that action (architecture §4.3).
 
 ### 3.4 Grant scopes, TTLs, use counter
 
@@ -155,7 +154,7 @@ For every tool call and `node.invoke`, the first terminal result wins:
 
 ### 3.7 Approval requests: delivery, expiry, restart, answers
 
-An ApprovalRequest is `{id, kind, summary, details, bindingHash, requestedAt, expiresAt, surfaces[]}` (architecture §4.6) plus `taskId`, `threadId`, `toolCallId`, `sideEffect`, `targetKind`, `target`, `scopesOffered[]`, `taint`, `requiresAuthentication`, `deviceOnly`, `status`, and one single-use `answerToken` per delivery surface.
+An ApprovalRequest is `{id, kind, summary, details, bindingHash, requestedAt, expiresAt, surfaces[]}` (architecture §4.6) plus Task / thread / tool-call ids, `sideEffect`, `targetKind`, `target`, `scopesOffered[]`, `taint`, `requiresAuthentication`, `deviceOnly`, `status`, and one single-use `answerToken` per surface.
 
 - **Delivery.** Desktop card outside the message stream; macOS notification with Approve / Deny (`authenticationRequired` for purchases and credential fills); web UI; chat buttons, polls or reactions (§9). Cards show full arguments, never truncated for recipients, commands, amounts or URLs (the WhatsApp MCP exploit hid its payload off-screen, models/memory/MCP notes, MCP 5). `deviceOnly` kinds (`financial`, credential fills, `exec_host`, policy and pairing changes) are never delivered to chat.
 - **Expiry.** `expiresAt = requestedAt + 30 min` (`approvals.ttlMinutes`), matching OpenClaw's chat approvals and Stripe Link's window (shopping/messaging/server notes, KQ6). Expiry denies with a visible reason; the Task stays resumable.
@@ -165,7 +164,7 @@ An ApprovalRequest is `{id, kind, summary, details, bindingHash, requestedAt, ex
 
 ### 3.8 Action classifier (auto mode)
 
-- **Sees:** owner-provenance request messages (last 10), Task title and goal, tool name, `sideEffect`, `targetKind`, canonical target, argument metadata (sizes, counts, amount and currency), the matching grant, and the taint summary (source kinds and origins only).
+- **Sees:** owner-provenance request messages (last 10), Task title and goal, tool name, `sideEffect`, `targetKind`, canonical target, argument metadata (sizes, counts, amounts), the matching grant, and the taint summary (source kinds and origins only).
 - **Never sees:** page text, screenshots, tool results, attachments, memory, prior assistant text, or anything tagged `untrusted` — Google's page-isolated "User Alignment Critic" and Anthropic's action classifier (browser/credentials notes, KQ5; architecture §4.6).
 - **Labels:** `routine` → allow; `sensitive` → ask; `prohibited` → deny and audit. **Fail closed:** unavailable, timeout (8 s), malformed or low-confidence output → `sensitive`.
 - **Circuit breakers:** two `prohibited` labels in a Task pause it with a "possible injection" notification; three consecutive `sensitive` labels downgrade the Task to `balanced` (Claude in Chrome reverts to per-step approval after repeated blocks, KQ2).
@@ -206,7 +205,7 @@ ApprovalRequest:
   "id": "apr_01J9ZK4Q7W", "kind": "email.send", "sideEffect": "destructive", "targetKind": "recipient",
   "summary": "Send reply \"Re: invoice 0042\" to alice@example.org (1 attachment, 14 KB)",
   "bindingHash": "sha256:5e1d…c0a7",
-  "taint": { "tainted": true, "sources": [ { "kind": "email", "from": "billing@vendor.example" } ] },
+  "taint": { "tainted": true, "sources": [ "email:billing@vendor.example" ] },
   "scopesOffered": ["once", "task"], "deviceOnly": false, "requiresAuthentication": false,
   "taskId": "task_8821", "threadId": "thr_main", "toolCallId": "call_3f9",
   "requestedAt": "2026-10-18T19:04:11Z", "expiresAt": "2026-10-18T19:34:11Z",
@@ -257,7 +256,7 @@ An `uncertain` receipt (timeout after dispatch) is never retried automatically; 
 | --- | --- | --- |
 | Keychain (macOS, default) | data-protection keychain item created by the mac helper (`kSecUseDataProtectionKeychain`, `kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly`, non-synchronizable) | `SecAccessControlCreateWithFlags(... [.biometryCurrentSet, .or, .devicePasscode])`; reading prompts Touch ID / password. Needs a Developer ID-signed helper with a team-prefixed keychain access group, else `errSecMissingEntitlement`; constraint flags combined without `.or` return `errSecParam` (macos notes, KQ7) |
 | `safeStorage` (Linux, Windows, server) | DEK encrypted by Chromium OSCrypt (Keychain, DPAPI, libsecret / kwallet), async API | Refused when the backend is `basic_text`; passphrase mode required instead. DPAPI is per user, not per app (browser/credentials notes, KQ1) |
-| Recovery key | `vault/recovery.slot` | 32 random bytes shown once as grouped base32; DEK wrapped under an Argon2id-derived key with parameters in the header. Needed after biometric re-enrollment (which invalidates `biometryCurrentSet` items), keychain loss, migration or restore; setup completes only when the owner confirms storage |
+| Recovery key | `vault/recovery.slot` | 32 random bytes shown once as grouped base32; DEK wrapped under an Argon2id-derived key with parameters in the header. Needed after biometric re-enrollment (which invalidates `biometryCurrentSet` items), keychain loss, migration or restore; setup requires confirming it is stored |
 
 ### 4.3 Unlock flows
 
@@ -291,7 +290,7 @@ For the rest of the turn the broker keeps the value's length and hash: `read_tex
 ### 4.8 External managers, system keychain, OAuth tokens
 
 - **1Password.** (a) Service-account SDK: the token is a vault item; the broker fetches items at fill time and Psyche's card is the approval. (b) Agentic Mode in a real Chrome profile: the extension shows item, site and requesting agent, takes a biometric approval, injects, verifies the page did not expose the secret, and clears on failure (GA for Mac 2026-07-16, browser/credentials notes, KQ4); Psyche only learns "sign-in complete". Extensions do not load in the embedded browser (KQ1).
-- **Bitwarden Agent Access SDK** (alpha, 2026-03-24): one-time pairing, per-credential approval in the CLI, secrets injected as environment variables into a child process; Psyche feeds sandbox commands and connector processes this way, never the model (KQ4).
+- **Bitwarden Agent Access SDK** (alpha, 2026-03-24): one-time pairing, per-credential approval in the CLI, secrets injected as environment variables into a child process; Psyche feeds sandbox commands and connector processes this way (KQ4).
 - **System keychain:** only items Psyche created, in its own access group. Safari / Passwords.app items are unreadable by third-party apps; the sanctioned routes are user-driven AutoFill via a credential-provider extension and, on macOS 26+, the Credential Exchange export flow (macos notes, KQ7).
 - **OAuth tokens:** `oauth_token` items with minimal scopes; refresh inside the connector; rotated refresh tokens (Link rotates on every refresh, shopping/messaging/server notes, KQ1) replaced atomically; disconnect revokes and deletes; Google: desktop client, loopback redirect, PKCE, published consent screen so refresh tokens do not expire weekly (shopping/messaging/server notes, KQ4).
 
@@ -337,11 +336,11 @@ Host-side helpers (LibreOffice, ffmpeg, converters) and stdio MCP servers run un
 - **Downloads** are diverted by `will-download` into `library/quarantine/` with the quarantine attribute, scanned, never executed, opened only after approval.
 - **No page JavaScript on third-party sites;** `javascript_tool` exists for the owner's localhost projects only (architecture §8); the highlight overlay runs in an isolated world and reads nothing back.
 - **CDP exposure.** `webContents.debugger` in-process, reached by the Gateway over a Unix socket (`run/browser-bridge.sock`, 0600, per-boot key); never `--remote-debugging-port` in production, because CDP has no authentication (KQ1). Real-Chrome mode needs that port: 127.0.0.1, random, own user data dir, only while attached, and flagged by `psyche security audit`.
-- **Popups / OAuth.** `setWindowOpenHandler` routes popups into new agent tabs in the same partition; the OAuth redirect origin joins the Task's read-only set for the flow; granting consent is `destructive`.
+- **Popups / OAuth.** `setWindowOpenHandler` routes popups into new agent tabs in the same partition; the OAuth redirect origin joins the Task's read-only set for the flow.
 - **Extensions:** none embedded (Electron loads only unpacked extensions with a partial API, KQ1); password managers only in real-Chrome mode. **Take control:** user input pauses the agent at once; it resumes after release and re-snapshots; credential fields default to "you type". **CAPTCHA:** a detected challenge pauses the Task and notifies the owner; never attempted, never outsourced.
 - **Logged-out default.** Each Task chooses `logged-in` or `logged-out` (ephemeral partition) explicitly, with a persistent indicator; the choice is never silently remembered (the Atlas anti-pattern, KQ2).
 - **Web Bot Auth.** Optional Ed25519 key in the vault signs requests per RFC 9421 with `Signature-Agent` pointing at a JWKS directory the owner hosts, `expires` about 1 minute (KQ3). Honest UA always.
-- **Never in the browser:** purchases, account creation, card / ID entry, CAPTCHA bypass, permanent deletions, `about:` / `chrome:` / `file:` navigation, clicking through TLS interstitials, or "accept all" on consent banners and terms without approval (declining non-essential cookies is allowed).
+- **Never in the browser:** purchases, account creation, card / ID entry, CAPTCHA bypass, permanent deletions, `about:`/`chrome:`/`file:` navigation, clicking through TLS interstitials, or "accept all" on consent banners and terms without approval (declining non-essential cookies is allowed).
 
 ---
 
@@ -353,14 +352,13 @@ Anthropic's 2025 pilot: 23.6 % → 11.2 % attack success with safeguards, 35.7 %
 
 ### 7.2 The stack
 
-1. **Content is data.** Every tool result carries a provenance class; probe-style scanning warns the model when instruction-like text appears in a result.
-2. **Privileged / quarantined split.** In auto mode the classifier sees only the owner's request and action metadata (§3.8); in every mode cards are rendered from structured arguments, never from prose written after reading the page.
+1. **Content is data.** Every tool result carries a provenance class; probe-style scanning flags instruction-like text in results.
+2. **Privileged / quarantined split.** In auto mode the classifier sees only the owner's request and action metadata (§3.8); in every mode cards render from structured arguments, never from post-read prose.
 3. **Origin sets and new-origin confirmation** (§6); a deterministic check on every model-generated URL before navigation or `fetch`.
 4. **Confirmations** for state-changing and egress actions (§3.2); `destructive` never gets `site` / `always` grants.
 5. **Pause-when-unwatched.** On sensitive-category origins and apps, actions require the pane visible and owner input within 5 minutes, else the Task parks `awaiting_attention` (Operator / Atlas Watch Mode, KQ2).
 6. **Secrets and payment data never in context** (§4).
-7. **Remove a trifecta leg where possible:** logged-out profile for research, `network none` in the sandbox, small origin sets.
-8. **Screenshots are the weakest input** (near-invisible text can be OCR'd into context, Brave's "unseeable" injections, KQ5): accessibility trees first, screenshots only for sparse trees, tagged `untrusted`.
+7. **Screenshots are the weakest input** (near-invisible text can be OCR'd into context, Brave's "unseeable" injections, KQ5): accessibility trees first, screenshots only for sparse trees, tagged `untrusted`.
 
 ### 7.3 Model choice as a security control
 
@@ -389,8 +387,8 @@ A versioned corpus of at least 200 cases (hidden DOM fields, URL and tab-title p
 - **Owner identity.** `commands.ownerAllowFrom` names the owner's sender ids; `identityLinks` merge them into one session. An allowlisted sender is not an owner and ownership does not grant chat access (openclaw notes, 2f). Only owner identities answer approvals, trigger pairing codes or change anything (OpenClaw shipped an advisory for non-owner senders issuing pairing bootstrap codes, 2l).
 - **Groups.** Separate allowlist, `requireMention` on by default, `groupAllowFrom` for who may trigger; replying to a bot message does not bypass it; `contextVisibility: allowlist` strips quoted context from non-allowlisted senders.
 - **Isolation.** `session.dmScope: per-channel-peer` whenever anyone but the owner can message; `MEMORY.md` is injected only into the owner's private sessions (architecture §4.8).
-- **Delegated persona.** A designated person gets the persona and tool set the owner picked (reads, drafting, scheduling proposals), no `MEMORY.md`, no vault, no `exec`, no browser writes; every `destructive` or `financial` action they trigger routes its ApprovalRequest to the owner; inbound voice calls and new transports start with no authority (an OpenClaw advisory let calls inherit owner tool authority, 2l).
-- **Approvals over chat.** Telegram inline buttons (numeric approver ids), iMessage poll or 👍 / 👎, Slack / Discord buttons, Signal 👍 / 👎 only, `/approve <id> <decision>` as fallback; chat receives `write` and `destructive` requests only. Chat is weaker than a device: sender identity is platform-controlled (weak for SMS and email), a stolen phone approves silently, there is no user-presence check, delivery can lag past expiry, and unofficial clients such as Baileys add risk. Hence `financial`, credential fills, `exec_host`, policy and pairing changes are `deviceOnly`, with `authenticationRequired` on the Mac.
+- **Delegated persona.** A designated person gets the persona and tool set the owner picked (reads, drafting, scheduling proposals), no `MEMORY.md`, no vault, no `exec`, no browser writes; every `destructive` or `financial` action they trigger routes its ApprovalRequest to the owner; new transports such as voice calls start with no authority (an OpenClaw advisory let calls inherit owner authority, 2l).
+- **Approvals over chat.** Telegram inline buttons (numeric approver ids), iMessage poll or 👍/👎, Slack / Discord buttons, Signal 👍/👎 only, `/approve <id> <decision>` as fallback; chat receives `write` and `destructive` requests only. Chat is weaker than a device: sender identity is platform-controlled (weak for SMS and email), a stolen phone approves silently, there is no user-presence check, delivery can lag past expiry, and unofficial clients such as Baileys add risk. Hence `financial`, credential fills, `exec_host`, policy and pairing changes are `deviceOnly`, with `authenticationRequired` on the Mac.
 
 ---
 
@@ -403,7 +401,7 @@ A versioned corpus of at least 200 cases (hidden DOM fields, URL and tab-title p
 - **Identity-aware proxies.** Tailscale Serve (tailnet-only HTTPS, Gateway on loopback) or Cloudflare Access (outbound `cloudflared`). Identity headers never authorize the API alone; pairing still applies (architecture §11; shopping/messaging/server notes, KQ3). `cf-access-jwt-assertion` is verified against the team JWKS (OpenClaw checks presence only); `trustedProxies` CIDRs are required and the proxy must overwrite client-supplied identity headers. Public ingress also requires passkeys and `gateway.allowPublicIngress: true`. An SSH tunnel (`ssh -L 7979:127.0.0.1:7979`) is the zero-config alternative; the CLI still pairs as a device.
 - **Passkeys** (web UI behind HTTPS): RP ID = the public origin's host (changing it invalidates passkeys), 20 per user, 20 attempts per IP per 5 minutes (LibreChat's parameters, shopping/messaging/server notes, KQ3).
 - **TLS pinning.** Mobile and remote clients pin the Gateway's SPKI at pairing and refuse mismatches (an iOS client ignoring saved pins was an OpenClaw advisory, 2l).
-- **Rate limits.** Pairing 5 / hour / IP; failed challenges 10 / minute / IP; approval answers 10 / minute / identity; inbound chat 30 / minute / sender; `fetch` 60 / minute / Task.
+- **Rate limits.** Pairing 5/hour/IP; failed challenges 10/minute/IP; approval answers 10/minute/identity; inbound chat 30/minute/sender; `fetch` 60/minute/Task.
 - **Docker defaults.** The image binds the container interface only with `PSYCHE_BIND=container`, requires `PSYCHE_GATEWAY_TOKEN_FILE` (a Compose secret), publishes no port in the sample Compose except to the proxy's internal network, serves an unauthenticated bare-`ok` `/healthz`, runs non-root, and refuses `dmPolicy: open` without a paired owner device (OpenClaw's images "default to an exposed bind"; roundups counted tens of thousands of exposed gateways, openclaw notes, 2f, 2l).
 - **`psyche security audit`** checks: bind and proxy configuration; auth mode and public ingress; `operator.admin` devices and last-seen; token age; `always` and `exec` grants with age and uses; `open` DMs and groups without mention gating; chat surfaces configured for device-only kinds; vault backend (`basic_text`), unconfirmed recovery key, auto-lock off; file modes under `$PSYCHE_HOME`; `exec_host` enabled; unknown-tier MCP servers with network; unverified or unpinned skills; real-Chrome debugging port; missing TLS pins; outdated version; logs with bodies; rw or home-root VM shares; computer-use overrides on banking or password-manager apps.
 
@@ -412,8 +410,8 @@ A versioned corpus of at least 200 cases (hidden DOM fields, URL and tab-title p
 ## 11. Supply chain
 
 - **Skills.** Install shows the full `SKILL.md` and every bundled file, runs a static scan (shell and network calls, install instructions, encoded strings, instruction-like text aimed at the agent), optionally submits hashes to VirusTotal, and requires approval; a lock file pins source, version and content hash; updates diff and re-approve; provenance (`bundled | registry | git | local | agent-proposed`) is shown wherever the skill appears; an eligible skill never widens tool policy — OpenClaw's post-ClawHavoc stance ("treat third-party skills as untrusted code", `skills verify`, `installPolicy`, openclaw notes, 2g). Agent-proposed skills stay drafts until accepted.
-- **Plugins.** Code plugins declare a permission manifest (hooks, tools, hosts, files) shown at install; they run inside the Gateway, so the rule is "review the code or do not install", and the UI says so. A hook that transforms arguments must request a separate approval for the final arguments or the call is blocked (openclaw notes, 2k).
-- **MCP servers.** Tiers `bundled | verified | unknown`, where verified means registry namespace proof, not safety (models/memory/MCP notes, MCP 1); per-tool `allow | ask | deny` keyed `mcp__<server>__<tool>`; `tools/list` (names, descriptions, schemas, annotations) hashed, any diff revoking standing grants and showing a visual diff; annotations are untrusted hints, actionable only for `bundled`; full argument previews; stdio servers under srt or in the sandbox container with `network none` and a per-server allowlist; secrets injected from the vault via env at spawn, never in config files, and credential variables never expanded into remote `url` / `headers`; one-click installs show the exact command (SEP-1024); `.mcpb` sensitive `user_config` goes to the keychain; a Docker MCP Gateway-style runner (`--verify-signatures`, `--block-secrets`, `--log-calls`) where Docker exists (MCP 2, MCP 5). The OWASP MCP Top 10 (token mismanagement, scope creep, tool poisoning, supply chain, command injection, contextual prompt injection, weak auth, missing audit, shadow servers, over-sharing) is the review checklist for new servers.
+- **Plugins.** Code plugins declare a permission manifest (hooks, tools, hosts, files) shown at install; they run inside the Gateway, so the rule, stated in the UI, is "review the code or do not install". A hook that transforms arguments must request a separate approval for the final arguments or the call is blocked (openclaw notes, 2k).
+- **MCP servers.** Tiers `bundled | verified | unknown`, where verified means registry namespace proof, not safety (models/memory/MCP notes, MCP 1); per-tool `allow | ask | deny` keyed `mcp__<server>__<tool>`; `tools/list` hashed, any diff revoking standing grants and showing a visual diff; annotations are untrusted hints, actionable only for `bundled`; full argument previews; stdio servers under srt or in the sandbox container with `network none` and a per-server allowlist; secrets injected from the vault via env at spawn, never in config files, and credential variables never expanded into remote `url` / `headers`; one-click installs show the exact command (SEP-1024); `.mcpb` sensitive `user_config` goes to the keychain; a Docker MCP Gateway-style runner (`--verify-signatures`, `--block-secrets`, `--log-calls`) where Docker exists (MCP 2, MCP 5). The OWASP MCP Top 10 (token mismanagement, scope creep, tool poisoning, supply chain, command injection, contextual prompt injection, weak auth, missing audit, shadow servers, over-sharing) is the review checklist for new servers.
 - **Psyche's own updates.** Developer ID-signed, notarized builds (TCC grants, `safeStorage`, notifications and Electron's `autoUpdater` all need a stable signature, macos notes, KQ3); a manifest (version, per-artifact SHA-256, minimum version, image digests) signed with an offline Ed25519 release key embedded in the app; the updater verifies signature and hashes before staging, refuses downgrades, and fetches only from the pinned release host; the published Compose file pins image digests.
 
 ---
@@ -432,7 +430,7 @@ A versioned corpus of at least 200 cases (hidden DOM fields, URL and tab-title p
 | Microphone, Speech Recognition | first dictation | SpeechAnalyzer / SFSpeechRecognizer |
 | Notifications | onboarding, provisional first | approval cards with actions |
 
-- **macOS 27.** Permission state comes from per-API preflight calls, never `TCC.db` (direct access removed); reads of other teams' app containers are denied by default without a prompt, so Psyche never attempts them; `launchd` ignores quarantined plists, so the installer clears quarantine on the helper's agent plist (macos notes, KQ3).
+- **macOS 27.** Permission state comes from per-API preflight calls, never `TCC.db`; reads of other teams' app containers are denied by default without a prompt, so Psyche never attempts them; `launchd` ignores quarantined plists, so the installer clears quarantine on the helper's agent plist (macos notes, KQ3).
 - **Screenshot and window hygiene.** Psyche's windows and the user's terminal are hidden from captures; captures are downscaled (the Claude app uses ~1372×887); secure text fields are refused at the AX dispatch layer, below the model; a global Esc stops computer use and is consumed so injected content cannot dismiss it; one session drives the computer at a time (claude-desktop notes, Q3).
 - **Tiers and fixed caps.** Per app Off / Read only / Read and interact, prompted on first use, remembered per session (30 minutes for unattended runs). Fixed: browsers read-only (the agent browser is how to act on the web), terminals and IDEs click-only, password managers, banking and trading apps Off and not overridable from chat (architecture §6; claude-desktop notes, Q3).
 
@@ -463,7 +461,7 @@ A versioned corpus of at least 200 cases (hidden DOM fields, URL and tab-title p
 | Audit log | `audit/YYYY-MM.jsonl` | append-only, hash-chained, 0600 | indefinitely |
 | Logs | `logs/` | no bodies, no secrets, URLs cut to origin | 14 days |
 
-`$PSYCHE_HOME` is 0700 and every file 0600 (Cowork shipped world-readable logs and audit files that outlived deletion, claude-desktop notes, Q4). **Export:** "Download your data" writes threads, files, memory, receipts, grants, audit log and `config.json` with vault references only. **Delete:** a thread deletion removes messages, tool I/O, recordings, index chunks and its sandbox workspace; the audit log keeps hashed references, never bodies; vault items are overwritten before deletion. **Telemetry:** none; the update check sends version and platform and can be disabled (`updates.check: false`); crash reports stay local unless the owner attaches one. **Providers:** cloud models see only the transcript content sent to them, never the vault; retention / training opt-outs are enabled where an API offers one (`07-tech-decisions.md`); local models remove the party. **Backups:** `psyche backup` writes `state/`, `workspace/`, `vault/`, `library/` and channel session files (WhatsApp, Signal; 0600 in `state/channels/`) into an `age`-encrypted archive; restoring elsewhere needs the recovery key, because the keychain slot does not travel.
+`$PSYCHE_HOME` is 0700 and every file 0600 (Cowork shipped world-readable logs and audit files that outlived deletion, claude-desktop notes, Q4). **Export:** "Download your data" writes threads, files, memory, receipts, grants, audit log and `config.json` with vault references only. **Delete:** a thread deletion removes messages, tool I/O, recordings, index chunks and its sandbox workspace; the audit log keeps hashed references, never bodies; vault items are overwritten before deletion. **Telemetry:** none; the update check (version and platform only) can be disabled (`updates.check: false`); crash reports stay local unless the owner attaches one. **Providers:** cloud models see only the transcript content sent to them, never the vault; retention / training opt-outs are enabled where an API offers one (`07-tech-decisions.md`); local models remove the party. **Backups:** `psyche backup` writes `state/`, `workspace/`, `vault/`, `library/` and channel session files (WhatsApp, Signal; 0600 in `state/channels/`) into an `age`-encrypted archive; restoring elsewhere needs the recovery key, because the keychain slot does not travel.
 
 ---
 
@@ -481,11 +479,11 @@ Append-only JSONL, one file per month; each entry is hashed over its canonical J
  "prev":"sha256:2b7e…9d10","hash":"sha256:c41a…77be"}
 ```
 
-Kinds cover tool calls and results (sizes and hashes only), approvals, grants, credential fills, purchases, exec, devices, channel pairing, config changes (key names and hashes), skills, `tools/list` changes, memory promotion and retraction, VM shares, and anchors.
+Tool results are logged as sizes and hashes only; config changes as key names and hashes.
 
 ### 15.2 Receipts
 
-Receipts (§3.11) are the evaluator's evidence and the Activity view. Required for sends, calendar changes, purchases, file writes outside `/workspace`, shell commands, browser form submissions, computer-use writes and MCP writes. `uncertain` receipts stay visible in Activity until reconciled.
+Receipts (§3.11) are the evaluator's evidence and the Activity view; required for sends, calendar changes, purchases, file writes outside `/workspace`, shell commands, form submissions, computer-use and MCP writes; `uncertain` receipts stay visible until reconciled.
 
 ### 15.3 Incident response and disclosure
 
