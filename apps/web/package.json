@@ -25,6 +25,10 @@
     "./compose": {
       "types": "./src/compose/index.ts",
       "default": "./src/compose/index.ts"
+    },
+    "./compose/onboarding": {
+      "types": "./src/compose/onboarding.ts",
+      "default": "./src/compose/onboarding.ts"
     }
   },
   "scripts": {

@@ -50,7 +50,13 @@ import { createLogger } from "../log.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { fileTools } from "./file-tools.ts";
-import { mountParamsOnly, mountPermissions, questionHandlers, surfaceOf } from "./handlers.ts";
+import {
+  mountParamsOnly,
+  mountPermissions,
+  questionHandlers,
+  receiptHandlers,
+  surfaceOf,
+} from "./handlers.ts";
 
 /**
  * Composition root for `psyched` (INT-1): the real agent loop, model router, Permission Broker,
@@ -295,6 +301,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...mountParamsOnly(createAutomationHandlers(scheduler) as never),
     ...mountParamsOnly(createNotificationHandlers(notifier) as never),
     ...questionHandlers(loop, tasks),
+    ...receiptHandlers(broker),
   };
 
   const gateway = await startGateway({

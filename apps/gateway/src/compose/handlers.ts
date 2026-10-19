@@ -4,6 +4,7 @@ import {
   type ApprovalRequest,
   type InputRequest,
   type MethodParams,
+  type PermissionBroker,
   PsycheError,
   type Surface,
 } from "@psyche/protocol";
@@ -157,6 +158,39 @@ export function questionHandlers(
           inputRequest: await engine.answerInput(p.inputRequestId, p.answer, {
             deviceId: call.identity.deviceId,
           }),
+        };
+      },
+    },
+  };
+}
+
+/** `receipts.*` over the broker's receipt store (receipt lines in the transcript, Activity). */
+export function receiptHandlers(
+  broker: Pick<PermissionBroker, "listReceipts">,
+): Record<string, HandlerDef> {
+  return {
+    "receipts.get": {
+      async run(_call: Call, p: MethodParams<"receipts.get">) {
+        const receipt = (await broker.listReceipts()).find((r) => r.id === p.receiptId);
+        if (receipt === undefined) {
+          throw new PsycheError("not_found", `receipt ${p.receiptId} not found`);
+        }
+        return { receipt };
+      },
+    },
+    "receipts.list": {
+      async run(_call: Call, p: MethodParams<"receipts.list">) {
+        const all = (await broker.listReceipts(p.taskId === undefined ? {} : { taskId: p.taskId }))
+          .slice()
+          .reverse();
+        const start = p.cursor === undefined ? 0 : Number.parseInt(p.cursor, 10);
+        if (!Number.isSafeInteger(start) || start < 0) {
+          throw new PsycheError("invalid_params", "bad cursor");
+        }
+        const limit = p.limit ?? 50;
+        return {
+          receipts: all.slice(start, start + limit),
+          nextCursor: start + limit < all.length ? String(start + limit) : null,
         };
       },
     },

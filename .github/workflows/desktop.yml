@@ -6,9 +6,9 @@ name: desktop
 on:
   push:
     branches: [main]
-    paths: ["apps/desktop/**", "apps/web/**", "packages/protocol/**", "packages/ui/**", "pnpm-lock.yaml"]
+    paths: ["apps/**", "packages/**", "tests/integration/**", "pnpm-lock.yaml"]
   pull_request:
-    paths: ["apps/desktop/**", "apps/web/**", "packages/protocol/**", "packages/ui/**", "pnpm-lock.yaml"]
+    paths: ["apps/**", "packages/**", "tests/integration/**", "pnpm-lock.yaml"]
 
 concurrency:
   group: desktop-${{ github.event.pull_request.number || github.ref }}
@@ -53,10 +53,17 @@ jobs:
           CI: "1"
         run: pnpm --filter @psyche/desktop e2e
 
+      - name: Walking skeleton in Electron (INT-1, scripted model)
+        env:
+          CI: "1"
+        run: pnpm --filter @psyche/integration-tests e2e
+
       - name: Upload the Playwright report on failure
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: desktop-playwright-report
-          path: apps/desktop/playwright-report
+          path: |
+            apps/desktop/playwright-report
+            tests/integration/playwright-report
           retention-days: 7

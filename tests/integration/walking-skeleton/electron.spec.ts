@@ -161,11 +161,15 @@ test("a turn streams, reads a granted file and asks to write it; Allow once writ
   expect(readFileSync(notes, "utf8")).not.toContain("eggs");
   await allowOnce();
   await expect.poll(() => readFileSync(notes, "utf8")).toContain("- eggs");
-  await expect(page.getByLabel(/^Receipt:/).first()).toBeVisible();
+  // The receipt line under the write (its short id, R1).
+  await expect(
+    page.locator("p").filter({ hasText: "Write notes.md" }).filter({ hasText: /R1$/ }),
+  ).toBeVisible();
 });
 
 test("a question with chips resumes the turn; checklist and wrap-up update", async () => {
-  await page.getByText("Corner shop (Recommended)").click();
+  // The recommended option comes first and preselected; "(Recommended)" shows as a badge.
+  await page.getByRole("radio", { name: /^Corner shop/ }).check();
   await page.getByRole("button", { name: "Answer" }).click();
   await expect(page.getByLabel("Checklist, 3 of 3 done").last()).toBeVisible({ timeout: 20_000 });
   const wrap = page.getByLabel("Wrap-up").last();
@@ -206,7 +210,7 @@ test("a delegated task keeps running after the window quits and shows in Activit
 
 test("Soul & Memory shows today's daily note, edits SOUL.md and exports everything", async () => {
   await page.getByRole("tab", { name: "Soul & Memory" }).click();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local time, like the daily note
   await expect(page.getByRole("navigation", { name: "Daily notes" })).toContainText(
     today.slice(5),
     { timeout: 20_000 },

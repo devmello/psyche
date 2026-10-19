@@ -52,7 +52,26 @@ export function kitClient(port: GatewayPort): GatewayClient {
       }
     },
     subscribe(listener) {
-      return port.onEvent((e) => listener(e as GatewayEvent));
+      return port.onEvent((raw) => {
+        const e = raw as GatewayEvent;
+        // The Gateway's `approval.created` carries no per-connection token yet (#50); fetch this
+        // device's own token so the kit's card can arm. Without one it stays read-only.
+        if (e.event === "approval.created" && e.payload.answerToken === undefined) {
+          const approvalId = e.payload.approval.id;
+          void (port.call("approvals.get", { approvalId }, {}) as Promise<{ answerToken?: string }>)
+            .then(
+              (r) => r.answerToken,
+              () => undefined,
+            )
+            .then((answerToken) =>
+              listener(
+                answerToken === undefined ? e : { ...e, payload: { ...e.payload, answerToken } },
+              ),
+            );
+          return;
+        }
+        listener(e);
+      });
     },
     connectionState: () => state,
     onConnectionState(listener) {

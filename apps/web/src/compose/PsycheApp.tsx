@@ -7,6 +7,8 @@ import {
   GatewayProvider,
   OnboardingFlow,
   type OnboardingResult,
+  type UiSlots,
+  UiSlotsProvider,
 } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from "react";
 import type { ShellPlatform } from "../shell/platform.ts";
@@ -85,11 +87,74 @@ export async function completeOnboarding(
 }
 
 type Gate = "loading" | "onboarding" | "ready";
+type Persona = NonNullable<UiSlots["persona"]>;
+
+/** `name` / `creature` from IDENTITY.md's frontmatter (quoted or bare YAML scalars). */
+export function personaFromIdentity(content: string): Persona | null {
+  const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(content)?.[1];
+  if (fm === undefined) return null;
+  const field = (key: string): string | undefined => {
+    const raw = new RegExp(`^${key}:\\s*(.*)$`, "m").exec(fm)?.[1]?.trim();
+    if (raw === undefined || raw === "") return undefined;
+    if (raw.startsWith('"')) {
+      try {
+        return JSON.parse(raw) as string;
+      } catch {
+        return raw.slice(1, -1);
+      }
+    }
+    return raw.replace(/^'(.*)'$/, "$1");
+  };
+  const name = field("name");
+  if (!name) return null;
+  const creature = field("creature");
+  return creature ? { name, creature } : { name };
+}
+
+/** The agent's name and creature for the kit's cards, kept in step with IDENTITY.md. */
+function useWorkspacePersona(platform: ShellPlatform): [Persona | null, () => void] {
+  const [persona, setPersona] = useState<Persona | null>(null);
+  const load = useMemo(
+    () => () => {
+      void (
+        platform.gateway.call("memory.read", { path: "IDENTITY.md" }) as Promise<{
+          content: string;
+        }>
+      )
+        .then((r) => setPersona(personaFromIdentity(r.content)))
+        .catch(() => undefined);
+    },
+    [platform],
+  );
+  useEffect(() => {
+    void platform.gateway.getStatus().then(
+      (s) => s.phase === "paired" && load(),
+      () => undefined,
+    );
+    const offStatus = platform.gateway.onStatus((s) => {
+      if (s.phase === "paired") load();
+    });
+    const offEvent = platform.gateway.onEvent((e) => {
+      if (
+        e.event === "memory.file.changed" &&
+        (e.payload as { path?: string }).path === "IDENTITY.md"
+      ) {
+        load();
+      }
+    });
+    return () => {
+      offStatus();
+      offEvent();
+    };
+  }, [platform, load]);
+  return [persona, load];
+}
 
 export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactElement {
   const client = useMemo(() => kitClient(platform.gateway), [platform]);
   const [gate, setGate] = useState<Gate>("loading");
   const [error, setError] = useState<string | null>(null);
+  const [persona, reloadPersona] = useWorkspacePersona(platform);
 
   useEffect(() => {
     let cancelled = false;
@@ -128,7 +193,10 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
         <OnboardingFlow
           onComplete={(result) => {
             completeOnboarding(platform, result).then(
-              () => setGate("ready"),
+              () => {
+                reloadPersona();
+                setGate("ready");
+              },
               (err: unknown) => setError(`Could not save your agent: ${String(err)}`),
             );
           }}
@@ -139,5 +207,10 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
     // While the Gateway is unreachable the shell shows its offline banner; it is the same app.
     body = <ShellApp platform={platform} slots={slots} />;
   }
-  return <GatewayProvider client={client}>{body}</GatewayProvider>;
+  const uiSlots = useMemo<UiSlots>(() => (persona ? { persona } : {}), [persona]);
+  return (
+    <GatewayProvider client={client}>
+      <UiSlotsProvider value={uiSlots}>{body}</UiSlotsProvider>
+    </GatewayProvider>
+  );
 }
