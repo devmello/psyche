@@ -16,6 +16,7 @@ import type {
   DecidedBy,
   Grant,
   Receipt,
+  TaintSource,
 } from "../schemas/permissions.ts";
 
 /**
@@ -57,6 +58,26 @@ export interface ToolCallIntent {
   grantKey?: string;
 }
 
+/**
+ * Who asked for the call (security §9 "Channels and people"; S10 `RouteContext`). Absent means
+ * the owner. The broker keeps standing grants per requester and applies the owner's per-person
+ * matrix to designated persons; an `allowed` sender gets nothing above `read`.
+ */
+export interface Requester {
+  role: "owner" | "designated" | "allowed";
+  /** `identities.id` (`owner` for the owner) when the sender is linked to an identity. */
+  identityId?: string;
+  display?: string;
+  /** Channel type (`telegram`, `imessage`, …) and the sender's id on it. */
+  channel?: string;
+  senderId?: string;
+  chatId?: string;
+  /** `identities.links` (`<channel>:<senderId>`): every chat that reaches this person. */
+  links?: string[];
+  /** Tool allowlist globs of a delegated persona; absent means no extra limit. */
+  toolAllow?: string[];
+}
+
 export interface DecisionContext {
   threadId: string;
   runId: string;
@@ -64,10 +85,14 @@ export interface DecisionContext {
   permissionMode: PermissionMode;
   /** Untrusted content was read in this turn (security §3.6). */
   taint: boolean;
+  /** Every taint source of the turn so far, for cards and the audit log. */
+  taintSources?: TaintSource[];
   /** The target is new relative to the owner's request and earlier approvals in the Task. */
   newTarget?: boolean;
   /** Automation / heartbeat run: `ask` is deferred into the approvals queue. */
   unattended?: boolean;
+  /** Who asked (security §9); absent means the owner. */
+  requester?: Requester;
 }
 
 export interface DecisionResult {
@@ -100,6 +125,12 @@ export interface ApprovalRequestInput {
   scopesOffered?: GrantScope[];
   taint: boolean;
   ttlMs?: number;
+  /**
+   * The decision context of the call (requester, taint sources, task): the card names the
+   * person it is for and its taint sources, the requester's own chats are never surfaces, and a
+   * restart can re-evaluate the same inputs.
+   */
+  context?: DecisionContext;
 }
 
 /** A created request plus one single-use answer token per delivered surface. Tokens are returned only here. */

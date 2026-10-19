@@ -1,5 +1,6 @@
 import type { JsonObject } from "../common.ts";
 import type { ChecklistItem } from "../schemas/blocks.ts";
+import type { TaintSource } from "../schemas/permissions.ts";
 import type {
   InputRequest,
   Question,
@@ -28,6 +29,11 @@ export interface TaskCreateInput {
   plan?: TaskPlan;
   checklist?: ChecklistItem[];
   taint?: boolean;
+  /**
+   * The creating turn's taint sources (S23 design-08): the Task starts every run tainted with
+   * them until the owner re-approves its goal. Persisted with the task, shown on its cards.
+   */
+  taintSources?: TaintSource[];
 }
 
 export interface TaskFilter {

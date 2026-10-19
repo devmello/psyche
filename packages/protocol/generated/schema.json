@@ -11951,6 +11951,27 @@
       "minLength": 1,
       "type": "string"
     },
+    "TaintSource": {
+      "properties": {
+        "sourceKind": {
+          "description": "Tool name or source kind (web, email, transcript, task, …)",
+          "type": "string"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "sender": {
+          "type": "string"
+        },
+        "toolCallId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "sourceKind"
+      ],
+      "type": "object"
+    },
     "Target": {
       "properties": {
         "kind": {
@@ -12116,6 +12137,13 @@
         "taint": {
           "description": "Inherited from a tainted creating turn",
           "type": "boolean"
+        },
+        "taintSources": {
+          "description": "The creating turn's taint sources; every run starts tainted with them",
+          "items": {
+            "$ref": "#/$defs/TaintSource"
+          },
+          "type": "array"
         },
         "createdAt": {
           "description": "ISO-8601 timestamp (UTC)",

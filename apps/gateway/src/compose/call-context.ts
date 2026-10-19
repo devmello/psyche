@@ -1,6 +1,7 @@
 import type { AgentToolRegistration, AgentToolRegistry, ToolRunContext } from "@psyche/agent-core";
 import {
   PsycheError,
+  type ToolCallAuthority,
   type ToolRegistration,
   type ToolRegistry,
   type Unsubscribe,
@@ -9,8 +10,9 @@ import {
 /**
  * The decision context of each running tool call, for executors from other packages
  * (browser, connectors). Their `ToolExecutor` receives only `(callId, params, signal)`, but
- * they need the thread, run, task, taint, mode and the approval the loop obtained for the call
- * (S08 `BrowserToolDeps.context`, S09 `ConnectorRegistry` `approvalFor`).
+ * they need the thread, run, task, taint, mode and what authorized the call: the approval the
+ * loop obtained or the standing grant it verified (S08 `BrowserToolDeps.context`, S09
+ * `ConnectorRegistry` `authorityFor`).
  *
  * `adopt(registry)` returns a `ToolRegistry` whose plain registrations are re-registered as
  * in-process tools: the loop calls `run(params, ctx)`, which records `ctx` for the call id
@@ -36,14 +38,21 @@ export class CallContexts {
       ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
       permissionMode: ctx.permissionMode,
       taint: ctx.taint,
+      ...(ctx.taint ? { taintSources: [...(ctx.taintSources ?? [])] } : {}),
       ...(ctx.mode === "unattended" ? { unattended: true } : {}),
       ...(ctx.approvalId === undefined ? {} : { approvalId: ctx.approvalId }),
+      ...(ctx.requester === undefined ? {} : { requester: ctx.requester }),
     };
   }
 
   /** The approval id the broker issued for this call, if it asked. */
   approvalFor(callId: string): string | undefined {
     return this.#calls.get(callId)?.approvalId;
+  }
+
+  /** What authorized this call (approval or standing grant), as the loop verified it. */
+  authorityFor(callId: string): ToolCallAuthority | undefined {
+    return this.#calls.get(callId)?.authority;
   }
 
   wrap(registration: ToolRegistration): AgentToolRegistration {

@@ -1,5 +1,6 @@
 import type {
   Decision,
+  GrantScope,
   ModelRef,
   PermissionMode,
   ProvenanceOut,
@@ -13,6 +14,7 @@ import type { InputRequest } from "../schemas/tasks.ts";
 import type { RunStatus } from "../schemas/threads.ts";
 import type { ToolSpec } from "../schemas/tools.ts";
 import type { Unsubscribe } from "./Clock.ts";
+import type { Requester } from "./PermissionBroker.ts";
 
 /**
  * Agent loop contract (architecture §4.2–§4.3; owner S02). pi-agent-core semantics: one turn
@@ -62,6 +64,12 @@ export interface StartTurnInput {
   mode: RunMode;
   permissionMode: PermissionMode;
   signal?: AbortSignal;
+  /**
+   * Who sent `input` (S10 `RouteContext`; security §9). Absent means the owner. A non-owner's
+   * text is untrusted: it taints the turn and never counts as the owner's words for target
+   * matching; the broker decides every call of the turn as that person's.
+   */
+  requester?: Requester;
 }
 
 export type AgentEvent =
@@ -208,6 +216,37 @@ export interface ToolCallDescription {
   grantKey?: string;
   /** One-line status for the transcript, e.g. `Opened united.com`. */
   summary?: string;
+}
+
+/**
+ * The grant key a tool call offers the broker: `describeCall().grantKey` namespaced by the tool
+ * so one tool's description can never borrow another tool's standing grants (security §3.5).
+ * Executors recompute it from their own description to check a standing grant before dispatch.
+ */
+export function namespacedGrantKey(tool: string, grantKey: string): string {
+  return grantKey.startsWith(`${tool}|`) ? grantKey : `${tool}|${grantKey}`;
+}
+
+/**
+ * What authorized a dispatch (security §3.3, §3.7): the broker's decision as the agent loop
+ * verified it right before running the tool. The loop is the single verifier and consumer of
+ * `once` approvals; an executor that has its own enforcement (connectors, browser) confirms,
+ * without consuming, that the approval or standing grant named here is live and covers the
+ * exact arguments it is about to send (`bindingHash` for an approval, `grantKey` for a grant).
+ */
+export interface ToolCallAuthority {
+  /** Deciding rule, e.g. `grant:<id>`, `mode:balanced/write`, `approval:<id>`. */
+  rule: string;
+  /** Binding hash of the exact arguments the loop decided or verified. */
+  bindingHash: string;
+  /** Namespaced grant key the call offered (see `namespacedGrantKey`), when it had one. */
+  grantKey?: string;
+  /** The approval the owner answered for this call, when the broker asked. */
+  approvalId?: string;
+  /** The standing grant that allowed the call, or the grant the approval created. */
+  grantId?: string;
+  /** `once` for a consumed approval; the grant's scope for a standing grant. */
+  scope?: GrantScope;
 }
 
 export interface ToolRegistration {

@@ -5,6 +5,7 @@ import {
   PROTECTED_MEMORY_FILES,
   PsycheError,
   type Scheduler,
+  type TaintSource,
   type TaskEngine,
   type ToolCallDescription,
 } from "@psyche/protocol";
@@ -259,6 +260,10 @@ export function taskStartTool(tasks: TaskEngine): AgentToolRegistration {
         goal: p.goal,
         createdFrom: "chat",
         taint: ctx.taint,
+        // The sources travel with the task (design-08): every run starts tainted with them.
+        ...(ctx.taint && ctx.taintSources !== undefined && ctx.taintSources.length > 0
+          ? { taintSources: structuredClone(ctx.taintSources) as TaintSource[] }
+          : {}),
         ...(p.checklist === undefined
           ? {}
           : { checklist: p.checklist.map((text) => ({ text, status: "pending" as const })) }),

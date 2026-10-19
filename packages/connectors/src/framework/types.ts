@@ -4,6 +4,7 @@ import type {
   CredentialBroker,
   JsonObject,
   SideEffect,
+  ToolCallAuthority,
   ToolCallDescription,
 } from "@psyche/protocol";
 
@@ -140,6 +141,8 @@ export interface ToolRunContext {
   callId: string;
   /** Approval the broker issued for this call, when it asked. */
   approvalId?: string;
+  /** What authorized the dispatch (approval or standing grant), as the loop verified it. */
+  authority?: ToolCallAuthority;
 }
 
 export interface ToolOutput {

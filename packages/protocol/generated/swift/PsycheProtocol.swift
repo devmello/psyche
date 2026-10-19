@@ -415,6 +415,7 @@
 //   let speechReadAloudFailedPayload = try? JSONDecoder().decode(SpeechReadAloudFailedPayload.self, from: jsonData)
 //   let speechReadAloudParams = try? JSONDecoder().decode(SpeechReadAloudParams.self, from: jsonData)
 //   let speechReadAloudResult = try? JSONDecoder().decode(SpeechReadAloudResult.self, from: jsonData)
+//   let taintSource = try? JSONDecoder().decode(TaintSource.self, from: jsonData)
 //   let target = try? JSONDecoder().decode(Target.self, from: jsonData)
 //   let targetKind = try? JSONDecoder().decode(TargetKind.self, from: jsonData)
 //   let task = try? JSONDecoder().decode(Task.self, from: jsonData)
@@ -8756,6 +8757,8 @@ public struct Task: Codable, Sendable {
     public let summary: String?
     /// Inherited from a tainted creating turn
     public let taint: Bool?
+    /// The creating turn's taint sources; every run starts tainted with them
+    public let taintSources: [TaintSource]?
     public let threadID: String
     public let title: String
     public let updatedAt: String
@@ -8778,12 +8781,13 @@ public struct Task: Codable, Sendable {
         case status = "status"
         case summary = "summary"
         case taint = "taint"
+        case taintSources = "taintSources"
         case threadID = "threadId"
         case title = "title"
         case updatedAt = "updatedAt"
     }
 
-    public init(attempt: Int, browserSessionID: String?, checklist: [ChecklistItem], completedAt: String?, createdAt: String, createdFrom: TaskOrigin, currentStepID: String?, goal: String, id: String, leaseOwner: String?, leaseUntil: String?, outcome: [String: JSONAny]?, plan: TaskPlan?, sandboxID: String?, status: TaskStatus, summary: String?, taint: Bool?, threadID: String, title: String, updatedAt: String) {
+    public init(attempt: Int, browserSessionID: String?, checklist: [ChecklistItem], completedAt: String?, createdAt: String, createdFrom: TaskOrigin, currentStepID: String?, goal: String, id: String, leaseOwner: String?, leaseUntil: String?, outcome: [String: JSONAny]?, plan: TaskPlan?, sandboxID: String?, status: TaskStatus, summary: String?, taint: Bool?, taintSources: [TaintSource]?, threadID: String, title: String, updatedAt: String) {
         self.attempt = attempt
         self.browserSessionID = browserSessionID
         self.checklist = checklist
@@ -8801,6 +8805,7 @@ public struct Task: Codable, Sendable {
         self.status = status
         self.summary = summary
         self.taint = taint
+        self.taintSources = taintSources
         self.threadID = threadID
         self.title = title
         self.updatedAt = updatedAt
@@ -8871,6 +8876,29 @@ public enum TaskStatus: String, Codable, Sendable {
     case paused = "paused"
     case queued = "queued"
     case running = "running"
+}
+
+// MARK: - TaintSource
+public struct TaintSource: Codable, Sendable {
+    public let origin: String?
+    public let sender: String?
+    /// Tool name or source kind (web, email, transcript, task, …)
+    public let sourceKind: String
+    public let toolCallID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case origin = "origin"
+        case sender = "sender"
+        case sourceKind = "sourceKind"
+        case toolCallID = "toolCallId"
+    }
+
+    public init(origin: String?, sender: String?, sourceKind: String, toolCallID: String?) {
+        self.origin = origin
+        self.sender = sender
+        self.sourceKind = sourceKind
+        self.toolCallID = toolCallID
+    }
 }
 
 // MARK: - TaskUpdatedPayload
