@@ -23,13 +23,13 @@ export interface ServiceInput {
   psycheHome: string;
 }
 
+/** Same escaping as the desktop (apostrophes stay literal), so both write identical plists. */
 function xml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
+    .replace(/"/g, "&quot;");
 }
 
 export function renderLaunchAgentPlist(input: ServiceInput): string {

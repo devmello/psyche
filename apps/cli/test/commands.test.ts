@@ -6,15 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { run } from "../src/cli.ts";
 import { loadOrCreateIdentity } from "../src/identity.ts";
 import { AUTOMATION, CREDENTIAL, DEVICE, HANDLERS, PAIRING_REQUEST } from "./fixtures.ts";
-import {
-  cleanupTempDirs,
-  err,
-  makeDeps,
-  out,
-  runJson,
-  type TestDeps,
-  tempDir,
-} from "./helpers.ts";
+import { cleanupTempDirs, err, makeDeps, out, runJson, type TestDeps, tempDir } from "./helpers.ts";
 
 const ALL_SCOPES = ["operator.read", "operator.write", "operator.approvals", "operator.admin"];
 const SECRET = "psyche-test-secret-value-9f8e7d";
@@ -185,7 +177,7 @@ const CASES: Case[] = [
       });
       expect(out(deps)).not.toContain(SECRET);
       expect(err(deps)).not.toContain(SECRET);
-      expect(out(deps)).not.toContain("TOPSECRET");
+      expect(out(deps)).not.toContain("9f8e7d");
     },
   },
   {
@@ -265,7 +257,10 @@ const CASES: Case[] = [
       expect(t).toMatch(/gateway:\s+unknown/);
     },
     json: (d) => {
-      expect(d.cli).toMatchObject({ version: expect.any(String), protocolVersion: expect.any(Number) });
+      expect(d.cli).toMatchObject({
+        version: expect.any(String),
+        protocolVersion: expect.any(Number),
+      });
       expect(d.gateway).toEqual({ version: "unknown" });
     },
   },
@@ -342,7 +337,10 @@ describe("commands against a paired MockGateway", () => {
     it("config get gateway.port reads the file", async () => {
       const deps = makeDeps();
       writeFileSync(join(deps.home, "config.json"), JSON.stringify({ gateway: { port: 8000 } }));
-      const { code, json } = await runJson(["config", "get", "gateway.port", ...urlArgs(deps)], deps);
+      const { code, json } = await runJson(
+        ["config", "get", "gateway.port", ...urlArgs(deps)],
+        deps,
+      );
       expect(code).toBe(0);
       expect(json).toEqual({ source: "config.json", values: { "gateway.port": 8000 } });
       expect(gw.connects).toHaveLength(0);
@@ -536,7 +534,11 @@ describe("commands against a paired MockGateway", () => {
       const threadBase = join(dir, "threads", "01JTHREAD00000000000000001-Trip_plans");
       expect(readFileSync(`${threadBase}.md`, "utf8")).toBe("# Trip plans\n");
       expect(readFileSync(`${threadBase}.json`, "utf8")).toBe('{"messages":[]}');
-      expect(readFileSync(join(dir, "memory", "memory.zip")).subarray(0, 2).toString()).toBe("PK");
+      expect(
+        readFileSync(join(dir, "memory", "memory.zip"))
+          .subarray(0, 2)
+          .toString(),
+      ).toBe("PK");
       expect(JSON.parse(readFileSync(join(dir, "receipts.json"), "utf8"))).toEqual([{ id: "r1" }]);
       expect(JSON.parse(readFileSync(join(dir, "grants.json"), "utf8"))).toHaveLength(1);
       expect(readFileSync(join(dir, "library", "a.txt"), "utf8")).toBe("library file");

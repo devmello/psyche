@@ -97,7 +97,10 @@ describe("Gateway URL and reachability", () => {
     expect(await run(["status", "--url", "http://example.com"], deps)).toBe(2);
     expect(err(deps)).toContain("--insecure");
     const ok = makeDeps({ fetch: offline });
-    const { code, json } = await runJson(["status", "--url", "http://example.com", "--insecure"], ok);
+    const { code, json } = await runJson(
+      ["status", "--url", "http://example.com", "--insecure"],
+      ok,
+    );
     expect(code).toBe(1);
     expect(json.gateway).toMatchObject({ url: "http://example.com", reachable: false });
   });

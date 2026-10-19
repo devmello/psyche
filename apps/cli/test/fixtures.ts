@@ -65,13 +65,21 @@ const p = (params: unknown) => (params ?? {}) as Record<string, unknown>;
 export const HANDLERS: Record<string, Handler> = {
   "devices.pairing.list": () => ({ pairingRequests: [PAIRING_REQUEST] }),
   "devices.approve": (params) => ({
-    device: { ...DEVICE, id: "01JDEVICE00000000000000002", name: "Pixel 10", scopes: p(params).scopes },
+    device: {
+      ...DEVICE,
+      id: "01JDEVICE00000000000000002",
+      name: "Pixel 10",
+      scopes: p(params).scopes,
+    },
   }),
   "devices.deny": () => ({ pairingRequest: { ...PAIRING_REQUEST, status: "denied" } }),
   "devices.list": () => ({ devices: [DEVICE] }),
   "devices.revoke": (params) => ({ device: { ...DEVICE, id: p(params).deviceId, revokedAt: TS } }),
   "automations.list": () => ({ automations: [AUTOMATION] }),
-  "automations.run": () => ({ runId: "01JRUN00000000000000000001", taskId: "01JTASK0000000000000000001" }),
+  "automations.run": () => ({
+    runId: "01JRUN00000000000000000001",
+    taskId: "01JTASK0000000000000000001",
+  }),
   "automations.update": (params) => ({
     automation: { ...AUTOMATION, enabled: p(params).enabled },
   }),

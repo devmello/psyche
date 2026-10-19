@@ -125,7 +125,10 @@ describe("doctor rules", () => {
 
   it("no config.json → ok (defaults)", () => {
     const s = snap({ config: { exists: false, config: {}, problems: [] } });
-    expect(check(s, "config")).toMatchObject({ status: "ok", message: expect.stringMatching(/defaults/) });
+    expect(check(s, "config")).toMatchObject({
+      status: "ok",
+      message: expect.stringMatching(/defaults/),
+    });
   });
 
   it("unreachable Gateway → fail with a start hint", () => {
@@ -151,7 +154,9 @@ describe("doctor rules", () => {
   });
 
   it("non-loopback gateway.host → fail", () => {
-    const s = snap({ config: { exists: true, config: { gateway: { host: "0.0.0.0" } }, problems: [] } });
+    const s = snap({
+      config: { exists: true, config: { gateway: { host: "0.0.0.0" } }, problems: [] },
+    });
     expect(check(s, "bind")?.status).toBe("fail");
     expect(check(baseSnapshot(), "bind")?.status).toBe("ok");
   });
@@ -198,7 +203,10 @@ describe("doctor rules", () => {
   it("models: a vault key or a local model → ok", () => {
     expect(check(baseSnapshot(), "models")?.status).toBe("ok");
     const local = snap({ apiKeys: { ok: true, value: [] }, localModel: true });
-    expect(check(local, "models")).toMatchObject({ status: "ok", message: expect.stringMatching(/Ollama/) });
+    expect(check(local, "models")).toMatchObject({
+      status: "ok",
+      message: expect.stringMatching(/Ollama/),
+    });
   });
 
   it("models: zero keys and no local model → warn", () => {
@@ -226,10 +234,12 @@ describe("doctor rules", () => {
     expect(check(snap({ platform: "darwin", nodes: helper("offline") }), "helper")?.status).toBe(
       "warn",
     );
-    expect(check(snap({ platform: "darwin", nodes: { ok: true, value: [] } }), "helper")?.status).toBe(
-      "warn",
+    expect(
+      check(snap({ platform: "darwin", nodes: { ok: true, value: [] } }), "helper")?.status,
+    ).toBe("warn");
+    expect(check(snap({ platform: "darwin", nodes: helper("online") }), "helper")?.status).toBe(
+      "ok",
     );
-    expect(check(snap({ platform: "darwin", nodes: helper("online") }), "helper")?.status).toBe("ok");
     expect(check(snap({ platform: "darwin", nodes: unavailable }), "helper")?.status).toBe("skip");
     expect(check(snap({ platform: "linux", nodes: helper("offline") }), "helper")).toBeUndefined();
   });
@@ -239,7 +249,9 @@ describe("doctor rules", () => {
     if (!v.ok) throw new Error("base vault");
     const uninit = snap({ vault: { ok: true, value: { ...v.value, state: "uninitialized" } } });
     expect(check(uninit, "vault")).toMatchObject({ status: "warn", hint: "psyche onboard" });
-    const unconfirmed = snap({ vault: { ok: true, value: { ...v.value, recoveryConfirmed: false } } });
+    const unconfirmed = snap({
+      vault: { ok: true, value: { ...v.value, recoveryConfirmed: false } },
+    });
     expect(check(unconfirmed, "vault")?.status).toBe("warn");
   });
 
@@ -314,20 +326,30 @@ describe("audit rules", () => {
   it("transport.plain_http", () => {
     const s = snap({ gatewayUrl: "http://192.168.1.5:7979", gatewayHost: "192.168.1.5" });
     expect(finding(s, "transport.plain_http")).toMatchObject([{ severity: "high" }]);
-    const tls = snap({ gatewayUrl: "https://psyche.tail1.ts.net", gatewayHost: "psyche.tail1.ts.net" });
+    const tls = snap({
+      gatewayUrl: "https://psyche.tail1.ts.net",
+      gatewayHost: "psyche.tail1.ts.net",
+    });
     expect(finding(tls, "transport.plain_http")).toEqual([]);
   });
 
   it("proxy.no_cidrs", () => {
     const s = snap({
-      config: { exists: true, config: { gateway: { trustedProxy: { enabled: true } } }, problems: [] },
+      config: {
+        exists: true,
+        config: { gateway: { trustedProxy: { enabled: true } } },
+        problems: [],
+      },
     });
     expect(finding(s, "proxy.no_cidrs")).toMatchObject([{ severity: "high" }]);
   });
 
   it("proxy.public_ingress_without_passkeys", () => {
     expect(
-      finding(withSettings({ "gateway.allowPublicIngress": true }), "proxy.public_ingress_without_passkeys"),
+      finding(
+        withSettings({ "gateway.allowPublicIngress": true }),
+        "proxy.public_ingress_without_passkeys",
+      ),
     ).toMatchObject([{ severity: "high" }]);
     expect(
       finding(
@@ -344,17 +366,23 @@ describe("audit rules", () => {
     expect(finding(channel({ dmPolicy: "open", ownerIds: [] }), "channels.dm_open")).toMatchObject([
       { severity: "critical" },
     ]);
-    expect(finding(channel({ dmPolicy: "open", ownerIds: ["me"] }), "channels.dm_open")).toMatchObject(
-      [{ severity: "high" }],
-    );
+    expect(
+      finding(channel({ dmPolicy: "open", ownerIds: ["me"] }), "channels.dm_open"),
+    ).toMatchObject([{ severity: "high" }]);
   });
 
   it("channels.group_without_mention", () => {
     expect(
-      finding(channel({ groupAllowFrom: ["g"], requireMention: false }), "channels.group_without_mention"),
+      finding(
+        channel({ groupAllowFrom: ["g"], requireMention: false }),
+        "channels.group_without_mention",
+      ),
     ).toMatchObject([{ severity: "medium" }]);
     expect(
-      finding(channel({ groupAllowFrom: [], requireMention: false }), "channels.group_without_mention"),
+      finding(
+        channel({ groupAllowFrom: [], requireMention: false }),
+        "channels.group_without_mention",
+      ),
     ).toEqual([]);
   });
 
@@ -371,8 +399,12 @@ describe("audit rules", () => {
   });
 
   it("exec_host.enabled (either key)", () => {
-    expect(finding(withSettings({ "exec.host.enabled": true }), "exec_host.enabled")).toHaveLength(1);
-    expect(finding(withSettings({ exec_host: { enabled: true } }), "exec_host.enabled")).toHaveLength(1);
+    expect(finding(withSettings({ "exec.host.enabled": true }), "exec_host.enabled")).toHaveLength(
+      1,
+    );
+    expect(
+      finding(withSettings({ exec_host: { enabled: true } }), "exec_host.enabled"),
+    ).toHaveLength(1);
   });
 
   it("skills.unverified (unverified or unpinned)", () => {
@@ -411,8 +443,12 @@ describe("audit rules", () => {
   });
 
   it("telemetry.enabled (flat or nested)", () => {
-    expect(finding(withSettings({ "telemetry.enabled": true }), "telemetry.enabled")).toHaveLength(1);
-    expect(finding(withSettings({ telemetry: { enabled: true } }), "telemetry.enabled")).toHaveLength(1);
+    expect(finding(withSettings({ "telemetry.enabled": true }), "telemetry.enabled")).toHaveLength(
+      1,
+    );
+    expect(
+      finding(withSettings({ telemetry: { enabled: true } }), "telemetry.enabled"),
+    ).toHaveLength(1);
     expect(finding(withSettings({ telemetry: true }), "telemetry.enabled")).toHaveLength(1);
   });
 
@@ -428,7 +464,12 @@ describe("audit rules", () => {
       devices: {
         ok: true,
         value: [
-          { id: "old", name: "Old", scopes: ["operator.admin"], lastSeenAt: "2026-09-01T00:00:00Z" },
+          {
+            id: "old",
+            name: "Old",
+            scopes: ["operator.admin"],
+            lastSeenAt: "2026-09-01T00:00:00Z",
+          },
           { id: "never", name: "Never", scopes: ["operator.admin"], lastSeenAt: null },
           {
             id: "gone",
@@ -438,12 +479,20 @@ describe("audit rules", () => {
             revokedAt: "2026-02-01T00:00:00Z",
           },
           { id: "reader", name: "Reader", scopes: ["operator.read"], lastSeenAt: null },
-          { id: "fresh", name: "Fresh", scopes: ["operator.admin"], lastSeenAt: "2026-10-01T00:00:00Z" },
+          {
+            id: "fresh",
+            name: "Fresh",
+            scopes: ["operator.admin"],
+            lastSeenAt: "2026-10-01T00:00:00Z",
+          },
         ],
       },
     });
     const f = finding(s, "devices.stale_admin");
-    expect(f.map((x) => x.fix)).toEqual(["psyche devices revoke old", "psyche devices revoke never"]);
+    expect(f.map((x) => x.fix)).toEqual([
+      "psyche devices revoke old",
+      "psyche devices revoke never",
+    ]);
     expect(f.every((x) => x.severity === "low")).toBe(true);
   });
 
@@ -457,13 +506,20 @@ describe("audit rules", () => {
     expect(finding(vault({ slots: ["key_file"] }), "vault.key_file_only")).toMatchObject([
       { severity: "medium" },
     ]);
-    expect(finding(vault({ slots: ["key_file", "safe_storage"] }), "vault.key_file_only")).toEqual([]);
+    expect(finding(vault({ slots: ["key_file", "safe_storage"] }), "vault.key_file_only")).toEqual(
+      [],
+    );
   });
 
   it("vault.recovery_unconfirmed (not for an uninitialized vault)", () => {
-    expect(finding(vault({ recoveryConfirmed: false }), "vault.recovery_unconfirmed")).toHaveLength(1);
+    expect(finding(vault({ recoveryConfirmed: false }), "vault.recovery_unconfirmed")).toHaveLength(
+      1,
+    );
     expect(
-      finding(vault({ recoveryConfirmed: false, state: "uninitialized" }), "vault.recovery_unconfirmed"),
+      finding(
+        vault({ recoveryConfirmed: false, state: "uninitialized" }),
+        "vault.recovery_unconfirmed",
+      ),
     ).toEqual([]);
   });
 
@@ -474,7 +530,9 @@ describe("audit rules", () => {
   });
 
   it("files.home_mode", () => {
-    expect(finding(snap({ homeMode: "755" }), "files.home_mode")).toMatchObject([{ severity: "high" }]);
+    expect(finding(snap({ homeMode: "755" }), "files.home_mode")).toMatchObject([
+      { severity: "high" },
+    ]);
   });
 
   it("files.sensitive_modes and files.modes", () => {
@@ -569,10 +627,8 @@ describe("audit rules", () => {
 });
 
 describe("parseSeverity edge cases", () => {
-  // BUG (src/audit.ts parseSeverity): `v in RANK` also matches Object.prototype keys, so
-  // `psyche security audit --fail-at constructor` is accepted and then RANK["constructor"] is a
-  // function, every `>=` comparison is false and the audit always exits 0.
-  it.fails("rejects names inherited from Object.prototype", () => {
+  // Regression: `v in RANK` used to accept Object.prototype keys.
+  it("rejects names inherited from Object.prototype", () => {
     expect(() => parseSeverity("constructor")).toThrow();
   });
 });

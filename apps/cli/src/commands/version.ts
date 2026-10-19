@@ -8,13 +8,9 @@ export const versionCommands: CommandSpec[] = [
     path: ["version"],
     summary: "Show the CLI and Gateway versions",
     async run(ctx) {
-      let gateway: unknown = null;
-      try {
-        const probe = await ctx.probe();
-        gateway = probe.reachable ? (probe.version ?? { version: "unknown" }) : null;
-      } catch {
-        gateway = null;
-      }
+      // A bad --url is a usage error (exit 2); an unreachable Gateway is just "not reachable".
+      const probe = await ctx.probe();
+      const gateway: unknown = probe.reachable ? (probe.version ?? { version: "unknown" }) : null;
       const data = {
         cli: {
           version: CLI_VERSION,

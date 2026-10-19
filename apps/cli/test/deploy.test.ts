@@ -13,13 +13,19 @@ const has = (cmd: string) => spawnSync("/bin/sh", ["-c", `command -v ${cmd}`]).s
 describe("deploy/launchd/com.psyche.gateway.plist", () => {
   it("is what `psyche start` writes for the example paths", () => {
     expect(read("launchd/com.psyche.gateway.plist")).toBe(
-      renderLaunchAgentPlist({ program: "/usr/local/bin/psyched", psycheHome: "/Users/you/.psyche" }),
+      renderLaunchAgentPlist({
+        program: "/usr/local/bin/psyched",
+        psycheHome: "/Users/you/.psyche",
+      }),
     );
   });
 
   it.skipIf(!existsSync("/usr/bin/plutil"))("passes plutil -lint", () => {
     expect(() =>
-      execFileSync("/usr/bin/plutil", ["-lint", resolve(deploy, "launchd/com.psyche.gateway.plist")]),
+      execFileSync("/usr/bin/plutil", [
+        "-lint",
+        resolve(deploy, "launchd/com.psyche.gateway.plist"),
+      ]),
     ).not.toThrow();
   });
 });
@@ -32,9 +38,13 @@ describe("deploy/systemd/psyche-gateway.service", () => {
   });
 
   it.skipIf(!has("systemd-analyze"))("passes systemd-analyze verify", () => {
-    const r = spawnSync("systemd-analyze", ["--user", "verify", resolve(deploy, "systemd/psyche-gateway.service")], {
-      encoding: "utf8",
-    });
+    const r = spawnSync(
+      "systemd-analyze",
+      ["--user", "verify", resolve(deploy, "systemd/psyche-gateway.service")],
+      {
+        encoding: "utf8",
+      },
+    );
     // The example ExecStart path does not exist on the runner; every other complaint is a failure.
     const problems = r.stderr
       .split("\n")
@@ -66,10 +76,17 @@ describe("deploy/docker-compose.yml", () => {
   });
 
   it.skipIf(!has("docker"))("is valid for every profile", () => {
-    for (const args of [[], ["--profile", "tailscale", "--profile", "cloudflare", "--profile", "browser"]]) {
-      const r = spawnSync("docker", ["compose", "-f", resolve(deploy, "docker-compose.yml"), ...args, "config", "-q"], {
-        encoding: "utf8",
-      });
+    for (const args of [
+      [],
+      ["--profile", "tailscale", "--profile", "cloudflare", "--profile", "browser"],
+    ]) {
+      const r = spawnSync(
+        "docker",
+        ["compose", "-f", resolve(deploy, "docker-compose.yml"), ...args, "config", "-q"],
+        {
+          encoding: "utf8",
+        },
+      );
       expect(r.stderr).toBe("");
       expect(r.status).toBe(0);
     }

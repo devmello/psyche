@@ -66,10 +66,14 @@ describe("psyche against the real Gateway", () => {
 
     // The owner approves on the Gateway host (default: every operator scope, the first admin).
     const psyched = resolve(import.meta.dirname, "../../gateway/src/main.ts");
-    const out = execFileSync(process.execPath, [psyched, "devices", "approve", error.details.code], {
-      env: { ...process.env, PSYCHE_HOME: home },
-      encoding: "utf8",
-    });
+    const out = execFileSync(
+      process.execPath,
+      [psyched, "devices", "approve", error.details.code],
+      {
+        env: { ...process.env, PSYCHE_HOME: home },
+        encoding: "utf8",
+      },
+    );
     expect(out).toMatch(/approved/);
 
     const list = await cli("devices", "list");

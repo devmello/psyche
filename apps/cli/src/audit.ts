@@ -283,6 +283,7 @@ export function auditExitCode(report: AuditReport, failAt: Severity = "low"): nu
 
 export function parseSeverity(s: string | undefined): Severity {
   const v = (s ?? "low") as Severity;
-  if (!(v in RANK)) throw new Error(`severity must be one of ${Object.keys(RANK).join(", ")}`);
+  if (!Object.hasOwn(RANK, v))
+    throw new Error(`severity must be one of ${Object.keys(RANK).join(", ")}`);
   return v;
 }

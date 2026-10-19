@@ -150,7 +150,9 @@ export async function createBackup(
     writeFileSync(join(stage, MANIFEST), JSON.stringify(manifest, null, 2), { mode: 0o600 });
     const tar = tarProcess(["-cf", "-", "-C", stage, MANIFEST, "-C", home, ...manifest.entries]);
     const exited = waitExit(tar, "tar");
-    const gz = Readable.toWeb(tar.stdout.pipe(createGzip())) as ReadableStream<Uint8Array>;
+    const gzip = createGzip();
+    tar.stdout.on("error", (err) => gzip.destroy(err));
+    const gz = Readable.toWeb(tar.stdout.pipe(gzip)) as ReadableStream<Uint8Array>;
     let body: ReadableStream<Uint8Array> = gz;
     if (enc.kind !== "none") {
       const e = new Encrypter();
@@ -173,7 +175,8 @@ export async function createBackup(
   }
 }
 
-async function plaintextStream(file: string, dec: Decryption): Promise<NodeJS.ReadableStream> {
+/** The decrypted (still gzip'd) archive. Errors (a bad tag mid-file) surface through the pipeline. */
+async function plaintextStream(file: string, dec: Decryption): Promise<Readable> {
   const raw = Readable.toWeb(createReadStream(file)) as ReadableStream<Uint8Array>;
   let body: ReadableStream<Uint8Array> = raw;
   if (dec.kind !== "none") {
@@ -189,7 +192,7 @@ async function plaintextStream(file: string, dec: Decryption): Promise<NodeJS.Re
       );
     }
   }
-  return Readable.fromWeb(body as never).pipe(createGunzip());
+  return Readable.fromWeb(body as never);
 }
 
 /** Extracts into a fresh directory next to `near` and checks every hash. */
@@ -205,7 +208,16 @@ export async function extractAndVerify(
     const input = await plaintextStream(file, dec);
     const tar = tarProcess(["-xf", "-", "-C", dir]);
     const exited = waitExit(tar, "tar -x");
-    await pipeline(input, tar.stdin as Writable);
+    try {
+      await pipeline(input, createGunzip(), tar.stdin as Writable);
+    } catch (err) {
+      tar.kill();
+      await exited.catch(() => {});
+      throw new CliError(
+        "failure",
+        `${file} is damaged or the key is wrong: ${err instanceof Error ? err.message : err}`,
+      );
+    }
     await exited;
     const manifestPath = join(dir, MANIFEST);
     if (!existsSync(manifestPath))
