@@ -1,5 +1,6 @@
 import {
   AboutSection,
+  AppearanceSection,
   DataControlsSection,
   FileAccessPanel,
   type FolderGrant,
@@ -13,6 +14,7 @@ import { type ReactElement, type ReactNode, useMemo, useState } from "react";
 import type { ShellPlatform } from "../shell/platform.ts";
 import { BackupsPanel } from "./backups.tsx";
 import { LogViewer } from "./logs.tsx";
+import { ZoomSetting } from "./ZoomSetting.tsx";
 
 /**
  * Settings in the composed app (docs/06 §3.18): the kit's `SettingsScreen` at
@@ -176,6 +178,12 @@ export function settingsRoute(
         onSectionChange={(id) => navigate(`/settings/${id}`)}
         sections={{
           files: <FileAccessSettings platform={platform} />,
+          appearance: (
+            <div className="flex flex-col gap-4">
+              <AppearanceSection />
+              {platform.kind === "desktop" ? <ZoomSetting /> : null}
+            </div>
+          ),
           data: (
             <div className="flex flex-col gap-4">
               <DataControlsSection />

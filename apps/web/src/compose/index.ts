@@ -6,3 +6,5 @@ export * from "./logs.tsx";
 export * from "./onboarding.ts";
 export * from "./PsycheApp.tsx";
 export * from "./settings.tsx";
+export * from "./ZoomSetting.tsx";
+export * from "./zoom.ts";

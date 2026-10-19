@@ -37,6 +37,7 @@ import {
   str,
 } from "./lib/ipc.ts";
 import { NotificationRelay } from "./lib/notify-relay.ts";
+import { ZoomController } from "./lib/zoom.ts";
 import { BridgeClient } from "./main/bridge/bridge-client.ts";
 import { BrowserHost } from "./main/browser/browser-host.ts";
 import { buildAppMenu } from "./main/menu.ts";
@@ -86,6 +87,11 @@ let terminal: TerminalHost | undefined;
 let tray: PsycheTray | undefined;
 let supervisor: GatewaySupervisor | undefined;
 const relay = new NotificationRelay();
+const zoom = new ZoomController({
+  targets: () => windows?.appContents() ?? [],
+  call: (method, params) => requireGateway().call(method, params),
+  warn: (message) => console.warn(`[zoom] ${message}`),
+});
 const pendingCommands: ShellCommand[] = [];
 let quittingEntirely = false;
 
@@ -372,6 +378,9 @@ function onGatewayEvent(e: {
 }): void {
   broadcast(IPC.event, e);
   const p = e.payload as Record<string, unknown>;
+  if (e.event === "settings.changed") {
+    zoom.onSettingsChanged((p.entries as { key: string; value: unknown }[] | undefined) ?? []);
+  }
   if (e.event === "notification.created") {
     const d = relay.decide(p.notification as PsycheNotification);
     if (d.show && d.title && d.body && d.route)
@@ -449,12 +458,17 @@ void app.whenReady().then(async () => {
         if (wc) wc.send(IPC.shellCommand, { type: "closeThreadView" } satisfies ShellCommand);
       },
       quitEntirely,
+      zoomIn: () => void zoom.zoomIn(),
+      zoomOut: () => void zoom.zoomOut(),
+      zoomReset: () => void zoom.reset(),
     }),
   );
 
   windows = createAppWindows({
     rendererUrl,
     preloadPath: preloadPath(),
+    // The stored zoom wins over Electron's own per-origin memory on every load.
+    onViewCreated: (wc) => wc.on("did-finish-load", () => zoom.applyTo(wc)),
     onMainCreated: (win, view) => {
       view.webContents.once("did-finish-load", () => {
         for (const c of pendingCommands.splice(0)) view.webContents.send(IPC.shellCommand, c);
@@ -496,6 +510,7 @@ void app.whenReady().then(async () => {
       if (s.phase === "paired") {
         void refreshHelperPresence();
         void refreshApprovals();
+        void zoom.load();
       }
     },
     onEvent: onGatewayEvent,
