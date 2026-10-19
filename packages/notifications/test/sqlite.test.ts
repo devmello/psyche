@@ -47,7 +47,7 @@ describe("SqliteNotificationStore", () => {
     const second = setup({ store: new SqliteNotificationStore(db), routing: quiet });
     second.clock.set(Date.UTC(2026, 9, 19, 7));
     expect((await second.notifier.list()).map((n) => n.id)).toEqual([apr.id, done.id]);
-    const res = await second.notifier.reconcile();
+    const res = await second.notifier.reconcile({ bootedAt: second.clock.now() });
     expect(res.stale.map((n) => n.id)).toEqual([apr.id]);
     // The deferred OS delivery of the task notification survived and goes out now.
     expect(await second.notifier.flushDue()).toBe(1);

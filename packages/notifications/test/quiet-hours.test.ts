@@ -67,6 +67,14 @@ describe("quiet hours", () => {
     expect(quietEndsAt(always, utc(2026, 10, 24, 10))).toBeUndefined();
   });
 
+  it("treats start === end as 24 hours from start on the start day", () => {
+    const fri: QuietHoursConfig = { start: "22:00", end: "22:00", timezone: "UTC", days: [5] };
+    expect(isQuietAt(fri, utc(2026, 10, 23, 21))).toBe(false); // Fri 21:00
+    expect(isQuietAt(fri, utc(2026, 10, 23, 22))).toBe(true); // Fri 22:00
+    expect(isQuietAt(fri, utc(2026, 10, 24, 21, 59))).toBe(true); // Sat 21:59
+    expect(quietEndsAt(fri, utc(2026, 10, 23, 23))).toBe(utc(2026, 10, 24, 22));
+  });
+
   it("lets approvals break through by default", () => {
     expect(breaksThrough(night, "approval")).toBe(true);
     expect(breaksThrough(night, "task_done")).toBe(false);

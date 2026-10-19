@@ -6,7 +6,8 @@ const DAY_MINUTES = 24 * 60;
 /**
  * Quiet hours (O10). Inside the window, interruptive deliveries (OS, channels) are deferred to
  * the window's end; the in-app inbox row is still written at once. `start` may be later than
- * `end` (the window crosses midnight); `start === end` means all day.
+ * `end` (the window crosses midnight); `start === end` means
+ * 24 hours from `start`.
  */
 export interface QuietHoursConfig {
   /** Local `HH:MM`, inclusive. */
@@ -75,9 +76,9 @@ export function isQuietAt(cfg: QuietHoursConfig, ms: number): boolean {
   const { minutes, weekday } = localParts(ms, cfg.timezone);
   const days = cfg.days;
   const startsOn = (d: number) => days === undefined || days.includes(d);
-  if (start === end) return startsOn(weekday);
   if (start < end) return minutes >= start && minutes < end && startsOn(weekday);
-  // Crosses midnight: the evening part belongs to today's window, the morning part to yesterday's.
+  // Crosses midnight (or `start === end`: 24 h from `start`): the part after `start` belongs to
+  // today's window, the part before `end` to yesterday's.
   if (minutes >= start) return startsOn(weekday);
   if (minutes < end) return startsOn((weekday + 6) % 7);
   return false;

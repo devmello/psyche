@@ -241,9 +241,7 @@ export class SqliteNotificationStore implements NotificationStore {
   deliveries(notificationId: string): DeliveryRecord[] {
     return (
       this.#db
-        .prepare(
-          "SELECT * FROM notification_deliveries WHERE notification_id = ? ORDER BY created_at, surface",
-        )
+        .prepare("SELECT * FROM notification_deliveries WHERE notification_id = ? ORDER BY rowid")
         .all(notificationId) as DeliveryRow[]
     ).map(deliveryFromRow);
   }
@@ -252,7 +250,7 @@ export class SqliteNotificationStore implements NotificationStore {
     return (
       this.#db
         .prepare(
-          "SELECT * FROM notification_deliveries WHERE status IN ('pending', 'deferred') AND due_at IS NOT NULL AND due_at <= ? ORDER BY due_at, surface",
+          "SELECT * FROM notification_deliveries WHERE status IN ('pending', 'deferred') AND due_at IS NOT NULL AND due_at <= ? ORDER BY due_at, rowid",
         )
         .all(nowIso) as DeliveryRow[]
     ).map(deliveryFromRow);
@@ -262,7 +260,7 @@ export class SqliteNotificationStore implements NotificationStore {
     return (
       this.#db
         .prepare(
-          "SELECT * FROM notification_deliveries WHERE status IN ('pending', 'deferred') ORDER BY created_at, surface",
+          "SELECT * FROM notification_deliveries WHERE status IN ('pending', 'deferred') ORDER BY rowid",
         )
         .all() as DeliveryRow[]
     ).map(deliveryFromRow);

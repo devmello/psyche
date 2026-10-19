@@ -49,16 +49,26 @@ export function sqliteStore(
 
 export function setup(options: Partial<NotifierOptions> & { store?: NotificationStore } = {}) {
   const clock = new FakeClock();
+  const store = options.store ?? memoryStore();
   const os = new RecordingAdapter("os", (s) => s === "notification");
   const chat = new RecordingAdapter("chat", (s) => s.includes(":"));
   let n = 0;
-  const notifier = createNotifier({
-    clock,
-    newId: () => `ntf_${String(++n).padStart(3, "0")}`,
-    adapters: [os, chat],
-    ...options,
-  });
-  return { clock, os, chat, notifier };
+  const make = () =>
+    createNotifier({
+      clock,
+      newId: () => `ntf_${String(++n).padStart(3, "0")}`,
+      adapters: [os, chat],
+      delivery: "await",
+      ...options,
+      store,
+    });
+  const notifier = make();
+  /** A Gateway restart one minute later: a fresh notifier over the same store. */
+  const restart = () => {
+    clock.advance(60_000);
+    return make();
+  };
+  return { clock, os, chat, notifier, store, restart };
 }
 
 export function helperNode(): FakeNodeClient {
