@@ -221,7 +221,7 @@ export async function runCase(
       result.rule = gateResult.rule;
 
       if (gateResult.decision === "asked" && gateResult.approval !== undefined) {
-        checkCard(c, gateResult.approval, result);
+        checkCard(c, mode, gateResult.approval, result);
         await runFollowUps(c, stack, gateResult.approval.id, result);
       }
       checkTaint(c, taint, gateResult.approval?.taint, result);
@@ -296,11 +296,12 @@ export async function runCase(
 
 function checkCard(
   c: InjectionCase,
+  mode: PermissionMode,
   card: import("@psyche/protocol").ApprovalRequest,
   result: CaseResult,
 ): void {
-  const want = c.expected.approval;
-  if (want === undefined) return;
+  if (c.expected.approval === undefined) return;
+  const want = { ...c.expected.approval, ...(c.expected.approvalByMode?.[mode] ?? {}) };
   if (want.kind !== undefined && card.kind !== want.kind) {
     result.failures.push(`card kind ${card.kind}, expected ${want.kind}`);
   }
