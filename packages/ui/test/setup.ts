@@ -30,6 +30,8 @@ Element.prototype.scrollIntoView ??= () => {};
 Element.prototype.scrollTo ??= () => {};
 Element.prototype.hasPointerCapture ??= () => false;
 Element.prototype.releasePointerCapture ??= () => {};
+// Sonner captures the pointer when a toast is pressed.
+Element.prototype.setPointerCapture ??= () => {};
 
 afterEach(() => {
   cleanup();

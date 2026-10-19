@@ -11,6 +11,7 @@ import {
   type EventPayload,
   type FeedPost,
   type Goal,
+  type GoalMilestone,
   type Grant,
   type Idea,
   type InputRequest,
@@ -629,10 +630,72 @@ export class MockGateway implements GatewayClient {
           (p.category === undefined || g.category === p.category),
       ),
     }),
-    "goals.get": (p) => {
-      const goal = this.find(this.world.goals, p.goalId, "goal");
-      const taskIds = this.world.tasks.filter((t) => t.createdFrom === "goal").map((t) => t.id);
-      return { goal, taskIds };
+    "goals.get": (p) => this.goalDetail(p.goalId),
+    "goals.create": (p) => {
+      const now = this.now();
+      const goal: Goal = {
+        id: this.id("goal"),
+        title: p.title,
+        category: p.category,
+        status: "active",
+        inferred: false,
+        confirmedAt: now,
+        plan: p.plan ?? null,
+        cadence: p.cadence ?? null,
+        nextCheckinAt: null,
+        archivedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      this.world.goals = [...this.world.goals, goal];
+      this.milestones.set(
+        goal.id,
+        (p.milestones ?? []).map((m) => ({
+          id: this.id("ms"),
+          goalId: goal.id,
+          title: m.title,
+          dueAt: m.dueAt ?? null,
+          doneAt: null,
+        })),
+      );
+      this.emit("goal.updated", { goal });
+      return this.goalDetail(goal.id);
+    },
+    "goals.archive": (p) => {
+      const goal: Goal = {
+        ...this.find(this.world.goals, p.goalId, "goal"),
+        status: "archived",
+        archivedAt: this.now(),
+        updatedAt: this.now(),
+      };
+      this.replace("goals", goal);
+      this.emit("goal.updated", { goal });
+      return { goal };
+    },
+    "goals.milestone": (p) => {
+      const list = this.goalMilestones(p.goalId);
+      if (p.milestoneId === undefined) {
+        if (p.title === undefined) fail("invalid_params", "a new milestone needs a title");
+        list.push({
+          id: this.id("ms"),
+          goalId: p.goalId,
+          title: p.title as string,
+          dueAt: p.dueAt ?? null,
+          doneAt: null,
+        });
+      } else {
+        const i = list.findIndex((m) => m.id === p.milestoneId);
+        const m = list[i] ?? fail("not_found", `milestone ${p.milestoneId} not found`);
+        if (p.remove === true) list.splice(i, 1);
+        else
+          list[i] = {
+            ...m,
+            ...(p.title === undefined ? {} : { title: p.title }),
+            ...(p.dueAt === undefined ? {} : { dueAt: p.dueAt }),
+            ...(p.done === undefined ? {} : { doneAt: p.done ? this.now() : null }),
+          };
+      }
+      return this.goalDetail(p.goalId);
     },
     "goals.decide": (p) => {
       const g = this.find(this.world.goals, p.goalId, "goal");
@@ -833,6 +896,33 @@ export class MockGateway implements GatewayClient {
     "nodes.list": () => ({ nodes: this.world.nodes }),
     "vault.list": () => ({ credentials: this.world.credentials }),
   };
+
+  private readonly milestones = new Map<string, GoalMilestone[]>();
+
+  /** Milestones per goal; seeded from the fixture convention `plan.milestones: {title, done}[]`. */
+  private goalMilestones(goalId: string): GoalMilestone[] {
+    let list = this.milestones.get(goalId);
+    if (list === undefined) {
+      const goal = this.find(this.world.goals, goalId, "goal");
+      const raw = (goal.plan as { milestones?: { title?: unknown; done?: unknown }[] } | null)
+        ?.milestones;
+      list = (Array.isArray(raw) ? raw : []).map((m, i) => ({
+        id: `${goalId}_ms_${i + 1}`,
+        goalId,
+        title: String(m.title ?? `Milestone ${i + 1}`),
+        dueAt: null,
+        doneAt: m.done === true ? goal.updatedAt : null,
+      }));
+      this.milestones.set(goalId, list);
+    }
+    return list;
+  }
+
+  private goalDetail(goalId: string) {
+    const goal = this.find(this.world.goals, goalId, "goal");
+    const taskIds = this.world.tasks.filter((t) => t.createdFrom === "goal").map((t) => t.id);
+    return { goal, taskIds, milestones: [...this.goalMilestones(goalId)], links: [] };
+  }
 
   private chunk(source: string, line: number, text: string): MemoryChunk {
     return {
