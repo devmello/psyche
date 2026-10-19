@@ -1,4 +1,4 @@
-import type { ChecklistItem, ModelMessage } from "@psyche/protocol";
+import type { ChecklistItem, ModelMessage, TaintSource } from "@psyche/protocol";
 
 /** What the loop keeps per thread between turns. The Gateway (S01) supplies a durable store. */
 export interface ThreadState {
@@ -8,6 +8,12 @@ export interface ThreadState {
   summary?: { text: string; untrusted: boolean };
   /** The `update_plan` checklist pinned under the latest message (C5). */
   checklist: ChecklistItem[];
+  /**
+   * Taint sources of the last turn, kept while untrusted content stays in `messages` or the
+   * summary (security §3.6: taint survives compaction, and here a kill/restart): the next turn
+   * starts tainted with these sources, so its approval cards still name the original origins.
+   */
+  taint?: { sources: TaintSource[] };
 }
 
 export interface ThreadStateStore {

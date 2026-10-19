@@ -24,6 +24,7 @@ import {
   type MethodResult,
   PsycheError,
   type QueueMode,
+  type Requester,
   type Run,
   type RunStatus,
   type Thread,
@@ -41,6 +42,12 @@ export interface SendInput {
   attachments?: string[];
   mode?: QueueMode;
   deviceId: string;
+  /**
+   * Who sent the message when it came through a channel (S10 `RouteContext`; security §9). The
+   * loop and the broker decide the turn's calls as this person's. Absent for the owner's own
+   * devices. Not kept for durable follow-ups (`chat_queue`), which only paired devices enqueue.
+   */
+  requester?: Requester;
 }
 
 type Emit = <E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string) => void;
@@ -111,7 +118,15 @@ export class SessionController {
     const attachments = input.attachments ?? [];
     const active = thread.activeWriterRunId ?? null;
     if (active === null) {
-      const { messageId, run } = this.#admit(thread, input.content, attachments, null, hooks);
+      const { messageId, run } = this.#admit(
+        thread,
+        input.content,
+        attachments,
+        null,
+        hooks,
+        undefined,
+        input.requester,
+      );
       return { messageId, runId: run.id, queued: false };
     }
     const mode = input.mode ?? "followUp";
@@ -158,7 +173,15 @@ export class SessionController {
     hooks.emit("run.updated", { run: old }, thread.id);
     // Registered before #admit's start, so the old turn is detached and aborted first.
     hooks.afterCommit(() => this.#stopRun(thread.id, active, "interrupted"));
-    const { messageId, run } = this.#admit(thread, input.content, attachments, active, hooks);
+    const { messageId, run } = this.#admit(
+      thread,
+      input.content,
+      attachments,
+      active,
+      hooks,
+      undefined,
+      input.requester,
+    );
     return { messageId, runId: run.id, queued: false };
   }
 
@@ -170,6 +193,7 @@ export class SessionController {
     supersedes: string | null,
     hooks: TxHooks,
     messageId?: string,
+    requester?: Requester,
   ): { messageId: string; run: Run } {
     const { db } = this.#ctx;
     if (supersedes === null) {
@@ -193,7 +217,7 @@ export class SessionController {
       claimWriter(db, thread.id, run.id);
       this.#bump();
       hooks.emit("run.updated", { run }, thread.id);
-      hooks.afterCommit(() => this.#startTurn(thread, run.id, content, attachments));
+      hooks.afterCommit(() => this.#startTurn(thread, run.id, content, attachments, requester));
       return { messageId: message.id, run };
     }
     const run = createRun(db, {
@@ -215,7 +239,7 @@ export class SessionController {
     this.#bump();
     hooks.emit("chat.message", { message }, thread.id);
     hooks.emit("run.updated", { run }, thread.id);
-    hooks.afterCommit(() => this.#startTurn(thread, run.id, content, attachments));
+    hooks.afterCommit(() => this.#startTurn(thread, run.id, content, attachments, requester));
     return { messageId: message.id, run };
   }
 
@@ -329,12 +353,18 @@ export class SessionController {
     for (const fn of after) fn();
   }
 
-  #startTurn(thread: Thread, runId: string, content: string, attachments: readonly string[]): void {
+  #startTurn(
+    thread: Thread,
+    runId: string,
+    content: string,
+    attachments: readonly string[],
+    requester?: Requester,
+  ): void {
     if (this.#stopping || this.#closing.has(thread.id)) return;
     const abort = new AbortController();
     const turn: ActiveTurn = { runId, abort, detached: false, done: Promise.resolve() };
     this.#active.set(thread.id, turn);
-    turn.done = this.#runTurn(thread, turn, content, attachments)
+    turn.done = this.#runTurn(thread, turn, content, attachments, requester)
       .catch((err) => this.#warn("turn crashed", err))
       .finally(() => {
         if (this.#active.get(thread.id) === turn) this.#active.delete(thread.id);
@@ -347,6 +377,7 @@ export class SessionController {
     turn: ActiveTurn,
     content: string,
     attachments: readonly string[],
+    requester?: Requester,
   ): Promise<void> {
     const { db, bus, agent } = this.#ctx;
     const { runId } = turn;
@@ -426,6 +457,7 @@ export class SessionController {
         mode: "attended",
         permissionMode: thread.permissionMode,
         signal: turn.abort.signal,
+        ...(requester === undefined ? {} : { requester }),
       });
       for await (const event of stream) {
         if (turn.detached || this.activeRunId(threadId) !== runId) {

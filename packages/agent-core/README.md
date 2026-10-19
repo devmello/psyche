@@ -57,10 +57,11 @@ startTurn
             ├─ validate params (invalid → error result, broker never sees it)
             ├─ before_tool_call ──── continue | block | suspend(approvalId) — never allow;
             │                         a throwing hook blocks (fail closed)
-            ├─ PermissionBroker.decide(intent, {taint, newTarget, permissionMode, unattended})
+            ├─ PermissionBroker.decide(intent, {taint, taintSources, newTarget, requester, …})
             │     deny → blocked │ ask → ApprovalRequest → awaitDecision → verifyBinding
             │                     (unattended: queued + notification, not attempted)
-            ├─ execute ───────────── tool_call(running, updates)
+            │     allow by a standing grant → the grant is re-read right before dispatch
+            ├─ execute ───────────── tool_call(running, updates); ctx.authority says what allowed it
             ├─ after_tool_call ──── may mask the result, never lower its provenance
             ├─ receipt for write+ ─ broker.recordReceipt, receipt block
             └─ tool_result_persist ─ the tool_calls row (data model §2) for the Gateway
@@ -96,8 +97,11 @@ const off = loop.registry.register({
 
 - `describeCall` can only make a call stricter: the loop uses the more severe of `spec.sideEffect` and `describeCall().sideEffect`.
 - A result's provenance is the worse of the executor's and the spec's `provenanceOut`.
-- Params are hashed (canonical JSON, security §3.5) for `paramsHash`; when `describeCall` gives `kind` and `bindingFields`, the loop computes `bindingHash` and re-verifies it with `verifyBinding` right before dispatch.
-- In-process tools can use `defineTool({ name, input: TypeBoxSchema, sideEffect, run(params, ctx) })`: TypeBox schemas are JSON Schema, params are validated before the broker, and `ctx` carries `threadId`, `runId`, `taskId`, `taint`, `approvalId` and the abort signal. The prompt's "zod → JSON Schema" is satisfied by TypeBox, which the protocol already uses.
+- Params are hashed (canonical JSON, security §3.5) for `paramsHash`; when `describeCall` gives `kind` and `bindingFields`, the loop computes `bindingHash` and re-verifies it with `verifyBinding` right before dispatch. `describeCall().grantKey` is namespaced by tool (`namespacedGrantKey` in the protocol: `<tool>|<key>`) so one tool's description can never borrow another's standing grants.
+- In-process tools can use `defineTool({ name, input: TypeBoxSchema, sideEffect, run(params, ctx) })`: TypeBox schemas are JSON Schema, params are validated before the broker, and `ctx` (`ToolRunContext`) carries `threadId`, `runId`, `taskId`, `taint`, `taintSources`, `requester`, `approvalId`, `authority` and the abort signal. The prompt's "zod → JSON Schema" is satisfied by TypeBox, which the protocol already uses.
+- **What authorized a call** (`ctx.authority`, protocol `ToolCallAuthority`): `{rule, bindingHash, grantKey?, approvalId?, grantId?, scope?}`. After an answered card it names the approval (and the grant a `task` / `site` / `session` / `always` answer created); after an `allow` by a standing grant it names the grant, which the loop re-reads from the ledger right before dispatch and fails closed if it is gone, revoked or expired. The loop stays the single verifier and consumer of `once` approvals; executors with their own enforcement (the connector registry, the browser) confirm, without consuming, that the approval or grant named here is live and covers the exact arguments they are about to send (`bindingHash` for an approval, the recomputed `grantKey` for a grant). The Gateway's `CallContexts.authorityFor(callId)` hands it to plain executors.
+- **Who asked** (`StartTurnInput.requester`, protocol `Requester`, from S10's `RouteContext` via `requesterFromRoute(route)`): the loop passes it to `decide` and on the approval request's `context`, so the broker applies the person's own matrix and grants (S05 PR #89) and keeps their chat off the card. A non-owner's text is content: it taints the turn (`channel_message`, with the sender) and never counts as the owner's words for new-target matching, so every write of theirs to a target asks the owner.
+- **Taint persistence** (S23 design-07/08): the final `tool_call` event of every call carries `details` (the `tool_calls` row: decision, rule, approval, `taintIn`, `taintOut`, provenance, receipt), so the Gateway stores taint with the result. `ThreadState.taint.sources` keeps the turn's sources while untrusted content remains in the transcript or summary, and the next turn, also after a Gateway restart with a durable store, starts tainted with them. `task.start` passes `taintSources` with `taint`, and a task run starts tainted with the task's sources until the owner re-approves its goal.
 - Active tool set per model call: per-tool toggles (C3) → hook narrowing → unattended runs drop `ask_user` and `exit_plan_mode` → plan mode keeps only `sideEffect: none` tools (plus `exit_plan_mode`). A call to a hidden tool is blocked with the reason.
 
 ### Built-in tool shells
@@ -155,6 +159,7 @@ When a run with a `taskId` would end `final` and the task has receipts, the loop
 
 - No concrete harness adapter ships yet: the Claude Code / Codex / pi adapters are plugins built on this seam.
 - `memory` `delete` / `rename` return `not_implemented` until `MemoryStore` has them (S07).
-- The default `ThreadStateStore` is in memory; the Gateway (S01) persists threads.
+- The default `ThreadStateStore` is in memory; the Gateway (S01) persists threads. Until it supplies a durable store, a Gateway restart loses the model transcript and with it the thread's saved taint sources (the `tool_calls` rows keep per-call taint).
+- The SQLite task engine (S04) persists `taint` but not yet `taintSources`; the fake keeps both.
 - Tool names with dots (`task.start`) are kept; the model router (S03) maps names a provider rejects.
 - Taint detection in injected daily notes relies on the `[untrusted]` line tag the memory store writes.
