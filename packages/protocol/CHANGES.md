@@ -18,6 +18,15 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S08 browser M2: recordings, I10)
+
+For S08 (`packages/browser` recorder), the Gateway composition (handlers) and S12 (the Activity sheet's replay UI).
+
+- New schemas `BrowserRecording`, `BrowserRecordingEvent` (`BrowserRecordingEventKind`: tab, navigation, snapshot, action, fill, download, blocked, control, dialog), `BrowserRecordingFrame`, `BrowserRecordingId`.
+- New methods `browser.recordings.list` (paged, by task or thread), `browser.recordings.get` (the replay index: events and frames, `sinceSeq` for a live recording), `browser.recordings.frame` (one screencast frame, base64), `browser.recordings.snapshot` (the snapshot text a `snapshot` event recorded, untrusted) and `browser.recordings.delete` (`operator.write`, side-effecting).
+- New event `browser.recording.updated {recording}`.
+- No contract or fake change: these are client methods over files the browser package writes.
+
 ### v1 additive — 2026-10-20 (S05 M2: audit.friction)
 
 - `audit.friction` (`since`, `until`; `operator.read`) returning `AuditFrictionResult` (with `AuditFrictionKind`): approval-friction metrics computed by `@psyche/permissions` `frictionMetrics` from the audit log's decision, approval, grant and classifier entries.
