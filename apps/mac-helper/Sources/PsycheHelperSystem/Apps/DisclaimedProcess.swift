@@ -28,7 +28,7 @@ public enum DisclaimedProcess {
         guard let setDisclaim else {
             throw CapabilityError.unavailable("disclaim_unsupported", "This macOS cannot spawn tools without the helper's permissions")
         }
-        return try await withCheckedThrowingContinuation { cont in
+        return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Output, Error>) in
             DispatchQueue.global(qos: .userInitiated).async {
                 cont.resume(with: Result { try spawn(path, args, timeout: timeout, setDisclaim: setDisclaim) })
             }

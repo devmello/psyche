@@ -375,10 +375,10 @@ public enum AutomationPermission {
 
     /// Asks (off the main thread; the call blocks while the prompt is up) and throws unless granted.
     static func ensure(bundleId: String, ask: Bool) async throws {
-        let state = await withCheckedContinuation { cont in
-            DispatchQueue.global(qos: .userInitiated).async { cont.resume(returning: state(bundleId: bundleId, ask: ask)) }
+        let current = await withCheckedContinuation { (cont: CheckedContinuation<State, Never>) in
+            DispatchQueue.global(qos: .userInitiated).async { cont.resume(returning: Self.state(bundleId: bundleId, ask: ask)) }
         }
-        switch state {
+        switch current {
         case .granted: return
         case .notRunning:
             throw CapabilityError(.unavailable, reason: "app_not_running", "\(bundleId) must be running before Automation can be asked; open it with apps.open")

@@ -251,7 +251,7 @@ public final class KeychainVault: Sendable {
     }
 
     private func onQueue<T: Sendable>(_ body: @escaping @Sendable () throws -> T) async throws -> T {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<T, Error>) in
             queue.async { continuation.resume(with: Result { try body() }) }
         }
     }

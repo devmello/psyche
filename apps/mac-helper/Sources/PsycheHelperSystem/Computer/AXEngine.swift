@@ -42,7 +42,7 @@ final class AXEngine: @unchecked Sendable {
 
     /// Runs `body` on the AX queue.
     func run<T: Sendable>(_ body: @escaping @Sendable (AXEngine) throws -> T) async throws -> T {
-        try await withCheckedThrowingContinuation { cont in
+        try await withCheckedThrowingContinuation { (cont: CheckedContinuation<T, Error>) in
             queue.async { cont.resume(with: Result { try body(self) }) }
         }
     }

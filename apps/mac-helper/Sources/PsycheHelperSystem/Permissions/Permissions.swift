@@ -178,7 +178,7 @@ public enum PermissionsCapabilities {
                 state = CGRequestListenEventAccess() ? "granted" : "prompted"
             case .automation:
                 guard let t = p.target else { throw CapabilityError.invalidParams("target is required for Automation", field: "target") }
-                state = await withCheckedContinuation { cont in
+                state = await withCheckedContinuation { (cont: CheckedContinuation<String, Never>) in
                     DispatchQueue.global().async { cont.resume(returning: AutomationPermission.state(bundleId: t, ask: true).rawValue) }
                 }
             case .fullDiskAccess:
@@ -187,7 +187,7 @@ public enum PermissionsCapabilities {
             case .microphone:
                 state = await AVCaptureDevice.requestAccess(for: .audio) ? "granted" : "denied"
             case .speechRecognition:
-                state = await withCheckedContinuation { cont in
+                state = await withCheckedContinuation { (cont: CheckedContinuation<String, Never>) in
                     SFSpeechRecognizer.requestAuthorization { cont.resume(returning: $0 == .authorized ? "granted" : "denied") }
                 }
             case .calendars:
