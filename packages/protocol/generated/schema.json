@@ -4753,6 +4753,12 @@
         },
         "mode": {
           "$ref": "#/$defs/QueueMode"
+        },
+        "replyToMessageId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
