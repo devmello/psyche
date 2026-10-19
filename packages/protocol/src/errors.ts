@@ -34,6 +34,12 @@ export const ErrorCode = StringEnum(
     "taint_blocked",
     "policy_denied",
     "internal",
+    // Browser bridge (spike 01): the desktop refuses agent input while the user holds the tab,
+    // reports a lost debugger session, an unknown tab and a CDP method outside its allowlist.
+    "user_in_control",
+    "debugger_detached",
+    "tab_not_found",
+    "method_not_allowed",
   ],
   { $id: "ErrorCode", description: "Machine-readable error code" },
 );

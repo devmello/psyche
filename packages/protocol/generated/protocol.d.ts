@@ -318,9 +318,20 @@ export interface BridgeCDPSendResult {
 export interface BridgeControlChangedPayload {
     state: BrowserController;
     tabId: string;
+    via?:  BridgeControlVia;
 }
 
 export type BrowserController = "agent" | "user" | "paused";
+
+/**
+ * What changed control: user input, the Take control button, Release or idle timeout
+ */
+export type BridgeControlVia = "keyboard" | "mouse" | "button" | "release" | "idle";
+
+export interface BridgeDebuggerDetachedPayload {
+    reason: string;
+    tabId:  string;
+}
 
 export interface BridgeDownloadPayload {
     at:              string;
@@ -354,7 +365,12 @@ export interface BridgeTabIDParams {
 export interface BridgeTabOpenParams {
     background?: boolean;
     profile?:    BrowserProfile;
-    url:         string;
+    taskId?:     string;
+    /**
+     * Shown in the pane: "<title> keeps running"
+     */
+    taskTitle?: string;
+    url:        string;
 }
 
 export type BrowserProfile = "logged-in" | "clean";
@@ -369,13 +385,38 @@ export interface BridgeTab {
      */
     attached: boolean;
     /**
+     * Electron window-open disposition, e.g. new-window, foreground-tab
+     */
+    disposition?: string;
+    openerTabId?: null | string;
+    /**
      * Electron session partition, e.g. persist:psyche
      */
     partition: string;
     profile:   BrowserProfile;
     tabId:     string;
+    taskId?:   null | string;
     title:     string;
     url:       string;
+}
+
+export interface BridgeTabStatusParams {
+    /**
+     * Element being acted on, CSS pixels in the viewport; outlined for 600 ms
+     */
+    highlight?: Highlight;
+    tabId:      string;
+    text?:      null | string;
+}
+
+/**
+ * Element being acted on, CSS pixels in the viewport; outlined for 600 ms
+ */
+export interface Highlight {
+    height: number;
+    width:  number;
+    x:      number;
+    y:      number;
 }
 
 export interface BridgeTabsListResult {
@@ -902,6 +943,36 @@ export interface ConnectorsListResult {
     connectors: Connector[];
 }
 
+export interface CredentialUpdatedPayload {
+    change:            Change;
+    credential?:       CredentialMeta | null;
+    credentialId:      string;
+    ownerConnectorId?: null | string;
+}
+
+export type Change = "created" | "updated" | "deleted" | "rotated" | "revoked" | "used";
+
+export interface CredentialMeta {
+    bindings:          CredentialBinding[];
+    createdAt:         string;
+    id:                string;
+    kind:              CredentialKind;
+    lastUsedAt?:       null | string;
+    name:              string;
+    ownerConnectorId?: null | string;
+    slug:              string;
+    updatedAt:         string;
+    useCount:          number;
+}
+
+export interface CredentialBinding {
+    origin?:    string;
+    host?:      string;
+    connector?: string;
+}
+
+export type CredentialKind = "login" | "api_key" | "oauth_token" | "ssh_key" | "note" | "payment_link" | "signing_key";
+
 export interface DecidedBy {
     deviceId?: string;
     /**
@@ -1107,7 +1178,7 @@ export interface ErrorPayload {
 /**
  * Machine-readable error code
  */
-export type ErrorCode = "not_implemented" | "invalid_frame" | "invalid_params" | "unknown_method" | "protocol_version_mismatch" | "unauthorized" | "forbidden" | "not_paired" | "pairing_pending" | "origin_rejected" | "not_found" | "conflict" | "idempotency_conflict" | "rate_limited" | "timeout" | "cancelled" | "unavailable" | "approval_required" | "approval_expired" | "approval_invalidated" | "approval_not_armed" | "answer_late" | "answer_replayed" | "binding_mismatch" | "taint_blocked" | "policy_denied" | "internal";
+export type ErrorCode = "not_implemented" | "invalid_frame" | "invalid_params" | "unknown_method" | "protocol_version_mismatch" | "unauthorized" | "forbidden" | "not_paired" | "pairing_pending" | "origin_rejected" | "not_found" | "conflict" | "idempotency_conflict" | "rate_limited" | "timeout" | "cancelled" | "unavailable" | "approval_required" | "approval_expired" | "approval_invalidated" | "approval_not_armed" | "answer_late" | "answer_replayed" | "binding_mismatch" | "taint_blocked" | "policy_denied" | "internal" | "user_in_control" | "debugger_detached" | "tab_not_found" | "method_not_allowed";
 
 export type FrameType = "req" | "res" | "event";
 
@@ -2395,6 +2466,59 @@ export interface UsageRecord {
     runId?:     null | string;
 }
 
+export interface VaultAddParams {
+    bindings:            CredentialBinding[];
+    kind:                CredentialKind;
+    name:                string;
+    requireAuthEachUse?: boolean;
+    secret:              CredentialSecretInput;
+    slug?:               string;
+}
+
+export interface CredentialSecretInput {
+    headerName?:   string;
+    headerPrefix?: string;
+    password?:     string;
+    privateKey?:   string;
+    text?:         string;
+    token?:        string;
+    totpSecret?:   string;
+    username?:     string;
+}
+
+export interface VaultAddResult {
+    credential: CredentialMeta;
+}
+
+export interface VaultConfirmRecoveryParams {
+    lastGroup: string;
+}
+
+export interface VaultConfirmRecoveryResult {
+    status: VaultStatus;
+}
+
+export interface VaultStatus {
+    autoLockMinutes:   number;
+    itemCount:         number;
+    lockAt?:           null | string;
+    recoveryConfirmed: boolean;
+    slots:             VaultKeySlot[];
+    state:             State;
+}
+
+export type VaultKeySlot = "keychain" | "safe_storage" | "key_file" | "recovery";
+
+export type State = "uninitialized" | "locked" | "unlocked";
+
+export interface VaultDeleteParams {
+    credentialId: string;
+}
+
+export interface VaultDeleteResult {
+    deleted: boolean;
+}
+
 export interface VaultGetParams {
     credentialId: string;
 }
@@ -2403,26 +2527,22 @@ export interface VaultGetResult {
     credential: CredentialMeta;
 }
 
-export interface CredentialMeta {
-    bindings:          CredentialBinding[];
-    createdAt:         string;
-    id:                string;
-    kind:              CredentialKind;
-    lastUsedAt?:       null | string;
-    name:              string;
-    ownerConnectorId?: null | string;
-    slug:              string;
-    updatedAt:         string;
-    useCount:          number;
+export interface VaultImportParams {
+    csv:    string;
+    format: Format;
 }
 
-export interface CredentialBinding {
-    origin?:    string;
-    host?:      string;
-    connector?: string;
+export type Format = "auto" | "1password" | "bitwarden" | "chrome";
+
+export interface VaultImportResult {
+    imported: CredentialMeta[];
+    skipped:  Skipped[];
 }
 
-export type CredentialKind = "login" | "api_key" | "oauth_token" | "ssh_key" | "note" | "payment_link" | "signing_key";
+export interface Skipped {
+    reason: string;
+    row:    number;
+}
 
 export interface VaultListParams {
     kind?: CredentialKind;
@@ -2431,6 +2551,83 @@ export interface VaultListParams {
 export interface VaultListResult {
     credentials: CredentialMeta[];
 }
+
+export interface VaultLockResult {
+    status: VaultStatus;
+}
+
+export interface VaultLockedPayload {
+    reason: Reason;
+    status: VaultStatus;
+}
+
+export type Reason = "manual" | "idle" | "sleep" | "screen_lock" | "shutdown";
+
+export interface VaultSetupParams {
+    slot: Slot;
+}
+
+export type Slot = "keychain" | "safe_storage" | "key_file";
+
+export interface VaultSetupResult {
+    recoveryKey: string;
+    status:      VaultStatus;
+}
+
+export interface VaultStatusResult {
+    status: VaultStatus;
+}
+
+export interface VaultUnlockParams {
+    reason:       string;
+    recoveryKey?: string;
+}
+
+export interface VaultUnlockResult {
+    status: VaultStatus;
+}
+
+export interface VaultUnlockedPayload {
+    status: VaultStatus;
+    via:    VaultKeySlot;
+}
+
+export interface VaultUpdateParams {
+    bindings?:           CredentialBinding[];
+    credentialId:        string;
+    name?:               string;
+    requireAuthEachUse?: boolean;
+    secret?:             CredentialSecretInput;
+}
+
+export interface VaultUpdateResult {
+    credential: CredentialMeta;
+}
+
+export interface VaultUsesParams {
+    credentialId: string;
+    limit?:       number;
+}
+
+export interface VaultUsesResult {
+    uses: CredentialUse[];
+}
+
+export interface CredentialUse {
+    approvalId?:  null | string;
+    createdAt:    string;
+    credentialId: string;
+    executor:     Executor;
+    id:           string;
+    outcome:      Outcome;
+    reason?:      null | string;
+    target:       string;
+    taskId?:      null | string;
+}
+
+export type Executor = "browser" | "connector" | "sandbox" | "ssh";
+
+export type Outcome = "filled" | "denied" | "failed";
 
 export interface ViewCommandPayload {
     args:       { [key: string]: unknown };
@@ -2484,6 +2681,10 @@ export interface ViewOpenResult {
 export interface ViewPaneRef {
     pane?:   ViewPane;
     paneId?: string;
+}
+
+export interface ViewReportParams {
+    layout: ViewLayout;
 }
 
 export interface WrapUpBlock {
