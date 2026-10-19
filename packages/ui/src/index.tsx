@@ -102,7 +102,13 @@ export * from "./data/index.ts";
 // Formatting helpers.
 export * from "./lib/format.ts";
 export { cn } from "./lib/utils.ts";
-
+// Screens.
+export * from "./screens/feed/index.ts";
+export * from "./screens/goals/index.ts";
+export * from "./screens/ideas/index.ts";
+export * from "./screens/inbox/index.ts";
+export * from "./screens/library/index.ts";
+export * from "./screens/search/index.ts";
 // Shell pieces.
 export { AppShell, type AppShellProps } from "./shell/AppShell.tsx";
 export {
