@@ -11,7 +11,9 @@ import {
  * Node-only entry (`@psyche/viewers/bundler`) for the Gateway: the files of the self-hosted
  * React artifact bundler, built from this package's own dependencies (React 19 production CJS
  * builds and `@babel/standalone`), so the bundler origin serves everything itself. Mount it on a
- * dedicated loopback port (or a `bundler.` host), never on the app or artifacts origin.
+ * dedicated loopback port that serves nothing else (404 for every other path), never on the app,
+ * Gateway API or artifacts origin: the bundler CSP lists this origin in `script-src` and
+ * `style-src`, so artifact code can make GET requests to it with any path and query.
  *
  * ```ts
  * const res = await reactBundlerResponse(url.pathname, { appOrigin, bundlerOrigin });

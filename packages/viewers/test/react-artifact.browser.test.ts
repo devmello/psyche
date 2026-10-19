@@ -221,6 +221,64 @@ describe.skipIf(chrome === undefined)(
       expect(urls.some((u) => u.startsWith(ext.origin))).toBe(false);
     }, 60_000);
 
+    it("honours only the first `initialized`, so a frame cannot make the app re-post its files", async () => {
+      const { page } = await open(`import { useEffect } from "react";
+export default function App() {
+  useEffect(() => {
+    for (let i = 0; i < 500; i++) parent.postMessage({ codesandbox: true, type: "initialized" }, "*");
+    setTimeout(() => parent.postMessage({ probe: { flooded: true } }, "*"), 500);
+  }, []);
+  return <p>flood</p>;
+}`);
+      await page.waitForFunction(
+        () => window.messages.some((m) => (m.data as { probe?: unknown })?.probe !== undefined),
+        undefined,
+        { timeout: 20_000 },
+      );
+      await page.waitForTimeout(500);
+      const runs = (await events(page)).filter((e) => e.value === "running").length;
+      await page.close();
+      expect(runs).toBe(1);
+    }, 60_000);
+
+    it("unmounts every React root before a recompile, including a user-written index", async () => {
+      const version = (v: string) =>
+        JSON.stringify({
+          files: {
+            "/index.tsx": `import { createRoot } from "react-dom/client";
+import { useEffect } from "react";
+function App() {
+  useEffect(() => { const t = setInterval(() => parent.postMessage({ tick: "${v}" }, "*"), 40); return () => clearInterval(t); }, []);
+  return <p>${v}</p>;
+}
+createRoot(document.getElementById("root")!).render(<App />);`,
+          },
+        });
+      const { page } = await open(version("v1"));
+      const ticks = (v: string) =>
+        page.evaluate(
+          (tag) =>
+            window.messages.filter((m) => (m.data as { tick?: string })?.tick === tag).length,
+          v,
+        );
+      await page.waitForFunction(
+        () => window.messages.some((m) => (m.data as { tick?: string })?.tick === "v1"),
+        undefined,
+        { timeout: 20_000 },
+      );
+      await page.evaluate((src) => window.updateArtifact(src), version("v2"));
+      await page.waitForFunction(
+        () => window.messages.some((m) => (m.data as { tick?: string })?.tick === "v2"),
+        undefined,
+        { timeout: 20_000 },
+      );
+      const before = await ticks("v1");
+      await page.waitForTimeout(400);
+      const after = await ticks("v1");
+      await page.close();
+      expect(after).toBe(before);
+    }, 60_000);
+
     it("reports a syntax error through the Sandpack protocol", async () => {
       const { page } = await open("export default function App() { return <div>; }");
       await page.waitForFunction(() => window.events.some((e) => e.kind === "error"), undefined, {

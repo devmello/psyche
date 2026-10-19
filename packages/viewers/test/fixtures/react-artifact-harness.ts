@@ -7,6 +7,7 @@ declare global {
     loads: number;
     messages: { origin: string; fromFrame: boolean; data: unknown }[];
     mountArtifact(source: string, bundlerUrl: string): Promise<string>;
+    updateArtifact(source: string): void;
   }
 }
 
@@ -28,13 +29,17 @@ window.mountArtifact = async (source, bundlerUrl) => {
   frame.addEventListener("load", () => {
     if (frame.getAttribute("src") !== null) window.loads++;
   });
-  const files = source.trimStart().startsWith("{")
-    ? (JSON.parse(source) as { files: Record<string, string> }).files
-    : { "/App.tsx": source };
-  const handle = await mountReactArtifact(frame, files, {
+  const handle = await mountReactArtifact(frame, toFiles(source), {
     bundlerUrl,
     onStatus: (s) => window.events.push({ kind: "status", value: s }),
     onError: (m) => window.events.push({ kind: "error", value: m }),
   });
+  window.updateArtifact = (next) => handle.update(toFiles(next));
   return handle.channel;
 };
+
+function toFiles(source: string): Record<string, string> {
+  return source.trimStart().startsWith("{")
+    ? (JSON.parse(source) as { files: Record<string, string> }).files
+    : { "/App.tsx": source };
+}

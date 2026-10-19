@@ -23,9 +23,14 @@ export function lossNote(loss: SnapshotLoss): string | undefined {
     loss.styled ? "cell formatting (fonts, fills, borders)" : undefined,
     loss.comments ? "comments" : undefined,
     loss.images ? "images" : undefined,
+    loss.links ? "hyperlinks" : undefined,
+    loss.arrays ? "array formulas (saved as ordinary formulas)" : undefined,
   ].filter((p): p is string => p !== undefined);
-  if (parts.length === 0) return undefined;
-  return `Saving keeps values, formulas, number formats, merges and sizes, but not ${parts.join(", ")}.`;
+  const names = loss.names
+    ? " Named ranges are kept in the file, but formulas using them show #NAME? here."
+    : "";
+  if (parts.length === 0) return names === "" ? undefined : names.trim();
+  return `Saving keeps values, formulas, number formats, merges and sizes, but not ${parts.join(", ")}.${names}`;
 }
 
 type SaveState =
@@ -96,7 +101,7 @@ function EditorSurface(
     if (s === null || props.onSave === undefined) return;
     setSave({ kind: "saving" });
     try {
-      const bytes = await fromUniverSnapshot(s.snapshot(), snapshot.format);
+      const bytes = await fromUniverSnapshot(s.snapshot(), snapshot.format, snapshot.carry);
       await props.onSave({ name: props.item.name, mime: SHEET_MIME[snapshot.format], bytes });
       setDirty(false);
       setSave({ kind: "saved" });
@@ -108,7 +113,7 @@ function EditorSurface(
   const note = lossNote(snapshot.loss);
   const csvNote =
     snapshot.format === "csv" || snapshot.format === "tsv"
-      ? `Saving writes the first sheet's values as ${snapshot.format.toUpperCase()}; formulas become their results.`
+      ? `Saving writes the first sheet's values as ${snapshot.format.toUpperCase()} in the file's own delimiter and line endings; formulas become their results.`
       : undefined;
 
   return (

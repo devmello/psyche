@@ -106,9 +106,10 @@ export function reactSandboxSetup(files: ReactArtifactFiles): ReactSandboxSetup 
   const entry = entryOf(valid) as string;
   if (!(entry in out)) {
     const app = (APPS.find((p) => p in valid) as string).replace(/\.(tsx|jsx|ts|js)$/, "");
-    // `__psycheRoot` lets the bundler unmount before a recompile.
+    // The bundler tracks every root created through react-dom/client and unmounts them all
+    // before a recompile, so a user-written index works the same way.
     out[entry] = {
-      code: `import { createRoot } from "react-dom/client";\nimport App from ".${app}";\nexport const __psycheRoot = createRoot(document.getElementById("root"));\n__psycheRoot.render(<App />);\n`,
+      code: `import { createRoot } from "react-dom/client";\nimport App from ".${app}";\ncreateRoot(document.getElementById("root")).render(<App />);\n`,
     };
   }
   // package.json is what the Sandpack client reads; versions are the ones the bundler ships.
@@ -186,11 +187,16 @@ export function reactBundlerPage(): string {
 export const REACT_BUNDLER_RUNTIME = `(function(){
 "use strict";
 var VENDOR=window.__psycheVendor||{},ALLOWED=${JSON.stringify(REACT_ARTIFACT_MODULES)},proc={env:{NODE_ENV:"production"}};
-var C=decodeURIComponent((location.hash.match(/[#&]channel=([0-9a-f]{1,64})/)||[])[1]||""),id=null,root=null,styles=[],first=true;
+var C=decodeURIComponent((location.hash.match(/[#&]channel=([0-9a-f]{1,64})/)||[])[1]||""),id=null,styles=[],first=true;
 function post(m){m.codesandbox=true;if(id!==null)m.$id=id;try{parent.postMessage(m,"*")}catch(e){}}
 function bridge(m){m.tag=${JSON.stringify(BRIDGE_TAG)};m.channel=C;try{parent.postMessage(m,"*")}catch(e){}}
 var vcache={};
-function vendor(n){if(ALLOWED.indexOf(n)<0&&n!=="scheduler")return undefined;if(vcache[n])return vcache[n].exports;var f=VENDOR[n];if(typeof f!=="function")return undefined;var m={exports:{}};vcache[n]=m;f(m,m.exports,function(r){var v=vendor(r);if(v===undefined)throw new Error("module not found: "+r);return v},proc);return m.exports}
+function vendor(n){if(ALLOWED.indexOf(n)<0&&n!=="scheduler")return undefined;if(vcache[n])return vcache[n].exports;var f=VENDOR[n];if(typeof f!=="function")return undefined;var m={exports:{}};vcache[n]=m;f(m,m.exports,function(r){var v=vendor(r);if(v===undefined)throw new Error("module not found: "+r);return v},proc);
+ if(n==="react-dom/client")m.exports=trackRoots(m.exports);return m.exports}
+var roots=[];
+function trackRoots(c){var o={};Object.keys(c).forEach(function(k){o[k]=c[k]});
+ o.createRoot=function(){var r=c.createRoot.apply(c,arguments);roots.push(r);return r};
+ o.hydrateRoot=function(){var r=c.hydrateRoot.apply(c,arguments);roots.push(r);return r};return o}
 function norm(p){var o=[];p.split("/").forEach(function(s){if(s===""||s===".")return;if(s==="..")o.pop();else o.push(s)});return "/"+o.join("/")}
 function dir(p){return p.slice(0,p.lastIndexOf("/"))||"/"}
 var EXT=["",".tsx",".ts",".jsx",".js",".css",".json","/index.tsx","/index.ts","/index.jsx","/index.js"];
@@ -198,7 +204,7 @@ function fail(err,path){var msg=String(err&&err.message||err).slice(0,2000);var 
  post({type:"action",action:"show-error",title:path?"SyntaxError":"Error",path:path||"",message:msg,line:loc.line||0,column:loc.column||0,payload:{}});
  bridge({type:"error",message:msg.slice(0,500)});
  var pre=document.createElement("pre");pre.setAttribute("role","alert");pre.style.cssText="white-space:pre-wrap;color:#b42318;font:12px ui-monospace,monospace;padding:12px;margin:0";pre.textContent=msg;document.body.appendChild(pre)}
-function reset(){if(root&&root.unmount){try{root.unmount()}catch(e){}}root=null;styles.forEach(function(s){s.remove()});styles=[];
+function reset(){roots.splice(0).forEach(function(r){try{r.unmount()}catch(e){}});styles.forEach(function(s){s.remove()});styles=[];
  Array.prototype.slice.call(document.body.children).forEach(function(n){n.remove()});var r=document.createElement("div");r.id="root";document.body.appendChild(r)}
 function run(msg){
  if(typeof msg.$id==="number")id=msg.$id;
@@ -219,7 +225,7 @@ function run(msg){
   fn(m,m.exports,function(r){if(r.charAt(0)==="."||r.charAt(0)==="/"){var p=resolve(path,r);if(p===null)throw new Error("Cannot find module '"+r+"' from "+path);return load(p)}
    var v=vendor(r);if(v===undefined)throw new Error("'"+r+"' is not available offline. React artifacts can import "+ALLOWED.join(", ")+".");return v},proc);
   return m.exports}
- try{post({type:"status",status:"evaluating"});var out=load(entry);root=out&&out.__psycheRoot||null;post({type:"success"});post({type:"done",compilatonError:false})}
+ try{post({type:"status",status:"evaluating"});load(entry);post({type:"success"});post({type:"done",compilatonError:false})}
  catch(e){fail(e,current);post({type:"done",compilatonError:true})}
  post({type:"status",status:"idle"})}
 addEventListener("message",function(e){if(e.source!==parent)return;var d=e.data;if(!d||typeof d!=="object")return;

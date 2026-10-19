@@ -70,10 +70,16 @@ Univer's sheets UI (formulas, number formats, merges, sizing, undo) over a snaps
 `toUniverSnapshot` built with SheetJS CE, because xlsx import/export is a Univer Pro feature.
 **Save** is explicit; `fromUniverSnapshot` writes the edited snapshot back to the file's own format
 and `onSave` receives `{ name, mime, bytes }`. Kept: values and types, formulas with Univer's
-recalculated results, number formats, merges, column widths, row heights, sheet names and order.
-Not kept (said in a note before saving): fonts, fills, borders, comments, images. CSV/TSV keep
-text such as `007` or `1.50` exactly and write the first sheet's values. Sheets over 2M cells stay
-read-only. **Done** asks before discarding unsaved edits; the grid re-reads the file afterwards.
+recalculated results (filled or pasted formulas are resolved per cell before saving), number
+formats, merges, column widths, row heights, hidden rows, columns and sheets, sheet names and
+order; carried around Univer: defined names (formulas using them show `#NAME?` in the editor but
+keep working in the file) and the 1904 date system. Not kept (a note says which apply before
+saving): fonts, fills, borders, comments, images, hyperlinks; array formulas become ordinary
+formulas. CSV/TSV keep their delimiter, BOM, line endings and final newline, never reformat
+numbers (`007`, `1.50`, 19-digit ids stay as written), and write the first sheet's values. Sheets
+over 2M cells stay read-only. Opening a file is not an edit (formula recalculation and view
+changes do not mark it dirty). **Done** asks before discarding unsaved edits; the grid re-reads
+the file afterwards.
 
 Univer (≈ 7 MB minified, 1.8 MB gzip, plus 116 KB CSS) is only imported when Edit is pressed
 (`react/univer.ts`); formulas run on the main thread, so no worker origin is needed, and it makes
@@ -127,7 +133,11 @@ from its default export) or JSON `{"files": {"/App.tsx": "…", "/styles.css": "
 - The app runs `@codesandbox/sandpack-client` 2.19.8 (Apache-2.0; ≈ 29 KB gzip, lazily loaded),
   which frames the bundler with `sandbox="allow-scripts"`: an opaque origin, like every artifact.
   The client posts to the bundler URL's origin, which an opaque frame never matches, so
-  `mountReactArtifact` targets `"*"`; replies are still accepted only from that frame's window.
+  `mountReactArtifact` targets `"*"`. Messages go to that frame's window; if the frame navigated
+  elsewhere first they would follow it, which the app's `frame-src` (no other origin can load in
+  the frame) and the teardown on a second load prevent. Replies are accepted only from that
+  frame's window, and only the first `initialized` is honoured (artifact code cannot make the app
+  re-post its files in a loop).
 - The bundler is ours and speaks Sandpack's runtime protocol (`initialized`, `register-frame`,
   `compile` → `start`/`status`/`action show-error`/`done`). The Gateway serves it with
   `reactBundlerResponse` on its own loopback origin: `/` (page), `/runtime.js`, `/vendor.js`
@@ -140,7 +150,10 @@ from its default export) or JSON `{"files": {"/App.tsx": "…", "/styles.css": "
   `connect-src 'none'` blocks every request, to the bundler origin too.
 - Bridge: the bundler page carries the artifact bridge with the channel from the URL fragment
   (`resize`, `open-link`, `error`). Any load after the first (the frame navigating itself) tears
-  the frame down.
+  the frame down. A recompile (update by name) unmounts every root made through
+  `react-dom/client` first.
+- Serve the bundler on a dedicated loopback port that answers only its four paths: its origin is
+  in the page's `script-src`, so artifact code can send GETs to it.
 - Proof: `test/react-artifact.browser.test.ts` (Chrome): a TypeScript counter compiles and runs;
   a hostile artifact cannot read the parent, cookies, storage or IndexedDB, and fetch (other hosts
   and the bundler origin), XHR, beacon, WebSocket, workers, service workers, images, scripts, CSS,

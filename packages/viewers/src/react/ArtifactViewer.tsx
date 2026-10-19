@@ -54,8 +54,12 @@ export function ArtifactViewer(props: ArtifactViewerProps) {
               props.onSaveToLibrary?.({
                 ...(item.mime === REACT_ARTIFACT_MIME
                   ? {
-                      name: item.name.endsWith(".tsx") ? item.name : `${item.name}.tsx`,
-                      mime: "text/plain",
+                      // Stays a runnable React artifact: one component, or the JSON file map.
+                      name: withExtension(
+                        item.name,
+                        state.value.trimStart().startsWith("{") ? ".json" : ".tsx",
+                      ),
+                      mime: REACT_ARTIFACT_MIME,
                     }
                   : {
                       name: item.name.endsWith(".html") ? item.name : `${item.name}.html`,
@@ -103,3 +107,5 @@ export function ArtifactViewer(props: ArtifactViewerProps) {
     </div>
   );
 }
+
+const withExtension = (name: string, ext: string) => (name.endsWith(ext) ? name : `${name}${ext}`);

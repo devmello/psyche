@@ -8,9 +8,13 @@ import { extensionOf } from "./registry.ts";
  * import/export (that is a Pro feature), so files go through SheetJS CE both ways:
  * bytes → SheetJS → Univer `IWorkbookData` snapshot → (user edits in Univer) → snapshot →
  * SheetJS → bytes. Kept: values and their types, formulas (with Univer's cached results),
- * number formats, merges, column widths, row heights, sheet order and names. Dropped (Univer
- * would need Pro or SheetJS Pro to carry them): fonts, fills, borders, charts, pivots, images,
- * comments, data validation, conditional formatting. The editor says so before the first save.
+ * number formats, merges, column widths, row heights, hidden rows / columns / sheets, sheet order
+ * and names, and (carried around Univer, which does not model them) defined names, the 1904 date
+ * system and the CSV dialect (delimiter, BOM, line endings). Shared formulas are resolved per cell
+ * by the editor before saving (`applyFormulas`). Dropped (Univer would need Pro or SheetJS Pro to
+ * carry them): fonts, fills, borders, charts, pivots, images, comments, hyperlinks, data
+ * validation, conditional formatting; array formulas become ordinary formulas. The editor says
+ * which of these a file has before the first save.
  *
  * DOM-free: the Gateway and tests use it without Univer's UI. Type-only imports from
  * `@univerjs/core`, so nothing of Univer is bundled from here.
@@ -46,19 +50,37 @@ export interface SnapshotLoss {
   styled: boolean;
   comments: boolean;
   images: boolean;
+  /** Hyperlinks (`cell.l`). */
+  links?: boolean;
+  /** Array / dynamic-array formulas, saved back as ordinary formulas. */
+  arrays?: boolean;
+  /** Defined names: kept in the file, but Univer shows `#NAME?` for formulas using them. */
+  names?: boolean;
+}
+
+/** What Univer does not model but the file needs back on save. */
+export interface SnapshotCarry {
+  csv?: { delimiter: string; bom: boolean; eol: "\n" | "\r\n"; finalNewline: boolean };
+  /** SheetJS `wb.Workbook` defined names. */
+  names?: unknown[];
+  date1904?: boolean;
 }
 
 export interface UniverSnapshot {
   data: IWorkbookData;
   format: EditableSheetFormat;
   loss: SnapshotLoss;
+  carry: SnapshotCarry;
 }
 
 const MIN_ROWS = 100;
 const MIN_COLS = 26;
 const sheetId = (i: number) => `sheet-${i + 1}`;
 
-/** Plain decimal numbers keep their exact text when written back to CSV ("007" and "1.50" don't). */
+/**
+ * Plain decimal numbers become numbers when they print back exactly ("007", "1.50" and
+ * 1234567890123456789 stay text); the writer prints numbers raw, never in General format.
+ */
 function csvCell(raw: string): ICellData | undefined {
   if (raw === "") return undefined;
   if (/^-?(0|[1-9]\d{0,14})(\.\d*[1-9])?$/.test(raw) && String(Number(raw)) === raw) {
@@ -72,7 +94,11 @@ function emptySheet(
   name: string,
   rows: number,
   cols: number,
-): Partial<IWorksheetData> & { cellData: Record<number, Record<number, ICellData>> } {
+): Omit<Partial<IWorksheetData>, "cellData" | "rowData" | "columnData"> & {
+  cellData: Record<number, Record<number, ICellData>>;
+  rowData: Record<number, { h?: number; hd?: 0 | 1 }>;
+  columnData: Record<number, { w?: number; hd?: 0 | 1 }>;
+} {
   return {
     id,
     name,
@@ -122,11 +148,20 @@ export async function toUniverSnapshot(bytes: Uint8Array, name: string): Promise
   const title = name.replace(/\.[^.]+$/, "") || "Sheet1";
   const data = snapshotShell(title);
   const loss: SnapshotLoss = { styled: false, comments: false, images: false };
+  const carry: SnapshotCarry = {};
 
   if (format === "csv" || format === "tsv") {
-    const parsed = parseCsv(new TextDecoder("utf-8").decode(bytes), {
+    const text = new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes);
+    const parsed = parseCsv(text, {
       ...(format === "tsv" ? { delimiter: "\t" } : {}),
     });
+    const eol = text.includes("\r\n") ? "\r\n" : "\n";
+    carry.csv = {
+      delimiter: parsed.delimiter,
+      bom: text.charCodeAt(0) === 0xfeff,
+      eol,
+      finalNewline: text.endsWith("\n"),
+    };
     const cols = parsed.rows.reduce((m, r) => Math.max(m, r.length), 0);
     guardCells(parsed.rows.length * cols);
     const ws = emptySheet(sheetId(0), title, parsed.rows.length, cols);
@@ -137,8 +172,8 @@ export async function toUniverSnapshot(bytes: Uint8Array, name: string): Promise
       });
     });
     data.sheetOrder.push(ws.id as string);
-    data.sheets[ws.id as string] = ws;
-    return { data, format, loss };
+    data.sheets[ws.id as string] = ws as Partial<IWorksheetData>;
+    return { data, format, loss, carry };
   }
 
   // SheetJS CE from the vendor tarball (ADR-013), loaded lazily like the viewer does.
@@ -153,6 +188,12 @@ export async function toUniverSnapshot(bytes: Uint8Array, name: string): Promise
     cellHTML: false,
   });
   const patterns = new Map<string, string>();
+  const names = wb.Workbook?.Names ?? [];
+  if (names.length > 0) {
+    carry.names = names;
+    loss.names = true;
+  }
+  if (wb.Workbook?.WBProps?.date1904 === true) carry.date1904 = true;
   wb.SheetNames.forEach((sheetName, i) => {
     const src = wb.Sheets[sheetName];
     if (src === undefined) return;
@@ -167,6 +208,8 @@ export async function toUniverSnapshot(bytes: Uint8Array, name: string): Promise
         if (cell === undefined) return;
         const out = fromSheetJsCell(cell, patterns, data.styles);
         if (cell.c !== undefined && cell.c.length > 0) loss.comments = true;
+        if (cell.l !== undefined) loss.links = true;
+        if (cell.F !== undefined || (cell as { D?: boolean }).D === true) loss.arrays = true;
         const s = (cell as { s?: Record<string, unknown> }).s;
         if (s !== undefined && Object.keys(s).some((k) => k !== "patternType")) loss.styled = true;
         if (out !== undefined) setCell(ws.cellData, r, c, out);
@@ -181,17 +224,26 @@ export async function toUniverSnapshot(bytes: Uint8Array, name: string): Promise
       });
     }
     (src["!cols"] ?? []).forEach((col, c) => {
-      if (col?.wpx !== undefined)
-        (ws.columnData as Record<number, { w: number }>)[c] = { w: col.wpx };
+      if (col === undefined) return;
+      const d: { w?: number; hd?: 0 | 1 } = {};
+      if (col.wpx !== undefined) d.w = col.wpx;
+      if (col.hidden === true) d.hd = 1;
+      if (Object.keys(d).length > 0) ws.columnData[c] = d;
     });
     (src["!rows"] ?? []).forEach((row, r) => {
-      if (row?.hpx !== undefined) (ws.rowData as Record<number, { h: number }>)[r] = { h: row.hpx };
+      if (row === undefined) return;
+      const d: { h?: number; hd?: 0 | 1 } = {};
+      if (row.hpx !== undefined) d.h = row.hpx;
+      if (row.hidden === true) d.hd = 1;
+      if (Object.keys(d).length > 0) ws.rowData[r] = d;
     });
+    const hidden = wb.Workbook?.Sheets?.[i]?.Hidden;
+    if (hidden === 1 || hidden === 2) ws.hidden = 1;
     if ((src as { "!images"?: unknown[] })["!images"]?.length) loss.images = true;
     data.sheetOrder.push(ws.id as string);
-    data.sheets[ws.id as string] = ws;
+    data.sheets[ws.id as string] = ws as Partial<IWorksheetData>;
   });
-  return { data, format, loss };
+  return { data, format, loss, carry };
 }
 
 function fromSheetJsCell(
@@ -279,13 +331,38 @@ function toSheetJsCell(data: IWorkbookData, cell: ICellData): CellObject | undef
   return out;
 }
 
+/**
+ * Puts the editor's per-cell formulas (`FRange.getFormulas()`, shared formulas resolved) into a
+ * snapshot: Univer stores a filled or pasted formula as `{ si }` without `f`, which would
+ * otherwise save as a constant.
+ */
+export function applyFormulas(data: IWorkbookData, sheetId: string, formulas: string[][]): void {
+  const cells = data.sheets[sheetId]?.cellData as
+    | Record<number, Record<number, ICellData | null>>
+    | undefined;
+  if (cells === undefined) return;
+  formulas.forEach((row, r) => {
+    row.forEach((f, c) => {
+      if (typeof f !== "string" || !f.startsWith("=")) return;
+      const cell = cells[r]?.[c];
+      if (cell === undefined || cell === null) {
+        setCell(cells as Record<number, Record<number, ICellData>>, r, c, { f });
+      } else if (typeof cell.f !== "string" || cell.f === "") {
+        cell.f = f;
+      }
+    });
+  });
+}
+
 /** Writes a snapshot back to the file's own format. CSV/TSV write the first sheet's values. */
 export async function fromUniverSnapshot(
   data: IWorkbookData,
   format: EditableSheetFormat,
+  carry: SnapshotCarry = {},
 ): Promise<Uint8Array> {
   const XLSX = await import("xlsx");
   const wb = XLSX.utils.book_new();
+  const visibility: { Hidden: 0 | 1 }[] = [];
   for (const id of data.sheetOrder) {
     const src = data.sheets[id];
     if (src === undefined) continue;
@@ -311,39 +388,77 @@ export async function fromUniverSnapshot(
       e: { r: m.endRow, c: m.endColumn },
     }));
     if (merges.length > 0) ws["!merges"] = merges;
-    const colData = (src.columnData ?? {}) as Record<string, { w?: number } | undefined>;
-    const cols: { wpx?: number }[] = [];
-    for (const [k, v] of Object.entries(colData))
-      if (v?.w !== undefined) cols[Number(k)] = { wpx: v.w };
+    const colData = (src.columnData ?? {}) as Record<
+      string,
+      { w?: number; hd?: number } | undefined
+    >;
+    const cols: { wpx?: number; hidden?: boolean }[] = [];
+    for (const [k, v] of Object.entries(colData)) {
+      const d: { wpx?: number; hidden?: boolean } = {};
+      if (v?.w !== undefined) d.wpx = v.w;
+      if (v?.hd === 1) d.hidden = true;
+      if (Object.keys(d).length > 0) cols[Number(k)] = d;
+    }
     if (cols.length > 0) ws["!cols"] = Array.from(cols, (c) => c ?? {});
-    const rowData = (src.rowData ?? {}) as Record<string, { h?: number } | undefined>;
-    const rows: { hpx?: number }[] = [];
-    for (const [k, v] of Object.entries(rowData))
-      if (v?.h !== undefined) rows[Number(k)] = { hpx: v.h };
+    const rowData = (src.rowData ?? {}) as Record<string, { h?: number; hd?: number } | undefined>;
+    const rows: { hpx?: number; hidden?: boolean }[] = [];
+    for (const [k, v] of Object.entries(rowData)) {
+      const d: { hpx?: number; hidden?: boolean } = {};
+      if (v?.h !== undefined) d.hpx = v.h;
+      if (v?.hd === 1) d.hidden = true;
+      if (Object.keys(d).length > 0) rows[Number(k)] = d;
+    }
     if (rows.length > 0) ws["!rows"] = Array.from(rows, (r) => r ?? {});
     XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb.SheetNames, src.name ?? id));
+    visibility.push({ Hidden: src.hidden === 1 ? 1 : 0 });
   }
   if (wb.SheetNames.length === 0) XLSX.utils.book_append_sheet(wb, {}, "Sheet1");
+  // Excel needs at least one visible sheet.
+  if (visibility.length > 0 && visibility.every((v) => v.Hidden === 1)) {
+    (visibility[0] as { Hidden: 0 | 1 }).Hidden = 0;
+  }
+  wb.Workbook = {
+    Sheets: visibility,
+    ...(carry.names === undefined ? {} : { Names: carry.names as never }),
+    ...(carry.date1904 === true ? { WBProps: { date1904: true } } : {}),
+  };
 
   if (format === "csv" || format === "tsv") {
     const first = wb.Sheets[wb.SheetNames[0] as string] as WorkSheet;
+    const dialect = carry.csv ?? {
+      delimiter: format === "tsv" ? "\t" : ",",
+      bom: false,
+      eol: "\n" as const,
+      finalNewline: true,
+    };
     const text = XLSX.utils.sheet_to_csv(first, {
-      FS: format === "tsv" ? "\t" : ",",
+      FS: dialect.delimiter,
+      RS: dialect.eol,
       blankrows: true,
       strip: false,
+      rawNumbers: true,
     });
-    return new TextEncoder().encode(text.length > 0 ? `${text}\n` : text);
+    const body = text.length > 0 && dialect.finalNewline ? `${text}${dialect.eol}` : text;
+    return new TextEncoder().encode(dialect.bom ? `\uFEFF${body}` : body);
   }
   const bookType = format === "xls" ? "biff8" : format;
   const out = XLSX.write(wb, { type: "array", bookType, compression: true }) as ArrayBuffer;
   return new Uint8Array(out);
 }
 
-function uniqueSheetName(taken: string[], wanted: string): string {
-  // Excel: ≤ 31 chars, none of : \ / ? * [ ].
-  const base = wanted.replace(/[:\\/?*[\]]/g, "_").slice(0, 31) || "Sheet";
+/** Excel's rules: ≤ 31 chars, none of `: \ / ? * [ ]`, no leading or trailing `'`, unique ignoring case. */
+export function uniqueSheetName(taken: string[], wanted: string): string {
+  const base =
+    wanted
+      .replace(/[:\\/?*[\]]/g, "_")
+      .replace(/^'+|'+$/g, "")
+      .slice(0, 31) || "Sheet";
+  const lower = new Set(taken.map((t) => t.toLowerCase()));
   let name = base;
-  for (let i = 2; taken.includes(name); i++) name = `${base.slice(0, 28)} (${i})`;
+  for (let i = 2; lower.has(name.toLowerCase()); i++) {
+    const suffix = ` (${i})`;
+    name = `${base.slice(0, 31 - suffix.length)}${suffix}`;
+  }
   return name;
 }
 

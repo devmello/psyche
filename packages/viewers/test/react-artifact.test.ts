@@ -42,7 +42,9 @@ describe("React artifact sources", () => {
     const setup = reactSandboxSetup({ "/App.tsx": "export default () => null" });
     expect(setup.entry).toBe("/index.jsx");
     expect(setup.files["/index.jsx"]?.code).toContain('import App from "./App"');
-    expect(setup.files["/index.jsx"]?.code).toContain("__psycheRoot");
+    expect(setup.files["/index.jsx"]?.code).toContain(
+      'createRoot(document.getElementById("root"))',
+    );
     expect(JSON.parse(setup.files["/package.json"]?.code ?? "{}").main).toBe("/index.jsx");
     expect(setup.dependencies).toEqual({ react: "19", "react-dom": "19" });
   });

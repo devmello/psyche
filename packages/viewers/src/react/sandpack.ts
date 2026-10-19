@@ -48,6 +48,17 @@ export async function mountReactArtifact(
   });
   // See above: an opaque-origin frame only receives messages targeted at "*".
   (client.iframeProtocol as unknown as { origin: string }).origin = "*";
+  // The client re-registers and re-posts every file on each `initialized` from the frame, which
+  // artifact code could send in a loop to stall the app. Honour the first one only: a real reload
+  // is a navigation, and the frame is torn down for that anyway.
+  client.unsubscribeGlobalListener();
+  let initialized = false;
+  client.unsubscribeGlobalListener = client.iframeProtocol.globalListen((mes) => {
+    if (mes.type !== "initialized" || initialized || iframe.contentWindow === null) return;
+    initialized = true;
+    client.iframeProtocol.register();
+    client.updateSandbox(undefined, true);
+  });
   opts.onStatus?.("loading");
   const off = client.listen((msg) => {
     const m = msg as { type: string; action?: string; message?: string; compilatonError?: boolean };

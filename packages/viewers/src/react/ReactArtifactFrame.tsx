@@ -47,6 +47,9 @@ export function ReactArtifactFrame(props: ReactArtifactFrameProps) {
   callbacks.current = props;
   const lastLink = useRef(0);
   const files = "files" in parsed ? parsed.files : undefined;
+  // The newest files, for a source that changes while the Sandpack client is still loading.
+  const latest = useRef(files);
+  latest.current = files;
 
   // Mount once per frame generation; later source changes recompile in place.
   // biome-ignore lint/correctness/useExhaustiveDependencies: `files` updates go through update().
@@ -93,6 +96,7 @@ export function ReactArtifactFrame(props: ReactArtifactFrameProps) {
         }
         channel = h.channel;
         handle.current = h;
+        if (latest.current !== undefined && latest.current !== files) h.update(latest.current);
       },
       (error: unknown) =>
         callbacks.current.onError?.(error instanceof Error ? error.message : String(error)),

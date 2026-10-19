@@ -60,6 +60,11 @@ describe.skipIf(chrome === undefined)("Univer sheet editor in Chrome", () => {
       XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer,
     );
     const snap = await toUniverSnapshot(bytes, "data.xlsx");
+    // A formula filled down column B, as Univer stores it: only B1 has `f`, the rest share `si`.
+    const cells = snap.data.sheets["sheet-1"]?.cellData as Record<number, Record<number, unknown>>;
+    (cells[0] as Record<number, unknown>)[1] = { f: "=A1*2", si: "fill1" };
+    (cells[1] as Record<number, unknown>)[1] = { si: "fill1" };
+    (cells[2] as Record<number, unknown>)[1] = { si: "fill1" };
 
     const tab = await browser.newPage({ viewport: { width: 1000, height: 600 } });
     const external: string[] = [];
@@ -79,7 +84,13 @@ describe.skipIf(chrome === undefined)("Univer sheet editor in Chrome", () => {
         (window as unknown as { harness: { mount(d: unknown): Promise<void> } }).harness.mount(d),
       snap.data,
     );
-    await tab.waitForTimeout(800);
+    await tab.waitForTimeout(1500);
+    // Opening (formula recalculation, layout) is not an edit.
+    expect(
+      await tab.evaluate(
+        () => (window as unknown as { harness: { changes: number } }).harness.changes,
+      ),
+    ).toBe(0);
 
     // A1 sits right of the row header and below the column header on the grid canvas.
     const grid = await tab.evaluate(() => {
@@ -110,6 +121,8 @@ describe.skipIf(chrome === undefined)("Univer sheet editor in Chrome", () => {
     expect(back.A1?.v).toBe(10);
     expect(back.A3?.f).toBe("A1+A2");
     expect(back.A3?.v).toBe(12);
+    expect([back.B1?.f, back.B2?.f, back.B3?.f]).toEqual(["A1*2", "A2*2", "A3*2"]);
+    expect([back.B1?.v, back.B2?.v, back.B3?.v]).toEqual([20, 4, 24]);
     expect(external).toEqual([]);
   }, 120_000);
 });
