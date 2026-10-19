@@ -246,8 +246,12 @@ memory_claims (
   provenance TEXT, confidence REAL, sources TEXT JSON,
   superseded_by FK memory_claims NULL, retracted_at NULL, created_at, updated_at
 )
-memory_jobs (id, kind, status, started_at, ended_at, summary)   -- flush | dreaming | reindex | import
+memory_jobs (id, kind, status, started_at, ended_at, summary, created_at)   -- flush | dreaming | reindex | import; status running | ok | failed | skipped
+memory_files (path PK, sha256, bytes, provenance, mtime_ms, indexed_at, created_at, updated_at)  -- per-file index state; external edits count as owner
+memory_state (key PK, value JSON, updated_at)                    -- pause flag, vector width, first-run marker
 ```
+
+`memory_chunks` also has `embedding_model` (the vector space of `embedding`) and an explicit `rowid INTEGER PRIMARY KEY` (so the FTS5 mapping survives VACUUM; `id` stays the unique text key); chunk ids derive from source, first line and text, so unchanged chunks keep their embedding and claim link across reindexes. `memory_vec` is created at run time when sqlite-vec loads (its width follows the embedder); without it search computes cosine in process. The migration is `packages/db/migrations/202610191230_memory_index.sql` (S07).
 
 Ranking: `score = bm25_norm * 0.4 + cosine * 0.5 + recency(0.5^(ageDays/30)) * 0.1`, with a provenance filter (callers may exclude `untrusted`). Untrusted chunks are never promoted into `memory_claims` with `owner` provenance.
 
