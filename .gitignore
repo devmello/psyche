@@ -1,0 +1,44 @@
+# dependencies and build output
+node_modules/
+dist/
+build/
+out/
+.turbo/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# Electron / packaging
+*.dmg
+*.pkg
+*.zip
+*.asar
+
+# Swift / Xcode
+.build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Psyche runtime state (never commit)
+.psyche/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+vault.db
+*.key
+*.pem
+.env
+.env.*
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# logs and temp
+logs/
+*.log
+tmp/
