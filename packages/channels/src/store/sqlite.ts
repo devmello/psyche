@@ -85,6 +85,9 @@ interface PairingSqlRow {
   expires_at: string;
   decided_at: string | null;
   decided_by_device_id: string | null;
+  public_key_fingerprint?: string | null;
+  transport?: string | null;
+  remote_address?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -102,6 +105,9 @@ function pairingFromSql(row: PairingSqlRow): PairingRequest {
     expiresAt: row.expires_at,
     decidedAt: row.decided_at,
     decidedByDeviceId: row.decided_by_device_id,
+    publicKeyFingerprint: row.public_key_fingerprint ?? null,
+    transport: row.transport ?? null,
+    remoteAddress: row.remote_address ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
