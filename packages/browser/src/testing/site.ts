@@ -11,7 +11,7 @@ export type FxHost = "a" | "b" | "evil";
 
 export type FxAction =
   | { kind: "alert"; message: string }
-  | { kind: "confirm"; message: string; then: FxAction }
+  | { kind: "confirm"; message: string; onConfirm: FxAction }
   | { kind: "navigate"; href: string }
   | { kind: "popup"; href: string }
   | { kind: "set_text"; id: string; text: string }
@@ -250,7 +250,7 @@ export const FIXTURE_SITE: FxSite = {
           onClick: {
             kind: "confirm",
             message: "Really delete?",
-            then: { kind: "set_text", id: "status", text: "Draft deleted" },
+            onConfirm: { kind: "set_text", id: "status", text: "Draft deleted" },
           },
         },
         { kind: "status", id: "status", text: "Draft kept" },

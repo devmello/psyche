@@ -167,7 +167,7 @@ export class MockTab implements CdpTarget {
   #scrollY = 0;
   #focused: MockEl | undefined;
   #selectAll = false;
-  #dialog: { type: "alert" | "confirm"; message: string; then?: FxAction } | undefined;
+  #dialog: { type: "alert" | "confirm"; message: string; onConfirm?: FxAction } | undefined;
   #nav: { stopped: boolean } | undefined;
   #worlds = new Map<number, string>();
   #nextCtx = 100;
@@ -365,7 +365,6 @@ export class MockTab implements CdpTarget {
       }
     };
     for (const n of page.body) add(n, body, undefined);
-    void form;
     return { frameId, url, title: page.title, root, els, crossOrigin, height: y };
   }
 
@@ -524,7 +523,8 @@ export class MockTab implements CdpTarget {
         if (d === undefined) throw new PsycheError("invalid_params", "No dialog is showing");
         this.#dialog = undefined;
         this.#emit("Page.javascriptDialogClosed", { result: p.accept === true, userInput: "" });
-        if (d.type === "confirm" && p.accept === true && d.then !== undefined) this.#run(d.then);
+        if (d.type === "confirm" && p.accept === true && d.onConfirm !== undefined)
+          this.#run(d.onConfirm);
         return {};
       }
       case "Page.captureScreenshot":
@@ -722,11 +722,11 @@ export class MockTab implements CdpTarget {
     switch (a.kind) {
       case "alert":
       case "confirm": {
-        const d: { type: "alert" | "confirm"; message: string; then?: FxAction } = {
+        const d: { type: "alert" | "confirm"; message: string; onConfirm?: FxAction } = {
           type: a.kind,
           message: a.message,
         };
-        if (a.kind === "confirm") d.then = a.then;
+        if (a.kind === "confirm") d.onConfirm = a.onConfirm;
         this.#dialog = d;
         this.#emit("Page.javascriptDialogOpening", {
           url: this.url,

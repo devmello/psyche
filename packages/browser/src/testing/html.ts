@@ -20,7 +20,7 @@ function resolveAction(a: FxAction, host: FxHost, origin: OriginFn): FxAction {
     case "push_state":
       return { ...a, href: a.kind === "push_state" ? a.href : resolveHref(a.href, host, origin) };
     case "confirm":
-      return { ...a, then: resolveAction(a.then, host, origin) };
+      return { ...a, onConfirm: resolveAction(a.onConfirm, host, origin) };
     default:
       return a;
   }
@@ -104,7 +104,7 @@ function node(n: FxNode, host: FxHost, origin: OriginFn): string {
 const SCRIPT = `
 function run(a) {
   if (a.kind === "alert") alert(a.message);
-  else if (a.kind === "confirm") { if (confirm(a.message)) run(a.then); }
+  else if (a.kind === "confirm") { if (confirm(a.message)) run(a.onConfirm); }
   else if (a.kind === "navigate") location.href = a.href;
   else if (a.kind === "popup") window.open(a.href, "_blank", "popup");
   else if (a.kind === "set_text") document.getElementById(a.id).textContent = a.text;
