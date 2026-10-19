@@ -50,7 +50,12 @@ async function startMockAs(options: { cimd: boolean; registration?: boolean }): 
       if (url.pathname === "/authorize") {
         const q = url.searchParams;
         hits.authorize.push(q);
-        if (q.get("code_challenge_method") !== "S256" || q.get("client_id") !== CIMD_URL) {
+        // Without CIMD support the AS does not know the URL client id and refuses it.
+        if (
+          q.get("code_challenge_method") !== "S256" ||
+          q.get("client_id") !== CIMD_URL ||
+          !options.cimd
+        ) {
           return new Response("bad request", { status: 400 });
         }
         const code = randomBytes(8).toString("hex");
@@ -130,11 +135,12 @@ describe("OAuth 2.1 with a Client ID Metadata Document", () => {
     expect(q?.get("state")?.length).toBeGreaterThan(20);
     expect(q?.get("resource")).toBe(as.server.url);
     expect(as.hits.register).toBe(0);
-    expect((await store.load("remote"))?.access_token).toMatch(/^at_/);
+    expect((await store.load(`remote|${as.server.url}`))?.access_token).toMatch(/^at_/);
     const { toolsListHash } = await host.listTools("remote");
-    expect(
-      (await host.callTool("remote", "echo", { text: "authed" }, { toolsListHash })).isError,
-    ).toBe(false);
+    const authed = await host.callTool("remote", "echo", { text: "authed" }, { toolsListHash });
+    expect(authed.isError).toBe(false);
+    await host.removeServer("remote");
+    expect(await store.load(`remote|${as.server.url}`)).toBeUndefined();
   });
 
   it("reuses stored tokens without a new authorization", async () => {
@@ -187,9 +193,8 @@ describe("OAuth 2.1 with a Client ID Metadata Document", () => {
       transport: { kind: "http", url: as.server.url },
     });
     expect(info.status).toBe("error");
-    expect(host.describe("nodcr").error).toMatch(/dynamic client registration/);
     expect(as.hits.register).toBe(0);
-    expect(as.hits.authorize).toHaveLength(0);
+    expect(as.hits.token).toHaveLength(0);
   });
 
   it("ignores a callback with the wrong state and times out", async () => {

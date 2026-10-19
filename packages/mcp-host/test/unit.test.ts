@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, stat } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Tool } from "@modelcontextprotocol/client";
 import { PsycheError } from "@psyche/protocol";
@@ -10,8 +10,10 @@ import {
   diffTools,
   directLauncher,
   inspectTool,
+  MemoryTokenStore,
   mcpCredentialTarget,
   mcpToolName,
+  PsycheOAuthProvider,
   parseMcpToolName,
   resolveEnv,
   sideEffectFor,
@@ -144,7 +146,19 @@ describe("secrets", () => {
     await expect(resolveEnv("s", { T: "{{cred:BAD}}" }, undefined)).rejects.toMatchObject({
       code: "invalid_params",
     });
-    for (const name of ["NODE_OPTIONS", "DYLD_INSERT_LIBRARIES", "LD_PRELOAD", "SRT_DEBUG"]) {
+    for (const name of [
+      "NODE_OPTIONS",
+      "node_options",
+      "DYLD_INSERT_LIBRARIES",
+      "LD_PRELOAD",
+      "SRT_DEBUG",
+      "PATH",
+      "Path",
+      "HOME",
+      "BASH_ENV",
+      "NODE_EXTRA_CA_CERTS",
+      "HTTPS_PROXY",
+    ]) {
       await expect(resolveEnv("s", { [name]: "x" }, undefined)).rejects.toMatchObject({
         code: "invalid_params",
       });
@@ -158,10 +172,10 @@ describe("launchers", () => {
     trust: "unknown" as const,
     command: ["npx", "-y", "some-server"],
     env: { A: "1" },
-    sandbox: { allowedDomains: ["api.example.com"], allowWrite: ["/tmp/work"], denyRead: [] },
+    sandbox: { allowedDomains: ["api.example.com"], allowWrite: [] as string[], denyRead: [] },
   };
 
-  it("srt wraps the argv and writes a 0600 settings file that denies the Psyche home", async () => {
+  it("srt wraps the argv and writes a 0600 settings file per security §5.3", async () => {
     const dir = join(tmpdir(), `psyche-srt-${process.pid}`);
     const l = srtLauncher({
       srtPath: "/usr/local/bin/srt",
@@ -172,13 +186,38 @@ describe("launchers", () => {
     expect(p.command).toBe("/usr/local/bin/srt");
     expect(p.args.slice(0, 1)).toEqual(["--settings"]);
     expect(p.args.slice(2)).toEqual(["--", "npx", "-y", "some-server"]);
-    const settings = JSON.parse(await readFile(p.args[1] as string, "utf8"));
-    expect(settings.filesystem.denyRead).toContain("/h/.psyche");
+    const file = p.args[1] as string;
+    expect((await stat(file)).mode & 0o777).toBe(0o600);
+    const settings = JSON.parse(await readFile(file, "utf8"));
+    expect(settings.filesystem.denyRead).toEqual(
+      expect.arrayContaining([
+        "/h/.psyche",
+        join(homedir(), ".ssh"),
+        join(homedir(), "Library", "Keychains"),
+      ]),
+    );
     expect(settings.filesystem.denyWrite).toContain("/h/.psyche");
-    expect(settings.filesystem.allowWrite).toEqual(["/tmp/work"]);
-    expect(settings.network.allowedDomains).toEqual(["api.example.com"]);
+    expect(settings.filesystem.allowWrite).toEqual([p.env.TMPDIR]);
+    expect(p.cwd).toBe(p.env.TMPDIR);
+    expect(settings.network).toMatchObject({
+      allowedDomains: ["api.example.com"],
+      allowLocalBinding: false,
+    });
+    expect(settings).toMatchObject({
+      allowAppleEvents: false,
+      enableWeakerNetworkIsolation: false,
+      enableWeakerNestedSandbox: false,
+    });
     await p.cleanup?.();
-    await expect(readFile(p.args[1] as string)).rejects.toThrow();
+    await expect(readFile(file)).rejects.toThrow();
+  });
+
+  it("srt refuses extra write paths and a relative srt path", async () => {
+    const l = srtLauncher({ srtPath: "/usr/local/bin/srt", settingsDir: tmpdir() });
+    await expect(
+      l.prepare({ ...spec, sandbox: { ...spec.sandbox, allowWrite: [join(homedir(), ".zshrc")] } }),
+    ).rejects.toMatchObject({ code: "policy_denied" });
+    expect(() => srtLauncher({ srtPath: "srt", settingsDir: tmpdir() })).toThrow(/absolute/);
   });
 
   it("direct launcher refuses anything but bundled servers", async () => {
@@ -189,5 +228,44 @@ describe("launchers", () => {
 
   it("does not leak secrets into launcher output", async () => {
     assertNoSecrets(await directLauncher().prepare({ ...spec, trust: "bundled" }));
+  });
+});
+
+describe("oauth provider", () => {
+  it("never opens the browser without an armed loopback receiver", async () => {
+    const opened: URL[] = [];
+    const p = new PsycheOAuthProvider("s|https://x.example/mcp", {
+      clientMetadataUrl: "https://psyche.example/c.json",
+      tokenStore: new MemoryTokenStore(),
+      openAuthorizationUrl: ({ url }) => {
+        opened.push(url);
+      },
+    });
+    await expect(
+      p.redirectToAuthorization(new URL("https://as.example/authorize")),
+    ).rejects.toMatchObject({
+      code: "unauthorized",
+    });
+    expect(opened).toEqual([]);
+    p.armed = true;
+    await p.redirectToAuthorization(new URL("https://as.example/authorize"));
+    expect(opened).toHaveLength(1);
+  });
+
+  it("offers the CIMD URL or a pre-registered id, and cannot store DCR results", () => {
+    const opts = {
+      clientMetadataUrl: "https://psyche.example/c.json",
+      tokenStore: new MemoryTokenStore(),
+      openAuthorizationUrl: () => {},
+    };
+    expect(new PsycheOAuthProvider("a", opts).clientInformation()).toEqual({
+      client_id: "https://psyche.example/c.json",
+    });
+    expect(
+      new PsycheOAuthProvider("a", opts, { clientId: "slack-123" }).clientInformation(),
+    ).toEqual({
+      client_id: "slack-123",
+    });
+    expect("saveClientInformation" in new PsycheOAuthProvider("a", opts)).toBe(false);
   });
 });

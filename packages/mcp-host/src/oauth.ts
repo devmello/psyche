@@ -13,8 +13,8 @@ import { PsycheError } from "@psyche/protocol";
  * OAuth 2.1 for remote MCP servers (architecture §4.9). Psyche identifies itself with a Client ID
  * Metadata Document (CIMD, SEP-991): its `client_id` is an HTTPS URL serving the JSON from
  * `clientMetadataDocument()`. Dynamic Client Registration is deprecated and never used: a server
- * whose authorization server supports neither CIMD nor a pre-registered client id fails to
- * connect. Public client, PKCE S256 (done by the SDK), loopback redirect, `state` checked by the
+ * whose authorization server accepts neither the CIMD URL nor a pre-registered client id fails
+ * to connect. Public client, PKCE S256 (done by the SDK), loopback redirect, `state` checked by the
  * loopback receiver.
  */
 export interface McpTokenStore {
@@ -70,12 +70,13 @@ export class PsycheOAuthProvider implements OAuthClientProvider {
   #redirectUrl: string | undefined;
   #state: string | undefined;
   #verifier: string | undefined;
-  #client: StoredOAuthClientInformation | undefined;
   #discovery: OAuthDiscoveryState | undefined;
   #tokens: StoredOAuthTokens | undefined;
   #loaded = false;
   /** Set once the SDK asked to redirect the owner; the host then waits for the callback. */
   authorizationUrl: URL | undefined;
+  /** True only while a loopback receiver is listening for this provider's callback. */
+  armed = false;
 
   constructor(
     serverId: string,
@@ -130,23 +131,16 @@ export class PsycheOAuthProvider implements OAuthClientProvider {
     return this.#state;
   }
 
+  /**
+   * Pre-registered id, else the CIMD URL. There is deliberately no `saveClientInformation`: the
+   * SDK then cannot run Dynamic Client Registration at all (it throws before any request), and
+   * an authorization server that accepts neither id simply rejects the authorization request.
+   */
   clientInformation(): StoredOAuthClientInformation | undefined {
-    if (this.#client !== undefined) return this.#client;
     if (this.#preRegisteredClientId !== undefined)
       return { client_id: this.#preRegisteredClientId };
-    return undefined;
-  }
-
-  /** Accepts only CIMD or pre-registered ids; a DCR result is refused, never stored. */
-  saveClientInformation(info: StoredOAuthClientInformation): void {
-    const allowed = this.#preRegisteredClientId ?? this.#options.clientMetadataUrl;
-    if (info.client_id !== allowed) {
-      throw new PsycheError(
-        "policy_denied",
-        "dynamic client registration is not supported; the authorization server must accept a client ID metadata document or a pre-registered client",
-      );
-    }
-    this.#client = info;
+    const cimd = this.#options.clientMetadataUrl;
+    return cimd === undefined ? undefined : { client_id: cimd };
   }
 
   async tokens(): Promise<StoredOAuthTokens | undefined> {
@@ -164,6 +158,9 @@ export class PsycheOAuthProvider implements OAuthClientProvider {
   }
 
   async redirectToAuthorization(url: URL): Promise<void> {
+    if (!this.armed) {
+      throw new PsycheError("unauthorized", "re-authorization required; reconnect the server");
+    }
     this.authorizationUrl = url;
     await this.#options.openAuthorizationUrl({ serverId: this.#serverId, url });
   }
@@ -190,7 +187,6 @@ export class PsycheOAuthProvider implements OAuthClientProvider {
       this.#tokens = undefined;
       await this.#options.tokenStore.clear(this.#serverId);
     }
-    if (scope === "all" || scope === "client") this.#client = undefined;
     if (scope === "all" || scope === "verifier") this.#verifier = undefined;
     if (scope === "all" || scope === "discovery") this.#discovery = undefined;
   }

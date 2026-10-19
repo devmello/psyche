@@ -14,7 +14,9 @@ export interface ToolWarning {
     | "sensitive_path"
     | "cross_tool_reference"
     | "invisible_characters"
-    | "oversized_description";
+    | "oversized_description"
+    /** Not callable: empty, over 64 characters, or colliding with another tool's name. */
+    | "invalid_name";
   detail: string;
 }
 

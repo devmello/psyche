@@ -27,7 +27,7 @@ import { diffTools, type ToolChange, toolsListHash } from "./hash.ts";
 import { inspectTool, type ToolWarning } from "./inspect.ts";
 import type { McpSandboxPolicy, PreparedLaunch, StdioLauncher } from "./launcher.ts";
 import { startLoopbackReceiver } from "./loopback.ts";
-import { isValidServerId, mcpToolName } from "./naming.ts";
+import { isValidServerId, MAX_TOOL_NAME_LENGTH, mcpToolName } from "./naming.ts";
 import { blockRegistration, type McpOAuthOptions, PsycheOAuthProvider } from "./oauth.ts";
 import { provenanceFor, requiresUserInteraction, sideEffectFor } from "./policy.ts";
 import { assertNoPlaceholders, resolveEnv, type SecretInjection } from "./secrets.ts";
@@ -112,6 +112,8 @@ export interface McpServerDetails extends McpServerInfo {
   error?: string;
   tools: Tool[];
   warnings: ToolWarning[];
+  /** `error` can carry server-authored text; render it as data. */
+  errorProvenance?: "untrusted";
   isolation?: StdioLauncher["isolation"];
   stderrTail: string;
 }
@@ -121,13 +123,21 @@ interface ServerState {
   status: McpServerInfo["status"];
   client?: Client;
   launch?: PreparedLaunch;
+  /** Callable tools: the listing minus names that are invalid or collide after sanitizing. */
   tools: Tool[];
+  /** The listing exactly as the server sent it (hashed and diffed). */
+  rawTools: Tool[];
   hash?: Sha256;
   protocolVersion?: string;
   era?: "modern" | "legacy";
   error?: string;
   warnings: ToolWarning[];
   stderr: string;
+  /** Bumped by every connect / remove; a connect that finishes under an older value is dropped. */
+  generation: number;
+  /** Bumped by every listing request and list_changed pin; only the latest listing is pinned. */
+  listSeq: number;
+  removed?: true;
 }
 
 const DEFAULT_TIMEOUT_MS = 60_000;
@@ -175,7 +185,10 @@ export class PsycheMcpHost implements McpHost {
       stderrTail: s.stderr,
     };
     if (s.era !== undefined) d.era = s.era;
-    if (s.error !== undefined) d.error = s.error;
+    if (s.error !== undefined) {
+      d.error = s.error;
+      d.errorProvenance = "untrusted";
+    }
     if (s.launch !== undefined || s.config.transport.kind === "stdio") {
       const l = this.#launcherFor(s.config.trust);
       if (l !== undefined) d.isolation = l.isolation;
@@ -191,8 +204,11 @@ export class PsycheMcpHost implements McpHost {
       config: cfg,
       status: "disconnected",
       tools: [],
+      rawTools: [],
       warnings: [],
       stderr: "",
+      generation: 0,
+      listSeq: 0,
     };
     this.#servers.set(cfg.id, state);
     await this.connect(cfg.id);
@@ -202,12 +218,25 @@ export class PsycheMcpHost implements McpHost {
   /** (Re)connect a configured server. Failures leave it in `error` with a message. */
   async connect(serverId: string, signal?: AbortSignal): Promise<McpServerInfo> {
     const s = this.#get(serverId);
+    s.generation += 1;
+    const generation = s.generation;
     await this.#disconnect(s);
     try {
       const client =
         s.config.transport.kind === "stdio"
           ? await this.#connectStdio(s, signal)
           : await this.#connectHttp(s, signal);
+      if (s.removed === true || s.generation !== generation) {
+        // A newer connect or a removal superseded this one: do not leak the client / process.
+        await client.close().catch(() => undefined);
+        return this.#info(s);
+      }
+      client.onclose = () => {
+        if (s.client !== client) return;
+        delete s.client;
+        s.status = "disconnected";
+        this.#emit({ type: "status", serverId, status: "disconnected" });
+      };
       s.client = client;
       s.era = client.getProtocolEra();
       const version = client.getNegotiatedProtocolVersion();
@@ -217,9 +246,10 @@ export class PsycheMcpHost implements McpHost {
       this.#emit({ type: "status", serverId, status: "connected" });
       await this.#refresh(s, signal);
     } catch (err) {
+      if (s.generation !== generation) return this.#info(s);
       await this.#disconnect(s);
       s.status = "error";
-      s.error = errorMessage(err);
+      s.error = untrustedText(errorMessage(err));
       this.#emit({ type: "status", serverId, status: "error", error: s.error });
     }
     return this.#info(s);
@@ -229,8 +259,12 @@ export class PsycheMcpHost implements McpHost {
     const s = this.#servers.get(serverId);
     if (s === undefined) return;
     this.#servers.delete(serverId);
+    s.removed = true;
+    s.generation += 1;
     await this.#disconnect(s);
-    await this.#options.oauth?.tokenStore.clear(serverId);
+    if (s.config.transport.kind === "http") {
+      await this.#options.oauth?.tokenStore.clear(tokenKey(s.config.id, s.config.transport.url));
+    }
   }
 
   /** Fetches `tools/list` from the server (never a cache) and pins it. */
@@ -286,13 +320,24 @@ export class PsycheMcpHost implements McpHost {
         provenance,
       };
     } catch (err) {
-      // Spec SEP-1303: invalid input is a tool execution error the model can correct.
-      if (err instanceof ProtocolError && err.code === -32602) {
+      // A JSON-RPC error is server-authored text: hand it back as a tool error carrying the
+      // server's provenance (never as a PsycheError message), so it stays data. Invalid input
+      // (SEP-1303, -32602) is thereby a tool error the model can correct.
+      if (err instanceof ProtocolError) {
         return {
-          content: { blocks: [{ type: "text", text: err.message }] },
+          content: {
+            blocks: [
+              { type: "text", text: `MCP error ${err.code}: ${untrustedText(err.message)}` },
+            ],
+          },
           isError: true,
           provenance,
         };
+      }
+      if (err instanceof PsycheError && err.code === "unauthorized") {
+        s.status = "error";
+        s.error = "re-authorization required; reconnect the server";
+        this.#emit({ type: "status", serverId, status: "error", error: s.error });
       }
       throw toPsycheError(err);
     }
@@ -405,8 +450,10 @@ export class PsycheMcpHost implements McpHost {
       listChanged: {
         tools: {
           onChanged: (error, tools) => {
-            if (error === null && tools !== null) this.#pin(s, tools);
-            else void this.#refresh(s).catch(() => undefined);
+            if (error === null && tools !== null) {
+              s.listSeq += 1;
+              this.#pin(s, tools);
+            } else void this.#refresh(s).catch(() => undefined);
           },
         },
       },
@@ -524,12 +571,13 @@ export class PsycheMcpHost implements McpHost {
     const oauth = this.#options.oauth;
     if (oauth === undefined)
       throw new PsycheError("unavailable", "OAuth is not configured on this host");
-    const provider = new PsycheOAuthProvider(s.config.id, oauth, {
+    const provider = new PsycheOAuthProvider(tokenKey(s.config.id, t.url), oauth, {
       ...(auth.clientId === undefined ? {} : { clientId: auth.clientId }),
       ...(auth.scopes === undefined ? {} : { scopes: auth.scopes }),
     });
     const loopback = await startLoopbackReceiver(() => provider.expectedState);
     provider.setRedirectUrl(loopback.redirectUrl);
+    provider.armed = true;
     const fetchFn = blockRegistration(baseFetch, provider);
     const transportFor = () =>
       new StreamableHTTPClientTransport(url, { fetch: fetchFn, authProvider: provider });
@@ -554,6 +602,9 @@ export class PsycheMcpHost implements McpHost {
       await client.connect(transportFor(), this.#requestOptions(signal));
       return client;
     } finally {
+      // Later re-authorization (a refresh that fails mid-call) has no receiver: the provider
+      // refuses to open the browser and the call fails `unauthorized` instead of hanging.
+      provider.armed = false;
       await loopback.close();
     }
   }
@@ -570,24 +621,30 @@ export class PsycheMcpHost implements McpHost {
     if (client === undefined)
       throw new PsycheError("unavailable", `server ${s.config.id} is not connected`);
     try {
+      s.listSeq += 1;
+      const seq = s.listSeq;
       const { tools } = await client.listTools(undefined, {
         cacheMode: "refresh",
         ...this.#requestOptions(signal),
       });
-      this.#pin(s, tools);
+      // A slower, older response must not re-pin over a newer listing.
+      if (seq === s.listSeq && s.client === client) this.#pin(s, tools);
     } catch (err) {
       throw toPsycheError(err);
     }
   }
 
   #pin(s: ServerState, tools: Tool[]): void {
+    // The hash covers the raw listing, so any change (including to dropped tools) revokes.
     const hash = toolsListHash(tools);
     if (hash === s.hash) return;
-    const previous = s.tools;
+    const previous = s.rawTools;
     const previousHash = s.hash;
-    s.tools = structuredClone(tools);
+    const { usable, rejected } = usableTools(s.config.id, tools);
+    s.rawTools = structuredClone(tools);
+    s.tools = structuredClone(usable);
     s.hash = hash;
-    s.warnings = tools.flatMap(inspectTool);
+    s.warnings = [...rejected, ...usable.flatMap(inspectTool)];
     this.#emit({
       type: "tools_changed",
       serverId: s.config.id,
@@ -700,6 +757,53 @@ function appResourceUri(tool: Tool): string | undefined {
     | undefined;
   const uri = ui?.resourceUri;
   return typeof uri === "string" && uri.startsWith("ui://") ? uri : undefined;
+}
+
+/**
+ * Tools whose registry name would be ambiguous are not callable: duplicates, names that collide
+ * after `mcp__` sanitizing (`a.b` vs `a_b`), and names over 64 characters (SEP-986).
+ */
+function usableTools(serverId: string, tools: Tool[]): { usable: Tool[]; rejected: ToolWarning[] } {
+  const byKey = new Map<string, Tool[]>();
+  for (const t of tools) {
+    const key = mcpToolName(serverId, t.name);
+    byKey.set(key, [...(byKey.get(key) ?? []), t]);
+  }
+  const usable: Tool[] = [];
+  const rejected: ToolWarning[] = [];
+  for (const group of byKey.values()) {
+    const first = group[0] as Tool;
+    if (group.length > 1) {
+      for (const t of group) {
+        rejected.push({
+          tool: t.name,
+          code: "invalid_name",
+          detail: "tool name collides with another tool",
+        });
+      }
+    } else if (first.name.length === 0 || first.name.length > MAX_TOOL_NAME_LENGTH) {
+      rejected.push({
+        tool: first.name,
+        code: "invalid_name",
+        detail: "tool name is empty or too long",
+      });
+    } else {
+      usable.push(first);
+    }
+  }
+  return { usable, rejected };
+}
+
+/** Tokens are bound to the server id and its exact resource URL (a changed URL re-authorizes). */
+function tokenKey(serverId: string, url: string): string {
+  const u = new URL(url);
+  return `${serverId}|${u.origin}${u.pathname}`;
+}
+
+/** Server-authored text kept for diagnostics: control characters removed, length capped. */
+function untrustedText(text: string): string {
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping control characters
+  return text.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "").slice(0, 500);
 }
 
 function errorMessage(err: unknown): string {
