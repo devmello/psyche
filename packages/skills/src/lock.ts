@@ -43,7 +43,8 @@ export function readLock(path: string): LockFile {
   if (typeof data !== "object" || data === null || typeof data.skills !== "object") {
     throw new Error(`${path} is not a skills lock file`);
   }
-  if (data.version > LOCK_VERSION) throw new Error(`${path} has a newer lock format (${data.version})`);
+  if (data.version > LOCK_VERSION)
+    throw new Error(`${path} has a newer lock format (${data.version})`);
   return data;
 }
 

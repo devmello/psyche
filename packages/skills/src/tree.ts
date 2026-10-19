@@ -69,10 +69,16 @@ export class TreeBuilder {
     if (this.tree.size >= this.#limits.maxFiles)
       throw new PsycheError("invalid_params", `skill has more than ${this.#limits.maxFiles} files`);
     if (bytes.byteLength > this.#limits.maxFileBytes)
-      throw new PsycheError("invalid_params", `${rel} is larger than ${this.#limits.maxFileBytes} bytes`);
+      throw new PsycheError(
+        "invalid_params",
+        `${rel} is larger than ${this.#limits.maxFileBytes} bytes`,
+      );
     this.#total += bytes.byteLength;
     if (this.#total > this.#limits.maxTotalBytes)
-      throw new PsycheError("invalid_params", `skill is larger than ${this.#limits.maxTotalBytes} bytes`);
+      throw new PsycheError(
+        "invalid_params",
+        `skill is larger than ${this.#limits.maxTotalBytes} bytes`,
+      );
     this.tree.set(rel, { bytes, executable });
   }
 }

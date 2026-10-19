@@ -24,7 +24,8 @@ interface LineRule {
   markdownOnly?: boolean;
 }
 
-const SHELLS = "(?:sudo\\s+)?(?:ba|z|da|k|fi)?sh|(?:sudo\\s+)?(?:python3?|node|perl|ruby|osascript)";
+const SHELLS =
+  "(?:sudo\\s+)?(?:ba|z|da|k|fi)?sh|(?:sudo\\s+)?(?:python3?|node|perl|ruby|osascript)";
 
 const LINE_RULES: LineRule[] = [
   // Remote code execution
@@ -116,7 +117,8 @@ const LINE_RULES: LineRule[] = [
     rule: "privileged-command",
     severity: "warn",
     message: "runs privileged or destructive shell commands (sudo, rm -rf, chmod +x)",
-    pattern: /(?:\bsudo\s+\S|\brm\s+-\w*[rR]\w*f|\brm\s+-\w*f\w*[rR]|\bchmod\s+(?:\+x|[0-7]*7[0-7]{2})\b|\bdd\s+if=)/,
+    pattern:
+      /(?:\bsudo\s+\S|\brm\s+-\w*[rR]\w*f|\brm\s+-\w*f\w*[rR]|\bchmod\s+(?:\+x|[0-7]*7[0-7]{2})\b|\bdd\s+if=)/,
   },
   {
     rule: "credential-placeholder",
@@ -128,7 +130,8 @@ const LINE_RULES: LineRule[] = [
     rule: "encoded-blob",
     severity: "warn",
     message: "contains a long encoded string (possible obfuscated payload)",
-    pattern: /(?:[A-Za-z0-9+/]{160,}={0,2}|(?:\\x[0-9a-fA-F]{2}){12,}|(?:%[0-9a-fA-F]{2}){24,}|String\.fromCharCode\((?:\s*\d+\s*,){12,})/,
+    pattern:
+      /(?:[A-Za-z0-9+/]{160,}={0,2}|(?:\\x[0-9a-fA-F]{2}){12,}|(?:%[0-9a-fA-F]{2}){24,}|String\.fromCharCode\((?:\s*\d+\s*,){12,})/,
   },
 ];
 
@@ -150,7 +153,11 @@ export function scanSkillTree(tree: SkillTree, expectedName?: string): SkillScan
   const findings: SkillScanFinding[] = [];
   const skillMd = tree.get("SKILL.md");
   if (skillMd === undefined) {
-    findings.push({ rule: "missing-skill-md", severity: "high", message: "no SKILL.md at the top of the folder" });
+    findings.push({
+      rule: "missing-skill-md",
+      severity: "high",
+      message: "no SKILL.md at the top of the folder",
+    });
   } else {
     const text = textOf(skillMd);
     const parsed = text === undefined ? undefined : parseSkill(text, expectedName);
@@ -175,7 +182,7 @@ export function scanSkillTree(tree: SkillTree, expectedName?: string): SkillScan
     }
   }
 
-  for (const [path, file] of [...tree.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+  for (const [path, file] of [...tree.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
     const text = textOf(file);
     if (text === undefined) {
       findings.push({
@@ -186,8 +193,16 @@ export function scanSkillTree(tree: SkillTree, expectedName?: string): SkillScan
       });
       continue;
     }
-    if (file.executable || /\.(?:sh|bash|zsh|py|js|mjs|ts|rb|pl|applescript|scpt|command)$/i.test(path)) {
-      findings.push({ rule: "script", severity: "info", message: "bundled script or executable", file: path });
+    if (
+      file.executable ||
+      /\.(?:sh|bash|zsh|py|js|mjs|ts|rb|pl|applescript|scpt|command)$/i.test(path)
+    ) {
+      findings.push({
+        rule: "script",
+        severity: "info",
+        message: "bundled script or executable",
+        file: path,
+      });
     }
     findings.push(...scanText(path, text));
   }
@@ -207,7 +222,13 @@ export function scanText(path: string, text: string): SkillScanFinding[] {
     for (const r of LINE_RULES) {
       if (r.markdownOnly === true && !md) continue;
       if (r.pattern.test(line)) {
-        out.push({ rule: r.rule, severity: r.severity, message: r.message, line: lineNo, file: path });
+        out.push({
+          rule: r.rule,
+          severity: r.severity,
+          message: r.message,
+          line: lineNo,
+          file: path,
+        });
       }
     }
     const scrubbed = i === 0 ? line.replace(/^﻿/, "") : line;
@@ -296,7 +317,9 @@ export function hasBlockingFindings(findings: readonly ScanFinding[]): boolean {
   return findings.some((f) => f.severity === "high");
 }
 
-export function summarizeFindings(findings: readonly ScanFinding[]): Record<ScanFinding["severity"], number> {
+export function summarizeFindings(
+  findings: readonly ScanFinding[],
+): Record<ScanFinding["severity"], number> {
   const out = { high: 0, warn: 0, info: 0 };
   for (const f of findings) out[f.severity] += 1;
   return out;

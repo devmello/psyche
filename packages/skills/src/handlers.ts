@@ -21,14 +21,24 @@ import { summarizeFindings } from "./scanner.ts";
  */
 export interface SkillsHandlers {
   "skills.list": () => Promise<{ skills: SkillDetails[] }>;
-  "skills.get": (p: { name: string; source?: SkillSource }) => Promise<{ skill: SkillDetails; text: string | null }>;
+  "skills.get": (p: {
+    name: string;
+    source?: SkillSource;
+  }) => Promise<{ skill: SkillDetails; text: string | null }>;
   "skills.search": (p: { query: string; limit?: number }) => Promise<{ skills: SkillSummary[] }>;
   "skills.commands": () => Promise<{ commands: SkillCommand[] }>;
   "skills.proposeInstall": (p: { source: SkillInstallSource }) => Promise<ProposalResult>;
   "skills.proposeUpdate": (p: { name: string; ref?: string }) => Promise<ProposalResult>;
   "skills.proposeApproval": (p: { name: string }) => Promise<ProposalResult>;
-  "skills.install": (p: { proposalId: string; approvalId: string }) => Promise<{ skill: SkillSummary }>;
-  "skills.setEnabled": (p: { name: string; enabled: boolean; source?: SkillSource }) => Promise<{ skill: SkillDetails }>;
+  "skills.install": (p: {
+    proposalId: string;
+    approvalId: string;
+  }) => Promise<{ skill: SkillSummary }>;
+  "skills.setEnabled": (p: {
+    name: string;
+    enabled: boolean;
+    source?: SkillSource;
+  }) => Promise<{ skill: SkillDetails }>;
   "skills.remove": (p: { name: string }) => Promise<{ ok: true }>;
 }
 
@@ -43,10 +53,18 @@ export interface SkillsHandlerOptions {
   surfaces?: Surface[];
 }
 
-export function createSkillsHandlers(loader: FsSkillLoader, opts: SkillsHandlerOptions): SkillsHandlers {
+export function createSkillsHandlers(
+  loader: FsSkillLoader,
+  opts: SkillsHandlerOptions,
+): SkillsHandlers {
   const requestApproval = async (proposal: SkillProposal): Promise<ProposalResult> => {
     const counts = summarizeFindings(proposal.findings);
-    const verb = proposal.scope === "workspace" ? "Approve workspace skill" : proposal.update !== undefined ? "Update skill" : "Install skill";
+    const verb =
+      proposal.scope === "workspace"
+        ? "Approve workspace skill"
+        : proposal.update !== undefined
+          ? "Update skill"
+          : "Install skill";
     const issued = await opts.broker.requestApproval({
       kind: "skill_install",
       summary: `${verb} "${proposal.name}"${counts.high > 0 ? ` (${counts.high} high-severity findings: it will stay disabled)` : ""}`,
@@ -79,7 +97,9 @@ export function createSkillsHandlers(loader: FsSkillLoader, opts: SkillsHandlerO
     },
     async "skills.get"(p) {
       const all = await loader.listDetailed();
-      const skill = all.find((s) => s.name === p.name && (p.source === undefined || s.source === p.source));
+      const skill = all.find(
+        (s) => s.name === p.name && (p.source === undefined || s.source === p.source),
+      );
       if (skill === undefined) throw new PsycheError("not_found", `no skill named ${p.name}`);
       let text: string | null = null;
       try {

@@ -428,7 +428,10 @@ export class FsSkillLoader implements SkillLoader {
         : this.#entries.find((x) => x.details.name === name && x.details.source === source);
     if (e === undefined) throw new PsycheError("not_found", `no skill named ${name}`);
     const d = e.details;
-    if (enabled && ["draft", "unlocked", "hash_mismatch", "invalid", "blocked"].includes(d.status)) {
+    if (
+      enabled &&
+      ["draft", "unlocked", "hash_mismatch", "invalid", "blocked"].includes(d.status)
+    ) {
       throw new PsycheError("policy_denied", `cannot enable ${name}: ${d.reasons.join("; ")}`, {
         details: { status: d.status, findings: d.findings.filter((f) => f.severity === "high") },
       });
@@ -444,7 +447,9 @@ export class FsSkillLoader implements SkillLoader {
       ...(e.lock === undefined ? {} : { installedAt: e.lock.approvedAt }),
     });
     this.refresh();
-    const after = this.#entries.find((x) => x.details.name === name && x.details.source === d.source);
+    const after = this.#entries.find(
+      (x) => x.details.name === name && x.details.source === d.source,
+    );
     return structuredClone((after ?? e).details);
   }
 
@@ -521,10 +526,15 @@ export class FsSkillLoader implements SkillLoader {
     }
     const id = this.#newId();
     const files = [...tree.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
       .map(([path, f]) => {
         const t = textOf(f);
-        return { path, bytes: f.bytes.byteLength, executable: f.executable, ...(t === undefined ? {} : { text: t }) };
+        return {
+          path,
+          bytes: f.bytes.byteLength,
+          executable: f.executable,
+          ...(t === undefined ? {} : { text: t }),
+        };
       });
     const proposal: SkillProposal = {
       id,
@@ -565,7 +575,10 @@ export class FsSkillLoader implements SkillLoader {
       throw new PsycheError("approval_required", "installing a skill needs the Permission Broker");
     const approval = await broker.get(approvalId);
     if (approval === undefined || approval.kind !== "skill_install")
-      throw new PsycheError("approval_required", "installing a skill needs an approved skill_install");
+      throw new PsycheError(
+        "approval_required",
+        "installing a skill needs an approved skill_install",
+      );
     const v = await broker.verifyBinding(approvalId, p.bindingHash);
     if (!v.ok) {
       throw new PsycheError(
@@ -617,7 +630,11 @@ export class FsSkillLoader implements SkillLoader {
       outcome: "ok",
       summary: `${p.update === undefined ? "Installed" : "Updated"} skill ${p.name}${blocked ? " (disabled: scan findings)" : ""}`,
       approvalId,
-      externalRefs: { skill: p.name, hash: p.hash, ...(p.commit === undefined ? {} : { commit: p.commit }) },
+      externalRefs: {
+        skill: p.name,
+        hash: p.hash,
+        ...(p.commit === undefined ? {} : { commit: p.commit }),
+      },
     });
     this.refresh();
     this.#o.onChange?.({ type: "installed", name: p.name, hash: p.hash, enabled: !blocked });
@@ -649,7 +666,10 @@ export class FsSkillLoader implements SkillLoader {
     await this.#o.broker?.recordReceipt({
       kind: "skill_remove",
       outcome: "ok",
-      summary: source === "home" ? `Removed skill ${name}` : `Withdrew approval of workspace skill ${name}`,
+      summary:
+        source === "home"
+          ? `Removed skill ${name}`
+          : `Withdrew approval of workspace skill ${name}`,
       externalRefs: { skill: name },
     });
     this.refresh();

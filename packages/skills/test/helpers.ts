@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { APPROVAL_ARM_DELAY_MS } from "@psyche/protocol";
 import { FakeClock, FakePermissionBroker } from "@psyche/testing";
 import type { GateContext } from "../src/gating.ts";
-import { type FsSkillLoaderOptions, FsSkillLoader, type SkillProposal } from "../src/loader.ts";
+import { FsSkillLoader, type FsSkillLoaderOptions, type SkillProposal } from "../src/loader.ts";
 
 /** S20's bundled skills at the repository root. */
 export const BUNDLED_DIR = fileURLToPath(new URL("../../../skills/", import.meta.url));

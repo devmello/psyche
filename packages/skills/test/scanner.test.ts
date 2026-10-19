@@ -8,10 +8,14 @@ import { BUNDLED_DIR, skillMd } from "./helpers.ts";
 const enc = new TextEncoder();
 function tree(files: Record<string, string | Uint8Array>): SkillTree {
   return new Map(
-    Object.entries(files).map(([p, c]) => [p, { bytes: typeof c === "string" ? enc.encode(c) : c, executable: p.endsWith(".sh") }]),
+    Object.entries(files).map(([p, c]) => [
+      p,
+      { bytes: typeof c === "string" ? enc.encode(c) : c, executable: p.endsWith(".sh") },
+    ]),
   );
 }
-const rules = (text: string, path = "SKILL.md") => scanText(path, text).map((f) => `${f.severity}:${f.rule}`);
+const rules = (text: string, path = "SKILL.md") =>
+  scanText(path, text).map((f) => `${f.severity}:${f.rule}`);
 
 describe("static scan", () => {
   it("warns loudly about a curl-pipe-bash prerequisite (T2 done-when)", () => {
@@ -24,7 +28,12 @@ describe("static scan", () => {
     expect(hasBlockingFindings(findings)).toBe(true);
     expect(findings).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ rule: "pipe-to-shell", severity: "high", line: 10, file: "SKILL.md" }),
+        expect.objectContaining({
+          rule: "pipe-to-shell",
+          severity: "high",
+          line: 10,
+          file: "SKILL.md",
+        }),
         expect.objectContaining({ rule: "network-in-prerequisites", severity: "high" }),
       ]),
     );
@@ -95,14 +104,19 @@ describe("static scan", () => {
   it("flags unpinned download installers and missing or invalid SKILL.md", () => {
     const t = tree({
       "SKILL.md": skillMd("x", {
-        frontmatter: "install:\n  - { kind: download, url: 'https://x.dev/t.tgz' }\n  - { kind: brew, formula: jq }\n",
+        frontmatter:
+          "install:\n  - { kind: download, url: 'https://x.dev/t.tgz' }\n  - { kind: brew, formula: jq }\n",
       }),
     });
     expect(scanSkillTree(t, "x").map((f) => `${f.severity}:${f.rule}`)).toEqual(
       expect.arrayContaining(["high:unpinned-download", "warn:declared-installer"]),
     );
-    expect(scanSkillTree(tree({ "README.md": "hi" })).map((f) => f.rule)).toContain("missing-skill-md");
-    expect(scanSkillTree(tree({ "SKILL.md": "no frontmatter" })).map((f) => f.rule)).toContain("invalid-frontmatter");
+    expect(scanSkillTree(tree({ "README.md": "hi" })).map((f) => f.rule)).toContain(
+      "missing-skill-md",
+    );
+    expect(scanSkillTree(tree({ "SKILL.md": "no frontmatter" })).map((f) => f.rule)).toContain(
+      "invalid-frontmatter",
+    );
   });
 
   // acceptance.md files hold injected-instruction fixtures on purpose (they are never loaded),

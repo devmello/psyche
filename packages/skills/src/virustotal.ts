@@ -41,24 +41,50 @@ export function createVirusTotalClient(opts: VirusTotalOptions): VirusTotalClien
         try {
           res = await f(`${base}/files/${hash}`, { headers: { "x-apikey": opts.apiKey } });
         } catch {
-          out.push({ rule: "virustotal-unavailable", severity: "info", message: "VirusTotal could not be reached", file: path });
+          out.push({
+            rule: "virustotal-unavailable",
+            severity: "info",
+            message: "VirusTotal could not be reached",
+            file: path,
+          });
           continue;
         }
         if (res.status === 404) continue; // unknown to VirusTotal: nothing to report
         if (!res.ok) {
-          out.push({ rule: "virustotal-unavailable", severity: "info", message: `VirusTotal answered ${res.status}`, file: path });
+          out.push({
+            rule: "virustotal-unavailable",
+            severity: "info",
+            message: `VirusTotal answered ${res.status}`,
+            file: path,
+          });
           continue;
         }
-        const body = (await res.json()) as { data?: { attributes?: { last_analysis_stats?: VtStats } } };
+        const body = (await res.json()) as {
+          data?: { attributes?: { last_analysis_stats?: VtStats } };
+        };
         const stats = body.data?.attributes?.last_analysis_stats ?? {};
         if ((stats.malicious ?? 0) > 0) {
-          out.push({ rule: "virustotal-malicious", severity: "high", message: `${stats.malicious} VirusTotal engines flag this file as malicious`, file: path });
+          out.push({
+            rule: "virustotal-malicious",
+            severity: "high",
+            message: `${stats.malicious} VirusTotal engines flag this file as malicious`,
+            file: path,
+          });
         } else if ((stats.suspicious ?? 0) > 0) {
-          out.push({ rule: "virustotal-suspicious", severity: "warn", message: `${stats.suspicious} VirusTotal engines flag this file as suspicious`, file: path });
+          out.push({
+            rule: "virustotal-suspicious",
+            severity: "warn",
+            message: `${stats.suspicious} VirusTotal engines flag this file as suspicious`,
+            file: path,
+          });
         }
       }
       if (paths.length > max) {
-        out.push({ rule: "virustotal-partial", severity: "info", message: `looked up ${max} of ${paths.length} files` });
+        out.push({
+          rule: "virustotal-partial",
+          severity: "info",
+          message: `looked up ${max} of ${paths.length} files`,
+        });
       }
       return out;
     },
@@ -66,7 +92,8 @@ export function createVirusTotalClient(opts: VirusTotalOptions): VirusTotalClien
 }
 
 function rank(path: string): number {
-  if (/\.(?:sh|bash|zsh|py|js|mjs|rb|pl|command|scpt|applescript|exe|dylib|so|bin)$/i.test(path)) return 2;
+  if (/\.(?:sh|bash|zsh|py|js|mjs|rb|pl|command|scpt|applescript|exe|dylib|so|bin)$/i.test(path))
+    return 2;
   if (/\.(?:md|txt|json|ya?ml)$/i.test(path)) return 0;
   return 1;
 }

@@ -4,7 +4,13 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { PsycheError, type SkillInstallSource } from "@psyche/protocol";
 import { unzipSync } from "fflate";
-import { DEFAULT_LIMITS, readSkillDir, type SkillTree, TreeBuilder, type TreeLimits } from "./tree.ts";
+import {
+  DEFAULT_LIMITS,
+  readSkillDir,
+  type SkillTree,
+  TreeBuilder,
+  type TreeLimits,
+} from "./tree.ts";
 
 /**
  * Fetching a skill from an install source into memory (feature T2). Nothing is written under
@@ -73,7 +79,11 @@ export function unzipSkill(data: Uint8Array, limits: TreeLimits = DEFAULT_LIMITS
         if (f.name.endsWith("/")) return false;
         count += 1;
         declared += f.originalSize;
-        if (count > limits.maxFiles || f.originalSize > limits.maxFileBytes || declared > limits.maxTotalBytes)
+        if (
+          count > limits.maxFiles ||
+          f.originalSize > limits.maxFileBytes ||
+          declared > limits.maxTotalBytes
+        )
           throw new PsycheError("invalid_params", "archive exceeds the skill size limits");
         return true;
       },
@@ -87,7 +97,8 @@ export function unzipSkill(data: Uint8Array, limits: TreeLimits = DEFAULT_LIMITS
   if (!names.includes("SKILL.md")) {
     const tops = new Set(names.map((n) => n.split("/")[0]));
     const [top] = [...tops];
-    if (tops.size === 1 && top !== undefined && names.includes(`${top}/SKILL.md`)) prefix = `${top}/`;
+    if (tops.size === 1 && top !== undefined && names.includes(`${top}/SKILL.md`))
+      prefix = `${top}/`;
   }
   const b = new TreeBuilder(limits);
   for (const name of names.sort()) {
@@ -137,7 +148,9 @@ function run(bin: string, args: string[], cwd: string, timeoutMs: number, binary
       (err, stdout, stderr) => {
         if (err !== null) {
           const msg = Buffer.from(stderr).toString("utf8").trim().split("\n").slice(-1)[0];
-          reject(new PsycheError("unavailable", `git ${args[2] ?? ""} failed: ${msg ?? err.message}`));
+          reject(
+            new PsycheError("unavailable", `git ${args[2] ?? ""} failed: ${msg ?? err.message}`),
+          );
         } else resolve(binary ? stdout : Buffer.from(stdout));
       },
     );
@@ -149,28 +162,45 @@ function run(bin: string, args: string[], cwd: string, timeoutMs: number, binary
  * `cat-file` per blob. No working tree means no hooks, filters, LFS smudge or symlinks on disk;
  * symlinks and submodules in the tree are refused. The ref is resolved to a commit for the lock.
  */
-export async function fetchGit(url: string, ref: string, opts: SourceOptions = {}): Promise<FetchedSkill> {
+export async function fetchGit(
+  url: string,
+  ref: string,
+  opts: SourceOptions = {},
+): Promise<FetchedSkill> {
   checkGitUrl(url, opts.allowFileGitUrls === true);
   checkGitRef(ref);
   const git = opts.gitBinary ?? "git";
   const timeout = opts.gitTimeoutMs ?? 60_000;
   const protocols = [
-    "-c", "protocol.allow=never",
-    "-c", "protocol.https.allow=always",
-    "-c", "protocol.ssh.allow=always",
+    "-c",
+    "protocol.allow=never",
+    "-c",
+    "protocol.https.allow=always",
+    "-c",
+    "protocol.ssh.allow=always",
     ...(opts.allowFileGitUrls === true ? ["-c", "protocol.file.allow=always"] : []),
-    "-c", "core.hooksPath=/dev/null",
-    "-c", "submodule.recurse=false",
+    "-c",
+    "core.hooksPath=/dev/null",
+    "-c",
+    "submodule.recurse=false",
   ];
   const dir = mkdtempSync(join(tmpdir(), "psyche-skill-"));
   try {
     await run(git, [...protocols, "init", "-q", "--bare", "."], dir, timeout);
-    await run(git, [...protocols, "fetch", "--depth", "1", "--no-tags", "-q", "--", url, ref], dir, timeout);
+    await run(
+      git,
+      [...protocols, "fetch", "--depth", "1", "--no-tags", "-q", "--", url, ref],
+      dir,
+      timeout,
+    );
     const commit = (await run(git, ["-C", dir, "rev-parse", "FETCH_HEAD^{commit}"], dir, timeout))
       .toString("utf8")
       .trim();
-    if (!/^[0-9a-f]{40,64}$/.test(commit)) throw new PsycheError("unavailable", "could not resolve the ref");
-    const listing = (await run(git, ["-C", dir, "ls-tree", "-r", "-z", "--full-tree", commit], dir, timeout))
+    if (!/^[0-9a-f]{40,64}$/.test(commit))
+      throw new PsycheError("unavailable", "could not resolve the ref");
+    const listing = (
+      await run(git, ["-C", dir, "ls-tree", "-r", "-z", "--full-tree", commit], dir, timeout)
+    )
       .toString("utf8")
       .split("\0")
       .filter((l) => l.length > 0);
@@ -179,7 +209,8 @@ export async function fetchGit(url: string, ref: string, opts: SourceOptions = {
       const m = /^(\d{6}) (\w+) ([0-9a-f]+)\t(.+)$/s.exec(entry);
       if (m === null) throw new PsycheError("unavailable", "unexpected git ls-tree output");
       const [, mode, type, sha, path] = m as unknown as [string, string, string, string, string];
-      if (mode === "120000") throw new PsycheError("invalid_params", `symbolic link in skill: ${path}`);
+      if (mode === "120000")
+        throw new PsycheError("invalid_params", `symbolic link in skill: ${path}`);
       if (type !== "blob") throw new PsycheError("invalid_params", `submodule in skill: ${path}`);
       const bytes = await run(git, ["-C", dir, "cat-file", "blob", sha], dir, timeout, true);
       b.add(path, new Uint8Array(bytes), mode === "100755");

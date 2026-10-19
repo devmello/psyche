@@ -27,7 +27,9 @@ function lcsOps(a: string[], b: string[]): Op[] {
       ops.push({ kind: " ", line: a[i] as string });
       i += 1;
       j += 1;
-    } else if (((dp[i + 1] as Uint32Array)[j] as number) >= ((dp[i] as Uint32Array)[j + 1] as number)) {
+    } else if (
+      ((dp[i + 1] as Uint32Array)[j] as number) >= ((dp[i] as Uint32Array)[j + 1] as number)
+    ) {
       ops.push({ kind: "-", line: a[i] as string });
       i += 1;
     } else {
