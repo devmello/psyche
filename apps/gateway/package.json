@@ -2,7 +2,7 @@
   "name": "@psyche/gateway",
   "version": "0.0.0",
   "private": true,
-  "description": "The psyched Gateway",
+  "description": "psyched: the Psyche Gateway (bootstrap skeleton; S01 takes it from here)",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
@@ -12,8 +12,10 @@
     }
   },
   "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
   },
   "dependencies": {
     "@psyche/db": "workspace:*",
@@ -24,5 +26,8 @@
   },
   "devDependencies": {
     "@types/ws": "8.18.2"
+  },
+  "bin": {
+    "psyched": "./src/main.ts"
   }
 }
