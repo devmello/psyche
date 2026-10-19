@@ -123,7 +123,8 @@ export function frictionMetrics(entries: readonly AuditEntry[]): FrictionReport 
         decisions += 1;
         const kf = k(kind);
         kf.decisions += 1;
-        const m = (byMode[mode] ??= { decisions: 0, asks: 0 });
+        byMode[mode] ??= { decisions: 0, asks: 0 };
+        const m = byMode[mode];
         m.decisions += 1;
         if (decision === "ask") {
           asks += 1;
