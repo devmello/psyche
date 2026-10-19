@@ -1013,7 +1013,11 @@ export interface FeedFeedbackParams {
 export type FeedFeedback = "like" | "save" | "not_interested" | "hide_source" | "follow_topic";
 
 export interface FeedFeedbackResult {
-    post: FeedPost;
+    /**
+     * interests.md lines the feedback changed
+     */
+    ledgerChanges?: string[];
+    post:           FeedPost;
 }
 
 export interface FeedPost {
@@ -1039,6 +1043,14 @@ export interface Citation {
     url:     string;
 }
 
+export interface FeedGenerateParams {
+    briefingId?: string;
+}
+
+export interface FeedGenerateResult {
+    posts: FeedPost[];
+}
+
 export interface FeedListParams {
     briefingId?: string;
     /**
@@ -1057,6 +1069,11 @@ export interface FeedListResult {
 
 export interface FeedPostPayload {
     post: FeedPost;
+}
+
+export interface FeedUpdatedPayload {
+    briefingId?: string;
+    posts:       FeedPost[];
 }
 
 export interface FileBlock {
@@ -1121,6 +1138,50 @@ export type GoalCategory = "health" | "finance" | "career" | "relationships" | "
 
 export type GoalStatus = "candidate" | "active" | "paused" | "done" | "archived";
 
+export interface GoalsArchiveParams {
+    goalId: string;
+}
+
+export interface GoalsArchiveResult {
+    goal: Goal;
+}
+
+export interface GoalsCreateParams {
+    cadence?:    null | string;
+    category:    GoalCategory;
+    milestones?: Milestone[];
+    plan?:       { [key: string]: unknown } | null;
+    timezone?:   string;
+    title:       string;
+}
+
+export interface Milestone {
+    dueAt?: null | string;
+    title:  string;
+}
+
+export interface GoalsCreateResult {
+    goal:       Goal;
+    links:      GoalLink[];
+    milestones: GoalMilestone[];
+    taskIds:    string[];
+}
+
+export interface GoalLink {
+    automationId?: null | string;
+    goalId:        string;
+    taskId?:       null | string;
+    watchId?:      null | string;
+}
+
+export interface GoalMilestone {
+    doneAt?: null | string;
+    dueAt?:  null | string;
+    goalId:  string;
+    id:      string;
+    title:   string;
+}
+
 export interface GoalsDecideParams {
     decision: GoalDecision;
     goalId:   string;
@@ -1137,8 +1198,18 @@ export interface GoalsGetParams {
 }
 
 export interface GoalsGetResult {
-    goal:    Goal;
-    taskIds: string[];
+    goal:        Goal;
+    links?:      GoalLink[];
+    milestones?: GoalMilestone[];
+    taskIds:     string[];
+}
+
+export interface GoalsLinkParams {
+    automationId?: string;
+    goalId:        string;
+    taskId?:       string;
+    unlink?:       boolean;
+    watchId?:      string;
 }
 
 export interface GoalsListParams {
@@ -1148,6 +1219,40 @@ export interface GoalsListParams {
 
 export interface GoalsListResult {
     goals: Goal[];
+}
+
+export interface GoalsMilestoneParams {
+    done?:        boolean;
+    dueAt?:       null | string;
+    goalId:       string;
+    milestoneId?: string;
+    remove?:      boolean;
+    title?:       string;
+}
+
+export interface GoalsMilestoneResult {
+    goal:       Goal;
+    links:      GoalLink[];
+    milestones: GoalMilestone[];
+    taskIds:    string[];
+}
+
+export interface GoalsUpdateParams {
+    cadence?:  null | string;
+    category?: GoalCategory;
+    goalId:    string;
+    plan?:     { [key: string]: unknown } | null;
+    status?:   GoalsUpdateParamsStatus;
+    title?:    string;
+}
+
+export type GoalsUpdateParamsStatus = "active" | "paused" | "done";
+
+export interface GoalsUpdateResult {
+    goal:       Goal;
+    links:      GoalLink[];
+    milestones: GoalMilestone[];
+    taskIds:    string[];
 }
 
 export interface GrantsListParams {
@@ -1193,6 +1298,9 @@ export interface IdeasAcceptParams {
     brief?:     string;
     ideaId:     string;
     recurring?: boolean;
+    schedule?:  string;
+    threadId?:  string;
+    timezone?:  string;
 }
 
 export interface IdeasAcceptResult {

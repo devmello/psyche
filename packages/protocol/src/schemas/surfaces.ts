@@ -74,6 +74,31 @@ export const Goal = Type.Object(
 );
 export type Goal = Static<typeof Goal>;
 
+/** Data model §8 `goal_milestones`. */
+export const GoalMilestone = Type.Object(
+  {
+    id: Id,
+    goalId: Id,
+    title: Type.String(),
+    dueAt: Nullable(IsoDateTime),
+    doneAt: Nullable(IsoDateTime),
+  },
+  { $id: "GoalMilestone" },
+);
+export type GoalMilestone = Static<typeof GoalMilestone>;
+
+/** Data model §8 `goal_links`: exactly one of the three ids is set. */
+export const GoalLink = Type.Object(
+  {
+    goalId: Id,
+    taskId: Nullable(Id),
+    automationId: Nullable(Id),
+    watchId: Nullable(Id),
+  },
+  { $id: "GoalLink" },
+);
+export type GoalLink = Static<typeof GoalLink>;
+
 export const NotificationKind = StringEnum(
   [
     "approval",

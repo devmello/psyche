@@ -136,6 +136,11 @@
         "payload": "#/$defs/FeedPostPayload"
       },
       {
+        "description": "A whole brief or briefing batch was generated (clients refresh the Feed once instead of per feed.post).",
+        "name": "feed.updated",
+        "payload": "#/$defs/FeedUpdatedPayload"
+      },
+      {
         "description": "The Gateway is shutting down; clients reconnect with backoff.",
         "name": "gateway.shutdown",
         "payload": "#/$defs/GatewayShutdownPayload"
@@ -565,12 +570,36 @@
         "sideEffecting": false
       },
       {
+        "description": "Generates the daily brief (or one briefing) now instead of at its schedule (first-run state). Side-effecting.",
+        "name": "feed.generate",
+        "params": "#/$defs/FeedGenerateParams",
+        "result": "#/$defs/FeedGenerateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Lists feed posts, newest batch first, with the time of the next brief.",
         "name": "feed.list",
         "params": "#/$defs/FeedListParams",
         "result": "#/$defs/FeedListResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Archives a goal and disables its check-ins. Side-effecting.",
+        "name": "goals.archive",
+        "params": "#/$defs/GoalsArchiveParams",
+        "result": "#/$defs/GoalsArchiveResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Creates a stated goal (active at once); a cadence schedules check-ins. Inferred goals are never created here. Side-effecting.",
+        "name": "goals.create",
+        "params": "#/$defs/GoalsCreateParams",
+        "result": "#/$defs/GoalsCreateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
       },
       {
         "description": "Confirms, rejects or defers an inferred candidate goal; nothing is created before confirm.",
@@ -581,12 +610,20 @@
         "sideEffecting": false
       },
       {
-        "description": "Returns one goal with the ids of its linked tasks.",
+        "description": "Returns one goal with its linked task ids, milestones and links.",
         "name": "goals.get",
         "params": "#/$defs/GoalsGetParams",
         "result": "#/$defs/GoalsGetResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Links (or unlinks) one task, automation or watch to a goal. Side-effecting.",
+        "name": "goals.link",
+        "params": "#/$defs/GoalsLinkParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.write",
+        "sideEffecting": true
       },
       {
         "description": "Lists goals (default: active and candidate), grouped client-side by category.",
@@ -595,6 +632,22 @@
         "result": "#/$defs/GoalsListResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Adds (no milestoneId), edits, completes or removes a milestone. Side-effecting.",
+        "name": "goals.milestone",
+        "params": "#/$defs/GoalsMilestoneParams",
+        "result": "#/$defs/GoalsMilestoneResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Edits a goal; changing the cadence reschedules its check-ins. Side-effecting.",
+        "name": "goals.update",
+        "params": "#/$defs/GoalsUpdateParams",
+        "result": "#/$defs/GoalsUpdateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
       },
       {
         "description": "Lists standing grants with use counts and expiry.",
@@ -4530,10 +4583,42 @@
       "properties": {
         "post": {
           "$ref": "#/$defs/FeedPost"
+        },
+        "ledgerChanges": {
+          "description": "interests.md lines the feedback changed",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
         "post"
+      ],
+      "type": "object"
+    },
+    "FeedGenerateParams": {
+      "properties": {
+        "briefingId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "FeedGenerateResult": {
+      "properties": {
+        "posts": {
+          "items": {
+            "$ref": "#/$defs/FeedPost"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "posts"
       ],
       "type": "object"
     },
@@ -4699,6 +4784,26 @@
       },
       "required": [
         "post"
+      ],
+      "type": "object"
+    },
+    "FeedUpdatedPayload": {
+      "properties": {
+        "posts": {
+          "items": {
+            "$ref": "#/$defs/FeedPost"
+          },
+          "type": "array"
+        },
+        "briefingId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "posts"
       ],
       "type": "object"
     },
@@ -4883,6 +4988,108 @@
       ],
       "type": "string"
     },
+    "GoalLink": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "automationId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "watchId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "goalId"
+      ],
+      "type": "object"
+    },
+    "GoalMilestone": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "doneAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "goalId",
+        "title"
+      ],
+      "type": "object"
+    },
     "GoalStatus": {
       "enum": [
         "candidate",
@@ -4901,6 +5108,136 @@
       },
       "required": [
         "goal"
+      ],
+      "type": "object"
+    },
+    "GoalsArchiveParams": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "goalId"
+      ],
+      "type": "object"
+    },
+    "GoalsArchiveResult": {
+      "properties": {
+        "goal": {
+          "$ref": "#/$defs/Goal"
+        }
+      },
+      "required": [
+        "goal"
+      ],
+      "type": "object"
+    },
+    "GoalsCreateParams": {
+      "properties": {
+        "title": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "category": {
+          "$ref": "#/$defs/GoalCategory"
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "description": "JSON object",
+              "patternProperties": {
+                "^(.*)$": {}
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cadence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timezone": {
+          "type": "string"
+        },
+        "milestones": {
+          "items": {
+            "properties": {
+              "title": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "dueAt": {
+                "anyOf": [
+                  {
+                    "description": "ISO-8601 timestamp (UTC)",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "title"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "title",
+        "category"
+      ],
+      "type": "object"
+    },
+    "GoalsCreateResult": {
+      "properties": {
+        "goal": {
+          "$ref": "#/$defs/Goal"
+        },
+        "taskIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "milestones": {
+          "items": {
+            "$ref": "#/$defs/GoalMilestone"
+          },
+          "type": "array"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/GoalLink"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "goal",
+        "taskIds",
+        "milestones",
+        "links"
       ],
       "type": "object"
     },
@@ -4960,11 +5297,58 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "milestones": {
+          "items": {
+            "$ref": "#/$defs/GoalMilestone"
+          },
+          "type": "array"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/GoalLink"
+          },
+          "type": "array"
         }
       },
       "required": [
         "goal",
         "taskIds"
+      ],
+      "type": "object"
+    },
+    "GoalsLinkParams": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "watchId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "unlink": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "goalId"
       ],
       "type": "object"
     },
@@ -4993,6 +5377,171 @@
       },
       "required": [
         "goals"
+      ],
+      "type": "object"
+    },
+    "GoalsMilestoneParams": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "milestoneId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "done": {
+          "type": "boolean"
+        },
+        "remove": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "goalId"
+      ],
+      "type": "object"
+    },
+    "GoalsMilestoneResult": {
+      "properties": {
+        "goal": {
+          "$ref": "#/$defs/Goal"
+        },
+        "taskIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "milestones": {
+          "items": {
+            "$ref": "#/$defs/GoalMilestone"
+          },
+          "type": "array"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/GoalLink"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "goal",
+        "taskIds",
+        "milestones",
+        "links"
+      ],
+      "type": "object"
+    },
+    "GoalsUpdateParams": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "category": {
+          "$ref": "#/$defs/GoalCategory"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "paused",
+            "done"
+          ],
+          "type": "string"
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "description": "JSON object",
+              "patternProperties": {
+                "^(.*)$": {}
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cadence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "goalId"
+      ],
+      "type": "object"
+    },
+    "GoalsUpdateResult": {
+      "properties": {
+        "goal": {
+          "$ref": "#/$defs/Goal"
+        },
+        "taskIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "milestones": {
+          "items": {
+            "$ref": "#/$defs/GoalMilestone"
+          },
+          "type": "array"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/GoalLink"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "goal",
+        "taskIds",
+        "milestones",
+        "links"
       ],
       "type": "object"
     },
@@ -5317,6 +5866,19 @@
         },
         "brief": {
           "maxLength": 20000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schedule": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
           "minLength": 1,
           "type": "string"
         }
