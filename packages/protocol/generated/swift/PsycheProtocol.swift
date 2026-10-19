@@ -109,6 +109,11 @@
 //   let chatHistoryParams = try? JSONDecoder().decode(ChatHistoryParams.self, from: jsonData)
 //   let chatHistoryResult = try? JSONDecoder().decode(ChatHistoryResult.self, from: jsonData)
 //   let chatMessagePayload = try? JSONDecoder().decode(ChatMessagePayload.self, from: jsonData)
+//   let chatQueueListParams = try? JSONDecoder().decode(ChatQueueListParams.self, from: jsonData)
+//   let chatQueueListResult = try? JSONDecoder().decode(ChatQueueListResult.self, from: jsonData)
+//   let chatQueueRemoveParams = try? JSONDecoder().decode(ChatQueueRemoveParams.self, from: jsonData)
+//   let chatQueueRemoveResult = try? JSONDecoder().decode(ChatQueueRemoveResult.self, from: jsonData)
+//   let chatQueueUpdatedPayload = try? JSONDecoder().decode(ChatQueueUpdatedPayload.self, from: jsonData)
 //   let chatSendParams = try? JSONDecoder().decode(ChatSendParams.self, from: jsonData)
 //   let chatSendResult = try? JSONDecoder().decode(ChatSendResult.self, from: jsonData)
 //   let chatSteerParams = try? JSONDecoder().decode(ChatSteerParams.self, from: jsonData)
@@ -319,6 +324,7 @@
 //   let questionsListParams = try? JSONDecoder().decode(QuestionsListParams.self, from: jsonData)
 //   let questionsListResult = try? JSONDecoder().decode(QuestionsListResult.self, from: jsonData)
 //   let queueMode = try? JSONDecoder().decode(QueueMode.self, from: jsonData)
+//   let queuedMessage = try? JSONDecoder().decode(QueuedMessage.self, from: jsonData)
 //   let queuedMessageResult = try? JSONDecoder().decode(QueuedMessageResult.self, from: jsonData)
 //   let receipt = try? JSONDecoder().decode(Receipt.self, from: jsonData)
 //   let receiptBlock = try? JSONDecoder().decode(ReceiptBlock.self, from: jsonData)
@@ -376,6 +382,7 @@
 //   let textBlock = try? JSONDecoder().decode(TextBlock.self, from: jsonData)
 //   let thread = try? JSONDecoder().decode(Thread.self, from: jsonData)
 //   let threadActivity = try? JSONDecoder().decode(ThreadActivity.self, from: jsonData)
+//   let threadDeletedPayload = try? JSONDecoder().decode(ThreadDeletedPayload.self, from: jsonData)
 //   let threadIDParams = try? JSONDecoder().decode(ThreadIDParams.self, from: jsonData)
 //   let threadKind = try? JSONDecoder().decode(ThreadKind.self, from: jsonData)
 //   let threadListEntry = try? JSONDecoder().decode(ThreadListEntry.self, from: jsonData)
@@ -2457,8 +2464,14 @@ public struct PairingRequest: Codable, Sendable {
     public let expiresAt: String
     public let id: String
     public let kind: PairingRequestKind
+    /// Device requests: "sha256:" + hex SHA-256 of the raw Ed25519 public key the owner approves
+    public let publicKeyFingerprint: String?
+    /// Device requests: peer address as the Gateway saw it
+    public let remoteAddress: String?
     public let senderID: String?
     public let status: PairingStatus
+    /// Device requests: how the device connected
+    public let transport: Transport?
 
     public enum CodingKeys: String, CodingKey {
         case channelID = "channelId"
@@ -2471,11 +2484,14 @@ public struct PairingRequest: Codable, Sendable {
         case expiresAt = "expiresAt"
         case id = "id"
         case kind = "kind"
+        case publicKeyFingerprint = "publicKeyFingerprint"
+        case remoteAddress = "remoteAddress"
         case senderID = "senderId"
         case status = "status"
+        case transport = "transport"
     }
 
-    public init(channelID: String?, code: String, createdAt: String, decidedAt: String?, decidedByDeviceID: String?, deviceID: String?, display: String, expiresAt: String, id: String, kind: PairingRequestKind, senderID: String?, status: PairingStatus) {
+    public init(channelID: String?, code: String, createdAt: String, decidedAt: String?, decidedByDeviceID: String?, deviceID: String?, display: String, expiresAt: String, id: String, kind: PairingRequestKind, publicKeyFingerprint: String?, remoteAddress: String?, senderID: String?, status: PairingStatus, transport: Transport?) {
         self.channelID = channelID
         self.code = code
         self.createdAt = createdAt
@@ -2486,8 +2502,11 @@ public struct PairingRequest: Codable, Sendable {
         self.expiresAt = expiresAt
         self.id = id
         self.kind = kind
+        self.publicKeyFingerprint = publicKeyFingerprint
+        self.remoteAddress = remoteAddress
         self.senderID = senderID
         self.status = status
+        self.transport = transport
     }
 }
 
@@ -2501,6 +2520,12 @@ public enum PairingStatus: String, Codable, Sendable {
     case denied = "denied"
     case expired = "expired"
     case pending = "pending"
+}
+
+/// Device requests: how the device connected
+public enum Transport: String, Codable, Sendable {
+    case unix = "unix"
+    case ws = "ws"
 }
 
 // MARK: - ChannelsPairingDenyParams
@@ -2951,6 +2976,105 @@ public struct ChatMessagePayload: Codable, Sendable {
 
     public init(message: Message) {
         self.message = message
+    }
+}
+
+// MARK: - ChatQueueListParams
+public struct ChatQueueListParams: Codable, Sendable {
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case threadID = "threadId"
+    }
+
+    public init(threadID: String) {
+        self.threadID = threadID
+    }
+}
+
+// MARK: - ChatQueueListResult
+public struct ChatQueueListResult: Codable, Sendable {
+    public let items: [QueuedMessage]
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+    }
+
+    public init(items: [QueuedMessage]) {
+        self.items = items
+    }
+}
+
+// MARK: - QueuedMessage
+public struct QueuedMessage: Codable, Sendable {
+    public let attachments: [String]
+    public let content: String
+    public let createdAt: String
+    public let messageID: String
+    public let position: Int
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case attachments = "attachments"
+        case content = "content"
+        case createdAt = "createdAt"
+        case messageID = "messageId"
+        case position = "position"
+        case threadID = "threadId"
+    }
+
+    public init(attachments: [String], content: String, createdAt: String, messageID: String, position: Int, threadID: String) {
+        self.attachments = attachments
+        self.content = content
+        self.createdAt = createdAt
+        self.messageID = messageID
+        self.position = position
+        self.threadID = threadID
+    }
+}
+
+// MARK: - ChatQueueRemoveParams
+public struct ChatQueueRemoveParams: Codable, Sendable {
+    public let messageID: String
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case messageID = "messageId"
+        case threadID = "threadId"
+    }
+
+    public init(messageID: String, threadID: String) {
+        self.messageID = messageID
+        self.threadID = threadID
+    }
+}
+
+// MARK: - ChatQueueRemoveResult
+public struct ChatQueueRemoveResult: Codable, Sendable {
+    public let removed: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case removed = "removed"
+    }
+
+    public init(removed: Bool) {
+        self.removed = removed
+    }
+}
+
+// MARK: - ChatQueueUpdatedPayload
+public struct ChatQueueUpdatedPayload: Codable, Sendable {
+    public let items: [QueuedMessage]
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+        case threadID = "threadId"
+    }
+
+    public init(items: [QueuedMessage], threadID: String) {
+        self.items = items
+        self.threadID = threadID
     }
 }
 
@@ -3564,16 +3688,20 @@ public enum DeviceRole: String, Codable, Sendable {
 
 // MARK: - DevicesApproveParams
 public struct DevicesApproveParams: Codable, Sendable {
+    /// The code shown on the new device; when given it must match the request
+    public let code: String?
     public let pairingRequestID: String
     /// Owner-chosen scopes; never taken from the client
     public let scopes: [DeviceScope]
 
     public enum CodingKeys: String, CodingKey {
+        case code = "code"
         case pairingRequestID = "pairingRequestId"
         case scopes = "scopes"
     }
 
-    public init(pairingRequestID: String, scopes: [DeviceScope]) {
+    public init(code: String?, pairingRequestID: String, scopes: [DeviceScope]) {
+        self.code = code
         self.pairingRequestID = pairingRequestID
         self.scopes = scopes
     }
@@ -7546,6 +7674,19 @@ public enum TextBlockType: String, Codable, Sendable {
     case text = "text"
 }
 
+// MARK: - ThreadDeletedPayload
+public struct ThreadDeletedPayload: Codable, Sendable {
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case threadID = "threadId"
+    }
+
+    public init(threadID: String) {
+        self.threadID = threadID
+    }
+}
+
 // MARK: - ThreadIDParams
 public struct ThreadIDParams: Codable, Sendable {
     public let threadID: String
@@ -7737,6 +7878,8 @@ public struct ThreadsListParams: Codable, Sendable {
     public let kind: ThreadKind?
     public let limit: Int?
     public let pinnedOnly: Bool?
+    /// Case-insensitive substring match on the title
+    public let query: String?
 
     public enum CodingKeys: String, CodingKey {
         case cursor = "cursor"
@@ -7744,14 +7887,16 @@ public struct ThreadsListParams: Codable, Sendable {
         case kind = "kind"
         case limit = "limit"
         case pinnedOnly = "pinnedOnly"
+        case query = "query"
     }
 
-    public init(cursor: String?, includeArchived: Bool?, kind: ThreadKind?, limit: Int?, pinnedOnly: Bool?) {
+    public init(cursor: String?, includeArchived: Bool?, kind: ThreadKind?, limit: Int?, pinnedOnly: Bool?, query: String?) {
         self.cursor = cursor
         self.includeArchived = includeArchived
         self.kind = kind
         self.limit = limit
         self.pinnedOnly = pinnedOnly
+        self.query = query
     }
 }
 
