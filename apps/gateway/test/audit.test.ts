@@ -79,6 +79,45 @@ describe("audit.* (S05 handlers mounted by the Gateway)", () => {
     );
   });
 
+  it("serves approval-friction metrics to operator.read devices", async () => {
+    const c = await setup();
+    await c.audit.append({
+      kind: "tool_call.decided",
+      actor: { type: "agent", runId: "run_1" },
+      subject: { runId: "run_1" },
+      data: {
+        tool: "calendar.create",
+        kind: "calendar_write",
+        decision: "ask",
+        rule: "mode:balanced/write",
+        mode: "balanced",
+      },
+    });
+    await c.audit.append({
+      kind: "approval.created",
+      actor: { type: "system" },
+      subject: { approvalId: "apr_1" },
+      data: { kind: "calendar_write" },
+    });
+    await c.audit.append({
+      kind: "approval.decided",
+      actor: { type: "device", deviceId: "d1" },
+      subject: { approvalId: "apr_1" },
+      data: { decision: "allow", latencyMs: 4200 },
+    });
+    const desk = await desktopClient(c.gateway);
+    clients.push(desk);
+    const r = await desk.call<{ asks: number; approveRate: number; p50AnswerMs: number }>(
+      "audit.friction",
+      {},
+    );
+    expect(r).toMatchObject({ asks: 1, approveRate: 1, p50AnswerMs: 4200 });
+    expect(await desk.request("audit.friction", { since: "yesterday" })).toMatchObject({
+      ok: false,
+      error: { code: "invalid_params" },
+    });
+  });
+
   it("rejects malformed filters at the protocol layer", async () => {
     const c = await setup();
     const desk = await desktopClient(c.gateway);

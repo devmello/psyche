@@ -18,6 +18,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S05 M2: audit.friction)
+
+- `audit.friction` (`since`, `until`; `operator.read`) returning `AuditFrictionResult` (with `AuditFrictionKind`): approval-friction metrics computed by `@psyche/permissions` `frictionMetrics` from the audit log's decision, approval, grant and classifier entries.
 ### v1 additive — 2026-10-19 (S02 loop: standing grants, requester, taint persistence)
 
 For S02 (`packages/agent-core`), S05 (`packages/permissions`, PR #89), S09 (`packages/connectors`), S01 (Gateway call context, channels), S04 (`packages/tasks`).

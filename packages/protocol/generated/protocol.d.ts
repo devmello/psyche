@@ -185,6 +185,55 @@ export interface AuditExportResult {
     format: AuditExportFormat;
 }
 
+export interface AuditFrictionParams {
+    since?: string;
+    until?: string;
+}
+
+export interface AuditFrictionResult {
+    allowedByGrant:   number;
+    answerRate:       number;
+    answerRejections: { [key: string]: number };
+    approveRate:      number;
+    askRate:          number;
+    asks:             number;
+    asksPerAskingRun: number;
+    byKind:           AuditFrictionKind[];
+    byMode:           { [key: string]: ByMode };
+    classifier:       { [key: string]: number };
+    decisions:        number;
+    from?:            null | string;
+    grantsCreated:    { [key: string]: number };
+    p50AnswerMs?:     number | null;
+    p90AnswerMs?:     number | null;
+    to?:              null | string;
+    topAskRules:      TopAskRule[];
+}
+
+export interface AuditFrictionKind {
+    allows:       number;
+    approved:     number;
+    asks:         number;
+    decisions:    number;
+    declined:     number;
+    denies:       number;
+    expired:      number;
+    invalidated:  number;
+    kind:         string;
+    p50AnswerMs?: number | null;
+    p90AnswerMs?: number | null;
+}
+
+export interface ByMode {
+    asks:      number;
+    decisions: number;
+}
+
+export interface TopAskRule {
+    count: number;
+    rule:  string;
+}
+
 export interface AuditListParams {
     approvalId?: string;
     kind?:       string;

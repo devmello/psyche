@@ -14,6 +14,7 @@ export {
   type TaskState,
   targetKey,
 } from "./engine.ts";
+export * from "./friction.ts";
 export * from "./handlers.ts";
 export * from "./kinds.ts";
 export * from "./policy.ts";

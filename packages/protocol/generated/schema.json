@@ -378,6 +378,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Approval-friction metrics over a time window: ask and answer rates, answer latency, expiries, grant savings, per kind and mode.",
+        "name": "audit.friction",
+        "params": "#/$defs/AuditFrictionParams",
+        "result": "#/$defs/AuditFrictionResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Lists audit entries matching the filters (since inclusive, until exclusive). Page with sinceSeq.",
         "name": "audit.list",
         "params": "#/$defs/AuditListParams",
@@ -2232,6 +2240,265 @@
       "required": [
         "format",
         "data"
+      ],
+      "type": "object"
+    },
+    "AuditFrictionKind": {
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "decisions": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "asks": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "allows": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "denies": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "approved": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "declined": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "expired": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "invalidated": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "p50AnswerMs": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "p90AnswerMs": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "decisions",
+        "asks",
+        "allows",
+        "denies",
+        "approved",
+        "declined",
+        "expired",
+        "invalidated"
+      ],
+      "type": "object"
+    },
+    "AuditFrictionParams": {
+      "properties": {
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "until": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "AuditFrictionResult": {
+      "properties": {
+        "from": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "to": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "decisions": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "asks": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "askRate": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "asksPerAskingRun": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "answerRate": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "approveRate": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "p50AnswerMs": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "p90AnswerMs": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "allowedByGrant": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "grantsCreated": {
+          "patternProperties": {
+            "^(.*)$": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "topAskRules": {
+          "items": {
+            "properties": {
+              "rule": {
+                "type": "string"
+              },
+              "count": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "rule",
+              "count"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "answerRejections": {
+          "patternProperties": {
+            "^(.*)$": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "classifier": {
+          "patternProperties": {
+            "^(.*)$": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
+        "byKind": {
+          "items": {
+            "$ref": "#/$defs/AuditFrictionKind"
+          },
+          "type": "array"
+        },
+        "byMode": {
+          "patternProperties": {
+            "^(.*)$": {
+              "properties": {
+                "decisions": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "asks": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "decisions",
+                "asks"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "decisions",
+        "asks",
+        "askRate",
+        "asksPerAskingRun",
+        "answerRate",
+        "approveRate",
+        "allowedByGrant",
+        "grantsCreated",
+        "topAskRules",
+        "answerRejections",
+        "classifier",
+        "byKind",
+        "byMode"
       ],
       "type": "object"
     },
