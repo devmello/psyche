@@ -104,7 +104,7 @@ export function QuestionCard({
 
   if (request.status !== "open") {
     return (
-      <section
+      <article
         aria-labelledby={headingId}
         className={cn("my-2 rounded-lg border border-gray-6 bg-gray-2 p-3 text-sm", className)}
       >
@@ -127,7 +127,7 @@ export function QuestionCard({
             })}
           </ul>
         )}
-      </section>
+      </article>
     );
   }
 
@@ -161,7 +161,7 @@ export function QuestionCard({
 
   const n = request.questions.length;
   return (
-    <section
+    <article
       aria-labelledby={headingId}
       onKeyDown={onKeyDown}
       className={cn(
@@ -169,12 +169,12 @@ export function QuestionCard({
         className,
       )}
     >
-      <header className="mb-3 flex items-center gap-2">
+      <div className="mb-3 flex items-center gap-2">
         {avatar}
         <h3 id={headingId} className="font-semibold">
           {persona} needs {n === 1 ? "an answer" : COUNT[n]} before continuing
         </h3>
-      </header>
+      </div>
       <div className="flex flex-col gap-4">
         {request.questions.map((q, qi) => (
           <QuestionField
@@ -205,7 +205,7 @@ export function QuestionCard({
           Answer
         </Button>
       </div>
-    </section>
+    </article>
   );
 }
 

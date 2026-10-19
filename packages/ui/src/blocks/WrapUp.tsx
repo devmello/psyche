@@ -15,7 +15,7 @@ export function WrapUpBox({
   const recap = block.recap.length > 300 ? `${block.recap.slice(0, 299)}…` : block.recap;
   const actions = (block.actions ?? []).slice(0, 2);
   return (
-    <section
+    <article
       aria-label="Wrap-up"
       className="my-2 rounded-lg border border-gray-6 bg-gray-2 p-3 psy-enter"
     >
@@ -36,6 +36,6 @@ export function WrapUpBox({
           ))}
         </div>
       ) : null}
-    </section>
+    </article>
   );
 }

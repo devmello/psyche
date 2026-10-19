@@ -146,7 +146,7 @@ export function MessageView({
         </p>
       ) : null}
       {showHeader ? (
-        <header className="mb-1 flex items-center gap-2">
+        <div className="mb-1 flex items-center gap-2">
           <Avatar
             name={persona.name}
             creature={persona.creature}
@@ -157,7 +157,7 @@ export function MessageView({
           <span className="text-sm font-semibold">{persona.name}</span>
           <span className="text-xs text-muted-foreground">{time}</span>
           <span className="ml-auto">{actions}</span>
-        </header>
+        </div>
       ) : null}
       <div className={cn("pl-7", message.provenance === "untrusted" && "text-foreground")}>
         {quote}

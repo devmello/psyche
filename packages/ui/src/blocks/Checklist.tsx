@@ -22,7 +22,7 @@ export function Checklist({
 }): ReactElement {
   const done = items.filter((i) => i.status === "completed").length;
   return (
-    <section
+    <ul
       aria-label={`Checklist, ${done} of ${items.length} done`}
       className={cn(
         "my-1 flex flex-wrap gap-x-4 gap-y-1 text-sm",
@@ -31,7 +31,7 @@ export function Checklist({
       data-pinned={pinned}
     >
       {items.map((item, i) => (
-        <span
+        <li
           // biome-ignore lint/suspicious/noArrayIndexKey: items have no ids and never reorder
           key={i}
           className={cn(
@@ -55,9 +55,9 @@ export function Checklist({
             {item.text}
           </span>
           <span className="sr-only">({ITEM_LABEL[item.status]})</span>
-        </span>
+        </li>
       ))}
-    </section>
+    </ul>
   );
 }
 
@@ -82,16 +82,16 @@ export function PlanCard({
   onOpen?: () => void;
 }): ReactElement {
   return (
-    <section
+    <article
       aria-label={`Plan: ${title}`}
       className="my-2 rounded-lg border border-gray-6 bg-gray-2 p-3 psy-enter"
     >
-      <header className="mb-2 flex items-center justify-between gap-2">
+      <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold">Plan · {title}</h3>
         <span className="text-xs text-muted-foreground">
           {approvedAt === null ? "Not approved yet" : "Approved"}
         </span>
-      </header>
+      </div>
       <ol className="flex flex-col gap-1 text-sm">
         {steps.map((s, i) => (
           <li key={s.id} className="flex items-start gap-2">
@@ -115,6 +115,6 @@ export function PlanCard({
           Open in Plan pane
         </button>
       ) : null}
-    </section>
+    </article>
   );
 }

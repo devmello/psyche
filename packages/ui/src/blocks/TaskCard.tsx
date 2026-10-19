@@ -59,18 +59,18 @@ export function TaskCard({
   const live = task.status === "running" || task.status === "queued";
   const current = task.checklist.find((c) => c.status === "in_progress");
   return (
-    <section
+    <article
       aria-label={`Task ${task.title}, ${TASK_STATUS_LABEL[task.status]}`}
       className="my-2 rounded-lg border border-gray-6 bg-gray-2 p-3 psy-enter"
     >
-      <header className="flex items-center gap-2">
+      <div className="flex items-center gap-2">
         <TaskStatusIcon status={task.status} />
         <h3 className="min-w-0 flex-1 truncate text-sm font-semibold">{task.title}</h3>
         <span className="text-xs text-muted-foreground" aria-live={live ? "polite" : undefined}>
           {TASK_STATUS_LABEL[task.status]}
           {current ? ` · ${current.text}` : ""}
         </span>
-      </header>
+      </div>
       {task.summary ? <p className="mt-1 text-sm text-gray-11">{task.summary}</p> : null}
       {task.checklist.length > 0 ? <Checklist items={task.checklist} /> : null}
       <div className="mt-2 flex flex-wrap gap-2">
@@ -100,6 +100,6 @@ export function TaskCard({
           </Button>
         ) : null}
       </div>
-    </section>
+    </article>
   );
 }

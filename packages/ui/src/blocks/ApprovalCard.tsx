@@ -179,7 +179,7 @@ export function ApprovalCard({
         className,
       )}
     >
-      <header className="flex items-center gap-2">
+      <div className="flex items-center gap-2">
         <ShieldCheck className="size-4 text-approval-text" aria-hidden="true" />
         <span className="font-semibold text-approval-text">
           {pending ? "Approval needed" : "Approval"}
@@ -194,7 +194,7 @@ export function ApprovalCard({
             expires in {formatCountdown(remaining)}
           </span>
         ) : null}
-      </header>
+      </div>
       <h3
         id={headingId}
         ref={headingRef}

@@ -88,7 +88,7 @@ export function ArtifactCard({
   const kind = previewKindOf(artifact, preview);
   const Icon = ICONS[kind];
   return (
-    <section
+    <article
       aria-label={`Artifact: ${artifact.title}`}
       className="my-2 flex max-w-md overflow-hidden rounded-lg border border-gray-6 bg-gray-2 psy-enter"
     >
@@ -113,7 +113,7 @@ export function ArtifactCard({
           ) : null}
         </div>
       </div>
-    </section>
+    </article>
   );
 }
 
@@ -141,7 +141,7 @@ export function FileCard({
 }): ReactElement {
   const Icon = iconForMime(item.mime);
   return (
-    <section
+    <article
       aria-label={`File: ${item.name}`}
       className="my-2 flex max-w-md items-center gap-3 rounded-lg border border-gray-6 bg-gray-2 p-2 psy-enter"
     >
@@ -167,6 +167,6 @@ export function FileCard({
           Open
         </Button>
       ) : null}
-    </section>
+    </article>
   );
 }

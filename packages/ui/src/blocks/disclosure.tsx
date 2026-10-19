@@ -63,3 +63,8 @@ export function DisclosureProvider({
 export function useDisclosure(): DisclosureValue {
   return useContext(DisclosureContext);
 }
+
+/** The cycle function, for shells that bind ⌃O themselves (AppShell does). */
+export function useCycleDisclosure(): () => void {
+  return useContext(DisclosureContext).cycle;
+}

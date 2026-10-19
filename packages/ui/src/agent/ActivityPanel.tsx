@@ -147,7 +147,7 @@ export function TaskDetail({
   const live = task.status === "running" || task.status === "queued";
   return (
     <section aria-labelledby={`task-${task.id}`} className="flex flex-col gap-3">
-      <header className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {onBack ? (
           <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label="Back to tasks">
             <ArrowLeft aria-hidden="true" />
@@ -182,7 +182,7 @@ export function TaskDetail({
             </Button>
           ) : null}
         </span>
-      </header>
+      </div>
       <p className="text-sm text-gray-11">
         {TASK_STATUS_LABEL[task.status]}
         {task.summary ? ` · ${task.summary}` : ""} · updated {formatRelative(task.updatedAt, now)}
