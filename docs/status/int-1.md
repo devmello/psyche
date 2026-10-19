@@ -40,11 +40,11 @@ Two runs of the same scenario with the scripted model (`scripted-model.ts`: chat
 `live.test.ts` runs the protocol-level scenario against a live model and prints `INT-1 timings {…}` (boot, first token, cold start to first token, memory search). **It has not been run.** This Mac has no `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`, and no Ollama (`ollama` is not installed). On a machine that has them:
 
 ```bash
-PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=anthropic/claude-sonnet-5-5 ANTHROPIC_API_KEY=… pnpm --filter @psyche/integration-tests test -- live
-PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=openai/gpt-6-luna OPENAI_API_KEY=… pnpm --filter @psyche/integration-tests test -- live
+PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=anthropic/claude-sonnet-5-5 ANTHROPIC_API_KEY=… pnpm --filter @psyche/integration-tests exec vitest run live
+PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=openai/gpt-6-luna OPENAI_API_KEY=… pnpm --filter @psyche/integration-tests exec vitest run live
 brew install ollama && ollama serve &   # then, in another shell:
 ollama pull qwen3.8:27b
-PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=ollama/qwen3.8:27b pnpm --filter @psyche/integration-tests test -- live
+PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=ollama/qwen3.8:27b pnpm --filter @psyche/integration-tests exec vitest run live
 ```
 
 - `PSYCHE_UTILITY_MODEL` (default: the primary model) picks the flush and summary model.

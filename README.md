@@ -45,7 +45,7 @@ pnpm --filter @psyche/integration-tests e2e
  To run it against a live model (Anthropic, OpenAI or a local `agent-capable` model through Ollama), set the model and its key:
 
 ```bash
-PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=anthropic/claude-sonnet-5-5 ANTHROPIC_API_KEY=… pnpm --filter @psyche/integration-tests test -- live
+PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=anthropic/claude-sonnet-5-5 ANTHROPIC_API_KEY=… pnpm --filter @psyche/integration-tests exec vitest run live
 ```
 
 To run the Gateway itself (`psyched`) with a model, then point the desktop app at it:
