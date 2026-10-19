@@ -1,0 +1,29 @@
+{
+  "query": "psyche agent",
+  "number_of_results": 0,
+  "results": [
+    {
+      "url": "https://example.org/searx-1",
+      "title": "SearXNG hit",
+      "content": "Content from <b>duckduckgo</b>",
+      "engine": "duckduckgo",
+      "engines": ["duckduckgo", "brave"],
+      "positions": [1, 2],
+      "score": 4.0,
+      "category": "general",
+      "publishedDate": "2026-07-01T00:00:00"
+    },
+    {
+      "url": "https://example.org/searx-2",
+      "title": "",
+      "content": "",
+      "engine": "bing",
+      "publishedDate": null
+    }
+  ],
+  "answers": [],
+  "corrections": [],
+  "infoboxes": [],
+  "suggestions": [],
+  "unresponsive_engines": []
+}
