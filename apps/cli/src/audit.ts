@@ -132,16 +132,21 @@ export function auditRules(s: Snapshot, now: Date): AuditReport {
 
   // Skills.
   if (s.skills.ok) {
-    const bad = s.skills.value.filter((k) => k.verified === false || k.pinned === false);
+    // Changed since approval, never reviewed, or enabled with unknown provenance (security §11).
+    const bad = s.skills.value.filter(
+      (k) =>
+        ["hash_mismatch", "unlocked", "blocked"].includes(k.status) ||
+        (k.enabled && k.trust === "unknown"),
+    );
     if (bad.length) {
       add({
         id: "skills.unverified",
-        severity: "medium",
-        message: `${bad.length} unverified or unpinned skill(s): ${bad
+        severity: bad.some((k) => k.status === "hash_mismatch") ? "high" : "medium",
+        message: `${bad.length} changed, unreviewed or unknown-trust skill(s): ${bad
           .slice(0, 5)
-          .map((k) => k.name)
+          .map((k) => `${k.name} (${k.status === "active" ? k.trust : k.status})`)
           .join(", ")}`,
-        fix: "psyche skills verify; remove what you do not recognise",
+        fix: "psyche skills verify --strict; remove or re-approve what you do not recognise",
       });
     }
   } else skip("skills", s.skills);

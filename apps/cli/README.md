@@ -50,7 +50,7 @@ The first connection prints a pairing code. Approve it on the Gateway host with 
 | `pairing deny <code> [--reason r]` | | `devices.deny` |
 | `devices list [--all]` | Paired devices; `*` marks this CLI | `devices.list` |
 | `devices revoke <id> [--yes]` | Permanent | `devices.revoke` |
-| `skills list` / `install <source>` / `verify [name] [--strict]` | Install only starts the reviewed, approved flow in the app | `skills.list`, `skills.install`, `skills.verify` (not in the protocol yet) |
+| `skills list` / `install <source> [--ref r]` / `verify [name] [--strict]` | `install` proposes (folder, `.zip` or git URL): the Gateway fetches and scans it and opens a device-only `skill_install` approval; it installs only after the owner approves in the app. `verify` exits 1 on `hash_mismatch`, `invalid` or `blocked` (with `--strict` also unreviewed or unknown-trust skills) | `skills.list`, `skills.proposeInstall` |
 | `automations list [--kind k]` / `run <id>` / `pause <id>` / `resume <id>` | | `automations.list`, `automations.run`, `automations.update` |
 | `vault status` / `list [--kind k]` | Metadata only: names, `{{cred:slug}}` placeholders, bindings, use counts | `vault.status`, `vault.list` |
 | `vault add <name> [--kind api_key\|login\|note\|ssh_key] [--bind origin\|host\|connector:id]… [--secret-stdin]` | The secret comes from a no-echo prompt or stdin, never argv, and is never printed | `vault.add` |
@@ -77,7 +77,7 @@ Tests: `test/commands.test.ts` and `test/pairing.test.ts` (every command, human 
 
 ## Stubbed or waiting on others
 
-- `skills.*` methods do not exist in the protocol yet (S16); the commands report "not available on this Gateway" until they do.
+- `skills.*` is in the protocol (S16, #77) but not yet composed into `psyched`; the commands report "not available on this Gateway" until it is.
 - The Gateway on `main` serves devices, settings, threads, chat, nodes and events. `vault.*`, `automations.*`, `memory.*`, `grants.*`, `channels.*`, `sandbox.*` answer `not_implemented` until their packages are composed into `psyched`; doctor and audit list those checks as skipped or "not checked" rather than passing them.
 - Model reachability: there is no `models.*` method yet, so doctor checks for a provider key in the vault or a local Ollama, not a live call to the provider.
 - Mac helper permission status comes from `nodes.list` (helper online and its capability count); per-permission TCC state needs a helper capability (S14).

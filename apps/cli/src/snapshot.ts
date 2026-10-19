@@ -75,7 +75,7 @@ export interface Snapshot {
     itemCount: number;
   }>;
   apiKeys: Query<{ name: string; bindings: Record<string, string>[] }[]>;
-  skills: Query<{ name: string; verified?: boolean; pinned?: boolean; provenance?: string }[]>;
+  skills: Query<{ name: string; status: string; trust: string; enabled: boolean }[]>;
   localSandboxBackends: string[];
   disk: { freeBytes: number; totalBytes: number } | null;
   modeIssues: FileModeIssue[];

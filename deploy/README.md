@@ -6,9 +6,8 @@ Every recipe runs the same `psyched` with the same rules: it binds `127.0.0.1` o
 
 | Path | What |
 | --- | --- |
-| `Dockerfile` | Multi-stage image: esbuild bundles of `psyched` and `psyche`, Node 24 slim, uid 10001, healthcheck on `/healthz` |
+| `Dockerfile` | Multi-stage image: the workspace sources with production dependencies only, run by Node 24's type stripping (no bundler: packages read migrations and templates next to their sources); Node 24 slim, uid 10001, healthcheck on `/healthz` |
 | `Dockerfile.dockerignore` | Build-context filter (BuildKit reads it for this Dockerfile) |
-| `scripts/bundle.mjs` | The esbuild step the Dockerfile runs |
 | `docker-compose.yml` | Gateway + optional `tailscale`, `cloudflare`, `browser` profiles; named volume for `$PSYCHE_HOME` |
 | `env.example` | Variables Compose reads from `deploy/.env` |
 | `launchd/com.psyche.gateway.plist` | The LaunchAgent `psyche start` installs on macOS (example paths) |

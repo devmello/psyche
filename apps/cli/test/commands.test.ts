@@ -608,24 +608,47 @@ describe("commands against a paired MockGateway", () => {
   });
 });
 
-describe("skills (no protocol methods yet)", () => {
+describe("skills", () => {
+  const pdf = {
+    name: "pdf",
+    description: "PDF tools",
+    source: "home",
+    path: "/h/skills/pdf",
+    trust: "verified",
+    userInvocable: true,
+    disableModelInvocation: false,
+    enabled: true,
+    hash: "h1",
+    status: "active",
+    reasons: [],
+    findings: [],
+    userEnabled: true,
+    overrides: [],
+    version: "1.0.0",
+  };
   const skillHandlers = {
-    "skills.list": () => ({
-      skills: [{ name: "pdf", version: "1.0.0", provenance: "registry", verified: true }],
+    "skills.list": () => ({ skills: [pdf] }),
+    "skills.proposeInstall": (params: unknown) => ({
+      proposal: {
+        id: "01JPROPOSAL000000000000001",
+        name: "pdf",
+        source: (params as { source: unknown }).source,
+        trust: "local",
+        findings: [{ rule: "net", severity: "warn", message: "network call" }],
+      },
+      approval: { id: "01JAPPROVAL000000000000001" },
     }),
-    "skills.install": () => ({ approvalId: "01JAPPROVAL000000000000001", status: "pending" }),
-    "skills.verify": () => ({ results: [{ name: "pdf", status: "ok" }] }),
   };
 
   const skillCases: { name: string; argv: string[]; human: RegExp; key: string }[] = [
     { name: "skills list", argv: ["skills", "list"], human: /pdf\s+1\.0\.0/, key: "skills" },
     {
       name: "skills install",
-      argv: ["skills", "install", "pdf"],
+      argv: ["skills", "install", "./pdf"],
       human: /approval 01JAPPROVAL/,
       key: "approvalId",
     },
-    { name: "skills verify", argv: ["skills", "verify"], human: /pdf\s+ok/, key: "results" },
+    { name: "skills verify", argv: ["skills", "verify"], human: /pdf\s+active/, key: "results" },
   ];
 
   describe("on a Gateway that answers them", () => {
@@ -651,16 +674,34 @@ describe("skills (no protocol methods yet)", () => {
       });
     }
 
-    it("skills install sends the source", async () => {
+    it("skills install proposes the parsed source", async () => {
       const deps = makeDeps();
-      await run(["skills", "install", "git+https://example.test/skill", ...urlArgs(deps)], deps);
-      expect(lastParams("skills.install")).toEqual({ source: "git+https://example.test/skill" });
+      await run(
+        ["skills", "install", "https://example.test/skill.git", "--ref", "v1", ...urlArgs(deps)],
+        deps,
+      );
+      expect(lastParams("skills.proposeInstall")).toEqual({
+        source: { kind: "git", url: "https://example.test/skill.git", ref: "v1" },
+      });
+      await run(["skills", "install", "/tmp/s.zip", ...urlArgs(deps)], deps);
+      expect(lastParams("skills.proposeInstall")).toEqual({
+        source: { kind: "zip", path: "/tmp/s.zip" },
+      });
+      await run(["skills", "install", "/tmp/skill-dir", ...urlArgs(deps)], deps);
+      expect(lastParams("skills.proposeInstall")).toEqual({
+        source: { kind: "path", path: "/tmp/skill-dir" },
+      });
+      // Never installs directly: that needs the owner's approved skill_install.
+      expect(gw.calls.some((c) => c.method === "skills.install")).toBe(false);
     });
 
-    it("skills verify exits 1 on a mismatch", async () => {
-      gw.handlers["skills.verify"] = () => ({ results: [{ name: "pdf", status: "mismatch" }] });
+    it("skills verify exits 1 on a hash mismatch, and on unknown trust with --strict", async () => {
+      gw.handlers["skills.list"] = () => ({ skills: [{ ...pdf, status: "hash_mismatch" }] });
       const deps = makeDeps();
       expect(await run(["skills", "verify", ...urlArgs(deps)], deps)).toBe(1);
+      gw.handlers["skills.list"] = () => ({ skills: [{ ...pdf, trust: "unknown" }] });
+      expect(await run(["skills", "verify", ...urlArgs(deps)], deps)).toBe(0);
+      expect(await run(["skills", "verify", "--strict", ...urlArgs(deps)], deps)).toBe(1);
     });
   });
 

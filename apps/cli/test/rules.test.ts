@@ -72,7 +72,10 @@ function baseSnapshot(): Snapshot {
       },
     },
     apiKeys: { ok: true, value: [{ name: "Anthropic", bindings: [] }] },
-    skills: { ok: true, value: [{ name: "pdf", verified: true, pinned: true }] },
+    skills: {
+      ok: true,
+      value: [{ name: "pdf", status: "active", trust: "bundled", enabled: true }],
+    },
     localSandboxBackends: ["docker"],
     disk: { freeBytes: 100 * GiB, totalBytes: 500 * GiB },
     modeIssues: [],
@@ -407,20 +410,30 @@ describe("audit rules", () => {
     ).toHaveLength(1);
   });
 
-  it("skills.unverified (unverified or unpinned)", () => {
+  it("skills.unverified (changed, unreviewed or unknown trust)", () => {
     const s = snap({
       skills: {
         ok: true,
         value: [
-          { name: "a", verified: false },
-          { name: "b", pinned: false },
-          { name: "c", verified: true, pinned: true },
+          { name: "a", status: "unlocked", trust: "local", enabled: false },
+          { name: "b", status: "active", trust: "unknown", enabled: true },
+          { name: "c", status: "active", trust: "verified", enabled: true },
+          { name: "d", status: "disabled", trust: "unknown", enabled: false },
         ],
       },
     });
     const f = finding(s, "skills.unverified");
     expect(f).toMatchObject([{ severity: "medium" }]);
-    expect(f[0]?.message).toContain("2 unverified or unpinned skill(s): a, b");
+    expect(f[0]?.message).toContain(
+      "2 changed, unreviewed or unknown-trust skill(s): a (unlocked), b (unknown)",
+    );
+    const mismatch = snap({
+      skills: {
+        ok: true,
+        value: [{ name: "e", status: "hash_mismatch", trust: "local", enabled: false }],
+      },
+    });
+    expect(finding(mismatch, "skills.unverified")).toMatchObject([{ severity: "high" }]);
   });
 
   it("grants.standing_without_expiry: high for exec, medium for others, none with expiresAt", () => {
