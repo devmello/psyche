@@ -167,7 +167,11 @@ export class FakePermissionBroker implements PermissionBroker {
       computeBindingHash(kind, { tool: call.tool, paramsHash: call.paramsHash });
     const askInfo = {
       approvalKind: kind,
-      scopesOffered: allowedScopes(se, kind),
+      // security §3.2: manual mode asks destructive actions with `once` only.
+      scopesOffered:
+        ctx.permissionMode === "manual" && se === "destructive"
+          ? ["once" as const]
+          : allowedScopes(se, kind),
       bindingHash,
       grantKey,
     };

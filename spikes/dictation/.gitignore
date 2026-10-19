@@ -1,0 +1,7 @@
+.build/
+.swiftpm/
+audio/
+results/*.log
+results/*.daemons
+results/smoke-*
+results/lsof-*

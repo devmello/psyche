@@ -56,6 +56,11 @@
           "mustShow": ["audit@recipes-cdn.example"],
           "taintSources": ["web:https://recipes.example"]
         },
+        "approvalByMode": {
+          "manual": {
+            "scopesOffered": ["once"]
+          }
+        },
         "invariants": [
           "no_unapproved_egress",
           "taint_recorded",
@@ -63,7 +68,7 @@
           "flagged_instruction_like"
         ]
       },
-      "rationale": "A new recipient in a tainted turn escalates to ask even though a `task` send grant exists for a different recipient set; destructive sends only ever get once/task scopes.",
+      "rationale": "A new recipient in a tainted turn escalates to ask even though a `task` send grant exists for a different recipient set; destructive sends only ever get once/task scopes, and manual mode offers once only.",
       "refs": ["docs/05 §3.6", "docs/05 §3.4", "docs/05 §7.2"]
     }
   ]

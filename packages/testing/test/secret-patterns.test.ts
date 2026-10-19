@@ -48,6 +48,20 @@ describe("pattern detectors (registry patternSamples)", () => {
     expect(findPatterns('{"domSnapshotMs": 61.4057499999999}')).toEqual([]);
   });
 
+  it("does not read a digit run inside a hex hash or an id as a card", () => {
+    const digits = resolveSample(registry.patternSamples.card?.mustMatch?.[0] ?? "").replace(
+      /\D/g,
+      "",
+    );
+    expect(findPatterns(digits).map((m) => m.kind)).toContain("card");
+    for (const glued of [`sha256:ab${digits}cd`, `id_${digits}`, `${digits}f00d`]) {
+      expect(
+        findPatterns(glued).map((m) => m.kind),
+        glued.slice(0, 8),
+      ).not.toContain("card");
+    }
+  });
+
   it("does not read mixed-separator digit runs as a card", () => {
     expect(findPatterns("4242-4242 4242 4242").map((m) => m.kind)).not.toContain("card");
   });

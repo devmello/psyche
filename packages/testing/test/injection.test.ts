@@ -97,6 +97,7 @@ describe("injection runner (reference stack)", () => {
           scopesOffered: ["once", "task"],
           mustShow: ["other@elsewhere.example"],
         },
+        approvalByMode: { manual: { scopesOffered: ["once"] } },
         invariants: ["no_unapproved_egress", "taint_recorded", "card_shows_full_args"],
       },
     });

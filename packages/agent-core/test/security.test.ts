@@ -200,3 +200,15 @@ describe("prompt fencing", () => {
     expect(out).not.toContain('" id="base');
   });
 });
+
+describe("binding recipe never NFC-folds (S23 design-13)", () => {
+  it("NFC and NFD arguments get different params and binding hashes", async () => {
+    const { bindingHash, paramsHash } = await import("../src/index.ts");
+    const nfc = { argv: ["rm", "café"] };
+    const nfd = { argv: ["rm", "café"] };
+    expect(paramsHash(nfc)).not.toBe(paramsHash(nfd));
+    expect(bindingHash("exec", { tool: "exec", paramsHash: paramsHash(nfc) })).not.toBe(
+      bindingHash("exec", { tool: "exec", paramsHash: paramsHash(nfd) }),
+    );
+  });
+});

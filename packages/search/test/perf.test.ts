@@ -3,11 +3,14 @@ import type { SearchDoc } from "../src/types.ts";
 import { DAY, NOW, setup } from "./helpers.ts";
 
 // Feature S1: "sub-second results on a year of data". The strict 1 s budget applies locally and
-// whenever PSYCHE_PERF=1. Shared GitHub runners are 2-3x slower and noisy, so plain CI runs get 3 s;
+// whenever PSYCHE_PERF=1. Shared GitHub runners are 2-3x slower and noisy (medians of 3.0–3.9 s were seen), so plain CI runs get 5 s;
 // the relative check below still catches a lost index there, since it compares two timings taken on
 // the same machine.
 const STRICT = !process.env.CI || process.env.PSYCHE_PERF === "1";
-const BUDGET_MS = STRICT ? 1000 : 3000;
+// The security workflow reruns every package's tests with model-visible capture on (PSYCHE_CAPTURE_DIR),
+// which adds file writes to every call; that job checks for leaks, not speed, so it gets a looser budget.
+const CAPTURED = process.env.PSYCHE_CAPTURE_DIR !== undefined;
+const BUDGET_MS = STRICT ? 1000 : CAPTURED ? 8000 : 5000;
 // Each query runs once untimed (cold statement cache, first page-in), then RUNS times; we assert on
 // the median so one scheduler hiccup on a shared runner cannot fail the build.
 const RUNS = 3;

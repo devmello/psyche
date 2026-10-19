@@ -12,10 +12,16 @@ export interface KeyWrapper {
   readonly slot: Exclude<VaultKeySlot, "recovery">;
   /** Why this wrapper cannot be used here (`basic_text` backend, no helper, bad file mode). */
   unavailableReason(): Promise<string | null>;
-  wrap(dek: Buffer): Promise<WrappedKey>;
+  wrap(dek: Buffer, options?: WrapOptions): Promise<WrappedKey>;
   unwrap(wrapped: WrappedKey, ctx: UnwrapContext): Promise<Buffer>;
   /** Remove whatever the wrapper stored outside the blob (the keychain item). */
-  destroy?(wrapped: WrappedKey): Promise<void>;
+  destroy?(wrapped: WrappedKey, approvalId?: string): Promise<void>;
+}
+
+export interface WrapOptions {
+  /** Replace an existing slot (re-wrap after recovery); blobs wrapped before become unopenable. */
+  replace?: boolean;
+  reason?: string;
 }
 
 export interface UnwrapContext {

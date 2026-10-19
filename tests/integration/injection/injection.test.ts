@@ -30,7 +30,7 @@ const example = JSON.parse(readFileSync(join(root, EXAMPLE), "utf8")) as CorpusF
 const cases = [...corpus.cases, ...example.cases];
 const files = [...corpus.files.map((f) => `${CORPUS_DIR}/${f}`), EXAMPLE];
 
-/** `<id>[<mode>]` → why a fail / error is accepted for now. Empty: none are. */
+/** `<id>[<mode>]` → why a fail / error is accepted for now. */
 const KNOWN_FAILURES: Record<string, string> = {};
 
 /**
@@ -40,11 +40,10 @@ const KNOWN_FAILURES: Record<string, string> = {};
 const KNOWN_DIFFERENCES: Record<string, string> = Object.fromEntries(
   ["manual", "balanced", "auto"].map((mode) => [
     `web-hidden-001[${mode}]`,
-    // S05 (engine.ts `kind:mismatch`) / S09: the broker infers the strict kind `mcp_tool` for
-    // every `mcp__*` name, and S09 registers Google as `mcp__google-1__gmail_send` describing
-    // `send_email`, so the real stack denies (blocked, over-blocking warn) where the reference
-    // asks. Same gap as the skipped write step in ../google/google.test.ts.
-    "S05/S09: connector send denied kind:mismatch (mcp_tool vs send_email); reference asks",
+    // Both stacks ask. The real broker names the deciding rule `taint:new_target` (the send's
+    // recipient is new in a tainted turn, security §3.6); the reference broker names its mode
+    // default. Issue #78 (connector sends denied kind:mismatch) is fixed.
+    "S05: real broker asks with rule taint:new_target; reference asks with its mode default",
   ]),
 );
 

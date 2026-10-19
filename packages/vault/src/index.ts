@@ -77,6 +77,16 @@ export {
   scanText,
 } from "./refusals.ts";
 export {
+  fromB64url,
+  invokeHelper,
+  KEYCHAIN_ITEM_CAPABILITIES,
+  KEYCHAIN_NAME_RE,
+  type KeychainStatus,
+  promptReason,
+  toB64url,
+} from "./slots/helper.ts";
+export { KeychainItemStore, type KeychainItemStoreOptions } from "./slots/KeychainItems.ts";
+export {
   KEYCHAIN_ACCESS_CONTROL,
   KEYCHAIN_CAPABILITIES,
   type KeychainSetParams,
@@ -85,7 +95,7 @@ export {
   type VaultUnlockParams,
 } from "./slots/KeychainWrapper.ts";
 export { KeyFileWrapper } from "./slots/KeyFileWrapper.ts";
-export type { KeyWrapper, UnwrapContext, WrappedKey } from "./slots/KeyWrapper.ts";
+export type { KeyWrapper, UnwrapContext, WrapOptions, WrappedKey } from "./slots/KeyWrapper.ts";
 export { type SafeStorageAdapter, SafeStorageWrapper } from "./slots/SafeStorageWrapper.ts";
 export {
   type ItemAttrs,

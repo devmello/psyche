@@ -11,6 +11,8 @@ import {
   canonicalJSON,
   connectorHandlers,
   REMOTE_MCP_PRESETS,
+  sha256,
+  toolCallBindingHash,
   toWire,
   VERIFIED_MCP_HOSTS,
 } from "../../src/index.ts";
@@ -96,13 +98,19 @@ const make = (accounts = ["a@example.com"]) => {
 };
 
 describe("binding hash", () => {
-  it("is order-independent, NFC-normalized and refuses ambiguous values", () => {
-    expect(canonicalJSON({ b: 1, a: "é" })).toBe('{"a":"é","b":1}');
+  it("is order-independent, never NFC-folds and refuses ambiguous values (design-13)", () => {
+    expect(canonicalJSON({ b: 1, a: "x" })).toBe('{"a":"x","b":1}');
     expect(bindingHash("k", { a: 1, b: 2 })).toBe(bindingHash("k", { b: 2, a: 1 }));
     expect(bindingHash("k", { a: 1 })).not.toBe(bindingHash("j", { a: 1 }));
     expect(() => canonicalJSON({ x: Number.NaN })).toThrow();
     expect(() => canonicalJSON({ x: new Map() })).toThrow();
-    expect(() => canonicalJSON({ é: 1, é: 2 })).toThrow(/collide/);
+    // NFC and NFD are different strings for executors and providers, so they bind differently.
+    const nfc = "caf\u00e9";
+    const nfd = "cafe\u0301";
+    expect(bindingHash("k", { argv: ["rm", nfc] })).not.toBe(
+      bindingHash("k", { argv: ["rm", nfd] }),
+    );
+    expect(canonicalJSON({ [nfc]: 1, [nfd]: 2 })).toContain(nfd);
   });
 });
 
@@ -162,7 +170,12 @@ describe("ConnectorRegistry", () => {
         },
       },
       broker: {
-        verifyBinding: async () => ({ ok: true, approval: {} }),
+        get: async (id: string) => ({
+          id,
+          status: "approved",
+          bindingHash: toolCallBindingHash("mcp__demo-1__write", {}, undefined),
+          requestedBy: { toolCallId: "c1" },
+        }),
         recordReceipt: async (i: unknown) => {
           receipts.push(i);
           return { id: "r1" };
@@ -215,6 +228,8 @@ describe("write enforcement fails closed", () => {
     approvalFor?: () => string | undefined;
     broker?: unknown;
     describe?: boolean;
+    status?: string;
+    toolCallId?: string;
   }) => {
     const tools = new Map<string, { execute: (...a: unknown[]) => Promise<unknown> }>();
     const verified: string[] = [];
@@ -269,9 +284,14 @@ describe("write enforcement fails closed", () => {
         ? {}
         : {
             broker: {
-              verifyBinding: async (_id: string, hash: string) => {
-                verified.push(hash);
-                return { ok: true, approval: {} };
+              get: async (id: string) => {
+                verified.push(id);
+                return {
+                  id,
+                  status: opts.status ?? "approved",
+                  bindingHash: toolCallBindingHash("mcp__demo-1__write", { x: 1 }, undefined),
+                  requestedBy: { toolCallId: opts.toolCallId ?? "c" },
+                };
               },
               recordReceipt: async () => ({ id: "r" }),
             } as never,
@@ -300,16 +320,26 @@ describe("write enforcement fails closed", () => {
     });
   });
 
-  it("a write without describeCall is still verified, against the connector_action fallback", async () => {
+  it("a write without describeCall is confirmed against the loop's generic recipe", async () => {
     const { call, verified } = setup({ approvalFor: () => "ap", broker: true });
     await expect(call("write")).resolves.toMatchObject({ output: "written" });
-    expect(verified).toEqual([
+    expect(verified).toEqual(["ap"]);
+    // The same bytes agent-core's loop and the broker's generic binding produce (issue #78).
+    expect(toolCallBindingHash("mcp__demo-1__write", { x: 1 }, undefined)).toBe(
       bindingHash("connector_action", {
-        connectorId: "demo-1",
-        tool: "write",
-        paramsHash: bindingHash("params", { x: 1 }),
+        tool: "mcp__demo-1__write",
+        paramsHash: sha256(canonicalJSON({ x: 1 })),
       }),
-    ]);
+    );
+  });
+
+  it("an approval that is not approved, or belongs to another call, is refused", async () => {
+    await expect(
+      setup({ approvalFor: () => "ap", broker: true, status: "pending" }).call("write"),
+    ).rejects.toMatchObject({ code: "binding_mismatch" });
+    await expect(
+      setup({ approvalFor: () => "ap", broker: true, toolCallId: "other" }).call("write"),
+    ).rejects.toMatchObject({ code: "binding_mismatch" });
   });
 
   it("describeCall can raise a read tool to destructive, which then needs an approval", async () => {
