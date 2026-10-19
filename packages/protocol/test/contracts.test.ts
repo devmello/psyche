@@ -58,6 +58,7 @@ describe("contracts: fillElementAccepts (S23 design-01)", () => {
       { tagName: "input", type: "text", frameOrigin: o },
       { tagName: "input", type: "search", frameOrigin: o },
       { tagName: "input", type: "password", contentEditable: true, frameOrigin: o },
+      { tagName: "input", type: "text", autocomplete: "current-password", frameOrigin: o },
     ]) {
       expect(fillElementAccepts("password", el).ok, JSON.stringify(el)).toBe(false);
     }
