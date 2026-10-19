@@ -3,6 +3,13 @@ import { Id, Nullable, Provenance, StringEnum } from "./common.ts";
 import { PsycheError } from "./errors.ts";
 import { QueuedMessage } from "./methods/chat.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
+import {
+  ReadAloudCompletedPayload,
+  ReadAloudFailedPayload,
+  SpeechAudioPayload,
+  VoiceEndedPayload,
+  VoiceSegmentPayload,
+} from "./methods/voice.ts";
 import { Block } from "./schemas/blocks.ts";
 import { Device, NodeInfo, PairingRequest } from "./schemas/identity.ts";
 import {
@@ -12,7 +19,7 @@ import {
   CredentialMeta,
   VaultStatus,
 } from "./schemas/integrations.ts";
-import { MemoryChangeSource, MemoryJob } from "./schemas/memory.ts";
+import { MemoryChangeSource, MemoryJob, PersonaIdentity } from "./schemas/memory.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
 import { FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surfaces.ts";
 import { InputRequest, Task, TaskAction } from "./schemas/tasks.ts";
@@ -143,6 +150,18 @@ export const Events = {
     description:
       "A workspace file was created, changed or deleted (by a tool, the API, a job, or outside Psyche).",
   }),
+  "persona.updated": defineEvent({
+    payload: Type.Object({
+      identity: PersonaIdentity,
+      changed: Type.Array(Type.String()),
+      /**
+       * The creature or name changed: the avatar renderer should make a new avatar from
+       * `identity` and store its asset id with `memory.persona.edit { fields: { avatar } }`.
+       */
+      avatarRequested: Type.Boolean(),
+    }),
+    description: "IDENTITY.md changed: clients refresh the header; maybe regenerate the avatar.",
+  }),
   "memory.job.updated": defineEvent({
     payload: Type.Object({ job: MemoryJob }),
     description: "A memory job (flush, dreaming, reindex, import) started or finished.",
@@ -218,6 +237,28 @@ export const Events = {
   "automation.run.finished": defineEvent({
     payload: Type.Object({ run: AutomationRun }),
     description: "An automation run ended (done, no_reply, failed, cancelled, skipped).",
+  }),
+  "voice.segment": defineEvent({
+    payload: VoiceSegmentPayload,
+    description:
+      "A dictation partial or final, in order, sent only to the device that started the session.",
+  }),
+  "voice.ended": defineEvent({
+    payload: VoiceEndedPayload,
+    description: "A dictation session ended (stopped, cancelled, idle timeout or engine error).",
+  }),
+  "speech.audio": defineEvent({
+    payload: SpeechAudioPayload,
+    description:
+      "One chunk of read-aloud PCM for progressive playback; last marks the end of audio.",
+  }),
+  "speech.readAloud.completed": defineEvent({
+    payload: ReadAloudCompletedPayload,
+    description: "A read-aloud clip was saved to the Library.",
+  }),
+  "speech.readAloud.failed": defineEvent({
+    payload: ReadAloudFailedPayload,
+    description: "A read-aloud failed before its Library item was saved.",
   }),
 } as const;
 

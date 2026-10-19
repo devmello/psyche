@@ -88,3 +88,18 @@ export const MemoryChangeSource = StringEnum(["tool", "api", "external", "job"],
   $id: "MemoryChangeSource",
 });
 export type MemoryChangeSource = Static<typeof MemoryChangeSource>;
+
+/** `IDENTITY.md` frontmatter (data model §7.1); every field optional, unknown keys are kept. */
+export const PersonaIdentity = Type.Object(
+  {
+    name: Type.Optional(Type.String({ maxLength: 80 })),
+    creature: Type.Optional(Type.String({ maxLength: 300 })),
+    vibe: Type.Optional(Type.String({ maxLength: 200 })),
+    tagline: Type.Optional(Type.String({ maxLength: 200 })),
+    emoji: Type.Optional(Type.String({ maxLength: 16 })),
+    avatar: Type.Optional(Type.String({ maxLength: 200, description: "Asset id of the avatar" })),
+    voice: Type.Optional(Type.String({ maxLength: 120 })),
+  },
+  { $id: "PersonaIdentity" },
+);
+export type PersonaIdentity = Static<typeof PersonaIdentity>;

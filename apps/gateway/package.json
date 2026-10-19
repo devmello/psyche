@@ -9,6 +9,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./compose": {
+      "types": "./src/compose/index.ts",
+      "default": "./src/compose/index.ts"
     }
   },
   "scripts": {
@@ -18,8 +22,17 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@psyche/agent-core": "workspace:*",
+    "@psyche/audit": "workspace:*",
     "@psyche/db": "workspace:*",
+    "@psyche/memory": "workspace:*",
+    "@psyche/model-router": "workspace:*",
+    "@psyche/notifications": "workspace:*",
+    "@psyche/permissions": "workspace:*",
     "@psyche/protocol": "workspace:*",
+    "@psyche/scheduler": "workspace:*",
+    "@psyche/tasks": "workspace:*",
+    "@sinclair/typebox": "0.34.52",
     "ulid": "3.0.2",
     "ws": "8.22.0"
   },

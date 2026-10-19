@@ -255,6 +255,9 @@ importers:
       '@psyche/testing':
         specifier: workspace:*
         version: link:../../packages/testing
+      '@tailwindcss/vite':
+        specifier: 4.3.3
+        version: 4.3.3(vite@8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0
@@ -270,18 +273,48 @@ importers:
       electron:
         specifier: 44.9.0
         version: 44.9.0
+      tailwindcss:
+        specifier: 4.3.3
+        version: 4.3.3
       ws:
         specifier: 8.22.0
         version: 8.22.0
 
   apps/gateway:
     dependencies:
+      '@psyche/agent-core':
+        specifier: workspace:*
+        version: link:../../packages/agent-core
+      '@psyche/audit':
+        specifier: workspace:*
+        version: link:../../packages/audit
       '@psyche/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@psyche/memory':
+        specifier: workspace:*
+        version: link:../../packages/memory
+      '@psyche/model-router':
+        specifier: workspace:*
+        version: link:../../packages/model-router
+      '@psyche/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
+      '@psyche/permissions':
+        specifier: workspace:*
+        version: link:../../packages/permissions
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@psyche/scheduler':
+        specifier: workspace:*
+        version: link:../../packages/scheduler
+      '@psyche/tasks':
+        specifier: workspace:*
+        version: link:../../packages/tasks
+      '@sinclair/typebox':
+        specifier: 0.34.52
+        version: 0.34.52
       ulid:
         specifier: 3.0.2
         version: 3.0.2
@@ -515,6 +548,9 @@ importers:
         specifier: 2.9.1
         version: 2.9.1
     devDependencies:
+      '@psyche/scheduler':
+        specifier: workspace:*
+        version: link:../scheduler
       '@psyche/testing':
         specifier: workspace:*
         version: link:../testing
@@ -663,29 +699,53 @@ importers:
 
   packages/search:
     dependencies:
+      '@psyche/db':
+        specifier: workspace:*
+        version: link:../db
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
+      better-sqlite3:
+        specifier: 13.0.3
+        version: 13.0.3
     devDependencies:
       '@psyche/testing':
         specifier: workspace:*
         version: link:../testing
+      '@types/better-sqlite3':
+        specifier: 9.6.0
+        version: 9.6.0
 
   packages/skills:
     dependencies:
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
+      fflate:
+        specifier: 0.8.3
+        version: 0.8.3
+      yaml:
+        specifier: 2.9.1
+        version: 2.9.1
     devDependencies:
+      '@psyche/db':
+        specifier: workspace:*
+        version: link:../db
       '@psyche/testing':
         specifier: workspace:*
         version: link:../testing
+      '@types/better-sqlite3':
+        specifier: 9.6.0
+        version: 9.6.0
 
   packages/speech:
     dependencies:
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
+      phonemize:
+        specifier: 2.0.1
+        version: 2.0.1
     devDependencies:
       '@psyche/testing':
         specifier: workspace:*
@@ -952,6 +1012,30 @@ importers:
       react-dom:
         specifier: 19.3.1
         version: 19.3.1(react@19.3.1)
+
+  tests/integration:
+    devDependencies:
+      '@playwright/test':
+        specifier: 1.64.1
+        version: 1.64.1
+      '@psyche/agent-core':
+        specifier: workspace:*
+        version: link:../../packages/agent-core
+      '@psyche/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@psyche/gateway':
+        specifier: workspace:*
+        version: link:../../apps/gateway
+      '@psyche/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+      '@psyche/testing':
+        specifier: workspace:*
+        version: link:../../packages/testing
+      '@psyche/web':
+        specifier: workspace:*
+        version: link:../../apps/web
 
 packages:
 
@@ -5151,6 +5235,9 @@ packages:
     engines: {node: ^20.17.0 || >=22.9.0}
     hasBin: true
 
+  number-to-words@1.2.5:
+    resolution: {integrity: sha512-AuqAoOgs43P+bw2gccDCcFyu5FIHn6ArbrAFEwP+QjYcV6WvceWr0B0UAjiSIH9MNshephlmWqsKqwUjfs4OLQ==}
+
   object-assign@4.1.1:
     resolution: {integrity: sha512-rJgTQnkUnH1sFw8yT6VSU3zD3sWmu6sZhIseY8VX+GRu3P6F7Fu+JNDoXfklElbLJSnc3FUQHVe4cU5hj+BcUg==}
     engines: {node: '>=0.10.0'}
@@ -5257,12 +5344,18 @@ packages:
     resolution: {integrity: sha512-nh39Mo1eGWmZS7y+mK/dQIqg7S1lp38DpRxkyoHf0ZcUs/HDc+yyTjuOtTvSMZHmfSLuSQaX945u05Y2Q6UWZg==}
     engines: {node: '>=14', npm: '>=7'}
 
+  phonemize@2.0.1:
+    resolution: {integrity: sha512-BTucYeBh/7YnWv08HXS2bB+6hG49fMJRb7HJYz3dGruAng8OajV9CNPG48IpJhFSn4RnFRL+HVb4bEUgSumxiQ==}
+
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
 
   picomatch@4.0.7:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
+
+  pinyin-pro@3.29.5:
+    resolution: {integrity: sha512-Fk5YoRmtdHqJWqAuzYVG/NzvzeCbaG+ZEwbY6Nbps3QAIrvQQEtcm49frcyCM8i2b5najnzPDtYqrHRYTTiuwQ==}
 
   pkce-challenge@5.0.1:
     resolution: {integrity: sha512-wQ0b/W4Fr01qtpHlqSqspcj3EhBvimsdh0KlHhH8HRZnMsEa0ea2fTULOXOS9ccQr3om+GcGRk4e+isrZWV8qQ==}
@@ -10483,6 +10576,8 @@ snapshots:
     dependencies:
       abbrev: 4.0.0
 
+  number-to-words@1.2.5: {}
+
   object-assign@4.1.1: {}
 
   object-inspect@1.13.4: {}
@@ -10623,9 +10718,16 @@ snapshots:
 
   pe-library@1.0.1: {}
 
+  phonemize@2.0.1:
+    dependencies:
+      number-to-words: 1.2.5
+      pinyin-pro: 3.29.5
+
   picocolors@1.1.1: {}
 
   picomatch@4.0.7: {}
+
+  pinyin-pro@3.29.5: {}
 
   pkce-challenge@5.0.1: {}
 

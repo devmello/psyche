@@ -1,20 +1,72 @@
 # @psyche/search
 
-**Owner:** S16 (`prompts/s16-*.md`). Feature ids: S1 (S2) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
+**Owner:** S16 (`prompts/s16-search-skills.md`). Feature ids: S1 (S2 is M2) in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
 
-Unified index and query across threads, tasks, memory, library, feed.
+One index over everything the owner and the agent produced: threads and messages, tasks and their Activity lines, Library items (with extracted text), feed posts, ideas, goals and the connector caches the owner opted to index. Memory is searched live through `MemoryStore` and fused into the results. It serves the Search screen and ⌘K (UI §3.13, §2.5) and the `search.query` method.
 
-## Status
+## Public API
 
-Placeholder created by S00 (bootstrap). `createSearchIndex()` throws `NotImplementedError` until S16 lands the real `SearchIndex` implementation.
+```ts
+import { createSearchIndex, SearchIndexer, createSearchHandlers } from "@psyche/search";
 
-## How this package maps to the docs
+const index = createSearchIndex({ path: `${home}/state/search.sqlite`, memory }); // SqliteSearchIndex
+const indexer = new SearchIndexer(index, { lookupThread, senderOf, onError });
+bus.on("*", (event, payload) => indexer.handle(event, payload));
+const handlers = createSearchHandlers(index); // { "search.query": (params, { viewer }) => … }
+```
 
-- Architecture: [docs/02-architecture.md](../../docs/02-architecture.md)
-- Data model: [docs/04-data-model.md](../../docs/04-data-model.md)
-- Security rules: [docs/05-security-and-permissions.md](../../docs/05-security-and-permissions.md)
-- Contract: `packages/protocol/src/contracts/SearchIndex.ts`, fake: `packages/testing/src/fakes/FakeSearchIndex.ts`
+- `SqliteSearchIndex` implements the `SearchIndex` contract (`index`, `remove`, `query`) and adds:
+  - `search({ q, viewer?, limit?, groupLimit?, groups?, kinds?, collapse? })` → `{ hits, groups, total, warnings, tookMs }`: hits collapsed (messages onto their thread, task actions onto their task), grouped by pane in UI order (`threads, tasks, memory, library, feed, ideas, goals, connectors`) with per-group counts, plain snippets plus `[start, end)` highlight ranges for snippet and title, provenance on every hit;
+  - `indexMany(docs)` (one transaction), `removeThread(id)`, `removeSource(source)`, `retitleThread(id, title, scopeKey)`, `setFlag(targetId, "approval" | "receipt" | "attachment")`, `count()`, `optimize()`.
+- `SearchDoc` = the contract's `SearchIndexDoc` plus optional `scopeKey`, `parentId`, `source` (proposed for the contract in a `protocol:` PR).
+- Adapters (pure): `threadDoc`, `messageDoc`, `blocksText`, `taskDoc`, `taskActionDoc`, `libraryDoc(item, extractedText)`, `feedDoc`, `ideaDoc`, `goalDoc`, `connectorDoc(connectorId, item)`.
+- `SearchIndexer.handle(event, payload)`: `thread.updated`, `thread.deleted`, `chat.message`, `task.updated`, `task.action`, `approval.created`, `receipt.created`, `feed.post`, `feed.updated`, `idea.updated`, `goal.updated`. Errors go to `onError` instead of the event bus.
+- `parseQuery`, `toFtsMatch`, `toFtsExclusion`, `fuse` (reciprocal rank fusion), `routeOf(hit)` (UI §2.7 deep links).
 
-## Rules
+## Query syntax
 
-Edit only this package (see `prompts/_shared-rules.md`). Cross-package needs go through `packages/protocol` contracts and the fakes in `packages/testing`.
+| Syntax | Meaning |
+| --- | --- |
+| `dentist booking` | both words; **every word of three or more letters matches as a prefix** (`runni` → running), with a light plural fold (`dentists` → `dentist*`, `parties` → `part*`); diacritics folded |
+| `"three slots"` | exact phrase (no prefix) |
+| `dentist alice OR bob` | `dentist AND (alice OR bob)`: an OR chain binds tighter than AND |
+| `-cancelled` | exclude |
+| `in:threads` `in:tasks` / `in:activity` `in:memory` `in:library` / `in:files` `in:feed` `in:ideas` `in:goals` `in:connectors` `in:messages` | pane (document kinds) |
+| `type:pdf` `type:image` `type:doc` `type:sheet` `type:slides` `type:audio` `type:video` `type:md` `type:text` `type:application/zip` | file type (MIME family); a kind name (`type:task`) also works |
+| `from:alice` | sender contains `alice` (Unicode case-insensitive; name or address); quoted values allowed: `from:"Alice Chen"`, `from:émile` |
+| `after:2026-09-01` `before:2026-10-01` `on:2026-10-02` `on:2026-10` | creation date; `after:` inclusive, `before:` exclusive, `on:` a day or a whole month; also `today`, `yesterday`, `7d`, `2w`, `3m`, `1y`; impossible dates are rejected |
+| `has:approval` `has:receipt` `has:attachment` | the document carries that fact (a flagged thread or task matches itself; actions of a flagged task match too) |
+| `is:owner` `is:agent` `is:untrusted` `is:system` | provenance |
+| `thread:<id>` | inside one thread |
+
+Unknown `key:value` tokens are searched as text and returned in `warnings`; negated filters (`-in:tasks`) are not supported and are returned in `warnings` without being applied. Input with nothing searchable left (`"`, `OR`, punctuation) matches nothing. User input never becomes FTS5 syntax: every token is quoted, punctuation splits tokens like the tokenizer does, and a query of only punctuation matches nothing.
+
+## Ranking
+
+`score = BM25(title ×3, body ×1, sender/tags ×0.5) × (1 + 1.0 × 0.5^(age / 30 days))`, computed inline in SQL: a document from today gets up to twice the score of an equally relevant one from last year (half-life and weight are options). Filter-only queries (`in:library type:pdf`) list newest first. In grouped results the flat list fuses the local ranking with memory hits by reciprocal rank fusion (k = 60), so the two scorers never need comparable scales.
+
+Ranking runs in two steps: every match is scored once into a `TEMP` table (collapsing in SQL), then top-N slices are read per group and for the flat list, and snippets are built only for the rows returned. On 100 000 documents a term matching 70 % of the corpus answers in about 130 ms on an M-series laptop, three common prefixes in about 260 ms, rare terms and filtered queries in under 40 ms (`test/perf.test.ts`, `PSYCHE_PERF_LOG=1` prints timings).
+
+## Permissions and privacy
+
+- **Incognito content is never stored.** Indexing a document with `incognito: true` deletes any existing row with that id; a thread that becomes incognito is removed with its messages, tasks, actions and flags; messages and tasks of incognito threads are skipped. The indexer **fails closed**: a message, task or action whose thread (or task) it cannot resolve through the cache, `lookupThread` or `lookupTask` is not indexed.
+- **Designated-person scoping.** Threads with a persona overlay (architecture §4.10) carry their session key as `scopeKey`; messages, tasks and actions inherit it. The owner (any paired operator device) sees every scope. A delegated viewer (`{ kind: "delegated", scopeKey }`, e.g. the agent answering a designated person) sees only its own scope and never memory.
+- **Provenance travels with every hit**, so the UI can show the chip and an agent-side caller can taint the turn for `untrusted` hits. Feed posts and connector content are `untrusted`; downloads, connector and channel files in the Library are `untrusted`.
+- **Memory is not copied.** `MemoryStore.search` is queried per request, so `forget` and dreaming are reflected immediately. Filters memory chunks cannot satisfy (`from:`, `has:`, `type:`, `thread:`) drop memory instead of being ignored.
+
+## Storage
+
+The index is derived data in its own file, `$PSYCHE_HOME/state/search.sqlite`, opened with `@psyche/db`'s hardened `openDb` (0700 directory, 0600 file, WAL) and a self-managed schema (`search_meta`, `search_docs`, `search_fts` external-content FTS5 with triggers, `search_flags`). It is not in `psyche.sqlite` because it can be deleted and rebuilt at any time and its frequent writes should not contend with the transcript writer; `docs/02-architecture.md` §12 lists it. Pass `db` to use another connection.
+
+## How this maps to the docs
+
+- Architecture §4.12 (one index, typed filters, results open their pane), §4.10 (designated persons), §4.8 (memory index and provenance), §12 (storage).
+- Feature S1 ("sub-second results on a year of data": 100k-document test).
+- UI §3.13 (grouped results, provenance chip for memory), §2.7 (routes), §2.5 (⌘K).
+
+## What is stubbed
+
+- `search.query` returns only the wire scopes the protocol has (`threads, messages, tasks, memory, library, feed`); ideas, goals and connector hits need the `protocol:` PR that adds those scopes and the richer hit fields (group, provenance, highlights).
+- Library text extraction (S13) and connector cache feeds (S09) call `libraryDoc` / `connectorDoc` themselves; there are no events for them yet. Connector opt-in is the caller's decision; `removeSource("connector:<id>")` drops a connector the owner stops indexing.
+- Rebuild from the stores (`indexMany` over threads/messages/tasks) is the Gateway's job at startup when the file is new.
+- `sessions_search` for the agent (S2) is M2.

@@ -1,5 +1,13 @@
 import type { Thread } from "@psyche/protocol";
-import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { ChatView, PERMISSION_MODES, QuickEntry } from "./components/Chat.tsx";
 import {
   GatewayPill,
@@ -58,7 +66,23 @@ function isTextTarget(t: EventTarget | null): boolean {
   );
 }
 
-export function ShellApp({ platform }: { platform: ShellPlatform }): ReactElement {
+/**
+ * Optional content from the host's composition root (INT-1): the UI kit's chat column for a
+ * thread, and screens for routes the shell has no view of its own for. Absent slots keep the
+ * shell's built-in views.
+ */
+export interface ShellSlots {
+  chat?: (threadId: string) => ReactNode;
+  section?: (route: string, navigate: (to: string) => void) => ReactNode | null;
+}
+
+export function ShellApp({
+  platform,
+  slots,
+}: {
+  platform: ShellPlatform;
+  slots?: ShellSlots;
+}): ReactElement {
   const store = useMemo(() => new ShellStore(platform.gateway), [platform]);
   const layout = useMemo(() => createLayoutStore(platform.storage), [platform]);
   useEffect(() => {
@@ -69,14 +93,14 @@ export function ShellApp({ platform }: { platform: ShellPlatform }): ReactElemen
     /Mac|iPhone|iPad/.test(globalThis.navigator?.platform ?? "") || platform.kind === "desktop";
   return (
     <ShellProvider platform={platform} store={store} mac={mac}>
-      <Shell layout={layout} />
+      <Shell layout={layout} slots={slots ?? {}} />
     </ShellProvider>
   );
 }
 
 type Overlay = "palette" | "shortcuts" | "model" | null;
 
-function Shell({ layout }: { layout: LayoutStore }): ReactElement {
+function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): ReactElement {
   const { platform, store, mac } = useShell();
   const status = useShellState((s) => s.status);
   const threads = useShellState((s) => s.threads);
@@ -358,7 +382,9 @@ function Shell({ layout }: { layout: LayoutStore }): ReactElement {
         <div style={{ position: "absolute", top: 8, right: 12 }}>
           <GatewayPill status={status} />
         </div>
-        {onChat ? (
+        {onChat && slots.chat && threadId ? (
+          slots.chat(threadId)
+        ) : onChat ? (
           <ChatView
             thread={thread}
             onModeCycle={cycleMode}
@@ -366,7 +392,7 @@ function Shell({ layout }: { layout: LayoutStore }): ReactElement {
             focusToken={focusToken}
           />
         ) : (
-          <SectionPlaceholder route={route} />
+          (slots.section?.(route, navigate) ?? <SectionPlaceholder route={route} />)
         )}
       </div>
       {onChat && threadId ? (

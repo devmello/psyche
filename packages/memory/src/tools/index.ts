@@ -2,10 +2,13 @@ import { type MemoryHit, type Provenance, PsycheError, type ToolSpec } from "@ps
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import { oneLine } from "../daily.ts";
+import { applyPersonaChange } from "../persona-edit.ts";
 import type { SqliteMemoryStore } from "../store.ts";
 import {
   assertWritable,
+  classifyMemoryCommand,
   executeMemoryCommand,
+  type MemoryCallClass,
   MemoryCommandToolSchema,
   type MemoryToolContext,
   type ToolOutcome,
@@ -42,6 +45,19 @@ const ForgetInput = Type.Object({
   dry_run: Type.Optional(Type.Boolean()),
 });
 const RememberInput = Type.Object({ text: Type.String({ minLength: 1, maxLength: 2000 }) });
+const PersonaInput = Type.Object({
+  name: Type.Optional(Type.String({ maxLength: 80 })),
+  creature: Type.Optional(
+    Type.String({ maxLength: 300, description: "Visual description for the avatar" }),
+  ),
+  vibe: Type.Optional(Type.String({ maxLength: 200 })),
+  tagline: Type.Optional(Type.String({ maxLength: 200 })),
+  emoji: Type.Optional(Type.String({ maxLength: 16 })),
+  voice: Type.Optional(Type.String({ maxLength: 120 })),
+  description: Type.Optional(
+    Type.String({ maxLength: 2000, description: "Self-description, first person" }),
+  ),
+});
 const SessionsInput = Type.Object({
   query: Type.String({ minLength: 1, maxLength: 2000 }),
   limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50 })),
@@ -74,6 +90,7 @@ export const MEMORY_TOOL_NAMES = [
   "forget",
   "remember",
   "sessions_search",
+  "persona_update",
 ] as const;
 export type MemoryToolName = (typeof MEMORY_TOOL_NAMES)[number];
 
@@ -132,7 +149,32 @@ export const memoryToolSpecs: readonly ToolSpec[] = [
     SessionsInput,
     "none",
   ),
+  spec(
+    "persona_update",
+    'Change your own persona when the owner asks ("make yourself a pink hippo named Flash"): name, creature, vibe, tagline, emoji, voice or self-description. Writes IDENTITY.md after the owner approves; a new creature or name also makes a new avatar.',
+    PersonaInput,
+    "write",
+  ),
 ];
+
+/**
+ * Per-call classification for the Permission Broker (security §3.5) across every memory tool.
+ * `forget` may also need an approval at run time when it would change a protected file.
+ */
+export function classifyMemoryCall(name: string, input: unknown): MemoryCallClass {
+  switch (name) {
+    case "memory":
+      return classifyMemoryCommand(input);
+    case "persona_update":
+      return { sideEffect: "write", paths: ["IDENTITY.md"], protected: true };
+    case "forget":
+      return { sideEffect: "destructive", paths: [], protected: false };
+    case "remember":
+      return { sideEffect: "write", paths: [], protected: false };
+    default:
+      return { sideEffect: "none", paths: [], protected: false };
+  }
+}
 
 function check<T extends TSchema>(schema: T, input: unknown): Static<T> {
   if (!Value.Check(schema, input)) {
@@ -207,6 +249,8 @@ export class MemoryTools {
           return await this.#remember(check(RememberInput, input), ctx);
         case "sessions_search":
           return await this.#sessions(check(SessionsInput, input));
+        case "persona_update":
+          return await this.#persona(check(PersonaInput, input), ctx);
         default:
           throw new PsycheError("invalid_params", `unknown memory tool ${name}`);
       }
@@ -224,6 +268,10 @@ export class MemoryTools {
       limit: args.limit ?? 8,
       ...(args.include_untrusted === true ? {} : { provenance: ["owner", "agent", "system"] }),
     });
+    this.#store.recordRecall(
+      hits.map((h) => h.chunk.id),
+      args.query,
+    );
     const tainted = hits.some((h) => h.chunk.provenance === "untrusted");
     return { content: formatHits(hits), provenance: tainted ? "untrusted" : "trusted" };
   }
@@ -289,6 +337,27 @@ export class MemoryTools {
     });
     return {
       content: `Remembered in ${path}:${chunk.lineStart} as ${provenance}.`,
+      provenance: "trusted",
+    };
+  }
+
+  async #persona(args: Static<typeof PersonaInput>, ctx: MemoryToolContext): Promise<ToolOutcome> {
+    assertWritable(this.#store, ctx);
+    if (ctx.provenance === "untrusted") {
+      throw new PsycheError(
+        "policy_denied",
+        "the persona cannot change after reading untrusted content",
+      );
+    }
+    const { description, ...fields } = args;
+    const r = await applyPersonaChange(
+      this.#store,
+      { fields, ...(description === undefined ? {} : { description }) },
+      { actor: "agent", ...(ctx.approvalId === undefined ? {} : { approvalId: ctx.approvalId }) },
+    );
+    if (r.changed.length === 0) return { content: "Nothing changed.", provenance: "trusted" };
+    return {
+      content: `Updated ${r.changed.join(", ")} in IDENTITY.md${r.avatarRequested ? "; a new avatar was requested" : ""}.`,
       provenance: "trusted",
     };
   }

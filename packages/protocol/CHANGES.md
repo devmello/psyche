@@ -18,6 +18,20 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S07 memory, H9)
+
+- New schema `PersonaIdentity` (the `IDENTITY.md` frontmatter fields).
+- New methods `memory.persona.get` and `memory.persona.edit` (natural-language `instruction` and/or explicit `fields` / `description`, optional `etag`; returns `changed` and `avatarRequested`).
+- New event `persona.updated { identity, changed, avatarRequested }` so the header updates within the turn and the avatar renderer knows when to make a new avatar.
+
+### v1 additive — 2026-10-19 (S17 speech)
+
+For S17 (`packages/speech`), S01 (dispatch), S11/S12 (composer dictation, read-aloud).
+
+- Methods `voice.start` (raw PCM format, language, vocabulary ≤ 64 terms; answers `{sessionId | null, location, engine}`, null + `client` = dictate in the browser), `voice.push` (ordered base64 chunks ≤ 512 000 chars), `voice.stop` (→ `Transcript`), `voice.cancel`, and `speech.readAloud` (side-effecting: writes a Library audio item; → `streamId`).
+- Events `voice.segment`, `voice.ended`, `speech.audio`, `speech.readAloud.completed`, `speech.readAloud.failed`.
+- Schemas `AudioFormat`, `TranscriptSegment`, `Transcript` (JSON forms of the `SpeechEngine` contract types), `SpeechEngineLocation`, `VoiceEndReason`.
+
 ### v1 additive — 2026-10-19 (S06 vault, follow-up)
 
 - `fillElementAccepts`: a password (or a login's primary secret) goes only into `type=password`. The `type=text` + `autocomplete=current-password` exception is gone: a show-password field would put the value on screen. Found by the S06 adversarial review after #12's merged head.

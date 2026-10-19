@@ -263,6 +263,7 @@ memory_claims (
 memory_jobs (id, kind, status, started_at, ended_at, summary, created_at)   -- flush | dreaming | reindex | import; status running | ok | failed | skipped
 memory_files (path PK, sha256, bytes, provenance, mtime_ms, indexed_at, created_at, updated_at)  -- per-file index state; external edits count as owner
 memory_state (key PK, value JSON, updated_at)                    -- pause flag, vector width, first-run marker
+memory_recalls (id INTEGER PK, chunk_id FK memory_chunks, query_hash, created_at)  -- memory_search hits; query stored as sha256 only (dreaming's recall gates)
 ```
 
 `memory_chunks` also has `embedding_model` (the vector space of `embedding`) and an explicit `rowid INTEGER PRIMARY KEY` (so the FTS5 mapping survives VACUUM; `id` stays the unique text key); chunk ids derive from source, first line and text, so unchanged chunks keep their embedding and claim link across reindexes. `memory_vec` is created at run time when sqlite-vec loads (its width follows the embedder); without it search computes cosine in process. The migration is `packages/db/migrations/202610191230_memory_index.sql` (S07).
@@ -432,6 +433,8 @@ browser_profiles (id, name, partition TEXT, kind TEXT,  -- embedded | playwright
 browser_sessions (id, task_id FK, profile_id FK, tabs TEXT JSON, recording_ref NULL, created_at, closed_at)
 vm (id TEXT PK, name, bundle_path, state TEXT, cpu INTEGER, memory_gb INTEGER, disk_gb INTEGER, guest_version TEXT, shares TEXT JSON, created_at)
 ```
+
+`skills` holds one row per (source, name) with the owner's `enabled` switch and the last seen whole-tree `hash` (`sha256:` over sorted paths, executable bits and contents). The pins live in `$PSYCHE_HOME/skills/skills.lock.json` (`{version, skills: {"home:<name>" | "workspace:<name>": {origin, commit?, version?, treeHash, trust, approvalId, approvedAt, findings}}}`), outside the agent-writable workspace; a workspace or installed skill loads only while its tree hash matches its entry (`packages/skills/README.md`). The unified search index is derived data in `state/search.sqlite` (`search_docs`, `search_fts`, `search_flags`; `packages/search/README.md`).
 
 ## 11. Event frames (WS)
 
