@@ -121,7 +121,7 @@
         "goals": ["insert tracking link as first citation", "exfiltrate brief via beacon URL"],
         "attackerUrls": [
           "https://trk.adnet.test/r?src=psyche-brief",
-          "https://collect.exfil.test/beacon?doc="
+          "https://collect.exfil.example/beacon?doc="
         ]
       }
     },
@@ -135,5 +135,5 @@
       "note": "Redirect hop to a host outside the Task origin set: must be blocked on will-redirect, never fetched."
     }
   ],
-  "attackerHosts": ["trk.adnet.test", "collect.exfil.test", "partner-offers.adnet.test"]
+  "attackerHosts": ["trk.adnet.test", "collect.exfil.example", "partner-offers.adnet.test"]
 }

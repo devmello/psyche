@@ -10,6 +10,7 @@ import { Type } from "@sinclair/typebox";
 import { applyPlanUpdate, UpdatePlanInput } from "../checklist.ts";
 import { AskUserInput, normalizeQuestions, type QuestionAnswer } from "../questions.ts";
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "../registry.ts";
+import type { HarnessTurnApi } from "./harness.ts";
 
 /** What the loop lends its turn tools: blocks, the checklist, questions and plan approval. */
 export interface TurnApi {
@@ -18,6 +19,11 @@ export interface TurnApi {
   setChecklist(items: ChecklistItem[]): void;
   /** Attended: resolves with the answer. Background (task) run: parks the task and the turn. */
   ask(questions: Question[]): Promise<{ answer: QuestionAnswer } | { parked: InputRequest }>;
+  /** C10: gate one action of an embedded coding harness through the broker. */
+  gateHarnessAction?: HarnessTurnApi["gateHarnessAction"];
+  harnessActionDone?: HarnessTurnApi["harnessActionDone"];
+  /** Runs a subagent to completion (C6); its result comes back as this tool's result. */
+  spawnSubagent(input: SpawnSubagentInput): Promise<SubagentResult>;
   /** Emits the plan block and waits for the `plan_exit` approval. */
   exitPlan(plan: { title: string; plan: string }): Promise<{
     planId: string;
@@ -143,5 +149,61 @@ export const exitPlanModeTool = defineTool({
 
 /** Tools that need the turn (questions, checklist, wrap-up, plan exit). */
 export function turnTools(): AgentToolRegistration[] {
-  return [askUserTool, updatePlanTool, wrapUpTool, exitPlanModeTool];
+  return [askUserTool, updatePlanTool, wrapUpTool, exitPlanModeTool, subagentSpawnTool];
 }
+
+export interface SpawnSubagentInput {
+  /** `fork` inherits this thread's transcript; `fresh` sees only the brief. */
+  context: "fork" | "fresh";
+  title: string;
+  brief: string;
+}
+
+export interface SubagentResult {
+  subagentId: string;
+  threadId: string;
+  outcome: "final" | "failed" | "cancelled";
+  result: string;
+  /** The subagent read untrusted content: its result is untrusted too. */
+  tainted: boolean;
+  steps: number;
+  error?: string;
+}
+
+export const SpawnSubagentInputSchema = Type.Object(
+  {
+    context: Type.Union([Type.Literal("fork"), Type.Literal("fresh")], {
+      description: "fork: the subagent sees this conversation; fresh: only the brief",
+    }),
+    title: Type.String({ minLength: 1, maxLength: 80 }),
+    brief: Type.String({
+      minLength: 1,
+      maxLength: 8_000,
+      description: "Everything the subagent needs: goal, scope, and what done looks like",
+    }),
+  },
+  { additionalProperties: false },
+);
+
+export const subagentSpawnTool = defineTool({
+  name: "subagent.spawn",
+  description:
+    "Run a subagent on a self-contained piece of work (research, reading, comparison) and get its result back. Several can run at once. Subagents use the same tools and permissions minus questions, messaging and approvals: anything that needs the owner's approval comes back to you.",
+  input: SpawnSubagentInputSchema,
+  sideEffect: "none",
+  describeCall: (p) => ({ summary: `Subagent: ${p.title}` }),
+  run: async (params, ctx) => {
+    const r = await turnOf(ctx).spawnSubagent(params);
+    return {
+      output: {
+        subagentId: r.subagentId,
+        outcome: r.outcome,
+        result: r.result,
+        steps: r.steps,
+        ...(r.error === undefined ? {} : { error: r.error }),
+      },
+      ...(r.outcome === "final" ? {} : { isError: true }),
+      provenance: r.tainted ? "untrusted" : "trusted",
+    };
+  },
+});

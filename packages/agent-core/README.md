@@ -112,6 +112,37 @@ const off = loop.registry.register({
 | `task.start` | none | `TaskEngine.create` (inherits taint), `task` block. |
 | `schedule` | write | `Scheduler.create` (unattended automation). |
 | `notify` | write | `Notifier.notify`. |
+| `subagent.spawn` | none | A child run of this loop (C6), below. |
+
+### Subagents (C6)
+
+`subagent.spawn {context: "fork" | "fresh", title, brief}` runs a child run to completion and returns `{subagentId, outcome, result, steps}` as the tool result: that is the announcement into the parent run.
+
+- `fork` copies the parent's transcript (and compaction summary) up to the last fully answered step; `fresh` sees only the brief.
+- Same model, permission mode, broker, hooks and tools, minus `ask_user`, `exit_plan_mode`, `wrap_up`, `subagent.spawn` (no nesting), `task.start`, `schedule`, `notify` and every tool whose `targetKind` is `recipient` (no messaging).
+- No approval authority: a call the broker would `ask` about (or a hook would suspend) is blocked with a message telling the subagent to report instead; no approval request is issued.
+- Taint flows both ways: a tainted parent starts the child tainted, and a tainted child makes its result `untrusted` and taints the parent.
+- Budgets: `subagentMaxSteps` (20) per child; the child's tokens are added to the parent's `maxRunTokens`; at most `maxConcurrentSubagents` (4) at once. Parallel spawns in one model response run concurrently.
+- Cancelling the parent cancels its children. `subagents(threadId)` lists them; each has its own thread (`<parent>:sub:<id>`) whose `threadState` is the view-only transcript, and `onSubagentEvent(info, event)` streams their events for the Subagents pane.
+
+### Harness plugins (C10)
+
+`loop.harnesses.register(plugin)` installs a coding harness (Claude Code, Codex, pi). A `HarnessPlugin` is `{id, name, available(), run(ctx)}`; its adapter turns the harness's own approval hook (Agent SDK `canUseTool`, Codex approval policy, pi `beforeToolCall`) into `ctx.gate(action)`, where the plugin classifies each action as `{tool, input, sideEffect, target?, summary}`.
+
+- `harness.delegate {harness, cwd, brief}` (side effect `write`, target the folder) is offered only when a harness is installed, and never in plan mode or to subagents that would need approval.
+- Every action is gated exactly like a native call named `harness__<id>__<tool>`: hooks, `decide`, the same approval card, binding verification. A denied action comes back to the harness as `{allowed: false, reason}`.
+- The session is tainted from its first action (the harness reads repository files and the web), so writes to targets the owner did not name ask.
+- `ctx.actionDone(actionId, outcome)` records a receipt for write+ actions; the report returns to the model as `untrusted`.
+- Cancelling the run aborts the session through `ctx.signal`.
+
+### Evaluator (C7)
+
+When a run with a `taskId` would end `final` and the task has receipts, the loop checks them against the task's goal before the Gateway's task worker can mark it done (architecture §4.3 "Verification"):
+
+- Failed receipts reopen the run with the gaps (`[evaluator] … Failed: …` as a user message); uncertain receipts escalate. No model call is needed for either.
+- Otherwise the utility model (`evaluator.model`, else `utilityModel`) judges from the goal, the receipts and, for untainted runs only, the final report, and replies with a JSON verdict: `done | reopen | escalate` with gaps. An unparseable answer or a failed call escalates (fail closed).
+- `reopen` continues the run up to `evaluator.maxReopens` (1) times; after that, or on `escalate`, an attended task run asks the owner ("Not verified": mark done / try again / I'll handle it) and ends `awaiting_input`; an unattended run ends `failed` with `not_verified: …`, so the owner is notified and the task is never reported done.
+- A visible `[evaluator: …]` marker records each verdict. Disable with `evaluator: { enabled: false }`.
 
 ## How this maps to the docs
 
@@ -122,7 +153,7 @@ const off = loop.registry.register({
 
 ## What is stubbed or deferred
 
-- Subagents (C6), the evaluator (C7) and harness plugins (C10) are M2.
+- No concrete harness adapter ships yet: the Claude Code / Codex / pi adapters are plugins built on this seam.
 - `memory` `delete` / `rename` return `not_implemented` until `MemoryStore` has them (S07).
 - The default `ThreadStateStore` is in memory; the Gateway (S01) persists threads.
 - Tool names with dots (`task.start`) are kept; the model router (S03) maps names a provider rejects.

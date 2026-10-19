@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S07 memory, H9)
+
+- New schema `PersonaIdentity` (the `IDENTITY.md` frontmatter fields).
+- New methods `memory.persona.get` and `memory.persona.edit` (natural-language `instruction` and/or explicit `fields` / `description`, optional `etag`; returns `changed` and `avatarRequested`).
+- New event `persona.updated { identity, changed, avatarRequested }` so the header updates within the turn and the avatar renderer knows when to make a new avatar.
+
 ### v1 additive — 2026-10-19 (S17 speech)
 
 For S17 (`packages/speech`), S01 (dispatch), S11/S12 (composer dictation, read-aloud).

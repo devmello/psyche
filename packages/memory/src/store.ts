@@ -248,6 +248,11 @@ export class SqliteMemoryStore implements MemoryStore {
     return localDateTime(this.clock.now(), this.timeZone);
   }
 
+  /** Sends an event to `onEvent` (used by persona edits and jobs outside this class). */
+  publish(event: MemoryEvent): void {
+    this.#emit(event);
+  }
+
   #emit(event: MemoryEvent): void {
     try {
       this.#onEvent?.(event);
@@ -1037,6 +1042,46 @@ export class SqliteMemoryStore implements MemoryStore {
       return { appended: 0 };
     }
     return flushMemory(this, this.#flush, threadId, privateCopy, options);
+  }
+
+  /**
+   * Records that `memory_search` returned these chunks for a query (only a hash of the
+   * normalized query is kept). Dreaming uses recall counts to promote agent inferences.
+   */
+  recordRecall(chunkIds: readonly string[], query: string): void {
+    if (chunkIds.length === 0) return;
+    const hash = sha256Hex(oneLine(query).toLowerCase());
+    const now = this.#nowIso();
+    const insert = this.#db.prepare(
+      "INSERT INTO memory_recalls (chunk_id, query_hash, created_at) SELECT ?, ?, ? WHERE EXISTS (SELECT 1 FROM memory_chunks WHERE id = ?)",
+    );
+    this.#db.transaction(() => {
+      for (const id of new Set(chunkIds)) insert.run(id, hash, now, id);
+    })();
+  }
+
+  /** Recall count and distinct queries per chunk since `sinceIso` (all time by default). */
+  recallStats(sinceIso = ""): Map<string, { count: number; queries: number }> {
+    const rows = this.#db
+      .prepare(
+        "SELECT chunk_id AS id, count(*) AS count, count(DISTINCT query_hash) AS queries FROM memory_recalls WHERE created_at >= ? GROUP BY chunk_id",
+      )
+      .all(sinceIso) as { id: string; count: number; queries: number }[];
+    return new Map(rows.map((r) => [r.id, { count: r.count, queries: r.queries }]));
+  }
+
+  /** All indexed chunks (dreaming reads the daily-note entries). */
+  allChunks(): MemoryChunk[] {
+    return this.#index.allChunks();
+  }
+
+  /** JSON state of a memory job (e.g. the dreaming ledger). */
+  getState<T>(key: string): T | undefined {
+    return this.#state(key) as T | undefined;
+  }
+
+  setState(key: string, value: unknown): void {
+    this.#setState(key, value);
   }
 
   /** Marks a claim superseded by another (dreaming, directive changes). */

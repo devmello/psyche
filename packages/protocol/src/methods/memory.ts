@@ -6,6 +6,7 @@ import {
   MemoryFileInfo,
   MemoryHit,
   MemoryJob,
+  PersonaIdentity,
 } from "../schemas/memory.ts";
 import { defineMethod } from "./define.ts";
 
@@ -210,5 +211,41 @@ export const MemoryMethods = {
     sideEffecting: true,
     description:
       "Pauses or resumes memory: while paused nothing is flushed, remembered or indexed from chats. Side-effecting.",
+  }),
+  "memory.persona.get": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({
+      identity: PersonaIdentity,
+      /** The free-form self-description after the frontmatter. */
+      description: Type.String(),
+      etag: Type.String(),
+    }),
+    scope: "operator.read",
+    description:
+      "The persona from IDENTITY.md (name, creature, vibe, tagline, emoji, avatar, voice).",
+  }),
+  "memory.persona.edit": defineMethod({
+    params: Type.Object({
+      /** A natural-language change ("make yourself a pink hippo named Flash"), feature H9. */
+      instruction: Type.Optional(Type.String({ minLength: 1, maxLength: 1000 })),
+      /** Or explicit field values; applied after the instruction's changes. */
+      fields: Type.Optional(Type.Partial(PersonaIdentity)),
+      description: Type.Optional(Type.String({ maxLength: 2000 })),
+      /** If-match on IDENTITY.md. */
+      etag: Type.Optional(Type.String({ maxLength: 128 })),
+    }),
+    result: Type.Object({
+      identity: PersonaIdentity,
+      description: Type.String(),
+      etag: Type.String(),
+      /** Fields that changed. */
+      changed: Type.Array(Type.String()),
+      /** True when the change calls for a new avatar (see `persona.updated`). */
+      avatarRequested: Type.Boolean(),
+    }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "The owner edits the persona in words or fields; IDENTITY.md is rewritten and persona.updated is emitted. Side-effecting.",
   }),
 } as const;

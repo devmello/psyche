@@ -119,6 +119,19 @@ const TOOL_NAME = /^[A-Za-z][A-Za-z0-9_.-]{0,127}$/;
 
 /** Tools never offered to unattended runs (C4, C8): nobody is there to answer. */
 export const UNATTENDED_WITHHELD = new Set(["ask_user", "exit_plan_mode"]);
+/**
+ * Tools withheld from subagents (C6; architecture §4.3): no `ask_user`, messaging or approval
+ * authority, no work that outlives the parent turn, and no nesting.
+ */
+export const SUBAGENT_WITHHELD = new Set([
+  "ask_user",
+  "exit_plan_mode",
+  "wrap_up",
+  "subagent.spawn",
+  "task.start",
+  "schedule",
+  "notify",
+]);
 /** Tools offered only in plan mode. */
 export const PLAN_ONLY = new Set(["exit_plan_mode"]);
 /**
@@ -130,6 +143,8 @@ export const PLAN_WITHHELD = new Set(["task.start"]);
 export interface ActiveToolsInput {
   permissionMode: PermissionMode;
   runMode: RunMode;
+  /** A subagent run (C6): see `SUBAGENT_WITHHELD`; tools that reach a recipient are hidden too. */
+  subagent?: boolean;
   /** Per-tool user toggles (C3): `false` hides the tool. */
   toggles?: Record<string, boolean>;
   /** Narrowing from `before_prompt_build` hooks; never widens. */
@@ -188,6 +203,9 @@ export class AgentToolRegistry implements ToolRegistry {
 function hiddenReason(name: string, spec: ToolSpec, input: ActiveToolsInput): string | undefined {
   if (input.toggles?.[name] === false) return "turned off in settings";
   if (input.allow !== undefined && !input.allow.has(name)) return "removed by a hook";
+  if (input.subagent === true && (SUBAGENT_WITHHELD.has(name) || spec.targetKind === "recipient")) {
+    return "not available to subagents";
+  }
   if (input.runMode === "unattended" && UNATTENDED_WITHHELD.has(name)) {
     return "not available in unattended runs";
   }

@@ -38,8 +38,20 @@ import {
   type ToolUpdate,
   type Usage,
 } from "@psyche/protocol";
+import {
+  type HarnessAction,
+  type HarnessGateResult,
+  HarnessRegistry,
+  harnessDelegateTool,
+} from "./builtins/harness.ts";
 import { memoryTool, notifyTool, scheduleTool, taskStartTool } from "./builtins/services.ts";
-import { type TurnApi, type TurnToolContext, turnTools } from "./builtins/turn.ts";
+import {
+  type SpawnSubagentInput,
+  type SubagentResult,
+  type TurnApi,
+  type TurnToolContext,
+  turnTools,
+} from "./builtins/turn.ts";
 import {
   type CompactionPolicy,
   containsUntrusted,
@@ -55,6 +67,7 @@ import {
   DEFAULT_CONTEXT_BUDGETS,
   renderSystemPrompt,
 } from "./context.ts";
+import { type Evaluation, evaluateTask } from "./evaluator.ts";
 import { EventQueue } from "./events.ts";
 import { type HookMap, HookRegistry } from "./hooks.ts";
 import { type QuestionAnswer, validateAnswer } from "./questions.ts";
@@ -131,6 +144,39 @@ export interface AgentLoopOptions {
   onPermissionModeChange?: (threadId: string, mode: PermissionMode) => void;
   /** Runs whose prompt `explainContext` keeps (default 200). */
   explainHistory?: number;
+  /** Model calls per subagent run (default 20); they also count toward the parent's tokens. */
+  subagentMaxSteps?: number;
+  /** Subagents one run may have in flight at once (default 4). */
+  maxConcurrentSubagents?: number;
+  /**
+   * C7 evaluator for task runs that produced receipts (default on when `tasks` is given). Uses
+   * `model`, else `utilityModel`, else the run's model.
+   */
+  evaluator?: { enabled?: boolean; model?: ModelRef; maxReopens?: number };
+  /** Coding harness plugins (C10); `harness.delegate` is offered when one is registered. */
+  harnesses?: HarnessRegistry;
+  /** Every event of a subagent run, for the Subagents pane's view-only transcript (C6). */
+  onSubagentEvent?: (info: SubagentInfo, event: AgentEvent) => void;
+}
+
+/** A subagent run (C6), listed for the Subagents pane. */
+export interface SubagentInfo {
+  id: string;
+  parentRunId: string;
+  parentThreadId: string;
+  /** The subagent's own thread; `threadState(threadId)` is its view-only transcript. */
+  threadId: string;
+  runId: string;
+  context: "fork" | "fresh";
+  title: string;
+  status: "running" | "final" | "failed" | "cancelled";
+}
+
+interface ChildSpec {
+  parent: RunState;
+  messages: ModelMessage[];
+  summary?: ThreadState["summary"];
+  maxSteps: number;
 }
 
 interface TaintSource {
@@ -168,6 +214,15 @@ interface RunState {
   active: Map<string, AgentToolRegistration>;
   hidden: Map<string, string>;
   emit: (event: AgentEvent) => void;
+  /** Set for a subagent run: no questions, messaging, approvals or nesting (C6). */
+  subagent?: { parentRunId: string; maxSteps: number };
+  /** Subagents of this run currently in flight. */
+  children: number;
+  /** Times the evaluator reopened this run (C7). */
+  reopens: number;
+  /** Harness actions gated in this run, and those allowed but not yet reported (C10). */
+  harnessActions: number;
+  harnessPending: Map<string, Gated>;
 }
 
 interface Gated {
@@ -189,6 +244,8 @@ type GateOutcome = { proceed: Gated } | { done: ModelPart };
 const READ_ONLY: ReadonlySet<SideEffect> = new Set(["none", "read"]);
 const INTERACTIVE = new Set(["ask_user", "exit_plan_mode"]);
 const NO_REPLY = "NO_REPLY";
+const NO_APPROVAL_AUTHORITY =
+  "needs the owner's approval, and subagents cannot ask: report what you would do and why";
 
 function addUsage(a: Usage, b: Usage): Usage {
   return {
@@ -235,6 +292,7 @@ class RunEnd extends Error {
 export class PsycheAgentLoop implements AgentLoop {
   readonly registry: AgentToolRegistry;
   readonly hooks: HookRegistry;
+  readonly harnesses: HarnessRegistry;
   #o: AgentLoopOptions;
   #clock: Clock;
   #ids: IdSource;
@@ -246,6 +304,7 @@ export class PsycheAgentLoop implements AgentLoop {
   #explanations = new Map<string, ContextExplanation>();
   #plans = new Map<string, { threadId: string; title: string; plan: string }>();
   #capabilities = new Map<string, Promise<ModelCapabilities>>();
+  #subagents = new Map<string, SubagentInfo>();
 
   constructor(options: AgentLoopOptions) {
     this.#o = options;
@@ -257,6 +316,7 @@ export class PsycheAgentLoop implements AgentLoop {
     this.hooks =
       options.hooks instanceof HookRegistry ? options.hooks : new HookRegistry(options.hooks);
     this.registry = options.registry ?? new AgentToolRegistry();
+    this.harnesses = options.harnesses ?? new HarnessRegistry();
     if (options.builtins !== false) this.#registerBuiltins();
   }
 
@@ -269,6 +329,7 @@ export class PsycheAgentLoop implements AgentLoop {
     if (o.tasks !== undefined) tools.push(taskStartTool(o.tasks));
     if (o.scheduler !== undefined) tools.push(scheduleTool(o.scheduler, tz));
     if (o.notifier !== undefined) tools.push(notifyTool(o.notifier));
+    tools.push(harnessDelegateTool(this.harnesses));
     for (const tool of tools) {
       if (this.registry.get(tool.spec.name) === undefined) this.registry.register(tool);
     }
@@ -373,12 +434,16 @@ export class PsycheAgentLoop implements AgentLoop {
     return t;
   }
 
-  async #execute(input: StartTurnInput, emit: (e: AgentEvent) => void): Promise<void> {
+  async #execute(
+    input: StartTurnInput,
+    emit: (e: AgentEvent) => void,
+    child?: ChildSpec,
+  ): Promise<RunState | undefined> {
     const { runId, threadId } = input;
     const thread = this.#thread(threadId);
     if (thread.activeRunId !== undefined || this.#runs.has(runId)) {
       emit({ type: "end", runId, outcome: "failed", error: "thread_busy" });
-      return;
+      return undefined;
     }
     thread.activeRunId = runId;
     const abort = new AbortController();
@@ -405,6 +470,13 @@ export class PsycheAgentLoop implements AgentLoop {
       active: new Map(),
       hidden: new Map(),
       emit,
+      children: 0,
+      reopens: 0,
+      harnessActions: 0,
+      harnessPending: new Map(),
+      ...(child === undefined
+        ? {}
+        : { subagent: { parentRunId: child.parent.runId, maxSteps: child.maxSteps } }),
     };
     this.#runs.set(runId, run);
     let outcome: RunOutcome = "final";
@@ -412,7 +484,16 @@ export class PsycheAgentLoop implements AgentLoop {
     try {
       if (input.signal?.aborted === true) throw new RunEnd("cancelled", "signal");
       emit({ type: "run.status", runId, status: "running" });
-      run.thread = (await this.#state.load(threadId)) ?? emptyThreadState();
+      run.thread =
+        child === undefined
+          ? ((await this.#state.load(threadId)) ?? emptyThreadState())
+          : {
+              messages: child.messages,
+              checklist: [],
+              ...(child.summary === undefined ? {} : { summary: child.summary }),
+            };
+      // A subagent works for a parent that may already have read untrusted content.
+      if (child?.parent.taint === true) this.#taint(run, { sourceKind: "parent" });
       // Untrusted content still in context keeps steering the model, so the turn starts
       // tainted while it is there (security §3.6: taint survives compaction).
       if (containsUntrusted(run.thread.messages) || run.thread.summary?.untrusted === true) {
@@ -468,6 +549,7 @@ export class PsycheAgentLoop implements AgentLoop {
     emit({ type: "usage", runId, usage: { ...run.usage } });
     emit({ type: "run.status", runId, status: runStatusOf(outcome) });
     emit({ type: "end", runId, outcome, ...(error === undefined ? {} : { error }) });
+    return run;
   }
 
   async #resolveModel(run: RunState): Promise<ModelRef> {
@@ -480,7 +562,7 @@ export class PsycheAgentLoop implements AgentLoop {
   }
 
   async #loop(run: RunState): Promise<RunOutcome> {
-    const maxSteps = this.#o.maxSteps ?? 50;
+    const maxSteps = run.subagent?.maxSteps ?? this.#o.maxSteps ?? 50;
     const maxTokens = this.#o.maxRunTokens ?? 2_000_000;
     let pendingText = "";
     for (;;) {
@@ -539,6 +621,23 @@ export class PsycheAgentLoop implements AgentLoop {
         const final = pendingText.trim();
         if (final === NO_REPLY) return "no_reply";
         if (final === "") throw new RunEnd("failed", "empty_final");
+      }
+      // C7: a task's run is checked against its receipts before it may end as done.
+      const evaluation = await this.#evaluate(run, pendingText);
+      if (evaluation !== undefined && evaluation.verdict !== "done") {
+        const maxReopens = this.#o.evaluator?.maxReopens ?? 1;
+        if (evaluation.verdict === "reopen" && run.reopens < maxReopens) {
+          run.reopens += 1;
+          pendingText = "";
+          run.thread.messages.push({
+            role: "user",
+            parts: [{ type: "text", text: reopenMessage(evaluation) }],
+          });
+          continue;
+        }
+        return this.#escalate(run, evaluation);
+      }
+      if (run.mode === "unattended") {
         run.emit({
           type: "chat.delta",
           runId: run.runId,
@@ -548,6 +647,56 @@ export class PsycheAgentLoop implements AgentLoop {
       }
       return "final";
     }
+  }
+
+  async #evaluate(run: RunState, finalText: string): Promise<Evaluation | undefined> {
+    const tasks = this.#o.tasks;
+    if (run.taskId === undefined || tasks === undefined || run.subagent !== undefined)
+      return undefined;
+    if (this.#o.evaluator?.enabled === false) return undefined;
+    const receipts = await this.#o.broker.listReceipts({ taskId: run.taskId });
+    if (receipts.length === 0) return undefined;
+    const task = await tasks.get(run.taskId);
+    const evaluation = await evaluateTask(
+      this.#o.provider,
+      this.#o.evaluator?.model ?? this.#o.utilityModel ?? run.model,
+      {
+        goal: task?.goal ?? run.ownerText,
+        receipts,
+        // A tainted run's report may carry injected text; the receipts are the evidence.
+        ...(run.taint ? {} : { finalReport: finalText }),
+      },
+      { signal: run.abort.signal },
+    );
+    this.#checkAbort(run);
+    const gaps = evaluation.gaps.length === 0 ? "" : `: ${evaluation.gaps.join("; ")}`;
+    this.#marker(
+      run,
+      `[evaluator: ${evaluation.verdict} after checking ${evaluation.receiptsChecked} receipt${evaluation.receiptsChecked === 1 ? "" : "s"}${gaps}]`,
+    );
+    return evaluation;
+  }
+
+  /**
+   * The evaluator could not confirm the task: attended task runs ask the owner (the task parks
+   * in `awaiting_input`); unattended runs fail so the owner is notified, never "done".
+   */
+  async #escalate(run: RunState, evaluation: Evaluation): Promise<RunOutcome> {
+    if (run.mode === "attended" && run.taskId !== undefined && this.#o.tasks !== undefined) {
+      const question: Question = {
+        question: `I could not confirm this task is done. ${evaluation.reason}`.slice(0, 500),
+        header: "Not verified",
+        multiSelect: false,
+        options: [
+          { label: "Mark it done", description: "The receipts are enough; close the task" },
+          { label: "Try again", description: "Work on the gaps the check found" },
+          { label: "I'll handle it", description: "Stop here; leave the task to me" },
+        ],
+      };
+      await this.#ask(run, [question]);
+      return "awaiting_input";
+    }
+    throw new RunEnd("failed", `not_verified: ${evaluation.reason}`);
   }
 
   async #finishDecision(run: RunState, text: string): Promise<FinishTurnDecision> {
@@ -620,8 +769,14 @@ export class PsycheAgentLoop implements AgentLoop {
     let { tools, hidden } = this.registry.active({
       permissionMode: run.permissionMode,
       runMode: run.mode,
+      subagent: run.subagent !== undefined,
       ...(toggles === undefined ? {} : { toggles }),
     });
+    if (this.harnesses.list().length === 0) {
+      // Offered only once a coding harness is installed (C10).
+      tools = tools.filter((t) => t.spec.name !== "harness.delegate");
+      hidden.set("harness.delegate", "no coding harness is installed");
+    }
     const ctx = await assembleContext({
       basePrompt: this.#o.basePrompt ?? DEFAULT_BASE_PROMPT,
       ...(this.#o.memory === undefined ? {} : { memory: this.#o.memory }),
@@ -652,6 +807,7 @@ export class PsycheAgentLoop implements AgentLoop {
         ({ tools, hidden } = this.registry.active({
           permissionMode: run.permissionMode,
           runMode: run.mode,
+          subagent: run.subagent !== undefined,
           ...(toggles === undefined ? {} : { toggles }),
           allow: new Set(tools.map((t) => t.spec.name).filter((n) => allow.has(n))),
         }));
@@ -923,9 +1079,10 @@ export class PsycheAgentLoop implements AgentLoop {
   async #gate(
     run: RunState,
     call: { id: string; name: string; input: unknown },
+    override?: AgentToolRegistration,
   ): Promise<GateOutcome> {
     const startedAt = toIso(this.#clock.now());
-    const reg = run.active.get(call.name);
+    const reg = override ?? run.active.get(call.name);
     if (reg === undefined) {
       const why = run.hidden.get(call.name);
       return this.#blocked(
@@ -977,6 +1134,9 @@ export class PsycheAgentLoop implements AgentLoop {
       }
       if (r === undefined || r.action === "continue") continue;
       if (r.action === "block") return this.#finishBlocked(run, gated, `blocked: ${r.reason}`);
+      if (run.subagent !== undefined) {
+        return this.#finishBlocked(run, gated, NO_APPROVAL_AUTHORITY);
+      }
       if (run.mode === "unattended") {
         // Nobody is there to answer: the hook's request stays queued (C8).
         return this.#finishBlocked(run, gated, `deferred: hook approval ${r.approvalId} queued`);
@@ -1041,6 +1201,10 @@ export class PsycheAgentLoop implements AgentLoop {
     gated.decision = decision;
     if (decision.decision === "deny") {
       return this.#finishBlocked(run, gated, `denied: ${decision.reason ?? decision.rule}`);
+    }
+    if (decision.decision === "ask" && run.subagent !== undefined) {
+      // Subagents have no approval authority (C6): the parent decides whether to ask.
+      return this.#finishBlocked(run, gated, NO_APPROVAL_AUTHORITY);
     }
     if (decision.decision === "ask") {
       const approvalKind = decision.approvalKind ?? kind ?? "connector_action";
@@ -1308,6 +1472,11 @@ export class PsycheAgentLoop implements AgentLoop {
         run.thread.checklist = structuredClone(items);
       },
       ask: (questions) => this.#ask(run, questions),
+      spawnSubagent: (input) => this.#spawn(run, toolCallId, input),
+      gateHarnessAction: (harnessId, callId, action) =>
+        this.#gateHarness(run, harnessId, callId, action),
+      harnessActionDone: (actionId, outcome, summary) =>
+        this.#harnessDone(run, actionId, outcome, summary),
       exitPlan: (plan) => this.#exitPlan(run, toolCallId, plan),
     };
   }
@@ -1316,8 +1485,8 @@ export class PsycheAgentLoop implements AgentLoop {
     run: RunState,
     questions: Question[],
   ): Promise<{ answer: QuestionAnswer } | { parked: InputRequest }> {
-    if (run.mode === "unattended") {
-      throw new PsycheError("forbidden", "ask_user is not available in unattended runs");
+    if (run.mode === "unattended" || run.subagent !== undefined) {
+      throw new PsycheError("forbidden", "ask_user is not available in this run");
     }
     if (run.taskId !== undefined && this.#o.tasks !== undefined) {
       // Background run: the task parks in awaiting_input; the answer re-queues it (§4.5).
@@ -1346,6 +1515,211 @@ export class PsycheAgentLoop implements AgentLoop {
     const answer = await wait.promise;
     run.emit({ type: "run.status", runId: run.runId, status: "running" });
     return { answer };
+  }
+
+  /**
+   * C6: run a subagent to completion as a child run of this loop. `fork` copies the transcript
+   * (without the unanswered calls of the current step), `fresh` starts from the brief. The
+   * child inherits the parent's taint, model, mode and broker; its tokens count toward the
+   * parent; cancelling the parent cancels it.
+   */
+  async #spawn(
+    parent: RunState,
+    toolCallId: string,
+    input: SpawnSubagentInput,
+  ): Promise<SubagentResult> {
+    if (parent.subagent !== undefined) {
+      throw new PsycheError("forbidden", "subagents cannot spawn subagents");
+    }
+    const limit = this.#o.maxConcurrentSubagents ?? 4;
+    if (parent.children >= limit) {
+      throw new PsycheError("rate_limited", `at most ${limit} subagents at once`);
+    }
+    const id = this.#ids.next("sub");
+    const threadId = `${parent.threadId}:sub:${id}`;
+    const runId = `${parent.runId}:sub:${id}`;
+    const info: SubagentInfo = {
+      id,
+      parentRunId: parent.runId,
+      parentThreadId: parent.threadId,
+      threadId,
+      runId,
+      context: input.context,
+      title: input.title,
+      status: "running",
+    };
+    this.#subagents.set(id, info);
+    const messages =
+      input.context === "fork" ? answeredPrefix(structuredClone(parent.thread.messages)) : [];
+    const brief = `You are a subagent working for the agent of this conversation. Task: ${input.title}\n\n${input.brief}\n\nWork on your own: you cannot ask the owner questions, send messages or request approvals. Finish with a concise report of what you found or did; that report is all the parent sees.`;
+    const update = (message: string) =>
+      this.#toolEvent(parent, toolCallId, "subagent.spawn", "running", `Subagent: ${input.title}`, {
+        message,
+      });
+    let steps = 0;
+    parent.children += 1;
+    let child: RunState | undefined;
+    try {
+      child = await this.#execute(
+        {
+          threadId,
+          runId,
+          ...(parent.taskId === undefined ? {} : { taskId: parent.taskId }),
+          input: { text: brief },
+          mode: parent.mode,
+          permissionMode: parent.permissionMode,
+          signal: parent.abort.signal,
+        },
+        (event) => {
+          if (
+            event.type === "tool_call" &&
+            event.status === "running" &&
+            event.update === undefined
+          ) {
+            steps += 1;
+            update(`${event.level1 ?? event.tool}`);
+          }
+          if (event.type === "end")
+            info.status =
+              event.outcome === "final"
+                ? "final"
+                : event.outcome === "cancelled"
+                  ? "cancelled"
+                  : "failed";
+          this.#o.onSubagentEvent?.({ ...info }, event);
+        },
+        {
+          parent,
+          messages,
+          ...(input.context === "fork" && parent.thread.summary !== undefined
+            ? { summary: structuredClone(parent.thread.summary) }
+            : {}),
+          maxSteps: this.#o.subagentMaxSteps ?? 20,
+        },
+      );
+    } finally {
+      parent.children -= 1;
+    }
+    if (child === undefined) throw new PsycheError("conflict", "subagent could not start");
+    parent.usage = addUsage(parent.usage, child.usage);
+    // The subagent's taint carries into the parent (architecture §4.3).
+    if (child.taint) this.#taint(parent, { sourceKind: "subagent", toolCallId });
+    if (info.status === "running") info.status = "failed";
+    const result = lastAssistantText(child.thread.messages);
+    return {
+      subagentId: id,
+      threadId,
+      outcome: info.status,
+      result: result === "" ? "(the subagent produced no report)" : result,
+      tainted: child.taint,
+      steps,
+    };
+  }
+
+  /**
+   * C10: one action of an embedded harness, gated exactly like a native call named
+   * `harness__<id>__<tool>`: hooks, broker, approval card, binding check. The session is
+   * treated as tainted (the harness reads repository files and the web).
+   */
+  async #gateHarness(
+    run: RunState,
+    harnessId: string,
+    callId: string,
+    action: HarnessAction,
+  ): Promise<HarnessGateResult> {
+    run.harnessActions += 1;
+    const actionId = `${callId}:${run.harnessActions}`;
+    if (!run.taintSources.some((s) => s.sourceKind === "harness")) {
+      this.#taint(run, { sourceKind: "harness", toolCallId: callId });
+    }
+    const name = `harness__${harnessId}__${action.tool}`.slice(0, 128);
+    const reg: AgentToolRegistration = {
+      spec: {
+        name,
+        description: `${harnessId} ${action.tool}`,
+        inputSchema: { type: "object" },
+        sideEffect: action.sideEffect,
+        provenanceOut: "untrusted",
+        ...(action.targetKind === undefined ? {} : { targetKind: action.targetKind }),
+      },
+      execute: () =>
+        Promise.reject(new PsycheError("internal", "harness actions run in the harness")),
+      describeCall: () => ({
+        summary: action.summary,
+        ...(action.target === undefined ? {} : { target: action.target }),
+      }),
+    };
+    this.#toolEvent(run, actionId, name, "pending", action.summary);
+    const outcome = await this.#gate(run, { id: actionId, name, input: action.input }, reg);
+    if ("done" in outcome) {
+      const part = outcome.done;
+      const output = part.type === "tool_result" ? (part.output as { error?: string }) : {};
+      return { allowed: false, actionId, reason: output.error ?? "not allowed" };
+    }
+    run.harnessPending.set(actionId, outcome.proceed);
+    this.#toolEvent(run, actionId, name, "running", action.summary);
+    return {
+      allowed: true,
+      actionId,
+      ...(outcome.proceed.approvalId === undefined
+        ? {}
+        : { approvalId: outcome.proceed.approvalId }),
+    };
+  }
+
+  async #harnessDone(
+    run: RunState,
+    actionId: string,
+    outcome: "ok" | "failed" | "uncertain",
+    summary?: string,
+  ): Promise<void> {
+    const g = run.harnessPending.get(actionId);
+    if (g === undefined)
+      throw new PsycheError("not_found", `no allowed harness action ${actionId}`);
+    run.harnessPending.delete(actionId);
+    const level1 = summary ?? g.desc.summary ?? g.call.name;
+    let receiptId: string | undefined;
+    if (SEVERITY[g.sideEffect] >= SEVERITY.write) {
+      const receipt = await this.#o.broker.recordReceipt({
+        kind: g.approvalKind ?? g.call.name,
+        outcome,
+        summary: level1,
+        taskId: run.taskId ?? null,
+        toolCallId: actionId,
+        approvalId: g.approvalId ?? null,
+      });
+      receiptId = receipt.id;
+      this.#block(run, { type: "receipt", receiptId });
+    }
+    const status: ToolCallStatus =
+      outcome === "ok" ? "ok" : outcome === "failed" ? "failed" : "uncertain";
+    this.#toolEvent(run, actionId, g.call.name, status, level1);
+    const result: ToolResult = {
+      output: { outcome, summary: level1 },
+      ...(outcome === "ok" ? {} : { isError: true }),
+      provenance: "untrusted",
+      ...(receiptId === undefined ? {} : { receiptId }),
+    };
+    await this.#persist(
+      run,
+      g,
+      status,
+      {
+        type: "tool_result",
+        callId: actionId,
+        name: g.call.name,
+        output: result.output,
+        provenance: "untrusted",
+      },
+      result,
+    );
+  }
+
+  /** Subagents of a thread (or all), newest last, for the Subagents pane (C6). */
+  subagents(parentThreadId?: string): SubagentInfo[] {
+    return [...this.#subagents.values()]
+      .filter((s) => parentThreadId === undefined || s.parentThreadId === parentThreadId)
+      .map((s) => ({ ...s }));
   }
 
   async #exitPlan(
@@ -1440,6 +1814,42 @@ function userText(input: StartTurnInput): string {
   const files = input.input.attachments ?? [];
   if (files.length === 0) return input.input.text;
   return `${input.input.text}\n\n[attached library items: ${files.map((f) => f.libraryItemId).join(", ")}]`;
+}
+
+/** The transcript up to the last message whose tool calls all have results. */
+function reopenMessage(e: Evaluation): string {
+  return [
+    "[evaluator] The receipts do not show this task is done yet. Address these gaps, then report again:",
+    ...e.gaps.map((g) => `- ${g}`),
+    e.reason === "" ? "" : `Reason: ${e.reason}`,
+  ]
+    .filter((l) => l !== "")
+    .join("\n");
+}
+
+function answeredPrefix(messages: ModelMessage[]): ModelMessage[] {
+  const answered = new Set<string>();
+  for (const m of messages)
+    for (const p of m.parts) if (p.type === "tool_result") answered.add(p.callId);
+  let end = messages.length;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i] as ModelMessage;
+    if (m.parts.some((p) => p.type === "tool_call" && !answered.has(p.id))) end = i;
+  }
+  return messages.slice(0, end);
+}
+
+function lastAssistantText(messages: readonly ModelMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i] as ModelMessage;
+    if (m.role !== "assistant") continue;
+    const text = m.parts
+      .map((p) => (p.type === "text" ? p.text : ""))
+      .join("")
+      .trim();
+    if (text !== "") return text;
+  }
+  return "";
 }
 
 /** Every tool call in the transcript keeps a result, so the next turn is a valid request. */

@@ -6,6 +6,13 @@ import { exportMemory } from "./export.ts";
 import { confirmClaim, importMemory, importOpenClaw } from "./importer.ts";
 import { dailyNoteDate } from "./layout.ts";
 import { normalizeWorkspacePath } from "./paths.ts";
+import {
+  applyPersonaChange,
+  interpretPersonaInstruction,
+  type PersonaChange,
+  type PersonaModel,
+  readPersona,
+} from "./persona-edit.ts";
 import type { SqliteMemoryStore } from "./store.ts";
 
 /**
@@ -29,7 +36,9 @@ type MemoryMethod =
   | "memory.export"
   | "memory.reset"
   | "memory.status"
-  | "memory.pause";
+  | "memory.pause"
+  | "memory.persona.get"
+  | "memory.persona.edit";
 
 export type MemoryHandlers = {
   [M in MemoryMethod]: (params: MethodParams<M>) => Promise<MethodResult<M>>;
@@ -51,13 +60,23 @@ export const MEMORY_METHODS: readonly MemoryMethod[] = [
   "memory.reset",
   "memory.status",
   "memory.pause",
+  "memory.persona.get",
+  "memory.persona.edit",
 ];
 
 function updatedAt(store: SqliteMemoryStore, path: string): string {
   return new Date(statSync(join(store.root, ...path.split("/"))).mtimeMs).toISOString();
 }
 
-export function createMemoryHandlers(store: SqliteMemoryStore): MemoryHandlers {
+export interface MemoryHandlerOptions {
+  /** Utility model for `memory.persona.edit { instruction }` (H9). */
+  persona?: PersonaModel;
+}
+
+export function createMemoryHandlers(
+  store: SqliteMemoryStore,
+  options: MemoryHandlerOptions = {},
+): MemoryHandlers {
   return {
     async "memory.search"(p) {
       const hits = await store.search(p.query, {
@@ -186,5 +205,36 @@ export function createMemoryHandlers(store: SqliteMemoryStore): MemoryHandlers {
     async "memory.pause"(p) {
       return { paused: store.setPaused(p.paused) };
     },
+
+    async "memory.persona.get"() {
+      return readPersona(store);
+    },
+
+    async "memory.persona.edit"(p) {
+      let change: PersonaChange = {};
+      if (p.instruction !== undefined) {
+        if (options.persona === undefined) {
+          throw new PsycheError("unavailable", "no utility model is configured for persona edits");
+        }
+        change = await interpretPersonaInstruction(
+          options.persona,
+          p.instruction,
+          await readPersona(store),
+        );
+      }
+      const fields = { ...change.fields, ...stripUndefined(p.fields ?? {}) };
+      const description = p.description ?? change.description;
+      return applyPersonaChange(
+        store,
+        { fields, ...(description === undefined ? {} : { description }) },
+        { actor: "owner", ...(p.etag === undefined ? {} : { etag: p.etag }) },
+      );
+    },
   };
+}
+
+function stripUndefined<T extends Record<string, unknown>>(value: T): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(value)) if (typeof v === "string") out[k] = v;
+  return out;
 }
