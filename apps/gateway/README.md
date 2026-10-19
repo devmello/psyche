@@ -64,6 +64,7 @@ Events emitted: `chat.message`, `chat.delta`, `chat.block`, `chat.queue.updated`
   ```
 
   The approved device reconnects to pick up its scopes (the Gateway closes its pending connection).
+- Revoking a device (`devices.revoke`) also ends the standing grants it approved: the composition root passes `onDeviceRevoked` → `PsychePermissionBroker.revokeGrantsByDevice` (design-28).
 - Rate limits (security §10): failed challenges 10/minute/address, new pairing requests 5/hour/address, at most 20 pending overall; a pending connection is closed when its request expires.
 - WebSocket `Origin` must be the Gateway's own origin or configured; anything else is 403 before the upgrade. Proxy identity headers are never read.
 
