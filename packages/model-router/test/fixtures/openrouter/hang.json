@@ -1,0 +1,17 @@
+{
+  "name": "openrouter: stalls after one text delta",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream"
+    },
+    "hang": true,
+    "chunks": [
+      "data: {\"id\":\"gen-fx-hang-0001\",\"provider\":\"Anthropic\",\"model\":\"anthropic/claude-sonnet-5-5\",\"object\":\"chat.completion.chunk\",\"created\":1760000000,\"choices\":[{\"index\":0,\"logprobs\":null,\"native_finish_reason\":null,\"finish_reason\":null,\"delta\":{\"role\":\"assistant\",\"content\":\"Partial\"}}]}\n\n"
+    ]
+  }
+}

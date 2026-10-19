@@ -25,7 +25,9 @@ pairing_requests (
   id TEXT PK, kind TEXT,                           -- device | channel-sender
   code TEXT, device_id, channel_id, sender_id, display TEXT,
   status TEXT,                                     -- pending | approved | denied | expired
-  expires_at, decided_at, decided_by_device_id
+  expires_at, decided_at, decided_by_device_id,
+  public_key_fingerprint TEXT NULL,                -- "sha256:<hex>" of the raw key the owner approves
+  transport TEXT NULL, remote_address TEXT NULL    -- ws | unix; peer address (rate limits, pairing card)
 )
 ```
 
@@ -71,6 +73,16 @@ tool_calls (
   result_ref TEXT NULL,                            -- library item or inline result id
   provenance_out TEXT, receipt_id FK receipts NULL,
   started_at, ended_at, status TEXT                -- ok | failed | uncertain | blocked
+)
+tool_payloads (                                    -- level-3 tool I/O, deleted after cleanupPeriodDays (§12)
+  id TEXT PK, tool_call_id FK tool_calls, kind TEXT, -- params | result | screenshot
+  mime TEXT, data BLOB, created_at                 -- tool_calls.result_ref = "payload:<id>"
+)
+chat_queue (                                       -- follow-ups queued mid-turn (feature E3)
+  id TEXT PK,                                      -- becomes the user message id when it starts
+  thread_id FK threads, position INTEGER, content TEXT, attachments TEXT JSON,
+  device_id FK devices NULL, status TEXT,          -- queued | started | removed
+  created_at, updated_at
 )
 ```
 
@@ -164,6 +176,8 @@ policy_rules (                                     -- user-authored allow/deny r
 
 ### 4.2 Binding hash inputs by kind
 
+Security §3.5 is the normative table; this one lists the same kinds. The implemented field set (the union of both, plus the S23 additions: email `replyTo` / `from` / headers / MIME hash, form `action` / method / hidden fields, exec `stdinSha256` / `cwdConfigHashes`) is in `packages/permissions/README.md`. Grant keys for `send_email` are account + the exact recipient set, never the recipient domain (S23 design-11). The `approvals` table also stores `side_effect`, `target`, `scopes_offered`, `request_input` (the decided call and context, so `reissue()` keeps taint), `consumed_at`, `run_revoked` and `boot_id`; `grants` stores `side_effect`, `task_id`, `session_id` (boot id), `thread_id`, `origin`, `max_uses`, `last_used_binding_hash`, `created_by_device_id` and `revoked_reason` (migration `202610200900_permissions_init.sql`).
+
 | kind | hashed fields |
 | --- | --- |
 | exec / exec_host | normalized argv, cwd, selected env keys, resolved executable path + hash, sandbox id |
@@ -198,7 +212,7 @@ Audit entries are appended to `audit/YYYY-MM.jsonl` (one JSON object per line) a
  "prev": "sha256:…", "hash": "sha256:…"}
 ```
 
-Event names: `device.paired`, `device.revoked`, `thread.created`, `tool_call.decided`, `tool_call.finished`, `approval.created`, `approval.decided`, `approval.expired`, `grant.created`, `grant.used`, `grant.revoked`, `credential.filled`, `credential.created`, `credential.deleted`, `purchase.requested`, `purchase.completed`, `message.sent`, `email.sent`, `calendar.changed`, `file.written`, `exec.finished`, `memory.written`, `memory.forgotten`, `connector.connected`, `connector.disconnected`, `channel.sender.paired`, `skill.installed`, `config.changed`, `vault.unlocked`, `export.created`, `reset.performed`.
+Event names: `device.paired`, `device.revoked`, `thread.created`, `tool_call.decided`, `tool_call.finished`, `approval.created`, `approval.decided`, `approval.expired`, `grant.created`, `grant.used`, `grant.revoked`, `credential.filled`, `credential.created`, `credential.deleted`, `purchase.requested`, `purchase.completed`, `message.sent`, `email.sent`, `calendar.changed`, `file.written`, `exec.finished`, `memory.written`, `memory.forgotten`, `connector.connected`, `connector.disconnected`, `channel.sender.paired`, `skill.installed`, `config.changed`, `vault.unlocked`, `export.created`, `reset.performed`. The Permission Broker also writes `approval.invalidated`, `approval.answer_rejected`, `binding.verified`, `binding.mismatch`, `classifier.labeled`, `classifier.circuit_open`, `receipt.recorded` and `receipt.reconciled`.
 
 ## 6. Credentials (vault)
 
@@ -246,8 +260,12 @@ memory_claims (
   provenance TEXT, confidence REAL, sources TEXT JSON,
   superseded_by FK memory_claims NULL, retracted_at NULL, created_at, updated_at
 )
-memory_jobs (id, kind, status, started_at, ended_at, summary)   -- flush | dreaming | reindex | import
+memory_jobs (id, kind, status, started_at, ended_at, summary, created_at)   -- flush | dreaming | reindex | import; status running | ok | failed | skipped
+memory_files (path PK, sha256, bytes, provenance, mtime_ms, indexed_at, created_at, updated_at)  -- per-file index state; external edits count as owner
+memory_state (key PK, value JSON, updated_at)                    -- pause flag, vector width, first-run marker
 ```
+
+`memory_chunks` also has `embedding_model` (the vector space of `embedding`) and an explicit `rowid INTEGER PRIMARY KEY` (so the FTS5 mapping survives VACUUM; `id` stays the unique text key); chunk ids derive from source, first line and text, so unchanged chunks keep their embedding and claim link across reindexes. `memory_vec` is created at run time when sqlite-vec loads (its width follows the embedder); without it search computes cosine in process. The migration is `packages/db/migrations/202610191230_memory_index.sql` (S07).
 
 Ranking: `score = bm25_norm * 0.4 + cosine * 0.5 + recency(0.5^(ageDays/30)) * 0.1`, with a provenance filter (callers may exclude `untrusted`). Untrusted chunks are never promoted into `memory_claims` with `owner` provenance.
 
@@ -422,6 +440,8 @@ vm (id TEXT PK, name, bundle_path, state TEXT, cpu INTEGER, memory_gb INTEGER, d
 {"type": "event", "event": "task.updated", "seq": 9913, "stateVersion": 4412, "payload": {"task": { "...": "…" }}}
 {"type": "event", "event": "approval.created", "seq": 9914, "stateVersion": 4413, "payload": {"approval": { "...": "…" }}}
 ```
+
+Results of side-effecting requests are stored in `gateway_idempotency (id, device_id, method, idempotency_key, params_hash, result JSON, created_at)`, unique per device + method + key, in the same transaction as the mutation; a retried key replays the result, a different params hash is `idempotency_conflict`. Kept 7 days.
 
 `stateVersion` increases on every persisted mutation; a client whose last seen version is older than the server's oldest retained event performs a full refresh of the affected collections.
 

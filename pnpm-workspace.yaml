@@ -6,8 +6,12 @@ packages:
 # (`pnpm approve-builds <pkg>` edits this map). Keep it short and reviewed.
 allowBuilds:
   better-sqlite3: true
+  # Prebuilt binaries ship in the tarball; the only "script" is pnpm's implicit
+  # `node-gyp rebuild` for binding.gyp, which is a no-op here (S06).
+  better-sqlite3-multiple-ciphers: false
   electron: true
   esbuild: true
+  node-pty: true
 engineStrict: true
 autoInstallPeers: true
 

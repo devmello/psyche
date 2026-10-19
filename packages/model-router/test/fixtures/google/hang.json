@@ -1,0 +1,20 @@
+{
+  "name": "gemini interactions stream that stops after one text delta (cancellation)",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/interactions"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream",
+      "x-gemini-service-tier": "standard"
+    },
+    "hang": true,
+    "chunks": [
+      "event: interaction.created\ndata: {\"event_type\":\"interaction.created\",\"event_id\":\"evt_0\",\"interaction\":{\"id\":\"int_fixture_hang\",\"created\":\"2026-10-19T09:00:00Z\",\"model\":\"gemini-4-argon\",\"status\":\"in_progress\"}}\n\n",
+      "event: step.start\ndata: {\"event_type\":\"step.start\",\"event_id\":\"evt_1\",\"index\":0,\"step\":{\"type\":\"model_output\"}}\n\n",
+      "event: step.delta\ndata: {\"event_type\":\"step.delta\",\"event_id\":\"evt_2\",\"index\":0,\"delta\":{\"type\":\"text\",\"text\":\"Partial\"}}\n\n"
+    ]
+  }
+}

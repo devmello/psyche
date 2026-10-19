@@ -1,0 +1,26 @@
+{
+  "name": "gemini interactions streaming text with a signed thought and cached input",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/interactions"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream",
+      "x-gemini-service-tier": "standard"
+    },
+    "chunks": [
+      "event: interaction.created\ndata: {\"event_type\":\"interaction.created\",\"event_id\":\"evt_0\",\"interaction\":{\"id\":\"int_fixture_text\",\"created\":\"2026-10-19T09:00:00Z\",\"model\":\"gemini-4-argon\",\"status\":\"in_progress\"}}\n\n",
+      "event: step.start\ndata: {\"event_type\":\"step.start\",\"event_id\":\"evt_1\",\"index\":0,\"step\":{\"type\":\"thought\"}}\n\n",
+      "event: step.delta\ndata: {\"event_type\":\"step.delta\",\"event_id\":\"evt_2\",\"index\":0,\"delta\":{\"type\":\"thought_summary\",\"content\":{\"type\":\"text\",\"text\":\"The user wants a greeting.\"}}}\n\n",
+      "event: step.delta\ndata: {\"event_type\":\"step.delta\",\"event_id\":\"evt_3\",\"index\":0,\"delta\":{\"type\":\"thought_signature\",\"signature\":\"CtYBAVSoXO-fixture-thought-sig-0001\"}}\n\n",
+      "event: step.stop\ndata: {\"event_type\":\"step.stop\",\"event_id\":\"evt_4\",\"index\":0}\n\n",
+      "event: step.start\ndata: {\"event_type\":\"step.start\",\"event_id\":\"evt_5\",\"index\":1,\"step\":{\"type\":\"model_output\"}}\n\n",
+      "event: step.delta\ndata: {\"event_type\":\"step.delta\",\"event_id\":\"evt_6\",\"index\":1,\"delta\":{\"type\":\"text\",\"text\":\"Hello\"}}\n\n",
+      "event: step.delta\ndata: {\"event_type\":\"step.delta\",\"event_id\":\"evt_7\",\"index\":1,\"delta\":{\"type\":\"text\",\"text\":\", world.\"}}\n\n",
+      "event: step.stop\ndata: {\"event_type\":\"step.stop\",\"event_id\":\"evt_8\",\"index\":1}\n\n",
+      "event: interaction.completed\ndata: {\"event_type\":\"interaction.completed\",\"event_id\":\"evt_9\",\"interaction\":{\"id\":\"int_fixture_text\",\"status\":\"completed\",\"service_tier\":\"standard\",\"usage\":{\"total_input_tokens\":1200,\"total_cached_tokens\":800,\"total_output_tokens\":42,\"total_thought_tokens\":30,\"total_tokens\":1272,\"output_tokens_by_modality\":[{\"modality\":\"text\",\"tokens\":42}]}}}\n\n"
+    ]
+  }
+}

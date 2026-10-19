@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
+import { fromBase64Url } from "../src/client/encoding.ts";
+import { Handshake } from "../src/client/handshake.ts";
+import { connectSigningPayload } from "../src/client/signing.ts";
 import { createEphemeralDeviceKey } from "../src/lib/device-key.ts";
-import { fromBase64Url } from "../src/lib/encoding.ts";
-import { Handshake } from "../src/lib/handshake.ts";
-import { connectSigningPayload } from "../src/lib/signing.ts";
 
 describe("web handshake", () => {
   it("matches the shared signing fixture", () => {

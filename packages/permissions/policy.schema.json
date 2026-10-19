@@ -1,0 +1,236 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "PolicyConfig",
+  "additionalProperties": false,
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "defaultMode": {
+      "$id": "PermissionMode",
+      "type": "string",
+      "enum": ["plan", "manual", "balanced", "auto"]
+    },
+    "grants": {
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "siteExpiryDays": {
+          "exclusiveMinimum": 0,
+          "maximum": 365,
+          "type": "number"
+        },
+        "alwaysExpiryDays": {
+          "exclusiveMinimum": 0,
+          "maximum": 365,
+          "type": "number"
+        },
+        "execHostAlwaysExpiryDays": {
+          "exclusiveMinimum": 0,
+          "maximum": 90,
+          "type": "number"
+        },
+        "sessionIdleHours": {
+          "exclusiveMinimum": 0,
+          "maximum": 24,
+          "type": "number"
+        },
+        "sessionMaxHours": {
+          "exclusiveMinimum": 0,
+          "maximum": 72,
+          "type": "number"
+        },
+        "taskHours": {
+          "exclusiveMinimum": 0,
+          "maximum": 168,
+          "type": "number"
+        },
+        "destructiveTaskHours": {
+          "exclusiveMinimum": 0,
+          "maximum": 24,
+          "type": "number"
+        },
+        "alwaysWarnDays": {
+          "minimum": 0,
+          "type": "number"
+        }
+      }
+    },
+    "approvals": {
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "ttlMinutes": {
+          "minimum": 1,
+          "maximum": 1440,
+          "type": "number"
+        },
+        "deviceOnly": {
+          "type": "array",
+          "items": {
+            "$id": "ApprovalKind",
+            "type": "string",
+            "enum": [
+              "exec",
+              "exec_host",
+              "send_email",
+              "calendar_write",
+              "message_send",
+              "browser_submit",
+              "credential_fill",
+              "purchase",
+              "file_write",
+              "connector_action",
+              "computer_action",
+              "new_origin",
+              "plan_exit",
+              "skill_install",
+              "mcp_tool",
+              "archive_thread",
+              "memory_protected_write",
+              "pairing",
+              "policy_change"
+            ]
+          }
+        },
+        "chatScopes": {
+          "type": "array",
+          "items": {
+            "$id": "GrantScope",
+            "type": "string",
+            "enum": ["once", "task", "site", "session", "always"]
+          }
+        },
+        "answersPerMinute": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      }
+    },
+    "deny": {
+      "description": "Rules: \"<tool glob>\", \"<tool glob>(<target glob>)\", or \"<origin|path|recipient|app|account|command>:<glob>\"",
+      "type": "array",
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      }
+    },
+    "ask": {
+      "description": "Rules: \"<tool glob>\", \"<tool glob>(<target glob>)\", or \"<origin|path|recipient|app|account|command>:<glob>\"",
+      "type": "array",
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      }
+    },
+    "allow": {
+      "description": "Rules: \"<tool glob>\", \"<tool glob>(<target glob>)\", or \"<origin|path|recipient|app|account|command>:<glob>\"",
+      "type": "array",
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      }
+    },
+    "connectors": {
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {
+          "type": "object",
+          "patternProperties": {
+            "^(.*)$": {
+              "$id": "RuleEffect",
+              "type": "string",
+              "enum": ["allow", "ask", "deny"]
+            }
+          }
+        }
+      }
+    },
+    "apps": {
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {
+          "$id": "AppTier",
+          "type": "string",
+          "enum": ["off", "read", "click", "interact"]
+        }
+      }
+    },
+    "sites": {
+      "type": "object",
+      "patternProperties": {
+        "^(.*)$": {
+          "$id": "RuleEffect",
+          "type": "string",
+          "enum": ["allow", "ask", "deny"]
+        }
+      }
+    },
+    "folders": {
+      "type": "array",
+      "items": {
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["path", "mode"],
+        "properties": {
+          "path": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["ro", "rw"]
+          }
+        }
+      }
+    },
+    "workspaceRoots": {
+      "type": "array",
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      }
+    },
+    "sensitiveOrigins": {
+      "type": "array",
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      }
+    },
+    "exec": {
+      "additionalProperties": true,
+      "type": "object",
+      "properties": {
+        "execHostEnabled": {
+          "type": "boolean"
+        },
+        "allowEnv": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "classifier": {
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "model": {
+          "type": "string"
+        },
+        "timeoutMs": {
+          "minimum": 100,
+          "maximum": 60000,
+          "type": "integer"
+        },
+        "failClosed": {
+          "const": true,
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
