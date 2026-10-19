@@ -195,7 +195,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
 
   const audit = createAuditLog({ dir: join(config.home, "audit"), clock });
   const notifier = new PsycheNotifier({
-    store: new SqliteNotificationStore(db.sqlite, { migrate: true }),
+    // Tables come from @psyche/db's migration ledger (202610190200_notifications_init).
+    store: new SqliteNotificationStore(db.sqlite),
     clock,
   });
   const storedPolicy = validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger);
