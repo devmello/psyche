@@ -33,6 +33,8 @@ export interface QueuedFollowUp {
   content: string;
   mode: "followUp" | "steer" | "interrupt";
   replyToMessageId: string | null;
+  /** Sending failed; the queue stops draining until the user retries or removes it. */
+  failed?: boolean;
 }
 
 /** Result of a generic query (methods without a dedicated collection). */

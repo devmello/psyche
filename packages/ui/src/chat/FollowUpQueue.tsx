@@ -12,9 +12,12 @@ const MODE_LABEL: Record<QueuedFollowUp["mode"], string> = {
 export function FollowUpQueue({
   items,
   onRemove,
+  onRetry,
 }: {
   items: readonly QueuedFollowUp[];
   onRemove: (id: string) => void;
+  /** Re-sends an item whose send failed. */
+  onRetry?: (id: string) => void;
 }): ReactElement | null {
   if (items.length === 0) return null;
   return (
@@ -26,6 +29,21 @@ export function FollowUpQueue({
         >
           <span className="text-muted-foreground">Queued ({MODE_LABEL[q.mode]}):</span>
           <span className="truncate">"{q.content}"</span>
+          {q.failed ? (
+            <>
+              <span className="text-danger-text">not sent</span>
+              {onRetry ? (
+                <button
+                  type="button"
+                  onClick={() => onRetry(q.id)}
+                  className="rounded px-1 text-accent-11 hover:bg-gray-4"
+                  aria-label={`Retry sending "${q.content}"`}
+                >
+                  Retry
+                </button>
+              ) : null}
+            </>
+          ) : null}
           <button
             type="button"
             onClick={() => onRemove(q.id)}

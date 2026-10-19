@@ -12,7 +12,15 @@ import {
   GatewayRequestError,
   newIdempotencyKey,
 } from "./client.ts";
-import { appendBlock, INITIAL_STATE, put, touch, type UiState, upsertMessage } from "./state.ts";
+import {
+  appendBlock,
+  INITIAL_STATE,
+  put,
+  type QueuedFollowUp,
+  touch,
+  type UiState,
+  upsertMessage,
+} from "./state.ts";
 
 type Overlay = { id: number; apply: (s: UiState) => UiState };
 type Refresher = () => Promise<void>;
@@ -32,7 +40,12 @@ export class GatewayStore {
   private overlays: Overlay[] = [];
   private snapshot: UiState;
   private listeners = new Set<() => void>();
-  private refreshers = new Map<string, Refresher>();
+  private refreshers = new Map<string, Set<Refresher>>();
+  private refreshing = 0;
+  /** True once the connection has been open; any later transition to open is a reconnect. */
+  private hasOpened: boolean;
+  /** Queued follow-up ids being sent right now (single owner per item). */
+  private sending = new Set<string>();
   private nextOverlayId = 1;
   private unsubscribe: Array<() => void> = [];
   private readonly now: () => string;
@@ -41,17 +54,23 @@ export class GatewayStore {
     this.client = client;
     this.now = options.now ?? (() => new Date().toISOString());
     this.base = { ...INITIAL_STATE, connection: client.connectionState() };
+    this.hasOpened = this.base.connection === "open";
     this.snapshot = this.base;
   }
 
-  /** Starts listening to the client. Idempotent; `stop()` undoes it. */
+  private starts = 0;
+
+  /** Starts listening to the client. Reference-counted: each `start()` needs one `stop()`. */
   start(): void {
+    this.starts += 1;
     if (this.unsubscribe.length > 0) return;
     this.unsubscribe.push(this.client.subscribe((e) => this.onEvent(e)));
     this.unsubscribe.push(this.client.onConnectionState((s) => this.onConnection(s)));
   }
 
   stop(): void {
+    this.starts = Math.max(0, this.starts - 1);
+    if (this.starts > 0) return;
     for (const u of this.unsubscribe) u();
     this.unsubscribe = [];
   }
@@ -128,33 +147,80 @@ export class GatewayStore {
     return this.base.stateVersion;
   }
 
+  // --- Follow-up queue ---------------------------------------------------------------------------
+
+  /**
+   * Takes the next sendable follow-up for a thread, once: several components may watch the same
+   * thread, and only the first caller gets the item. Failed items stay put until retried.
+   */
+  takeQueued(threadId: string): QueuedFollowUp | null {
+    const next = this.base.queue.find((q) => q.threadId === threadId);
+    if (next === undefined || next.failed === true || this.sending.has(next.id)) return null;
+    this.sending.add(next.id);
+    this.update((s) => ({ ...s, queue: s.queue.filter((q) => q.id !== next.id) }));
+    return next;
+  }
+
+  /** Puts a follow-up that failed to send back at the head of the queue, marked failed. */
+  failQueued(item: QueuedFollowUp): void {
+    this.sending.delete(item.id);
+    this.update((s) => ({ ...s, queue: [{ ...item, failed: true }, ...s.queue] }));
+  }
+
+  sentQueued(item: QueuedFollowUp): void {
+    this.sending.delete(item.id);
+  }
+
+  /** Clears the failed mark so the queue drains again. */
+  retryQueued(id: string): void {
+    this.update((s) => ({
+      ...s,
+      queue: s.queue.map((q) => (q.id === id ? { ...q, failed: false } : q)),
+    }));
+  }
+
   // --- Refresh ---------------------------------------------------------------------------------
 
   /** Registers a loader to rerun after a gap or reconnect. Returns an unregister function. */
   registerRefresher(key: string, refresh: Refresher): () => void {
-    this.refreshers.set(key, refresh);
+    // Several mounted components may share a key; each keeps its own registration.
+    let set = this.refreshers.get(key);
+    if (set === undefined) {
+      set = new Set();
+      this.refreshers.set(key, set);
+    }
+    set.add(refresh);
     return () => {
-      if (this.refreshers.get(key) === refresh) this.refreshers.delete(key);
+      const current = this.refreshers.get(key);
+      current?.delete(refresh);
+      if (current?.size === 0) this.refreshers.delete(key);
     };
   }
 
   /** Reruns every registered loader (event gap, reconnect, or an explicit retry). */
   async refreshAll(): Promise<void> {
+    this.refreshing += 1;
     this.update((s) => ({ ...s, refreshing: true }));
-    const results = await Promise.allSettled([...this.refreshers.values()].map((r) => r()));
-    this.update((s) => ({ ...s, refreshing: false }));
+    // One run per key is enough: registrations under a key load the same data.
+    const once = [...this.refreshers.values()].flatMap((set) => [...set].slice(0, 1));
+    const results = await Promise.allSettled(once.map((r) => r()));
+    this.refreshing -= 1;
+    if (this.refreshing === 0) this.update((s) => ({ ...s, refreshing: false }));
     const failed = results.find((r) => r.status === "rejected");
     if (failed !== undefined) throw (failed as PromiseRejectedResult).reason;
   }
 
   private onConnection(state: ConnectionState): void {
-    const prev = this.base.connection;
     this.update((s) => ({ ...s, connection: state }));
     if (state === "offline") {
       // Stream deltas stop; the committed message replaces them after the refresh.
       this.update((s) => ({ ...s, lastSeq: null }));
     }
-    if (state === "open" && prev !== "open" && prev !== "connecting") void this.reconnected();
+    if (state === "open") {
+      // open → offline → connecting → open is the usual retry path: still a reconnect.
+      if (this.hasOpened) void this.reconnected();
+      this.hasOpened = true;
+    }
   }
 
   /** After a reconnect: old approval cards are stale until the Gateway re-issues them. */
@@ -176,10 +242,16 @@ export class GatewayStore {
   // --- Events ----------------------------------------------------------------------------------
 
   private onEvent(e: GatewayEvent): void {
-    const gap = this.base.lastSeq !== null && e.seq !== this.base.lastSeq + 1;
+    const last = this.base.lastSeq;
+    // A duplicate or late event (seq ≤ last) is applied idempotently but never moves seq back.
+    const gap = last !== null && e.seq > last + 1;
     this.update((s) =>
       this.reduce(
-        { ...s, lastSeq: e.seq, stateVersion: Math.max(s.stateVersion, e.stateVersion) },
+        {
+          ...s,
+          lastSeq: last === null ? e.seq : Math.max(last, e.seq),
+          stateVersion: Math.max(s.stateVersion, e.stateVersion),
+        },
         e,
       ),
     );
@@ -208,12 +280,16 @@ export class GatewayStore {
       }
       case "chat.message": {
         const m = e.payload.message;
-        const next = upsertMessage(s, m);
+        const next = touch(upsertMessage(s, m), `messages:${m.id}`, v);
         // A queued follow-up is done once its message is committed by the Gateway.
         return { ...next, queue: next.queue.filter((q) => q.id !== m.id) };
       }
       case "chat.block":
-        return appendBlock(s, e.payload.threadId, e.payload.messageId, e.payload.block, this.now());
+        return touch(
+          appendBlock(s, e.payload.threadId, e.payload.messageId, e.payload.block, this.now()),
+          `messages:${e.payload.messageId}`,
+          v,
+        );
       case "run.updated":
         return touch(put(s, "runs", e.payload.run), `runs:${e.payload.run.id}`, v);
       case "tool_call.updated":
@@ -269,8 +345,12 @@ export class GatewayStore {
         );
       case "settings.changed": {
         const settings: Record<string, unknown> = { ...s.settings };
-        for (const entry of e.payload.entries) settings[entry.key] = entry.value;
-        return { ...s, settings };
+        let next = s;
+        for (const entry of e.payload.entries) {
+          settings[entry.key] = entry.value;
+          next = touch(next, `settings:${entry.key}`, v);
+        }
+        return { ...next, settings };
       }
       case "thread.updated": {
         const t = e.payload.thread;
