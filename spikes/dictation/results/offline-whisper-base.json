@@ -1,0 +1,47 @@
+{
+  "engine" : "whisper-base",
+  "footprintAfterPrepareMB" : 31.375778198242188,
+  "input" : "audio\/clip10.wav",
+  "machine" : "Apple M5 16 GB",
+  "notes" : [
+    "openai_whisper-base.en; partials = AudioStreamTranscriber-style loop (confirm all but last 2 segments)"
+  ],
+  "os" : "Version 27.0.1 (Build 26A434)",
+  "peakFootprintMB" : 107.46961975097656,
+  "prepareSeconds" : 0.4396131248213351,
+  "sessions" : [
+    {
+      "audioSeconds" : 10,
+      "finalLatency" : 0.2896913338918239,
+      "firstPartialFromKeyDown" : 2.1377754581626505,
+      "firstPartialFromSpeech" : 1.5316335000097752,
+      "firstPartialText" : "On Dean, send a message.",
+      "label" : "full script (warm)",
+      "meanUpdateInterval" : 1.0058964642895651,
+      "partialCount" : 9,
+      "transcript" : "On Dean, send a message to Ngozi Adiyami and tell her I am running about 15 minutes late for lunch because the train is stuck outside the station. Ask her to",
+      "updateTexts" : [
+        "On Dean, send a message.",
+        "On Dean, send a message to Gozia.",
+        "On Dean, send a message to Gozi Adiyemi and tell me about it.",
+        "On Dean, send a message to Gozi Adiyami and tell her I am running a",
+        "On Dean, send a message to Gozi Adiyami and tell her I am running about 15 minut",
+        "On Dean, send a message to Gozi Adiyami and tell her I am running about 15 minut",
+        "On Dean, send a message to Gozi Adiyami and tell her I am running about 15 minut",
+        "On Dean, send a message to Gozi Adiyami and tell her I am running about 15 minut",
+        "On Dean, send a message to Ngozi Adiyami and tell her I am running about 15 minu"
+      ],
+      "updateTimes" : [
+        2.1377754581626505,
+        3.108217000029981,
+        4.129019082989544,
+        5.100973041029647,
+        6.1557271250057966,
+        7.158487625187263,
+        8.189231000142172,
+        9.179050708189607,
+        10.214501416077837
+      ]
+    }
+  ]
+}

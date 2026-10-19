@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>com.psyche.spike.dictation</string>
+	<key>CFBundleName</key>
+	<string>dictation-spike</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Spike 03 captures push-to-talk audio to compare dictation engines.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Spike 03 compares on-device speech recognition engines.</string>
+</dict>
+</plist>
