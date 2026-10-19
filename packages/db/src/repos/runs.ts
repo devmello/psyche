@@ -1,6 +1,6 @@
 import type { Run, RunStatus, Usage } from "@psyche/protocol";
 import { EMPTY_USAGE, PsycheError } from "@psyche/protocol";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { runFromRow } from "../mappers.ts";
 import type { PsycheDb } from "../open.ts";
 import { runs } from "../schema.ts";
@@ -68,4 +68,30 @@ export function finishRun(db: PsycheDb, id: string, input: FinishRun): Run {
     .get();
   if (row === undefined) throw new PsycheError("not_found", `run ${id} not found`);
   return runFromRow(row);
+}
+
+/** Sets a non-terminal status (`running`, `awaiting_approval`, `awaiting_input`) or usage. */
+export function updateRun(
+  db: PsycheDb,
+  id: string,
+  patch: { status?: RunStatus; usage?: Usage; error?: string | null; endedAt?: string | null },
+): Run {
+  const set: Partial<typeof runs.$inferInsert> = { updatedAt: db.now() };
+  if (patch.status !== undefined) set.status = patch.status;
+  if (patch.usage !== undefined) set.usage = JSON.stringify(patch.usage);
+  if (patch.error !== undefined) set.error = patch.error;
+  if (patch.endedAt !== undefined) set.endedAt = patch.endedAt;
+  const row = db.drizzle.update(runs).set(set).where(eq(runs.id, id)).returning().get();
+  if (row === undefined) throw new PsycheError("not_found", `run ${id} not found`);
+  return runFromRow(row);
+}
+
+export function listRunsByStatus(db: PsycheDb, statuses: readonly RunStatus[]): Run[] {
+  if (statuses.length === 0) return [];
+  return db.drizzle
+    .select()
+    .from(runs)
+    .where(inArray(runs.status, [...statuses]))
+    .all()
+    .map(runFromRow);
 }

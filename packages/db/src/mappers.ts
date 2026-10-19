@@ -91,7 +91,7 @@ export function nodeFromRow(row: NodeRow): NodeInfo {
 }
 
 export function pairingRequestFromRow(row: PairingRequestRow): PairingRequest {
-  return {
+  const out: PairingRequest = {
     id: row.id,
     kind: row.kind as PairingRequest["kind"],
     code: row.code,
@@ -105,6 +105,10 @@ export function pairingRequestFromRow(row: PairingRequestRow): PairingRequest {
     decidedAt: row.decidedAt,
     decidedByDeviceId: row.decidedByDeviceId,
   };
+  if (row.publicKeyFingerprint !== null) out.publicKeyFingerprint = row.publicKeyFingerprint;
+  if (row.transport !== null) out.transport = row.transport as "ws" | "unix";
+  if (row.remoteAddress !== null) out.remoteAddress = row.remoteAddress;
+  return out;
 }
 
 export function threadFromRow(row: ThreadRow): Thread {
