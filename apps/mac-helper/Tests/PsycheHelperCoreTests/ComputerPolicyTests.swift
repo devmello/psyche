@@ -90,14 +90,27 @@ struct ComputerPolicyTests {
         try lock.acquire("run_d")
     }
 
-    @Test func stopSignalTripsAndResets() throws {
+    @Test func stopSignalStopsOnlyInvocationsIssuedBeforeEsc() async throws {
         let stop = StopSignal()
-        _ = stop.begin()
-        try stop.check()
+        try await stop.run {
+            try stop.check()
+            stop.trip()
+            #expect(throws: CapabilityError.stopped) { try stop.check() }
+        }
+        // A later invocation starts clean.
+        try await stop.run { try stop.check() }
+        // An invocation that was in flight when Esc was pressed stays stopped.
+        let (started, release) = AsyncStream<Void>.makeStream()
+        let inflight = _Concurrency.Task {
+            try await stop.run {
+                release.yield()
+                try await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
+                try stop.check()
+            }
+        }
+        for await _ in started { break }
         stop.trip()
-        #expect(throws: CapabilityError.stopped) { try stop.check() }
-        _ = stop.begin()
-        try stop.check()
+        await #expect(throws: CapabilityError.stopped) { try await inflight.value }
     }
 
     @Test func keyChordsParse() throws {

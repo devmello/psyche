@@ -96,9 +96,33 @@ enum Input {
     }
 
     /// Free text as unicode-string events (spike 04: fine for text, not for typeahead or named keys).
-    static func type(_ text: String, stop: StopSignal) throws {
+    /// Tab and newlines are sent as keycode events. `guardChunk` runs before every chunk and key, so
+    /// a focus change (Tab into a password field, a window stealing focus) stops typing.
+    static func type(_ text: String, stop: StopSignal, guardChunk: () throws -> Void) throws {
+        var segment = ""
+        func flush() throws {
+            guard !segment.isEmpty else { return }
+            try typeSegment(segment, stop: stop, guardChunk: guardChunk)
+            segment = ""
+        }
+        for ch in text {
+            switch ch {
+            case "\t", "\n", "\r\n", "\r":
+                try flush()
+                try guardChunk()
+                try key(KeyChord(keyCode: ch == "\t" ? 48 : 36, flags: [], name: ch == "\t" ? "tab" : "return"), stop: stop)
+            default:
+                if ch.unicodeScalars.allSatisfy({ CharacterSet.controlCharacters.contains($0) }) { continue }
+                segment.append(ch)
+            }
+        }
+        try flush()
+    }
+
+    private static func typeSegment(_ text: String, stop: StopSignal, guardChunk: () throws -> Void) throws {
         let src = source
         for chunk in TypingChunks.split(text) {
+            try guardChunk()
             for down in [true, false] {
                 let e = CGEvent(keyboardEventSource: src, virtualKey: 0, keyDown: down)
                 chunk.withUnsafeBufferPointer { buf in
@@ -132,7 +156,7 @@ final class EscStopTap: @unchecked Sendable {
     func start() -> Bool {
         guard tap == nil, AXIsProcessTrusted() else { return false }
         let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
-        let refcon = Unmanaged.passUnretained(self).toOpaque()
+        let refcon = Unmanaged.passRetained(self).toOpaque()  // the tap lives for the process
         guard let port = CGEvent.tapCreate(
             tap: .cgSessionEventTap, place: .headInsertEventTap, options: .defaultTap, eventsOfInterest: mask,
             callback: { _, type, event, refcon in

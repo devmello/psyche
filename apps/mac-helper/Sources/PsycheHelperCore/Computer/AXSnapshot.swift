@@ -69,6 +69,17 @@ public struct AXSnapshotOptions: Sendable, Equatable {
     public var clip = true
     public var prune = true
     public init() {}
+
+    /// Clamped to safe ranges (params arrive from the model through the Gateway).
+    public static func clamped(maxVisit: Int?, maxEmit: Int?, textMax: Int?, valueMax: Int?, clip: Bool?) -> AXSnapshotOptions {
+        var o = AXSnapshotOptions()
+        if let v = maxVisit { o.maxVisit = min(20_000, max(50, v)) }
+        if let v = maxEmit { o.maxEmit = min(2_000, max(10, v)) }
+        if let v = textMax { o.textMax = min(400, max(20, v)) }
+        if let v = valueMax { o.valueMax = min(2_000, max(20, v)) }
+        if let v = clip { o.clip = v }
+        return o
+    }
 }
 
 public struct AXSnapshotNode: Codable, Sendable, Equatable {
@@ -253,6 +264,7 @@ public enum AXText {
     /// Single line, trimmed, at most `n` characters with a `…(+N)` suffix.
     public static func truncate(_ s: String?, _ n: Int) -> String? {
         guard var s else { return nil }
+        let n = max(1, n)
         s = s.replacingOccurrences(of: "\n", with: "⏎").replacingOccurrences(of: "\t", with: " ")
             .trimmingCharacters(in: .whitespaces)
         if s.isEmpty { return nil }
@@ -358,7 +370,8 @@ public final class AXSnapshotBuilder<Source: AXTreeSource> {
         for c in source.children(e) {
             if out.count >= 6 { return }
             visited += 1
-            guard let i = source.info(c) else { continue }
+            // Never read or walk into a secure field (spike 04 rules 5 and 8).
+            guard let i = source.info(c), !i.isSecure else { continue }
             if i.role == "AXStaticText" || i.role == "AXTextField" || i.role == "AXHeading" {
                 if let t = AXText.nonEmpty(i.value) ?? AXText.nonEmpty(i.title), !t.trimmingCharacters(in: .whitespaces).isEmpty {
                     out.append(t)

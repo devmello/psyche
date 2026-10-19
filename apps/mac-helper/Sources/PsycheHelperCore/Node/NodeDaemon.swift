@@ -115,7 +115,7 @@ public final class NodeDaemon: @unchecked Sendable {
         stopped = true
         let channel = current
         lock.unlock()
-        channel?.close()
+        channel?.shutdown()
     }
 
     private var isStopped: Bool {

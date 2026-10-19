@@ -33,13 +33,14 @@ public enum ComputerIntent: String, Sendable {
     case key
     case drag
     case setValue
-    case press  // semantic AX action (AXPress, custom actions, menu items)
+    case press  // semantic AXPress on a non-menu control
+    case menu  // menu items, menu-bar commands, other semantic actions: can run any app command
 
     public var requiredTier: ComputerTier {
         switch self {
         case .read: .read
         case .click, .scroll, .press: .click
-        case .rightClick, .modifierClick, .type, .key, .drag, .setValue: .interact
+        case .rightClick, .modifierClick, .type, .key, .drag, .setValue, .menu: .interact
         }
     }
 }
@@ -327,37 +328,48 @@ public final class ComputerSessionLock: @unchecked Sendable {
     }
 }
 
-/// Global Esc stop (J5: "Esc stops an in-flight action within 200 ms"). The event tap calls
-/// `trip()`; long-running actions poll `check()` between steps (each step ≤ ~50 ms).
+/// Global Esc stop (J5: "Esc stops an in-flight action within 200 ms"). Each computer-use
+/// invocation runs under a token (`run`); the event tap's `trip()` stops every invocation issued
+/// before the press, and later invocations start clean. Long-running actions poll `check()` between
+/// steps (each step ≤ ~20 ms).
 public final class StopSignal: @unchecked Sendable {
     private let lock = NSLock()
-    private var generation = 0
-    private var tripped = false
+    private var issued = 0
+    private var stoppedThrough = 0
+
+    @TaskLocal static var token: Int?
 
     public init() {}
 
-    /// Marks the start of an action; returns a token for `check`.
-    public func begin() -> Int {
-        lock.lock()
-        defer { lock.unlock() }
-        tripped = false
-        generation += 1
-        return generation
+    /// Runs `body` as one stoppable invocation.
+    public func run<T: Sendable>(_ body: () async throws -> T) async throws -> T {
+        let token = nextToken()
+        return try await Self.$token.withValue(token) { try await body() }
     }
 
+    private func nextToken() -> Int {
+        lock.withLock {
+            issued += 1
+            return issued
+        }
+    }
+
+    /// Stops every invocation issued so far.
     public func trip() {
         lock.lock()
-        tripped = true
+        stoppedThrough = issued
         lock.unlock()
     }
 
+    /// Whether the current invocation (or, outside one, any invocation so far) was stopped.
     public var isTripped: Bool {
         lock.lock()
         defer { lock.unlock() }
-        return tripped
+        guard let t = Self.token else { return stoppedThrough > 0 && stoppedThrough == issued }
+        return t <= stoppedThrough
     }
 
-    /// Throws `cancelled/user_stopped` once the user pressed Esc.
+    /// Throws `cancelled/user_stopped` once the user pressed Esc during this invocation.
     public func check() throws {
         if isTripped { throw CapabilityError.stopped }
         if _Concurrency.Task.isCancelled { throw CapabilityError.cancelled }

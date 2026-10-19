@@ -9,6 +9,12 @@ public struct KeyChord: Sendable, Equatable {
     public var flags: CGEventFlags
     public var name: String
 
+    public init(keyCode: CGKeyCode, flags: CGEventFlags, name: String) {
+        self.keyCode = keyCode
+        self.flags = flags
+        self.name = name
+    }
+
     public static func == (a: KeyChord, b: KeyChord) -> Bool {
         a.keyCode == b.keyCode && a.flags.rawValue == b.flags.rawValue && a.name == b.name
     }

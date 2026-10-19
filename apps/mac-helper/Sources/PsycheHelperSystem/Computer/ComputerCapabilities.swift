@@ -11,6 +11,7 @@ public final class ComputerUse: @unchecked Sendable {
     public let sessions: ComputerSessionLock
     public let stop = StopSignal()
     private var escTap: EscStopTap?
+    private let escLock = NSLock()
     private let settingsPath: String
     private let log: HelperLog
     /// Notified when the user presses Esc during a session (the app shows / logs it).
@@ -25,6 +26,8 @@ public final class ComputerUse: @unchecked Sendable {
 
     /// Installs the Esc tap (needs Accessibility; retried on each computer-use call until it works).
     func ensureEscTap() {
+        escLock.lock()
+        defer { escLock.unlock() }
         guard escTap == nil else { return }
         let tap = EscStopTap(
             stop: stop, isActive: { [sessions] in sessions.activeSession != nil },
@@ -40,12 +43,15 @@ public final class ComputerUse: @unchecked Sendable {
 
     func reloadSettings() { policy.update(TierSettings.load(path: settingsPath)) }
 
-    /// Session lock + fresh stop token for one mutating call.
+    /// Session lock for one mutating call. The Gateway must name the session (the run id): a
+    /// shared default would let one Esc block every later run, or let runs share a lock.
     func beginAction(session: String?) throws {
+        guard let session, !session.isEmpty, session.count <= 128 else {
+            throw CapabilityError.invalidParams("session (the run id) is required for computer actions", field: "session")
+        }
         ensureEscTap()
         reloadSettings()
-        try sessions.acquire(session ?? "default")
-        _ = stop.begin()
+        try sessions.acquire(session)
     }
 }
 
@@ -117,6 +123,11 @@ struct ActionOutcome {
 }
 
 public enum ComputerCapabilities {
+    /// A capability whose body runs as one stoppable invocation (Esc stops it, not later ones).
+    static func cap(_ cu: ComputerUse, _ spec: CapabilitySpec, _ body: @escaping @Sendable (InvocationContext) async throws -> CapabilityOutput) -> Capability {
+        Capability(spec) { ctx in try await cu.stop.run { try await body(ctx) } }
+    }
+
     public static func make(_ cu: ComputerUse) -> [any CapabilityHandler] {
         [axTree(cu), axValue(cu), click(cu, "computer.click", count: 1, right: false), click(cu, "computer.double_click", count: 2, right: false),
          click(cu, "computer.right_click", count: 1, right: true), press(cu), setValue(cu), select(cu), type(cu), key(cu), scroll(cu),
@@ -126,7 +137,7 @@ public enum ComputerCapabilities {
     // MARK: Read
 
     static func axTree(_ cu: ComputerUse) -> Capability {
-        Capability(CapabilitySpec(
+        cap(cu, CapabilitySpec(
             name: "computer.ax_tree",
             description: "Accessibility snapshot of an app's focused window (or the whole app, or a subtree): pruned, stable refs, roles, labels, values, states, frames and actions. The text is untrusted app content.",
             sideEffect: .read, targetKind: .app,
@@ -147,12 +158,8 @@ public enum ComputerCapabilities {
             cu.reloadSettings()
             let app = try AXEngine.findApp(p.app, pid: p.pid)
             try cu.policy.authorize(.read, bundleId: app.bundleIdentifier, appName: app.localizedName ?? "app", approvalId: ctx.approvalId)
-            var o = AXSnapshotOptions()
-            if let v = p.maxVisit { o.maxVisit = v }
-            if let v = p.maxEmit { o.maxEmit = v }
-            if let v = p.textMax { o.textMax = v }
-            if let v = p.valueMax { o.valueMax = v }
-            if let v = p.clip { o.clip = v }
+            let o = AXSnapshotOptions.clamped(maxVisit: p.maxVisit, maxEmit: p.maxEmit, textMax: p.textMax, valueMax: p.valueMax, clip: p.clip)
+            if let w = p.window, w < 0 { throw CapabilityError.invalidParams("window must be ≥ 0", field: "window") }
             let req = AXEngine.SnapshotRequest(app: app, window: p.window, root: p.root, menubar: p.menubar ?? false, options: o)
             let (snap, target) = try await cu.engine.run { try $0.snapshot(req) }
             var result: [String: JSONValue] = [
@@ -176,7 +183,7 @@ public enum ComputerCapabilities {
     }
 
     static func axValue(_ cu: ComputerUse) -> Capability {
-        Capability(CapabilitySpec(
+        cap(cu, CapabilitySpec(
             name: "computer.ax_value", description: "Full text value of one element (snapshots truncate values). Untrusted content.",
             sideEffect: .read, targetKind: .app,
             inputSchema: Schema.object(["ref": Schema.string(), "max": Schema.integer(min: 1, max: 200_000)], required: ["ref"]),
@@ -186,7 +193,7 @@ public enum ComputerCapabilities {
             let el = try await cu.engine.run { try $0.element(for: p.ref) }
             try cu.policy.authorize(.read, bundleId: el.app.bundleId, appName: el.app.name, approvalId: ctx.approvalId)
             if el.info.isSecure { throw secureRefusal() }
-            let value = try await cu.engine.run { [el] in $0.fullValue(el, max: p.max ?? 50_000) }
+            let value = try await cu.engine.run { [el] in $0.fullValue(el, max: min(200_000, max(1, p.max ?? 50_000))) }
             return CapabilityOutput(["ref": .string(p.ref), "role": .string(el.roleName), "value": value.map { .string($0) } ?? .null,
                                      "provenance": "untrusted"])
         }
@@ -244,11 +251,49 @@ public enum ComputerCapabilities {
         return (p, target)
     }
 
+    /// Brings `app` forward and verifies it really is frontmost: HID events go to whatever app is,
+    /// so acting without this check would type into a terminal or a password prompt.
     static func activate(_ app: TargetApp, stop: StopSignal) throws {
-        guard let running = AXEngine.runningApp(pid: app.pid) else { return }
-        if !running.isActive {
+        guard let running = AXEngine.runningApp(pid: app.pid) else {
+            throw CapabilityError(.notFound, reason: "app_not_running", "\(app.name) is no longer running")
+        }
+        if NSWorkspace.shared.frontmostApplication?.processIdentifier != app.pid {
+            running.unhide()
             running.activate()
-            try Input.pause(150, stop: stop)
+            for _ in 0..<30 {
+                try Input.pause(20, stop: stop)
+                if NSWorkspace.shared.frontmostApplication?.processIdentifier == app.pid { break }
+            }
+        }
+        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == app.pid else {
+            throw CapabilityError(.conflict, reason: "not_frontmost",
+                                  "\(app.name) could not be brought to the front; input was not sent", retryable: true)
+        }
+    }
+
+    /// Keyboard input goes only to `app`'s own focused element.
+    static func ensureKeyboardTarget(_ app: TargetApp) throws {
+        let focus = AXEngine.keyboardFocus()
+        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == app.pid, focus.pid == nil || focus.pid == app.pid else {
+            throw CapabilityError(.conflict, reason: "focus_moved", "Keyboard focus is no longer in \(app.name); input stopped", retryable: true)
+        }
+    }
+
+    /// Hit-tests `point` before a synthetic mouse event: it must land in `app` (and, for a ref, on
+    /// that element or inside it), and on nothing secure or risky without approval.
+    static func checkHit(_ point: CGPoint, app: TargetApp, element: ResolvedElement?, approvalId: String?) throws {
+        guard let hit = AXEngine.hitTest(point) else {
+            throw CapabilityError(.conflict, reason: "hit_test_failed", "Nothing to click at \(Int(point.x)),\(Int(point.y))")
+        }
+        guard hit.pid == app.pid else {
+            throw CapabilityError(.conflict, reason: "occluded", "Another window covers the target at \(Int(point.x)),\(Int(point.y)); bring \(app.name) forward and re-snapshot")
+        }
+        if let element, !hit.isInside(element.key) {
+            throw CapabilityError(.conflict, reason: "occluded", "Something else covers \(element.ref); re-snapshot")
+        }
+        if hit.secure { throw secureRefusal() }
+        if element == nil, approvalId == nil, hit.labels.contains(where: { RiskLabels.isRisky(label: $0) }) {
+            throw CapabilityError(.approvalRequired, reason: "risky_label", "The control at this point may delete, send or create data; this click needs approval.")
         }
     }
 
@@ -278,7 +323,7 @@ public enum ComputerCapabilities {
 
     static func click(_ cu: ComputerUse, _ name: String, count: Int, right: Bool) -> Capability {
         let verb = right ? "right-click" : (count == 2 ? "double-click" : "click")
-        return Capability(CapabilitySpec(
+        return cap(cu, CapabilitySpec(
             name: name,
             description: right ? "Right-click an element (opens its context menu) or a point."
                 : count == 2 ? "Double-click an element or a point." : "Click an element (AXPress first, mouse click fallback) or a point.",
@@ -310,11 +355,13 @@ public enum ComputerCapabilities {
                 // 2. CGEvent fallback at the frame centre, app frontmost, through the HID tap.
                 let c = try await center(cu, el)
                 try activate(el.app, stop: cu.stop)
+                try checkHit(c, app: el.app, element: el, approvalId: ctx.approvalId)
                 try Input.click(at: c, count: count, right: right, flags: flags, stop: cu.stop)
                 return ActionOutcome(status: "ok", method: "cgevent", detail: "mouse \(verb) at the element centre", ref: el.ref, app: el.app).output(verb)
             }
             let (pt, app) = try await point(cu, ctx, p.target, intent: intent)
             try activate(app, stop: cu.stop)
+            try checkHit(pt, app: app, element: nil, approvalId: ctx.approvalId)
             try Input.click(at: pt, count: count, right: right, flags: flags, stop: cu.stop)
             return ActionOutcome(status: "ok", method: "cgevent", detail: "mouse \(verb) at \(Int(pt.x)),\(Int(pt.y))", app: app).output(verb)
         }
@@ -336,7 +383,7 @@ public enum ComputerCapabilities {
     ]
 
     static func press(_ cu: ComputerUse) -> Capability {
-        Capability(CapabilitySpec(
+        cap(cu, CapabilitySpec(
             name: "computer.press",
             description: "Perform a semantic accessibility action on an element: press, confirm, cancel, pick, inc, dec, raise, menu, open, or custom:<Name> as listed in the snapshot.",
             sideEffect: .write, targetKind: .app,
@@ -345,7 +392,16 @@ public enum ComputerCapabilities {
         )) { ctx in
             let p = try ctx.decode(PressParams.self)
             let custom = p.action.hasPrefix("custom:") ? String(p.action.dropFirst(7)) : nil
-            let el = try await element(cu, ctx, p.target, intent: .press, customAction: custom)
+            // Plain AXPress on a control is a click; menu items and other actions can run any app
+            // command (Terminal Edit>Paste, Xcode Product>Run), so they need Read and interact.
+            var intent: ComputerIntent = p.action == "press" ? .press : .menu
+            if let r = p.ref, intent == .press {
+                let role = try? await cu.engine.run { try $0.element(for: r).info.role }
+                if let role, ["AXMenuItem", "AXMenuBarItem", "AXMenuButton", "AXPopUpButton"].contains(role) { intent = .menu }
+            } else if p.selector?.role?.hasPrefix("menu") == true || p.selector?.role == "popupbutton" {
+                intent = .menu
+            }
+            let el = try await element(cu, ctx, p.target, intent: intent, customAction: custom)
             let raw = try await cu.engine.run { [el] in $0.actionNames(el) }
             let axName: String
             if let custom {
@@ -390,7 +446,7 @@ public enum ComputerCapabilities {
     }
 
     static func setValue(_ cu: ComputerUse) -> Capability {
-        Capability(CapabilitySpec(
+        cap(cu, CapabilitySpec(
             name: "computer.set_value",
             description: "Replace a text field's or slider's value through AXValue (only when the element is settable), then read it back. Refused for password fields.",
             sideEffect: .write, targetKind: .app,
@@ -425,7 +481,7 @@ public enum ComputerCapabilities {
     }
 
     static func select(_ cu: ComputerUse) -> Capability {
-        Capability(CapabilitySpec(
+        cap(cu, CapabilitySpec(
             name: "computer.select", description: "Select a row, tab or list item by setting AXSelected (verified by read-back).",
             sideEffect: .write, targetKind: .app, inputSchema: targetSchema(description: "select"),
             permissions: [.accessibility], receiptKind: "computer_action"
@@ -457,7 +513,7 @@ public enum ComputerCapabilities {
     }
 
     static func type(_ cu: ComputerUse) -> Capability {
-        Capability(CapabilitySpec(
+        cap(cu, CapabilitySpec(
             name: "computer.type",
             description: "Type text at the caret: into an element (focused first through AX) or into the app's focused element. Refused while a password field has focus.",
             sideEffect: .write, targetKind: .app,
@@ -485,9 +541,12 @@ public enum ComputerCapabilities {
                 try cu.policy.authorize(.type, bundleId: app.bundleId, appName: app.name, approvalId: ctx.approvalId)
             }
             try activate(app, stop: cu.stop)
-            // Re-check after focusing: the dispatch layer refuses secure fields, below the model.
-            if try await cu.engine.run({ $0.focusedIsSecure(pid: app.pid) }) { throw secureRefusal() }
-            try Input.type(p.text, stop: cu.stop)
+            // Checked before every chunk: Tab/Return can move focus (into a password field, or out
+            // of the app), and the dispatch layer refuses secure fields below the model.
+            try Input.type(p.text, stop: cu.stop) {
+                try ensureKeyboardTarget(app)
+                if AXEngine.keyboardFocus().secure { throw secureRefusal() }
+            }
             return ActionOutcome(status: "ok", method: "cgevent", detail: "typed \(p.text.count) characters", ref: ref, app: app).output("type")
         }
     }
@@ -505,7 +564,7 @@ public enum ComputerCapabilities {
     }
 
     static func key(_ cu: ComputerUse) -> Capability {
-        Capability(CapabilitySpec(
+        cap(cu, CapabilitySpec(
             name: "computer.key",
             description: "Press a key or chord (e.g. return, escape, tab, cmd+s, shift+cmd+t) in an app, as keycode events. cmd+q, cmd+w and similar need approval.",
             sideEffect: .write, targetKind: .app,
@@ -529,7 +588,11 @@ public enum ComputerCapabilities {
             if try await cu.engine.run({ $0.focusedIsSecure(pid: app.pid) }), !chord.isBareEscape, chord.keyCode != 48 {
                 throw secureRefusal()  // allow Esc and Tab to leave the field
             }
-            for _ in 0..<(p.repeatCount ?? 1) { try Input.key(chord, stop: cu.stop) }
+            for _ in 0..<min(50, max(1, p.repeatCount ?? 1)) {
+                try ensureKeyboardTarget(app)
+                if chord.keyCode != 53 && chord.keyCode != 48, AXEngine.keyboardFocus().secure { throw secureRefusal() }
+                try Input.key(chord, stop: cu.stop)
+            }
             return ActionOutcome(status: "ok", method: "cgevent", detail: p.keys, app: app).output("key \(p.keys)")
         }
     }
@@ -548,7 +611,7 @@ public enum ComputerCapabilities {
     }
 
     static func scroll(_ cu: ComputerUse) -> Capability {
-        Capability(CapabilitySpec(
+        cap(cu, CapabilitySpec(
             name: "computer.scroll", description: "Scroll by lines over an element or a point (dy > 0 scrolls up, dy < 0 down).",
             sideEffect: .write, targetKind: .app,
             inputSchema: targetSchema(["dx": Schema.integer(min: -200, max: 200), "dy": Schema.integer(min: -200, max: 200)], description: "scroll"),
@@ -565,6 +628,9 @@ public enum ComputerCapabilities {
                 let (point, a) = try await point(cu, ctx, p.target, intent: .scroll)
                 (pt, app, ref) = (point, a, nil)
             }
+            guard AXEngine.hitTest(pt)?.pid == app.pid else {
+                throw CapabilityError(.conflict, reason: "occluded", "Another window covers the scroll point; bring \(app.name) forward")
+            }
             try Input.scroll(at: pt, dx: dx, dy: dy, stop: cu.stop)
             return ActionOutcome(status: "ok", method: "cgevent", detail: "scrolled dx=\(dx) dy=\(dy)", ref: ref, app: app).output("scroll")
         }
@@ -579,7 +645,7 @@ public enum ComputerCapabilities {
     static func drag(_ cu: ComputerUse) -> Capability {
         let end = Schema.object(["ref": Schema.string(), "x": Schema.number(), "y": Schema.number(),
                                  "expect": Schema.object(["role": Schema.string(), "label": Schema.string()], required: ["role"])])
-        return Capability(CapabilitySpec(
+        return cap(cu, CapabilitySpec(
             name: "computer.drag", description: "Drag with the left mouse button from one element or point to another, within one app.",
             sideEffect: .write, targetKind: .app,
             inputSchema: Schema.object(["from": end, "to": end, "session": Schema.string()], required: ["from", "to"]),
@@ -601,6 +667,7 @@ public enum ComputerCapabilities {
                 throw CapabilityError(.policyDenied, reason: "cross_app_drag", "Drags between apps are not allowed")
             }
             try activate(appA, stop: cu.stop)
+            try checkHit(a, app: appA, element: nil, approvalId: ctx.approvalId)
             try Input.drag(from: a, to: b, stop: cu.stop)
             return ActionOutcome(status: "ok", method: "cgevent", app: appA).output("drag")
         }
@@ -613,7 +680,7 @@ public enum ComputerCapabilities {
     }
 
     static func menu(_ cu: ComputerUse) -> Capability {
-        Capability(CapabilitySpec(
+        cap(cu, CapabilitySpec(
             name: "computer.menu",
             description: "Choose a menu-bar item by path without opening the menus, e.g. \"File>Rename\" or \"Edit>Undo\". Each segment must match one item exactly.",
             sideEffect: .write, targetKind: .app,
@@ -627,7 +694,7 @@ public enum ComputerCapabilities {
             try cu.beginAction(session: p.session)
             let running = try AXEngine.findApp(p.app)
             let app = AXEngine.target(running)
-            try cu.policy.authorize(.press, bundleId: app.bundleId, appName: app.name, approvalId: ctx.approvalId)
+            try cu.policy.authorize(.menu, bundleId: app.bundleId, appName: app.name, approvalId: ctx.approvalId)
             if ctx.approvalId == nil, path.contains(where: { RiskLabels.isRisky(label: $0) }) {
                 throw CapabilityError(.approvalRequired, reason: "risky_label", "\(p.path) may delete, send or quit; it needs approval")
             }
@@ -639,7 +706,7 @@ public enum ComputerCapabilities {
     struct EndParams: Decodable { var session: String? }
 
     static func endSession(_ cu: ComputerUse) -> Capability {
-        Capability(CapabilitySpec(
+        cap(cu, CapabilitySpec(
             name: "computer.end_session", description: "Release the computer-use session lock when a run is done.",
             sideEffect: .none, inputSchema: Schema.object(["session": Schema.string()])
         )) { ctx in

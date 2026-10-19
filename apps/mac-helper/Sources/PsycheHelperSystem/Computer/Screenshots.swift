@@ -66,7 +66,7 @@ public enum ScreenshotCapabilities {
             } else {
                 let displays = content.displays
                 let display: SCDisplay?
-                if let i = p.display { display = i < displays.count ? displays[i] : nil } else {
+                if let i = p.display { display = i >= 0 && i < displays.count ? displays[i] : nil } else {
                     display = displays.first { $0.displayID == CGMainDisplayID() } ?? displays.first
                 }
                 guard let display else { throw CapabilityError(.notFound, reason: "no_display", "No such display") }
@@ -206,15 +206,15 @@ final class PickerSession: NSObject, SCContentSharingPickerObserver {
     }
 
     nonisolated func contentSharingPicker(_ picker: SCContentSharingPicker, didCancelFor stream: SCStream?) {
-        MainActor.assumeIsolated { finish(.failure(CapabilityError(.cancelled, reason: "user_cancelled", "The user closed the picker"))) }
+        DispatchQueue.main.async { self.finish(.failure(CapabilityError(.cancelled, reason: "user_cancelled", "The user closed the picker"))) }
     }
 
     nonisolated func contentSharingPicker(_ picker: SCContentSharingPicker, didUpdateWith filter: SCContentFilter, for stream: SCStream?) {
         let box = PickedFilter(filter: filter)
-        MainActor.assumeIsolated { finish(.success(box)) }
+        DispatchQueue.main.async { self.finish(.success(box)) }
     }
 
     nonisolated func contentSharingPickerStartDidFailWithError(_ error: Error) {
-        MainActor.assumeIsolated { finish(.failure(CapabilityError(.unavailable, reason: "picker_failed", "The content picker failed"))) }
+        DispatchQueue.main.async { self.finish(.failure(CapabilityError(.unavailable, reason: "picker_failed", "The content picker failed"))) }
     }
 }

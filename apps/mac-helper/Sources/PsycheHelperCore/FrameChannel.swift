@@ -34,4 +34,7 @@ public final class FrameChannel: @unchecked Sendable {
     }
 
     public func close() { socket.close() }
+
+    /// Wakes the reader (EOF) from another thread; `close()` follows once the loop exits.
+    public func shutdown() { socket.shutdown() }
 }

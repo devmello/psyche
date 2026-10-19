@@ -217,3 +217,24 @@ struct AXSnapshotTests {
         #expect(truncated.mismatch(role: "textarea", label: "Groceries · milk, eggs", value: "Taxes") != nil)
     }
 }
+
+@Suite("AX snapshot hardening")
+struct AXSnapshotHardeningTests {
+    @Test func collapsedLabelsNeverIncludeSecureValues() {
+        let t = FakeTree()
+        let w = t.add(AXElementInfo(role: "AXWindow", title: "W", frame: CGRect(x: 0, y: 0, width: 500, height: 500)))
+        let row = t.add(AXElementInfo(role: "AXButton", frame: CGRect(x: 0, y: 0, width: 100, height: 20)), parent: w, actions: ["AXPress"])
+        t.add(AXElementInfo(role: "AXTextField", subrole: "AXSecureTextField", value: "hunter2", frame: CGRect(x: 0, y: 0, width: 50, height: 20)), parent: row)
+        t.add(AXElementInfo(role: "AXStaticText", value: "Sign in", frame: CGRect(x: 50, y: 0, width: 50, height: 20)), parent: row)
+        let b = AXSnapshotBuilder(source: t, refs: AXRefTable<Int>(), options: AXSnapshotOptions(), focused: nil)
+        let snap = b.snapshot(root: w, app: "X", pid: 1, bundleId: nil, electron: false)
+        #expect(!snap.render().contains("hunter2"))
+        #expect(b.label(for: row) == "Sign in")
+    }
+
+    @Test func optionsAreClamped() {
+        let o = AXSnapshotOptions.clamped(maxVisit: -5, maxEmit: 1_000_000, textMax: -1, valueMax: 0, clip: false)
+        #expect(o.maxVisit == 50 && o.maxEmit == 2_000 && o.textMax == 20 && o.valueMax == 20 && !o.clip)
+        #expect(AXText.truncate("abc", -1) == "a…(+2)")
+    }
+}

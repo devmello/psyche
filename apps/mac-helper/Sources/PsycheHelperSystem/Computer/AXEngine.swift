@@ -34,6 +34,12 @@ final class AXEngine: @unchecked Sendable {
     private var lastNodes: [AXSnapshotNode] = []
     private var electronPrimed: Set<pid_t> = []
 
+    init() {
+        // The system-wide element's timeout applies to every element: a hung app must not stall
+        // the serial AX queue for the 6 s default per call.
+        AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), Self.messagingTimeout)
+    }
+
     /// Runs `body` on the AX queue.
     func run<T: Sendable>(_ body: @escaping @Sendable (AXEngine) throws -> T) async throws -> T {
         try await withCheckedThrowingContinuation { cont in
@@ -115,7 +121,12 @@ final class AXEngine: @unchecked Sendable {
         case "app":
             rootElement = ae
         case let ref?:
-            rootElement = try element(for: ref).key.element
+            let el = try element(for: ref)
+            // A ref from another app must not bypass that app's tier.
+            guard el.app.pid == target.pid else {
+                throw CapabilityError(.invalidParams, reason: "ref_other_app", "\(ref) belongs to \(el.app.name), not \(target.name)")
+            }
+            rootElement = el.key.element
         }
         let focused = AX.element(AX.attr(ae, "AXFocusedUIElement")).map(AXKey.init)
         var extra: [AXKey] = []
@@ -227,6 +238,51 @@ final class AXEngine: @unchecked Sendable {
         AXUIElementSetMessagingTimeout(root, Self.messagingTimeout)
         guard let f = AX.element(AX.attr(root, "AXFocusedUIElement")) else { return false }
         return AX.string(AX.attr(f, "AXSubrole")) == "AXSecureTextField"
+    }
+
+    /// Where keyboard input would go right now: the system-wide focused element's pid and whether
+    /// it is a secure text field.
+    static func keyboardFocus() -> (pid: pid_t?, secure: Bool) {
+        let sys = AXUIElementCreateSystemWide()
+        guard let f = AX.element(AX.attr(sys, "AXFocusedUIElement")) else { return (nil, false) }
+        return (AX.pid(f), AX.string(AX.attr(f, "AXSubrole")) == "AXSecureTextField")
+    }
+
+    struct Hit {
+        var pid: pid_t
+        var element: AXUIElement
+        var secure: Bool
+        /// Labels of the hit element and up to two ancestors (for risk checks on point clicks).
+        var labels: [String]
+
+        /// True when the hit element is `key` or a descendant of it.
+        func isInside(_ key: AXKey) -> Bool {
+            var cur: AXUIElement? = element
+            for _ in 0..<40 {
+                guard let c = cur else { return false }
+                if CFEqual(c, key.element) { return true }
+                cur = AX.element(AX.attr(c, "AXParent"))
+            }
+            return false
+        }
+    }
+
+    /// Element under a screen point (top-left origin).
+    static func hitTest(_ point: CGPoint) -> Hit? {
+        let sys = AXUIElementCreateSystemWide()
+        var hit: AXUIElement?
+        guard point.x.isFinite, point.y.isFinite,
+              AXUIElementCopyElementAtPosition(sys, Float(point.x), Float(point.y), &hit) == .success, let hit, let pid = AX.pid(hit)
+        else { return nil }
+        var labels: [String] = []
+        var cur: AXUIElement? = hit
+        for _ in 0..<3 {
+            guard let c = cur else { break }
+            let a = AX.attrs(c, ["AXTitle", "AXDescription"])
+            labels += [AX.string(a["AXTitle"]), AX.string(a["AXDescription"])].compactMap { $0 }.filter { !$0.isEmpty }
+            cur = AX.element(AX.attr(c, "AXParent"))
+        }
+        return Hit(pid: pid, element: hit, secure: AX.string(AX.attr(hit, "AXSubrole")) == "AXSecureTextField", labels: labels)
     }
 
     /// The app owning the element under a screen point (top-left origin).
