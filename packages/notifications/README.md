@@ -62,7 +62,7 @@ Explicit `surfaces` on `notify` replace the defaults. `os` is accepted as an ali
 
 ## What is stubbed or pending
 
-- **Migration placement.** The DDL ships in `migrations/202610190200_notifications_init.sql`. It moves to `packages/db/migrations/` once S01 adds the matching drizzle tables, because `@psyche/db`'s schema-parity test fails otherwise. Until then, `SqliteNotificationStore({migrate: true})` applies it to a fresh database.
+- **Migration placement.** The tables are created by `@psyche/db`'s migration ledger (`packages/db/migrations/202610190200_notifications_init.sql`, drizzle mirror in `packages/db/src/schema-notifications.ts`). This package keeps an identical copy in `migrations/` so `SqliteNotificationStore({migrate: true})` can set up a bare database in its own tests; `test/migration-parity.test.ts` fails if the two drift. The Gateway never passes `migrate: true`.
 - **Snooze.** Reminders' "Snooze 1 h" can be built with `onAction` plus a new `reminder` notify. No built-in snooze state exists yet.
 - **Phone push** (no adapter yet) and the Electron fallback adapter (S11 passes it as `fallback`).
 - **Live OS test.** Tests use `FakeNodeClient`. The helper's `notify.show` (S14) is exercised in S14's manual test plan.

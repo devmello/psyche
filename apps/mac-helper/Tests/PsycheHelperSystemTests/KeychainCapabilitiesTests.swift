@@ -26,7 +26,7 @@ struct KeychainCapabilitiesTests {
 
     @Test func declaresS06sContract() {
         let specs = Dictionary(uniqueKeysWithValues: registry.ordered.map { ($0.spec.name, $0.spec) })
-        #expect(Set(specs.keys) == ["keychain.set", "vault.unlock", "keychain.delete", "keychain.status"])
+        #expect(Set(specs.keys) == ["keychain.set", "vault.unlock", "keychain.delete", "keychain.store", "keychain.retrieve", "keychain.delete_item", "keychain.status"])
         #expect(specs["keychain.set"]?.sideEffect == .write && specs["keychain.set"]?.receiptKind == "vault_key")
         #expect(specs["vault.unlock"]?.sideEffect == .read && specs["vault.unlock"]?.description.contains("secret") == true)
         #expect(specs["keychain.delete"]?.sideEffect == .destructive)
