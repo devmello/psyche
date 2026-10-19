@@ -16,13 +16,13 @@ const KINDS_OF_SCOPE: Record<SearchScope, SearchIndexDocKind[]> = {
   memory: ["memory"],
   library: ["library"],
   feed: ["feed"],
+  ideas: ["idea"],
+  goals: ["goal"],
+  connectors: ["connector"],
 };
 const ALL_SCOPES = Object.keys(KINDS_OF_SCOPE) as SearchScope[];
 
-/**
- * Wire scope of a hit. Ideas, goals and connector caches have no wire scope until the
- * `protocol:` PR adds them, so the handler leaves them out of `search.query` results.
- */
+/** Wire scope of a hit. */
 function scopeOf(hit: RichHit): SearchScope | undefined {
   switch (hit.kind) {
     case "thread":
@@ -37,6 +37,12 @@ function scopeOf(hit: RichHit): SearchScope | undefined {
       return "library";
     case "feed":
       return "feed";
+    case "idea":
+      return "ideas";
+    case "goal":
+      return "goals";
+    case "connector":
+      return "connectors";
     default:
       return undefined;
   }
@@ -86,7 +92,7 @@ export function createSearchHandlers(index: SqliteSearchIndex): SearchHandlers {
   return {
     async "search.query"(params, ctx = {}) {
       const scopes = params.scopes ?? ALL_SCOPES;
-      // Only kinds that have a wire scope are ranked, so ideas or goals cannot use up the limit.
+      // Only kinds of the requested scopes are ranked, so other kinds cannot use up the limit.
       const kinds = [...new Set(scopes.flatMap((s) => KINDS_OF_SCOPE[s]))];
       const res = await index.search({
         q: params.query,

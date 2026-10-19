@@ -18,6 +18,19 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S16 search and skills)
+
+For S16 (`packages/search`, `packages/skills`), S01 (dispatch), S02 (skills prompt index), S11/S12 (Search screen, Settings → Skills).
+
+- `SearchScope` gains `ideas`, `goals`, `connectors` (appended).
+- `SearchHit` gains optional `kind` (`SearchIndexDocKind`), `group` (new `SearchGroup`), `provenance`, `createdAt` (epoch ms), `snippetHighlights` and `titleHighlights` (new `HighlightRange`, `[start, end)` integer pairs).
+- `search.query` result gains optional `groups` (new `SearchHitGroup { group, count, hits }`), `total` and `warnings` (filter tokens that were not understood).
+- `SearchIndexDoc` gains optional `scopeKey` (owner or a designated-person session key), `parentId` (collapse target) and `source` (producer id for bulk removal).
+- New `skills.*` methods mirroring `SkillsHandlers` in `packages/skills/src/handlers.ts`: reads `skills.list`, `skills.get`, `skills.search`, `skills.commands`, `skills.getProposal` (`operator.read`); mutations `skills.proposeInstall`, `skills.proposeUpdate`, `skills.proposeApproval`, `skills.install`, `skills.setEnabled`, `skills.remove` (`operator.admin`, side-effecting).
+- Schemas `SkillDetails`, `SkillStatus`, `SkillProposal`, `SkillProposalFile`, `SkillProposalResult`, `SkillChangeEvent`, and JSON forms of the contract types (`SkillSummarySchema`, `SkillSourceSchema`, `SkillTrustSchema`, `ScanFindingSchema`, `SkillInstallSourceSchema`, `SkillCommandSchema`).
+- New event `skills.changed` whose payload is `SkillChangeEvent` (`reloaded` / `hash_mismatch` / `installed` / `removed`).
+- `SkillLoader` gains optional `promptIndex(options?)`, `commands()` and `setEnabled(name, enabled, source?)`, with the types `SkillCommand`, `PromptIndex`, `PromptIndexOptions`; `ScanFinding` gains optional `file`. `FakeSkillLoader` implements all three.
+
 ### v1 additive — 2026-10-20 (S07 memory, H9)
 
 - New schema `PersonaIdentity` (the `IDENTITY.md` frontmatter fields).

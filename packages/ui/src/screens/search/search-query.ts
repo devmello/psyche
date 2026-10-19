@@ -150,4 +150,7 @@ export const SCOPE_LABEL: Record<SearchScope, string> = {
   memory: "Memory",
   library: "Library",
   feed: "Feed",
+  ideas: "Ideas",
+  goals: "Goals",
+  connectors: "Connectors",
 };
