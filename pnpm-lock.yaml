@@ -193,12 +193,12 @@ importers:
 
   apps/cli:
     dependencies:
+      '@psyche/backup':
+        specifier: workspace:*
+        version: link:../../packages/backup
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      age-encryption:
-        specifier: 0.3.1
-        version: 0.3.1
     devDependencies:
       '@psyche/gateway':
         specifier: workspace:*
@@ -437,6 +437,15 @@ importers:
       '@psyche/testing':
         specifier: workspace:*
         version: link:../testing
+
+  packages/backup:
+    dependencies:
+      '@psyche/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      age-encryption:
+        specifier: 0.3.1
+        version: 0.3.1
 
   packages/browser:
     dependencies:
@@ -1119,7 +1128,7 @@ importers:
         version: 0.6.3
       jsdom:
         specifier: 30.1.3
-        version: 30.1.3
+        version: 30.1.3(@noble/hashes@2.4.0)
       react:
         specifier: 19.3.1
         version: 19.3.1

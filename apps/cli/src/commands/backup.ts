@@ -1,12 +1,14 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
+  backupFileName,
   createBackup,
   type Decryption,
   type Encryption,
   restoreBackup,
   verifyBackup,
-} from "../backup.ts";
+} from "@psyche/backup";
+import { PsycheError } from "@psyche/protocol";
 import { bool, type CommandSpec, type OptionValues, str } from "../command.ts";
 import type { Ctx } from "../context.ts";
 import { CliError } from "../errors.ts";
@@ -46,6 +48,22 @@ async function withGatewayStopped<T>(
     return await fn();
   } finally {
     await resumeService(s);
+  }
+}
+
+/** Archive errors (wrong key, damaged file, existing state) are failures (exit 1), not usage. */
+async function archiveErrors<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (err instanceof PsycheError) {
+      throw new CliError(
+        "failure",
+        err.message,
+        err.details && typeof err.details === "object" ? (err.details as Record<string, unknown>) : undefined,
+      );
+    }
+    throw err;
   }
 }
 
@@ -142,15 +160,13 @@ export const backupCommands: CommandSpec[] = [
     async run(ctx, { opts }) {
       const enc = await encryptionFrom(ctx, opts);
       const now = ctx.deps.now();
-      const stamp = now.toISOString().replace(/[:.]/g, "-");
       const out = resolve(
-        str(opts, "out") ??
-          join(ctx.home, "backups", `psyche-${stamp}.tar.gz${enc.kind === "none" ? "" : ".age"}`),
+        str(opts, "out") ?? join(ctx.home, "backups", backupFileName(now, enc.kind !== "none")),
       );
       mkdirSync(join(out, ".."), { recursive: true, mode: 0o700 });
       if (existsSync(out)) throw new CliError("usage", `${out} already exists`);
       const manifest = await withGatewayStopped(ctx, opts, "backup", () =>
-        createBackup(ctx.home, out, enc, CLI_VERSION, now),
+        archiveErrors(() => createBackup(ctx.home, out, enc, `psyche ${CLI_VERSION}`, { now })),
       );
       const total = manifest.files.reduce((n, f) => n + f.size, 0);
       const data = {
@@ -182,11 +198,8 @@ export const backupCommands: CommandSpec[] = [
       const file = resolve(args[0] as string);
       // Extract under $PSYCHE_HOME (0700), never next to the archive: that may be a synced or
       // shared folder, and the extracted tree is plaintext.
-      const { manifest, problems } = await verifyBackup(
-        file,
-        await decryptionFrom(ctx, opts),
-        ctx.home,
-      );
+      const dec = await decryptionFrom(ctx, opts);
+      const { manifest, problems } = await archiveErrors(() => verifyBackup(file, dec, ctx.home));
       return {
         data: {
           ok: problems.length === 0,
@@ -225,7 +238,9 @@ export const backupCommands: CommandSpec[] = [
       const file = resolve(args[0] as string);
       const dec = await decryptionFrom(ctx, opts);
       const { manifest, movedAside } = await withGatewayStopped(ctx, opts, "restore", () =>
-        restoreBackup(file, dec, ctx.home, { force: bool(opts, "force"), now: ctx.deps.now() }),
+        archiveErrors(() =>
+          restoreBackup(file, dec, ctx.home, { force: bool(opts, "force"), now: ctx.deps.now() }),
+        ),
       );
       return {
         data: {
