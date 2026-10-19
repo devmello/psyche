@@ -13,7 +13,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "gen:schema": "tsx scripts/gen-policy-schema.ts"
   },
   "dependencies": {
     "@psyche/audit": "workspace:*",

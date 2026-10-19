@@ -1,0 +1,50 @@
+{
+  "$schema": "./policy.schema.json",
+  "defaultMode": "balanced",
+  "grants": {
+    "siteExpiryDays": 30,
+    "alwaysExpiryDays": 90,
+    "sessionIdleHours": 12,
+    "sessionMaxHours": 24,
+    "taskHours": 24,
+    "destructiveTaskHours": 8
+  },
+  "approvals": {
+    "ttlMinutes": 30,
+    "deviceOnly": ["skill_install"],
+    "chatScopes": ["once"],
+    "answersPerMinute": 10
+  },
+  "deny": [
+    "mcp__notion__delete_page",
+    "read_file(**/.env)",
+    "origin:*.onion",
+    "recipient:*@competitor.example"
+  ],
+  "ask": ["mcp__github__*"],
+  "allow": ["calendar.list", "read_file(/Users/me/Projects/**)"],
+  "connectors": {
+    "google": {
+      "gmail.read": "allow",
+      "gmail.send": "ask",
+      "calendar.delete": "ask",
+      "drive.write": "deny"
+    }
+  },
+  "apps": {
+    "com.apple.Notes": "interact",
+    "com.apple.finder": "read",
+    "com.apple.Terminal": "click"
+  },
+  "sites": {
+    "*.kayak.com": "allow",
+    "*.casino.example": "deny"
+  },
+  "folders": [
+    { "path": "/Users/me/Projects", "mode": "rw" },
+    { "path": "/Users/me/Documents", "mode": "ro" }
+  ],
+  "workspaceRoots": ["/workspace"],
+  "exec": { "execHostEnabled": false, "allowEnv": [] },
+  "classifier": { "model": "rules", "timeoutMs": 8000, "failClosed": true }
+}

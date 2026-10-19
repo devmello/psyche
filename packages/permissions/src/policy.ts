@@ -305,3 +305,8 @@ export function compilePolicy(config: PolicyConfig = DEFAULT_POLICY): CompiledPo
 export function isSensitiveHost(policy: CompiledPolicy, host: string): boolean {
   return policy.sensitive.some((re) => re.test(host));
 }
+
+/** JSON Schema of `policy.json` (checked in as `policy.schema.json`; `pnpm gen:schema`). */
+export function policySchemaJson(): string {
+  return `${JSON.stringify({ $schema: "http://json-schema.org/draft-07/schema#", ...PolicyConfig }, null, 2)}\n`;
+}
