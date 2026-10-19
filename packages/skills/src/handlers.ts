@@ -40,6 +40,8 @@ export interface SkillsHandlers {
     source?: SkillSource;
   }) => Promise<{ skill: SkillDetails }>;
   "skills.remove": (p: { name: string }) => Promise<{ ok: true }>;
+  /** The staged proposal (full text, files, findings, diff) for an approval card on any device. */
+  "skills.getProposal": (p: { proposalId: string }) => Promise<{ proposal: SkillProposal }>;
 }
 
 export interface ProposalResult {
@@ -84,7 +86,8 @@ export function createSkillsHandlers(
       requestedBy: { runId: null, taskId: null, threadId: null },
       // Destructive class: `once` only and device-only, so a channel message cannot approve it.
       sideEffect: "destructive",
-      surfaces: opts.surfaces ?? ["desktop"],
+      // Device surfaces only: a chat channel (`telegram:123`) can never approve an install.
+      surfaces: (opts.surfaces ?? ["desktop"]).filter((x) => !x.includes(":")),
       scopesOffered: ["once"],
       taint: false,
     });
@@ -129,6 +132,11 @@ export function createSkillsHandlers(
     },
     async "skills.setEnabled"(p) {
       return { skill: await loader.setEnabled(p.name, p.enabled, p.source) };
+    },
+    async "skills.getProposal"(p) {
+      const proposal = loader.getProposal(p.proposalId);
+      if (proposal === undefined) throw new PsycheError("not_found", "no such install proposal");
+      return { proposal };
     },
     async "skills.remove"(p) {
       await loader.remove(p.name);

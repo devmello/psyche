@@ -23,7 +23,7 @@ import {
 } from "@psyche/protocol";
 import { skillInstallBinding, skillInstallGrantKey } from "./binding.ts";
 import { unifiedDiff } from "./diff.ts";
-import { type ParsedSkill, parseSkill } from "./frontmatter.ts";
+import { NAME_PATTERN, type ParsedSkill, parseSkill } from "./frontmatter.ts";
 import { defaultGateContext, evaluateGates, type GateContext } from "./gating.ts";
 import { LOCK_FILE, type LockEntry, type LockFile, lockKey, readLock, writeLock } from "./lock.ts";
 import {
@@ -144,6 +144,10 @@ export class FsSkillLoader implements SkillLoader {
   #proposals = new Map<string, { proposal: SkillProposal; tree: SkillTree }>();
   #watchers: FSWatcher[] = [];
   #timer: ReturnType<typeof setTimeout> | undefined;
+  #rescan: ReturnType<typeof setInterval> | undefined;
+  #watching = false;
+  #busy = false;
+  #debounceMs = 150;
   #reported = new Set<string>();
   #now: () => number;
   #newId: () => string;
@@ -308,7 +312,7 @@ export class FsSkillLoader implements SkillLoader {
     const st = this.#state.get(source, folder);
     details.userEnabled = st?.enabled ?? true;
     const gates = evaluateGates(m.requires, gate);
-    if (hasBlockingFindings(details.findings)) {
+    if (hasBlockingFindings(details.findings) || (entry.lock?.findings.high ?? 0) > 0) {
       details.status = "blocked";
       details.reasons.push("the static scan has high-severity findings");
     } else if (!details.userEnabled) {
@@ -334,7 +338,7 @@ export class FsSkillLoader implements SkillLoader {
   }
 
   #fresh(): void {
-    if (this.#watchers.length === 0) this.refresh();
+    if (!this.#watching) this.refresh();
   }
 
   // --- SkillLoader -----------------------------------------------------------------------------
@@ -476,6 +480,7 @@ export class FsSkillLoader implements SkillLoader {
   async proposeWorkspaceApproval(name: string): Promise<SkillProposal> {
     const dir = this.#o.workspaceDir;
     if (dir === undefined) throw new PsycheError("not_found", "no workspace skills folder");
+    if (!NAME_PATTERN.test(name)) throw new PsycheError("invalid_params", "invalid skill name");
     const skillDir = join(dir, name);
     if (!existsSync(join(skillDir, "SKILL.md")))
       throw new PsycheError("not_found", `no workspace skill named ${name}`);
@@ -501,6 +506,14 @@ export class FsSkillLoader implements SkillLoader {
     if (scope === "workspace" && source.kind === "path" && !source.path.endsWith(`/${name}`)) {
       throw new PsycheError("invalid_params", `skill name ${name} must equal its folder name`);
     }
+    const folded = new Set<string>();
+    for (const path of tree.keys()) {
+      const k = path.normalize("NFC").toLowerCase();
+      // Case-insensitive APFS would merge these on disk after the approval is spent.
+      if (folded.has(k))
+        throw new PsycheError("invalid_params", `paths differ only in case: ${path}`);
+      folded.add(k);
+    }
     const hash = treeHash(tree);
     const findings = scanSkillTree(tree, name);
     if (this.#o.virusTotal !== undefined) findings.push(...(await this.#o.virusTotal.scan(tree)));
@@ -514,15 +527,26 @@ export class FsSkillLoader implements SkillLoader {
       });
     }
     let update: SkillProposal["update"];
-    const installed = sameName.find((e) => e.details.source === scope && e.tree !== undefined);
-    if (installed?.tree !== undefined) {
-      const lockedHash = installed.lock?.treeHash ?? installed.details.hash;
-      update = {
-        fromHash: lockedHash,
-        upToDate: lockedHash === hash,
-        diff: treeDiff(installed.tree, tree),
-      };
-      if (scope === "workspace") update.diff = ""; // the owner's own files; nothing to compare
+    if (scope === "home") {
+      const installed = sameName.find((e) => e.details.source === "home" && e.tree !== undefined);
+      if (installed?.tree !== undefined && installed.lock !== undefined) {
+        update = {
+          fromHash: installed.lock.treeHash,
+          upToDate: installed.lock.treeHash === hash,
+          diff: treeDiff(installed.tree, tree),
+        };
+      }
+    } else {
+      // The workspace is agent-writable: compare with the snapshot taken at the last approval.
+      const lk = this.#readLock().skills[lockKey("workspace", name)];
+      const snap = join(this.#snapshotRoot(), name);
+      if (lk !== undefined && existsSync(snap)) {
+        update = {
+          fromHash: lk.treeHash,
+          upToDate: lk.treeHash === hash,
+          diff: treeDiff(readSkillDir(snap), tree),
+        };
+      }
     }
     const id = this.#newId();
     const files = [...tree.entries()]
@@ -591,40 +615,22 @@ export class FsSkillLoader implements SkillLoader {
     const root = p.scope === "home" ? this.#o.homeDir : this.#o.workspaceDir;
     if (root === undefined) throw new PsycheError("internal", "no folder for this skill scope");
     const target = join(root, p.name);
-    if (p.scope === "home") {
-      writeTree(root, target, tree);
-    } else if (treeHash(readSkillDir(target)) !== p.hash) {
-      throw new PsycheError("conflict", "the workspace skill changed after the proposal");
+    // Watcher reloads wait until the files and the lock agree (no false hash_mismatch).
+    this.#busy = true;
+    try {
+      if (p.scope === "home") {
+        writeTree(root, target, tree);
+      } else {
+        if (treeHash(readSkillDir(target)) !== p.hash)
+          throw new PsycheError("conflict", "the workspace skill changed after the proposal");
+        writeTree(this.#snapshotRoot(), join(this.#snapshotRoot(), p.name), tree);
+      }
+      this.#writeInstall(p, approvalId, target);
+    } finally {
+      this.#busy = false;
     }
-
     const counts = summarizeFindings(p.findings);
-    const lock = this.#readLock();
-    const approvedAt = new Date(this.#now()).toISOString();
-    const version = (parseSkill(p.text) as { ok: true; skill: ParsedSkill }).skill.meta.version;
-    lock.skills[lockKey(p.scope, p.name)] = {
-      name: p.name,
-      scope: p.scope,
-      origin: p.scope === "workspace" ? { kind: "workspace" } : p.source,
-      ...(p.commit === undefined ? {} : { commit: p.commit }),
-      ...(version === undefined ? {} : { version }),
-      treeHash: p.hash,
-      trust: p.trust,
-      approvalId,
-      approvedAt,
-      findings: counts,
-    };
-    writeLock(this.lockPath, lock);
     const blocked = counts.high > 0;
-    this.#state.upsert({
-      name: p.name,
-      source: p.scope,
-      path: join(target, "SKILL.md"),
-      trust: p.trust,
-      enabled: !blocked,
-      hash: p.hash,
-      ...(version === undefined ? {} : { version }),
-      installedAt: approvedAt,
-    });
     await broker.recordReceipt({
       kind: "skill_install",
       outcome: "ok",
@@ -643,6 +649,41 @@ export class FsSkillLoader implements SkillLoader {
     return toSummary(e.details);
   }
 
+  /** `$PSYCHE_HOME/skills/.approved/workspace`: what the owner last approved, for diffs. */
+  #snapshotRoot(): string {
+    return join(this.#o.homeDir, ".approved", "workspace");
+  }
+
+  #writeInstall(p: SkillProposal, approvalId: string, target: string): void {
+    const counts = summarizeFindings(p.findings);
+    const lock = this.#readLock();
+    const approvedAt = new Date(this.#now()).toISOString();
+    const version = (parseSkill(p.text) as { ok: true; skill: ParsedSkill }).skill.meta.version;
+    lock.skills[lockKey(p.scope, p.name)] = {
+      name: p.name,
+      scope: p.scope,
+      origin: p.scope === "workspace" ? { kind: "workspace" } : p.source,
+      ...(p.commit === undefined ? {} : { commit: p.commit }),
+      ...(version === undefined ? {} : { version }),
+      treeHash: p.hash,
+      trust: p.trust,
+      approvalId,
+      approvedAt,
+      findings: counts,
+    };
+    writeLock(this.lockPath, lock);
+    this.#state.upsert({
+      name: p.name,
+      source: p.scope,
+      path: join(target, "SKILL.md"),
+      trust: p.trust,
+      enabled: counts.high === 0,
+      hash: p.hash,
+      ...(version === undefined ? {} : { version }),
+      installedAt: approvedAt,
+    });
+  }
+
   /**
    * Removes an installed skill (files, lock entry, state). For a workspace skill only the
    * approval is withdrawn; the owner's files stay. Bundled skills can only be disabled.
@@ -659,9 +700,19 @@ export class FsSkillLoader implements SkillLoader {
     }
     const source = e.details.source;
     const lock = this.#readLock();
-    delete lock.skills[lockKey(source === "home" ? "home" : "workspace", name)];
+    const k = lockKey(source === "home" ? "home" : "workspace", name);
+    if (lock.skills[k] === undefined) {
+      throw new PsycheError(
+        "policy_denied",
+        source === "home"
+          ? `${name} was not installed through Psyche; remove the folder yourself`
+          : `${name} is not approved; there is nothing to withdraw`,
+      );
+    }
+    delete lock.skills[k];
     writeLock(this.lockPath, lock);
     if (source === "home") rmSync(e.dir, { recursive: true, force: true });
+    else rmSync(join(this.#snapshotRoot(), name), { recursive: true, force: true });
     this.#state.delete(source, name);
     await this.#o.broker?.recordReceipt({
       kind: "skill_remove",
@@ -684,41 +735,68 @@ export class FsSkillLoader implements SkillLoader {
 
   // --- Hot reload ------------------------------------------------------------------------------
 
-  /** Watches the skill folders; changes reload after `debounceMs` and emit `reloaded`. */
-  watch(debounceMs = 150): () => void {
-    if (this.#watchers.length > 0) return () => this.close();
+  /**
+   * Watches the skill folders; changes reload after `debounceMs` and emit `reloaded`. A full
+   * rescan (re-hashing every tree) also runs every `rescanMs` (default 30 s), so a missed or
+   * failed watcher event cannot leave changed files looking approved for long; a watcher that
+   * errors is re-created.
+   */
+  watch(debounceMs = 150, rescanMs = 30_000): () => void {
+    if (this.#watching) return () => this.close();
+    this.#watching = true;
+    this.#debounceMs = debounceMs;
+    this.#arm();
+    this.#rescan = setInterval(() => this.#schedule(0), rescanMs);
+    this.#rescan.unref?.();
+    this.refresh();
+    return () => this.close();
+  }
+
+  #arm(): void {
+    for (const w of this.#watchers) w.close();
+    this.#watchers = [];
     for (const source of SOURCES) {
       const root = this.#root(source);
       if (root === undefined) continue;
       if (source !== "bundled") mkdirSync(root, { recursive: true, mode: 0o700 });
       if (!existsSync(root)) continue;
-      const w = watch(root, { recursive: true }, () => this.#schedule(debounceMs));
-      w.on("error", () => this.#schedule(debounceMs));
+      const w = watch(root, { recursive: true }, () => this.#schedule(this.#debounceMs));
+      w.on("error", () => {
+        if (!this.#watching) return;
+        this.#arm();
+        this.#schedule(this.#debounceMs);
+      });
       this.#watchers.push(w);
     }
-    this.refresh();
-    return () => this.close();
   }
 
   #schedule(ms: number): void {
     if (this.#timer !== undefined) clearTimeout(this.#timer);
     this.#timer = setTimeout(() => {
       this.#timer = undefined;
+      if (this.#busy) {
+        this.#schedule(this.#debounceMs);
+        return;
+      }
       try {
         const diff = this.refresh();
         if (diff.added.length + diff.removed.length + diff.changed.length > 0)
           this.#o.onChange?.({ type: "reloaded", ...diff });
       } catch {
-        // A transient read error (a file mid-write) is retried on the next event.
+        // A file mid-write or a folder mid-delete: try again shortly.
+        if (this.#watching) this.#schedule(Math.max(this.#debounceMs, 100));
       }
     }, ms);
   }
 
   close(): void {
+    this.#watching = false;
     for (const w of this.#watchers) w.close();
     this.#watchers = [];
     if (this.#timer !== undefined) clearTimeout(this.#timer);
     this.#timer = undefined;
+    if (this.#rescan !== undefined) clearInterval(this.#rescan);
+    this.#rescan = undefined;
   }
 }
 

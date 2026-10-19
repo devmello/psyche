@@ -86,7 +86,7 @@ describe("SKILL.md frontmatter", () => {
   });
 
   it("handles CRLF, BOM and a body-less file", () => {
-    expect(splitFrontmatter("﻿---\r\nname: a\r\n---\r\nhi")).toEqual({
+    expect(splitFrontmatter("\uFEFF---\r\nname: a\r\n---\r\nhi")).toEqual({
       yaml: "name: a\n",
       body: "hi",
     });

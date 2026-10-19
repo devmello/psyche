@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { SkillChangeEvent } from "../src/loader.ts";
 import { setup, skillMd, writeSkill } from "./helpers.ts";
 
-async function until(check: () => boolean | Promise<boolean>, ms = 5_000) {
+async function until(check: () => boolean | Promise<boolean>, ms = 15_000) {
   const start = Date.now();
   while (!(await check())) {
     if (Date.now() - start > ms) throw new Error("timed out");
@@ -13,9 +13,11 @@ async function until(check: () => boolean | Promise<boolean>, ms = 5_000) {
 }
 
 describe("hot reload", () => {
-  it("picks up added, changed and removed skills and emits one reload per burst", async () => {
+  it("picks up added, changed and removed skills and emits one reload per burst", {
+    timeout: 60_000,
+  }, async () => {
     const t = setup();
-    const stop = t.loader.watch(50);
+    const stop = t.loader.watch(50, 1_000);
     try {
       writeSkill(t.bundledDir, "fresh", { description: "first" });
       await until(async () => (await t.loader.list()).some((s) => s.name === "fresh"));

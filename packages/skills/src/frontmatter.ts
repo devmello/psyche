@@ -49,7 +49,7 @@ const MAX_FRONTMATTER = 16 * 1024;
 
 /** Splits `---\nyaml\n---\nbody`; `undefined` when the file has no frontmatter block. */
 export function splitFrontmatter(text: string): { yaml: string; body: string } | undefined {
-  const src = text.replace(/^﻿/, "").replace(/\r\n?/g, "\n");
+  const src = text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
   if (!src.startsWith("---\n")) return undefined;
   const end = src.indexOf("\n---", 3);
   if (end < 0) return undefined;

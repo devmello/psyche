@@ -43,10 +43,19 @@ export async function fetchSource(
     case "path":
       return fetchPath(source.path, opts);
     case "zip":
-      return { tree: unzipSkill(readFileSync(source.path), opts.limits) };
+      return { tree: unzipSkill(readArchive(source.path), opts.limits) };
     case "git":
       return fetchGit(source.url, source.ref, opts);
   }
+}
+
+/** Reads an archive only if it is a regular file within the size limit (not `/dev/zero`). */
+function readArchive(path: string): Uint8Array {
+  const st = statSync(path);
+  if (!st.isFile()) throw new PsycheError("invalid_params", "archive must be a regular file");
+  if (st.size > MAX_ZIP_BYTES)
+    throw new PsycheError("invalid_params", `archive is larger than ${MAX_ZIP_BYTES} bytes`);
+  return readFileSync(path);
 }
 
 /** A folder, a `SKILL.md` inside one, or a `.zip` / `.skill` archive. */
@@ -54,7 +63,7 @@ function fetchPath(path: string, opts: SourceOptions): FetchedSkill {
   const real = realpathSync(path);
   const st = statSync(real);
   if (st.isFile() && /\.(?:zip|skill)$/i.test(real)) {
-    return { tree: unzipSkill(readFileSync(real), opts.limits) };
+    return { tree: unzipSkill(readArchive(real), opts.limits) };
   }
   const dir = st.isFile() && basename(real) === "SKILL.md" ? dirname(real) : real;
   if (!statSync(dir).isDirectory())
@@ -117,12 +126,20 @@ export function checkGitUrl(url: string, allowFile = false): void {
     (allowFile && /^file:\/\/\/[^\s]+$/.test(url));
   if (!ok || url.startsWith("-"))
     throw new PsycheError("invalid_params", "git URL must be https://, ssh:// or user@host:path");
+  // Credentials in a URL would be stored in the lock file, the proposal and the approval card.
+  if (/^(?:https|ssh|file):\/\//i.test(url)) {
+    const u = new URL(url);
+    if (u.password !== "" || (u.protocol === "https:" && u.username !== ""))
+      throw new PsycheError("invalid_params", "git URL must not contain credentials");
+  }
 }
 
 export function checkGitRef(ref: string): void {
   if (!/^[A-Za-z0-9._/-]{1,200}$/.test(ref) || ref.startsWith("-") || ref.includes(".."))
     throw new PsycheError("invalid_params", "invalid git ref");
 }
+
+const GIT_SUBCOMMANDS = new Set(["init", "fetch", "rev-parse", "ls-tree", "cat-file"]);
 
 function run(bin: string, args: string[], cwd: string, timeoutMs: number, binary = false) {
   return new Promise<Buffer>((resolve, reject) => {
@@ -148,9 +165,8 @@ function run(bin: string, args: string[], cwd: string, timeoutMs: number, binary
       (err, stdout, stderr) => {
         if (err !== null) {
           const msg = Buffer.from(stderr).toString("utf8").trim().split("\n").slice(-1)[0];
-          reject(
-            new PsycheError("unavailable", `git ${args[2] ?? ""} failed: ${msg ?? err.message}`),
-          );
+          const sub = args.find((a) => GIT_SUBCOMMANDS.has(a)) ?? "command";
+          reject(new PsycheError("unavailable", `git ${sub} failed: ${msg || err.message}`));
         } else resolve(binary ? stdout : Buffer.from(stdout));
       },
     );
