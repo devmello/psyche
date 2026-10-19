@@ -1,4 +1,4 @@
-import { NotImplementedError, type ModelProvider } from "@psyche/protocol";
+import { type ModelProvider, NotImplementedError } from "@psyche/protocol";
 
 /**
  * Placeholder for the `ModelProvider` implementation owned by S03.

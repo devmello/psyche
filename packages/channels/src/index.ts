@@ -1,4 +1,4 @@
-import { NotImplementedError, type ChannelAdapter } from "@psyche/protocol";
+import { type ChannelAdapter, NotImplementedError } from "@psyche/protocol";
 
 /**
  * Placeholder for the `ChannelAdapter` implementation owned by S10.

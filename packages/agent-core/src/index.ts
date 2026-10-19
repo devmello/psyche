@@ -1,4 +1,4 @@
-import { NotImplementedError, type AgentLoop } from "@psyche/protocol";
+import { type AgentLoop, NotImplementedError } from "@psyche/protocol";
 
 /**
  * Placeholder for the `AgentLoop` implementation owned by S02.

@@ -1,4 +1,4 @@
-import { NotImplementedError, type MemoryStore } from "@psyche/protocol";
+import { type MemoryStore, NotImplementedError } from "@psyche/protocol";
 
 /**
  * Placeholder for the `MemoryStore` implementation owned by S07.

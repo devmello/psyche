@@ -65,7 +65,9 @@ describe("pairing", () => {
       handshakeSecret: t.gateway.handshakeSecret,
     });
     expect(verifyRes).toMatchObject({ ok: true, payload: { phase: "paired" } });
-    expect(verifyRes?.payload).toMatchObject({ scopes: expect.arrayContaining(["operator.admin"]) });
+    expect(verifyRes?.payload).toMatchObject({
+      scopes: expect.arrayContaining(["operator.admin"]),
+    });
     c.close();
   });
 

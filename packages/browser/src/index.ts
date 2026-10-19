@@ -1,4 +1,4 @@
-import { NotImplementedError, type BrowserDriver } from "@psyche/protocol";
+import { type BrowserDriver, NotImplementedError } from "@psyche/protocol";
 
 /**
  * Placeholder for the `BrowserDriver` implementation owned by S08.

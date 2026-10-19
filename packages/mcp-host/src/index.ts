@@ -1,4 +1,4 @@
-import { NotImplementedError, type McpHost } from "@psyche/protocol";
+import { type McpHost, NotImplementedError } from "@psyche/protocol";
 
 /**
  * Placeholder for the `McpHost` implementation owned by S09.

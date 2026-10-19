@@ -8,15 +8,15 @@
   "files": {
     "includes": [
       "**",
-      "!**/generated/**",
-      "!**/dist/**",
-      "!**/out/**",
-      "!**/.vite/**",
-      "!**/.turbo/**",
-      "!**/coverage/**",
-      "!**/.build/**",
-      "!research_notes/**",
-      "!reports/**",
+      "!**/generated",
+      "!**/dist",
+      "!**/out",
+      "!**/.vite",
+      "!**/.turbo",
+      "!**/coverage",
+      "!**/.build",
+      "!research_notes",
+      "!reports",
       "!pnpm-lock.yaml"
     ]
   },
@@ -29,7 +29,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "suspicious": {
         "noExplicitAny": "error",
         "noConsole": { "level": "warn", "options": { "allow": ["warn", "error"] } }

@@ -1,4 +1,4 @@
-import { NotImplementedError, type CredentialBroker } from "@psyche/protocol";
+import { type CredentialBroker, NotImplementedError } from "@psyche/protocol";
 
 /**
  * Placeholder for the `CredentialBroker` implementation owned by S06.
