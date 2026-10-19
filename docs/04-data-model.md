@@ -164,6 +164,8 @@ policy_rules (                                     -- user-authored allow/deny r
 
 ### 4.2 Binding hash inputs by kind
 
+Security §3.5 is the normative table; this one lists the same kinds. The implemented field set (the union of both, plus the S23 additions: email `replyTo` / `from` / headers / MIME hash, form `action` / method / hidden fields, exec `stdinSha256` / `cwdConfigHashes`) is in `packages/permissions/README.md`. Grant keys for `send_email` are account + the exact recipient set, never the recipient domain (S23 design-11). The `approvals` table also stores `side_effect`, `target`, `scopes_offered`, `request_input` (the decided call and context, so `reissue()` keeps taint), `consumed_at`, `run_revoked` and `boot_id`; `grants` stores `side_effect`, `task_id`, `session_id` (boot id), `thread_id`, `origin`, `max_uses`, `last_used_binding_hash`, `created_by_device_id` and `revoked_reason` (migration `202610200900_permissions_init.sql`).
+
 | kind | hashed fields |
 | --- | --- |
 | exec / exec_host | normalized argv, cwd, selected env keys, resolved executable path + hash, sandbox id |
@@ -198,7 +200,7 @@ Audit entries are appended to `audit/YYYY-MM.jsonl` (one JSON object per line) a
  "prev": "sha256:…", "hash": "sha256:…"}
 ```
 
-Event names: `device.paired`, `device.revoked`, `thread.created`, `tool_call.decided`, `tool_call.finished`, `approval.created`, `approval.decided`, `approval.expired`, `grant.created`, `grant.used`, `grant.revoked`, `credential.filled`, `credential.created`, `credential.deleted`, `purchase.requested`, `purchase.completed`, `message.sent`, `email.sent`, `calendar.changed`, `file.written`, `exec.finished`, `memory.written`, `memory.forgotten`, `connector.connected`, `connector.disconnected`, `channel.sender.paired`, `skill.installed`, `config.changed`, `vault.unlocked`, `export.created`, `reset.performed`.
+Event names: `device.paired`, `device.revoked`, `thread.created`, `tool_call.decided`, `tool_call.finished`, `approval.created`, `approval.decided`, `approval.expired`, `grant.created`, `grant.used`, `grant.revoked`, `credential.filled`, `credential.created`, `credential.deleted`, `purchase.requested`, `purchase.completed`, `message.sent`, `email.sent`, `calendar.changed`, `file.written`, `exec.finished`, `memory.written`, `memory.forgotten`, `connector.connected`, `connector.disconnected`, `channel.sender.paired`, `skill.installed`, `config.changed`, `vault.unlocked`, `export.created`, `reset.performed`. The Permission Broker also writes `approval.invalidated`, `approval.answer_rejected`, `binding.verified`, `binding.mismatch`, `classifier.labeled`, `classifier.circuit_open`, `receipt.recorded` and `receipt.reconciled`.
 
 ## 6. Credentials (vault)
 
