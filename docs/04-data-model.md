@@ -25,7 +25,9 @@ pairing_requests (
   id TEXT PK, kind TEXT,                           -- device | channel-sender
   code TEXT, device_id, channel_id, sender_id, display TEXT,
   status TEXT,                                     -- pending | approved | denied | expired
-  expires_at, decided_at, decided_by_device_id
+  expires_at, decided_at, decided_by_device_id,
+  public_key_fingerprint TEXT NULL,                -- "sha256:<hex>" of the raw key the owner approves
+  transport TEXT NULL, remote_address TEXT NULL    -- ws | unix; peer address (rate limits, pairing card)
 )
 ```
 
@@ -71,6 +73,16 @@ tool_calls (
   result_ref TEXT NULL,                            -- library item or inline result id
   provenance_out TEXT, receipt_id FK receipts NULL,
   started_at, ended_at, status TEXT                -- ok | failed | uncertain | blocked
+)
+tool_payloads (                                    -- level-3 tool I/O, deleted after cleanupPeriodDays (§12)
+  id TEXT PK, tool_call_id FK tool_calls, kind TEXT, -- params | result | screenshot
+  mime TEXT, data BLOB, created_at                 -- tool_calls.result_ref = "payload:<id>"
+)
+chat_queue (                                       -- follow-ups queued mid-turn (feature E3)
+  id TEXT PK,                                      -- becomes the user message id when it starts
+  thread_id FK threads, position INTEGER, content TEXT, attachments TEXT JSON,
+  device_id FK devices NULL, status TEXT,          -- queued | started | removed
+  created_at, updated_at
 )
 ```
 
@@ -412,6 +424,8 @@ vm (id TEXT PK, name, bundle_path, state TEXT, cpu INTEGER, memory_gb INTEGER, d
 {"type": "event", "event": "task.updated", "seq": 9913, "stateVersion": 4412, "payload": {"task": { "...": "…" }}}
 {"type": "event", "event": "approval.created", "seq": 9914, "stateVersion": 4413, "payload": {"approval": { "...": "…" }}}
 ```
+
+Results of side-effecting requests are stored in `gateway_idempotency (id, device_id, method, idempotency_key, params_hash, result JSON, created_at)`, unique per device + method + key, in the same transaction as the mutation; a retried key replays the result, a different params hash is `idempotency_conflict`. Kept 7 days.
 
 `stateVersion` increases on every persisted mutation; a client whose last seen version is older than the server's oldest retained event performs a full refresh of the affected collections.
 
