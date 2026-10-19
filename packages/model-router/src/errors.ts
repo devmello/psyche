@@ -1,5 +1,4 @@
 import { APICallError } from "@ai-sdk/provider";
-import { PsycheError } from "@psyche/protocol";
 
 /**
  * Why a model call failed, in router terms. The kind decides what the router does next:
@@ -139,14 +138,11 @@ export function classifyError(
   redact: (text: string) => string = (t) => t,
 ): ModelCallError {
   if (err instanceof ModelCallError) return err;
-  const vault = psycheCause(err);
+  const vault = refusalCause(err);
   if (vault !== undefined) {
-    // The vault refused the key (no grant, wrong origin, unknown item): rotate the profile.
+    // The vault refused the key: rotate to the next profile.
     const kind: ModelErrorKind = vault.code === "cancelled" ? "cancelled" : "auth";
-    return new ModelCallError(
-      kind,
-      `credential unavailable (${vault.code}): ${redact(shorten(vault.message))}`,
-    );
+    return new ModelCallError(kind, vault.message);
   }
   if (APICallError.isInstance(err)) {
     const body = err.responseBody ?? "";
@@ -202,10 +198,15 @@ export function classifyError(
   return new ModelCallError("unknown", redact(shorten(text)));
 }
 
-function psycheCause(err: unknown): PsycheError | undefined {
+function refusalCause(err: unknown): { code: string; message: string } | undefined {
   let cur: unknown = err;
   for (let depth = 0; depth < 5 && cur !== undefined && cur !== null; depth += 1) {
-    if (cur instanceof PsycheError) return cur;
+    if (cur instanceof Error && cur.name === "CredentialRefusedError") {
+      return {
+        code: String((cur as Error & { code?: unknown }).code ?? "unknown"),
+        message: cur.message,
+      };
+    }
     cur = (cur as { cause?: unknown }).cause;
   }
   return undefined;

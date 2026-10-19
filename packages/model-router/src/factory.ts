@@ -9,6 +9,17 @@ import { createOllama } from "ollama-ai-provider-v2";
 import type { ProviderConfig } from "./config.ts";
 import { KEY_SENTINEL } from "./credentials.ts";
 
+/**
+ * Hosted defaults, passed explicitly so the packages never read `ANTHROPIC_BASE_URL`,
+ * `OPENAI_BASE_URL` and friends from the environment.
+ */
+export const HOSTED_DEFAULT_BASE_URLS = {
+  anthropic: "https://api.anthropic.com/v1",
+  openai: "https://api.openai.com/v1",
+  google: "https://generativelanguage.googleapis.com/v1beta",
+  openrouter: "https://openrouter.ai/api/v1",
+} as const;
+
 /** Defaults for the local servers the README documents. */
 export const LOCAL_DEFAULT_BASE_URLS = {
   ollama: "http://127.0.0.1:11434/api",
@@ -48,8 +59,10 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
         fetch,
         name: config.id,
       };
-      if (config.kind === "anthropic-compatible") settings.baseURL = needBaseURL(config);
-      else if (config.baseURL !== undefined) settings.baseURL = config.baseURL;
+      settings.baseURL =
+        config.kind === "anthropic-compatible"
+          ? needBaseURL(config)
+          : (config.baseURL ?? HOSTED_DEFAULT_BASE_URLS.anthropic);
       if (headers !== undefined) settings.headers = headers;
       const p = createAnthropic(settings);
       return { language: (id) => p.languageModel(id) };
@@ -60,7 +73,7 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
         fetch,
         name: config.id,
       };
-      if (config.baseURL !== undefined) settings.baseURL = config.baseURL;
+      settings.baseURL = config.baseURL ?? HOSTED_DEFAULT_BASE_URLS.openai;
       if (headers !== undefined) settings.headers = headers;
       const p = createOpenAI(settings);
       return { language: (id) => p.responses(id), embedding: (id) => p.embedding(id) };
@@ -71,7 +84,7 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
         fetch,
         name: config.id,
       };
-      if (config.baseURL !== undefined) settings.baseURL = config.baseURL;
+      settings.baseURL = config.baseURL ?? HOSTED_DEFAULT_BASE_URLS.google;
       if (headers !== undefined) settings.headers = headers;
       const p = createGoogle(settings);
       return { language: (id) => p.interactions(id), embedding: (id) => p.embedding(id) };
@@ -82,7 +95,7 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
         fetch,
         compatibility: "strict",
       };
-      if (config.baseURL !== undefined) settings.baseURL = config.baseURL;
+      settings.baseURL = config.baseURL ?? HOSTED_DEFAULT_BASE_URLS.openrouter;
       if (headers !== undefined) settings.headers = headers;
       const p = createOpenRouter(settings);
       return {

@@ -15,6 +15,8 @@ export interface ProbeResult {
   status: ProbeStatus;
   passed: number;
   total: number;
+  /** Some case could not reach the model (server down, cancelled): the verdict is not stored. */
+  inconclusive: boolean;
   cases: ProbeCaseResult[];
   /** ISO-8601 UTC. */
   probedAt: string;
@@ -252,12 +254,14 @@ export async function runCapabilityProbe(
   options: ProbeOptions = {},
 ): Promise<ProbeResult> {
   const results: ProbeCaseResult[] = [];
+  let inconclusive = false;
   for (const c of CASES) {
     const signals = [AbortSignal.timeout(options.caseTimeoutMs ?? 120_000)];
     if (options.signal !== undefined) signals.push(options.signal);
     const request: ModelRequest = { ...c.request(ref), maxOutputTokens: 1024, temperature: 0 };
     const turn = await accumulate(provider.stream(request, { signal: AbortSignal.any(signals) }));
     if (turn.finish?.reason === "error" || turn.finish?.reason === "cancelled") {
+      inconclusive = true;
       results.push({
         id: c.id,
         passed: false,
@@ -275,6 +279,7 @@ export async function runCapabilityProbe(
     status: required && passed >= PASS_MARK ? "agent-capable" : "chat-only",
     passed,
     total: CASES.length,
+    inconclusive: inconclusive || results.length < CASES.length,
     cases: results,
     probedAt: new Date(options.now?.() ?? Date.now()).toISOString(),
   };

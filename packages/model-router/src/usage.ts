@@ -18,10 +18,15 @@ export function normalizeUsage(u: LanguageModelV4Usage | undefined): Usage {
   const cacheRead = int(u.inputTokens.cacheRead);
   const cacheWrite = int(u.inputTokens.cacheWrite);
   const total = int(u.inputTokens.total);
+  const derived = Math.max(0, total - cacheRead - cacheWrite);
+  // Some providers (OpenRouter) report noCache = total - cacheRead, leaving cache writes in;
+  // when the total is known, never let the classes add up to more than it.
   const input =
-    u.inputTokens.noCache !== undefined
-      ? int(u.inputTokens.noCache)
-      : Math.max(0, total - cacheRead - cacheWrite);
+    u.inputTokens.noCache === undefined
+      ? derived
+      : u.inputTokens.total === undefined
+        ? int(u.inputTokens.noCache)
+        : Math.min(int(u.inputTokens.noCache), derived);
   const reasoning = int(u.outputTokens.reasoning);
   const outputTotal = u.outputTokens.total;
   const output =

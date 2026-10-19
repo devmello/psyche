@@ -214,5 +214,7 @@ The fixtures are hand-written from documented wire formats and the packages' par
 
 ## Not done yet
 
+- **Usage on aborted calls.** A call that is cancelled, times out, or fails after content records no usage row. AI SDK v4 stream parts carry usage only on `finish`, so the prompt tokens the provider still bills are not counted.
+
 - **Speech.** The `speech` role can be bound, but there are no speech calls (S17).
 - **M2:** vision and speech wired to real providers, OpenRouter BYOK, Anthropic server-side compaction (pass `providerOptions.anthropic.compaction` for now), and health panel data beyond `health()`.

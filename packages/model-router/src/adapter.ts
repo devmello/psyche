@@ -223,18 +223,38 @@ export class AiSdkAdapter implements ModelProvider {
     const converter = new StreamConverter(this.id, modelId);
     let reader: ReadableStreamDefaultReader<LanguageModelV4StreamPart> | undefined;
     arm(timeouts.firstEventMs);
+    let model: LanguageModelV4;
+    let call: ReturnType<typeof convertRequest>;
     try {
-      const model = this.#provider(profile).language(modelId);
-      const call = convertRequest(request, { config: this.config, modelId });
+      // Local mistakes (bad image URL, missing baseURL) are the request's fault, not the
+      // provider's: no cooldown, no fallback.
+      model = this.#provider(profile).language(modelId);
+      call = convertRequest(request, { config: this.config, modelId });
+    } catch (err) {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", onAbort);
+      outcome.error = new ModelCallError(
+        "bad_request",
+        this.#keys.redact(String((err as Error).message)),
+      );
+      report();
+      yield { type: "finish", reason: "error", error: outcome.error.toFinishError() };
+      return;
+    }
+    try {
       const result = await Promise.race([
         model.doStream({ ...call, abortSignal: ac.signal }),
         aborted,
       ]);
       reader = result.stream.getReader();
+      let first = true;
       while (true) {
+        // The idle timer covers provider silence only, not time the consumer spends per event.
+        if (!first) arm(timeouts.idleMs);
+        first = false;
         const { done, value } = await Promise.race([reader.read(), aborted]);
+        clearTimeout(timer);
         if (done) break;
-        arm(timeouts.idleMs);
         const events = converter.push(value);
         outcome.contentStarted = converter.contentStarted;
         for (const event of events) {
@@ -254,7 +274,8 @@ export class AiSdkAdapter implements ModelProvider {
       outcome.unpriced = cost.unpriced;
       if (fin.error !== undefined) {
         const kind = fin.error.startsWith("content_filter") ? "content_filter" : "server_error";
-        outcome.error = new ModelCallError(kind, fin.error.slice(fin.error.indexOf(": ") + 2));
+        const sep = fin.error.indexOf(": ");
+        outcome.error = new ModelCallError(kind, sep < 0 ? fin.error : fin.error.slice(sep + 2));
       }
       report();
       yield { type: "usage", usage };
@@ -269,9 +290,15 @@ export class AiSdkAdapter implements ModelProvider {
         yield { type: "finish", reason: "cancelled" };
         return;
       }
+      const redact = (t: string) => this.#keys.redact(t);
+      const c = classifyError(err, redact);
+      // Re-redact: errors thrown from inside the stream converter were classified unredacted.
+      const opts: { status?: number; retryAfterSec?: number } = {};
+      if (c.status !== undefined) opts.status = c.status;
+      if (c.retryAfterSec !== undefined) opts.retryAfterSec = c.retryAfterSec;
       const e = timedOut
         ? new ModelCallError("timeout", `no stream data from ${request.model} within the timeout`)
-        : classifyError(err, (t) => this.#keys.redact(t));
+        : new ModelCallError(c.kind, redact(c.message), opts);
       outcome.error = e;
       report();
       yield { type: "finish", reason: "error", error: e.toFinishError() };

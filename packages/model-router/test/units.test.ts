@@ -4,6 +4,7 @@ import { FakeClock } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import {
   Cooldowns,
+  CredentialRefusedError,
   classifyError,
   convertRequest,
   normalizeUsage,
@@ -89,7 +90,14 @@ describe("error classification", () => {
   it("maps timeouts, network failures and vault refusals", () => {
     expect(classifyError(new DOMException("t", "TimeoutError")).kind).toBe("timeout");
     expect(classifyError(new TypeError("fetch failed: ECONNREFUSED")).kind).toBe("network");
-    expect(classifyError(new PsycheError("approval_required", "no grant")).kind).toBe("auth");
+    expect(
+      classifyError(new CredentialRefusedError(new PsycheError("approval_required", "no grant")))
+        .kind,
+    ).toBe("auth");
+    // A PsycheError that did not come from the vault is not an auth failure.
+    expect(classifyError(new PsycheError("invalid_params", "needs a baseURL")).kind).toBe(
+      "unknown",
+    );
   });
 
   it("redacts known secrets", () => {

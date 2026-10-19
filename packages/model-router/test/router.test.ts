@@ -188,6 +188,7 @@ describe("ModelRouter", () => {
       status: "chat-only",
       passed: 2,
       total: 6,
+      inconclusive: false,
       cases: [],
       probedAt: new Date(0).toISOString(),
     };

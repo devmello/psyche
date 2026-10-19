@@ -24,6 +24,7 @@ export interface Captured {
   method: string;
   headers: Record<string, string>;
   body: unknown;
+  redirect: RequestInit["redirect"];
 }
 
 const FIXTURES = resolve(import.meta.dirname, "../fixtures");
@@ -53,7 +54,7 @@ export function replayFetch(...fixtures: Fixture[]) {
         // keep the string
       }
     }
-    requests.push({ url, method: init?.method ?? "GET", headers, body });
+    requests.push({ url, method: init?.method ?? "GET", headers, body, redirect: init?.redirect });
     const fx = queue.shift();
     if (fx === undefined) throw new Error(`replayFetch: no fixture left for ${url}`);
     if (!new URL(url).pathname.endsWith(fx.request.pathEndsWith)) {

@@ -47,6 +47,19 @@ export function brokerKeySource(broker: CredentialBroker): KeySource {
   };
 }
 
+/** The vault refused a key for this request (no grant, wrong origin, unknown item). */
+export class CredentialRefusedError extends Error {
+  readonly code: string;
+
+  constructor(cause: unknown) {
+    const code =
+      cause instanceof PsycheError ? cause.code : cause instanceof Error ? cause.name : "unknown";
+    super(`credential unavailable (${code})`, { cause });
+    this.name = "CredentialRefusedError";
+    this.code = code;
+  }
+}
+
 /** No keys (local servers only). */
 export const NO_KEYS: KeySource = {
   resolve: async () => undefined,
@@ -80,18 +93,28 @@ export function keyInjectingFetch(
     const template = headers.get(keyHeader) ?? "";
     const url = requestUrl(input);
     const target: Target = { kind: "origin", value: new URL(url).origin };
-    const secret =
-      profile === undefined
-        ? undefined
-        : await keys.resolve(profile, target, init?.signal ?? undefined);
+    let secret: ResolvedSecret | undefined;
+    try {
+      secret =
+        profile === undefined
+          ? undefined
+          : await keys.resolve(profile, target, init?.signal ?? undefined);
+    } catch (err) {
+      throw new CredentialRefusedError(err);
+    }
     if (secret === undefined) {
       headers.delete(keyHeader);
       return base(input, { ...init, headers });
     }
     const name = keyHeader;
     return secret.use((value) => {
-      headers.set(name, template.replace(KEY_SENTINEL, value));
-      return base(input, { ...init, headers });
+      headers.set(
+        name,
+        template.replace(KEY_SENTINEL, () => value),
+      );
+      // Never follow redirects with a key attached: fetch strips only `Authorization` on a
+      // cross-origin hop, so `x-api-key` / `x-goog-api-key` would reach the new origin.
+      return base(input, { ...init, headers, redirect: "error" });
     });
   };
   return wrapped as typeof fetch;

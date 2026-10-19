@@ -147,7 +147,9 @@ export class ModelRouter implements ModelProvider {
       this.#providers.set(p.id, p);
     }
     for (const [role, binding] of Object.entries(options.roles ?? {})) {
-      if (binding !== undefined) this.#roles.set(role as ModelRole, structuredClone(binding));
+      if (binding === undefined) continue;
+      for (const ref of [binding.model, ...(binding.fallbacks ?? [])]) parseModelRef(ref);
+      this.#roles.set(role as ModelRole, structuredClone(binding));
     }
     this.#cooldowns = new Cooldowns(options.clock, options.cooldown);
     this.#probes = options.probes ?? new InMemoryProbeStore();
@@ -245,7 +247,10 @@ export class ModelRouter implements ModelProvider {
         threadId: options.threadId,
       });
       if (swap?.providerOptions !== undefined) {
-        req = { ...req, providerOptions: { ...req.providerOptions, ...swap.providerOptions } };
+        const merged: Record<string, JsonObject> = { ...req.providerOptions };
+        for (const [k, v] of Object.entries(swap.providerOptions))
+          merged[k] = { ...merged[k], ...v };
+        req = { ...req, providerOptions: merged };
       }
       if (swap?.model !== undefined && !strictUpfront) req = { ...req, model: swap.model };
     }
@@ -257,9 +262,11 @@ export class ModelRouter implements ModelProvider {
       const binding = this.#bindingFor(role);
       if (binding === undefined)
         throw new ModelCallError("model_not_found", `no model is bound to role ${role}`);
+      // `strict` on a role ref pins the role's model: no fallbacks.
+      const strict = options.strict === true;
       return {
-        chain: [binding.model, ...(binding.fallbacks ?? [])],
-        strict: false,
+        chain: strict ? [binding.model] : [binding.model, ...(binding.fallbacks ?? [])],
+        strict,
         role,
         request: req,
       };
@@ -274,11 +281,20 @@ export class ModelRouter implements ModelProvider {
     return fresh.length > 0 ? fresh : all;
   }
 
-  async #maybeProbe(provider: ModelProvider, ref: ModelRef, request: ModelRequest): Promise<void> {
+  async #maybeProbe(
+    provider: ModelProvider,
+    ref: ModelRef,
+    request: ModelRequest,
+    signal: AbortSignal | undefined,
+  ): Promise<void> {
     if (this.#o.probeOnFirstUse !== true || (request.tools?.length ?? 0) === 0) return;
     if (!(provider instanceof AiSdkAdapter) || !isLocalKind(provider.config.kind)) return;
-    if ((await this.#probes.get(ref)) !== undefined) return;
-    await this.probe(ref);
+    try {
+      if ((await this.#probes.get(ref)) !== undefined) return;
+      await this.probe(ref, signal === undefined ? {} : { signal });
+    } catch {
+      // A probe failure must not fail the call; the next first use tries again.
+    }
   }
 
   /** Run (or join a running) capability probe for `ref` and persist the verdict. */
@@ -294,7 +310,8 @@ export class ModelRouter implements ModelProvider {
     if (options.signal !== undefined) opts.signal = options.signal;
     if (options.caseTimeoutMs !== undefined) opts.caseTimeoutMs = options.caseTimeoutMs;
     const p = runCapabilityProbe(provider, ref, opts).then(async (r) => {
-      await this.#probes.set(r);
+      // A server that was down or a cancelled run says nothing about the model: keep no verdict.
+      if (!r.inconclusive) await this.#probes.set(r);
       return r;
     });
     this.#probing.set(ref, p);
@@ -317,7 +334,11 @@ export class ModelRouter implements ModelProvider {
     if (options.runId !== undefined) input.runId = options.runId;
     if (options.job !== undefined) input.job = options.job;
     if (outcome?.unpriced === true) input.unpriced = true;
-    await ledger.record(input);
+    try {
+      await ledger.record(input);
+    } catch {
+      // Accounting must never break a model call (the stream contract forbids throwing).
+    }
   }
 
   async *stream(request: ModelRequest, options: RouterCallOptions = {}): AsyncIterable<ModelEvent> {
@@ -355,7 +376,7 @@ export class ModelRouter implements ModelProvider {
         if (plan.strict) break;
         continue;
       }
-      await this.#maybeProbe(provider, ref, plan.request);
+      await this.#maybeProbe(provider, ref, plan.request, signal);
       let rotateFailures = 0;
       const profiles = this.#profiles(provider);
       for (const profileId of profiles) {

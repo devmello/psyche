@@ -120,7 +120,13 @@ describe("KeyValueProbeStore", () => {
           setSetting(db, key, value);
         },
       });
-      const base = { passed: 6, total: 6, cases: [], probedAt: "2026-10-19T00:00:00.000Z" };
+      const base = {
+        passed: 6,
+        total: 6,
+        inconclusive: false,
+        cases: [],
+        probedAt: "2026-10-19T00:00:00.000Z",
+      };
       store.set({ ...base, ref: "ollama/qwen3.8:27b", status: "agent-capable" });
       store.set({ ...base, ref: "ollama/qwen3.8:27b", status: "chat-only", passed: 4 });
       expect(store.get("ollama/qwen3.8:27b")).toMatchObject({ status: "chat-only", passed: 4 });
