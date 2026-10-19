@@ -5,7 +5,9 @@ import { listMigrationFiles, openDb } from "../src/index.ts";
 import { makeTmpDir, memoryDb } from "./helpers.ts";
 
 const TABLES = [
+  "chat_queue",
   "devices",
+  "gateway_idempotency",
   "input_requests",
   "messages",
   "nodes",
@@ -17,6 +19,7 @@ const TABLES = [
   "tasks",
   "threads",
   "tool_calls",
+  "tool_payloads",
   "usage",
 ];
 
