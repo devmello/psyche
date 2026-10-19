@@ -86,6 +86,9 @@ export class MockBridgePeer {
   private readonly sock: Socket;
   private readonly secret: string | undefined;
 
+  /** Called once the desktop's `bridge.hello` was accepted. */
+  onHello: (() => void) | undefined;
+
   constructor(sock: Socket, secret: string | undefined) {
     this.sock = sock;
     this.secret = secret;
@@ -117,6 +120,7 @@ export class MockBridgePeer {
       }
       const { handshakeSecret: _s, ...rest } = p;
       this.hello = rest;
+      this.onHello?.();
       this.write(okRes(frame.id, { protocolVersion: PROTOCOL_VERSION, gatewayVersion: "mock" }));
       return;
     }
@@ -238,8 +242,12 @@ export class MockGateway {
     rmSync(path, { force: true });
     this.bridgeServer = createNetServer((sock) => {
       const peer = new MockBridgePeer(sock, this.opts.handshakeSecret);
-      this.bridge = peer;
-      for (const w of this.bridgeWaiters.splice(0)) w(peer);
+      // Only a peer that passed bridge.hello becomes `bridge`; rejected peers are ignored.
+      peer.onHello = () => {
+        this.bridge?.close();
+        this.bridge = peer;
+        for (const w of this.bridgeWaiters.splice(0)) w(peer);
+      };
     });
     await new Promise<void>((r) => this.bridgeServer?.listen(path, r));
     chmodSync(path, 0o600);
