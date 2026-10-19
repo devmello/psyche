@@ -9,6 +9,7 @@ import {
   type LibraryWriter,
   type OriginPolicyOptions,
   type PartitionMode,
+  RecordingStore,
   registerBrowserTools,
 } from "@psyche/browser";
 import {
@@ -57,9 +58,14 @@ export interface ComposedBrowser extends ComposedPart {
   attach(client: BridgeClient): CdpBridgeDriver;
   /** The connected desktop's driver, if any. */
   readonly driver: CdpBridgeDriver | undefined;
-  /** Recordings per session key (task id or `thread:<id>`). */
+  /** Live recordings per session key (task id or `thread:<id>`). */
   readonly recordings: ReadonlyMap<string, FileRecordingSink>;
+  /** Reads recordings back for `browser.recordings.*`. */
+  readonly recordingStore: RecordingStore;
 }
+
+/** Retention for recordings (data model §12: 7 days when enabled). */
+const RECORDING_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Status pill text per tool (I5), present progressive as `bridge.tab.status` asks. */
 const STATUS: Record<string, string> = {
@@ -102,6 +108,55 @@ export function composeBrowser(
   /** Session key (task or thread) → browser session on the current driver. */
   const sessions = new Map<string, Promise<DriverSession>>();
   const recordings = new Map<string, FileRecordingSink>();
+  /** Recording id → Library item id, once a finished recording was imported. */
+  const recordingItems = new Map<string, string>();
+  const recordingStore = new RecordingStore(recordingsDir, {
+    live: (id) => {
+      const r = recordings.get(id);
+      return r === undefined || r.closed ? undefined : r;
+    },
+    libraryItemId: (id) => recordingItems.get(id),
+  });
+  // A library writer that also remembers imported recordings for the store.
+  const recordingLibrary: LibraryWriter = {
+    importDownload: (file, sniffed) => library.importDownload(file, sniffed),
+    async importRecording(r) {
+      const imported = (await library.importRecording?.(r)) ?? { libraryItemId: r.id };
+      recordingItems.set(r.id, imported.libraryItemId);
+      return imported;
+    },
+  };
+  /** `browser.recording.updated`, at most once per recording per second. */
+  const publishTimers = new Map<string, NodeJS.Timeout>();
+  const publishRecording = (id: string): void => {
+    if (publishTimers.has(id)) return;
+    const timer = setTimeout(() => {
+      publishTimers.delete(id);
+      void recordingStore
+        .summary(id)
+        .then((recording) => services.publish("browser.recording.updated", { recording }))
+        .catch(() => undefined);
+    }, 1000);
+    timer.unref?.();
+    publishTimers.set(id, timer);
+  };
+  /** Finish every live recording (the desktop went away, or the Gateway stops). */
+  const endRecordings = async (): Promise<void> => {
+    for (const [id, sink] of [...recordings]) {
+      if (sink.closed) continue;
+      await sink.end().catch(() => undefined);
+      await recordingLibrary
+        .importRecording?.({
+          id,
+          dir: sink.dir,
+          taskId: sink.index.taskId,
+          threadId: sink.index.threadId,
+          frameCount: sink.index.frames.length,
+          eventCount: sink.index.events.length,
+        })
+        .catch(() => undefined);
+    }
+  };
   /** Last snapshot boxes per tab, for the action highlight. */
   const boxes = new Map<string, Map<string, RefBox>>();
   const log = services.logger;
@@ -147,7 +202,14 @@ export function composeBrowser(
     if (session === undefined) {
       let recording: FileRecordingSink | undefined;
       if (setup.record === true) {
-        recording = new FileRecordingSink(recordingsDir, key);
+        recording = new FileRecordingSink(recordingsDir, key, {
+          ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
+          threadId: ctx.threadId,
+          ...(setup.credentials === undefined
+            ? {}
+            : { redact: (text) => setup.credentials?.redact(text) ?? text }),
+          onChange: () => publishRecording(key),
+        });
         recordings.set(key, recording);
       }
       session = current().openSession({
@@ -206,9 +268,10 @@ export function composeBrowser(
     driver?.dispose();
     sessions.clear();
     boxes.clear();
+    void endRecordings();
     client = next;
     driver = new CdpBridgeDriver(next, {
-      library,
+      library: recordingLibrary,
       broker: services.broker,
     });
     const attached = driver;
@@ -219,19 +282,26 @@ export function composeBrowser(
       driver = undefined;
       client = undefined;
       sessions.clear();
+      void endRecordings();
     });
     log?.log("info", "browser bridge connected");
     return attached;
   };
 
   return {
-    handlers: browserHandlers(() => current(), sessionsForClients),
+    handlers: {
+      ...browserHandlers(() => current(), sessionsForClients),
+      ...recordingHandlers(recordingStore, publishRecording),
+    },
     attach,
     get driver() {
       return driver;
     },
     recordings,
+    recordingStore,
     async start(gateway: Gateway) {
+      // Retention runs at boot; recordings are opt-in and short-lived (data model §12).
+      void recordingStore.prune(RECORDING_RETENTION_MS).catch(() => undefined);
       if (setup.socketPath === false) return;
       server = new BridgeServer({
         socketPath: setup.socketPath ?? join(services.home, "run", "browser-bridge.sock"),
@@ -245,6 +315,9 @@ export function composeBrowser(
       unregister();
       driver?.dispose();
       driver = undefined;
+      for (const t of publishTimers.values()) clearTimeout(t);
+      publishTimers.clear();
+      await endRecordings();
       await server?.close();
     },
   };
@@ -254,6 +327,61 @@ export function composeBrowser(
     const all = await Promise.allSettled([...sessions.values()]);
     return all.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
   }
+}
+
+/**
+ * `browser.recordings.*` (feature I10): the replay index, frames and snapshot text Activity
+ * scrubs through. Everything comes from the recording files the driver wrote, redacted at
+ * write time; `delete` is the only side effect.
+ */
+function recordingHandlers(
+  store: RecordingStore,
+  publish: (id: string) => void,
+): Record<string, HandlerDef> {
+  return {
+    "browser.recordings.list": {
+      async run(_call: Call, p: MethodParams<"browser.recordings.list">) {
+        const all = await store.list({
+          ...(p.taskId === undefined ? {} : { taskId: p.taskId }),
+          ...(p.threadId === undefined ? {} : { threadId: p.threadId }),
+        });
+        const start = p.cursor === undefined ? 0 : Number.parseInt(p.cursor, 10);
+        if (!Number.isSafeInteger(start) || start < 0) {
+          throw new PsycheError("invalid_params", "bad cursor");
+        }
+        const limit = p.limit ?? 50;
+        return {
+          recordings: all.slice(start, start + limit),
+          nextCursor: start + limit < all.length ? String(start + limit) : null,
+        };
+      },
+    },
+    "browser.recordings.get": {
+      run(_call: Call, p: MethodParams<"browser.recordings.get">) {
+        return store.get(p.recordingId, {
+          ...(p.sinceSeq === undefined ? {} : { sinceSeq: p.sinceSeq }),
+          ...(p.limit === undefined ? {} : { limit: p.limit }),
+        });
+      },
+    },
+    "browser.recordings.frame": {
+      run(_call: Call, p: MethodParams<"browser.recordings.frame">) {
+        return store.frame(p.recordingId, p.seq);
+      },
+    },
+    "browser.recordings.snapshot": {
+      run(_call: Call, p: MethodParams<"browser.recordings.snapshot">) {
+        return store.snapshot(p.recordingId, p.seq);
+      },
+    },
+    "browser.recordings.delete": {
+      async run(_call: Call, p: MethodParams<"browser.recordings.delete">) {
+        await store.delete(p.recordingId);
+        publish(p.recordingId);
+        return { ok: true };
+      },
+    },
+  };
 }
 
 /**

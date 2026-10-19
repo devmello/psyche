@@ -341,6 +341,32 @@ describe("INT-2 scenario 1: browser from chat", () => {
     expect(rec).toBeDefined();
     await new Promise((r) => setTimeout(r, 300));
     expect(rec?.index.frames.length ?? 0).toBeGreaterThan(0);
+    // The Activity sheet replays it through the protocol (I10): a live recording with the
+    // agent's actions, the snapshots it read and the frames, all redacted at write time.
+    const recordingId = `thread:${threadId}`;
+    const listed = await c.call<{ recordings: Json[] }>("browser.recordings.list", { threadId });
+    expect(listed.recordings.map((r) => r.id)).toContain(recordingId);
+    const replay = await c.call<{ recording: Json; events: Json[]; frames: Json[] }>(
+      "browser.recordings.get",
+      { recordingId },
+    );
+    expect(replay.recording).toMatchObject({ id: recordingId, threadId, endedAt: null });
+    expect(replay.frames.length).toBeGreaterThan(0);
+    const actions = replay.events.filter((e) => e.kind === "action").map((e) => e.action);
+    expect(actions).toEqual(expect.arrayContaining(["navigate", "type", "click"]));
+    const snapshotEvent = replay.events.find((e) => e.kind === "snapshot");
+    expect(snapshotEvent).toBeDefined();
+    const snap = await c.call<{ text: string }>("browser.recordings.snapshot", {
+      recordingId,
+      seq: snapshotEvent?.snapshotSeq,
+    });
+    expect(snap.text.length).toBeGreaterThan(0);
+    const frame = await c.call<{ mime: string; data: string }>("browser.recordings.frame", {
+      recordingId,
+      seq: (replay.frames[0] as { seq: number }).seq,
+    });
+    expect(frame.mime).toBe("image/jpeg");
+    for (const e of replay.events) expect(String(e.url ?? "")).not.toContain("?");
     const t0 = performance.now();
     await browser.driver?.snapshot(tabId);
     timings.snapshotMs = Math.round(performance.now() - t0);

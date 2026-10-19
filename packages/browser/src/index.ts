@@ -17,6 +17,7 @@ export * from "./origin/policy.ts";
 export * from "./origin/reputation.ts";
 export * from "./profiles.ts";
 export * from "./recording/recorder.ts";
+export * from "./recording/store.ts";
 export { buildSnapshot, extractText, SECURE_MASK } from "./snapshot/builder.ts";
 export { RefRegistry } from "./snapshot/refs.ts";
 export { bindingHash, canonicalJson, classifyActivation } from "./tools/classify.ts";

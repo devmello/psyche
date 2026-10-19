@@ -1,6 +1,6 @@
 # @psyche/browser
 
-**Owner:** S08 (`prompts/s08-browser.md`). **Features:** I2–I4, I7–I9 and I15, plus the M1 parts of I10 and I12 ([docs/03-feature-spec.md](../../docs/03-feature-spec.md)).
+**Owner:** S08 (`prompts/s08-browser.md`). **Features:** I2–I4, I7–I10 and I15, plus the M1 part of I12 ([docs/03-feature-spec.md](../../docs/03-feature-spec.md)).
 
 This package is the agent-owned browser. It has:
 
@@ -25,7 +25,7 @@ The pane UI and the Electron `WebContentsView` host belong to S11.
 | `src/bridge/` | `FrameConnection` (NDJSON), `BridgeServer` / `BridgeClient`, the CDP allowlist |
 | `src/drivers/` | `DriverBase`, `CdpBridgeDriver`, `PlaywrightDriver` |
 | `src/downloads/` | magic-byte `sniff`, `LibraryWriter`, `FsQuarantineWriter` |
-| `src/recording/` | `FileRecordingSink` (frames plus a replay index) |
+| `src/recording/` | `FileRecordingSink` (frames, snapshots and the event log), `RecordingStore` (reads them back for `browser.recordings.*`) |
 | `src/tools/` | `registerBrowserTools`, `classifyActivation`, `ApprovalGate` |
 | `@psyche/browser/testing` | fixture site DSL, `FixtureServer`, `MockBrowser`, `MockDesktop` |
 | `@psyche/browser/conformance` | `describeBrowserDriverConformance` (imports vitest) |
@@ -182,6 +182,26 @@ Security §6: each task chooses `logged-in` or `logged-out` explicitly, with a p
 
 The Gateway reads `PSYCHE_BROWSER_PARTITION` and `PSYCHE_BROWSER_SIGNED_IN_ORIGINS` until Settings → Browser exists; the desktop is asked to key `clean` partitions by task.
 
+## Recording and replay (I10)
+
+Opt-in per task (`PSYCHE_BROWSER_RECORD=1`), under `library/recordings/<id>/` where the id is the task id or `thread:<id>`. A recording is:
+
+- JPEG frames from `Page.startScreencast` (`000001.jpg`, …), at most one per tab per 250 ms;
+- one text file per snapshot the model read (`s000001.txt`, …);
+- `index.json`: `{version: 2, id, taskId, threadId, startedAt, endedAt?, frames[], events[]}`.
+
+The event log is what Activity lists and scrubs: `tab` (opened, with its partition), `navigation` (every commit), `snapshot`, `action` (navigate, back, forward, reload, click, double_click, right_click, hover, type, press, select, scroll, scroll_to, drag, upload, download, read_text, screenshot, dialog), `fill`, `download` (landed in quarantine), `blocked`, `control` (Take control) and `dialog`. Each event has a one-line `summary` (`Clicked button "Sign in"`), the element's role and name, a `frameSeq` pointing at the latest frame, and for snapshots the file holding the text.
+
+Redaction is at write time, in `FileRecordingSink`:
+
+- the page controller never hands over a frame while a secure field is active, after a fill or on a blocked page, as for screenshots;
+- URLs keep origin and path (query strings carry tokens);
+- a credential fill records the credential id, the element and the origin, never a value;
+- typed text and snapshot text go through `CredentialBroker.redact` when the vault is wired, and typed text is capped;
+- upload paths are replaced by a file count.
+
+`RecordingStore` serves the Gateway's `browser.recordings.list | get | frame | snapshot | delete`: a live recording from the sink's memory (`get {sinceSeq}` follows it), a finished one from disk. Finished recordings go to the Library through `LibraryWriter.importRecording` (`kind: recording`; `FsQuarantineWriter` keeps them in memory until the Library owner ships), and `prune` applies the 7-day retention at Gateway start. The Gateway publishes `browser.recording.updated` while a recording grows. The Activity UI itself is S12's.
+
 ## Testing
 
 - `pnpm --filter @psyche/browser test` runs the following without network or a browser:
@@ -205,6 +225,7 @@ The Gateway reads `PSYCHE_BROWSER_PARTITION` and `PSYCHE_BROWSER_SIGNED_IN_ORIGI
   - dialogs;
   - Take control refusal and re-snapshot;
   - logged-out partitions kept apart from the profile (I15);
+  - recording of navigations, snapshots and actions with fills redacted, and the store (`test/recording.test.ts`);
   - sparse and CAPTCHA detection;
   - history and SPA navigation;
   - scrolling;
