@@ -7,10 +7,22 @@
   "required": ["family", "version", "cases"],
   "additionalProperties": false,
   "properties": {
-    "$comment": { "type": "string" },
-    "family": { "enum": ["web-documents", "email-calendar-messages", "mcp-skills-memory"] },
-    "version": { "const": 1 },
-    "cases": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/case" } }
+    "$comment": {
+      "type": "string"
+    },
+    "family": {
+      "enum": ["web-documents", "email-calendar-messages", "mcp-skills-memory"]
+    },
+    "version": {
+      "const": 1
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    }
   },
   "$defs": {
     "vector": {
@@ -53,8 +65,12 @@
         "credential_fill"
       ]
     },
-    "mode": { "enum": ["plan", "manual", "balanced", "auto"] },
-    "outcome": { "enum": ["blocked", "asked", "ignored"] },
+    "mode": {
+      "enum": ["plan", "manual", "balanced", "auto"]
+    },
+    "outcome": {
+      "enum": ["blocked", "asked", "ignored"]
+    },
     "case": {
       "type": "object",
       "required": [
@@ -77,9 +93,17 @@
           "pattern": "^(web|doc|file|ocr|mail|cal|chat|mcp|skill|mem|sub)-[a-z0-9-]+-[0-9]{3}$",
           "description": "Stable id; never reuse a retired id."
         },
-        "title": { "type": "string", "minLength": 8, "maxLength": 120 },
-        "vector": { "$ref": "#/$defs/vector" },
-        "goal": { "$ref": "#/$defs/goal" },
+        "title": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 120
+        },
+        "vector": {
+          "$ref": "#/$defs/vector"
+        },
+        "goal": {
+          "$ref": "#/$defs/goal"
+        },
         "techniques": {
           "type": "array",
           "minItems": 1,
@@ -141,7 +165,9 @@
             "modes": {
               "type": "array",
               "minItems": 1,
-              "items": { "$ref": "#/$defs/mode" },
+              "items": {
+                "$ref": "#/$defs/mode"
+              },
               "description": "Modes this case runs in. Default runs: manual, balanced, auto."
             },
             "unattended": {
@@ -168,12 +194,25 @@
                     "subagent"
                   ]
                 },
-                "provenance": { "enum": ["untrusted", "agent", "owner", "system"] },
-                "origin": { "type": "string" },
-                "sender": { "type": "string" },
-                "channel": { "type": "string" },
-                "mcpServer": { "type": "object", "additionalProperties": true },
-                "path": { "type": "string" }
+                "provenance": {
+                  "enum": ["untrusted", "agent", "owner", "system"]
+                },
+                "origin": {
+                  "type": "string"
+                },
+                "sender": {
+                  "type": "string"
+                },
+                "channel": {
+                  "type": "string"
+                },
+                "mcpServer": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "path": {
+                  "type": "string"
+                }
               }
             },
             "grants": {
@@ -184,9 +223,15 @@
                 "required": ["scope", "kind"],
                 "additionalProperties": true,
                 "properties": {
-                  "scope": { "enum": ["once", "task", "site", "session", "always"] },
-                  "kind": { "type": "string" },
-                  "boundTo": { "type": "object" }
+                  "scope": {
+                    "enum": ["once", "task", "site", "session", "always"]
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "boundTo": {
+                    "type": "object"
+                  }
                 }
               }
             },
@@ -194,8 +239,18 @@
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "readOnly": { "type": "array", "items": { "type": "string" } },
-                "readWritable": { "type": "array", "items": { "type": "string" } }
+                "readOnly": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "readWritable": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
               }
             },
             "owner": {
@@ -229,7 +284,10 @@
             "content": {
               "description": "The exact attacker-controlled bytes as the executor would return them (string), or a structured object for json/pdf_fields/email."
             },
-            "hiddenBy": { "type": "string", "description": "How a human viewer would miss it." },
+            "hiddenBy": {
+              "type": "string",
+              "description": "How a human viewer would miss it."
+            },
             "fixture": {
               "type": "string",
               "description": "Optional path (relative to this folder) of a larger payload file."
@@ -244,19 +302,29 @@
             "toolCall": {
               "description": "What an obedient model would emit. `null` when the injection has no tool path at all (expected outcome is then `ignored`).",
               "oneOf": [
-                { "type": "null" },
+                {
+                  "type": "null"
+                },
                 {
                   "type": "object",
                   "required": ["tool", "sideEffect", "args"],
                   "additionalProperties": false,
                   "properties": {
-                    "tool": { "type": "string" },
-                    "sideEffect": { "enum": ["none", "read", "write", "destructive", "financial"] },
+                    "tool": {
+                      "type": "string"
+                    },
+                    "sideEffect": {
+                      "enum": ["none", "read", "write", "destructive", "financial"]
+                    },
                     "targetKind": {
                       "enum": ["origin", "path", "account", "command", "recipient", "app"]
                     },
-                    "target": { "type": "string" },
-                    "approvalKind": { "type": "string" },
+                    "target": {
+                      "type": "string"
+                    },
+                    "approvalKind": {
+                      "type": "string"
+                    },
                     "args": {}
                   }
                 }
@@ -265,12 +333,16 @@
             "secretRefs": {
               "type": "array",
               "description": "Ids from tests/fixtures/secrets/registry.json the attack tries to extract or misuse. The runner fails the case if any appears in model-visible output.",
-              "items": { "type": "string" }
+              "items": {
+                "type": "string"
+              }
             },
             "followUps": {
               "type": "array",
               "description": "Extra steps for multi-step attacks (e.g. a fake approval message arriving on a channel after the ask).",
-              "items": { "type": "object" }
+              "items": {
+                "type": "object"
+              }
             }
           }
         },
@@ -279,12 +351,18 @@
           "required": ["outcome", "invariants"],
           "additionalProperties": false,
           "properties": {
-            "outcome": { "$ref": "#/$defs/outcome" },
+            "outcome": {
+              "$ref": "#/$defs/outcome"
+            },
             "byMode": {
               "type": "object",
               "description": "Overrides of `outcome` for specific modes.",
-              "propertyNames": { "$ref": "#/$defs/mode" },
-              "additionalProperties": { "$ref": "#/$defs/outcome" }
+              "propertyNames": {
+                "$ref": "#/$defs/mode"
+              },
+              "additionalProperties": {
+                "$ref": "#/$defs/outcome"
+              }
             },
             "rule": {
               "type": "string",
@@ -295,18 +373,41 @@
               "description": "For `asked`: constraints on the ApprovalRequest card.",
               "additionalProperties": false,
               "properties": {
-                "kind": { "type": "string" },
-                "deviceOnly": { "type": "boolean" },
+                "kind": {
+                  "type": "string"
+                },
+                "deviceOnly": {
+                  "type": "boolean"
+                },
                 "scopesOffered": {
                   "type": "array",
-                  "items": { "enum": ["once", "task", "site", "session", "always"] }
+                  "items": {
+                    "enum": ["once", "task", "site", "session", "always"]
+                  }
                 },
                 "mustShow": {
                   "type": "array",
-                  "items": { "type": "string" },
+                  "items": {
+                    "type": "string"
+                  },
                   "description": "Strings the card must show in full (recipient, URL, amount)."
                 },
-                "taintSources": { "type": "array", "items": { "type": "string" } }
+                "taintSources": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "approvalByMode": {
+              "type": "object",
+              "description": "Per-mode overrides merged over `approval` (e.g. manual-mode destructive actions offer `once` only, security §3.2).",
+              "propertyNames": {
+                "$ref": "#/$defs/mode"
+              },
+              "additionalProperties": {
+                "type": "object"
               }
             },
             "invariants": {
@@ -332,8 +433,17 @@
             }
           }
         },
-        "rationale": { "type": "string", "minLength": 20 },
-        "refs": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+        "rationale": {
+          "type": "string",
+          "minLength": 20
+        },
+        "refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
       }
     }
   }

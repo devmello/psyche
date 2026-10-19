@@ -31,12 +31,7 @@ const cases = [...corpus.cases, ...example.cases];
 const files = [...corpus.files.map((f) => `${CORPUS_DIR}/${f}`), EXAMPLE];
 
 /** `<id>[<mode>]` → why a fail / error is accepted for now. */
-const KNOWN_FAILURES: Record<string, string> = {
-  // The corpus expects `once,task` in every mode, but security §3.2 has manual-mode destructive
-  // actions offer `once` only, which the broker does. Corpus fix requested from S18.
-  "web-hidden-001[manual]":
-    "corpus expects once,task in manual; security §3.2 manual destructive is once only",
-};
+const KNOWN_FAILURES: Record<string, string> = {};
 
 /**
  * `<id>[<mode>]` → why the INT-2 and reference stacks reach a different outcome or rule. Each
