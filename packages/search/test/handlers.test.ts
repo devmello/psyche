@@ -17,6 +17,7 @@ describe("search.query handler", () => {
     expect(validateResult("search.query", res)).toBe(res);
     expect(res.hits.map((x) => [x.scope, x.route]).sort()).toEqual(
       [
+        ["goals", "/goals/G1"],
         ["messages", "/chat/T2?message=m1"],
         ["tasks", "/agent/activity/K1"],
         ["threads", "/chat/T1"],
@@ -57,9 +58,15 @@ describe("search.query handler", () => {
     expect(mt.hits.map((x) => x.id).sort()).toEqual(["K1", "m1", "m2"]);
     const m = await h["search.query"]({ query: "dentist", scopes: ["messages"] });
     expect(m.hits.map((x) => x.id).sort()).toEqual(["m1", "m2"]);
-    const limited = await h["search.query"]({ query: "dentist", limit: 2 });
+    const limited = await h["search.query"]({
+      query: "dentist",
+      scopes: ["threads", "messages", "tasks"],
+      limit: 2,
+    });
     expect(limited.hits).toHaveLength(2);
     expect(limited.hits.every((x) => !x.id.startsWith("I"))).toBe(true);
+    const ideas = await h["search.query"]({ query: "dentist", scopes: ["ideas"] });
+    expect(ideas.hits.map((x) => [x.scope, x.route])).toContainEqual(["ideas", "/ideas?idea=I0"]);
   });
 
   it("applies the caller's viewer scope", async () => {
