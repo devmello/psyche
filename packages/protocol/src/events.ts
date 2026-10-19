@@ -160,6 +160,7 @@ export const Events = {
     }),
     description:
       "A vault item was added, edited, deleted, used, rotated or revoked; revocation invalidates connection-bound work.",
+  }),
   "question.updated": defineEvent({
     payload: Type.Object({ inputRequest: InputRequest }),
     description: "An input request was answered or cancelled.",
