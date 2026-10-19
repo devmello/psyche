@@ -139,9 +139,9 @@ describe("vault create / unlock / lock (G1)", () => {
     h.vault.lock();
     h.helper.items.clear(); // biometryCurrentSet items are invalidated by re-enrollment
     await expect(h.vault.unlock("x")).rejects.toBeDefined();
-    await expect(
-      h.vault.unlockWithRecovery(recoveryKey.replace(/.$/, (c) => (c === "A" ? "B" : "A"))),
-    ).rejects.toBeDefined();
+    // Mutate the first character: the last one also carries base32 padding bits.
+    const wrong = `${recoveryKey.startsWith("A") ? "B" : "A"}${recoveryKey.slice(1)}`;
+    await expect(h.vault.unlockWithRecovery(wrong)).rejects.toMatchObject({ code: "unauthorized" });
     await h.vault.unlockWithRecovery(recoveryKey.toLowerCase().replace(/-/g, " "));
     expect((await h.vault.list()).length).toBe(1);
     expect(h.helper.sets).toHaveLength(2);
