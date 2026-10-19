@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -85,6 +85,18 @@ test.beforeAll(async () => {
       "chat.history": () => ({ messages: [], nextCursor: null }),
       "chat.send": () => ({ messageId: "01JBXY6Q8Z0000000000000009", runId: null, queued: false }),
       "nodes.list": () => ({ nodes: [] }),
+      // Onboarding is done on this Gateway (the composed app gates on this key).
+      "settings.get": () => ({
+        settings: { "ui.onboarding.completedAt": "2026-10-19T09:00:00.000Z" },
+        stateVersion: 1,
+      }),
+      "settings.set": (params) => {
+        const p = params as { key: string; value: unknown };
+        return {
+          entry: { key: p.key, value: p.value, updatedAt: "2026-10-19T10:00:00.000Z" },
+          stateVersion: 2,
+        };
+      },
     },
   }).start();
   fixture = await startFixture();
@@ -266,4 +278,31 @@ test("downloads land in quarantine and show a toast", async () => {
   await expect(page.getByTestId("toasts")).toContainText(
     "Downloaded invoice.txt to Library → Downloads (quarantined)",
   );
+});
+
+test("Settings shares a folder through the native picker as a permissions.policy grant", async () => {
+  const picked = join(dir, "Taxes");
+  mkdirSync(picked);
+  // Playwright cannot drive the OS folder chooser: stub it in the main process.
+  await app.evaluate(({ dialog }, folder) => {
+    dialog.showOpenDialog = (async () => ({
+      canceled: false,
+      filePaths: [folder],
+    })) as typeof dialog.showOpenDialog;
+  }, picked);
+  await page.getByTestId("rail").getByRole("button", { name: "Settings" }).click();
+  await page
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("button", { name: "File access" })
+    .click();
+  await page.getByRole("button", { name: "Choose a folder…" }).click();
+  const call = await gw.waitForCall("settings.set", (p) =>
+    JSON.stringify(p).includes('"permissions.policy"'),
+  );
+  // The grant names the real path (the broker matches real paths), read only by default.
+  expect(call.params).toEqual({
+    key: "permissions.policy",
+    value: { folders: [{ path: realpathSync(picked), mode: "ro" }] },
+  });
+  await expect(page.getByTestId("settings-files")).toContainText(realpathSync(picked));
 });

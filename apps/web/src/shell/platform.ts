@@ -134,6 +134,12 @@ export interface NotifyPort {
   show(n: { id: string; title: string; body: string; route?: string }): void;
 }
 
+/** Desktop only: native file dialogs. The web host has none; the shell falls back to typed paths. */
+export interface DialogPort {
+  /** Opens the OS folder chooser; resolves to the folder's real path, or null when cancelled. */
+  pickFolder(opts?: { title?: string }): Promise<string | null>;
+}
+
 export interface KeyValueStore {
   get(key: string): string | null;
   set(key: string, value: string): void;
@@ -147,6 +153,7 @@ export interface ShellPlatform {
   browser?: BrowserPort;
   terminal?: TerminalPort;
   windows?: WindowPort;
+  dialogs?: DialogPort;
 }
 
 /** localStorage-backed store that degrades to memory (private windows, blocked storage). */

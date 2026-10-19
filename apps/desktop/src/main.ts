@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
   type ApprovalRequest,
@@ -10,6 +10,7 @@ import type { GatewayConnection } from "@psyche/web/client";
 import type { ShellCommand } from "@psyche/web/platform";
 import {
   app,
+  dialog,
   globalShortcut,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
@@ -318,6 +319,27 @@ function registerIpc(): void {
     );
   });
   on(IPC.windowClose, (event) => windows?.closeFor(event.sender));
+  handle(IPC.dialogPickFolder, async (event, arg) => {
+    const r = rec(IPC.dialogPickFolder, arg);
+    const title =
+      typeof r.title === "string" ? str(IPC.dialogPickFolder, r.title, "title", 120) : undefined;
+    const win = windows?.main();
+    const opts = {
+      properties: ["openDirectory", "createDirectory"] as ("openDirectory" | "createDirectory")[],
+      title: title ?? "Share a folder with Psyche",
+      message: title ?? "Share a folder with Psyche",
+      buttonLabel: "Share",
+    };
+    const res =
+      win && windows?.isAppContents(event.sender)
+        ? await dialog.showOpenDialog(win, opts)
+        : await dialog.showOpenDialog(opts);
+    const picked = res.canceled ? undefined : res.filePaths[0];
+    if (picked === undefined) return null;
+    // The broker matches folder grants as text against real paths (no symlinks), so the grant
+    // must name the real path: /private/tmp rather than /tmp on macOS.
+    return realpath(picked);
+  });
   on(IPC.notifyShow, (_e, arg) => {
     const r = rec(IPC.notifyShow, arg);
     showNotification(

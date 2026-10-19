@@ -71,7 +71,7 @@ const DEFAULT_HANDLERS: Record<string, Handler> = {
   "notifications.list": () => ({ notifications: [], nextCursor: null }),
   "approvals.list": () => ({ approvals: [] }),
   "tasks.list": () => ({ tasks: [], nextCursor: null }),
-  "settings.get": () => ({ entries: [] }),
+  "settings.get": () => ({ settings: {}, stateVersion: 0 }),
   "view.report": () => ({ ok: true }),
 };
 
