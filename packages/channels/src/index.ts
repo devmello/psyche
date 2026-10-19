@@ -1,5 +1,7 @@
 // @psyche/channels (S10): channel framework, authorization, approvals over chat, WebChat and
 // Telegram adapters. See README.md.
+
+export * from "./adapters/telegram/index.ts";
 export * from "./adapters/webchat.ts";
 export * from "./api.ts";
 export * from "./approvals.ts";
@@ -20,4 +22,3 @@ export * from "./store/memory.ts";
 export * from "./store/sqlite.ts";
 export * from "./store/types.ts";
 export * from "./voice.ts";
-export * from "./adapters/telegram/index.ts";

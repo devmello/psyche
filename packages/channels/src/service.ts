@@ -394,9 +394,10 @@ export class ChannelService {
 
   /**
    * Polls adapter health; an unhealthy adapter is marked `disconnected` and restarted with
-   * backoff. The Gateway calls this on a timer.
+   * backoff; resolves when the restarts finish. The Gateway calls this on a timer.
    */
   async checkHealth(): Promise<void> {
+    const restarts: Promise<void>[] = [];
     for (const [channelId, attached] of this.#attached) {
       if (!attached.running || attached.adapter.health === undefined) continue;
       const health = await attached.adapter.health().catch((error: unknown) => ({
@@ -406,8 +407,9 @@ export class ChannelService {
       if (health.ok) continue;
       await this.#setStatus(channelId, "disconnected", health.detail);
       await this.stop(channelId);
-      void this.start(channelId);
+      restarts.push(this.start(channelId));
     }
+    await Promise.all(restarts);
   }
 
   #adapterFor(channelId: string): { channel: Channel; adapter: ChannelAdapter } {
