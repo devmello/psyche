@@ -29,7 +29,13 @@ const approval = (over: Partial<ApprovalRequest>): ApprovalRequest => ({
 
 const card = (a: ApprovalRequest, canAnswer = true) =>
   render(
-    <ApprovalCard approval={a} canAnswer={canAnswer} onAnswer={() => {}} now={STORY_NOW} armDelayMs={0} />,
+    <ApprovalCard
+      approval={a}
+      canAnswer={canAnswer}
+      onAnswer={() => {}}
+      now={STORY_NOW}
+      armDelayMs={0}
+    />,
   );
 
 describe("ApprovalCard renders through renderForSurface (design-12)", () => {
@@ -58,7 +64,12 @@ describe("ApprovalCard renders through renderForSurface (design-12)", () => {
       summary: "Run curl against api.github.com",
       target: { kind: "command", value: "curl" },
       details: {
-        argv: ["curl", "-H", "Authorization: Bearer {{cred:github-token}}", "https://api.github.com"],
+        argv: [
+          "curl",
+          "-H",
+          "Authorization: Bearer {{cred:github-token}}",
+          "https://api.github.com",
+        ],
         cwd: "/workspace",
         env: ["GITHUB_TOKEN"],
       },
@@ -78,6 +89,7 @@ describe("ApprovalCard renders through renderForSurface (design-12)", () => {
     if (fill === undefined) throw new Error("fixture");
     const a: ApprovalRequest = {
       ...fill,
+      taint: false,
       details: { ...fill.details, currentOrigin: "https://www.kаyak.com" },
       target: { kind: "origin", value: "https://www.kаyak.com" },
     };
@@ -136,10 +148,7 @@ describe("QuestionCard renders through renderQuestionForSurface", () => {
         header: "When",
         question: "Which day?‮",
         multiSelect: false,
-        options: [
-          { label: "Tues\nday", description: "fits​the calendar" },
-          { label: "Wednesday" },
-        ],
+        options: [{ label: "Tues\nday", description: "fits​the calendar" }, { label: "Wednesday" }],
       },
     ],
   };

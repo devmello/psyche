@@ -11,11 +11,11 @@ import {
   useStoreState,
   useTask,
 } from "../data/index.ts";
+import { displaySummary } from "../lib/cards.ts";
 import { usePersona, useSlots } from "../slots.tsx";
 import { ArtifactCard, FileCard } from "./ArtifactCard.tsx";
 import { Checklist, PlanCard } from "./Checklist.tsx";
 import { Markdown } from "./Markdown.tsx";
-import { displaySummary } from "../lib/cards.ts";
 import { QuestionCard } from "./QuestionCard.tsx";
 import { ReceiptLine } from "./Receipt.tsx";
 import { TaskCard } from "./TaskCard.tsx";

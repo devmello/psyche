@@ -72,7 +72,13 @@ function hostToASCII(host: string): string {
   if (host === "" || /[\s@/\\?#:[\]%<>"'`^|{}⟨⟩�]/u.test(host)) return "";
   try {
     const u = new URL(`http://${host}`);
-    if (u.username !== "" || u.port !== "" || u.pathname !== "/" || u.search !== "" || u.hash !== "")
+    if (
+      u.username !== "" ||
+      u.port !== "" ||
+      u.pathname !== "/" ||
+      u.search !== "" ||
+      u.hash !== ""
+    )
       return "";
     return u.hostname;
   } catch {
@@ -264,7 +270,12 @@ export function renderForSurface(surface: string, a: ApprovalRequest): RenderedC
   }
   if (a.deviceOnly && isChatSurface(surface)) {
     // Never the arguments, never buttons: a chat sender is not a presence-checked device (§9).
-    return { text: `${header}\n${DEVICE_ONLY_TEXT}`, buttons: [], truncated: false, deviceOnly: true };
+    return {
+      text: `${header}\n${DEVICE_ONLY_TEXT}`,
+      buttons: [],
+      truncated: false,
+      deviceOnly: true,
+    };
   }
   const lines = [header];
   if (a.target !== undefined) {

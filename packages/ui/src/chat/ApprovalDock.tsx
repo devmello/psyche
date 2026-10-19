@@ -1,8 +1,8 @@
 import { ShieldCheck } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { ApprovalCard } from "../blocks/ApprovalCard.tsx";
-import { displaySummary } from "../lib/cards.ts";
 import { useApprovals, useStoreState } from "../data/index.ts";
+import { displaySummary } from "../lib/cards.ts";
 import { formatCountdown } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";

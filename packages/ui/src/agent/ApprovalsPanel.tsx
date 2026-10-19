@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { ApprovalCard } from "../blocks/ApprovalCard.tsx";
-import { displaySummary } from "../lib/cards.ts";
 import { useApprovals, useGatewayQuery, useStoreState } from "../data/index.ts";
+import { displaySummary } from "../lib/cards.ts";
 import { formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { usePersona, useSlots } from "../slots.tsx";

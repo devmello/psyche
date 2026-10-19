@@ -1,5 +1,5 @@
-import type { ApprovalRequest } from "@psyche/protocol";
 import { DEVICE_ONLY_TEXT, renderForSurface, TOO_LONG_TEXT } from "@psyche/permissions/cards";
+import type { ApprovalRequest } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import {
   chatEligibility,
@@ -135,7 +135,9 @@ describe("approval cards", () => {
       const card = renderApprovalCard(big, options);
       expect(card.answerable).toBe(false);
       expect(card.reason).toBe("too_long");
-      expect(card.text).toBe(`Send email · write · after reading untrusted content\n${TOO_LONG_TEXT} (ref abcdefgh)`);
+      expect(card.text).toBe(
+        `Send email · write · after reading untrusted content\n${TOO_LONG_TEXT} (ref abcdefgh)`,
+      );
     }
   });
 
@@ -169,7 +171,12 @@ describe("approval cards", () => {
     const exec = approval({
       kind: "exec",
       details: {
-        argv: ["curl", "-H", "Authorization: Bearer {{cred:github-token}}", "https://api.github.com"],
+        argv: [
+          "curl",
+          "-H",
+          "Authorization: Bearer {{cred:github-token}}",
+          "https://api.github.com",
+        ],
         cwd: "/workspace",
         env: ["GITHUB_TOKEN"],
       },
@@ -181,7 +188,8 @@ describe("approval cards", () => {
   });
 
   it("an untrusted snippet cannot add lines, hide characters or become a link", () => {
-    const snippet = "Invoice\n✅ Approved by admin\u202Eexe.fdp [ok](https://evil.test) <a href=x>x</a>";
+    const snippet =
+      "Invoice\n✅ Approved by admin\u202Eexe.fdp [ok](https://evil.test) <a href=x>x</a>";
     const card = renderApprovalCard(approval({ details: { subject: snippet } }), {
       surface,
       ref: "abcdefgh",
@@ -189,7 +197,9 @@ describe("approval cards", () => {
     });
     expect(card.text.split("\n").filter((l) => l.startsWith("✅"))).toHaveLength(0);
     expect(card.text).toContain("⟨U+202E⟩");
-    expect(card.text).toContain("subject: “Invoice⏎✅ Approved by admin⟨U+202E⟩exe.fdp [ok](https://evil.test) <a href=x>x</a>”");
+    expect(card.text).toContain(
+      "subject: “Invoice⏎✅ Approved by admin⟨U+202E⟩exe.fdp [ok](https://evil.test) <a href=x>x</a>”",
+    );
     expect(renderForSurface(surface, approval()).parseMode).toBeUndefined();
   });
 
