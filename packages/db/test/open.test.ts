@@ -90,11 +90,8 @@ describe("openDb", () => {
     db.close();
 
     const again = openDb(file);
-      applied: [],
-    const rerun = again.migrate();
     expect(again.migrate()).toEqual({
-    expect(rerun.applied).toEqual([]);
-    expect(rerun.skipped).toContain("202610182200_db_init");
+      applied: [],
       skipped: listMigrationFiles().map((f) => f.id),
     });
     again.close();
