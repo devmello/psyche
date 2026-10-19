@@ -6,6 +6,8 @@
  * uses the legacy build, which runs the worker in-process.
  */
 
+import { isNodeRuntime } from "./env.ts";
+
 export type PdfJs = typeof import("pdfjs-dist");
 
 export interface PdfJsConfig {
@@ -28,10 +30,6 @@ export function configurePdfJs(next: PdfJsConfig): void {
 export function pdfJsConfig(): Readonly<PdfJsConfig> {
   return config;
 }
-
-export const isNodeRuntime = (): boolean =>
-  typeof (globalThis as { process?: { versions?: { node?: string } } }).process?.versions?.node ===
-  "string";
 
 export function loadPdfJs(): Promise<PdfJs> {
   loading ??= (async () => {
