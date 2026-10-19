@@ -1,6 +1,6 @@
 import type { PairingRequest } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
-import { and, eq, lte } from "drizzle-orm";
+import { and, desc, eq, gt, gte, lte, sql } from "drizzle-orm";
 import { pairingRequestFromRow } from "../mappers.ts";
 import type { PsycheDb } from "../open.ts";
 import { pairingRequests } from "../schema.ts";
@@ -18,6 +18,10 @@ export interface NewPairingRequest {
   readonly display: string;
   /** Absolute expiry; default `now + PAIRING_TTL_MS`. */
   readonly expiresAt?: string;
+  /** Device requests: `sha256:<hex>` of the raw public key the owner approves. */
+  readonly publicKeyFingerprint?: string | null;
+  readonly transport?: "ws" | "unix" | null;
+  readonly remoteAddress?: string | null;
 }
 
 /** Normalizes any parseable timestamp to `Date#toISOString` so string comparison is ordering. */
@@ -45,6 +49,9 @@ export function createPairingRequest(db: PsycheDb, input: NewPairingRequest): Pa
       display: input.display,
       status: "pending",
       expiresAt,
+      publicKeyFingerprint: input.publicKeyFingerprint ?? null,
+      transport: input.transport ?? null,
+      remoteAddress: input.remoteAddress ?? null,
       createdAt: at,
       updatedAt: at,
     })
@@ -123,4 +130,76 @@ export function expirePairingRequests(db: PsycheDb, now: string = db.now()): num
     .set({ status: "expired", updatedAt: db.now() })
     .where(and(eq(pairingRequests.status, "pending"), lte(pairingRequests.expiresAt, cutoff)))
     .run().changes;
+}
+
+export function listPairingRequests(
+  db: PsycheDb,
+  opts: { status?: PairingRequest["status"] } = {},
+): PairingRequest[] {
+  return db.drizzle
+    .select()
+    .from(pairingRequests)
+    .where(opts.status === undefined ? undefined : eq(pairingRequests.status, opts.status))
+    .orderBy(desc(pairingRequests.createdAt))
+    .all()
+    .map(pairingRequestFromRow);
+}
+
+/** The live pending request of a device, if any. */
+export function findPendingPairingForDevice(
+  db: PsycheDb,
+  deviceId: string,
+  now: string = db.now(),
+): PairingRequest | undefined {
+  const row = db.drizzle
+    .select()
+    .from(pairingRequests)
+    .where(
+      and(
+        eq(pairingRequests.deviceId, deviceId),
+        eq(pairingRequests.status, "pending"),
+        gt(pairingRequests.expiresAt, iso(now)),
+      ),
+    )
+    .orderBy(desc(pairingRequests.createdAt))
+    .limit(1)
+    .get();
+  return row === undefined ? undefined : pairingRequestFromRow(row);
+}
+
+export function expirePendingPairingsForDevice(db: PsycheDb, deviceId: string): number {
+  const at = db.now();
+  return db.drizzle
+    .update(pairingRequests)
+    .set({ status: "expired", decidedAt: at, updatedAt: at })
+    .where(and(eq(pairingRequests.deviceId, deviceId), eq(pairingRequests.status, "pending")))
+    .run().changes;
+}
+
+export function countPendingPairings(db: PsycheDb, now: string = db.now()): number {
+  const row = db.drizzle
+    .select({ n: sql<number>`count(*)` })
+    .from(pairingRequests)
+    .where(and(eq(pairingRequests.status, "pending"), gt(pairingRequests.expiresAt, iso(now))))
+    .get();
+  return row?.n ?? 0;
+}
+
+/** Pairing requests created from `remoteAddress` since `since` (rate limit, security §10). */
+export function countPairingsFromAddress(
+  db: PsycheDb,
+  remoteAddress: string,
+  since: string,
+): number {
+  const row = db.drizzle
+    .select({ n: sql<number>`count(*)` })
+    .from(pairingRequests)
+    .where(
+      and(
+        eq(pairingRequests.remoteAddress, remoteAddress),
+        gte(pairingRequests.createdAt, iso(since)),
+      ),
+    )
+    .get();
+  return row?.n ?? 0;
 }

@@ -1,5 +1,5 @@
 import type { Device, DevicePlatform, DeviceRole, DeviceScope } from "@psyche/protocol";
-import { asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { deviceFromRow } from "../mappers.ts";
 import type { PsycheDb } from "../open.ts";
 import { devices } from "../schema.ts";
@@ -76,4 +76,29 @@ export function touchLastSeen(db: PsycheDb, id: string, at: string = db.now()): 
   return (
     db.drizzle.update(devices).set({ lastSeenAt: at }).where(eq(devices.id, id)).run().changes > 0
   );
+}
+
+export interface DevicePatch {
+  readonly name?: string;
+  readonly publicKey?: Uint8Array | string;
+  readonly role?: DeviceRole;
+  readonly scopes?: readonly DeviceScope[];
+  readonly pairedAt?: string | null;
+}
+
+/** Updates a device that is not revoked; `undefined` if it is unknown or revoked. */
+export function updateDevice(db: PsycheDb, id: string, patch: DevicePatch): Device | undefined {
+  const set: Partial<typeof devices.$inferInsert> = { updatedAt: db.now() };
+  if (patch.name !== undefined) set.name = patch.name;
+  if (patch.publicKey !== undefined) set.publicKey = keyBytes(patch.publicKey);
+  if (patch.role !== undefined) set.role = patch.role;
+  if (patch.scopes !== undefined) set.scopes = JSON.stringify(patch.scopes);
+  if (patch.pairedAt !== undefined) set.pairedAt = patch.pairedAt;
+  const row = db.drizzle
+    .update(devices)
+    .set(set)
+    .where(and(eq(devices.id, id), isNull(devices.revokedAt)))
+    .returning()
+    .get();
+  return row === undefined ? undefined : deviceFromRow(row);
 }
