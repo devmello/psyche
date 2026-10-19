@@ -123,6 +123,20 @@ function PdfDocumentView(props: PdfViewerProps & { opened: Opened }) {
     onScroll();
   }, [onScroll]);
 
+  const { onSelectionChange } = props;
+  useEffect(() => {
+    const el = scroller.current;
+    if (el === null || onSelectionChange === undefined) return;
+    const report = () => {
+      const text = window.getSelection()?.toString() ?? "";
+      onSelectionChange(
+        text.trim() === "" ? null : { kind: "text", text: text.slice(0, 4000), page },
+      );
+    };
+    el.addEventListener("mouseup", report);
+    return () => el.removeEventListener("mouseup", report);
+  }, [onSelectionChange, page]);
+
   const { onPageStateChange } = props;
   useEffect(() => {
     onPageStateChange?.({ page, zoom });
@@ -163,7 +177,7 @@ function PdfDocumentView(props: PdfViewerProps & { opened: Opened }) {
   const applyFill = async () => {
     const filled = await pdf.fillPreview(values);
     props.onSaveToLibrary?.({
-      name: item.name.replace(/\.pdf$/i, "") + " (filled).pdf",
+      name: `${item.name.replace(/\.pdf$/i, "")} (filled).pdf`,
       mime: "application/pdf",
       bytes: filled,
     });
@@ -210,7 +224,7 @@ function PdfDocumentView(props: PdfViewerProps & { opened: Opened }) {
         <button type="button" aria-label="Zoom out" onClick={() => setZoom(stepZoom(zoom, -1))}>
           −
         </button>
-        <span aria-label="Zoom level">{Math.round(zoom * 100)}%</span>
+        <output aria-label="Zoom level">{Math.round(zoom * 100)}%</output>
         <button type="button" aria-label="Zoom in" onClick={() => setZoom(stepZoom(zoom, 1))}>
           +
         </button>
@@ -263,18 +277,7 @@ function PdfDocumentView(props: PdfViewerProps & { opened: Opened }) {
       </Toolbar>
       <div className="psy-pdf__body">
         {showOutline ? <Outline nodes={opened.outline} onGo={goTo} /> : null}
-        <div
-          ref={scroller}
-          className="psy-pdf__pages"
-          onScroll={onScroll}
-          onMouseUp={() => {
-            const text = window.getSelection()?.toString() ?? "";
-            props.onSelectionChange?.(
-              text.trim() === "" ? null : { kind: "text", text: text.slice(0, 4000), page },
-            );
-          }}
-          data-testid="pdf-pages"
-        >
+        <div ref={scroller} className="psy-pdf__pages" onScroll={onScroll} data-testid="pdf-pages">
           <div style={{ height: n * pageHeight, position: "relative" }}>
             {range(first, last).map((p) => (
               <div
@@ -335,10 +338,10 @@ const range = (a: number, b: number) =>
   Array.from({ length: Math.max(0, b - a + 1) }, (_, i) => a + i);
 
 function Outline(props: { nodes: PdfOutlineNode[]; onGo: (page: number) => void }) {
-  const render = (nodes: PdfOutlineNode[]) => (
+  const render = (nodes: PdfOutlineNode[], path: string) => (
     <ul>
-      {nodes.map((node, i) => (
-        <li key={`${node.title}-${i}`}>
+      {nodes.map((node) => (
+        <li key={`${path}/${node.title}@${node.page ?? ""}`}>
           <button
             type="button"
             disabled={node.page === undefined}
@@ -346,14 +349,14 @@ function Outline(props: { nodes: PdfOutlineNode[]; onGo: (page: number) => void 
           >
             {node.title}
           </button>
-          {node.children.length > 0 ? render(node.children) : null}
+          {node.children.length > 0 ? render(node.children, `${path}/${node.title}`) : null}
         </li>
       ))}
     </ul>
   );
   return (
     <nav className="psy-pdf__outline" aria-label="Outline">
-      {render(props.nodes)}
+      {render(props.nodes, "o")}
     </nav>
   );
 }
@@ -434,7 +437,7 @@ function PdfPage(props: {
   const width = viewport?.width ?? props.base.width * zoom;
   const height = viewport?.height ?? props.base.height * zoom;
   return (
-    <div
+    <figure
       className="psy-pdf__page"
       style={{ width, height, position: "relative", margin: "0 auto" }}
       data-page={page}
@@ -474,7 +477,7 @@ function PdfPage(props: {
               />
             );
           })}
-    </div>
+    </figure>
   );
 }
 
@@ -508,38 +511,42 @@ function FieldList(props: {
                 : "";
           return (
             <li key={f.id} data-source={source}>
-              <label onFocus={() => props.onFocus(f)}>
-                <span>{f.name}</span>
-                {f.type === "checkbox" ? (
-                  <input
-                    type="checkbox"
-                    checked={v === true}
-                    disabled={f.readOnly}
-                    onChange={(e) => set(f.name, e.target.checked)}
-                  />
-                ) : f.type === "choice" && f.options !== undefined ? (
-                  <select
-                    value={Array.isArray(v) ? (v[0] ?? "") : String(v ?? "")}
-                    disabled={f.readOnly}
-                    onChange={(e) => set(f.name, e.target.value)}
-                  >
-                    <option value="" />
-                    {f.options.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    value={typeof v === "string" ? v : ""}
-                    readOnly={f.readOnly}
-                    maxLength={f.maxLen}
-                    onChange={(e) => set(f.name, e.target.value)}
-                  />
-                )}
-              </label>
+              <span id={`psy-field-${f.id}`}>{f.name}</span>
+              {f.type === "checkbox" ? (
+                <input
+                  aria-labelledby={`psy-field-${f.id}`}
+                  onFocus={() => props.onFocus(f)}
+                  type="checkbox"
+                  checked={v === true}
+                  disabled={f.readOnly}
+                  onChange={(e) => set(f.name, e.target.checked)}
+                />
+              ) : f.type === "choice" && f.options !== undefined ? (
+                <select
+                  aria-labelledby={`psy-field-${f.id}`}
+                  onFocus={() => props.onFocus(f)}
+                  value={Array.isArray(v) ? (v[0] ?? "") : String(v ?? "")}
+                  disabled={f.readOnly}
+                  onChange={(e) => set(f.name, e.target.value)}
+                >
+                  <option value="" />
+                  {f.options.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  aria-labelledby={`psy-field-${f.id}`}
+                  onFocus={() => props.onFocus(f)}
+                  type="text"
+                  value={typeof v === "string" ? v : ""}
+                  readOnly={f.readOnly}
+                  maxLength={f.maxLen}
+                  onChange={(e) => set(f.name, e.target.value)}
+                />
+              )}
               {source === "" ? null : <small>{source}</small>}
             </li>
           );
