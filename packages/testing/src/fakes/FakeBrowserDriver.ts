@@ -13,6 +13,7 @@ import type {
   Unsubscribe,
   WaitCondition,
 } from "@psyche/protocol";
+import { captureModelVisible } from "../capture.ts";
 import { createIdGenerator, type IdGenerator } from "../ids.ts";
 import { fail } from "./errors.ts";
 
@@ -44,6 +45,13 @@ interface TabState {
   history: string[];
   index: number;
   values: Map<string, string>;
+}
+
+const MASK = "•••";
+
+/** `states` containing `protected` (AX secure text field) or `password` marks a password field. */
+function isSecureField(e: FixtureElement): boolean {
+  return e.states?.some((s) => s === "protected" || s === "password") === true;
 }
 
 const BLOCKED_SCHEMES = ["about:", "chrome:", "file:", "javascript:", "data:"];
@@ -210,7 +218,8 @@ export class FakeBrowserDriver implements BrowserDriver {
     const all: SnapshotRef[] = this.#elements(s).map((e) => {
       const ref: SnapshotRef = { ref: e.ref, role: e.role, name: e.name };
       const value = s.values.get(e.ref) ?? e.value;
-      if (value !== undefined) ref.value = value;
+      // Password fields never expose their value (security §4.7).
+      if (value !== undefined) ref.value = isSecureField(e) && value !== "" ? MASK : value;
       if (e.states !== undefined) ref.states = [...e.states];
       return ref;
     });
@@ -218,6 +227,7 @@ export class FakeBrowserDriver implements BrowserDriver {
     const snap: PageSnapshot = { url: s.tab.url, title: s.tab.title, refs: all.slice(0, max) };
     if (all.length > max) snap.truncated = true;
     if (all.length === 0) snap.sparse = true;
+    captureModelVisible("tool_result", snap, { where: "FakeBrowserDriver.snapshot" });
     return snap;
   }
 
@@ -280,7 +290,9 @@ export class FakeBrowserDriver implements BrowserDriver {
     const s = this.#state(tabId);
     const text = this.#page(s.tab.url).text;
     const max = options.maxChars ?? text.length;
-    return { text: text.slice(0, max), truncated: text.length > max };
+    const result = { text: text.slice(0, max), truncated: text.length > max };
+    captureModelVisible("tool_result", result, { where: "FakeBrowserDriver.readText" });
+    return result;
   }
 
   async screenshot(tabId: string): Promise<{ mime: "image/png"; data: Uint8Array }> {

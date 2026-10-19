@@ -9,6 +9,7 @@ import type {
   SendResult,
   Unsubscribe,
 } from "@psyche/protocol";
+import { captureModelVisible } from "../capture.ts";
 import { createIdGenerator, type IdGenerator } from "../ids.ts";
 import { fail } from "./errors.ts";
 
@@ -113,6 +114,7 @@ export class FakeChannelAdapter implements ChannelAdapter {
   async send(message: OutboundMessage): Promise<SendResult> {
     const max = this.#caps.maxMessageChars;
     if (max !== undefined && message.text.length > max) fail("invalid_params", "message too long");
+    captureModelVisible("transcript", message, { where: `FakeChannelAdapter(${this.type}).send` });
     return this.#record({ kind: "message", chatId: message.chatId, text: message.text });
   }
 
