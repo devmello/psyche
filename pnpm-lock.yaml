@@ -477,6 +477,9 @@ importers:
       '@psyche/db':
         specifier: workspace:*
         version: link:../db
+      '@psyche/permissions':
+        specifier: workspace:*
+        version: link:../permissions
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -829,6 +832,9 @@ importers:
       '@base-ui/react':
         specifier: 1.9.0
         version: 1.9.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@psyche/permissions':
+        specifier: workspace:*
+        version: link:../permissions
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
