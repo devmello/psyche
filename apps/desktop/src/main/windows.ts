@@ -44,7 +44,14 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
   let quick: { win: BaseWindow; view: WebContentsView } | undefined;
   const views = new Map<WebContents, { win: BaseWindow; view: WebContentsView }>();
 
-  const urlFor = (route: string) => new URL(route, opts.rendererUrl).toString();
+  const urlFor = (route: string) => {
+    const url = new URL(route, opts.rendererUrl);
+    const base = new URL(opts.rendererUrl);
+    // Routes are app paths; anything that would leave the renderer's scheme/host is refused.
+    if (url.protocol !== base.protocol || url.host !== base.host)
+      throw new Error("route leaves the app");
+    return url.toString();
+  };
 
   function makeView(win: BaseWindow, route: string, fill = true): WebContentsView {
     const view = new WebContentsView({

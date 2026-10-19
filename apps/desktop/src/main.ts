@@ -21,7 +21,7 @@ import {
   webContents,
 } from "electron";
 import { createDesktopGateway, defaultGatewayOrigin, defaultPsycheHome } from "./gateway-client.ts";
-import { APP_ORIGIN, APP_SCHEME, contentType, resolveAppPath } from "./lib/app-path.ts";
+import { APP_ORIGIN, APP_SCHEME, contentType, isSameApp, resolveAppPath } from "./lib/app-path.ts";
 import { deepLinkFromArgv, parseDeepLink } from "./lib/deep-link.ts";
 import { loadOrCreateDeviceKey } from "./lib/device-key.ts";
 import {
@@ -74,7 +74,6 @@ if (process.defaultApp) {
 
 const home = defaultPsycheHome();
 const rendererUrl = MAIN_WINDOW_VITE_DEV_SERVER_URL ?? `${APP_ORIGIN}/`;
-const rendererOrigin = new URL(rendererUrl).origin;
 const rendererRoot = join(app.getAppPath(), ".vite", "renderer", MAIN_WINDOW_VITE_NAME);
 
 let windows: AppWindows | undefined;
@@ -89,12 +88,7 @@ const pendingCommands: ShellCommand[] = [];
 let quittingEntirely = false;
 
 function isAppUrl(url: string | undefined): boolean {
-  if (!url) return false;
-  try {
-    return new URL(url).origin === rendererOrigin;
-  } catch {
-    return false;
-  }
+  return isSameApp(url, rendererUrl);
 }
 
 function broadcast(channel: string, payload: unknown): void {
@@ -125,6 +119,12 @@ app.on("web-contents-created", (_e, contents) => {
   contents.setWindowOpenHandler(() => ({ action: "deny" }));
   contents.on("will-navigate", (event, url) => {
     if (!isAppUrl(url)) event.preventDefault();
+  });
+  contents.on("will-redirect", (event, url) => {
+    if (!isAppUrl(url)) event.preventDefault();
+  });
+  contents.on("will-frame-navigate", (event) => {
+    if (!isAppUrl(event.url)) event.preventDefault();
   });
 });
 

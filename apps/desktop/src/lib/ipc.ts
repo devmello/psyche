@@ -113,7 +113,10 @@ export function checkHttpUrl(channel: string, v: unknown): string {
 /** Routes the shell may open in a pop-out window (docs/06 §2.7); never a URL. */
 export function checkRoute(channel: string, v: unknown): string {
   const s = str(channel, v, "route", 512);
-  if (!/^\/[A-Za-z0-9/_\-.:]*$/.test(s) || s.includes(".."))
+  // One leading slash only: "//host/x" would resolve to another origin in new URL(route, base).
+  if (!/^\/[A-Za-z0-9_\-.:][A-Za-z0-9/_\-.:]*$/.test(s) && s !== "/")
+    throw new IpcPayloadError(channel, "route must be an app path");
+  if (s.includes("..") || s.includes("//"))
     throw new IpcPayloadError(channel, "route must be an app path");
   return s;
 }

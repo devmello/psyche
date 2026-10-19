@@ -49,3 +49,21 @@ const TYPES: Record<string, string> = {
 export function contentType(path: string): string {
   return TYPES[extname(path).toLowerCase()] ?? "application/octet-stream";
 }
+
+/**
+ * True when `url` belongs to the app renderer at `rendererUrl` (app://psyche, or the Vite dev
+ * server). Compares scheme and host: `URL.origin` is "null" for custom schemes, which would
+ * make file:, data: and about: URLs look like the app.
+ */
+export function isSameApp(url: string | undefined, rendererUrl: string): boolean {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    const r = new URL(rendererUrl);
+    return (
+      u.protocol === r.protocol && u.host === r.host && u.host !== "" && !u.username && !u.password
+    );
+  } catch {
+    return false;
+  }
+}

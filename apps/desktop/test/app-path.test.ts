@@ -28,3 +28,26 @@ describe("app:// paths", () => {
     expect(contentType("a.bin")).toBe("application/octet-stream");
   });
 });
+
+describe("isSameApp", () => {
+  it("accepts only the renderer's scheme and host", async () => {
+    const { isSameApp } = await import("../src/lib/app-path.ts");
+    const app = "app://psyche/";
+    expect(isSameApp("app://psyche/chat/t1", app)).toBe(true);
+    for (const bad of [
+      "file:///Users/x/evil.html",
+      "data:text/html,<script>1</script>",
+      "about:blank",
+      "javascript:alert(1)",
+      "psyche://chat",
+      "app://evil/index.html",
+      "app://user@psyche/",
+      undefined,
+    ])
+      expect(isSameApp(bad, app), String(bad)).toBe(false);
+    const dev = "http://localhost:5173/";
+    expect(isSameApp("http://localhost:5173/chat", dev)).toBe(true);
+    expect(isSameApp("http://localhost:5174/chat", dev)).toBe(false);
+    expect(isSameApp("https://localhost:5173/chat", dev)).toBe(false);
+  });
+});
