@@ -5,8 +5,15 @@ import { listMigrationFiles, openDb } from "../src/index.ts";
 import { makeTmpDir, memoryDb } from "./helpers.ts";
 
 const TABLES = [
+  "chat_queue",
   "devices",
+  "gateway_idempotency",
   "input_requests",
+  "memory_chunks",
+  "memory_claims",
+  "memory_files",
+  "memory_jobs",
+  "memory_state",
   "messages",
   "nodes",
   "pairing_requests",
@@ -17,17 +24,26 @@ const TABLES = [
   "tasks",
   "threads",
   "tool_calls",
+  "tool_payloads",
   "usage",
 ];
 
 function tableNames(db: ReturnType<typeof memoryDb>): string[] {
   return (
-    db.sqlite
-      .prepare(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '_migrations' ORDER BY name",
-      )
-      .all() as { name: string }[]
-  ).map((r) => r.name);
+    (
+      db.sqlite
+        .prepare(
+          "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '_migrations' ORDER BY name",
+        )
+        .all() as { name: string; sql: string }[]
+    )
+      // Virtual tables (FTS5) and their shadow tables are not listed.
+      .filter((r, _, all) => {
+        const virtual = all.filter((t) => /^CREATE VIRTUAL TABLE/i.test(t.sql));
+        return !virtual.some((v) => r.name === v.name || r.name.startsWith(`${v.name}_`));
+      })
+      .map((r) => r.name)
+  );
 }
 
 describe("openDb", () => {

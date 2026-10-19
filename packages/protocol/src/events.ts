@@ -1,6 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, Nullable, Provenance, StringEnum } from "./common.ts";
 import { PsycheError } from "./errors.ts";
+import { QueuedMessage } from "./methods/chat.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
 import { Block } from "./schemas/blocks.ts";
 import { Device, NodeInfo, PairingRequest } from "./schemas/identity.ts";
@@ -45,6 +46,10 @@ export const Events = {
     payload: Type.Object({ threadId: Id, messageId: Id, block: Block }),
     description:
       "A structured block (plan, checklist, approval, question, artifact, receipt, …) was added to a message.",
+  }),
+  "chat.queue.updated": defineEvent({
+    payload: Type.Object({ threadId: Id, items: Type.Array(QueuedMessage) }),
+    description: "The thread's follow-up queue changed (queued, removed or started).",
   }),
   "run.updated": defineEvent({
     payload: Type.Object({ run: Run }),
@@ -94,6 +99,10 @@ export const Events = {
   "thread.updated": defineEvent({
     payload: Type.Object({ thread: Thread }),
     description: "A thread was created, renamed, pinned, archived or restored.",
+  }),
+  "thread.deleted": defineEvent({
+    payload: Type.Object({ threadId: Id }),
+    description: "A thread and its transcript were deleted.",
   }),
   "node.updated": defineEvent({
     payload: Type.Object({ node: NodeInfo }),
@@ -182,6 +191,21 @@ export const Events = {
   "goal.updated": defineEvent({
     payload: Type.Object({ goal: Goal }),
     description: "A goal was created, confirmed, changed or archived.",
+  }),
+  "feed.updated": defineEvent({
+    payload: Type.Object({ posts: Type.Array(FeedPost), briefingId: Type.Optional(Id) }),
+    description:
+      "A whole brief or briefing batch was generated (clients refresh the Feed once instead of per feed.post).",
+  }),
+  "notification.updated": defineEvent({
+    payload: Type.Object({ notification: Notification }),
+    description:
+      "A notification changed: read, re-delivered, or replaced by a de-duplicated notify (same id).",
+  }),
+  "notification.resolved": defineEvent({
+    payload: Type.Object({ notification: Notification }),
+    description:
+      "A notification was resolved (by the user, an action, a superseding state or restart reconciliation).",
   }),
   "automation.updated": defineEvent({
     payload: Type.Object({ automation: Automation }),
