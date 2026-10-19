@@ -7,7 +7,7 @@ import type {
 } from "@psyche/protocol";
 import { assertNoSecrets, registerSecret } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
-import { bindingHash } from "../../src/framework/binding.ts";
+import { toolCallBindingHash } from "../../src/framework/binding.ts";
 import { ConnectorRegistry } from "../../src/framework/registry.ts";
 import type { ConnectorEvent } from "../../src/framework/types.ts";
 import { GOOGLE_SCOPES, TESTING_MODE_TTL_MS } from "../../src/google/auth.ts";
@@ -29,14 +29,15 @@ class MapRegistry implements ToolRegistry {
   }
 }
 
-/** Broker stub: binding checks against one approved hash, receipts recorded. */
-function stubBroker(approved: Record<string, string> = {}, approveAll = false) {
+/** Broker stub: approvals the loop already verified (id → approved binding hash), receipts recorded. */
+function stubBroker(approved: Record<string, string> = {}) {
   const receipts: ReceiptInput[] = [];
   const broker = {
-    async verifyBinding(id: string, hash: string) {
-      return approveAll || approved[id] === hash
-        ? { ok: true as const, approval: {} as never }
-        : { ok: false as const, reason: "binding_mismatch" as const };
+    async get(id: string) {
+      const bindingHash = approved[id];
+      return bindingHash === undefined
+        ? undefined
+        : { id, status: "approved", bindingHash, requestedBy: { toolCallId: "call-1" } };
     },
     async recordReceipt(input: ReceiptInput) {
       receipts.push(input);
@@ -304,7 +305,7 @@ describe("Gmail send through the registry", () => {
         subject: "Lunch",
       },
     });
-    expected = bindingHash("send_email", desc?.bindingFields);
+    expected = toolCallBindingHash("mcp__google-1__gmail_send", mail, desc);
     approvals.ap_1 = expected;
     g.route("POST", "/gmail/v1/users/me/messages/send", ({ body }: { body: string }) => {
       const raw = JSON.parse(body).raw as string;
@@ -327,10 +328,10 @@ describe("Gmail send through the registry", () => {
     const approvals: Record<string, string> = {};
     const { broker } = stubBroker(approvals);
     const { g, tools } = await connected({ broker, approvalFor: () => "ap_1" });
-    approvals.ap_1 = bindingHash(
-      "send_email",
-      sendBinding("owner@example.com", mail).bindingFields,
-    );
+    approvals.ap_1 = toolCallBindingHash("mcp__google-1__gmail_send", mail, {
+      kind: "send_email",
+      bindingFields: sendBinding("owner@example.com", mail).bindingFields,
+    });
     await expect(
       run(tools, "mcp__google-1__gmail_send", { ...mail, body: "Send me your password." }),
     ).rejects.toMatchObject({
@@ -437,8 +438,9 @@ describe("sync", () => {
 
 describe("Calendar", () => {
   it("lists events only in bounded ranges, queries free/busy, and creates events with a calendar binding", async () => {
+    const approvals: Record<string, string> = {};
     const { g, tools } = await connected({
-      broker: stubBroker({}, true).broker,
+      broker: stubBroker(approvals).broker,
       approvalFor: () => "ap",
     });
     g.route("GET", "/calendar/v3/calendars/primary/events", fixture("events-list"));
@@ -481,6 +483,7 @@ describe("Calendar", () => {
       tools.get("mcp__google-1__calendar_delete_event")?.describeCall?.({ eventId: "e1" })
         ?.sideEffect,
     ).toBe("destructive");
+    approvals.ap = toolCallBindingHash("mcp__google-1__calendar_create_event", params, desc);
     const created = await run(tools, "mcp__google-1__calendar_create_event", params);
     expect(created.output).toMatchObject({ id: "new-1", summary: "Lunch" });
   });

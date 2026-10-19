@@ -44,3 +44,24 @@ export function sha256(input: string | Uint8Array): `sha256:${string}` {
 export function bindingHash(kind: string, fields: unknown): `sha256:${string}` {
   return sha256(`psyche.binding.v1|${kind}|${canonicalJSON(fields)}`);
 }
+
+/**
+ * The binding hash the agent loop approved for a tool call (agent-core `loop.ts` `#gate`), so the
+ * executor re-checks exactly what the owner approved (issue #78). With a described kind the loop
+ * binds `bindingHash(kind, {tool, paramsHash, fields?})`; without one the broker's generic recipe
+ * is `bindingHash("connector_action", {tool, paramsHash})`. `paramsHash` is
+ * `sha256(canonicalJSON(params))` with `undefined` as `null`, as the loop computes it.
+ */
+export function toolCallBindingHash(
+  tool: string,
+  params: unknown,
+  desc: { kind?: string; bindingFields?: unknown } | undefined,
+): `sha256:${string}` {
+  const paramsHash = sha256(params === undefined ? "null" : canonicalJSON(params));
+  if (desc?.kind === undefined) return bindingHash("connector_action", { tool, paramsHash });
+  return bindingHash(desc.kind, {
+    tool,
+    paramsHash,
+    ...(desc.bindingFields === undefined ? {} : { fields: desc.bindingFields }),
+  });
+}
