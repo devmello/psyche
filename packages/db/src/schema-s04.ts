@@ -70,5 +70,66 @@ export const inputRequests = sqliteTable("input_requests", {
   answeredByDeviceId: text("answered_by_device_id"),
 });
 
+// §8 Automations ------------------------------------------------------------------------------
+
+export const automations = sqliteTable("automations", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull(),
+  title: text("title").notNull(),
+  schedule: text("schedule").notNull(),
+  timezone: text("timezone").notNull(),
+  sessionTarget: text("session_target").notNull(),
+  delivery: text("delivery").notNull(),
+  prompt: text("prompt").notNull(),
+  scratch: text("scratch"),
+  enabled: integer("enabled").notNull(),
+  lightContext: integer("light_context"),
+  system: integer("system").notNull(),
+  nextRunAt: text("next_run_at"),
+  lastRunAt: text("last_run_at"),
+  lastStatus: text("last_status"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const automationRuns = sqliteTable("automation_runs", {
+  id: text("id").primaryKey(),
+  automationId: text("automation_id").notNull(),
+  threadId: text("thread_id"),
+  taskId: text("task_id"),
+  trigger: text("trigger").notNull(),
+  scheduledFor: text("scheduled_for").notNull(),
+  coalesced: integer("coalesced").notNull(),
+  startedAt: text("started_at").notNull(),
+  endedAt: text("ended_at"),
+  status: text("status").notNull(),
+  summary: text("summary"),
+  notificationId: text("notification_id"),
+  createdAt: text("created_at").notNull(),
+});
+
+export const watches = sqliteTable("watches", {
+  id: text("id").primaryKey(),
+  automationId: text("automation_id").notNull(),
+  url: text("url").notNull(),
+  kind: text("kind").notNull(),
+  selector: text("selector"),
+  threshold: text("threshold"),
+  lastValue: text("last_value"),
+  alertedValue: text("alerted_value"),
+  lastCheckedAt: text("last_checked_at"),
+  failures: integer("failures").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
 /** Every S04 table, merged into `schema` in `schema.ts`. */
-export const s04Schema = { tasks, taskCheckpoints, taskActions, inputRequests };
+export const s04Schema = {
+  tasks,
+  taskCheckpoints,
+  taskActions,
+  inputRequests,
+  automations,
+  automationRuns,
+  watches,
+};
