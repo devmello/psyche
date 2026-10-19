@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { bindingProblem, importRows, SecretRedactor } from "../src/index.ts";
 import { approveFill, type Harness, makeHarness, PASSWORD_FIELD } from "./helpers.ts";
+import { VISA } from "./samples.ts";
 
 const GH = { kind: "origin" as const, value: "https://github.com" };
 let h: Harness;
@@ -95,8 +96,7 @@ describe("review fixes", () => {
   });
 
   it("import skip reasons never repeat cell contents", () => {
-    const csv =
-      "folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp\n,,credit card 4111111111111111,x,,,0,,,,\n";
+    const csv = `folder,favorite,type,name,notes,fields,reprompt,login_uri,login_username,login_password,login_totp\n,,credit card ${VISA},x,,,0,,,,\n`;
     const r = importRows(csv, "bitwarden");
     expect(r.rows[0]).toEqual({ ok: false, row: 2, reason: "refused: card items" });
   });

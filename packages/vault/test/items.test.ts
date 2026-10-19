@@ -1,7 +1,15 @@
-import { assertNoSecrets, clearSecrets, registerSecret } from "@psyche/testing";
+import {
+  assertNoSecrets,
+  clearSecrets,
+  loadSecretRegistry,
+  registerSecret,
+  resolveSample,
+  type Sample,
+} from "@psyche/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { luhnValid, REFUSAL_EXPLANATION, scanText } from "../src/index.ts";
 import { approveFill, type Harness, makeHarness } from "./helpers.ts";
+import { AMEX, IBAN_GB_SPACED, MC_DASHED, SSN, VISA, VISA_SPACED } from "./samples.ts";
 
 let h: Harness;
 beforeEach(async () => {
@@ -85,15 +93,12 @@ describe("items (G2, G3)", () => {
 
   it("refuses card numbers, CVVs, bank accounts and government ids with an explanation", async () => {
     const refused: [string, { password?: string; text?: string }][] = [
-      ["card", { password: "4111 1111 1111 1111" }],
-      [
-        "card in notes",
-        { password: "fine-password-1", text: "visa 5555-5555-5555-4444 exp 12/29" },
-      ],
-      ["amex", { password: "378282246310005" }],
+      ["card", { password: VISA_SPACED }],
+      ["card in notes", { password: "fine-password-1", text: `visa ${MC_DASHED} exp 12/29` }],
+      ["amex", { password: AMEX }],
       ["cvv", { password: "fine-password-2", text: "CVV: 123" }],
-      ["iban", { password: "fine-password-3", text: "GB82 WEST 1234 5698 7654 32" }],
-      ["ssn", { password: "fine-password-4", text: "ssn 123-45-6789" }],
+      ["iban", { password: "fine-password-3", text: IBAN_GB_SPACED }],
+      ["ssn", { password: "fine-password-4", text: `ssn ${SSN}` }],
       ["passport", { password: "fine-password-5", text: "passport number X1234567" }],
       ["routing", { password: "fine-password-6", text: "routing number 021000021" }],
     ];
@@ -113,7 +118,7 @@ describe("items (G2, G3)", () => {
     await login("1234567812345678"); // fails Luhn
     await login("4111111111111112"); // Visa prefix, fails Luhn
     await login("9999999999999995"); // passes Luhn, no issuer
-    expect(luhnValid("4111111111111111")).toBe(true);
+    expect(luhnValid(VISA)).toBe(true);
     expect(scanText("call me at 415-555-0100")).toBeNull();
   });
 
@@ -143,9 +148,7 @@ describe("items (G2, G3)", () => {
       secret: { password: "edited-secret-2" },
     });
     expect(edited.name).toBe("Renamed");
-    await expect(
-      h.vault.update(meta.id, { secret: { text: "4111 1111 1111 1111" } }),
-    ).rejects.toMatchObject({
+    await expect(h.vault.update(meta.id, { secret: { text: VISA_SPACED } })).rejects.toMatchObject({
       code: "policy_denied",
     });
     expect(await h.vault.delete(meta.id)).toBe(true);
@@ -187,5 +190,25 @@ describe("items (G2, G3)", () => {
       target: "https://site.example",
     });
     expect((await h.vault.get(meta.id))?.useCount).toBe(55);
+  });
+});
+
+describe("refusal scanner vs the shared pattern registry (S18)", () => {
+  const { patternSamples } = loadSecretRegistry();
+  const kinds: [string, string][] = [
+    ["card", "card_number"],
+    ["us_ssn", "government_id"],
+    ["iban", "bank_account"],
+    ["us_bank_account", "bank_account"],
+    ["passport", "government_id"],
+  ];
+  it.each(kinds)("refuses every %s sample and ignores the look-alikes", (kind, category) => {
+    const set = patternSamples[kind] as
+      | { mustMatch?: Sample[]; mustNotMatch?: Sample[] }
+      | undefined;
+    for (const s of set?.mustMatch ?? [])
+      expect(scanText(resolveSample(s)), resolveSample(s)).toBe(category);
+    for (const s of set?.mustNotMatch ?? [])
+      expect(scanText(resolveSample(s)), resolveSample(s)).toBeNull();
   });
 });

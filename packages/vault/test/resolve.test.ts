@@ -4,6 +4,7 @@ import { describeCredentialBrokerConformance } from "@psyche/testing/conformance
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { credentialFillBindingHash, parseTotpSeed, totpCode } from "../src/index.ts";
 import { approveFill, type Harness, makeHarness, PASSWORD_FIELD } from "./helpers.ts";
+import { SSH_KEY_BLOCK } from "./samples.ts";
 
 const GH = { kind: "origin" as const, value: "https://github.com" };
 const PW = "gh-password-0123456789";
@@ -276,7 +277,7 @@ describe("resolve (G4, G5, G7)", () => {
       kind: "ssh_key",
       name: "Deploy key",
       bindings: [{ host: "git.example.com" }],
-      secret: { privateKey: "-----BEGIN OPENSSH PRIVATE KEY-----fake-----END" },
+      secret: { privateKey: SSH_KEY_BLOCK },
     });
     const target = { kind: "origin" as const, value: "https://git.example.com" };
     for (let i = 0; i < 2; i += 1) {

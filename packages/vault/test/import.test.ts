@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { detectFormat, parseCsv } from "../src/index.ts";
 import { type Harness, makeHarness } from "./helpers.ts";
+import { SSN, VISA_SPACED } from "./samples.ts";
 
 let h: Harness;
 beforeEach(async () => {
@@ -11,7 +12,7 @@ afterEach(() => h.cleanup());
 
 const CHROME = `name,url,username,password,note
 github.com,https://github.com/login,pat,chrome-pw-111111,
-"Bank, Inc",https://bank.example/,pat,"pw-with,comma-""q""",card 4111 1111 1111 1111
+"Bank, Inc",https://bank.example/,pat,"pw-with,comma-""q""",card ${VISA_SPACED}
 app,android://xyz@com.example.app/,pat,android-only-pw-1,
 `;
 
@@ -24,7 +25,7 @@ const BITWARDEN = `folder,favorite,type,name,notes,fields,reprompt,login_uri,log
 
 const ONEPASSWORD = `Title,Url,Username,Password,OTPAuth,Favorite,Archived,Tags,Notes
 Fastmail,https://www.fastmail.com,pat@fastmail.com,op-pw-444444,otpauth://totp/Fastmail:pat?secret=JBSWY3DPEHPK3PXP&issuer=Fastmail,false,false,,
-Tax,https://irs.example,pat,op-pw-555555,,false,false,,SSN 123-45-6789
+Tax,https://irs.example,pat,op-pw-555555,,false,false,,SSN ${SSN}
 `;
 
 describe("CSV parsing", () => {
