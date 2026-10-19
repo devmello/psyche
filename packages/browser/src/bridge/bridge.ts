@@ -91,7 +91,7 @@ export class BridgeClient {
     return {
       send: async <T>(method: string, params?: Record<string, unknown>): Promise<T> => {
         const check = checkCdpCommand(method, params);
-        if (!check.ok) throw new PsycheError("forbidden", check.reason);
+        if (!check.ok) throw new PsycheError("method_not_allowed", check.reason);
         const body: BridgeMethodParams<"bridge.cdp.send"> = { tabId, method };
         if (params !== undefined) body.params = params;
         try {

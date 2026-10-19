@@ -258,3 +258,64 @@ describe("snapshot budgets", () => {
     expect(again.refs.map((r) => r.ref)).toEqual(snap.refs.map((r) => r.ref));
   });
 });
+
+describe("review regressions", () => {
+  const base = {
+    ref: "ref_1",
+    role: "button",
+    tag: "BUTTON",
+    inForm: false,
+    submits: false,
+    secure: false,
+    frameOrigin: "https://a.com",
+    opensPopup: false,
+  };
+  it("classifies script buttons, keys and field submits strictly", async () => {
+    const { classifyKeys, classifyFormSubmit } = await import("../src/tools/classify.ts");
+    expect(classifyActivation({ ...base, name: "Send" }).sideEffect).toBe("write");
+    expect(classifyActivation({ ...base, name: "Show more" }).sideEffect).toBe("read");
+    expect(classifyActivation({ ...base, name: "Transfer $500" }).sideEffect).toBe("financial");
+    expect(classifyActivation({ ...base, role: "tab", name: "Overview" }).sideEffect).toBe("read");
+    const field = {
+      ...base,
+      role: "textbox",
+      tag: "INPUT",
+      name: "Card",
+      inForm: true,
+      formAction: "https://a.com/checkout",
+      formMethod: "post",
+    };
+    expect(classifyFormSubmit(field).sideEffect).toBe("financial");
+    expect(classifyKeys("Enter", field).sideEffect).toBe("financial");
+    expect(classifyKeys("Space", { ...base, name: "Place order" }).sideEffect).toBe("financial");
+    expect(classifyKeys("Tab", { ...base, name: "Place order" }).sideEffect).toBe("read");
+    expect(classifyKeys("Enter", undefined).sideEffect).toBe("write");
+  });
+  it("refuses clipboard chords", () => {
+    expect(() => keyEvents("Meta+v")).toThrow(/clipboard/);
+    expect(() => keyEvents("Control+c")).toThrow(/clipboard/);
+    expect(() => keyEvents("Shift+Insert")).toThrow();
+  });
+  it("masks credential-like URL parameters", async () => {
+    const { redactUrl, redactUrlsIn } = await import("../src/origin/redact-url.ts");
+    expect(redactUrl("https://a.com/cb?code=abc&x=1#access_token=t")).toBe(
+      "https://a.com/cb?code=•••&x=1#access_token=•••",
+    );
+    expect(redactUrl("https://a.com/p?q=shoes")).toBe("https://a.com/p?q=shoes");
+    expect(redactUrlsIn({ tabs: [{ url: "https://a.com/?token=1" }] })).toEqual({
+      tabs: [{ url: "https://a.com/?token=•••" }],
+    });
+  });
+  it("applies the local blocklist on synchronous (redirect) hops", async () => {
+    const { OriginPolicy } = await import("../src/origin/policy.ts");
+    const { LocalBlocklist } = await import("../src/origin/reputation.ts");
+    const p = new OriginPolicy({
+      readOnly: ["https://evil.example"],
+      reputation: new LocalBlocklist(["evil.example"]),
+    });
+    expect(p.evaluateSync("https://evil.example/x", "redirect")).toMatchObject({
+      action: "deny",
+      reason: "reputation",
+    });
+  });
+});

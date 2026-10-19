@@ -9,6 +9,8 @@ export type ReputationVerdict = "ok" | "block" | "unknown";
 
 export interface ReputationCheck {
   check(origin: string): Promise<ReputationVerdict>;
+  /** Local-only verdict for the synchronous per-hop check (redirects, commits). */
+  checkSync?(origin: string): ReputationVerdict;
 }
 
 /** Canonical (lowercased, IDNA-normalized, no trailing dot) form of a bare host. */
@@ -46,6 +48,10 @@ export class LocalBlocklist implements ReputationCheck {
   }
 
   async check(origin: string): Promise<ReputationVerdict> {
+    return this.checkSync(origin);
+  }
+
+  checkSync(origin: string): ReputationVerdict {
     return this.has(canonicalizeUrl(origin).host) ? "block" : "ok";
   }
 }
@@ -65,6 +71,12 @@ export class ChainedReputation implements ReputationCheck {
 
   constructor(options: ChainedReputationOptions) {
     this.#o = options;
+  }
+
+  checkSync(origin: string): ReputationVerdict {
+    return this.#o.local.checkSync(origin) === "block"
+      ? "block"
+      : (this.#cache.get(origin) ?? "ok");
   }
 
   async check(origin: string): Promise<ReputationVerdict> {

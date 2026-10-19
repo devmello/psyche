@@ -58,6 +58,11 @@ export const SELECT_HELPER = `/* psyche:select */ function (values) {
   return { ok: matched.length > 0, matched: matched.length };
 }`;
 
+/** Fixed helper: is this element the focused one? Reads nothing else. */
+export const FOCUS_HELPER = `/* psyche:focused */ function () {
+  return { ok: document.activeElement === this };
+}`;
+
 /** Fixed helper: starts a download of `url` from the page's context (cookies apply). */
 export const DOWNLOAD_HELPER = `/* psyche:download */ function (url) {
   const a = document.createElement("a");
@@ -184,6 +189,7 @@ export class PageController {
   #closed = false;
   #stoppedUrl: string | undefined;
   #fetching = false;
+  #filledSinceNav = false;
   /** Main-frame document requests since the current navigation started (0 = initial hop). */
   #docHops = 0;
 
@@ -286,6 +292,7 @@ export class PageController {
         this.#worlds.clear();
         this.#dialog = undefined;
         this.#setSecure(false);
+        this.#filledSinceNav = false;
         this.refs.setDocument(`${this.#loaderId}|${this.#url}`);
         this.#docHops = 0;
         for (const w of this.#loadWaiters) {
@@ -498,7 +505,14 @@ export class PageController {
     await this.#t.send("Page.screencastFrameAck", { sessionId }).catch(() => undefined);
     const sink = this.#o.recording;
     // Frames while a secure field is active are dropped, as screenshots are (security §4.7).
-    if (sink === undefined || this.#secureActive || this.#blocked !== undefined) return;
+    if (
+      sink === undefined ||
+      this.#secureActive ||
+      this.#filledSinceNav ||
+      this.#blocked !== undefined
+    ) {
+      return;
+    }
     if (typeof p.data !== "string") return;
     await sink.frame({
       tabId: this.tabId,
@@ -678,6 +692,8 @@ export class PageController {
     this.#o.assertAgent();
     const href = await this.#checkInitial(url);
     return this.#runNavigation(async () => {
+      // Re-checked after the (possibly remote) reputation lookup (review finding 5).
+      this.#o.assertAgent();
       const r = await this.#t.send<{ errorText?: string; loaderId?: string }>("Page.navigate", {
         url: href,
       });
@@ -701,6 +717,7 @@ export class PageController {
     const entry = h.entries[h.currentIndex + delta];
     if (entry === undefined) return { url: this.#url, title: this.#title };
     await this.#checkInitial(entry.url);
+    this.#o.assertAgent();
     return this.#runNavigation(
       () =>
         this.#t.send("Page.navigateToHistoryEntry", { entryId: entry.id }).then(() => undefined),
@@ -802,9 +819,10 @@ export class PageController {
 
   async screenshot(): Promise<{ mime: "image/png"; data: Uint8Array }> {
     this.#assertReadable();
-    // Re-check: a secure field focused or holding a value suppresses screenshots (§4.7).
+    // Re-check: a secure field focused or holding a value suppresses screenshots (§4.7), and so
+    // does any vault fill on this page, secure field or not (review finding 6b).
     await this.snapshot({ maxChars: 1000, maxRefs: 1 });
-    if (this.#secureActive) {
+    if (this.#secureActive || this.#filledSinceNav) {
       throw new PsycheError(
         "policy_denied",
         "a password or other secure field is active; screenshots are suppressed",
@@ -948,6 +966,7 @@ export class PageController {
       executionContextId: ctx,
     });
     if (object.objectId === undefined) throw new PsycheError("conflict", "element not resolvable");
+    this.#o.assertAgent();
     const r = await this.#t.send<{ result: { value?: T } }>("Runtime.callFunctionOn", {
       objectId: object.objectId,
       functionDeclaration: fn,
@@ -995,6 +1014,7 @@ export class PageController {
     }
     const amount = options.amount ?? 600;
     const d = options.direction;
+    this.#o.assertAgent();
     await this.#mouse({
       type: "mouseWheel",
       x,
@@ -1074,9 +1094,27 @@ export class PageController {
       });
     }
     const e = this.#resolveRef(ref);
+    const loader = this.#loaderId;
     await this.#t.send("DOM.focus", { backendNodeId: e.backendNodeId });
-    this.#o.assertAgent();
-    await secret.use((value) => this.#t.send("Input.insertText", { text: value }));
+    // Focus must have landed on the approved element: a focus handler could move it to another
+    // field or into a frame (security §4.6; review finding 6a).
+    const focused = await this.#isolatedCall<{ ok: boolean }>(e.backendNodeId, FOCUS_HELPER, []);
+    if (focused?.ok !== true) {
+      throw new PsycheError("policy_denied", `${ref} did not keep focus; the fill was not typed`, {
+        details: { reason: "focus_moved" },
+      });
+    }
+    this.#filledSinceNav = true;
+    await secret.use((value) => {
+      // Last check right before the value leaves: same document, same origin, agent in control.
+      this.#o.assertAgent();
+      if (this.#loaderId !== loader || this.origin !== want) {
+        throw new PsycheError("policy_denied", "the page changed before the fill", {
+          details: { reason: "page_changed" },
+        });
+      }
+      return this.#t.send("Input.insertText", { text: value });
+    });
     if (e.meta.secure) this.#setSecure(true);
   }
 

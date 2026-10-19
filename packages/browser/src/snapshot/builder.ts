@@ -1,6 +1,7 @@
 import type { RefBox } from "@psyche/protocol";
 import type { AXNode, CaptureSnapshotResult, LayoutViewport } from "../cdp/types.ts";
 import { tryOrigin } from "../origin/canonical.ts";
+import { redactUrl } from "../origin/redact-url.ts";
 import type { BrowserSnapshot, ElementMeta, SnapshotOptions, SnapshotRefEx } from "../types.ts";
 import { DomIndex, type DomNodeInfo } from "./dom.ts";
 import type { RefRegistry } from "./refs.ts";
@@ -467,7 +468,7 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
   if (depthTruncated) flags.push("TRUNCATED(maxDepth)");
   if (captcha) flags.push("CAPTCHA (never attempted: hand it to the owner)");
   if (sparse) flags.push("SPARSE (tree has little content; a screenshot is suggested)");
-  const header = `# ${clip(input.url, 200)} "${clip(redact(norm(input.title)), opts.nameMax)}" refs=${refs.length} interactive=${interactive}${flags.length > 0 ? ` ${flags.join(" ")}` : ""}`;
+  const header = `# ${clip(redactUrl(input.url), 200)} "${clip(redact(norm(input.title)), opts.nameMax)}" refs=${refs.length} interactive=${interactive}${flags.length > 0 ? ` ${flags.join(" ")}` : ""}`;
   const text = [header, ...pageLines.map((l) => l.text)].join("\n");
   const buildMs = performance.now() - t0;
 

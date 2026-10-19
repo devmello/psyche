@@ -659,6 +659,9 @@ export class MockTab implements CdpTarget {
         },
       };
     }
+    if (fn.includes("psyche:focused")) {
+      return { result: { type: "object", value: { ok: this.#focused === el } } };
+    }
     if (fn.includes("psyche:download")) {
       void this.navigateTo(String(args[0]?.value), "GET", { downloadOnly: true });
       return { result: { type: "object", value: { ok: true } } };

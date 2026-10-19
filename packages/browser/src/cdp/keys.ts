@@ -41,15 +41,12 @@ const MODIFIERS: Record<string, number> = {
 const COMMANDS: Record<string, string> = {
   "4+a": "selectAll",
   "2+a": "selectAll",
-  "4+c": "copy",
-  "2+c": "copy",
-  "4+x": "cut",
-  "2+x": "cut",
-  "4+v": "paste",
-  "2+v": "paste",
   "4+z": "undo",
   "2+z": "undo",
 };
+
+/** Clipboard chords are refused: paste would put the owner's clipboard into the page. */
+const CLIPBOARD_KEYS = new Set(["c", "x", "v", "insert"]);
 
 export interface KeyEventParams {
   type: "keyDown" | "rawKeyDown" | "keyUp";
@@ -91,6 +88,14 @@ export function keyEvents(chord: string): KeyEventParams[] {
       keyCode: isLetter || isDigit ? upper.charCodeAt(0) : 0,
       text: (modifiers & 8) !== 0 && isLetter ? upper : ch,
     };
+  }
+  if ((modifiers & (2 | 4)) !== 0 && CLIPBOARD_KEYS.has(def.key.toLowerCase())) {
+    throw new PsycheError("policy_denied", "clipboard shortcuts are not available to the agent", {
+      details: { reason: "clipboard" },
+    });
+  }
+  if ((modifiers & 8) !== 0 && def.key === "Insert") {
+    throw new PsycheError("policy_denied", "clipboard shortcuts are not available to the agent");
   }
   const textual = def.text !== undefined && (modifiers & (2 | 4)) === 0;
   const down: KeyEventParams = {

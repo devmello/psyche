@@ -10,7 +10,9 @@ import {
   type Dialog,
   type Page,
 } from "playwright-core";
+import { checkCdpCommand } from "../bridge/allowlist.ts";
 import type { CdpTarget } from "../cdp/page.ts";
+import { safeFilename } from "../downloads/library.ts";
 import { listProfileNames, profileDir, psycheHome } from "../profiles.ts";
 import type { OpenSessionOptions } from "../types.ts";
 import { DriverBase, type DriverDeps, newId, type SessionState, type TabState } from "./base.ts";
@@ -45,6 +47,9 @@ interface ContextEntry {
 function cdpTarget(session: CDPSession): CdpTarget {
   return {
     send: async <T>(method: string, params?: Record<string, unknown>): Promise<T> => {
+      // Same allowlist as the bridge, so both drivers can send exactly the same commands.
+      const check = checkCdpCommand(method, params);
+      if (!check.ok) throw new PsycheError("method_not_allowed", check.reason);
       try {
         // Typed per-method in Playwright; this package speaks raw CDP by name.
         const send = session.send as unknown as (m: string, p?: object) => Promise<unknown>;
@@ -200,7 +205,7 @@ export class PlaywrightDriver extends DriverBase {
       void (async () => {
         try {
           const dir = await this.#dlDir();
-          const path = join(dir, `${newId("pwdl")}-${download.suggestedFilename()}`);
+          const path = join(dir, `${newId("pwdl")}-${safeFilename(download.suggestedFilename())}`);
           await download.saveAs(path);
           await this.downloadCompleted(id, {
             path,

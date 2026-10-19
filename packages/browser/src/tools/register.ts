@@ -15,8 +15,15 @@ import {
 } from "@psyche/protocol";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import { tryOrigin } from "../origin/canonical.ts";
-import type { ActionTarget, BrowserDriverEx } from "../types.ts";
-import { classifyActivation, stricter } from "./classify.ts";
+import { redactUrlsIn } from "../origin/redact-url.ts";
+import type { ActionTarget, BrowserDriverEx, ElementMeta } from "../types.ts";
+import {
+  type ActionClass,
+  classifyActivation,
+  classifyFormSubmit,
+  classifyKeys,
+  stricter,
+} from "./classify.ts";
 import { ApprovalGate, type CallContext, gateError } from "./gate.ts";
 
 /**
@@ -81,9 +88,14 @@ export function browserToolDefs(deps: BrowserToolDeps) {
     }
     return tabId;
   };
-  const activation = (tabId: string, ref: string, summary: string): ToolCallDescription => {
+  const activation = (
+    tabId: string,
+    ref: string,
+    summary: string,
+    classify: (meta: ElementMeta | undefined) => ActionClass = classifyActivation,
+  ): ToolCallDescription => {
     const meta = d.peek(tabId, ref);
-    const c = classifyActivation(meta);
+    const c = classify(meta);
     const out: ToolCallDescription = { sideEffect: c.sideEffect, summary };
     const origin = d.tabOrigin(tabId);
     if (origin !== undefined) out.target = { kind: "origin", value: origin };
@@ -307,10 +319,12 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       sideEffect: "read",
       describe: (p) => {
         if (p.submit !== true) return { summary: "Type into a field" };
-        const meta = d.peek(p.tabId, p.ref);
-        if (meta === undefined || !meta.inForm)
-          return { sideEffect: "write", summary: "Type and press Enter" };
-        return activation(p.tabId, p.ref, "Type and submit");
+        // Enter in a field submits the field's form (review finding 2).
+        return activation(p.tabId, p.ref, "Type and submit", (meta) =>
+          meta?.inForm === true
+            ? classifyFormSubmit(meta)
+            : { sideEffect: "write", reason: "Enter outside a form" },
+        );
       },
       run: async (p, { callId }) => {
         const tabId = await sessionTab(callId, p.tabId);
@@ -329,7 +343,9 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       }),
       sideEffect: "read",
       describe: (p) =>
-        /\benter\b/i.test(p.keys) ? { sideEffect: "write", summary: `Press ${p.keys}` } : {},
+        p.ref === undefined
+          ? { sideEffect: classifyKeys(p.keys, undefined).sideEffect, summary: `Press ${p.keys}` }
+          : activation(p.tabId, p.ref, `Press ${p.keys}`, (meta) => classifyKeys(p.keys, meta)),
       run: async (p, { callId }) => {
         const o: { ref?: string } = {};
         if (p.ref !== undefined) o.ref = p.ref;
@@ -346,6 +362,13 @@ export function browserToolDefs(deps: BrowserToolDeps) {
         values: Type.Array(Type.String(), { minItems: 1, maxItems: 50 }),
       }),
       sideEffect: "read",
+      // `onchange` auto-submit is common: a select in a POST form counts as a write.
+      describe: (p) =>
+        activation(p.tabId, p.ref, "Choose an option", (meta) =>
+          meta?.inForm === true && meta.formMethod !== "get"
+            ? { sideEffect: "write", reason: "select in a POST form" }
+            : { sideEffect: "read", reason: "select" },
+        ),
       run: async (p, { callId }) => {
         await d.select(await sessionTab(callId, p.tabId), p.ref, p.values);
         return { ok: true };
@@ -432,7 +455,7 @@ export function browserToolDefs(deps: BrowserToolDeps) {
         source: Type.Union([Type.Object({ ref: Ref }), Type.Object({ url: Url })]),
       }),
       sideEffect: "write",
-      rerun: false,
+      rerun: true,
       describe: (p) => ("url" in p.source ? originTarget(p.source.url) : {}),
       run: async (p, { callId }) => ({
         download: await d.download(await sessionTab(callId, p.tabId), p.source),
@@ -503,13 +526,26 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       provenance: "trusted",
       describe: (p) => {
         const origin = d.tabOrigin(p.tabId);
-        return origin === undefined
-          ? { kind: "credential_fill" }
-          : {
-              kind: "credential_fill",
-              target: { kind: "origin", value: origin },
-              summary: `Fill a saved credential on ${origin}`,
-            };
+        const ph = parsePlaceholders(p.placeholder)[0];
+        const meta = d.peek(p.tabId, p.ref);
+        const out: ToolCallDescription = { kind: "credential_fill" };
+        if (origin === undefined) return out;
+        out.target = { kind: "origin", value: origin };
+        out.summary = `Fill a saved credential on ${origin}`;
+        if (ph !== undefined) {
+          // Data model §4.2 credential_fill: item, origin, field selector, tab — the same fields
+          // the executor's own gate binds, so a loop-level approval binds the origin too.
+          out.bindingFields = {
+            item: ph.slug,
+            field: ph.field ?? null,
+            origin,
+            ref: p.ref,
+            element: meta?.name ?? null,
+            tabId: p.tabId,
+          };
+          out.grantKey = `credential_fill|${ph.slug}|${origin}`;
+        }
+        return out;
       },
       run: async (p, { callId, signal }) => fillCredential(deps, callId, signal, p),
     }),
@@ -628,11 +664,12 @@ export function registerBrowserTools(registry: ToolRegistry, deps: BrowserToolDe
         if (!validator.check(params)) {
           throw new PsycheError("invalid_params", validator.errors(params).join("; "));
         }
-        const run = () => t.run(params as never, { callId, signal });
-        return {
-          output: await withOriginApprovals(deps, gate, t, params, callId, signal, run),
-          provenance,
+        const run = async () => {
+          await gateReadOnlyWrite(deps, gate, t, params, callId, signal);
+          return t.run(params as never, { callId, signal });
         };
+        const output = await withOriginApprovals(deps, gate, t, params, callId, signal, run);
+        return { output: redactUrlsIn(output), provenance };
       } catch (err) {
         const e = PsycheError.from(err);
         return { output: { error: e.toPayload() }, isError: true, provenance };
@@ -653,9 +690,15 @@ export function registerBrowserTools(registry: ToolRegistry, deps: BrowserToolDe
     if (describe !== undefined) {
       registration.describeCall = (params) => {
         if (!validator.check(params)) return {};
-        const out = describe(params as never);
-        if (out.sideEffect !== undefined) out.sideEffect = stricter(out.sideEffect, t.sideEffect);
-        return out;
+        // Must not throw for valid params (AgentLoop contract): an unknown tab or ref fails
+        // later in `execute`, so the conservative answer here is "write".
+        try {
+          const out = describe(params as never);
+          if (out.sideEffect !== undefined) out.sideEffect = stricter(out.sideEffect, t.sideEffect);
+          return out;
+        } catch {
+          return { sideEffect: stricter("write", t.sideEffect) };
+        }
       };
     }
     return registry.register(registration);
@@ -721,4 +764,63 @@ async function withOriginApprovals(
       }
     }
   }
+}
+
+const SEVERITY: Record<SideEffect, number> = {
+  none: 0,
+  read: 1,
+  write: 2,
+  destructive: 3,
+  financial: 4,
+};
+
+/**
+ * Security §6: writes on a read-only origin ask. When the call is a write or worse, the tab's
+ * origin has only `read` access in the task's set, and the loop did not already ask for this
+ * exact call, ask through the broker as a new target; on approval the origin becomes
+ * read-writable for the task (review finding 3).
+ */
+async function gateReadOnlyWrite(
+  deps: BrowserToolDeps,
+  gate: ApprovalGate,
+  t: { name: string; sideEffect: SideEffect; describe?: (p: never) => ToolCallDescription },
+  params: unknown,
+  callId: string,
+  signal: AbortSignal,
+): Promise<void> {
+  const tabId = (params as { tabId?: unknown }).tabId;
+  if (typeof tabId !== "string") return;
+  let desc: ToolCallDescription = {};
+  try {
+    desc = t.describe?.(params as never) ?? {};
+  } catch {
+    desc = { sideEffect: "write" };
+  }
+  const effect =
+    desc.sideEffect === undefined ? t.sideEffect : stricter(desc.sideEffect, t.sideEffect);
+  if (SEVERITY[effect] < SEVERITY.write) return;
+  const origin = deps.driver.tabOrigin(tabId);
+  if (origin === undefined) return;
+  const sessionId = await deps.session(callId);
+  const policy = deps.driver.policy(sessionId);
+  const v = policy.evaluateSync(origin);
+  if (v.action !== "allow" || v.access === "write") return;
+  const ctx = deps.context(callId);
+  if (ctx.approvalId !== undefined) return;
+  const outcome = await gate.check(
+    {
+      tool: t.name,
+      kind: desc.kind ?? "browser_submit",
+      sideEffect: effect,
+      target: { kind: "origin", value: origin },
+      summary: `${desc.summary ?? t.name} on ${origin} (read-only in this task)`,
+      details: { origin, tool: t.name, readOnlyOrigin: true },
+      bindingFields: desc.bindingFields ?? { origin, tool: t.name, params },
+      grantKey: desc.grantKey ?? `${t.name}|${origin}`,
+    },
+    { ...ctx, newTarget: true },
+    signal,
+  );
+  if (!outcome.ok) throw gateError(outcome);
+  policy.grant(origin, "write");
 }

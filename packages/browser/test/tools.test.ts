@@ -130,6 +130,28 @@ describe("browser.* tools", () => {
     expect(click?.describeCall?.({ tabId, target: { ref: reject } })?.sideEffect).toBe("read");
   });
 
+  it("never throws from describeCall and asks before writing on a read-only origin", async () => {
+    const click = registry.get("browser.click");
+    expect(click?.describeCall?.({ tabId: "nope", target: { ref: "ref_1" } })).toMatchObject({
+      sideEffect: "write",
+    });
+    const open = await call("browser.open_tab", { url: desktop.browser.url("b/oauth") });
+    const tabId = (open.output as { tab: { id: string } }).tab.id;
+    const snap = await driver.snapshot(tabId);
+    const approve = snap.refs.find((r) => r.name === "Approve")?.ref ?? "";
+    expect(click?.describeCall?.({ tabId, target: { ref: approve } })?.sideEffect).toBe("write");
+    broker.policy({ default: "allow", byTool: { "browser.click": "deny" } });
+    const denied = await call("browser.click", { tabId, target: { ref: approve } });
+    expect(denied).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
+    broker.policy({ default: "allow" });
+    // Tainted turn + new target asks (and would wait for the owner); untainted is allowed.
+    ctx.taint = false;
+    const ok = await call("browser.click", { tabId, target: { ref: approve } });
+    ctx.taint = true;
+    expect(ok.isError).toBeUndefined();
+    expect(driver.policy(sessionId).describe().readWritable).toContain(desktop.browser.origin("b"));
+  });
+
   it("refuses what the broker denies", async () => {
     const open = await call("browser.open_tab", { url: desktop.browser.url("a/downloads") });
     const tabId = (open.output as { tab: { id: string } }).tab.id;

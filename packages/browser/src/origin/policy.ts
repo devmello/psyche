@@ -160,6 +160,16 @@ export class OriginPolicy {
         origin: url.origin,
       };
     }
+    // The local blocklist (and cached remote verdicts) apply on every hop, redirects included
+    // (review finding 8); only an uncached remote lookup waits for `evaluate`.
+    if (this.#reputation?.checkSync?.(url.origin) === "block") {
+      return {
+        action: "deny",
+        reason: "reputation",
+        message: `${url.origin} is on the blocklist`,
+        origin: url.origin,
+      };
+    }
     const access = this.access(url);
     if (access === undefined) return { action: "approve", url, reason: "new_origin" };
     return { action: "allow", url, access };

@@ -415,7 +415,7 @@ export abstract class DriverBase implements BrowserDriverEx {
     return this.tabs.get(tabId)?.page.peek(ref);
   }
   tabOrigin(tabId: string): string | undefined {
-    return this.#page(tabId).origin;
+    return this.tabs.get(tabId)?.page.origin;
   }
   fillSecret(tabId: string, ref: string, secret: ResolvedSecret, origin: string): Promise<void> {
     return this.#page(tabId).fillSecret(ref, secret, origin);

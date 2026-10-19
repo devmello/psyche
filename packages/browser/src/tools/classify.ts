@@ -17,6 +17,30 @@ const CONSENT =
 const DESTRUCTIVE =
   /\b(delete|remove|erase|cancel (my |your )?(subscription|account|order|membership)|close (my |your )?account|deactivate|unsubscribe|empty (trash|bin)|sign up|create (an |my )?account|register)\b/i;
 
+const MONEY = /\b(transfer|send money|withdraw|wire|pay (now|invoice|bill)|donate|tip)\b/i;
+/** View-only controls: expanding, paging, tabs, sorting. */
+const BENIGN =
+  /^(show|hide|more|less|expand|collapse|next|previous|prev|back|close|dismiss|open|menu|view|details|load more|read more|see (more|all)|filter|sort|search|go|tab|toggle|zoom|play|pause|reject( all| non-essential)?|decline|no thanks|not now|cancel|skip)\b/i;
+const READ_ROLES = new Set([
+  "link",
+  "tab",
+  "option",
+  "menuitem",
+  "treeitem",
+  "checkbox",
+  "radio",
+  "switch",
+  "combobox",
+  "listbox",
+  "slider",
+  "spinbutton",
+  "textbox",
+  "searchbox",
+  "heading",
+  "img",
+  "image",
+]);
+
 export interface ActionClass {
   sideEffect: SideEffect;
   kind?: ApprovalKind;
@@ -40,21 +64,50 @@ export function classifyActivation(meta: ElementMeta | undefined): ActionClass {
   if (meta === undefined) return { sideEffect: "write", reason: "unknown element" };
   const name = meta.name;
   const formPath = meta.formAction === undefined ? "" : safePath(meta.formAction);
+  if (MONEY.test(name)) return { sideEffect: "financial", kind: "purchase", reason: "moves money" };
   if (PURCHASE.test(name) || (meta.submits && PURCHASE_PATH.test(formPath))) {
     return { sideEffect: "financial", kind: "purchase", reason: "purchase path" };
   }
   if (CONSENT.test(name)) return { sideEffect: "destructive", reason: "consent or terms" };
   if (DESTRUCTIVE.test(name))
     return { sideEffect: "destructive", reason: "deletes or creates an account" };
-  if (meta.submits) {
-    return {
-      sideEffect: meta.formMethod === "get" ? "read" : "write",
-      kind: "browser_submit",
-      reason: "form submit",
-    };
-  }
+  if (meta.submits) return classifyFormSubmit(meta);
   if (meta.inputType === "file") return { sideEffect: "write", reason: "file chooser" };
-  return { sideEffect: "read", reason: meta.role === "link" ? "link" : "plain control" };
+  if (READ_ROLES.has(meta.role)) return { sideEffect: "read", reason: meta.role };
+  // A button outside a form runs page script that may send, post or save: write unless its
+  // name says it only changes the view (review finding 2).
+  if ((meta.role === "button" || meta.role === "clickable") && !BENIGN.test(name)) {
+    return { sideEffect: "write", reason: "script button" };
+  }
+  return { sideEffect: "read", reason: meta.role === "link" ? "link" : "view control" };
+}
+
+/** Submitting the element's form: Enter in a field, `type {submit: true}`, a submit button. */
+export function classifyFormSubmit(meta: ElementMeta): ActionClass {
+  const formPath = meta.formAction === undefined ? "" : safePath(meta.formAction);
+  if (PURCHASE_PATH.test(formPath)) {
+    return { sideEffect: "financial", kind: "purchase", reason: "purchase path" };
+  }
+  return {
+    sideEffect: meta.formMethod === "get" ? "read" : "write",
+    kind: "browser_submit",
+    reason: "form submit",
+  };
+}
+
+/** A key press on `ref`: Enter/Space activate buttons and links; Enter in a field submits. */
+export function classifyKeys(keys: string, meta: ElementMeta | undefined): ActionClass {
+  const chords = keys.toLowerCase().split(/\s+/);
+  const activates = chords.some((k) => k === "enter" || k === "space" || k === " ");
+  if (!activates) return { sideEffect: "read", reason: "navigation keys" };
+  if (meta === undefined) return { sideEffect: "write", reason: "Enter without a target" };
+  const field = meta.role === "textbox" || meta.role === "searchbox" || meta.role === "combobox";
+  if (field) {
+    return chords.includes("enter") && meta.inForm
+      ? classifyFormSubmit(meta)
+      : { sideEffect: "read", reason: "typing" };
+  }
+  return classifyActivation(meta);
 }
 
 function safePath(url: string): string {
