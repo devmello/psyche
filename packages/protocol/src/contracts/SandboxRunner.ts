@@ -6,6 +6,9 @@
  * a shell string.
  */
 
+import type { ProvenanceOut } from "../common.ts";
+import type { TaintSource } from "../schemas/permissions.ts";
+
 export const EXEC_DEFAULT_TIMEOUT_MS = 60_000;
 /** stdout and stderr are each capped at 128 KB (architecture §9). */
 export const EXEC_OUTPUT_CAP_BYTES = 128 * 1024;
@@ -36,6 +39,15 @@ export interface ExecRequest {
   env?: Record<string, string>;
   timeoutMs: number;
   signal?: AbortSignal;
+  /**
+   * Provenance of what the command writes (S23 design-07). Pass `"untrusted"` from a tainted
+   * turn: the files it creates or changes are recorded `untrusted` with `taintSources`, and
+   * reading them back in a later turn taints that turn. Absent means `untrusted` (the safe
+   * default); pass `"trusted"` from an untainted turn.
+   */
+  provenance?: ProvenanceOut;
+  /** The calling turn's taint sources, recorded with the files the command changes. */
+  taintSources?: TaintSource[];
 }
 
 export interface ExecResult {
@@ -51,6 +63,12 @@ export interface ExecResult {
   timedOut: boolean;
   /** Interrupted commands are `uncertain` (architecture §9). */
   outcome: "ok" | "failed" | "uncertain";
+  /**
+   * `untrusted` when the request was untrusted or `/workspace` holds any file of untrusted
+   * provenance (design-07): the exec tool reports it as the result's provenance so the loop
+   * taints the turn. Runners that track no file provenance leave it unset.
+   */
+  provenance?: ProvenanceOut;
 }
 
 export interface SandboxRunner {

@@ -3,13 +3,13 @@ import type {
   InputRequest,
   JsonObject,
   Question,
+  TaintSource,
   Task,
   TaskAction,
   TaskCheckpoint,
   TaskOrigin,
   TaskPlan,
   TaskStatus,
-  TaintSource,
 } from "@psyche/protocol";
 
 /**

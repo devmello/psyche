@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it } from "vitest";
 import { FakeClock } from "@psyche/testing";
+import { afterEach, describe, expect, it } from "vitest";
 import { SqliteTaskEngine } from "../src/index.ts";
-import { testDb, testEngine, THREAD, tmpDir } from "./helpers.ts";
+import { THREAD, testDb, testEngine, tmpDir } from "./helpers.ts";
 
 describe("task taint sources (design-08)", () => {
   const tmp = tmpDir();

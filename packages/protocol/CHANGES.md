@@ -18,6 +18,14 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S21 sandbox: file provenance, design-07; issue #97)
+
+For S21 (`packages/sandbox`) and the owner of the `exec` / workspace file tools (S01).
+
+- `ExecRequest` gains optional `provenance: ProvenanceOut` and `taintSources: TaintSource[]`: the provenance of what the command writes. Files it creates or changes are recorded with it; absent means `untrusted` (the safe default), so an untainted turn passes `"trusted"`.
+- `ExecResult` gains optional `provenance: ProvenanceOut`: `untrusted` when the request was untrusted or `/workspace` holds any untrusted-provenance file. The `exec` tool reports it as the result's provenance so the loop taints the turn.
+- `FakeSandboxRunner` mirrors the rule (per-sandbox `untrustedFiles(sandboxId)` from `filesChanged`); no other fake change.
+
 ### v1 additive — 2026-10-20 (S05 M2: audit.friction)
 
 - `audit.friction` (`since`, `until`; `operator.read`) returning `AuditFrictionResult` (with `AuditFrictionKind`): approval-friction metrics computed by `@psyche/permissions` `frictionMetrics` from the audit log's decision, approval, grant and classifier entries.
