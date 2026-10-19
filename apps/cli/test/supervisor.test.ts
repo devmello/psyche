@@ -145,6 +145,7 @@ describe("service commands on darwin (launchd)", () => {
     );
     expect(launchctl(deps)).toEqual([
       ["bootout", TARGET],
+      ["print", TARGET], // waits until the old job is gone
       ["print", TARGET],
       ["bootstrap", "gui/501", plist],
       ["kickstart", TARGET],
@@ -154,7 +155,16 @@ describe("service commands on darwin (launchd)", () => {
   });
 
   it("start --json; an unchanged, loaded agent is only kickstarted", async () => {
-    const { bin, deps } = darwin();
+    // launchd as a little state machine: bootout unloads, bootstrap loads.
+    let loaded = false;
+    const stateful: ExecScript = (cmd, args) => {
+      if (cmd !== "/bin/launchctl") return undefined;
+      if (args[0] === "bootout") loaded = false;
+      if (args[0] === "bootstrap") loaded = true;
+      if (args[0] === "print") return loaded ? undefined : { code: 113, stderr: "not found" };
+      return undefined;
+    };
+    const { bin, deps } = darwin(stateful);
     const first = await runJson(["start", "--no-wait"], deps);
     expect(first.code).toBe(0);
     expect(first.json).toEqual({

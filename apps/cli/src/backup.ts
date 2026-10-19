@@ -164,8 +164,15 @@ export async function createBackup(
       }
       body = await e.encrypt(gz);
     }
-    await pipeline(Readable.fromWeb(body as never), createWriteStream(tmpOut, { mode: 0o600 }));
-    await exited;
+    // Await both together: a tar failure must reject here, not as an unhandled rejection.
+    const [, tarErr] = await Promise.all([
+      pipeline(Readable.fromWeb(body as never), createWriteStream(tmpOut, { mode: 0o600 })),
+      exited.then(
+        () => null,
+        (err: unknown) => err,
+      ),
+    ]);
+    if (tarErr) throw tarErr;
     renameSync(tmpOut, out);
     chmodSync(out, 0o600);
     return manifest;
@@ -195,6 +202,45 @@ async function plaintextStream(file: string, dec: Decryption): Promise<Readable>
   return Readable.fromWeb(body as never);
 }
 
+const ENTRY_SET = new Set<string>(BACKUP_ENTRIES);
+
+/**
+ * The manifest comes from the archive, so it is untrusted until checked: entries must be known
+ * top-level names (never `..` or a path), and every file must sit under one of them. Otherwise a
+ * crafted archive could make restore rename files outside `$PSYCHE_HOME`.
+ */
+export function parseManifest(text: string, file: string): Manifest {
+  let m: Manifest;
+  try {
+    m = JSON.parse(text) as Manifest;
+  } catch {
+    throw new CliError("failure", `${file}: unreadable manifest`);
+  }
+  if (m?.format !== FORMAT || m.version !== 1) {
+    throw new CliError("failure", `${file}: unsupported backup format`);
+  }
+  const bad = (why: string) => new CliError("failure", `${file}: invalid manifest (${why})`);
+  if (!Array.isArray(m.entries) || !Array.isArray(m.files)) throw bad("entries/files");
+  if (new Set(m.entries).size !== m.entries.length) throw bad("duplicate entries");
+  for (const e of m.entries) {
+    if (typeof e !== "string" || !ENTRY_SET.has(e)) throw bad(`unknown entry ${JSON.stringify(e)}`);
+  }
+  for (const f of m.files) {
+    const parts = typeof f?.path === "string" ? f.path.split("/") : [];
+    if (
+      parts.length === 0 ||
+      f.path.startsWith("/") ||
+      f.path.includes("\\") ||
+      parts.some((p) => p === "" || p === "." || p === "..") ||
+      !m.entries.includes(parts[0] as string) ||
+      typeof f.sha256 !== "string"
+    ) {
+      throw bad(`file path ${JSON.stringify(f?.path)}`);
+    }
+  }
+  return m;
+}
+
 /** Extracts into a fresh directory next to `near` and checks every hash. */
 export async function extractAndVerify(
   file: string,
@@ -208,38 +254,45 @@ export async function extractAndVerify(
     const input = await plaintextStream(file, dec);
     const tar = tarProcess(["-xf", "-", "-C", dir]);
     const exited = waitExit(tar, "tar -x");
-    try {
-      await pipeline(input, createGunzip(), tar.stdin as Writable);
-    } catch (err) {
-      tar.kill();
-      await exited.catch(() => {});
+    // Wait for both the pipeline and tar, so neither failure goes unhandled and tar is done
+    // writing before the directory is inspected or removed.
+    const [pipeErr, tarErr] = await Promise.all([
+      pipeline(input, createGunzip(), tar.stdin as Writable).then(
+        () => null,
+        (err: unknown) => {
+          tar.kill();
+          return err;
+        },
+      ),
+      exited.then(
+        () => null,
+        (err: unknown) => err,
+      ),
+    ]);
+    if (pipeErr) {
       throw new CliError(
         "failure",
-        `${file} is damaged or the key is wrong: ${err instanceof Error ? err.message : err}`,
+        `${file} is damaged or the key is wrong: ${pipeErr instanceof Error ? pipeErr.message : pipeErr}`,
       );
     }
-    await exited;
+    if (tarErr) throw tarErr;
     const manifestPath = join(dir, MANIFEST);
     if (!existsSync(manifestPath))
       throw new CliError("failure", `${file} is not a Psyche backup (no ${MANIFEST})`);
-    const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as Manifest;
-    if (manifest.format !== FORMAT || manifest.version !== 1) {
-      throw new CliError("failure", `${file}: unsupported backup format`);
-    }
+    const manifest = parseManifest(readFileSync(manifestPath, "utf8"), file);
     const problems: string[] = [];
     const listed = new Set<string>();
     for (const f of manifest.files) {
       listed.add(f.path);
       const abs = join(dir, f.path);
-      if (!abs.startsWith(dir + sep)) {
-        problems.push(`${f.path}: path escapes the archive`);
-        continue;
-      }
       if (!existsSync(abs)) problems.push(`${f.path}: missing`);
       else if ((await sha256File(abs)) !== f.sha256) problems.push(`${f.path}: hash mismatch`);
     }
     const present: string[] = [];
-    for (const e of manifest.entries) if (existsSync(join(dir, e))) listFiles(dir, e, present);
+    for (const e of manifest.entries) {
+      if (existsSync(join(dir, e))) listFiles(dir, e, present);
+      else problems.push(`${e}: listed but missing`);
+    }
     for (const p of present) {
       const rel = p.split(sep).join("/");
       if (!listed.has(rel)) problems.push(`${rel}: not in the manifest`);
@@ -298,17 +351,31 @@ export async function restoreBackup(
       );
     }
     let movedAside: string | null = null;
-    if (clashes.length) {
-      movedAside = join(
-        home,
-        `.pre-restore-${(opts.now ?? new Date()).toISOString().replace(/[:.]/g, "-")}`,
-      );
-      mkdirSync(movedAside, { mode: 0o700 });
-      for (const e of clashes) renameSync(join(home, e), join(movedAside, e));
-    }
-    for (const e of manifest.entries) {
-      renameSync(join(dir, e), join(home, e));
-      tighten(join(home, e));
+    const moved: string[] = [];
+    const placed: string[] = [];
+    try {
+      if (clashes.length) {
+        movedAside = join(
+          home,
+          `.pre-restore-${(opts.now ?? new Date()).toISOString().replace(/[:.]/g, "-")}`,
+        );
+        mkdirSync(movedAside, { mode: 0o700 });
+        for (const e of clashes) {
+          renameSync(join(home, e), join(movedAside, e));
+          moved.push(e);
+        }
+      }
+      for (const e of manifest.entries) {
+        renameSync(join(dir, e), join(home, e));
+        placed.push(e);
+        tighten(join(home, e));
+      }
+    } catch (err) {
+      // Roll back: take out what was placed, put the previous state back.
+      for (const e of placed) renameSync(join(home, e), join(dir, `${e}.failed`));
+      for (const e of moved) renameSync(join(movedAside as string, e), join(home, e));
+      if (movedAside) rmSync(movedAside, { recursive: true, force: true });
+      throw err;
     }
     chmodSync(home, 0o700);
     return { manifest, movedAside: movedAside ? relative(home, movedAside) : null };

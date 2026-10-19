@@ -68,7 +68,8 @@ describe("deploy/docker-compose.yml", () => {
   const compose = read("docker-compose.yml");
 
   it("keeps the Gateway on loopback with no published ports", () => {
-    expect(compose).toMatch(/PSYCHE_HOST: 127\.0\.0\.1/);
+    // No PSYCHE_HOST: the Gateway's default is loopback and env would override config.json.
+    expect(compose).not.toMatch(/PSYCHE_(HOST|PORT|ALLOWED_ORIGINS):/);
     expect(compose).not.toMatch(/^\s+ports:/m);
     expect(compose).toMatch(/psyche-home:\/data/);
     // The Docker socket mount stays commented out (documented as a risk).

@@ -11,15 +11,15 @@ set -eu
 
 file="${1:?usage: restore.sh <backup-file> [age-identity-file]}"
 identity="${2:-}"
-dir="$(cd "$(dirname "$file")" && pwd)"
+file="$(abspath "$file")"
+dir="$(dirname "$file")"
 name="$(basename "$file")"
 check_dir "$dir"
 
 stop_gateway
 if [ -n "$identity" ]; then
-  cp "$identity" "$dir/.identity.$$"
-  trap 'rm -f "$dir/.identity.$$"; compose start "$service" >/dev/null' EXIT INT TERM
-  psyche_run "$dir" backup restore "/backup/$name" --force --identity "/backup/.identity.$$"
+  # The identity goes in on stdin: never copied next to the backup or into the container.
+  psyche_run "$dir" backup restore "/backup/$name" --force --identity - <"$identity"
 else
   psyche_run "$dir" backup restore "/backup/$name" --force
 fi

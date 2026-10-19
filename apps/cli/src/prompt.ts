@@ -28,6 +28,12 @@ export function ttyPrompter(
         return;
       }
       const rl = createInterface({ input, output, terminal: true });
+      // Ctrl-C at a prompt: readline only pauses, so settle the promise ourselves.
+      rl.on("SIGINT", () => {
+        rl.close();
+        output.write("\n");
+        reject(new Error("Cancelled"));
+      });
       if (mute) {
         // Suppress echo: readline writes typed characters through _writeToOutput.
         const anyRl = rl as unknown as { _writeToOutput: (s: string) => void };

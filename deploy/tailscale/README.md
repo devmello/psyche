@@ -9,9 +9,13 @@ Tailnet-only HTTPS for the web UI and remote clients (security §10, "Identity-a
    ```bash
    TS_AUTHKEY=tskey-auth-…
    TS_HOSTNAME=psyche
-   PSYCHE_ALLOWED_ORIGINS=https://psyche.<your-tailnet>.ts.net
    ```
-3. Start: `docker compose -f deploy/docker-compose.yml --profile tailscale up -d`.
+3. Start, then tell the Gateway its public origin (WebSocket `Origin` check) and restart it:
+   ```bash
+   docker compose -f deploy/docker-compose.yml --profile tailscale up -d
+   docker compose -f deploy/docker-compose.yml exec gateway psyche config set gateway.publicOrigin https://psyche.<your-tailnet>.ts.net
+   docker compose -f deploy/docker-compose.yml restart gateway
+   ```
 4. Open `https://psyche.<your-tailnet>.ts.net` from a device on the tailnet. It pairs like any device: approve it with `docker compose -f deploy/docker-compose.yml exec gateway psyched devices approve <CODE>` (first admin) or from an admin device.
 
 `serve.json` maps `https://${TS_CERT_DOMAIN}:443/` to `http://127.0.0.1:7979`. The container runs in userspace networking mode on the host network, so it never touches the host's routing table.

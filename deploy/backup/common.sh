@@ -19,6 +19,14 @@ check_dir() {
   fi
 }
 
+# Absolute path without entering the directory: it is owned by uid 10001, mode 0700.
+abspath() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    *) printf '%s/%s\n' "$(pwd)" "$1" ;;
+  esac
+}
+
 # psyche inside a one-off container sharing the Gateway's volume; the backup dir is /backup.
 psyche_run() {
   dir="$1"

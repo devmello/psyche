@@ -36,12 +36,12 @@ services:
       dockerfile: deploy/Dockerfile
     network_mode: host
     restart: unless-stopped
+    # Gateway settings (port, publicOrigin, allowedOrigins, trustedProxy) live in config.json on
+    # the volume: `docker compose exec gateway psyche config set gateway.publicOrigin https://…`,
+    # then `docker compose restart gateway`. No PSYCHE_HOST/PORT/ALLOWED_ORIGINS here: environment
+    # variables would silently win over config.json. The bind is loopback either way.
     environment:
-      PSYCHE_HOST: 127.0.0.1
-      PSYCHE_PORT: ${PSYCHE_PORT:-7979}
       PSYCHE_LOG_LEVEL: ${PSYCHE_LOG_LEVEL:-info}
-      # Extra WebSocket origins, e.g. your Tailscale Serve or Cloudflare hostname:
-      PSYCHE_ALLOWED_ORIGINS: ${PSYCHE_ALLOWED_ORIGINS:-}
     volumes:
       - psyche-home:/data
       # Optional: run sandboxes as sibling containers on the host's Docker.
@@ -88,7 +88,8 @@ services:
 
   # Headless browser for topology D (no Mac): Playwright run-server on the host's 127.0.0.1:3000.
   # RISK: run-server has no authentication; any local process can drive it. Keep the host
-  # single-tenant. The Gateway's browser driver applies the origin policy (security §6), not this
+  # single-tenant. `npx` fetches the pinned playwright package on each start (the image ships the
+  # browsers, not the package); bake your own image if the server must start offline. The Gateway's browser driver applies the origin policy (security §6), not this
   # container.
   browser:
     image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:7852dc5a7d72f5fe458a597d690f6c42fbc8e9e26ddfa95f8e6ef552558d9bbf

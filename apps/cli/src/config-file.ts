@@ -59,6 +59,12 @@ export function validateConfig(config: ConfigObject): string[] {
     const err = checkType(type, value);
     if (err) problems.push(`${key} ${err}`);
   }
+  const host = (gateway as ConfigObject).host;
+  if (typeof host === "string" && !["127.0.0.1", "::1", "localhost"].includes(host)) {
+    problems.push(
+      `gateway.host ${host} is not loopback; the Gateway refuses it (use Tailscale Serve or Cloudflare Access for remote access)`,
+    );
+  }
   const tp = (gateway as ConfigObject).trustedProxy as ConfigObject | undefined;
   if (tp?.enabled === true && !(Array.isArray(tp.trustedProxies) && tp.trustedProxies.length > 0)) {
     problems.push("gateway.trustedProxy.enabled needs trustedProxies CIDRs");

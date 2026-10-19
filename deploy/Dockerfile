@@ -55,10 +55,10 @@ LABEL org.opencontainers.image.title="psyche-gateway" \
       org.opencontainers.image.source="https://github.com/devmello/psyche" \
       org.opencontainers.image.licenses="Apache-2.0" \
       org.opencontainers.image.version="${PSYCHE_VERSION}"
+# No PSYCHE_HOST / PSYCHE_PORT: they would override config.json (the Gateway's defaults are
+# 127.0.0.1:7979). The healthcheck reads PSYCHE_PORT only if you set it yourself.
 ENV NODE_ENV=production \
     PSYCHE_HOME=/data \
-    PSYCHE_HOST=127.0.0.1 \
-    PSYCHE_PORT=7979 \
     PSYCHE_WEB_ROOT=/app/web \
     DO_NOT_TRACK=1
 RUN groupadd --system --gid 10001 psyche \

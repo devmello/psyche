@@ -94,7 +94,8 @@ export const serviceCommands: CommandSpec[] = [
   {
     path: ["status"],
     summary: "Gateway health, version, service state and this CLI's pairing",
-    description: "Exits 1 when the Gateway is not healthy. Does not create a pairing request.",
+    description:
+      "Exits 1 when the Gateway is not healthy. Connects only when this CLI already has a device key.",
     async run(ctx) {
       const url = ctx.gatewayUrl();
       const probe = await ctx.probe();

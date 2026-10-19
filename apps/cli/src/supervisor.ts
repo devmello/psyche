@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { CliError } from "./errors.ts";
 import { type Exec, which } from "./exec.ts";
 
@@ -161,11 +161,11 @@ export async function resolvePsyched(s: SupervisorEnv, flag?: string): Promise<s
   const candidate = flag ?? s.env.PSYCHE_GATEWAY_BIN;
   if (candidate) {
     if (!existsSync(candidate)) throw new CliError("usage", `psyched not found at ${candidate}`);
-    return candidate;
+    return resolve(candidate);
   }
   const r = await s.exec("/bin/sh", ["-c", "command -v psyched"]);
   const found = r.stdout.trim();
-  if (r.code === 0 && found) return found;
+  if (r.code === 0 && found) return resolve(found);
   throw new CliError(
     "usage",
     "Cannot find psyched. Install the desktop app (it ships psyched), set PSYCHE_GATEWAY_BIN, or pass --psyched <path>. On a server, use Docker Compose (deploy/README.md).",
@@ -224,10 +224,43 @@ function check(r: { code: number; stderr: string; stdout: string }, what: string
 export const COMPOSE_HINT =
   "No launchd or systemd user session here. On a server, run the Gateway with Docker Compose: docker compose -f deploy/docker-compose.yml up -d (see deploy/README.md).";
 
+/**
+ * launchd and systemd start programs with a minimal PATH, so a `#!/usr/bin/env node` script
+ * (an npm or pnpm shim) would not find node. Run such scripts with this node's absolute path.
+ */
+export async function serviceCommand(
+  s: SupervisorEnv,
+  program: string,
+): Promise<{ program: string; args: string[] }> {
+  let head = "";
+  try {
+    head = readFileSync(program, "utf8").slice(0, 128);
+  } catch {
+    head = "";
+  }
+  if (!/^#!\s*\/usr\/bin\/env\s+(-S\s+)?node\b/.test(head)) return { program, args: [] };
+  // Not process.execPath: in a compiled `psyche` binary that is the CLI itself, not node.
+  const r = await s.exec("/bin/sh", ["-c", "command -v node"]);
+  const node = r.stdout.trim();
+  if (r.code !== 0 || !node) {
+    throw new CliError("usage", `${program} is a node script and node is not on PATH`);
+  }
+  return { program: resolve(node), args: [program] };
+}
+
+async function waitUnloaded(s: SupervisorEnv): Promise<void> {
+  // `launchctl bootout` returns before the job is gone; bootstrapping too early fails with
+  // "Bootstrap failed: 5: Input/output error".
+  for (let i = 0; i < 40; i++) {
+    if ((await s.exec("/bin/launchctl", ["print", target(s.uid)])).code !== 0) return;
+    await new Promise((r) => setTimeout(r, 125));
+  }
+}
+
 /** Installs (or refreshes) the service file and starts it. Returns the file written. */
 export async function startService(s: SupervisorEnv, program: string): Promise<string> {
   const kind = await detectSupervisor(s);
-  const input: ServiceInput = { program, psycheHome: s.home };
+  const input: ServiceInput = { ...(await serviceCommand(s, program)), psycheHome: s.home };
   if (kind === "launchd") {
     const file = launchAgentPath(s.env);
     const content = renderLaunchAgentPlist(input);
@@ -237,6 +270,7 @@ export async function startService(s: SupervisorEnv, program: string): Promise<s
       mkdirSync(join(userHome(s.env), "Library", "LaunchAgents"), { recursive: true });
       writeFileSync(file, content, { mode: 0o644 });
       await s.exec("/bin/launchctl", ["bootout", target(s.uid)]); // reload a changed plist
+      await waitUnloaded(s);
     }
     const printed = await s.exec("/bin/launchctl", ["print", target(s.uid)]);
     if (printed.code !== 0)

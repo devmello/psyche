@@ -92,7 +92,9 @@ async function decryptionFrom(ctx: Ctx, opts: OptionValues): Promise<Decryption>
   if (bool(opts, "no-encrypt")) return { kind: "none" };
   const idFile = str(opts, "identity");
   if (idFile) {
-    const identities = readFileSync(idFile, "utf8")
+    // `-i -` reads the identity from stdin (the Compose scripts pipe it into the container).
+    const text = idFile === "-" ? await readAll(ctx.deps.io.stdin) : readFileSync(idFile, "utf8");
+    const identities = text
       .split("\n")
       .map((l) => l.trim())
       .filter((l) => l.startsWith("AGE-SECRET-KEY-"));
@@ -172,16 +174,18 @@ export const backupCommands: CommandSpec[] = [
       identity: {
         type: "string",
         short: "i",
-        description: "age identity file (for --recipient backups)",
+        description: "age identity file, or - for stdin (for --recipient backups)",
       },
       ...ENC_OPTIONS,
     },
     async run(ctx, { args, opts }) {
       const file = resolve(args[0] as string);
+      // Extract under $PSYCHE_HOME (0700), never next to the archive: that may be a synced or
+      // shared folder, and the extracted tree is plaintext.
       const { manifest, problems } = await verifyBackup(
         file,
         await decryptionFrom(ctx, opts),
-        join(file, ".."),
+        ctx.home,
       );
       return {
         data: {
@@ -205,7 +209,7 @@ export const backupCommands: CommandSpec[] = [
       identity: {
         type: "string",
         short: "i",
-        description: "age identity file (for --recipient backups)",
+        description: "age identity file, or - for stdin (for --recipient backups)",
       },
       force: {
         type: "boolean",

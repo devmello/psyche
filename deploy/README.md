@@ -51,7 +51,8 @@ docker compose -f deploy/docker-compose.yml exec gateway psyche doctor
 - **Headless browser** (topology D): `--profile browser` runs Playwright's `run-server` on `127.0.0.1:3000`. It has no authentication of its own; keep the host single-tenant.
 - **Hardening.** Read-only root filesystem, all capabilities dropped, `no-new-privileges`, uid 10001, logs rotated (10 MB × 5). `$PSYCHE_HOME` is the named volume `psyche-home` at `/data`.
 - **Sandbox in Docker.** The sandbox needs a container runtime. Mounting `/var/run/docker.sock` into the Gateway works but gives whoever controls the Gateway process root on the host; the line is commented out in the Compose file with that warning. Prefer a rootless Podman socket or a separate sandbox host.
-- **Upgrades.** Pin `PSYCHE_IMAGE` to a digest from the release notes, `docker compose pull && docker compose up -d --wait`. Back up first.
+- **Upgrades.** Pin `PSYCHE_IMAGE` to a digest from the release notes, then `docker compose -f deploy/docker-compose.yml pull && docker compose -f deploy/docker-compose.yml up -d --wait`. Back up first.
+- **Settings.** Gateway keys (`gateway.port`, `gateway.publicOrigin`, `gateway.trustedProxy.*`) live in `config.json` on the volume: `docker compose -f deploy/docker-compose.yml exec gateway psyche config set <key> <value>`, then `restart gateway`. The Compose file sets no `PSYCHE_HOST`/`PSYCHE_PORT` because environment variables override `config.json`.
 - **Verify the image** (keyless cosign signature from the release workflow):
   ```bash
   cosign verify ghcr.io/devmello/psyche-gateway@sha256:<digest> \
