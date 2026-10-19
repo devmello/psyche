@@ -112,7 +112,9 @@ describe("generateTheme scales", () => {
     for (let i = 0; i < 12; i++) {
       const a = new Color(t.light.accent.alpha[i] as string).to("srgb");
       const alpha = a.alpha as number;
-      const composed = a.coords.map((v, ch) => (v ?? 0) * alpha + (white.coords[ch] ?? 0) * (1 - alpha));
+      const composed = a.coords.map(
+        (v, ch) => (v ?? 0) * alpha + (white.coords[ch] ?? 0) * (1 - alpha),
+      );
       const solid = new Color(t.light.accent.solid[i] as string).to("srgb").coords;
       composed.forEach((v, ch) => {
         expect(Math.abs(v - (solid[ch] ?? 0))).toBeLessThan(0.01);
@@ -162,7 +164,10 @@ describe("appearanceFromSettings", () => {
       reduceMotion: true,
       contrast: "high",
     });
-    const bad = appearanceFromSettings({ "appearance.theme": "sepia", "appearance.accentSeed": "x" });
+    const bad = appearanceFromSettings({
+      "appearance.theme": "sepia",
+      "appearance.accentSeed": "x",
+    });
     expect(bad.theme).toBe("auto");
     expect(bad.accentSeed).toBe(DEFAULT_ACCENT_SEED);
   });

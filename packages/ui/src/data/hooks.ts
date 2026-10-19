@@ -263,12 +263,18 @@ export function useThread(threadId: string | null) {
     (s: UiState): ThreadView => {
       const id = threadId ?? "";
       const runs = Object.values(s.runs).filter((r) => r.threadId === id);
+      // A freshly loaded thread knows its active run only from `activeWriterRunId`.
+      const active = s.threads[id]?.thread.activeWriterRunId ?? null;
+      const activeRun = active === null ? undefined : s.runs[active];
+      const running =
+        runs.some((r) => r.status === "running") ||
+        (active !== null && (activeRun === undefined || activeRun.status === "running"));
       return {
         thread: s.threads[id] ?? null,
         messages: s.messages[id] ?? EMPTY,
         streaming: Object.values(s.streaming).filter((m) => m.threadId === id),
         queue: s.queue.filter((q) => q.threadId === id),
-        running: runs.some((r) => r.status === "running"),
+        running,
         hasMore: (s.historyCursor[id] ?? null) !== null,
       };
     },
