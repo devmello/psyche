@@ -44,6 +44,8 @@ interface MockEl {
   /** Child document for iframes. */
   frame?: MockDoc;
   label?: string;
+  /** `position: fixed` overlay: its box is in viewport coordinates. */
+  fixed?: boolean;
 }
 
 interface MockDoc {
@@ -395,6 +397,11 @@ export class MockTab implements CdpTarget {
           leaf(mk("DIV", parent, { fx: n, text: n.text, clickable: true }), 200);
           return;
         }
+        case "overlay": {
+          const el = mk("DIV", parent, { fx: n, text: n.text, clickable: true, fixed: true });
+          el.box = { x: 0, y: 0, width: VIEWPORT.width, height: VIEWPORT.height };
+          return;
+        }
         case "spacer": {
           leaf(mk("DIV", parent, { fx: n }), 10, n.height);
           return;
@@ -525,6 +532,26 @@ export class MockTab implements CdpTarget {
           this.#scrollY = Math.max(0, box.y - 100);
         }
         return {};
+      }
+      case "DOM.getNodeForLocation": {
+        // Topmost = last in document order whose box contains the point (fixed overlays last).
+        const docY = Number(p.y) + this.#scrollY;
+        let hit: MockEl | undefined;
+        for (const el of this.#doc.els.values()) {
+          const b = el.box;
+          if (b === undefined) continue;
+          const yy = el.fixed === true ? Number(p.y) : docY;
+          if (
+            Number(p.x) >= b.x &&
+            Number(p.x) <= b.x + b.width &&
+            yy >= b.y &&
+            yy <= b.y + b.height
+          )
+            hit = el;
+        }
+        if (hit === undefined)
+          throw new PsycheError("not_found", "No node found at given location");
+        return { backendNodeId: hit.id, frameId: this.#frameId };
       }
       case "DOM.getContentQuads": {
         const el = this.#el(p.backendNodeId);
@@ -659,6 +686,14 @@ export class MockTab implements CdpTarget {
         },
       };
     }
+    if (fn.includes("psyche:contains")) {
+      const otherId = this.#objects.get(
+        String((args[0] as { objectId?: string } | undefined)?.objectId),
+      );
+      let n = otherId === undefined ? undefined : this.#doc.els.get(otherId);
+      while (n !== undefined && n !== el) n = n.parent;
+      return { result: { type: "object", value: { ok: n === el } } };
+    }
     if (fn.includes("psyche:focused")) {
       return { result: { type: "object", value: { ok: this.#focused === el } } };
     }
@@ -675,7 +710,8 @@ export class MockTab implements CdpTarget {
     for (const el of this.#doc.els.values()) {
       const b = el.box;
       if (b === undefined || !el.clickable) continue;
-      if (x >= b.x && x <= b.x + b.width && docY >= b.y && docY <= b.y + b.height) best = el;
+      const yy = el.fixed === true ? y : docY;
+      if (x >= b.x && x <= b.x + b.width && yy >= b.y && yy <= b.y + b.height) best = el;
     }
     return best;
   }

@@ -307,6 +307,18 @@ export function describeBrowserDriverConformance(
       await d.closeSession(s.id);
     });
 
+    it("refuses a click whose point is covered by another element", async () => {
+      const s = await session();
+      const t = await d.openTab(s.id, h.url("a/overlay"));
+      await d.wait(t.id, { kind: "network_idle" }, { timeoutMs: 5000 });
+      await expect(d.click(t.id, await ref(t.id, "button", "Buy coffee"))).rejects.toMatchObject({
+        code: "conflict",
+        details: { reason: "obscured" },
+      });
+      expect((await d.readText(t.id)).text).toContain("Not bought");
+      await d.closeSession(s.id);
+    });
+
     it("uploads a file, refuses card numbers and secure-field typing", async () => {
       const s = await session();
       const t = await d.openTab(s.id, h.url("a/upload"));

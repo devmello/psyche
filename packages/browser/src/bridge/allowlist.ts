@@ -27,6 +27,7 @@ export const CDP_ALLOWED_METHODS: ReadonlySet<string> = new Set([
   "DOM.getDocument",
   "DOM.describeNode",
   "DOM.getContentQuads",
+  "DOM.getNodeForLocation",
   "DOM.getBoxModel",
   "DOM.scrollIntoViewIfNeeded",
   "DOM.focus",

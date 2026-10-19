@@ -47,7 +47,9 @@ export type FxNode =
   | { kind: "canvas"; width: number; height: number }
   | { kind: "image"; alt: string }
   | { kind: "clickable"; text: string; onClick: FxAction }
-  | { kind: "spacer"; height: number };
+  | { kind: "spacer"; height: number }
+  /** A full-viewport `position: fixed` layer (clickjacking fixture). */
+  | { kind: "overlay"; text: string; onClick: FxAction };
 
 export interface FxPage {
   title: string;
@@ -388,6 +390,23 @@ export const FIXTURE_SITE: FxSite = {
         },
       ],
     },
+    "a/overlay": {
+      title: "Overlay",
+      body: [
+        { kind: "heading", level: 1, text: "Coffee" },
+        {
+          kind: "button",
+          text: "Buy coffee",
+          onClick: { kind: "set_text", id: "status", text: "Bought" },
+        },
+        { kind: "status", id: "status", text: "Not bought" },
+        {
+          kind: "overlay",
+          text: "Win a prize",
+          onClick: { kind: "set_text", id: "status", text: "Overlay clicked" },
+        },
+      ],
+    },
     "a/script-nav": {
       title: "Script navigation",
       body: [
@@ -445,6 +464,7 @@ export const REGRESSION_PAGES = [
   "a/captcha",
   "a/spa",
   "a/script-nav",
+  "a/overlay",
 ] as const;
 
 /** Echo page for a form submission: password-like fields show only their length. */

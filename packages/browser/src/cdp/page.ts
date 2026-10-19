@@ -58,6 +58,11 @@ export const SELECT_HELPER = `/* psyche:select */ function (values) {
   return { ok: matched.length > 0, matched: matched.length };
 }`;
 
+/** Fixed helper: is `other` (the node hit-tested at the click point) this element or inside it? */
+export const CONTAINS_HELPER = `/* psyche:contains */ function (other) {
+  return { ok: this === other || this.contains(other) };
+}`;
+
 /** Fixed helper: is this element the focused one? Reads nothing else. */
 export const FOCUS_HELPER = `/* psyche:focused */ function () {
   return { ok: document.activeElement === this };
@@ -852,6 +857,52 @@ export class PageController {
     return { x, y };
   }
 
+  /**
+   * The click point must hit the ref's element (or a descendant): an overlay, or a frame the
+   * model cannot see, would otherwise take the click (review finding 4). Fails closed.
+   */
+  async #assertHit(ref: string, x: number, y: number): Promise<void> {
+    const e = this.#resolveRef(ref);
+    const obscured = (why: string) =>
+      new PsycheError(
+        "conflict",
+        `${ref} is covered at its click point (${why}); take a new snapshot`,
+        {
+          details: { reason: "obscured" },
+        },
+      );
+    const hit = await this.#t
+      .send<{ backendNodeId?: number; frameId?: string }>("DOM.getNodeForLocation", {
+        x: Math.round(x),
+        y: Math.round(y),
+        includeUserAgentShadowDOM: true,
+        ignorePointerEventsNone: true,
+      })
+      .catch(() => undefined);
+    if (hit?.backendNodeId === undefined) throw obscured("nothing hit-testable");
+    if (
+      hit.frameId !== undefined &&
+      this.#mainFrameId !== undefined &&
+      hit.frameId !== this.#mainFrameId
+    ) {
+      throw obscured("a frame");
+    }
+    if (hit.backendNodeId === e.backendNodeId) return;
+    const self = await this.#isolatedObject(e.backendNodeId);
+    const other = await this.#isolatedObject(hit.backendNodeId).catch(() => undefined);
+    if (other === undefined) throw obscured("another element");
+    const r = await this.#t.send<{ result: { value?: { ok?: boolean } } }>(
+      "Runtime.callFunctionOn",
+      {
+        objectId: self,
+        functionDeclaration: CONTAINS_HELPER,
+        arguments: [{ objectId: other }],
+        returnByValue: true,
+      },
+    );
+    if (r.result.value?.ok !== true) throw obscured("another element");
+  }
+
   async #point(target: ActionTarget): Promise<{ x: number; y: number }> {
     if ("ref" in target) return this.#center(target.ref);
     if (!Number.isFinite(target.x) || !Number.isFinite(target.y)) {
@@ -879,6 +930,7 @@ export class PageController {
   async pointer(target: ActionTarget, action: PointerAction): Promise<void> {
     this.#assertActionable();
     const { x, y } = await this.#point(target);
+    if (action !== "hover" && "ref" in target) await this.#assertHit(target.ref, x, y);
     this.#o.assertAgent();
     await this.#mouse({ type: "mouseMoved", x, y });
     if (action === "hover") return;
@@ -944,11 +996,8 @@ export class PageController {
     if (options.submit === true) await this.#key("Enter");
   }
 
-  async #isolatedCall<T>(
-    backendNodeId: number,
-    fn: string,
-    args: unknown[],
-  ): Promise<T | undefined> {
+  /** A remote object for a node in the `psyche` isolated world of the main frame. */
+  async #isolatedObject(backendNodeId: number): Promise<string> {
     const frameId = this.#mainFrameId;
     if (frameId === undefined) throw new PsycheError("unavailable", "no main frame yet");
     let ctx = this.#worlds.get(frameId);
@@ -966,9 +1015,18 @@ export class PageController {
       executionContextId: ctx,
     });
     if (object.objectId === undefined) throw new PsycheError("conflict", "element not resolvable");
+    return object.objectId;
+  }
+
+  async #isolatedCall<T>(
+    backendNodeId: number,
+    fn: string,
+    args: unknown[],
+  ): Promise<T | undefined> {
+    const objectId = await this.#isolatedObject(backendNodeId);
     this.#o.assertAgent();
     const r = await this.#t.send<{ result: { value?: T } }>("Runtime.callFunctionOn", {
-      objectId: object.objectId,
+      objectId,
       functionDeclaration: fn,
       arguments: args.map((value) => ({ value })),
       returnByValue: true,

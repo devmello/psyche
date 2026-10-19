@@ -96,6 +96,8 @@ function node(n: FxNode, host: FxHost, origin: OriginFn): string {
       return `<img alt="${esc(n.alt)}" width="64" height="64" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">`;
     case "clickable":
       return `<div class="clickable"${actionAttr(n.onClick, host, origin)}>${esc(n.text)}</div>`;
+    case "overlay":
+      return `<div class="clickable" style="position:fixed;inset:0;background:rgba(0,0,0,0.02)"${actionAttr(n.onClick, host, origin)}>${esc(n.text)}</div>`;
     case "spacer":
       return `<div style="height:${n.height}px"></div>`;
   }
