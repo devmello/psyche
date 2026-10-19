@@ -88,15 +88,20 @@ export function normalizeLevel1(text: string): string {
   return line.length <= LEVEL1_MAX ? line : `${line.slice(0, LEVEL1_MAX - 1)}…`;
 }
 
-function encodeCursor(offset: number): string {
-  return Buffer.from(`o:${offset}`).toString("base64url");
+/** Keyset cursors: the sort key of the last row returned, so updates never shift pages. */
+function encodeCursor(key: (string | number)[]): string {
+  return Buffer.from(JSON.stringify(key)).toString("base64url");
 }
 
-function decodeCursor(cursor: string | undefined): number {
-  if (cursor === undefined) return 0;
-  const m = /^o:(\d+)$/.exec(Buffer.from(cursor, "base64url").toString());
-  if (m === null) return fail("invalid_params", "bad cursor");
-  return Number(m[1]);
+function decodeCursor(cursor: string | undefined, arity: number): (string | number)[] | undefined {
+  if (cursor === undefined) return undefined;
+  try {
+    const key = JSON.parse(Buffer.from(cursor, "base64url").toString()) as unknown;
+    if (Array.isArray(key) && key.length === arity) return key as (string | number)[];
+  } catch {
+    // fall through
+  }
+  return fail("invalid_params", "bad cursor");
 }
 
 /**
@@ -164,12 +169,17 @@ export class SqliteTaskEngine implements TaskEngine {
     return { event: "task.updated", payload: { task: taskFromRow(this.#row(taskId)) } };
   }
 
-  /** Sets `status`; terminal and parked states drop the lease. Rejects leaving a terminal status. */
+  /**
+   * Sets `status`; every state but `running` drops the lease and settles steps still `running`
+   * (unsafe → `uncertain`; safe → `failed` when terminal, else `pending`). Rejects leaving a
+   * terminal status.
+   */
   #setStatus(row: TaskRow, status: TaskStatus, extra: Record<string, unknown> = {}): void {
     const from = row.status as TaskStatus;
     if (isTerminal(from) && status !== from) fail("conflict", `task ${row.id} is ${from}`);
     const now = this.#iso();
     const keepsLease = status === "running";
+    if (!keepsLease) this.#settleInFlight(row.id, isTerminal(status) ? "failed" : "pending");
     const cols: Record<string, unknown> = {
       status,
       updated_at: now,
@@ -324,28 +334,46 @@ export class SqliteTaskEngine implements TaskEngine {
       where.push("thread_id = ?");
       params.push(filter.threadId);
     }
-    const offset = decodeCursor(filter.cursor);
-    const limit = Math.max(1, Math.min(filter.limit ?? 100, Number.MAX_SAFE_INTEGER));
+    const after = decodeCursor(filter.cursor, 2);
+    if (after !== undefined) {
+      where.push("(updated_at < ? OR (updated_at = ? AND id < ?))");
+      params.push(after[0], after[0], after[1]);
+    }
+    const limit = Math.max(1, Math.min(filter.limit ?? 100, 1_000_000));
     const rows = this.#db.sqlite
       .prepare(
         `SELECT * FROM tasks ${where.length > 0 ? `WHERE ${where.join(" AND ")}` : ""}
-         ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?`,
+         ORDER BY updated_at DESC, id DESC LIMIT ?`,
       )
-      .all(...params, Math.min(limit, 1_000_000) + 1, offset) as TaskRow[];
-    const more = rows.length > limit;
+      .all(...params, limit + 1) as TaskRow[];
+    const page = rows.slice(0, limit);
+    const last = page.at(-1);
     return {
-      items: rows.slice(0, limit).map(taskFromRow),
-      nextCursor: more ? encodeCursor(offset + limit) : null,
+      items: page.map(taskFromRow),
+      nextCursor:
+        rows.length > limit && last !== undefined ? encodeCursor([last.updated_at, last.id]) : null,
     };
   }
 
+  /**
+   * With `options.lease`, the write happens only while that lease is live (a worker settling
+   * its turn), so a pause or cancel committed meanwhile is never overwritten. `running` is
+   * reachable only through `claim`.
+   */
   async updateStatus(
     taskId: string,
     status: TaskStatus,
     patch: { summary?: string; outcome?: JsonObject } = {},
+    options: { lease?: TaskLease } = {},
   ): Promise<Task> {
     const event = this.#tx(() => {
       const row = this.#row(taskId);
+      if (status === "running" && row.status !== "running") {
+        if (isTerminal(row.status as TaskStatus))
+          fail("conflict", `task ${taskId} is ${row.status}`);
+        fail("invalid_params", "tasks start running only through claim");
+      }
+      this.#assertLease(taskId, options.lease);
       const extra: Record<string, unknown> = {};
       if (patch.summary !== undefined) extra.summary = patch.summary;
       if (patch.outcome !== undefined) extra.outcome = JSON.stringify(patch.outcome);
@@ -430,6 +458,13 @@ export class SqliteTaskEngine implements TaskEngine {
     return row;
   }
 
+  /** Inside a transaction: `lease` must still be the task's live lease. */
+  #assertLease(taskId: string, lease: TaskLease | undefined): void {
+    if (lease === undefined) return;
+    if (lease.taskId !== taskId) fail("conflict", "lease is for another task");
+    this.#checkLease(lease);
+  }
+
   async renew(lease: TaskLease, leaseMs: number): Promise<TaskLease> {
     return this.#tx(() => {
       this.#checkLease(lease);
@@ -457,12 +492,22 @@ export class SqliteTaskEngine implements TaskEngine {
     this.#emit([event]);
   }
 
-  /** Atomically reads and clears what the next turn must be told; requires a live lease. */
-  takeResume(lease: TaskLease): ResumeItem[] {
-    return this.#tx(() => {
+  /** What the next turn must be told; requires a live lease. Cleared by `ackResume`. */
+  readResume(lease: TaskLease): ResumeItem[] {
+    const row = this.#checkLease(lease);
+    return parseJson<ResumeItem[]>(row.resume) ?? [];
+  }
+
+  /**
+   * Drops the first `count` resume items once a turn has received them (items added since are
+   * kept), so a turn that fails to start, or a crash before it does, loses nothing.
+   */
+  ackResume(lease: TaskLease, count: number): void {
+    if (count <= 0) return;
+    this.#tx(() => {
       const row = this.#checkLease(lease);
-      this.#patch(row.id, { resume: "[]" });
-      return parseJson<ResumeItem[]>(row.resume) ?? [];
+      const list = parseJson<ResumeItem[]>(row.resume) ?? [];
+      this.#patch(row.id, { resume: JSON.stringify(list.slice(count)) });
     });
   }
 
@@ -540,21 +585,23 @@ export class SqliteTaskEngine implements TaskEngine {
 
   /** Activity lines in order (`tasks.actions`). */
   actionsPage(taskId: string, page: { cursor?: string; limit?: number } = {}): Page<TaskAction> {
-    const offset = decodeCursor(page.cursor);
-    const limit = Math.max(1, page.limit ?? 100);
+    const after = decodeCursor(page.cursor, 1)?.[0] ?? -1;
+    const limit = Math.max(1, Math.min(page.limit ?? 100, 1_000_000));
     const rows = this.#db.sqlite
-      .prepare("SELECT * FROM task_actions WHERE task_id = ? ORDER BY idx LIMIT ? OFFSET ?")
-      .all(taskId, Math.min(limit, 1_000_000) + 1, offset) as ActionRow[];
+      .prepare("SELECT * FROM task_actions WHERE task_id = ? AND idx > ? ORDER BY idx LIMIT ?")
+      .all(taskId, after, limit + 1) as ActionRow[];
+    const items = rows.slice(0, limit).map(actionFromRow);
+    const last = items.at(-1);
     return {
-      items: rows.slice(0, limit).map(actionFromRow),
-      nextCursor: rows.length > limit ? encodeCursor(offset + limit) : null,
+      items,
+      nextCursor: rows.length > limit && last !== undefined ? encodeCursor([last.idx]) : null,
     };
   }
 
   async requestInput(
     taskId: string,
     questions: Question[],
-    options: { id?: string } = {},
+    options: { id?: string; lease?: TaskLease } = {},
   ): Promise<InputRequest> {
     if (questions.length < 1 || questions.length > 4) fail("invalid_params", "1–4 questions");
     for (const q of questions) {
@@ -564,6 +611,7 @@ export class SqliteTaskEngine implements TaskEngine {
     }
     const result = this.#tx(() => {
       const row = this.#row(taskId);
+      this.#assertLease(taskId, options.lease);
       if (options.id !== undefined) {
         const existing = this.#db.sqlite
           .prepare("SELECT * FROM input_requests WHERE id = ?")
@@ -645,16 +693,15 @@ export class SqliteTaskEngine implements TaskEngine {
           questions: parseJson<Question[]>(ir.question) ?? [],
           answer,
         });
-        if (row.status === "awaiting_input") {
-          const stillOpen = this.#db.sqlite
-            .prepare(
-              "SELECT COUNT(*) AS n FROM input_requests WHERE task_id = ? AND status = 'open'",
-            )
-            .get(row.id) as { n: number };
-          if (stillOpen.n === 0) this.#setStatus(row, "queued", { resume, awaiting: null });
-          else this.#patch(row.id, { resume });
+        const stillOpen = this.#db.sqlite
+          .prepare("SELECT COUNT(*) AS n FROM input_requests WHERE task_id = ? AND status = 'open'")
+          .get(row.id) as { n: number };
+        const clears = stillOpen.n === 0 && parseJson<Awaiting>(row.awaiting)?.kind === "input";
+        if (row.status === "awaiting_input" && stillOpen.n === 0) {
+          this.#setStatus(row, "queued", { resume, awaiting: null });
         } else {
-          this.#patch(row.id, { resume });
+          // Paused (or not parked): keep the answer; resume() then re-queues the task.
+          this.#patch(row.id, { resume, ...(clears ? { awaiting: null } : {}) });
         }
         event = this.#updated(row.id);
       }
@@ -763,7 +810,7 @@ export class SqliteTaskEngine implements TaskEngine {
         if (cp === undefined) fail("not_found", `step ${options.fromStepId} not found`);
         this.#db.sqlite
           .prepare(
-            "UPDATE task_checkpoints SET status = 'pending', updated_at = ? WHERE task_id = ? AND idx >= ? AND status != 'uncertain'",
+            "UPDATE task_checkpoints SET status = 'pending', updated_at = ? WHERE task_id = ? AND idx >= ? AND (status = 'failed' OR (status = 'done' AND replay_safe = 1))",
           )
           .run(this.#iso(), taskId, cp.idx);
       }
@@ -789,9 +836,11 @@ export class SqliteTaskEngine implements TaskEngine {
   async parkForApproval(
     taskId: string,
     approval: { approvalId: string; stepId?: string | null },
+    options: { lease?: TaskLease } = {},
   ): Promise<Task> {
     const event = this.#tx(() => {
       const row = this.#row(taskId);
+      this.#assertLease(taskId, options.lease);
       this.#setStatus(row, "awaiting_approval", {
         awaiting: JSON.stringify({
           kind: "approval",

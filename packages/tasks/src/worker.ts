@@ -3,7 +3,9 @@ import type {
   AgentLoop,
   ApprovalRequest,
   Clock,
+  InputRequest,
   IssuedApproval,
+  JsonObject,
   Notifier,
   PermissionBroker,
   PermissionMode,
@@ -11,6 +13,7 @@ import type {
   SideEffect,
   Task,
   TaskCheckpoint,
+  TaskLease,
   ToolCallStatus,
   ToolRegistry,
   TurnInput,
@@ -271,7 +274,7 @@ export class TaskWorkerPool {
     const taskId = lease.taskId;
     const record = engine.getRecord(taskId);
     if (record === undefined) return undefined;
-    const resume = engine.takeResume(lease);
+    const resume = engine.readResume(lease);
     const input = buildTurnInput(record, resume, await engine.checkpoints(taskId));
     const runId = this.#runId();
     const controller = new AbortController();
@@ -292,18 +295,27 @@ export class TaskWorkerPool {
     };
     this.#active.set(taskId, { runId, controller, stop });
 
-    // Lease heartbeat.
+    // Lease heartbeat. A failed renewal stops the turn; when the task was paused or cancelled
+    // from another process, the stop carries that reason so authority is revoked too.
     let renewHandle: unknown;
+    let settled = false;
     const scheduleRenew = () => {
       renewHandle = this.#timers.setTimeout(() => {
         const current = lease;
-        if (current === undefined || stopped !== undefined) return;
+        if (current === undefined || stopped !== undefined || settled) return;
         engine.renew(current, this.#o.leaseMs).then(
           (l) => {
+            if (settled) return;
             lease = l;
             scheduleRenew();
           },
-          () => stop("lease_lost"),
+          async () => {
+            if (settled) return;
+            const status = (await engine.get(taskId))?.status;
+            stop(
+              status === "cancelled" ? "cancelled" : status === "paused" ? "paused" : "lease_lost",
+            );
+          },
         );
       }, this.#o.renewEveryMs);
     };
@@ -343,7 +355,27 @@ export class TaskWorkerPool {
         permissionMode,
         signal: controller.signal,
       });
+      let acked = false;
       for await (const ev of stream) {
+        // A worker that lost its lease writes nothing: another worker owns the task now.
+        if (stopped === "lease_lost") continue;
+        if (!acked && lease !== undefined && stopped === undefined) {
+          // The turn has its input: the resume items it was told can go.
+          acked = true;
+          engine.ackResume(lease, resume.length);
+        }
+        if ((stopped === "cancelled" || stopped === "paused") && ev.type === "tool_call") {
+          // An already-dispatched request finished after the stop: reconcile, never replay.
+          if (ev.status === "ok" || ev.status === "failed") {
+            await engine
+              .reconcile(taskId, ev.toolCallId, {
+                status: ev.status === "ok" ? "done" : "failed",
+                note: `finished after the task was ${stopped}`,
+              })
+              .catch(() => undefined);
+          }
+          continue;
+        }
         switch (ev.type) {
           case "tool_call": {
             const status = CHECKPOINT_STATUS[ev.status];
@@ -391,8 +423,9 @@ export class TaskWorkerPool {
       outcome = "failed";
       error = e instanceof Error ? e.message : String(e);
     } finally {
+      settled = true;
       this.#timers.clearTimeout(renewHandle);
-      this.#active.delete(taskId);
+      if (this.#active.get(taskId)?.runId === runId) this.#active.delete(taskId);
     }
 
     const report = (o: TurnReport["outcome"]): TurnReport => ({
@@ -416,65 +449,120 @@ export class TaskWorkerPool {
     }
 
     const summary = text.trim().slice(0, SUMMARY_MAX);
+    const held = lease;
     let task: Task | undefined;
-    if (stopped === "budget_exceeded") {
-      task = await engine.updateStatus(taskId, "failed", {
-        summary: `Stopped: ${budgetReason}`,
-        outcome: { result: "budget_exceeded", reason: budgetReason },
+    try {
+      task = await this.#settle(taskId, held, {
+        outcome,
+        stopped,
+        budgetReason,
+        summary,
+        error,
+        approval,
+        inputRequest,
       });
-      await this.#notifyEnd(task);
-      return { ...report("budget_exceeded"), task };
+    } catch (e) {
+      // A pause / cancel / lease change committed between our renew and the write wins.
+      if (e instanceof PsycheError && e.code === "conflict") {
+        return { ...report("lease_lost"), task: await engine.get(taskId) };
+      }
+      throw e;
     }
-    switch (outcome) {
-      case "final":
-        task = await engine.updateStatus(taskId, "done", {
-          summary,
-          outcome: { result: "final" },
-        });
-        await this.#notifyEnd(task);
-        break;
-      case "no_reply":
-        task = await engine.updateStatus(taskId, "done", {
-          summary: "NO_REPLY",
-          outcome: { result: "no_reply" },
-        });
-        break;
-      case "awaiting_approval":
-        if (approval === undefined) {
-          await engine.release(lease);
-          task = await engine.get(taskId);
-          break;
-        }
-        task = await engine.parkForApproval(taskId, {
-          approvalId: approval.id,
-          stepId: approval.requestedBy.toolCallId ?? null,
-        });
-        this.watchApproval(taskId, approval.id);
-        break;
-      case "awaiting_input":
-        if (inputRequest === undefined) {
-          await engine.release(lease);
-          task = await engine.get(taskId);
-          break;
-        }
-        await engine.requestInput(taskId, inputRequest.questions, { id: inputRequest.id });
-        task = await engine.get(taskId);
-        if (task !== undefined) await this.#notifyInput(task, inputRequest.questions[0]?.question);
-        break;
-      case "cancelled":
-        // Cancelled by the loop itself (not through the engine): hand the task back.
-        await engine.release(lease);
-        task = await engine.get(taskId);
-        break;
-      case "failed":
-        task = await engine.updateStatus(taskId, "failed", {
-          summary: error ?? "The run failed",
-          outcome: { result: "failed", ...(error === undefined ? {} : { error }) },
-        });
-        await this.#notifyEnd(task);
-        break;
-    }
+    if (stopped === "budget_exceeded") return { ...report("budget_exceeded"), task };
     return { ...report(outcome), task };
+  }
+
+  /** Writes a finished turn's result; every write is checked against `lease` in its transaction. */
+  async #settle(
+    taskId: string,
+    lease: TaskLease,
+    r: {
+      outcome: RunOutcome;
+      stopped: string | undefined;
+      budgetReason: string;
+      summary: string;
+      error: string | undefined;
+      approval: ApprovalRequest | undefined;
+      inputRequest: InputRequest | undefined;
+    },
+  ): Promise<Task | undefined> {
+    const { engine } = this.#o;
+    const opts = { lease };
+    const fail = async (summary: string, outcome: JsonObject) => {
+      const t = await engine.updateStatus(taskId, "failed", { summary, outcome }, opts);
+      await this.#notifyEnd(t);
+      return t;
+    };
+    if (r.stopped === "budget_exceeded") {
+      return fail(`Stopped: ${r.budgetReason}`, {
+        result: "budget_exceeded",
+        reason: r.budgetReason,
+      });
+    }
+    switch (r.outcome) {
+      case "final": {
+        const t = await engine.updateStatus(
+          taskId,
+          "done",
+          { summary: r.summary, outcome: { result: "final" } },
+          opts,
+        );
+        await this.#notifyEnd(t);
+        return t;
+      }
+      case "no_reply":
+        return engine.updateStatus(
+          taskId,
+          "done",
+          { summary: "NO_REPLY", outcome: { result: "no_reply" } },
+          opts,
+        );
+      case "awaiting_approval": {
+        if (r.approval === undefined) {
+          return fail("The run waited on an approval it never requested", {
+            result: "failed",
+            error: "awaiting_approval without approval_requested",
+          });
+        }
+        const t = await engine.parkForApproval(
+          taskId,
+          { approvalId: r.approval.id, stepId: r.approval.requestedBy.toolCallId ?? null },
+          opts,
+        );
+        this.watchApproval(taskId, r.approval.id);
+        return t;
+      }
+      case "awaiting_input": {
+        if (r.inputRequest === undefined) {
+          return fail("The run waited on input it never asked for", {
+            result: "failed",
+            error: "awaiting_input without question",
+          });
+        }
+        await engine.requestInput(taskId, r.inputRequest.questions, {
+          id: r.inputRequest.id,
+          lease,
+        });
+        const t = await engine.get(taskId);
+        if (t !== undefined) await this.#notifyInput(t, r.inputRequest.questions[0]?.question);
+        return t;
+      }
+      case "cancelled": {
+        // The loop stopped the run itself (a chat "stop"): pause rather than re-queue, so the
+        // task does not restart in a tight loop; the owner resumes or cancels it.
+        await engine.updateStatus(taskId, "paused", {}, opts);
+        await engine.addAction(taskId, {
+          level1: "Stopped by the agent; paused",
+          level2: { tool: "task.pause", outcome: "cancelled" },
+        });
+        return engine.get(taskId);
+      }
+      case "failed":
+        return fail(r.error ?? "The run failed", {
+          result: "failed",
+          ...(r.error === undefined ? {} : { error: r.error }),
+        });
+    }
   }
 
   /**
