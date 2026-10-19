@@ -24,6 +24,7 @@ import {
   compilePolicy,
   createPermissionHandlers,
   type PolicyConfig,
+  type PresenceVerifier,
   PsychePermissionBroker,
   SqlitePermissionStore,
 } from "@psyche/permissions";
@@ -95,7 +96,19 @@ export interface ComposeOptions
    * part with a `relay` delivers approvals to chat and names owner senders.
    */
   parts?: ReadonlyArray<(services: ComposeServices) => Promise<ComposedPart> | ComposedPart>;
+  /**
+   * Touch ID (mac helper) or passkey assertions for approvals that require authentication
+   * (purchase, credential fill, host exec; security §3.7). Defaults to refusing every assertion.
+   */
+  presence?: PresenceVerifier;
 }
+
+/**
+ * No presence verifier is wired yet (S14 helper Touch ID, S01 passkeys), and the broker only
+ * checks presence when it has one. Fail closed: approvals that require authentication cannot be
+ * answered until a real verifier is configured.
+ */
+const NO_PRESENCE: PresenceVerifier = { verify: async () => false };
 
 export interface ComposedGateway {
   readonly gateway: Gateway;
@@ -161,6 +174,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     taskPollMs,
     compaction,
     parts: partFactories = [],
+    presence = NO_PRESENCE,
     ...gwOptions
   } = options;
   const clock =
@@ -203,6 +217,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     notifier,
     clock,
     psycheHome: config.home,
+    presence,
     // The agent never acts on Psyche's own UI (prohibitions `gateway_origin`): every origin it is served on.
     gatewayOrigins: [
       `http://127.0.0.1:${config.port}`,

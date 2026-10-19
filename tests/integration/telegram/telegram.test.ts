@@ -377,10 +377,10 @@ describe("scenario 3: Telegram (fake Bot API)", () => {
     expect(sentEmails).toHaveLength(2);
   });
 
-  it("purchase approval: never delivered to Telegram, not answerable there; only the desktop answers", async () => {
+  it("purchase approval: never delivered to Telegram, not answerable there; the desktop needs Touch ID", async () => {
     model.chat.script([
       calls(["p1", "purchase_item", { item: "standing desk", amountUsd: 1200 }]),
-      say("Ordered the standing desk."),
+      say("I did not order the standing desk."),
     ]);
     const from = api.mark;
     const ev = c.mark;
@@ -416,16 +416,26 @@ describe("scenario 3: Telegram (fake Bot API)", () => {
     await api.message(OWNER.id, /No pending approval with that ref/, mark);
     expect((await sk.composed.broker.get(approval.id))?.status).toBe("pending");
 
-    // The Mac / desktop card answers it (Touch ID presence is not wired yet: S14 #47).
+    // Only the Mac / desktop card can answer it, and approving needs a Touch ID or passkey
+    // assertion. No verifier is wired yet (S14 #47, S01 #79), so the composition fails closed.
     const token = await desktopToken(approval.id);
+    await expect(
+      c.call("approvals.answer", {
+        approvalId: approval.id,
+        answerToken: token,
+        decision: "approve",
+        scope: "once",
+      }),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    expect((await sk.composed.broker.get(approval.id))?.status).toBe("pending");
     await c.call("approvals.answer", {
       approvalId: approval.id,
       answerToken: token,
-      decision: "approve",
+      decision: "deny",
       scope: "once",
     });
-    await api.message(OWNER.id, /Ordered the standing desk/, from);
-    expect(purchases).toEqual([{ item: "standing desk", amountUsd: 1200 }]);
+    await api.message(OWNER.id, /did not order the standing desk/, from);
+    expect(purchases).toEqual([]);
   });
 
   it("the relay names only the owner as an approver sender", async () => {

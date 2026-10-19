@@ -21,8 +21,6 @@ docker compose --profile tailscale up -d
 
 `.env` and `secrets/` are git-ignored. The bot token exists only as the Compose secret `/run/secrets/telegram_bot_token`, which `channelsSetupFromEnv` reads through `PSYCHE_TELEGRAM_BOT_TOKEN_FILE`. An empty file disables Telegram.
 
-**Gap:** `main.ts` does not mount the channels part yet. Until the INT-2 composition lands there (`parts: [s => composeChannels(s, channelsSetupFromEnv(process.env, readFile))]`), the container runs the Gateway without Telegram.
-
 ## Pair the first admin device
 
 The handshake secret never grants `operator.admin`, so approve the first device on the server:
@@ -47,7 +45,7 @@ Then open `https://psyche.<tailnet>.ts.net` from a tailnet device. It pairs like
 2. The Mac connects with `role: "node"` and gets a pairing code. On the server, run `devices approve <CODE> node`, or approve it from an admin device with the `node` scope only.
 3. Check that it shows up in `nodes.list` with its capabilities (notifications, iMessage, computer use).
 
-**Gap: Touch ID approvals.** Approvals from the server should reach the Mac as notifications with Approve / Deny and `authenticationRequired` for purchases and credential fills (security §3.7). This needs S14's mac helper (PR #47, not merged) and a presence verifier on the broker. The composed broker has no presence verifier today, so a desktop answer to a `purchase` approval is accepted without Touch ID. Telegram is not affected, because purchases never reach chat.
+**Gap: Touch ID approvals.** Approvals from the server should reach the Mac as notifications with Approve / Deny and `authenticationRequired` for purchases and credential fills (security §3.7). This needs S14's mac helper (PR #47, not merged) and a presence verifier on the broker. Until one is wired, the composition fails closed: approving a purchase, credential fill or host exec is refused on every surface (deny still works). Telegram is not affected, because those kinds never reach chat.
 
 ## Tests
 
