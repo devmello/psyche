@@ -43,7 +43,10 @@ Technical claims were checked on 2026-10-19 on macOS 27, Node 24.18 and git 2.54
 
 ## Phase 2: PR reviews
 
-None yet. Each security-critical PR (touching `packages/permissions`, `vault`, `browser`, `sandbox`, `channels`, `mcp-host` or `apps/gateway` auth) gets `pr-<number>.md` within a day of opening.
+Each security-critical PR (touching `packages/permissions`, `vault`, `browser`, `sandbox`, `channels`, `mcp-host` or `apps/gateway` auth) gets `pr-<number>.md` within a day of opening.
 
 | PR | Package | Review | Failing tests | Status |
 | --- | --- | --- | --- | --- |
+| devmello/psyche#1 | `apps/gateway` auth, protocol scopes | [pr-1](pr-1.md) | `tests/corpus/review-cases/pr-1/` (18 fail, 11 held) | A High, B Medium, C High open |
+
+Run the review cases with `pnpm exec vitest run --config tests/corpus/review-cases/vitest.config.ts`. They sit outside the root `projects` list because they are expected to fail until fixed.
