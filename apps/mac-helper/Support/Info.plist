@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Placeholder for Psyche Helper.app (ADR-020). Not wired into SwiftPM; S14 bundles the
+  psyche-helper executable into the .app, signs it with Developer ID and the hardened runtime
+  (codesign -o runtime), and fills in every usage description (security §12).
+-->
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>com.psyche.helper</string>
+  <key>CFBundleName</key>
+  <string>Psyche Helper</string>
+  <key>CFBundleDisplayName</key>
+  <string>Psyche Helper</string>
+  <key>CFBundleExecutable</key>
+  <string>psyche-helper</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>0.0.0</string>
+  <key>CFBundleVersion</key>
+  <string>0</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>15.0</string>
+  <!-- Background agent: no Dock icon. -->
+  <key>LSUIElement</key>
+  <true/>
+  <!-- TODO(S14): final wording for each permission prompt (security §12 table). -->
+  <key>NSAppleEventsUsageDescription</key>
+  <string>TODO(S14): Psyche uses Automation to act in the apps you allow.</string>
+  <key>NSCalendarsFullAccessUsageDescription</key>
+  <string>TODO(S14)</string>
+  <key>NSRemindersFullAccessUsageDescription</key>
+  <string>TODO(S14)</string>
+  <key>NSContactsUsageDescription</key>
+  <string>TODO(S14)</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>TODO(S14)</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>TODO(S14)</string>
+</dict>
+</plist>
