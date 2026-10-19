@@ -2,6 +2,7 @@ import { type Static, Type } from "@sinclair/typebox";
 import { Id, Nullable, Provenance, StringEnum } from "./common.ts";
 import { PsycheError } from "./errors.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
+import { QueuedMessage } from "./methods/chat.ts";
 import { Block } from "./schemas/blocks.ts";
 import { Device, NodeInfo, PairingRequest } from "./schemas/identity.ts";
 import { Channel, CredentialMeta, VaultStatus } from "./schemas/integrations.ts";
@@ -39,6 +40,10 @@ export const Events = {
     payload: Type.Object({ threadId: Id, messageId: Id, block: Block }),
     description:
       "A structured block (plan, checklist, approval, question, artifact, receipt, …) was added to a message.",
+  }),
+  "chat.queue.updated": defineEvent({
+    payload: Type.Object({ threadId: Id, items: Type.Array(QueuedMessage) }),
+    description: "The thread's follow-up queue changed (queued, removed or started).",
   }),
   "run.updated": defineEvent({
     payload: Type.Object({ run: Run }),
