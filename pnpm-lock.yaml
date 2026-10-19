@@ -432,10 +432,19 @@ importers:
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
+      ulid:
+        specifier: 3.0.2
+        version: 3.0.2
     devDependencies:
       '@psyche/testing':
         specifier: workspace:*
         version: link:../testing
+      '@types/better-sqlite3':
+        specifier: 9.6.0
+        version: 9.6.0
+      better-sqlite3:
+        specifier: 13.0.3
+        version: 13.0.3
 
   packages/permissions:
     dependencies:
