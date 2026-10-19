@@ -15,6 +15,7 @@
 | `connectors.ts` | `ConnectorRegistry` with Google, token vault stand-in, sync timer, `connectors.list` / `get` |
 | `channels.ts` | `ChannelService` with Telegram and WebChat, inbound → chat turns, replies, `channels.*`, approvals over chat |
 | `helper.ts` | approvals on the Mac: cards to a connected helper as `notify.show`, `notify.response` → broker answers on the `notification` surface, the helper's Touch ID `PresenceVerifier` (signed assertion, #84) |
+| `backup.ts` | `backup.list` / `create` / `verify` / `delete` with `@psyche/backup` (SQLite online backup, no downtime; restore stays in the CLI) and `logs.tail` over `logs/gateway*.log` with every line redacted (S22) |
 | `parts.ts` | the parts `psyched` mounts from its environment |
 
 Approvals that need Touch ID or a passkey are refused until a verifier accepts a real assertion (fail closed): helper assertions need a registered presence key, which nothing registers yet (#84); passkeys need S01 (#79).
