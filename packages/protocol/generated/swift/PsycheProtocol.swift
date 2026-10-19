@@ -259,6 +259,8 @@
 //   let notificationAction = try? JSONDecoder().decode(NotificationAction.self, from: jsonData)
 //   let notificationCreatedPayload = try? JSONDecoder().decode(NotificationCreatedPayload.self, from: jsonData)
 //   let notificationKind = try? JSONDecoder().decode(NotificationKind.self, from: jsonData)
+//   let notificationResolvedPayload = try? JSONDecoder().decode(NotificationResolvedPayload.self, from: jsonData)
+//   let notificationUpdatedPayload = try? JSONDecoder().decode(NotificationUpdatedPayload.self, from: jsonData)
 //   let notificationsListParams = try? JSONDecoder().decode(NotificationsListParams.self, from: jsonData)
 //   let notificationsListResult = try? JSONDecoder().decode(NotificationsListResult.self, from: jsonData)
 //   let notificationsMarkReadParams = try? JSONDecoder().decode(NotificationsMarkReadParams.self, from: jsonData)
@@ -5319,6 +5321,8 @@ public struct Notification: Codable, Sendable {
     public let readAt: String?
     public let resolvedAt: String?
     public let route: String?
+    public let staleAt: String?
+    public let staleReason: String?
     public let surfaces: [String]
     public let taskID: String?
     public let title: String
@@ -5334,12 +5338,14 @@ public struct Notification: Codable, Sendable {
         case readAt = "readAt"
         case resolvedAt = "resolvedAt"
         case route = "route"
+        case staleAt = "staleAt"
+        case staleReason = "staleReason"
         case surfaces = "surfaces"
         case taskID = "taskId"
         case title = "title"
     }
 
-    public init(actions: [NotificationAction], approvalID: String?, body: String, createdAt: String, delivered: [String: String], id: String, kind: NotificationKind, readAt: String?, resolvedAt: String?, route: String?, surfaces: [String], taskID: String?, title: String) {
+    public init(actions: [NotificationAction], approvalID: String?, body: String, createdAt: String, delivered: [String: String], id: String, kind: NotificationKind, readAt: String?, resolvedAt: String?, route: String?, staleAt: String?, staleReason: String?, surfaces: [String], taskID: String?, title: String) {
         self.actions = actions
         self.approvalID = approvalID
         self.body = body
@@ -5350,6 +5356,8 @@ public struct Notification: Codable, Sendable {
         self.readAt = readAt
         self.resolvedAt = resolvedAt
         self.route = route
+        self.staleAt = staleAt
+        self.staleReason = staleReason
         self.surfaces = surfaces
         self.taskID = taskID
         self.title = title
@@ -5358,17 +5366,22 @@ public struct Notification: Codable, Sendable {
 
 // MARK: - NotificationAction
 public struct NotificationAction: Codable, Sendable {
+    /// OS delivery requires device authentication (Touch ID) before the action runs; set for
+    /// purchase and credential-fill approvals (security §3.5)
+    public let authenticationRequired: Bool?
     public let destructive: Bool?
     public let id: String
     public let label: String
 
     public enum CodingKeys: String, CodingKey {
+        case authenticationRequired = "authenticationRequired"
         case destructive = "destructive"
         case id = "id"
         case label = "label"
     }
 
-    public init(destructive: Bool?, id: String, label: String) {
+    public init(authenticationRequired: Bool?, destructive: Bool?, id: String, label: String) {
+        self.authenticationRequired = authenticationRequired
         self.destructive = destructive
         self.id = id
         self.label = label
@@ -5384,6 +5397,32 @@ public enum NotificationKind: String, Codable, Sendable {
     case system = "system"
     case taskDone = "task_done"
     case taskFailed = "task_failed"
+}
+
+// MARK: - NotificationResolvedPayload
+public struct NotificationResolvedPayload: Codable, Sendable {
+    public let notification: Notification
+
+    public enum CodingKeys: String, CodingKey {
+        case notification = "notification"
+    }
+
+    public init(notification: Notification) {
+        self.notification = notification
+    }
+}
+
+// MARK: - NotificationUpdatedPayload
+public struct NotificationUpdatedPayload: Codable, Sendable {
+    public let notification: Notification
+
+    public enum CodingKeys: String, CodingKey {
+        case notification = "notification"
+    }
+
+    public init(notification: Notification) {
+        self.notification = notification
+    }
 }
 
 // MARK: - NotificationsListParams

@@ -90,7 +90,17 @@ export const NotificationKind = StringEnum(
 export type NotificationKind = Static<typeof NotificationKind>;
 
 export const NotificationAction = Type.Object(
-  { id: Type.String(), label: Type.String(), destructive: Type.Optional(Type.Boolean()) },
+  {
+    id: Type.String(),
+    label: Type.String(),
+    destructive: Type.Optional(Type.Boolean()),
+    authenticationRequired: Type.Optional(
+      Type.Boolean({
+        description:
+          "OS delivery requires device authentication (Touch ID) before the action runs; set for purchase and credential-fill approvals (security §3.5)",
+      }),
+    ),
+  },
   { $id: "NotificationAction" },
 );
 
@@ -109,6 +119,15 @@ export const Notification = Type.Object(
     readAt: Nullable(IsoDateTime),
     resolvedAt: Nullable(IsoDateTime),
     createdAt: IsoDateTime,
+    staleAt: Type.Optional(Nullable(IsoDateTime)),
+    staleReason: Type.Optional(
+      Nullable(
+        Type.String({
+          description:
+            "Why restart reconciliation marked the notification stale (architecture §4.12)",
+        }),
+      ),
+    ),
   },
   { $id: "Notification" },
 );

@@ -152,6 +152,16 @@ export const Events = {
     payload: Type.Object({ goal: Goal }),
     description: "A goal was created, confirmed, changed or archived.",
   }),
+  "notification.updated": defineEvent({
+    payload: Type.Object({ notification: Notification }),
+    description:
+      "A notification changed: read, re-delivered, or replaced by a de-duplicated notify (same id).",
+  }),
+  "notification.resolved": defineEvent({
+    payload: Type.Object({ notification: Notification }),
+    description:
+      "A notification was resolved (by the user, an action, a superseding state or restart reconciliation).",
+  }),
 } as const;
 
 export type EventName = keyof typeof Events;
