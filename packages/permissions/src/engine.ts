@@ -470,12 +470,27 @@ export class PolicyEngine {
     const ask = (rule: string, reason?: string, offer: GrantScope[] = ALL_SCOPES) =>
       done("ask", rule, reason, {
         binding,
-        scopes: scopesFor(mode === "manual" ? ["once"] : offer),
+        // Manual: writes and above are `once` only; first reads offer task / site (security §3.2).
+        scopes: scopesFor(
+          mode !== "manual"
+            ? offer
+            : SEVERITY[se] >= SEVERITY.write
+              ? ["once"]
+              : ["once", "task", "site"],
+        ),
         ...(typedConfirmation === undefined ? {} : { typedConfirmation }),
       });
 
     const floor = floors[0];
     if (floor !== undefined) return ask(floor.rule, floor.reason);
+
+    // Sensitive categories always ask for reads, whatever grants exist (security §3.2).
+    const sensitiveRead =
+      se === "read" && origin !== undefined && isSensitiveHost(p, canonicalUrl(origin).host);
+    if (sensitiveRead) {
+      if (escalation !== undefined) return ask(escalation.rule, escalation.reason, ["once"]);
+      return ask(`mode:${mode}/read:sensitive`, "sensitive-category source", ["once"]);
+    }
 
     // 5. Standing grants and configured allowances.
     trace.push("step5:grants");
