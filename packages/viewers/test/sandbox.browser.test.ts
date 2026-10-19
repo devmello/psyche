@@ -4,9 +4,6 @@
  * playwright-core (no browser download); skipped when no Chrome is found. Every "external host"
  * is a loopback server we control, so the test never touches the internet.
  */
-import { existsSync } from "node:fs";
-import { createServer, type Server } from "node:http";
-import type { AddressInfo } from "node:net";
 import { type Browser, chromium } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -17,43 +14,7 @@ import {
   HOST_RENDER,
 } from "../src/core/artifact.ts";
 import { sanitizeEmailHtml } from "../src/core/email.ts";
-
-function findChrome(): string | undefined {
-  const candidates = [
-    process.env.CHROME_PATH,
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    "/Applications/Chromium.app/Contents/MacOS/Chromium",
-    "/usr/bin/google-chrome",
-    "/usr/bin/google-chrome-stable",
-    "/usr/bin/chromium",
-    "/usr/bin/chromium-browser",
-  ];
-  return candidates.find((p): p is string => p !== undefined && p !== "" && existsSync(p));
-}
-
-const chrome = findChrome();
-
-/** JSON that is safe inside an inline <script> (no "</script>" breakout). */
-const js = (v: unknown) => JSON.stringify(v).replace(/</g, "\\u003c");
-
-interface Srv {
-  server: Server;
-  origin: string;
-  hits: string[];
-}
-
-async function serve(
-  handler: (path: string, res: import("node:http").ServerResponse) => void,
-): Promise<Srv> {
-  const hits: string[] = [];
-  const server = createServer((req, res) => {
-    hits.push(req.url ?? "");
-    handler(req.url ?? "/", res);
-  });
-  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
-  const { port } = server.address() as AddressInfo;
-  return { server, origin: `http://127.0.0.1:${port}`, hits };
-}
+import { chrome, js, type Srv, serve } from "./support/chrome.ts";
 
 /** Everything a hostile artifact might try. Results are posted to the parent for inspection. */
 function hostileArtifact(ext: string): string {

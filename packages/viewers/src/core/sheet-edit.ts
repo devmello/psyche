@@ -35,7 +35,7 @@ export const EDITABLE_SHEET_FORMATS: readonly EditableSheetFormat[] = [
 export const MAX_EDIT_CELLS = 2_000_000;
 
 export function editableSheetFormat(name: string): EditableSheetFormat | undefined {
-  const ext = extensionOf(name);
+  const ext = extensionOf(name) ?? "";
   return (EDITABLE_SHEET_FORMATS as readonly string[]).includes(ext)
     ? (ext as EditableSheetFormat)
     : undefined;
@@ -170,7 +170,8 @@ export async function toUniverSnapshot(bytes: Uint8Array, name: string): Promise
       });
     }
     (src["!cols"] ?? []).forEach((col, c) => {
-      if (col?.wpx !== undefined) (ws.columnData as Record<number, { w: number }>)[c] = { w: col.wpx };
+      if (col?.wpx !== undefined)
+        (ws.columnData as Record<number, { w: number }>)[c] = { w: col.wpx };
     });
     (src["!rows"] ?? []).forEach((row, r) => {
       if (row?.hpx !== undefined) (ws.rowData as Record<number, { h: number }>)[r] = { h: row.hpx };
@@ -292,7 +293,8 @@ export async function fromUniverSnapshot(
         if (c > maxC) maxC = c;
       }
     }
-    if (maxR >= 0) ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: maxR, c: maxC } });
+    if (maxR >= 0)
+      ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: maxR, c: maxC } });
     const merges = (src.mergeData ?? []).map((m) => ({
       s: { r: m.startRow, c: m.startColumn },
       e: { r: m.endRow, c: m.endColumn },
@@ -300,11 +302,13 @@ export async function fromUniverSnapshot(
     if (merges.length > 0) ws["!merges"] = merges;
     const colData = (src.columnData ?? {}) as Record<string, { w?: number } | undefined>;
     const cols: { wpx?: number }[] = [];
-    for (const [k, v] of Object.entries(colData)) if (v?.w !== undefined) cols[Number(k)] = { wpx: v.w };
+    for (const [k, v] of Object.entries(colData))
+      if (v?.w !== undefined) cols[Number(k)] = { wpx: v.w };
     if (cols.length > 0) ws["!cols"] = Array.from(cols, (c) => c ?? {});
     const rowData = (src.rowData ?? {}) as Record<string, { h?: number } | undefined>;
     const rows: { hpx?: number }[] = [];
-    for (const [k, v] of Object.entries(rowData)) if (v?.h !== undefined) rows[Number(k)] = { hpx: v.h };
+    for (const [k, v] of Object.entries(rowData))
+      if (v?.h !== undefined) rows[Number(k)] = { hpx: v.h };
     if (rows.length > 0) ws["!rows"] = Array.from(rows, (r) => r ?? {});
     XLSX.utils.book_append_sheet(wb, ws, uniqueSheetName(wb.SheetNames, src.name ?? id));
   }

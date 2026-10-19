@@ -8,6 +8,7 @@ import type {
   ViewerItem,
   ViewerSelection,
 } from "../core/types.ts";
+import type { SheetEditorRuntime } from "./univer.ts";
 
 /**
  * The props every viewer takes (S11 shells and S12 screens render viewers only through this).
@@ -26,6 +27,13 @@ export interface ViewerProps {
   onSendToChat?: (payload: SendToChatPayload) => void;
   /** Saves bytes the viewer produced (filled PDF preview, export) to the Library. */
   onSaveToLibrary?: (file: { name: string; mime: string; bytes: Uint8Array }) => void;
+  /**
+   * Writes an edited file back to this item (spreadsheet edit mode). Absent, viewers stay
+   * read-only and show no Edit button.
+   */
+  onSave?: (file: { name: string; mime: string; bytes: Uint8Array }) => Promise<void> | void;
+  /** Overrides the lazily loaded Univer runtime (tests, or a host that preloads the chunk). */
+  sheetEditor?: () => Promise<SheetEditorRuntime>;
   /** Office → PDF/thumbnail conversion (slides); a placeholder shows when absent. */
   conversion?: ConversionService;
   /** Compact rendering for inline chat cards. */

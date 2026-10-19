@@ -96,7 +96,9 @@ describe("sheet edit bridge (SheetJS ⇄ Univer snapshot)", () => {
     const ws: XLSX.WorkSheet = { A1: { t: "s", v: "x" } };
     ws["!ref"] = `A1:Z${Math.ceil(MAX_EDIT_CELLS / 26) + 1}`;
     XLSX.utils.book_append_sheet(wb, ws, "Big");
-    const bytes = new Uint8Array(XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer);
+    const bytes = new Uint8Array(
+      XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer,
+    );
     await expect(toUniverSnapshot(bytes, "big.xlsx")).rejects.toThrow(/too large to edit/);
   });
 });
