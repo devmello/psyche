@@ -62,5 +62,12 @@ export function createTaskLauncher(options: {
     reattach(run: AutomationRun) {
       return run.taskId == null ? undefined : settle(run.taskId);
     },
+    async cancel(run: AutomationRun, reason: string) {
+      if (run.taskId == null) return;
+      const task = await engine.get(run.taskId);
+      if (task !== undefined && !TERMINAL_TASK_STATUSES.includes(task.status)) {
+        await engine.cancel(run.taskId, reason);
+      }
+    },
   };
 }

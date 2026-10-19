@@ -29,6 +29,8 @@ export interface RunLauncher {
   launch(request: AutomationRunRequest): Promise<LaunchedRun>;
   /** After a restart: follow a run that was still `running` (its task may still be alive). */
   reattach?(run: AutomationRun): Promise<RunResult> | undefined;
+  /** Stop a run (its automation was deleted). */
+  cancel?(run: AutomationRun, reason: string): Promise<void>;
 }
 
 /** `main | isolated | named:<id>` → a thread id (architecture §4.11; OpenClaw session targets). */

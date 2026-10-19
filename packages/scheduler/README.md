@@ -34,7 +34,7 @@ This package holds automations, the heartbeat and watches, and catches up after 
 | `watch` | An ISO-8601 duration | Takes a `watch` config (see below). |
 | `reminder` | An ISO-8601 instant with an offset | A one-shot. `nextRunAt` becomes `null` after it fires. |
 
-**Catch-up:** `tick(now)` walks each due automation's fire times up to `now`. Every missed tick folds into one run: `coalesced = n`, `scheduledFor` is the latest missed time, and the prompt says the run covers n missed runs. `next_run_at` moves to the first fire time after `now`. If the previous run of the same automation is still going, the new one is recorded as `skipped`.
+**Catch-up:** `tick(now)` folds each due automation's fire times up to `now`. Intervals fold arithmetically; cron uses one iterator, capped at 10,000 ticks. Every missed tick folds into one run: `coalesced = n`, `scheduledFor` is the latest missed time, and the prompt says the run covers n missed runs. `next_run_at` moves to the first fire time after `now`. If the previous run of the same automation is still going, the new one is recorded as `skipped`, and a manual run is refused with `conflict`. Re-sending unchanged schedule fields does not reschedule. A reminder whose time has passed is rejected. Deleting an automation cancels its running task. A failing tick re-arms the timer 30 s later.
 
 ## Session targets
 
@@ -59,16 +59,23 @@ The job's scratch note follows the contract.
   - `none`: nothing.
   - `thread`: that thread, if it is not the run's own thread (the run's own thread already has the result).
   - `channel`: the injected `sendToChannel` (S10). Without it, the result becomes an inbox briefing.
-  - `webhook`: needs an https URL with no credentials. The deliverer asks `PermissionBroker.decide` (tool `automation.webhook`, `write`, target origin, `unattended: true`). It POSTs only on `allow` and records a `webhook.post` receipt either way.
-- **Briefings** with no target become inbox briefings.
+  - `webhook`: needs a public https URL with no credentials; loopback, private, link-local and `.local` / `.internal` hosts are refused. Sending agent output to a third party is `destructive`, and the output of an unattended run may carry untrusted content, so the deliverer asks `PermissionBroker.decide` with tool `automation.webhook`, `destructive`, target origin, `taint: true`, `unattended: true`:
+    - `allow` (a standing grant): POST with `redirect: "error"`, then a `webhook.post` receipt.
+    - `ask`: a bound approval goes to the queue; the POST happens if the owner approves, after `verifyBinding`.
+    - `deny`: a `system` notification.
+
+    `webhookFetch` must apply the connectors' SSRF policy to resolved addresses.
+- **No target:** the result still reaches the inbox: `reminder` notifications for reminders, `briefing` for briefings, `task_done` otherwise.
 - **The heartbeat** raises at most one `proactive` notification per run.
 
 ## Watches
 
-`watch: { url, check, selector?, text?, threshold? }`. The page comes from the injected `watchFetch`; the connectors package's `fetch` supplies the SSRF policy and the size caps. `selector` is a regular expression over the fetched text, and capture group 1 is the value. There is no DOM in the Gateway.
+`watch: { url, check, selector?, text?, threshold? }`. The page comes from the injected `watchFetch`; the connectors package's `fetch` supplies the SSRF policy and the size caps. A fetch that takes longer than `watchTimeoutMs` (30 s) is aborted and counts as a failure.
+
+`selector` is a literal marker (1–200 characters), and the check looks at the 2,000 characters after its first occurrence. It is not a regular expression: page text is untrusted, and a pathological regex could block the Gateway's event loop. If the marker is missing (for example, a consent or error page), the check records no observation.
 
 Checks:
-- `change`: the first check records a baseline. A later check alerts once per new content hash.
+- `change`: the first check records a baseline. Each later check alerts when the content differs from the previous observation.
 - `text_present`: alerts when the text appears. It does not alert again while the text stays, and it re-arms once the text is gone.
 - `price_below` / `price_above`: alert once when the price crosses the threshold, and re-arm after it crosses back.
 
@@ -92,4 +99,3 @@ On failure, the next check waits `interval × 2^failures`, capped at 24 h. A suc
 
 - Webhook triggers (`POST /hooks/wake` style), goal check-in automations for S15, and heartbeat token accounting are M2.
 - `wake()` must be called by the desktop shell or the mac helper on system resume. The host timer also re-checks at least every 5 minutes, so clock jumps are noticed even without it.
-- Selector regexes are owner-authored and run on fetched text, so the size cap from `watchFetch` bounds their cost. They are not sandboxed.

@@ -14,6 +14,7 @@ import {
 } from "@psyche/protocol";
 import type { Timers } from "@psyche/tasks";
 import { systemTimers } from "@psyche/tasks";
+import { isPrivateHost } from "./delivery.ts";
 import { buildUnattendedPrompt } from "./prompt.ts";
 import {
   type AutomationRow,
@@ -51,13 +52,15 @@ export interface SqliteSchedulerOptions {
   defaultTimezone?: string;
   /** The host timer never sleeps longer than this, so clock jumps are noticed. Default 5 min. */
   maxTimerMs?: number;
+  /** A watch fetch that takes longer is aborted and counts as a failure. Default 30 s. */
+  watchTimeoutMs?: number;
   /** Watch failure backoff cap. Default 24 h. */
   maxBackoffMs?: number;
   onError?: (error: unknown) => void;
 }
 
 /** More missed ticks than this are still one run; the count stops here. */
-export const MAX_COALESCE = 100_000;
+export const MAX_COALESCE = 10_000;
 const SUMMARY_MAX = 4_000;
 const SESSION_TARGET = /^(main|isolated|named:[A-Za-z0-9_.:-]{1,64})$/;
 
@@ -74,6 +77,17 @@ export type CreateAutomationInput = Omit<
     system?: boolean;
   };
 
+/** Runs `fn` with an abort signal; rejects after `ms` even if `fn` ignores the signal. */
+function withTimeout<T>(fn: (signal: AbortSignal) => Promise<T>, ms: number): Promise<T> {
+  const signal = AbortSignal.timeout(ms);
+  return new Promise<T>((resolve, reject) => {
+    signal.addEventListener("abort", () => reject(new Error(`timed out after ${ms} ms`)), {
+      once: true,
+    });
+    fn(signal).then(resolve, reject);
+  });
+}
+
 function bad(message: string): never {
   throw new PsycheError("invalid_params", message);
 }
@@ -82,6 +96,7 @@ function validateWebhook(url: string | undefined): void {
   if (url === undefined) return;
   const u = URL.canParse(url) ? new URL(url) : bad("delivery.webhook must be a URL");
   if (u.protocol !== "https:") bad("delivery.webhook must use https");
+  if (isPrivateHost(u.hostname)) bad("delivery.webhook must be a public host");
   if (u.username !== "" || u.password !== "") bad("delivery.webhook must not carry credentials");
 }
 
@@ -206,12 +221,11 @@ export class SqliteScheduler implements Scheduler {
       ) {
         bad(`${a.watch.check} needs a numeric threshold`);
       }
-      if (a.watch.selector !== undefined) {
-        try {
-          new RegExp(a.watch.selector);
-        } catch {
-          bad("watch.selector must be a valid regular expression");
-        }
+      if (
+        a.watch.selector !== undefined &&
+        (a.watch.selector === "" || a.watch.selector.length > 200)
+      ) {
+        bad("watch.selector is a literal marker of 1–200 characters");
       }
     } else if (a.watch !== undefined) {
       bad("only watch automations take `watch`");
@@ -273,6 +287,7 @@ export class SqliteScheduler implements Scheduler {
     const schedule = this.#validate(a);
     const id = this.#newId();
     const now = this.clock.now();
+    if (a.enabled && schedule.next(now) === undefined) bad("that time has already passed");
     const event = this.#tx(() => {
       this.#db.sqlite
         .prepare(
@@ -327,11 +342,16 @@ export class SqliteScheduler implements Scheduler {
       const next = { ...current, ...patch };
       if (patch.kind !== undefined && patch.kind !== current.kind) bad("kind cannot change");
       const schedule = this.#validate(next);
+      // Only a real change reschedules: re-sending the same values (UI round trips, the heartbeat
+      // at every boot) keeps pending catch-up, watch backoff and interval phase.
       const rescheduled =
-        patch.schedule !== undefined ||
-        patch.timezone !== undefined ||
-        (patch.enabled !== undefined && patch.enabled !== current.enabled);
+        next.schedule.trim() !== current.schedule ||
+        next.timezone !== current.timezone ||
+        next.enabled !== current.enabled;
       const now = this.clock.now();
+      if (rescheduled && next.enabled && schedule.next(now) === undefined) {
+        bad("that time has already passed");
+      }
       this.#db.sqlite
         .prepare(
           `UPDATE automations SET title = @title, schedule = @schedule, timezone = @timezone,
@@ -363,7 +383,9 @@ export class SqliteScheduler implements Scheduler {
           w === undefined ||
           w.url !== patch.watch.url ||
           w.check !== patch.watch.check ||
-          w.selector !== patch.watch.selector;
+          w.selector !== patch.watch.selector ||
+          w.text !== patch.watch.text ||
+          w.threshold !== patch.watch.threshold;
         this.#upsertWatch(id, patch.watch, reset);
       }
       return this.#updatedEvent(id);
@@ -380,6 +402,17 @@ export class SqliteScheduler implements Scheduler {
 
   async remove(id: string): Promise<void> {
     const automation = { ...this.#automation(id), enabled: false, nextRunAt: null };
+    // A run still going is stopped first; the run rows go with the automation.
+    const running = this.#db.sqlite
+      .prepare("SELECT * FROM automation_runs WHERE automation_id = ? AND status = 'running'")
+      .all(id) as RunRow[];
+    for (const r of running) {
+      try {
+        await this.#o.launcher?.cancel?.(runFromRow(r), "The automation was deleted");
+      } catch (e) {
+        this.#error(e);
+      }
+    }
     this.#db.sqlite.prepare("DELETE FROM automations WHERE id = ?").run(id);
     this.#emit([{ event: "automation.updated", payload: { automation } }]);
     this.#arm();
@@ -424,15 +457,8 @@ export class SqliteScheduler implements Scheduler {
             .run(nowIso, row.id);
           continue;
         }
-        let latest = Date.parse(row.next_run_at as string);
-        let coalesced = 1;
-        let next = schedule.next(latest);
-        while (next !== undefined && next <= now && coalesced < MAX_COALESCE) {
-          coalesced += 1;
-          latest = next;
-          next = schedule.next(next);
-        }
-        if (next !== undefined && next <= now) next = schedule.next(now);
+        const fold = schedule.fold(Date.parse(row.next_run_at as string), now, MAX_COALESCE);
+        const { count: coalesced, latest, next } = fold;
         const busy = this.#db.sqlite
           .prepare(
             "SELECT 1 FROM automation_runs WHERE automation_id = ? AND status = 'running' LIMIT 1",
@@ -493,6 +519,12 @@ export class SqliteScheduler implements Scheduler {
     const nowIso = this.#iso(now);
     const run = this.#tx(() => {
       this.#row(id);
+      const busy = this.#db.sqlite
+        .prepare("SELECT 1 FROM automation_runs WHERE automation_id = ? AND status = 'running'")
+        .get(id);
+      if (busy !== undefined) {
+        throw new PsycheError("conflict", "a run of this automation is already in progress");
+      }
       const r: RunRow = {
         id: this.#newId(),
         automation_id: id,
@@ -607,8 +639,11 @@ export class SqliteScheduler implements Scheduler {
   }
 
   async #finish(runId: string, result: RunResult): Promise<void> {
-    const row = this.#runRow(runId);
-    if (row.status !== "running") return;
+    const row = this.#db.sqlite.prepare("SELECT * FROM automation_runs WHERE id = ?").get(runId) as
+      | RunRow
+      | undefined;
+    // Gone (automation deleted) or already finished: nothing to record.
+    if (row === undefined || row.status !== "running") return;
     const automation = this.#rowOrUndefined(row.automation_id);
     let notificationId: string | null = null;
     if (automation !== undefined) {
@@ -707,7 +742,10 @@ export class SqliteScheduler implements Scheduler {
     const nowIso = this.#iso();
     let page: { status: number; text: string };
     try {
-      page = await fetch(w.url, {});
+      page = await withTimeout(
+        (signal) => fetch(w.url, { signal }),
+        this.#o.watchTimeoutMs ?? 30_000,
+      );
       if (page.status >= 400) throw new Error(`HTTP ${page.status}`);
     } catch (e) {
       // Exponential backoff: interval × 2^failures, capped.
@@ -889,7 +927,7 @@ export class SqliteScheduler implements Scheduler {
 
   #armedFor: number | undefined;
 
-  #arm(): void {
+  #arm(minDelayMs = 0): void {
     if (!this.#started) return;
     if (this.#timer !== undefined) this.#timers.clearTimeout(this.#timer);
     this.#timer = undefined;
@@ -901,11 +939,18 @@ export class SqliteScheduler implements Scheduler {
       .get() as { at: string | null };
     if (row.at === null) return;
     const now = this.clock.now();
-    const delay = Math.max(0, Math.min(Date.parse(row.at) - now, this.#o.maxTimerMs ?? 300_000));
+    const delay = Math.max(
+      minDelayMs,
+      Math.min(Date.parse(row.at) - now, this.#o.maxTimerMs ?? 300_000),
+    );
     this.#armedFor = now + delay;
     this.#timer = this.#timers.setTimeout(() => {
       this.#timer = undefined;
-      this.tick().catch((e) => this.#error(e));
+      this.tick().catch((e) => {
+        // A failed tick (e.g. SQLITE_BUSY) must not stop the scheduler: retry shortly.
+        this.#error(e);
+        this.#arm(30_000);
+      });
     }, delay);
   }
 }

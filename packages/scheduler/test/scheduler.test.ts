@@ -1,7 +1,12 @@
 import { createThread } from "@psyche/db";
-import { AutomationRun, validateEventPayload, validateResult } from "@psyche/protocol";
+import {
+  AutomationRun,
+  type IssuedApproval,
+  validateEventPayload,
+  validateResult,
+} from "@psyche/protocol";
 import { SqliteTaskEngine, TaskWorkerPool } from "@psyche/tasks";
-import { FakeAgentLoop, FakePermissionBroker } from "@psyche/testing";
+import { FakeAgentLoop, FakeClock, FakePermissionBroker } from "@psyche/testing";
 import { Value } from "@sinclair/typebox/value";
 import { describe, expect, it } from "vitest";
 import {
@@ -152,8 +157,10 @@ describe("runs", () => {
       schedule: "0 * * * *",
       sessionTarget: "main",
     });
-    for (const a of [iso, iso, named, named, onMain]) await scheduler.trigger(a.id);
-    await scheduler.idle();
+    for (const a of [iso, iso, named, named, onMain]) {
+      await scheduler.trigger(a.id);
+      await scheduler.idle();
+    }
     const threads = launcher.requests.map((r) => r.threadId);
     expect(threads[0]).not.toBe(threads[1]);
     expect(threads[2]).toBe(threads[3]);
@@ -272,6 +279,7 @@ describe("heartbeat", () => {
     const hb = await scheduler.ensureHeartbeat({ timezone: "UTC" });
     launcher.respond = () => ({ status: "done", summary: "Your 3pm moved to 4pm." });
     await scheduler.trigger(hb.id);
+    await scheduler.idle();
     launcher.respond = () => ({ status: "no_reply", summary: null });
     await scheduler.trigger(hb.id);
     await scheduler.idle();
@@ -308,19 +316,92 @@ describe("delivery by webhook", () => {
     return { ...ctx, posts, broker };
   };
 
-  it("goes through the broker as an unattended write to the origin, with a receipt", async () => {
-    const { posts, broker } = await run("allow");
+  it("is a tainted, unattended destructive send: queued, then POSTed once approved, with a receipt", async () => {
+    const posts: string[] = [];
+    const clock = new FakeClock(T0);
+    const broker = new FakePermissionBroker({
+      clock,
+      policy: { byTool: { "automation.webhook": "allow" } },
+    });
+    const queued: IssuedApproval[] = [];
+    const ctx = setup({
+      start: T0,
+      timers: asleep,
+      deliverer: {
+        broker,
+        onApprovalQueued: (i) => queued.push(i),
+        webhookFetch: async (url) => {
+          posts.push(url);
+          return { status: 204 };
+        },
+      },
+    });
+    const a = await ctx.scheduler.create({
+      ...BASE,
+      kind: "cron",
+      schedule: "0 * * * *",
+      delivery: { webhook: "https://hooks.example.com/psyche" },
+    });
+    await ctx.scheduler.trigger(a.id);
+    await ctx.scheduler.idle();
     const decided = broker.decisions[0];
     expect(decided?.call).toMatchObject({
       tool: "automation.webhook",
-      sideEffect: "write",
+      sideEffect: "destructive",
       target: { kind: "origin", value: "https://hooks.example.com" },
     });
-    expect(decided?.ctx.unattended).toBe(true);
+    expect(decided?.ctx).toMatchObject({ unattended: true, taint: true });
+    // Destructive sends always ask; nothing is posted until the owner approves.
+    expect(posts).toEqual([]);
+    const issued = queued[0];
+    if (issued === undefined) throw new Error("no approval queued");
+    clock.advance(1_000);
+    await broker.answer({
+      approvalId: issued.approval.id,
+      answerToken: issued.answerTokens.desktop as string,
+      decision: "approve",
+      scope: "once",
+      decidedBy: { kind: "device", deviceId: "dev_1" },
+    } as Parameters<typeof broker.answer>[0]);
+    for (let k = 0; k < 10; k += 1) await new Promise((r) => setImmediate(r));
     expect(posts).toEqual(["https://hooks.example.com/psyche"]);
-    expect((await broker.listReceipts()).map((r) => [r.kind, r.outcome])).toEqual([
-      ["webhook.post", "ok"],
+    expect((await broker.listReceipts()).map((r) => [r.kind, r.outcome, r.approvalId])).toEqual([
+      ["webhook.post", "ok", issued.approval.id],
     ]);
+  });
+
+  it("an ask is queued as a bound approval instead of being sent or dropped", async () => {
+    const posts: string[] = [];
+    const broker = FakePermissionBroker.policy({ byTool: { "automation.webhook": "ask" } });
+    const ctx = setup({
+      start: T0,
+      timers: asleep,
+      deliverer: {
+        broker,
+        webhookFetch: async (url, init) => {
+          expect(init.redirect).toBe("error");
+          posts.push(url);
+          return { status: 200 };
+        },
+      },
+    });
+    const a = await ctx.scheduler.create({
+      ...BASE,
+      kind: "cron",
+      schedule: "0 * * * *",
+      delivery: { webhook: "https://hooks.example.com/psyche" },
+    });
+    await ctx.scheduler.trigger(a.id);
+    await ctx.scheduler.idle();
+    expect(posts).toEqual([]);
+    const [pending] = await broker.list({ status: "pending" });
+    expect(pending).toMatchObject({
+      sideEffect: "destructive",
+      taint: true,
+      target: { kind: "origin", value: "https://hooks.example.com" },
+    });
+    expect(pending?.bindingHash).toMatch(/^sha256:/);
+    expect(ctx.scheduler.runs(a.id).runs[0]?.status).toBe("done");
   });
 
   it("is not sent when the broker does not allow it", async () => {
@@ -331,7 +412,15 @@ describe("delivery by webhook", () => {
 
   it("must be https without credentials", async () => {
     const { scheduler } = setup({ start: T0, timers: asleep });
-    for (const webhook of ["http://hooks.example.com/", "https://u:p@hooks.example.com/"]) {
+    for (const webhook of [
+      "http://hooks.example.com/",
+      "https://u:p@hooks.example.com/",
+      "https://127.0.0.1/hook",
+      "https://localhost:8443/hook",
+      "https://192.168.1.10/hook",
+      "https://[::1]/hook",
+      "https://nas.local/hook",
+    ]) {
       await expect(
         scheduler.create({ ...BASE, kind: "cron", schedule: "0 * * * *", delivery: { webhook } }),
       ).rejects.toMatchObject({ code: "invalid_params" });
@@ -429,8 +518,10 @@ describe("Upcoming, events and handlers", () => {
     expect(paused.automation.nextRunAt).toBeNull();
     const resumed = await h["automations.update"]({ automationId: automation.id, enabled: true });
     expect(resumed.automation.nextRunAt).not.toBeNull();
-    for (let i = 0; i < 3; i += 1) await h["automations.run"]({ automationId: automation.id });
-    await scheduler.idle();
+    for (let i = 0; i < 3; i += 1) {
+      await h["automations.run"]({ automationId: automation.id });
+      await scheduler.idle();
+    }
     const p1 = await h["automations.runs"]({ automationId: automation.id, limit: 2 });
     validateResult("automations.runs", p1);
     const p2 = await h["automations.runs"]({

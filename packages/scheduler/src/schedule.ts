@@ -4,9 +4,21 @@ import { CronExpressionParser } from "cron-parser";
 const MINUTE = 60_000;
 
 /** A parsed `Automation.schedule`: the next fire time strictly after `after`. */
+/** Missed fire times folded into one run. */
+export interface Fold {
+  /** Fire times in `[due, now]` (at least 1), counted up to the cap. */
+  count: number;
+  /** The latest of them. */
+  latest: number;
+  /** The first fire time after `now`. */
+  next: number | undefined;
+}
+
 export interface Schedule {
   readonly type: "cron" | "interval" | "once";
   next(after: number): number | undefined;
+  /** Folds every fire time from `due` (itself a fire time, `<= now`) up to `now`. */
+  fold(due: number, now: number, cap: number): Fold;
   /** Interval length (interval schedules only); used for watch backoff. */
   readonly intervalMs?: number;
 }
@@ -57,13 +69,27 @@ export function parseSchedule(kind: AutomationKind, schedule: string, timezone: 
     if (!ISO_INSTANT.test(text)) bad("a reminder needs an ISO-8601 instant with an offset");
     const at = Date.parse(text);
     if (Number.isNaN(at)) bad(`bad instant ${JSON.stringify(text)}`);
-    return { type: "once", next: (after) => (at > after ? at : undefined) };
+    return {
+      type: "once",
+      next: (after) => (at > after ? at : undefined),
+      fold: (due) => ({ count: 1, latest: due, next: undefined }),
+    };
   }
   if (text.startsWith("P")) {
     const ms = parseIsoDuration(text);
     if (ms === undefined) bad(`bad ISO-8601 duration ${JSON.stringify(text)}`);
     if (ms < MIN_INTERVAL_MS) bad("intervals must be at least one minute");
-    return { type: "interval", intervalMs: ms, next: (after) => after + ms };
+    return {
+      type: "interval",
+      intervalMs: ms,
+      next: (after) => after + ms,
+      // Arithmetic, so a month asleep costs nothing; the phase is kept.
+      fold(due, now) {
+        const steps = Math.floor((now - due) / ms);
+        const latest = due + steps * ms;
+        return { count: steps + 1, latest, next: latest + ms };
+      },
+    };
   }
   if (kind === "watch") bad("a watch needs an ISO-8601 duration (for example PT1H)");
   const fields = text.split(/\s+/);
@@ -73,19 +99,43 @@ export function parseSchedule(kind: AutomationKind, schedule: string, timezone: 
   } catch (e) {
     bad(`bad cron expression ${JSON.stringify(text)}: ${(e as Error).message}`);
   }
+  const next = (after: number): number | undefined => {
+    const it = CronExpressionParser.parse(text, {
+      tz: timezone,
+      currentDate: new Date(Math.floor(after / 1000) * 1000),
+    });
+    for (let i = 0; i < 4; i += 1) {
+      if (!it.hasNext()) return undefined;
+      const t = it.next().getTime();
+      if (t > after) return t;
+    }
+    return undefined;
+  };
   return {
     type: "cron",
-    next(after) {
+    next,
+    // One iterator for the whole walk; past the cap, jump straight to `now`.
+    fold(due, now, cap) {
       const it = CronExpressionParser.parse(text, {
         tz: timezone,
-        currentDate: new Date(Math.floor(after / 1000) * 1000),
+        currentDate: new Date(Math.floor(due / 1000) * 1000),
       });
-      for (let i = 0; i < 4; i += 1) {
-        if (!it.hasNext()) return undefined;
+      let count = 1;
+      let latest = due;
+      while (count < cap && it.hasNext()) {
         const t = it.next().getTime();
-        if (t > after) return t;
+        if (t <= latest) continue;
+        if (t > now) return { count, latest, next: t };
+        count += 1;
+        latest = t;
       }
-      return undefined;
+      // Cap reached: the run stands for the latest fire time at or before `now`.
+      const back = CronExpressionParser.parse(text, {
+        tz: timezone,
+        currentDate: new Date(Math.floor(now / 1000) * 1000 + 1000),
+      });
+      const prev = back.hasPrev() ? back.prev().getTime() : latest;
+      return { count, latest: Math.max(latest, prev <= now ? prev : latest), next: next(now) };
     },
   };
 }

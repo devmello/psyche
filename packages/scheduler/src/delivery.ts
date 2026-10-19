@@ -1,11 +1,59 @@
 import { createHash } from "node:crypto";
-import type { Automation, AutomationRun, Notifier, PermissionBroker } from "@psyche/protocol";
+import type {
+  Automation,
+  AutomationRun,
+  IssuedApproval,
+  Notifier,
+  PermissionBroker,
+} from "@psyche/protocol";
 import type { Deliverer, RunResult } from "./types.ts";
 
+/**
+ * POSTs a webhook. Must apply the connectors' SSRF policy (resolved addresses, not only the host
+ * name) and must not follow redirects (`redirect: "error"`).
+ */
 export type WebhookFetch = (
   url: string,
-  init: { method: "POST"; headers: Record<string, string>; body: string },
+  init: {
+    method: "POST";
+    headers: Record<string, string>;
+    body: string;
+    redirect: "error";
+    signal?: AbortSignal;
+  },
 ) => Promise<{ status: number }>;
+
+/** Loopback, private, link-local and internal host names or literals (checked before DNS). */
+export function isPrivateHost(hostname: string): boolean {
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (h === "localhost" || h.endsWith(".localhost") || h.endsWith(".local")) return true;
+  if (h.endsWith(".internal") || h.endsWith(".lan") || h.endsWith(".home.arpa")) return true;
+  const v4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
+  if (v4 !== null) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      a >= 224
+    );
+  }
+  if (h.includes(":")) {
+    return (
+      h === "::" ||
+      h === "::1" ||
+      h.startsWith("fc") ||
+      h.startsWith("fd") ||
+      h.startsWith("fe80") ||
+      h.startsWith("::ffff:")
+    );
+  }
+  return false;
+}
 
 export interface DelivererOptions {
   notifier?: Notifier;
@@ -16,6 +64,15 @@ export interface DelivererOptions {
   /** Webhook delivery is a side effect: it needs the broker (and records a receipt). */
   broker?: PermissionBroker;
   webhookFetch?: WebhookFetch;
+  /** Errors from deliveries that finish later (a webhook approved after the run). */
+  onError?: (error: unknown) => void;
+  /** A webhook send was queued for approval (S01 surfaces the card; tests answer it). */
+  onApprovalQueued?: (issued: IssuedApproval) => void;
+}
+
+/** The notification kind for a deliverable with no explicit target. */
+function fallbackKind(kind: Automation["kind"]): "reminder" | "briefing" | "task_done" {
+  return kind === "reminder" ? "reminder" : kind === "briefing" ? "briefing" : "task_done";
 }
 
 /**
@@ -62,14 +119,10 @@ export function createDeliverer(options: DelivererOptions): Deliverer {
         }
       }
       if (d.webhook !== undefined) await deliverWebhook(options, automation, run, d.webhook, text);
-      if (
-        d.thread === undefined &&
-        d.channel === undefined &&
-        d.webhook === undefined &&
-        automation.kind === "briefing"
-      ) {
+      if (d.thread === undefined && d.channel === undefined && d.webhook === undefined) {
+        // No target configured: the owner still sees the result in the inbox.
         const n = await options.notifier?.notify({
-          kind: "briefing",
+          kind: fallbackKind(automation.kind),
           title: automation.title,
           body: text,
           route,
@@ -91,7 +144,12 @@ async function deliverWebhook(
 ): Promise<void> {
   const { broker, webhookFetch } = options;
   if (broker === undefined || webhookFetch === undefined) return;
-  const origin = new URL(url).origin;
+  const target = new URL(url);
+  const origin = target.origin;
+  if (target.protocol !== "https:" || isPrivateHost(target.hostname)) {
+    await notifyHeld(options, automation, origin, "refused (not a public https origin)");
+    return;
+  }
   const body = JSON.stringify({
     automationId: automation.id,
     runId: run.id,
@@ -100,50 +158,105 @@ async function deliverWebhook(
     text,
   });
   const paramsHash = `sha256:${createHash("sha256").update(body).digest("hex")}`;
+  // Sending agent output to a third party is `destructive` (architecture §4.3). The output of an
+  // unattended run may carry untrusted content, so the call is treated as tainted.
   const decision = await broker.decide(
     {
       tool: "automation.webhook",
-      sideEffect: "write",
+      sideEffect: "destructive",
       targetKind: "origin",
       target: { kind: "origin", value: origin },
       params: { url, automationId: automation.id, runId: run.id },
       paramsHash,
+      kind: "connector_action",
+      bindingHash: paramsHash,
+      grantKey: `automation.webhook|${origin}`,
     },
     {
       threadId: run.threadId ?? "",
       runId: run.id,
+      ...(run.taskId == null ? {} : { taskId: run.taskId }),
       permissionMode: "balanced",
-      taint: false,
+      taint: true,
       unattended: true,
     },
   );
-  if (decision.decision !== "allow") {
-    await options.notifier?.notify({
-      kind: "system",
-      title: `${automation.title}: webhook not sent`,
-      body: `Delivery to ${origin} was ${decision.decision === "deny" ? "denied" : "held for approval"} (${decision.rule}).`,
-      route: `/upcoming/${automation.id}`,
-    });
+  const post = async (approvalId: string | null) => {
+    let outcome: "ok" | "failed" = "failed";
+    let status = 0;
+    try {
+      status = (
+        await webhookFetch(url, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body,
+          redirect: "error",
+          signal: AbortSignal.timeout(30_000),
+        })
+      ).status;
+      outcome = status >= 200 && status < 300 ? "ok" : "failed";
+    } finally {
+      await broker.recordReceipt({
+        kind: "webhook.post",
+        outcome,
+        summary: `POST ${origin} (${status || "no response"})`,
+        externalRefs: { origin, status },
+        payload: { automationId: automation.id, runId: run.id, paramsHash },
+        approvalId,
+      });
+    }
+  };
+  if (decision.decision === "allow") {
+    await post(null);
     return;
   }
-  let outcome: "ok" | "failed" = "failed";
-  let status = 0;
-  try {
-    status = (
-      await webhookFetch(url, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body,
-      })
-    ).status;
-    outcome = status >= 200 && status < 300 ? "ok" : "failed";
-  } finally {
-    await broker.recordReceipt({
-      kind: "webhook.post",
-      outcome,
-      summary: `POST ${origin} (${status || "no response"})`,
-      externalRefs: { origin, status },
-      payload: { automationId: automation.id, runId: run.id, paramsHash },
-    });
+  if (decision.decision === "deny") {
+    await notifyHeld(options, automation, origin, `denied (${decision.rule})`);
+    return;
   }
+  // `ask`: unattended runs never wait inline. The approval goes to the queue with the exact
+  // payload bound; the POST happens if and when the owner approves it (architecture §4.3).
+  const issued = await broker.requestApproval({
+    kind: decision.approvalKind ?? "connector_action",
+    summary: `Send "${automation.title}" to ${origin}`,
+    details: {
+      url,
+      origin,
+      automationId: automation.id,
+      runId: run.id,
+      preview: text.slice(0, 500),
+    },
+    bindingHash: decision.bindingHash ?? paramsHash,
+    grantKey: decision.grantKey ?? `automation.webhook|${origin}`,
+    requestedBy: { runId: run.id, taskId: run.taskId ?? null, threadId: run.threadId ?? null },
+    sideEffect: "destructive",
+    targetKind: "origin",
+    target: { kind: "origin", value: origin },
+    surfaces: ["desktop", "notification"],
+    taint: true,
+  });
+  options.onApprovalQueued?.(issued);
+  const id = issued.approval.id;
+  void broker
+    .awaitDecision(id)
+    .then(async (a) => {
+      if (a.status !== "approved") return;
+      const v = await broker.verifyBinding(id, issued.approval.bindingHash);
+      if (v.ok) await post(id);
+    })
+    .catch((e: unknown) => options.onError?.(e));
+}
+
+async function notifyHeld(
+  options: DelivererOptions,
+  automation: Automation,
+  origin: string,
+  why: string,
+): Promise<void> {
+  await options.notifier?.notify({
+    kind: "system",
+    title: `${automation.title}: webhook not sent`,
+    body: `Delivery to ${origin} was ${why}.`,
+    route: `/upcoming/${automation.id}`,
+  });
 }

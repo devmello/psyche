@@ -49,7 +49,7 @@ describe("watches", () => {
       watch: {
         url: "https://shop.example.com/headphones",
         check: "price_below",
-        selector: "class=price>([^<]+)<",
+        selector: "class=price>",
         threshold: 100,
       },
     });
