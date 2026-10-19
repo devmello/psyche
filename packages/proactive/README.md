@@ -13,8 +13,8 @@ Permission Broker).
 
 | Slice | Feature ids | State |
 | --- | --- | --- |
-| Goals, check-ins, confirm-first candidates, `goals.*`, heartbeat budget | O9, O2 | **done** (this package, `apps/gateway/src/compose/proactive.ts`) |
-| Interest ledger, Feed pipeline, briefings, `feed.*` | O5, O6 | next PR |
+| Goals, check-ins, confirm-first candidates, `goals.*`, heartbeat budget | O9, O2 | **done** (PR 1) |
+| Interest ledger, Feed pipeline, briefings, `feed.*` | O5, O6 | **done** (PR 2) |
 | Ideas pipeline, acceptance model, delivery windows, `ideas.*` | O7, O8 | after the Feed |
 | Goal watches, budget audit | O3 | last |
 
@@ -50,6 +50,85 @@ Permission Broker).
   goes to `onError`), and the scheduler raises its usual `task_failed`.
 - `jobMarker`, `parseJobMarker`, `cadenceKind`, `GoalStore`, `normalizeTitle`.
 
+### Feed (O5, O6)
+
+```
+interests.md ──▶ topics + embeddings ──┐
+sources ──▶ candidate pool ──▶ dedupe by url ──▶ clusters (cos ≥ 0.82 or same title)
+  (RSS/Atom, HN, arXiv,                 │
+   saved items, accounts)               ▼
+                      recall × recency − excluded topics − hidden hosts
+                                        │   (paid search only for topics nothing covered)
+                                        ▼
+                      shortlist (3× bound) ──▶ seeded shuffle ──▶ utility-model rerank
+                                        │
+                                        ▼
+                 top N−e posts + e exploration slots ──▶ posts written with citations [n]
+                                        │   (no citation → templated post; never dropped silently)
+                                        ▼
+                 feed_posts rows {citations, reasons, exploration, briefingId} + feed.updated
+```
+
+- `FeedService({ db, clock, scheduler, memory, provider?, model?, embedder?, fetch?, search?,
+  sources?, newId?, timezone?, onEvent?, maxPosts?, explorationSlots?, onUsage? })`:
+  - `ensureDailyBrief({ schedule = "0 7 * * *", timezone })`: one system `briefing` automation
+    (marker `[psyche:feed-brief daily]`).
+  - `createBriefing({ title, schedule, instructions, timezone?, delivery? })`: a user briefing;
+    the prompt is the marker plus the owner's instructions, which steer recall (an extra
+    interest at 0.8), the rerank and the post writer. Delivery is the scheduler's (thread,
+    channel), so a briefing reaches the owner the way O1 automations do.
+  - `generate({ briefingId? })`: the pipeline above; returns posts, per-source reports (a failing
+    source is a row, never fatal), whether the model was used, and token usage.
+  - `list({ since?, briefingId?, cursor?, limit? })` with `nextBriefAt`.
+  - `feedback({ postId, feedback | null, topic? })`: the ledger rules below, applied to the
+    file at once (etag; an owner edit in between is re-read and kept), one audit line in today's
+    daily note, `feed.post` event; `null` undoes the previous feedback.
+  - `job()`: the in-process job for brief and briefing automations. Posts → `done` with a text
+    deliverable (titles and first citations) that the scheduler delivers once (inbox `briefing`,
+    thread or channel); no posts → `no_reply`.
+  - `readLedger()`.
+- Sources: `rssSource(url)`, `hackerNewsSource()`, `arxivSource()` (one query per top topic),
+  `providedSource(id, kind, provider)` for saved items, connector summaries and a Bluesky
+  Jetstream tap supplied by other packages, `searchGaps(search, topics)`. All reads go through the
+  injected `FetchLike`; `publicFetch()` is the guard used until S09 exports its SSRF-policed fetch.
+- Ranking helpers: `dedupe`, `cluster`, `scoreClusters`, `pickExploration`, `gapTopics`,
+  `seededShuffle`, `seedFrom`; model helpers `rerank`, `writePost`, `checkCitations`,
+  `templatePost`, `extractJson`.
+- `createFeedHandlers(feed)`: `feed.list | feed.feedback | feed.generate`.
+
+#### Interest ledger rules (`interests.md`)
+
+Lines: `- <topic> (<weight>) — <why>`, `- !exclude: <topic> — <why>`, `- !hide-source: <host> — <why>`.
+Everything else in the file is kept verbatim; the template's commented examples are not entries.
+
+| Feedback | Effect on the post's matched topics | Undo (`null`) |
+| --- | --- | --- |
+| `like` | +0.10 each (cap 1.00) | −0.10 |
+| `save` | +0.15 each (cap 1.00) | −0.15 |
+| `not_interested` | −0.20 each (floor 0.05); the third time at the floor the topic becomes `!exclude:` | +0.20 |
+| `hide_source` | adds `!hide-source: <host>` for every citation host | removes those lines |
+| `follow_topic` | adds `<topic> (0.60)` (and drops a matching `!exclude:`); +0.20 if it exists | removes the line it created, else −0.20 |
+
+A `like` / `save` on a post that matched no topic adds the title's key phrase (0.40 / 0.50). Every
+change appends a note to the line's "why" (`like 2026-10-19 (post <id>)`) and one audit line to
+today's daily note (`agent` provenance). Owner edits win: the file is re-read before each change.
+
+#### Ranking rules
+
+- Recall: for each topic, `similarity × weight`, where similarity is the embedding cosine, with a
+  floor of 0.6 when every content word of the topic appears in the cluster's text (so a ledger
+  works before any embedding model is configured). Briefing instructions act as a topic at 0.8.
+- Excluded topics drop a cluster at similarity ≥ 0.6; hidden hosts drop their items.
+- Recency: half-life 36 h (`2^(−age/36h)`); undated items count 0.5. Score =
+  `recall × (0.5 + 0.5 × recency) + min(0.1, 0.05 × log2(sources))`.
+- A url posted in the last 7 days is not posted again.
+- The shortlist (3× the bound) is shuffled with a seed derived from the batch id before the
+  rerank (position-bias mitigation); the rerank's answer must be a permutation of item numbers,
+  anything else keeps the recall order and the posts say so (`recall order`).
+- Exploration: the freshest clusters with recall < 0.3, labelled `exploration slot`.
+- Every post's `reasons` lists the matched interest and its contribution, recency, cluster size,
+  rerank position, exploration and who wrote it (`written by the model` / `templated (…)`).
+
 ## Gateway wiring
 
 `composeProactive({ db, clock, scheduler, notifier, tasks, publish, timeZone, logger })` in
@@ -68,7 +147,14 @@ scheduler's launcher (`proactive.launcher(createTaskLauncher(...), pool)`) and s
 - **Confirm-first.** Before `confirm`, a candidate has no automation, task, notification, link
   or milestone, and the agent is never started for it.
 - **No sends or writes.** This package calls no channel adapter, connector or model tool. Its
-  only outward effects are rows in its own tables, system automations, and inbox notifications.
+  only outward effects are rows in its own tables, system automations, `interests.md` (agent
+  provenance) and the daily-note audit line; brief deliverables go through the scheduler's
+  deliverer (inbox, thread, channel), which already asks the Permission Broker for webhooks.
+- **Untrusted content stays data.** Source text is stripped of tags, capped, fenced as
+  `<<<untrusted-data>>>` in prompts whose system message says never to follow instructions
+  inside it, and the model's answers are parsed strictly (a permutation; a cited JSON post). Post
+  bodies are built from web content: clients must treat them as untrusted when seeding a side
+  chat ("Ask Wren").
 
 ## How this package maps to the docs
 
@@ -80,6 +166,13 @@ scheduler's launcher (`proactive.launcher(createTaskLauncher(...), pool)`) and s
 
 ## What is stubbed
 
-- The Feed and Ideas pipelines and the interest ledger (next PRs).
+- Ideas (PR 3) and goal watches (PR 4).
+- Bluesky Jetstream, saved Library items and connector summaries are `providedSource` hooks;
+  nothing supplies them yet (S13 Library, S09 connectors). Paid search is wired as `search` but
+  no provider is configured in the Gateway.
+- Embeddings use the provider's `embed` when the router offers one; otherwise the hashed
+  bag-of-words vector. `interests.md` embeddings are recomputed per batch (no cache table).
+- Feed sources are read from the `feed.sources` setting; there is no `feed.sources.*` method yet
+  (the owner edits the setting or `interests.md`).
 - Goal plans as artifacts (the PDF plan in UI §3.11) and typed delete confirmation are UI (S12).
 - `goal.*` agent tools (architecture §4.3 built-ins) wait for the Ideas PR.

@@ -51,10 +51,18 @@ export function jobMarker(job: string, arg: string): string {
   return `[psyche:${job} ${arg}]`;
 }
 
-/** Parses a job marker; `undefined` for any other prompt. */
-export function parseJobMarker(prompt: string): { job: string; arg: string } | undefined {
-  const m = /^\[psyche:([a-z-]+) ([^\]\s]+)\]$/.exec(prompt.trim());
-  return m === null ? undefined : { job: m[1] as string, arg: m[2] as string };
+/**
+ * Parses a job marker; `undefined` for any other prompt. The marker is the first line; the
+ * lines after it (`rest`) are the job's own text, for example a briefing's instructions.
+ */
+export function parseJobMarker(
+  prompt: string,
+): { job: string; arg: string; rest: string } | undefined {
+  const [first = "", ...others] = prompt.trim().split("\n");
+  const m = /^\[psyche:([a-z-]+) ([^\]\s]+)\]$/.exec(first.trim());
+  return m === null
+    ? undefined
+    : { job: m[1] as string, arg: m[2] as string, rest: others.join("\n").trim() };
 }
 
 /** A cadence is a 5-field cron expression (kind `cron`) or an ISO-8601 duration (`interval`). */

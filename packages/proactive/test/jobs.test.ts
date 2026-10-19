@@ -173,8 +173,16 @@ describe("withProactiveJobs", () => {
     expect(parseJobMarker(jobMarker("goal-checkin", "g1"))).toEqual({
       job: "goal-checkin",
       arg: "g1",
+      rest: "",
     });
     expect(parseJobMarker("[psyche:goal-checkin g1] and more")).toBeUndefined();
+    expect(parseJobMarker(`${jobMarker("feed-briefing", "b1")}\ntwo things in robotics\n`)).toEqual(
+      {
+        job: "feed-briefing",
+        arg: "b1",
+        rest: "two things in robotics",
+      },
+    );
     expect(parseJobMarker("Triage my inbox")).toBeUndefined();
     expect(cadenceKind("0 8 * * 1")).toBe("cron");
     expect(cadenceKind("PT30M")).toBe("interval");
