@@ -1,9 +1,10 @@
-import { NotImplementedError, type Notifier } from "@psyche/protocol";
-
-/**
- * Placeholder for the `Notifier` implementation owned by S15.
- * Build against `FakeNotifier` from `@psyche/testing` until this lands.
- */
-export function createNotifier(): Notifier {
-  throw new NotImplementedError("@psyche/notifications", "createNotifier");
-}
+// @psyche/notifications: the durable inbox, delivery routing and `notifications.*` handlers
+// (architecture §4.12, O10). Owner S15. See README.md.
+export * from "./handlers.ts";
+export * from "./notifier.ts";
+export * from "./quiet-hours.ts";
+export * from "./routing.ts";
+export * from "./sqlite-store.ts";
+export * from "./store.ts";
+export * from "./surfaces.ts";
+export * from "./types.ts";
