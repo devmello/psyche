@@ -58,6 +58,12 @@ struct AppsTests {
         #expect(throws: CapabilityError.self) { try ScriptGuard.check("do   shell script \"rm -rf ~\"", language: .appleScript) }
         #expect(throws: CapabilityError.self) { try ScriptGuard.check("app = Application.currentApplication(); app.doShellScript('id')", language: .javaScript) }
         #expect(throws: CapabilityError.self) { try ScriptGuard.check("ObjC.import('Foundation')", language: .javaScript) }
+        #expect(throws: CapabilityError.self) { try ScriptGuard.check("tell application \"Terminal\" to do script \"id\"", language: .appleScript) }
+        #expect(throws: CapabilityError.self) { try ScriptGuard.check("tell application \"System Events\" to keystroke \"x\"", language: .appleScript) }
+        #expect(throws: CapabilityError.self) { try ScriptGuard.check("tell application id \"com.apple.Terminal\" to activate", language: .appleScript) }
+        #expect(throws: CapabilityError.self) { try ScriptGuard.check("$['NSTask'].alloc", language: .javaScript) }
+        #expect(throws: CapabilityError.self) { try ScriptGuard.check("Application('Safari').quit()", language: .javaScript) }
+        #expect(ScriptGuard.addressedApps("tell application \"Notes\" to count notes") == ["Notes"])
         #expect((try? ScriptGuard.check("tell application \"Notes\" to get name of every note", language: .appleScript)) != nil)
         #expect((try? ScriptGuard.check("Application('Notes').notes().length", language: .javaScript)) != nil)
     }

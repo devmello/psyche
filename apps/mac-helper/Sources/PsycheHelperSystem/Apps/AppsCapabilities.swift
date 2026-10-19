@@ -41,19 +41,39 @@ public enum AppsCapabilities {
         var url: String?
     }
 
+    static let appFolders = ["/Applications", "/System/Applications", "/System/Applications/Utilities", "/Applications/Utilities",
+                             NSHomeDirectory() + "/Applications"]
+
+    /// Resolves an installed app. Names are plain names (no `/`, no `..`) and the result must sit
+    /// in an Applications folder, so an agent-written bundle in the workspace is never launched.
     static func applicationURL(_ p: AppRefParams) throws -> URL {
         let ws = NSWorkspace.shared
-        if let id = p.bundleId ?? p.app, let url = ws.urlForApplication(withBundleIdentifier: id) { return url }
-        let name = p.name ?? p.app
-        if let name {
-            for dir in ["/Applications", "/System/Applications", "/System/Applications/Utilities", "/Applications/Utilities",
-                        NSHomeDirectory() + "/Applications"] {
+        var found: URL?
+        if let id = p.bundleId ?? p.app, let url = ws.urlForApplication(withBundleIdentifier: id) { found = url }
+        if found == nil, let name = p.name ?? p.app {
+            guard !name.contains("/"), !name.contains(".."), !name.isEmpty else {
+                throw CapabilityError.invalidParams("app name must be a plain name", field: "name")
+            }
+            for dir in appFolders {
                 let candidate = URL(fileURLWithPath: dir).appendingPathComponent(name.hasSuffix(".app") ? name : name + ".app")
-                if FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+                if FileManager.default.fileExists(atPath: candidate.path) {
+                    found = candidate
+                    break
+                }
             }
         }
-        throw CapabilityError(.notFound, reason: "app_not_found", "No installed app matches \(p.bundleId ?? p.name ?? p.app ?? "")")
+        guard let url = found?.standardizedFileURL.resolvingSymlinksInPath() else {
+            throw CapabilityError(.notFound, reason: "app_not_found", "No installed app matches \(p.bundleId ?? p.name ?? p.app ?? "")")
+        }
+        guard appFolders.contains(where: { url.path.hasPrefix($0 + "/") }) else {
+            throw CapabilityError(.policyDenied, reason: "app_outside_applications", "Only apps installed in an Applications folder can be opened")
+        }
+        return url
     }
+
+    /// Document types that run code when opened.
+    static let executableExtensions: Set = ["app", "command", "tool", "sh", "zsh", "bash", "scpt", "scptd", "applescript",
+                                            "workflow", "terminal", "shortcut", "pkg", "mpkg", "dmg", "jar", "py", "rb", "pl"]
 
     static func open() -> Capability {
         Capability(CapabilitySpec(
@@ -68,7 +88,8 @@ public enum AppsCapabilities {
             let p = try ctx.decode(AppRefParams.self)
             let appURL = try applicationURL(p)
             let bundleId = Bundle(url: appURL)?.bundleIdentifier
-            if let c = FixedCaps.category(of: bundleId), c == .passwordManager || c == .finance {
+            let category = FixedCaps.category(of: bundleId)
+            if category == .passwordManager || category == .finance {
                 throw CapabilityError(.policyDenied, reason: "tier_off", "Psyche does not open password managers or finance apps")
             }
             let config = NSWorkspace.OpenConfiguration()
@@ -77,6 +98,12 @@ public enum AppsCapabilities {
             if let s = p.url {
                 guard let u = URL(string: s), ["file", "https", "http", "mailto"].contains(u.scheme?.lowercased() ?? "") else {
                     throw CapabilityError.invalidParams("url must be file, http(s) or mailto", field: "url")
+                }
+                if u.isFileURL {
+                    // Opening a document in a terminal, IDE or script runner runs it.
+                    if category == .terminalOrIDE || executableExtensions.contains(u.pathExtension.lowercased()) {
+                        throw CapabilityError(.policyDenied, reason: "executable_document", "Psyche does not open scripts or apps as documents")
+                    }
                 }
                 running = try await NSWorkspace.shared.open([u], withApplicationAt: appURL, configuration: config)
             } else {
@@ -142,7 +169,10 @@ public enum AppsCapabilities {
         )) { ctx in
             let p = try ctx.decode(ScriptParams.self)
             try ScriptGuard.check(p.source, language: .appleScript)
-            if let t = p.target { try await AutomationPermission.ensure(bundleId: t, ask: true) }
+            if let t = p.target {
+                try ScriptGuard.checkTarget(t)
+                try await AutomationPermission.ensure(bundleId: t, ask: true)
+            }
             let out = try await MainThreadScript.run(source: p.source, language: "AppleScript")
             return scriptOutput(out, target: p.target, kind: "AppleScript")
         }
@@ -157,7 +187,10 @@ public enum AppsCapabilities {
         )) { ctx in
             let p = try ctx.decode(ScriptParams.self)
             try ScriptGuard.check(p.source, language: .javaScript)
-            if let t = p.target { try await AutomationPermission.ensure(bundleId: t, ask: true) }
+            if let t = p.target {
+                try ScriptGuard.checkTarget(t)
+                try await AutomationPermission.ensure(bundleId: t, ask: true)
+            }
             let out = try await MainThreadScript.run(source: p.source, language: "JavaScript")
             return scriptOutput(out, target: p.target, kind: "JXA")
         }
@@ -237,13 +270,61 @@ public enum ScriptGuard {
     public static func check(_ source: String, language: Language) throws {
         let s = source.lowercased().replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
         let banned: [String] = switch language {
-        case .appleScript: ["do shell script", "run script", "load script", "«event sysoexec»", "«event sysodsct»"]
-        case .javaScript: ["doshellscript", "objc.import", "objc.bindfunction", "$.nstask", "$.nsfilemanager", "app.runscript", "eval("]
+        // Shell escapes, script loaders, and UI waits that would block the helper's main thread.
+        case .appleScript: ["do shell script", "do script", "run script", "load script", "«event sysoexec»", "«event sysodsct»",
+                            "delay ", "display dialog", "display alert", "choose from list", "choose file", "choose folder",
+                            "choose application", "keystroke", "key code"]
+        case .javaScript: ["doshellscript", "doscript", "objc.", "$.", "$[", "app.runscript", "eval(", "function(", "delay(",
+                           "displaydialog", "displayalert", "choosefromlist", "choosefile", "choosefolder", "keystroke", "keycode"]
         }
         if let hit = banned.first(where: { s.contains($0) }) {
             throw CapabilityError(.policyDenied, reason: "shell_escape", "Scripts may not use \(hit); shell commands run in the sandbox")
         }
         if source.count > 50_000 { throw CapabilityError.invalidParams("script too long", field: "source") }
+        for app in addressedApps(source) {
+            try checkTarget(app)
+        }
+    }
+
+    /// App names or bundle ids a script addresses (`application "Notes"`, `Application('Notes')`,
+    /// `application id "com.apple.Notes"`).
+    public static func addressedApps(_ source: String) -> [String] {
+        let patterns = [#"application\s+id\s+"([^"]+)""#, #"application\s+"([^"]+)""#, #"Application\(\s*['"]([^'"]+)['"]\s*\)"#,
+                        #"app\s+"([^"]+)""#]
+        var out: [String] = []
+        for pattern in patterns {
+            guard let re = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
+            let ns = source as NSString
+            for m in re.matches(in: source, range: NSRange(location: 0, length: ns.length)) where m.numberOfRanges > 1 {
+                out.append(ns.substring(with: m.range(at: 1)))
+            }
+        }
+        return out
+    }
+
+    /// Refuses System Events (it would inject input with the helper's Accessibility grant, past
+    /// tiers and the Esc stop) and apps whose fixed cap is below Read and interact.
+    public static func checkTarget(_ nameOrId: String) throws {
+        let lower = nameOrId.lowercased()
+        if lower.contains("system events") || lower == "com.apple.systemevents" {
+            throw CapabilityError(.policyDenied, reason: "system_events", "Scripts may not drive System Events; use computer.* so tiers and Esc apply")
+        }
+        let bundleId: String? = nameOrId.contains(".")
+            ? nameOrId
+            : NSWorkspace.shared.urlForApplication(withBundleIdentifier: nameOrId) == nil
+                ? appFolderBundleId(named: nameOrId) : nameOrId
+        let cap = FixedCaps.cap(for: bundleId)
+        if cap < .interact || ["terminal", "iterm", "iterm2", "script editor", "xcode", "ghostty", "warp"].contains(lower) {
+            throw CapabilityError(.policyDenied, reason: "script_target_capped", "Scripts may not control \(nameOrId)")
+        }
+    }
+
+    static func appFolderBundleId(named name: String) -> String? {
+        for dir in AppsCapabilities.appFolders {
+            let url = URL(fileURLWithPath: dir).appendingPathComponent(name.hasSuffix(".app") ? name : name + ".app")
+            if let id = Bundle(url: url)?.bundleIdentifier { return id }
+        }
+        return nil
     }
 }
 
