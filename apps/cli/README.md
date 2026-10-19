@@ -1,6 +1,6 @@
 # @psyche/cli
 
-**Owner:** C2 (`prompts/codex-c2-*.md`). Feature ids: A10, A11 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
+**Owner:** S22 (`prompts/s22-cli-deploy.md`). Feature ids: A10, A11 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
 
 The `psyche` CLI; talks only to the Gateway API.
 

@@ -1,6 +1,6 @@
 # @psyche/sandbox
 
-**Owner:** C1 (`prompts/codex-c1-*.md`). Feature ids: K1–K3, K8 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
+**Owner:** S21 (`prompts/s21-sandbox.md`). Feature ids: K1–K3, K8 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md).
 
 Container runner backends (Apple `container`, Docker, Colima), image, receipts, `srt` wrapper.
 

@@ -1,5 +1,5 @@
 # deploy/
 
-**Owner:** C2.
+**Owner:** S22.
 
-Dockerfile, Compose, launchd plists, Tailscale / Cloudflare examples. See `prompts/codex-c2-cli-deploy.md`.
+Dockerfile, Compose, launchd plists, Tailscale / Cloudflare examples. See `prompts/s22-cli-deploy.md`.
