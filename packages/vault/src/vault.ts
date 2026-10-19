@@ -50,6 +50,12 @@ import {
   zeroize,
 } from "./crypto.ts";
 import { fail } from "./errors.ts";
+import {
+  checkRef,
+  type OnePasswordField,
+  type OnePasswordRef,
+  type OnePasswordSource,
+} from "./external/onepassword.ts";
 import { type ImportFormat, importRows } from "./import.ts";
 import type { MetaMirror } from "./meta.ts";
 import { SecretRedactor } from "./redact.ts";
@@ -98,6 +104,8 @@ export interface VaultOptions {
    */
   itemBackend?: "vault" | "keychain";
   keychainItems?: KeychainItemStore;
+  /** G10: read-only 1Password source for items linked with `linkOnePassword`. */
+  onePassword?: OnePasswordSource;
   /** Recovery-slot KDF parameters (tests lower them). */
   argon2?: Argon2Params;
   redactor?: SecretRedactor;
@@ -231,6 +239,29 @@ function secretKeyFor(
             ? "text"
             : "token";
   }
+}
+
+/** The 1Password field a vault secret key reads (G10). */
+const OP_FIELD: Partial<Record<keyof ItemSecret, OnePasswordField>> = {
+  username: "username",
+  password: "password",
+  totpSecret: "totp",
+  token: "credential",
+  privateKey: "private_key",
+  text: "notes",
+};
+
+/** Item linked to 1Password (G10): which fields it offers. */
+export interface LinkOnePasswordInput {
+  kind: "login" | "api_key" | "ssh_key" | "note";
+  name: string;
+  slug?: string;
+  bindings: CredentialBinding[];
+  ref: OnePasswordRef;
+  /** Default: username + password for logins, the credential for API keys, the key, the notes. */
+  fields?: ("username" | "password" | "totp" | "token" | "privateKey" | "text")[];
+  headerName?: string;
+  headerPrefix?: string;
 }
 
 /**
@@ -638,6 +669,9 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
 
   /** Read an item's secret: from the row, or from the system keychain (prompts) for G9 items. */
   async #secretOf(item: ItemRow, reason: string): Promise<ItemSecret> {
+    if (item.attrs.backend === "1password") {
+      return fail("forbidden", "1Password items are read-only here: edit them in 1Password");
+    }
     if (item.attrs.backend !== "keychain") return item.secret;
     const raw = await this.#keychainItems().get(item.id, reason);
     try {
@@ -741,6 +775,9 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     if (item === undefined) return fail("not_found", "credential not found");
     if (item.ownerConnectorId !== null && patch.secret !== undefined) {
       return fail("forbidden", "connector-owned tokens change only through their connector");
+    }
+    if (item.attrs.backend === "1password" && patch.secret !== undefined) {
+      return fail("forbidden", "1Password items are read-only here: edit them in 1Password");
     }
     const name = patch.name ?? item.name;
     this.#checkRefusals(name, patch.secret ?? {});
@@ -1009,7 +1046,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     const key = secretKeyFor(item.kind, field);
     const hasField =
       key !== undefined &&
-      (item.attrs.backend === "keychain"
+      (item.attrs.backend === "keychain" || item.attrs.backend === "1password"
         ? (item.attrs.fields ?? []).includes(key)
         : item.secret[key] !== undefined);
     if (!hasField) {
@@ -1074,6 +1111,50 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       );
     }
     // TOTP codes are computed at the moment of use.
+    if (item.attrs.backend === "1password" && key !== undefined) {
+      // G10: read the one field after the approval, read-only. 1Password returns the current
+      // TOTP code itself.
+      const ref = item.attrs.external;
+      const opField = OP_FIELD[key];
+      if (this.#o.onePassword === undefined || ref === undefined || opField === undefined) {
+        failed("external_unavailable");
+        return fail("unavailable", "1Password is not configured", {
+          reason: "external_unavailable",
+        });
+      }
+      let read: string;
+      try {
+        read = await this.#o.onePassword.readField(ref, opField);
+      } catch (err) {
+        failed("external_unavailable");
+        throw err;
+      }
+      this.#redactor.add(read, { sticky: true });
+      if (key === "totpSecret") {
+        this.#redactor.markSticky(read);
+        this.#recordUse(
+          meta.id,
+          executor,
+          target.value,
+          approvalId,
+          options.taskId,
+          "filled",
+          null,
+        );
+        await this.#audit("credential.filled", {
+          itemId: meta.id,
+          kind: meta.kind,
+          executor,
+          target: target.value,
+          approvalId,
+          field: "totp",
+          outcome: "filled",
+          source: "1password",
+        });
+        return new ResolvedSecret(read, { credentialId: meta.id, target, field: "totp" });
+      }
+      secret = { [key]: read };
+    }
     const value = this.#valueOf(item, secret, field);
     if (value === undefined) return fail("internal", "credential changed during resolve");
     this.#redactor.markSticky(value);
@@ -1122,6 +1203,9 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     if (item.ownerConnectorId !== null) {
       return fail("forbidden", "connector tokens stay in the vault");
     }
+    if (item.attrs.backend === "1password") {
+      return fail("forbidden", "1Password items stay in 1Password");
+    }
     const current = item.attrs.backend === "keychain" ? "keychain" : "vault";
     if (current !== backend) {
       const kc = this.#keychainItems();
@@ -1155,10 +1239,51 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
   }
 
   /** Where an item's secret lives (G9). */
-  backendOf(credentialId: string): "vault" | "keychain" | undefined {
+  backendOf(credentialId: string): "vault" | "keychain" | "1password" | undefined {
     const item = this.#requireUnlocked().store.get(credentialId);
     if (item === undefined) return undefined;
-    return item.attrs.backend === "keychain" ? "keychain" : "vault";
+    return item.attrs.backend ?? "vault";
+  }
+
+  /**
+   * Link a 1Password item (G10): Psyche stores the reference, bindings and the fields it offers,
+   * never a value. Fills read one field at a time after the approval; nothing is written back.
+   */
+  async linkOnePassword(input: LinkOnePasswordInput): Promise<CredentialMeta> {
+    checkRef(input.ref);
+    this.#checkRefusals(input.name, {});
+    const u = this.#requireUnlocked();
+    if (this.#o.onePassword === undefined) {
+      return fail("unavailable", "1Password is not configured");
+    }
+    const fields =
+      input.fields ??
+      (input.kind === "login"
+        ? ["username", "password"]
+        : input.kind === "api_key"
+          ? ["token"]
+          : input.kind === "ssh_key"
+            ? ["privateKey"]
+            : ["text"]);
+    if (input.kind === "login" && !fields.includes("password") && !fields.includes("totp")) {
+      return fail("invalid_params", "a login needs a password or a TOTP field");
+    }
+    const attrs: ItemRow["attrs"] = {
+      backend: "1password",
+      external: { vault: input.ref.vault, item: input.ref.item },
+      // Stored as `ItemSecret` keys, like keychain items.
+      fields: fields.map((f) => (f === "totp" ? "totpSecret" : f)),
+    };
+    if (input.headerName !== undefined) attrs.headerName = input.headerName;
+    if (input.headerPrefix !== undefined) attrs.headerPrefix = input.headerPrefix;
+    const meta = await this.#insert(u, input, {}, attrs, null);
+    await this.#audit("credential.created", {
+      credentialId: meta.id,
+      kind: meta.kind,
+      slug: meta.slug,
+      backend: "1password",
+    });
+    return structuredClone(meta);
   }
 
   /** Header name for `.header` fills (not secret). */

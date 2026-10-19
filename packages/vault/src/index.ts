@@ -30,6 +30,17 @@ export {
 } from "./crypto.ts";
 export { reasonOf } from "./errors.ts";
 export {
+  checkRef,
+  type OnePasswordField,
+  type OnePasswordRef,
+  type OnePasswordSource,
+  type OpCliOptions,
+  OpCliSource,
+  type OpConnectOptions,
+  OpConnectSource,
+  type TokenProvider,
+} from "./external/onepassword.ts";
+export {
   assertFilled,
   type BrowserFillInput,
   type BrowserFillResult,
@@ -109,6 +120,7 @@ export {
   type AddItemInput,
   DEFAULT_AUTO_LOCK_MINUTES,
   type ImportResult,
+  type LinkOnePasswordInput,
   type UpdateItemInput,
   Vault,
   type VaultEventName,

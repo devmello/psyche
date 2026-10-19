@@ -91,6 +91,21 @@ These four are registered on main (PR #47). System keychain mode (G9) also needs
 
 **Trade-off:** keychain items are protected by `biometryCurrentSet` or the passcode. If re-enrolling Touch ID invalidates them, the recovery key cannot bring them back (they are not in `vault.db`). Move them back with `setBackend(id, "vault")` before re-enrolling. This is also recorded as an open question in docs/status/s06.md.
 
+### 1Password as an external source (G10)
+
+`new Vault({ ..., onePassword: new OpCliSource({ op, token }) })`, or `new OpConnectSource({ baseUrl, token })`. Then `vault.linkOnePassword({ kind, name, slug, bindings, ref: { vault, item }, fields })` links an item. Psyche stores only the reference, the bindings and the list of fields offered. The agent uses the normal `{{cred:<slug>[.field]}}` placeholders.
+
+- **Reads:**
+  - `resolve` runs every usual check: grammar, binding, element, field listed.
+  - It reads the one requested field only *after* `verifyBinding`, so a bogus approval or a wrong origin never touches 1Password.
+  - `.totp` returns 1Password's current code (`?attribute=otp`, or Connect's `totp`).
+  - Values are registered with the redactor; a failed read writes a `failed:external_unavailable` use row.
+- **Read-only:** secret edits and `setBackend` are refused. `delete` only unlinks, and nothing is ever written to 1Password.
+- **`OpCliSource`:** runs `op read "op://<vault>/<item>/<field>" --no-newline` with no shell. `OP_SERVICE_ACCOUNT_TOKEN` is set only in the child's env, next to PATH and HOME. Errors carry neither output nor token.
+- **`OpConnectSource`:** talks to Connect over https (or http on loopback). It resolves vault and item names through `filter=name|title eq "…"`, sends a Bearer token per request, and does not follow redirects. A 404 or an ambiguous name becomes `not_found`.
+- **References:** names containing `/ ? # "`, a backslash or control characters are refused, so a reference cannot escape the `op://` path or the Connect filter.
+- **Token:** keep the service-account or Connect token in the vault as a connector-owned item (`vault.store({ connectorId: "onepassword", … })`), and pass `token: () => vault.accessToken(id, "onepassword")`.
+
 ## How it maps to the docs
 
 | Doc | Where |
@@ -134,7 +149,7 @@ These four are registered on main (PR #47). System keychain mode (G9) also needs
 ## What is stubbed or deferred
 
 - **Passphrase mode** (server without a key file): not built. `KeyFileWrapper` covers server mode.
-- **1Password (G10)**, **Bitwarden (G11)**, **Stripe Link (G12)**: M2/M3. G9 waits on the helper registering its item capabilities (above), and no protocol method switches the backend yet (`setBackend` is in-process only). `payment_link` and `signing_key` items are refused at `add`.
+- **Bitwarden (G11)** and **Stripe Link (G12)**: later (G12 has its own PR). G10 open items: protocol methods to link 1Password items from the UI, and live tests behind `PSYCHE_LIVE_TESTS=1`. G9 waits on the helper registering its item capabilities (above), and no protocol method switches the backend yet (`setBackend` is in-process only). `payment_link` and `signing_key` items are refused at `add`.
 - **VM guest release (S23 design-05)**: no guest path exists yet. The review's controls (`vmAllowed`, once only, Touch ID each time, a rate limit) are a `todo` in `test/s23-review.test.ts`.
 - **Post-fill tab rules (S23 design-18)**: refusing screenshots and aborting a tool result on an echo belong to S08. They call `containsSecret` / `redact`.
 - **Fresh container per secret-bearing command (S23 design-15)**: S21.
