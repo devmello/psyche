@@ -63,12 +63,29 @@
 //   let browserTabsResult = try? JSONDecoder().decode(BrowserTabsResult.self, from: jsonData)
 //   let capabilityManifest = try? JSONDecoder().decode(CapabilityManifest.self, from: jsonData)
 //   let channel = try? JSONDecoder().decode(Channel.self, from: jsonData)
+//   let channelIdentity = try? JSONDecoder().decode(ChannelIdentity.self, from: jsonData)
 //   let channelRef = try? JSONDecoder().decode(ChannelRef.self, from: jsonData)
 //   let channelType = try? JSONDecoder().decode(ChannelType.self, from: jsonData)
+//   let channelsAllowlistUpdateParams = try? JSONDecoder().decode(ChannelsAllowlistUpdateParams.self, from: jsonData)
+//   let channelsAllowlistUpdateResult = try? JSONDecoder().decode(ChannelsAllowlistUpdateResult.self, from: jsonData)
+//   let channelsConfigureParams = try? JSONDecoder().decode(ChannelsConfigureParams.self, from: jsonData)
+//   let channelsConfigureResult = try? JSONDecoder().decode(ChannelsConfigureResult.self, from: jsonData)
 //   let channelsGetParams = try? JSONDecoder().decode(ChannelsGetParams.self, from: jsonData)
 //   let channelsGetResult = try? JSONDecoder().decode(ChannelsGetResult.self, from: jsonData)
+//   let channelsIdentitiesDeleteParams = try? JSONDecoder().decode(ChannelsIdentitiesDeleteParams.self, from: jsonData)
+//   let channelsIdentitiesListParams = try? JSONDecoder().decode(ChannelsIdentitiesListParams.self, from: jsonData)
+//   let channelsIdentitiesListResult = try? JSONDecoder().decode(ChannelsIdentitiesListResult.self, from: jsonData)
+//   let channelsIdentitiesUpsertParams = try? JSONDecoder().decode(ChannelsIdentitiesUpsertParams.self, from: jsonData)
+//   let channelsIdentitiesUpsertResult = try? JSONDecoder().decode(ChannelsIdentitiesUpsertResult.self, from: jsonData)
 //   let channelsListParams = try? JSONDecoder().decode(ChannelsListParams.self, from: jsonData)
 //   let channelsListResult = try? JSONDecoder().decode(ChannelsListResult.self, from: jsonData)
+//   let channelsPairingApproveParams = try? JSONDecoder().decode(ChannelsPairingApproveParams.self, from: jsonData)
+//   let channelsPairingApproveResult = try? JSONDecoder().decode(ChannelsPairingApproveResult.self, from: jsonData)
+//   let channelsPairingDenyParams = try? JSONDecoder().decode(ChannelsPairingDenyParams.self, from: jsonData)
+//   let channelsPairingDenyResult = try? JSONDecoder().decode(ChannelsPairingDenyResult.self, from: jsonData)
+//   let channelsPairingListParams = try? JSONDecoder().decode(ChannelsPairingListParams.self, from: jsonData)
+//   let channelsPairingListResult = try? JSONDecoder().decode(ChannelsPairingListResult.self, from: jsonData)
+//   let channelsUpdatedPayload = try? JSONDecoder().decode(ChannelsUpdatedPayload.self, from: jsonData)
 //   let chatBlockPayload = try? JSONDecoder().decode(ChatBlockPayload.self, from: jsonData)
 //   let chatCancelParams = try? JSONDecoder().decode(ChatCancelParams.self, from: jsonData)
 //   let chatCancelResult = try? JSONDecoder().decode(ChatCancelResult.self, from: jsonData)
@@ -1655,21 +1672,36 @@ public enum DevicePlatform: String, Codable, Sendable {
     case web = "web"
 }
 
-// MARK: - ChannelsGetParams
-public struct ChannelsGetParams: Codable, Sendable {
+// MARK: - ChannelsAllowlistUpdateParams
+public struct ChannelsAllowlistUpdateParams: Codable, Sendable {
+    public let add: [String]?
     public let channelID: String
+    public let list: List
+    public let remove: [String]?
 
     public enum CodingKeys: String, CodingKey {
+        case add = "add"
         case channelID = "channelId"
+        case list = "list"
+        case remove = "remove"
     }
 
-    public init(channelID: String) {
+    public init(add: [String]?, channelID: String, list: List, remove: [String]?) {
+        self.add = add
         self.channelID = channelID
+        self.list = list
+        self.remove = remove
     }
 }
 
-// MARK: - ChannelsGetResult
-public struct ChannelsGetResult: Codable, Sendable {
+public enum List: String, Codable, Sendable {
+    case allowFrom = "allowFrom"
+    case groupAllowFrom = "groupAllowFrom"
+    case ownerIDS = "ownerIds"
+}
+
+// MARK: - ChannelsAllowlistUpdateResult
+public struct ChannelsAllowlistUpdateResult: Codable, Sendable {
     public let channel: Channel
 
     public enum CodingKeys: String, CodingKey {
@@ -1694,7 +1726,7 @@ public struct Channel: Codable, Sendable {
     public let nodeID: String?
     public let ownerIDS: [String]
     public let requireMention: Bool
-    public let status: Status
+    public let status: ChannelStatus
     public let type: ChannelType
     public let updatedAt: String
 
@@ -1715,7 +1747,7 @@ public struct Channel: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(account: String, allowFrom: [String], config: [String: JSONAny], createdAt: String, dmPolicy: DmPolicy, dmScope: DmScope, groupAllowFrom: [String], id: String, nodeID: String?, ownerIDS: [String], requireMention: Bool, status: Status, type: ChannelType, updatedAt: String) {
+    public init(account: String, allowFrom: [String], config: [String: JSONAny], createdAt: String, dmPolicy: DmPolicy, dmScope: DmScope, groupAllowFrom: [String], id: String, nodeID: String?, ownerIDS: [String], requireMention: Bool, status: ChannelStatus, type: ChannelType, updatedAt: String) {
         self.account = account
         self.allowFrom = allowFrom
         self.config = config
@@ -1746,7 +1778,7 @@ public enum DmScope: String, Codable, Sendable {
     case perPeer = "per-peer"
 }
 
-public enum Status: String, Codable, Sendable {
+public enum ChannelStatus: String, Codable, Sendable {
     case active = "active"
     case disconnected = "disconnected"
     case error = "error"
@@ -1765,6 +1797,192 @@ public enum ChannelType: String, Codable, Sendable {
     case whatsapp = "whatsapp"
 }
 
+// MARK: - ChannelsConfigureParams
+public struct ChannelsConfigureParams: Codable, Sendable {
+    public let account: String?
+    public let allowFrom: [String]?
+    public let channelID: String?
+    public let config: [String: JSONAny]?
+    public let dmPolicy: DmPolicy?
+    public let dmScope: DmScope?
+    public let groupAllowFrom: [String]?
+    public let nodeID: String?
+    public let ownerIDS: [String]?
+    public let requireMention: Bool?
+    public let status: ChannelsConfigureParamsStatus?
+    public let type: ChannelType?
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case allowFrom = "allowFrom"
+        case channelID = "channelId"
+        case config = "config"
+        case dmPolicy = "dmPolicy"
+        case dmScope = "dmScope"
+        case groupAllowFrom = "groupAllowFrom"
+        case nodeID = "nodeId"
+        case ownerIDS = "ownerIds"
+        case requireMention = "requireMention"
+        case status = "status"
+        case type = "type"
+    }
+
+    public init(account: String?, allowFrom: [String]?, channelID: String?, config: [String: JSONAny]?, dmPolicy: DmPolicy?, dmScope: DmScope?, groupAllowFrom: [String]?, nodeID: String?, ownerIDS: [String]?, requireMention: Bool?, status: ChannelsConfigureParamsStatus?, type: ChannelType?) {
+        self.account = account
+        self.allowFrom = allowFrom
+        self.channelID = channelID
+        self.config = config
+        self.dmPolicy = dmPolicy
+        self.dmScope = dmScope
+        self.groupAllowFrom = groupAllowFrom
+        self.nodeID = nodeID
+        self.ownerIDS = ownerIDS
+        self.requireMention = requireMention
+        self.status = status
+        self.type = type
+    }
+}
+
+public enum ChannelsConfigureParamsStatus: String, Codable, Sendable {
+    case active = "active"
+    case paused = "paused"
+}
+
+// MARK: - ChannelsConfigureResult
+public struct ChannelsConfigureResult: Codable, Sendable {
+    public let channel: Channel
+
+    public enum CodingKeys: String, CodingKey {
+        case channel = "channel"
+    }
+
+    public init(channel: Channel) {
+        self.channel = channel
+    }
+}
+
+// MARK: - ChannelsGetParams
+public struct ChannelsGetParams: Codable, Sendable {
+    public let channelID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case channelID = "channelId"
+    }
+
+    public init(channelID: String) {
+        self.channelID = channelID
+    }
+}
+
+// MARK: - ChannelsGetResult
+public struct ChannelsGetResult: Codable, Sendable {
+    public let channel: Channel
+
+    public enum CodingKeys: String, CodingKey {
+        case channel = "channel"
+    }
+
+    public init(channel: Channel) {
+        self.channel = channel
+    }
+}
+
+// MARK: - ChannelsIdentitiesDeleteParams
+public struct ChannelsIdentitiesDeleteParams: Codable, Sendable {
+    public let identityID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case identityID = "identityId"
+    }
+
+    public init(identityID: String) {
+        self.identityID = identityID
+    }
+}
+
+// MARK: - ChannelsIdentitiesListResult
+public struct ChannelsIdentitiesListResult: Codable, Sendable {
+    public let identities: [ChannelIdentity]
+
+    public enum CodingKeys: String, CodingKey {
+        case identities = "identities"
+    }
+
+    public init(identities: [ChannelIdentity]) {
+        self.identities = identities
+    }
+}
+
+// MARK: - ChannelIdentity
+public struct ChannelIdentity: Codable, Sendable {
+    public let createdAt: String
+    public let delegatedPersona: String?
+    public let display: String
+    public let id: String
+    /// Sender ids merged into this identity
+    public let links: [String]
+    public let toolAllow: [String]?
+    public let updatedAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case delegatedPersona = "delegatedPersona"
+        case display = "display"
+        case id = "id"
+        case links = "links"
+        case toolAllow = "toolAllow"
+        case updatedAt = "updatedAt"
+    }
+
+    public init(createdAt: String, delegatedPersona: String?, display: String, id: String, links: [String], toolAllow: [String]?, updatedAt: String) {
+        self.createdAt = createdAt
+        self.delegatedPersona = delegatedPersona
+        self.display = display
+        self.id = id
+        self.links = links
+        self.toolAllow = toolAllow
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - ChannelsIdentitiesUpsertParams
+public struct ChannelsIdentitiesUpsertParams: Codable, Sendable {
+    public let delegatedPersona: String?
+    public let display: String
+    public let identityID: String?
+    public let links: [String]
+    public let toolAllow: [String]?
+
+    public enum CodingKeys: String, CodingKey {
+        case delegatedPersona = "delegatedPersona"
+        case display = "display"
+        case identityID = "identityId"
+        case links = "links"
+        case toolAllow = "toolAllow"
+    }
+
+    public init(delegatedPersona: String?, display: String, identityID: String?, links: [String], toolAllow: [String]?) {
+        self.delegatedPersona = delegatedPersona
+        self.display = display
+        self.identityID = identityID
+        self.links = links
+        self.toolAllow = toolAllow
+    }
+}
+
+// MARK: - ChannelsIdentitiesUpsertResult
+public struct ChannelsIdentitiesUpsertResult: Codable, Sendable {
+    public let identity: ChannelIdentity
+
+    public enum CodingKeys: String, CodingKey {
+        case identity = "identity"
+    }
+
+    public init(identity: ChannelIdentity) {
+        self.identity = identity
+    }
+}
+
 // MARK: - ChannelsListResult
 public struct ChannelsListResult: Codable, Sendable {
     public let channels: [Channel]
@@ -1775,6 +1993,173 @@ public struct ChannelsListResult: Codable, Sendable {
 
     public init(channels: [Channel]) {
         self.channels = channels
+    }
+}
+
+// MARK: - ChannelsPairingApproveParams
+public struct ChannelsPairingApproveParams: Codable, Sendable {
+    public let channelID: String?
+    public let code: String?
+    public let requestID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case channelID = "channelId"
+        case code = "code"
+        case requestID = "requestId"
+    }
+
+    public init(channelID: String?, code: String?, requestID: String?) {
+        self.channelID = channelID
+        self.code = code
+        self.requestID = requestID
+    }
+}
+
+// MARK: - ChannelsPairingApproveResult
+public struct ChannelsPairingApproveResult: Codable, Sendable {
+    public let pairingRequest: PairingRequest
+
+    public enum CodingKeys: String, CodingKey {
+        case pairingRequest = "pairingRequest"
+    }
+
+    public init(pairingRequest: PairingRequest) {
+        self.pairingRequest = pairingRequest
+    }
+}
+
+// MARK: - PairingRequest
+public struct PairingRequest: Codable, Sendable {
+    public let channelID: String?
+    public let code: String
+    public let createdAt: String
+    public let decidedAt: String?
+    public let decidedByDeviceID: String?
+    public let deviceID: String?
+    public let display: String
+    public let expiresAt: String
+    public let id: String
+    public let kind: PairingRequestKind
+    public let senderID: String?
+    public let status: PairingStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case channelID = "channelId"
+        case code = "code"
+        case createdAt = "createdAt"
+        case decidedAt = "decidedAt"
+        case decidedByDeviceID = "decidedByDeviceId"
+        case deviceID = "deviceId"
+        case display = "display"
+        case expiresAt = "expiresAt"
+        case id = "id"
+        case kind = "kind"
+        case senderID = "senderId"
+        case status = "status"
+    }
+
+    public init(channelID: String?, code: String, createdAt: String, decidedAt: String?, decidedByDeviceID: String?, deviceID: String?, display: String, expiresAt: String, id: String, kind: PairingRequestKind, senderID: String?, status: PairingStatus) {
+        self.channelID = channelID
+        self.code = code
+        self.createdAt = createdAt
+        self.decidedAt = decidedAt
+        self.decidedByDeviceID = decidedByDeviceID
+        self.deviceID = deviceID
+        self.display = display
+        self.expiresAt = expiresAt
+        self.id = id
+        self.kind = kind
+        self.senderID = senderID
+        self.status = status
+    }
+}
+
+public enum PairingRequestKind: String, Codable, Sendable {
+    case channelSender = "channel-sender"
+    case device = "device"
+}
+
+public enum PairingStatus: String, Codable, Sendable {
+    case approved = "approved"
+    case denied = "denied"
+    case expired = "expired"
+    case pending = "pending"
+}
+
+// MARK: - ChannelsPairingDenyParams
+public struct ChannelsPairingDenyParams: Codable, Sendable {
+    public let channelID: String?
+    public let code: String?
+    public let requestID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case channelID = "channelId"
+        case code = "code"
+        case requestID = "requestId"
+    }
+
+    public init(channelID: String?, code: String?, requestID: String?) {
+        self.channelID = channelID
+        self.code = code
+        self.requestID = requestID
+    }
+}
+
+// MARK: - ChannelsPairingDenyResult
+public struct ChannelsPairingDenyResult: Codable, Sendable {
+    public let pairingRequest: PairingRequest
+
+    public enum CodingKeys: String, CodingKey {
+        case pairingRequest = "pairingRequest"
+    }
+
+    public init(pairingRequest: PairingRequest) {
+        self.pairingRequest = pairingRequest
+    }
+}
+
+// MARK: - ChannelsPairingListParams
+public struct ChannelsPairingListParams: Codable, Sendable {
+    public let channelID: String?
+    public let status: PairingStatus?
+
+    public enum CodingKeys: String, CodingKey {
+        case channelID = "channelId"
+        case status = "status"
+    }
+
+    public init(channelID: String?, status: PairingStatus?) {
+        self.channelID = channelID
+        self.status = status
+    }
+}
+
+// MARK: - ChannelsPairingListResult
+public struct ChannelsPairingListResult: Codable, Sendable {
+    public let requests: [PairingRequest]
+
+    public enum CodingKeys: String, CodingKey {
+        case requests = "requests"
+    }
+
+    public init(requests: [PairingRequest]) {
+        self.requests = requests
+    }
+}
+
+// MARK: - ChannelsUpdatedPayload
+public struct ChannelsUpdatedPayload: Codable, Sendable {
+    public let channel: Channel
+    public let detail: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case channel = "channel"
+        case detail = "detail"
+    }
+
+    public init(channel: Channel, detail: String?) {
+        self.channel = channel
+        self.detail = detail
     }
 }
 
@@ -2717,64 +3102,6 @@ public struct DevicesDenyResult: Codable, Sendable {
     public init(pairingRequest: PairingRequest) {
         self.pairingRequest = pairingRequest
     }
-}
-
-// MARK: - PairingRequest
-public struct PairingRequest: Codable, Sendable {
-    public let channelID: String?
-    public let code: String
-    public let createdAt: String
-    public let decidedAt: String?
-    public let decidedByDeviceID: String?
-    public let deviceID: String?
-    public let display: String
-    public let expiresAt: String
-    public let id: String
-    public let kind: PairingRequestKind
-    public let senderID: String?
-    public let status: PairingStatus
-
-    public enum CodingKeys: String, CodingKey {
-        case channelID = "channelId"
-        case code = "code"
-        case createdAt = "createdAt"
-        case decidedAt = "decidedAt"
-        case decidedByDeviceID = "decidedByDeviceId"
-        case deviceID = "deviceId"
-        case display = "display"
-        case expiresAt = "expiresAt"
-        case id = "id"
-        case kind = "kind"
-        case senderID = "senderId"
-        case status = "status"
-    }
-
-    public init(channelID: String?, code: String, createdAt: String, decidedAt: String?, decidedByDeviceID: String?, deviceID: String?, display: String, expiresAt: String, id: String, kind: PairingRequestKind, senderID: String?, status: PairingStatus) {
-        self.channelID = channelID
-        self.code = code
-        self.createdAt = createdAt
-        self.decidedAt = decidedAt
-        self.decidedByDeviceID = decidedByDeviceID
-        self.deviceID = deviceID
-        self.display = display
-        self.expiresAt = expiresAt
-        self.id = id
-        self.kind = kind
-        self.senderID = senderID
-        self.status = status
-    }
-}
-
-public enum PairingRequestKind: String, Codable, Sendable {
-    case channelSender = "channel-sender"
-    case device = "device"
-}
-
-public enum PairingStatus: String, Codable, Sendable {
-    case approved = "approved"
-    case denied = "denied"
-    case expired = "expired"
-    case pending = "pending"
 }
 
 // MARK: - DevicesListParams
@@ -7118,6 +7445,7 @@ public enum WrapUpBlockType: String, Codable, Sendable {
 }
 
 public typealias BridgeTabsListParams = [String: JSONAny]
+public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]

@@ -106,6 +106,11 @@
         "payload": "#/$defs/ApprovalUpdatedPayload"
       },
       {
+        "description": "A channel was configured, connected, disconnected or changed status.",
+        "name": "channels.updated",
+        "payload": "#/$defs/ChannelsUpdatedPayload"
+      },
+      {
         "description": "A structured block (plan, checklist, approval, question, artifact, receipt, …) was added to a message.",
         "name": "chat.block",
         "payload": "#/$defs/ChatBlockPayload"
@@ -334,6 +339,22 @@
         "sideEffecting": false
       },
       {
+        "description": "Adds or removes sender / group ids on one of a channel's allowlists. Side-effecting.",
+        "name": "channels.allowlist.update",
+        "params": "#/$defs/ChannelsAllowlistUpdateParams",
+        "result": "#/$defs/ChannelsAllowlistUpdateResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Creates a channel or changes its access policy and settings. Side-effecting.",
+        "name": "channels.configure",
+        "params": "#/$defs/ChannelsConfigureParams",
+        "result": "#/$defs/ChannelsConfigureResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Returns one channel.",
         "name": "channels.get",
         "params": "#/$defs/ChannelsGetParams",
@@ -342,10 +363,58 @@
         "sideEffecting": false
       },
       {
+        "description": "Deletes an identity; its senders fall back to per-sender sessions. Side-effecting.",
+        "name": "channels.identities.delete",
+        "params": "#/$defs/ChannelsIdentitiesDeleteParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Lists identities (identity links and designated persons).",
+        "name": "channels.identities.list",
+        "params": "#/$defs/ChannelsIdentitiesListParams",
+        "result": "#/$defs/ChannelsIdentitiesListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Creates or replaces an identity; a sender id may belong to one identity only. Side-effecting.",
+        "name": "channels.identities.upsert",
+        "params": "#/$defs/ChannelsIdentitiesUpsertParams",
+        "result": "#/$defs/ChannelsIdentitiesUpsertResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Lists configured channels.",
         "name": "channels.list",
         "params": "#/$defs/ChannelsListParams",
         "result": "#/$defs/ChannelsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Approves a pending pairing request; the sender joins the channel's allowFrom. Side-effecting.",
+        "name": "channels.pairing.approve",
+        "params": "#/$defs/ChannelsPairingApproveParams",
+        "result": "#/$defs/ChannelsPairingApproveResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Denies a pending pairing request. Side-effecting.",
+        "name": "channels.pairing.deny",
+        "params": "#/$defs/ChannelsPairingDenyParams",
+        "result": "#/$defs/ChannelsPairingDenyResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Lists channel-sender pairing requests, newest first.",
+        "name": "channels.pairing.list",
+        "params": "#/$defs/ChannelsPairingListParams",
+        "result": "#/$defs/ChannelsPairingListResult",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -2592,6 +2661,70 @@
       ],
       "type": "object"
     },
+    "ChannelIdentity": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "display": {
+          "type": "string"
+        },
+        "links": {
+          "description": "Sender ids merged into this identity",
+          "items": {
+            "description": "\"<channel>:<senderId>\"",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "delegatedPersona": {
+          "anyOf": [
+            {
+              "description": "Persona overlay name (feature N10)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "toolAllow": {
+          "anyOf": [
+            {
+              "description": "Tool name globs",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "updatedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "display",
+        "links",
+        "createdAt",
+        "updatedAt"
+      ],
+      "type": "object"
+    },
     "ChannelRef": {
       "properties": {
         "channel": {
@@ -2625,6 +2758,156 @@
       ],
       "type": "string"
     },
+    "ChannelsAllowlistUpdateParams": {
+      "properties": {
+        "channelId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "list": {
+          "enum": [
+            "allowFrom",
+            "groupAllowFrom",
+            "ownerIds"
+          ],
+          "type": "string"
+        },
+        "add": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "remove": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        }
+      },
+      "required": [
+        "channelId",
+        "list"
+      ],
+      "type": "object"
+    },
+    "ChannelsAllowlistUpdateResult": {
+      "properties": {
+        "channel": {
+          "$ref": "#/$defs/Channel"
+        }
+      },
+      "required": [
+        "channel"
+      ],
+      "type": "object"
+    },
+    "ChannelsConfigureParams": {
+      "properties": {
+        "channelId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/ChannelType"
+        },
+        "account": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dmPolicy": {
+          "$ref": "#/$defs/DmPolicy"
+        },
+        "allowFrom": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "groupAllowFrom": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "requireMention": {
+          "type": "boolean"
+        },
+        "ownerIds": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "dmScope": {
+          "enum": [
+            "main",
+            "per-peer",
+            "per-channel-peer"
+          ],
+          "type": "string"
+        },
+        "nodeId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "active",
+            "paused"
+          ],
+          "type": "string"
+        },
+        "config": {
+          "description": "JSON object",
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "ChannelsConfigureResult": {
+      "properties": {
+        "channel": {
+          "$ref": "#/$defs/Channel"
+        }
+      },
+      "required": [
+        "channel"
+      ],
+      "type": "object"
+    },
     "ChannelsGetParams": {
       "properties": {
         "channelId": {
@@ -2650,6 +2933,103 @@
       ],
       "type": "object"
     },
+    "ChannelsIdentitiesDeleteParams": {
+      "properties": {
+        "identityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "identityId"
+      ],
+      "type": "object"
+    },
+    "ChannelsIdentitiesListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "ChannelsIdentitiesListResult": {
+      "properties": {
+        "identities": {
+          "items": {
+            "$ref": "#/$defs/ChannelIdentity"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "identities"
+      ],
+      "type": "object"
+    },
+    "ChannelsIdentitiesUpsertParams": {
+      "properties": {
+        "identityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "display": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "links": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "delegatedPersona": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "toolAllow": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "display",
+        "links"
+      ],
+      "type": "object"
+    },
+    "ChannelsIdentitiesUpsertResult": {
+      "properties": {
+        "identity": {
+          "$ref": "#/$defs/ChannelIdentity"
+        }
+      },
+      "required": [
+        "identity"
+      ],
+      "type": "object"
+    },
     "ChannelsListParams": {
       "properties": {},
       "type": "object"
@@ -2665,6 +3045,114 @@
       },
       "required": [
         "channels"
+      ],
+      "type": "object"
+    },
+    "ChannelsPairingApproveParams": {
+      "properties": {
+        "requestId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "channelId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "code": {
+          "maxLength": 16,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ChannelsPairingApproveResult": {
+      "properties": {
+        "pairingRequest": {
+          "$ref": "#/$defs/PairingRequest"
+        }
+      },
+      "required": [
+        "pairingRequest"
+      ],
+      "type": "object"
+    },
+    "ChannelsPairingDenyParams": {
+      "properties": {
+        "requestId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "channelId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "code": {
+          "maxLength": 16,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ChannelsPairingDenyResult": {
+      "properties": {
+        "pairingRequest": {
+          "$ref": "#/$defs/PairingRequest"
+        }
+      },
+      "required": [
+        "pairingRequest"
+      ],
+      "type": "object"
+    },
+    "ChannelsPairingListParams": {
+      "properties": {
+        "channelId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/PairingStatus"
+        }
+      },
+      "type": "object"
+    },
+    "ChannelsPairingListResult": {
+      "properties": {
+        "requests": {
+          "items": {
+            "$ref": "#/$defs/PairingRequest"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "requests"
+      ],
+      "type": "object"
+    },
+    "ChannelsUpdatedPayload": {
+      "properties": {
+        "channel": {
+          "$ref": "#/$defs/Channel"
+        },
+        "detail": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel"
       ],
       "type": "object"
     },
