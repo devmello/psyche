@@ -78,6 +78,11 @@
 //   let chatHistoryParams = try? JSONDecoder().decode(ChatHistoryParams.self, from: jsonData)
 //   let chatHistoryResult = try? JSONDecoder().decode(ChatHistoryResult.self, from: jsonData)
 //   let chatMessagePayload = try? JSONDecoder().decode(ChatMessagePayload.self, from: jsonData)
+//   let chatQueueListParams = try? JSONDecoder().decode(ChatQueueListParams.self, from: jsonData)
+//   let chatQueueListResult = try? JSONDecoder().decode(ChatQueueListResult.self, from: jsonData)
+//   let chatQueueRemoveParams = try? JSONDecoder().decode(ChatQueueRemoveParams.self, from: jsonData)
+//   let chatQueueRemoveResult = try? JSONDecoder().decode(ChatQueueRemoveResult.self, from: jsonData)
+//   let chatQueueUpdatedPayload = try? JSONDecoder().decode(ChatQueueUpdatedPayload.self, from: jsonData)
 //   let chatSendParams = try? JSONDecoder().decode(ChatSendParams.self, from: jsonData)
 //   let chatSendResult = try? JSONDecoder().decode(ChatSendResult.self, from: jsonData)
 //   let chatSteerParams = try? JSONDecoder().decode(ChatSteerParams.self, from: jsonData)
@@ -206,6 +211,7 @@
 //   let questionCreatedPayload = try? JSONDecoder().decode(QuestionCreatedPayload.self, from: jsonData)
 //   let questionOption = try? JSONDecoder().decode(QuestionOption.self, from: jsonData)
 //   let queueMode = try? JSONDecoder().decode(QueueMode.self, from: jsonData)
+//   let queuedMessage = try? JSONDecoder().decode(QueuedMessage.self, from: jsonData)
 //   let queuedMessageResult = try? JSONDecoder().decode(QueuedMessageResult.self, from: jsonData)
 //   let receipt = try? JSONDecoder().decode(Receipt.self, from: jsonData)
 //   let receiptBlock = try? JSONDecoder().decode(ReceiptBlock.self, from: jsonData)
@@ -2043,6 +2049,105 @@ public struct ChatMessagePayload: Codable, Sendable {
 
     public init(message: Message) {
         self.message = message
+    }
+}
+
+// MARK: - ChatQueueListParams
+public struct ChatQueueListParams: Codable, Sendable {
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case threadID = "threadId"
+    }
+
+    public init(threadID: String) {
+        self.threadID = threadID
+    }
+}
+
+// MARK: - ChatQueueListResult
+public struct ChatQueueListResult: Codable, Sendable {
+    public let items: [QueuedMessage]
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+    }
+
+    public init(items: [QueuedMessage]) {
+        self.items = items
+    }
+}
+
+// MARK: - QueuedMessage
+public struct QueuedMessage: Codable, Sendable {
+    public let attachments: [String]
+    public let content: String
+    public let createdAt: String
+    public let messageID: String
+    public let position: Int
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case attachments = "attachments"
+        case content = "content"
+        case createdAt = "createdAt"
+        case messageID = "messageId"
+        case position = "position"
+        case threadID = "threadId"
+    }
+
+    public init(attachments: [String], content: String, createdAt: String, messageID: String, position: Int, threadID: String) {
+        self.attachments = attachments
+        self.content = content
+        self.createdAt = createdAt
+        self.messageID = messageID
+        self.position = position
+        self.threadID = threadID
+    }
+}
+
+// MARK: - ChatQueueRemoveParams
+public struct ChatQueueRemoveParams: Codable, Sendable {
+    public let messageID: String
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case messageID = "messageId"
+        case threadID = "threadId"
+    }
+
+    public init(messageID: String, threadID: String) {
+        self.messageID = messageID
+        self.threadID = threadID
+    }
+}
+
+// MARK: - ChatQueueRemoveResult
+public struct ChatQueueRemoveResult: Codable, Sendable {
+    public let removed: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case removed = "removed"
+    }
+
+    public init(removed: Bool) {
+        self.removed = removed
+    }
+}
+
+// MARK: - ChatQueueUpdatedPayload
+public struct ChatQueueUpdatedPayload: Codable, Sendable {
+    public let items: [QueuedMessage]
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+        case threadID = "threadId"
+    }
+
+    public init(items: [QueuedMessage], threadID: String) {
+        self.items = items
+        self.threadID = threadID
     }
 }
 

@@ -600,6 +600,37 @@ export interface ChatMessagePayload {
     message: Message;
 }
 
+export interface ChatQueueListParams {
+    threadId: string;
+}
+
+export interface ChatQueueListResult {
+    items: QueuedMessage[];
+}
+
+export interface QueuedMessage {
+    attachments: string[];
+    content:     string;
+    createdAt:   string;
+    messageId:   string;
+    position:    number;
+    threadId:    string;
+}
+
+export interface ChatQueueRemoveParams {
+    messageId: string;
+    threadId:  string;
+}
+
+export interface ChatQueueRemoveResult {
+    removed: boolean;
+}
+
+export interface ChatQueueUpdatedPayload {
+    items:    QueuedMessage[];
+    threadId: string;
+}
+
 export interface ChatSendParams {
     /**
      * Library item ids
