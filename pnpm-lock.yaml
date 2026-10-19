@@ -297,6 +297,9 @@ importers:
       '@psyche/audit':
         specifier: workspace:*
         version: link:../../packages/audit
+      '@psyche/backup':
+        specifier: workspace:*
+        version: link:../../packages/backup
       '@psyche/browser':
         specifier: workspace:*
         version: link:../../packages/browser

@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
   backupFileName,
+  backupsDir,
   createBackup,
   type Decryption,
   type Encryption,
@@ -9,7 +10,7 @@ import {
   verifyBackup,
 } from "@psyche/backup";
 import { PsycheError } from "@psyche/protocol";
-import { bool, type CommandSpec, type OptionValues, str } from "../command.ts";
+import { bool, type CommandResult, type CommandSpec, type OptionValues, str } from "../command.ts";
 import type { Ctx } from "../context.ts";
 import { CliError } from "../errors.ts";
 import { bytes, kv } from "../output.ts";
@@ -17,6 +18,7 @@ import { readAll } from "../prompt.ts";
 import { resumeService, stopService } from "../supervisor.ts";
 import { CLI_VERSION } from "../version.ts";
 import { supervisorEnv } from "./service.ts";
+import { callOrUnavailable } from "./util.ts";
 
 /**
  * Copying a live SQLite database in WAL mode is not a consistent snapshot, and the CLI never
@@ -51,6 +53,42 @@ async function withGatewayStopped<T>(
   }
 }
 
+/** `backup.create` on the running Gateway; the archive lands in `$PSYCHE_HOME/backups/`. */
+async function onlineBackup(ctx: Ctx, enc: Encryption): Promise<CommandResult> {
+  const params =
+    enc.kind === "passphrase"
+      ? { passphrase: enc.passphrase }
+      : enc.kind === "recipients"
+        ? { recipients: enc.recipients }
+        : { unencrypted: true };
+  let res: { backup: { file: string; bytes: number; encrypted: boolean }; files: number };
+  try {
+    res = (await callOrUnavailable(await ctx.gateway(), "backup.create", params, {
+      // Large libraries take a while; the Gateway answers when the archive is complete.
+      timeoutMs: 30 * 60_000,
+    })) as typeof res;
+  } catch (err) {
+    if (err instanceof CliError && err.kind === "unavailable") {
+      throw new CliError(
+        "failure",
+        "The Gateway is running and cannot make backups itself (older Gateway). Stop it first (`psyche stop`), or pass --stop to stop it for the backup and start it again afterwards.",
+      );
+    }
+    throw err;
+  }
+  const file = join(backupsDir(ctx.home), res.backup.file);
+  return {
+    data: {
+      file,
+      encrypted: res.backup.encrypted,
+      files: res.files,
+      bytes: res.backup.bytes,
+      via: "gateway",
+    },
+    human: `${kv({ backup: file, files: res.files, size: bytes(res.backup.bytes), encrypted: res.backup.encrypted ? enc.kind : "NO", via: "the running Gateway (online snapshot)" })}\nRestoring on another machine needs the vault recovery key.`,
+  };
+}
+
 /** Archive errors (wrong key, damaged file, existing state) are failures (exit 1), not usage. */
 async function archiveErrors<T>(fn: () => Promise<T>): Promise<T> {
   try {
@@ -60,7 +98,9 @@ async function archiveErrors<T>(fn: () => Promise<T>): Promise<T> {
       throw new CliError(
         "failure",
         err.message,
-        err.details && typeof err.details === "object" ? (err.details as Record<string, unknown>) : undefined,
+        err.details && typeof err.details === "object"
+          ? (err.details as Record<string, unknown>)
+          : undefined,
       );
     }
     throw err;
@@ -160,6 +200,12 @@ export const backupCommands: CommandSpec[] = [
     async run(ctx, { opts }) {
       const enc = await encryptionFrom(ctx, opts);
       const now = ctx.deps.now();
+      // A running Gateway snapshots itself (SQLite online backup): no downtime. --out and --stop
+      // keep the offline path, which writes anywhere but needs the Gateway stopped.
+      const probe = await ctx.probe().catch(() => ({ healthy: false }));
+      if (probe.healthy && !bool(opts, "stop") && !str(opts, "out")) {
+        return onlineBackup(ctx, enc);
+      }
       const out = resolve(
         str(opts, "out") ?? join(ctx.home, "backups", backupFileName(now, enc.kind !== "none")),
       );
