@@ -143,7 +143,9 @@ function Shell({ layout }: { layout: LayoutStore }): ReactElement {
 
   // view.* RPC from the Gateway (the agent opening, closing and focusing panes), then report.
   useEffect(() => {
-    if (platform.kind !== "desktop") return;
+    // Only the main window applies view.* and reports the layout; pop-outs and quick entry
+    // receive the same events and must not act on them twice.
+    if (platform.kind !== "desktop" || popOutPane || route === "/quick") return;
     const offCmd = store.tap((e) => {
       if (e.event !== "view.command" || !threadId) return;
       const out = layout.applyViewCommand(e.payload, threadId, env());
@@ -166,7 +168,7 @@ function Shell({ layout }: { layout: LayoutStore }): ReactElement {
       offLayout();
       clearTimeout(timer);
     };
-  }, [platform.kind, store, layout, threadId, env]);
+  }, [platform.kind, store, layout, threadId, env, popOutPane, route]);
 
   const newSideChat = useCallback(() => {
     void store

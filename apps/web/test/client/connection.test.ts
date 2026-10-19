@@ -130,3 +130,26 @@ describe("GatewayConnection", () => {
     expect(gw.connects.length).toBe(1);
   });
 });
+
+describe("GatewayConnection failure paths", () => {
+  it("drops the socket when signing fails and backs off when params fail", async () => {
+    gw = await new MockGateway().start();
+    const { statuses } = connect({
+      sign: () => Promise.reject(new Error("keychain locked")),
+    });
+    await until(() => statuses.some((s) => s.phase === "error"));
+    await until(() => statuses.some((s) => s.phase === "disconnected"));
+    conn?.stop();
+
+    let calls = 0;
+    const second = connect({
+      connectParams: () => {
+        calls++;
+        throw new Error("no key");
+      },
+    });
+    await until(() => calls >= 2, 3_000);
+    expect(second.statuses.at(-1)?.attempt).toBeGreaterThanOrEqual(1);
+    expect(conn?.isPaired()).toBe(false);
+  });
+});

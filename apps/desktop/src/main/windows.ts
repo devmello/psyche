@@ -10,6 +10,10 @@ import { app, BaseWindow, type WebContents, WebContentsView } from "electron";
 
 export interface AppWindows {
   main(): BaseWindow | undefined;
+  /** The main window's app renderer: native commands and view.* go only here. */
+  mainContents(): WebContents | undefined;
+  /** After this, closing the main window really closes it (quit). */
+  setQuitting(): void;
   /** Shows the main window, creating it when it was closed. */
   showMain(): BaseWindow;
   popOut(route: string, title: string): void;
@@ -41,6 +45,8 @@ const APP_PREFS = {
 
 export function createAppWindows(opts: WindowOptions): AppWindows {
   let mainWin: BaseWindow | undefined;
+  let mainView: WebContentsView | undefined;
+  let quitting = false;
   let quick: { win: BaseWindow; view: WebContentsView } | undefined;
   const views = new Map<WebContents, { win: BaseWindow; view: WebContentsView }>();
 
@@ -85,9 +91,18 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       titleBarStyle: "hiddenInset",
     });
     const view = makeView(win, "/chat");
+    mainView = view;
     view.webContents.once("did-finish-load", () => win.show());
+    // "Close window" hides it: the agent browser's tab views live in this window and keep
+    // working (feature A7, I11). Only quitting destroys it.
+    win.on("close", (event) => {
+      if (quitting) return;
+      event.preventDefault();
+      win.hide();
+    });
     win.on("closed", () => {
       mainWin = undefined;
+      mainView = undefined;
       opts.onMainClosed?.();
     });
     mainWin = win;
@@ -116,6 +131,11 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
 
   return {
     main: () => mainWin,
+    mainContents: () =>
+      mainView && !mainView.webContents.isDestroyed() ? mainView.webContents : undefined,
+    setQuitting() {
+      quitting = true;
+    },
     showMain() {
       const win = mainWin ?? createMain();
       if (win.isMinimized()) win.restore();

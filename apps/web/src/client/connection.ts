@@ -96,6 +96,7 @@ export class GatewayConnection {
   private healthTimer: ReturnType<typeof setInterval> | undefined;
   private readonly pending = new Map<string, Pending>();
   private nextId = 1;
+  private connectSeq = 0;
   private lastSeq: number | undefined;
   private everPaired = false;
   private readonly opts: GatewayConnectionOptions;
@@ -127,6 +128,7 @@ export class GatewayConnection {
 
   stop(): void {
     this.stopped = true;
+    this.connectSeq++;
     clearInterval(this.healthTimer);
     clearTimeout(this.reconnectTimer);
     this.ws?.close(1000, "shutdown");
@@ -194,15 +196,18 @@ export class GatewayConnection {
 
   private async connect(): Promise<void> {
     if (this.stopped) return;
+    // A stop()/start() while connectParams() is pending must not leave two sockets.
+    const attempt = ++this.connectSeq;
     let params: ConnectParams;
     try {
       params = await this.opts.connectParams();
     } catch {
-      this.dispatch({ type: "error", code: "internal" });
+      if (attempt !== this.connectSeq) return;
+      this.dispatch({ type: "closed" }); // counts as a failed attempt, so backoff grows
       this.scheduleReconnect();
       return;
     }
-    if (this.stopped) return;
+    if (this.stopped || attempt !== this.connectSeq) return;
     const handshake = new Handshake(params, this.opts.sign);
     this.dispatch({ type: "connecting" });
     const create = this.opts.createWebSocket ?? ((url: string) => new WebSocket(url));
@@ -221,20 +226,27 @@ export class GatewayConnection {
         return ws.close(1002, "invalid frame");
       }
       if (settled) return this.onFrame(frame);
-      void handshake.onFrame(frame).then((step) => {
-        if (step.status) this.dispatch(step.status);
-        if (step.send) {
-          ws.send(serializeFrame(step.send));
-          this.dispatch({ type: "verifying" });
-        }
-        if (step.done) settled = true;
-        if (step.status?.type === "paired") {
-          this.paired = true;
-          if (this.everPaired) this.opts.onResync?.();
-          this.everPaired = true;
-        }
-        if (step.status?.type === "error") ws.close(1000, "handshake failed");
-      });
+      void handshake
+        .onFrame(frame)
+        .then((step) => {
+          if (step.status) this.dispatch(step.status);
+          if (step.send) {
+            ws.send(serializeFrame(step.send));
+            this.dispatch({ type: "verifying" });
+          }
+          if (step.done) settled = true;
+          if (step.status?.type === "paired") {
+            this.paired = true;
+            if (this.everPaired) this.opts.onResync?.();
+            this.everPaired = true;
+          }
+          if (step.status?.type === "error") ws.close(1000, "handshake failed");
+        })
+        .catch(() => {
+          // signing failed: drop this socket; "close" schedules the retry
+          this.dispatch({ type: "error", code: "internal" });
+          ws.close(1000, "handshake failed");
+        });
     });
     ws.addEventListener("error", () => {
       // "close" follows; nothing is logged.

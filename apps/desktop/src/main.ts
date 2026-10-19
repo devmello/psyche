@@ -18,6 +18,7 @@ import {
   Notification,
   protocol,
   session,
+  type WebContents,
   webContents,
 } from "electron";
 import { createDesktopGateway, defaultGatewayOrigin, defaultPsycheHome } from "./gateway-client.ts";
@@ -95,16 +96,15 @@ function broadcast(channel: string, payload: unknown): void {
   for (const wc of windows?.appContents() ?? []) wc.send(channel, payload);
 }
 
-/** Native → shell commands; queued until a window exists to receive them. */
+/** Native → shell commands go to the main window only; queued until it has loaded. */
 function command(c: ShellCommand): void {
-  const targets = windows?.appContents() ?? [];
-  if (targets.length === 0) {
+  windows?.showMain();
+  const target = windows?.mainContents();
+  if (!target || target.isLoading()) {
     pendingCommands.push(c);
-    windows?.showMain();
     return;
   }
-  windows?.showMain();
-  broadcast(IPC.shellCommand, c);
+  target.send(IPC.shellCommand, c);
 }
 
 function openDeepLink(route: string | null): void {
@@ -158,6 +158,41 @@ function on(channel: string, fn: (event: IpcMainEvent, arg: unknown) => void): v
     } catch {
       // invalid payloads from the renderer are dropped
     }
+  });
+}
+
+/** PTYs die with the renderer that opened them (crash, reload, window closed). */
+const terminalOwners = new Map<string, WebContents>();
+const watchedOwners = new WeakSet<WebContents>();
+
+function ownTerminal(owner: WebContents, sessionId: string): void {
+  terminalOwners.set(sessionId, owner);
+  if (watchedOwners.has(owner)) return;
+  watchedOwners.add(owner);
+  const closeOwned = () => {
+    for (const [id, wc] of terminalOwners) {
+      if (wc !== owner) continue;
+      terminal?.close(id);
+      terminalOwners.delete(id);
+    }
+  };
+  owner.on("destroyed", closeOwned);
+  owner.on("render-process-gone", closeOwned);
+  owner.on("did-start-navigation", (details) => {
+    if (details.isMainFrame && !details.isSameDocument) closeOwned();
+  });
+}
+
+/** The tray's "needs you" row: refetched on pairing and resync, then kept by events. */
+async function refreshApprovals(): Promise<void> {
+  const res = (await gateway?.call("approvals.list", {}).catch(() => undefined)) as
+    | { approvals?: ApprovalRequest[] }
+    | undefined;
+  if (!res?.approvals) return;
+  pending = res.approvals.filter((a) => a.status === "pending");
+  tray?.update({
+    pendingApprovals: pending.length,
+    ...(pending[0] ? { firstApproval: pending[0].summary } : { firstApproval: undefined }),
   });
 }
 
@@ -240,10 +275,10 @@ function registerIpc(): void {
     requireBrowser().clearBrowsingData(arg === "clean" ? "clean" : "logged-in"),
   );
 
-  handle(IPC.terminalOpen, (_e, arg) => {
+  handle(IPC.terminalOpen, async (event, arg) => {
     const r = rec(IPC.terminalOpen, arg);
     if (!terminal) throw new PsycheError("unavailable", "terminal not ready");
-    return terminal.open({
+    const opened = await terminal.open({
       cols: num(IPC.terminalOpen, r.cols, "cols", 1, 500),
       rows: num(IPC.terminalOpen, r.rows, "rows", 1, 200),
       ...(typeof r.threadId === "string"
@@ -251,6 +286,8 @@ function registerIpc(): void {
         : {}),
       ...(typeof r.cwd === "string" ? { cwd: str(IPC.terminalOpen, r.cwd, "cwd", 4096) } : {}),
     });
+    if ("sessionId" in opened) ownTerminal(event.sender, opened.sessionId);
+    return opened;
   });
   on(IPC.terminalWrite, (_e, arg) => {
     const r = rec(IPC.terminalWrite, arg);
@@ -267,7 +304,11 @@ function registerIpc(): void {
       num(IPC.terminalResize, r.rows, "rows", 1, 200),
     );
   });
-  on(IPC.terminalClose, (_e, arg) => terminal?.close(str(IPC.terminalClose, arg, "sessionId", 64)));
+  on(IPC.terminalClose, (_e, arg) => {
+    const id = str(IPC.terminalClose, arg, "sessionId", 64);
+    terminal?.close(id);
+    terminalOwners.delete(id);
+  });
 
   handle(IPC.windowPopOut, (_e, arg) => {
     const r = rec(IPC.windowPopOut, arg);
@@ -430,10 +471,16 @@ void app.whenReady().then(async () => {
     onStatus: (s) => {
       broadcast(IPC.status, s);
       tray?.update({ status: s });
-      if (s.phase === "paired") void refreshHelperPresence();
+      if (s.phase === "paired") {
+        void refreshHelperPresence();
+        void refreshApprovals();
+      }
     },
     onEvent: onGatewayEvent,
-    onResync: () => broadcast(IPC.resync, null),
+    onResync: () => {
+      broadcast(IPC.resync, null);
+      void refreshApprovals();
+    },
   });
   terminal = new TerminalHost({ call: (m, p) => requireGateway().call(m, p) });
   terminal.onData((sessionId, data) => broadcast(IPC.terminalData, { sessionId, data }));
@@ -507,6 +554,7 @@ app.on("will-quit", () => {
 });
 
 app.on("before-quit", () => {
+  windows?.setQuitting();
   terminal?.closeAll();
   void bridge?.stop();
   browser?.dispose();
