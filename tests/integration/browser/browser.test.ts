@@ -25,6 +25,8 @@ interface Approval {
   status: string;
   sideEffect: string;
   scopesOffered: string[];
+  deviceOnly?: boolean;
+  requiresAuthentication?: boolean;
   surfaces: string[];
   summary?: string;
   target?: { kind: string; value: string };
@@ -252,13 +254,22 @@ describe("INT-2 scenario 1: browser from chat", () => {
       );
     }
     // Checkout is a purchase: once only, device surfaces only (never chat), bound to shop B.
-    expect(purchase.scopesOffered).toEqual(["once"]);
+    expect(purchase).toMatchObject({
+      kind: "purchase",
+      deviceOnly: true,
+      requiresAuthentication: true,
+      scopesOffered: ["once"],
+    });
     expect(purchase.surfaces.every((sf) => !sf.includes(":"))).toBe(true);
     expect(purchase.target).toEqual({ kind: "origin", value: B() });
     expect(desktop.tab(tabId).url).toBe(`${B()}/cart`);
     expect(desktop.browser.submissions.some((sub) => sub.path === "/checkout")).toBe(false);
     timings.approvalCards = asked.length;
   });
+
+  it.todo(
+    "KNOWN GAP (S08): the purchase card lists seller, items and total (today: 'Click Place order' plus the origin)",
+  );
 
   it("showed the status pill and highlighted the element acted on", () => {
     expect(statuses.some((s) => s.text === "Typing")).toBe(true);
