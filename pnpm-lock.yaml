@@ -647,6 +647,9 @@ importers:
       '@psyche/db':
         specifier: workspace:*
         version: link:../db
+      '@psyche/model-router':
+        specifier: workspace:*
+        version: link:../model-router
       '@psyche/testing':
         specifier: workspace:*
         version: link:../testing
