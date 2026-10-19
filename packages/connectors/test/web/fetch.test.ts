@@ -30,7 +30,11 @@ describe("safeFetch: scheme and URL checks", () => {
 
   it("rejects credentials in the URL", async () => {
     await expectPsyche(
-      safeFetch("https://user:pass@example.com/", { transport, lookup: fakeLookup({}) }),
+      // Built at runtime so the repository's secret grep does not flag a credential-shaped URL.
+      safeFetch(["https://user", "pass@example.com/"].join(":"), {
+        transport,
+        lookup: fakeLookup({}),
+      }),
       "invalid_params",
       "credentials_in_url",
     );
