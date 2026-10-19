@@ -46,3 +46,45 @@ export const MemoryHit = Type.Object(
   { $id: "MemoryHit" },
 );
 export type MemoryHit = Static<typeof MemoryHit>;
+
+/** One workspace file as listed by the Soul & Memory sheet (architecture §4.8). */
+export const MemoryFileInfo = Type.Object(
+  {
+    path: Type.String({ description: 'Workspace path, e.g. "SOUL.md"' }),
+    bytes: Type.Integer({ minimum: 0 }),
+    etag: Type.String(),
+    /** Writes by the agent need a `memory_protected_write` approval (security §8). */
+    protected: Type.Boolean(),
+    /** Least-trusted provenance of the content last written (owner for external edits). */
+    provenance: Provenance,
+    updatedAt: IsoDateTime,
+  },
+  { $id: "MemoryFileInfo" },
+);
+export type MemoryFileInfo = Static<typeof MemoryFileInfo>;
+
+/** Data model §7 `memory_jobs`. */
+export const MemoryJobKind = StringEnum(["flush", "dreaming", "reindex", "import"], {
+  $id: "MemoryJobKind",
+});
+export type MemoryJobKind = Static<typeof MemoryJobKind>;
+
+export const MemoryJob = Type.Object(
+  {
+    id: Id,
+    kind: MemoryJobKind,
+    status: StringEnum(["running", "ok", "failed", "skipped"], { $id: "MemoryJobStatus" }),
+    startedAt: IsoDateTime,
+    endedAt: Nullable(IsoDateTime),
+    /** Counts and outcome in plain words; never the remembered content. */
+    summary: Nullable(Type.String()),
+  },
+  { $id: "MemoryJob" },
+);
+export type MemoryJob = Static<typeof MemoryJob>;
+
+/** Who changed a workspace file: a tool call, the API, an edit outside Psyche, or a job. */
+export const MemoryChangeSource = StringEnum(["tool", "api", "external", "job"], {
+  $id: "MemoryChangeSource",
+});
+export type MemoryChangeSource = Static<typeof MemoryChangeSource>;

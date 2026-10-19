@@ -1057,6 +1057,14 @@ export interface LibraryListResult {
     nextCursor?: null | string;
 }
 
+export interface MemoryClaimsConfirmParams {
+    claimId: string;
+}
+
+export interface MemoryClaimsConfirmResult {
+    claim: MemoryClaim;
+}
+
 export interface MemoryClaim {
     confidence:    number;
     createdAt:     string;
@@ -1072,32 +1080,37 @@ export interface MemoryClaim {
 
 export type MemoryClaimKind = "fact" | "preference" | "relationship" | "directive" | "event";
 
-export interface MemoryReadParams {
-    lineEnd?:   number;
-    lineStart?: number;
-    path:       string;
+export interface MemoryClaimsListParams {
+    includeRetracted?: boolean;
 }
 
-export interface MemoryReadResult {
-    content:   string;
-    path:      string;
-    updatedAt: string;
+export interface MemoryClaimsListResult {
+    claims: MemoryClaim[];
 }
 
-export interface MemorySearchParams {
-    limit?: number;
-    query:  string;
+export interface MemoryDailyListParams {
+    before?: string;
+    limit?:  number;
 }
 
-export interface MemorySearchResult {
-    hits: MemoryHit[];
+export interface MemoryDailyListResult {
+    notes: Note[];
 }
 
-export interface MemoryHit {
-    bm25?:   number;
-    chunk:   MemoryChunk;
-    cosine?: number;
-    score:   number;
+export interface Note {
+    bytes:   number;
+    date:    string;
+    entries: number;
+    path:    string;
+}
+
+export interface MemoryExplainParams {
+    claimId: string;
+}
+
+export interface MemoryExplainResult {
+    chunks: MemoryChunk[];
+    claim:  MemoryClaim;
 }
 
 export interface MemoryChunk {
@@ -1116,8 +1129,169 @@ export interface MemoryChunk {
     updatedAt:  string;
 }
 
+export interface MemoryExportResult {
+    bytes:    number;
+    data:     string;
+    filename: string;
+    mime:     MIME;
+}
+
+export type MIME = "application/zip";
+
+export interface MemoryFileChangedPayload {
+    etag?: null | string;
+    /**
+     * Workspace path
+     */
+    path:        string;
+    provenance?: Provenance;
+    source:      MemoryChangeSource;
+}
+
+export type MemoryChangeSource = "tool" | "api" | "external" | "job";
+
+export interface MemoryFilesListParams {
+    prefix?: string;
+}
+
+export interface MemoryFilesListResult {
+    files: MemoryFileInfo[];
+}
+
+export interface MemoryFileInfo {
+    bytes: number;
+    etag:  string;
+    /**
+     * Workspace path, e.g. "SOUL.md"
+     */
+    path:       string;
+    protected:  boolean;
+    provenance: Provenance;
+    updatedAt:  string;
+}
+
+export interface MemoryForgetParams {
+    dryRun?: boolean;
+    subject: string;
+}
+
+export interface MemoryForgetResult {
+    files:             string[];
+    removedChunkIds:   string[];
+    retractedClaimIds: string[];
+}
+
+export interface MemoryImportParams {
+    content?: string;
+    dryRun?:  boolean;
+    files?:   File[];
+    format:   MemoryImportFormat;
+}
+
+export interface File {
+    content: string;
+    path:    string;
+}
+
+export type MemoryImportFormat = "chatgpt" | "claude" | "text" | "openclaw";
+
+export interface MemoryImportResult {
+    claims:  MemoryClaim[];
+    files:   string[];
+    flagged: string[];
+    skipped: number;
+}
+
+export interface MemoryJobUpdatedPayload {
+    job: MemoryJob;
+}
+
+export interface MemoryJob {
+    endedAt?:  null | string;
+    id:        string;
+    kind:      MemoryJobKind;
+    startedAt: string;
+    status:    MemoryJobStatus;
+    summary?:  null | string;
+}
+
+export type MemoryJobKind = "flush" | "dreaming" | "reindex" | "import";
+
+export type MemoryJobStatus = "running" | "ok" | "failed" | "skipped";
+
+export interface MemoryPauseParams {
+    paused: boolean;
+}
+
+export interface MemoryPauseResult {
+    paused: boolean;
+}
+
+export interface MemoryReadParams {
+    lineEnd?:   number;
+    lineStart?: number;
+    path:       string;
+}
+
+export interface MemoryReadResult {
+    content:   string;
+    etag?:     string;
+    path:      string;
+    updatedAt: string;
+}
+
+export interface MemoryRememberParams {
+    text: string;
+}
+
+export interface MemoryRememberResult {
+    chunk: MemoryChunk;
+    path:  string;
+}
+
+export interface MemoryResetParams {
+    dryRun?: boolean;
+}
+
+export interface MemoryResetResult {
+    chunks: number;
+    claims: number;
+    dryRun: boolean;
+    files:  string[];
+}
+
+export interface MemorySearchParams {
+    limit?:      number;
+    provenance?: Provenance[];
+    query:       string;
+    sources?:    string[];
+}
+
+export interface MemorySearchResult {
+    hits: MemoryHit[];
+}
+
+export interface MemoryHit {
+    bm25?:   number;
+    chunk:   MemoryChunk;
+    cosine?: number;
+    score:   number;
+}
+
+export interface MemoryStatusResult {
+    chunks:       number;
+    claims:       number;
+    files:        number;
+    lastJobs:     MemoryJob[];
+    paused:       boolean;
+    vectorSearch: MemoryVectorMode;
+}
+
+export type MemoryVectorMode = "sqlite-vec" | "brute-force" | "off";
+
 export interface MemoryWriteParams {
     content: string;
+    etag?:   string;
     mode?:   MemoryWriteMode;
     path:    string;
 }
@@ -1126,6 +1300,7 @@ export type MemoryWriteMode = "replace" | "append";
 
 export interface MemoryWriteResult {
     bytes:     number;
+    etag?:     string;
     path:      string;
     updatedAt: string;
 }
