@@ -22,6 +22,7 @@
 //   let artifactType = try? JSONDecoder().decode(ArtifactType.self, from: jsonData)
 //   let artifactsGetParams = try? JSONDecoder().decode(ArtifactsGetParams.self, from: jsonData)
 //   let artifactsGetResult = try? JSONDecoder().decode(ArtifactsGetResult.self, from: jsonData)
+//   let audioFormat = try? JSONDecoder().decode(AudioFormat.self, from: jsonData)
 //   let auditActor = try? JSONDecoder().decode(AuditActor.self, from: jsonData)
 //   let auditEntry = try? JSONDecoder().decode(AuditEntry.self, from: jsonData)
 //   let automation = try? JSONDecoder().decode(Automation.self, from: jsonData)
@@ -361,6 +362,12 @@
 //   let settingsSetParams = try? JSONDecoder().decode(SettingsSetParams.self, from: jsonData)
 //   let settingsSetResult = try? JSONDecoder().decode(SettingsSetResult.self, from: jsonData)
 //   let sideEffect = try? JSONDecoder().decode(SideEffect.self, from: jsonData)
+//   let speechAudioPayload = try? JSONDecoder().decode(SpeechAudioPayload.self, from: jsonData)
+//   let speechEngineLocation = try? JSONDecoder().decode(SpeechEngineLocation.self, from: jsonData)
+//   let speechReadAloudCompletedPayload = try? JSONDecoder().decode(SpeechReadAloudCompletedPayload.self, from: jsonData)
+//   let speechReadAloudFailedPayload = try? JSONDecoder().decode(SpeechReadAloudFailedPayload.self, from: jsonData)
+//   let speechReadAloudParams = try? JSONDecoder().decode(SpeechReadAloudParams.self, from: jsonData)
+//   let speechReadAloudResult = try? JSONDecoder().decode(SpeechReadAloudResult.self, from: jsonData)
 //   let target = try? JSONDecoder().decode(Target.self, from: jsonData)
 //   let targetKind = try? JSONDecoder().decode(TargetKind.self, from: jsonData)
 //   let task = try? JSONDecoder().decode(Task.self, from: jsonData)
@@ -400,6 +407,8 @@
 //   let toolCallStatus = try? JSONDecoder().decode(ToolCallStatus.self, from: jsonData)
 //   let toolCallUpdatedPayload = try? JSONDecoder().decode(ToolCallUpdatedPayload.self, from: jsonData)
 //   let toolSpec = try? JSONDecoder().decode(ToolSpec.self, from: jsonData)
+//   let transcript = try? JSONDecoder().decode(Transcript.self, from: jsonData)
+//   let transcriptSegment = try? JSONDecoder().decode(TranscriptSegment.self, from: jsonData)
 //   let upcomingItem = try? JSONDecoder().decode(UpcomingItem.self, from: jsonData)
 //   let usage = try? JSONDecoder().decode(Usage.self, from: jsonData)
 //   let usageRecord = try? JSONDecoder().decode(UsageRecord.self, from: jsonData)
@@ -443,6 +452,16 @@
 //   let viewPaneState = try? JSONDecoder().decode(ViewPaneState.self, from: jsonData)
 //   let viewPlacement = try? JSONDecoder().decode(ViewPlacement.self, from: jsonData)
 //   let viewReportParams = try? JSONDecoder().decode(ViewReportParams.self, from: jsonData)
+//   let voiceCancelParams = try? JSONDecoder().decode(VoiceCancelParams.self, from: jsonData)
+//   let voiceEndReason = try? JSONDecoder().decode(VoiceEndReason.self, from: jsonData)
+//   let voiceEndedPayload = try? JSONDecoder().decode(VoiceEndedPayload.self, from: jsonData)
+//   let voicePushParams = try? JSONDecoder().decode(VoicePushParams.self, from: jsonData)
+//   let voicePushResult = try? JSONDecoder().decode(VoicePushResult.self, from: jsonData)
+//   let voiceSegmentPayload = try? JSONDecoder().decode(VoiceSegmentPayload.self, from: jsonData)
+//   let voiceStartParams = try? JSONDecoder().decode(VoiceStartParams.self, from: jsonData)
+//   let voiceStartResult = try? JSONDecoder().decode(VoiceStartResult.self, from: jsonData)
+//   let voiceStopParams = try? JSONDecoder().decode(VoiceStopParams.self, from: jsonData)
+//   let voiceStopResult = try? JSONDecoder().decode(VoiceStopResult.self, from: jsonData)
 //   let watchCheck = try? JSONDecoder().decode(WatchCheck.self, from: jsonData)
 //   let watchConfig = try? JSONDecoder().decode(WatchConfig.self, from: jsonData)
 //   let wrapUpAction = try? JSONDecoder().decode(WrapUpAction.self, from: jsonData)
@@ -7256,6 +7275,131 @@ public struct SettingsSetResult: Codable, Sendable {
     }
 }
 
+// MARK: - SpeechAudioPayload
+public struct SpeechAudioPayload: Codable, Sendable {
+    /// Base64 PCM
+    public let audio: String
+    public let format: AudioFormat
+    public let last: Bool
+    public let seq: Int
+    public let streamID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case audio = "audio"
+        case format = "format"
+        case last = "last"
+        case seq = "seq"
+        case streamID = "streamId"
+    }
+
+    public init(audio: String, format: AudioFormat, last: Bool, seq: Int, streamID: String) {
+        self.audio = audio
+        self.format = format
+        self.last = last
+        self.seq = seq
+        self.streamID = streamID
+    }
+}
+
+// MARK: - AudioFormat
+public struct AudioFormat: Codable, Sendable {
+    public let channels: Int
+    public let encoding: Encoding
+    public let sampleRate: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case channels = "channels"
+        case encoding = "encoding"
+        case sampleRate = "sampleRate"
+    }
+
+    public init(channels: Int, encoding: Encoding, sampleRate: Int) {
+        self.channels = channels
+        self.encoding = encoding
+        self.sampleRate = sampleRate
+    }
+}
+
+public enum Encoding: String, Codable, Sendable {
+    case caf = "caf"
+    case mp3 = "mp3"
+    case opus = "opus"
+    case pcmF32LE = "pcm_f32le"
+    case pcmS16LE = "pcm_s16le"
+    case wav = "wav"
+}
+
+// MARK: - SpeechReadAloudCompletedPayload
+public struct SpeechReadAloudCompletedPayload: Codable, Sendable {
+    public let durationMS: Int
+    public let item: LibraryItem
+    public let messageID: String
+    public let streamID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case durationMS = "durationMs"
+        case item = "item"
+        case messageID = "messageId"
+        case streamID = "streamId"
+    }
+
+    public init(durationMS: Int, item: LibraryItem, messageID: String, streamID: String) {
+        self.durationMS = durationMS
+        self.item = item
+        self.messageID = messageID
+        self.streamID = streamID
+    }
+}
+
+// MARK: - SpeechReadAloudFailedPayload
+public struct SpeechReadAloudFailedPayload: Codable, Sendable {
+    public let error: ErrorPayload
+    public let messageID: String
+    public let streamID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case error = "error"
+        case messageID = "messageId"
+        case streamID = "streamId"
+    }
+
+    public init(error: ErrorPayload, messageID: String, streamID: String) {
+        self.error = error
+        self.messageID = messageID
+        self.streamID = streamID
+    }
+}
+
+// MARK: - SpeechReadAloudParams
+public struct SpeechReadAloudParams: Codable, Sendable {
+    public let messageID: String
+    /// <engine>:<voice>
+    public let voice: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case messageID = "messageId"
+        case voice = "voice"
+    }
+
+    public init(messageID: String, voice: String?) {
+        self.messageID = messageID
+        self.voice = voice
+    }
+}
+
+// MARK: - SpeechReadAloudResult
+public struct SpeechReadAloudResult: Codable, Sendable {
+    public let streamID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case streamID = "streamId"
+    }
+
+    public init(streamID: String) {
+        self.streamID = streamID
+    }
+}
+
 // MARK: - TaskActionPayload
 public struct TaskActionPayload: Codable, Sendable {
     public let action: TaskAction
@@ -8866,6 +9010,203 @@ public struct ViewReportParams: Codable, Sendable {
     }
 }
 
+// MARK: - VoiceCancelParams
+public struct VoiceCancelParams: Codable, Sendable {
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case sessionID = "sessionId"
+    }
+
+    public init(sessionID: String) {
+        self.sessionID = sessionID
+    }
+}
+
+// MARK: - VoiceEndedPayload
+public struct VoiceEndedPayload: Codable, Sendable {
+    public let error: ErrorPayload?
+    public let reason: VoiceEndReason
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case error = "error"
+        case reason = "reason"
+        case sessionID = "sessionId"
+    }
+
+    public init(error: ErrorPayload?, reason: VoiceEndReason, sessionID: String) {
+        self.error = error
+        self.reason = reason
+        self.sessionID = sessionID
+    }
+}
+
+public enum VoiceEndReason: String, Codable, Sendable {
+    case cancelled = "cancelled"
+    case error = "error"
+    case stopped = "stopped"
+    case timeout = "timeout"
+}
+
+// MARK: - VoicePushParams
+public struct VoicePushParams: Codable, Sendable {
+    /// Base64 PCM in the session format
+    public let audio: String
+    /// 0, 1, 2… per session; out of order is rejected
+    public let seq: Int
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case audio = "audio"
+        case seq = "seq"
+        case sessionID = "sessionId"
+    }
+
+    public init(audio: String, seq: Int, sessionID: String) {
+        self.audio = audio
+        self.seq = seq
+        self.sessionID = sessionID
+    }
+}
+
+// MARK: - VoiceSegmentPayload
+public struct VoiceSegmentPayload: Codable, Sendable {
+    public let segment: TranscriptSegment
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case segment = "segment"
+        case sessionID = "sessionId"
+    }
+
+    public init(segment: TranscriptSegment, sessionID: String) {
+        self.segment = segment
+        self.sessionID = sessionID
+    }
+}
+
+// MARK: - TranscriptSegment
+public struct TranscriptSegment: Codable, Sendable {
+    public let confidence: Double?
+    public let endMS: Int
+    /// false = volatile partial a later segment replaces
+    public let transcriptSegmentFinal: Bool
+    public let startMS: Int
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case confidence = "confidence"
+        case endMS = "endMs"
+        case transcriptSegmentFinal = "final"
+        case startMS = "startMs"
+        case text = "text"
+    }
+
+    public init(confidence: Double?, endMS: Int, transcriptSegmentFinal: Bool, startMS: Int, text: String) {
+        self.confidence = confidence
+        self.endMS = endMS
+        self.transcriptSegmentFinal = transcriptSegmentFinal
+        self.startMS = startMS
+        self.text = text
+    }
+}
+
+// MARK: - VoiceStartParams
+public struct VoiceStartParams: Codable, Sendable {
+    public let format: AudioFormat
+    /// BCP 47
+    public let language: String?
+    public let threadID: String?
+    /// Extra terms; merged with the agent name, contacts and recent topics
+    public let vocabulary: [String]?
+
+    public enum CodingKeys: String, CodingKey {
+        case format = "format"
+        case language = "language"
+        case threadID = "threadId"
+        case vocabulary = "vocabulary"
+    }
+
+    public init(format: AudioFormat, language: String?, threadID: String?, vocabulary: [String]?) {
+        self.format = format
+        self.language = language
+        self.threadID = threadID
+        self.vocabulary = vocabulary
+    }
+}
+
+// MARK: - VoiceStartResult
+public struct VoiceStartResult: Codable, Sendable {
+    public let engine: String
+    public let location: SpeechEngineLocation
+    public let sessionID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case engine = "engine"
+        case location = "location"
+        case sessionID = "sessionId"
+    }
+
+    public init(engine: String, location: SpeechEngineLocation, sessionID: String?) {
+        self.engine = engine
+        self.location = location
+        self.sessionID = sessionID
+    }
+}
+
+public enum SpeechEngineLocation: String, Codable, Sendable {
+    case client = "client"
+    case cloud = "cloud"
+    case gateway = "gateway"
+    case node = "node"
+}
+
+// MARK: - VoiceStopParams
+public struct VoiceStopParams: Codable, Sendable {
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case sessionID = "sessionId"
+    }
+
+    public init(sessionID: String) {
+        self.sessionID = sessionID
+    }
+}
+
+// MARK: - VoiceStopResult
+public struct VoiceStopResult: Codable, Sendable {
+    public let transcript: Transcript
+
+    public enum CodingKeys: String, CodingKey {
+        case transcript = "transcript"
+    }
+
+    public init(transcript: Transcript) {
+        self.transcript = transcript
+    }
+}
+
+// MARK: - Transcript
+public struct Transcript: Codable, Sendable {
+    public let language: String?
+    public let segments: [TranscriptSegment]
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case language = "language"
+        case segments = "segments"
+        case text = "text"
+    }
+
+    public init(language: String?, segments: [TranscriptSegment], text: String) {
+        self.language = language
+        self.segments = segments
+        self.text = text
+    }
+}
+
 // MARK: - WrapUpBlock
 public struct WrapUpBlock: Codable, Sendable {
     public let actions: [WrapUpAction]?
@@ -8905,6 +9246,7 @@ public typealias Settings = [String: JSONAny]
 public typealias VaultLockParams = [String: JSONAny]
 public typealias VaultStatusParams = [String: JSONAny]
 public typealias ViewLayoutParams = [String: JSONAny]
+public typealias VoicePushResult = [String: JSONAny]
 
 // MARK: - Encode/decode helpers
 

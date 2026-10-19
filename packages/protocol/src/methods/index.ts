@@ -26,6 +26,7 @@ import { TasksMethods } from "./tasks.ts";
 import { ThreadsMethods } from "./threads.ts";
 import { VaultMethods } from "./vault.ts";
 import { ViewMethods } from "./view.ts";
+import { VoiceMethods } from "./voice.ts";
 
 export * from "./approvals.ts";
 export * from "./automations.ts";
@@ -53,6 +54,7 @@ export * from "./tasks.ts";
 export * from "./threads.ts";
 export * from "./vault.ts";
 export * from "./view.ts";
+export * from "./voice.ts";
 
 /**
  * Every WS method (wire spec v1). Families are additive: new methods are appended by their
@@ -87,6 +89,7 @@ export const Methods = {
   ...FeedMethods,
   ...IdeasMethods,
   ...GoalsMethods,
+  ...VoiceMethods,
 } as const;
 
 export type MethodName = keyof typeof Methods;
