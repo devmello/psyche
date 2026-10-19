@@ -14,7 +14,7 @@ import {
   HOST_RENDER,
 } from "../src/core/artifact.ts";
 import { sanitizeEmailHtml } from "../src/core/email.ts";
-import { chrome, js, type Srv, serve } from "./support/chrome.ts";
+import { chrome, js, type Srv, serve, shutdown, skipBrowserSuites } from "./support/chrome.ts";
 
 /** Everything a hostile artifact might try. Results are posted to the parent for inspection. */
 function hostileArtifact(ext: string): string {
@@ -54,15 +54,7 @@ const parentPage = (body: string) =>
 window.messages=[]; addEventListener("message", function(e){ window.messages.push({ origin: e.origin, data: e.data, fromFrame: !!document.querySelector("iframe") && e.source === document.querySelector("iframe").contentWindow }); });
 </script>${body}</body></html>`;
 
-// On GitHub's macOS runners the tests pass but browser.close() hangs in afterAll (ci on main, 2026-10-19),
-// so on macOS CI this real-browser proof is opt-in via PSYCHE_BROWSER_TESTS=1; Ubuntu CI and local
-// Macs still run it whenever Chrome is installed.
-const skipOnMacCi =
-  process.platform === "darwin" &&
-  process.env.CI !== undefined &&
-  process.env.PSYCHE_BROWSER_TESTS !== "1";
-
-describe.skipIf(chrome === undefined || skipOnMacCi)("artifact sandbox in Chrome", () => {
+describe.skipIf(skipBrowserSuites)("artifact sandbox in Chrome", () => {
   let browser: Browser;
   let app: Srv;
   let ext: Srv;
@@ -86,10 +78,7 @@ describe.skipIf(chrome === undefined || skipOnMacCi)("artifact sandbox in Chrome
     browser = await chromium.launch({ executablePath: chrome, headless: true });
   }, 60_000);
 
-  afterAll(async () => {
-    await browser?.close();
-    for (const s of [app, ext, host]) s?.server.close();
-  });
+  afterAll(() => shutdown(browser, [app, ext, host]), 30_000);
 
   async function runInline(html: string, policy: { allowScripts: boolean }) {
     const built = buildArtifactSrcdoc(html, policy);

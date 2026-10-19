@@ -9,7 +9,15 @@ import { fileURLToPath } from "node:url";
 import { type Browser, chromium, type Page } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { reactBundlerResponse } from "../src/bundler/index.ts";
-import { bundleForBrowser, chrome, type Srv, serve, staticHandler } from "./support/chrome.ts";
+import {
+  bundleForBrowser,
+  chrome,
+  type Srv,
+  serve,
+  shutdown,
+  skipBrowserSuites,
+  staticHandler,
+} from "./support/chrome.ts";
 
 const counter = `import { useState } from "react";
 type Props = { start?: number };
@@ -58,7 +66,7 @@ const appPage = `<!doctype html><html><head><title>APP-SECRET-TITLE</title></hea
 <script>window.SECRET="s3cret"; localStorage.setItem("secret","s3cret"); document.cookie="sid=s3cret; path=/";</script>
 <script type="module" src="/react-artifact-harness.js"></script></body></html>`;
 
-describe.skipIf(chrome === undefined)(
+describe.skipIf(skipBrowserSuites)(
   "React artifacts (Sandpack, self-hosted bundler) in Chrome",
   () => {
     let browser: Browser;
@@ -105,10 +113,7 @@ describe.skipIf(chrome === undefined)(
       browser = await chromium.launch({ executablePath: chrome, headless: true });
     }, 120_000);
 
-    afterAll(async () => {
-      await browser?.close();
-      for (const s of [app, bundler, ext]) s?.server.close();
-    });
+    afterAll(() => shutdown(browser, [app, bundler, ext]), 30_000);
 
     async function open(source: string): Promise<{ page: Page; channel: string }> {
       const page = await browser.newPage();

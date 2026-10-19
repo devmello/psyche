@@ -8,7 +8,15 @@ import { type Browser, chromium } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import * as XLSX from "xlsx";
 import { fromUniverSnapshot, toUniverSnapshot } from "../src/core/sheet-edit.ts";
-import { bundleForBrowser, chrome, type Srv, serve, staticHandler } from "./support/chrome.ts";
+import {
+  bundleForBrowser,
+  chrome,
+  type Srv,
+  serve,
+  shutdown,
+  skipBrowserSuites,
+  staticHandler,
+} from "./support/chrome.ts";
 
 const APP_CSP = [
   "default-src 'none'",
@@ -25,7 +33,7 @@ const page = (title: string) =>
 <body style="margin:0"><div id="app" style="width:1000px;height:600px"></div>
 <script type="module" src="/univer-harness.js"></script></body></html>`;
 
-describe.skipIf(chrome === undefined)("Univer sheet editor in Chrome", () => {
+describe.skipIf(skipBrowserSuites)("Univer sheet editor in Chrome", () => {
   let browser: Browser;
   let app: Srv;
 
@@ -45,10 +53,7 @@ describe.skipIf(chrome === undefined)("Univer sheet editor in Chrome", () => {
     browser = await chromium.launch({ executablePath: chrome, headless: true });
   }, 120_000);
 
-  afterAll(async () => {
-    await browser?.close();
-    app?.server.close();
-  });
+  afterAll(() => shutdown(browser, [app]), 30_000);
 
   it("edits a cell, recalculates, and saves back to xlsx with no external request", async () => {
     const wb = XLSX.utils.book_new();

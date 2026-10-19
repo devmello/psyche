@@ -106,7 +106,8 @@ describe("SheetEditor", () => {
     );
     await screen.findByText("No changes");
     state.emit?.();
-    fireEvent.click(await screen.findByRole("button", { name: "Done" }));
+    await screen.findByText("Unsaved changes");
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
@@ -129,7 +130,8 @@ describe("SheetEditor", () => {
     );
     await screen.findByText("No changes");
     state.emit?.();
-    fireEvent.click(await screen.findByRole("button", { name: "Save" }));
+    await screen.findByText("Unsaved changes");
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect((await screen.findByRole("alert")).textContent).toMatch(/etag conflict/);
     expect(screen.getByText("Unsaved changes")).toBeTruthy();
   });
