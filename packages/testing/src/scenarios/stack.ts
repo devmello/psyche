@@ -43,6 +43,11 @@ export interface StackOverrides {
   wrapTool?: (name: string, run: ToolRun) => ToolRun;
   /** Replace the broker the agent loop sees, e.g. a broken one in a negative test. */
   wrapBroker?: (broker: PermissionBroker) => PermissionBroker;
+  /**
+   * Live mode (INT-3, tests/acceptance/live): a real provider instead of the scenario script.
+   * The loop runs `model` on it; script turns and script-divergence checks do not apply.
+   */
+  provider?: { provider: ModelProvider; model: string };
 }
 
 export interface RunRec {
@@ -267,15 +272,16 @@ export class Stack {
   /** Start a Gateway generation: a fresh agent loop over the persisted thread state. */
   #boot(): void {
     const gen = this.gen;
-    const fake = this.model;
+    const live = this.overrides.provider;
+    const upstream: ModelProvider = live?.provider ?? this.model;
     const provider: ModelProvider = {
-      id: "fake",
-      capabilities: (m) => fake.capabilities(m),
+      id: upstream.id,
+      capabilities: (m) => upstream.capabilities(m),
       stream: (req, opts) => this.#stream(gen, req, opts),
     };
     this.loop = createAgentLoop({
       provider,
-      model: "fake/main",
+      model: live?.model ?? "fake/main",
       broker: this.loopBroker,
       state: this.#state,
       clock: this.clock,
@@ -303,6 +309,12 @@ export class Stack {
   ) {
     if (gen !== this.gen) {
       yield { type: "finish", reason: "error", error: "gateway stopped" } as ModelEvent;
+      return;
+    }
+    const live = this.overrides.provider;
+    if (live !== undefined) {
+      this.reqSteps.push(this.step);
+      yield* live.provider.stream(req, opts);
       return;
     }
     if (this.model.remainingTurns === 0) {
@@ -362,7 +374,8 @@ export class Stack {
           this.calls.set(e.toolCallId, {
             id: e.toolCallId,
             tool: e.tool,
-            args: (sc?.args ?? {}) as Json,
+            // Scripted calls carry their arguments; a live model's come with the first event.
+            args: (sc?.args ?? e.details?.paramsRedacted ?? {}) as Json,
             step: this.step,
             runId,
           });
