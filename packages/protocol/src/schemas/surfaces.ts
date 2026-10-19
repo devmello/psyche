@@ -191,12 +191,24 @@ export type SettingEntry = Static<typeof SettingEntry>;
 export const Settings = Type.Record(Type.String(), Type.Unknown(), { $id: "Settings" });
 export type Settings = Static<typeof Settings>;
 
-/** Setting key prefixes that require `operator.admin` plus fresh presence (security §10). */
-export const ADMIN_SETTING_PREFIXES = [
-  "permissions.",
-  "exec.",
-  "vault.",
-  "devices.",
-  "gateway.",
-  "channels.",
+/**
+ * Setting roots that require `operator.admin` plus fresh presence (security §10, plus the grant
+ * and approval lifetimes from security §3.4 and §3.7). A key is admin-only when its first
+ * segment equals a root, compared case-insensitively: `permissions`, `permissions.mode` and
+ * `Permissions.mode` all match.
+ */
+export const ADMIN_SETTING_ROOTS = [
+  "permissions",
+  "exec",
+  "vault",
+  "devices",
+  "gateway",
+  "channels",
+  "grants",
+  "approvals",
 ] as const;
+
+export function isAdminSettingKey(key: string): boolean {
+  const root = key.split(".", 1)[0]?.toLowerCase() ?? "";
+  return (ADMIN_SETTING_ROOTS as readonly string[]).includes(root);
+}

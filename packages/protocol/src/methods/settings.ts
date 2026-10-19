@@ -4,11 +4,16 @@ import { defineMethod } from "./define.ts";
 
 /**
  * `settings.*` (data model §10). `settings.set` needs `operator.write`; keys under
- * `ADMIN_SETTING_PREFIXES` additionally need `operator.admin` plus fresh user presence, which
+ * an admin root (`isAdminSettingKey`) additionally need `operator.admin` plus fresh user presence, which
  * the Gateway enforces (security §10). A successful set emits `settings.changed`.
  */
 
-const SettingKey = Type.String({ minLength: 1, maxLength: 256, pattern: "^[A-Za-z0-9_.-]+$" });
+/** Dotted key, e.g. `appearance.theme`; no empty segments. */
+const SettingKey = Type.String({
+  minLength: 1,
+  maxLength: 256,
+  pattern: "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$",
+});
 
 export const SettingsMethods = {
   "settings.get": defineMethod({
@@ -23,6 +28,6 @@ export const SettingsMethods = {
     scope: "operator.write",
     sideEffecting: true,
     description:
-      "Sets one setting. Admin-prefixed keys (permissions., exec., vault., devices., gateway., channels.) also need operator.admin. Side-effecting.",
+      "Sets one setting. Keys under an admin root (permissions, exec, vault, devices, gateway, channels, grants, approvals) also need operator.admin. Side-effecting.",
   }),
 } as const;

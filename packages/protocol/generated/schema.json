@@ -608,7 +608,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Sets one setting. Admin-prefixed keys (permissions., exec., vault., devices., gateway., channels.) also need operator.admin. Side-effecting.",
+        "description": "Sets one setting. Keys under an admin root (permissions, exec, vault, devices, gateway, channels, grants, approvals) also need operator.admin. Side-effecting.",
         "name": "settings.set",
         "params": "#/$defs/SettingsSetParams",
         "result": "#/$defs/SettingsSetResult",
@@ -6548,7 +6548,7 @@
           "items": {
             "maxLength": 256,
             "minLength": 1,
-            "pattern": "^[A-Za-z0-9_.-]+$",
+            "pattern": "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$",
             "type": "string"
           },
           "maxItems": 256,
@@ -6578,7 +6578,7 @@
         "key": {
           "maxLength": 256,
           "minLength": 1,
-          "pattern": "^[A-Za-z0-9_.-]+$",
+          "pattern": "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$",
           "type": "string"
         },
         "value": {}

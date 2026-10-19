@@ -27,7 +27,9 @@ import type {
  * - a deny rule beats any allow, including standing grants;
  * - `plan` mode denies every tool whose `sideEffect` is not `none`;
  * - `destructive` is offered/granted only `once | task`, `financial` only `once`, and
- *   `financial` is never `allow` without a consumed `once` approval;
+ *   `financial` is never `allow` without a consumed `once` approval; a standing grant never
+ *   covers a call of a more severe side-effect class than the one approved, and a `task`
+ *   grant covers only calls of that same (non-null) task;
  * - a tainted turn turns `allow` into `ask` for write+ actions on a new target;
  * - approvals expire (default 30 min), answer tokens are single-use per surface, the first
  *   authorized answer wins, late/replayed answers are rejected, a restart invalidates pending
@@ -88,7 +90,8 @@ export interface ApprovalRequestInput {
   bindingHash: string;
   grantKey: string;
   requestedBy: ApprovalRequest["requestedBy"];
-  sideEffect?: SideEffect;
+  /** Required: scopes offered, `deviceOnly` and surfaces all follow from it. */
+  sideEffect: SideEffect;
   targetKind?: TargetKind;
   target?: Target;
   /** Requested surfaces; the broker strips chat surfaces for `deviceOnly` kinds. */
@@ -143,18 +146,25 @@ export interface PermissionBroker {
   decide(call: ToolCallIntent, ctx: DecisionContext): Promise<DecisionResult>;
   requestApproval(input: ApprovalRequestInput): Promise<IssuedApproval>;
   /**
-   * Record an answer. Rejects (PsycheError) when the request is not pending (`conflict`,
-   * `approval_expired`, `approval_invalidated`), the token is unknown or used (`forbidden`),
-   * the card is not armed yet (`forbidden`), or the scope is not offered (`invalid_params`).
+   * Record an answer. Rejects (PsycheError) when the request already has an answer
+   * (`answer_late`), expired (`approval_expired`) or was invalidated (`approval_invalidated`),
+   * the token was already used (`answer_replayed`) or is unknown (`forbidden`), the card is
+   * not armed yet (`approval_not_armed`), or the scope is not offered (`invalid_params`).
    */
   answer(input: ApprovalAnswerInput): Promise<ApprovalRequest>;
   /** Resolves when the request leaves `pending` (approved, denied, expired, invalidated). */
   awaitDecision(approvalId: string, signal?: AbortSignal): Promise<ApprovalRequest>;
-  /** Re-verify the exact arguments right before dispatch; consumes a `once` approval. */
+  /**
+   * Re-verify the exact arguments right before dispatch; consumes a `once` approval. Standing
+   * approvals verify only while their grant is live (not revoked, not past `expiresAt`).
+   */
   verifyBinding(approvalId: string, bindingHash: string): Promise<BindingVerification>;
   get(approvalId: string): Promise<ApprovalRequest | undefined>;
   list(filter?: { status?: ApprovalStatus }): Promise<ApprovalRequest[]>;
-  /** Gateway boot: invalidate every pending request (`gateway_restart`) and issue fresh ones. */
+  /**
+   * Gateway boot: invalidate every pending request (`gateway_restart`) and issue fresh ones, and
+   * revoke `session` grants, which end at a restart (security §3.4).
+   */
   reissue(): Promise<IssuedApproval[]>;
   recordReceipt(input: ReceiptInput): Promise<Receipt>;
   listReceipts(filter?: { taskId?: string; toolCallId?: string }): Promise<Receipt[]>;

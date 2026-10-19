@@ -1,7 +1,7 @@
 import { Kind } from "@sinclair/typebox";
 import { describe, expect, it } from "vitest";
 import {
-  ADMIN_SETTING_PREFIXES,
+  ADMIN_SETTING_ROOTS,
   type ErrorCode,
   Events,
   isEventName,
@@ -208,7 +208,7 @@ describe("method registry", () => {
     expect(methodSpec("grants.revoke").scope).toBe("operator.admin");
     expect(methodSpec("settings.set").scope).toBe("operator.write");
     expect(methodSpec("nodes.invoke").scope).toBe("operator.write");
-    expect(ADMIN_SETTING_PREFIXES).toContain("permissions.");
+    expect(ADMIN_SETTING_ROOTS).toContain("permissions");
   });
 
   it("throws unknown_method for names outside the registry", () => {
