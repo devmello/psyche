@@ -13,11 +13,13 @@
   "devDependencies": {
     "@playwright/test": "1.64.1",
     "@psyche/agent-core": "workspace:*",
+    "@psyche/audit": "workspace:*",
     "@psyche/browser": "workspace:*",
     "@psyche/channels": "workspace:*",
     "@psyche/connectors": "workspace:*",
     "@psyche/db": "workspace:*",
     "@psyche/gateway": "workspace:*",
+    "@psyche/memory": "workspace:*",
     "@psyche/permissions": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@psyche/testing": "workspace:*",

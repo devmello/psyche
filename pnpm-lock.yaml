@@ -1030,6 +1030,9 @@ importers:
       '@psyche/agent-core':
         specifier: workspace:*
         version: link:../../packages/agent-core
+      '@psyche/audit':
+        specifier: workspace:*
+        version: link:../../packages/audit
       '@psyche/browser':
         specifier: workspace:*
         version: link:../../packages/browser
@@ -1045,6 +1048,9 @@ importers:
       '@psyche/gateway':
         specifier: workspace:*
         version: link:../../apps/gateway
+      '@psyche/memory':
+        specifier: workspace:*
+        version: link:../../packages/memory
       '@psyche/permissions':
         specifier: workspace:*
         version: link:../../packages/permissions
