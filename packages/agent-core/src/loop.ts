@@ -413,6 +413,11 @@ export class PsycheAgentLoop implements AgentLoop {
       if (input.signal?.aborted === true) throw new RunEnd("cancelled", "signal");
       emit({ type: "run.status", runId, status: "running" });
       run.thread = (await this.#state.load(threadId)) ?? emptyThreadState();
+      // Untrusted content still in context keeps steering the model, so the turn starts
+      // tainted while it is there (security §3.6: taint survives compaction).
+      if (containsUntrusted(run.thread.messages) || run.thread.summary?.untrusted === true) {
+        this.#taint(run, { sourceKind: "transcript" });
+      }
       if (input.taskId !== undefined && this.#o.tasks !== undefined) {
         const task = await this.#o.tasks.get(input.taskId);
         // A Task created from a tainted turn inherits the taint (architecture §4.6).
@@ -629,8 +634,8 @@ export class PsycheAgentLoop implements AgentLoop {
       ...(run.thread.summary === undefined ? {} : { summary: run.thread.summary }),
       budgets: this.#budgets,
     });
-    if (ctx.untrusted && !run.taintSources.some((s) => s.sourceKind === "daily_note")) {
-      this.#taint(run, { sourceKind: "daily_note" });
+    if (ctx.untrusted && !run.taintSources.some((s) => s.sourceKind === "context")) {
+      this.#taint(run, { sourceKind: "context" });
     }
     const sections = ctx.sections;
     for (const hook of this.hooks.handlers("before_prompt_build")) {
@@ -864,9 +869,16 @@ export class PsycheAgentLoop implements AgentLoop {
     return calls.map((c) => results.get(c.id) as ModelPart);
   }
 
-  #readOnly(run: RunState, call: { name: string }): boolean {
+  #readOnly(run: RunState, call: { name: string; input: unknown }): boolean {
     const reg = run.active.get(call.name);
-    return reg !== undefined && READ_ONLY.has(reg.spec.sideEffect) && !INTERACTIVE.has(call.name);
+    if (reg === undefined || INTERACTIVE.has(call.name)) return false;
+    let described: SideEffect | undefined;
+    try {
+      described = reg.describeCall?.(call.input)?.sideEffect;
+    } catch {
+      return false;
+    }
+    return READ_ONLY.has(stricter(reg.spec.sideEffect, described));
   }
 
   #interruption(run: RunState): string | undefined {
@@ -965,16 +977,42 @@ export class PsycheAgentLoop implements AgentLoop {
       }
       if (r === undefined || r.action === "continue") continue;
       if (r.action === "block") return this.#finishBlocked(run, gated, `blocked: ${r.reason}`);
+      if (run.mode === "unattended") {
+        // Nobody is there to answer: the hook's request stays queued (C8).
+        return this.#finishBlocked(run, gated, `deferred: hook approval ${r.approvalId} queued`);
+      }
       const approval = await this.#await(run, r.approvalId, call);
       if (approval !== "approved")
         return this.#finishBlocked(run, gated, `blocked: hook approval ${approval}`);
     }
 
+    this.#checkAbort(run);
     const kind = desc.kind;
+    if (kind === "memory_protected_write" && run.taint) {
+      // Untrusted-derived writes never reach protected memory (security §3.6, §8): no card.
+      return this.#finishBlocked(
+        run,
+        gated,
+        "denied: a turn that read untrusted content cannot change protected memory",
+      );
+    }
+    // The binding always covers the tool and every argument, plus the kind's own fields
+    // (security §3.5); a third-party description can add precision, never drop arguments.
     const intentBinding =
-      kind !== undefined && desc.bindingFields !== undefined
-        ? bindingHash(kind, desc.bindingFields)
-        : undefined;
+      kind === undefined
+        ? undefined
+        : bindingHash(kind, {
+            tool: call.name,
+            paramsHash: hash,
+            ...(desc.bindingFields === undefined ? {} : { fields: desc.bindingFields }),
+          });
+    // Grant keys are namespaced by tool so a description cannot borrow another tool's grants.
+    const grantKey =
+      desc.grantKey === undefined
+        ? undefined
+        : desc.grantKey.startsWith(`${call.name}|`)
+          ? desc.grantKey
+          : `${call.name}|${desc.grantKey}`;
     const decision = await this.#o.broker.decide(
       {
         tool: call.name,
@@ -987,7 +1025,7 @@ export class PsycheAgentLoop implements AgentLoop {
         paramsHash: hash,
         ...(kind === undefined ? {} : { kind }),
         ...(intentBinding === undefined ? {} : { bindingHash: intentBinding }),
-        ...(desc.grantKey === undefined ? {} : { grantKey: desc.grantKey }),
+        ...(grantKey === undefined ? {} : { grantKey }),
       },
       {
         threadId: run.threadId,
@@ -995,10 +1033,11 @@ export class PsycheAgentLoop implements AgentLoop {
         ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
         permissionMode: run.permissionMode,
         taint: run.taint,
-        newTarget: this.#isNewTarget(run, target),
+        newTarget: this.#isNewTarget(run, target, sideEffect),
         unattended: run.mode === "unattended",
       },
     );
+    this.#checkAbort(run);
     gated.decision = decision;
     if (decision.decision === "deny") {
       return this.#finishBlocked(run, gated, `denied: ${decision.reason ?? decision.rule}`);
@@ -1019,7 +1058,7 @@ export class PsycheAgentLoop implements AgentLoop {
           ...(target === undefined ? {} : { target }),
         },
         bindingHash: binding,
-        grantKey: decision.grantKey ?? desc.grantKey ?? `${call.name}|${target?.value ?? "*"}`,
+        grantKey: decision.grantKey ?? grantKey ?? `${call.name}|${target?.value ?? "*"}`,
         requestedBy: {
           runId: run.runId,
           taskId: run.taskId ?? null,
@@ -1032,7 +1071,12 @@ export class PsycheAgentLoop implements AgentLoop {
           : {}),
         ...(target === undefined ? {} : { target }),
         surfaces: this.#o.approvalSurfaces ?? ["desktop"],
-        ...(decision.scopesOffered === undefined ? {} : { scopesOffered: decision.scopesOffered }),
+        // Protected memory "always asks" (security §8): no standing grant may cover it.
+        ...(approvalKind === "memory_protected_write"
+          ? { scopesOffered: ["once" as const] }
+          : decision.scopesOffered === undefined
+            ? {}
+            : { scopesOffered: decision.scopesOffered }),
         taint: run.taint,
       });
       const approvalId = issued.approval.id;
@@ -1066,21 +1110,27 @@ export class PsycheAgentLoop implements AgentLoop {
       const answer = await this.#await(run, approvalId, call);
       if (answer !== "approved") return this.#finishBlocked(run, gated, `not approved (${answer})`);
       const verified = await this.#o.broker.verifyBinding(approvalId, binding);
+      this.#checkAbort(run);
       if (!verified.ok)
         return this.#finishBlocked(run, gated, `approval check failed (${verified.reason})`);
+      // Only targets the owner approved count as known for later calls (security §3.6).
+      if (target !== undefined && target.value !== "") run.targets.add(target.value);
     }
-    if (target !== undefined) run.targets.add(target.value);
     return { proceed: gated };
   }
 
-  #isNewTarget(run: RunState, target: Target | undefined): boolean {
-    if (target === undefined) return false;
+  /**
+   * New relative to the owner's words and earlier approvals in this run (security §3.6): an
+   * exact match of the canonical target against what the owner typed, never a substring and
+   * never the executor-supplied `display`. A write+ call without a target is new (fail closed).
+   */
+  #isNewTarget(run: RunState, target: Target | undefined, sideEffect: SideEffect): boolean {
+    if (target === undefined || target.value.trim() === "") {
+      return SEVERITY[sideEffect] >= SEVERITY.write;
+    }
+    const value = target.value.trim().toLowerCase();
     if (run.targets.has(target.value)) return false;
-    const owner = run.ownerText.toLowerCase();
-    return !(
-      owner.includes(target.value.toLowerCase()) ||
-      (target.display !== undefined && owner.includes(target.display.toLowerCase()))
-    );
+    return !ownerTargets(run.ownerText).has(value);
   }
 
   /** Park the run on an approval (attended). Returns the final status. */
@@ -1114,6 +1164,7 @@ export class PsycheAgentLoop implements AgentLoop {
   }
 
   async #dispatch(run: RunState, g: Gated): Promise<ModelPart> {
+    this.#checkAbort(run);
     const { call, reg } = g;
     const level1 = g.desc.summary ?? call.name;
     this.#toolEvent(run, call.id, call.name, "running", level1);
@@ -1139,10 +1190,11 @@ export class PsycheAgentLoop implements AgentLoop {
     } catch (err) {
       if (err instanceof RunEnd) throw err;
       if (run.abort.signal.aborted) throw abortReason(run) ?? new RunEnd("cancelled");
+      // An external executor's error text may quote third-party content.
       result = {
         output: { error: errorMessage(err) },
         isError: true,
-        provenance: reg.spec.provenanceOut,
+        provenance: reg.run === undefined ? "untrusted" : reg.spec.provenanceOut,
       };
     }
     result = { ...result, provenance: worst(reg.spec.provenanceOut, result.provenance) };
@@ -1353,6 +1405,31 @@ function abortReason(run: RunState): RunEnd | undefined {
   if (!run.abort.signal.aborted) return undefined;
   const reason: unknown = run.abort.signal.reason;
   return reason instanceof RunEnd ? reason : new RunEnd("cancelled");
+}
+
+/**
+ * Canonical targets the owner named: e-mail addresses, URLs (and their origins), hosts and
+ * absolute paths, as whole tokens.
+ */
+export function ownerTargets(text: string): Set<string> {
+  const out = new Set<string>();
+  for (const raw of text.split(/[\s,;<>()"'`[\]{}]+/)) {
+    const token = raw.replace(/[.:!?]+$/, "").toLowerCase();
+    if (token === "") continue;
+    out.add(token);
+    const email = /^mailto:(.+)$/.exec(token);
+    if (email?.[1] !== undefined) out.add(email[1]);
+    try {
+      const url = new URL(/^[a-z][a-z0-9+.-]*:\/\//.test(token) ? token : `https://${token}`);
+      if (url.hostname.includes(".")) {
+        out.add(url.origin);
+        out.add(url.hostname);
+      }
+    } catch {
+      // not a URL
+    }
+  }
+  return out;
 }
 
 function worst(a: ProvenanceOut, b: ProvenanceOut | undefined): ProvenanceOut {

@@ -256,7 +256,11 @@ export async function assembleContext(input: AssembleInput): Promise<AssembledCo
       ...(input.summary.untrusted ? { untrusted: true } : {}),
     });
   }
-  return { sections, untrusted: daily.untrusted };
+  return { sections, untrusted: daily.untrusted || input.summary?.untrusted === true };
+}
+
+function attr(value: string): string {
+  return value.replace(/[<>"\n\r]/g, " ");
 }
 
 /** Join sections into the system prompt. Each section is fenced so markers stay visible. */
@@ -265,13 +269,14 @@ export function renderSystemPrompt(sections: readonly ContextSection[]): string 
     .map((s) => {
       if (s.kind === "base") return s.text;
       const attrs = [
-        `id="${s.id}"`,
-        s.source === undefined ? "" : ` source="${s.source}"`,
+        `id="${attr(s.id)}"`,
+        s.source === undefined ? "" : ` source="${attr(s.source)}"`,
         s.untrusted === true ? ` provenance="untrusted"` : "",
       ].join("");
-      // Content cannot close its own fence (untrusted daily-note lines, summaries).
-      const body = s.text.replace(/<(\/?)section/gi, "<$1​section");
-      return `<section ${attrs} title="${s.title}">\n${body}\n</section>`;
+      // Content cannot open or close a fence (untrusted daily-note lines, summaries), including
+      // spaced and full-width look-alikes.
+      const body = s.text.replace(/[<\uFF1C]\s*(\/?)\s*section/gi, "<$1\u200Bsection");
+      return `<section ${attrs} title="${attr(s.title)}">\n${body}\n</section>`;
     })
     .join("\n\n");
 }

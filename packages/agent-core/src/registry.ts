@@ -121,6 +121,11 @@ const TOOL_NAME = /^[A-Za-z][A-Za-z0-9_.-]{0,127}$/;
 export const UNATTENDED_WITHHELD = new Set(["ask_user", "exit_plan_mode"]);
 /** Tools offered only in plan mode. */
 export const PLAN_ONLY = new Set(["exit_plan_mode"]);
+/**
+ * `none` tools still withheld in plan mode: a task would run outside the plan's read-only mode
+ * (`TaskCreateInput` carries no permission mode).
+ */
+export const PLAN_WITHHELD = new Set(["task.start"]);
 
 export interface ActiveToolsInput {
   permissionMode: PermissionMode;
@@ -187,7 +192,7 @@ function hiddenReason(name: string, spec: ToolSpec, input: ActiveToolsInput): st
     return "not available in unattended runs";
   }
   if (PLAN_ONLY.has(name) && input.permissionMode !== "plan") return "only available in plan mode";
-  if (input.permissionMode === "plan" && spec.sideEffect !== "none") {
+  if (input.permissionMode === "plan" && (spec.sideEffect !== "none" || PLAN_WITHHELD.has(name))) {
     return "plan mode is read-only";
   }
   return undefined;

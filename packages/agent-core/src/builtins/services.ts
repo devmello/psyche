@@ -19,6 +19,13 @@ export const PROTECTED_PATHS: ReadonlySet<string> = new Set<string>([
   "AGENTS.md",
 ]);
 
+const PROTECTED_FOLDED = new Set([...PROTECTED_PATHS].map((p) => p.toLowerCase()));
+
+/** Case-folded: a store on case-insensitive APFS would write `soul.md` into `SOUL.md`. */
+export function isProtectedPath(path: string): boolean {
+  return PROTECTED_FOLDED.has(path.toLowerCase());
+}
+
 const Path = Type.String({ minLength: 1, maxLength: 512 });
 
 /** The Anthropic `memory_20250818` command set over the workspace (architecture §4.8). */
@@ -53,7 +60,17 @@ export function workspacePath(path: string): string {
   return path.replace(/^\/memories(?:\/|$)/, "").replace(/^\/+/, "");
 }
 
-const DAILY_NOTE = /^memory\/(\d{4}-\d{2}-\d{2})\.md$/;
+const DAILY_NOTE = /^memory\/(\d{4}-\d{2}-\d{2})\.md$/i;
+
+/**
+ * `MemoryFile` carries no provenance, so only content whose origin is known reads as trusted:
+ * the protected persona files (owner-approved writes only) and daily notes without an
+ * `[untrusted]` line. Any other workspace file may hold what a tainted turn wrote.
+ */
+function viewProvenance(path: string, content: string): "trusted" | "untrusted" {
+  if (/\[untrusted\]/i.test(content)) return "untrusted";
+  return isProtectedPath(path) || DAILY_NOTE.test(path) ? "trusted" : "untrusted";
+}
 
 /**
  * Writes to the workspace are Psyche's own store (`none`), except the protected persona files,
@@ -64,7 +81,7 @@ export function describeMemoryCall(p: MemoryInput): ToolCallDescription {
   const path = workspacePath(p.command === "rename" ? p.new_path : p.path);
   const source = p.command === "rename" ? workspacePath(p.old_path) : path;
   const summary = `Memory ${p.command} ${path}`;
-  if (!PROTECTED_PATHS.has(path) && !PROTECTED_PATHS.has(source)) return { summary };
+  if (!isProtectedPath(path) && !isProtectedPath(source)) return { summary };
   const content =
     p.command === "create"
       ? p.file_text
@@ -110,6 +127,20 @@ export function memoryTool(store: MemoryStore, options: MemoryToolOptions): Agen
     run: async (p, ctx) => {
       // A tainted turn can never write as the agent: its notes are quoted data (security §3.6).
       const provenance = ctx.taint ? "untrusted" : "agent";
+      const touched =
+        p.command === "view"
+          ? []
+          : p.command === "rename"
+            ? [workspacePath(p.old_path), workspacePath(p.new_path)]
+            : [workspacePath(p.path)];
+      const guarded = touched.find(isProtectedPath);
+      if (ctx.taint && guarded !== undefined) {
+        // Untrusted-derived writes go only to the daily note (security §3.6, §8).
+        throw new PsycheError(
+          "policy_denied",
+          `a turn that read untrusted content cannot change ${guarded}`,
+        );
+      }
       const write = (path: string, content: string, etag?: string) =>
         store.writeFile(path, content, {
           provenance,
@@ -126,12 +157,16 @@ export function memoryTool(store: MemoryStore, options: MemoryToolOptions): Agen
             if (files.length === 0 && path !== "") {
               throw new PsycheError("not_found", `${path} does not exist`);
             }
-            return { output: { directory: path || "/", files }, provenance: "trusted" };
+            // File names a tainted turn chose are data too.
+            const known = files.every((f) => isProtectedPath(f) || DAILY_NOTE.test(f));
+            return {
+              output: { directory: path || "/", files },
+              provenance: known ? "trusted" : "untrusted",
+            };
           }
-          const untrusted = /\[untrusted\]/i.test(file.content);
           return {
             output: numbered(file.content, p.view_range),
-            provenance: untrusted ? "untrusted" : "trusted",
+            provenance: viewProvenance(path, file.content),
           };
         }
         case "create":
