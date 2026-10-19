@@ -358,13 +358,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     tools: registry,
     ...(taskPollMs === undefined ? {} : { pollMs: taskPollMs }),
   });
-  // S15: goal check-ins run in-process; the heartbeat gets its 5k-token budget (O2).
+  // S15: goal check-ins and the Feed run in-process; the heartbeat gets its 5k-token budget (O2).
   const proactive = composeProactive({
     db,
     clock,
     scheduler,
     notifier,
     tasks,
+    memory,
+    provider,
+    model: utility ?? modelRef,
     publish,
     ...(timeZone === undefined ? {} : { timeZone }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
