@@ -3,13 +3,18 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openDb } from "@psyche/db";
-import type { CredentialExecutor, CredentialField, FillElement, GrantScope } from "@psyche/protocol";
+import type {
+  CredentialExecutor,
+  CredentialField,
+  FillElement,
+  GrantScope,
+} from "@psyche/protocol";
 import {
+  createIdGenerator,
   FakeAuditLog,
   FakeClock,
   FakeNodeClient,
   FakePermissionBroker,
-  createIdGenerator,
 } from "@psyche/testing";
 import {
   credentialFillApproval,
