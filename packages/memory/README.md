@@ -14,7 +14,7 @@ Docs: architecture §2 principle 6 and §4.8, data model §7, security §8, ADR-
 - Tools: `memoryToolSpecs`, `MemoryTools#execute(name, input, ctx)` for `memory` (Anthropic `memory_20250818`), `memory_search`, `memory_explain`, `forget`, `remember`, `sessions_search`; `classifyMemoryCommand(input)` tells the broker the side effect and whether a `memory_protected_write` approval is needed.
 - Gateway: `createMemoryHandlers(store)` for every `memory.*` method; `MEMORY_METHODS`.
 - Import / export: `importMemory` (ChatGPT, Claude, free text), `importOpenClaw` + `readWorkspaceFolder`, `confirmClaim`, `exportMemory` (zip).
-- Jobs: `flushMemory` (also `store.flush`), `runDreaming` / `dreamingDue` (scaffold).
+- Jobs: `flushMemory` (also `store.flush`); `runDreaming(store, options)`, `dreamingDue`; `ensureDreamingAutomation(scheduler, { timezone })` and `withDreaming(store, launcher)` for the nightly run through `@psyche/scheduler`; `store.recordRecall` / `recallStats` (fed by `memory_search`).
 - Formats: `parseDailyNote`, `applyDailyWrite`, `formatEntry`, `parseIdentity` / `serializeIdentity`, `parseDirectives` / `addDirective` / `activeDirectives`, `substituteTokens`, `chunkText`, `detectSensitive` / `blockingKinds` / `looksLikeInstruction`.
 
 ## Workspace layout
@@ -22,12 +22,12 @@ Docs: architecture §2 principle 6 and §4.8, data model §7, security §8, ADR-
 | Path | Role | Written by |
 | --- | --- | --- |
 | `SOUL.md`, `IDENTITY.md`, `AGENTS.md`, `USER.md` | persona, injected every session (see sessions below) | owner; agent only with an approved `memory_protected_write` |
-| `MEMORY.md` | curated memory, private sessions only | dreaming (M2); owner |
+| `MEMORY.md` | curated memory, private sessions only | dreaming (the only writer besides the owner) |
 | `memory/YYYY-MM-DD.md` | daily notes, indexed; today and yesterday injected | anyone, append-only (owner may edit) |
 | `memory/*.md`, other `*.md` | topic notes, imports (`memory/imports/`) | anyone |
 | `interests.md` | the Feed's interest ledger (S15 reads it) | agent, owner |
 | `BOOTSTRAP.md` | first-run ritual, copied only into a fresh workspace, never re-created | the agent may only delete it |
-| `DREAMS.md` | dreaming diary | dreaming |
+| `DREAMS.md` | dreaming diary, not indexed | dreaming |
 | `skills/` | workspace skills (S16); not indexed as memory | owner |
 
 Templates come from `templates/` (S20). `{{token}}` placeholders are substituted at copy time with the onboarding values or the defaults in `templates/README.md` (`{{cred:…}}` is never touched). Hidden entries (`.git`, `.DS_Store`) are never listed, indexed, read or written through the store; `reset` keeps them.
@@ -37,7 +37,7 @@ Templates come from `templates/` (S20). `{{token}}` placeholders are substituted
 - **Daily notes** (data model §7.1): one bullet per entry, `- HH:MM [tag] text`, tag `owner | agent | system | untrusted | untrusted:<kind>:<source>` (no brackets, newlines or whitespace inside a tag). Indented lines continue the entry above. Each entry is its own index chunk, so provenance is exact. A line without a valid tag is `agent`.
 - **`IDENTITY.md`**: YAML frontmatter (`name, creature, vibe, tagline, emoji, avatar, voice`, other keys preserved) and a free-form body. A broken frontmatter is reported, never thrown.
 - **`USER.md` directives** (H8): `- YYYY-MM-DD active: …`; replacing one keeps the old line as `- YYYY-MM-DD superseded by YYYY-MM-DD: …` beside it. New directives go first in `## Directives (dated; latest wins)`.
-- **`MEMORY.md`**: bullets end with sources `[2026-10-18, …]` (written by dreaming in M2).
+- **`MEMORY.md`**: bullets dreaming writes end with their source dates `- text [2026-10-18, 2026-10-02]`; bullets without a source list are the owner's and dreaming never changes them.
 
 ## Provenance rules (security §8)
 
@@ -66,6 +66,17 @@ Templates come from `templates/` (S20). `{{token}}` placeholders are substituted
 
 `forget(subject)` (≥ 3 characters, whole words, case-insensitive): retracts matching claims (`retracted_at`; the row stays for `listClaims({ includeRetracted })` but its text becomes `[retracted]` and its sources are cleared), removes daily-note entries that mention the subject or are linked to a retracted claim, removes matching lines from other notes (`MEMORY.md`, `USER.md`, topic notes, `DREAMS.md`; not `SOUL.md`, `IDENTITY.md`, `AGENTS.md`, `BOOTSTRAP.md`, `skills/`), rebuilds the index for those files, appends a `[system]` retraction line with counts only, and records `memory.retraction` with counts in the audit log. `dryRun` reports the same without changes. The `forget` tool refuses tainted, incognito and paused turns and needs a `memory_protected_write` approval when a protected file would change (one protected file per call); the owner's `memory.forget` has no such gate.
 
+## Dreaming (H6)
+
+Nightly at 03:00 local, as a system automation in `@psyche/scheduler` (`ensureDreamingAutomation`); `withDreaming` wraps the scheduler's launcher so the run happens in-process, with no agent turn, and reports `no_reply` (nothing delivered; a failure becomes the scheduler's `task_failed` notification). Missed nights fold into one run. Deterministic, no model call:
+
+1. **Candidates**: daily-note entries from the last 14 days with `owner` or `agent` provenance. `untrusted` and `system` entries are never candidates; sensitive ones (credentials, cards, ids, accounts, health) are refused unless sensitive topics are on.
+2. **Score** (OpenClaw's weights): provenance 0.30, frequency across days 0.24, query diversity 0.15, recency 0.15, recall 0.10, richness 0.06; near-duplicates (keyword Jaccard ≥ 0.6) count as one fact. Owner facts need score ≥ 0.5; agent inferences also need ≥ 2 recalls by ≥ 2 different `memory_search` queries (`memory_recalls` stores query hashes only).
+3. **Promote or merge**: into a similar sourced bullet (sources united, newest wording wins) or as a new bullet in the matching section (People, Preferences, Places, Routines, Accounts and services, Projects and goals, Decisions, Notes), with a claim for `memory_explain`. At most 20 a night.
+4. **Supersede and decay**: a bullet whose claim was superseded takes the successor's text; a bullet whose newest source is older than 120 days is dropped. One night never removes more than 25 % of the sourced bullets.
+5. **Owner wins**: bullets without sources are never changed; a promoted bullet the owner deleted is remembered by a keyword hash and never promoted again.
+6. **Diary**: `DREAMS.md` gets `## YYYY-MM-DD` with Promoted / Merged / Superseded / Dropped lines and counts of what was not promoted (never the untrusted or sensitive text).
+
 ## Imports
 
 Imports are data (security §8): ChatGPT and Claude exports (JSON shapes with `content` / `text` / `memory` strings, or Markdown / text) and free text are split into items, capped (2 MB input, 500 items, 500 characters each), filtered (credentials, cards, ids, accounts, health), scanned for instruction-like text (flagged, confidence 0.2), written to `memory/imports/<format>-<date>.md` and staged as `agent` claims. The owner promotes them one by one with `memory.claims.confirm` (idempotent). Whole OpenClaw files are checked for credentials and card numbers; the claims staged from them get the full filter. An OpenClaw workspace imports with the same names (ADR-018), but never overwrites an existing or owner-edited file (those land in `memory/imports/openclaw/`), never installs `skills/` (also routed there, for the skills flow to scan and approve), and skips `BOOTSTRAP.md`.
@@ -76,7 +87,6 @@ Imports are data (security §8): ChatGPT and Claude exports (JSON shapes with `c
 
 ## What is stubbed
 
-- Dreaming (H6) is a scaffold: it selects eligible claims, writes a diary entry and a job, and never writes `MEMORY.md` yet.
 - H9 (persona edit by natural language) and H10 (git sync) are M2.
 - `sessions_search` needs the Gateway's transcript query (`TranscriptQuery`, S01).
 - Token counts are estimates; a real tokenizer per embedder is not wired.
