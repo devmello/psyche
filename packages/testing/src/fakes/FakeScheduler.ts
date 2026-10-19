@@ -65,7 +65,8 @@ export interface FakeSchedulerOptions {
 /**
  * In-memory scheduler (architecture §4.11). `interval` / `heartbeat` / `watch` automations use
  * ISO-8601 durations; `cron` / `briefing` use 5-field cron in UTC (timezones are ignored by the
- * fake). Missed ticks are coalesced into one run. Every run is recorded in `runs`.
+ * fake); `reminder` is a one-shot at the ISO-8601 instant in `schedule`. Missed ticks are
+ * coalesced into one run. Every run is recorded in `runs`.
  */
 export class FakeScheduler implements Scheduler {
   readonly clock: Clock;
@@ -78,11 +79,23 @@ export class FakeScheduler implements Scheduler {
     this.#ids = options.ids ?? createIdGenerator();
   }
 
-  #next(a: Pick<Automation, "kind" | "schedule">, after: number): number {
+  /** Next fire time after `after`; `undefined` once a one-shot `reminder` has passed. */
+  #next(a: Pick<Automation, "kind" | "schedule">, after: number): number | undefined {
+    if (a.kind === "reminder") {
+      const at = Date.parse(a.schedule);
+      if (Number.isNaN(at)) return fail("invalid_params", `bad instant: ${a.schedule}`);
+      return at > after ? at : undefined;
+    }
     if (a.kind === "cron" || a.kind === "briefing") return nextCron(a.schedule, after);
     const ms = parseIsoDuration(a.schedule);
     if (ms === undefined) return fail("invalid_params", `bad duration: ${a.schedule}`);
     return after + ms;
+  }
+
+  #nextIso(enabled: boolean, a: Pick<Automation, "kind" | "schedule">, after: number) {
+    if (!enabled) return null;
+    const t = this.#next(a, after);
+    return t === undefined ? null : toIso(t);
   }
 
   #get(id: string): Automation {
@@ -96,7 +109,7 @@ export class FakeScheduler implements Scheduler {
     const a: Automation = {
       ...structuredClone(input),
       id: this.#ids.next("auto"),
-      nextRunAt: input.enabled ? toIso(this.#next(input, now)) : null,
+      nextRunAt: this.#nextIso(input.enabled, input, now),
       lastRunAt: null,
       lastStatus: null,
       createdAt: toIso(now),
@@ -120,7 +133,7 @@ export class FakeScheduler implements Scheduler {
     Object.assign(a, structuredClone(patch));
     const now = this.clock.now();
     a.updatedAt = toIso(now);
-    a.nextRunAt = a.enabled ? toIso(this.#next(a, now)) : null;
+    a.nextRunAt = this.#nextIso(a.enabled, a, now);
     return structuredClone(a);
   }
 
@@ -134,7 +147,9 @@ export class FakeScheduler implements Scheduler {
     const out: number[] = [];
     let t = from ?? this.clock.now();
     for (let i = 0; i < count; i += 1) {
-      t = this.#next(a, t);
+      const next = this.#next(a, t);
+      if (next === undefined) break;
+      t = next;
       out.push(t);
     }
     return out;
@@ -144,14 +159,15 @@ export class FakeScheduler implements Scheduler {
     const fired: ScheduledRun[] = [];
     for (const a of this.#items.values()) {
       if (!a.enabled || a.nextRunAt == null) continue;
-      let due = Date.parse(a.nextRunAt);
+      const due = Date.parse(a.nextRunAt);
       if (due > now) continue;
       let coalesced = 0;
       let latest = due;
-      while (due <= now) {
+      let next: number | undefined = due;
+      while (next !== undefined && next <= now) {
         coalesced += 1;
-        latest = due;
-        due = this.#next(a, due);
+        latest = next;
+        next = this.#next(a, next);
       }
       const run: ScheduledRun = {
         automationId: a.id,
@@ -161,7 +177,7 @@ export class FakeScheduler implements Scheduler {
       };
       a.lastRunAt = toIso(now);
       a.lastStatus = "started";
-      a.nextRunAt = toIso(due);
+      a.nextRunAt = next === undefined ? null : toIso(next);
       fired.push(run);
       this.runs.push(run);
     }
