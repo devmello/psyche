@@ -1,4 +1,5 @@
 import type { PsycheDb } from "@psyche/db";
+import type { ChecklistItem } from "@psyche/protocol";
 import {
   type ApprovalRequest,
   type CheckpointInput,
@@ -20,7 +21,6 @@ import {
   type TaskStatus,
   TERMINAL_TASK_STATUSES,
 } from "@psyche/protocol";
-import type { ChecklistItem } from "@psyche/protocol";
 import {
   type ActionRow,
   actionFromRow,
@@ -392,7 +392,10 @@ export class SqliteTaskEngine implements TaskEngine {
                 uncertain.length === 0
                   ? "Recovered after the previous worker stopped"
                   : `Recovered after the previous worker stopped; ${uncertain.length} step(s) need reconciliation`,
-              level2: { tool: "task.recover", outcome: uncertain.length === 0 ? "ok" : "uncertain" },
+              level2: {
+                tool: "task.recover",
+                outcome: uncertain.length === 0 ? "ok" : "uncertain",
+              },
             }),
           ),
         );
@@ -566,7 +569,8 @@ export class SqliteTaskEngine implements TaskEngine {
           .prepare("SELECT * FROM input_requests WHERE id = ?")
           .get(options.id) as InputRow | undefined;
         if (existing !== undefined) {
-          if (existing.task_id !== taskId) fail("conflict", "input request belongs to another task");
+          if (existing.task_id !== taskId)
+            fail("conflict", "input request belongs to another task");
           if (existing.status === "open") {
             this.#setStatus(row, "awaiting_input", {
               awaiting: JSON.stringify({
@@ -643,7 +647,9 @@ export class SqliteTaskEngine implements TaskEngine {
         });
         if (row.status === "awaiting_input") {
           const stillOpen = this.#db.sqlite
-            .prepare("SELECT COUNT(*) AS n FROM input_requests WHERE task_id = ? AND status = 'open'")
+            .prepare(
+              "SELECT COUNT(*) AS n FROM input_requests WHERE task_id = ? AND status = 'open'",
+            )
             .get(row.id) as { n: number };
           if (stillOpen.n === 0) this.#setStatus(row, "queued", { resume, awaiting: null });
           else this.#patch(row.id, { resume });
@@ -717,7 +723,9 @@ export class SqliteTaskEngine implements TaskEngine {
       const uncertain = this.#settleInFlight(taskId, "failed");
       this.#setStatus(row, "cancelled", reason === undefined ? {} : { summary: reason });
       this.#db.sqlite
-        .prepare("UPDATE input_requests SET status = 'cancelled' WHERE task_id = ? AND status = 'open'")
+        .prepare(
+          "UPDATE input_requests SET status = 'cancelled' WHERE task_id = ? AND status = 'open'",
+        )
         .run(taskId);
       const out: PendingEvent[] = [];
       if (uncertain.length > 0) {
@@ -920,7 +928,10 @@ export class SqliteTaskEngine implements TaskEngine {
         level1: `Reconciled ${stepId}: ${result.status}`,
         level2: { tool: "task.reconcile", target: stepId, outcome: result.status },
       });
-      return { cp: checkpointFromRow(next), events: [this.#actionEvent(action), this.#updated(taskId)] };
+      return {
+        cp: checkpointFromRow(next),
+        events: [this.#actionEvent(action), this.#updated(taskId)],
+      };
     });
     this.#emit(out.events);
     return out.cp;

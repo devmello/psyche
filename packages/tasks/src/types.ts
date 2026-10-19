@@ -1,12 +1,12 @@
 import type {
   ApprovalStatus,
+  TaskActionInput as ContractTaskActionInput,
   JsonObject,
   Question,
   RunMode,
   Task,
   TaskAction,
   TaskCreateInput,
-  TaskActionInput as ContractTaskActionInput,
 } from "@psyche/protocol";
 
 /** Per-task limits enforced by the worker (architecture §4.3 stop conditions). */
