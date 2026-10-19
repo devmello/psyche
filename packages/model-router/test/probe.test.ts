@@ -107,3 +107,27 @@ describe("local model guidance", () => {
     expect(modelsThatFit(16).some((m) => m.label === "gpt-oss-120b")).toBe(false);
   });
 });
+
+describe("KeyValueProbeStore", () => {
+  it("persists verdicts as settings rows", async () => {
+    const { openDb, getSetting, setSetting } = await import("@psyche/db");
+    const { KeyValueProbeStore } = await import("../src/index.ts");
+    const db = openDb(":memory:");
+    try {
+      const store = new KeyValueProbeStore({
+        get: (key) => getSetting(db, key)?.value,
+        set: (key, value) => {
+          setSetting(db, key, value);
+        },
+      });
+      const base = { passed: 6, total: 6, cases: [], probedAt: "2026-10-19T00:00:00.000Z" };
+      store.set({ ...base, ref: "ollama/qwen3.8:27b", status: "agent-capable" });
+      store.set({ ...base, ref: "ollama/qwen3.8:27b", status: "chat-only", passed: 4 });
+      expect(store.get("ollama/qwen3.8:27b")).toMatchObject({ status: "chat-only", passed: 4 });
+      expect(store.get("ollama/missing")).toBeUndefined();
+      expect(getSetting(db, "models.probe.ollama/qwen3.8:27b")?.value).toMatchObject({ passed: 4 });
+    } finally {
+      db.close();
+    }
+  });
+});

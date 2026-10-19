@@ -295,3 +295,37 @@ export class InMemoryProbeStore implements ProbeStore {
     this.#m.set(result.ref, structuredClone(result));
   }
 }
+
+/** Key-value storage the Gateway backs with the `settings` table (`getSetting` / `setSetting`). */
+export interface KeyValueStore {
+  get(key: string): unknown;
+  set(key: string, value: unknown): void;
+}
+
+export const PROBE_SETTING_PREFIX = "models.probe.";
+
+/**
+ * Probe verdicts as settings rows (`models.probe.<ref>`). Data model §10 puts them in
+ * `model_profiles.probe_result`; that table is not in schema v0 yet (see docs/status/s03.md),
+ * and moving there later only changes this store.
+ */
+export class KeyValueProbeStore implements ProbeStore {
+  readonly #kv: KeyValueStore;
+
+  constructor(kv: KeyValueStore) {
+    this.#kv = kv;
+  }
+
+  get(ref: ModelRef): ProbeResult | undefined {
+    const v = this.#kv.get(PROBE_SETTING_PREFIX + ref);
+    if (typeof v !== "object" || v === null) return undefined;
+    const r = v as Partial<ProbeResult>;
+    return r.ref === ref && (r.status === "agent-capable" || r.status === "chat-only")
+      ? (structuredClone(v) as ProbeResult)
+      : undefined;
+  }
+
+  set(result: ProbeResult): void {
+    this.#kv.set(PROBE_SETTING_PREFIX + result.ref, structuredClone(result));
+  }
+}
