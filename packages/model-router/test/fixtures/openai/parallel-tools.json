@@ -1,0 +1,29 @@
+{
+  "name": "openai responses: two parallel function calls",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/responses"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream",
+      "x-request-id": "req_fixture"
+    },
+    "chunks": [
+      "event: response.created\ndata: {\"type\":\"response.created\",\"sequence_number\":0,\"response\":{\"id\":\"resp_fx_tools_0001\",\"object\":\"response\",\"created_at\":1760000000,\"status\":\"in_progress\",\"model\":\"gpt-6.1-sol\",\"output\":[],\"store\":false}}\n\n",
+      "event: response.in_progress\ndata: {\"type\":\"response.in_progress\",\"sequence_number\":1,\"response\":{\"id\":\"resp_fx_tools_0001\",\"object\":\"response\",\"created_at\":1760000000,\"status\":\"in_progress\",\"model\":\"gpt-6.1-sol\",\"output\":[],\"store\":false}}\n\n",
+      "event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"sequence_number\":2,\"output_index\":0,\"item\":{\"id\":\"fc_fx_A\",\"type\":\"function_call\",\"status\":\"in_progress\",\"arguments\":\"\",\"call_id\":\"call_fx_A\",\"name\":\"weather\"}}\n\n",
+      "event: response.function_call_arguments.delta\ndata: {\"type\":\"response.function_call_arguments.delta\",\"sequence_number\":3,\"item_id\":\"fc_fx_A\",\"output_index\":0,\"delta\":\"{\\\"city\\\":\",\"obfuscation\":\"fx\"}\n\n",
+      "event: response.function_call_arguments.delta\ndata: {\"type\":\"response.function_call_arguments.delta\",\"sequence_number\":4,\"item_id\":\"fc_fx_A\",\"output_index\":0,\"delta\":\"\\\"Paris\\\"}\",\"obfuscation\":\"fx\"}\n\n",
+      "event: response.function_call_arguments.done\ndata: {\"type\":\"response.function_call_arguments.done\",\"sequence_number\":5,\"item_id\":\"fc_fx_A\",\"output_index\":0,\"arguments\":\"{\\\"city\\\":\\\"Paris\\\"}\"}\n\n",
+      "event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"sequence_number\":6,\"output_index\":0,\"item\":{\"id\":\"fc_fx_A\",\"type\":\"function_call\",\"status\":\"completed\",\"arguments\":\"{\\\"city\\\":\\\"Paris\\\"}\",\"call_id\":\"call_fx_A\",\"name\":\"weather\"}}\n\n",
+      "event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"sequence_number\":7,\"output_index\":1,\"item\":{\"id\":\"fc_fx_B\",\"type\":\"function_call\",\"status\":\"in_progress\",\"arguments\":\"\",\"call_id\":\"call_fx_B\",\"name\":\"weather\"}}\n\n",
+      "event: response.function_call_arguments.delta\ndata: {\"type\":\"response.function_call_arguments.delta\",\"sequence_number\":8,\"item_id\":\"fc_fx_B\",\"output_index\":1,\"delta\":\"{\\\"city\\\":\",\"obfuscation\":\"fx\"}\n\n",
+      "event: response.function_call_arguments.delta\ndata: {\"type\":\"response.function_call_arguments.delta\",\"sequence_number\":9,\"item_id\":\"fc_fx_B\",\"output_index\":1,\"delta\":\"\\\"Tokyo\\\"}\",\"obfuscation\":\"fx\"}\n\n",
+      "event: response.function_call_arguments.done\ndata: {\"type\":\"response.function_call_arguments.done\",\"sequence_number\":10,\"item_id\":\"fc_fx_B\",\"output_index\":1,\"arguments\":\"{\\\"city\\\":\\\"Tokyo\\\"}\"}\n\n",
+      "event: response.output_item.done\ndata: {\"type\":\"response.output_item.done\",\"sequence_number\":11,\"output_index\":1,\"item\":{\"id\":\"fc_fx_B\",\"type\":\"function_call\",\"status\":\"completed\",\"arguments\":\"{\\\"city\\\":\\\"Tokyo\\\"}\",\"call_id\":\"call_fx_B\",\"name\":\"weather\"}}\n\n",
+      "event: response.completed\ndata: {\"type\":\"response.completed\",\"sequence_number\":12,\"response\":{\"id\":\"resp_fx_tools_0001\",\"object\":\"response\",\"created_at\":1760000000,\"status\":\"completed\",\"model\":\"gpt-6.1-sol\",\"output\":[],\"store\":false,\"incomplete_details\":null,\"usage\":{\"input_tokens\":300,\"input_tokens_details\":{\"cached_tokens\":0},\"output_tokens\":61,\"output_tokens_details\":{\"reasoning_tokens\":0},\"total_tokens\":361}}}\n\n"
+    ]
+  }
+}

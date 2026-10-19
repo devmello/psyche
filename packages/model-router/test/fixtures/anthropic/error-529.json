@@ -1,0 +1,14 @@
+{
+  "name": "anthropic 529 overloaded",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/messages"
+  },
+  "response": {
+    "status": 529,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}"
+  }
+}

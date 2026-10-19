@@ -1,0 +1,14 @@
+{
+  "name": "gemini 404 model",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/interactions"
+  },
+  "response": {
+    "status": 404,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":{\"code\":404,\"message\":\"models/gemini-4-argon is not found for API version v1beta, or is not supported for generateContent.\",\"status\":\"NOT_FOUND\"}}"
+  }
+}

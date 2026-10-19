@@ -1,0 +1,26 @@
+{
+  "name": "gemini interactions two parallel function calls, signature on the first",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/interactions"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream",
+      "x-gemini-service-tier": "standard"
+    },
+    "chunks": [
+      "event: interaction.created\ndata: {\"event_type\":\"interaction.created\",\"event_id\":\"evt_0\",\"interaction\":{\"id\":\"int_fixture_tools\",\"created\":\"2026-10-19T09:00:00Z\",\"model\":\"gemini-4-argon\",\"status\":\"in_progress\"}}\n\n",
+      "event: step.start\ndata: {\"event_type\":\"step.start\",\"event_id\":\"evt_1\",\"index\":0,\"step\":{\"type\":\"function_call\",\"id\":\"fc_paris\",\"name\":\"weather\",\"signature\":\"CiQBfixture-fc-sig-0001\"}}\n\n",
+      "event: step.delta\ndata: {\"event_type\":\"step.delta\",\"event_id\":\"evt_2\",\"index\":0,\"delta\":{\"type\":\"arguments_delta\",\"arguments\":\"{\\\"city\\\":\"}}\n\n",
+      "event: step.delta\ndata: {\"event_type\":\"step.delta\",\"event_id\":\"evt_3\",\"index\":0,\"delta\":{\"type\":\"arguments_delta\",\"arguments\":\" \\\"Paris\\\"}\"}}\n\n",
+      "event: step.stop\ndata: {\"event_type\":\"step.stop\",\"event_id\":\"evt_4\",\"index\":0}\n\n",
+      "event: step.start\ndata: {\"event_type\":\"step.start\",\"event_id\":\"evt_5\",\"index\":1,\"step\":{\"type\":\"function_call\",\"id\":\"fc_tokyo\",\"name\":\"weather\"}}\n\n",
+      "event: step.delta\ndata: {\"event_type\":\"step.delta\",\"event_id\":\"evt_6\",\"index\":1,\"delta\":{\"type\":\"arguments_delta\",\"arguments\":\"{\\\"city\\\": \\\"Tokyo\\\"}\"}}\n\n",
+      "event: step.stop\ndata: {\"event_type\":\"step.stop\",\"event_id\":\"evt_7\",\"index\":1}\n\n",
+      "event: interaction.requires_action\ndata: {\"event_type\":\"interaction.requires_action\",\"event_id\":\"evt_8\",\"interaction_id\":\"int_fixture_tools\",\"status\":\"requires_action\"}\n\n",
+      "event: interaction.completed\ndata: {\"event_type\":\"interaction.completed\",\"event_id\":\"evt_9\",\"interaction\":{\"id\":\"int_fixture_tools\",\"status\":\"requires_action\",\"usage\":{\"total_input_tokens\":300,\"total_output_tokens\":24,\"total_tokens\":324}}}\n\n"
+    ]
+  }
+}

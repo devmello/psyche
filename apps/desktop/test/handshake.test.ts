@@ -2,6 +2,7 @@ import { createPublicKey, verify } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { type ConnectParams, connectSigningPayload, Handshake } from "@psyche/web/client";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   deviceIdFromPublicKey,
@@ -9,8 +10,6 @@ import {
   platformFromNode,
   signWithDeviceKey,
 } from "../src/lib/device-key.ts";
-import { type ConnectParams, Handshake } from "../src/lib/handshake.ts";
-import { connectSigningPayload } from "../src/lib/signing.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "psyche-desktop-test-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));

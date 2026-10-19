@@ -1,0 +1,14 @@
+{
+  "name": "ollama 401 (auth proxy / ollama.com)",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/api/chat"
+  },
+  "response": {
+    "status": 401,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":\"unauthorized\"}"
+  }
+}

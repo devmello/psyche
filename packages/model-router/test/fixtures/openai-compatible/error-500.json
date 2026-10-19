@@ -1,0 +1,14 @@
+{
+  "name": "llama.cpp 500",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 500,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":{\"code\":500,\"message\":\"Failed to parse tool call arguments\",\"type\":\"server_error\"}}"
+  }
+}
