@@ -47,6 +47,7 @@ import {
 } from "./kinds.ts";
 import { type CompiledPolicy, compilePolicy, type PolicyConfig } from "./policy.ts";
 import { DENY_ALL_LOOPBACK, type LocalProjectVerifier } from "./prohibitions.ts";
+import { requesterKey, requesterSurfaces } from "./requester.ts";
 import {
   MemoryPermissionStore,
   type PermissionStore,
@@ -394,6 +395,9 @@ export class PsychePermissionBroker implements PermissionBroker {
         continue;
       if (g.scope === "site" && kind !== "credential_fill" && rec.meta.origin !== origin) continue;
       if (rec.meta.maxUses !== null && g.useCount >= rec.meta.maxUses) continue;
+      // Grants never cross requesters: the owner's do not cover a designated person, and theirs
+      // do not cover the owner (security §9).
+      if ((rec.meta.requesterId ?? null) !== requesterKey(ctx.requester)) continue;
       return rec;
     }
     return undefined;
@@ -454,8 +458,15 @@ export class PsychePermissionBroker implements PermissionBroker {
       se === "destructive" ||
       se === "financial";
     const requiresAuthentication = AUTH_KINDS.includes(input.kind) || se === "financial";
+    // A non-owner requester never sees the card for their own request (security §9).
+    const requester = input.context?.requester;
+    const own = new Set(requesterSurfaces(requester));
     let surfaces = [
-      ...new Set(deviceOnly ? input.surfaces.filter((s) => !isChat(s)) : input.surfaces),
+      ...new Set(
+        (deviceOnly ? input.surfaces.filter((s) => !isChat(s)) : input.surfaces).filter(
+          (s) => !own.has(s),
+        ),
+      ),
     ];
     if (surfaces.length === 0) surfaces = ["desktop"];
 
@@ -474,6 +485,11 @@ export class PsychePermissionBroker implements PermissionBroker {
 
     const details = sanitizeDetails(input.details) as JsonObject;
     if (input.typedConfirmation !== undefined) details.confirmationWord = input.typedConfirmation;
+    if (requester !== undefined && requester.role !== "owner") {
+      details.requestedFor = sanitizeDisplay(
+        `${requester.role}: ${requester.display ?? requester.identityId ?? requester.senderId ?? "unknown"}`,
+      );
+    }
     const sources = input.taintSources ?? input.context?.taintSources;
     if (sources !== undefined && sources.length > 0) {
       details.taintSources = sources.map((s) =>
@@ -954,6 +970,7 @@ export class PsychePermissionBroker implements PermissionBroker {
         maxUses: null,
         lastUsedBindingHash: null,
         revokedReason: null,
+        requesterId: requesterKey(rec.input.context?.requester),
       },
     };
   }

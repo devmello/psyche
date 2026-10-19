@@ -45,6 +45,8 @@ export interface GrantMeta {
   maxUses: number | null;
   lastUsedBindingHash: string | null;
   revokedReason: string | null;
+  /** `requesterKey()` of whoever the grant was made for; `null` = the owner (security §9). */
+  requesterId?: string | null;
 }
 
 export interface StoredGrant {
@@ -171,6 +173,7 @@ interface GrantRow {
   created_at: string;
   revoked_at: string | null;
   revoked_reason: string | null;
+  requester_id: string | null;
 }
 
 const json = (v: unknown) => JSON.stringify(v);
@@ -311,6 +314,7 @@ export class SqlitePermissionStore implements PermissionStore {
       g.revokedAt,
       m.revokedReason,
       new Date().toISOString(),
+      m.requesterId ?? null,
     ];
   }
 
@@ -319,8 +323,9 @@ export class SqlitePermissionStore implements PermissionStore {
       .prepare(
         `INSERT INTO grants (id, kind, scope, grant_key, subject, binding, side_effect, task_id, session_id,
            thread_id, origin, expires_at, use_count, max_uses, last_used_at, last_used_binding_hash,
-           created_from_approval_id, created_by_device_id, created_at, revoked_at, revoked_reason, updated_at)
-         VALUES (${Array(22).fill("?").join(", ")})`,
+           created_from_approval_id, created_by_device_id, created_at, revoked_at, revoked_reason, updated_at,
+           requester_id)
+         VALUES (${Array(23).fill("?").join(", ")})`,
       )
       .run(...this.#grantParams(rec));
   }
@@ -427,6 +432,7 @@ function grantFromRow(r: GrantRow): StoredGrant {
       maxUses: r.max_uses,
       lastUsedBindingHash: r.last_used_binding_hash,
       revokedReason: r.revoked_reason,
+      requesterId: r.requester_id,
     },
   };
 }

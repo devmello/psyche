@@ -41,10 +41,30 @@
     "*.casino.example": "deny"
   },
   "folders": [
-    { "path": "/Users/me/Projects", "mode": "rw" },
-    { "path": "/Users/me/Documents", "mode": "ro" }
+    {
+      "path": "/Users/me/Projects",
+      "mode": "rw"
+    },
+    {
+      "path": "/Users/me/Documents",
+      "mode": "ro"
+    }
   ],
   "workspaceRoots": ["/workspace"],
-  "exec": { "execHostEnabled": false, "allowEnv": [] },
-  "classifier": { "model": "rules", "timeoutMs": 8000, "failClosed": true }
+  "exec": {
+    "execHostEnabled": false,
+    "allowEnv": []
+  },
+  "classifier": {
+    "model": "rules",
+    "timeoutMs": 8000,
+    "failClosed": true
+  },
+  "designated": {
+    "idn_grandma": {
+      "allow": ["calendar.list", "reminders.create"],
+      "ask": ["calendar.create"],
+      "deny": ["mcp__google-1__gmail_send"]
+    }
+  }
 }
