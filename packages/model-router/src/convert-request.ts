@@ -12,6 +12,7 @@ import type {
 import type { JsonObject, ModelMessage, ModelPart, ModelRequest, ToolSpec } from "@psyche/protocol";
 import { type ProviderConfig, packageKey } from "./config.ts";
 import { isEnvelope, type OpaqueEnvelope, type ProviderMetadata } from "./envelope.ts";
+import { ToolNameMap } from "./tool-names.ts";
 
 type AssistantContent = Extract<LanguageModelV4Message, { role: "assistant" }>["content"];
 type UserContent = Extract<LanguageModelV4Message, { role: "user" }>["content"];
@@ -21,6 +22,8 @@ type ToolResultPart = Extract<ToolContent[number], { type: "tool-result" }>;
 export interface ConvertContext {
   config: ProviderConfig;
   modelId: string;
+  /** Provider-safe tool names for this request (see `tool-names.ts`); built when absent. */
+  toolNames?: ToolNameMap;
 }
 
 /** Claude models with adaptive thinking (4.6 and later; "always on" from the 5.5 generation). */
@@ -117,6 +120,8 @@ export function convertMessages(request: ModelRequest, ctx: ConvertContext): Lan
     prompt.push({ role: "system", content: request.system });
   }
 
+  const names = ctx.toolNames ?? ToolNameMap.for(request);
+  const c: ConvertContext = { ...ctx, toolNames: names };
   const toolNames = new Map<string, string>();
   for (const m of request.messages) {
     for (const p of m.parts) if (p.type === "tool_call") toolNames.set(p.id, p.name);
@@ -124,12 +129,12 @@ export function convertMessages(request: ModelRequest, ctx: ConvertContext): Lan
   const toolResult = (p: Extract<ModelPart, { type: "tool_result" }>): ToolResultPart => ({
     type: "tool-result",
     toolCallId: p.callId,
-    toolName: p.name ?? toolNames.get(p.callId) ?? "unknown_tool",
+    toolName: names.toProvider(p.name ?? toolNames.get(p.callId) ?? "unknown_tool"),
     output: convertToolResultOutput(p),
   });
 
   for (const message of request.messages) {
-    prompt.push(...convertMessage(message, ctx, toolResult));
+    prompt.push(...convertMessage(message, c, toolResult));
   }
   return prompt;
 }
@@ -169,7 +174,7 @@ function convertMessage(
           const part: Extract<AssistantContent[number], { type: "tool-call" }> = {
             type: "tool-call",
             toolCallId: p.id,
-            toolName: p.name,
+            toolName: ctx.toolNames?.toProvider(p.name) ?? p.name,
             input: p.input ?? {},
           };
           const po = optionsOf(callMeta.get(p.id));
@@ -279,7 +284,7 @@ function convertTools(
     }
     return {
       type: "function",
-      name: t.name,
+      name: ctx.toolNames?.toProvider(t.name) ?? t.name,
       description: t.description,
       inputSchema: t.inputSchema as LanguageModelV4FunctionTool["inputSchema"],
     };
@@ -288,10 +293,11 @@ function convertTools(
 
 function convertToolChoice(
   choice: ModelRequest["toolChoice"],
+  ctx: ConvertContext,
 ): LanguageModelV4ToolChoice | undefined {
   if (choice === undefined) return undefined;
   if (typeof choice === "string") return { type: choice };
-  return { type: "tool", toolName: choice.tool };
+  return { type: "tool", toolName: ctx.toolNames?.toProvider(choice.tool) ?? choice.tool };
 }
 
 function deepMerge(base: JsonObject, over: JsonObject): JsonObject {
@@ -326,14 +332,15 @@ export function convertRequest(
   request: ModelRequest,
   ctx: ConvertContext,
 ): Omit<LanguageModelV4CallOptions, "abortSignal"> {
-  const prompt = convertMessages(request, ctx);
+  const c: ConvertContext = { ...ctx, toolNames: ctx.toolNames ?? ToolNameMap.for(request) };
+  const prompt = convertMessages(request, c);
   if (ctx.config.kind === "anthropic" && ctx.config.promptCaching !== false) {
     applyPromptCaching(prompt, ctx.config.cacheTtl);
   }
   const options: Omit<LanguageModelV4CallOptions, "abortSignal"> = { prompt };
-  const tools = convertTools(request.tools, ctx);
+  const tools = convertTools(request.tools, c);
   if (tools !== undefined) options.tools = tools;
-  const toolChoice = convertToolChoice(request.toolChoice);
+  const toolChoice = convertToolChoice(request.toolChoice, c);
   if (toolChoice !== undefined && tools !== undefined) options.toolChoice = toolChoice;
   if (request.maxOutputTokens !== undefined) options.maxOutputTokens = request.maxOutputTokens;
   if (request.temperature !== undefined) options.temperature = request.temperature;
