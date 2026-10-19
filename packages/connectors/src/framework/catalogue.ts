@@ -83,7 +83,7 @@ const later = (
   description,
   category: "first_party",
   vendor,
-  auth: id === "imap" ? "app_password" : "oauth",
+  auth: "oauth",
   scopes: { read: [], read_act: [] },
   actions: [],
   available: false,
@@ -97,12 +97,4 @@ export const COMING_SOON: CatalogueEntry[] = [
     "Microsoft",
     "Outlook mail and calendar, OneDrive (M6).",
   ),
-  later(
-    "imap",
-    "imap",
-    "Other mail (IMAP)",
-    "IMAP / SMTP",
-    "Any mailbox with an app password (M7).",
-  ),
-  later("jmap", "jmap", "Fastmail", "Fastmail", "Mail through JMAP with an API token (M7)."),
 ];
