@@ -191,6 +191,9 @@ export function sanitizeEmailHtml(html: string, opts: SanitizeEmailOptions = {})
     ALLOWED_URI_REGEXP:
       /^(?:https?:|mailto:|tel:|cid:|data:image\/(?:png|gif|jpe?g|webp);|blob:|#)/i,
     WHOLE_DOCUMENT: false,
+    // Keep leading <style> blocks (newsletters, rendered documents); remote URLs in them are
+    // stripped above and blocked by the frame's CSP regardless.
+    FORCE_BODY: true,
     RETURN_TRUSTED_TYPE: false,
   }) as string;
   purify.removeAllHooks();
