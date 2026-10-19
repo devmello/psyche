@@ -155,7 +155,8 @@ function toolsSection(
   runMode: RunMode,
 ): ContextSection {
   const lines = tools.map(
-    (t) => `- ${t.name} (${t.sideEffect}${t.provenanceOut === "untrusted" ? ", untrusted results" : ""})`,
+    (t) =>
+      `- ${t.name} (${t.sideEffect}${t.provenanceOut === "untrusted" ? ", untrusted results" : ""})`,
   );
   const header = [
     `Permission mode: ${permissionMode}.${permissionMode === "plan" ? " Plan mode is read-only: research, then call exit_plan_mode with the plan for the owner to approve." : ""}`,

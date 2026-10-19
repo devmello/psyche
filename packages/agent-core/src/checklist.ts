@@ -6,7 +6,10 @@ export const UpdatePlanInput = Type.Object(
   {
     items: Type.Optional(
       Type.Array(
-        Type.Object({ text: Type.String({ minLength: 1, maxLength: 200 }), status: ChecklistItemStatus }),
+        Type.Object({
+          text: Type.String({ minLength: 1, maxLength: 200 }),
+          status: ChecklistItemStatus,
+        }),
         { minItems: 1, maxItems: 20, description: "The whole list, replacing the current one" },
       ),
     ),
@@ -69,7 +72,9 @@ export function applyPlanUpdate(
 
   const inProgress = items.filter((i) => i.status === "in_progress").length;
   if (inProgress > 1) {
-    invalid("exactly one item may be in_progress; complete the current one first (done or advance)");
+    invalid(
+      "exactly one item may be in_progress; complete the current one first (done or advance)",
+    );
   }
   if (inProgress === 0) {
     const firstPending = items.find((i) => i.status === "pending");

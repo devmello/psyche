@@ -75,7 +75,9 @@ export interface AgentEndContext extends RunRef {
  * can never lower its provenance.
  */
 export interface HookHandlers {
-  before_model_resolve: (ctx: ModelResolveContext) => MaybePromise<{ model?: ModelRef } | undefined>;
+  before_model_resolve: (
+    ctx: ModelResolveContext,
+  ) => MaybePromise<{ model?: ModelRef } | undefined>;
   before_prompt_build: (ctx: PromptBuildContext) => MaybePromise<PromptBuildResult | undefined>;
   before_tool_call: (ctx: ToolCallHookContext) => MaybePromise<BeforeToolCallResult | undefined>;
   after_tool_call: (ctx: AfterToolCallContext) => MaybePromise<{ result?: ToolResult } | undefined>;

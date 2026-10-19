@@ -1,4 +1,11 @@
-import { type Block, type ChecklistItem, type InputRequest, PsycheError, type Question, WrapUpAction } from "@psyche/protocol";
+import {
+  type Block,
+  type ChecklistItem,
+  type InputRequest,
+  PsycheError,
+  type Question,
+  WrapUpAction,
+} from "@psyche/protocol";
 import { Type } from "@sinclair/typebox";
 import { applyPlanUpdate, UpdatePlanInput } from "../checklist.ts";
 import { AskUserInput, normalizeQuestions, type QuestionAnswer } from "../questions.ts";
@@ -34,7 +41,7 @@ const ok = (output: unknown) => ({ output, provenance: "trusted" as const });
 export const askUserTool = defineTool({
   name: "ask_user",
   description:
-    "Ask the owner 1–4 multiple-choice questions when a decision is theirs. Each question has a header of at most 12 characters, 2–4 options (put the one you recommend first and end its label with \"(Recommended)\"), and multiSelect. The owner can always type their own answer instead.",
+    'Ask the owner 1–4 multiple-choice questions when a decision is theirs. Each question has a header of at most 12 characters, 2–4 options (put the one you recommend first and end its label with "(Recommended)"), and multiSelect. The owner can always type their own answer instead.',
   input: AskUserInput,
   sideEffect: "none",
   run: async (params, ctx) => {
@@ -68,8 +75,14 @@ export const updatePlanTool = defineTool({
 
 export const WrapUpInput = Type.Object(
   {
-    recap: Type.String({ minLength: 1, maxLength: 300, description: "What is now true, and what is not done" }),
-    ask: Type.Optional(Type.String({ minLength: 1, maxLength: 100, description: "One decision for the owner" })),
+    recap: Type.String({
+      minLength: 1,
+      maxLength: 300,
+      description: "What is now true, and what is not done",
+    }),
+    ask: Type.Optional(
+      Type.String({ minLength: 1, maxLength: 100, description: "One decision for the owner" }),
+    ),
     actions: Type.Optional(Type.Array(WrapUpAction, { minItems: 1, maxItems: 2 })),
     blocked: Type.Optional(Type.Boolean()),
   },

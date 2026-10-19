@@ -32,7 +32,9 @@ export function estimateContextTokens(
   tools: readonly ToolSpec[],
 ): number {
   return (
-    estimateTokens(system) + estimateTokens(JSON.stringify(messages)) + estimateTokens(JSON.stringify(tools))
+    estimateTokens(system) +
+    estimateTokens(JSON.stringify(messages)) +
+    estimateTokens(JSON.stringify(tools))
   );
 }
 
@@ -63,8 +65,7 @@ export function splitForCompaction(
 export function containsUntrusted(messages: readonly ModelMessage[]): boolean {
   return messages.some((m) =>
     m.parts.some(
-      (p) =>
-        p.type === "tool_result" && (p.provenance === "untrusted" || m.role === "assistant"),
+      (p) => p.type === "tool_result" && (p.provenance === "untrusted" || m.role === "assistant"),
     ),
   );
 }
@@ -89,7 +90,10 @@ function renderPart(part: ModelPart, toolResultChars: number): string | undefine
   }
 }
 
-export function renderTranscript(messages: readonly ModelMessage[], toolResultChars: number): string {
+export function renderTranscript(
+  messages: readonly ModelMessage[],
+  toolResultChars: number,
+): string {
   const role = { user: "Owner", assistant: "Agent", tool: "Tool" } as const;
   return messages
     .map((m) => {
@@ -123,12 +127,18 @@ export async function summarize(
     .join("\n\n");
   let out = "";
   for await (const event of provider.stream(
-    { model, system: SUMMARIZER_SYSTEM, messages: [{ role: "user", parts: [{ type: "text", text }] }] },
+    {
+      model,
+      system: SUMMARIZER_SYSTEM,
+      messages: [{ role: "user", parts: [{ type: "text", text }] }],
+    },
     options,
   )) {
     if (event.type === "text_delta") out += event.text;
     if (event.type === "finish" && event.reason !== "stop" && event.reason !== "length") {
-      throw new Error(`summarizer finished with ${event.reason}${event.error ? `: ${event.error}` : ""}`);
+      throw new Error(
+        `summarizer finished with ${event.reason}${event.error ? `: ${event.error}` : ""}`,
+      );
     }
   }
   if (out.trim() === "") throw new Error("summarizer returned nothing");

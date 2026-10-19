@@ -29,16 +29,51 @@ export interface ComposerCommandInfo {
 }
 
 export const COMPOSER_COMMANDS: readonly ComposerCommandInfo[] = [
-  { name: "model", args: "optional", hint: "provider/model", description: "Pick this thread's model" },
+  {
+    name: "model",
+    args: "optional",
+    hint: "provider/model",
+    description: "Pick this thread's model",
+  },
   { name: "new", args: "none", hint: "", description: "Start a new thread" },
-  { name: "btw", args: "required", hint: "question", description: "Ask aside without derailing the turn" },
+  {
+    name: "btw",
+    args: "required",
+    hint: "question",
+    description: "Ask aside without derailing the turn",
+  },
   { name: "fork", args: "optional", hint: "message", description: "Fork this thread from here" },
-  { name: "schedule", args: "required", hint: "when and what", description: "Create an automation" },
-  { name: "incognito", args: "optional", hint: "message", description: "Start a thread that is not remembered" },
-  { name: "forget", args: "required", hint: "subject", description: "Retract what Psyche remembers about something" },
-  { name: "remember", args: "required", hint: "fact", description: "Note a fact in today's memory" },
+  {
+    name: "schedule",
+    args: "required",
+    hint: "when and what",
+    description: "Create an automation",
+  },
+  {
+    name: "incognito",
+    args: "optional",
+    hint: "message",
+    description: "Start a thread that is not remembered",
+  },
+  {
+    name: "forget",
+    args: "required",
+    hint: "subject",
+    description: "Retract what Psyche remembers about something",
+  },
+  {
+    name: "remember",
+    args: "required",
+    hint: "fact",
+    description: "Note a fact in today's memory",
+  },
   { name: "plan", args: "optional", hint: "goal", description: "Switch to plan mode (read-only)" },
-  { name: "status", args: "none", hint: "", description: "Show model, mode, usage and running tasks" },
+  {
+    name: "status",
+    args: "none",
+    hint: "",
+    description: "Show model, mode, usage and running tasks",
+  },
   { name: "export", args: "optional", hint: "md | json", description: "Export this thread" },
   { name: "stop", args: "none", hint: "", description: "Stop the current run" },
 ];
