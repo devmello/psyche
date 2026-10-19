@@ -9,6 +9,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./conformance": {
+      "types": "./src/conformance/index.ts",
+      "default": "./src/conformance/index.ts"
     }
   },
   "scripts": {
@@ -19,5 +23,13 @@
     "@psyche/protocol": "workspace:*",
     "@sinclair/typebox": "0.34.52",
     "ulid": "3.0.2"
+  },
+  "peerDependencies": {
+    "vitest": "^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
   }
 }

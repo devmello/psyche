@@ -20,11 +20,11 @@
   "dependencies": {
     "@psyche/db": "workspace:*",
     "@psyche/protocol": "workspace:*",
-    "@psyche/testing": "workspace:*",
     "ulid": "3.0.2",
     "ws": "8.22.0"
   },
   "devDependencies": {
+    "@psyche/testing": "workspace:*",
     "@types/ws": "8.18.2"
   },
   "bin": {
