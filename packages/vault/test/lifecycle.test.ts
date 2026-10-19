@@ -83,7 +83,7 @@ describe("vault create / unlock / lock (G1)", () => {
     await seeded();
     h.vault.lock();
     h.helper.state.touchId = "cancel";
-    await expect(h.vault.unlock("x")).rejects.toMatchObject({ code: "unauthorized" });
+    await expect(h.vault.unlock("x")).rejects.toMatchObject({ code: "cancelled" });
     expect(h.vault.locked).toBe(true);
   });
 
@@ -186,7 +186,8 @@ describe("key wrappers", () => {
     const wrapped = await w.wrap(dek);
     expect(JSON.stringify(wrapped)).not.toContain(dek.toString("base64"));
     expect((await w.unwrap(wrapped, { reason: "r" })).equals(dek)).toBe(true);
-    await w.destroy(wrapped);
+    await expect(w.destroy(wrapped)).rejects.toMatchObject({ code: "approval_required" });
+    await w.destroy(wrapped, "apr_delete_key");
     await expect(w.unwrap(wrapped, { reason: "r" })).rejects.toBeDefined();
   });
 

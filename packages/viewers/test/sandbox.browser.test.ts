@@ -4,9 +4,6 @@
  * playwright-core (no browser download); skipped when no Chrome is found. Every "external host"
  * is a loopback server we control, so the test never touches the internet.
  */
-import { existsSync } from "node:fs";
-import { createServer, type Server } from "node:http";
-import type { AddressInfo } from "node:net";
 import { type Browser, chromium } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -17,43 +14,7 @@ import {
   HOST_RENDER,
 } from "../src/core/artifact.ts";
 import { sanitizeEmailHtml } from "../src/core/email.ts";
-
-function findChrome(): string | undefined {
-  const candidates = [
-    process.env.CHROME_PATH,
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-    "/Applications/Chromium.app/Contents/MacOS/Chromium",
-    "/usr/bin/google-chrome",
-    "/usr/bin/google-chrome-stable",
-    "/usr/bin/chromium",
-    "/usr/bin/chromium-browser",
-  ];
-  return candidates.find((p): p is string => p !== undefined && p !== "" && existsSync(p));
-}
-
-const chrome = findChrome();
-
-/** JSON that is safe inside an inline <script> (no "</script>" breakout). */
-const js = (v: unknown) => JSON.stringify(v).replace(/</g, "\\u003c");
-
-interface Srv {
-  server: Server;
-  origin: string;
-  hits: string[];
-}
-
-async function serve(
-  handler: (path: string, res: import("node:http").ServerResponse) => void,
-): Promise<Srv> {
-  const hits: string[] = [];
-  const server = createServer((req, res) => {
-    hits.push(req.url ?? "");
-    handler(req.url ?? "/", res);
-  });
-  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
-  const { port } = server.address() as AddressInfo;
-  return { server, origin: `http://127.0.0.1:${port}`, hits };
-}
+import { chrome, js, type Srv, serve, shutdown, skipBrowserSuites } from "./support/chrome.ts";
 
 /** Everything a hostile artifact might try. Results are posted to the parent for inspection. */
 function hostileArtifact(ext: string): string {
@@ -93,15 +54,7 @@ const parentPage = (body: string) =>
 window.messages=[]; addEventListener("message", function(e){ window.messages.push({ origin: e.origin, data: e.data, fromFrame: !!document.querySelector("iframe") && e.source === document.querySelector("iframe").contentWindow }); });
 </script>${body}</body></html>`;
 
-// On GitHub's macOS runners the tests pass but browser.close() hangs in afterAll (ci on main, 2026-10-19),
-// so on macOS CI this real-browser proof is opt-in via PSYCHE_BROWSER_TESTS=1; Ubuntu CI and local
-// Macs still run it whenever Chrome is installed.
-const skipOnMacCi =
-  process.platform === "darwin" &&
-  process.env.CI !== undefined &&
-  process.env.PSYCHE_BROWSER_TESTS !== "1";
-
-describe.skipIf(chrome === undefined || skipOnMacCi)("artifact sandbox in Chrome", () => {
+describe.skipIf(skipBrowserSuites)("artifact sandbox in Chrome", () => {
   let browser: Browser;
   let app: Srv;
   let ext: Srv;
@@ -125,10 +78,7 @@ describe.skipIf(chrome === undefined || skipOnMacCi)("artifact sandbox in Chrome
     browser = await chromium.launch({ executablePath: chrome, headless: true });
   }, 60_000);
 
-  afterAll(async () => {
-    await browser?.close();
-    for (const s of [app, ext, host]) s?.server.close();
-  });
+  afterAll(() => shutdown(browser, [app, ext, host]), 30_000);
 
   async function runInline(html: string, policy: { allowScripts: boolean }) {
     const built = buildArtifactSrcdoc(html, policy);

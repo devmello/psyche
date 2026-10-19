@@ -1,0 +1,52 @@
+{
+  "engine" : "parakeet-tdt",
+  "footprintAfterPrepareMB" : 30.328834533691406,
+  "input" : "audio\/clean.wav",
+  "machine" : "Apple M5 16 GB",
+  "notes" : [
+    "parakeet-tdt-0.6b-v2-coreml (English); partials = re-decode of the whole buffer every 320 ms"
+  ],
+  "os" : "Version 27.0.1 (Build 26A434)",
+  "peakFootprintMB" : 101.29769897460938,
+  "prepareSeconds" : 2.023174291010946,
+  "sessions" : [
+    {
+      "audioSeconds" : 4,
+      "finalLatency" : 0.26539012510329485,
+      "firstPartialFromKeyDown" : 0.6792386251036078,
+      "firstPartialFromSpeech" : 0.06947483401745558,
+      "firstPartialText" : "Yeah.",
+      "label" : "first utterance (4 s)",
+      "meanUpdateInterval" : 0.38955032810918055,
+      "partialCount" : 10,
+      "transcript" : "On Dean, send a message to Ngozi Adiyami and tell her."
+    },
+    {
+      "audioSeconds" : 87.785,
+      "finalLatency" : 0.8772019580937922,
+      "firstPartialFromKeyDown" : 0.46450558421202004,
+      "firstPartialFromSpeech" : -0.14142549992538989,
+      "firstPartialText" : "Yeah.",
+      "label" : "full script (warm)",
+      "meanUpdateInterval" : 0.6658578549604152,
+      "partialCount" : 133,
+      "transcript" : "Ondine, send a message to Ngozi Adiyami and tell her I am running about 15 minutes late for lunch because the train is stuck outside the station. Ask her to order the soup for me if the kitchen is busy. Next, draft an email to Caviferoxid with the subject line quarterly planning. Say that the slides look good, but the budget section still needs the revised hiring numbers from finance before we can share it with the wider team. Mentioned that I would like to review the final version on Thursday afternoon. On Dean, remind me tomorrow morning to call Marisol Echeveria about the apartment lease. She wanted to know whether we are renewing for another year or moving out in the spring? And I promised her an answer this week. Also, add a note to my reading list. I want to finish the book about the history of navigation, the one that explains how sailors use the stars and simple clocks to find their position on the open ocean. Undine, please look at my calendar for next week and find a quiet hour on Wednesday or Friday for a long walk. If both days are full, move the dentist appointment to the following Monday and let the office know by email. Keep the message polite and short and copy Marisol so she knows I will be free that evening. Finally, Undine, check whether Ngozi replied to the invitation for Saturday. And if Kaveh has not confirmed by tonight, send him a short and friendly reminder. Thank you, that is everything for now.",
+      "vocabularyHits" : {
+        "Adeyemi" : "0\/1",
+        "Echeverria" : "0\/1",
+        "Farrokhzad" : "0\/1",
+        "Kaveh" : "1\/2",
+        "Marisol" : "2\/2",
+        "Ngozi" : "2\/2",
+        "Ondine" : "1\/4"
+      },
+      "wer" : {
+        "deletions" : 1,
+        "insertions" : 1,
+        "referenceWords" : 263,
+        "substitutions" : 8,
+        "wer" : 0.03802281368821293
+      }
+    }
+  ]
+}

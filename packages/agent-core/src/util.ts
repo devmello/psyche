@@ -2,15 +2,17 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Clock, SideEffect } from "@psyche/protocol";
 
 /**
- * Canonical JSON (security §3.5): sorted keys, no insignificant whitespace, NFC strings,
- * `undefined` members dropped. Same formula as the broker and the audit chain.
+ * Canonical JSON (security §3.5): sorted keys, no insignificant whitespace, `undefined` members
+ * dropped. Strings are hashed exactly as given, never NFC-folded (S23 design-13): the executor
+ * runs the raw string, and NFC / NFD forms are different files and addresses. The connector
+ * registry re-checks the loop's binding with the same formula (`toolCallBindingHash`).
  */
 export function canonicalJSON(value: unknown): string {
   if (value === null || typeof value === "number" || typeof value === "boolean") {
     return JSON.stringify(value);
   }
   if (value === undefined) return "null";
-  if (typeof value === "string") return JSON.stringify(value.normalize("NFC"));
+  if (typeof value === "string") return JSON.stringify(value);
   if (Array.isArray(value)) {
     return `[${value.map((v) => canonicalJSON(v)).join(",")}]`;
   }
@@ -19,7 +21,7 @@ export function canonicalJSON(value: unknown): string {
     const keys = Object.keys(obj)
       .filter((k) => obj[k] !== undefined)
       .sort();
-    return `{${keys.map((k) => `${JSON.stringify(k.normalize("NFC"))}:${canonicalJSON(obj[k])}`).join(",")}}`;
+    return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJSON(obj[k])}`).join(",")}}`;
   }
   throw new TypeError(`canonicalJSON: unsupported value of type ${typeof value}`);
 }

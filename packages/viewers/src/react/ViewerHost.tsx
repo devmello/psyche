@@ -12,7 +12,7 @@ import { createDefaultViewerRegistry } from "../core/registry.ts";
 import type { ViewerComponentMap, ViewerProps } from "./contract.ts";
 import { ViewerMessage } from "./states.tsx";
 
-type Extra = { artifactHostUrl?: string };
+type Extra = { artifactHostUrl?: string; reactBundlerUrl?: string };
 
 // Each viewer is its own chunk: opening a CSV never downloads PDF.js or CodeMirror.
 const lazyNamed = <K extends string>(
@@ -44,6 +44,8 @@ export interface ViewerHostProps extends ViewerProps {
   components?: ViewerComponentMap;
   /** Gateway artifact host page URL (hosted sandbox placement). */
   artifactHostUrl?: string;
+  /** Gateway's self-hosted React bundler origin (`@psyche/viewers/bundler`) for React artifacts. */
+  reactBundlerUrl?: string;
   /** "Trust this file" on a quarantined download (docs/06 §3.12). */
   onTrust?: () => void;
 }

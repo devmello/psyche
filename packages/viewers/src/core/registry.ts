@@ -190,10 +190,16 @@ export const DEFAULT_VIEWER_SPECS: readonly ViewerSpec[] = [
     canEdit: true,
   }),
   spec("email", "email", ["message/rfc822"], ["eml"], { label: "Email" }),
-  spec("artifact", "artifact", ["application/vnd.psyche.artifact+html"], [], {
-    label: "Artifact",
-    priority: 10,
-  }),
+  spec(
+    "artifact",
+    "artifact",
+    ["application/vnd.psyche.artifact+html", "application/vnd.psyche.artifact+react"],
+    [],
+    {
+      label: "Artifact",
+      priority: 10,
+    },
+  ),
   spec(
     "code",
     "code",

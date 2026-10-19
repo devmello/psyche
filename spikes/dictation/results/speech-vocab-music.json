@@ -1,0 +1,54 @@
+{
+  "engine" : "speech-vocab",
+  "footprintAfterPrepareMB" : 4.4694366455078125,
+  "input" : "audio\/music.wav",
+  "machine" : "Apple M5 16 GB",
+  "notes" : [
+    "asset status before: installed",
+    "reserved locales: [\"en_US\"] of max 5",
+    "analyzer format: 16000 Hz int16 1 ch"
+  ],
+  "os" : "Version 27.0.1 (Build 26A434)",
+  "peakFootprintMB" : 15.516357421875,
+  "prepareSeconds" : 2.9361647500190884,
+  "sessions" : [
+    {
+      "audioSeconds" : 4,
+      "finalLatency" : 0.8204182500485331,
+      "firstPartialFromKeyDown" : 1.3327459581196308,
+      "firstPartialFromSpeech" : 1.2249935420695692,
+      "firstPartialText" : "On",
+      "label" : "first utterance (4 s)",
+      "meanUpdateInterval" : 0.4220842708212634,
+      "partialCount" : 14,
+      "transcript" : "On Dean, send a message to Goziati Ami."
+    },
+    {
+      "audioSeconds" : 87.785,
+      "finalLatency" : 0.09487970802001655,
+      "firstPartialFromKeyDown" : 1.130610499996692,
+      "firstPartialFromSpeech" : 1.0232285000383854,
+      "firstPartialText" : "On",
+      "label" : "full script (warm)",
+      "meanUpdateInterval" : 0.24894904142637503,
+      "partialCount" : 348,
+      "transcript" : "On Dean, send a message to Goziati Ami and tell her I am running about 15 minutes late for lunch, because the train is stuck outside the station. Ask her to order the soup for me if the kitchen is busy. Next, draft an email to Caviferoxid with the subject line quarterly planning. Say that the slides look good, but the budget section still needs the revised hiring numbers from finance before we can share it with the whiter team. Mention that I would like to review the final version on Thursday afternoon. On Dean, remind me tomorrow morning to call Marisol Echeveria about the apartment lease. She wanted to know whether we are renewing for another year or moving out in the spring. And I promised her an answer this week. Also add a note to my reading list. I want to finish the book about the history of navigation, the one that explains how sailors use the stars and simple clocks to find their position on the open ocean. Undine, please look at my calendar for next week and find a quiet hour on Wednesday or Friday for a long walk. If both days are full, move the dentist appointment to the following Monday, and let the office know by email. Keep the message polite and short, and copy Marisol so she knows I will be free that evening. Finally, undine, check whether Gozi replied to the invitation for Saturday. And if Kave has not confirmed by tonight, send him a short and friendly reminder. Thank you. That is everything for now.",
+      "vocabularyHits" : {
+        "Adeyemi" : "0\/1",
+        "Echeverria" : "0\/1",
+        "Farrokhzad" : "0\/1",
+        "Kaveh" : "0\/2",
+        "Marisol" : "2\/2",
+        "Ngozi" : "0\/2",
+        "Ondine" : "0\/4"
+      },
+      "wer" : {
+        "deletions" : 1,
+        "insertions" : 2,
+        "referenceWords" : 263,
+        "substitutions" : 12,
+        "wer" : 0.057034220532319393
+      }
+    }
+  ]
+}

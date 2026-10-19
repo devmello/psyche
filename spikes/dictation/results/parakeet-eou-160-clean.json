@@ -1,0 +1,52 @@
+{
+  "engine" : "parakeet-eou-160",
+  "footprintAfterPrepareMB" : 26.891494750976562,
+  "input" : "audio\/clean.wav",
+  "machine" : "Apple M5 16 GB",
+  "notes" : [
+    "parakeet-realtime-eou-120m-coreml parakeet-eou-160ms; no custom vocabulary in the EOU path"
+  ],
+  "os" : "Version 27.0.1 (Build 26A434)",
+  "peakFootprintMB" : 124.57913208007812,
+  "prepareSeconds" : 0.631969208130613,
+  "sessions" : [
+    {
+      "audioSeconds" : 4,
+      "finalLatency" : 0.034428708953782916,
+      "firstPartialFromKeyDown" : 2.0263069591019303,
+      "firstPartialFromSpeech" : 1.4202607499901205,
+      "firstPartialText" : "send",
+      "label" : "first utterance (4 s)",
+      "meanUpdateInterval" : 0.2708431904403759,
+      "partialCount" : 10,
+      "transcript" : "send a message to gozyami and"
+    },
+    {
+      "audioSeconds" : 87.785,
+      "finalLatency" : 0.08534016693010926,
+      "firstPartialFromKeyDown" : 2.015226250048727,
+      "firstPartialFromSpeech" : 1.4090955001302063,
+      "firstPartialText" : "send",
+      "label" : "full script (warm)",
+      "meanUpdateInterval" : 0.26982231913883625,
+      "partialCount" : 318,
+      "transcript" : "send a message to gozyami and tell her i am running about fifteen minutes late for lunch because the train is stuck outside the station asked her to order the sub for me if the kitchen is busy next draft an email to kavaxid with a subject line quarterly planning say that the slide look good but the budget secion still needs the revised hiring numbers from finance before we can share it with the whiter team men should that i would like to review the final version on thursday afternoon tomorrow morning took call mercy about the apartment lease she wanted to know whether we are renewing for another year or moving out in the spring and i promised her an answer this week also added note to my reading list i want to finish the book about the history of navigation the one that explains how sailors used the stars and simple clocks to find their position on the open ocean undine please look at my calendar for next week and find a quiet hour on when wednesday or friday for a long walk if both days are full move the dentist appointment to the following monday and let the office know by email keep them message polite and short and copy mere soul so she knows i will be free that eight evening finally on dean check whether goesy replied to the invitation for saturday and if cave has not confirmed by tonight sent him a short and friendly reminder thank you that is everything for now",
+      "vocabularyHits" : {
+        "Adeyemi" : "0\/1",
+        "Echeverria" : "0\/1",
+        "Farrokhzad" : "0\/1",
+        "Kaveh" : "0\/2",
+        "Marisol" : "0\/2",
+        "Ngozi" : "0\/2",
+        "Ondine" : "0\/4"
+      },
+      "wer" : {
+        "deletions" : 8,
+        "insertions" : 5,
+        "referenceWords" : 263,
+        "substitutions" : 19,
+        "wer" : 0.12167300380228137
+      }
+    }
+  ]
+}

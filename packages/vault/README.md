@@ -1,6 +1,6 @@
 # @psyche/vault
 
-**Owner:** S06 (`prompts/s06-vault.md`). Features G1–G7, G13, G14 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md) (G8 belongs to the browser; G9–G12 are later milestones).
+**Owner:** S06 (`prompts/s06-vault.md`). Features G1–G7, G9, G13, G14 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md). G8 belongs to the browser; G10–G12 are later milestones.
 
 The Credential Broker: an encrypted vault the model never reads. The model sees `{{cred:<slug>}}` placeholders and metadata. Executors (browser fill, connector HTTP, sandbox env) resolve a placeholder only for a matching target, only with an approved `credential_fill`, and receive a one-shot `ResolvedSecret` handle, never a string.
 
@@ -63,9 +63,33 @@ The `site` grant key is `credential_fill|<item>|<origin>|<field class>|<executor
 | --- | --- | --- |
 | `keychain.set` | `KeychainSetParams`: service, account, base64 value, `accessControl: ["biometryCurrentSet","or","devicePasscode"]`, `accessible: "whenPasscodeSetThisDeviceOnly"`, `synchronizable: false`, `dataProtection: true` | `{}` |
 | `vault.unlock` | `VaultUnlockParams`: service, account, `reason` (prompt text), `reuseDurationSeconds` (0) | `{value}` base64; error `cancelled` when the user cancels |
-| `keychain.delete` | service, account | `{}` |
+| `keychain.delete` | service, account | `{}`. Declared `destructive`, so `KeychainWrapper.destroy(wrapped, approvalId)` needs an approved id |
+| `keychain.status` | `{}` | `{dataProtectionKeychain: "available" \| "missing_entitlement" \| "error", accessGroup, biometry}` |
 
-The agent has no tool for any of these. `nodes.invoke` must not reach them (S23 pr-1 note).
+These four are registered on main (PR #47). System keychain mode (G9) also needs the item capabilities. They are specified in `KeychainCapabilities.swift` (`store`, `retrieve`) but **not yet registered** in `KeychainCapabilities.make`:
+
+| Capability | Params | Result |
+| --- | --- | --- |
+| `keychain.store` | `name` (`^[a-z0-9._-]{1,64}$`), `value` base64url (≤16 KiB), `requireAuth` (default true), `replace`, `reason` | `{name, stored, requireAuth, replaced}`; `conflict`/`duplicate_item` |
+| `keychain.retrieve` | `name`, `reason` (prompt, 1–120 chars) | `{name, value}` base64url, a secret; `cancelled`/`user_cancelled`, `not_found`/`item_not_found` |
+| `keychain.delete_item` | `name`, `reason` | `{deleted}`; `not_found` counts as already deleted. A separate name, because `keychain.delete` is the vault-key delete. Should be `write`: the vault calls it while serving an `operator.admin` `vault.delete` |
+
+`KeychainItemStore` checks for these capabilities and for `keychain.status` = `available`, and fails with `unavailable` until they exist. Errors arrive as `{code, message, details: {reason}}`. The vault keeps the code and the reason and drops the helper's message. The agent has no tool for any of these, and `nodes.invoke` must not reach them (S23 pr-1 note).
+
+### System keychain mode (G9)
+
+`new Vault({ ..., itemBackend: "keychain", keychainItems: new KeychainItemStore({ helper }) })` puts the secrets of new items (from `add` and `importCsv`) in the data-protection keychain as `psyche.item.<id>`. These live in Psyche's own access group; Safari and Passwords items are never read.
+
+- **Database row:** the vault database row keeps name, bindings, attributes and the list of fields present. Its `secret` is `{}`.
+- **Resolve:**
+  - checks the field from that list without prompting;
+  - reads the item with `keychain.retrieve`; this prompts with "Fill “<item>” on <origin>" and is the fill's presence check;
+  - all of this happens before the approval is consumed, so a cancelled prompt leaves the approval usable and writes a `failed:keychain_refused` use row.
+- **Edits** read the item (one "Edit “<item>”" prompt) and replace it. **Deletes** remove the keychain item first.
+- **Moving items:** `setBackend(id, "vault" | "keychain")` moves one item either way. `backendOf(id)` reports where its secret lives.
+- **Connector OAuth tokens** stay in the vault, because they refresh unattended.
+
+**Trade-off:** keychain items are protected by `biometryCurrentSet` or the passcode. If re-enrolling Touch ID invalidates them, the recovery key cannot bring them back (they are not in `vault.db`). Move them back with `setBackend(id, "vault")` before re-enrolling. This is also recorded as an open question in docs/status/s06.md.
 
 ## How it maps to the docs
 
@@ -110,7 +134,7 @@ The agent has no tool for any of these. `nodes.invoke` must not reach them (S23 
 ## What is stubbed or deferred
 
 - **Passphrase mode** (server without a key file): not built. `KeyFileWrapper` covers server mode.
-- **System keychain mode (G9)**, **1Password (G10)**, **Bitwarden (G11)**, **Stripe Link (G12)**: M2/M3. `payment_link` and `signing_key` items are refused at `add`.
+- **1Password (G10)**, **Bitwarden (G11)**, **Stripe Link (G12)**: M2/M3. G9 waits on the helper registering its item capabilities (above), and no protocol method switches the backend yet (`setBackend` is in-process only). `payment_link` and `signing_key` items are refused at `add`.
 - **VM guest release (S23 design-05)**: no guest path exists yet. The review's controls (`vmAllowed`, once only, Touch ID each time, a rate limit) are a `todo` in `test/s23-review.test.ts`.
 - **Post-fill tab rules (S23 design-18)**: refusing screenshots and aborting a tool result on an echo belong to S08. They call `containsSecret` / `redact`.
 - **Fresh container per secret-bearing command (S23 design-15)**: S21.

@@ -1,7 +1,11 @@
 import type { HashChainAuditLog } from "@psyche/audit";
 import type { PsycheDb } from "@psyche/db";
 import type { PsycheNotifier } from "@psyche/notifications";
-import type { PsychePermissionBroker } from "@psyche/permissions";
+import type {
+  PresenceAssertion,
+  PresenceVerifier,
+  PsychePermissionBroker,
+} from "@psyche/permissions";
 import type {
   Clock,
   EventName,
@@ -44,15 +48,23 @@ export interface ComposedPart {
   /** Runs once the Gateway is listening. */
   start?(gateway: Gateway): Promise<void> | void;
   stop?(): Promise<void> | void;
-  /** Approvals over chat (the channels part). */
+  /** Approvals delivered beyond the in-app surfaces (chat, the Mac helper's notifications). */
   readonly relay?: ApprovalRelay;
+  /**
+   * Devices that answer approvals through this part's relay although their paired scopes lack
+   * `operator.approvals` (the mac helper node, which can never call `approvals.answer` itself).
+   */
+  approver?(deviceId: string): boolean;
+  /** Verifies presence assertions of one kind (the helper's Touch ID signature). */
+  readonly presence?: { kind: PresenceAssertion["kind"]; verifier: PresenceVerifier };
 }
 
-/** Hooks the channels part gives the broker (approvals over chat, owner senders). */
+/** Hooks a part gives the broker (approvals over chat or the helper, owner senders). */
 export interface ApprovalRelay {
-  /** Extra surfaces for every approval: the owner's chat peers (`telegram:<id>`). */
+  /** Extra surfaces for every approval: the owner's chat peers (`telegram:<id>`), `notification`. */
   surfaces(): Surface[];
   /** Deliver an issued approval to those surfaces (buttons, `/approve` fallback). */
   deliver(issued: IssuedApproval): Promise<void>;
+  /** Channel owners (only the channels part names any). */
   isOwnerSender(channel: string, senderId: string): Promise<boolean>;
 }
