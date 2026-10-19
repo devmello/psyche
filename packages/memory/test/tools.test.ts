@@ -206,6 +206,7 @@ describe("other memory tools", () => {
       ["forget", "destructive"],
       ["remember", "write"],
       ["sessions_search", "none"],
+      ["persona_update", "write"],
     ]);
     for (const s of memoryToolSpecs) expect(s.inputSchema.type).toBe("object");
   });
