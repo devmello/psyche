@@ -13,9 +13,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --passWithNoTests",
-    "dev": "tsx watch src/main.ts",
-    "start": "tsx src/main.ts"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@psyche/protocol": "workspace:*"
