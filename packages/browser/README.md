@@ -70,7 +70,15 @@ The driver enforces the hard rules and the task's origin set on every hop: the i
 
 ## Tool reference (`registerBrowserTools`)
 
-All page-derived output is `provenance: "untrusted"`. The spec class is the minimum. `describeCall` escalates per element: a form submit is `write` (`browser_submit`, a GET form is `read`); "Accept all", agree and authorize, delete, cancel and sign-up are `destructive`; buy, pay, checkout, place-order and checkout-path form actions are `financial` (`purchase`).
+All page-derived output is `provenance: "untrusted"`, and credential-like URL parameters (`code`, `token`, `sig`, …) are masked in tool output. The spec class is the minimum. `describeCall` escalates per element:
+
+- A form submit is `write` (`browser_submit`); a GET form is `read`. This covers a submit button, Enter in a form field and `type {submit: true}`.
+- A button outside a form is `write` unless its name only changes the view (show, more, next, close, …).
+- "Accept all", agree and authorize, delete, cancel and sign-up are `destructive`.
+- Buy, pay, transfer, checkout, place-order and checkout-path form actions are `financial` (`purchase`).
+- A write on an origin that is read-only in the task asks through the broker as a new target.
+
+Every click by ref is hit-tested first (`conflict {reason: "obscured"}` when another element or a frame covers the point).
 
 | Tool | Params | Class | Notes |
 | --- | --- | --- | --- |
@@ -118,6 +126,7 @@ This is the wire spec v1 from `packages/protocol/src/bridge.ts`, with the spike 
 
 **Framing**
 - NDJSON `req` / `res` / `event` frames, validated against the protocol `Frame` schema.
+- Top-level document requests are paused with a narrow `Fetch.enable` (Document, request stage) and continued unmodified or failed, so a blocked origin never sees the request.
 - The frame cap is **16 MiB** (`BRIDGE_MAX_FRAME_BYTES`, amendment 2), because raw AX trees reach 2 MB.
 
 **Gateway → desktop calls**
