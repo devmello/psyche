@@ -48,6 +48,8 @@ let fixtureOrigin: string;
 let app: ElectronApplication;
 let page: Page;
 
+const composer = () => page.getByRole("textbox", { name: /^Message / });
+
 function startFixture(): Promise<Server> {
   const server = createServer((req, res) => {
     if (req.url === "/download") {
@@ -113,15 +115,16 @@ test("launches, pairs with the Gateway and loads the main chat", async () => {
   await expect.poll(() => gw.pairedCount()).toBe(1);
   await gw.waitForCall("threads.list");
   await expect(page.getByTestId("offline-banner")).toHaveCount(0);
-  await expect(page.getByTestId("composer-input")).toBeEnabled();
+  // The UI kit's composer (INT-1 mounts the kit's chat column in the shell).
+  await expect(composer()).toBeEnabled();
   const connect = gw.connects.at(-1) ?? {};
   expect(connect.deviceFamily).toBe("desktop");
   expect(connect.handshakeSecret).toBe("e2e-handshake-secret");
 });
 
 test("sends a message through main with an idempotency key", async () => {
-  await page.getByTestId("composer-input").fill("Book the dentist next week");
-  await page.getByTestId("composer-input").press("Enter");
+  await composer().fill("Book the dentist next week");
+  await composer().press("Enter");
   const call = await gw.waitForCall("chat.send");
   expect(call.params).toMatchObject({
     threadId: MAIN_THREAD.id,
