@@ -1,0 +1,14 @@
+{
+  "name": "openrouter 500",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 500,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":{\"code\":500,\"message\":\"Internal Server Error\"}}"
+  }
+}

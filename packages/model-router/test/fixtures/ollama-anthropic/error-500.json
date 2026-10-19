@@ -1,0 +1,14 @@
+{
+  "name": "ollama /v1/messages 500",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/v1/messages"
+  },
+  "response": {
+    "status": 500,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"type\":\"error\",\"error\":{\"type\":\"api_error\",\"message\":\"llama runner process has terminated: exit status 2\"}}"
+  }
+}

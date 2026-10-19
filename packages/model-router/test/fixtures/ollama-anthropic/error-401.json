@@ -1,0 +1,14 @@
+{
+  "name": "ollama /v1/messages 401",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/v1/messages"
+  },
+  "response": {
+    "status": 401,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"unauthorized\"}}"
+  }
+}

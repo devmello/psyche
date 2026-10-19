@@ -1,0 +1,14 @@
+{
+  "name": "ollama 503 busy",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/api/chat"
+  },
+  "response": {
+    "status": 503,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":\"server busy, please try again.  maximum pending requests exceeded\"}"
+  }
+}

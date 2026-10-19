@@ -1,0 +1,24 @@
+{
+  "name": "llama.cpp: reasoning_content + text + usage",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream",
+      "server": "llama.cpp"
+    },
+    "chunks": [
+      "data: {\"choices\":[{\"finish_reason\":null,\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null}}],\"created\":1760000000,\"id\":\"chatcmpl-fxText0001\",\"model\":\"qwen3-8b\",\"system_fingerprint\":\"b6100-fixture\",\"object\":\"chat.completion.chunk\"}\n\n",
+      "data: {\"choices\":[{\"finish_reason\":null,\"index\":0,\"delta\":{\"reasoning_content\":\"The user\"}}],\"created\":1760000000,\"id\":\"chatcmpl-fxText0001\",\"model\":\"qwen3-8b\",\"system_fingerprint\":\"b6100-fixture\",\"object\":\"chat.completion.chunk\"}\n\n",
+      "data: {\"choices\":[{\"finish_reason\":null,\"index\":0,\"delta\":{\"reasoning_content\":\" wants a greeting.\"}}],\"created\":1760000000,\"id\":\"chatcmpl-fxText0001\",\"model\":\"qwen3-8b\",\"system_fingerprint\":\"b6100-fixture\",\"object\":\"chat.completion.chunk\"}\n\n",
+      "data: {\"choices\":[{\"finish_reason\":null,\"index\":0,\"delta\":{\"content\":\"Hello\"}}],\"created\":1760000000,\"id\":\"chatcmpl-fxText0001\",\"model\":\"qwen3-8b\",\"system_fingerprint\":\"b6100-fixture\",\"object\":\"chat.completion.chunk\"}\n\n",
+      "data: {\"choices\":[{\"finish_reason\":null,\"index\":0,\"delta\":{\"content\":\", world.\"}}],\"created\":1760000000,\"id\":\"chatcmpl-fxText0001\",\"model\":\"qwen3-8b\",\"system_fingerprint\":\"b6100-fixture\",\"object\":\"chat.completion.chunk\"}\n\n",
+      "data: {\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"delta\":{}}],\"created\":1760000000,\"id\":\"chatcmpl-fxText0001\",\"model\":\"qwen3-8b\",\"system_fingerprint\":\"b6100-fixture\",\"object\":\"chat.completion.chunk\"}\n\n",
+      "data: {\"choices\":[],\"created\":1760000000,\"id\":\"chatcmpl-fxText0001\",\"model\":\"qwen3-8b\",\"system_fingerprint\":\"b6100-fixture\",\"object\":\"chat.completion.chunk\",\"usage\":{\"completion_tokens\":42,\"prompt_tokens\":30,\"total_tokens\":72,\"prompt_tokens_details\":{\"cached_tokens\":16}},\"timings\":{\"cache_n\":16,\"prompt_n\":14,\"prompt_ms\":40.1,\"prompt_per_token_ms\":2.86,\"prompt_per_second\":349.1,\"predicted_n\":42,\"predicted_ms\":700.2,\"predicted_per_token_ms\":16.67,\"predicted_per_second\":59.98}}\n\n",
+      "data: [DONE]\n\n"
+    ]
+  }
+}
