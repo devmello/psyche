@@ -47,16 +47,16 @@ Scopes:
 - `read_act`: `gmail.modify` (or `gmail.readonly` + `gmail.send` with `gmailScopes: "readonly_send"`, which drops labelling), `calendar`, `drive.file`.
 - `read`: `gmail.readonly`, `calendar.readonly`, `drive.file`.
 
-A grant that lacks a requested scope fails the connect. A refresh token that dies roughly 7 days after consent is reported as the Testing-mode expiry (copy in docs/copy/system-messages.md). Any other revocation moves the connector to `needs_auth` and emits `invalidated`.
+Every (re)connect revokes the previous grant first and does not use `include_granted_scopes`, so a read-only connection never holds `gmail.send` / `gmail.modify`; the record stores the scopes Google actually granted. A grant that lacks a requested scope, or carries more than requested, fails the connect (the extra grant is revoked). A refresh token that dies roughly 7 days after consent is reported as the Testing-mode expiry (copy in docs/copy/system-messages.md). Any other revocation moves the connector to `needs_auth` and emits `invalidated`.
 
-Tools: `gmail_search_threads`, `gmail_read_thread` (text/plain preferred; HTML stripped of hidden elements, scripts and comments), `gmail_list_labels`, `gmail_save_attachment` (to the Library, 25 MB limit), `gmail_modify_labels`, `gmail_create_draft`, `gmail_send` (`send_email` binding: account, recipients lowercased and sorted, subject, body hash), `calendar_list_calendars`, `calendar_list_events` (bounded, at most 366 days), `calendar_free_busy`, `calendar_create_event` / `calendar_update_event` / `calendar_delete_event` (`calendar_write` binding; delete is `destructive`), `drive_download` (Google Docs exported as PDF), `drive_upload` (text).
+Tools: `gmail_search_threads`, `gmail_read_thread` (text/plain preferred; HTML stripped of hidden elements, scripts and comments), `gmail_list_labels`, `gmail_save_attachment` (to the Library, 25 MB limit), `gmail_modify_labels`, `gmail_create_draft`, `gmail_send` (`send_email` binding: account, recipients lowercased and sorted, subject, body hash), `calendar_list_calendars`, `calendar_list_events` (bounded, at most 366 days), `calendar_free_busy`, `calendar_create_event` / `calendar_update_event` / `calendar_delete_event` (`calendar_write` binding; delete is `destructive`; an event with attendees or `sendUpdates: "all"` targets the attendee set, so a standing grant never covers inviting someone new), `drive_download` (Google Docs exported as PDF), `drive_upload` (text).
 
 Sync (`registry.sync(id)`, run by the Gateway every 1–5 min):
 - Gmail: `history.list` from the saved `historyId`. A 404 triggers a full resync of recent inbox messages.
 - Calendar: `events.list` with the saved `syncToken`. A 410 triggers a full sync.
 - The cursor is `{ gmail: { historyId }, calendars: { <id>: syncToken }, newMessageIds }`.
 
-Parsing hardening (`src/google/mime.ts`) caps part depth (16), part count (300) and body text (200k characters). Undecodable parts and unknown charsets produce warnings instead of errors. Attachment names are sanitized, and attachments over 25 MB are listed but never downloaded. Outgoing MIME refuses line breaks in headers and validates addresses (no header injection), and RFC 2047-encodes non-ASCII subjects.
+Parsing hardening (`src/google/mime.ts`) caps part depth (16), part count (300) and body text (200k characters). Undecodable parts and unknown charsets produce warnings instead of errors. Attachment names are sanitized, and attachments over 25 MB are listed but never downloaded. Outgoing MIME refuses line breaks in headers, accepts exactly one address per recipient string (display names may not contain `@ < > : ; , "`), quotes or RFC 2047-encodes display names and non-ASCII subjects. HTML bodies go through the same DOM-based converter as `web_fetch`, which drops hidden subtrees.
 
 ## Web search and fetch (M8)
 

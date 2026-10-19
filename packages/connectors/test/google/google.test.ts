@@ -11,8 +11,8 @@ import { bindingHash } from "../../src/framework/binding.ts";
 import { ConnectorRegistry } from "../../src/framework/registry.ts";
 import type { ConnectorEvent } from "../../src/framework/types.ts";
 import { GOOGLE_SCOPES, TESTING_MODE_TTL_MS } from "../../src/google/auth.ts";
-import { googleFactory, sendBinding } from "../../src/google/connector.ts";
-import { buildMime, decodeBase64Url, parsePayload } from "../../src/google/mime.ts";
+import { calendarBinding, googleFactory, sendBinding } from "../../src/google/connector.ts";
+import { buildMime, decodeBase64Url, htmlToText, parsePayload } from "../../src/google/mime.ts";
 import { CLIENT_ID, FakeGoogle, fixture } from "./fake-google.ts";
 
 class MapRegistry implements ToolRegistry {
@@ -30,11 +30,11 @@ class MapRegistry implements ToolRegistry {
 }
 
 /** Broker stub: binding checks against one approved hash, receipts recorded. */
-function stubBroker(approved: Record<string, string> = {}) {
+function stubBroker(approved: Record<string, string> = {}, approveAll = false) {
   const receipts: ReceiptInput[] = [];
   const broker = {
     async verifyBinding(id: string, hash: string) {
-      return approved[id] === hash
+      return approveAll || approved[id] === hash
         ? { ok: true as const, approval: {} as never }
         : { ok: false as const, reason: "binding_mismatch" as const };
     },
@@ -309,7 +309,7 @@ describe("Gmail send through the registry", () => {
     g.route("POST", "/gmail/v1/users/me/messages/send", ({ body }: { body: string }) => {
       const raw = JSON.parse(body).raw as string;
       const text = Buffer.from(decodeBase64Url(raw) ?? []).toString();
-      expect(text).toContain("To: Ana <ANA@example.org>");
+      expect(text).toContain('To: "Ana" <ANA@example.org>');
       expect(text).toContain("Subject: Lunch");
       return Response.json({ id: "sent-1", threadId: "t5", labelIds: ["SENT"] });
     });
@@ -437,7 +437,10 @@ describe("sync", () => {
 
 describe("Calendar", () => {
   it("lists events only in bounded ranges, queries free/busy, and creates events with a calendar binding", async () => {
-    const { g, tools } = await connected();
+    const { g, tools } = await connected({
+      broker: stubBroker({}, true).broker,
+      approvalFor: () => "ap",
+    });
     g.route("GET", "/calendar/v3/calendars/primary/events", fixture("events-list"));
     g.route("POST", "/calendar/v3/freeBusy", fixture("freebusy"));
     g.route("POST", "/calendar/v3/calendars/primary/events", ({ body }: { body: string }) =>
@@ -491,5 +494,100 @@ describe("secrets", () => {
     g.route("GET", "/gmail/v1/users/me/labels", { labels: [] });
     const out = await run(tools, "mcp__google-1__gmail_list_labels", {});
     assertNoSecrets({ out, record: await registry.get("google-1"), events, specs: tools.list() });
+  });
+});
+
+describe("review regressions", () => {
+  it("a calendar event that invites people targets the attendees, so a standing grant cannot cover new ones", () => {
+    const plain = calendarBinding("owner@example.com", "create", { event: { summary: "x" } });
+    const invite = calendarBinding("owner@example.com", "create", {
+      event: {
+        summary: "x",
+        attendees: [{ email: "Eve@Evil.example" }, { email: "ana@example.org" }],
+      },
+      sendUpdates: "all",
+    });
+    expect(plain.target).toEqual({ kind: "account", value: "owner@example.com" });
+    expect(invite.target).toMatchObject({
+      kind: "recipient",
+      value: "ana@example.org,eve@evil.example",
+    });
+    expect(invite.grantKey).not.toBe(plain.grantKey);
+    expect(invite.grantKey).toContain("eve@evil.example");
+    expect(
+      calendarBinding("o", "update", { eventId: "e", event: {}, sendUpdates: "all" }).target?.kind,
+    ).toBe("recipient");
+  });
+
+  it("threading headers are part of the send binding", () => {
+    const base = { to: ["a@example.org"], subject: "s", body: "b" };
+    const a = sendBinding("o", { ...base, inReplyTo: "<1@x>" }).bindingFields;
+    const b = sendBinding("o", { ...base, inReplyTo: "<2@x>" }).bindingFields;
+    expect(a).not.toEqual(b);
+  });
+
+  it("one address string is exactly one recipient", () => {
+    for (const bad of [
+      "ok@a.com evil@b.com",
+      "Bob <bob@a.com",
+      "a@b.com, c@d.com",
+      "Eve <e@x.com> <f@y.com>",
+      'x"y <a@b.com>',
+    ]) {
+      expect(() => buildMime({ to: [bad], subject: "s", text: "t" }), bad).toThrow();
+    }
+    const raw = Buffer.from(
+      decodeBase64Url(buildMime({ to: ["José <j@example.org>"], subject: "s", text: "t" })) ?? [],
+    ).toString();
+    expect(raw).toContain(
+      `To: =?UTF-8?B?${Buffer.from("José").toString("base64")}?= <j@example.org>`,
+    );
+  });
+
+  it("nested hidden HTML is dropped and visible styles are kept", () => {
+    expect(
+      htmlToText('<div style="display:none"><div>a</div>IGNORE PREVIOUS</div><p>shown</p>'),
+    ).toBe("shown");
+    expect(
+      htmlToText('<p style="opacity:0.9;font-size:0.8em;overflow:hidden">visible text</p>'),
+    ).toBe("visible text");
+  });
+
+  it("reconnecting in read mode revokes the old grant and stores only the granted scopes", async () => {
+    const { g, registry } = await connected();
+    const revokesBefore = g.requests.filter(
+      (r) => r.url.href === "https://oauth2.googleapis.com/revoke",
+    ).length;
+    const r = await registry.connect({
+      catalogueId: "google",
+      scopeMode: "read",
+      connectorId: "google-1",
+    });
+    expect(
+      g.requests.filter((q) => q.url.href === "https://oauth2.googleapis.com/revoke").length,
+    ).toBe(revokesBefore + 1);
+    expect(r.scopes.sort()).toEqual(
+      [GOOGLE_SCOPES.calendarReadonly, GOOGLE_SCOPES.driveFile, GOOGLE_SCOPES.gmailReadonly].sort(),
+    );
+  });
+
+  it("a grant broader than requested is revoked and refused", async () => {
+    const g = new FakeGoogle();
+    g.route("GET", "/gmail/v1/users/me/profile", fixture("profile"));
+    g.grantScope = (requested) => `${requested} ${GOOGLE_SCOPES.gmailSend}`;
+    const registry = new ConnectorRegistry({
+      factories: [googleFactory({ openBrowser: g.openBrowser, timeoutMs: 5000 })],
+      context: g.context(),
+    });
+    await expect(
+      registry.connect({
+        catalogueId: "google",
+        scopeMode: "read",
+        config: { clientId: CLIENT_ID },
+      }),
+    ).rejects.toThrow(/more than requested/);
+    expect(g.requests.some((q) => q.url.href === "https://oauth2.googleapis.com/revoke")).toBe(
+      true,
+    );
   });
 });

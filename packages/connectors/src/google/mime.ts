@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { PsycheError } from "@psyche/protocol";
+import { htmlToMarkdown } from "../web/html.ts";
 
 /**
  * Gmail payload parsing and outgoing MIME. Gmail's `format=full` already splits the message into
@@ -78,28 +79,19 @@ function decodeText(bytes: Uint8Array, charset: string, warnings: string[]): str
   }
 }
 
-/** Plain text from HTML for display to the model: drops hidden content, scripts and styles. */
+/**
+ * Text from HTML mail for the model: the DOM-based converter shared with `web_fetch` drops
+ * hidden elements (with their whole subtree, so nesting cannot smuggle text out), scripts,
+ * styles, forms and comments; invisible and bidi control characters are removed.
+ */
 export function htmlToText(html: string): string {
-  return html
-    .replace(/<!--[\s\S]*?-->/g, "")
-    .replace(/<(script|style|head|template|noscript|svg)\b[\s\S]*?<\/\1\s*>/gi, "")
-    .replace(
-      /<([a-z0-9]+)\b[^>]*(?:\bhidden\b|aria-hidden\s*=\s*"?true|display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0|opacity\s*:\s*0(?:\.0+)?\b)[^>]*>[\s\S]*?<\/\1\s*>/gi,
-      "",
-    )
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|li|tr|h[1-6])\s*>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, "&")
-    .replace(/[​-‏‪-‮⁠-⁤﻿]/g, "")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  let text: string;
+  try {
+    text = htmlToMarkdown(html);
+  } catch {
+    text = html.replace(/<[^>]*>/g, " ");
+  }
+  return text.replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]/g, "").trim();
 }
 
 /** Walk a Gmail part tree within the limits; never throws on malformed input. */
@@ -201,17 +193,37 @@ export interface OutgoingMail {
   attachments?: OutgoingAttachment[];
 }
 
-/** Bare `local@domain` or `Name <local@domain>`; no CR/LF, no list separators inside. */
-const ADDRESS =
-  /^(?:[^<>\r\n,;"]{0,100}\s)?<?[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+>?$/;
+const ADDR_SPEC = /^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/;
 
-export function assertAddress(value: string): void {
-  if (!ADDRESS.test(value.trim())) {
+/**
+ * `local@domain` or `Display Name <local@domain>`. The display name may not contain `@`, `<`,
+ * `>`, `:`, `;`, `,`, quotes, backslashes or line breaks, so one string is always exactly one
+ * recipient and the canonical address is unambiguous.
+ */
+export function parseAddress(value: string): { name: string; address: string } {
+  const v = value.trim();
+  const m = /^(.*?)\s*<([^<>]+)>$/.exec(v);
+  const name = m === null ? "" : (m[1] ?? "").trim();
+  const address = (m === null ? v : (m[2] ?? "")).trim();
+  if (!ADDR_SPEC.test(address) || /[@<>:;,"\\\r\n]/.test(name)) {
     throw new PsycheError(
       "invalid_params",
-      `invalid email address: ${JSON.stringify(value.slice(0, 80))}`,
+      `invalid email address: ${JSON.stringify(v.slice(0, 80))}`,
     );
   }
+  return { name, address };
+}
+
+export function assertAddress(value: string): void {
+  parseAddress(value);
+}
+
+/** Header form: RFC 2047-encoded display name when non-ASCII, quoted otherwise. */
+export function formatAddress(value: string): string {
+  const { name, address } = parseAddress(value);
+  if (name === "") return address;
+  const display = /^[\x20-\x7e]*$/.test(name) ? `"${name}"` : encodeHeader(name);
+  return `${display} <${address}>`;
 }
 
 function assertHeaderValue(value: string, name: string): void {
@@ -227,8 +239,7 @@ export function encodeHeader(value: string): string {
 
 /** Bare address in lower case, for binding hashes and grant keys. */
 export function canonicalAddress(value: string): string {
-  const m = /<([^>]+)>/.exec(value);
-  return (m?.[1] ?? value).trim().toLowerCase();
+  return parseAddress(value).address.toLowerCase();
 }
 
 /** RFC 5322 message, base64url-encoded for Gmail's `raw`. */
@@ -244,10 +255,11 @@ export function buildMime(mail: OutgoingMail, boundarySeed?: string): string {
   for (const r of mail.references ?? []) assertHeaderValue(r, "References");
   const boundary = `psyche-${boundarySeed ?? randomBytes(12).toString("hex")}`;
   const lines: string[] = [];
-  if (mail.from !== undefined) lines.push(`From: ${mail.from}`);
-  lines.push(`To: ${mail.to.join(", ")}`);
-  if (mail.cc !== undefined && mail.cc.length > 0) lines.push(`Cc: ${mail.cc.join(", ")}`);
-  if (mail.bcc !== undefined && mail.bcc.length > 0) lines.push(`Bcc: ${mail.bcc.join(", ")}`);
+  const list = (xs: string[]) => xs.map(formatAddress).join(", ");
+  if (mail.from !== undefined) lines.push(`From: ${formatAddress(mail.from)}`);
+  lines.push(`To: ${list(mail.to)}`);
+  if (mail.cc !== undefined && mail.cc.length > 0) lines.push(`Cc: ${list(mail.cc)}`);
+  if (mail.bcc !== undefined && mail.bcc.length > 0) lines.push(`Bcc: ${list(mail.bcc)}`);
   lines.push(`Subject: ${encodeHeader(mail.subject)}`);
   if (mail.inReplyTo !== undefined) lines.push(`In-Reply-To: ${mail.inReplyTo}`);
   if (mail.references !== undefined && mail.references.length > 0) {

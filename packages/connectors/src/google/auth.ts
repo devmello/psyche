@@ -116,7 +116,7 @@ export class GoogleAuth {
         scope: scopes.join(" "),
         access_type: "offline",
         prompt: "consent",
-        include_granted_scopes: "true",
+        // No include_granted_scopes: a read-only reconnect must not inherit earlier write grants.
         state,
         code_challenge: pkce.challenge,
         code_challenge_method: pkce.method,
@@ -135,8 +135,17 @@ export class GoogleAuth {
         },
         signal,
       );
-      const granted = new Set((tokens.scope ?? "").split(/\s+/));
+      const granted = new Set((tokens.scope ?? "").split(/\s+/).filter((x) => x !== ""));
       const missing = scopes.filter((s) => !granted.has(s));
+      const extra = [...granted].filter((g) => g.startsWith(S) && !scopes.includes(g));
+      if (extra.length > 0) {
+        // Never hold more than the mode allows (a read-only connection with gmail.send).
+        await this.#revokeToken(tokens.refreshToken ?? tokens.accessToken, signal);
+        throw new GoogleAuthError(
+          "missing_scopes",
+          `Google granted more than requested (${extra.map((m) => m.replace(S, "")).join(", ")}); revoke Psyche's access in your Google account and connect again`,
+        );
+      }
       if (missing.length > 0) {
         throw new GoogleAuthError(
           "missing_scopes",
@@ -199,7 +208,11 @@ export class GoogleAuth {
     const t = this.#cached ?? (await this.#ctx.tokens.load(this.#id));
     this.#cached = undefined;
     if (t === undefined) return;
-    const token = t.refreshToken ?? t.accessToken;
+    await this.#revokeToken(t.refreshToken ?? t.accessToken, signal);
+    await this.#ctx.tokens.clear(this.#id);
+  }
+
+  async #revokeToken(token: string, signal?: AbortSignal): Promise<void> {
     await this.#ctx
       .fetch(GOOGLE_REVOKE_URL, {
         method: "POST",

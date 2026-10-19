@@ -231,13 +231,20 @@ export function sendBinding(account: string, params: unknown): ToolCallDescripti
       bodyHash: sha256(m.body.normalize("NFC")),
       attachmentHashes: [],
       threadId: m.threadId ?? null,
+      inReplyTo: m.inReplyTo ?? null,
+      references: m.references ?? [],
     },
     grantKey: `send_email:${account}:${recipients.join(",")}`,
     summary: `Sent "${m.subject.slice(0, 60)}" to ${recipients.join(", ").slice(0, 120)}`,
   };
 }
 
-/** Security §3.5 `calendar.*`: account, operation, event payload hash; grant key account + calendar + operation. */
+/**
+ * Security §3.5 `calendar.*`: account, operation, event payload hash; grant key account +
+ * calendar + operation. An event that invites people (attendees, or `sendUpdates: "all"`) also
+ * emails them, so its target is the attendee set and the grant key includes it: a standing
+ * grant for "create events" never covers inviting someone new (§3.6 new-target check).
+ */
 export function calendarBinding(
   account: string,
   operation: "create" | "update" | "delete",
@@ -245,18 +252,46 @@ export function calendarBinding(
 ): ToolCallDescription {
   const p = asObject(params);
   const calendarId = typeof p.calendarId === "string" ? p.calendarId : "primary";
+  const event = (typeof p.event === "object" && p.event !== null ? p.event : {}) as {
+    attendees?: unknown;
+  };
+  const attendees = (Array.isArray(event.attendees) ? event.attendees : [])
+    .map((a) =>
+      typeof a === "object" && a !== null ? (a as { email?: unknown }).email : undefined,
+    )
+    .filter((e): e is string => typeof e === "string")
+    .map((e) => e.trim().toLowerCase())
+    .sort();
+  const notifies = p.sendUpdates === "all";
   const payload = {
     eventId: p.eventId ?? null,
     event: p.event ?? null,
     sendUpdates: p.sendUpdates ?? "none",
   };
+  const verb = operation === "create" ? "Created" : operation === "update" ? "Updated" : "Deleted";
+  const invites = attendees.length > 0 || notifies;
   return {
     kind: "calendar_write",
     sideEffect: operation === "delete" ? "destructive" : "write",
-    target: { kind: "account", value: account },
-    bindingFields: { account, calendarId, operation, eventHash: sha256(canonicalJSON(payload)) },
-    grantKey: `calendar_write:${account}:${calendarId}:${operation}`,
-    summary: `${operation === "create" ? "Created" : operation === "update" ? "Updated" : "Deleted"} an event on ${calendarId}`,
+    target: invites
+      ? {
+          kind: "recipient",
+          value: attendees.length > 0 ? attendees.join(",") : `notify:${calendarId}`,
+          display: attendees.length > 0 ? attendees.join(", ") : "existing attendees",
+        }
+      : { kind: "account", value: account },
+    bindingFields: {
+      account,
+      calendarId,
+      operation,
+      attendees,
+      sendUpdates: notifies ? "all" : "none",
+      eventHash: sha256(canonicalJSON(payload)),
+    },
+    grantKey: invites
+      ? `calendar_write:${account}:${calendarId}:${operation}:invite:${attendees.join(",")}`
+      : `calendar_write:${account}:${calendarId}:${operation}`,
+    summary: `${verb} an event on ${calendarId}${attendees.length > 0 ? ` with ${attendees.join(", ")}` : ""}`,
   };
 }
 
@@ -318,13 +353,21 @@ export class GoogleConnector implements Connector {
     const choice = input.config.gmailScopes === "readonly_send" ? "readonly_send" : "modify";
     this.#gmailScopes = choice;
     const scopes = scopesFor(input.scopeMode, choice);
-    await this.#auth.authorize(scopes, input.signal);
+    // Reconnecting (re-auth, mode change): drop the old grant first so a read-only connection
+    // cannot keep a refresh token that still carries gmail.send / gmail.modify.
+    await this.#auth.revoke(input.signal);
+    const tokens = await this.#auth.authorize(scopes, input.signal);
+    const granted = (tokens.scope ?? "").split(/\s+/).filter((x) => x !== "");
     const profile = await this.#gmail.profile(input.signal);
     if (typeof profile.emailAddress !== "string")
       throw new PsycheError("internal", "Gmail profile has no address");
     this.#account = profile.emailAddress.toLowerCase();
     this.#status = "connected";
-    return { account: this.#account, scopes, config: { gmailScopes: choice } };
+    return {
+      account: this.#account,
+      scopes: granted.length > 0 ? granted : scopes,
+      config: { gmailScopes: choice },
+    };
   }
 
   async disconnect(): Promise<void> {

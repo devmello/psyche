@@ -98,7 +98,10 @@ export class GoogleApi {
 
   async #send(url: string, req: GoogleRequest): Promise<Response> {
     const u = new URL(url);
-    if (u.protocol !== "https:" || !u.hostname.endsWith("googleapis.com")) {
+    if (
+      u.protocol !== "https:" ||
+      !(u.hostname === "googleapis.com" || u.hostname.endsWith(".googleapis.com"))
+    ) {
       throw new PsycheError("forbidden", "Google API calls go only to googleapis.com");
     }
     for (const [k, v] of Object.entries(req.query ?? {})) {
