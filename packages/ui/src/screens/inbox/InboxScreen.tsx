@@ -10,7 +10,7 @@ import {
   type LucideIcon,
   Newspaper,
 } from "lucide-react";
-import { type ReactElement, type ReactNode, useId, useState } from "react";
+import { type ReactElement, type ReactNode, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button.tsx";
 import { useApproval, useNotifications, useTask } from "../../data/hooks.ts";
@@ -88,6 +88,12 @@ function ApprovalControls({
   onDeny?: (n: Notification) => void;
   onOpen?: (n: Notification) => void;
 }): ReactElement {
+  // Inline buttons arm 400 ms after they appear, like the full card (UI design §3.3).
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setArmed(true), 400);
+    return () => clearTimeout(t);
+  }, []);
   const openCard = (
     <Button type="button" size="sm" variant="outline" onClick={() => onOpen?.(n)}>
       Open card
@@ -113,22 +119,36 @@ function ApprovalControls({
       {formatCountdown(remaining)}
     </span>
   );
-  // Purchases and fills need the full card (and authentication) on a trusted device (§3.20).
-  const inline = !a.deviceOnly && !a.requiresAuthentication && state?.canAnswer && !state.stale;
+  // Purchases and fills always open the full card (§3.20), whatever their flags say; so do
+  // device-only and authentication-required kinds.
+  const inline =
+    a.kind !== "purchase" &&
+    a.kind !== "credential_fill" &&
+    !a.deviceOnly &&
+    !a.requiresAuthentication &&
+    state?.canAnswer &&
+    !state.stale;
   return (
     <>
       {countdown}
       {inline ? (
         <>
-          <Button type="button" size="sm" disabled={busy} onClick={() => onApprove?.(n)}>
+          <Button
+            type="button"
+            size="sm"
+            disabled={busy || !armed}
+            onClick={() => onApprove?.(n)}
+            aria-label={`Approve once: ${a.summary}`}
+          >
             Approve
           </Button>
           <Button
             type="button"
             size="sm"
             variant="destructive"
-            disabled={busy}
+            disabled={busy || !armed}
             onClick={() => onDeny?.(n)}
+            aria-label={`Deny: ${a.summary}`}
           >
             Deny
           </Button>

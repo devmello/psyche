@@ -10,15 +10,26 @@ import { type ReactElement, type ReactNode, useState } from "react";
 type Details = Record<string, unknown>;
 
 const str = (v: unknown): string =>
-  v === null || v === undefined
-    ? "—"
-    : typeof v === "string"
-      ? v
-      : typeof v === "number" || typeof v === "boolean"
-        ? String(v)
-        : Array.isArray(v) && v.every((x) => typeof x === "string")
-          ? v.join(", ")
-          : JSON.stringify(v);
+  v === null || v === undefined || (Array.isArray(v) && v.length === 0)
+    ? "none"
+    : v === ""
+      ? "—"
+      : typeof v === "string"
+        ? v
+        : typeof v === "number" || typeof v === "boolean"
+          ? String(v)
+          : Array.isArray(v) && v.every((x) => typeof x === "string")
+            ? v.join(", ")
+            : JSON.stringify(v);
+
+/** `accountDisplay` → "Account display", `toolsListHash` → "Tools list hash". */
+function humanize(key: string): string {
+  const words = key
+    .replace(/[_-]+/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
 
 function Row({ label, children }: { label: string; children: ReactNode }): ReactElement {
   return (
@@ -54,15 +65,14 @@ function Expandable({ label, text }: { label: string; text: string }): ReactElem
   );
 }
 
-const SKIP = new Set(["bodyHash", "argsPreview", "lineItems", "diff", "argv", "env", "fields"]);
-
 function Rest({ details, shown }: { details: Details; shown: readonly string[] }): ReactElement {
   return (
     <>
       {Object.entries(details)
-        .filter(([k]) => !shown.includes(k) && !SKIP.has(k))
+        // `reason` is the Broker's explanation, shown as "Why asked" by the card.
+        .filter(([k]) => !shown.includes(k) && k !== "reason")
         .map(([k, v]) => (
-          <Row key={k} label={k}>
+          <Row key={k} label={humanize(k)}>
             {str(v)}
           </Row>
         ))}
@@ -86,7 +96,23 @@ export function ApprovalDetails({
       return (
         <dl>
           <Row label="Command">
-            <Code>{argv ? argv.join(" ") : str(d.command)}</Code>
+            {argv ? (
+              // One token per argument, quoted when it contains spaces, so ["rm", "-rf foo"]
+              // and ["rm", "-rf", "foo"] never look the same.
+              <ol
+                className="inline-flex flex-wrap gap-1"
+                aria-label={`Arguments: ${argv.map((a) => JSON.stringify(a)).join(", ")}`}
+              >
+                {argv.map((a, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: argv order is the binding
+                  <li key={i}>
+                    <Code>{/[\s"'\\]/.test(a) || a === "" ? JSON.stringify(a) : a}</Code>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <Code>{str(d.command)}</Code>
+            )}
           </Row>
           <Row label="In">{str(d.cwd)}</Row>
           {env.length > 0 ? <Row label="Env names">{env.join(", ")}</Row> : null}
@@ -95,7 +121,7 @@ export function ApprovalDetails({
               <span className="text-danger-text">on your Mac, outside the sandbox</span>
             </Row>
           ) : null}
-          <Rest details={d} shown={["command", "cwd"]} />
+          <Rest details={d} shown={["command", "cwd", "argv", "env"]} />
         </dl>
       );
     }
@@ -119,6 +145,10 @@ export function ApprovalDetails({
             </Row>
           ) : null}
           <Row label="Account">{str(d.account)}</Row>
+          <Rest
+            details={d}
+            shown={["to", "cc", "subject", "body", "bodyPreview", "attachments", "account"]}
+          />
         </dl>
       );
     }
@@ -139,6 +169,10 @@ export function ApprovalDetails({
           </Row>
           <Row label="Fields">{str(d.fields)}</Row>
           <Row label={`${persona} sees`}>only the placeholder, never the value</Row>
+          <Rest
+            details={d}
+            shown={["item", "credential", "boundOrigin", "origin", "currentOrigin", "fields"]}
+          />
         </dl>
       );
     }
@@ -164,7 +198,7 @@ export function ApprovalDetails({
               </ul>
             </Row>
           ) : null}
-          <Rest details={d} shown={["merchant", "amount"]} />
+          <Rest details={d} shown={["merchant", "amount", "lineItems"]} />
         </dl>
       );
     }
@@ -179,7 +213,7 @@ export function ApprovalDetails({
               <Expandable label="View diff" text={d.diff} />
             </Row>
           ) : null}
-          <Rest details={d} shown={["path"]} />
+          <Rest details={d} shown={["path", "diff"]} />
         </dl>
       );
     case "mcp_tool":
@@ -197,6 +231,7 @@ export function ApprovalDetails({
           <Row label="tools/list">
             <Code>{str(d.toolsListHash).slice(0, 19)}</Code>
           </Row>
+          <Rest details={d} shown={["tool", "trustTier", "args", "argsPreview", "toolsListHash"]} />
         </dl>
       );
     default:

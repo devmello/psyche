@@ -11,8 +11,15 @@ export interface MarkdownProps {
   className?: string;
 }
 
-/** Only these link schemes render as links; anything else becomes plain text. */
-const SAFE_LINK = /^(https?:|mailto:|psyche:|\/|#)/i;
+/** Only these link schemes render as links; anything else becomes plain text. In-app
+ * `psyche:` deep links are not accepted from model text (no link-supplied addresses). */
+// A leading "/" is allowed only for same-origin paths: "//host" and "/\\host" are
+// protocol-relative and would leave the app (or reach a network share).
+const SAFE_LINK = /^(https?:|mailto:|#|\/(?![/\\]))/i;
+
+export function isSafeLink(url: string): boolean {
+  return SAFE_LINK.test(url.trim());
+}
 
 /**
  * Streamed, sanitized Markdown (UI design §3.0, §3.2): Streamdown with rehype sanitization,
@@ -31,7 +38,7 @@ export function Markdown({ children, streaming = false, className }: MarkdownPro
       controls={{ code: true, table: false }}
       linkSafety={{ enabled: false }}
       skipHtml
-      urlTransform={(url) => (SAFE_LINK.test(url) ? url : "")}
+      urlTransform={(url) => (isSafeLink(url) ? url : "")}
       components={{
         img: ({ alt }) => (
           <span className="text-muted-foreground">[image: {alt || "untitled"}]</span>
