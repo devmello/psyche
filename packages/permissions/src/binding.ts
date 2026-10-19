@@ -220,9 +220,20 @@ function int(kind: string, name: string, v: unknown, min = 0): number {
 }
 
 function obj(kind: string, v: unknown): Record<string, unknown> {
-  if (typeof v !== "object" || v === null || Array.isArray(v))
+  if (typeof v !== "object" || v === null || Array.isArray(v)) {
     bad(kind, "arguments must be an object");
+  }
+  // A Map, Date or class instance has no own entries and would bind nothing.
+  const proto = Object.getPrototypeOf(v);
+  if (proto !== Object.prototype && proto !== null) bad(kind, "arguments must be a plain object");
   return v as Record<string, unknown>;
+}
+
+/** Entries of a plain-object record; `__proto__` keys would be dropped on copy, so they throw. */
+function entries(kind: string, name: string, v: unknown): [string, unknown][] {
+  const out = Object.entries(obj(kind, v));
+  if (out.some(([k]) => k === "__proto__")) bad(kind, `${name} must not use the key __proto__`);
+  return out;
 }
 
 function emails(kind: string, name: string, v: unknown): string[] {
@@ -324,9 +335,12 @@ function execBinding(kind: "exec" | "exec_host", raw: unknown): [JsonObject, Jso
   if (argv.length === 0) bad(kind, "argv must not be empty");
   if (argv.some((x) => x.includes("\0"))) bad(kind, "NUL in argv");
   const cwd = canonicalPath(str(kind, "cwd", a.cwd));
-  const envObj = a.env === undefined ? {} : obj(kind, a.env);
-  const env = Object.entries(envObj)
-    .map(([k, v]) => `${k}=${str(kind, `env.${k}`, v, { empty: true })}`)
+  const env = (a.env === undefined ? [] : entries(kind, "env", a.env))
+    .map(([k, v]) => {
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(k))
+        bad(kind, `env name ${JSON.stringify(k)} is invalid`);
+      return `${k}=${str(kind, `env.${k}`, v, { empty: true })}`;
+    })
     .sort();
   const executable = canonicalPath(str(kind, "executable", a.executable));
   const executableSha256 = optSha(kind, "executableSha256", a.executableSha256);
@@ -338,7 +352,7 @@ function execBinding(kind: "exec" | "exec_host", raw: unknown): [JsonObject, Jso
   let cwdConfig: JsonObject | undefined;
   if (a.cwdConfigHashes !== undefined) {
     cwdConfig = {};
-    for (const [file, h] of Object.entries(obj(kind, a.cwdConfigHashes))) {
+    for (const [file, h] of entries(kind, "cwdConfigHashes", a.cwdConfigHashes)) {
       cwdConfig[file] = sha(kind, `cwdConfigHashes.${file}`, h);
     }
   }
@@ -368,8 +382,10 @@ function emailBinding(raw: unknown): [JsonObject, JsonObject] {
   let headers: JsonObject | undefined;
   if (a.headers !== undefined) {
     headers = {};
-    for (const [name, v] of Object.entries(obj(k, a.headers))) {
-      headers[name.toLowerCase()] = str(k, `headers.${name}`, v, { empty: true });
+    for (const [name, v] of entries(k, "headers", a.headers)) {
+      const lower = name.toLowerCase();
+      if (lower in headers) bad(k, `header ${name} appears twice`);
+      headers[lower] = str(k, `headers.${name}`, v, { empty: true });
     }
   }
   const account = str(k, "account", a.account);
@@ -433,9 +449,8 @@ function formBinding(raw: unknown): [JsonObject, JsonObject] {
   const action = canonicalUrl(str(k, "action", a.action));
   const method = str(k, "method", a.method).toLowerCase();
   if (!["get", "post", "dialog"].includes(method)) bad(k, "method must be get | post | dialog");
-  const fieldsObj = obj(k, a.fields);
   const values: Record<string, string> = {};
-  for (const [name, v] of Object.entries(fieldsObj)) {
+  for (const [name, v] of entries(k, "fields", a.fields)) {
     values[name] = str(k, `fields.${name}`, v, { empty: true });
   }
   return [
@@ -495,9 +510,8 @@ function purchaseBinding(raw: unknown): [JsonObject, JsonObject] {
   const merchantRaw = str(k, "merchant", a.merchant);
   let merchant = merchantRaw;
   try {
-    merchant = canonicalUrl(
-      merchantRaw.includes("://") ? merchantRaw : `https://${merchantRaw}`,
-    ).host;
+    const u = canonicalUrl(merchantRaw.includes("://") ? merchantRaw : `https://${merchantRaw}`);
+    merchant = u.port === null ? u.host : `${u.host}:${u.port}`;
   } catch (e) {
     if (!(e instanceof TargetError)) throw e;
   }

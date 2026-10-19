@@ -1,0 +1,148 @@
+[
+  {
+    "name": "exec: argv, env, stdin, cwd config",
+    "kind": "exec",
+    "args": {
+      "argv": ["git", "commit", "-m", "café"],
+      "cwd": "/workspace/repo",
+      "env": {
+        "LANG": "C.UTF-8",
+        "GIT_AUTHOR_NAME": "Psyche"
+      },
+      "executable": "/usr/bin/git",
+      "sandboxId": "sbx_1",
+      "stdinSha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "network": "none",
+      "cwdConfigHashes": {
+        ".git/config": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      }
+    },
+    "bindingHash": "sha256:6c9dd826655e28843765f554c2d6e75388365354c9aeec1378186f2a357b5440",
+    "grantKey": "sha256:7e85e17b890058a1e6f7e811785fd192c1de0bc8f407cb6e2035f683dea5d4b6"
+  },
+  {
+    "name": "exec_host: binary hash",
+    "kind": "exec_host",
+    "args": {
+      "argv": ["/usr/bin/open", "-a", "Safari"],
+      "cwd": "/Users/owner",
+      "executable": "/usr/bin/open",
+      "executableSha256": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    "bindingHash": "sha256:627e157c7b79442ae0ff2aa19ddbc4cdd93839364c4bc817f9f4e82092ba6900",
+    "grantKey": "sha256:0f032328a5ad38f6fac00c4586098f7971e40cc8ed04613eb87bfc9a530ad3de"
+  },
+  {
+    "name": "send_email: recipients, display name, IDN, headers, attachments",
+    "kind": "send_email",
+    "args": {
+      "account": "me@example.org",
+      "to": ["Mom@Gmail.com", "\"Bob\" <bob@bücher.example>"],
+      "cc": ["carol@example.org"],
+      "subject": "Dinner – Sunday",
+      "bodySha256": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "htmlSha256": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "mimeSha256": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "from": "me@example.org",
+      "replyTo": ["me@example.org"],
+      "inReplyTo": "<abc@example.org>",
+      "references": ["<abc@example.org>"],
+      "headers": {
+        "X-Priority": "3"
+      },
+      "attachments": [
+        {
+          "sha256": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "size": 2048,
+          "name": "menu.pdf"
+        },
+        {
+          "sha256": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+          "size": 10,
+          "name": "a.txt"
+        }
+      ]
+    },
+    "bindingHash": "sha256:9f3196fd64f61214bf2243b555825a8eb38ab34e9654d637000213b16430cba1",
+    "grantKey": "sha256:8903e78d43cb3cd7af93b8149608722ecd8aafa1e7a174614ebd34476ab1b411"
+  },
+  {
+    "name": "browser_submit: hidden fields and formaction",
+    "kind": "browser_submit",
+    "args": {
+      "pageUrl": "https://Shop.Example./checkout?step=2",
+      "action": "https://shop.example:443/checkout/submit#x",
+      "method": "POST",
+      "fields": {
+        "email": "me@example.org",
+        "csrf": "t1",
+        "password": "{{cred:item_1.password}}"
+      },
+      "submitRef": "ref_12"
+    },
+    "bindingHash": "sha256:4839a8a2359d1453baeb7c530eb58e0d36cbf9151a905d694c8ca7c0bd05a3f4",
+    "grantKey": "sha256:f0085c30a9f9ee6dae53a66396973906f1984c4fc189140a7b7a2b2bf069d7e9"
+  },
+  {
+    "name": "credential_fill: password field",
+    "kind": "credential_fill",
+    "args": {
+      "itemId": "item_1",
+      "origin": "https://accounts.example.com/login",
+      "ref": "ref_7",
+      "elementName": "password",
+      "elementType": "PASSWORD",
+      "field": "password",
+      "tabId": "tab_1"
+    },
+    "bindingHash": "sha256:faa6864d24238bf9bc1d1ff2fc77689fbd26721517cff7adb0fa01223fab4404",
+    "grantKey": "sha256:256e01de1762f446c25fcfd2cbba3105ccc7c49f3c5426d4fb9d8bc712bbdabf"
+  },
+  {
+    "name": "purchase: two line items",
+    "kind": "purchase",
+    "args": {
+      "merchant": "https://www.Shop.example/cart",
+      "amountMinor": 4598,
+      "currency": "USD",
+      "lineItems": [
+        {
+          "name": "widget",
+          "qty": 2,
+          "unitPriceMinor": 1999
+        },
+        {
+          "name": "shipping",
+          "qty": 1,
+          "unitPriceMinor": 600
+        }
+      ],
+      "paymentSourceId": "pm_link_1"
+    },
+    "bindingHash": "sha256:022500fb5800cf636b3eeb3af76943f1641008884a7552f5b350b2d26ac41039",
+    "grantKey": "sha256:7595334ed050b02f3185a5f3db4cb69526b80c9ef45950da33ec6b401e3f6380"
+  },
+  {
+    "name": "file_write: edit under a folder grant",
+    "kind": "file_write",
+    "args": {
+      "realPath": "/workspace/notes/./todo.md",
+      "operation": "edit",
+      "contentSha256": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+      "mode": 420,
+      "root": "/workspace/notes"
+    },
+    "bindingHash": "sha256:cf9f10c4ac0aadd746a0c9dfa6cc346981755e8ca5a85f5b06665c698cf8369c",
+    "grantKey": "sha256:40fc04528ba2fdc2fdaf8a42c571fd7dc51bdb012a1a03252f3c343b5842678c"
+  },
+  {
+    "name": "new_origin: IDN host",
+    "kind": "new_origin",
+    "args": {
+      "url": "https://www.kаyak.com/flights",
+      "taskId": "task_1"
+    },
+    "bindingHash": "sha256:9b944cfe9bc4b163cf307574ca635725508023e9447a12638032daa0b8b48f9f",
+    "grantKey": "sha256:21f5382d5e5ea45741dc35b2c9509d71ad161c28ee19b5559aee20342b657eaf"
+  }
+]
