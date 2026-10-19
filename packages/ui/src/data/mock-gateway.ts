@@ -3,6 +3,7 @@ import {
   type Artifact,
   type Automation,
   type Channel,
+  type ChannelIdentity,
   type Connector,
   type CredentialMeta,
   type Device,
@@ -71,6 +72,7 @@ export interface MockWorld {
   connectors: Connector[];
   channels: Channel[];
   pairingRequests: PairingRequest[];
+  channelIdentities: ChannelIdentity[];
   devices: Device[];
   nodes: NodeInfo[];
   credentials: CredentialMeta[];
@@ -103,6 +105,7 @@ export const EMPTY_WORLD: MockWorld = {
   connectors: [],
   channels: [],
   pairingRequests: [],
+  channelIdentities: [],
   devices: [],
   nodes: [],
   credentials: [],
@@ -895,7 +898,112 @@ export class MockGateway implements GatewayClient {
     "devices.pairing.list": () => ({ pairingRequests: this.world.pairingRequests }),
     "nodes.list": () => ({ nodes: this.world.nodes }),
     "vault.list": () => ({ credentials: this.world.credentials }),
+    "vault.add": (p) => {
+      // The mock never keeps the secret. Like the vault, it refuses card-like numbers.
+      if (/\b(?:\d[ -]?){13,19}\b/.test(JSON.stringify(p.secret)))
+        fail("policy_denied", "Card numbers are refused; connect a payment link instead.");
+      const now = this.now();
+      const credential: CredentialMeta = {
+        id: this.id("cred"),
+        kind: p.kind,
+        name: p.name,
+        slug:
+          p.slug ??
+          p.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, ""),
+        bindings: p.bindings,
+        ownerConnectorId: null,
+        lastUsedAt: null,
+        useCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      };
+      this.world.credentials = [...this.world.credentials, credential];
+      return { credential };
+    },
+    "channels.pairing.list": (p) => ({
+      requests: this.world.pairingRequests.filter(
+        (r) =>
+          r.kind === "channel-sender" &&
+          (p.channelId === undefined || r.channelId === p.channelId) &&
+          (p.status === undefined || r.status === p.status),
+      ),
+    }),
+    "channels.identities.list": () => ({ identities: this.world.channelIdentities }),
+    "channels.pairing.approve": (p) => ({ pairingRequest: this.decidePairing(p, "approved") }),
+    "channels.pairing.deny": (p) => ({ pairingRequest: this.decidePairing(p, "denied") }),
+    "channels.configure": (p) => {
+      const { channelId, ...fields } = p;
+      const current =
+        channelId === undefined ? undefined : this.find(this.world.channels, channelId, "channel");
+      if (current === undefined) fail("not_implemented", "MockGateway does not create channels");
+      const channel: Channel = {
+        ...(current as Channel),
+        ...fields,
+        updatedAt: this.now(),
+      } as Channel;
+      this.replace("channels", channel);
+      return { channel };
+    },
+    "devices.approve": (p) => {
+      const req = this.decidePairing({ requestId: p.pairingRequestId }, "approved");
+      const now = this.now();
+      const device: Device = {
+        id: req.deviceId ?? this.id("dev"),
+        name: req.display,
+        platform: "macos",
+        role: "client",
+        publicKey: "mock-public-key",
+        scopes: p.scopes,
+        pairedAt: now,
+        lastSeenAt: now,
+        revokedAt: null,
+      };
+      this.replace("devices", device);
+      this.emit("device.updated", { device });
+      return { device };
+    },
+    "devices.deny": (p) => ({
+      pairingRequest: this.decidePairing({ requestId: p.pairingRequestId }, "denied"),
+    }),
+    "devices.revoke": (p) => {
+      const device = {
+        ...this.find(this.world.devices, p.deviceId, "device"),
+        revokedAt: this.now(),
+      };
+      this.replace("devices", device);
+      this.emit("device.updated", { device });
+      return { device };
+    },
+    "sandbox.status": () => ({
+      backend: "apple-container" as const,
+      available: true,
+      sandbox: null,
+    }),
   };
+
+  private decidePairing(
+    p: { requestId?: string; code?: string },
+    status: "approved" | "denied",
+  ): PairingRequest {
+    const req =
+      this.world.pairingRequests.find(
+        (r) =>
+          (p.requestId !== undefined && r.id === p.requestId) ||
+          (p.code !== undefined && r.code === p.code),
+      ) ?? fail("not_found", "pairing request not found");
+    if (req.status !== "pending") fail("conflict", "this request was already decided");
+    const decided: PairingRequest = {
+      ...req,
+      status,
+      decidedAt: this.now(),
+      decidedByDeviceId: "dev_this",
+    };
+    this.replace("pairingRequests", decided);
+    return decided;
+  }
 
   private readonly milestones = new Map<string, GoalMilestone[]>();
 
