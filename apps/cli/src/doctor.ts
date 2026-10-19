@@ -136,8 +136,12 @@ export function doctorChecks(s: Snapshot): Check[] {
       s.localModel ? "local Ollama answers on 127.0.0.1:11434" : "",
     ].filter(Boolean);
     add({ id: "models", status: "ok", message: parts.join("; ") });
-  } else if (!s.apiKeys.ok && s.apiKeys.reason !== "unavailable" && !s.connection.paired) {
-    add({ id: "models", status: "skip", message: "not connected; cannot list provider keys" });
+  } else if (!s.apiKeys.ok) {
+    add({
+      id: "models",
+      status: "skip",
+      message: `provider keys unknown (${s.apiKeys.message}); no local model server on 127.0.0.1:11434`,
+    });
   } else {
     add({
       id: "models",

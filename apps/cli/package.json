@@ -21,6 +21,7 @@
     "age-encryption": "0.3.1"
   },
   "devDependencies": {
+    "@psyche/gateway": "workspace:*",
     "@psyche/testing": "workspace:*",
     "@psyche/web": "workspace:*"
   },
