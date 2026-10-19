@@ -1029,10 +1029,11 @@ export interface ChatSendParams {
     /**
      * Library item ids
      */
-    attachments?: string[];
-    content:      string;
-    mode?:        QueueMode;
-    threadId:     string;
+    attachments?:      string[];
+    content:           string;
+    mode?:             QueueMode;
+    replyToMessageId?: string;
+    threadId:          string;
 }
 
 export type QueueMode = "steer" | "followUp" | "interrupt";
