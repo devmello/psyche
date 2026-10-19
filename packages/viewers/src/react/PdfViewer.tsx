@@ -73,7 +73,7 @@ export function PdfViewer(props: PdfViewerProps) {
   useEffect(() => {
     if (state.status !== "ready") return;
     const pdf = state.value.pdf;
-    return () => void pdf.close();
+    return () => void pdf.close().catch(() => undefined);
   }, [state]);
 
   if (state.status === "loading")
@@ -387,7 +387,12 @@ function PdfPage(props: {
 
   useEffect(() => {
     let live = true;
-    void pdf.doc.getPage(page).then((p) => live && setProxy(p));
+    // The document can be closed (viewer unmounted) while this is in flight: pdf.js then rejects
+    // with "Transport destroyed" or a worker-side TypeError. Nothing is waiting for it.
+    pdf.doc.getPage(page).then(
+      (p) => live && setProxy(p),
+      () => undefined,
+    );
     return () => {
       live = false;
     };
