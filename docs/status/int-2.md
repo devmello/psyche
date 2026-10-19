@@ -103,7 +103,7 @@ Requests to S18:
   - `trusted-proxy` identity, web passkeys and `PSYCHE_BIND=container` (security §10) are not built, so Compose needs host networking.
   - `SessionController.send` needs a `RouteContext` (provenance, memory injection, persona overlay, tool allowlist) and a queue entry for chat senders. Until then, only the owner's private chats start turns; designated persons, allowed senders and groups get a refusal. Turns for a busy thread wait in memory.
   - `tool_call.updated` always reports `taintOut: false`.
-- **S14, #47:** Touch ID presence verifier and approval notifications on the Mac, and remote node pairing.
+- **S14 / composition:** #47 (Mac helper) merged while this branch was open. The next step is to compose its Touch ID path as the broker's `PresenceVerifier` and to relay approval notifications to the helper (`notify.subscribe`). Then run remote node pairing by hand. Until then, presence-gated approvals stay refused.
 - **S06:** a vault write API for OAuth tokens. `MemoryTokenVault` is a stand-in, so a restart needs a reconnect.
 - **S00 (protocol):** `connectors.catalogue | connect | disconnect | status | setMatrix` and a connector event (S09's `CONNECTOR_METHODS`). Until then connectors cannot be connected from a client, and their status reaches the owner as notifications.
 - **S10:** edit the Telegram card after another surface answers. A non-owner pressing a button sees "Approval sent." before the refusal.
