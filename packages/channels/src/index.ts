@@ -19,3 +19,4 @@ export * from "./settings.ts";
 export * from "./store/memory.ts";
 export * from "./store/types.ts";
 export * from "./voice.ts";
+export * from "./store/sqlite.ts";

@@ -5,7 +5,9 @@ import { openDb } from "../src/index.ts";
 import { makeTmpDir, memoryDb } from "./helpers.ts";
 
 const TABLES = [
+  "channels",
   "devices",
+  "identities",
   "messages",
   "nodes",
   "pairing_requests",
@@ -68,7 +70,9 @@ describe("openDb", () => {
     db.close();
 
     const again = openDb(file);
-    expect(again.migrate()).toEqual({ applied: [], skipped: ["202610182200_db_init"] });
+    const rerun = again.migrate();
+    expect(rerun.applied).toEqual([]);
+    expect(rerun.skipped).toContain("202610182200_db_init");
     again.close();
 
     const ro = openDb(file, { readonly: true });

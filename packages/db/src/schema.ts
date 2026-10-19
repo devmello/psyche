@@ -53,6 +53,35 @@ export const pairingRequests = sqliteTable("pairing_requests", {
   updatedAt: text("updated_at").notNull(),
 });
 
+// §8 Channels and identities (owner: packages/channels, S10) ----------------------------------
+
+export const channels = sqliteTable("channels", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(),
+  account: text("account").notNull(),
+  dmPolicy: text("dm_policy").notNull(),
+  allowFrom: text("allow_from").notNull(),
+  groupAllowFrom: text("group_allow_from").notNull(),
+  requireMention: integer("require_mention").notNull(),
+  ownerIds: text("owner_ids").notNull(),
+  dmScope: text("dm_scope").notNull(),
+  nodeId: text("node_id"),
+  status: text("status").notNull(),
+  config: text("config").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const identities = sqliteTable("identities", {
+  id: text("id").primaryKey(),
+  display: text("display").notNull(),
+  links: text("links").notNull(),
+  delegatedPersona: text("delegated_persona"),
+  toolAllow: text("tool_allow"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
 // §2 Threads, messages, runs, tool calls ------------------------------------------------------
 
 export const threads = sqliteTable("threads", {
@@ -155,6 +184,8 @@ export const schema = {
   devices,
   nodes,
   pairingRequests,
+  channels,
+  identities,
   threads,
   messages,
   runs,
@@ -170,6 +201,8 @@ export type NodeRow = typeof nodes.$inferSelect;
 export type NewNodeRow = typeof nodes.$inferInsert;
 export type PairingRequestRow = typeof pairingRequests.$inferSelect;
 export type NewPairingRequestRow = typeof pairingRequests.$inferInsert;
+export type ChannelRow = typeof channels.$inferSelect;
+export type IdentityRow = typeof identities.$inferSelect;
 export type ThreadRow = typeof threads.$inferSelect;
 export type NewThreadRow = typeof threads.$inferInsert;
 export type MessageRow = typeof messages.$inferSelect;
