@@ -172,6 +172,40 @@ export interface Artifact {
 
 export type ArtifactType = "markdown" | "html" | "react" | "pdf" | "sheet" | "itinerary" | "dashboard";
 
+export interface AuditExportParams {
+    format?: AuditExportFormat;
+    since?:  string;
+    until?:  string;
+}
+
+export type AuditExportFormat = "jsonl" | "json";
+
+export interface AuditExportResult {
+    data:   string;
+    format: AuditExportFormat;
+}
+
+export interface AuditListParams {
+    approvalId?: string;
+    kind?:       string;
+    /**
+     * "approval." matches every approval kind
+     */
+    kindPrefix?: string;
+    limit?:      number;
+    order?:      Order;
+    since?:      string;
+    sinceSeq?:   number;
+    taskId?:     string;
+    until?:      string;
+}
+
+export type Order = "asc" | "desc";
+
+export interface AuditListResult {
+    entries: AuditEntry[];
+}
+
 export interface AuditEntry {
     actor: AuditActor;
     data:  { [key: string]: unknown };
@@ -198,6 +232,19 @@ export interface AuditActor {
 }
 
 export type AuditActorType = "agent" | "device" | "channel" | "system" | "user";
+
+export interface AuditVerifyResult {
+    anchors?:     number;
+    brokenAtSeq?: number;
+    count?:       number;
+    file?:        string;
+    lastHash?:    string;
+    line?:        number;
+    ok:           boolean;
+    reason?:      AuditVerifyResultReason;
+}
+
+export type AuditVerifyResultReason = "hash_mismatch" | "prev_mismatch" | "seq_gap" | "unparsable" | "truncated" | "anchor_mismatch" | "anchor_missing" | "anchor_signature";
 
 export interface AutomationResult {
     automation: Automation;
@@ -2323,21 +2370,49 @@ export interface SearchQueryParams {
     scopes?: SearchScope[];
 }
 
-export type SearchScope = "threads" | "messages" | "tasks" | "memory" | "library" | "feed";
+export type SearchScope = "threads" | "messages" | "tasks" | "memory" | "library" | "feed" | "ideas" | "goals" | "connectors";
 
 export interface SearchQueryResult {
-    hits: SearchHit[];
+    groups?: SearchHitGroup[];
+    hits:    SearchHit[];
+    total?:  number;
+    /**
+     * Filter tokens that were not understood
+     */
+    warnings?: string[];
 }
 
-export interface SearchHit {
-    id:        string;
-    route?:    null | string;
-    scope:     SearchScope;
-    score:     number;
-    snippet:   string;
-    threadId?: null | string;
-    title:     string;
+export interface SearchHitGroup {
+    /**
+     * Distinct results in the group (after collapsing messages onto threads)
+     */
+    count: number;
+    group: SearchGroup;
+    hits:  SearchHit[];
 }
+
+export type SearchGroup = "threads" | "tasks" | "memory" | "library" | "feed" | "ideas" | "goals" | "connectors";
+
+export interface SearchHit {
+    /**
+     * Epoch ms
+     */
+    createdAt?:         number;
+    group?:             SearchGroup;
+    id:                 string;
+    kind?:              SearchIndexDocKind;
+    provenance?:        Provenance;
+    route?:             null | string;
+    scope:              SearchScope;
+    score:              number;
+    snippet:            string;
+    snippetHighlights?: Array<number[]>;
+    threadId?:          null | string;
+    title:              string;
+    titleHighlights?:   Array<number[]>;
+}
+
+export type SearchIndexDocKind = "thread" | "message" | "task" | "memory" | "library" | "feed" | "idea" | "goal" | "connector";
 
 export interface SettingsChangedPayload {
     entries: SettingEntry[];
@@ -2366,6 +2441,246 @@ export interface SettingsSetParams {
 export interface SettingsSetResult {
     entry:        SettingEntry;
     stateVersion: number;
+}
+
+export interface SkillChangeEvent {
+    added?:   string[];
+    changed?: string[];
+    removed?: string[];
+    type:     SkillChangeEventType;
+    name?:    string;
+    path?:    string;
+    source?:  SkillSource;
+    enabled?: boolean;
+    hash?:    string;
+}
+
+export type SkillSource = "workspace" | "home" | "bundled";
+
+export type SkillChangeEventType = "reloaded" | "hash_mismatch" | "installed" | "removed";
+
+export interface SkillProposalResult {
+    approval: ApprovalRequest;
+    proposal: SkillProposal;
+}
+
+export interface SkillProposal {
+    approvalKind: ApprovalKindEnum;
+    bindingHash:  string;
+    commit?:      string;
+    /**
+     * Epoch ms
+     */
+    expiresAt: number;
+    /**
+     * Every file of the skill (security §11)
+     */
+    files:    SkillProposalFile[];
+    findings: ScanFinding[];
+    grantKey: string;
+    hash:     string;
+    id:       string;
+    name:     string;
+    scope:    Scope;
+    source:   SkillInstallSource;
+    /**
+     * Full `SKILL.md` text, shown before enabling
+     */
+    text:  string;
+    trust: SkillTrust;
+    /**
+     * Updates and re-approvals: the installed hash and the diff
+     */
+    update?: Update;
+}
+
+export type ApprovalKindEnum = "skill_install";
+
+export interface SkillProposalFile {
+    bytes:      number;
+    executable: boolean;
+    path:       string;
+    /**
+     * Absent for binary files
+     */
+    text?: string;
+}
+
+export interface ScanFinding {
+    /**
+     * Path inside the skill folder
+     */
+    file?: string;
+    line?: number;
+    /**
+     * Never quotes the matched text
+     */
+    message:  string;
+    rule:     string;
+    severity: Severity;
+}
+
+export type Severity = "info" | "warn" | "high";
+
+export type Scope = "home" | "workspace";
+
+export interface SkillInstallSource {
+    kind:  SkillInstallSourceKind;
+    path?: string;
+    ref?:  string;
+    url?:  string;
+}
+
+export type SkillInstallSourceKind = "path" | "git" | "zip";
+
+export type SkillTrust = "bundled" | "verified" | "local" | "unknown";
+
+/**
+ * Updates and re-approvals: the installed hash and the diff
+ */
+export interface Update {
+    /**
+     * Unified diff per file
+     */
+    diff:     string;
+    fromHash: string;
+    upToDate: boolean;
+}
+
+export interface SkillsCommandsResult {
+    commands: SkillCommand[];
+}
+
+export interface SkillCommand {
+    /**
+     * `/inbox-triage`
+     */
+    command:     string;
+    description: string;
+    name:        string;
+    source:      SkillSource;
+    trust:       SkillTrust;
+}
+
+export interface SkillsGetParams {
+    name:    string;
+    source?: SkillSource;
+}
+
+export interface SkillsGetProposalParams {
+    proposalId: string;
+}
+
+export interface SkillsGetProposalResult {
+    proposal: SkillProposal;
+}
+
+export interface SkillsGetResult {
+    skill: SkillDetails;
+    /**
+     * `SKILL.md` text; null when it cannot be read
+     */
+    text: null | string;
+}
+
+export interface SkillDetails {
+    commit?:                string;
+    description:            string;
+    disableModelInvocation: boolean;
+    /**
+     * Effective state: the owner's switch and the gates
+     */
+    enabled:  boolean;
+    findings: ScanFinding[];
+    /**
+     * Tree hash; empty for a skill that could not be read
+     */
+    hash: string;
+    name: string;
+    /**
+     * Lower-precedence sources this skill overrides
+     */
+    overrides: SkillSource[];
+    path:      string;
+    reasons:   string[];
+    source:    SkillSource;
+    status:    SkillStatus;
+    trust:     SkillTrust;
+    /**
+     * The owner's switch (`enabled` is the effective state)
+     */
+    userEnabled:   boolean;
+    userInvocable: boolean;
+    version?:      string;
+}
+
+export type SkillStatus = "active" | "disabled" | "draft" | "unlocked" | "hash_mismatch" | "invalid" | "blocked" | "ineligible" | "shadowed";
+
+export interface SkillsInstallParams {
+    approvalId: string;
+    proposalId: string;
+}
+
+export interface SkillsInstallResult {
+    skill: SkillSummary;
+}
+
+export interface SkillSummary {
+    description:            string;
+    disableModelInvocation: boolean;
+    /**
+     * Effective state: the owner's switch and the gates
+     */
+    enabled: boolean;
+    /**
+     * Tree hash; empty for a skill that could not be read
+     */
+    hash:          string;
+    name:          string;
+    path:          string;
+    source:        SkillSource;
+    trust:         SkillTrust;
+    userInvocable: boolean;
+}
+
+export interface SkillsListResult {
+    skills: SkillDetails[];
+}
+
+export interface SkillsProposeApprovalParams {
+    name: string;
+}
+
+export interface SkillsProposeInstallParams {
+    source: SkillInstallSource;
+}
+
+export interface SkillsProposeUpdateParams {
+    name: string;
+    ref?: string;
+}
+
+export interface SkillsRemoveParams {
+    name: string;
+}
+
+export interface SkillsSearchParams {
+    limit?: number;
+    query:  string;
+}
+
+export interface SkillsSearchResult {
+    skills: SkillSummary[];
+}
+
+export interface SkillsSetEnabledParams {
+    enabled: boolean;
+    name:    string;
+    source?: SkillSource;
+}
+
+export interface SkillsSetEnabledResult {
+    skill: SkillDetails;
 }
 
 export interface SpeechAudioPayload {
@@ -2817,11 +3132,11 @@ export interface VaultLockResult {
 }
 
 export interface VaultLockedPayload {
-    reason: Reason;
+    reason: VaultLockedPayloadReason;
     status: VaultStatus;
 }
 
-export type Reason = "manual" | "idle" | "sleep" | "screen_lock" | "shutdown";
+export type VaultLockedPayloadReason = "manual" | "idle" | "sleep" | "screen_lock" | "shutdown";
 
 export interface VaultSetupParams {
     slot: Slot;

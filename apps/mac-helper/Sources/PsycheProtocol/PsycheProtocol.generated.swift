@@ -25,6 +25,13 @@
 //   let audioFormat = try? JSONDecoder().decode(AudioFormat.self, from: jsonData)
 //   let auditActor = try? JSONDecoder().decode(AuditActor.self, from: jsonData)
 //   let auditEntry = try? JSONDecoder().decode(AuditEntry.self, from: jsonData)
+//   let auditExportFormat = try? JSONDecoder().decode(AuditExportFormat.self, from: jsonData)
+//   let auditExportParams = try? JSONDecoder().decode(AuditExportParams.self, from: jsonData)
+//   let auditExportResult = try? JSONDecoder().decode(AuditExportResult.self, from: jsonData)
+//   let auditListParams = try? JSONDecoder().decode(AuditListParams.self, from: jsonData)
+//   let auditListResult = try? JSONDecoder().decode(AuditListResult.self, from: jsonData)
+//   let auditVerifyParams = try? JSONDecoder().decode(AuditVerifyParams.self, from: jsonData)
+//   let auditVerifyResult = try? JSONDecoder().decode(AuditVerifyResult.self, from: jsonData)
 //   let automation = try? JSONDecoder().decode(Automation.self, from: jsonData)
 //   let automationKind = try? JSONDecoder().decode(AutomationKind.self, from: jsonData)
 //   let automationResult = try? JSONDecoder().decode(AutomationResult.self, from: jsonData)
@@ -356,7 +363,11 @@
 //   let sandboxStatus = try? JSONDecoder().decode(SandboxStatus.self, from: jsonData)
 //   let sandboxStatusParams = try? JSONDecoder().decode(SandboxStatusParams.self, from: jsonData)
 //   let sandboxStatusResult = try? JSONDecoder().decode(SandboxStatusResult.self, from: jsonData)
+//   let scanFinding = try? JSONDecoder().decode(ScanFinding.self, from: jsonData)
+//   let searchGroup = try? JSONDecoder().decode(SearchGroup.self, from: jsonData)
 //   let searchHit = try? JSONDecoder().decode(SearchHit.self, from: jsonData)
+//   let searchHitGroup = try? JSONDecoder().decode(SearchHitGroup.self, from: jsonData)
+//   let searchIndexDocKind = try? JSONDecoder().decode(SearchIndexDocKind.self, from: jsonData)
 //   let searchQueryParams = try? JSONDecoder().decode(SearchQueryParams.self, from: jsonData)
 //   let searchQueryResult = try? JSONDecoder().decode(SearchQueryResult.self, from: jsonData)
 //   let searchScope = try? JSONDecoder().decode(SearchScope.self, from: jsonData)
@@ -368,6 +379,33 @@
 //   let settingsSetParams = try? JSONDecoder().decode(SettingsSetParams.self, from: jsonData)
 //   let settingsSetResult = try? JSONDecoder().decode(SettingsSetResult.self, from: jsonData)
 //   let sideEffect = try? JSONDecoder().decode(SideEffect.self, from: jsonData)
+//   let skillChangeEvent = try? JSONDecoder().decode(SkillChangeEvent.self, from: jsonData)
+//   let skillCommand = try? JSONDecoder().decode(SkillCommand.self, from: jsonData)
+//   let skillDetails = try? JSONDecoder().decode(SkillDetails.self, from: jsonData)
+//   let skillInstallSource = try? JSONDecoder().decode(SkillInstallSource.self, from: jsonData)
+//   let skillProposal = try? JSONDecoder().decode(SkillProposal.self, from: jsonData)
+//   let skillProposalFile = try? JSONDecoder().decode(SkillProposalFile.self, from: jsonData)
+//   let skillProposalResult = try? JSONDecoder().decode(SkillProposalResult.self, from: jsonData)
+//   let skillSource = try? JSONDecoder().decode(SkillSource.self, from: jsonData)
+//   let skillStatus = try? JSONDecoder().decode(SkillStatus.self, from: jsonData)
+//   let skillSummary = try? JSONDecoder().decode(SkillSummary.self, from: jsonData)
+//   let skillTrust = try? JSONDecoder().decode(SkillTrust.self, from: jsonData)
+//   let skillsCommandsResult = try? JSONDecoder().decode(SkillsCommandsResult.self, from: jsonData)
+//   let skillsGetParams = try? JSONDecoder().decode(SkillsGetParams.self, from: jsonData)
+//   let skillsGetProposalParams = try? JSONDecoder().decode(SkillsGetProposalParams.self, from: jsonData)
+//   let skillsGetProposalResult = try? JSONDecoder().decode(SkillsGetProposalResult.self, from: jsonData)
+//   let skillsGetResult = try? JSONDecoder().decode(SkillsGetResult.self, from: jsonData)
+//   let skillsInstallParams = try? JSONDecoder().decode(SkillsInstallParams.self, from: jsonData)
+//   let skillsInstallResult = try? JSONDecoder().decode(SkillsInstallResult.self, from: jsonData)
+//   let skillsListResult = try? JSONDecoder().decode(SkillsListResult.self, from: jsonData)
+//   let skillsProposeApprovalParams = try? JSONDecoder().decode(SkillsProposeApprovalParams.self, from: jsonData)
+//   let skillsProposeInstallParams = try? JSONDecoder().decode(SkillsProposeInstallParams.self, from: jsonData)
+//   let skillsProposeUpdateParams = try? JSONDecoder().decode(SkillsProposeUpdateParams.self, from: jsonData)
+//   let skillsRemoveParams = try? JSONDecoder().decode(SkillsRemoveParams.self, from: jsonData)
+//   let skillsSearchParams = try? JSONDecoder().decode(SkillsSearchParams.self, from: jsonData)
+//   let skillsSearchResult = try? JSONDecoder().decode(SkillsSearchResult.self, from: jsonData)
+//   let skillsSetEnabledParams = try? JSONDecoder().decode(SkillsSetEnabledParams.self, from: jsonData)
+//   let skillsSetEnabledResult = try? JSONDecoder().decode(SkillsSetEnabledResult.self, from: jsonData)
 //   let speechAudioPayload = try? JSONDecoder().decode(SpeechAudioPayload.self, from: jsonData)
 //   let speechEngineLocation = try? JSONDecoder().decode(SpeechEngineLocation.self, from: jsonData)
 //   let speechReadAloudCompletedPayload = try? JSONDecoder().decode(SpeechReadAloudCompletedPayload.self, from: jsonData)
@@ -982,6 +1020,102 @@ public enum ArtifactType: String, Codable, Sendable {
     case sheet = "sheet"
 }
 
+// MARK: - AuditExportParams
+public struct AuditExportParams: Codable, Sendable {
+    public let format: AuditExportFormat?
+    public let since: String?
+    public let until: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case format = "format"
+        case since = "since"
+        case until = "until"
+    }
+
+    public init(format: AuditExportFormat?, since: String?, until: String?) {
+        self.format = format
+        self.since = since
+        self.until = until
+    }
+}
+
+public enum AuditExportFormat: String, Codable, Sendable {
+    case json = "json"
+    case jsonl = "jsonl"
+}
+
+// MARK: - AuditExportResult
+public struct AuditExportResult: Codable, Sendable {
+    public let data: String
+    public let format: AuditExportFormat
+
+    public enum CodingKeys: String, CodingKey {
+        case data = "data"
+        case format = "format"
+    }
+
+    public init(data: String, format: AuditExportFormat) {
+        self.data = data
+        self.format = format
+    }
+}
+
+// MARK: - AuditListParams
+public struct AuditListParams: Codable, Sendable {
+    public let approvalID: String?
+    public let kind: String?
+    /// "approval." matches every approval kind
+    public let kindPrefix: String?
+    public let limit: Int?
+    public let order: Order?
+    public let since: String?
+    public let sinceSeq: Int?
+    public let taskID: String?
+    public let until: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case kind = "kind"
+        case kindPrefix = "kindPrefix"
+        case limit = "limit"
+        case order = "order"
+        case since = "since"
+        case sinceSeq = "sinceSeq"
+        case taskID = "taskId"
+        case until = "until"
+    }
+
+    public init(approvalID: String?, kind: String?, kindPrefix: String?, limit: Int?, order: Order?, since: String?, sinceSeq: Int?, taskID: String?, until: String?) {
+        self.approvalID = approvalID
+        self.kind = kind
+        self.kindPrefix = kindPrefix
+        self.limit = limit
+        self.order = order
+        self.since = since
+        self.sinceSeq = sinceSeq
+        self.taskID = taskID
+        self.until = until
+    }
+}
+
+public enum Order: String, Codable, Sendable {
+    case asc = "asc"
+    case desc = "desc"
+}
+
+// MARK: - AuditListResult
+public struct AuditListResult: Codable, Sendable {
+    public let entries: [AuditEntry]
+
+    public enum CodingKeys: String, CodingKey {
+        case entries = "entries"
+    }
+
+    public init(entries: [AuditEntry]) {
+        self.entries = entries
+    }
+}
+
 // MARK: - AuditEntry
 public struct AuditEntry: Codable, Sendable {
     public let actor: AuditActor
@@ -1049,6 +1183,51 @@ public enum AuditActorType: String, Codable, Sendable {
     case device = "device"
     case system = "system"
     case user = "user"
+}
+
+// MARK: - AuditVerifyResult
+public struct AuditVerifyResult: Codable, Sendable {
+    public let anchors: Int?
+    public let brokenAtSeq: Int?
+    public let count: Int?
+    public let file: String?
+    public let lastHash: String?
+    public let line: Int?
+    public let ok: Bool
+    public let reason: AuditVerifyResultReason?
+
+    public enum CodingKeys: String, CodingKey {
+        case anchors = "anchors"
+        case brokenAtSeq = "brokenAtSeq"
+        case count = "count"
+        case file = "file"
+        case lastHash = "lastHash"
+        case line = "line"
+        case ok = "ok"
+        case reason = "reason"
+    }
+
+    public init(anchors: Int?, brokenAtSeq: Int?, count: Int?, file: String?, lastHash: String?, line: Int?, ok: Bool, reason: AuditVerifyResultReason?) {
+        self.anchors = anchors
+        self.brokenAtSeq = brokenAtSeq
+        self.count = count
+        self.file = file
+        self.lastHash = lastHash
+        self.line = line
+        self.ok = ok
+        self.reason = reason
+    }
+}
+
+public enum AuditVerifyResultReason: String, Codable, Sendable {
+    case anchorMismatch = "anchor_mismatch"
+    case anchorMissing = "anchor_missing"
+    case anchorSignature = "anchor_signature"
+    case hashMismatch = "hash_mismatch"
+    case prevMismatch = "prev_mismatch"
+    case seqGap = "seq_gap"
+    case truncated = "truncated"
+    case unparsable = "unparsable"
 }
 
 // MARK: - AutomationResult
@@ -7285,7 +7464,10 @@ public struct SearchQueryParams: Codable, Sendable {
 }
 
 public enum SearchScope: String, Codable, Sendable {
+    case connectors = "connectors"
     case feed = "feed"
+    case goals = "goals"
+    case ideas = "ideas"
     case library = "library"
     case memory = "memory"
     case messages = "messages"
@@ -7295,46 +7477,118 @@ public enum SearchScope: String, Codable, Sendable {
 
 // MARK: - SearchQueryResult
 public struct SearchQueryResult: Codable, Sendable {
+    public let groups: [SearchHitGroup]?
+    public let hits: [SearchHit]
+    public let total: Int?
+    /// Filter tokens that were not understood
+    public let warnings: [String]?
+
+    public enum CodingKeys: String, CodingKey {
+        case groups = "groups"
+        case hits = "hits"
+        case total = "total"
+        case warnings = "warnings"
+    }
+
+    public init(groups: [SearchHitGroup]?, hits: [SearchHit], total: Int?, warnings: [String]?) {
+        self.groups = groups
+        self.hits = hits
+        self.total = total
+        self.warnings = warnings
+    }
+}
+
+// MARK: - SearchHitGroup
+public struct SearchHitGroup: Codable, Sendable {
+    /// Distinct results in the group (after collapsing messages onto threads)
+    public let count: Int
+    public let group: SearchGroup
     public let hits: [SearchHit]
 
     public enum CodingKeys: String, CodingKey {
+        case count = "count"
+        case group = "group"
         case hits = "hits"
     }
 
-    public init(hits: [SearchHit]) {
+    public init(count: Int, group: SearchGroup, hits: [SearchHit]) {
+        self.count = count
+        self.group = group
         self.hits = hits
     }
 }
 
+public enum SearchGroup: String, Codable, Sendable {
+    case connectors = "connectors"
+    case feed = "feed"
+    case goals = "goals"
+    case ideas = "ideas"
+    case library = "library"
+    case memory = "memory"
+    case tasks = "tasks"
+    case threads = "threads"
+}
+
 // MARK: - SearchHit
 public struct SearchHit: Codable, Sendable {
+    /// Epoch ms
+    public let createdAt: Int?
+    public let group: SearchGroup?
     public let id: String
+    public let kind: SearchIndexDocKind?
+    public let provenance: Provenance?
     public let route: String?
     public let scope: SearchScope
     public let score: Double
     public let snippet: String
+    public let snippetHighlights: [[Int]]?
     public let threadID: String?
     public let title: String
+    public let titleHighlights: [[Int]]?
 
     public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case group = "group"
         case id = "id"
+        case kind = "kind"
+        case provenance = "provenance"
         case route = "route"
         case scope = "scope"
         case score = "score"
         case snippet = "snippet"
+        case snippetHighlights = "snippetHighlights"
         case threadID = "threadId"
         case title = "title"
+        case titleHighlights = "titleHighlights"
     }
 
-    public init(id: String, route: String?, scope: SearchScope, score: Double, snippet: String, threadID: String?, title: String) {
+    public init(createdAt: Int?, group: SearchGroup?, id: String, kind: SearchIndexDocKind?, provenance: Provenance?, route: String?, scope: SearchScope, score: Double, snippet: String, snippetHighlights: [[Int]]?, threadID: String?, title: String, titleHighlights: [[Int]]?) {
+        self.createdAt = createdAt
+        self.group = group
         self.id = id
+        self.kind = kind
+        self.provenance = provenance
         self.route = route
         self.scope = scope
         self.score = score
         self.snippet = snippet
+        self.snippetHighlights = snippetHighlights
         self.threadID = threadID
         self.title = title
+        self.titleHighlights = titleHighlights
     }
+}
+
+public enum SearchIndexDocKind: String, Codable, Sendable {
+    case connector = "connector"
+    case feed = "feed"
+    case goal = "goal"
+    case idea = "idea"
+    case library = "library"
+    case memory = "memory"
+    case message = "message"
+    case task = "task"
+    case thread = "thread"
 }
 
 // MARK: - SettingsChangedPayload
@@ -7427,6 +7681,621 @@ public struct SettingsSetResult: Codable, Sendable {
     public init(entry: SettingEntry, stateVersion: Int) {
         self.entry = entry
         self.stateVersion = stateVersion
+    }
+}
+
+// MARK: - SkillChangeEvent
+public struct SkillChangeEvent: Codable, Sendable {
+    public let added: [String]?
+    public let changed: [String]?
+    public let removed: [String]?
+    public let type: SkillChangeEventType
+    public let name: String?
+    public let path: String?
+    public let source: SkillSource?
+    public let enabled: Bool?
+    public let hash: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case added = "added"
+        case changed = "changed"
+        case removed = "removed"
+        case type = "type"
+        case name = "name"
+        case path = "path"
+        case source = "source"
+        case enabled = "enabled"
+        case hash = "hash"
+    }
+
+    public init(added: [String]?, changed: [String]?, removed: [String]?, type: SkillChangeEventType, name: String?, path: String?, source: SkillSource?, enabled: Bool?, hash: String?) {
+        self.added = added
+        self.changed = changed
+        self.removed = removed
+        self.type = type
+        self.name = name
+        self.path = path
+        self.source = source
+        self.enabled = enabled
+        self.hash = hash
+    }
+}
+
+public enum SkillSource: String, Codable, Sendable {
+    case bundled = "bundled"
+    case home = "home"
+    case workspace = "workspace"
+}
+
+public enum SkillChangeEventType: String, Codable, Sendable {
+    case hashMismatch = "hash_mismatch"
+    case installed = "installed"
+    case reloaded = "reloaded"
+    case removed = "removed"
+}
+
+// MARK: - SkillProposalResult
+public struct SkillProposalResult: Codable, Sendable {
+    public let approval: ApprovalRequest
+    public let proposal: SkillProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case approval = "approval"
+        case proposal = "proposal"
+    }
+
+    public init(approval: ApprovalRequest, proposal: SkillProposal) {
+        self.approval = approval
+        self.proposal = proposal
+    }
+}
+
+// MARK: - SkillProposal
+public struct SkillProposal: Codable, Sendable {
+    public let approvalKind: ApprovalKindEnum
+    public let bindingHash: String
+    public let commit: String?
+    /// Epoch ms
+    public let expiresAt: Int
+    /// Every file of the skill (security §11)
+    public let files: [SkillProposalFile]
+    public let findings: [ScanFinding]
+    public let grantKey: String
+    public let hash: String
+    public let id: String
+    public let name: String
+    public let scope: Scope
+    public let source: SkillInstallSource
+    /// Full `SKILL.md` text, shown before enabling
+    public let text: String
+    public let trust: SkillTrust
+    /// Updates and re-approvals: the installed hash and the diff
+    public let update: Update?
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalKind = "approvalKind"
+        case bindingHash = "bindingHash"
+        case commit = "commit"
+        case expiresAt = "expiresAt"
+        case files = "files"
+        case findings = "findings"
+        case grantKey = "grantKey"
+        case hash = "hash"
+        case id = "id"
+        case name = "name"
+        case scope = "scope"
+        case source = "source"
+        case text = "text"
+        case trust = "trust"
+        case update = "update"
+    }
+
+    public init(approvalKind: ApprovalKindEnum, bindingHash: String, commit: String?, expiresAt: Int, files: [SkillProposalFile], findings: [ScanFinding], grantKey: String, hash: String, id: String, name: String, scope: Scope, source: SkillInstallSource, text: String, trust: SkillTrust, update: Update?) {
+        self.approvalKind = approvalKind
+        self.bindingHash = bindingHash
+        self.commit = commit
+        self.expiresAt = expiresAt
+        self.files = files
+        self.findings = findings
+        self.grantKey = grantKey
+        self.hash = hash
+        self.id = id
+        self.name = name
+        self.scope = scope
+        self.source = source
+        self.text = text
+        self.trust = trust
+        self.update = update
+    }
+}
+
+public enum ApprovalKindEnum: String, Codable, Sendable {
+    case skillInstall = "skill_install"
+}
+
+// MARK: - SkillProposalFile
+public struct SkillProposalFile: Codable, Sendable {
+    public let bytes: Int
+    public let executable: Bool
+    public let path: String
+    /// Absent for binary files
+    public let text: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case executable = "executable"
+        case path = "path"
+        case text = "text"
+    }
+
+    public init(bytes: Int, executable: Bool, path: String, text: String?) {
+        self.bytes = bytes
+        self.executable = executable
+        self.path = path
+        self.text = text
+    }
+}
+
+// MARK: - ScanFinding
+public struct ScanFinding: Codable, Sendable {
+    /// Path inside the skill folder
+    public let file: String?
+    public let line: Int?
+    /// Never quotes the matched text
+    public let message: String
+    public let rule: String
+    public let severity: Severity
+
+    public enum CodingKeys: String, CodingKey {
+        case file = "file"
+        case line = "line"
+        case message = "message"
+        case rule = "rule"
+        case severity = "severity"
+    }
+
+    public init(file: String?, line: Int?, message: String, rule: String, severity: Severity) {
+        self.file = file
+        self.line = line
+        self.message = message
+        self.rule = rule
+        self.severity = severity
+    }
+}
+
+public enum Severity: String, Codable, Sendable {
+    case high = "high"
+    case info = "info"
+    case warn = "warn"
+}
+
+public enum Scope: String, Codable, Sendable {
+    case home = "home"
+    case workspace = "workspace"
+}
+
+// MARK: - SkillInstallSource
+public struct SkillInstallSource: Codable, Sendable {
+    public let kind: SkillInstallSourceKind
+    public let path: String?
+    public let ref: String?
+    public let url: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case path = "path"
+        case ref = "ref"
+        case url = "url"
+    }
+
+    public init(kind: SkillInstallSourceKind, path: String?, ref: String?, url: String?) {
+        self.kind = kind
+        self.path = path
+        self.ref = ref
+        self.url = url
+    }
+}
+
+public enum SkillInstallSourceKind: String, Codable, Sendable {
+    case git = "git"
+    case path = "path"
+    case zip = "zip"
+}
+
+public enum SkillTrust: String, Codable, Sendable {
+    case bundled = "bundled"
+    case local = "local"
+    case unknown = "unknown"
+    case verified = "verified"
+}
+
+/// Updates and re-approvals: the installed hash and the diff
+// MARK: - Update
+public struct Update: Codable, Sendable {
+    /// Unified diff per file
+    public let diff: String
+    public let fromHash: String
+    public let upToDate: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case diff = "diff"
+        case fromHash = "fromHash"
+        case upToDate = "upToDate"
+    }
+
+    public init(diff: String, fromHash: String, upToDate: Bool) {
+        self.diff = diff
+        self.fromHash = fromHash
+        self.upToDate = upToDate
+    }
+}
+
+// MARK: - SkillsCommandsResult
+public struct SkillsCommandsResult: Codable, Sendable {
+    public let commands: [SkillCommand]
+
+    public enum CodingKeys: String, CodingKey {
+        case commands = "commands"
+    }
+
+    public init(commands: [SkillCommand]) {
+        self.commands = commands
+    }
+}
+
+// MARK: - SkillCommand
+public struct SkillCommand: Codable, Sendable {
+    /// `/inbox-triage`
+    public let command: String
+    public let description: String
+    public let name: String
+    public let source: SkillSource
+    public let trust: SkillTrust
+
+    public enum CodingKeys: String, CodingKey {
+        case command = "command"
+        case description = "description"
+        case name = "name"
+        case source = "source"
+        case trust = "trust"
+    }
+
+    public init(command: String, description: String, name: String, source: SkillSource, trust: SkillTrust) {
+        self.command = command
+        self.description = description
+        self.name = name
+        self.source = source
+        self.trust = trust
+    }
+}
+
+// MARK: - SkillsGetParams
+public struct SkillsGetParams: Codable, Sendable {
+    public let name: String
+    public let source: SkillSource?
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case source = "source"
+    }
+
+    public init(name: String, source: SkillSource?) {
+        self.name = name
+        self.source = source
+    }
+}
+
+// MARK: - SkillsGetProposalParams
+public struct SkillsGetProposalParams: Codable, Sendable {
+    public let proposalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case proposalID = "proposalId"
+    }
+
+    public init(proposalID: String) {
+        self.proposalID = proposalID
+    }
+}
+
+// MARK: - SkillsGetProposalResult
+public struct SkillsGetProposalResult: Codable, Sendable {
+    public let proposal: SkillProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case proposal = "proposal"
+    }
+
+    public init(proposal: SkillProposal) {
+        self.proposal = proposal
+    }
+}
+
+// MARK: - SkillsGetResult
+public struct SkillsGetResult: Codable, Sendable {
+    public let skill: SkillDetails
+    /// `SKILL.md` text; null when it cannot be read
+    public let text: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case skill = "skill"
+        case text = "text"
+    }
+
+    public init(skill: SkillDetails, text: String?) {
+        self.skill = skill
+        self.text = text
+    }
+}
+
+// MARK: - SkillDetails
+public struct SkillDetails: Codable, Sendable {
+    public let commit: String?
+    public let description: String
+    public let disableModelInvocation: Bool
+    /// Effective state: the owner's switch and the gates
+    public let enabled: Bool
+    public let findings: [ScanFinding]
+    /// Tree hash; empty for a skill that could not be read
+    public let hash: String
+    public let name: String
+    /// Lower-precedence sources this skill overrides
+    public let overrides: [SkillSource]
+    public let path: String
+    public let reasons: [String]
+    public let source: SkillSource
+    public let status: SkillStatus
+    public let trust: SkillTrust
+    /// The owner's switch (`enabled` is the effective state)
+    public let userEnabled: Bool
+    public let userInvocable: Bool
+    public let version: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case commit = "commit"
+        case description = "description"
+        case disableModelInvocation = "disableModelInvocation"
+        case enabled = "enabled"
+        case findings = "findings"
+        case hash = "hash"
+        case name = "name"
+        case overrides = "overrides"
+        case path = "path"
+        case reasons = "reasons"
+        case source = "source"
+        case status = "status"
+        case trust = "trust"
+        case userEnabled = "userEnabled"
+        case userInvocable = "userInvocable"
+        case version = "version"
+    }
+
+    public init(commit: String?, description: String, disableModelInvocation: Bool, enabled: Bool, findings: [ScanFinding], hash: String, name: String, overrides: [SkillSource], path: String, reasons: [String], source: SkillSource, status: SkillStatus, trust: SkillTrust, userEnabled: Bool, userInvocable: Bool, version: String?) {
+        self.commit = commit
+        self.description = description
+        self.disableModelInvocation = disableModelInvocation
+        self.enabled = enabled
+        self.findings = findings
+        self.hash = hash
+        self.name = name
+        self.overrides = overrides
+        self.path = path
+        self.reasons = reasons
+        self.source = source
+        self.status = status
+        self.trust = trust
+        self.userEnabled = userEnabled
+        self.userInvocable = userInvocable
+        self.version = version
+    }
+}
+
+public enum SkillStatus: String, Codable, Sendable {
+    case active = "active"
+    case blocked = "blocked"
+    case disabled = "disabled"
+    case draft = "draft"
+    case hashMismatch = "hash_mismatch"
+    case ineligible = "ineligible"
+    case invalid = "invalid"
+    case shadowed = "shadowed"
+    case unlocked = "unlocked"
+}
+
+// MARK: - SkillsInstallParams
+public struct SkillsInstallParams: Codable, Sendable {
+    public let approvalID: String
+    public let proposalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case proposalID = "proposalId"
+    }
+
+    public init(approvalID: String, proposalID: String) {
+        self.approvalID = approvalID
+        self.proposalID = proposalID
+    }
+}
+
+// MARK: - SkillsInstallResult
+public struct SkillsInstallResult: Codable, Sendable {
+    public let skill: SkillSummary
+
+    public enum CodingKeys: String, CodingKey {
+        case skill = "skill"
+    }
+
+    public init(skill: SkillSummary) {
+        self.skill = skill
+    }
+}
+
+// MARK: - SkillSummary
+public struct SkillSummary: Codable, Sendable {
+    public let description: String
+    public let disableModelInvocation: Bool
+    /// Effective state: the owner's switch and the gates
+    public let enabled: Bool
+    /// Tree hash; empty for a skill that could not be read
+    public let hash: String
+    public let name: String
+    public let path: String
+    public let source: SkillSource
+    public let trust: SkillTrust
+    public let userInvocable: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case description = "description"
+        case disableModelInvocation = "disableModelInvocation"
+        case enabled = "enabled"
+        case hash = "hash"
+        case name = "name"
+        case path = "path"
+        case source = "source"
+        case trust = "trust"
+        case userInvocable = "userInvocable"
+    }
+
+    public init(description: String, disableModelInvocation: Bool, enabled: Bool, hash: String, name: String, path: String, source: SkillSource, trust: SkillTrust, userInvocable: Bool) {
+        self.description = description
+        self.disableModelInvocation = disableModelInvocation
+        self.enabled = enabled
+        self.hash = hash
+        self.name = name
+        self.path = path
+        self.source = source
+        self.trust = trust
+        self.userInvocable = userInvocable
+    }
+}
+
+// MARK: - SkillsListResult
+public struct SkillsListResult: Codable, Sendable {
+    public let skills: [SkillDetails]
+
+    public enum CodingKeys: String, CodingKey {
+        case skills = "skills"
+    }
+
+    public init(skills: [SkillDetails]) {
+        self.skills = skills
+    }
+}
+
+// MARK: - SkillsProposeApprovalParams
+public struct SkillsProposeApprovalParams: Codable, Sendable {
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+    }
+
+    public init(name: String) {
+        self.name = name
+    }
+}
+
+// MARK: - SkillsProposeInstallParams
+public struct SkillsProposeInstallParams: Codable, Sendable {
+    public let source: SkillInstallSource
+
+    public enum CodingKeys: String, CodingKey {
+        case source = "source"
+    }
+
+    public init(source: SkillInstallSource) {
+        self.source = source
+    }
+}
+
+// MARK: - SkillsProposeUpdateParams
+public struct SkillsProposeUpdateParams: Codable, Sendable {
+    public let name: String
+    public let ref: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case ref = "ref"
+    }
+
+    public init(name: String, ref: String?) {
+        self.name = name
+        self.ref = ref
+    }
+}
+
+// MARK: - SkillsRemoveParams
+public struct SkillsRemoveParams: Codable, Sendable {
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+    }
+
+    public init(name: String) {
+        self.name = name
+    }
+}
+
+// MARK: - SkillsSearchParams
+public struct SkillsSearchParams: Codable, Sendable {
+    public let limit: Int?
+    public let query: String
+
+    public enum CodingKeys: String, CodingKey {
+        case limit = "limit"
+        case query = "query"
+    }
+
+    public init(limit: Int?, query: String) {
+        self.limit = limit
+        self.query = query
+    }
+}
+
+// MARK: - SkillsSearchResult
+public struct SkillsSearchResult: Codable, Sendable {
+    public let skills: [SkillSummary]
+
+    public enum CodingKeys: String, CodingKey {
+        case skills = "skills"
+    }
+
+    public init(skills: [SkillSummary]) {
+        self.skills = skills
+    }
+}
+
+// MARK: - SkillsSetEnabledParams
+public struct SkillsSetEnabledParams: Codable, Sendable {
+    public let enabled: Bool
+    public let name: String
+    public let source: SkillSource?
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+        case name = "name"
+        case source = "source"
+    }
+
+    public init(enabled: Bool, name: String, source: SkillSource?) {
+        self.enabled = enabled
+        self.name = name
+        self.source = source
+    }
+}
+
+// MARK: - SkillsSetEnabledResult
+public struct SkillsSetEnabledResult: Codable, Sendable {
+    public let skill: SkillDetails
+
+    public enum CodingKeys: String, CodingKey {
+        case skill = "skill"
+    }
+
+    public init(skill: SkillDetails) {
+        self.skill = skill
     }
 }
 
@@ -8759,7 +9628,7 @@ public struct VaultLockResult: Codable, Sendable {
 
 // MARK: - VaultLockedPayload
 public struct VaultLockedPayload: Codable, Sendable {
-    public let reason: Reason
+    public let reason: VaultLockedPayloadReason
     public let status: VaultStatus
 
     public enum CodingKeys: String, CodingKey {
@@ -8767,13 +9636,13 @@ public struct VaultLockedPayload: Codable, Sendable {
         case status = "status"
     }
 
-    public init(reason: Reason, status: VaultStatus) {
+    public init(reason: VaultLockedPayloadReason, status: VaultStatus) {
         self.reason = reason
         self.status = status
     }
 }
 
-public enum Reason: String, Codable, Sendable {
+public enum VaultLockedPayloadReason: String, Codable, Sendable {
     case idle = "idle"
     case manual = "manual"
     case screenLock = "screen_lock"
@@ -9388,6 +10257,7 @@ public enum WrapUpBlockType: String, Codable, Sendable {
     case wrapUp = "wrap_up"
 }
 
+public typealias AuditVerifyParams = [String: JSONAny]
 public typealias BridgeTabsListParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]

@@ -15,8 +15,15 @@ let package = Package(
         // Generated models (packages/protocol codegen, post-processed to be Sendable-clean) plus
         // hand-written wire envelopes. Everything builds in Swift 6 language mode.
         .target(name: "PsycheProtocol"),
+        // Pure logic (Foundation, CryptoKit, Security only): framing, node runtime, capability
+        // registry, AX snapshot building over an abstract tree, tiers, hygiene rules, key wrapping.
+        // Everything here is unit-tested without TCC grants.
         .target(name: "PsycheHelperCore", dependencies: ["PsycheProtocol"]),
-        .executableTarget(name: "PsycheHelper", dependencies: ["PsycheHelperCore"]),
+        // Live adapters over Apple frameworks (AX, CGEvent, ScreenCaptureKit, Keychain,
+        // UserNotifications, Speech, AVFoundation, Apple Events) and the capability groups.
+        .target(name: "PsycheHelperSystem", dependencies: ["PsycheHelperCore", "PsycheProtocol"]),
+        .executableTarget(name: "PsycheHelper", dependencies: ["PsycheHelperSystem", "PsycheHelperCore"]),
         .testTarget(name: "PsycheHelperCoreTests", dependencies: ["PsycheHelperCore", "PsycheProtocol"]),
+        .testTarget(name: "PsycheHelperSystemTests", dependencies: ["PsycheHelperSystem", "PsycheHelperCore", "PsycheProtocol"]),
     ]
 )

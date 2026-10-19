@@ -1,0 +1,87 @@
+# INT-2 server mode (topology C, architecture §3.2; feature N12) — TEMPORARY.
+# S22's deploy/docker-compose.yml (PR #60, ws/s22-cli-deploy) has not merged; when it does, this
+# file goes away and the live test points at deploy/ instead. Shape copied from S22's file:
+#
+# - The Gateway refuses any non-loopback bind (security §10), so it runs with host networking and
+#   listens on the HOST's 127.0.0.1:7979. No port is published.
+# - Tailscale Serve, also on the host network, terminates tailnet-only HTTPS on :443 and proxies
+#   to 127.0.0.1:7979 (serve.json; Funnel off). Identity headers never authorize the API: every
+#   client still pairs (security §10).
+# - The Telegram bot token is a Compose secret read from ./secrets/telegram_bot_token, never in
+#   this file or the environment. TS_AUTHKEY and model keys come from ./.env (git-ignored).
+#
+#   cd tests/integration/server-mode
+#   docker compose up -d --build            # Gateway only
+#   docker compose --profile tailscale up -d # + Tailscale Serve
+#   docker compose exec gateway node --import tsx apps/gateway/src/main.ts devices list
+#
+# Host networking needs Linux (or Docker Desktop with host networking turned on).
+
+name: psyche-int2
+
+x-hardening: &hardening
+  init: true
+  read_only: true
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+
+services:
+  gateway:
+    <<: *hardening
+    build:
+      context: ../../..
+      dockerfile: tests/integration/server-mode/Dockerfile
+    network_mode: host
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PSYCHE_HOME: /data
+      PSYCHE_LOG_LEVEL: ${PSYCHE_LOG_LEVEL:-info}
+      # WebSocket Origin allowlist: the Tailscale Serve origin, e.g. https://psyche.<tailnet>.ts.net
+      PSYCHE_ALLOWED_ORIGINS: ${PSYCHE_PUBLIC_ORIGIN:-}
+      PSYCHE_TELEGRAM_BOT_TOKEN_FILE: /run/secrets/telegram_bot_token
+      PSYCHE_TELEGRAM_BOT_USERNAME: ${PSYCHE_TELEGRAM_BOT_USERNAME:-}
+    secrets:
+      - telegram_bot_token
+    volumes:
+      - psyche-home:/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:7979/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+  tailscale:
+    image: tailscale/tailscale:v1.104.1@sha256:87c55d6be56ad85b3d8bceca5f87f73de288c609131460dd1be1874c250cc41d
+    profiles: [tailscale]
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      TS_HOSTNAME: ${TS_HOSTNAME:-psyche}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "true"
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+      - ./serve.json:/config/serve.json:ro
+    security_opt:
+      - no-new-privileges:true
+
+secrets:
+  telegram_bot_token:
+    file: ./secrets/telegram_bot_token
+
+volumes:
+  psyche-home:
+  tailscale-state:
