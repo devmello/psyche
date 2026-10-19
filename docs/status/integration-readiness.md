@@ -45,3 +45,7 @@ These are the "Requests to S01" in the package status files. INT-1 does them in 
 - `apps/gateway` mounts only `settings.*`, `devices.*`, `threads.*`, `chat.*`, `nodes.*` and `events.subscribe`. `approvals.*`, `grants.*`, `audit.*`, `questions.*`, `memory.*`, `tasks.*`, `automations.*` and `notifications.*` answer `not_implemented` until the composition root mounts the package handlers.
 - `psyched` boots with `UnavailableAgentLoop` and `LockedPermissionBroker` (fail closed); no composition root builds the real ones yet.
 - The task engine and notifier need event streams forwarded to the bus (S04, S15 requests).
+
+## INT-1 progress
+
+`int/1-walking-skeleton` wires the composition root and passes the scenario with the scripted model; see [int-1.md](int-1.md). It depends on #45 (Gateway handler hook, S01) and on #27 for the screens.
