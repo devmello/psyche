@@ -80,6 +80,8 @@ export interface VoiceSessionOptions {
   maxPerDevice?: number;
 }
 
+const SETTLED_LINGER_MS = 30_000;
+
 /** One base64 chunk may carry at most 1 s of 48 kHz stereo f32 (384 KB). */
 export const VOICE_MAX_CHUNK_BYTES = 384_000;
 
@@ -94,6 +96,9 @@ interface Session {
   maxBytes: number;
   idle: ReturnType<typeof setTimeout> | undefined;
   hardStop: ReturnType<typeof setTimeout>;
+  /** Set once the engine stream settled; the record lingers so `stop` can collect the outcome. */
+  settled: boolean;
+  linger: ReturnType<typeof setTimeout> | undefined;
   ended: VoiceEndReason | undefined;
   done: Promise<Transcript>;
 }
@@ -108,7 +113,9 @@ export class VoiceSessionManager {
   }
 
   get active(): number {
-    return this.#sessions.size;
+    let n = 0;
+    for (const s of this.#sessions.values()) if (!s.settled) n++;
+    return n;
   }
 
   async start(params: VoiceStartParams, ctx: VoiceCallContext): Promise<VoiceStartResult> {
@@ -122,7 +129,9 @@ export class VoiceSessionManager {
     if (params.format.sampleRate < 8_000 || params.format.sampleRate > 48_000) {
       throw new PsycheError("invalid_params", "sample rate must be 8–48 kHz");
     }
-    const mine = [...this.#sessions.values()].filter((s) => s.deviceId === ctx.deviceId);
+    const mine = [...this.#sessions.values()].filter(
+      (s) => s.deviceId === ctx.deviceId && !s.settled,
+    );
     if (mine.length >= (this.#opts.maxPerDevice ?? 2)) {
       throw new PsycheError("rate_limited", "too many dictation sessions on this device", {
         retryable: true,
@@ -148,6 +157,8 @@ export class VoiceSessionManager {
       idle: undefined,
       hardStop: setTimeout(() => this.#finish(session, "timeout"), maxMs),
       ended: undefined,
+      settled: false,
+      linger: undefined,
       done: Promise.resolve({ text: "", segments: [] }),
     };
     const options: { signal: AbortSignal; language?: string; vocabulary?: string[] } = {
@@ -188,7 +199,11 @@ export class VoiceSessionManager {
   async stop(sessionId: string, ctx: VoiceCallContext): Promise<Transcript> {
     const s = this.#own(sessionId, ctx);
     this.#finish(s, "stopped");
-    return s.done;
+    try {
+      return await s.done;
+    } finally {
+      this.#forget(s);
+    }
   }
 
   cancel(sessionId: string, ctx: VoiceCallContext): void {
@@ -199,7 +214,9 @@ export class VoiceSessionManager {
   /** Cancels every session of a device (disconnect) or all of them (shutdown). */
   cancelAll(deviceId?: string): void {
     for (const s of [...this.#sessions.values()]) {
-      if (deviceId === undefined || s.deviceId === deviceId) this.#finish(s, "cancelled");
+      if (deviceId !== undefined && s.deviceId !== deviceId) continue;
+      if (s.settled) this.#forget(s);
+      else this.#finish(s, "cancelled");
     }
   }
 
@@ -263,9 +280,17 @@ export class VoiceSessionManager {
     }
   }
 
+  #forget(s: Session): void {
+    if (s.linger !== undefined) clearTimeout(s.linger);
+    if (this.#sessions.get(s.id) === s) this.#sessions.delete(s.id);
+  }
+
   #end(s: Session, reason: VoiceEndReason, error?: { code: string; message: string }): void {
-    if (!this.#sessions.has(s.id)) return;
-    this.#sessions.delete(s.id);
+    if (s.settled) return;
+    s.settled = true;
+    // Keep the record briefly so a `voice.stop` racing the end still gets the transcript or error.
+    s.linger = setTimeout(() => this.#forget(s), SETTLED_LINGER_MS);
+    s.linger.unref?.();
     s.ended ??= reason;
     if (s.idle !== undefined) clearTimeout(s.idle);
     clearTimeout(s.hardStop);
