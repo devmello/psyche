@@ -433,6 +433,8 @@ browser_sessions (id, task_id FK, profile_id FK, tabs TEXT JSON, recording_ref N
 vm (id TEXT PK, name, bundle_path, state TEXT, cpu INTEGER, memory_gb INTEGER, disk_gb INTEGER, guest_version TEXT, shares TEXT JSON, created_at)
 ```
 
+`skills` holds one row per (source, name) with the owner's `enabled` switch and the last seen whole-tree `hash` (`sha256:` over sorted paths, executable bits and contents). The pins live in `$PSYCHE_HOME/skills/skills.lock.json` (`{version, skills: {"home:<name>" | "workspace:<name>": {origin, commit?, version?, treeHash, trust, approvalId, approvedAt, findings}}}`), outside the agent-writable workspace; a workspace or installed skill loads only while its tree hash matches its entry (`packages/skills/README.md`). The unified search index is derived data in `state/search.sqlite` (`search_docs`, `search_fts`, `search_flags`; `packages/search/README.md`).
+
 ## 11. Event frames (WS)
 
 ```json
