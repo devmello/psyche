@@ -17,7 +17,7 @@ import { chunks, collect, remindAliceClip, tonePcm, whisperGate } from "./helper
 class CountingBackend implements WhisperBackend {
   readonly name = "counting";
   readonly requests: WhisperRequest[] = [];
-  constructor(readonly words = ["call", "alice", "at", "noon", "tomorrow", "please"]) {}
+  readonly words = ["call", "alice", "at", "noon", "tomorrow", "please"];
   async available() {
     return true;
   }
