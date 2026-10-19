@@ -23,6 +23,7 @@ const approval = (over: Partial<ApprovalRequest>): ApprovalRequest => ({
   ...base,
   deviceOnly: false,
   requiresAuthentication: false,
+  taint: false,
   ...over,
 });
 

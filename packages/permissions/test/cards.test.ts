@@ -160,6 +160,9 @@ describe("sanitizeApproval (desktop structured rendering)", () => {
     expect(safe.details.subject).toBe("Re: x⏎⏎✅ Low risk");
     expect(safe.details.body).toBe("Hi\nthere⟨U+200B⟩");
     expect(safe.details["weird⏎key"]).toBe(1);
+    const idn = sanitizeApproval(approval({ details: { origin: "https://www.kаyak.com", n: 1 } }));
+    expect(idn.details.origin).toMatch(/^https:\/\/www\.xn--/);
+    expect(idn.details.n).toBe(1);
     // The input is untouched.
     expect(a.details.body).toBe("Hi\nthere​");
     expect(sanitizeBlock("a\r\nb⁦c")).toBe("a\nb⟨U+2066⟩c");

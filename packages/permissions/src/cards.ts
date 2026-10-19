@@ -201,19 +201,33 @@ export function isChatSurface(surface: string): boolean {
   return kind !== "desktop" && kind !== "web" && kind !== "notification";
 }
 
+/** `punycodeHosts` over every string in a (sanitized) details tree. */
+function punycodeStrings(value: unknown): unknown {
+  if (typeof value === "string") return punycodeHosts(value);
+  if (Array.isArray(value)) return value.map(punycodeStrings);
+  if (typeof value === "object" && value !== null) {
+    const out: JsonObject = {};
+    for (const [k, v] of Object.entries(value)) out[k] = punycodeStrings(v) as JsonObject[string];
+    return out;
+  }
+  return value;
+}
+
 /**
  * Display-safe copy of an approval for structured (desktop) rendering: the same value-slot rules
- * as the text card, applied to `summary`, `target` and every `details` value. Keys listed in
- * `blockKeys` keep their line breaks (they are shown as delimited blocks, never as card lines).
+ * as the text card (hidden characters, line breaks, punycode hosts), applied to `summary`,
+ * `target` and every `details` value. Keys listed in `blockKeys` keep their line breaks (they
+ * are shown as delimited blocks, never as card lines).
  */
 export function sanitizeApproval(
   a: ApprovalRequest,
   blockKeys: readonly string[] = ["body", "bodyPreview", "diff", "preview", "text"],
 ): ApprovalRequest {
-  const details = sanitizeDetails(a.details) as JsonObject;
+  const details = punycodeStrings(sanitizeDetails(a.details)) as JsonObject;
   for (const key of blockKeys) {
     const raw = (a.details as Record<string, unknown>)[key];
-    if (typeof raw === "string") details[sanitizeDisplay(key, 200)] = sanitizeBlock(raw);
+    if (typeof raw === "string")
+      details[sanitizeDisplay(key, 200)] = punycodeHosts(sanitizeBlock(raw));
   }
   return {
     ...a,
