@@ -108,6 +108,14 @@ const REQUIRED_METHODS: MethodName[] = [
   "connectors.get",
   "channels.list",
   "channels.get",
+  "channels.configure",
+  "channels.allowlist.update",
+  "channels.pairing.list",
+  "channels.pairing.approve",
+  "channels.pairing.deny",
+  "channels.identities.list",
+  "channels.identities.upsert",
+  "channels.identities.delete",
   "automations.list",
   "automations.create",
   "automations.update",
@@ -129,6 +137,20 @@ const REQUIRED_METHODS: MethodName[] = [
   "node.invoke",
   "node.event",
   "node.result",
+  "questions.list",
+  "questions.get",
+  "questions.answer",
+  "receipts.get",
+  "receipts.list",
+  "artifacts.get",
+  "feed.list",
+  "feed.feedback",
+  "ideas.list",
+  "ideas.accept",
+  "ideas.dismiss",
+  "goals.list",
+  "goals.get",
+  "goals.decide",
 ];
 
 const REQUIRED_EVENTS = [
@@ -145,6 +167,10 @@ const REQUIRED_EVENTS = [
   "receipt.created",
   "notification.created",
   "settings.changed",
+  "question.updated",
+  "feed.post",
+  "idea.updated",
+  "goal.updated",
   "thread.updated",
   "node.updated",
   "device.updated",
@@ -361,5 +387,36 @@ describe("event registry", () => {
       ),
     ).toBe("invalid_params");
     expect(codeOf(() => validateEventPayload("chat.nope", {}))).toBe("invalid_params");
+  });
+});
+
+describe("UI read and answer methods (S12)", () => {
+  it("validates a question answer keyed by header", () => {
+    const params = { inputRequestId: "ir1", answer: { SLOT: "Tue 2:30", NOTIFY: ["You", "Sam"] } };
+    expect(validateParams("questions.answer", params)).toEqual(params);
+    expect(requiresIdempotencyKey("questions.answer")).toBe(true);
+    expect(
+      codeOf(() =>
+        validateParams("questions.answer", {
+          inputRequestId: "ir1",
+          answer: { TOOLONGHEADER1: "x" },
+        }),
+      ),
+    ).toBe("invalid_params");
+  });
+
+  it("carries this surface's answer token only as an optional field", () => {
+    expect(
+      validateParams("ideas.dismiss", { ideaId: "i1", reason: "never_from_source" }),
+    ).toBeTruthy();
+    expect(codeOf(() => validateParams("ideas.dismiss", { ideaId: "i1", reason: "meh" }))).toBe(
+      "invalid_params",
+    );
+    expect(
+      codeOf(() => validateParams("goals.decide", { goalId: "g1", decision: "confirm" })),
+    ).toBe(undefined);
+    expect(codeOf(() => validateParams("feed.feedback", { postId: "p1", feedback: null }))).toBe(
+      undefined,
+    );
   });
 });

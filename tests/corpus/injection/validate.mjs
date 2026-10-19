@@ -6,7 +6,7 @@
 //
 //   node tests/corpus/injection/validate.mjs [--json] [--min-total 150]
 
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -167,7 +167,8 @@ function crossCheck(c, path, errors) {
 
 // ---- run ----
 
-const files = readdirSync(join(here, "cases"))
+const casesDir = join(here, "cases");
+const files = (existsSync(casesDir) ? readdirSync(casesDir) : [])
   .filter((f) => f.endsWith(".json"))
   .sort();
 const errors = [];

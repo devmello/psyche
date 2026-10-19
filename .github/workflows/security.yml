@@ -1,0 +1,85 @@
+# Security gates (S18; docs/05-security-and-permissions.md §15.4, docs/03 cross-cutting criteria).
+# Separate from ci.yml (S00) so the gates can be required individually. Job names are the
+# required-status names listed in docs/status/s18.md; change them only together with branch
+# protection.
+name: security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+  TURBO_TELEMETRY_DISABLED: "1"
+  DO_NOT_TRACK: "1"
+  PSYCHE_LIVE_TESTS: "0"
+
+jobs:
+  secret-leak:
+    name: security / secret-leak
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm (version from packageManager in package.json)
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node (version from .nvmrc)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Tracked files hold no fixture secret or card / ID / key pattern
+        run: pnpm check:secrets --repo
+
+      - name: Run every package's tests with model-visible capture on
+        env:
+          PSYCHE_CAPTURE_DIR: ${{ runner.temp }}/psyche-captures
+        run: pnpm -r test
+
+      - name: Captured prompts, tool results, transcripts, logs, cards and receipts hold no secret
+        run: pnpm check:secrets --captures "${{ runner.temp }}/psyche-captures" --require-captures
+
+  corpus:
+    name: security / corpus-and-scenarios
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node (version from .nvmrc)
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      # Format and rules only until the corpus reaches its 150-case minimum (docs/status/s18.md).
+      - name: Injection corpus is well-formed
+        run: node tests/corpus/injection/validate.mjs --min-total 0
+
+      - name: Acceptance scenarios are well-formed
+        run: node tests/scenarios/validate.mjs

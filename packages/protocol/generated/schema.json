@@ -106,6 +106,11 @@
         "payload": "#/$defs/ApprovalUpdatedPayload"
       },
       {
+        "description": "A channel was configured, connected, disconnected or changed status.",
+        "name": "channels.updated",
+        "payload": "#/$defs/ChannelsUpdatedPayload"
+      },
+      {
         "description": "A structured block (plan, checklist, approval, question, artifact, receipt, …) was added to a message.",
         "name": "chat.block",
         "payload": "#/$defs/ChatBlockPayload"
@@ -131,9 +136,24 @@
         "payload": "#/$defs/DeviceUpdatedPayload"
       },
       {
+        "description": "A feed post was published or its feedback changed.",
+        "name": "feed.post",
+        "payload": "#/$defs/FeedPostPayload"
+      },
+      {
         "description": "The Gateway is shutting down; clients reconnect with backoff.",
         "name": "gateway.shutdown",
         "payload": "#/$defs/GatewayShutdownPayload"
+      },
+      {
+        "description": "A goal was created, confirmed, changed or archived.",
+        "name": "goal.updated",
+        "payload": "#/$defs/GoalUpdatedPayload"
+      },
+      {
+        "description": "An idea was proposed, accepted, edited, dismissed or expired.",
+        "name": "idea.updated",
+        "payload": "#/$defs/IdeaUpdatedPayload"
       },
       {
         "description": "A workspace file was created, changed or deleted (by a tool, the API, a job, or outside Psyche).",
@@ -164,6 +184,11 @@
         "description": "The agent asked the user structured questions (ask_user); no timeout.",
         "name": "question.created",
         "payload": "#/$defs/QuestionCreatedPayload"
+      },
+      {
+        "description": "An input request was answered or cancelled.",
+        "name": "question.updated",
+        "payload": "#/$defs/QuestionUpdatedPayload"
       },
       {
         "description": "A side effect was recorded.",
@@ -249,6 +274,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Returns one artifact's metadata (content is fetched over HTTP).",
+        "name": "artifacts.get",
+        "params": "#/$defs/ArtifactsGetParams",
+        "result": "#/$defs/ArtifactsGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Creates an automation (enabled by default). Side-effecting.",
         "name": "automations.create",
         "params": "#/$defs/AutomationsCreateParams",
@@ -321,6 +354,22 @@
         "sideEffecting": false
       },
       {
+        "description": "Adds or removes sender / group ids on one of a channel's allowlists. Side-effecting.",
+        "name": "channels.allowlist.update",
+        "params": "#/$defs/ChannelsAllowlistUpdateParams",
+        "result": "#/$defs/ChannelsAllowlistUpdateResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Creates a channel or changes its access policy and settings. Side-effecting.",
+        "name": "channels.configure",
+        "params": "#/$defs/ChannelsConfigureParams",
+        "result": "#/$defs/ChannelsConfigureResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Returns one channel.",
         "name": "channels.get",
         "params": "#/$defs/ChannelsGetParams",
@@ -329,10 +378,58 @@
         "sideEffecting": false
       },
       {
+        "description": "Deletes an identity; its senders fall back to per-sender sessions. Side-effecting.",
+        "name": "channels.identities.delete",
+        "params": "#/$defs/ChannelsIdentitiesDeleteParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Lists identities (identity links and designated persons).",
+        "name": "channels.identities.list",
+        "params": "#/$defs/ChannelsIdentitiesListParams",
+        "result": "#/$defs/ChannelsIdentitiesListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Creates or replaces an identity; a sender id may belong to one identity only. Side-effecting.",
+        "name": "channels.identities.upsert",
+        "params": "#/$defs/ChannelsIdentitiesUpsertParams",
+        "result": "#/$defs/ChannelsIdentitiesUpsertResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Lists configured channels.",
         "name": "channels.list",
         "params": "#/$defs/ChannelsListParams",
         "result": "#/$defs/ChannelsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Approves a pending pairing request; the sender joins the channel's allowFrom. Side-effecting.",
+        "name": "channels.pairing.approve",
+        "params": "#/$defs/ChannelsPairingApproveParams",
+        "result": "#/$defs/ChannelsPairingApproveResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Denies a pending pairing request. Side-effecting.",
+        "name": "channels.pairing.deny",
+        "params": "#/$defs/ChannelsPairingDenyParams",
+        "result": "#/$defs/ChannelsPairingDenyResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Lists channel-sender pairing requests, newest first.",
+        "name": "channels.pairing.list",
+        "params": "#/$defs/ChannelsPairingListParams",
+        "result": "#/$defs/ChannelsPairingListResult",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -465,6 +562,46 @@
         "sideEffecting": false
       },
       {
+        "description": "Records feedback on a post in the interest ledger (null clears it, which is how undo works).",
+        "name": "feed.feedback",
+        "params": "#/$defs/FeedFeedbackParams",
+        "result": "#/$defs/FeedFeedbackResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists feed posts, newest batch first, with the time of the next brief.",
+        "name": "feed.list",
+        "params": "#/$defs/FeedListParams",
+        "result": "#/$defs/FeedListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Confirms, rejects or defers an inferred candidate goal; nothing is created before confirm.",
+        "name": "goals.decide",
+        "params": "#/$defs/GoalsDecideParams",
+        "result": "#/$defs/GoalsDecideResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Returns one goal with the ids of its linked tasks.",
+        "name": "goals.get",
+        "params": "#/$defs/GoalsGetParams",
+        "result": "#/$defs/GoalsGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists goals (default: active and candidate), grouped client-side by category.",
+        "name": "goals.list",
+        "params": "#/$defs/GoalsListParams",
+        "result": "#/$defs/GoalsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Lists standing grants with use counts and expiry.",
         "name": "grants.list",
         "params": "#/$defs/GrantsListParams",
@@ -478,6 +615,30 @@
         "params": "#/$defs/GrantsRevokeParams",
         "result": "#/$defs/GrantsRevokeResult",
         "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Accepts an idea (optionally with an edited brief or as a recurring automation); it becomes a Task or an Automation. Side-effecting.",
+        "name": "ideas.accept",
+        "params": "#/$defs/IdeasAcceptParams",
+        "result": "#/$defs/IdeasAcceptResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Dismisses an idea with a reason that feeds the acceptance model.",
+        "name": "ideas.dismiss",
+        "params": "#/$defs/IdeasDismissParams",
+        "result": "#/$defs/IdeasDismissResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists ideas (default: proposed), newest first.",
+        "name": "ideas.list",
+        "params": "#/$defs/IdeasListParams",
+        "result": "#/$defs/IdeasListResult",
+        "scope": "operator.read",
         "sideEffecting": false
       },
       {
@@ -694,6 +855,46 @@
         "params": "#/$defs/NotificationsResolveParams",
         "result": "#/$defs/NotificationsResolveResult",
         "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Answers an open input request; the run that asked consumes it. Side-effecting: a repeat with the same key returns the original result.",
+        "name": "questions.answer",
+        "params": "#/$defs/QuestionsAnswerParams",
+        "result": "#/$defs/InputRequestResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Returns one input request with its questions and answer.",
+        "name": "questions.get",
+        "params": "#/$defs/QuestionsGetParams",
+        "result": "#/$defs/InputRequestResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists input requests (default: open), newest first.",
+        "name": "questions.list",
+        "params": "#/$defs/QuestionsListParams",
+        "result": "#/$defs/QuestionsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Returns one receipt (the receipt line under an external write).",
+        "name": "receipts.get",
+        "params": "#/$defs/ReceiptsGetParams",
+        "result": "#/$defs/ReceiptsGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists receipts, newest first, optionally for one task.",
+        "name": "receipts.list",
+        "params": "#/$defs/ReceiptsListParams",
+        "result": "#/$defs/ReceiptsListResult",
+        "scope": "operator.read",
         "sideEffecting": false
       },
       {
@@ -1057,6 +1258,11 @@
       "properties": {
         "approval": {
           "$ref": "#/$defs/ApprovalRequest"
+        },
+        "answerToken": {
+          "description": "This connection's surface token, if any",
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -1287,6 +1493,9 @@
       "properties": {
         "approval": {
           "$ref": "#/$defs/ApprovalRequest"
+        },
+        "answerToken": {
+          "$ref": "#/$defs/SurfaceAnswerToken"
         }
       },
       "required": [
@@ -1379,6 +1588,15 @@
             "$ref": "#/$defs/ApprovalRequest"
           },
           "type": "array"
+        },
+        "answerTokens": {
+          "description": "approvalId → this surface's unused answer token",
+          "patternProperties": {
+            "^(.*)$": {
+              "$ref": "#/$defs/SurfaceAnswerToken"
+            }
+          },
+          "type": "object"
         },
         "nextCursor": {
           "anyOf": [
@@ -1486,6 +1704,31 @@
         "dashboard"
       ],
       "type": "string"
+    },
+    "ArtifactsGetParams": {
+      "properties": {
+        "artifactId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifactId"
+      ],
+      "type": "object"
+    },
+    "ArtifactsGetResult": {
+      "properties": {
+        "artifact": {
+          "$ref": "#/$defs/Artifact"
+        }
+      },
+      "required": [
+        "artifact"
+      ],
+      "type": "object"
     },
     "AuditActor": {
       "properties": {
@@ -2513,6 +2756,70 @@
       ],
       "type": "object"
     },
+    "ChannelIdentity": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "display": {
+          "type": "string"
+        },
+        "links": {
+          "description": "Sender ids merged into this identity",
+          "items": {
+            "description": "\"<channel>:<senderId>\"",
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "delegatedPersona": {
+          "anyOf": [
+            {
+              "description": "Persona overlay name (feature N10)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "toolAllow": {
+          "anyOf": [
+            {
+              "description": "Tool name globs",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "updatedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "display",
+        "links",
+        "createdAt",
+        "updatedAt"
+      ],
+      "type": "object"
+    },
     "ChannelRef": {
       "properties": {
         "channel": {
@@ -2546,6 +2853,156 @@
       ],
       "type": "string"
     },
+    "ChannelsAllowlistUpdateParams": {
+      "properties": {
+        "channelId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "list": {
+          "enum": [
+            "allowFrom",
+            "groupAllowFrom",
+            "ownerIds"
+          ],
+          "type": "string"
+        },
+        "add": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "remove": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        }
+      },
+      "required": [
+        "channelId",
+        "list"
+      ],
+      "type": "object"
+    },
+    "ChannelsAllowlistUpdateResult": {
+      "properties": {
+        "channel": {
+          "$ref": "#/$defs/Channel"
+        }
+      },
+      "required": [
+        "channel"
+      ],
+      "type": "object"
+    },
+    "ChannelsConfigureParams": {
+      "properties": {
+        "channelId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/ChannelType"
+        },
+        "account": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "dmPolicy": {
+          "$ref": "#/$defs/DmPolicy"
+        },
+        "allowFrom": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "groupAllowFrom": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "requireMention": {
+          "type": "boolean"
+        },
+        "ownerIds": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "dmScope": {
+          "enum": [
+            "main",
+            "per-peer",
+            "per-channel-peer"
+          ],
+          "type": "string"
+        },
+        "nodeId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "active",
+            "paused"
+          ],
+          "type": "string"
+        },
+        "config": {
+          "description": "JSON object",
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "ChannelsConfigureResult": {
+      "properties": {
+        "channel": {
+          "$ref": "#/$defs/Channel"
+        }
+      },
+      "required": [
+        "channel"
+      ],
+      "type": "object"
+    },
     "ChannelsGetParams": {
       "properties": {
         "channelId": {
@@ -2571,6 +3028,103 @@
       ],
       "type": "object"
     },
+    "ChannelsIdentitiesDeleteParams": {
+      "properties": {
+        "identityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "identityId"
+      ],
+      "type": "object"
+    },
+    "ChannelsIdentitiesListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "ChannelsIdentitiesListResult": {
+      "properties": {
+        "identities": {
+          "items": {
+            "$ref": "#/$defs/ChannelIdentity"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "identities"
+      ],
+      "type": "object"
+    },
+    "ChannelsIdentitiesUpsertParams": {
+      "properties": {
+        "identityId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "display": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "links": {
+          "items": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 1000,
+          "type": "array"
+        },
+        "delegatedPersona": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "toolAllow": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 200,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "display",
+        "links"
+      ],
+      "type": "object"
+    },
+    "ChannelsIdentitiesUpsertResult": {
+      "properties": {
+        "identity": {
+          "$ref": "#/$defs/ChannelIdentity"
+        }
+      },
+      "required": [
+        "identity"
+      ],
+      "type": "object"
+    },
     "ChannelsListParams": {
       "properties": {},
       "type": "object"
@@ -2586,6 +3140,114 @@
       },
       "required": [
         "channels"
+      ],
+      "type": "object"
+    },
+    "ChannelsPairingApproveParams": {
+      "properties": {
+        "requestId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "channelId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "code": {
+          "maxLength": 16,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ChannelsPairingApproveResult": {
+      "properties": {
+        "pairingRequest": {
+          "$ref": "#/$defs/PairingRequest"
+        }
+      },
+      "required": [
+        "pairingRequest"
+      ],
+      "type": "object"
+    },
+    "ChannelsPairingDenyParams": {
+      "properties": {
+        "requestId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "channelId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "code": {
+          "maxLength": 16,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ChannelsPairingDenyResult": {
+      "properties": {
+        "pairingRequest": {
+          "$ref": "#/$defs/PairingRequest"
+        }
+      },
+      "required": [
+        "pairingRequest"
+      ],
+      "type": "object"
+    },
+    "ChannelsPairingListParams": {
+      "properties": {
+        "channelId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/PairingStatus"
+        }
+      },
+      "type": "object"
+    },
+    "ChannelsPairingListResult": {
+      "properties": {
+        "requests": {
+          "items": {
+            "$ref": "#/$defs/PairingRequest"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "requests"
+      ],
+      "type": "object"
+    },
+    "ChannelsUpdatedPayload": {
+      "properties": {
+        "channel": {
+          "$ref": "#/$defs/Channel"
+        },
+        "detail": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "channel"
       ],
       "type": "object"
     },
@@ -4083,6 +4745,111 @@
       ],
       "type": "string"
     },
+    "FeedFeedbackParams": {
+      "properties": {
+        "postId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "feedback": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FeedFeedback"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "topic": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "required": [
+        "postId"
+      ],
+      "type": "object"
+    },
+    "FeedFeedbackResult": {
+      "properties": {
+        "post": {
+          "$ref": "#/$defs/FeedPost"
+        }
+      },
+      "required": [
+        "post"
+      ],
+      "type": "object"
+    },
+    "FeedListParams": {
+      "properties": {
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "briefingId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "FeedListResult": {
+      "properties": {
+        "posts": {
+          "items": {
+            "$ref": "#/$defs/FeedPost"
+          },
+          "type": "array"
+        },
+        "nextBriefAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "posts"
+      ],
+      "type": "object"
+    },
     "FeedPost": {
       "properties": {
         "id": {
@@ -4168,6 +4935,17 @@
         "reasons",
         "exploration",
         "createdAt"
+      ],
+      "type": "object"
+    },
+    "FeedPostPayload": {
+      "properties": {
+        "post": {
+          "$ref": "#/$defs/FeedPost"
+        }
+      },
+      "required": [
+        "post"
       ],
       "type": "object"
     },
@@ -4343,6 +5121,127 @@
         "other"
       ],
       "type": "string"
+    },
+    "GoalDecision": {
+      "enum": [
+        "confirm",
+        "reject",
+        "later"
+      ],
+      "type": "string"
+    },
+    "GoalStatus": {
+      "enum": [
+        "candidate",
+        "active",
+        "paused",
+        "done",
+        "archived"
+      ],
+      "type": "string"
+    },
+    "GoalUpdatedPayload": {
+      "properties": {
+        "goal": {
+          "$ref": "#/$defs/Goal"
+        }
+      },
+      "required": [
+        "goal"
+      ],
+      "type": "object"
+    },
+    "GoalsDecideParams": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "decision": {
+          "$ref": "#/$defs/GoalDecision"
+        }
+      },
+      "required": [
+        "goalId",
+        "decision"
+      ],
+      "type": "object"
+    },
+    "GoalsDecideResult": {
+      "properties": {
+        "goal": {
+          "$ref": "#/$defs/Goal"
+        }
+      },
+      "required": [
+        "goal"
+      ],
+      "type": "object"
+    },
+    "GoalsGetParams": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "goalId"
+      ],
+      "type": "object"
+    },
+    "GoalsGetResult": {
+      "properties": {
+        "goal": {
+          "$ref": "#/$defs/Goal"
+        },
+        "taskIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "goal",
+        "taskIds"
+      ],
+      "type": "object"
+    },
+    "GoalsListParams": {
+      "properties": {
+        "status": {
+          "items": {
+            "$ref": "#/$defs/GoalStatus"
+          },
+          "type": "array"
+        },
+        "category": {
+          "$ref": "#/$defs/GoalCategory"
+        }
+      },
+      "type": "object"
+    },
+    "GoalsListResult": {
+      "properties": {
+        "goals": {
+          "items": {
+            "$ref": "#/$defs/Goal"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "goals"
+      ],
+      "type": "object"
     },
     "Grant": {
       "properties": {
@@ -4623,6 +5522,172 @@
       ],
       "type": "object"
     },
+    "IdeaDismissReason": {
+      "enum": [
+        "not_now",
+        "not_interested",
+        "never_from_source"
+      ],
+      "type": "string"
+    },
+    "IdeaStatus": {
+      "enum": [
+        "proposed",
+        "accepted",
+        "edited",
+        "dismissed",
+        "expired"
+      ],
+      "type": "string"
+    },
+    "IdeaUpdatedPayload": {
+      "properties": {
+        "idea": {
+          "$ref": "#/$defs/Idea"
+        }
+      },
+      "required": [
+        "idea"
+      ],
+      "type": "object"
+    },
+    "IdeasAcceptParams": {
+      "properties": {
+        "ideaId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "recurring": {
+          "type": "boolean"
+        },
+        "brief": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "ideaId"
+      ],
+      "type": "object"
+    },
+    "IdeasAcceptResult": {
+      "properties": {
+        "idea": {
+          "$ref": "#/$defs/Idea"
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "automationId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "idea"
+      ],
+      "type": "object"
+    },
+    "IdeasDismissParams": {
+      "properties": {
+        "ideaId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "reason": {
+          "$ref": "#/$defs/IdeaDismissReason"
+        }
+      },
+      "required": [
+        "ideaId",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "IdeasDismissResult": {
+      "properties": {
+        "idea": {
+          "$ref": "#/$defs/Idea"
+        }
+      },
+      "required": [
+        "idea"
+      ],
+      "type": "object"
+    },
+    "IdeasListParams": {
+      "properties": {
+        "status": {
+          "items": {
+            "$ref": "#/$defs/IdeaStatus"
+          },
+          "type": "array"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "IdeasListResult": {
+      "properties": {
+        "ideas": {
+          "items": {
+            "$ref": "#/$defs/Idea"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "ideas"
+      ],
+      "type": "object"
+    },
     "IdempotencyKey": {
       "maxLength": 128,
       "minLength": 1,
@@ -4728,6 +5793,17 @@
         "questions",
         "status",
         "createdAt"
+      ],
+      "type": "object"
+    },
+    "InputRequestResult": {
+      "properties": {
+        "inputRequest": {
+          "$ref": "#/$defs/InputRequest"
+        }
+      },
+      "required": [
+        "inputRequest"
       ],
       "type": "object"
     },
@@ -6848,6 +7924,28 @@
       ],
       "type": "object"
     },
+    "QuestionAnswers": {
+      "additionalProperties": false,
+      "patternProperties": {
+        "^.{1,12}$": {
+          "anyOf": [
+            {
+              "maxLength": 4000,
+              "type": "string"
+            },
+            {
+              "items": {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              "maxItems": 4,
+              "type": "array"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
     "QuestionBlock": {
       "properties": {
         "type": {
@@ -6893,6 +7991,110 @@
       },
       "required": [
         "label"
+      ],
+      "type": "object"
+    },
+    "QuestionUpdatedPayload": {
+      "properties": {
+        "inputRequest": {
+          "$ref": "#/$defs/InputRequest"
+        }
+      },
+      "required": [
+        "inputRequest"
+      ],
+      "type": "object"
+    },
+    "QuestionsAnswerParams": {
+      "properties": {
+        "inputRequestId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "answer": {
+          "$ref": "#/$defs/QuestionAnswers"
+        }
+      },
+      "required": [
+        "inputRequestId",
+        "answer"
+      ],
+      "type": "object"
+    },
+    "QuestionsGetParams": {
+      "properties": {
+        "inputRequestId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "inputRequestId"
+      ],
+      "type": "object"
+    },
+    "QuestionsListParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "status": {
+          "items": {
+            "$ref": "#/$defs/InputRequestStatus"
+          },
+          "type": "array"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "QuestionsListResult": {
+      "properties": {
+        "inputRequests": {
+          "items": {
+            "$ref": "#/$defs/InputRequest"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "inputRequests"
       ],
       "type": "object"
     },
@@ -7061,6 +8263,80 @@
         "uncertain"
       ],
       "type": "string"
+    },
+    "ReceiptsGetParams": {
+      "properties": {
+        "receiptId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "receiptId"
+      ],
+      "type": "object"
+    },
+    "ReceiptsGetResult": {
+      "properties": {
+        "receipt": {
+          "$ref": "#/$defs/Receipt"
+        }
+      },
+      "required": [
+        "receipt"
+      ],
+      "type": "object"
+    },
+    "ReceiptsListParams": {
+      "properties": {
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "ReceiptsListResult": {
+      "properties": {
+        "receipts": {
+          "items": {
+            "$ref": "#/$defs/Receipt"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "receipts"
+      ],
+      "type": "object"
     },
     "ReqFrame": {
       "additionalProperties": false,
@@ -7602,6 +8878,10 @@
         "destructive",
         "financial"
       ],
+      "type": "string"
+    },
+    "SurfaceAnswerToken": {
+      "minLength": 1,
       "type": "string"
     },
     "Target": {
