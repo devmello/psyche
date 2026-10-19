@@ -29,12 +29,18 @@ public struct NodeHandshakeOptions: Sendable {
     /// The per-launch secret from `$PSYCHE_HOME/run/handshake.secret`, for loopback auto-pairing.
     public var handshakeSecret: String?
     public var name: String
+    /// `NodeCapability[]` declared at `connect` (the capability manifest).
+    public var capabilities: [JSONValue]
 
-    public init(timeout: TimeInterval = 10, verify: Bool = true, handshakeSecret: String? = nil, name: String = "Psyche Helper") {
+    public init(
+        timeout: TimeInterval = 10, verify: Bool = true, handshakeSecret: String? = nil, name: String = "Psyche Helper",
+        capabilities: [JSONValue] = []
+    ) {
         self.timeout = timeout
         self.verify = verify
         self.handshakeSecret = handshakeSecret
         self.name = name
+        self.capabilities = capabilities
     }
 }
 
@@ -56,8 +62,8 @@ public enum NodeHandshakeError: Error, Equatable, CustomStringConvertible {
 }
 
 /// Node-side `connect` → challenge → `connect.verify` over the NDJSON node socket (wire spec v1).
-/// The helper connects as `role: "node"`, `platform: "macos"`, `deviceFamily: "mac-helper"` with an
-/// empty capability list (S14 adds the capability manifest).
+/// The helper connects as `role: "node"`, `platform: "macos"`, `deviceFamily: "mac-helper"` and
+/// declares its capability manifest in `capabilities`.
 public struct NodeHandshakeClient {
     public static let platform = "macos"
     public static let deviceFamily = "mac-helper"
@@ -81,34 +87,42 @@ public struct NodeHandshakeClient {
             platform: Self.platform,
             deviceFamily: Self.deviceFamily,
             name: options.name,
-            capabilities: [],
+            capabilities: options.capabilities,
             handshakeSecret: options.handshakeSecret
         )
     }
 
     public func run(on socket: UnixSocketConnection) throws -> NodeHandshakeOutcome {
-        let deadline = Date().addingTimeInterval(options.timeout)
-        var buffer = NDJSONLineBuffer(maxFrameBytes: WireProtocol.maxFrameBytes)
-        var queued: [Data] = []
+        try run(on: FrameChannel(socket: socket))
+    }
 
-        func send(_ frame: WireReqFrame) throws {
-            try socket.write(try NDJSONLineBuffer.line(for: try WireFrame.req(frame).encode()))
+    public func run(on channel: FrameChannel) throws -> NodeHandshakeOutcome {
+        switch try perform(on: channel) {
+        case .challengeOnly(let nonceBytes, let version): return .challengeOnly(nonceBytes: nonceBytes, protocolVersion: version)
+        case .completed(let result): return .result(phase: result.phase)
         }
+    }
+
+    public enum Completion: Sendable {
+        case challengeOnly(nonceBytes: Int, protocolVersion: Int)
+        case completed(WireConnectResult)
+    }
+
+    /// Runs the handshake on `channel`. Frames that arrive after `connect.verify` stay queued in the
+    /// channel for the serve loop.
+    public func perform(on channel: FrameChannel) throws -> Completion {
+        let deadline = Date().addingTimeInterval(options.timeout)
 
         func awaitResponse(id: String) throws -> WireResFrame {
             while true {
-                while !queued.isEmpty {
-                    let line = queued.removeFirst()
-                    if case .res(let res) = try WireFrame.decode(line), res.id == id { return res }
-                    // Events or Gateway requests before pairing are ignored here.
-                }
-                guard let chunk = try socket.read(before: deadline) else { throw NodeSocketError.closedByPeer }
-                queued.append(contentsOf: try buffer.append(chunk))
+                guard let frame = try channel.readFrame(before: deadline) else { throw NodeSocketError.closedByPeer }
+                if case .res(let res) = frame, res.id == id { return res }
+                // Events or Gateway requests before pairing are ignored here.
             }
         }
 
-        log.info("phase=connecting role=node deviceFamily=\(Self.deviceFamily) capabilities=0")
-        try send(WireReqFrame(id: "connect", method: "connect", params: try JSONValue(encoding: connectParams())))
+        log.info("phase=connecting role=node deviceFamily=\(Self.deviceFamily) capabilities=\(options.capabilities.count)")
+        try channel.send(.req(WireReqFrame(id: "connect", method: "connect", params: try JSONValue(encoding: connectParams()))))
 
         let connectRes = try awaitResponse(id: "connect")
         guard connectRes.ok, let payload = connectRes.payload else {
@@ -131,7 +145,7 @@ public struct NodeHandshakeClient {
         )
         let verify = WireConnectVerifyParams(nonce: challenge.nonce, signature: try identity.sign(signingPayload))
         log.info("phase=verifying")
-        try send(WireReqFrame(id: "connect.verify", method: "connect.verify", params: try JSONValue(encoding: verify)))
+        try channel.send(.req(WireReqFrame(id: "connect.verify", method: "connect.verify", params: try JSONValue(encoding: verify))))
 
         let verifyRes = try awaitResponse(id: "connect.verify")
         guard verifyRes.ok, let resultPayload = verifyRes.payload else {
@@ -139,6 +153,6 @@ public struct NodeHandshakeClient {
         }
         let result = try resultPayload.decode(as: WireConnectResult.self)
         log.info("phase=\(result.phase)")
-        return .result(phase: result.phase)
+        return .completed(result)
     }
 }

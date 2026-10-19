@@ -3,6 +3,7 @@ import { Id, Nullable, Provenance, StringEnum } from "./common.ts";
 import { PsycheError } from "./errors.ts";
 import { QueuedMessage } from "./methods/chat.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
+import { SkillChangeEvent } from "./methods/skills.ts";
 import {
   ReadAloudCompletedPayload,
   ReadAloudFailedPayload,
@@ -259,6 +260,11 @@ export const Events = {
   "speech.readAloud.failed": defineEvent({
     payload: ReadAloudFailedPayload,
     description: "A read-aloud failed before its Library item was saved.",
+  }),
+  "skills.changed": defineEvent({
+    payload: SkillChangeEvent,
+    description:
+      "Skills changed: a reload, an install or removal, or a skill whose files no longer match its approved hash.",
   }),
 } as const;
 

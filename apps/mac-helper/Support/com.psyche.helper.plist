@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  LaunchAgent template (server-node mode, or when the desktop is not running). scripts/install-agent.sh
+  fills @APP@ and @PSYCHE_HOME@, clears the quarantine attribute (launchd ignores quarantined plists
+  on macOS 27) and bootstraps it into gui/<uid>. Launched by launchd, the helper is its own
+  responsible process, so TCC grants belong to Psyche Helper.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.psyche.helper</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>@APP@/Contents/MacOS/psyche-helper</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PSYCHE_HOME</key>
+    <string>@PSYCHE_HOME@</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ProcessType</key>
+  <string>Interactive</string>
+  <key>LimitLoadToSessionType</key>
+  <string>Aqua</string>
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+</dict>
+</plist>

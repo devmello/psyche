@@ -1,6 +1,9 @@
 import type {
   LoadedSkill,
+  PromptIndex,
+  PromptIndexOptions,
   ScanFinding,
+  SkillCommand,
   SkillInstallProposal,
   SkillInstallSource,
   SkillLoader,
@@ -43,7 +46,8 @@ export function scanSkillText(text: string): ScanFinding[] {
 /**
  * In-memory skills. `add` registers skills by source (workspace shadows home shadows bundled);
  * `stageInstall(source, text)` defines what `proposeInstall` will find at a source; `install`
- * requires an approval id accepted by `isApproved` (default: non-empty).
+ * requires an approval id accepted by `isApproved` (default: non-empty). `promptIndex` is a
+ * plain one-line-per-skill block (S16 owns the real escaping and wording).
  */
 export class FakeSkillLoader implements SkillLoader {
   #skills: LoadedSkill[] = [];
@@ -143,5 +147,47 @@ export class FakeSkillLoader implements SkillLoader {
 
   async remove(name: string): Promise<void> {
     this.#skills = this.#skills.filter((s) => s.name !== name);
+  }
+
+  async promptIndex(options: PromptIndexOptions = {}): Promise<PromptIndex> {
+    const budget = options.budgetChars ?? 8_000;
+    const maxDesc = options.maxDescriptionChars ?? 280;
+    const skills = this.#visible()
+      .filter((s) => s.enabled && !s.disableModelInvocation)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const included: string[] = [];
+    let body = "";
+    for (const s of skills) {
+      const line = `<skill name="${s.name}" trust="${s.trust}">${s.description.slice(0, maxDesc)}</skill>\n`;
+      if (body.length + line.length > budget) break;
+      body += line;
+      included.push(s.name);
+    }
+    const omitted = skills.slice(included.length).map((s) => s.name);
+    if (omitted.length > 0) body += `<omitted count="${omitted.length}"/>\n`;
+    return { text: `<available_skills>\n${body}</available_skills>`, included, omitted };
+  }
+
+  async commands(): Promise<SkillCommand[]> {
+    return this.#visible()
+      .filter((s) => s.enabled && s.userInvocable)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((s) => ({
+        command: `/${s.name}`,
+        name: s.name,
+        description: s.description,
+        source: s.source,
+        trust: s.trust,
+      }));
+  }
+
+  async setEnabled(name: string, enabled: boolean, source?: SkillSource): Promise<SkillSummary> {
+    const s =
+      source === undefined
+        ? this.#visible().find((x) => x.name === name)
+        : this.#skills.find((x) => x.name === name && x.source === source);
+    if (s === undefined) return fail("not_found", `no skill named ${name}`);
+    s.enabled = enabled;
+    return this.#summary(s);
   }
 }

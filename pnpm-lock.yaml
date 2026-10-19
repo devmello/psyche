@@ -297,6 +297,15 @@ importers:
       '@psyche/audit':
         specifier: workspace:*
         version: link:../../packages/audit
+      '@psyche/browser':
+        specifier: workspace:*
+        version: link:../../packages/browser
+      '@psyche/channels':
+        specifier: workspace:*
+        version: link:../../packages/channels
+      '@psyche/connectors':
+        specifier: workspace:*
+        version: link:../../packages/connectors
       '@psyche/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -1030,12 +1039,30 @@ importers:
       '@psyche/agent-core':
         specifier: workspace:*
         version: link:../../packages/agent-core
+      '@psyche/audit':
+        specifier: workspace:*
+        version: link:../../packages/audit
+      '@psyche/browser':
+        specifier: workspace:*
+        version: link:../../packages/browser
+      '@psyche/channels':
+        specifier: workspace:*
+        version: link:../../packages/channels
+      '@psyche/connectors':
+        specifier: workspace:*
+        version: link:../../packages/connectors
       '@psyche/db':
         specifier: workspace:*
         version: link:../../packages/db
       '@psyche/gateway':
         specifier: workspace:*
         version: link:../../apps/gateway
+      '@psyche/memory':
+        specifier: workspace:*
+        version: link:../../packages/memory
+      '@psyche/permissions':
+        specifier: workspace:*
+        version: link:../../packages/permissions
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -1045,6 +1072,9 @@ importers:
       '@psyche/web':
         specifier: workspace:*
         version: link:../../apps/web
+      yaml:
+        specifier: 2.9.1
+        version: 2.9.1
 
 packages:
 

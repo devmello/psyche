@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  Placeholder for Psyche Helper.app (ADR-020). Not wired into SwiftPM; S14 bundles the
-  psyche-helper executable into the .app, signs it with Developer ID and the hardened runtime
-  (codesign -o runtime), and fills in every usage description (security §12).
+  Psyche Helper.app (ADR-020). scripts/build-app.sh copies this into the bundle, sets the version
+  keys and, when a provisioning profile is embedded, PsycheKeychainAccessGroup. Every usage string
+  says when Psyche asks and why (security §12).
 -->
 <plist version="1.0">
 <dict>
@@ -17,27 +17,32 @@
   <string>psyche-helper</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.0.0</string>
+  <string>0.1.0</string>
   <key>CFBundleVersion</key>
-  <string>0</string>
+  <string>1</string>
   <key>LSMinimumSystemVersion</key>
   <string>15.0</string>
-  <!-- Background agent: no Dock icon. -->
+  <!-- Background agent: no Dock icon, no menu bar. -->
   <key>LSUIElement</key>
   <true/>
-  <!-- TODO(S14): final wording for each permission prompt (security §12 table). -->
+  <key>NSHumanReadableCopyright</key>
+  <string>Psyche contributors. Apache-2.0.</string>
   <key>NSAppleEventsUsageDescription</key>
-  <string>TODO(S14): Psyche uses Automation to act in the apps you allow.</string>
+  <string>Psyche sends Apple Events to an app only when you ask it to act there, such as reading Notes, drafting Mail or running a Shortcut. macOS asks once for each app.</string>
   <key>NSCalendarsFullAccessUsageDescription</key>
-  <string>TODO(S14)</string>
+  <string>Psyche reads and adds calendar events when you turn on the Calendar connector. macOS has no read-only option.</string>
   <key>NSRemindersFullAccessUsageDescription</key>
-  <string>TODO(S14)</string>
+  <string>Psyche reads and adds reminders when you turn on the Reminders connector.</string>
   <key>NSContactsUsageDescription</key>
-  <string>TODO(S14)</string>
+  <string>Psyche looks up the people you mention when you turn on the Contacts connector.</string>
   <key>NSMicrophoneUsageDescription</key>
-  <string>TODO(S14)</string>
+  <string>Psyche listens only while you dictate. Audio is transcribed on this Mac.</string>
   <key>NSSpeechRecognitionUsageDescription</key>
-  <string>TODO(S14)</string>
+  <string>Psyche uses macOS speech recognition on this Mac to turn your dictation into text.</string>
+  <key>NSScreenCaptureUsageDescription</key>
+  <string>Psyche looks at the screen only when an app's controls cannot be read. Its own windows, terminals and apps you set to Off are never captured.</string>
 </dict>
 </plist>

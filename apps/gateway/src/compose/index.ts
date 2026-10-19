@@ -24,15 +24,19 @@ import {
   compilePolicy,
   createPermissionHandlers,
   type PolicyConfig,
+  type PresenceVerifier,
   PsychePermissionBroker,
   SqlitePermissionStore,
 } from "@psyche/permissions";
 import {
+  type ApprovalRequestInput,
   type Clock,
   type EventName,
   type EventPayload,
+  type IssuedApproval,
   type ModelProvider,
   type ModelRef,
+  type PermissionBroker,
   PsycheError,
 } from "@psyche/protocol";
 import {
@@ -49,6 +53,7 @@ import type { HandlerDef } from "../context.ts";
 import { createLogger } from "../log.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
+import { CallContexts } from "./call-context.ts";
 import { fileTools } from "./file-tools.ts";
 import {
   mountParamsOnly,
@@ -57,6 +62,7 @@ import {
   receiptHandlers,
   surfaceOf,
 } from "./handlers.ts";
+import type { ApprovalRelay, ComposedPart, ComposeServices } from "./services.ts";
 
 /**
  * Composition root for `psyched` (INT-1): the real agent loop, model router, Permission Broker,
@@ -84,7 +90,25 @@ export interface ComposeOptions
   taskPollMs?: number;
   /** Compaction policy for the loop (tests lower the threshold to exercise the memory flush). */
   compaction?: Partial<CompactionPolicy>;
+  /**
+   * Subsystems mounted on the composed services (INT-2: browser, connectors, channels). Each
+   * returns handlers, tools (registered through `services.tools`) and start / stop hooks; a
+   * part with a `relay` delivers approvals to chat and names owner senders.
+   */
+  parts?: ReadonlyArray<(services: ComposeServices) => Promise<ComposedPart> | ComposedPart>;
+  /**
+   * Touch ID (mac helper) or passkey assertions for approvals that require authentication
+   * (purchase, credential fill, host exec; security §3.7). Defaults to refusing every assertion.
+   */
+  presence?: PresenceVerifier;
 }
+
+/**
+ * No presence verifier is wired yet (S14 helper Touch ID, S01 passkeys), and the broker only
+ * checks presence when it has one. Fail closed: approvals that require authentication cannot be
+ * answered until a real verifier is configured.
+ */
+const NO_PRESENCE: PresenceVerifier = { verify: async () => false };
 
 export interface ComposedGateway {
   readonly gateway: Gateway;
@@ -98,6 +122,7 @@ export interface ComposedGateway {
   readonly scheduler: SqliteScheduler;
   readonly notifier: PsycheNotifier;
   readonly provider: ModelProvider;
+  readonly parts: readonly ComposedPart[];
   stop(reason?: string): Promise<void>;
 }
 
@@ -148,6 +173,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     background = true,
     taskPollMs,
     compaction,
+    parts: partFactories = [],
+    presence = NO_PRESENCE,
     ...gwOptions
   } = options;
   const clock =
@@ -172,6 +199,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   const storedPolicy = validPolicy(getSetting(db, "permissions.policy")?.value, gwOptions.logger);
   const tokens = new ApprovalTokens();
+  let relay: ApprovalRelay | undefined;
   const rawBroker = new PsychePermissionBroker({
     approvers: {
       async device(deviceId) {
@@ -180,14 +208,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
           ? undefined
           : { scopes: d.scopes, ...(d.revokedAt ? { revoked: true } : {}) };
       },
-      // Channels (S10) are not on the INT-1 path: no channel sender is the owner here.
-      isOwnerSender: async () => false,
+      // Channel owners (S10) come from the channels part, when one is mounted.
+      isOwnerSender: async (channel, senderId) =>
+        (await relay?.isOwnerSender(channel, senderId)) ?? false,
     },
     store: new SqlitePermissionStore(db.sqlite),
     audit,
     notifier,
     clock,
     psycheHome: config.home,
+    presence,
     // The agent never acts on Psyche's own UI (prohibitions `gateway_origin`): every origin it is served on.
     gatewayOrigins: [
       `http://127.0.0.1:${config.port}`,
@@ -198,7 +228,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ? {}
       : { policy: (policy ?? storedPolicy) as PolicyConfig }),
   });
-  const broker = tokens.wrap(rawBroker);
+  const broker = withRelay(tokens.wrap(rawBroker), () => relay, gwOptions.logger);
   broker.subscribe((e) => {
     if (
       e.type === "approval.decided" ||
@@ -247,6 +277,26 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
 
   const registry = new AgentToolRegistry();
   for (const tool of fileTools()) registry.register(tool);
+  const calls = new CallContexts();
+  const services: ComposeServices = {
+    db,
+    clock,
+    home: config.home,
+    broker,
+    rawBroker,
+    audit,
+    notifier,
+    tools: calls.adopt(registry),
+    calls,
+    publish,
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+  };
+  const parts: ComposedPart[] = [];
+  for (const factory of partFactories) {
+    const part = await factory(services);
+    parts.push(part);
+    if (part.relay !== undefined) relay = part.relay;
+  }
 
   // scheduler → launcher → worker pool → loop → scheduler: the launcher is bound once the pool exists.
   let launcher: RunLauncher | null = null;
@@ -303,6 +353,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...questionHandlers(loop, tasks),
     ...receiptHandlers(broker),
   };
+  for (const part of parts) Object.assign(handlers, part.handlers ?? {});
 
   const gateway = await startGateway({
     ...gwOptions,
@@ -332,6 +383,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }
   });
   memory.watch();
+  for (const part of parts) await part.start?.(gateway);
 
   if (background) {
     pool.start();
@@ -357,7 +409,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     scheduler,
     notifier,
     provider,
+    parts,
     async stop(reason) {
+      for (const part of [...parts].reverse()) await part.stop?.();
       await pool.stop();
       scheduler.stop();
       memory.unwatch();
@@ -367,6 +421,67 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   };
 }
 
+export { type BrowserSetup, type ComposedBrowser, composeBrowser } from "./browser.ts";
+export { CallContexts } from "./call-context.ts";
+export {
+  type ChannelsSetup,
+  type ComposedChannels,
+  channelsSetupFromEnv,
+  composeChannels,
+  type TelegramSetup,
+  turnText,
+} from "./channels.ts";
+export {
+  type ConnectorsSetup,
+  composeConnectors,
+  MemoryTokenVault,
+} from "./connectors.ts";
 export { fileTools } from "./file-tools.ts";
 export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
+export { partsFromEnv } from "./parts.ts";
+export type { ApprovalRelay, ComposedPart, ComposeServices } from "./services.ts";
 export { createLogger, surfaceOf };
+
+/**
+ * Approvals also go to the owner's chat surfaces (S10 `ownerSurfaces`, `deliverApproval`). The
+ * broker drops chat surfaces from device-only kinds itself (security §3.7), and the channel
+ * service refuses ineligible kinds, so delivery is best-effort and never blocks the request.
+ */
+function withRelay<B extends PermissionBroker>(
+  broker: B,
+  relay: () => ApprovalRelay | undefined,
+  log: ComposeOptions["logger"],
+): B {
+  const deliver = (issued: IssuedApproval) => {
+    const r = relay();
+    if (r === undefined) return;
+    r.deliver(issued).catch((err) =>
+      log?.log("warn", "approval delivery to chat failed", { code: PsycheError.from(err).code }),
+    );
+  };
+  return new Proxy(broker, {
+    get(target, prop, receiver) {
+      if (prop === "requestApproval") {
+        return async (input: ApprovalRequestInput) => {
+          const extra = relay()?.surfaces() ?? [];
+          const issued = await target.requestApproval(
+            extra.length === 0
+              ? input
+              : { ...input, surfaces: [...new Set([...input.surfaces, ...extra])] },
+          );
+          deliver(issued);
+          return issued;
+        };
+      }
+      if (prop === "reissue") {
+        return async () => {
+          const issued = await target.reissue();
+          for (const i of issued) deliver(i);
+          return issued;
+        };
+      }
+      const value = Reflect.get(target, prop, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}

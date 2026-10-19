@@ -411,6 +411,19 @@ describe("FakeSkillLoader", () => {
     });
     expect((await s.install(proposal.id, "apr_ok")).trust).toBe("unknown");
   });
+
+  it("lists commands, builds a prompt index and honors the owner's switch", async () => {
+    const s = new FakeSkillLoader()
+      .add({ name: "triage", description: "Triage inbox", body: "t", userInvocable: true })
+      .add({ name: "pdf", description: "PDFs", body: "p" });
+    expect((await s.commands()).map((c) => c.command)).toEqual(["/triage"]);
+    expect((await s.promptIndex()).included).toEqual(["pdf", "triage"]);
+    expect((await s.promptIndex({ budgetChars: 60 })).omitted).toEqual(["triage"]);
+    expect((await s.setEnabled("triage", false)).enabled).toBe(false);
+    expect(await s.commands()).toEqual([]);
+    expect((await s.promptIndex()).included).toEqual(["pdf"]);
+    await expect(s.setEnabled("nope", true)).rejects.toMatchObject({ code: "not_found" });
+  });
 });
 
 describe("FakeSpeechEngine", () => {
