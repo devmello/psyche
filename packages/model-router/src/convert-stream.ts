@@ -6,6 +6,7 @@ import type {
 import type { FinishReason, ModelEvent } from "@psyche/protocol";
 import type { OpaqueEnvelope, ProviderMetadata } from "./envelope.ts";
 import { classifyError } from "./errors.ts";
+import type { ToolNameMap } from "./tool-names.ts";
 
 export interface StreamFinish {
   usage: LanguageModelV4Usage | undefined;
@@ -77,9 +78,12 @@ export class StreamConverter {
   /** True once any model-visible content (text, reasoning, tool call) was emitted. */
   contentStarted = false;
 
-  constructor(providerId: string, model: string) {
+  readonly #toolNames: ToolNameMap | undefined;
+
+  constructor(providerId: string, model: string, toolNames?: ToolNameMap) {
     this.#providerId = providerId;
     this.#model = model;
+    this.#toolNames = toolNames;
   }
 
   #envelope(data: OpaqueEnvelope): ModelEvent {
@@ -151,7 +155,12 @@ export class StreamConverter {
         }
         this.contentStarted = true;
         const events: ModelEvent[] = [
-          { type: "tool_call", id: part.toolCallId, name: part.toolName, input },
+          {
+            type: "tool_call",
+            id: part.toolCallId,
+            name: this.#toolNames?.toOurs(part.toolName) ?? part.toolName,
+            input,
+          },
         ];
         if (metadata !== undefined) {
           events.push(

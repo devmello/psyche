@@ -28,6 +28,7 @@ import { classifyError, ModelCallError } from "./errors.ts";
 import { buildProvider } from "./factory.ts";
 import { Prices } from "./prices.ts";
 import { formatModelRef, parseModelRef } from "./refs.ts";
+import { ToolNameMap } from "./tool-names.ts";
 import { normalizeUsage } from "./usage.ts";
 
 /** What happened on one call, reported to the router (the stream itself never throws). */
@@ -220,7 +221,8 @@ export class AiSdkAdapter implements ModelProvider {
     });
     aborted.catch(() => {});
 
-    const converter = new StreamConverter(this.id, modelId);
+    const toolNames = ToolNameMap.for(request);
+    const converter = new StreamConverter(this.id, modelId, toolNames);
     let reader: ReadableStreamDefaultReader<LanguageModelV4StreamPart> | undefined;
     arm(timeouts.firstEventMs);
     let model: LanguageModelV4;
@@ -229,7 +231,7 @@ export class AiSdkAdapter implements ModelProvider {
       // Local mistakes (bad image URL, missing baseURL) are the request's fault, not the
       // provider's: no cooldown, no fallback.
       model = this.#provider(profile).language(modelId);
-      call = convertRequest(request, { config: this.config, modelId });
+      call = convertRequest(request, { config: this.config, modelId, toolNames });
     } catch (err) {
       clearTimeout(timer);
       signal?.removeEventListener("abort", onAbort);
