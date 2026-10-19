@@ -4,3 +4,5 @@ export * from "./kit-client.ts";
 export * from "./onboarding.ts";
 export * from "./PsycheApp.tsx";
 export * from "./settings.tsx";
+export * from "./ZoomSetting.tsx";
+export * from "./zoom.ts";

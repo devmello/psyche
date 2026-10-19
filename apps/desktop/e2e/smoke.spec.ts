@@ -87,7 +87,10 @@ test.beforeAll(async () => {
       "nodes.list": () => ({ nodes: [] }),
       // Onboarding is done on this Gateway (the composed app gates on this key).
       "settings.get": () => ({
-        settings: { "ui.onboarding.completedAt": "2026-10-19T09:00:00.000Z" },
+        settings: {
+          "ui.onboarding.completedAt": "2026-10-19T09:00:00.000Z",
+          "appearance.zoom": 125,
+        },
         stateVersion: 1,
       }),
       "settings.set": (params) => {
@@ -305,4 +308,27 @@ test("Settings shares a folder through the native picker as a permissions.policy
     value: { folders: [{ path: realpathSync(picked), mode: "ro" }] },
   });
   await expect(page.getByTestId("settings-files")).toContainText(realpathSync(picked));
+});
+
+test("the stored appearance.zoom is applied on launch and View → Actual Size stores 100", async () => {
+  const factor = () =>
+    app.evaluate(({ BaseWindow }) => {
+      const win = BaseWindow.getAllWindows().find((w) => w.getTitle() === "Psyche");
+      const view = win?.contentView.children[0] as { webContents?: { getZoomFactor(): number } };
+      return view?.webContents?.getZoomFactor() ?? -1;
+    });
+  await expect.poll(factor).toBeCloseTo(1.25, 2);
+  await app.evaluate(({ Menu }) => {
+    Menu.getApplicationMenu()?.getMenuItemById("zoom-reset")?.click();
+  });
+  const call = await gw.waitForCall("settings.set", (p) =>
+    JSON.stringify(p).includes('"appearance.zoom"'),
+  );
+  expect(call.params).toEqual({ key: "appearance.zoom", value: 100 });
+  await expect.poll(factor).toBeCloseTo(1, 2);
+  // Another device changing the setting reaches this renderer through settings.changed.
+  gw.emit("settings.changed", {
+    entries: [{ key: "appearance.zoom", value: 150, updatedAt: "2026-10-19T10:00:00.000Z" }],
+  });
+  await expect.poll(factor).toBeCloseTo(1.5, 2);
 });
