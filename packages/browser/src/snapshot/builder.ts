@@ -272,6 +272,11 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
     if (a?.type !== undefined) meta.inputType = a.type.toLowerCase();
     if (a?.autocomplete !== undefined) meta.autocomplete = a.autocomplete;
     if (a?.name !== undefined) meta.fieldName = a.name;
+    if (a?.inputmode !== undefined) meta.inputMode = a.inputmode;
+    if (a?.maxlength !== undefined && /^\d+$/.test(a.maxlength))
+      meta.maxLength = Number(a.maxlength);
+    if (a?.contenteditable !== undefined && a.contenteditable !== "false")
+      meta.contentEditable = true;
     if (a?.href !== undefined && doc !== undefined) {
       try {
         meta.href = new URL(a.href, doc.url).href;
@@ -287,6 +292,7 @@ export function buildSnapshot(input: SnapshotInput): BrowserSnapshot {
         meta.formAction = action;
       }
       meta.formMethod = (form.attrs.method ?? "get").toLowerCase();
+      meta.formHasPassword = dom.formHasPassword(form);
     }
     return meta;
   };

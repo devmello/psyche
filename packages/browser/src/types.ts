@@ -87,6 +87,11 @@ export interface ElementMeta {
   frameOrigin: string;
   /** `target=_blank` or similar: activating it opens a popup. */
   opensPopup: boolean;
+  /** The containing form also holds a password field (login forms; vault field-class rule). */
+  formHasPassword?: boolean;
+  maxLength?: number;
+  inputMode?: string;
+  contentEditable?: boolean;
 }
 
 export type ActionTarget = { ref: string } | { x: number; y: number };

@@ -156,6 +156,28 @@ export class DomIndex {
     return this.ancestor(info, "FORM");
   }
 
+  #pwForms = new Map<number, boolean>();
+
+  /** The form holds an `<input type=password>` (computed once per form). */
+  formHasPassword(form: DomNodeInfo): boolean {
+    const cached = this.#pwForms.get(form.backendNodeId);
+    if (cached !== undefined) return cached;
+    let found = false;
+    for (const n of this.#byBackend.values()) {
+      if (
+        n.docIndex === form.docIndex &&
+        n.tag === "INPUT" &&
+        (n.attrs.type ?? "").toLowerCase() === "password" &&
+        this.formOf(n)?.backendNodeId === form.backendNodeId
+      ) {
+        found = true;
+        break;
+      }
+    }
+    this.#pwForms.set(form.backendNodeId, found);
+    return found;
+  }
+
   isSecure(info: DomNodeInfo): boolean {
     const type = (info.attrs.type ?? "").toLowerCase();
     if (info.tag === "INPUT" && type === "password") return true;

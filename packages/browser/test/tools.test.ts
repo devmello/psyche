@@ -165,5 +165,17 @@ describe("browser.* tools", () => {
     assertNoSecrets(after.output, "snapshot after fill");
     assertNoSecrets(r.output, "fill result");
     expect(await call("browser.screenshot", { tabId })).toMatchObject({ isError: true });
+    // A password never goes into a non-password field, even on its own origin (S23 design-01).
+    const user = snap.refs.find((r) => r.name === "Username")?.ref ?? "";
+    creds.approve("appr_fill2", { slug: "site-a-login", origin: desktop.browser.origin("a") });
+    ctx.approvalId = "appr_fill2";
+    const wrong = await call("browser.fill_credential", {
+      tabId,
+      ref: user,
+      placeholder: "{{cred:site-a-login}}",
+    });
+    ctx.approvalId = undefined;
+    expect(wrong).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
+    expect(desktop.tab(tabId).fieldValue("username")).toBe("");
   });
 });

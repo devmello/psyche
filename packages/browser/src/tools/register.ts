@@ -1,6 +1,7 @@
 import {
   type CredentialBroker,
   createValidator,
+  type FillElement,
   type PermissionBroker,
   type ProvenanceOut,
   PsycheError,
@@ -585,9 +586,23 @@ async function fillCredential(
   if (approvalId === undefined) {
     throw new PsycheError("approval_required", "credential fills need an approval");
   }
+  // The vault checks the element against the field class and origin (S23 design-01).
+  const element: FillElement = { tagName: meta.tag.toLowerCase(), frameOrigin: meta.frameOrigin };
+  if (meta.inputType !== undefined) element.type = meta.inputType;
+  if (meta.autocomplete !== undefined) element.autocomplete = meta.autocomplete.toLowerCase();
+  if (meta.inputMode !== undefined) element.inputMode = meta.inputMode;
+  if (meta.contentEditable === true) element.contentEditable = true;
+  if (meta.maxLength !== undefined) element.maxLength = meta.maxLength;
+  if (meta.formHasPassword !== undefined) element.formHasPassword = meta.formHasPassword;
+  if (meta.formAction !== undefined) {
+    const fo = tryOrigin(meta.formAction);
+    if (fo !== undefined) element.formActionOrigin = fo;
+  }
   const secret = await creds.resolve(p.placeholder, { kind: "origin", value: origin }, approvalId, {
     executor: "browser",
     signal,
+    element,
+    selector: p.ref,
     ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
   });
   try {
