@@ -197,7 +197,7 @@ export class Connection implements LiveConnection {
     if (scope !== "none" && !identity.scopes.includes(scope)) {
       throw new PsycheError("forbidden", `${method} requires scope ${scope}`);
     }
-    const def: HandlerDef | undefined = HANDLERS[method];
+    const def: HandlerDef | undefined = HANDLERS[method] ?? this.#ctx.extraHandlers[method];
     if (def === undefined) {
       throw new PsycheError("not_implemented", `${method} is not implemented yet`);
     }
