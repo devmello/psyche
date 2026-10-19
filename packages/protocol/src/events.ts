@@ -4,7 +4,13 @@ import { PsycheError } from "./errors.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
 import { Block } from "./schemas/blocks.ts";
 import { Device, NodeInfo, PairingRequest } from "./schemas/identity.ts";
-import { Channel, CredentialMeta, VaultStatus } from "./schemas/integrations.ts";
+import {
+  Automation,
+  AutomationRun,
+  Channel,
+  CredentialMeta,
+  VaultStatus,
+} from "./schemas/integrations.ts";
 import { MemoryChangeSource, MemoryJob } from "./schemas/memory.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
 import { FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surfaces.ts";
@@ -176,6 +182,18 @@ export const Events = {
   "goal.updated": defineEvent({
     payload: Type.Object({ goal: Goal }),
     description: "A goal was created, confirmed, changed or archived.",
+  }),
+  "automation.updated": defineEvent({
+    payload: Type.Object({ automation: Automation }),
+    description: "An automation was created, edited, paused, run or deleted (`enabled: false`).",
+  }),
+  "automation.run.started": defineEvent({
+    payload: Type.Object({ run: AutomationRun }),
+    description: "A scheduled or manual automation run started (missed ticks coalesced).",
+  }),
+  "automation.run.finished": defineEvent({
+    payload: Type.Object({ run: AutomationRun }),
+    description: "An automation run ended (done, no_reply, failed, cancelled, skipped).",
   }),
 } as const;
 

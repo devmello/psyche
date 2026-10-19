@@ -211,6 +211,27 @@ describe("FakeScheduler", () => {
     );
   });
 
+  it("fires a reminder once and then clears its next run", async () => {
+    const clock = new FakeClock();
+    const s = new FakeScheduler({ clock });
+    const r = await s.create({
+      kind: "reminder",
+      title: "Call the dentist",
+      schedule: clock.iso(60_000),
+      timezone: "UTC",
+      sessionTarget: "main",
+      delivery: { none: true },
+      prompt: "Remind me to call the dentist",
+      scratch: null,
+      enabled: true,
+    });
+    expect(r.nextRunAt).toBe(clock.iso(60_000));
+    clock.advance(120_000);
+    expect(await s.tick()).toMatchObject([{ automationId: r.id, coalesced: 1 }]);
+    expect((await s.get(r.id))?.nextRunAt).toBeNull();
+    expect(await s.tick()).toEqual([]);
+  });
+
   it("coalesces missed ticks into one run", async () => {
     const clock = new FakeClock();
     const s = new FakeScheduler({ clock });
