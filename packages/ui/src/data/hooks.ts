@@ -4,6 +4,7 @@ import type {
   Automation,
   FeedPost,
   Goal,
+  GoalMilestone,
   GrantScope,
   Idea,
   IdeaDismissReason,
@@ -785,6 +786,12 @@ export function useFeed() {
     ...load,
     posts,
     nextBriefAt,
+    /** Generates the first (or next) brief now (`feed.generate`). */
+    generate: async () => {
+      const version = store.version();
+      const res = await store.call("feed.generate", {});
+      store.update((s) => putMany(s, "feed", res.posts, version));
+    },
     /** Optimistic; call again with `null` to undo (UI design §3.9 undo toast). */
     feedback: (postId: string, feedback: FeedPost["feedback"], topic?: string) =>
       store.mutate({
@@ -871,16 +878,18 @@ export function useGoals() {
 
 export function useGoal(
   goalId: string | null,
-): LoadState & { goal: Goal | null; taskIds: string[] } {
+): LoadState & { goal: Goal | null; taskIds: string[]; milestones: GoalMilestone[] | null } {
   const goal = useStoreState((s) => (goalId === null ? undefined : s.goals[goalId]));
   const [taskIds, setTaskIds] = useState<string[]>([]);
+  const [milestones, setMilestones] = useState<GoalMilestone[] | null>(null);
   const load = useLoader(goalId === null ? null : `goal:${goalId}`, async (st) => {
     if (goalId === null) return;
     const res = await st.call("goals.get", { goalId });
     st.update((s) => put(s, "goals", res.goal));
     setTaskIds(res.taskIds);
+    setMilestones(res.milestones ?? null);
   });
-  return { ...load, goal: goal ?? null, taskIds };
+  return { ...load, goal: goal ?? null, taskIds, milestones };
 }
 
 // --- Inbox, settings, automations, search, memory ---------------------------------------------

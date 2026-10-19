@@ -282,6 +282,12 @@ export class GatewayStore {
           v,
         );
       }
+      case "feed.updated": {
+        let next = s;
+        for (const post of e.payload.posts)
+          next = touch(put(next, "feed", post), `feed:${post.id}`, v);
+        return next;
+      }
       case "feed.post":
         return touch(put(s, "feed", e.payload.post), `feed:${e.payload.post.id}`, v);
       case "idea.updated":

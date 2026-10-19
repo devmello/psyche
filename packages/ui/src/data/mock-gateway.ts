@@ -581,6 +581,10 @@ export class MockGateway implements GatewayClient {
       nextBriefAt: this.world.nextBriefAt,
       nextCursor: null,
     }),
+    "feed.generate": () => {
+      this.emit("feed.updated", { posts: this.world.feed });
+      return { posts: this.world.feed };
+    },
     "feed.feedback": (p) => {
       const post = {
         ...this.find(this.world.feed, p.postId, "post"),
