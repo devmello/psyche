@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 
@@ -34,5 +35,5 @@ export default defineConfig({
     preserveSymlinks: false,
     dedupe: ["react", "react-dom"],
   },
-  plugins: [react(), devCsp()],
+  plugins: [react(), tailwindcss(), devCsp()],
 });
