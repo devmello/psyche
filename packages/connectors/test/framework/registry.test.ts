@@ -162,11 +162,13 @@ describe("ConnectorRegistry", () => {
         },
       },
       broker: {
+        verifyBinding: async () => ({ ok: true, approval: {} }),
         recordReceipt: async (i: unknown) => {
           receipts.push(i);
           return { id: "r1" };
         },
       } as never,
+      approvalFor: () => "ap_1",
       newId: () => "demo-1",
     });
     await registry.connect({ catalogueId: "demo", scopeMode: "read_act" });
@@ -205,5 +207,115 @@ describe("connectors.* handlers", () => {
     expect((await h["connectors.disconnect"]({ connectorId: "demo-1" })).connector.status).toBe(
       "disconnected",
     );
+  });
+});
+
+describe("write enforcement fails closed", () => {
+  const setup = (opts: {
+    approvalFor?: () => string | undefined;
+    broker?: unknown;
+    describe?: boolean;
+  }) => {
+    const tools = new Map<string, { execute: (...a: unknown[]) => Promise<unknown> }>();
+    const verified: string[] = [];
+    const factory: ConnectorFactory = {
+      entry,
+      create: (record) => ({
+        id: record.id,
+        type: "demo",
+        connect: async () => ({ account: "a@example.com", scopes: [] }),
+        disconnect: async () => {},
+        actions: () => entry.actions,
+        tools: () => [
+          {
+            name: "sneaky",
+            action: "demo.read",
+            description: "declared read, but this call deletes",
+            inputSchema: { type: "object" },
+            sideEffect: "read",
+            ...(opts.describe === true
+              ? { describeCall: () => ({ sideEffect: "destructive" as const }) }
+              : {}),
+            execute: async () => ({ output: "done", provenance: "untrusted" }),
+          },
+          {
+            name: "write",
+            action: "demo.write",
+            description: "w",
+            inputSchema: { type: "object" },
+            sideEffect: "write",
+            execute: async () => ({ output: "written", provenance: "untrusted" }),
+          },
+        ],
+        health: async () => ({ ok: true, status: "connected", checkedAt: 0 }),
+      }),
+    };
+    const registry = new ConnectorRegistry({
+      factories: [factory],
+      context: {
+        clock: new FakeClock(),
+        fetch,
+        tokens: { load: async () => undefined, save: async () => {}, clear: async () => {} },
+      },
+      tools: {
+        list: () => [],
+        get: () => undefined,
+        register: (r) => {
+          tools.set(r.spec.name, r as never);
+          return () => tools.delete(r.spec.name);
+        },
+      },
+      ...(opts.broker === undefined
+        ? {}
+        : {
+            broker: {
+              verifyBinding: async (_id: string, hash: string) => {
+                verified.push(hash);
+                return { ok: true, approval: {} };
+              },
+              recordReceipt: async () => ({ id: "r" }),
+            } as never,
+          }),
+      ...(opts.approvalFor === undefined ? {} : { approvalFor: opts.approvalFor }),
+      newId: () => "demo-1",
+    });
+    const call = (name: string) =>
+      registry
+        .connect({ catalogueId: "demo", scopeMode: "read_act" })
+        .then(() =>
+          tools
+            .get(`mcp__demo-1__${name}`)
+            ?.execute("c", { x: 1 }, new AbortController().signal, () => {}),
+        );
+    return { call, verified };
+  };
+
+  it("an ask write with no approval resolver is refused", async () => {
+    await expect(setup({}).call("write")).rejects.toMatchObject({ code: "approval_required" });
+  });
+
+  it("an approval without a broker to verify it is refused", async () => {
+    await expect(setup({ approvalFor: () => "ap" }).call("write")).rejects.toMatchObject({
+      code: "unavailable",
+    });
+  });
+
+  it("a write without describeCall is still verified, against the connector_action fallback", async () => {
+    const { call, verified } = setup({ approvalFor: () => "ap", broker: true });
+    await expect(call("write")).resolves.toMatchObject({ output: "written" });
+    expect(verified).toEqual([
+      bindingHash("connector_action", {
+        connectorId: "demo-1",
+        tool: "write",
+        paramsHash: bindingHash("params", { x: 1 }),
+      }),
+    ]);
+  });
+
+  it("describeCall can raise a read tool to destructive, which then needs an approval", async () => {
+    await expect(setup({ describe: true }).call("sneaky")).rejects.toMatchObject({
+      code: "approval_required",
+    });
+    await expect(setup({}).call("sneaky")).resolves.toMatchObject({ output: "done" });
   });
 });

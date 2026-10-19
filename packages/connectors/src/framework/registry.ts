@@ -348,37 +348,39 @@ export class ConnectorRegistry {
         retryable: true,
       });
     }
-    const rule = record.actionMatrix[tool.action] ?? "ask";
+    const desc: ToolCallDescription | undefined = tool.describeCall?.(params);
+    // The more severe of the spec's class and the per-call description (AgentLoop contract).
+    const effect = moreSevere(tool.sideEffect, desc?.sideEffect);
+    const writes = !READ_ONLY.includes(effect);
+    let rule = record.actionMatrix[tool.action] ?? "ask";
+    if (rule === "allow" && NO_STANDING.includes(effect)) rule = "ask";
     if (rule === "deny") throw new PsycheError("policy_denied", `${tool.action} is set to deny`);
-    const writes = !READ_ONLY.includes(tool.sideEffect);
     if (writes && record.scopeMode === "read") {
       throw new PsycheError("policy_denied", "this connection is read-only");
     }
     const approvalId = this.#opts.approvalFor?.(callId);
-    if (
-      writes &&
-      rule === "ask" &&
-      this.#opts.approvalFor !== undefined &&
-      approvalId === undefined
-    ) {
+    // Fail closed: an `ask` write needs an approval and a broker to verify it against.
+    if (writes && rule === "ask" && approvalId === undefined) {
       throw new PsycheError("approval_required", `${tool.action} needs the owner's approval`);
     }
-    const desc: ToolCallDescription | undefined = tool.describeCall?.(params);
-    if (
-      writes &&
-      approvalId !== undefined &&
-      this.#opts.broker !== undefined &&
-      desc?.kind !== undefined
-    ) {
-      const v = await this.#opts.broker.verifyBinding(
-        approvalId,
-        bindingHash(desc.kind, desc.bindingFields ?? params),
-      );
-      if (!v.ok)
+    if (writes && approvalId !== undefined) {
+      const broker = this.#opts.broker;
+      if (broker === undefined) {
+        throw new PsycheError("unavailable", "no permission broker to verify the approval");
+      }
+      const kind = desc?.kind ?? "connector_action";
+      const fields = desc?.bindingFields ?? {
+        connectorId,
+        tool: tool.name,
+        paramsHash: bindingHash("params", params ?? {}),
+      };
+      const v = await broker.verifyBinding(approvalId, bindingHash(kind, fields));
+      if (!v.ok) {
         throw new PsycheError(
           "binding_mismatch",
           `approval does not cover this call (${v.reason})`,
         );
+      }
     }
     try {
       const out = await tool.execute(params, {
@@ -456,6 +458,13 @@ export class ConnectorRegistry {
       // listeners never break the registry
     }
   }
+}
+
+const SEVERITY: SideEffect[] = ["none", "read", "write", "destructive", "financial"];
+
+function moreSevere(a: SideEffect, b: SideEffect | undefined): SideEffect {
+  if (b === undefined) return a;
+  return SEVERITY.indexOf(b) > SEVERITY.indexOf(a) ? b : a;
 }
 
 /** Connector tools use the MCP naming so allow / ask / deny rules look the same (ToolSpec). */
