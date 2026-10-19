@@ -1,0 +1,14 @@
+{
+  "name": "gemini 403",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/interactions"
+  },
+  "response": {
+    "status": 403,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":{\"code\":403,\"message\":\"Method doesn't allow unregistered callers (callers without established identity). Please use API Key or other form of API consumer identity to call this API.\",\"status\":\"PERMISSION_DENIED\"}}"
+  }
+}

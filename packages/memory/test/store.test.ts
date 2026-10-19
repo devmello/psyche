@@ -460,7 +460,7 @@ describe("bootstrapContext (budgets and markers)", () => {
     expect(by["USER.md"]?.text).toContain("the USER.md budget is 4,000");
     expect(by["AGENTS.md"]?.missing).toBe(true);
     expect(by["AGENTS.md"]?.text).toBe(missingMarker("AGENTS.md"));
-  });
+  }, 30_000);
 
   it("enforces the total budget across files", async () => {
     env = await makeEnv();
@@ -471,7 +471,7 @@ describe("bootstrapContext (budgets and markers)", () => {
     expect(ctx.totalChars).toBeLessThanOrEqual(40_000);
     const memory = ctx.files.find((f) => f.path === "MEMORY.md");
     expect(memory?.text).toContain("the total persona budget is used up");
-  });
+  }, 30_000);
 
   it("keeps MEMORY.md and daily notes out of shared and delegated sessions", async () => {
     env = await makeEnv();

@@ -1,0 +1,14 @@
+{
+  "name": "ollama /v1/messages 400 context",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/v1/messages"
+  },
+  "response": {
+    "status": 400,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"the input length exceeds the context length\"}}"
+  }
+}

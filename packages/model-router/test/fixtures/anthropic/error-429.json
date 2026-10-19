@@ -1,0 +1,15 @@
+{
+  "name": "anthropic 429 rate limit",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/messages"
+  },
+  "response": {
+    "status": 429,
+    "headers": {
+      "content-type": "application/json",
+      "retry-after": "17"
+    },
+    "body": "{\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\",\"message\":\"Number of request tokens has exceeded your per-minute rate limit\"}}"
+  }
+}

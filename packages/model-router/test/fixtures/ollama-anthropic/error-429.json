@@ -1,0 +1,15 @@
+{
+  "name": "ollama /v1/messages 429",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/v1/messages"
+  },
+  "response": {
+    "status": 429,
+    "headers": {
+      "content-type": "application/json",
+      "retry-after": "2"
+    },
+    "body": "{\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\",\"message\":\"too many requests\"}}"
+  }
+}

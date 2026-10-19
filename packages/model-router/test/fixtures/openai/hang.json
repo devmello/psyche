@@ -1,0 +1,21 @@
+{
+  "name": "openai responses: stalls after one text delta",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/responses"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream",
+      "x-request-id": "req_fixture"
+    },
+    "hang": true,
+    "chunks": [
+      "event: response.created\ndata: {\"type\":\"response.created\",\"sequence_number\":0,\"response\":{\"id\":\"resp_fx_hang_0001\",\"object\":\"response\",\"created_at\":1760000000,\"status\":\"in_progress\",\"model\":\"gpt-6.1-sol\",\"output\":[],\"store\":false}}\n\n",
+      "event: response.in_progress\ndata: {\"type\":\"response.in_progress\",\"sequence_number\":1,\"response\":{\"id\":\"resp_fx_hang_0001\",\"object\":\"response\",\"created_at\":1760000000,\"status\":\"in_progress\",\"model\":\"gpt-6.1-sol\",\"output\":[],\"store\":false}}\n\n",
+      "event: response.output_item.added\ndata: {\"type\":\"response.output_item.added\",\"sequence_number\":2,\"output_index\":0,\"item\":{\"id\":\"msg_fx_hang\",\"type\":\"message\",\"status\":\"in_progress\",\"content\":[],\"role\":\"assistant\"}}\n\n",
+      "event: response.output_text.delta\ndata: {\"type\":\"response.output_text.delta\",\"sequence_number\":3,\"item_id\":\"msg_fx_hang\",\"output_index\":0,\"content_index\":0,\"delta\":\"Partial\",\"logprobs\":[]}\n\n"
+    ]
+  }
+}

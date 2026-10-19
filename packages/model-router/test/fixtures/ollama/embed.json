@@ -1,0 +1,14 @@
+{
+  "name": "ollama /api/embed",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/api/embed"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"model\": \"nomic-embed-text\", \"embeddings\": [[0.011, -0.022, 0.033, 0.044], [0.055, 0.066, -0.077, 0.088]], \"total_duration\": 14143917, \"load_duration\": 1019500, \"prompt_eval_count\": 8}"
+  }
+}

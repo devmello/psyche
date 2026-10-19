@@ -1,0 +1,14 @@
+{
+  "name": "gemini 503 unavailable",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/interactions"
+  },
+  "response": {
+    "status": 503,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":{\"code\":503,\"message\":\"The service is currently unavailable.\",\"status\":\"UNAVAILABLE\"}}"
+  }
+}
