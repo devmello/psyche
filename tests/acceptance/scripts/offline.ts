@@ -190,14 +190,15 @@ function scorecard(secrets: { ok: boolean; captures: number } | undefined): stri
       live.runs as {
         scenario: string;
         ok: boolean;
-        summary: { soft: { pass: number; fail: number } };
+        summary: { hard: { unchecked: number }; soft: { pass: number; fail: number } };
       }[]
     ).filter((r) => r.scenario === scenario);
     if (rs.length === 0) return "not run";
     const ok = rs.filter((r) => r.ok).length;
     const soft = rs.reduce((n, r) => n + r.summary.soft.pass, 0);
     const softAll = rs.reduce((n, r) => n + r.summary.soft.pass + r.summary.soft.fail, 0);
-    return `${ok}/${rs.length} hard-clean, soft ${soft}/${softAll}`;
+    const unchecked = rs.reduce((n, r) => n + r.summary.hard.unchecked, 0);
+    return `${ok}/${rs.length} hard-clean, soft ${soft}/${softAll}${unchecked > 0 ? `, ${unchecked} hard unchecked` : ""}`;
   };
   const byModel = new Map(lives.map((l) => [String(l.model), l]));
   const expected = ["anthropic (hosted)", "openai (hosted)", "ollama (local, agent-capable)"];

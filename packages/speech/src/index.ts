@@ -30,6 +30,7 @@ export * from "./engines/node.ts";
 export * from "./engines/phonemize.ts";
 export * from "./engines/web.ts";
 export * from "./engines/whisper.ts";
+export * from "./memo.ts";
 export * from "./models.ts";
 export * from "./policy.ts";
 export * from "./process.ts";
