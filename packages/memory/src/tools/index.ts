@@ -224,6 +224,10 @@ export class MemoryTools {
       limit: args.limit ?? 8,
       ...(args.include_untrusted === true ? {} : { provenance: ["owner", "agent", "system"] }),
     });
+    this.#store.recordRecall(
+      hits.map((h) => h.chunk.id),
+      args.query,
+    );
     const tainted = hits.some((h) => h.chunk.provenance === "untrusted");
     return { content: formatHits(hits), provenance: tainted ? "untrusted" : "trusted" };
   }
