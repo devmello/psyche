@@ -15,4 +15,4 @@ Which backend should the `SandboxRunner` use on this Mac (macOS 27) and on macOS
 4. Prototype the opt-in egress path: a host-side HTTP/SOCKS proxy with a domain allowlist (model it on Anthropic's `sandbox-runtime` design) and confirm the container can reach only allowlisted hosts when network is enabled through the proxy.
 
 ## Report
-A comparison table, the recommended default per macOS version, the exact backend commands/flags to use, failure modes (image pull time, VM boot, Rosetta), and amendments to ADR-008 if any. Hand the findings to Codex C1 via the write-up.
+A comparison table, the recommended default per macOS version, the exact backend commands/flags to use, failure modes (image pull time, VM boot, Rosetta), and amendments to ADR-008 if any. Hand the findings to S21 via the write-up.

@@ -19,8 +19,8 @@ Psyche is the open alternative to Meta's Muse: one persistent conversation with 
 | [docs/06-ui-design.md](docs/06-ui-design.md) | Information architecture, screen-by-screen specs with wireframes, design language, component inventory, theming, accessibility, keyboard map |
 | [docs/07-tech-decisions.md](docs/07-tech-decisions.md) | ADRs: Electron + Swift helper, TypeScript Gateway, own loop on AI SDK v7, SQLite + Markdown memory, binding-hash approvals, vault, browser drivers, sandbox, VM, MCP, channels, proactivity, UI libraries, speech, licenses |
 | [docs/08-roadmap.md](docs/08-roadmap.md) | Milestones 0–3 and v1.0, spikes, workstreams, risks, metrics |
-| [docs/09-execution-plan.md](docs/09-execution-plan.md) | How to build it with many parallel Claude Code sessions plus Codex: ownership map, waves, coordination rules, session roster |
-| [prompts/](prompts/README.md) | One ready-to-paste prompt per session: bootstrap/integrator, 20 workstreams, 6 spikes, 3 integration sessions, 3 Codex tasks |
+| [docs/09-execution-plan.md](docs/09-execution-plan.md) | How to build it with many parallel Claude Code sessions : ownership map, waves, coordination rules, session roster |
+| [prompts/](prompts/README.md) | One ready-to-paste prompt per session: bootstrap/integrator, 20 workstreams, 6 spikes, 3 integration sessions, plus sandbox, CLI/deploy and adversarial-review sessions |
 | [reports/Psyche personal agent landscape.md](reports/Psyche%20personal%20agent%20landscape.md) | Research report: what Muse, the Claude desktop app, OpenMuse, OpenClaw, Codex/ChatGPT and browser-agent frameworks do, and what to build on |
 | [research_notes/](research_notes/Psyche%20personal%20agent%20landscape/) | Seven sourced research files (~1 MB, ~2,000 citations) behind the report |
 

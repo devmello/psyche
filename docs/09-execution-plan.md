@@ -1,6 +1,6 @@
 # Psyche — Parallel Execution Plan
 
-Status: v0.1 (2026-10-18). How to build Psyche with many Claude Code sessions (Max 20x, each using its own subagents) plus a Codex session on a basic plan, without them stepping on each other. Prompts for every session are in [`prompts/`](../prompts/README.md). Feature ids refer to [03-feature-spec.md](03-feature-spec.md).
+Status: v0.1 (2026-10-18). How to build Psyche with many Claude Code sessions (Max 20x, each using its own subagents) without them stepping on each other. Prompts for every session are in [`prompts/`](../prompts/README.md). Feature ids refer to [03-feature-spec.md](03-feature-spec.md).
 
 ## 1. Approach: contracts first, one package per session, fakes everywhere
 
@@ -96,9 +96,9 @@ The integrator (S00 after bootstrap) merges in this order whenever PRs are ready
 | S20 | Content: skills and templates | `skills/`, `templates/` | T5 content, H1 templates, R1 copy | — | `prompts/s20-content-skills-templates.md` |
 | SP1–SP6 | Spikes | `spikes/<name>`, `docs/spikes/` | roadmap M0 spikes | — | `prompts/spike-*.md` |
 | INT-1..3 | Integration | cross-package wiring only | walking skeleton, server mode, acceptance | merged packages | `prompts/int-*.md` |
-| C1 | Codex: sandbox | `packages/sandbox`, `deploy/sandbox-image` | K1–K3, K8 base | protocol | `prompts/codex-c1-sandbox.md` |
-| C2 | Codex: CLI and deploy | `apps/cli`, `deploy/`, release CI | A10 subset, A11 | protocol, gateway API | `prompts/codex-c2-cli-deploy.md` |
-| C3 | Codex: adversarial review | reviews only | — | — | `prompts/codex-c3-adversarial-review.md` |
+| S21 | Sandbox | `packages/sandbox`, `deploy/sandbox-image` | K1–K3, K8 base | protocol | `prompts/s21-sandbox.md` |
+| S22 | CLI and deploy | `apps/cli`, `deploy/`, release CI | A10 subset, A11 | protocol, gateway API | `prompts/s22-cli-deploy.md` |
+| S23 | Adversarial review | reviews only | — | — | `prompts/s23-adversarial-review.md` |
 
 Running fewer sessions: merge S02+S03, S04+S05, S12+S13, S16+S17+S20, and run the spikes inside S08/S14/S03 as their first task.
 
@@ -115,9 +115,9 @@ Running fewer sessions: merge S02+S03, S04+S05, S12+S13, S16+S17+S20, and run th
 - **Subagents.** Use them for library research, writing tests, and independent review of your own PR before you open it; never for cross-package edits.
 - **Conflicts.** If two sessions need the same file, stop and leave a note in `docs/status/<id>.md`; the integrator decides.
 
-## 6. Codex (basic plan) assignments
+## 6. Self-contained sessions (formerly planned for Codex)
 
-Codex usage is limited, so it gets self-contained, test-heavy work with a clear finish line:
+These three are the most self-contained pieces; they run as ordinary Claude sessions:
 
 1. **C1 sandbox** (best fit): the nonroot container image, the `SandboxRunner` implementation for Apple `container`, Docker and Colima, receipts, and the smoke test adapted from OpenMuse's (nonroot, read-only system files, disabled network, capped output, interruption, workspace persistence).
 2. **C2 CLI and deploy**: `psyche` CLI commands that only call the Gateway API, the Dockerfile and Compose, launchd plists, release workflow.

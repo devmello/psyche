@@ -22,7 +22,7 @@ After bootstrap merges:
 - **Injection runner**: executes the corpus against the agent loop + permission broker + relevant executors (real packages where merged, fakes otherwise), reports unapproved egress or policy violations; target zero; publishes a JSON report CI can diff.
 - **Resumability harness**: kills a scripted run at random points (between model events, before/after receipts) and asserts the transcript and receipts are consistent with no duplicate side effects.
 - **CI gates**: wire typecheck, lint, unit, conformance, secret-leak, corpus and resumability into GitHub Actions with required-status names the integrator can enforce.
-- **PR review duty**: for every PR touching `permissions`, `vault`, `browser`, `sandbox`, `channels`, `mcp-host`, leave a review comment mapping changes to `docs/05` sections; file findings as issues with failing test cases; coordinate with Codex C3.
+- **PR review duty**: for every PR touching `permissions`, `vault`, `browser`, `sandbox`, `channels`, `mcp-host`, leave a review comment mapping changes to `docs/05` sections; file findings as issues with failing test cases; coordinate with S23.
 
 ## Out of scope
 Implementing product packages; changing policy semantics (propose to S05 instead).

@@ -29,7 +29,7 @@ UI rendering of cards (S12), notification transport (S15/S14), vault internals (
 - A `policy.json` example and schema (user-authored allow/deny rules) documented in the README; `docs/status/s05.md`.
 
 ## Suggested subagents
-One to write the decision-matrix test generator, one to implement canonicalization + property tests, one adversarial reviewer (also hand the PR to Codex C3 when it opens).
+One to write the decision-matrix test generator, one to implement canonicalization + property tests, one adversarial reviewer (also hand the PR to S23 when it opens).
 
 ## M2 follow-ons
 Model-backed classifier evaluation set; per-sender grant matrices for designated persons (with S10); approval analytics (friction metrics) for the roadmap.

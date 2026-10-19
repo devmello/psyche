@@ -1,6 +1,6 @@
-# Codex C1 — Sandbox container image and SandboxRunner
+# Session S21 — Sandbox container image and SandboxRunner
 
-You are working on Psyche, an open-source self-hosted personal AI agent (read `README.md`). Your task is self-contained: implement `packages/sandbox` (the `SandboxRunner` contract) and the container image under `deploy/sandbox-image/`. Work on branch `codex/c1-sandbox`. Edit only those two paths plus `docs/status/c1.md`.
+You are building Psyche, an open-source self-hosted personal AI agent (read `README.md`). You are session **S21 — Sandbox**: implement `packages/sandbox` (the `SandboxRunner` contract) and the container image under `deploy/sandbox-image/`. Work in your own worktree on branch `ws/s21-sandbox`. You own `packages/sandbox/**`, `deploy/sandbox-image/**` and `docs/status/s21.md`. Start after the S00 bootstrap PR has merged (it creates the contract you implement).
 
 ## Read first
 1. `prompts/_shared-rules.md`
@@ -23,4 +23,4 @@ You are working on Psyche, an open-source self-hosted personal AI agent (read `R
 Port OpenMuse's smoke test: image builds; commands run as UID 1000; writes to `/usr` fail; network is unreachable (`curl` to an IP fails fast); output caps enforced; a long `sleep` is interrupted and recorded as `uncertain`; files persist across container restart; symlink traversal rejected; PDF import/export preserves bytes; PTY mode echoes; concurrency limit holds; backend detection order.
 
 ## Definition of done
-`pnpm -w typecheck && pnpm -w lint && pnpm --filter @psyche/sandbox test` green; README documenting backends, flags and the egress-proxy interface; `docs/status/c1.md` with measured cold/warm start times per backend on your machine.
+`pnpm -w typecheck && pnpm -w lint && pnpm --filter @psyche/sandbox test` green; README documenting backends, flags and the egress-proxy interface; `docs/status/s21.md` with measured cold/warm start times per backend on your machine.

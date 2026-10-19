@@ -1,6 +1,6 @@
-# Codex C2 — CLI, Docker, Compose, launchd, release pipeline
+# Session S22 — CLI, Docker, Compose, launchd, release pipeline
 
-You are working on Psyche, an open-source self-hosted personal AI agent (read `README.md`). Your task is self-contained: `apps/cli` (the `psyche` command), `deploy/` (Dockerfile for the Gateway, Compose, launchd plists, systemd unit, Tailscale Serve and Cloudflare Access examples) and the release workflow. Start after `apps/gateway` has merged with its API. Work on branch `codex/c2-cli-deploy`. Edit only those paths, `.github/workflows/release.yml`, and `docs/status/c2.md`.
+You are building Psyche, an open-source self-hosted personal AI agent (read `README.md`). You are session **S22 — CLI and deploy**: `apps/cli` (the `psyche` command), `deploy/` (Dockerfile for the Gateway, Compose, launchd plists, systemd unit, Tailscale Serve and Cloudflare Access examples) and the release workflow. Start after `apps/gateway` has merged with its API. Work in your own worktree on branch `ws/s22-cli-deploy`. You own those paths, `.github/workflows/release.yml`, and `docs/status/s22.md`.
 
 ## Read first
 1. `prompts/_shared-rules.md`
@@ -19,4 +19,4 @@ You are working on Psyche, an open-source self-hosted personal AI agent (read `R
 CLI tests against a mock Gateway (every command's happy path and `--json`), `doctor` and `security audit` rule tests, Compose smoke test in CI (`docker compose up`, wait for health, `psyche status`), backup/restore round trip on a fixture data dir, plist and unit file validation.
 
 ## Definition of done
-Green CI; `apps/cli/README.md` with every command; `deploy/README.md` with the three deployment recipes; `docs/status/c2.md`.
+Green CI; `apps/cli/README.md` with every command; `deploy/README.md` with the three deployment recipes; `docs/status/s22.md`.

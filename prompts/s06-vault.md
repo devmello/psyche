@@ -29,7 +29,7 @@ UI (S12), the Stripe Link flow (G12, M3), 1Password/Bitwarden bridges (G10/G11, 
 - Threat-model checklist in the README mapping each control to `docs/05` §4; `docs/status/s06.md`.
 
 ## Suggested subagents
-One to evaluate SQLCipher bindings for Node 24 (build, licensing, maintenance), one to write the redaction property tests, one adversarial reviewer (then Codex C3).
+One to evaluate SQLCipher bindings for Node 24 (build, licensing, maintenance), one to write the redaction property tests, one adversarial reviewer (then S23).
 
 ## M2/M3 follow-ons
 G9 system-keychain mode (items as keychain entries through the helper); G12 Stripe Link Agent Wallet (spend request → approval URL → one-time card written only to a 0600 file consumed by the browser fill executor); G10 1Password service-account SDK bridge; G11 Bitwarden Agent Access bridge.

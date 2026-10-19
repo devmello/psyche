@@ -1,6 +1,6 @@
 # Session prompts — how to launch everything
 
-Each file in this folder is a complete prompt for one session. Open a new Claude Code session on this repo (Code tab → New session → this folder, with a worktree), paste the file's contents as the first message, and let it run. Codex prompts work the same way in the Codex app or CLI.
+Each file in this folder is a complete prompt for one session. Open a new Claude Code session on this repo (Code tab → New session → this folder, with a worktree), paste the file's contents as the first message, and let it run.
 
 ## Order of operations
 
@@ -10,9 +10,9 @@ Each file in this folder is a complete prompt for one session. Open a new Claude
    - `spike-01-cdp-bridge.md`, `spike-02-apple-container.md`, `spike-03-speechanalyzer.md`, `spike-04-ax-snapshot.md`, `spike-05-local-models.md`, `spike-06-vz-provisioning.md`
    - `s20-content-skills-templates.md`
    - `s18-security-test-harness.md` (corpus and scenario scripts first; code after bootstrap)
-   - `codex-c3-adversarial-review.md` (review of the docs now; PR review later)
-3. **When the bootstrap PR is merged to `main`, start:** `s01` … `s17` and `codex-c1-sandbox.md`. Each works against fakes, so they do not block each other.
-4. **When the packages a scenario needs are merged, start:** `int-1-walking-skeleton.md`, then `int-2-browser-connectors-channels.md`, then `int-3-acceptance.md`, plus `codex-c2-cli-deploy.md` and `s19-node-agent.md`.
+   - `s23-adversarial-review.md` (review of the docs now; PR review later)
+3. **When the bootstrap PR is merged to `main`, start:** `s01` … `s17` and `s21-sandbox.md`. Each works against fakes, so they do not block each other.
+4. **When the packages a scenario needs are merged, start:** `int-1-walking-skeleton.md`, then `int-2-browser-connectors-channels.md`, then `int-3-acceptance.md`, plus `s22-cli-deploy.md` and `s19-node-agent.md`.
 
 Running fewer sessions: see `docs/09-execution-plan.md` §4 for which prompts can be merged.
 
@@ -44,9 +44,9 @@ Running fewer sessions: see `docs/09-execution-plan.md` §4 for which prompts ca
 | `s20-content-skills-templates.md` | Bundled SKILL.md files, workspace templates, onboarding copy |
 | `spike-01…06-*.md` | Six time-boxed prototypes that de-risk the architecture |
 | `int-1-walking-skeleton.md`, `int-2-…`, `int-3-acceptance.md` | Integration sessions |
-| `codex-c1-sandbox.md` | Codex: container image and SandboxRunner |
-| `codex-c2-cli-deploy.md` | Codex: CLI, Docker, Compose, launchd, release CI |
-| `codex-c3-adversarial-review.md` | Codex: red-team review of security design and PRs |
+| `s21-sandbox.md` | Sandbox container image and SandboxRunner (after bootstrap) |
+| `s22-cli-deploy.md` | CLI, Docker, Compose, launchd, release CI (after the Gateway merges) |
+| `s23-adversarial-review.md` | Red-team review of the security design now, PRs later |
 
 ## Tips
 
