@@ -11,6 +11,8 @@ export * from "./detect.ts";
 export * from "./docx.ts";
 export * from "./email.ts";
 export * from "./extract.ts";
+export * from "./forms.ts";
+export * from "./hash.ts";
 export * from "./markdown.ts";
 export * from "./pdf.ts";
 export { configurePdfJs, type PdfJsConfig } from "./pdfjs.ts";
