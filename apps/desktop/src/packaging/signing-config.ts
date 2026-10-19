@@ -42,7 +42,10 @@ export function notarizeCredentials(env: BuildEnv): NotarizeCredentials | undefi
  * `osxSign` / `osxNotarize` for the packager config, or `{}` when unsigned. Notarization is
  * only configured together with signing (packager requires it).
  */
-export function macSigningOptions(env: BuildEnv, opts: { entitlements: string }): MacSigningOptions {
+export function macSigningOptions(
+  env: BuildEnv,
+  opts: { entitlements: string },
+): MacSigningOptions {
   const identity = value(env, "PSYCHE_SIGN_IDENTITY");
   if (!identity) return {};
   const signing: MacSigningOptions = {
