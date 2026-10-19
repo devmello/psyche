@@ -1,5 +1,7 @@
 import type { Provenance } from "../common.ts";
 import type { MemoryChunk, MemoryClaim, MemoryHit } from "../schemas/memory.ts";
+import type { CallOptions } from "./Clock.ts";
+import type { ModelMessage } from "./ModelProvider.ts";
 
 /**
  * Memory store contract (architecture §4.8; data model §7; security §8; owner S07).
@@ -64,6 +66,16 @@ export interface ForgetResult {
   files?: string[];
 }
 
+export interface MemoryFlushOptions extends CallOptions {
+  /** The turn read untrusted content: anything noted is tagged `untrusted`, never `owner`. */
+  taint?: boolean;
+}
+
+export interface MemoryFlushResult {
+  /** Daily-note entries appended by the flush (0 when nothing was worth keeping). */
+  appended: number;
+}
+
 export interface MemoryStore {
   readFile(path: string): Promise<MemoryFile | undefined>;
   writeFile(path: string, content: string, options: MemoryWriteOptions): Promise<MemoryFile>;
@@ -78,4 +90,14 @@ export interface MemoryStore {
   explain(claimId: string): Promise<{ claim: MemoryClaim; chunks: MemoryChunk[] } | undefined>;
   /** Retract matching claims and remove linked chunks; `dryRun` reports without changing. */
   forget(subject: string, options?: { dryRun?: boolean }): Promise<ForgetResult>;
+  /**
+   * Pre-compaction flush (architecture §4.2 step 7, §4.8): note durable facts from a private
+   * copy of the conversation in today's daily note (append-only) before older turns are
+   * summarized. Never called for incognito threads.
+   */
+  flush?(
+    threadId: string,
+    privateCopy: readonly ModelMessage[],
+    options?: MemoryFlushOptions,
+  ): Promise<MemoryFlushResult>;
 }
