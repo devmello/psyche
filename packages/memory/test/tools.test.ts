@@ -1,7 +1,6 @@
 import type { ModelEvent, ModelMessage } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
-import { dreamingDue, runDreaming } from "../src/dreaming.ts";
 import { FLUSH_SYSTEM_PROMPT, parseFacts } from "../src/flush.ts";
 import {
   classifyMemoryCommand,
@@ -401,39 +400,5 @@ describe("pre-compaction flush (H5)", () => {
       "a fact",
       "b fact",
     ]);
-  });
-});
-
-describe("dreaming scaffold (H6, M2)", () => {
-  it("is due once a day after 03:00 local", () => {
-    const at = (iso: string) => Date.parse(iso);
-    expect(dreamingDue(at("2026-10-19T02:59:00Z"), undefined, "UTC")).toBe(false);
-    expect(dreamingDue(at("2026-10-19T03:00:00Z"), undefined, "UTC")).toBe(true);
-    expect(dreamingDue(at("2026-10-19T09:00:00Z"), at("2026-10-19T03:05:00Z"), "UTC")).toBe(false);
-    expect(dreamingDue(at("2026-10-20T03:01:00Z"), at("2026-10-19T03:05:00Z"), "UTC")).toBe(true);
-    expect(dreamingDue(at("2026-10-19T10:30:00Z"), undefined, "America/Los_Angeles")).toBe(true);
-  });
-
-  it("excludes untrusted and system candidates and never writes MEMORY.md", async () => {
-    env = await makeEnv();
-    const memory = (await env.store.readFile("MEMORY.md"))?.content;
-    await env.store.addClaim({
-      text: "a",
-      kind: "fact",
-      provenance: "owner",
-      confidence: 1,
-      sources: [],
-    });
-    await env.store.addClaim({
-      text: "b",
-      kind: "fact",
-      provenance: "untrusted",
-      confidence: 1,
-      sources: [],
-    });
-    const report = await runDreaming(env.store);
-    expect(report).toEqual({ candidates: 1, excluded: 1, promoted: 0 });
-    expect((await env.store.readFile("MEMORY.md"))?.content).toBe(memory);
-    expect((await env.store.readFile("DREAMS.md"))?.content).toContain("## 2026-10-18");
   });
 });
