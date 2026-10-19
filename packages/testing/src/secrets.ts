@@ -1,15 +1,11 @@
 /**
- * Secret-leak checker (skeleton).
+ * Secret-leak checker: registered values (security §4.5–§4.7, §15.4 item 7).
  *
- * TODO(S18): complete this module — a registry of fake credentials / cards / tokens shared by
- * all tests (the secret corpus), card-number (Luhn) and government-id pattern detection,
- * placeholder-resolution leak checks, a Vitest reporter/plugin that scans every model-visible
- * string captured in tests (prompts, tool results, transcripts, logs), the `pnpm check:secrets`
- * CLI, and CI wiring. See prompts/s18-security-test-harness.md and security §4.5–§4.7.
- *
- * What exists now: register secret values, find them (raw, base64, base64url, URL-encoded and
- * hex forms) in strings or arbitrary objects, and assert none are present. Errors name the
- * secret's label and offset, never the value.
+ * This module registers secret values and finds them (raw, base64, base64url, URL-encoded and
+ * hex forms) in strings or arbitrary objects. `SecretSet` is an independent registry; the
+ * module-level functions use a default one. Pattern detectors live in `secret-patterns.ts`, the
+ * shared fixture registry in `secret-registry.ts`, model-visible capture and scanning in
+ * `capture.ts`. Errors name the secret's label and offset, never the value.
  */
 
 export type SecretEncoding = "raw" | "base64" | "base64url" | "url" | "hex";
@@ -30,8 +26,6 @@ interface Registered {
 
 /** Values shorter than this are refused: they would match too much innocent text. */
 export const MIN_SECRET_LENGTH = 6;
-
-const registry = new Map<string, Registered>();
 
 /**
  * Base64 fragments of `bytes` that appear in the encoding of any byte string containing it,
@@ -74,30 +68,68 @@ function formsOf(value: string): Registered["forms"] {
   });
 }
 
+/** An independent set of registered secrets. */
+export class SecretSet {
+  #entries = new Map<string, Registered>();
+
+  /** Register a secret value so `find` looks for it. */
+  add(value: string, label = "secret"): void {
+    if (value.length < MIN_SECRET_LENGTH) {
+      throw new RangeError(
+        `registerSecret(${label}): values shorter than ${MIN_SECRET_LENGTH} chars are not tracked`,
+      );
+    }
+    this.#entries.set(value, { label, forms: formsOf(value) });
+  }
+
+  delete(value: string): void {
+    this.#entries.delete(value);
+  }
+
+  clear(): void {
+    this.#entries.clear();
+  }
+
+  get size(): number {
+    return this.#entries.size;
+  }
+
+  /** Every registered secret (in any tracked encoding) found in `input`. */
+  find(input: unknown): SecretMatch[] {
+    const out: SecretMatch[] = [];
+    forEachString(input, (text, path) => {
+      scanString(this.#entries, text, path, out);
+    });
+    return out;
+  }
+}
+
+const defaultSet = new SecretSet();
+
 /** Register a secret value so `findSecrets` / `assertNoSecrets` look for it. */
 export function registerSecret(value: string, label = "secret"): void {
-  if (value.length < MIN_SECRET_LENGTH) {
-    throw new RangeError(
-      `registerSecret(${label}): values shorter than ${MIN_SECRET_LENGTH} chars are not tracked`,
-    );
-  }
-  registry.set(value, { label, forms: formsOf(value) });
+  defaultSet.add(value, label);
 }
 
 export function unregisterSecret(value: string): void {
-  registry.delete(value);
+  defaultSet.delete(value);
 }
 
 export function clearSecrets(): void {
-  registry.clear();
+  defaultSet.clear();
 }
 
 export function registeredSecretCount(): number {
-  return registry.size;
+  return defaultSet.size;
 }
 
-function scanString(text: string, path: string, out: SecretMatch[]): void {
-  for (const entry of registry.values()) {
+function scanString(
+  entries: Map<string, Registered>,
+  text: string,
+  path: string,
+  out: SecretMatch[],
+): void {
+  for (const entry of entries.values()) {
     for (const form of entry.forms) {
       let from = 0;
       for (;;) {
@@ -110,13 +142,27 @@ function scanString(text: string, path: string, out: SecretMatch[]): void {
   }
 }
 
-function walk(value: unknown, path: string, out: SecretMatch[], seen: Set<object>): void {
+/**
+ * Calls `visit` for every string reachable from `input`: nested objects, arrays, object keys,
+ * Map / Set entries, `toJSON` output, Error name / message / stack / cause, and Uint8Array
+ * contents decoded as UTF-8. Paths are JSON-ish (`$` for a plain string).
+ */
+export function forEachString(input: unknown, visit: (text: string, path: string) => void): void {
+  walk(input, "$", visit, new Set());
+}
+
+function walk(
+  value: unknown,
+  path: string,
+  visit: (text: string, path: string) => void,
+  seen: Set<object>,
+): void {
   if (typeof value === "string") {
-    scanString(value, path, out);
+    visit(value, path);
     return;
   }
   if (value instanceof Uint8Array) {
-    scanString(Buffer.from(value).toString("utf8"), path, out);
+    visit(Buffer.from(value).toString("utf8"), path);
     return;
   }
   if (value === null || typeof value !== "object") return;
@@ -125,48 +171,46 @@ function walk(value: unknown, path: string, out: SecretMatch[], seen: Set<object
   // Whatever an object serializes to is what reaches logs and transcripts.
   const json = (value as { toJSON?: unknown }).toJSON;
   if (typeof json === "function") {
-    walk((json as () => unknown).call(value), path, out, seen);
+    walk((json as () => unknown).call(value), path, visit, seen);
     return;
   }
   if (Array.isArray(value)) {
     value.forEach((v, i) => {
-      walk(v, `${path}[${i}]`, out, seen);
+      walk(v, `${path}[${i}]`, visit, seen);
     });
     return;
   }
   if (value instanceof Map) {
     let i = 0;
     for (const [k, v] of value) {
-      walk(k, `${path}.<mapKey ${i}>`, out, seen);
-      walk(v, `${path}.<mapValue ${i}>`, out, seen);
+      walk(k, `${path}.<mapKey ${i}>`, visit, seen);
+      walk(v, `${path}.<mapValue ${i}>`, visit, seen);
       i += 1;
     }
     return;
   }
   if (value instanceof Set) {
     let i = 0;
-    for (const v of value) walk(v, `${path}.<set ${i++}>`, out, seen);
+    for (const v of value) walk(v, `${path}.<set ${i++}>`, visit, seen);
     return;
   }
   if (value instanceof Error) {
     // name, message, stack and cause are non-enumerable but end up in logs.
-    walk(value.name, `${path}.name`, out, seen);
-    walk(value.message, `${path}.message`, out, seen);
-    walk(value.stack, `${path}.stack`, out, seen);
-    walk(value.cause, `${path}.cause`, out, seen);
-    if (value instanceof AggregateError) walk(value.errors, `${path}.errors`, out, seen);
+    walk(value.name, `${path}.name`, visit, seen);
+    walk(value.message, `${path}.message`, visit, seen);
+    walk(value.stack, `${path}.stack`, visit, seen);
+    walk(value.cause, `${path}.cause`, visit, seen);
+    if (value instanceof AggregateError) walk(value.errors, `${path}.errors`, visit, seen);
   }
   for (const [k, v] of Object.entries(value)) {
-    scanString(k, `${path}.<key>`, out);
-    walk(v, `${path}.${k}`, out, seen);
+    visit(k, `${path}.<key>`);
+    walk(v, `${path}.${k}`, visit, seen);
   }
 }
 
 /** Every registered secret (in any tracked encoding) found in `input`. */
 export function findSecrets(input: unknown): SecretMatch[] {
-  const out: SecretMatch[] = [];
-  walk(input, "$", out, new Set());
-  return out;
+  return defaultSet.find(input);
 }
 
 export class SecretLeakError extends Error {

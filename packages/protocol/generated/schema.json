@@ -16,6 +16,11 @@
         "payload": "#/$defs/BridgeControlChangedPayload"
       },
       {
+        "description": "desktop → Gateway: the CDP session ended (renderer crash, target closed). Enabled domains are gone; the Gateway re-attaches and re-enables them.",
+        "name": "bridge.debugger.detached",
+        "payload": "#/$defs/BridgeDebuggerDetachedPayload"
+      },
+      {
         "description": "desktop → Gateway: download progress; files land in quarantine.",
         "name": "bridge.download",
         "payload": "#/$defs/BridgeDownloadPayload"
@@ -86,6 +91,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Gateway → desktop: status pill text and action highlight for a tab (I5). Display only; the desktop never reads page content back.",
+        "name": "bridge.tab.status",
+        "params": "#/$defs/BridgeTabStatusParams",
+        "result": "#/$defs/OkResult",
+        "scope": "none",
+        "sideEffecting": false
+      },
+      {
         "description": "Gateway → desktop: lists bridge tabs.",
         "name": "bridge.tabs.list",
         "params": "#/$defs/BridgeTabsListParams",
@@ -104,6 +117,21 @@
         "description": "An approval was decided, expired or invalidated.",
         "name": "approval.updated",
         "payload": "#/$defs/ApprovalUpdatedPayload"
+      },
+      {
+        "description": "An automation run ended (done, no_reply, failed, cancelled, skipped).",
+        "name": "automation.run.finished",
+        "payload": "#/$defs/AutomationRunFinishedPayload"
+      },
+      {
+        "description": "A scheduled or manual automation run started (missed ticks coalesced).",
+        "name": "automation.run.started",
+        "payload": "#/$defs/AutomationRunStartedPayload"
+      },
+      {
+        "description": "An automation was created, edited, paused, run or deleted (`enabled: false`).",
+        "name": "automation.updated",
+        "payload": "#/$defs/AutomationUpdatedPayload"
       },
       {
         "description": "A channel was configured, connected, disconnected or changed status.",
@@ -126,6 +154,16 @@
         "payload": "#/$defs/ChatMessagePayload"
       },
       {
+        "description": "The thread's follow-up queue changed (queued, removed or started).",
+        "name": "chat.queue.updated",
+        "payload": "#/$defs/ChatQueueUpdatedPayload"
+      },
+      {
+        "description": "A vault item was added, edited, deleted, used, rotated or revoked; revocation invalidates connection-bound work.",
+        "name": "credential.updated",
+        "payload": "#/$defs/CredentialUpdatedPayload"
+      },
+      {
         "description": "A device was paired, changed scopes or was revoked.",
         "name": "device.updated",
         "payload": "#/$defs/DeviceUpdatedPayload"
@@ -134,6 +172,11 @@
         "description": "A feed post was published or its feedback changed.",
         "name": "feed.post",
         "payload": "#/$defs/FeedPostPayload"
+      },
+      {
+        "description": "A whole brief or briefing batch was generated (clients refresh the Feed once instead of per feed.post).",
+        "name": "feed.updated",
+        "payload": "#/$defs/FeedUpdatedPayload"
       },
       {
         "description": "The Gateway is shutting down; clients reconnect with backoff.",
@@ -169,6 +212,16 @@
         "description": "A notification was created for the in-app inbox.",
         "name": "notification.created",
         "payload": "#/$defs/NotificationCreatedPayload"
+      },
+      {
+        "description": "A notification was resolved (by the user, an action, a superseding state or restart reconciliation).",
+        "name": "notification.resolved",
+        "payload": "#/$defs/NotificationResolvedPayload"
+      },
+      {
+        "description": "A notification changed: read, re-delivered, or replaced by a de-duplicated notify (same id).",
+        "name": "notification.updated",
+        "payload": "#/$defs/NotificationUpdatedPayload"
       },
       {
         "description": "A new pairing request awaits the owner's approval.",
@@ -211,6 +264,11 @@
         "payload": "#/$defs/TaskUpdatedPayload"
       },
       {
+        "description": "A thread and its transcript were deleted.",
+        "name": "thread.deleted",
+        "payload": "#/$defs/ThreadDeletedPayload"
+      },
+      {
         "description": "A thread was created, renamed, pinned, archived or restored.",
         "name": "thread.updated",
         "payload": "#/$defs/ThreadUpdatedPayload"
@@ -219,6 +277,16 @@
         "description": "A tool call changed status (params are redacted; never secrets).",
         "name": "tool_call.updated",
         "payload": "#/$defs/ToolCallUpdatedPayload"
+      },
+      {
+        "description": "The vault locked and its key was zeroized.",
+        "name": "vault.locked",
+        "payload": "#/$defs/VaultLockedPayload"
+      },
+      {
+        "description": "The vault unlocked through a key slot.",
+        "name": "vault.unlocked",
+        "payload": "#/$defs/VaultUnlockedPayload"
       },
       {
         "description": "Gateway → desktop pane RPC for view.* (only the desktop shell acts on it).",
@@ -297,6 +365,22 @@
         "result": "#/$defs/AutomationsRunResult",
         "scope": "operator.write",
         "sideEffecting": true
+      },
+      {
+        "description": "Run history of one automation, newest first.",
+        "name": "automations.runs",
+        "params": "#/$defs/AutomationsRunsParams",
+        "result": "#/$defs/AutomationsRunsResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Everything scheduled (automations, reminders, briefings, heartbeat, watches) with next run times, soonest first; open input requests last (Upcoming view, O4).",
+        "name": "automations.upcoming",
+        "params": "#/$defs/AutomationsUpcomingParams",
+        "result": "#/$defs/AutomationsUpcomingResult",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "Updates the given fields of an automation.",
@@ -451,6 +535,22 @@
         "sideEffecting": false
       },
       {
+        "description": "Lists the thread's queued follow-ups in the order they will run.",
+        "name": "chat.queue.list",
+        "params": "#/$defs/ChatQueueListParams",
+        "result": "#/$defs/ChatQueueListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Removes a queued follow-up before it starts; false when it already started or is unknown.",
+        "name": "chat.queue.remove",
+        "params": "#/$defs/ChatQueueRemoveParams",
+        "result": "#/$defs/ChatQueueRemoveResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
         "description": "Sends a user message. If the agent is mid-turn the message is queued by mode (default followUp). Side-effecting: requires idempotencyKey; duplicates return the original result.",
         "name": "chat.send",
         "params": "#/$defs/ChatSendParams",
@@ -555,12 +655,36 @@
         "sideEffecting": false
       },
       {
+        "description": "Generates the daily brief (or one briefing) now instead of at its schedule (first-run state). Side-effecting.",
+        "name": "feed.generate",
+        "params": "#/$defs/FeedGenerateParams",
+        "result": "#/$defs/FeedGenerateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Lists feed posts, newest batch first, with the time of the next brief.",
         "name": "feed.list",
         "params": "#/$defs/FeedListParams",
         "result": "#/$defs/FeedListResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Archives a goal and disables its check-ins. Side-effecting.",
+        "name": "goals.archive",
+        "params": "#/$defs/GoalsArchiveParams",
+        "result": "#/$defs/GoalsArchiveResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Creates a stated goal (active at once); a cadence schedules check-ins. Inferred goals are never created here. Side-effecting.",
+        "name": "goals.create",
+        "params": "#/$defs/GoalsCreateParams",
+        "result": "#/$defs/GoalsCreateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
       },
       {
         "description": "Confirms, rejects or defers an inferred candidate goal; nothing is created before confirm.",
@@ -571,12 +695,20 @@
         "sideEffecting": false
       },
       {
-        "description": "Returns one goal with the ids of its linked tasks.",
+        "description": "Returns one goal with its linked task ids, milestones and links.",
         "name": "goals.get",
         "params": "#/$defs/GoalsGetParams",
         "result": "#/$defs/GoalsGetResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Links (or unlinks) one task, automation or watch to a goal. Side-effecting.",
+        "name": "goals.link",
+        "params": "#/$defs/GoalsLinkParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.write",
+        "sideEffecting": true
       },
       {
         "description": "Lists goals (default: active and candidate), grouped client-side by category.",
@@ -585,6 +717,22 @@
         "result": "#/$defs/GoalsListResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Adds (no milestoneId), edits, completes or removes a milestone. Side-effecting.",
+        "name": "goals.milestone",
+        "params": "#/$defs/GoalsMilestoneParams",
+        "result": "#/$defs/GoalsMilestoneResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Edits a goal; changing the cadence reschedules its check-ins. Side-effecting.",
+        "name": "goals.update",
+        "params": "#/$defs/GoalsUpdateParams",
+        "result": "#/$defs/GoalsUpdateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
       },
       {
         "description": "Lists standing grants with use counts and expiry.",
@@ -915,7 +1063,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Sets one setting. Keys under an admin root (permissions, exec, vault, devices, gateway, channels, grants, approvals) also need operator.admin. Side-effecting.",
+        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges) also needs operator.admin. Side-effecting.",
         "name": "settings.set",
         "params": "#/$defs/SettingsSetParams",
         "result": "#/$defs/SettingsSetResult",
@@ -1051,6 +1199,30 @@
         "sideEffecting": false
       },
       {
+        "description": "Adds an item. Card numbers, CVVs, bank account numbers and government ids are refused (policy_denied). Side-effecting.",
+        "name": "vault.add",
+        "params": "#/$defs/VaultAddParams",
+        "result": "#/$defs/VaultAddResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Completes setup once the owner proves the recovery key is stored. Side-effecting.",
+        "name": "vault.confirmRecovery",
+        "params": "#/$defs/VaultConfirmRecoveryParams",
+        "result": "#/$defs/VaultConfirmRecoveryResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Overwrites and deletes an item. Side-effecting.",
+        "name": "vault.delete",
+        "params": "#/$defs/VaultDeleteParams",
+        "result": "#/$defs/VaultDeleteResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Returns one credential's metadata (never its value).",
         "name": "vault.get",
         "params": "#/$defs/VaultGetParams",
@@ -1059,10 +1231,66 @@
         "sideEffecting": false
       },
       {
+        "description": "Imports a CSV export from 1Password, Bitwarden or Chrome; refused rows are reported, never their values. Side-effecting.",
+        "name": "vault.import",
+        "params": "#/$defs/VaultImportParams",
+        "result": "#/$defs/VaultImportResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Lists credential metadata (never values).",
         "name": "vault.list",
         "params": "#/$defs/VaultListParams",
         "result": "#/$defs/VaultListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Locks the vault and zeroizes the key in memory. Side-effecting.",
+        "name": "vault.lock",
+        "params": "#/$defs/VaultLockParams",
+        "result": "#/$defs/VaultLockResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Creates the vault with a random key wrapped by the chosen slot plus a recovery key, returned once. Side-effecting.",
+        "name": "vault.setup",
+        "params": "#/$defs/VaultSetupParams",
+        "result": "#/$defs/VaultSetupResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Returns whether the vault exists and is locked, its key slots and idle lock time.",
+        "name": "vault.status",
+        "params": "#/$defs/VaultStatusParams",
+        "result": "#/$defs/VaultStatusResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Unlocks the vault through its key slot (Touch ID on macOS) or the recovery key. Side-effecting.",
+        "name": "vault.unlock",
+        "params": "#/$defs/VaultUnlockParams",
+        "result": "#/$defs/VaultUnlockResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Edits an item's name, bindings or secret fields. Side-effecting.",
+        "name": "vault.update",
+        "params": "#/$defs/VaultUpdateParams",
+        "result": "#/$defs/VaultUpdateResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Lists an item's recent fills and denials, newest first (default 50).",
+        "name": "vault.uses",
+        "params": "#/$defs/VaultUsesParams",
+        "result": "#/$defs/VaultUsesResult",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -1095,6 +1323,14 @@
         "name": "view.open",
         "params": "#/$defs/ViewOpenParams",
         "result": "#/$defs/ViewOpenResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "desktop → Gateway: the desktop's current pane layout, sent after every change; view.layout returns the last report.",
+        "name": "view.report",
+        "params": "#/$defs/ViewReportParams",
+        "result": "#/$defs/OkResult",
         "scope": "operator.write",
         "sideEffecting": false
       }
@@ -1812,6 +2048,13 @@
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
+        },
+        "watch": {
+          "$ref": "#/$defs/WatchConfig"
+        },
+        "lightContext": {
+          "description": "Heartbeat: skip workspace bootstrap files (feature O2)",
+          "type": "boolean"
         }
       },
       "required": [
@@ -1830,16 +2073,174 @@
       "type": "object"
     },
     "AutomationKind": {
+      "description": "`reminder` is a one-shot: `schedule` is an ISO-8601 instant",
       "enum": [
         "cron",
         "interval",
         "watch",
         "heartbeat",
-        "briefing"
+        "briefing",
+        "reminder"
       ],
       "type": "string"
     },
     "AutomationResult": {
+      "properties": {
+        "automation": {
+          "$ref": "#/$defs/Automation"
+        }
+      },
+      "required": [
+        "automation"
+      ],
+      "type": "object"
+    },
+    "AutomationRun": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trigger": {
+          "enum": [
+            "schedule",
+            "manual"
+          ],
+          "type": "string"
+        },
+        "scheduledFor": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "coalesced": {
+          "description": "Missed ticks folded into this run",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/AutomationRunStatus"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notificationId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "automationId",
+        "trigger",
+        "scheduledFor",
+        "coalesced",
+        "startedAt",
+        "status"
+      ],
+      "type": "object"
+    },
+    "AutomationRunFinishedPayload": {
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/AutomationRun"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "type": "object"
+    },
+    "AutomationRunStartedPayload": {
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/AutomationRun"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "type": "object"
+    },
+    "AutomationRunStatus": {
+      "enum": [
+        "running",
+        "done",
+        "no_reply",
+        "failed",
+        "cancelled",
+        "skipped"
+      ],
+      "type": "string"
+    },
+    "AutomationUpdatedPayload": {
       "properties": {
         "automation": {
           "$ref": "#/$defs/Automation"
@@ -1883,6 +2284,12 @@
           "$ref": "#/$defs/Delivery"
         },
         "enabled": {
+          "type": "boolean"
+        },
+        "watch": {
+          "$ref": "#/$defs/WatchConfig"
+        },
+        "lightContext": {
           "type": "boolean"
         }
       },
@@ -1975,6 +2382,87 @@
       },
       "type": "object"
     },
+    "AutomationsRunsParams": {
+      "properties": {
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "automationId"
+      ],
+      "type": "object"
+    },
+    "AutomationsRunsResult": {
+      "properties": {
+        "runs": {
+          "items": {
+            "$ref": "#/$defs/AutomationRun"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "runs"
+      ],
+      "type": "object"
+    },
+    "AutomationsUpcomingParams": {
+      "properties": {
+        "horizonHours": {
+          "maximum": 8784,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "AutomationsUpcomingResult": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/UpcomingItem"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "type": "object"
+    },
     "AutomationsUpdateParams": {
       "properties": {
         "automationId": {
@@ -2012,6 +2500,23 @@
         },
         "enabled": {
           "type": "boolean"
+        },
+        "watch": {
+          "$ref": "#/$defs/WatchConfig"
+        },
+        "lightContext": {
+          "type": "boolean"
+        },
+        "scratch": {
+          "anyOf": [
+            {
+              "maxLength": 20000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -2124,11 +2629,40 @@
         },
         "state": {
           "$ref": "#/$defs/BrowserController"
+        },
+        "via": {
+          "$ref": "#/$defs/BridgeControlVia"
         }
       },
       "required": [
         "tabId",
         "state"
+      ],
+      "type": "object"
+    },
+    "BridgeControlVia": {
+      "description": "What changed control: user input, the Take control button, Release or idle timeout",
+      "enum": [
+        "keyboard",
+        "mouse",
+        "button",
+        "release",
+        "idle"
+      ],
+      "type": "string"
+    },
+    "BridgeDebuggerDetachedPayload": {
+      "properties": {
+        "tabId": {
+          "$ref": "#/$defs/BridgeTabId"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "tabId",
+        "reason"
       ],
       "type": "object"
     },
@@ -2267,6 +2801,34 @@
         "attached": {
           "description": "A CDP debugger session is attached",
           "type": "boolean"
+        },
+        "openerTabId": {
+          "anyOf": [
+            {
+              "description": "Tab whose window.open created this one (popups, OAuth)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "disposition": {
+          "description": "Electron window-open disposition, e.g. new-window, foreground-tab",
+          "type": "string"
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -2307,6 +2869,17 @@
         },
         "background": {
           "type": "boolean"
+        },
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskTitle": {
+          "description": "Shown in the pane: \"<title> keeps running\"",
+          "maxLength": 200,
+          "type": "string"
         }
       },
       "required": [
@@ -2322,6 +2895,55 @@
       },
       "required": [
         "tab"
+      ],
+      "type": "object"
+    },
+    "BridgeTabStatusParams": {
+      "properties": {
+        "tabId": {
+          "$ref": "#/$defs/BridgeTabId"
+        },
+        "text": {
+          "anyOf": [
+            {
+              "description": "Current action in present progressive for the status pill; null clears it",
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "highlight": {
+          "description": "Element being acted on, CSS pixels in the viewport; outlined for 600 ms",
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "width": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "height": {
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "x",
+            "y",
+            "width",
+            "height"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "tabId"
       ],
       "type": "object"
     },
@@ -3366,6 +3988,87 @@
       ],
       "type": "object"
     },
+    "ChatQueueListParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "threadId"
+      ],
+      "type": "object"
+    },
+    "ChatQueueListResult": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/QueuedMessage"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "type": "object"
+    },
+    "ChatQueueRemoveParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "messageId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "threadId",
+        "messageId"
+      ],
+      "type": "object"
+    },
+    "ChatQueueRemoveResult": {
+      "properties": {
+        "removed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "removed"
+      ],
+      "type": "object"
+    },
+    "ChatQueueUpdatedPayload": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/QueuedMessage"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "threadId",
+        "items"
+      ],
+      "type": "object"
+    },
     "ChatSendParams": {
       "properties": {
         "threadId": {
@@ -4018,6 +4721,168 @@
       ],
       "type": "object"
     },
+    "CredentialSecretInput": {
+      "additionalProperties": false,
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "totpSecret": {
+          "type": "string"
+        },
+        "token": {
+          "type": "string"
+        },
+        "headerName": {
+          "type": "string"
+        },
+        "headerPrefix": {
+          "type": "string"
+        },
+        "privateKey": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "CredentialUpdatedPayload": {
+      "properties": {
+        "credentialId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "change": {
+          "enum": [
+            "created",
+            "updated",
+            "deleted",
+            "rotated",
+            "revoked",
+            "used"
+          ],
+          "type": "string"
+        },
+        "credential": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CredentialMeta"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ownerConnectorId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "credentialId",
+        "change"
+      ],
+      "type": "object"
+    },
+    "CredentialUse": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "credentialId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "approvalId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "executor": {
+          "enum": [
+            "browser",
+            "connector",
+            "sandbox",
+            "ssh"
+          ],
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "filled",
+            "denied",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "credentialId",
+        "executor",
+        "target",
+        "outcome",
+        "createdAt"
+      ],
+      "type": "object"
+    },
     "DecidedBy": {
       "anyOf": [
         {
@@ -4220,6 +5085,12 @@
           },
           "minItems": 1,
           "type": "array"
+        },
+        "code": {
+          "description": "The code shown on the new device; when given it must match the request",
+          "maxLength": 32,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -4379,7 +5250,11 @@
         "binding_mismatch",
         "taint_blocked",
         "policy_denied",
-        "internal"
+        "internal",
+        "user_in_control",
+        "debugger_detached",
+        "tab_not_found",
+        "method_not_allowed"
       ],
       "type": "string"
     },
@@ -4520,10 +5395,42 @@
       "properties": {
         "post": {
           "$ref": "#/$defs/FeedPost"
+        },
+        "ledgerChanges": {
+          "description": "interests.md lines the feedback changed",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
         "post"
+      ],
+      "type": "object"
+    },
+    "FeedGenerateParams": {
+      "properties": {
+        "briefingId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "FeedGenerateResult": {
+      "properties": {
+        "posts": {
+          "items": {
+            "$ref": "#/$defs/FeedPost"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "posts"
       ],
       "type": "object"
     },
@@ -4689,6 +5596,26 @@
       },
       "required": [
         "post"
+      ],
+      "type": "object"
+    },
+    "FeedUpdatedPayload": {
+      "properties": {
+        "posts": {
+          "items": {
+            "$ref": "#/$defs/FeedPost"
+          },
+          "type": "array"
+        },
+        "briefingId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "posts"
       ],
       "type": "object"
     },
@@ -4873,6 +5800,108 @@
       ],
       "type": "string"
     },
+    "GoalLink": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "automationId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "watchId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "goalId"
+      ],
+      "type": "object"
+    },
+    "GoalMilestone": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "doneAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "goalId",
+        "title"
+      ],
+      "type": "object"
+    },
     "GoalStatus": {
       "enum": [
         "candidate",
@@ -4891,6 +5920,136 @@
       },
       "required": [
         "goal"
+      ],
+      "type": "object"
+    },
+    "GoalsArchiveParams": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "goalId"
+      ],
+      "type": "object"
+    },
+    "GoalsArchiveResult": {
+      "properties": {
+        "goal": {
+          "$ref": "#/$defs/Goal"
+        }
+      },
+      "required": [
+        "goal"
+      ],
+      "type": "object"
+    },
+    "GoalsCreateParams": {
+      "properties": {
+        "title": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "category": {
+          "$ref": "#/$defs/GoalCategory"
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "description": "JSON object",
+              "patternProperties": {
+                "^(.*)$": {}
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cadence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timezone": {
+          "type": "string"
+        },
+        "milestones": {
+          "items": {
+            "properties": {
+              "title": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "dueAt": {
+                "anyOf": [
+                  {
+                    "description": "ISO-8601 timestamp (UTC)",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "title"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "title",
+        "category"
+      ],
+      "type": "object"
+    },
+    "GoalsCreateResult": {
+      "properties": {
+        "goal": {
+          "$ref": "#/$defs/Goal"
+        },
+        "taskIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "milestones": {
+          "items": {
+            "$ref": "#/$defs/GoalMilestone"
+          },
+          "type": "array"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/GoalLink"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "goal",
+        "taskIds",
+        "milestones",
+        "links"
       ],
       "type": "object"
     },
@@ -4950,11 +6109,58 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "milestones": {
+          "items": {
+            "$ref": "#/$defs/GoalMilestone"
+          },
+          "type": "array"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/GoalLink"
+          },
+          "type": "array"
         }
       },
       "required": [
         "goal",
         "taskIds"
+      ],
+      "type": "object"
+    },
+    "GoalsLinkParams": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "watchId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "unlink": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "goalId"
       ],
       "type": "object"
     },
@@ -4983,6 +6189,171 @@
       },
       "required": [
         "goals"
+      ],
+      "type": "object"
+    },
+    "GoalsMilestoneParams": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "milestoneId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "done": {
+          "type": "boolean"
+        },
+        "remove": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "goalId"
+      ],
+      "type": "object"
+    },
+    "GoalsMilestoneResult": {
+      "properties": {
+        "goal": {
+          "$ref": "#/$defs/Goal"
+        },
+        "taskIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "milestones": {
+          "items": {
+            "$ref": "#/$defs/GoalMilestone"
+          },
+          "type": "array"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/GoalLink"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "goal",
+        "taskIds",
+        "milestones",
+        "links"
+      ],
+      "type": "object"
+    },
+    "GoalsUpdateParams": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "category": {
+          "$ref": "#/$defs/GoalCategory"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "paused",
+            "done"
+          ],
+          "type": "string"
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "description": "JSON object",
+              "patternProperties": {
+                "^(.*)$": {}
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cadence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "goalId"
+      ],
+      "type": "object"
+    },
+    "GoalsUpdateResult": {
+      "properties": {
+        "goal": {
+          "$ref": "#/$defs/Goal"
+        },
+        "taskIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "milestones": {
+          "items": {
+            "$ref": "#/$defs/GoalMilestone"
+          },
+          "type": "array"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/GoalLink"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "goal",
+        "taskIds",
+        "milestones",
+        "links"
       ],
       "type": "object"
     },
@@ -5307,6 +6678,19 @@
         },
         "brief": {
           "maxLength": 20000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schedule": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
           "minLength": 1,
           "type": "string"
         }
@@ -7186,6 +8570,29 @@
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
+        },
+        "staleAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "staleReason": {
+          "anyOf": [
+            {
+              "description": "Why restart reconciliation marked the notification stale (architecture §4.12)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -7209,6 +8616,10 @@
           "type": "string"
         },
         "destructive": {
+          "type": "boolean"
+        },
+        "authenticationRequired": {
+          "description": "OS delivery requires device authentication (Touch ID) before the action runs; set for purchase and credential-fill approvals (security §3.5)",
           "type": "boolean"
         }
       },
@@ -7241,6 +8652,28 @@
         "system"
       ],
       "type": "string"
+    },
+    "NotificationResolvedPayload": {
+      "properties": {
+        "notification": {
+          "$ref": "#/$defs/Notification"
+        }
+      },
+      "required": [
+        "notification"
+      ],
+      "type": "object"
+    },
+    "NotificationUpdatedPayload": {
+      "properties": {
+        "notification": {
+          "$ref": "#/$defs/Notification"
+        }
+      },
+      "required": [
+        "notification"
+      ],
+      "type": "object"
     },
     "NotificationsListParams": {
       "properties": {
@@ -7456,6 +8889,22 @@
               "type": "null"
             }
           ]
+        },
+        "publicKeyFingerprint": {
+          "description": "Device requests: \"sha256:\" + hex SHA-256 of the raw Ed25519 public key the owner approves",
+          "type": "string"
+        },
+        "transport": {
+          "description": "Device requests: how the device connected",
+          "enum": [
+            "ws",
+            "unix"
+          ],
+          "type": "string"
+        },
+        "remoteAddress": {
+          "description": "Device requests: peer address as the Gateway saw it",
+          "type": "string"
         }
       },
       "required": [
@@ -7848,6 +9297,52 @@
         "interrupt"
       ],
       "type": "string"
+    },
+    "QueuedMessage": {
+      "properties": {
+        "messageId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "position": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "content": {
+          "type": "string"
+        },
+        "attachments": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "messageId",
+        "threadId",
+        "position",
+        "content",
+        "attachments",
+        "createdAt"
+      ],
+      "type": "object"
     },
     "QueuedMessageResult": {
       "properties": {
@@ -9414,6 +10909,20 @@
       ],
       "type": "object"
     },
+    "ThreadDeletedPayload": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "threadId"
+      ],
+      "type": "object"
+    },
     "ThreadIdParams": {
       "properties": {
         "threadId": {
@@ -9555,6 +11064,12 @@
         },
         "pinnedOnly": {
           "type": "boolean"
+        },
+        "query": {
+          "description": "Case-insensitive substring match on the title",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
         },
         "cursor": {
           "description": "Opaque cursor",
@@ -9874,6 +11389,70 @@
       ],
       "type": "object"
     },
+    "UpcomingItem": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "automation",
+            "reminder",
+            "briefing",
+            "heartbeat",
+            "watch",
+            "input_request"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "nextRunAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schedule": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "title",
+        "enabled"
+      ],
+      "type": "object"
+    },
     "Usage": {
       "properties": {
         "input": {
@@ -9990,6 +11569,100 @@
       ],
       "type": "object"
     },
+    "VaultAddParams": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/CredentialKind"
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "slug": {
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+          "type": "string"
+        },
+        "bindings": {
+          "items": {
+            "$ref": "#/$defs/CredentialBinding"
+          },
+          "type": "array"
+        },
+        "secret": {
+          "$ref": "#/$defs/CredentialSecretInput"
+        },
+        "requireAuthEachUse": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "bindings",
+        "secret"
+      ],
+      "type": "object"
+    },
+    "VaultAddResult": {
+      "properties": {
+        "credential": {
+          "$ref": "#/$defs/CredentialMeta"
+        }
+      },
+      "required": [
+        "credential"
+      ],
+      "type": "object"
+    },
+    "VaultConfirmRecoveryParams": {
+      "properties": {
+        "lastGroup": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "lastGroup"
+      ],
+      "type": "object"
+    },
+    "VaultConfirmRecoveryResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultDeleteParams": {
+      "properties": {
+        "credentialId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "credentialId"
+      ],
+      "type": "object"
+    },
+    "VaultDeleteResult": {
+      "properties": {
+        "deleted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deleted"
+      ],
+      "type": "object"
+    },
     "VaultGetParams": {
       "properties": {
         "credentialId": {
@@ -10015,6 +11688,70 @@
       ],
       "type": "object"
     },
+    "VaultImportParams": {
+      "properties": {
+        "format": {
+          "enum": [
+            "auto",
+            "1password",
+            "bitwarden",
+            "chrome"
+          ],
+          "type": "string"
+        },
+        "csv": {
+          "maxLength": 10000000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "format",
+        "csv"
+      ],
+      "type": "object"
+    },
+    "VaultImportResult": {
+      "properties": {
+        "imported": {
+          "items": {
+            "$ref": "#/$defs/CredentialMeta"
+          },
+          "type": "array"
+        },
+        "skipped": {
+          "items": {
+            "properties": {
+              "row": {
+                "type": "integer"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "row",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "imported",
+        "skipped"
+      ],
+      "type": "object"
+    },
+    "VaultKeySlot": {
+      "enum": [
+        "keychain",
+        "safe_storage",
+        "key_file",
+        "recovery"
+      ],
+      "type": "string"
+    },
     "VaultListParams": {
       "properties": {
         "kind": {
@@ -10034,6 +11771,261 @@
       },
       "required": [
         "credentials"
+      ],
+      "type": "object"
+    },
+    "VaultLockParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "VaultLockResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultLockedPayload": {
+      "properties": {
+        "reason": {
+          "enum": [
+            "manual",
+            "idle",
+            "sleep",
+            "screen_lock",
+            "shutdown"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "reason",
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultSetupParams": {
+      "properties": {
+        "slot": {
+          "enum": [
+            "keychain",
+            "safe_storage",
+            "key_file"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "slot"
+      ],
+      "type": "object"
+    },
+    "VaultSetupResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        },
+        "recoveryKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "recoveryKey"
+      ],
+      "type": "object"
+    },
+    "VaultStatus": {
+      "properties": {
+        "state": {
+          "enum": [
+            "uninitialized",
+            "locked",
+            "unlocked"
+          ],
+          "type": "string"
+        },
+        "slots": {
+          "items": {
+            "$ref": "#/$defs/VaultKeySlot"
+          },
+          "type": "array"
+        },
+        "recoveryConfirmed": {
+          "type": "boolean"
+        },
+        "autoLockMinutes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "lockAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "itemCount": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "state",
+        "slots",
+        "recoveryConfirmed",
+        "autoLockMinutes",
+        "itemCount"
+      ],
+      "type": "object"
+    },
+    "VaultStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "VaultStatusResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultUnlockParams": {
+      "properties": {
+        "reason": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "recoveryKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "type": "object"
+    },
+    "VaultUnlockResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultUnlockedPayload": {
+      "properties": {
+        "via": {
+          "enum": [
+            "keychain",
+            "safe_storage",
+            "key_file",
+            "recovery"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/VaultStatus"
+        }
+      },
+      "required": [
+        "via",
+        "status"
+      ],
+      "type": "object"
+    },
+    "VaultUpdateParams": {
+      "properties": {
+        "credentialId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "bindings": {
+          "items": {
+            "$ref": "#/$defs/CredentialBinding"
+          },
+          "type": "array"
+        },
+        "secret": {
+          "$ref": "#/$defs/CredentialSecretInput"
+        },
+        "requireAuthEachUse": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "credentialId"
+      ],
+      "type": "object"
+    },
+    "VaultUpdateResult": {
+      "properties": {
+        "credential": {
+          "$ref": "#/$defs/CredentialMeta"
+        }
+      },
+      "required": [
+        "credential"
+      ],
+      "type": "object"
+    },
+    "VaultUsesParams": {
+      "properties": {
+        "credentialId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "credentialId"
+      ],
+      "type": "object"
+    },
+    "VaultUsesResult": {
+      "properties": {
+        "uses": {
+          "items": {
+            "$ref": "#/$defs/CredentialUse"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "uses"
       ],
       "type": "object"
     },
@@ -10242,6 +12234,54 @@
         "split"
       ],
       "type": "string"
+    },
+    "ViewReportParams": {
+      "properties": {
+        "layout": {
+          "$ref": "#/$defs/ViewLayout"
+        }
+      },
+      "required": [
+        "layout"
+      ],
+      "type": "object"
+    },
+    "WatchCheck": {
+      "enum": [
+        "change",
+        "text_present",
+        "price_below",
+        "price_above"
+      ],
+      "type": "string"
+    },
+    "WatchConfig": {
+      "properties": {
+        "url": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "check": {
+          "$ref": "#/$defs/WatchCheck"
+        },
+        "selector": {
+          "description": "Regex over the fetched text; capture group 1 is the value",
+          "type": "string"
+        },
+        "text": {
+          "description": "text_present: the text to look for",
+          "type": "string"
+        },
+        "threshold": {
+          "description": "price_below / price_above",
+          "type": "number"
+        }
+      },
+      "required": [
+        "url",
+        "check"
+      ],
+      "type": "object"
     },
     "WorkspacePath": {
       "description": "Workspace-relative path, e.g. \"memory/2026-10-18.md\"",

@@ -7,6 +7,7 @@ import type {
   NotifyInput,
   Unsubscribe,
 } from "@psyche/protocol";
+import { captureModelVisible } from "../capture.ts";
 import { FakeClock, toIso } from "../clock.ts";
 import { createIdGenerator, type IdGenerator } from "../ids.ts";
 import { fail } from "./errors.ts";
@@ -35,6 +36,7 @@ export class FakeNotifier implements Notifier {
   }
 
   async notify(input: NotifyInput): Promise<Notification> {
+    captureModelVisible("notification", input, { where: "FakeNotifier.notify" });
     const now = toIso(this.clock.now());
     const dedupeKey =
       input.dedupeKey ?? (input.taskId === undefined ? undefined : `${input.kind}:${input.taskId}`);

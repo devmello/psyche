@@ -1,31 +1,51 @@
 import { statSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { openDb } from "../src/index.ts";
+import { listMigrationFiles, openDb } from "../src/index.ts";
 import { makeTmpDir, memoryDb } from "./helpers.ts";
 
 const TABLES = [
   "channels",
+  "chat_queue",
   "devices",
+  "gateway_idempotency",
   "identities",
+  "input_requests",
+  "memory_chunks",
+  "memory_claims",
+  "memory_files",
+  "memory_jobs",
+  "memory_state",
   "messages",
   "nodes",
   "pairing_requests",
   "runs",
   "settings",
+  "task_actions",
+  "task_checkpoints",
+  "tasks",
   "threads",
   "tool_calls",
+  "tool_payloads",
   "usage",
 ];
 
 function tableNames(db: ReturnType<typeof memoryDb>): string[] {
   return (
-    db.sqlite
-      .prepare(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '_migrations' ORDER BY name",
-      )
-      .all() as { name: string }[]
-  ).map((r) => r.name);
+    (
+      db.sqlite
+        .prepare(
+          "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '_migrations' ORDER BY name",
+        )
+        .all() as { name: string; sql: string }[]
+    )
+      // Virtual tables (FTS5) and their shadow tables are not listed.
+      .filter((r, _, all) => {
+        const virtual = all.filter((t) => /^CREATE VIRTUAL TABLE/i.test(t.sql));
+        return !virtual.some((v) => r.name === v.name || r.name.startsWith(`${v.name}_`));
+      })
+      .map((r) => r.name)
+  );
 }
 
 describe("openDb", () => {
@@ -70,9 +90,13 @@ describe("openDb", () => {
     db.close();
 
     const again = openDb(file);
+      applied: [],
     const rerun = again.migrate();
+    expect(again.migrate()).toEqual({
     expect(rerun.applied).toEqual([]);
     expect(rerun.skipped).toContain("202610182200_db_init");
+      skipped: listMigrationFiles().map((f) => f.id),
+    });
     again.close();
 
     const ro = openDb(file, { readonly: true });

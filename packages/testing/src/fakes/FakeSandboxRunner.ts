@@ -8,6 +8,7 @@ import {
   type SandboxRunner,
   type SandboxScope,
 } from "@psyche/protocol";
+import { captureModelVisible } from "../capture.ts";
 import { createIdGenerator, type IdGenerator } from "../ids.ts";
 import { fail } from "./errors.ts";
 
@@ -101,6 +102,13 @@ export class FakeSandboxRunner implements SandboxRunner {
     const stdout = cap(r.stdout ?? "");
     const stderr = cap(r.stderr ?? "");
     const exitCode = timedOut ? null : (r.exitCode ?? 0);
+    captureModelVisible(
+      "tool_result",
+      { stdout: stdout.text, stderr: stderr.text },
+      {
+        where: "FakeSandboxRunner.exec",
+      },
+    );
     return {
       exitCode,
       stdout: stdout.text,

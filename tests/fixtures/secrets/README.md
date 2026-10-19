@@ -15,7 +15,7 @@
 - Every value is at least 6 characters (`MIN_SECRET_LENGTH` in `packages/testing/src/secrets.ts`), so the checker can register it.
 - Token values carry a `psyfx` / `fx-` marker and avoid real provider prefixes (`ghp_`, `sk_live_`, `AKIA`, `xoxb-`), so GitHub push protection and external scanners do not fire on the repo, and a hit in a log is obviously a fixture.
 - Card numbers are the networks' published test numbers (Stripe's documentation lists them); they are Luhn-valid on purpose because the pattern detector must catch real-shaped cards.
-- Government identifiers use known-invalid or documentation values (`078-05-1120`, `219-09-9999`, the ECBS example IBAN).
+- Government identifiers use known-invalid or documentation values (the Woolworth wallet SSN, the 1980s advertising SSN, the ECBS example IBAN). They are not repeated outside the registry, because `pnpm check:secrets` flags them anywhere else.
 - Add a value here, never inline in a test: a secret that is not in the registry is a secret the checker cannot look for. The secret-leak checker loads every value in `vaultItems[*].fields` and `standalone[*].value` at startup.
 - Placeholder ids follow docs/05 §4.5: `[a-z0-9][a-z0-9-]{0,63}`, fields `username | password | totp | token | header`. `google-oauth.refresh` is stored on the item but deliberately has no placeholder field: refresh tokens are connector-internal and never addressable by the model.
 - Bound origins use the reserved `.example` TLD, never `.test` or `localhost`: docs/05 §3.10 lets test credentials be typed on `.test` hosts, so a fixture bound to one could be mistaken for the localhost exception.

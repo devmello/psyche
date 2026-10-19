@@ -157,6 +157,50 @@ describe("FakeCredentialBroker approvals and redaction", () => {
   });
 });
 
+describe("FakeCredentialBroker connector store and origins", () => {
+  afterEach(() => clearSecrets());
+
+  it("never matches opaque origins (S23 design-13)", async () => {
+    const broker = new FakeCredentialBroker();
+    broker.add({
+      slug: "app",
+      bindings: [{ origin: "android://com.bank.app" }],
+      secret: "android-secret-0003",
+    });
+    broker.approve("apr_app", { slug: "app", origin: "foo://anything" });
+    await expect(
+      broker.resolve("{{cred:app}}", { kind: "origin", value: "foo://anything" }, "apr_app"),
+    ).rejects.toMatchObject({ code: "policy_denied" });
+  });
+
+  it("stores, rotates and revokes connector-owned tokens", async () => {
+    const broker = new FakeCredentialBroker();
+    const meta = await broker.store({
+      connectorId: "con_gmail",
+      slug: "gmail",
+      name: "Gmail",
+      bindings: [{ connector: "con_gmail" }],
+      tokens: { accessToken: "access-token-0001", refreshToken: "refresh-token-0001" },
+    });
+    expect(meta.ownerConnectorId).toBe("con_gmail");
+    await expect(broker.accessToken(meta.id, "con_other")).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    await broker.rotate(meta.id, "con_gmail", async (refresh) => {
+      expect(refresh.use((v) => v)).toBe("refresh-token-0001");
+      return { accessToken: "access-token-0002", refreshToken: "refresh-token-0002" };
+    });
+    expect((await broker.accessToken(meta.id, "con_gmail")).use((v) => v)).toBe(
+      "access-token-0002",
+    );
+    const events: string[] = [];
+    broker.onRevoked((e) => events.push(`${e.slug}:${e.reason}`));
+    await broker.revoke(meta.id, "con_gmail");
+    expect(events).toEqual(["gmail:disconnect"]);
+    expect(await broker.get(meta.id)).toBeUndefined();
+  });
+});
+
 describe("FakeScheduler", () => {
   it("parses durations and cron", () => {
     expect(parseIsoDuration("PT30M")).toBe(30 * 60_000);
@@ -165,6 +209,27 @@ describe("FakeScheduler", () => {
     expect(new Date(nextCron("0 7 * * *", Date.UTC(2026, 9, 18, 20))).toISOString()).toBe(
       "2026-10-19T07:00:00.000Z",
     );
+  });
+
+  it("fires a reminder once and then clears its next run", async () => {
+    const clock = new FakeClock();
+    const s = new FakeScheduler({ clock });
+    const r = await s.create({
+      kind: "reminder",
+      title: "Call the dentist",
+      schedule: clock.iso(60_000),
+      timezone: "UTC",
+      sessionTarget: "main",
+      delivery: { none: true },
+      prompt: "Remind me to call the dentist",
+      scratch: null,
+      enabled: true,
+    });
+    expect(r.nextRunAt).toBe(clock.iso(60_000));
+    clock.advance(120_000);
+    expect(await s.tick()).toMatchObject([{ automationId: r.id, coalesced: 1 }]);
+    expect((await s.get(r.id))?.nextRunAt).toBeNull();
+    expect(await s.tick()).toEqual([]);
   });
 
   it("coalesces missed ticks into one run", async () => {

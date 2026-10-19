@@ -1,10 +1,17 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, Nullable, Provenance, StringEnum } from "./common.ts";
 import { PsycheError } from "./errors.ts";
+import { QueuedMessage } from "./methods/chat.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
 import { Block } from "./schemas/blocks.ts";
 import { Device, NodeInfo, PairingRequest } from "./schemas/identity.ts";
-import { Channel } from "./schemas/integrations.ts";
+import {
+  Automation,
+  AutomationRun,
+  Channel,
+  CredentialMeta,
+  VaultStatus,
+} from "./schemas/integrations.ts";
 import { MemoryChangeSource, MemoryJob } from "./schemas/memory.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
 import { FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surfaces.ts";
@@ -39,6 +46,10 @@ export const Events = {
     payload: Type.Object({ threadId: Id, messageId: Id, block: Block }),
     description:
       "A structured block (plan, checklist, approval, question, artifact, receipt, …) was added to a message.",
+  }),
+  "chat.queue.updated": defineEvent({
+    payload: Type.Object({ threadId: Id, items: Type.Array(QueuedMessage) }),
+    description: "The thread's follow-up queue changed (queued, removed or started).",
   }),
   "run.updated": defineEvent({
     payload: Type.Object({ run: Run }),
@@ -89,6 +100,10 @@ export const Events = {
     payload: Type.Object({ thread: Thread }),
     description: "A thread was created, renamed, pinned, archived or restored.",
   }),
+  "thread.deleted": defineEvent({
+    payload: Type.Object({ threadId: Id }),
+    description: "A thread and its transcript were deleted.",
+  }),
   "node.updated": defineEvent({
     payload: Type.Object({ node: NodeInfo }),
     description: "A node connected, disconnected or changed capabilities.",
@@ -136,6 +151,31 @@ export const Events = {
     payload: Type.Object({ reason: Type.String() }),
     description: "The Gateway is shutting down; clients reconnect with backoff.",
   }),
+  "vault.locked": defineEvent({
+    payload: Type.Object({
+      reason: StringEnum(["manual", "idle", "sleep", "screen_lock", "shutdown"]),
+      status: VaultStatus,
+    }),
+    description: "The vault locked and its key was zeroized.",
+  }),
+  "vault.unlocked": defineEvent({
+    payload: Type.Object({
+      via: StringEnum(["keychain", "safe_storage", "key_file", "recovery"]),
+      status: VaultStatus,
+    }),
+    description: "The vault unlocked through a key slot.",
+  }),
+  "credential.updated": defineEvent({
+    payload: Type.Object({
+      credentialId: Id,
+      change: StringEnum(["created", "updated", "deleted", "rotated", "revoked", "used"]),
+      /** Metadata after the change; `null` once deleted or revoked. Never values. */
+      credential: Nullable(CredentialMeta),
+      ownerConnectorId: Nullable(Id),
+    }),
+    description:
+      "A vault item was added, edited, deleted, used, rotated or revoked; revocation invalidates connection-bound work.",
+  }),
   "question.updated": defineEvent({
     payload: Type.Object({ inputRequest: InputRequest }),
     description: "An input request was answered or cancelled.",
@@ -151,6 +191,33 @@ export const Events = {
   "goal.updated": defineEvent({
     payload: Type.Object({ goal: Goal }),
     description: "A goal was created, confirmed, changed or archived.",
+  }),
+  "feed.updated": defineEvent({
+    payload: Type.Object({ posts: Type.Array(FeedPost), briefingId: Type.Optional(Id) }),
+    description:
+      "A whole brief or briefing batch was generated (clients refresh the Feed once instead of per feed.post).",
+  }),
+  "notification.updated": defineEvent({
+    payload: Type.Object({ notification: Notification }),
+    description:
+      "A notification changed: read, re-delivered, or replaced by a de-duplicated notify (same id).",
+  }),
+  "notification.resolved": defineEvent({
+    payload: Type.Object({ notification: Notification }),
+    description:
+      "A notification was resolved (by the user, an action, a superseding state or restart reconciliation).",
+  }),
+  "automation.updated": defineEvent({
+    payload: Type.Object({ automation: Automation }),
+    description: "An automation was created, edited, paused, run or deleted (`enabled: false`).",
+  }),
+  "automation.run.started": defineEvent({
+    payload: Type.Object({ run: AutomationRun }),
+    description: "A scheduled or manual automation run started (missed ticks coalesced).",
+  }),
+  "automation.run.finished": defineEvent({
+    payload: Type.Object({ run: AutomationRun }),
+    description: "An automation run ended (done, no_reply, failed, cancelled, skipped).",
   }),
 } as const;
 
