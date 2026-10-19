@@ -18,12 +18,12 @@ cd spikes/cdp-bridge && npm install && npm start
 Output goes to `.out/` (gitignored):
 
 - `results.json`
-- `snapshots/*.txt` (only the fixture snapshot is committed; real-site dumps stay local)
+- `snapshots/*.txt`
 - `frames/*.jpg`
 - `quarantine/`
 - `inline-pdf.png`
 
-`CDP_BRIDGE_THROTTLE=1 npm start` repeats the run with Chromium's default background throttling, for comparison. That run writes `results-throttled.json`. `node run.mjs --keep-open` leaves the window open after the client finishes. The runs used for the write-up are copied to `results/`.
+`CDP_BRIDGE_THROTTLE=1 npm start` repeats the run with Chromium's default background throttling, for comparison. That run writes `results-throttled.json`. `node run.mjs --keep-open` leaves the window open after the client finishes. The runs used for the write-up are copied to `results/`. Only the fixture snapshot is committed there; the real-site snapshot dumps stay local because they contain third-party page text.
 
 Network access is needed for the five real pages: Hacker News, Wikipedia, BBC News, GitHub and MDN. Everything else is served by local fixtures (`fixtures.mjs`).
 
