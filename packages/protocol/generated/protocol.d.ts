@@ -728,13 +728,30 @@ export interface PairingRequest {
     expiresAt:          string;
     id:                 string;
     kind:               PairingRequestKind;
-    senderId?:          null | string;
-    status:             PairingStatus;
+    /**
+     * Device requests: "sha256:" + hex SHA-256 of the raw Ed25519 public key the owner approves
+     */
+    publicKeyFingerprint?: string;
+    /**
+     * Device requests: peer address as the Gateway saw it
+     */
+    remoteAddress?: string;
+    senderId?:      null | string;
+    status:         PairingStatus;
+    /**
+     * Device requests: how the device connected
+     */
+    transport?: Transport;
 }
 
 export type PairingRequestKind = "device" | "channel-sender";
 
 export type PairingStatus = "pending" | "approved" | "denied" | "expired";
+
+/**
+ * Device requests: how the device connected
+ */
+export type Transport = "ws" | "unix";
 
 export interface ChannelsPairingDenyParams {
     channelId?: string;
@@ -879,6 +896,37 @@ export type MessageRole = "user" | "agent" | "system" | "tool";
 
 export interface ChatMessagePayload {
     message: Message;
+}
+
+export interface ChatQueueListParams {
+    threadId: string;
+}
+
+export interface ChatQueueListResult {
+    items: QueuedMessage[];
+}
+
+export interface QueuedMessage {
+    attachments: string[];
+    content:     string;
+    createdAt:   string;
+    messageId:   string;
+    position:    number;
+    threadId:    string;
+}
+
+export interface ChatQueueRemoveParams {
+    messageId: string;
+    threadId:  string;
+}
+
+export interface ChatQueueRemoveResult {
+    removed: boolean;
+}
+
+export interface ChatQueueUpdatedPayload {
+    items:    QueuedMessage[];
+    threadId: string;
 }
 
 export interface ChatSendParams {
@@ -1108,6 +1156,10 @@ export interface Device {
 export type DeviceRole = "client" | "node" | "both";
 
 export interface DevicesApproveParams {
+    /**
+     * The code shown on the new device; when given it must match the request
+     */
+    code?:            string;
     pairingRequestId: string;
     /**
      * Owner-chosen scopes; never taken from the client
@@ -1187,7 +1239,11 @@ export interface FeedFeedbackParams {
 export type FeedFeedback = "like" | "save" | "not_interested" | "hide_source" | "follow_topic";
 
 export interface FeedFeedbackResult {
-    post: FeedPost;
+    /**
+     * interests.md lines the feedback changed
+     */
+    ledgerChanges?: string[];
+    post:           FeedPost;
 }
 
 export interface FeedPost {
@@ -1213,6 +1269,14 @@ export interface Citation {
     url:     string;
 }
 
+export interface FeedGenerateParams {
+    briefingId?: string;
+}
+
+export interface FeedGenerateResult {
+    posts: FeedPost[];
+}
+
 export interface FeedListParams {
     briefingId?: string;
     /**
@@ -1231,6 +1295,11 @@ export interface FeedListResult {
 
 export interface FeedPostPayload {
     post: FeedPost;
+}
+
+export interface FeedUpdatedPayload {
+    briefingId?: string;
+    posts:       FeedPost[];
 }
 
 export interface FileBlock {
@@ -1295,6 +1364,50 @@ export type GoalCategory = "health" | "finance" | "career" | "relationships" | "
 
 export type GoalStatus = "candidate" | "active" | "paused" | "done" | "archived";
 
+export interface GoalsArchiveParams {
+    goalId: string;
+}
+
+export interface GoalsArchiveResult {
+    goal: Goal;
+}
+
+export interface GoalsCreateParams {
+    cadence?:    null | string;
+    category:    GoalCategory;
+    milestones?: Milestone[];
+    plan?:       { [key: string]: unknown } | null;
+    timezone?:   string;
+    title:       string;
+}
+
+export interface Milestone {
+    dueAt?: null | string;
+    title:  string;
+}
+
+export interface GoalsCreateResult {
+    goal:       Goal;
+    links:      GoalLink[];
+    milestones: GoalMilestone[];
+    taskIds:    string[];
+}
+
+export interface GoalLink {
+    automationId?: null | string;
+    goalId:        string;
+    taskId?:       null | string;
+    watchId?:      null | string;
+}
+
+export interface GoalMilestone {
+    doneAt?: null | string;
+    dueAt?:  null | string;
+    goalId:  string;
+    id:      string;
+    title:   string;
+}
+
 export interface GoalsDecideParams {
     decision: GoalDecision;
     goalId:   string;
@@ -1311,8 +1424,18 @@ export interface GoalsGetParams {
 }
 
 export interface GoalsGetResult {
-    goal:    Goal;
-    taskIds: string[];
+    goal:        Goal;
+    links?:      GoalLink[];
+    milestones?: GoalMilestone[];
+    taskIds:     string[];
+}
+
+export interface GoalsLinkParams {
+    automationId?: string;
+    goalId:        string;
+    taskId?:       string;
+    unlink?:       boolean;
+    watchId?:      string;
 }
 
 export interface GoalsListParams {
@@ -1322,6 +1445,40 @@ export interface GoalsListParams {
 
 export interface GoalsListResult {
     goals: Goal[];
+}
+
+export interface GoalsMilestoneParams {
+    done?:        boolean;
+    dueAt?:       null | string;
+    goalId:       string;
+    milestoneId?: string;
+    remove?:      boolean;
+    title?:       string;
+}
+
+export interface GoalsMilestoneResult {
+    goal:       Goal;
+    links:      GoalLink[];
+    milestones: GoalMilestone[];
+    taskIds:    string[];
+}
+
+export interface GoalsUpdateParams {
+    cadence?:  null | string;
+    category?: GoalCategory;
+    goalId:    string;
+    plan?:     { [key: string]: unknown } | null;
+    status?:   GoalsUpdateParamsStatus;
+    title?:    string;
+}
+
+export type GoalsUpdateParamsStatus = "active" | "paused" | "done";
+
+export interface GoalsUpdateResult {
+    goal:       Goal;
+    links:      GoalLink[];
+    milestones: GoalMilestone[];
+    taskIds:    string[];
 }
 
 export interface GrantsListParams {
@@ -1367,6 +1524,9 @@ export interface IdeasAcceptParams {
     brief?:     string;
     ideaId:     string;
     recurring?: boolean;
+    schedule?:  string;
+    threadId?:  string;
+    timezone?:  string;
 }
 
 export interface IdeasAcceptResult {
@@ -1835,28 +1995,43 @@ export interface NotificationCreatedPayload {
 }
 
 export interface Notification {
-    actions:     NotificationAction[];
-    approvalId?: null | string;
-    body:        string;
-    createdAt:   string;
-    delivered:   { [key: string]: string };
-    id:          string;
-    kind:        NotificationKind;
-    readAt?:     null | string;
-    resolvedAt?: null | string;
-    route?:      null | string;
-    surfaces:    string[];
-    taskId?:     null | string;
-    title:       string;
+    actions:      NotificationAction[];
+    approvalId?:  null | string;
+    body:         string;
+    createdAt:    string;
+    delivered:    { [key: string]: string };
+    id:           string;
+    kind:         NotificationKind;
+    readAt?:      null | string;
+    resolvedAt?:  null | string;
+    route?:       null | string;
+    staleAt?:     null | string;
+    staleReason?: null | string;
+    surfaces:     string[];
+    taskId?:      null | string;
+    title:        string;
 }
 
 export interface NotificationAction {
-    destructive?: boolean;
-    id:           string;
-    label:        string;
+    /**
+     * OS delivery requires device authentication (Touch ID) before the action runs; set for
+     * purchase and credential-fill approvals (security §3.5)
+     */
+    authenticationRequired?: boolean;
+    destructive?:            boolean;
+    id:                      string;
+    label:                   string;
 }
 
 export type NotificationKind = "approval" | "input_needed" | "task_done" | "task_failed" | "proactive" | "briefing" | "reminder" | "system";
+
+export interface NotificationResolvedPayload {
+    notification: Notification;
+}
+
+export interface NotificationUpdatedPayload {
+    notification: Notification;
+}
 
 export interface NotificationsListParams {
     /**
@@ -2279,6 +2454,10 @@ export interface TextBlock {
 
 export type TextBlockType = "text";
 
+export interface ThreadDeletedPayload {
+    threadId: string;
+}
+
 export interface ThreadIDParams {
     threadId: string;
 }
@@ -2351,6 +2530,10 @@ export interface ThreadsListParams {
     kind?:            ThreadKind;
     limit?:           number;
     pinnedOnly?:      boolean;
+    /**
+     * Case-insensitive substring match on the title
+     */
+    query?: string;
 }
 
 export interface ThreadsListResult {

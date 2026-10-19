@@ -37,6 +37,13 @@ export const ThreadsMethods = {
       kind: Type.Optional(ThreadKind),
       includeArchived: Type.Optional(Type.Boolean()),
       pinnedOnly: Type.Optional(Type.Boolean()),
+      query: Type.Optional(
+        Type.String({
+          minLength: 1,
+          maxLength: 200,
+          description: "Case-insensitive substring match on the title",
+        }),
+      ),
       ...pageParams,
     }),
     result: Type.Object({ threads: Type.Array(ThreadListEntry), ...nextCursor }),
