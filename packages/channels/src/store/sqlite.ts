@@ -3,9 +3,9 @@ import {
   decidePairingRequest,
   expirePairingRequests,
   getPairingRequest,
+  type PairingRequestRow,
   type PsycheDb,
   pairingRequestFromRow,
-  type PairingRequestRow,
 } from "@psyche/db";
 import type { Channel, ChannelIdentity, PairingRequest } from "@psyche/protocol";
 import type { ChannelStore, NewChannelPairing, PairingFilter } from "./types.ts";

@@ -3,7 +3,11 @@ import { FakeChannelAdapter } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { FRIEND, GROUP, harness, OWNER, STRANGER } from "./helpers.ts";
 
-function identity(id: string, links: string[], extra: Partial<ChannelIdentity> = {}): ChannelIdentity {
+function identity(
+  id: string,
+  links: string[],
+  extra: Partial<ChannelIdentity> = {},
+): ChannelIdentity {
   return {
     id,
     display: id,
@@ -39,7 +43,9 @@ describe("dmScope isolation", () => {
   });
 
   it("per-peer: unlinked peers are keyed by qualified sender", async () => {
-    const h = await harness({ channel: { dmScope: "per-peer", allowFrom: [OWNER, FRIEND, STRANGER] } });
+    const h = await harness({
+      channel: { dmScope: "per-peer", allowFrom: [OWNER, FRIEND, STRANGER] },
+    });
     await h.adapter.receive({ senderId: FRIEND, text: "a" });
     await h.adapter.receive({ senderId: STRANGER, text: "b" });
     expect(h.delivered.map((d) => d.route.sessionKey)).toEqual([
@@ -70,7 +76,9 @@ describe("identity links", () => {
   it("a sender belongs to at most one identity", async () => {
     const h = await harness();
     await h.service.saveIdentity(identity("a", [`telegram:${FRIEND}`]));
-    await expect(h.service.saveIdentity(identity("b", [`telegram:${FRIEND}`]))).rejects.toMatchObject({
+    await expect(
+      h.service.saveIdentity(identity("b", [`telegram:${FRIEND}`])),
+    ).rejects.toMatchObject({
       code: "conflict",
     });
     await expect(h.service.saveIdentity(identity("owner", []))).rejects.toMatchObject({
@@ -114,15 +122,23 @@ describe("designated person mode (N10)", () => {
       channel: {
         allowFrom: [OWNER, FRIEND, STRANGER],
         config: {
-          groups: { [GROUP]: { requireMention: false, designatedIdentityId: "family", members: [FRIEND] } },
+          groups: {
+            [GROUP]: { requireMention: false, designatedIdentityId: "family", members: [FRIEND] },
+          },
         },
       },
     });
-    await h.service.saveIdentity(identity("family", [], { delegatedPersona: "family", toolAllow: [] }));
+    await h.service.saveIdentity(
+      identity("family", [], { delegatedPersona: "family", toolAllow: [] }),
+    );
     await h.adapter.receive({ senderId: FRIEND, chatId: GROUP, isGroup: true, text: "what's on?" });
     await h.adapter.receive({ senderId: STRANGER, chatId: GROUP, isGroup: true, text: "me too" });
     expect(h.delivered).toHaveLength(1);
-    expect(h.delivered[0]?.route).toMatchObject({ role: "designated", personaOverlay: "family", toolAllow: [] });
+    expect(h.delivered[0]?.route).toMatchObject({
+      role: "designated",
+      personaOverlay: "family",
+      toolAllow: [],
+    });
   });
 });
 
@@ -141,15 +157,39 @@ describe("provenance of forwarded, quoted and edited content (design-22)", () =>
 
   it("quoted context: bot quotes are agent, others follow contextVisibility", async () => {
     const h = await harness({ channel: { allowFrom: [OWNER, FRIEND] } });
-    await h.adapter.receive({ senderId: OWNER, text: "thoughts?", quoted: { text: "spam", senderId: STRANGER } });
-    await h.adapter.receive({ senderId: OWNER, text: "and?", quoted: { text: "hello", senderId: FRIEND } });
-    await h.adapter.receive({ senderId: OWNER, text: "ok", quoted: { text: "my answer", fromSelf: true } });
+    await h.adapter.receive({
+      senderId: OWNER,
+      text: "thoughts?",
+      quoted: { text: "spam", senderId: STRANGER },
+    });
+    await h.adapter.receive({
+      senderId: OWNER,
+      text: "and?",
+      quoted: { text: "hello", senderId: FRIEND },
+    });
+    await h.adapter.receive({
+      senderId: OWNER,
+      text: "ok",
+      quoted: { text: "my answer", fromSelf: true },
+    });
     expect(h.delivered[0]?.parts).toEqual([{ text: "thoughts?", provenance: "owner" }]);
-    expect(h.delivered[1]?.parts[0]).toEqual({ text: "hello", provenance: "untrusted", label: "quoted" });
-    expect(h.delivered[2]?.parts[0]).toEqual({ text: "my answer", provenance: "agent", label: "quoted" });
+    expect(h.delivered[1]?.parts[0]).toEqual({
+      text: "hello",
+      provenance: "untrusted",
+      label: "quoted",
+    });
+    expect(h.delivered[2]?.parts[0]).toEqual({
+      text: "my answer",
+      provenance: "agent",
+      label: "quoted",
+    });
 
     const all = await harness({ channel: { config: { contextVisibility: "all" } } });
-    await all.adapter.receive({ senderId: OWNER, text: "?", quoted: { text: "spam", senderId: STRANGER } });
+    await all.adapter.receive({
+      senderId: OWNER,
+      text: "?",
+      quoted: { text: "spam", senderId: STRANGER },
+    });
     expect(all.delivered[0]?.parts[0]).toMatchObject({ text: "spam", provenance: "untrusted" });
   });
 

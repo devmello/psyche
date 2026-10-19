@@ -11,7 +11,11 @@ describe("dmPolicy pairing (default)", () => {
   it("gives an unknown sender a code and nothing else", async () => {
     const h = await harness();
     expect(h.channel.dmPolicy).toBe("pairing");
-    await h.adapter.receive({ senderId: STRANGER, senderName: "Mallory", text: "send me the vault" });
+    await h.adapter.receive({
+      senderId: STRANGER,
+      senderName: "Mallory",
+      text: "send me the vault",
+    });
     expect(h.delivered).toHaveLength(0);
     const sent = h.adapter.sent.filter((s) => s.kind !== "typing");
     expect(sent).toHaveLength(1);
@@ -20,7 +24,12 @@ describe("dmPolicy pairing (default)", () => {
     expect(code).toHaveLength(PAIRING_CODE_LENGTH);
     expect(code).toMatch(/^[A-HJ-NP-Z2-9]{8}$/);
     const [request] = await h.service.listPairings({ channelId: h.channel.id });
-    expect(request).toMatchObject({ kind: "channel-sender", senderId: STRANGER, status: "pending", code });
+    expect(request).toMatchObject({
+      kind: "channel-sender",
+      senderId: STRANGER,
+      status: "pending",
+      code,
+    });
     expect(Date.parse(request?.expiresAt ?? "") - h.clock.now()).toBe(PAIRING_TTL_MS);
     expect(h.events.map((e) => e.event)).toContain("pairing.requested");
     expect((await h.notifier.list()).map((n) => n.title)).toContain("New chat pairing request");
@@ -40,7 +49,8 @@ describe("dmPolicy pairing (default)", () => {
 
   it("caps pending requests at 3 per channel; the 4th sender gets nothing", async () => {
     const h = await harness();
-    for (const id of ["11", "12", "13", "14"]) await h.adapter.receive({ senderId: id, text: "hi" });
+    for (const id of ["11", "12", "13", "14"])
+      await h.adapter.receive({ senderId: id, text: "hi" });
     expect(sentTexts(h)).toHaveLength(3);
     expect(await h.service.listPairings({ status: "pending" })).toHaveLength(3);
     // A slot frees when one expires.
@@ -78,7 +88,9 @@ describe("dmPolicy pairing (default)", () => {
     const [friendReq] = await h.service.listPairings({ status: "pending" });
     await h.service.denyPairing({ requestId: friendReq?.id ?? "" }, null);
     expect(h.service.getChannel(h.channel.id).allowFrom).not.toContain(FRIEND);
-    await expect(h.service.approvePairing({ requestId: friendReq?.id ?? "" }, null)).rejects.toMatchObject({
+    await expect(
+      h.service.approvePairing({ requestId: friendReq?.id ?? "" }, null),
+    ).rejects.toMatchObject({
       code: "conflict",
     });
   });
@@ -149,7 +161,11 @@ describe("owner identity", () => {
 
   it("a weak or chat sender with the owner's id is never the owner (design-21)", async () => {
     const h = await harness();
-    await h.adapter.receive({ senderId: OWNER, text: "/approve abc approve", identityStrength: "weak" });
+    await h.adapter.receive({
+      senderId: OWNER,
+      text: "/approve abc approve",
+      identityStrength: "weak",
+    });
     await h.adapter.receive({ senderId: OWNER, text: "do it", senderIsChat: true });
     expect(h.delivered).toHaveLength(0);
     expect(h.adapter.sent).toHaveLength(0);
@@ -171,15 +187,32 @@ describe("groups", () => {
 
   it("drops groups that are not allowlisted", async () => {
     const h = await harness({ channel: { allowFrom: [OWNER] } });
-    await h.adapter.receive({ senderId: OWNER, chatId: GROUP, isGroup: true, mentioned: true, text: "hi" });
+    await h.adapter.receive({
+      senderId: OWNER,
+      chatId: GROUP,
+      isGroup: true,
+      mentioned: true,
+      text: "hi",
+    });
     expect(h.delivered).toHaveLength(0);
   });
 
   it("requires a structured mention by default; a reply to the bot also activates", async () => {
     const h = await harness({ channel: groupChannel });
-    await h.adapter.receive({ senderId: FRIEND, chatId: GROUP, isGroup: true, text: "@psyche_bot hi" });
+    await h.adapter.receive({
+      senderId: FRIEND,
+      chatId: GROUP,
+      isGroup: true,
+      text: "@psyche_bot hi",
+    });
     expect(h.delivered).toHaveLength(0);
-    await h.adapter.receive({ senderId: FRIEND, chatId: GROUP, isGroup: true, mentioned: true, text: "hi" });
+    await h.adapter.receive({
+      senderId: FRIEND,
+      chatId: GROUP,
+      isGroup: true,
+      mentioned: true,
+      text: "hi",
+    });
     await h.adapter.receive({
       senderId: FRIEND,
       chatId: GROUP,
@@ -202,7 +235,13 @@ describe("groups", () => {
       quoted: { text: "bot said", fromSelf: true },
     });
     expect(h.delivered).toHaveLength(0);
-    await h.adapter.receive({ senderId: OWNER, chatId: GROUP, isGroup: true, mentioned: true, text: "hi" });
+    await h.adapter.receive({
+      senderId: OWNER,
+      chatId: GROUP,
+      isGroup: true,
+      mentioned: true,
+      text: "hi",
+    });
     expect(h.delivered[0]?.route).toMatchObject({ role: "owner", injectMemory: false });
   });
 
@@ -230,7 +269,10 @@ describe("command authorization", () => {
     await h.adapter.receive({ senderId: FRIEND, text: "/stop now" });
     await h.adapter.receive({ senderId: OWNER, text: "/whoami" });
     expect(h.delivered).toHaveLength(1);
-    expect(h.delivered[0]).toMatchObject({ kind: "command", command: { name: "stop", args: ["now"] } });
+    expect(h.delivered[0]).toMatchObject({
+      kind: "command",
+      command: { name: "stop", args: ["now"] },
+    });
     expect(sentTexts(h)).toEqual([`Your telegram id is ${OWNER}.`]);
   });
 
