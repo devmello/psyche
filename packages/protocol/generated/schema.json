@@ -119,6 +119,21 @@
         "payload": "#/$defs/ApprovalUpdatedPayload"
       },
       {
+        "description": "An automation run ended (done, no_reply, failed, cancelled, skipped).",
+        "name": "automation.run.finished",
+        "payload": "#/$defs/AutomationRunFinishedPayload"
+      },
+      {
+        "description": "A scheduled or manual automation run started (missed ticks coalesced).",
+        "name": "automation.run.started",
+        "payload": "#/$defs/AutomationRunStartedPayload"
+      },
+      {
+        "description": "An automation was created, edited, paused, run or deleted (`enabled: false`).",
+        "name": "automation.updated",
+        "payload": "#/$defs/AutomationUpdatedPayload"
+      },
+      {
         "description": "A channel was configured, connected, disconnected or changed status.",
         "name": "channels.updated",
         "payload": "#/$defs/ChannelsUpdatedPayload"
@@ -154,6 +169,11 @@
         "payload": "#/$defs/FeedPostPayload"
       },
       {
+        "description": "A whole brief or briefing batch was generated (clients refresh the Feed once instead of per feed.post).",
+        "name": "feed.updated",
+        "payload": "#/$defs/FeedUpdatedPayload"
+      },
+      {
         "description": "The Gateway is shutting down; clients reconnect with backoff.",
         "name": "gateway.shutdown",
         "payload": "#/$defs/GatewayShutdownPayload"
@@ -187,6 +207,16 @@
         "description": "A notification was created for the in-app inbox.",
         "name": "notification.created",
         "payload": "#/$defs/NotificationCreatedPayload"
+      },
+      {
+        "description": "A notification was resolved (by the user, an action, a superseding state or restart reconciliation).",
+        "name": "notification.resolved",
+        "payload": "#/$defs/NotificationResolvedPayload"
+      },
+      {
+        "description": "A notification changed: read, re-delivered, or replaced by a de-duplicated notify (same id).",
+        "name": "notification.updated",
+        "payload": "#/$defs/NotificationUpdatedPayload"
       },
       {
         "description": "A new pairing request awaits the owner's approval.",
@@ -325,6 +355,22 @@
         "result": "#/$defs/AutomationsRunResult",
         "scope": "operator.write",
         "sideEffecting": true
+      },
+      {
+        "description": "Run history of one automation, newest first.",
+        "name": "automations.runs",
+        "params": "#/$defs/AutomationsRunsParams",
+        "result": "#/$defs/AutomationsRunsResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Everything scheduled (automations, reminders, briefings, heartbeat, watches) with next run times, soonest first; open input requests last (Upcoming view, O4).",
+        "name": "automations.upcoming",
+        "params": "#/$defs/AutomationsUpcomingParams",
+        "result": "#/$defs/AutomationsUpcomingResult",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "Updates the given fields of an automation.",
@@ -583,12 +629,36 @@
         "sideEffecting": false
       },
       {
+        "description": "Generates the daily brief (or one briefing) now instead of at its schedule (first-run state). Side-effecting.",
+        "name": "feed.generate",
+        "params": "#/$defs/FeedGenerateParams",
+        "result": "#/$defs/FeedGenerateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Lists feed posts, newest batch first, with the time of the next brief.",
         "name": "feed.list",
         "params": "#/$defs/FeedListParams",
         "result": "#/$defs/FeedListResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Archives a goal and disables its check-ins. Side-effecting.",
+        "name": "goals.archive",
+        "params": "#/$defs/GoalsArchiveParams",
+        "result": "#/$defs/GoalsArchiveResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Creates a stated goal (active at once); a cadence schedules check-ins. Inferred goals are never created here. Side-effecting.",
+        "name": "goals.create",
+        "params": "#/$defs/GoalsCreateParams",
+        "result": "#/$defs/GoalsCreateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
       },
       {
         "description": "Confirms, rejects or defers an inferred candidate goal; nothing is created before confirm.",
@@ -599,12 +669,20 @@
         "sideEffecting": false
       },
       {
-        "description": "Returns one goal with the ids of its linked tasks.",
+        "description": "Returns one goal with its linked task ids, milestones and links.",
         "name": "goals.get",
         "params": "#/$defs/GoalsGetParams",
         "result": "#/$defs/GoalsGetResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Links (or unlinks) one task, automation or watch to a goal. Side-effecting.",
+        "name": "goals.link",
+        "params": "#/$defs/GoalsLinkParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.write",
+        "sideEffecting": true
       },
       {
         "description": "Lists goals (default: active and candidate), grouped client-side by category.",
@@ -613,6 +691,22 @@
         "result": "#/$defs/GoalsListResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Adds (no milestoneId), edits, completes or removes a milestone. Side-effecting.",
+        "name": "goals.milestone",
+        "params": "#/$defs/GoalsMilestoneParams",
+        "result": "#/$defs/GoalsMilestoneResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Edits a goal; changing the cadence reschedules its check-ins. Side-effecting.",
+        "name": "goals.update",
+        "params": "#/$defs/GoalsUpdateParams",
+        "result": "#/$defs/GoalsUpdateResult",
+        "scope": "operator.write",
+        "sideEffecting": true
       },
       {
         "description": "Lists standing grants with use counts and expiry.",
@@ -1928,6 +2022,13 @@
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
+        },
+        "watch": {
+          "$ref": "#/$defs/WatchConfig"
+        },
+        "lightContext": {
+          "description": "Heartbeat: skip workspace bootstrap files (feature O2)",
+          "type": "boolean"
         }
       },
       "required": [
@@ -1946,16 +2047,174 @@
       "type": "object"
     },
     "AutomationKind": {
+      "description": "`reminder` is a one-shot: `schedule` is an ISO-8601 instant",
       "enum": [
         "cron",
         "interval",
         "watch",
         "heartbeat",
-        "briefing"
+        "briefing",
+        "reminder"
       ],
       "type": "string"
     },
     "AutomationResult": {
+      "properties": {
+        "automation": {
+          "$ref": "#/$defs/Automation"
+        }
+      },
+      "required": [
+        "automation"
+      ],
+      "type": "object"
+    },
+    "AutomationRun": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trigger": {
+          "enum": [
+            "schedule",
+            "manual"
+          ],
+          "type": "string"
+        },
+        "scheduledFor": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "coalesced": {
+          "description": "Missed ticks folded into this run",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/AutomationRunStatus"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notificationId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "automationId",
+        "trigger",
+        "scheduledFor",
+        "coalesced",
+        "startedAt",
+        "status"
+      ],
+      "type": "object"
+    },
+    "AutomationRunFinishedPayload": {
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/AutomationRun"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "type": "object"
+    },
+    "AutomationRunStartedPayload": {
+      "properties": {
+        "run": {
+          "$ref": "#/$defs/AutomationRun"
+        }
+      },
+      "required": [
+        "run"
+      ],
+      "type": "object"
+    },
+    "AutomationRunStatus": {
+      "enum": [
+        "running",
+        "done",
+        "no_reply",
+        "failed",
+        "cancelled",
+        "skipped"
+      ],
+      "type": "string"
+    },
+    "AutomationUpdatedPayload": {
       "properties": {
         "automation": {
           "$ref": "#/$defs/Automation"
@@ -1999,6 +2258,12 @@
           "$ref": "#/$defs/Delivery"
         },
         "enabled": {
+          "type": "boolean"
+        },
+        "watch": {
+          "$ref": "#/$defs/WatchConfig"
+        },
+        "lightContext": {
           "type": "boolean"
         }
       },
@@ -2091,6 +2356,87 @@
       },
       "type": "object"
     },
+    "AutomationsRunsParams": {
+      "properties": {
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "automationId"
+      ],
+      "type": "object"
+    },
+    "AutomationsRunsResult": {
+      "properties": {
+        "runs": {
+          "items": {
+            "$ref": "#/$defs/AutomationRun"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "runs"
+      ],
+      "type": "object"
+    },
+    "AutomationsUpcomingParams": {
+      "properties": {
+        "horizonHours": {
+          "maximum": 8784,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "AutomationsUpcomingResult": {
+      "properties": {
+        "items": {
+          "items": {
+            "$ref": "#/$defs/UpcomingItem"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "items"
+      ],
+      "type": "object"
+    },
     "AutomationsUpdateParams": {
       "properties": {
         "automationId": {
@@ -2128,6 +2474,23 @@
         },
         "enabled": {
           "type": "boolean"
+        },
+        "watch": {
+          "$ref": "#/$defs/WatchConfig"
+        },
+        "lightContext": {
+          "type": "boolean"
+        },
+        "scratch": {
+          "anyOf": [
+            {
+              "maxLength": 20000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -4919,10 +5282,42 @@
       "properties": {
         "post": {
           "$ref": "#/$defs/FeedPost"
+        },
+        "ledgerChanges": {
+          "description": "interests.md lines the feedback changed",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "required": [
         "post"
+      ],
+      "type": "object"
+    },
+    "FeedGenerateParams": {
+      "properties": {
+        "briefingId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "FeedGenerateResult": {
+      "properties": {
+        "posts": {
+          "items": {
+            "$ref": "#/$defs/FeedPost"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "posts"
       ],
       "type": "object"
     },
@@ -5088,6 +5483,26 @@
       },
       "required": [
         "post"
+      ],
+      "type": "object"
+    },
+    "FeedUpdatedPayload": {
+      "properties": {
+        "posts": {
+          "items": {
+            "$ref": "#/$defs/FeedPost"
+          },
+          "type": "array"
+        },
+        "briefingId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "posts"
       ],
       "type": "object"
     },
@@ -5272,6 +5687,108 @@
       ],
       "type": "string"
     },
+    "GoalLink": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "automationId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "watchId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "goalId"
+      ],
+      "type": "object"
+    },
+    "GoalMilestone": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "doneAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "goalId",
+        "title"
+      ],
+      "type": "object"
+    },
     "GoalStatus": {
       "enum": [
         "candidate",
@@ -5290,6 +5807,136 @@
       },
       "required": [
         "goal"
+      ],
+      "type": "object"
+    },
+    "GoalsArchiveParams": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "goalId"
+      ],
+      "type": "object"
+    },
+    "GoalsArchiveResult": {
+      "properties": {
+        "goal": {
+          "$ref": "#/$defs/Goal"
+        }
+      },
+      "required": [
+        "goal"
+      ],
+      "type": "object"
+    },
+    "GoalsCreateParams": {
+      "properties": {
+        "title": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "category": {
+          "$ref": "#/$defs/GoalCategory"
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "description": "JSON object",
+              "patternProperties": {
+                "^(.*)$": {}
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cadence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timezone": {
+          "type": "string"
+        },
+        "milestones": {
+          "items": {
+            "properties": {
+              "title": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "dueAt": {
+                "anyOf": [
+                  {
+                    "description": "ISO-8601 timestamp (UTC)",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "title"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "title",
+        "category"
+      ],
+      "type": "object"
+    },
+    "GoalsCreateResult": {
+      "properties": {
+        "goal": {
+          "$ref": "#/$defs/Goal"
+        },
+        "taskIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "milestones": {
+          "items": {
+            "$ref": "#/$defs/GoalMilestone"
+          },
+          "type": "array"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/GoalLink"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "goal",
+        "taskIds",
+        "milestones",
+        "links"
       ],
       "type": "object"
     },
@@ -5349,11 +5996,58 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "milestones": {
+          "items": {
+            "$ref": "#/$defs/GoalMilestone"
+          },
+          "type": "array"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/GoalLink"
+          },
+          "type": "array"
         }
       },
       "required": [
         "goal",
         "taskIds"
+      ],
+      "type": "object"
+    },
+    "GoalsLinkParams": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "watchId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "unlink": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "goalId"
       ],
       "type": "object"
     },
@@ -5382,6 +6076,171 @@
       },
       "required": [
         "goals"
+      ],
+      "type": "object"
+    },
+    "GoalsMilestoneParams": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "milestoneId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "dueAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "done": {
+          "type": "boolean"
+        },
+        "remove": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "goalId"
+      ],
+      "type": "object"
+    },
+    "GoalsMilestoneResult": {
+      "properties": {
+        "goal": {
+          "$ref": "#/$defs/Goal"
+        },
+        "taskIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "milestones": {
+          "items": {
+            "$ref": "#/$defs/GoalMilestone"
+          },
+          "type": "array"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/GoalLink"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "goal",
+        "taskIds",
+        "milestones",
+        "links"
+      ],
+      "type": "object"
+    },
+    "GoalsUpdateParams": {
+      "properties": {
+        "goalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "category": {
+          "$ref": "#/$defs/GoalCategory"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "paused",
+            "done"
+          ],
+          "type": "string"
+        },
+        "plan": {
+          "anyOf": [
+            {
+              "description": "JSON object",
+              "patternProperties": {
+                "^(.*)$": {}
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cadence": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "goalId"
+      ],
+      "type": "object"
+    },
+    "GoalsUpdateResult": {
+      "properties": {
+        "goal": {
+          "$ref": "#/$defs/Goal"
+        },
+        "taskIds": {
+          "items": {
+            "description": "ULID in production",
+            "maxLength": 64,
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "milestones": {
+          "items": {
+            "$ref": "#/$defs/GoalMilestone"
+          },
+          "type": "array"
+        },
+        "links": {
+          "items": {
+            "$ref": "#/$defs/GoalLink"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "goal",
+        "taskIds",
+        "milestones",
+        "links"
       ],
       "type": "object"
     },
@@ -5706,6 +6565,19 @@
         },
         "brief": {
           "maxLength": 20000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schedule": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
           "minLength": 1,
           "type": "string"
         }
@@ -7585,6 +8457,29 @@
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
+        },
+        "staleAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "staleReason": {
+          "anyOf": [
+            {
+              "description": "Why restart reconciliation marked the notification stale (architecture §4.12)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -7608,6 +8503,10 @@
           "type": "string"
         },
         "destructive": {
+          "type": "boolean"
+        },
+        "authenticationRequired": {
+          "description": "OS delivery requires device authentication (Touch ID) before the action runs; set for purchase and credential-fill approvals (security §3.5)",
           "type": "boolean"
         }
       },
@@ -7640,6 +8539,28 @@
         "system"
       ],
       "type": "string"
+    },
+    "NotificationResolvedPayload": {
+      "properties": {
+        "notification": {
+          "$ref": "#/$defs/Notification"
+        }
+      },
+      "required": [
+        "notification"
+      ],
+      "type": "object"
+    },
+    "NotificationUpdatedPayload": {
+      "properties": {
+        "notification": {
+          "$ref": "#/$defs/Notification"
+        }
+      },
+      "required": [
+        "notification"
+      ],
+      "type": "object"
     },
     "NotificationsListParams": {
       "properties": {
@@ -10273,6 +11194,70 @@
       ],
       "type": "object"
     },
+    "UpcomingItem": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "automation",
+            "reminder",
+            "briefing",
+            "heartbeat",
+            "watch",
+            "input_request"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "nextRunAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "automationId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schedule": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "title",
+        "enabled"
+      ],
+      "type": "object"
+    },
     "Usage": {
       "properties": {
         "input": {
@@ -11063,6 +12048,43 @@
       },
       "required": [
         "layout"
+      ],
+      "type": "object"
+    },
+    "WatchCheck": {
+      "enum": [
+        "change",
+        "text_present",
+        "price_below",
+        "price_above"
+      ],
+      "type": "string"
+    },
+    "WatchConfig": {
+      "properties": {
+        "url": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "check": {
+          "$ref": "#/$defs/WatchCheck"
+        },
+        "selector": {
+          "description": "Regex over the fetched text; capture group 1 is the value",
+          "type": "string"
+        },
+        "text": {
+          "description": "text_present: the text to look for",
+          "type": "string"
+        },
+        "threshold": {
+          "description": "price_below / price_above",
+          "type": "number"
+        }
+      },
+      "required": [
+        "url",
+        "check"
       ],
       "type": "object"
     },

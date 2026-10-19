@@ -177,9 +177,14 @@ export const ChannelIdentity = Type.Object(
 );
 export type ChannelIdentity = Static<typeof ChannelIdentity>;
 
-export const AutomationKind = StringEnum(["cron", "interval", "watch", "heartbeat", "briefing"], {
-  $id: "AutomationKind",
-});
+export const AutomationKind = StringEnum(
+  ["cron", "interval", "watch", "heartbeat", "briefing", "reminder"],
+  {
+    $id: "AutomationKind",
+    description: "`reminder` is a one-shot: `schedule` is an ISO-8601 instant",
+  },
+);
+export type AutomationKind = Static<typeof AutomationKind>;
 
 export const Delivery = Type.Object(
   {
@@ -190,6 +195,26 @@ export const Delivery = Type.Object(
   },
   { $id: "Delivery" },
 );
+
+/** Data model §8 `watches`: what a `watch` automation checks (feature O3). */
+export const WatchCheck = StringEnum(["change", "text_present", "price_below", "price_above"], {
+  $id: "WatchCheck",
+});
+export type WatchCheck = Static<typeof WatchCheck>;
+
+export const WatchConfig = Type.Object(
+  {
+    url: Type.String({ minLength: 1 }),
+    check: WatchCheck,
+    selector: Type.Optional(
+      Type.String({ description: "Regex over the fetched text; capture group 1 is the value" }),
+    ),
+    text: Type.Optional(Type.String({ description: "text_present: the text to look for" })),
+    threshold: Type.Optional(Type.Number({ description: "price_below / price_above" })),
+  },
+  { $id: "WatchConfig" },
+);
+export type WatchConfig = Static<typeof WatchConfig>;
 
 export const Automation = Type.Object(
   {
@@ -208,7 +233,54 @@ export const Automation = Type.Object(
     lastStatus: Nullable(Type.String()),
     createdAt: IsoDateTime,
     updatedAt: IsoDateTime,
+    watch: Type.Optional(WatchConfig),
+    lightContext: Type.Optional(
+      Type.Boolean({ description: "Heartbeat: skip workspace bootstrap files (feature O2)" }),
+    ),
   },
   { $id: "Automation" },
 );
 export type Automation = Static<typeof Automation>;
+
+/** Data model §8 `automation_runs`: one launched run (history, `automation.run.*`). */
+export const AutomationRunStatus = StringEnum(
+  ["running", "done", "no_reply", "failed", "cancelled", "skipped"],
+  { $id: "AutomationRunStatus" },
+);
+export type AutomationRunStatus = Static<typeof AutomationRunStatus>;
+
+export const AutomationRun = Type.Object(
+  {
+    id: Id,
+    automationId: Id,
+    threadId: Nullable(Id),
+    taskId: Nullable(Id),
+    trigger: StringEnum(["schedule", "manual"]),
+    scheduledFor: IsoDateTime,
+    coalesced: Type.Integer({ minimum: 1, description: "Missed ticks folded into this run" }),
+    startedAt: IsoDateTime,
+    endedAt: Nullable(IsoDateTime),
+    status: AutomationRunStatus,
+    summary: Nullable(Type.String()),
+    notificationId: Nullable(Id),
+  },
+  { $id: "AutomationRun" },
+);
+export type AutomationRun = Static<typeof AutomationRun>;
+
+/** One row of the Upcoming view (feature O4): everything that will run, with its next time. */
+export const UpcomingItem = Type.Object(
+  {
+    kind: StringEnum(["automation", "reminder", "briefing", "heartbeat", "watch", "input_request"]),
+    id: Id,
+    title: Type.String(),
+    nextRunAt: Nullable(IsoDateTime),
+    enabled: Type.Boolean(),
+    automationId: Type.Optional(Id),
+    taskId: Type.Optional(Id),
+    schedule: Type.Optional(Type.String()),
+    timezone: Type.Optional(Type.String()),
+  },
+  { $id: "UpcomingItem" },
+);
+export type UpcomingItem = Static<typeof UpcomingItem>;
