@@ -409,6 +409,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
 export { type BrowserSetup, type ComposedBrowser, composeBrowser } from "./browser.ts";
 export { CallContexts } from "./call-context.ts";
 export {
+  type ChannelsSetup,
+  type ComposedChannels,
+  channelsSetupFromEnv,
+  composeChannels,
+  type TelegramSetup,
+  turnText,
+} from "./channels.ts";
+export {
   type ConnectorsSetup,
   composeConnectors,
   MemoryTokenVault,
