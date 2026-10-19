@@ -311,4 +311,5 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   };
 }
 
+export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { createLogger, surfaceOf };
