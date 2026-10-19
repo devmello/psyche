@@ -369,6 +369,9 @@ importers:
         specifier: 3.0.2
         version: 3.0.2
     devDependencies:
+      '@sinclair/typebox':
+        specifier: 0.34.52
+        version: 0.34.52
       '@types/better-sqlite3':
         specifier: 9.6.0
         version: 9.6.0
