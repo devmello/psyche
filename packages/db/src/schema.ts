@@ -9,8 +9,10 @@
  */
 import { blob, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { s04Schema } from "./schema-s04.ts";
+import { s07Schema } from "./schema-s07.ts";
 
 export * from "./schema-s04.ts";
+export * from "./schema-s07.ts";
 
 // §1 Identity --------------------------------------------------------------------------------
 
@@ -165,6 +167,7 @@ export const schema = {
   settings,
   usage,
   ...s04Schema,
+  ...s07Schema,
 };
 export type Schema = typeof schema;
 

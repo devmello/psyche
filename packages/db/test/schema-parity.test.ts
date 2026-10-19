@@ -10,10 +10,16 @@ describe("drizzle schema mirrors the SQL migrations", () => {
     const sqlTables = (
       db.sqlite
         .prepare(
-          "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '_migrations' ORDER BY name",
+          "SELECT name, sql FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '_migrations' ORDER BY name",
         )
-        .all() as { name: string }[]
-    ).map((r) => r.name);
+        .all() as { name: string; sql: string }[]
+    )
+      // Virtual tables (FTS5) and the shadow tables they own are not mirrored in drizzle.
+      .filter((r, _, all) => {
+        const virtual = all.filter((t) => /^CREATE VIRTUAL TABLE/i.test(t.sql));
+        return !virtual.some((v) => r.name === v.name || r.name.startsWith(`${v.name}_`));
+      })
+      .map((r) => r.name);
     const drizzleTables = Object.values(schema)
       .map((t) => getTableName(t))
       .sort();
