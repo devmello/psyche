@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { IsoDateTime, Nullable, StringEnum } from "./common.ts";
+import { Id, IsoDateTime, Nullable, StringEnum } from "./common.ts";
 import { PsycheError } from "./errors.ts";
 import { BrowserController, BrowserProfile } from "./methods/browser.ts";
 import {
@@ -31,6 +31,13 @@ import {
  * refuses CDP sessions on its own UI and on tabs not created through the bridge.
  */
 
+/**
+ * Frame limit on the browser-bridge socket (16 MiB). Raw `Accessibility.getFullAXTree` and
+ * `DOMSnapshot.captureSnapshot` results reach 1.3–1.9 MB on common pages (spike 01), above the
+ * 1 MiB `MAX_FRAME_BYTES` of the other transports. Pass it to `parseFrame(raw, { maxBytes })`.
+ */
+export const BRIDGE_MAX_FRAME_BYTES = 16 * 1_048_576;
+
 /** Same vocabulary as `browser.*`: `logged-in` profile or a `clean` logged-out partition. */
 export const BridgeProfile = BrowserProfile;
 export type BridgeProfile = BrowserProfile;
@@ -52,6 +59,17 @@ export const BridgeTab = Type.Object(
     partition: Type.String({ description: "Electron session partition, e.g. persist:psyche" }),
     profile: BridgeProfile,
     attached: Type.Boolean({ description: "A CDP debugger session is attached" }),
+    openerTabId: Type.Optional(
+      Nullable(
+        Type.String({ description: "Tab whose window.open created this one (popups, OAuth)" }),
+      ),
+    ),
+    disposition: Type.Optional(
+      Type.String({
+        description: "Electron window-open disposition, e.g. new-window, foreground-tab",
+      }),
+    ),
+    taskId: Type.Optional(Nullable(Id)),
   },
   { $id: "BridgeTab" },
 );
@@ -102,6 +120,10 @@ export const BridgeMethods = {
       url: Type.String({ pattern: "^https?://", maxLength: 8192 }),
       profile: Type.Optional(BridgeProfile),
       background: Type.Optional(Type.Boolean()),
+      taskId: Type.Optional(Id),
+      taskTitle: Type.Optional(
+        Type.String({ maxLength: 200, description: 'Shown in the pane: "<title> keeps running"' }),
+      ),
     }),
     result: BridgeTabResult,
     scope: "none",
@@ -124,6 +146,34 @@ export const BridgeMethods = {
     result: OkResult,
     scope: "none",
     description: "Gateway → desktop: detaches the CDP session.",
+  }),
+  "bridge.tab.status": defineMethod({
+    params: Type.Object({
+      tabId: TabId,
+      text: Nullable(
+        Type.String({
+          maxLength: 200,
+          description: "Current action in present progressive for the status pill; null clears it",
+        }),
+      ),
+      highlight: Type.Optional(
+        Type.Object(
+          {
+            x: Type.Number(),
+            y: Type.Number(),
+            width: Type.Number({ minimum: 0 }),
+            height: Type.Number({ minimum: 0 }),
+          },
+          {
+            description: "Element being acted on, CSS pixels in the viewport; outlined for 600 ms",
+          },
+        ),
+      ),
+    }),
+    result: OkResult,
+    scope: "none",
+    description:
+      "Gateway → desktop: status pill text and action highlight for a tab (I5). Display only; the desktop never reads page content back.",
   }),
   "bridge.cdp.send": defineMethod({
     params: BridgeCdpSendParams,
@@ -157,9 +207,24 @@ export const BridgeEvents = {
     description: "desktop → Gateway: a tab was closed.",
   }),
   "bridge.control.changed": defineEvent({
-    payload: Type.Object({ tabId: TabId, state: BridgeControlState }),
+    payload: Type.Object({
+      tabId: TabId,
+      state: BridgeControlState,
+      via: Type.Optional(
+        StringEnum(["keyboard", "mouse", "button", "release", "idle"], {
+          $id: "BridgeControlVia",
+          description:
+            "What changed control: user input, the Take control button, Release or idle timeout",
+        }),
+      ),
+    }),
     description:
       "desktop → Gateway: Take control. While the state is user or paused the agent's input is held; it resumes on release.",
+  }),
+  "bridge.debugger.detached": defineEvent({
+    payload: Type.Object({ tabId: TabId, reason: Type.String() }),
+    description:
+      "desktop → Gateway: the CDP session ended (renderer crash, target closed). Enabled domains are gone; the Gateway re-attaches and re-enables them.",
   }),
   "bridge.download": defineEvent({
     payload: Type.Object({

@@ -301,9 +301,20 @@ export interface BridgeCDPSendResult {
 export interface BridgeControlChangedPayload {
     state: BrowserController;
     tabId: string;
+    via?:  BridgeControlVia;
 }
 
 export type BrowserController = "agent" | "user" | "paused";
+
+/**
+ * What changed control: user input, the Take control button, Release or idle timeout
+ */
+export type BridgeControlVia = "keyboard" | "mouse" | "button" | "release" | "idle";
+
+export interface BridgeDebuggerDetachedPayload {
+    reason: string;
+    tabId:  string;
+}
 
 export interface BridgeDownloadPayload {
     at:              string;
@@ -337,7 +348,12 @@ export interface BridgeTabIDParams {
 export interface BridgeTabOpenParams {
     background?: boolean;
     profile?:    BrowserProfile;
-    url:         string;
+    taskId?:     string;
+    /**
+     * Shown in the pane: "<title> keeps running"
+     */
+    taskTitle?: string;
+    url:        string;
 }
 
 export type BrowserProfile = "logged-in" | "clean";
@@ -352,13 +368,38 @@ export interface BridgeTab {
      */
     attached: boolean;
     /**
+     * Electron window-open disposition, e.g. new-window, foreground-tab
+     */
+    disposition?: string;
+    openerTabId?: null | string;
+    /**
      * Electron session partition, e.g. persist:psyche
      */
     partition: string;
     profile:   BrowserProfile;
     tabId:     string;
+    taskId?:   null | string;
     title:     string;
     url:       string;
+}
+
+export interface BridgeTabStatusParams {
+    /**
+     * Element being acted on, CSS pixels in the viewport; outlined for 600 ms
+     */
+    highlight?: Highlight;
+    tabId:      string;
+    text?:      null | string;
+}
+
+/**
+ * Element being acted on, CSS pixels in the viewport; outlined for 600 ms
+ */
+export interface Highlight {
+    height: number;
+    width:  number;
+    x:      number;
+    y:      number;
 }
 
 export interface BridgeTabsListResult {
@@ -942,7 +983,7 @@ export interface ErrorPayload {
 /**
  * Machine-readable error code
  */
-export type ErrorCode = "not_implemented" | "invalid_frame" | "invalid_params" | "unknown_method" | "protocol_version_mismatch" | "unauthorized" | "forbidden" | "not_paired" | "pairing_pending" | "origin_rejected" | "not_found" | "conflict" | "idempotency_conflict" | "rate_limited" | "timeout" | "cancelled" | "unavailable" | "approval_required" | "approval_expired" | "approval_invalidated" | "approval_not_armed" | "answer_late" | "answer_replayed" | "binding_mismatch" | "taint_blocked" | "policy_denied" | "internal";
+export type ErrorCode = "not_implemented" | "invalid_frame" | "invalid_params" | "unknown_method" | "protocol_version_mismatch" | "unauthorized" | "forbidden" | "not_paired" | "pairing_pending" | "origin_rejected" | "not_found" | "conflict" | "idempotency_conflict" | "rate_limited" | "timeout" | "cancelled" | "unavailable" | "approval_required" | "approval_expired" | "approval_invalidated" | "approval_not_armed" | "answer_late" | "answer_replayed" | "binding_mismatch" | "taint_blocked" | "policy_denied" | "internal" | "user_in_control" | "debugger_detached" | "tab_not_found" | "method_not_allowed";
 
 export type FrameType = "req" | "res" | "event";
 
@@ -2081,6 +2122,10 @@ export interface ViewOpenResult {
 export interface ViewPaneRef {
     pane?:   ViewPane;
     paneId?: string;
+}
+
+export interface ViewReportParams {
+    layout: ViewLayout;
 }
 
 export interface WrapUpBlock {

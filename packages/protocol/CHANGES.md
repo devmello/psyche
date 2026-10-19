@@ -18,6 +18,17 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### 2026-10-19 — browser bridge amendments and `view.report` (S11)
+
+Needed by S11 (desktop) and S08 (CDP driver); from `docs/spikes/spike-01-cdp-bridge.md`.
+
+- `BRIDGE_MAX_FRAME_BYTES` (16 MiB) and `parseFrame(raw, { maxBytes })`: raw AX trees exceed 1 MiB. Other transports keep `MAX_FRAME_BYTES`.
+- `ErrorCode` gains `user_in_control`, `debugger_detached`, `tab_not_found`, `method_not_allowed`.
+- `BridgeTab` gains optional `openerTabId`, `disposition`, `taskId`; `bridge.tab.open` gains optional `taskId`, `taskTitle`.
+- New method `bridge.tab.status` (Gateway → desktop): status pill text and the action highlight rectangle (I5).
+- `bridge.control.changed` gains optional `via` (`keyboard | mouse | button | release | idle`); new event `bridge.debugger.detached {tabId, reason}`.
+- New method `view.report {layout}` (desktop → Gateway) so `view.layout` has something to return.
+
 ### v1 additive — 2026-10-19 (S02 agent runtime)
 
 - `AgentLoop.explainContext?(runId)` returning `ContextExplanation` (system prompt, ordered `ContextSection`s with budget / truncated / missing / untrusted flags, tools, message count) for the prompt viewer (feature C11).
