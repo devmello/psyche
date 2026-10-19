@@ -5,7 +5,7 @@ import { createValidator, defineEvent, type EventSpec, type Validator } from "./
 import { Block } from "./schemas/blocks.ts";
 import { Device, NodeInfo, PairingRequest } from "./schemas/identity.ts";
 import { ApprovalRequest, Receipt } from "./schemas/permissions.ts";
-import { Notification, SettingEntry } from "./schemas/surfaces.ts";
+import { FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surfaces.ts";
 import { InputRequest, Task, TaskAction } from "./schemas/tasks.ts";
 import { Message, Run, Thread } from "./schemas/threads.ts";
 import { ToolCall } from "./schemas/tools.ts";
@@ -115,6 +115,20 @@ export const Events = {
     payload: Type.Object({ notification: Notification }),
     description:
       "A notification was resolved (by the user, an action, a superseding state or restart reconciliation).",
+  }),
+  "feed.updated": defineEvent({
+    payload: Type.Object({ posts: Type.Array(FeedPost), briefingId: Type.Optional(Id) }),
+    description: "A brief or briefing was generated, or a post's feedback changed.",
+  }),
+  "idea.updated": defineEvent({
+    payload: Type.Object({ idea: Idea }),
+    description:
+      "An idea was proposed (in a delivery batch), edited, accepted, dismissed or expired.",
+  }),
+  "goal.updated": defineEvent({
+    payload: Type.Object({ goal: Goal }),
+    description:
+      "A goal was created, proposed as an inferred candidate, confirmed, edited, checked in or archived.",
   }),
 } as const;
 

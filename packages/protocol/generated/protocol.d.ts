@@ -886,6 +886,18 @@ export interface EventsSubscribeResult {
     stateVersion: number;
 }
 
+export interface FeedFeedbackParams {
+    feedback?: FeedFeedback | null;
+    postId:    string;
+}
+
+export type FeedFeedback = "like" | "save" | "not_interested" | "hide_source" | "follow_topic";
+
+export interface FeedFeedbackResult {
+    ledgerChanges: string[];
+    post:          FeedPost;
+}
+
 export interface FeedPost {
     bodyMd:      string;
     briefingId?: null | string;
@@ -909,7 +921,33 @@ export interface Citation {
     url:     string;
 }
 
-export type FeedFeedback = "like" | "save" | "not_interested" | "hide_source" | "follow_topic";
+export interface FeedGenerateParams {
+    briefingId?: string;
+}
+
+export interface FeedGenerateResult {
+    posts: FeedPost[];
+}
+
+export interface FeedListParams {
+    briefingId?: string;
+    /**
+     * Opaque cursor
+     */
+    cursor?: string;
+    date?:   string;
+    limit?:  number;
+}
+
+export interface FeedListResult {
+    nextCursor?: null | string;
+    posts:       FeedPost[];
+}
+
+export interface FeedUpdatedPayload {
+    briefingId?: string;
+    posts:       FeedPost[];
+}
 
 export interface FileBlock {
     libraryItemId: string;
@@ -950,6 +988,10 @@ export interface GatewayShutdownPayload {
     reason: string;
 }
 
+export interface GoalUpdatedPayload {
+    goal: Goal;
+}
+
 export interface Goal {
     archivedAt?:    null | string;
     cadence?:       null | string;
@@ -960,14 +1002,137 @@ export interface Goal {
     inferred:       boolean;
     nextCheckinAt?: null | string;
     plan?:          { [key: string]: unknown } | null;
-    status:         GoalStatus;
+    status:         StatusElement;
     title:          string;
     updatedAt:      string;
 }
 
 export type GoalCategory = "health" | "finance" | "career" | "relationships" | "productivity" | "learning" | "home" | "other";
 
-export type GoalStatus = "candidate" | "active" | "paused" | "done" | "archived";
+export type StatusElement = "candidate" | "active" | "paused" | "done" | "archived";
+
+export interface GoalsArchiveParams {
+    goalId: string;
+}
+
+export interface GoalsArchiveResult {
+    goal: Goal;
+}
+
+export interface GoalsConfirmParams {
+    goalId: string;
+}
+
+export interface GoalsConfirmResult {
+    goal:       Goal;
+    links:      GoalLink[];
+    milestones: GoalMilestone[];
+}
+
+export interface GoalLink {
+    automationId?: null | string;
+    goalId:        string;
+    taskId?:       null | string;
+    watchId?:      null | string;
+}
+
+export interface GoalMilestone {
+    doneAt?: null | string;
+    dueAt?:  null | string;
+    goalId:  string;
+    id:      string;
+    title:   string;
+}
+
+export interface GoalsCreateParams {
+    cadence?:    null | string;
+    category:    GoalCategory;
+    milestones?: Milestone[];
+    plan?:       { [key: string]: unknown } | null;
+    timezone?:   string;
+    title:       string;
+}
+
+export interface Milestone {
+    dueAt?: null | string;
+    title:  string;
+}
+
+export interface GoalsCreateResult {
+    goal:       Goal;
+    links:      GoalLink[];
+    milestones: GoalMilestone[];
+}
+
+export interface GoalsGetParams {
+    goalId: string;
+}
+
+export interface GoalsGetResult {
+    goal:       Goal;
+    links:      GoalLink[];
+    milestones: GoalMilestone[];
+}
+
+export interface GoalsLinkParams {
+    automationId?: string;
+    goalId:        string;
+    taskId?:       string;
+    unlink?:       boolean;
+    watchId?:      string;
+}
+
+export interface GoalsListParams {
+    category?: GoalCategory;
+    status?:   StatusElement[];
+}
+
+export interface GoalsListResult {
+    goals: Goal[];
+}
+
+export interface GoalsMilestoneParams {
+    done?:        boolean;
+    dueAt?:       null | string;
+    goalId:       string;
+    milestoneId?: string;
+    remove?:      boolean;
+    title?:       string;
+}
+
+export interface GoalsMilestoneResult {
+    goal:       Goal;
+    links:      GoalLink[];
+    milestones: GoalMilestone[];
+}
+
+export interface GoalsRejectParams {
+    goalId: string;
+    reason: Reason;
+}
+
+export type Reason = "not_a_goal" | "later";
+
+export interface GoalsRejectResult {
+    goal: Goal;
+}
+
+export interface GoalsUpdateParams {
+    cadence?:  null | string;
+    category?: GoalCategory;
+    goalId:    string;
+    plan?:     { [key: string]: unknown } | null;
+    status?:   GoalsUpdateParamsStatus;
+    title?:    string;
+}
+
+export type GoalsUpdateParamsStatus = "active" | "paused" | "done";
+
+export interface GoalsUpdateResult {
+    goal:       Goal;
+    links:      GoalLink[];
+    milestones: GoalMilestone[];
+}
 
 export interface GrantsListParams {
     includeRevoked?: boolean;
@@ -984,6 +1149,10 @@ export interface GrantsRevokeParams {
 
 export interface GrantsRevokeResult {
     grant: Grant;
+}
+
+export interface IdeaUpdatedPayload {
+    idea: Idea;
 }
 
 export interface Idea {
@@ -1003,6 +1172,58 @@ export interface Idea {
 export type IdeaKind = "task" | "automation" | "skill" | "goal" | "connector";
 
 export type IdeaStatus = "proposed" | "accepted" | "edited" | "dismissed" | "expired";
+
+export interface IdeasAcceptParams {
+    ideaId:     string;
+    recurring?: Recurring;
+    threadId?:  string;
+}
+
+export interface Recurring {
+    schedule:  string;
+    timezone?: string;
+}
+
+export interface IdeasAcceptResult {
+    automationId?: null | string;
+    idea:          Idea;
+    taskId?:       null | string;
+}
+
+export interface IdeasDismissParams {
+    ideaId: string;
+    reason: IdeaDismissReason;
+}
+
+export type IdeaDismissReason = "not_now" | "not_interested" | "never_from_source";
+
+export interface IdeasDismissResult {
+    idea: Idea;
+}
+
+export interface IdeasEditParams {
+    bodyMd?: string;
+    ideaId:  string;
+    title?:  string;
+}
+
+export interface IdeasEditResult {
+    idea: Idea;
+}
+
+export interface IdeasListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?: string;
+    limit?:  number;
+    status?: IdeaStatus;
+}
+
+export interface IdeasListResult {
+    ideas:       Idea[];
+    nextCursor?: null | string;
+}
 
 export interface LibraryDeleteParams {
     itemId: string;

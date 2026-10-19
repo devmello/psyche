@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 (additive) — 2026-10-19 (S15 proactive)
+
+- Methods `feed.list`, `feed.feedback`, `feed.generate`; `ideas.list`, `ideas.accept`, `ideas.edit`, `ideas.dismiss`; `goals.list`, `goals.get`, `goals.create`, `goals.update`, `goals.confirm`, `goals.reject`, `goals.archive`, `goals.milestone`, `goals.link` (architecture §4.11, UI §3.9–3.11). Writes are side-effecting (idempotency keys).
+- Events `feed.updated`, `idea.updated`, `goal.updated`.
+- Schemas `GoalMilestone`, `GoalLink` (data model §8 `goal_milestones`, `goal_links`), `IdeaDismissReason`, and `IdeaStatus` (the existing `Idea.status`).
+- Inferred goals can only become active through `goals.confirm` (architecture §2 principle 10).
+
 ### v1 (additive) — 2026-10-19 (S15 notifications)
 
 - Events `notification.updated` and `notification.resolved` (the inbox already emitted `notification.created`; read, de-duplicated updates, resolution and restart reconciliation had no event).

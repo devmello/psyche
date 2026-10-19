@@ -16,6 +16,7 @@ import { MemoryMethods } from "./memory.ts";
 import { NodeMethods } from "./node.ts";
 import { NodesMethods } from "./nodes.ts";
 import { NotificationsMethods } from "./notifications.ts";
+import { FeedMethods, GoalsMethods, IdeasMethods } from "./proactive.ts";
 import { SandboxMethods } from "./sandbox.ts";
 import { SearchMethods } from "./search.ts";
 import { SettingsMethods } from "./settings.ts";
@@ -40,6 +41,7 @@ export * from "./memory.ts";
 export * from "./node.ts";
 export * from "./nodes.ts";
 export * from "./notifications.ts";
+export * from "./proactive.ts";
 export * from "./sandbox.ts";
 export * from "./search.ts";
 export * from "./settings.ts";
@@ -75,6 +77,9 @@ export const Methods = {
   ...SandboxMethods,
   ...EventsMethods,
   ...NodeMethods,
+  ...FeedMethods,
+  ...IdeasMethods,
+  ...GoalsMethods,
 } as const;
 
 export type MethodName = keyof typeof Methods;

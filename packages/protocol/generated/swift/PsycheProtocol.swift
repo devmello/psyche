@@ -130,12 +130,39 @@
 //   let eventsSubscribeParams = try? JSONDecoder().decode(EventsSubscribeParams.self, from: jsonData)
 //   let eventsSubscribeResult = try? JSONDecoder().decode(EventsSubscribeResult.self, from: jsonData)
 //   let feedFeedback = try? JSONDecoder().decode(FeedFeedback.self, from: jsonData)
+//   let feedFeedbackParams = try? JSONDecoder().decode(FeedFeedbackParams.self, from: jsonData)
+//   let feedFeedbackResult = try? JSONDecoder().decode(FeedFeedbackResult.self, from: jsonData)
+//   let feedGenerateParams = try? JSONDecoder().decode(FeedGenerateParams.self, from: jsonData)
+//   let feedGenerateResult = try? JSONDecoder().decode(FeedGenerateResult.self, from: jsonData)
+//   let feedListParams = try? JSONDecoder().decode(FeedListParams.self, from: jsonData)
+//   let feedListResult = try? JSONDecoder().decode(FeedListResult.self, from: jsonData)
 //   let feedPost = try? JSONDecoder().decode(FeedPost.self, from: jsonData)
+//   let feedUpdatedPayload = try? JSONDecoder().decode(FeedUpdatedPayload.self, from: jsonData)
 //   let fileBlock = try? JSONDecoder().decode(FileBlock.self, from: jsonData)
 //   let frame = try? JSONDecoder().decode(Frame.self, from: jsonData)
 //   let gatewayShutdownPayload = try? JSONDecoder().decode(GatewayShutdownPayload.self, from: jsonData)
 //   let goal = try? JSONDecoder().decode(Goal.self, from: jsonData)
 //   let goalCategory = try? JSONDecoder().decode(GoalCategory.self, from: jsonData)
+//   let goalLink = try? JSONDecoder().decode(GoalLink.self, from: jsonData)
+//   let goalMilestone = try? JSONDecoder().decode(GoalMilestone.self, from: jsonData)
+//   let goalUpdatedPayload = try? JSONDecoder().decode(GoalUpdatedPayload.self, from: jsonData)
+//   let goalsArchiveParams = try? JSONDecoder().decode(GoalsArchiveParams.self, from: jsonData)
+//   let goalsArchiveResult = try? JSONDecoder().decode(GoalsArchiveResult.self, from: jsonData)
+//   let goalsConfirmParams = try? JSONDecoder().decode(GoalsConfirmParams.self, from: jsonData)
+//   let goalsConfirmResult = try? JSONDecoder().decode(GoalsConfirmResult.self, from: jsonData)
+//   let goalsCreateParams = try? JSONDecoder().decode(GoalsCreateParams.self, from: jsonData)
+//   let goalsCreateResult = try? JSONDecoder().decode(GoalsCreateResult.self, from: jsonData)
+//   let goalsGetParams = try? JSONDecoder().decode(GoalsGetParams.self, from: jsonData)
+//   let goalsGetResult = try? JSONDecoder().decode(GoalsGetResult.self, from: jsonData)
+//   let goalsLinkParams = try? JSONDecoder().decode(GoalsLinkParams.self, from: jsonData)
+//   let goalsListParams = try? JSONDecoder().decode(GoalsListParams.self, from: jsonData)
+//   let goalsListResult = try? JSONDecoder().decode(GoalsListResult.self, from: jsonData)
+//   let goalsMilestoneParams = try? JSONDecoder().decode(GoalsMilestoneParams.self, from: jsonData)
+//   let goalsMilestoneResult = try? JSONDecoder().decode(GoalsMilestoneResult.self, from: jsonData)
+//   let goalsRejectParams = try? JSONDecoder().decode(GoalsRejectParams.self, from: jsonData)
+//   let goalsRejectResult = try? JSONDecoder().decode(GoalsRejectResult.self, from: jsonData)
+//   let goalsUpdateParams = try? JSONDecoder().decode(GoalsUpdateParams.self, from: jsonData)
+//   let goalsUpdateResult = try? JSONDecoder().decode(GoalsUpdateResult.self, from: jsonData)
 //   let grant = try? JSONDecoder().decode(Grant.self, from: jsonData)
 //   let grantScope = try? JSONDecoder().decode(GrantScope.self, from: jsonData)
 //   let grantsListParams = try? JSONDecoder().decode(GrantsListParams.self, from: jsonData)
@@ -143,6 +170,16 @@
 //   let grantsRevokeParams = try? JSONDecoder().decode(GrantsRevokeParams.self, from: jsonData)
 //   let grantsRevokeResult = try? JSONDecoder().decode(GrantsRevokeResult.self, from: jsonData)
 //   let idea = try? JSONDecoder().decode(Idea.self, from: jsonData)
+//   let ideaDismissReason = try? JSONDecoder().decode(IdeaDismissReason.self, from: jsonData)
+//   let ideaUpdatedPayload = try? JSONDecoder().decode(IdeaUpdatedPayload.self, from: jsonData)
+//   let ideasAcceptParams = try? JSONDecoder().decode(IdeasAcceptParams.self, from: jsonData)
+//   let ideasAcceptResult = try? JSONDecoder().decode(IdeasAcceptResult.self, from: jsonData)
+//   let ideasDismissParams = try? JSONDecoder().decode(IdeasDismissParams.self, from: jsonData)
+//   let ideasDismissResult = try? JSONDecoder().decode(IdeasDismissResult.self, from: jsonData)
+//   let ideasEditParams = try? JSONDecoder().decode(IdeasEditParams.self, from: jsonData)
+//   let ideasEditResult = try? JSONDecoder().decode(IdeasEditResult.self, from: jsonData)
+//   let ideasListParams = try? JSONDecoder().decode(IdeasListParams.self, from: jsonData)
+//   let ideasListResult = try? JSONDecoder().decode(IdeasListResult.self, from: jsonData)
 //   let inputRequest = try? JSONDecoder().decode(InputRequest.self, from: jsonData)
 //   let inputRequestStatus = try? JSONDecoder().decode(InputRequestStatus.self, from: jsonData)
 //   let libraryDeleteParams = try? JSONDecoder().decode(LibraryDeleteParams.self, from: jsonData)
@@ -2823,6 +2860,46 @@ public struct EventsSubscribeResult: Codable, Sendable {
     }
 }
 
+// MARK: - FeedFeedbackParams
+public struct FeedFeedbackParams: Codable, Sendable {
+    public let feedback: FeedFeedback?
+    public let postID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case feedback = "feedback"
+        case postID = "postId"
+    }
+
+    public init(feedback: FeedFeedback?, postID: String) {
+        self.feedback = feedback
+        self.postID = postID
+    }
+}
+
+public enum FeedFeedback: String, Codable, Sendable {
+    case followTopic = "follow_topic"
+    case hideSource = "hide_source"
+    case like = "like"
+    case notInterested = "not_interested"
+    case save = "save"
+}
+
+// MARK: - FeedFeedbackResult
+public struct FeedFeedbackResult: Codable, Sendable {
+    public let ledgerChanges: [String]
+    public let post: FeedPost
+
+    public enum CodingKeys: String, CodingKey {
+        case ledgerChanges = "ledgerChanges"
+        case post = "post"
+    }
+
+    public init(ledgerChanges: [String], post: FeedPost) {
+        self.ledgerChanges = ledgerChanges
+        self.post = post
+    }
+}
+
 // MARK: - FeedPost
 public struct FeedPost: Codable, Sendable {
     public let bodyMd: String
@@ -2886,12 +2963,85 @@ public struct Citation: Codable, Sendable {
     }
 }
 
-public enum FeedFeedback: String, Codable, Sendable {
-    case followTopic = "follow_topic"
-    case hideSource = "hide_source"
-    case like = "like"
-    case notInterested = "not_interested"
-    case save = "save"
+// MARK: - FeedGenerateParams
+public struct FeedGenerateParams: Codable, Sendable {
+    public let briefingID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case briefingID = "briefingId"
+    }
+
+    public init(briefingID: String?) {
+        self.briefingID = briefingID
+    }
+}
+
+// MARK: - FeedGenerateResult
+public struct FeedGenerateResult: Codable, Sendable {
+    public let posts: [FeedPost]
+
+    public enum CodingKeys: String, CodingKey {
+        case posts = "posts"
+    }
+
+    public init(posts: [FeedPost]) {
+        self.posts = posts
+    }
+}
+
+// MARK: - FeedListParams
+public struct FeedListParams: Codable, Sendable {
+    public let briefingID: String?
+    /// Opaque cursor
+    public let cursor: String?
+    public let date: String?
+    public let limit: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case briefingID = "briefingId"
+        case cursor = "cursor"
+        case date = "date"
+        case limit = "limit"
+    }
+
+    public init(briefingID: String?, cursor: String?, date: String?, limit: Int?) {
+        self.briefingID = briefingID
+        self.cursor = cursor
+        self.date = date
+        self.limit = limit
+    }
+}
+
+// MARK: - FeedListResult
+public struct FeedListResult: Codable, Sendable {
+    public let nextCursor: String?
+    public let posts: [FeedPost]
+
+    public enum CodingKeys: String, CodingKey {
+        case nextCursor = "nextCursor"
+        case posts = "posts"
+    }
+
+    public init(nextCursor: String?, posts: [FeedPost]) {
+        self.nextCursor = nextCursor
+        self.posts = posts
+    }
+}
+
+// MARK: - FeedUpdatedPayload
+public struct FeedUpdatedPayload: Codable, Sendable {
+    public let briefingID: String?
+    public let posts: [FeedPost]
+
+    public enum CodingKeys: String, CodingKey {
+        case briefingID = "briefingId"
+        case posts = "posts"
+    }
+
+    public init(briefingID: String?, posts: [FeedPost]) {
+        self.briefingID = briefingID
+        self.posts = posts
+    }
 }
 
 // MARK: - FileBlock
@@ -3029,6 +3179,19 @@ public struct GatewayShutdownPayload: Codable, Sendable {
     }
 }
 
+// MARK: - GoalUpdatedPayload
+public struct GoalUpdatedPayload: Codable, Sendable {
+    public let goal: Goal
+
+    public enum CodingKeys: String, CodingKey {
+        case goal = "goal"
+    }
+
+    public init(goal: Goal) {
+        self.goal = goal
+    }
+}
+
 // MARK: - Goal
 public struct Goal: Codable, Sendable {
     public let archivedAt: String?
@@ -3040,7 +3203,7 @@ public struct Goal: Codable, Sendable {
     public let inferred: Bool
     public let nextCheckinAt: String?
     public let plan: [String: JSONAny]?
-    public let status: GoalStatus
+    public let status: StatusElement
     public let title: String
     public let updatedAt: String
 
@@ -3059,7 +3222,7 @@ public struct Goal: Codable, Sendable {
         case updatedAt = "updatedAt"
     }
 
-    public init(archivedAt: String?, cadence: String?, category: GoalCategory, confirmedAt: String?, createdAt: String, id: String, inferred: Bool, nextCheckinAt: String?, plan: [String: JSONAny]?, status: GoalStatus, title: String, updatedAt: String) {
+    public init(archivedAt: String?, cadence: String?, category: GoalCategory, confirmedAt: String?, createdAt: String, id: String, inferred: Bool, nextCheckinAt: String?, plan: [String: JSONAny]?, status: StatusElement, title: String, updatedAt: String) {
         self.archivedAt = archivedAt
         self.cadence = cadence
         self.category = category
@@ -3086,12 +3249,400 @@ public enum GoalCategory: String, Codable, Sendable {
     case relationships = "relationships"
 }
 
-public enum GoalStatus: String, Codable, Sendable {
+public enum StatusElement: String, Codable, Sendable {
     case active = "active"
     case archived = "archived"
     case candidate = "candidate"
     case done = "done"
     case paused = "paused"
+}
+
+// MARK: - GoalsArchiveParams
+public struct GoalsArchiveParams: Codable, Sendable {
+    public let goalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case goalID = "goalId"
+    }
+
+    public init(goalID: String) {
+        self.goalID = goalID
+    }
+}
+
+// MARK: - GoalsArchiveResult
+public struct GoalsArchiveResult: Codable, Sendable {
+    public let goal: Goal
+
+    public enum CodingKeys: String, CodingKey {
+        case goal = "goal"
+    }
+
+    public init(goal: Goal) {
+        self.goal = goal
+    }
+}
+
+// MARK: - GoalsConfirmParams
+public struct GoalsConfirmParams: Codable, Sendable {
+    public let goalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case goalID = "goalId"
+    }
+
+    public init(goalID: String) {
+        self.goalID = goalID
+    }
+}
+
+// MARK: - GoalsConfirmResult
+public struct GoalsConfirmResult: Codable, Sendable {
+    public let goal: Goal
+    public let links: [GoalLink]
+    public let milestones: [GoalMilestone]
+
+    public enum CodingKeys: String, CodingKey {
+        case goal = "goal"
+        case links = "links"
+        case milestones = "milestones"
+    }
+
+    public init(goal: Goal, links: [GoalLink], milestones: [GoalMilestone]) {
+        self.goal = goal
+        self.links = links
+        self.milestones = milestones
+    }
+}
+
+// MARK: - GoalLink
+public struct GoalLink: Codable, Sendable {
+    public let automationID: String?
+    public let goalID: String
+    public let taskID: String?
+    public let watchID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case automationID = "automationId"
+        case goalID = "goalId"
+        case taskID = "taskId"
+        case watchID = "watchId"
+    }
+
+    public init(automationID: String?, goalID: String, taskID: String?, watchID: String?) {
+        self.automationID = automationID
+        self.goalID = goalID
+        self.taskID = taskID
+        self.watchID = watchID
+    }
+}
+
+// MARK: - GoalMilestone
+public struct GoalMilestone: Codable, Sendable {
+    public let doneAt: String?
+    public let dueAt: String?
+    public let goalID: String
+    public let id: String
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case doneAt = "doneAt"
+        case dueAt = "dueAt"
+        case goalID = "goalId"
+        case id = "id"
+        case title = "title"
+    }
+
+    public init(doneAt: String?, dueAt: String?, goalID: String, id: String, title: String) {
+        self.doneAt = doneAt
+        self.dueAt = dueAt
+        self.goalID = goalID
+        self.id = id
+        self.title = title
+    }
+}
+
+// MARK: - GoalsCreateParams
+public struct GoalsCreateParams: Codable, Sendable {
+    public let cadence: String?
+    public let category: GoalCategory
+    public let milestones: [Milestone]?
+    public let plan: [String: JSONAny]?
+    public let timezone: String?
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case cadence = "cadence"
+        case category = "category"
+        case milestones = "milestones"
+        case plan = "plan"
+        case timezone = "timezone"
+        case title = "title"
+    }
+
+    public init(cadence: String?, category: GoalCategory, milestones: [Milestone]?, plan: [String: JSONAny]?, timezone: String?, title: String) {
+        self.cadence = cadence
+        self.category = category
+        self.milestones = milestones
+        self.plan = plan
+        self.timezone = timezone
+        self.title = title
+    }
+}
+
+// MARK: - Milestone
+public struct Milestone: Codable, Sendable {
+    public let dueAt: String?
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case dueAt = "dueAt"
+        case title = "title"
+    }
+
+    public init(dueAt: String?, title: String) {
+        self.dueAt = dueAt
+        self.title = title
+    }
+}
+
+// MARK: - GoalsCreateResult
+public struct GoalsCreateResult: Codable, Sendable {
+    public let goal: Goal
+    public let links: [GoalLink]
+    public let milestones: [GoalMilestone]
+
+    public enum CodingKeys: String, CodingKey {
+        case goal = "goal"
+        case links = "links"
+        case milestones = "milestones"
+    }
+
+    public init(goal: Goal, links: [GoalLink], milestones: [GoalMilestone]) {
+        self.goal = goal
+        self.links = links
+        self.milestones = milestones
+    }
+}
+
+// MARK: - GoalsGetParams
+public struct GoalsGetParams: Codable, Sendable {
+    public let goalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case goalID = "goalId"
+    }
+
+    public init(goalID: String) {
+        self.goalID = goalID
+    }
+}
+
+// MARK: - GoalsGetResult
+public struct GoalsGetResult: Codable, Sendable {
+    public let goal: Goal
+    public let links: [GoalLink]
+    public let milestones: [GoalMilestone]
+
+    public enum CodingKeys: String, CodingKey {
+        case goal = "goal"
+        case links = "links"
+        case milestones = "milestones"
+    }
+
+    public init(goal: Goal, links: [GoalLink], milestones: [GoalMilestone]) {
+        self.goal = goal
+        self.links = links
+        self.milestones = milestones
+    }
+}
+
+// MARK: - GoalsLinkParams
+public struct GoalsLinkParams: Codable, Sendable {
+    public let automationID: String?
+    public let goalID: String
+    public let taskID: String?
+    public let unlink: Bool?
+    public let watchID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case automationID = "automationId"
+        case goalID = "goalId"
+        case taskID = "taskId"
+        case unlink = "unlink"
+        case watchID = "watchId"
+    }
+
+    public init(automationID: String?, goalID: String, taskID: String?, unlink: Bool?, watchID: String?) {
+        self.automationID = automationID
+        self.goalID = goalID
+        self.taskID = taskID
+        self.unlink = unlink
+        self.watchID = watchID
+    }
+}
+
+// MARK: - GoalsListParams
+public struct GoalsListParams: Codable, Sendable {
+    public let category: GoalCategory?
+    public let status: [StatusElement]?
+
+    public enum CodingKeys: String, CodingKey {
+        case category = "category"
+        case status = "status"
+    }
+
+    public init(category: GoalCategory?, status: [StatusElement]?) {
+        self.category = category
+        self.status = status
+    }
+}
+
+// MARK: - GoalsListResult
+public struct GoalsListResult: Codable, Sendable {
+    public let goals: [Goal]
+
+    public enum CodingKeys: String, CodingKey {
+        case goals = "goals"
+    }
+
+    public init(goals: [Goal]) {
+        self.goals = goals
+    }
+}
+
+// MARK: - GoalsMilestoneParams
+public struct GoalsMilestoneParams: Codable, Sendable {
+    public let done: Bool?
+    public let dueAt: String?
+    public let goalID: String
+    public let milestoneID: String?
+    public let remove: Bool?
+    public let title: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case done = "done"
+        case dueAt = "dueAt"
+        case goalID = "goalId"
+        case milestoneID = "milestoneId"
+        case remove = "remove"
+        case title = "title"
+    }
+
+    public init(done: Bool?, dueAt: String?, goalID: String, milestoneID: String?, remove: Bool?, title: String?) {
+        self.done = done
+        self.dueAt = dueAt
+        self.goalID = goalID
+        self.milestoneID = milestoneID
+        self.remove = remove
+        self.title = title
+    }
+}
+
+// MARK: - GoalsMilestoneResult
+public struct GoalsMilestoneResult: Codable, Sendable {
+    public let goal: Goal
+    public let links: [GoalLink]
+    public let milestones: [GoalMilestone]
+
+    public enum CodingKeys: String, CodingKey {
+        case goal = "goal"
+        case links = "links"
+        case milestones = "milestones"
+    }
+
+    public init(goal: Goal, links: [GoalLink], milestones: [GoalMilestone]) {
+        self.goal = goal
+        self.links = links
+        self.milestones = milestones
+    }
+}
+
+// MARK: - GoalsRejectParams
+public struct GoalsRejectParams: Codable, Sendable {
+    public let goalID: String
+    public let reason: Reason
+
+    public enum CodingKeys: String, CodingKey {
+        case goalID = "goalId"
+        case reason = "reason"
+    }
+
+    public init(goalID: String, reason: Reason) {
+        self.goalID = goalID
+        self.reason = reason
+    }
+}
+
+public enum Reason: String, Codable, Sendable {
+    case later = "later"
+    case notAGoal = "not_a_goal"
+}
+
+// MARK: - GoalsRejectResult
+public struct GoalsRejectResult: Codable, Sendable {
+    public let goal: Goal
+
+    public enum CodingKeys: String, CodingKey {
+        case goal = "goal"
+    }
+
+    public init(goal: Goal) {
+        self.goal = goal
+    }
+}
+
+// MARK: - GoalsUpdateParams
+public struct GoalsUpdateParams: Codable, Sendable {
+    public let cadence: String?
+    public let category: GoalCategory?
+    public let goalID: String
+    public let plan: [String: JSONAny]?
+    public let status: GoalsUpdateParamsStatus?
+    public let title: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case cadence = "cadence"
+        case category = "category"
+        case goalID = "goalId"
+        case plan = "plan"
+        case status = "status"
+        case title = "title"
+    }
+
+    public init(cadence: String?, category: GoalCategory?, goalID: String, plan: [String: JSONAny]?, status: GoalsUpdateParamsStatus?, title: String?) {
+        self.cadence = cadence
+        self.category = category
+        self.goalID = goalID
+        self.plan = plan
+        self.status = status
+        self.title = title
+    }
+}
+
+public enum GoalsUpdateParamsStatus: String, Codable, Sendable {
+    case active = "active"
+    case done = "done"
+    case paused = "paused"
+}
+
+// MARK: - GoalsUpdateResult
+public struct GoalsUpdateResult: Codable, Sendable {
+    public let goal: Goal
+    public let links: [GoalLink]
+    public let milestones: [GoalMilestone]
+
+    public enum CodingKeys: String, CodingKey {
+        case goal = "goal"
+        case links = "links"
+        case milestones = "milestones"
+    }
+
+    public init(goal: Goal, links: [GoalLink], milestones: [GoalMilestone]) {
+        self.goal = goal
+        self.links = links
+        self.milestones = milestones
+    }
 }
 
 // MARK: - GrantsListParams
@@ -3146,6 +3697,19 @@ public struct GrantsRevokeResult: Codable, Sendable {
 
     public init(grant: Grant) {
         self.grant = grant
+    }
+}
+
+// MARK: - IdeaUpdatedPayload
+public struct IdeaUpdatedPayload: Codable, Sendable {
+    public let idea: Idea
+
+    public enum CodingKeys: String, CodingKey {
+        case idea = "idea"
+    }
+
+    public init(idea: Idea) {
+        self.idea = idea
     }
 }
 
@@ -3206,6 +3770,163 @@ public enum IdeaStatus: String, Codable, Sendable {
     case edited = "edited"
     case expired = "expired"
     case proposed = "proposed"
+}
+
+// MARK: - IdeasAcceptParams
+public struct IdeasAcceptParams: Codable, Sendable {
+    public let ideaID: String
+    public let recurring: Recurring?
+    public let threadID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case ideaID = "ideaId"
+        case recurring = "recurring"
+        case threadID = "threadId"
+    }
+
+    public init(ideaID: String, recurring: Recurring?, threadID: String?) {
+        self.ideaID = ideaID
+        self.recurring = recurring
+        self.threadID = threadID
+    }
+}
+
+// MARK: - Recurring
+public struct Recurring: Codable, Sendable {
+    public let schedule: String
+    public let timezone: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case schedule = "schedule"
+        case timezone = "timezone"
+    }
+
+    public init(schedule: String, timezone: String?) {
+        self.schedule = schedule
+        self.timezone = timezone
+    }
+}
+
+// MARK: - IdeasAcceptResult
+public struct IdeasAcceptResult: Codable, Sendable {
+    public let automationID: String?
+    public let idea: Idea
+    public let taskID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case automationID = "automationId"
+        case idea = "idea"
+        case taskID = "taskId"
+    }
+
+    public init(automationID: String?, idea: Idea, taskID: String?) {
+        self.automationID = automationID
+        self.idea = idea
+        self.taskID = taskID
+    }
+}
+
+// MARK: - IdeasDismissParams
+public struct IdeasDismissParams: Codable, Sendable {
+    public let ideaID: String
+    public let reason: IdeaDismissReason
+
+    public enum CodingKeys: String, CodingKey {
+        case ideaID = "ideaId"
+        case reason = "reason"
+    }
+
+    public init(ideaID: String, reason: IdeaDismissReason) {
+        self.ideaID = ideaID
+        self.reason = reason
+    }
+}
+
+public enum IdeaDismissReason: String, Codable, Sendable {
+    case neverFromSource = "never_from_source"
+    case notInterested = "not_interested"
+    case notNow = "not_now"
+}
+
+// MARK: - IdeasDismissResult
+public struct IdeasDismissResult: Codable, Sendable {
+    public let idea: Idea
+
+    public enum CodingKeys: String, CodingKey {
+        case idea = "idea"
+    }
+
+    public init(idea: Idea) {
+        self.idea = idea
+    }
+}
+
+// MARK: - IdeasEditParams
+public struct IdeasEditParams: Codable, Sendable {
+    public let bodyMd: String?
+    public let ideaID: String
+    public let title: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case bodyMd = "bodyMd"
+        case ideaID = "ideaId"
+        case title = "title"
+    }
+
+    public init(bodyMd: String?, ideaID: String, title: String?) {
+        self.bodyMd = bodyMd
+        self.ideaID = ideaID
+        self.title = title
+    }
+}
+
+// MARK: - IdeasEditResult
+public struct IdeasEditResult: Codable, Sendable {
+    public let idea: Idea
+
+    public enum CodingKeys: String, CodingKey {
+        case idea = "idea"
+    }
+
+    public init(idea: Idea) {
+        self.idea = idea
+    }
+}
+
+// MARK: - IdeasListParams
+public struct IdeasListParams: Codable, Sendable {
+    /// Opaque cursor
+    public let cursor: String?
+    public let limit: Int?
+    public let status: IdeaStatus?
+
+    public enum CodingKeys: String, CodingKey {
+        case cursor = "cursor"
+        case limit = "limit"
+        case status = "status"
+    }
+
+    public init(cursor: String?, limit: Int?, status: IdeaStatus?) {
+        self.cursor = cursor
+        self.limit = limit
+        self.status = status
+    }
+}
+
+// MARK: - IdeasListResult
+public struct IdeasListResult: Codable, Sendable {
+    public let ideas: [Idea]
+    public let nextCursor: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case ideas = "ideas"
+        case nextCursor = "nextCursor"
+    }
+
+    public init(ideas: [Idea], nextCursor: String?) {
+        self.ideas = ideas
+        self.nextCursor = nextCursor
+    }
 }
 
 // MARK: - LibraryDeleteParams
