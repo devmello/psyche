@@ -19,7 +19,7 @@ public enum PCMConvert {
 
     public static func s16LE(fromFloat32 samples: [Float]) -> Data {
         var out = Data(count: samples.count * 2)
-        out.withUnsafeMutableBytes { raw in
+        out.withUnsafeMutableBytes { (raw: UnsafeMutableRawBufferPointer) in
             for (i, sample) in samples.enumerated() {
                 let bits = UInt16(bitPattern: int16(clipping: sample))
                 raw[2 * i] = UInt8(truncatingIfNeeded: bits)
