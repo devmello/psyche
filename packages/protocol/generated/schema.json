@@ -12265,7 +12265,8 @@
           "$ref": "#/$defs/WatchCheck"
         },
         "selector": {
-          "description": "Regex over the fetched text; capture group 1 is the value",
+          "description": "Literal marker (not a regex); the check reads the text after it",
+          "maxLength": 200,
           "type": "string"
         },
         "text": {
