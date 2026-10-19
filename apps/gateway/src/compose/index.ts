@@ -62,6 +62,7 @@ import {
   receiptHandlers,
   surfaceOf,
 } from "./handlers.ts";
+import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import type { ApprovalRelay, ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -122,6 +123,7 @@ export interface ComposedGateway {
   readonly pool: TaskWorkerPool;
   readonly scheduler: SqliteScheduler;
   readonly notifier: PsycheNotifier;
+  readonly proactive: ComposedProactive;
   readonly provider: ModelProvider;
   readonly parts: readonly ComposedPart[];
   stop(reason?: string): Promise<void>;
@@ -356,7 +358,18 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     tools: registry,
     ...(taskPollMs === undefined ? {} : { pollMs: taskPollMs }),
   });
-  launcher = createTaskLauncher({ engine: tasks, pool });
+  // S15: goal check-ins run in-process; the heartbeat gets its 5k-token budget (O2).
+  const proactive = composeProactive({
+    db,
+    clock,
+    scheduler,
+    notifier,
+    tasks,
+    publish,
+    ...(timeZone === undefined ? {} : { timeZone }),
+    ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+  });
+  launcher = proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool);
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
   const handlers: Record<string, HandlerDef> = {
@@ -365,6 +378,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...mountParamsOnly(createTaskHandlers({ engine: tasks, pool, broker }) as never),
     ...mountParamsOnly(createAutomationHandlers(scheduler) as never),
     ...mountParamsOnly(createNotificationHandlers(notifier) as never),
+    ...proactive.handlers,
     ...questionHandlers(loop, tasks),
     ...receiptHandlers(broker),
   };
@@ -400,6 +414,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   memory.watch();
   for (const part of parts) await part.start?.(gateway);
+  await proactive.start();
 
   if (background) {
     pool.start();
@@ -424,6 +439,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     pool,
     scheduler,
     notifier,
+    proactive,
     provider,
     parts,
     async stop(reason) {
@@ -463,6 +479,7 @@ export {
 export { type McpGrantRevoker, type McpLifecycleEvent, mcpGrantRevocation } from "./mcp-grants.ts";
 export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { partsFromEnv } from "./parts.ts";
+export { type ComposedProactive, composeProactive, type ProactiveSetup } from "./proactive.ts";
 export type { ApprovalRelay, ComposedPart, ComposeServices } from "./services.ts";
 export { createLogger, surfaceOf };
 
