@@ -1,4 +1,7 @@
 import pkg from "../package.json" with { type: "json" };
 
-/** Replaced at bundle time by `--define` in the release build; the package version otherwise. */
-export const CLI_VERSION: string = pkg.version;
+/** Set by the release bundlers (`--define __PSYCHE_VERSION__=…`); absent when run from source. */
+declare const __PSYCHE_VERSION__: string | undefined;
+
+export const CLI_VERSION: string =
+  typeof __PSYCHE_VERSION__ === "string" ? __PSYCHE_VERSION__ : pkg.version;

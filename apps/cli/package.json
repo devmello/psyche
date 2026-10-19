@@ -12,8 +12,9 @@
     }
   },
   "scripts": {
+    "start": "node src/main.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
   },
   "dependencies": {
     "@psyche/protocol": "workspace:*",
@@ -22,5 +23,8 @@
   "devDependencies": {
     "@psyche/testing": "workspace:*",
     "@psyche/web": "workspace:*"
+  },
+  "bin": {
+    "psyche": "./src/main.ts"
   }
 }

@@ -67,14 +67,19 @@ ${argv}
 `;
 }
 
-/** systemd quoting: wrap in double quotes, escape backslash, quote, `$` and `%`. */
-function sdQuote(s: string): string {
-  return `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\$/g, "$$$$").replace(/%/g, "%%")}"`;
+/**
+ * systemd quoting: double quotes with backslash and quote escaped, `%` doubled (specifiers);
+ * `$` doubled only in ExecStart=, where systemd expands variables.
+ */
+function sdQuote(s: string, exec = false): string {
+  let v = s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/%/g, "%%");
+  if (exec) v = v.replace(/\$/g, "$$$$");
+  return `"${v}"`;
 }
 
 export function renderSystemdUnit(input: ServiceInput): string {
-  const exec = [input.program, ...(input.args ?? [])].map(sdQuote).join(" ");
-  return `# Psyche Gateway as a systemd user service (deploy/systemd/README in deploy/README.md).
+  const exec = [input.program, ...(input.args ?? [])].map((a) => sdQuote(a, true)).join(" ");
+  return `# Psyche Gateway as a systemd user service. See deploy/README.md.
 # Install: psyche start (writes this file), or copy it to ~/.config/systemd/user/ and run
 #   systemctl --user daemon-reload && systemctl --user enable --now ${SYSTEMD_UNIT}
 # Keep it running after logout: loginctl enable-linger "$USER"

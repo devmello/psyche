@@ -1,0 +1,27 @@
+# Psyche Gateway as a systemd user service. See deploy/README.md.
+# Install: psyche start (writes this file), or copy it to ~/.config/systemd/user/ and run
+#   systemctl --user daemon-reload && systemctl --user enable --now psyche-gateway.service
+# Keep it running after logout: loginctl enable-linger "$USER"
+[Unit]
+Description=Psyche Gateway (psyched)
+Documentation=https://github.com/devmello/psyche/blob/main/deploy/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart="/usr/local/bin/psyched"
+Environment="PSYCHE_HOME=/home/you/.psyche"
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=20
+# Files 0600, directories 0700 (security §14).
+UMask=0077
+NoNewPrivileges=yes
+LockPersonality=yes
+RestrictSUIDSGID=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
