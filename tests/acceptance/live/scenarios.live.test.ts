@@ -1,9 +1,10 @@
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { modelSetupFromEnv } from "@psyche/gateway/compose";
 import { createModelRouter } from "@psyche/model-router";
 import { afterAll, describe, expect, it } from "vitest";
 import { SCENARIOS_DIR } from "../../../packages/testing/src/scenarios/index.ts";
-import { writeReport } from "../src/report.ts";
+import { OUT_DIR, writeReport } from "../src/report.ts";
 import { type LiveReport, runScenarioLive } from "./driver.ts";
 
 /**
@@ -39,25 +40,55 @@ const SCENARIOS = (
 const runs: LiveReport[] = [];
 const slug = MODEL.replace(/[^a-z0-9.-]+/gi, "-");
 
+interface RunRow {
+  scenario: string;
+  ok: boolean;
+  summary: LiveReport["summary"];
+  hardFailures: string[];
+  softFailures: string[];
+  steps: LiveReport["steps"];
+  calls: LiveReport["calls"];
+  cards: LiveReport["cards"];
+  questions: LiveReport["questions"];
+  answers: LiveReport["answers"];
+  texts: LiveReport["texts"];
+}
+
+/**
+ * One report per model. A run of some scenarios (`PSYCHE_LIVE_SCENARIOS`) replaces those
+ * scenarios' rows in the existing report and keeps the others, so the scorecard can be filled
+ * scenario by scenario.
+ */
 afterAll(() => {
   if (!LIVE) return;
+  const path = join(OUT_DIR, `live-${slug}.json`);
+  const previous: RunRow[] = existsSync(path)
+    ? ((JSON.parse(readFileSync(path, "utf8")) as { runs?: RunRow[] }).runs ?? [])
+    : [];
+  const kept = previous.filter((r) => !SCENARIOS.includes(r.scenario));
+  const fresh: RunRow[] = runs.map((r) => ({
+    scenario: r.scenario,
+    ok: r.ok,
+    summary: r.summary,
+    hardFailures: r.assertions
+      .filter((a) => a.severity === "hard" && a.status === "fail")
+      .map((a) => `${a.id}: ${a.detail}`),
+    softFailures: r.assertions
+      .filter((a) => a.severity === "soft" && a.status === "fail")
+      .map((a) => `${a.id}: ${a.detail}`),
+    steps: r.steps,
+    calls: r.calls,
+    cards: r.cards,
+    questions: r.questions,
+    answers: r.answers,
+    texts: r.texts,
+  }));
+  const all = [...kept, ...fresh].sort((a, b) => a.scenario.localeCompare(b.scenario));
   writeReport(`live-${slug}`, {
     model: MODEL,
     repeats: REPEATS,
-    ok: runs.every((r) => r.ok),
-    runs: runs.map((r) => ({
-      scenario: r.scenario,
-      ok: r.ok,
-      summary: r.summary,
-      hardFailures: r.assertions
-        .filter((a) => a.severity === "hard" && a.status === "fail")
-        .map((a) => `${a.id}: ${a.detail}`),
-      softFailures: r.assertions
-        .filter((a) => a.severity === "soft" && a.status === "fail")
-        .map((a) => `${a.id}: ${a.detail}`),
-      steps: r.steps,
-      calls: r.calls,
-    })),
+    ok: all.every((r) => r.ok),
+    runs: all,
   });
 });
 
