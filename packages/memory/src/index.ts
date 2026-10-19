@@ -19,6 +19,7 @@ export * from "./layout.ts";
 export * from "./nightly.ts";
 export * from "./paths.ts";
 export * from "./persona.ts";
+export * from "./persona-edit.ts";
 export * from "./provenance.ts";
 export * from "./store.ts";
 export * from "./support.ts";

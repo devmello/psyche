@@ -248,6 +248,11 @@ export class SqliteMemoryStore implements MemoryStore {
     return localDateTime(this.clock.now(), this.timeZone);
   }
 
+  /** Sends an event to `onEvent` (used by persona edits and jobs outside this class). */
+  publish(event: MemoryEvent): void {
+    this.#emit(event);
+  }
+
   #emit(event: MemoryEvent): void {
     try {
       this.#onEvent?.(event);
