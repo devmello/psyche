@@ -15,10 +15,14 @@ export function rawPdf(objects: string[], rootObj = 1): Uint8Array {
   return new Uint8Array(Buffer.from(body, "latin1"));
 }
 
-const stream = (s: string) => `<< /Length ${Buffer.byteLength(s, "latin1")} >>\nstream\n${s}\nendstream`;
+const stream = (s: string) =>
+  `<< /Length ${Buffer.byteLength(s, "latin1")} >>\nstream\n${s}\nendstream`;
 
-/** N text pages ("Page n of N" plus a marker word), with a two-level outline. */
-export function manyPagePdf(pages = 100): Uint8Array {
+/**
+ * N text pages ("Page n of N" plus a marker word), with a two-level outline. `padBytes` adds an
+ * unreferenced binary stream to reach a target file size (the "20 MB PDF" budget).
+ */
+export function manyPagePdf(pages = 100, padBytes = 0): Uint8Array {
   // 1 catalog, 2 pages, 3 font, 4 outlines, 5..6 outline items, then (page, content) pairs.
   const first = 7;
   const pageObj = (i: number) => first + i * 2;
@@ -30,7 +34,9 @@ export function manyPagePdf(pages = 100): Uint8Array {
   objs.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
   objs.push("<< /Type /Outlines /First 5 0 R /Last 6 0 R /Count 2 >>");
   objs.push(`<< /Title (Introduction) /Parent 4 0 R /Next 6 0 R /Dest [${pageObj(0)} 0 R /Fit] >>`);
-  objs.push(`<< /Title (Appendix) /Parent 4 0 R /Prev 5 0 R /Dest [${pageObj(pages - 1)} 0 R /Fit] >>`);
+  objs.push(
+    `<< /Title (Appendix) /Parent 4 0 R /Prev 5 0 R /Dest [${pageObj(pages - 1)} 0 R /Fit] >>`,
+  );
   for (let i = 0; i < pages; i++) {
     const marker = i === 41 ? "needle" : `word${i + 1}`;
     const text = `BT /F1 18 Tf 72 720 Td (Page ${i + 1} of ${pages}) Tj ET\nBT /F1 12 Tf 72 690 Td (Marker ${marker} here) Tj ET`;
@@ -39,6 +45,7 @@ export function manyPagePdf(pages = 100): Uint8Array {
     );
     objs.push(stream(text));
   }
+  if (padBytes > 0) objs.push(stream("x".repeat(padBytes)));
   return rawPdf(objs);
 }
 

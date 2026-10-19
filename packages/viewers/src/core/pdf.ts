@@ -55,9 +55,11 @@ export interface PdfOpenOptions {
 }
 
 export class PdfPasswordError extends Error {
-  constructor(readonly reason: "needed" | "incorrect") {
+  readonly reason: "needed" | "incorrect";
+  constructor(reason: "needed" | "incorrect") {
     super(reason === "needed" ? "PDF is password-protected" : "Incorrect PDF password");
     this.name = "PdfPasswordError";
+    this.reason = reason;
   }
 }
 
@@ -87,12 +89,19 @@ interface RawAnnotation {
 }
 
 function toField(a: RawAnnotation, page: number): PdfFormField | undefined {
-  if (a.subtype !== "Widget" || a.fieldName === undefined || a.fieldType === undefined) return undefined;
+  if (a.subtype !== "Widget" || a.fieldName === undefined || a.fieldType === undefined)
+    return undefined;
   let type: PdfFieldType = FIELD_TYPES[a.fieldType] ?? "text";
   if (a.fieldType === "Btn") type = a.checkBox ? "checkbox" : a.radioButton ? "radio" : "button";
-  const rect = [a.rect[0] ?? 0, a.rect[1] ?? 0, a.rect[2] ?? 0, a.rect[3] ?? 0] as PdfFormField["rect"];
+  const rect = [
+    a.rect[0] ?? 0,
+    a.rect[1] ?? 0,
+    a.rect[2] ?? 0,
+    a.rect[3] ?? 0,
+  ] as PdfFormField["rect"];
   let value: PdfFormField["value"] = null;
-  if (type === "checkbox") value = a.fieldValue !== undefined && a.fieldValue !== "Off" && a.fieldValue === a.exportValue;
+  if (type === "checkbox")
+    value = a.fieldValue !== undefined && a.fieldValue !== "Off" && a.fieldValue === a.exportValue;
   else if (type === "radio") value = typeof a.fieldValue === "string" ? a.fieldValue : null;
   else if (Array.isArray(a.fieldValue)) value = a.fieldValue.map(String);
   else if (typeof a.fieldValue === "string") value = a.fieldValue;
@@ -111,7 +120,8 @@ function toField(a: RawAnnotation, page: number): PdfFormField | undefined {
   if (a.options !== undefined)
     field.options = a.options.map((o) => ({ value: o.exportValue, label: o.displayValue }));
   const exportValue = a.exportValue ?? a.buttonValue;
-  if (exportValue !== undefined && (type === "checkbox" || type === "radio")) field.exportValue = exportValue;
+  if (exportValue !== undefined && (type === "checkbox" || type === "radio"))
+    field.exportValue = exportValue;
   return field;
 }
 
@@ -140,7 +150,9 @@ export class PdfHandle {
       // Never run document JavaScript; the scripting sandbox is not loaded.
       enableScripting: false,
       verbosity: 0,
-      ...(cfg.standardFontDataUrl === undefined ? {} : { standardFontDataUrl: cfg.standardFontDataUrl }),
+      ...(cfg.standardFontDataUrl === undefined
+        ? {}
+        : { standardFontDataUrl: cfg.standardFontDataUrl }),
       ...(cfg.cMapUrl === undefined ? {} : { cMapUrl: cfg.cMapUrl, cMapPacked: true }),
     } as Parameters<typeof pdfjs.getDocument>[0]);
     let doc: PDFDocumentProxy;
@@ -159,7 +171,13 @@ export class PdfHandle {
     const hasXfa = raw.IsXFAPresent === true;
     const hasAcro = raw.IsAcroFormPresent === true;
     const isPureXfa = doc.isPureXfa || (hasXfa && !hasAcro);
-    const formKind: PdfFormKind = isPureXfa ? "xfa" : hasXfa ? "hybrid" : hasAcro ? "acroform" : "none";
+    const formKind: PdfFormKind = isPureXfa
+      ? "xfa"
+      : hasXfa
+        ? "hybrid"
+        : hasAcro
+          ? "acroform"
+          : "none";
     const title = typeof raw.Title === "string" && raw.Title.trim() !== "" ? raw.Title : undefined;
     return new PdfHandle(task, doc, {
       numPages: doc.numPages,
@@ -212,7 +230,8 @@ export class PdfHandle {
     const resolve = async (item: Item): Promise<PdfOutlineNode> => {
       let page: number | undefined;
       try {
-        const dest = typeof item.dest === "string" ? await this.doc.getDestination(item.dest) : item.dest;
+        const dest =
+          typeof item.dest === "string" ? await this.doc.getDestination(item.dest) : item.dest;
         const ref = dest?.[0] as { num: number; gen: number } | number | undefined;
         if (typeof ref === "number") page = ref + 1;
         else if (ref !== undefined && ref !== null) page = (await this.doc.getPageIndex(ref)) + 1;
@@ -236,7 +255,10 @@ export class PdfHandle {
       let at = lower.indexOf(q);
       while (at !== -1 && hits.length < maxHits) {
         const start = Math.max(0, at - 40);
-        const snippet = text.slice(start, at + q.length + 40).replace(/\s+/g, " ").trim();
+        const snippet = text
+          .slice(start, at + q.length + 40)
+          .replace(/\s+/g, " ")
+          .trim();
         hits.push({ page: n, index: at, snippet });
         at = lower.indexOf(q, at + q.length);
       }

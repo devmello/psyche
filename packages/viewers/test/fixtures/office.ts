@@ -7,7 +7,10 @@ const CT = (main: string) => `<?xml version="1.0" encoding="UTF-8" standalone="y
 ${main}
 </Types>`;
 
-const RELS = (target: string, type: string) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+const RELS = (
+  target: string,
+  type: string,
+) => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
 <Relationship Id="rId1" Type="${type}" Target="${target}"/>
 </Relationships>`;
@@ -15,15 +18,22 @@ const RELS = (target: string, type: string) => `<?xml version="1.0" encoding="UT
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 /** A minimal Word document: a heading, paragraphs and a two-row table. */
-export async function sampleDocx(paragraphs: string[] = ["First paragraph.", "Second paragraph."]): Promise<Uint8Array> {
+export async function sampleDocx(
+  paragraphs: string[] = ["First paragraph.", "Second paragraph."],
+): Promise<Uint8Array> {
   const zip = new JSZip();
   zip.file(
     "[Content_Types].xml",
-    CT('<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'),
+    CT(
+      '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>',
+    ),
   );
   zip.file(
     "_rels/.rels",
-    RELS("word/document.xml", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"),
+    RELS(
+      "word/document.xml",
+      "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument",
+    ),
   );
   const p = (t: string, style?: string) =>
     `<w:p>${style ? `<w:pPr><w:pStyle w:val="${style}"/></w:pPr>` : ""}<w:r><w:t xml:space="preserve">${esc(t)}</w:t></w:r></w:p>`;
@@ -46,15 +56,26 @@ export async function samplePptx(): Promise<Uint8Array> {
   const zip = new JSZip();
   zip.file(
     "[Content_Types].xml",
-    CT('<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>'),
+    CT(
+      '<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>',
+    ),
   );
   zip.file(
     "_rels/.rels",
-    RELS("ppt/presentation.xml", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"),
+    RELS(
+      "ppt/presentation.xml",
+      "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument",
+    ),
   );
   zip.file(
     "ppt/presentation.xml",
     '<?xml version="1.0"?><p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>',
   );
+  const slide = (title: string, bullet: string) =>
+    `<?xml version="1.0"?><p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><p:cSld><p:spTree><p:sp><p:txBody><a:p><a:r><a:t>${esc(title)}</a:t></a:r></a:p><a:p><a:r><a:t>${esc(bullet)}</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>`;
+  // slide10 sorts after slide2 numerically, not lexically.
+  zip.file("ppt/slides/slide1.xml", slide("Q3 review", "Revenue & growth"));
+  zip.file("ppt/slides/slide2.xml", slide("Plan", "Hire two engineers"));
+  zip.file("ppt/slides/slide10.xml", slide("Appendix", "Sources"));
   return zip.generateAsync({ type: "uint8array" });
 }

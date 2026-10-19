@@ -42,7 +42,9 @@ interface Srv {
   hits: string[];
 }
 
-async function serve(handler: (path: string, res: import("node:http").ServerResponse) => void): Promise<Srv> {
+async function serve(
+  handler: (path: string, res: import("node:http").ServerResponse) => void,
+): Promise<Srv> {
   const hits: string[] = [];
   const server = createServer((req, res) => {
     hits.push(req.url ?? "");
@@ -126,17 +128,33 @@ describe.skipIf(chrome === undefined)("artifact sandbox in Chrome", () => {
 <script>document.getElementById("f").srcdoc=${js(built.srcdoc)};</script>`;
     const page = await browser.newPage();
     await page.goto(`${app.origin}/`);
-    await page.waitForFunction(() => (window as unknown as { messages: { data: { probe?: unknown; type?: string } }[] }).messages.some((m) => m.data?.probe !== undefined || m.data?.type === "ready"), undefined, { timeout: 10_000 });
+    await page.waitForFunction(
+      () =>
+        (
+          window as unknown as { messages: { data: { probe?: unknown; type?: string } }[] }
+        ).messages.some((m) => m.data?.probe !== undefined || m.data?.type === "ready"),
+      undefined,
+      { timeout: 10_000 },
+    );
     await page.waitForTimeout(800);
-    const messages = (await page.evaluate("window.messages")) as { origin: string; fromFrame: boolean; data: Record<string, unknown> }[];
+    const messages = (await page.evaluate("window.messages")) as {
+      origin: string;
+      fromFrame: boolean;
+      data: Record<string, unknown>;
+    }[];
     await page.close();
     return { messages, channel: built.channel };
   }
 
   it("blocks every network path and all parent access (inline srcdoc)", async () => {
     ext.hits.length = 0;
-    const { messages, channel } = await runInline(hostileArtifact(ext.origin), { allowScripts: true });
-    const probe = messages.find((m) => m.data.probe !== undefined)?.data.probe as Record<string, string>;
+    const { messages, channel } = await runInline(hostileArtifact(ext.origin), {
+      allowScripts: true,
+    });
+    const probe = messages.find((m) => m.data.probe !== undefined)?.data.probe as Record<
+      string,
+      string
+    >;
     expect(probe).toBeDefined();
     expect(probe.parentDocument).toMatch(/^blocked:SecurityError/);
     expect(probe.parentSecret).toMatch(/^(blocked:SecurityError|undefined)$/);
@@ -154,7 +172,9 @@ describe.skipIf(chrome === undefined)("artifact sandbox in Chrome", () => {
     const resize = messages.find((m) => m.data.type === "resize");
     expect(resize).toMatchObject({ origin: "null", fromFrame: true });
     expect(resize?.data.channel).toBe(channel);
-    const heights = messages.filter((m) => m.data.type === "resize").map((m) => Number(m.data.height));
+    const heights = messages
+      .filter((m) => m.data.type === "resize")
+      .map((m) => Number(m.data.height));
     expect(Math.max(...heights)).toBeGreaterThan(600);
   }, 60_000);
 
@@ -184,13 +204,25 @@ describe.skipIf(chrome === undefined)("artifact sandbox in Chrome", () => {
 }});</script>`;
     const page = await browser.newPage();
     await page.goto(`${app.origin}/`);
-    await page.waitForFunction(() => (window as unknown as { messages: { data: { type?: string } }[] }).messages.some((m) => m.data?.type === "resize"), undefined, { timeout: 10_000 });
+    await page.waitForFunction(
+      () =>
+        (window as unknown as { messages: { data: { type?: string } }[] }).messages.some(
+          (m) => m.data?.type === "resize",
+        ),
+      undefined,
+      { timeout: 10_000 },
+    );
     await page.waitForTimeout(800);
-    const messages = (await page.evaluate("window.messages")) as { origin: string; data: Record<string, unknown> }[];
+    const messages = (await page.evaluate("window.messages")) as {
+      origin: string;
+      data: Record<string, unknown>;
+    }[];
     await page.close();
     const relayed = messages.filter((m) => m.data.type === "resize");
     expect(relayed.length).toBeGreaterThan(0);
-    expect(relayed.every((m) => m.origin === host.origin && m.data.channel === built.channel)).toBe(true);
+    expect(relayed.every((m) => m.origin === host.origin && m.data.channel === built.channel)).toBe(
+      true,
+    );
     // The probe's own postMessage to its parent lands on the host page, which drops it.
     expect(messages.some((m) => m.data.probe !== undefined)).toBe(false);
     expect(ext.hits).toEqual([]);
@@ -198,12 +230,19 @@ describe.skipIf(chrome === undefined)("artifact sandbox in Chrome", () => {
 
   it("documents the residual: self-navigation leaves, but fires a second load the frame host sees", async () => {
     ext.hits.length = 0;
-    const built = buildArtifactSrcdoc(`<script>setTimeout(function(){ location.href = "${ext.origin}/selfnav"; }, 50)</script>`, { allowScripts: true });
+    const built = buildArtifactSrcdoc(
+      `<script>setTimeout(function(){ location.href = "${ext.origin}/selfnav"; }, 50)</script>`,
+      { allowScripts: true },
+    );
     appBody = `<iframe id="f" sandbox="${ARTIFACT_SANDBOX}"></iframe>
 <script>window.loads=0; var f=document.getElementById("f"); f.addEventListener("load", function(){ window.loads++; }); f.srcdoc=${js(built.srcdoc)};</script>`;
     const page = await browser.newPage();
     await page.goto(`${app.origin}/`);
-    await page.waitForFunction(() => (window as unknown as { loads: number }).loads >= 2, undefined, { timeout: 10_000 });
+    await page.waitForFunction(
+      () => (window as unknown as { loads: number }).loads >= 2,
+      undefined,
+      { timeout: 10_000 },
+    );
     await page.close();
     // ArtifactFrame tears the frame down on the second load; the desktop shell must also cancel
     // subframe navigations (Electron will-frame-navigate) so the request never leaves.
@@ -218,7 +257,10 @@ describe.skipIf(chrome === undefined)("artifact sandbox in Chrome", () => {
     await page.setContent(`<iframe id="f" src="${host.origin}/frame"></iframe>`);
     await page.waitForTimeout(800);
     const frames = page.frames().filter((f) => f.url().startsWith(host.origin));
-    const loaded = frames.length > 0 ? await frames[0]?.evaluate(() => document.body !== null).catch(() => false) : false;
+    const loaded =
+      frames.length > 0
+        ? await frames[0]?.evaluate(() => document.body !== null).catch(() => false)
+        : false;
     await page.close();
     expect(loaded).toBe(false);
   }, 60_000);

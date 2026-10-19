@@ -114,11 +114,16 @@ export function detectMime(input: DetectInput): string {
   const declared = normalizeMime(input.mime ?? "");
   const sniffed = input.bytes === undefined ? undefined : sniffMime(input.bytes);
   const byName = mimeFromName(input.name);
-  if (sniffed !== undefined && sniffed !== "application/zip" && sniffed !== "application/x-ole-storage") {
+  if (
+    sniffed !== undefined &&
+    sniffed !== "application/zip" &&
+    sniffed !== "application/x-ole-storage"
+  ) {
     return sniffed;
   }
   const claimed = !GENERIC.has(declared) ? declared : (byName ?? declared);
-  if (input.bytes !== undefined && claimed === "application/pdf" && sniffed !== "application/pdf") {
+  // Bytes were given but did not sniff as PDF (that would have returned above).
+  if (input.bytes !== undefined && claimed === "application/pdf") {
     return "application/octet-stream";
   }
   if (claimed.length > 0) return claimed;

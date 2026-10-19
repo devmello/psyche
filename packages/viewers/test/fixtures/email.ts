@@ -16,7 +16,7 @@ export const MALICIOUS_HTML = `<html><head><meta http-equiv="refresh" content="0
 </body></html>`;
 
 export const MALICIOUS_EML = [
-  "From: \"Billing\" <billing@shop.example>",
+  'From: "Billing" <billing@shop.example>',
   "To: Ada Lin <ada@example.com>, team@example.com",
   "Subject: =?UTF-8?Q?Your_invoice_=E2=9C=93?=",
   "Date: Mon, 19 Oct 2026 09:00:00 +0000",

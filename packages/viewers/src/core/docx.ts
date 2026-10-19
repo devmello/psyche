@@ -27,7 +27,10 @@ function toInput(bytes: Uint8Array): MammothInput {
   const NodeBuffer = (globalThis as { Buffer?: { from(b: Uint8Array): Uint8Array } }).Buffer;
   if (isNodeRuntime() && NodeBuffer !== undefined) return { buffer: NodeBuffer.from(bytes) };
   return {
-    arrayBuffer: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
+    arrayBuffer: bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength,
+    ) as ArrayBuffer,
   };
 }
 
@@ -43,12 +46,9 @@ export async function docxToText(bytes: Uint8Array): Promise<string> {
  */
 export async function docxToHtml(bytes: Uint8Array): Promise<{ html: string; warnings: string[] }> {
   const m = await mammoth();
-  const result = await m.convertToHtml(
-    toInput(bytes),
-    {
-      ignoreEmptyParagraphs: true,
-      convertImage: m.images.imgElement(async () => ({ src: "" })),
-    },
-  );
+  const result = await m.convertToHtml(toInput(bytes), {
+    ignoreEmptyParagraphs: true,
+    convertImage: m.images.imgElement(async () => ({ src: "" })),
+  });
   return { html: result.value, warnings: result.messages.map((w) => `${w.type}: ${w.message}`) };
 }

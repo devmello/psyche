@@ -29,7 +29,13 @@ describe("PDF core", () => {
     expect(pdf.info.formKind).toBe("acroform");
     const fields = await pdf.fields();
     const byName = Object.fromEntries(fields.map((f) => [f.name, f]));
-    expect(Object.keys(byName).sort()).toEqual(["allergies", "child_name", "consent", "grade", "school"]);
+    expect(Object.keys(byName).sort()).toEqual([
+      "allergies",
+      "child_name",
+      "consent",
+      "grade",
+      "school",
+    ]);
     expect(byName.child_name).toMatchObject({ type: "text", page: 1, readOnly: false });
     expect(byName.allergies?.multiline).toBe(true);
     expect(byName.consent).toMatchObject({ type: "checkbox", value: false });
@@ -43,7 +49,11 @@ describe("PDF core", () => {
   it("produces a filled preview copy without touching read-only fields", async () => {
     const original = await acroFormPdf();
     const pdf = await openPdf(original);
-    const filled = await pdf.fillPreview({ child_name: "Ada Lin", consent: true, school: "Hacked" });
+    const filled = await pdf.fillPreview({
+      child_name: "Ada Lin",
+      consent: true,
+      school: "Hacked",
+    });
     await pdf.close();
     const again = await openPdf(filled);
     const fields = Object.fromEntries((await again.fields()).map((f) => [f.name, f.value]));

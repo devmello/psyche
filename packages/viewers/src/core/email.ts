@@ -33,15 +33,27 @@ export interface ParsedEmail {
   attachments: EmailAttachment[];
 }
 
-type PostalAddress = { name: string; address?: string; group?: { name: string; address: string }[] };
+type PostalAddress = {
+  name: string;
+  address?: string;
+  group?: { name: string; address: string }[];
+};
 
 const flatten = (list: PostalAddress[] | undefined): EmailAddress[] =>
   (list ?? []).flatMap((a) =>
-    a.group !== undefined ? a.group : a.address === undefined ? [] : [{ name: a.name, address: a.address }],
+    a.group !== undefined
+      ? a.group
+      : a.address === undefined
+        ? []
+        : [{ name: a.name, address: a.address }],
   );
 
 const toBytes = (c: ArrayBuffer | Uint8Array | string): Uint8Array =>
-  typeof c === "string" ? new TextEncoder().encode(c) : c instanceof Uint8Array ? c : new Uint8Array(c);
+  typeof c === "string"
+    ? new TextEncoder().encode(c)
+    : c instanceof Uint8Array
+      ? c
+      : new Uint8Array(c);
 
 export async function parseEmail(raw: Uint8Array | string): Promise<ParsedEmail> {
   const { default: PostalMime } = await import("postal-mime");
@@ -89,11 +101,37 @@ export interface SanitizedEmail {
 }
 
 const FORBID_TAGS = [
-  "script", "iframe", "frame", "frameset", "object", "embed", "applet", "form", "input", "button",
-  "textarea", "select", "option", "meta", "link", "base", "portal", "template", "noscript", "svg",
+  "script",
+  "iframe",
+  "frame",
+  "frameset",
+  "object",
+  "embed",
+  "applet",
+  "form",
+  "input",
+  "button",
+  "textarea",
+  "select",
+  "option",
+  "meta",
+  "link",
+  "base",
+  "portal",
+  "template",
+  "noscript",
+  "svg",
   "math",
 ];
-const FORBID_ATTR = ["srcset", "ping", "formaction", "action", "background", "poster", "xlink:href"];
+const FORBID_ATTR = [
+  "srcset",
+  "ping",
+  "formaction",
+  "action",
+  "background",
+  "poster",
+  "xlink:href",
+];
 
 const REMOTE_URL_IN_CSS = /url\(\s*(['"]?)\s*(?!data:|cid:)[^)]*\1\s*\)/gi;
 const BLOCKED_PIXEL =
@@ -150,7 +188,8 @@ export function sanitizeEmailHtml(html: string, opts: SanitizeEmailOptions = {})
     FORBID_ATTR,
     ALLOW_DATA_ATTR: false,
     ADD_ATTR: ["target"],
-    ALLOWED_URI_REGEXP: /^(?:https?:|mailto:|tel:|cid:|data:image\/(?:png|gif|jpe?g|webp);|blob:|#)/i,
+    ALLOWED_URI_REGEXP:
+      /^(?:https?:|mailto:|tel:|cid:|data:image\/(?:png|gif|jpe?g|webp);|blob:|#)/i,
     WHOLE_DOCUMENT: false,
     RETURN_TRUSTED_TYPE: false,
   }) as string;
@@ -168,7 +207,12 @@ export function emailToText(email: ParsedEmail, htmlToText: (html: string) => st
     ...(email.cc.length ? [`Cc: ${email.cc.map(fmt).join(", ")}`] : []),
     ...(email.date ? [`Date: ${email.date}`] : []),
     ...(email.attachments.length
-      ? [`Attachments: ${email.attachments.filter((a) => !a.inline).map((a) => `${a.filename} (${a.mime}, ${a.size} bytes)`).join("; ")}`]
+      ? [
+          `Attachments: ${email.attachments
+            .filter((a) => !a.inline)
+            .map((a) => `${a.filename} (${a.mime}, ${a.size} bytes)`)
+            .join("; ")}`,
+        ]
       : []),
     "",
     email.text ?? (email.html === undefined ? "" : htmlToText(email.html)),

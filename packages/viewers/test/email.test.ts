@@ -31,7 +31,23 @@ describe("email sanitizing", () => {
 
   it("removes every active or navigating construct", () => {
     const h = clean.html.toLowerCase();
-    for (const bad of ["<script", "<iframe", "<form", "<input", "<object", "<meta", "<base", "<link", "<svg", "onload", "onclick", "javascript:", "file:", "srcset", "@import"]) {
+    for (const bad of [
+      "<script",
+      "<iframe",
+      "<form",
+      "<input",
+      "<object",
+      "<meta",
+      "<base",
+      "<link",
+      "<svg",
+      "onload",
+      "onclick",
+      "javascript:",
+      "file:",
+      "srcset",
+      "@import",
+    ]) {
       expect(h, bad).not.toContain(bad);
     }
   });
@@ -39,13 +55,17 @@ describe("email sanitizing", () => {
   it("blocks remote images and CSS urls by default and counts them", () => {
     expect(clean.html).not.toMatch(/\ssrc="https?:/);
     expect(clean.html).not.toContain("url(https://evil.example");
-    expect(clean.html).toContain('data-psyche-blocked-src="https://tracker.example/pixel.gif?u=ada"');
+    expect(clean.html).toContain(
+      'data-psyche-blocked-src="https://tracker.example/pixel.gif?u=ada"',
+    );
     expect(clean.blockedImages).toBeGreaterThanOrEqual(2);
   });
 
   it("resolves cid images and keeps safe links with noopener", () => {
     expect(clean.html).toContain('src="data:image/png;base64,AAAA"');
-    expect(clean.html).toMatch(/<a [^>]*href="https:\/\/shop.example\/pay"[^>]*rel="noopener noreferrer"/);
+    expect(clean.html).toMatch(
+      /<a [^>]*href="https:\/\/shop.example\/pay"[^>]*rel="noopener noreferrer"/,
+    );
     // Prompt-injection text survives as inert text: it is data, shown to the user.
     expect(clean.html).toContain("Ignore previous instructions");
     expect(clean.html).not.toContain("data-x");

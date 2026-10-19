@@ -19,7 +19,10 @@ describe("frontmatter", () => {
     expect(fm.yaml).toContain("creature: pink hippo");
     expect(fm.body.startsWith("\n# Core truths")).toBe(true);
     expect(joinFrontmatter(fm, fm.yaml, fm.body)).toBe(ROUND_TRIP_MD);
-    expect(parseFrontmatter(fm.yaml ?? "")).toEqual({ ok: true, data: { name: "Flash", creature: "pink hippo", emoji: "🦛" } });
+    expect(parseFrontmatter(fm.yaml ?? "")).toEqual({
+      ok: true,
+      data: { name: "Flash", creature: "pink hippo", emoji: "🦛" },
+    });
   });
 
   it("rewrites only the frontmatter when its YAML changes", () => {
@@ -77,7 +80,10 @@ describe("DocumentSession", () => {
   const manual = () => {
     const timers: (() => void)[] = [];
     return {
-      opts: { setTimer: (fn: () => void) => timers.push(fn), clearTimer: () => void timers.splice(0) },
+      opts: {
+        setTimer: (fn: () => void) => timers.push(fn),
+        clearTimer: () => void timers.splice(0),
+      },
       flush: async () => {
         const fns = timers.splice(0);
         for (const fn of fns) fn();
@@ -146,7 +152,11 @@ describe("rich mode", () => {
   it("only decorates: hides marks off the cursor line and never changes the text", async () => {
     const { EditorView } = await import("@codemirror/view");
     const doc = "# Title\n\nSome **bold** text\n";
-    let state = EditorState.create({ doc, extensions: markdownExtensions({ rich: true }), selection: { anchor: doc.length } });
+    let state = EditorState.create({
+      doc,
+      extensions: markdownExtensions({ rich: true }),
+      selection: { anchor: doc.length },
+    });
     const hidden = () => {
       const out: string[] = [];
       for (const src of state.facet(EditorView.decorations)) {

@@ -130,7 +130,8 @@ export async function parseWorkbook(
     const strings = rows.map((r) => r.map((c) => (c === null || c === undefined ? "" : String(c))));
     while (strings.length > 0 && strings.at(-1)?.every((c) => c === "")) strings.pop();
     const ref = ws["!ref"] === undefined ? undefined : XLSX.utils.decode_range(ws["!ref"]);
-    const fullRows = (ws["!fullref"] === undefined ? ref : XLSX.utils.decode_range(ws["!fullref"]))?.e.r;
+    const fullRows = (ws["!fullref"] === undefined ? ref : XLSX.utils.decode_range(ws["!fullref"]))
+      ?.e.r;
     const truncated = fullRows !== undefined && fullRows + 1 > maxRows + 1;
     sheets.push(toSheet(sheetName, strings, truncated, opts.header));
   }
@@ -226,7 +227,14 @@ export function columnStats(
   }
   const filled = count - empty;
   const type = filled === 0 ? "empty" : numeric / filled >= 0.9 ? "number" : "text";
-  const stats: ColumnStats = { count, empty, numeric, type, distinct: distinct.size, distinctCapped: capped };
+  const stats: ColumnStats = {
+    count,
+    empty,
+    numeric,
+    type,
+    distinct: distinct.size,
+    distinctCapped: capped,
+  };
   if (numeric > 0) {
     stats.sum = sum;
     stats.mean = sum / numeric;

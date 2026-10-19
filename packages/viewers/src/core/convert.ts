@@ -31,18 +31,27 @@ export interface ConversionService {
 }
 
 export class ConversionError extends Error {
-  constructor(
-    message: string,
-    readonly service: string,
-  ) {
+  readonly service: string;
+  constructor(message: string, service: string) {
     super(message);
     this.name = "ConversionError";
+    this.service = service;
   }
 }
 
 /** Formats LibreOffice / Gotenberg convert well. */
 export const OFFICE_EXTENSIONS = new Set([
-  "pptx", "ppt", "odp", "key", "docx", "doc", "odt", "rtf", "xlsx", "xls", "ods",
+  "pptx",
+  "ppt",
+  "odp",
+  "key",
+  "docx",
+  "doc",
+  "odt",
+  "rtf",
+  "xlsx",
+  "xls",
+  "ods",
 ]);
 
 const officeLike = (name: string) => OFFICE_EXTENSIONS.has(extensionOf(name) ?? "");
@@ -69,10 +78,19 @@ export class GotenbergConversionService implements ConversionService {
     return target === "pdf" && officeLike(input.name);
   }
 
-  async convert(input: ConversionInput, target: ConversionTarget, opts: { signal?: AbortSignal } = {}) {
-    if (!this.supports(input, target)) throw new ConversionError(`unsupported: ${input.name}`, this.id);
+  async convert(
+    input: ConversionInput,
+    target: ConversionTarget,
+    opts: { signal?: AbortSignal } = {},
+  ) {
+    if (!this.supports(input, target))
+      throw new ConversionError(`unsupported: ${input.name}`, this.id);
     const form = new FormData();
-    form.append("files", new Blob([input.bytes.slice()], { type: input.mime }), safeFileName(input.name));
+    form.append(
+      "files",
+      new Blob([input.bytes.slice()], { type: input.mime }),
+      safeFileName(input.name),
+    );
     const res = await this.#fetch(`${this.#baseUrl}/forms/libreoffice/convert`, {
       method: "POST",
       body: form,
@@ -91,7 +109,9 @@ export interface WorkspaceFiles {
 }
 
 const randomId = () =>
-  Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => b.toString(16).padStart(2, "0")).join("");
+  Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) =>
+    b.toString(16).padStart(2, "0"),
+  ).join("");
 
 /** argv for `soffice` headless PDF conversion (exported for tests and the Mac node). */
 export function libreOfficeArgv(inputPath: string, outDir: string): string[] {
@@ -114,29 +134,37 @@ export function qlmanageArgv(inputPath: string, outDir: string, size = 1600): st
   return ["qlmanage", "-t", "-s", String(size), "-o", outDir, inputPath];
 }
 
+export interface SandboxLibreOfficeOptions {
+  runner: SandboxRunner;
+  sandboxId: string;
+  files: WorkspaceFiles;
+  /** Container path of the workspace volume (`/workspace`). */
+  workspacePath: string;
+  timeoutMs?: number;
+}
+
 /**
  * LibreOffice headless inside the task's sandbox (network `none`). Never runs on the host: the
  * runner rejects when no container backend exists, and so does this service.
  */
 export class SandboxLibreOfficeService implements ConversionService {
   readonly id = "libreoffice";
-  constructor(
-    private readonly opts: {
-      runner: SandboxRunner;
-      sandboxId: string;
-      files: WorkspaceFiles;
-      /** Container path of the workspace volume (`/workspace`). */
-      workspacePath: string;
-      timeoutMs?: number;
-    },
-  ) {}
+  private readonly opts: SandboxLibreOfficeOptions;
+  constructor(opts: SandboxLibreOfficeOptions) {
+    this.opts = opts;
+  }
 
   supports(input: { name: string }, target: ConversionTarget): boolean {
     return target === "pdf" && officeLike(input.name);
   }
 
-  async convert(input: ConversionInput, target: ConversionTarget, opts: { signal?: AbortSignal } = {}) {
-    if (!this.supports(input, target)) throw new ConversionError(`unsupported: ${input.name}`, this.id);
+  async convert(
+    input: ConversionInput,
+    target: ConversionTarget,
+    opts: { signal?: AbortSignal } = {},
+  ) {
+    if (!this.supports(input, target))
+      throw new ConversionError(`unsupported: ${input.name}`, this.id);
     const dir = `.psyche-convert/${randomId()}`;
     const name = safeFileName(input.name);
     const outName = `${name.replace(/\.[^.]+$/, "")}.pdf`;
@@ -163,7 +191,10 @@ export class SandboxLibreOfficeService implements ConversionService {
 /** Tries services in order; the first that supports the input and succeeds wins. */
 export class ChainedConversionService implements ConversionService {
   readonly id = "chain";
-  constructor(private readonly services: readonly ConversionService[]) {}
+  private readonly services: readonly ConversionService[];
+  constructor(services: readonly ConversionService[]) {
+    this.services = services;
+  }
 
   supports(input: { name: string; mime: string }, target: ConversionTarget): boolean {
     return this.services.some((s) => s.supports(input, target));

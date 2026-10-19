@@ -12,7 +12,13 @@ import { Decoration, type DecorationSet, EditorView, keymap } from "@codemirror/
  * which is what "Rich never rewrites untouched lines" (docs/06 §3.8) requires.
  */
 
-const HIDDEN_MARKS = new Set(["HeaderMark", "EmphasisMark", "CodeMark", "StrikethroughMark", "QuoteMark"]);
+const HIDDEN_MARKS = new Set([
+  "HeaderMark",
+  "EmphasisMark",
+  "CodeMark",
+  "StrikethroughMark",
+  "QuoteMark",
+]);
 const hide = Decoration.replace({});
 const line = (cls: string) => Decoration.line({ class: cls });
 const mark = (cls: string) => Decoration.mark({ class: cls });
@@ -59,7 +65,10 @@ function buildRich(state: import("@codemirror/state").EditorState): DecorationSe
         const ln = state.doc.lineAt(node.from);
         if (!cursorLines.has(ln.number) && node.to <= ln.to) {
           // Hide "# " together with its following space so headings start flush.
-          const end = node.name === "HeaderMark" && state.sliceDoc(node.to, node.to + 1) === " " ? node.to + 1 : node.to;
+          const end =
+            node.name === "HeaderMark" && state.sliceDoc(node.to, node.to + 1) === " "
+              ? node.to + 1
+              : node.to;
           decos.push(hide.range(node.from, end));
         }
       }
@@ -85,8 +94,15 @@ export const richPreview: Extension = [
     ".cm-md-strong": { fontWeight: "700" },
     ".cm-md-em": { fontStyle: "italic" },
     ".cm-md-strike": { textDecoration: "line-through" },
-    ".cm-md-code": { fontFamily: "ui-monospace, monospace", background: "rgba(127,127,127,.15)", borderRadius: "3px" },
-    ".cm-md-codeblock": { fontFamily: "ui-monospace, monospace", background: "rgba(127,127,127,.08)" },
+    ".cm-md-code": {
+      fontFamily: "ui-monospace, monospace",
+      background: "rgba(127,127,127,.15)",
+      borderRadius: "3px",
+    },
+    ".cm-md-codeblock": {
+      fontFamily: "ui-monospace, monospace",
+      background: "rgba(127,127,127,.08)",
+    },
     ".cm-md-quote": { borderLeft: "3px solid rgba(127,127,127,.4)", paddingLeft: "8px" },
     ".cm-md-link": { textDecoration: "underline" },
   }),
@@ -103,7 +119,13 @@ export function markdownExtensions(opts: MarkdownExtensionOptions = {}): Extensi
     markdown({ base: markdownLanguage, addKeymap: false }),
     history(),
     highlightSelectionMatches(),
-    keymap.of([...markdownKeymap, ...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
+    keymap.of([
+      ...markdownKeymap,
+      ...defaultKeymap,
+      ...historyKeymap,
+      ...searchKeymap,
+      indentWithTab,
+    ]),
     EditorView.lineWrapping,
     ...(opts.rich ? [richPreview] : []),
     ...(opts.readOnly ? [EditorView.editable.of(false)] : []),

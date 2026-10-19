@@ -138,7 +138,9 @@ export function parseBridgeMessage(
       return href === undefined ? undefined : { type: "open-link", href };
     }
     case "error":
-      return typeof m.message === "string" ? { type: "error", message: m.message.slice(0, 500) } : undefined;
+      return typeof m.message === "string"
+        ? { type: "error", message: m.message.slice(0, 500) }
+        : undefined;
     default:
       return undefined;
   }
@@ -148,7 +150,8 @@ export function parseBridgeMessage(
 export function safeLink(href: string): string | undefined {
   try {
     const u = new URL(href);
-    if (u.protocol === "http:" || u.protocol === "https:" || u.protocol === "mailto:") return u.href;
+    if (u.protocol === "http:" || u.protocol === "https:" || u.protocol === "mailto:")
+      return u.href;
   } catch {
     return undefined;
   }
@@ -208,7 +211,8 @@ export function artifactHostHeaders(parentOrigin: string): Record<string, string
     "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff",
     "Cache-Control": "no-store",
-    "Permissions-Policy": "camera=(), microphone=(), geolocation=(), usb=(), payment=(), clipboard-read=()",
+    "Permissions-Policy":
+      "camera=(), microphone=(), geolocation=(), usb=(), payment=(), clipboard-read=()",
   };
 }
 
@@ -244,7 +248,8 @@ export function upsertArtifact(
   input: ArtifactUpsert,
   make: { id: () => string; libraryItemId: string; now: string },
 ): { artifact: Artifact; created: boolean } {
-  const nameSlug = input.nameSlug === undefined ? artifactSlug(input.title) : artifactSlug(input.nameSlug);
+  const nameSlug =
+    input.nameSlug === undefined ? artifactSlug(input.title) : artifactSlug(input.nameSlug);
   const prior = existing
     .filter((a) => a.nameSlug === nameSlug)
     .sort((a, b) => b.version - a.version)[0];

@@ -1,7 +1,6 @@
-import * as XLSX from "xlsx";
 import { describe, expect, it } from "vitest";
+import * as XLSX from "xlsx";
 import { parseCsv } from "../src/core/csv.ts";
-import { bigCsv } from "./fixtures/sheets.ts";
 import {
   cellRef,
   columnLetter,
@@ -10,6 +9,7 @@ import {
   parseWorkbook,
   toNumber,
 } from "../src/core/sheet.ts";
+import { bigCsv } from "./fixtures/sheets.ts";
 
 const enc = (s: string) => new TextEncoder().encode(s);
 
@@ -57,7 +57,14 @@ describe("workbooks", () => {
       ]),
       "Groceries",
     );
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[1, 2], [3, 4]]), "Numbers");
+    XLSX.utils.book_append_sheet(
+      wb,
+      XLSX.utils.aoa_to_sheet([
+        [1, 2],
+        [3, 4],
+      ]),
+      "Numbers",
+    );
     const bytes = XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
     const parsed = await parseWorkbook(new Uint8Array(bytes), "book.xlsx");
     expect(parsed.source).toBe("xlsx");
@@ -68,8 +75,10 @@ describe("workbooks", () => {
       ["Pears", "2", "2.25"],
     ]);
     expect(parsed.sheets[1]?.header).toBeNull();
-    expect(cellRef(parsed.sheets[0]!, 0, 1)).toBe("B2");
-    expect(cellRef(parsed.sheets[1]!, 0, 1)).toBe("B1");
+    const [groceries, numbers] = parsed.sheets;
+    if (groceries === undefined || numbers === undefined) throw new Error("missing sheets");
+    expect(cellRef(groceries, 0, 1)).toBe("B2");
+    expect(cellRef(numbers, 0, 1)).toBe("B1");
   });
 
   it("caps rows and reports truncation", async () => {
@@ -105,7 +114,15 @@ describe("filters and stats", () => {
 
   it("computes column stats", () => {
     const s = columnStats(rows, 1);
-    expect(s).toMatchObject({ count: 4, empty: 1, numeric: 3, type: "number", sum: 1235, min: -10, max: 1200 });
+    expect(s).toMatchObject({
+      count: 4,
+      empty: 1,
+      numeric: 3,
+      type: "number",
+      sum: 1235,
+      min: -10,
+      max: 1200,
+    });
     expect(columnStats(rows, 0)).toMatchObject({ type: "text", distinct: 3 });
   });
 

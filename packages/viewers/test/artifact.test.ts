@@ -21,7 +21,8 @@ describe("artifact srcdoc", () => {
   });
 
   it("puts the CSP meta first in head, before any artifact content", () => {
-    const html = "<script>fetch('https://evil.example')</script><meta http-equiv=\"Content-Security-Policy\" content=\"default-src *\">";
+    const html =
+      '<script>fetch(\'https://evil.example\')</script><meta http-equiv="Content-Security-Policy" content="default-src *">';
     const { srcdoc, csp } = buildArtifactSrcdoc(html, { allowScripts: true });
     const metaAt = srcdoc.indexOf('http-equiv="Content-Security-Policy"');
     expect(metaAt).toBeGreaterThan(0);
@@ -44,7 +45,11 @@ describe("artifact srcdoc", () => {
 
   it("drops non-origin library entries and allows remote images only on request", () => {
     const csp = buildArtifactCsp(
-      { allowScripts: true, allowRemoteImages: true, libraryOrigins: ["http://127.0.0.1:7790", "https://x/'; script-src *"] },
+      {
+        allowScripts: true,
+        allowRemoteImages: true,
+        libraryOrigins: ["http://127.0.0.1:7790", "https://x/'; script-src *"],
+      },
       "n",
     );
     expect(csp).toContain("http://127.0.0.1:7790");
@@ -56,7 +61,9 @@ describe("artifact srcdoc", () => {
     const a = buildArtifactSrcdoc("x", { allowScripts: true });
     const b = buildArtifactSrcdoc("x", { allowScripts: true });
     expect(a.channel).not.toBe(b.channel);
-    expect(() => buildArtifactSrcdoc("x".repeat(6 * 1024 * 1024), { allowScripts: true })).toThrow(RangeError);
+    expect(() => buildArtifactSrcdoc("x".repeat(6 * 1024 * 1024), { allowScripts: true })).toThrow(
+      RangeError,
+    );
   });
 });
 
@@ -65,14 +72,22 @@ describe("bridge messages", () => {
   const msg = (m: object) => ({ tag: BRIDGE_TAG, channel: "c1", ...m });
 
   it("accepts well-formed messages and clamps heights", () => {
-    expect(parseBridgeMessage(msg({ type: "resize", height: 120.4 }), "null", exp)).toEqual({ type: "resize", height: 120 });
-    expect(parseBridgeMessage(msg({ type: "resize", height: 1e9 }), "null", exp)).toEqual({ type: "resize", height: MAX_ARTIFACT_HEIGHT });
+    expect(parseBridgeMessage(msg({ type: "resize", height: 120.4 }), "null", exp)).toEqual({
+      type: "resize",
+      height: 120,
+    });
+    expect(parseBridgeMessage(msg({ type: "resize", height: 1e9 }), "null", exp)).toEqual({
+      type: "resize",
+      height: MAX_ARTIFACT_HEIGHT,
+    });
     expect(parseBridgeMessage(msg({ type: "ready" }), "null", exp)).toEqual({ type: "ready" });
   });
 
   it("rejects wrong origin, channel, tag or shape", () => {
     expect(parseBridgeMessage(msg({ type: "ready" }), "https://evil.example", exp)).toBeUndefined();
-    expect(parseBridgeMessage({ ...msg({ type: "ready" }), channel: "c2" }, "null", exp)).toBeUndefined();
+    expect(
+      parseBridgeMessage({ ...msg({ type: "ready" }), channel: "c2" }, "null", exp),
+    ).toBeUndefined();
     expect(parseBridgeMessage({ type: "ready", channel: "c1" }, "null", exp)).toBeUndefined();
     expect(parseBridgeMessage(msg({ type: "resize", height: "9" }), "null", exp)).toBeUndefined();
     expect(parseBridgeMessage(msg({ type: "eval", code: "x" }), "null", exp)).toBeUndefined();
@@ -80,8 +95,12 @@ describe("bridge messages", () => {
   });
 
   it("only lets http(s) and mailto links out", () => {
-    expect(parseBridgeMessage(msg({ type: "open-link", href: "javascript:alert(1)" }), "null", exp)).toBeUndefined();
-    expect(parseBridgeMessage(msg({ type: "open-link", href: "https://a.example/x" }), "null", exp)).toEqual({ type: "open-link", href: "https://a.example/x" });
+    expect(
+      parseBridgeMessage(msg({ type: "open-link", href: "javascript:alert(1)" }), "null", exp),
+    ).toBeUndefined();
+    expect(
+      parseBridgeMessage(msg({ type: "open-link", href: "https://a.example/x" }), "null", exp),
+    ).toEqual({ type: "open-link", href: "https://a.example/x" });
     expect(safeLink("file:///etc/passwd")).toBeUndefined();
     expect(safeLink("mailto:a@b.c")).toBe("mailto:a@b.c");
   });
@@ -118,6 +137,10 @@ describe("update by name", () => {
     const existing: Artifact[] = [first.artifact];
     const second = upsertArtifact(existing, { title: "Sleep Dashboard", type: "html" }, make);
     expect(second.created).toBe(false);
-    expect(second.artifact).toMatchObject({ id: first.artifact.id, version: 2, libraryItemId: "lib_2" });
+    expect(second.artifact).toMatchObject({
+      id: first.artifact.id,
+      version: 2,
+      libraryItemId: "lib_2",
+    });
   });
 });

@@ -72,14 +72,60 @@ const spec = (
   mimeTypes: string[],
   extensions: string[],
   extra: Partial<ViewerSpec> = {},
-): ViewerSpec => ({ id, label: extra.label ?? id, render, mimeTypes, extensions, canEdit: false, ...extra });
+): ViewerSpec => ({
+  id,
+  label: extra.label ?? id,
+  render,
+  mimeTypes,
+  extensions,
+  canEdit: false,
+  ...extra,
+});
 
 /** Code extensions handled by the code viewer (Shiki language ids are mapped in `core/code`). */
 export const CODE_EXTENSIONS = [
-  "ts", "tsx", "js", "jsx", "mjs", "cjs", "py", "rb", "go", "rs", "java", "kt", "swift", "c", "h",
-  "cc", "cpp", "hpp", "cs", "php", "sh", "bash", "zsh", "fish", "sql", "css", "scss", "html", "xml",
-  "yaml", "yml", "toml", "ini", "lua", "r", "dockerfile", "makefile", "diff", "patch", "graphql",
-  "vue", "svelte",
+  "ts",
+  "tsx",
+  "js",
+  "jsx",
+  "mjs",
+  "cjs",
+  "py",
+  "rb",
+  "go",
+  "rs",
+  "java",
+  "kt",
+  "swift",
+  "c",
+  "h",
+  "cc",
+  "cpp",
+  "hpp",
+  "cs",
+  "php",
+  "sh",
+  "bash",
+  "zsh",
+  "fish",
+  "sql",
+  "css",
+  "scss",
+  "html",
+  "xml",
+  "yaml",
+  "yml",
+  "toml",
+  "ini",
+  "lua",
+  "r",
+  "dockerfile",
+  "makefile",
+  "diff",
+  "patch",
+  "graphql",
+  "vue",
+  "svelte",
 ];
 
 /** The built-in viewers, in docs/06 §3.7 order. */
@@ -118,12 +164,24 @@ export const DEFAULT_VIEWER_SPECS: readonly ViewerSpec[] = [
     ["pptx", "ppt", "odp", "key"],
     { label: "Slides" },
   ),
-  spec("image", "image", ["image/*"], ["png", "jpg", "jpeg", "gif", "webp", "avif", "bmp", "svg", "heic"], {
-    label: "Image",
-  }),
-  spec("media", "media", ["audio/*", "video/*"], ["mp3", "m4a", "wav", "ogg", "mp4", "mov", "webm"], {
-    label: "Media",
-  }),
+  spec(
+    "image",
+    "image",
+    ["image/*"],
+    ["png", "jpg", "jpeg", "gif", "webp", "avif", "bmp", "svg", "heic"],
+    {
+      label: "Image",
+    },
+  ),
+  spec(
+    "media",
+    "media",
+    ["audio/*", "video/*"],
+    ["mp3", "m4a", "wav", "ogg", "mp4", "mov", "webm"],
+    {
+      label: "Media",
+    },
+  ),
   spec("json", "json", ["application/json", "application/ld+json"], ["json", "jsonl", "geojson"], {
     label: "JSON",
   }),
@@ -157,7 +215,11 @@ export const DEFAULT_VIEWER_SPECS: readonly ViewerSpec[] = [
     CODE_EXTENSIONS,
     { label: "Code", canEdit: true },
   ),
-  spec("text", "text", ["text/*"], ["txt", "log", "text"], { label: "Text", canEdit: true, priority: -1 }),
+  spec("text", "text", ["text/*"], ["txt", "log", "text"], {
+    label: "Text",
+    canEdit: true,
+    priority: -1,
+  }),
 ];
 
 /** A registry pre-loaded with the built-in viewers. */

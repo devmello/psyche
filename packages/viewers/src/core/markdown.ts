@@ -26,7 +26,11 @@ export function splitFrontmatter(text: string): FrontmatterSplit {
 }
 
 /** Rebuilds a document. An unchanged YAML string keeps the original block byte-for-byte. */
-export function joinFrontmatter(original: FrontmatterSplit, yaml: string | null, body: string): string {
+export function joinFrontmatter(
+  original: FrontmatterSplit,
+  yaml: string | null,
+  body: string,
+): string {
   if (yaml === null) return body;
   if (yaml === original.yaml) return original.block + body;
   const nl = original.block.includes("\r\n") ? "\r\n" : "\n";
@@ -83,7 +87,8 @@ export function documentKind(path: string, text = ""): DocumentKind {
 
 /** "6.2k / 20k" */
 export function formatBudget(used: number, budget: number): string {
-  const k = (n: number) => (n < 1000 ? String(n) : `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k`);
+  const k = (n: number) =>
+    n < 1000 ? String(n) : `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k`;
   return `${k(used)} / ${k(budget)}`;
 }
 
@@ -164,10 +169,9 @@ export class DocumentSession {
   readonly #setTimer: (fn: () => void, ms: number) => unknown;
   readonly #clearTimer: (handle: unknown) => void;
 
-  constructor(
-    private readonly store: DocumentStore,
-    opts: SessionOptions = {},
-  ) {
+  private readonly store: DocumentStore;
+  constructor(store: DocumentStore, opts: SessionOptions = {}) {
+    this.store = store;
     this.#autosaveMs = opts.autosaveMs ?? 1500;
     this.#setTimer = opts.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
     this.#clearTimer = opts.clearTimer ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>));
@@ -195,7 +199,11 @@ export class DocumentSession {
     if (this.#state.status === "loading") return;
     if (content === this.#state.content) return;
     const inConflict = this.#state.status === "conflict";
-    const status: SessionStatus = inConflict ? "conflict" : content === this.#state.saved ? "clean" : "dirty";
+    const status: SessionStatus = inConflict
+      ? "conflict"
+      : content === this.#state.saved
+        ? "clean"
+        : "dirty";
     this.#set({ ...this.#state, content, status });
     this.#cancelTimer();
     if (status === "dirty" && this.#autosaveMs !== false) {
@@ -217,7 +225,12 @@ export class DocumentSession {
         const now = this.#state;
         if (res.ok) {
           const edited = now.content !== content;
-          this.#set({ status: edited ? "dirty" : "clean", content: now.content, saved: content, etag: res.etag });
+          this.#set({
+            status: edited ? "dirty" : "clean",
+            content: now.content,
+            saved: content,
+            etag: res.etag,
+          });
           if (edited && this.#autosaveMs !== false) {
             this.#timer = this.#setTimer(() => void this.save(), this.#autosaveMs);
           }
@@ -238,7 +251,12 @@ export class DocumentSession {
     this.#cancelTimer();
     const s = this.#state;
     if (s.status === "conflict" && s.conflict !== undefined) {
-      this.#set({ status: "clean", content: s.conflict.content, saved: s.conflict.content, etag: s.conflict.etag });
+      this.#set({
+        status: "clean",
+        content: s.conflict.content,
+        saved: s.conflict.content,
+        etag: s.conflict.etag,
+      });
       return;
     }
     this.#set({ status: "clean", content: s.saved, saved: s.saved, etag: s.etag });
@@ -252,7 +270,12 @@ export class DocumentSession {
     const s = this.#state;
     if (remote.etag === s.etag) return;
     if (s.status === "clean") {
-      this.#set({ status: "clean", content: remote.content, saved: remote.content, etag: remote.etag });
+      this.#set({
+        status: "clean",
+        content: remote.content,
+        saved: remote.content,
+        etag: remote.etag,
+      });
       return;
     }
     if (remote.content === s.content) {
@@ -298,7 +321,10 @@ export class DocumentSession {
 /** An in-memory store with compare-and-swap semantics (tests, Storybook, the web demo). */
 export class MemoryDocumentStore implements DocumentStore {
   #version = 1;
-  constructor(public content: string) {}
+  content: string;
+  constructor(content: string) {
+    this.content = content;
+  }
 
   get etag(): string {
     return `v${this.#version}`;
@@ -309,7 +335,8 @@ export class MemoryDocumentStore implements DocumentStore {
   }
 
   async save(content: string, baseEtag: string): Promise<SaveResult> {
-    if (baseEtag !== this.etag) return { ok: false, conflict: { content: this.content, etag: this.etag } };
+    if (baseEtag !== this.etag)
+      return { ok: false, conflict: { content: this.content, etag: this.etag } };
     this.content = content;
     this.#version++;
     return { ok: true, etag: this.etag };
