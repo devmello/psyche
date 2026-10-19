@@ -59,6 +59,9 @@ protocol.registerSchemesAsPrivileged([
 ]);
 app.enableSandbox();
 
+// Tests and side-by-side dev profiles: a separate userData dir, never honoured by packaged builds.
+if (!app.isPackaged && process.env.PSYCHE_USER_DATA) app.setPath("userData", process.env.PSYCHE_USER_DATA);
+
 if (!app.requestSingleInstanceLock()) app.quit();
 
 if (process.defaultApp) {
