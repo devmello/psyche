@@ -11,11 +11,16 @@ export {
   runMigrations,
 } from "./migrate.ts";
 export { type OpenDbOptions, openDb, type PsycheDb } from "./open.ts";
+export * from "./repos/chat-queue.ts";
 export * from "./repos/devices.ts";
+export * from "./repos/idempotency.ts";
+export * from "./repos/messages.ts";
+export * from "./repos/nodes.ts";
 export * from "./repos/pairing.ts";
 export * from "./repos/runs.ts";
 export * from "./repos/settings.ts";
 export * from "./repos/threads.ts";
+export * from "./repos/tool-calls.ts";
 export * from "./schema.ts";
 export type { DbLogger } from "./types.ts";
 export {

@@ -60,6 +60,15 @@ Needed by `packages/ui` to render and answer every block type in data model §9.
 - New methods: `questions.list`, `questions.get`, `questions.answer` (answers keyed by question `header`; side-effecting); `receipts.get`, `receipts.list`; `artifacts.get`; `feed.list` (with `nextBriefAt`), `feed.feedback` (`null` clears, for undo); `ideas.list`, `ideas.accept` (optional `recurring` and edited `brief`; side-effecting), `ideas.dismiss` (`not_now | not_interested | never_from_source`); `goals.list`, `goals.get` (with linked `taskIds`), `goals.decide` (`confirm | reject | later`).
 - New events (appended): `question.updated`, `feed.post`, `idea.updated`, `goal.updated`.
 - Optional `answerToken` on `approval.created` and on `approvals.get`'s result, and an optional `answerTokens` map on `approvals.list`'s result: the calling device's own single-use surface token (security §3.7), so a client can call `approvals.answer`. Never another surface's token.
+### v1 additive — 2026-10-19 (S01 Gateway core)
+
+- **Security fix, behavior change (needs S00 sign-off):** `isAdminSettingKey` is now an allowlist. Every key needs `operator.admin` unless it is under one of `USER_SETTING_PREFIXES` (`appearance`, `ui`, `editor`, `shortcuts`, `locale`, `notifications.sound`, `notifications.badges`), matched by whole segments, case-insensitively. New export `isUserSettingKey`. `ADMIN_SETTING_ROOTS` stays exported for reference. Fixes S23 review PR-1-C (owner identity, sessions, MCP, connectors, skills, plugins, models, updates, browser, VM, memory and backup keys were writable with `operator.write`).
+- `PairingRequest`: optional `publicKeyFingerprint` (`sha256:<hex>` of the raw key), `transport` (`ws | unix`) and `remoteAddress`, so the owner approves a key, not a name (S23 review PR-1-B).
+- `devices.approve`: optional `code`; when present it must equal the code shown on the new device.
+- `threads.list`: optional `query`, a case-insensitive substring match on titles (feature E1 "search").
+- `thread.deleted` event so every client drops a deleted thread (feature N14).
+- `chat.queue.list` / `chat.queue.remove`, the `QueuedMessage` schema and the `chat.queue.updated` event: the follow-up queue is visible and removable (feature E3).
+- `AgentLoop`: `AgentEvent` `tool_call` gains optional `details: ToolCallDetails` (redacted params, params hash, side effect, target, decision, approval, taint, provenance, receipt) so the Gateway can persist `tool_calls` rows and emit full `tool_call.updated` payloads. Needed by S01; S02 fills it.
 ### v1 (additive) — 2026-10-19 (S15 proactive, on top of S12's `feed.*` / `ideas.*` / `goals.*`)
 
 - `feed.feedback` result gains optional `ledgerChanges` (the `interests.md` lines it changed, for the undo toast).
