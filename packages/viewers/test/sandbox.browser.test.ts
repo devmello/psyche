@@ -93,7 +93,7 @@ const parentPage = (body: string) =>
 window.messages=[]; addEventListener("message", function(e){ window.messages.push({ origin: e.origin, data: e.data, fromFrame: !!document.querySelector("iframe") && e.source === document.querySelector("iframe").contentWindow }); });
 </script>${body}</body></html>`;
 
-// GitHub's macOS runners ship Chrome but its headless launch hangs there (ci run 39241xxx, 2026-10-19),
+// On GitHub's macOS runners the tests pass but browser.close() hangs in afterAll (ci on main, 2026-10-19),
 // so on macOS CI this real-browser proof is opt-in via PSYCHE_BROWSER_TESTS=1; Ubuntu CI and local
 // Macs still run it whenever Chrome is installed.
 const skipOnMacCi =
