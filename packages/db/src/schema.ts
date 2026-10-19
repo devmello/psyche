@@ -11,9 +11,11 @@ import { blob, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core"
 import { permissionsSchema } from "./schema-permissions.ts";
 import { s04Schema } from "./schema-s04.ts";
 import { s07Schema } from "./schema-s07.ts";
+import { s16Schema } from "./schema-s16.ts";
 
 export * from "./schema-s04.ts";
 export * from "./schema-s07.ts";
+export * from "./schema-s16.ts";
 
 // §1 Identity --------------------------------------------------------------------------------
 
@@ -269,6 +271,7 @@ export const schema = {
   credentialMeta,
   credentialUses,
   ...s07Schema,
+  ...s16Schema,
 };
 export type Schema = typeof schema;
 
