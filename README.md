@@ -33,10 +33,19 @@ pnpm install
 pnpm --filter @psyche/integration-tests test
 ```
 
-That runs the scenario in [tests/integration/walking-skeleton/](tests/integration/walking-skeleton/) with the scripted model, as CI does. To run it against a live model (Anthropic, OpenAI or a local `agent-capable` model through Ollama), set the model and its key:
+That runs the scenario in [tests/integration/walking-skeleton/](tests/integration/walking-skeleton/) with the scripted model, as CI does. The same scenario runs in the desktop app (Playwright for Electron, macOS):
 
 ```bash
-PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=anthropic/claude-sonnet-5-5 ANTHROPIC_API_KEY=… pnpm --filter @psyche/integration-tests test
+pnpm --filter @psyche/desktop package
+```
+
+```bash
+pnpm --filter @psyche/integration-tests e2e
+```
+ To run it against a live model (Anthropic, OpenAI or a local `agent-capable` model through Ollama), set the model and its key:
+
+```bash
+PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=anthropic/claude-sonnet-5-5 ANTHROPIC_API_KEY=… pnpm --filter @psyche/integration-tests test -- live
 ```
 
 To run the Gateway itself (`psyched`) with a model, then point the desktop app at it:
@@ -49,7 +58,7 @@ PSYCHE_MODEL=ollama/qwen3.8:27b pnpm --filter @psyche/gateway start
 pnpm --filter @psyche/desktop dev
 ```
 
-Without `PSYCHE_MODEL`, `psyched` still starts and answers each turn with "No model is configured yet". Grant the agent a folder by setting `permissions.policy` to `{"folders":[{"path":"/Users/you/Notes","mode":"rw"}]}` from a device with `operator.admin` (`psyched devices grant`); the broker applies it without a restart. Settings does not have a folder picker yet. Remaining gaps per package are in [docs/status/int-1.md](docs/status/int-1.md).
+For a local model, install Ollama and pull an `agent-capable` model first (`ollama pull qwen3.8:27b`), then use `PSYCHE_MODEL=ollama/qwen3.8:27b` (and `PSYCHE_OLLAMA_URL` for a non-default server). Without `PSYCHE_MODEL`, `psyched` still starts and answers each turn with "No model is configured yet". Grant the agent a folder by setting `permissions.policy` to `{"folders":[{"path":"/Users/you/Notes","mode":"rw"}]}` from a device with `operator.admin` (`psyched devices grant`); the broker applies it without a restart. Settings does not have a folder picker yet. Remaining gaps per package are in [docs/status/int-1.md](docs/status/int-1.md).
 
 ## Architecture in one picture
 
