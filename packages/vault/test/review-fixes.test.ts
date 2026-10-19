@@ -113,7 +113,7 @@ describe("review fixes", () => {
       }),
     ).rejects.toMatchObject({ code: "unavailable" });
     h.helper.state.touchId = "cancel";
-    await expect(fill(apr)).rejects.toMatchObject({ code: "unauthorized" });
+    await expect(fill(apr)).rejects.toMatchObject({ code: "cancelled" });
     h.helper.state.touchId = "approve";
     (await fill(apr)).dispose();
     const meta = (await h.vault.list()).find((m) => m.slug === "github");
