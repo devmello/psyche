@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { STALE_APPROVAL_TEXT } from "../../src/adapters/telegram/index.ts";
 import { approval, harness, OWNER_CHAT, OWNER_ID, update } from "./helpers.ts";
 
-const TOKEN = "ans_tok_SECRET_9b1c77e2f0";
+const TOKEN = "answer-token-for-tests";
 
 interface Button {
   text: string;
