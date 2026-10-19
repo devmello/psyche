@@ -80,12 +80,7 @@ function bad(message: string): never {
 
 function validateWebhook(url: string | undefined): void {
   if (url === undefined) return;
-  let u: URL;
-  try {
-    u = new URL(url);
-  } catch {
-    return bad("delivery.webhook must be a URL");
-  }
+  const u = URL.canParse(url) ? new URL(url) : bad("delivery.webhook must be a URL");
   if (u.protocol !== "https:") bad("delivery.webhook must use https");
   if (u.username !== "" || u.password !== "") bad("delivery.webhook must not carry credentials");
 }
@@ -747,7 +742,7 @@ export class SqliteScheduler implements Scheduler {
             title: automation.title,
             body: verdict.summary,
             route: `/upcoming/${automation.id}`,
-            dedupeKey: `watch:${automation.id}:${verdict.alertedValue ?? verdict.value}`,
+            dedupeKey: `watch:${automation.id}:${run.id}`,
           })
         ).id;
       } catch (e) {

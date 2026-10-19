@@ -31,7 +31,9 @@ CREATE TABLE automation_runs (
   id TEXT PRIMARY KEY NOT NULL,
   automation_id TEXT NOT NULL REFERENCES automations (id) ON DELETE CASCADE,
   thread_id TEXT REFERENCES threads (id) ON DELETE SET NULL,
-  task_id TEXT REFERENCES tasks (id) ON DELETE SET NULL,
+  -- the launcher's run id (a task id with the default task launcher); plain TEXT so any
+  -- RunLauncher works.
+  task_id TEXT,
   trigger TEXT NOT NULL CHECK (trigger IN ('schedule', 'manual')),
   scheduled_for TEXT NOT NULL,
   coalesced INTEGER NOT NULL DEFAULT 1 CHECK (coalesced >= 1),
