@@ -74,6 +74,7 @@ import {
   createOwnPorts,
 } from "./services.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
+import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 
 /**
@@ -208,6 +209,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // wherever it would be written.
   const redactor = new SecretRedactor();
   gwOptions.logger = maskingLogger(gwOptions.logger ?? createLogger(), redactor);
+  // A database the caller passes in stays theirs to close; one compose opens, `stop()` closes.
+  const ownsDb = gwOptions.db === undefined;
   const db =
     gwOptions.db ?? openDb(config.dbPath, { now: () => new Date(clock.now()).toISOString() });
 
@@ -303,6 +306,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   );
 
   const { provider, model: modelRef, utility } = providerFor(model, clock);
+  const modelPins = modelPinsFor(provider);
   const memory = await createMemoryStore({
     db,
     workspaceDir: join(config.home, "workspace"),
@@ -459,6 +463,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...proactive.handlers,
     ...questionHandlers(loop, tasks),
     ...receiptHandlers(broker),
+    ...threadSettingsHandlers(modelPins),
     ...vault.handlers,
   };
   for (const part of parts) Object.assign(handlers, part.handlers ?? {});
@@ -471,6 +476,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     memory,
     handlers,
     onDeviceRevoked: (deviceId) => rawBroker.revokeGrantsByDevice(deviceId),
+    threadModels: modelPins,
   });
   bus = gateway.bus;
   gatewayRef = gateway;
@@ -495,6 +501,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }
   });
   memory.watch();
+  await restoreModelPins(db, modelPins, (msg, fields) =>
+    gwOptions.logger?.log("warn", msg, fields),
+  );
   ownPorts.add(gateway.port, "gateway (bound)");
   for (const part of parts) await part.start?.(gateway);
   await proactive.start();
@@ -535,6 +544,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       memory.unwatch();
       unsubscribePolicy();
       await gateway.stop(reason);
+      if (ownsDb) db.close();
     },
   };
 }
@@ -568,6 +578,7 @@ export { partsFromEnv } from "./parts.ts";
 export { type ComposedProactive, composeProactive, type ProactiveSetup } from "./proactive.ts";
 export type { ApprovalRelay, ComposedPart, ComposeServices, OwnPorts } from "./services.ts";
 export { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
+export { type ModelPins, modelPinsFor, restoreModelPins } from "./threads.ts";
 export {
   type ComposedVault,
   chooseWrapper,
