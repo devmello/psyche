@@ -30,6 +30,7 @@ import { kitClient } from "./kit-client.ts";
 import { writeOnboarding } from "./onboarding.ts";
 import { settingsRoute } from "./settings.tsx";
 import { TranscriptModeBar, useTranscriptMode } from "./transcript-mode.tsx";
+import { ComposedFilesPane } from "./viewers.tsx";
 
 /**
  * The composed Psyche app (INT-1): S11's shell (rail, threads, panes, browser, keyboard, `view.*`)
@@ -297,6 +298,11 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
       threadList: ({ threadId, onOpen, onNew }) => (
         <ThreadList activeThreadId={threadId} onOpen={onOpen} onNewSideChat={onNew} />
       ),
+      // The Files pane renders the viewers (§3.7, P4); other panes keep the shell's views.
+      pane: (pane, ctx) =>
+        pane.pane === "files" ? (
+          <ComposedFilesPane target={pane.target} navigate={ctx.navigate} />
+        ) : null,
     }),
     [platform],
   );
