@@ -71,6 +71,17 @@ if printManifest {
     exit(0)
 }
 
+// One helper per $PSYCHE_HOME: the desktop runs `open` on every start (docs/status/s14.md
+// "Packaging"). Taken before the device identity loads, so a second copy touches nothing.
+var instanceLock: SingleInstanceLock?
+if !handshakeOnly {
+    instanceLock = SingleInstanceLock.acquire(path: SingleInstanceLock.path())
+    if instanceLock == nil {
+        log.info("psyche-helper already running for this PSYCHE_HOME; exiting")
+        exit(0)
+    }
+}
+
 let identity: DeviceIdentity
 do {
     identity = try DeviceIdentityStores.resolve(log: log).identity
@@ -105,6 +116,18 @@ if handshakeOnly {
     }
 }
 
+// A bundled helper exits when its executable is replaced or removed (upgrade, Trash); the
+// desktop's next `open` starts the new copy. Exit 75 (EX_TEMPFAIL) so a LaunchAgent with
+// KeepAlive.SuccessfulExit=false restarts the new binary at the same path.
+nonisolated(unsafe) var bundleWatcher: BundleWatcher?
+if Bundle.main.bundlePath.hasSuffix(".app"), let exe = Bundle.main.executablePath {
+    bundleWatcher = BundleWatcher(executablePath: exe) {
+        log.info("bundle replaced; exiting so the new helper can start")
+        exit(75)
+    }
+    bundleWatcher?.start()
+}
+
 // Long-running node: AppKit run loop on the main thread (notification delegate, content picker,
 // Apple Events), the node connection on a background thread.
 let app = NSApplication.shared
@@ -124,6 +147,7 @@ for sig in [SIGTERM, SIGINT] {
     source.setEventHandler {
         log.info("stopping")
         daemon.stop()
+        instanceLock?.release()
         exit(0)
     }
     source.resume()

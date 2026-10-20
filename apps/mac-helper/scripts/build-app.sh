@@ -10,6 +10,9 @@
 #                          helper runs, but keychain.* answers unavailable/missing_entitlement and the
 #                          device key lives in $PSYCHE_HOME/helper/device.key (0600).
 #   PSYCHE_HELPER_OUT      output bundle path (default: apps/mac-helper/.build/Psyche Helper.app)
+#   PSYCHE_HELPER_VERSION  CFBundleShortVersionString (default: HelperVersion.current)
+#   PSYCHE_HELPER_BUILD    CFBundleVersion (default: the commit count)
+#   PSYCHE_HELPER_ARCH     arm64 or x86_64 (default: the host's)
 #   --install              copy the bundle to ~/Applications/Psyche Helper.app. TCC grants key on the
 #                          signature, bundle id and path: keep using one fixed path.
 set -eu
@@ -37,16 +40,23 @@ if [ -z "$ID" ]; then
 fi
 
 APP="${PSYCHE_HELPER_OUT:-$HERE/.build/Psyche Helper.app}"
-swift build --package-path "$HERE" -c "$CONFIG" --product psyche-helper
-BIN="$(swift build --package-path "$HERE" -c "$CONFIG" --show-bin-path)/psyche-helper"
+ARCH_ARGS=""
+if [ -n "${PSYCHE_HELPER_ARCH:-}" ]; then
+  case "$PSYCHE_HELPER_ARCH" in arm64|x86_64) ARCH_ARGS="--arch $PSYCHE_HELPER_ARCH" ;; *) echo "PSYCHE_HELPER_ARCH must be arm64 or x86_64" >&2; exit 64 ;; esac
+fi
+# shellcheck disable=SC2086
+swift build --package-path "$HERE" -c "$CONFIG" $ARCH_ARGS --product psyche-helper
+# shellcheck disable=SC2086
+BIN="$(swift build --package-path "$HERE" -c "$CONFIG" $ARCH_ARGS --show-bin-path)/psyche-helper"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/psyche-helper"
 cp "$HERE/Support/Info.plist" "$APP/Contents/Info.plist"
-VERSION="$(sed -n 's/.*current = "\(.*\)".*/\1/p' "$HERE/Sources/PsycheHelperSystem/HelperVersion.swift")"
+VERSION="${PSYCHE_HELPER_VERSION:-$(sed -n 's/.*current = "\(.*\)".*/\1/p' "$HERE/Sources/PsycheHelperSystem/HelperVersion.swift")}"
+BUILD="${PSYCHE_HELPER_BUILD:-$(git -C "$HERE" rev-list --count HEAD 2>/dev/null || echo 1)}"
 plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP/Contents/Info.plist"
-plutil -replace CFBundleVersion -string "$(git -C "$HERE" rev-list --count HEAD 2>/dev/null || echo 1)" "$APP/Contents/Info.plist"
+plutil -replace CFBundleVersion -string "$BUILD" "$APP/Contents/Info.plist"
 
 ENT="$(mktemp -t psyche-helper-ent)"
 trap 'rm -f "$ENT" "$ENT.profile"' EXIT
@@ -67,7 +77,9 @@ fi
 
 TIMESTAMP="--timestamp=none"
 case "$ID" in "Developer ID"*) TIMESTAMP="--timestamp" ;; esac
-codesign --force --options runtime $TIMESTAMP --entitlements "$ENT" --sign "$ID" "$APP"
+# A fixed identifier keeps the designated requirement stable (identifier + team for a real
+# identity; ad-hoc requirements are the cdhash, so TCC still sees each ad-hoc build as new).
+codesign --force --options runtime $TIMESTAMP --identifier com.psyche.helper --entitlements "$ENT" --sign "$ID" "$APP"
 codesign --verify --strict --verbose=1 "$APP"
 codesign -dv "$APP" 2>&1 | grep -E '^(Identifier|TeamIdentifier|Authority=(Developer|Apple Dev))' || true
 

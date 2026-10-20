@@ -1,7 +1,8 @@
 # Signing and notarizing the desktop app
 
-Builds are **unsigned by default**, and CI always builds unsigned. Developer ID signing and
-notarization switch on only when the environment variables below are set
+Builds on a Mac are **ad-hoc signed by default** (CI included); builds on other hosts are
+unsigned. Developer ID signing and notarization switch on only when the environment variables
+below are set
 (`src/packaging/signing-config.ts`, read by `forge.config.ts`). Never commit real values. Keep API
 keys and passwords in your keychain or a secrets manager and export them only for the shell
 that runs the build.
@@ -60,9 +61,30 @@ xcrun notarytool history --key "$APPLE_API_KEY" --key-id "$APPLE_API_KEY_ID" --i
 xcrun notarytool log <submission-id> --key "$APPLE_API_KEY" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER"
 ```
 
+## What gets signed, in order
+
+The package step copies three pieces into `Psyche.app/Contents/Resources/` before signing
+(`src/packaging/bundle-resources.ts`): `psyched/` (S22's Gateway bundle, `node deploy/scripts/build-psyched.mjs`),
+`launchd/com.psyche.gateway.plist` (its LaunchAgent template) and `Psyche Helper.app` (S14's
+helper, `apps/mac-helper/scripts/build-app.sh`). A missing piece fails the package step with the
+build command to run; `PSYCHE_PACKAGE_ALLOW_PARTIAL=1` packages without it (dev and CI smoke
+builds). `PSYCHE_PSYCHED_DIR` and `PSYCHE_HELPER_APP` point at other builds.
+
+1. `Psyche Helper.app` is re-signed on its own with the app's identity (Developer ID, else
+   ad-hoc), keeping its own entitlements and identifier (`--preserve-metadata`).
+2. osx-sign signs everything else inside out with the same identity: Electron's helpers and
+   frameworks, node-pty, and only the Mach-O files under `psyched/` (`runtime/node`, `.node`,
+   `.dylib`); the rest of `psyched/` is sealed as resources. The helper is skipped there.
+3. The outer `Psyche.app` last.
+
+Ad-hoc builds use no hardened runtime and no timestamp server, so psyched's native addons load
+without library validation. TCC grants on an ad-hoc build key on the code hash and are lost on
+every rebuild.
+
 ## Entitlements
 
-`entitlements.plist` is applied to the app and every helper:
+`entitlements.plist` is applied to the app, every Electron helper and the Mach-O files in
+`psyched/` (`runtime/node` needs allow-jit under the hardened runtime). `Psyche Helper.app` keeps its own:
 
 - `com.apple.security.cs.allow-jit` for V8 under the hardened runtime.
 - `com.apple.security.device.audio-input` for dictation, paired with `NSMicrophoneUsageDescription`.

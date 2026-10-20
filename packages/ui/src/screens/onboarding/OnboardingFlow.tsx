@@ -25,6 +25,7 @@ import {
   type OnboardingShellProps,
   type OnboardingStepId,
   type PermissionAnswer,
+  type PermissionResult,
   type PersonaDraft,
   type Workspace,
 } from "./types.ts";
@@ -68,6 +69,11 @@ export interface OnboardingFlowProps extends OnboardingShellProps {
   onComplete: (result: OnboardingResult) => void;
 }
 
+/** A request's or read's result as the row's answer. */
+function answerOf(state: PermissionResult): PermissionAnswer {
+  return state === "granted" ? "granted" : state === "unavailable" ? "unavailable" : "denied";
+}
+
 export function OnboardingFlow({
   step,
   defaultStep = "agent",
@@ -76,6 +82,7 @@ export function OnboardingFlow({
   onComplete,
   ramGb,
   onRequestPermission,
+  onReadPermissions,
   onConnect,
   onSaveKey,
   onCheckModel,
@@ -147,17 +154,52 @@ export function OnboardingFlow({
 
   const allow = async (p: TccPermission) => {
     if (!onRequestPermission) {
-      setPermissions((s) => ({ ...s, [p]: "skipped" }));
+      setPermissions((s) => ({ ...s, [p]: "unavailable" }));
       return;
     }
     setAskingPermission(p);
     try {
       const state = await onRequestPermission(p);
-      setPermissions((s) => ({ ...s, [p]: state === "granted" ? "granted" : "denied" }));
+      setPermissions((s) => ({ ...s, [p]: answerOf(state) }));
+    } catch {
+      setPermissions((s) => ({ ...s, [p]: "unavailable" }));
     } finally {
       setAskingPermission(null);
     }
   };
+
+  // The owner flips most switches in System Settings: re-read the real state when this window
+  // gets focus again, and when the Permissions step opens. A row the owner skipped stays skipped
+  // unless macOS now says it is allowed.
+  useEffect(() => {
+    if (!onReadPermissions || current !== "permissions") return;
+    let live = true;
+    const read = () => {
+      void onReadPermissions().then(
+        (states) => {
+          if (!live) return;
+          setPermissions((s) => {
+            const next = { ...s };
+            for (const [p, state] of Object.entries(states) as [
+              TccPermission,
+              PermissionResult,
+            ][]) {
+              if (state === "granted") next[p] = "granted";
+              else if (s[p] === "granted" || s[p] === "denied") next[p] = answerOf(state);
+            }
+            return next;
+          });
+        },
+        () => undefined,
+      );
+    };
+    read();
+    window.addEventListener("focus", read);
+    return () => {
+      live = false;
+      window.removeEventListener("focus", read);
+    };
+  }, [onReadPermissions, current]);
 
   const connect = async (type: string, mode: ScopeMode) => {
     setConnectError(null);

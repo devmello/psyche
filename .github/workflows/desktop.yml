@@ -46,7 +46,9 @@ jobs:
       - name: Install dependencies (with the Electron binary)
         run: pnpm install --frozen-lockfile
 
-      - name: Unsigned package
+      - name: Ad-hoc package (without psyched and the helper; the smoke tests use the mock Gateway)
+        env:
+          PSYCHE_PACKAGE_ALLOW_PARTIAL: "1"
         run: pnpm --filter @psyche/desktop package
 
       - name: Electron smoke tests

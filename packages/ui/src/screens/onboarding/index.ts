@@ -19,6 +19,7 @@ export {
   type OnboardingShellProps,
   type OnboardingStepId,
   type PermissionAnswer,
+  type PermissionResult,
   type PersonaDraft,
   type Workspace,
 } from "./types.ts";

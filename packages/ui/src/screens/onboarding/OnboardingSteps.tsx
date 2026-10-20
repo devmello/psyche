@@ -171,6 +171,7 @@ const ANSWER: Record<PermissionAnswer, { tone: "success" | "danger" | "neutral";
   granted: { tone: "success", text: "Allowed" },
   denied: { tone: "danger", text: "Denied in macOS" },
   skipped: { tone: "neutral", text: "Skipped" },
+  unavailable: { tone: "neutral", text: "Unavailable" },
 };
 
 export function PermissionsStep({
@@ -213,7 +214,12 @@ export function PermissionsStep({
                 <p className="text-sm text-muted-foreground">{why[p]}</p>
                 {answer === "denied" ? (
                   <p className="text-xs text-muted-foreground">
-                    Turn it on later in System Settings → Privacy & Security.
+                    Turn it on in System Settings → Privacy & Security; this page updates when you
+                    come back.
+                  </p>
+                ) : answer === "unavailable" ? (
+                  <p className="text-xs text-muted-foreground">
+                    Psyche can ask for this only in the Psyche app on a Mac.
                   </p>
                 ) : null}
               </div>
@@ -228,7 +234,7 @@ export function PermissionsStep({
                   {busy === p ? (
                     <Loader className="motion-safe:animate-spin" aria-hidden="true" />
                   ) : null}
-                  {answer === "granted" ? "Allowed" : "Allow"}
+                  {busy === p ? "Asking…" : answer === "granted" ? "Allowed" : "Allow"}
                 </Button>
                 <Button
                   type="button"
