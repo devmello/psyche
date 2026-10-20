@@ -432,7 +432,14 @@ describe.skipIf(!ENABLED)("psyched process startup (PSYCHE_PERF_TESTS=1)", () =>
       const spawnedAt = Date.now();
       const app = spawn(
         join(PACKAGED_APP, "Contents/MacOS/Psyche"),
-        ["--use-mock-keychain", `--user-data-dir=${join(userHome, "userData")}`],
+        [
+          "--use-mock-keychain",
+          `--user-data-dir=${join(userHome, "userData")}`,
+          // Launched from a test, the window is not frontmost; Chromium treats an occluded window
+          // as hidden and does not paint it (the second packaged run, docs/status/s22.md).
+          "--disable-backgrounding-occluded-windows",
+          "--disable-features=CalculateNativeWinOcclusion",
+        ],
         {
           env: {
             PATH: "/usr/bin:/bin:/usr/sbin:/sbin",
@@ -472,6 +479,9 @@ describe.skipIf(!ENABLED)("psyched process startup (PSYCHE_PERF_TESTS=1)", () =>
         ) {
           await new Promise((r) => setTimeout(r, 50));
           record = read();
+        }
+        if (record?.didFinishLoadAt !== undefined) {
+          results.packaged = { didFinishLoadMs: record.didFinishLoadAt - spawnedAt };
         }
         if (record?.stage !== "painted" || record.firstContentfulPaintAt === undefined) {
           throw new Error(
