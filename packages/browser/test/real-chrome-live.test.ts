@@ -81,6 +81,11 @@ describe.skipIf(!enabled)("real-Chrome mode against Google Chrome (I13)", () => 
     await expect(driver.navigate(t.id, server.url("b/"))).rejects.toMatchObject({
       code: "approval_required",
     });
+    // Downloads are off in real Chrome: they would land outside the Library quarantine.
+    await driver.navigate(t.id, server.url("a/downloads"));
+    await expect(
+      driver.download(t.id, { url: server.url("a/files/data.csv") }),
+    ).rejects.toMatchObject({ code: "policy_denied", details: { reason: "downloads_denied" } });
     await driver.closeSession(s.id);
     await owner.close();
   });

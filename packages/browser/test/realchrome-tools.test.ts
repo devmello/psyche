@@ -82,7 +82,7 @@ describe("real-Chrome mode over the routing driver (I13)", () => {
     chrome = new MockDesktop({ quarantineDir: dir });
     const library = new FsQuarantineWriter(join(dir, "lib"));
     paneDriver = new CdpBridgeDriver(await pane.connect(), { library });
-    chromeDriver = new CdpBridgeDriver(await chrome.connect(), { library });
+    chromeDriver = new CdpBridgeDriver(await chrome.connect(), { library, downloads: "deny" });
     router = createRoutingDriver(() => paneDriver);
     router.onEventEx((e) => events.push(e));
     webSession = (await router.openSession({ taskId: "task_rc", policy })).id;
@@ -179,6 +179,17 @@ describe("real-Chrome mode over the routing driver (I13)", () => {
     await call("browser.navigate", { tabId, url: chrome.browser.url("b/") });
     expect(broker.decisions.filter((d) => d.call.kind === "new_origin").length).toBe(before + 1);
     expect(policy.describe().readOnly).toContain(chrome.browser.origin("b"));
+
+    // Downloads would skip the Library quarantine there: refused, nothing saved.
+    await call("browser.navigate", { tabId, url: chrome.browser.url("a/downloads") });
+    const dl = await call("browser.download", {
+      tabId,
+      source: { url: chrome.browser.url("a/files/data.csv") },
+    });
+    expect(dl).toMatchObject({
+      isError: true,
+      output: { error: { code: "policy_denied", details: { reason: "downloads_denied" } } },
+    });
 
     // Hand-offs make no sense in the owner's own window.
     expect(await call("browser.request_control", { tabId, reason: "2FA" })).toMatchObject({

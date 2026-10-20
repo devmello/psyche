@@ -125,6 +125,8 @@ export function createRealChromeMode(o: {
           new PlaywrightDriver({
             mode: "connect",
             cdpEndpoint: launched.endpoint,
+            // Explicit, though connect mode defaults to it: no download skips the quarantine.
+            downloads: "deny",
             library: o.library,
             broker: o.broker,
             ...(o.redact === undefined ? {} : { redact: o.redact }),

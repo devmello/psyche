@@ -203,7 +203,8 @@ For sites and extensions the embedded pane cannot serve, above all 1Password's A
 - **Same rules.** The real-Chrome session shares the task's `OriginPolicy` object, so approved origins carry over and new ones still ask. Every page operation goes through the same `PageController` and CDP allowlist (no `Storage.*`, cookies, `Target.*` or page script), so `browser.fill_credential` is still the only way the agent fills a secret, and 1Password fills on its own after the owner approves in its UI. The driver only sees tabs it opened and their popups, never the owner's other tabs in that window. `browser.request_control` refuses on these tabs: the owner can use the window directly.
 - **Indicator.** An unresolved "Psyche is driving your Chrome" notification while attached, and the window title "Psyche is driving this window" (`--window-name`). `ComposedBrowser.realChrome.status()` reports port, PID and sessions for `psyche security audit`.
 - **Routing.** The tools hold one `BrowserDriverEx`; `createRoutingDriver` sends each call to the driver that owns its session or tab (the pane's CDP driver, or the Playwright `connectOverCDP` driver attached as `real_chrome`).
-- **Not yet:** recordings do not cover real-Chrome tabs; downloads use Chrome's own download folder for that profile rather than the Library quarantine (Playwright's connected default context); both are follow-ups.
+- **Downloads are off.** That profile would save into its own folder, outside the Library quarantine (security §6), so the driver refuses `browser.download` (`downloads_denied`) and tells Chrome to cancel downloads (`Browser.setDownloadBehavior {behavior: "deny"}` on the driver's own browser session; page sessions still cannot reach `Browser.*`). Routing them through the quarantine is a follow-up.
+- **Not yet:** recordings do not cover real-Chrome tabs.
 
 ## Recording and replay (I10)
 
