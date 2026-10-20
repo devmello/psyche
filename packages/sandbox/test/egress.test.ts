@@ -441,3 +441,122 @@ describe("egress shim over stdio (K4)", () => {
     await new Promise<void>((r) => child.once("exit", () => r()));
   });
 });
+
+describe("egress hardening (#282, #283)", () => {
+  it("#282: forces Host to the URL's host and forwards exactly one request", async () => {
+    const up = await upstream("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok");
+    const { proxy } = proxyFor(up.port, { "pypi.org": ["151.101.0.223"] });
+    proxy.setAllowlist(scope, ["pypi.org"]);
+    const port = await front(proxy);
+    await raw(
+      port,
+      "GET http://pypi.org/x HTTP/1.1\r\nHost: attacker-tenant.example\r\n\r\n" +
+        "GET http://pypi.org/y HTTP/1.1\r\nHost: attacker-tenant.example\r\n\r\n",
+    );
+    const sent = up.bytes().toString("latin1");
+    expect(sent.match(/^GET /gm)).toHaveLength(1);
+    expect(sent).toContain("\r\nHost: pypi.org\r\n");
+    expect(sent).not.toContain("attacker-tenant");
+  });
+
+  it("#282: sends one Content-Length body and nothing after it; refuses smuggling shapes", async () => {
+    const up = await upstream("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n");
+    const { proxy } = proxyFor(up.port, { "api.example.org": ["151.101.0.7"] });
+    proxy.setAllowlist(scope, ["api.example.org"]);
+    const port = await front(proxy);
+    await raw(
+      port,
+      "POST http://api.example.org/p HTTP/1.1\r\nContent-Length: 5\r\n\r\nhelloGET /smuggled HTTP/1.1\r\n\r\n",
+    );
+    const sent = up.bytes().toString("latin1");
+    expect(sent.endsWith("\r\n\r\nhello")).toBe(true);
+    expect(sent).not.toContain("smuggled");
+    for (const bad of [
+      "POST http://api.example.org/p HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n",
+      "POST http://api.example.org/p HTTP/1.1\r\nContent-Length: 5\r\nContent-Length: 6\r\n\r\nhello!",
+      "GET http://api.example.org/ HTTP/1.1\r\nX-A: 1\r\n folded: yes\r\n\r\n",
+    ]) {
+      expect(await raw(port, bad)).toMatch(/^HTTP\/1\.1 400 [\s\S]*invalid-request/);
+    }
+  });
+
+  it("#283 TM-16: a decision expires, so a revoked grant (or a once approval) asks again", async () => {
+    const up = await upstream();
+    let clock = 0;
+    let granted = true;
+    const decided: string[] = [];
+    const broker = {
+      async decide() {
+        decided.push(granted ? "allow" : "deny");
+        return granted
+          ? { decision: "allow" as const, rule: "grant:g1" }
+          : { decision: "deny" as const, rule: "mode:manual" };
+      },
+      async recordReceipt() {
+        return {} as never;
+      },
+    } as unknown as PermissionBroker;
+    const { proxy } = proxyFor(
+      up.port,
+      { "pypi.org": ["151.101.0.223"] },
+      {
+        broker,
+        context: () => ({
+          threadId: "t",
+          runId: "r",
+          taskId: "task_1",
+          permissionMode: "balanced",
+          taint: false,
+        }),
+        verdictTtlMs: 1000,
+        now: () => clock,
+      },
+    );
+    proxy.setAllowlist(scope, ["pypi.org"]);
+    const port = await front(proxy);
+    expect(await connectTls(port, "pypi.org", "pypi.org")).toMatch(/^HTTP\/1\.1 200 /);
+    granted = false; // the owner revokes the grant
+    clock = 500;
+    expect(await connectTls(port, "pypi.org", "pypi.org")).toMatch(/^HTTP\/1\.1 200 /);
+    clock = 1500;
+    expect(await raw(port, "CONNECT pypi.org:443 HTTP/1.1\r\n\r\n")).toContain("denied-by-policy");
+    expect(decided).toEqual(["allow", "deny"]);
+  });
+
+  it("#283 TM-19: an origin refused as not allowlisted works once it is allowlisted", async () => {
+    const up = await upstream();
+    const { proxy } = proxyFor(up.port, { "files.example.org": ["151.101.0.8"] });
+    proxy.setAllowlist(scope, ["pypi.org"]);
+    const port = await front(proxy);
+    expect(await raw(port, "CONNECT files.example.org:443 HTTP/1.1\r\n\r\n")).toContain(
+      "blocked-by-allowlist",
+    );
+    proxy.setAllowlist(scope, ["pypi.org", "files.example.org"]);
+    expect(await connectTls(port, "files.example.org", "files.example.org")).toMatch(
+      /^HTTP\/1\.1 200 /,
+    );
+  });
+
+  it("#283 TM-20: IPv6 forms that embed or translate IPv4 classify by what they reach", () => {
+    for (const a of [
+      "64:ff9b:1::a9fe:a9fe",
+      "0064:ff9b:0000:0000:0000:0000:a9fe:a9fe",
+      "::ffff:0:169.254.169.254",
+      "::169.254.169.254",
+      "::a9fe:a9fe",
+      "0:0:0:0:0:0:0:1",
+      "2002:7f00:1::1",
+      "2001:0:4136:e378::1",
+      "fe80::1%en0",
+      "192.0.0.170",
+      "192.0.2.10",
+      "2001:db8::1",
+    ]) {
+      expect(classifyAddress(a), a).toBe("blocked");
+    }
+    expect(classifyAddress("2002:0a00:0001::")).toBe("private");
+    expect(classifyAddress("::ffff:0:10.0.0.1")).toBe("private");
+    expect(classifyAddress("64:ff9b::8.8.8.8")).toBe("public");
+    expect(classifyAddress("2606:4700:0:0:0:0:0:1111")).toBe("public");
+  });
+});
