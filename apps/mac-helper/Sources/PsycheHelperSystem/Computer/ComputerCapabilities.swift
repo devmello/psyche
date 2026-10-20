@@ -555,6 +555,7 @@ public enum ComputerCapabilities {
         )) { ctx in
             let p = try ctx.decode(TypeParams.self)
             guard !p.text.isEmpty else { throw CapabilityError.invalidParams("text is empty", field: "text") }
+            let sendsLine = SendKeys.textSends(p.text)
             if p.text.contains("{{cred:") {
                 throw CapabilityError(.policyDenied, reason: "credential_placeholder", "Credential placeholders are filled by the vault, never typed")
             }
@@ -571,6 +572,11 @@ public enum ComputerCapabilities {
                 let running = try AXEngine.findApp(p.app)
                 app = AXEngine.target(running)
                 try cu.policy.authorize(.type, bundleId: app.bundleId, appName: app.name, approval: binding(ctx))
+            }
+            // #270: a line break in typed text presses Return, which sends in messaging and mail apps.
+            if sendsLine, SendKeys.isMessagingApp(app.bundleId), binding(ctx) == nil {
+                throw CapabilityError(.approvalRequired, reason: "send_text", "Typing a line break sends in \(app.name); sending needs your approval",
+                                      details: ["app": .string(app.bundleId ?? app.name), "sideEffect": "destructive"])
             }
             try activate(app, stop: cu.stop)
             // Checked before every chunk: Tab/Return can move focus (into a password field, or out
@@ -613,7 +619,12 @@ public enum ComputerCapabilities {
             let running = try AXEngine.findApp(p.app)
             let app = AXEngine.target(running)
             try cu.policy.authorize(.key, bundleId: app.bundleId, appName: app.name, approval: binding(ctx))
-            if chord.isHighRisk, ctx.approvalId == nil {
+            // #270: Return / Enter / cmd+shift+D send in messaging and mail apps: destructive, needs its own approval.
+            if SendKeys.isMessagingApp(app.bundleId), SendKeys.isSendChord(chord), binding(ctx) == nil {
+                throw CapabilityError(.approvalRequired, reason: "send_key", "\(p.keys) sends in \(app.name); sending needs your approval",
+                                      details: ["app": .string(app.bundleId ?? app.name), "sideEffect": "destructive"])
+            }
+            if chord.isHighRisk, binding(ctx) == nil {
                 throw CapabilityError(.approvalRequired, reason: "risky_chord", "\(p.keys) can close windows, quit apps or delete; it needs approval")
             }
             try activate(app, stop: cu.stop)

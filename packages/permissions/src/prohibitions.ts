@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { posix } from "node:path";
 import { cardDigits, findSensitiveNormalized as findSensitive } from "@psyche/audit";
-import { PLACEHOLDER_PATTERN } from "@psyche/protocol";
+import { PLACEHOLDER_PATTERN, PROTECTED_MEMORY_FILES } from "@psyche/protocol";
 import { dangerousEnvNames } from "./binding.ts";
 import {
   type CanonicalUrl,
@@ -225,7 +225,44 @@ const SYSTEM_CREDENTIAL_PATHS = [
   /^\/Users\/[^/]+\/Library\/Application Support\/com\.apple\.Passwords/i,
   /^\/Users\/[^/]+\/Library\/Group Containers\/[^/]*com\.apple\.Passwords/i,
   /^\/private\/var\/db\/SystemKey/i,
+  // CLI credentials and browser profiles in any home (security §5.3; #285).
+  new RegExp(
+    `^(/users/[^/]+|/home/[^/]+|/root)/(${[
+      "\\.ssh",
+      "\\.aws",
+      "\\.gnupg",
+      "\\.netrc",
+      "\\.git-credentials",
+      "\\.npmrc",
+      "\\.pypirc",
+      "\\.docker",
+      "\\.kube",
+      "\\.config/gh",
+      "\\.config/gcloud",
+      "\\.config/google-chrome",
+      "\\.config/chromium",
+      "\\.mozilla",
+      "library/application support/google/chrome",
+      "library/application support/firefox",
+      "library/application support/arc",
+      "library/application support/bravesoftware",
+    ].join("|")})(/|$)`,
+    "i",
+  ),
 ];
+
+/**
+ * `$PSYCHE_HOME` entries a tool may reach: the agent's workspace and the Library. Everything else
+ * (vault, state, audit, run, security, browser profiles, backups, MCP and speech settings,
+ * models, config) is Psyche's own and never a file target (#285).
+ */
+const HOME_TOOL_ROOTS = ["workspace", "library"];
+/** Workspace paths only the `memory` tool or skill install review may change (security §8, §11). */
+function protectedWorkspacePath(path: string, workspace: string): boolean {
+  if (isUnder(path, posix.join(workspace, "skills"))) return true;
+  const rel = posix.relative(workspace, path);
+  return PROTECTED_MEMORY_FILES.some((f) => f.toLowerCase() === rel);
+}
 
 function targetUrl(call: PolicyCall): CanonicalUrl | "invalid" | undefined {
   if (call.target?.kind !== "origin") return undefined;
@@ -276,15 +313,30 @@ export async function checkProhibitions(
     const home = posix.normalize(env.psycheHome).toLowerCase();
     if (isUnder(path, posix.join(home, "vault")))
       return deny("psyche_state", "the vault is not a file target");
-    const controlPlane = ["config.json", "state", "audit", "run", "policy.json"].some((p) =>
-      isUnder(path, posix.join(home, p)),
-    );
-    if (controlPlane && call.sideEffect !== "read" && call.sideEffect !== "none") {
-      return deny("psyche_state", "Psyche's config, state and audit are not writable by tools");
+    if (isUnder(path, home) && !HOME_TOOL_ROOTS.some((r) => isUnder(path, posix.join(home, r)))) {
+      return deny(
+        "psyche_state",
+        "Psyche's own state, audit, settings and browser profiles are not file targets",
+      );
+    }
+    const workspace = posix.join(home, "workspace");
+    if (
+      writePlus &&
+      tool !== "memory" &&
+      isUnder(path, workspace) &&
+      protectedWorkspacePath(path, workspace)
+    ) {
+      return deny(
+        "protected_workspace",
+        "MEMORY.md, USER.md, AGENTS.md, SOUL.md, IDENTITY.md and skills change only through memory or skill review",
+      );
     }
   }
   if (path !== undefined && SYSTEM_CREDENTIAL_PATHS.some((re) => re.test(path))) {
-    return deny("system_credentials", "Safari, Passwords and keychain credentials are never read");
+    return deny(
+      "system_credentials",
+      "keychains, browser profiles, SSH keys and CLI credentials are never read",
+    );
   }
 
   if (params.some((s) => s.tooDeep === true)) {
