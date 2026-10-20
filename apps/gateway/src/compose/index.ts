@@ -520,6 +520,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     threadModels: modelPins,
   });
   bus = gateway.bus;
+  // approval.created carries each approver's own surface token (issue #50, security §3.7):
+  // only to devices that hold operator.approvals, and only their surface's token.
+  gateway.bus.setPersonalizer((event, payload, sub) => {
+    if (event !== "approval.created" || sub.deviceId === null) return undefined;
+    if (!sub.scopes.includes("operator.approvals")) return undefined;
+    const p = payload as { approval: { id: string } };
+    const answerToken = tokens.tokenFor(p.approval.id, surfaceOf(db, sub.deviceId));
+    return answerToken === undefined ? undefined : { ...p, answerToken };
+  });
   gatewayRef = gateway;
   vault.attach(gateway.context.nodes);
   // The owner's folder grants and rules apply without a restart (settings.set → broker policy).

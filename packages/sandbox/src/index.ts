@@ -38,3 +38,4 @@ export {
   createSandboxRunner,
   type EgressProxyConfig,
 } from "./runner.ts";
+export type { OpenStdioOptions, SandboxStdio, SandboxStdioReceipt } from "./stdio.ts";

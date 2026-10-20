@@ -25,6 +25,7 @@ import {
 } from "@psyche/protocol";
 import { VaultTokenVault } from "@psyche/vault";
 import type { Call, HandlerDef } from "../context.ts";
+import { taskOrigins } from "./fetch-origins.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -94,7 +95,7 @@ const noBrowser = () => {
   throw new PsycheError("unavailable", "no browser to open Google's consent page");
 };
 
-function defaultFactories(setup: ConnectorsSetup): ConnectorFactory[] {
+function defaultFactories(setup: ConnectorsSetup, services: ComposeServices): ConnectorFactory[] {
   const factories = [
     googleFactory({
       openBrowser: setup.openBrowser ?? noBrowser,
@@ -102,7 +103,12 @@ function defaultFactories(setup: ConnectorsSetup): ConnectorFactory[] {
     }),
   ];
   if (setup.web?.search !== undefined) factories.push(createWebSearchFactory(setup.web.search));
-  if (setup.web?.fetch !== undefined) factories.push(createWebFetchFactory(setup.web.fetch));
+  if (setup.web?.fetch !== undefined) {
+    // Redirect hops stay inside the Task's approved origins (#72).
+    factories.push(
+      createWebFetchFactory({ allowedOrigins: taskOrigins(services), ...setup.web.fetch }),
+    );
+  }
   return factories;
 }
 
@@ -112,7 +118,7 @@ export function composeConnectors(
 ): ComposedPart & { readonly registry: ConnectorRegistry } {
   const log = services.logger;
   const registry = new ConnectorRegistry({
-    factories: setup.factories ?? defaultFactories(setup),
+    factories: setup.factories ?? defaultFactories(setup, services),
     extraCatalogue: setup.extraCatalogue ?? [...REMOTE_MCP_PRESETS, ...COMING_SOON],
     ...(setup.store === undefined ? {} : { store: setup.store }),
     context: {

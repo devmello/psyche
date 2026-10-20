@@ -516,6 +516,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Whether real-Chrome mode is on and attached, with its DevTools port, PID and profile dir.",
+        "name": "browser.realChrome.status",
+        "params": "#/$defs/BrowserRealChromeStatusParams",
+        "result": "#/$defs/RealChromeStatus",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Side-effecting. Deletes a recording and its files (retention is otherwise 7 days, data model §12).",
         "name": "browser.recordings.delete",
         "params": "#/$defs/BrowserRecordingsDeleteParams",
@@ -1873,6 +1881,12 @@
         },
         "taint": {
           "type": "boolean"
+        },
+        "taintSources": {
+          "items": {
+            "$ref": "#/$defs/TaintSource"
+          },
+          "type": "array"
         },
         "status": {
           "$ref": "#/$defs/ApprovalStatus"
@@ -3969,6 +3983,10 @@
         "clean"
       ],
       "type": "string"
+    },
+    "BrowserRealChromeStatusParams": {
+      "properties": {},
+      "type": "object"
     },
     "BrowserRecording": {
       "properties": {
@@ -10981,6 +10999,43 @@
       },
       "required": [
         "messageId"
+      ],
+      "type": "object"
+    },
+    "RealChromeStatus": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "attached": {
+          "type": "boolean"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "pid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "sessions": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "userDataDir": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "enabled",
+        "attached",
+        "sessions"
       ],
       "type": "object"
     },

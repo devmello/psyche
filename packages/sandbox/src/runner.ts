@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { constants as osConstants } from "node:os";
 import type {
   ExecRequest,
   ExecResult,
@@ -82,7 +83,9 @@ import {
   PTY_RELAY,
   PYTHON,
   STATE_DIR,
+  STDIO_RELAY,
 } from "./scripts.ts";
+import type { OpenStdioOptions, SandboxStdio, SandboxStdioReceipt } from "./stdio.ts";
 import { Semaphore } from "./sync.ts";
 import {
   validateArgv,
@@ -118,6 +121,8 @@ export interface ContainerSandboxRunnerOptions extends DetectOptions {
   maxConcurrentExecs?: number;
   /** Open PTYs per scope. Default 4. */
   maxPtys?: number;
+  /** Long-lived stdio processes (`openStdio`) per scope. Default 8. */
+  maxStdioProcesses?: number;
   /**
    * Running containers across all scopes; above it the least recently used idle one is
    * stopped. Default 3 on Apple `container` (each is a VM that keeps freed guest memory,
@@ -160,6 +165,8 @@ interface Entry {
   slots: Semaphore;
   active: number;
   ptys: number;
+  /** Open `openStdio` processes by id; each keeps the container busy. */
+  stdios: Map<string, { kill(signal?: "TERM" | "KILL"): Promise<void> }>;
   idleTimer: NodeJS.Timeout | undefined;
   starting: Promise<void> | undefined;
   lastUsed: number;
@@ -185,6 +192,17 @@ interface DevForward {
 const NO_PROBE: ProbeResult = { sid: null, alive: false, listeners: [] };
 
 const CONFIG_LABEL = `${LABEL_PREFIX}.config`;
+const DEFAULT_MAX_STDIO_PROCESSES = 8;
+
+/** `128 + n` from the relay back to a signal name, for processes `kill` ended. */
+function signalFromCode(code: number | null): NodeJS.Signals | null {
+  if (code === null || code <= 128) return null;
+  const n = code - 128;
+  for (const [name, num] of Object.entries(osConstants.signals)) {
+    if (num === n) return name as NodeJS.Signals;
+  }
+  return null;
+}
 
 function isAborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted === true;
@@ -323,6 +341,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
   async destroy(sandboxId: string): Promise<void> {
     const entry = this.#byId.get(sandboxId);
     if (!entry) return;
+    await this.#termStdios(entry);
     this.#forget(entry);
     await this.#settle(entry);
     await this.#cli(entry.backend, removeArgs(entry.backend.kind, entry.container), {
@@ -342,7 +361,10 @@ export class ContainerSandboxRunner implements SandboxRunner {
     validateScope(scope);
     const backend = await this.#primary();
     const entry = this.#byScope.get(scopeKey(scope));
-    if (entry) this.#forget(entry);
+    if (entry) {
+      await this.#termStdios(entry);
+      this.#forget(entry);
+    }
     // The files are gone, and so is what was known about them.
     await entry?.provenance.clear();
     await this.#provenanceStore.remove(scopeKey(scope));
@@ -403,6 +425,124 @@ export class ContainerSandboxRunner implements SandboxRunner {
     }
   }
 
+  /**
+   * Starts a long-lived process with raw stdin / stdout / stderr pipes (issue #143; stdio MCP
+   * servers). Same rules as `exec`: UID 1000 in the scope's container with its network, argv
+   * validated and never run through a shell, env delivered on stdin (never in host argv or the
+   * CLI's environment), no host fallback. It keeps the container busy (no idle stop) until it
+   * exits; `kill`, `destroy`, `deleteWorkspace` and `dispose` stop its process group. The
+   * scope's workspace counts as untrusted from then on (its writes are not observed).
+   */
+  async openStdio(sandboxId: string, options: OpenStdioOptions): Promise<SandboxStdio> {
+    const entry = this.#entry(sandboxId);
+    const argv = options?.argv;
+    validateArgv(argv);
+    const cwd = validateCwd(options.cwd ?? WORKSPACE_PATH);
+    const envPairs = validateEnv(options.env);
+    const max = this.#options.maxStdioProcesses ?? DEFAULT_MAX_STDIO_PROCESSES;
+    if (entry.stdios.size >= max) {
+      fail("rate_limited", `sandbox ${sandboxId} already runs ${max} stdio processes`);
+    }
+    const id = randomBytes(8).toString("hex");
+    // Reserve the slot before awaiting, so concurrent opens respect the limit.
+    const slot: { kill(signal?: "TERM" | "KILL"): Promise<void> } = { kill: async () => undefined };
+    entry.stdios.set(id, slot);
+    this.#busy(entry);
+    let opened = false;
+    try {
+      await this.#ensureRunning(entry);
+      await entry.provenance.markUnrecordedUntrusted();
+      const stream = this.#driver.stream(
+        entry.backend.cli,
+        execArgs(entry.backend.kind, entry.container, cwd, [
+          PYTHON,
+          "-I",
+          "-S",
+          "-c",
+          STDIO_RELAY,
+          `${STATE_DIR}/${id}.pid`,
+          ...argv,
+        ]),
+      );
+      const body = Buffer.from(envPairs.map((p) => `${p}\0`).join(""), "utf8");
+      const head = Buffer.alloc(4);
+      head.writeUInt32BE(body.length);
+      stream.stdin.write(Buffer.concat([head, body]));
+      opened = true;
+
+      const startedAt = Date.now();
+      let killedWith: "TERM" | "KILL" | undefined;
+      let released = false;
+      const release = () => {
+        if (released) return;
+        released = true;
+        entry.stdios.delete(id);
+        this.#idle(entry);
+      };
+      const exited = stream.exited.then(
+        (r) => {
+          release();
+          const signal = r.signal ?? (killedWith !== undefined ? signalFromCode(r.exitCode) : null);
+          return { exitCode: signal === null ? r.exitCode : null, signal };
+        },
+        () => {
+          release();
+          return { exitCode: null, signal: null };
+        },
+      );
+      let killing: Promise<void> | undefined;
+      const kill = (signal: "TERM" | "KILL" = "TERM"): Promise<void> => {
+        killing ??= (async () => {
+          killedWith = signal;
+          // Most servers exit on EOF; the group signal covers the rest.
+          stream.stdin.end();
+          await this.#signalGroup(entry, id, signal);
+          if (await settledWithin(exited, KILL_GRACE_MS)) return;
+          await this.#signalGroup(entry, id, "KILL");
+          if (await settledWithin(exited, 1_000)) return;
+          stream.kill("SIGKILL");
+        })();
+        return killing;
+      };
+      slot.kill = kill;
+      const sandboxIdCopy = entry.instance.id;
+      const envNames = envPairs.map((p) => p.slice(0, p.indexOf("=")));
+      const receipt = async (): Promise<SandboxStdioReceipt> => {
+        const r = await exited;
+        return {
+          sandboxId: sandboxIdCopy,
+          argv: [...argv],
+          cwd,
+          envNames,
+          exitCode: r.exitCode,
+          signal: r.signal,
+          durationMs: Date.now() - startedAt,
+          outcome:
+            killedWith !== undefined || r.exitCode === null
+              ? "uncertain"
+              : r.exitCode === 0
+                ? "ok"
+                : "failed",
+        };
+      };
+      return {
+        sandboxId: sandboxIdCopy,
+        stdin: stream.stdin,
+        stdout: stream.stdout,
+        stderr: stream.stderr,
+        exited,
+        provenance: "untrusted",
+        kill,
+        receipt,
+      };
+    } finally {
+      if (!opened) {
+        entry.stdios.delete(id);
+        this.#idle(entry);
+      }
+    }
+  }
+
   /** Stops (or with `remove`, deletes) every container this runner started. Volumes stay. */
   async dispose(options: { remove?: boolean } = {}): Promise<void> {
     this.#disposed = true;
@@ -410,6 +550,8 @@ export class ContainerSandboxRunner implements SandboxRunner {
     const entries = [...this.#byId.values()];
     await Promise.all(
       entries.map(async (entry) => {
+        // No server outlives Psyche: TERM their groups, then stop or remove the container.
+        await this.#termStdios(entry);
         this.#forget(entry);
         await this.#settle(entry);
         const args = options.remove
@@ -421,6 +563,12 @@ export class ContainerSandboxRunner implements SandboxRunner {
   }
 
   // ---- internals -------------------------------------------------------------------------
+
+  /** TERM every open stdio process group of this scope (best effort, without waiting). */
+  async #termStdios(entry: Entry): Promise<void> {
+    const ids = [...entry.stdios.keys()];
+    await Promise.allSettled(ids.map((id) => this.#signalGroup(entry, id, "TERM")));
+  }
 
   #entry(sandboxId: string): Entry {
     const entry = this.#byId.get(sandboxId);
@@ -544,6 +692,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
       slots: new Semaphore(this.#options.maxConcurrentExecs ?? DEFAULT_MAX_CONCURRENT_EXECS),
       active: 0,
       ptys: 0,
+      stdios: new Map(),
       idleTimer: undefined,
       starting: undefined,
       lastUsed: this.#tick++,

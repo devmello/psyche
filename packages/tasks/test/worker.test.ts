@@ -66,6 +66,20 @@ async function requestApproval(broker: FakePermissionBroker, turn: TurnHandle, t
 }
 
 describe("TaskWorkerPool", () => {
+  it("a reused tool-call id does not overwrite a settled step or fail the turn (#65)", async () => {
+    const { engine, loop, pool } = setup();
+    const task = await newTask(engine);
+    const { turn, report } = await startTurn(pool, loop);
+    turn.emit({ type: "tool_call", toolCallId: "call_0", tool: "email.send", status: "running" });
+    turn.emit({ type: "tool_call", toolCallId: "call_0", tool: "email.send", status: "ok" });
+    turn.emit({ type: "tool_call", toolCallId: "call_0", tool: "email.send", status: "running" });
+    turn.end("final");
+    expect((await report)?.task?.status).toBe("done");
+    expect((await engine.checkpoints(task.id)).map((c) => c.status)).toEqual(["done"]);
+    const lines = (await engine.actions(task.id)).map((a) => a.level1);
+    expect(lines).toContain("Step call_0 already settled; email.send running not recorded");
+  });
+
   it("runs a turn, records checkpoints and Activity, and settles done", async () => {
     const { engine, loop, pool, notifier } = setup();
     const task = await newTask(engine);
