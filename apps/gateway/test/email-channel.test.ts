@@ -68,6 +68,10 @@ function view(over: Partial<MailMessageView> = {}): MailMessageView {
     bodySource: "plain",
     attachments: [],
     warnings: [],
+    authenticationResults: [],
+    autoSubmitted: "",
+    listId: "",
+    precedence: "",
     ...over,
   };
 }
