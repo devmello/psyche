@@ -512,7 +512,14 @@ describe("Credentials", () => {
     expect(rows).toHaveLength(4);
     expect(within(rows[1] as HTMLElement).getByText("Filled")).toBeTruthy();
     expect(within(rows[2] as HTMLElement).getByText("Denied")).toBeTruthy();
-    expect(within(rows[2] as HTMLElement).getByText("ap_github_fill_2")).toBeTruthy();
+    const copy = within(rows[2] as HTMLElement).getByRole("button", {
+      name: "Approved. Copy approval id ap_github_fill_2",
+    });
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    await userEvent.click(copy);
+    expect(writeText).toHaveBeenCalledWith("ap_github_fill_2");
+    expect(await within(rows[2] as HTMLElement).findByText("Approved · id copied")).toBeTruthy();
     expect(within(rows[3] as HTMLElement).getByText("Failed")).toBeTruthy();
     expect(within(rows[3] as HTMLElement).getByText("None")).toBeTruthy();
     const [openTask] = within(uses).getAllByRole("button", { name: "Open task" });
@@ -979,7 +986,7 @@ describe("Browser (real-Chrome mode, I13)", () => {
       },
     });
     await userEvent.click(
-      await screen.findByRole("switch", { name: "Let tasks use the Psyche Chrome profile" }),
+      await screen.findByRole("switch", { name: `Let tasks use the Psyche profile (${PERSONA.name})` }),
     );
     await waitFor(() =>
       expect(settingValue(gateway(), "browser.realChrome")).toEqual({ enabled: true }),

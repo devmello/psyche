@@ -67,6 +67,12 @@ The Vis column is how visible the gap is: H = seen on first launch or on every s
 - **No browser-default controls:** `NativeSelect` or `Select`; one control per choice.
 - **Empty states:** one sentence, one action, the screen's Lucide icon (§4.6 names them).
 - **Copy:** persona names for agent actions, "Psyche" for system text; no config keys in labels (§4.12).
+- **Split-view panes are exempt from `Page` / `PageHeader`.** The named cases are the Files pane and the Library. They fill their pane edge to edge and load with `LoadingCards`. The Files pane's icon is `FileText`.
+- **Facts values use sentence case:** "Never", "Any site", "Not connected".
+- **Setting keys never appear at level 1.** Errors and labels use the setting's label from the key-to-label map next to the Settings schema.
+- **Destructive row actions go under ⋯ with a confirm dialog.** A non-destructive outline action, such as Disconnect, stays in the row.
+- **Ids that matter for audit go behind a word.** For example, a use shows "Approved", with the approval id in a tooltip; clicking it copies the id.
+- **Persona-scoped things are named for Psyche, with the persona in parentheses when one is set.** For example: "Psyche profile (Wren)", or "Psyche profile" with no persona.
 
 ## Screen groups for the follow-up PRs
 
@@ -115,15 +121,19 @@ This pass covers screens added after the polish wave: Credentials, the Files pan
     - Guest cards match Connectors' cards.
     - `nodes.list` and `devices.list` errors now reach the load gate.
 
-### Still open (needs a decision or a larger change)
+### Decisions (2026-10-20, integrator)
 
-1. **Raw keys in write errors.** `settings/shared.tsx` names the raw setting key, as in "Psyche couldn't save vault.backend". This breaks §4.12 in every section, and fixing it needs a key-to-label map.
-2. **Matrix radios.** Computer use and `ActionMatrix` use raw `<input type="radio">` per cell. Choose a kit `RadioGroupItem` per cell or one `NativeSelect` per row, and apply it to both.
-3. **Model names.** Models & providers shows `m.ref` (the provider/model id) as the label everywhere. Human labels would move the ref to disclosure level 2. Separately, `models.list` errors are swallowed in favour of settings, and the chat-only confirm is a hand-rolled alert outside the frame.
-4. **The Files pane and `Page`.** Decide whether a split-view pane is exempt from `Page`/`PageHeader`. §4.6 names no icon for it; this pass uses `FileText` for the empty preview. Loading in the tree is still plain "Loading…" text, not `LoadingCards`.
-5. **Naming.** It's open whether "Psyche Chrome profile" should carry the persona's name instead.
-6. **Facts value casing.** This pass used sentence case in Credentials and VM mode. Write it into the rules.
-7. **Destructive rows.** Connectors pairs an outline Disconnect with a destructive Remove. Either accept that as the pattern for destructive rows or move Remove under ⋯.
-8. **Skills trust card.** The content hash and commit are at level 1, and tool names appear on row line 3. Both belong in a Details disclosure, with a count on the row.
-9. **Voice hotkey.** The field is free text, and a conflicting shortcut is shown only as muted description text. Options: a shortcut recorder, and an approval-tone hint for the conflict.
-10. **Credential detail.** Approval ids appear in the uses table. That's acceptable at level 2, but they could read "Approved" with the id in a tooltip.
+The ten items this pass left open were decided as follows. Each is now a rule in "Cross-cutting rules for the screen PRs" above.
+
+| # | Item | Decision | Status |
+| --- | --- | --- | --- |
+| 1 | Raw keys in write errors | A key-to-label map next to the Settings schema, with a test that every key has a label. Used everywhere; never a raw key at level 1. | In progress |
+| 2 | Matrix radios | One kit `RadioGroupItem` per cell in Computer use and `ActionMatrix`. Keyboard-navigable, labelled by row and column. | In progress |
+| 3 | Model names | A human label at level 1 from the adapter's metadata, falling back to the ref; the ref at level 2. `models.list` errors as an inline error state. The chat-only confirm becomes a kit dialog. | In progress |
+| 4 | Files pane and `Page` | Split-view panes are exempt (the Files pane and the Library). Icon `FileText`; tree loading uses `LoadingCards`. | Done |
+| 5 | Real-Chrome profile name | "Psyche profile (persona)" when a persona is set, otherwise "Psyche profile". | Done |
+| 6 | Facts value casing | Sentence case. | Done |
+| 7 | Destructive rows | Remove goes under ⋯ with a confirm dialog; Disconnect stays in the row. Applies to Connectors and every row with a destructive action. | In progress |
+| 8 | Skills trust card | Hash and commit go in a Details disclosure; tool names show as a count on the row, with the list in Details. | In progress |
+| 9 | Voice hotkey | A shortcut recorder. A conflict shows the approval-tone hint, and the field refuses to save it. | In progress |
+| 10 | Credential detail | "Approved", with the approval id in a tooltip and copy on click. | Done |

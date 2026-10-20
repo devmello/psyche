@@ -1,7 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
-import { usePersona } from "../../slots.tsx";
+import { usePersona, useSlots } from "../../slots.tsx";
 import {
   ErrorNotice,
   Group,
@@ -23,6 +23,11 @@ import {
 
 export const REAL_CHROME_KEY = "browser.realChrome";
 
+/** The real-Chrome profile's name: "Psyche profile", with the persona's name when one is set. */
+export function realChromeProfileLabel(persona: string | undefined): string {
+  return persona ? `Psyche profile (${persona})` : "Psyche profile";
+}
+
 export interface RealChromeSetting {
   enabled: boolean;
   profile?: string;
@@ -40,6 +45,8 @@ export function realChromeOf(values: Readonly<Record<string, unknown>>): RealChr
 
 export interface BrowserPanelProps extends SettingsFormProps, LoadProps {
   persona: string;
+  /** "Psyche profile (Wren)" when a persona is set, else "Psyche profile" (docs/ui-audit.md). */
+  profileLabel?: string;
   /** Desktop only: opens the profile in Google Chrome; resolves to its directory. */
   onOpenProfile?: (profile: string) => Promise<{ path: string }>;
 }
@@ -49,6 +56,7 @@ export function BrowserPanel({
   onChange,
   needsApproval,
   persona,
+  profileLabel = "Psyche profile",
   onOpenProfile,
   loading,
   error,
@@ -74,7 +82,7 @@ export function BrowserPanel({
           description="For sites that need your sign-ins or extensions such as 1Password."
         >
           <SwitchField
-            label="Let tasks use the Psyche Chrome profile"
+            label={`Let tasks use the ${profileLabel}`}
             description="Each task still asks you first, on this device with Touch ID or a passkey."
             checked={setting.enabled}
             settingKey={REAL_CHROME_KEY}
@@ -82,7 +90,7 @@ export function BrowserPanel({
           />
         </Group>
         <Group
-          title="Psyche Chrome profile"
+          title={profileLabel[0]?.toUpperCase() + profileLabel.slice(1)}
           description={`A Chrome profile only ${persona} uses, never your own. Open it once to sign in and install 1Password, then close it.`}
         >
           <details className="text-xs text-muted-foreground">
@@ -145,6 +153,7 @@ export function BrowserSection({
 }): ReactElement {
   const form = useSettingsForm();
   const persona = usePersona();
+  const named = useSlots().persona?.name;
   return (
     <div className="flex flex-col gap-3">
       <BrowserPanel
@@ -152,6 +161,7 @@ export function BrowserSection({
         onChange={form.onChange}
         needsApproval={form.needsApproval}
         persona={persona.name}
+        profileLabel={realChromeProfileLabel(named)}
         {...(onOpenProfile ? { onOpenProfile } : {})}
         loading={form.loading && Object.keys(form.values).length === 0}
         error={form.error}
