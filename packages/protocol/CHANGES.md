@@ -18,9 +18,6 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
-### v1 additive — 2026-10-19 (P9 file tools, #49)
-
-For `@psyche/files` and the approval cards (S11 / S12). `ToolCallDescription` gains optional `details?: JsonObject`: what the approval card shows besides the params, display only and never part of the binding. The agent loop spreads it into `ApprovalRequest.details` under `tool`, `params` and `target`, which it cannot override. `write_file` / `edit_file` use it for `{path, operation, diff}`, which the UI kit's `file_write` card already renders.
 ### v1 additive — 2026-10-19 (S02/S04: write-ahead dispatch hook, #63)
 
 For S02 (`agent-core` awaits it before every dispatch) and S04 (`TaskWorkerPool` commits the step's `running` checkpoint in it).
