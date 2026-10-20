@@ -11,6 +11,7 @@ import {
   useStoreState,
   useTask,
 } from "../data/index.ts";
+import { t } from "../i18n/core.ts";
 import { displaySummary } from "../lib/cards.ts";
 import { usePersona, useSlots } from "../slots.tsx";
 import { focusApproval } from "./ApprovalCard.tsx";
@@ -31,18 +32,23 @@ import { WrapUpBox } from "./WrapUp.tsx";
  * (UI design §1.2 principle 4): the block becomes a pointer to the dock above the composer.
  */
 
-function Skeleton({ label }: { label: string }): ReactElement {
+/** What a block refers to, for its loading and missing states. */
+type BlockTarget = "approval" | "question" | "receipt" | "artifact" | "file" | "task" | "plan";
+
+function Skeleton({ what }: { what: BlockTarget }): ReactElement {
   return (
     <div
       className="my-2 h-12 max-w-md animate-pulse rounded-lg bg-gray-3"
       role="status"
-      aria-label={`Loading ${label}`}
+      aria-label={t("blocks.message.loading", { what })}
     />
   );
 }
 
-function Missing({ what }: { what: string }): ReactElement {
-  return <p className="my-1 text-sm text-muted-foreground">Psyche couldn't load this {what}.</p>;
+function Missing({ what }: { what: BlockTarget }): ReactElement {
+  return (
+    <p className="my-1 text-sm text-muted-foreground">{t("blocks.message.missing", { what })}</p>
+  );
 }
 
 function ToolRunBlock({ blocks }: { blocks: readonly ToolCallBlock[] }): ReactElement {
@@ -59,13 +65,6 @@ function ToolRunBlock({ blocks }: { blocks: readonly ToolCallBlock[] }): ReactEl
   return <ToolRun items={items} />;
 }
 
-const DECIDED: Record<string, string> = {
-  approved: "Approved",
-  denied: "Denied",
-  expired: "Expired",
-  invalidated: "Voided",
-};
-
 /**
  * The one inline trace of an approval (§3.2, §3.3): the card itself lives in the dock. Pending, it
  * is a quiet pointer that opens and focuses the card; answered, a one-line outcome.
@@ -73,7 +72,7 @@ const DECIDED: Record<string, string> = {
 function ApprovalPointer({ approvalId }: { approvalId: string }): ReactElement {
   const { approval, loading } = useApproval(approvalId);
   if (approval === null)
-    return loading ? <Skeleton label="approval" /> : <Missing what="approval" />;
+    return loading ? <Skeleton what="approval" /> : <Missing what="approval" />;
   const summary = displaySummary(approval);
   if (approval.status === "pending")
     return (
@@ -81,11 +80,11 @@ function ApprovalPointer({ approvalId }: { approvalId: string }): ReactElement {
         type="button"
         onClick={() => focusApproval(approval.id)}
         className="my-0.5 inline-flex min-h-6 items-center gap-1.5 rounded-md px-1 py-0.5 text-small text-gray-11 transition-colors hover:bg-gray-3 hover:text-foreground"
-        aria-label={`Review approval: ${summary}`}
+        aria-label={t("blocks.message.reviewApproval", { summary })}
         title={summary}
       >
         <ShieldCheck className="size-3.5 text-approval-text" aria-hidden="true" />
-        Waiting for your approval
+        {t("blocks.message.waitingApproval")}
         <ArrowDown className="size-3.5" aria-hidden="true" />
       </button>
     );
@@ -98,7 +97,7 @@ function ApprovalPointer({ approvalId }: { approvalId: string }): ReactElement {
         <ShieldX className="size-3.5" aria-hidden="true" />
       )}
       <span className="min-w-0 truncate">
-        {DECIDED[approval.status] ?? approval.status}: {summary}
+        {t("blocks.message.decided", { status: approval.status, summary })}
       </span>
     </p>
   );
@@ -108,8 +107,7 @@ function QuestionBlockView({ inputRequestId }: { inputRequestId: string }): Reac
   const { request, loading, answer } = useQuestion(inputRequestId);
   const persona = usePersona();
   const slots = useSlots();
-  if (request === null)
-    return loading ? <Skeleton label="question" /> : <Missing what="question" />;
+  if (request === null) return loading ? <Skeleton what="question" /> : <Missing what="question" />;
   return (
     <QuestionCard
       request={request}
@@ -124,7 +122,7 @@ function QuestionBlockView({ inputRequestId }: { inputRequestId: string }): Reac
 function ReceiptBlockView({ receiptId }: { receiptId: string }): ReactElement {
   const { receipt, loading } = useReceipt(receiptId);
   const slots = useSlots();
-  if (receipt === null) return loading ? <Skeleton label="receipt" /> : <Missing what="receipt" />;
+  if (receipt === null) return loading ? <Skeleton what="receipt" /> : <Missing what="receipt" />;
   return (
     <ReceiptLine receipt={receipt} {...(slots.openReceipt ? { onOpen: slots.openReceipt } : {})} />
   );
@@ -140,7 +138,7 @@ function ArtifactBlockView({
   const { artifact, loading } = useArtifact(artifactId);
   const slots = useSlots();
   if (artifact === null)
-    return loading ? <Skeleton label="artifact" /> : <Missing what="artifact" />;
+    return loading ? <Skeleton what="artifact" /> : <Missing what="artifact" />;
   return (
     <ArtifactCard
       artifact={artifact}
@@ -154,7 +152,7 @@ function ArtifactBlockView({
 function FileBlockView({ libraryItemId }: { libraryItemId: string }): ReactElement {
   const { item, loading } = useLibraryItem(libraryItemId);
   const slots = useSlots();
-  if (item === null) return loading ? <Skeleton label="file" /> : <Missing what="file" />;
+  if (item === null) return loading ? <Skeleton what="file" /> : <Missing what="file" />;
   return (
     <FileCard
       item={item}
@@ -167,7 +165,7 @@ function FileBlockView({ libraryItemId }: { libraryItemId: string }): ReactEleme
 function TaskBlockView({ taskId }: { taskId: string }): ReactElement {
   const t = useTask(taskId);
   const slots = useSlots();
-  if (t.task === null) return t.loading ? <Skeleton label="task" /> : <Missing what="task" />;
+  if (t.task === null) return t.loading ? <Skeleton what="task" /> : <Missing what="task" />;
   return (
     <TaskCard
       task={t.task}
@@ -184,7 +182,7 @@ function PlanBlockView({ planId }: { planId: string }): ReactElement {
   // `planId` names the task whose approved plan this is (docs/status/s12.md, gap 2).
   const { task, loading } = useTask(planId);
   const slots = useSlots();
-  if (task === null) return loading ? <Skeleton label="plan" /> : <Missing what="plan" />;
+  if (task === null) return loading ? <Skeleton what="plan" /> : <Missing what="plan" />;
   if (task.plan === null || task.plan === undefined) return <Missing what="plan" />;
   return (
     <PlanCard
@@ -261,7 +259,7 @@ function BlockView({
   switch (b.type) {
     case "text":
       return (
-        <div className={untrusted ? "border-l-2 border-untrusted pl-2" : undefined}>
+        <div className={untrusted ? "border-s-2 border-untrusted ps-2" : undefined}>
           <Markdown>{b.md}</Markdown>
         </div>
       );

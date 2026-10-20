@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
 import { Textarea } from "../components/ui/textarea.tsx";
+import { t } from "../i18n/core.ts";
 import { formatTime } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
 import { usePersona } from "../slots.tsx";
@@ -44,7 +45,7 @@ export interface MessageViewProps {
 }
 
 /**
- * Chat message anatomy (UI design §3.2). User: right-aligned light bubble (gray-3). Agent: no
+ * Chat message anatomy (UI design §3.2). User: end-aligned light bubble (gray-3). Agent: no
  * bubble, 20 px avatar, name and time per run. System: centered, small, gray-11, Psyche's voice.
  */
 export function MessageView({
@@ -69,8 +70,8 @@ export function MessageView({
     <button
       type="button"
       onClick={() => onJumpTo?.(quoted.id)}
-      className="mb-1 line-clamp-2 border-l-2 border-gray-7 pl-2 text-left text-sm text-muted-foreground hover:text-foreground"
-      aria-label="Jump to the quoted message"
+      className="mb-1 line-clamp-2 border-s-2 border-gray-7 ps-2 text-start text-sm text-muted-foreground hover:text-foreground"
+      aria-label={t("chat.message.jumpToQuote")}
     >
       {messageText(quoted)}
     </button>
@@ -100,7 +101,7 @@ export function MessageView({
               variant="ghost"
               size="icon-xs"
               className="opacity-0 group-hover/message:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100 pointer-coarse:opacity-100"
-              aria-label="Message actions"
+              aria-label={t("chat.message.actions")}
             />
           }
         >
@@ -109,17 +110,18 @@ export function MessageView({
         <DropdownMenuContent align="end">
           {onReply ? (
             <DropdownMenuItem onClick={() => onReply(message)}>
-              <CornerUpLeft aria-hidden="true" /> Reply
+              <CornerUpLeft className="rtl:-scale-x-100" aria-hidden="true" />{" "}
+              {t("chat.message.reply")}
             </DropdownMenuItem>
           ) : null}
           {onFork ? (
             <DropdownMenuItem onClick={() => onFork(message)}>
-              <GitBranch aria-hidden="true" /> Continue in a side chat
+              <GitBranch aria-hidden="true" /> {t("chat.message.fork")}
             </DropdownMenuItem>
           ) : null}
           {canEdit ? (
             <DropdownMenuItem onClick={() => setEditing(messageText(message))}>
-              <Pencil aria-hidden="true" /> Edit and resend
+              <Pencil aria-hidden="true" /> {t("chat.message.editResend")}
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
@@ -131,7 +133,7 @@ export function MessageView({
       <article
         id={`message-${message.id}`}
         className="group/message my-2 flex flex-col items-end"
-        aria-label={`You, ${time}`}
+        aria-label={t("chat.message.userLabel", { time })}
         data-role="user"
       >
         <div className="flex max-w-[80%] items-start gap-1">
@@ -139,7 +141,7 @@ export function MessageView({
           {editing !== null && onEdit ? (
             <form
               className="flex w-full flex-col gap-2 rounded-2xl bg-gray-3 px-3.5 py-2"
-              aria-label="Edit and resend"
+              aria-label={t("chat.message.editResend")}
               onSubmit={(e) => {
                 e.preventDefault();
                 const text = editing.trim();
@@ -149,7 +151,7 @@ export function MessageView({
               }}
             >
               <label htmlFor={editId} className="text-xs text-muted-foreground">
-                Edits are sent in a side chat forked from here; this chat keeps the original.
+                {t("chat.message.editHint")}
               </label>
               <Textarea
                 id={editId}
@@ -160,10 +162,10 @@ export function MessageView({
               />
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(null)}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
                 <Button type="submit" size="sm" disabled={editing.trim() === ""}>
-                  Resend as a side chat
+                  {t("chat.message.resendAsSideChat")}
                 </Button>
               </div>
             </form>
@@ -183,13 +185,13 @@ export function MessageView({
     <article
       id={`message-${message.id}`}
       className="group/message my-2"
-      aria-label={`${persona.name}, ${time}`}
+      aria-label={t("chat.message.agentLabel", { name: persona.name, time })}
       data-role="agent"
     >
       {fromTask ? (
         <p className="my-3 flex items-center gap-2 text-xs text-muted-foreground">
           <span className="h-px flex-1 bg-gray-5" aria-hidden="true" />
-          from task: {fromTask.title}
+          {t("chat.message.fromTask", { title: fromTask.title })}
           <span className="h-px flex-1 bg-gray-5" aria-hidden="true" />
         </p>
       ) : null}
@@ -204,10 +206,10 @@ export function MessageView({
           />
           <span className="text-sm font-semibold">{persona.name}</span>
           <span className="text-xs text-muted-foreground">{time}</span>
-          <span className="ml-auto">{actions}</span>
+          <span className="ms-auto">{actions}</span>
         </div>
       ) : null}
-      <div className={cn("pl-7", message.provenance === "untrusted" && "text-foreground")}>
+      <div className={cn("ps-7", message.provenance === "untrusted" && "text-foreground")}>
         {quote}
         <MessageBlocks
           message={message}

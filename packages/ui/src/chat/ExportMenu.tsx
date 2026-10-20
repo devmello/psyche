@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
+import { t } from "../i18n/core.ts";
 
 export type ExportFormat = "markdown" | "json" | "html";
 
@@ -18,13 +19,21 @@ export function ExportMenu({
 }): ReactElement {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" size="sm" aria-label="Export thread" />}>
-        <Download aria-hidden="true" /> Export
+      <DropdownMenuTrigger
+        render={<Button variant="ghost" size="sm" aria-label={t("chat.export.label")} />}
+      >
+        <Download aria-hidden="true" /> {t("chat.export.button")}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => onExport("markdown")}>Markdown</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onExport("json")}>JSON</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onExport("html")}>HTML</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onExport("markdown")}>
+          {t("chat.export.markdown")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onExport("json")}>
+          {t("chat.export.json")}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onExport("html")}>
+          {t("chat.export.html")}
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

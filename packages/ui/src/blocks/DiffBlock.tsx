@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { t } from "../i18n/core.ts";
 import { Markdown } from "./Markdown.tsx";
 
 /** Lines a diff shows inline; the rest is counted, never silently dropped. */
@@ -13,7 +14,8 @@ export const DIFF_BLOCK_LINES = 400;
 export function diffMarkdown(diff: string, maxLines = DIFF_BLOCK_LINES): string {
   const lines = diff.replace(/\r\n/g, "\n").replace(/\n$/, "").split("\n");
   const shown = lines.slice(0, maxLines);
-  if (lines.length > maxLines) shown.push(`… ${lines.length - maxLines} more lines`);
+  if (lines.length > maxLines)
+    shown.push(t("blocks.diff.moreLines", { count: lines.length - maxLines }));
   const body = shown.join("\n");
   const longest = Math.max(2, ...(body.match(/`+/g) ?? []).map((run) => run.length));
   const fence = "`".repeat(longest + 1);

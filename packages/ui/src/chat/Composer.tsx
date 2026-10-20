@@ -3,6 +3,7 @@ import type { Message, QueueMode } from "@psyche/protocol";
 import { ArrowUp, Mic, Paperclip, Square, X } from "lucide-react";
 import { type KeyboardEvent, type ReactElement, useEffect, useId, useState } from "react";
 import { Button } from "../components/ui/button.tsx";
+import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { COMMANDS, type CommandInfo, completion, matchCommands } from "./commands.ts";
 import { messageText } from "./MessageView.tsx";
@@ -86,8 +87,8 @@ export function Composer({
         <div
           id={menuId}
           role="listbox"
-          aria-label="Commands"
-          className="absolute bottom-full left-0 z-10 mb-1 max-h-72 w-full overflow-y-auto rounded-lg border border-gray-6 bg-background p-1 shadow-md"
+          aria-label={t("chat.composer.commands")}
+          className="absolute start-0 bottom-full z-10 mb-1 max-h-72 w-full overflow-y-auto rounded-lg border border-gray-6 bg-background p-1 shadow-md"
         >
           {menu.matches.map((c, i) => (
             <div
@@ -108,7 +109,7 @@ export function Composer({
             >
               <span className="font-mono font-medium text-foreground">/{c.name}</span>
               {c.hint ? <span className="text-xs text-muted-foreground">{c.hint}</span> : null}
-              <span className="ml-auto truncate text-xs text-muted-foreground">
+              <span className="ms-auto truncate text-xs text-muted-foreground">
                 {c.description}
               </span>
             </div>
@@ -117,12 +118,14 @@ export function Composer({
       ) : null}
       {quoting ? (
         <div className="flex items-center gap-2 rounded-md bg-gray-2 px-2 py-1 text-sm">
-          <span className="text-muted-foreground">Quoting:</span>
-          <span className="min-w-0 flex-1 truncate">"{messageText(quoting)}"</span>
+          <span className="text-muted-foreground">{t("chat.composer.quoting")}</span>
+          <span className="min-w-0 flex-1 truncate">
+            {t("chat.quote.text", { text: messageText(quoting) })}
+          </span>
           <button
             type="button"
             onClick={onClearQuote}
-            aria-label="Remove quote"
+            aria-label={t("chat.composer.removeQuote")}
             className="inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-gray-4"
           >
             <X className="size-3.5" aria-hidden="true" />
@@ -133,8 +136,11 @@ export function Composer({
         rows={1}
         autoFocus
         disabled={disabled}
-        placeholder={disabled ? "Psyche can't reach the Gateway" : `Message ${persona}…`}
-        aria-label={`Message ${persona}`}
+        placeholder={
+          disabled ? t("chat.composer.offline") : t("chat.composer.placeholder", { persona })
+        }
+        aria-label={t("chat.composer.label", { persona })}
+        data-composer-input=""
         onKeyDown={menu.onKeyDown}
         aria-autocomplete="list"
         aria-describedby={hintId}
@@ -152,7 +158,7 @@ export function Composer({
             variant="ghost"
             size="icon-sm"
             onClick={onAttach}
-            aria-label="Attach files"
+            aria-label={t("chat.composer.attach")}
             disabled={disabled}
           >
             <Paperclip aria-hidden="true" />
@@ -163,34 +169,36 @@ export function Composer({
             variant="ghost"
             size="icon-sm"
             onClick={onDictate}
-            aria-label="Dictate (hold fn)"
+            aria-label={t("chat.composer.dictate")}
             disabled={disabled}
           >
             <Mic aria-hidden="true" />
           </Button>
         ) : null}
-        <span id={hintId} className="ml-1 text-caption text-muted-foreground">
+        <span id={hintId} className="ms-1 text-caption text-muted-foreground">
           {!running
-            ? "Type / for commands"
+            ? t("chat.composer.hintIdle")
             : mode === "followUp"
-              ? `Sends when ${persona} finishes this turn`
+              ? t("chat.composer.hintFollowUp", { persona })
               : mode === "steer"
-                ? `Sends now, to steer ${persona}`
-                : `Sends now, interrupting ${persona}`}
+                ? t("chat.composer.hintSteer", { persona })
+                : t("chat.composer.hintInterrupt", { persona })}
         </span>
-        <span className="ml-auto" />
+        <span className="ms-auto" />
         {running && onStop ? (
           <Button
             size="icon-sm"
             variant="secondary"
-            aria-label="Stop the run (Esc)"
+            aria-label={t("chat.composer.stop")}
             onClick={onStop}
           >
             <Square aria-hidden="true" />
           </Button>
         ) : null}
         <ComposerPrimitive.Send
-          render={<Button size="icon-sm" aria-label="Send" disabled={disabled} />}
+          render={
+            <Button size="icon-sm" aria-label={t("chat.composer.send")} disabled={disabled} />
+          }
         >
           <ArrowUp aria-hidden="true" />
         </ComposerPrimitive.Send>
