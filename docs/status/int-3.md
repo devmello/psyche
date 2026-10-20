@@ -58,6 +58,12 @@ What the scenarios found:
 
 Not done for M2: live runs (none requested), and the live driver has no tool specs for the M2 tools yet.
 
+## User guides
+
+`docs/guides/` has six guides written against main: getting started (from source, models by environment variable, onboarding, admin rights, shared folders, Settings), approvals, memory and persona, connectors and channels, and server mode. Each says plainly what is built but not reachable from the app yet, with any workaround. The draft release notes (`docs/release-notes/0.1.md`) were corrected to match: they had claimed Google, web search, Telegram setup, dictation and nightly dreaming work.
+
+What the guides found not wired on main (owner in brackets): connecting any connector from a client, and the IMAP / JMAP mail connector (S09 / S01); web search (S09 / INT-2); creating the Telegram channel (S10 / S01); setting up the vault, so model keys and connector tokens cannot be stored in it (S06 / S01); speech in psyched (S17); dreaming, the persona settings and pencil, presets, incognito threads, git sync and the in-app export (S07 / S11 / S12); `threads.update`, so the permission mode cannot change (S01); onboarding steps 2 to 5 save nothing (S11 / S12); model keys in systemd and launchd units (S22).
+
 ## Live gates: what ran and what it showed
 
 The first Haiku pass (the integrator's, on main with PRs #99 and #100, before the driver was made model-agnostic) failed V1 with 16–18 and V2 with 20 hard assertions per run, all for driver reasons: every card the script did not predict was denied (Haiku drafts one card per email where the script had one), `ask_user` questions were never answered (300 s timeouts), and `approval_requested` selectors keyed on scripted call ids never bound. V7 passed 3/3 even then.
