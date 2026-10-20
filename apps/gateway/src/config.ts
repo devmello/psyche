@@ -3,7 +3,16 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { DEFAULT_GATEWAY_HOST, DEFAULT_GATEWAY_PORT, PsycheError } from "@psyche/protocol";
 import { trustedProxyList } from "./proxy.ts";
+
+<<<<<<< HEAD
+
+import { resolveNodeSocketPath } from "./socket-path.ts";
+
+=======
+
 import { type BindMode, containerAddress, readGatewayToken } from "./transport-gate.ts";
+
+>>>>>>> origin/main
 
 /** Resolved Gateway configuration (feature A5 subset; see README "Config keys"). */
 export interface GatewayConfig {
@@ -198,8 +207,7 @@ export function resolveConfig(
     host,
     port,
     dbPath: overrides.dbPath ?? env.PSYCHE_DB ?? join(home, "state", "psyche.sqlite"),
-    nodeSocketPath:
-      overrides.nodeSocketPath ?? env.PSYCHE_NODE_SOCKET ?? join(home, "run", "node.sock"),
+    nodeSocketPath: resolveNodeSocketPath(home, overrides.nodeSocketPath ?? env.PSYCHE_NODE_SOCKET),
     webRoot:
       overrides.webRoot === undefined ? (env.PSYCHE_WEB_ROOT ?? defaultWebRoot) : overrides.webRoot,
     allowedOrigins: overrides.allowedOrigins ??

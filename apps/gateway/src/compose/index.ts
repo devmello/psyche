@@ -516,6 +516,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       revocations.recordDevice(deviceId);
       return rawBroker.revokeGrantsByDevice(deviceId);
     },
+    // Its receipt events are forwarded to the bus above; nodes.invoke must not repeat them.
+    brokerPublishesReceipts: true,
     // Security settings need fresh presence once a verifier can verify (security §10): an
     // explicit one, or a part's with a registered key (the helper without keys is not).
     settingsPresence: () => presence !== NO_PRESENCE || presenceReady.some((ready) => ready()),
