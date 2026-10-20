@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (M3 gateway hardening, issue #253)
+
+- New `devices.presenceKey.list`, `devices.presenceKey.register` (side-effecting; optional `expectKeyId`, `approvalId`) and `devices.presenceKey.remove` (side-effecting), all `operator.admin`: the owner registers a paired helper's Secure Enclave presence key, so Touch ID answers from that helper verify. New schema `PresenceKeyInfo` (`deviceId`, `keyId`, `registeredAt`).
+- No fake change.
+
 ### v1 additive — 2026-10-19 (V10 coding helper: git approval kinds, sandbox mounts)
 
 For the V10 coding helper (S02 scope: `code.*` tools in `packages/agent-core`), S05 (cards and scopes), S21 (the container runner mounts) and the Gateway's `compose/coding.ts`.
