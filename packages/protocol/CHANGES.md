@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (#275: forwarded and quoted text taints the turn)
+
+For S01 (channel turns), S02 (the loop starts the turn tainted with them).
+
+- New optional `StartTurnInput.taintSources`: untrusted content inside the input itself, such as forwarded or quoted third-party text in an owner's message. The turn starts tainted with these sources.
+
 ### v1 additive — 2026-10-20 (M3 hardening, issues #279 and #280)
 
 - `ToolCallMeta` gains optional `mcpServerId`, `mcpToolsListHash` and `mcpTier`: an MCP tool's description carries them to the broker, so its grants are bound to the server and `tools/list` hash, and unknown-tier write tools ask. No fake change.
