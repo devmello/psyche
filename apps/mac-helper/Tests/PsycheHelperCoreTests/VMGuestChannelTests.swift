@@ -104,7 +104,7 @@ struct VMGuestChannelTests {
     @Test func preM3BundlesStillDecode() throws {
         let config = #"{"name":"sandbox","cpus":4,"memoryGB":8,"diskGB":80,"displayWidth":1920,"displayHeight":1200,"macAddress":"02:00:00:00:00:01","diskFormat":"raw","username":"psyche","createdAt":"2026-10-19T00:00:00Z"}"#
         let c = try JSONDecoder().decode(VMConfig.self, from: Data(config.utf8))
-        #expect(c.clipboard == "paste_only" && c.vault == "host")
+        #expect(c.clipboard == "paste-only" && c.vault == "host")
         let state = #"{"phase":"stopped","updatedAt":"x","provisioned":true}"#
         let s = try JSONDecoder().decode(VMStateRecord.self, from: Data(state.utf8))
         #expect(s.provisioned && !s.psycheInstalled && !s.permissionsGranted)

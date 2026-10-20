@@ -49,7 +49,7 @@ public struct VMConfig: Codable, Sendable, Equatable {
         username = try c.decodeIfPresent(String.self, forKey: .username) ?? "psyche"
         guestOS = try c.decodeIfPresent(String.self, forKey: .guestOS)
         createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt) ?? ""
-        clipboard = try c.decodeIfPresent(String.self, forKey: .clipboard) ?? "paste_only"
+        clipboard = try c.decodeIfPresent(String.self, forKey: .clipboard) ?? "paste-only"
         vault = try c.decodeIfPresent(String.self, forKey: .vault) ?? "host"
     }
 
@@ -67,12 +67,12 @@ public struct VMConfig: Codable, Sendable, Equatable {
     /// Guest macOS version from the restore image, e.g. "27.0.1".
     public var guestOS: String?
     public var createdAt: String
-    /// Host ↔ guest clipboard (security §13): `paste_only` (into the guest) by default.
-    public var clipboard: String = "paste_only"
+    /// Host ↔ guest clipboard (security §13): `paste-only` (into the guest) by default.
+    public var clipboard: String = "paste-only"
     /// Credential placement (L5): the host vault as a node capability by default.
     public var vault: String = "host"
 
-    public static let clipboardModes: Set = ["off", "paste_only", "bidirectional"]
+    public static let clipboardModes: Set = ["off", "paste-only", "bidirectional"]
     public static let vaultPlacements: Set = ["host", "guest"]
 
     public static let defaultCPUs = 4
@@ -126,7 +126,7 @@ public struct VMConfig: Codable, Sendable, Equatable {
         guard (640...3840).contains(displayWidth), (480...2400).contains(displayHeight) else {
             throw CapabilityError.invalidParams("display must be 640×480 to 3840×2400", field: "display")
         }
-        guard Self.clipboardModes.contains(clipboard) else { throw CapabilityError.invalidParams("clipboard is off, paste_only or bidirectional", field: "clipboard") }
+        guard Self.clipboardModes.contains(clipboard) else { throw CapabilityError.invalidParams("clipboard is off, paste-only or bidirectional", field: "clipboard") }
         guard Self.vaultPlacements.contains(vault) else { throw CapabilityError.invalidParams("vault is host or guest", field: "vault") }
         guard !username.isEmpty, username.count <= 32, username.utf8.allSatisfy({ (97...122).contains($0) || (48...57).contains($0) }) else {
             throw CapabilityError.invalidParams("username must be lowercase letters and digits", field: "username")

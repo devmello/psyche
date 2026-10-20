@@ -135,12 +135,12 @@ public enum VMCapabilities {
 
             Capability(CapabilitySpec(
                 name: "vm.configure",
-                description: "Change resources (cpus, memoryGB) and display size while stopped; clipboard (off, paste_only, bidirectional) and credential placement (host, guest) any time.",
+                description: "Change resources (cpus, memoryGB) and display size while stopped; clipboard (off, paste-only, bidirectional) and credential placement (host, guest) any time.",
                 sideEffect: .write,
                 inputSchema: Schema.object([
                     "name": nameSchema, "cpus": Schema.integer(min: VMConfig.minCPUs, max: 32), "memoryGB": Schema.integer(min: VMConfig.minMemoryGB, max: 256),
                     "displayWidth": Schema.integer(min: 640, max: 3840), "displayHeight": Schema.integer(min: 480, max: 2400),
-                    "clipboard": Schema.string(enum: ["off", "paste_only", "bidirectional"]), "vault": Schema.string(enum: ["host", "guest"]),
+                    "clipboard": Schema.string(enum: ["off", "paste-only", "bidirectional"]), "vault": Schema.string(enum: ["host", "guest"]),
                 ]),
                 receiptKind: "vm"
             )) { ctx in
