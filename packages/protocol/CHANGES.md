@@ -18,6 +18,16 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (M3 T2: skills install and trust)
+
+For S16 (`packages/skills`), the Gateway (`skills.*` handlers), S05 (`skill_install` binding) and Settings → Skills (S11 / S12).
+
+- New `SkillManifest {tools, permissions: ApprovalKind[], prompts}`: what a skill declares it needs. Optional `manifest` on `SkillDetails` and `SkillProposal`; optional `manifest` on the contract's `SkillInstallProposal` (`SkillManifestDecl`).
+- New `SkillUpdateStatus {name, installedHash, availableHash?, commit?, updateAvailable, manifestChanged, error?, checkedAt}`; optional `update` on `SkillDetails`.
+- New method `skills.checkUpdates {name?}` → `{updates: SkillUpdateStatus[]}` (`operator.admin`, no install) and event `skills.updated` (payload `SkillUpdateStatus`) for each update found. Optional `SkillLoader.checkUpdates`.
+- `skills.proposeInstall` documents its refusal: `policy_denied` with `details.violations` when the manifest asks for more than the owner's policy allows (no approval card is opened).
+- `@psyche/permissions`: `skill_install` gets a dedicated binding `{name, scope, source, commit?, treeHash, tools, permissions, prompts}` (lists sorted, de-duplicated; grant key `{name, scope}`), joins `DEVICE_ONLY_KINDS`, and its card lists name, source, hash, permissions, tools and prompts first (`none` when empty).
+
 ### v1 additive — 2026-10-19 (M2 computer use: per-app tier keys on the action)
 
 For S02 (the loop passes it through), S05 (the broker's per-app tier check) and the Gateway's computer-use tools (`computer.act`, `apps.open`, `apps.focus`).
