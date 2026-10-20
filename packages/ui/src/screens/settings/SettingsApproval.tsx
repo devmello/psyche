@@ -68,7 +68,7 @@ function PendingApprovalBanner({
           ? `Not changed: the approval for “${label}” was denied.`
           : `Not changed: the approval for “${label}” ${status === "expired" ? "expired" : "was withdrawn"}. Change it again to ask for a new one.`,
     });
-  }, [status, pending, onDone]);
+  }, [status, pending, onDone, label]);
 
   return (
     <section

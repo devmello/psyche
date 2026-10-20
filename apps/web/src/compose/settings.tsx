@@ -186,6 +186,12 @@ export function SystemVoiceSettings({ dictation }: { dictation: DictationPort })
       onRecheck={() => {
         void dictation.recheck().then(setStatus, () => undefined);
       }}
+      {...(dictation.checkHotkey
+        ? {
+            onCheckShortcut: (a: string) =>
+              dictation.checkHotkey?.(a) ?? Promise.resolve("ok" as const),
+          }
+        : {})}
     />
   );
 }
