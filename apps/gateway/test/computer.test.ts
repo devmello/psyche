@@ -85,7 +85,7 @@ class FakeHelper implements NodeClient {
         return {
           ok: true,
           result: {
-            text: `window "Notes"\n  [e1] textarea "Body"\n  [e2] button "Delete"`,
+            text: `window "Notes" snap=1\n  [e1] textarea "Body" ="see [e9] link"\n  [e2] button "Delete" {press}\n  [e3] group`,
             header: "Notes — 2 elements",
             tier: "interact",
             provenance: "untrusted",
@@ -322,13 +322,64 @@ describe("computer-use agent tools (J1–J5)", () => {
     await cu.runEnded("run_a");
     expect(helper.calls.at(-1)).toMatchObject({
       capability: "computer.end_session",
-      params: { session: "task_a" },
+      params: { session: "task_a:run_a" },
     });
     const ok = await call("computer.snapshot", { app: notes }, { runId: "run_b" });
     expect(ok.isError).toBeUndefined();
     await cu.taskEnded("task_x");
     await cu.runEnded("run_b");
     expect(cu.sessions()).toEqual([]);
+  });
+
+  it("sends the snapshot's label with every ref and refuses refs it never saw", async () => {
+    await call("computer.snapshot", { app: notes });
+    const r = await call("computer.act", {
+      app: notes,
+      action: "click",
+      ref: "e2",
+      expect: { role: "button" },
+    });
+    expect(r.isError).toBeUndefined();
+    expect(helper.calls.at(-1)?.params).toMatchObject({
+      ref: "e2",
+      expect: { role: "button", label: "Delete" },
+    });
+    const quoted = await call("computer.act", {
+      app: notes,
+      action: "click",
+      ref: "e9",
+      expect: { role: "link" },
+    });
+    expect(quoted.output).toMatchObject({ error: { code: "invalid_params" } });
+    const point = await call("computer.act", { app: notes, action: "type", text: "x", x: 1, y: 1 });
+    expect(point.output).toMatchObject({ error: { code: "invalid_params" } });
+  });
+
+  it("gives a later run of a Task a fresh session after Esc", async () => {
+    await call("computer.snapshot", { app: notes }, { runId: "run_a", taskId: "task_a" });
+    helper.stopNext = true;
+    const stopped = await call(
+      "computer.snapshot",
+      { app: notes },
+      { runId: "run_a", taskId: "task_a" },
+    );
+    expect(stopped.output).toMatchObject({ error: { code: "cancelled" } });
+    const next = await call(
+      "computer.snapshot",
+      { app: notes },
+      { runId: "run_b", taskId: "task_a" },
+    );
+    expect(next.isError).toBeUndefined();
+    expect(helper.calls.at(-1)?.params).toMatchObject({ session: "task_a:run_b" });
+    await cu.taskEnded("task_a");
+    expect(cu.sessions()).toEqual([]);
+  });
+
+  it("opens only documents and mail drafts, never web pages", async () => {
+    const web = await call("apps.open", { app: "com.apple.Notes", url: "https://example.com" });
+    expect(web.output).toMatchObject({ error: { code: "policy_denied" } });
+    const doc = await call("apps.open", { app: "com.apple.Preview", url: "file:///tmp/a.pdf" });
+    expect(doc.isError).toBeUndefined();
   });
 
   it("takes screenshots only after a snapshot of the same app", async () => {
@@ -341,7 +392,8 @@ describe("computer-use agent tools (J1–J5)", () => {
     expect(helper.calls.at(-1)?.params).toMatchObject({ windowOnly: true, session: "run_1" });
   });
 
-  it("describes calls so the broker's tiers, per-app rules and kinds apply", () => {
+  it("describes calls so the broker's tiers, per-app rules and kinds apply", async () => {
+    await call("computer.snapshot", { app: notes });
     const act = tools.get("computer.act")?.describeCall;
     expect(
       act?.({
@@ -360,6 +412,27 @@ describe("computer-use agent tools (J1–J5)", () => {
         ?.sideEffect,
     ).toBeUndefined();
     expect(act?.({ app: notes, action: "key", keys: "cmd+q" })?.sideEffect).toBe("destructive");
+    expect(act?.({ app: notes, action: "key", keys: "command+w" })?.sideEffect).toBe("destructive");
+    // The snapshot's label counts even when the agent leaves it out of expect.
+    expect(
+      act?.({ app: notes, action: "click", ref: "e2", expect: { role: "button" } })?.sideEffect,
+    ).toBe("destructive");
+    // Bare points, unknown refs, refs of another app and refs quoted inside values could be anything.
+    expect(act?.({ app: notes, action: "click", x: 10, y: 10 })?.sideEffect).toBe("destructive");
+    expect(
+      act?.({ app: notes, action: "click", ref: "e9", expect: { role: "link" } })?.sideEffect,
+    ).toBe("destructive");
+    expect(
+      act?.({
+        app: "com.apple.reminders",
+        action: "click",
+        ref: "e3",
+        expect: { role: "group" },
+      })?.sideEffect,
+    ).toBe("destructive");
+    expect(act?.({ app: notes, action: "menu", path: "File>Delete Note>Now" })?.sideEffect).toBe(
+      "destructive",
+    );
     expect(
       tools.get("apps.applescript")?.describeCall?.({ target: notes, source: 'tell app "Notes"' }),
     ).toMatchObject({ kind: "apple_script", target: { kind: "app", value: notes } });
@@ -391,7 +464,7 @@ describe("computer-use agent tools (J1–J5)", () => {
     expect(r.output).toEqual({ output: "done" });
     expect(helper.calls[0]).toEqual({
       capability: "apps.shortcut_run",
-      params: { name: "Morning", input: "x" },
+      params: { name: "Morning", input: "x", timeoutSeconds: 600 },
       approvalId,
     });
   });
@@ -401,6 +474,7 @@ describe("computer-use agent tools (J1–J5)", () => {
     expect(isRiskyLabel("Send")).toBe(true);
     expect(isRiskyLabel("Sender")).toBe(false);
     expect(isRiskyChord("cmd+q")).toBe(true);
+    expect(isRiskyChord("⌘+Q")).toBe(true);
     expect(isRiskyChord("cmd+shift+t")).toBe(false);
   });
 });
