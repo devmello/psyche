@@ -1,0 +1,36 @@
+{
+  "name": "usage-limit",
+  "steps": [
+    {
+      "read": 1
+    },
+    {
+      "mcp": "start"
+    },
+    {
+      "emit": {
+        "type": "thread.started",
+        "thread_id": "019a0f3c-5e7d-7c11-9b2a-4f1e2d3c4b5a"
+      }
+    },
+    {
+      "emit": {
+        "type": "turn.started"
+      }
+    },
+    {
+      "emit": {
+        "type": "error",
+        "message": "stream disconnected; retrying"
+      }
+    },
+    {
+      "emit": {
+        "type": "turn.failed",
+        "error": {
+          "message": "You've hit your usage limit. Upgrade to Pro or try again later."
+        }
+      }
+    }
+  ]
+}

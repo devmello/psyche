@@ -142,6 +142,13 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
       const p = createOpenAICompatible(settings);
       return { language: (id) => p.chatModel(id), embedding: (id) => p.embeddingModel(id) };
     }
+    case "claude-code":
+    case "codex":
+      // Subscription CLIs are not AI SDK providers; `createModelRouter` builds a CliAdapter.
+      throw new PsycheError(
+        "invalid_params",
+        `provider "${config.id}" (${config.kind}) runs through its CLI, not an API package`,
+      );
     case "ollama": {
       const settings: Parameters<typeof createOllama>[0] = {
         baseURL: config.baseURL ?? LOCAL_DEFAULT_BASE_URLS.ollama,

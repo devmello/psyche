@@ -1,0 +1,9 @@
+{
+  "name": "not-logged-in",
+  "steps": [
+    {
+      "exit": 1,
+      "stderr": "Error: Not logged in. Run `codex login` to sign in.\n"
+    }
+  ]
+}

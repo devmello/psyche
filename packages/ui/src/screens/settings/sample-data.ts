@@ -254,3 +254,59 @@ export function sampleEndpointProbes(): Record<string, EndpointProbe> {
     },
   };
 }
+
+/** The owner's subscriptions through their CLIs, before anyone probed them. */
+export function sampleSubscriptionProviders(): ModelProviderSummary[] {
+  return [
+    {
+      id: "claude-code",
+      kind: "claude-code",
+      label: "Claude Code (subscription)",
+      local: false,
+      keyConfigured: false,
+      models: [],
+      probe: { state: "not_probed", models: [] },
+    },
+    {
+      id: "codex",
+      kind: "codex",
+      label: "ChatGPT via Codex (subscription)",
+      local: false,
+      keyConfigured: false,
+      models: [],
+      probe: { state: "not_probed", models: [] },
+    },
+  ];
+}
+
+/** What probing them finds: Claude Code signed in, Codex installed but signed out. */
+export function sampleSubscriptionProbes(): Record<string, EndpointProbe> {
+  const caps = {
+    toolCalling: true,
+    vision: true,
+    reasoning: true,
+    embeddings: false,
+    source: "catalog" as const,
+  };
+  return {
+    "claude-code": {
+      state: "reachable",
+      probedAt: "2026-10-20T08:00:00Z",
+      latencyMs: 410,
+      server: "Claude Code 2.1.286 (claude.ai, max plan)",
+      models: ["default", "opus", "sonnet", "haiku"].map((id) => ({
+        ref: `claude-code/${id}`,
+        id,
+        capabilities: caps,
+      })),
+    },
+    codex: {
+      state: "auth_failed",
+      probedAt: "2026-10-20T08:00:00Z",
+      latencyMs: 120,
+      server: "Codex 0.162.0",
+      models: [],
+      error: "Codex is installed but not signed in: run `codex login`",
+    },
+  };
+}

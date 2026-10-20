@@ -21,7 +21,10 @@ import {
   type SqliteMemoryStore,
 } from "@psyche/memory";
 import {
+  CliAdapter,
+  type CliAdapterDeps,
   createModelRouter,
+  isSubscriptionKind,
   type KeySource,
   KeyValueProbeStore,
   type ModelRouter,
@@ -141,6 +144,8 @@ export type ModelSetup =
       utilityModel?: ModelRef;
       /** Provider transport (tests replay recorded fixtures through this). */
       fetch?: typeof fetch;
+      /** Subscription CLIs: their environment and bridge (tests run a fake CLI). */
+      cli?: CliAdapterDeps;
       /**
        * Hosted keys are the vault's Gateway-owned `model-<provider>` items (`models.setKey`), the
        * packaged first run with no environment. Until a primary model is picked, turns answer
@@ -224,6 +229,7 @@ function providerFor(
   setup: ModelSetup,
   clock: Clock,
   db: PsycheDb,
+  home: string,
 ): { provider: ModelProvider; model: ModelRef; utility?: ModelRef; router?: ModelRouter } {
   if ("provider" in setup) {
     return {
@@ -232,13 +238,23 @@ function providerFor(
       ...(setup.utilityModel === undefined ? {} : { utility: setup.utilityModel }),
     };
   }
-  const router = createModelRouter(setup.router, {
-    clock,
-    // Tool-check verdicts (B4) survive restarts as `models.probe.<ref>` settings rows.
-    probes: new KeyValueProbeStore(settingsKeyValue(db)),
-    ...(setup.keys === undefined ? {} : { keys: setup.keys }),
-    ...(setup.fetch === undefined ? {} : { fetch: setup.fetch }),
-  });
+  // Subscription CLIs keep their sessions per working directory: one each under the home.
+  const providers = setup.router.providers.map((p) =>
+    isSubscriptionKind(p.kind) && p.workdir === undefined
+      ? { ...p, workdir: join(home, "cli", p.id) }
+      : p,
+  );
+  const router = createModelRouter(
+    { ...setup.router, providers },
+    {
+      clock,
+      ...(setup.cli === undefined ? {} : { cli: setup.cli }),
+      // Tool-check verdicts (B4) survive restarts as `models.probe.<ref>` settings rows.
+      probes: new KeyValueProbeStore(settingsKeyValue(db)),
+      ...(setup.keys === undefined ? {} : { keys: setup.keys }),
+      ...(setup.fetch === undefined ? {} : { fetch: setup.fetch }),
+    },
+  );
   return {
     router,
     provider: router,
@@ -468,7 +484,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const modelSetup: ModelSetup = vaultKeys
     ? { ...model, keys: vaultModelKeys(() => vault.vault) }
     : model;
-  const routed = providerFor(modelSetup, clock, db);
+  const routed = providerFor(modelSetup, clock, db, config.home);
   const { model: modelRef, utility, router } = routed;
   const provider = vaultKeys && router !== undefined ? untilPrimaryPicked(router) : routed.provider;
   const modelSettings: ModelSettingsSetup = {
@@ -479,6 +495,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...("router" in modelSetup && modelSetup.keys !== undefined ? { keys: modelSetup.keys } : {}),
     ...("router" in modelSetup && modelSetup.fetch !== undefined
       ? { fetch: modelSetup.fetch }
+      : {}),
+    ...("router" in modelSetup && modelSetup.cli?.env !== undefined
+      ? { cliEnv: modelSetup.cli.env }
       : {}),
     ...("provider" in modelSetup ? { fixedModel: modelSetup.model } : {}),
     ...(vaultKeys
@@ -829,6 +848,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       memory.unwatch();
       unsubscribePolicy();
       unsubscribeAttention();
+      // Suspended subscription-CLI runs end with the Gateway.
+      for (const p of router?.providers() ?? []) if (p instanceof CliAdapter) await p.close();
       await gateway.stop(reason);
       if (ownsDb) db.close();
     },

@@ -76,6 +76,8 @@ describe("provider keys in the vault (first run without env)", () => {
       "openai",
       "google",
       "openrouter",
+      "claude-code",
+      "codex",
     ]);
     expect(anthropic(before.providers)?.keyConfigured).toBe(false);
 
