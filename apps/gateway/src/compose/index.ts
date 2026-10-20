@@ -30,7 +30,7 @@ import {
   PsychePermissionBroker,
   SqlitePermissionStore,
 } from "@psyche/permissions";
-import { publicFetch } from "@psyche/proactive";
+import { proactiveTools, publicFetch } from "@psyche/proactive";
 import {
   type ApprovalRequestInput,
   type Clock,
@@ -428,6 +428,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(timeZone === undefined ? {} : { timeZone }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
+  // The agent's proactive tools (goals.*, ideas.*, feed.*): reads allow, changes ask.
+  for (const tool of proactiveTools({
+    goals: proactive.goals,
+    ideas: proactive.ideas,
+    feed: proactive.feed,
+    clock,
+  })) {
+    registry.register(tool);
+  }
   launcher = proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool);
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
