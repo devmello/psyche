@@ -75,6 +75,15 @@ services:
     volumes:
       - tailscale-state:/var/lib/tailscale
       - ./tailscale/serve.json:/config/serve.json:ro
+    # Userspace networking needs no NET_ADMIN or tun device (#298, DEP-9). State lives in the
+    # named volume; the socket and runtime files in tmpfs.
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+    security_opt:
+      - no-new-privileges:true
 
   # Cloudflare Tunnel: outbound-only connector; protect the hostname with Cloudflare Access
   # (deploy/cloudflare/).
@@ -92,19 +101,21 @@ services:
 
   # Headless browser for topology D (no Mac): Playwright run-server on the host's 127.0.0.1:3000.
   # RISK: run-server has no authentication; any local process can drive it. Keep the host
-  # single-tenant. `npx` fetches the pinned playwright package on each start (the image ships the
-  # browsers, not the package); bake your own image if the server must start offline. The Gateway's browser driver applies the origin policy (security §6), not this
+  # single-tenant. The Gateway's browser driver applies the origin policy (security §6), not this
   # container.
   browser:
-    image: mcr.microsoft.com/playwright:v1.64.1-noble@sha256:7852dc5a7d72f5fe458a597d690f6c42fbc8e9e26ddfa95f8e6ef552558d9bbf
+    # Built from deploy/browser: the pinned Playwright base plus `playwright` from a committed
+    # lockfile, so nothing is fetched at start (#298). PSYCHE_BROWSER_IMAGE overrides it.
+    image: ${PSYCHE_BROWSER_IMAGE:-psyche-browser:local}
+    build:
+      context: ./browser
     profiles: [browser]
     network_mode: host
     restart: unless-stopped
-    user: pwuser
     init: true
     ipc: private
     shm_size: 1gb
-    command: ["npx", "-y", "playwright@1.64.1", "run-server", "--host", "127.0.0.1", "--port", "3000"]
+    cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
 

@@ -146,7 +146,9 @@ describe("deploy/scripts/render-compose.mjs (the release's pinned Compose file, 
     });
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).toContain(`image: \${PSYCHE_IMAGE:-${ref}}`);
-    expect(r.stdout).not.toMatch(/^\s+build:/m);
+    // The gateway's build block (which needs a checkout) is gone; the browser sidecar keeps its own.
+    expect(r.stdout).not.toContain("dockerfile: deploy/Dockerfile");
+    expect(r.stdout.match(/^\s+build:/gm)).toHaveLength(1);
     expect(r.stdout).not.toContain("psyche-gateway:local");
   });
 
@@ -160,5 +162,55 @@ describe("deploy/scripts/render-compose.mjs (the release's pinned Compose file, 
     );
     expect(r.status).toBe(1);
     expect(r.stderr).toContain("pinned by digest");
+  });
+});
+
+describe("Compose sidecars (#298)", () => {
+  const compose = read("docker-compose.yml");
+  const block = (name: string) => {
+    const start = compose.indexOf(`\n  ${name}:\n`);
+    const end = compose.indexOf("\n\n", start + 1);
+    return compose.slice(start, end === -1 ? undefined : end);
+  };
+
+  it("bakes the browser sidecar from a pinned base and a committed lockfile; nothing fetched at start", () => {
+    expect(compose).not.toMatch(/npx/);
+    expect(block("browser")).toMatch(/build:\s*\n\s+context: \.\/browser/);
+    const dockerfile = read("browser/Dockerfile");
+    const base = /FROM mcr\.microsoft\.com\/playwright:v([\d.]+)-noble@sha256:[0-9a-f]{64}/.exec(
+      dockerfile,
+    );
+    expect(base).not.toBeNull();
+    expect(dockerfile).toContain("npm ci");
+    const lock = JSON.parse(read("browser/package-lock.json")) as {
+      packages: Record<string, { version?: string; integrity?: string }>;
+    };
+    const pw = lock.packages["node_modules/playwright"];
+    expect(pw?.version).toBe(base?.[1]);
+    expect(pw?.integrity).toMatch(/^sha512-/);
+    expect(lock.packages["node_modules/playwright-core"]?.integrity).toMatch(/^sha512-/);
+  });
+
+  it("runs Tailscale without capabilities, read-only, with no-new-privileges", () => {
+    const ts = block("tailscale");
+    expect(ts).toMatch(/cap_drop: \[ALL\]/);
+    expect(ts).toMatch(/read_only: true/);
+    expect(ts).toMatch(/no-new-privileges:true/);
+    expect(ts).toMatch(/tailscale\/tailscale:v[\d.]+@sha256:[0-9a-f]{64}/);
+  });
+
+  it("the release render accepts the local browser build and nothing else unpinned", () => {
+    const r = spawnSync(
+      process.execPath,
+      [
+        resolve(deploy, "scripts/render-compose.mjs"),
+        resolve(deploy, "docker-compose.yml"),
+        `ghcr.io/devmello/psyche-gateway:1.0.0@sha256:${"b".repeat(64)}`,
+      ],
+      { encoding: "utf8" },
+    );
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toContain("psyche-browser:local");
+    expect(r.stdout).toMatch(/context: \.\/browser/);
   });
 });
