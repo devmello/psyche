@@ -464,6 +464,7 @@ A versioned corpus of at least 200 cases (hidden DOM fields, URL and tab-title p
 
 - **macOS 27.** Permission state comes from per-API preflight calls, never `TCC.db`; reads of other teams' app containers are denied by default without a prompt, so Psyche never attempts them; `launchd` ignores quarantined plists, so the installer clears quarantine on the helper's agent plist (macos notes, KQ3).
 - **Screenshot and window hygiene.** Psyche's windows and the user's terminal are hidden from captures; captures are downscaled (the Claude app uses ~1372×887); secure text fields are refused at the AX dispatch layer, below the model; a global Esc stops computer use and is consumed so injected content cannot dismiss it; one session drives the computer at a time (claude-desktop notes, Q3).
+- **System-wide dictation (J9).** Only the desktop shell's own connection may call `dictation.*`. That connection is loopback, `deviceFamily: desktop`, and carries the per-launch handshake secret, checked at every connect. A declared platform never qualifies a device: a CLI that says `macos` is refused. Node clients and agent tools never reach `dictation.*`. Dictated text goes from the recognizer to the focused app and never reaches the model, threads, memory, audit entries or logs; only character counts are recorded.
 - **Tiers and fixed caps.** Per app Off / Read only / Read and interact, prompted on first use, remembered per session (30 minutes for unattended runs). Fixed: browsers read-only (the agent browser is how to act on the web), terminals and IDEs click-only, password managers, banking and trading apps Off and not overridable from chat (architecture §6; claude-desktop notes, Q3).
 
 ---
@@ -490,6 +491,7 @@ A versioned corpus of at least 200 cases (hidden DOM fields, URL and tab-title p
 | Agent browser profiles | `browser/profiles/` | cookies OS-key encrypted | until "Clear browsing data"; logged-out partitions discarded per Task |
 | Browser recordings | `library/recordings/` | 0600 | opt-in, 7 days |
 | Downloads | `library/quarantine/` | quarantine xattr | 30 days unless kept |
+| Dictated text (J9) | nowhere: recognizer → focused app | not stored | never stored or logged |
 | Audit log | `audit/YYYY-MM.jsonl` | append-only, hash-chained, 0600 | indefinitely |
 | Logs | `logs/` | no bodies, no secrets, URLs cut to origin | 14 days |
 

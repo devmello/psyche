@@ -68,6 +68,28 @@ export interface PairedIdentity {
   deviceId: string;
   scopes: DeviceScope[];
   role: "client" | "node";
+  /**
+   * This connection is the Psyche desktop shell itself: loopback, `deviceFamily: desktop` over
+   * WS, with the per-launch handshake secret (checked at every connect, not only at pairing).
+   * A self-declared platform never makes a device the desktop (#278).
+   */
+  desktopShell?: true;
+}
+
+/** The desktop shell's connection proof, the same one its auto-pairing needs. */
+export function isDesktopShell(
+  params: ConnectParams,
+  peer: PeerInfo,
+  handshakeSecret: string,
+): boolean {
+  return (
+    peer.remoteLoopback &&
+    peer.origin === null &&
+    peer.transport === "ws" &&
+    params.role === "client" &&
+    params.deviceFamily === "desktop" &&
+    secretMatches(handshakeSecret, params.handshakeSecret)
+  );
 }
 
 export function negotiateVersion(range: { min: number; max: number }): number {
@@ -235,7 +257,12 @@ export function verifyChallenge(
     touchLastSeen(db, existing.id, nowIso);
     return {
       result: pairedResult(existing.id, existing.scopes, nowIso),
-      identity: { deviceId: existing.id, scopes: existing.scopes, role: params.role },
+      identity: {
+        deviceId: existing.id,
+        scopes: existing.scopes,
+        role: params.role,
+        ...(isDesktopShell(params, peer, deps.handshakeSecret) ? { desktopShell: true } : {}),
+      },
       createdRequest: null,
       pendingDeviceId: null,
     };
@@ -276,7 +303,12 @@ export function verifyChallenge(
     if (scopes) {
       return {
         result: pairedResult(params.deviceId, scopes, nowIso),
-        identity: { deviceId: params.deviceId, scopes, role: params.role },
+        identity: {
+          deviceId: params.deviceId,
+          scopes,
+          role: params.role,
+          ...(isDesktopShell(params, peer, deps.handshakeSecret) ? { desktopShell: true } : {}),
+        },
         createdRequest: null,
         pendingDeviceId: null,
       };
