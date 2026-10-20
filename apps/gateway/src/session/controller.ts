@@ -48,6 +48,13 @@ export interface SendInput {
    * devices. Not kept for durable follow-ups (`chat_queue`), which only paired devices enqueue.
    */
   requester?: Requester;
+  /**
+   * `agent` when another thread's agent sent it (E12 cross-thread awareness); the transcript keeps
+   * that provenance, including through the follow-up queue. Default `owner`.
+   */
+  provenance?: "owner" | "agent";
+  /** The sending thread, for `agent` messages. */
+  fromThreadId?: string;
 }
 
 type Emit = <E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string) => void;
@@ -126,6 +133,7 @@ export class SessionController {
         hooks,
         undefined,
         input.requester,
+        input.provenance,
       );
       return { messageId, runId: run.id, queued: false };
     }
@@ -135,7 +143,10 @@ export class SessionController {
         threadId: thread.id,
         content: input.content,
         attachments,
-        deviceId: input.deviceId,
+        // An agent-sent follow-up has no device (`deviceId` is empty).
+        deviceId: input.deviceId === "" ? null : input.deviceId,
+        provenance: input.provenance ?? "owner",
+        fromThreadId: input.fromThreadId ?? null,
       });
       this.#bump();
       hooks.emit(
@@ -154,7 +165,7 @@ export class SessionController {
           threadId: thread.id,
           role: "user",
           blocks: userBlocks(input.content, attachments),
-          provenance: "owner",
+          provenance: input.provenance ?? "owner",
           runId: active,
         },
         { expectedWriterRunId: active },
@@ -181,6 +192,7 @@ export class SessionController {
       hooks,
       undefined,
       input.requester,
+      input.provenance,
     );
     return { messageId, runId: run.id, queued: false };
   }
@@ -194,6 +206,7 @@ export class SessionController {
     hooks: TxHooks,
     messageId?: string,
     requester?: Requester,
+    provenance: "owner" | "agent" = "owner",
   ): { messageId: string; run: Run } {
     const { db } = this.#ctx;
     if (supersedes === null) {
@@ -205,7 +218,7 @@ export class SessionController {
           threadId: thread.id,
           role: "user",
           blocks: userBlocks(content, attachments),
-          provenance: "owner",
+          provenance,
         },
         { expectedWriterRunId: null },
       );
@@ -231,7 +244,7 @@ export class SessionController {
         threadId: thread.id,
         role: "user",
         blocks: userBlocks(content, attachments),
-        provenance: "owner",
+        provenance,
         runId: run.id,
       },
       { expectedWriterRunId: run.id },
@@ -324,6 +337,36 @@ export class SessionController {
     }
   }
 
+  /**
+   * E12 cross-thread awareness: a message from another thread's agent. It never interrupts or
+   * steers: it runs now if the thread is idle, or queues as a follow-up, recorded as `agent`.
+   */
+  sendFromAgent(input: { threadId: string; fromThreadId: string; content: string }): SendResult {
+    const { db, bus } = this.#ctx;
+    const events: Array<() => void> = [];
+    const after: Array<() => void> = [];
+    const hooks: TxHooks = {
+      emit: (event, payload, tid) => events.push(() => bus.publish(event, payload, tid)),
+      afterCommit: (fn) => after.push(fn),
+    };
+    const result = db.sqlite.transaction(() =>
+      this.send(
+        {
+          threadId: input.threadId,
+          content: input.content,
+          mode: "followUp",
+          deviceId: "",
+          provenance: "agent",
+          fromThreadId: input.fromThreadId,
+        },
+        hooks,
+      ),
+    )();
+    for (const publish of events) publish();
+    for (const fn of after) fn();
+    return result;
+  }
+
   /** Starts queued follow-ups for every thread that has some (boot). */
   drainAll(): void {
     for (const threadId of threadsWithQueuedMessages(this.#ctx.db)) this.#drain(threadId);
@@ -344,7 +387,16 @@ export class SessionController {
     const started = db.sqlite.transaction(() => {
       const next = takeNextQueued(db, threadId);
       if (!next) return false;
-      this.#admit(thread, next.content, next.attachments, null, hooks, next.messageId);
+      this.#admit(
+        thread,
+        next.content,
+        next.attachments,
+        null,
+        hooks,
+        next.messageId,
+        undefined,
+        next.provenance,
+      );
       hooks.emit("chat.queue.updated", { threadId, items: listQueue(db, threadId) }, threadId);
       return true;
     })();

@@ -64,6 +64,7 @@ import {
 } from "./handlers.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import type { ApprovalRelay, ComposedPart, ComposeServices } from "./services.ts";
+import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 
 /**
  * Composition root for `psyched` (INT-1): the real agent loop, model router, Permission Broker,
@@ -294,6 +295,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
 
   const registry = new AgentToolRegistry();
   for (const tool of fileTools()) registry.register(tool);
+  // E12 cross-thread awareness: registered only while the owner has turned it on.
+  let gatewayRef: Gateway | null = null;
+  const crossThread = crossThreadToggle(
+    (tool) => registry.register(tool),
+    threadTools({ db, gateway: () => gatewayRef }),
+  );
+  crossThread.sync(getSetting(db, CROSS_THREAD_SETTING)?.value);
   const calls = new CallContexts();
   const services: ComposeServices = {
     db,
@@ -397,6 +405,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     onDeviceRevoked: (deviceId) => rawBroker.revokeGrantsByDevice(deviceId),
   });
   bus = gateway.bus;
+  gatewayRef = gateway;
   // The owner's folder grants and rules apply without a restart (settings.set → broker policy).
   const unsubscribePolicy = gateway.bus.subscribe(["operator.read"], (frame) => {
     const f = JSON.parse(frame) as {
@@ -405,6 +414,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     };
     if (f.event !== "settings.changed") return;
     for (const entry of f.payload?.entries ?? []) {
+      if (entry.key === CROSS_THREAD_SETTING) crossThread.sync(entry.value);
       if (entry.key !== "permissions.policy") continue;
       try {
         rawBroker.setPolicy((entry.value ?? {}) as PolicyConfig);
@@ -484,6 +494,7 @@ export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { partsFromEnv } from "./parts.ts";
 export { type ComposedProactive, composeProactive, type ProactiveSetup } from "./proactive.ts";
 export type { ApprovalRelay, ComposedPart, ComposeServices } from "./services.ts";
+export { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 export { createLogger, surfaceOf };
 
 /**
