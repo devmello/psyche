@@ -1,6 +1,6 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import type { SkillInstallSource, SkillTrust } from "@psyche/protocol";
+import type { SkillInstallSource, SkillManifestDecl, SkillTrust } from "@psyche/protocol";
 
 /**
  * `$PSYCHE_HOME/skills/skills.lock.json`: what the owner approved, pinned by whole-tree hash.
@@ -28,6 +28,8 @@ export interface LockEntry {
   approvalId: string;
   approvedAt: string;
   findings: { high: number; warn: number; info: number };
+  /** The declared tools, approval kinds and prompt files the owner approved (T2). */
+  manifest?: SkillManifestDecl;
 }
 
 export interface LockFile {

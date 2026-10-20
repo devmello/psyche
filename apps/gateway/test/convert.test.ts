@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { type ExecRequest, type ExecResult, PsycheError } from "@psyche/protocol";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  CONVERSION_RUNNER_OPTIONS,
   type ConversionRunner,
   composeConversion,
   conversionArgv,
@@ -165,6 +166,14 @@ describe("documents.convert", () => {
       },
     );
     expect(runner.execs).toHaveLength(0);
+  });
+
+  it("reaps every conversion's processes in the shared sandbox (#286)", () => {
+    // One container serves every document: a process LibreOffice leaves running after
+    // conversion 1 is killed when that exec returns, so it can't touch conversion 2.
+    expect(CONVERSION_RUNNER_OPTIONS.reapBackground).toBe("always");
+    expect(CONVERSION_RUNNER_OPTIONS.variant).toBe("full");
+    expect(CONVERSION_RUNNER_OPTIONS.maxRunningSandboxes).toBe(1);
   });
 
   it("builds a soffice argv with a throwaway profile, and PNG for thumbnails", () => {

@@ -13,6 +13,7 @@ import {
   MousePointerClick,
   Palette,
   Plug,
+  Puzzle,
   Server,
   ShieldCheck,
   Sparkles,
@@ -37,6 +38,7 @@ import { PermissionsSection } from "./PermissionsSection.tsx";
 import { PersonaSection } from "./PersonaSection.tsx";
 import { ServerSection } from "./ServerSection.tsx";
 import { SettingsApprovalProvider } from "./SettingsApproval.tsx";
+import { SkillsSection } from "./SkillsSection.tsx";
 import type {
   AboutInfo,
   DoctorCheck,
@@ -54,6 +56,7 @@ export type SettingsSectionId =
   | "model"
   | "persona"
   | "connectors"
+  | "skills"
   | "permissions"
   | "computer-use"
   | "browser"
@@ -76,6 +79,7 @@ export const SETTINGS_SECTIONS: readonly {
   { id: "model", label: "Model & providers", icon: Bot },
   { id: "persona", label: "Persona", icon: Sparkles },
   { id: "connectors", label: "Connectors", icon: Plug },
+  { id: "skills", label: "Skills", icon: Puzzle },
   { id: "permissions", label: "Permissions", icon: ShieldCheck },
   { id: "computer-use", label: "Computer use", icon: MousePointerClick },
   { id: "browser", label: "Browser", icon: Globe },
@@ -104,6 +108,8 @@ export interface SettingsShellProps {
   onReconnect?: (connector: Connector) => void;
   onDisconnect?: (connector: Connector) => void;
   onRemove?: (connector: Connector) => void;
+  /** Desktop: a native folder chooser for Settings → Skills "Install a skill". */
+  onPickSkillFolder?: () => Promise<string | null>;
   tcc?: Partial<Record<TccPermission, TccState>>;
   onOpenSystemSettings?: (permission: TccPermission) => void;
   vmMode?: boolean;
@@ -177,6 +183,8 @@ export function SettingsSectionView({
           {...opt("onRemove", s.onRemove)}
         />
       );
+    case "skills":
+      return <SkillsSection {...opt("now", s.now)} {...opt("onPickFolder", s.onPickSkillFolder)} />;
     case "permissions":
       return <PermissionsSection {...opt("now", s.now)} />;
     case "computer-use":

@@ -20,12 +20,15 @@ import {
   type SkillSource,
   type SkillSummary,
   type SkillTrust,
+  type SkillUpdateCheck,
 } from "@psyche/protocol";
-import { skillInstallBinding, skillInstallGrantKey } from "./binding.ts";
+import { skillInstallBinding } from "./binding.ts";
 import { unifiedDiff } from "./diff.ts";
 import { NAME_PATTERN, type ParsedSkill, parseSkill } from "./frontmatter.ts";
 import { defaultGateContext, evaluateGates, type GateContext } from "./gating.ts";
 import { LOCK_FILE, type LockEntry, type LockFile, lockKey, readLock, writeLock } from "./lock.ts";
+import { manifestOf, manifestsDiffer, type SkillManifest } from "./manifest.ts";
+import { policyViolations, type SkillInstallPolicy } from "./policy.ts";
 import {
   buildPromptIndex,
   extractSkillReferences,
@@ -75,6 +78,10 @@ export interface SkillDetails extends SkillSummary {
   overrides: SkillSource[];
   version?: string;
   commit?: string;
+  /** What the skill declares it needs (absent when its frontmatter could not be read). */
+  manifest?: SkillManifest;
+  /** The last update check for an installed skill (`checkUpdates`). */
+  update?: SkillUpdateCheck;
 }
 
 export interface SkillProposal extends SkillInstallProposal {
@@ -88,6 +95,7 @@ export interface SkillProposal extends SkillInstallProposal {
   update?: { fromHash: string; upToDate: boolean; diff: string };
   /** Epoch ms. */
   expiresAt: number;
+  manifest: SkillManifest;
 }
 
 export type SkillChangeEvent =
@@ -106,6 +114,11 @@ export interface FsSkillLoaderOptions {
   state?: SkillStateStore;
   /** Verifies `skill_install` approvals and records receipts. Without it, installs are refused. */
   broker?: PermissionBroker;
+  /**
+   * What a skill's manifest may ask for (or a function returning the owner's current policy).
+   * Default: `SKILL_FORBIDDEN_PERMISSIONS` and `SKILL_FORBIDDEN_TOOLS` only.
+   */
+  installPolicy?: SkillInstallPolicy | (() => SkillInstallPolicy);
   /** Gating context (or a function returning the current one, e.g. with the live tool list). */
   gate?: GateContext | (() => GateContext);
   virusTotal?: VirusTotalClient;
@@ -149,6 +162,7 @@ export class FsSkillLoader implements SkillLoader {
   #busy = false;
   #debounceMs = 150;
   #reported = new Set<string>();
+  #updates = new Map<string, SkillUpdateCheck>();
   #now: () => number;
   #newId: () => string;
 
@@ -168,6 +182,12 @@ export class FsSkillLoader implements SkillLoader {
     if (source === "workspace") return this.#o.workspaceDir;
     if (source === "home") return this.#o.homeDir;
     return this.#o.bundledDir;
+  }
+
+  #policy(): SkillInstallPolicy {
+    const p = this.#o.installPolicy;
+    if (p === undefined) return {};
+    return typeof p === "function" ? p() : p;
   }
 
   #gate(): GateContext {
@@ -282,6 +302,12 @@ export class FsSkillLoader implements SkillLoader {
     details.userInvocable = m.userInvocable;
     details.disableModelInvocation = m.disableModelInvocation;
     if (m.version !== undefined) details.version = m.version;
+    const manifest = manifestOf(m, tree);
+    if (!manifest.ok) {
+      details.reasons.push(...manifest.errors);
+      return entry;
+    }
+    details.manifest = manifest.manifest;
 
     // Trust: bundled ships with Psyche; everything else needs a matching lock entry.
     if (source !== "bundled") {
@@ -308,6 +334,9 @@ export class FsSkillLoader implements SkillLoader {
       }
       details.findings = scanSkillTree(tree, folder);
     }
+    // The owner may have tightened the policy since the install: such a skill stops loading.
+    const violations =
+      source === "bundled" ? [] : policyViolations(manifest.manifest, this.#policy());
 
     const st = this.#state.get(source, folder);
     details.userEnabled = st?.enabled ?? true;
@@ -315,6 +344,9 @@ export class FsSkillLoader implements SkillLoader {
     if (hasBlockingFindings(details.findings) || (entry.lock?.findings.high ?? 0) > 0) {
       details.status = "blocked";
       details.reasons.push("the static scan has high-severity findings");
+    } else if (violations.length > 0) {
+      details.status = "blocked";
+      details.reasons.push(...violations);
     } else if (!details.userEnabled) {
       details.status = "disabled";
       details.reasons.push("disabled by the owner");
@@ -350,7 +382,12 @@ export class FsSkillLoader implements SkillLoader {
 
   async listDetailed(): Promise<SkillDetails[]> {
     this.#fresh();
-    return this.#entries.map((e) => structuredClone(e.details));
+    return this.#entries.map((e) => {
+      const d = structuredClone(e.details);
+      const u = d.source === "home" ? this.#updates.get(d.name) : undefined;
+      if (u !== undefined && u.installedHash === d.hash) d.update = structuredClone(u);
+      return d;
+    });
   }
 
   /** The winning skill of `name` with its body, or `undefined` (never drafts or invalid ones). */
@@ -503,6 +540,23 @@ export class FsSkillLoader implements SkillLoader {
       );
     }
     const name = parsed.skill.meta.name;
+    const declared = manifestOf(parsed.skill.meta, tree);
+    if (!declared.ok) {
+      throw new PsycheError(
+        "invalid_params",
+        `invalid skill manifest: ${declared.errors.join("; ")}`,
+      );
+    }
+    const manifest = declared.manifest;
+    const violations = policyViolations(manifest, this.#policy());
+    if (violations.length > 0) {
+      // Refused before any card exists: the owner is never asked to approve what policy forbids.
+      throw new PsycheError(
+        "policy_denied",
+        `skill ${name} asks for more than the policy allows: ${violations.join("; ")}`,
+        { details: { name, violations, manifest } },
+      );
+    }
     if (scope === "workspace" && source.kind === "path" && !source.path.endsWith(`/${name}`)) {
       throw new PsycheError("invalid_params", `skill name ${name} must equal its folder name`);
     }
@@ -571,11 +625,18 @@ export class FsSkillLoader implements SkillLoader {
       approvalKind: "skill_install",
       files,
       scope,
-      bindingHash: skillInstallBinding({ name, scope, source, treeHash: hash }),
-      grantKey: skillInstallGrantKey(name),
+      ...skillInstallBinding({
+        name,
+        scope,
+        source,
+        ...(commit === undefined ? {} : { commit }),
+        treeHash: hash,
+        ...manifest,
+      }),
       ...(commit === undefined ? {} : { commit }),
       ...(update === undefined ? {} : { update }),
       expiresAt: this.#now() + (this.#o.proposalTtlMs ?? TTL_MS),
+      manifest,
     };
     this.#proposals.set(id, { proposal, tree });
     return structuredClone(proposal);
@@ -597,6 +658,15 @@ export class FsSkillLoader implements SkillLoader {
     const broker = this.#o.broker;
     if (broker === undefined)
       throw new PsycheError("approval_required", "installing a skill needs the Permission Broker");
+    const violations = policyViolations(p.manifest, this.#policy());
+    if (violations.length > 0) {
+      this.#proposals.delete(proposalId);
+      throw new PsycheError(
+        "policy_denied",
+        `skill ${p.name} asks for more than the policy allows: ${violations.join("; ")}`,
+        { details: { name: p.name, violations, manifest: p.manifest } },
+      );
+    }
     const approval = await broker.get(approvalId);
     if (approval === undefined || approval.kind !== "skill_install")
       throw new PsycheError(
@@ -670,6 +740,7 @@ export class FsSkillLoader implements SkillLoader {
       approvalId,
       approvedAt,
       findings: counts,
+      manifest: p.manifest,
     };
     writeLock(this.lockPath, lock);
     this.#state.upsert({
@@ -725,6 +796,59 @@ export class FsSkillLoader implements SkillLoader {
     });
     this.refresh();
     this.#o.onChange?.({ type: "removed", name, source });
+  }
+
+  /**
+   * Update detection: re-fetches each installed skill from its pinned source (a git ref is
+   * resolved again, a folder or zip is re-read) and compares the tree hash and the manifest with
+   * what the owner approved. Nothing is written; an update still needs `proposeUpdate` and a new
+   * `skill_install` approval. A failed fetch is reported per skill, never thrown.
+   */
+  async checkUpdates(name?: string): Promise<SkillUpdateCheck[]> {
+    this.refresh();
+    const lock = this.#readLock();
+    const out: SkillUpdateCheck[] = [];
+    for (const lk of Object.values(lock.skills)) {
+      if (lk.scope !== "home" || lk.origin.kind === "workspace") continue;
+      if (name !== undefined && lk.name !== name) continue;
+      const installed = this.#entries.find(
+        (e) => e.details.name === lk.name && e.details.source === "home",
+      );
+      const checkedAt = this.#now();
+      let result: SkillUpdateCheck;
+      try {
+        const fetched = await fetchSource(lk.origin, this.#o.sourceOptions);
+        const availableHash = treeHash(fetched.tree);
+        const md = fetched.tree.get("SKILL.md");
+        const text = md === undefined ? undefined : textOf(md);
+        const parsed = text === undefined ? undefined : parseSkill(text);
+        const next = parsed?.ok === true ? manifestOf(parsed.skill.meta, fetched.tree) : undefined;
+        result = {
+          name: lk.name,
+          installedHash: lk.treeHash,
+          availableHash,
+          ...(fetched.commit === undefined ? {} : { commit: fetched.commit }),
+          updateAvailable: availableHash !== lk.treeHash,
+          manifestChanged: manifestsDiffer(
+            installed?.details.manifest,
+            next?.ok === true ? next.manifest : undefined,
+          ),
+          checkedAt,
+        };
+      } catch (err) {
+        result = {
+          name: lk.name,
+          installedHash: lk.treeHash,
+          updateAvailable: false,
+          manifestChanged: false,
+          error: (err as Error).message.slice(0, 500),
+          checkedAt,
+        };
+      }
+      this.#updates.set(lk.name, result);
+      out.push(structuredClone(result));
+    }
+    return out.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   }
 
   /** Staged proposal by id (for the approval card). */

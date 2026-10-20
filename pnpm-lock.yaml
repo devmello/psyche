@@ -349,6 +349,9 @@ importers:
       '@psyche/scheduler':
         specifier: workspace:*
         version: link:../../packages/scheduler
+      '@psyche/skills':
+        specifier: workspace:*
+        version: link:../../packages/skills
       '@psyche/speech':
         specifier: workspace:*
         version: link:../../packages/speech
@@ -851,6 +854,9 @@ importers:
 
   packages/skills:
     dependencies:
+      '@psyche/permissions':
+        specifier: workspace:*
+        version: link:../permissions
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -1271,6 +1277,9 @@ importers:
       '@psyche/gateway':
         specifier: workspace:*
         version: link:../../apps/gateway
+      '@psyche/mcp-host':
+        specifier: workspace:*
+        version: link:../../packages/mcp-host
       '@psyche/memory':
         specifier: workspace:*
         version: link:../../packages/memory

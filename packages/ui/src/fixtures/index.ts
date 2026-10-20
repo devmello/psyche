@@ -22,6 +22,7 @@ import type {
   Receipt,
   Run,
   SearchHit,
+  SkillDetails,
   Task,
   TaskAction,
   ThreadListEntry,
@@ -44,6 +45,7 @@ import {
   type UsageSummary,
   usage,
 } from "./settings.ts";
+import { type MockSkillSource, skillSources, skills } from "./skills.ts";
 import { artifacts, inputRequests, library, receipts, taskActions, tasks } from "./tasks.ts";
 
 /**
@@ -94,6 +96,10 @@ export interface FixtureWorld {
   memoryClaims: MemoryClaim[];
   /** Unified search hits for the query "dentist", grouped by scope. */
   searchHits: SearchHit[];
+  /** Settings → Skills (T2). */
+  skills: SkillDetails[];
+  /** What reviewing a folder finds: a proposal to stage, or policy violations. */
+  skillSources: Record<string, MockSkillSource>;
   usage: UsageSummary;
   /** `models.*` (B1, B4); stories and tests seed them from the settings sample data. */
   modelProviders?: ModelProviderSummary[];
@@ -136,7 +142,17 @@ export function createFixtureWorld(): FixtureWorld {
     memoryFileInfos: memoryFileInfos(),
     memoryClaims: memoryClaims(),
     searchHits: searchHits(),
+    skills: skills(),
+    skillSources: skillSources(),
     usage: usage(),
   });
 }
 export { FILE_ROOTS, fileRootGrants, fileTree, type MockFileNode } from "./files.ts";
+export {
+  GREEDY_SKILL_FOLDER,
+  type MockSkillSource,
+  SKILL_FOLDER,
+  skillSources,
+  skills,
+  stagedSkillProposal,
+} from "./skills.ts";

@@ -104,6 +104,7 @@ import {
   type ComposeServices,
   createOwnPorts,
 } from "./services.ts";
+import { composeSkills } from "./skills.ts";
 import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
 import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
@@ -510,8 +511,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   };
+  const skills = composeSkills();
   const partFactories = [
     composeComputer,
+    skills.part,
     composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
     composeDictation(),
     composePayments(paymentsSetupFromEnv(gwOptions.env)),
@@ -583,6 +586,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     clock,
     ...(timeZone === undefined ? {} : { timeZone }),
     approvalSurfaces: ["desktop", "web"],
+    skills: skills.loader,
     ...(compaction === undefined ? {} : { compaction }),
     // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
     isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
@@ -753,11 +757,13 @@ export {
   turnText,
 } from "./channels.ts";
 export { composeCoding, hostGit } from "./coding.ts";
+export { type ComputerDeps, type ComputerUse, createComputerUse } from "./computer.ts";
 export {
   type ConnectorsSetup,
   composeConnectors,
   MemoryTokenVault,
 } from "./connectors.ts";
+export { type ExecToolDeps, execTool } from "./exec-tool.ts";
 export {
   composeHelper,
   HELPER_SURFACE,
@@ -777,6 +783,7 @@ export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { partsFromEnv } from "./parts.ts";
 export { composePasskeys, PasskeyService, webauthnChallengeFor } from "./passkeys.ts";
 export { type ComposedProactive, composeProactive, type ProactiveSetup } from "./proactive.ts";
+export { protectedRoots } from "./protected-paths.ts";
 export {
   createRealChromeMode,
   type RealChromeMode,
