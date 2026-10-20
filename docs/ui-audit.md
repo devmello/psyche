@@ -127,3 +127,5 @@ This pass covers screens added after the polish wave: Credentials, the Files pan
 8. **Skills trust card.** The content hash and commit are at level 1, and tool names appear on row line 3. Both belong in a Details disclosure, with a count on the row.
 9. **Voice hotkey.** The field is free text, and a conflicting shortcut is shown only as muted description text. Options: a shortcut recorder, and an approval-tone hint for the conflict.
 10. **Credential detail.** Approval ids appear in the uses table. That's acceptable at level 2, but they could read "Approved" with the id in a tooltip.
+
+**Decision 3 (model names):** done. Models show the label the endpoint or adapter reports (`modelLabel`, falling back to the ref), with the ref muted at level 2. A failed `models.list` is an inline error over the providers saved in settings. The chat-only confirm is a kit `AlertDialog`.

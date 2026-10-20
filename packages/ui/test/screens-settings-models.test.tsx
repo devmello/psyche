@@ -66,6 +66,44 @@ describe("Model & providers over models.*", () => {
     expect(options).not.toContain("lmstudio/text-embedding-nomic-embed-text-v1.5");
   });
 
+  it("names models by their label, with the ref at level 2 (audit decision 3)", async () => {
+    const gateway = setup();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Check the LM Studio endpoint" }),
+    );
+    const models = await screen.findByRole("list", { name: "LM Studio models" });
+    expect(await within(models).findByText("Qwen3.8 27B")).toBeTruthy();
+    expect(within(models).getByText("lmstudio/qwen/qwen3.8-27b").className).toContain(
+      "text-muted-foreground",
+    );
+    expect(
+      within(screen.getByLabelText(/^Primary/)).getByRole("option", { name: /^Qwen3\.8 27B/ }),
+    ).toBeTruthy();
+    expect(gateway()).toBeTruthy();
+  });
+
+  it("shows a failed models.list inline and keeps the saved providers", async () => {
+    let gw: MockGateway | null = null;
+    render(
+      <StoryWorld
+        edit={(w) => Object.assign(w.settings, sampleSettings())}
+        onGateway={(g) => {
+          gw = g;
+          g.failNext("models.list", "unavailable", "the router is restarting");
+        }}
+      >
+        <SettingsScreen now={Date.parse(FIXTURE_NOW)} defaultSection="model" />
+      </StoryWorld>,
+    );
+    expect(
+      await screen.findByText(/Psyche couldn't list the models \(the router is restarting\)/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Showing the providers saved in settings.", { exact: false }),
+    ).toBeTruthy();
+    expect(gw).not.toBeNull();
+  });
+
   it("reports an endpoint nothing answers at", async () => {
     setup();
     await userEvent.click(
@@ -101,6 +139,7 @@ describe("Model & providers over models.*", () => {
     await waitFor(() => expect(primary.value).toBe("anthropic/claude-sonnet-5-5"));
     await userEvent.selectOptions(primary, "llamacpp/tiny-chat");
     const alert = await screen.findByText(/failed the tool-calling check/);
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
     expect(alert.textContent).toContain("llamacpp/tiny-chat");
     await userEvent.click(screen.getByRole("button", { name: "Use anyway" }));
     await waitFor(() =>
