@@ -123,6 +123,12 @@ Tool names are mapped per provider family (`toolNameRuleFor`): Anthropic accepts
 
 Anthropic specifics:
 
+- **Thinking replay (#306).** A signed thinking block is bound to the prefix it was produced under: the system prompt plus the tools.
+  - Each thinking envelope carries a fingerprint of that prefix (`thinkingPrefix`).
+  - On replay, a completed turn's block is dropped when the fingerprint no longer matches, for example after a tool is withheld in plan mode or an unattended run, or after the system prompt changes.
+  - With thinking off, no earlier thinking is sent at all.
+  - The tool loop in flight keeps its block, as do envelopes stored before the fingerprint existed. For those, requests that replay thinking carry `thinking.block_binding.prefix_mismatch_behavior: "drop_block"` (beta `thinking-binding-controls-2026-08-01`), so the API drops what it still rejects. Turn this off with `thinkingBlockBinding: false`.
+
 - Adaptive thinking is on by default for Claude 4.6+ and 5.x.
 - `providerTools: { memory: true, computer: true }` replaces tool specs named `memory` / `computer` with `memory_20250818` / `computer_toolset_20260801`.
 
