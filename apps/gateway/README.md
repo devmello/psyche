@@ -21,6 +21,8 @@ Precedence: overrides passed to `startGateway` → environment → `$PSYCHE_HOME
 | --- | --- | --- | --- |
 | — | `PSYCHE_HOME` | `~/.psyche` | Created 0700 with `state/`, `run/`, `logs/` |
 | `gateway.host` | `PSYCHE_HOST` | `127.0.0.1` | Non-loopback refused (security §10) |
+| — | `PSYCHE_BIND` | `loopback` | `container` listens on the container interface (`src/transport-gate.ts`): trusted proxies need a verified identity (Cloudflare Access assertion, or Tailscale headers from `trustedProxy.tailscaleProxies`), every other peer the token. Pairing still applies |
+| — | `PSYCHE_GATEWAY_TOKEN_FILE` | — | Required with `PSYCHE_BIND=container`: ≥ 32 characters, mode 0600/0400, owned by the Gateway's user, else startup fails. Presented as `Authorization: Bearer` |
 | `gateway.port` | `PSYCHE_PORT` | `7979` | `0` = ephemeral |
 | — | `PSYCHE_DB` | `state/psyche.sqlite` | `:memory:` in tests |
 | — | `PSYCHE_NODE_SOCKET` | `run/node.sock` | macOS limits socket paths to 104 bytes |

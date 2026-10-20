@@ -17,7 +17,7 @@ import {
   PsycheError,
 } from "@psyche/protocol";
 import { type WebSocket, WebSocketServer } from "ws";
-import { CloudflareAccessVerifier, cfAccessHeader } from "./cf-access.ts";
+import { CloudflareAccessVerifier } from "./cf-access.ts";
 import { type GatewayConfig, resolveConfig } from "./config.ts";
 import { Connection } from "./connection.ts";
 import {
@@ -46,6 +46,7 @@ import { type RecoveryReport, recoverAfterRestart } from "./recovery.ts";
 import { RETENTION_INTERVAL_MS, runRetention } from "./retention.ts";
 import { SessionController } from "./session/controller.ts";
 import { readStateVersion, writeStateVersion } from "./state-version.ts";
+import { TransportGate } from "./transport-gate.ts";
 import { NdjsonDecoder } from "./transports/ndjson.ts";
 
 export const GATEWAY_VERSION = "0.1.0";
@@ -119,6 +120,13 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     config.cloudflareAccess === null
       ? null
       : new CloudflareAccessVerifier(config.cloudflareAccess, options.cloudflareAccessFetch ?? {});
+  const transportGate = new TransportGate({
+    mode: config.bind,
+    token: config.gatewayToken,
+    trustedProxies: proxies,
+    tailscaleProxies: trustedProxyList(config.trustedProxy.tailscaleProxies ?? []),
+    cfAccess,
+  });
   const log = options.logger ?? createLogger();
   const now = options.now ?? (() => new Date());
   const limits: GatewayLimits = { ...DEFAULT_LIMITS, ...options.limits };
@@ -169,9 +177,26 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     log.log("warn", "approval reissue failed", { code: PsycheError.from(err).code });
   }
 
-  const http: Server = createServer((req, res) =>
-    handleHttp(req, res, { webRoot: config.webRoot, version: GATEWAY_VERSION }),
-  );
+  const http: Server = createServer((req, res) => {
+    const serve = () => handleHttp(req, res, { webRoot: config.webRoot, version: GATEWAY_VERSION });
+    // The container bind gates every route but the bare health check (Compose healthcheck).
+    const path = new URL(req.url ?? "/", "http://gateway.invalid").pathname;
+    if (transportGate.mode !== "container" || path === "/healthz") return serve();
+    const resolved = resolvePeer(
+      req.socket.remoteAddress,
+      req.headers,
+      config.trustedProxy,
+      proxies,
+    );
+    void transportGate.admit(req, resolved).then((admission) => {
+      if ("refused" in admission) {
+        res.writeHead(401, { "content-type": "application/json", "cache-control": "no-store" });
+        res.end(JSON.stringify({ ok: false, error: "unauthorized" }));
+        return;
+      }
+      serve();
+    });
+  });
   const wss = new WebSocketServer({ noServer: true, maxPayload: 1_048_576 });
 
   http.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => {
@@ -196,27 +221,16 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       config.trustedProxy,
       proxies,
     );
-    // Cloudflare Access: a forwarded or remote upgrade must carry a verified assertion (§10).
-    const needsAccess = cfAccess !== null && (resolved.forwarded || !resolved.remoteLoopback);
-    const gate = needsAccess
-      ? cfAccess.verify(cfAccessHeader(req.headers)).then(
-          (v) => ({ ...resolved, claimedIdentity: `Cloudflare Access ${v.email ?? v.subject}` }),
-          (err: unknown) => {
-            log.log("warn", "websocket upgrade rejected", {
-              reason: "cloudflare_access",
-              code: PsycheError.from(err).code,
-            });
-            return null;
-          },
-        )
-      : Promise.resolve(resolved);
-    void gate.then((peer) => {
-      if (peer === null) {
+    // Transport gate (§10): Cloudflare Access and, with PSYCHE_BIND=container, the token or a
+    // verified proxy identity. Pairing still applies after it.
+    void transportGate.admit(req, resolved).then((admission) => {
+      if ("refused" in admission) {
+        log.log("warn", "websocket upgrade rejected", { reason: admission.refused });
         socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
         socket.destroy();
         return;
       }
-      acceptUpgrade(req, socket, head, requestOrigin, peer);
+      acceptUpgrade(req, socket, head, requestOrigin, admission.peer);
     });
   });
 
