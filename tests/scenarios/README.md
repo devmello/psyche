@@ -22,6 +22,10 @@ v2-calendar-planning/
   scenario.json
   fixtures/calendar.json  recurring masters + expanded instances, DST-correct offsets
   fixtures/preferences.json
+v3-shopping/              (Milestone 2, S09: up to the checkout hand-off; no payment)
+  scenario.json
+  fixtures/sites/manifest.json   two storefronts + the owner's merchant allowlist (`merchants`)
+  fixtures/sites/pages/*.html    search results and a cart; pages with `elements` are storefronts
 v7-research-brief/
   scenario.json
   fixtures/sites/manifest.json   URL -> page, status, kind (credible, spam, injection, ...)

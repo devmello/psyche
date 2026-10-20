@@ -3,6 +3,15 @@ export type { CliDriver, CliOptions, CliProcess, CliResult, CliStream } from "./
 export { nodeCliDriver } from "./cli.ts";
 export * from "./detect.ts";
 export {
+  DEFAULT_DEV_SERVER_MAX_CONNECTIONS,
+  DEFAULT_DEV_SERVER_POLL_MS,
+  DEFAULT_DEV_SERVER_PROBE_DELAYS_MS,
+  type DevServerEvent,
+  type DevServerOptions,
+  type DevServerStopReason,
+  type SandboxDevServer,
+} from "./devservers.ts";
+export {
   type WorkspaceEntry,
   type WorkspaceEntryKind,
   WorkspaceFiles,

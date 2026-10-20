@@ -16,15 +16,17 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@psyche/agent-core": "workspace:*",
     "@psyche/protocol": "workspace:*",
+    "@sinclair/typebox": "0.34.52",
     "ulid": "3.0.2"
   },
   "devDependencies": {
     "@psyche/db": "workspace:*",
+    "@psyche/permissions": "workspace:*",
     "@psyche/scheduler": "workspace:*",
     "@psyche/tasks": "workspace:*",
     "@psyche/testing": "workspace:*",
-    "@sinclair/typebox": "0.34.52",
     "@types/better-sqlite3": "9.6.0",
     "better-sqlite3": "13.0.3"
   }

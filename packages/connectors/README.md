@@ -74,11 +74,23 @@ Credentials: the token or app password is a vault item bound to `{ connector: <c
 
 Raw messages (IMAP `BODY[]`, JMAP blobs) are parsed by `src/mail/rfc822.ts` into Gmail's part shape and then by the same bounded `parsePayload`: RFC 2047 header words, RFC 2231 parameters, base64 and quoted-printable transfer encodings, nested multiparts (depth and part-count limits reported as warnings), attachments by part id; HTML bodies go through the hidden-text-dropping converter. Tests run against `FakeMailStore` + `FakeJmapServer`, `FakeImapServer` and `FakeSmtpServer` from `@psyche/testing` (in-memory sockets, no network), with the secrets registered in the leak checker and the servers' command logs checked for them.
 
+## Shopping helpers (M10)
+
+`src/shopping/` (`shoppingFactory({ browser })`, catalogue id `shopping`) drives the `BrowserDriver` contract over an owner allowlist of stores: `config: { merchants: [{ id, name, origin: "https://…", searchPath: "/search?q={q}", cartPath?: "/cart" }] }` (bare https origins only, at most 20). Tools, named by merchant id or exact origin:
+
+- `shop_list_merchants` (`none`), `shop_search` and `shop_compare` (`read`; offers ranked by price across stores, one clean browser session per store), `shop_view_cart` (`read`).
+- `shop_add_to_cart` (`write`, `connector_action` bound to the connector, merchant and arguments): finds the named offer, clicks its own `Add to cart` control, returns the cart.
+- `shop_checkout_handoff` (`financial`, `purchase` binding per security §3.5: merchant host, amount in minor units, currency, line-item hash, payment source `none`; no grant key, so `once` only and device-only): the card shows seller, items and total; the executor re-reads the live cart and refuses with `conflict` when it differs from what was approved. It never clicks checkout, never fills payment details and never places an order: payment is Stripe Link (G12, later). The receipt says nothing was paid.
+- `shop_parse_order_email` (`none`): schema.org `Order` from JSON-LD (order number, status, merchant, items, total, tracking), with a text fallback, for order tracking.
+
+Parsing (`src/shopping/parse.ts`) reads snapshot text and refs only: one price per line is an offer (shipping and threshold lines are skipped), `Add to cart` buttons pair with offers in page order, a cart is `Seller:`, item rows with a quantity and price, and `Total:`. Page text is untrusted; all outputs are `untrusted`. Tests: `test/shopping/` (11) and scenario V3 (`tests/scenarios/v3-shopping`), where the scripted runner drives the real connector over fixture storefronts.
+
 ## Stubbed / not yet
 
 - Persistence: `ConnectorStore` is in memory. The `connectors` table needs a migration plus `schema.ts` from S01 (docs/status/s09.md).
 - Token storage: `TokenVault` is injected and needs the S06 vault write API.
 - `connectors.*` beyond `list` / `get` are not in packages/protocol yet. `CONNECTOR_METHODS` is the proposal for a `protocol:` PR.
+- Shopping: no payment (G12), no login to store accounts, no quantity other than one per add, no order-email polling (the tool parses an email the agent read).
 - Mail: threads for JMAP (messages carry `threadId`, there is no thread tool yet); attachments on outgoing mail; the Gateway does not compose `jmapFactory` / `imapFactory` yet (INT). IMAP: no STARTTLS, no modified-UTF-7 mailbox names, no `STATUS` counts, no OAuth (XOAUTH2) for Gmail / Outlook over IMAP (use the Google connector).
 - Drive upload takes text content only. Uploading Library items needs a Library reader (S13).
 - Gmail attachments on outgoing mail (the builder supports them; no tool exposes them yet), Microsoft Graph (M6), IMAP / JMAP (M7), shopping helpers (M10).
