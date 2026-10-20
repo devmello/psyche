@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   type ApprovalKind,
+  type AuditLog,
   type BrowserDriver,
   type PermissionBroker,
   PsycheError,
@@ -40,6 +41,16 @@ import { FakeCredentialBroker } from "../fakes/FakeCredentialBroker.ts";
 import type { FakeNotifier } from "../fakes/FakeNotifier.ts";
 import { fixtureSecret } from "../secret-registry.ts";
 import { type CheckoutField, FixtureCheckout, ScenarioLinkWallet } from "./payments.ts";
+import {
+  cancelDescription,
+  type FlightsFixture,
+  FlightsWorld,
+  holdDescription,
+  money,
+  segmentLine,
+  TEST_FUNDING,
+  ticketDescription,
+} from "./travel.ts";
 import type { Json } from "./types.ts";
 import { originOf, tzOffset } from "./util.ts";
 
@@ -63,6 +74,8 @@ export interface Fixtures {
   /** `merchants`: the shopping allowlist (V3); pages with `elements` are storefronts. */
   sites?: { pages: Json[]; merchants?: Json[] };
   searchResults?: { queries: { match: string[]; results: Json[] }[]; fallback?: Json[] };
+  /** V4: fixture airlines, fares and the traveler. */
+  flights?: FlightsFixture;
 }
 
 export type ToolRun = (params: Json, ctx: ToolCtx) => Promise<ToolResult>;
@@ -111,8 +124,9 @@ export function targetOf(info: ToolInfo, args: Json): Target | undefined {
   if (info.targetKind === "recipient" && Array.isArray(args.to))
     return { kind: "recipient", value: args.to.join(",") };
   if (info.name === "search.web") return { kind: "origin", value: BRAVE_ORIGIN };
-  // Shopping tools name their store by origin (`merchant`).
-  const origin = info.targetKind === "origin" ? originOf(args.url ?? args.merchant) : undefined;
+  // Shopping tools name their store by origin (`merchant`), travel tools their airline.
+  const origin =
+    info.targetKind === "origin" ? originOf(args.url ?? args.merchant ?? args.airline) : undefined;
   return origin === undefined ? undefined : { kind: "origin", value: origin };
 }
 
@@ -211,13 +225,18 @@ export class World {
   readonly notifier: FakeNotifier;
   readonly broker: () => PermissionBroker;
 
+  readonly audit: AuditLog | undefined;
+
   constructor(
     fx: Fixtures,
     clock: FakeClock,
     notifier: FakeNotifier,
     broker: () => PermissionBroker,
+    audit?: AuditLog,
   ) {
     this.fx = fx;
+    this.audit = audit;
+    this.#flights = fx.flights === undefined ? undefined : new FlightsWorld(fx.flights);
     this.clock = clock;
     this.notifier = notifier;
     this.broker = broker;
@@ -290,6 +309,21 @@ export class World {
   }
 
   readonly #shopTools = new Map<string, ConnectorTool>();
+  readonly #flights: FlightsWorld | undefined;
+  /** V4 bookings by hold reference and by confirmation number (never card data). */
+  readonly bookings = new Map<
+    string,
+    {
+      spendRequestId: string;
+      offerId: string;
+      airlineId: string;
+      amountMinor: number;
+      currency: string;
+      flights: string[];
+      holdRef: string;
+      confirmation?: string;
+    }
+  >();
 
   /** The fixture browser with every navigation recorded as connector egress. */
   #recordingBrowser(): BrowserDriver {
@@ -312,6 +346,7 @@ export class World {
 
   /** The shopping connector's own call description (purchase / connector_action binding). */
   shopDescribe(info: ToolInfo, params: Json) {
+    if (info.name.startsWith("travel.")) return this.#travelDescribe(info, params);
     const d = this.#shopTools.get(SHOP_TOOL[info.name] ?? "")?.describeCall?.(params);
     if (d === undefined || info.name !== "shop.pay_with_link") return d;
     // Paying binds the payment source too, so a hand-off card can never authorize a payment.
@@ -663,6 +698,7 @@ export class World {
         return ok({ url, title: tab.title, text: page.text }, "untrusted");
       },
       ...this.#shopImpls(ok, taint),
+      ...this.#travelImpls(ok, taint),
       "artifacts.write": async (_i, a) => {
         const name = String(a.name);
         let art = this.artifacts.find((x) => x.name === name && x.type === a.type);
@@ -763,6 +799,8 @@ export class World {
       permissions: this.broker(),
       redactor: this.paymentRedactor,
       clock: this.clock,
+      // Every purchase transition lands in the scenario's audit chain next to the receipt.
+      ...(this.audit === undefined ? {} : { audit: this.audit }),
     });
     return this.#payments;
   }
@@ -867,6 +905,243 @@ export class World {
         "untrusted",
       ),
       receiptId: receipt.id,
+    };
+  }
+
+  /** V4: purchase cards for holding and ticketing, a destructive card for cancelling. */
+  #travelDescribe(info: ToolInfo, params: Json) {
+    const w = this.#flights;
+    if (w === undefined) return undefined;
+    switch (info.name) {
+      case "travel.hold_fare":
+        return holdDescription(w, params);
+      case "travel.ticket_hold":
+        return ticketDescription(w, params, this.bookings.get(String(params.holdRef ?? "")));
+      case "travel.cancel_booking":
+        return cancelDescription(w, params, this.bookings.get(String(params.confirmation ?? "")));
+      default:
+        return undefined;
+    }
+  }
+
+  /**
+   * V4 travel tools over the fixture airlines. Holding a fare authorizes the Stripe Link one-time
+   * card at the airline (the vault's `hold`); ticketing captures it; cancelling inside the free
+   * window refunds it. Each step is a receipt the vault's `PaymentBroker` writes.
+   */
+  #travelImpls(
+    ok: (output: unknown, provenance?: "trusted" | "untrusted") => ToolResult,
+    taint: (ctx: ToolCtx, sources: string[]) => void,
+  ): Record<string, (info: ToolInfo, a: Json, ctx: ToolCtx) => Promise<ToolResult>> {
+    const flights = () => {
+      if (this.#flights === undefined) throw new PsycheError("unavailable", "no flight fixtures");
+      return this.#flights;
+    };
+    const needApproval = (ctx: ToolCtx) => {
+      if (ctx.approvalId === undefined)
+        throw new PsycheError("approval_required", "this needs the owner's approval");
+      return ctx.approvalId;
+    };
+    return {
+      "travel.search_flights": async (_info, a, ctx) => {
+        const w = flights();
+        for (const al of w.fx.airlines) {
+          this.#net({
+            callId: ctx.callId,
+            via: "connector",
+            host: new URL(al.origin).host,
+            url: `${al.origin}/search`,
+            allowedBy: "connector:travel",
+          });
+        }
+        taint(
+          ctx,
+          w.fx.airlines.map((al) => `web:${al.origin}`),
+        );
+        return ok({ offers: w.search(a) }, "untrusted");
+      },
+      "travel.hold_fare": async (info, a, ctx) => {
+        const w = flights();
+        const approvalId = needApproval(ctx);
+        const offer = w.offer(a.offerId);
+        const airline = w.airline(a.airline);
+        if (offer === undefined || airline === undefined || offer.airline !== airline.id) {
+          throw new PsycheError("not_found", "no such fare at that airline");
+        }
+        if (
+          Number(a.totalMinor) !== offer.totalMinor ||
+          String(a.currency).toUpperCase() !== offer.currency
+        ) {
+          throw new PsycheError("conflict", "the fare changed; search again", {
+            details: { reason: "fare_changed" },
+          });
+        }
+        taint(ctx, [`web:${airline.origin}`]);
+        const lines = offer.segments.map(segmentLine);
+        const payments = this.#paymentBroker();
+        const spend = await payments.authorizeDispatched(
+          approvalId,
+          {
+            merchantName: airline.name,
+            merchantUrl: `${airline.origin}${airline.checkoutPath}`,
+            amount: offer.totalMinor,
+            currency: offer.currency.toLowerCase(),
+            lineItems: [
+              {
+                name: `${lines.join(" + ")}, ${offer.cabin}`,
+                quantity: 1,
+                unitAmount: offer.totalMinor,
+              },
+            ],
+            test: true,
+            paymentMethodId: TEST_FUNDING.id,
+          },
+          this.loopBindingHash(info, a),
+        );
+        const card = await payments.awaitCard(spend.spendRequestId);
+        const page = new FixtureCheckout(
+          `${airline.origin}${airline.checkoutPath}`,
+          `${airline.pnrPrefix}-HOLD`,
+        );
+        this.checkouts.push(page);
+        this.#net({
+          callId: ctx.callId,
+          via: "browser",
+          host: new URL(airline.origin).host,
+          url: `${airline.origin}${airline.checkoutPath}`,
+          allowedBy: `approval:${approvalId}`,
+        });
+        for (const field of ["number", "exp", "cvc"] as CheckoutField[]) {
+          page.focus(field);
+          const filled = await payments.fillCard({
+            cdp: page,
+            spendRequestId: spend.spendRequestId,
+            field,
+          });
+          if (!filled.ok) {
+            await payments.decline(spend.spendRequestId, { code: filled.reason ?? "fill_failed" });
+            throw new PsycheError("unavailable", "card fill failed", {
+              details: { reason: filled.reason ?? "fill_failed" },
+            });
+          }
+        }
+        const holdRef = page.submit();
+        if (holdRef === null) {
+          await payments.decline(spend.spendRequestId, {
+            code: "card_declined",
+            toolCallId: ctx.callId,
+          });
+          throw new PsycheError("unavailable", "the airline declined the card", {
+            details: { reason: "payment_declined" },
+          });
+        }
+        const expiresAt = new Date(this.clock.now() + airline.holdHours * 3_600_000).toISOString();
+        const receipt = await payments.hold(spend.spendRequestId, {
+          holdRef,
+          expiresAt,
+          toolCallId: ctx.callId,
+          payload: { evaluator: { verdict: "verified" } },
+        });
+        this.bookings.set(holdRef, {
+          spendRequestId: spend.spendRequestId,
+          offerId: offer.offerId,
+          airlineId: airline.id,
+          amountMinor: offer.totalMinor,
+          currency: offer.currency,
+          flights: lines,
+          holdRef,
+        });
+        return {
+          ...ok(
+            {
+              status: "held",
+              holdRef,
+              holdExpiresAt: expiresAt,
+              airline: airline.name,
+              flights: lines,
+              traveler: a.traveler,
+              cabin: offer.cabin,
+              fareClass: offer.fareClass,
+              total: money(offer.totalMinor, offer.currency),
+              charged: false,
+              paidWith: {
+                method: "stripe_link",
+                brand: card.card?.brand,
+                last4: card.card?.last4,
+                fundedBy: TEST_FUNDING.last4,
+              },
+              linkSpendRequestId: spend.spendRequestId,
+              testMode: true,
+            },
+            "untrusted",
+          ),
+          receiptId: receipt.id,
+        };
+      },
+      "travel.ticket_hold": async (_info, a, ctx) => {
+        const w = flights();
+        needApproval(ctx);
+        const booking = this.bookings.get(String(a.holdRef ?? ""));
+        const airline = w.airline(a.airline);
+        if (booking === undefined || airline === undefined || booking.airlineId !== airline.id) {
+          throw new PsycheError("not_found", "no such hold at that airline");
+        }
+        const confirmation = `${airline.pnrPrefix}${String(7_300 + this.bookings.size).padStart(4, "0")}`;
+        const receipt = await this.#paymentBroker().capture(booking.spendRequestId, {
+          approvalId: ctx.approvalId,
+          orderNumber: confirmation,
+          merchantConfirmation: `e-ticket ${airline.pnrPrefix}-${confirmation}`,
+          toolCallId: ctx.callId,
+          payload: { evaluator: { verdict: "verified" } },
+        });
+        booking.confirmation = confirmation;
+        this.bookings.set(confirmation, booking);
+        return {
+          ...ok(
+            {
+              status: "ticketed",
+              confirmation,
+              airline: airline.name,
+              flights: booking.flights,
+              charged: money(booking.amountMinor, booking.currency),
+              freeCancelUntil: new Date(
+                this.clock.now() + airline.freeCancelHours * 3_600_000,
+              ).toISOString(),
+            },
+            "untrusted",
+          ),
+          receiptId: receipt.id,
+        };
+      },
+      "travel.cancel_booking": async (_info, a, ctx) => {
+        const w = flights();
+        needApproval(ctx);
+        const booking = this.bookings.get(String(a.confirmation ?? ""));
+        const airline = w.airline(a.airline);
+        if (booking === undefined || airline === undefined || booking.airlineId !== airline.id) {
+          throw new PsycheError("not_found", "no such booking at that airline");
+        }
+        const refundRef = `${airline.pnrPrefix}-RF-${String(a.confirmation)}`;
+        const receipt = await this.#paymentBroker().refund(booking.spendRequestId, {
+          approvalId: ctx.approvalId,
+          refundRef,
+          reason: "cancelled within the free window",
+          toolCallId: ctx.callId,
+          payload: { evaluator: { verdict: "verified" } },
+        });
+        return {
+          ...ok(
+            {
+              status: "cancelled",
+              confirmation: a.confirmation,
+              refunded: money(booking.amountMinor, booking.currency),
+              refundRef,
+            },
+            "untrusted",
+          ),
+          receiptId: receipt.id,
+        };
+      },
     };
   }
 
