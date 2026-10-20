@@ -1,5 +1,5 @@
 import type { CredentialBinding, CredentialKind } from "@psyche/protocol";
-import { canonicalOrigin } from "./binding.ts";
+import { canonicalOrigin, isFillableOrigin } from "./binding.ts";
 import { type RefusalCategory, refusedFieldName, scanText } from "./refusals.ts";
 import type { ItemSecret } from "./store.ts";
 import { parseTotpSeed } from "./totp.ts";
@@ -79,6 +79,10 @@ function bindingsFrom(uris: string, warnings: string[]): CredentialBinding[] {
     const origin = canonicalOrigin(withScheme);
     if (origin === null) {
       warnings.push("skipped a non-web URI");
+      continue;
+    }
+    if (!isFillableOrigin(origin)) {
+      warnings.push("skipped a plain-http URI (credentials fill over https only)");
       continue;
     }
     if (!out.some((b) => "origin" in b && b.origin === origin)) out.push({ origin });

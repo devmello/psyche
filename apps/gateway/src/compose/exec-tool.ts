@@ -64,6 +64,7 @@ async function secretEnv(
   deps: ExecToolDeps,
   ctx: ToolRunContext,
   secrets: [string, string][],
+  timeoutMs: number,
 ): Promise<SecretEnv | undefined> {
   if (secrets.length === 0) return undefined;
   const entries = [];
@@ -112,6 +113,8 @@ async function secretEnv(
     entries,
     target: target as Target,
     ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
+    // #290: the values live for this one command; the vault wipes them after its timeout.
+    lease: { timeoutMs },
   });
 }
 
@@ -160,7 +163,7 @@ export function execTool(deps: ExecToolDeps): AgentToolRegistration {
       const scope = sandboxScope(ctx);
       const runner = deps.runnerFor?.(ctx) ?? deps.runner;
       const sandbox = await runner.ensureSandbox(scope);
-      const filled = await secretEnv(deps, ctx, secrets);
+      const filled = await secretEnv(deps, ctx, secrets, p.timeoutMs ?? EXEC_DEFAULT_TIMEOUT_MS);
       let result: Awaited<ReturnType<SandboxRunner["exec"]>>;
       const release = deps.track?.(scope, {
         threadId: ctx.threadId,
