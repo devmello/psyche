@@ -395,7 +395,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
 
   const vault = composeVault(
-    { home: config.home, db, permissions: executorBroker, audit, clock, publish, redactor },
+    {
+      home: config.home,
+      db,
+      permissions: executorBroker,
+      audit,
+      clock,
+      publish,
+      redactor,
+      // Removed items stay removed across a restore (design-26), like devices and grants.
+      removals: {
+        record: (id) => revocations.recordVaultItem(id),
+        ids: () => revocations.vaultItemIds(),
+      },
+    },
     vaultSetup ?? vaultSetupFromEnv(gwOptions.env ?? process.env),
   );
 

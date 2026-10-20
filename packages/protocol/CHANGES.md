@@ -18,6 +18,19 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (V10 coding helper: git approval kinds, sandbox mounts)
+
+For the V10 coding helper (S02 scope: `code.*` tools in `packages/agent-core`), S05 (cards and scopes), S21 (the container runner mounts) and the Gateway's `compose/coding.ts`.
+
+- `ApprovalKind` gains `git_write` (commit, branch) and `git_push` (push: repository, remote, remote URL, branch and commit in the binding; `once` only, never forced).
+- New `SandboxMount {source, target, readOnly}`; `SandboxRunner.ensureSandbox(scope, {network?, mounts?})` takes optional bind mounts of host folders, fixed when the scope's sandbox is created (`conflict` on a mismatch, `forbidden` for a source the runner refuses); `SandboxInstance.mounts?` reports them. The fake keeps mounts and refuses targets outside `/workspace/`.
+### v1 additive — 2026-10-20 (S14 M3: VM mode, rest of L1–L5)
+
+For S14 (helper `vm.*`), S01 (sandbox runner "vm" mode, `vm.updated` rebroadcast), S11 (Settings → Devices).
+
+- `VmPhase` gains `paused` and `saved` (appended).
+- `VmGuest` gains optional `display`, `clipboard` (the existing `VmClipboardMode`: paste-only / bidirectional / off), `vault` (`VmVaultPlacement`: host / guest), `agent` (`VmGuestAgentStatus`), `psycheInstalled`, `permissionsGranted`, `savedState`, `transfers` (`VmTransfer[]`).
+- New `VmConfigureParams`, `VmCopyInParams`, `VmCopyOutParams`; `VmProgressEvent.type` gains `vm.psyche_install` and `vm.permissions`.
 ### v1 additive — 2026-10-19 (M3 gateway hardening, docs/status/s05.md §2)
 
 - Error code `presence_required`: a security change needs fresh presence and no verifier on this Gateway can give one (presence was enrolled, then every passkey and helper key was lost or revoked). The UI tells the owner to add a passkey or register the helper's key.
