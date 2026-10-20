@@ -1,5 +1,5 @@
 import { Lock } from "lucide-react";
-import { type ReactElement, useId } from "react";
+import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Kbd } from "../../components/ui/kbd.tsx";
 import {
@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "../../components/ui/table.tsx";
 import { usePersona } from "../../slots.tsx";
+import { RadioTableRow } from "./RadioTableRow.tsx";
 import {
   bool,
   EmptyNotice,
@@ -132,7 +133,6 @@ export function ComputerUsePanel({
   error,
   onRetry,
 }: ComputerUsePanelProps): ReactElement {
-  const id = useId();
   const enabled = bool(values, "computerUse.enabled", false);
   const apps = appsFromSettings(values);
   const setTier = (app: ComputerUseApp, tier: AppTier) =>
@@ -212,25 +212,19 @@ export function ComputerUsePanel({
               </TableHeader>
               <TableBody>
                 {apps.map((a) => (
-                  <TableRow key={a.id}>
-                    <th scope="row" className="p-2 text-left font-normal">
-                      {a.name}
-                    </th>
-                    {TIERS.map((t) => (
-                      <TableCell key={t.value} className="text-center">
-                        <input
-                          type="radio"
-                          name={`${id}-${a.id}`}
-                          value={t.value}
-                          checked={a.tier === t.value}
-                          disabled={!enabled}
-                          onChange={() => setTier(a, t.value)}
-                          aria-label={`${a.name}: ${t.label}`}
-                          className="size-4 accent-accent-9"
-                        />
-                      </TableCell>
-                    ))}
-                  </TableRow>
+                  <RadioTableRow
+                    key={a.id}
+                    label={a.name}
+                    header={
+                      <th scope="row" className="p-2 text-left font-normal">
+                        {a.name}
+                      </th>
+                    }
+                    options={TIERS}
+                    value={a.tier}
+                    disabled={!enabled}
+                    onChange={(tier) => setTier(a, tier)}
+                  />
                 ))}
                 {LOCKED_APPS.map((a) => (
                   <TableRow key={a.id} data-locked="true">

@@ -54,6 +54,10 @@ export interface BrowserHostOptions {
 export interface BrowserHostEvents extends BridgeHostEvents {
   /** Renderer snapshot, throttled to one per 50 ms. */
   state: BrowserHostState;
+  /** The pane is on screen or not (pause-when-unwatched, #272). Sent on change. */
+  paneVisible: boolean;
+  /** The owner pressed a key or clicked in an agent tab. */
+  ownerInput: undefined;
 }
 
 interface Tab {
@@ -436,8 +440,21 @@ export class BrowserHost implements BridgeTabHost {
         this.scheduleState();
       }),
     );
-    wc.on("before-input-event", (_e, input) => t.control.onBeforeInputEvent(input.type));
-    wc.on("input-event", (_e, ev) => t.control.onInputEvent(ev.type));
+    wc.on("before-input-event", (_e, input) => {
+      t.control.onBeforeInputEvent(input.type);
+      // CDP `Input.*` never fires before-input-event: a key here is always the owner.
+      if (input.type === "keyDown" || input.type === "rawKeyDown") {
+        this.emitter.emit("ownerInput", undefined);
+      }
+    });
+    wc.on("input-event", (_e, ev) => {
+      t.control.onInputEvent(ev.type);
+      // A click is the owner's only while none of the agent's Input.* commands is in flight
+      // (its mouse echoes arrive inside the sendCommand await; take-control.ts).
+      if (ev.type === "mouseDown" && t.control.agentInputDepth === 0) {
+        this.emitter.emit("ownerInput", undefined);
+      }
+    });
 
     // Only http(s) in agent tabs (security §6); the Gateway's BrowserDriver applies origin sets.
     wc.on("will-navigate", (details) => {
@@ -683,7 +700,25 @@ export class BrowserHost implements BridgeTabHost {
     this.layout();
   }
 
+  private paneShown: boolean | undefined;
+
+  /**
+   * Recomputes whether the pane is on screen: a viewport, and a window that is shown and not
+   * minimized. `main.ts` calls it on window show / hide / minimize / restore too.
+   */
+  refreshVisibility(): void {
+    const shown =
+      !this.win.isDestroyed() &&
+      this.viewport !== null &&
+      this.win.isVisible() &&
+      !this.win.isMinimized();
+    if (shown === this.paneShown) return;
+    this.paneShown = shown;
+    this.emitter.emit("paneVisible", shown);
+  }
+
   private layout(): void {
+    this.refreshVisibility();
     if (this.win.isDestroyed()) return;
     for (const t of this.tabs.values()) {
       if (t.popOut !== undefined) continue;

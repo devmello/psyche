@@ -182,7 +182,7 @@ describe("Permissions", () => {
     const { gateway } = setup({ defaultSection: "permissions" });
     const table = await screen.findByRole("table", { name: "Notion actions" });
     expect(within(table).getByRole("rowheader", { name: "mcp__notion__search" })).toBeTruthy();
-    await userEvent.click(within(table).getByRole("radio", { name: "Deny mcp__notion__search" }));
+    await userEvent.click(within(table).getByRole("radio", { name: "search: Deny" }));
     await waitFor(() => {
       const matrix = settingValue(gateway(), `permissions.connectors.${IDS.connectors.notion}`) as
         | Record<string, string>
@@ -287,6 +287,16 @@ describe("Computer use", () => {
         (last?.params as { value: { id: string; tier: string }[] } | undefined)?.value ?? [];
       expect(apps.find((a) => a.id === "com.apple.Notes")?.tier).toBe("ask");
     });
+    // One radio group per row (audit decision 2): the arrow keys move within the row.
+    const notes = screen.getByRole("row", { name: "Notes" });
+    expect(within(notes).getAllByRole("radio")).toHaveLength(4);
+    screen.getByRole("radio", { name: "Notes: Ask" }).focus();
+    await userEvent.keyboard("{ArrowRight}");
+    await waitFor(() =>
+      expect(screen.getByRole("radio", { name: "Notes: Off" }).getAttribute("aria-checked")).toBe(
+        "true",
+      ),
+    );
     expect(screen.getByText("Esc")).toBeTruthy();
   });
 });
@@ -512,7 +522,14 @@ describe("Credentials", () => {
     expect(rows).toHaveLength(4);
     expect(within(rows[1] as HTMLElement).getByText("Filled")).toBeTruthy();
     expect(within(rows[2] as HTMLElement).getByText("Denied")).toBeTruthy();
-    expect(within(rows[2] as HTMLElement).getByText("ap_github_fill_2")).toBeTruthy();
+    const copy = within(rows[2] as HTMLElement).getByRole("button", {
+      name: "Approved. Copy approval id ap_github_fill_2",
+    });
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    await userEvent.click(copy);
+    expect(writeText).toHaveBeenCalledWith("ap_github_fill_2");
+    expect(await within(rows[2] as HTMLElement).findByText("Approved · id copied")).toBeTruthy();
     expect(within(rows[3] as HTMLElement).getByText("Failed")).toBeTruthy();
     expect(within(rows[3] as HTMLElement).getByText("None")).toBeTruthy();
     const [openTask] = within(uses).getAllByRole("button", { name: "Open task" });
@@ -979,7 +996,9 @@ describe("Browser (real-Chrome mode, I13)", () => {
       },
     });
     await userEvent.click(
-      await screen.findByRole("switch", { name: "Let tasks use the Psyche Chrome profile" }),
+      await screen.findByRole("switch", {
+        name: `Let tasks use the Psyche profile (${PERSONA.name})`,
+      }),
     );
     await waitFor(() =>
       expect(settingValue(gateway(), "browser.realChrome")).toEqual({ enabled: true }),

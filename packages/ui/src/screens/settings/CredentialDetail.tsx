@@ -1,5 +1,5 @@
 import type { CredentialMeta, CredentialUse } from "@psyche/protocol";
-import { type ReactElement, useId, useRef } from "react";
+import { type ReactElement, useId, useRef, useState } from "react";
 import { SectionLabel } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import {
@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table.tsx";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip.tsx";
 import { useGatewayQuery } from "../../data/hooks.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
@@ -42,6 +43,35 @@ const OUTCOME: Record<CredentialUse["outcome"], { label: string; tone: Tone }> =
   denied: { label: "Denied", tone: "approval" },
   failed: { label: "Failed", tone: "danger" },
 };
+
+/** "Approved", with the approval id (level 2) in a tooltip; clicking copies it. */
+export function ApprovalRef({ id }: { id: string }): ReactElement {
+  const [copied, setCopied] = useState(false);
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            className="underline decoration-dotted underline-offset-2 hover:text-foreground"
+            aria-label={`Approved. Copy approval id ${id}`}
+            onClick={() => {
+              void navigator.clipboard?.writeText(id).then(
+                () => setCopied(true),
+                () => undefined,
+              );
+            }}
+          />
+        }
+      >
+        {copied ? "Approved · id copied" : "Approved"}
+      </TooltipTrigger>
+      <TooltipContent>
+        <code className="font-mono">{id}</code>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 export interface CredentialDetailProps {
   credential: CredentialMeta;
@@ -139,12 +169,10 @@ export function CredentialDetail({
                         <span className="mt-1 block text-muted-foreground">{u.reason}</span>
                       ) : null}
                       <span className="mt-1 block text-muted-foreground">
-                        {u.approvalId === null ? (
+                        {u.approvalId == null ? (
                           "No approval card"
                         ) : (
-                          <>
-                            Approval <code className="font-mono">{u.approvalId}</code>
-                          </>
+                          <ApprovalRef id={u.approvalId} />
                         )}
                       </span>
                     </TableCell>

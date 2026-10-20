@@ -1,6 +1,6 @@
 import type { Connector } from "@psyche/protocol";
 import { createColumnHelper, tableFeatures, useTable } from "@tanstack/react-table";
-import { type ReactElement, useId, useMemo } from "react";
+import { type ReactElement, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table.tsx";
+import { RadioTableRow } from "./RadioTableRow.tsx";
 
 /**
  * Per-connector action matrix, Allow / Ask / Deny per action (UI design §3.18, as on Muse's
@@ -81,7 +82,6 @@ export function ActionMatrix({
   onChange,
   disabled = false,
 }: ActionMatrixProps): ReactElement {
-  const name = useId();
   const data = useMemo<MatrixRow[]>(
     () => Object.entries(matrix).map(([action, rule]) => ({ action, rule })),
     [matrix],
@@ -102,22 +102,11 @@ export function ActionMatrix({
           helper.display({
             id: r.value,
             header: r.label,
-            cell: ({ row }) => (
-              <input
-                type="radio"
-                name={`${name}-${row.original.action}`}
-                value={r.value}
-                checked={row.original.rule === r.value}
-                disabled={disabled}
-                onChange={() => onChange(row.original.action, r.value)}
-                aria-label={`${r.label} ${row.original.action}`}
-                className="size-4 accent-accent-9"
-              />
-            ),
+            cell: () => null,
           }),
         ),
       ]),
-    [name, disabled, onChange],
+    [],
   );
   const table = useTable({ features, columns, data });
 
@@ -146,28 +135,34 @@ export function ActionMatrix({
       </TableHeader>
       <TableBody>
         {table.getRowModel().rows.map((row) => (
-          <TableRow key={row.id} data-rule={row.original.rule}>
-            {row.getAllCells().map((cell) =>
-              cell.column.id === "label" ? (
-                <TableCell key={cell.id}>
-                  <table.FlexRender cell={cell} />
-                </TableCell>
-              ) : cell.column.id === "action" ? (
-                // The canonical key names the row for assistive tech; it reads small and muted.
-                <th
-                  key={cell.id}
-                  scope="row"
-                  className="p-2 text-left font-normal whitespace-nowrap"
-                >
-                  <table.FlexRender cell={cell} />
-                </th>
-              ) : (
-                <TableCell key={cell.id} className="text-center">
-                  <table.FlexRender cell={cell} />
-                </TableCell>
-              ),
-            )}
-          </TableRow>
+          <RadioTableRow
+            key={row.id}
+            label={actionLabel(row.original.action)}
+            rowProps={{ "data-rule": row.original.rule }}
+            header={row
+              .getAllCells()
+              .filter((cell) => cell.column.id === "label" || cell.column.id === "action")
+              .map((cell) =>
+                cell.column.id === "label" ? (
+                  <TableCell key={cell.id}>
+                    <table.FlexRender cell={cell} />
+                  </TableCell>
+                ) : (
+                  // The canonical key names the row for assistive tech; it reads small and muted.
+                  <th
+                    key={cell.id}
+                    scope="row"
+                    className="p-2 text-left font-normal whitespace-nowrap"
+                  >
+                    <table.FlexRender cell={cell} />
+                  </th>
+                ),
+              )}
+            options={RULES}
+            value={row.original.rule}
+            disabled={disabled}
+            onChange={(rule) => onChange(row.original.action, rule)}
+          />
         ))}
       </TableBody>
     </Table>

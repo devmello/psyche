@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { updateDevice } from "@psyche/db";
 import { FakeModelProvider, FakePermissionBroker } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
-import { OwnerAttention } from "../src/compose/attention.ts";
+import { OwnerAttention, parkWhenUnwatched } from "../src/compose/attention.ts";
 import { createComputerUse } from "../src/compose/computer.ts";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
@@ -122,5 +122,72 @@ describe("attention.report (#272)", () => {
       }),
     );
     expect(a.lastInput()).toBe(9);
+  });
+
+  it("parks a Task's call that answers awaiting_attention until the owner is back, then retries", async () => {
+    let now = 0;
+    const attention = new OwnerAttention(() => now);
+    const notified: string[] = [];
+    const registered = new Map<string, import("@psyche/protocol").ToolRegistration>();
+    const registry = parkWhenUnwatched(
+      {
+        list: () => [],
+        get: (n) => registered.get(n),
+        register: (r) => {
+          registered.set(r.spec.name, r);
+          return () => registered.delete(r.spec.name);
+        },
+      },
+      {
+        attention,
+        taskOf: (callId) => (callId.startsWith("task") ? "task_1" : undefined),
+        notify: (taskId, tool) => notified.push(`${taskId}:${tool}`),
+      },
+    );
+    let calls = 0;
+    registry.register({
+      spec: {
+        name: "browser.snapshot",
+        description: "",
+        inputSchema: {},
+        sideEffect: "read",
+        provenanceOut: "untrusted",
+      },
+      execute: async () => {
+        calls += 1;
+        return attention.attended("browser")
+          ? { output: { ok: true }, provenance: "untrusted" }
+          : {
+              output: {
+                error: {
+                  code: "presence_required",
+                  message: "away",
+                  details: { reason: "awaiting_attention" },
+                },
+              },
+              isError: true,
+              provenance: "untrusted",
+            };
+      },
+    });
+    const tool = registered.get("browser.snapshot");
+    const signal = new AbortController().signal;
+    // A chat turn gets the answer as is.
+    const chat = await tool?.execute("chat_1", {}, signal, () => undefined);
+    expect(chat?.isError).toBe(true);
+    // A Task waits; the owner comes back; the call runs again and succeeds.
+    const parked = tool?.execute("task_1", {}, signal, () => undefined);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(notified).toEqual(["task_1:browser.snapshot"]);
+    now = 1_000;
+    attention.report("browser", true, true);
+    expect(await parked).toMatchObject({ output: { ok: true } });
+    expect(calls).toBe(3);
+    // Cancelling the Task ends the wait with the original answer.
+    now = 1_000 + 6 * 60_000;
+    const stop = new AbortController();
+    const cancelled = tool?.execute("task_2", {}, stop.signal, () => undefined);
+    stop.abort();
+    expect((await cancelled)?.isError).toBe(true);
   });
 });

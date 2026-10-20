@@ -42,6 +42,7 @@ import { NotificationRelay } from "./lib/notify-relay.ts";
 import { realChromeOpenCommand, realChromeProfileDir } from "./lib/real-chrome.ts";
 import { ZoomController } from "./lib/zoom.ts";
 import { BridgeClient } from "./main/bridge/bridge-client.ts";
+import { createAttentionReporter } from "./main/browser/attention.ts";
 import { BrowserHost } from "./main/browser/browser-host.ts";
 import { SystemDictation } from "./main/dictation/controller.ts";
 import { HudWindow } from "./main/dictation/hud.ts";
@@ -87,6 +88,10 @@ const rendererRoot = join(app.getAppPath(), ".vite", "renderer", MAIN_WINDOW_VIT
 
 let windows: AppWindows | undefined;
 let gateway: GatewayConnection | undefined;
+/** Pause-when-unwatched (#272): the browser pane's visibility and owner input, for the Gateway. */
+const attention = createAttentionReporter({
+  send: (report) => gateway?.call("attention.report", report) ?? Promise.resolve(undefined),
+});
 let browser: BrowserHost | undefined;
 let bridge: BridgeClient | undefined;
 let terminal: TerminalHost | undefined;
@@ -533,6 +538,21 @@ void app.whenReady().then(async () => {
         userData: app.getPath("userData"),
       });
       browser.on("state", (s) => broadcast(IPC.browserState, s));
+      // Pause-when-unwatched (#272): pane visibility and owner input go to the Gateway.
+      browser.on("paneVisible", (v) => attention.visible(v));
+      browser.on("ownerInput", () => attention.input());
+      const host = browser;
+      for (const ev of ["show", "hide", "minimize", "restore"] as const) {
+        win.on(ev as "show", () => host.refreshVisibility());
+      }
+      // Input in the app itself (chat, approvals) counts too; nothing synthesizes input there.
+      view.webContents.on("before-input-event", (_e, input) => {
+        if (input.type === "keyDown" || input.type === "rawKeyDown") attention.input();
+      });
+      view.webContents.on("input-event", (_e, ev) => {
+        if (ev.type === "mouseDown") attention.input();
+      });
+      host.refreshVisibility();
       browser.on("download", (d) => broadcast(IPC.browserDownload, d.notice));
       if (bridge) {
         void bridge.stop();
@@ -561,6 +581,7 @@ void app.whenReady().then(async () => {
       broadcast(IPC.status, s);
       tray?.update({ status: s });
       if (s.phase === "paired") {
+        attention.resend();
         void refreshHelperPresence();
         void refreshApprovals();
         void zoom.load();
