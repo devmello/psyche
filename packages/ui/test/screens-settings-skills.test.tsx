@@ -49,6 +49,11 @@ describe("Settings → Skills", () => {
     const bundled = screen.getByRole("region", { name: "Bundled with Psyche" });
     expect(within(bundled).getByTestId("skill-inbox-triage")).toBeTruthy();
     expect(within(bundled).queryByRole("button", { name: /Remove/ })).toBeNull();
+    // An unavailable skill says what is missing and where to fix it (#506).
+    const unavailable = within(bundled).getByTestId("skill-calendar-planning");
+    expect(
+      within(unavailable).getByText(/needs a calendar: connect Google Calendar or Apple Calendar/),
+    ).toBeTruthy();
   });
 
   it("reviews a folder, shows the trust card, and installs once the owner approves", async () => {
