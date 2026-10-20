@@ -475,7 +475,7 @@ A versioned corpus of at least 200 cases (hidden DOM fields, URL and tab-title p
 
 ### 15.1 Audit log format
 
-Append-only JSONL, one file per month; each entry is hashed over its canonical JSON without `hash`, including `prev`; the first entry of a month carries the previous month's last hash; every 1,000 entries the mac helper (or the server's device key) signs an anchor so truncation is detectable; `psyche audit verify` walks the chain.
+Append-only JSONL, one file per month; each entry is hashed over its canonical JSON without `hash`, including `prev`; the first entry of a month carries the previous month's last hash; every 1,000 entries the mac helper (or the server's device key) signs an anchor so truncation is detectable; `psyche audit verify` walks the chain. Today the Gateway signs with a software Ed25519 key in `$PSYCHE_HOME/security/audit-anchor-key.json` (0600, outside backups, not in the vault because anchors are signed unattended while the vault is locked), at every 1,000th entry and at least hourly. The same file keeps the keyring (which seq each key signs from) and the last anchored entry, so deleting `anchors.jsonl` or cutting the tail together with its anchors fails verification; a restore resets that head and audits it (`audit.anchor_head.reset`). `audit.verify` and `psyche audit verify` report how many anchors were signed and by which key.
 
 ```json
 {"seq":184233,"ts":"2026-10-18T19:05:30.412Z","kind":"approval.decided",

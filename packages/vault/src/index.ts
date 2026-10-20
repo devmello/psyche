@@ -81,12 +81,16 @@ export {
 } from "./import.ts";
 export { type MetaMirror, type SqlHandle, SqliteMetaMirror } from "./meta.ts";
 export {
+  brandName,
   type CardField,
   cardFieldAccepts,
   formatAmount,
   LINK_MAX_USD_MINOR,
   PaymentBroker,
   type PaymentBrokerOptions,
+  type PaymentLedger,
+  type PaymentSource,
+  type PaymentState,
   type PurchaseInput,
   type PurchaseRequester,
   purchaseBindingHash,
@@ -101,7 +105,9 @@ export {
   LinkCliWallet,
   type LinkWallet,
   type MaskedCard,
+  type PaymentMethod,
   parseCardFile,
+  parsePaymentMethods,
   parseSpendRequest,
   type ReportOutcome,
   SPEND_FINAL,
