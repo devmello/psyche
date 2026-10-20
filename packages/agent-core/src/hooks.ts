@@ -66,6 +66,17 @@ export interface AgentEndContext extends RunRef {
   usage: Usage;
   steps: number;
   error?: string;
+  /**
+   * The owner's own words this run (empty when someone else asked). With `mode`, `taint` and
+   * `subagent`, what in-process evaluators such as routine detection (T3) need; never given to
+   * plugins.
+   */
+  ownerText?: string;
+  mode?: RunMode;
+  /** The run read untrusted content. */
+  taint?: boolean;
+  /** A delegated child run, not the owner's turn. */
+  subagent?: boolean;
 }
 
 /**
