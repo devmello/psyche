@@ -82,6 +82,15 @@ export interface ToolCallMeta {
   app?: string;
   /** Computer-use action name, e.g. `click`, `type`, `open_app`, `focus`. */
   action?: string;
+  /**
+   * MCP tools (`@psyche/mcp-host` `describeMcpCall`): the server, the `tools/list` hash the
+   * registration saw, and the server's trust tier (security §11). The broker binds grants to the
+   * server and hash (so `revokeMcpGrants` finds them) and asks for write+ tools of `unknown`
+   * servers.
+   */
+  mcpServerId?: string;
+  mcpToolsListHash?: string;
+  mcpTier?: "bundled" | "verified" | "unknown";
 }
 
 /**
