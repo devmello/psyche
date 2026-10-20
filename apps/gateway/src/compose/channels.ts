@@ -625,6 +625,15 @@ export function composeChannels(
           from: setup.sms.from,
           publicUrl: setup.sms.publicUrl,
           clock,
+          // Refused webhook posts count against the inbound limit (#254) under their own key:
+          // a forger is limited and audited, and cannot spend a real sender's budget.
+          onRejected: ({ reason, claimedFrom }) => {
+            logger.info?.("sms.webhook_rejected", { reason });
+            services.rateLimits.inboundChat.admit(
+              `sms-webhook-rejected|${setup.sms?.from ?? ""}|${claimedFrom || "unknown"}`,
+              { channelType: "sms", reason, senderId: claimedFrom || "unknown" },
+            );
+          },
         });
   if (sms !== undefined) add(sms);
   if (setup.email !== undefined) {
