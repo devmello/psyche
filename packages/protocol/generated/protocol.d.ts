@@ -2756,25 +2756,103 @@ export interface LogLine {
     ts:         string;
 }
 
-export interface MCPStatusResult {
-    launcher: Launcher;
-    servers:  MCPServerStatus[];
+export interface MCPAddParams {
+    approvalId: string;
+    proposalId: string;
 }
 
-export type Launcher = "srt" | "container" | "none";
+export interface MCPAddResult {
+    server: MCPServerStatus;
+}
 
 export interface MCPServerStatus {
     connected: boolean;
     id:        string;
     name:      string;
     network:   boolean;
-    transport: MCPServerStatusTransport;
+    transport: KindEnum;
     trust:     Trust;
 }
 
-export type MCPServerStatusTransport = "stdio" | "http";
+export type KindEnum = "stdio" | "http";
 
 export type Trust = "bundled" | "verified" | "unknown";
+
+export interface MCPProbeParams {
+    server: MCPServerInput;
+}
+
+export interface MCPServerInput {
+    allowedDomains?: string[];
+    id:              string;
+    name:            string;
+    transport:       TransportClass;
+}
+
+export interface TransportClass {
+    command?: string[];
+    env?:     { [key: string]: unknown };
+    kind:     KindEnum;
+    auth?:    Auth;
+    url?:     string;
+}
+
+export interface Auth {
+    kind:        AuthKind;
+    credential?: string;
+}
+
+export type AuthKind = "none" | "oauth" | "bearer";
+
+export interface MCPProbeResult {
+    approval: ApprovalRequest;
+    proposal: MCPProposal;
+}
+
+export interface MCPProposal {
+    diagnostics?: string;
+    /**
+     * Epoch ms
+     */
+    expiresAt:     number;
+    id:            string;
+    isolation:     Isolation;
+    network:       Network;
+    server:        MCPServerInput;
+    tools:         MCPProbedTool[];
+    toolsListHash: string;
+}
+
+export type Isolation = "srt" | "container" | "remote";
+
+export interface Network {
+    hosts:   string[];
+    reaches: boolean;
+}
+
+export interface MCPProbedTool {
+    blocked:     boolean;
+    description: string;
+    name:        string;
+    sideEffect:  SideEffectEnum;
+    warnings:    Warning[];
+}
+
+export interface Warning {
+    code:   string;
+    detail: string;
+}
+
+export interface MCPRemoveParams {
+    serverId: string;
+}
+
+export interface MCPStatusResult {
+    launcher: Launcher;
+    servers:  MCPServerStatus[];
+}
+
+export type Launcher = "srt" | "container" | "none";
 
 export interface MemoryClaimsConfirmParams {
     claimId: string;

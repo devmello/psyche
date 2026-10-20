@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-21 (S09, #529: adding an MCP server from Settings)
+
+For S09 (the Gateway's MCP part) and the Settings → MCP section.
+
+- New schemas `McpServerInput` (id, name, stdio `command` + `env` or HTTPS `url` + `auth`, `allowedDomains`), `McpProbedTool`, `McpProposal`, `McpProbeResult`.
+- New methods (admin, side-effecting): `mcp.probe {server}` → `{proposal, approval}` (runs the server sandboxed, lists its tools without registering them, opens a device-only `skill_install` trust card with `details.kind: "mcp_server"`); `mcp.add {proposalId, approvalId}` → `{server}`; `mcp.remove {serverId}` → `{ok}`.
+
 ### v1 additive — 2026-10-20 (#509 learned facts about the owner)
 
 For S02 (the learner), S07 (`USER.md`'s Learned section), S11 (the Settings switch and the chat note).

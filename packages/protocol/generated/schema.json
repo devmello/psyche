@@ -1194,6 +1194,30 @@
         "sideEffecting": false
       },
       {
+        "description": "Side-effecting: adds a probed server to mcp.servers with its approved trust card; approval_required without it, conflict when its tools changed since the probe.",
+        "name": "mcp.add",
+        "params": "#/$defs/McpAddParams",
+        "result": "#/$defs/McpAddResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting: starts the server sandboxed (srt or a container; never bare), lists its tools without registering them, stops it, and opens a device-only skill_install trust card (details.kind mcp_server) with the tools and network reach. unavailable when no sandbox launcher exists for a stdio server; conflict when the id is taken.",
+        "name": "mcp.probe",
+        "params": "#/$defs/McpProbeParams",
+        "result": "#/$defs/McpProbeResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting: removes a server from mcp.servers; its tools unregister and its grants are revoked.",
+        "name": "mcp.remove",
+        "params": "#/$defs/McpRemoveParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "The MCP launcher in use and each configured server's trust, transport and network reach.",
         "name": "mcp.status",
         "params": "#/$defs/McpStatusParams",
@@ -12073,6 +12097,316 @@
         "lines",
         "subsystems",
         "truncated"
+      ],
+      "type": "object"
+    },
+    "McpAddParams": {
+      "properties": {
+        "proposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId",
+        "approvalId"
+      ],
+      "type": "object"
+    },
+    "McpAddResult": {
+      "properties": {
+        "server": {
+          "$ref": "#/$defs/McpServerStatus"
+        }
+      },
+      "required": [
+        "server"
+      ],
+      "type": "object"
+    },
+    "McpProbeParams": {
+      "properties": {
+        "server": {
+          "$ref": "#/$defs/McpServerInput"
+        }
+      },
+      "required": [
+        "server"
+      ],
+      "type": "object"
+    },
+    "McpProbeResult": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/McpProposal"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        }
+      },
+      "required": [
+        "proposal",
+        "approval"
+      ],
+      "type": "object"
+    },
+    "McpProbedTool": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "sideEffect": {
+          "enum": [
+            "read",
+            "write",
+            "destructive"
+          ],
+          "type": "string"
+        },
+        "warnings": {
+          "items": {
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "detail"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "blocked": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "sideEffect",
+        "warnings",
+        "blocked"
+      ],
+      "type": "object"
+    },
+    "McpProposal": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "server": {
+          "$ref": "#/$defs/McpServerInput"
+        },
+        "tools": {
+          "items": {
+            "$ref": "#/$defs/McpProbedTool"
+          },
+          "type": "array"
+        },
+        "toolsListHash": {
+          "type": "string"
+        },
+        "network": {
+          "properties": {
+            "reaches": {
+              "type": "boolean"
+            },
+            "hosts": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "reaches",
+            "hosts"
+          ],
+          "type": "object"
+        },
+        "isolation": {
+          "enum": [
+            "srt",
+            "container",
+            "remote"
+          ],
+          "type": "string"
+        },
+        "diagnostics": {
+          "type": "string"
+        },
+        "expiresAt": {
+          "description": "Epoch ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "server",
+        "tools",
+        "toolsListHash",
+        "network",
+        "isolation",
+        "expiresAt"
+      ],
+      "type": "object"
+    },
+    "McpRemoveParams": {
+      "properties": {
+        "serverId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "serverId"
+      ],
+      "type": "object"
+    },
+    "McpServerInput": {
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9-]{1,40}$",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        },
+        "transport": {
+          "anyOf": [
+            {
+              "properties": {
+                "kind": {
+                  "const": "stdio",
+                  "type": "string"
+                },
+                "command": {
+                  "items": {
+                    "maxLength": 1000,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "maxItems": 64,
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "env": {
+                  "patternProperties": {
+                    "^[A-Z_][A-Z0-9_]{0,63}$": {
+                      "maxLength": 4000,
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              },
+              "required": [
+                "kind",
+                "command"
+              ],
+              "type": "object"
+            },
+            {
+              "properties": {
+                "kind": {
+                  "const": "http",
+                  "type": "string"
+                },
+                "url": {
+                  "maxLength": 2000,
+                  "pattern": "^https://",
+                  "type": "string"
+                },
+                "auth": {
+                  "anyOf": [
+                    {
+                      "properties": {
+                        "kind": {
+                          "const": "none",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "properties": {
+                        "kind": {
+                          "const": "oauth",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "properties": {
+                        "kind": {
+                          "const": "bearer",
+                          "type": "string"
+                        },
+                        "credential": {
+                          "pattern": "^\\{\\{cred:[a-z0-9][a-z0-9-]{0,63}(\\.[a-z]+)?\\}\\}$",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "credential"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "kind",
+                "url"
+              ],
+              "type": "object"
+            }
+          ]
+        },
+        "allowedDomains": {
+          "items": {
+            "maxLength": 253,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "transport"
       ],
       "type": "object"
     },
