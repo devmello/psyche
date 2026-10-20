@@ -89,6 +89,13 @@ import {
 } from "./handlers.ts";
 import { libraryHandlers } from "./library.ts";
 import {
+  type HostedModelKind,
+  hasModelKey,
+  storeModelKey,
+  untilPrimaryPicked,
+  vaultModelKeys,
+} from "./model-keys.ts";
+import {
   type ModelSettingsSetup,
   modelSettingsHandlers,
   restoreModelSettings,
@@ -130,6 +137,12 @@ export type ModelSetup =
       utilityModel?: ModelRef;
       /** Provider transport (tests replay recorded fixtures through this). */
       fetch?: typeof fetch;
+      /**
+       * Hosted keys are the vault's Gateway-owned `model-<provider>` items (`models.setKey`), the
+       * packaged first run with no environment. Until a primary model is picked, turns answer
+       * "No model is configured yet" instead of failing.
+       */
+      vaultKeys?: boolean;
     };
 
 export interface ComposeOptions
@@ -445,15 +458,31 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     },
   );
 
-  const { provider, model: modelRef, utility, router } = providerFor(model, clock, db);
+  const vaultKeys = "router" in model && model.vaultKeys === true;
+  const modelSetup: ModelSetup = vaultKeys
+    ? { ...model, keys: vaultModelKeys(() => vault.vault) }
+    : model;
+  const routed = providerFor(modelSetup, clock, db);
+  const { model: modelRef, utility, router } = routed;
+  const provider = vaultKeys && router !== undefined ? untilPrimaryPicked(router) : routed.provider;
   const modelSettings: ModelSettingsSetup = {
     db,
     clock,
-    providers: "router" in model ? model.router.providers : [],
+    providers: "router" in modelSetup ? modelSetup.router.providers : [],
     ...(router === undefined ? {} : { router }),
-    ...("router" in model && model.keys !== undefined ? { keys: model.keys } : {}),
-    ...("router" in model && model.fetch !== undefined ? { fetch: model.fetch } : {}),
-    ...("provider" in model ? { fixedModel: model.model } : {}),
+    ...("router" in modelSetup && modelSetup.keys !== undefined ? { keys: modelSetup.keys } : {}),
+    ...("router" in modelSetup && modelSetup.fetch !== undefined
+      ? { fetch: modelSetup.fetch }
+      : {}),
+    ...("provider" in modelSetup ? { fixedModel: modelSetup.model } : {}),
+    ...(vaultKeys
+      ? {
+          vaultKeys: {
+            has: (id: string) => hasModelKey(vault.vault, id),
+            store: (id: HostedModelKind, key: string) => storeModelKey(vault.vault, id, key),
+          },
+        }
+      : {}),
   };
   await restoreModelSettings(modelSettings);
   const modelPins = modelPinsFor(provider);
@@ -810,7 +839,7 @@ export {
   libraryHandlers,
 } from "./library.ts";
 export { type McpGrantRevoker, type McpLifecycleEvent, mcpGrantRevocation } from "./mcp-grants.ts";
-export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
+export { modelSetupFromEnv, NO_MODEL, vaultModelSetup } from "./models.ts";
 export { partsFromEnv } from "./parts.ts";
 export { composePasskeys, PasskeyService, webauthnChallengeFor } from "./passkeys.ts";
 export { type ComposedProactive, composeProactive, type ProactiveSetup } from "./proactive.ts";
