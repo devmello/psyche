@@ -14,6 +14,8 @@ final class FakeVMBackend: VMBackend, @unchecked Sendable {
     var lastShares: [ShareGrant] = []
     var gatewayHandler: (@Sendable (Int32) -> Void)?
     var installFails = false
+    var unavailable: CapabilityError?
+    var unavailableReason: CapabilityError? { unavailable }
     var latest = RestoreImageInfo(url: URL(string: "https://updates.cdn-apple.com/x/UniversalMac_27.0.1_26A434_Restore.ipsw")!, version: "27.0.1", build: "26A434", sizeBytes: 26_600_000_000)
 
     func record(_ s: String) { lock.withLock { calls.append(s) } }
@@ -273,6 +275,22 @@ struct VMManagerTests {
         let decoded = try JSONDecoder().decode(VMStatus.self, from: JSONEncoder().encode(vm.status()))
         #expect(decoded.guests.first?.phase == .running && decoded.guests.first?.shares.first?.readOnly == true)
         #expect(decoded.guests.first?.vsock.gatewayNodePort == 7980 && decoded.maxActive == 2)
+    }
+
+    @Test func intelMacsAnswerUnavailableForEveryVMCapability() async throws {
+        let backend = FakeVMBackend()
+        backend.unavailable = CapabilityError(.unavailable, reason: "vm_unsupported_arch", "Apple silicon only")
+        let caps = VMCapabilities.make(manager(backend, home: tempHome()))
+        #expect(caps.count == VMCapabilities.make(manager(FakeVMBackend(), home: tempHome())).count)  // same manifest
+        for c in caps {
+            do {
+                _ = try await c.invoke(InvocationContext(invocationId: "i", capability: c.spec.name, params: [:], approvalId: nil, emit: { _ in }))
+                Issue.record("\(c.spec.name) should be unavailable")
+            } catch let e as CapabilityError {
+                #expect(e.code == .unavailable && e.reason == "vm_unsupported_arch", "\(c.spec.name)")
+            }
+        }
+        #expect(backend.calls.isEmpty)
     }
 
     @Test func capabilitiesDeclareSideEffects() {

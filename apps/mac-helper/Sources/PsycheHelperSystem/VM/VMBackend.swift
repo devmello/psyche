@@ -60,6 +60,12 @@ public protocol VMBackend: AnyObject, Sendable {
     func isPaused(_ name: String) -> Bool
     func isDisplayVisible(_ name: String) -> Bool
     var activeCount: Int { get }
+    /// Set when this Mac cannot run guests at all (Intel); every `vm.*` call answers it.
+    var unavailableReason: CapabilityError? { get }
+}
+
+extension VMBackend {
+    public var unavailableReason: CapabilityError? { nil }
 }
 
 /// SSH into the guest for the one-time Psyche install (L3; spike 06 step 7). The NAT address is
