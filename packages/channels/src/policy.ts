@@ -1,7 +1,7 @@
 import type { Channel, InboundMessage } from "@psyche/protocol";
 import type { IdentityDirectory, SenderRef } from "./identity.ts";
 import { buildRoute, type RouteContext, type SenderRole } from "./routing.ts";
-import { channelSettings } from "./settings.ts";
+import { channelSettings, isWeakTransport } from "./settings.ts";
 
 /**
  * Inbound authorization (ADR-011, security §9, OpenClaw access control). Evaluation order:
@@ -39,8 +39,10 @@ export function authorizeInbound(
   const settings = channelSettings(channel);
 
   if (!message.isGroup) {
-    // DMs: weak or chat senders never reach the agent (they cannot pair either).
-    if (!sender.strong) return { action: "drop", reason: "weak_identity" };
+    // DMs: weak or chat senders never reach the agent (they cannot pair either), except on a
+    // transport where everyone is weak (SMS): there they follow the DM policy as non-owners.
+    const weakTransport = isWeakTransport(channel.type) && message.senderIsChat !== true;
+    if (!sender.strong && !weakTransport) return { action: "drop", reason: "weak_identity" };
     switch (channel.dmPolicy) {
       case "disabled":
         return { action: "drop", reason: "dm_disabled" };
