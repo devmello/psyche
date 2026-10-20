@@ -315,6 +315,9 @@ importers:
       '@psyche/files':
         specifier: workspace:*
         version: link:../../packages/files
+      '@psyche/mcp-host':
+        specifier: workspace:*
+        version: link:../../packages/mcp-host
       '@psyche/memory':
         specifier: workspace:*
         version: link:../../packages/memory

@@ -1,10 +1,12 @@
 import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { createSandboxRunner } from "@psyche/sandbox";
 import { composeBackup } from "./backup.ts";
 import { type ComposedBrowser, composeBrowser } from "./browser.ts";
 import { channelsSetupFromEnv, composeChannels } from "./channels.ts";
 import { composeConnectors } from "./connectors.ts";
 import { composeHelper } from "./helper.ts";
+import { composeMcp } from "./mcp.ts";
 import { composeSandboxIfAvailable } from "./sandbox.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
@@ -23,7 +25,10 @@ type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | Compos
  *   registered yet (the helper does not sign, S14 issue), so approvals that need Touch ID
  *   stay refused there; Approve / Deny works for the rest;
  * - the sandbox's `exec` tool, only when a container backend is found (`PSYCHE_SANDBOX=off`
- *   skips it); servers it leaves listening are offered to the browser's dev preview.
+ *   skips it); servers it leaves listening are offered to the browser's dev preview;
+ * - the MCP host (`mcp.servers` in settings; `PSYCHE_MCP=off` skips it): stdio servers under
+ *   `srt` at `PSYCHE_SRT_PATH`, or each in its own sandbox container with
+ *   `PSYCHE_MCP_LAUNCHER=container`; without either only HTTP servers run.
  */
 export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
   const parts: PartFactory[] = [];
@@ -86,6 +91,17 @@ export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
       ...(env.PSYCHE_BACKUP_IDENTITY_FILE ? { identityFile: env.PSYCHE_BACKUP_IDENTITY_FILE } : {}),
     }),
   );
+  if (env.PSYCHE_MCP !== "off") {
+    parts.push((s) =>
+      composeMcp(s, {
+        ...(env.PSYCHE_MCP_LAUNCHER === "container"
+          ? { container: createSandboxRunner() }
+          : env.PSYCHE_SRT_PATH
+            ? { srtPath: env.PSYCHE_SRT_PATH }
+            : {}),
+      }),
+    );
+  }
   return parts;
 }
 
