@@ -99,6 +99,7 @@ describe("CdpPolicy allowlist", () => {
     "Browser.grantPermissions",
     "Debugger.enable",
     "Debugger.evaluateOnCallFrame",
+    // Bare: no document-only patterns, so it would intercept everything.
     "Fetch.enable",
     "Fetch.fulfillRequest",
     "Page.setDownloadBehavior",
@@ -441,5 +442,87 @@ describe("review hardening", () => {
     }) as { response: { headers: Record<string, string>; headersText: string } };
     expect(JSON.stringify(got)).not.toContain("sid=3");
     expect(filterCdpEvent("Page.loadEventFired", { timestamp: 1 })).toEqual({ timestamp: 1 });
+  });
+});
+
+describe("narrow Fetch for document requests and Web Bot Auth (I14)", () => {
+  const DOC = {
+    patterns: [{ urlPattern: "*", resourceType: "Document", requestStage: "Request" }],
+  };
+
+  it("pauses only document requests at the request stage", () => {
+    const p = new CdpPolicy();
+    expect(allowed(p, "Fetch.enable", DOC)).toBe(true);
+    expect(allowed(p, "Fetch.enable", {})).toBe(false);
+    expect(allowed(p, "Fetch.enable", { ...DOC, handleAuthRequests: true })).toBe(false);
+    expect(
+      allowed(p, "Fetch.enable", {
+        patterns: [{ resourceType: "Script", requestStage: "Request" }],
+      }),
+    ).toBe(false);
+    expect(
+      allowed(p, "Fetch.enable", {
+        patterns: [{ resourceType: "Document", requestStage: "Response" }],
+      }),
+    ).toBe(false);
+    expect(allowed(p, "Fetch.disable", {})).toBe(true);
+    expect(
+      allowed(p, "Fetch.failRequest", { requestId: "r1", errorReason: "BlockedByClient" }),
+    ).toBe(true);
+    for (const m of ["Fetch.fulfillRequest", "Fetch.continueResponse", "Fetch.getResponseBody"]) {
+      expect(allowed(p, m, { requestId: "r1" }), m).toBe(false);
+    }
+  });
+
+  it("adds only signature headers, merged into the request's real ones", () => {
+    const p = new CdpPolicy();
+    // The real request, cookies and all: the Gateway only ever sees a redacted copy.
+    p.observeEvent("Fetch.requestPaused", {
+      requestId: "r1",
+      request: { url: "https://shop.example/", headers: { "User-Agent": "UA", Cookie: "sid=3" } },
+    });
+    const sig = [
+      { name: "Signature-Agent", value: '"https://agent.example/dir"' },
+      { name: "Signature-Input", value: 'sig1=("@authority" "signature-agent");created=1' },
+      { name: "Signature", value: "sig1=:AAAA:" },
+    ];
+    expect(allowed(p, "Fetch.continueRequest", { requestId: "r1", headers: sig })).toBe(true);
+    const prepared = p.prepare("Fetch.continueRequest", { requestId: "r1", headers: sig });
+    expect(prepared).toEqual({
+      ok: true,
+      params: {
+        requestId: "r1",
+        headers: [{ name: "User-Agent", value: "UA" }, { name: "Cookie", value: "sid=3" }, ...sig],
+      },
+    });
+    // Anything but signature headers, or a URL / method change, is refused.
+    expect(
+      allowed(p, "Fetch.continueRequest", {
+        requestId: "r2",
+        headers: [{ name: "Cookie", value: "x" }],
+      }),
+    ).toBe(false);
+    expect(
+      allowed(p, "Fetch.continueRequest", { requestId: "r2", url: "https://evil.example/" }),
+    ).toBe(false);
+    expect(
+      allowed(p, "Fetch.continueRequest", {
+        requestId: "r2",
+        headers: [{ name: "Signature", value: "a\r\nCookie: x" }],
+      }),
+    ).toBe(false);
+    // A request the policy never saw paused gets no headers.
+    expect(p.prepare("Fetch.continueRequest", { requestId: "nope", headers: sig })).toMatchObject({
+      ok: false,
+    });
+    // Plain continues pass through untouched.
+    expect(p.prepare("Fetch.continueRequest", { requestId: "r9" })).toEqual({
+      ok: true,
+      params: { requestId: "r9" },
+    });
+  });
+
+  it("is not an agent action, so the owner's own navigations are never held", () => {
+    expect(isAgentActionMethod("Fetch.continueRequest")).toBe(false);
   });
 });

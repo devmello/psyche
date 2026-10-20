@@ -2,10 +2,15 @@ import { join } from "node:path";
 import {
   type AttentionState,
   assertProfileName,
+  BOT_AUTH_DIRECTORY_PATH,
+  BOT_AUTH_DIRECTORY_TYPE,
+  type BotAuthConfig,
   type BridgeClient,
   BridgeServer,
   type BrowserDriverEx,
+  botAuthDirectory,
   CdpBridgeDriver,
+  createBotAuthSigner,
   createRoutingDriver,
   DevServerRegistry,
   type DevServerRegistryOptions,
@@ -20,6 +25,7 @@ import {
   registerBrowserTools,
   type SessionKind,
   systemLoopbackProbes,
+  validSignatureAgent,
 } from "@psyche/browser";
 import { getSetting } from "@psyche/db";
 import {
@@ -31,6 +37,7 @@ import {
   type PolicyConfig,
 } from "@psyche/permissions";
 import {
+  type BotAuthStatus,
   type CredentialBroker,
   type DriverSession,
   type MethodParams,
@@ -40,6 +47,7 @@ import {
   type ToolRegistry,
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
+import type { PublicRoute } from "../http.ts";
 import type { Gateway } from "../server.ts";
 import { IndexedQuarantineWriter } from "./library.ts";
 import { createRealChromeMode, type RealChromeMode, type RealChromeSetup } from "./real-chrome.ts";
@@ -101,6 +109,23 @@ export interface BrowserSetup {
  * `policy_change` with presence) whatever the switch says.
  */
 export const REAL_CHROME_SETTING = "browser.realChrome";
+
+/**
+ * Web Bot Auth (I14): the admin setting `browser.botAuth {enabled, signatureAgent?, origins?}`.
+ * Off unless set; a malformed value counts as off.
+ */
+export const BOT_AUTH_SETTING = "browser.botAuth";
+
+export function botAuthFromSetting(value: unknown): BotAuthConfig {
+  if (typeof value !== "object" || value === null) return { enabled: false };
+  const v = value as { enabled?: unknown; signatureAgent?: unknown; origins?: unknown };
+  const out: BotAuthConfig = { enabled: v.enabled === true };
+  if (typeof v.signatureAgent === "string") out.signatureAgent = v.signatureAgent;
+  if (Array.isArray(v.origins)) {
+    out.origins = v.origins.filter((o): o is string => typeof o === "string").slice(0, 200);
+  }
+  return out;
+}
 
 /** The stored switch; a malformed value or an invalid profile name counts as off / default. */
 export function realChromeFromSetting(value: unknown): { enabled: boolean; profile?: string } {
@@ -171,6 +196,29 @@ export function composeBrowser(
 ): ComposedBrowser {
   const library = setup.library ?? new IndexedQuarantineWriter(services.db, services.home);
   const credentials = setup.credentials ?? services.vault;
+  // Web Bot Auth (I14): signs document requests of profile tabs, with the vault's key, for sites
+  // that ask or the owner lists. The setting is read on every request, so changes apply at once.
+  const botAuthConfig = () => botAuthFromSetting(getSetting(services.db, BOT_AUTH_SETTING)?.value);
+  const botAuthKey = async () => credentials.botAuthKey?.();
+  const botAuth = createBotAuthSigner({
+    key: botAuthKey,
+    config: botAuthConfig,
+    now: () => services.clock.now(),
+  });
+  const botAuthStatus = async (): Promise<BotAuthStatus> => {
+    const cfg = botAuthConfig();
+    const key = await botAuthKey().catch(() => undefined);
+    return {
+      enabled: cfg.enabled,
+      keyId: key?.keyId ?? null,
+      publicJwk: key === undefined ? null : { ...key.publicJwk },
+      createdAt: key?.createdAt ?? null,
+      signatureAgent: validSignatureAgent(cfg.signatureAgent) ?? null,
+      directoryPath: BOT_AUTH_DIRECTORY_PATH,
+      origins: cfg.origins ?? [],
+      advertised: botAuth.advertised(),
+    };
+  };
   const recordingsDir = join(services.home, "library", "recordings");
   let client: BridgeClient | undefined;
   let driver: CdpBridgeDriver | undefined;
@@ -366,6 +414,7 @@ export function composeBrowser(
     library: recordingLibrary,
     broker: services.broker,
     redact,
+    botAuth,
     keyFor: (callId) => keyFor(callId, "web"),
     policyFor,
   });
@@ -498,6 +547,7 @@ export function composeBrowser(
       library: recordingLibrary,
       broker: services.broker,
       redact,
+      botAuth,
     });
     const attached = driver;
     next.onClose((reason) => {
@@ -514,9 +564,41 @@ export function composeBrowser(
   };
 
   return {
+    // The key directory sites fetch (Web Bot Auth, I14): public keys only. The owner exposes it
+    // on their own domain or tunnel and points `signatureAgent` at it (security §6).
+    publicRoutes: {
+      [BOT_AUTH_DIRECTORY_PATH]: async (): ReturnType<PublicRoute> => {
+        const key = await botAuthKey().catch(() => undefined);
+        if (!botAuthConfig().enabled || key === undefined) {
+          return { status: 404, headers: { "content-type": "application/json" }, body: "{}" };
+        }
+        return {
+          status: 200,
+          headers: {
+            "content-type": BOT_AUTH_DIRECTORY_TYPE,
+            "cache-control": "max-age=300",
+          },
+          body: JSON.stringify(botAuthDirectory(key)),
+        };
+      },
+    },
     handlers: {
       ...browserHandlers(router, sessionsForClients),
       ...recordingHandlers(recordingStore, publishRecording),
+      "browser.botAuth.status": {
+        async run() {
+          return { status: await botAuthStatus() };
+        },
+      },
+      "browser.botAuth.rotate": {
+        async run() {
+          if (credentials.rotateBotAuthKey === undefined) {
+            throw new PsycheError("unavailable", "this vault cannot hold a Web Bot Auth key");
+          }
+          await credentials.rotateBotAuthKey();
+          return { status: await botAuthStatus() };
+        },
+      },
       // For `psyche security audit` (#169; security §6): the port is flagged while attached.
       "browser.realChrome.status": {
         // On by the env (PSYCHE_REAL_CHROME=1) or by the `browser.realChrome` setting.

@@ -139,7 +139,31 @@ export function checkCdpCommand(
   return { ok: true };
 }
 
-/** `Fetch.*` may only pause documents at the request stage and continue them unmodified. */
+/** Headers a continued request may never carry from the Gateway's side. */
+const FORBIDDEN_CONTINUE_HEADERS = new Set([
+  "cookie",
+  "cookie2",
+  "authorization",
+  "proxy-authorization",
+  "host",
+]);
+
+function continueHeadersOk(headers: unknown): boolean {
+  if (!Array.isArray(headers) || headers.length > 200) return false;
+  return headers.every((h) => {
+    if (typeof h !== "object" || h === null) return false;
+    const { name, value } = h as { name?: unknown; value?: unknown };
+    if (typeof name !== "string" || typeof value !== "string") return false;
+    if (!/^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,100}$/.test(name)) return false;
+    if (/[\r\n\0]/.test(value) || value.length > 8192) return false;
+    return !FORBIDDEN_CONTINUE_HEADERS.has(name.toLowerCase());
+  });
+}
+
+/**
+ * `Fetch.*` may only pause documents at the request stage, and continue them unmodified or with
+ * added headers (Web Bot Auth signatures, I14).
+ */
 function checkFetch(
   method: string,
   params: Record<string, unknown> | undefined,
@@ -162,9 +186,15 @@ function checkFetch(
   }
   if (method === "Fetch.continueRequest") {
     const keys = Object.keys(params ?? {});
-    return keys.every((k) => k === "requestId")
+    if (!keys.every((k) => k === "requestId" || k === "headers")) {
+      return { ok: false, reason: "Fetch.continueRequest may only add headers" };
+    }
+    // Web Bot Auth (I14) adds signature headers; nothing may set credentials or the host.
+    const headers = (params as { headers?: unknown } | undefined)?.headers;
+    if (headers === undefined) return { ok: true };
+    return continueHeadersOk(headers)
       ? { ok: true }
-      : { ok: false, reason: "Fetch.continueRequest may not modify the request" };
+      : { ok: false, reason: "Fetch.continueRequest headers may not set credentials or the host" };
   }
   if (method === "Fetch.failRequest") {
     const keys = Object.keys(params ?? {});

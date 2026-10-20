@@ -5,7 +5,7 @@ import { BrowserRecording } from "./methods/browser.ts";
 import { QueuedMessage } from "./methods/chat.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
 import { DictationKeyPayload } from "./methods/dictation.ts";
-import { SkillChangeEvent, SkillUpdateStatus } from "./methods/skills.ts";
+import { SkillChangeEvent, SkillDraft, SkillUpdateStatus } from "./methods/skills.ts";
 import {
   ReadAloudCompletedPayload,
   ReadAloudFailedPayload,
@@ -299,6 +299,11 @@ export const Events = {
     payload: SkillUpdateStatus,
     description:
       "An installed skill's pinned source now has different content; review it with skills.proposeUpdate (nothing is installed until approved).",
+  }),
+  "skills.draft.updated": defineEvent({
+    payload: Type.Object({ draft: SkillDraft }),
+    description:
+      "The agent proposed a skill from a repeated routine, or a draft was edited, accepted, installed, dismissed or expired (T3).",
   }),
 } as const;
 
