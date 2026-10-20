@@ -2,7 +2,7 @@
   "name": "@psyche/proactive",
   "version": "0.0.0",
   "private": true,
-  "description": "Feed, Ideas and Goals pipelines.",
+  "description": "Feed, Ideas and Goals pipelines: bounded, confirmable proactivity (interest ledger, goal check-ins, acceptance model).",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
@@ -16,9 +16,16 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@psyche/protocol": "workspace:*"
+    "@psyche/protocol": "workspace:*",
+    "ulid": "3.0.2"
   },
   "devDependencies": {
-    "@psyche/testing": "workspace:*"
+    "@psyche/db": "workspace:*",
+    "@psyche/scheduler": "workspace:*",
+    "@psyche/tasks": "workspace:*",
+    "@psyche/testing": "workspace:*",
+    "@sinclair/typebox": "0.34.52",
+    "@types/better-sqlite3": "9.6.0",
+    "better-sqlite3": "13.0.3"
   }
 }

@@ -344,9 +344,17 @@ export class NodeSpeechEngine implements SpeechEngine {
     const res = await node.invoke(NODE_SPEECH_CAPABILITIES.voices, {}, this.#invokeOptions());
     if (!res.ok) return [];
     const list = (
-      res.result as { voices?: { id: string; name: string; language: string }[] } | null
+      res.result as {
+        voices?: { id: string; name: string; language: string; personalVoice?: boolean }[];
+      } | null
     )?.voices;
-    return (list ?? []).map((v) => ({ id: v.id, name: v.name, language: v.language, local: true }));
+    return (list ?? []).map((v) => {
+      const voice: Voice = { id: v.id, name: v.name, language: v.language, local: true };
+      // Apple Personal Voice output is for personal, non-commercial use (helper README, Q3).
+      if (v.personalVoice === true)
+        (voice as Voice & { nonCommercial?: boolean }).nonCommercial = true;
+      return voice;
+    });
   }
 
   #invokeOptions(

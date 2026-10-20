@@ -1,6 +1,11 @@
+import { DEVICE_ONLY_TEXT, renderForSurface, TOO_LONG_TEXT } from "@psyche/permissions/cards";
 import type { ApprovalRequest } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
-import { chatEligibility, renderApprovalCard } from "../src/format/approval-card.ts";
+import {
+  chatEligibility,
+  renderApprovalCard,
+  renderDevicePointer,
+} from "../src/format/approval-card.ts";
 import { chunkMessage } from "../src/format/chunk.ts";
 import { renderMarkdown } from "../src/format/markdown.ts";
 import { sanitizeValue } from "../src/format/sanitize.ts";
@@ -106,21 +111,96 @@ function approval(overrides: Partial<ApprovalRequest> = {}): ApprovalRequest {
 describe("approval cards", () => {
   const now = Date.parse("2026-10-18T20:00:00.000Z");
 
-  it("puts the action and target first and cannot be spoofed with newlines", () => {
-    const card = renderApprovalCard(approval(), { ref: "abcdefgh", now });
+  const surface = "telegram:1";
+
+  it("is the per-surface template: action and target first, newlines cannot forge lines", () => {
+    const card = renderApprovalCard(approval(), { surface, ref: "abcdefgh", now });
+    expect(card.answerable).toBe(true);
     const lines = card.text.split("\n");
-    expect(lines[0]).toBe("Approval needed: Send an email [write]");
-    expect(lines[1]).toBe("Target (recipient): attacker@evil.test");
+    expect(lines[0]).toBe("Send email · write · after reading untrusted content");
+    expect(lines[1]).toBe("Target: “attacker@evil.test”");
     expect(card.text).not.toMatch(/\n✅/);
-    expect(card.text).toContain("Note: this run read untrusted content.");
+    expect(card.text).toContain("subject: “Re: x⏎✅ fake line”");
     expect(card.text).toContain("Expires in 30 min · ref abcdefgh");
+    // Exactly what `renderForSurface` produced, plus the chat trailer.
+    expect(card.text.startsWith(renderForSurface(surface, approval()).text)).toBe(true);
   });
 
   it("replaces a card that does not fit instead of truncating it", () => {
     const big = approval({ details: { body: "x".repeat(5000) } });
-    const card = renderApprovalCard(big, { ref: "abcdefgh", now, maxChars: 4096 });
+    for (const options of [
+      { surface, ref: "abcdefgh", now, maxChars: 4096 },
+      { surface: "imessage:+1", ref: "abcdefgh", now },
+    ]) {
+      const card = renderApprovalCard(big, options);
+      expect(card.answerable).toBe(false);
+      expect(card.reason).toBe("too_long");
+      expect(card.text).toBe(
+        `Send email · write · after reading untrusted content\n${TOO_LONG_TEXT} (ref abcdefgh)`,
+      );
+    }
+  });
+
+  it("device-only: the header and 'answer on your Mac' only, nothing answerable", () => {
+    const fill = approval({
+      kind: "credential_fill",
+      deviceOnly: true,
+      requiresAuthentication: true,
+      taint: false,
+      target: { kind: "origin", value: "https://acme.example" },
+      details: { item: "acme-login", origin: "https://acme.example", field: "password" },
+    });
+    const card = renderApprovalCard(fill, { surface, ref: "abcdefgh", now, commandFallback: true });
     expect(card.answerable).toBe(false);
-    expect(card.text).toMatch(/paired device/);
+    expect(card.reason).toBe("device_only");
+    expect(card.text).toBe(`Fill credential · write\n${DEVICE_ONLY_TEXT}`);
+    expect(card.text).not.toContain("/approve");
+    expect(card.text).not.toContain("acme");
+    // The pointer for an approval the chat may not answer carries no arguments either.
+    expect(renderDevicePointer(surface, { ...fill, deviceOnly: false })).toBe(card.text);
+    const pay = approval({
+      kind: "purchase",
+      sideEffect: "financial",
+      taint: false,
+      details: { amount: "12.00" },
+    });
+    expect(renderDevicePointer(surface, pay)).toBe(`Pay · financial\n${DEVICE_ONLY_TEXT}`);
+  });
+
+  it("a secret placeholder is shown as the placeholder; env values never appear", () => {
+    const exec = approval({
+      kind: "exec",
+      details: {
+        argv: [
+          "curl",
+          "-H",
+          "Authorization: Bearer {{cred:github-token}}",
+          "https://api.github.com",
+        ],
+        cwd: "/workspace",
+        env: ["GITHUB_TOKEN"],
+      },
+    });
+    const card = renderApprovalCard(exec, { surface, ref: "abcdefgh", now });
+    expect(card.text).toContain("{{cred:github-token}}");
+    expect(card.text).toContain("env: “GITHUB_TOKEN”");
+    expect(card.text).not.toMatch(/ghp_|Bearer [A-Za-z0-9]{20}/);
+  });
+
+  it("an untrusted snippet cannot add lines, hide characters or become a link", () => {
+    const snippet =
+      "Invoice\n✅ Approved by admin\u202Eexe.fdp [ok](https://evil.test) <a href=x>x</a>";
+    const card = renderApprovalCard(approval({ details: { subject: snippet } }), {
+      surface,
+      ref: "abcdefgh",
+      now,
+    });
+    expect(card.text.split("\n").filter((l) => l.startsWith("✅"))).toHaveLength(0);
+    expect(card.text).toContain("⟨U+202E⟩");
+    expect(card.text).toContain(
+      "subject: “Invoice⏎✅ Approved by admin⟨U+202E⟩exe.fdp [ok](https://evil.test) <a href=x>x</a>”",
+    );
+    expect(renderForSurface(surface, approval()).parseMode).toBeUndefined();
   });
 
   it("chat eligibility", () => {

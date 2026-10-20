@@ -320,7 +320,9 @@ export class TelegramAdapter implements ChannelAdapter {
       });
     }
     const now = this.#clock.now();
+    // The per-surface template (design-12): `telegram:<chatId>` is the Broker's surface id.
     const card = renderApprovalCard(approval, {
+      surface: `telegram:${chatId}`,
       ref: approvalRef(approval.id),
       now,
       maxChars: TELEGRAM_MAX_MESSAGE_CHARS,
