@@ -3,10 +3,15 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { DEFAULT_GATEWAY_HOST, DEFAULT_GATEWAY_PORT, PsycheError } from "@psyche/protocol";
 import { trustedProxyList } from "./proxy.ts";
+
 <<<<<<< HEAD
+
 import { resolveNodeSocketPath } from "./socket-path.ts";
+
 =======
+
 import { type BindMode, containerAddress, readGatewayToken } from "./transport-gate.ts";
+
 >>>>>>> origin/main
 
 /** Resolved Gateway configuration (feature A5 subset; see README "Config keys"). */

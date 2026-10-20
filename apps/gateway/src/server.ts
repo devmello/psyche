@@ -150,8 +150,8 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   // The secret is written to disk only after both listeners are up (see below).
   const handshakeSecret = newHandshakeSecret();
   const connections = new Set<Connection>();
-  let connSeq = 0;
-  let origin = "";
+  const connSeq = 0;
+  const origin = "";
 
   const broker = options.broker ?? new LockedPermissionBroker();
   const ctx = {
