@@ -20,6 +20,8 @@ import { Skeleton } from "../components/ui/skeleton.tsx";
 import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs.tsx";
 import { Textarea } from "../components/ui/textarea.tsx";
 import { useCall, useGatewayQuery, useMemoryFile } from "../data/index.ts";
+import { activeI18n, t } from "../i18n/core.ts";
+import { describeError } from "../i18n/errors.ts";
 import { cn } from "../lib/utils.ts";
 import { usePersona, useSlots } from "../slots.tsx";
 
@@ -37,7 +39,13 @@ export function BudgetMeter({ used, budget }: { used: number; budget: number }):
   const over = used > budget;
   return (
     <span className="inline-flex items-center gap-2 text-xs text-muted-foreground">
-      <meter className="sr-only" min={0} max={budget} value={used} aria-label="File budget" />
+      <meter
+        className="sr-only"
+        min={0}
+        max={budget}
+        value={used}
+        aria-label={t("agent.memory.budget")}
+      />
       <span className="h-1.5 w-20 overflow-hidden rounded-full bg-gray-4" aria-hidden="true">
         <span
           className={cn(
@@ -47,7 +55,10 @@ export function BudgetMeter({ used, budget }: { used: number; budget: number }):
           style={{ width: `${pct}%` }}
         />
       </span>
-      {(used / 1000).toFixed(1)}k / {budget / 1000}k
+      {t("agent.memory.budgetUse", {
+        used: Math.round(used / 100) / 10,
+        budget: budget / 1000,
+      })}
     </span>
   );
 }
@@ -62,7 +73,7 @@ export function ProvenanceChip({ provenance }: { provenance: Provenance }): Reac
       )}
     >
       {untrusted ? <ShieldAlert className="size-3" aria-hidden="true" /> : null}
-      {provenance}
+      {t(`agent.provenance.${provenance}`)}
     </span>
   );
 }
@@ -82,8 +93,7 @@ export function MemoryFileEditor({ path, budget }: { path: string; budget: numbe
       <Skeleton className="h-48" />
     ) : (
       <p className="text-sm">
-        Psyche couldn't open {path}
-        {error ? ` (${error})` : ""}.
+        {t("agent.memory.openFailed", { path, reason: error ?? "", hasReason: Boolean(error) })}
       </p>
     );
   }
@@ -98,10 +108,8 @@ export function MemoryFileEditor({ path, budget }: { path: string; budget: numbe
     } catch (err) {
       setSaveError(
         err instanceof Error && /conflict|changed/i.test(err.message)
-          ? `${path} changed since you opened it. Discard to load the new version.`
-          : err instanceof Error
-            ? err.message
-            : String(err),
+          ? t("agent.memory.changed", { path })
+          : describeError(err),
       );
     } finally {
       setSaving(false);
@@ -112,30 +120,28 @@ export function MemoryFileEditor({ path, budget }: { path: string; budget: numbe
       <div className="flex items-center gap-3">
         <span className="text-mono text-gray-12">{path}</span>
         <BudgetMeter used={value.length} budget={budget} />
-        <span className="ml-auto flex gap-2">
+        <span className="ms-auto flex gap-2">
           <Button
             size="sm"
             variant="ghost"
             disabled={!dirty || saving}
             onClick={() => setDraft(null)}
           >
-            Discard
+            {t("agent.memory.discard")}
           </Button>
           <Button size="sm" disabled={!dirty || saving} onClick={() => void onSave()}>
-            Save
+            {t("common.save")}
           </Button>
         </span>
       </div>
       {path === "MEMORY.md" ? (
-        <p className="text-caption text-muted-foreground">
-          Dreaming rewrites this file every night.
-        </p>
+        <p className="text-caption text-muted-foreground">{t("agent.memory.dreaming")}</p>
       ) : null}
       {slots.renderEditor ? (
         slots.renderEditor({ path, value, onChange: setDraft, budget })
       ) : (
         <Textarea
-          aria-label={`${path} contents`}
+          aria-label={t("agent.memory.contents", { path })}
           className="field-sizing-fixed h-64 resize-y bg-gray-1 font-mono text-[13px] leading-5"
           value={value}
           onChange={(e) => setDraft(e.target.value)}
@@ -162,11 +168,11 @@ function MemorySearch({ onClose }: { onClose?: () => void }): ReactElement {
       setHits(res.hits);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(describeError(err));
     }
   };
   return (
-    <section aria-label="Search memory" className="flex flex-col gap-2">
+    <section aria-label={t("agent.memory.search")} className="flex flex-col gap-2">
       <form
         className="flex gap-2"
         onSubmit={(e) => {
@@ -175,8 +181,8 @@ function MemorySearch({ onClose }: { onClose?: () => void }): ReactElement {
         }}
       >
         <Input
-          aria-label="Search memory"
-          placeholder="Search memory"
+          aria-label={t("agent.memory.search")}
+          placeholder={t("agent.memory.search")}
           autoFocus
           onKeyDown={(e) => {
             if (e.key === "Escape" && onClose) {
@@ -187,14 +193,14 @@ function MemorySearch({ onClose }: { onClose?: () => void }): ReactElement {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <Button type="submit" variant="ghost" size="icon" aria-label="Search">
+        <Button type="submit" variant="ghost" size="icon" aria-label={t("agent.memory.searchGo")}>
           <Search aria-hidden="true" />
         </Button>
       </form>
       {error ? <p className="text-sm text-danger-text">{error}</p> : null}
       {hits !== null ? (
         hits.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing in memory matches.</p>
+          <p className="text-sm text-muted-foreground">{t("agent.memory.noHits")}</p>
         ) : (
           <ul className="flex flex-col gap-1 text-sm">
             {hits.map((h) => (
@@ -223,31 +229,32 @@ function ResetDialog({
   onReset: () => Promise<void>;
 }): ReactElement {
   const [typed, setTyped] = useState("");
-  const phrase = `reset ${persona}`;
+  const phrase = t("agent.memory.resetPhrase", { name: persona });
   return (
     <AlertDialog>
       <AlertDialogTrigger
         render={<Button size="sm" variant="ghost" className="text-danger-text" />}
       >
-        Reset {persona}…
+        {t("agent.memory.resetOpen", { name: persona })}
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Reset {persona}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This deletes every workspace file, memory chunk and claim and re-creates the templates.
-            Receipts and the audit log are kept. Type "{phrase}" to confirm.
-          </AlertDialogDescription>
+          <AlertDialogTitle>{t("agent.memory.resetTitle", { name: persona })}</AlertDialogTitle>
+          <AlertDialogDescription>{t("agent.memory.resetBody", { phrase })}</AlertDialogDescription>
         </AlertDialogHeader>
-        <Input aria-label="Confirmation" value={typed} onChange={(e) => setTyped(e.target.value)} />
+        <Input
+          aria-label={t("agent.memory.confirmation")}
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+        />
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
             disabled={typed.trim() !== phrase}
             onClick={() => void onReset()}
           >
-            Reset
+            {t("agent.memory.reset")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -283,14 +290,14 @@ export function SoulMemoryPanel({
 
   return (
     <div className="flex flex-col gap-5 px-2">
-      <section aria-label="Files" className="flex flex-col gap-3">
+      <section aria-label={t("agent.memory.files")} className="flex flex-col gap-3">
         <div className="flex items-center gap-3">
           <SectionLabel as="h3" className="w-12 shrink-0">
-            Files
+            {t("agent.memory.files")}
           </SectionLabel>
           <Tabs value={path} onValueChange={(v) => setPath(String(v))} className="min-w-0 flex-1">
             <TabsList
-              aria-label="Files"
+              aria-label={t("agent.memory.files")}
               variant="line"
               className="h-8 w-full justify-start overflow-x-auto"
             >
@@ -304,8 +311,8 @@ export function SoulMemoryPanel({
           <Button
             size="icon-sm"
             variant="ghost"
-            aria-label="Search memory"
-            title="Search memory"
+            aria-label={t("agent.memory.search")}
+            title={t("agent.memory.search")}
             aria-expanded={searching}
             onClick={() => setSearching((v) => !v)}
           >
@@ -313,12 +320,12 @@ export function SoulMemoryPanel({
           </Button>
         </div>
         {searching ? <MemorySearch onClose={() => setSearching(false)} /> : null}
-        <nav aria-label="Daily notes" className="flex items-center gap-3">
+        <nav aria-label={t("agent.memory.dailyNotes")} className="flex items-center gap-3">
           <SectionLabel as="span" className="w-12 shrink-0">
-            Daily
+            {t("agent.memory.daily")}
           </SectionLabel>
           {notes.length === 0 ? (
-            <span className="text-caption text-muted-foreground">No daily notes yet.</span>
+            <span className="text-caption text-muted-foreground">{t("agent.memory.noDaily")}</span>
           ) : (
             <span className="flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-0.5">
               {notes.map((n) => (
@@ -345,13 +352,15 @@ export function SoulMemoryPanel({
       <MemoryFileEditor path={path} budget={fileBudget} />
 
       <section
-        aria-label="Memory controls"
+        aria-label={t("agent.memory.controls")}
         className="flex flex-col divide-y divide-gray-5 rounded-lg border border-gray-6 bg-gray-2 text-small"
       >
         <div className="flex flex-wrap items-center gap-2 p-3">
           <span className="min-w-0 flex-1">
-            Memory{" "}
-            <Badge variant={paused ? "approval" : "success"}>{paused ? "Paused" : "On"}</Badge>
+            {t("agent.memory.memory")}{" "}
+            <Badge variant={paused ? "approval" : "success"}>
+              {paused ? t("agent.memory.paused") : t("common.on")}
+            </Badge>
           </span>
           <Button
             size="sm"
@@ -362,21 +371,21 @@ export function SoulMemoryPanel({
             }}
           >
             {paused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
-            {paused ? "Resume" : "Pause"}
+            {paused ? t("agent.activity.resume") : t("agent.task.pause")}
           </Button>
           {onStartIncognito ? (
             <Button size="sm" variant="ghost" onClick={onStartIncognito}>
-              <EyeOff aria-hidden="true" /> Incognito side chat
+              <EyeOff aria-hidden="true" /> {t("agent.memory.incognito")}
             </Button>
           ) : null}
         </div>
         <fieldset
-          aria-label="Import, export and reset"
+          aria-label={t("agent.memory.importExport")}
           className="m-0 flex min-w-0 flex-wrap items-center gap-2 border-0 p-3"
         >
           {onImport ? (
             <Button size="sm" variant="ghost" onClick={onImport}>
-              <Upload aria-hidden="true" /> Import memory
+              <Upload aria-hidden="true" /> {t("agent.memory.import")}
             </Button>
           ) : null}
           <Button
@@ -385,17 +394,19 @@ export function SoulMemoryPanel({
             onClick={async () => {
               const res = await call("memory.export", {});
               onExported?.({ filename: res.filename, data: res.data });
-              setNotice(`Exported ${res.filename}.`);
+              setNotice(t("agent.memory.exported", { file: res.filename }));
             }}
           >
-            <Download aria-hidden="true" /> Export everything
+            <Download aria-hidden="true" /> {t("agent.memory.export")}
           </Button>
-          <span className="ml-auto">
+          <span className="ms-auto">
             <ResetDialog
               persona={persona.name}
               onReset={async () => {
                 const res = await call("memory.reset", {});
-                setNotice(`Reset ${res.files.length} files, ${res.claims} claims.`);
+                setNotice(
+                  t("agent.memory.resetDone", { files: res.files.length, claims: res.claims }),
+                );
               }}
             />
           </span>
@@ -410,17 +421,16 @@ export function SoulMemoryPanel({
   );
 }
 
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** "2026-10-18" → "Sun" (the calendar strip, §3.17). */
+/** "2026-10-18" → "Sun" in the region format (the calendar strip, §3.17). */
 function dayName(date: string): string {
-  const t = Date.parse(`${date}T12:00:00Z`);
-  return Number.isNaN(t) ? "" : (WEEKDAYS[new Date(t).getUTCDay()] ?? "");
+  const ms = Date.parse(`${date}T12:00:00Z`);
+  return Number.isNaN(ms) ? "" : activeI18n().date(ms, { weekday: "short", timeZone: "UTC" });
 }
 
-/** "2026-10-18" → "Oct 18". */
+/** "2026-10-18" → "Oct 18" in the region format. */
 function shortDate(date: string): string {
-  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(date);
-  return m ? `${MONTHS[Number(m[1]) - 1]} ${Number(m[2])}` : date;
+  const ms = Date.parse(`${date}T12:00:00Z`);
+  return Number.isNaN(ms)
+    ? date
+    : activeI18n().date(ms, { month: "short", day: "numeric", timeZone: "UTC" });
 }

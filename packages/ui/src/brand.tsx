@@ -26,6 +26,7 @@ export function PsycheMark({ size = 32, withWordmark = true }: PsycheMarkProps):
       </svg>
       {withWordmark ? (
         <span style={{ fontSize: size * 0.75, fontWeight: 600, letterSpacing: "-0.01em" }}>
+          {/* i18n-ignore: the product name is never translated */}
           Psyche
         </span>
       ) : null}

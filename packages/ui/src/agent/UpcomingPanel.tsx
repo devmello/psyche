@@ -12,11 +12,14 @@ import {
 } from "../components/ui/dropdown-menu.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
 import { useAutomations, useCall, useGatewayQuery, useThreads } from "../data/index.ts";
+import { activeI18n, t } from "../i18n/core.ts";
 import { formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 
-const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const dateName = (d: Date, options: Intl.DateTimeFormatOptions) =>
+  activeI18n().date(d, { ...options, timeZone: "UTC" });
+const monthName = (month: number) =>
+  dateName(new Date(Date.UTC(2026, month, 1)), { month: "short" });
 
 /** "weekdays 07:00", "monthly on the 1st 09:00", "every 6 h" (UI design §3.16: the schedule as a sentence). */
 export function scheduleSentence(a: Pick<Automation, "kind" | "schedule">): string {
@@ -25,13 +28,24 @@ export function scheduleSentence(a: Pick<Automation, "kind" | "schedule">): stri
     if (!Number.isNaN(at)) {
       const d = new Date(at);
       const time = `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
-      return `${DAYS[d.getUTCDay()]?.slice(0, 3)} ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()} ${time}`;
+      return t("agent.schedule.once", {
+        weekday: dateName(d, { weekday: "short" }),
+        month: monthName(d.getUTCMonth()),
+        day: d.getUTCDate(),
+        time,
+      });
     }
   }
   const iso = /^P(?:T(?:(\d+)H)?(?:(\d+)M)?)$/.exec(a.schedule);
   if (iso) {
     const [, h, m] = iso;
-    return `every ${h ? `${h} h` : ""}${h && m ? " " : ""}${m ? `${m} min` : ""}`;
+    const span =
+      h && m
+        ? t("time.hMin", { h: Number(h), m: Number(m) })
+        : h
+          ? t("time.h", { h: Number(h) })
+          : t("time.min", { n: Number(m ?? 0) });
+    return t("agent.schedule.every", { span });
   }
   const parts = a.schedule.trim().split(/\s+/);
   if (parts.length === 5) {
@@ -42,14 +56,20 @@ export function scheduleSentence(a: Pick<Automation, "kind" | "schedule">): stri
         : null;
     if (time !== null) {
       if (/^\d+$/.test(dom) && /^\d+$/.test(month) && dow === "*") {
-        return `${MONTHS[(Number(month) - 1) % 12]} ${Number(dom)} ${time}`;
+        return t("agent.schedule.date", {
+          month: monthName((Number(month) - 1) % 12),
+          day: Number(dom),
+          time,
+        });
       }
-      if (dow === "1-5" && dom === "*") return `weekdays ${time}`;
-      if (dow === "*" && dom === "*") return `every day ${time}`;
-      if (dom !== "*" && dow === "*") return `monthly on day ${dom} ${time}`;
-      if (/^\d$/.test(dow)) return `${DAYS[Number(dow) % 7]}s ${time}`;
+      if (dow === "1-5" && dom === "*") return t("agent.schedule.weekdays", { time });
+      if (dow === "*" && dom === "*") return t("agent.schedule.daily", { time });
+      if (dom !== "*" && dow === "*") return t("agent.schedule.monthly", { day: dom, time });
+      if (/^\d$/.test(dow))
+        return t("agent.schedule.weekly", { day: String(Number(dow) % 7), time });
     }
-    if (min.startsWith("*/")) return `every ${min.slice(2)} min`;
+    if (min.startsWith("*/"))
+      return t("agent.schedule.every", { span: t("time.min", { n: Number(min.slice(2)) }) });
   }
   return a.schedule;
 }
@@ -83,8 +103,11 @@ export function snoozedSchedule(
 }
 
 function sessionLabel(a: Automation): string {
-  if (a.sessionTarget.startsWith("named:")) return `in ${a.sessionTarget.slice(6)}`;
-  return a.sessionTarget === "isolated" ? "in its own session" : "in the main session";
+  if (a.sessionTarget.startsWith("named:"))
+    return t("agent.upcoming.inNamed", { name: a.sessionTarget.slice(6) });
+  return a.sessionTarget === "isolated"
+    ? t("agent.upcoming.inOwnSession")
+    : t("agent.upcoming.inMainSession");
 }
 
 const CHANNEL_NAME: Record<string, string> = {
@@ -94,7 +117,9 @@ const CHANNEL_NAME: Record<string, string> = {
   signal: "Signal",
   slack: "Slack",
   discord: "Discord",
-  email: "email",
+  get email() {
+    return t("agent.upcoming.email");
+  },
 };
 
 /** "Delivers to Main and Telegram", "Delivers nothing unless something needs you" (§3.16). */
@@ -103,21 +128,25 @@ function useDeliverySentence(): (a: Automation) => string {
   const channels = useGatewayQuery("channels.list", {});
   return (a) => {
     const d = a.delivery;
-    if (d.none === true) return "Stays quiet unless something needs you";
+    if (d.none === true) return t("agent.upcoming.quiet");
     const to: string[] = [];
     if (d.thread) {
       const thread =
         d.thread === main?.thread.id ? main : threadList.find((t) => t.thread.id === d.thread);
       to.push(
-        thread?.thread.kind === "main" ? "the main chat" : (thread?.thread.title ?? "a chat"),
+        thread?.thread.kind === "main"
+          ? t("agent.upcoming.theMainChat")
+          : (thread?.thread.title ?? t("agent.upcoming.aChat")),
       );
     }
     if (d.channel) {
       const type = channels.data?.channels.find((c) => c.id === d.channel)?.type;
-      to.push(type ? (CHANNEL_NAME[type] ?? type) : "a channel");
+      to.push(type ? (CHANNEL_NAME[type] ?? type) : t("agent.upcoming.aChannel"));
     }
     if (d.webhook) to.push("a webhook");
-    return to.length === 0 ? "Delivers nowhere yet" : `Delivers to ${to.join(" and ")}`;
+    return to.length === 0
+      ? t("agent.upcoming.nowhere")
+      : t("agent.upcoming.deliversTo", { to: activeI18n().list(to) });
   };
 }
 
@@ -129,7 +158,7 @@ function lastOutcome(a: Automation): ReactElement | null {
     : /^(delivered|done|ok)/.test(s)
       ? "success"
       : "muted";
-  return <Badge variant={variant}>last: {a.lastStatus}</Badge>;
+  return <Badge variant={variant}>{t("agent.upcoming.last", { status: a.lastStatus })}</Badge>;
 }
 
 export function UpcomingRow({
@@ -161,20 +190,24 @@ export function UpcomingRow({
     nextAt === null
       ? null
       : Date.parse(nextAt) >= now
-        ? `next run ${formatRelative(nextAt, now)}`
-        : "due now";
+        ? t("agent.upcoming.nextRun", { when: formatRelative(nextAt, now) })
+        : t("agent.upcoming.dueNow");
   return (
     <li className="flex items-start gap-3 py-3">
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="truncate text-small font-medium">{a.title}</span>
-          {a.kind === "watch" ? <Badge variant="info">watch</Badge> : null}
-          {!a.enabled ? <Badge variant="muted">paused</Badge> : null}
+          {a.kind === "watch" ? <Badge variant="info">{t("agent.upcoming.watch")}</Badge> : null}
+          {!a.enabled ? <Badge variant="muted">{t("agent.upcoming.paused")}</Badge> : null}
         </span>
         <span className="mt-0.5 block text-caption text-gray-11">
-          {reminder ? "Once, " : "Runs "}
-          {scheduleSentence(a)} {sessionLabel(a)}
-          {next && a.enabled ? ` · ${next}` : ""}
+          {t("agent.upcoming.runs", {
+            once: reminder,
+            schedule: scheduleSentence(a),
+            session: sessionLabel(a),
+            next: next && a.enabled ? next : "",
+            hasNext: Boolean(next && a.enabled),
+          })}
         </span>
         {delivery ? (
           <span className="block text-caption text-muted-foreground">{delivery}</span>
@@ -189,39 +222,47 @@ export function UpcomingRow({
           <>
             {onSnooze ? (
               <Button size="sm" variant="ghost" onClick={onSnooze}>
-                Snooze
+                {t("agent.upcoming.snooze")}
               </Button>
             ) : null}
             {onDone ? (
               <Button size="sm" variant="outline" onClick={onDone}>
-                Done
+                {t("common.done")}
               </Button>
             ) : null}
           </>
         ) : onRun ? (
           <Button size="sm" variant="ghost" onClick={onRun}>
-            Run now
+            {t("agent.upcoming.runNow")}
           </Button>
         ) : null}
         <DropdownMenu>
           <DropdownMenuTrigger
-            render={<Button size="icon-sm" variant="ghost" aria-label={`More for ${a.title}`} />}
+            render={
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label={t("agent.upcoming.moreFor", { title: a.title })}
+              />
+            }
           >
             <Ellipsis aria-hidden="true" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             {reminder && onRun ? (
-              <DropdownMenuItem onClick={onRun}>Run now</DropdownMenuItem>
+              <DropdownMenuItem onClick={onRun}>{t("agent.upcoming.runNow")}</DropdownMenuItem>
             ) : null}
             {onToggle ? (
               <DropdownMenuItem onClick={onToggle}>
-                {a.enabled ? "Pause" : "Resume"}
+                {a.enabled ? t("agent.task.pause") : t("agent.activity.resume")}
               </DropdownMenuItem>
             ) : null}
-            {onEdit ? <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem> : null}
+            {onEdit ? (
+              <DropdownMenuItem onClick={onEdit}>{t("common.edit")}</DropdownMenuItem>
+            ) : null}
             {onDelete ? (
               <DropdownMenuItem variant="destructive" onClick={onDelete}>
-                Delete
+                {t("common.delete")}
               </DropdownMenuItem>
             ) : null}
           </DropdownMenuContent>
@@ -247,7 +288,7 @@ export function UpcomingPanel({
   const deliverySentence = useDeliverySentence();
   if (q.loading && q.automations.length === 0) {
     return (
-      <div className="flex flex-col gap-2" role="status" aria-label="Loading upcoming">
+      <div className="flex flex-col gap-2" role="status" aria-label={t("agent.upcoming.loading")}>
         <Skeleton className="h-10" />
         <Skeleton className="h-10" />
       </div>
@@ -256,23 +297,24 @@ export function UpcomingPanel({
   if (q.error && q.automations.length === 0) {
     return (
       <p className="px-2 text-small">
-        Psyche couldn't load your schedule ({q.error}).{" "}
+        {t("agent.upcoming.loadFailed", { reason: q.error })}{" "}
         <button type="button" className="text-accent-11 underline" onClick={q.reload}>
-          Try again
+          {t("agent.activity.tryAgain")}
         </button>
       </p>
     );
   }
   if (q.automations.length === 0) {
-    return (
-      <EmptyState icon={CalendarClock}>Nothing scheduled. Ask in chat with /schedule.</EmptyState>
-    );
+    return <EmptyState icon={CalendarClock}>{t("agent.upcoming.empty")}</EmptyState>;
   }
   const sorted = [...q.automations].sort((a, b) =>
     (a.nextRunAt ?? "9999").localeCompare(b.nextRunAt ?? "9999"),
   );
   return (
-    <ul className="flex flex-col divide-y divide-gray-4 px-2" aria-label="Upcoming">
+    <ul
+      className="flex flex-col divide-y divide-gray-4 px-2"
+      aria-label={t("agent.sheet.upcoming")}
+    >
       {sorted.map((a) => (
         <UpcomingRow
           key={a.id}
