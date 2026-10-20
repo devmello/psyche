@@ -3,6 +3,7 @@ import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { MockGateway, RecordedCall } from "../src/data/mock-gateway.ts";
 import { createFixtureWorld, FIXTURE_NOW, IDS, PERSONA } from "../src/fixtures/index.ts";
+import { actionLabel } from "../src/screens/settings/ActionMatrix.tsx";
 import { ChannelsPanel } from "../src/screens/settings/ChannelsSection.tsx";
 import { CARD_REFUSAL } from "../src/screens/settings/CredentialsSection.tsx";
 import { folderGrants, policyWithFolders } from "../src/screens/settings/FileAccessSection.tsx";
@@ -501,5 +502,43 @@ describe("File access (folder grants live in permissions.policy)", () => {
     );
     expect(await screen.findByText("/Users/me/Notes")).toBeTruthy();
     expect(screen.getByText("read and write")).toBeTruthy();
+  });
+});
+
+describe("Settings polish (UI design §3.18, §4.12)", () => {
+  it("says connector actions in plain words and keeps the raw key beside them", async () => {
+    expect(actionLabel("gmail.read")).toBe("read threads");
+    expect(actionLabel("gmail.send")).toBe("send");
+    expect(actionLabel("mcp__notion__create_page")).toBe("create page");
+    expect(actionLabel("contacts.write")).toBe("change contacts");
+    setup({ defaultSection: "permissions" });
+    const table = await screen.findByRole("table", { name: "Gmail actions" });
+    expect(within(table).getByText("read threads")).toBeTruthy();
+    expect(within(table).getByRole("rowheader", { name: "gmail.read" })).toBeTruthy();
+  });
+
+  it("shows no config keys in Channels labels", async () => {
+    setup({ defaultSection: "channels" });
+    expect(await screen.findByRole("radiogroup", { name: "Direct messages" })).toBeTruthy();
+    expect(screen.queryByText(/dmPolicy|requireMention/)).toBeNull();
+  });
+
+  it("gives the empty Connectors screen one primary action", async () => {
+    setup(
+      { defaultSection: "connectors", onConnect: () => {} },
+      {
+        edit: (w) => {
+          w.connectors = [];
+        },
+      },
+    );
+    expect(await screen.findByText(/No accounts connected/)).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Connect an account" })).toHaveLength(1);
+  });
+
+  it("draws each accent swatch as one radio", async () => {
+    setup({ defaultSection: "appearance" });
+    const group = await screen.findByRole("radiogroup", { name: "Accent color" });
+    expect(within(group).getAllByRole("radio").length).toBe(7);
   });
 });
