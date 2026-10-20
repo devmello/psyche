@@ -98,7 +98,7 @@ export function AgentHeader({
   });
   const snippet = status.state !== "offline" && step !== null ? step : status.snippet;
   return (
-    <header className="flex h-14 items-center gap-3 border-b border-gray-6 px-4">
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-gray-6 px-4">
       <button
         type="button"
         onClick={onOpenSheet}

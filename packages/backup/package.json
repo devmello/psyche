@@ -1,0 +1,22 @@
+{
+  "name": "@psyche/backup",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Backup archives of $PSYCHE_HOME (age-encrypted tar.gz with a SHA-256 manifest), shared by psyche and psyched.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@psyche/protocol": "workspace:*",
+    "age-encryption": "0.3.1"
+  }
+}
