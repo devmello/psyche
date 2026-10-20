@@ -2,6 +2,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { MockBrowser, MockDesktop } from "@psyche/browser/testing";
+import { presenceChallenge } from "@psyche/permissions";
 import type { ModelEvent, ModelRequest } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
@@ -151,7 +152,11 @@ describe("credential fill end to end (G4)", () => {
 
     const owner = await adminClient(composed.gateway);
     clients.push(owner);
-    const devices = await owner.call<{ devices: { id: string; scopes: string[] }[] }>("devices.list", {});
+    // Presence is bound to the answering device.
+    const devices = await owner.call<{ devices: { id: string; scopes: string[] }[] }>(
+      "devices.list",
+      {},
+    );
     const ownerId = devices.devices.find((d) => d.scopes.includes("operator.admin"))?.id as string;
     const { thread } = await owner.call<{ thread: { id: string } }>(
       "threads.create",
@@ -183,7 +188,6 @@ describe("credential fill end to end (G4)", () => {
       }
       answered.add(card.approval.id);
       await new Promise((r) => setTimeout(r, 450)); // cards arm after 400 ms
-      const { presenceChallenge } = await import("@psyche/permissions");
       const challenge = presenceChallenge(
         card.approval.id,
         card.approval.bindingHash,
@@ -199,10 +203,9 @@ describe("credential fill end to end (G4)", () => {
     }
     await composed.gateway.context.sessions.idle();
 
-    process.stderr.write(`CARDS ${JSON.stringify(owner.events.filter((e) => e.event === "approval.created").map((e) => (e.payload as {approval: unknown}).approval))}\n`);
-    process.stderr.write(`RESULT ${JSON.stringify(lastResult(model.requests.at(-1) as ModelRequest)).slice(0, 600)}\n`);
     // The page got the secret: the fill went through CDP and the tool reported success.
     expect(desktop.sent).toContain("Input.insertText");
+    expect(desktop.tab(tabId).fieldValue("password")).toBe(SECRET);
     const fillResult =
       model.requests.at(-1) === undefined ? {} : lastResult(model.requests.at(-1) as ModelRequest);
     expect(JSON.stringify(fillResult)).not.toMatch(/error/i);

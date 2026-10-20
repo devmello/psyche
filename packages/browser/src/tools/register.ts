@@ -14,6 +14,7 @@ import {
   type Unsubscribe,
   type WaitCondition,
 } from "@psyche/protocol";
+import { toolCallBindingHash } from "@psyche/protocol/binding";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import type { DevPreviewGate } from "../devpreview/gate.ts";
 import { tryOrigin } from "../origin/canonical.ts";
@@ -936,6 +937,11 @@ async function fillCredential(
           element: `${meta.role} "${meta.name}"`,
         },
         bindingFields: binding.fields,
+        // The loop's envelope over this call, which the vault recomputes before resolving.
+        bindingHash: toolCallBindingHash("browser.fill_credential", p, {
+          kind: "credential_fill",
+          bindingFields: binding.fields,
+        }),
         grantKey: binding.grantKey,
       },
       ctx,
@@ -964,6 +970,7 @@ async function fillCredential(
     signal,
     element,
     selector: p.ref,
+    call: { tool: "browser.fill_credential", params: p, toolCallId: callId },
     ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
   });
   try {
