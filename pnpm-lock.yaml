@@ -330,12 +330,18 @@ importers:
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@psyche/sandbox':
+        specifier: workspace:*
+        version: link:../../packages/sandbox
       '@psyche/scheduler':
         specifier: workspace:*
         version: link:../../packages/scheduler
       '@psyche/tasks':
         specifier: workspace:*
         version: link:../../packages/tasks
+      '@psyche/vault':
+        specifier: workspace:*
+        version: link:../../packages/vault
       '@sinclair/typebox':
         specifier: 0.34.52
         version: 0.34.52
@@ -707,9 +713,15 @@ importers:
 
   packages/proactive:
     dependencies:
+      '@psyche/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
+      '@sinclair/typebox':
+        specifier: 0.34.52
+        version: 0.34.52
       ulid:
         specifier: 3.0.2
         version: 3.0.2
@@ -717,6 +729,9 @@ importers:
       '@psyche/db':
         specifier: workspace:*
         version: link:../db
+      '@psyche/permissions':
+        specifier: workspace:*
+        version: link:../permissions
       '@psyche/scheduler':
         specifier: workspace:*
         version: link:../scheduler
@@ -726,9 +741,6 @@ importers:
       '@psyche/testing':
         specifier: workspace:*
         version: link:../testing
-      '@sinclair/typebox':
-        specifier: 0.34.52
-        version: 0.34.52
       '@types/better-sqlite3':
         specifier: 9.6.0
         version: 9.6.0

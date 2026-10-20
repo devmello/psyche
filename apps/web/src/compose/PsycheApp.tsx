@@ -20,6 +20,7 @@ import {
   ThreadList,
   type UiSlots,
   UiSlotsProvider,
+  useThread,
 } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from "react";
 import { TitleBar } from "../shell/components/TitleBar.tsx";
@@ -28,6 +29,7 @@ import { type ChatSlotContext, ShellApp, type ShellSlots } from "../shell/ShellA
 import { kitClient } from "./kit-client.ts";
 import { writeOnboarding } from "./onboarding.ts";
 import { settingsRoute } from "./settings.tsx";
+import { TranscriptModeBar, useTranscriptMode } from "./transcript-mode.tsx";
 
 /**
  * The composed Psyche app (INT-1): S11's shell (rail, threads, panes, browser, keyboard, `view.*`)
@@ -47,11 +49,18 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
     open: false,
     tab: "activity",
   });
+  const incognito = useThread(threadId).thread?.thread.kind === "incognito";
+  const [level, setLevel] = useTranscriptMode();
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-testid="kit-chat">
+    <div
+      className="flex min-h-0 min-w-0 flex-1 flex-col"
+      data-testid="kit-chat"
+      data-incognito={incognito ? "true" : undefined}
+    >
       <AgentHeader
         onOpenSheet={() => setSheet((s) => ({ ...s, open: true }))}
         onOpenTask={(taskId) => setSheet({ open: true, tab: "activity", taskId })}
+        incognito={incognito}
         onOpenInbox={() => ctx.navigate("/inbox")}
         {...(ctx.thread
           ? { mode: ctx.thread.permissionMode, onModeChange: ctx.setPermissionMode }
@@ -60,7 +69,8 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
           ? { model: ctx.thread.modelRef, onOpenModelPicker: ctx.openModelPicker }
           : {})}
       />
-      <ChatThread threadId={threadId} />
+      <TranscriptModeBar level={level} onChange={setLevel} incognito={incognito} />
+      <ChatThread threadId={threadId} disclosure={level} onDisclosureChange={setLevel} />
       <AgentSheet
         open={sheet.open}
         onOpenChange={(open) => setSheet((s) => ({ ...s, open }))}

@@ -8,6 +8,16 @@ export interface RecordedCall {
   options: CliOptions;
 }
 
+/** A `stream` the test drives: read what was written to stdin, write stdout, end it. */
+export interface FakeStream {
+  args: string[];
+  stdin: PassThrough;
+  stdout: PassThrough;
+  stderr: PassThrough;
+  killed: boolean;
+  exit(code?: number | null): void;
+}
+
 export type Responder = (
   args: string[],
   options: CliOptions,
@@ -21,6 +31,7 @@ export type Responder = (
  */
 export class FakeDriver implements CliDriver {
   readonly calls: RecordedCall[] = [];
+  readonly streams: FakeStream[] = [];
   respond: Responder = () => undefined;
   /** Workspace-relative path → bytes. Mutate it to simulate writes the runner did not see. */
   readonly workspace = new Map<string, Buffer>();
@@ -48,12 +59,30 @@ export class FakeDriver implements CliDriver {
     const stdin = new PassThrough();
     const stdout = new PassThrough();
     const stderr = new PassThrough();
+    let exit: (code: number | null) => void = () => undefined;
+    const exited = new Promise<{ exitCode: number | null; signal: NodeJS.Signals | null }>(
+      (resolve) => {
+        exit = (exitCode) => resolve({ exitCode, signal: null });
+      },
+    );
+    const handle: FakeStream = {
+      args: [...args],
+      stdin,
+      stdout,
+      stderr,
+      killed: false,
+      exit: (code = 0) => exit(code),
+    };
+    this.streams.push(handle);
     return {
       stdin,
       stdout,
       stderr,
-      exited: new Promise(() => undefined),
-      kill: () => undefined,
+      exited,
+      kill: () => {
+        handle.killed = true;
+        exit(null);
+      },
     };
   }
 

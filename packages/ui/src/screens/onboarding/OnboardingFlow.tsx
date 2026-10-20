@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { type ReactElement, useEffect, useId, useRef, useState } from "react";
 import { DEFAULT_CREATURE } from "../../avatar/creatures/index.tsx";
+import { PsycheMark } from "../../brand.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { cn } from "../../lib/utils.ts";
 import { CONNECTOR_CATALOG, type ScopeMode } from "../settings/ConnectorsSection.tsx";
@@ -206,63 +207,69 @@ export function OnboardingFlow({
       // A centered column (UI design §4.1: prose width plus the preview column). In a flex
       // parent it is also centred vertically (`my-auto`) with a steady minimum height, so the
       // step body never floats above an empty window and Back / Next keep their place between
-      // steps; taller steps scroll.
-      className="mx-auto my-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-8 sm:px-10 md:min-h-[600px]"
+      // steps; taller steps scroll. `shrink-0`: with an explicit min-height a flex item may
+      // otherwise shrink to the window and let Back / Next overflow below the column.
+      className="mx-auto my-auto flex w-full max-w-4xl shrink-0 flex-col gap-6 px-6 py-8 sm:px-10 md:min-h-[600px]"
       data-testid="onboarding-flow"
     >
-      <nav aria-label="Onboarding progress">
-        <ol className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
-          {ONBOARDING_STEP_IDS.map((s, i) => {
-            const active = s === current;
-            const done = i < index;
-            const reachable = i <= reached && !active;
-            const label = stepLabel(s, name);
-            return (
-              <li
-                key={s}
-                aria-current={active ? "step" : undefined}
-                className={cn(
-                  "flex items-center gap-1.5",
-                  active ? "font-semibold text-foreground" : "text-muted-foreground",
-                )}
-              >
-                <span
-                  aria-hidden="true"
+      <header className="flex flex-col gap-5">
+        <span className="text-accent-11" data-testid="onboarding-mark">
+          <PsycheMark size={24} />
+        </span>
+        <nav aria-label="Onboarding progress">
+          <ol className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+            {ONBOARDING_STEP_IDS.map((s, i) => {
+              const active = s === current;
+              const done = i < index;
+              const reachable = i <= reached && !active;
+              const label = stepLabel(s, name);
+              return (
+                <li
+                  key={s}
+                  aria-current={active ? "step" : undefined}
                   className={cn(
-                    "flex size-5 items-center justify-center rounded-full border text-xs",
-                    active
-                      ? "border-accent-9 bg-accent-9 text-accent-contrast"
-                      : done
-                        ? "border-accent-7 text-accent-11"
-                        : "border-gray-7",
+                    "flex items-center gap-1.5",
+                    active ? "font-semibold text-foreground" : "text-muted-foreground",
                   )}
                 >
-                  {done ? <Check className="size-3" /> : i + 1}
-                </span>
-                {reachable ? (
-                  <button
-                    type="button"
-                    className="rounded-sm underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-                    onClick={() => go(s)}
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "flex size-5 items-center justify-center rounded-full border text-xs",
+                      active
+                        ? "border-accent-9 bg-accent-9 text-accent-contrast"
+                        : done
+                          ? "border-accent-7 text-accent-11"
+                          : "border-gray-7",
+                    )}
                   >
-                    {label}
-                    {done ? <span className="sr-only"> (done)</span> : null}
-                  </button>
-                ) : (
-                  <span>{label}</span>
-                )}
-              </li>
-            );
-          })}
-        </ol>
-      </nav>
+                    {done ? <Check className="size-3" /> : i + 1}
+                  </span>
+                  {reachable ? (
+                    <button
+                      type="button"
+                      className="rounded-sm underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => go(s)}
+                    >
+                      {label}
+                      {done ? <span className="sr-only"> (done)</span> : null}
+                    </button>
+                  ) : (
+                    <span>{label}</span>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
+      </header>
 
       <section aria-labelledby={headingId} className="flex flex-1 flex-col gap-4">
         <h2
           id={headingId}
           ref={headingRef}
           tabIndex={-1}
-          className="text-2xl font-semibold outline-none"
+          className="text-h1 text-foreground outline-none"
         >
           <span className="sr-only">
             Step {index + 1} of {ONBOARDING_STEP_IDS.length}:{" "}
@@ -325,6 +332,19 @@ export function OnboardingFlow({
         >
           <ArrowLeft aria-hidden="true" /> Back
         </Button>
+        {current === "connectors" && connectors.length === 0 ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="ml-auto"
+            onClick={() => {
+              const next = ONBOARDING_STEP_IDS[index + 1];
+              if (next) go(next);
+            }}
+          >
+            Skip for now
+          </Button>
+        ) : null}
         {isLast ? (
           <Button type="button" onClick={() => onComplete(result)}>
             Open the main chat

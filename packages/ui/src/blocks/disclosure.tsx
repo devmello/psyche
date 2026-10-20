@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -35,16 +36,33 @@ const DisclosureContext = createContext<DisclosureValue>({
 
 export function DisclosureProvider({
   initial = 1,
+  level: controlled,
+  onLevelChange,
   children,
   keyboard = true,
 }: {
   initial?: DisclosureLevel;
+  /** Controlled level (E11: the shell persists the transcript view mode per user). */
+  level?: DisclosureLevel;
+  onLevelChange?: (level: DisclosureLevel) => void;
   children?: ReactNode;
   /** Bind ⌃O on the window. */
   keyboard?: boolean;
 }): ReactElement {
-  const [level, setLevel] = useState<DisclosureLevel>(initial);
-  const cycle = useCallback(() => setLevel((l) => ((l + 1) % 3) as DisclosureLevel), []);
+  const [own, setOwn] = useState<DisclosureLevel>(initial);
+  const level = controlled ?? own;
+  const levelRef = useRef(level);
+  levelRef.current = level;
+  const onChangeRef = useRef(onLevelChange);
+  onChangeRef.current = onLevelChange;
+  const setLevel = useCallback((next: DisclosureLevel) => {
+    setOwn(next);
+    onChangeRef.current?.(next);
+  }, []);
+  const cycle = useCallback(
+    () => setLevel(((levelRef.current + 1) % 3) as DisclosureLevel),
+    [setLevel],
+  );
   useEffect(() => {
     if (!keyboard) return;
     const onKey = (e: KeyboardEvent) => {
@@ -56,7 +74,7 @@ export function DisclosureProvider({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [keyboard, cycle]);
-  const value = useMemo(() => ({ level, setLevel, cycle }), [level, cycle]);
+  const value = useMemo(() => ({ level, setLevel, cycle }), [level, setLevel, cycle]);
   return <DisclosureContext.Provider value={value}>{children}</DisclosureContext.Provider>;
 }
 

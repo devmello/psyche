@@ -6,7 +6,7 @@ import {
   type PsycheAgentLoop,
 } from "@psyche/agent-core";
 import { createAuditLog, type HashChainAuditLog } from "@psyche/audit";
-import { getDevice, getSetting, openDb, type PsycheDb } from "@psyche/db";
+import { getDevice, getSetting, getThread, openDb, type PsycheDb } from "@psyche/db";
 import {
   brokerApprovalCheck,
   createMemoryHandlers,
@@ -30,7 +30,7 @@ import {
   PsychePermissionBroker,
   SqlitePermissionStore,
 } from "@psyche/permissions";
-import { publicFetch } from "@psyche/proactive";
+import { proactiveTools, publicFetch } from "@psyche/proactive";
 import {
   type ApprovalRequestInput,
   type Clock,
@@ -51,6 +51,7 @@ import {
   SqliteScheduler,
 } from "@psyche/scheduler";
 import { createTaskHandlers, SqliteTaskEngine, TaskWorkerPool } from "@psyche/tasks";
+import { SecretRedactor, type Vault } from "@psyche/vault";
 import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
 import { createLogger } from "../log.ts";
@@ -72,6 +73,8 @@ import {
   type ComposeServices,
   createOwnPorts,
 } from "./services.ts";
+import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
+import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 
 /**
  * Composition root for `psyched` (INT-1): the real agent loop, model router, Permission Broker,
@@ -111,6 +114,11 @@ export interface ComposeOptions
    * Defaults to refusing every assertion.
    */
   presence?: PresenceVerifier;
+  /**
+   * The vault's key slot (S06). Default from the environment: `PSYCHE_VAULT_KEY_FILE` in server
+   * mode, else the keychain through a connected Mac helper.
+   */
+  vault?: VaultSetup;
 }
 
 /**
@@ -133,6 +141,9 @@ export interface ComposedGateway {
   readonly notifier: PsycheNotifier;
   readonly proactive: ComposedProactive;
   readonly provider: ModelProvider;
+  readonly vault: Vault;
+  /** Shared by the vault, its payment broker and every output path that masks. */
+  readonly redactor: SecretRedactor;
   readonly parts: readonly ComposedPart[];
   stop(reason?: string): Promise<void>;
 }
@@ -186,12 +197,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     compaction,
     parts: partFactories = [],
     presence = NO_PRESENCE,
+    vault: vaultSetup,
     ...gwOptions
   } = options;
   const clock =
     clockOpt ??
     (options.now ? { now: () => options.now?.().getTime() ?? Date.now() } : systemClock);
   const config = resolveConfig(gwOptions.env ?? process.env, gwOptions.config ?? {});
+  // One redactor for the vault, payments and logs: a value the vault handed out is masked
+  // wherever it would be written.
+  const redactor = new SecretRedactor();
+  gwOptions.logger = maskingLogger(gwOptions.logger ?? createLogger(), redactor);
   const db =
     gwOptions.db ?? openDb(config.dbPath, { now: () => new Date(clock.now()).toISOString() });
 
@@ -281,7 +297,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }
   });
 
+  const vault = composeVault(
+    { home: config.home, db, permissions: broker, audit, clock, publish, redactor },
+    vaultSetup ?? vaultSetupFromEnv(gwOptions.env ?? process.env),
+  );
+
   const { provider, model: modelRef, utility } = providerFor(model, clock);
+  const modelPins = modelPinsFor(provider);
   const memory = await createMemoryStore({
     db,
     workspaceDir: join(config.home, "workspace"),
@@ -320,6 +342,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     tools: calls.adopt(registry),
     calls,
     publish,
+    vault: vault.vault,
+    redactor,
     ownPorts,
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   };
@@ -382,6 +406,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(timeZone === undefined ? {} : { timeZone }),
     approvalSurfaces: ["desktop", "web"],
     ...(compaction === undefined ? {} : { compaction }),
+    // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
+    isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
   });
   const pool = new TaskWorkerPool({
     engine: tasks,
@@ -406,6 +432,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(timeZone === undefined ? {} : { timeZone }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
+  // The agent's proactive tools (goals.*, ideas.*, feed.*): reads allow, changes ask.
+  for (const tool of proactiveTools({
+    goals: proactive.goals,
+    ideas: proactive.ideas,
+    feed: proactive.feed,
+    clock,
+  })) {
+    registry.register(tool);
+  }
   launcher = proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool);
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
@@ -418,6 +453,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...proactive.handlers,
     ...questionHandlers(loop, tasks),
     ...receiptHandlers(broker),
+    ...threadSettingsHandlers(modelPins),
+    ...vault.handlers,
   };
   for (const part of parts) Object.assign(handlers, part.handlers ?? {});
 
@@ -429,8 +466,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     memory,
     handlers,
     onDeviceRevoked: (deviceId) => rawBroker.revokeGrantsByDevice(deviceId),
+    threadModels: modelPins,
   });
   bus = gateway.bus;
+  vault.attach(gateway.context.nodes);
   // The owner's folder grants and rules apply without a restart (settings.set → broker policy).
   const unsubscribePolicy = gateway.bus.subscribe(["operator.read"], (frame) => {
     const f = JSON.parse(frame) as {
@@ -450,6 +489,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }
   });
   memory.watch();
+  await restoreModelPins(db, modelPins, (msg, fields) =>
+    gwOptions.logger?.log("warn", msg, fields),
+  );
   ownPorts.add(gateway.port, "gateway (bound)");
   for (const part of parts) await part.start?.(gateway);
   await proactive.start();
@@ -479,9 +521,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     notifier,
     proactive,
     provider,
+    vault: vault.vault,
+    redactor,
     parts,
     async stop(reason) {
       for (const part of [...parts].reverse()) await part.stop?.();
+      vault.stop();
       await pool.stop();
       scheduler.stop();
       memory.unwatch();
@@ -519,6 +564,18 @@ export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { partsFromEnv } from "./parts.ts";
 export { type ComposedProactive, composeProactive, type ProactiveSetup } from "./proactive.ts";
 export type { ApprovalRelay, ComposedPart, ComposeServices, OwnPorts } from "./services.ts";
+export { type ModelPins, modelPinsFor, restoreModelPins } from "./threads.ts";
+export {
+  type ComposedVault,
+  chooseWrapper,
+  composeVault,
+  HelperNodeClient,
+  isKeychainHelper,
+  maskingLogger,
+  SECRET_PARAM_METHODS,
+  type VaultSetup,
+  vaultSetupFromEnv,
+} from "./vault.ts";
 export { createLogger, surfaceOf };
 
 /**
