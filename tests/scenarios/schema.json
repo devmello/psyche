@@ -187,7 +187,8 @@
         "plan_exit",
         "skill_install",
         "mcp_tool",
-        "archive_thread"
+        "archive_thread",
+        "task_start"
       ]
     },
     "toolName": { "type": "string", "pattern": "^[a-z][a-z_]*(\\.[a-z_]+)*$" },

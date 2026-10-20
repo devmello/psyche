@@ -242,7 +242,7 @@
               {
                 "id": "c_v8_task_sf",
                 "tool": "task.start",
-                "sideEffect": "none",
+                "sideEffect": "write",
                 "targetKind": null,
                 "target": null,
                 "args": {
@@ -261,7 +261,7 @@
               {
                 "id": "c_v8_task_pl",
                 "tool": "task.start",
-                "sideEffect": "none",
+                "sideEffect": "write",
                 "targetKind": null,
                 "target": null,
                 "args": {

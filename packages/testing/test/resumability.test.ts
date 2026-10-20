@@ -102,6 +102,18 @@ describe("resumability harness (real tasks + agent-core + permissions on SQLite)
     expect(used).toMatchObject({ status: "approved", generation: 1 });
     expect(used?.bindingHash).toBe(first?.bindingHash);
   });
+
+  // #64: the recovered turn waits on the card the restart re-issued for the dead run's call, so
+  // the owner sees one card for one send and nothing is left pending.
+  it("while_awaiting_approval: the owner sees one re-issued card, and the resumed send uses it", async () => {
+    const r = await runWithKill({ script: SCRIPT, killAt: "while_awaiting_approval:send" });
+    const after = r.approvals.filter((a) => a.generation === 1);
+    expect(after).toHaveLength(1);
+    expect(after[0]).toMatchObject({ status: "approved", requestedBy: { toolCallId: "send.1" } });
+    expect(r.ledger).toMatchObject([{ callId: "send.2", approvalId: after[0]?.id }]);
+    expect(r.approvals.filter((a) => a.status === "pending")).toEqual([]);
+    expect(r.notes.filter((n) => n.includes("no parked task"))).toEqual([]);
+  });
 });
 
 describe("resumability harness catches broken recovery", () => {
@@ -137,16 +149,23 @@ describe("resumability harness catches broken recovery", () => {
     drainCaptures(); // the leak is the point of this test; keep it from the suite's guard
   });
 
-  // Finding: the loop dispatches before the pool has persisted the step as `running` (the events
-  // reach the pool through an unbounded queue). A process that dies in that window leaves no
-  // in-flight step to mark uncertain, so the resumed turn sends again. Flip when fixed.
-  it("an instant kill after the provider applied the send duplicates it (write-ahead gap)", async () => {
+  // #63: the loop awaits the pool's `running` checkpoint (`beforeDispatch`) before the executor
+  // runs, so a process that dies the moment the provider applied the send still leaves an
+  // in-flight step; recovery reconciles it from the provider instead of sending again.
+  it("an instant kill after the provider applied the send is reconciled, not re-sent (write-ahead)", async () => {
     const r = await runWithKill({
       script: SCRIPT,
       killAt: "before_receipt:send",
       crash: "instant",
     });
-    expect(codes(r)).toContain("duplicate_effect");
-    expect(r.checkpoints.map((c) => c.stepId)).not.toContain("send.1");
+    expect(r.violations).toEqual([]);
+    expect(r.ledger.map((e) => e.callId)).toEqual(["send.1"]);
+    expect(r.checkpoints.map((c) => [c.stepId, c.status])).toContainEqual(["send.1", "done"]);
+    expect(r.reconciled).toEqual([{ stepId: "send.1", status: "done" }]);
+  });
+
+  it("an instant kill at any point resumes or reconciles, with no duplicate side effect", async () => {
+    const results = await exploreKillPoints({ script: SCRIPT, crash: "instant" });
+    expect(results.filter((r) => r.violations.length > 0)).toEqual([]);
   });
 });

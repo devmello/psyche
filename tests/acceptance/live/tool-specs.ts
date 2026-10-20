@@ -268,4 +268,28 @@ export const LIVE_TOOL_SPECS: Record<string, { description: string; inputSchema:
       ["merchant", "currency", "items", "totalMinor"],
     ),
   },
+  "shop.pay_with_link": {
+    description:
+      "Pay for a cart with Stripe Link after the owner approves seller, items, total and the payment source on their device (once only). Re-reads the live cart first; the arguments must match it exactly. Returns the order number and the card's brand and last 4 digits only; card details never reach you.",
+    inputSchema: obj(
+      {
+        merchant: str("The store's origin"),
+        currency: str("ISO 4217 code, e.g. USD"),
+        items: {
+          type: "array",
+          description: "Cart lines exactly as the cart shows them",
+          items: obj(
+            {
+              name: str("Item name"),
+              qty: int("Quantity"),
+              unitPriceMinor: int("Unit price in minor units (cents)"),
+            },
+            ["name", "qty", "unitPriceMinor"],
+          ),
+        },
+        totalMinor: int("Cart total in minor units (cents)"),
+      },
+      ["merchant", "currency", "items", "totalMinor"],
+    ),
+  },
 };
