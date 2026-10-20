@@ -175,7 +175,41 @@ export function upsertMessage(state: UiState, message: Message): UiState {
   const without = list.filter((m) => m.id !== message.id);
   const next = [...without, message].sort((a, b) => a.seq - b.seq);
   const { [message.id]: _done, ...streaming } = state.streaming;
-  return { ...state, messages: { ...state.messages, [message.threadId]: next }, streaming };
+  return {
+    ...state,
+    messages: { ...state.messages, [message.threadId]: next },
+    streaming,
+    threads: withLastLine(state.threads, message),
+  };
+}
+
+/** One line of plain text from a message's text blocks (the thread row's last line, §2.2). */
+export function lastLineOf(message: Message): string {
+  return message.blocks
+    .map((b) => (b.type === "text" ? b.md : ""))
+    .join(" ")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[`*_~>#|]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160);
+}
+
+/** A committed user or agent message becomes its thread's last line and time. */
+function withLastLine(threads: UiState["threads"], message: Message): UiState["threads"] {
+  const entry = threads[message.threadId];
+  if (entry === undefined || (message.role !== "user" && message.role !== "agent")) return threads;
+  const text = lastLineOf(message);
+  if (text === "") return threads;
+  return {
+    ...threads,
+    [message.threadId]: {
+      ...entry,
+      thread: { ...entry.thread, lastMessageAt: message.createdAt },
+      lastMessage: { role: message.role, text, at: message.createdAt },
+    },
+  };
 }
 
 /** Appends a block to a message, creating a placeholder agent message when it is not loaded. */

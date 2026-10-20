@@ -78,22 +78,33 @@ export function ThreadRow({
           type="button"
           onClick={onOpen}
           aria-current={active ? "page" : undefined}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-gray-3"
+          className="flex min-w-0 flex-1 flex-col gap-0.5 rounded-md px-2 py-1.5 text-left hover:bg-gray-3"
+          data-testid="thread-row"
         >
-          {t.kind === "incognito" ? (
-            <EyeOff className="size-3.5 shrink-0 text-gray-11" aria-label="Incognito" />
-          ) : null}
-          {t.pinned ? <Pin className="size-3.5 shrink-0 text-gray-11" aria-label="Pinned" /> : null}
-          <span className="min-w-0 flex-1 truncate text-sm">{t.title}</span>
-          <StatusDotFor entry={entry} />
-          {needs > 0 ? (
-            <span className="sr-only">, needs you</span>
-          ) : entry.activity.running > 0 ? (
-            <span className="sr-only">, running</span>
-          ) : null}
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {t.lastMessageAt ? formatRelative(t.lastMessageAt, now) : ""}
+          <span className="flex w-full min-w-0 items-center gap-2">
+            {t.kind === "incognito" ? (
+              <EyeOff className="size-3.5 shrink-0 text-gray-11" aria-label="Incognito" />
+            ) : null}
+            {t.pinned ? (
+              <Pin className="size-3.5 shrink-0 text-gray-11" aria-label="Pinned" />
+            ) : null}
+            <span className="min-w-0 flex-1 truncate text-sm">{t.title}</span>
+            <StatusDotFor entry={entry} />
+            {needs > 0 ? (
+              <span className="sr-only">, needs you</span>
+            ) : entry.activity.running > 0 ? (
+              <span className="sr-only">, running</span>
+            ) : null}
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {t.lastMessageAt ? formatRelative(t.lastMessageAt, now) : ""}
+            </span>
           </span>
+          {entry.lastMessage ? (
+            <span className="w-full truncate text-xs text-muted-foreground">
+              {entry.lastMessage.role === "user" ? "You: " : ""}
+              {entry.lastMessage.text}
+            </span>
+          ) : null}
         </button>
       )}
       <DropdownMenu>
@@ -167,8 +178,11 @@ export function ThreadList({
   const threads = useThreads();
   const [filter, setFilter] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  // Matches the title or the last line (§2.2).
   const match = (e: ThreadListEntry) =>
-    e.thread.title.toLowerCase().includes(filter.trim().toLowerCase());
+    `${e.thread.title} ${e.lastMessage?.text ?? ""}`
+      .toLowerCase()
+      .includes(filter.trim().toLowerCase());
   const row = (e: ThreadListEntry) => (
     <ThreadRow
       key={e.thread.id}
