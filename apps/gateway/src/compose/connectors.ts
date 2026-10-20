@@ -5,9 +5,12 @@ import {
   type ConnectorFactory,
   ConnectorRegistry,
   type ConnectorStore,
+  CustomConnectors,
   connectorHandlers,
   createWebFetchFactory,
   createWebSearchFactory,
+  customConnectorHandlers,
+  customFactory,
   type FetchFn,
   googleFactory,
   type ImapBackendOptions,
@@ -118,6 +121,11 @@ function defaultFactories(
     // under a credential_fill approval the owner gives once per mailbox (mail-credentials.ts).
     imapFactory({ approveCredential: mail.approve, ...(setup.imap ?? {}) }),
     jmapFactory({ approveCredential: mail.approve }),
+    // Custom connectors (M9): installed only through their trust card (customConnectorHandlers);
+    // their API key is a vault item read under the same once-per-credential approval.
+    customFactory({
+      approveCredential: (req, run) => mail.approve({ ...req, purpose: "tool" }, run),
+    }),
   ];
   if (setup.web?.search !== undefined) factories.push(createWebSearchFactory(setup.web.search));
   if (setup.web?.fetch !== undefined) {
@@ -168,6 +176,63 @@ export function composeConnectors(
     if (!isMethodName(name)) continue;
     handlers[name] = { run: (_call: Call, params: never) => fn(params) };
   }
+  const custom = new CustomConnectors({
+    registry,
+    broker: services.rawBroker,
+    clock: services.clock,
+  });
+  for (const [name, fn] of Object.entries(customConnectorHandlers(custom))) {
+    if (!isMethodName(name)) continue;
+    handlers[name] = { run: (_call: Call, params: never) => fn(params) };
+  }
+  // The agent may draft a custom connector (M9), never enable one: this only opens the owner's
+  // device-only trust card. Whatever it submits is marked as agent-drafted on the card.
+  const unregisterDraft = services.tools.register({
+    spec: {
+      name: "connectors_propose_custom",
+      description:
+        "Draft a custom REST connector for the owner to review. Give either a manifest (schemaVersion 1: id, name, description, version, https baseUrl, hosts, auth with a {{cred:slug}} placeholder, tools with method, path, params and sideEffect) or an OpenAPI 3 document with the operations to include. This only shows the owner a review card on their device; nothing is installed or enabled.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          manifest: { type: "object" },
+          openapi: {
+            type: "object",
+            properties: {
+              document: { type: "string" },
+              id: { type: "string" },
+              operations: { type: "array", items: { type: "string" } },
+            },
+            required: ["document", "id"],
+          },
+        },
+        additionalProperties: false,
+      },
+      sideEffect: "none",
+      provenanceOut: "trusted",
+    },
+    execute: async (_callId, params) => {
+      const p = (params ?? {}) as {
+        manifest?: Record<string, unknown>;
+        openapi?: { document: string; id: string; operations?: string[] };
+      };
+      const { proposal, approval } = await custom.propose({
+        ...(p.manifest === undefined ? {} : { manifest: p.manifest }),
+        ...(p.openapi === undefined ? {} : { openapi: p.openapi }),
+        drafted: "agent",
+      });
+      return {
+        output: {
+          proposalId: proposal.id,
+          approvalId: approval.id,
+          hash: proposal.hash,
+          findings: proposal.findings.map((f) => `${f.severity}: ${f.message}`),
+          note: "The owner reviews this on their device; it is not installed.",
+        },
+        provenance: "trusted",
+      };
+    },
+  });
 
   // A token revoked in the vault by anything but the registry's own disconnect (the owner, a
   // provider revocation) disconnects the connector: its tools are torn down, so pending
@@ -217,6 +282,7 @@ export function composeConnectors(
       timer.unref?.();
     },
     async stop() {
+      unregisterDraft();
       unsubscribeRevoked();
       if (timer !== undefined) clearInterval(timer);
       timer = undefined;

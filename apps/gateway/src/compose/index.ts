@@ -480,6 +480,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ...(vaultSetup?.onePassword === undefined && config.onePassword
         ? { onePassword: config.onePassword }
         : {}),
+      // credentials.bitwarden (G11), the same way.
+      ...(vaultSetup?.bitwarden === undefined && config.bitwarden
+        ? { bitwarden: config.bitwarden }
+        : {}),
     },
   );
 

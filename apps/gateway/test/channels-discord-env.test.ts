@@ -6,8 +6,11 @@ const noFile = (): string => {
 };
 
 describe("channelsSetupFromEnv: Discord (N8)", () => {
-  it("is off unless a token is configured", () => {
+  it("is off unless configured; the account alone reads the token from the vault", () => {
     expect(channelsSetupFromEnv({}, noFile).discord).toBeUndefined();
+    expect(channelsSetupFromEnv({ PSYCHE_DISCORD_ACCOUNT: "psyche" }, noFile).discord).toEqual({
+      account: "psyche",
+    });
   });
 
   it("requires PSYCHE_DISCORD_ACCOUNT with a token", () => {
@@ -24,8 +27,8 @@ describe("channelsSetupFromEnv: Discord (N8)", () => {
     ).discord;
     expect(setup?.account).toBe("psyche");
     expect(JSON.stringify(setup)).not.toContain("first-token");
-    expect(await setup?.token.use(async (t) => t)).toBe("first-token");
+    expect(await setup?.token?.use(async (t) => t)).toBe("first-token");
     contents = "rotated";
-    expect(await setup?.token.use(async (t) => t)).toBe("rotated");
+    expect(await setup?.token?.use(async (t) => t)).toBe("rotated");
   });
 });

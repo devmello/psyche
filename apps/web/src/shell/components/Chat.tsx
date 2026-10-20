@@ -17,6 +17,7 @@ import {
   type VoiceState,
   webSpeechDictation,
 } from "../voice.ts";
+import { useVoiceMode, VoiceModeBar } from "./VoiceModeBar.tsx";
 
 export const PERMISSION_MODES: readonly PermissionMode[] = ["manual", "balanced", "auto", "plan"];
 
@@ -175,6 +176,8 @@ export function Composer(props: {
   const holdTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const pushToTalk = useRef(false);
   const threadId = props.thread?.id ?? null;
+  const voiceMode = useVoiceMode(store, threadId);
+  const inVoiceMode = voiceMode.state.phase !== "off";
 
   const capture = useMemo(() => {
     const local = webSpeechDictation();
@@ -356,6 +359,13 @@ export function Composer(props: {
           ))}
         </div>
       ) : null}
+      <VoiceModeBar
+        state={voiceMode.state}
+        settings={voiceMode.settings}
+        onEnd={voiceMode.toggle}
+        onPushStart={voiceMode.pushStart}
+        onPushEnd={voiceMode.pushEnd}
+      />
       <textarea
         ref={ref}
         value={
@@ -389,12 +399,26 @@ export function Composer(props: {
               ? "Listening…"
               : ""}
         </span>
+        {voiceMode.available ? (
+          <button
+            type="button"
+            className="pill"
+            aria-pressed={inVoiceMode}
+            onClick={voiceMode.toggle}
+            disabled={!threadId || props.disabled}
+            title="Voice mode: talk with Psyche hands-free"
+            data-testid="voice-mode-toggle"
+          >
+            Voice
+          </button>
+        ) : null}
         <button
           type="button"
           className="pill"
           aria-pressed={voice.phase === "listening"}
           onPointerDown={micDown}
           onPointerUp={micUp}
+          disabled={inVoiceMode}
           title="Dictate: click to toggle, hold to talk"
           data-testid="mic"
         >

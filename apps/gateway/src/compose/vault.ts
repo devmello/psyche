@@ -16,6 +16,8 @@ import {
 } from "@psyche/protocol";
 import {
   type Argon2Params,
+  type BitwardenSource,
+  BwCliSource,
   createVaultHandlers,
   KEYCHAIN_CAPABILITIES,
   KeychainWrapper,
@@ -32,7 +34,7 @@ import {
   type VaultEventName,
   type VaultRemovals,
 } from "@psyche/vault";
-import type { OnePasswordConfig } from "../config.ts";
+import type { BitwardenConfig, OnePasswordConfig } from "../config.ts";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import type { NodeRegistry } from "../nodes/registry.ts";
@@ -61,16 +63,29 @@ export interface VaultSetup {
    * `config.json`, or a ready source (tests). Without it `vault.linkExternal` answers unavailable.
    */
   onePassword?: OnePasswordConfig | OnePasswordSource;
+  /**
+   * Bitwarden as an external, read-only source (G11): `credentials.bitwarden` from
+   * `config.json`, or a ready source (tests). Without it Bitwarden links answer unavailable.
+   */
+  bitwarden?: BitwardenConfig | BitwardenSource;
 }
 
 /** The connector id of the vault item holding the 1Password service-account / Connect token. */
 export const ONEPASSWORD_CONNECTOR = "onepassword";
 
+/** The connector id of the vault item holding the Bitwarden session key (`bw unlock --raw`). */
+export const BITWARDEN_CONNECTOR = "bitwarden";
+
 /** The first executable `op` on PATH, as an absolute path (the source takes no PATH lookup). */
 export function opOnPath(path = process.env.PATH ?? ""): string | undefined {
+  return binaryOnPath("op", path);
+}
+
+/** The first executable `name` on PATH, as an absolute path; relative PATH entries are skipped. */
+export function binaryOnPath(name: string, path = process.env.PATH ?? ""): string | undefined {
   for (const dir of path.split(delimiter)) {
     if (!isAbsolute(dir)) continue;
-    const candidate = join(dir, "op");
+    const candidate = join(dir, name);
     try {
       accessSync(candidate, constants.X_OK);
       return candidate;
@@ -107,6 +122,37 @@ function onePasswordSource(
   const op = config.op ?? opOnPath();
   if (op === undefined) return { reason: "op_not_on_path" };
   return { source: new OpCliSource({ op, token }) };
+}
+
+/**
+ * The source for `credentials.bitwarden`. The session key is the vault's own connector-owned
+ * `bitwarden` item, read for each call as a one-shot handle and set in the CLI's env only.
+ */
+export function bitwardenSource(
+  config: BitwardenConfig,
+  vault: () => Vault,
+): { source?: BitwardenSource; reason?: string } {
+  const session = async () => {
+    const v = vault();
+    const item = v.connectorItem(BITWARDEN_CONNECTOR);
+    if (item === undefined) {
+      throw new PsycheError(
+        "unavailable",
+        "store the Bitwarden session key in the vault first (connector item bitwarden)",
+        { details: { reason: "bw_session_missing" } },
+      );
+    }
+    return v.accessToken(item.id, BITWARDEN_CONNECTOR);
+  };
+  const bw = config.bw ?? binaryOnPath("bw");
+  if (bw === undefined) return { reason: "bw_not_on_path" };
+  return {
+    source: new BwCliSource({
+      bw,
+      session,
+      ...(config.appDataDir === undefined ? {} : { appDataDir: config.appDataDir }),
+    }),
+  };
 }
 
 /** Methods whose params carry a secret or the recovery key: no param or raw message is logged. */
@@ -294,8 +340,15 @@ export function composeVault(
       : "readField" in setup.onePassword
         ? { source: setup.onePassword }
         : onePasswordSource(setup.onePassword, () => built as Vault);
+  const bw =
+    setup.bitwarden === undefined
+      ? undefined
+      : "readField" in setup.bitwarden
+        ? { source: setup.bitwarden }
+        : bitwardenSource(setup.bitwarden, () => built as Vault);
   const vault = new Vault({
     ...(op?.source === undefined ? {} : { onePassword: op.source }),
+    ...(bw?.source === undefined ? {} : { bitwarden: bw.source }),
     home: deps.home,
     wrapper,
     meta: new SqliteMetaMirror(deps.db.sqlite),
@@ -321,6 +374,21 @@ export function composeVault(
             ("readField" in setup.onePassword ? "custom" : setup.onePassword.kind),
           available: op?.source !== undefined,
           ...(op?.reason === undefined ? {} : { reason: op.reason }),
+        },
+      })
+      .catch(() => undefined);
+  }
+  if (setup.bitwarden !== undefined) {
+    // Audited like 1Password: which external source the vault reads linked items through (G11).
+    void deps.audit
+      .append({
+        kind: "vault.external_source",
+        actor: { type: "system" },
+        data: {
+          source: "bitwarden",
+          kind: "readField" in setup.bitwarden ? "custom" : "cli",
+          available: bw?.source !== undefined,
+          ...(bw?.reason === undefined ? {} : { reason: bw.reason }),
         },
       })
       .catch(() => undefined);

@@ -192,6 +192,21 @@ describe("SMS webhook route (N9)", () => {
     expect(sends[0]?.get("Body")).toBe("Psyche can't take requests in this chat yet.");
   });
 
+  it("without a token in the environment, SMS is on and reads the auth token from the vault", () => {
+    const setup = smsSetupFromEnv(
+      {
+        PSYCHE_SMS_TWILIO_ACCOUNT_SID: SID,
+        PSYCHE_SMS_FROM: PSYCHE,
+        PSYCHE_SMS_PUBLIC_URL: PUBLIC_URL,
+      },
+      () => "",
+    );
+    expect(setup).toEqual({ accountSid: SID, from: PSYCHE, publicUrl: PUBLIC_URL });
+    expect(() => smsSetupFromEnv({ PSYCHE_SMS_TWILIO_AUTH_TOKEN: TOKEN }, () => "")).toThrow(
+      /PSYCHE_SMS_TWILIO_ACCOUNT_SID/,
+    );
+  });
+
   it("reads the environment: all four or nothing, E.164 sender, https URL, token file", () => {
     const env = {
       PSYCHE_SMS_TWILIO_ACCOUNT_SID: SID,

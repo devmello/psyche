@@ -4204,6 +4204,10 @@ export interface AudioFormat {
 
 export type Encoding = "pcm_s16le" | "pcm_f32le" | "opus" | "mp3" | "wav" | "caf";
 
+export interface SpeechReadAloudCancelParams {
+    streamId: string;
+}
+
 export interface SpeechReadAloudCompletedPayload {
     durationMs: number;
     item:       LibraryItem;
@@ -4219,6 +4223,11 @@ export interface SpeechReadAloudFailedPayload {
 
 export interface SpeechReadAloudParams {
     messageId: string;
+    /**
+     * Default true. false: stream speech.audio only, save no Library item and emit no
+     * speech.readAloud.completed (voice mode, feature Q5)
+     */
+    save?: boolean;
     /**
      * <engine>:<voice>
      */

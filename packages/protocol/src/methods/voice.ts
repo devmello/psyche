@@ -14,6 +14,11 @@ import { defineMethod, OkResult } from "./define.ts";
  * `voice.start` answers `location: "client"` with no session and the web client dictates
  * locally. A session started with `memo: true` keeps its audio so `voice.memo.save` can file it
  * as a Library recording with the transcript and, when the memo asks for one, a Task.
+ *
+ * Voice mode (feature Q5) is driven by the client from these pieces: a dictation session per
+ * utterance, `chat.send`, the run's events, and `speech.readAloud {save: false}` for the reply,
+ * stopped with `speech.readAloud.cancel` when the owner talks over it. Approvals stay cards; no
+ * voice path answers them.
  */
 
 /** JSON form of the `AudioFormat` contract type (`contracts/SpeechEngine.ts`). */
@@ -192,12 +197,25 @@ export const VoiceMethods = {
     params: Type.Object({
       messageId: Id,
       voice: Type.Optional(Type.String({ maxLength: 128, description: "<engine>:<voice>" })),
+      save: Type.Optional(
+        Type.Boolean({
+          description:
+            "Default true. false: stream speech.audio only, save no Library item and emit no speech.readAloud.completed (voice mode, feature Q5)",
+        }),
+      ),
     }),
     result: Type.Object({ streamId: Type.String({ minLength: 1, maxLength: 64 }) }),
     scope: "operator.write",
     sideEffecting: true,
     description:
       "Side-effecting: reads a message aloud, streams speech.audio events and saves the clip as a Library audio item.",
+  }),
+  "speech.readAloud.cancel": defineMethod({
+    params: Type.Object({ streamId: Type.String({ minLength: 1, maxLength: 64 }) }),
+    result: OkResult,
+    scope: "operator.write",
+    description:
+      "Stops one of the caller's read-aloud streams now (voice mode barge-in, feature Q5); nothing is saved and speech.readAloud.failed reports cancelled. Unknown or finished streams answer ok.",
   }),
 } as const;
 

@@ -98,8 +98,11 @@ export interface TelegramSetup {
 
 /** Discord bot (N8). Off unless configured; dmPolicy pairing and owner checks are the service's. */
 export interface DiscordSetup {
-  /** The bot token, alive only inside `use` (env / file today; a vault item later). */
-  token: DiscordTokenSource;
+  /**
+   * The bot token, alive only inside `use`. Absent: the Gateway-owned vault item that
+   * `channels.secrets.set {type: "discord", name: "bot_token"}` stores.
+   */
+  token?: DiscordTokenSource;
   /** The channel's `account`: the bot application id or a name. */
   account: string;
   /** Test transport (gatewayUrl, apiBase, fetch) and other adapter options. */
@@ -134,7 +137,8 @@ export interface IMessageSetup {
  */
 export interface SmsSetup {
   accountSid: string;
-  authToken: SmsSecretSource;
+  /** Absent: the vault item `channels.secrets.set {type: "sms", account: from, name: "auth_token"}`. */
+  authToken?: SmsSecretSource;
   /** Psyche's Twilio number (E.164): the channel's `account`. */
   from: string;
   publicUrl: string;
@@ -267,9 +271,9 @@ export function channelsSetupFromEnv(
   };
 }
 
+/** What turns SMS on; the auth token comes from env / file or else the vault. */
 const SMS_ENV = [
   "PSYCHE_SMS_TWILIO_ACCOUNT_SID",
-  "PSYCHE_SMS_TWILIO_AUTH_TOKEN",
   "PSYCHE_SMS_FROM",
   "PSYCHE_SMS_PUBLIC_URL",
 ] as const;
@@ -286,12 +290,16 @@ export function smsSetupFromEnv(
   const token = (file ? readFile(file) : (env.PSYCHE_SMS_TWILIO_AUTH_TOKEN ?? "")).trim();
   const values = {
     PSYCHE_SMS_TWILIO_ACCOUNT_SID: env.PSYCHE_SMS_TWILIO_ACCOUNT_SID?.trim() ?? "",
-    PSYCHE_SMS_TWILIO_AUTH_TOKEN: token,
     PSYCHE_SMS_FROM: env.PSYCHE_SMS_FROM?.trim() ?? "",
     PSYCHE_SMS_PUBLIC_URL: env.PSYCHE_SMS_PUBLIC_URL?.trim() ?? "",
   };
   const missing = SMS_ENV.filter((k) => values[k] === "");
-  if (missing.length === SMS_ENV.length) return undefined;
+  if (missing.length === SMS_ENV.length) {
+    if (token !== "") {
+      throw new PsycheError("invalid_params", `SMS needs ${missing.join(", ")} as well`);
+    }
+    return undefined;
+  }
   if (missing.length > 0) {
     throw new PsycheError("invalid_params", `SMS needs ${missing.join(", ")} as well`);
   }
@@ -303,7 +311,7 @@ export function smsSetupFromEnv(
   }
   return {
     accountSid: values.PSYCHE_SMS_TWILIO_ACCOUNT_SID,
-    authToken: { use: (fn) => fn(token) },
+    ...(token === "" ? {} : { authToken: { use: (fn) => fn(token) } }),
     from: values.PSYCHE_SMS_FROM,
     publicUrl: values.PSYCHE_SMS_PUBLIC_URL,
   };
@@ -360,8 +368,9 @@ function discordSetupFromEnv(
 ): DiscordSetup | undefined {
   const file = env.PSYCHE_DISCORD_BOT_TOKEN_FILE?.trim() ?? "";
   const inline = env.PSYCHE_DISCORD_BOT_TOKEN?.trim() ?? "";
-  if (file === "" && inline === "") return undefined;
   const account = env.PSYCHE_DISCORD_ACCOUNT?.trim() ?? "";
+  // The account alone turns Discord on with the token from the vault (`channels.secrets.set`).
+  if (file === "" && inline === "") return account === "" ? undefined : { account };
   if (account === "") {
     throw new PsycheError(
       "invalid_params",
@@ -685,7 +694,9 @@ export function composeChannels(
     add(
       new DiscordAdapter({
         ...setup.discord.options,
-        token: setup.discord.token,
+        token:
+          setup.discord.token ??
+          vaultChannelSecret(() => services.vault, "discord", setup.discord.account, "bot_token"),
         account: setup.discord.account,
         clock,
       }),
@@ -750,7 +761,9 @@ export function composeChannels(
       : new SmsAdapter({
           ...setup.sms.options,
           accountSid: setup.sms.accountSid,
-          authToken: setup.sms.authToken,
+          authToken:
+            setup.sms.authToken ??
+            vaultChannelSecret(() => services.vault, "sms", setup.sms.from, "auth_token"),
           from: setup.sms.from,
           publicUrl: setup.sms.publicUrl,
           clock,
