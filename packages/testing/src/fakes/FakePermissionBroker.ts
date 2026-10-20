@@ -266,6 +266,19 @@ export class FakePermissionBroker implements PermissionBroker {
         "only the owner or a designated person can request changes",
       );
     }
+    // Nor are the owner's sources read for them (#293): only the public, cookie-less web.
+    if (
+      requester !== undefined &&
+      requester.role === "allowed" &&
+      se === "read" &&
+      call.tool !== "web_search" &&
+      call.tool !== "web_fetch"
+    ) {
+      return deny(
+        "requester:not_owner",
+        "an allowlisted sender cannot have the owner's messages, mail, files or memory read",
+      );
+    }
     if (designated && se === "financial") {
       return deny("designated:persona_limit", "a delegated persona cannot move money");
     }

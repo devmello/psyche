@@ -92,6 +92,7 @@ import {
   PORT_RELAY,
   PTY_RELAY,
   PYTHON,
+  REAP,
   STATE_DIR,
   STDIO_RELAY,
 } from "./scripts.ts";
@@ -161,6 +162,14 @@ export interface ContainerSandboxRunnerOptions extends DetectOptions {
   maxRunningSandboxes?: number;
   /** Largest accepted `timeoutMs`. Default 30 min. */
   maxTimeoutMs?: number;
+  /**
+   * What an exec may leave running after it returns (issues #290, #286). `"secrets"` (default):
+   * an exec that was given a vault secret (`PSYCHE_SECRET_*`) has its whole session, and any
+   * process still carrying its environment, killed when it returns, so no background child
+   * keeps the secret for a later command to read. `"always"`: every exec is reaped that way
+   * (one-shot work such as document conversion, where nothing may persist between inputs).
+   */
+  reapBackground?: "secrets" | "always";
   egressProxy?: EgressProxyConfig;
   /**
    * The egress proxy for `network: "proxy"` (feature K4), preferred over `egressProxy`: the
@@ -1120,7 +1129,8 @@ export class ContainerSandboxRunner implements SandboxRunner {
       signal?.removeEventListener("abort", onAbort);
     }
     // Before `#filesChanged`, which removes the pid file that names the exec's session.
-    if (this.#options.onDevServer !== undefined) {
+    const reaped = await this.#reapIfNeeded(entry, execId, envPairs);
+    if (this.#options.onDevServer !== undefined && !reaped) {
       await this.#probeDevServers(entry, execId, { cwd, argv });
     }
     const filesChanged = await this.#filesChanged(entry, execId);
@@ -1336,6 +1346,25 @@ export class ContainerSandboxRunner implements SandboxRunner {
     } catch {
       // The listener's problem; forwarding goes on.
     }
+  }
+
+  /**
+   * Kills what the exec left running when it held a secret (or in `"always"` mode): its
+   * session and every process whose environment carries its `PSYCHE_EXEC_MARK`. A failed reap
+   * stops the container instead, so a leftover can never outlive the secret it was given.
+   */
+  async #reapIfNeeded(entry: Entry, execId: string, envPairs: string[]): Promise<boolean> {
+    const secret = envPairs.some((p) => p.startsWith("PSYCHE_SECRET_"));
+    if (!secret && this.#options.reapBackground !== "always") return false;
+    const r = await this.#cli(
+      entry.backend,
+      execArgs(entry.backend.kind, entry.container, "/", [PYTHON, "-I", "-S", "-c", REAP, execId]),
+      { timeoutMs: 30_000 },
+    ).catch(() => undefined);
+    if (r === undefined || r.exitCode !== 0) {
+      await this.#stop(entry).catch(() => undefined);
+    }
+    return true;
   }
 
   async #filesChanged(entry: Entry, execId: string): Promise<string[] | null> {

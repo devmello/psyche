@@ -80,6 +80,8 @@ struct TargetParams: Decodable {
     var y: Double?
     var expect: AXExpectation?
     var session: String?
+    /// The app the call names (required for x/y targets, #267): the point must land in it.
+    var app: String? = nil
 }
 
 private func targetSchema(_ extra: [String: JSONValue] = [:], description: String) -> JSONValue {
@@ -94,6 +96,7 @@ private func targetSchema(_ extra: [String: JSONValue] = [:], description: Strin
             "role": Schema.string(), "label": Schema.string(), "valuePrefix": Schema.string(),
         ], required: ["role"], description: "Copied from the snapshot; the call is refused if the element changed (required with ref)"),
         "session": Schema.string("Computer-use session id (the run id); one session drives the computer at a time"),
+        "app": Schema.string("Bundle id of the app the call targets; required with x/y"),
     ]
     for (k, v) in extra { props[k] = v }
     return Schema.object(props, description: description)
@@ -125,7 +128,24 @@ struct ActionOutcome {
 public enum ComputerCapabilities {
     /// A capability whose body runs as one stoppable invocation (Esc stops it, not later ones).
     static func cap(_ cu: ComputerUse, _ spec: CapabilitySpec, _ body: @escaping @Sendable (InvocationContext) async throws -> CapabilityOutput) -> Capability {
-        Capability(spec) { ctx in try await cu.stop.run { try await body(ctx) } }
+        Capability(withApprovalParam(spec)) { ctx in try await cu.stop.run { try await body(ctx) } }
+    }
+
+    /// Every computer-use call may carry `approval {app, tier}`: what the Gateway's card covered (#267).
+    static func withApprovalParam(_ spec: CapabilitySpec) -> CapabilitySpec {
+        var s = spec
+        if case .object(var schema) = s.inputSchema, case .object(var props)? = schema["properties"] {
+            props["approval"] = Schema.object([
+                "app": Schema.string("Bundle id the approval card named"), "tier": Schema.string(enum: ["read", "click", "interact"]),
+            ], required: ["app", "tier"], description: "Set by the Gateway with approvalId; the helper honours the approval only for this app and tier")
+            schema["properties"] = .object(props)
+            s.inputSchema = .object(schema)
+        }
+        return s
+    }
+
+    static func binding(_ ctx: InvocationContext) -> ApprovalBinding? {
+        ApprovalBinding.from(approvalId: ctx.approvalId, params: ctx.params)
     }
 
     public static func make(_ cu: ComputerUse) -> [any CapabilityHandler] {
@@ -157,7 +177,7 @@ public enum ComputerCapabilities {
             cu.ensureEscTap()
             cu.reloadSettings()
             let app = try AXEngine.findApp(p.app, pid: p.pid)
-            try cu.policy.authorize(.read, bundleId: app.bundleIdentifier, appName: app.localizedName ?? "app", approvalId: ctx.approvalId)
+            try cu.policy.authorize(.read, bundleId: app.bundleIdentifier, appName: app.localizedName ?? "app", approval: binding(ctx))
             let o = AXSnapshotOptions.clamped(maxVisit: p.maxVisit, maxEmit: p.maxEmit, textMax: p.textMax, valueMax: p.valueMax, clip: p.clip)
             if let w = p.window, w < 0 { throw CapabilityError.invalidParams("window must be ≥ 0", field: "window") }
             let req = AXEngine.SnapshotRequest(app: app, window: p.window, root: p.root, menubar: p.menubar ?? false, options: o)
@@ -191,7 +211,7 @@ public enum ComputerCapabilities {
         )) { ctx in
             let p = try ctx.decode(ValueParams.self)
             let el = try await cu.engine.run { try $0.element(for: p.ref) }
-            try cu.policy.authorize(.read, bundleId: el.app.bundleId, appName: el.app.name, approvalId: ctx.approvalId)
+            try cu.policy.authorize(.read, bundleId: el.app.bundleId, appName: el.app.name, approval: binding(ctx))
             if el.info.isSecure { throw secureRefusal() }
             let value = try await cu.engine.run { [el] in $0.fullValue(el, max: min(200_000, max(1, p.max ?? 50_000))) }
             return CapabilityOutput(["ref": .string(p.ref), "role": .string(el.roleName), "value": value.map { .string($0) } ?? .null,
@@ -219,7 +239,9 @@ public enum ComputerCapabilities {
             throw CapabilityError.invalidParams("ref or selector is required", field: "ref")
         }
         let el = try await cu.engine.run { try $0.element(for: ref) }
-        try cu.policy.authorize(intent, bundleId: el.app.bundleId, appName: el.app.name, approvalId: ctx.approvalId)
+        // A click or press on a menu-like element runs an app command (#266).
+        let intent = intent.escalated(forRole: el.info.role)
+        try cu.policy.authorize(intent, bundleId: el.app.bundleId, appName: el.app.name, approval: binding(ctx))
         guard let expect = t.expect else {
             throw CapabilityError.invalidParams("expect {role, label} from the snapshot is required with a ref", field: "expect")
         }
@@ -228,7 +250,7 @@ public enum ComputerCapabilities {
             throw CapabilityError(.conflict, reason: "expectation_failed", "\(ref) changed: \(why). Take a new snapshot.",
                                   details: ["ref": .string(ref), "role": .string(el.roleName), "label": el.label.map { .string($0) } ?? .null])
         }
-        if intent != .read, ctx.approvalId == nil, RiskLabels.isRisky(label: el.label, customAction: customAction) {
+        if intent != .read, binding(ctx) == nil, RiskLabels.isRisky(label: el.label, customAction: customAction) {
             throw CapabilityError(.approvalRequired, reason: "risky_label",
                                   "\"\(el.label ?? customAction ?? "")\" may delete, send or create data; this action needs approval.",
                                   details: ["label": .string(el.label ?? ""), "app": .string(el.app.bundleId ?? el.app.name)])
@@ -247,7 +269,16 @@ public enum ComputerCapabilities {
             throw CapabilityError(.notFound, reason: "nothing_at_point", "No app owns the point \(Int(x)),\(Int(y))")
         }
         let target = AXEngine.target(app)
-        try cu.policy.authorize(intent, bundleId: target.bundleId, appName: target.name, approvalId: ctx.approvalId)
+        // The point must land in the app the call (and its approval) named (#267).
+        guard let named = t.app, !named.isEmpty else {
+            throw CapabilityError.invalidParams("app (the bundle id the point is in) is required with x/y", field: "app")
+        }
+        guard named.lowercased() == target.bundleId?.lowercased() else {
+            throw CapabilityError(.policyDenied, reason: "app_mismatch", "The point is in \(target.name), not \(named)",
+                                  details: ["app": .string(named), "appAtPoint": .string(target.bundleId ?? target.name)])
+        }
+        let intent = intent.escalated(forRole: AXEngine.hitTest(p)?.role)
+        try cu.policy.authorize(intent, bundleId: target.bundleId, appName: target.name, approval: binding(ctx))
         return (p, target)
     }
 
@@ -312,8 +343,9 @@ public enum ComputerCapabilities {
         var expect: AXExpectation?
         var session: String?
         var modifiers: [String]?
+        var app: String?
 
-        var target: TargetParams { TargetParams(ref: ref, selector: selector, x: x, y: y, expect: expect, session: session) }
+        var target: TargetParams { TargetParams(ref: ref, selector: selector, x: x, y: y, expect: expect, session: session, app: app) }
     }
 
     static func modifierFlags(_ names: [String]?) throws -> CGEventFlags {
@@ -538,7 +570,7 @@ public enum ComputerCapabilities {
                 try cu.beginAction(session: p.session)
                 let running = try AXEngine.findApp(p.app)
                 app = AXEngine.target(running)
-                try cu.policy.authorize(.type, bundleId: app.bundleId, appName: app.name, approvalId: ctx.approvalId)
+                try cu.policy.authorize(.type, bundleId: app.bundleId, appName: app.name, approval: binding(ctx))
             }
             try activate(app, stop: cu.stop)
             // Checked before every chunk: Tab/Return can move focus (into a password field, or out
@@ -580,7 +612,7 @@ public enum ComputerCapabilities {
             try cu.beginAction(session: p.session)
             let running = try AXEngine.findApp(p.app)
             let app = AXEngine.target(running)
-            try cu.policy.authorize(.key, bundleId: app.bundleId, appName: app.name, approvalId: ctx.approvalId)
+            try cu.policy.authorize(.key, bundleId: app.bundleId, appName: app.name, approval: binding(ctx))
             if chord.isHighRisk, ctx.approvalId == nil {
                 throw CapabilityError(.approvalRequired, reason: "risky_chord", "\(p.keys) can close windows, quit apps or delete; it needs approval")
             }
@@ -606,8 +638,9 @@ public enum ComputerCapabilities {
         var session: String?
         var dx: Int?
         var dy: Int?
+        var app: String?
 
-        var target: TargetParams { TargetParams(ref: ref, selector: selector, x: x, y: y, expect: expect, session: session) }
+        var target: TargetParams { TargetParams(ref: ref, selector: selector, x: x, y: y, expect: expect, session: session, app: app) }
     }
 
     static func scroll(_ cu: ComputerUse) -> Capability {
@@ -643,7 +676,7 @@ public enum ComputerCapabilities {
     }
 
     static func drag(_ cu: ComputerUse) -> Capability {
-        let end = Schema.object(["ref": Schema.string(), "x": Schema.number(), "y": Schema.number(),
+        let end = Schema.object(["ref": Schema.string(), "x": Schema.number(), "y": Schema.number(), "app": Schema.string(),
                                  "expect": Schema.object(["role": Schema.string(), "label": Schema.string()], required: ["role"])])
         return cap(cu, CapabilitySpec(
             name: "computer.drag", description: "Drag with the left mouse button from one element or point to another, within one app.",
@@ -694,7 +727,7 @@ public enum ComputerCapabilities {
             try cu.beginAction(session: p.session)
             let running = try AXEngine.findApp(p.app)
             let app = AXEngine.target(running)
-            try cu.policy.authorize(.menu, bundleId: app.bundleId, appName: app.name, approvalId: ctx.approvalId)
+            try cu.policy.authorize(.menu, bundleId: app.bundleId, appName: app.name, approval: binding(ctx))
             if ctx.approvalId == nil, path.contains(where: { RiskLabels.isRisky(label: $0) }) {
                 throw CapabilityError(.approvalRequired, reason: "risky_label", "\(p.path) may delete, send or quit; it needs approval")
             }

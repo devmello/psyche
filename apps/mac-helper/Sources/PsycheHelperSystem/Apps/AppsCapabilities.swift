@@ -118,12 +118,12 @@ public enum AppsCapabilities {
     }
 
     static func focus(_ cu: ComputerUse) -> Capability {
-        Capability(CapabilitySpec(
+        Capability(ComputerCapabilities.withApprovalParam(CapabilitySpec(
             name: "apps.focus", description: "Bring a running app to the front, optionally raising one of its windows by index.",
             sideEffect: .write, targetKind: .app,
             inputSchema: Schema.object(["app": Schema.string(), "window": Schema.integer(min: 0)], required: ["app"]),
             receiptKind: "computer_action"
-        )) { ctx in
+        ))) { ctx in
             struct P: Decodable {
                 var app: String
                 var window: Int?
@@ -131,7 +131,7 @@ public enum AppsCapabilities {
             let p = try ctx.decode(P.self)
             let app = try AXEngine.findApp(p.app)
             let target = AXEngine.target(app)
-            try cu.policy.authorize(.read, bundleId: target.bundleId, appName: target.name, approvalId: ctx.approvalId)
+            try cu.policy.authorize(.read, bundleId: target.bundleId, appName: target.name, approval: ComputerCapabilities.binding(ctx))
             app.unhide()
             app.activate()
             if let w = p.window {

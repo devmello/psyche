@@ -17,10 +17,40 @@ export const BASH = "/usr/bin/bash";
 export const PYTHON = "/usr/bin/python3";
 
 /**
+ * Env trampoline (issue #289): the last step before the command. Reads the NUL-terminated
+ * `KEY=value` pairs from fd 3, closes it, and `execvpe`s the command with them added to its
+ * environment. Secrets are therefore in no process's argv (not `setsid`'s, `timeout`'s or this
+ * one's, inside the container or in the host's process table) and in the environment of the
+ * command alone. `$1…` is the command; 127 / 126 when it cannot be run, as `env` does. No single
+ * quotes: `EXEC_WRAPPER` embeds it in a single-quoted bash string.
+ */
+export const ENV_TRAMPOLINE = String.raw`import os, sys
+f = os.fdopen(3, "rb")
+pairs = f.read()
+f.close()
+env = dict(os.environ)
+for kv in pairs.split(b"\0"):
+    if kv:
+        k, _, v = kv.partition(b"=")
+        env[k.decode("utf-8", "surrogateescape")] = v.decode("utf-8", "surrogateescape")
+pairs = None
+try:
+    os.execvpe(sys.argv[1], sys.argv[1:], env)
+except OSError as e:
+    sys.stderr.write("psyche-sandbox: cannot run %s: %s\n" % (sys.argv[1], e.strerror))
+    os._exit(127 if isinstance(e, FileNotFoundError) else 126)`;
+
+/** Env var naming the exec that set a secret (issue #290): leftovers carrying it are reaped. */
+export const EXEC_MARK_VAR = "PSYCHE_EXEC_MARK";
+
+/**
  * Exec wrapper. `$1` = exec id, `$2` = timeout seconds, `$3` = "--", the rest is the argv.
  * stdin carries NUL-terminated `KEY=value` pairs (so env values, including vault-injected
- * secrets, never appear in host `ps` output). They are applied only to the command itself via
- * `env --`, never to this shell, so a name like `PATH` or `secs` cannot disturb the wrapper.
+ * secrets, never appear in host `ps` output). They never become arguments either (issue
+ * #289): with any pairs, they are written to a pipe on fd 3 by a forked builtin (whose argv is
+ * this shell's, without them) and `ENV_TRAMPOLINE` applies them to the command alone, so a
+ * name like `PATH` or `secs` cannot disturb the wrapper. A secret-bearing command also gets
+ * `PSYCHE_EXEC_MARK=<exec id>`, so whatever it leaves behind can be found and killed (#290).
  * The command gets `/dev/null` as stdin.
  *
  * The command runs in its own session with a pid file so an interrupt can kill the whole
@@ -38,7 +68,61 @@ if ! /usr/bin/touch -d "@\${__ts:0:-9}.\${__ts: -9}" "$__d/$__id.mark"; then
 fi
 __env=()
 while IFS= read -r -d '' __kv; do __env+=("$__kv"); done
-exec /usr/bin/setsid --wait ${BASH} -c 'echo $$ > "$1"; shift; exec /usr/bin/timeout --kill-after=2 "$@"' psyche-session "$__d/$__id.pid" "$__secs" /usr/bin/env -- "\${__env[@]}" "$@" </dev/null`;
+__run='echo $$ > "$1"; shift; exec /usr/bin/timeout --kill-after=2 "$@"'
+if [ \${#__env[@]} -eq 0 ]; then
+  exec /usr/bin/setsid --wait ${BASH} -c "$__run" psyche-session "$__d/$__id.pid" "$__secs" "$@" </dev/null
+fi
+__tramp='${ENV_TRAMPOLINE}'
+exec /usr/bin/setsid --wait ${BASH} -c "$__run" psyche-session "$__d/$__id.pid" "$__secs" ${PYTHON} -I -S -c "$__tramp" "$@" </dev/null 3< <(printf '%s\\0' "\${__env[@]}" "${EXEC_MARK_VAR}=$__id")`;
+
+/**
+ * Reaps what an exec left running (issues #290, #286): SIGKILL to every process of the exec's
+ * session (from its pid file) and to every process whose environment carries
+ * `PSYCHE_EXEC_MARK=<exec id>` (a child that left the session with `setsid` but kept the
+ * secret-bearing environment). Twice, for processes forked while the first pass ran. Prints the
+ * number killed. `$1` = exec id.
+ */
+export const REAP = String.raw`import os, signal, sys
+eid = sys.argv[1]
+mark = ("${EXEC_MARK_VAR}=" + eid).encode() + b"\0"
+sid = None
+try:
+    with open("${STATE_DIR}/" + eid + ".pid") as f:
+        sid = int(f.read().strip())
+except Exception:
+    pass
+
+def session_of(pid):
+    try:
+        with open("/proc/%d/stat" % pid) as f:
+            s = f.read()
+        return int(s[s.rindex(")") + 2:].split()[3])
+    except Exception:
+        return None
+
+def marked(pid):
+    try:
+        with open("/proc/%d/environ" % pid, "rb") as f:
+            return (b"\0" + f.read()).find(b"\0" + mark) >= 0
+    except Exception:
+        return False
+
+me = os.getpid()
+killed = set()
+for _ in range(2):
+    for name in os.listdir("/proc"):
+        if not name.isdigit():
+            continue
+        pid = int(name)
+        if pid in (me, 1) or pid in killed:
+            continue
+        if (sid is not None and session_of(pid) == sid) or marked(pid):
+            try:
+                os.kill(pid, signal.SIGKILL)
+                killed.add(pid)
+            except OSError:
+                pass
+sys.stdout.write(str(len(killed)))`;
 
 /** Signals the process group recorded by `EXEC_WRAPPER`. `$1` = exec id, `$2` = signal. */
 export const KILL_GROUP = `__p=
