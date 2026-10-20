@@ -8,7 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   chooseMode,
@@ -16,6 +16,7 @@ import {
   type GatewayRunState,
   GatewaySupervisor,
   parseLaunchctlPrint,
+  plistProgram,
   type Runner,
   renderLaunchAgentPlist,
   renderPlistTemplate,
@@ -282,5 +283,91 @@ describe("desktop vault key file", () => {
     expect(existsSync(join(home, "secrets", "vault.key"))).toBe(false);
     writeFileSync(join(home, "vault", "slots.json"), JSON.stringify({ slots: { key_file: {} } }));
     expect(desktopVaultKeyFile(home)).toBe(join(home, "secrets", "vault.key"));
+  });
+});
+
+describe("two copies of Psyche share the agent label", () => {
+  const otherPlist = (program: string) =>
+    renderLaunchAgentPlist({ program, psycheHome: "/Users/me/.psyche", logDir: "/l" });
+
+  function setup(
+    otherExists: boolean,
+    confirm?: (p: string) => Promise<boolean>,
+    gateway: typeof fetch = up,
+  ) {
+    const base = mkdtempSync(join(tmpdir(), "psy-two-"));
+    const ours = join(base, "out", "psyched");
+    const other = join(base, "Applications", "psyched");
+    mkdirSync(dirname(ours), { recursive: true });
+    writeFileSync(ours, "#!/bin/sh\n");
+    if (otherExists) {
+      mkdirSync(dirname(other), { recursive: true });
+      writeFileSync(other, "#!/bin/sh\n");
+    }
+    const agents = join(base, "LaunchAgents");
+    mkdirSync(agents, { recursive: true });
+    const plist = join(agents, "com.psyche.gateway.plist");
+    writeFileSync(plist, otherPlist(other));
+    const fake = launchd();
+    const asked: string[] = [];
+    const sup = new GatewaySupervisor({
+      mode: "launchd",
+      psycheHome: join(base, "home"),
+      healthUrl: "http://127.0.0.1:1/healthz",
+      bundledProgram: ours,
+      launchAgentsDir: agents,
+      uid: 501,
+      run: fake.run,
+      fetch: gateway === up ? up : fake.fetch,
+      sleep: async () => undefined,
+      ...(confirm
+        ? {
+            confirmTakeover: (p: string) => {
+              asked.push(p);
+              return confirm(p);
+            },
+          }
+        : {}),
+    });
+    return { sup, fake, plist, other, ours, asked };
+  }
+
+  it("reads the program a plist runs", () => {
+    expect(plistProgram(otherPlist("/A&B/psyched"))).toBe("/A&B/psyched");
+  });
+
+  it("asks before taking over an agent that runs another existing copy; no means attach", async () => {
+    const t = setup(true, async () => false);
+    await t.sup.ensureRunning();
+    expect(t.asked).toEqual([t.other]);
+    expect(plistProgram(readFileSync(t.plist, "utf8"))).toBe(t.other);
+    expect(t.fake.calls.map((c) => c[0])).toEqual(["print"]);
+    expect(t.sup.getState()).toEqual({ kind: "running", mode: "launchd" });
+    // Quitting this copy entirely leaves the other install's agent alone.
+    await t.sup.stopEverything();
+    expect(existsSync(t.plist)).toBe(true);
+    expect(t.fake.calls.some((c) => c[0] === "bootout")).toBe(false);
+  });
+
+  it("never takes over silently when nobody can answer", async () => {
+    const t = setup(true);
+    await t.sup.ensureRunning();
+    expect(plistProgram(readFileSync(t.plist, "utf8"))).toBe(t.other);
+  });
+
+  it("takes over on yes, and silently when the other copy is gone", async () => {
+    const yes = setup(true, async () => true, down);
+    await yes.sup.ensureRunning();
+    expect(plistProgram(readFileSync(yes.plist, "utf8"))).toBe(yes.ours);
+    const stale = setup(
+      false,
+      async () => {
+        throw new Error("must not ask");
+      },
+      down,
+    );
+    await stale.sup.ensureRunning();
+    expect(stale.asked).toEqual([]);
+    expect(plistProgram(readFileSync(stale.plist, "utf8"))).toBe(stale.ours);
   });
 });

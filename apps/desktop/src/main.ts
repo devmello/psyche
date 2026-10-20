@@ -738,6 +738,19 @@ void app.whenReady().then(async () => {
     gatewayDir: resolve(app.getAppPath(), "..", "gateway"),
     bundledProgram: join(process.resourcesPath, "psyched", "psyched"),
     bundledPlist: join(process.resourcesPath, "launchd", "com.psyche.gateway.plist"),
+    confirmTakeover: async (other) => {
+      const opts = {
+        type: "question" as const,
+        buttons: ["Keep the other copy", "Use this copy"],
+        defaultId: 0,
+        cancelId: 0,
+        message: "Another copy of Psyche runs your Gateway",
+        detail: `It runs from ${other}. Using this copy points the Gateway at this app instead; the other copy then uses this one's Gateway.`,
+      };
+      const win = windows?.main();
+      const res = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts);
+      return res.response === 1;
+    },
     vaultKeyFile: () => desktopVaultKeyFile(home),
     onState: (run) => {
       tray?.update({ run });
