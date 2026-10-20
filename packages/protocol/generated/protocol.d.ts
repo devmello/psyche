@@ -4106,12 +4106,13 @@ export interface ToolCall {
 export type ProvenanceOut = "trusted" | "untrusted";
 
 export interface ToolSpec {
-    description:   string;
-    inputSchema:   { [key: string]: unknown };
-    name:          string;
-    provenanceOut: ProvenanceOut;
-    sideEffect:    SideEffect;
-    targetKind?:   TargetKind;
+    description:            string;
+    descriptionProvenance?: ProvenanceOut;
+    inputSchema:            { [key: string]: unknown };
+    name:                   string;
+    provenanceOut:          ProvenanceOut;
+    sideEffect:             SideEffect;
+    targetKind?:            TargetKind;
 }
 
 export interface UsageRecord {
