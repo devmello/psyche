@@ -24,6 +24,7 @@ public final class HelperRuntime: @unchecked Sendable {
         handlers += KeychainCapabilities.make()
         handlers += PresenceCapabilities.make(key: presence)
         handlers += ContactsCapabilities.make()
+        handlers += DictationCapabilities.make()
         handlers += VMCapabilities.make(VMManager(backend: VZBackend(), environment: environment, log: log))
         registry = CapabilityRegistry(handlers)
     }
