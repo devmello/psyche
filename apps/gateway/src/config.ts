@@ -57,6 +57,21 @@ export interface GatewayConfig {
    * `onepassword` item. `null` = not configured (`vault.linkExternal` answers unavailable).
    */
   onePassword?: OnePasswordConfig | null;
+  /**
+   * `credentials.bitwarden` (feature G11): the Bitwarden CLI the vault reads linked items through.
+   * The session key (`bw unlock --raw`) is never here: it is the vault's connector-owned
+   * `bitwarden` item. `null` = not configured (`vault.linkExternal` answers unavailable).
+   */
+  bitwarden?: BitwardenConfig | null;
+}
+
+/**
+ * The `bw` CLI (`bw`: an absolute path, default the first `bw` on PATH) and, optionally, its
+ * data directory (`appDataDir`, the CLI's `BITWARDENCLI_APPDATA_DIR`).
+ */
+export interface BitwardenConfig {
+  bw?: string;
+  appDataDir?: string;
 }
 
 /**
@@ -76,7 +91,7 @@ interface ConfigFile {
     cloudflareAccess?: { teamDomain: string; audience: string };
     rateLimits?: Partial<RateLimitSettings>;
   };
-  credentials?: { onePassword?: OnePasswordConfig };
+  credentials?: { onePassword?: OnePasswordConfig; bitwarden?: BitwardenConfig };
 }
 
 /** `credentials` in `config.json`: references to external sources only, never a secret. */
@@ -85,9 +100,40 @@ function credentialsFrom(value: unknown): NonNullable<ConfigFile["credentials"]>
     bad("credentials", "must be an object");
   const c = value as Record<string, unknown>;
   for (const key of Object.keys(c))
-    if (key !== "onePassword") bad(`credentials.${key}`, "is not a known key");
-  if (c.onePassword === undefined) return {};
-  const op = c.onePassword as Record<string, unknown>;
+    if (key !== "onePassword" && key !== "bitwarden")
+      bad(`credentials.${key}`, "is not a known key");
+  const bw = c.bitwarden === undefined ? {} : { bitwarden: bitwardenFrom(c.bitwarden) };
+  if (c.onePassword === undefined) return bw;
+  return { ...bw, ...onePasswordFrom(c.onePassword) };
+}
+
+/** `credentials.bitwarden`: paths only; the session key lives in the vault. */
+function bitwardenFrom(value: unknown): BitwardenConfig {
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    bad("credentials.bitwarden", "must be an object");
+  const b = value as Record<string, unknown>;
+  for (const key of Object.keys(b))
+    if (key !== "bw" && key !== "appDataDir")
+      bad(
+        `credentials.bitwarden.${key}`,
+        "is not a known key (the session key lives in the vault)",
+      );
+  const out: BitwardenConfig = {};
+  for (const key of ["bw", "appDataDir"] as const) {
+    const v = b[key];
+    if (v === undefined) continue;
+    if (typeof v !== "string" || !isAbsolute(v))
+      bad(`credentials.bitwarden.${key}`, "must be an absolute path");
+    out[key] = v;
+  }
+  return out;
+}
+
+/** `credentials.onePassword`: the `op` CLI or a Connect URL; the token lives in the vault. */
+function onePasswordFrom(
+  value: unknown,
+): Pick<NonNullable<ConfigFile["credentials"]>, "onePassword"> {
+  const op = value as Record<string, unknown>;
   if (op === null || typeof op !== "object" || Array.isArray(op))
     bad("credentials.onePassword", "must be an object");
   for (const key of Object.keys(op))
@@ -341,5 +387,9 @@ export function resolveConfig(
       overrides.onePassword !== undefined
         ? overrides.onePassword
         : (configFile.credentials?.onePassword ?? null),
+    bitwarden:
+      overrides.bitwarden !== undefined
+        ? overrides.bitwarden
+        : (configFile.credentials?.bitwarden ?? null),
   };
 }

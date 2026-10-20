@@ -31,10 +31,12 @@ import { useNow } from "../../lib/use-now.ts";
 import { useSlots } from "../../slots.tsx";
 import { CredentialDetailSheet } from "./CredentialDetail.tsx";
 import {
+  EXTERNAL_NAME,
+  type ExternalLink,
+  type ExternalSource,
   type LinkableKind,
-  LinkOnePasswordForm,
+  LinkExternalForm,
   linkExternalError,
-  type OnePasswordLink,
 } from "./CredentialExternal.tsx";
 import {
   ImportCredentialsForm,
@@ -130,10 +132,13 @@ export interface CredentialsPanelProps extends SettingsFormProps, LoadProps {
   defaultImporting?: boolean;
   /** Opens an item's detail and recent uses. */
   onOpen?: (credential: CredentialMeta) => void;
-  /** Links an item held in 1Password by reference (`vault.linkExternal`); rejects to show. */
-  onLinkOnePassword?: (item: OnePasswordLink) => Promise<void>;
-  /** Stories: open with the 1Password link form showing. */
-  defaultLinking?: boolean;
+  /**
+   * Links an item held in 1Password or Bitwarden by reference (`vault.linkExternal`); rejects to
+   * show. Takes the place of `onConnectManager` for both.
+   */
+  onLinkExternal?: (item: ExternalLink) => Promise<void>;
+  /** Stories: open with a link form showing (`true` = 1Password). */
+  defaultLinking?: boolean | ExternalSource;
   /** Stripe Link payment methods and recent spends; the group is hidden without it. */
   payments?: PaymentsView;
   /** Opens the task behind a payment. */
@@ -158,7 +163,7 @@ export function CredentialsPanel({
   onImport,
   defaultImporting = false,
   onOpen,
-  onLinkOnePassword,
+  onLinkExternal,
   defaultLinking = false,
   payments,
   onOpenTask,
@@ -171,7 +176,9 @@ export function CredentialsPanel({
   const [query, setQuery] = useState(defaultQuery);
   const [editingId, setEditingId] = useState<string | null>(defaultEditingId ?? null);
   const [importing, setImporting] = useState(defaultImporting);
-  const [linking, setLinking] = useState(defaultLinking);
+  const [linking, setLinking] = useState<ExternalSource | null>(
+    defaultLinking === true ? "1password" : defaultLinking === false ? null : defaultLinking,
+  );
   const shown = credentials.filter((c) => matchesCredential(c, query));
   const actions = onUpdate !== undefined || onDelete !== undefined;
   const columns = actions ? 6 : 5;
@@ -218,7 +225,7 @@ export function CredentialsPanel({
         <Group
           title="Items"
           actions={
-            credentials.length === 0 && !adding && !linking ? undefined : (
+            credentials.length === 0 && !adding && linking === null ? undefined : (
               <div className="flex items-center gap-1">
                 {onAdd ? (
                   <Button type="button" size="sm" onClick={() => setAdding(true)} disabled={adding}>
@@ -227,7 +234,7 @@ export function CredentialsPanel({
                 ) : null}
                 <MoreWaysToAdd
                   {...(onImport ? { onImport: () => setImporting(true) } : {})}
-                  {...(onLinkOnePassword ? { onLinkOnePassword: () => setLinking(true) } : {})}
+                  {...(onLinkExternal ? { onLinkExternal: setLinking } : {})}
                   {...(onConnectManager ? { onConnectManager } : {})}
                 />
               </div>
@@ -248,10 +255,12 @@ export function CredentialsPanel({
           {importing && onImport ? (
             <ImportCredentialsForm onImport={onImport} onClose={() => setImporting(false)} />
           ) : null}
-          {linking && onLinkOnePassword ? (
-            <LinkOnePasswordForm
-              onLink={onLinkOnePassword}
-              onClose={() => setLinking(false)}
+          {linking !== null && onLinkExternal ? (
+            <LinkExternalForm
+              key={linking}
+              source={linking}
+              onLink={onLinkExternal}
+              onClose={() => setLinking(null)}
               parseSite={(text, kind: LinkableKind) => parseBinding(text, kind)}
             />
           ) : null}
@@ -272,7 +281,7 @@ export function CredentialsPanel({
             </div>
           ) : null}
           {credentials.length === 0 ? (
-            adding || importing || linking ? null : (
+            adding || importing || linking !== null ? null : (
               <EmptyState
                 icon={KeyRound}
                 {...(onAdd
@@ -281,11 +290,11 @@ export function CredentialsPanel({
               >
                 No credentials stored yet. When a site needs a login, type it yourself or add it
                 here.
-                {onImport || onLinkOnePassword || onConnectManager ? (
+                {onImport || onLinkExternal || onConnectManager ? (
                   <span className="mt-2 flex justify-center">
                     <MoreWaysToAdd
                       {...(onImport ? { onImport: () => setImporting(true) } : {})}
-                      {...(onLinkOnePassword ? { onLinkOnePassword: () => setLinking(true) } : {})}
+                      {...(onLinkExternal ? { onLinkExternal: setLinking } : {})}
                       {...(onConnectManager ? { onConnectManager } : {})}
                     />
                   </span>
@@ -336,7 +345,7 @@ export function CredentialsPanel({
                       </TableCell>
                       <TableCell>
                         {KIND_LABEL[c.kind]}
-                        {c.backend === "1password" || c.backend === "keychain" ? (
+                        {c.backend !== undefined && c.backend !== "vault" ? (
                           <span className="block text-xs text-muted-foreground">
                             {BACKEND_LABEL[c.backend]}
                           </span>
@@ -420,23 +429,25 @@ export function CredentialsPanel({
 }
 
 /** Where an item's value lives, when it is not the Psyche vault itself. */
-const BACKEND_LABEL = { "1password": "in 1Password", keychain: "in the system keychain" } as const;
+const BACKEND_LABEL = {
+  "1password": "in 1Password",
+  bitwarden: "in Bitwarden",
+  keychain: "in the system keychain",
+} as const;
 
 /** Import and password-manager connections, under one menu beside the primary Add item. */
 function MoreWaysToAdd({
   onImport,
-  onLinkOnePassword,
+  onLinkExternal,
   onConnectManager,
 }: {
   onImport?: () => void;
-  /** Opens the link-by-reference form; takes the place of `onConnectManager("1password")`. */
-  onLinkOnePassword?: () => void;
+  /** Opens the link-by-reference form for a manager; takes the place of `onConnectManager`. */
+  onLinkExternal?: (source: ExternalSource) => void;
   onConnectManager?: (manager: "1password" | "bitwarden") => void;
 }): ReactElement | null {
-  if (onImport === undefined && onLinkOnePassword === undefined && onConnectManager === undefined)
-    return null;
-  const linkOnePassword =
-    onLinkOnePassword ?? (onConnectManager ? () => onConnectManager("1password") : undefined);
+  const connect = onLinkExternal ?? onConnectManager;
+  if (onImport === undefined && connect === undefined) return null;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -448,14 +459,13 @@ function MoreWaysToAdd({
         {onImport ? (
           <DropdownMenuItem onClick={onImport}>Import a CSV export</DropdownMenuItem>
         ) : null}
-        {linkOnePassword ? (
-          <DropdownMenuItem onClick={linkOnePassword}>Connect 1Password</DropdownMenuItem>
-        ) : null}
-        {onConnectManager ? (
-          <DropdownMenuItem onClick={() => onConnectManager("bitwarden")}>
-            Connect Bitwarden
-          </DropdownMenuItem>
-        ) : null}
+        {connect
+          ? (["1password", "bitwarden"] as const).map((m) => (
+              <DropdownMenuItem key={m} onClick={() => connect(m)}>
+                Connect {EXTERNAL_NAME[m]}
+              </DropdownMenuItem>
+            ))
+          : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -491,9 +501,12 @@ function EditCredentialForm({
   const [siteError, setSiteError] = useState<string | null>(null);
   const [secret, setSecret] = useState<Partial<Record<keyof CredentialSecretInput, string>>>({});
   const [saving, setSaving] = useState(false);
-  // A 1Password item's values stay in 1Password: only its name and sites change here.
-  const external = credential.backend === "1password";
-  const fields = external ? [] : (SECRET_FIELDS[credential.kind] ?? []);
+  // An external manager's values stay there: only the item's name and sites change here.
+  const external =
+    credential.backend === "1password" || credential.backend === "bitwarden"
+      ? EXTERNAL_NAME[credential.backend]
+      : null;
+  const fields = external !== null ? [] : (SECRET_FIELDS[credential.kind] ?? []);
 
   const addSite = () => {
     const b = parseBinding(site, credential.kind);
@@ -535,7 +548,7 @@ function EditCredentialForm({
     >
       <p className="text-xs text-muted-foreground">
         {external
-          ? "The values stay in 1Password; change them there. Psyche never shows stored values."
+          ? `The values stay in ${external}; change them there. Psyche never shows stored values.`
           : "Leave a value blank to keep it. Psyche never shows stored values."}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -894,11 +907,11 @@ export function CredentialsSection({
         throw new Error(vaultImportError(err));
       },
     );
-  const onLinkOnePassword = (item: OnePasswordLink): Promise<void> =>
-    call("vault.linkExternal", { source: "1password", ...item }).then(
+  const onLinkExternal = (item: ExternalLink): Promise<void> =>
+    call("vault.linkExternal", item).then(
       () => q.reload(),
       (err: unknown) => {
-        throw new Error(linkExternalError(err, item.name));
+        throw new Error(linkExternalError(err, item.name, item.source));
       },
     );
   const onAdd = (item: NewCredential) => {
@@ -930,7 +943,7 @@ export function CredentialsSection({
         itemError={itemError}
         onImport={onImport}
         onOpen={setDetail}
-        onLinkOnePassword={onLinkOnePassword}
+        onLinkExternal={onLinkExternal}
         payments={{
           configured: pay.data?.configured ?? true,
           methods: pay.data?.methods ?? [],

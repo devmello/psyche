@@ -26,10 +26,10 @@ export interface ItemAttrs {
   headerName?: string;
   headerPrefix?: string;
   requireAuthEachUse?: boolean;
-  /** G9: the secret lives in the system keychain; `items.secret` is `{}`. */
-  backend?: "keychain" | "1password";
-  /** G10: where the 1Password item lives (names or ids; never a value). */
-  external?: { vault: string; item: string };
+  /** G9: the secret lives in the system keychain; G10 / G11: in an external manager. */
+  backend?: "keychain" | "1password" | "bitwarden";
+  /** G10 / G11: where the external item lives (names or ids; never a value). */
+  external?: { vault: string; item: string } | { item: string };
   /** Secret fields present (keychain items), so `resolve` can check them without a prompt. */
   fields?: string[];
 }
