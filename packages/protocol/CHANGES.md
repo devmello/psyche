@@ -18,6 +18,15 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (#509 learned facts about the owner)
+
+For S02 (the learner), S07 (`USER.md`'s Learned section), S11 (the Settings switch and the chat note).
+
+- New schema `LearnedFact {factId, text, kind, date, threadId}` (`schemas/memory.ts`).
+- New block `LearnedBlock` (`type: "learned"`, 1–10 items) at the end of the `Block` union: the "Learned: …" note with Undo.
+- New method `memory.forgetLearned {factId}` → `{removed}` (write, side-effecting): Undo.
+- `apps/gateway` `blockToMarkdown` handles the new block.
+
 ### v1 additive — 2026-10-21 (S09, #505: a real connect flow)
 
 For S09 (the Gateway handlers and the asynchronous OAuth connect) and S11 (onboarding and Settings → Connectors read and drive it).

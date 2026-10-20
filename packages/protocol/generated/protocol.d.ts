@@ -1402,7 +1402,12 @@ export interface ItemElement {
     snippet?:       string;
     threadId?:      string;
     title?:         string;
+    date?:          string;
+    factId?:        string;
+    kind?:          LearnedFactKind;
 }
+
+export type LearnedFactKind = "name" | "preference" | "routine" | "person" | "project" | "other";
 
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
@@ -1423,7 +1428,7 @@ export interface CompactionSummary {
 
 export type BlockTrigger = "auto" | "manual";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction" | "learned";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -2659,6 +2664,21 @@ export interface QuestionOption {
 
 export type InputRequestStatus = "open" | "answered" | "cancelled";
 
+export interface LearnedBlock {
+    items: LearnedFact[];
+    type:  LearnedBlockType;
+}
+
+export interface LearnedFact {
+    date:     string;
+    factId:   string;
+    kind:     LearnedFactKind;
+    text:     string;
+    threadId: string;
+}
+
+export type LearnedBlockType = "learned";
+
 export interface LibraryDeleteParams {
     itemId: string;
 }
@@ -2867,6 +2887,14 @@ export interface MemoryFileInfo {
     protected:  boolean;
     provenance: Provenance;
     updatedAt:  string;
+}
+
+export interface MemoryForgetLearnedParams {
+    factId: string;
+}
+
+export interface MemoryForgetLearnedResult {
+    removed: boolean;
 }
 
 export interface MemoryForgetParams {

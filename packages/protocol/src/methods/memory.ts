@@ -131,6 +131,14 @@ export const MemoryMethods = {
     description:
       "Retracts matching claims, removes linked daily-note lines and chunks and rebuilds the index; dryRun reports without changing. Side-effecting.",
   }),
+  "memory.forgetLearned": defineMethod({
+    params: Type.Object({ factId: Type.String({ pattern: "^lf_[a-z0-9]{6,32}$" }) }),
+    result: Type.Object({ removed: Type.Boolean() }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Undo for a learned fact (#509): removes its line from USER.md's Learned section (removed false when it is already gone). Side-effecting.",
+  }),
   "memory.remember": defineMethod({
     params: Type.Object({ text: Type.String({ minLength: 1, maxLength: 4000 }) }),
     result: Type.Object({ path: WorkspacePath, chunk: MemoryChunk }),

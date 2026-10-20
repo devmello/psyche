@@ -1258,6 +1258,14 @@
         "sideEffecting": true
       },
       {
+        "description": "Undo for a learned fact (#509): removes its line from USER.md's Learned section (removed false when it is already gone). Side-effecting.",
+        "name": "memory.forgetLearned",
+        "params": "#/$defs/MemoryForgetLearnedParams",
+        "result": "#/$defs/MemoryForgetLearnedResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Imports memory from another assistant as data: parsed into agent-provenance claims, scanned and size-capped (security §8). Side-effecting.",
         "name": "memory.import",
         "params": "#/$defs/MemoryImportParams",
@@ -4774,6 +4782,9 @@
         },
         {
           "$ref": "#/$defs/CompactionBlock"
+        },
+        {
+          "$ref": "#/$defs/LearnedBlock"
         }
       ]
     },
@@ -11661,6 +11672,66 @@
       "minLength": 1,
       "type": "string"
     },
+    "LearnedBlock": {
+      "properties": {
+        "type": {
+          "const": "learned",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/LearnedFact"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "type",
+        "items"
+      ],
+      "type": "object"
+    },
+    "LearnedFact": {
+      "properties": {
+        "factId": {
+          "pattern": "^lf_[a-z0-9]{6,32}$",
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 300,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "name",
+            "preference",
+            "routine",
+            "person",
+            "project",
+            "other"
+          ],
+          "type": "string"
+        },
+        "date": {
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        "threadId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "factId",
+        "text",
+        "kind",
+        "date",
+        "threadId"
+      ],
+      "type": "object"
+    },
     "LibraryDeleteParams": {
       "properties": {
         "itemId": {
@@ -12481,6 +12552,29 @@
       },
       "required": [
         "files"
+      ],
+      "type": "object"
+    },
+    "MemoryForgetLearnedParams": {
+      "properties": {
+        "factId": {
+          "pattern": "^lf_[a-z0-9]{6,32}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "factId"
+      ],
+      "type": "object"
+    },
+    "MemoryForgetLearnedResult": {
+      "properties": {
+        "removed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "removed"
       ],
       "type": "object"
     },

@@ -1,6 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, Nullable, StringEnum } from "../common.ts";
 import { CompactionSummary } from "./context.ts";
+import { LearnedFact } from "./memory.ts";
 
 /** Message content blocks (data model §9.1). Discriminated on `type`. */
 
@@ -129,6 +130,18 @@ export const CompactionBlock = Type.Object(
   { $id: "CompactionBlock" },
 );
 
+/**
+ * Feature #509: "Learned: …" in the chat, after a turn taught Psyche something about the owner
+ * (written to `USER.md`). Each item can be undone with `memory.forgetLearned`.
+ */
+export const LearnedBlock = Type.Object(
+  {
+    type: Type.Literal("learned"),
+    items: Type.Array(LearnedFact, { minItems: 1, maxItems: 10 }),
+  },
+  { $id: "LearnedBlock" },
+);
+
 export const Block = Type.Union(
   [
     TextBlock,
@@ -144,6 +157,7 @@ export const Block = Type.Union(
     WrapUpBlock,
     RelatedThreadsBlock,
     CompactionBlock,
+    LearnedBlock,
   ],
   { $id: "Block" },
 );
