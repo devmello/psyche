@@ -83,7 +83,10 @@ export class TzScheduler extends FakeScheduler {
         const n = this.fired.filter((f) => f.automationId === a.id).length + 1;
         const runId = `run_${a.id}_${n}`;
         this.fired.push({ automationId: a.id, at: new Date(at).toISOString(), runId });
-        this.#stack.startRun(input.prompt, `task_${a.id}_${n}`, runId, "unattended");
+        // `isolated` (what the schedule built-in asks for) is its own session, as in psyched:
+        // the automation does not continue the chat thread's history.
+        const thread = input.sessionTarget === "main" ? undefined : `thr_${a.id}`;
+        this.#stack.startRun(input.prompt, `task_${a.id}_${n}`, runId, "unattended", thread);
         arm(at);
       });
       return at;
@@ -118,6 +121,94 @@ export function m2Overrides(scenario: string): { overrides: StackOverrides; stat
     },
   };
   return { overrides, state };
+}
+
+/**
+ * A small Gmail search: `newer_than:<n>d|m|y`, `after:` / `before:` (YYYY/MM/DD), `from:`, `to:`,
+ * `subject:` and `in:` / `label:` (ignored: everything is in the inbox), plain words and "quoted
+ * phrases" that must all appear (Gmail's implicit AND), `OR` between two terms, and parentheses
+ * as grouping. No window unless the query names one, as in Gmail.
+ */
+export function gmailQuery(query: string, now: number): (m: Json) => boolean {
+  const tokens = query.match(/-?[a-z_]+:"[^"]*"|-?[a-z_]+:\S+|"[^"]*"|\(|\)|\S+/gi) ?? [];
+  const day = 86_400_000;
+  type Term = (m: Json) => boolean;
+  const text = (m: Json) =>
+    [m.subject, m.snippet, (m.from as Json).name, (m.from as Json).email, (m.body as Json).text]
+      .join(" ")
+      .toLowerCase();
+  const unquote = (v: string) => v.replace(/^"|"$/g, "").toLowerCase();
+  const date = (v: string) => Date.parse(v.replace(/\//g, "-"));
+  const termOf = (token: string): Term | undefined => {
+    const raw = token.replace(/^\(+|\)+$/g, "");
+    if (raw === "OR") return undefined;
+    const neg = raw.startsWith("-");
+    const t = neg ? raw.slice(1) : raw;
+    const op = /^([a-z_]+):(.+)$/i.exec(t);
+    let f: Term | undefined;
+    if (op !== null) {
+      const [, key = "", value = ""] = op;
+      const v = unquote(value);
+      switch (key.toLowerCase()) {
+        case "newer_than": {
+          const n = /^(\d+)([dmy])$/.exec(v);
+          const ms =
+            n === null ? 0 : Number(n[1]) * day * ({ d: 1, m: 30, y: 365 }[n[2] as "d"] ?? 1);
+          f = (m) => Date.parse(String(m.internalDate)) >= now - ms;
+          break;
+        }
+        case "after":
+          f = (m) => Date.parse(String(m.internalDate)) >= date(v);
+          break;
+        case "before":
+          f = (m) => Date.parse(String(m.internalDate)) < date(v);
+          break;
+        case "from":
+          f = (m) => `${(m.from as Json).name} ${(m.from as Json).email}`.toLowerCase().includes(v);
+          break;
+        case "to":
+          f = (m) =>
+            JSON.stringify(m.to ?? [])
+              .toLowerCase()
+              .includes(v);
+          break;
+        case "subject":
+          f = (m) => String(m.subject).toLowerCase().includes(v);
+          break;
+        case "in":
+        case "label":
+        case "category":
+        case "is":
+        case "has":
+          return undefined;
+        default:
+          f = (m) => text(m).includes(t.toLowerCase());
+      }
+    } else {
+      const v = unquote(t);
+      if (v === "") return undefined;
+      f = (m) => text(m).includes(v);
+    }
+    return neg ? (m) => !(f as Term)(m) : f;
+  };
+  // AND of OR-groups: "a OR b c" = (a or b) and c; parentheses only group.
+  const groups: Term[][] = [];
+  let joinNext = false;
+  for (const token of tokens) {
+    const raw = token.replace(/^\(+|\)+$/g, "");
+    if (raw === "") continue;
+    if (raw === "OR" || raw === "|") {
+      joinNext = true;
+      continue;
+    }
+    const term = termOf(raw);
+    if (term === undefined) continue;
+    if (joinNext && groups.length > 0) (groups[groups.length - 1] as Term[]).push(term);
+    else groups.push([term]);
+    joinNext = false;
+  }
+  // "(a OR b OR c)" written with the parentheses first still joins: the OR rule above handles it.
+  return (m) => groups.every((g) => g.some((t) => t(m)));
 }
 
 function impls(
@@ -288,8 +379,14 @@ function impls(
   const threads = () => fixture<{ threads: Thread[] }>("threads.json").threads;
   const messages: Record<string, ToolImpl> = {
     "messages.read": async (_i, a, ctx) => {
+      // By handle, or by the contact's name as Messages resolves it from Contacts.
+      const who = String(a.contact ?? "").toLowerCase();
       const t = threads().find(
-        (x) => x.channel === a.channel && x.account === a.account && x.contact === a.contact,
+        (x) =>
+          x.channel === a.channel &&
+          x.account === a.account &&
+          (x.contact.toLowerCase() === who ||
+            (who.length >= 3 && x.name.toLowerCase().includes(who))),
       );
       if (t === undefined) return fail("no such conversation");
       const recent = t.messages.slice(-Number(a.limit ?? 20));
@@ -362,22 +459,10 @@ function impls(
     "gmail.search": async (_i, a, ctx) => {
       net(ctx, "connector", "gmail.googleapis.com", "connector:google");
       const q = String(a.query ?? "");
-      const days = Number(/newer_than:(\d+)d/.exec(q)?.[1] ?? 5);
-      const since = stack.clock.now() - days * 86_400_000;
-      const terms = q
-        .replace(/newer_than:\S+|in:\S+|from:\S+/g, " ")
-        .replace(/[()"]/g, " ")
-        .split(/\s+/)
-        .filter((t) => t !== "" && t !== "OR")
-        .map((t) => t.toLowerCase());
-      const text = (m: Json) =>
-        [m.subject, m.snippet, (m.from as Json).name, (m.from as Json).email, (m.body as Json).text]
-          .join(" ")
-          .toLowerCase();
+      const match = gmailQuery(q, stack.clock.now());
       const hits = (world.fx.mailbox?.messages ?? [])
         .filter((m) => (m.labelIds as string[]).includes("INBOX"))
-        .filter((m) => Date.parse(String(m.internalDate)) >= since)
-        .filter((m) => terms.length === 0 || terms.some((t) => text(m).includes(t)))
+        .filter(match)
         .sort((x, y) => Date.parse(String(y.internalDate)) - Date.parse(String(x.internalDate)))
         .slice(0, Number(a.maxResults ?? 50));
       taint(
