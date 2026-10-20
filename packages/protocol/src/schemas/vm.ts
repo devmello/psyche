@@ -114,6 +114,16 @@ export const VmSnapshot = Type.Object(
 );
 export type VmSnapshot = Static<typeof VmSnapshot>;
 
+/** L7: the prebuilt image a guest was created from. */
+export const VmGuestImageRef = Type.Object(
+  { id: Type.String(), guestOS: Type.String(), createdAt: IsoDateTime },
+  { $id: "VmGuestImageRef" },
+);
+export type VmGuestImageRef = Static<typeof VmGuestImageRef>;
+
+export const VmDiskFormat = StringEnum(["asif", "raw"], { $id: "VmDiskFormat" });
+export type VmDiskFormat = Static<typeof VmDiskFormat>;
+
 export const VmGuest = Type.Object(
   {
     name: Type.String({ pattern: "^[a-z0-9][a-z0-9-]{0,31}$" }),
@@ -152,6 +162,13 @@ export const VmGuest = Type.Object(
     // L6 additions (optional).
     snapshots: Type.Optional(Type.Array(VmSnapshot, { description: "Newest first" })),
     baseSnapshot: Type.Optional(Type.String({ description: "Id of the `base` snapshot, if any" })),
+    // L7 additions (optional).
+    image: Type.Optional(VmGuestImageRef),
+    passwordRotationPending: Type.Optional(
+      Type.Boolean({
+        description: "Imported guest still has the image's bootstrap password (rotated at first start)",
+      }),
+    ),
   },
   { $id: "VmGuest" },
 );
@@ -181,6 +198,16 @@ export const VmCreateParams = Type.Object(
     ipsw: Type.Optional(Type.String({ description: "Absolute path to a local IPSW" })),
     download: Type.Optional(Type.Boolean()),
     username: Type.Optional(Type.String({ maxLength: 32 })),
+    // L7: create from a prebuilt guest image instead of installing from an IPSW.
+    image: Type.Optional(
+      Type.String({ description: "Absolute path to a guest image directory or .aar archive" }),
+    ),
+    imageSha256: Type.Optional(
+      Type.String({
+        pattern: "^[0-9a-f]{64}$",
+        description: "Expected SHA-256 of the image's manifest.json, from the publisher",
+      }),
+    ),
   },
   { $id: "VmCreateParams" },
 );
@@ -210,6 +237,9 @@ export const VmProgressEvent = Type.Object(
       // L6
       "vm.snapshot",
       "vm.reset",
+      // L7
+      "vm.import",
+      "vm.export",
     ]),
     phase: Type.String({ description: "started | progress | finished, or a VmPhase for vm.state" }),
     fraction: Type.Optional(Type.Number({ minimum: 0, maximum: 1 })),
@@ -315,6 +345,64 @@ export const VmSnapshotDeleteParams = Type.Object(
   { $id: "VmSnapshotDeleteParams" },
 );
 export type VmSnapshotDeleteParams = Static<typeof VmSnapshotDeleteParams>;
+
+/** L7: one file of a guest image with its checksum. */
+export const VmImageFile = Type.Object(
+  {
+    name: Type.String({ pattern: "^[A-Za-z0-9._-]{1,64}$" }),
+    bytes: Type.Integer({ minimum: 0 }),
+    sha256: Type.String({ pattern: "^[0-9a-f]{64}$" }),
+  },
+  { $id: "VmImageFile" },
+);
+export type VmImageFile = Static<typeof VmImageFile>;
+
+/**
+ * L7: `manifest.json` of a prebuilt guest image: an installed, provisioned guest (Psyche installed
+ * and Accessibility / Screen Recording pre-granted) without its machine identity. Importing gives
+ * the guest a new MachineIdentifier and MAC and rotates the bootstrap password at first start.
+ */
+export const VmImageManifest = Type.Object(
+  {
+    format: Type.Literal("psyche-guest-image"),
+    formatVersion: Type.Literal(1),
+    id: Type.String({ pattern: "^[a-z0-9][a-z0-9.-]{0,63}$" }),
+    guestOS: Type.String(),
+    diskFormat: VmDiskFormat,
+    diskGB: Type.Integer({ minimum: 40 }),
+    username: Type.String(),
+    createdAt: IsoDateTime,
+    provisioned: Type.Boolean(),
+    psycheInstalled: Type.Boolean(),
+    permissionsGranted: Type.Boolean(),
+    psycheVersion: Type.Optional(Type.String()),
+    files: Type.Array(VmImageFile),
+  },
+  { $id: "VmImageManifest" },
+);
+export type VmImageManifest = Static<typeof VmImageManifest>;
+
+/** `vm.export_image`: a stopped, provisioned guest to `outDir/<id>/` (manifest, disk, auxiliary storage, hardware model). */
+export const VmExportImageParams = Type.Object(
+  {
+    name: Type.Optional(Type.String()),
+    outDir: Type.String({ minLength: 1 }),
+    id: Type.Optional(Type.String({ pattern: "^[a-z0-9][a-z0-9.-]{0,63}$" })),
+  },
+  { $id: "VmExportImageParams" },
+);
+export type VmExportImageParams = Static<typeof VmExportImageParams>;
+
+/** `vm.export_image` result. `manifestSha256` is what a publisher lists next to the image. */
+export const VmExportImageResult = Type.Object(
+  {
+    path: Type.String(),
+    manifest: VmImageManifest,
+    manifestSha256: Type.String({ pattern: "^[0-9a-f]{64}$" }),
+  },
+  { $id: "VmExportImageResult" },
+);
+export type VmExportImageResult = Static<typeof VmExportImageResult>;
 
 /**
  * The owner's VM-mode settings (`settings.*` keys, admin-only; S11 draws the screen). Values are
