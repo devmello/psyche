@@ -12283,6 +12283,7 @@ public enum ProvenanceOut: String, Codable, Sendable {
 // MARK: - ToolSpec
 public struct ToolSpec: Codable, Sendable {
     public let description: String
+    public let descriptionProvenance: ProvenanceOut?
     public let inputSchema: [String: JSONAny]
     public let name: String
     public let provenanceOut: ProvenanceOut
@@ -12291,6 +12292,7 @@ public struct ToolSpec: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case description = "description"
+        case descriptionProvenance = "descriptionProvenance"
         case inputSchema = "inputSchema"
         case name = "name"
         case provenanceOut = "provenanceOut"
@@ -12298,8 +12300,9 @@ public struct ToolSpec: Codable, Sendable {
         case targetKind = "targetKind"
     }
 
-    public init(description: String, inputSchema: [String: JSONAny], name: String, provenanceOut: ProvenanceOut, sideEffect: SideEffect, targetKind: TargetKind?) {
+    public init(description: String, descriptionProvenance: ProvenanceOut?, inputSchema: [String: JSONAny], name: String, provenanceOut: ProvenanceOut, sideEffect: SideEffect, targetKind: TargetKind?) {
         self.description = description
+        self.descriptionProvenance = descriptionProvenance
         self.inputSchema = inputSchema
         self.name = name
         self.provenanceOut = provenanceOut

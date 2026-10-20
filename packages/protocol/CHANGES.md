@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S09, #281: MCP tool descriptions carry provenance)
+
+For S09 (mcp-host sets it), S02 (the loop may taint a turn whose tools include untrusted descriptions) and the model router (S03, marking).
+
+- New optional `ToolSpec.descriptionProvenance: "trusted" | "untrusted"`: who wrote the tool's `description` and the text in its `inputSchema`. `untrusted` for non-bundled MCP servers; absent means Psyche's own tool text.
+- `FakeMcpHost` sets it from the server's trust tier.
+
 ### v1 additive — 2026-10-20 (S22, M3 security audit completeness)
 
 - New `mcp.status` (`operator.read`) → `{launcher: "srt" | "container" | "none", servers: McpServerStatus[]}` (`id`, `name`, `trust`, `transport`, `network`, `connected`): how the composed Gateway isolates MCP servers, for `psyche security audit`.
