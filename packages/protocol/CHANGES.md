@@ -18,6 +18,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S10: WhatsApp channel secrets, N6)
+
+- `ChannelSecretName` gains `access_token`, `app_secret` and `verify_token` (appended): the WhatsApp Cloud API's Graph access token, the Meta app secret that signs webhooks (`X-Hub-Signature-256`) and the webhook verify token. Stored by `channels.secrets.set` as Gateway-owned vault items.
 ### v1 additive — 2026-10-20 (S09, M9: custom connectors)
 
 For S09 (the manifest executor and proposal flow in `@psyche/connectors`), S12 / S11 (the trust card and Settings → Connectors), S01 (mounting).

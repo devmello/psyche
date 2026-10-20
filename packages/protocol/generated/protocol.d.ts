@@ -1323,7 +1323,7 @@ export interface ChannelsSecretsSetParams {
     value:   string;
 }
 
-export type ChannelSecretName = "bot_token" | "app_token" | "auth_token";
+export type ChannelSecretName = "bot_token" | "app_token" | "auth_token" | "access_token" | "app_secret" | "verify_token";
 
 export interface ChannelsSecretsSetResult {
     set: ChannelSecretName[];
