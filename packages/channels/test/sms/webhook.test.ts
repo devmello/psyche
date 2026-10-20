@@ -88,6 +88,31 @@ describe("SMS webhook", () => {
     expect(got).toEqual([]);
   });
 
+  it("says nothing on refusal (empty 403) and reports each refusal with the claimed sender", async () => {
+    const rejected: { reason: string; claimedFrom: string }[] = [];
+    const a = adapter(api, { clock: { now: () => 1_000 }, onRejected: (r) => rejected.push(r) });
+    await a.start();
+    const ok = signed(inbound());
+    const unsigned = { ...signed(inbound()), headers: {} };
+    const forged = signed(inbound(), { token: "guess" });
+    const other = signed(inbound({ AccountSid: "AC_other" }));
+    for (const req of [unsigned, forged, other]) {
+      const res = await a.handleWebhook(req);
+      expect(res).toEqual({ status: 403, headers: { "cache-control": "no-store" }, body: "" });
+    }
+    expect((await a.handleWebhook(ok)).status).toBe(200);
+    expect((await a.handleWebhook(ok)).status).toBe(403);
+    expect((await a.handleWebhook(signed(inbound({ Body: "x".repeat(70_000) })))).status).toBe(403);
+    expect(rejected).toEqual([
+      { reason: "unsigned", claimedFrom: FRIEND },
+      { reason: "bad_signature", claimedFrom: FRIEND },
+      { reason: "wrong_account", claimedFrom: FRIEND },
+      { reason: "replayed", claimedFrom: FRIEND },
+      { reason: "too_large", claimedFrom: "" },
+    ]);
+    await a.drain();
+  });
+
   it("ignores X-Forwarded / Host headers for the signed URL", async () => {
     const { a } = await started();
     const fields = inbound();
