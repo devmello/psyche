@@ -536,6 +536,7 @@ describe("deploy/scripts/build-psyched.mjs server subset", () => {
       "../../../node_modules/.pnpm/react@1/node_modules/react",
       "packages/ui/node_modules/react",
     );
+    link("../../../node_modules/.pnpm/react@1/node_modules/react", "apps/web/node_modules/react");
     return app;
   }
 
@@ -561,6 +562,7 @@ describe("deploy/scripts/build-psyched.mjs server subset", () => {
       expect(existsSync(join(app, "packages/viewers/src/react/Sheet.tsx"))).toBe(false);
       expect(existsSync(join(app, "packages/viewers/node_modules/react"))).toBe(false);
       expect(stats).toMatchObject({ workspaces: 1, packages: 2, files: 2 });
+      expect(existsSync(join(app, "apps/web/node_modules"))).toBe(false);
       // `import type` needs nothing at runtime; the lazy import("pdfjs") does.
       expect(checkImports(app)).toEqual([]);
       rmSync(join(app, "apps/gateway/node_modules/pdfjs"));

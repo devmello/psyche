@@ -239,6 +239,23 @@ function removeDanglingLinks(dir) {
   }
 }
 
+/** Every link in the tree that points nowhere, wherever it is; returns how many were removed. */
+function removeAllDanglingLinks(dir) {
+  let n = 0;
+  for (const e of readdirSync(dir)) {
+    const p = join(dir, e);
+    const st = lstatSync(p, { throwIfNoEntry: false });
+    if (!st) continue;
+    if (st.isSymbolicLink()) {
+      if (!existsSync(p)) {
+        unlinkSync(p);
+        n++;
+      }
+    } else if (st.isDirectory()) n += removeAllDanglingLinks(p);
+  }
+  return n;
+}
+
 /**
  * Cuts the installed tree down to what psyched and the CLI can load:
  * - workspace packages outside the closure (apps/node, packages/ui, packages/testing, …) go;
@@ -256,7 +273,11 @@ export function pruneToServerSubset(
   const stats = { workspaces: 0, packages: 0, files: 0 };
   for (const [name, pkg] of all) {
     // The web client ships as its built dist only (served at /).
-    if (closure.has(name) || name === "@psyche/web") continue;
+    if (name === "@psyche/web") {
+      rmSync(join(appDir, pkg.dir, "node_modules"), { recursive: true, force: true });
+      continue;
+    }
+    if (closure.has(name)) continue;
     rmSync(join(appDir, pkg.dir), { recursive: true, force: true });
     stats.workspaces++;
   }
@@ -313,6 +334,8 @@ export function pruneToServerSubset(
       stats.files++;
     }
   });
+  // codesign cannot seal a link to nothing ("No such file or directory" for the whole app).
+  stats.links = removeAllDanglingLinks(appDir);
   return stats;
 }
 
@@ -486,7 +509,7 @@ async function main(argv) {
   rmSync(join(app, "node_modules/.cache"), { recursive: true, force: true });
   const cut = pruneToServerSubset(app);
   process.stdout.write(
-    `pruned ${cut.workspaces} workspace package(s), ${cut.packages} unreachable package(s), ${cut.files} map/declaration file(s)\n`,
+    `pruned ${cut.workspaces} workspace package(s), ${cut.packages} unreachable package(s), ${cut.files} map/declaration file(s), ${cut.links} dangling link(s)\n`,
   );
   const missing = checkImports(app);
   if (missing.length) throw new Error(`imports that no longer resolve:\n${missing.join("\n")}`);
