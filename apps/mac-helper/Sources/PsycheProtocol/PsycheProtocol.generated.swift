@@ -253,6 +253,7 @@
 //   let logLine = try? JSONDecoder().decode(LogLine.self, from: jsonData)
 //   let logsTailParams = try? JSONDecoder().decode(LogsTailParams.self, from: jsonData)
 //   let logsTailResult = try? JSONDecoder().decode(LogsTailResult.self, from: jsonData)
+//   let memoTaskMode = try? JSONDecoder().decode(MemoTaskMode.self, from: jsonData)
 //   let memoryChangeSource = try? JSONDecoder().decode(MemoryChangeSource.self, from: jsonData)
 //   let memoryChunk = try? JSONDecoder().decode(MemoryChunk.self, from: jsonData)
 //   let memoryClaim = try? JSONDecoder().decode(MemoryClaim.self, from: jsonData)
@@ -428,6 +429,9 @@
 //   let speechReadAloudFailedPayload = try? JSONDecoder().decode(SpeechReadAloudFailedPayload.self, from: jsonData)
 //   let speechReadAloudParams = try? JSONDecoder().decode(SpeechReadAloudParams.self, from: jsonData)
 //   let speechReadAloudResult = try? JSONDecoder().decode(SpeechReadAloudResult.self, from: jsonData)
+//   let speechVoice = try? JSONDecoder().decode(SpeechVoice.self, from: jsonData)
+//   let speechVoicesParams = try? JSONDecoder().decode(SpeechVoicesParams.self, from: jsonData)
+//   let speechVoicesResult = try? JSONDecoder().decode(SpeechVoicesResult.self, from: jsonData)
 //   let taintSource = try? JSONDecoder().decode(TaintSource.self, from: jsonData)
 //   let target = try? JSONDecoder().decode(Target.self, from: jsonData)
 //   let targetKind = try? JSONDecoder().decode(TargetKind.self, from: jsonData)
@@ -516,6 +520,9 @@
 //   let voiceCancelParams = try? JSONDecoder().decode(VoiceCancelParams.self, from: jsonData)
 //   let voiceEndReason = try? JSONDecoder().decode(VoiceEndReason.self, from: jsonData)
 //   let voiceEndedPayload = try? JSONDecoder().decode(VoiceEndedPayload.self, from: jsonData)
+//   let voiceMemoContent = try? JSONDecoder().decode(VoiceMemoContent.self, from: jsonData)
+//   let voiceMemoSaveParams = try? JSONDecoder().decode(VoiceMemoSaveParams.self, from: jsonData)
+//   let voiceMemoSaveResult = try? JSONDecoder().decode(VoiceMemoSaveResult.self, from: jsonData)
 //   let voicePushParams = try? JSONDecoder().decode(VoicePushParams.self, from: jsonData)
 //   let voicePushResult = try? JSONDecoder().decode(VoicePushResult.self, from: jsonData)
 //   let voiceSegmentPayload = try? JSONDecoder().decode(VoiceSegmentPayload.self, from: jsonData)
@@ -8809,6 +8816,88 @@ public struct SpeechReadAloudResult: Codable, Sendable {
     }
 }
 
+// MARK: - SpeechVoicesParams
+public struct SpeechVoicesParams: Codable, Sendable {
+    /// The persona's current <engine>:<voice>
+    public let personaVoice: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case personaVoice = "personaVoice"
+    }
+
+    public init(personaVoice: String?) {
+        self.personaVoice = personaVoice
+    }
+}
+
+// MARK: - SpeechVoicesResult
+public struct SpeechVoicesResult: Codable, Sendable {
+    public let speechVoicesResultDefault: String?
+    /// Synthesis engines in order that could not list voices now
+    public let unavailable: [String]
+    public let voices: [SpeechVoice]
+
+    public enum CodingKeys: String, CodingKey {
+        case speechVoicesResultDefault = "default"
+        case unavailable = "unavailable"
+        case voices = "voices"
+    }
+
+    public init(speechVoicesResultDefault: String?, unavailable: [String], voices: [SpeechVoice]) {
+        self.speechVoicesResultDefault = speechVoicesResultDefault
+        self.unavailable = unavailable
+        self.voices = voices
+    }
+}
+
+// MARK: - SpeechVoice
+public struct SpeechVoice: Codable, Sendable {
+    /// The voice the settings or the persona select now
+    public let speechVoiceDefault: Bool
+    public let engine: String
+    public let id: String
+    /// BCP 47, or * for any
+    public let language: String
+    public let local: Bool
+    public let location: SpeechEngineLocation
+    public let name: String
+    /// Apple Personal Voice: non-commercial use only
+    public let nonCommercial: Bool?
+    /// <engine>:<voice>, the form IDENTITY.md voice: takes
+    public let ref: String
+
+    public enum CodingKeys: String, CodingKey {
+        case speechVoiceDefault = "default"
+        case engine = "engine"
+        case id = "id"
+        case language = "language"
+        case local = "local"
+        case location = "location"
+        case name = "name"
+        case nonCommercial = "nonCommercial"
+        case ref = "ref"
+    }
+
+    public init(speechVoiceDefault: Bool, engine: String, id: String, language: String, local: Bool, location: SpeechEngineLocation, name: String, nonCommercial: Bool?, ref: String) {
+        self.speechVoiceDefault = speechVoiceDefault
+        self.engine = engine
+        self.id = id
+        self.language = language
+        self.local = local
+        self.location = location
+        self.name = name
+        self.nonCommercial = nonCommercial
+        self.ref = ref
+    }
+}
+
+public enum SpeechEngineLocation: String, Codable, Sendable {
+    case client = "client"
+    case cloud = "cloud"
+    case gateway = "gateway"
+    case node = "node"
+}
+
 // MARK: - TaskActionPayload
 public struct TaskActionPayload: Codable, Sendable {
     public let action: TaskAction
@@ -10485,6 +10574,130 @@ public enum VoiceEndReason: String, Codable, Sendable {
     case timeout = "timeout"
 }
 
+// MARK: - VoiceMemoSaveParams
+public struct VoiceMemoSaveParams: Codable, Sendable {
+    public let sessionID: String
+    public let task: MemoTaskMode?
+    public let threadID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case sessionID = "sessionId"
+        case task = "task"
+        case threadID = "threadId"
+    }
+
+    public init(sessionID: String, task: MemoTaskMode?, threadID: String?) {
+        self.sessionID = sessionID
+        self.task = task
+        self.threadID = threadID
+    }
+}
+
+public enum MemoTaskMode: String, Codable, Sendable {
+    case always = "always"
+    case auto = "auto"
+    case never = "never"
+}
+
+// MARK: - VoiceMemoSaveResult
+public struct VoiceMemoSaveResult: Codable, Sendable {
+    /// Quoted transcript, file and task blocks for the message that carries the memo
+    public let blocks: [Block]
+    public let content: VoiceMemoContent
+    public let durationMS: Int
+    public let item: LibraryItem
+    public let provenance: Provenance
+    public let task: Task?
+    public let transcript: Transcript
+
+    public enum CodingKeys: String, CodingKey {
+        case blocks = "blocks"
+        case content = "content"
+        case durationMS = "durationMs"
+        case item = "item"
+        case provenance = "provenance"
+        case task = "task"
+        case transcript = "transcript"
+    }
+
+    public init(blocks: [Block], content: VoiceMemoContent, durationMS: Int, item: LibraryItem, provenance: Provenance, task: Task?, transcript: Transcript) {
+        self.blocks = blocks
+        self.content = content
+        self.durationMS = durationMS
+        self.item = item
+        self.provenance = provenance
+        self.task = task
+        self.transcript = transcript
+    }
+}
+
+// MARK: - VoiceMemoContent
+public struct VoiceMemoContent: Codable, Sendable {
+    /// Which patterns matched (override, secrecy, …)
+    public let flags: [String]
+    /// The memo reads like instructions to the agent; shown as a note, not obeyed
+    public let instructionLike: Bool
+    /// URL-like strings in the memo; never fetched
+    public let urls: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case flags = "flags"
+        case instructionLike = "instructionLike"
+        case urls = "urls"
+    }
+
+    public init(flags: [String], instructionLike: Bool, urls: [String]) {
+        self.flags = flags
+        self.instructionLike = instructionLike
+        self.urls = urls
+    }
+}
+
+// MARK: - Transcript
+public struct Transcript: Codable, Sendable {
+    public let language: String?
+    public let segments: [TranscriptSegment]
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case language = "language"
+        case segments = "segments"
+        case text = "text"
+    }
+
+    public init(language: String?, segments: [TranscriptSegment], text: String) {
+        self.language = language
+        self.segments = segments
+        self.text = text
+    }
+}
+
+// MARK: - TranscriptSegment
+public struct TranscriptSegment: Codable, Sendable {
+    public let confidence: Double?
+    public let endMS: Int
+    /// false = volatile partial a later segment replaces
+    public let transcriptSegmentFinal: Bool
+    public let startMS: Int
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case confidence = "confidence"
+        case endMS = "endMs"
+        case transcriptSegmentFinal = "final"
+        case startMS = "startMs"
+        case text = "text"
+    }
+
+    public init(confidence: Double?, endMS: Int, transcriptSegmentFinal: Bool, startMS: Int, text: String) {
+        self.confidence = confidence
+        self.endMS = endMS
+        self.transcriptSegmentFinal = transcriptSegmentFinal
+        self.startMS = startMS
+        self.text = text
+    }
+}
+
 // MARK: - VoicePushParams
 public struct VoicePushParams: Codable, Sendable {
     /// Base64 PCM in the session format
@@ -10522,37 +10735,13 @@ public struct VoiceSegmentPayload: Codable, Sendable {
     }
 }
 
-// MARK: - TranscriptSegment
-public struct TranscriptSegment: Codable, Sendable {
-    public let confidence: Double?
-    public let endMS: Int
-    /// false = volatile partial a later segment replaces
-    public let transcriptSegmentFinal: Bool
-    public let startMS: Int
-    public let text: String
-
-    public enum CodingKeys: String, CodingKey {
-        case confidence = "confidence"
-        case endMS = "endMs"
-        case transcriptSegmentFinal = "final"
-        case startMS = "startMs"
-        case text = "text"
-    }
-
-    public init(confidence: Double?, endMS: Int, transcriptSegmentFinal: Bool, startMS: Int, text: String) {
-        self.confidence = confidence
-        self.endMS = endMS
-        self.transcriptSegmentFinal = transcriptSegmentFinal
-        self.startMS = startMS
-        self.text = text
-    }
-}
-
 // MARK: - VoiceStartParams
 public struct VoiceStartParams: Codable, Sendable {
     public let format: AudioFormat
     /// BCP 47
     public let language: String?
+    /// Keep the audio so voice.memo.save can file the session as a voice memo
+    public let memo: Bool?
     public let threadID: String?
     /// Extra terms; merged with the agent name, contacts and recent topics
     public let vocabulary: [String]?
@@ -10560,13 +10749,15 @@ public struct VoiceStartParams: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case format = "format"
         case language = "language"
+        case memo = "memo"
         case threadID = "threadId"
         case vocabulary = "vocabulary"
     }
 
-    public init(format: AudioFormat, language: String?, threadID: String?, vocabulary: [String]?) {
+    public init(format: AudioFormat, language: String?, memo: Bool?, threadID: String?, vocabulary: [String]?) {
         self.format = format
         self.language = language
+        self.memo = memo
         self.threadID = threadID
         self.vocabulary = vocabulary
     }
@@ -10589,13 +10780,6 @@ public struct VoiceStartResult: Codable, Sendable {
         self.location = location
         self.sessionID = sessionID
     }
-}
-
-public enum SpeechEngineLocation: String, Codable, Sendable {
-    case client = "client"
-    case cloud = "cloud"
-    case gateway = "gateway"
-    case node = "node"
 }
 
 // MARK: - VoiceStopParams
@@ -10621,25 +10805,6 @@ public struct VoiceStopResult: Codable, Sendable {
 
     public init(transcript: Transcript) {
         self.transcript = transcript
-    }
-}
-
-// MARK: - Transcript
-public struct Transcript: Codable, Sendable {
-    public let language: String?
-    public let segments: [TranscriptSegment]
-    public let text: String
-
-    public enum CodingKeys: String, CodingKey {
-        case language = "language"
-        case segments = "segments"
-        case text = "text"
-    }
-
-    public init(language: String?, segments: [TranscriptSegment], text: String) {
-        self.language = language
-        self.segments = segments
-        self.text = text
     }
 }
 

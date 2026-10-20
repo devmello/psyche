@@ -2,7 +2,7 @@
 
 **Owner:** S11 (`prompts/s11-desktop-web-shell.md`). Features A8, E10 and the shell side of D5, I1, I6, K6, Q1 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md); screens from [docs/06-ui-design.md](../../docs/06-ui-design.md).
 
-The Psyche React shell, served by the Gateway at `/` and hosted by the desktop renderer. One codebase, two hosts: the shell talks to a `ShellPlatform` port, and each host provides it.
+The Psyche React shell, served by the Gateway at `/` and hosted by the desktop renderer. One codebase, two hosts: the shell talks to a `ShellPlatform` port, and each host provides it. Both hosts render the same composed app (`src/compose/PsycheApp.tsx`: the shell with the UI kit's onboarding, chat column, agent sheet and Settings), so the web client is the desktop app minus native panes (feature A8).
 
 ## Run
 
@@ -34,6 +34,7 @@ pnpm --filter @psyche/web typecheck
 | `src/shell/panes/TerminalPane.tsx` | xterm tabs over `TerminalPort` |
 | `src/shell/voice.ts` | Dictation capture: 16 kHz PCM to `voice.*` |
 | `src/platform.ts`, `src/gateway.ts` | The web host: browser WebSocket to `location.origin`, `localStorage` |
+| `src/main.tsx`, `src/compose/app.css` | The web entry: `PsycheApp` over the web platform, the kit stylesheet through `@tailwindcss/vite` |
 
 ## Web specifics (docs/06 §3.24)
 
