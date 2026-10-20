@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { requesterFromRoute } from "@psyche/agent-core";
@@ -13,7 +12,6 @@ import {
   type IMessageSendAuthorizer,
   type InboundPart,
   type LibraryIngest,
-  type LibraryIngestInput,
   type OutboundTarget,
   SqliteChannelStore,
   TelegramAdapter,
@@ -40,6 +38,7 @@ import type { Call, HandlerDef } from "../context.ts";
 import { MAIN_SESSION_KEY } from "../handlers/threads.ts";
 import type { Gateway } from "../server.ts";
 import type { TxHooks } from "../session/controller.ts";
+import { indexedChannelLibrary } from "./library.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -92,7 +91,7 @@ export interface ChannelsSetup {
   adapters?: ChannelAdapter[];
   /** `checkHealth()` interval; 0 disables the timer. Default 60 s. */
   healthIntervalMs?: number;
-  /** Library quarantine; defaults to a stand-in under `$PSYCHE_HOME/library/quarantine`. */
+  /** Library quarantine; default `$PSYCHE_HOME/library/quarantine`, indexed in `library_items`. */
   library?: LibraryIngest;
   speech?: SpeechEngine;
   /** Deterministic pairing codes in tests. */
@@ -180,27 +179,6 @@ function channelLogger(services: ComposeServices): ChannelLogger {
   };
 }
 
-/**
- * Stand-in Library quarantine (no Library contract yet, docs/status/s10.md): bytes are kept
- * under `$PSYCHE_HOME/library/quarantine`, mode 0600, never opened or executed.
- */
-function quarantineLibrary(home: string): LibraryIngest {
-  const dir = join(home, "library", "quarantine");
-  return {
-    async ingest(input: LibraryIngestInput) {
-      mkdirSync(dir, { recursive: true, mode: 0o700 });
-      const id = `lib_${randomUUID().replaceAll("-", "")}`;
-      writeFileSync(join(dir, id), input.data, { mode: 0o600 });
-      writeFileSync(
-        join(dir, `${id}.json`),
-        JSON.stringify({ mime: input.mime, provenance: input.provenance, source: input.source }),
-        { mode: 0o600 },
-      );
-      return { libraryItemId: id };
-    },
-  };
-}
-
 /** The chat.db cursor in a small file (mode 0600); unreadable means "start from the newest row". */
 function fileCursorStore(path: string): IMessageCursorStore {
   return {
@@ -271,7 +249,7 @@ export function composeChannels(
     clock,
     emit: publish,
     notifier: services.notifier,
-    library: setup.library ?? quarantineLibrary(services.home),
+    library: setup.library ?? indexedChannelLibrary(db, services.home),
     logger,
     ...(setup.speech === undefined ? {} : { speech: setup.speech }),
     ...(setup.pairingRandom === undefined ? {} : { pairingRandom: setup.pairingRandom }),

@@ -9,7 +9,6 @@ import {
   DevServerRegistry,
   type DevServerRegistryOptions,
   FileRecordingSink,
-  FsQuarantineWriter,
   type LibraryWriter,
   listeningPorts,
   OriginPolicy,
@@ -34,6 +33,7 @@ import {
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
+import { IndexedQuarantineWriter } from "./library.ts";
 import { createRealChromeMode, type RealChromeMode, type RealChromeSetup } from "./real-chrome.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
@@ -48,7 +48,7 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
 export interface BrowserSetup {
   /** Default `$PSYCHE_HOME/run/browser-bridge.sock`; `false` skips the socket (tests attach). */
   socketPath?: string | false;
-  /** Download quarantine; `FsQuarantineWriter` until the Library owner ships one (S08 request). */
+  /** Download quarantine; default `IndexedQuarantineWriter` (files indexed in `library_items`). */
   library?: LibraryWriter;
   /**
    * Fills `{{cred:…}}` and drives post-fill hygiene and page-echo checks. Default: the composed
@@ -161,7 +161,7 @@ export function composeBrowser(
   services: ComposeServices,
   setup: BrowserSetup = {},
 ): ComposedBrowser {
-  const library = setup.library ?? new FsQuarantineWriter(join(services.home, "library"));
+  const library = setup.library ?? new IndexedQuarantineWriter(services.db, services.home);
   const credentials = setup.credentials ?? services.vault;
   const recordingsDir = join(services.home, "library", "recordings");
   let client: BridgeClient | undefined;
