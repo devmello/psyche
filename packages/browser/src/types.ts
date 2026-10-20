@@ -12,6 +12,7 @@ import type {
 } from "@psyche/protocol";
 import type { PartitionMode, PartitionReason, TabPartition } from "./origin/partition.ts";
 import type { OriginPolicy, OriginPolicyOptions } from "./origin/policy.ts";
+import type { RecordingEventInput } from "./recording/recorder.ts";
 
 /**
  * Extensions to the protocol's `BrowserDriver` that the M1 tools need (prompt S08 mission).
@@ -141,7 +142,12 @@ export interface RecordingFrame {
 
 export interface RecordingSink {
   frame(frame: RecordingFrame): void | Promise<void>;
+  /** The event log beside the frames (I10); see `RecordingEventInput`. */
+  event?(event: RecordingEventInput): void | Promise<void>;
+  /** Flush; a tab closing calls it. */
   close(): void | Promise<void>;
+  /** The session is over; may return the final index. */
+  end?(): unknown;
 }
 
 export type DriverEventEx =
