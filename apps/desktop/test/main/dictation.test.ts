@@ -5,7 +5,11 @@ import {
   parseDictationSettings,
   SystemDictation,
 } from "../../src/main/dictation/controller.ts";
-import { DictationService, type ShortcutRegistry } from "../../src/main/dictation/service.ts";
+import {
+  DictationService,
+  type DictationStatus,
+  type ShortcutRegistry,
+} from "../../src/main/dictation/service.ts";
 
 const notes = { pid: 11, bundleId: "com.apple.Notes", appName: "Notes", insertable: true };
 
@@ -339,5 +343,45 @@ describe("dictation service", () => {
     await svc.load();
     expect(svc.hotkey).toBe("");
     expect(warnings).toEqual(["the dictation hotkey Alt+Space is taken by another app"]);
+  });
+
+  it("reports helper and Accessibility state for Settings, and re-checks on demand", async () => {
+    let refuse = true;
+    const gw = fakeGateway({
+      "settings.get": () => ({ settings: { "voice.hotkey": "Alt+Space" } }),
+      "dictation.watch": () => {
+        if (refuse)
+          throw {
+            code: "forbidden",
+            details: { reason: "permission_missing", permission: "accessibility" },
+          };
+        return { watching: true };
+      },
+    });
+    const statuses: DictationStatus[] = [];
+    const svc = new DictationService({
+      dictation: harness({ gateway: gw }).d,
+      call: gw.call,
+      shortcuts: shortcuts(["Alt+Space"]).reg,
+      onStatus: (s) => statuses.push(s),
+    });
+    expect(svc.status).toEqual({ helper: "offline", accessibility: "unknown", watching: false });
+    await svc.load();
+    expect(svc.status).toEqual({
+      helper: "online",
+      accessibility: "missing",
+      watching: false,
+      hotkeyTaken: "Alt+Space",
+    });
+    refuse = false;
+    await svc.recheck();
+    expect(svc.status).toMatchObject({
+      helper: "online",
+      accessibility: "granted",
+      watching: true,
+    });
+    svc.onEvent("node.updated", { node: { kind: "mac-helper", status: "offline" } });
+    expect(svc.status).toMatchObject({ helper: "offline", watching: false });
+    expect(statuses.at(-1)).toEqual(svc.status);
   });
 });

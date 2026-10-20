@@ -26,3 +26,12 @@ Inserted text never goes to the agent: no thread, no memory. Only main can call 
 - No live run. The J9 done-when criterion (works in TextEdit and Slack) needs the helper's Accessibility grant and a real mic. Everything is tested against a fake helper and a fake Gateway.
 - `apps/web/src/shell/voice.ts` (the composer) still uses the pre-protocol shape (`streamId` / `chunk`). The real `voice.*` methods take `sessionId` / `audio` and return `transcript`, so composer dictation fails against the mounted handlers. The desktop path here uses the real shape. That's a follow-up for S11.
 - Holding fn alone can open macOS's emoji picker or dictation on release. The workaround is setting System Settings › Keyboard › "Press 🌐 key to" to "Do Nothing", or choosing Right Option instead.
+
+## Settings (ws/m2-dictation-settings)
+
+The desktop's Voice & dictation section gets an "In any app" group with these parts:
+- The "Dictate into any app" switch (`voice.systemWide`, on by default).
+- An Accessibility row. It shows what the hold-to-talk watch found: Granted when the watch armed, Needed when the helper answered `permission_missing`, "Helper not running" when there's no node. It has "Open System Settings" (Privacy & Security › Accessibility) and "Check again" (re-arms the watch).
+- The toggle hotkey. Its field says so when another app already owns the shortcut.
+
+The web build doesn't show the group. `permissions.status` is unreachable through `nodes.invoke` by design (security §10), which is why the state comes from the watch.
