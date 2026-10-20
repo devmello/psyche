@@ -100,6 +100,27 @@ describe("owner-set limits", () => {
   });
 });
 
+describe("the loop's own compaction policy", () => {
+  it("still decides when no owner limits are set, and memory is flushed first", async () => {
+    const h = harness({
+      // Turns 2 and 3 each compact (keep 1 turn) before their main call.
+      script: [
+        say("one"),
+        say('{"facts":["tea"],"decisions":[],"openTasks":[],"pinnedInstructions":[]}'),
+        say("two"),
+        say('{"facts":["tea"],"decisions":[],"openTasks":[],"pinnedInstructions":[]}'),
+        say("three"),
+      ],
+      loop: { compaction: { thresholdRatio: 0.000_001, keepRecentTurns: 1 } },
+    });
+    await runTurn(h, "first");
+    await runTurn(h, "second");
+    await runTurn(h, "third");
+    expect(h.memory.flushes).toHaveLength(2);
+    expect((await h.loop.threadState("thr_1")).summary?.structured?.facts).toEqual(["tea"]);
+  });
+});
+
 describe("structured compaction", () => {
   it("parses the summarizer's JSON and refuses anything else", () => {
     expect(

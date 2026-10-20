@@ -1239,8 +1239,11 @@ export class PsycheAgentLoop implements AgentLoop {
     const maxTokens = Math.min(own?.maxTokens ?? window, window);
     return {
       maxTokens,
-      compactAt: own?.compactAt ?? DEFAULT_COMPACT_AT,
-      keepRecentTurns: own?.keepRecentTurns ?? DEFAULT_KEEP_RECENT_TURNS,
+      // The owner's limits, else the loop's own compaction policy when one was configured
+      // (`compaction.thresholdRatio` / `keepRecentTurns`), else the defaults.
+      compactAt: own?.compactAt ?? this.#o.compaction?.thresholdRatio ?? DEFAULT_COMPACT_AT,
+      keepRecentTurns:
+        own?.keepRecentTurns ?? this.#o.compaction?.keepRecentTurns ?? DEFAULT_KEEP_RECENT_TURNS,
       contextWindow: window,
       maxTokensFrom: own?.maxTokens === undefined ? "model" : "settings",
     };
