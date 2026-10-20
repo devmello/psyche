@@ -12,11 +12,13 @@ import { notificationsSchema } from "./schema-notifications.ts";
 import { permissionsSchema } from "./schema-permissions.ts";
 import { s04Schema } from "./schema-s04.ts";
 import { s07Schema } from "./schema-s07.ts";
+import { s15Schema } from "./schema-s15.ts";
 import { s16Schema } from "./schema-s16.ts";
 
 export * from "./schema-notifications.ts";
 export * from "./schema-s04.ts";
 export * from "./schema-s07.ts";
+export * from "./schema-s15.ts";
 export * from "./schema-s16.ts";
 
 // §1 Identity --------------------------------------------------------------------------------
@@ -273,6 +275,7 @@ export const schema = {
   credentialMeta,
   credentialUses,
   ...s07Schema,
+  ...s15Schema,
   ...s16Schema,
   ...notificationsSchema,
 };

@@ -2,7 +2,7 @@
   "name": "@psyche/node",
   "version": "0.0.0",
   "private": true,
-  "description": "psyche-node for VM guests and remote machines (M2).",
+  "description": "psyche-node: the headless node agent for VM guests and remote machines.",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
@@ -11,14 +11,23 @@
       "default": "./src/index.ts"
     }
   },
+  "bin": {
+    "psyche-node": "./src/main.ts"
+  },
   "scripts": {
+    "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@psyche/protocol": "workspace:*"
+    "@psyche/browser": "workspace:*",
+    "@psyche/protocol": "workspace:*",
+    "@psyche/sandbox": "workspace:*",
+    "ulid": "3.0.2",
+    "ws": "8.22.0"
   },
   "devDependencies": {
-    "@psyche/testing": "workspace:*"
+    "@psyche/testing": "workspace:*",
+    "@types/ws": "8.18.2"
   }
 }

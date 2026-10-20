@@ -24,6 +24,15 @@ For S11 (Settings → Data controls and About), S01 / S22 (the Gateway handlers;
 
 - New `backup.*` methods (feature U4): `backup.list` (`operator.read`) → `BackupInfo[]` plus the backups directory; `backup.create` (`operator.admin`, side-effecting; `passphrase` sent once, `recipients`, or `unencrypted: true`) writing a consistent snapshot in the `psyche backup` format; `backup.verify` (`operator.admin`) checking every manifest hash; `backup.delete` (`operator.admin`, side-effecting). Restore stays a CLI operation with the Gateway stopped. New schema `BackupInfo` (`file`, `createdAt`, `bytes`, `encrypted`, `verifiedAt`).
 - New `logs.tail` (`operator.read`; feature U5): newest matching lines from the Gateway's structured logs (`lines`, minimum `level`, `subsystem`, `since`, `search`) with the subsystems seen and a `truncated` flag. New schemas `LogLevel` and `LogLine` (`ts`, `level`, `subsystem?`, `msg`, `fields?`); lines carry metadata only, never bodies or secrets (architecture §14).
+### v1 additive — 2026-10-19 (S17 M2: voice memos, speech.voices)
+
+For S17 (`packages/speech`), S01 (Gateway routing), S11/S12 (composer memo button, persona voice picker), S10 (channel voice notes).
+
+- `voice.start` gains optional `memo: boolean`: the session keeps its audio.
+- New `voice.memo.save {sessionId, threadId?, task?: MemoTaskMode}` → `{transcript, item: LibraryItem, task: Task | null, provenance, content: VoiceMemoContent, blocks: Block[], durationMs}` (`operator.write`, side-effecting): files the session as a Library `recording` with the transcript as text extract and creates a Task when the memo asks for one (`auto` = only on a cue such as "remind me to…"). The transcript is content: `VoiceMemoContent` lists URLs (never fetched) and flags instruction-like phrasing; `blocks` quote it under a label (feature Q4).
+- New `speech.voices {personaVoice?}` → `{voices: SpeechVoice[], default, unavailable}`: every synthesis voice as `<engine>:<voice>` for voice selection per persona (feature Q3). `SpeechVoice.nonCommercial` marks Apple Personal Voice.
+- New schemas `MemoTaskMode`, `VoiceMemoContent`, `SpeechVoice`.
+- Contract `Voice` gains optional `nonCommercial` (the helper's `speech.voices` already reports `personalVoice`). `FakeSpeechEngine` is unchanged (the field is optional).
 ### v1 additive — 2026-10-20 (S21 sandbox: file provenance, design-07; issue #97)
 
 For S21 (`packages/sandbox`) and the owner of the `exec` / workspace file tools (S01).

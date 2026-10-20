@@ -25,7 +25,23 @@ type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | Compos
 export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
   const parts: PartFactory[] = [];
   if (env.PSYCHE_BROWSER !== "off") {
-    parts.push((s) => composeBrowser(s, { record: env.PSYCHE_BROWSER_RECORD === "1" }));
+    // Logged out by default (I15). `PSYCHE_BROWSER_PARTITION=profile|clean|auto` and the
+    // comma-separated `PSYCHE_BROWSER_SIGNED_IN_ORIGINS` (used by `auto`) stand in until
+    // Settings → Browser (S11) holds them.
+    const partition = env.PSYCHE_BROWSER_PARTITION;
+    const signedIn = (env.PSYCHE_BROWSER_SIGNED_IN_ORIGINS ?? "")
+      .split(",")
+      .map((o) => o.trim())
+      .filter((o) => o !== "");
+    parts.push((s) =>
+      composeBrowser(s, {
+        record: env.PSYCHE_BROWSER_RECORD === "1",
+        ...(partition === "profile" || partition === "clean" || partition === "auto"
+          ? { partition }
+          : {}),
+        ...(signedIn.length === 0 ? {} : { signedInOrigins: signedIn }),
+      }),
+    );
   }
   parts.push((s) =>
     composeConnectors(s, {

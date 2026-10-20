@@ -33,6 +33,7 @@
     "@psyche/model-router": "workspace:*",
     "@psyche/notifications": "workspace:*",
     "@psyche/permissions": "workspace:*",
+    "@psyche/proactive": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@psyche/scheduler": "workspace:*",
     "@psyche/tasks": "workspace:*",
