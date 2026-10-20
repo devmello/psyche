@@ -83,6 +83,14 @@ describe("the composed app on the web host (A8)", () => {
     expect(shell.getAttribute("data-compact")).toBe("true");
     // The kit's composer, addressed to the agent named in IDENTITY.md.
     await screen.findByRole("textbox", { name: "Message Flash" });
+    // Accessibility (docs/a11y-audit.md A1–A3): a skip link to the one main landmark, an h1 for
+    // the chat, and the Appearance settings applied to the document (reduce motion, theme).
+    expect(screen.getByRole("link", { name: "Skip to content" }).getAttribute("href")).toBe(
+      "#main",
+    );
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+    expect(screen.getByRole("heading", { level: 1, name: "Main chat" })).toBeTruthy();
+    await waitFor(() => expect(document.documentElement.dataset.reduceMotion).toBeDefined());
     // Bottom tab bar: the five phone tabs, no Search and no Settings in the rail.
     const rail = screen.getByTestId("rail");
     const labels = Array.from(rail.querySelectorAll("button")).map((b) => b.textContent?.trim());
