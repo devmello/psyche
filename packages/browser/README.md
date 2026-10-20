@@ -1,6 +1,6 @@
 # @psyche/browser
 
-**Owner:** S08 (`prompts/s08-browser.md`). **Features:** I2–I4, I7–I9 and I15, plus the M1 parts of I10 and I12 ([docs/03-feature-spec.md](../../docs/03-feature-spec.md)).
+**Owner:** S08 (`prompts/s08-browser.md`). **Features:** I2–I4, I7–I10, I12 (except the element picker) and I15 ([docs/03-feature-spec.md](../../docs/03-feature-spec.md)).
 
 This package is the agent-owned browser. It has:
 
@@ -25,7 +25,8 @@ The pane UI and the Electron `WebContentsView` host belong to S11.
 | `src/bridge/` | `FrameConnection` (NDJSON), `BridgeServer` / `BridgeClient`, the CDP allowlist |
 | `src/drivers/` | `DriverBase`, `CdpBridgeDriver`, `PlaywrightDriver` |
 | `src/downloads/` | magic-byte `sniff`, `LibraryWriter`, `FsQuarantineWriter` |
-| `src/recording/` | `FileRecordingSink` (frames plus a replay index) |
+| `src/devpreview/` | `DevServerRegistry`, the gate that says which loopback servers a task may preview (security §3.10) |
+| `src/recording/` | `FileRecordingSink` (frames, snapshots and the event log), `RecordingStore` (reads them back for `browser.recordings.*`) |
 | `src/tools/` | `registerBrowserTools`, `classifyActivation`, `ApprovalGate` |
 | `@psyche/browser/testing` | fixture site DSL, `FixtureServer`, `MockBrowser`, `MockDesktop` |
 | `@psyche/browser/conformance` | `describeBrowserDriverConformance` (imports vitest) |
@@ -103,7 +104,8 @@ Every click by ref is hit-tested first (`conflict {reason: "obscured"}` when ano
 | `browser.wait` | `tabId, for, timeoutMs?` | none | load, text, ref, network_idle, timeout |
 | `browser.dialog` | `tabId, accept, promptText?` | read → write when accepting a confirm | |
 | `browser.fill_credential` | `tabId, ref, placeholder` | write (`credential_fill`) | see below |
-| `browser.console` / `network` | `tabId` | read | dev-preview tasks only (I12) |
+| `browser.dev_preview` | `url` | read (`new_origin`) | opens the owner's own dev server in the task's dev-preview session (I12, below) |
+| `browser.console` / `network` | `tabId` | read | dev-preview tabs only (I12) |
 
 **Credential fill** (security §4.6) runs in this order:
 
@@ -182,6 +184,35 @@ Security §6: each task chooses `logged-in` or `logged-out` explicitly, with a p
 
 The Gateway reads `PSYCHE_BROWSER_PARTITION` and `PSYCHE_BROWSER_SIGNED_IN_ORIGINS` until Settings → Browser exists; the desktop is asked to key `clean` partitions by task.
 
+## Recording and replay (I10)
+
+Opt-in per task (`PSYCHE_BROWSER_RECORD=1`), under `library/recordings/<id>/` where the id is the task id or `thread:<id>`. A recording is:
+
+- JPEG frames from `Page.startScreencast` (`000001.jpg`, …), at most one per tab per 250 ms;
+- one text file per snapshot the model read (`s000001.txt`, …);
+- `index.json`: `{version: 2, id, taskId, threadId, startedAt, endedAt?, frames[], events[]}`.
+
+The event log is what Activity lists and scrubs: `tab` (opened, with its partition), `navigation` (every commit), `snapshot`, `action` (navigate, back, forward, reload, click, double_click, right_click, hover, type, press, select, scroll, scroll_to, drag, upload, download, read_text, screenshot, dialog), `fill`, `download` (landed in quarantine), `blocked`, `control` (Take control) and `dialog`. Each event has a one-line `summary` (`Clicked button "Sign in"`), the element's role and name, a `frameSeq` pointing at the latest frame, and for snapshots the file holding the text.
+
+Redaction is at write time, in `FileRecordingSink`:
+
+- the page controller never hands over a frame while a secure field is active, after a fill or on a blocked page, as for screenshots;
+- URLs keep origin and path (query strings carry tokens);
+- a credential fill records the credential id, the element and the origin, never a value;
+- typed text and snapshot text go through `CredentialBroker.redact` when the vault is wired, and typed text is capped;
+- upload paths are replaced by a file count.
+
+`RecordingStore` serves the Gateway's `browser.recordings.list | get | frame | snapshot | delete`: a live recording from the sink's memory (`get {sinceSeq}` follows it), a finished one from disk. Finished recordings go to the Library through `LibraryWriter.importRecording` (`kind: recording`; `FsQuarantineWriter` keeps them in memory until the Library owner ships), and `prune` applies the 7-day retention at Gateway start. The Gateway publishes `browser.recording.updated` while a recording grows. The Activity UI itself is S12's.
+
+## Dev preview (I12)
+
+Loopback is not the web: `localhost:<port>` may be the owner's Vite app or a local service that trusts the machine. Security §3.10 allows the agent on a local server only when the owner's own setup names it, so:
+
+- `DevServerRegistry` (`src/devpreview/gate.ts`) answers `check(url, {taskId})` from three sources: servers Psyche started this session (`started({port, cwd, name, taskId})`, which the sandbox / exec layer or the terminal pane calls; a server started for one task is that task's only), the project's launch config, and the owner's allowlist (`PSYCHE_DEV_PREVIEW_PORTS` until Settings → Browser exists). The host must be exactly `localhost`, `127.0.0.1`, `[::1]` or a `.localhost` name; a LAN address is never a dev server.
+- `browser.dev_preview {url}` runs the gate, asks the broker once per task (`new_origin` with `devPreview: true`, the source and the folder on the card), and opens the URL in the task's **dev-preview session**: a second session, logged out (`clean`), whose policy is `devPreview: true` pinned to the approved ports (`loopbackPorts`), so a redirect or link to another local port is refused. `browser.console` and `browser.network` read that tab's console and requests (capped at 500 entries, kept for dev-preview sessions only); every other tool works on the tab as usual.
+- Without a `DevPreviewGate` the tool refuses; the Gateway passes `ComposedBrowser.devServers`.
+- The element picker (⌘⇧S) is the pane's; its protocol is a follow-up for S11 / S12.
+
 ## Testing
 
 - `pnpm --filter @psyche/browser test` runs the following without network or a browser:
@@ -205,6 +236,8 @@ The Gateway reads `PSYCHE_BROWSER_PARTITION` and `PSYCHE_BROWSER_SIGNED_IN_ORIGI
   - dialogs;
   - Take control refusal and re-snapshot;
   - logged-out partitions kept apart from the profile (I15);
+  - recording of navigations, snapshots and actions with fills redacted, and the store (`test/recording.test.ts`);
+  - console and network on a dev-preview session pinned to its port (I12), plus the gate and the tool (`test/devpreview.test.ts`);
   - sparse and CAPTCHA detection;
   - history and SPA navigation;
   - scrolling;
