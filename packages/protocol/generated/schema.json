@@ -1244,7 +1244,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges) also needs operator.admin. Side-effecting.",
+        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges) also needs operator.admin. Security keys (permissions, exec, vault, devices, gateway, owner identities, channel DM / allow policies) also need fresh user presence once the Gateway has a presence verifier: the first call fails approval_required with details.approvalId (a device-only policy_change card bound to the key and value); retry with that approvalId after approving. Side-effecting.",
         "name": "settings.set",
         "params": "#/$defs/SettingsSetParams",
         "result": "#/$defs/SettingsSetResult",
@@ -1881,6 +1881,12 @@
         },
         "taint": {
           "type": "boolean"
+        },
+        "taintSources": {
+          "items": {
+            "$ref": "#/$defs/TaintSource"
+          },
+          "type": "array"
         },
         "status": {
           "$ref": "#/$defs/ApprovalStatus"
@@ -11889,7 +11895,13 @@
           "pattern": "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$",
           "type": "string"
         },
-        "value": {}
+        "value": {},
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
       },
       "required": [
         "key",

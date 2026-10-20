@@ -15,7 +15,7 @@ import type { InputRequest } from "../schemas/tasks.ts";
 import type { RunStatus } from "../schemas/threads.ts";
 import type { ToolSpec } from "../schemas/tools.ts";
 import type { Unsubscribe } from "./Clock.ts";
-import type { Requester } from "./PermissionBroker.ts";
+import type { ConnectorRule, Requester } from "./PermissionBroker.ts";
 
 /**
  * Agent loop contract (architecture §4.2–§4.3; owner S02). pi-agent-core semantics: one turn
@@ -222,6 +222,8 @@ export interface ToolCallDescription {
    * Display only: never part of the binding, and it cannot override `tool`, `params` or `target`.
    */
   details?: JsonObject;
+  /** Connector action-matrix key; the loop passes it to the broker as `ToolCallIntent.connectorRule`. */
+  connectorRule?: ConnectorRule;
 }
 
 /**

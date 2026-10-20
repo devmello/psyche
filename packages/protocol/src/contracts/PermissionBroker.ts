@@ -42,6 +42,16 @@ export const APPROVAL_TTL_MS = 30 * 60 * 1000;
 /** Cards arm after this delay; earlier answers are rejected (architecture §4.6). */
 export const APPROVAL_ARM_DELAY_MS = 400;
 
+/**
+ * Connector action-matrix key (security §3.11 `permissions.connectors`; feature F5), e.g.
+ * `{ id: "google", action: "gmail.send" }`: the broker looks up
+ * `config.permissions.connectors[id][action]` (`allow | ask | deny`).
+ */
+export interface ConnectorRule {
+  id: string;
+  action: string;
+}
+
 /** The tool call (or `node.invoke`) being decided. */
 export interface ToolCallIntent {
   tool: string;
@@ -56,6 +66,8 @@ export interface ToolCallIntent {
   /** Precomputed by the caller; the broker computes its own when absent. */
   bindingHash?: string;
   grantKey?: string;
+  /** The connector action-matrix key for this call, when the tool belongs to a connector. */
+  connectorRule?: ConnectorRule;
 }
 
 /**
@@ -124,6 +136,8 @@ export interface ApprovalRequestInput {
   /** Narrowed by the broker to what the side-effect class allows. */
   scopesOffered?: GrantScope[];
   taint: boolean;
+  /** Taint sources for the card (security §3.6); `context.taintSources` is used when absent. */
+  taintSources?: TaintSource[];
   ttlMs?: number;
   /**
    * The decision context of the call (requester, taint sources, task): the card names the

@@ -49,6 +49,7 @@ export interface ApprovalRequest {
     summary:                string;
     surfaces:               string[];
     taint:                  boolean;
+    taintSources?:          TaintSource[];
     target?:                Target;
     targetKind?:            TargetKind;
 }
@@ -76,6 +77,16 @@ export interface RequestedBy {
 export type SideEffect = "none" | "read" | "write" | "destructive" | "financial";
 
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired" | "invalidated";
+
+export interface TaintSource {
+    origin?: string;
+    sender?: string;
+    /**
+     * Tool name or source kind (web, email, transcript, task, …)
+     */
+    sourceKind:  string;
+    toolCallId?: string;
+}
 
 export interface Target {
     /**
@@ -2684,8 +2695,9 @@ export interface SettingsGetResult {
 }
 
 export interface SettingsSetParams {
-    key:   string;
-    value: unknown;
+    approvalId?: string;
+    key:         string;
+    value:       unknown;
 }
 
 export interface SettingsSetResult {
@@ -3116,16 +3128,6 @@ export interface PlanStep {
 export type PlanStepStatus = "pending" | "running" | "done" | "failed" | "skipped";
 
 export type TaskStatus = "queued" | "running" | "awaiting_input" | "awaiting_approval" | "paused" | "done" | "failed" | "cancelled";
-
-export interface TaintSource {
-    origin?: string;
-    sender?: string;
-    /**
-     * Tool name or source kind (web, email, transcript, task, …)
-     */
-    sourceKind:  string;
-    toolCallId?: string;
-}
 
 export interface TaskUpdatedPayload {
     task: Task;
