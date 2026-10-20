@@ -14,7 +14,9 @@ import { Label } from "../../components/ui/label.tsx";
 import { Switch } from "../../components/ui/switch.tsx";
 import { answerApproval, useApproval, useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { useStore } from "../../data/provider.tsx";
+import { plural } from "../../lib/format.ts";
 import { usePersona } from "../../slots.tsx";
+import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
   EmptyNotice,
   ErrorNotice,
@@ -95,7 +97,7 @@ export function asksFor(m: SkillManifest | undefined): string {
   if (perms.length === 0 && m.tools.length === 0) return "Nothing beyond its instructions.";
   return [
     perms.length > 0 ? perms.join(", ") : null,
-    m.tools.length > 0 ? `tools ${m.tools.join(", ")}` : null,
+    m.tools.length > 0 ? plural(m.tools.length, "tool") : null,
   ]
     .filter((x) => x !== null)
     .join(" · ");
@@ -150,13 +152,30 @@ export function SkillTrustCard({
       <Facts
         items={[
           { term: "Source", value: <code>{show(sourceText(proposal.source), 2048)}</code> },
-          ...(proposal.commit === undefined
-            ? []
-            : [{ term: "Commit", value: <code>{show(proposal.commit, 80)}</code> }]),
-          { term: "Content hash", value: <code className="break-all">{proposal.hash}</code> },
           { term: "Publisher", value: TRUST_LABEL[proposal.trust] },
         ]}
       />
+
+      <details className="text-xs text-muted-foreground">
+        <summary className="cursor-pointer">Details</summary>
+        <Facts
+          className="mt-2"
+          items={[
+            ...(proposal.commit === undefined
+              ? []
+              : [{ term: "Commit", value: <code>{show(proposal.commit, 80)}</code> }]),
+            { term: "Content hash", value: <code className="break-all">{proposal.hash}</code> },
+            ...(m.tools.length === 0
+              ? []
+              : [
+                  {
+                    term: "Tool names",
+                    value: <code>{m.tools.map((t) => show(t, 80)).join(", ")}</code>,
+                  },
+                ]),
+          ]}
+        />
+      </details>
 
       <section className="flex flex-col gap-2" aria-labelledby={`${id}-asks`}>
         <h4 id={`${id}-asks`} className="font-medium">
@@ -183,12 +202,7 @@ export function SkillTrustCard({
             },
             {
               term: "Tools",
-              value:
-                m.tools.length === 0 ? (
-                  "None"
-                ) : (
-                  <code>{m.tools.map((t) => show(t, 80)).join(", ")}</code>
-                ),
+              value: m.tools.length === 0 ? "None" : plural(m.tools.length, "tool"),
             },
             {
               term: "Prompt files",
@@ -348,15 +362,19 @@ function SkillRow({
             </Button>
           ) : null}
           {onRemove && skill.source !== "bundled" ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              onClick={() => onRemove(skill)}
-              aria-label={`Remove ${name}`}
-            >
-              Remove
-            </Button>
+            <RowMoreMenu
+              name={name}
+              destructive={[
+                {
+                  label: "Remove",
+                  title: `Remove ${name}?`,
+                  description:
+                    "Its files are deleted from this Gateway. Installing it again goes through the trust card.",
+                  confirm: "Remove",
+                  onConfirm: () => onRemove(skill),
+                },
+              ]}
+            />
           ) : null}
           {onToggle && toggleable ? (
             <Switch
@@ -372,6 +390,14 @@ function SkillRow({
         <span className="text-muted-foreground">Asks for: </span>
         {asksFor(skill.manifest)}
       </p>
+      {skill.manifest && skill.manifest.tools.length > 0 ? (
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer">Details</summary>
+          <p className="mt-1">
+            Tools: <code>{skill.manifest.tools.map((t) => show(t, 80)).join(", ")}</code>
+          </p>
+        </details>
+      ) : null}
       {skill.status !== "active" && skill.reasons.length > 0 ? (
         <p className="text-xs text-muted-foreground">
           {skill.reasons.map((r) => show(r)).join("; ")}
