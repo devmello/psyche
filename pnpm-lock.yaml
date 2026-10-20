@@ -557,6 +557,9 @@ importers:
 
   packages/connectors:
     dependencies:
+      '@psyche/permissions':
+        specifier: workspace:*
+        version: link:../permissions
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -566,6 +569,9 @@ importers:
       turndown:
         specifier: 7.2.4
         version: 7.2.4
+      yaml:
+        specifier: 2.9.1
+        version: 2.9.1
     devDependencies:
       '@psyche/testing':
         specifier: workspace:*
