@@ -266,15 +266,15 @@ export function createExecProvider(options: ExecProviderOptions): CapabilityProv
   };
 }
 
-type HostRun = { spawnError: string } | { result: HostExecResult; cancelled: boolean };
+export type HostRun = { spawnError: string } | { result: HostExecResult; cancelled: boolean };
 
 /** Spawns without a shell, streams capped output as events, enforces timeout and cancel. */
-function runHost(
+export function runHost(
   argv: string[],
   cwd: string,
   env: Record<string, string>,
   timeoutMs: number,
-  ctx: InvocationContext,
+  ctx: Pick<InvocationContext, "emit" | "signal">,
 ): Promise<HostRun> {
   const baseEnv: Record<string, string> = {};
   if (process.env.PATH !== undefined) baseEnv.PATH = process.env.PATH;
