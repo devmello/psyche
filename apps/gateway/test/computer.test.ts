@@ -252,7 +252,7 @@ describe("computer-use agent tools (J1–J5)", () => {
     );
     expect(helper.calls.at(-1)).toMatchObject({
       capability: "computer.click",
-      params: { x: 10, y: 20, app: notes, approvedTier: "click" },
+      params: { x: 10, y: 20, app: notes, approval: { app: notes, tier: "click" } },
     });
     expect(r).toMatchObject({
       isError: true,
@@ -283,7 +283,7 @@ describe("computer-use agent tools (J1–J5)", () => {
         ref: "e1",
         expect: { role: "textarea", label: "Body" },
         app: notes,
-        approvedTier: "click",
+        approval: { app: notes, tier: "click" },
         session: "run_1",
       },
       approvalId,
@@ -581,6 +581,33 @@ describe("computer-use agent tools (J1–J5)", () => {
     expect(act?.(click)?.summary).toMatch(/^While you're away: /);
     // Other apps are not sensitive.
     expect(act?.({ ...scroll, app: notes })?.summary).not.toMatch(/away/);
+  });
+
+  it("a click on a menu-type element needs interact (#267)", async () => {
+    // A snapshot with a pop-up button.
+    const orig = helper.invoke.bind(helper);
+    helper.invoke = async (capability, params, options) =>
+      capability === "computer.ax_tree"
+        ? {
+            ok: true,
+            result: {
+              text: `window "Notes" snap=1\n  [e40] popupbutton "Format"\n  [e41] button "OK"`,
+              tier: "interact",
+            },
+          }
+        : orig(capability, params, options);
+    await call("computer.snapshot", { app: notes });
+    const act = tools.get("computer.act")?.describeCall;
+    const popup = act?.({
+      app: notes,
+      action: "click",
+      ref: "e40",
+      expect: { role: "popupbutton" },
+    });
+    expect(popup?.bindingFields).toMatchObject({ tierRequired: "interact" });
+    expect(popup?.meta).toEqual({ app: notes, action: "menu" });
+    const ok = act?.({ app: notes, action: "click", ref: "e41", expect: { role: "button" } });
+    expect(ok?.bindingFields).toMatchObject({ tierRequired: "click" });
   });
 
   it("matches the helper's risky labels and chords", () => {
