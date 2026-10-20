@@ -130,6 +130,14 @@ export function ThreadList(props: {
               >
                 <span className="thread-row-top">
                   <span className="thread-row-title">{titleOf(thread)}</span>
+                  {thread.kind === "incognito" ? (
+                    <span
+                      className="thread-row-badge"
+                      title="Incognito: memory-only, expires after 24 h"
+                    >
+                      incognito
+                    </span>
+                  ) : null}
                   {busy ? (
                     <span className="thread-row-dot" role="img" aria-label="Working or waiting" />
                   ) : null}

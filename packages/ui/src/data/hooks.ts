@@ -312,9 +312,14 @@ export function useThread(threadId: string | null) {
   });
 
   const sendNow = useCallback(
-    async (content: string, mode: QueueMode | undefined) => {
+    async (content: string, mode: QueueMode | undefined, replyToMessageId?: string | null) => {
       if (threadId === null) return;
-      return store.call("chat.send", { threadId, content, ...(mode ? { mode } : {}) });
+      return store.call("chat.send", {
+        threadId,
+        content,
+        ...(mode ? { mode } : {}),
+        ...(replyToMessageId ? { replyToMessageId } : {}),
+      });
     },
     [store, threadId],
   );
@@ -342,7 +347,7 @@ export function useThread(threadId: string | null) {
         store.update((s) => ({ ...s, queue: [...s.queue, item] }));
         return;
       }
-      await sendNow(content, view.running ? mode : undefined);
+      await sendNow(content, view.running ? mode : undefined, options.replyToMessageId ?? null);
     },
     [store, threadId, view.running, sendNow],
   );
@@ -356,7 +361,7 @@ export function useThread(threadId: string | null) {
     if (running || threadId === null || queued.length === 0) return;
     const next = store.takeQueued(threadId);
     if (next === null) return;
-    void sendNow(next.content, undefined).then(
+    void sendNow(next.content, undefined, next.replyToMessageId).then(
       () => store.sentQueued(next),
       () => store.failQueued(next),
     );

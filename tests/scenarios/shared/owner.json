@@ -55,7 +55,8 @@
         "calendar.delete": "ask",
         "drive.write": "deny"
       },
-      "search:brave": { "search.web": "allow" }
+      "search:brave": { "search.web": "allow" },
+      "shopping": { "shop.compare": "allow", "shop.view_cart": "allow" }
     },
     "standingGrants": [
       {
@@ -85,6 +86,13 @@
       "account": "brave",
       "scopeMode": "read",
       "secretRef": "brave-search-key"
+    },
+    {
+      "id": "con_shopping",
+      "type": "shopping",
+      "account": "stores",
+      "scopeMode": "read_act",
+      "$comment": "No credential: the stores are fixture sites the owner allowlisted (v3-shopping)."
     }
   ],
   "clock": {

@@ -6,7 +6,7 @@ import {
   type PsycheAgentLoop,
 } from "@psyche/agent-core";
 import { createAuditLog, type HashChainAuditLog } from "@psyche/audit";
-import { getDevice, getSetting, openDb, type PsycheDb } from "@psyche/db";
+import { getDevice, getSetting, getThread, openDb, type PsycheDb } from "@psyche/db";
 import {
   brokerApprovalCheck,
   createMemoryHandlers,
@@ -32,7 +32,7 @@ import {
   replayRevocations,
   SqlitePermissionStore,
 } from "@psyche/permissions";
-import { publicFetch } from "@psyche/proactive";
+import { proactiveTools, publicFetch } from "@psyche/proactive";
 import {
   type ApprovalRequestInput,
   type Clock,
@@ -75,6 +75,8 @@ import {
   type ComposeServices,
   createOwnPorts,
 } from "./services.ts";
+import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
+import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 
 /**
@@ -209,6 +211,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // wherever it would be written.
   const redactor = new SecretRedactor();
   gwOptions.logger = maskingLogger(gwOptions.logger ?? createLogger(), redactor);
+  // A database the caller passes in stays theirs to close; one compose opens, `stop()` closes.
+  const ownsDb = gwOptions.db === undefined;
   const db =
     gwOptions.db ?? openDb(config.dbPath, { now: () => new Date(clock.now()).toISOString() });
 
@@ -319,6 +323,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   );
 
   const { provider, model: modelRef, utility } = providerFor(model, clock);
+  const modelPins = modelPinsFor(provider);
   const memory = await createMemoryStore({
     db,
     workspaceDir: join(config.home, "workspace"),
@@ -343,6 +348,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
 
   const registry = new AgentToolRegistry();
   for (const tool of fileTools()) registry.register(tool);
+  // E12 cross-thread awareness: registered only while the owner has turned it on.
+  let gatewayRef: Gateway | null = null;
+  const crossThread = crossThreadToggle(
+    (tool) => registry.register(tool),
+    threadTools({ db, gateway: () => gatewayRef }),
+  );
+  crossThread.sync(getSetting(db, CROSS_THREAD_SETTING)?.value);
   const calls = new CallContexts();
   const ownPorts = createOwnPorts();
   ownPorts.add(config.port, "gateway (configured)");
@@ -421,6 +433,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(timeZone === undefined ? {} : { timeZone }),
     approvalSurfaces: ["desktop", "web"],
     ...(compaction === undefined ? {} : { compaction }),
+    // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
+    isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
   });
   const pool = new TaskWorkerPool({
     engine: tasks,
@@ -445,6 +459,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(timeZone === undefined ? {} : { timeZone }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
+  // The agent's proactive tools (goals.*, ideas.*, feed.*): reads allow, changes ask.
+  for (const tool of proactiveTools({
+    goals: proactive.goals,
+    ideas: proactive.ideas,
+    feed: proactive.feed,
+    clock,
+  })) {
+    registry.register(tool);
+  }
   launcher = proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool);
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
@@ -457,6 +480,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...proactive.handlers,
     ...questionHandlers(loop, tasks),
     ...receiptHandlers(broker),
+    ...threadSettingsHandlers(modelPins),
     ...vault.handlers,
   };
   for (const part of parts) Object.assign(handlers, part.handlers ?? {});
@@ -472,8 +496,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       revocations.recordDevice(deviceId);
       return rawBroker.revokeGrantsByDevice(deviceId);
     },
+    onDeviceRevoked: (deviceId) => rawBroker.revokeGrantsByDevice(deviceId),
+    threadModels: modelPins,
   });
   bus = gateway.bus;
+  gatewayRef = gateway;
   vault.attach(gateway.context.nodes);
   // The owner's folder grants and rules apply without a restart (settings.set → broker policy).
   const unsubscribePolicy = gateway.bus.subscribe(["operator.read"], (frame) => {
@@ -483,6 +510,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     };
     if (f.event !== "settings.changed") return;
     for (const entry of f.payload?.entries ?? []) {
+      if (entry.key === CROSS_THREAD_SETTING) crossThread.sync(entry.value);
       if (entry.key !== "permissions.policy") continue;
       try {
         rawBroker.setPolicy((entry.value ?? {}) as PolicyConfig);
@@ -494,6 +522,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }
   });
   memory.watch();
+  await restoreModelPins(db, modelPins, (msg, fields) =>
+    gwOptions.logger?.log("warn", msg, fields),
+  );
   ownPorts.add(gateway.port, "gateway (bound)");
   for (const part of parts) await part.start?.(gateway);
   await proactive.start();
@@ -534,6 +565,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       memory.unwatch();
       unsubscribePolicy();
       await gateway.stop(reason);
+      if (ownsDb) db.close();
     },
   };
 }
@@ -565,7 +597,15 @@ export { type McpGrantRevoker, type McpLifecycleEvent, mcpGrantRevocation } from
 export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { partsFromEnv } from "./parts.ts";
 export { type ComposedProactive, composeProactive, type ProactiveSetup } from "./proactive.ts";
+export {
+  createRealChromeMode,
+  type RealChromeMode,
+  type RealChromeSetup,
+  type RealChromeStatus,
+} from "./real-chrome.ts";
 export type { ApprovalRelay, ComposedPart, ComposeServices, OwnPorts } from "./services.ts";
+export { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
+export { type ModelPins, modelPinsFor, restoreModelPins } from "./threads.ts";
 export {
   type ComposedVault,
   chooseWrapper,

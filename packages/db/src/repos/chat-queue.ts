@@ -4,6 +4,12 @@ import { decodeJson } from "../mappers.ts";
 import type { PsycheDb } from "../open.ts";
 import { type ChatQueueRow, chatQueue } from "../schema.ts";
 
+/** A queued follow-up plus who queued it (the owner, or the agent of another thread, E12). */
+export interface QueuedItem extends QueuedMessage {
+  provenance: "owner" | "agent";
+  fromThreadId: string | null;
+}
+
 function fromRow(row: ChatQueueRow): QueuedMessage {
   return {
     messageId: row.id,
@@ -21,6 +27,8 @@ export interface NewQueuedMessage {
   readonly content: string;
   readonly attachments?: readonly string[];
   readonly deviceId?: string | null;
+  readonly provenance?: "owner" | "agent";
+  readonly fromThreadId?: string | null;
 }
 
 /** Appends a follow-up at the end of the thread's queue. */
@@ -40,6 +48,8 @@ export function enqueueMessage(db: PsycheDb, input: NewQueuedMessage): QueuedMes
       content: input.content,
       attachments: JSON.stringify(input.attachments ?? []),
       deviceId: input.deviceId ?? null,
+      provenance: input.provenance ?? "owner",
+      fromThreadId: input.fromThreadId ?? null,
       status: "queued",
       createdAt: at,
       updatedAt: at,
@@ -73,7 +83,7 @@ export function removeQueued(db: PsycheDb, threadId: string, id: string): boolea
 }
 
 /** Marks the head of the queue started and returns it (call in the transaction that runs it). */
-export function takeNextQueued(db: PsycheDb, threadId: string): QueuedMessage | undefined {
+export function takeNextQueued(db: PsycheDb, threadId: string): QueuedItem | undefined {
   const head = db.drizzle
     .select()
     .from(chatQueue)
@@ -87,7 +97,11 @@ export function takeNextQueued(db: PsycheDb, threadId: string): QueuedMessage | 
     .set({ status: "started", updatedAt: db.now() })
     .where(eq(chatQueue.id, head.id))
     .run();
-  return fromRow(head);
+  return {
+    ...fromRow(head),
+    provenance: head.provenance === "agent" ? "agent" : "owner",
+    fromThreadId: head.fromThreadId,
+  };
 }
 
 /** Threads that have queued follow-ups (boot drains them). */

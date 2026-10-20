@@ -1,10 +1,12 @@
 // Real packages are imported by relative path on purpose: they list @psyche/testing as a
 // devDependency, so declaring them in package.json would make a workspace cycle turbo rejects.
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   type ApprovalKind,
+  type BrowserDriver,
   type PermissionBroker,
   PsycheError,
   type SideEffect,
@@ -19,15 +21,25 @@ import {
 } from "../../../agent-core/src/index.ts";
 import {
   braveProvider,
+  type ConnectorRecord,
+  type ConnectorTool,
   type SearchProvider,
+  ShoppingConnector,
   safeFetch,
   type Transport,
 } from "../../../connectors/src/index.ts";
+import { PaymentBroker, type PurchaseInput } from "../../../vault/src/payments/broker.ts";
+import { SecretRedactor } from "../../../vault/src/redact.ts";
 import type { FakeClock } from "../clock.ts";
-import { FakeBrowserDriver } from "../fakes/FakeBrowserDriver.ts";
+import {
+  FakeBrowserDriver,
+  type FixtureElement,
+  type FixturePage,
+} from "../fakes/FakeBrowserDriver.ts";
 import { FakeCredentialBroker } from "../fakes/FakeCredentialBroker.ts";
 import type { FakeNotifier } from "../fakes/FakeNotifier.ts";
 import { fixtureSecret } from "../secret-registry.ts";
+import { type CheckoutField, FixtureCheckout, ScenarioLinkWallet } from "./payments.ts";
 import type { Json } from "./types.ts";
 import { originOf, tzOffset } from "./util.ts";
 
@@ -48,11 +60,14 @@ export interface Fixtures {
   mailbox?: { messages: Json[] };
   calendar?: { events: Json[]; timeZone: string };
   preferences?: Json;
-  sites?: { pages: Json[] };
+  /** `merchants`: the shopping allowlist (V3); pages with `elements` are storefronts. */
+  sites?: { pages: Json[]; merchants?: Json[] };
   searchResults?: { queries: { match: string[]; results: Json[] }[]; fallback?: Json[] };
 }
 
 export type ToolRun = (params: Json, ctx: ToolCtx) => Promise<ToolResult>;
+/** A fake executor: the tool's registry row, its arguments and the call context. */
+export type ToolImpl = (info: ToolInfo, a: Json, ctx: ToolCtx) => Promise<ToolResult>;
 export interface ToolCtx {
   callId: string;
   taskId?: string;
@@ -96,7 +111,8 @@ export function targetOf(info: ToolInfo, args: Json): Target | undefined {
   if (info.targetKind === "recipient" && Array.isArray(args.to))
     return { kind: "recipient", value: args.to.join(",") };
   if (info.name === "search.web") return { kind: "origin", value: BRAVE_ORIGIN };
-  const origin = info.targetKind === "origin" ? originOf(args.url) : undefined;
+  // Shopping tools name their store by origin (`merchant`).
+  const origin = info.targetKind === "origin" ? originOf(args.url ?? args.merchant) : undefined;
   return origin === undefined ? undefined : { kind: "origin", value: origin };
 }
 
@@ -132,6 +148,35 @@ const counter = () => {
     return `${prefix}_${String(v).padStart(4, "0")}`;
   };
 };
+
+/** Scenario tool name → shopping connector tool (V3). */
+const SHOP_TOOL: Record<string, string> = {
+  "shop.compare": "shop_compare",
+  "shop.view_cart": "shop_view_cart",
+  "shop.add_to_cart": "shop_add_to_cart",
+  "shop.checkout_handoff": "shop_checkout_handoff",
+  // Same cart check as the hand-off, then Stripe Link pays (G12): see `#payWithLink`.
+  "shop.pay_with_link": "shop_checkout_handoff",
+};
+
+/** HTML → text with one line per block element (storefront fixtures). */
+function blockText(html: string): string {
+  return html
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, "")
+    .replace(/<\/(p|div|li|h[1-6]|tr|table|ul|ol|section|header|footer)>|<br\s*\/?>/gi, "\n")
+    .replace(/<\/t[dh]>/gi, " | ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&")
+    .split("\n")
+    .map((l) =>
+      l
+        .replace(/[ \t]+/g, " ")
+        .replace(/\s*\|\s*$/, "")
+        .trim(),
+    )
+    .filter((l) => l !== "")
+    .join("\n");
+}
 
 /**
  * The fake services a scenario runs against (Gmail, Calendar, Library, artifacts, reminders,
@@ -198,16 +243,87 @@ export class World {
       apiKey: "{{cred:brave-search-key}}",
       approveKey: async () => "cfa_brave_connect",
     });
-    const pages: Record<string, { title: string; text: string; status?: number }> = {};
+    const pages: Record<string, FixturePage> = {};
     for (const p of fx.sites?.pages ?? []) {
       const html = p.file === undefined ? "" : this.#page(p);
-      pages[String(p.url)] = {
+      const page: FixturePage = {
         title: String(p.title),
-        text: html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " "),
+        // Storefronts keep one line per block element so offers and cart rows stay apart.
+        text: Array.isArray(p.elements)
+          ? blockText(html)
+          : html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " "),
         status: Number(p.status),
       };
+      if (Array.isArray(p.elements)) page.elements = p.elements as unknown as FixtureElement[];
+      pages[String(p.url)] = page;
     }
     this.browser = FakeBrowserDriver.site({ pages });
+    const merchants = fx.sites?.merchants;
+    if (merchants !== undefined) {
+      const record: ConnectorRecord = {
+        id: "con_shopping",
+        type: "shopping",
+        label: "Shopping",
+        account: null,
+        scopes: ["shop.read", "shop.cart"],
+        scopeMode: "read_act",
+        actionMatrix: {},
+        credentialId: null,
+        status: "connected",
+        config: { merchants } as unknown as ConnectorRecord["config"],
+        lastSync: null,
+        createdAt: new Date(clock.now()).toISOString(),
+        updatedAt: new Date(clock.now()).toISOString(),
+      };
+      const shop = new ShoppingConnector(
+        record,
+        {
+          clock,
+          fetch: () => Promise.reject(new Error("no network")),
+          tokens: { load: async () => undefined, save: async () => {}, clear: async () => {} },
+          emit: () => {},
+        },
+        { browser: this.#recordingBrowser() },
+      );
+      for (const t of shop.tools()) this.#shopTools.set(t.name, t);
+    }
+  }
+
+  readonly #shopTools = new Map<string, ConnectorTool>();
+
+  /** The fixture browser with every navigation recorded as connector egress. */
+  #recordingBrowser(): BrowserDriver {
+    const browser = this.browser;
+    const net = (url: string) =>
+      this.#net({ via: "browser", host: new URL(url).host, url, allowedBy: "connector:shopping" });
+    return new Proxy(browser, {
+      get(target, key) {
+        if (key === "navigate") {
+          return (tabId: string, url: string, options?: unknown) => {
+            net(url);
+            return target.navigate(tabId, url, options as never);
+          };
+        }
+        const v = Reflect.get(target, key, target) as unknown;
+        return typeof v === "function" ? (v as (...a: unknown[]) => unknown).bind(target) : v;
+      },
+    });
+  }
+
+  /** The shopping connector's own call description (purchase / connector_action binding). */
+  shopDescribe(info: ToolInfo, params: Json) {
+    const d = this.#shopTools.get(SHOP_TOOL[info.name] ?? "")?.describeCall?.(params);
+    if (d === undefined || info.name !== "shop.pay_with_link") return d;
+    // Paying binds the payment source too, so a hand-off card can never authorize a payment.
+    const fields = (d.bindingFields ?? {}) as Record<string, unknown>;
+    const amount = String(fields.amount ?? "");
+    const items = (Array.isArray(params.items) ? params.items : []) as Json[];
+    const count = items.reduce((n, i) => n + Number(i.qty ?? 0), 0);
+    return {
+      ...d,
+      bindingFields: { ...fields, paymentSourceId: "stripe_link" },
+      summary: `Pay ${amount} at ${d.target?.display ?? d.target?.value ?? "the merchant"} for ${count} item(s) with Stripe Link (one-time card)`,
+    };
   }
 
   #page(p: Json): string {
@@ -311,7 +427,7 @@ export class World {
   }
 
   /** Executors by tool name; the runner wraps them with the binding re-check and fault hooks. */
-  impls(): Record<string, (info: ToolInfo, a: Json, ctx: ToolCtx) => Promise<ToolResult>> {
+  impls(): Record<string, ToolImpl> {
     const ok = (output: unknown, provenance: "trusted" | "untrusted" = "trusted"): ToolResult => ({
       output,
       provenance,
@@ -533,6 +649,7 @@ export class World {
         taint(ctx, [`web:${origin}`]);
         return ok({ url, title: tab.title, text: page.text }, "untrusted");
       },
+      ...this.#shopImpls(ok, taint),
       "artifacts.write": async (_i, a) => {
         const name = String(a.name);
         let art = this.artifacts.find((x) => x.name === name && x.type === a.type);
@@ -572,12 +689,181 @@ export class World {
     };
   }
 
+  /**
+   * V3 shopping tools: the real `ShoppingConnector` (packages/connectors) over the fixture
+   * storefronts. The agent loop and the Permission Broker gate them; writes and the hand-off
+   * record receipts here, as the connector registry would.
+   */
+  #shopImpls(
+    ok: (output: unknown, provenance?: "trusted" | "untrusted") => ToolResult,
+    taint: (ctx: ToolCtx, sources: string[]) => void,
+  ): Record<string, (info: ToolInfo, a: Json, ctx: ToolCtx) => Promise<ToolResult>> {
+    const out: Record<string, (info: ToolInfo, a: Json, ctx: ToolCtx) => Promise<ToolResult>> = {};
+    for (const [name, toolName] of Object.entries(SHOP_TOOL)) {
+      if (name === "shop.pay_with_link") {
+        out[name] = (info, a, ctx) => this.#payWithLink(info, a, ctx, ok, taint);
+        continue;
+      }
+      out[name] = async (info, a, ctx) => {
+        const tool = this.#shopTools.get(toolName);
+        if (tool === undefined) throw new PsycheError("unavailable", "no shopping fixtures");
+        const r = await tool.execute(a, {
+          signal: new AbortController().signal,
+          callId: ctx.callId,
+        });
+        const merchants = (this.fx.sites?.merchants ?? []).map((m) => String(m.origin));
+        const origin = originOf(a.merchant);
+        taint(
+          ctx,
+          (origin === undefined ? merchants : [origin]).map((o) => `web:${o}`),
+        );
+        if (info.receiptKind === undefined) return ok(r.output, r.provenance);
+        const refs = Object.fromEntries(
+          Object.entries(r.externalRefs ?? {}).map(([k, v]) => [k, String(v)]),
+        );
+        // Returning the id tells the loop the write is already receipted (no second receipt).
+        const receiptId = await this.#receipt(info, ctx, refs, true);
+        return { ...ok(r.output, r.provenance), receiptId };
+      };
+    }
+    return out;
+  }
+
+  /** Stripe Link in test mode (G12): the wallet, the vault's payment broker, merchant pages. */
+  readonly linkWallet = new ScenarioLinkWallet((what) =>
+    this.#net({
+      via: "connector",
+      host: "api.link.com",
+      url: `link-cli ${what}`,
+      allowedBy: "connector:stripe_link",
+    }),
+  );
+  readonly checkouts: FixtureCheckout[] = [];
+  /** Values the payment path masks; shared with the vault broker. */
+  readonly paymentRedactor = new SecretRedactor();
+  #payments: PaymentBroker | undefined;
+
+  #paymentBroker(): PaymentBroker {
+    this.#payments ??= new PaymentBroker({
+      home: mkdtempSync(join(tmpdir(), "psyche-v3-")),
+      wallet: this.linkWallet,
+      permissions: this.broker(),
+      redactor: this.paymentRedactor,
+      clock: this.clock,
+    });
+    return this.#payments;
+  }
+
+  /**
+   * `shop.pay_with_link`: the connector re-reads the live cart (the hand-off check: items and
+   * total must equal the approved arguments), then the vault's `PaymentBroker` takes over. It
+   * re-checks the purchase approval the loop dispatched against this call's binding hash, creates
+   * a Link spend request in test mode, waits for the owner's approval in Link, has Link write the
+   * one-time card to a 0600 file, fills the merchant's card form field by field through the
+   * browser fill core, and records the `purchase` receipt with the Link reference and order
+   * number. The model gets brand / last4 and the order number only.
+   */
+  async #payWithLink(
+    info: ToolInfo,
+    a: Json,
+    ctx: ToolCtx,
+    ok: (output: unknown, provenance?: "trusted" | "untrusted") => ToolResult,
+    taint: (ctx: ToolCtx, sources: string[]) => void,
+  ): Promise<ToolResult> {
+    const handoff = this.#shopTools.get("shop_checkout_handoff");
+    if (handoff === undefined) throw new PsycheError("unavailable", "no shopping fixtures");
+    if (ctx.approvalId === undefined)
+      throw new PsycheError("approval_required", "paying needs the purchase approval");
+    const origin = originOf(a.merchant);
+    if (origin !== undefined) taint(ctx, [`web:${origin}`]);
+    const ready = (
+      await handoff.execute(a, { signal: new AbortController().signal, callId: ctx.callId })
+    ).output as Json;
+    const items = (a.items as Json[]).map((i) => ({
+      name: String(i.name),
+      quantity: Number(i.qty),
+      unitAmount: Number(i.unitPriceMinor),
+    }));
+    const input: PurchaseInput = {
+      merchantName: String(ready.seller),
+      merchantUrl: String(ready.checkoutUrl),
+      amount: Number(a.totalMinor),
+      currency: String(a.currency).toLowerCase(),
+      lineItems: items,
+      test: true,
+    };
+    const payments = this.#paymentBroker();
+    const spend = await payments.authorizeDispatched(
+      ctx.approvalId,
+      input,
+      this.loopBindingHash(info, a),
+    );
+    const card = await payments.awaitCard(spend.spendRequestId);
+    const page = new FixtureCheckout(input.merchantUrl);
+    this.checkouts.push(page);
+    this.#net({
+      callId: ctx.callId,
+      via: "browser",
+      host: new URL(page.origin).host,
+      url: input.merchantUrl,
+      allowedBy: `approval:${ctx.approvalId}`,
+    });
+    for (const field of ["number", "exp", "cvc"] as CheckoutField[]) {
+      page.focus(field);
+      const filled = await payments.fillCard({
+        cdp: page,
+        spendRequestId: spend.spendRequestId,
+        field,
+      });
+      if (!filled.ok) {
+        await payments.complete(spend.spendRequestId, { outcome: "blocked", tags: ["other"] });
+        throw new PsycheError("unavailable", `card fill failed (${filled.reason ?? "unknown"})`, {
+          details: { reason: filled.reason ?? "fill_failed" },
+        });
+      }
+    }
+    const orderNumber = page.submit();
+    if (orderNumber === null) {
+      await payments.complete(spend.spendRequestId, {
+        outcome: "blocked",
+        tags: ["payment_declined"],
+      });
+      throw new PsycheError("unavailable", "the merchant did not accept the card", {
+        details: { reason: "payment_declined" },
+      });
+    }
+    const receipt = await payments.complete(spend.spendRequestId, {
+      outcome: "success",
+      orderNumber,
+      toolCallId: ctx.callId,
+      payload: { evaluator: { verdict: "verified" } },
+    });
+    return {
+      ...ok(
+        {
+          status: "paid",
+          seller: ready.seller,
+          items: ready.items,
+          total: ready.total,
+          currency: ready.currency,
+          paidWith: { method: "stripe_link", brand: card.card?.brand, last4: card.card?.last4 },
+          orderNumber,
+          linkSpendRequestId: spend.spendRequestId,
+          testMode: true,
+        },
+        "untrusted",
+      ),
+      receiptId: receipt.id,
+    };
+  }
+
   /** Registrations for every tool in the registry that has a fake executor. */
   tools(
     infos: ToolInfo[],
     wrap?: (name: string, run: ToolRun) => ToolRun,
+    extra: Record<string, ToolImpl> = {},
   ): AgentToolRegistration[] {
-    const impls = this.impls();
+    const impls = { ...this.impls(), ...extra };
     return infos.flatMap((info) => {
       const impl = impls[info.name];
       if (impl === undefined) return [];
@@ -593,6 +879,8 @@ export class World {
           ...(info.targetKind === null ? {} : { targetKind: info.targetKind }),
         },
         describeCall: (params) => {
+          const shop = this.shopDescribe(info, params as Json);
+          if (shop !== undefined) return shop;
           const target = targetOf(info, params as Json);
           const kind = info.approvalKind;
           return {
@@ -611,6 +899,16 @@ export class World {
     });
   }
 
+  /** The loop's recipe: kind-specific fields join the hash when the description has them. */
+  loopBindingHash(info: ToolInfo, params: Json): string {
+    const fields = this.shopDescribe(info, params)?.bindingFields;
+    return bindingHash(info.approvalKind ?? info.name, {
+      tool: info.name,
+      paramsHash: paramsHash(params),
+      ...(fields === undefined ? {} : { fields }),
+    });
+  }
+
   /** Fault hook → executor `bindingHash` re-check (security §3.5) → the fake provider. */
   async #dispatch(info: ToolInfo, run: ToolRun, p: Json, c: ToolCtx): Promise<ToolResult> {
     const ctx: ToolCtx = {
@@ -623,10 +921,7 @@ export class World {
     this.faults.delete(ctx.callId);
     if (info.approvalKind !== undefined && ctx.approvalId !== undefined) {
       const approved = await this.broker().get(ctx.approvalId);
-      const actual = bindingHash(info.approvalKind, {
-        tool: info.name,
-        paramsHash: paramsHash(params),
-      });
+      const actual = this.loopBindingHash(info, params);
       if (approved !== undefined && approved.bindingHash !== actual) {
         // Through the broker so the mismatch is audited (`binding.mismatch`).
         await this.broker().verifyBinding(ctx.approvalId, actual);

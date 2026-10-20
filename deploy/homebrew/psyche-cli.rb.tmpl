@@ -1,0 +1,49 @@
+# Homebrew formula for the `psyche` CLI (single-file binaries from the release). Rendered by
+# deploy/scripts/homebrew.mjs and pushed to github.com/devmello/homebrew-psyche
+# (Formula/psyche-cli.rb).
+#   brew install devmello/psyche/psyche-cli
+class PsycheCli < Formula
+  desc "Command-line client for the Psyche Gateway"
+  homepage "https://github.com/devmello/psyche"
+  version "{{VERSION}}"
+  license "Apache-2.0"
+
+  on_macos do
+    on_arm do
+      url "https://github.com/devmello/psyche/releases/download/v{{VERSION}}/psyche-darwin-arm64"
+      sha256 "{{SHA256:psyche-darwin-arm64}}"
+    end
+    on_intel do
+      url "https://github.com/devmello/psyche/releases/download/v{{VERSION}}/psyche-darwin-x64"
+      sha256 "{{SHA256:psyche-darwin-x64}}"
+    end
+  end
+
+  on_linux do
+    on_arm do
+      url "https://github.com/devmello/psyche/releases/download/v{{VERSION}}/psyche-linux-arm64"
+      sha256 "{{SHA256:psyche-linux-arm64}}"
+    end
+    on_intel do
+      url "https://github.com/devmello/psyche/releases/download/v{{VERSION}}/psyche-linux-x64"
+      sha256 "{{SHA256:psyche-linux-x64}}"
+    end
+  end
+
+  def install
+    bin.install Dir["psyche-*"].first => "psyche"
+    generate_completions_from_executable(bin/"psyche", "completion")
+  end
+
+  def caveats
+    <<~EOS
+      Pair the CLI with your Gateway: run `psyche onboard`, then approve the code it prints
+      on the Gateway host with `psyched devices approve <CODE>`.
+    EOS
+  end
+
+  test do
+    assert_match version.to_s, shell_output("#{bin}/psyche version --json")
+    assert_match "psyche", shell_output("#{bin}/psyche completion bash")
+  end
+end
