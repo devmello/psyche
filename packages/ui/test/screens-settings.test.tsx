@@ -996,7 +996,9 @@ describe("Browser (real-Chrome mode, I13)", () => {
       },
     });
     await userEvent.click(
-      await screen.findByRole("switch", { name: `Let tasks use the Psyche profile (${PERSONA.name})` }),
+      await screen.findByRole("switch", {
+        name: `Let tasks use the Psyche profile (${PERSONA.name})`,
+      }),
     );
     await waitFor(() =>
       expect(settingValue(gateway(), "browser.realChrome")).toEqual({ enabled: true }),
