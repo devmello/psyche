@@ -6,6 +6,7 @@ import {
   type ChannelIdentity,
   type Connector,
   type CredentialMeta,
+  type CredentialUse,
   type Device,
   type ErrorCode,
   type EventName,
@@ -76,6 +77,7 @@ export interface MockWorld {
   devices: Device[];
   nodes: NodeInfo[];
   credentials: CredentialMeta[];
+  credentialUses: CredentialUse[];
   settings: Record<string, unknown>;
   memoryFiles: Record<string, string>;
   memoryClaims: MemoryClaim[];
@@ -109,6 +111,7 @@ export const EMPTY_WORLD: MockWorld = {
   devices: [],
   nodes: [],
   credentials: [],
+  credentialUses: [],
   settings: {},
   memoryFiles: {},
   memoryClaims: [],
@@ -965,6 +968,66 @@ export class MockGateway implements GatewayClient {
         ownerConnectorId: null,
       });
       return { credential };
+    },
+    "vault.uses": (p) => ({
+      uses: this.world.credentialUses
+        .filter((u) => u.credentialId === p.credentialId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, p.limit ?? 50),
+    }),
+    "vault.import": (p) => {
+      // A small stand-in for packages/vault's importer: it reads the header to find the name,
+      // site and password columns, refuses card-like rows, and never keeps a value.
+      const rows = p.csv
+        .split(/\r?\n/)
+        .filter((l) => l.trim() !== "")
+        .map((l) => l.split(",").map((c) => c.trim().replace(/^"|"$/g, "")));
+      const header = (rows[0] ?? []).map((h) => h.toLowerCase());
+      const col = (...names: string[]) => header.findIndex((h) => names.includes(h));
+      const nameAt = col("name", "title");
+      const siteAt = col("url", "website", "login_uri");
+      const passwordAt = col("password", "login_password");
+      if (nameAt < 0 || passwordAt < 0)
+        fail("invalid_params", "The CSV header is not a 1Password, Bitwarden or Chrome export.");
+      const imported: CredentialMeta[] = [];
+      const skipped: { row: number; reason: string }[] = [];
+      rows.slice(1).forEach((r, i) => {
+        const row = i + 2;
+        const name = r[nameAt] ?? "";
+        const password = r[passwordAt] ?? "";
+        if (name === "" || password === "") {
+          skipped.push({ row, reason: "no name or password" });
+          return;
+        }
+        if (/\b(?:\d[ -]?){13,19}\b/.test(r.join(" "))) {
+          skipped.push({ row, reason: "looks like a card number" });
+          return;
+        }
+        const site = siteAt < 0 ? "" : (r[siteAt] ?? "");
+        const now = this.now();
+        imported.push({
+          id: this.id("cred"),
+          kind: "login",
+          name,
+          slug: `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-login`,
+          bindings: /^https?:\/\//.test(site) ? [{ origin: new URL(site).origin }] : [],
+          ownerConnectorId: null,
+          lastUsedAt: null,
+          useCount: 0,
+          createdAt: now,
+          updatedAt: now,
+        });
+      });
+      this.world.credentials = [...this.world.credentials, ...imported];
+      for (const credential of imported) {
+        this.emit("credential.updated", {
+          credentialId: credential.id,
+          change: "created",
+          credential,
+          ownerConnectorId: null,
+        });
+      }
+      return { imported, skipped };
     },
     "vault.delete": (p) => {
       const current = this.world.credentials.find((c) => c.id === p.credentialId);
