@@ -48,6 +48,7 @@ import {
 import { type CompiledPolicy, compilePolicy, type PolicyConfig } from "./policy.ts";
 import { DENY_ALL_LOOPBACK, type LocalProjectVerifier } from "./prohibitions.ts";
 import { requesterKey, requesterSurfaces } from "./requester.ts";
+import type { RevocationLedger } from "./revocations.ts";
 import {
   MemoryPermissionStore,
   type PermissionStore,
@@ -113,6 +114,8 @@ export interface PermissionBrokerOptions {
   armDelayMs?: number;
   onEvent?: (event: BrokerEvent) => void;
   newId?: (prefix: string) => string;
+  /** Records grant revocations outside the backup scope (design-26). */
+  revocations?: RevocationLedger;
 }
 
 type GrantFields = { grantFields?: JsonObject };
@@ -159,6 +162,7 @@ export class PsychePermissionBroker implements PermissionBroker {
   readonly #ttlMs: number | undefined;
   readonly #onEvent: ((e: BrokerEvent) => void) | undefined;
   readonly #newId: (prefix: string) => string;
+  readonly #revocations: RevocationLedger | undefined;
   readonly #classifierId: string;
   #policy: CompiledPolicy;
   #bootId: string;
@@ -190,6 +194,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#armDelayMs = options.armDelayMs ?? APPROVAL_ARM_DELAY_MS;
     this.#ttlMs = options.ttlMs;
     this.#onEvent = options.onEvent;
+    this.#revocations = options.revocations;
     const ulid = monotonicFactory();
     this.#newId = options.newId ?? ((prefix) => `${prefix}_${ulid(this.clock.now())}`);
     this.#bootId = options.bootId ?? this.#newId("boot");
@@ -1232,6 +1237,8 @@ export class PsychePermissionBroker implements PermissionBroker {
     next.grant.revokedAt = new Date(this.clock.now()).toISOString();
     next.meta.revokedReason = reason;
     this.#store.updateGrant(next);
+    // Outside the backup scope, so restoring an older backup cannot bring the grant back.
+    this.#revocations?.recordGrant(next.grant.id, reason);
     this.#emit({ type: "grant.revoked", grant: next.grant });
     await this.#log(
       "grant.revoked",
