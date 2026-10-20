@@ -24,6 +24,12 @@ export const ToolSpec = Type.Object(
     sideEffect: SideEffect,
     targetKind: Type.Optional(TargetKind),
     provenanceOut: ProvenanceOut,
+    /**
+     * Who wrote `description` and the text in `inputSchema`: `untrusted` for a third-party
+     * MCP server (security §11, #281), so the loop can taint and the model can be told it is
+     * data. Absent means Psyche's own tool text.
+     */
+    descriptionProvenance: Type.Optional(ProvenanceOut),
   },
   { $id: "ToolSpec" },
 );

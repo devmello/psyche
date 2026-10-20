@@ -707,6 +707,9 @@ export class PsycheMcpHost implements McpHost {
       inputSchema: (t.inputSchema ?? { type: "object" }) as Record<string, unknown>,
       sideEffect: sideEffectFor(t, s.config.trust),
       provenanceOut: provenanceFor(s.config.trust),
+      // The description and schema text are the server's words: untrusted unless the server
+      // ships with Psyche (security §11, #281).
+      descriptionProvenance: provenanceFor(s.config.trust),
     }));
   }
 

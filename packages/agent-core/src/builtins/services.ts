@@ -332,7 +332,8 @@ export function notifyTool(notifier: Notifier): AgentToolRegistration {
     targetKind: "recipient",
     describeCall: (p) => ({
       target: { kind: "recipient", value: "owner" },
-      summary: `Notified: ${p.title}`,
+      // Read before and after it runs (#307): never "Notified" for something not yet sent.
+      summary: `Notify the owner: ${p.title}`,
     }),
     run: async (p, ctx) => {
       const n = await notifier.notify({

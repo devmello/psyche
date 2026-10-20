@@ -58,6 +58,12 @@ export interface ProviderConfig {
    * `memory_20250818` / `computer_toolset_20260801` (architecture §4.4). Off by default.
    */
   providerTools?: { memory?: boolean; computer?: boolean };
+  /**
+   * Anthropic: ask the API to drop a replayed thinking block whose prefix no longer matches
+   * (`thinking.block_binding.prefix_mismatch_behavior: "drop_block"`, beta
+   * `thinking-binding-controls-2026-08-01`) instead of failing the request (#306). Default true.
+   */
+  thinkingBlockBinding?: boolean;
   /** Per-model capability facts that override the catalog and price table. */
   models?: Record<string, Partial<ModelCapabilities>>;
   /** Embedding model ids this provider serves (for `embed`). */

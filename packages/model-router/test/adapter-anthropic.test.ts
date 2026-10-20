@@ -90,10 +90,14 @@ describe("anthropic adapter (recorded fixtures)", () => {
 
   it("round-trips reasoning verbatim and sends tool results and images back", async () => {
     const first = setup("text");
-    const turn = await accumulate(first.adapter.stream(textRequest(REF)));
+    // Same system prompt and tools in both turns, so the signed block stays bound (#306).
+    const turn = await accumulate(
+      first.adapter.stream({ ...textRequest(REF), tools: [weatherTool] }),
+    );
     const second = setup("text");
     const request: ModelRequest = {
       model: REF,
+      system: "You are terse.",
       messages: [
         { role: "user", parts: [{ type: "text", text: "Weather?" }] },
         {

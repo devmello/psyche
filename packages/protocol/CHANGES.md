@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S09, #281: MCP tool descriptions carry provenance)
+
+For S09 (mcp-host sets it), S02 (the loop may taint a turn whose tools include untrusted descriptions) and the model router (S03, marking).
+
+- New optional `ToolSpec.descriptionProvenance: "trusted" | "untrusted"`: who wrote the tool's `description` and the text in its `inputSchema`. `untrusted` for non-bundled MCP servers; absent means Psyche's own tool text.
+- `FakeMcpHost` sets it from the server's trust tier.
 ### v1 additive — 2026-10-20 (S06: Settings → Credentials, payments and 1Password)
 
 - `vault.linkExternal` (operator.admin, side-effecting): links a 1Password item (G10) by `OnePasswordRef` `{vault, item}` with the fields it offers; Psyche stores the reference, never a value.

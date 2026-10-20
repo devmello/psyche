@@ -71,6 +71,7 @@ export class FakeMcpHost implements McpHost {
       inputSchema: t.inputSchema ?? { type: "object" },
       sideEffect: t.sideEffect ?? "write",
       provenanceOut: s.config.trust === "bundled" ? "trusted" : "untrusted",
+      descriptionProvenance: s.config.trust === "bundled" ? "trusted" : "untrusted",
     }));
   }
 

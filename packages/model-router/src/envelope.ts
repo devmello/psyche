@@ -16,6 +16,11 @@ export type OpaqueEnvelope =
       model: string;
       text: string;
       metadata?: ProviderMetadata;
+      /**
+       * Anthropic: fingerprint of the request prefix (system prompt and tools) the signed block
+       * is bound to (`thinkingPrefix`); a later request with another prefix drops the block.
+       */
+      prefix?: string;
     }
   | {
       /** Metadata that belongs to a non-reasoning part (Gemini signatures on tool calls). */
