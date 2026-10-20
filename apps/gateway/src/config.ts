@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { DEFAULT_GATEWAY_HOST, DEFAULT_GATEWAY_PORT, PsycheError } from "@psyche/protocol";
+import { trustedProxyList } from "./proxy.ts";
 
 /** Resolved Gateway configuration (feature A5 subset; see README "Config keys"). */
 export interface GatewayConfig {
@@ -132,6 +133,7 @@ export function resolveConfig(
       "config.json: gateway.trustedProxy needs trustedProxies CIDRs",
     );
   }
+  trustedProxyList(trustedProxies); // malformed CIDRs fail at startup
   const defaultWebRoot = resolve(import.meta.dirname, "../../web/dist");
   return {
     home,

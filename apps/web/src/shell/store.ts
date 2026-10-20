@@ -55,6 +55,35 @@ export function isUnavailableError(err: unknown): boolean {
 
 let toastSeq = 0;
 
+/** Plain one-line text of a message for the thread list's last line (UI design §2.2). */
+export function lastLineOf(m: Message): string {
+  return m.blocks
+    .map((b) => (b.type === "text" ? b.md : ""))
+    .join(" ")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[`*_~>#|]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160);
+}
+
+/** A committed user or agent message becomes its thread's last line. */
+function withLastLine(threads: ThreadListEntry[], m: Message): ThreadListEntry[] {
+  if (m.role !== "user" && m.role !== "agent") return threads;
+  const text = lastLineOf(m);
+  if (text === "") return threads;
+  return threads.map((t) =>
+    t.thread.id === m.threadId
+      ? {
+          ...t,
+          thread: { ...t.thread, lastMessageAt: m.createdAt },
+          lastMessage: { role: m.role as "user" | "agent", text, at: m.createdAt },
+        }
+      : t,
+  );
+}
+
 export class ShellStore {
   private state: ShellState = INITIAL;
   private readonly listeners = new Set<() => void>();
@@ -201,7 +230,11 @@ export class ShellStore {
       .concat(m)
       .sort((a, b) => a.seq - b.seq);
     const { [m.id]: _done, ...streaming } = this.state.streaming;
-    this.set({ messages: { ...this.state.messages, [m.threadId]: next }, streaming });
+    this.set({
+      messages: { ...this.state.messages, [m.threadId]: next },
+      streaming,
+      threads: withLastLine(this.state.threads, m),
+    });
   }
 
   private upsertApproval(a: ApprovalRequest): void {
@@ -232,6 +265,7 @@ export class ShellStore {
         const entry: ThreadListEntry = {
           thread,
           activity: existing?.activity ?? { running: 0, awaitingInput: 0, awaitingApproval: 0 },
+          ...(existing?.lastMessage === undefined ? {} : { lastMessage: existing.lastMessage }),
         };
         this.set({
           threads: [entry, ...this.state.threads.filter((t) => t.thread.id !== thread.id)],

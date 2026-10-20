@@ -10,6 +10,10 @@ export interface MenuActions {
   palette(): void;
   closeThreadView(): void;
   quitEntirely(): void;
+  /** View → Zoom: an appearance setting (`appearance.zoom`), not Electron's per-origin memory. */
+  zoomIn(): void;
+  zoomOut(): void;
+  zoomReset(): void;
 }
 
 export function buildAppMenu(a: MenuActions): Menu {
@@ -43,9 +47,10 @@ export function buildAppMenu(a: MenuActions): Menu {
       submenu: [
         { label: "Command palette", accelerator: "CmdOrCtrl+K", click: a.palette },
         { type: "separator" },
-        { role: "resetZoom" },
-        { role: "zoomIn" },
-        { role: "zoomOut" },
+        { id: "zoom-reset", label: "Actual Size", accelerator: "CmdOrCtrl+0", click: a.zoomReset },
+        { id: "zoom-in", label: "Zoom In", accelerator: "CmdOrCtrl+Plus", click: a.zoomIn },
+        { label: "Zoom In", accelerator: "CmdOrCtrl+=", click: a.zoomIn, visible: false },
+        { id: "zoom-out", label: "Zoom Out", accelerator: "CmdOrCtrl+-", click: a.zoomOut },
         { type: "separator" },
         { role: "togglefullscreen" },
         ...(app.isPackaged ? [] : [{ role: "toggleDevTools" } as MenuItemConstructorOptions]),

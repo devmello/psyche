@@ -202,6 +202,34 @@ export function describeBrowserDriverConformance(
       await d.closeSession(s.id);
     });
 
+    it("reads console and network on a dev-preview session pinned to its port (I12)", async () => {
+      // The owner's dev server: console and network are readable, and loopback is limited to
+      // the approved port.
+      const port = new URL(h.origin("a")).port === "" ? 80 : Number(new URL(h.origin("a")).port);
+      const dev = await d.openSession({
+        taskId: "task_dev",
+        policy: { devPreview: true, loopbackPorts: [port], readWritable: [h.origin("a")] },
+      });
+      const t = await d.openTab(dev.id, h.url("a/dev"));
+      await d.wait(t.id, { kind: "text", text: "Ready" }, { timeoutMs: 5000 });
+      await eventually(() => {
+        expect(d.consoleMessages(t.id).map((m) => m.text)).toContain("hello from the dev server");
+      });
+      expect(d.consoleMessages(t.id)[0]?.level).toBe("log");
+      const net = d.networkLog(t.id);
+      expect(net.some((r) => r.url === h.url("a/dev") && r.method === "GET")).toBe(true);
+      expect(net.find((r) => r.url === h.url("a/dev"))?.status).toBe(200);
+      // Another loopback port is not this task's dev server.
+      const other = `http://localhost:${port + 1}/`;
+      await expect(d.openTab(dev.id, other)).rejects.toMatchObject({
+        code: "policy_denied",
+        details: { reason: "loopback" },
+      });
+      d.policy(dev.id).allowLoopbackPort(port + 1);
+      expect(d.policy(dev.id).evaluateSync(other).action).not.toBe("deny");
+      await d.closeSession(dev.id);
+    });
+
     it("quarantines downloads into the Library with sniffed types", async () => {
       const s = await session({ taskId: "task_dl" });
       const t = await d.openTab(s.id, h.url("a/downloads"));

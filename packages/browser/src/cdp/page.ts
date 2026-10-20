@@ -191,6 +191,8 @@ export class PageController {
   #worlds = new Map<string, number>();
   #secureActive = false;
   #needsSnapshot = false;
+  /** The latest snapshot the model saw: what a purchase card is built from (INT-2). */
+  #lastSnapshot: { text: string; url: string; loader: string } | undefined;
   #recording = false;
   #closed = false;
   #stoppedUrl: string | undefined;
@@ -253,6 +255,14 @@ export class PageController {
 
   get url(): string {
     return this.#url;
+  }
+
+  /** The latest snapshot of the current document, if the model has read it since it loaded. */
+  get lastSnapshot(): { text: string; url: string } | undefined {
+    const s = this.#lastSnapshot;
+    return s === undefined || s.loader !== this.#loaderId
+      ? undefined
+      : { text: s.text, url: s.url };
   }
   get title(): string {
     return this.#title;
@@ -793,6 +803,7 @@ export class PageController {
     if (this.#o.redact !== undefined) input.redact = this.#o.redact;
     const snap = buildSnapshot(input);
     this.#needsSnapshot = false;
+    this.#lastSnapshot = { text: snap.text, url: snap.url, loader: this.#loaderId };
     this.#setSecure(snap.secureFieldActive);
     if (snap.captcha === true) this.#o.emit({ type: "captcha", tabId: this.tabId, url: this.#url });
     return snap;

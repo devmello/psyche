@@ -2,9 +2,11 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
+  copyFileSync,
   createReadStream,
   createWriteStream,
   existsSync,
+  linkSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
@@ -18,8 +20,8 @@ import { dirname, join, relative, sep } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createGunzip, createGzip } from "node:zlib";
+import { PsycheError } from "@psyche/protocol";
 import { Decrypter, Encrypter } from "age-encryption";
-import { CliError } from "./errors.ts";
 
 /**
  * Backups (feature U4; architecture §12; security §14): `state/` (with channel sessions in
@@ -94,7 +96,7 @@ export async function buildManifest(
 ): Promise<Manifest> {
   const entries = BACKUP_ENTRIES.filter((e) => existsSync(join(home, e)));
   if (!entries.includes("state")) {
-    throw new CliError("failure", `${home} has no state/ directory; nothing to back up`);
+    throw new PsycheError("not_found", `${home} has no state/ directory; nothing to back up`);
   }
   const paths: string[] = [];
   for (const e of entries) listFiles(home, e, paths);
@@ -125,30 +127,87 @@ function waitExit(child: ReturnType<typeof spawn>, what: string): Promise<void> 
     stderr += String(d);
   });
   return new Promise((resolve, reject) => {
-    child.on("error", (err) => reject(new CliError("failure", `${what}: ${err.message}`)));
+    child.on("error", (err) => reject(new PsycheError("internal", `${what}: ${err.message}`)));
     child.on("close", (code) =>
       code === 0
         ? resolve()
-        : reject(new CliError("failure", `${what} failed (exit ${code}): ${stderr.trim()}`)),
+        : reject(new PsycheError("internal", `${what} failed (exit ${code}): ${stderr.trim()}`)),
     );
   });
 }
 
-/** Writes an encrypted backup of `home` to `out` (0600). The Gateway must not be running. */
+export interface CreateOptions {
+  now?: Date;
+  /**
+   * Consistent copies of files that are live while the Gateway runs, keyed by home-relative path
+   * (`state/psyche.sqlite`). Each writes its snapshot to `dest` (the Gateway uses SQLite's
+   * online backup API). The live file and its `-wal`, `-shm` and `-journal` siblings are left out.
+   */
+  snapshots?: Readonly<Record<string, (dest: string) => Promise<void>>>;
+}
+
+const SQLITE_SIDECARS = ["-wal", "-shm", "-journal"];
+
+/**
+ * Mirrors `rel` from `home` into `tree` with hard links (copies across filesystems), so the
+ * archive is built from a fixed set of files while the originals keep changing.
+ */
+function stageTree(home: string, tree: string, rel: string, skip: ReadonlySet<string>): void {
+  const src = join(home, rel);
+  const st = lstatSync(src);
+  if (st.isSymbolicLink()) return; // never follow links out of $PSYCHE_HOME
+  const dest = join(tree, rel);
+  if (st.isDirectory()) {
+    mkdirSync(dest, { recursive: true, mode: 0o700 });
+    for (const name of readdirSync(src).sort()) stageTree(home, tree, join(rel, name), skip);
+    return;
+  }
+  if (!st.isFile() || skip.has(rel.split(sep).join("/"))) return;
+  mkdirSync(dirname(dest), { recursive: true, mode: 0o700 });
+  try {
+    linkSync(src, dest);
+  } catch {
+    copyFileSync(src, dest);
+  }
+}
+
+/**
+ * Writes an encrypted backup of `home` to `out` (0600). Without `snapshots` the files must be
+ * quiescent (the CLI stops the Gateway); with them the Gateway keeps running.
+ */
 export async function createBackup(
   home: string,
   out: string,
   enc: Encryption,
-  cliVersion: string,
-  now = new Date(),
+  producer: string,
+  opts: CreateOptions = {},
 ): Promise<Manifest> {
-  const manifest = await buildManifest(home, cliVersion, now);
-  const stage = mkdtempSync(join(dirname(out), ".psyche-backup-"));
+  const entries = BACKUP_ENTRIES.filter((e) => existsSync(join(home, e)));
+  if (!entries.includes("state")) {
+    throw new PsycheError("not_found", `${home} has no state/ directory; nothing to back up`);
+  }
+  const snapshots = opts.snapshots ?? {};
+  const skip = new Set<string>();
+  for (const rel of Object.keys(snapshots)) {
+    skip.add(rel);
+    for (const suffix of SQLITE_SIDECARS) skip.add(`${rel}${suffix}`);
+  }
+  // Staging lives inside $PSYCHE_HOME (0700, same filesystem, so hard links work).
+  const stage = mkdtempSync(join(home, ".psyche-backup-"));
+  const tree = join(stage, "tree");
   const tmpOut = `${out}.partial`;
   try {
     chmodSync(stage, 0o700);
-    writeFileSync(join(stage, MANIFEST), JSON.stringify(manifest, null, 2), { mode: 0o600 });
-    const tar = tarProcess(["-cf", "-", "-C", stage, MANIFEST, "-C", home, ...manifest.entries]);
+    mkdirSync(tree, { mode: 0o700 });
+    for (const e of entries) stageTree(home, tree, e, skip);
+    for (const [rel, write] of Object.entries(snapshots)) {
+      const dest = join(tree, rel);
+      mkdirSync(dirname(dest), { recursive: true, mode: 0o700 });
+      await write(dest);
+    }
+    const manifest = await buildManifest(tree, producer, opts.now ?? new Date());
+    writeFileSync(join(tree, MANIFEST), JSON.stringify(manifest, null, 2), { mode: 0o600 });
+    const tar = tarProcess(["-cf", "-", "-C", tree, MANIFEST, ...manifest.entries]);
     const exited = waitExit(tar, "tar");
     const gzip = createGzip();
     tar.stdout.on("error", (err) => gzip.destroy(err));
@@ -193,8 +252,8 @@ async function plaintextStream(file: string, dec: Decryption): Promise<Readable>
     try {
       body = await d.decrypt(raw);
     } catch (err) {
-      throw new CliError(
-        "failure",
+      throw new PsycheError(
+        "invalid_params",
         `Cannot decrypt ${file}: ${err instanceof Error ? err.message : err}`,
       );
     }
@@ -214,12 +273,13 @@ export function parseManifest(text: string, file: string): Manifest {
   try {
     m = JSON.parse(text) as Manifest;
   } catch {
-    throw new CliError("failure", `${file}: unreadable manifest`);
+    throw new PsycheError("invalid_params", `${file}: unreadable manifest`);
   }
   if (m?.format !== FORMAT || m.version !== 1) {
-    throw new CliError("failure", `${file}: unsupported backup format`);
+    throw new PsycheError("invalid_params", `${file}: unsupported backup format`);
   }
-  const bad = (why: string) => new CliError("failure", `${file}: invalid manifest (${why})`);
+  const bad = (why: string) =>
+    new PsycheError("invalid_params", `${file}: invalid manifest (${why})`);
   if (!Array.isArray(m.entries) || !Array.isArray(m.files)) throw bad("entries/files");
   if (new Set(m.entries).size !== m.entries.length) throw bad("duplicate entries");
   for (const e of m.entries) {
@@ -263,8 +323,8 @@ export async function extractAndVerify(
           createWriteStream(plain, { mode: 0o600 }),
         );
       } catch (err) {
-        throw new CliError(
-          "failure",
+        throw new PsycheError(
+          "invalid_params",
           `${file} is damaged or the key is wrong: ${err instanceof Error ? err.message : err}`,
         );
       }
@@ -276,7 +336,7 @@ export async function extractAndVerify(
     }
     const manifestPath = join(dir, MANIFEST);
     if (!existsSync(manifestPath))
-      throw new CliError("failure", `${file} is not a Psyche backup (no ${MANIFEST})`);
+      throw new PsycheError("invalid_params", `${file} is not a Psyche backup (no ${MANIFEST})`);
     const manifest = parseManifest(readFileSync(manifestPath, "utf8"), file);
     const problems: string[] = [];
     const listed = new Set<string>();
@@ -334,18 +394,18 @@ export async function restoreBackup(
 ): Promise<{ manifest: Manifest; movedAside: string | null }> {
   const clashes = BACKUP_ENTRIES.filter((e) => existsSync(join(home, e)));
   if (clashes.length && !opts.force) {
-    throw new CliError(
-      "failure",
-      `${home} already has ${clashes.join(", ")}; pass --force to move them aside first`,
+    throw new PsycheError(
+      "conflict",
+      `${home} already has ${clashes.join(", ")}; move them aside first (psyche backup restore --force)`,
     );
   }
   const { dir, manifest, problems } = await extractAndVerify(file, dec, home);
   try {
     if (problems.length) {
-      throw new CliError(
-        "failure",
+      throw new PsycheError(
+        "invalid_params",
         `Backup failed verification: ${problems.slice(0, 5).join("; ")}`,
-        { problems },
+        { details: { problems } },
       );
     }
     let movedAside: string | null = null;

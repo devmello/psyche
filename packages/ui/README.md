@@ -64,6 +64,23 @@ Colors are OKLCH CSS variables (UI design §4.8):
 
 Tailwind utilities exist for each (`bg-accent-9`, `text-gray-11`, `border-approval-border`, …). Root attributes: `data-theme` (light / dark), `data-density`, `data-reduce-motion`, `data-contrast` (high contrast: borders step 8, text step 12, 2 px rings).
 
+### Design system rules (UI design §4)
+
+Screens inherit the look from these; do not hand-roll a card, header or select.
+
+| Area | Rule | Use |
+| --- | --- | --- |
+| Type (§4.2) | h1 24/30, h2 20/26, h3 16/22 at 600; body 15/22, small 13/18, caption 12/16, label 11/14 uppercase, mono 13/20 | `text-h1` `text-h2` `text-h3` `text-body` `text-small` `text-caption` `text-label` `text-mono` (the older `text-2xl`…`text-xs` aliases map to the same sizes) |
+| Spacing (§4.3) | 4 px base; 2, 4, 8, 12, 16, 24, 32, 48 | `gap-2` `p-4` `gap-6` …; pages use 24 px gutters and a 24 px rhythm (`Page`) |
+| Radius (§4.3) | cards 10 (`rounded-lg`), inputs and buttons 8 (`rounded-md`), chips and avatars full, sheets and dialogs 14 (`rounded-xl`), panes 0 | `Card`, `Input`, `NativeSelect`, `Button`, `Badge` already follow it |
+| Elevation (§4.4) | 0: page (gray-1); 1: cards and the approval dock, gray-2 with a 1 px gray-6 border, no shadow; 2: popovers, menus (`shadow-level-2`); 3: sheets, dialogs (`shadow-level-3`); dark mode steps surfaces up instead of deepening shadows | `Card` / `.elevation-1`; popovers, selects, menus and dialogs already carry their level |
+| Motion (§4.5) | 120 ms hover and toggles (every `transition-*` utility's default), 200 ms cards (`animate-psy-rise`, `animate-psy-fade`), 320 ms sheets; `ease-psyche`; reduced motion makes all of it 0 ms | |
+| Icons (§4.6) | Lucide, 1.75 px stroke (set globally on `svg.lucide`), 16 / 20 / 24 | |
+| Semantic chips (§4.8) | `Badge` variants `approval`, `success`, `danger`, `info`, `muted`, `accent`; never a raw hue | |
+| Incognito (§4.8) | `data-incognito="true"` on a thread's root swaps the accent for gray | |
+| Pages (§3.0, §4.13) | `Page` (centred column, `wide` 880 px, `prose` 68ch, `full`), `PageHeader` (h1, facts, one sentence, actions), `SectionLabel`, `EmptyState` (optional icon, one sentence, one action), `ErrorState`, `LoadingCards` | `components/page.tsx` |
+| Times (§4.12) | `formatRelative`: "41 min ago", "5 h ago", "yesterday", "4 days ago", then "Oct 2" | `lib/format.ts` |
+
 **Theme generator** (`generateTheme({accentSeed, gray})`): Radix-style 12-step scales per appearance in OKLCH with colorjs.io; the seed lands on step 9, steps 1–8 ease with bezier curves, text on step 9 is chosen with APCA (advisory), and a binding WCAG 2 gate (step 11 ≥ 4.5:1 and step 12 ≥ 7:1 on step 2, contrast text ≥ 4.5:1 on step 9) nudges failing seeds and reports it in `nudged`. Outputs sRGB-mapped and P3 values and alpha scales. `pnpm --filter @psyche/ui gen:theme` regenerates the default theme CSS.
 
 ## Data layer

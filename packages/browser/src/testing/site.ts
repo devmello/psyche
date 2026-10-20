@@ -54,7 +54,9 @@ export type FxNode =
    * Who the `user` cookie says is signed in (`Signed in as <name>` / `Not signed in`), as a
    * `status` element: the partition-isolation proof for I15. `/submit/login` sets the cookie.
    */
-  | { kind: "signed_in" };
+  | { kind: "signed_in" }
+  /** `console.log(text)` when the page loads: the dev-preview console fixture (I12). */
+  | { kind: "console_log"; text: string };
 
 export interface FxPage {
   title: string;
@@ -168,6 +170,14 @@ export const FIXTURE_SITE: FxSite = {
             { kind: "button", text: "Sign in", type: "submit" },
           ],
         },
+      ],
+    },
+    "a/dev": {
+      title: "Dev server",
+      body: [
+        { kind: "heading", level: 1, text: "Vite app" },
+        { kind: "console_log", text: "hello from the dev server" },
+        { kind: "status", id: "status", text: "Ready" },
       ],
     },
     "a/account": {
@@ -367,6 +377,33 @@ export const FIXTURE_SITE: FxSite = {
             { kind: "input", label: "Name on card", name: "ccname", autocomplete: "cc-name" },
             { kind: "button", text: "Place order", type: "submit" },
           ],
+        },
+      ],
+    },
+    "a/cart": {
+      title: "Cart",
+      body: [
+        { kind: "heading", level: 1, text: "Your cart" },
+        { kind: "text", text: "Seller: Fixture Shop" },
+        {
+          kind: "table",
+          caption: "Cart",
+          rows: [
+            ["Item", "Qty", "Price"],
+            ["Laptop Stand 13-inch", "1", "$29.00"],
+          ],
+        },
+        { kind: "status", id: "total", text: "Total: $29.00" },
+        {
+          kind: "button",
+          text: "Apply coupon",
+          onClick: { kind: "set_text", id: "total", text: "Total: $19.00" },
+        },
+        {
+          kind: "form",
+          action: "/submit/order",
+          method: "post",
+          children: [{ kind: "button", text: "Place order", type: "submit" }],
         },
       ],
     },

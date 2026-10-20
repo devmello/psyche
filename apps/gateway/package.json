@@ -24,6 +24,7 @@
   "dependencies": {
     "@psyche/agent-core": "workspace:*",
     "@psyche/audit": "workspace:*",
+    "@psyche/backup": "workspace:*",
     "@psyche/browser": "workspace:*",
     "@psyche/channels": "workspace:*",
     "@psyche/connectors": "workspace:*",
@@ -37,6 +38,7 @@
     "@psyche/sandbox": "workspace:*",
     "@psyche/scheduler": "workspace:*",
     "@psyche/tasks": "workspace:*",
+    "@psyche/vault": "workspace:*",
     "@sinclair/typebox": "0.34.52",
     "ulid": "3.0.2",
     "ws": "8.22.0"

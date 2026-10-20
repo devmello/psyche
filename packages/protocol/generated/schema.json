@@ -463,6 +463,38 @@
         "sideEffecting": false
       },
       {
+        "description": "Writes a consistent snapshot of $PSYCHE_HOME to the backups directory (SQLite online backup for the state DB). Refuses without passphrase, recipients or unencrypted: true. Side-effecting.",
+        "name": "backup.create",
+        "params": "#/$defs/BackupCreateParams",
+        "result": "#/$defs/BackupCreateResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Deletes one backup archive. Side-effecting.",
+        "name": "backup.delete",
+        "params": "#/$defs/BackupDeleteParams",
+        "result": "#/$defs/BackupDeleteResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Lists local backup archives, newest first.",
+        "name": "backup.list",
+        "params": "#/$defs/BackupListParams",
+        "result": "#/$defs/BackupListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Decrypts an archive into a scratch directory and checks every manifest hash.",
+        "name": "backup.verify",
+        "params": "#/$defs/BackupVerifyParams",
+        "result": "#/$defs/BackupVerifyResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Closes a tab.",
         "name": "browser.close",
         "params": "#/$defs/BrowserCloseParams",
@@ -907,6 +939,14 @@
         "name": "library.list",
         "params": "#/$defs/LibraryListParams",
         "result": "#/$defs/LibraryListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Returns the newest matching log lines, oldest first, with the subsystems seen. No bodies or secrets.",
+        "name": "logs.tail",
+        "params": "#/$defs/LogsTailParams",
+        "result": "#/$defs/LogsTailResult",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -1426,6 +1466,14 @@
         "description": "Restores an archived thread.",
         "name": "threads.restore",
         "params": "#/$defs/ThreadIdParams",
+        "result": "#/$defs/ThreadResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Sets a thread's permission mode and/or model (composer /plan, /model, the mode and model pills). auto is refused with forbidden unless the thread's model is on the auto-mode allowlist; picking a model that is not allowed drops an auto thread to balanced.",
+        "name": "threads.update",
+        "params": "#/$defs/ThreadsUpdateParams",
         "result": "#/$defs/ThreadResult",
         "scope": "operator.write",
         "sideEffecting": false
@@ -3240,6 +3288,177 @@
       },
       "required": [
         "automationId"
+      ],
+      "type": "object"
+    },
+    "BackupCreateParams": {
+      "properties": {
+        "passphrase": {
+          "maxLength": 1024,
+          "minLength": 12,
+          "type": "string"
+        },
+        "recipients": {
+          "items": {
+            "pattern": "^age1[a-z0-9]+$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "type": "array"
+        },
+        "unencrypted": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "BackupCreateResult": {
+      "properties": {
+        "backup": {
+          "$ref": "#/$defs/BackupInfo"
+        },
+        "files": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "backup",
+        "files"
+      ],
+      "type": "object"
+    },
+    "BackupDeleteParams": {
+      "properties": {
+        "file": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[^/\\\\]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "type": "object"
+    },
+    "BackupDeleteResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "BackupInfo": {
+      "properties": {
+        "file": {
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "encrypted": {
+          "type": "boolean"
+        },
+        "verifiedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "file",
+        "createdAt",
+        "bytes",
+        "encrypted"
+      ],
+      "type": "object"
+    },
+    "BackupListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "BackupListResult": {
+      "properties": {
+        "backups": {
+          "items": {
+            "$ref": "#/$defs/BackupInfo"
+          },
+          "type": "array"
+        },
+        "dir": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "backups",
+        "dir"
+      ],
+      "type": "object"
+    },
+    "BackupVerifyParams": {
+      "properties": {
+        "file": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[^/\\\\]+$",
+          "type": "string"
+        },
+        "passphrase": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "type": "object"
+    },
+    "BackupVerifyResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "files": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "problems": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "backup": {
+          "$ref": "#/$defs/BackupInfo"
+        }
+      },
+      "required": [
+        "ok",
+        "files",
+        "problems",
+        "backup"
       ],
       "type": "object"
     },
@@ -5215,6 +5434,12 @@
         },
         "mode": {
           "$ref": "#/$defs/QueueMode"
+        },
+        "replyToMessageId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -8297,6 +8522,97 @@
       },
       "required": [
         "items"
+      ],
+      "type": "object"
+    },
+    "LogLevel": {
+      "enum": [
+        "debug",
+        "info",
+        "warn",
+        "error"
+      ],
+      "type": "string"
+    },
+    "LogLine": {
+      "properties": {
+        "ts": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/LogLevel"
+        },
+        "subsystem": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "fields": {
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "ts",
+        "level",
+        "msg"
+      ],
+      "type": "object"
+    },
+    "LogsTailParams": {
+      "properties": {
+        "lines": {
+          "maximum": 2000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "level": {
+          "$ref": "#/$defs/LogLevel"
+        },
+        "subsystem": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "search": {
+          "maxLength": 256,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "LogsTailResult": {
+      "properties": {
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/LogLine"
+          },
+          "type": "array"
+        },
+        "subsystems": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "lines",
+        "subsystems",
+        "truncated"
       ],
       "type": "object"
     },
@@ -13370,11 +13686,40 @@
         },
         "activity": {
           "$ref": "#/$defs/ThreadActivity"
+        },
+        "lastMessage": {
+          "$ref": "#/$defs/ThreadPreview"
         }
       },
       "required": [
         "thread",
         "activity"
+      ],
+      "type": "object"
+    },
+    "ThreadPreview": {
+      "properties": {
+        "role": {
+          "enum": [
+            "user",
+            "agent"
+          ],
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 160,
+          "type": "string"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "text",
+        "at"
       ],
       "type": "object"
     },
@@ -13562,6 +13907,35 @@
       "required": [
         "threadId",
         "title"
+      ],
+      "type": "object"
+    },
+    "ThreadsUpdateParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "permissionMode": {
+          "$ref": "#/$defs/PermissionMode"
+        },
+        "modelRef": {
+          "anyOf": [
+            {
+              "description": "provider/model",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "threadId"
       ],
       "type": "object"
     },
