@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import type {
   CredentialBinding,
   CredentialExecutor,
@@ -6,6 +5,7 @@ import type {
   FillElement,
   Target,
 } from "@psyche/protocol";
+import { bindingHash, toolCallBindingHash } from "@psyche/protocol/binding";
 
 /**
  * Origin of an http(s) URL (`scheme://host[:port]`, default ports dropped, host lowercased and
@@ -217,9 +217,22 @@ export function credentialFillFields(input: CredentialFillBindingInput): Record<
   return out;
 }
 
-export function credentialFillBindingHash(input: CredentialFillBindingInput): `sha256:${string}` {
-  const text = `psyche.binding.v1|credential_fill|${strictCanonicalJSON(credentialFillFields(input))}`;
-  return `sha256:${createHash("sha256").update(text, "utf8").digest("hex")}`;
+/**
+ * The `credential_fill` binding, through the shared recipe (`@psyche/protocol/binding`). For a
+ * fill the agent loop approved, the loop's envelope over the tool call with these fields; for a
+ * request the vault built itself (`requestFill`), the bare fields.
+ */
+export function credentialFillBindingHash(
+  input: CredentialFillBindingInput,
+  call?: { tool: string; params: unknown },
+): `sha256:${string}` {
+  const fields = credentialFillFields(input);
+  return call === undefined
+    ? bindingHash("credential_fill", fields)
+    : toolCallBindingHash(call.tool, call.params, {
+        kind: "credential_fill",
+        bindingFields: fields,
+      });
 }
 
 /** Field class a `site` grant is bound to (S23 design-01: the grant key includes it). */
