@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AuditEntry } from "@psyche/protocol";
@@ -130,5 +130,49 @@ describe("audit.* (S05 handlers mounted by the Gateway)", () => {
       ok: false,
       error: { code: "invalid_params" },
     });
+  });
+});
+
+describe("signed anchors (security §15.1)", () => {
+  it("the composed log signs anchors with the server key and audit.verify reports them", async () => {
+    const c = await setup();
+    await c.audit.append({ kind: "config.changed", actor: { type: "system" }, data: {} });
+    const desk = await desktopClient(c.gateway);
+    clients.push(desk);
+    const r = await desk.call<{
+      ok: boolean;
+      signedAnchors?: number;
+      anchorKeyIds?: string[];
+      signingSinceSeq?: number;
+    }>("audit.verify", {});
+    expect(r.ok).toBe(true);
+    // The key was created on an empty log, and the first entry is anchored (hourly anchors).
+    expect(r.signingSinceSeq).toBe(0);
+    expect(r.signedAnchors).toBeGreaterThanOrEqual(1);
+    expect(r.anchorKeyIds).toHaveLength(1);
+    const created = await c.audit.query({ kind: "audit.anchor_key.created" });
+    expect(created[0]?.data).toMatchObject({ keyId: r.anchorKeyIds?.[0], sinceSeq: 0 });
+  });
+
+  it("a restore marker resets the head and is audited; the key survives restarts", async () => {
+    const c = await setup();
+    const keyId = (await c.audit.query({ kind: "audit.anchor_key.created" }))[0]?.data.keyId;
+    await c.stop("test");
+    composed = null;
+    writeFileSync(join(home, "security", "restored.json"), "{}\n");
+    composed = await composeGateway({
+      env: {},
+      logger: silentLogger,
+      retentionIntervalMs: 0,
+      background: false,
+      config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+      model: { provider: new FakeModelProvider(), model: "fake/model" },
+    });
+    const reset = await composed.audit.query({ kind: "audit.anchor_head.reset" });
+    expect(reset).toHaveLength(1);
+    expect(reset[0]?.data).toMatchObject({ reason: "restore" });
+    expect(await composed.audit.query({ kind: "audit.anchor_key.created" })).toHaveLength(1);
+    const v = await composed.audit.verifyDetailed();
+    expect(v).toMatchObject({ ok: true, anchorKeyIds: [keyId] });
   });
 });
