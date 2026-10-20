@@ -2569,7 +2569,9 @@
         "policy_change",
         "task_start",
         "apple_script",
-        "shortcut_run"
+        "shortcut_run",
+        "git_write",
+        "git_push"
       ],
       "type": "string"
     },
