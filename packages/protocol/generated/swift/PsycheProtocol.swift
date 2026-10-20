@@ -400,6 +400,8 @@
 //   let modelsListResult = try? JSONDecoder().decode(ModelsListResult.self, from: jsonData)
 //   let modelsProbeParams = try? JSONDecoder().decode(ModelsProbeParams.self, from: jsonData)
 //   let modelsProbeResult = try? JSONDecoder().decode(ModelsProbeResult.self, from: jsonData)
+//   let modelsSetKeyParams = try? JSONDecoder().decode(ModelsSetKeyParams.self, from: jsonData)
+//   let modelsSetKeyResult = try? JSONDecoder().decode(ModelsSetKeyResult.self, from: jsonData)
 //   let modelsSetRoleParams = try? JSONDecoder().decode(ModelsSetRoleParams.self, from: jsonData)
 //   let modelsSetRoleResult = try? JSONDecoder().decode(ModelsSetRoleResult.self, from: jsonData)
 //   let nodeCapability = try? JSONDecoder().decode(NodeCapability.self, from: jsonData)
@@ -8918,6 +8920,35 @@ public struct ModelsProbeParams: Codable, Sendable {
 
 // MARK: - ModelsProbeResult
 public struct ModelsProbeResult: Codable, Sendable {
+    public let provider: ModelProviderSummary
+
+    public enum CodingKeys: String, CodingKey {
+        case provider = "provider"
+    }
+
+    public init(provider: ModelProviderSummary) {
+        self.provider = provider
+    }
+}
+
+// MARK: - ModelsSetKeyParams
+public struct ModelsSetKeyParams: Codable, Sendable {
+    public let key: String
+    public let providerID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case key = "key"
+        case providerID = "providerId"
+    }
+
+    public init(key: String, providerID: String) {
+        self.key = key
+        self.providerID = providerID
+    }
+}
+
+// MARK: - ModelsSetKeyResult
+public struct ModelsSetKeyResult: Codable, Sendable {
     public let provider: ModelProviderSummary
 
     public enum CodingKeys: String, CodingKey {
