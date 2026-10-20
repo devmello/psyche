@@ -152,4 +152,40 @@ export const agent = {
   "agent.memory.export": "Export everything",
   "agent.memory.resetDone":
     "Reset {files, plural, one {# file} other {# files}}, {claims, plural, one {# claim} other {# claims}}.",
+  "agent.creature.axolotl.name": "Axolotl",
+  "agent.creature.axolotl.description":
+    "A pale, wide-smiling axolotl with frilly accent-colored gills.",
+  "agent.creature.bat.name": "Bat",
+  "agent.creature.bat.description":
+    "A small fuzzy bat with big ears, scalloped wings and two tiny fangs.",
+  "agent.creature.cat.name": "Cat",
+  "agent.creature.cat.description":
+    "A round-faced tabby cat with whiskers, a curled tail and a little belled collar.",
+  "agent.creature.fox.name": "Fox",
+  "agent.creature.fox.description":
+    "A sitting fox with tall pointed ears, a pale muzzle and a bushy tail.",
+  "agent.creature.frog.name": "Frog",
+  "agent.creature.frog.description":
+    "A squat, wide-mouthed frog with bulging eyes and a few accent spots.",
+  "agent.creature.hedgehog.name": "Hedgehog",
+  "agent.creature.hedgehog.description":
+    "A round hedgehog with a spiky coat, a soft pale face and a button nose.",
+  "agent.creature.moth.name": "Moth",
+  "agent.creature.moth.description":
+    "A pale, fluffy moth with glowing lantern eyes and accent-colored spots on its wings.",
+  "agent.creature.octopus.name": "Octopus",
+  "agent.creature.octopus.description":
+    "A cheerful octopus with a spotted dome and curling tentacles.",
+  "agent.creature.owl.name": "Owl",
+  "agent.creature.owl.description":
+    "A round owl with tufted ears, a speckled belly and big accent-ringed eyes.",
+  "agent.creature.snail.name": "Snail",
+  "agent.creature.snail.description":
+    "An unhurried snail with a swirled accent shell and eyes on tall stalks.",
+  "agent.creature.sprout.name": "Sprout",
+  "agent.creature.sprout.description":
+    "A little seed creature with a round pale body and two fresh leaves on top.",
+  "agent.creature.turtle.name": "Turtle",
+  "agent.creature.turtle.description":
+    "A gentle turtle peeking out from under a domed accent shell.",
 } as const;

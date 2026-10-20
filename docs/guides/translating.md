@@ -36,7 +36,7 @@ import { t } from "../../i18n/core.ts";
 <p>{t("context.limits.errorRange", { min: 20, max: 95 })}</p>
 ```
 
-- **`t(id, values)` works in components and in plain helpers**, such as label maps or toast text. Ids are typed, so a missing id fails `tsc`.
+- **`t(id, values)` works in components and in plain helpers**, such as label records or toast text. Ids are typed, so a missing id fails `tsc`.
 - **Ids built from data** use a template whose prefix exists: ``t(`context.breakdown.${key}`)``, where `key` is a union of known keys.
 - **Formatting goes through the active i18n.** `activeI18n()` has `number`, `percent`, `date`, `time`, `dateTime` and `list`, all in the region format. The helpers in `lib/format.ts` (`formatRelative`, `formatDuration`, `formatTime`, `formatDate`) already do this. Don't call `toLocaleString()` without a locale.
 - **Gateway errors:** show `describeError(err)` from `i18n/errors.ts`, not `err.message`.
@@ -52,22 +52,35 @@ pnpm i18n:check
 
 `scripts/i18n-check.ts` runs in CI after lint. It fails when:
 
-- **Text is hard-coded** in `.tsx` files under `packages/ui/src` and `apps/web/src`:
+- **Text is hard-coded** in `.ts` and `.tsx` files under `packages/ui/src` and `apps/web/src`:
   - letters in JSX text;
-  - user-facing attributes (`aria-label`, `title`, `placeholder`, `alt`, `label`, `description` and similar);
+  - user-facing attributes (`aria-label`, `title`, `placeholder`, `alt`, `label`, `description`, `did` and similar);
   - string expressions rendered as children (`{busy ? "Saving…" : "Save"}`);
-  - `toast()` messages.
+  - `toast()` messages;
+  - user-facing keys in object literals: `label`, `text`, `hint`, `description`, `title`, `placeholder`, `term`, `empty`, `detail` and `did`. These cover option lists, `action={{ label }}`, notices and label records.
 - **An id is missing:** a `t("…")` id isn't in the English catalogue, or no id starts with the prefix of a template id.
 
-Text inside `<code>`, `<kbd>`, `<pre>` and `<samp>` is exempt, and so are stories, fixtures and tests. For anything else that must stay as written, such as a product name or a protocol keyword, put `i18n-ignore` and the reason in a comment on that line or the line above.
+These are exempt:
+- text inside `<code>`, `<kbd>`, `<pre>` and `<samp>`;
+- class-name-like values in object literals (`"text-muted-foreground"`);
+- stories, fixtures, tests, `mock-*` files and `sample-data` files.
 
-The extraction is landing screen group by screen group. Until it is done, `scripts/i18n-baseline.json` records how many hard-coded strings each file may still have.
+For anything else that must stay as written, such as a product name or a protocol keyword, put `i18n-ignore` and the reason in a comment on that line or the line above. For a block of such values, use `i18n-ignore-start: <reason>` and `i18n-ignore-end`. The provider and model names in onboarding use this.
 
-- A file may go **down**, never up. New code adds no hard-coded text.
-- After extracting strings, run `pnpm i18n:check --update` to lock in the lower counts. It refuses to raise any count.
+The kit and the web app have no hard-coded text left, so `scripts/i18n-baseline.json` is empty: every file must stay at zero. The baseline mechanism remains for future checks that need one:
+- `pnpm i18n:check --update` locks in lower counts and refuses higher ones;
 - `--verbose` lists every remaining string.
 
-String label maps in `.ts` files, like `screens/settings/setting-labels.ts`, are invisible to the check. Move them to the catalogue with the screen group they belong to.
+A label record in a `.ts` file (a `Record<Key, string>` of display names) keeps its exported name with getters that call `t()`:
+
+```ts
+export const MODE_LABEL: Record<PermissionMode, string> = {
+  get manual() {
+    return t("agent.mode.manual");
+  },
+  // …
+};
+```
 
 ## Right to left
 

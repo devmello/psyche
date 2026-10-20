@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { t } from "../../i18n/core.ts";
 import { AtLaptop, type PawRenderer } from "./laptop.tsx";
 import {
   ACCENT,
@@ -65,7 +66,11 @@ function render(pose: CreaturePose): ReactElement {
 
 export const sprout: CreatureDefinition = {
   id: "sprout",
-  name: "Sprout",
-  description: "A little seed creature with a round pale body and two fresh leaves on top.",
+  get name() {
+    return t("agent.creature.sprout.name");
+  },
+  get description() {
+    return t("agent.creature.sprout.description");
+  },
   render,
 };

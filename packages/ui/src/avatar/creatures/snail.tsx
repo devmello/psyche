@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { t } from "../../i18n/core.ts";
 import { AtLaptop } from "./laptop.tsx";
 import { ACCENT, ACCENT_SOFT, BLUSH, Eye, fine, ink, LINE, MID, n, PALE, Smile } from "./parts.tsx";
 import type { CreatureDefinition, CreaturePose } from "./types.ts";
@@ -60,7 +61,11 @@ function render(pose: CreaturePose): ReactElement {
 
 export const snail: CreatureDefinition = {
   id: "snail",
-  name: "Snail",
-  description: "An unhurried snail with a swirled accent shell and eyes on tall stalks.",
+  get name() {
+    return t("agent.creature.snail.name");
+  },
+  get description() {
+    return t("agent.creature.snail.description");
+  },
   render,
 };

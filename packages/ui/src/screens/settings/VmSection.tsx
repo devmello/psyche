@@ -109,6 +109,7 @@ function GuestCard({ report, now }: { report: VmUpdatedPayload; now: number }): 
       ) : null}
       <Facts
         items={[
+          // i18n-ignore: the operating system's name
           { term: "macOS", value: g.guestOS ?? t("settings.vm.notInstalled") },
           {
             term: t("settings.vm.resources"),

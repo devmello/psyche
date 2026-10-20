@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { t } from "../../i18n/core.ts";
 import { AtLaptop } from "./laptop.tsx";
 import { ACCENT_SOFT, Cheeks, Eyes, ink, MID, Mirrored, Smile, Tube } from "./parts.tsx";
 import type { CreatureDefinition, CreaturePose } from "./types.ts";
@@ -38,7 +39,11 @@ function render(pose: CreaturePose): ReactElement {
 
 export const octopus: CreatureDefinition = {
   id: "octopus",
-  name: "Octopus",
-  description: "A cheerful octopus with a spotted dome and curling tentacles.",
+  get name() {
+    return t("agent.creature.octopus.name");
+  },
+  get description() {
+    return t("agent.creature.octopus.description");
+  },
   render,
 };

@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { t } from "../../i18n/core.ts";
 import { AtLaptop } from "./laptop.tsx";
 import { BLUSH, Cheeks, DEEP, Eyes, fine, GLINT, ink, MID, Mirrored, Smile } from "./parts.tsx";
 import type { CreatureDefinition, CreaturePose } from "./types.ts";
@@ -36,7 +37,11 @@ function render(pose: CreaturePose): ReactElement {
 
 export const bat: CreatureDefinition = {
   id: "bat",
-  name: "Bat",
-  description: "A small fuzzy bat with big ears, scalloped wings and two tiny fangs.",
+  get name() {
+    return t("agent.creature.bat.name");
+  },
+  get description() {
+    return t("agent.creature.bat.description");
+  },
   render,
 };
