@@ -604,6 +604,10 @@ function lockDownDefaultSession(): void {
 }
 
 void app.whenReady().then(async () => {
+  // Packaged builds get the icon from the bundle (forge.config.ts); dev runs set the Dock icon here.
+  if (!app.isPackaged && process.platform === "darwin") {
+    app.dock?.setIcon(join(app.getAppPath(), "assets", "icon.png"));
+  }
   if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) await serveAppProtocol();
   lockDownDefaultSession();
   Menu.setApplicationMenu(
