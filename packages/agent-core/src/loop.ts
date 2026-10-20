@@ -2,6 +2,8 @@ import {
   type AgentEvent,
   type AgentLoop,
   type ApprovalKind,
+  type ApprovalRequest,
+  type ApprovalStatus,
   type Block,
   type Clock,
   type ContextExplanation,
@@ -226,6 +228,8 @@ interface RunState {
   /** Harness actions gated in this run, and those allowed but not yet reported (C10). */
   harnessActions: number;
   harnessPending: Map<string, Gated>;
+  /** Write-ahead hook (`StartTurnInput.beforeDispatch`, #63): awaited before every dispatch. */
+  beforeDispatch?: StartTurnInput["beforeDispatch"];
 }
 
 interface Gated {
@@ -310,6 +314,10 @@ export class PsycheAgentLoop implements AgentLoop {
   #budgets: ContextBudgets;
   #policy: CompactionPolicy;
   #runs = new Map<string, RunState>();
+  /** When this loop (this process) started: earlier approvals belong to a dead process (#64). */
+  #bootedAt = 0;
+  /** Every run this process started: only another process's cards are ever re-used (#64). */
+  #ranHere = new Set<string>();
   #threads = new Map<string, { activeRunId?: string; followUps: string[] }>();
   #explanations = new Map<string, ContextExplanation>();
   #plans = new Map<string, { threadId: string; title: string; plan: string }>();
@@ -319,6 +327,7 @@ export class PsycheAgentLoop implements AgentLoop {
   constructor(options: AgentLoopOptions) {
     this.#o = options;
     this.#clock = options.clock ?? systemClock;
+    this.#bootedAt = this.#clock.now();
     this.#ids = options.ids ?? randomIds;
     this.#state = options.state ?? new InMemoryThreadStateStore();
     this.#budgets = { ...DEFAULT_CONTEXT_BUDGETS, ...options.budgets };
@@ -470,6 +479,7 @@ export class PsycheAgentLoop implements AgentLoop {
       // Only the owner's words name targets the agent may act on (security §3.6, §9).
       ownerText: ownerSent ? input.input.text : "",
       ...(requester === undefined ? {} : { requester }),
+      ...(input.beforeDispatch === undefined ? {} : { beforeDispatch: input.beforeDispatch }),
       abort,
       steer: [],
       taint: false,
@@ -493,6 +503,7 @@ export class PsycheAgentLoop implements AgentLoop {
         : { subagent: { parentRunId: child.parent.runId, maxSteps: child.maxSteps } }),
     };
     this.#runs.set(runId, run);
+    this.#ranHere.add(runId);
     let outcome: RunOutcome = "final";
     let error: string | undefined;
     try {
@@ -1332,53 +1343,62 @@ export class PsycheAgentLoop implements AgentLoop {
         decision.bindingHash ??
         intentBinding ??
         bindingHash(approvalKind, { tool: call.name, paramsHash: hash });
-      const issued = await this.#o.broker.requestApproval({
-        context,
-        kind: approvalKind,
-        summary: desc.summary ?? `${call.name}`,
-        details: {
-          ...desc.details,
-          tool: call.name,
-          params: structuredClone(args) as unknown,
-          ...(target === undefined ? {} : { target }),
-        },
-        bindingHash: binding,
-        grantKey: decision.grantKey ?? grantKey ?? `${call.name}|${target?.value ?? "*"}`,
-        requestedBy: {
-          runId: run.runId,
-          taskId: run.taskId ?? null,
-          threadId: run.threadId,
-          toolCallId: call.id,
-        },
-        sideEffect,
-        ...((target?.kind ?? reg.spec.targetKind)
-          ? { targetKind: target?.kind ?? reg.spec.targetKind }
-          : {}),
-        ...(target === undefined ? {} : { target }),
-        surfaces: this.#o.approvalSurfaces ?? ["desktop"],
-        // Protected memory "always asks" (security §8): no standing grant may cover it.
-        ...(approvalKind === "memory_protected_write"
-          ? { scopesOffered: ["once" as const] }
-          : decision.scopesOffered === undefined
-            ? {}
-            : { scopesOffered: decision.scopesOffered }),
-        taint: run.taint,
-      });
-      const approvalId = issued.approval.id;
+      // After a restart the broker re-issued the dead run's card for this exact call: the
+      // recovered turn waits on that card instead of showing the owner a second one (#64).
+      const adopted = await this.#reissuedCard(run, approvalKind, binding);
+      const approval =
+        adopted ??
+        (
+          await this.#o.broker.requestApproval({
+            context,
+            kind: approvalKind,
+            summary: desc.summary ?? `${call.name}`,
+            details: {
+              ...desc.details,
+              tool: call.name,
+              params: structuredClone(args) as unknown,
+              ...(target === undefined ? {} : { target }),
+            },
+            bindingHash: binding,
+            grantKey: decision.grantKey ?? grantKey ?? `${call.name}|${target?.value ?? "*"}`,
+            requestedBy: {
+              runId: run.runId,
+              taskId: run.taskId ?? null,
+              threadId: run.threadId,
+              toolCallId: call.id,
+            },
+            sideEffect,
+            ...((target?.kind ?? reg.spec.targetKind)
+              ? { targetKind: target?.kind ?? reg.spec.targetKind }
+              : {}),
+            ...(target === undefined ? {} : { target }),
+            surfaces: this.#o.approvalSurfaces ?? ["desktop"],
+            // Protected memory "always asks" (security §8): no standing grant may cover it.
+            ...(approvalKind === "memory_protected_write"
+              ? { scopesOffered: ["once" as const] }
+              : decision.scopesOffered === undefined
+                ? {}
+                : { scopesOffered: decision.scopesOffered }),
+            taint: run.taint,
+          })
+        ).approval;
+      const approvalId = approval.id;
       gated.approvalId = approvalId;
-      run.emit({ type: "approval_requested", runId: run.runId, approval: issued.approval });
+      run.emit({ type: "approval_requested", runId: run.runId, approval });
       this.#block(run, { type: "approval", approvalId });
       if (run.mode === "unattended") {
-        // C8: no attempt; the request waits in the queue and the owner is notified.
-        await this.#o.notifier
-          ?.notify({
-            kind: "approval",
-            title: `Approval needed: ${issued.approval.summary}`,
-            body: `An unattended run wants to ${issued.approval.summary}.`,
-            approvalId,
-            ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
-          })
-          .catch(() => undefined);
+        // C8: no attempt; the request waits in the queue and the owner is notified (once).
+        if (adopted === undefined) {
+          await this.#o.notifier
+            ?.notify({
+              kind: "approval",
+              title: `Approval needed: ${approval.summary}`,
+              body: `An unattended run wants to ${approval.summary}.`,
+              approvalId,
+              ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
+            })
+            .catch(() => undefined);
+        }
         const note = "deferred: queued for the owner's approval; continue without this action";
         this.#toolEvent(
           run,
@@ -1425,6 +1445,51 @@ export class PsycheAgentLoop implements AgentLoop {
       };
     }
     return { proceed: gated };
+  }
+
+  /**
+   * A card the broker re-issued after a restart (security §3.7 "Restart") for this exact call
+   * of this Task: same kind and binding hash, requested by a run of a previous process, not yet
+   * used by a dispatch, and shown with at least this run's taint. A restart invalidates every
+   * older pending card, so a pending match is a re-issued one. Attended runs also take a `once`
+   * card the owner approved since this process started (earlier approvals were revoked by the
+   * restart); unattended runs only a pending one. Owner runs only: a card does not carry who it
+   * was for.
+   */
+  async #reissuedCard(
+    run: RunState,
+    kind: ApprovalKind,
+    binding: string,
+  ): Promise<ApprovalRequest | undefined> {
+    if (run.taskId === undefined || run.subagent !== undefined) return undefined;
+    if (run.requester !== undefined && run.requester.role !== "owner") return undefined;
+    const statuses: ApprovalStatus[] =
+      run.mode === "attended" ? ["pending", "approved"] : ["pending"];
+    const candidates: ApprovalRequest[] = [];
+    for (const status of statuses) {
+      for (const a of await this.#o.broker.list({ status })) {
+        const by = a.requestedBy;
+        if (by.taskId !== run.taskId || by.threadId !== run.threadId) continue;
+        if (a.kind !== kind || a.bindingHash !== binding) continue;
+        if (by.runId == null || this.#ranHere.has(by.runId)) continue;
+        if (run.taint && !a.taint) continue;
+        // An approval decided before this process started was revoked by the restart.
+        if (
+          status === "approved" &&
+          (a.scopeGranted !== "once" ||
+            a.decidedAt == null ||
+            Date.parse(a.decidedAt) < this.#bootedAt)
+        )
+          continue;
+        candidates.push(a);
+      }
+    }
+    if (candidates.length === 0) return undefined;
+    // A dispatch records its approval on the receipt: such a card is spent.
+    const used = new Set(
+      (await this.#o.broker.listReceipts({ taskId: run.taskId })).map((r) => r.approvalId),
+    );
+    return candidates.find((a) => !used.has(a.id));
   }
 
   /** The broker's view of the run for `decide` and the card (security §3.6, §9). */
@@ -1516,6 +1581,26 @@ export class PsycheAgentLoop implements AgentLoop {
         "binding_mismatch",
       );
       return (outcome as { done: ModelPart }).done;
+    }
+    if (run.beforeDispatch !== undefined) {
+      // Write-ahead (#63): the step is durable as in flight before anything can reach a provider.
+      try {
+        await run.beforeDispatch({
+          toolCallId: call.id,
+          tool: call.name,
+          sideEffect: g.sideEffect,
+          ...(g.approvalId === undefined ? {} : { approvalId: g.approvalId }),
+        });
+      } catch (err) {
+        this.#checkAbort(run);
+        const outcome = await this.#finishBlocked(
+          run,
+          g,
+          `not dispatched: the step could not be recorded (${errorMessage(err)})`,
+        );
+        return (outcome as { done: ModelPart }).done;
+      }
+      this.#checkAbort(run);
     }
     // The executor gets its own copy of the gated arguments; its mutations stay its own.
     const args = structuredClone(g.args);
