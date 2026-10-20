@@ -942,6 +942,43 @@ export class MockGateway implements GatewayClient {
       this.world.credentials = [...this.world.credentials, credential];
       return { credential };
     },
+    "vault.update": (p) => {
+      const current = this.world.credentials.find((c) => c.id === p.credentialId);
+      if (current === undefined) return fail("not_found", "No such vault item.");
+      if (current.ownerConnectorId !== null) fail("forbidden", "Its connector manages this item.");
+      if (p.secret !== undefined && /\b(?:\d[ -]?){13,19}\b/.test(JSON.stringify(p.secret)))
+        fail("policy_denied", "Card numbers are refused; connect a payment link instead.");
+      // The mock never keeps the secret; omitted fields stay as they are.
+      const credential: CredentialMeta = {
+        ...current,
+        ...(p.name === undefined ? {} : { name: p.name }),
+        ...(p.bindings === undefined ? {} : { bindings: p.bindings }),
+        updatedAt: this.now(),
+      };
+      this.world.credentials = this.world.credentials.map((c) =>
+        c.id === credential.id ? credential : c,
+      );
+      this.emit("credential.updated", {
+        credentialId: credential.id,
+        change: "updated",
+        credential,
+        ownerConnectorId: null,
+      });
+      return { credential };
+    },
+    "vault.delete": (p) => {
+      const current = this.world.credentials.find((c) => c.id === p.credentialId);
+      if (current === undefined) return { deleted: false };
+      if (current.ownerConnectorId !== null) fail("forbidden", "Its connector manages this item.");
+      this.world.credentials = this.world.credentials.filter((c) => c.id !== current.id);
+      this.emit("credential.updated", {
+        credentialId: current.id,
+        change: "deleted",
+        credential: null,
+        ownerConnectorId: null,
+      });
+      return { deleted: true };
+    },
     "channels.pairing.list": (p) => ({
       requests: this.world.pairingRequests.filter(
         (r) =>
