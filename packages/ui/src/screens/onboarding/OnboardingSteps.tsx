@@ -43,8 +43,8 @@ export function MeetStep({
   const set = (patch: Partial<PersonaDraft>) => onChange({ ...value, ...patch });
   const name = value.name.trim() === "" ? DEFAULT_NAME : value.name.trim();
   return (
-    <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_14rem]">
-      <div className="flex flex-col gap-5">
+    <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_14rem] md:items-start">
+      <div className="flex min-w-0 flex-col gap-5" data-testid="onboarding-form">
         <div className="flex flex-col gap-2">
           <Label htmlFor={`${id}-name`}>Name</Label>
           <Input
@@ -137,7 +137,8 @@ export function MeetStep({
 
       <figure
         aria-label="Preview"
-        className="flex flex-col items-center gap-2 self-start rounded-lg border border-gray-6 bg-gray-2 p-4 text-center"
+        data-testid="onboarding-preview"
+        className="flex flex-col items-center gap-2 self-start rounded-lg border border-gray-6 bg-gray-2 p-4 text-center md:sticky md:top-4"
       >
         <Avatar name={name} creature={value.creatureId} size={160} />
         <figcaption>

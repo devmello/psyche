@@ -70,12 +70,25 @@ describe("feed kind derivation (s12 gap 5)", () => {
 
 describe("FeedScreen", () => {
   it("renders the bounded brief with kind labels, sources and the end marker", async () => {
-    setup(<FeedScreen onAsk={() => {}} />);
+    const { user } = setup(<FeedScreen onAsk={() => {}} />);
     expect(await screen.findByText("Today · 7 posts")).toBeTruthy();
     const briefing = screen.getByRole("article", { name: "Two things before your 10:00" });
     expect(within(briefing).getByText("Briefing")).toBeTruthy();
     expect(within(briefing).getByText("Sources (3)")).toBeTruthy();
-    expect(within(briefing).getByRole("button", { name: /Hide acme\.com/ })).toBeTruthy();
+    for (const name of ["Like", "Save", "Ask Wren"]) {
+      expect(within(briefing).getByRole("button", { name })).toBeTruthy();
+    }
+    // Follow, Not interested and Hide source sit under ⋯ (§3.9).
+    expect(within(briefing).queryByRole("button", { name: /Hide acme\.com/ })).toBeNull();
+    await user.click(
+      within(briefing).getByRole("button", {
+        name: "More feedback on Two things before your 10:00",
+      }),
+    );
+    expect(await screen.findByRole("menuitem", { name: /Hide acme\.com/ })).toBeTruthy();
+    expect(screen.getByRole("menuitem", { name: /Not interested/ })).toBeTruthy();
+    expect(screen.getByRole("menuitemcheckbox", { name: "Follow topic" })).toBeTruthy();
+    await user.keyboard("{Escape}");
     expect(screen.getByText("News cluster")).toBeTruthy();
     expect(screen.getByText("Lisbon · exploration slot")).toBeTruthy();
     expect(screen.getByText("That's it for today. Next brief 07:00.")).toBeTruthy();
@@ -86,7 +99,8 @@ describe("FeedScreen", () => {
     const card = await screen.findByRole("article", {
       name: "Tram 28 runs a shorter route in November",
     });
-    await user.click(within(card).getByRole("button", { name: /Not interested/ }));
+    await user.click(within(card).getByRole("button", { name: /^More feedback on/ }));
+    await user.click(await screen.findByRole("menuitem", { name: /Not interested/ }));
     expect(screen.queryByRole("article", { name: /Tram 28/ })).toBeNull();
     await waitFor(() => expect(callsTo("feed.feedback")).toHaveLength(1));
     expect(callsTo("feed.feedback")[0]?.params).toMatchObject({
@@ -102,7 +116,10 @@ describe("FeedScreen", () => {
   it("sends the topic with Follow and toggles Like", async () => {
     const { callsTo, user } = setup(<FeedScreen />);
     const news = await screen.findByRole("article", { name: /manipulation benchmarks/ });
-    await user.click(within(news).getByRole("button", { name: "Follow: robotics manipulation" }));
+    await user.click(within(news).getByRole("button", { name: /^More feedback on/ }));
+    await user.click(
+      await screen.findByRole("menuitemcheckbox", { name: "Follow: robotics manipulation" }),
+    );
     await waitFor(() =>
       expect(callsTo("feed.feedback")[0]?.params).toMatchObject({
         feedback: "follow_topic",
@@ -326,6 +343,9 @@ describe("InboxScreen", () => {
     expect(within(row).getByText("Approval")).toBeTruthy();
     expect(await within(row).findByText("28:41")).toBeTruthy();
     const approve = await within(row).findByRole("button", { name: /^Approve once:/ });
+    // Deny sits left of Approve, as on the approval card.
+    const deny = within(row).getByRole("button", { name: /^Deny:/ });
+    expect(deny.compareDocumentPosition(approve) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // Inline buttons arm 400 ms after they appear.
     await waitFor(() => expect((approve as HTMLButtonElement).disabled).toBe(false));
     await user.click(approve);

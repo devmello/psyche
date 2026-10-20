@@ -1,14 +1,21 @@
 import type { FeedPost } from "@psyche/protocol";
-import { CalendarClock, CircleAlert, Loader, PenLine } from "lucide-react";
+import { CalendarClock, CircleAlert, Loader, Newspaper, PenLine } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { toast } from "sonner";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+  Page,
+  PageHeader,
+  useDelayedFlag,
+} from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useFeed } from "../../data/hooks.ts";
 import { formatTime, plural } from "../../lib/format.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { type FeedFeedbackValue, FeedPostCard } from "./FeedPostCard.tsx";
 import { feedTopic, primarySource } from "./feed-post.ts";
-import { EmptyState, ErrorState, LoadingCards, ScreenHeader, useDelayedFlag } from "./states.tsx";
 
 /** A source the brief could not read (the protocol has no field for it yet; see the report). */
 export interface FeedSourceFailure {
@@ -90,6 +97,7 @@ export function FeedView({
   } else if (posts.length === 0) {
     body = (
       <EmptyState
+        icon={Newspaper}
         {...(onGenerate
           ? { action: { label: "Generate the first brief", onClick: onGenerate } }
           : {})}
@@ -100,7 +108,7 @@ export function FeedView({
   } else {
     body = (
       <>
-        <ul aria-label="Posts" className="flex flex-col gap-3">
+        <ul aria-label="Posts" className="flex flex-col gap-4">
           {posts.map((post) => (
             <li key={post.id}>
               <FeedPostCard
@@ -112,62 +120,68 @@ export function FeedView({
             </li>
           ))}
         </ul>
-        <p className="py-6 text-center text-sm text-muted-foreground">
-          That's it for today.{nextAt ? ` Next brief ${nextAt}.` : ""}
-        </p>
+        <div className="flex items-center gap-3 py-4">
+          <span aria-hidden="true" className="h-px flex-1 bg-gray-6" />
+          <p className="text-small text-gray-11">
+            That's it for today.{nextAt ? ` Next brief ${nextAt}.` : ""}
+          </p>
+          <span aria-hidden="true" className="h-px flex-1 bg-gray-6" />
+        </div>
       </>
     );
   }
 
   return (
-    <section aria-label="Feed" className="mx-auto flex max-w-[68ch] flex-col gap-4 p-4">
-      <ScreenHeader
-        title="Feed"
-        meta={settled && posts.length > 0 ? `Today · ${plural(posts.length, "post")}` : "Today"}
-        actions={
-          <>
-            {onEditInstructions ? (
-              <Button type="button" size="sm" variant="outline" onClick={onEditInstructions}>
-                <PenLine aria-hidden="true" />
-                What should I write about
-              </Button>
-            ) : null}
-            {onSchedule ? (
-              <Button type="button" size="sm" variant="outline" onClick={onSchedule}>
-                <CalendarClock aria-hidden="true" />
-                Schedule
-              </Button>
-            ) : null}
-          </>
-        }
-      />
-      {settled && sourceFailures.length > 0 ? (
-        <ul aria-label="Sources this brief skipped" className="flex flex-col gap-1">
-          {sourceFailures.map((f) => (
-            <li
-              key={f.source}
-              className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-6 bg-gray-2 px-3 py-2 text-sm"
-            >
-              <CircleAlert className="size-4 shrink-0 text-approval-text" aria-hidden="true" />
-              <span className="min-w-0 flex-1">
-                {f.source} wasn't read ({f.reason}). Psyche left it out of this brief.
-              </span>
-              {f.route !== undefined && onOpenRoute ? (
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="outline"
-                  onClick={() => onOpenRoute(f.route ?? "")}
-                  aria-label={`Fix ${f.source}`}
-                >
-                  Fix
+    <section aria-label="Feed">
+      <Page width="prose">
+        <PageHeader
+          title="Feed"
+          meta={settled && posts.length > 0 ? `Today · ${plural(posts.length, "post")}` : "Today"}
+          actions={
+            <>
+              {onEditInstructions ? (
+                <Button type="button" size="sm" variant="outline" onClick={onEditInstructions}>
+                  <PenLine aria-hidden="true" />
+                  What should I write about
                 </Button>
               ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {body}
+              {onSchedule ? (
+                <Button type="button" size="sm" variant="ghost" onClick={onSchedule}>
+                  <CalendarClock aria-hidden="true" />
+                  Schedule
+                </Button>
+              ) : null}
+            </>
+          }
+        />
+        {settled && sourceFailures.length > 0 ? (
+          <ul aria-label="Sources this brief skipped" className="flex flex-col gap-1">
+            {sourceFailures.map((f) => (
+              <li
+                key={f.source}
+                className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-6 bg-gray-2 px-3 py-2 text-sm"
+              >
+                <CircleAlert className="size-4 shrink-0 text-approval-text" aria-hidden="true" />
+                <span className="min-w-0 flex-1">
+                  {f.source} wasn't read ({f.reason}). Psyche left it out of this brief.
+                </span>
+                {f.route !== undefined && onOpenRoute ? (
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    onClick={() => onOpenRoute(f.route ?? "")}
+                    aria-label={`Fix ${f.source}`}
+                  >
+                    Fix
+                  </Button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {body}
+      </Page>
     </section>
   );
 }

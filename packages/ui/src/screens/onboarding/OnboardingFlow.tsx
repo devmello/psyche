@@ -202,7 +202,14 @@ export function OnboardingFlow({
   const isLast = current === "done";
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+    <div
+      // A centered column (UI design §4.1: prose width plus the preview column). In a flex
+      // parent it is also centred vertically (`my-auto`) with a steady minimum height, so the
+      // step body never floats above an empty window and Back / Next keep their place between
+      // steps; taller steps scroll.
+      className="mx-auto my-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-8 sm:px-10 md:min-h-[600px]"
+      data-testid="onboarding-flow"
+    >
       <nav aria-label="Onboarding progress">
         <ol className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
           {ONBOARDING_STEP_IDS.map((s, i) => {
@@ -250,7 +257,7 @@ export function OnboardingFlow({
         </ol>
       </nav>
 
-      <section aria-labelledby={headingId} className="flex flex-col gap-4">
+      <section aria-labelledby={headingId} className="flex flex-1 flex-col gap-4">
         <h2
           id={headingId}
           ref={headingRef}
@@ -303,7 +310,10 @@ export function OnboardingFlow({
         {current === "done" ? <DoneStep result={result} /> : null}
       </section>
 
-      <div className="flex items-center justify-between gap-2 border-t border-gray-6 pt-4">
+      <div
+        className="mt-auto flex items-center justify-between gap-2 border-t border-gray-6 pt-4"
+        data-testid="onboarding-nav"
+      >
         <Button
           type="button"
           variant="ghost"
