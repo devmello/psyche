@@ -1,13 +1,14 @@
 import type { Connector } from "@psyche/protocol";
 import { Plug } from "lucide-react";
 import { type ReactElement, useId, useState } from "react";
+import { EmptyState } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
+import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { useGatewayQuery } from "../../data/hooks.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
 import {
-  EmptyNotice,
   Group,
   LoadGate,
   type LoadProps,
@@ -124,7 +125,8 @@ export function ConnectorsPanel({
     <SectionFrame
       title="Connectors"
       description="Decide which accounts to connect. Disconnect pauses one and keeps its settings; Remove deletes it."
-      actions={addButton}
+      // One primary action: the header's button, or the empty state's when nothing is connected.
+      actions={connectors.length > 0 || loading || error ? addButton : null}
     >
       <LoadGate
         label="connectors"
@@ -143,10 +145,17 @@ export function ConnectorsPanel({
           />
         ) : null}
         {connectors.length === 0 ? (
-          <EmptyNotice
-            text={`No accounts connected. ${persona} works with what you connect here.`}
-            action={addButton && !adding ? addButton : null}
-          />
+          adding ? null : (
+            <EmptyState
+              icon={Plug}
+              className="elevation-1 py-10"
+              {...(onConnect
+                ? { action: { label: "Connect an account", onClick: () => setAdding(true) } }
+                : {})}
+            >
+              No accounts connected. {persona} works with what you connect here.
+            </EmptyState>
+          )
         ) : (
           <ul className="flex flex-col gap-3">
             {connectors.map((c) => {
@@ -237,9 +246,9 @@ function ConnectForm({
         <label htmlFor={`${id}-type`} className="font-medium">
           Account type
         </label>
-        <select
+        <NativeSelect
           id={`${id}-type`}
-          className="h-8 max-w-sm rounded-lg border border-input bg-background px-2 text-sm"
+          className="min-w-56"
           value={type}
           onChange={(e) => setType(e.target.value)}
         >
@@ -248,7 +257,7 @@ function ConnectForm({
               {c.label}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
       <ConnectAccessChoice
         label={`What can ${persona} do with it?`}
