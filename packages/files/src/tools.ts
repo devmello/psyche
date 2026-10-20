@@ -160,14 +160,37 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
     assertNotProtected(path, options.protectedRoots?.());
     assertGranted(path, options.folders?.(), access);
   };
-  const recordWrite = (path: string, data: Uint8Array, ctx: ToolRunContext) =>
+  /**
+   * Records what a write leaves behind. `inherits` is the file's content before an edit: an edit
+   * keeps whatever it did not change, so a file that read untrusted stays untrusted (with its
+   * sources) even when a clean turn edits it (#287).
+   */
+  const recordWrite = (
+    path: string,
+    data: Uint8Array,
+    ctx: ToolRunContext,
+    inherits?: { sha256: string },
+  ) => {
+    // An edit keeps what it did not change: content that read untrusted stays untrusted.
+    const kept =
+      inherits !== undefined &&
+      readProvenance(index, trustedRoots, path, inherits.sha256) === "untrusted";
+    const prior = kept ? index.get(path) : undefined;
+    const keptSources =
+      prior?.provenance === "untrusted"
+        ? prior.sources
+        : kept
+          ? [{ sourceKind: "file", origin: path }]
+          : [];
+    const untrusted = ctx.taint || kept;
     index.record({
       path,
-      provenance: ctx.taint ? "untrusted" : "trusted",
-      sources: ctx.taint ? [...(ctx.taintSources ?? [])] : [],
+      provenance: untrusted ? "untrusted" : "trusted",
+      sources: untrusted ? [...(ctx.taint ? (ctx.taintSources ?? []) : []), ...keptSources] : [],
       sha256: sha256(data),
       recordedAt: now().toISOString(),
     });
+  };
 
   const readTool = defineTool({
     name: "read_file",
@@ -391,7 +414,7 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
           throw new PsycheError("conflict", `${path} changed during the edit; read it again`);
         }
       });
-      recordWrite(path, data, ctx);
+      recordWrite(path, data, ctx, { sha256: previousSha256 });
       return {
         output: {
           path,

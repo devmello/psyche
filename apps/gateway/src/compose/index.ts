@@ -385,9 +385,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       `http://localhost:${config.port}`,
       ...config.allowedOrigins.filter((o) => /^https?:\/\//.test(o)),
     ],
-    ...((policy ?? storedPolicy) === undefined
-      ? {}
-      : { policy: (policy ?? storedPolicy) as PolicyConfig }),
+    policy: hostPolicy((policy ?? storedPolicy) as PolicyConfig | undefined),
   });
   const broker = withRelay(tokens.wrap(rawBroker), relays, gwOptions.logger);
   // Executors (vault fills, the browser's mid-run gate, sandbox secrets) request approvals
@@ -474,7 +472,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const registry = new AgentToolRegistry();
   // P9 file tools (#49); the executors re-check the live granted folders behind the broker.
   for (const tool of fileTools({
-    folders: () => rawBroker.policy.folders,
+    // No folder list means nothing is granted (#287), never "only the broker checks".
+    folders: () => rawBroker.policy.folders ?? [],
     protectedRoots: () => protectedRoots(config.home),
   }))
     registry.register(tool);
@@ -683,7 +682,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       if (entry.key === CROSS_THREAD_SETTING) crossThread.sync(entry.value);
       if (entry.key !== "permissions.policy") continue;
       try {
-        rawBroker.setPolicy((entry.value ?? {}) as PolicyConfig);
+        rawBroker.setPolicy(hostPolicy((entry.value ?? {}) as PolicyConfig));
       } catch (err) {
         gwOptions.logger?.log("warn", "invalid permissions.policy ignored", {
           code: PsycheError.from(err).code,
@@ -806,6 +805,15 @@ export {
   vaultSetupFromEnv,
 } from "./vault.ts";
 export { createLogger, surfaceOf };
+
+/**
+ * The broker policy as this Gateway applies it: the engine's default workspace root
+ * (`/workspace`, the sandbox's) would grant read-write on a host `/workspace` to the host file
+ * tools, so here no workspace root exists unless the owner names one (#287).
+ */
+function hostPolicy(p: PolicyConfig | undefined): PolicyConfig {
+  return { ...(p ?? {}), workspaceRoots: p?.workspaceRoots ?? [] };
+}
 
 /**
  * A broker handle that publishes an approval it issues as `approval.created` once its answer
