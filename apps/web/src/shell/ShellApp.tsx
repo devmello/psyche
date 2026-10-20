@@ -37,7 +37,7 @@ import {
   randomIds,
   toViewLayout,
 } from "./layout/index.ts";
-import type { ShellPlatform } from "./platform.ts";
+import type { GatewayRunView, ShellPlatform } from "./platform.ts";
 import { ShellStore } from "./store.ts";
 import "./shell.css";
 
@@ -131,10 +131,31 @@ export function ShellApp({
 
 type Overlay = "palette" | "shortcuts" | "model" | null;
 
+/** Desktop only: the supervised Gateway process, for the connection banner. */
+function useGatewayRun(platform: ShellPlatform): GatewayRunView | undefined {
+  const [run, setRun] = useState<GatewayRunView>();
+  useEffect(() => {
+    const { getRun, onRun } = platform.gateway;
+    if (!getRun || !onRun) return;
+    let live = true;
+    void getRun.call(platform.gateway).then(
+      (r) => live && setRun(r),
+      () => undefined,
+    );
+    const off = onRun.call(platform.gateway, setRun);
+    return () => {
+      live = false;
+      off();
+    };
+  }, [platform]);
+  return run;
+}
+
 function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): ReactElement {
   const { platform, store, mac } = useShell();
   const status = useShellState((s) => s.status);
   const threads = useShellState((s) => s.threads);
+  const gatewayRun = useGatewayRun(platform);
   const [route, setRoute] = useState(initialRoute);
   const [listHidden, setListHidden] = useState(false);
   const [overlay, setOverlay] = useState<Overlay>(null);
@@ -467,7 +488,13 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           <span />
         )}
         <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
-          <OfflineBanner status={status} />
+          <OfflineBanner
+            status={status}
+            {...(gatewayRun ? { run: gatewayRun } : {})}
+            {...(platform.gateway.showLogs
+              ? { onShowLogs: () => void platform.gateway.showLogs?.() }
+              : {})}
+          />
           {onChat && slots.chat && threadId ? (
             slots.chat(threadId, {
               thread,

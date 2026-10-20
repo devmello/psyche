@@ -65,13 +65,14 @@ xcrun notarytool log <submission-id> --key "$APPLE_API_KEY" --key-id "$APPLE_API
 
 The package step copies three pieces into `Psyche.app/Contents/Resources/` before signing
 (`src/packaging/bundle-resources.ts`): `psyched/` (S22's Gateway bundle, `node deploy/scripts/build-psyched.mjs`),
-`launchd/com.psyche.gateway.plist` (its LaunchAgent template) and `Psyche Helper.app` (S14's
-helper, `apps/mac-helper/scripts/build-app.sh`). A missing piece fails the package step with the
+`launchd/com.psyche.gateway.plist` (its LaunchAgent template) and `PsycheHelper.app` (S14's
+helper, `deploy/macos/build-helper.sh`, run with the same `PSYCHE_SIGN_IDENTITY`). A missing piece fails the package step with the
 build command to run; `PSYCHE_PACKAGE_ALLOW_PARTIAL=1` packages without it (dev and CI smoke
 builds). `PSYCHE_PSYCHED_DIR` and `PSYCHE_HELPER_APP` point at other builds.
 
-1. `Psyche Helper.app` is re-signed on its own with the app's identity (Developer ID, else
-   ad-hoc), keeping its own entitlements and identifier (`--preserve-metadata`).
+1. `PsycheHelper.app` arrives signed by its own build with its own entitlements
+   (docs/status/s14.md "Packaging"). The package step only verifies it (`codesign --verify
+   --strict`) and fails when it is ad-hoc while the app has a Developer ID.
 2. osx-sign signs everything else inside out with the same identity: Electron's helpers and
    frameworks, node-pty, and only the Mach-O files under `psyched/` (`runtime/node`, `.node`,
    `.dylib`); the rest of `psyched/` is sealed as resources. The helper is skipped there.
@@ -84,7 +85,7 @@ every rebuild.
 ## Entitlements
 
 `entitlements.plist` is applied to the app, every Electron helper and the Mach-O files in
-`psyched/` (`runtime/node` needs allow-jit under the hardened runtime). `Psyche Helper.app` keeps its own:
+`psyched/` (`runtime/node` needs allow-jit under the hardened runtime). `PsycheHelper.app` keeps its own (`apps/mac-helper/Support/PsycheHelper.entitlements`). The app's are:
 
 - `com.apple.security.cs.allow-jit` for V8 under the hardened runtime.
 - `com.apple.security.device.audio-input` for dictation, paired with `NSMicrophoneUsageDescription`.

@@ -4,6 +4,7 @@ import {
   type BrowserNav,
   browserStorage,
   type DownloadNotice,
+  type GatewayRunView,
   type PermissionKind,
   type PermissionState,
   type ShellCommand,
@@ -57,6 +58,9 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
       call: (method, params) => unwrapCall(b.gateway.call(method, params)),
       onEvent: (cb) => b.gateway.onEvent((e) => cb(e as GatewayEvent)),
       onResync: (cb) => b.gateway.onResync(cb),
+      getRun: () => b.gateway.getRun() as Promise<GatewayRunView>,
+      onRun: (cb) => b.gateway.onRun((s) => cb(s as GatewayRunView)),
+      showLogs: async () => void (await b.gateway.showLogs()),
     },
     browser: {
       getState: () => b.browser.getState() as Promise<BrowserHostState>,

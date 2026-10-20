@@ -80,6 +80,9 @@ const bridge = {
       ipcRenderer.invoke(IPC.call, { method, params }) as Promise<Envelope>,
     onEvent: (cb: (e: unknown) => void) => listen(IPC.event, cb),
     onResync: (cb: () => void) => listen(IPC.resync, () => cb()),
+    getRun: () => invoke(IPC.gatewayGetRun),
+    onRun: (cb: (s: unknown) => void) => listen(IPC.gatewayRun, cb),
+    showLogs: () => invoke(IPC.gatewayShowLogs),
   },
   browser: {
     getState: () => invoke(IPC.browserGetState),

@@ -287,6 +287,8 @@ function requireBrowser(): BrowserHost {
 
 function registerIpc(): void {
   handle(IPC.getStatus, () => gateway?.getStatus());
+  handle(IPC.gatewayGetRun, () => supervisor?.getState() ?? { kind: "unknown" });
+  handle(IPC.gatewayShowLogs, () => shell.openPath(join(home, "logs")));
   handle(IPC.call, (_e, arg) => {
     const r = rec(IPC.call, arg);
     const method = checkCallable(r.method, isMethodName);
@@ -695,7 +697,10 @@ void app.whenReady().then(async () => {
     gatewayDir: resolve(app.getAppPath(), "..", "gateway"),
     bundledProgram: join(process.resourcesPath, "psyched", "psyched"),
     bundledPlist: join(process.resourcesPath, "launchd", "com.psyche.gateway.plist"),
-    onState: (run) => tray?.update({ run }),
+    onState: (run) => {
+      tray?.update({ run });
+      broadcast(IPC.gatewayRun, run);
+    },
   });
 
   tray = new PsycheTray(
