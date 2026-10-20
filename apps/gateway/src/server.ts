@@ -17,6 +17,7 @@ import {
   PsycheError,
 } from "@psyche/protocol";
 import { type WebSocket, WebSocketServer } from "ws";
+import { CloudflareAccessVerifier, cfAccessHeader } from "./cf-access.ts";
 import { type GatewayConfig, resolveConfig } from "./config.ts";
 import { Connection } from "./connection.ts";
 import {
@@ -63,6 +64,8 @@ export interface GatewayOptions {
   broker?: PermissionBroker;
   memory?: MemoryStore;
   limits?: Partial<GatewayLimits>;
+  /** Tests: where the Cloudflare Access JWKS comes from. */
+  cloudflareAccessFetch?: ConstructorParameters<typeof CloudflareAccessVerifier>[1];
   /** After a device is revoked (composition root: end the grants it approved). */
   onDeviceRevoked?: (deviceId: string) => Promise<unknown>;
   /** Which models may run `auto` threads, and the router's per-thread pin (composition root). */
@@ -112,6 +115,10 @@ function checkExtraHandlers(
 export async function startGateway(options: GatewayOptions = {}): Promise<Gateway> {
   const config = resolveConfig(options.env ?? process.env, options.config ?? {});
   const proxies = trustedProxyList(config.trustedProxy.trustedProxies);
+  const cfAccess =
+    config.cloudflareAccess === null
+      ? null
+      : new CloudflareAccessVerifier(config.cloudflareAccess, options.cloudflareAccessFetch ?? {});
   const log = options.logger ?? createLogger();
   const now = options.now ?? (() => new Date());
   const limits: GatewayLimits = { ...DEFAULT_LIMITS, ...options.limits };
@@ -183,7 +190,43 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     }
     // Proxy headers never authorize the API; every device pairs (security §10). They only make a
     // forwarded connection non-loopback and, in trusted-proxy mode, name the client address.
-    const peer = resolvePeer(req.socket.remoteAddress, req.headers, config.trustedProxy, proxies);
+    const resolved = resolvePeer(
+      req.socket.remoteAddress,
+      req.headers,
+      config.trustedProxy,
+      proxies,
+    );
+    // Cloudflare Access: a forwarded or remote upgrade must carry a verified assertion (§10).
+    const needsAccess = cfAccess !== null && (resolved.forwarded || !resolved.remoteLoopback);
+    const gate = needsAccess
+      ? cfAccess.verify(cfAccessHeader(req.headers)).then(
+          (v) => ({ ...resolved, claimedIdentity: `Cloudflare Access ${v.email ?? v.subject}` }),
+          (err: unknown) => {
+            log.log("warn", "websocket upgrade rejected", {
+              reason: "cloudflare_access",
+              code: PsycheError.from(err).code,
+            });
+            return null;
+          },
+        )
+      : Promise.resolve(resolved);
+    void gate.then((peer) => {
+      if (peer === null) {
+        socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+      acceptUpgrade(req, socket, head, requestOrigin, peer);
+    });
+  });
+
+  const acceptUpgrade = (
+    req: IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+    requestOrigin: string | null,
+    peer: ReturnType<typeof resolvePeer>,
+  ) => {
     wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
       const conn = new Connection(
         `ws-${++connSeq}`,
@@ -214,7 +257,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       });
       ws.on("error", () => conn.close("socket error"));
     });
-  });
+  };
 
   try {
     await new Promise<void>((resolveListen, reject) => {

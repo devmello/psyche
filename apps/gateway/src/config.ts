@@ -24,6 +24,11 @@ export interface GatewayConfig {
    * web client later (INT-2); proxy identity headers never authorize anything by themselves.
    */
   trustedProxy: { enabled: boolean; trustedProxies: string[] };
+  /**
+   * Cloudflare Access (`cloudflared`) in front: forwarded upgrades must carry a valid
+   * `Cf-Access-Jwt-Assertion` for this team and application. `null` = not configured.
+   */
+  cloudflareAccess: { teamDomain: string; audience: string } | null;
 }
 
 /** The keys `config.json` may set (no secrets; architecture §12). */
@@ -34,6 +39,7 @@ interface ConfigFile {
     allowedOrigins?: string[];
     publicOrigin?: string;
     trustedProxy?: { enabled?: boolean; trustedProxies?: string[] };
+    cloudflareAccess?: { teamDomain: string; audience: string };
   };
 }
 
@@ -69,7 +75,14 @@ export function readConfigFile(path: string): ConfigFile {
   if (gateway === null || typeof gateway !== "object" || Array.isArray(gateway))
     bad("gateway", "must be an object");
   const g = gateway as Record<string, unknown>;
-  const known = new Set(["host", "port", "allowedOrigins", "publicOrigin", "trustedProxy"]);
+  const known = new Set([
+    "host",
+    "port",
+    "allowedOrigins",
+    "publicOrigin",
+    "trustedProxy",
+    "cloudflareAccess",
+  ]);
   for (const key of Object.keys(g))
     if (!known.has(key)) bad(`gateway.${key}`, "is not a known key");
   if (g.host !== undefined && typeof g.host !== "string") bad("gateway.host", "must be a string");
@@ -97,6 +110,17 @@ export function readConfigFile(path: string): ConfigFile {
       ...(tp.enabled === undefined ? {} : { enabled: tp.enabled as boolean }),
       ...(proxies ? { trustedProxies: proxies } : {}),
     };
+  }
+  if (g.cloudflareAccess !== undefined) {
+    const cf = g.cloudflareAccess as Record<string, unknown>;
+    if (cf === null || typeof cf !== "object") bad("gateway.cloudflareAccess", "must be an object");
+    if (typeof cf.teamDomain !== "string" || cf.teamDomain === "") {
+      bad("gateway.cloudflareAccess.teamDomain", "must be a host name");
+    }
+    if (typeof cf.audience !== "string" || cf.audience === "") {
+      bad("gateway.cloudflareAccess.audience", "must be the Access application's AUD tag");
+    }
+    out.cloudflareAccess = { teamDomain: cf.teamDomain as string, audience: cf.audience as string };
   }
   return { gateway: out };
 }
@@ -150,5 +174,9 @@ export function resolveConfig(
         ...(file.publicOrigin ? [file.publicOrigin] : []),
       ],
     trustedProxy: overrides.trustedProxy ?? { enabled: trustedProxyEnabled, trustedProxies },
+    cloudflareAccess:
+      overrides.cloudflareAccess !== undefined
+        ? overrides.cloudflareAccess
+        : (file.cloudflareAccess ?? null),
   };
 }
