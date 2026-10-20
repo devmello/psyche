@@ -29,6 +29,10 @@ auditConfig:
 overrides:
   "pptxgenjs>image-size": "2.0.4"
   "@codesandbox/sandpack-client>@codesandbox/nodebox": "-"
+# Owner decision 2026-10-20 (issue #299, DEP-11): a new dependency version must be at least 24 h
+# old before pnpm will pick it, which blunts compromised-publish attacks. Fresh pins made by a
+# session arrive a day late; the Dependabot PRs are unaffected by then.
+minimumReleaseAge: 1440
 engineStrict: true
 autoInstallPeers: true
 
