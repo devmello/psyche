@@ -160,4 +160,5 @@ See the speech section of the README for engine selection. On macOS 26+:
 | 10.4 | Two microphone streams | Second → `conflict/microphone_busy` |
 | 10.5 | `speech.synthesize {text}` | PCM chunks play back cleanly; `nonCommercial: false` |
 | 10.6 | `personalVoice: true` with and without Personal Voice authorization | Uses it and flags `nonCommercial: true` / falls back to a system voice |
+| 10.6a | `contacts.list {limit: 500, fields: ["name"]}` before / after granting Contacts | No prompt and `forbidden/permission_denied` / names in family-name order, no phones or emails; `truncated` when over the limit |
 | 10.7 | macOS 15 machine | SFSpeechRecognizer on-device engine; Speech Recognition prompt |

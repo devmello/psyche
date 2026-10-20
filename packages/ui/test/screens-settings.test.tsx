@@ -5,6 +5,7 @@ import type { MockGateway, RecordedCall } from "../src/data/mock-gateway.ts";
 import { createFixtureWorld, FIXTURE_NOW, IDS, PERSONA } from "../src/fixtures/index.ts";
 import { ChannelsPanel } from "../src/screens/settings/ChannelsSection.tsx";
 import { CARD_REFUSAL } from "../src/screens/settings/CredentialsSection.tsx";
+import { folderGrants, policyWithFolders } from "../src/screens/settings/FileAccessSection.tsx";
 import { ModelProvidersPanel } from "../src/screens/settings/ModelSection.tsx";
 import {
   SettingsScreen,
@@ -432,5 +433,73 @@ describe("Usage", () => {
     const meter = await screen.findByRole("meter", { name: "Budget remaining" });
     expect((meter as HTMLMeterElement).value).toBe(62);
     expect(screen.getAllByText("62% left").length).toBeGreaterThan(0);
+  });
+});
+
+describe("File access (folder grants live in permissions.policy)", () => {
+  const policy = {
+    defaultMode: "manual",
+    folders: [
+      { path: "/Users/me/Notes", mode: "rw" },
+      { path: "", mode: "ro" },
+      { path: "/x", mode: "rwx" },
+    ],
+  };
+
+  it("reads well-formed policy folders and falls back to the UI-local key only without a list", () => {
+    expect(folderGrants({ "permissions.policy": policy })).toEqual([
+      { path: "/Users/me/Notes", access: "rw" },
+    ]);
+    const legacy = [{ path: "~/Old", access: "ro" }];
+    expect(folderGrants({ "permissions.folders": legacy })).toEqual(legacy);
+    expect(
+      folderGrants({ "permissions.policy": { folders: [] }, "permissions.folders": legacy }),
+    ).toEqual([]);
+    expect(folderGrants({})).toEqual([]);
+  });
+
+  it("writes folders into the policy, keeping its other keys and deduping paths", () => {
+    expect(
+      policyWithFolders({ "permissions.policy": policy }, [
+        { path: "/a", access: "ro" },
+        { path: " /a ", access: "rw" },
+        { path: "/b", access: "rw" },
+      ]),
+    ).toEqual({
+      defaultMode: "manual",
+      folders: [
+        { path: "/a", mode: "ro" },
+        { path: "/b", mode: "rw" },
+      ],
+    });
+  });
+
+  it("shares a typed folder as a permissions.policy grant the broker applies", async () => {
+    const { gateway } = setup(
+      { defaultSection: "files" },
+      { edit: (w) => Object.assign(w.settings, { "permissions.policy": policy }) },
+    );
+    const list = await screen.findByRole("list", { name: "Shared folders" });
+    expect(within(list).getByText("/Users/me/Notes")).toBeTruthy();
+    await userEvent.type(screen.getByLabelText("Share a folder"), "/Users/me/Taxes{Enter}");
+    await waitFor(() =>
+      expect(settingValue(gateway(), "permissions.policy")).toEqual({
+        defaultMode: "manual",
+        folders: [
+          { path: "/Users/me/Notes", mode: "rw" },
+          { path: "/Users/me/Taxes", mode: "ro" },
+        ],
+      }),
+    );
+    expect(settingCall(gateway(), "permissions.folders")).toBeUndefined();
+  });
+
+  it("the Permissions summary lists the policy's folders", async () => {
+    setup(
+      { defaultSection: "permissions" },
+      { edit: (w) => Object.assign(w.settings, { "permissions.policy": policy }) },
+    );
+    expect(await screen.findByText("/Users/me/Notes")).toBeTruthy();
+    expect(screen.getByText("read and write")).toBeTruthy();
   });
 });
