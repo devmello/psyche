@@ -416,7 +416,14 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
     // While the Gateway is unreachable the shell shows its offline banner; it is the same app.
     body = <ShellApp platform={platform} slots={slots} />;
   }
-  const uiSlots = useMemo<UiSlots>(() => (persona ? { persona } : {}), [persona]);
+  const uiSlots = useMemo<UiSlots>(
+    () => ({
+      ...(persona ? { persona } : {}),
+      // The desktop session refuses navigator.clipboard; copy goes through main (#507).
+      ...(platform.clipboard ? { writeClipboard: platform.clipboard.writeText } : {}),
+    }),
+    [persona, platform],
+  );
   return (
     <GatewayProvider client={client}>
       {/* Appearance (theme, contrast, reduce motion) and the kit's toasts (docs/a11y-audit.md A1, A2). */}

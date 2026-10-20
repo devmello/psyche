@@ -20,6 +20,7 @@ import {
   Automation,
   AutomationRun,
   Channel,
+  Connector,
   CredentialMeta,
   VaultPayment,
   VaultStatus,
@@ -289,6 +290,24 @@ export const Events = {
   "speech.readAloud.failed": defineEvent({
     payload: ReadAloudFailedPayload,
     description: "A read-aloud failed before its Library item was saved.",
+  }),
+  "connectors.updated": defineEvent({
+    payload: Type.Object({
+      connector: Connector,
+      /** Why it changed: a finished or failed sign-in, a disconnect, a revoked token. */
+      reason: StringEnum([
+        "connected",
+        "authorization_failed",
+        "disconnected",
+        "needs_auth",
+        "removed",
+        "updated",
+      ]),
+      /** Short, Psyche-written explanation for `authorization_failed` / `needs_auth`. */
+      error: Type.Optional(Type.String()),
+    }),
+    description:
+      "A connector's state changed (Settings → Connectors and onboarding refresh from it): a sign-in finished or failed, it was disconnected, or its token was revoked.",
   }),
   "skills.changed": defineEvent({
     payload: SkillChangeEvent,

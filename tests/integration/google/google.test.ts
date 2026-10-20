@@ -143,7 +143,7 @@ afterAll(async () => {
 
 describe("scenario 2: Google with the scripted model (CI-safe)", () => {
   it("connects Google read_act through desktop OAuth: consent, loopback callback, PKCE", async () => {
-    // `connectors.connect` is not in the protocol yet; the registry is what it would call.
+    // The registry directly: this test drives the blocking flow; connectors.connect is async (#505).
     const record = await registry.connect({
       catalogueId: "google",
       scopeMode: "read_act",
@@ -157,11 +157,12 @@ describe("scenario 2: Google with the scripted model (CI-safe)", () => {
     expect(record).toMatchObject({ id: ID, status: "connected", account: OWNER });
     expect(fake.vault.tokens.get(ID)?.refreshToken).toBe(REFRESH_TOKEN);
 
-    // Over the wire: the protocol's read methods are mounted, the proposed ones are not.
+    // Over the wire: connectors.list and connectors.status (in the protocol since #505).
     const { connectors } = await c.call<{ connectors: Json[] }>("connectors.list", {});
     expect(connectors).toMatchObject([{ id: ID, type: "google", status: "connected" }]);
-    await expect(c.call("connectors.status", { connectorId: ID })).rejects.toMatchObject({
-      code: "unknown_method",
+    await expect(c.call("connectors.status", { connectorId: ID })).resolves.toMatchObject({
+      ok: true,
+      status: "connected",
     });
     const names = services.tools.list().map((t) => t.name);
     expect(names).toEqual(

@@ -14,8 +14,10 @@
 //
 // Native addons (better-sqlite3, node-pty, sqlite-vec, …) are installed for the host by pnpm, so
 // build each arch on a host of that arch (the release workflow uses an Intel runner for x64); the
-// script checks every .node file's architecture and refuses a mismatch. --smoke starts the built
-// psyched with only PSYCHE_HOME set and waits for /healthz.
+// script checks every .node file's architecture and refuses a mismatch. The build fails when the
+// bundled skills folder (app/skills) is missing or a skill has no SKILL.md (#506). --smoke starts
+// the built psyched with only PSYCHE_HOME set, waits for /healthz, then loads and lists the shipped
+// skills with the bundle's runtime.
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -36,7 +38,7 @@ import {
 import { builtinModules } from "node:module";
 import { homedir, arch as hostArch, platform, tmpdir } from "node:os";
 import { join, relative, resolve, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { findPins } from "./node-pins.mjs";
 
 const ROOT = resolve(fileURLToPath(new URL(".", import.meta.url)), "../..");
@@ -397,6 +399,64 @@ while [ -L "$self" ]; do
 done
 here=\${self%/*}`;
 
+/**
+ * The bundled skills the Gateway loads from `app/skills` (issue #506). The Gateway resolves the
+ * folder four levels up from `apps/gateway/src/compose/skills.ts`; this checks that the folder is
+ * there, that the path still lands on it, and that every skill folder has a `SKILL.md` naming
+ * itself. Returns the skill names; throws so a bundle without skills never ships.
+ */
+export function checkShippedSkills(appDir) {
+  const dir = join(appDir, "skills");
+  const resolved = resolve(appDir, "apps/gateway/src/compose", "../../../../skills");
+  if (resolved !== dir)
+    throw new Error(`the Gateway would look for skills at ${resolved}, not ${dir}`);
+  if (!existsSync(dir)) throw new Error(`bundled skills folder missing: ${dir}`);
+  const names = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name.startsWith(".")) continue;
+    const md = join(dir, entry.name, "SKILL.md");
+    if (!existsSync(md)) throw new Error(`bundled skill ${entry.name} has no SKILL.md`);
+    const name = /^name:\s*(\S+)\s*$/m.exec(readFileSync(md, "utf8"))?.[1];
+    if (name !== entry.name)
+      throw new Error(`bundled skill ${entry.name}: SKILL.md names "${name ?? ""}"`);
+    names.push(entry.name);
+  }
+  if (names.length === 0) throw new Error(`no bundled skills in ${dir}`);
+  return names.sort();
+}
+
+/**
+ * Loads the shipped skills with the bundle's own runtime and `@psyche/skills`, the way the
+ * Gateway does, and prints each with its status. Tool gating is left open here (the smoke has no
+ * agent); a skill that is invalid, blocked or fails its hash fails the smoke.
+ */
+function smokeSkills(bundle, home) {
+  const app = join(bundle, "app");
+  const script = `
+    const { createSkillLoader } = await import(${JSON.stringify(pathToFileURL(join(app, "packages/skills/src/index.ts")).href)});
+    const loader = createSkillLoader({ homeDir: ${JSON.stringify(join(home, "skills"))}, bundledDir: ${JSON.stringify(join(app, "skills"))} });
+    const skills = (await loader.listDetailed()).filter((s) => s.source === "bundled");
+    process.stdout.write(JSON.stringify(skills.map((s) => ({ name: s.name, status: s.status, reasons: s.reasons }))));
+  `;
+  const out = execFileSync(
+    join(bundle, "runtime/node"),
+    ["--disable-warning=ExperimentalWarning", "--input-type=module", "-e", script],
+    { cwd: app, encoding: "utf8", env: { PATH: "/usr/bin:/bin", HOME: home } },
+  );
+  const skills = JSON.parse(out);
+  const shipped = checkShippedSkills(app);
+  const bad = skills.filter((s) => ["invalid", "blocked", "hash_mismatch"].includes(s.status));
+  for (const s of skills)
+    process.stdout.write(
+      `smoke: skill ${s.name}: ${s.status}${s.reasons.length ? ` (${s.reasons.join("; ")})` : ""}\n`,
+    );
+  if (skills.length !== shipped.length)
+    throw new Error(`the bundle loads ${skills.length} of ${shipped.length} shipped skills`);
+  if (bad.length)
+    throw new Error(`bundled skills that do not load: ${bad.map((s) => s.name).join(", ")}`);
+  process.stdout.write(`smoke: ${skills.length} bundled skills load\n`);
+}
+
 export const PSYCHED_LAUNCHER = `#!/bin/sh
 # Psyche Gateway (psyched) from Psyche.app. Needs only PSYCHE_HOME; no Node, PATH or checkout.
 # A 4 MB young generation keeps an idle Gateway near 200 MB instead of ≈ 330 MB.
@@ -440,6 +500,7 @@ async function smoke(bundle) {
     child.kill("SIGTERM");
     if (health?.ok !== true) throw new Error(`/healthz answered ${JSON.stringify(health)}`);
     process.stdout.write(`smoke: psyched healthy at ${origin}/healthz with only PSYCHE_HOME set\n`);
+    smokeSkills(bundle, home);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
@@ -521,6 +582,8 @@ async function main(argv) {
   process.stdout.write(
     `pruned ${cut.workspaces} workspace package(s), ${cut.packages} unreachable package(s), ${cut.files} map/declaration file(s), ${cut.links} dangling link(s)\n`,
   );
+  const shippedSkills = checkShippedSkills(app);
+  process.stdout.write(`bundled skills: ${shippedSkills.join(", ")}\n`);
   const missing = checkImports(app);
   if (missing.length) throw new Error(`imports that no longer resolve:\n${missing.join("\n")}`);
 

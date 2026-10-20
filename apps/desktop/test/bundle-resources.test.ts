@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -27,6 +28,8 @@ function fakeBuilds(dir: string, opts: { helper?: boolean; psyched?: boolean } =
     writeFileSync(join(psychedDir, "psyched"), "#!/bin/sh\n");
     chmodSync(join(psychedDir, "psyched"), 0o755);
     writeFileSync(join(psychedDir, "runtime", "node"), Buffer.from([0xcf, 0xfa, 0xed, 0xfe, 0, 0]));
+    mkdirSync(join(psychedDir, "app", "skills"), { recursive: true });
+    writeFileSync(join(psychedDir, "app", "skills", "README.md"), "# Bundled skills\n");
     writeFileSync(
       join(psychedDir, "com.psyche.gateway.plist.template"),
       "<plist>{{PSYCHED}}</plist>",
@@ -76,6 +79,15 @@ describe("bundle resources", () => {
     expect(missing.map((p) => p.name)).toEqual([HELPER_APP_NAME]);
     expect(warnings[0]).toContain("continuing");
     expect(existsSync(join(res, "psyched", "psyched"))).toBe(true);
+  });
+
+  it("refuses a psyched build without its bundled skills (#506)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "psyche-bundle-"));
+    const sources = fakeBuilds(dir);
+    rmSync(join(sources.psychedDir, "app", "skills"), { recursive: true });
+    expect(() =>
+      copyBundleResources(sources, join(dir, "Resources"), "arm64", { allowPartial: false }),
+    ).toThrow(/psyched \(the Gateway\): not found at .*app\/skills\/README\.md/);
   });
 
   it("lets osx-sign sign only Mach-O files in psyched/ and never the helper", () => {

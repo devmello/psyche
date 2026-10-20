@@ -162,6 +162,8 @@
 //   let channelsPairingDenyResult = try? JSONDecoder().decode(ChannelsPairingDenyResult.self, from: jsonData)
 //   let channelsPairingListParams = try? JSONDecoder().decode(ChannelsPairingListParams.self, from: jsonData)
 //   let channelsPairingListResult = try? JSONDecoder().decode(ChannelsPairingListResult.self, from: jsonData)
+//   let channelsSecretsClearParams = try? JSONDecoder().decode(ChannelsSecretsClearParams.self, from: jsonData)
+//   let channelsSecretsClearResult = try? JSONDecoder().decode(ChannelsSecretsClearResult.self, from: jsonData)
 //   let channelsSecretsSetParams = try? JSONDecoder().decode(ChannelsSecretsSetParams.self, from: jsonData)
 //   let channelsSecretsSetResult = try? JSONDecoder().decode(ChannelsSecretsSetResult.self, from: jsonData)
 //   let channelsSecretsStatusParams = try? JSONDecoder().decode(ChannelsSecretsStatusParams.self, from: jsonData)
@@ -203,7 +205,16 @@
 //   let connectRole = try? JSONDecoder().decode(ConnectRole.self, from: jsonData)
 //   let connectVerifyParams = try? JSONDecoder().decode(ConnectVerifyParams.self, from: jsonData)
 //   let connector = try? JSONDecoder().decode(Connector.self, from: jsonData)
+//   let connectorAuthorization = try? JSONDecoder().decode(ConnectorAuthorization.self, from: jsonData)
+//   let connectorCatalogueAction = try? JSONDecoder().decode(ConnectorCatalogueAction.self, from: jsonData)
+//   let connectorCatalogueEntry = try? JSONDecoder().decode(ConnectorCatalogueEntry.self, from: jsonData)
 //   let connectorStatus = try? JSONDecoder().decode(ConnectorStatus.self, from: jsonData)
+//   let connectorsCatalogueParams = try? JSONDecoder().decode(ConnectorsCatalogueParams.self, from: jsonData)
+//   let connectorsCatalogueResult = try? JSONDecoder().decode(ConnectorsCatalogueResult.self, from: jsonData)
+//   let connectorsConnectParams = try? JSONDecoder().decode(ConnectorsConnectParams.self, from: jsonData)
+//   let connectorsConnectResult = try? JSONDecoder().decode(ConnectorsConnectResult.self, from: jsonData)
+//   let connectorsDisconnectParams = try? JSONDecoder().decode(ConnectorsDisconnectParams.self, from: jsonData)
+//   let connectorsDisconnectResult = try? JSONDecoder().decode(ConnectorsDisconnectResult.self, from: jsonData)
 //   let connectorsGetCustomProposalParams = try? JSONDecoder().decode(ConnectorsGetCustomProposalParams.self, from: jsonData)
 //   let connectorsGetCustomProposalResult = try? JSONDecoder().decode(ConnectorsGetCustomProposalResult.self, from: jsonData)
 //   let connectorsGetParams = try? JSONDecoder().decode(ConnectorsGetParams.self, from: jsonData)
@@ -214,6 +225,11 @@
 //   let connectorsListResult = try? JSONDecoder().decode(ConnectorsListResult.self, from: jsonData)
 //   let connectorsProposeCustomParams = try? JSONDecoder().decode(ConnectorsProposeCustomParams.self, from: jsonData)
 //   let connectorsRemoveCustomParams = try? JSONDecoder().decode(ConnectorsRemoveCustomParams.self, from: jsonData)
+//   let connectorsSetMatrixParams = try? JSONDecoder().decode(ConnectorsSetMatrixParams.self, from: jsonData)
+//   let connectorsSetMatrixResult = try? JSONDecoder().decode(ConnectorsSetMatrixResult.self, from: jsonData)
+//   let connectorsStatusParams = try? JSONDecoder().decode(ConnectorsStatusParams.self, from: jsonData)
+//   let connectorsStatusResult = try? JSONDecoder().decode(ConnectorsStatusResult.self, from: jsonData)
+//   let connectorsUpdatedPayload = try? JSONDecoder().decode(ConnectorsUpdatedPayload.self, from: jsonData)
 //   let contextBreakdown = try? JSONDecoder().decode(ContextBreakdown.self, from: jsonData)
 //   let contextLimits = try? JSONDecoder().decode(ContextLimits.self, from: jsonData)
 //   let contextUsage = try? JSONDecoder().decode(ContextUsage.self, from: jsonData)
@@ -429,6 +445,8 @@
 //   let modelRoles = try? JSONDecoder().decode(ModelRoles.self, from: jsonData)
 //   let modelsCheckParams = try? JSONDecoder().decode(ModelsCheckParams.self, from: jsonData)
 //   let modelsCheckResult = try? JSONDecoder().decode(ModelsCheckResult.self, from: jsonData)
+//   let modelsClearKeyParams = try? JSONDecoder().decode(ModelsClearKeyParams.self, from: jsonData)
+//   let modelsClearKeyResult = try? JSONDecoder().decode(ModelsClearKeyResult.self, from: jsonData)
 //   let modelsListParams = try? JSONDecoder().decode(ModelsListParams.self, from: jsonData)
 //   let modelsListResult = try? JSONDecoder().decode(ModelsListResult.self, from: jsonData)
 //   let modelsProbeParams = try? JSONDecoder().decode(ModelsProbeParams.self, from: jsonData)
@@ -4403,6 +4421,47 @@ public struct ChannelsPairingListResult: Codable, Sendable {
     }
 }
 
+// MARK: - ChannelsSecretsClearParams
+public struct ChannelsSecretsClearParams: Codable, Sendable {
+    public let account: String
+    public let name: ChannelSecretName
+    public let type: ChannelType
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case name = "name"
+        case type = "type"
+    }
+
+    public init(account: String, name: ChannelSecretName, type: ChannelType) {
+        self.account = account
+        self.name = name
+        self.type = type
+    }
+}
+
+public enum ChannelSecretName: String, Codable, Sendable {
+    case accessToken = "access_token"
+    case appSecret = "app_secret"
+    case appToken = "app_token"
+    case authToken = "auth_token"
+    case botToken = "bot_token"
+    case verifyToken = "verify_token"
+}
+
+// MARK: - ChannelsSecretsClearResult
+public struct ChannelsSecretsClearResult: Codable, Sendable {
+    public let channelsSecretsClearResultSet: [ChannelSecretName]
+
+    public enum CodingKeys: String, CodingKey {
+        case channelsSecretsClearResultSet = "set"
+    }
+
+    public init(channelsSecretsClearResultSet: [ChannelSecretName]) {
+        self.channelsSecretsClearResultSet = channelsSecretsClearResultSet
+    }
+}
+
 // MARK: - ChannelsSecretsSetParams
 public struct ChannelsSecretsSetParams: Codable, Sendable {
     public let account: String
@@ -4423,15 +4482,6 @@ public struct ChannelsSecretsSetParams: Codable, Sendable {
         self.type = type
         self.value = value
     }
-}
-
-public enum ChannelSecretName: String, Codable, Sendable {
-    case accessToken = "access_token"
-    case appSecret = "app_secret"
-    case appToken = "app_token"
-    case authToken = "auth_token"
-    case botToken = "bot_token"
-    case verifyToken = "verify_token"
 }
 
 // MARK: - ChannelsSecretsSetResult
@@ -5421,6 +5471,295 @@ public struct ConnectVerifyParams: Codable, Sendable {
     }
 }
 
+// MARK: - ConnectorsCatalogueResult
+public struct ConnectorsCatalogueResult: Codable, Sendable {
+    public let entries: [ConnectorCatalogueEntry]
+
+    public enum CodingKeys: String, CodingKey {
+        case entries = "entries"
+    }
+
+    public init(entries: [ConnectorCatalogueEntry]) {
+        self.entries = entries
+    }
+}
+
+// MARK: - ConnectorCatalogueEntry
+public struct ConnectorCatalogueEntry: Codable, Sendable {
+    public let actions: [ConnectorCatalogueAction]
+    public let auth: String
+    public let available: Bool
+    public let category: String
+    public let configured: Bool?
+    public let description: String
+    public let docsURL: String?
+    public let id: String
+    public let label: String
+    public let remote: Remote?
+    public let scopes: Scopes
+    public let setupGuide: String?
+    public let type: String
+    public let vendor: String
+
+    public enum CodingKeys: String, CodingKey {
+        case actions = "actions"
+        case auth = "auth"
+        case available = "available"
+        case category = "category"
+        case configured = "configured"
+        case description = "description"
+        case docsURL = "docsUrl"
+        case id = "id"
+        case label = "label"
+        case remote = "remote"
+        case scopes = "scopes"
+        case setupGuide = "setupGuide"
+        case type = "type"
+        case vendor = "vendor"
+    }
+
+    public init(actions: [ConnectorCatalogueAction], auth: String, available: Bool, category: String, configured: Bool?, description: String, docsURL: String?, id: String, label: String, remote: Remote?, scopes: Scopes, setupGuide: String?, type: String, vendor: String) {
+        self.actions = actions
+        self.auth = auth
+        self.available = available
+        self.category = category
+        self.configured = configured
+        self.description = description
+        self.docsURL = docsURL
+        self.id = id
+        self.label = label
+        self.remote = remote
+        self.scopes = scopes
+        self.setupGuide = setupGuide
+        self.type = type
+        self.vendor = vendor
+    }
+}
+
+// MARK: - ConnectorCatalogueAction
+public struct ConnectorCatalogueAction: Codable, Sendable {
+    public let approvalKind: String?
+    public let defaultRule: Decision
+    public let id: String
+    public let sideEffect: String
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalKind = "approvalKind"
+        case defaultRule = "defaultRule"
+        case id = "id"
+        case sideEffect = "sideEffect"
+        case title = "title"
+    }
+
+    public init(approvalKind: String?, defaultRule: Decision, id: String, sideEffect: String, title: String) {
+        self.approvalKind = approvalKind
+        self.defaultRule = defaultRule
+        self.id = id
+        self.sideEffect = sideEffect
+        self.title = title
+    }
+}
+
+public enum Decision: String, Codable, Sendable {
+    case allow = "allow"
+    case ask = "ask"
+    case deny = "deny"
+}
+
+// MARK: - Remote
+public struct Remote: Codable, Sendable {
+    public let readOnlyURL: String?
+    public let transport: RemoteTransport
+    public let url: String
+
+    public enum CodingKeys: String, CodingKey {
+        case readOnlyURL = "readOnlyUrl"
+        case transport = "transport"
+        case url = "url"
+    }
+
+    public init(readOnlyURL: String?, transport: RemoteTransport, url: String) {
+        self.readOnlyURL = readOnlyURL
+        self.transport = transport
+        self.url = url
+    }
+}
+
+public enum RemoteTransport: String, Codable, Sendable {
+    case http = "http"
+}
+
+// MARK: - Scopes
+public struct Scopes: Codable, Sendable {
+    public let read: [String]
+    public let readAct: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case read = "read"
+        case readAct = "read_act"
+    }
+
+    public init(read: [String], readAct: [String]) {
+        self.read = read
+        self.readAct = readAct
+    }
+}
+
+// MARK: - ConnectorsConnectParams
+public struct ConnectorsConnectParams: Codable, Sendable {
+    public let catalogueID: String
+    public let config: [String: JSONAny]?
+    public let connectorID: String?
+    public let label: String?
+    public let scopeMode: ScopeMode
+
+    public enum CodingKeys: String, CodingKey {
+        case catalogueID = "catalogueId"
+        case config = "config"
+        case connectorID = "connectorId"
+        case label = "label"
+        case scopeMode = "scopeMode"
+    }
+
+    public init(catalogueID: String, config: [String: JSONAny]?, connectorID: String?, label: String?, scopeMode: ScopeMode) {
+        self.catalogueID = catalogueID
+        self.config = config
+        self.connectorID = connectorID
+        self.label = label
+        self.scopeMode = scopeMode
+    }
+}
+
+public enum ScopeMode: String, Codable, Sendable {
+    case read = "read"
+    case readAct = "read_act"
+}
+
+// MARK: - ConnectorsConnectResult
+public struct ConnectorsConnectResult: Codable, Sendable {
+    public let authorization: ConnectorAuthorization?
+    public let connector: Connector
+
+    public enum CodingKeys: String, CodingKey {
+        case authorization = "authorization"
+        case connector = "connector"
+    }
+
+    public init(authorization: ConnectorAuthorization?, connector: Connector) {
+        self.authorization = authorization
+        self.connector = connector
+    }
+}
+
+// MARK: - ConnectorAuthorization
+public struct ConnectorAuthorization: Codable, Sendable {
+    /// Epoch ms
+    public let expiresAt: Int
+    public let opened: Bool
+    /// https consent page, or the device-code verification page
+    public let url: String
+    /// Device code flow: the code to enter
+    public let userCode: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case expiresAt = "expiresAt"
+        case opened = "opened"
+        case url = "url"
+        case userCode = "userCode"
+    }
+
+    public init(expiresAt: Int, opened: Bool, url: String, userCode: String?) {
+        self.expiresAt = expiresAt
+        self.opened = opened
+        self.url = url
+        self.userCode = userCode
+    }
+}
+
+// MARK: - Connector
+public struct Connector: Codable, Sendable {
+    public let account: String?
+    public let actionMatrix: [String: Decision]
+    public let config: [String: JSONAny]
+    public let createdAt: String
+    public let credentialID: String?
+    public let id: String
+    public let label: String
+    public let lastSync: [String: JSONAny]?
+    public let scopeMode: ScopeMode
+    public let scopes: [String]
+    public let status: ConnectorStatus
+    /// google | microsoft | imap | jmap | stripe_link | mcp | apple:<app> | search:<provider>
+    public let type: String
+    public let updatedAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case actionMatrix = "actionMatrix"
+        case config = "config"
+        case createdAt = "createdAt"
+        case credentialID = "credentialId"
+        case id = "id"
+        case label = "label"
+        case lastSync = "lastSync"
+        case scopeMode = "scopeMode"
+        case scopes = "scopes"
+        case status = "status"
+        case type = "type"
+        case updatedAt = "updatedAt"
+    }
+
+    public init(account: String?, actionMatrix: [String: Decision], config: [String: JSONAny], createdAt: String, credentialID: String?, id: String, label: String, lastSync: [String: JSONAny]?, scopeMode: ScopeMode, scopes: [String], status: ConnectorStatus, type: String, updatedAt: String) {
+        self.account = account
+        self.actionMatrix = actionMatrix
+        self.config = config
+        self.createdAt = createdAt
+        self.credentialID = credentialID
+        self.id = id
+        self.label = label
+        self.lastSync = lastSync
+        self.scopeMode = scopeMode
+        self.scopes = scopes
+        self.status = status
+        self.type = type
+        self.updatedAt = updatedAt
+    }
+}
+
+public enum ConnectorStatus: String, Codable, Sendable {
+    case connected = "connected"
+    case disconnected = "disconnected"
+    case error = "error"
+    case needsAuth = "needs_auth"
+}
+
+// MARK: - ConnectorsDisconnectParams
+public struct ConnectorsDisconnectParams: Codable, Sendable {
+    public let connectorID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case connectorID = "connectorId"
+    }
+
+    public init(connectorID: String) {
+        self.connectorID = connectorID
+    }
+}
+
+// MARK: - ConnectorsDisconnectResult
+public struct ConnectorsDisconnectResult: Codable, Sendable {
+    public let connector: Connector
+
+    public enum CodingKeys: String, CodingKey {
+        case connector = "connector"
+    }
+
+    public init(connector: Connector) {
+        self.connector = connector
+    }
+}
+
 // MARK: - ConnectorsGetCustomProposalParams
 public struct ConnectorsGetCustomProposalParams: Codable, Sendable {
     public let proposalID: String
@@ -5659,12 +5998,6 @@ public struct CustomConnectorTool: Codable, Sendable {
     }
 }
 
-public enum Decision: String, Codable, Sendable {
-    case allow = "allow"
-    case ask = "ask"
-    case deny = "deny"
-}
-
 public enum Method: String, Codable, Sendable {
     case delete = "DELETE"
     case methodGET = "GET"
@@ -5710,11 +6043,6 @@ public enum SideEffectEnum: String, Codable, Sendable {
     case write = "write"
 }
 
-public enum ScopeMode: String, Codable, Sendable {
-    case read = "read"
-    case readAct = "read_act"
-}
-
 // MARK: - CustomConnectorProposalUpdate
 public struct CustomConnectorProposalUpdate: Codable, Sendable {
     /// Line diff of `text`
@@ -5756,63 +6084,6 @@ public struct ConnectorsGetResult: Codable, Sendable {
     public init(connector: Connector) {
         self.connector = connector
     }
-}
-
-// MARK: - Connector
-public struct Connector: Codable, Sendable {
-    public let account: String?
-    public let actionMatrix: [String: Decision]
-    public let config: [String: JSONAny]
-    public let createdAt: String
-    public let credentialID: String?
-    public let id: String
-    public let label: String
-    public let lastSync: [String: JSONAny]?
-    public let scopeMode: ScopeMode
-    public let scopes: [String]
-    public let status: ConnectorStatus
-    /// google | microsoft | imap | jmap | stripe_link | mcp | apple:<app> | search:<provider>
-    public let type: String
-    public let updatedAt: String
-
-    public enum CodingKeys: String, CodingKey {
-        case account = "account"
-        case actionMatrix = "actionMatrix"
-        case config = "config"
-        case createdAt = "createdAt"
-        case credentialID = "credentialId"
-        case id = "id"
-        case label = "label"
-        case lastSync = "lastSync"
-        case scopeMode = "scopeMode"
-        case scopes = "scopes"
-        case status = "status"
-        case type = "type"
-        case updatedAt = "updatedAt"
-    }
-
-    public init(account: String?, actionMatrix: [String: Decision], config: [String: JSONAny], createdAt: String, credentialID: String?, id: String, label: String, lastSync: [String: JSONAny]?, scopeMode: ScopeMode, scopes: [String], status: ConnectorStatus, type: String, updatedAt: String) {
-        self.account = account
-        self.actionMatrix = actionMatrix
-        self.config = config
-        self.createdAt = createdAt
-        self.credentialID = credentialID
-        self.id = id
-        self.label = label
-        self.lastSync = lastSync
-        self.scopeMode = scopeMode
-        self.scopes = scopes
-        self.status = status
-        self.type = type
-        self.updatedAt = updatedAt
-    }
-}
-
-public enum ConnectorStatus: String, Codable, Sendable {
-    case connected = "connected"
-    case disconnected = "disconnected"
-    case error = "error"
-    case needsAuth = "needs_auth"
 }
 
 // MARK: - ConnectorsInstallCustomParams
@@ -5911,6 +6182,98 @@ public struct ConnectorsRemoveCustomParams: Codable, Sendable {
     }
 }
 
+// MARK: - ConnectorsSetMatrixParams
+public struct ConnectorsSetMatrixParams: Codable, Sendable {
+    public let connectorID: String
+    public let matrix: [String: Decision]
+
+    public enum CodingKeys: String, CodingKey {
+        case connectorID = "connectorId"
+        case matrix = "matrix"
+    }
+
+    public init(connectorID: String, matrix: [String: Decision]) {
+        self.connectorID = connectorID
+        self.matrix = matrix
+    }
+}
+
+// MARK: - ConnectorsSetMatrixResult
+public struct ConnectorsSetMatrixResult: Codable, Sendable {
+    public let connector: Connector
+
+    public enum CodingKeys: String, CodingKey {
+        case connector = "connector"
+    }
+
+    public init(connector: Connector) {
+        self.connector = connector
+    }
+}
+
+// MARK: - ConnectorsStatusParams
+public struct ConnectorsStatusParams: Codable, Sendable {
+    public let connectorID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case connectorID = "connectorId"
+    }
+
+    public init(connectorID: String) {
+        self.connectorID = connectorID
+    }
+}
+
+// MARK: - ConnectorsStatusResult
+public struct ConnectorsStatusResult: Codable, Sendable {
+    public let checkedAt: Int
+    public let detail: String?
+    public let ok: Bool
+    public let status: ConnectorStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case checkedAt = "checkedAt"
+        case detail = "detail"
+        case ok = "ok"
+        case status = "status"
+    }
+
+    public init(checkedAt: Int, detail: String?, ok: Bool, status: ConnectorStatus) {
+        self.checkedAt = checkedAt
+        self.detail = detail
+        self.ok = ok
+        self.status = status
+    }
+}
+
+// MARK: - ConnectorsUpdatedPayload
+public struct ConnectorsUpdatedPayload: Codable, Sendable {
+    public let connector: Connector
+    public let error: String?
+    public let reason: ConnectorsUpdatedPayloadReason
+
+    public enum CodingKeys: String, CodingKey {
+        case connector = "connector"
+        case error = "error"
+        case reason = "reason"
+    }
+
+    public init(connector: Connector, error: String?, reason: ConnectorsUpdatedPayloadReason) {
+        self.connector = connector
+        self.error = error
+        self.reason = reason
+    }
+}
+
+public enum ConnectorsUpdatedPayloadReason: String, Codable, Sendable {
+    case authorizationFailed = "authorization_failed"
+    case connected = "connected"
+    case disconnected = "disconnected"
+    case needsAuth = "needs_auth"
+    case removed = "removed"
+    case updated = "updated"
+}
+
 // MARK: - CredentialUpdatedPayload
 public struct CredentialUpdatedPayload: Codable, Sendable {
     public let change: Change
@@ -5950,6 +6313,7 @@ public struct CredentialMeta: Codable, Sendable {
     public let id: String
     public let kind: CredentialKind
     public let lastUsedAt: String?
+    public let managedBy: ManagedBy?
     public let name: String
     public let ownerConnectorID: String?
     public let slug: String
@@ -5963,6 +6327,7 @@ public struct CredentialMeta: Codable, Sendable {
         case id = "id"
         case kind = "kind"
         case lastUsedAt = "lastUsedAt"
+        case managedBy = "managedBy"
         case name = "name"
         case ownerConnectorID = "ownerConnectorId"
         case slug = "slug"
@@ -5970,13 +6335,14 @@ public struct CredentialMeta: Codable, Sendable {
         case useCount = "useCount"
     }
 
-    public init(backend: Backend?, bindings: [CredentialBinding], createdAt: String, id: String, kind: CredentialKind, lastUsedAt: String?, name: String, ownerConnectorID: String?, slug: String, updatedAt: String, useCount: Int) {
+    public init(backend: Backend?, bindings: [CredentialBinding], createdAt: String, id: String, kind: CredentialKind, lastUsedAt: String?, managedBy: ManagedBy?, name: String, ownerConnectorID: String?, slug: String, updatedAt: String, useCount: Int) {
         self.backend = backend
         self.bindings = bindings
         self.createdAt = createdAt
         self.id = id
         self.kind = kind
         self.lastUsedAt = lastUsedAt
+        self.managedBy = managedBy
         self.name = name
         self.ownerConnectorID = ownerConnectorID
         self.slug = slug
@@ -6019,6 +6385,39 @@ public enum CredentialKind: String, Codable, Sendable {
     case paymentLink = "payment_link"
     case signingKey = "signing_key"
     case sshKey = "ssh_key"
+}
+
+// MARK: - ManagedBy
+public struct ManagedBy: Codable, Sendable {
+    public let kind: ManagedByKind
+    public let removable: Bool
+    public let setting: Setting
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case removable = "removable"
+        case setting = "setting"
+    }
+
+    public init(kind: ManagedByKind, removable: Bool, setting: Setting) {
+        self.kind = kind
+        self.removable = removable
+        self.setting = setting
+    }
+}
+
+public enum ManagedByKind: String, Codable, Sendable {
+    case channel = "channel"
+    case connector = "connector"
+    case externalManager = "external_manager"
+    case modelProvider = "model_provider"
+}
+
+public enum Setting: String, Codable, Sendable {
+    case channels = "channels"
+    case connectors = "connectors"
+    case credentials = "credentials"
+    case models = "models"
 }
 
 // MARK: - CustomConnectorProposalResult
@@ -9546,19 +9945,29 @@ public enum ToolCheckStatus: String, Codable, Sendable {
     case untested = "untested"
 }
 
-// MARK: - ModelsListResult
-public struct ModelsListResult: Codable, Sendable {
-    public let providers: [ModelProviderSummary]
-    public let roles: ModelRoles
+// MARK: - ModelsClearKeyParams
+public struct ModelsClearKeyParams: Codable, Sendable {
+    public let providerID: String
 
     public enum CodingKeys: String, CodingKey {
-        case providers = "providers"
-        case roles = "roles"
+        case providerID = "providerId"
     }
 
-    public init(providers: [ModelProviderSummary], roles: ModelRoles) {
-        self.providers = providers
-        self.roles = roles
+    public init(providerID: String) {
+        self.providerID = providerID
+    }
+}
+
+// MARK: - ModelsClearKeyResult
+public struct ModelsClearKeyResult: Codable, Sendable {
+    public let provider: ModelProviderSummary
+
+    public enum CodingKeys: String, CodingKey {
+        case provider = "provider"
+    }
+
+    public init(provider: ModelProviderSummary) {
+        self.provider = provider
     }
 }
 
@@ -9709,6 +10118,22 @@ public enum EndpointProbeState: String, Codable, Sendable {
     case notProbed = "not_probed"
     case reachable = "reachable"
     case unreachable = "unreachable"
+}
+
+// MARK: - ModelsListResult
+public struct ModelsListResult: Codable, Sendable {
+    public let providers: [ModelProviderSummary]
+    public let roles: ModelRoles
+
+    public enum CodingKeys: String, CodingKey {
+        case providers = "providers"
+        case roles = "roles"
+    }
+
+    public init(providers: [ModelProviderSummary], roles: ModelRoles) {
+        self.providers = providers
+        self.roles = roles
+    }
 }
 
 // MARK: - ModelRoles
@@ -16433,6 +16858,7 @@ public typealias BrowserBotAuthStatusParams = [String: JSONAny]
 public typealias BrowserRealChromeStatusParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
+public typealias ConnectorsCatalogueParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]
 public typealias DevicesBootstrapAdminParams = [String: JSONAny]
 public typealias DevicesPresenceKeyListParams = [String: JSONAny]

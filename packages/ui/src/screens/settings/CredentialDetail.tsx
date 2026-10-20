@@ -20,8 +20,10 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../components/ui/tooltip.tsx";
 import { useGatewayQuery } from "../../data/hooks.ts";
 import { activeI18n, t } from "../../i18n/core.ts";
+import { copyText } from "../../lib/clipboard.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
+import { useSlots } from "../../slots.tsx";
 import { bindingLabel, credentialKindLabel } from "./credential-labels.ts";
 import { EmptyNotice, Facts, LoadGate, StatusChip, type Tone } from "./shared.tsx";
 
@@ -44,6 +46,7 @@ const OUTCOME_TONE: Record<CredentialUse["outcome"], Tone> = {
 /** "Approved", with the approval id (level 2) in a tooltip; clicking copies it. */
 export function ApprovalRef({ id }: { id: string }): ReactElement {
   const [copied, setCopied] = useState(false);
+  const { writeClipboard } = useSlots();
   return (
     <Tooltip>
       <TooltipTrigger
@@ -53,10 +56,7 @@ export function ApprovalRef({ id }: { id: string }): ReactElement {
             className="underline decoration-dotted underline-offset-2 hover:text-foreground"
             aria-label={t("settings.credentials.detail.copyApproval", { id })}
             onClick={() => {
-              void navigator.clipboard?.writeText(id).then(
-                () => setCopied(true),
-                () => undefined,
-              );
+              void copyText(id, writeClipboard).then((ok) => setCopied(ok));
             }}
           />
         }

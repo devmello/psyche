@@ -35,6 +35,19 @@ export const CredentialMeta = Type.Object(
      * external manager (1Password, Bitwarden) read at fill time.
      */
     backend: Type.Optional(StringEnum(["vault", "keychain", "1password", "bitwarden"])),
+    /**
+     * Gateway-owned items (#511): who manages the item and where in Settings it is removed.
+     * `removable` says whether `vault.delete` takes it; when false, remove it through `setting`
+     * (a provider key in Models, a channel token in Channels, a connector's token by
+     * disconnecting it). Absent for items the owner created in the vault.
+     */
+    managedBy: Type.Optional(
+      Type.Object({
+        kind: StringEnum(["connector", "model_provider", "channel", "external_manager"]),
+        setting: StringEnum(["connectors", "models", "channels", "credentials"]),
+        removable: Type.Boolean(),
+      }),
+    ),
   },
   { $id: "CredentialMeta" },
 );
@@ -178,6 +191,64 @@ export const CredentialSecretInput = Type.Object(
 export type CredentialSecretInput = Static<typeof CredentialSecretInput>;
 
 /** Data model §8. */
+/** One action row of a connector (Permissions → connector matrix, M11). */
+export const ConnectorCatalogueAction = Type.Object(
+  {
+    id: Type.String(),
+    title: Type.String(),
+    sideEffect: Type.String(),
+    approvalKind: Type.Optional(Type.String()),
+    defaultRule: StringEnum(["allow", "ask", "deny"]),
+  },
+  { $id: "ConnectorCatalogueAction" },
+);
+
+/** A directory row (M4 data): first-party connectors, remote MCP presets, custom. */
+export const ConnectorCatalogueEntry = Type.Object(
+  {
+    type: Type.String(),
+    id: Type.String(),
+    label: Type.String(),
+    description: Type.String(),
+    category: Type.String(),
+    vendor: Type.String(),
+    auth: Type.String(),
+    scopes: Type.Object({ read: Type.Array(Type.String()), read_act: Type.Array(Type.String()) }),
+    actions: Type.Array(ConnectorCatalogueAction),
+    remote: Type.Optional(
+      Type.Object({
+        url: Type.String(),
+        transport: Type.Literal("http"),
+        readOnlyUrl: Type.Optional(Type.String()),
+      }),
+    ),
+    setupGuide: Type.Optional(Type.String()),
+    docsUrl: Type.Optional(Type.String()),
+    available: Type.Boolean(),
+    /** False when the Gateway lacks what connecting needs (e.g. no OAuth client id configured). */
+    configured: Type.Optional(Type.Boolean()),
+  },
+  { $id: "ConnectorCatalogueEntry" },
+);
+export type ConnectorCatalogueEntry = Static<typeof ConnectorCatalogueEntry>;
+
+/**
+ * A sign-in the owner has to finish elsewhere: the consent page to open (Google's, Microsoft's)
+ * or a device code to enter. `connectors.connect` returns it at once; the connector turns
+ * `connected` (or `error`) later, announced by `connectors.updated`.
+ */
+export const ConnectorAuthorization = Type.Object(
+  {
+    url: Type.String({ description: "https consent page, or the device-code verification page" }),
+    userCode: Type.Optional(Type.String({ description: "Device code flow: the code to enter" })),
+    expiresAt: Type.Integer({ minimum: 0, description: "Epoch ms" }),
+    /** True when the Gateway already opened `url` in the owner's browser on its machine. */
+    opened: Type.Boolean(),
+  },
+  { $id: "ConnectorAuthorization" },
+);
+export type ConnectorAuthorization = Static<typeof ConnectorAuthorization>;
+
 export const ConnectorStatus = StringEnum(["connected", "disconnected", "error", "needs_auth"], {
   $id: "ConnectorStatus",
 });

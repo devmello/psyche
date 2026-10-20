@@ -43,6 +43,18 @@ export function skills(): SkillDetails[] {
       manifest: { tools: ["email.*"], permissions: ["send_email"], prompts: [] },
     }),
     skill({
+      name: "calendar-planning",
+      description: "Plan the week around your calendar, with buffers and focus time.",
+      source: "bundled",
+      path: "skills/calendar-planning/SKILL.md",
+      enabled: false,
+      status: "ineligible",
+      reasons: [
+        "needs a calendar: connect Google Calendar or Apple Calendar in Settings → Connectors",
+      ],
+      manifest: { tools: ["calendar.*"], permissions: ["calendar_write"], prompts: [] },
+    }),
+    skill({
       name: "weekly-review",
       description: "Every Friday, summarize the week's tasks, goals and open threads.",
       source: "bundled",

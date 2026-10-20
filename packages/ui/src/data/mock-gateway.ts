@@ -1628,7 +1628,17 @@ export class MockGateway implements GatewayClient {
     "vault.delete": (p) => {
       const current = this.world.credentials.find((c) => c.id === p.credentialId);
       if (current === undefined) return { deleted: false };
-      if (current.ownerConnectorId !== null) fail("forbidden", "Its connector manages this item.");
+      // Like the vault (#511): a Gateway-owned item says where it is removed instead.
+      const managed = current.managedBy ?? {
+        kind: "connector" as const,
+        setting: "connectors" as const,
+        removable: false,
+      };
+      if (current.ownerConnectorId !== null && !managed.removable) {
+        throw new PsycheError("forbidden", `${current.name} belongs to the Gateway.`, {
+          details: { reason: "gateway_owned", kind: managed.kind, setting: managed.setting },
+        });
+      }
       this.world.credentials = this.world.credentials.filter((c) => c.id !== current.id);
       this.emit("credential.updated", {
         credentialId: current.id,

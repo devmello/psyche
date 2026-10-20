@@ -80,6 +80,24 @@ export async function storeChannelSecret(
   });
 }
 
+/**
+ * Removes a channel's transport secret (`channels.secrets.clear`, #511): the Gateway-owned item
+ * is revoked, which also ends its grants and leases. Returns whether there was one.
+ */
+export async function clearChannelSecret(
+  vault: Vault,
+  type: ChannelType,
+  account: string,
+  name: ChannelSecretName,
+): Promise<boolean> {
+  required(type, name);
+  const owner = channelSecretOwner(type, account, name);
+  const existing = vault.connectorItem(owner);
+  if (existing === undefined) return false;
+  await vault.revoke(existing.id, owner, "deleted");
+  return true;
+}
+
 /** A `SecretSource` over one stored secret; a locked vault is unlocked on first use. */
 export function vaultChannelSecret(
   vault: () => Vault | undefined,
@@ -116,7 +134,7 @@ export function vaultChannelSecret(
   };
 }
 
-/** `channels.secrets.set` / `channels.secrets.status`. Never echoes or logs a value. */
+/** `channels.secrets.set` / `.clear` / `.status`. Never echoes or logs a value. */
 export function channelSecretHandlers(
   vault: () => Vault | undefined,
   onStored: (type: ChannelType, account: string) => void = () => undefined,
@@ -141,6 +159,19 @@ export function channelSecretHandlers(
           throw new PsycheError("unavailable", "the secret could not be stored");
         }
         onStored(params.type, params.account);
+        return { set: storedChannelSecrets(v, params.type, params.account) };
+      },
+    },
+    "channels.secrets.clear": {
+      async run(
+        _call: Call,
+        params: MethodParams<"channels.secrets.clear">,
+      ): Promise<MethodResult<"channels.secrets.clear">> {
+        const v = open();
+        if (await clearChannelSecret(v, params.type, params.account, params.name)) {
+          // The channel re-reads its secrets, as after a set.
+          onStored(params.type, params.account);
+        }
         return { set: storedChannelSecrets(v, params.type, params.account) };
       },
     },
