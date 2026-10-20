@@ -2,6 +2,7 @@ import type {
   ApprovalRequest,
   Artifact,
   Automation,
+  BotAuthStatus,
   Channel,
   Connector,
   CredentialMeta,
@@ -96,6 +97,8 @@ export interface FixtureWorld {
   channels: Channel[];
   pairingRequests: PairingRequest[];
   devices: Device[];
+  /** Web Bot Auth (I14): no key until the owner creates one. */
+  botAuth: BotAuthStatus;
   nodes: NodeInfo[];
   credentials: CredentialMeta[];
   /** The fill audit behind `vault.uses`, newest first. */
@@ -154,6 +157,16 @@ export function createFixtureWorld(): FixtureWorld {
     channels: channels(),
     pairingRequests: pairingRequests(),
     devices: devices(),
+    botAuth: {
+      enabled: false,
+      keyId: null,
+      publicJwk: null,
+      createdAt: null,
+      signatureAgent: null,
+      directoryPath: "/.well-known/http-message-signatures-directory",
+      origins: [],
+      advertised: [],
+    },
     nodes: nodes(),
     credentials: credentials(),
     credentialUses: credentialUses(),

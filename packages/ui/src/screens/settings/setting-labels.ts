@@ -16,6 +16,7 @@ export const SETTING_LABELS: Readonly<Record<string, string>> = {
   "appearance.zoom": "Zoom",
   "backup.schedule": "Backup schedule",
   "browser.realChrome": "Real-Chrome mode",
+  "browser.botAuth": "Web Bot Auth",
   "computerUse.enabled": "Allow computer use",
   "computerUse.apps": "App access",
   "context.maxTokens": "Context limit",

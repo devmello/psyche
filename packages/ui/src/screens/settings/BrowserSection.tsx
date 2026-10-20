@@ -1,9 +1,12 @@
-import { ExternalLink } from "lucide-react";
+import type { BotAuthStatus } from "@psyche/protocol";
+import { ExternalLink, KeyRound } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
+import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import {
   ErrorNotice,
+  Facts,
   Group,
   LoadGate,
   type LoadProps,
@@ -11,6 +14,7 @@ import {
   SectionFrame,
   type SettingsFormProps,
   SwitchField,
+  TextSetting,
   useSettingsForm,
 } from "./shared.tsx";
 
@@ -43,7 +47,40 @@ export function realChromeOf(values: Readonly<Record<string, unknown>>): RealChr
   };
 }
 
+/**
+ * Web Bot Auth (I14; security §6): the admin setting `browser.botAuth {enabled, signatureAgent?,
+ * origins?}`. With it on, a key and a directory URL, Psyche signs requests to sites that ask
+ * (`Accept-Signature`) and to listed origins, never in logged-out tasks. The key lives in the
+ * vault; the panel shows its fingerprint and rotates it (`browser.botAuth.rotate`).
+ */
+export const BOT_AUTH_KEY = "browser.botAuth";
+
+export interface BotAuthSetting {
+  enabled: boolean;
+  signatureAgent?: string;
+  origins?: string[];
+}
+
+export function botAuthOf(values: Readonly<Record<string, unknown>>): BotAuthSetting {
+  const raw = values[BOT_AUTH_KEY];
+  if (typeof raw !== "object" || raw === null) return { enabled: false };
+  const v = raw as { enabled?: unknown; signatureAgent?: unknown; origins?: unknown };
+  return {
+    enabled: v.enabled === true,
+    ...(typeof v.signatureAgent === "string" && v.signatureAgent !== ""
+      ? { signatureAgent: v.signatureAgent }
+      : {}),
+    ...(Array.isArray(v.origins)
+      ? { origins: v.origins.filter((o): o is string => typeof o === "string") }
+      : {}),
+  };
+}
+
 export interface BrowserPanelProps extends SettingsFormProps, LoadProps {
+  /** Web Bot Auth status from the Gateway; null while unknown. */
+  botAuth?: BotAuthStatus | null;
+  /** Creates or replaces the key; resolves once the Gateway has the new one. */
+  onRotateBotAuth?: () => Promise<unknown>;
   persona: string;
   /** "Psyche profile (Wren)" when a persona is set, else "Psyche profile" (docs/ui-audit.md). */
   profileLabel?: string;
@@ -58,11 +95,17 @@ export function BrowserPanel({
   persona,
   profileLabel = "Psyche profile",
   onOpenProfile,
+  botAuth,
+  onRotateBotAuth,
   loading,
   error,
   onRetry,
 }: BrowserPanelProps): ReactElement {
   const setting = realChromeOf(values);
+  const wba = botAuthOf(values);
+  const [rotated, setRotated] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  const [rotating, setRotating] = useState(false);
+  const hasKey = botAuth?.keyId !== null && botAuth?.keyId !== undefined;
   const profile = setting.profile ?? "default";
   const [opened, setOpened] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   return (
@@ -141,6 +184,102 @@ export function BrowserPanel({
             )
           ) : null}
         </Group>
+        <Group
+          title="Web Bot Auth"
+          description={`Sign ${persona}'s requests so sites that check, such as Cloudflare's verified bots, can tell it apart from an unknown bot. Never in tasks that browse logged out.`}
+        >
+          <SwitchField
+            label="Sign requests for sites that ask"
+            description="Also for the sites you list. Needs a key and a key directory URL."
+            checked={wba.enabled}
+            settingKey={BOT_AUTH_KEY}
+            onChange={(enabled) => onChange(BOT_AUTH_KEY, { ...wba, enabled })}
+          />
+          <TextSetting
+            label="Key directory URL"
+            description={
+              <>
+                Where sites fetch your public key. The Gateway serves it at{" "}
+                <code className="font-mono">
+                  {botAuth?.directoryPath ?? "/.well-known/http-message-signatures-directory"}
+                </code>
+                ; publish that on a domain you control and enter its address here.
+              </>
+            }
+            placeholder="https://example.com/.well-known/http-message-signatures-directory"
+            value={wba.signatureAgent ?? ""}
+            settingKey={BOT_AUTH_KEY}
+            onCommit={(v) => {
+              const { signatureAgent: _old, ...rest } = wba;
+              onChange(BOT_AUTH_KEY, v === "" ? rest : { ...rest, signatureAgent: v });
+            }}
+          />
+          <Facts
+            items={[
+              {
+                term: "Key fingerprint",
+                value: hasKey ? (
+                  <code className="font-mono text-xs" data-testid="bot-auth-fingerprint">
+                    {botAuth?.keyId}
+                  </code>
+                ) : (
+                  "No key yet"
+                ),
+              },
+              ...(botAuth?.createdAt
+                ? [{ term: "Created", value: botAuth.createdAt.slice(0, 10) }]
+                : []),
+              {
+                term: "Sites that asked",
+                value:
+                  botAuth && botAuth.advertised.length > 0
+                    ? botAuth.advertised.join(", ")
+                    : "None yet",
+              },
+            ]}
+          />
+          {onRotateBotAuth ? (
+            <div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={rotating}
+                onClick={() => {
+                  setRotated(null);
+                  setRotating(true);
+                  onRotateBotAuth()
+                    .then(
+                      () =>
+                        setRotated({
+                          kind: "ok",
+                          text: hasKey
+                            ? "A new key is in place and the old one no longer signs. Update the directory you publish."
+                            : "Key created. Publish the directory, then enter its address above.",
+                        }),
+                      (err: unknown) =>
+                        setRotated({
+                          kind: "error",
+                          text: `Psyche couldn't ${hasKey ? "rotate" : "create"} the key (${messageOf(err)}).`,
+                        }),
+                    )
+                    .finally(() => setRotating(false));
+                }}
+              >
+                <KeyRound aria-hidden="true" /> {hasKey ? "Rotate key" : "Create key"}
+              </Button>
+            </div>
+          ) : null}
+          {rotated ? (
+            rotated.kind === "error" ? (
+              <ErrorNotice what={rotated.text} did="The current key, if any, still signs." />
+            ) : (
+              <p role="status" className="rounded-md bg-gray-3 px-3 py-2">
+                {rotated.text}
+              </p>
+            )
+          ) : null}
+        </Group>
       </LoadGate>
     </SectionFrame>
   );
@@ -154,6 +293,8 @@ export function BrowserSection({
   const form = useSettingsForm();
   const persona = usePersona();
   const named = useSlots().persona?.name;
+  const call = useCall();
+  const botAuthQ = useGatewayQuery("browser.botAuth.status", {});
   return (
     <div className="flex flex-col gap-3">
       <BrowserPanel
@@ -163,6 +304,8 @@ export function BrowserSection({
         persona={persona.name}
         profileLabel={realChromeProfileLabel(named)}
         {...(onOpenProfile ? { onOpenProfile } : {})}
+        botAuth={botAuthQ.data?.status ?? null}
+        onRotateBotAuth={() => call("browser.botAuth.rotate", {}).then(() => botAuthQ.reload())}
         loading={form.loading && Object.keys(form.values).length === 0}
         error={form.error}
         onRetry={form.reload}
