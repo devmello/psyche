@@ -67,9 +67,16 @@ function info(p: StoredPasskey): PasskeyInfo {
   };
 }
 
-/** The WebAuthn challenge for an approval's hex presence challenge: its 32 raw bytes, base64url. */
-export function webauthnChallengeFor(presenceChallengeHex: string): string {
-  return Buffer.from(presenceChallengeHex, "hex").toString("base64url");
+/**
+ * The WebAuthn challenge for an approval's presence challenge (`sha256:<hex>` from the broker, or
+ * bare hex): its 32 raw bytes, base64url. Without stripping the prefix, `Buffer.from(…, "hex")`
+ * stops at the `s` and every challenge would be empty.
+ */
+export function webauthnChallengeFor(presenceChallenge: string): string {
+  const hex = presenceChallenge.startsWith("sha256:")
+    ? presenceChallenge.slice(7)
+    : presenceChallenge;
+  return Buffer.from(hex, "hex").toString("base64url");
 }
 
 export class PasskeyService {

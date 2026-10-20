@@ -36,6 +36,8 @@ export const ApprovalKind = StringEnum(
     "pairing",
     "policy_change",
     "task_start",
+    "apple_script",
+    "shortcut_run",
   ],
   { $id: "ApprovalKind" },
 );

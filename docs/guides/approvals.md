@@ -45,7 +45,7 @@ A card shows, from top to bottom:
 - Requested by: your agent, and the task when there is one.
 - Why asked: the broker's reason, or the mode, the side-effect class and "this turn read untrusted content".
 - The choices you have, as radio buttons. Deny is selected when the card appears.
-- "Needs Touch ID to approve." for actions that require it (see below).
+- "Needs Touch ID or a passkey to approve." for actions that require it (see below).
 - "Also sent to: …" when the card went to other places too. The first answer wins.
 - A short binding hash: "any change above voids this card". The card is bound to these exact arguments. If the agent changes anything, the card is voided and a new one is needed. Details, beside it, shows the card's ids.
 
@@ -102,9 +102,9 @@ Some approvals can only be answered on a paired device (the desktop app or the w
 
 In a chat app such a card shows only its header and "Answer this on your Mac."
 
-A subset also needs proof that you are present: purchases and other financial actions, credential fills, commands on the Mac, pairing and permission changes. Their card says "Needs Touch ID to approve."
+A subset also needs proof that you are present: purchases and other financial actions, credential fills, commands on the Mac, pairing and permission changes. Their card says "Needs Touch ID or a passkey to approve."
 
-On main, approving those is refused on every device. The Mac helper's Touch ID signature cannot be registered with the Gateway yet, and the Gateway refuses rather than accept an unverified approval. Deny always works. Running commands directly on the Mac is also off by default.
+In the web client at the server's https address, approve them with a passkey: add one in Settings → Devices & nodes → Passkeys ([server mode](server-mode.md#passkeys)), and approving asks for it. Elsewhere approving those is refused. The Mac helper's Touch ID signature cannot be registered with the Gateway yet, and the Gateway refuses rather than accept an unverified approval. Deny always works. Running commands directly on the Mac is also off by default.
 
 ### Approvals as macOS notifications
 
