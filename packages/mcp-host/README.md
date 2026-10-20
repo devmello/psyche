@@ -47,7 +47,7 @@ Events (`onEvent`): `tools_changed` (previous / new hash, per-tool diff, poisoni
 - `oauth.test.ts`: mock authorization server (PRM, AS metadata, PKCE token exchange): CIMD flow, token reuse and removal, no DCR, forged `state`.
 - `contract.test.ts`: the same `McpHost` assertions against `FakeMcpHost` and `PsycheMcpHost`.
 - `container.test.ts`: `containerLauncher` against a fake runner that runs `test/fixtures/probe-server.mjs` (a dependency-free stdio server that lists env and reads files) with only the env it was given: per-server scope, `network none`, secrets out of argv, host env invisible, refusals, egress allowlist hand-off, kill on removal.
-- `tests/integration/mcp-sandbox/` (M3 acceptance, `PSYCHE_SANDBOX_TESTS=1`, skipped until `ContainerSandboxRunner.openStdio` exists): the probe server in the real container cannot read a planted `$PSYCHE_HOME/vault/vault.db`, `~/.ssh` or the host env.
+- `tests/integration/mcp-sandbox/` (M3 acceptance; runs on CI, locally only with `PSYCHE_SANDBOX_TESTS=1`; skipped until `ContainerSandboxRunner.openStdio` exists and a backend is present; builds the `core` image): the probe server in the real container cannot read a planted `$PSYCHE_HOME/vault/vault.db`, `~/.ssh` or the host env.
 
 ## Stubbed / not yet
 

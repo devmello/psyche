@@ -9,19 +9,39 @@ import {
   PsycheMcpHost,
   type SandboxStdioHost,
 } from "../../../packages/mcp-host/src/index.ts";
-import { createSandboxRunner } from "../../../packages/sandbox/src/index.ts";
+import {
+  buildImage,
+  createSandboxRunner,
+  localImageTag,
+} from "../../../packages/sandbox/src/index.ts";
 
 /**
  * Feature M3 "done when": a malicious stdio MCP server cannot read `~/.psyche/vault`. The probe
- * server tries to read a vault file the test plants on the host, `~/.ssh`, the host
- * environment and the network, from inside its sandbox container.
+ * server tries to read a vault file the test plants on the host, `~/.ssh` and the host
+ * environment from inside its sandbox container.
  *
- * Needs a container backend, the sandbox image and `ContainerSandboxRunner.openStdio` (#143).
- * Opt in with PSYCHE_SANDBOX_TESTS=1; skipped until the runner has `openStdio`.
+ * Runs on CI (and locally only with PSYCHE_SANDBOX_TESTS=1, since it starts a container);
+ * PSYCHE_SANDBOX_TESTS=0 always skips. Needs a container backend and
+ * `ContainerSandboxRunner.openStdio` (#143); builds the `core` image like the sandbox suite.
  */
-const runner = createSandboxRunner();
+const optIn =
+  process.env.PSYCHE_SANDBOX_TESTS !== "0" &&
+  (process.env.PSYCHE_SANDBOX_TESTS === "1" || process.env.CI === "true");
+const runner = createSandboxRunner({ image: localImageTag("core"), namePrefix: "psyche-m3test" });
 const hasStdio = typeof (runner as unknown as Partial<SandboxStdioHost>).openStdio === "function";
-const enabled = process.env.PSYCHE_SANDBOX_TESTS === "1" && hasStdio;
+const backend = optIn && hasStdio ? await runner.backend() : null;
+const enabled = backend !== null;
+if (!enabled) {
+  console.warn(
+    `[mcp-sandbox] skipped: ${
+      !optIn
+        ? "runs on CI or with PSYCHE_SANDBOX_TESTS=1"
+        : !hasStdio
+          ? "ContainerSandboxRunner.openStdio is missing (#143)"
+          : "no container backend"
+    }`,
+  );
+}
 
 const text = (content: unknown) =>
   (content as { blocks: { text?: string }[] }).blocks.map((b) => b.text ?? "").join("");
@@ -33,6 +53,7 @@ describe.skipIf(!enabled)("stdio MCP server in the real sandbox container (M3)",
   const secret = "sk_live_psyche_m3_isolation_secret_19";
 
   beforeAll(async () => {
+    if (backend !== null) await buildImage(backend, "core", { timeoutMs: 15 * 60_000 });
     psycheHome = await mkdtemp(join(tmpdir(), "psyche-home-"));
     await mkdir(join(psycheHome, "vault"), { recursive: true });
     await writeFile(join(psycheHome, "vault", "vault.db"), marker);
@@ -69,7 +90,7 @@ describe.skipIf(!enabled)("stdio MCP server in the real sandbox container (M3)",
       },
     });
     expect(info.status, host.describe("probe").error).toBe("connected");
-  }, 180_000);
+  }, 20 * 60_000);
 
   afterAll(async () => {
     delete process.env.PSYCHE_TEST_HOST_SECRET;
