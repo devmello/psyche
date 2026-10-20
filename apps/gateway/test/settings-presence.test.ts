@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { updateDevice } from "@psyche/db";
+import { revokeDevice, updateDevice } from "@psyche/db";
 import { type PresenceVerifier, presenceChallenge } from "@psyche/permissions";
 import type { ApprovalRequest } from "@psyche/protocol";
 import { FakeModelProvider } from "@psyche/testing";
@@ -186,24 +186,25 @@ describe("fresh presence on security settings (security §10)", () => {
     ).toMatchObject({ ok: false, error: { code: "forbidden" } });
   });
 
-  it("the Mac helper gates security settings only once it has presence keys", async () => {
+  it("the Mac helper gates security settings only once a paired device has a key", async () => {
     // psyched mounts the helper by default; with no registered key nobody could approve, so
     // gating would lock the owner out.
-    const unconfigured = await boot(undefined, [(s) => composeHelper(s)]);
-    expect(
-      await set(unconfigured.admin, { key: "permissions.policy", value: POLICY }),
-    ).toMatchObject({
-      ok: true,
-    });
-    for (const c of clients.splice(0)) c.close();
-    await composed?.stop("test");
-    composed?.gateway.context.db.close();
-    rmSync(home, { recursive: true, force: true });
-
-    const withKeys = await boot(undefined, [
-      (s) => composeHelper(s, { presenceKeys: () => undefined }),
+    const keys = new Map<string, string>();
+    const { c, admin } = await boot(undefined, [
+      (s) => composeHelper(s, { presenceKeys: (id) => keys.get(id) }),
     ]);
-    expect(await set(withKeys.admin, { key: "permissions.policy", value: POLICY })).toMatchObject({
+    const policy = (value: unknown) => set(admin, { key: "permissions.policy", value });
+    expect(await policy(POLICY)).toMatchObject({ ok: true });
+
+    // A key for an unknown or a revoked device verifies nothing either.
+    keys.set("no-such-device", "registered-key");
+    (await desktopClient(c.gateway, newDeviceKey(), "old-helper")).close();
+    keys.set("old-helper", "registered-key");
+    revokeDevice(c.gateway.context.db, "old-helper");
+    expect(await policy({ allow: [] })).toMatchObject({ ok: true });
+
+    keys.set(DEVICE, "registered-key");
+    expect(await policy(POLICY)).toMatchObject({
       ok: false,
       error: { code: "approval_required" },
     });

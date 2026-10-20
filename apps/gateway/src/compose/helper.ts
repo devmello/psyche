@@ -1,4 +1,5 @@
 import { createPublicKey, type KeyObject, verify } from "node:crypto";
+import { listDevices } from "@psyche/db";
 import {
   cardHeader,
   type PresenceAssertion,
@@ -295,8 +296,17 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       isOwnerSender: async () => false,
     },
     approver: (deviceId) => [...helpers.values()].some((h) => h.deviceId === deviceId),
-    // No registered keys, no assertion can pass: not a reason to gate security settings.
-    presence: { kind: "helper", verifier, ready: () => setup.presenceKeys !== undefined },
+    presence: {
+      kind: "helper",
+      verifier,
+      // Ready only while some paired, non-revoked device has a registered key: without one no
+      // assertion can pass, and gating security settings on it would lock the owner out.
+      ready: () =>
+        setup.presenceKeys !== undefined &&
+        listDevices(services.db).some(
+          (d) => d.pairedAt !== null && setup.presenceKeys?.(d.id) !== undefined,
+        ),
+    },
     start(gw) {
       gateway = gw;
       unsubscribe.push(
