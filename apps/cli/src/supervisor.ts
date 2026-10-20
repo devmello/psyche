@@ -32,6 +32,13 @@ function xml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/**
+ * launchd starts agents with `/usr/bin:/bin:/usr/sbin:/sbin`; Homebrew (Apple silicon, then
+ * Intel) comes first so tools the Gateway runs, such as the Claude Code and Codex CLIs, are
+ * found (#530). Per-user directories (`~/.local/bin`, nvm, …) are searched by the model router.
+ */
+export const LAUNCH_AGENT_PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+
 export function renderLaunchAgentPlist(input: ServiceInput): string {
   const logDir = join(input.psycheHome, "logs");
   const argv = [input.program, ...(input.args ?? [])]
@@ -51,6 +58,8 @@ ${argv}
   <dict>
     <key>PSYCHE_HOME</key>
     <string>${xml(input.psycheHome)}</string>
+    <key>PATH</key>
+    <string>${LAUNCH_AGENT_PATH}</string>
   </dict>
   <key>RunAtLoad</key>
   <true/>

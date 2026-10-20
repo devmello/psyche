@@ -9,6 +9,7 @@ import {
 } from "./capability-guess.ts";
 import { cliDialectFor } from "./cli/index.ts";
 import { probeCli } from "./cli/probe.ts";
+import type { ResolveCliOptions } from "./cli/resolve.ts";
 import {
   type AuthProfile,
   isSubscriptionKind,
@@ -72,6 +73,8 @@ export interface EndpointProbeDeps {
   maxDetails?: number;
   /** Subscription CLIs: the environment their probe commands run in (default `process.env`). */
   cliEnv?: NodeJS.ProcessEnv;
+  /** Subscription CLIs: how the CLI is found (tests: a fake home, no login shell). */
+  cliResolve?: Omit<ResolveCliOptions, "command" | "env">;
 }
 
 export interface EndpointProbeOptions {
@@ -500,6 +503,7 @@ export async function probeEndpoint(
     return probeCli(config, cliDialectFor(config), {
       ...(deps.clock === undefined ? {} : { clock: deps.clock }),
       ...(deps.cliEnv === undefined ? {} : { env: deps.cliEnv }),
+      ...(deps.cliResolve === undefined ? {} : { resolve: deps.cliResolve }),
     });
   }
   const clock = deps.clock ?? { now: () => Date.now() };

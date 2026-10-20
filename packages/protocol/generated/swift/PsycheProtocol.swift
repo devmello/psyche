@@ -370,6 +370,14 @@
 //   let logLine = try? JSONDecoder().decode(LogLine.self, from: jsonData)
 //   let logsTailParams = try? JSONDecoder().decode(LogsTailParams.self, from: jsonData)
 //   let logsTailResult = try? JSONDecoder().decode(LogsTailResult.self, from: jsonData)
+//   let mCPAddParams = try? JSONDecoder().decode(MCPAddParams.self, from: jsonData)
+//   let mCPAddResult = try? JSONDecoder().decode(MCPAddResult.self, from: jsonData)
+//   let mCPProbeParams = try? JSONDecoder().decode(MCPProbeParams.self, from: jsonData)
+//   let mCPProbeResult = try? JSONDecoder().decode(MCPProbeResult.self, from: jsonData)
+//   let mCPProbedTool = try? JSONDecoder().decode(MCPProbedTool.self, from: jsonData)
+//   let mCPProposal = try? JSONDecoder().decode(MCPProposal.self, from: jsonData)
+//   let mCPRemoveParams = try? JSONDecoder().decode(MCPRemoveParams.self, from: jsonData)
+//   let mCPServerInput = try? JSONDecoder().decode(MCPServerInput.self, from: jsonData)
 //   let mCPServerStatus = try? JSONDecoder().decode(MCPServerStatus.self, from: jsonData)
 //   let mCPStatusParams = try? JSONDecoder().decode(MCPStatusParams.self, from: jsonData)
 //   let mCPStatusResult = try? JSONDecoder().decode(MCPStatusResult.self, from: jsonData)
@@ -8632,6 +8640,283 @@ public struct LogLine: Codable, Sendable {
     }
 }
 
+// MARK: - MCPAddParams
+public struct MCPAddParams: Codable, Sendable {
+    public let approvalID: String
+    public let proposalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case proposalID = "proposalId"
+    }
+
+    public init(approvalID: String, proposalID: String) {
+        self.approvalID = approvalID
+        self.proposalID = proposalID
+    }
+}
+
+// MARK: - MCPAddResult
+public struct MCPAddResult: Codable, Sendable {
+    public let server: MCPServerStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case server = "server"
+    }
+
+    public init(server: MCPServerStatus) {
+        self.server = server
+    }
+}
+
+// MARK: - MCPServerStatus
+public struct MCPServerStatus: Codable, Sendable {
+    public let connected: Bool
+    public let id: String
+    public let name: String
+    public let network: Bool
+    public let transport: KindEnum
+    public let trust: Trust
+
+    public enum CodingKeys: String, CodingKey {
+        case connected = "connected"
+        case id = "id"
+        case name = "name"
+        case network = "network"
+        case transport = "transport"
+        case trust = "trust"
+    }
+
+    public init(connected: Bool, id: String, name: String, network: Bool, transport: KindEnum, trust: Trust) {
+        self.connected = connected
+        self.id = id
+        self.name = name
+        self.network = network
+        self.transport = transport
+        self.trust = trust
+    }
+}
+
+public enum KindEnum: String, Codable, Sendable {
+    case http = "http"
+    case stdio = "stdio"
+}
+
+public enum Trust: String, Codable, Sendable {
+    case bundled = "bundled"
+    case unknown = "unknown"
+    case verified = "verified"
+}
+
+// MARK: - MCPProbeParams
+public struct MCPProbeParams: Codable, Sendable {
+    public let server: MCPServerInput
+
+    public enum CodingKeys: String, CodingKey {
+        case server = "server"
+    }
+
+    public init(server: MCPServerInput) {
+        self.server = server
+    }
+}
+
+// MARK: - MCPServerInput
+public struct MCPServerInput: Codable, Sendable {
+    public let allowedDomains: [String]?
+    public let id: String
+    public let name: String
+    public let transport: TransportClass
+
+    public enum CodingKeys: String, CodingKey {
+        case allowedDomains = "allowedDomains"
+        case id = "id"
+        case name = "name"
+        case transport = "transport"
+    }
+
+    public init(allowedDomains: [String]?, id: String, name: String, transport: TransportClass) {
+        self.allowedDomains = allowedDomains
+        self.id = id
+        self.name = name
+        self.transport = transport
+    }
+}
+
+// MARK: - TransportClass
+public struct TransportClass: Codable, Sendable {
+    public let command: [String]?
+    public let env: [String: JSONAny]?
+    public let kind: KindEnum
+    public let auth: Auth?
+    public let url: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case command = "command"
+        case env = "env"
+        case kind = "kind"
+        case auth = "auth"
+        case url = "url"
+    }
+
+    public init(command: [String]?, env: [String: JSONAny]?, kind: KindEnum, auth: Auth?, url: String?) {
+        self.command = command
+        self.env = env
+        self.kind = kind
+        self.auth = auth
+        self.url = url
+    }
+}
+
+// MARK: - Auth
+public struct Auth: Codable, Sendable {
+    public let kind: AuthKind
+    public let credential: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case credential = "credential"
+    }
+
+    public init(kind: AuthKind, credential: String?) {
+        self.kind = kind
+        self.credential = credential
+    }
+}
+
+public enum AuthKind: String, Codable, Sendable {
+    case bearer = "bearer"
+    case none = "none"
+    case oauth = "oauth"
+}
+
+// MARK: - MCPProbeResult
+public struct MCPProbeResult: Codable, Sendable {
+    public let approval: ApprovalRequest
+    public let proposal: MCPProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case approval = "approval"
+        case proposal = "proposal"
+    }
+
+    public init(approval: ApprovalRequest, proposal: MCPProposal) {
+        self.approval = approval
+        self.proposal = proposal
+    }
+}
+
+// MARK: - MCPProposal
+public struct MCPProposal: Codable, Sendable {
+    public let diagnostics: String?
+    /// Epoch ms
+    public let expiresAt: Int
+    public let id: String
+    public let isolation: Isolation
+    public let network: Network
+    public let server: MCPServerInput
+    public let tools: [MCPProbedTool]
+    public let toolsListHash: String
+
+    public enum CodingKeys: String, CodingKey {
+        case diagnostics = "diagnostics"
+        case expiresAt = "expiresAt"
+        case id = "id"
+        case isolation = "isolation"
+        case network = "network"
+        case server = "server"
+        case tools = "tools"
+        case toolsListHash = "toolsListHash"
+    }
+
+    public init(diagnostics: String?, expiresAt: Int, id: String, isolation: Isolation, network: Network, server: MCPServerInput, tools: [MCPProbedTool], toolsListHash: String) {
+        self.diagnostics = diagnostics
+        self.expiresAt = expiresAt
+        self.id = id
+        self.isolation = isolation
+        self.network = network
+        self.server = server
+        self.tools = tools
+        self.toolsListHash = toolsListHash
+    }
+}
+
+public enum Isolation: String, Codable, Sendable {
+    case container = "container"
+    case remote = "remote"
+    case srt = "srt"
+}
+
+// MARK: - Network
+public struct Network: Codable, Sendable {
+    public let hosts: [String]
+    public let reaches: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case hosts = "hosts"
+        case reaches = "reaches"
+    }
+
+    public init(hosts: [String], reaches: Bool) {
+        self.hosts = hosts
+        self.reaches = reaches
+    }
+}
+
+// MARK: - MCPProbedTool
+public struct MCPProbedTool: Codable, Sendable {
+    public let blocked: Bool
+    public let description: String
+    public let name: String
+    public let sideEffect: SideEffectEnum
+    public let warnings: [Warning]
+
+    public enum CodingKeys: String, CodingKey {
+        case blocked = "blocked"
+        case description = "description"
+        case name = "name"
+        case sideEffect = "sideEffect"
+        case warnings = "warnings"
+    }
+
+    public init(blocked: Bool, description: String, name: String, sideEffect: SideEffectEnum, warnings: [Warning]) {
+        self.blocked = blocked
+        self.description = description
+        self.name = name
+        self.sideEffect = sideEffect
+        self.warnings = warnings
+    }
+}
+
+// MARK: - Warning
+public struct Warning: Codable, Sendable {
+    public let code: String
+    public let detail: String
+
+    public enum CodingKeys: String, CodingKey {
+        case code = "code"
+        case detail = "detail"
+    }
+
+    public init(code: String, detail: String) {
+        self.code = code
+        self.detail = detail
+    }
+}
+
+// MARK: - MCPRemoveParams
+public struct MCPRemoveParams: Codable, Sendable {
+    public let serverID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case serverID = "serverId"
+    }
+
+    public init(serverID: String) {
+        self.serverID = serverID
+    }
+}
+
 // MARK: - MCPStatusResult
 public struct MCPStatusResult: Codable, Sendable {
     public let launcher: Launcher
@@ -8652,45 +8937,6 @@ public enum Launcher: String, Codable, Sendable {
     case container = "container"
     case none = "none"
     case srt = "srt"
-}
-
-// MARK: - MCPServerStatus
-public struct MCPServerStatus: Codable, Sendable {
-    public let connected: Bool
-    public let id: String
-    public let name: String
-    public let network: Bool
-    public let transport: MCPServerStatusTransport
-    public let trust: Trust
-
-    public enum CodingKeys: String, CodingKey {
-        case connected = "connected"
-        case id = "id"
-        case name = "name"
-        case network = "network"
-        case transport = "transport"
-        case trust = "trust"
-    }
-
-    public init(connected: Bool, id: String, name: String, network: Bool, transport: MCPServerStatusTransport, trust: Trust) {
-        self.connected = connected
-        self.id = id
-        self.name = name
-        self.network = network
-        self.transport = transport
-        self.trust = trust
-    }
-}
-
-public enum MCPServerStatusTransport: String, Codable, Sendable {
-    case http = "http"
-    case stdio = "stdio"
-}
-
-public enum Trust: String, Codable, Sendable {
-    case bundled = "bundled"
-    case unknown = "unknown"
-    case verified = "verified"
 }
 
 // MARK: - MemoryClaimsConfirmParams
