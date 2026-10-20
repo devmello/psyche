@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (M3 gateway hardening, docs/status/s05.md §2)
+
+- Error code `presence_required`: a security change needs fresh presence and no verifier on this Gateway can give one (presence was enrolled, then every passkey and helper key was lost or revoked). The UI tells the owner to add a passkey or register the helper's key.
+- Optional `approvalId` on `devices.approve`, `channels.configure`, `channels.allowlist.update`, `channels.pairing.approve`, `channels.identities.upsert`, `memory.reset`, `backup.delete` and `passkeys.register.finish`: the same fresh-presence round trip `settings.set` already has (the first call fails `approval_required` with `details.approvalId`; retry with it once the device-only `policy_change` card is approved).
+- `AuditVerifyResult` gains optional `signedAnchors`, `anchorKeyIds` and `signingSinceSeq` (signed audit anchors, security §15.1).
+- No fake change: no contract interface changed.
+
 ### v1 additive — 2026-10-19 (M2 computer use: per-app tier keys on the action)
 
 For S02 (the loop passes it through), S05 (the broker's per-app tier check) and the Gateway's computer-use tools (`computer.act`, `apps.open`, `apps.focus`).

@@ -761,7 +761,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Approves a pending pairing request with owner-chosen scopes.",
+        "description": "Approves a pending pairing request with owner-chosen scopes. Needs fresh presence once the Gateway has a presence verifier (approval_required with details.approvalId, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now).",
         "name": "devices.approve",
         "params": "#/$defs/DevicesApproveParams",
         "result": "#/$defs/DevicesApproveResult",
@@ -1249,7 +1249,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Stores the new passkey. A device that already has one must include reauth (an assertion with an existing passkey). At most 20 per device. Side-effecting.",
+        "description": "Stores the new passkey. A device that already has one must include reauth (an assertion with an existing passkey). A device's first passkey needs fresh presence from another device's passkey or the helper's Touch ID key once the Gateway has one (approval_required with details.approvalId, then retry with approvalId). At most 20 per device. Side-effecting.",
         "name": "passkeys.register.finish",
         "params": "#/$defs/PasskeysRegisterFinishParams",
         "result": "#/$defs/PasskeysRegisterFinishResult",
@@ -1337,7 +1337,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges) also needs operator.admin. Security keys (permissions, exec, vault, devices, gateway, owner identities, channel DM / allow policies) also need fresh user presence once the Gateway has a presence verifier: the first call fails approval_required with details.approvalId (a device-only policy_change card bound to the key and value); retry with that approvalId after approving. Side-effecting.",
+        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges) also needs operator.admin. Security keys (permissions, exec, vault, devices, gateway, owner identities, channel DM / allow policies) also need fresh user presence once the Gateway has a presence verifier: the first call fails approval_required with details.approvalId (a device-only policy_change card bound to the key and value); retry with that approvalId after approving. Once presence was enrolled, a Gateway whose verifiers can no longer verify fails presence_required instead of falling back to operator.admin alone. Side-effecting.",
         "name": "settings.set",
         "params": "#/$defs/SettingsSetParams",
         "result": "#/$defs/SettingsSetResult",
@@ -3500,6 +3500,22 @@
         "line": {
           "minimum": 1,
           "type": "integer"
+        },
+        "signedAnchors": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "anchorKeyIds": {
+          "items": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "signingSinceSeq": {
+          "minimum": 0,
+          "type": "integer"
         }
       },
       "required": [
@@ -4114,6 +4130,12 @@
           "maxLength": 255,
           "minLength": 1,
           "pattern": "^[^/\\\\]+$",
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
           "type": "string"
         }
       },
@@ -5535,6 +5557,12 @@
           },
           "maxItems": 1000,
           "type": "array"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -5637,6 +5665,12 @@
             "^(.*)$": {}
           },
           "type": "object"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "type": "object"
@@ -5755,6 +5789,12 @@
               "type": "null"
             }
           ]
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -5808,6 +5848,12 @@
         },
         "code": {
           "maxLength": 16,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
           "minLength": 1,
           "type": "string"
         }
@@ -7226,6 +7272,12 @@
           "maxLength": 32,
           "minLength": 1,
           "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -7644,7 +7696,8 @@
         "user_in_control",
         "debugger_detached",
         "tab_not_found",
-        "method_not_allowed"
+        "method_not_allowed",
+        "presence_required"
       ],
       "type": "string"
     },
@@ -10687,6 +10740,12 @@
       "properties": {
         "dryRun": {
           "type": "boolean"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "type": "object"
@@ -12414,6 +12473,12 @@
         },
         "reauth": {
           "$ref": "#/$defs/PasskeyReauth"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [

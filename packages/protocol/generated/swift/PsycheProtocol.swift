@@ -2018,6 +2018,7 @@ public enum AuditActorType: String, Codable, Sendable {
 
 // MARK: - AuditVerifyResult
 public struct AuditVerifyResult: Codable, Sendable {
+    public let anchorKeyIDS: [String]?
     public let anchors: Int?
     public let brokenAtSeq: Int?
     public let count: Int?
@@ -2026,8 +2027,11 @@ public struct AuditVerifyResult: Codable, Sendable {
     public let line: Int?
     public let ok: Bool
     public let reason: AuditVerifyResultReason?
+    public let signedAnchors: Int?
+    public let signingSinceSeq: Int?
 
     public enum CodingKeys: String, CodingKey {
+        case anchorKeyIDS = "anchorKeyIds"
         case anchors = "anchors"
         case brokenAtSeq = "brokenAtSeq"
         case count = "count"
@@ -2036,9 +2040,12 @@ public struct AuditVerifyResult: Codable, Sendable {
         case line = "line"
         case ok = "ok"
         case reason = "reason"
+        case signedAnchors = "signedAnchors"
+        case signingSinceSeq = "signingSinceSeq"
     }
 
-    public init(anchors: Int?, brokenAtSeq: Int?, count: Int?, file: String?, lastHash: String?, line: Int?, ok: Bool, reason: AuditVerifyResultReason?) {
+    public init(anchorKeyIDS: [String]?, anchors: Int?, brokenAtSeq: Int?, count: Int?, file: String?, lastHash: String?, line: Int?, ok: Bool, reason: AuditVerifyResultReason?, signedAnchors: Int?, signingSinceSeq: Int?) {
+        self.anchorKeyIDS = anchorKeyIDS
         self.anchors = anchors
         self.brokenAtSeq = brokenAtSeq
         self.count = count
@@ -2047,6 +2054,8 @@ public struct AuditVerifyResult: Codable, Sendable {
         self.line = line
         self.ok = ok
         self.reason = reason
+        self.signedAnchors = signedAnchors
+        self.signingSinceSeq = signingSinceSeq
     }
 }
 
@@ -2635,13 +2644,16 @@ public struct BackupInfo: Codable, Sendable {
 
 // MARK: - BackupDeleteParams
 public struct BackupDeleteParams: Codable, Sendable {
+    public let approvalID: String?
     public let file: String
 
     public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
         case file = "file"
     }
 
-    public init(file: String) {
+    public init(approvalID: String?, file: String) {
+        self.approvalID = approvalID
         self.file = file
     }
 }
@@ -3587,19 +3599,22 @@ public enum DevicePlatform: String, Codable, Sendable {
 // MARK: - ChannelsAllowlistUpdateParams
 public struct ChannelsAllowlistUpdateParams: Codable, Sendable {
     public let add: [String]?
+    public let approvalID: String?
     public let channelID: String
     public let list: List
     public let remove: [String]?
 
     public enum CodingKeys: String, CodingKey {
         case add = "add"
+        case approvalID = "approvalId"
         case channelID = "channelId"
         case list = "list"
         case remove = "remove"
     }
 
-    public init(add: [String]?, channelID: String, list: List, remove: [String]?) {
+    public init(add: [String]?, approvalID: String?, channelID: String, list: List, remove: [String]?) {
         self.add = add
+        self.approvalID = approvalID
         self.channelID = channelID
         self.list = list
         self.remove = remove
@@ -3713,6 +3728,7 @@ public enum ChannelType: String, Codable, Sendable {
 public struct ChannelsConfigureParams: Codable, Sendable {
     public let account: String?
     public let allowFrom: [String]?
+    public let approvalID: String?
     public let channelID: String?
     public let config: [String: JSONAny]?
     public let dmPolicy: DmPolicy?
@@ -3727,6 +3743,7 @@ public struct ChannelsConfigureParams: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case account = "account"
         case allowFrom = "allowFrom"
+        case approvalID = "approvalId"
         case channelID = "channelId"
         case config = "config"
         case dmPolicy = "dmPolicy"
@@ -3739,9 +3756,10 @@ public struct ChannelsConfigureParams: Codable, Sendable {
         case type = "type"
     }
 
-    public init(account: String?, allowFrom: [String]?, channelID: String?, config: [String: JSONAny]?, dmPolicy: DmPolicy?, dmScope: DmScope?, groupAllowFrom: [String]?, nodeID: String?, ownerIDS: [String]?, requireMention: Bool?, status: ChannelsConfigureParamsStatus?, type: ChannelType?) {
+    public init(account: String?, allowFrom: [String]?, approvalID: String?, channelID: String?, config: [String: JSONAny]?, dmPolicy: DmPolicy?, dmScope: DmScope?, groupAllowFrom: [String]?, nodeID: String?, ownerIDS: [String]?, requireMention: Bool?, status: ChannelsConfigureParamsStatus?, type: ChannelType?) {
         self.account = account
         self.allowFrom = allowFrom
+        self.approvalID = approvalID
         self.channelID = channelID
         self.config = config
         self.dmPolicy = dmPolicy
@@ -3859,6 +3877,7 @@ public struct ChannelIdentity: Codable, Sendable {
 
 // MARK: - ChannelsIdentitiesUpsertParams
 public struct ChannelsIdentitiesUpsertParams: Codable, Sendable {
+    public let approvalID: String?
     public let delegatedPersona: String?
     public let display: String
     public let identityID: String?
@@ -3866,6 +3885,7 @@ public struct ChannelsIdentitiesUpsertParams: Codable, Sendable {
     public let toolAllow: [String]?
 
     public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
         case delegatedPersona = "delegatedPersona"
         case display = "display"
         case identityID = "identityId"
@@ -3873,7 +3893,8 @@ public struct ChannelsIdentitiesUpsertParams: Codable, Sendable {
         case toolAllow = "toolAllow"
     }
 
-    public init(delegatedPersona: String?, display: String, identityID: String?, links: [String], toolAllow: [String]?) {
+    public init(approvalID: String?, delegatedPersona: String?, display: String, identityID: String?, links: [String], toolAllow: [String]?) {
+        self.approvalID = approvalID
         self.delegatedPersona = delegatedPersona
         self.display = display
         self.identityID = identityID
@@ -3910,17 +3931,20 @@ public struct ChannelsListResult: Codable, Sendable {
 
 // MARK: - ChannelsPairingApproveParams
 public struct ChannelsPairingApproveParams: Codable, Sendable {
+    public let approvalID: String?
     public let channelID: String?
     public let code: String?
     public let requestID: String?
 
     public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
         case channelID = "channelId"
         case code = "code"
         case requestID = "requestId"
     }
 
-    public init(channelID: String?, code: String?, requestID: String?) {
+    public init(approvalID: String?, channelID: String?, code: String?, requestID: String?) {
+        self.approvalID = approvalID
         self.channelID = channelID
         self.code = code
         self.requestID = requestID
@@ -5179,6 +5203,7 @@ public enum DeviceRole: String, Codable, Sendable {
 
 // MARK: - DevicesApproveParams
 public struct DevicesApproveParams: Codable, Sendable {
+    public let approvalID: String?
     /// The code shown on the new device; when given it must match the request
     public let code: String?
     public let pairingRequestID: String
@@ -5186,12 +5211,14 @@ public struct DevicesApproveParams: Codable, Sendable {
     public let scopes: [DeviceScope]
 
     public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
         case code = "code"
         case pairingRequestID = "pairingRequestId"
         case scopes = "scopes"
     }
 
-    public init(code: String?, pairingRequestID: String, scopes: [DeviceScope]) {
+    public init(approvalID: String?, code: String?, pairingRequestID: String, scopes: [DeviceScope]) {
+        self.approvalID = approvalID
         self.code = code
         self.pairingRequestID = pairingRequestID
         self.scopes = scopes
@@ -6039,6 +6066,7 @@ public enum ErrorCode: String, Codable, Sendable {
     case originRejected = "origin_rejected"
     case pairingPending = "pairing_pending"
     case policyDenied = "policy_denied"
+    case presenceRequired = "presence_required"
     case protocolVersionMismatch = "protocol_version_mismatch"
     case rateLimited = "rate_limited"
     case tabNotFound = "tab_not_found"
@@ -7835,13 +7863,16 @@ public struct MemoryRememberResult: Codable, Sendable {
 
 // MARK: - MemoryResetParams
 public struct MemoryResetParams: Codable, Sendable {
+    public let approvalID: String?
     public let dryRun: Bool?
 
     public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
         case dryRun = "dryRun"
     }
 
-    public init(dryRun: Bool?) {
+    public init(approvalID: String?, dryRun: Bool?) {
+        self.approvalID = approvalID
         self.dryRun = dryRun
     }
 }
@@ -8999,19 +9030,22 @@ public struct PasskeysRegisterBeginResult: Codable, Sendable {
 
 // MARK: - PasskeysRegisterFinishParams
 public struct PasskeysRegisterFinishParams: Codable, Sendable {
+    public let approvalID: String?
     public let ceremonyID: String
     public let name: String?
     public let reauth: PasskeyReauth?
     public let response: [String: JSONAny]
 
     public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
         case ceremonyID = "ceremonyId"
         case name = "name"
         case reauth = "reauth"
         case response = "response"
     }
 
-    public init(ceremonyID: String, name: String?, reauth: PasskeyReauth?, response: [String: JSONAny]) {
+    public init(approvalID: String?, ceremonyID: String, name: String?, reauth: PasskeyReauth?, response: [String: JSONAny]) {
+        self.approvalID = approvalID
         self.ceremonyID = ceremonyID
         self.name = name
         self.reauth = reauth

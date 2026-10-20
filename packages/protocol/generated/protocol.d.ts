@@ -503,14 +503,17 @@ export interface AuditActor {
 export type AuditActorType = "agent" | "device" | "channel" | "system" | "user";
 
 export interface AuditVerifyResult {
-    anchors?:     number;
-    brokenAtSeq?: number;
-    count?:       number;
-    file?:        string;
-    lastHash?:    string;
-    line?:        number;
-    ok:           boolean;
-    reason?:      AuditVerifyResultReason;
+    anchorKeyIds?:    string[];
+    anchors?:         number;
+    brokenAtSeq?:     number;
+    count?:           number;
+    file?:            string;
+    lastHash?:        string;
+    line?:            number;
+    ok:               boolean;
+    reason?:          AuditVerifyResultReason;
+    signedAnchors?:   number;
+    signingSinceSeq?: number;
 }
 
 export type AuditVerifyResultReason = "hash_mismatch" | "prev_mismatch" | "seq_gap" | "unparsable" | "truncated" | "anchor_mismatch" | "anchor_missing" | "anchor_signature";
@@ -736,7 +739,8 @@ export interface BackupInfo {
 }
 
 export interface BackupDeleteParams {
-    file: string;
+    approvalId?: string;
+    file:        string;
 }
 
 export interface BackupDeleteResult {
@@ -1086,10 +1090,11 @@ export interface NodeCapability {
 export type DevicePlatform = "macos" | "ios" | "android" | "web" | "linux";
 
 export interface ChannelsAllowlistUpdateParams {
-    add?:      string[];
-    channelId: string;
-    list:      List;
-    remove?:   string[];
+    add?:        string[];
+    approvalId?: string;
+    channelId:   string;
+    list:        List;
+    remove?:     string[];
 }
 
 export type List = "allowFrom" | "groupAllowFrom" | "ownerIds";
@@ -1126,6 +1131,7 @@ export type ChannelType = "webchat" | "telegram" | "imessage" | "whatsapp" | "si
 export interface ChannelsConfigureParams {
     account?:        string;
     allowFrom?:      string[];
+    approvalId?:     string;
     channelId?:      string;
     config?:         { [key: string]: unknown };
     dmPolicy?:       DmPolicy;
@@ -1174,6 +1180,7 @@ export interface ChannelIdentity {
 }
 
 export interface ChannelsIdentitiesUpsertParams {
+    approvalId?:       string;
     delegatedPersona?: null | string;
     display:           string;
     identityId?:       string;
@@ -1190,9 +1197,10 @@ export interface ChannelsListResult {
 }
 
 export interface ChannelsPairingApproveParams {
-    channelId?: string;
-    code?:      string;
-    requestId?: string;
+    approvalId?: string;
+    channelId?:  string;
+    code?:       string;
+    requestId?:  string;
 }
 
 export interface ChannelsPairingApproveResult {
@@ -1639,6 +1647,7 @@ export interface Device {
 export type DeviceRole = "client" | "node" | "both";
 
 export interface DevicesApproveParams {
+    approvalId?: string;
     /**
      * The code shown on the new device; when given it must match the request
      */
@@ -1969,7 +1978,7 @@ export interface ErrorPayload {
 /**
  * Machine-readable error code
  */
-export type ErrorCode = "not_implemented" | "invalid_frame" | "invalid_params" | "unknown_method" | "protocol_version_mismatch" | "unauthorized" | "forbidden" | "not_paired" | "pairing_pending" | "origin_rejected" | "not_found" | "conflict" | "idempotency_conflict" | "rate_limited" | "timeout" | "cancelled" | "unavailable" | "approval_required" | "approval_expired" | "approval_invalidated" | "approval_not_armed" | "answer_late" | "answer_replayed" | "binding_mismatch" | "taint_blocked" | "policy_denied" | "internal" | "user_in_control" | "debugger_detached" | "tab_not_found" | "method_not_allowed";
+export type ErrorCode = "not_implemented" | "invalid_frame" | "invalid_params" | "unknown_method" | "protocol_version_mismatch" | "unauthorized" | "forbidden" | "not_paired" | "pairing_pending" | "origin_rejected" | "not_found" | "conflict" | "idempotency_conflict" | "rate_limited" | "timeout" | "cancelled" | "unavailable" | "approval_required" | "approval_expired" | "approval_invalidated" | "approval_not_armed" | "answer_late" | "answer_replayed" | "binding_mismatch" | "taint_blocked" | "policy_denied" | "internal" | "user_in_control" | "debugger_detached" | "tab_not_found" | "method_not_allowed" | "presence_required";
 
 export type FrameType = "req" | "res" | "event";
 
@@ -2546,7 +2555,8 @@ export interface MemoryRememberResult {
 }
 
 export interface MemoryResetParams {
-    dryRun?: boolean;
+    approvalId?: string;
+    dryRun?:     boolean;
 }
 
 export interface MemoryResetResult {
@@ -2948,10 +2958,11 @@ export interface PasskeysRegisterBeginResult {
 }
 
 export interface PasskeysRegisterFinishParams {
-    ceremonyId: string;
-    name?:      string;
-    reauth?:    PasskeyReauth;
-    response:   { [key: string]: unknown };
+    approvalId?: string;
+    ceremonyId:  string;
+    name?:       string;
+    reauth?:     PasskeyReauth;
+    response:    { [key: string]: unknown };
 }
 
 export interface PasskeyReauth {
