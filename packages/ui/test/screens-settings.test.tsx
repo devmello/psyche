@@ -275,6 +275,15 @@ describe("Computer use", () => {
       const apps = settingValue(gateway(), "computerUse.apps") as { id: string; tier: string }[];
       expect(apps.find((a) => a.id === "com.apple.Notes")?.tier).toBe("interact");
     });
+    // Apps the agent used but the owner never chose are on Ask (J5 first-use prompts).
+    await userEvent.click(screen.getByRole("radio", { name: "Notes: Ask" }));
+    await waitFor(() => {
+      const last = callsOf(gateway(), "settings.set")
+        .filter((c) => (c.params as { key: string }).key === "computerUse.apps")
+        .at(-1);
+      const apps = (last?.params as { value: { id: string; tier: string }[] }).value;
+      expect(apps.find((a) => a.id === "com.apple.Notes")?.tier).toBe("ask");
+    });
     expect(screen.getByText("Esc")).toBeTruthy();
   });
 });
