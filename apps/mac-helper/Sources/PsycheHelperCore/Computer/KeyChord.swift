@@ -77,6 +77,37 @@ public struct KeyChord: Sendable, Equatable {
     }
 }
 
+/// Keys that send in messaging and mail apps (#270): an interact grant on Messages or Mail must
+/// not let Return send a message as an ordinary write. docs/05 §3.1 classes third-party sends as
+/// destructive, so these need an approval of their own.
+public enum SendKeys {
+    static let apps = [
+        "com.apple.MobileSMS", "com.apple.mail", "com.apple.iChat", "com.tinyspeck.slackmacgap", "net.whatsapp.WhatsApp",
+        "desktop.WhatsApp", "ru.keepcoder.Telegram", "org.telegram.desktop", "com.hnc.Discord", "org.whispersystems.signal-desktop",
+        "com.microsoft.teams2", "com.microsoft.teams", "com.microsoft.Outlook", "com.readdle.smartemail-Mac", "com.superhuman.electron",
+        "com.facebook.archon", "com.google.Chrome.app.", "com.spark.desktop", "it.bloop.airmail2", "com.freron.MailMate",
+    ]
+
+    public static func isMessagingApp(_ bundleId: String?) -> Bool {
+        guard let id = bundleId?.lowercased() else { return false }
+        return apps.contains { p in
+            let q = p.lowercased()
+            return q.hasSuffix(".") ? id.hasPrefix(q) : id == q
+        }
+    }
+
+    /// Return / keypad Enter with any modifiers, and Mail's cmd+shift+D.
+    public static func isSendChord(_ c: KeyChord) -> Bool {
+        if c.keyCode == 36 || c.keyCode == 76 { return true }
+        return c.keyCode == 2 && c.flags.contains(.maskCommand) && c.flags.contains(.maskShift)
+    }
+
+    /// Typed text that contains a line break presses Return on the way.
+    public static func textSends(_ text: String) -> Bool {
+        text.unicodeScalars.contains { $0 == "\n" || $0 == "\r" || $0 == "\u{2028}" || $0 == "\u{2029}" }
+    }
+}
+
 /// Splits text for unicode keyboard events (CGEvent carries at most ~20 UTF-16 units per event).
 public enum TypingChunks {
     public static func split(_ text: String, maxUnits: Int = 16) -> [[UniChar]] {

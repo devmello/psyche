@@ -138,7 +138,7 @@ public struct AXSnapshot: Codable, Sendable, Equatable {
     /// The compact text form the model sees (spike 04 "Text form").
     public func render() -> String {
         let h = header
-        var s = "# app=\(h.app) pid=\(h.pid)"
+        var s = "# app=\(AXText.singleLine(h.app)) pid=\(h.pid)"
         if h.electron { s += " electron" }
         if let w = h.window { s += " window=\"\(w)\"" }
         if let f = h.windowFrame { s += " @\(f[0]),\(f[1]) \(f[2])x\(f[3])" }
@@ -262,11 +262,35 @@ public enum AXText {
     }
 
     /// Single line, trimmed, at most `n` characters with a `…(+N)` suffix.
+    /// Every line terminator (\n, \r, \r\n, U+2028, U+2029, NEL, VT, FF) becomes `⏎` and other
+    /// control characters become spaces, so app text can never start a new element line in the
+    /// rendered snapshot (#271).
+    public static func singleLine(_ s: String) -> String {
+        var out = String.UnicodeScalarView()
+        var lastCR = false
+        for u in s.unicodeScalars {
+            switch u {
+            case "\n" where lastCR:
+                lastCR = false
+                continue  // \r\n is one break
+            case "\r":
+                out.append("⏎")
+                lastCR = true
+                continue
+            case "\n", "\u{2028}", "\u{2029}", "\u{85}", "\u{0B}", "\u{0C}":
+                out.append("⏎")
+            default:
+                if u.properties.generalCategory == .control || u.properties.generalCategory == .format { out.append(" ") } else { out.append(u) }
+            }
+            lastCR = false
+        }
+        return String(out)
+    }
+
     public static func truncate(_ s: String?, _ n: Int) -> String? {
         guard var s else { return nil }
         let n = max(1, n)
-        s = s.replacingOccurrences(of: "\n", with: "⏎").replacingOccurrences(of: "\t", with: " ")
-            .trimmingCharacters(in: .whitespaces)
+        s = singleLine(s).trimmingCharacters(in: .whitespaces)
         if s.isEmpty { return nil }
         if s.count <= n { return s }
         return String(s.prefix(n)) + "…(+\(s.count - n))"
@@ -281,6 +305,7 @@ public enum AXText {
     /// Developer-assigned identifiers only (no AppKit `_NS`/`NS` ids, no generated ones).
     public static func cleanIdentifier(_ id: String?) -> String? {
         guard let id, !id.isEmpty, id.count <= 40, !id.hasPrefix("_NS"), !id.hasPrefix("NS"), !id.contains(","),
+              !id.unicodeScalars.contains(where: { $0.properties.generalCategory == .control || $0 == "\u{2028}" || $0 == "\u{2029}" || $0 == "\"" }),
               !id.contains("["), !id.contains(" ") || id.count <= 24
         else { return nil }
         return id
