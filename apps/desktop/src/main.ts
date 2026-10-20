@@ -63,6 +63,8 @@ import {
   PERMISSION_KINDS,
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
+import { createSplash, type SplashController, shouldShowSplash } from "./main/splash.ts";
+import { openSplashWindow } from "./main/splash-window.ts";
 import { startShell } from "./main/startup.ts";
 import {
   chooseMode,
@@ -124,6 +126,41 @@ let bridge: BridgeClient | undefined;
 let terminal: TerminalHost | undefined;
 let tray: PsycheTray | undefined;
 let supervisor: GatewaySupervisor | undefined;
+/** The startup splash while the Gateway launches; undefined when skipped or closed. */
+let splash: SplashController | undefined;
+
+/**
+ * Opens the splash within the first 100 ms unless there is nothing to wait for: dev with
+ * PSYCHE_NO_SPLASH=1, the perf probe, an external Gateway, or one already answering (attach).
+ */
+async function openSplashIfNeeded(): Promise<void> {
+  const mode = chooseMode(process.env, app.isPackaged);
+  const healthyAtLaunch = await fetch(new URL("/healthz", defaultGatewayOrigin()), {
+    signal: AbortSignal.timeout(60),
+  }).then(
+    (r) => r.ok,
+    () => false,
+  );
+  const show = shouldShowSplash({
+    packaged: app.isPackaged,
+    env: process.env,
+    mode,
+    healthyAtLaunch,
+    probing: perfProbe !== undefined,
+  });
+  if (!show) return;
+  splash = createSplash({
+    view: openSplashWindow({
+      iconPath: join(app.getAppPath(), "assets", "icon.png"),
+      devTools: !app.isPackaged,
+    }),
+    retry: () => {
+      const sup = supervisor;
+      if (sup) void sup.ensureRunning().then(() => gateway?.start());
+    },
+    showLogs: () => void shell.openPath(join(defaultPsycheHome(), "logs")),
+  });
+}
 let helper: HelperLauncher | undefined;
 let thisDeviceId: string | undefined;
 let hud: HudWindow | undefined;
@@ -616,6 +653,7 @@ function lockDownDefaultSession(): void {
 }
 
 void app.whenReady().then(async () => {
+  await openSplashIfNeeded();
   // Packaged builds get the icon from the bundle (forge.config.ts); dev runs set the Dock icon here.
   if (!app.isPackaged && process.platform === "darwin") {
     app.dock?.setIcon(join(app.getAppPath(), "assets", "icon.png"));
@@ -694,7 +732,10 @@ void app.whenReady().then(async () => {
     psycheHome: home,
     run: execRunner,
     isPaired: async () => (await onlineMacHelpers()).length > 0,
-    onState: (s) => broadcast(IPC.helperState, s),
+    onState: (s) => {
+      broadcast(IPC.helperState, s);
+      splash?.update({ helper: s.kind });
+    },
   });
 
   const deviceKey = loadOrCreateDeviceKey(join(app.getPath("userData"), "device-key.json"));
@@ -730,6 +771,7 @@ void app.whenReady().then(async () => {
       broadcast(IPC.status, s);
       tray?.update({ status: s });
       onPairing(s);
+      splash?.update({ healthy: s.health === "ok" });
     },
     onEvent: onGatewayEvent,
     onResync: () => {
@@ -791,6 +833,7 @@ void app.whenReady().then(async () => {
     onState: (run) => {
       tray?.update({ run });
       broadcast(IPC.gatewayRun, run);
+      splash?.update({ run });
     },
   });
 
@@ -833,6 +876,13 @@ void app.whenReady().then(async () => {
     },
     warn: (m) => console.warn(`[startup] ${m}`),
   });
+  // The splash closes once the main window has painted and the Gateway is healthy.
+  const mainContents = windows.mainContents();
+  if (splash && mainContents) {
+    if (mainContents.isLoading())
+      mainContents.once("did-finish-load", () => splash?.update({ painted: true }));
+    else splash.update({ painted: true });
+  }
   const measured = windows.mainContents();
   if (perfProbe !== undefined && measured) {
     watchFirstPaint(measured, perfProbe, () => app.quit(), {
@@ -873,6 +923,7 @@ app.on("will-quit", () => {
 });
 
 app.on("before-quit", () => {
+  splash?.close();
   windows?.setQuitting();
   terminal?.closeAll();
   void bridge?.stop();
