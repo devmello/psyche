@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   type ApprovalKind,
+  type BrowserDriver,
   type PermissionBroker,
   PsycheError,
   type SideEffect,
@@ -19,12 +20,19 @@ import {
 } from "../../../agent-core/src/index.ts";
 import {
   braveProvider,
+  type ConnectorRecord,
+  type ConnectorTool,
   type SearchProvider,
+  ShoppingConnector,
   safeFetch,
   type Transport,
 } from "../../../connectors/src/index.ts";
 import type { FakeClock } from "../clock.ts";
-import { FakeBrowserDriver } from "../fakes/FakeBrowserDriver.ts";
+import {
+  FakeBrowserDriver,
+  type FixtureElement,
+  type FixturePage,
+} from "../fakes/FakeBrowserDriver.ts";
 import { FakeCredentialBroker } from "../fakes/FakeCredentialBroker.ts";
 import type { FakeNotifier } from "../fakes/FakeNotifier.ts";
 import { fixtureSecret } from "../secret-registry.ts";
@@ -48,7 +56,8 @@ export interface Fixtures {
   mailbox?: { messages: Json[] };
   calendar?: { events: Json[]; timeZone: string };
   preferences?: Json;
-  sites?: { pages: Json[] };
+  /** `merchants`: the shopping allowlist (V3); pages with `elements` are storefronts. */
+  sites?: { pages: Json[]; merchants?: Json[] };
   searchResults?: { queries: { match: string[]; results: Json[] }[]; fallback?: Json[] };
 }
 
@@ -98,7 +107,8 @@ export function targetOf(info: ToolInfo, args: Json): Target | undefined {
   if (info.targetKind === "recipient" && Array.isArray(args.to))
     return { kind: "recipient", value: args.to.join(",") };
   if (info.name === "search.web") return { kind: "origin", value: BRAVE_ORIGIN };
-  const origin = info.targetKind === "origin" ? originOf(args.url) : undefined;
+  // Shopping tools name their store by origin (`merchant`).
+  const origin = info.targetKind === "origin" ? originOf(args.url ?? args.merchant) : undefined;
   return origin === undefined ? undefined : { kind: "origin", value: origin };
 }
 
@@ -134,6 +144,33 @@ const counter = () => {
     return `${prefix}_${String(v).padStart(4, "0")}`;
   };
 };
+
+/** Scenario tool name → shopping connector tool (V3). */
+const SHOP_TOOL: Record<string, string> = {
+  "shop.compare": "shop_compare",
+  "shop.view_cart": "shop_view_cart",
+  "shop.add_to_cart": "shop_add_to_cart",
+  "shop.checkout_handoff": "shop_checkout_handoff",
+};
+
+/** HTML → text with one line per block element (storefront fixtures). */
+function blockText(html: string): string {
+  return html
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, "")
+    .replace(/<\/(p|div|li|h[1-6]|tr|table|ul|ol|section|header|footer)>|<br\s*\/?>/gi, "\n")
+    .replace(/<\/t[dh]>/gi, " | ")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&")
+    .split("\n")
+    .map((l) =>
+      l
+        .replace(/[ \t]+/g, " ")
+        .replace(/\s*\|\s*$/, "")
+        .trim(),
+    )
+    .filter((l) => l !== "")
+    .join("\n");
+}
 
 /**
  * The fake services a scenario runs against (Gmail, Calendar, Library, artifacts, reminders,
@@ -200,16 +237,76 @@ export class World {
       apiKey: "{{cred:brave-search-key}}",
       approveKey: async () => "cfa_brave_connect",
     });
-    const pages: Record<string, { title: string; text: string; status?: number }> = {};
+    const pages: Record<string, FixturePage> = {};
     for (const p of fx.sites?.pages ?? []) {
       const html = p.file === undefined ? "" : this.#page(p);
-      pages[String(p.url)] = {
+      const page: FixturePage = {
         title: String(p.title),
-        text: html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " "),
+        // Storefronts keep one line per block element so offers and cart rows stay apart.
+        text: Array.isArray(p.elements)
+          ? blockText(html)
+          : html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " "),
         status: Number(p.status),
       };
+      if (Array.isArray(p.elements)) page.elements = p.elements as unknown as FixtureElement[];
+      pages[String(p.url)] = page;
     }
     this.browser = FakeBrowserDriver.site({ pages });
+    const merchants = fx.sites?.merchants;
+    if (merchants !== undefined) {
+      const record: ConnectorRecord = {
+        id: "con_shopping",
+        type: "shopping",
+        label: "Shopping",
+        account: null,
+        scopes: ["shop.read", "shop.cart"],
+        scopeMode: "read_act",
+        actionMatrix: {},
+        credentialId: null,
+        status: "connected",
+        config: { merchants } as unknown as ConnectorRecord["config"],
+        lastSync: null,
+        createdAt: new Date(clock.now()).toISOString(),
+        updatedAt: new Date(clock.now()).toISOString(),
+      };
+      const shop = new ShoppingConnector(
+        record,
+        {
+          clock,
+          fetch: () => Promise.reject(new Error("no network")),
+          tokens: { load: async () => undefined, save: async () => {}, clear: async () => {} },
+          emit: () => {},
+        },
+        { browser: this.#recordingBrowser() },
+      );
+      for (const t of shop.tools()) this.#shopTools.set(t.name, t);
+    }
+  }
+
+  readonly #shopTools = new Map<string, ConnectorTool>();
+
+  /** The fixture browser with every navigation recorded as connector egress. */
+  #recordingBrowser(): BrowserDriver {
+    const browser = this.browser;
+    const net = (url: string) =>
+      this.#net({ via: "browser", host: new URL(url).host, url, allowedBy: "connector:shopping" });
+    return new Proxy(browser, {
+      get(target, key) {
+        if (key === "navigate") {
+          return (tabId: string, url: string, options?: unknown) => {
+            net(url);
+            return target.navigate(tabId, url, options as never);
+          };
+        }
+        const v = Reflect.get(target, key, target) as unknown;
+        return typeof v === "function" ? (v as (...a: unknown[]) => unknown).bind(target) : v;
+      },
+    });
+  }
+
+  /** The shopping connector's own call description (purchase / connector_action binding). */
+  shopDescribe(info: ToolInfo, params: Json) {
+    return this.#shopTools.get(SHOP_TOOL[info.name] ?? "")?.describeCall?.(params);
   }
 
   #page(p: Json): string {
@@ -535,6 +632,7 @@ export class World {
         taint(ctx, [`web:${origin}`]);
         return ok({ url, title: tab.title, text: page.text }, "untrusted");
       },
+      ...this.#shopImpls(ok, taint),
       "artifacts.write": async (_i, a) => {
         const name = String(a.name);
         let art = this.artifacts.find((x) => x.name === name && x.type === a.type);
@@ -574,6 +672,42 @@ export class World {
     };
   }
 
+  /**
+   * V3 shopping tools: the real `ShoppingConnector` (packages/connectors) over the fixture
+   * storefronts. The agent loop and the Permission Broker gate them; writes and the hand-off
+   * record receipts here, as the connector registry would.
+   */
+  #shopImpls(
+    ok: (output: unknown, provenance?: "trusted" | "untrusted") => ToolResult,
+    taint: (ctx: ToolCtx, sources: string[]) => void,
+  ): Record<string, (info: ToolInfo, a: Json, ctx: ToolCtx) => Promise<ToolResult>> {
+    const out: Record<string, (info: ToolInfo, a: Json, ctx: ToolCtx) => Promise<ToolResult>> = {};
+    for (const [name, toolName] of Object.entries(SHOP_TOOL)) {
+      out[name] = async (info, a, ctx) => {
+        const tool = this.#shopTools.get(toolName);
+        if (tool === undefined) throw new PsycheError("unavailable", "no shopping fixtures");
+        const r = await tool.execute(a, {
+          signal: new AbortController().signal,
+          callId: ctx.callId,
+        });
+        const merchants = (this.fx.sites?.merchants ?? []).map((m) => String(m.origin));
+        const origin = originOf(a.merchant);
+        taint(
+          ctx,
+          (origin === undefined ? merchants : [origin]).map((o) => `web:${o}`),
+        );
+        if (info.receiptKind === undefined) return ok(r.output, r.provenance);
+        const refs = Object.fromEntries(
+          Object.entries(r.externalRefs ?? {}).map(([k, v]) => [k, String(v)]),
+        );
+        // Returning the id tells the loop the write is already receipted (no second receipt).
+        const receiptId = await this.#receipt(info, ctx, refs, true);
+        return { ...ok(r.output, r.provenance), receiptId };
+      };
+    }
+    return out;
+  }
+
   /** Registrations for every tool in the registry that has a fake executor. */
   tools(
     infos: ToolInfo[],
@@ -596,6 +730,8 @@ export class World {
           ...(info.targetKind === null ? {} : { targetKind: info.targetKind }),
         },
         describeCall: (params) => {
+          const shop = this.shopDescribe(info, params as Json);
+          if (shop !== undefined) return shop;
           const target = targetOf(info, params as Json);
           const kind = info.approvalKind;
           return {
@@ -626,9 +762,12 @@ export class World {
     this.faults.delete(ctx.callId);
     if (info.approvalKind !== undefined && ctx.approvalId !== undefined) {
       const approved = await this.broker().get(ctx.approvalId);
+      // The loop's recipe: kind-specific fields join the hash when the description has them.
+      const fields = this.shopDescribe(info, params)?.bindingFields;
       const actual = bindingHash(info.approvalKind, {
         tool: info.name,
         paramsHash: paramsHash(params),
+        ...(fields === undefined ? {} : { fields }),
       });
       if (approved !== undefined && approved.bindingHash !== actual) {
         // Through the broker so the mismatch is audited (`binding.mismatch`).
