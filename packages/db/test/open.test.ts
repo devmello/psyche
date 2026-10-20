@@ -11,6 +11,7 @@ const TABLES = [
   "automations",
   "channels",
   "chat_queue",
+  "connectors",
   "devices",
   "gateway_idempotency",
   "grants",

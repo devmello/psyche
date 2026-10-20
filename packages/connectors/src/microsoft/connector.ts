@@ -130,7 +130,7 @@ export class MicrosoftConnector implements Connector {
     const scopes = microsoftScopesFor(input.scopeMode);
     // Reconnecting (re-auth, mode change) starts from no tokens.
     await this.#auth.clear();
-    const tokens = await this.#auth.authorize(scopes, input.signal);
+    const tokens = await this.#auth.authorize(scopes, input.signal, input.onAuthorization);
     const me = await this.#api.json<{ mail?: string | null; userPrincipalName?: string }>("/me", {
       query: { $select: "mail,userPrincipalName" },
       ...(input.signal === undefined ? {} : { signal: input.signal }),

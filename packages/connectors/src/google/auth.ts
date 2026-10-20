@@ -1,6 +1,11 @@
 import { PsycheError, type Target } from "@psyche/protocol";
 import { createPkce, randomState, startLoopback } from "../framework/loopback.ts";
-import type { ConnectorContext, ScopeMode, StoredTokens } from "../framework/types.ts";
+import type {
+  ConnectorContext,
+  PendingAuthorization,
+  ScopeMode,
+  StoredTokens,
+} from "../framework/types.ts";
 
 /**
  * Google OAuth for installed apps (research KQ4; Google "OAuth 2.0 for iOS & Desktop Apps"):
@@ -103,7 +108,11 @@ export class GoogleAuth {
   }
 
   /** Interactive consent; returns the granted scopes. */
-  async authorize(scopes: string[], signal?: AbortSignal): Promise<StoredTokens> {
+  async authorize(
+    scopes: string[],
+    signal?: AbortSignal,
+    onAuthorization?: (pending: PendingAuthorization) => void,
+  ): Promise<StoredTokens> {
     const state = randomState();
     const pkce = createPkce();
     const loopback = await startLoopback(state);
@@ -121,8 +130,17 @@ export class GoogleAuth {
         code_challenge: pkce.challenge,
         code_challenge_method: pkce.method,
       }).toString();
-      await this.#opts.openBrowser(url);
-      const params = await loopback.wait(this.#opts.timeoutMs ?? 5 * 60_000, signal);
+      const timeoutMs = this.#opts.timeoutMs ?? 5 * 60_000;
+      let opened = true;
+      try {
+        await this.#opts.openBrowser(url);
+      } catch (err) {
+        // No browser here (a server): the owner opens the link from the app instead.
+        if (onAuthorization === undefined) throw err;
+        opened = false;
+      }
+      onAuthorization?.({ url: url.href, expiresAt: this.#ctx.clock.now() + timeoutMs, opened });
+      const params = await loopback.wait(timeoutMs, signal);
       const code = params.get("code");
       if (code === null || code === "")
         throw new GoogleAuthError("exchange_failed", "no authorization code");

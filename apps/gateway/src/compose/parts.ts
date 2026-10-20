@@ -1,5 +1,7 @@
 import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { type GoogleClientConfig, googleClientFrom, readConfigFile } from "../config.ts";
 import { composeBackup } from "./backup.ts";
 import { type ComposedBrowser, composeBrowser } from "./browser.ts";
 import { channelsSetupFromEnv, composeChannels } from "./channels.ts";
@@ -17,7 +19,9 @@ type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | Compos
  * The INT-2 parts `psyched` mounts, from its environment:
  * - the browser bridge socket (`PSYCHE_BROWSER=off` skips it, e.g. on a server without a desktop);
  * - connectors, with Google's consent page opened in the owner's default browser on macOS. On a
- *   server the link goes to the owner as a notification instead, since the daemon has no screen;
+ *   server the link goes to the owner as a notification instead, since the daemon has no screen.
+ *   Google needs the owner's OAuth client (`connectors.google` in `config.json`, or
+ *   `PSYCHE_GOOGLE_CLIENT_ID` / `PSYCHE_GOOGLE_CLIENT_SECRET`; `googleClientSetup`);
  * - channels: WebChat, and Telegram when `PSYCHE_TELEGRAM_BOT_TOKEN_FILE` (a Compose secret) or
  *   `PSYCHE_TELEGRAM_BOT_TOKEN` and `PSYCHE_TELEGRAM_BOT_USERNAME` are set, and SMS (Twilio) when
  *   the `PSYCHE_SMS_*` variables are (`smsSetupFromEnv`);
@@ -37,6 +41,25 @@ type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | Compos
  *   `PSYCHE_MCP_LAUNCHER=container` (needs the sandbox part; network only through its egress
  *   proxy and the server's allowlist); without either only HTTP servers run.
  */
+/**
+ * The Google OAuth client (docs/guides/connectors-google.md): `connectors.google` in
+ * `config.json`, with `PSYCHE_GOOGLE_CLIENT_ID` / `PSYCHE_GOOGLE_CLIENT_SECRET` taking precedence.
+ * The secret is only ever a `{{cred:slug}}` placeholder; a raw one stops the Gateway at boot.
+ */
+export function googleClientSetup(
+  env: NodeJS.ProcessEnv,
+  file: GoogleClientConfig | undefined,
+): GoogleClientConfig {
+  const fromEnv = googleClientFrom(
+    {
+      ...(env.PSYCHE_GOOGLE_CLIENT_ID ? { clientId: env.PSYCHE_GOOGLE_CLIENT_ID } : {}),
+      ...(env.PSYCHE_GOOGLE_CLIENT_SECRET ? { clientSecret: env.PSYCHE_GOOGLE_CLIENT_SECRET } : {}),
+    },
+    "PSYCHE_GOOGLE_CLIENT_*",
+  );
+  return { ...(file ?? {}), ...fromEnv };
+}
+
 export function partsFromEnv(
   env: NodeJS.ProcessEnv,
   /** Test seam: runner options for the sandbox part (a fake CLI driver and detection). */
@@ -115,9 +138,15 @@ export function partsFromEnv(
       );
     });
   }
+  // Checked at boot: a raw client secret in the environment stops psyched here.
+  googleClientSetup(env, undefined);
   parts.push((s) =>
     composeConnectors(s, {
       openBrowser: (url) => openConsent(s, url),
+      google: googleClientSetup(
+        env,
+        readConfigFile(join(s.home, "config.json")).connectors?.google,
+      ),
     }),
   );
   // Read (and validated) at boot, so a bad token file stops psyched instead of a silent channel.

@@ -6,6 +6,7 @@ export * from "./framework/handlers.ts";
 export * from "./framework/loopback.ts";
 export * from "./framework/params.ts";
 export * from "./framework/registry.ts";
+export * from "./framework/sqlite-store.ts";
 export * from "./framework/types.ts";
 export * from "./google/index.ts";
 export * from "./mail/index.ts";

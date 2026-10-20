@@ -1,6 +1,11 @@
 import { PsycheError } from "@psyche/protocol";
 import { createPkce, randomState, startLoopback } from "../framework/loopback.ts";
-import type { ConnectorContext, ScopeMode, StoredTokens } from "../framework/types.ts";
+import type {
+  ConnectorContext,
+  PendingAuthorization,
+  ScopeMode,
+  StoredTokens,
+} from "../framework/types.ts";
 
 /**
  * Microsoft identity platform v2 for a public (desktop) client the owner registers in their own
@@ -157,11 +162,15 @@ export class MicrosoftAuth {
   }
 
   /** Interactive consent with the configured flow; checks the granted scopes both ways. */
-  async authorize(scopes: string[], signal?: AbortSignal): Promise<StoredTokens> {
+  async authorize(
+    scopes: string[],
+    signal?: AbortSignal,
+    onAuthorization?: (pending: PendingAuthorization) => void,
+  ): Promise<StoredTokens> {
     const tokens =
       this.#client.flow === "device_code"
-        ? await this.#deviceCode(scopes, signal)
-        : await this.#authCode(scopes, signal);
+        ? await this.#deviceCode(scopes, signal, onAuthorization)
+        : await this.#authCode(scopes, signal, onAuthorization);
     const granted = new Set((tokens.scope ?? "").split(/\s+/).filter(Boolean).map(normalizeScope));
     const wanted = scopes.map(normalizeScope).filter((s) => !OIDC.has(s));
     const missing = wanted.filter((s) => !granted.has(s));
@@ -188,9 +197,13 @@ export class MicrosoftAuth {
     return tokens;
   }
 
-  async #authCode(scopes: string[], signal?: AbortSignal): Promise<StoredTokens> {
+  async #authCode(
+    scopes: string[],
+    signal?: AbortSignal,
+    onAuthorization?: (pending: PendingAuthorization) => void,
+  ): Promise<StoredTokens> {
     const open = this.#opts.openBrowser;
-    if (open === undefined) {
+    if (open === undefined && onAuthorization === undefined) {
       throw new PsycheError(
         "unavailable",
         "no browser for Microsoft sign-in; use flow device_code",
@@ -212,8 +225,19 @@ export class MicrosoftAuth {
         code_challenge_method: pkce.method,
         prompt: "select_account",
       }).toString();
-      await open(url);
-      const params = await loopback.wait(this.#opts.timeoutMs ?? 5 * 60_000, signal);
+      const timeoutMs = this.#opts.timeoutMs ?? 5 * 60_000;
+      let opened = false;
+      try {
+        if (open !== undefined) {
+          await open(url);
+          opened = true;
+        }
+      } catch (err) {
+        // No browser here (a server): the owner opens the link from the app instead.
+        if (onAuthorization === undefined) throw err;
+      }
+      onAuthorization?.({ url: url.href, expiresAt: this.#ctx.clock.now() + timeoutMs, opened });
+      const params = await loopback.wait(timeoutMs, signal);
       const code = params.get("code");
       if (code === null || code === "") {
         throw new MicrosoftAuthError(
@@ -236,9 +260,13 @@ export class MicrosoftAuth {
     }
   }
 
-  async #deviceCode(scopes: string[], signal?: AbortSignal): Promise<StoredTokens> {
+  async #deviceCode(
+    scopes: string[],
+    signal?: AbortSignal,
+    onAuthorization?: (pending: PendingAuthorization) => void,
+  ): Promise<StoredTokens> {
     const show = this.#opts.showDeviceCode;
-    if (show === undefined)
+    if (show === undefined && onAuthorization === undefined)
       throw new PsycheError("unavailable", "no surface to show the device code");
     const res = await this.#ctx.fetch(this.#endpoint("devicecode"), {
       method: "POST",
@@ -269,11 +297,18 @@ export class MicrosoftAuth {
       (dc.expires_in ?? 900) * 1000,
       this.#opts.timeoutMs ?? Number.POSITIVE_INFINITY,
     );
-    await show({
+    const prompt = {
       userCode: dc.user_code.slice(0, 32),
       verificationUri,
       expiresAt: now + lifetime,
       message: String(dc.message ?? "").slice(0, 500),
+    };
+    await show?.(prompt);
+    onAuthorization?.({
+      url: prompt.verificationUri,
+      userCode: prompt.userCode,
+      expiresAt: prompt.expiresAt,
+      opened: false,
     });
     const sleep = this.#opts.sleep ?? defaultSleep;
     let interval = Math.max(1, dc.interval ?? 5) * 1000;

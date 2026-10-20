@@ -172,6 +172,20 @@ export interface ConnectInput {
   scopeMode: ScopeMode;
   config: JsonObject;
   signal?: AbortSignal;
+  /**
+   * A sign-in the owner finishes elsewhere has started: the consent page (or device-code page)
+   * and whether it was opened in the owner's browser. With this set, a connector that cannot
+   * open a browser still waits for the owner, who opens `url` from the app (#505).
+   */
+  onAuthorization?: (pending: PendingAuthorization) => void;
+}
+
+export interface PendingAuthorization {
+  url: string;
+  userCode?: string;
+  /** Epoch ms. */
+  expiresAt: number;
+  opened: boolean;
 }
 
 export interface ConnectResult {

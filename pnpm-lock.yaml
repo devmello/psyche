@@ -585,9 +585,15 @@ importers:
       '@psyche/testing':
         specifier: workspace:*
         version: link:../testing
+      '@types/better-sqlite3':
+        specifier: 9.6.0
+        version: 9.6.0
       '@types/turndown':
         specifier: 5.0.6
         version: 5.0.6
+      better-sqlite3:
+        specifier: 13.0.3
+        version: 13.0.3
 
   packages/db:
     dependencies:
