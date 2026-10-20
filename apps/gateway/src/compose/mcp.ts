@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { getSetting } from "@psyche/db";
 import {
+  type ContainerLauncherOptions,
   containerLauncher,
   createMcpHost,
   type McpHostOptions,
@@ -38,6 +39,11 @@ export interface McpSetup {
   srtPath?: string;
   /** Run stdio servers in their own sandbox container instead of under srt (M3, flagged). */
   container?: SandboxStdioHost & { dispose?(): Promise<void> };
+  /**
+   * The sandbox egress proxy's allowlist setter (K4): a container server that declares network
+   * hosts runs with `network: "proxy"` and reaches only those. Without it such servers are refused.
+   */
+  egressAllowlist?: ContainerLauncherOptions["egressAllowlist"];
   /** Host overrides (tests: bundled ids and launcher). */
   hostOptions?: Partial<McpHostOptions>;
 }
@@ -49,7 +55,12 @@ export interface ComposedMcp extends ComposedPart {
 }
 
 function launcherFor(services: ComposeServices, setup: McpSetup): StdioLauncher | undefined {
-  if (setup.container !== undefined) return containerLauncher({ sandbox: setup.container });
+  if (setup.container !== undefined) {
+    return containerLauncher({
+      sandbox: setup.container,
+      ...(setup.egressAllowlist === undefined ? {} : { egressAllowlist: setup.egressAllowlist }),
+    });
+  }
   if (setup.srtPath !== undefined) {
     return srtLauncher({
       srtPath: setup.srtPath,

@@ -801,7 +801,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Desktop only: inserts dictated text into the focused element (AX, else CGEvent typing); refuses secure fields and Psyche's windows; the text never reaches the agent.",
+        "description": "Desktop only: inserts dictated text into the focused element (AX, else CGEvent typing); refuses secure fields and Psyche's windows; the text never reaches the agent. Side-effecting: a duplicate would type the text twice.",
         "name": "dictation.insert",
         "params": "#/$defs/DictationInsertParams",
         "result": "#/$defs/DictationInsertResult",

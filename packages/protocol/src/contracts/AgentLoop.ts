@@ -15,7 +15,7 @@ import type { InputRequest } from "../schemas/tasks.ts";
 import type { RunStatus } from "../schemas/threads.ts";
 import type { ToolSpec } from "../schemas/tools.ts";
 import type { Unsubscribe } from "./Clock.ts";
-import type { ConnectorRule, Requester } from "./PermissionBroker.ts";
+import type { ConnectorRule, Requester, ToolCallMeta } from "./PermissionBroker.ts";
 
 /**
  * Agent loop contract (architecture §4.2–§4.3; owner S02). pi-agent-core semantics: one turn
@@ -242,6 +242,12 @@ export interface ToolCallDescription {
   details?: JsonObject;
   /** Connector action-matrix key; the loop passes it to the broker as `ToolCallIntent.connectorRule`. */
   connectorRule?: ConnectorRule;
+  /**
+   * Computer-use app and action; the loop passes it to the broker as `ToolCallIntent.meta`, where
+   * the per-app tier check keys on the action instead of the tool name (`computer.act` clicking
+   * needs `click`, typing needs `interact`).
+   */
+  meta?: ToolCallMeta;
 }
 
 /**

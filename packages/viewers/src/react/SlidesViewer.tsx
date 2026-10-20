@@ -30,7 +30,10 @@ export function SlidesViewer(props: ViewerProps) {
             ? { kind: "pdf", bytes: out.bytes }
             : { kind: "thumbnail", bytes: out.bytes };
         } catch (err) {
-          reason = `Conversion failed: ${(err as Error).message}`;
+          const e = err as Error;
+          reason =
+            e.name === "ConversionUnavailableError" ? e.message : `Conversion failed: ${e.message}`;
+          if (e.name === "ConversionUnavailableError") break;
         }
       }
     }

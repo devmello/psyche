@@ -7,6 +7,7 @@ export {
   type PresenceAssertion,
   type RequestOptions,
 } from "./client.ts";
+export * from "./files.ts";
 export * from "./hooks.ts";
 export {
   GatewayProvider,

@@ -1,4 +1,5 @@
 import type { CallContext } from "@psyche/browser";
+import { createPermissionBroker } from "@psyche/permissions";
 import type {
   ErrorPayload,
   IssuedApproval,
@@ -9,6 +10,7 @@ import type {
   NodeInvokeResult,
   ToolRegistration,
 } from "@psyche/protocol";
+import { namespacedGrantKey } from "@psyche/protocol";
 import { FakePermissionBroker } from "@psyche/testing";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
@@ -440,6 +442,50 @@ describe("computer-use agent tools (J1–J5)", () => {
       kind: "shortcut_run",
       details: { name: "Morning" },
     });
+  });
+
+  it("names the action so a click-tier app lets the agent click but not type", async () => {
+    const broker = createPermissionBroker({
+      approvers: { device: async () => undefined, isOwnerSender: async () => false },
+      policy: { apps: { [notes]: "click" } },
+    });
+    // What the agent loop sends the broker for a described call.
+    const decide = async (tool: string, params: Record<string, unknown>) => {
+      const reg = tools.get(tool);
+      const d = reg?.describeCall?.(params) ?? {};
+      return broker.decide(
+        {
+          tool,
+          sideEffect: d.sideEffect ?? reg?.spec.sideEffect ?? "write",
+          ...(d.target === undefined ? {} : { target: d.target, targetKind: d.target.kind }),
+          params,
+          paramsHash: "h",
+          ...(d.kind === undefined ? {} : { kind: d.kind }),
+          bindingHash: `sha256:${"0".repeat(64)}`,
+          ...(d.grantKey === undefined ? {} : { grantKey: namespacedGrantKey(tool, d.grantKey) }),
+          ...(d.meta === undefined ? {} : { meta: d.meta }),
+        },
+        { threadId: "t", runId: "r", permissionMode: "balanced", taint: false },
+      );
+    };
+    await call("computer.snapshot", { app: notes });
+    const click = { app: notes, action: "click", ref: "e1", expect: { role: "textarea" } };
+    expect(tools.get("computer.act")?.describeCall?.(click)?.meta).toEqual({
+      app: notes,
+      action: "click",
+    });
+    expect(await decide("computer.act", click)).toMatchObject({
+      decision: "allow",
+      rule: "app_tier:click",
+    });
+    expect(await decide("computer.act", { app: notes, action: "type", text: "hi" })).toMatchObject({
+      decision: "deny",
+      rule: "app_tier:click",
+    });
+    expect(tools.get("apps.open")?.describeCall?.({ app: notes })?.meta?.action).toBe("open_app");
+    expect((await decide("apps.open", { app: notes })).decision).toBe("allow");
+    expect(tools.get("apps.focus")?.describeCall?.({ app: notes })?.meta?.action).toBe("focus");
+    expect((await decide("apps.focus", { app: notes })).decision).toBe("allow");
   });
 
   it("keeps browsers and locked apps out of apps.open and scripts", async () => {

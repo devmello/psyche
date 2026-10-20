@@ -61,7 +61,9 @@ import { createLogger } from "../log.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { CallContexts } from "./call-context.ts";
+import { ChannelConversations } from "./channel-conversations.ts";
 import { composeComputer } from "./computer.ts";
+import { composeConversion } from "./convert.ts";
 import { composeDictation } from "./dictation.ts";
 import { filesHandlers } from "./files.ts";
 import {
@@ -265,7 +267,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // The localhost rule (security §3.10) needs OS probes a part supplies (the browser's dev
   // preview); until one does, no loopback origin is the owner's project.
   let localProject: LocalProjectVerifier = DENY_ALL_LOOPBACK;
+  // Inbound channel decisions (filled by the channels part) back the broker's reply authority.
+  const channelConversations = new ChannelConversations();
   const rawBroker = new PsychePermissionBroker({
+    channelConversations: (ref) => channelConversations.get(ref),
     approvers: {
       async device(deviceId) {
         const d = getDevice(db, deviceId);
@@ -382,6 +387,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     home: config.home,
     broker: executorBroker,
     rawBroker,
+    channelConversations,
     audit,
     notifier,
     tools: calls.adopt(registry),
@@ -503,6 +509,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   launcher = proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool);
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
+  // documents.convert: LibreOffice in its own sandbox on the full image (P4).
+  parts.push(
+    composeConversion({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
+  );
   const handlers: Record<string, HandlerDef> = {
     ...mountPermissions(db, createPermissionHandlers(rawBroker, audit), tokens),
     ...mountParamsOnly(createMemoryHandlers(memory) as never),

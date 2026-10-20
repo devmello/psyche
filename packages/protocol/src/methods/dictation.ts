@@ -85,7 +85,7 @@ export const DictationMethods = {
     scope: "operator.write",
     sideEffecting: true,
     description:
-      "Desktop only: inserts dictated text into the focused element (AX, else CGEvent typing); refuses secure fields and Psyche's windows; the text never reaches the agent.",
+      "Desktop only: inserts dictated text into the focused element (AX, else CGEvent typing); refuses secure fields and Psyche's windows; the text never reaches the agent. Side-effecting: a duplicate would type the text twice.",
   }),
   "dictation.watch": defineMethod({
     params: Type.Object({

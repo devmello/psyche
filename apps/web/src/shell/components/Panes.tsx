@@ -2,6 +2,7 @@ import type { Task } from "@psyche/protocol";
 import {
   type PointerEvent,
   type ReactElement,
+  type ReactNode,
   useEffect,
   useState,
   useSyncExternalStore,
@@ -77,8 +78,16 @@ function PaneBody(props: {
   threadId: string;
   covered: boolean;
   onClose: () => void;
+  renderPane?: PaneRenderer;
+  navigate?: (to: string) => void;
 }): ReactElement {
   const { platform } = useShell();
+  const custom = props.renderPane?.(props.pane, {
+    threadId: props.threadId,
+    covered: props.covered,
+    navigate: props.navigate ?? (() => undefined),
+  });
+  if (custom !== null && custom !== undefined) return <>{custom}</>;
   switch (props.pane.pane) {
     case "browser":
       return <BrowserPane covered={props.covered} onClose={props.onClose} />;
@@ -110,12 +119,20 @@ function PaneBody(props: {
   }
 }
 
+/** The composed app's pane bodies (ShellSlots.pane). */
+export type PaneRenderer = (
+  pane: PaneInstance,
+  ctx: { threadId: string; covered: boolean; navigate: (to: string) => void },
+) => ReactNode | null | undefined;
+
 export function PaneArea(props: {
   layout: LayoutStore;
   threadId: string;
   width: number;
   covered: boolean;
   dispatch: (action: LayoutAction) => void;
+  renderPane?: PaneRenderer;
+  navigate?: (to: string) => void;
 }): ReactElement | null {
   const { platform } = useShell();
   const state = useSyncExternalStore(
@@ -225,6 +242,8 @@ export function PaneArea(props: {
                   threadId={props.threadId}
                   covered={props.covered}
                   onClose={() => props.dispatch({ type: "close", paneId: active.paneId })}
+                  {...(props.renderPane ? { renderPane: props.renderPane } : {})}
+                  {...(props.navigate ? { navigate: props.navigate } : {})}
                 />
               ) : null}
             </div>

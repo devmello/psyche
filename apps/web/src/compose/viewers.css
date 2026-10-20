@@ -1,0 +1,15 @@
+/*
+ * @psyche/viewers reads --psy-* custom properties (packages/viewers/README.md). Map them to the
+ * kit's tokens where viewers render, so they follow the theme and dark mode. Imported by
+ * viewers.tsx, so the web and desktop builds both get it.
+ */
+.psy-viewer,
+.psy-viewer-state {
+  --psy-border: var(--color-gray-6);
+  --psy-text-muted: var(--color-muted-foreground);
+  --psy-accent: var(--color-accent-9);
+  --psy-accent-subtle: var(--color-accent-3);
+  --psy-canvas: var(--color-background);
+  --psy-surface: var(--color-gray-2);
+  --psy-warning-subtle: var(--color-approval-surface);
+}

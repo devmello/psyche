@@ -7,6 +7,19 @@ import {
 } from "../src/pairing.ts";
 import { FRIEND, GROUP, harness, OWNER, STRANGER, sentTexts } from "./helpers.ts";
 
+describe("onInboundDecision (the Gateway's channel reply authority)", () => {
+  it("reports routed senders and pairing requests, never dropped messages", async () => {
+    const h = await harness();
+    await h.adapter.receive({ senderId: OWNER, text: "hi" });
+    await h.adapter.receive({ senderId: STRANGER, text: "hi" });
+    await h.adapter.receive({ senderId: FRIEND, chatId: GROUP, isGroup: true, text: "hi" });
+    expect(h.decisions.map((d) => [d.message.senderId, d.action, d.route?.role ?? null])).toEqual([
+      [OWNER, "deliver", "owner"],
+      [STRANGER, "pair", null],
+    ]);
+  });
+});
+
 describe("dmPolicy pairing (default)", () => {
   it("gives an unknown sender a code and nothing else", async () => {
     const h = await harness();

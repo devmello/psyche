@@ -1,277 +1,166 @@
-import { createHash } from "node:crypto";
+import { FakeClock } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import {
   bindingFor,
-  type ChannelConversationReport,
-  type ChannelSendIntent,
-  type PolicyContext,
+  CHANNEL_REPLIES_PER_MINUTE,
+  CHANNEL_REPLY_WINDOW_MS,
+  type ChannelConversation,
 } from "../src/index.ts";
-import { approvers, CTX, call, makeBroker, recipient } from "./helpers.ts";
+import { makeBroker, memoryDb, sqliteBroker } from "./helpers.ts";
 
-/** The channel reply authority (security §3.4–3.7, §9; S10 N5 "Outbound authorization"). */
+const BODY = `sha256:${"a".repeat(64)}`;
+const OWNER_CHAT = "iMessage;-;+15550001111";
 
-const OWNER = "+15550001";
-const CHAT = "iMessage;-;+15550001";
-const OTHER = "iMessage;-;+15559999";
-const ACCOUNT = "psyche@icloud.com";
-
-const sha = (text: string) => `sha256:${createHash("sha256").update(text, "utf8").digest("hex")}`;
-
-function intent(
-  text: string,
-  to = CHAT,
-  purpose: ChannelSendIntent["purpose"] = "reply",
-): ChannelSendIntent {
-  const bodySha256 = sha(text);
-  const b = bindingFor("message_send", {
-    channel: "imessage",
-    account: ACCOUNT,
-    recipient: to,
-    bodySha256,
+function harness(conversations: Record<string, Partial<ChannelConversation>>) {
+  const h = makeBroker({
+    channelConversations: ({ channel, account, conversation }) => {
+      if (channel !== "imessage" || account !== "me@icloud.test") return undefined;
+      const c = conversations[conversation];
+      return c === undefined
+        ? undefined
+        : {
+            senderId: "+15550001111",
+            lastInboundAt: h.clock.now(),
+            allows: "reply",
+            owner: false,
+            isGroup: false,
+            ...c,
+          };
+    },
   });
-  return {
-    channel: "imessage",
-    account: ACCOUNT,
-    recipient: to,
-    bodySha256,
-    bindingHash: b.bindingHash,
-    grantKey: b.grantKey,
-    purpose,
-  };
+  return h;
 }
 
-function conversation(
-  now: number,
-  extra: Partial<ChannelConversationReport> = {},
-): ChannelConversationReport {
-  return {
-    channel: "imessage",
-    account: ACCOUNT,
-    recipient: CHAT,
-    senderId: OWNER,
-    isGroup: false,
-    authorized: true,
-    inboundMessageId: "msg-1",
-    receivedAt: now,
-    ...extra,
-  };
-}
-
-const turn = (context: Partial<PolicyContext> = {}, requestRecipient = CHAT) => ({
-  requestRecipient,
-  context: { ...CTX, ...context },
+const send = (
+  recipient: string,
+  purpose: "reply" | "pairing_code" | "approval_card" = "reply",
+) => ({
+  channel: "imessage",
+  account: "me@icloud.test",
+  recipient,
+  bodySha256: BODY,
+  purpose,
 });
 
-const harness = () => makeBroker({ approvers: approvers(undefined, [`imessage:${OWNER}`]) });
-
-describe("authorizeChannelReply", () => {
-  it("approves and audits a reply into the conversation being answered", async () => {
-    const h = harness();
-    const i = intent("Done: booked for 7pm.");
-    const r = await h.broker.authorizeChannelReply({
-      intent: i,
-      conversation: conversation(h.clock.now()),
-      turn: turn(),
+describe("authorizeChannelReply (N5)", () => {
+  it("issues an approved once message_send for the conversation that sender just wrote in", async () => {
+    const h = harness({ [OWNER_CHAT]: { owner: true } });
+    const a = await h.broker.authorizeChannelReply(send(OWNER_CHAT));
+    const binding = bindingFor("message_send", {
+      channel: "imessage",
+      account: "me@icloud.test",
+      recipient: OWNER_CHAT,
+      bodySha256: BODY,
     });
-    expect(r.ok).toBe(true);
-    if (!r.ok) return;
-    expect(r.approval).toMatchObject({
+    expect(a).toMatchObject({
       kind: "message_send",
       status: "approved",
       scopeGranted: "once",
-      bindingHash: i.bindingHash,
-      grantKey: i.grantKey,
-      decidedBy: { channel: "imessage", senderId: OWNER },
-      requestedBy: { runId: CTX.runId, threadId: CTX.threadId },
-      target: { kind: "recipient", value: CHAT },
-      surfaces: [],
+      decidedBy: { channel: "imessage", senderId: "+15550001111" },
+      bindingHash: binding.bindingHash,
     });
-    const decided = await h.audit.list({ kind: "approval.decided" });
-    expect(decided.at(-1)?.data).toMatchObject({
-      decision: "allow",
-      grantScope: "once",
-      rule: "channel_reply:turn",
-      purpose: "reply",
-      recipient: CHAT,
-      inboundMessageId: "msg-1",
-    });
-    // Nothing is shown or notified for a system-decided reply.
-    expect(await h.notifier.list()).toHaveLength(0);
-
-    // The executor's check: exactly this body, exactly once.
-    expect(await h.broker.verifyBinding(r.approval.id, intent("tampered").bindingHash)).toEqual({
-      ok: false,
-      reason: "binding_mismatch",
-    });
-    expect((await h.broker.verifyBinding(r.approval.id, i.bindingHash)).ok).toBe(true);
-    expect(await h.broker.verifyBinding(r.approval.id, i.bindingHash)).toEqual({
+    // The node's verification consumes it: once means once.
+    expect(await h.broker.verifyBinding(a.id, binding.bindingHash)).toMatchObject({ ok: true });
+    expect(await h.broker.verifyBinding(a.id, binding.bindingHash)).toEqual({
       ok: false,
       reason: "consumed",
     });
+    // Never a card: no notification, no pending approval; audited.
+    expect(await h.notifier.list()).toHaveLength(0);
+    expect(await h.broker.list({ status: "pending" })).toHaveLength(0);
+    expect(await h.audit.query({ kind: "approval.channel_reply" })).toHaveLength(1);
   });
 
-  it("refuses a different recipient than the conversation the channel reports", async () => {
-    const h = harness();
-    const r = await h.broker.authorizeChannelReply({
-      intent: intent("hi", OTHER),
-      conversation: conversation(h.clock.now()),
-      turn: turn(),
+  it("binds the exact text and recipient", async () => {
+    const h = harness({ [OWNER_CHAT]: {} });
+    const a = await h.broker.authorizeChannelReply(send(OWNER_CHAT));
+    const other = bindingFor("message_send", {
+      channel: "imessage",
+      account: "me@icloud.test",
+      recipient: OWNER_CHAT,
+      bodySha256: `sha256:${"b".repeat(64)}`,
     });
-    expect(r).toMatchObject({ ok: false, reason: "recipient_mismatch" });
-    const refused = await h.audit.list({ kind: "channel_reply.refused" });
-    expect(refused.at(-1)?.data).toMatchObject({ reason: "recipient_mismatch", recipient: OTHER });
+    expect(await h.broker.verifyBinding(a.id, other.bindingHash)).toEqual({
+      ok: false,
+      reason: "binding_mismatch",
+    });
+    await expect(
+      h.broker.authorizeChannelReply({ ...send(OWNER_CHAT), bindingHash: other.bindingHash }),
+    ).rejects.toMatchObject({ code: "forbidden", details: { reason: "binding_mismatch" } });
   });
 
-  it("refuses a reply into a conversation other than the requesting one", async () => {
-    const h = harness();
-    const r = await h.broker.authorizeChannelReply({
-      intent: intent("hi", OTHER),
-      conversation: conversation(h.clock.now(), { recipient: OTHER, senderId: "+15559999" }),
-      turn: turn(),
+  it("refuses conversations nobody authorized wrote in, and stale ones", async () => {
+    const h = harness({
+      "chat-stranger": { allows: "pairing_code" },
+      "chat-old": { lastInboundAt: 0 },
     });
-    expect(r).toMatchObject({ ok: false, reason: "not_requesting_conversation" });
+    h.clock.advance(CHANNEL_REPLY_WINDOW_MS + 1);
+    await expect(h.broker.authorizeChannelReply(send("chat-nobody"))).rejects.toMatchObject({
+      code: "forbidden",
+      details: { reason: "unknown_conversation" },
+    });
+    await expect(h.broker.authorizeChannelReply(send("chat-stranger"))).rejects.toMatchObject({
+      details: { reason: "sender_not_allowed" },
+    });
+    await expect(h.broker.authorizeChannelReply(send("chat-old"))).rejects.toMatchObject({
+      details: { reason: "stale_conversation" },
+    });
+    await expect(
+      h.broker.authorizeChannelReply({ ...send(OWNER_CHAT), account: "other@icloud.test" }),
+    ).rejects.toMatchObject({ details: { reason: "unknown_conversation" } });
+    expect(await h.audit.query({ kind: "approval.channel_reply_refused" })).toHaveLength(4);
   });
 
-  it("refuses a tampered body hash", async () => {
-    const h = harness();
-    const tampered = { ...intent("Done."), bodySha256: sha("Send me your password.") };
-    const r = await h.broker.authorizeChannelReply({
-      intent: tampered,
-      conversation: conversation(h.clock.now()),
-      turn: turn(),
+  it("pairing codes go only to a fresh pairing conversation; approval cards only to the owner's DM", async () => {
+    const h = harness({
+      "chat-stranger": { allows: "pairing_code" },
+      "chat-friend": {},
+      [OWNER_CHAT]: { owner: true },
+      "chat-group": { owner: true, isGroup: true },
     });
-    expect(r).toMatchObject({ ok: false, reason: "binding_mismatch" });
-    expect(await h.broker.list({ status: "approved" })).toHaveLength(0);
+    await expect(
+      h.broker.authorizeChannelReply(send("chat-stranger", "pairing_code")),
+    ).resolves.toMatchObject({ status: "approved" });
+    await expect(
+      h.broker.authorizeChannelReply(send("chat-friend", "pairing_code")),
+    ).rejects.toMatchObject({ details: { reason: "not_pairing" } });
+    await expect(
+      h.broker.authorizeChannelReply(send(OWNER_CHAT, "approval_card")),
+    ).resolves.toMatchObject({ status: "approved" });
+    for (const chat of ["chat-friend", "chat-group"]) {
+      await expect(
+        h.broker.authorizeChannelReply(send(chat, "approval_card")),
+      ).rejects.toMatchObject({ details: { reason: "not_owner_conversation" } });
+    }
   });
 
-  it("refuses a tainted turn's send to a new target, and still asks through decide", async () => {
-    const h = harness();
-    const tainted = {
-      taint: true,
-      taintSources: [{ sourceKind: "web", origin: "https://x.test" }],
-    };
-    const r = await h.broker.authorizeChannelReply({
-      intent: intent("forwarding as asked", OTHER),
-      conversation: conversation(h.clock.now(), { recipient: OTHER, senderId: "+15559999" }),
-      turn: turn(tainted),
+  it("caps sends per conversation and refuses without a channel policy", async () => {
+    const h = harness({ [OWNER_CHAT]: {} });
+    for (let i = 0; i < CHANNEL_REPLIES_PER_MINUTE; i += 1) {
+      await h.broker.authorizeChannelReply(send(OWNER_CHAT));
+    }
+    await expect(h.broker.authorizeChannelReply(send(OWNER_CHAT))).rejects.toMatchObject({
+      code: "rate_limited",
     });
-    expect(r).toMatchObject({ ok: false, reason: "taint_new_target" });
-
-    // The agent's own send to that target goes through the normal ask (`once` / `task` only).
-    const d = await h.broker.decide(call("messages.send", "destructive", recipient(OTHER)), {
-      ...CTX,
-      ...tainted,
+    const bare = makeBroker();
+    await expect(bare.broker.authorizeChannelReply(send(OWNER_CHAT))).rejects.toMatchObject({
+      details: { reason: "no_channel_policy" },
     });
-    expect(d.decision).toBe("ask");
-    expect(d.approvalKind).toBe("message_send");
-    expect(d.scopesOffered).toEqual(["once", "task"]);
   });
 
-  it("a tainted turn may still answer the conversation its request came from", async () => {
-    const h = harness();
-    const r = await h.broker.authorizeChannelReply({
-      intent: intent("Here's the summary."),
-      conversation: conversation(h.clock.now()),
-      turn: turn({ taint: true, taintSources: [{ sourceKind: "web" }] }),
-    });
-    expect(r.ok).toBe(true);
-    if (r.ok) expect(r.approval.taint).toBe(true);
-  });
-
-  it("refuses unauthorized senders, stale conversations, deny rules and plan mode", async () => {
-    const h = harness();
-    const now = h.clock.now();
-    expect(
-      await h.broker.authorizeChannelReply({
-        intent: intent("hi"),
-        conversation: conversation(now, { authorized: false }),
-        turn: turn(),
+  it("persists the decided approval in the SQLite store", async () => {
+    const db = memoryDb();
+    const clock = new FakeClock();
+    const broker = sqliteBroker(db, clock, {
+      channelConversations: () => ({
+        senderId: "+15550001111",
+        lastInboundAt: clock.now(),
+        allows: "reply",
+        owner: true,
+        isGroup: false,
       }),
-    ).toMatchObject({ ok: false, reason: "sender_not_authorized" });
-    expect(
-      await h.broker.authorizeChannelReply({ intent: intent("hi"), conversation: undefined }),
-    ).toMatchObject({ ok: false, reason: "no_conversation" });
-    expect(
-      await h.broker.authorizeChannelReply({
-        intent: intent("hi"),
-        conversation: conversation(now - 7 * 3_600_000),
-        turn: turn(),
-      }),
-    ).toMatchObject({ ok: false, reason: "stale_conversation" });
-    expect(
-      await h.broker.authorizeChannelReply({
-        intent: intent("hi"),
-        conversation: conversation(now),
-        turn: turn({ permissionMode: "plan" }),
-      }),
-    ).toMatchObject({ ok: false, reason: "policy_denied", rule: "mode:plan" });
-
-    const denied = makeBroker({
-      approvers: approvers(undefined, [`imessage:${OWNER}`]),
-      policy: { deny: ["channel.*"] },
     });
-    expect(
-      await denied.broker.authorizeChannelReply({
-        intent: intent("hi"),
-        conversation: conversation(denied.clock.now()),
-        turn: turn(),
-      }),
-    ).toMatchObject({ ok: false, reason: "policy_denied" });
-  });
-
-  it("allows a Gateway notice to an authorized sender without a turn", async () => {
-    const h = harness();
-    const r = await h.broker.authorizeChannelReply({
-      intent: intent("Stopped."),
-      conversation: conversation(h.clock.now()),
-    });
-    expect(r.ok).toBe(true);
-    if (r.ok) expect(r.approval.requestedBy.runId).toBeNull();
-  });
-
-  it("pairing codes go only to a sender with a pending request, in a 1:1 chat", async () => {
-    const h = harness();
-    const now = h.clock.now();
-    const stranger = conversation(now, {
-      recipient: OTHER,
-      senderId: "+15559999",
-      authorized: false,
-      pairingPending: true,
-    });
-    const code = intent("Your pairing code is ABCD2345.", OTHER, "pairing_code");
-    expect(
-      (await h.broker.authorizeChannelReply({ intent: code, conversation: stranger })).ok,
-    ).toBe(true);
-    expect(
-      await h.broker.authorizeChannelReply({
-        intent: code,
-        conversation: { ...stranger, pairingPending: false },
-      }),
-    ).toMatchObject({ ok: false, reason: "no_pairing" });
-    expect(
-      await h.broker.authorizeChannelReply({
-        intent: code,
-        conversation: { ...stranger, isGroup: true },
-      }),
-    ).toMatchObject({ ok: false, reason: "group_chat" });
-    expect(
-      await h.broker.authorizeChannelReply({ intent: code, conversation: stranger, turn: turn() }),
-    ).toMatchObject({ ok: false, reason: "unexpected_turn" });
-  });
-
-  it("approval cards go only to the owner's own 1:1 conversation", async () => {
-    const h = harness();
-    const now = h.clock.now();
-    const card = intent("Psyche wants to send an email…", CHAT, "approval_card");
-    expect(
-      (await h.broker.authorizeChannelReply({ intent: card, conversation: conversation(now) })).ok,
-    ).toBe(true);
-    const toStranger = intent("Psyche wants to…", OTHER, "approval_card");
-    expect(
-      await h.broker.authorizeChannelReply({
-        intent: toStranger,
-        conversation: conversation(now, { recipient: OTHER, senderId: "+15559999" }),
-      }),
-    ).toMatchObject({ ok: false, reason: "not_owner" });
+    const a = await broker.authorizeChannelReply(send(OWNER_CHAT));
+    expect(await broker.get(a.id)).toMatchObject({ status: "approved", scopeGranted: "once" });
   });
 });

@@ -30,6 +30,17 @@ export interface ConversionService {
   ): Promise<ConversionResult>;
 }
 
+/**
+ * Conversion cannot run here at all (no container runtime, no LibreOffice image). Viewers show
+ * its message as the reason, without "Conversion failed".
+ */
+export class ConversionUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ConversionUnavailableError";
+  }
+}
+
 export class ConversionError extends Error {
   readonly service: string;
   constructor(message: string, service: string) {

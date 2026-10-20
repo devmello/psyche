@@ -10,7 +10,13 @@ import {
   useState,
 } from "react";
 import { useShell, useShellState } from "../context.tsx";
-import { microphoneSource, VoiceCapture, type VoiceState } from "../voice.ts";
+import {
+  microphoneSource,
+  VoiceCapture,
+  type VoiceSegment,
+  type VoiceState,
+  webSpeechDictation,
+} from "../voice.ts";
 
 export const PERMISSION_MODES: readonly PermissionMode[] = ["manual", "balanced", "auto", "plan"];
 
@@ -170,10 +176,13 @@ export function Composer(props: {
   const pushToTalk = useRef(false);
   const threadId = props.thread?.id ?? null;
 
-  const capture = useMemo(
-    () => new VoiceCapture((m, p) => store.call(m, p), microphoneSource(), setVoice),
-    [store],
-  );
+  const capture = useMemo(() => {
+    const local = webSpeechDictation();
+    return new VoiceCapture((m, p) => store.call(m, p), microphoneSource(), setVoice, {
+      ...(local ? { local } : {}),
+      onInterrupted: (said) => setText((t) => (t ? `${t} ${said}` : said)),
+    });
+  }, [store]);
 
   useEffect(() => {
     void store
@@ -193,9 +202,12 @@ export function Composer(props: {
 
   useEffect(() => {
     const off = store.tap((e) => {
-      const p = e.payload as { streamId?: string; text?: string };
-      if (e.event === "voice.partial" && p.streamId && typeof p.text === "string")
-        capture.onPartial(p.streamId, p.text);
+      const p = e.payload as { sessionId?: string; segment?: VoiceSegment; reason?: string };
+      if (typeof p?.sessionId !== "string") return;
+      if (e.event === "voice.segment" && typeof p.segment?.text === "string")
+        capture.onSegment(p.sessionId, p.segment);
+      else if (e.event === "voice.ended" && typeof p.reason === "string")
+        capture.onEnded(p.sessionId, p.reason);
     });
     return () => {
       off();
@@ -276,7 +288,7 @@ export function Composer(props: {
   const micDown = () => {
     holdTimer.current = setTimeout(() => {
       pushToTalk.current = true;
-      void capture.start("push_to_talk", threadId ?? undefined);
+      void capture.start(threadId ?? undefined);
     }, 300);
   };
   const micUp = () => {
@@ -287,7 +299,7 @@ export function Composer(props: {
       return;
     }
     if (voice.phase === "listening") void finishVoice();
-    else void capture.start("toggle", threadId ?? undefined);
+    else void capture.start(threadId ?? undefined);
   };
 
   return (
@@ -347,7 +359,9 @@ export function Composer(props: {
       <textarea
         ref={ref}
         value={
-          voice.phase === "listening" && voice.partial ? `${text} ${voice.partial}`.trim() : text
+          (voice.phase === "listening" || voice.phase === "finishing") && voice.partial
+            ? `${text} ${voice.partial}`.trim()
+            : text
         }
         onChange={(e) => setText(e.target.value)}
         onKeyDown={onKeyDown}

@@ -23,7 +23,7 @@ import {
   type PaletteAction,
   ShortcutSheet,
 } from "./components/Overlays.tsx";
-import { PaneArea } from "./components/Panes.tsx";
+import { PaneArea, type PaneRenderer } from "./components/Panes.tsx";
 import { hasInsetTitleBar, TitleBar } from "./components/TitleBar.tsx";
 import { ShellProvider, useShell, useShellState } from "./context.tsx";
 import { matchShortcut, type ShortcutAction } from "./keyboard.ts";
@@ -33,6 +33,7 @@ import {
   type LayoutAction,
   type LayoutEnv,
   type LayoutStore,
+  type PaneInstance,
   randomIds,
   toViewLayout,
 } from "./layout/index.ts";
@@ -89,6 +90,11 @@ export interface ShellSlots {
     onOpen: (threadId: string) => void;
     onNew: () => void;
   }) => ReactNode;
+  /**
+   * A pane's body (docs/06 §2.4), e.g. the Files pane with the viewers (§3.7); `null` or
+   * `undefined` keeps the shell's own view for that pane.
+   */
+  pane?: PaneRenderer;
 }
 
 /** What the chat slot needs from the shell to drive the agent header (§3.1). */
@@ -97,6 +103,8 @@ export interface ChatSlotContext {
   navigate: (to: string) => void;
   setPermissionMode: (mode: Thread["permissionMode"]) => void;
   openModelPicker: () => void;
+  /** Opens a pane beside the chat, e.g. the Files pane on a Library item (§2.4). */
+  openPane: (pane: PaneInstance["pane"], target?: string | null) => void;
 }
 
 export function ShellApp({
@@ -378,6 +386,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       run: () => dispatch({ type: "open", pane: "terminal" }),
     },
     { id: "tasks", label: "Open tasks pane", run: () => dispatch({ type: "open", pane: "tasks" }) },
+    { id: "files", label: "Open files pane", run: () => dispatch({ type: "open", pane: "files" }) },
     { id: "model", label: "/model", run: () => setOverlay("model") },
     { id: "mode", label: "Switch permission mode", run: cycleMode },
     { id: "settings", label: "Settings", run: () => navigate("/settings/model") },
@@ -401,6 +410,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           width={width}
           covered={overlay !== null}
           dispatch={dispatch}
+          {...(slots.pane ? { renderPane: slots.pane, navigate } : {})}
         />
         <Toasts />
       </div>
@@ -464,6 +474,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
               navigate,
               setPermissionMode,
               openModelPicker: () => setOverlay("model"),
+              openPane: (pane, target) => dispatch({ type: "open", pane, target: target ?? null }),
             })
           ) : onChat ? (
             <ChatView
@@ -483,6 +494,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
             width={width}
             covered={overlay !== null}
             dispatch={dispatch}
+            {...(slots.pane ? { renderPane: slots.pane, navigate } : {})}
           />
         ) : (
           <span />
