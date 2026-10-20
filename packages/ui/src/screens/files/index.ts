@@ -6,4 +6,6 @@ export {
   FilesPaneView,
   type FilesPaneViewProps,
   fileIcon,
+  fileRefForTarget,
+  libraryTarget,
 } from "./FilesPane.tsx";

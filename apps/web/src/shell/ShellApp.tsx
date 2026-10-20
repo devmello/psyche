@@ -33,6 +33,7 @@ import {
   type LayoutAction,
   type LayoutEnv,
   type LayoutStore,
+  type PaneInstance,
   randomIds,
   toViewLayout,
 } from "./layout/index.ts";
@@ -102,6 +103,8 @@ export interface ChatSlotContext {
   navigate: (to: string) => void;
   setPermissionMode: (mode: Thread["permissionMode"]) => void;
   openModelPicker: () => void;
+  /** Opens a pane beside the chat, e.g. the Files pane on a Library item (§2.4). */
+  openPane: (pane: PaneInstance["pane"], target?: string | null) => void;
 }
 
 export function ShellApp({
@@ -471,6 +474,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
               navigate,
               setPermissionMode,
               openModelPicker: () => setOverlay("model"),
+              openPane: (pane, target) => dispatch({ type: "open", pane, target: target ?? null }),
             })
           ) : onChat ? (
             <ChatView
