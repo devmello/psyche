@@ -220,7 +220,9 @@ public final class DictationKeyWatcher: @unchecked Sendable {
             ) else { return false }
             tap = port
             let retained = Unmanaged.passRetained(self)  // released when the run loop exits
-            let t = Thread { [port] in
+            let box = UncheckedSendable(port)
+            let t = Thread { [box] in
+                let port = box.value
                 defer { retained.release() }
                 guard CFMachPortIsValid(port), let src = CFMachPortCreateRunLoopSource(nil, port, 0) else { return }
                 let rl = CFRunLoopGetCurrent()

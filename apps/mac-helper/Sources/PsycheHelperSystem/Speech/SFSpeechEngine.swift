@@ -61,7 +61,8 @@ final class SFSpeechEngine: TranscriptionEngine, @unchecked Sendable {
         let converter = try PCMBufferConverter(from: inputFormat, to: request.nativeAudioFormat)
 
         let (results, sink) = AsyncThrowingStream.makeStream(of: SpeechSegment.self)
-        let task = recognizer.recognitionTask(with: request) { result, error in
+        // Called on the recognizer's queue; touches only the stream continuation (Sendable).
+        let task = recognizer.recognitionTask(with: request) { @Sendable result, error in
             if let result {
                 sink.yield(Self.segment(result))
                 if result.isFinal { sink.finish() }
