@@ -111,6 +111,41 @@ Every row passes the shared conformance suite offline (`describeModelProviderCon
 
 Tool names are mapped per provider family (`toolNameRuleFor`): Anthropic accepts `[a-zA-Z0-9_-]{1,128}`, OpenAI and the servers that copy it 64 characters, Gemini 64 characters starting with a letter or `_`. The map is reversible per request; the loop only sees real names.
 
+### Subscription CLIs: `claude-code` and `codex`
+
+These providers run on the owner's own plans through the installed CLIs: Claude Code (`claude -p`, a Claude Pro or Max plan) and the OpenAI Codex CLI (`codex exec`, a ChatGPT plan). No API key is involved. Refs are `claude-code/<model>` (`default`, `opus`, `sonnet`, `haiku` or a full model id) and `codex/<model>` (`default` or a model id). `default` leaves the choice to the CLI.
+
+- **Tool bridge.** Psyche's tools are offered to the CLI as a stdio MCP server named `psyche`.
+  - That server is `src/cli/mcp-stdio-bridge.mjs`. It relays each call to a loopback endpoint in the router (`ToolBridge`).
+  - The bearer token is read from a 0600 file, never from argv, the environment or the CLI's config.
+  - A model call ends at the CLI's tool calls (`finish{tool_calls}`) while the CLI process waits. The agent loop runs the tools behind the Permission Broker as usual, and the next model call hands the results back to that same process.
+  - The CLI never runs a Psyche tool itself.
+- **The CLI's own tools are off.**
+  - **Claude Code:** `--tools ""`, `--strict-mcp-config`, `--allowedTools mcp__psyche`, `--permission-mode dontAsk`, `--setting-sources ""`. CLAUDE.md and auto-memory are disabled.
+  - **Codex:** shell, browser, computer use, apps, plugins, image tools and web search are disabled. Runs use `--sandbox read-only`, `--ignore-user-config` and an empty working directory. Codex has no switch for `apply_patch`, but the read-only sandbox leaves it nothing to change.
+- **System prompt.** Psyche's system prompt replaces Claude Code's (`--system-prompt`). For Codex it goes in as `developer_instructions`.
+- **Sessions.** Each turn stores the CLI session id as an opaque `reasoning` envelope (`kind: "cli-session"`). The next turn resumes it (`--resume` / `exec resume`) and sends only what is new. A thread that started on another model is sent as a transcript.
+- **Streaming and usage.**
+  - Claude Code streams text and thinking deltas (`--include-partial-messages`). Usage comes per message.
+  - `codex exec --json` streams no text deltas, so each agent message arrives whole. Its usage totals are cumulative, so each turn reports the difference.
+  - Cost is 0: the plan pays.
+- **Environment.** `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and their relatives are removed from the CLI's environment, so the subscription login is what runs. Claude Code's telemetry and error reporting are switched off.
+- **Errors.** These map to router kinds:
+  - not signed in → `auth`;
+  - plan or usage limit → `rate_limited`;
+  - CLI missing → `model_not_found`;
+  - Codex starting its own command → `bad_request` (the run is stopped).
+- **Probe.** `probeEndpoint` runs `--version` plus `claude auth status --json` or `codex login status`.
+  - It reports installed, signed in, and the sign-in method with the plan name. It never reports the email, the organisation or a token.
+  - It makes no model call, so it spends no quota.
+
+**Limits, honestly.**
+- The CLI must be installed and signed in on the Gateway's machine.
+- Rate limits and usage caps are the plan's. A heavy agent turn uses the same quota as interactive use.
+- Each turn starts a CLI process, which takes about 1–2 s.
+- A run waiting on an approval keeps its process alive for up to 4 h. After a Gateway restart, it resumes from the stored session id.
+- The CLIs' output formats can change between versions; this was built against Claude Code 2.1.286 and codex-cli 0.162.0.
+
 ### Tool input schemas (#414)
 
 Every provider needs a tool's input schema to be one object at the top level (`{"type": "object", …}`). A top-level union (TypeBox `Type.Union`, so `{"anyOf": [...]}`) would make the provider refuse the whole request.

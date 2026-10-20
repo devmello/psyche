@@ -55,6 +55,7 @@ const STATUS: Record<
   invalid: { tone: "danger", text: "Key rejected" },
   offline: { tone: "danger", text: "Not reachable" },
   unknown: { tone: "neutral", text: "Not checked" },
+  signed_out: { tone: "danger", text: "Not signed in" },
 };
 
 export function ToolCheckBadge({ status }: { status: ToolCheck }): ReactElement {
@@ -329,14 +330,16 @@ export function ModelProvidersPanel({
                   </div>
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <KeyRound className="size-3.5" aria-hidden="true" />
-                    {p.kind === "local"
-                      ? p.baseURL === undefined
-                        ? "No key needed."
-                        : `No key needed. Endpoint ${p.baseURL}.`
-                      : p.keyRef === null
-                        ? "No key stored."
-                        : "Key stored in the vault. Psyche never shows it."}
-                    {onEditKey && p.kind !== "local" ? (
+                    {p.kind === "subscription"
+                      ? "No API key: runs through the CLI you are signed in to, within your plan's limits."
+                      : p.kind === "local"
+                        ? p.baseURL === undefined
+                          ? "No key needed."
+                          : `No key needed. Endpoint ${p.baseURL}.`
+                        : p.keyRef === null
+                          ? "No key stored."
+                          : "Key stored in the vault. Psyche never shows it."}
+                    {onEditKey && p.kind !== "local" && p.kind !== "subscription" ? (
                       <Button
                         type="button"
                         variant="link"
@@ -471,15 +474,24 @@ const TOOL_CHECK: Record<ToolCheckStatus, ToolCheck> = {
 
 /** A `models.list` provider as the panel shows it. */
 export function providerInfoFromSummary(p: ModelProviderSummary): ProviderInfo {
-  const kind: ProviderKind = p.local ? "local" : p.kind === "openrouter" ? "openrouter" : "cloud";
+  const subscription = p.kind === "claude-code" || p.kind === "codex";
+  const kind: ProviderKind = subscription
+    ? "subscription"
+    : p.local
+      ? "local"
+      : p.kind === "openrouter"
+        ? "openrouter"
+        : "cloud";
   const status: ProviderInfo["status"] =
     p.probe.state === "reachable"
       ? "ok"
       : p.probe.state === "auth_failed"
-        ? "invalid"
+        ? subscription
+          ? "signed_out"
+          : "invalid"
         : p.probe.state === "unreachable"
           ? "offline"
-          : !p.local && !p.keyConfigured
+          : !p.local && !subscription && !p.keyConfigured
             ? "missing"
             : "unknown";
   return {

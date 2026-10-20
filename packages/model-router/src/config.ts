@@ -14,6 +14,8 @@ export const PROVIDER_KINDS = [
   "ollama",
   "llamacpp",
   "lmstudio",
+  "claude-code",
+  "codex",
 ] as const;
 export type ProviderKind = (typeof PROVIDER_KINDS)[number];
 
@@ -81,6 +83,12 @@ export interface ProviderConfig {
    * nothing about the install leaves the machine by default.
    */
   attribution?: { url?: string; title?: string };
+  /** `claude-code` / `codex`: the CLI executable (default `claude` / `codex` on PATH). */
+  command?: string;
+  /** `claude-code` / `codex`: working directory for CLI runs (default a private temp dir). */
+  workdir?: string;
+  /** `claude-code` / `codex`: how long a run waiting on tool results is kept (default 4 h). */
+  cliSuspendMs?: number;
 }
 
 /** Kinds that run on the owner's machine: zero cost, longer timeouts, no keys required. */
@@ -92,6 +100,11 @@ export function isLocalKind(kind: ProviderKind): boolean {
     kind === "llamacpp" ||
     kind === "lmstudio"
   );
+}
+
+/** Kinds that drive the owner's subscription through its CLI: no key, no per-token cost. */
+export function isSubscriptionKind(kind: ProviderKind): boolean {
+  return kind === "claude-code" || kind === "codex";
 }
 
 /** Kinds served by `@ai-sdk/openai-compatible` (provider metadata keyed by the config id). */
@@ -116,6 +129,8 @@ export function packageKey(config: ProviderConfig): string {
     case "openai-compatible":
     case "llamacpp":
     case "lmstudio":
+    case "claude-code":
+    case "codex":
       return config.id;
   }
 }
