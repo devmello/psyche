@@ -140,6 +140,8 @@ describe("stdio MCP servers in the sandbox container (M3)", () => {
       ]);
       // Unknown servers' annotations are hints only: nothing is downgraded to read.
       expect(tools.every((t) => t.sideEffect !== "read")).toBe(true);
+      // Their descriptions and schemas are the server's words (#281).
+      expect(tools.every((t) => t.descriptionProvenance === "untrusted")).toBe(true);
       const names = await host.callTool("probe", "env_names", {}, { toolsListHash });
       // macOS adds `__CF_*` to every process; nothing of the host's environment is visible.
       const visible = text(names.content)
