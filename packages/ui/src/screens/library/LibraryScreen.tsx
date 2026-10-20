@@ -40,7 +40,9 @@ import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs.tsx";
 import { ToggleGroup, ToggleGroupItem } from "../../components/ui/toggle-group.tsx";
 import { useLibrary, useTasks } from "../../data/hooks.ts";
-import { formatDate, plural } from "../../lib/format.ts";
+import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
+import { formatDate } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { cn } from "../../lib/utils.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
@@ -135,14 +137,20 @@ export function LibraryItemView({
             {quarantined ? (
               <Badge variant="approval">
                 <ShieldAlert aria-hidden="true" />
-                Quarantined
+                {t("screens.library.quarantined")}
               </Badge>
             ) : null}
-            {isReadOnly(item) ? <Badge variant="muted">Read-only</Badge> : null}
+            {isReadOnly(item) ? (
+              <Badge variant="muted">{t("screens.library.readOnly")}</Badge>
+            ) : null}
           </div>
           <p className="text-caption text-gray-11">
-            {KIND_LABEL[item.kind]} · {fileType(item)} · {formatBytes(item.size)} ·{" "}
-            {formatDate(item.createdAt)}
+            {t("screens.library.meta", {
+              kind: KIND_LABEL[item.kind],
+              type: fileType(item),
+              size: formatBytes(item.size),
+              date: formatDate(item.createdAt),
+            })}
           </p>
           {taskId !== null || item.tags.length > 0 ? (
             <div className="mt-1 flex flex-wrap items-center gap-1">
@@ -156,12 +164,16 @@ export function LibraryItemView({
                   )}
                 >
                   <ListChecks aria-hidden="true" />
-                  <span className="truncate">Task: {taskTitle ?? "open activity"}</span>
+                  <span className="truncate">
+                    {t("screens.library.task", {
+                      title: taskTitle ?? t("screens.library.openActivity"),
+                    })}
+                  </span>
                 </button>
               ) : null}
-              {item.tags.map((t) => (
-                <Badge key={t} variant="muted">
-                  #{t}
+              {item.tags.map((tag) => (
+                <Badge key={tag} variant="muted">
+                  #{tag}
                 </Badge>
               ))}
             </div>
@@ -175,15 +187,15 @@ export function LibraryItemView({
           variant="outline"
           disabled={onOpen === undefined}
           onClick={() => onOpen?.(item)}
-          aria-label={`Open ${item.name}${system ? " in the editor" : ""}`}
+          aria-label={t("screens.library.openLabel", { name: item.name, editor: system })}
         >
           {system ? <PenLine aria-hidden="true" /> : <FolderOpen aria-hidden="true" />}
-          {system ? "Open in editor" : "Open"}
+          {system ? t("screens.library.openInEditor") : t("screens.library.open")}
         </Button>
         {quarantined && onTrust ? (
           <Button type="button" size="sm" variant="ghost" onClick={() => onTrust(item)}>
             <ShieldCheck aria-hidden="true" />
-            Trust this file
+            {t("screens.library.trust")}
           </Button>
         ) : null}
         {hasMore ? (
@@ -194,9 +206,9 @@ export function LibraryItemView({
                   type="button"
                   size="icon-sm"
                   variant="ghost"
-                  aria-label={`More actions for ${item.name}`}
-                  title="More"
-                  className="ml-auto text-gray-11"
+                  aria-label={t("screens.library.moreFor", { name: item.name })}
+                  title={t("common.more")}
+                  className="ms-auto text-gray-11"
                 />
               }
             >
@@ -206,19 +218,19 @@ export function LibraryItemView({
               {quickLook ? (
                 <DropdownMenuItem onClick={() => quickLook(item)}>
                   <Eye aria-hidden="true" />
-                  Quick Look
+                  {t("screens.library.quickLook")}
                 </DropdownMenuItem>
               ) : null}
               {onReveal ? (
                 <DropdownMenuItem onClick={() => onReveal(item)}>
                   <FolderSearch aria-hidden="true" />
-                  Reveal in Finder
+                  {t("screens.library.reveal")}
                 </DropdownMenuItem>
               ) : null}
               {sendToChat ? (
                 <DropdownMenuItem onClick={() => sendToChat(item)}>
                   <MessageCircle aria-hidden="true" />
-                  Send to chat
+                  {t("screens.library.sendToChat")}
                 </DropdownMenuItem>
               ) : null}
             </DropdownMenuContent>
@@ -284,7 +296,7 @@ export function LibraryView({
   if (loading) {
     body = showSkeleton ? (
       <LoadingCards
-        label="Loading the Library"
+        label={t("screens.library.loading")}
         count={6}
         lines={2}
         layout={layout === "grid" ? "grid" : "rows"}
@@ -295,9 +307,9 @@ export function LibraryView({
   } else if (error !== null) {
     body = (
       <ErrorState
-        what="Psyche couldn't load the Library"
+        what={t("screens.library.loadFailed")}
         reason={error}
-        did="Your files are untouched."
+        did={t("screens.library.untouched")}
         {...(onRetry ? { retry: { onClick: onRetry } } : {})}
       />
     );
@@ -305,15 +317,23 @@ export function LibraryView({
     body = filtered ? (
       <EmptyState
         icon={LibraryIcon}
-        action={{ label: "Clear filters", onClick: () => onFiltersChange?.(NO_FILTERS) }}
+        action={{
+          label: t("screens.library.clearFilters"),
+          onClick: () => onFiltersChange?.(NO_FILTERS),
+        }}
       >
-        No files match these filters.
+        {t("screens.library.noMatch")}
       </EmptyState>
     ) : (
       <EmptyState
         icon={LibraryIcon}
         {...(onOpenChat && section !== "system" && section !== "downloads"
-          ? { action: { label: `Ask ${persona} to make one`, onClick: onOpenChat } }
+          ? {
+              action: {
+                label: t("screens.library.askToMake", { name: persona }),
+                onClick: onOpenChat,
+              },
+            }
           : {})}
       >
         {spec?.empty}
@@ -353,29 +373,29 @@ export function LibraryView({
   );
 
   return (
-    <section aria-label="Library">
+    <section aria-label={t("screens.library.title")}>
       <Page width="wide">
         <PageHeader
-          title="Library"
+          title={t("screens.library.title")}
           meta={
             !loading && error === null
-              ? `${spec?.label ?? ""} · ${plural(shown.length, "file")}`
+              ? t("screens.library.meta.count", { section: spec?.label ?? "", n: shown.length })
               : undefined
           }
-          description={`Files ${persona} made or received, each linked to the task that produced it.`}
+          description={t("screens.library.description", { name: persona })}
           actions={
             <ToggleGroup
-              aria-label="Layout"
+              aria-label={t("screens.library.layout")}
               value={[layout]}
               onValueChange={(v) => {
                 const next = v[0];
                 if (next === "grid" || next === "list") onLayoutChange?.(next);
               }}
             >
-              <ToggleGroupItem value="grid" size="sm" aria-label="Grid">
+              <ToggleGroupItem value="grid" size="sm" aria-label={t("screens.library.grid")}>
                 <LayoutGrid aria-hidden="true" />
               </ToggleGroupItem>
-              <ToggleGroupItem value="list" size="sm" aria-label="List">
+              <ToggleGroupItem value="list" size="sm" aria-label={t("screens.library.list")}>
                 <List aria-hidden="true" />
               </ToggleGroupItem>
             </ToggleGroup>
@@ -389,7 +409,7 @@ export function LibraryView({
           }}
           className="gap-4"
         >
-          <TabsList aria-label="Library sections" className="flex-wrap">
+          <TabsList aria-label={t("screens.library.sections")} className="flex-wrap">
             {LIBRARY_SECTIONS.map((s) => (
               <TabsTrigger key={s.id} value={s.id}>
                 {s.label}
@@ -398,10 +418,10 @@ export function LibraryView({
           </TabsList>
           <TabsContent value={section} className="flex flex-col gap-4">
             <fieldset className="m-0 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 border-0 p-0">
-              <legend className="sr-only">Filters</legend>
+              <legend className="sr-only">{t("screens.library.filters")}</legend>
               {labelled(
                 ids.type,
-                "Type",
+                t("screens.library.typeFilter"),
                 <NativeSelect
                   id={ids.type}
                   size="sm"
@@ -410,17 +430,17 @@ export function LibraryView({
                     setFilter({ type: e.target.value === "" ? null : e.target.value })
                   }
                 >
-                  <option value="">All types</option>
-                  {types.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
+                  <option value="">{t("screens.library.allTypes")}</option>
+                  {types.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
                     </option>
                   ))}
                 </NativeSelect>,
               )}
               {labelled(
                 ids.task,
-                "Source task",
+                t("screens.library.sourceTask"),
                 <NativeSelect
                   id={ids.task}
                   size="sm"
@@ -430,17 +450,17 @@ export function LibraryView({
                     setFilter({ taskId: e.target.value === "" ? null : e.target.value })
                   }
                 >
-                  <option value="">Any task</option>
-                  {taskIds.map((t) => (
-                    <option key={t} value={t}>
-                      {taskTitles[t] ?? t}
+                  <option value="">{t("screens.library.anyTask")}</option>
+                  {taskIds.map((tid) => (
+                    <option key={tid} value={tid}>
+                      {taskTitles[tid] ?? tid}
                     </option>
                   ))}
                 </NativeSelect>,
               )}
               {labelled(
                 ids.date,
-                "Date",
+                t("screens.library.dateFilter"),
                 <NativeSelect
                   id={ids.date}
                   size="sm"
@@ -465,7 +485,7 @@ export function LibraryView({
                   onClick={() => onFiltersChange?.(NO_FILTERS)}
                 >
                   <X aria-hidden="true" />
-                  Reset
+                  {t("screens.library.reset")}
                 </Button>
               ) : null}
             </fieldset>
@@ -536,7 +556,7 @@ export function LibraryScreen({
   const trust = (item: LibraryItem) => {
     setTrusted((s) => new Set(s).add(item.id));
     Promise.resolve(onTrust?.(item)).then(
-      () => toast(`Trusted ${item.name}.`),
+      () => toast(t("screens.library.trusted", { name: item.name })),
       (err: unknown) => {
         setTrusted((s) => {
           const next = new Set(s);
@@ -544,7 +564,7 @@ export function LibraryScreen({
           return next;
         });
         toast.error(
-          `Psyche couldn't trust ${item.name} (${err instanceof Error ? err.message : String(err)}). It stays quarantined.`,
+          t("screens.library.trustFailed", { name: item.name, reason: describeError(err) }),
         );
       },
     );

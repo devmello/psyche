@@ -14,6 +14,8 @@ import {
 import { Button } from "../../components/ui/button.tsx";
 import { Progress } from "../../components/ui/progress.tsx";
 import { useGoals } from "../../data/hooks.ts";
+import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
 import { plural } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
@@ -49,7 +51,7 @@ export function GoalRow({ goal, selected = false, onOpen }: GoalRowProps): React
           aria-current={selected ? "page" : undefined}
           onClick={() => onOpen?.(goal)}
           className={cn(
-            "min-w-0 flex-1 text-left text-body font-medium focus-visible:outline-2 focus-visible:outline-ring",
+            "min-w-0 flex-1 text-start text-body font-medium focus-visible:outline-2 focus-visible:outline-ring",
             "after:absolute after:inset-0 after:content-['']",
             selected ? "text-accent-12" : "text-foreground",
           )}
@@ -63,13 +65,18 @@ export function GoalRow({ goal, selected = false, onOpen }: GoalRowProps): React
         ) : null}
       </div>
       <p className="text-caption text-gray-11">
-        {goal.nextCheckinAt ? `Next check-in ${formatWhen(goal.nextCheckinAt)}` : "No check-ins"}
-        {goal.status !== "active" ? ` · ${goal.status}` : ""}
+        {t("screens.goals.listLine", {
+          checkin: goal.nextCheckinAt
+            ? t("screens.goals.nextCheckin", { when: formatWhen(goal.nextCheckinAt) })
+            : t("screens.goals.noCheckins"),
+          status: goal.status,
+          inactive: goal.status !== "active",
+        })}
       </p>
       {total > 0 ? (
         <Progress
           value={(done / total) * 100}
-          aria-label={`${goal.title}: ${done} of ${total} milestones`}
+          aria-label={t("screens.goals.progressLabel", { title: goal.title, done, total })}
           className={cn(
             "[&_[data-slot=progress-track]]:h-1.5",
             complete ? "[&_[data-slot=progress-indicator]]:bg-grass-9" : "",
@@ -105,20 +112,18 @@ export function CandidateGoalCard({
     >
       <p className="flex items-center gap-1 text-label text-accent-11">
         <Sparkles className="size-3" aria-hidden="true" />
-        Inferred goal · {GOAL_CATEGORY_LABEL[goal.category]}
+        {t("screens.goals.inferred", { category: GOAL_CATEGORY_LABEL[goal.category] })}
       </p>
       <div className="flex flex-col gap-0.5">
         <h3 id={titleId} className="text-body font-semibold text-foreground">
           {goal.title}
         </h3>
-        <p className="text-caption text-gray-11">
-          {persona} thinks this might be a goal. Nothing is tracked until you confirm.
-        </p>
+        <p className="text-caption text-gray-11">{t("screens.goals.thinks", { name: persona })}</p>
       </div>
       <EvidenceLine items={evidence} {...(onOpenRoute ? { onOpenRoute } : {})} />
       <div className="mt-1 flex flex-wrap gap-1.5">
         <Button type="button" size="sm" disabled={busy} onClick={() => onDecide?.(goal, "confirm")}>
-          Confirm
+          {t("screens.goals.confirm")}
         </Button>
         <Button
           type="button"
@@ -127,7 +132,7 @@ export function CandidateGoalCard({
           disabled={busy}
           onClick={() => onDecide?.(goal, "reject")}
         >
-          Not a goal
+          {t("screens.goals.notAGoal")}
         </Button>
         <Button
           type="button"
@@ -136,7 +141,7 @@ export function CandidateGoalCard({
           disabled={busy}
           onClick={() => onDecide?.(goal, "later")}
         >
-          Later
+          {t("screens.goals.later")}
         </Button>
       </div>
     </article>
@@ -186,16 +191,16 @@ export function GoalsView({
   let list: ReactElement;
   if (loading) {
     list = showSkeleton ? (
-      <LoadingCards label="Loading goals" count={4} lines={2} layout="rows" />
+      <LoadingCards label={t("screens.goals.loadingList")} count={4} lines={2} layout="rows" />
     ) : (
       <div aria-busy="true" className="min-h-24" />
     );
   } else if (error !== null) {
     list = (
       <ErrorState
-        what="Psyche couldn't load your goals"
+        what={t("screens.goals.listFailed")}
         reason={error}
-        did="Check-ins still run on schedule."
+        did={t("screens.goals.stillRun")}
         {...(onRetry ? { retry: { onClick: onRetry } } : {})}
       />
     );
@@ -203,9 +208,9 @@ export function GoalsView({
     list = (
       <EmptyState
         icon={CircleCheck}
-        {...(onAddGoal ? { action: { label: "Add a goal", onClick: onAddGoal } } : {})}
+        {...(onAddGoal ? { action: { label: t("screens.goals.add"), onClick: onAddGoal } } : {})}
       >
-        Tell {persona} a goal in chat, or add one here.
+        {t("screens.goals.empty", { name: persona })}
       </EmptyState>
     );
   } else {
@@ -231,13 +236,13 @@ export function GoalsView({
         ))}
         {goals.length === 0 ? (
           <p className="px-3 text-small text-gray-11">
-            No confirmed goals yet. Tell {persona} a goal in chat, or confirm one below.
+            {t("screens.goals.noConfirmed", { name: persona })}
           </p>
         ) : null}
         {candidates.length > 0 ? (
           <section aria-labelledby="goals-candidates" className="flex flex-col gap-2">
             <SectionLabel id="goals-candidates" className="px-3">
-              Suggested
+              {t("screens.goals.suggested")}
             </SectionLabel>
             <ul className="flex flex-col gap-2">
               {candidates.map((g) => (
@@ -259,16 +264,16 @@ export function GoalsView({
 
   const tracked = !loading && error === null && goals.length > 0;
   return (
-    <section aria-label="Goals">
+    <section aria-label={t("screens.goals.title")}>
       <Page width={detail ? "full" : "wide"}>
         <PageHeader
-          title="Goals"
+          title={t("screens.goals.title")}
           {...(tracked ? { meta: plural(goals.length, "goal") } : {})}
           {...(onAddGoal && goals.length > 0
             ? {
                 actions: (
                   <Button type="button" size="sm" variant="outline" onClick={onAddGoal}>
-                    Add a goal
+                    {t("screens.goals.add")}
                   </Button>
                 ),
               }
@@ -319,13 +324,11 @@ export function GoalsScreen({
     if (decision === "later") setLater((s) => new Set(s).add(goal.id));
     goals.decide(goal.id, decision).then(
       () => {
-        if (decision === "confirm") toast(`Tracking "${goal.title}".`);
-        if (decision === "reject") toast(`Got it. "${goal.title}" isn't a goal.`);
+        if (decision === "confirm") toast(t("screens.goals.tracking", { title: goal.title }));
+        if (decision === "reject") toast(t("screens.goals.rejected", { title: goal.title }));
       },
       (err: unknown) => {
-        toast.error(
-          `Psyche couldn't save that (${err instanceof Error ? err.message : String(err)}). The suggestion is unchanged.`,
-        );
+        toast.error(t("screens.goals.decideFailed", { reason: describeError(err) }));
       },
     );
   };

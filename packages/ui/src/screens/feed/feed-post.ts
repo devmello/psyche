@@ -1,4 +1,5 @@
 import type { FeedPost } from "@psyche/protocol";
+import { t } from "../../i18n/core.ts";
 
 /**
  * Derived facts about a feed post. `FeedPost` has no kind field (docs/status/s12.md gap 5), so
@@ -14,12 +15,24 @@ import type { FeedPost } from "@psyche/protocol";
 export type FeedKind = "exploration" | "news" | "watch" | "reminder" | "suggestion" | "briefing";
 
 const KIND_LABEL: Record<FeedKind, string> = {
-  exploration: "Exploration slot",
-  news: "News cluster",
-  watch: "Watch result",
-  reminder: "Reminder",
-  suggestion: "Suggestion",
-  briefing: "Briefing",
+  get exploration() {
+    return t("screens.feed.kind.exploration");
+  },
+  get news() {
+    return t("screens.feed.kind.news");
+  },
+  get watch() {
+    return t("screens.feed.kind.watch");
+  },
+  get reminder() {
+    return t("screens.feed.kind.reminder");
+  },
+  get suggestion() {
+    return t("screens.feed.kind.suggestion");
+  },
+  get briefing() {
+    return t("screens.feed.kind.briefing");
+  },
 };
 
 export function feedKind(post: FeedPost): FeedKind {
@@ -38,7 +51,7 @@ export function feedKindLabel(post: FeedPost): string {
   const kind = feedKind(post);
   if (kind !== "exploration") return KIND_LABEL[kind];
   const topic = feedTopic(post);
-  return topic === null ? KIND_LABEL.exploration : `${topic} · exploration slot`;
+  return topic === null ? KIND_LABEL.exploration : t("screens.feed.explorationTopic", { topic });
 }
 
 /** The topic a post is about: the cluster topic, else the value of the first topical reason. */
