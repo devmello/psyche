@@ -77,6 +77,21 @@ describe("FilesPane", () => {
     expect(await screen.findByRole("region", { name: "Preview of README.md" })).toBeTruthy();
   });
 
+  it("opens a Library item a chat attachment targets, with its quarantine flag", async () => {
+    const { renderViewer } = setup({ target: "library:documents/permission-slip.pdf" });
+    expect(
+      await screen.findByRole("region", { name: "Preview of permission-slip.pdf" }),
+    ).toBeTruthy();
+    await waitFor(() =>
+      expect(renderViewer).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          libraryPath: "documents/permission-slip.pdf",
+          libraryItem: expect.objectContaining({ id: expect.any(String) }),
+        }),
+      ),
+    );
+  });
+
   it("offers to share a folder when none is shared", async () => {
     const onShareFolder = vi.fn();
     setup({ onShareFolder }, () => undefined);

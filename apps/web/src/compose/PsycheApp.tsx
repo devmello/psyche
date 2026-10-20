@@ -22,10 +22,11 @@ import {
   UiSlotsProvider,
   useThread,
 } from "@psyche/ui";
-import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { TitleBar } from "../shell/components/TitleBar.tsx";
 import type { ShellPlatform } from "../shell/platform.ts";
 import { type ChatSlotContext, ShellApp, type ShellSlots } from "../shell/ShellApp.tsx";
+import { chatFileSlots } from "./attachments.tsx";
 import { kitClient } from "./kit-client.ts";
 import { writeOnboarding } from "./onboarding.ts";
 import { settingsRoute } from "./settings.tsx";
@@ -52,34 +53,43 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
   });
   const incognito = useThread(threadId).thread?.thread.kind === "incognito";
   const [level, setLevel] = useTranscriptMode();
+  // File blocks open in the Files pane (P4); a ref keeps the slots stable across renders.
+  const openPane = useRef(ctx.openPane);
+  openPane.current = ctx.openPane;
+  const fileSlots = useMemo(
+    () => chatFileSlots((pane, target) => openPane.current(pane, target)),
+    [],
+  );
   return (
-    <div
-      className="flex min-h-0 min-w-0 flex-1 flex-col"
-      data-testid="kit-chat"
-      data-incognito={incognito ? "true" : undefined}
-    >
-      <AgentHeader
-        onOpenSheet={() => setSheet((s) => ({ ...s, open: true }))}
-        onOpenTask={(taskId) => setSheet({ open: true, tab: "activity", taskId })}
-        incognito={incognito}
-        onOpenInbox={() => ctx.navigate("/inbox")}
-        {...(ctx.thread
-          ? { mode: ctx.thread.permissionMode, onModeChange: ctx.setPermissionMode }
-          : {})}
-        {...(ctx.thread?.modelRef
-          ? { model: ctx.thread.modelRef, onOpenModelPicker: ctx.openModelPicker }
-          : {})}
-      />
-      <TranscriptModeBar level={level} onChange={setLevel} incognito={incognito} />
-      <ChatThread threadId={threadId} disclosure={level} onDisclosureChange={setLevel} />
-      <AgentSheet
-        open={sheet.open}
-        onOpenChange={(open) => setSheet((s) => ({ ...s, open }))}
-        tab={sheet.tab}
-        onTabChange={(tab) => setSheet((s) => ({ ...s, tab }))}
-        {...(sheet.taskId === undefined ? {} : { taskId: sheet.taskId })}
-      />
-    </div>
+    <UiSlotsProvider value={fileSlots}>
+      <div
+        className="flex min-h-0 min-w-0 flex-1 flex-col"
+        data-testid="kit-chat"
+        data-incognito={incognito ? "true" : undefined}
+      >
+        <AgentHeader
+          onOpenSheet={() => setSheet((s) => ({ ...s, open: true }))}
+          onOpenTask={(taskId) => setSheet({ open: true, tab: "activity", taskId })}
+          incognito={incognito}
+          onOpenInbox={() => ctx.navigate("/inbox")}
+          {...(ctx.thread
+            ? { mode: ctx.thread.permissionMode, onModeChange: ctx.setPermissionMode }
+            : {})}
+          {...(ctx.thread?.modelRef
+            ? { model: ctx.thread.modelRef, onOpenModelPicker: ctx.openModelPicker }
+            : {})}
+        />
+        <TranscriptModeBar level={level} onChange={setLevel} incognito={incognito} />
+        <ChatThread threadId={threadId} disclosure={level} onDisclosureChange={setLevel} />
+        <AgentSheet
+          open={sheet.open}
+          onOpenChange={(open) => setSheet((s) => ({ ...s, open }))}
+          tab={sheet.tab}
+          onTabChange={(tab) => setSheet((s) => ({ ...s, tab }))}
+          {...(sheet.taskId === undefined ? {} : { taskId: sheet.taskId })}
+        />
+      </div>
+    </UiSlotsProvider>
   );
 }
 
