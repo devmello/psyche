@@ -81,6 +81,9 @@ export interface StackOverrides {
 export interface RunRec {
   runId: string;
   taskId: string;
+  /** The thread the run is on: the scenario's, or an isolated automation session's. */
+  thread: string;
+  mode: "attended" | "unattended";
   step: string;
   text: string;
   gen: number;
@@ -367,7 +370,12 @@ export class Stack {
           if (c !== undefined) c.record = record;
           const sources = this.world.sources.get(record.id);
           if (record.taintOut && sources !== undefined)
-            this.ledger.push({ step: this.step, thread: this.thread, callId: record.id, sources });
+            this.ledger.push({
+              step: this.step,
+              thread: this.runs.find((r) => r.runId === record.runId)?.thread ?? this.thread,
+              callId: record.id,
+              sources,
+            });
         },
       },
     });
@@ -427,10 +435,14 @@ export class Stack {
     taskId: string,
     runId = `run_${this.step}`,
     mode: "attended" | "unattended" = "attended",
+    /** Another thread (an automation's isolated session); default the scenario's. */
+    thread: string = this.thread,
   ): RunRec {
     const rec: RunRec = {
       runId,
       taskId,
+      thread,
+      mode,
       step: this.step,
       text,
       gen: this.gen,
@@ -441,7 +453,7 @@ export class Stack {
     const loop = this.loop;
     void (async () => {
       const turn = loop.startTurn({
-        threadId: this.thread,
+        threadId: thread,
         runId,
         taskId,
         input: { text },
@@ -507,9 +519,13 @@ export class Stack {
     const parked = this.runs.filter((r) => r.gen === this.gen && !r.ended);
     const pending = new Map(parked.map((r) => [r, this.pendingOf(r)]));
     // What the dead Gateway had persisted; its runs keep writing to their own (old) store.
-    const persisted = await this.#state.load(this.thread);
+    const threads = [...new Set([this.thread, ...this.runs.map((r) => r.thread)])];
+    const persisted = await Promise.all(threads.map((t) => this.#state.load(t)));
     this.#state = new InMemoryThreadStateStore();
-    if (persisted !== undefined) await this.#state.save(this.thread, persisted);
+    for (const [i, t] of threads.entries()) {
+      const state = persisted[i];
+      if (state !== undefined) await this.#state.save(t, state);
+    }
     this.gen += 1;
     const old = await this.broker.list();
     for (const issued of await this.gateway.reissue()) {
@@ -538,7 +554,7 @@ export class Stack {
       this.model.enqueue(turnEvents({ toolCalls: replay }));
       const saved = this.step;
       this.step = run.step;
-      const rec = this.startRun(run.text, run.taskId, `${run.runId}_resumed`);
+      const rec = this.startRun(run.text, run.taskId, `${run.runId}_resumed`, run.mode, run.thread);
       this.step = saved;
       rec.step = run.step;
     }

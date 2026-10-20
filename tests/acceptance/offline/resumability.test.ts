@@ -7,8 +7,8 @@ import {
 } from "../../../packages/testing/src/resumability/index.ts";
 import { writeReport } from "../src/report.ts";
 import {
+  M1_SCENARIO_IDS,
   M2_SCENARIO_IDS,
-  M2_SHARED_SCENARIO_IDS,
   SCENARIO_IDS,
   type ScenarioScript,
   scenarioScript,
@@ -76,7 +76,7 @@ async function sweep(s: ScenarioScript): Promise<ScenarioSweep> {
   };
 }
 
-const ALL_IDS = [...SCENARIO_IDS, ...M2_SHARED_SCENARIO_IDS, ...M2_SCENARIO_IDS];
+const ALL_IDS = [...SCENARIO_IDS, ...M2_SCENARIO_IDS];
 
 describe("resumability sweep over the acceptance scenarios (real stack)", () => {
   for (const id of ALL_IDS) {
@@ -102,7 +102,7 @@ describe("resumability sweep over the acceptance scenarios (real stack)", () => 
   }
 
   it("records the sweep (25 kill points across V1, V2, V7; 24 across V3, V4, V5, V6, V8, V9)", () => {
-    const m1 = new Set<string>(SCENARIO_IDS);
+    const m1 = new Set<string>(M1_SCENARIO_IDS);
     const total = sweeps.reduce((n, s) => n + s.sampled, 0);
     const m1Total = sweeps.filter((s) => m1.has(s.scenario)).reduce((n, s) => n + s.sampled, 0);
     writeReport("resumability", {
