@@ -18,6 +18,7 @@ import {
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
+import { COMPUTER_USE_ENABLED, computerUseSettings } from "./computer-settings.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -39,10 +40,9 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  *   executor asks the broker for a `computer_action` approval bound to that exact call and
  *   retries once with it; unattended runs queue the card and fail the call.
  * - Off unless Settings → Computer use is on (`computerUse.enabled`): the tools are registered
- *   only while it is.
+ *   only while it is. The section's per-app tiers reach the helper's `computer-use.json` and the
+ *   broker (`compose/computer-settings.ts`).
  */
-
-export const COMPUTER_USE_ENABLED = "computerUse.enabled";
 
 /** The helper releases an idle session after 2 minutes; the Gateway's view follows it. */
 const SESSION_IDLE_MS = 2 * 60_000;
@@ -260,6 +260,8 @@ export interface ComputerDeps {
   context(callId: string): CallContext;
   /** Cancels a run after the owner pressed Esc on the Mac. */
   cancelRun(threadId: string, runId: string, reason: string): void;
+  /** The agent used an app (Settings → Computer use lists it). */
+  appUsed?(bundleId: string, name?: string): void;
   now?: () => number;
   logger?: Logger;
 }
@@ -549,6 +551,14 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       );
       if (session !== undefined) session.lastUsed = now();
       if (res.ok) {
+        if (
+          session !== undefined ||
+          inv.capability === "apps.open" ||
+          inv.capability === "apps.focus"
+        ) {
+          const name = (res.result as { name?: unknown } | undefined)?.name;
+          deps.appUsed?.(inv.approval.app, typeof name === "string" ? name : undefined);
+        }
         return {
           res,
           ...(session === undefined ? {} : { session }),
@@ -1230,6 +1240,8 @@ export function computerHelper(gateway: () => Gateway | undefined): () => Helper
 }
 
 export function composeComputer(services: ComposeServices): ComposedPart {
+  // Settings → Computer use → the helper's computer-use.json and the broker's app tiers.
+  const settings = computerUseSettings(services);
   let gateway: Gateway | undefined;
   const offs: (() => void)[] = [];
   let unregister: (() => void)[] = [];
@@ -1241,6 +1253,7 @@ export function composeComputer(services: ComposeServices): ComposedPart {
       // Not awaited: the run is waiting on this very tool call.
       void gateway?.context.agent.cancel(runId, reason).catch(() => undefined);
     },
+    appUsed: (bundleId, name) => settings.noteApp(bundleId, name),
     ...(services.logger === undefined ? {} : { logger: services.logger }),
   });
 
@@ -1253,6 +1266,7 @@ export function composeComputer(services: ComposeServices): ComposedPart {
     }
   }
   setEnabled(getSetting(services.db, COMPUTER_USE_ENABLED)?.value === true);
+  settings.sync();
 
   return {
     start(gw) {
@@ -1275,6 +1289,7 @@ export function composeComputer(services: ComposeServices): ComposedPart {
             for (const e of entries) {
               if (e.key === COMPUTER_USE_ENABLED) setEnabled(e.value === true);
             }
+            settings.onChanged(entries);
           }
         }),
       );
