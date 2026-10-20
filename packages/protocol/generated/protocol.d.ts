@@ -3201,6 +3201,12 @@ export interface ThreadsRenameParams {
     title:    string;
 }
 
+export interface ThreadsUpdateParams {
+    modelRef?:       null | string;
+    permissionMode?: PermissionMode;
+    threadId:        string;
+}
+
 export interface ToolCallBlock {
     /**
      * One-line status shown in the transcript

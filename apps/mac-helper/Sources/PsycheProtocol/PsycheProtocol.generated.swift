@@ -469,6 +469,7 @@
 //   let threadsListResult = try? JSONDecoder().decode(ThreadsListResult.self, from: jsonData)
 //   let threadsPinParams = try? JSONDecoder().decode(ThreadsPinParams.self, from: jsonData)
 //   let threadsRenameParams = try? JSONDecoder().decode(ThreadsRenameParams.self, from: jsonData)
+//   let threadsUpdateParams = try? JSONDecoder().decode(ThreadsUpdateParams.self, from: jsonData)
 //   let toolCall = try? JSONDecoder().decode(ToolCall.self, from: jsonData)
 //   let toolCallBlock = try? JSONDecoder().decode(ToolCallBlock.self, from: jsonData)
 //   let toolCallStatus = try? JSONDecoder().decode(ToolCallStatus.self, from: jsonData)
@@ -9748,6 +9749,25 @@ public struct ThreadsRenameParams: Codable, Sendable {
     public init(threadID: String, title: String) {
         self.threadID = threadID
         self.title = title
+    }
+}
+
+// MARK: - ThreadsUpdateParams
+public struct ThreadsUpdateParams: Codable, Sendable {
+    public let modelRef: String?
+    public let permissionMode: PermissionMode?
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case modelRef = "modelRef"
+        case permissionMode = "permissionMode"
+        case threadID = "threadId"
+    }
+
+    public init(modelRef: String?, permissionMode: PermissionMode?, threadID: String) {
+        self.modelRef = modelRef
+        self.permissionMode = permissionMode
+        self.threadID = threadID
     }
 }
 

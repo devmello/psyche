@@ -75,10 +75,20 @@ export interface EmbedOptions extends CallOptions {
   model?: ModelRef;
 }
 
+/**
+ * Per-call context for a model request. `threadId` lets the model router apply that thread's
+ * `/model` pin (strict for `router/primary`, architecture §4.4) and attribute usage; `runId`
+ * attributes usage to a run. Providers that do not care ignore both.
+ */
+export interface ModelCallOptions extends CallOptions {
+  threadId?: string;
+  runId?: string;
+}
+
 export interface ModelProvider {
   /** Provider id, the part of a `ModelRef` before the slash. */
   readonly id: string;
-  stream(request: ModelRequest, options?: CallOptions): AsyncIterable<ModelEvent>;
+  stream(request: ModelRequest, options?: ModelCallOptions): AsyncIterable<ModelEvent>;
   embed?(texts: string[], options?: EmbedOptions): Promise<number[][]>;
   capabilities(model?: ModelRef): Promise<ModelCapabilities>;
 }
