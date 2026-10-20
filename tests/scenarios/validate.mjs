@@ -517,7 +517,8 @@ function crossCheck(sc, dir, errors) {
         if ((c.targetKind === null) !== (c.target === null)) {
           errors.push(`${W}: ${c.id} target must be null exactly when targetKind is null`);
         }
-        if (c.expect?.decision === "ask" && !t.approvalKind) {
+        // `approvalKinds`: a tool whose card kind depends on the operation (V10's code.git).
+        if (c.expect?.decision === "ask" && !t.approvalKind && !t.approvalKinds?.length) {
           errors.push(`${W}: ${c.id} expects ask but ${c.tool} has no approvalKind`);
         }
         if (c.tool === "calendar.update" && c.args.eventId && c.args.event) {
@@ -597,8 +598,10 @@ function crossCheck(sc, dir, errors) {
         .find((c) => c.id === a.callRef);
       if (call && call.tool !== a.tool) errors.push(`${W}: callRef tool ${call.tool} != ${a.tool}`);
       const t = tools.get(a.tool);
-      if (t && t.approvalKind !== a.approvalKind) {
-        errors.push(`${W}: ${a.tool} asks with ${t.approvalKind}, not ${a.approvalKind}`);
+      if (t && !(t.approvalKinds ?? [t.approvalKind]).includes(a.approvalKind)) {
+        errors.push(
+          `${W}: ${a.tool} asks with ${t.approvalKinds ?? t.approvalKind}, not ${a.approvalKind}`,
+        );
       }
     }
     if (a.type === "task_state" && !stepIds.has(a.taskOf)) {

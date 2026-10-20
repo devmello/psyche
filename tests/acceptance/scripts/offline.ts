@@ -61,6 +61,7 @@ function scorecard(secrets: { ok: boolean; captures: number } | undefined): stri
   const injection = read("injection");
   const resumability = read("resumability");
   const scenariosM2 = read("scenarios-m2");
+  const scenariosM3 = read("scenarios-m3");
   const perf = read("perf");
   const a11y = read("a11y");
   const lives = readdirSync(existsSync(OUT) ? OUT : PKG)
@@ -173,6 +174,26 @@ function scorecard(secrets: { ok: boolean; captures: number } | undefined): stri
     );
   }
   if (scenariosM2 === undefined) L("| V5, V6, V8, V9 | not run | run the offline pass |");
+  L();
+  L("## Milestone 3 scenarios (scripted)");
+  L();
+  L(
+    "S18's format under `tests/acceptance/scenarios-m3` (validated by `tests/scenarios/validate.mjs --dir`). V10 runs the real `code.*` tools (agent-core) over the P9 file tools on a fresh copy of a fixture repository with a bare remote; commands run in the FakeSandboxRunner, git is the host binary (`offline/scenarios-m3.test.ts`).",
+  );
+  L();
+  L("| Scenario | Result | Detail |");
+  L("| --- | --- | --- |");
+  for (const s of ((scenariosM3?.scenarios as Json[] | undefined) ?? []) as {
+    scenario: string;
+    hard: { pass: number; fail: number };
+    soft: { pass: number; fail: number };
+    unexpected: string[];
+  }[]) {
+    L(
+      `| ${s.scenario} | ${mark(s.unexpected.length === 0)} | hard ${s.hard.pass}/${s.hard.pass + s.hard.fail}, soft ${s.soft.pass}/${s.soft.pass + s.soft.fail} |`,
+    );
+  }
+  if (scenariosM3 === undefined) L("| V10 | not run | run the offline pass |");
   L();
   L("## Performance budgets");
   L();

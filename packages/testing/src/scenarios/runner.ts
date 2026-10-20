@@ -120,7 +120,11 @@ export async function runScenario(dir: string, options: RunOptions = {}): Promis
       }
       checked.add(sc0.id);
       const info = s.toolInfo.get(sc0.tool);
-      const target = info === undefined ? undefined : targetOf(info, sc0.args)?.value;
+      // A real registration (StackOverrides.registrations) names its own target: the one the
+      // loop decided, recorded on the call.
+      const target =
+        (info === undefined ? undefined : targetOf(info, sc0.args)?.value) ??
+        call.record.target?.value;
       if (sc0.target !== null && target !== sc0.target)
         hardFail(`${sc0.id}: target ${target} ≠ ${sc0.target}`);
       const e = sc0.expect;

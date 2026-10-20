@@ -41,6 +41,14 @@ Authored by INT-3 in S18's format under `tests/acceptance/scenarios-m2` (validat
 | v8-subscription-audit | pass | hard 26/26, soft 3/3 |
 | v9-weekly-review | pass | hard 21/21, soft 2/2 |
 
+## Milestone 3 scenarios (scripted)
+
+S18's format under `tests/acceptance/scenarios-m3` (validated by `tests/scenarios/validate.mjs --dir`). V10 runs the real `code.*` tools (agent-core) over the P9 file tools on a fresh copy of a fixture repository with a bare remote; commands run in the FakeSandboxRunner, git is the host binary (`offline/scenarios-m3.test.ts`).
+
+| Scenario | Result | Detail |
+| --- | --- | --- |
+| v10-coding-helper | pass | hard 21/21, soft 1/1 |
+
 ## Performance budgets
 
 | Budget (docs/03) | Measured | Result |

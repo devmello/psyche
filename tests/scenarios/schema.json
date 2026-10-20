@@ -167,7 +167,9 @@
         "message.send",
         "shop.cart",
         "purchase.handoff",
-        "purchase"
+        "purchase",
+        "git_write",
+        "git_push"
       ]
     },
     "approvalKind": {
@@ -188,7 +190,9 @@
         "skill_install",
         "mcp_tool",
         "archive_thread",
-        "task_start"
+        "task_start",
+        "git_write",
+        "git_push"
       ]
     },
     "toolName": { "type": "string", "pattern": "^[a-z][a-z_]*(\\.[a-z_]+)*$" },
