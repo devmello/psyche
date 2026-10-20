@@ -55,6 +55,7 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
     storage: browserStorage(),
     gateway: {
       getStatus: () => b.gateway.getStatus() as Promise<GatewayStatus>,
+      deviceId: () => b.gateway.deviceId() as Promise<string | undefined>,
       onStatus: (cb) => b.gateway.onStatus((s) => cb(s as GatewayStatus)),
       call: (method, params) => unwrapCall(b.gateway.call(method, params)),
       onEvent: (cb) => b.gateway.onEvent((e) => cb(e as GatewayEvent)),
