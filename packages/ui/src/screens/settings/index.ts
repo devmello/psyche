@@ -42,6 +42,8 @@ export {
   FileAccessPanel,
   type FileAccessPanelProps,
   FileAccessSection,
+  folderGrants,
+  policyWithFolders,
 } from "./FileAccessSection.tsx";
 export {
   ModelProvidersPanel,
