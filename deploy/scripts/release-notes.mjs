@@ -41,6 +41,8 @@ if (image && !image.endsWith("@")) {
     "  --certificate-oidc-issuer https://token.actions.githubusercontent.com",
     "```",
     "",
+    `For Docker Compose, download \`psyche-compose-${tag.replace(/^v/, "")}.tar.gz\` from this release: its \`docker-compose.yml\` defaults to this image by digest.`,
+    "",
   );
 }
 out.push(

@@ -30,7 +30,11 @@ x-hardening: &hardening
 services:
   gateway:
     <<: *hardening
-    image: ${PSYCHE_IMAGE:-ghcr.io/devmello/psyche-gateway:latest}
+    # Never an unpinned `latest` (security §11): without PSYCHE_IMAGE this builds the image from
+    # this checkout. Each release attaches psyche-compose-<version>.tar.gz whose copy of this file
+    # defaults to ghcr.io/devmello/psyche-gateway:<version>@sha256:<digest> instead
+    # (deploy/scripts/render-compose.mjs).
+    image: ${PSYCHE_IMAGE:-psyche-gateway:local}
     build:
       context: ..
       dockerfile: deploy/Dockerfile
