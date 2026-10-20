@@ -7,6 +7,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { RadioGroup } from "../../components/ui/radio-group.tsx";
 import { Textarea } from "../../components/ui/textarea.tsx";
+import { t } from "../../i18n/core.ts";
 import { usePersona } from "../../slots.tsx";
 import {
   ErrorNotice,
@@ -27,7 +28,7 @@ import {
 export function CreaturePicker({
   value,
   onChange,
-  label = "Creature",
+  label = t("settings.key.persona.creatureId"),
   personaName,
 }: {
   value: string;
@@ -101,19 +102,19 @@ export function PersonaPanel({
     setChange("");
     setSent(
       hasImageModel
-        ? `${name}'s avatar will be redrawn from your description.`
-        : `Saved your description. Without an image model, ${name} keeps the creature picked below.`,
+        ? t("settings.persona.redrawn", { name })
+        : t("settings.persona.savedForLater", { name }),
     );
   };
 
   return (
     <SectionFrame
       needsApproval={needsApproval}
-      title="Persona"
-      description={`How ${name} looks and introduces itself. The Soul's tone lives in SOUL.md.`}
+      title={t("settings.persona.title")}
+      description={t("settings.persona.description", { name })}
     >
       <LoadGate
-        label="the persona"
+        label={t("settings.persona.loadLabel")}
         loading={loading ?? false}
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
@@ -127,30 +128,32 @@ export function PersonaPanel({
             </p>
             {tagline ? <p className="text-sm text-muted-foreground">{tagline}</p> : null}
             {description ? (
-              <p className="mt-1 text-xs text-muted-foreground">Described as: {description}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t("settings.persona.describedAs", { description })}
+              </p>
             ) : null}
           </div>
         </div>
 
-        <Group title="Identity">
+        <Group title={t("settings.persona.identity")}>
           <TextSetting
-            label="Name"
+            label={t("settings.key.persona.name")}
             value={name}
             maxLength={40}
             settingKey="persona.name"
             onCommit={(v) => onChange("persona.name", v === "" ? "Psyche" : v)}
           />
           <TextSetting
-            label="Vibe or tagline"
+            label={t("settings.key.persona.tagline")}
             value={tagline}
             maxLength={120}
-            placeholder="Quiet wings, careful hands."
+            placeholder={t("settings.persona.taglinePlaceholder")}
             settingKey="persona.tagline"
             onCommit={(v) => onChange("persona.tagline", v)}
           />
           <TextSetting
-            label="Emoji"
-            description="Shown on channels that can't show the avatar."
+            label={t("settings.key.persona.emoji")}
+            description={t("settings.persona.emojiHint")}
             value={emoji}
             maxLength={8}
             settingKey="persona.emoji"
@@ -158,7 +161,7 @@ export function PersonaPanel({
           />
         </Group>
 
-        <Group title="Avatar">
+        <Group title={t("settings.persona.avatar")}>
           <CreaturePicker
             value={creatureId}
             personaName={name}
@@ -168,12 +171,12 @@ export function PersonaPanel({
           <div className="flex flex-col gap-1">
             <Label htmlFor={changeId} className="gap-1.5">
               <Pencil className="size-3.5" aria-hidden="true" />
-              Describe a change
+              {t("settings.persona.describeChange")}
             </Label>
             <p id={`${changeId}-desc`} className="text-xs text-muted-foreground">
               {hasImageModel
-                ? "In your own words, e.g. “give the moth a tiny scarf”."
-                : "In your own words. Without an image model the description is saved for later."}
+                ? t("settings.persona.describeHint")
+                : t("settings.persona.describeHintNoModel")}
             </p>
             <Textarea
               id={changeId}
@@ -189,7 +192,7 @@ export function PersonaPanel({
                 disabled={change.trim() === ""}
                 onClick={() => void submitChange()}
               >
-                Apply change
+                {t("settings.persona.apply")}
               </Button>
             </div>
             <SettingHint settingKey="persona.creature" />

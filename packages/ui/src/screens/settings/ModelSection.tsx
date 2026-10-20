@@ -18,6 +18,7 @@ import {
 import { Button } from "../../components/ui/button.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
+import { activeI18n, t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
 import { ContextSettingsGroup } from "./ContextSettings.tsx";
 import {
@@ -39,57 +40,47 @@ import type { ProviderInfo, ProviderKind, ToolCheck } from "./types.ts";
 
 /** Model & providers (UI design §3.18; architecture §4.4). */
 
-const KIND_LABEL: Record<ProviderKind, string> = {
-  cloud: "Cloud API key",
-  subscription: "Subscription",
-  openrouter: "OpenRouter",
-  local: "Local",
-};
+const kindLabel = (k: ProviderKind): string => t(`settings.model.kind.${k}`);
 
-const STATUS: Record<
-  ProviderInfo["status"],
-  { tone: "success" | "danger" | "neutral"; text: string }
-> = {
-  ok: { tone: "success", text: "Connected" },
-  missing: { tone: "neutral", text: "No key yet" },
-  invalid: { tone: "danger", text: "Key rejected" },
-  offline: { tone: "danger", text: "Not reachable" },
-  unknown: { tone: "neutral", text: "Not checked" },
-  signed_out: { tone: "danger", text: "Not signed in" },
+const STATUS_TONE: Record<ProviderInfo["status"], "success" | "danger" | "neutral"> = {
+  ok: "success",
+  missing: "neutral",
+  invalid: "danger",
+  offline: "danger",
+  unknown: "neutral",
+  signed_out: "danger",
 };
 
 export function ToolCheckBadge({ status }: { status: ToolCheck }): ReactElement {
   switch (status) {
     case "passed":
-      return <StatusChip tone="success">Tool calling: passed</StatusChip>;
+      return <StatusChip tone="success">{t("settings.model.toolCheck.passed")}</StatusChip>;
     case "failed":
-      return <StatusChip tone="approval">Chat only: tool-calling check failed</StatusChip>;
+      return <StatusChip tone="approval">{t("settings.model.toolCheck.failed")}</StatusChip>;
     case "running":
       return (
         <StatusChip tone="info">
           <Loader className="size-3 motion-safe:animate-spin" aria-hidden="true" />
-          Checking tool calling
+          {t("settings.model.toolCheck.running")}
         </StatusChip>
       );
     case "untested":
-      return <StatusChip tone="neutral">Tool calling: not checked</StatusChip>;
+      return <StatusChip tone="neutral">{t("settings.model.toolCheck.untested")}</StatusChip>;
   }
 }
 
-const PROBE: Record<
-  EndpointProbe["state"],
-  { tone: "success" | "danger" | "neutral"; text: string }
-> = {
-  not_probed: { tone: "neutral", text: "Endpoint not checked" },
-  reachable: { tone: "success", text: "Reachable" },
-  unreachable: { tone: "danger", text: "Not reachable" },
-  auth_failed: { tone: "danger", text: "Key refused" },
-  error: { tone: "danger", text: "Check failed" },
+const PROBE_TONE: Record<EndpointProbe["state"], "success" | "danger" | "neutral"> = {
+  not_probed: "neutral",
+  reachable: "success",
+  unreachable: "danger",
+  auth_failed: "danger",
+  error: "danger",
 };
 
 function contextLabel(tokens: number): string {
-  if (tokens >= 1_000_000) return `${Math.round(tokens / 100_000) / 10}M context`;
-  return `${Math.round(tokens / 1024)}K context`;
+  if (tokens >= 1_000_000)
+    return t("settings.model.contextM", { n: Math.round(tokens / 100_000) / 10 });
+  return t("settings.model.contextK", { n: Math.round(tokens / 1024) });
 }
 
 /** What a model can probably do, as text chips (B4). Unknown flags show nothing. */
@@ -100,12 +91,12 @@ export function CapabilityChips({
 }): ReactElement | null {
   if (capabilities === undefined) return null;
   const chips: string[] = [];
-  if (capabilities.embeddings === true) chips.push("Embeddings");
-  if (capabilities.toolCalling === true) chips.push("Tools");
+  if (capabilities.embeddings === true) chips.push(t("settings.model.cap.embeddings"));
+  if (capabilities.toolCalling === true) chips.push(t("settings.model.cap.tools"));
   if (capabilities.toolCalling === false && capabilities.embeddings !== true)
-    chips.push("No tools");
-  if (capabilities.vision === true) chips.push("Vision");
-  if (capabilities.reasoning === true) chips.push("Reasoning");
+    chips.push(t("settings.model.cap.noTools"));
+  if (capabilities.vision === true) chips.push(t("settings.model.cap.vision"));
+  if (capabilities.reasoning === true) chips.push(t("settings.model.cap.reasoning"));
   if (capabilities.contextWindow !== undefined)
     chips.push(contextLabel(capabilities.contextWindow));
   if (chips.length === 0) return null;
@@ -118,7 +109,7 @@ export function CapabilityChips({
         </StatusChip>
       ))}
       {guessed ? (
-        <span className="text-xs text-muted-foreground">(guessed from the name)</span>
+        <span className="text-xs text-muted-foreground">{t("settings.model.cap.guessed")}</span>
       ) : null}
     </span>
   );
@@ -128,7 +119,7 @@ function timeOf(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? iso
-    : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    : activeI18n().dateTime(d, { dateStyle: "medium", timeStyle: "short" });
 }
 
 /** The last endpoint probe of one provider, and the button that runs another. */
@@ -143,14 +134,15 @@ export function EndpointProbeStatus({
   probing?: boolean;
   onProbe?: () => void;
 }): ReactElement {
-  const chip = PROBE[probe.state];
   const detail = [
     probe.state === "reachable"
-      ? `${probe.models.length} ${probe.models.length === 1 ? "model" : "models"}`
+      ? t("settings.model.probe.models", { n: probe.models.length })
       : null,
     probe.server ?? null,
-    probe.latencyMs === undefined ? null : `${probe.latencyMs} ms`,
-    probe.probedAt === undefined ? null : `checked ${timeOf(probe.probedAt)}`,
+    probe.latencyMs === undefined ? null : t("settings.model.probe.ms", { n: probe.latencyMs }),
+    probe.probedAt === undefined
+      ? null
+      : t("settings.model.probe.checked", { when: timeOf(probe.probedAt) }),
   ].filter((x): x is string => x !== null);
   return (
     <div className="flex flex-col gap-1">
@@ -159,10 +151,12 @@ export function EndpointProbeStatus({
         {probing === true ? (
           <StatusChip tone="info">
             <Loader className="size-3 motion-safe:animate-spin" aria-hidden="true" />
-            Checking the endpoint
+            {t("settings.model.probe.checking")}
           </StatusChip>
         ) : (
-          <StatusChip tone={chip.tone}>{chip.text}</StatusChip>
+          <StatusChip tone={PROBE_TONE[probe.state]}>
+            {t(`settings.model.probe.state.${probe.state}`)}
+          </StatusChip>
         )}
         {detail.length > 0 ? <span>{detail.join(" · ")}</span> : null}
         {onProbe && probing !== true ? (
@@ -171,9 +165,11 @@ export function EndpointProbeStatus({
             variant="link"
             size="xs"
             onClick={onProbe}
-            aria-label={`Check the ${label} endpoint`}
+            aria-label={t("settings.model.probe.checkNamed", { name: label })}
           >
-            {probe.state === "not_probed" ? "Check endpoint" : "Check again"}
+            {probe.state === "not_probed"
+              ? t("settings.model.probe.check")
+              : t("settings.model.checkAgain")}
           </Button>
         ) : null}
       </div>
@@ -185,37 +181,46 @@ export function EndpointProbeStatus({
 }
 
 /** RAM tiers for local models (architecture §4.4). */
-export const RAM_TIERS = [
-  { minGb: 16, label: "16 GB", fits: "about 9B models (Gemma 4 E-series, Qwen3.5 small)" },
-  { minGb: 32, label: "32 GB", fits: "27–31B models (Qwen3.8-27B, Gemma 4 31B, GLM-4.7-Flash)" },
-  { minGb: 96, label: "96–128 GB", fits: "120B MoE models (gpt-oss-120b, Mistral Small 4)" },
-] as const;
+const ramTier = <G extends 16 | 32 | 96>(minGb: G) => ({
+  minGb,
+  get label(): string {
+    return t(`settings.model.ram.${minGb as 16 | 32 | 96}.label`);
+  },
+  /** What fits, with model names as written by their makers. */
+  get fits(): string {
+    return t(`settings.model.ram.${minGb as 16 | 32 | 96}.fits`);
+  },
+});
+
+export const RAM_TIERS = [ramTier(16), ramTier(32), ramTier(96)] as const;
 
 export function RamGuidance({ ramGb }: { ramGb?: number }): ReactElement {
   const match =
-    ramGb === undefined ? null : ([...RAM_TIERS].reverse().find((t) => ramGb >= t.minGb) ?? null);
+    ramGb === undefined ? null : ([...RAM_TIERS].reverse().find((x) => ramGb >= x.minGb) ?? null);
   return (
     <div className="flex flex-col gap-1.5">
       <p className="text-muted-foreground">
         {ramGb === undefined
-          ? "Local models need memory. Rough fit by RAM:"
+          ? t("settings.model.ram.intro")
           : match === null
-            ? `This Mac has ${ramGb} GB. Local models need at least 16 GB; use a cloud provider instead.`
-            : `This Mac has ${ramGb} GB, so ${match.fits} fit.`}
+            ? t("settings.model.ram.tooSmall", { gb: ramGb, min: RAM_TIERS[0].minGb })
+            : t("settings.model.ram.fits", { gb: ramGb, fits: match.fits })}
       </p>
       <ul className="grid gap-1">
-        {RAM_TIERS.map((t) => (
+        {RAM_TIERS.map((x) => (
           <li
-            key={t.label}
+            key={x.minGb}
             className={cn(
               "flex gap-2 rounded-md px-2 py-1",
-              match?.label === t.label ? "bg-accent-3 text-accent-12" : "text-gray-11",
+              match?.minGb === x.minGb ? "bg-accent-3 text-accent-12" : "text-gray-11",
             )}
           >
-            <span className="w-20 shrink-0 font-medium">{t.label}</span>
+            <span className="w-20 shrink-0 font-medium">{x.label}</span>
             <span>
-              {t.fits}
-              {match?.label === t.label ? <span className="sr-only"> (this Mac)</span> : null}
+              {x.fits}
+              {match?.minGb === x.minGb ? (
+                <span className="sr-only">{t("settings.model.ram.thisMac")}</span>
+              ) : null}
             </span>
           </li>
         ))}
@@ -224,14 +229,22 @@ export function RamGuidance({ ramGb }: { ramGb?: number }): ReactElement {
   );
 }
 
-export const MODEL_ROLES = [
-  { key: "models.primary", label: "Primary", hint: "Chat, tasks and tools" },
-  {
-    key: "models.utility",
-    label: "Utility",
-    hint: "Titles, summaries and the auto-mode classifier",
+type RoleKey = "models.primary" | "models.utility" | "models.image";
+
+const modelRole = <K extends RoleKey>(key: K, id: "primary" | "utility" | "image") => ({
+  key,
+  get label(): string {
+    return t(`settings.model.role.${id}`);
   },
-  { key: "models.image", label: "Image", hint: "Avatar changes; none means the bundled creatures" },
+  get hint(): string {
+    return t(`settings.model.role.${id}Hint`);
+  },
+});
+
+export const MODEL_ROLES = [
+  modelRole("models.primary", "primary"),
+  modelRole("models.utility", "utility"),
+  modelRole("models.image", "image"),
 ] as const;
 
 export interface ModelProvidersPanelProps extends SettingsFormProps, LoadProps {
@@ -291,63 +304,70 @@ export function ModelProvidersPanel({
     ?.capabilities?.contextWindow;
   const add = onAddProvider ? (
     <Button type="button" size="sm" onClick={onAddProvider}>
-      Add a provider
+      {t("settings.model.addProvider")}
     </Button>
   ) : null;
   return (
     <SectionFrame
       needsApproval={needsApproval}
-      title="Model & providers"
-      description="A model you pick is used as chosen. If it fails, Psyche says so instead of falling back."
+      title={t("settings.model.title")}
+      description={t("settings.model.description")}
     >
       <LoadGate
-        label="model providers"
+        label={t("settings.model.loadLabel")}
         loading={loading ?? false}
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title="Providers" actions={providers.length === 0 ? undefined : add}>
+        <Group
+          title={t("settings.model.providers")}
+          actions={providers.length === 0 ? undefined : add}
+        >
           {listError ? (
             <ErrorNotice
-              what={`Psyche couldn't list the models (${listError}).`}
-              did="Showing the providers saved in settings."
+              what={t("settings.model.listFailed", { reason: listError })}
+              did={t("settings.model.showingSaved")}
               {...(onRetryList ? { onRetry: onRetryList } : {})}
             />
           ) : null}
           {providers.length === 0 ? (
-            <EmptyNotice
-              text="No model provider yet. Add a key, a subscription or a local model."
-              action={add}
-            />
+            <EmptyNotice text={t("settings.model.noProviders")} action={add} />
           ) : (
             <ul className="flex flex-col divide-y divide-gray-6">
               {providers.map((p) => (
                 <li key={p.id} className="flex flex-col gap-2 py-2 first:pt-0 last:pb-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-foreground">{p.label}</span>
-                    <span className="text-xs text-muted-foreground">{KIND_LABEL[p.kind]}</span>
-                    <StatusChip tone={STATUS[p.status].tone}>{STATUS[p.status].text}</StatusChip>
+                    <span className="text-xs text-muted-foreground">{kindLabel(p.kind)}</span>
+                    <StatusChip tone={STATUS_TONE[p.status]}>
+                      {t(`settings.model.status.${p.status}`)}
+                    </StatusChip>
                   </div>
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <KeyRound className="size-3.5" aria-hidden="true" />
                     {p.kind === "subscription"
-                      ? "No API key: runs through the CLI you are signed in to, within your plan's limits."
+                      ? t("settings.model.key.subscription")
                       : p.kind === "local"
                         ? p.baseURL === undefined
-                          ? "No key needed."
-                          : `No key needed. Endpoint ${p.baseURL}.`
+                          ? t("settings.model.key.localNone")
+                          : t("settings.model.key.localEndpoint", { url: p.baseURL })
                         : p.keyRef === null
-                          ? "No key stored."
-                          : "Key stored in the vault. Psyche never shows it."}
+                          ? t("settings.model.key.none")
+                          : t("settings.model.key.stored")}
                     {onEditKey && p.kind !== "local" && p.kind !== "subscription" ? (
                       <Button
                         type="button"
                         variant="link"
                         size="xs"
                         onClick={() => onEditKey(p)}
-                        aria-label={`${p.keyRef === null ? "Add" : "Replace"} the ${p.label} key`}
+                        aria-label={t("settings.model.key.editNamed", {
+                          has: p.keyRef !== null,
+                          name: p.label,
+                        })}
                       >
-                        {p.keyRef === null ? "Add key" : "Replace key"}
+                        {p.keyRef === null
+                          ? t("settings.model.key.add")
+                          : t("settings.model.key.replace")}
                       </Button>
                     ) : null}
                   </p>
@@ -360,7 +380,10 @@ export function ModelProvidersPanel({
                     />
                   ) : null}
                   {p.models.length > 0 ? (
-                    <ul className="flex flex-col gap-1" aria-label={`${p.label} models`}>
+                    <ul
+                      className="flex flex-col gap-1"
+                      aria-label={t("settings.model.modelsOf", { name: p.label })}
+                    >
                       {p.models.map((m) => (
                         <li key={m.ref} className="flex flex-wrap items-center gap-2">
                           <span className="text-sm">{modelLabel(m)}</span>
@@ -379,9 +402,11 @@ export function ModelProvidersPanel({
                               variant="ghost"
                               size="xs"
                               onClick={() => onRunCheck(m.ref)}
-                              aria-label={`Run the tool-calling check on ${modelLabel(m)}`}
+                              aria-label={t("settings.model.runCheckOn", { name: modelLabel(m) })}
                             >
-                              {m.toolCheck === "untested" ? "Run check" : "Check again"}
+                              {m.toolCheck === "untested"
+                                ? t("settings.model.runCheck")
+                                : t("settings.model.checkAgain")}
                             </Button>
                           ) : null}
                         </li>
@@ -394,10 +419,7 @@ export function ModelProvidersPanel({
           )}
         </Group>
 
-        <Group
-          title="Model roles"
-          description="Each role uses one model. Models that fail the tool-calling check are chat only."
-        >
+        <Group title={t("settings.model.roles")} description={t("settings.model.rolesHint")}>
           {MODEL_ROLES.map((role) => {
             const current = str(values, role.key, role.key === "models.image" ? "none" : "");
             const options = models.some((m) => m.ref === current)
@@ -420,12 +442,15 @@ export function ModelProvidersPanel({
                     value={current}
                     onChange={(e) => onChange(role.key, e.target.value)}
                   >
-                    {role.key === "models.image" ? <option value="none">None</option> : null}
-                    {current === "" ? <option value="">Choose a model</option> : null}
+                    {role.key === "models.image" ? (
+                      <option value="none">{t("settings.model.none")}</option>
+                    ) : null}
+                    {current === "" ? <option value="">{t("settings.model.choose")}</option> : null}
                     {options.map((m) => (
                       <option key={m.ref} value={m.ref}>
-                        {modelLabel(m)}
-                        {m.toolCheck === "failed" ? " (chat only)" : ""}
+                        {m.toolCheck === "failed"
+                          ? t("settings.model.chatOnlyOption", { name: modelLabel(m) })
+                          : modelLabel(m)}
                       </option>
                     ))}
                   </NativeSelect>
@@ -441,7 +466,7 @@ export function ModelProvidersPanel({
           onChange={onChange}
           {...(primaryContext === undefined ? {} : { modelContextLength: primaryContext })}
         />
-        <Group title="Local models" description="Run models on this Mac with Ollama or LM Studio.">
+        <Group title={t("settings.model.local")} description={t("settings.model.localHint")}>
           <RamGuidance {...(ramGb === undefined ? {} : { ramGb })} />
         </Group>
       </LoadGate>
@@ -584,7 +609,12 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
         (err: unknown) => {
           if (hasCode(err, "policy_denied")) setChatOnly({ role, ref });
           else
-            setActionError(`Psyche couldn't use ${labelOfRef.current(ref)} (${messageOf(err)}).`);
+            setActionError(
+              t("settings.model.err.use", {
+                name: labelOfRef.current(ref),
+                reason: messageOf(err),
+              }),
+            );
         },
       );
     },
@@ -606,7 +636,7 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
     call("models.probe", { providerId })
       .then(
         () => reload(),
-        (err: unknown) => setActionError(`Psyche couldn't check the endpoint (${messageOf(err)}).`),
+        (err: unknown) => setActionError(t("settings.model.err.probe", { reason: messageOf(err) })),
       )
       .finally(() => setProbing(null));
   };
@@ -621,7 +651,7 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
             .then(
               () => reload(),
               (err: unknown) =>
-                setActionError(`Psyche couldn't run the check (${messageOf(err)}).`),
+                setActionError(t("settings.model.err.check", { reason: messageOf(err) })),
             )
             .finally(() => setChecking(null));
         }
@@ -663,21 +693,25 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Use {chatOnlyLabel} without tools?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("settings.model.chatOnly.title", { name: chatOnlyLabel })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {chatOnlyLabel} failed the tool-calling check, so it can chat but can't use tools. It
-              would be the {chatOnly?.role} model.
+              {t("settings.model.chatOnly.description", {
+                name: chatOnlyLabel,
+                role: chatOnly?.role ?? "",
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep the current model</AlertDialogCancel>
+            <AlertDialogCancel>{t("settings.model.chatOnly.keep")}</AlertDialogCancel>
             <Button
               type="button"
               onClick={() => {
                 if (chatOnly) setRole(chatOnly.role, chatOnly.ref, true);
               }}
             >
-              Use anyway
+              {t("settings.model.chatOnly.useAnyway")}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

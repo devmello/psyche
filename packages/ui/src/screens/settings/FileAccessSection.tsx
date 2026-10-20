@@ -3,6 +3,7 @@ import { type ReactElement, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
+import { t } from "../../i18n/core.ts";
 import { usePersona } from "../../slots.tsx";
 import {
   EmptyNotice,
@@ -121,7 +122,7 @@ function FolderList({
             <li key={f.path} className="flex flex-wrap items-center gap-3 py-1.5">
               <code className="min-w-0 flex-1 font-mono text-xs">{f.path}</code>
               <label className="sr-only" htmlFor={`${id}-${f.path}`}>
-                Access to {f.path}
+                {t("settings.files.accessTo", { path: f.path })}
               </label>
               <NativeSelect
                 id={`${id}-${f.path}`}
@@ -137,17 +138,17 @@ function FolderList({
                   )
                 }
               >
-                <option value="ro">Read only</option>
-                <option value="rw">Read and write</option>
+                <option value="ro">{t("settings.files.ro")}</option>
+                <option value="rw">{t("settings.files.rw")}</option>
               </NativeSelect>
               <Button
                 type="button"
                 variant="ghost"
                 size="xs"
                 onClick={() => onChange(folders.filter((x) => x.path !== f.path))}
-                aria-label={`Stop sharing ${f.path}`}
+                aria-label={t("settings.files.stopSharing", { path: f.path })}
               >
-                Remove
+                {t("common.remove")}
               </Button>
             </li>
           ))}
@@ -159,7 +160,7 @@ function FolderList({
         </label>
         <Input
           id={`${id}-new`}
-          placeholder="~/Documents/Taxes"
+          placeholder={t("settings.files.pathPlaceholder")}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
@@ -199,43 +200,36 @@ export function FileAccessPanel({
   return (
     <SectionFrame
       needsApproval={needsApproval}
-      title="File access"
-      description={`${persona} sees only the folders you share. Everything else on this Mac is off limits.`}
+      title={t("settings.files.title")}
+      description={t("settings.files.description", { persona })}
     >
       <LoadGate
-        label="file access"
+        label={t("settings.files.loadLabel")}
         loading={loading ?? false}
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group
-          title="Folders"
-          description="Read only lets it open and search; read and write also lets it save changes, each one shown in the Diff pane."
-        >
+        <Group title={t("settings.files.folders")} description={t("settings.files.foldersHint")}>
           <FolderList
-            label="Shared folders"
+            label={t("settings.files.sharedFolders")}
             folders={folderGrants(values)}
             onChange={(next) => onChange(POLICY_KEY, policyWithFolders(values, next))}
-            emptyText={`No folders shared. ${persona} works only in its own workspace.`}
-            addLabel="Share a folder"
+            emptyText={t("settings.files.noFolders", { persona })}
+            addLabel={t("settings.files.shareFolder")}
             defaultAccess="ro"
           />
           <SettingHint settingKey={POLICY_KEY} />
         </Group>
         <Group
-          title="VM shares"
-          description={
-            vmMode
-              ? "Folders shared into the VM over VirtioFS. Read only by default."
-              : "Used in VM mode: folders shared into the guest over VirtioFS, read only by default."
-          }
+          title={t("settings.files.vmShares")}
+          description={vmMode ? t("settings.files.vmSharesOn") : t("settings.files.vmSharesOff")}
         >
           <FolderList
-            label="VM shares"
+            label={t("settings.files.vmShares")}
             folders={foldersFromSettings(values, VM_SHARES_KEY)}
             onChange={(next) => onChange(VM_SHARES_KEY, next)}
-            emptyText="Nothing shared into the VM. The guest sees only its own disk."
-            addLabel="Share into the VM"
+            emptyText={t("settings.files.noVmShares")}
+            addLabel={t("settings.files.shareIntoVm")}
             defaultAccess="ro"
           />
           <SettingHint settingKey={VM_SHARES_KEY} />

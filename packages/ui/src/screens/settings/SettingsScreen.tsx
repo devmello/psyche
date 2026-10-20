@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { type KeyboardEvent, type ReactElement, type ReactNode, useRef, useState } from "react";
 import type { UsageSummary } from "../../fixtures/index.ts";
+import { t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
 import { useSlots } from "../../slots.tsx";
 import { AboutSection } from "./AboutSection.tsx";
@@ -74,29 +75,41 @@ export type SettingsSectionId =
   | "usage"
   | "about";
 
-export const SETTINGS_SECTIONS: readonly {
+interface SettingsSectionEntry {
   id: SettingsSectionId;
-  label: string;
+  /** The nav label, in the active language (`settings.nav.<id>`). */
+  readonly label: string;
   icon: LucideIcon;
-}[] = [
-  { id: "model", label: "Model & providers", icon: Bot },
-  { id: "persona", label: "Persona", icon: Sparkles },
-  { id: "connectors", label: "Connectors", icon: Plug },
-  { id: "skills", label: "Skills", icon: Puzzle },
-  { id: "permissions", label: "Permissions", icon: ShieldCheck },
-  { id: "computer-use", label: "Computer use", icon: MousePointerClick },
-  { id: "browser", label: "Browser", icon: Globe },
-  { id: "files", label: "File access", icon: FolderLock },
-  { id: "vm", label: "VM mode", icon: MonitorCog },
-  { id: "devices", label: "Devices & nodes", icon: MonitorSmartphone },
-  { id: "channels", label: "Channels", icon: MessagesSquare },
-  { id: "credentials", label: "Credentials", icon: KeyRound },
-  { id: "appearance", label: "Appearance", icon: Palette },
-  { id: "voice", label: "Voice & dictation", icon: Mic },
-  { id: "data", label: "Data controls", icon: Trash2 },
-  { id: "server", label: "Server & remote access", icon: Server },
-  { id: "usage", label: "Usage", icon: Activity },
-  { id: "about", label: "About", icon: Info },
+}
+
+const entry = (id: SettingsSectionId, icon: LucideIcon): SettingsSectionEntry => ({
+  id,
+  icon,
+  get label() {
+    // Message ids are camelCase; the route id keeps its hyphen.
+    return t(`settings.nav.${id === "computer-use" ? "computerUse" : id}`);
+  },
+});
+
+export const SETTINGS_SECTIONS: readonly SettingsSectionEntry[] = [
+  entry("model", Bot),
+  entry("persona", Sparkles),
+  entry("connectors", Plug),
+  entry("skills", Puzzle),
+  entry("permissions", ShieldCheck),
+  entry("computer-use", MousePointerClick),
+  entry("browser", Globe),
+  entry("files", FolderLock),
+  entry("vm", MonitorCog),
+  entry("devices", MonitorSmartphone),
+  entry("channels", MessagesSquare),
+  entry("credentials", KeyRound),
+  entry("appearance", Palette),
+  entry("voice", Mic),
+  entry("data", Trash2),
+  entry("server", Server),
+  entry("usage", Activity),
+  entry("about", Info),
 ];
 
 /** Things only the shell knows or can do (OS permissions, OAuth windows, files, versions). */
@@ -281,8 +294,8 @@ export function SettingsScreen({
   return (
     <div className="flex min-h-0 flex-col gap-4 md:grid md:grid-cols-[14rem_minmax(0,1fr)] md:gap-6">
       <div className="flex flex-col gap-3">
-        <h1 className="text-h1 text-foreground">Settings</h1>
-        <nav aria-label="Settings sections">
+        <h1 className="text-h1 text-foreground">{t("settings.nav.title")}</h1>
+        <nav aria-label={t("settings.nav.label")}>
           <ul ref={navRef} onKeyDown={onNavKey} className="flex flex-col gap-0.5">
             {SETTINGS_SECTIONS.map((s) => {
               const active = s.id === current;
@@ -294,7 +307,7 @@ export function SettingsScreen({
                     aria-current={active ? "page" : undefined}
                     onClick={() => select(s.id)}
                     className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-start text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       active
                         ? "bg-accent-3 font-medium text-accent-12"
                         : "text-gray-11 hover:bg-gray-3 hover:text-foreground",

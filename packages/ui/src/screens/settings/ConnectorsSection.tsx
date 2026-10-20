@@ -5,6 +5,7 @@ import { EmptyState } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { useGatewayQuery } from "../../data/hooks.ts";
+import { t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
@@ -23,9 +24,14 @@ import {
 
 export type ScopeMode = Connector["scopeMode"];
 
-export const SCOPE_MODE_LABEL: Record<ScopeMode, string> = {
-  read: "Read only",
-  read_act: "Read and act",
+/** "Read only" / "Read and act", read in the active language on each access. */
+export const SCOPE_MODE_LABEL: Readonly<Record<ScopeMode, string>> = {
+  get read() {
+    return t("settings.connectors.scope.read");
+  },
+  get read_act() {
+    return t("settings.connectors.scope.read_act");
+  },
 };
 
 /** Read-only vs read-and-act, asked on every connect (Muse asks whether to read mail or also send). */
@@ -49,12 +55,12 @@ export function ConnectAccessChoice({
         {
           value: "read",
           label: SCOPE_MODE_LABEL.read,
-          hint: `${persona} can read and search. Nothing is sent, changed or deleted.`,
+          hint: t("settings.connectors.scope.readHint", { persona }),
         },
         {
           value: "read_act",
           label: SCOPE_MODE_LABEL.read_act,
-          hint: `${persona} can also send, create and change things. Each action still follows your permissions.`,
+          hint: t("settings.connectors.scope.readActHint", { persona }),
         },
       ]}
     />
@@ -62,21 +68,48 @@ export function ConnectAccessChoice({
 }
 
 /** Connector types offered in the connect flow (and onboarding). */
+type CatalogType = "google" | "microsoft" | "imap" | "apple:notes" | "apple:reminders" | "mcp";
+
+/** Message ids for connector types (ids can't hold the type's colon). */
+const CATALOG_ID = {
+  google: "google",
+  microsoft: "microsoft",
+  imap: "imap",
+  "apple:notes": "appleNotes",
+  "apple:reminders": "appleReminders",
+  mcp: "mcp",
+} as const satisfies Record<CatalogType, string>;
+
+const catalogEntry = <T extends CatalogType>(type: T) => ({
+  type,
+  /** The connector's name, in the active language. */
+  get label(): string {
+    return t(`settings.connectors.catalog.${CATALOG_ID[type as CatalogType]}`);
+  },
+});
+
 export const CONNECTOR_CATALOG = [
-  { type: "google", label: "Google (Gmail, Calendar, Drive)" },
-  { type: "microsoft", label: "Microsoft (Outlook, Calendar)" },
-  { type: "imap", label: "Other email (IMAP)" },
-  { type: "apple:notes", label: "Apple Notes" },
-  { type: "apple:reminders", label: "Apple Reminders" },
-  { type: "mcp", label: "MCP server" },
+  catalogEntry("google"),
+  catalogEntry("microsoft"),
+  catalogEntry("imap"),
+  catalogEntry("apple:notes"),
+  catalogEntry("apple:reminders"),
+  catalogEntry("mcp"),
 ] as const;
 
-const STATUS: Record<Connector["status"], { tone: Tone; text: string }> = {
-  connected: { tone: "success", text: "Connected" },
-  disconnected: { tone: "neutral", text: "Disconnected" },
-  error: { tone: "danger", text: "Error" },
-  needs_auth: { tone: "approval", text: "Sign in again" },
+const STATUS_TONE: Record<Connector["status"], Tone> = {
+  connected: "success",
+  disconnected: "neutral",
+  error: "danger",
+  needs_auth: "approval",
 };
+
+/** The trust tier as the owner reads it: the two built-in words are translated. */
+function trustTierLabel(tier: string): string {
+  if (tier === "built-in") return t("settings.connectors.trust.builtIn");
+  if (tier === "unverified") return t("settings.connectors.trust.unverified");
+  return tier;
+}
 
 /** Trust tier: MCP servers carry one in config; built-in connectors are first-party. */
 export function trustTier(c: Connector): string {
@@ -119,18 +152,18 @@ export function ConnectorsPanel({
   const [adding, setAdding] = useState(defaultAdding);
   const addButton = onConnect ? (
     <Button type="button" size="sm" onClick={() => setAdding(true)} disabled={adding}>
-      <Plug aria-hidden="true" /> Connect an account
+      <Plug aria-hidden="true" /> {t("settings.connectors.connect")}
     </Button>
   ) : null;
   return (
     <SectionFrame
-      title="Connectors"
-      description="Decide which accounts to connect. Disconnect pauses one and keeps its settings; Remove deletes it."
+      title={t("settings.connectors.title")}
+      description={t("settings.connectors.description")}
       // One primary action: the header's button, or the empty state's when nothing is connected.
       actions={connectors.length > 0 || loading || error ? addButton : null}
     >
       <LoadGate
-        label="connectors"
+        label={t("settings.connectors.loadLabel")}
         loading={loading ?? false}
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
@@ -151,10 +184,15 @@ export function ConnectorsPanel({
               icon={Plug}
               className="elevation-1 py-10"
               {...(onConnect
-                ? { action: { label: "Connect an account", onClick: () => setAdding(true) } }
+                ? {
+                    action: {
+                      label: t("settings.connectors.connect"),
+                      onClick: () => setAdding(true),
+                    },
+                  }
                 : {})}
             >
-              No accounts connected. {persona} works with what you connect here.
+              {t("settings.connectors.empty", { persona })}
             </EmptyState>
           )
         ) : (
@@ -169,16 +207,18 @@ export function ConnectorsPanel({
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-base font-semibold">{c.label}</h3>
-                      <StatusChip tone={STATUS[c.status].tone}>{STATUS[c.status].text}</StatusChip>
+                      <StatusChip tone={STATUS_TONE[c.status]}>
+                        {t(`settings.connectors.status.${c.status}`)}
+                      </StatusChip>
                       <StatusChip tone="neutral">{SCOPE_MODE_LABEL[c.scopeMode]}</StatusChip>
                       <StatusChip tone={trustTier(c) === "built-in" ? "info" : "approval"}>
-                        Trust: {trustTier(c)}
+                        {t("settings.connectors.trust", { tier: trustTierLabel(trustTier(c)) })}
                       </StatusChip>
                     </div>
                     <dl className="mt-2 grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1">
-                      <dt className="text-muted-foreground">Account</dt>
-                      <dd>{c.account ?? "None"}</dd>
-                      <dt className="text-muted-foreground">Scopes</dt>
+                      <dt className="text-muted-foreground">{t("settings.connectors.account")}</dt>
+                      <dd>{c.account ?? t("settings.connectors.noAccount")}</dd>
+                      <dt className="text-muted-foreground">{t("settings.connectors.scopes")}</dt>
                       <dd className="flex flex-wrap gap-1">
                         {c.scopes.map((s) => (
                           <code key={s} className="rounded bg-gray-4 px-1 font-mono text-xs">
@@ -186,13 +226,19 @@ export function ConnectorsPanel({
                           </code>
                         ))}
                       </dd>
-                      <dt className="text-muted-foreground">Last used</dt>
-                      <dd>{used === null ? "Never" : formatRelative(used, clock)}</dd>
+                      <dt className="text-muted-foreground">
+                        {t("settings.credentials.col.lastUsed")}
+                      </dt>
+                      <dd>
+                        {used === null
+                          ? t("settings.credentials.never")
+                          : formatRelative(used, clock)}
+                      </dd>
                     </dl>
                     <div className="mt-3 flex flex-wrap gap-2">
                       {c.status === "needs_auth" && onReconnect ? (
                         <Button type="button" size="sm" onClick={() => onReconnect(c)}>
-                          Sign in again
+                          {t("settings.connectors.status.needs_auth")}
                         </Button>
                       ) : null}
                       {onDisconnect && c.status !== "disconnected" ? (
@@ -201,9 +247,9 @@ export function ConnectorsPanel({
                           variant="outline"
                           size="sm"
                           onClick={() => onDisconnect(c)}
-                          aria-label={`Disconnect ${c.label}`}
+                          aria-label={t("settings.connectors.disconnectNamed", { name: c.label })}
                         >
-                          Disconnect
+                          {t("settings.connectors.disconnect")}
                         </Button>
                       ) : null}
                       {onRemove ? (
@@ -211,10 +257,12 @@ export function ConnectorsPanel({
                           name={c.label}
                           destructive={[
                             {
-                              label: "Remove",
-                              title: `Remove ${c.label}?`,
-                              description: `${c.label} is disconnected and its settings and access rules are deleted. Connecting it again starts over.`,
-                              confirm: "Remove",
+                              label: t("common.remove"),
+                              title: t("settings.connectors.removeTitle", { name: c.label }),
+                              description: t("settings.connectors.removeDescription", {
+                                name: c.label,
+                              }),
+                              confirm: t("common.remove"),
                               onConfirm: () => onRemove(c),
                             },
                           ]}
@@ -245,10 +293,10 @@ function ConnectForm({
   const [type, setType] = useState<string>(CONNECTOR_CATALOG[0].type);
   const [mode, setMode] = useState<ScopeMode>("read");
   return (
-    <Group title="Connect an account">
+    <Group title={t("settings.connectors.connect")}>
       <div className="flex flex-col gap-1">
         <label htmlFor={`${id}-type`} className="font-medium">
-          Account type
+          {t("settings.connectors.accountType")}
         </label>
         <NativeSelect
           id={`${id}-type`}
@@ -264,17 +312,17 @@ function ConnectForm({
         </NativeSelect>
       </div>
       <ConnectAccessChoice
-        label={`What can ${persona} do with it?`}
+        label={t("settings.connectors.whatCan", { persona })}
         value={mode}
         onChange={setMode}
         persona={persona}
       />
       <div className="flex gap-2">
         <Button type="button" size="sm" onClick={() => onConnect(type, mode)}>
-          Continue to sign in
+          {t("settings.connectors.continue")}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       </div>
     </Group>

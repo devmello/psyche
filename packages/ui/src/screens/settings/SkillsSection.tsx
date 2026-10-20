@@ -14,7 +14,7 @@ import { Label } from "../../components/ui/label.tsx";
 import { Switch } from "../../components/ui/switch.tsx";
 import { answerApproval, useApproval, useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { useStore } from "../../data/provider.tsx";
-import { plural } from "../../lib/format.ts";
+import { t } from "../../i18n/core.ts";
 import { usePersona } from "../../slots.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import { SkillSuggestions } from "./SkillDraftCard.tsx";
@@ -41,43 +41,44 @@ import {
  * owner's: every string from it is sanitized and shown as data.
  */
 
-/** Plain words for the approval kinds a skill may declare. */
-const PERMISSION_LABEL: Record<string, string> = {
-  exec: "Run commands in the sandbox",
-  exec_host: "Run commands on this Mac",
-  send_email: "Send email",
-  calendar_write: "Change your calendar",
-  message_send: "Send messages",
-  browser_submit: "Submit web forms",
-  credential_fill: "Fill saved passwords",
-  purchase: "Pay for things",
-  file_write: "Write files",
-  connector_action: "Act in connected apps",
-  computer_action: "Use apps on this Mac",
-  new_origin: "Open new sites",
-  mcp_tool: "Use MCP tools",
-  apple_script: "Run AppleScript",
-  shortcut_run: "Run Shortcuts",
+/** The approval kinds a skill may declare that have plain words. */
+const PERMISSIONS = [
+  "exec",
+  "exec_host",
+  "send_email",
+  "calendar_write",
+  "message_send",
+  "browser_submit",
+  "credential_fill",
+  "purchase",
+  "file_write",
+  "connector_action",
+  "computer_action",
+  "new_origin",
+  "mcp_tool",
+  "apple_script",
+  "shortcut_run",
+] as const;
+
+/** Plain words for an approval kind a skill declares; an unknown kind shows as written. */
+function permissionLabel(p: string): string {
+  const known = PERMISSIONS.find((k) => k === p);
+  return known === undefined ? p : t(`settings.skills.permission.${known}`);
+}
+
+const STATUS_TONE: Record<SkillDetails["status"], Tone> = {
+  active: "success",
+  disabled: "neutral",
+  draft: "approval",
+  unlocked: "approval",
+  hash_mismatch: "danger",
+  invalid: "danger",
+  blocked: "danger",
+  ineligible: "neutral",
+  shadowed: "neutral",
 };
 
-const STATUS: Record<SkillDetails["status"], { label: string; tone: Tone }> = {
-  active: { label: "Active", tone: "success" },
-  disabled: { label: "Off", tone: "neutral" },
-  draft: { label: "Not approved", tone: "approval" },
-  unlocked: { label: "Not installed by Psyche", tone: "approval" },
-  hash_mismatch: { label: "Changed since approval", tone: "danger" },
-  invalid: { label: "Invalid", tone: "danger" },
-  blocked: { label: "Blocked", tone: "danger" },
-  ineligible: { label: "Unavailable here", tone: "neutral" },
-  shadowed: { label: "Overridden", tone: "neutral" },
-};
-
-const TRUST_LABEL: Record<SkillDetails["trust"], string> = {
-  bundled: "Bundled with Psyche",
-  verified: "Verified publisher",
-  local: "Your own",
-  unknown: "Unknown publisher",
-};
+const trustLabel = (trust: SkillDetails["trust"]): string => t(`settings.skills.trust.${trust}`);
 
 const show = (s: string, max = 300) => sanitizeDisplay(s, max);
 
@@ -93,12 +94,12 @@ export function skillSourceOf(input: string): SkillInstallSource {
 
 /** What a manifest asks for, in one line (the list row). */
 export function asksFor(m: SkillManifest | undefined): string {
-  if (m === undefined) return "Unknown: the skill could not be read.";
-  const perms = m.permissions.map((p) => PERMISSION_LABEL[p] ?? p);
-  if (perms.length === 0 && m.tools.length === 0) return "Nothing beyond its instructions.";
+  if (m === undefined) return t("settings.skills.asks.unknown");
+  const perms = m.permissions.map(permissionLabel);
+  if (perms.length === 0 && m.tools.length === 0) return t("settings.skills.asks.nothing");
   return [
     perms.length > 0 ? perms.join(", ") : null,
-    m.tools.length > 0 ? plural(m.tools.length, "tool") : null,
+    m.tools.length > 0 ? t("settings.skills.tools", { n: m.tools.length }) : null,
   ]
     .filter((x) => x !== null)
     .join(" · ");
@@ -115,7 +116,11 @@ export interface SkillTrustCardProps {
 
 /** Everything a skill contains and asks for, shown before the owner approves (security §11). */
 /** Finding severities in words, not the analyzer's enum. */
-const SEVERITY_LABEL: Record<string, string> = { high: "High", warn: "Warning", info: "Note" };
+function severityLabel(severity: string): string {
+  if (severity === "high" || severity === "warn" || severity === "info")
+    return t(`settings.skills.severity.${severity}`);
+  return severity;
+}
 
 export function SkillTrustCard({
   proposal,
@@ -126,7 +131,7 @@ export function SkillTrustCard({
   const persona = usePersona().name;
   const m = proposal.manifest ?? { tools: [], permissions: [], prompts: [] };
   const high = proposal.findings.filter((f) => f.severity === "high");
-  const verb = proposal.update === undefined ? "installing" : "updating";
+  const updating = proposal.update !== undefined;
   return (
     <section
       aria-labelledby={id}
@@ -136,42 +141,52 @@ export function SkillTrustCard({
       <header className="flex flex-wrap items-start gap-2">
         <div className="min-w-0 flex-1">
           <h3 id={id} className="text-h3 text-foreground">
-            Review “{show(proposal.name, 64)}” before {verb}
+            {t("settings.skills.trust.title", { name: show(proposal.name, 64), updating })}
           </h3>
           <p className="mt-0.5 text-small text-muted-foreground">
-            A skill is instructions {persona} will follow. It never gets permissions by itself: each
-            action it leads to still asks you.
+            {t("settings.skills.trust.intro", { persona })}
           </p>
         </div>
         {onCancel ? (
           <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-            Cancel
+            {t("common.cancel")}
           </Button>
         ) : null}
       </header>
 
       <Facts
         items={[
-          { term: "Source", value: <code>{show(sourceText(proposal.source), 2048)}</code> },
-          { term: "Publisher", value: TRUST_LABEL[proposal.trust] },
+          {
+            term: t("settings.skills.trust.source"),
+            value: <code>{show(sourceText(proposal.source), 2048)}</code>,
+          },
+          { term: t("settings.skills.trust.publisher"), value: trustLabel(proposal.trust) },
         ]}
       />
 
       <details className="text-xs text-muted-foreground">
-        <summary className="cursor-pointer">Details</summary>
+        <summary className="cursor-pointer">{t("settings.browser.details")}</summary>
         <Facts
           className="mt-2"
           items={[
             ...(proposal.commit === undefined
               ? []
-              : [{ term: "Commit", value: <code>{show(proposal.commit, 80)}</code> }]),
-            { term: "Content hash", value: <code className="break-all">{proposal.hash}</code> },
+              : [
+                  {
+                    term: t("settings.skills.trust.commit"),
+                    value: <code>{show(proposal.commit, 80)}</code>,
+                  },
+                ]),
+            {
+              term: t("settings.skills.trust.hash"),
+              value: <code className="break-all">{proposal.hash}</code>,
+            },
             ...(m.tools.length === 0
               ? []
               : [
                   {
-                    term: "Tool names",
-                    value: <code>{m.tools.map((t) => show(t, 80)).join(", ")}</code>,
+                    term: t("settings.skills.trust.toolNames"),
+                    value: <code>{m.tools.map((x) => show(x, 80)).join(", ")}</code>,
                   },
                 ]),
           ]}
@@ -180,21 +195,21 @@ export function SkillTrustCard({
 
       <section className="flex flex-col gap-2" aria-labelledby={`${id}-asks`}>
         <h4 id={`${id}-asks`} className="font-medium">
-          What it asks for
+          {t("settings.skills.trust.asks")}
         </h4>
         <Facts
           items={[
             {
-              term: "Permissions",
+              term: t("settings.skills.trust.permissions"),
               value:
                 m.permissions.length === 0 ? (
-                  "None"
+                  t("settings.skills.none")
                 ) : (
                   <ul className="flex flex-wrap gap-1.5">
                     {m.permissions.map((p) => (
                       <li key={p}>
                         <StatusChip tone={p === "exec" || p === "purchase" ? "danger" : "approval"}>
-                          {PERMISSION_LABEL[p] ?? p}
+                          {permissionLabel(p)}
                         </StatusChip>
                       </li>
                     ))}
@@ -202,16 +217,19 @@ export function SkillTrustCard({
                 ),
             },
             {
-              term: "Tools",
-              value: m.tools.length === 0 ? "None" : plural(m.tools.length, "tool"),
+              term: t("settings.skills.trust.tools"),
+              value:
+                m.tools.length === 0
+                  ? t("settings.skills.none")
+                  : t("settings.skills.tools", { n: m.tools.length }),
             },
             {
-              term: "Prompt files",
+              term: t("settings.skills.trust.prompts"),
               value:
                 m.prompts.length === 0 ? (
-                  "None"
+                  t("settings.skills.none")
                 ) : (
-                  <code>{m.prompts.map((t) => show(t, 200)).join(", ")}</code>
+                  <code>{m.prompts.map((x) => show(x, 200)).join(", ")}</code>
                 ),
             },
           ]}
@@ -220,14 +238,11 @@ export function SkillTrustCard({
 
       {proposal.findings.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <h4 className="font-medium">Scan findings</h4>
+          <h4 className="font-medium">{t("settings.skills.trust.findings")}</h4>
           {high.length > 0 ? (
             <p role="alert" className="flex items-start gap-2 text-danger-text">
               <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              {high.length === 1
-                ? "A high-severity finding"
-                : `${high.length} high-severity findings`}
-              : if you install it anyway, it stays off and cannot be turned on.
+              {t("settings.skills.trust.high", { n: high.length })}
             </p>
           ) : null}
           <ul className="flex flex-col gap-1">
@@ -238,7 +253,7 @@ export function SkillTrustCard({
                     f.severity === "high" ? "danger" : f.severity === "warn" ? "approval" : "info"
                   }
                 >
-                  {SEVERITY_LABEL[f.severity] ?? f.severity}
+                  {severityLabel(f.severity)}
                 </StatusChip>
                 <span className="min-w-0 flex-1">
                   {show(f.message)}
@@ -251,22 +266,26 @@ export function SkillTrustCard({
           </ul>
         </div>
       ) : (
-        <p className="text-muted-foreground">The static scan found nothing to flag.</p>
+        <p className="text-muted-foreground">{t("settings.skills.trust.clean")}</p>
       )}
 
       {proposal.update !== undefined ? (
         <details>
           <summary className="cursor-pointer font-medium">
-            Changes since the approved version
+            {t("settings.skills.trust.changes")}
           </summary>
           <pre className="mt-2 max-h-64 overflow-auto rounded-md bg-gray-3 p-3 text-xs whitespace-pre-wrap">
-            {proposal.update.diff === "" ? "No changes." : sanitizeBlock(proposal.update.diff)}
+            {proposal.update.diff === ""
+              ? t("settings.skills.trust.noChanges")
+              : sanitizeBlock(proposal.update.diff)}
           </pre>
         </details>
       ) : null}
 
       <details open>
-        <summary className="cursor-pointer font-medium">SKILL.md (full text)</summary>
+        <summary className="cursor-pointer font-medium">
+          {t("settings.skills.trust.fullText")}
+        </summary>
         <pre
           className="mt-2 max-h-72 overflow-auto rounded-md bg-gray-3 p-3 text-xs whitespace-pre-wrap"
           data-testid="skill-text"
@@ -276,7 +295,7 @@ export function SkillTrustCard({
       </details>
       <details>
         <summary className="cursor-pointer font-medium">
-          Every file ({proposal.files.length})
+          {t("settings.skills.trust.files", { n: proposal.files.length })}
         </summary>
         <ul className="mt-2 flex flex-col gap-2">
           {proposal.files.map((f) => (
@@ -284,8 +303,11 @@ export function SkillTrustCard({
               <p>
                 <code>{show(f.path, 300)}</code>{" "}
                 <span className="text-xs text-muted-foreground">
-                  {f.bytes} bytes{f.executable ? " · executable" : ""}
-                  {f.text === undefined ? " · binary" : ""}
+                  {t("settings.skills.trust.fileMeta", {
+                    bytes: f.bytes,
+                    executable: f.executable === true,
+                    binary: f.text === undefined,
+                  })}
                 </span>
               </p>
               {f.text !== undefined && f.path !== "SKILL.md" ? (
@@ -336,7 +358,7 @@ function SkillRow({
   onReviewUpdate?: SkillsPanelProps["onReviewUpdate"];
 }): ReactElement {
   const id = useId();
-  const status = STATUS[skill.status];
+
   const toggleable = skill.status === "active" || skill.status === "disabled";
   const name = show(skill.name, 64);
   return (
@@ -348,20 +370,26 @@ function SkillRow({
         <span id={id} className="font-medium">
           {name}
         </span>
-        <StatusChip tone={status.tone}>{status.label}</StatusChip>
+        <StatusChip tone={STATUS_TONE[skill.status]}>
+          {t(`settings.skills.status.${skill.status}`)}
+        </StatusChip>
         {skill.update?.updateAvailable ? (
           <StatusChip tone={skill.update.manifestChanged ? "approval" : "info"}>
-            Update available{skill.update.manifestChanged ? " · asks for different things" : ""}
+            {t("settings.skills.updateAvailable", {
+              changed: skill.update.manifestChanged === true,
+            })}
           </StatusChip>
         ) : null}
         <span className="text-xs text-muted-foreground">
-          {TRUST_LABEL[skill.trust]}
-          {skill.version === undefined ? "" : ` · v${show(skill.version, 32)}`}
+          {trustLabel(skill.trust)}
+          {skill.version === undefined
+            ? ""
+            : t("settings.skills.version", { version: show(skill.version, 32) })}
         </span>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ms-auto flex items-center gap-2">
           {skill.update?.updateAvailable && onReviewUpdate ? (
             <Button type="button" variant="outline" size="xs" onClick={() => onReviewUpdate(skill)}>
-              Review update
+              {t("settings.skills.reviewUpdate")}
             </Button>
           ) : null}
           {onRemove && skill.source !== "bundled" ? (
@@ -369,11 +397,10 @@ function SkillRow({
               name={name}
               destructive={[
                 {
-                  label: "Remove",
-                  title: `Remove ${name}?`,
-                  description:
-                    "Its files are deleted from this Gateway. Installing it again goes through the trust card.",
-                  confirm: "Remove",
+                  label: t("common.remove"),
+                  title: t("settings.connectors.removeTitle", { name }),
+                  description: t("settings.skills.removeDescription"),
+                  confirm: t("common.remove"),
                   onConfirm: () => onRemove(skill),
                 },
               ]}
@@ -381,7 +408,7 @@ function SkillRow({
           ) : null}
           {onToggle && toggleable ? (
             <Switch
-              aria-label={`${name} on`}
+              aria-label={t("settings.skills.switchOn", { name })}
               checked={skill.userEnabled}
               onCheckedChange={(v) => onToggle(skill, v)}
             />
@@ -390,14 +417,15 @@ function SkillRow({
       </div>
       <p className="text-muted-foreground">{show(skill.description, 400)}</p>
       <p className="text-xs">
-        <span className="text-muted-foreground">Asks for: </span>
+        <span className="text-muted-foreground">{t("settings.skills.asksFor")} </span>
         {asksFor(skill.manifest)}
       </p>
       {skill.manifest && skill.manifest.tools.length > 0 ? (
         <details className="text-xs text-muted-foreground">
-          <summary className="cursor-pointer">Details</summary>
+          <summary className="cursor-pointer">{t("settings.browser.details")}</summary>
           <p className="mt-1">
-            Tools: <code>{skill.manifest.tools.map((t) => show(t, 80)).join(", ")}</code>
+            {t("settings.skills.toolsLabel")}{" "}
+            <code>{skill.manifest.tools.map((x) => show(x, 80)).join(", ")}</code>
           </p>
         </details>
       ) : null}
@@ -452,8 +480,8 @@ export function SkillsPanel({
   };
   return (
     <SectionFrame
-      title="Skills"
-      description={`Instructions ${persona} can follow for a kind of task. Skills never grant permissions.`}
+      title={t("settings.skills.title")}
+      description={t("settings.skills.description", { persona })}
       actions={
         onCheckUpdates ? (
           <Button
@@ -463,19 +491,19 @@ export function SkillsPanel({
             disabled={checking}
             onClick={onCheckUpdates}
           >
-            {checking ? "Checking…" : "Check for updates"}
+            {checking ? t("settings.shortcut.checking") : t("settings.skills.checkUpdates")}
           </Button>
         ) : null
       }
     >
       <LoadGate
-        label="skills"
+        label={t("settings.skills.loadLabel")}
         loading={loading ?? false}
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
         {actionError ? (
-          <ErrorNotice what={actionError} did="Nothing was installed or changed." />
+          <ErrorNotice what={actionError} did={t("settings.skills.nothingChanged")} />
         ) : null}
         {notice ? (
           <p role="status" className="rounded-md bg-gray-3 px-3 py-2 text-sm">
@@ -485,8 +513,8 @@ export function SkillsPanel({
         {review ?? null}
         {onReview && review === undefined ? (
           <Group
-            title="Install a skill"
-            description="Psyche shows everything in the skill and what it asks for, then asks you before installing."
+            title={t("settings.skills.install")}
+            description={t("settings.skills.installHint")}
           >
             <form
               className="flex flex-col gap-2"
@@ -495,12 +523,12 @@ export function SkillsPanel({
                 submit();
               }}
             >
-              <Label htmlFor={inputId}>Skill folder or .zip on the Gateway</Label>
+              <Label htmlFor={inputId}>{t("settings.skills.pathLabel")}</Label>
               <div className="flex flex-wrap gap-2">
                 <Input
                   id={inputId}
                   value={path}
-                  placeholder="/Users/you/Downloads/pdf-merge"
+                  placeholder={t("settings.skills.pathPlaceholder")}
                   onChange={(e) => setPath(e.target.value)}
                   className="min-w-0 flex-1"
                 />
@@ -517,18 +545,16 @@ export function SkillsPanel({
                           onReview(skillSourceOf(p));
                         },
                         (err: unknown) =>
-                          setPickError(
-                            `Psyche couldn't open the folder chooser (${messageOf(err)}).`,
-                          ),
+                          setPickError(t("settings.skills.pickFailed", { reason: messageOf(err) })),
                       );
                     }}
                   >
                     <FolderOpen aria-hidden="true" />
-                    Choose folder…
+                    {t("settings.skills.chooseFolder")}
                   </Button>
                 ) : null}
                 <Button type="submit" disabled={reviewing || path.trim() === ""}>
-                  {reviewing ? "Checking…" : "Review"}
+                  {reviewing ? t("settings.shortcut.checking") : t("settings.skills.review")}
                 </Button>
               </div>
               {pickError ? <ErrorNotice what={pickError} /> : null}
@@ -536,9 +562,9 @@ export function SkillsPanel({
           </Group>
         ) : null}
         {review === undefined ? (suggestions ?? null) : null}
-        <Group title="Installed">
+        <Group title={t("settings.skills.installed")}>
           {installed.length === 0 ? (
-            <EmptyNotice text="No skills installed yet. Bundled skills are below." />
+            <EmptyNotice text={t("settings.skills.noInstalled")} />
           ) : (
             <ul className="flex flex-col divide-y divide-gray-6">
               {installed.map((s) => (
@@ -547,9 +573,9 @@ export function SkillsPanel({
             </ul>
           )}
         </Group>
-        <Group title="Bundled with Psyche">
+        <Group title={t("settings.skills.trust.bundled")}>
           {bundled.length === 0 ? (
-            <EmptyNotice text="No bundled skills on this Gateway." />
+            <EmptyNotice text={t("settings.skills.noBundled")} />
           ) : (
             <ul className="flex flex-col divide-y divide-gray-6">
               {bundled.map((s) => (
@@ -588,7 +614,7 @@ function TrustApproval({
   if (approval === null) {
     return (
       <p role="status" className="text-muted-foreground">
-        Loading the approval…
+        {t("settings.approval.loading")}
       </p>
     );
   }
@@ -604,7 +630,18 @@ function TrustApproval({
   );
 }
 
-function refusal(what: string, err: unknown): string {
+type SkillAction =
+  | "review"
+  | "reviewProposed"
+  | "install"
+  | "dismiss"
+  | "on"
+  | "off"
+  | "remove"
+  | "reviewUpdate"
+  | "checkUpdates";
+
+function refusal(action: SkillAction, err: unknown): string {
   if (hasCode(err, "policy_denied")) {
     const details = (err as { details?: { violations?: unknown; problems?: unknown } }).details;
     const strings = (v: unknown) =>
@@ -613,14 +650,16 @@ function refusal(what: string, err: unknown): string {
         : [];
     const problems = strings(details?.problems);
     if (problems.length > 0)
-      return `Psyche won't install this suggestion; it does not replay: ${problems.join("; ")}.`;
+      return t("settings.skills.err.noReplay", { problems: problems.join("; ") });
     const list = strings(details?.violations);
     return list.length > 0
-      ? `Psyche won't install this skill: it ${list.join("; it ")}.`
-      : `Psyche won't ${what.toLowerCase()} (${messageOf(err)}).`;
+      ? t("settings.skills.err.violations", {
+          violations: list.join(t("settings.skills.err.violationJoin")),
+        })
+      : t("settings.skills.err.wont", { action, reason: messageOf(err) });
   }
-  if (hasCode(err, "forbidden")) return `${what} needs a device paired as admin.`;
-  return `Psyche couldn't ${what.toLowerCase()} (${messageOf(err)}).`;
+  if (hasCode(err, "forbidden")) return t("settings.skills.err.forbidden", { action });
+  return t("settings.skills.err.failed", { action, reason: messageOf(err) });
 }
 
 export function SkillsSection({
@@ -644,7 +683,7 @@ export function SkillsSection({
   const [notice, setNotice] = useState<string | null>(null);
 
   const stage = (
-    what: string,
+    action: SkillAction,
     p: Promise<{ proposal: SkillProposal; approval: { id: string } }>,
   ) => {
     setActionError(null);
@@ -652,10 +691,10 @@ export function SkillsSection({
     setReviewing(true);
     p.then(
       (r) => setReview({ proposal: r.proposal, approvalId: r.approval.id }),
-      (err: unknown) => setActionError(refusal(what, err)),
+      (err: unknown) => setActionError(refusal(action, err)),
     ).finally(() => setReviewing(false));
   };
-  const run = (what: string, p: Promise<unknown>, done?: string) => {
+  const run = (action: SkillAction, p: Promise<unknown>, done?: string) => {
     setActionError(null);
     setNotice(null);
     p.then(
@@ -664,7 +703,7 @@ export function SkillsSection({
         draftsQ.reload();
         if (done) setNotice(done);
       },
-      (err: unknown) => setActionError(refusal(what, err)),
+      (err: unknown) => setActionError(refusal(action, err)),
     );
   };
 
@@ -675,16 +714,16 @@ export function SkillsSection({
       setReview(null);
       setNotice(
         status === "denied"
-          ? `Not installed: you denied “${show(current.proposal.name, 64)}”.`
-          : `Not installed: the approval ${status === "expired" ? "expired" : "was withdrawn"}. Review it again to ask for a new one.`,
+          ? t("settings.skills.denied", { name: show(current.proposal.name, 64) })
+          : t("settings.skills.lapsed", { expired: status === "expired" }),
       );
       return;
     }
     setReview(null);
     run(
-      "Install the skill",
+      "install",
       call("skills.install", { proposalId: current.proposal.id, approvalId: current.approvalId }),
-      `Installed “${show(current.proposal.name, 64)}”.`,
+      t("settings.skills.installedNamed", { name: show(current.proposal.name, 64) }),
     );
   };
 
@@ -712,7 +751,7 @@ export function SkillsSection({
               </SkillTrustCard>
             ),
           })}
-      onReview={(source) => stage("Review the skill", call("skills.proposeInstall", { source }))}
+      onReview={(source) => stage("review", call("skills.proposeInstall", { source }))}
       suggestions={
         <SkillSuggestions
           drafts={draftsQ.data?.drafts ?? []}
@@ -723,15 +762,15 @@ export function SkillsSection({
           }
           onAccept={(d) =>
             stage(
-              "Review the proposed skill",
+              "reviewProposed",
               call("skills.drafts.accept", { draftId: d.id }).finally(() => draftsQ.reload()),
             )
           }
           onDismiss={(d) =>
             run(
-              "Dismiss the suggestion",
+              "dismiss",
               call("skills.drafts.dismiss", { draftId: d.id }),
-              `Dismissed “${show(d.name, 64)}”. ${persona} won't suggest that routine again.`,
+              t("settings.skills.dismissed", { name: show(d.name, 64), persona }),
             )
           }
         />
@@ -739,20 +778,18 @@ export function SkillsSection({
       {...(onPickFolder ? { onPickFolder } : {})}
       onToggle={(s, enabled) =>
         run(
-          enabled ? "Turn the skill on" : "Turn the skill off",
+          enabled ? "on" : "off",
           call("skills.setEnabled", { name: s.name, enabled, source: s.source }),
         )
       }
       onRemove={(s) =>
         run(
-          "Remove the skill",
+          "remove",
           call("skills.remove", { name: s.name }),
-          `Removed “${show(s.name, 64)}”.`,
+          t("settings.skills.removed", { name: show(s.name, 64) }),
         )
       }
-      onReviewUpdate={(s) =>
-        stage("Review the update", call("skills.proposeUpdate", { name: s.name }))
-      }
+      onReviewUpdate={(s) => stage("reviewUpdate", call("skills.proposeUpdate", { name: s.name }))}
       onCheckUpdates={() => {
         setChecking(true);
         setActionError(null);
@@ -761,13 +798,9 @@ export function SkillsSection({
             (r) => {
               q.reload();
               const n = r.updates.filter((u) => u.updateAvailable).length;
-              setNotice(
-                n === 0
-                  ? "Every installed skill is up to date."
-                  : `${n} update${n === 1 ? "" : "s"} available.`,
-              );
+              setNotice(t("settings.skills.updates", { n }));
             },
-            (err: unknown) => setActionError(refusal("Check for updates", err)),
+            (err: unknown) => setActionError(refusal("checkUpdates", err)),
           )
           .finally(() => setChecking(false));
       }}

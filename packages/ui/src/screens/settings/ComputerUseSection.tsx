@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table.tsx";
+import { t } from "../../i18n/core.ts";
 import { usePersona } from "../../slots.tsx";
 import { RadioTableRow } from "./RadioTableRow.tsx";
 import {
@@ -30,74 +31,94 @@ import type { AppTier, ComputerUseApp, TccPermission, TccState } from "./types.t
 
 /** Computer use (UI design §3.18; architecture §6). */
 
-export const TIERS: readonly { value: AppTier; label: string }[] = [
-  { value: "ask", label: "Ask" },
-  { value: "off", label: "Off" },
-  { value: "read", label: "Read only" },
-  { value: "interact", label: "Read and interact" },
+const tier = (value: AppTier) => ({
+  value,
+  get label(): string {
+    return t(`settings.computerUse.tier.${value}`);
+  },
+});
+
+export const TIERS: readonly { value: AppTier; readonly label: string }[] = [
+  tier("ask"),
+  tier("off"),
+  tier("read"),
+  tier("interact"),
 ];
+
+type LockReason = "browser" | "terminal" | "ide" | "passwords" | "banking";
+
+const locked = (cap: "read" | "click" | "off", reason: LockReason) => ({
+  cap,
+  get reason(): string {
+    return t(`settings.computerUse.locked.${reason}`);
+  },
+});
 
 /** Fixed caps (architecture §6): browsers read-only, terminals and IDEs click-only, money Off. */
 export const LOCKED_APPS: readonly ComputerUseApp[] = [
   {
     id: "com.apple.Safari",
+    // App names are product names.
     name: "Safari",
     tier: "read",
-    locked: {
-      cap: "read",
-      reason: "Browsers are read only; web tasks use their own browser window.",
-    },
+    locked: locked("read", "browser"),
   },
   {
     id: "com.google.Chrome",
     name: "Google Chrome",
     tier: "read",
-    locked: {
-      cap: "read",
-      reason: "Browsers are read only; web tasks use their own browser window.",
-    },
+    locked: locked("read", "browser"),
   },
   {
     id: "com.apple.Terminal",
     name: "Terminal",
     tier: "read",
-    locked: { cap: "click", reason: "Terminals are click only; commands run in the sandbox." },
+    locked: locked("click", "terminal"),
   },
   {
     id: "com.microsoft.VSCode",
     name: "Visual Studio Code",
     tier: "read",
-    locked: { cap: "click", reason: "IDEs are click only; no typing into editors." },
+    locked: locked("click", "ide"),
   },
   {
     id: "com.1password.1password",
     name: "1Password",
     tier: "off",
-    locked: { cap: "off", reason: "Password managers are always off." },
+    locked: locked("off", "passwords"),
   },
   {
     id: "banking",
-    name: "Banking and trading apps",
+    get name(): string {
+      return t("settings.computerUse.bankingApps");
+    },
     tier: "off",
-    locked: { cap: "off", reason: "Banking and trading apps are always off." },
+    locked: locked("off", "banking"),
   },
 ];
 
-const CAP_LABEL = { read: "Read only (fixed)", click: "Click only (fixed)", off: "Off (fixed)" };
-
-export const TCC_LABEL: Record<TccPermission, { name: string; why: string }> = {
-  accessibility: { name: "Accessibility", why: "lets {persona} click, type and use apps" },
-  screenRecording: { name: "Screen Recording", why: "lets {persona} see app windows" },
-  notifications: {
-    name: "Notifications",
-    why: "lets Psyche ask for approvals when the window is closed",
+const tccLabel = (p: TccPermission) => ({
+  /** The macOS pane's name, in the active language. */
+  get name(): string {
+    return t(`settings.computerUse.tcc.${p}.name`);
   },
+  /** Why Psyche needs it: "lets Wren see app windows". */
+  why: (persona: string): string => t(`settings.computerUse.tcc.${p}.why`, { persona }),
+});
+
+export const TCC_LABEL: Record<
+  TccPermission,
+  { readonly name: string; why: (persona: string) => string }
+> = {
+  accessibility: tccLabel("accessibility"),
+  screenRecording: tccLabel("screenRecording"),
+  notifications: tccLabel("notifications"),
 };
 
-const TCC_STATE: Record<TccState, { tone: "success" | "danger" | "neutral"; text: string }> = {
-  granted: { tone: "success", text: "Granted" },
-  denied: { tone: "danger", text: "Denied" },
-  not_determined: { tone: "neutral", text: "Not asked yet" },
+const TCC_TONE: Record<TccState, "success" | "danger" | "neutral"> = {
+  granted: "success",
+  denied: "danger",
+  not_determined: "neutral",
 };
 
 function isApp(v: unknown): v is ComputerUseApp {
@@ -106,7 +127,7 @@ function isApp(v: unknown): v is ComputerUseApp {
     v !== null &&
     typeof (v as ComputerUseApp).id === "string" &&
     typeof (v as ComputerUseApp).name === "string" &&
-    TIERS.some((t) => t.value === (v as ComputerUseApp).tier)
+    TIERS.some((x) => x.value === (v as ComputerUseApp).tier)
   );
 }
 
@@ -144,41 +165,43 @@ export function ComputerUsePanel({
   return (
     <SectionFrame
       needsApproval={needsApproval}
-      title="Computer use"
+      title={t("settings.computerUse.title")}
       description={
         <>
-          {persona} can use apps on this Mac only where you allow it. <Kbd>Esc</Kbd> stops computer
-          use at any time.
+          {t("settings.computerUse.description", { persona })}{" "}
+          <Kbd>{t("settings.computerUse.escKey")}</Kbd> {t("settings.computerUse.escStops")}
         </>
       }
     >
       <LoadGate
-        label="computer use"
+        label={t("settings.computerUse.loadLabel")}
         loading={loading ?? false}
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title="macOS permissions">
+        <Group title={t("settings.computerUse.macPermissions")}>
           <ul className="flex flex-col gap-2">
             {(["accessibility", "screenRecording"] as const).map((p) => {
               const state = tcc[p] ?? "not_determined";
               return (
                 <li key={p} className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{TCC_LABEL[p].name}</span>
-                  <StatusChip tone={TCC_STATE[state].tone}>{TCC_STATE[state].text}</StatusChip>
-                  <span className="text-xs text-muted-foreground">
-                    {TCC_LABEL[p].why.replace("{persona}", persona)}
-                  </span>
+                  <StatusChip tone={TCC_TONE[state]}>
+                    {t(`settings.computerUse.tccState.${state}`)}
+                  </StatusChip>
+                  <span className="text-xs text-muted-foreground">{TCC_LABEL[p].why(persona)}</span>
                   {state !== "granted" && onOpenSystemSettings ? (
                     <Button
                       type="button"
                       variant="outline"
                       size="xs"
-                      className="ml-auto"
+                      className="ms-auto"
                       onClick={() => onOpenSystemSettings(p)}
-                      aria-label={`Open System Settings for ${TCC_LABEL[p].name}`}
+                      aria-label={t("settings.computerUse.openSystemSettingsFor", {
+                        name: TCC_LABEL[p].name,
+                      })}
                     >
-                      Open System Settings
+                      {t("settings.computerUse.openSystemSettings")}
                     </Button>
                   ) : null}
                 </li>
@@ -187,25 +210,25 @@ export function ComputerUsePanel({
           </ul>
         </Group>
 
-        <Group title="Apps">
+        <Group title={t("settings.computerUse.apps")}>
           <SwitchField
-            label="Allow computer use"
-            description="Off stops every app below. Each app is asked about on first use."
+            label={t("settings.key.computerUse.enabled")}
+            description={t("settings.computerUse.enabledHint")}
             checked={enabled}
             settingKey="computerUse.enabled"
             onChange={(v) => onChange("computerUse.enabled", v)}
           />
           <SettingHint settingKey="computerUse.apps" />
           {apps.length === 0 ? (
-            <EmptyNotice text="No apps yet. Apps appear here the first time they're used." />
+            <EmptyNotice text={t("settings.computerUse.noApps")} />
           ) : (
-            <Table aria-label="App access">
+            <Table aria-label={t("settings.key.computerUse.apps")}>
               <TableHeader>
                 <TableRow>
-                  <TableHead scope="col">App</TableHead>
-                  {TIERS.map((t) => (
-                    <TableHead key={t.value} scope="col" className="text-center">
-                      {t.label}
+                  <TableHead scope="col">{t("settings.computerUse.app")}</TableHead>
+                  {TIERS.map((x) => (
+                    <TableHead key={x.value} scope="col" className="text-center">
+                      {x.label}
                     </TableHead>
                   ))}
                 </TableRow>
@@ -216,7 +239,7 @@ export function ComputerUsePanel({
                     key={a.id}
                     label={a.name}
                     header={
-                      <th scope="row" className="p-2 text-left font-normal">
+                      <th scope="row" className="p-2 text-start font-normal">
                         {a.name}
                       </th>
                     }
@@ -228,14 +251,16 @@ export function ComputerUsePanel({
                 ))}
                 {LOCKED_APPS.map((a) => (
                   <TableRow key={a.id} data-locked="true">
-                    <th scope="row" className="p-2 text-left font-normal">
+                    <th scope="row" className="p-2 text-start font-normal">
                       <span className="flex items-center gap-1.5">
                         <Lock className="size-3.5 text-gray-11" aria-hidden="true" />
                         {a.name}
                       </span>
                     </th>
                     <TableCell colSpan={TIERS.length} className="whitespace-normal">
-                      <span className="font-medium">{a.locked ? CAP_LABEL[a.locked.cap] : ""}</span>{" "}
+                      <span className="font-medium">
+                        {a.locked ? t(`settings.computerUse.cap.${a.locked.cap}`) : ""}
+                      </span>{" "}
                       <span className="text-xs text-muted-foreground">{a.locked?.reason}</span>
                     </TableCell>
                   </TableRow>

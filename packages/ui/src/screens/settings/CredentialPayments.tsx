@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table.tsx";
+import { activeI18n, t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { EmptyNotice, Group, LoadGate, type LoadProps } from "./shared.tsx";
 
@@ -27,17 +28,19 @@ export interface PaymentsView extends LoadProps {
   payments: readonly VaultPayment[];
 }
 
+/** Card networks: product names, the same in every language. */
 const BRAND: Record<string, string> = {
   visa: "Visa",
   mastercard: "Mastercard",
   amex: "American Express",
   discover: "Discover",
-  bank_account: "Bank account",
-  link_balance: "Link balance",
 };
 
 export function brandLabel(brand: string): string {
-  return BRAND[brand.toLowerCase()] ?? brand;
+  const key = brand.toLowerCase();
+  if (key === "bank_account") return t("settings.credentials.payments.bankAccount");
+  if (key === "link_balance") return t("settings.credentials.payments.linkBalance");
+  return BRAND[key] ?? brand;
 }
 
 /** `Visa •••• 1881`; a Link balance has no last4. */
@@ -50,38 +53,38 @@ export function maskedCard(card: { brand: string; last4: string }): string {
 export function formatMinor(amount: number, currency: string): string {
   const code = currency.toUpperCase();
   try {
-    const f = new Intl.NumberFormat("en-US", { style: "currency", currency: code });
+    const f = new Intl.NumberFormat(activeI18n().locale, { style: "currency", currency: code });
     return f.format(amount / 10 ** (f.resolvedOptions().maximumFractionDigits ?? 2));
   } catch {
-    return `${(amount / 100).toFixed(2)} ${code}`;
+    const n = activeI18n().number(amount / 100, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return `${n} ${code}`;
   }
 }
 
-const STATE_LABEL: Record<VaultPayment["payment"]["state"], string> = {
-  none: "",
-  held: "held",
-  captured: "charged",
-  partially_refunded: "partly refunded",
-  refunded: "refunded",
-  declined: "declined",
-  released: "hold released",
-};
+const LINK_STATUSES = [
+  "created",
+  "pending_approval",
+  "approved",
+  "succeeded",
+  "failed",
+  "denied",
+  "expired",
+  "canceled",
+] as const;
 
-const STATUS_LABEL: Record<string, string> = {
-  created: "created",
-  pending_approval: "waiting for approval in Link",
-  approved: "approved",
-  succeeded: "paid",
-  failed: "failed",
-  denied: "denied in Link",
-  expired: "expired",
-  canceled: "canceled",
-};
+const isLinkStatus = (s: string): s is (typeof LINK_STATUSES)[number] =>
+  (LINK_STATUSES as readonly string[]).includes(s);
 
 /** The merchant's side when there is one (held, charged, refunded), else Link's status. */
 export function paymentStateLabel(p: VaultPayment): string {
-  if (p.payment.state !== "none") return STATE_LABEL[p.payment.state];
-  return STATUS_LABEL[p.status] ?? p.status.replaceAll("_", " ");
+  if (p.payment.state !== "none")
+    return t(`settings.credentials.payments.state.${p.payment.state}`);
+  return isLinkStatus(p.status)
+    ? t(`settings.credentials.payments.status.${p.status}`)
+    : p.status.replaceAll("_", " ");
 }
 
 type BadgeVariant = "muted" | "approval" | "success" | "danger" | "info";
@@ -113,7 +116,10 @@ function stateVariant(p: VaultPayment): BadgeVariant {
 function amountText(p: VaultPayment): string {
   const total = formatMinor(p.amount, p.currency);
   return p.payment.refunded > 0
-    ? `${total} · ${formatMinor(p.payment.refunded, p.currency)} refunded`
+    ? t("settings.credentials.payments.amountRefunded", {
+        total,
+        refunded: formatMinor(p.payment.refunded, p.currency),
+      })
     : total;
 }
 
@@ -134,24 +140,27 @@ export function PaymentsGroup({
 }): ReactElement {
   return (
     <Group
-      title="Payments"
-      description="Stripe Link pays with a one-time card after you approve each purchase on a device. Your card numbers never reach Psyche."
+      title={t("settings.credentials.payments.title")}
+      description={t("settings.credentials.payments.description")}
     >
       <LoadGate
-        label="payments"
+        label={t("settings.credentials.payments.loadLabel")}
         loading={view.loading ?? false}
         error={view.error ?? null}
         rows={2}
         {...(view.onRetry ? { onRetry: view.onRetry } : {})}
       >
         {!view.configured ? (
-          <EmptyNotice text="Stripe Link is not set up. Install the Link CLI on the Gateway's machine, sign in to Link, and set PSYCHE_LINK_CLI; Psyche then shows your payment methods here." />
+          <EmptyNotice text={t("settings.credentials.payments.notConfigured")} />
         ) : (
           <>
             {view.methods.length === 0 ? (
-              <EmptyNotice text="Your Link wallet has no payment methods. Add one in the Link app." />
+              <EmptyNotice text={t("settings.credentials.payments.noMethods")} />
             ) : (
-              <ul aria-label="Link payment methods" className="flex flex-wrap gap-2">
+              <ul
+                aria-label={t("settings.credentials.payments.methods")}
+                className="flex flex-wrap gap-2"
+              >
                 {view.methods.map((m) => (
                   <li
                     key={m.id}
@@ -162,25 +171,27 @@ export function PaymentsGroup({
                     {m.nickname ? (
                       <span className="text-xs text-muted-foreground">{m.nickname}</span>
                     ) : null}
-                    {m.isDefault ? <Badge variant="muted">default</Badge> : null}
+                    {m.isDefault ? (
+                      <Badge variant="muted">{t("settings.credentials.payments.default")}</Badge>
+                    ) : null}
                   </li>
                 ))}
               </ul>
             )}
             {view.payments.length === 0 ? (
-              <EmptyNotice text="No purchases yet." />
+              <EmptyNotice text={t("settings.credentials.payments.none")} />
             ) : (
-              <Table aria-label="Recent payments">
+              <Table aria-label={t("settings.credentials.payments.recent")}>
                 <TableHeader>
                   <TableRow>
-                    <TableHead scope="col">Merchant</TableHead>
-                    <TableHead scope="col">Amount</TableHead>
-                    <TableHead scope="col">Paid with</TableHead>
-                    <TableHead scope="col">State</TableHead>
-                    <TableHead scope="col">When</TableHead>
+                    <TableHead scope="col">{t("settings.credentials.payments.merchant")}</TableHead>
+                    <TableHead scope="col">{t("settings.credentials.payments.amount")}</TableHead>
+                    <TableHead scope="col">{t("settings.credentials.payments.paidWith")}</TableHead>
+                    <TableHead scope="col">{t("settings.credentials.payments.state")}</TableHead>
+                    <TableHead scope="col">{t("settings.credentials.detail.when")}</TableHead>
                     {onOpenTask ? (
                       <TableHead scope="col">
-                        <span className="sr-only">Task</span>
+                        <span className="sr-only">{t("settings.credentials.detail.task")}</span>
                       </TableHead>
                     ) : null}
                   </TableRow>
@@ -199,13 +210,16 @@ export function PaymentsGroup({
                           </span>
                         </TableCell>
                         <TableCell className="tabular-nums">{amountText(p)}</TableCell>
-                        <TableCell>{source ? maskedCard(source) : "Stripe Link"}</TableCell>
+                        <TableCell>
+                          {/* i18n-ignore: product name */}
+                          {source ? maskedCard(source) : "Stripe Link"}
+                        </TableCell>
                         <TableCell>
                           <Badge variant={stateVariant(p)}>{paymentStateLabel(p)}</Badge>
                         </TableCell>
                         <TableCell>{formatRelative(p.createdAt, now)}</TableCell>
                         {onOpenTask ? (
-                          <TableCell className="text-right">
+                          <TableCell className="text-end">
                             {p.taskId ? (
                               <Button
                                 type="button"
@@ -213,7 +227,7 @@ export function PaymentsGroup({
                                 size="sm"
                                 onClick={() => onOpenTask(p.taskId as string)}
                               >
-                                Open task
+                                {t("settings.credentials.detail.openTask")}
                               </Button>
                             ) : null}
                           </TableCell>

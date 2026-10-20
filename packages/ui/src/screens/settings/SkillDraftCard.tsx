@@ -5,6 +5,7 @@ import { type ReactElement, useEffect, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { Textarea } from "../../components/ui/textarea.tsx";
+import { t } from "../../i18n/core.ts";
 import { ErrorNotice, Group, messageOf, StatusChip } from "./shared.tsx";
 
 /**
@@ -14,13 +15,8 @@ import { ErrorNotice, Group, messageOf, StatusChip } from "./shared.tsx";
  * again. Nothing is installed from here directly.
  */
 
-const EFFECT: Record<SkillDraft["steps"][number]["sideEffect"], string> = {
-  none: "no side effect",
-  read: "reads",
-  write: "changes something",
-  destructive: "deletes or overwrites",
-  financial: "spends money",
-};
+const effectLabel = (e: SkillDraft["steps"][number]["sideEffect"]): string =>
+  t(`settings.skills.draft.effect.${e}`);
 
 const show = (s: string, max = 300) => sanitizeDisplay(s, max);
 
@@ -57,31 +53,38 @@ export function SkillDraftCard({
         <span id={id} className="font-medium">
           {name}
         </span>
-        <StatusChip tone="accent">Seen {draft.occurrences} times</StatusChip>
-        {draft.edited ? <StatusChip tone="neutral">Edited</StatusChip> : null}
+        <StatusChip tone="accent">
+          {t("settings.skills.draft.seen", { n: draft.occurrences })}
+        </StatusChip>
+        {draft.edited ? (
+          <StatusChip tone="neutral">{t("settings.skills.draft.edited")}</StatusChip>
+        ) : null}
         {draft.tainted ? (
-          <StatusChip tone="approval">Built after reading outside content</StatusChip>
+          <StatusChip tone="approval">{t("settings.skills.draft.tainted")}</StatusChip>
         ) : null}
       </div>
       <p className="text-muted-foreground">{show(draft.description, 400)}</p>
-      <ol className="ml-5 list-decimal text-xs">
+      <ol className="ms-5 list-decimal text-xs">
         {draft.steps.map((s, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: steps repeat tools; order is the identity
           <li key={`${s.tool}:${i}`}>
-            <code>{show(s.tool, 80)}</code> ({EFFECT[s.sideEffect]}) · {show(s.summary, 200)}
+            <code>{show(s.tool, 80)}</code>{" "}
+            {t("settings.skills.draft.step", {
+              effect: effectLabel(s.sideEffect),
+              summary: show(s.summary, 200),
+            })}
           </li>
         ))}
       </ol>
       <p className="text-xs text-muted-foreground">
-        {draft.redactions > 0
-          ? `${persona} removed ${draft.redactions} personal or secret ${draft.redactions === 1 ? "value" : "values"} from your words. `
-          : ""}
-        Only tool names and input names were kept from the conversation.
+        {t("settings.skills.draft.redacted", { persona, n: draft.redactions })}
       </p>
       {draft.replay !== undefined && !draft.replay.ok ? (
         <ErrorNotice
-          what={`It does not replay: ${draft.replay.problems.map((p) => show(p)).join("; ")}.`}
-          did="Edit it or dismiss it."
+          what={t("settings.skills.draft.noReplay", {
+            problems: draft.replay.problems.map((p) => show(p)).join("; "),
+          })}
+          did={t("settings.skills.draft.editOrDismiss")}
         />
       ) : null}
       {editing ? (
@@ -92,10 +95,12 @@ export function SkillDraftCard({
             setSaveError(null);
             onSave?.(text).then(
               () => setEditing(false),
-              (err: unknown) => setSaveError(`Psyche couldn't save it (${messageOf(err)}).`),
+              (err: unknown) =>
+                setSaveError(t("settings.skills.draft.saveFailed", { reason: messageOf(err) })),
             );
           }}
         >
+          {/* i18n-ignore: the skill's file name */}
           <Label htmlFor={`${id}-text`}>SKILL.md</Label>
           <Textarea
             id={`${id}-text`}
@@ -107,7 +112,7 @@ export function SkillDraftCard({
           {saveError ? <ErrorNotice what={saveError} /> : null}
           <div className="flex gap-2">
             <Button type="submit" size="sm" disabled={busy}>
-              Save
+              {t("common.save")}
             </Button>
             <Button
               type="button"
@@ -118,12 +123,13 @@ export function SkillDraftCard({
                 setEditing(false);
               }}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
           </div>
         </form>
       ) : (
         <details>
+          {/* i18n-ignore: the skill's file name */}
           <summary className="cursor-pointer text-xs font-medium">SKILL.md</summary>
           <pre className="mt-2 max-h-56 overflow-auto rounded-md bg-gray-3 p-3 text-xs whitespace-pre-wrap">
             {sanitizeBlock(draft.text)}
@@ -134,12 +140,12 @@ export function SkillDraftCard({
         <div className="flex flex-wrap gap-2">
           {onAccept ? (
             <Button type="button" size="sm" disabled={busy} onClick={onAccept}>
-              Review and install
+              {t("settings.skills.draft.review")}
             </Button>
           ) : null}
           {onSave ? (
             <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)}>
-              Edit
+              {t("common.edit")}
             </Button>
           ) : null}
           {onDismiss ? (
@@ -148,9 +154,9 @@ export function SkillDraftCard({
               variant="ghost"
               size="sm"
               onClick={onDismiss}
-              aria-label={`Dismiss ${name}`}
+              aria-label={t("settings.skills.draft.dismissNamed", { name })}
             >
-              Dismiss
+              {t("common.dismiss")}
             </Button>
           ) : null}
         </div>
@@ -179,8 +185,8 @@ export function SkillSuggestions({
   if (drafts.length === 0) return null;
   return (
     <Group
-      title={`Suggested by ${persona}`}
-      description={`Routines ${persona} saw you repeat. Nothing is installed until you review it and approve.`}
+      title={t("settings.skills.draft.suggestedBy", { persona })}
+      description={t("settings.skills.draft.suggestedHint", { persona })}
       actions={<Lightbulb className="size-4 text-accent-11" aria-hidden="true" />}
     >
       <ul className="flex flex-col divide-y divide-gray-6">

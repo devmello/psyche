@@ -5,7 +5,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
-import { plural } from "../../lib/format.ts";
+import { t } from "../../i18n/core.ts";
 import { usePersona } from "../../slots.tsx";
 import {
   bool,
@@ -24,6 +24,7 @@ import {
 
 /** Data controls (UI design §3.18). There is no training toggle: nothing is sent anywhere. */
 
+/** The word typed to confirm a memory reset (compared as typed, so it stays one fixed word). */
 export const RESET_WORD = "reset";
 
 export type ExportFile = MethodResult<"memory.export">;
@@ -69,11 +70,11 @@ export function DataControlsPanel({
   return (
     <SectionFrame
       needsApproval={needsApproval}
-      title="Data controls"
-      description={`Everything ${persona} keeps lives on this machine. There is no training toggle because nothing is sent for training.`}
+      title={t("settings.data.title")}
+      description={t("settings.data.description", { persona })}
     >
       <LoadGate
-        label="data controls"
+        label={t("settings.data.loadLabel")}
         loading={loading ?? false}
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
@@ -87,39 +88,36 @@ export function DataControlsPanel({
             </p>
           )
         ) : null}
-        <Group title="Memory">
+        <Group title={t("settings.data.memory")}>
           <SwitchField
-            label="Pause memory"
-            description={`While paused, ${persona} doesn't remember, flush or index anything from chats.`}
+            label={t("settings.data.pauseMemory")}
+            description={t("settings.data.pauseMemoryHint", { persona })}
             checked={memoryPaused}
             onChange={(v) => onPauseMemory?.(v)}
             disabled={onPauseMemory === undefined || busy}
           />
           <SwitchField
-            label="Transcript recall"
-            description="Lets the agent search old chat transcripts, not only memory files."
+            label={t("settings.key.data.transcriptRecall")}
+            description={t("settings.data.transcriptRecallHint")}
             checked={bool(values, "data.transcriptRecall", true)}
             settingKey="data.transcriptRecall"
             onChange={(v) => onChange("data.transcriptRecall", v)}
           />
           <RadioField
-            label="Keep task replays for"
+            label={t("settings.key.data.replayRetentionDays")}
             inline
             value={retention}
             settingKey="data.replayRetentionDays"
             onChange={(v) => onChange("data.replayRetentionDays", Number(v))}
             options={[
-              { value: "7", label: "7 days" },
-              { value: "30", label: "30 days" },
-              { value: "90", label: "90 days" },
+              { value: "7", label: t("settings.data.days", { n: 7 }) },
+              { value: "30", label: t("settings.data.days", { n: 30 }) },
+              { value: "90", label: t("settings.data.days", { n: 90 }) },
             ]}
           />
         </Group>
 
-        <Group
-          title="Export"
-          description="A zip of the workspace (SOUL.md, memory, notes) and every claim."
-        >
+        <Group title={t("settings.data.export")} description={t("settings.data.exportHint")}>
           <div>
             <Button
               type="button"
@@ -128,21 +126,18 @@ export function DataControlsPanel({
               onClick={onExport}
               disabled={!onExport || busy}
             >
-              <Download aria-hidden="true" /> Export everything
+              <Download aria-hidden="true" /> {t("settings.data.exportEverything")}
             </Button>
           </div>
         </Group>
 
         <Group
-          title="Delete threads"
-          description={`Deleting a chat doesn't delete what ${persona} learned from it. To forget that too, reset memory below.`}
+          title={t("settings.data.deleteThreads")}
+          description={t("settings.data.deleteThreadsHint", { persona })}
         >
           {confirmDelete ? (
             <div className="flex flex-wrap items-center gap-2">
-              <p>
-                Delete {plural(archivedThreads, "archived thread")}? Receipts and the audit log
-                stay.
-              </p>
+              <p>{t("settings.data.confirmDelete", { n: archivedThreads })}</p>
               <Button
                 type="button"
                 variant="destructive"
@@ -153,7 +148,7 @@ export function DataControlsPanel({
                   onDeleteArchived?.();
                 }}
               >
-                Delete
+                {t("common.delete")}
               </Button>
               <Button
                 type="button"
@@ -161,7 +156,7 @@ export function DataControlsPanel({
                 size="sm"
                 onClick={() => setConfirmDelete(false)}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
             </div>
           ) : (
@@ -174,23 +169,21 @@ export function DataControlsPanel({
                 onClick={() => setConfirmDelete(true)}
               >
                 <Trash2 aria-hidden="true" />
-                {archivedThreads === 0
-                  ? "No archived threads"
-                  : `Delete ${plural(archivedThreads, "archived thread")}`}
+                {t("settings.data.deleteArchived", { n: archivedThreads })}
               </Button>
             </div>
           )}
         </Group>
 
         <Group
-          title="Reset"
-          description={`Deletes every memory file, index and claim and starts ${persona} fresh. Chats stay.`}
+          title={t("settings.data.reset")}
+          description={t("settings.data.resetHint", { persona })}
           className="border-danger/40"
         >
           {resetting ? (
             <div className="flex flex-col gap-2">
               <Label htmlFor={`${id}-confirm`}>
-                Type “{RESET_WORD}” to confirm. This can't be undone.
+                {t("settings.data.typeToConfirm", { word: RESET_WORD })}
               </Label>
               <Input
                 id={`${id}-confirm`}
@@ -211,7 +204,7 @@ export function DataControlsPanel({
                     onReset?.();
                   }}
                 >
-                  Reset memory
+                  {t("settings.data.resetMemory")}
                 </Button>
                 <Button
                   type="button"
@@ -222,7 +215,7 @@ export function DataControlsPanel({
                     setTyped("");
                   }}
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </div>
             </div>
@@ -235,7 +228,7 @@ export function DataControlsPanel({
                 disabled={!onReset}
                 onClick={() => setResetting(true)}
               >
-                Reset memory…
+                {t("settings.data.resetMemoryEllipsis")}
               </Button>
             </div>
           )}
@@ -262,13 +255,17 @@ export function DataControlsSection({ onExportReady }: DataControlsSectionProps)
     (t) => t.thread.archivedAt !== null && t.thread.archivedAt !== undefined,
   );
 
-  const act = async (fn: () => Promise<string>, failed: string) => {
+  type Action = "pause" | "export" | "delete" | "reset";
+  const act = async (fn: () => Promise<string>, action: Action) => {
     setBusy(true);
     setNotice(null);
     try {
       setNotice({ kind: "ok", text: await fn() });
     } catch (err) {
-      setNotice({ kind: "error", text: `${failed} (${messageOf(err)}). Nothing was changed.` });
+      setNotice({
+        kind: "error",
+        text: t("settings.data.failed", { action, reason: messageOf(err) }),
+      });
     } finally {
       setBusy(false);
     }
@@ -291,29 +288,29 @@ export function DataControlsSection({ onExportReady }: DataControlsSectionProps)
         void act(async () => {
           await call("memory.pause", { paused });
           status.reload();
-          return paused ? "Memory paused." : "Memory resumed.";
-        }, "Psyche couldn't change memory")
+          return paused ? t("settings.data.paused") : t("settings.data.resumed");
+        }, "pause")
       }
       onExport={() =>
         void act(async () => {
           const file = await call("memory.export", {});
           onExportReady?.(file);
-          return `Export ready: ${file.filename}.`;
-        }, "Psyche couldn't export")
+          return t("settings.data.exportReady", { filename: file.filename });
+        }, "export")
       }
       onDeleteArchived={() =>
         void act(async () => {
           for (const t of archived) await call("threads.delete", { threadId: t.thread.id });
           threads.reload();
-          return `Deleted ${plural(archived.length, "archived thread")}.`;
-        }, "Psyche couldn't delete the threads")
+          return t("settings.data.deleted", { n: archived.length });
+        }, "delete")
       }
       onReset={() =>
         void act(async () => {
           const r = await call("memory.reset", {});
           status.reload();
-          return `Memory reset: ${plural(r.files.length, "file")} and ${plural(r.claims, "claim")} removed.`;
-        }, "Psyche couldn't reset memory")
+          return t("settings.data.resetDone", { files: r.files.length, claims: r.claims });
+        }, "reset")
       }
     />
   );

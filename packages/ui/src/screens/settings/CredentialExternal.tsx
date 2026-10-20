@@ -4,7 +4,8 @@ import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
-import { KIND_LABEL } from "./credential-labels.ts";
+import { t } from "../../i18n/core.ts";
+import { credentialKindLabel } from "./credential-labels.ts";
 import { hasCode, messageOf } from "./shared.tsx";
 
 /**
@@ -16,6 +17,7 @@ import { hasCode, messageOf } from "./shared.tsx";
 export type LinkableKind = "login" | "api_key" | "ssh_key" | "note";
 export type ExternalSource = "1password" | "bitwarden";
 
+/** Product names: the same in every language. */
 export const EXTERNAL_NAME: Record<ExternalSource, string> = {
   "1password": "1Password",
   bitwarden: "Bitwarden",
@@ -27,14 +29,6 @@ export type ExternalLink = {
   bindings: CredentialBinding[];
 } & ({ source: "1password"; ref: OnePasswordRef } | { source: "bitwarden"; ref: BitwardenRef });
 
-/** What the Gateway needs before it can read the manager (`unavailable`), in plain words. */
-const SET_UP: Record<ExternalSource, string> = {
-  "1password":
-    "1Password is not set up on the Gateway. Give it a 1Password service account (the op CLI) or a Connect server, then link the item again.",
-  bitwarden:
-    "Bitwarden is not set up on the Gateway. Install the bw CLI there, set credentials.bitwarden, and store a session key from bw unlock in the vault, then link the item again.",
-};
-
 const LINKABLE: readonly LinkableKind[] = ["login", "api_key", "ssh_key", "note"];
 
 /** Plain words for a failed `vault.linkExternal`. */
@@ -45,19 +39,18 @@ export function linkExternalError(
 ): string {
   const reason = (err as { details?: { reason?: unknown } }).details?.reason;
   if (hasCode(err, "unavailable") && reason === "locked") {
-    return `The vault is locked. Unlock it with Touch ID, then link ${name} again.`;
+    return t("settings.credentials.link.err.locked", { name });
   }
-  if (hasCode(err, "unavailable")) return SET_UP[source];
-  if (hasCode(err, "forbidden")) return "Only a device paired as admin can link vault items.";
+  // What the Gateway needs before it can read the manager (`unavailable`), in plain words.
+  if (hasCode(err, "unavailable")) return t(`settings.credentials.link.err.setUp.${source}`);
+  if (hasCode(err, "forbidden")) return t("settings.credentials.link.err.adminOnly");
   if (hasCode(err, "policy_denied")) {
-    return "Psyche refused this item because its name looks like a card, bank or ID number.";
+    return t("settings.credentials.link.err.policy");
   }
   if (hasCode(err, "invalid_params")) {
-    return source === "1password"
-      ? "Psyche couldn't use that reference. Check the 1Password vault and item names."
-      : "Psyche couldn't use that reference. Use the Bitwarden item's id, or a name no other item has.";
+    return t(`settings.credentials.link.err.badRef.${source}`);
   }
-  return `Psyche couldn't link ${name} (${messageOf(err)}).`;
+  return t("settings.credentials.link.err.other", { name, reason: messageOf(err) });
 }
 
 export function LinkExternalForm({
@@ -93,8 +86,8 @@ export function LinkExternalForm({
       if (b === null) {
         setError(
           kind === "ssh_key"
-            ? "Enter a host such as build.example.com."
-            : "Enter a site such as github.com.",
+            ? t("settings.credentials.link.hostError")
+            : t("settings.credentials.siteError"),
         );
         return;
       }
@@ -122,18 +115,15 @@ export function LinkExternalForm({
   return (
     <form
       onSubmit={submit}
-      aria-label={`Link a ${manager} item`}
+      aria-label={t("settings.credentials.link.form", { manager })}
       className="flex flex-col gap-3 rounded-md border border-gray-6 bg-background p-3"
     >
       <p className="text-xs text-muted-foreground">
-        {op
-          ? "Psyche keeps only the vault and item names."
-          : "Psyche keeps only the item's id or name. Cards and identities are never read."}{" "}
-        It reads one field from {manager} when you approve a fill, and never writes back.
+        {t("settings.credentials.link.explainer", { op, manager })}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${id}-kind`}>Kind</Label>
+          <Label htmlFor={`${id}-kind`}>{t("settings.credentials.col.kind")}</Label>
           <NativeSelect
             id={`${id}-kind`}
             className="min-w-48"
@@ -142,21 +132,21 @@ export function LinkExternalForm({
           >
             {LINKABLE.map((k) => (
               <option key={k} value={k}>
-                {KIND_LABEL[k]}
+                {credentialKindLabel(k)}
               </option>
             ))}
           </NativeSelect>
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${id}-name`}>Name</Label>
+          <Label htmlFor={`${id}-name`}>{t("settings.credentials.col.name")}</Label>
           <Input id={`${id}-name`} value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         {op ? (
           <div className="flex flex-col gap-1">
-            <Label htmlFor={`${id}-vault`}>1Password vault</Label>
+            <Label htmlFor={`${id}-vault`}>{t("settings.credentials.link.opVault")}</Label>
             <Input
               id={`${id}-vault`}
-              placeholder="Private"
+              placeholder={t("settings.credentials.link.opVaultPlaceholder")}
               autoComplete="off"
               value={vault}
               onChange={(e) => setVault(e.target.value)}
@@ -165,11 +155,15 @@ export function LinkExternalForm({
         ) : null}
         <div className="flex flex-col gap-1">
           <Label htmlFor={`${id}-item`}>
-            {op ? "1Password item" : "Bitwarden item id or name"}
+            {op ? t("settings.credentials.link.opItem") : t("settings.credentials.link.bwItem")}
           </Label>
           <Input
             id={`${id}-item`}
-            placeholder={op ? "GitHub" : "GitHub, or the item's id"}
+            placeholder={
+              op
+                ? t("settings.credentials.link.opItemPlaceholder")
+                : t("settings.credentials.link.bwItemPlaceholder")
+            }
             autoComplete="off"
             value={item}
             onChange={(e) => setItem(e.target.value)}
@@ -177,11 +171,17 @@ export function LinkExternalForm({
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor={`${id}-site`}>
-            {kind === "ssh_key" ? "Only for this host" : "Only for this site"}
+            {kind === "ssh_key"
+              ? t("settings.credentials.link.onlyForHost")
+              : t("settings.credentials.onlyForSite")}
           </Label>
           <Input
             id={`${id}-site`}
-            placeholder={kind === "ssh_key" ? "build.example.com" : "github.com"}
+            placeholder={
+              kind === "ssh_key"
+                ? t("settings.credentials.hostPlaceholder")
+                : t("settings.credentials.sitePlaceholder")
+            }
             value={site}
             onChange={(e) => setSite(e.target.value)}
           />
@@ -194,10 +194,10 @@ export function LinkExternalForm({
       ) : null}
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={!ready}>
-          Link item
+          {t("settings.credentials.link.submit")}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       </div>
     </form>
