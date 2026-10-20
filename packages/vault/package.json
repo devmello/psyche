@@ -1,6 +1,6 @@
 {
   "name": "@psyche/vault",
-  "version": "0.0.0",
+  "version": "0.3.0-alpha.0",
   "private": true,
   "description": "SQLCipher vault, key wrapping, {{cred:slug}} placeholders, fill protocol.",
   "license": "Apache-2.0",

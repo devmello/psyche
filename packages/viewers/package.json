@@ -1,6 +1,6 @@
 {
   "name": "@psyche/viewers",
-  "version": "0.0.0",
+  "version": "0.3.0-alpha.0",
   "private": true,
   "description": "PDF, sheets, DOCX, code, Markdown editor, artifact frame, extraction, generators.",
   "license": "Apache-2.0",
