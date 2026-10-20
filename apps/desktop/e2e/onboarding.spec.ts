@@ -108,7 +108,8 @@ const STEPS = [
   "Done",
 ];
 
-test("every step is a centered column with gutters at the default window size", async (_fixtures, info) => {
+test("every step is a centered column with gutters at the default window size", async () => {
+  const info = test.info();
   await setWindowSize(1440, 900);
   for (const [i, label] of STEPS.entries()) {
     await expect(page.getByRole("heading", { level: 2, name: new RegExp(label) })).toBeVisible();
@@ -122,7 +123,8 @@ test("every step is a centered column with gutters at the default window size", 
   await expect(page.getByRole("heading", { level: 2, name: /Meet your agent/ })).toBeVisible();
 });
 
-test("the preview card sits beside the form at desktop width and below it at a phone width", async (_fixtures, info) => {
+test("the preview card sits beside the form at desktop width and below it at a phone width", async () => {
+  const info = test.info();
   const form = await box("onboarding-form");
   const preview = await box("onboarding-preview");
   const flow = await box("onboarding-flow");
