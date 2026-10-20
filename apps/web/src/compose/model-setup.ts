@@ -93,6 +93,20 @@ export async function verifySetup(
           detail: "Not reachable right now; this window reconnects on its own.",
         },
   );
+  // Desktop: the first-admin bootstrap (main process) makes this Mac the admin device.
+  if (platform.gateway.deviceId !== undefined && status.phase === "paired") {
+    checks.push(
+      status.scopes?.includes("operator.admin")
+        ? { id: "admin", label: "Admin", state: "ok", detail: "This Mac is the admin device." }
+        : {
+            id: "admin",
+            label: "Admin",
+            state: "warn",
+            detail:
+              "This window has no admin rights, so it cannot store keys or pick the model. Another admin device can grant them in Settings → Devices.",
+          },
+    );
+  }
   if (helper !== undefined && helper.kind !== "unbundled") {
     checks.push(
       helper.kind === "paired"
