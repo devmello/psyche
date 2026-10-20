@@ -47,6 +47,8 @@ public enum VMCapabilities {
                     "name": nameSchema, "cpus": Schema.integer(min: VMConfig.minCPUs, max: 32), "memoryGB": Schema.integer(min: VMConfig.minMemoryGB, max: 256),
                     "diskGB": Schema.integer(min: VMConfig.minDiskGB, max: 2048), "ipsw": Schema.string("Absolute path to a local IPSW"),
                     "download": Schema.boolean("Confirm downloading the latest restore image"), "username": Schema.string(maxLength: 32),
+                    "image": Schema.string("L7: absolute path to a prebuilt guest image (directory or .aar) instead of an IPSW"),
+                    "imageSha256": Schema.string("Expected SHA-256 of the image's manifest.json, from the publisher", maxLength: 64),
                 ]),
                 streaming: true, receiptKind: "vm"
             )) { ctx in
@@ -83,6 +85,21 @@ public enum VMCapabilities {
                 let p = try ctx.decode(NameParams.self)
                 let out = try await vm.delete(name: p.name ?? "sandbox")
                 return CapabilityOutput(out, receipt: ReceiptDraft(outcome: .ok, summary: "Deleted the sandbox Mac"))
+            },
+
+            // L7 prebuilt images.
+            Capability(CapabilitySpec(
+                name: "vm.export_image",
+                description: "Export the stopped, provisioned sandbox Mac as a prebuilt guest image in outDir/<id>/ (disk, auxiliary storage, hardware model, bootstrap credentials and a SHA-256 manifest). Never its machine identity. The image holds the guest password: share it only with people you trust.",
+                sideEffect: .write, targetKind: .path,
+                inputSchema: Schema.object([
+                    "name": nameSchema, "outDir": Schema.string("Absolute host folder"), "id": Schema.string(maxLength: 64),
+                ], required: ["outDir"]),
+                streaming: true, receiptKind: "vm"
+            )) { ctx in
+                let p = try ctx.decode(VMManager.ExportImageParams.self)
+                let out = try await vm.exportImage(p, emit: ctx.emit)
+                return CapabilityOutput(out, receipt: ReceiptDraft(outcome: .ok, summary: "Exported the sandbox Mac as a guest image"))
             },
 
             // L6 snapshots and resets.

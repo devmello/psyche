@@ -27,7 +27,18 @@ final class FakeVMBackend: VMBackend, @unchecked Sendable {
         FileManager.default.createFile(atPath: file.path, contents: Data("ipsw".utf8))
         progress(1)
     }
-    func prepareBundle(_ bundle: VMBundle, config: VMConfig, image: URL) async throws { record("prepare") }
+    func prepareBundle(_ bundle: VMBundle, config: VMConfig, image: URL) async throws {
+        record("prepare")
+        // Stand-ins for the files VZ writes, so snapshots and image export have something to copy.
+        try Data("hw".utf8).write(to: bundle.hardwareModelURL)
+        try Data("machine".utf8).write(to: bundle.machineIdentifierURL)
+        try Data("aux".utf8).write(to: bundle.auxiliaryStorageURL)
+        try Data("disk".utf8).write(to: bundle.diskURL(format: config.diskFormat))
+    }
+    func prepareImported(_ bundle: VMBundle, config: VMConfig) async throws {
+        record("prepareImported")
+        try Data(UUID().uuidString.utf8).write(to: bundle.machineIdentifierURL)
+    }
     func install(_ bundle: VMBundle, config: VMConfig, image: URL, progress: @escaping @Sendable (Double) -> Void) async throws {
         record("install")
         if installFails { throw CapabilityError(.unavailable, reason: "vz_error", "boom") }
@@ -270,7 +281,7 @@ struct VMManagerTests {
         #expect(Set(specs.keys) == [
             "vm.status", "vm.restore_image", "vm.create", "vm.start", "vm.stop", "vm.delete", "vm.share_add", "vm.share_remove", "vm.pause",
             "vm.resume", "vm.suspend", "vm.configure", "vm.display", "vm.agent_status", "vm.copy_in", "vm.copy_out", "vm.install_psyche",
-            "vm.grant_permissions", "vm.watch", "vm.snapshot", "vm.restore", "vm.reset", "vm.snapshot_delete",
+            "vm.grant_permissions", "vm.watch", "vm.snapshot", "vm.restore", "vm.reset", "vm.snapshot_delete", "vm.export_image",
         ])
         #expect(specs["vm.reset"]?.sideEffect == .destructive && specs["vm.restore"]?.sideEffect == .destructive)
         #expect(specs["vm.snapshot"]?.sideEffect == .write && specs["vm.snapshot_delete"]?.sideEffect == .destructive)
