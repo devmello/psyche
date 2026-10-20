@@ -79,8 +79,10 @@ describe("SettingsScreen", () => {
     const { navigate } = setup({ defaultSection: "appearance" });
     const nav = screen.getByRole("navigation", { name: "Settings sections" });
     const items = within(nav).getAllByRole("button");
-    // 15 sections of UI design §2.6 plus Browser (real-Chrome mode, I13), after Computer use.
-    expect(items).toHaveLength(16);
+    // 15 sections of UI design §2.6 plus Browser (real-Chrome mode, I13), after Computer use,
+    // and Skills (T2), after Connectors.
+    expect(items).toHaveLength(17);
+    expect(items.map((b) => b.textContent?.trim())).toContain("Skills");
     expect(items.map((b) => b.textContent?.trim())).toContain("Browser");
     expect(
       within(nav).getByRole("button", { name: "Appearance" }).getAttribute("aria-current"),

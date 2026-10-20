@@ -33,6 +33,8 @@ import {
   type Run,
   requiresIdempotencyKey,
   type SearchHit,
+  type SkillDetails,
+  type SkillProposal,
   type Task,
   type TaskAction,
   type ThreadListEntry,
@@ -42,6 +44,7 @@ import {
   validateResult,
 } from "@psyche/protocol";
 import type { MockFileNode } from "../fixtures/files.ts";
+import type { MockSkillSource } from "../fixtures/skills.ts";
 import type { ConnectionState, GatewayClient, GatewayEvent, RequestOptions } from "./client.ts";
 import { toBase64 } from "./files.ts";
 
@@ -86,6 +89,8 @@ export interface MockWorld {
   memoryFiles: Record<string, string>;
   memoryClaims: MemoryClaim[];
   searchHits: SearchHit[];
+  skills: SkillDetails[];
+  skillSources: Record<string, MockSkillSource>;
 }
 
 export const EMPTY_WORLD: MockWorld = {
@@ -121,6 +126,8 @@ export const EMPTY_WORLD: MockWorld = {
   memoryFiles: {},
   memoryClaims: [],
   searchHits: [],
+  skills: [],
+  skillSources: {},
 };
 
 export interface MockGatewayOptions {
@@ -172,6 +179,7 @@ export class MockGateway implements GatewayClient {
   private latency: number;
   private now: () => string;
   private counter = 0;
+  private skillProposals = new Map<string, SkillProposal>();
 
   constructor(world: Partial<MockWorld> = {}, options: MockGatewayOptions = {}) {
     this.world = structuredClone({ ...EMPTY_WORLD, ...world });
@@ -309,6 +317,66 @@ export class MockGateway implements GatewayClient {
     this.world.messages = [...this.world.messages.filter((m) => m.id !== message.id), message];
     this.emit("chat.message", { message });
     return message;
+  }
+
+  /** `skills.propose*`: stages a proposal and opens its device-only `skill_install` card. */
+  private stageSkill(src: MockSkillSource | undefined, missing: string) {
+    if (src === undefined) return fail("not_found", missing);
+    if ("violations" in src) {
+      throw new PsycheError(
+        "policy_denied",
+        `the skill asks for more than the policy allows: ${src.violations.join("; ")}`,
+        { details: { violations: src.violations } },
+      );
+    }
+    const now = this.now();
+    const proposal: SkillProposal = {
+      ...src.proposal,
+      id: this.id("skp"),
+      bindingHash: `sha256:${"b".repeat(64)}`,
+      grantKey: `sha256:${"c".repeat(64)}`,
+      expiresAt: Date.parse(now) + 30 * 60_000,
+    };
+    this.skillProposals.set(proposal.id, proposal);
+    const manifest = proposal.manifest ?? { tools: [], permissions: [], prompts: [] };
+    const approval = this.requestApproval({
+      id: this.id("apr"),
+      kind: "skill_install",
+      summary: `Install skill "${proposal.name}"`,
+      details: {
+        name: proposal.name,
+        scope: proposal.scope,
+        source: proposal.source,
+        hash: proposal.hash,
+        permissions: manifest.permissions,
+        tools: manifest.tools,
+        prompts: manifest.prompts,
+        trust: proposal.trust,
+        findings: {
+          high: proposal.findings.filter((f) => f.severity === "high").length,
+          warn: proposal.findings.filter((f) => f.severity === "warn").length,
+          info: proposal.findings.filter((f) => f.severity === "info").length,
+        },
+        files: proposal.files.map((f) => f.path),
+      },
+      bindingHash: proposal.bindingHash,
+      grantKey: proposal.grantKey,
+      requestedBy: { runId: null, taskId: null, threadId: null },
+      sideEffect: "destructive",
+      surfaces: ["desktop", "web"],
+      scopesOffered: ["once"],
+      deviceOnly: true,
+      requiresAuthentication: false,
+      taint: false,
+      status: "pending",
+      scopeGranted: null,
+      decidedBy: null,
+      requestedAt: now,
+      expiresAt: new Date(Date.parse(now) + 30 * 60_000).toISOString(),
+      decidedAt: null,
+      grantId: null,
+    });
+    return { proposal, approval };
   }
 
   /** Creates a pending approval, delivers it with this surface's token, and returns it. */
@@ -1005,6 +1073,123 @@ export class MockGateway implements GatewayClient {
     "connectors.list": () => ({ connectors: this.world.connectors }),
     "channels.list": () => ({ channels: this.world.channels }),
     "devices.list": () => ({ devices: this.world.devices }),
+    "skills.list": () => ({ skills: this.world.skills }),
+    "skills.commands": () => ({
+      commands: this.world.skills
+        .filter((x) => x.enabled && x.userInvocable)
+        .map((x) => ({
+          command: `/${x.name}`,
+          name: x.name,
+          description: x.description,
+          source: x.source,
+          trust: x.trust,
+        })),
+    }),
+    "skills.proposeInstall": (p) => {
+      const key = p.source.kind === "git" ? p.source.url : p.source.path;
+      return this.stageSkill(this.world.skillSources[key], `nothing to install at ${key}`);
+    },
+    "skills.proposeUpdate": (p) =>
+      this.stageSkill(this.world.skillSources[`update:${p.name}`], `${p.name} is up to date`),
+    "skills.getProposal": (p) => ({
+      proposal:
+        this.skillProposals.get(p.proposalId) ?? fail("not_found", "no such install proposal"),
+    }),
+    "skills.install": (p) => {
+      const proposal =
+        this.skillProposals.get(p.proposalId) ?? fail("not_found", "no such install proposal");
+      const approval = this.find(this.world.approvals, p.approvalId, "approval");
+      if (
+        approval.kind !== "skill_install" ||
+        approval.status !== "approved" ||
+        approval.bindingHash !== proposal.bindingHash
+      )
+        fail("approval_required", "installing a skill needs an approved skill_install");
+      this.skillProposals.delete(p.proposalId);
+      const blocked = proposal.findings.some((f) => f.severity === "high");
+      const details: SkillDetails = {
+        name: proposal.name,
+        description: /description: (.*)/.exec(proposal.text)?.[1] ?? proposal.name,
+        source: "home",
+        path: `~/.psyche/skills/${proposal.name}/SKILL.md`,
+        trust: proposal.trust,
+        userInvocable: true,
+        disableModelInvocation: false,
+        enabled: !blocked,
+        hash: proposal.hash,
+        status: blocked ? "blocked" : "active",
+        reasons: blocked ? ["the static scan has high-severity findings"] : [],
+        findings: proposal.findings,
+        userEnabled: true,
+        overrides: [],
+        ...(proposal.manifest === undefined ? {} : { manifest: proposal.manifest }),
+      };
+      this.world.skills = [
+        ...this.world.skills.filter((x) => !(x.name === details.name && x.source === "home")),
+        details,
+      ];
+      this.emit("skills.changed", {
+        type: "installed",
+        name: details.name,
+        hash: details.hash,
+        enabled: details.enabled,
+      });
+      const {
+        status: _s,
+        reasons: _r,
+        findings: _f,
+        userEnabled: _u,
+        overrides: _o,
+        manifest: _m,
+        ...summary
+      } = details;
+      return { skill: summary };
+    },
+    "skills.setEnabled": (p) => {
+      const current =
+        this.world.skills.find((x) => x.name === p.name) ?? fail("not_found", `no skill ${p.name}`);
+      if (p.enabled && current.findings.some((f) => f.severity === "high"))
+        fail(
+          "policy_denied",
+          `cannot enable ${p.name}: the static scan has high-severity findings`,
+        );
+      const skill: SkillDetails = {
+        ...current,
+        userEnabled: p.enabled,
+        enabled: p.enabled,
+        status: p.enabled ? "active" : "disabled",
+        reasons: p.enabled ? [] : ["disabled by the owner"],
+      };
+      this.world.skills = this.world.skills.map((x) => (x === current ? skill : x));
+      this.emit("skills.changed", { type: "reloaded", added: [], removed: [], changed: [p.name] });
+      return { skill };
+    },
+    "skills.remove": (p) => {
+      const current = this.world.skills.find((x) => x.name === p.name && x.source !== "bundled");
+      if (current === undefined) {
+        if (this.world.skills.some((x) => x.name === p.name))
+          fail("policy_denied", "bundled skills cannot be removed; disable them");
+        fail("not_found", `no installed skill named ${p.name}`);
+      }
+      this.world.skills = this.world.skills.filter((x) => x !== current);
+      this.emit("skills.changed", { type: "removed", name: p.name, source: "home" });
+      return { ok: true as const };
+    },
+    "skills.checkUpdates": (p) => ({
+      updates: this.world.skills
+        .filter((x) => x.source === "home" && (p.name === undefined || x.name === p.name))
+        .map(
+          (x) =>
+            x.update ?? {
+              name: x.name,
+              installedHash: x.hash,
+              availableHash: x.hash,
+              updateAvailable: false,
+              manifestChanged: false,
+              checkedAt: Date.parse(this.now()),
+            },
+        ),
+    }),
     "devices.pairing.list": () => ({ pairingRequests: this.world.pairingRequests }),
     "nodes.list": () => ({ nodes: this.world.nodes }),
     "vault.list": () => ({ credentials: this.world.credentials }),
