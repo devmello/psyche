@@ -107,6 +107,150 @@ public enum VMCapabilities {
                 let out = try await vm.removeShare(name: p.name ?? "sandbox", share: p.share)
                 return CapabilityOutput(out, receipt: ReceiptDraft(outcome: .ok, summary: "Stopped sharing \(p.share)"))
             },
+
+            Capability(CapabilitySpec(
+                name: "vm.pause", description: "Pause a running sandbox Mac in memory.", sideEffect: .write,
+                inputSchema: Schema.object(["name": nameSchema]), receiptKind: "vm"
+            )) { ctx in
+                let p = try ctx.decode(NameParams.self)
+                return CapabilityOutput(try await vm.pause(name: p.name ?? "sandbox"), receipt: ReceiptDraft(outcome: .ok, summary: "Paused the sandbox Mac"))
+            },
+
+            Capability(CapabilitySpec(
+                name: "vm.resume", description: "Resume a paused sandbox Mac.", sideEffect: .write,
+                inputSchema: Schema.object(["name": nameSchema]), receiptKind: "vm"
+            )) { ctx in
+                let p = try ctx.decode(NameParams.self)
+                return CapabilityOutput(try await vm.resume(name: p.name ?? "sandbox"), receipt: ReceiptDraft(outcome: .ok, summary: "Resumed the sandbox Mac"))
+            },
+
+            Capability(CapabilitySpec(
+                name: "vm.suspend",
+                description: "Save the machine state and stop (warm start on the next vm.start). Unproven on macOS 27.0.1 (spike 06): a failure leaves the guest running.",
+                sideEffect: .write, inputSchema: Schema.object(["name": nameSchema]), receiptKind: "vm"
+            )) { ctx in
+                let p = try ctx.decode(NameParams.self)
+                return CapabilityOutput(try await vm.suspend(name: p.name ?? "sandbox"), receipt: ReceiptDraft(outcome: .ok, summary: "Saved and stopped the sandbox Mac"))
+            },
+
+            Capability(CapabilitySpec(
+                name: "vm.configure",
+                description: "Change resources (cpus, memoryGB) and display size while stopped; clipboard (off, paste_only, bidirectional) and credential placement (host, guest) any time.",
+                sideEffect: .write,
+                inputSchema: Schema.object([
+                    "name": nameSchema, "cpus": Schema.integer(min: VMConfig.minCPUs, max: 32), "memoryGB": Schema.integer(min: VMConfig.minMemoryGB, max: 256),
+                    "displayWidth": Schema.integer(min: 640, max: 3840), "displayHeight": Schema.integer(min: 480, max: 2400),
+                    "clipboard": Schema.string(enum: ["off", "paste_only", "bidirectional"]), "vault": Schema.string(enum: ["host", "guest"]),
+                ]),
+                receiptKind: "vm"
+            )) { ctx in
+                let p = try ctx.decode(VMManager.ConfigureParams.self)
+                return CapabilityOutput(try vm.configure(p), receipt: ReceiptDraft(outcome: .ok, summary: "Changed the sandbox Mac's settings"))
+            },
+
+            Capability(CapabilitySpec(
+                name: "vm.display", description: "Show or hide the guest's display window on the host (Take control).",
+                sideEffect: .write, inputSchema: Schema.object(["name": nameSchema, "visible": Schema.boolean()], required: ["visible"]), receiptKind: "vm"
+            )) { ctx in
+                struct P: Decodable {
+                    var name: String?
+                    var visible: Bool
+                }
+                let p = try ctx.decode(P.self)
+                return CapabilityOutput(try await vm.setDisplay(name: p.name ?? "sandbox", visible: p.visible),
+                                        receipt: ReceiptDraft(outcome: .ok, summary: p.visible ? "Showed the guest display" : "Hid the guest display"))
+            },
+
+            Capability(CapabilitySpec(
+                name: "vm.agent_status", description: "Ping the guest helper over vsock 7000: version and its Accessibility / Screen Recording state.",
+                sideEffect: .read, inputSchema: Schema.object(["name": nameSchema])
+            )) { ctx in
+                let p = try ctx.decode(NameParams.self)
+                return CapabilityOutput(try await vm.ping(name: p.name ?? "sandbox"))
+            },
+
+            Capability(CapabilitySpec(
+                name: "vm.copy_in",
+                description: "Copy a host file or folder into the guest (read-only at /Volumes/My Shared Files/psyche-in/<id>/). Sensitive folders are refused.",
+                sideEffect: .write, targetKind: .path,
+                inputSchema: Schema.object(["name": nameSchema, "hostPath": Schema.string()], required: ["hostPath"]), receiptKind: "vm_transfer"
+            )) { ctx in
+                struct P: Decodable {
+                    var name: String?
+                    var hostPath: String
+                }
+                let p = try ctx.decode(P.self)
+                let (t, guest) = try vm.copyIn(name: p.name ?? "sandbox", hostPath: p.hostPath)
+                return CapabilityOutput(["transfer": try JSONValue(encoding: t), "guest": guest],
+                                        receipt: ReceiptDraft(outcome: .ok, summary: "Copied \(URL(fileURLWithPath: t.hostPath).lastPathComponent) into the guest",
+                                                              externalRefs: ["transfer": .string(t.id), "bytes": .int(t.bytes)]))
+            },
+
+            Capability(CapabilitySpec(
+                name: "vm.copy_out",
+                description: "Copy one guest file to a host folder inside the granted folders (never overwrites). The guest helper stages it in the _psyche-out share.",
+                sideEffect: .write, targetKind: .path,
+                inputSchema: Schema.object(["name": nameSchema, "guestPath": Schema.string(), "hostDir": Schema.string()], required: ["guestPath", "hostDir"]),
+                receiptKind: "vm_transfer"
+            )) { ctx in
+                struct P: Decodable {
+                    var name: String?
+                    var guestPath: String
+                    var hostDir: String
+                }
+                let p = try ctx.decode(P.self)
+                let (t, guest) = try await vm.copyOut(name: p.name ?? "sandbox", guestPath: p.guestPath, hostDir: p.hostDir)
+                return CapabilityOutput(["transfer": try JSONValue(encoding: t), "guest": guest],
+                                        receipt: ReceiptDraft(outcome: .ok, summary: "Copied \(URL(fileURLWithPath: t.hostPath).lastPathComponent) to the host",
+                                                              externalRefs: ["transfer": .string(t.id), "bytes": .int(t.bytes)]))
+            },
+
+            Capability(CapabilitySpec(
+                name: "vm.install_psyche",
+                description: "Install Psyche in the running guest from a release or checkout (shared read-only), over SSH: psyche-node (vsock 2:7980) and the guest helper (vsock 7000 agent).",
+                sideEffect: .write,
+                inputSchema: Schema.object(["name": nameSchema, "payload": Schema.string("Absolute host path of a Psyche release or checkout")], required: ["payload"]),
+                streaming: true, receiptKind: "vm"
+            )) { ctx in
+                struct P: Decodable {
+                    var name: String?
+                    var payload: String
+                }
+                let p = try ctx.decode(P.self)
+                return CapabilityOutput(try await vm.installPsyche(name: p.name ?? "sandbox", payload: p.payload, emit: ctx.emit),
+                                        receipt: ReceiptDraft(outcome: .ok, summary: "Installed Psyche in the sandbox Mac"))
+            },
+
+            Capability(CapabilitySpec(
+                name: "vm.grant_permissions",
+                description: "Pre-grant Accessibility and Screen Recording to the guest helper by writing the stopped guest's TCC.db offline (SIP blocks in-guest writes).",
+                sideEffect: .write,
+                inputSchema: Schema.object(["name": nameSchema, "payload": Schema.string("The payload whose Psyche Helper.app was installed")], required: ["payload"]),
+                streaming: true, receiptKind: "vm"
+            )) { ctx in
+                struct P: Decodable {
+                    var name: String?
+                    var payload: String
+                }
+                let p = try ctx.decode(P.self)
+                return CapabilityOutput(try await vm.grantPermissions(name: p.name ?? "sandbox", payload: p.payload, emit: ctx.emit),
+                                        receipt: ReceiptDraft(outcome: .ok, summary: "Granted the guest helper Accessibility and Screen Recording"))
+            },
+
+            Capability(CapabilitySpec(
+                name: "vm.watch",
+                description: "Long-lived stream of {type: vm.updated, guest, at} and {type: vm.deleted, name} events, for the Gateway's vm.updated broadcast.",
+                sideEffect: .read, streaming: true
+            )) { ctx in
+                let (id, stream) = vm.events.subscribe()
+                defer { vm.events.unsubscribe(id) }
+                await ctx.emit(["type": "vm.status", "status": vm.status()])
+                for await event in stream {
+                    if _Concurrency.Task.isCancelled { break }
+                    await ctx.emit(event)
+                }
+                return CapabilityOutput(["closed": true])
+            },
         ]
     }
 }
