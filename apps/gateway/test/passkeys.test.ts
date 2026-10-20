@@ -160,6 +160,8 @@ describe("web passkeys (issue #79)", () => {
     await new Promise((r) => setTimeout(r, 450)); // cards arm after 400 ms
 
     const challenge = presenceChallenge(approval.id, approval.bindingHash, answerToken);
+    // The 32 digest bytes, as a browser signs them (not an empty challenge from the prefix).
+    expect(Buffer.from(webauthnChallengeFor(challenge), "base64url")).toHaveLength(32);
     const assertion = a.get(webauthnChallengeFor(challenge));
     const deviceId = (
       await owner.call<{ devices: { id: string; scopes: string[] }[] }>("devices.list", {})
