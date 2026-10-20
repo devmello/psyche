@@ -4,9 +4,11 @@ import type {
   CredentialMeta,
   CredentialUse,
   Device,
+  LinkPaymentMethod,
   NodeInfo,
   PairingRequest,
   UsageRecord,
+  VaultPayment,
 } from "@psyche/protocol";
 import { ago, fakeSha, IDS, inMinutes, PERSONA, today } from "./ids.ts";
 
@@ -293,6 +295,72 @@ export function credentials(): CredentialMeta[] {
       useCount: 2,
       createdAt: "2026-09-12T14:58:00Z",
       updatedAt: "2026-09-12T14:58:00Z",
+    },
+  ];
+}
+
+/** The owner's Stripe Link wallet in test mode (`vault.payments.methods`): brand / last4 only. */
+export function linkMethods(): LinkPaymentMethod[] {
+  return [
+    { id: "csmrpd_test_visa", brand: "visa", last4: "1881", nickname: null, isDefault: true },
+    {
+      id: "csmrpd_test_mc",
+      brand: "mastercard",
+      last4: "5100",
+      nickname: "Work card",
+      isDefault: false,
+    },
+  ];
+}
+
+/** Recent Stripe Link spends (`vault.payments.list`), newest first. Never card numbers. */
+export function payments(): VaultPayment[] {
+  const visa = { brand: "visa", last4: "1881" };
+  return [
+    {
+      spendRequestId: "lsrq_test0003",
+      merchantName: "Lumen Air",
+      merchantHost: "lumen-air.test",
+      amount: 41_280,
+      currency: "usd",
+      status: "approved",
+      payment: { state: "held", held: 41_280, captured: 0, refunded: 0 },
+      card: { brand: "visa", last4: "4242" },
+      fundingSource: visa,
+      refs: { holdRef: "LV-HOLD-7Q2" },
+      approvalId: "appr_hold_lumen",
+      taskId: IDS.tasks.priceWatch,
+      createdAt: ago(35),
+    },
+    {
+      spendRequestId: "lsrq_test0002",
+      merchantName: "Stripe Press",
+      merchantHost: "press.stripe.com",
+      amount: 3_500,
+      currency: "usd",
+      status: "succeeded",
+      payment: { state: "captured", held: 0, captured: 3_500, refunded: 0 },
+      card: { brand: "visa", last4: "4242" },
+      fundingSource: visa,
+      refs: { orderNumber: "SB-1001" },
+      approvalId: "appr_buy_press",
+      taskId: null,
+      createdAt: ago(26 * 60),
+    },
+    {
+      spendRequestId: "lsrq_test0001",
+      merchantName: "Corner Books",
+      merchantHost: "cornerbooks.test",
+      amount: 1_899,
+      currency: "usd",
+      status: "succeeded",
+      payment: { state: "refunded", held: 0, captured: 1_899, refunded: 1_899 },
+      card: null,
+      fundingSource: visa,
+      refs: { orderNumber: "CB-2207", refundRef: "re_test_51" },
+      approvalId: "appr_buy_corner",
+      taskId: null,
+      createdAt: ago(4 * 24 * 60),
     },
   ];
 }

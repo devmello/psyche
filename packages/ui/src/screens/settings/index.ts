@@ -36,10 +36,23 @@ export {
   CredentialDetailSheet,
 } from "./CredentialDetail.tsx";
 export {
+  LinkOnePasswordForm,
+  linkExternalError,
+  type OnePasswordLink,
+} from "./CredentialExternal.tsx";
+export {
   ImportCredentialsForm,
   type ImportFormat,
   type ImportOutcome,
 } from "./CredentialImport.tsx";
+export {
+  brandLabel,
+  formatMinor,
+  maskedCard,
+  PaymentsGroup,
+  type PaymentsView,
+  paymentStateLabel,
+} from "./CredentialPayments.tsx";
 export {
   CARD_REFUSAL,
   CredentialsPanel,

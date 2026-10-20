@@ -27,16 +27,23 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table.tsx";
-import { useCall, useGatewayQuery } from "../../data/hooks.ts";
+import { useCall, useGatewayQuery, usePayments } from "../../data/hooks.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { useSlots } from "../../slots.tsx";
 import { CredentialDetailSheet } from "./CredentialDetail.tsx";
 import {
+  type LinkableKind,
+  LinkOnePasswordForm,
+  linkExternalError,
+  type OnePasswordLink,
+} from "./CredentialExternal.tsx";
+import {
   ImportCredentialsForm,
   type ImportFormat,
   type ImportOutcome,
 } from "./CredentialImport.tsx";
+import { PaymentsGroup, type PaymentsView } from "./CredentialPayments.tsx";
 import { bindingLabel, CARD_REFUSAL, KIND_LABEL } from "./credential-labels.ts";
 import {
   EmptyNotice,
@@ -124,6 +131,14 @@ export interface CredentialsPanelProps extends SettingsFormProps, LoadProps {
   defaultImporting?: boolean;
   /** Opens an item's detail and recent uses. */
   onOpen?: (credential: CredentialMeta) => void;
+  /** Links an item held in 1Password by reference (`vault.linkExternal`); rejects to show. */
+  onLinkOnePassword?: (item: OnePasswordLink) => Promise<void>;
+  /** Stories: open with the 1Password link form showing. */
+  defaultLinking?: boolean;
+  /** Stripe Link payment methods and recent spends; the group is hidden without it. */
+  payments?: PaymentsView;
+  /** Opens the task behind a payment. */
+  onOpenTask?: (taskId: string) => void;
 }
 
 export function CredentialsPanel({
@@ -144,6 +159,10 @@ export function CredentialsPanel({
   onImport,
   defaultImporting = false,
   onOpen,
+  onLinkOnePassword,
+  defaultLinking = false,
+  payments,
+  onOpenTask,
   loading,
   error,
   onRetry,
@@ -154,6 +173,7 @@ export function CredentialsPanel({
   const [editingId, setEditingId] = useState<string | null>(defaultEditingId ?? null);
   const [deleting, setDeleting] = useState<CredentialMeta | null>(null);
   const [importing, setImporting] = useState(defaultImporting);
+  const [linking, setLinking] = useState(defaultLinking);
   const shown = credentials.filter((c) => matchesCredential(c, query));
   const actions = onUpdate !== undefined || onDelete !== undefined;
   const columns = actions ? 6 : 5;
@@ -217,25 +237,28 @@ export function CredentialsPanel({
                   Import CSV
                 </Button>
               ) : null}
+              {onLinkOnePassword || onConnectManager ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={linking}
+                  onClick={() =>
+                    onLinkOnePassword ? setLinking(true) : onConnectManager?.("1password")
+                  }
+                >
+                  Connect 1Password
+                </Button>
+              ) : null}
               {onConnectManager ? (
-                <>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onConnectManager("1password")}
-                  >
-                    Connect 1Password
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onConnectManager("bitwarden")}
-                  >
-                    Connect Bitwarden
-                  </Button>
-                </>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onConnectManager("bitwarden")}
+                >
+                  Connect Bitwarden
+                </Button>
               ) : null}
             </div>
           }
@@ -253,6 +276,13 @@ export function CredentialsPanel({
           {itemError ? <ErrorNotice what={itemError} did="Nothing was changed." /> : null}
           {importing && onImport ? (
             <ImportCredentialsForm onImport={onImport} onClose={() => setImporting(false)} />
+          ) : null}
+          {linking && onLinkOnePassword ? (
+            <LinkOnePasswordForm
+              onLink={onLinkOnePassword}
+              onClose={() => setLinking(false)}
+              parseSite={(text, kind: LinkableKind) => parseBinding(text, kind)}
+            />
           ) : null}
           {credentials.length > 0 ? (
             <div className="relative max-w-sm">
@@ -310,7 +340,14 @@ export function CredentialsPanel({
                           {c.slug}
                         </span>
                       </TableCell>
-                      <TableCell>{KIND_LABEL[c.kind]}</TableCell>
+                      <TableCell>
+                        {KIND_LABEL[c.kind]}
+                        {c.backend === "1password" || c.backend === "keychain" ? (
+                          <span className="block text-xs text-muted-foreground">
+                            {BACKEND_LABEL[c.backend]}
+                          </span>
+                        ) : null}
+                      </TableCell>
                       <TableCell>{c.bindings.map(bindingLabel).join(", ") || "anywhere"}</TableCell>
                       <TableCell>
                         {c.lastUsedAt ? formatRelative(c.lastUsedAt, clock) : "never"}
@@ -374,6 +411,9 @@ export function CredentialsPanel({
             </Table>
           )}
         </Group>
+        {payments ? (
+          <PaymentsGroup view={payments} now={clock} {...(onOpenTask ? { onOpenTask } : {})} />
+        ) : null}
       </LoadGate>
       {onDelete ? (
         <DeleteCredentialDialog
@@ -391,6 +431,9 @@ export function CredentialsPanel({
     </SectionFrame>
   );
 }
+
+/** Where an item's value lives, when it is not the Psyche vault itself. */
+const BACKEND_LABEL = { "1password": "in 1Password", keychain: "in the system keychain" } as const;
 
 /** The secret fields an edit can replace, per kind; blank keeps the stored value. */
 const SECRET_FIELDS: Partial<
@@ -422,7 +465,9 @@ function EditCredentialForm({
   const [siteError, setSiteError] = useState<string | null>(null);
   const [secret, setSecret] = useState<Partial<Record<keyof CredentialSecretInput, string>>>({});
   const [saving, setSaving] = useState(false);
-  const fields = SECRET_FIELDS[credential.kind] ?? [];
+  // A 1Password item's values stay in 1Password: only its name and sites change here.
+  const external = credential.backend === "1password";
+  const fields = external ? [] : (SECRET_FIELDS[credential.kind] ?? []);
 
   const addSite = () => {
     const b = parseBinding(site, credential.kind);
@@ -463,7 +508,9 @@ function EditCredentialForm({
       className="flex flex-col gap-3 rounded-md border border-gray-6 bg-background p-3"
     >
       <p className="text-xs text-muted-foreground">
-        Leave a value blank to keep it. Psyche never shows stored values.
+        {external
+          ? "The values stay in 1Password; change them there. Psyche never shows stored values."
+          : "Leave a value blank to keep it. Psyche never shows stored values."}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
@@ -767,6 +814,7 @@ export function CredentialsSection({
   const form = useSettingsForm();
   const call = useCall();
   const q = useGatewayQuery("vault.list", {});
+  const pay = usePayments();
   const [addError, setAddError] = useState<string | null>(null);
   const [itemError, setItemError] = useState<string | null>(null);
   const onUpdate = (c: CredentialMeta, patch: CredentialPatch): Promise<void> => {
@@ -799,6 +847,13 @@ export function CredentialsSection({
         throw new Error(vaultImportError(err));
       },
     );
+  const onLinkOnePassword = (item: OnePasswordLink): Promise<void> =>
+    call("vault.linkExternal", { source: "1password", ...item }).then(
+      () => q.reload(),
+      (err: unknown) => {
+        throw new Error(linkExternalError(err, item.name));
+      },
+    );
   const onAdd = (item: NewCredential) => {
     setAddError(null);
     call("vault.add", item).then(
@@ -827,6 +882,16 @@ export function CredentialsSection({
         itemError={itemError}
         onImport={onImport}
         onOpen={setDetail}
+        onLinkOnePassword={onLinkOnePassword}
+        payments={{
+          configured: pay.data?.configured ?? true,
+          methods: pay.data?.methods ?? [],
+          payments: pay.data?.payments ?? [],
+          loading: pay.loading && pay.data === undefined,
+          error: pay.error,
+          onRetry: pay.reload,
+        }}
+        {...(openTask ? { onOpenTask: openTask } : {})}
         loading={q.loading && q.data === undefined}
         error={q.error}
         onRetry={q.reload}

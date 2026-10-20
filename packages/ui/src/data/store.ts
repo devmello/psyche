@@ -400,6 +400,8 @@ export class GatewayStore {
         return invalidate(s, ["memory.status"]);
       case "credential.updated":
         return invalidate(s, ["vault."]);
+      case "vault.payment.updated":
+        return invalidate(s, ["vault.payments"]);
       case "skills.changed":
       case "skills.updated":
         return invalidate(s, ["skills."]);

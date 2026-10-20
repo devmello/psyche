@@ -20,6 +20,7 @@ import {
   type Idea,
   type InputRequest,
   type LibraryItem,
+  type LinkPaymentMethod,
   type MemoryChunk,
   type MemoryClaim,
   type Message,
@@ -40,6 +41,7 @@ import {
   type TaskAction,
   type ThreadListEntry,
   type ToolCall,
+  type VaultPayment,
   validateEventPayload,
   validateParams,
   validateResult,
@@ -86,6 +88,9 @@ export interface MockWorld {
   nodes: NodeInfo[];
   credentials: CredentialMeta[];
   credentialUses: CredentialUse[];
+  /** Stripe Link (`vault.payments.*`); absent → Link is not set up (`payments_not_configured`). */
+  linkMethods?: LinkPaymentMethod[];
+  payments?: VaultPayment[];
   settings: Record<string, unknown>;
   memoryFiles: Record<string, string>;
   memoryClaims: MemoryClaim[];
@@ -411,6 +416,16 @@ export class MockGateway implements GatewayClient {
     if (handler === undefined) fail("not_implemented", `MockGateway does not implement ${method}`);
     const result = (handler as Handler)(params as never);
     return validateResult(method, result) as MethodResult<M>;
+  }
+
+  /** The owner's Link payment methods; like the vault, `unavailable` when Link is not set up. */
+  private linkWallet(): LinkPaymentMethod[] {
+    if (this.world.linkMethods === undefined) {
+      throw new PsycheError("unavailable", "Stripe Link is not set up", {
+        details: { reason: "payments_not_configured" },
+      });
+    }
+    return this.world.linkMethods;
   }
 
   private find<T extends { id: string }>(list: T[], id: string, what: string): T {
@@ -1306,6 +1321,45 @@ export class MockGateway implements GatewayClient {
         ownerConnectorId: null,
       });
       return { credential };
+    },
+    "vault.linkExternal": (p) => {
+      // The mock keeps the reference only, like the vault: no value is ever read here.
+      const now = this.now();
+      const credential: CredentialMeta = {
+        id: this.id("cred"),
+        kind: p.kind,
+        name: p.name,
+        slug:
+          p.slug ??
+          p.name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, ""),
+        bindings: p.bindings,
+        ownerConnectorId: null,
+        lastUsedAt: null,
+        useCount: 0,
+        createdAt: now,
+        updatedAt: now,
+        backend: "1password",
+      };
+      this.world.credentials = [...this.world.credentials, credential];
+      this.emit("credential.updated", {
+        credentialId: credential.id,
+        change: "created",
+        credential,
+        ownerConnectorId: null,
+      });
+      return { credential };
+    },
+    "vault.payments.methods": () => ({ methods: this.linkWallet() }),
+    "vault.payments.list": (p) => {
+      this.linkWallet();
+      return {
+        payments: (this.world.payments ?? [])
+          .filter((x) => p.taskId === undefined || x.taskId === p.taskId)
+          .slice(0, p.limit ?? 50),
+      };
     },
     "vault.uses": (p) => ({
       uses: this.world.credentialUses
