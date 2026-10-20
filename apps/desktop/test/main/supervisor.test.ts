@@ -1,15 +1,25 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   chooseMode,
+  desktopVaultKeyFile,
   type GatewayRunState,
   GatewaySupervisor,
   parseLaunchctlPrint,
   type Runner,
   renderLaunchAgentPlist,
   renderPlistTemplate,
+  withPlistEnv,
 } from "../../src/main/supervisor.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "psy-sup-"));
@@ -240,5 +250,37 @@ describe("LaunchAgent plist", () => {
     });
     await sup.ensureRunning();
     expect(sup.getState()).toMatchObject({ kind: "stopped", reason: "apps/gateway not found" });
+  });
+});
+
+describe("desktop vault key file", () => {
+  it("creates a 0600 random key once and passes it to the Gateway's plist", () => {
+    const home = mkdtempSync(join(tmpdir(), "psy-vk-"));
+    const keyFile = desktopVaultKeyFile(home);
+    expect(keyFile).toBe(join(home, "secrets", "vault.key"));
+    const st = statSync(keyFile as string);
+    expect(st.mode & 0o777).toBe(0o600);
+    expect(st.size).toBe(32);
+    const first = readFileSync(keyFile as string);
+    desktopVaultKeyFile(home);
+    expect(readFileSync(keyFile as string).equals(first)).toBe(true);
+    const plist = withPlistEnv(
+      renderLaunchAgentPlist({ program: "/p", psycheHome: home, logDir: join(home, "logs") }),
+      { PSYCHE_VAULT_KEY_FILE: keyFile as string },
+    );
+    expect(plist).toMatch(
+      /<key>EnvironmentVariables<\/key>\s*<dict>\s*<key>PSYCHE_VAULT_KEY_FILE<\/key>\s*<string>[^<]+vault\.key<\/string>/,
+    );
+    expect(plist).toContain("<key>PSYCHE_HOME</key>");
+  });
+
+  it("never switches a vault that already uses another slot", () => {
+    const home = mkdtempSync(join(tmpdir(), "psy-vk-"));
+    mkdirSync(join(home, "vault"), { recursive: true });
+    writeFileSync(join(home, "vault", "slots.json"), JSON.stringify({ slots: { keychain: {} } }));
+    expect(desktopVaultKeyFile(home)).toBeUndefined();
+    expect(existsSync(join(home, "secrets", "vault.key"))).toBe(false);
+    writeFileSync(join(home, "vault", "slots.json"), JSON.stringify({ slots: { key_file: {} } }));
+    expect(desktopVaultKeyFile(home)).toBe(join(home, "secrets", "vault.key"));
   });
 });
