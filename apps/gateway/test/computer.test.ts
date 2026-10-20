@@ -14,6 +14,7 @@ import { namespacedGrantKey } from "@psyche/protocol";
 import { FakePermissionBroker } from "@psyche/testing";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  ATTENTION_WINDOW_MS,
   type ComputerUse,
   createComputerUse,
   elementsIn,
@@ -552,6 +553,34 @@ describe("computer-use agent tools (J1–J5)", () => {
       params: { name: "Morning", input: "x", timeoutSeconds: 600 },
       approvalId,
     });
+  });
+
+  it("pauses when unwatched: a sensitive app gets a card after 5 minutes without owner input (#272)", () => {
+    let clock = 1_000_000;
+    let lastInput: number | undefined;
+    const watched = createComputerUse({
+      broker,
+      helper: () => undefined,
+      context: () => {
+        throw new Error("unused");
+      },
+      cancelRun: () => undefined,
+      now: () => clock,
+      lastOwnerInput: () => lastInput,
+    });
+    const act = watched.registrations().find((r) => r.spec.name === "computer.act")?.describeCall;
+    const click = { app: "com.apple.MobileSMS", action: "click", x: 1, y: 2 };
+    const scroll = { app: "com.apple.MobileSMS", action: "scroll", ref: "e1", dy: 3 };
+    // No owner input yet: every action in Messages gets a card, named as such.
+    expect(act?.(scroll)).toMatchObject({ sideEffect: "destructive" });
+    expect(act?.(scroll)?.summary).toMatch(/^While you're away: /);
+    lastInput = clock;
+    clock += ATTENTION_WINDOW_MS - 1;
+    expect(act?.({ ...scroll, ref: undefined, x: undefined })?.summary).not.toMatch(/away/);
+    clock += 2;
+    expect(act?.(click)?.summary).toMatch(/^While you're away: /);
+    // Other apps are not sensitive.
+    expect(act?.({ ...scroll, app: notes })?.summary).not.toMatch(/away/);
   });
 
   it("matches the helper's risky labels and chords", () => {
