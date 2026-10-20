@@ -48,6 +48,7 @@ export const IPC = {
   dictationGetStatus: "psyche:dictation:get-status",
   dictationStatus: "psyche:dictation:status",
   dictationRecheck: "psyche:dictation:recheck",
+  dictationCheckHotkey: "psyche:dictation:check-hotkey",
   dictationOpenAccessibility: "psyche:dictation:open-accessibility",
 } as const;
 

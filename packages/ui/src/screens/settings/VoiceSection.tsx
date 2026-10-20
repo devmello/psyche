@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Kbd } from "../../components/ui/kbd.tsx";
+import { type ShortcutCheck, ShortcutRecorder } from "./ShortcutRecorder.tsx";
 import {
   bool,
   ErrorNotice,
@@ -13,7 +14,6 @@ import {
   StatusChip,
   SwitchField,
   str,
-  TextSetting,
   useSettingsForm,
 } from "./shared.tsx";
 
@@ -38,6 +38,8 @@ export interface SystemDictationProps {
   onOpenAccessibility?: () => void;
   /** Re-arms the watch after the owner granted Accessibility. */
   onRecheck?: () => void;
+  /** Desktop: asks main whether another app holds a shortcut before it is saved. */
+  onCheckShortcut?: (accelerator: string) => Promise<ShortcutCheck>;
 }
 
 const KEY_LABEL: Record<string, string> = {
@@ -98,6 +100,7 @@ export function VoicePanel({
   system,
   onOpenAccessibility,
   onRecheck,
+  onCheckShortcut,
 }: SettingsFormProps & LoadProps & SystemDictationProps): ReactElement {
   const ptt = str(values, "voice.pushToTalk", "fn");
   const systemWide = bool(values, "voice.systemWide", true);
@@ -161,17 +164,13 @@ export function VoicePanel({
               {...(onOpenAccessibility ? { onOpenAccessibility } : {})}
               {...(onRecheck ? { onRecheck } : {})}
             />
-            <TextSetting
+            <ShortcutRecorder
               label="System-wide hotkey"
-              description={
-                system.hotkeyTaken
-                  ? `${system.hotkeyTaken} is taken by another app. Pick another shortcut.`
-                  : "Press once to start and again to stop, from any app. Leave empty to turn it off."
-              }
+              description="Press once to start and again to stop, from any app. Backspace turns it off."
               value={str(values, "voice.hotkey", "")}
-              placeholder="Control+Option+D"
-              settingKey="voice.hotkey"
-              onCommit={(v) => onChange("voice.hotkey", v)}
+              onChange={(v) => onChange("voice.hotkey", v)}
+              {...(onCheckShortcut ? { onCheck: onCheckShortcut } : {})}
+              {...(system.hotkeyTaken ? { takenNow: system.hotkeyTaken } : {})}
             />
           </Group>
         ) : null}

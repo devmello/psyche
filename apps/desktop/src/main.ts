@@ -379,6 +379,11 @@ function registerIpc(): void {
     await dictation?.recheck();
     return dictation?.status;
   });
+  handle(IPC.dictationCheckHotkey, (_event, arg) => {
+    const r = rec(IPC.dictationCheckHotkey, arg);
+    const accelerator = str(IPC.dictationCheckHotkey, r.accelerator, "accelerator", 64);
+    return dictation?.checkHotkey(accelerator) ?? "ok";
+  });
   on(IPC.dictationOpenAccessibility, () => {
     void shell.openExternal(ACCESSIBILITY_SETTINGS_URL);
   });

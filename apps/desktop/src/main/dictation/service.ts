@@ -163,6 +163,23 @@ export class DictationService {
     this.#o.onStatus?.(next);
   }
 
+  /**
+   * Whether `accelerator` could be the toggle hotkey, asked before Settings saves it: briefly
+   * registering it tells whether another app (or Psyche itself) already holds it.
+   */
+  checkHotkey(accelerator: string): "ok" | "taken" | "invalid" {
+    if (accelerator === this.#hotkey) return "ok";
+    const shortcuts = this.#o.shortcuts;
+    if (!shortcuts) return "ok";
+    try {
+      if (!shortcuts.register(accelerator, () => undefined)) return "taken";
+      shortcuts.unregister(accelerator);
+      return "ok";
+    } catch {
+      return "invalid";
+    }
+  }
+
   #registerHotkey(accelerator: string): void {
     if (accelerator === this.#hotkey && !this.#hotkeyTaken) return;
     const shortcuts = this.#o.shortcuts;
