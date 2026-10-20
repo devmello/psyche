@@ -16,6 +16,14 @@ allowBuilds:
   node-pty: true
   # Pulled in by @univerjs/protocol -> @grpc/grpc-js; its postinstall only prints a notice (S13).
   protobufjs: false
+# Dependency audit (reports/m3-dependency-audit.md):
+# - pptxgenjs 4.0.1 declares image-size ^1.2.1 (GHSA-5p2g-fcmc-qvqq, GHSA-w3rx-r6r6-pgpr) but never
+#   loads it; 2.0.4 is patched.
+# - sandpack-client's Node client pulls @codesandbox/nodebox (Sustainable Use License, not open
+#   source). Psyche imports only `clients/runtime`, so the dependency is removed (ADR-013).
+overrides:
+  "pptxgenjs>image-size": "2.0.4"
+  "@codesandbox/sandpack-client>@codesandbox/nodebox": "-"
 engineStrict: true
 autoInstallPeers: true
 
