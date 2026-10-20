@@ -40,6 +40,11 @@ export const FILE_TOOLS = new Set([
   "delete_file",
   "move_file",
 ]);
+/**
+ * The coding helper's tools (V10): their path targets (the repository root, a file in it, a
+ * command's cwd) get the same folder check as the file tools.
+ */
+export const CODE_TOOLS = /^code\.(open|search|read|edit|run|git)$/;
 export const NAVIGATION_TOOLS = /^browser\.(navigate|open|new_tab|goto)$/;
 export const BROWSER_WRITE_TOOLS =
   /^browser\.(click|type|select|fill|submit|press|drag|upload|key)$/;
@@ -62,6 +67,7 @@ const SIDE_EFFECT_FLOORS: { re: RegExp; floor: SideEffect }[] = [
     floor: "write",
   },
   { re: /^(write_file|edit_file|credentials\.request|memory)$/, floor: "write" },
+  { re: /^code\.(edit|run)$/, floor: "write" },
   { re: /^browser\.(click|type|select|fill|press|drag|upload|key)$/, floor: "write" },
 ];
 
@@ -90,7 +96,8 @@ export function inferApprovalKind(tool: string): ApprovalKind {
   if (NAVIGATION_TOOLS.test(tool)) return "new_origin";
   if (tool.startsWith("credentials.")) return "credential_fill";
   if (/^(purchase|checkout|link\.)/.test(tool)) return "purchase";
-  if (tool === "write_file" || tool === "edit_file") return "file_write";
+  if (tool === "write_file" || tool === "edit_file" || tool === "code.edit") return "file_write";
+  if (tool === "code.run") return "exec";
   if (tool.startsWith("mcp__")) return "mcp_tool";
   if (tool.startsWith("computer.")) return "computer_action";
   if (tool === "memory") return "memory_protected_write";

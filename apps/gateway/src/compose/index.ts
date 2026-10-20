@@ -712,6 +712,7 @@ export {
   type TelegramSetup,
   turnText,
 } from "./channels.ts";
+export { composeCoding, hostGit } from "./coding.ts";
 export {
   type ConnectorsSetup,
   composeConnectors,

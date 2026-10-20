@@ -12,6 +12,7 @@ import {
   ALL_SCOPES,
   allowedScopes,
   BROWSER_WRITE_TOOLS,
+  CODE_TOOLS,
   effectiveSideEffect,
   FILE_TOOLS,
   inferApprovalKind,
@@ -427,7 +428,7 @@ export class PolicyEngine {
       }
     }
 
-    if (FILE_TOOLS.has(call.tool) && call.target?.kind === "path") {
+    if ((FILE_TOOLS.has(call.tool) || CODE_TOOLS.test(call.tool)) && call.target?.kind === "path") {
       let path: string;
       try {
         path = canonicalPath(call.target.value);
@@ -444,6 +445,10 @@ export class PolicyEngine {
     }
     if (kind === "memory_protected_write") {
       floors.push({ rule: "memory:protected_path", reason: "protected memory files always ask" });
+    }
+    if (kind === "git_push") {
+      // A push publishes commits with the owner's credentials: never silent, never reusable (V10).
+      floors.push({ rule: "git:push", reason: "pushes always ask", scopes: ["once"] });
     }
 
     const targetApp = call.target?.kind === "app" ? call.target.value : undefined;
