@@ -436,7 +436,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
         ids: () => revocations.vaultItemIds(),
       },
     },
-    vaultSetup ?? vaultSetupFromEnv(gwOptions.env ?? process.env),
+    {
+      ...(vaultSetup ?? vaultSetupFromEnv(gwOptions.env ?? process.env)),
+      // credentials.onePassword (G10); a test's own source wins.
+      ...(vaultSetup?.onePassword === undefined && config.onePassword
+        ? { onePassword: config.onePassword }
+        : {}),
+    },
   );
 
   const { provider, model: modelRef, utility, router } = providerFor(model, clock, db);
