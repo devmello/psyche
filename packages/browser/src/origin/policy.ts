@@ -28,6 +28,12 @@ export interface OriginPolicyOptions {
    * Everything else refuses loopback outright.
    */
   devPreview?: boolean;
+  /**
+   * Dev preview only: the loopback ports the task may reach (feature I12). Unset means any
+   * port (M1 behaviour); set, even empty, means only these, so a dev-preview session cannot
+   * wander from the owner's Vite app to another local service. `allowLoopbackPort` adds one.
+   */
+  loopbackPorts?: number[];
   /** Allow RFC 1918 / link-local / `.local` hosts (off by default; the owner's LAN is not web). */
   allowPrivateNetwork?: boolean;
   reputation?: ReputationCheck;
@@ -61,6 +67,7 @@ export class OriginPolicy {
   #entries: Entry[] = [];
   #deny: OriginPattern[];
   #devPreview: boolean;
+  #loopbackPorts: Set<number> | undefined;
   #allowPrivate: boolean;
   #reputation: ReputationCheck | undefined;
 
@@ -69,12 +76,28 @@ export class OriginPolicy {
     for (const p of options.readWritable ?? []) this.grant(p, "write");
     this.#deny = (options.deny ?? []).map(parseOriginPattern);
     this.#devPreview = options.devPreview ?? false;
+    this.#loopbackPorts =
+      options.loopbackPorts === undefined ? undefined : new Set(options.loopbackPorts);
     this.#allowPrivate = options.allowPrivateNetwork ?? false;
     this.#reputation = options.reputation;
   }
 
   get devPreview(): boolean {
     return this.#devPreview;
+  }
+
+  /** The loopback ports a dev-preview task may reach, or undefined for any. */
+  get loopbackPorts(): number[] | undefined {
+    return this.#loopbackPorts === undefined ? undefined : [...this.#loopbackPorts];
+  }
+
+  /** A dev server the owner approved: its port joins the pinned set (no-op when unpinned). */
+  allowLoopbackPort(port: number): void {
+    this.#loopbackPorts?.add(port);
+  }
+
+  #loopbackAllowed(port: number): boolean {
+    return this.#devPreview && (this.#loopbackPorts === undefined || this.#loopbackPorts.has(port));
   }
 
   /** Add an origin (or pattern) to the task's set; `write` upgrades an existing `read`. */
@@ -101,7 +124,7 @@ export class OriginPolicy {
     // sites in tests and multi-app setups.
     if (
       best === undefined &&
-      this.#devPreview &&
+      this.#loopbackAllowed(url.port) &&
       classifyHost(url.host, url.hostKind).loopback &&
       !url.host.endsWith(".localhost")
     ) {
@@ -144,11 +167,13 @@ export class OriginPolicy {
       };
     }
     const net = classifyHost(url.host, url.hostKind);
-    if (net.loopback && !this.#devPreview) {
+    if (net.loopback && !this.#loopbackAllowed(url.port)) {
       return {
         action: "deny",
         reason: "loopback",
-        message: `${url.origin} is a loopback address; only dev-preview tasks may open it`,
+        message: this.#devPreview
+          ? `${url.origin} is not the dev server this task previews (port ${url.port} is not allowed)`
+          : `${url.origin} is a loopback address; only dev-preview tasks may open it`,
         origin: url.origin,
       };
     }

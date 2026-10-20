@@ -692,6 +692,128 @@ export interface BrowserTab {
 
 export type BrowserDriverKind = "cdp" | "playwright";
 
+export interface BrowserRecordingUpdatedPayload {
+    recording: BrowserRecording;
+}
+
+export interface BrowserRecording {
+    bytes:      number;
+    endedAt?:   null | string;
+    eventCount: number;
+    frameCount: number;
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    id:             string;
+    libraryItemId?: null | string;
+    startedAt:      string;
+    taskId?:        null | string;
+    threadId?:      null | string;
+}
+
+export interface BrowserRecordingsDeleteParams {
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    recordingId: string;
+}
+
+export interface BrowserRecordingsFrameParams {
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    recordingId: string;
+    seq:         number;
+}
+
+export interface BrowserRecordingsFrameResult {
+    /**
+     * Base64 image bytes
+     */
+    data:  string;
+    frame: BrowserRecordingFrame;
+    mime:  BrowserRecordingFrameMIME;
+}
+
+export interface BrowserRecordingFrame {
+    at:    string;
+    seq:   number;
+    tabId: string;
+    /**
+     * Origin and path only
+     */
+    url: string;
+}
+
+export type BrowserRecordingFrameMIME = "image/jpeg" | "image/png";
+
+export interface BrowserRecordingsGetParams {
+    limit?: number;
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    recordingId: string;
+    sinceSeq?:   number;
+}
+
+export interface BrowserRecordingsGetResult {
+    events:    BrowserRecordingEvent[];
+    frames:    BrowserRecordingFrame[];
+    recording: BrowserRecording;
+}
+
+export interface BrowserRecordingEvent {
+    action?:      string;
+    at:           string;
+    detail?:      { [key: string]: unknown };
+    element?:     Element;
+    frameSeq?:    number;
+    kind:         BrowserRecordingEventKind;
+    ref?:         string;
+    seq:          number;
+    snapshotSeq?: number;
+    summary:      string;
+    tabId:        string;
+    url?:         string;
+}
+
+export interface Element {
+    name: string;
+    role: string;
+}
+
+export type BrowserRecordingEventKind = "tab" | "navigation" | "snapshot" | "action" | "fill" | "download" | "blocked" | "control" | "dialog";
+
+export interface BrowserRecordingsListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:   string;
+    limit?:    number;
+    taskId?:   string;
+    threadId?: string;
+}
+
+export interface BrowserRecordingsListResult {
+    nextCursor?: null | string;
+    recordings:  BrowserRecording[];
+}
+
+export interface BrowserRecordingsSnapshotParams {
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    recordingId: string;
+    seq:         number;
+}
+
+export interface BrowserRecordingsSnapshotResult {
+    /**
+     * The snapshot text the model saw (untrusted page content)
+     */
+    text: string;
+}
+
 export interface BrowserSnapshotParams {
     tabId: string;
 }

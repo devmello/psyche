@@ -134,6 +134,11 @@
         "payload": "#/$defs/AutomationUpdatedPayload"
       },
       {
+        "description": "A browser recording started, grew (coalesced) or ended; Activity re-reads it with browser.recordings.get {sinceSeq}.",
+        "name": "browser.recording.updated",
+        "payload": "#/$defs/BrowserRecordingUpdatedPayload"
+      },
+      {
         "description": "A channel was configured, connected, disconnected or changed status.",
         "name": "channels.updated",
         "payload": "#/$defs/ChannelsUpdatedPayload"
@@ -503,6 +508,46 @@
         "params": "#/$defs/BrowserOpenParams",
         "result": "#/$defs/BrowserOpenResult",
         "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting. Deletes a recording and its files (retention is otherwise 7 days, data model §12).",
+        "name": "browser.recordings.delete",
+        "params": "#/$defs/BrowserRecordingsDeleteParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Returns one screencast frame of a recording.",
+        "name": "browser.recordings.frame",
+        "params": "#/$defs/BrowserRecordingsFrameParams",
+        "result": "#/$defs/BrowserRecordingsFrameResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Returns a recording's replay index: the event log and the frame list Activity scrubs through.",
+        "name": "browser.recordings.get",
+        "params": "#/$defs/BrowserRecordingsGetParams",
+        "result": "#/$defs/BrowserRecordingsGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists browser recordings, newest first (feature I10).",
+        "name": "browser.recordings.list",
+        "params": "#/$defs/BrowserRecordingsListParams",
+        "result": "#/$defs/BrowserRecordingsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Returns the page snapshot a `snapshot` event recorded.",
+        "name": "browser.recordings.snapshot",
+        "params": "#/$defs/BrowserRecordingsSnapshotParams",
+        "result": "#/$defs/BrowserRecordingsSnapshotResult",
+        "scope": "operator.read",
         "sideEffecting": false
       },
       {
@@ -3911,6 +3956,407 @@
         "clean"
       ],
       "type": "string"
+    },
+    "BrowserRecording": {
+      "properties": {
+        "id": {
+          "description": "Recording id: the task id, or thread:<id> for chat turns",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "threadId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "frameCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "eventCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "libraryItemId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "startedAt",
+        "frameCount",
+        "eventCount",
+        "bytes"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingEvent": {
+      "properties": {
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "tabId": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/BrowserRecordingEventKind"
+        },
+        "summary": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "element": {
+          "properties": {
+            "role": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "role",
+            "name"
+          ],
+          "type": "object"
+        },
+        "detail": {
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        },
+        "snapshotSeq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "frameSeq": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "tabId",
+        "kind",
+        "summary"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingEventKind": {
+      "enum": [
+        "tab",
+        "navigation",
+        "snapshot",
+        "action",
+        "fill",
+        "download",
+        "blocked",
+        "control",
+        "dialog"
+      ],
+      "type": "string"
+    },
+    "BrowserRecordingFrame": {
+      "properties": {
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "tabId": {
+          "type": "string"
+        },
+        "url": {
+          "description": "Origin and path only",
+          "type": "string"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "tabId",
+        "url"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingFrameMime": {
+      "enum": [
+        "image/jpeg",
+        "image/png"
+      ],
+      "type": "string"
+    },
+    "BrowserRecordingUpdatedPayload": {
+      "properties": {
+        "recording": {
+          "$ref": "#/$defs/BrowserRecording"
+        }
+      },
+      "required": [
+        "recording"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingsDeleteParams": {
+      "properties": {
+        "recordingId": {
+          "description": "Recording id: the task id, or thread:<id> for chat turns",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "recordingId"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingsFrameParams": {
+      "properties": {
+        "recordingId": {
+          "description": "Recording id: the task id, or thread:<id> for chat turns",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "recordingId",
+        "seq"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingsFrameResult": {
+      "properties": {
+        "frame": {
+          "$ref": "#/$defs/BrowserRecordingFrame"
+        },
+        "mime": {
+          "$ref": "#/$defs/BrowserRecordingFrameMime"
+        },
+        "data": {
+          "description": "Base64 image bytes",
+          "type": "string"
+        }
+      },
+      "required": [
+        "frame",
+        "mime",
+        "data"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingsGetParams": {
+      "properties": {
+        "recordingId": {
+          "description": "Recording id: the task id, or thread:<id> for chat turns",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sinceSeq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "limit": {
+          "maximum": 5000,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "recordingId"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingsGetResult": {
+      "properties": {
+        "recording": {
+          "$ref": "#/$defs/BrowserRecording"
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/BrowserRecordingEvent"
+          },
+          "type": "array"
+        },
+        "frames": {
+          "items": {
+            "$ref": "#/$defs/BrowserRecordingFrame"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "recording",
+        "events",
+        "frames"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingsListParams": {
+      "properties": {
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "BrowserRecordingsListResult": {
+      "properties": {
+        "recordings": {
+          "items": {
+            "$ref": "#/$defs/BrowserRecording"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "recordings"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingsSnapshotParams": {
+      "properties": {
+        "recordingId": {
+          "description": "Recording id: the task id, or thread:<id> for chat turns",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "recordingId",
+        "seq"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingsSnapshotResult": {
+      "properties": {
+        "text": {
+          "description": "The snapshot text the model saw (untrusted page content)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
     },
     "BrowserSnapshot": {
       "properties": {
