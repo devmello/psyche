@@ -45,11 +45,21 @@ ditto "$app" "$stage/Psyche.app"
 ln -s /Applications "$stage/Applications"
 
 # No Developer ID: the package step signs ad-hoc, inside out (the helper keeps its own
-# entitlements). An app that arrives unsigned or broken is signed ad-hoc here instead, so the
+# entitlements). An app that arrives unsigned or broken is refused when it bundles the helper,
+# and otherwise (no helper: a partial dev package) signed ad-hoc here instead, so the
 # bundle is consistently signed (macOS refuses unsigned arm64 code) and psyched's Node runtime and
 # addons load (no hardened runtime, so no library validation).
 if [ -z "${PSYCHE_SIGN_IDENTITY:-}" ]; then
   if ! codesign --verify --deep --strict "$stage/Psyche.app" 2>/dev/null; then
+    # --deep would re-sign the bundled helper with the app's entitlements, dropping its own
+    # (Apple Events, audio input, …; S14 packaging contract). Such an app is re-packaged instead.
+    for helper in "$stage/Psyche.app/Contents/Resources/"*Helper*.app; do
+      if [ -d "$helper" ]; then
+        echo "error: $app is not validly signed and bundles $(basename "$helper")." >&2
+        echo "  Re-run the package step on macOS (it signs ad-hoc, inside out); make-dmg.sh will not --deep re-sign it." >&2
+        exit 1
+      fi
+    done
     echo "note: $app is not validly signed; signing the DMG copy ad-hoc (--deep)" >&2
     codesign --force --deep --sign - --entitlements "$entitlements" "$stage/Psyche.app"
     codesign --verify --deep --strict "$stage/Psyche.app"
