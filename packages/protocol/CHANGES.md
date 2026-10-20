@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S02/S05: connector rule and taint sources, #71)
+
+For S02 (`agent-core` passes both), S05 (the broker reads `connectorRule` and fills `taintSources`), S11 / S12 (approval cards show `taint.sources`, security §3.11), S18 (the scenario and injection runners drop their glue).
+
+- New contract type `ConnectorRule` (`{id, action}`): the connector action-matrix key (feature F5, `permissions.connectors[id][action]`). Optional `connectorRule` on `ToolCallIntent` and on `ToolCallDescription` (a tool's `describeCall` declares it; the loop forwards it).
+- `ApprovalRequest` (wire) gains optional `taintSources: TaintSource[]` (`{sourceKind, origin?, sender?, toolCallId?}`, security §3.6), present when the request is tainted. `ApprovalRequestInput` gains optional `taintSources`; the broker falls back to `context.taintSources`.
+- `FakePermissionBroker` fills `ApprovalRequest.taintSources` from the input or its context.
 ### v1 additive — 2026-10-20 (S22, issue #169)
 
 - New `browser.realChrome.status` (`operator.read`) → `RealChromeStatus {enabled, attached, port?, pid?, since?, sessions, userDataDir?}`: the composed Gateway's real-Chrome mode (I13) for `psyche security audit` (security §6: the DevTools port is flagged while it runs). No fake: no contract changed.

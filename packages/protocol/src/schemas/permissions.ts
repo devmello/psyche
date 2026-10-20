@@ -95,6 +95,8 @@ export const ApprovalRequest = Type.Object(
     deviceOnly: Type.Boolean(),
     requiresAuthentication: Type.Boolean(),
     taint: Type.Boolean(),
+    /** Where the taint came from (security §3.6, §3.11 `taint.sources`); present only when tainted. */
+    taintSources: Type.Optional(Type.Array(TaintSource)),
     status: ApprovalStatus,
     scopeGranted: Nullable(GrantScope),
     decidedBy: Nullable(DecidedBy),
