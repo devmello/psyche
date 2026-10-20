@@ -1,6 +1,12 @@
 import type { MethodName, MethodParams, MethodResult } from "@psyche/protocol";
 import { fail } from "./errors.ts";
+import type { PaymentBroker } from "./payments/broker.ts";
 import type { Vault } from "./vault.ts";
+
+export interface VaultHandlerOptions {
+  /** Stripe Link payments (G12); `vault.payments.*` answer `unavailable` without it. */
+  payments?: PaymentBroker;
+}
 
 export type VaultMethodName = Extract<MethodName, `vault.${string}`>;
 
@@ -15,7 +21,18 @@ export type VaultHandlers = {
  * carry values. Events: subscribe with `vault.on("vault.locked" | "vault.unlocked" |
  * "credential.updated", …)` and fan them out as event frames.
  */
-export function createVaultHandlers(vault: Vault): VaultHandlers {
+export function createVaultHandlers(
+  vault: Vault,
+  options: VaultHandlerOptions = {},
+): VaultHandlers {
+  const payments = () => {
+    if (options.payments === undefined) {
+      return fail("unavailable", "Stripe Link is not set up", {
+        reason: "payments_not_configured",
+      });
+    }
+    return options.payments;
+  };
   return {
     "vault.list": async ({ kind }) => ({
       credentials: (await vault.list()).filter((c) => kind === undefined || c.kind === kind),
@@ -68,5 +85,22 @@ export function createVaultHandlers(vault: Vault): VaultHandlers {
       return { imported, skipped };
     },
     "vault.uses": async ({ credentialId, limit }) => ({ uses: vault.uses(credentialId, limit) }),
+    "vault.linkExternal": async (p) => ({
+      credential: await vault.linkOnePassword({
+        kind: p.kind,
+        name: p.name,
+        ...(p.slug === undefined ? {} : { slug: p.slug }),
+        bindings: p.bindings,
+        ref: p.ref,
+        ...(p.fields === undefined ? {} : { fields: p.fields }),
+      }),
+    }),
+    "vault.payments.list": async ({ limit, taskId }) => ({
+      payments: payments().list({
+        ...(limit === undefined ? {} : { limit }),
+        ...(taskId === undefined ? {} : { taskId }),
+      }),
+    }),
+    "vault.payments.methods": async () => ({ methods: await payments().methods() }),
   };
 }

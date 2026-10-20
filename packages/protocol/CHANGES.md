@@ -24,6 +24,13 @@ For S09 (mcp-host sets it), S02 (the loop may taint a turn whose tools include u
 
 - New optional `ToolSpec.descriptionProvenance: "trusted" | "untrusted"`: who wrote the tool's `description` and the text in its `inputSchema`. `untrusted` for non-bundled MCP servers; absent means Psyche's own tool text.
 - `FakeMcpHost` sets it from the server's trust tier.
+### v1 additive — 2026-10-20 (S06: Settings → Credentials, payments and 1Password)
+
+- `vault.linkExternal` (operator.admin, side-effecting): links a 1Password item (G10) by `OnePasswordRef` `{vault, item}` with the fields it offers; Psyche stores the reference, never a value.
+- `vault.payments.list` (operator.read): Stripe Link spends as `VaultPayment`, newest first, optionally per task. Each carries the merchant, the amount in minor units, Link's status, the lifecycle `payment {state, held, captured, refunded}`, brand / last4 of the one-time card and of its funding method, and the merchant refs. Never card data.
+- `vault.payments.methods` (operator.read): the owner's Link payment methods as `LinkPaymentMethod`, redacted.
+- Event `vault.payment.updated {payment}`.
+- `CredentialMeta.backend` (optional): `vault | keychain | 1password`.
 
 ### v1 additive — 2026-10-20 (S22, M3 security audit completeness)
 
