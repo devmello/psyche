@@ -1,0 +1,27 @@
+{
+  "name": "@psyche/plugins",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Code plugins (T4): manifests, install with the skill trust card, and a permission-restricted host process per plugin.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@psyche/agent-core": "workspace:*",
+    "@psyche/protocol": "workspace:*",
+    "@psyche/skills": "workspace:*",
+    "@sinclair/typebox": "0.34.52"
+  },
+  "devDependencies": {
+    "@psyche/testing": "workspace:*"
+  }
+}

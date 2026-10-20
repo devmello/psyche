@@ -35,6 +35,7 @@
     "@psyche/model-router": "workspace:*",
     "@psyche/notifications": "workspace:*",
     "@psyche/permissions": "workspace:*",
+    "@psyche/plugins": "workspace:*",
     "@psyche/proactive": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "@psyche/sandbox": "workspace:*",
