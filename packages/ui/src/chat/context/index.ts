@@ -8,7 +8,8 @@ export {
   ThreadContextMeter,
 } from "./connected.tsx";
 export {
-  BREAKDOWN_LABEL,
+  BREAKDOWN_KEYS,
+  breakdownLabel,
   type CompactionBlock,
   type CompactionSummary,
   type CompactionView,
@@ -17,7 +18,8 @@ export {
   compactionView,
   contextTone,
   formatTokens,
-  LIMIT_FROM_LABEL,
-  SUMMARY_LABEL,
+  limitFromLabel,
+  SUMMARY_KEYS,
+  summaryLabel,
   usageView,
 } from "./types.ts";

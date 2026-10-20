@@ -4,6 +4,7 @@ import type {
   ContextUsage,
   EffectiveContextLimits,
 } from "@psyche/protocol";
+import { activeI18n, t } from "../../i18n/core.ts";
 
 /**
  * What the chat's context UI shows. The view models are the protocol's `threads.contextUsage`,
@@ -44,26 +45,13 @@ export interface CompactionView {
   createdAt: string;
 }
 
-export const BREAKDOWN_LABEL: Record<keyof ContextBreakdown, string> = {
-  system: "System prompt",
-  tools: "Tools",
-  context: "Memory and context",
-  history: "Conversation so far",
-  current: "Current message",
-};
+export const BREAKDOWN_KEYS = ["system", "tools", "context", "history", "current"] as const;
+export const SUMMARY_KEYS = ["facts", "decisions", "openTasks", "pinnedInstructions"] as const;
 
-export const SUMMARY_LABEL: Record<keyof CompactionSummary, string> = {
-  facts: "Facts",
-  decisions: "Decisions",
-  openTasks: "Open tasks",
-  pinnedInstructions: "Standing instructions",
-};
-
-export const LIMIT_FROM_LABEL: Record<EffectiveContextLimits["maxTokensFrom"], string> = {
-  thread: "this chat's own limit",
-  settings: "the limit in Settings",
-  model: "the model's context window",
-};
+export const breakdownLabel = (k: keyof ContextBreakdown): string => t(`context.breakdown.${k}`);
+export const summaryLabel = (k: keyof CompactionSummary): string => t(`context.summary.${k}`);
+export const limitFromLabel = (from: EffectiveContextLimits["maxTokensFrom"]): string =>
+  t(`context.limitFrom.${from}`);
 
 /** The meter's view of a turn's usage under the thread's effective limits. */
 export function usageView(
@@ -94,12 +82,13 @@ export function compactionView(block: CompactionBlock, createdAt: string): Compa
 
 /** "12.4k", "200k", "1.2M": compact token counts for pills and markers. */
 export function formatTokens(n: number): string {
-  if (n < 1000) return String(Math.round(n));
+  const num = (v: number) => activeI18n().number(v, { maximumFractionDigits: 1 });
+  if (n < 1000) return num(Math.round(n));
   if (n < 1_000_000) {
     const k = n / 1000;
-    return `${k >= 100 ? Math.round(k) : Math.round(k * 10) / 10}k`;
+    return `${num(k >= 100 ? Math.round(k) : Math.round(k * 10) / 10)}k`;
   }
-  return `${Math.round((n / 1_000_000) * 10) / 10}M`;
+  return `${num(Math.round((n / 1_000_000) * 10) / 10)}M`;
 }
 
 /** How close the context is to compaction: below 85% of the threshold, near it, or past it. */

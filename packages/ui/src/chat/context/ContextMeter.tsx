@@ -9,24 +9,21 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "../../components/ui/popover.tsx";
+import { activeI18n, t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
 import {
-  BREAKDOWN_LABEL,
-  type ContextBreakdown,
+  BREAKDOWN_KEYS,
+  breakdownLabel,
   type ContextUsageView,
   contextTone,
   formatTokens,
-  LIMIT_FROM_LABEL,
+  limitFromLabel,
 } from "./types.ts";
 
 const TONE = {
-  ok: { bar: "bg-gray-9", text: "text-muted-foreground", words: "" },
-  near: {
-    bar: "bg-approval",
-    text: "text-approval-text",
-    words: ", near the compaction threshold",
-  },
-  over: { bar: "bg-danger", text: "text-danger-text", words: ", past the compaction threshold" },
+  ok: { bar: "bg-gray-9", text: "text-muted-foreground" },
+  near: { bar: "bg-approval", text: "text-approval-text" },
+  over: { bar: "bg-danger", text: "text-danger-text" },
 } as const;
 
 const percent = (part: number, whole: number) =>
@@ -54,9 +51,13 @@ export function ContextMeter({
 }: ContextMeterProps): ReactElement {
   const tone = contextTone(usage);
   const pct = percent(usage.used, usage.limit);
-  const label = `Context: ${usage.used.toLocaleString()} of ${usage.limit.toLocaleString()} tokens, ${pct}%${
-    usage.exact ? "" : ", estimate"
-  }${TONE[tone].words}`;
+  const label = t("context.meter.label", {
+    used: usage.used,
+    limit: usage.limit,
+    pct,
+    estimate: !usage.exact,
+    tone,
+  });
   return (
     <Popover>
       <PopoverTrigger
@@ -76,7 +77,7 @@ export function ContextMeter({
           aria-hidden="true"
         >
           <span
-            className={cn("absolute inset-y-0 left-0 rounded-full", TONE[tone].bar)}
+            className={cn("absolute inset-y-0 start-0 rounded-full", TONE[tone].bar)}
             style={{ width: `${pct}%` }}
           />
         </span>
@@ -85,31 +86,33 @@ export function ContextMeter({
             className="rounded bg-gray-3 px-1 text-[0.6875rem] text-muted-foreground"
             aria-hidden="true"
           >
-            estimate
+            {t("context.meter.estimateBadge")}
           </span>
         )}
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80">
         <PopoverHeader>
-          <PopoverTitle>Context</PopoverTitle>
+          <PopoverTitle>{t("context.meter.title")}</PopoverTitle>
           <PopoverDescription>
-            {usage.used.toLocaleString()} of {usage.limit.toLocaleString()} tokens ({pct}%).{" "}
-            {usage.exact ? "Counted by the provider." : "An estimate until the provider counts it."}
-            {usage.limitFrom ? ` The limit is ${LIMIT_FROM_LABEL[usage.limitFrom]}.` : ""}
+            {t("context.meter.usage", { used: usage.used, limit: usage.limit, pct })}{" "}
+            {usage.exact ? t("context.meter.exact") : t("context.meter.estimated")}
+            {usage.limitFrom
+              ? ` ${t("context.meter.limitFrom", { from: limitFromLabel(usage.limitFrom) })}`
+              : ""}
           </PopoverDescription>
         </PopoverHeader>
-        <table className="mt-2 w-full text-sm" aria-label="Where the tokens go">
+        <table className="mt-2 w-full text-sm" aria-label={t("context.meter.breakdownTable")}>
           <tbody>
-            {(Object.keys(BREAKDOWN_LABEL) as (keyof ContextBreakdown)[]).map((k) => (
+            {BREAKDOWN_KEYS.map((k) => (
               <tr key={k}>
-                <th scope="row" className="py-0.5 text-left font-normal text-muted-foreground">
-                  {BREAKDOWN_LABEL[k]}
+                <th scope="row" className="py-0.5 text-start font-normal text-muted-foreground">
+                  {breakdownLabel(k)}
                 </th>
-                <td className="py-0.5 text-right tabular-nums">
-                  {usage.breakdown[k].toLocaleString()}
+                <td className="py-0.5 text-end tabular-nums">
+                  {activeI18n().number(usage.breakdown[k])}
                 </td>
-                <td className="w-12 py-0.5 text-right text-xs text-muted-foreground tabular-nums">
-                  {percent(usage.breakdown[k], usage.used)}%
+                <td className="w-12 py-0.5 text-end text-xs text-muted-foreground tabular-nums">
+                  {activeI18n().percent(percent(usage.breakdown[k], usage.used) / 100)}
                 </td>
               </tr>
             ))}
@@ -117,8 +120,11 @@ export function ContextMeter({
         </table>
         <p className={cn("mt-2 text-xs", TONE[tone].text)}>
           {tone === "over"
-            ? `Past the compaction threshold (${usage.compactAt.toLocaleString()} tokens): earlier turns are summarised before the next reply.`
-            : `Earlier turns are summarised at ${usage.compactAt.toLocaleString()} tokens (${percent(usage.compactAt, usage.limit)}% of the limit).`}
+            ? t("context.meter.past", { at: usage.compactAt })
+            : t("context.meter.threshold", {
+                at: usage.compactAt,
+                pct: percent(usage.compactAt, usage.limit),
+              })}
         </p>
         {onCompact || onEditLimits ? (
           <div className="mt-3 flex flex-wrap gap-2">
@@ -127,12 +133,12 @@ export function ContextMeter({
                 {compacting ? (
                   <Loader className="motion-safe:animate-spin" aria-hidden="true" />
                 ) : null}
-                {compacting ? "Compacting…" : "Compact now"}
+                {compacting ? t("context.meter.compacting") : t("context.meter.compactNow")}
               </Button>
             ) : null}
             {onEditLimits ? (
               <Button type="button" size="sm" variant="outline" onClick={onEditLimits}>
-                Limits for this chat…
+                {t("context.meter.editLimits")}
               </Button>
             ) : null}
           </div>

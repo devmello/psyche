@@ -1,6 +1,11 @@
-/** Small formatting helpers shared by blocks and screens (UI design §4.12 copy voice). */
+import { activeI18n, t } from "../i18n/core.ts";
 
-export function formatTime(iso: string, locale?: string): string {
+/**
+ * Small formatting helpers shared by blocks and screens (UI design §4.12 copy voice). Words come
+ * from the catalogue (`time.*`) and numbers and dates follow the active format locale (A12).
+ */
+
+export function formatTime(iso: string, locale: string = activeI18n().locale): string {
   return new Date(iso).toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
@@ -9,7 +14,7 @@ export function formatTime(iso: string, locale?: string): string {
   });
 }
 
-export function formatDate(iso: string, locale?: string): string {
+export function formatDate(iso: string, locale: string = activeI18n().locale): string {
   return new Date(iso).toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
@@ -19,13 +24,13 @@ export function formatDate(iso: string, locale?: string): string {
 
 /** "12 s", "3 min", "1 h 5 min". */
 export function formatDuration(ms: number): string {
-  if (ms < 1000) return `${Math.max(0, Math.round(ms))} ms`;
+  if (ms < 1000) return t("time.ms", { n: Math.max(0, Math.round(ms)) });
   const s = Math.round(ms / 1000);
-  if (s < 60) return `${s} s`;
+  if (s < 60) return t("time.s", { n: s });
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m} min`;
+  if (m < 60) return t("time.min", { n: m });
   const h = Math.floor(m / 60);
-  return m % 60 === 0 ? `${h} h` : `${h} h ${m % 60} min`;
+  return m % 60 === 0 ? t("time.h", { h }) : t("time.hMin", { h, m: m % 60 });
 }
 
 /** Countdown "28:41", or "0:45" under a minute. */
@@ -46,22 +51,26 @@ export function formatCountdown(ms: number): string {
 export function formatRelative(iso: string, now: number): string {
   const diff = Date.parse(iso) - now;
   const abs = Math.abs(diff);
-  if (abs < 45_000) return "just now";
+  if (abs < 45_000) return t("time.justNow");
   const past = diff < 0;
   const hour = 3_600_000;
   const day = 24 * hour;
   let label: string;
   if (abs < 2 * hour) label = formatDuration(abs);
-  else if (abs < day) label = `${Math.round(abs / hour)} h`;
+  else if (abs < day) label = t("time.h", { h: Math.round(abs / hour) });
   else {
     const days = Math.round(abs / day);
-    if (days === 1) return past ? "yesterday" : "tomorrow";
-    if (days < 7) label = `${days} days`;
-    else return past ? formatDate(iso) : `on ${formatDate(iso)}`;
+    if (days === 1) return past ? t("time.yesterday") : t("time.tomorrow");
+    if (days < 7) label = t("time.days", { n: days });
+    else return past ? formatDate(iso) : t("time.onDate", { date: formatDate(iso) });
   }
-  return past ? `${label} ago` : `in ${label}`;
+  return past ? t("time.ago", { label }) : t("time.in", { label });
 }
 
+/**
+ * English-only "3 items" for strings not yet in the catalogue. New code uses an ICU plural in a
+ * catalogue message instead (`{n, plural, one {# item} other {# items}}`).
+ */
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
 }

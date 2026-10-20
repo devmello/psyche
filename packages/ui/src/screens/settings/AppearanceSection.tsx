@@ -14,6 +14,7 @@ import {
   type ModeTheme,
 } from "../../theme/generate.ts";
 import { appearanceFromSettings } from "../../theme/ThemeProvider.tsx";
+import { LanguageGroup } from "./LanguageSettings.tsx";
 import {
   ErrorNotice,
   Group,
@@ -293,6 +294,8 @@ export function AppearancePanel({
             onChange={(v) => onChange("appearance.contrast", v ? "high" : "standard")}
           />
         </Group>
+
+        <LanguageGroup values={values} onChange={onChange} />
       </LoadGate>
     </SectionFrame>
   );

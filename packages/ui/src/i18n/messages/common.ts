@@ -1,0 +1,19 @@
+/** Words and actions shared across screens. */
+export const common = {
+  "common.cancel": "Cancel",
+  "common.close": "Close",
+  "common.save": "Save",
+  "common.saving": "Saving…",
+  "common.retry": "Retry",
+  "common.remove": "Remove",
+  "common.delete": "Delete",
+  "common.edit": "Edit",
+  "common.done": "Done",
+  "common.more": "More",
+  "common.loading": "Loading…",
+  "common.you": "You",
+  "common.on": "On",
+  "common.off": "Off",
+  "common.dismiss": "Dismiss",
+  "common.noText": "(no text)",
+} as const;

@@ -1,13 +1,9 @@
 import { ChevronRight, Loader, Shrink } from "lucide-react";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
+import { t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
-import {
-  type CompactionSummary,
-  type CompactionView,
-  formatTokens,
-  SUMMARY_LABEL,
-} from "./types.ts";
+import { type CompactionView, formatTokens, SUMMARY_KEYS, summaryLabel } from "./types.ts";
 
 /** Stable list keys for summary lines: the text itself, suffixed only when a line repeats. */
 function withUniqueKeys(items: readonly string[]): [string, string][] {
@@ -46,46 +42,50 @@ export function CompactionMarker({
 }: CompactionMarkerProps): ReactElement {
   const [open, setOpen] = useState(defaultOpen);
   const id = useId();
-  const sections = (Object.keys(SUMMARY_LABEL) as (keyof CompactionSummary)[]).filter(
-    (k) => c.summary[k].length > 0,
-  );
+  const sections = SUMMARY_KEYS.filter((k) => c.summary[k].length > 0);
   return (
     <section
-      aria-label="Compacted turns"
-      className="my-3 rounded-lg border border-dashed border-gray-6 px-3 py-2 text-left text-sm"
+      aria-label={t("context.marker.region")}
+      className="my-3 rounded-lg border border-dashed border-gray-6 px-3 py-2 text-start text-sm"
       data-testid="compaction-marker"
     >
       <button
         type="button"
-        className="flex min-h-6 w-full items-center gap-2 text-left text-muted-foreground hover:text-foreground"
+        className="flex min-h-6 w-full items-center gap-2 text-start text-muted-foreground hover:text-foreground"
         aria-expanded={open}
         aria-controls={`${id}-summary`}
         onClick={() => setOpen((o) => !o)}
       >
         <ChevronRight
-          className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
+          className={cn(
+            "size-3.5 shrink-0 transition-transform",
+            open ? "rotate-90" : "rtl:rotate-180",
+          )}
           aria-hidden="true"
         />
         <Shrink className="size-3.5 shrink-0" aria-hidden="true" />
         <span className="min-w-0 flex-1">
-          {c.replacedTurns === 1 ? "An earlier turn was" : `${c.replacedTurns} earlier turns were`}{" "}
-          compacted{c.trigger === "manual" ? " on request" : ""}, {formatTokens(c.tokensBefore)} →{" "}
-          {formatTokens(c.tokensAfter)} tokens
+          {t("context.marker.toggle", {
+            turns: c.replacedTurns,
+            manual: c.trigger === "manual",
+            before: formatTokens(c.tokensBefore),
+            after: formatTokens(c.tokensAfter),
+          })}
         </span>
       </button>
       {open ? (
         <div id={`${id}-summary`} className="mt-2 flex flex-col gap-2">
-          <p className="text-xs text-muted-foreground">The summary the agent reads instead:</p>
+          <p className="text-xs text-muted-foreground">{t("context.marker.readsInstead")}</p>
           <div className="flex flex-col gap-2 rounded-md bg-gray-2 p-2">
             {sections.length === 0 ? (
-              <p className="text-muted-foreground">Nothing worth keeping was found.</p>
+              <p className="text-muted-foreground">{t("context.marker.empty")}</p>
             ) : (
               sections.map((k) => (
                 <div key={k}>
                   <p id={`${id}-${k}`} className="text-xs font-medium text-muted-foreground">
-                    {SUMMARY_LABEL[k]}
+                    {summaryLabel(k)}
                   </p>
-                  <ul aria-labelledby={`${id}-${k}`} className="ml-4 list-disc">
+                  <ul aria-labelledby={`${id}-${k}`} className="ms-4 list-disc">
                     {withUniqueKeys(c.summary[k]).map(([key, item]) => (
                       <li key={key} className="whitespace-pre-wrap">
                         {item}
@@ -109,7 +109,7 @@ export function CompactionMarker({
                   {loadingReplaced ? (
                     <Loader className="motion-safe:animate-spin" aria-hidden="true" />
                   ) : null}
-                  Show what was replaced
+                  {t("context.marker.showReplaced")}
                 </Button>
               </div>
             ) : null)}
