@@ -1,4 +1,6 @@
+import { createHash, sign as edSign, generateKeyPairSync, type KeyObject } from "node:crypto";
 import {
+  type BotAuthKey,
   type Clock,
   type ConnectorCredentialStore,
   type ConnectorTokenInput,
@@ -107,6 +109,9 @@ export class FakeCredentialBroker implements CredentialBroker, ConnectorCredenti
   #approved = new Map<string, FakeFillApproval & { used: boolean }>();
   #verify: ApprovalVerifier;
   #revokedListeners = new Set<(event: CredentialRevokedEvent) => void>();
+  #botAuth: { key: BotAuthKey; privateKey: KeyObject } | undefined;
+  /** Every Web Bot Auth signature made (counts only), for tests. */
+  botAuthSignatures = 0;
   /** Every successful resolve (no values), like `credential_uses`. */
   readonly uses: { credentialId: string; target: string; approvalId: string; executor?: string }[] =
     [];
@@ -326,6 +331,37 @@ export class FakeCredentialBroker implements CredentialBroker, ConnectorCredenti
   onRevoked(listener: (event: CredentialRevokedEvent) => void): Unsubscribe {
     this.#revokedListeners.add(listener);
     return () => this.#revokedListeners.delete(listener);
+  }
+
+  /** Web Bot Auth (I14): a real Ed25519 key, so fixture verifiers can check signatures. */
+  async botAuthKey(): Promise<BotAuthKey | undefined> {
+    return this.#botAuth?.key;
+  }
+
+  async rotateBotAuthKey(): Promise<BotAuthKey> {
+    const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+    const jwk = publicKey.export({ format: "jwk" }) as { x: string };
+    const publicJwk = { kty: "OKP" as const, crv: "Ed25519" as const, x: jwk.x };
+    // RFC 7638 thumbprint: SHA-256 over the required members in lexicographic order.
+    const keyId = createHash("sha256")
+      .update(JSON.stringify({ crv: "Ed25519", kty: "OKP", x: jwk.x }))
+      .digest("base64url");
+    const current = { privateKey } as { privateKey: KeyObject };
+    const key: BotAuthKey = {
+      keyId,
+      publicJwk,
+      createdAt: toIso(this.clock.now()),
+      sign: async (data) => {
+        // A rotated-away key must stop signing at once.
+        if (this.#botAuth?.privateKey !== current.privateKey) {
+          return fail("conflict", "this Web Bot Auth key was rotated away");
+        }
+        this.botAuthSignatures += 1;
+        return new Uint8Array(edSign(null, data, current.privateKey));
+      },
+    };
+    this.#botAuth = { key, privateKey };
+    return key;
   }
 
   redact(text: string): string {

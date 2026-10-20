@@ -782,6 +782,10 @@ export interface BackupVerifyResult {
     problems: string[];
 }
 
+export interface BitwardenRef {
+    item: string;
+}
+
 export interface BridgeCDPEventPayload {
     method:     string;
     params:     unknown;
@@ -906,6 +910,38 @@ export interface Highlight {
 
 export interface BridgeTabsListResult {
     tabs: BridgeTab[];
+}
+
+export interface BrowserBotAuthRotateResult {
+    status: BotAuthStatus;
+}
+
+export interface BotAuthStatus {
+    advertised:      string[];
+    createdAt?:      null | string;
+    directoryPath:   string;
+    enabled:         boolean;
+    keyId?:          null | string;
+    origins:         string[];
+    publicJwk?:      BotAuthJwk | null;
+    signatureAgent?: null | string;
+}
+
+export interface BotAuthJwk {
+    crv: Crv;
+    kty: Kty;
+    /**
+     * base64url public key
+     */
+    x: string;
+}
+
+export type Crv = "Ed25519";
+
+export type Kty = "OKP";
+
+export interface BrowserBotAuthStatusResult {
+    status: BotAuthStatus;
 }
 
 export interface BrowserCloseParams {
@@ -1287,7 +1323,7 @@ export interface ChannelsSecretsSetParams {
     value:   string;
 }
 
-export type ChannelSecretName = "bot_token" | "app_token" | "auth_token";
+export type ChannelSecretName = "bot_token" | "app_token" | "auth_token" | "access_token" | "app_secret" | "verify_token";
 
 export interface ChannelsSecretsSetResult {
     set: ChannelSecretName[];
@@ -1825,7 +1861,7 @@ export interface CredentialMeta {
     useCount:          number;
 }
 
-export type Backend = "vault" | "keychain" | "1password";
+export type Backend = "vault" | "keychain" | "1password" | "bitwarden";
 
 export interface CredentialBinding {
     origin?:    string;
@@ -3309,6 +3345,11 @@ export interface OkResult {
     ok: boolean;
 }
 
+export interface OnePasswordRef {
+    item:  string;
+    vault: string;
+}
+
 export interface PairingRequestedPayload {
     pairingRequest: PairingRequest;
 }
@@ -3932,6 +3973,95 @@ export interface SkillCommand {
     trust:       SkillTrust;
 }
 
+export interface SkillsDraftUpdatedPayload {
+    draft: SkillDraft;
+}
+
+export interface SkillDraft {
+    approvalId?:        string;
+    createdAt:          string;
+    description:        string;
+    edited:             boolean;
+    id:                 string;
+    installProposalId?: string;
+    manifest:           SkillManifest;
+    name:               string;
+    /**
+     * Runs in the thread with this routine
+     */
+    occurrences: number;
+    /**
+     * Values stripped from the owner's words
+     */
+    redactions: number;
+    replay?:    SkillDraftReplay;
+    signature:  string;
+    status:     SkillDraftStatus;
+    steps:      SkillDraftStep[];
+    /**
+     * A run of the routine had read untrusted content
+     */
+    tainted: boolean;
+    /**
+     * Full SKILL.md, editable by the owner while open
+     */
+    text:      string;
+    threadId:  string;
+    updatedAt: string;
+}
+
+export interface SkillDraftReplay {
+    checkedAt: string;
+    ok:        boolean;
+    problems:  string[];
+}
+
+export type SkillDraftStatus = "open" | "accepted" | "installed" | "dismissed" | "expired";
+
+export interface SkillDraftStep {
+    sideEffect: SideEffect;
+    /**
+     * Input names only, never values
+     */
+    summary: string;
+    tool:    string;
+}
+
+export interface SkillsDraftsAcceptParams {
+    draftId: string;
+}
+
+export interface SkillsDraftsAcceptResult {
+    approval: ApprovalRequest;
+    draft:    SkillDraft;
+    proposal: SkillProposal;
+}
+
+export interface SkillsDraftsDismissParams {
+    draftId: string;
+}
+
+export interface SkillsDraftsDismissResult {
+    draft: SkillDraft;
+}
+
+export interface SkillsDraftsListParams {
+    status?: SkillDraftStatus;
+}
+
+export interface SkillsDraftsListResult {
+    drafts: SkillDraft[];
+}
+
+export interface SkillsDraftsUpdateParams {
+    draftId: string;
+    text:    string;
+}
+
+export interface SkillsDraftsUpdateResult {
+    draft: SkillDraft;
+}
+
 export interface SkillsGetParams {
     name:    string;
     source?: SkillSource;
@@ -4074,6 +4204,10 @@ export interface AudioFormat {
 
 export type Encoding = "pcm_s16le" | "pcm_f32le" | "opus" | "mp3" | "wav" | "caf";
 
+export interface SpeechReadAloudCancelParams {
+    streamId: string;
+}
+
 export interface SpeechReadAloudCompletedPayload {
     durationMs: number;
     item:       LibraryItem;
@@ -4089,6 +4223,11 @@ export interface SpeechReadAloudFailedPayload {
 
 export interface SpeechReadAloudParams {
     messageId: string;
+    /**
+     * Default true. false: stream speech.audio only, save no Library item and emit no
+     * speech.readAloud.completed (voice mode, feature Q5)
+     */
+    save?: boolean;
     /**
      * <engine>:<voice>
      */
@@ -4732,7 +4871,7 @@ export interface VaultLinkExternalParams {
     fields?:  Field[];
     kind:     VaultLinkExternalParamsKind;
     name:     string;
-    ref:      OnePasswordRef;
+    ref:      Ref;
     slug?:    string;
     source:   SourceEnum;
 }
@@ -4741,12 +4880,12 @@ export type Field = "username" | "password" | "totp" | "token" | "privateKey" | 
 
 export type VaultLinkExternalParamsKind = "login" | "api_key" | "ssh_key" | "note";
 
-export interface OnePasswordRef {
-    item:  string;
-    vault: string;
+export interface Ref {
+    item:   string;
+    vault?: string;
 }
 
-export type SourceEnum = "1password";
+export type SourceEnum = "1password" | "bitwarden";
 
 export interface VaultLinkExternalResult {
     credential: CredentialMeta;

@@ -14,8 +14,13 @@ import { MockBrowser, type MockTab } from "./mock-browser.ts";
  * downloads written to a quarantine directory. Tests drive the "human" through `takeControl`.
  */
 
+/** The only headers the Gateway may add to a paused request through the desktop (I14). */
+const SIGNATURE_HEADER_NAMES = new Set(["signature", "signature-input", "signature-agent"]);
+
 interface TabState {
   tab: MockTab;
+  /** Paused document requests → their real headers, for the signature merge. */
+  paused: Map<string, Record<string, string>>;
   attached: boolean;
   profile: "logged-in" | "clean";
   control: "agent" | "user" | "paused";
@@ -98,6 +103,7 @@ export class MockDesktop {
       profile,
       control: "agent",
       world: { contexts: new Set(), objects: new Set() },
+      paused: new Map(),
     };
     this.#tabs.set(tab.id, state);
     return state;
@@ -179,9 +185,16 @@ export class MockDesktop {
         const s = this.#state(p.tabId);
         if (!s.attached) {
           s.attached = true;
-          s.off = s.tab.on((m, params) =>
-            this.#event("bridge.cdp.event", { tabId: s.tab.id, method: m, params }),
-          );
+          s.off = s.tab.on((m, params) => {
+            if (m === "Fetch.requestPaused") {
+              const p = params as {
+                requestId: string;
+                request: { headers?: Record<string, string> };
+              };
+              s.paused.set(p.requestId, { ...(p.request.headers ?? {}) });
+            }
+            this.#event("bridge.cdp.event", { tabId: s.tab.id, method: m, params });
+          });
         }
         return { tab: this.#tabInfo(s) };
       }
@@ -214,7 +227,33 @@ export class MockDesktop {
         retryable: true,
       });
     }
-    const result = await s.tab.send(method, params);
+    let forward = params;
+    if (method === "Fetch.continueRequest" || method === "Fetch.failRequest") {
+      const real = s.paused.get(String(params.requestId));
+      s.paused.delete(String(params.requestId));
+      if (method === "Fetch.continueRequest" && Array.isArray(params.headers)) {
+        // As the desktop does: the Gateway sends only signature headers (it sees redacted ones)
+        // and they are added to the request's real headers.
+        const added = params.headers as { name: string; value: string }[];
+        if (
+          real === undefined ||
+          !added.every((h) => SIGNATURE_HEADER_NAMES.has(h.name.toLowerCase()))
+        ) {
+          this.refused.push({ method, reason: "only signature headers may be added" });
+          throw new PsycheError("method_not_allowed", "only signature headers may be added");
+        }
+        forward = {
+          requestId: params.requestId,
+          headers: [
+            ...Object.entries(real)
+              .filter(([n]) => !SIGNATURE_HEADER_NAMES.has(n.toLowerCase()))
+              .map(([name, value]) => ({ name, value })),
+            ...added,
+          ],
+        };
+      }
+    }
+    const result = await s.tab.send(method, forward);
     if (method === "Page.createIsolatedWorld") {
       s.world.contexts.add((result as { executionContextId: number }).executionContextId);
     }
