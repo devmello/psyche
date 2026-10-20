@@ -45,7 +45,7 @@ export function Rail(props: {
         <>
           <span className="spacer" />
           {props.footer ? <div className="rail-status">{props.footer}</div> : null}
-          <button type="button" onClick={() => props.onNavigate("/settings/general")}>
+          <button type="button" onClick={() => props.onNavigate("/settings/model")}>
             Settings
           </button>
         </>

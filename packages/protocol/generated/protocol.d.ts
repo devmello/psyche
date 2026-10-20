@@ -496,6 +496,50 @@ export interface AutomationsUpdateParams {
     watch?:    WatchConfig;
 }
 
+export interface BackupCreateParams {
+    passphrase?:  string;
+    recipients?:  string[];
+    unencrypted?: boolean;
+}
+
+export interface BackupCreateResult {
+    backup: BackupInfo;
+    files:  number;
+}
+
+export interface BackupInfo {
+    bytes:       number;
+    createdAt:   string;
+    encrypted:   boolean;
+    file:        string;
+    verifiedAt?: null | string;
+}
+
+export interface BackupDeleteParams {
+    file: string;
+}
+
+export interface BackupDeleteResult {
+    ok: boolean;
+}
+
+export interface BackupListResult {
+    backups: BackupInfo[];
+    dir:     string;
+}
+
+export interface BackupVerifyParams {
+    file:        string;
+    passphrase?: string;
+}
+
+export interface BackupVerifyResult {
+    backup:   BackupInfo;
+    files:    number;
+    ok:       boolean;
+    problems: string[];
+}
+
 export interface BridgeCDPEventPayload {
     method:     string;
     params:     unknown;
@@ -647,6 +691,128 @@ export interface BrowserTab {
 }
 
 export type BrowserDriverKind = "cdp" | "playwright";
+
+export interface BrowserRecordingUpdatedPayload {
+    recording: BrowserRecording;
+}
+
+export interface BrowserRecording {
+    bytes:      number;
+    endedAt?:   null | string;
+    eventCount: number;
+    frameCount: number;
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    id:             string;
+    libraryItemId?: null | string;
+    startedAt:      string;
+    taskId?:        null | string;
+    threadId?:      null | string;
+}
+
+export interface BrowserRecordingsDeleteParams {
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    recordingId: string;
+}
+
+export interface BrowserRecordingsFrameParams {
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    recordingId: string;
+    seq:         number;
+}
+
+export interface BrowserRecordingsFrameResult {
+    /**
+     * Base64 image bytes
+     */
+    data:  string;
+    frame: BrowserRecordingFrame;
+    mime:  BrowserRecordingFrameMIME;
+}
+
+export interface BrowserRecordingFrame {
+    at:    string;
+    seq:   number;
+    tabId: string;
+    /**
+     * Origin and path only
+     */
+    url: string;
+}
+
+export type BrowserRecordingFrameMIME = "image/jpeg" | "image/png";
+
+export interface BrowserRecordingsGetParams {
+    limit?: number;
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    recordingId: string;
+    sinceSeq?:   number;
+}
+
+export interface BrowserRecordingsGetResult {
+    events:    BrowserRecordingEvent[];
+    frames:    BrowserRecordingFrame[];
+    recording: BrowserRecording;
+}
+
+export interface BrowserRecordingEvent {
+    action?:      string;
+    at:           string;
+    detail?:      { [key: string]: unknown };
+    element?:     Element;
+    frameSeq?:    number;
+    kind:         BrowserRecordingEventKind;
+    ref?:         string;
+    seq:          number;
+    snapshotSeq?: number;
+    summary:      string;
+    tabId:        string;
+    url?:         string;
+}
+
+export interface Element {
+    name: string;
+    role: string;
+}
+
+export type BrowserRecordingEventKind = "tab" | "navigation" | "snapshot" | "action" | "fill" | "download" | "blocked" | "control" | "dialog";
+
+export interface BrowserRecordingsListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:   string;
+    limit?:    number;
+    taskId?:   string;
+    threadId?: string;
+}
+
+export interface BrowserRecordingsListResult {
+    nextCursor?: null | string;
+    recordings:  BrowserRecording[];
+}
+
+export interface BrowserRecordingsSnapshotParams {
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    recordingId: string;
+    seq:         number;
+}
+
+export interface BrowserRecordingsSnapshotResult {
+    /**
+     * The snapshot text the model saw (untrusted page content)
+     */
+    text: string;
+}
 
 export interface BrowserSnapshotParams {
     tabId: string;
@@ -1029,10 +1195,11 @@ export interface ChatSendParams {
     /**
      * Library item ids
      */
-    attachments?: string[];
-    content:      string;
-    mode?:        QueueMode;
-    threadId:     string;
+    attachments?:      string[];
+    content:           string;
+    mode?:             QueueMode;
+    replyToMessageId?: string;
+    threadId:          string;
 }
 
 export type QueueMode = "steer" | "followUp" | "interrupt";
@@ -1740,6 +1907,30 @@ export interface LibraryListParams {
 export interface LibraryListResult {
     items:       LibraryItem[];
     nextCursor?: null | string;
+}
+
+export interface LogsTailParams {
+    level?:     LogLevel;
+    lines?:     number;
+    search?:    string;
+    since?:     string;
+    subsystem?: string;
+}
+
+export type LogLevel = "debug" | "info" | "warn" | "error";
+
+export interface LogsTailResult {
+    lines:      LogLine[];
+    subsystems: string[];
+    truncated:  boolean;
+}
+
+export interface LogLine {
+    fields?:    { [key: string]: unknown };
+    level:      LogLevel;
+    msg:        string;
+    subsystem?: string;
+    ts:         string;
 }
 
 export interface MemoryClaimsConfirmParams {
@@ -3086,6 +3277,12 @@ export interface ThreadsPinParams {
 export interface ThreadsRenameParams {
     threadId: string;
     title:    string;
+}
+
+export interface ThreadsUpdateParams {
+    modelRef?:       null | string;
+    permissionMode?: PermissionMode;
+    threadId:        string;
 }
 
 export interface ToolCallBlock {

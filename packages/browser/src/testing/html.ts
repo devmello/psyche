@@ -114,6 +114,8 @@ function node(n: FxNode, host: FxHost, origin: OriginFn): string {
       return `<div style="height:${n.height}px"></div>`;
     case "signed_in":
       return `<p id="whoami" role="status">${esc(signedInText(cookies.get(SESSION_COOKIE)))}</p>`;
+    case "console_log":
+      return `<script>console.log(${JSON.stringify(n.text)})</script>`;
   }
 }
 

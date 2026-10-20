@@ -38,6 +38,7 @@ import { handleHttp } from "./http.ts";
 import { Idempotency } from "./idempotency.ts";
 import { createLogger, type Logger } from "./log.ts";
 import { NodeRegistry } from "./nodes/registry.ts";
+import { resolvePeer, trustedProxyList } from "./proxy.ts";
 import { RateLimiter } from "./rate-limit.ts";
 import { type RecoveryReport, recoverAfterRestart } from "./recovery.ts";
 import { RETENTION_INTERVAL_MS, runRetention } from "./retention.ts";
@@ -92,10 +93,6 @@ function socketIsLive(path: string): Promise<boolean> {
   });
 }
 
-function isLoopbackAddress(addr: string | undefined): boolean {
-  return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
-}
-
 function checkExtraHandlers(
   handlers: Readonly<Record<string, HandlerDef>>,
 ): Readonly<Record<string, HandlerDef>> {
@@ -111,6 +108,7 @@ function checkExtraHandlers(
 /** Boots the Gateway: DB + recovery, HTTP (`/healthz`, `/version`, static UI), WS clients, Unix-socket nodes. */
 export async function startGateway(options: GatewayOptions = {}): Promise<Gateway> {
   const config = resolveConfig(options.env ?? process.env, options.config ?? {});
+  const proxies = trustedProxyList(config.trustedProxy.trustedProxies);
   const log = options.logger ?? createLogger();
   const now = options.now ?? (() => new Date());
   const limits: GatewayLimits = { ...DEFAULT_LIMITS, ...options.limits };
@@ -139,6 +137,10 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     onDeviceRevoked: options.onDeviceRevoked ?? null,
     limits,
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>
+      now().getTime(),
+    ),
+    deviceRequests: new RateLimiter(limits.deviceRequestsPerMinute, 60_000, () => now().getTime()),
+    deviceSideEffects: new RateLimiter(limits.deviceSideEffectsPerMinute, 60_000, () =>
       now().getTime(),
     ),
     handshakeSecret,
@@ -174,17 +176,18 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       socket.destroy();
       return;
     }
-    // Identity headers from a proxy (Tailscale-User-Login, Cf-Access-*) are deliberately not read:
-    // they never authorize the API; every device pairs (security §10).
+    // Proxy headers never authorize the API; every device pairs (security §10). They only make a
+    // forwarded connection non-loopback and, in trusted-proxy mode, name the client address.
+    const peer = resolvePeer(req.socket.remoteAddress, req.headers, config.trustedProxy, proxies);
     wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
-      const remoteAddress = req.socket.remoteAddress ?? "unknown";
       const conn = new Connection(
         `ws-${++connSeq}`,
         {
           transport: "ws",
-          remoteLoopback: isLoopbackAddress(remoteAddress),
-          remoteAddress,
+          remoteLoopback: peer.remoteLoopback,
+          remoteAddress: peer.remoteAddress,
           origin: requestOrigin,
+          claimedIdentity: peer.claimedIdentity,
         },
         {
           send: (f) => ws.readyState === ws.OPEN && ws.send(f),
