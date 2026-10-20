@@ -2,7 +2,7 @@ import {
   type CredentialBroker,
   type CredentialMeta,
   createValidator,
-  type FillElement,
+  fillElementAccepts,
   type PermissionBroker,
   type ProvenanceOut,
   PsycheError,
@@ -16,6 +16,7 @@ import {
 } from "@psyche/protocol";
 import { toolCallBindingHash } from "@psyche/protocol/binding";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
+import { fillElementOf } from "../cdp/page.ts";
 import type { DevPreviewGate } from "../devpreview/gate.ts";
 import { tryOrigin } from "../origin/canonical.ts";
 import type { OriginPolicy } from "../origin/policy.ts";
@@ -953,18 +954,11 @@ async function fillCredential(
   if (approvalId === undefined) {
     throw new PsycheError("approval_required", "credential fills need an approval");
   }
-  // The vault checks the element against the field class and origin (S23 design-01).
-  const element: FillElement = { tagName: meta.tag.toLowerCase(), frameOrigin: meta.frameOrigin };
-  if (meta.inputType !== undefined) element.type = meta.inputType;
-  if (meta.autocomplete !== undefined) element.autocomplete = meta.autocomplete.toLowerCase();
-  if (meta.inputMode !== undefined) element.inputMode = meta.inputMode;
-  if (meta.contentEditable === true) element.contentEditable = true;
-  if (meta.maxLength !== undefined) element.maxLength = meta.maxLength;
-  if (meta.formHasPassword !== undefined) element.formHasPassword = meta.formHasPassword;
-  if (meta.formAction !== undefined) {
-    const fo = tryOrigin(meta.formAction);
-    if (fo !== undefined) element.formActionOrigin = fo;
-  }
+  // The vault checks the element against the field class and origin (S23 design-01). `meta`
+  // holds the element's live facts (TM-28), not the snapshot's.
+  const element = fillElementOf(meta);
+  const kind = deps.credentialMeta?.(ph.slug)?.kind ?? "login";
+  const field = (ph.field ?? "secret") as Parameters<typeof fillElementAccepts>[0];
   const secret = await creds.resolve(p.placeholder, { kind: "origin", value: origin }, approvalId, {
     executor: "browser",
     signal,
@@ -974,7 +968,8 @@ async function fillCredential(
     ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
   });
   try {
-    await d.fillSecret(p.tabId, p.ref, secret, origin);
+    // The same rule again on the live element, right before the value is typed.
+    await d.fillSecret(p.tabId, p.ref, secret, origin, (el) => fillElementAccepts(field, el, kind));
   } finally {
     secret.dispose();
   }

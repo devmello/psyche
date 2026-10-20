@@ -3,6 +3,8 @@ import type {
   CallOptions,
   DriverEvent,
   DriverTab,
+  FillElement,
+  FillElementCheck,
   NavigateResult,
   PageSnapshot,
   RefBox,
@@ -229,7 +231,14 @@ export interface BrowserDriverEx extends BrowserDriver {
    * element must be the approved one, outside cross-origin frames, and the agent in control.
    * The value is never read back.
    */
-  fillSecret(tabId: string, ref: string, secret: ResolvedSecret, origin: string): Promise<void>;
+  fillSecret(
+    tabId: string,
+    ref: string,
+    secret: ResolvedSecret,
+    origin: string,
+    /** The vault's field-class rule, applied to the live element right before typing (TM-28). */
+    accepts?: (element: FillElement) => FillElementCheck,
+  ): Promise<void>;
   /** Dev-preview tabs only (feature I12). */
   consoleMessages(tabId: string): ConsoleEntry[];
   networkLog(tabId: string): NetworkEntry[];
