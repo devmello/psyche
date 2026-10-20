@@ -1,6 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, Sha256, StringEnum } from "../common.ts";
-import { ApprovalRequest } from "../schemas/permissions.ts";
+import { ApprovalKind, ApprovalRequest } from "../schemas/permissions.ts";
 import { defineMethod, EmptyParams, OkResult } from "./define.ts";
 
 /**
@@ -69,6 +69,50 @@ export const ScanFindingSchema = Type.Object(
   { $id: "ScanFinding" },
 );
 
+/**
+ * What a skill declares it needs (feature T2): the tools it uses (`allowed-tools`,
+ * `requires.tools`, `requires.anyTools`), the approval kinds it expects to request (frontmatter
+ * `permissions`) and the prompt files it ships (frontmatter `prompts`, paths inside the folder).
+ * The trust card shows it, the `skill_install` binding covers it, and an install whose manifest
+ * asks for more than the owner's policy allows is refused with `policy_denied` before any card.
+ * Declaring a tool never grants it: an approved skill never widens tool policy (security §11).
+ */
+export const SkillManifest = Type.Object(
+  {
+    tools: Type.Array(Type.String(), {
+      description: "Tool names or `family.*` globs, sorted, without duplicates",
+    }),
+    permissions: Type.Array(ApprovalKind, {
+      description: "Approval kinds the skill expects its steps to request, sorted",
+    }),
+    prompts: Type.Array(Type.String(), {
+      description: "Prompt files inside the skill folder (relative paths), sorted",
+    }),
+  },
+  { $id: "SkillManifest" },
+);
+export type SkillManifest = Static<typeof SkillManifest>;
+
+/** Update detection for an installed skill: its pinned source re-fetched and hashed. */
+export const SkillUpdateStatus = Type.Object(
+  {
+    name: Type.String(),
+    installedHash: Type.String(),
+    availableHash: Type.Optional(
+      Type.String({ description: "Tree hash at the source; absent when the check failed" }),
+    ),
+    commit: Type.Optional(Type.String({ description: "Git sources: the commit the ref names" })),
+    updateAvailable: Type.Boolean(),
+    manifestChanged: Type.Boolean({
+      description: "The update declares different tools, permissions or prompts",
+    }),
+    error: Type.Optional(Type.String({ description: "Why the source could not be checked" })),
+    checkedAt: Type.Integer({ minimum: 0, description: "Epoch ms" }),
+  },
+  { $id: "SkillUpdateStatus" },
+);
+export type SkillUpdateStatus = Static<typeof SkillUpdateStatus>;
+
 /** A skill as Settings → Skills shows it. */
 export const SkillDetails = Type.Object(
   {
@@ -84,6 +128,8 @@ export const SkillDetails = Type.Object(
     }),
     version: Type.Optional(Type.String()),
     commit: Type.Optional(Type.String()),
+    manifest: Type.Optional(SkillManifest),
+    update: Type.Optional(SkillUpdateStatus),
   },
   { $id: "SkillDetails" },
 );
@@ -142,6 +188,7 @@ export const SkillProposal = Type.Object(
       ),
     ),
     expiresAt: Type.Integer({ minimum: 0, description: "Epoch ms" }),
+    manifest: Type.Optional(SkillManifest),
   },
   { $id: "SkillProposal" },
 );
@@ -241,7 +288,7 @@ export const SkillsMethods = {
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Side-effecting: fetches and scans a skill and opens a device-only skill_install approval.",
+      "Side-effecting: fetches and scans a skill and opens a device-only skill_install approval; policy_denied (details.violations) when its manifest asks for more than the policy allows.",
   }),
   "skills.proposeUpdate": defineMethod({
     params: Type.Object({
@@ -280,6 +327,13 @@ export const SkillsMethods = {
     scope: "operator.admin",
     sideEffecting: true,
     description: "Side-effecting: sets the owner's switch for a skill.",
+  }),
+  "skills.checkUpdates": defineMethod({
+    params: Type.Object({ name: Type.Optional(SkillName) }),
+    result: Type.Object({ updates: Type.Array(SkillUpdateStatus) }),
+    scope: "operator.admin",
+    description:
+      "Re-fetches installed skills from their pinned sources (no install) and reports which changed; emits skills.updated for each update found.",
   }),
   "skills.remove": defineMethod({
     params: Type.Object({ name: SkillName }),
