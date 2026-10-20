@@ -86,6 +86,8 @@
 //   let backupVerifyResult = try? JSONDecoder().decode(BackupVerifyResult.self, from: jsonData)
 //   let bitwardenRef = try? JSONDecoder().decode(BitwardenRef.self, from: jsonData)
 //   let block = try? JSONDecoder().decode(Block.self, from: jsonData)
+//   let botAuthJwk = try? JSONDecoder().decode(BotAuthJwk.self, from: jsonData)
+//   let botAuthStatus = try? JSONDecoder().decode(BotAuthStatus.self, from: jsonData)
 //   let bridgeCDPEventPayload = try? JSONDecoder().decode(BridgeCDPEventPayload.self, from: jsonData)
 //   let bridgeCDPSendParams = try? JSONDecoder().decode(BridgeCDPSendParams.self, from: jsonData)
 //   let bridgeCDPSendResult = try? JSONDecoder().decode(BridgeCDPSendResult.self, from: jsonData)
@@ -103,6 +105,10 @@
 //   let bridgeTabStatusParams = try? JSONDecoder().decode(BridgeTabStatusParams.self, from: jsonData)
 //   let bridgeTabsListParams = try? JSONDecoder().decode(BridgeTabsListParams.self, from: jsonData)
 //   let bridgeTabsListResult = try? JSONDecoder().decode(BridgeTabsListResult.self, from: jsonData)
+//   let browserBotAuthRotateParams = try? JSONDecoder().decode(BrowserBotAuthRotateParams.self, from: jsonData)
+//   let browserBotAuthRotateResult = try? JSONDecoder().decode(BrowserBotAuthRotateResult.self, from: jsonData)
+//   let browserBotAuthStatusParams = try? JSONDecoder().decode(BrowserBotAuthStatusParams.self, from: jsonData)
+//   let browserBotAuthStatusResult = try? JSONDecoder().decode(BrowserBotAuthStatusResult.self, from: jsonData)
 //   let browserCloseParams = try? JSONDecoder().decode(BrowserCloseParams.self, from: jsonData)
 //   let browserController = try? JSONDecoder().decode(BrowserController.self, from: jsonData)
 //   let browserDriverKind = try? JSONDecoder().decode(BrowserDriverKind.self, from: jsonData)
@@ -550,6 +556,10 @@
 //   let skillChangeEvent = try? JSONDecoder().decode(SkillChangeEvent.self, from: jsonData)
 //   let skillCommand = try? JSONDecoder().decode(SkillCommand.self, from: jsonData)
 //   let skillDetails = try? JSONDecoder().decode(SkillDetails.self, from: jsonData)
+//   let skillDraft = try? JSONDecoder().decode(SkillDraft.self, from: jsonData)
+//   let skillDraftReplay = try? JSONDecoder().decode(SkillDraftReplay.self, from: jsonData)
+//   let skillDraftStatus = try? JSONDecoder().decode(SkillDraftStatus.self, from: jsonData)
+//   let skillDraftStep = try? JSONDecoder().decode(SkillDraftStep.self, from: jsonData)
 //   let skillInstallSource = try? JSONDecoder().decode(SkillInstallSource.self, from: jsonData)
 //   let skillManifest = try? JSONDecoder().decode(SkillManifest.self, from: jsonData)
 //   let skillProposal = try? JSONDecoder().decode(SkillProposal.self, from: jsonData)
@@ -563,6 +573,15 @@
 //   let skillsCheckUpdatesParams = try? JSONDecoder().decode(SkillsCheckUpdatesParams.self, from: jsonData)
 //   let skillsCheckUpdatesResult = try? JSONDecoder().decode(SkillsCheckUpdatesResult.self, from: jsonData)
 //   let skillsCommandsResult = try? JSONDecoder().decode(SkillsCommandsResult.self, from: jsonData)
+//   let skillsDraftUpdatedPayload = try? JSONDecoder().decode(SkillsDraftUpdatedPayload.self, from: jsonData)
+//   let skillsDraftsAcceptParams = try? JSONDecoder().decode(SkillsDraftsAcceptParams.self, from: jsonData)
+//   let skillsDraftsAcceptResult = try? JSONDecoder().decode(SkillsDraftsAcceptResult.self, from: jsonData)
+//   let skillsDraftsDismissParams = try? JSONDecoder().decode(SkillsDraftsDismissParams.self, from: jsonData)
+//   let skillsDraftsDismissResult = try? JSONDecoder().decode(SkillsDraftsDismissResult.self, from: jsonData)
+//   let skillsDraftsListParams = try? JSONDecoder().decode(SkillsDraftsListParams.self, from: jsonData)
+//   let skillsDraftsListResult = try? JSONDecoder().decode(SkillsDraftsListResult.self, from: jsonData)
+//   let skillsDraftsUpdateParams = try? JSONDecoder().decode(SkillsDraftsUpdateParams.self, from: jsonData)
+//   let skillsDraftsUpdateResult = try? JSONDecoder().decode(SkillsDraftsUpdateResult.self, from: jsonData)
 //   let skillsGetParams = try? JSONDecoder().decode(SkillsGetParams.self, from: jsonData)
 //   let skillsGetProposalParams = try? JSONDecoder().decode(SkillsGetProposalParams.self, from: jsonData)
 //   let skillsGetProposalResult = try? JSONDecoder().decode(SkillsGetProposalResult.self, from: jsonData)
@@ -3243,6 +3262,94 @@ public struct BridgeTabsListResult: Codable, Sendable {
 
     public init(tabs: [BridgeTab]) {
         self.tabs = tabs
+    }
+}
+
+// MARK: - BrowserBotAuthRotateResult
+public struct BrowserBotAuthRotateResult: Codable, Sendable {
+    public let status: BotAuthStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: BotAuthStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - BotAuthStatus
+public struct BotAuthStatus: Codable, Sendable {
+    public let advertised: [String]
+    public let createdAt: String?
+    public let directoryPath: String
+    public let enabled: Bool
+    public let keyID: String?
+    public let origins: [String]
+    public let publicJwk: BotAuthJwk?
+    public let signatureAgent: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case advertised = "advertised"
+        case createdAt = "createdAt"
+        case directoryPath = "directoryPath"
+        case enabled = "enabled"
+        case keyID = "keyId"
+        case origins = "origins"
+        case publicJwk = "publicJwk"
+        case signatureAgent = "signatureAgent"
+    }
+
+    public init(advertised: [String], createdAt: String?, directoryPath: String, enabled: Bool, keyID: String?, origins: [String], publicJwk: BotAuthJwk?, signatureAgent: String?) {
+        self.advertised = advertised
+        self.createdAt = createdAt
+        self.directoryPath = directoryPath
+        self.enabled = enabled
+        self.keyID = keyID
+        self.origins = origins
+        self.publicJwk = publicJwk
+        self.signatureAgent = signatureAgent
+    }
+}
+
+// MARK: - BotAuthJwk
+public struct BotAuthJwk: Codable, Sendable {
+    public let crv: Crv
+    public let kty: Kty
+    /// base64url public key
+    public let x: String
+
+    public enum CodingKeys: String, CodingKey {
+        case crv = "crv"
+        case kty = "kty"
+        case x = "x"
+    }
+
+    public init(crv: Crv, kty: Kty, x: String) {
+        self.crv = crv
+        self.kty = kty
+        self.x = x
+    }
+}
+
+public enum Crv: String, Codable, Sendable {
+    case ed25519 = "Ed25519"
+}
+
+public enum Kty: String, Codable, Sendable {
+    case okp = "OKP"
+}
+
+// MARK: - BrowserBotAuthStatusResult
+public struct BrowserBotAuthStatusResult: Codable, Sendable {
+    public let status: BotAuthStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: BotAuthStatus) {
+        self.status = status
     }
 }
 
@@ -11567,6 +11674,247 @@ public struct SkillCommand: Codable, Sendable {
     }
 }
 
+// MARK: - SkillsDraftUpdatedPayload
+public struct SkillsDraftUpdatedPayload: Codable, Sendable {
+    public let draft: SkillDraft
+
+    public enum CodingKeys: String, CodingKey {
+        case draft = "draft"
+    }
+
+    public init(draft: SkillDraft) {
+        self.draft = draft
+    }
+}
+
+// MARK: - SkillDraft
+public struct SkillDraft: Codable, Sendable {
+    public let approvalID: String?
+    public let createdAt: String
+    public let description: String
+    public let edited: Bool
+    public let id: String
+    public let installProposalID: String?
+    public let manifest: SkillManifest
+    public let name: String
+    /// Runs in the thread with this routine
+    public let occurrences: Int
+    /// Values stripped from the owner's words
+    public let redactions: Int
+    public let replay: SkillDraftReplay?
+    public let signature: String
+    public let status: SkillDraftStatus
+    public let steps: [SkillDraftStep]
+    /// A run of the routine had read untrusted content
+    public let tainted: Bool
+    /// Full SKILL.md, editable by the owner while open
+    public let text: String
+    public let threadID: String
+    public let updatedAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case createdAt = "createdAt"
+        case description = "description"
+        case edited = "edited"
+        case id = "id"
+        case installProposalID = "installProposalId"
+        case manifest = "manifest"
+        case name = "name"
+        case occurrences = "occurrences"
+        case redactions = "redactions"
+        case replay = "replay"
+        case signature = "signature"
+        case status = "status"
+        case steps = "steps"
+        case tainted = "tainted"
+        case text = "text"
+        case threadID = "threadId"
+        case updatedAt = "updatedAt"
+    }
+
+    public init(approvalID: String?, createdAt: String, description: String, edited: Bool, id: String, installProposalID: String?, manifest: SkillManifest, name: String, occurrences: Int, redactions: Int, replay: SkillDraftReplay?, signature: String, status: SkillDraftStatus, steps: [SkillDraftStep], tainted: Bool, text: String, threadID: String, updatedAt: String) {
+        self.approvalID = approvalID
+        self.createdAt = createdAt
+        self.description = description
+        self.edited = edited
+        self.id = id
+        self.installProposalID = installProposalID
+        self.manifest = manifest
+        self.name = name
+        self.occurrences = occurrences
+        self.redactions = redactions
+        self.replay = replay
+        self.signature = signature
+        self.status = status
+        self.steps = steps
+        self.tainted = tainted
+        self.text = text
+        self.threadID = threadID
+        self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - SkillDraftReplay
+public struct SkillDraftReplay: Codable, Sendable {
+    public let checkedAt: String
+    public let ok: Bool
+    public let problems: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case checkedAt = "checkedAt"
+        case ok = "ok"
+        case problems = "problems"
+    }
+
+    public init(checkedAt: String, ok: Bool, problems: [String]) {
+        self.checkedAt = checkedAt
+        self.ok = ok
+        self.problems = problems
+    }
+}
+
+public enum SkillDraftStatus: String, Codable, Sendable {
+    case accepted = "accepted"
+    case dismissed = "dismissed"
+    case expired = "expired"
+    case installed = "installed"
+    case skillDraftStatusOpen = "open"
+}
+
+// MARK: - SkillDraftStep
+public struct SkillDraftStep: Codable, Sendable {
+    public let sideEffect: SideEffect
+    /// Input names only, never values
+    public let summary: String
+    public let tool: String
+
+    public enum CodingKeys: String, CodingKey {
+        case sideEffect = "sideEffect"
+        case summary = "summary"
+        case tool = "tool"
+    }
+
+    public init(sideEffect: SideEffect, summary: String, tool: String) {
+        self.sideEffect = sideEffect
+        self.summary = summary
+        self.tool = tool
+    }
+}
+
+// MARK: - SkillsDraftsAcceptParams
+public struct SkillsDraftsAcceptParams: Codable, Sendable {
+    public let draftID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case draftID = "draftId"
+    }
+
+    public init(draftID: String) {
+        self.draftID = draftID
+    }
+}
+
+// MARK: - SkillsDraftsAcceptResult
+public struct SkillsDraftsAcceptResult: Codable, Sendable {
+    public let approval: ApprovalRequest
+    public let draft: SkillDraft
+    public let proposal: SkillProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case approval = "approval"
+        case draft = "draft"
+        case proposal = "proposal"
+    }
+
+    public init(approval: ApprovalRequest, draft: SkillDraft, proposal: SkillProposal) {
+        self.approval = approval
+        self.draft = draft
+        self.proposal = proposal
+    }
+}
+
+// MARK: - SkillsDraftsDismissParams
+public struct SkillsDraftsDismissParams: Codable, Sendable {
+    public let draftID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case draftID = "draftId"
+    }
+
+    public init(draftID: String) {
+        self.draftID = draftID
+    }
+}
+
+// MARK: - SkillsDraftsDismissResult
+public struct SkillsDraftsDismissResult: Codable, Sendable {
+    public let draft: SkillDraft
+
+    public enum CodingKeys: String, CodingKey {
+        case draft = "draft"
+    }
+
+    public init(draft: SkillDraft) {
+        self.draft = draft
+    }
+}
+
+// MARK: - SkillsDraftsListParams
+public struct SkillsDraftsListParams: Codable, Sendable {
+    public let status: SkillDraftStatus?
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: SkillDraftStatus?) {
+        self.status = status
+    }
+}
+
+// MARK: - SkillsDraftsListResult
+public struct SkillsDraftsListResult: Codable, Sendable {
+    public let drafts: [SkillDraft]
+
+    public enum CodingKeys: String, CodingKey {
+        case drafts = "drafts"
+    }
+
+    public init(drafts: [SkillDraft]) {
+        self.drafts = drafts
+    }
+}
+
+// MARK: - SkillsDraftsUpdateParams
+public struct SkillsDraftsUpdateParams: Codable, Sendable {
+    public let draftID: String
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case draftID = "draftId"
+        case text = "text"
+    }
+
+    public init(draftID: String, text: String) {
+        self.draftID = draftID
+        self.text = text
+    }
+}
+
+// MARK: - SkillsDraftsUpdateResult
+public struct SkillsDraftsUpdateResult: Codable, Sendable {
+    public let draft: SkillDraft
+
+    public enum CodingKeys: String, CodingKey {
+        case draft = "draft"
+    }
+
+    public init(draft: SkillDraft) {
+        self.draft = draft
+    }
+}
+
 // MARK: - SkillsGetParams
 public struct SkillsGetParams: Codable, Sendable {
     public let name: String
@@ -15657,6 +16005,8 @@ public enum WrapUpBlockType: String, Codable, Sendable {
 public typealias AuditVerifyParams = [String: JSONAny]
 public typealias BackupListParams = [String: JSONAny]
 public typealias BridgeTabsListParams = [String: JSONAny]
+public typealias BrowserBotAuthRotateParams = [String: JSONAny]
+public typealias BrowserBotAuthStatusParams = [String: JSONAny]
 public typealias BrowserRealChromeStatusParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
