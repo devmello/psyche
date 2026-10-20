@@ -79,8 +79,9 @@ export function Composer({
 }: ComposerProps): ReactElement {
   const menu = useCommandMenu();
   const menuId = useId();
+  const hintId = useId();
   return (
-    <ComposerPrimitive.Root className="relative flex flex-col gap-1.5 rounded-xl border border-gray-6 bg-background p-2 focus-within:border-gray-8">
+    <ComposerPrimitive.Root className="relative flex flex-col gap-1.5 rounded-xl border border-gray-6 bg-background p-2 focus-within:border-gray-8 has-[textarea:focus-visible]:ring-2 has-[textarea:focus-visible]:ring-ring">
       {menu.open ? (
         <div
           id={menuId}
@@ -122,7 +123,7 @@ export function Composer({
             type="button"
             onClick={onClearQuote}
             aria-label="Remove quote"
-            className="rounded p-0.5 text-muted-foreground hover:bg-gray-4"
+            className="inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-gray-4"
           >
             <X className="size-3.5" aria-hidden="true" />
           </button>
@@ -136,6 +137,7 @@ export function Composer({
         aria-label={`Message ${persona}`}
         onKeyDown={menu.onKeyDown}
         aria-autocomplete="list"
+        aria-describedby={hintId}
         {...(menu.open
           ? {
               "aria-controls": menuId,
@@ -167,7 +169,7 @@ export function Composer({
             <Mic aria-hidden="true" />
           </Button>
         ) : null}
-        <span className="ml-1 text-caption text-muted-foreground">
+        <span id={hintId} className="ml-1 text-caption text-muted-foreground">
           {!running
             ? "Type / for commands"
             : mode === "followUp"
