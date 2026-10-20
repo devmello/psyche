@@ -46,6 +46,8 @@ const DEFAULT_RATE: Record<string, ChannelSettings["rateLimit"]> = {
   webchat: { perChatPerSec: 20, perChannelPerSec: 50, burst: 20 },
   // Messages.app scripting: keep it human-paced.
   imessage: { perChatPerSec: 1, perChannelPerSec: 5, burst: 3 },
+  // Discord: 5 msgs / 5 s per channel, ~50 req/s global per bot.
+  discord: { perChatPerSec: 1, perChannelPerSec: 10, burst: 5 },
 };
 
 function strings(value: unknown): string[] {
@@ -122,6 +124,13 @@ export function validateChannel(channel: Channel): string[] {
       if (id !== "*" && !/^\+\d{6,15}$/.test(id) && !/^[^\sA-Z@]+@[^\sA-Z@]+$/.test(id)) {
         problems.push(`iMessage ids are E.164 phones or lowercase emails: ${id}`);
       }
+    }
+  }
+  if (channel.type === "discord") {
+    // Snowflakes: user ids (owners, allowFrom) and channel ids (groups).
+    for (const id of [...channel.allowFrom, ...channel.ownerIds, ...channel.groupAllowFrom]) {
+      if (id !== "*" && !/^\d{1,20}$/.test(id))
+        problems.push(`Discord ids are numeric snowflakes: ${id}`);
     }
   }
   if (channel.ownerIds.includes("*")) problems.push('"*" is not a valid owner id');

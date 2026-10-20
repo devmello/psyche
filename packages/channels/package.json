@@ -2,7 +2,7 @@
   "name": "@psyche/channels",
   "version": "0.0.0",
   "private": true,
-  "description": "Channel framework, WebChat, Telegram, iMessage (via the Mac node).",
+  "description": "Channel framework, WebChat, Telegram, Discord, iMessage (via the Mac node).",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {
@@ -19,9 +19,11 @@
     "@psyche/db": "workspace:*",
     "@psyche/permissions": "workspace:*",
     "@psyche/protocol": "workspace:*",
-    "grammy": "1.46.0"
+    "grammy": "1.46.0",
+    "ws": "8.22.0"
   },
   "devDependencies": {
-    "@psyche/testing": "workspace:*"
+    "@psyche/testing": "workspace:*",
+    "@types/ws": "8.18.2"
   }
 }

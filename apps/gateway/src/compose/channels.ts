@@ -8,6 +8,9 @@ import {
   ChannelService,
   type ChannelsApi,
   createChannelsApi,
+  DiscordAdapter,
+  type DiscordAdapterOptions,
+  type DiscordTokenSource,
   IMessageAdapter,
   type IMessageCursorStore,
   type IMessageSendAuthorizer,
@@ -76,6 +79,16 @@ export interface TelegramSetup {
   options?: Partial<Omit<TelegramAdapterOptions, "token" | "account">>;
 }
 
+/** Discord bot (N8). Off unless configured; dmPolicy pairing and owner checks are the service's. */
+export interface DiscordSetup {
+  /** The bot token, alive only inside `use` (env / file today; a vault item later). */
+  token: DiscordTokenSource;
+  /** The channel's `account`: the bot application id or a name. */
+  account: string;
+  /** Test transport (gatewayUrl, apiBase, fetch) and other adapter options. */
+  options?: Partial<Omit<DiscordAdapterOptions, "token" | "account">>;
+}
+
 /**
  * iMessage through a connected mac helper (N5). Off unless configured: every send needs a
  * `message_send` approval id, so the composition root must supply `authorizeSend` (backed by the
@@ -99,6 +112,7 @@ export interface IMessageSetup {
 
 export interface ChannelsSetup {
   telegram?: TelegramSetup;
+  discord?: DiscordSetup;
   imessage?: IMessageSetup;
   /** Attach the built-in WebChat adapter (owner-only defaults). */
   webchat?: boolean;
@@ -131,7 +145,11 @@ const MUTATIONS = new Set<keyof ChannelsApi>([
 ]);
 const FINISHED = new Set<Run["status"]>(["done", "failed", "cancelled"]);
 
-/** `PSYCHE_TELEGRAM_BOT_TOKEN(_FILE)` + `PSYCHE_TELEGRAM_BOT_USERNAME` → setup (server mode). */
+/**
+ * `PSYCHE_TELEGRAM_BOT_TOKEN(_FILE)` + `PSYCHE_TELEGRAM_BOT_USERNAME`, and
+ * `PSYCHE_DISCORD_BOT_TOKEN(_FILE)` + `PSYCHE_DISCORD_ACCOUNT` → setup (server mode). The Discord
+ * token file is re-read on each use, so rotating it needs no restart.
+ */
 export function channelsSetupFromEnv(
   env: NodeJS.ProcessEnv,
   readFile: (path: string) => string,
@@ -147,10 +165,40 @@ export function channelsSetupFromEnv(
   }
   // iMessage through the Mac helper (N5) is opt-in: the Messages account to answer as.
   const imessage = env.PSYCHE_IMESSAGE_ACCOUNT?.trim() ?? "";
+  const discord = discordSetupFromEnv(env, readFile);
   return {
     webchat: true,
     ...(token === "" ? {} : { telegram: { token, account } }),
+    ...(discord === undefined ? {} : { discord }),
     ...(imessage === "" ? {} : { imessage: { account: imessage } }),
+  };
+}
+
+function discordSetupFromEnv(
+  env: NodeJS.ProcessEnv,
+  readFile: (path: string) => string,
+): DiscordSetup | undefined {
+  const file = env.PSYCHE_DISCORD_BOT_TOKEN_FILE?.trim() ?? "";
+  const inline = env.PSYCHE_DISCORD_BOT_TOKEN?.trim() ?? "";
+  if (file === "" && inline === "") return undefined;
+  const account = env.PSYCHE_DISCORD_ACCOUNT?.trim() ?? "";
+  if (account === "") {
+    throw new PsycheError(
+      "invalid_params",
+      "PSYCHE_DISCORD_ACCOUNT is required with a Discord bot token",
+    );
+  }
+  const read = () => (file === "" ? inline : readFile(file).trim());
+  if (read() === "") throw new PsycheError("invalid_params", "the Discord bot token is empty");
+  return {
+    account,
+    token: {
+      use: async (fn) => {
+        const value = read();
+        if (value === "") throw new PsycheError("unavailable", "the Discord bot token is empty");
+        return fn(value);
+      },
+    },
   };
 }
 
@@ -432,6 +480,16 @@ export function composeChannels(
         ...setup.telegram.options,
         token: setup.telegram.token,
         account: setup.telegram.account,
+      }),
+    );
+  }
+  if (setup.discord !== undefined) {
+    add(
+      new DiscordAdapter({
+        ...setup.discord.options,
+        token: setup.discord.token,
+        account: setup.discord.account,
+        clock,
       }),
     );
   }
