@@ -1,4 +1,5 @@
 import type { Goal } from "@psyche/protocol";
+import { t } from "../../i18n/core.ts";
 import { type EvidenceItem, readEvidence } from "../ideas/evidence.tsx";
 
 /**
@@ -84,14 +85,30 @@ export function milestoneProgress(milestones: readonly GoalMilestoneView[]): {
 }
 
 export const GOAL_CATEGORY_LABEL: Record<Goal["category"], string> = {
-  health: "Health",
-  finance: "Finance",
-  career: "Career",
-  relationships: "Relationships",
-  productivity: "Productivity",
-  learning: "Learning",
-  home: "Home",
-  other: "Other",
+  get health() {
+    return t("screens.goals.category.health");
+  },
+  get finance() {
+    return t("screens.goals.category.finance");
+  },
+  get career() {
+    return t("screens.goals.category.career");
+  },
+  get relationships() {
+    return t("screens.goals.category.relationships");
+  },
+  get productivity() {
+    return t("screens.goals.category.productivity");
+  },
+  get learning() {
+    return t("screens.goals.category.learning");
+  },
+  get home() {
+    return t("screens.goals.category.home");
+  },
+  get other() {
+    return t("screens.goals.category.other");
+  },
 };
 
 export const GOAL_CATEGORY_ORDER: readonly Goal["category"][] = [
