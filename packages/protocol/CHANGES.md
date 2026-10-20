@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (T4 code plugins)
+
+For S02 (agent-core's plugin seam and `packages/plugins`), S01 (the Gateway's plugins part), S11 (a Settings → Plugins pane later).
+
+- New methods in `methods/plugins.ts`: `plugins.list` (read), `plugins.getProposal` (read), `plugins.proposeInstall {path}`, `plugins.install {proposalId, approvalId}`, `plugins.setEnabled {name, enabled}`, `plugins.remove {name}` (admin, side-effecting). Installing reuses the device-only `skill_install` approval with `details.kind: "plugin"`; nothing runs while the admin setting `plugins.enabled` is off.
+- New schemas: `PluginName`, `PluginCapability` (`context`, `before_tool_call`, `after_tool_call`, `agent_end`, `evaluate`), `PluginManifest`, `PluginStatus`, `PluginSummary`, `PluginProposal`.
+
 ### v1 additive — 2026-10-20 (desktop bundle: first admin without a terminal)
 
 For the desktop bundle session and S01 (the Gateway handler), approved by the architecture session.

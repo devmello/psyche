@@ -1363,6 +1363,54 @@
         "sideEffecting": true
       },
       {
+        "description": "A staged install (manifest, files, findings) for its approval card.",
+        "name": "plugins.getProposal",
+        "params": "#/$defs/PluginsGetProposalParams",
+        "result": "#/$defs/PluginsGetProposalResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: copies an approved proposal into $PSYCHE_HOME/plugins, pinned by hash, disabled until switched on; approval_required without its approved card.",
+        "name": "plugins.install",
+        "params": "#/$defs/PluginsInstallParams",
+        "result": "#/$defs/PluginsInstallResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Installed plugins with their status, and whether plugins run at all.",
+        "name": "plugins.list",
+        "params": "#/$defs/EmptyParams",
+        "result": "#/$defs/PluginsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: reads and scans a local plugin folder and opens a device-only skill_install approval (details.kind plugin).",
+        "name": "plugins.proposeInstall",
+        "params": "#/$defs/PluginsProposeInstallParams",
+        "result": "#/$defs/PluginsProposeInstallResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting: stops and deletes an installed plugin.",
+        "name": "plugins.remove",
+        "params": "#/$defs/PluginsRemoveParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting: sets the owner's switch for one plugin.",
+        "name": "plugins.setEnabled",
+        "params": "#/$defs/PluginsSetEnabledParams",
+        "result": "#/$defs/PluginsSetEnabledResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Answers an open input request; the run that asked consumes it. Side-effecting: a repeat with the same key returns the original result.",
         "name": "questions.answer",
         "params": "#/$defs/QuestionsAnswerParams",
@@ -13305,6 +13353,332 @@
         "skipped"
       ],
       "type": "string"
+    },
+    "PluginCapability": {
+      "enum": [
+        "context",
+        "before_tool_call",
+        "after_tool_call",
+        "agent_end",
+        "evaluate"
+      ],
+      "type": "string"
+    },
+    "PluginManifest": {
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "main": {
+          "description": "ES module inside the folder",
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "capabilities": {
+          "items": {
+            "$ref": "#/$defs/PluginCapability"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "description",
+        "main",
+        "capabilities"
+      ],
+      "type": "object"
+    },
+    "PluginProposal": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "manifest": {
+          "$ref": "#/$defs/PluginManifest"
+        },
+        "source": {
+          "type": "string"
+        },
+        "hash": {
+          "type": "string"
+        },
+        "files": {
+          "items": {
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "bytes": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "path",
+              "bytes"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/ScanFinding"
+          },
+          "type": "array"
+        },
+        "fromHash": {
+          "type": "string"
+        },
+        "bindingHash": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "manifest",
+        "source",
+        "hash",
+        "files",
+        "findings",
+        "bindingHash"
+      ],
+      "type": "object"
+    },
+    "PluginStatus": {
+      "description": "`off`: the owner's switch is on but `plugins.enabled` is off; `failed`: its process did not start or stopped answering",
+      "enum": [
+        "active",
+        "disabled",
+        "off",
+        "hash_mismatch",
+        "invalid",
+        "failed"
+      ],
+      "type": "string"
+    },
+    "PluginSummary": {
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "capabilities": {
+          "items": {
+            "$ref": "#/$defs/PluginCapability"
+          },
+          "type": "array"
+        },
+        "source": {
+          "description": "Where it was installed from (a local folder)",
+          "type": "string"
+        },
+        "hash": {
+          "description": "Tree hash pinned at install",
+          "type": "string"
+        },
+        "enabled": {
+          "description": "The owner's switch for this plugin",
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/PluginStatus"
+        },
+        "installedAt": {
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "version",
+        "description",
+        "capabilities",
+        "source",
+        "hash",
+        "enabled",
+        "status",
+        "installedAt"
+      ],
+      "type": "object"
+    },
+    "PluginsGetProposalParams": {
+      "properties": {
+        "proposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId"
+      ],
+      "type": "object"
+    },
+    "PluginsGetProposalResult": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/PluginProposal"
+        }
+      },
+      "required": [
+        "proposal"
+      ],
+      "type": "object"
+    },
+    "PluginsInstallParams": {
+      "properties": {
+        "proposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId",
+        "approvalId"
+      ],
+      "type": "object"
+    },
+    "PluginsInstallResult": {
+      "properties": {
+        "plugin": {
+          "$ref": "#/$defs/PluginSummary"
+        }
+      },
+      "required": [
+        "plugin"
+      ],
+      "type": "object"
+    },
+    "PluginsListResult": {
+      "properties": {
+        "enabled": {
+          "description": "The admin setting plugins.enabled",
+          "type": "boolean"
+        },
+        "plugins": {
+          "items": {
+            "$ref": "#/$defs/PluginSummary"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "enabled",
+        "plugins"
+      ],
+      "type": "object"
+    },
+    "PluginsProposeInstallParams": {
+      "properties": {
+        "path": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "^/",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "PluginsProposeInstallResult": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/PluginProposal"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        }
+      },
+      "required": [
+        "proposal",
+        "approval"
+      ],
+      "type": "object"
+    },
+    "PluginsRemoveParams": {
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
+    "PluginsSetEnabledParams": {
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "enabled"
+      ],
+      "type": "object"
+    },
+    "PluginsSetEnabledResult": {
+      "properties": {
+        "plugin": {
+          "$ref": "#/$defs/PluginSummary"
+        }
+      },
+      "required": [
+        "plugin"
+      ],
+      "type": "object"
     },
     "PolicyRule": {
       "properties": {
