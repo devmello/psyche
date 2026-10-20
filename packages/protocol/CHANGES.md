@@ -24,6 +24,15 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 - Optional `approvalId` on `devices.approve`, `channels.configure`, `channels.allowlist.update`, `channels.pairing.approve`, `channels.identities.upsert`, `memory.reset`, `backup.delete` and `passkeys.register.finish`: the same fresh-presence round trip `settings.set` already has (the first call fails `approval_required` with `details.approvalId`; retry with it once the device-only `policy_change` card is approved).
 - `AuditVerifyResult` gains optional `signedAnchors`, `anchorKeyIds` and `signingSinceSeq` (signed audit anchors, security §15.1).
 - No fake change: no contract interface changed.
+### v1 additive — 2026-10-19 (M3 T2: skills install and trust)
+
+For S16 (`packages/skills`), the Gateway (`skills.*` handlers), S05 (`skill_install` binding) and Settings → Skills (S11 / S12).
+
+- New `SkillManifest {tools, permissions: ApprovalKind[], prompts}`: what a skill declares it needs. Optional `manifest` on `SkillDetails` and `SkillProposal`; optional `manifest` on the contract's `SkillInstallProposal` (`SkillManifestDecl`).
+- New `SkillUpdateStatus {name, installedHash, availableHash?, commit?, updateAvailable, manifestChanged, error?, checkedAt}`; optional `update` on `SkillDetails`.
+- New method `skills.checkUpdates {name?}` → `{updates: SkillUpdateStatus[]}` (`operator.admin`, no install) and event `skills.updated` (payload `SkillUpdateStatus`) for each update found. Optional `SkillLoader.checkUpdates`.
+- `skills.proposeInstall` documents its refusal: `policy_denied` with `details.violations` when the manifest asks for more than the owner's policy allows (no approval card is opened).
+- `@psyche/permissions`: `skill_install` gets a dedicated binding `{name, scope, source, commit?, treeHash, tools, permissions, prompts}` (lists sorted, de-duplicated; grant key `{name, scope}`), joins `DEVICE_ONLY_KINDS`, and its card lists name, source, hash, permissions, tools and prompts first (`none` when empty).
 ### v1 additive — 2026-10-19 (M3 VM mode, Gateway side: Task workspace, L1–L5)
 
 For S01 (the Gateway's `vm` runner and Task mode selection), S04 (tasks persist the workspace), S02 (`task.start` may name it), S11 (Settings → VM mode).

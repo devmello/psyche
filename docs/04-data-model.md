@@ -194,6 +194,7 @@ Security §3.5 is the normative table; this one lists the same kinds. The implem
 | apple_script | tool (`apps.applescript` / `apps.jxa`), params hash (exact source and target bundle id) |
 | shortcut_run | tool, params hash (exact shortcut name and input) |
 | new_origin | origin, task id |
+| skill_install | skill name, scope, source (path / zip / git url + ref), commit, whole-tree hash, sorted declared tools, approval kinds and prompt files (grant key: name, scope; device-only, `once`) |
 
 ## 5. Receipts and audit
 
