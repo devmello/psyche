@@ -191,3 +191,50 @@ describe("OnboardingFlow", () => {
     expect(document.activeElement?.textContent).toBe("Allow");
   });
 });
+
+describe("Onboarding polish (UI design §3.19)", () => {
+  it("carries the Psyche mark above the steps", () => {
+    setup();
+    expect(screen.getByTestId("onboarding-mark").textContent).toContain("Psyche");
+  });
+
+  it("offers Skip for now while nothing is connected, and lists what is", async () => {
+    setup({ defaultStep: "connectors", onConnect: async () => true });
+    expect(screen.getByRole("button", { name: "Skip for now" })).toBeTruthy();
+    expect(screen.getByText(/Nothing connected yet/)).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Connect" }));
+    const connected = await screen.findByRole("list", { name: "Connected accounts" });
+    expect(within(connected).getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Skip for now" })).toBeNull();
+  });
+
+  it("skips Connectors with nothing connected", async () => {
+    const { onStepChange } = setup({ defaultStep: "connectors" });
+    await userEvent.click(screen.getByRole("button", { name: "Skip for now" }));
+    expect(onStepChange).toHaveBeenLastCalledWith("model");
+    expect(heading().textContent).toContain("Model & provider");
+  });
+
+  it("picks the model from a list, with another model as an escape hatch", async () => {
+    const onCheckModel = vi.fn(async () => "passed" as const);
+    setup({ defaultStep: "model", onCheckModel });
+    const models = screen.getByRole("radiogroup", { name: "Model" });
+    expect(
+      (
+        within(models).getByRole("radio", { name: /^Claude Sonnet 5\.5/ }) as HTMLElement
+      ).getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(screen.queryByRole("textbox", { name: "Model id" })).toBeNull();
+    await userEvent.click(within(models).getByRole("radio", { name: /^Claude Opus 5\.5/ }));
+    await userEvent.click(within(models).getByRole("radio", { name: /^Another model/ }));
+    const id = screen.getByRole("textbox", { name: "Model id" }) as HTMLInputElement;
+    expect(id.value).toBe("anthropic/claude-opus-5-5");
+  });
+
+  it("draws each bundled creature as one radio tile", () => {
+    setup();
+    const group = screen.getByRole("radiogroup", { name: "Bundled creatures" });
+    const owl = within(group).getByRole("radio", { name: "Owl" });
+    expect(owl.querySelector('[role="radio"]')).toBeNull();
+  });
+});

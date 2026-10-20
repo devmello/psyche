@@ -1,5 +1,8 @@
 export {
   groupHits,
+  Highlight,
+  highlightTerms,
+  SCOPE_ICON,
   SearchScreen,
   type SearchScreenProps,
   SearchView,

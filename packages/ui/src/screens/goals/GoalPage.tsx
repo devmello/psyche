@@ -4,6 +4,7 @@ import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { toast } from "sonner";
 import { Markdown } from "../../blocks/Markdown.tsx";
 import { TASK_STATUS_LABEL, TaskStatusIcon } from "../../blocks/TaskCard.tsx";
+import { ErrorState, LoadingCards, SectionLabel, useDelayedFlag } from "../../components/page.tsx";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -23,11 +24,11 @@ import {
 } from "../../components/ui/dropdown-menu.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
+import { Progress } from "../../components/ui/progress.tsx";
 import { useArtifact, useCall, useGoal, useTask } from "../../data/hooks.ts";
 import { formatDate, formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
 import { useSlots } from "../../slots.tsx";
-import { ErrorState, LoadingCards, useDelayedFlag } from "../feed/states.tsx";
 import {
   GOAL_CATEGORY_LABEL,
   type GoalMilestoneView,
@@ -113,9 +114,11 @@ export function DeleteGoalDialog({
 
 function Section({ title, children }: { title: string; children: ReactNode }): ReactElement {
   return (
-    <section className="grid gap-1 border-t border-gray-6 py-3 sm:grid-cols-[8rem_1fr] sm:gap-4">
-      <h3 className="text-label font-semibold text-muted-foreground uppercase">{title}</h3>
-      <div className="min-w-0 text-sm">{children}</div>
+    <section className="grid gap-2 border-t border-gray-6 py-4 sm:grid-cols-[8rem_1fr] sm:gap-4">
+      <SectionLabel as="h3" className="sm:pt-0.5">
+        {title}
+      </SectionLabel>
+      <div className="min-w-0 text-small text-gray-12">{children}</div>
     </section>
   );
 }
@@ -140,7 +143,7 @@ function TaskLine({
   taskId: string;
   onOpen?: (taskId: string) => void;
 }): ReactElement {
-  if (task === null) return <span className="text-muted-foreground">Loading task…</span>;
+  if (task === null) return <span className="text-gray-11">Loading task…</span>;
   return (
     <span className="flex items-center gap-2">
       <TaskStatusIcon status={task.status} />
@@ -155,8 +158,51 @@ function TaskLine({
       ) : (
         <span className="min-w-0 truncate">{task.title}</span>
       )}
-      <span className="text-xs text-muted-foreground">{TASK_STATUS_LABEL[task.status]}</span>
+      <span className="text-caption text-gray-11">{TASK_STATUS_LABEL[task.status]}</span>
     </span>
+  );
+}
+
+/** The plan artifact as a file tile; it is a button only when it can be opened. */
+function PlanTile({
+  artifact,
+  onOpen,
+}: {
+  artifact: Artifact;
+  onOpen?: (artifact: Artifact) => void;
+}): ReactElement {
+  const inner = (
+    <>
+      <span
+        aria-hidden="true"
+        className="flex size-8 shrink-0 items-center justify-center rounded-md bg-accent-3 text-accent-11"
+      >
+        <FileText className="size-4" />
+      </span>
+      <span className="flex min-w-0 flex-col">
+        <span className="truncate font-medium text-foreground">{artifact.title}</span>
+        <span className="text-caption text-gray-11">
+          {artifact.type.toUpperCase()} · v{artifact.version}
+          {onOpen ? " · Open" : ""}
+        </span>
+      </span>
+    </>
+  );
+  const cls =
+    "inline-flex max-w-full items-center gap-3 rounded-lg border border-gray-6 bg-gray-1 py-2 pr-4 pl-2 text-left";
+  return onOpen ? (
+    <button
+      type="button"
+      onClick={() => onOpen(artifact)}
+      className={cn(
+        cls,
+        "transition-colors hover:border-gray-8 hover:bg-gray-3 focus-visible:outline-2 focus-visible:outline-ring",
+      )}
+    >
+      {inner}
+    </button>
+  ) : (
+    <div className={cls}>{inner}</div>
   );
 }
 
@@ -216,18 +262,35 @@ export function GoalPageView({
   const plan = readGoalPlan(goal);
   const items = goalMilestones(plan, milestones);
   const lastCheckin = plan.checkins[0];
+  const doneCount = items.filter((m) => m.done).length;
+  const nextIndex = items.findIndex((m) => !m.done);
 
   return (
     <article aria-labelledby={titleId} className="flex flex-col">
-      <header className="flex items-start gap-2 pb-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-label font-semibold text-muted-foreground uppercase">
+      <header className="flex items-start gap-2 pb-4">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <SectionLabel as="p">
             {GOAL_CATEGORY_LABEL[goal.category]}
             {goal.status !== "active" ? ` · ${goal.status}` : ""}
-          </p>
-          <h2 id={titleId} className="text-xl font-semibold">
+          </SectionLabel>
+          <h2 id={titleId} className="text-h2 text-foreground">
             {goal.title}
           </h2>
+          {items.length > 0 ? (
+            <div className="mt-2 flex items-center gap-3">
+              <Progress
+                value={(doneCount / items.length) * 100}
+                aria-label={`${doneCount} of ${items.length} milestones done`}
+                className={cn(
+                  "max-w-64 flex-1 [&_[data-slot=progress-track]]:h-1.5",
+                  doneCount === items.length ? "[&_[data-slot=progress-indicator]]:bg-grass-9" : "",
+                )}
+              />
+              <span className="text-caption text-gray-11 tabular-nums">
+                {doneCount} of {items.length} milestones
+              </span>
+            </div>
+          ) : null}
         </div>
         {onDelete ? (
           <DropdownMenu>
@@ -255,49 +318,60 @@ export function GoalPageView({
 
       <Section title="Milestones">
         {items.length === 0 ? (
-          <p className="text-muted-foreground">No milestones yet.</p>
+          <p className="text-gray-11">No milestones yet.</p>
         ) : (
-          <ul className="flex flex-col gap-1">
-            {items.map((m) => (
-              <li key={m.title} className="flex items-center gap-2">
-                {m.done ? (
-                  <CircleCheck className="size-4 text-success" aria-hidden="true" />
-                ) : (
-                  <Circle className="size-4 text-gray-9" aria-hidden="true" />
-                )}
-                <span className={cn(m.done ? "text-gray-11" : "")}>{m.title}</span>
-                <span className="sr-only">{m.done ? "(done)" : "(not done)"}</span>
-                {m.dueAt ? (
-                  <span className="text-xs text-muted-foreground">due {formatDate(m.dueAt)}</span>
+          <ol className="flex flex-wrap items-center gap-1.5">
+            {items.map((m, i) => (
+              <li key={m.title} className="flex items-center gap-1.5">
+                {i > 0 ? (
+                  <span
+                    aria-hidden="true"
+                    className={cn("h-px w-3", m.done ? "bg-grass-8" : "bg-gray-6")}
+                  />
                 ) : null}
+                <span
+                  className={cn(
+                    "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5",
+                    m.done
+                      ? "border-transparent bg-grass-3 text-grass-11"
+                      : i === nextIndex
+                        ? "border-accent-7 bg-gray-1 text-foreground"
+                        : "border-gray-6 text-gray-11",
+                  )}
+                >
+                  {m.done ? (
+                    <CircleCheck className="size-3.5" aria-hidden="true" />
+                  ) : (
+                    <Circle className="size-3.5" aria-hidden="true" />
+                  )}
+                  <span>{m.title}</span>
+                  <span className="sr-only">{m.done ? "(done)" : "(not done)"}</span>
+                  {m.dueAt ? (
+                    <span className="text-caption opacity-80">· {formatDate(m.dueAt)}</span>
+                  ) : null}
+                </span>
               </li>
             ))}
-          </ul>
+          </ol>
         )}
       </Section>
 
       <Section title="Plan">
         {plan.planArtifactId === null ? (
-          <p className="text-muted-foreground">No plan yet. Ask in chat for one.</p>
+          <p className="text-gray-11">No plan yet. Ask in chat for one.</p>
         ) : planArtifact === null ? (
-          <p className="text-muted-foreground">Loading the plan…</p>
+          <p className="text-gray-11">Loading the plan…</p>
         ) : (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={onOpenArtifact === undefined}
-            onClick={() => onOpenArtifact?.(planArtifact)}
-          >
-            <FileText aria-hidden="true" />
-            {planArtifact.title} ({planArtifact.type.toUpperCase()}) · v{planArtifact.version}
-          </Button>
+          <PlanTile
+            artifact={planArtifact}
+            {...(onOpenArtifact ? { onOpen: onOpenArtifact } : {})}
+          />
         )}
       </Section>
 
       <Section title="Tasks">
         {taskIds.length === 0 ? (
-          <p className="text-muted-foreground">No linked tasks.</p>
+          <p className="text-gray-11">No linked tasks.</p>
         ) : (
           <ul className="flex flex-col gap-1">
             {taskIds.map((id) => (
@@ -333,7 +407,7 @@ export function GoalPageView({
 
       <Section title="Watches">
         {plan.watches.length === 0 ? (
-          <p className="text-muted-foreground">Nothing watched.</p>
+          <p className="text-gray-11">Nothing watched.</p>
         ) : (
           <ul className="flex flex-col gap-1">
             {plan.watches.map((w) => (
@@ -350,9 +424,9 @@ export function GoalPageView({
                 ) : (
                   <span>{w.title}</span>
                 )}
-                {w.condition ? <Badge variant="outline">{w.condition}</Badge> : null}
+                {w.condition ? <Badge variant="muted">{w.condition}</Badge> : null}
                 {w.lastValue ? (
-                  <span className="text-xs text-muted-foreground">last: {w.lastValue}</span>
+                  <span className="text-caption text-gray-11">last: {w.lastValue}</span>
                 ) : null}
               </li>
             ))}
@@ -362,7 +436,7 @@ export function GoalPageView({
 
       <Section title="Notes">
         {plan.notesMd.trim() === "" ? (
-          <p className="text-muted-foreground">No notes.</p>
+          <p className="text-gray-11">No notes.</p>
         ) : (
           <Markdown className="text-sm">{plan.notesMd}</Markdown>
         )}

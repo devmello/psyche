@@ -5,6 +5,7 @@ import {
   findThreadBySessionKey,
   getMessage,
   getThread,
+  listMessagesPage,
   listThreadsPage,
   threadActivity,
   updateThread,
@@ -15,6 +16,7 @@ import {
   PsycheError,
   type Thread,
   type ThreadKind,
+  type ThreadPreview,
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
 
@@ -24,6 +26,47 @@ export const MAIN_SESSION_KEY = "owner:main";
 export const INCOGNITO_TTL_MS = 24 * 3_600_000;
 const DEFAULT_PAGE = 50;
 const MAX_PAGE = 200;
+
+const PREVIEW_MAX = 160;
+/** Messages scanned from the end for the last line (tool and system messages are skipped). */
+const PREVIEW_SCAN = 20;
+
+/** Markdown reduced to one line of plain text for the sidebar. */
+export function previewText(md: string): string {
+  return md
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[`*_~>#|]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** The newest user or agent text of a thread (UI design §2.2: the row's last line). */
+export function threadPreview(call: Call, threadId: string): ThreadPreview | undefined {
+  const { messages } = listMessagesPage(call.ctx.db, threadId, { limit: PREVIEW_SCAN });
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const m = messages[i];
+    if (m === undefined || (m.role !== "user" && m.role !== "agent")) continue;
+    const text = previewText(m.blocks.map((b) => (b.type === "text" ? b.md : "")).join(" "));
+    if (text === "") continue;
+    return {
+      role: m.role,
+      text: text.length > PREVIEW_MAX ? `${text.slice(0, PREVIEW_MAX - 1)}…` : text,
+      at: m.createdAt,
+    };
+  }
+  return undefined;
+}
+
+function withPreview<T extends { thread: Thread }>(
+  call: Call,
+  entry: T,
+): T & {
+  lastMessage?: ThreadPreview;
+} {
+  const lastMessage = threadPreview(call, entry.thread.id);
+  return lastMessage === undefined ? entry : { ...entry, lastMessage };
+}
 
 export function requireThread(call: Call, threadId: string): Thread {
   const thread = getThread(call.ctx.db, threadId);
@@ -155,14 +198,16 @@ export const threadsHandlers: Record<string, HandlerDef> = {
         page.threads.map((t) => t.id),
       );
       return {
-        threads: page.threads.map((thread) => ({
-          thread,
-          activity: activity.get(thread.id) ?? {
-            running: 0,
-            awaitingInput: 0,
-            awaitingApproval: 0,
-          },
-        })),
+        threads: page.threads.map((thread) =>
+          withPreview(call, {
+            thread,
+            activity: activity.get(thread.id) ?? {
+              running: 0,
+              awaitingInput: 0,
+              awaitingApproval: 0,
+            },
+          }),
+        ),
         nextCursor: page.hasMore ? encodeOffset(offset + page.threads.length) : null,
       };
     },
@@ -171,7 +216,7 @@ export const threadsHandlers: Record<string, HandlerDef> = {
     run(call: Call, params: { threadId: string }) {
       const thread = requireThread(call, params.threadId);
       const activity = threadActivity(call.ctx.db, [thread.id]).get(thread.id);
-      return { thread, activity };
+      return withPreview(call, { thread, activity });
     },
   },
   "threads.rename": {
