@@ -10,6 +10,7 @@ import type {
   SharedV4ProviderOptions,
 } from "@ai-sdk/provider";
 import type { JsonObject, ModelMessage, ModelPart, ModelRequest, ToolSpec } from "@psyche/protocol";
+import { normalizeToolSchema, toolSchemaProblem } from "./compat.ts";
 import { type ProviderConfig, packageKey } from "./config.ts";
 import { isEnvelope, type OpaqueEnvelope, type ProviderMetadata } from "./envelope.ts";
 import { THINKING_BINDING_BETA, thinkingOn, thinkingPrefix } from "./thinking.ts";
@@ -306,11 +307,16 @@ function convertTools(
         args: {},
       };
     }
+    // Providers need a top-level object schema (#414): unions become one object, and a tool
+    // that still is not one fails this request locally, naming the tool.
+    const inputSchema = normalizeToolSchema(t.inputSchema);
+    const problem = toolSchemaProblem({ name: t.name, inputSchema });
+    if (problem !== undefined) throw new Error(problem);
     return {
       type: "function",
       name: ctx.toolNames?.toProvider(t.name) ?? t.name,
       description: t.description,
-      inputSchema: t.inputSchema as LanguageModelV4FunctionTool["inputSchema"],
+      inputSchema: inputSchema as LanguageModelV4FunctionTool["inputSchema"],
     };
   });
 }
