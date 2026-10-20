@@ -18,6 +18,7 @@ import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { Switch } from "../../components/ui/switch.tsx";
 import { useSettings } from "../../data/hooks.ts";
 import { cn } from "../../lib/utils.ts";
+import { settingLabel } from "./setting-labels.ts";
 
 /**
  * Building blocks shared by the settings sections (UI design §3.18, shared states §3.0): section
@@ -109,13 +110,15 @@ export function useSettingsForm() {
               requestApproval({ key, approvalId, retry: (id) => set(key, value, id) });
             } else {
               setWriteError(
-                `Changing ${key} needs your approval with Touch ID or a passkey. Approve it in Settings or in the Psyche notification, then change it again.`,
+                `Changing “${settingLabel(key)}” needs your approval with Touch ID or a passkey. Approve it in Settings or in the Psyche notification, then change it again.`,
               );
             }
           } else if (hasCode(err, "forbidden") && isAdminSettingKey(key)) {
             setNeedsApproval((prev) => new Set(prev).add(key));
           } else {
-            setWriteError(`Psyche couldn't save ${key} (${messageOf(err)}). Nothing changed.`);
+            setWriteError(
+              `Psyche couldn't save “${settingLabel(key)}” (${messageOf(err)}). Nothing changed.`,
+            );
           }
         },
       );

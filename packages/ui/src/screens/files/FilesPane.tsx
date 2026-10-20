@@ -13,7 +13,7 @@ import {
   Presentation,
 } from "lucide-react";
 import { type CSSProperties, type ReactElement, type ReactNode, useState } from "react";
-import { EmptyState } from "../../components/page.tsx";
+import { EmptyState, LoadingCards } from "../../components/page.tsx";
 import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useGatewayQuery, useLibrary, useSettings } from "../../data/hooks.ts";
@@ -142,6 +142,15 @@ function Note({ depth, children }: { depth: number; children: ReactNode }): Reac
   );
 }
 
+/** Skeleton rows in the tree while a folder loads (§3.0). */
+function TreeLoading({ depth, label }: { depth: number; label: string }): ReactElement {
+  return (
+    <li style={indent(depth)} className="py-1 pr-2">
+      <LoadingCards label={label} count={2} lines={1} layout="rows" />
+    </li>
+  );
+}
+
 function listError(error: string): string {
   return /outside every granted folder|forbidden/i.test(error)
     ? "This folder is no longer shared."
@@ -152,7 +161,8 @@ function listError(error: string): string {
 
 function FolderChildren({ path, depth, selected, onSelect }: TreeProps & { path: string }) {
   const q = useGatewayQuery("files.list", { path });
-  if (q.loading && q.data === undefined) return <Note depth={depth - 1}>Loading…</Note>;
+  if (q.loading && q.data === undefined)
+    return <TreeLoading depth={depth} label="Loading the folder" />;
   if (q.error !== null && q.data === undefined) {
     return (
       <Note depth={depth - 1}>
@@ -274,7 +284,7 @@ function LibraryNode({ selected, onSelect }: Omit<TreeProps, "depth">): ReactEle
       {open ? (
         <ul>
           {lib.loading && lib.items.length === 0 ? (
-            <Note depth={0}>Loading…</Note>
+            <TreeLoading depth={1} label="Loading the Library" />
           ) : lib.error !== null && lib.items.length === 0 ? (
             <Note depth={0}>
               Psyche couldn't load the Library ({lib.error}).{" "}
@@ -342,7 +352,9 @@ export function FilesPaneView({
           className="min-h-0 overflow-auto border-b border-gray-6 p-1.5 @lg:border-r @lg:border-b-0"
         >
           <ul>
-            {loading && grants.length === 0 ? <Note depth={-1}>Loading…</Note> : null}
+            {loading && grants.length === 0 ? (
+              <TreeLoading depth={0} label="Loading shared folders" />
+            ) : null}
             {grants.map((g, i) => (
               <FolderNode
                 key={g.path}

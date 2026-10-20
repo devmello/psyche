@@ -240,7 +240,7 @@ describe("a security setting approved with a passkey (issue #79)", () => {
     fireEvent.click(button, { detail: 1 }); // a pointer click; the card ignores keyboard clicks
 
     expect(
-      await screen.findByText("Saved permissions.policy.", {}, { timeout: 4000 }),
+      await screen.findByText("Saved “Permission policy”.", {}, { timeout: 4000 }),
     ).toBeTruthy();
     expect(credentials.get).toHaveBeenCalledTimes(1);
     expect(answers).toHaveLength(1);
