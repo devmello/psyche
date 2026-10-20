@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import { Streamdown } from "streamdown";
+import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { psycheCodePlugin } from "./highlighter.ts";
 
@@ -41,7 +42,9 @@ export function Markdown({ children, streaming = false, className }: MarkdownPro
       urlTransform={(url) => (isSafeLink(url) ? url : "")}
       components={{
         img: ({ alt }) => (
-          <span className="text-muted-foreground">[image: {alt || "untitled"}]</span>
+          <span className="text-muted-foreground">
+            {t("blocks.markdown.image", { alt: alt || t("blocks.markdown.untitled") })}
+          </span>
         ),
         a: ({ href, children: label }) =>
           href ? (

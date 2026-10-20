@@ -1,6 +1,7 @@
 import type { ApprovalRequest } from "@psyche/protocol";
 import { TriangleAlert } from "lucide-react";
 import { type ReactElement, type ReactNode, useState } from "react";
+import { t } from "../i18n/core.ts";
 import { DiffBlock } from "./DiffBlock.tsx";
 
 /**
@@ -12,7 +13,7 @@ type Details = Record<string, unknown>;
 
 const str = (v: unknown): string =>
   v === null || v === undefined || (Array.isArray(v) && v.length === 0)
-    ? "none"
+    ? t("blocks.details.none")
     : v === ""
       ? "—"
       : typeof v === "string"
@@ -56,7 +57,7 @@ function ExpandableDiff({ diff }: { diff: string }): ReactElement {
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        {open ? "Hide" : "View diff"}
+        {open ? t("blocks.common.hide") : t("blocks.common.viewDiff")}
       </button>
       {open ? <DiffBlock diff={diff} className="mt-1 max-h-80 overflow-auto" /> : null}
     </>
@@ -73,7 +74,7 @@ function Expandable({ label, text }: { label: string; text: string }): ReactElem
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
-        {open ? "Hide" : label}
+        {open ? t("blocks.common.hide") : label}
       </button>
       {open ? (
         <pre className="mt-1 max-h-60 overflow-auto rounded-md bg-gray-3 p-2 font-mono text-xs whitespace-pre-wrap">
@@ -122,10 +123,10 @@ export function ApprovalIds({ approval }: { approval: ApprovalRequest }): ReactE
             <span className="font-mono text-caption break-all">{str(v)}</span>
           </Row>
         ))}
-      <Row label="Approval">
+      <Row label={t("blocks.details.approval")}>
         <span className="font-mono text-caption break-all">{approval.id}</span>
       </Row>
-      <Row label="Binding">
+      <Row label={t("blocks.details.binding")}>
         <span className="font-mono text-caption break-all">{approval.bindingHash}</span>
       </Row>
     </dl>
@@ -134,7 +135,7 @@ export function ApprovalIds({ approval }: { approval: ApprovalRequest }): ReactE
 
 export function ApprovalDetails({
   approval,
-  persona = "The agent",
+  persona = t("blocks.common.theAgent"),
 }: {
   approval: ApprovalRequest;
   persona?: string;
@@ -147,13 +148,15 @@ export function ApprovalDetails({
       const env = Array.isArray(d.env) ? (d.env as unknown[]).map(String) : [];
       return (
         <dl>
-          <Row label="Command">
+          <Row label={t("blocks.details.command")}>
             {argv ? (
               // One token per argument, quoted when it contains spaces, so ["rm", "-rf foo"]
               // and ["rm", "-rf", "foo"] never look the same.
               <ol
                 className="inline-flex flex-wrap gap-1"
-                aria-label={`Arguments: ${argv.map((a) => JSON.stringify(a)).join(", ")}`}
+                aria-label={t("blocks.details.argumentsList", {
+                  args: argv.map((a) => JSON.stringify(a)).join(", "),
+                })}
               >
                 {argv.map((a, i) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: argv order is the binding
@@ -166,11 +169,11 @@ export function ApprovalDetails({
               <Code>{str(d.command)}</Code>
             )}
           </Row>
-          <Row label="In">{str(d.cwd)}</Row>
-          {env.length > 0 ? <Row label="Env names">{env.join(", ")}</Row> : null}
+          <Row label={t("blocks.details.in")}>{str(d.cwd)}</Row>
+          {env.length > 0 ? <Row label={t("blocks.details.envNames")}>{env.join(", ")}</Row> : null}
           {approval.kind === "exec_host" ? (
-            <Row label="Runs">
-              <span className="text-danger-text">on your Mac, outside the sandbox</span>
+            <Row label={t("blocks.details.runs")}>
+              <span className="text-danger-text">{t("blocks.details.runsOnHost")}</span>
             </Row>
           ) : null}
           <Rest details={d} shown={["command", "cwd", "argv", "env"]} />
@@ -181,22 +184,27 @@ export function ApprovalDetails({
       const to = Array.isArray(d.to) ? (d.to as string[]) : [str(d.to)];
       return (
         <dl>
-          <Row label="To">
-            {to.join(", ")} <span className="text-muted-foreground">(exact recipient)</span>
+          <Row label={t("blocks.details.to")}>
+            {to.join(", ")}{" "}
+            <span className="text-muted-foreground">{t("blocks.details.exactRecipient")}</span>
           </Row>
-          {Array.isArray(d.cc) && d.cc.length > 0 ? <Row label="Cc">{str(d.cc)}</Row> : null}
-          <Row label="Subject">{str(d.subject)}</Row>
+          {Array.isArray(d.cc) && d.cc.length > 0 ? (
+            <Row label={t("blocks.details.cc")}>{str(d.cc)}</Row>
+          ) : null}
+          <Row label={t("blocks.details.subject")}>{str(d.subject)}</Row>
           {d.bodyPreview !== undefined || d.body !== undefined ? (
-            <Row label="Body">
-              <Expandable label="View" text={str(d.body ?? d.bodyPreview)} />
+            <Row label={t("blocks.details.body")}>
+              <Expandable label={t("blocks.details.view")} text={str(d.body ?? d.bodyPreview)} />
             </Row>
           ) : null}
           {Array.isArray(d.attachments) && d.attachments.length > 0 ? (
-            <Row label="Attachments">
-              {(d.attachments as { name?: string }[]).map((a) => a.name ?? "file").join(", ")}
+            <Row label={t("blocks.details.attachments")}>
+              {(d.attachments as { name?: string }[])
+                .map((a) => a.name ?? t("blocks.details.attachmentDefault"))
+                .join(", ")}
             </Row>
           ) : null}
-          <Row label="Account">{str(d.account)}</Row>
+          <Row label={t("blocks.details.account")}>{str(d.account)}</Row>
           <Rest
             details={d}
             shown={["to", "cc", "subject", "body", "bodyPreview", "attachments", "account"]}
@@ -209,18 +217,21 @@ export function ApprovalDetails({
       const current = str(d.currentOrigin ?? d.origin);
       return (
         <dl>
-          <Row label="Item">{str(d.item ?? d.credential)}</Row>
-          <Row label="Bound to">{bound}</Row>
-          <Row label="This page">
+          <Row label={t("blocks.details.item")}>{str(d.item ?? d.credential)}</Row>
+          <Row label={t("blocks.details.boundTo")}>{bound}</Row>
+          <Row label={t("blocks.details.thisPage")}>
             {current}
             {bound !== current ? (
-              <span className="ml-1 inline-flex items-center gap-1 text-danger-text">
-                <TriangleAlert className="size-3.5" aria-hidden="true" /> does not match
+              <span className="ms-1 inline-flex items-center gap-1 text-danger-text">
+                <TriangleAlert className="size-3.5" aria-hidden="true" />{" "}
+                {t("blocks.details.mismatch")}
               </span>
             ) : null}
           </Row>
-          <Row label="Fields">{str(d.fields)}</Row>
-          <Row label={`${persona} sees`}>only the placeholder, never the value</Row>
+          <Row label={t("blocks.details.fields")}>{str(d.fields)}</Row>
+          <Row label={t("blocks.details.personaSees", { persona })}>
+            {t("blocks.details.placeholderOnly")}
+          </Row>
           <Rest
             details={d}
             shown={["item", "credential", "boundOrigin", "origin", "currentOrigin", "fields"]}
@@ -234,17 +245,21 @@ export function ApprovalDetails({
         : [];
       return (
         <dl>
-          <Row label="Merchant">{str(d.merchant)}</Row>
-          <Row label="Amount">
+          <Row label={t("blocks.details.merchant")}>{str(d.merchant)}</Row>
+          <Row label={t("blocks.details.amount")}>
             <span className="font-semibold">{str(d.amount)}</span>
           </Row>
           {items.length > 0 ? (
-            <Row label="Items">
+            <Row label={t("blocks.details.items")}>
               <ul>
                 {items.map((li, i) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: line items are fixed for the card
                   <li key={i}>
-                    {li.qty ?? 1} × {li.name ?? "item"} — {li.amount ?? ""}
+                    {t("blocks.details.lineItem", {
+                      qty: li.qty ?? 1,
+                      name: li.name ?? t("blocks.details.lineItemDefault"),
+                      amount: li.amount ?? "",
+                    })}
                   </li>
                 ))}
               </ul>
@@ -257,12 +272,14 @@ export function ApprovalDetails({
     case "file_write":
       return (
         <dl>
-          <Row label="Path">
+          <Row label={t("blocks.details.path")}>
             <Code>{str(d.path)}</Code>
           </Row>
-          {Array.isArray(d.files) ? <Row label="Files">{str(d.files)}</Row> : null}
+          {Array.isArray(d.files) ? (
+            <Row label={t("blocks.details.files")}>{str(d.files)}</Row>
+          ) : null}
           {typeof d.diff === "string" ? (
-            <Row label="Change">
+            <Row label={t("blocks.details.change")}>
               <ExpandableDiff diff={d.diff} />
             </Row>
           ) : null}
@@ -272,21 +289,23 @@ export function ApprovalDetails({
     case "git_write":
       return (
         <dl>
-          <Row label="Repository">
+          <Row label={t("blocks.details.repository")}>
             <Code>{str(d.repo)}</Code>
           </Row>
-          <Row label="Operation">{str(d.operation)}</Row>
+          <Row label={t("blocks.details.operation")}>{str(d.operation)}</Row>
           {d.branch !== undefined ? (
-            <Row label="Branch">
+            <Row label={t("blocks.details.branch")}>
               <Code>{str(d.branch)}</Code>
             </Row>
           ) : null}
           {d.message !== undefined ? (
-            <Row label="Message">
+            <Row label={t("blocks.details.message")}>
               <span className="whitespace-pre-wrap">{str(d.message)}</span>
             </Row>
           ) : null}
-          {d.paths !== undefined ? <Row label="Paths">{str(d.paths)}</Row> : null}
+          {d.paths !== undefined ? (
+            <Row label={t("blocks.details.paths")}>{str(d.paths)}</Row>
+          ) : null}
           <Rest details={d} shown={["repo", "operation", "branch", "message", "paths"]} />
         </dl>
       );
@@ -295,37 +314,38 @@ export function ApprovalDetails({
       // would otherwise count as a level-2 id and hide in Details).
       return (
         <dl>
-          <Row label="Remote">
+          <Row label={t("blocks.details.remote")}>
             <Code>{str(d.remote)}</Code>
           </Row>
-          <Row label="URL">
+          <Row label={t("blocks.details.url")}>
             <Code>{str(d.remoteUrl)}</Code>
           </Row>
-          <Row label="Branch">
+          <Row label={t("blocks.details.branch")}>
             <Code>{str(d.branch)}</Code>
           </Row>
-          <Row label="Commit">
+          <Row label={t("blocks.details.commit")}>
             <span className="font-mono text-caption break-all">{str(d.commit)}</span>
           </Row>
-          <Row label="Repository">
+          <Row label={t("blocks.details.repository")}>
             <Code>{str(d.repo)}</Code>
           </Row>
-          <Row label="Force">never</Row>
+          <Row label={t("blocks.details.force")}>{t("blocks.details.never")}</Row>
           <Rest details={d} shown={["remote", "remoteUrl", "branch", "commit", "repo"]} />
         </dl>
       );
     case "mcp_tool":
       return (
         <dl>
-          <Row label="Tool">
+          <Row label={t("blocks.details.tool")}>
             <Code>{str(d.tool)}</Code>
           </Row>
-          <Row label="Server trust">{str(d.trustTier)}</Row>
-          <Row label="Arguments">
+          <Row label={t("blocks.details.serverTrust")}>{str(d.trustTier)}</Row>
+          <Row label={t("blocks.details.arguments")}>
             <pre className="max-h-40 overflow-auto rounded-md bg-gray-3 p-2 font-mono text-xs whitespace-pre-wrap">
               {JSON.stringify(d.argsPreview ?? d.args ?? {}, null, 2)}
             </pre>
           </Row>
+          {/* i18n-ignore: the MCP method whose hash this is */}
           <Row label="tools/list">
             <Code>{str(d.toolsListHash).slice(0, 19)}</Code>
           </Row>
@@ -337,7 +357,9 @@ export function ApprovalDetails({
         <dl>
           <Rest details={d} shown={[]} />
           {approval.target ? (
-            <Row label="Target">{approval.target.display ?? approval.target.value}</Row>
+            <Row label={t("blocks.details.target")}>
+              {approval.target.display ?? approval.target.value}
+            </Row>
           ) : null}
         </dl>
       );

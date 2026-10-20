@@ -2,19 +2,28 @@ import type { Task, TaskStatus } from "@psyche/protocol";
 import { CircleAlert, CircleCheck, CirclePause, CircleX, Hand, Loader } from "lucide-react";
 import type { ReactElement } from "react";
 import { Button } from "../components/ui/button.tsx";
+import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { Checklist } from "./Checklist.tsx";
 
-export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {
-  queued: "queued",
-  running: "running",
-  awaiting_input: "needs your answer",
-  awaiting_approval: "awaiting approval",
-  paused: "paused",
-  done: "done",
-  failed: "failed",
-  cancelled: "cancelled",
-};
+const TASK_STATUSES: readonly TaskStatus[] = [
+  "queued",
+  "running",
+  "awaiting_input",
+  "awaiting_approval",
+  "paused",
+  "done",
+  "failed",
+  "cancelled",
+];
+
+/** A task status as shown, from the catalogue (each entry is read at use). */
+export const TASK_STATUS_LABEL: Readonly<Record<TaskStatus, string>> = Object.defineProperties(
+  {} as Record<TaskStatus, string>,
+  Object.fromEntries(
+    TASK_STATUSES.map((s) => [s, { enumerable: true, get: () => t(`blocks.task.status.${s}`) }]),
+  ),
+);
 
 export function TaskStatusIcon({ status }: { status: TaskStatus }): ReactElement {
   const cls = "size-4 shrink-0";
@@ -60,7 +69,10 @@ export function TaskCard({
   const current = task.checklist.find((c) => c.status === "in_progress");
   return (
     <article
-      aria-label={`Task ${task.title}, ${TASK_STATUS_LABEL[task.status]}`}
+      aria-label={t("blocks.task.label", {
+        title: task.title,
+        status: TASK_STATUS_LABEL[task.status],
+      })}
       className="my-2 rounded-lg border border-gray-6 bg-gray-2 p-3 psy-enter"
     >
       <div className="flex items-center gap-2">
@@ -76,27 +88,27 @@ export function TaskCard({
       <div className="mt-2 flex flex-wrap gap-2">
         {onOpen ? (
           <Button size="sm" variant="outline" onClick={() => onOpen(task)}>
-            Open activity
+            {t("blocks.task.openActivity")}
           </Button>
         ) : null}
         {live && onPause ? (
           <Button size="sm" variant="ghost" onClick={() => onPause(task)}>
-            Pause
+            {t("blocks.task.pause")}
           </Button>
         ) : null}
         {task.status === "paused" && onResume ? (
           <Button size="sm" variant="ghost" onClick={() => onResume(task)}>
-            Resume
+            {t("blocks.task.resume")}
           </Button>
         ) : null}
         {(live || task.status === "paused") && onCancel ? (
           <Button size="sm" variant="ghost" onClick={() => onCancel(task)}>
-            Cancel
+            {t("common.cancel")}
           </Button>
         ) : null}
         {(task.status === "failed" || task.status === "cancelled") && onRetry ? (
           <Button size="sm" variant="ghost" onClick={() => onRetry(task)}>
-            Retry
+            {t("common.retry")}
           </Button>
         ) : null}
       </div>

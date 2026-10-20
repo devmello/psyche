@@ -2,6 +2,7 @@ import { ShieldCheck } from "lucide-react";
 import { type ReactElement, useEffect, useState } from "react";
 import { ApprovalCard, FOCUS_APPROVAL_EVENT } from "../blocks/ApprovalCard.tsx";
 import { useApprovals, useStoreState } from "../data/index.ts";
+import { t } from "../i18n/core.ts";
 import { displaySummary } from "../lib/cards.ts";
 import { formatCountdown } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
@@ -65,12 +66,16 @@ export function ApprovalDock({
       <p className="sr-only" role="status">
         {mine.length === 0
           ? ""
-          : `Approval needed: ${newest ? displaySummary(newest.approval) : ""}. ${
-              mine.length === 1 ? "1 approval needs you" : `${mine.length} approvals need you`
-            }.`}
+          : t("chat.approvals.announce", {
+              summary: newest ? displaySummary(newest.approval) : "",
+              count: mine.length,
+            })}
       </p>
       {mine.length > 1 ? (
-        <ul aria-label="Other approvals" className="flex max-h-24 flex-col gap-1 overflow-y-auto">
+        <ul
+          aria-label={t("chat.approvals.others")}
+          className="flex max-h-24 flex-col gap-1 overflow-y-auto"
+        >
           {mine
             .filter((v) => v !== open)
             .map((v) => (
@@ -78,7 +83,7 @@ export function ApprovalDock({
                 <button
                   type="button"
                   onClick={() => setOpenId(v.approval.id)}
-                  className="elevation-1 flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-small transition-colors hover:bg-gray-3"
+                  className="elevation-1 flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-start text-small transition-colors hover:bg-gray-3"
                 >
                   <ShieldCheck className="size-4 text-approval-text" aria-hidden="true" />
                   <span className="min-w-0 flex-1 truncate">{displaySummary(v.approval)}</span>
@@ -118,7 +123,7 @@ export function ApprovalDock({
                   // to the composer instead of falling to the page (docs/a11y-audit.md C3).
                   if (mine.length <= 1) {
                     document
-                      .querySelector<HTMLTextAreaElement>('textarea[aria-label^="Message"]')
+                      .querySelector<HTMLTextAreaElement>("textarea[data-composer-input]")
                       ?.focus();
                   }
                 }}

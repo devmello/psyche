@@ -13,6 +13,8 @@ import { Button } from "../components/ui/button.tsx";
 import { Checkbox } from "../components/ui/checkbox.tsx";
 import { Input } from "../components/ui/input.tsx";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group.tsx";
+import { t } from "../i18n/core.ts";
+import { describeError } from "../i18n/errors.ts";
 import { cn } from "../lib/utils.ts";
 
 /**
@@ -86,11 +88,9 @@ export interface QuestionCardProps {
   className?: string;
 }
 
-const COUNT = ["", "one answer", "two answers", "three answers", "four answers"];
-
 export function QuestionCard({
   request,
-  persona = "The agent",
+  persona = t("blocks.common.theAgent"),
   avatar,
   onAnswer,
   onSkip,
@@ -115,10 +115,12 @@ export function QuestionCard({
         className={cn("my-2 rounded-lg border border-gray-6 bg-gray-2 p-3 text-sm", className)}
       >
         <h3 id={headingId} className="sr-only">
-          {request.status === "answered" ? "Answered questions" : "Cancelled questions"}
+          {request.status === "answered"
+            ? t("blocks.question.answered")
+            : t("blocks.question.cancelled")}
         </h3>
         {request.status === "cancelled" ? (
-          <p className="text-muted-foreground">No longer needed.</p>
+          <p className="text-muted-foreground">{t("blocks.question.noLongerNeeded")}</p>
         ) : (
           <ul className="flex flex-col gap-0.5">
             {request.questions.map((q, i) => {
@@ -155,7 +157,7 @@ export function QuestionCard({
     try {
       await onAnswer(out);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(describeError(err));
     } finally {
       setBusy(false);
     }
@@ -181,7 +183,7 @@ export function QuestionCard({
       <div className="mb-3 flex items-center gap-2">
         {avatar}
         <h3 id={headingId} className="font-semibold">
-          {persona} needs {n === 1 ? "an answer" : COUNT[n]} before continuing
+          {t("blocks.question.heading", { persona, count: n })}
         </h3>
       </div>
       <div className="flex flex-col gap-4">
@@ -204,7 +206,7 @@ export function QuestionCard({
       <div className="mt-4 flex justify-end gap-2">
         {onSkip ? (
           <Button variant="ghost" onClick={onSkip}>
-            Skip for now
+            {t("blocks.question.skip")}
           </Button>
         ) : null}
         <Button
@@ -212,7 +214,7 @@ export function QuestionCard({
           onClick={() => void submit()}
           aria-keyshortcuts="Meta+Enter"
         >
-          Answer
+          {t("blocks.question.answer")}
         </Button>
       </div>
     </article>
@@ -265,8 +267,8 @@ function QuestionField({
 
   const otherInput = (
     <Input
-      aria-label={`${display.header}: other answer`}
-      placeholder="Other"
+      aria-label={t("blocks.question.otherAnswer", { header: display.header })}
+      placeholder={t("blocks.question.other")}
       className="h-7 max-w-64"
       value={draft.other}
       onFocus={() => {
@@ -284,10 +286,12 @@ function QuestionField({
       <legend className="mb-1.5 flex items-baseline gap-2">
         <span className="text-label text-muted-foreground">{display.header}</span>
         <span className="font-medium text-foreground">{display.question}</span>
-        {q.multiSelect ? <span className="text-xs text-muted-foreground">(pick any)</span> : null}
+        {q.multiSelect ? (
+          <span className="text-xs text-muted-foreground">{t("blocks.question.pickAny")}</span>
+        ) : null}
       </legend>
       <span id={`${id}-hint`} className="sr-only">
-        Press 1 to {values.length} to choose.
+        {t("blocks.question.keysHint", { count: values.length })}
       </span>
       {q.multiSelect ? (
         <div className={cn(chips ? "flex flex-wrap gap-x-4 gap-y-1.5" : "flex flex-col gap-1.5")}>
@@ -312,7 +316,7 @@ function QuestionField({
           <div className="flex items-center gap-2">
             <Checkbox
               id={`${id}-other`}
-              aria-label="Other"
+              aria-label={t("blocks.question.other")}
               checked={draft.selected.includes(OTHER)}
               onCheckedChange={() => toggle(OTHER)}
             />
@@ -341,7 +345,11 @@ function QuestionField({
             );
           })}
           <div className="flex items-center gap-2">
-            <RadioGroupItem value={OTHER} id={`${id}-other`} aria-label="Other" />
+            <RadioGroupItem
+              value={OTHER}
+              id={`${id}-other`}
+              aria-label={t("blocks.question.other")}
+            />
             {otherInput}
           </div>
         </RadioGroup>
@@ -365,8 +373,8 @@ function OptionLabel({
       <label htmlFor={htmlFor} className="cursor-pointer leading-5">
         {cleanLabel(option.label)}
         {option.recommended ? (
-          <span className="ml-1.5 rounded-full bg-accent-3 px-1.5 text-xs text-accent-11">
-            recommended
+          <span className="ms-1.5 rounded-full bg-accent-3 px-1.5 text-xs text-accent-11">
+            {t("blocks.question.recommended")}
           </span>
         ) : null}
         {option.description ? (
@@ -381,10 +389,12 @@ function OptionLabel({
             type="button"
             className="min-h-6 text-xs text-accent-11 hover:underline"
             aria-expanded={open}
+            aria-label={t(open ? "blocks.question.hidePreviewOf" : "blocks.question.previewOf", {
+              label: cleanLabel(option.label),
+            })}
             onClick={() => setOpen((o) => !o)}
           >
-            {open ? "Hide preview" : "Preview"}
-            <span className="sr-only"> of {cleanLabel(option.label)}</span>
+            {open ? t("blocks.question.hidePreview") : t("blocks.question.preview")}
           </button>
           {open ? (
             <div className="mt-1 max-h-48 overflow-auto rounded-md border border-gray-6 bg-background p-2">
