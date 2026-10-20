@@ -44,6 +44,8 @@ describe("filesystem reference server over stdio", () => {
       const names = tools.map((t) => t.name);
       expect(names).toContain("mcp__fs__read_text_file");
       expect(tools.find((t) => t.name === "mcp__fs__read_text_file")?.sideEffect).toBe("read");
+      // A bundled server's tool text ships with Psyche (#281).
+      expect(tools.every((t) => t.descriptionProvenance === "trusted")).toBe(true);
       expect(tools.find((t) => t.name === "mcp__fs__write_file")?.sideEffect).not.toBe("read");
       const r = await host.callTool(
         "fs",
