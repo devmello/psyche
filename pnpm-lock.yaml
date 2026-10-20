@@ -1271,6 +1271,9 @@ importers:
       '@psyche/gateway':
         specifier: workspace:*
         version: link:../../apps/gateway
+      '@psyche/mcp-host':
+        specifier: workspace:*
+        version: link:../../packages/mcp-host
       '@psyche/memory':
         specifier: workspace:*
         version: link:../../packages/memory

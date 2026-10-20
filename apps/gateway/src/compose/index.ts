@@ -751,11 +751,13 @@ export {
   turnText,
 } from "./channels.ts";
 export { composeCoding, hostGit } from "./coding.ts";
+export { type ComputerDeps, type ComputerUse, createComputerUse } from "./computer.ts";
 export {
   type ConnectorsSetup,
   composeConnectors,
   MemoryTokenVault,
 } from "./connectors.ts";
+export { type ExecToolDeps, execTool } from "./exec-tool.ts";
 export {
   composeHelper,
   HELPER_SURFACE,
@@ -775,6 +777,7 @@ export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { partsFromEnv } from "./parts.ts";
 export { composePasskeys, PasskeyService, webauthnChallengeFor } from "./passkeys.ts";
 export { type ComposedProactive, composeProactive, type ProactiveSetup } from "./proactive.ts";
+export { protectedRoots } from "./protected-paths.ts";
 export {
   createRealChromeMode,
   type RealChromeMode,
