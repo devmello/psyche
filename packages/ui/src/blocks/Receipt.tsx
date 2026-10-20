@@ -106,8 +106,8 @@ export function ReceiptLine({
       type="button"
       className={cn(cls, "rounded px-1 -mx-1 transition-colors hover:bg-gray-3")}
       onClick={() => onOpen(receipt)}
-      aria-label={`Receipt: ${receipt.summary}`}
     >
+      <span className="sr-only">Receipt: </span>
       {content}
     </button>
   ) : (
