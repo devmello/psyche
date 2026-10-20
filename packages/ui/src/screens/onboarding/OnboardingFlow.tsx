@@ -3,10 +3,12 @@ import { type ReactElement, useEffect, useId, useRef, useState } from "react";
 import { DEFAULT_CREATURE } from "../../avatar/creatures/index.tsx";
 import { PsycheMark } from "../../brand.tsx";
 import { Button } from "../../components/ui/button.tsx";
+import { useGatewayQuery } from "../../data/index.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { cn } from "../../lib/utils.ts";
 import { CONNECTOR_CATALOG, type ScopeMode } from "../settings/ConnectorsSection.tsx";
+import { ConnectProgress, useConnectorConnect } from "../settings/connect-flow.tsx";
 import type { TccPermission } from "../settings/types.ts";
 import {
   ConnectorsStep,
@@ -114,7 +116,21 @@ export function OnboardingFlow({
     ...initial.permissions,
   });
   const [askingPermission, setAskingPermission] = useState<TccPermission | null>(null);
-  const [connectors, setConnectors] = useState<ConnectedAccount[]>(initial.connectors ?? []);
+  const [hostConnectors, setConnectors] = useState<ConnectedAccount[]>(initial.connectors ?? []);
+  // Without a host override, Connect is the real sign-in and the list is the Gateway's: an
+  // account shows as connected only once it holds a token (#505), as in Settings → Connectors.
+  const builtInConnect = onConnect === undefined;
+  const flow = useConnectorConnect();
+  const live = useGatewayQuery("connectors.list", {}, { enabled: builtInConnect });
+  const connectors: ConnectedAccount[] = builtInConnect
+    ? (live.data?.connectors ?? [])
+        .filter((c) => c.status === "connected")
+        .map((c) => ({
+          type: c.type,
+          label: CONNECTOR_CATALOG.find((x) => x.type === c.type)?.label ?? c.label,
+          mode: c.scopeMode,
+        }))
+    : hostConnectors;
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
   const [model, setModel] = useState<ModelChoice>(initial.model ?? defaultModelChoice("cloud"));
@@ -213,6 +229,10 @@ export function OnboardingFlow({
   }, [onReadPermissions, current]);
 
   const connect = async (type: string, mode: ScopeMode) => {
+    if (builtInConnect) {
+      await flow.start(type, mode, CONNECTOR_CATALOG.find((c) => c.type === type)?.label ?? type);
+      return;
+    }
     setConnectError(null);
     setConnecting(true);
     try {
@@ -372,9 +392,25 @@ export function OnboardingFlow({
           <ConnectorsStep
             persona={name}
             connected={connectors}
-            busy={connecting}
+            busy={
+              builtInConnect
+                ? flow.state.phase === "starting" || flow.state.phase === "signing-in"
+                : connecting
+            }
             error={connectError}
             onConnect={(type, mode) => void connect(type, mode)}
+            {...(builtInConnect
+              ? {
+                  progress: (
+                    <ConnectProgress
+                      state={flow.state}
+                      onOpen={(url) => void flow.open(url)}
+                      onCancel={flow.cancel}
+                      onRetry={flow.retry}
+                    />
+                  ),
+                }
+              : {})}
           />
         ) : null}
         {current === "model" ? (

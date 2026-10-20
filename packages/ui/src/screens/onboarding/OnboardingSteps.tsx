@@ -1,5 +1,5 @@
 import { Check, KeyRound, Loader, Plug } from "lucide-react";
-import { type ReactElement, useId, useState } from "react";
+import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { Avatar } from "../../avatar/Avatar.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
@@ -298,12 +298,15 @@ export function ConnectorsStep({
   onConnect,
   busy = false,
   error = null,
+  progress,
 }: {
   persona: string;
   connected: readonly ConnectedAccount[];
   onConnect: (type: string, mode: ScopeMode) => void;
   busy?: boolean;
   error?: string | null;
+  /** The sign-in under way (#505), under the Connect button. */
+  progress?: ReactNode;
 }): ReactElement {
   const id = useId();
   const available = CONNECTOR_CATALOG.filter((c) => !connected.some((x) => x.type === c.type));
@@ -383,6 +386,7 @@ export function ConnectorsStep({
               {t("onboarding.connectors.connect")}
             </Button>
           </div>
+          {progress}
         </div>
       )}
     </div>

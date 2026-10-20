@@ -114,6 +114,11 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
         await b.clipboard.writeText(text);
       },
     },
+    external: {
+      open: async (url) => {
+        await b.external.open(url);
+      },
+    },
     locale: {
       get: () => b.locale.get() as Promise<SystemLocale>,
     },

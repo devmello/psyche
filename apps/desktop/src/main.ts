@@ -34,6 +34,7 @@ import { loadOrCreateDeviceKey } from "./lib/device-key.ts";
 import {
   checkCallable,
   checkClipboardText,
+  checkExternalUrl,
   checkHttpUrl,
   checkRoute,
   checkViewport,
@@ -463,6 +464,10 @@ function registerIpc(): void {
   // copy buttons (vault recovery key, credential ids) write through main (#507).
   handle(IPC.clipboardWrite, (_event, arg) => {
     clipboard.writeText(checkClipboardText(arg));
+  });
+  // A connector's consent page opens in the owner's browser (#505); https only.
+  handle(IPC.openExternal, async (_event, arg) => {
+    await shell.openExternal(checkExternalUrl(arg));
   });
   handle(IPC.localeGet, () => ({
     system: app.getSystemLocale(),

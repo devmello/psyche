@@ -194,6 +194,8 @@ export interface ShellPlatform {
   helper?: HelperPort;
   /** Desktop only: the macOS region format; the web uses the browser's language (A12). */
   locale?: LocalePort;
+  /** Desktop only: opens an https page in the default browser; the web uses window.open (#505). */
+  external?: ExternalPort;
   /** Desktop only: the system clipboard through main; the web uses `navigator.clipboard` (#507). */
   clipboard?: ClipboardPort;
 }
@@ -208,6 +210,10 @@ export interface SystemLocale {
   system: string;
   /** Preferred languages, most preferred first: which catalogue to show once more ship. */
   preferred: string[];
+}
+
+export interface ExternalPort {
+  open(url: string): Promise<void>;
 }
 
 export interface LocalePort {

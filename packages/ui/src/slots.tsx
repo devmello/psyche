@@ -31,6 +31,8 @@ export interface UiSlots {
   renderEditor?: (props: EditorSlotProps) => ReactNode;
   /** Writes the system clipboard (the desktop's goes through main; #507). */
   writeClipboard?: (text: string) => Promise<void>;
+  /** Opens an https page in the system browser (a connector's sign-in; #505). */
+  openExternal?: (url: string) => Promise<void>;
   /** Persona shown in agent messages and cards. */
   persona?: { name: string; creature?: string; imageSrc?: string };
 }

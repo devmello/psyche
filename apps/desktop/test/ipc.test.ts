@@ -3,6 +3,7 @@ import {
   checkAudioChunk,
   checkCallable,
   checkClipboardText,
+  checkExternalUrl,
   checkHttpUrl,
   checkRoute,
   checkViewport,
@@ -71,5 +72,20 @@ describe("IPC validators", () => {
     expect(checkClipboardText({ text: "ABCD-EFGH" })).toBe("ABCD-EFGH");
     for (const bad of [null, "x", {}, { text: "" }, { text: 3 }, { text: "a".repeat(65_537) }])
       expect(() => checkClipboardText(bad), JSON.stringify(bad)?.slice(0, 40)).toThrow();
+  });
+
+  it("open-external takes https pages only (#505)", () => {
+    expect(checkExternalUrl({ url: "https://accounts.google.com/o/oauth2/v2/auth?x=1" })).toContain(
+      "https://accounts.google.com/",
+    );
+    for (const bad of [
+      { url: "http://accounts.google.com/" },
+      { url: "javascript:alert(1)" },
+      { url: "file:///etc/passwd" },
+      { url: "https://u:p@evil.com" },
+      { url: "" },
+      null,
+    ])
+      expect(() => checkExternalUrl(bad), JSON.stringify(bad)).toThrow();
   });
 });

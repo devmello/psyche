@@ -421,6 +421,8 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
       ...(persona ? { persona } : {}),
       // The desktop session refuses navigator.clipboard; copy goes through main (#507).
       ...(platform.clipboard ? { writeClipboard: platform.clipboard.writeText } : {}),
+      // Connector sign-ins open in the default browser; app windows refuse window.open (#505).
+      ...(platform.external ? { openExternal: platform.external.open } : {}),
     }),
     [persona, platform],
   );

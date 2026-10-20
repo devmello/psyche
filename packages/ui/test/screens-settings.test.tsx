@@ -13,6 +13,7 @@ import { MockGateway } from "../src/data/mock-gateway.ts";
 import { createFixtureWorld, FIXTURE_NOW, IDS, PERSONA } from "../src/fixtures/index.ts";
 import { actionLabel } from "../src/screens/settings/ActionMatrix.tsx";
 import { ChannelsPanel } from "../src/screens/settings/ChannelsSection.tsx";
+import { ConnectorsSection } from "../src/screens/settings/ConnectorsSection.tsx";
 import {
   cardRefusal,
   parseBinding,
@@ -1204,5 +1205,41 @@ describe("Credentials: Stripe Link payments and 1Password", () => {
       "textContent",
       expect.stringMatching(/Bitwarden is not set up on the Gateway.*bw unlock/),
     );
+  });
+});
+
+describe("Settings → Connectors connects for real (#505)", () => {
+  it("runs connectors.connect, waits for the sign-in and lists the account from the Gateway", async () => {
+    let gw: MockGateway | null = null;
+    const openExternal = vi.fn(async (_url: string) => {});
+    render(
+      <StoryWorld
+        edit={(w) => void (w.connectors = [])}
+        onGateway={(g) => (gw = g)}
+        slots={{ openExternal }}
+      >
+        <ConnectorsSection />
+      </StoryWorld>,
+    );
+    // The list loads again once the mock connection opens; click the settled empty state.
+    await waitFor(async () => {
+      await userEvent.click(screen.getByRole("button", { name: "Connect an account" }));
+      expect(screen.getByRole("button", { name: "Continue to sign in" })).toBeTruthy();
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Continue to sign in" }));
+    const g = gw as unknown as MockGateway;
+    await waitFor(() =>
+      expect(g.calls.find((c) => c.method === "connectors.connect")?.params).toMatchObject({
+        catalogueId: "google",
+        scopeMode: "read",
+      }),
+    );
+    expect(await screen.findByTestId("connect-signing-in")).toBeTruthy();
+    expect(openExternal).toHaveBeenCalledOnce();
+    const id = g.world.connectors.at(-1)?.id ?? "";
+    act(() => g.finishConnectorSignIn(id, "connected", "owner@gmail.com"));
+    expect(await screen.findByText(/is connected as owner@gmail\.com\./)).toBeTruthy();
+    // connectors.updated refreshed connectors.list: the account is listed.
+    await waitFor(() => expect(screen.getAllByText("owner@gmail.com").length).toBeGreaterThan(0));
   });
 });

@@ -114,6 +114,8 @@ export interface MockWorld {
   modelRoles?: ModelRoles;
   /** What `models.probe` finds per provider id (recorded fixtures); missing → unreachable. */
   modelProbes?: Record<string, EndpointProbe>;
+  /** `connectors.connect` behaviour: "unavailable" answers not_implemented (#505). */
+  connectorConnect?: "unavailable";
   /** The last turn's context usage by thread id (`threads.contextUsage`). */
   contextUsage?: Record<string, ContextUsage>;
   /** Each thread's own context limits (`threads.setContextLimits`). */
@@ -512,6 +514,30 @@ export class MockGateway implements GatewayClient {
       maxTokensFrom:
         own.maxTokens !== undefined ? "thread" : fromSettings !== undefined ? "settings" : "model",
     };
+  }
+
+  /** Finishes (or fails) a pending connector sign-in and emits `connectors.updated` (tests). */
+  finishConnectorSignIn(
+    connectorId: string,
+    outcome: "connected" | "failed",
+    account?: string,
+  ): void {
+    const current = this.world.connectors.find((c) => c.id === connectorId);
+    if (current === undefined) return;
+    const connector: Connector = {
+      ...current,
+      status: outcome === "connected" ? "connected" : "error",
+      account: outcome === "connected" ? (account ?? current.account) : current.account,
+      updatedAt: this.now(),
+    };
+    this.world.connectors = this.world.connectors.map((c) =>
+      c.id === connectorId ? connector : c,
+    );
+    this.emit("connectors.updated", {
+      connector,
+      reason: outcome === "connected" ? "connected" : "authorization_failed",
+      ...(outcome === "failed" ? { error: "Google said the consent was refused." } : {}),
+    });
   }
 
   /** Records a turn's context usage and emits `thread.context.updated` (stories, tests). */
@@ -1294,6 +1320,40 @@ export class MockGateway implements GatewayClient {
     }),
 
     "connectors.list": () => ({ connectors: this.world.connectors }),
+    "connectors.connect": (p) => {
+      if (this.world.connectorConnect === "unavailable")
+        fail("not_implemented", "connectors.connect is not available on this Gateway");
+      const now = this.now();
+      const connector: Connector = {
+        id: p.connectorId ?? this.id("con"),
+        type: p.catalogueId,
+        label: p.label ?? p.catalogueId,
+        account: null,
+        scopes: [],
+        scopeMode: p.scopeMode,
+        actionMatrix: {},
+        credentialId: null,
+        status: "needs_auth",
+        config: {},
+        lastSync: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      this.world.connectors = [
+        ...this.world.connectors.filter((c) => c.id !== connector.id),
+        connector,
+      ];
+      this.emit("connectors.updated", { connector, reason: "needs_auth" });
+      return {
+        connector,
+        authorization: {
+          url: `https://accounts.example.test/consent?connector=${connector.id}`,
+          // A real clock: the UI compares it with Date.now() to expire the sign-in.
+          expiresAt: Date.now() + 10 * 60_000,
+          opened: false,
+        },
+      };
+    },
     "channels.list": () => ({ channels: this.world.channels }),
     "devices.list": () => ({ devices: this.world.devices }),
     "browser.botAuth.status": () => ({ status: structuredClone(this.world.botAuth) }),

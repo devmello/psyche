@@ -406,6 +406,10 @@ export class GatewayStore {
           ...s,
           memoryEtags: { ...s.memoryEtags, [e.payload.path]: e.payload.etag ?? null },
         };
+      case "connectors.updated":
+        // Settings → Connectors and onboarding read connectors.list; a finished sign-in,
+        // a disconnect or a revoked token refreshes it (#505).
+        return invalidate(s, ["connectors."]);
       case "node.updated":
         return invalidate(s, ["nodes."]);
       case "vm.updated":
