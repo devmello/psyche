@@ -619,12 +619,12 @@ export interface AutomationRun {
     summary?:        null | string;
     taskId?:         null | string;
     threadId?:       null | string;
-    trigger:         Trigger;
+    trigger:         AutomationRunTrigger;
 }
 
 export type AutomationRunStatus = "running" | "done" | "no_reply" | "failed" | "cancelled" | "skipped";
 
-export type Trigger = "schedule" | "manual";
+export type AutomationRunTrigger = "schedule" | "manual";
 
 export interface AutomationRunStartedPayload {
     run: AutomationRun;
@@ -1336,6 +1336,12 @@ export interface Block {
     actions?:        WrapUpAction[];
     ask?:            string;
     recap?:          string;
+    compactionId?:   string;
+    replaced?:       Replaced;
+    summary?:        CompactionSummary;
+    tokensAfter?:    number;
+    tokensBefore?:   number;
+    trigger?:        BlockTrigger;
 }
 
 export interface WrapUpAction {
@@ -1354,9 +1360,24 @@ export interface ItemElement {
 
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
+export interface Replaced {
+    fromMessageId?: null | string;
+    toMessageId?:   null | string;
+    turns:          number;
+}
+
 export type ToolCallStatus = "pending" | "running" | "ok" | "failed" | "uncertain" | "blocked";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads";
+export interface CompactionSummary {
+    decisions:          string[];
+    facts:              string[];
+    openTasks:          string[];
+    pinnedInstructions: string[];
+}
+
+export type BlockTrigger = "auto" | "manual";
+
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -1502,6 +1523,18 @@ export interface ChecklistItem {
 }
 
 export type ChecklistBlockType = "checklist";
+
+export interface CompactionBlock {
+    compactionId: string;
+    replaced:     Replaced;
+    summary:      CompactionSummary;
+    tokensAfter:  number;
+    tokensBefore: number;
+    trigger:      BlockTrigger;
+    type:         CompactionBlockType;
+}
+
+export type CompactionBlockType = "compaction";
 
 export interface ConnectChallenge {
     expiresAt: string;
@@ -4213,6 +4246,41 @@ export interface TextBlock {
 
 export type TextBlockType = "text";
 
+export interface ThreadContextUpdatedPayload {
+    usage: ContextUsage;
+}
+
+export interface ContextUsage {
+    at:           string;
+    breakdown:    ContextBreakdown;
+    compactions:  number;
+    estimated:    boolean;
+    limits:       EffectiveContextLimits;
+    model:        string;
+    peakTokens:   number;
+    promptTokens: number;
+    runId:        string;
+    threadId:     string;
+}
+
+export interface ContextBreakdown {
+    context: number;
+    current: number;
+    history: number;
+    system:  number;
+    tools:   number;
+}
+
+export interface EffectiveContextLimits {
+    compactAt:       number;
+    contextWindow:   number;
+    keepRecentTurns: number;
+    maxTokens:       number;
+    maxTokensFrom:   MaxTokensFrom;
+}
+
+export type MaxTokensFrom = "thread" | "settings" | "model";
+
 export interface ThreadDeletedPayload {
     threadId: string;
 }
@@ -4256,6 +4324,38 @@ export type TitleSource = "user" | "auto";
 
 export interface ThreadUpdatedPayload {
     thread: Thread;
+}
+
+export interface ThreadsCompactParams {
+    threadId: string;
+}
+
+export interface ThreadsCompactResult {
+    compaction: CompactionResult | null;
+}
+
+export interface CompactionResult {
+    compactionId:  string;
+    messageId:     string;
+    replacedTurns: number;
+    tokensAfter:   number;
+    tokensBefore:  number;
+}
+
+export interface ThreadsContextUsageParams {
+    threadId: string;
+}
+
+export interface ThreadsContextUsageResult {
+    limits:       EffectiveContextLimits;
+    threadLimits: ContextLimits;
+    usage:        ContextUsage | null;
+}
+
+export interface ContextLimits {
+    compactAt?:       number;
+    keepRecentTurns?: number;
+    maxTokens?:       number;
 }
 
 export interface ThreadsCreateParams {
@@ -4328,6 +4428,16 @@ export interface ThreadsPinParams {
 export interface ThreadsRenameParams {
     threadId: string;
     title:    string;
+}
+
+export interface ThreadsSetContextLimitsParams {
+    limits:   ContextLimits | null;
+    threadId: string;
+}
+
+export interface ThreadsSetContextLimitsResult {
+    limits:       EffectiveContextLimits;
+    threadLimits: ContextLimits;
 }
 
 export interface ThreadsUpdateParams {

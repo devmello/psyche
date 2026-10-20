@@ -122,11 +122,14 @@ export function AgentHeader({
           type="button"
           className="block max-w-full truncate text-left text-sm text-muted-foreground hover:text-foreground"
           onClick={() => (status.taskId && onOpenTask ? onOpenTask(status.taskId) : onOpenSheet())}
-          aria-live="polite"
         >
           <span className="sr-only">{status.state.replace("-", " ")}: </span>
           {snippet}
         </button>
+        {/* Run status for screen readers, beside the button rather than on it (C13). */}
+        <span className="sr-only" role="status">
+          {status.state.replace("-", " ")}
+        </span>
       </div>
       {status.running > 0 || status.needsYou > 0 ? (
         <p className="hidden items-center gap-2 text-caption text-muted-foreground sm:flex">
@@ -182,7 +185,7 @@ export function AgentHeader({
             type="button"
             className={PILL}
             onClick={onOpenModelPicker}
-            aria-label={`Model: ${model}`}
+            aria-label={`Model: ${modelLabel(model)}`}
             title={model}
             aria-keyshortcuts="Meta+Shift+I"
           >
