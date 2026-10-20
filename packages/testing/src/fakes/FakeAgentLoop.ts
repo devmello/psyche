@@ -30,7 +30,7 @@ export class FakeAgentLoop implements AgentLoop {
   }
 
   async *startTurn(input: StartTurnInput): AsyncIterable<AgentEvent> {
-    const { signal, ...recorded } = input;
+    const { signal, beforeDispatch, ...recorded } = input;
     this.turns.push(structuredClone(recorded));
     const runId = input.runId;
     const events = this.#script.shift() ?? [
@@ -45,6 +45,14 @@ export class FakeAgentLoop implements AgentLoop {
         return;
       }
       const event = { ...e, runId } as AgentEvent;
+      if (event.type === "tool_call" && event.status === "running" && beforeDispatch) {
+        // Write-ahead like the real loop: the hook commits before the scripted dispatch.
+        await beforeDispatch({
+          toolCallId: event.toolCallId,
+          tool: event.tool,
+          sideEffect: "write",
+        });
+      }
       if (event.type === "chat.delta" || event.type === "block" || event.type === "tool_call") {
         captureModelVisible("transcript", event, { where: "FakeAgentLoop.startTurn" });
       }

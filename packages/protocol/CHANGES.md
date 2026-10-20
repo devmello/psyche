@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S02/S04: write-ahead dispatch hook, #63)
+
+For S02 (`agent-core` awaits it before every dispatch) and S04 (`TaskWorkerPool` commits the step's `running` checkpoint in it).
+
+- `StartTurnInput` gains optional `beforeDispatch(call: DispatchIntent) => Promise<void>`, awaited immediately before each tool call is dispatched (after the broker and any approval). A rejection blocks the call. New contract type `DispatchIntent` (`toolCallId`, `tool`, `sideEffect`, `approvalId?`). Contract-only (a function, not on the wire): no generated-file change.
+- `FakeAgentLoop` awaits it before yielding a scripted `tool_call` `running` event and no longer records it in `turns`.
+
 ### v1 additive — 2026-10-19 (S02/S05: task_start approval kind, #48)
 
 For S02 (`task.start` declares `sideEffect: write` and `kind: task_start`), S05 (the broker infers `task_start` for `task.start` and titles its card), S10 (chat card label), S11 / S12 (approval cards).
