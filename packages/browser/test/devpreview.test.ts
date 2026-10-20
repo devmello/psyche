@@ -1,10 +1,15 @@
+import { type ChildProcess, spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { ToolRegistration, ToolRegistry, ToolResult } from "@psyche/protocol";
 import { FakePermissionBroker } from "@psyche/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DevServerRegistry } from "../src/devpreview/gate.ts";
+import { type ProbeRunner, systemLoopbackProbes } from "../src/devpreview/probes.ts";
 import { FsQuarantineWriter } from "../src/downloads/library.ts";
 import { CdpBridgeDriver } from "../src/drivers/cdp.ts";
 import { OriginPolicy } from "../src/origin/policy.ts";
@@ -100,6 +105,100 @@ describe("dev-server registry (I12, security §3.10)", () => {
     const web = new OriginPolicy({ loopbackPorts: [5173] });
     expect(web.evaluateSync("http://localhost:5173/").action).toBe("deny");
   });
+});
+
+describe("loopback probes for the broker's localhost rule (S23 design-03)", () => {
+  it("resolves, finds one listener and walks parents to a registered root, failing closed", async () => {
+    const parents: Record<number, number> = { 900: 800, 800: 700, 700: 1 };
+    const calls: string[][] = [];
+    const run: ProbeRunner = async (file, args) => {
+      calls.push([file, ...args]);
+      if (file === "lsof") {
+        const port = args.find((a) => a.startsWith("-iTCP:"))?.slice(6);
+        if (port === "5173") return "900\n900\n";
+        if (port === "6000") return "900\n901\n";
+        throw new Error("exit 1");
+      }
+      if (file === "ps") {
+        const ppid = parents[Number(args.at(-1))];
+        if (ppid === undefined) throw new Error("no such process");
+        return `  ${ppid}\n`;
+      }
+      throw new Error(`unexpected ${file}`);
+    };
+    const roots = new Set<number>([800]);
+    const probes = systemLoopbackProbes({
+      roots: () => roots,
+      psychePorts: [7979],
+      run,
+      lookup: async (host) => (host === "app.localhost" ? ["127.0.0.1"] : ["93.184.216.34"]),
+    });
+    expect(probes.psychePorts).toEqual([7979]);
+    expect(await probes.resolve("[::1]")).toEqual(["::1"]);
+    expect(await probes.resolve("127.0.0.1")).toEqual(["127.0.0.1"]);
+    expect(await probes.resolve("app.localhost")).toEqual(["127.0.0.1"]);
+    // The name is never trusted: a wildcard-DNS name resolves to wherever it says.
+    expect(await probes.resolve("127.0.0.1.nip.io")).toEqual(["93.184.216.34"]);
+    expect(await probes.listenerPid(5173)).toBe(900);
+    expect(await probes.listenerPid(6000)).toBeUndefined();
+    expect(await probes.listenerPid(4242)).toBeUndefined();
+    expect(await probes.listenerPid(70_000)).toBeUndefined();
+    expect(await probes.spawnedByPsyche(900)).toBe(true);
+    expect(await probes.spawnedByPsyche(700)).toBe(false);
+    expect(await probes.spawnedByPsyche(12345)).toBe(false);
+    roots.clear();
+    expect(await probes.spawnedByPsyche(900)).toBe(false);
+    // Fixed binaries with argument arrays only.
+    expect(calls.every(([file]) => file === "lsof" || file === "ps")).toBe(true);
+    expect(calls.find(([f]) => f === "lsof")).toEqual([
+      "lsof",
+      "-nP",
+      "-iTCP:5173",
+      "-sTCP:LISTEN",
+      "-t",
+    ]);
+  });
+
+  const lsof = ["/usr/sbin/lsof", "/usr/bin/lsof", "/bin/lsof"].some((p) => existsSync(p));
+  it.skipIf(!lsof || process.platform === "win32")(
+    "recognises a server Psyche spawned, and not one it did not (real lsof and ps)",
+    async () => {
+      const child: ChildProcess = spawn(
+        process.execPath,
+        [
+          "-e",
+          "const s=require('node:http').createServer((q,r)=>r.end('ok'));s.listen(0,'127.0.0.1',()=>console.log(s.address().port))",
+        ],
+        { stdio: ["ignore", "pipe", "inherit"] },
+      );
+      try {
+        const port = await new Promise<number>((resolve, reject) => {
+          child.stdout?.once("data", (d) => resolve(Number(String(d).trim())));
+          child.once("error", reject);
+        });
+        const registry = new DevServerRegistry();
+        const probes = systemLoopbackProbes({ roots: () => registry.spawnedPids() });
+        expect(await probes.listenerPid(port)).toBe(child.pid);
+        expect(await probes.spawnedByPsyche(child.pid ?? 0)).toBe(false);
+        registry.started({ port, pid: child.pid ?? 0, name: "node dev server" });
+        expect(registry.spawnedPids()).toEqual([child.pid]);
+        expect(await probes.spawnedByPsyche(child.pid ?? 0)).toBe(true);
+        // A listener in this test process (not under the registered root) is not the owner's.
+        const own = createServer(() => undefined);
+        await new Promise<void>((r) => own.listen(0, "127.0.0.1", r));
+        const ownPort = (own.address() as AddressInfo).port;
+        const ownPid = await probes.listenerPid(ownPort);
+        expect(ownPid).toBe(process.pid);
+        expect(await probes.spawnedByPsyche(ownPid ?? 0)).toBe(false);
+        await new Promise<void>((r) => own.close(() => r()));
+        registry.stopped(port);
+        expect(await probes.spawnedByPsyche(child.pid ?? 0)).toBe(false);
+      } finally {
+        child.kill();
+      }
+    },
+    20_000,
+  );
 });
 
 describe("browser.dev_preview", () => {

@@ -2,6 +2,7 @@ import type { HashChainAuditLog } from "@psyche/audit";
 import type { PsycheDb } from "@psyche/db";
 import type { PsycheNotifier } from "@psyche/notifications";
 import type {
+  LocalProjectVerifier,
   PresenceAssertion,
   PresenceVerifier,
   PsychePermissionBroker,
@@ -57,6 +58,11 @@ export interface ComposedPart {
   approver?(deviceId: string): boolean;
   /** Verifies presence assertions of one kind (the helper's Touch ID signature). */
   readonly presence?: { kind: PresenceAssertion["kind"]; verifier: PresenceVerifier };
+  /**
+   * Decides whether a loopback origin is the owner's own project (security §3.10). The browser
+   * part supplies it from its dev-server registry; without one every loopback target is denied.
+   */
+  readonly localProject?: LocalProjectVerifier;
 }
 
 /** Hooks a part gives the broker (approvals over chat or the helper, owner senders). */

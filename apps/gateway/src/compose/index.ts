@@ -23,6 +23,8 @@ import {
 import {
   compilePolicy,
   createPermissionHandlers,
+  DENY_ALL_LOOPBACK,
+  type LocalProjectVerifier,
   type PolicyConfig,
   type PresenceVerifier,
   PsychePermissionBroker,
@@ -206,6 +208,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const relays: ApprovalRelay[] = [];
   const parts: ComposedPart[] = [];
   const presenceByKind = new Map<string, PresenceVerifier>();
+  // The localhost rule (security §3.10) needs OS probes a part supplies (the browser's dev
+  // preview); until one does, no loopback origin is the owner's project.
+  let localProject: LocalProjectVerifier = DENY_ALL_LOOPBACK;
   const rawBroker = new PsychePermissionBroker({
     approvers: {
       async device(deviceId) {
@@ -235,6 +240,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       verify: (assertion, challenge, deviceId) =>
         (presenceByKind.get(assertion.kind) ?? presence).verify(assertion, challenge, deviceId),
     },
+    localProject: { check: (url) => localProject.check(url) },
     // The agent never acts on Psyche's own UI (prohibitions `gateway_origin`): every origin it is served on.
     gatewayOrigins: [
       `http://127.0.0.1:${config.port}`,
@@ -313,6 +319,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     parts.push(part);
     if (part.relay !== undefined) relays.push(part.relay);
     if (part.presence !== undefined) presenceByKind.set(part.presence.kind, part.presence.verifier);
+    if (part.localProject !== undefined) localProject = part.localProject;
   }
 
   // scheduler → launcher → worker pool → loop → scheduler: the launcher is bound once the pool exists.

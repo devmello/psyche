@@ -14,7 +14,9 @@ import {
   RecordingStore,
   registerBrowserTools,
   type SessionKind,
+  systemLoopbackProbes,
 } from "@psyche/browser";
+import { createLocalProjectVerifier, type LocalProjectVerifier } from "@psyche/permissions";
 import {
   type CredentialBroker,
   type DriverSession,
@@ -59,6 +61,11 @@ export interface BrowserSetup {
    * means none; the sandbox / exec layer registers servers it starts on `devServers`.
    */
   devPreview?: DevServerRegistryOptions;
+  /**
+   * The broker's localhost rule. Default: OS probes (`lsof`, `ps`, DNS) against the PIDs
+   * registered with `devServers.started({pid})`; tests pass their own.
+   */
+  localProject?: LocalProjectVerifier;
 }
 
 export interface ComposedBrowser extends ComposedPart {
@@ -72,6 +79,8 @@ export interface ComposedBrowser extends ComposedPart {
   readonly recordingStore: RecordingStore;
   /** Dev servers tasks may preview; `started` / `stopped` are for whoever launches them. */
   readonly devServers: DevServerRegistry;
+  /** What the broker asks about loopback origins (mounted by the composition root). */
+  readonly localProject: LocalProjectVerifier;
 }
 
 /** Retention for recordings (data model §12: 7 days when enabled). */
@@ -118,6 +127,12 @@ export function composeBrowser(
   /** Session key (task or thread, `#dev` for dev preview) → session on the current driver. */
   const sessions = new Map<string, Promise<DriverSession>>();
   const devServers = new DevServerRegistry(setup.devPreview ?? {});
+  const localProject =
+    setup.localProject ??
+    createLocalProjectVerifier(systemLoopbackProbes({ roots: () => devServers.spawnedPids() }));
+  // Post-fill hygiene (security §4.7) and page-echo detection (S23 design-18) from the vault.
+  const creds = setup.credentials;
+  const redact = creds === undefined ? undefined : (text: string) => creds.redact(text);
   const recordings = new Map<string, FileRecordingSink>();
   /** Recording id → Library item id, once a finished recording was imported. */
   const recordingItems = new Map<string, string>();
@@ -296,6 +311,7 @@ export function composeBrowser(
       return ids;
     },
     devPreview: devServers,
+    ...(redact === undefined ? {} : { containsSecret: (text: string) => redact(text) !== text }),
   });
 
   const attach = (next: BridgeClient): CdpBridgeDriver => {
@@ -307,6 +323,7 @@ export function composeBrowser(
     driver = new CdpBridgeDriver(next, {
       library: recordingLibrary,
       broker: services.broker,
+      ...(redact === undefined ? {} : { redact }),
     });
     const attached = driver;
     next.onClose((reason) => {
@@ -334,6 +351,7 @@ export function composeBrowser(
     recordings,
     recordingStore,
     devServers,
+    localProject,
     async start(gateway: Gateway) {
       // Retention runs at boot; recordings are opt-in and short-lived (data model §12).
       void recordingStore.prune(RECORDING_RETENTION_MS).catch(() => undefined);
