@@ -163,7 +163,7 @@ describe("Admin-only settings", () => {
       { onGateway: (g) => g.failNext("settings.set", "forbidden") },
     );
     await userEvent.click(await screen.findByRole("radio", { name: "Compact" }));
-    expect(await screen.findByText(/Psyche couldn't save appearance.density/)).toBeTruthy();
+    expect(await screen.findByText(/Psyche couldn't save “Density”/)).toBeTruthy();
     expect(screen.queryByText(/Needs approval on this device/)).toBeNull();
   });
 
@@ -522,7 +522,14 @@ describe("Credentials", () => {
     expect(rows).toHaveLength(4);
     expect(within(rows[1] as HTMLElement).getByText("Filled")).toBeTruthy();
     expect(within(rows[2] as HTMLElement).getByText("Denied")).toBeTruthy();
-    expect(within(rows[2] as HTMLElement).getByText("ap_github_fill_2")).toBeTruthy();
+    const copy = within(rows[2] as HTMLElement).getByRole("button", {
+      name: "Approved. Copy approval id ap_github_fill_2",
+    });
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    await userEvent.click(copy);
+    expect(writeText).toHaveBeenCalledWith("ap_github_fill_2");
+    expect(await within(rows[2] as HTMLElement).findByText("Approved · id copied")).toBeTruthy();
     expect(within(rows[3] as HTMLElement).getByText("Failed")).toBeTruthy();
     expect(within(rows[3] as HTMLElement).getByText("None")).toBeTruthy();
     const [openTask] = within(uses).getAllByRole("button", { name: "Open task" });
@@ -958,9 +965,9 @@ describe("Security settings need approval with presence (security §10)", () => 
   it("shows the approval card, then saves with the approvalId once approved", async () => {
     const { writes } = approvingGateway();
     const banner = await shareFolder();
-    expect(within(banner).getByText(/Approve this change to permissions\.policy/)).toBeTruthy();
+    expect(within(banner).getByText(/Approve this change to “Permission policy”/)).toBeTruthy();
     await approve(banner);
-    expect(await screen.findByText("Saved permissions.policy.")).toBeTruthy();
+    expect(await screen.findByText("Saved “Permission policy”.")).toBeTruthy();
     expect(writes).toHaveLength(2);
     expect(writes[1]).toMatchObject({ key: "permissions.policy", approvalId: "ap_policy_change" });
     expect((writes[1] as { value: unknown }).value).toEqual(
@@ -989,7 +996,9 @@ describe("Browser (real-Chrome mode, I13)", () => {
       },
     });
     await userEvent.click(
-      await screen.findByRole("switch", { name: "Let tasks use the Psyche Chrome profile" }),
+      await screen.findByRole("switch", {
+        name: `Let tasks use the Psyche profile (${PERSONA.name})`,
+      }),
     );
     await waitFor(() =>
       expect(settingValue(gateway(), "browser.realChrome")).toEqual({ enabled: true }),
