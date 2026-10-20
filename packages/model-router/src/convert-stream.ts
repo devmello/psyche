@@ -79,11 +79,18 @@ export class StreamConverter {
   contentStarted = false;
 
   readonly #toolNames: ToolNameMap | undefined;
+  readonly #prefix: string | undefined;
 
-  constructor(providerId: string, model: string, toolNames?: ToolNameMap) {
+  constructor(
+    providerId: string,
+    model: string,
+    toolNames?: ToolNameMap,
+    options: { thinkingPrefix?: string } = {},
+  ) {
     this.#providerId = providerId;
     this.#model = model;
     this.#toolNames = toolNames;
+    this.#prefix = options.thinkingPrefix;
   }
 
   #envelope(data: OpaqueEnvelope): ModelEvent {
@@ -144,6 +151,7 @@ export class StreamConverter {
           text: block.text,
         };
         if (metadata !== undefined) env.metadata = metadata;
+        if (this.#prefix !== undefined) env.prefix = this.#prefix;
         return [this.#envelope(env)];
       }
       case "tool-call": {
