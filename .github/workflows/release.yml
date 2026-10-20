@@ -637,8 +637,10 @@ jobs:
     needs: [version, image, sandbox-image, cli, dmg]
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # The update-manifest signing key lives in this environment (required reviewers; security §11).
-    environment: release
+    # The update-manifest signing key lives in "release" (required reviewers, tags only; security
+    # §11). Manual dry runs use the unprotected "release-dry-run", which has no key and publishes
+    # nothing, so they never wait for an approval.
+    environment: ${{ (github.event_name == 'push' || inputs.dry_run == false) && 'release' || 'release-dry-run' }}
     permissions:
       contents: write
     steps:
