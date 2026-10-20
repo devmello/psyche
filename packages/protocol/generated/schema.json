@@ -683,6 +683,22 @@
         "sideEffecting": false
       },
       {
+        "description": "Stores a channel transport secret (Slack bot/app token, Discord bot token, SMS auth token) as a Gateway-owned vault item for that channel type and account, replacing an earlier one, and returns which secrets are now set. Agents can never fill it. invalid_params for a name the type does not use, unavailable when the vault cannot be opened. Side-effecting; its params are never logged.",
+        "name": "channels.secrets.set",
+        "params": "#/$defs/ChannelsSecretsSetParams",
+        "result": "#/$defs/ChannelsSecretsSetResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Which transport secrets a channel needs and which are stored. Never returns values.",
+        "name": "channels.secrets.status",
+        "params": "#/$defs/ChannelsSecretsStatusParams",
+        "result": "#/$defs/ChannelsSecretsStatusResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Cancels the active run (or the given run) in a thread.",
         "name": "chat.cancel",
         "params": "#/$defs/ChatCancelParams",
@@ -5681,6 +5697,14 @@
       ],
       "type": "object"
     },
+    "ChannelSecretName": {
+      "enum": [
+        "bot_token",
+        "app_token",
+        "auth_token"
+      ],
+      "type": "string"
+    },
     "ChannelType": {
       "enum": [
         "webchat",
@@ -6100,6 +6124,85 @@
       },
       "required": [
         "requests"
+      ],
+      "type": "object"
+    },
+    "ChannelsSecretsSetParams": {
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/ChannelType"
+        },
+        "account": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/ChannelSecretName"
+        },
+        "value": {
+          "maxLength": 8192,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "account",
+        "name",
+        "value"
+      ],
+      "type": "object"
+    },
+    "ChannelsSecretsSetResult": {
+      "properties": {
+        "set": {
+          "items": {
+            "$ref": "#/$defs/ChannelSecretName"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "set"
+      ],
+      "type": "object"
+    },
+    "ChannelsSecretsStatusParams": {
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/ChannelType"
+        },
+        "account": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "account"
+      ],
+      "type": "object"
+    },
+    "ChannelsSecretsStatusResult": {
+      "properties": {
+        "required": {
+          "items": {
+            "$ref": "#/$defs/ChannelSecretName"
+          },
+          "type": "array"
+        },
+        "set": {
+          "items": {
+            "$ref": "#/$defs/ChannelSecretName"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "required",
+        "set"
       ],
       "type": "object"
     },
