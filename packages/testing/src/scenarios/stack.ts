@@ -431,6 +431,8 @@ export class Stack {
         if (rec.gen !== this.gen) continue;
         this.events.push({ step: this.step, event: e });
         if (e.type === "run.status") rec.status = e.status;
+        // The loop may wait on a card the restart re-issued without asking for a new one (#64).
+        if (e.type === "approval_requested") this.approvalRun.set(e.approval.id, runId);
         if (e.type === "chat.delta") this.texts.push({ step: this.step, text: e.delta });
         if (e.type === "tool_call" && e.status === "pending" && !this.calls.has(e.toolCallId)) {
           const sc = this.scriptCalls.get(e.toolCallId);

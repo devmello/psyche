@@ -245,9 +245,10 @@ function expectedFor(kill: KillPoint | null, safe: boolean, instant: boolean): O
     case "while_awaiting_approval":
       return ["reissues_approval"];
     case "before_dispatch":
-      // An instant kill can land before the pool persisted the `running` checkpoint.
-      if (safe) return instant ? ["replays_safe_read", "resumes"] : ["replays_safe_read"];
-      return instant ? ["reconciles_uncertain", "resumes"] : ["reconciles_uncertain"];
+      // The loop awaits the pool's `running` checkpoint before dispatch (#63), so even an
+      // instant kill leaves an in-flight step: `instant` expects what `settle` does.
+      void instant;
+      return safe ? ["replays_safe_read"] : ["reconciles_uncertain"];
     case "after_dispatch":
       return ["replays_safe_read"];
     case "before_receipt":
@@ -461,11 +462,9 @@ class Run {
     for (const i of issued) this.issuedIn.set(i.approval.id, gen.index);
     await gen.engine.recoverExpired();
     await gen.pool.onApprovalsReissued(issued);
-    const parked = new Set(gen.engine.parkedOnApprovals().map((p) => p.approvalId));
-    for (const i of issued) {
-      if (parked.has(i.approval.id)) this.onIssued(gen, i);
-      else this.notes.push(`re-issued approval ${i.approval.id} has no parked task to rebind`);
-    }
+    // The owner sees every re-issued card and answers it: a parked task resumes on it, and a
+    // turn that was waiting in-process when it died picks it up when it asks again (#64).
+    for (const i of issued) this.onIssued(gen, i);
     for (const cp of await gen.engine.checkpoints(taskId)) {
       if (cp.status !== "uncertain") continue;
       const effect = this.ledger.byCallId(cp.stepId);

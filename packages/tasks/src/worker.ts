@@ -354,6 +354,16 @@ export class TaskWorkerPool {
         mode: record.runMode,
         permissionMode,
         signal: controller.signal,
+        // Write-ahead (#63): the step is `running` on disk before the executor runs, so a crash
+        // after the provider applied it is reconciled as `uncertain`, never re-sent.
+        beforeDispatch: async (call) => {
+          if (stopped !== undefined) throw new PsycheError("cancelled", `task ${stopped}`);
+          await engine.checkpoint(taskId, {
+            stepId: call.toolCallId,
+            replaySafe: this.#replaySafe(call.tool),
+            status: "running",
+          });
+        },
       });
       let acked = false;
       for await (const ev of stream) {
