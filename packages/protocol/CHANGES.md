@@ -21,6 +21,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 ### v1 additive — 2026-10-20 (S10: WhatsApp channel secrets, N6)
 
 - `ChannelSecretName` gains `access_token`, `app_secret` and `verify_token` (appended): the WhatsApp Cloud API's Graph access token, the Meta app secret that signs webhooks (`X-Hub-Signature-256`) and the webhook verify token. Stored by `channels.secrets.set` as Gateway-owned vault items.
+### v1 additive — 2026-10-20 (S09, M9: custom connectors)
+
+For S09 (the manifest executor and proposal flow in `@psyche/connectors`), S12 / S11 (the trust card and Settings → Connectors), S01 (mounting).
+
+- New schemas `CustomConnectorManifest` (`schemaVersion: 1`, `id`, `name`, `description`, `version`, `baseUrl` (https), `hosts` allowlist, `auth`, `tools[]`, optional `source`), `CustomConnectorAuth` (`none` | `bearer` | `header` | `query` | `basic`, each with a `{{cred:slug}}` placeholder), `CustomConnectorTool` (`name`, `description`, `method`, `path` with `{param}`, `params[]` in path / query / body, `sideEffect` read | write | destructive, optional `defaultRule`), `CustomConnectorParam`, `CredentialPlaceholder`, and `CustomConnectorProposal` (`kind: "connector"`, `approvalKind: "skill_install"`, the manifest, its canonical `text` and `hash`, `findings`, `scopeMode`, `bindingHash`, `grantKey`, `expiresAt`, optional `update` diff).
+- New methods `connectors.proposeCustom` (`operator.admin`; a manifest or an OpenAPI document; opens a device-only `skill_install` approval with `details.kind: "connector"`), `connectors.getCustomProposal` (`operator.read`), `connectors.installCustom` (`operator.admin`; needs the approved `skill_install`) and `connectors.removeCustom` (`operator.admin`).
+- No fake: connectors have no contract in `src/contracts`.
 ### v1 additive — 2026-10-20 (S08, I14: Web Bot Auth)
 
 For S08 (the browser signs document requests), S06 (the vault keeps the key) and S11 / S12 (Settings → Browser).
