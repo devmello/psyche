@@ -1,0 +1,2 @@
+/* The UI kit's stylesheet for the composed app (A8: the same app the desktop renders), processed by Tailwind 4 (@tailwindcss/vite). */
+@import "@psyche/ui/styles.css";

@@ -1,4 +1,4 @@
-import type { CredentialBroker, FillElement } from "@psyche/protocol";
+import type { CredentialBroker, FillElement, ResolvedSecret } from "@psyche/protocol";
 import { canonicalOrigin } from "../binding.ts";
 import { fail, reasonOf } from "../errors.ts";
 
@@ -57,6 +57,7 @@ const DESCRIBE = `function () {
     frameOrigin: location.origin,
     formHasPassword: form ? !!form.querySelector("input[type=password]") : false,
     maxLength: typeof el.maxLength === "number" && el.maxLength > 0 ? el.maxLength : undefined,
+    fieldName: String((el.getAttribute && (el.getAttribute("name") || el.id)) || "").toLowerCase().slice(0, 64) || undefined,
   };
   if (action !== undefined) out.formActionOrigin = action;
   return out;
@@ -74,16 +75,28 @@ interface FrameTree {
   frameTree?: { frame?: { id?: string; url?: string; securityOrigin?: string } };
 }
 
+/** What a fill needs from the page, shared by placeholder fills and Link card fills. */
+export interface FocusedFillOptions {
+  cdp: CdpSession;
+  backendNodeId?: number;
+  takeControlActive?: boolean;
+  selectAllModifier?: number;
+}
+
+/** The focused element as described in the isolated world, plus its `name` / `id` (lowercased). */
+export type FocusedElement = FillElement & { fieldName?: string };
+
 /**
- * Browser fill (security §4.6, feature G5): the top frame's origin must match a binding, the
- * focused element must be the approved one, in the top frame, and of the right field class
- * (checked by the broker). The value goes in through `Input.insertText` inside the handle's
- * `use`, so it never becomes a string the caller holds. If the value did not land in the field,
- * the field is cleared (select-all + delete) before control returns.
+ * Shared fill core: find the top frame's origin and the focused element (isolated world), let
+ * `authorize` decide and hand back a one-shot handle, re-check origin and focus, type with
+ * `Input.insertText`, verify, and clear on failure.
  */
-export async function fillBrowserField(input: BrowserFillInput): Promise<BrowserFillResult> {
-  const { cdp } = input;
-  if (input.takeControlActive === true) {
+export async function fillFocused(
+  opts: FocusedFillOptions,
+  authorize: (origin: string, element: FocusedElement) => Promise<ResolvedSecret>,
+): Promise<BrowserFillResult> {
+  const { cdp } = opts;
+  if (opts.takeControlActive === true) {
     return { ok: false, secureField: false, origin: null, reason: "take_control_active" };
   }
   const tree = (await cdp.send("Page.getFrameTree")) as FrameTree;
@@ -107,11 +120,11 @@ export async function fillBrowserField(input: BrowserFillInput): Promise<Browser
     return { ok: false, secureField: false, origin, reason: "no_focused_element" };
   }
   try {
-    if (input.backendNodeId !== undefined) {
+    if (opts.backendNodeId !== undefined) {
       const desc = (await cdp.send("DOM.describeNode", { objectId })) as {
         node?: { backendNodeId?: number };
       };
-      if (desc.node?.backendNodeId !== input.backendNodeId) {
+      if (desc.node?.backendNodeId !== opts.backendNodeId) {
         return { ok: false, secureField: false, origin, reason: "focus_moved" };
       }
     }
@@ -119,7 +132,7 @@ export async function fillBrowserField(input: BrowserFillInput): Promise<Browser
       objectId,
       functionDeclaration: DESCRIBE,
       returnByValue: true,
-    })) as { result?: { value?: FillElement } };
+    })) as { result?: { value?: FocusedElement } };
     const element = described.result?.value;
     if (element === undefined) {
       return { ok: false, secureField: false, origin, reason: "no_focused_element" };
@@ -129,24 +142,14 @@ export async function fillBrowserField(input: BrowserFillInput): Promise<Browser
     }
     // Every vault value is treated as screen-sensitive while it sits in the field (G6).
     const secureField = true;
-    let handle: Awaited<ReturnType<CredentialBroker["resolve"]>>;
+    let handle: ResolvedSecret;
     try {
-      handle = await input.broker.resolve(
-        input.placeholder,
-        { kind: "origin", value: origin },
-        input.approvalId,
-        {
-          executor: "browser",
-          element,
-          selector: input.selector,
-          ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
-        },
-      );
+      handle = await authorize(origin, element);
     } catch (err) {
       return { ok: false, secureField, origin, reason: reasonOf(err) ?? "denied" };
     }
     // Touch ID may have taken seconds: re-check origin and focus right before typing.
-    const still = await stillTargeted(cdp, objectId, origin, input.backendNodeId);
+    const still = await stillTargeted(cdp, objectId, origin, opts.backendNodeId);
     if (still !== null) {
       handle.dispose();
       return { ok: false, secureField, origin, reason: still };
@@ -163,12 +166,12 @@ export async function fillBrowserField(input: BrowserFillInput): Promise<Browser
         returnByValue: true,
       })) as { result?: { value?: number } };
       if (landed.result?.value !== expected) {
-        await clearFocusedField(cdp, objectId, input.selectAllModifier);
+        await clearFocusedField(cdp, objectId, opts.selectAllModifier);
         return { ok: false, secureField, origin, reason: "fill_not_verified" };
       }
       return { ok: true, secureField, origin };
     } catch {
-      await clearFocusedField(cdp, objectId, input.selectAllModifier).catch(() => undefined);
+      await clearFocusedField(cdp, objectId, opts.selectAllModifier).catch(() => undefined);
       return { ok: false, secureField, origin, reason: "fill_failed" };
     } finally {
       handle.dispose();
@@ -176,6 +179,24 @@ export async function fillBrowserField(input: BrowserFillInput): Promise<Browser
   } finally {
     await cdp.send("Runtime.releaseObject", { objectId }).catch(() => undefined);
   }
+}
+
+/**
+ * Browser fill (security §4.6, feature G5): the top frame's origin must match a binding, the
+ * focused element must be the approved one, in the top frame, and of the right field class
+ * (checked by the broker). The value goes in through `Input.insertText` inside the handle's
+ * `use`, so it never becomes a string the caller holds. If the value did not land in the field,
+ * the field is cleared (select-all + delete) before control returns.
+ */
+export function fillBrowserField(input: BrowserFillInput): Promise<BrowserFillResult> {
+  return fillFocused(input, (origin, element) =>
+    input.broker.resolve(input.placeholder, { kind: "origin", value: origin }, input.approvalId, {
+      executor: "browser",
+      element,
+      selector: input.selector,
+      ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
+    }),
+  );
 }
 
 const IS_FOCUSED = `function () { return document.activeElement === this && this.isConnected; }`;

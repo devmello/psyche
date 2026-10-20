@@ -2,7 +2,7 @@
 
 **Owner:** S11 (`prompts/s11-desktop-web-shell.md`). Features A8, E10 and the shell side of D5, I1, I6, K6, Q1 in [docs/03-feature-spec.md](../../docs/03-feature-spec.md); screens from [docs/06-ui-design.md](../../docs/06-ui-design.md).
 
-The Psyche React shell, served by the Gateway at `/` and hosted by the desktop renderer. One codebase, two hosts: the shell talks to a `ShellPlatform` port, and each host provides it.
+The Psyche React shell, served by the Gateway at `/` and hosted by the desktop renderer. One codebase, two hosts: the shell talks to a `ShellPlatform` port, and each host provides it. Both hosts render the same composed app (`src/compose/PsycheApp.tsx`: the shell with the UI kit's onboarding, chat column, agent sheet and Settings), so the web client is the desktop app minus native panes (feature A8).
 
 ## Run
 
@@ -34,6 +34,7 @@ pnpm --filter @psyche/web typecheck
 | `src/shell/panes/TerminalPane.tsx` | xterm tabs over `TerminalPort` |
 | `src/shell/voice.ts` | Dictation capture: 16 kHz PCM to `voice.*` |
 | `src/platform.ts`, `src/gateway.ts` | The web host: browser WebSocket to `location.origin`, `localStorage` |
+| `src/main.tsx`, `src/compose/app.css` | The web entry: `PsycheApp` over the web platform, the kit stylesheet through `@tailwindcss/vite` |
 
 ## Web specifics (docs/06 §3.24)
 
@@ -46,6 +47,6 @@ pnpm --filter @psyche/web typecheck
 ## Stubbed
 
 - Device key: an in-memory WebCrypto Ed25519 pair (non-extractable); every reload is a new device. Persisting it in IndexedDB and passkey login are INT-2 (hooks: the pairing banner and `createWebGatewayConnection`).
-- Components are structural stand-ins until S12's kit (`@psyche/ui`) lands; Feed, Ideas, Goals, Library, Search and Settings show placeholders.
+- Feed, Ideas, Goals, Library and Search still show the shell's placeholders in the composed app (the kit has the screens; mounting them is next).
 - Methods the protocol lacks are treated as unavailable: `commands.list`, `threads.update` (mode, model), `library.upload` (attachments), `voice.*`, `terminal.open`, `chat.queue.*` (S01's protocol branch).
 - Web Push, the server-mode browser screencast, and a keyboard-operable pane resizer.

@@ -295,7 +295,10 @@ describe("scenario 3: Telegram (fake Bot API)", () => {
     expect(approval.deviceOnly).toBe(false);
     const card = await api.message(OWNER.id, (x) => keyboard(x).length > 0, from);
     timings.approvalIssuedToTelegramCardMs = Math.round(card.at - tIssued);
-    expect(String(card.payload.text)).toContain("Approval needed: Send an email [write]");
+    // The per-surface template (design-12): header first, then the target, then the fields.
+    expect(String(card.payload.text).split("\n")[0]).toMatch(/^Send email · write/);
+    expect(String(card.payload.text)).toContain("Target: “sam@example.com”");
+    expect(card.payload).not.toHaveProperty("parse_mode");
     expect(JSON.stringify(card.payload)).not.toContain(approval.id);
     const lateToken = await desktopToken(approval.id);
 
