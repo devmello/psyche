@@ -56,7 +56,7 @@ export function AgentHeader({
   const status = useAgentStatus({ incognito, paused });
   const { unread } = useNotifications();
   return (
-    <header className="flex h-14 items-center gap-3 border-b border-gray-6 px-4">
+    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-gray-6 px-4">
       <button
         type="button"
         onClick={onOpenSheet}

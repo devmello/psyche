@@ -5439,6 +5439,12 @@
         },
         "mode": {
           "$ref": "#/$defs/QueueMode"
+        },
+        "replyToMessageId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -13685,11 +13691,40 @@
         },
         "activity": {
           "$ref": "#/$defs/ThreadActivity"
+        },
+        "lastMessage": {
+          "$ref": "#/$defs/ThreadPreview"
         }
       },
       "required": [
         "thread",
         "activity"
+      ],
+      "type": "object"
+    },
+    "ThreadPreview": {
+      "properties": {
+        "role": {
+          "enum": [
+            "user",
+            "agent"
+          ],
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 160,
+          "type": "string"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "text",
+        "at"
       ],
       "type": "object"
     },
