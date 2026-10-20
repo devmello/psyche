@@ -6,6 +6,8 @@
 export const IPC = {
   // Gateway connection (main holds the socket and keys).
   getStatus: "psyche:gateway:get-status",
+  /** This window's device id (Settings → Devices marks it; onboarding's admin check). */
+  getDeviceId: "psyche:gateway:get-device-id",
   status: "psyche:gateway:status",
   call: "psyche:gateway:call",
   event: "psyche:gateway:event",
@@ -100,7 +102,9 @@ export function checkCallable(method: unknown, isMethodName: (m: unknown) => boo
     method === "connect" ||
     method === "connect.verify" ||
     method.startsWith("node.") ||
-    method.startsWith("dictation.")
+    method.startsWith("dictation.") ||
+    // The first-admin bootstrap runs from main only (approved design, condition 2).
+    method === "devices.bootstrapAdmin"
   )
     throw new IpcPayloadError(IPC.call, `${method} is not callable from the renderer`);
   return method;

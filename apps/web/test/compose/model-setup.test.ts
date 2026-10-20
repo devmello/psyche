@@ -5,12 +5,23 @@ import type { ShellPlatform } from "../../src/shell/platform.ts";
 
 type Handler = (params: Record<string, unknown>, key?: string) => unknown;
 
-function platformWith(handlers: Record<string, Handler>, phase: GatewayStatus["phase"] = "paired") {
+function platformWith(
+  handlers: Record<string, Handler>,
+  phase: GatewayStatus["phase"] = "paired",
+  desktop?: { scopes: string[] },
+) {
   const calls: { method: string; params: unknown; key?: string }[] = [];
   const platform = {
     kind: "desktop",
     gateway: {
-      getStatus: async () => ({ health: "ok", phase, attempt: 0 }) as GatewayStatus,
+      getStatus: async () =>
+        ({
+          health: "ok",
+          phase,
+          attempt: 0,
+          ...(desktop ? { scopes: desktop.scopes } : {}),
+        }) as GatewayStatus,
+      ...(desktop ? { deviceId: async () => "d1" } : {}),
       onStatus: () => () => undefined,
       onEvent: () => () => undefined,
       onResync: () => () => undefined,
@@ -110,5 +121,24 @@ describe("onboarding model setup", () => {
       ["model", "warn"],
     ]);
     expect(checks.at(-1)?.detail).toMatch(/no key yet/);
+  });
+
+  it("on the desktop, says whether this Mac is the admin device", async () => {
+    const admin = platformWith({}, "paired", { scopes: ["operator.write", "operator.admin"] });
+    const notAdmin = platformWith({}, "paired", { scopes: ["operator.write"] });
+    const none = { model: { modelRef: "", toolCheck: "untested" } } as never;
+    expect(
+      (await verifySetup(admin.platform, none, undefined)).find((c) => c.id === "admin"),
+    ).toMatchObject({
+      state: "ok",
+      detail: "This Mac is the admin device.",
+    });
+    expect(
+      (await verifySetup(notAdmin.platform, none, undefined)).find((c) => c.id === "admin")?.state,
+    ).toBe("warn");
+    const web = platformWith({});
+    expect((await verifySetup(web.platform, none, undefined)).some((c) => c.id === "admin")).toBe(
+      false,
+    );
   });
 });

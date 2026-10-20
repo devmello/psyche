@@ -44,6 +44,7 @@ import { NotificationRelay } from "./lib/notify-relay.ts";
 import { pairingEdge } from "./lib/pairing-edge.ts";
 import { realChromeOpenCommand, realChromeProfileDir } from "./lib/real-chrome.ts";
 import { ZoomController } from "./lib/zoom.ts";
+import { bootstrapAdminIfNeeded } from "./main/bootstrap-admin.ts";
 import { BridgeClient } from "./main/bridge/bridge-client.ts";
 import { createAttentionReporter } from "./main/browser/attention.ts";
 import { BrowserHost } from "./main/browser/browser-host.ts";
@@ -113,6 +114,7 @@ let terminal: TerminalHost | undefined;
 let tray: PsycheTray | undefined;
 let supervisor: GatewaySupervisor | undefined;
 let helper: HelperLauncher | undefined;
+let thisDeviceId: string | undefined;
 let hud: HudWindow | undefined;
 let dictation: DictationService | undefined;
 const relay = new NotificationRelay();
@@ -294,6 +296,7 @@ function requireBrowser(): BrowserHost {
 
 function registerIpc(): void {
   handle(IPC.getStatus, () => gateway?.getStatus());
+  handle(IPC.getDeviceId, () => thisDeviceId);
   handle(IPC.gatewayGetRun, () => supervisor?.getState() ?? { kind: "unknown" });
   handle(IPC.gatewayShowLogs, () => shell.openPath(join(home, "logs")));
   handle(IPC.call, (_e, arg) => {
@@ -663,6 +666,7 @@ void app.whenReady().then(async () => {
   });
 
   const deviceKey = loadOrCreateDeviceKey(join(app.getPath("userData"), "device-key.json"));
+  thisDeviceId = deviceKey.deviceId;
   const origin = defaultGatewayOrigin();
   // Pairing work runs once per pairing, not on every 10 s health tick (which re-sent
   // dictation.watch and failed it as unavailable while the helper was offline).
@@ -673,6 +677,16 @@ void app.whenReady().then(async () => {
       void refreshApprovals();
       void zoom.load();
       void dictation?.load();
+      void bootstrapAdminIfNeeded({
+        packaged: app.isPackaged,
+        scopes: () => gateway?.getStatus().scopes,
+        call: (m, p, o) => requireGateway().call(m, p, o),
+        reconnect: () => {
+          gateway?.stop();
+          gateway?.start();
+        },
+        warn: (m) => console.warn(`[gateway] ${m}`),
+      });
     },
     onUnpaired: () => dictation?.onDisconnected(),
   });
