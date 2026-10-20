@@ -210,6 +210,8 @@
 //   let deviceUpdatedPayload = try? JSONDecoder().decode(DeviceUpdatedPayload.self, from: jsonData)
 //   let devicesApproveParams = try? JSONDecoder().decode(DevicesApproveParams.self, from: jsonData)
 //   let devicesApproveResult = try? JSONDecoder().decode(DevicesApproveResult.self, from: jsonData)
+//   let devicesBootstrapAdminParams = try? JSONDecoder().decode(DevicesBootstrapAdminParams.self, from: jsonData)
+//   let devicesBootstrapAdminResult = try? JSONDecoder().decode(DevicesBootstrapAdminResult.self, from: jsonData)
 //   let devicesDenyParams = try? JSONDecoder().decode(DevicesDenyParams.self, from: jsonData)
 //   let devicesDenyResult = try? JSONDecoder().decode(DevicesDenyResult.self, from: jsonData)
 //   let devicesListParams = try? JSONDecoder().decode(DevicesListParams.self, from: jsonData)
@@ -5334,6 +5336,19 @@ public struct DevicesApproveParams: Codable, Sendable {
 
 // MARK: - DevicesApproveResult
 public struct DevicesApproveResult: Codable, Sendable {
+    public let device: Device
+
+    public enum CodingKeys: String, CodingKey {
+        case device = "device"
+    }
+
+    public init(device: Device) {
+        self.device = device
+    }
+}
+
+// MARK: - DevicesBootstrapAdminResult
+public struct DevicesBootstrapAdminResult: Codable, Sendable {
     public let device: Device
 
     public enum CodingKeys: String, CodingKey {
@@ -14155,6 +14170,7 @@ public typealias BrowserRealChromeStatusParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]
+public typealias DevicesBootstrapAdminParams = [String: JSONAny]
 public typealias DevicesPresenceKeyListParams = [String: JSONAny]
 public typealias DictationTargetParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]

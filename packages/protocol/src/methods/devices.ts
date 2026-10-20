@@ -55,6 +55,14 @@ export const DevicesMethods = {
     scope: "operator.admin",
     description: "Denies a pending pairing request.",
   }),
+  "devices.bootstrapAdmin": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({ device: Device }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "First run without a terminal: grants operator.admin to the calling device when the Gateway has no operator.admin device at all, in one transaction, and audits it as device.bootstrap_admin. Only the desktop shell's own connection may call it (loopback, no Origin, deviceFamily desktop, the per-launch handshake secret); forbidden otherwise, conflict once any admin exists. Side-effecting.",
+  }),
   "devices.revoke": defineMethod({
     params: Type.Object({ deviceId: Id }),
     result: Type.Object({ device: Device }),

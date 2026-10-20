@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (desktop bundle: first admin without a terminal)
+
+For the desktop bundle session and S01 (the Gateway handler), approved by the architecture session.
+
+- New method `devices.bootstrapAdmin {}` → `{device}`, `operator.write`, side-effecting. Grants `operator.admin` to the calling desktop shell only while no admin device exists (one transaction), audited as `device.bootstrap_admin`. `forbidden` for any caller but the desktop shell's own connection, `conflict` once an admin exists.
+
 ### v1 additive — 2026-10-20 (desktop bundle: first run from scratch)
 
 For the desktop bundle session (onboarding's Model & provider step) and S01/S03 (the Gateway's model router reads it).
