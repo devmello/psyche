@@ -9,6 +9,7 @@ import { Button } from "../components/ui/button.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group.tsx";
 import { useTask, useTasks } from "../data/index.ts";
+import { t } from "../i18n/core.ts";
 import { formatRelative, formatTime } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 
@@ -53,54 +54,61 @@ export function TaskList({
   now: number;
 }): ReactElement {
   if (tasks.length === 0) {
-    return <EmptyState icon={ListChecks}>No tasks yet.</EmptyState>;
+    return <EmptyState icon={ListChecks}>{t("agent.activity.noTasks")}</EmptyState>;
   }
   return (
-    <ul className="flex flex-col" aria-label="Tasks">
-      {tasks.map((t) => {
-        const step = t.checklist.find((c) => c.status === "in_progress")?.text;
+    <ul className="flex flex-col" aria-label={t("agent.activity.tasks")}>
+      {tasks.map((task) => {
+        const step = task.checklist.find((c) => c.status === "in_progress")?.text;
         return (
-          <li key={t.id} className="group/row flex items-center gap-1 rounded-md hover:bg-gray-3">
+          <li
+            key={task.id}
+            className="group/row flex items-center gap-1 rounded-md hover:bg-gray-3"
+          >
             <button
               type="button"
-              onClick={() => onSelect(t)}
-              className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2 text-left"
+              onClick={() => onSelect(task)}
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2 text-start"
             >
-              <TaskStatusIcon status={t.status} />
+              <TaskStatusIcon status={task.status} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-small font-medium">{t.title}</span>
+                <span className="block truncate text-small font-medium">{task.title}</span>
                 <span className="block truncate text-caption text-muted-foreground">
-                  {TASK_STATUS_LABEL[t.status]}
-                  {step ? ` · ${step}` : t.summary ? ` · ${t.summary}` : ""}
+                  {step || task.summary
+                    ? t("agent.task.statusDetail", {
+                        status: TASK_STATUS_LABEL[task.status],
+                        detail: step || task.summary || "",
+                      })
+                    : TASK_STATUS_LABEL[task.status]}
                 </span>
               </span>
-              <span className="shrink-0 text-right text-caption text-muted-foreground">
-                {t.createdFrom}
+              <span className="shrink-0 text-end text-caption text-muted-foreground">
+                {task.createdFrom}
                 <br />
-                {formatRelative(t.updatedAt, now)}
-                {t.leaseOwner && t.leaseOwner !== "local" ? ` · ${t.leaseOwner}` : ""}
+                {formatRelative(task.updatedAt, now)}
+                {task.leaseOwner && task.leaseOwner !== "local" ? ` · ${task.leaseOwner}` : ""}
               </span>
             </button>
-            {onRetry && (t.status === "failed" || t.status === "cancelled") ? (
+            {onRetry && (task.status === "failed" || task.status === "cancelled") ? (
               <Button
                 size="xs"
                 variant="ghost"
-                className="mr-1"
-                aria-label={`Retry ${t.title}`}
-                onClick={() => onRetry(t)}
+                className="me-1"
+                aria-label={t("agent.activity.retryTask", { title: task.title })}
+                onClick={() => onRetry(task)}
               >
-                Retry
+                {t("common.retry")}
               </Button>
             ) : null}
-            {onResume && t.status === "paused" ? (
+            {onResume && task.status === "paused" ? (
               <Button
                 size="xs"
                 variant="ghost"
-                className="mr-1"
-                aria-label={`Resume ${t.title}`}
-                onClick={() => onResume(t)}
+                className="me-1"
+                aria-label={t("agent.activity.resumeTask", { title: task.title })}
+                onClick={() => onResume(task)}
               >
-                Resume
+                {t("agent.activity.resume")}
               </Button>
             ) : null}
           </li>
@@ -119,14 +127,19 @@ export function ActionLog({
   level: DisclosureLevel;
 }): ReactElement {
   if (actions.length === 0) {
-    return <p className="px-2 py-4 text-small text-muted-foreground">No actions yet.</p>;
+    return (
+      <p className="px-2 py-4 text-small text-muted-foreground">{t("agent.activity.noActions")}</p>
+    );
   }
   if (level === 0) {
     const last = actions[actions.length - 1];
     return <p className="px-2 py-2 text-small">{last?.level1}</p>;
   }
   return (
-    <ol className="flex flex-col divide-y divide-gray-4 text-small" aria-label="Actions">
+    <ol
+      className="flex flex-col divide-y divide-gray-4 text-small"
+      aria-label={t("agent.activity.actions")}
+    >
       {actions.map((a) => (
         <li key={a.id} className="px-2 py-2">
           <div className="flex items-center gap-3">
@@ -140,18 +153,18 @@ export function ActionLog({
             {a.level2.outcome ? <Outcome outcome={a.level2.outcome} /> : null}
           </div>
           {level === 2 ? (
-            <dl className="mt-1.5 ml-14 grid grid-cols-[5rem_1fr] gap-x-2 rounded-md bg-gray-2 p-2 font-mono text-xs">
-              <dt className="text-muted-foreground">tool</dt>
+            <dl className="mt-1.5 ms-14 grid grid-cols-[5rem_1fr] gap-x-2 rounded-md bg-gray-2 p-2 font-mono text-xs">
+              <dt className="text-muted-foreground">{t("agent.action.tool")}</dt>
               <dd>{a.level2.tool}</dd>
               {a.level2.target ? (
                 <>
-                  <dt className="text-muted-foreground">target</dt>
+                  <dt className="text-muted-foreground">{t("agent.action.target")}</dt>
                   <dd className="break-all">{a.level2.target}</dd>
                 </>
               ) : null}
               {a.level3Ref ? (
                 <>
-                  <dt className="text-muted-foreground">raw</dt>
+                  <dt className="text-muted-foreground">{t("agent.action.raw")}</dt>
                   <dd className="break-all">{a.level3Ref}</dd>
                 </>
               ) : null}
@@ -172,16 +185,16 @@ export function TaskDetail({
   onBack?: () => void;
   now: number;
 }): ReactElement {
-  const t = useTask(taskId, { withActions: true });
+  const q = useTask(taskId, { withActions: true });
   const [level, setLevel] = useState<DisclosureLevel>(1);
-  if (t.task === null) {
-    return t.loading ? (
+  if (q.task === null) {
+    return q.loading ? (
       <Skeleton className="h-40" />
     ) : (
-      <p className="text-sm text-muted-foreground">Psyche couldn't load this task.</p>
+      <p className="text-sm text-muted-foreground">{t("agent.task.loadFailed")}</p>
     );
   }
-  const task = t.task;
+  const task = q.task;
   const live = task.status === "running" || task.status === "queued";
   return (
     <section aria-labelledby={`task-${task.id}`} className="flex flex-col gap-4">
@@ -191,11 +204,11 @@ export function TaskDetail({
             <Button
               variant="ghost"
               size="icon-sm"
-              className="-ml-2"
+              className="-ms-2"
               onClick={onBack}
-              aria-label="Back to tasks"
+              aria-label={t("agent.task.back")}
             >
-              <ArrowLeft aria-hidden="true" />
+              <ArrowLeft aria-hidden="true" className="rtl:rotate-180" />
             </Button>
           ) : null}
           <TaskStatusIcon status={task.status} />
@@ -204,39 +217,48 @@ export function TaskDetail({
           </h3>
           <span className="flex shrink-0 gap-1">
             {live ? (
-              <Button size="sm" variant="outline" onClick={() => void t.pause(task.id)}>
-                Pause
+              <Button size="sm" variant="outline" onClick={() => void q.pause(task.id)}>
+                {t("agent.task.pause")}
               </Button>
             ) : null}
             {task.status === "paused" ? (
-              <Button size="sm" onClick={() => void t.resume(task.id)}>
-                Resume
+              <Button size="sm" onClick={() => void q.resume(task.id)}>
+                {t("agent.activity.resume")}
               </Button>
             ) : null}
             {task.status === "failed" || task.status === "cancelled" ? (
-              <Button size="sm" onClick={() => void t.retry(task.id)}>
-                Retry
+              <Button size="sm" onClick={() => void q.retry(task.id)}>
+                {t("common.retry")}
               </Button>
             ) : null}
             {live || task.status === "paused" || task.status.startsWith("awaiting") ? (
-              <Button size="sm" variant="ghost" onClick={() => void t.cancel(task.id)}>
-                Cancel
+              <Button size="sm" variant="ghost" onClick={() => void q.cancel(task.id)}>
+                {t("common.cancel")}
               </Button>
             ) : null}
           </span>
         </div>
         <p className="text-caption text-muted-foreground">
-          from {task.createdFrom} · {formatTime(task.createdAt)} · attempt {task.attempt}
-          {task.leaseOwner && task.leaseOwner !== "local" ? ` · on ${task.leaseOwner}` : ""}
+          {t("agent.task.meta", {
+            from: task.createdFrom,
+            time: formatTime(task.createdAt),
+            attempt: task.attempt,
+            owner: task.leaseOwner && task.leaseOwner !== "local" ? task.leaseOwner : "",
+            remote: Boolean(task.leaseOwner && task.leaseOwner !== "local"),
+          })}
         </p>
         <p className="text-small text-gray-11">
-          {TASK_STATUS_LABEL[task.status]}
-          {task.summary ? ` · ${task.summary}` : ""} · updated {formatRelative(task.updatedAt, now)}
+          {t("agent.task.updated", {
+            status: TASK_STATUS_LABEL[task.status],
+            summary: task.summary ?? "",
+            hasSummary: Boolean(task.summary),
+            when: formatRelative(task.updatedAt, now),
+          })}
         </p>
       </header>
       <div className="flex items-center gap-2 px-2 text-small">
         <span className="text-muted-foreground" id={`level-${task.id}`}>
-          Level
+          {t("agent.task.level")}
         </span>
         <ToggleGroup
           aria-labelledby={`level-${task.id}`}
@@ -253,7 +275,7 @@ export function TaskDetail({
           ))}
         </ToggleGroup>
       </div>
-      <ActionLog actions={t.actions} level={level} />
+      <ActionLog actions={q.actions} level={level} />
     </section>
   );
 }
@@ -276,9 +298,9 @@ export function ActivityPanel({
   const shown =
     filter === "running" ? tasks.running : filter === "needs-you" ? tasks.needsYou : tasks.all;
   return (
-    <section aria-label="Activity" className="flex flex-col gap-3">
+    <section aria-label={t("agent.sheet.activity")} className="flex flex-col gap-3">
       <ToggleGroup
-        aria-label="Filter tasks"
+        aria-label={t("agent.activity.filter")}
         value={[filter]}
         onValueChange={(v) => {
           const next = v[0];
@@ -286,33 +308,33 @@ export function ActivityPanel({
         }}
       >
         <ToggleGroupItem value="running" size="sm">
-          Running {tasks.running.length}
+          {t("agent.activity.filterRunning", { n: tasks.running.length })}
         </ToggleGroupItem>
         <ToggleGroupItem value="needs-you" size="sm">
-          Needs you {tasks.needsYou.length}
+          {t("agent.activity.filterNeedsYou", { n: tasks.needsYou.length })}
         </ToggleGroupItem>
         <ToggleGroupItem value="all" size="sm">
-          All
+          {t("agent.activity.filterAll")}
         </ToggleGroupItem>
       </ToggleGroup>
       {tasks.loading && tasks.all.length === 0 ? (
-        <div className="flex flex-col gap-2" role="status" aria-label="Loading tasks">
+        <div className="flex flex-col gap-2" role="status" aria-label={t("agent.activity.loading")}>
           <Skeleton className="h-10" />
           <Skeleton className="h-10" />
         </div>
       ) : tasks.error && tasks.all.length === 0 ? (
         <p className="px-2 text-small">
-          Psyche couldn't load tasks ({tasks.error}).{" "}
+          {t("agent.activity.loadFailed", { reason: tasks.error })}{" "}
           <button type="button" className="text-accent-11 underline" onClick={tasks.reload}>
-            Try again
+            {t("agent.activity.tryAgain")}
           </button>
         </p>
       ) : (
         <TaskList
           tasks={shown}
-          onSelect={(t) => setSelected(t.id)}
-          onRetry={(t) => void tasks.retry(t.id)}
-          onResume={(t) => void tasks.resume(t.id)}
+          onSelect={(task) => setSelected(task.id)}
+          onRetry={(task) => void tasks.retry(task.id)}
+          onResume={(task) => void tasks.resume(task.id)}
           now={now}
         />
       )}

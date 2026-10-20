@@ -26,6 +26,8 @@ import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { Progress } from "../../components/ui/progress.tsx";
 import { useArtifact, useCall, useGoal, useTask } from "../../data/hooks.ts";
+import { activeI18n, t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
 import { formatDate, formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
 import { useSlots } from "../../slots.tsx";
@@ -38,7 +40,7 @@ import {
 
 /** "Mon 08:00" in UTC, like the rest of the kit's times. */
 export function formatWhen(iso: string): string {
-  const day = new Date(iso).toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
+  const day = activeI18n().date(iso, { weekday: "short", timeZone: "UTC" });
   return `${day} ${formatTime(iso)}`;
 }
 
@@ -51,7 +53,7 @@ export function goalMilestones(
   return fromGateway.map((m) => ({ title: m.title, done: m.doneAt !== null, dueAt: m.dueAt }));
 }
 
-const CONFIRM_WORD = "delete";
+const confirmWord = () => t("screens.goals.confirmWord");
 
 export interface DeleteGoalDialogProps {
   goal: Goal;
@@ -69,7 +71,7 @@ export function DeleteGoalDialog({
 }: DeleteGoalDialogProps): ReactElement {
   const inputId = useId();
   const [typed, setTyped] = useState("");
-  const ok = typed.trim().toLowerCase() === CONFIRM_WORD;
+  const ok = typed.trim().toLowerCase() === confirmWord().toLowerCase();
   return (
     <AlertDialog
       open={open}
@@ -80,11 +82,10 @@ export function DeleteGoalDialog({
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete "{goal.title}"?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Check-ins stop and the goal leaves your list. Linked tasks and the plan stay in Activity
-            and Library.
-          </AlertDialogDescription>
+          <AlertDialogTitle>
+            {t("screens.goals.deleteTitle", { title: goal.title })}
+          </AlertDialogTitle>
+          <AlertDialogDescription>{t("screens.goals.deleteBody")}</AlertDialogDescription>
         </AlertDialogHeader>
         <form
           className="flex flex-col gap-2"
@@ -93,7 +94,9 @@ export function DeleteGoalDialog({
             if (ok) onConfirm(goal);
           }}
         >
-          <Label htmlFor={inputId}>Type "{CONFIRM_WORD}" to confirm</Label>
+          <Label htmlFor={inputId}>
+            {t("screens.goals.typeToConfirm", { word: confirmWord() })}
+          </Label>
           <Input
             id={inputId}
             value={typed}
@@ -101,9 +104,9 @@ export function DeleteGoalDialog({
             onChange={(e) => setTyped(e.target.value)}
           />
           <AlertDialogFooter className="mt-2">
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <Button type="submit" variant="destructive" disabled={!ok}>
-              Delete goal
+              {t("screens.goals.delete")}
             </Button>
           </AlertDialogFooter>
         </form>
@@ -143,14 +146,14 @@ function TaskLine({
   taskId: string;
   onOpen?: (taskId: string) => void;
 }): ReactElement {
-  if (task === null) return <span className="text-gray-11">Loading task…</span>;
+  if (task === null) return <span className="text-gray-11">{t("screens.goals.loadingTask")}</span>;
   return (
     <span className="flex items-center gap-2">
       <TaskStatusIcon status={task.status} />
       {onOpen ? (
         <button
           type="button"
-          className="min-w-0 truncate text-left underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+          className="min-w-0 truncate text-start underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
           onClick={() => onOpen(taskId)}
         >
           {task.title}
@@ -182,14 +185,17 @@ function PlanTile({
       <span className="flex min-w-0 flex-col">
         <span className="truncate font-medium text-foreground">{artifact.title}</span>
         <span className="text-caption text-gray-11">
-          {artifact.type.toUpperCase()} · v{artifact.version}
-          {onOpen ? " · Open" : ""}
+          {t("screens.goals.planMeta", {
+            type: artifact.type.toUpperCase(),
+            version: artifact.version,
+            open: Boolean(onOpen),
+          })}
         </span>
       </span>
     </>
   );
   const cls =
-    "inline-flex max-w-full items-center gap-3 rounded-lg border border-gray-6 bg-gray-1 py-2 pr-4 pl-2 text-left";
+    "inline-flex max-w-full items-center gap-3 rounded-lg border border-gray-6 bg-gray-1 py-2 pe-4 ps-2 text-start";
   return onOpen ? (
     <button
       type="button"
@@ -247,13 +253,13 @@ export function GoalPageView({
     if (error !== null)
       return (
         <ErrorState
-          what="Psyche couldn't load this goal"
+          what={t("screens.goals.loadFailed")}
           reason={error}
           {...(onRetry ? { retry: { onClick: onRetry } } : {})}
         />
       );
     return showSkeleton ? (
-      <LoadingCards label="Loading the goal" count={1} lines={6} />
+      <LoadingCards label={t("screens.goals.loading")} count={1} lines={6} />
     ) : (
       <div aria-busy="true" className="min-h-24" />
     );
@@ -270,8 +276,11 @@ export function GoalPageView({
       <header className="flex items-start gap-2 pb-4">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <SectionLabel as="p">
-            {GOAL_CATEGORY_LABEL[goal.category]}
-            {goal.status !== "active" ? ` · ${goal.status}` : ""}
+            {t("screens.goals.categoryStatus", {
+              category: GOAL_CATEGORY_LABEL[goal.category],
+              status: goal.status,
+              inactive: goal.status !== "active",
+            })}
           </SectionLabel>
           <h2 id={titleId} className="text-h2 text-foreground">
             {goal.title}
@@ -280,14 +289,17 @@ export function GoalPageView({
             <div className="mt-2 flex items-center gap-3">
               <Progress
                 value={(doneCount / items.length) * 100}
-                aria-label={`${doneCount} of ${items.length} milestones done`}
+                aria-label={t("screens.goals.milestonesDone", {
+                  done: doneCount,
+                  total: items.length,
+                })}
                 className={cn(
                   "max-w-64 flex-1 [&_[data-slot=progress-track]]:h-1.5",
                   doneCount === items.length ? "[&_[data-slot=progress-indicator]]:bg-grass-9" : "",
                 )}
               />
               <span className="text-caption text-gray-11 tabular-nums">
-                {doneCount} of {items.length} milestones
+                {t("screens.goals.milestonesCount", { done: doneCount, total: items.length })}
               </span>
             </div>
           ) : null}
@@ -300,7 +312,7 @@ export function GoalPageView({
                   type="button"
                   size="icon-sm"
                   variant="ghost"
-                  aria-label={`More actions for ${goal.title}`}
+                  aria-label={t("screens.goals.moreFor", { title: goal.title })}
                 />
               }
             >
@@ -309,16 +321,16 @@ export function GoalPageView({
             <DropdownMenuContent align="end" className="w-44">
               <DropdownMenuItem variant="destructive" onClick={() => setConfirming(true)}>
                 <Trash2 aria-hidden="true" />
-                Delete goal…
+                {t("screens.goals.deleteMenu")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : null}
       </header>
 
-      <Section title="Milestones">
+      <Section title={t("screens.goals.milestones")}>
         {items.length === 0 ? (
-          <p className="text-gray-11">No milestones yet.</p>
+          <p className="text-gray-11">{t("screens.goals.noMilestones")}</p>
         ) : (
           <ol className="flex flex-wrap items-center gap-1.5">
             {items.map((m, i) => (
@@ -345,7 +357,9 @@ export function GoalPageView({
                     <Circle className="size-3.5" aria-hidden="true" />
                   )}
                   <span>{m.title}</span>
-                  <span className="sr-only">{m.done ? "(done)" : "(not done)"}</span>
+                  <span className="sr-only">
+                    {m.done ? t("screens.goals.done") : t("screens.goals.notDone")}
+                  </span>
                   {m.dueAt ? (
                     <span className="text-caption opacity-80">· {formatDate(m.dueAt)}</span>
                   ) : null}
@@ -356,11 +370,11 @@ export function GoalPageView({
         )}
       </Section>
 
-      <Section title="Plan">
+      <Section title={t("screens.goals.plan")}>
         {plan.planArtifactId === null ? (
-          <p className="text-gray-11">No plan yet. Ask in chat for one.</p>
+          <p className="text-gray-11">{t("screens.goals.noPlan")}</p>
         ) : planArtifact === null ? (
-          <p className="text-gray-11">Loading the plan…</p>
+          <p className="text-gray-11">{t("screens.goals.loadingPlan")}</p>
         ) : (
           <PlanTile
             artifact={planArtifact}
@@ -369,9 +383,9 @@ export function GoalPageView({
         )}
       </Section>
 
-      <Section title="Tasks">
+      <Section title={t("screens.goals.tasks")}>
         {taskIds.length === 0 ? (
-          <p className="text-gray-11">No linked tasks.</p>
+          <p className="text-gray-11">{t("screens.goals.noTasks")}</p>
         ) : (
           <ul className="flex flex-col gap-1">
             {taskIds.map((id) => (
@@ -387,11 +401,15 @@ export function GoalPageView({
         )}
       </Section>
 
-      <Section title="Check-ins">
+      <Section title={t("screens.goals.checkins")}>
         <p>
-          {goal.cadence ? goal.cadence : "No schedule"}
-          {goal.nextCheckinAt ? ` · next ${formatWhen(goal.nextCheckinAt)}` : ""}
-          {lastCheckin ? ` · last: ${lastCheckin.status}` : ""}
+          {t("screens.goals.checkinLine", {
+            cadence: goal.cadence ? goal.cadence : t("screens.goals.noSchedule"),
+            next: goal.nextCheckinAt ? formatWhen(goal.nextCheckinAt) : "",
+            hasNext: Boolean(goal.nextCheckinAt),
+            last: lastCheckin?.status ?? "",
+            hasLast: Boolean(lastCheckin),
+          })}
         </p>
         {plan.checkins.length > 0 ? (
           <ul className="mt-1 flex flex-col gap-0.5 text-gray-11">
@@ -405,9 +423,9 @@ export function GoalPageView({
         ) : null}
       </Section>
 
-      <Section title="Watches">
+      <Section title={t("screens.goals.watches")}>
         {plan.watches.length === 0 ? (
-          <p className="text-gray-11">Nothing watched.</p>
+          <p className="text-gray-11">{t("screens.goals.nothingWatched")}</p>
         ) : (
           <ul className="flex flex-col gap-1">
             {plan.watches.map((w) => (
@@ -426,7 +444,9 @@ export function GoalPageView({
                 )}
                 {w.condition ? <Badge variant="muted">{w.condition}</Badge> : null}
                 {w.lastValue ? (
-                  <span className="text-caption text-gray-11">last: {w.lastValue}</span>
+                  <span className="text-caption text-gray-11">
+                    {t("screens.goals.last", { value: w.lastValue })}
+                  </span>
                 ) : null}
               </li>
             ))}
@@ -434,9 +454,9 @@ export function GoalPageView({
         )}
       </Section>
 
-      <Section title="Notes">
+      <Section title={t("screens.goals.notes")}>
         {plan.notesMd.trim() === "" ? (
-          <p className="text-gray-11">No notes.</p>
+          <p className="text-gray-11">{t("screens.goals.noNotes")}</p>
         ) : (
           <Markdown className="text-sm">{plan.notesMd}</Markdown>
         )}
@@ -480,12 +500,12 @@ export function GoalPage({ goalId, onDelete, onDeleted }: GoalPageProps): ReactE
     const run = onDelete ?? ((x: Goal) => call("goals.archive", { goalId: x.id }));
     Promise.resolve(run(goal)).then(
       () => {
-        toast(`Deleted "${goal.title}".`);
+        toast(t("screens.goals.deleted", { title: goal.title }));
         onDeleted?.(goal);
       },
       (err: unknown) => {
         toast.error(
-          `Psyche couldn't delete "${goal.title}" (${err instanceof Error ? err.message : String(err)}). The goal is unchanged.`,
+          t("screens.goals.deleteFailed", { title: goal.title, reason: describeError(err) }),
         );
       },
     );

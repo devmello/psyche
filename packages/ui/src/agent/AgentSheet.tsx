@@ -10,6 +10,7 @@ import {
   SheetTitle,
 } from "../components/ui/sheet.tsx";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs.tsx";
+import { t } from "../i18n/core.ts";
 import { usePersona } from "../slots.tsx";
 import { ActivityPanel } from "./ActivityPanel.tsx";
 import { ApprovalsPanel, useApprovalQueue } from "./ApprovalsPanel.tsx";
@@ -80,12 +81,13 @@ export function AgentSheetBody({
         onValueChange={(v) => onTabChange(v as AgentTab)}
         className="flex min-h-0 flex-1 flex-col gap-3"
       >
-        <TabsList aria-label="Agent" className="w-full">
+        <TabsList aria-label={t("agent.sheet.tabs")} className="w-full">
           <TabsTrigger value="activity" className="min-w-0">
-            <ListChecks aria-hidden="true" className="@max-md:hidden" /> Activity
+            <ListChecks aria-hidden="true" className="@max-md:hidden" /> {t("agent.sheet.activity")}
           </TabsTrigger>
           <TabsTrigger value="approvals" className="min-w-0">
-            <ShieldCheck aria-hidden="true" className="@max-md:hidden" /> Approvals
+            <ShieldCheck aria-hidden="true" className="@max-md:hidden" />{" "}
+            {t("agent.sheet.approvals")}
             {live.length > 0 ? (
               <Badge variant="approval" className="h-4 px-1.5 tabular-nums">
                 {live.length}
@@ -93,10 +95,11 @@ export function AgentSheetBody({
             ) : null}
           </TabsTrigger>
           <TabsTrigger value="upcoming" className="min-w-0">
-            <CalendarClock aria-hidden="true" className="@max-md:hidden" /> Upcoming
+            <CalendarClock aria-hidden="true" className="@max-md:hidden" />{" "}
+            {t("agent.sheet.upcoming")}
           </TabsTrigger>
           <TabsTrigger value="soul" className="min-w-0">
-            <Fingerprint aria-hidden="true" className="@max-md:hidden" /> Soul & Memory
+            <Fingerprint aria-hidden="true" className="@max-md:hidden" /> {t("agent.sheet.soul")}
           </TabsTrigger>
         </TabsList>
         <div className="-mx-2 min-h-0 flex-1 overflow-y-auto px-2 pt-1 pb-4">

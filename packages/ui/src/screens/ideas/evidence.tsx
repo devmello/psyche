@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
 
 /**
@@ -18,14 +19,30 @@ export interface EvidenceItem {
 }
 
 const SOURCE_LABEL: Record<string, string> = {
-  gmail: "Gmail",
-  calendar: "Calendar",
-  browser: "Browser",
-  activity: "Activity",
-  chat: "Chat",
-  connector: "Connectors",
-  memory: "Memory",
-  notion: "Notion",
+  get gmail() {
+    return t("screens.evidence.source.gmail");
+  },
+  get calendar() {
+    return t("screens.evidence.source.calendar");
+  },
+  get browser() {
+    return t("screens.evidence.source.browser");
+  },
+  get activity() {
+    return t("screens.evidence.source.activity");
+  },
+  get chat() {
+    return t("screens.evidence.source.chat");
+  },
+  get connector() {
+    return t("screens.evidence.source.connector");
+  },
+  get memory() {
+    return t("screens.evidence.source.memory");
+  },
+  get notion() {
+    return t("screens.evidence.source.notion");
+  },
 };
 
 export function sourceLabel(source: string): string {
@@ -94,7 +111,7 @@ export interface EvidenceLineProps {
 }
 
 const linkClass =
-  "cursor-pointer text-left text-gray-12 underline decoration-gray-7 underline-offset-2 hover:decoration-accent-9 focus-visible:outline-2 focus-visible:outline-ring";
+  "cursor-pointer text-start text-gray-12 underline decoration-gray-7 underline-offset-2 hover:decoration-accent-9 focus-visible:outline-2 focus-visible:outline-ring";
 
 /**
  * "Because:" then one line per item, each linked to its source with the source named after it
@@ -104,8 +121,10 @@ export function EvidenceLine({ items, onOpenRoute, className }: EvidenceLineProp
   return (
     <div className={cn("flex flex-col gap-1 text-small text-gray-11", className)}>
       <p className="font-medium text-gray-12">
-        Because:
-        {items.length === 0 ? <span className="font-normal"> no evidence recorded.</span> : null}
+        {t("screens.evidence.because")}
+        {items.length === 0 ? (
+          <span className="font-normal"> {t("screens.evidence.none")}</span>
+        ) : null}
       </p>
       {items.length > 0 ? (
         <ul className="flex flex-col gap-0.5">

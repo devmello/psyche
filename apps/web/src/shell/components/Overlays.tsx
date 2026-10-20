@@ -1,3 +1,4 @@
+import { t } from "@psyche/ui";
 import { type ReactElement, type RefObject, useEffect, useId, useRef, useState } from "react";
 import { useShell } from "../context.tsx";
 import { chordLabel, SHORTCUTS } from "../keyboard.ts";
@@ -82,7 +83,7 @@ export function CommandPalette(props: {
       setHits([]);
       return;
     }
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       void store
         .call<{ results?: { id: string; title?: string; kind?: string; route?: string | null }[] }>(
           "search.query",
@@ -92,14 +93,17 @@ export function CommandPalette(props: {
           setHits(
             (r?.results ?? []).map((x) => ({
               id: x.id,
-              label: `${x.kind ?? "result"} · ${x.title ?? x.id}`,
+              label: t("web.palette.hit", {
+                kind: x.kind ?? t("web.palette.result"),
+                title: x.title ?? x.id,
+              }),
               route: x.route ?? `/search?q=${encodeURIComponent(q)}`,
             })),
           ),
         )
         .catch(() => setHits([]));
     }, 150);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [q, store]);
   const actions = props.actions.filter((a) => a.label.toLowerCase().includes(q.toLowerCase()));
   const rows: { key: string; label: string; run: () => void }[] = [
@@ -126,7 +130,7 @@ export function CommandPalette(props: {
         className="dialog"
         role="dialog"
         aria-modal="true"
-        aria-label="Command palette"
+        aria-label={t("web.palette.label")}
         onClick={(e) => e.stopPropagation()}
       >
         <input
@@ -142,15 +146,15 @@ export function CommandPalette(props: {
             if (e.key === "ArrowUp") setSel((s) => Math.max(0, s - 1));
             if (e.key === "Enter") choose(sel);
           }}
-          placeholder="Search or run a command"
-          aria-label="Search or run a command"
+          placeholder={t("web.palette.placeholder")}
+          aria-label={t("web.palette.placeholder")}
           role="combobox"
           aria-expanded="true"
           aria-controls={listId}
           aria-autocomplete="list"
           {...(rows[sel] ? { "aria-activedescendant": `${listId}-${sel}` } : {})}
         />
-        <div role="listbox" aria-label="Results" id={listId}>
+        <div role="listbox" aria-label={t("web.palette.results")} id={listId}>
           {rows.map((r, i) => (
             // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard handled on the input
             <div
@@ -189,22 +193,23 @@ export function ShortcutSheet({ onClose }: { onClose: () => void }): ReactElemen
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <h2 id="psyche-shortcuts-title" style={{ marginTop: 0, flex: 1 }}>
-            Keyboard shortcuts
+            {t("web.shortcuts.title")}
           </h2>
           <button type="button" className="pill" onClick={onClose}>
-            Close
+            {t("common.close")}
           </button>
         </div>
         <table>
           <tbody>
             {SHORTCUTS.map((s) => (
               <tr key={s.action}>
-                <td style={{ paddingRight: 16 }}>
+                <td style={{ paddingInlineEnd: 16 }}>
                   <kbd>{chordLabel(s.chord, mac)}</kbd>
                 </td>
                 <td>
-                  {s.label}
-                  {s.scope === "global" ? " (system-wide)" : ""}
+                  {s.scope === "global"
+                    ? t("web.shortcuts.systemWide", { label: s.label })
+                    : s.label}
                 </td>
               </tr>
             ))}
@@ -263,7 +268,7 @@ export function ModelPicker(props: {
         className="dialog"
         role="dialog"
         aria-modal="true"
-        aria-label="Model"
+        aria-label={t("web.modelPicker.label")}
         onClick={(e) => e.stopPropagation()}
       >
         <input
@@ -278,8 +283,8 @@ export function ModelPicker(props: {
               props.onClose();
             }
           }}
-          placeholder="provider/model, e.g. anthropic/claude-opus-5-5"
-          aria-label="Model reference"
+          placeholder={t("web.modelPicker.placeholder", { example: "anthropic/claude-opus-5-5" })}
+          aria-label={t("web.modelPicker.reference")}
           list="psyche-model-suggestions"
         />
         <datalist id="psyche-model-suggestions" data-testid="model-suggestions">

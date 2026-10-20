@@ -1,5 +1,5 @@
 import type { ApprovalRequest } from "@psyche/protocol";
-import type { PresenceAssertion } from "@psyche/ui";
+import { describeError, errorCode, type PresenceAssertion, t } from "@psyche/ui";
 import { toBase64Url } from "../client/encoding.ts";
 
 /**
@@ -60,7 +60,7 @@ interface WebAuthnGlobals {
 /** Thrown when the browser returns no credential (it should reject instead, but some don't). */
 export class PasskeyCancelled extends Error {
   constructor() {
-    super("No passkey was used.");
+    super(t("web.webauthn.noPasskey"));
     this.name = "PasskeyCancelled";
   }
 }
@@ -186,14 +186,10 @@ export async function approvalPresence(
   } catch (err) {
     const code = (err as { code?: unknown } | null)?.code;
     if (code === "not_found") {
-      throw new Error(
-        "This browser has no passkey yet. Add one in Settings → Devices & nodes, or approve with Touch ID on the Mac.",
-      );
+      throw new Error(t("web.webauthn.noPasskeyYet"));
     }
     if (code === "unavailable") {
-      throw new Error(
-        "Passkeys need the server's https address (gateway.publicOrigin). Approve with Touch ID on the Mac instead.",
-      );
+      throw new Error(t("web.webauthn.needsOrigin"));
     }
     throw err;
   }
@@ -208,11 +204,13 @@ export async function approvalPresence(
 export function passkeyErrorText(err: unknown): string {
   const name = (err as { name?: unknown } | null)?.name;
   if (err instanceof PasskeyCancelled || name === "NotAllowedError" || name === "AbortError") {
-    return "The passkey prompt was cancelled or timed out. Nothing changed.";
+    return t("web.webauthn.cancelled");
   }
-  if (name === "InvalidStateError") return "This passkey is already registered on this device.";
+  if (name === "InvalidStateError") return t("web.webauthn.alreadyRegistered");
   if (name === "SecurityError") {
-    return "This address doesn't match the server's passkey domain (gateway.publicOrigin). Open Psyche at that https address.";
+    return t("web.webauthn.wrongDomain");
   }
+  // Gateway errors go through the catalogue; this module's own errors are already localized.
+  if (errorCode(err) !== null) return describeError(err);
   return err instanceof Error ? err.message : String(err);
 }

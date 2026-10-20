@@ -1,4 +1,5 @@
 import type { ApprovalRequest, Message, PermissionMode, Thread } from "@psyche/protocol";
+import { t } from "@psyche/ui";
 import {
   type ClipboardEvent,
   type DragEvent,
@@ -23,10 +24,30 @@ export const PERMISSION_MODES: readonly PermissionMode[] = ["manual", "balanced"
 
 /** Slash commands the composer always knows (docs/06 §3.2); the Gateway may add more. */
 export const BUILTIN_COMMANDS = [
-  { name: "model", description: "Pick the model for this thread" },
-  { name: "schedule", description: "Schedule a task or reminder" },
-  { name: "forget", description: "Forget something Psyche remembered" },
-  { name: "incognito", description: "Start an incognito side chat" },
+  {
+    name: "model",
+    get description() {
+      return t("web.command.model");
+    },
+  },
+  {
+    name: "schedule",
+    get description() {
+      return t("web.command.schedule");
+    },
+  },
+  {
+    name: "forget",
+    get description() {
+      return t("web.command.forget");
+    },
+  },
+  {
+    name: "incognito",
+    get description() {
+      return t("web.command.incognito");
+    },
+  },
 ] as const;
 
 export interface SlashCommand {
@@ -62,8 +83,8 @@ function MessageRow({ m }: { m: Message }): ReactElement {
 function useCountdown(expiresAt: string): string {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
   }, []);
   const s = Math.max(0, Math.floor((Date.parse(expiresAt) - now) / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -82,13 +103,13 @@ export function ApprovalDock({ approval }: { approval: ApprovalRequest }): React
   // biome-ignore lint/correctness/useExhaustiveDependencies: re-arm the 400 ms delay per approval
   useEffect(() => {
     setArmed(false);
-    const t = setTimeout(() => setArmed(true), 400);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setArmed(true), 400);
+    return () => clearTimeout(timer);
   }, [approval.id]);
   const answer = (decision: "approve" | "deny") =>
     void store
       .answerApproval(approval.id, decision, decision === "approve" ? scope : undefined)
-      .catch(() => store.toast("Psyche couldn't send that answer. The card stays open.", "error"));
+      .catch(() => store.toast(t("web.approval.answerFailed"), "error"));
   return (
     <fieldset
       className="dock"
@@ -98,9 +119,9 @@ export function ApprovalDock({ approval }: { approval: ApprovalRequest }): React
     >
       <div style={{ display: "flex", gap: 8 }}>
         <strong id={`ap-${approval.id}`} tabIndex={-1} style={{ flex: 1 }}>
-          Approval needed · {approval.summary}
+          {t("web.approval.needed", { summary: approval.summary })}
         </strong>
-        <span title="Expires in">{countdown}</span>
+        <span title={t("web.approval.expiresIn")}>{countdown}</span>
       </div>
       <fieldset
         style={{
@@ -121,23 +142,23 @@ export function ApprovalDock({ approval }: { approval: ApprovalRequest }): React
               onChange={() => setScope(s)}
             />{" "}
             {s === "once"
-              ? "Allow once"
+              ? t("web.approval.allowOnce")
               : s === "task"
-                ? "Allow for this task"
+                ? t("web.approval.allowTask")
                 : s === "site"
-                  ? "Allow for this site"
+                  ? t("web.approval.allowSite")
                   : s === "always"
-                    ? "Always allow"
+                    ? t("web.approval.alwaysAllow")
                     : s}
           </label>
         ))}
       </fieldset>
       <div style={{ fontSize: 12, color: "var(--shell-muted)" }}>
-        Binding {approval.bindingHash.slice(0, 15)}… any change voids this card
+        {t("web.approval.binding", { hash: approval.bindingHash.slice(0, 15) })}
       </div>
       <div className="row">
         <button type="button" disabled={!armed} onClick={() => answer("deny")} data-action="deny">
-          Deny
+          {t("web.approval.deny")}
         </button>
         <button
           type="button"
@@ -145,7 +166,7 @@ export function ApprovalDock({ approval }: { approval: ApprovalRequest }): React
           onClick={() => answer("approve")}
           data-action="approve"
         >
-          Allow with scope
+          {t("web.approval.allowWithScope")}
         </button>
       </div>
     </fieldset>
@@ -183,7 +204,7 @@ export function Composer(props: {
     const local = webSpeechDictation();
     return new VoiceCapture((m, p) => store.call(m, p), microphoneSource(), setVoice, {
       ...(local ? { local } : {}),
-      onInterrupted: (said) => setText((t) => (t ? `${t} ${said}` : said)),
+      onInterrupted: (said) => setText((prev) => (prev ? `${prev} ${said}` : said)),
     });
   }, [store]);
 
@@ -225,7 +246,7 @@ export function Composer(props: {
     if (!content || !threadId || props.disabled) return;
     if (files.length > 0 && !unavailable.includes("library.upload")) {
       // Uploads go to the Library first; the Gateway has no upload method yet (requested from S01).
-      store.toast("Attachments can't be uploaded yet; sending the text only.", "warn");
+      store.toast(t("web.chat.attachmentsUnsupported"), "warn");
     }
     setText("");
     setFiles([]);
@@ -237,7 +258,7 @@ export function Composer(props: {
       if (res.queued) setQueue((q) => [...q, { messageId: res.messageId, content }]);
     } catch {
       setText(content);
-      store.toast("Psyche couldn't send that message. It's back in the composer.", "error");
+      store.toast(t("web.chat.sendFailedRestored"), "error");
     }
   };
 
@@ -286,7 +307,7 @@ export function Composer(props: {
 
   const finishVoice = async () => {
     const said = await capture.stop();
-    if (said) setText((t) => (t ? `${t} ${said}` : said));
+    if (said) setText((prev) => (prev ? `${prev} ${said}` : said));
   };
   const micDown = () => {
     holdTimer.current = setTimeout(() => {
@@ -314,13 +335,13 @@ export function Composer(props: {
       data-testid="composer"
     >
       {queue.length > 0 ? (
-        <ul className="chips" aria-label="Follow-up queue" data-testid="follow-up-queue">
+        <ul className="chips" aria-label={t("web.chat.queue")} data-testid="follow-up-queue">
           {queue.map((q) => (
             <li key={q.messageId} className="chip">
-              Queued: “{q.content.slice(0, 40)}” (followUp){" "}
+              {t("web.chat.queued", { text: q.content.slice(0, 40) })}{" "}
               <button
                 type="button"
-                aria-label="Remove from queue"
+                aria-label={t("web.chat.removeQueued")}
                 onClick={() => removeQueued(q.messageId)}
               >
                 ×
@@ -330,13 +351,13 @@ export function Composer(props: {
         </ul>
       ) : null}
       {files.length > 0 ? (
-        <ul className="chips" aria-label="Attachments">
+        <ul className="chips" aria-label={t("web.chat.attachments")}>
           {files.map((f, i) => (
             <li key={`${f.name}-${f.size}-${f.lastModified}`} className="chip">
               {f.name}{" "}
               <button
                 type="button"
-                aria-label={`Remove ${f.name}`}
+                aria-label={t("web.chat.removeFile", { name: f.name })}
                 onClick={() => setFiles((all) => all.filter((_, j) => j !== i))}
               >
                 ×
@@ -349,7 +370,7 @@ export function Composer(props: {
         <div
           className="suggest"
           role="listbox"
-          aria-label="Commands"
+          aria-label={t("web.chat.commands")}
           data-testid="slash-suggestions"
         >
           {suggestions.map((c, i) => (
@@ -377,8 +398,8 @@ export function Composer(props: {
         onKeyDown={onKeyDown}
         onPaste={onPaste}
         disabled={props.disabled}
-        placeholder={props.disabled ? "Psyche can't reach the Gateway" : "Message Psyche…"}
-        aria-label="Message"
+        placeholder={props.disabled ? t("web.chat.offlinePlaceholder") : t("web.chat.placeholder")}
+        aria-label={t("web.chat.message")}
         data-testid="composer-input"
       />
       <div className="bar">
@@ -389,14 +410,14 @@ export function Composer(props: {
             multiple
             hidden
             onChange={(e) => addFiles(e.target.files)}
-            aria-label="Attach files"
+            aria-label={t("web.chat.attach")}
           />
         </label>
         <span className="grow" style={{ fontSize: 12, color: "var(--shell-muted)" }}>
           {voice.phase === "unavailable"
             ? voice.reason
             : voice.phase === "listening"
-              ? "Listening…"
+              ? t("web.chat.listening")
               : ""}
         </span>
         {voiceMode.available ? (
@@ -406,10 +427,10 @@ export function Composer(props: {
             aria-pressed={inVoiceMode}
             onClick={voiceMode.toggle}
             disabled={!threadId || props.disabled}
-            title="Voice mode: talk with Psyche hands-free"
+            title={t("web.chat.voiceModeTitle")}
             data-testid="voice-mode-toggle"
           >
-            Voice
+            {t("web.chat.voice")}
           </button>
         ) : null}
         <button
@@ -419,10 +440,10 @@ export function Composer(props: {
           onPointerDown={micDown}
           onPointerUp={micUp}
           disabled={inVoiceMode}
-          title="Dictate: click to toggle, hold to talk"
+          title={t("web.chat.dictateTitle")}
           data-testid="mic"
         >
-          mic
+          {t("web.chat.mic")}
         </button>
         {props.running ? (
           <button
@@ -430,7 +451,7 @@ export function Composer(props: {
             className="pill"
             onClick={() => threadId && void store.call("chat.cancel", { threadId })}
           >
-            Stop
+            {t("web.chat.stop")}
           </button>
         ) : (
           <button
@@ -440,7 +461,7 @@ export function Composer(props: {
             disabled={props.disabled}
             data-testid="send"
           >
-            Send
+            {t("web.chat.send")}
           </button>
         )}
       </div>
@@ -471,36 +492,38 @@ export function ChatView(props: {
   );
   const offline = status.phase !== "paired";
   return (
-    <section className="chat" aria-label="Chat" data-testid="chat">
+    <section className="chat" aria-label={t("web.chat.label")} data-testid="chat">
       <header>
         <strong>
-          {props.thread
-            ? props.thread.kind === "main"
-              ? "Main chat"
-              : props.thread.title
-            : "Psyche"}
+          {
+            props.thread
+              ? props.thread.kind === "main"
+                ? t("web.threads.mainChat")
+                : props.thread.title
+              : "Psyche" /* i18n-ignore: the product name as a brand */
+          }
         </strong>
         <span className="grow" />
         <button
           type="button"
           className="pill"
           onClick={props.onModeCycle}
-          title="Permission mode (⌘⇧M)"
+          title={t("web.chat.permissionModeTitle")}
           data-testid="mode-pill"
         >
-          {props.thread?.permissionMode ?? "balanced"}
+          {t("web.chat.permissionMode", { mode: props.thread?.permissionMode ?? "balanced" })}
         </button>
         <button
           type="button"
           className="pill"
           onClick={props.onModelPicker}
-          title="Model (⌘⇧I)"
+          title={t("web.chat.modelTitle")}
           data-testid="model-pill"
         >
-          {props.thread?.modelRef ?? "default model"}
+          {props.thread?.modelRef ?? t("web.chat.defaultModel")}
         </button>
       </header>
-      <div className="messages" role="log" aria-label="Conversation">
+      <div className="messages" role="log" aria-label={t("web.chat.conversation")}>
         {(messages ?? []).map((m) => (
           <MessageRow key={m.id} m={m} />
         ))}
@@ -509,9 +532,7 @@ export function ChatView(props: {
             {v.text}
           </div>
         ))}
-        {!props.thread ? (
-          <p className="msg-system">Psyche is getting your main chat ready.</p>
-        ) : null}
+        {!props.thread ? <p className="msg-system">{t("web.chat.preparing")}</p> : null}
       </div>
       {dock.slice(-1).map((a) => (
         <ApprovalDock key={a.id} approval={a} />
@@ -542,15 +563,14 @@ export function QuickEntry(props: { thread: Thread | null; onDone: () => void })
     setText("");
     await store.call("chat.send", { threadId: props.thread.id, content }).catch(() => {
       setText(content);
-      store.toast("Psyche couldn't send that message.", "error");
+      store.toast(t("web.chat.sendFailed"), "error");
     });
     props.onDone();
   };
   return (
     <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
       <div style={{ fontSize: 13, color: "var(--shell-muted)" }}>
-        Psyche · {status.phase === "paired" ? "main chat" : "offline"}
-        {approvals > 0 ? ` · ${approvals} approval${approvals > 1 ? "s" : ""} waiting` : ""}
+        {t("web.quickEntry.status", { online: status.phase === "paired", approvals })}
       </div>
       <input
         // biome-ignore lint/a11y/noAutofocus: the window exists to take this input
@@ -562,8 +582,8 @@ export function QuickEntry(props: { thread: Thread | null; onDone: () => void })
           if (e.key === "Escape") props.onDone();
         }}
         disabled={status.phase !== "paired"}
-        placeholder="Ask or tell Psyche…"
-        aria-label="Quick entry"
+        placeholder={t("web.quickEntry.placeholder")}
+        aria-label={t("web.quickEntry.label")}
         data-testid="quick-input"
         style={{
           padding: 8,

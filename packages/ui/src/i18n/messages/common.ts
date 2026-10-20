@@ -5,6 +5,7 @@ export const common = {
   "common.save": "Save",
   "common.saving": "Saving…",
   "common.retry": "Retry",
+  "common.tryAgain": "Try again",
   "common.remove": "Remove",
   "common.delete": "Delete",
   "common.edit": "Edit",

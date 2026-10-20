@@ -1,4 +1,5 @@
 import "@xterm/xterm/css/xterm.css";
+import { describeError, t } from "@psyche/ui";
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
@@ -114,8 +115,8 @@ class SessionRouter {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error && error.message
-    ? error.message
-    : "The terminal could not be opened.";
+    ? describeError(error)
+    : t("web.terminal.openFailed");
 }
 
 function safeFit(fit: FitAddon): void {
@@ -156,7 +157,7 @@ const styles = {
     cursor: "pointer",
   },
   label: {
-    marginLeft: "auto",
+    marginInlineStart: "auto",
     color: "var(--shell-muted, #999)",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -303,7 +304,7 @@ function TerminalSession({
       />
       {info.status === "exited" ? (
         <div role="status" style={styles.exit}>
-          exit {info.exitCode}
+          {t("web.terminal.exit", { code: info.exitCode })}
         </div>
       ) : null}
     </div>
@@ -311,8 +312,8 @@ function TerminalSession({
 }
 
 function headerLabel(info: SessionInfo | undefined): string {
-  if (!info || info.status === "opening") return "Opening…";
-  if (info.status === "unavailable") return "Unavailable";
+  if (!info || info.status === "opening") return t("web.terminal.opening");
+  if (info.status === "unavailable") return t("web.terminal.unavailable");
   return info.label;
 }
 
@@ -336,7 +337,7 @@ export function TerminalPane({ port, threadId, cwd, onExit }: TerminalPaneProps)
 
   const addTab = useCallback(() => {
     const key = nextKey.current++;
-    setTabs((t) => [...t, key]);
+    setTabs((all) => [...all, key]);
     setActive(key);
   }, []);
 
@@ -359,8 +360,8 @@ export function TerminalPane({ port, threadId, cwd, onExit }: TerminalPaneProps)
   }, []);
 
   return (
-    <section aria-label="Terminal" style={styles.pane}>
-      <div role="tablist" aria-label="Shell sessions" style={styles.bar}>
+    <section aria-label={t("web.terminal.label")} style={styles.pane}>
+      <div role="tablist" aria-label={t("web.terminal.sessions")} style={styles.bar}>
         {tabs.map((key, i) => (
           <span key={key} style={styles.tab}>
             <button
@@ -374,11 +375,11 @@ export function TerminalPane({ port, threadId, cwd, onExit }: TerminalPaneProps)
                 fontWeight: key === active ? 600 : 400,
               }}
             >
-              shell {i + 1}
+              {t("web.terminal.tab", { n: i + 1 })}
             </button>
             <button
               type="button"
-              aria-label={`Close shell ${i + 1}`}
+              aria-label={t("web.terminal.closeTab", { n: i + 1 })}
               onClick={() => closeTab(key)}
               style={{ ...styles.tab, padding: 0 }}
             >
@@ -386,15 +387,18 @@ export function TerminalPane({ port, threadId, cwd, onExit }: TerminalPaneProps)
             </button>
           </span>
         ))}
-        <button type="button" aria-label="New shell" onClick={addTab} style={styles.tab}>
+        <button
+          type="button"
+          aria-label={t("web.terminal.newTab")}
+          onClick={addTab}
+          style={styles.tab}
+        >
           +
         </button>
         <span style={styles.label}>{tabs.length > 0 ? headerLabel(infos.get(active)) : ""}</span>
       </div>
       <div style={styles.body}>
-        {tabs.length === 0 ? (
-          <p style={styles.message}>No shells open. Press + to open one.</p>
-        ) : null}
+        {tabs.length === 0 ? <p style={styles.message}>{t("web.terminal.empty")}</p> : null}
         {tabs.map((key) => (
           <TerminalSession
             key={key}

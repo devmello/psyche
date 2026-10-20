@@ -1,7 +1,7 @@
 import type { PermissionMode } from "@psyche/protocol";
 import { Bell, ChevronDown, Download, Ellipsis, PanelRight, ShieldCheck } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
-import { Avatar } from "../avatar/Avatar.tsx";
+import { AVATAR_STATE_LABEL, Avatar } from "../avatar/Avatar.tsx";
 import type { ExportFormat } from "../chat/ExportMenu.tsx";
 import { Button } from "../components/ui/button.tsx";
 import {
@@ -14,15 +14,24 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
 import { useNotifications, useStoreState } from "../data/index.ts";
+import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { usePersona } from "../slots.tsx";
 import { useAgentStatus } from "./useAgentState.ts";
 
 export const MODE_LABEL: Record<PermissionMode, string> = {
-  manual: "manual",
-  balanced: "balanced",
-  auto: "auto",
-  plan: "plan",
+  get manual() {
+    return t("agent.mode.manual");
+  },
+  get balanced() {
+    return t("agent.mode.balanced");
+  },
+  get auto() {
+    return t("agent.mode.auto");
+  },
+  get plan() {
+    return t("agent.mode.plan");
+  },
 };
 
 const ACRONYMS = new Set(["gpt", "glm", "llm", "ai", "vl"]);
@@ -112,7 +121,7 @@ export function AgentHeader({
         type="button"
         onClick={onOpenSheet}
         className="rounded-full"
-        aria-label={`Open ${persona.name}'s activity, approvals, upcoming and memory`}
+        aria-label={t("agent.header.openSheet", { name: persona.name })}
         aria-keyshortcuts="Meta+Shift+A"
       >
         <Avatar
@@ -129,27 +138,31 @@ export function AgentHeader({
         <p className="text-sm font-semibold">{persona.name}</p>
         <button
           type="button"
-          className="block max-w-full truncate text-left text-sm text-muted-foreground hover:text-foreground"
+          className="block max-w-full truncate text-start text-sm text-muted-foreground hover:text-foreground"
           onClick={() => (status.taskId && onOpenTask ? onOpenTask(status.taskId) : onOpenSheet())}
         >
-          <span className="sr-only">{status.state.replace("-", " ")}: </span>
+          <span className="sr-only">
+            {t("agent.header.stateLead", { state: AVATAR_STATE_LABEL[status.state] })}{" "}
+          </span>
           {snippet}
         </button>
         {/* Run status for screen readers, beside the button rather than on it (C13). */}
         <span className="sr-only" role="status">
-          {status.state.replace("-", " ")}
+          {AVATAR_STATE_LABEL[status.state]}
         </span>
       </div>
       {status.running > 0 || status.needsYou > 0 ? (
         <p className="hidden items-center gap-2 text-caption text-muted-foreground sm:flex">
-          {status.running > 0 ? <span>{status.running} running</span> : null}
+          {status.running > 0 ? (
+            <span>{t("agent.header.running", { n: status.running })}</span>
+          ) : null}
           {status.needsYou > 0 && step !== null ? (
             <button
               type="button"
               onClick={onOpenSheet}
               className="rounded-sm text-approval-text hover:underline"
             >
-              {status.needsYou} need{status.needsYou === 1 ? "s" : ""} you
+              {t("agent.header.needYou", { n: status.needsYou })}
             </button>
           ) : null}
         </p>
@@ -160,7 +173,7 @@ export function AgentHeader({
           <DropdownMenu>
             <DropdownMenuTrigger
               className={PILL}
-              aria-label={`Permission mode: ${mode}`}
+              aria-label={t("agent.header.modeLabel", { mode: MODE_LABEL[mode] })}
               aria-keyshortcuts="Meta+Shift+M"
             >
               <ShieldCheck aria-hidden="true" />
@@ -184,7 +197,7 @@ export function AgentHeader({
           // Read-only here (no handler): a plain chip, not a disabled button.
           <span className={cn(PILL, "hover:border-gray-6 hover:bg-gray-2")}>
             <ShieldCheck aria-hidden="true" />
-            <span className="sr-only">Permission mode: </span>
+            <span className="sr-only">{t("agent.header.modeLead")} </span>
             {MODE_LABEL[mode]}
           </span>
         )
@@ -195,7 +208,7 @@ export function AgentHeader({
             type="button"
             className={PILL}
             onClick={onOpenModelPicker}
-            aria-label={`Model: ${modelLabel(model)}`}
+            aria-label={t("agent.header.modelLabel", { model: modelLabel(model) })}
             title={model}
             aria-keyshortcuts="Meta+Shift+I"
           >
@@ -204,7 +217,7 @@ export function AgentHeader({
           </button>
         ) : (
           <span className={cn(PILL, "hover:border-gray-6 hover:bg-gray-2")} title={model}>
-            <span className="sr-only">Model: </span>
+            <span className="sr-only">{t("agent.header.modelLead")} </span>
             {modelLabel(model)}
           </span>
         )
@@ -213,12 +226,12 @@ export function AgentHeader({
         variant="ghost"
         size="icon-sm"
         onClick={onOpenInbox}
-        aria-label={`Notifications, ${unread.length} unread`}
+        aria-label={t("agent.header.notifications", { n: unread.length })}
       >
         <Bell aria-hidden="true" />
         {unread.length > 0 ? (
           <span
-            className="absolute -mt-4 ml-4 rounded-full bg-accent-9 px-1 text-[10px] text-accent-contrast"
+            className="absolute -mt-4 ms-4 rounded-full bg-accent-9 px-1 text-[10px] text-accent-contrast"
             aria-hidden="true"
           >
             {unread.length}
@@ -226,24 +239,32 @@ export function AgentHeader({
         ) : null}
       </Button>
       <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="More" />}>
+        <DropdownMenuTrigger
+          render={<Button variant="ghost" size="icon-sm" aria-label={t("common.more")} />}
+        >
           <Ellipsis aria-hidden="true" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={onOpenSheet}>
-            <PanelRight aria-hidden="true" /> Activity, approvals and memory
+            <PanelRight aria-hidden="true" /> {t("agent.header.menuSheet")}
           </DropdownMenuItem>
           {onOpenModelPicker ? (
-            <DropdownMenuItem onClick={onOpenModelPicker}>Change model…</DropdownMenuItem>
+            <DropdownMenuItem onClick={onOpenModelPicker}>
+              {t("agent.header.changeModel")}
+            </DropdownMenuItem>
           ) : null}
           {onContextLimits || onCompact ? (
             <>
               <DropdownMenuSeparator />
               {onContextLimits ? (
-                <DropdownMenuItem onClick={onContextLimits}>Context limits…</DropdownMenuItem>
+                <DropdownMenuItem onClick={onContextLimits}>
+                  {t("context.limits.menu")}
+                </DropdownMenuItem>
               ) : null}
               {onCompact ? (
-                <DropdownMenuItem onClick={onCompact}>Compact now</DropdownMenuItem>
+                <DropdownMenuItem onClick={onCompact}>
+                  {t("context.meter.compactNow")}
+                </DropdownMenuItem>
               ) : null}
             </>
           ) : null}
@@ -251,13 +272,13 @@ export function AgentHeader({
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => onExport("markdown")}>
-                <Download aria-hidden="true" /> Export as Markdown
+                <Download aria-hidden="true" /> {t("agent.header.exportMarkdown")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onExport("json")}>
-                <Download aria-hidden="true" /> Export as JSON
+                <Download aria-hidden="true" /> {t("agent.header.exportJson")}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onExport("html")}>
-                <Download aria-hidden="true" /> Export as HTML
+                <Download aria-hidden="true" /> {t("agent.header.exportHtml")}
               </DropdownMenuItem>
             </>
           ) : null}
