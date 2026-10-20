@@ -18,6 +18,14 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S14 M3: VM mode, rest of L1–L5)
+
+For S14 (helper `vm.*`), S01 (sandbox runner "vm" mode, `vm.updated` rebroadcast), S11 (Settings → Devices).
+
+- `VmPhase` gains `paused` and `saved` (appended).
+- `VmGuest` gains optional `display`, `clipboard` (`VmClipboardMode`: off / paste_only / bidirectional), `vault` (`VmVaultPlacement`: host / guest), `agent` (`VmGuestAgentStatus`), `psycheInstalled`, `permissionsGranted`, `savedState`, `transfers` (`VmTransfer[]`).
+- New `VmConfigureParams`, `VmCopyInParams`, `VmCopyOutParams`; `VmProgressEvent.type` gains `vm.psyche_install` and `vm.permissions`.
+
 ### v1 additive — 2026-10-19 (M2 computer use: per-app tier keys on the action)
 
 For S02 (the loop passes it through), S05 (the broker's per-app tier check) and the Gateway's computer-use tools (`computer.act`, `apps.open`, `apps.focus`).

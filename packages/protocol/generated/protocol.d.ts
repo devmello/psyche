@@ -4135,6 +4135,31 @@ export interface ViewReportParams {
     layout: ViewLayout;
 }
 
+export interface VMConfigureParams {
+    clipboard?:     VMClipboardMode;
+    cpus?:          number;
+    displayHeight?: number;
+    displayWidth?:  number;
+    memoryGB?:      number;
+    name?:          string;
+    vault?:         VMVaultPlacement;
+}
+
+export type VMClipboardMode = "off" | "paste_only" | "bidirectional";
+
+export type VMVaultPlacement = "host" | "guest";
+
+export interface VMCopyInParams {
+    hostPath: string;
+    name?:    string;
+}
+
+export interface VMCopyOutParams {
+    guestPath: string;
+    hostDir:   string;
+    name?:     string;
+}
+
 export interface VMCreateParams {
     cpus?:     number;
     diskGB?:   number;
@@ -4158,7 +4183,7 @@ export interface VMProgressEvent {
     version?: string;
 }
 
-export type VMProgressEventType = "vm.download" | "vm.install" | "vm.state";
+export type VMProgressEventType = "vm.download" | "vm.install" | "vm.state" | "vm.psyche_install" | "vm.permissions";
 
 export interface VMShareAddParams {
     name?:     string;
@@ -4178,23 +4203,54 @@ export interface VMStatus {
 }
 
 export interface VMGuest {
-    cpus:     number;
-    diskGB:   number;
-    guestOS?: null | string;
+    agent?:     VMGuestAgentStatus;
+    clipboard?: VMClipboardMode;
+    cpus:       number;
+    diskGB:     number;
+    display?:   Display;
+    guestOS?:   null | string;
     /**
      * Machine reason of the last failure
      */
     lastError?: string;
     memoryGB:   number;
     name:       string;
-    phase:      VMPhase;
+    /**
+     * Accessibility / Screen Recording pre-granted offline (L3)
+     */
+    permissionsGranted?: boolean;
+    phase:               VMPhase;
     /**
      * First (provisioning) boot completed
      */
     provisioned: boolean;
+    /**
+     * Guest Psyche payload installed (L3)
+     */
+    psycheInstalled?: boolean;
+    /**
+     * A machine-state file exists (warm start)
+     */
+    savedState?: boolean;
     shares:      VMShare[];
+    transfers?:  VMTransfer[];
     username:    string;
+    vault?:      VMVaultPlacement;
     vsock:       Vsock;
+}
+
+export interface VMGuestAgentStatus {
+    accessibility?:   boolean;
+    connected:        boolean;
+    lastSeenAt?:      string;
+    screenRecording?: boolean;
+    version?:         string;
+}
+
+export interface Display {
+    height:  number;
+    visible: boolean;
+    width:   number;
 }
 
 export type VMPhase = "created" | "installing" | "installed" | "provisioning" | "stopped" | "starting" | "running" | "stopping" | "failed";
@@ -4211,6 +4267,17 @@ export interface VMShare {
     name:     string;
     readOnly: boolean;
 }
+
+export interface VMTransfer {
+    bytes:     number;
+    createdAt: string;
+    direction: Direction;
+    guestPath: string;
+    hostPath:  string;
+    id:        string;
+}
+
+export type Direction = "in" | "out";
 
 export interface Vsock {
     /**
