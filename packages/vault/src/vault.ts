@@ -124,6 +124,11 @@ export interface VaultOptions {
   onePassword?: OnePasswordSource;
   /** G11: read-only Bitwarden source for items linked with `linkBitwarden`. */
   bitwarden?: BitwardenSource;
+  /**
+   * Who manages a connector-owned item and where it is removed (#511); the Gateway knows its
+   * owner ids. Default: a connector's token, removed by disconnecting it.
+   */
+  owners?: (connectorId: string) => ManagedBy | undefined;
   /** Recovery-slot KDF parameters (tests lower them). */
   argon2?: Argon2Params;
   redactor?: SecretRedactor;
@@ -297,6 +302,22 @@ const OP_FIELD: Partial<Record<keyof ItemSecret, OnePasswordField>> = {
   text: "notes",
 };
 
+/** Who manages a Gateway-owned item, and whether `delete` takes it (#511). */
+export type ManagedBy = NonNullable<CredentialMeta["managedBy"]>;
+
+const DEFAULT_MANAGED_BY: ManagedBy = {
+  kind: "connector",
+  setting: "connectors",
+  removable: false,
+};
+
+const SETTING_LABEL: Record<ManagedBy["setting"], string> = {
+  connectors: "Connectors (disconnect it)",
+  models: "Models",
+  channels: "Channels",
+  credentials: "Credentials",
+};
+
 /** The Bitwarden field a vault secret key reads (G11). */
 const BW_FIELD: Partial<Record<keyof ItemSecret, BitwardenField>> = {
   username: "username",
@@ -379,6 +400,10 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
   readonly #revoked = new Set<(e: CredentialRevokedEvent) => void>();
   /** `once` approvals a fill has claimed in this process (persisted as `filled` uses). */
   readonly #claimedOnce = new Set<string>();
+  /** Secret env leases (#290) per item, so deleting the item wipes them (#511). */
+  readonly #leases = new Map<string, Set<() => void>>();
+  /** Fill handles not yet used, per item, so deleting the item disposes them (#511). */
+  readonly #handles = new Map<string, Set<ResolvedSecret>>();
 
   constructor(options: VaultOptions) {
     this.#o = {
@@ -1005,10 +1030,25 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     const item = u.store.get(credentialId);
     if (item === undefined) return false;
     if (item.ownerConnectorId !== null) {
-      return fail("forbidden", "disconnect the connector to remove its token");
+      const managed = this.#managedBy(item.ownerConnectorId);
+      if (!managed.removable) {
+        return fail(
+          "forbidden",
+          `${item.name} belongs to the Gateway: remove it in Settings → ${SETTING_LABEL[managed.setting]}`,
+          { reason: "gateway_owned", kind: managed.kind, setting: managed.setting },
+        );
+      }
     }
-    await this.#remove(u, item, "deleted");
-    await this.#audit("credential.deleted", { credentialId, slug: item.slug });
+    const revoked = await this.#remove(u, item, "deleted");
+    await this.#audit("credential.deleted", {
+      credentialId,
+      slug: item.slug,
+      kind: item.kind,
+      backend: item.attrs.backend ?? "vault",
+      grantsRevoked: revoked.grants,
+      leasesEnded: revoked.leases,
+      handlesDisposed: revoked.handles,
+    });
     return true;
   }
 
@@ -1028,7 +1068,11 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     void this.#audit("vault.restored_items_dropped", { count: dropped });
   }
 
-  async #remove(u: Unlocked, item: ItemRow, change: "deleted" | "revoked"): Promise<void> {
+  async #remove(
+    u: Unlocked,
+    item: ItemRow,
+    change: "deleted" | "revoked",
+  ): Promise<{ grants: number; leases: number; handles: number }> {
     // Recorded first: if the rest fails half-way, a restore still cannot resurrect the item.
     this.#o.removals?.record(item.id);
     if (item.attrs.backend === "keychain") await this.#keychainItems().remove(item.id);
@@ -1041,6 +1085,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       credential: null,
       ownerConnectorId: item.ownerConnectorId,
     });
+    return this.#revokeFills(item.id);
   }
 
   /** CSV import (1Password / Bitwarden / Chrome). Refused rows are reported by row number only. */
@@ -1096,7 +1141,11 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
   /** While unlocked, say where each item's secret lives (G9 / G10); locked, the mirror has no column for it. */
   #withBackend(m: CredentialMeta): CredentialMeta {
     const item = this.#unlocked?.store.get(m.id);
-    return item === undefined ? m : { ...m, backend: item.attrs.backend ?? "vault" };
+    const managed =
+      m.ownerConnectorId == null ? {} : { managedBy: this.#managedBy(m.ownerConnectorId) };
+    return item === undefined
+      ? { ...m, ...managed }
+      : { ...m, ...managed, backend: item.attrs.backend ?? "vault" };
   }
 
   /** One item's metadata by slug, synchronously (an executor binding a fill before dispatch). */
@@ -1389,7 +1438,9 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
           outcome: "filled",
           source: ext,
         });
-        return new ResolvedSecret(read, { credentialId: meta.id, target, field: "totp" });
+        return this.#issued(
+          new ResolvedSecret(read, { credentialId: meta.id, target, field: "totp" }),
+        );
       }
       secret = { [key]: read };
     }
@@ -1406,11 +1457,80 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       field: field ?? "secret",
       outcome: "filled",
     });
-    return new ResolvedSecret(value, {
-      credentialId: meta.id,
-      target,
-      ...(field === undefined ? {} : { field }),
-    });
+    return this.#issued(
+      new ResolvedSecret(value, {
+        credentialId: meta.id,
+        target,
+        ...(field === undefined ? {} : { field }),
+      }),
+    );
+  }
+
+  #issued(handle: ResolvedSecret): ResolvedSecret {
+    let set = this.#handles.get(handle.credentialId);
+    if (set === undefined) {
+      set = new Set();
+      this.#handles.set(handle.credentialId, set);
+    }
+    for (const h of set) if (h.spent) set.delete(h);
+    set.add(handle);
+    return handle;
+  }
+
+  /**
+   * A secret env lease (#290) drawn from these items: deleting or revoking any of them wipes it
+   * (#511). `buildSecretEnv` registers its leases here; returns the unregister function.
+   */
+  trackLease(credentialIds: readonly string[], dispose: () => void): () => void {
+    for (const id of credentialIds) {
+      let set = this.#leases.get(id);
+      if (set === undefined) {
+        set = new Set();
+        this.#leases.set(id, set);
+      }
+      set.add(dispose);
+    }
+    return () => {
+      for (const id of credentialIds) this.#leases.get(id)?.delete(dispose);
+    };
+  }
+
+  /**
+   * Everything an item still lets anyone do once it is gone: its `credential_fill` grants
+   * (site scope), live secret env leases and unused fill handles. Values already in the
+   * redactor stay masked.
+   */
+  async #revokeFills(
+    credentialId: string,
+  ): Promise<{ grants: number; leases: number; handles: number }> {
+    const leases = [...(this.#leases.get(credentialId) ?? [])];
+    this.#leases.delete(credentialId);
+    for (const dispose of leases) {
+      try {
+        dispose();
+      } catch {
+        // A failed wipe never stops the delete.
+      }
+    }
+    const handles = [...(this.#handles.get(credentialId) ?? [])].filter((h) => !h.spent);
+    this.#handles.delete(credentialId);
+    for (const h of handles) h.dispose();
+    let grants = 0;
+    try {
+      const prefix = `credential_fill|${credentialId}|`;
+      for (const g of await this.#o.permissions.listGrants({ kind: "credential_fill" })) {
+        if (g.revokedAt !== null || !g.grantKey.startsWith(prefix)) continue;
+        await this.#o.permissions.revokeGrant(g.id);
+        grants += 1;
+      }
+    } catch {
+      // The item is gone either way: a grant for a missing item resolves to not_found.
+    }
+    return { grants, leases: leases.length, handles: handles.length };
+  }
+
+  #managedBy(connectorId: string): ManagedBy {
+    return this.#o.owners?.(connectorId) ?? DEFAULT_MANAGED_BY;
   }
 
   #valueOf(
