@@ -24,6 +24,7 @@ export * from "./recording/recorder.ts";
 export * from "./recording/store.ts";
 export { buildSnapshot, extractText, SECURE_MASK } from "./snapshot/builder.ts";
 export { RefRegistry } from "./snapshot/refs.ts";
+export * from "./tools/attention.ts";
 export { bindingHash, canonicalJson, classifyActivation } from "./tools/classify.ts";
 export { ApprovalGate, type CallContext } from "./tools/gate.ts";
 export {

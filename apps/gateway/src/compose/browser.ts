@@ -21,7 +21,14 @@ import {
   systemLoopbackProbes,
 } from "@psyche/browser";
 import { getSetting } from "@psyche/db";
-import { createLocalProjectVerifier, type LocalProjectVerifier } from "@psyche/permissions";
+import {
+  type CompiledPolicy,
+  compilePolicy,
+  createLocalProjectVerifier,
+  isSensitiveHost,
+  type LocalProjectVerifier,
+  type PolicyConfig,
+} from "@psyche/permissions";
 import {
   type CredentialBroker,
   type DriverSession,
@@ -398,6 +405,24 @@ export function composeBrowser(
       });
     },
   };
+  // The owner-editable sensitive-category list lives in the permissions policy (security §3.2):
+  // compiled once per policy object, so a Settings edit applies on the next call.
+  let compiled: { from: PolicyConfig; policy: CompiledPolicy } | undefined;
+  const isSensitive = (origin: string): boolean => {
+    const from = services.rawBroker.policy;
+    if (compiled?.from !== from) compiled = { from, policy: compilePolicy(from) };
+    try {
+      return isSensitiveHost(compiled.policy, new URL(origin).hostname);
+    } catch {
+      return false;
+    }
+  };
+  const attentionSource = services.attention;
+  const attentionGate =
+    attentionSource === undefined
+      ? undefined
+      : { isSensitive, state: () => attentionSource("browser"), now: () => services.clock.now() };
+
   const unregister = registerBrowserTools(tools, {
     driver: driverProxy,
     broker: services.broker,
@@ -424,6 +449,10 @@ export function composeBrowser(
       return realChromeOn() ? realChrome : undefined;
     },
     devPreview: devServers,
+    // Pause-when-unwatched (#272), once the Gateway knows the owner's attention.
+    get attention() {
+      return attentionGate;
+    },
     containsSecret: (text: string) => redact(text) !== text,
     // Hand-offs (S20): the pane shows the reason and the owner gets an "input needed" notice.
     async requestControl(req) {
