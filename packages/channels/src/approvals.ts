@@ -11,6 +11,7 @@ import {
   chatEligibility,
   kindLabel,
   renderApprovalCard,
+  renderDevicePointer,
 } from "./format/approval-card.ts";
 import { channelSettings } from "./settings.ts";
 
@@ -117,12 +118,20 @@ export class ChatApprovals {
           allowDestructive: channelSettings(channel).allowDestructiveApprovals,
         });
         if (!eligibility.ok) {
+          // The chat may not answer this one: the header and "Answer this on your Mac." only,
+          // never the arguments and never a token (security §3.7, §9; design-12).
+          try {
+            await this.#host.sendText(channel, peerId, renderDevicePointer(surface, approval));
+          } catch {
+            // The pointer is a courtesy; the report carries the reason either way.
+          }
           reports.push({ surface, delivered: false, reason: eligibility.reason });
           continue;
         }
         const caps = adapter.capabilities();
         const buttons = adapter.sendApprovalButtons !== undefined && caps.buttons;
         const card = renderApprovalCard(approval, {
+          surface,
           ref: approvalRef(approval.id),
           now: this.#host.now(),
           commandFallback: !buttons,
@@ -130,9 +139,13 @@ export class ChatApprovals {
         });
         try {
           if (!card.answerable) {
-            // Too long to show in full: point to a paired device and accept no chat answer.
+            // Too long to show in full (or device-only): point to the Mac, accept no chat answer.
             await this.#host.sendText(channel, peerId, card.text);
-            reports.push({ surface, delivered: false, reason: "too_long_for_chat" });
+            reports.push({
+              surface,
+              delivered: false,
+              reason: card.reason === "device_only" ? "device_only" : "too_long_for_chat",
+            });
             continue;
           }
           if (buttons) await adapter.sendApprovalButtons?.(peerId, approval, answerToken);

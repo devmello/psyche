@@ -6,10 +6,23 @@ import {
   FX_HOSTS,
   type FxHost,
   type FxSite,
+  loginUser,
   NOT_FOUND_PAGE,
   resolveHref,
+  SESSION_COOKIE,
   submissionPage,
 } from "./site.ts";
+
+/** `Cookie: a=1; b=2` → map. */
+function parseCookies(header: string | undefined): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const part of (header ?? "").split(";")) {
+    const i = part.indexOf("=");
+    if (i === -1) continue;
+    out.set(part.slice(0, i).trim(), decodeURIComponent(part.slice(i + 1).trim()));
+  }
+  return out;
+}
 
 /**
  * Serves the fixture site on 127.0.0.1 for real browsers. Hosts are `site-a.localhost`,
@@ -68,7 +81,8 @@ export class FixtureServer {
     if (host === undefined) return { status: 421, headers: {}, body: "unknown host" };
     const url = new URL(req.url ?? "/", this.origin(host));
     const key = `${host}${url.pathname}`;
-    const html = { "content-type": "text/html; charset=utf-8" };
+    const html: Record<string, string> = { "content-type": "text/html; charset=utf-8" };
+    const cookies = parseCookies(req.headers.cookie);
     const redirect = this.site.redirects[key];
     if (redirect !== undefined) {
       return {
@@ -104,10 +118,19 @@ export class FixtureServer {
         }
       }
       this.submissions.push({ path: url.pathname, fields });
+      // A login sets the session cookie the `a/account` page reads (I15 isolation proof).
+      const user = loginUser(url.pathname, fields);
+      const headers = { ...html };
+      if (user !== undefined) {
+        cookies.set(SESSION_COOKIE, user);
+        // Persistent (Max-Age), so the profile keeps it across a context relaunch.
+        headers["set-cookie"] =
+          `${SESSION_COOKIE}=${encodeURIComponent(user)}; Path=/; Max-Age=3600`;
+      }
       return {
         status: 200,
-        headers: html,
-        body: renderHtml(submissionPage(url.pathname, fields), host, this.origin),
+        headers,
+        body: renderHtml(submissionPage(url.pathname, fields), host, this.origin, cookies),
       };
     }
     // `/spa/two` and friends render the SPA shell, as a history-API app would.
@@ -117,6 +140,10 @@ export class FixtureServer {
     if (page === undefined) {
       return { status: 404, headers: html, body: renderHtml(NOT_FOUND_PAGE, host, this.origin) };
     }
-    return { status: page.status ?? 200, headers: html, body: renderHtml(page, host, this.origin) };
+    return {
+      status: page.status ?? 200,
+      headers: html,
+      body: renderHtml(page, host, this.origin, cookies),
+    };
   }
 }

@@ -1,6 +1,11 @@
-import { NotImplementedError } from "@psyche/protocol";
-
-/** Placeholder owned by S19; replaced by the package's real public API. */
-export function nodeNotImplemented(): never {
-  throw new NotImplementedError("@psyche/node");
-}
+export { type AgentState, NodeAgent, type NodeAgentOptions } from "./agent.ts";
+export { Backoff } from "./backoff.ts";
+export * from "./capabilities/types.ts";
+export { SkewClock } from "./clock.ts";
+export { type NodeConfig, parseArgs } from "./config.ts";
+export { generateIdentity, loadOrCreateIdentity, type NodeIdentity } from "./identity.ts";
+export { createInvocationContext } from "./invocation.ts";
+export { createNodeRuntime, NODE_VERSION, type NodeRuntime } from "./runtime.ts";
+export type { ChannelFactory, FrameChannel } from "./transports/channel.ts";
+export { channelFactory, planTransports } from "./transports/select.ts";
+export { detectVmGuest } from "./transports/vsock.ts";

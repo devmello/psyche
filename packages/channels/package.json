@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@psyche/db": "workspace:*",
+    "@psyche/permissions": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "grammy": "1.46.0"
   },
