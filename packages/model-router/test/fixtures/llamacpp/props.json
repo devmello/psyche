@@ -1,0 +1,14 @@
+{
+  "name": "llama-server GET /props",
+  "request": {
+    "method": "GET",
+    "pathEndsWith": "/props"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"default_generation_settings\":{\"n_ctx\":32768,\"params\":{\"temperature\":0.8}},\"total_slots\":1,\"model_path\":\"/models/qwen3.8-27b-q4_k_m.gguf\",\"chat_template\":\"{%- if tools %}...{%- endif %}\",\"chat_template_caps\":{\"supports_tools\":true,\"supports_tool_calls\":true,\"supports_parallel_tool_calls\":true,\"supports_system_role\":true},\"modalities\":{\"vision\":false,\"audio\":false},\"build_info\":\"b6700-fixture\",\"is_sleeping\":false}"
+  }
+}

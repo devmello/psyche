@@ -1,0 +1,14 @@
+{
+  "name": "LM Studio: prompt longer than the loaded context length (plain-string error)",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 400,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":\"Trying to keep the first 9000 tokens when context the overflows. However, the model is loaded with context length of only 4096 tokens, which is not enough. Try to load the model with a larger context length, or provide a shorter input\"}"
+  }
+}

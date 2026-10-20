@@ -1,0 +1,23 @@
+{
+  "name": "llama-server quirks: both calls on index 0, empty continuation id, object arguments, finish stop",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream",
+      "server": "llama.cpp"
+    },
+    "chunks": [
+      "data: {\"choices\":[{\"finish_reason\":null,\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null}}],\"created\":1760000000,\"id\":\"chatcmpl-fxLc0001\",\"model\":\"qwen3.8-27b\",\"system_fingerprint\":\"b6700-fixture\",\"object\":\"chat.completion.chunk\"}\n\n",
+      "data: {\"choices\":[{\"finish_reason\":null,\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_qA\",\"type\":\"function\",\"function\":{\"name\":\"weather\",\"arguments\":\"{\\\"city\\\":\"}}]}}],\"created\":1760000000,\"id\":\"chatcmpl-fxLc0001\",\"model\":\"qwen3.8-27b\",\"system_fingerprint\":\"b6700-fixture\",\"object\":\"chat.completion.chunk\"}\n\n",
+      "data: {\"choices\":[{\"finish_reason\":null,\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"\",\"function\":{\"arguments\":\"\\\"Paris\\\"}\"}}]}}],\"created\":1760000000,\"id\":\"chatcmpl-fxLc0001\",\"model\":\"qwen3.8-27b\",\"system_fingerprint\":\"b6700-fixture\",\"object\":\"chat.completion.chunk\"}\n\n",
+      "data: {\"choices\":[{\"finish_reason\":null,\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_qB\",\"type\":\"function\",\"function\":{\"name\":\"weather\",\"arguments\":{\"city\":\"Tokyo\"}}}]}}],\"created\":1760000000,\"id\":\"chatcmpl-fxLc0001\",\"model\":\"qwen3.8-27b\",\"system_fingerprint\":\"b6700-fixture\",\"object\":\"chat.completion.chunk\"}\n\n",
+      "data: {\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"delta\":{}}],\"created\":1760000000,\"id\":\"chatcmpl-fxLc0001\",\"model\":\"qwen3.8-27b\",\"system_fingerprint\":\"b6700-fixture\",\"object\":\"chat.completion.chunk\"}\n\n",
+      "data: {\"choices\":[],\"created\":1760000000,\"id\":\"chatcmpl-fxLc0001\",\"model\":\"qwen3.8-27b\",\"system_fingerprint\":\"b6700-fixture\",\"object\":\"chat.completion.chunk\",\"usage\":{\"completion_tokens\":30,\"prompt_tokens\":300,\"total_tokens\":330}}\n\n",
+      "data: [DONE]\n\n"
+    ]
+  }
+}

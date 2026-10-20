@@ -1,0 +1,23 @@
+{
+  "name": "LM Studio: two parallel tool calls",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream"
+    },
+    "chunks": [
+      "data: {\"id\":\"chatcmpl-fxlms0001\",\"object\":\"chat.completion.chunk\",\"created\":1760000000,\"model\":\"qwen/qwen3.8-27b\",\"system_fingerprint\":\"qwen/qwen3.8-27b\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+      "data: {\"id\":\"chatcmpl-fxlms0001\",\"object\":\"chat.completion.chunk\",\"created\":1760000000,\"model\":\"qwen/qwen3.8-27b\",\"system_fingerprint\":\"qwen/qwen3.8-27b\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"592013376\",\"type\":\"function\",\"function\":{\"name\":\"weather\",\"arguments\":\"\"}}]},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+      "data: {\"id\":\"chatcmpl-fxlms0001\",\"object\":\"chat.completion.chunk\",\"created\":1760000000,\"model\":\"qwen/qwen3.8-27b\",\"system_fingerprint\":\"qwen/qwen3.8-27b\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"type\":\"function\",\"function\":{\"arguments\":\"{\\\"city\\\":\\\"Paris\\\"}\"}}]},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+      "data: {\"id\":\"chatcmpl-fxlms0001\",\"object\":\"chat.completion.chunk\",\"created\":1760000000,\"model\":\"qwen/qwen3.8-27b\",\"system_fingerprint\":\"qwen/qwen3.8-27b\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":1,\"id\":\"118301147\",\"type\":\"function\",\"function\":{\"name\":\"weather\",\"arguments\":\"\"}}]},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+      "data: {\"id\":\"chatcmpl-fxlms0001\",\"object\":\"chat.completion.chunk\",\"created\":1760000000,\"model\":\"qwen/qwen3.8-27b\",\"system_fingerprint\":\"qwen/qwen3.8-27b\",\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":1,\"type\":\"function\",\"function\":{\"arguments\":\"{\\\"city\\\":\\\"Tokyo\\\"}\"}}]},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+      "data: {\"id\":\"chatcmpl-fxlms0001\",\"object\":\"chat.completion.chunk\",\"created\":1760000000,\"model\":\"qwen/qwen3.8-27b\",\"system_fingerprint\":\"qwen/qwen3.8-27b\",\"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"tool_calls\"}]}\n\n",
+      "data: {\"id\":\"chatcmpl-fxlms0001\",\"object\":\"chat.completion.chunk\",\"created\":1760000000,\"model\":\"qwen/qwen3.8-27b\",\"system_fingerprint\":\"qwen/qwen3.8-27b\",\"choices\":[],\"usage\":{\"prompt_tokens\":280,\"completion_tokens\":44,\"total_tokens\":324}}\n\n",
+      "data: [DONE]\n\n"
+    ]
+  }
+}

@@ -12,7 +12,7 @@ import type {
 import type { JsonObject, ModelMessage, ModelPart, ModelRequest, ToolSpec } from "@psyche/protocol";
 import { type ProviderConfig, packageKey } from "./config.ts";
 import { isEnvelope, type OpaqueEnvelope, type ProviderMetadata } from "./envelope.ts";
-import { ToolNameMap } from "./tool-names.ts";
+import { ToolNameMap, toolNameRuleFor } from "./tool-names.ts";
 
 type AssistantContent = Extract<LanguageModelV4Message, { role: "assistant" }>["content"];
 type UserContent = Extract<LanguageModelV4Message, { role: "user" }>["content"];
@@ -37,7 +37,7 @@ function defaultOptions(ctx: ConvertContext): JsonObject {
   }
   // Privacy default (security §2): nothing stored provider-side; encrypted reasoning comes back.
   if (config.kind === "openai") return { store: false };
-  if (config.kind === "google") return { store: false };
+  if (config.kind === "google" && config.googleApi !== "generate-content") return { store: false };
   return {};
 }
 
@@ -120,7 +120,7 @@ export function convertMessages(request: ModelRequest, ctx: ConvertContext): Lan
     prompt.push({ role: "system", content: request.system });
   }
 
-  const names = ctx.toolNames ?? ToolNameMap.for(request);
+  const names = ctx.toolNames ?? ToolNameMap.for(request, toolNameRuleFor(ctx.config.kind));
   const c: ConvertContext = { ...ctx, toolNames: names };
   const toolNames = new Map<string, string>();
   for (const m of request.messages) {
@@ -332,7 +332,10 @@ export function convertRequest(
   request: ModelRequest,
   ctx: ConvertContext,
 ): Omit<LanguageModelV4CallOptions, "abortSignal"> {
-  const c: ConvertContext = { ...ctx, toolNames: ctx.toolNames ?? ToolNameMap.for(request) };
+  const c: ConvertContext = {
+    ...ctx,
+    toolNames: ctx.toolNames ?? ToolNameMap.for(request, toolNameRuleFor(ctx.config.kind)),
+  };
   const prompt = convertMessages(request, c);
   if (ctx.config.kind === "anthropic" && ctx.config.promptCaching !== false) {
     applyPromptCaching(prompt, ctx.config.cacheTtl);
