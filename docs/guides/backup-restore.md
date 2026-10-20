@@ -1,6 +1,6 @@
 # Back up and restore Psyche
 
-A Psyche backup is one encrypted file, `psyche-<time>.tar.gz.age`. You can make it while Psyche is running, check it without restoring it, and restore it on the same machine or a new one.
+A Psyche backup is one encrypted file, `psyche-<time>.tar.gz.age`. You can make it while Psyche is running, check it without restoring it, and restore it on the same machine or a new one. To move Psyche to another machine, follow [migrate.md](migrate.md).
 
 ## What a backup holds
 
@@ -12,6 +12,7 @@ A Psyche backup is one encrypted file, `psyche-<time>.tar.gz.age`. You can make 
 | `library/`: files and recordings | Browser profiles |
 | `audit/`: the audit log | Sandbox workspaces and VM disks |
 | `config.json` | Earlier backups in `$PSYCHE_HOME/backups/` |
+| | `security/`: the revocation ledger and the audit anchor key, which stay on the machine |
 
 Every archive also holds a manifest with the SHA-256 of each file, so a damaged or altered archive is detected.
 
@@ -43,7 +44,7 @@ The vault inside a backup stays encrypted. On a new Mac you unlock it with the v
 psyche backup create --recipient age1…
 ```
 
-Leave out `--recipient` to be asked for a passphrase. With the Gateway running, the Gateway takes the snapshot itself, without downtime, and the file lands in `$PSYCHE_HOME/backups/`. Copy it off the machine afterwards; a backup on the same disk does not protect you from losing the disk.
+Leave out `--recipient` to be asked for a passphrase. With the Gateway running, the CLI asks the Gateway for the backup (`backup.create`): it copies the database with SQLite's online backup, without downtime, and the file lands in `$PSYCHE_HOME/backups/`. Copy it off the machine afterwards; a backup on the same disk does not protect you from losing the disk.
 
 To write the file somewhere else, use `--out`. That path needs the Gateway stopped; `--stop` stops it for the snapshot and starts it again:
 
@@ -53,13 +54,15 @@ psyche backup create --stop --out /Volumes/Backup/psyche.tar.gz.age --recipient 
 
 ### From the app
 
-Settings › Backups lists the archives in `$PSYCHE_HOME/backups/` (the same files the CLI makes). **Back up now** encrypts with a passphrase you type; it is sent once to the Gateway and not stored. You can verify and delete each archive there. Restoring is not offered in the app, because it replaces the Gateway's own data; use the CLI.
+Settings › Backups lists the archives in `$PSYCHE_HOME/backups/` (the same files the CLI makes). **Back up now** asks the running Gateway for an online backup, encrypted with a passphrase you type; the passphrase is sent once and not stored.
+
+**Verify** has the Gateway decrypt the archive and check every file against its manifest (`backup.verify`). For a passphrase archive, type its passphrase in the field first. An archive made for an age recipient can be verified there only if the Gateway was started with `PSYCHE_BACKUP_IDENTITY_FILE` set to the private key file; otherwise verify it with the CLI. Each archive shows when it last verified. **Delete** removes an archive; once a passkey or the Mac helper's Touch ID key can verify, it asks for one first. Restoring is not offered in the app, because it replaces the Gateway's own data; use the CLI.
 
 The panel also has a **Scheduled backups** setting (Off, Daily, Weekly, and how many to keep). The Gateway does not run scheduled backups yet; until it does, schedule them with cron or a systemd timer as below.
 
 ### With Docker Compose
 
-The scripts in `deploy/backup/` run `psyche` in a one-off container next to the Gateway. They stop the Gateway for the snapshot and always start it again.
+The scripts in `deploy/backup/` run `psyche` in a one-off container next to the Gateway. They stop the Gateway for the snapshot and always start it again. The release's `psyche-compose-<version>.tar.gz` carries the same scripts in its `backup/` directory.
 
 1. Create the backup directory once. It must be owned by uid 10001, the user in the image:
 
@@ -148,6 +151,8 @@ deploy/backup/verify.sh /srv/psyche-backups/psyche-<time>.tar.gz.age key.txt
 
 Restoring replaces Psyche's data with the backup. The Gateway must be stopped. The CLI verifies the archive before it touches anything, and with `--force` it moves your current data to `$PSYCHE_HOME/.pre-restore-<time>/` instead of refusing. If the restore fails partway, it rolls back.
 
+A restore never brings back what you revoked after the backup was made. Device revocations, grant revocations and vault item deletions (including revoked connector tokens) are recorded in a ledger, `$PSYCHE_HOME/security/revocations.jsonl`, that is never archived. The next Gateway start replays it against the restored database, and the vault drops deleted items when it starts and unlocks. Restoring into a home without a ledger, such as a new machine where no Gateway has run yet, un-pairs every device and revokes every standing grant instead, because the Gateway cannot know what was revoked after the backup; [migrate.md](migrate.md) explains what to expect.
+
 ### On the same machine (Mac, or Linux with systemd)
 
 1. Verify the backup (see above).
@@ -166,43 +171,9 @@ Restoring replaces Psyche's data with the backup. The Gateway must be stopped. T
 
 4. When you are satisfied, you can delete `$PSYCHE_HOME/.pre-restore-<time>/`. Until then it is your way back.
 
-### On a new Mac
+### On a new Mac or another server
 
-1. Install Psyche and open it once, so the Gateway service exists ([install.md](install.md)). Skip onboarding; the backup brings your settings.
-2. Install the CLI and copy the backup file and your age key (or passphrase) to the Mac.
-3. Restore. The fresh, empty data is moved aside:
-
-   ```bash
-   psyche backup restore psyche-<time>.tar.gz.age --stop --force -i key.txt
-   ```
-
-4. Unlock the vault with its recovery key. The keychain entry from the old Mac does not travel:
-
-   ```bash
-   psyche vault unlock --recovery
-   ```
-
-   The CLI's device key is not in the backup, so the first time the CLI prints a pairing code instead. Approve it, then run `psyche vault unlock --recovery` again:
-
-   ```bash
-   /Applications/Psyche.app/Contents/Resources/psyched/psyched devices approve <CODE>
-   ```
-
-5. Remove devices that belonged to the old machine. Find them with `psyche devices list --all`, then revoke each one:
-
-   ```bash
-   psyche devices revoke <id>
-   ```
-
-6. Run the checks:
-
-   ```bash
-   psyche doctor
-   ```
-
-   ```bash
-   psyche security audit
-   ```
+Restoring on a new machine also needs the vault recovery key, pairing the CLI and your devices again, and the same version of Psyche as the old machine. [migrate.md](migrate.md) has the steps for a new Mac, a Linux server with Compose, and a systemd host.
 
 macOS permissions (Accessibility, Screen Recording and so on) are tied to the machine; grant them again when Psyche asks.
 
@@ -214,7 +185,7 @@ macOS permissions (Accessibility, Screen Recording and so on) are tied to the ma
 deploy/backup/restore.sh /srv/psyche-backups/psyche-<time>.tar.gz.age key.txt
 ```
 
-For a passphrase backup, leave out `key.txt` and set `PSYCHE_BACKUP_PASSPHRASE` in the environment. On a new server, set up Compose first ([install.md](install.md)), restore, then unlock the vault:
+For a passphrase backup, leave out `key.txt` and set `PSYCHE_BACKUP_PASSPHRASE` in the environment. On a new server, follow [migrate.md](migrate.md#mac-to-a-linux-server-with-docker-compose); after the restore, unlock the vault:
 
 ```bash
 docker compose -f deploy/docker-compose.yml exec gateway psyche vault unlock --recovery

@@ -24,6 +24,10 @@ Psyche is the open alternative to Meta's Muse: one persistent conversation with 
 | [reports/Psyche personal agent landscape.md](reports/Psyche%20personal%20agent%20landscape.md) | Research report: what Muse, the Claude desktop app, OpenMuse, OpenClaw, Codex/ChatGPT and browser-agent frameworks do, and what to build on |
 | [research_notes/](research_notes/Psyche%20personal%20agent%20landscape/) | Seven sourced research files (~1 MB, ~2,000 citations) behind the report |
 
+## Guides
+
+For people running Psyche rather than building it: [docs/guides/](docs/guides/README.md). Start with [install](docs/guides/install.md), then [backup and restore](docs/guides/backup-restore.md), [upgrade](docs/guides/upgrade.md) and [move to another machine](docs/guides/migrate.md).
+
 ## Run the skeleton
 
 The walking skeleton is one path through the real Gateway, agent loop, model router, Permission Broker, memory and task engine: onboarding writes the persona files, a chat turn streams, the agent reads a file in a granted folder and proposes a write, you approve it once and get a receipt, it asks a question with chips, the checklist and wrap-up box update, a delegated task keeps running after the window closes, the memory flush writes today's daily note, and the workspace exports as a zip.
