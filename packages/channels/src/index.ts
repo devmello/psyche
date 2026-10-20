@@ -3,6 +3,7 @@
 
 export * from "./adapters/email/index.ts";
 export * from "./adapters/imessage/index.ts";
+export * from "./adapters/slack/index.ts";
 export * from "./adapters/sms/index.ts";
 export * from "./adapters/telegram/index.ts";
 export * from "./adapters/webchat.ts";

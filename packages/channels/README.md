@@ -53,6 +53,17 @@ These never reach chat: `deviceOnly` requests, `financial`, `purchase`, `credent
 - **Outbound.** A form POST to `{apiBase}/2010-04-01/Accounts/{AccountSid}/Messages.json` with `To`, `From` (or `MessagingServiceSid`) and `Body`, using basic auth. Messages are plain text, up to 1600 characters (the service chunks), with no buttons, typing, Markdown or outbound media. 429 → `rate_limited` (retryable, `retryAfterSec`), 5xx → `unavailable` (retryable), 21610 → `forbidden` "the recipient unsubscribed", other 4xx → a clear error carrying the Twilio code but never Twilio's message text. Default rate: 0.2/s per chat, 1/s per channel, burst 2, because every segment is billed.
 - **MMS.** `NumMedia` / `MediaUrlN` / `MediaContentTypeN` become attachment metadata with `ref` set to the media URL. `fetchAttachment` fetches only `https://api.twilio.com` (or the configured `apiBase`), with basic auth. It follows one redirect to the CDN without credentials and caps the download at 5 MB.
 
+## Slack (N8)
+
+`SlackAdapter` (`src/adapters/slack/`) over **Socket Mode**: `apps.connections.open` with the app-level token (`xapp-…`, scope `connections:write`) gives a WebSocket URL; every envelope is acknowledged at once; replies go through the Web API with the bot token (`xoxb-…`). No public endpoint, so it works with the loopback-bound Gateway (security §10). There is no Slack SDK: `fetch` plus the WHATWG `WebSocket` (Node 22+).
+
+- **Secrets.** Both tokens are `SecretSource`s read per call (`use(fn)`). The Gateway reads them from Gateway-owned vault items that `channels.secrets.set` stores (`channel-slack-<account digest>-bot-token` / `-app-token`), or from `PSYCHE_SLACK_BOT_TOKEN(_FILE)` / `PSYCHE_SLACK_APP_TOKEN(_FILE)`. The channel is off unless `PSYCHE_SLACK_WORKSPACE` (the account) is set. A token never appears in an error or a log.
+- **Inbound.** Only `message` events are mapped: DMs (`channel_type: im`) and channels (groups, so `config.groups` and `requireMention` apply). Bots, Psyche's own messages and system subtypes are dropped; `message_changed` becomes an edit. A mention counts only as Slack's structured `<@BOT>` form. Text is de-markup'd (`<url|label>` → `label (url)`). Files arrive as attachments that go to the Library quarantine; `fetchAttachment` downloads with the bot token only from `files.slack.com`. Sender ids are Slack user ids (`U…`/`W…`, checked by `validateChannel`).
+- **Threads.** A reply goes into the thread the person wrote in; in a channel, a root mention starts a thread under it. DMs stay at the root.
+- **Approvals.** The card is `renderForSurface("slack:<user>")` in a plain-text section (≤ 3000 chars), plus Approve / Deny buttons carrying a random nonce. The approval id and answer token stay in the process. A click becomes `onApprovalAnswer` with the clicking user, and the service accepts it only from an owner. The buttons are removed after a click. Device-only and other non-chat approvals get the header and "Answer this on your Mac." with no buttons. An owner surface `slack:U…` resolves to the bot's DM via `conversations.open`.
+- **Health.** `invalid_auth`, a revoked token, a wrong token type or a missing scope is fatal ("Slack rejected the token (…)") with no reconnect loop. Drops reconnect with back-off up to 30 s; Slack's `disconnect` refresh reconnects at once.
+- **Not yet:** outbound file uploads, voice notes, Slack's markdown (replies are plain text), slash commands registered with Slack (`/new` etc. work as typed text).
+
 ## Recommended single-owner policy
 
 ```json

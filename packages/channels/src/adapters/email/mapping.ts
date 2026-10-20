@@ -79,7 +79,8 @@ export function mapEmail(
   if (from === "" || from === account.toLowerCase()) return undefined;
   const { text, quoted } = splitQuoted(m.text);
   const subject = m.subject.trim();
-  const body = text === "" ? "" : subject === "" || isReply(subject) ? text : `${subject}\n\n${text}`;
+  const body =
+    text === "" ? "" : subject === "" || isReply(subject) ? text : `${subject}\n\n${text}`;
   const quote: QuotedMessage | undefined =
     quoted === ""
       ? undefined
