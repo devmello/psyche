@@ -40,6 +40,9 @@
 //   let artifactType = try? JSONDecoder().decode(ArtifactType.self, from: jsonData)
 //   let artifactsGetParams = try? JSONDecoder().decode(ArtifactsGetParams.self, from: jsonData)
 //   let artifactsGetResult = try? JSONDecoder().decode(ArtifactsGetResult.self, from: jsonData)
+//   let attentionPane = try? JSONDecoder().decode(AttentionPane.self, from: jsonData)
+//   let attentionReportParams = try? JSONDecoder().decode(AttentionReportParams.self, from: jsonData)
+//   let attentionReportResult = try? JSONDecoder().decode(AttentionReportResult.self, from: jsonData)
 //   let audioFormat = try? JSONDecoder().decode(AudioFormat.self, from: jsonData)
 //   let auditActor = try? JSONDecoder().decode(AuditActor.self, from: jsonData)
 //   let auditEntry = try? JSONDecoder().decode(AuditEntry.self, from: jsonData)
@@ -1751,6 +1754,45 @@ public enum ArtifactType: String, Codable, Sendable {
     case pdf = "pdf"
     case react = "react"
     case sheet = "sheet"
+}
+
+// MARK: - AttentionReportParams
+public struct AttentionReportParams: Codable, Sendable {
+    /// The owner gave input in the app just now (key, click)
+    public let input: Bool?
+    public let pane: AttentionPane
+    /// The pane is on screen in the desktop app
+    public let visible: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case input = "input"
+        case pane = "pane"
+        case visible = "visible"
+    }
+
+    public init(input: Bool?, pane: AttentionPane, visible: Bool) {
+        self.input = input
+        self.pane = pane
+        self.visible = visible
+    }
+}
+
+public enum AttentionPane: String, Codable, Sendable {
+    case browser = "browser"
+    case computer = "computer"
+}
+
+// MARK: - AttentionReportResult
+public struct AttentionReportResult: Codable, Sendable {
+    public let ok: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case ok = "ok"
+    }
+
+    public init(ok: Bool) {
+        self.ok = ok
+    }
 }
 
 // MARK: - AuditExportParams
