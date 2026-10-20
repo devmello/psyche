@@ -428,19 +428,19 @@ describe("Credentials", () => {
     expect(document.body.textContent).not.toContain("rotated-secret-9");
   });
 
-  it("deletes an item only after confirmation", async () => {
+  it("removes an item from ⋯ only after confirmation (#511)", async () => {
     const { gateway } = setup({ defaultSection: "credentials" });
     const table = await screen.findByRole("table", { name: "Stored credentials" });
     await userEvent.click(within(table).getByRole("button", { name: "More for acme.com" }));
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
-    const dialog = await screen.findByRole("alertdialog", { name: "Delete acme.com?" });
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Remove acme.com?" });
     await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     expect(callsOf(gateway(), "vault.delete")).toHaveLength(0);
     await userEvent.click(within(table).getByRole("button", { name: "More for acme.com" }));
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
-    const again = await screen.findByRole("alertdialog", { name: "Delete acme.com?" });
-    await userEvent.click(within(again).getByRole("button", { name: "Delete" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    const again = await screen.findByRole("alertdialog", { name: "Remove acme.com?" });
+    await userEvent.click(within(again).getByRole("button", { name: "Remove" }));
     await waitFor(() => expect(callsOf(gateway(), "vault.delete")).toHaveLength(1));
     expect(callsOf(gateway(), "vault.delete")[0]?.params).toEqual({
       credentialId: IDS.credentials.acme,
@@ -450,8 +450,8 @@ describe("Credentials", () => {
     );
   });
 
-  it("leaves connector-owned items to their connector", async () => {
-    setup(
+  it("leaves connector-owned items to their connector and links there (#511)", async () => {
+    const { navigate } = setup(
       { defaultSection: "credentials" },
       {
         edit: (w) => {
@@ -463,9 +463,54 @@ describe("Credentials", () => {
     );
     const table = await screen.findByRole("table", { name: "Stored credentials" });
     expect(within(table).queryByRole("button", { name: "Edit GitHub" })).toBeNull();
-    expect(within(table).queryByRole("button", { name: "More for GitHub" })).toBeNull();
     expect(within(table).getByText("Managed by its connector")).toBeTruthy();
+    await userEvent.click(within(table).getByRole("button", { name: "More for GitHub" }));
+    expect(screen.queryByRole("menuitem", { name: "Remove" })).toBeNull();
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Remove in Connectors…" }));
+    expect(navigate).toHaveBeenCalledWith("/settings/connectors");
     expect(within(table).getByRole("button", { name: "Edit acme.com" })).toBeTruthy();
+  });
+
+  it("says where Gateway-owned keys are removed and removes password-manager links (#511)", async () => {
+    const { gateway, navigate } = setup(
+      { defaultSection: "credentials" },
+      {
+        edit: (w) => {
+          w.credentials = w.credentials.map((c) =>
+            c.id === IDS.credentials.github
+              ? {
+                  ...c,
+                  managedBy: { kind: "model_provider", setting: "models", removable: false },
+                }
+              : c.id === IDS.credentials.acme
+                ? {
+                    ...c,
+                    backend: "1password",
+                    managedBy: {
+                      kind: "external_manager",
+                      setting: "credentials",
+                      removable: true,
+                    },
+                  }
+                : c,
+          );
+        },
+      },
+    );
+    const table = await screen.findByRole("table", { name: "Stored credentials" });
+    expect(within(table).getByText("A model provider's key")).toBeTruthy();
+    await userEvent.click(within(table).getByRole("button", { name: "More for GitHub" }));
+    await userEvent.click(
+      await screen.findByRole("menuitem", { name: "Remove in Model & providers…" }),
+    );
+    expect(navigate).toHaveBeenCalledWith("/settings/model");
+    // Removing a 1Password link forgets the link only.
+    await userEvent.click(within(table).getByRole("button", { name: "More for acme.com" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Remove acme.com?" });
+    expect(dialog.textContent).toContain("The item stays in 1Password.");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
+    await waitFor(() => expect(callsOf(gateway(), "vault.delete")).toHaveLength(1));
   });
 
   it("imports a CSV export, reports skipped rows and never shows a value", async () => {
@@ -578,6 +623,14 @@ describe("Credentials", () => {
     );
     expect(vaultChangeError(scope, c, "delete")).toBe(
       "Only a device paired as admin can delete vault items.",
+    );
+    const owned = new GatewayRequestError("vault.delete", "forbidden", "gateway-owned", {
+      reason: "gateway_owned",
+      kind: "channel",
+      setting: "channels",
+    });
+    expect(vaultChangeError(owned, c, "delete")).toBe(
+      "GitHub belongs to the Gateway; remove it in Settings → Channels.",
     );
   });
 });

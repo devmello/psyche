@@ -122,6 +122,8 @@ export interface CredentialsPanelProps extends SettingsFormProps, LoadProps {
   onUpdate?: (credential: CredentialMeta, patch: CredentialPatch) => Promise<void> | void;
   /** Deletes an item after the owner confirms. */
   onDelete?: (credential: CredentialMeta) => Promise<void> | void;
+  /** Opens the Settings section that manages a Gateway-owned item (#511). */
+  onOpenSetting?: (setting: ManagedSetting) => void;
   /** A failed edit or delete. */
   itemError?: string | null;
   /** Stories: open with this search text, or with this item's edit form showing. */
@@ -158,6 +160,7 @@ export function CredentialsPanel({
   defaultAdding = false,
   onUpdate,
   onDelete,
+  onOpenSetting,
   itemError = null,
   defaultQuery = "",
   defaultEditingId,
@@ -374,9 +377,27 @@ export function CredentialsPanel({
                       </TableCell>
                       {actions ? (
                         <TableCell className="text-end">
-                          {c.ownerConnectorId !== null ? (
-                            <span className="text-xs text-muted-foreground">
-                              {t("settings.credentials.managedByConnector")}
+                          {managedOf(c) ? (
+                            <span className="inline-flex items-center gap-1">
+                              <span className="text-xs text-muted-foreground">
+                                {managedLabel(managedOf(c)?.kind ?? "connector")}
+                              </span>
+                              {onOpenSetting ? (
+                                <RowMoreMenu
+                                  name={c.name}
+                                  items={[
+                                    {
+                                      label: t("settings.credentials.removeIn", {
+                                        setting: settingLabel(
+                                          managedOf(c)?.setting ?? "connectors",
+                                        ),
+                                      }),
+                                      onClick: () =>
+                                        onOpenSetting(managedOf(c)?.setting ?? "connectors"),
+                                    },
+                                  ]}
+                                />
+                              ) : null}
                             </span>
                           ) : (
                             <span className="inline-flex gap-1">
@@ -397,12 +418,16 @@ export function CredentialsPanel({
                                   name={c.name}
                                   destructive={[
                                     {
-                                      label: t("common.delete"),
-                                      title: t("settings.credentials.deleteTitle", {
+                                      label: t("common.remove"),
+                                      title: t("settings.credentials.removeTitle", {
                                         name: c.name,
                                       }),
-                                      description: deleteDescription(c),
-                                      confirm: t("common.delete"),
+                                      description: isExternalLink(c)
+                                        ? t("settings.credentials.removeLinkDescription", {
+                                            manager: managerName(c),
+                                          })
+                                        : deleteDescription(c),
+                                      confirm: t("common.remove"),
                                       onConfirm: () => {
                                         if (editingId === c.id) setEditingId(null);
                                         void Promise.resolve(onDelete(c)).catch(() => undefined);
@@ -416,7 +441,7 @@ export function CredentialsPanel({
                         </TableCell>
                       ) : null}
                     </TableRow>
-                    {editingId === c.id && onUpdate && c.ownerConnectorId === null ? (
+                    {editingId === c.id && onUpdate && managedOf(c) === null ? (
                       <TableRow className="hover:bg-transparent">
                         <TableCell colSpan={columns} className="whitespace-normal">
                           <EditCredentialForm
@@ -668,6 +693,39 @@ function EditCredentialForm({
 }
 
 /** What deleting a credential loses, for the confirm dialog. */
+export type ManagedSetting = NonNullable<CredentialMeta["managedBy"]>["setting"];
+type ManagedKind = NonNullable<CredentialMeta["managedBy"]>["kind"];
+
+/**
+ * A Gateway-owned item the vault can't remove (#511): a connector's token, a model provider's
+ * key, a channel's token. `managedBy` says so; older Gateways only set `ownerConnectorId`.
+ */
+export function managedOf(
+  c: CredentialMeta,
+): { kind: ManagedKind; setting: ManagedSetting } | null {
+  if (c.managedBy && !c.managedBy.removable) return c.managedBy;
+  if (!c.managedBy && c.ownerConnectorId !== null)
+    return { kind: "connector", setting: "connectors" };
+  return null;
+}
+
+/** A link to an item in 1Password or Bitwarden: removing it forgets the link only. */
+function isExternalLink(c: CredentialMeta): boolean {
+  return (
+    c.managedBy?.kind === "external_manager" ||
+    c.backend === "1password" ||
+    c.backend === "bitwarden"
+  );
+}
+
+function managerName(c: CredentialMeta): string {
+  return c.backend === "bitwarden" ? "Bitwarden" : "1Password"; // i18n-ignore: product names
+}
+
+const managedLabel = (kind: ManagedKind): string => t(`settings.credentials.managed.${kind}`);
+const settingLabel = (setting: ManagedSetting): string =>
+  t(`settings.credentials.setting.${setting}`);
+
 function deleteDescription(c: CredentialMeta): string {
   const sites = c.bindings.map(bindingLabel).join(", ");
   return t("settings.credentials.deleteDescription", { bound: sites !== "", sites });
@@ -806,6 +864,16 @@ export function vaultChangeError(
     (err as { details?: { reason?: unknown } }).details?.reason === "locked"
   ) {
     return t("settings.credentials.err.lockedChange", { verb, name: c.name });
+  }
+  const details = (err as { details?: { reason?: unknown; setting?: unknown } }).details;
+  if (hasCode(err, "forbidden") && details?.reason === "gateway_owned") {
+    const setting = (["connectors", "models", "channels", "credentials"] as const).find(
+      (s) => s === details.setting,
+    );
+    return t("settings.credentials.err.gatewayOwned", {
+      name: c.name,
+      setting: settingLabel(setting ?? "connectors"),
+    });
   }
   if (hasCode(err, "forbidden")) {
     // The Gateway's own (English) wording tells a scope refusal from a managed item.
@@ -973,6 +1041,12 @@ export function CredentialsSection({
         addError={addError}
         onUpdate={onUpdate}
         onDelete={onDelete}
+        {...(navigate
+          ? {
+              onOpenSetting: (setting: ManagedSetting) =>
+                navigate(`/settings/${setting === "models" ? "model" : setting}`),
+            }
+          : {})}
         itemError={itemError}
         onImport={onImport}
         onOpen={setDetail}
