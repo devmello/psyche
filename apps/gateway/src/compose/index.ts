@@ -28,6 +28,7 @@ import {
   PsychePermissionBroker,
   SqlitePermissionStore,
 } from "@psyche/permissions";
+import { publicFetch } from "@psyche/proactive";
 import {
   type ApprovalRequestInput,
   type Clock,
@@ -332,6 +333,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     launcher: lateLauncher,
     sessions: createDbSessionResolver(db),
     deliverer: createDeliverer({ notifier, broker }),
+    // Watches (O3) read public pages through the guarded fetch until S09 exports its own.
+    watchFetch: publicFetch(),
     ...(timeZone === undefined ? {} : { defaultTimezone: timeZone }),
   });
   const loop = createAgentLoop({

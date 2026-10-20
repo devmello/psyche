@@ -23,6 +23,7 @@ public final class HelperRuntime: @unchecked Sendable {
         handlers += SpeechCapabilities.make(preflight: preflight, log: log)
         handlers += KeychainCapabilities.make()
         handlers += PresenceCapabilities.make(key: presence)
+        handlers += ContactsCapabilities.make()
         registry = CapabilityRegistry(handlers)
     }
 
