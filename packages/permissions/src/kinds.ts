@@ -114,6 +114,8 @@ export function allowedScopes(
       "skill_install",
       "apple_script",
       "shortcut_run",
+      // A push publishes exact commits with the owner's credentials (V10).
+      "git_push",
     ].includes(kind)
   )
     return ["once"];

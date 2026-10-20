@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (V10 coding helper: git approval kinds, sandbox mounts)
+
+For the V10 coding helper (S02 scope: `code.*` tools in `packages/agent-core`), S05 (cards and scopes), S21 (the container runner mounts) and the Gateway's `compose/coding.ts`.
+
+- `ApprovalKind` gains `git_write` (commit, branch) and `git_push` (push: repository, remote, remote URL, branch and commit in the binding; `once` only, never forced).
+- New `SandboxMount {source, target, readOnly}`; `SandboxRunner.ensureSandbox(scope, {network?, mounts?})` takes optional bind mounts of host folders, fixed when the scope's sandbox is created (`conflict` on a mismatch, `forbidden` for a source the runner refuses); `SandboxInstance.mounts?` reports them. The fake keeps mounts and refuses targets outside `/workspace/`.
+
 ### v1 additive — 2026-10-19 (M2 computer use: per-app tier keys on the action)
 
 For S02 (the loop passes it through), S05 (the broker's per-app tier check) and the Gateway's computer-use tools (`computer.act`, `apps.open`, `apps.focus`).

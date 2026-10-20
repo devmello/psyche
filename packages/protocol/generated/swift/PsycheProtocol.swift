@@ -1351,6 +1351,8 @@ public enum ApprovalKind: String, Codable, Sendable {
     case exec = "exec"
     case execHost = "exec_host"
     case fileWrite = "file_write"
+    case gitPush = "git_push"
+    case gitWrite = "git_write"
     case mcpTool = "mcp_tool"
     case memoryProtectedWrite = "memory_protected_write"
     case messageSend = "message_send"

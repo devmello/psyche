@@ -4,6 +4,7 @@ import {
   type ExecResult,
   type SandboxBackendKind,
   type SandboxInstance,
+  type SandboxMount,
   type SandboxNetwork,
   type SandboxRunner,
   type SandboxScope,
@@ -66,21 +67,34 @@ export class FakeSandboxRunner implements SandboxRunner {
 
   async ensureSandbox(
     scope: SandboxScope,
-    options: { network?: SandboxNetwork } = {},
+    options: { network?: SandboxNetwork; mounts?: SandboxMount[] } = {},
   ): Promise<SandboxInstance> {
     if (this.#backend === null) {
       return fail("unavailable", "no container backend available; there is no host fallback");
     }
+    const mounts = (options.mounts ?? []).map((m) => ({ ...m }));
+    for (const m of mounts) {
+      if (!m.source.startsWith("/") || !m.target.startsWith("/workspace/")) {
+        return fail("forbidden", `mount ${m.source} -> ${m.target} is not allowed`);
+      }
+    }
+    const network = options.network ?? "none";
     for (const s of this.#sandboxes.values()) {
-      if (s.scope.kind === scope.kind && s.scope.id === scope.id) return structuredClone(s);
+      if (s.scope.kind !== scope.kind || s.scope.id !== scope.id) continue;
+      // Mounts and network are fixed when a sandbox is created, as in the real runner.
+      if (s.network !== network || mountsKey(s.mounts ?? []) !== mountsKey(mounts)) {
+        return fail("conflict", `sandbox for ${scope.kind}:${scope.id} exists with other options`);
+      }
+      return structuredClone(s);
     }
     const sandbox: SandboxInstance = {
       id: this.#ids.next("sbx"),
       scope: { ...scope },
       backend: this.#backend,
-      network: options.network ?? "none",
+      network,
       workspacePath: "/workspace",
       status: "ready",
+      ...(mounts.length === 0 ? {} : { mounts }),
     };
     this.#sandboxes.set(sandbox.id, sandbox);
     return structuredClone(sandbox);
@@ -149,6 +163,12 @@ export class FakeSandboxRunner implements SandboxRunner {
   async destroy(sandboxId: string): Promise<void> {
     this.#sandboxes.delete(sandboxId);
   }
+}
+
+function mountsKey(mounts: readonly SandboxMount[]): string {
+  return JSON.stringify(
+    mounts.map((m) => [m.source, m.target, m.readOnly]).sort((a, b) => (a < b ? -1 : 1)),
+  );
 }
 
 function builtin(argv: string[]): ScriptedExec {
