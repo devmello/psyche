@@ -496,6 +496,50 @@ export interface AutomationsUpdateParams {
     watch?:    WatchConfig;
 }
 
+export interface BackupCreateParams {
+    passphrase?:  string;
+    recipients?:  string[];
+    unencrypted?: boolean;
+}
+
+export interface BackupCreateResult {
+    backup: BackupInfo;
+    files:  number;
+}
+
+export interface BackupInfo {
+    bytes:       number;
+    createdAt:   string;
+    encrypted:   boolean;
+    file:        string;
+    verifiedAt?: null | string;
+}
+
+export interface BackupDeleteParams {
+    file: string;
+}
+
+export interface BackupDeleteResult {
+    ok: boolean;
+}
+
+export interface BackupListResult {
+    backups: BackupInfo[];
+    dir:     string;
+}
+
+export interface BackupVerifyParams {
+    file:        string;
+    passphrase?: string;
+}
+
+export interface BackupVerifyResult {
+    backup:   BackupInfo;
+    files:    number;
+    ok:       boolean;
+    problems: string[];
+}
+
 export interface BridgeCDPEventPayload {
     method:     string;
     params:     unknown;
@@ -1151,10 +1195,11 @@ export interface ChatSendParams {
     /**
      * Library item ids
      */
-    attachments?: string[];
-    content:      string;
-    mode?:        QueueMode;
-    threadId:     string;
+    attachments?:      string[];
+    content:           string;
+    mode?:             QueueMode;
+    replyToMessageId?: string;
+    threadId:          string;
 }
 
 export type QueueMode = "steer" | "followUp" | "interrupt";
@@ -1862,6 +1907,30 @@ export interface LibraryListParams {
 export interface LibraryListResult {
     items:       LibraryItem[];
     nextCursor?: null | string;
+}
+
+export interface LogsTailParams {
+    level?:     LogLevel;
+    lines?:     number;
+    search?:    string;
+    since?:     string;
+    subsystem?: string;
+}
+
+export type LogLevel = "debug" | "info" | "warn" | "error";
+
+export interface LogsTailResult {
+    lines:      LogLine[];
+    subsystems: string[];
+    truncated:  boolean;
+}
+
+export interface LogLine {
+    fields?:    { [key: string]: unknown };
+    level:      LogLevel;
+    msg:        string;
+    subsystem?: string;
+    ts:         string;
 }
 
 export interface MemoryClaimsConfirmParams {

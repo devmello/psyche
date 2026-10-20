@@ -22,6 +22,15 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 For S11 (sidebar rows, UI design §2.2) and S01 (`threads.list`). `ThreadListEntry` gains optional `lastMessage: ThreadPreview` (`role` user | agent, `text` up to 160 characters of plain text, `at`), so the thread list can show each thread's last line without fetching its history.
 
+### v1 additive — 2026-10-19 (S11 M2: quote-reply)
+
+For S11 / S12 (chat column), S01 (session controller). `chat.send` gains optional `replyToMessageId` (feature E5): the message this one answers, in the same thread. The Gateway stores it as `Message.replyToMessageId` (already in the schema) and puts the quoted text ahead of the new message in what the agent sees, so replies carry a quote reference the agent reads.
+### v1 additive — 2026-10-19 (S11 M2: backups and logs for Settings)
+
+For S11 (Settings → Data controls and About), S01 / S22 (the Gateway handlers; `psyche backup` and `psyche logs` do the same work locally today).
+
+- New `backup.*` methods (feature U4): `backup.list` (`operator.read`) → `BackupInfo[]` plus the backups directory; `backup.create` (`operator.admin`, side-effecting; `passphrase` sent once, `recipients`, or `unencrypted: true`) writing a consistent snapshot in the `psyche backup` format; `backup.verify` (`operator.admin`) checking every manifest hash; `backup.delete` (`operator.admin`, side-effecting). Restore stays a CLI operation with the Gateway stopped. New schema `BackupInfo` (`file`, `createdAt`, `bytes`, `encrypted`, `verifiedAt`).
+- New `logs.tail` (`operator.read`; feature U5): newest matching lines from the Gateway's structured logs (`lines`, minimum `level`, `subsystem`, `since`, `search`) with the subsystems seen and a `truncated` flag. New schemas `LogLevel` and `LogLine` (`ts`, `level`, `subsystem?`, `msg`, `fields?`); lines carry metadata only, never bodies or secrets (architecture §14).
 ### v1 additive — 2026-10-20 (S11 M2: threads.update, per-thread model context)
 
 For S11 (composer `/model` and `/plan`, the mode and model pills), the composition root (handler), S02 (`agent-core` passes the thread to the model), S03 (the router's per-thread pin).

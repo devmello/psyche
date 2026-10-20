@@ -1,8 +1,8 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parseManifest } from "@psyche/backup";
 import { afterEach, describe, expect, it } from "vitest";
-import { parseManifest } from "../src/backup.ts";
 import { validateConfig } from "../src/config-file.ts";
 import { type Exec, nodeExec } from "../src/exec.ts";
 import { serviceCommand } from "../src/supervisor.ts";

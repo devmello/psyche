@@ -32,6 +32,7 @@ export * from "./engines/node.ts";
 export * from "./engines/phonemize.ts";
 export * from "./engines/web.ts";
 export * from "./engines/whisper.ts";
+export * from "./handlers.ts";
 export * from "./memo.ts";
 export * from "./models.ts";
 export * from "./policy.ts";
@@ -53,6 +54,8 @@ export interface SpeechStackOptions {
   settings?: SpeechSettings;
   /** The Mac node to use now (paired and online), if any. */
   macNode?: () => NodeClient | undefined | Promise<NodeClient | undefined>;
+  /** Owner opt-in for Apple Personal Voice on the Mac node (`speech.tts.personalVoice`, Q3). */
+  personalVoice?: () => boolean | Promise<boolean>;
   /** Runner for ffmpeg and whisper-cli (wrap with `srt` / the sandbox in the Gateway). */
   runner?: ProcessRunner;
   whisper?: { binary?: string; model?: string; threads?: number };
@@ -92,7 +95,10 @@ export function createSpeechStack(options: SpeechStackOptions = {}): SpeechStack
 
   const macNode = options.macNode;
   if (macNode !== undefined) {
-    const node = new NodeSpeechEngine({ node: macNode });
+    const node = new NodeSpeechEngine({
+      node: macNode,
+      ...(options.personalVoice === undefined ? {} : { personalVoice: options.personalVoice }),
+    });
     selector.register({
       id: "mac-node",
       location: "node",

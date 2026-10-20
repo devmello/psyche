@@ -9,12 +9,15 @@ import {
   FileRecordingSink,
   FsQuarantineWriter,
   type LibraryWriter,
+  listeningPorts,
   type OriginPolicyOptions,
   type PartitionMode,
   RecordingStore,
   registerBrowserTools,
   type SessionKind,
+  systemLoopbackProbes,
 } from "@psyche/browser";
+import { createLocalProjectVerifier, type LocalProjectVerifier } from "@psyche/permissions";
 import {
   type CredentialBroker,
   type DriverSession,
@@ -59,6 +62,17 @@ export interface BrowserSetup {
    * means none; the sandbox / exec layer registers servers it starts on `devServers`.
    */
   devPreview?: DevServerRegistryOptions;
+  /**
+   * The broker's localhost rule. Default: OS probes (`lsof`, `ps`, DNS) against the PIDs
+   * registered with `devServers.started({pid})`, behind a refusal of Psyche's own ports;
+   * tests pass their own.
+   */
+  localProject?: LocalProjectVerifier;
+  /**
+   * The real-Chrome DevTools endpoint while that mode is attached (feature I13, security §6):
+   * its port is one of Psyche's own and never a dev server.
+   */
+  realChromeCdpEndpoint?: string;
 }
 
 export interface ComposedBrowser extends ComposedPart {
@@ -72,6 +86,8 @@ export interface ComposedBrowser extends ComposedPart {
   readonly recordingStore: RecordingStore;
   /** Dev servers tasks may preview; `started` / `stopped` are for whoever launches them. */
   readonly devServers: DevServerRegistry;
+  /** What the broker asks about loopback origins (mounted by the composition root). */
+  readonly localProject: LocalProjectVerifier;
 }
 
 /** Retention for recordings (data model §12: 7 days when enabled). */
@@ -101,10 +117,11 @@ const STATUS: Record<string, string> = {
   "browser.wait": "Waiting",
   "browser.dialog": "Answering dialog",
   "browser.fill_credential": "Filling sign-in",
+  "browser.request_control": "Waiting for you",
 };
 
 /** Read-only lookups the tool layer calls synchronously in `describeCall`; never throw. */
-const PEEKS = new Set(["peek", "tabOrigin", "pendingDialog"]);
+const PEEKS = new Set(["peek", "peekSnapshot", "sessionOf", "tabOrigin", "pendingDialog"]);
 
 export function composeBrowser(
   services: ComposeServices,
@@ -117,7 +134,37 @@ export function composeBrowser(
   let server: BridgeServer | undefined;
   /** Session key (task or thread, `#dev` for dev preview) → session on the current driver. */
   const sessions = new Map<string, Promise<DriverSession>>();
-  const devServers = new DevServerRegistry(setup.devPreview ?? {});
+  // Psyche's own listeners are never the owner's project (security §3.10): the ports parts
+  // registered (the Gateway's, a real-Chrome CDP port) plus whatever the Gateway process is
+  // listening on right now, which covers OAuth receivers on random ports.
+  const unregisterCdp =
+    setup.realChromeCdpEndpoint === undefined
+      ? () => undefined
+      : services.ownPorts.add(
+          Number(new URL(setup.realChromeCdpEndpoint.replace(/^ws/, "http")).port),
+          "real-Chrome CDP",
+        );
+  const reservedPorts = async (): Promise<number[]> => [
+    ...services.ownPorts.list(),
+    ...(await listeningPorts(process.pid)),
+  ];
+  const devServers = new DevServerRegistry({ ...(setup.devPreview ?? {}), reservedPorts });
+  const ownProjectRule = createLocalProjectVerifier(
+    systemLoopbackProbes({
+      roots: () => devServers.spawnedPids(),
+      psychePorts: () => services.ownPorts.list(),
+    }),
+  );
+  const localProject: LocalProjectVerifier = setup.localProject ?? {
+    async check(url) {
+      const port = url.port ?? (url.scheme === "https" ? 443 : 80);
+      if ((await reservedPorts()).includes(port)) return { ok: false, reason: "psyche_port" };
+      return ownProjectRule.check(url);
+    },
+  };
+  // Post-fill hygiene (security §4.7) and page-echo detection (S23 design-18) from the vault.
+  const creds = setup.credentials;
+  const redact = creds === undefined ? undefined : (text: string) => creds.redact(text);
   const recordings = new Map<string, FileRecordingSink>();
   /** Recording id → Library item id, once a finished recording was imported. */
   const recordingItems = new Map<string, string>();
@@ -296,6 +343,32 @@ export function composeBrowser(
       return ids;
     },
     devPreview: devServers,
+    ...(redact === undefined ? {} : { containsSecret: (text: string) => redact(text) !== text }),
+    // Hand-offs (S20): the pane shows the reason and the owner gets an "input needed" notice.
+    async requestControl(req) {
+      const host = req.origin === null ? "a page" : new URL(req.origin).host;
+      const reason = req.reason.replace(/\s+/g, " ").trim();
+      client
+        ?.call("bridge.tab.status", {
+          tabId: req.tabId,
+          text: `Needs you: ${reason}`.slice(0, 200),
+        })
+        .catch(() => undefined);
+      const note = await services.notifier
+        .notify({
+          kind: "input_needed",
+          title: "Psyche needs you in the browser",
+          body: `On ${host}, the agent asks: ${reason}. Take control in the browser pane, then hand it back.`,
+          ...(req.taskId === undefined ? {} : { taskId: req.taskId }),
+          route: "/browser",
+          dedupeKey: `browser-control:${req.tabId}`,
+        })
+        .catch(() => undefined);
+      return async () => {
+        client?.call("bridge.tab.status", { tabId: req.tabId, text: null }).catch(() => undefined);
+        if (note !== undefined) await services.notifier.resolve(note.id).catch(() => undefined);
+      };
+    },
   });
 
   const attach = (next: BridgeClient): CdpBridgeDriver => {
@@ -307,6 +380,7 @@ export function composeBrowser(
     driver = new CdpBridgeDriver(next, {
       library: recordingLibrary,
       broker: services.broker,
+      ...(redact === undefined ? {} : { redact }),
     });
     const attached = driver;
     next.onClose((reason) => {
@@ -334,6 +408,7 @@ export function composeBrowser(
     recordings,
     recordingStore,
     devServers,
+    localProject,
     async start(gateway: Gateway) {
       // Retention runs at boot; recordings are opt-in and short-lived (data model §12).
       void recordingStore.prune(RECORDING_RETENTION_MS).catch(() => undefined);
@@ -348,6 +423,7 @@ export function composeBrowser(
     },
     async stop() {
       unregister();
+      unregisterCdp();
       driver?.dispose();
       driver = undefined;
       for (const t of publishTimers.values()) clearTimeout(t);
