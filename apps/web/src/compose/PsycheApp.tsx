@@ -11,16 +11,19 @@ import {
   UiSlotsProvider,
 } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from "react";
+import { TitleBar } from "../shell/components/TitleBar.tsx";
 import type { ShellPlatform } from "../shell/platform.ts";
 import { ShellApp, type ShellSlots } from "../shell/ShellApp.tsx";
 import { kitClient } from "./kit-client.ts";
 import { writeOnboarding } from "./onboarding.ts";
+import { settingsRoute } from "./settings.tsx";
 
 /**
  * The composed Psyche app (INT-1): S11's shell (rail, threads, panes, browser, keyboard, `view.*`)
  * with the UI kit's screens in it (docs/06): onboarding on first run, the chat column with
  * message blocks, approval dock and question cards, and the agent sheet (Activity, Approvals,
- * Upcoming, Soul & Memory) behind the avatar and at `/agent/*`. One Gateway connection serves both.
+ * Upcoming, Soul & Memory) behind the avatar and at `/agent/*`, and Settings at `/settings/*`.
+ * One Gateway connection serves both.
  */
 
 /** Cosmetic key (no admin needed) recording that onboarding finished on this Gateway. */
@@ -180,27 +183,40 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
   const slots = useMemo<ShellSlots>(
     () => ({
       chat: (threadId) => <KitChat threadId={threadId} />,
-      section: agentRoute,
+      section: (route, navigate) =>
+        settingsRoute(route, navigate, platform) ?? agentRoute(route, navigate),
     }),
-    [],
+    [platform],
   );
 
   let body: ReactNode;
   if (gate === "onboarding") {
     body = (
-      <div className="h-dvh overflow-auto" data-testid="onboarding">
-        {error ? <p role="alert">{error}</p> : null}
-        <OnboardingFlow
-          onComplete={(result) => {
-            completeOnboarding(platform, result).then(
-              () => {
-                reloadPersona();
-                setGate("ready");
-              },
-              (err: unknown) => setError(`Could not save your agent: ${String(err)}`),
-            );
-          }}
-        />
+      <div className="flex h-dvh flex-col" data-testid="onboarding">
+        <TitleBar chrome={platform.chrome}>
+          <span className="title">Set up Psyche</span>
+        </TitleBar>
+        <div className="flex min-h-0 flex-1 flex-col overflow-auto" data-testid="onboarding-scroll">
+          {error ? (
+            <p
+              role="alert"
+              className="mx-auto mt-4 w-full max-w-4xl px-6 text-danger-text sm:px-10"
+            >
+              {error}
+            </p>
+          ) : null}
+          <OnboardingFlow
+            onComplete={(result) => {
+              completeOnboarding(platform, result).then(
+                () => {
+                  reloadPersona();
+                  setGate("ready");
+                },
+                (err: unknown) => setError(`Could not save your agent: ${String(err)}`),
+              );
+            }}
+          />
+        </div>
       </div>
     );
   } else {

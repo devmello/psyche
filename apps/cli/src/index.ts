@@ -1,14 +1,5 @@
 // Public API of @psyche/cli (apps/cli/README.md). The `psyche` binary is src/main.ts.
 export { type AuditReport, auditRules, type Finding, type Severity } from "./audit.ts";
-export {
-  BACKUP_ENTRIES,
-  createBackup,
-  type Decryption,
-  type Encryption,
-  type Manifest,
-  restoreBackup,
-  verifyBackup,
-} from "./backup.ts";
 export { commandHelp, GLOBAL_OPTIONS, rootHelp, run } from "./cli.ts";
 export { GatewayClient, probeGateway } from "./client.ts";
 export type { CommandResult, CommandSpec } from "./command.ts";

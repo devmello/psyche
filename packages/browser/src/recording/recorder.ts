@@ -170,7 +170,8 @@ export class FileRecordingSink implements RecordingSink {
       at,
       tabId: input.tabId,
       kind: input.kind,
-      summary: input.summary.slice(0, 500),
+      // Summaries quote page text (dialog messages, element names): same masking as details.
+      summary: (this.#o.redact ?? ((t: string) => t))(input.summary).slice(0, 500),
     };
     if (input.url !== undefined) e.url = redactRecordedUrl(input.url);
     if (input.action !== undefined) e.action = input.action;

@@ -17,7 +17,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { type KeyboardEvent, type ReactElement, useRef, useState } from "react";
+import { type KeyboardEvent, type ReactElement, type ReactNode, useRef, useState } from "react";
 import type { UsageSummary } from "../../fixtures/index.ts";
 import { cn } from "../../lib/utils.ts";
 import { useSlots } from "../../slots.tsx";
@@ -116,6 +116,12 @@ export interface SettingsShellProps {
   doctorRunning?: boolean;
   onRunDoctor?: () => void;
   onOpenLogs?: () => void;
+  /**
+   * Section bodies the shell renders itself (for example a File access section backed by the
+   * Gateway's `permissions.policy` with a native folder picker). Sections not listed here use
+   * the kit's connected components.
+   */
+  sections?: Partial<Record<SettingsSectionId, ReactNode>>;
 }
 
 export interface SettingsScreenProps extends SettingsShellProps {
@@ -137,6 +143,8 @@ export function SettingsSectionView({
   shell: SettingsShellProps;
 }): ReactElement {
   const s = shell;
+  const override = s.sections?.[section];
+  if (override !== undefined) return <>{override}</>;
   switch (section) {
     case "model":
       return (
@@ -247,7 +255,7 @@ export function SettingsScreen({
   return (
     <div className="flex min-h-0 flex-col gap-4 md:grid md:grid-cols-[14rem_minmax(0,1fr)] md:gap-6">
       <div className="flex flex-col gap-3">
-        <h1 className="text-2xl font-semibold">Settings</h1>
+        <h1 className="text-h1 text-foreground">Settings</h1>
         <nav aria-label="Settings sections">
           <ul ref={navRef} onKeyDown={onNavKey} className="flex flex-col gap-0.5">
             {SETTINGS_SECTIONS.map((s) => {
@@ -275,7 +283,7 @@ export function SettingsScreen({
           </ul>
         </nav>
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 max-w-[var(--page-width)]">
         <SettingsSectionView section={current} shell={shell} />
       </div>
     </div>

@@ -3,8 +3,10 @@ import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { MockGateway, RecordedCall } from "../src/data/mock-gateway.ts";
 import { createFixtureWorld, FIXTURE_NOW, IDS, PERSONA } from "../src/fixtures/index.ts";
+import { actionLabel } from "../src/screens/settings/ActionMatrix.tsx";
 import { ChannelsPanel } from "../src/screens/settings/ChannelsSection.tsx";
 import { CARD_REFUSAL } from "../src/screens/settings/CredentialsSection.tsx";
+import { folderGrants, policyWithFolders } from "../src/screens/settings/FileAccessSection.tsx";
 import { ModelProvidersPanel } from "../src/screens/settings/ModelSection.tsx";
 import {
   SettingsScreen,
@@ -432,5 +434,111 @@ describe("Usage", () => {
     const meter = await screen.findByRole("meter", { name: "Budget remaining" });
     expect((meter as HTMLMeterElement).value).toBe(62);
     expect(screen.getAllByText("62% left").length).toBeGreaterThan(0);
+  });
+});
+
+describe("File access (folder grants live in permissions.policy)", () => {
+  const policy = {
+    defaultMode: "manual",
+    folders: [
+      { path: "/Users/me/Notes", mode: "rw" },
+      { path: "", mode: "ro" },
+      { path: "/x", mode: "rwx" },
+    ],
+  };
+
+  it("reads well-formed policy folders and falls back to the UI-local key only without a list", () => {
+    expect(folderGrants({ "permissions.policy": policy })).toEqual([
+      { path: "/Users/me/Notes", access: "rw" },
+    ]);
+    const legacy = [{ path: "~/Old", access: "ro" }];
+    expect(folderGrants({ "permissions.folders": legacy })).toEqual(legacy);
+    expect(
+      folderGrants({ "permissions.policy": { folders: [] }, "permissions.folders": legacy }),
+    ).toEqual([]);
+    expect(folderGrants({})).toEqual([]);
+  });
+
+  it("writes folders into the policy, keeping its other keys and deduping paths", () => {
+    expect(
+      policyWithFolders({ "permissions.policy": policy }, [
+        { path: "/a", access: "ro" },
+        { path: " /a ", access: "rw" },
+        { path: "/b", access: "rw" },
+      ]),
+    ).toEqual({
+      defaultMode: "manual",
+      folders: [
+        { path: "/a", mode: "ro" },
+        { path: "/b", mode: "rw" },
+      ],
+    });
+  });
+
+  it("shares a typed folder as a permissions.policy grant the broker applies", async () => {
+    const { gateway } = setup(
+      { defaultSection: "files" },
+      { edit: (w) => Object.assign(w.settings, { "permissions.policy": policy }) },
+    );
+    const list = await screen.findByRole("list", { name: "Shared folders" });
+    expect(within(list).getByText("/Users/me/Notes")).toBeTruthy();
+    await userEvent.type(screen.getByLabelText("Share a folder"), "/Users/me/Taxes{Enter}");
+    await waitFor(() =>
+      expect(settingValue(gateway(), "permissions.policy")).toEqual({
+        defaultMode: "manual",
+        folders: [
+          { path: "/Users/me/Notes", mode: "rw" },
+          { path: "/Users/me/Taxes", mode: "ro" },
+        ],
+      }),
+    );
+    expect(settingCall(gateway(), "permissions.folders")).toBeUndefined();
+  });
+
+  it("the Permissions summary lists the policy's folders", async () => {
+    setup(
+      { defaultSection: "permissions" },
+      { edit: (w) => Object.assign(w.settings, { "permissions.policy": policy }) },
+    );
+    expect(await screen.findByText("/Users/me/Notes")).toBeTruthy();
+    expect(screen.getByText("read and write")).toBeTruthy();
+  });
+});
+
+describe("Settings polish (UI design §3.18, §4.12)", () => {
+  it("says connector actions in plain words and keeps the raw key beside them", async () => {
+    expect(actionLabel("gmail.read")).toBe("read threads");
+    expect(actionLabel("gmail.send")).toBe("send");
+    expect(actionLabel("mcp__notion__create_page")).toBe("create page");
+    expect(actionLabel("contacts.write")).toBe("change contacts");
+    setup({ defaultSection: "permissions" });
+    const table = await screen.findByRole("table", { name: "Gmail actions" });
+    expect(within(table).getByText("read threads")).toBeTruthy();
+    expect(within(table).getByRole("rowheader", { name: "gmail.read" })).toBeTruthy();
+  });
+
+  it("shows no config keys in Channels labels", async () => {
+    setup({ defaultSection: "channels" });
+    expect(await screen.findByRole("radiogroup", { name: "Direct messages" })).toBeTruthy();
+    expect(screen.queryByText(/dmPolicy|requireMention/)).toBeNull();
+  });
+
+  it("gives the empty Connectors screen one primary action", async () => {
+    setup(
+      { defaultSection: "connectors", onConnect: () => {} },
+      {
+        edit: (w) => {
+          w.connectors = [];
+        },
+      },
+    );
+    expect(await screen.findByText(/No accounts connected/)).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Connect an account" })).toHaveLength(1);
+  });
+
+  it("draws each accent swatch as one radio", async () => {
+    setup({ defaultSection: "appearance" });
+    const group = await screen.findByRole("radiogroup", { name: "Accent color" });
+    expect(within(group).getAllByRole("radio").length).toBe(7);
   });
 });

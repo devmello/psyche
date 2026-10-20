@@ -7,6 +7,7 @@ export * from "./bridge/bridge.ts";
 export { BRIDGE_MAX_FRAME_BYTES, FrameConnection } from "./bridge/framing.ts";
 export { type CdpTarget, looksLikeCardNumber, PageController } from "./cdp/page.ts";
 export * from "./devpreview/gate.ts";
+export * from "./devpreview/probes.ts";
 export * from "./downloads/library.ts";
 export * from "./downloads/sniff.ts";
 export { DriverBase, type DriverDeps } from "./drivers/base.ts";

@@ -82,6 +82,21 @@ describe("GatewayConnection", () => {
     expect(events.map((e) => e.event)).toEqual(["gateway.shutdown", "x.future"]);
   });
 
+  it("accepts calls from a status listener the moment it hears paired", async () => {
+    gw = await new MockGateway({
+      handlers: { "memory.read": () => ({ content: "---\nname: Wren\n---\n", etag: "e1" }) },
+    }).start();
+    const calls: Promise<unknown>[] = [];
+    connect({
+      onStatus: (s) => {
+        if (s.phase === "paired")
+          calls.push(conn?.call("memory.read", { path: "IDENTITY.md" }) as Promise<unknown>);
+      },
+    });
+    await until(() => calls.length === 1);
+    await expect(calls[0]).resolves.toMatchObject({ etag: "e1" });
+  });
+
   it("adds an idempotency key to side-effecting methods", async () => {
     gw = await new MockGateway({
       handlers: { "threads.create": () => ({ thread: null }) },

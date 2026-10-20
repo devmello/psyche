@@ -216,7 +216,9 @@ describe("NodeSpeechEngine (Mac helper speech.* capabilities)", () => {
     expect(out).toHaveLength(3);
     expect(out[0]?.format).toEqual({ encoding: "pcm_s16le", sampleRate: 22_050, channels: 1 });
     expect(out[0]?.data.byteLength).toBe(10);
-    expect(node.invocations[0]?.params).toEqual({
+    // The voice id is checked against `speech.voices` first (Personal Voice opt-in, Q3).
+    expect(node.invocations[0]?.capability).toBe("speech.voices");
+    expect(node.invocations[1]?.params).toEqual({
       text: "hello",
       format: "pcm_s16le",
       voice: "com.apple.voice.Ava",

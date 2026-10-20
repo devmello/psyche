@@ -1,3 +1,4 @@
+import { PsycheError } from "@psyche/protocol";
 import { canonicalizeUrl, classifyHost } from "../origin/canonical.ts";
 
 /**
@@ -11,7 +12,11 @@ import { canonicalizeUrl, classifyHost } from "../origin/canonical.ts";
  * - a port the owner allowlisted (`ownerPorts`, Settings → Browser / `PSYCHE_DEV_PREVIEW_PORTS`).
  *
  * The verdict says which source matched; the broker still asks (`new_origin`) before the
- * first open, and the dev-preview session's policy is pinned to that port.
+ * first open, and the dev-preview session's policy is pinned to that port. This gate is a
+ * pre-filter: the broker's own localhost rule (`@psyche/permissions` `LocalProjectVerifier`, fed
+ * by `systemLoopbackProbes`) additionally requires the listener to descend from a process
+ * Psyche started (`started({pid})`), so a launch-config or allowlisted port the owner started
+ * by hand is refused there.
  */
 export type DevServerSource = "started" | "launch_config" | "owner";
 
@@ -24,13 +29,15 @@ export interface DevServer {
   name?: string;
   /** A server started for one task is previewable by that task only. */
   taskId?: string;
+  /** The process Psyche spawned for it; the broker's localhost rule walks up to this root. */
+  pid?: number;
 }
 
 export type DevPreviewVerdict =
   | { ok: true; origin: string; port: number; server: DevServer }
   | {
       ok: false;
-      reason: "invalid_url" | "not_loopback" | "unknown_dev_server" | "other_task";
+      reason: "invalid_url" | "not_loopback" | "unknown_dev_server" | "other_task" | "psyche_port";
       message: string;
     };
 
@@ -48,6 +55,11 @@ export interface LaunchConfigEntry {
 
 export interface DevServerRegistryOptions {
   ownerPorts?: number[];
+  /**
+   * Psyche's own listening ports (Gateway, OAuth receivers, real-Chrome CDP): refused even when
+   * the owner allowlists them or a launch config names them.
+   */
+  reservedPorts?: () => Promise<readonly number[]> | readonly number[];
   /** The owner's launch configs, read on each check so edits apply at once. */
   launchConfig?: () => Promise<LaunchConfigEntry[]> | LaunchConfigEntry[];
 }
@@ -60,9 +72,27 @@ export class DevServerRegistry implements DevPreviewGate {
     this.#o = options;
   }
 
-  /** Psyche started a server (sandbox `exec`, a launch config, the terminal pane). */
-  started(server: { port: number; cwd?: string; name?: string; taskId?: string }): void {
+  /**
+   * Psyche started a server (sandbox `exec`, a launch config, the terminal pane). Pass the PID
+   * Psyche spawned: the broker's localhost rule (security §3.10) only accepts a listener that
+   * descends from it.
+   */
+  started(server: {
+    port: number;
+    cwd?: string;
+    name?: string;
+    taskId?: string;
+    pid?: number;
+  }): void {
+    if (server.pid !== undefined && (server.pid === process.pid || server.pid <= 1)) {
+      // The Gateway itself is never a dev server's root: every listener it owns would pass.
+      throw new PsycheError(
+        "invalid_params",
+        "a dev server's pid must be a process Psyche spawned",
+      );
+    }
     const entry: DevServer = { port: server.port, source: "started" };
+    if (server.pid !== undefined) entry.pid = server.pid;
     if (server.cwd !== undefined) entry.cwd = server.cwd;
     if (server.name !== undefined) entry.name = server.name;
     if (server.taskId !== undefined) entry.taskId = server.taskId;
@@ -72,6 +102,11 @@ export class DevServerRegistry implements DevPreviewGate {
   /** The server exited. */
   stopped(port: number): void {
     this.#started.delete(port);
+  }
+
+  /** Root PIDs of servers Psyche started this session (for `systemLoopbackProbes`). */
+  spawnedPids(): number[] {
+    return [...this.#started.values()].flatMap((s) => (s.pid === undefined ? [] : [s.pid]));
   }
 
   async list(context: { taskId?: string } = {}): Promise<DevServer[]> {
@@ -106,6 +141,14 @@ export class DevServerRegistry implements DevPreviewGate {
         ok: false,
         reason: "not_loopback",
         message: `${u.origin} is not a local dev server; use browser.navigate for the web`,
+      };
+    }
+    const reserved = (await this.#o.reservedPorts?.()) ?? [];
+    if (reserved.includes(u.port)) {
+      return {
+        ok: false,
+        reason: "psyche_port",
+        message: `port ${u.port} is one of Psyche's own listeners, not a dev server`,
       };
     }
     const started = this.#started.get(u.port);

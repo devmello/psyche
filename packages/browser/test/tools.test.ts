@@ -35,6 +35,8 @@ describe("browser.* tools", () => {
   });
   const creds = new FakeCredentialBroker();
   let sessionId = "";
+  const controlRequests: { tabId: string; reason: string; origin: string | null }[] = [];
+  const withdrawn: string[] = [];
   const ctx: CallContext = {
     toolCallId: "call_1",
     threadId: "thr_1",
@@ -67,6 +69,13 @@ describe("browser.* tools", () => {
       credentials: creds,
       context: () => ctx,
       session: async () => sessionId,
+      containsSecret: (text) => creds.redact(text) !== text,
+      requestControl: async (req) => {
+        controlRequests.push(req);
+        return () => {
+          withdrawn.push(req.tabId);
+        };
+      },
     });
   });
   afterAll(async () => {
@@ -199,5 +208,114 @@ describe("browser.* tools", () => {
     ctx.approvalId = undefined;
     expect(wrong).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
     expect(desktop.tab(tabId).fieldValue("username")).toBe("");
+  });
+
+  it("withholds any output or error that echoes a vault secret (S23 design-18)", async () => {
+    const open = await call("browser.open_tab", { url: desktop.browser.url("a/search") });
+    const tabId = (open.output as { tab: { id: string } }).tab.id;
+    // The page reflects a query that happens to hold the vault value: the URL in the navigate
+    // result and the text of the page would both carry it.
+    const secret = "correct horse battery";
+    const echoed = `${desktop.browser.url("a/submit/search")}?q=${encodeURIComponent(secret)}`;
+    const nav = await call("browser.navigate", { tabId, url: echoed });
+    expect(nav).toMatchObject({
+      isError: true,
+      output: { error: { code: "policy_denied", details: { reason: "secret_echo" } } },
+    });
+    for (const tool of ["browser.snapshot", "browser.read_text", "browser.tabs"]) {
+      const r = await call(tool, tool === "browser.tabs" ? {} : { tabId });
+      expect(r, tool).toMatchObject({
+        isError: true,
+        output: { error: { details: { reason: "secret_echo" } } },
+      });
+      expect(JSON.stringify(r)).not.toContain(secret);
+      expect(JSON.stringify(r)).not.toContain(encodeURIComponent(secret));
+    }
+    // Leaving the page ends it.
+    const away = await call("browser.navigate", { tabId, url: desktop.browser.url("a/") });
+    expect(away.isError).toBeUndefined();
+    expect((await call("browser.snapshot", { tabId })).isError).toBeUndefined();
+  });
+
+  it("lists seller, items and total on the purchase card and binds to them (INT-2)", async () => {
+    const open = await call("browser.open_tab", { url: desktop.browser.url("a/cart") });
+    const tabId = (open.output as { tab: { id: string } }).tab.id;
+    const snap = await driver.snapshot(tabId);
+    const place = snap.refs.find((r) => r.name === "Place order")?.ref ?? "";
+    const click = registry.get("browser.click");
+    const desc = click?.describeCall?.({ tabId, target: { ref: place } });
+    expect(desc).toMatchObject({
+      sideEffect: "financial",
+      kind: "purchase",
+      target: { kind: "origin", value: desktop.browser.origin("a") },
+      grantKey: `purchase|${desktop.browser.origin("a")}`,
+      bindingFields: {
+        merchantOrigin: desktop.browser.origin("a"),
+        amount: "29.00",
+        currency: "USD",
+        paymentMethodId: null,
+      },
+    });
+    expect(desc?.summary).toBe(
+      `Click Place order on ${new URL(desktop.browser.origin("a")).host}; seller "Fixture Shop"; 1 × "Laptop Stand 13-inch" $29.00; total $29.00 (as shown on the page)`,
+    );
+    // The page changes the total after the card was built: the click is refused, not sent.
+    await driver.click(tabId, snap.refs.find((r) => r.name === "Apply coupon")?.ref ?? "");
+    const before = desktop.browser.submissions.length;
+    const r = await call("browser.click", { tabId, target: { ref: place } });
+    expect(r).toMatchObject({
+      isError: true,
+      output: { error: { code: "conflict", details: { reason: "order_changed" } } },
+    });
+    expect(desktop.browser.submissions.length).toBe(before);
+    // A new card shows the new total; with that one the click goes through.
+    const again = click?.describeCall?.({ tabId, target: { ref: place } });
+    expect(again?.summary).toContain("total $19.00");
+    expect(again?.bindingFields).toMatchObject({ amount: "19.00" });
+    const ok = await call("browser.click", { tabId, target: { ref: place } });
+    expect(ok.isError).toBeUndefined();
+    await driver.wait(
+      tabId,
+      { kind: "text", text: "Submitted /submit/order" },
+      { timeoutMs: 5000 },
+    );
+  });
+
+  it("hands a tab to the owner and waits until they give it back (S20)", async () => {
+    const open = await call("browser.open_tab", { url: desktop.browser.url("a/login") });
+    const tabId = (open.output as { tab: { id: string } }).tab.id;
+    const pending = call("browser.request_control", {
+      tabId,
+      reason: "Enter the 6-digit code from your phone",
+    });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(controlRequests.at(-1)).toMatchObject({
+      tabId,
+      reason: "Enter the 6-digit code from your phone",
+      origin: desktop.browser.origin("a"),
+    });
+    desktop.takeControl(tabId, "keyboard");
+    await new Promise((r) => setTimeout(r, 20));
+    desktop.release(tabId);
+    const done = await pending;
+    expect(done.isError).toBeUndefined();
+    expect(done.output).toMatchObject({ tabId, status: "returned" });
+    expect(withdrawn).toContain(tabId);
+    // Refs from before the hand-off are stale until the page is read again.
+    const snapRef = (await driver.snapshot(tabId)).refs[0]?.ref ?? "ref_1";
+    expect(snapRef).toMatch(/^ref_/);
+    // Nobody comes: the request times out and is withdrawn.
+    const late = await call("browser.request_control", {
+      tabId,
+      reason: "Confirm your address",
+      timeoutMs: 1000,
+    });
+    expect(late.output).toMatchObject({ status: "timed_out" });
+    expect(withdrawn.filter((t) => t === tabId)).toHaveLength(2);
+    // Another task's tab is refused.
+    expect(await call("browser.request_control", { tabId: "mt999", reason: "x" })).toMatchObject({
+      isError: true,
+      output: { error: { code: "not_found" } },
+    });
   });
 });
