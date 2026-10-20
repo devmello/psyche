@@ -174,6 +174,11 @@
         "payload": "#/$defs/DeviceUpdatedPayload"
       },
       {
+        "description": "The watched hold-to-talk key went down or up (dictation.watch), sent only to the watching device.",
+        "name": "dictation.key",
+        "payload": "#/$defs/DictationKeyPayload"
+      },
+      {
         "description": "A feed post was published or its feedback changed.",
         "name": "feed.post",
         "payload": "#/$defs/FeedPostPayload"
@@ -793,6 +798,30 @@
         "params": "#/$defs/DevicesRevokeParams",
         "result": "#/$defs/DevicesRevokeResult",
         "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop only: inserts dictated text into the focused element (AX, else CGEvent typing); refuses secure fields and Psyche's windows; the text never reaches the agent.",
+        "name": "dictation.insert",
+        "params": "#/$defs/DictationInsertParams",
+        "result": "#/$defs/DictationInsertResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Desktop only: the focused app and element on this Mac and whether dictated text can go there; null when nothing has focus.",
+        "name": "dictation.target",
+        "params": "#/$defs/DictationTargetParams",
+        "result": "#/$defs/DictationTargetResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Desktop only: watches a hold-to-talk modifier on the Mac and sends dictation.key events to the caller until it disconnects or calls again.",
+        "name": "dictation.watch",
+        "params": "#/$defs/DictationWatchParams",
+        "result": "#/$defs/DictationWatchResult",
+        "scope": "operator.write",
         "sideEffecting": false
       },
       {
@@ -6617,6 +6646,182 @@
       },
       "required": [
         "device"
+      ],
+      "type": "object"
+    },
+    "DictationInsertMethod": {
+      "enum": [
+        "ax",
+        "typed"
+      ],
+      "type": "string"
+    },
+    "DictationInsertParams": {
+      "properties": {
+        "text": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "expectPid": {
+          "description": "Refuse with focus_changed unless this process still has focus",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
+    "DictationInsertResult": {
+      "properties": {
+        "method": {
+          "$ref": "#/$defs/DictationInsertMethod"
+        },
+        "chars": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "target": {
+          "$ref": "#/$defs/DictationTarget"
+        }
+      },
+      "required": [
+        "method",
+        "chars",
+        "target"
+      ],
+      "type": "object"
+    },
+    "DictationKey": {
+      "enum": [
+        "fn",
+        "rightOption",
+        "rightCommand"
+      ],
+      "type": "string"
+    },
+    "DictationKeyPayload": {
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/DictationKey"
+        },
+        "down": {
+          "type": "boolean"
+        },
+        "at": {
+          "description": "ISO time the helper saw the change",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "down",
+        "at"
+      ],
+      "type": "object"
+    },
+    "DictationRefusal": {
+      "enum": [
+        "no_focus",
+        "secure_field",
+        "own_window",
+        "not_editable",
+        "focus_changed"
+      ],
+      "type": "string"
+    },
+    "DictationTarget": {
+      "properties": {
+        "pid": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "bundleId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "appName": {
+          "type": "string"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "description": "AX role of the focused element, e.g. AXTextArea",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "insertable": {
+          "type": "boolean"
+        },
+        "refusal": {
+          "$ref": "#/$defs/DictationRefusal"
+        }
+      },
+      "required": [
+        "pid",
+        "appName",
+        "insertable"
+      ],
+      "type": "object"
+    },
+    "DictationTargetParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "DictationTargetResult": {
+      "properties": {
+        "target": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DictationTarget"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "DictationWatchParams": {
+      "properties": {
+        "key": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DictationKey"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null stops watching"
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "type": "object"
+    },
+    "DictationWatchResult": {
+      "properties": {
+        "watching": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "watching"
       ],
       "type": "object"
     },

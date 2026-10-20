@@ -4,6 +4,7 @@ import { PsycheError } from "./errors.ts";
 import { BrowserRecording } from "./methods/browser.ts";
 import { QueuedMessage } from "./methods/chat.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
+import { DictationKeyPayload } from "./methods/dictation.ts";
 import { SkillChangeEvent } from "./methods/skills.ts";
 import {
   ReadAloudCompletedPayload,
@@ -259,6 +260,11 @@ export const Events = {
   "voice.ended": defineEvent({
     payload: VoiceEndedPayload,
     description: "A dictation session ended (stopped, cancelled, idle timeout or engine error).",
+  }),
+  "dictation.key": defineEvent({
+    payload: DictationKeyPayload,
+    description:
+      "The watched hold-to-talk key went down or up (dictation.watch), sent only to the watching device.",
   }),
   "speech.audio": defineEvent({
     payload: SpeechAudioPayload,
