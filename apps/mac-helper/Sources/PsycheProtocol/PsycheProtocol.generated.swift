@@ -84,6 +84,7 @@
 //   let backupListResult = try? JSONDecoder().decode(BackupListResult.self, from: jsonData)
 //   let backupVerifyParams = try? JSONDecoder().decode(BackupVerifyParams.self, from: jsonData)
 //   let backupVerifyResult = try? JSONDecoder().decode(BackupVerifyResult.self, from: jsonData)
+//   let bitwardenRef = try? JSONDecoder().decode(BitwardenRef.self, from: jsonData)
 //   let block = try? JSONDecoder().decode(Block.self, from: jsonData)
 //   let bridgeCDPEventPayload = try? JSONDecoder().decode(BridgeCDPEventPayload.self, from: jsonData)
 //   let bridgeCDPSendParams = try? JSONDecoder().decode(BridgeCDPSendParams.self, from: jsonData)
@@ -2906,6 +2907,19 @@ public struct BackupVerifyResult: Codable, Sendable {
     }
 }
 
+// MARK: - BitwardenRef
+public struct BitwardenRef: Codable, Sendable {
+    public let item: String
+
+    public enum CodingKeys: String, CodingKey {
+        case item = "item"
+    }
+
+    public init(item: String) {
+        self.item = item
+    }
+}
+
 // MARK: - BridgeCDPEventPayload
 public struct BridgeCDPEventPayload: Codable, Sendable {
     public let method: String
@@ -5479,6 +5493,7 @@ public struct CredentialMeta: Codable, Sendable {
 }
 
 public enum Backend: String, Codable, Sendable {
+    case bitwarden = "bitwarden"
     case keychain = "keychain"
     case the1Password = "1password"
     case vault = "vault"
@@ -9830,6 +9845,22 @@ public struct OkResult: Codable, Sendable {
     }
 }
 
+// MARK: - OnePasswordRef
+public struct OnePasswordRef: Codable, Sendable {
+    public let item: String
+    public let vault: String
+
+    public enum CodingKeys: String, CodingKey {
+        case item = "item"
+        case vault = "vault"
+    }
+
+    public init(item: String, vault: String) {
+        self.item = item
+        self.vault = vault
+    }
+}
+
 // MARK: - PairingRequestedPayload
 public struct PairingRequestedPayload: Codable, Sendable {
     public let pairingRequest: PairingRequest
@@ -14034,7 +14065,7 @@ public struct VaultLinkExternalParams: Codable, Sendable {
     public let fields: [Field]?
     public let kind: VaultLinkExternalParamsKind
     public let name: String
-    public let ref: OnePasswordRef
+    public let ref: Ref
     public let slug: String?
     public let source: Source
 
@@ -14048,7 +14079,7 @@ public struct VaultLinkExternalParams: Codable, Sendable {
         case source = "source"
     }
 
-    public init(bindings: [CredentialBinding], fields: [Field]?, kind: VaultLinkExternalParamsKind, name: String, ref: OnePasswordRef, slug: String?, source: Source) {
+    public init(bindings: [CredentialBinding], fields: [Field]?, kind: VaultLinkExternalParamsKind, name: String, ref: Ref, slug: String?, source: Source) {
         self.bindings = bindings
         self.fields = fields
         self.kind = kind
@@ -14075,23 +14106,24 @@ public enum VaultLinkExternalParamsKind: String, Codable, Sendable {
     case sshKey = "ssh_key"
 }
 
-// MARK: - OnePasswordRef
-public struct OnePasswordRef: Codable, Sendable {
+// MARK: - Ref
+public struct Ref: Codable, Sendable {
     public let item: String
-    public let vault: String
+    public let vault: String?
 
     public enum CodingKeys: String, CodingKey {
         case item = "item"
         case vault = "vault"
     }
 
-    public init(item: String, vault: String) {
+    public init(item: String, vault: String?) {
         self.item = item
         self.vault = vault
     }
 }
 
 public enum Source: String, Codable, Sendable {
+    case bitwarden = "bitwarden"
     case the1Password = "1password"
 }
 

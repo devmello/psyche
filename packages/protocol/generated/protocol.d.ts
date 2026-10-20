@@ -782,6 +782,10 @@ export interface BackupVerifyResult {
     problems: string[];
 }
 
+export interface BitwardenRef {
+    item: string;
+}
+
 export interface BridgeCDPEventPayload {
     method:     string;
     params:     unknown;
@@ -1691,7 +1695,7 @@ export interface CredentialMeta {
     useCount:          number;
 }
 
-export type Backend = "vault" | "keychain" | "1password";
+export type Backend = "vault" | "keychain" | "1password" | "bitwarden";
 
 export interface CredentialBinding {
     origin?:    string;
@@ -3168,6 +3172,11 @@ export interface NotificationsResolveResult {
 
 export interface OkResult {
     ok: boolean;
+}
+
+export interface OnePasswordRef {
+    item:  string;
+    vault: string;
 }
 
 export interface PairingRequestedPayload {
@@ -4686,7 +4695,7 @@ export interface VaultLinkExternalParams {
     fields?:  Field[];
     kind:     VaultLinkExternalParamsKind;
     name:     string;
-    ref:      OnePasswordRef;
+    ref:      Ref;
     slug?:    string;
     source:   Source;
 }
@@ -4695,12 +4704,12 @@ export type Field = "username" | "password" | "totp" | "token" | "privateKey" | 
 
 export type VaultLinkExternalParamsKind = "login" | "api_key" | "ssh_key" | "note";
 
-export interface OnePasswordRef {
-    item:  string;
-    vault: string;
+export interface Ref {
+    item:   string;
+    vault?: string;
 }
 
-export type Source = "1password";
+export type Source = "1password" | "bitwarden";
 
 export interface VaultLinkExternalResult {
     credential: CredentialMeta;
