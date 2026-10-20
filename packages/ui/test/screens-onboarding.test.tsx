@@ -222,6 +222,33 @@ describe("OnboardingFlow", () => {
   });
 });
 
+describe("First run from scratch", () => {
+  it("shows the vault recovery key once when saving the key created the vault", async () => {
+    setup({
+      step: "model",
+      onSaveKey: async () => ({ keyRef: "model-anthropic", recoveryKey: "ABCD-EFGH-IJKL" }),
+    });
+    await userEvent.type(screen.getByLabelText("API key"), "sk-ant-x");
+    await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
+    expect((await screen.findByTestId("vault-recovery-key")).textContent).toContain(
+      "ABCD-EFGH-IJKL",
+    );
+    expect(screen.getByRole("status").textContent).toContain("model-anthropic");
+  });
+
+  it("lists the setup checks on Done", async () => {
+    const onVerify = vi.fn(async () => [
+      { id: "gateway", label: "Gateway", state: "ok" as const, detail: "Running on this Mac." },
+      { id: "model", label: "Model", state: "warn" as const, detail: "None picked." },
+    ]);
+    setup({ step: "done", onVerify });
+    const list = await screen.findByTestId("setup-checks");
+    expect(list.textContent).toContain("Running on this Mac.");
+    expect(list.textContent).toContain("None picked.");
+    expect(onVerify).toHaveBeenCalledOnce();
+  });
+});
+
 describe("Mac helper in onboarding", () => {
   it("shows the bundled helper's state in Permissions without blocking Next", async () => {
     setup({ step: "permissions", helper: { kind: "starting" } });

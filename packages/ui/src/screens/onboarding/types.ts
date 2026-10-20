@@ -74,8 +74,11 @@ export interface OnboardingShellProps {
   onReadPermissions?: () => Promise<Partial<Record<TccPermission, PermissionResult>>>;
   /** Runs a connect flow (OAuth window); resolves `false` when the user backs out. */
   onConnect?: (type: string, mode: ScopeMode) => Promise<boolean | undefined> | boolean | undefined;
-  /** Stores a provider key in the vault and resolves with its reference. */
-  onSaveKey?: (provider: string, key: string) => Promise<string> | string;
+  /**
+   * Stores a provider key in the vault and resolves with its reference, plus the vault's
+   * recovery key when storing it created the vault (shown once in the Model step).
+   */
+  onSaveKey?: (provider: string, key: string) => Promise<SavedKey> | SavedKey;
   /** Runs the tool-calling check on the chosen model. */
   onCheckModel?: (
     choice: Omit<ModelChoice, "toolCheck">,
@@ -84,4 +87,19 @@ export interface OnboardingShellProps {
   vmAvailable?: boolean;
   /** Desktop: the bundled Mac helper's state, shown in Permissions; never blocks a step. */
   helper?: MacHelperStatus;
+  /**
+   * Runs when the Done step opens: applies the model choice and reports what works (Gateway,
+   * helper, model). The Done step lists the result; a warning never blocks finishing.
+   */
+  onVerify?: (result: OnboardingResult) => Promise<SetupCheck[]>;
+}
+
+export type SavedKey = string | { keyRef: string; recoveryKey?: string };
+
+/** One line of the Done step's "Ready to go" list. */
+export interface SetupCheck {
+  id: string;
+  label: string;
+  state: "ok" | "warn";
+  detail: string;
 }
