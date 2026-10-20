@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { generateIdentity, identityToRecipient } from "age-encryption";
 import { afterEach, describe, expect, it } from "vitest";
-import { createBackup, restoreBackup, verifyBackup } from "../src/index.ts";
+import { createBackup, RESTORE_MARKER, restoreBackup, verifyBackup } from "../src/index.ts";
 
 /** Archive round trips, wrong keys, tampering and restore rules (moved from apps/cli). */
 
@@ -207,5 +207,29 @@ describe("backup library", () => {
     const home = join(tempDir(), "empty");
     mkdirSync(home);
     await expect(createBackup(home, join(tempDir(), "b"), FAST, "t")).rejects.toThrow(/state/);
+  });
+});
+
+describe("revocation ledger stays out of backups (S23 design-26)", () => {
+  it("never archives security/, and a restore leaves the marker the next boot replays", async () => {
+    const home = fixtureHome();
+    writeTree(home, {
+      "security/revocations.jsonl": '{"type":"device","id":"dev_lost","at":"x"}\n',
+    });
+    const file = join(tempDir(), "b.tar.gz.age");
+    const manifest = await createBackup(home, file, FAST, "0.0.0-test", { now: FIXED_NOW });
+    expect(manifest.files.some((f) => f.path.startsWith("security/"))).toBe(false);
+
+    const target = join(tempDir(), "restored");
+    await restoreBackup(file, { kind: "passphrase", passphrase: PASS }, target, {
+      force: false,
+      now: FIXED_NOW,
+    });
+    expect(existsSync(join(target, "security", "revocations.jsonl"))).toBe(false);
+    expect(JSON.parse(readFileSync(join(target, RESTORE_MARKER), "utf8"))).toEqual({
+      restoredAt: FIXED_NOW.toISOString(),
+      backupCreatedAt: FIXED_NOW.toISOString(),
+    });
+    expect(statSync(join(target, RESTORE_MARKER)).mode & 0o777).toBe(0o600);
   });
 });
