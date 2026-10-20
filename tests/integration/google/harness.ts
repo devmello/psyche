@@ -16,19 +16,25 @@ import { Client } from "../walking-skeleton/harness.ts";
 export interface PartsSkeleton {
   composed: ComposedGateway;
   home: string;
+  /** The paired desktop's device id (for `updateDevice` scope grants). */
+  deviceId: string;
   client: Client;
   logs: string[];
   stop(): Promise<void>;
 }
 
 export async function startWithParts(
-  options: Pick<ComposeOptions, "model" | "clock" | "timeZone" | "parts" | "policy">,
+  options: Pick<ComposeOptions, "model" | "clock" | "timeZone" | "parts" | "policy" | "vault"> & {
+    /** Reuse a `$PSYCHE_HOME` (a restart); the caller removes it. Default: a fresh temp dir. */
+    home?: string;
+  },
 ): Promise<PartsSkeleton> {
-  const home = realpathSync(mkdtempSync(join(tmpdir(), "psyche-int2-")));
+  const { home: reuse, ...compose } = options;
+  const home = reuse ?? realpathSync(mkdtempSync(join(tmpdir(), "psyche-int2-")));
   const logs: string[] = [];
   const composed = await composeGateway({
     background: false,
-    ...options,
+    ...compose,
     env: {},
     logger: { log: (level, msg, fields) => logs.push(JSON.stringify({ level, msg, ...fields })) },
     retentionIntervalMs: 0,
@@ -63,12 +69,13 @@ export async function startWithParts(
   return {
     composed,
     home,
+    deviceId,
     client,
     logs,
     async stop() {
       client.stop();
       await composed.stop("test");
-      rmSync(home, { recursive: true, force: true });
+      if (reuse === undefined) rmSync(home, { recursive: true, force: true });
     },
   };
 }

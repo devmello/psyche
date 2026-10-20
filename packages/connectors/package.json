@@ -24,6 +24,8 @@
   },
   "devDependencies": {
     "@psyche/testing": "workspace:*",
-    "@types/turndown": "5.0.6"
+    "@types/better-sqlite3": "9.6.0",
+    "@types/turndown": "5.0.6",
+    "better-sqlite3": "13.0.3"
   }
 }

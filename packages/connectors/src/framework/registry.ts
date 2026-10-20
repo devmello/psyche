@@ -21,6 +21,7 @@ import type {
   ConnectorRecord,
   ConnectorStore,
   ConnectorTool,
+  PendingAuthorization,
   ScopeMode,
 } from "./types.ts";
 
@@ -65,6 +66,13 @@ export interface ConnectorRegistryOptions {
   authorityFor?: (callId: string) => ToolCallAuthority | undefined;
   onEvent?: (event: ConnectorEvent) => void;
   newId?: () => string;
+}
+
+export interface ConnectOptions {
+  /** Called once the record exists as `needs_auth`, before the sign-in starts. */
+  onPending?: (record: ConnectorRecord) => void;
+  /** Passed to the connector: the consent page to show the owner. */
+  onAuthorization?: (pending: PendingAuthorization) => void;
 }
 
 export interface ConnectRequest {
@@ -121,7 +129,7 @@ export class ConnectorRegistry {
     return r;
   }
 
-  async connect(req: ConnectRequest): Promise<ConnectorRecord> {
+  async connect(req: ConnectRequest, options: ConnectOptions = {}): Promise<ConnectorRecord> {
     const factory = this.#factories.get(req.catalogueId);
     if (factory === undefined || !factory.entry.available) {
       throw new PsycheError("not_found", `no connector implementation for ${req.catalogueId}`);
@@ -154,12 +162,25 @@ export class ConnectorRegistry {
     record.scopeMode = req.scopeMode;
     record.config = { ...record.config, ...(req.config ?? {}) } as ConnectorRecord["config"];
     await this.#teardown(record.id);
+    if (options.onPending !== undefined) {
+      // Visible as "signing in" (needs_auth) while the owner finishes the consent elsewhere.
+      record.status = "needs_auth";
+      record.updatedAt = now;
+      await this.#store.put(record);
+      options.onPending(structuredClone(record));
+    }
     const connector = factory.create(record, {
       ...this.#opts.context,
       emit: (e) => void this.#fromConnector(e),
     });
     try {
-      const result = await connector.connect({ scopeMode: req.scopeMode, config: record.config });
+      const result = await connector.connect({
+        scopeMode: req.scopeMode,
+        config: record.config,
+        ...(options.onAuthorization === undefined
+          ? {}
+          : { onAuthorization: options.onAuthorization }),
+      });
       record.account = result.account;
       record.scopes = result.scopes;
       if (result.credentialId !== undefined) record.credentialId = result.credentialId;
@@ -198,6 +219,76 @@ export class ConnectorRegistry {
     this.#live.set(record.id, { connector, unregister: this.#register(record, connector) });
     this.#emit({ type: "status", connectorId: record.id, status: "connected" });
     return structuredClone(record);
+  }
+
+  /**
+   * Starts connecting without waiting for the owner (#505): resolves as soon as a sign-in is
+   * pending (with its consent page) or the connect finished, whichever comes first. A connect
+   * that completes later ends in a `status` event (`connected` or `error`).
+   */
+  startConnect(
+    req: ConnectRequest,
+  ): Promise<{ record: ConnectorRecord; authorization?: PendingAuthorization }> {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let pending: ConnectorRecord | undefined;
+      const done = this.connect(req, {
+        onPending: (r) => {
+          pending = r;
+        },
+        onAuthorization: (authorization) => {
+          if (settled || pending === undefined) return;
+          settled = true;
+          resolve({ record: structuredClone(pending), authorization });
+        },
+      });
+      done.then(
+        (record) => {
+          if (settled) return;
+          settled = true;
+          resolve({ record });
+        },
+        (err) => {
+          if (settled) return;
+          settled = true;
+          reject(err);
+        },
+      );
+    });
+  }
+
+  /**
+   * After a restart: bring stored `connected` records back to life (tools registered, tokens
+   * read from the vault on use) without running their sign-in again. A record whose connector
+   * cannot be created (config gone bad, factory missing) turns `error`.
+   */
+  async restore(): Promise<number> {
+    let n = 0;
+    for (const record of await this.#store.list()) {
+      if (record.status !== "connected" || this.#live.has(record.id)) continue;
+      const factory = [...this.#factories.values()].find((f) => f.entry.type === record.type);
+      try {
+        if (factory === undefined)
+          throw new PsycheError("not_found", `no factory for ${record.type}`);
+        const connector = factory.create(record, {
+          ...this.#opts.context,
+          emit: (e) => void this.#fromConnector(e),
+        });
+        this.#live.set(record.id, { connector, unregister: this.#register(record, connector) });
+        n += 1;
+      } catch (err) {
+        record.status = "error";
+        record.updatedAt = new Date(this.#clock.now()).toISOString();
+        await this.#store.put(record);
+        this.#emit({
+          type: "status",
+          connectorId: record.id,
+          status: "error",
+          reason: message(err),
+        });
+      }
+    }
+    return n;
   }
 
   async disconnect(id: string): Promise<ConnectorRecord> {

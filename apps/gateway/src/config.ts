@@ -80,6 +80,15 @@ export interface BitwardenConfig {
  */
 export type OnePasswordConfig = { kind: "cli"; op?: string } | { kind: "connect"; url: string };
 
+/**
+ * `connectors.google` (#505): the owner's Google Cloud OAuth client, docs/guides/connectors-google.md.
+ * The client id is not a secret; the client secret may only be a `{{cred:slug}}` vault placeholder.
+ */
+export interface GoogleClientConfig {
+  clientId?: string;
+  clientSecret?: string;
+}
+
 /** The keys `config.json` may set (no secrets; architecture §12). */
 interface ConfigFile {
   gateway?: {
@@ -92,6 +101,48 @@ interface ConfigFile {
     rateLimits?: Partial<RateLimitSettings>;
   };
   credentials?: { onePassword?: OnePasswordConfig; bitwarden?: BitwardenConfig };
+  connectors?: { google?: GoogleClientConfig };
+}
+
+/** A `{{cred:slug}}` placeholder, the vault's slug grammar. */
+export const CRED_PLACEHOLDER = /^\{\{cred:[a-z0-9][a-z0-9-]{0,63}(\.[a-z]+)?\}\}$/;
+
+/** `connectors` in `config.json`: client ids and vault placeholders, never a secret. */
+function connectorsFrom(value: unknown): NonNullable<ConfigFile["connectors"]> {
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    bad("connectors", "must be an object");
+  const c = value as Record<string, unknown>;
+  for (const key of Object.keys(c))
+    if (key !== "google") bad(`connectors.${key}`, "is not a known key");
+  if (c.google === undefined) return {};
+  return { google: googleClientFrom(c.google, "connectors.google") };
+}
+
+/** Validates a Google OAuth client from `config.json` or the environment. */
+export function googleClientFrom(value: unknown, path: string): GoogleClientConfig {
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    bad(path, "must be an object");
+  const g = value as Record<string, unknown>;
+  for (const key of Object.keys(g))
+    if (key !== "clientId" && key !== "clientSecret") bad(`${path}.${key}`, "is not a known key");
+  const out: GoogleClientConfig = {};
+  if (g.clientId !== undefined) {
+    if (
+      typeof g.clientId !== "string" ||
+      !/^[\w.-]+\.apps\.googleusercontent\.com$/.test(g.clientId)
+    )
+      bad(`${path}.clientId`, "must be a Google OAuth client id (….apps.googleusercontent.com)");
+    out.clientId = g.clientId;
+  }
+  if (g.clientSecret !== undefined) {
+    if (typeof g.clientSecret !== "string" || !CRED_PLACEHOLDER.test(g.clientSecret))
+      bad(
+        `${path}.clientSecret`,
+        "must be a {{cred:slug}} vault placeholder, never the secret itself",
+      );
+    out.clientSecret = g.clientSecret;
+  }
+  return out;
 }
 
 /** `credentials` in `config.json`: references to external sources only, never a secret. */
@@ -191,8 +242,13 @@ export function readConfigFile(path: string): ConfigFile {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) bad("", "must be an object");
   const credentialsRaw = (raw as { credentials?: unknown }).credentials;
   const credentials = credentialsRaw === undefined ? undefined : credentialsFrom(credentialsRaw);
-  const withCredentials = (file: ConfigFile): ConfigFile =>
-    credentials === undefined ? file : { ...file, credentials };
+  const connectorsRaw = (raw as { connectors?: unknown }).connectors;
+  const connectors = connectorsRaw === undefined ? undefined : connectorsFrom(connectorsRaw);
+  const withCredentials = (file: ConfigFile): ConfigFile => ({
+    ...file,
+    ...(credentials === undefined ? {} : { credentials }),
+    ...(connectors === undefined ? {} : { connectors }),
+  });
   const gateway = (raw as { gateway?: unknown }).gateway;
   if (gateway === undefined) return withCredentials({});
   if (gateway === null || typeof gateway !== "object" || Array.isArray(gateway))

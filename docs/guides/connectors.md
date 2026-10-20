@@ -6,7 +6,7 @@ Connectors give the agent your accounts (mail, calendar, files); channels let yo
 
 | Feature | On main |
 | --- | --- |
-| Google (Gmail, Calendar, Drive) | Not available yet: the Gateway has the connector, but nothing can connect it |
+| Google (Gmail, Calendar, Drive) | The Gateway connects it with your own OAuth client ([connectors-google.md](connectors-google.md)); the app's Connect button is not wired yet |
 | Other mail (IMAP, Fastmail over JMAP) | Not available yet: the Gateway does not include the mail connector |
 | 1Password | Not available yet |
 | Telegram | The Gateway runs the bot, but the Telegram channel cannot be created from the app or the CLI yet |
@@ -31,19 +31,11 @@ The Google connector covers Gmail, Google Calendar and Google Drive. It runs on 
 - Every reconnect revokes the previous grant first, so a Read only connection never keeps send or modify rights from an earlier one.
 - Mail and calendar contents are untrusted content (see [approvals.md](approvals.md#untrusted-content)).
 
-### Prepare your own Google Cloud client
+### Setting it up and connecting
 
-You can set this up now. It takes a few minutes, once.
+[connectors-google.md](connectors-google.md) walks through creating your Google Cloud client (a Desktop app client, published to In production), giving its id to the Gateway in `config.json` with the secret in the vault, and what connecting, reconnecting, restarts and disconnecting do.
 
-1. In the Google Cloud console, create a project. Any name works.
-2. Enable the Gmail API, the Google Calendar API and the Google Drive API for the project.
-3. Under Google Auth Platform → Branding, set the audience to External.
-4. Under Audience, choose Publish app so the status is In production. If you leave it in Testing, Google expires the sign-in 7 days after you consent. In production, an app used only by its owner does not need Google's review.
-5. Under Clients, create a client of type Desktop app. Keep its client ID and client secret.
-
-### Connecting
-
-Connecting Google from the app or the CLI is not available yet. The Gateway has the connector, but it does not offer the connect step to clients: Settings → Connectors has no Connect button and onboarding's Connect does nothing. Connector sign-ins are also kept in the vault, which cannot be set up yet. There is no workaround in Psyche today.
+The Gateway runs the whole sign-in: it opens Google's consent page in your browser, receives the answer on a loopback address and keeps the tokens in the vault. The Connect button in onboarding and Settings → Connectors is not wired to it yet.
 
 ## Other mail: IMAP and JMAP
 
