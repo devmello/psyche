@@ -24,7 +24,8 @@ export const LAUNCH_AGENT_LABEL = "com.psyche.gateway";
 
 export type GatewayRunState =
   | { kind: "unknown" }
-  | { kind: "starting"; mode: SupervisorMode }
+  /** `step` (launchd): installing the launch agent, then waiting for `/healthz` (the splash). */
+  | { kind: "starting"; mode: SupervisorMode; step?: "installing" | "waiting" }
   | { kind: "running"; mode: SupervisorMode; pid?: number }
   /** `logs`: the folder with gateway.{out,err}.log when the failure is worth reading them for. */
   | { kind: "stopped"; mode: SupervisorMode; reason?: string; logs?: string };
@@ -416,6 +417,7 @@ export class GatewaySupervisor {
       return;
     }
     if (changed) {
+      this.set({ kind: "starting", mode: "launchd", step: "installing" });
       if (loaded) await this.run("/bin/launchctl", [...launchctl.bootout(uid)]);
       mkdirSync(dirname(plistPath), { recursive: true });
       writeFileSync(plistPath, content, { mode: 0o644 });
@@ -428,7 +430,7 @@ export class GatewaySupervisor {
       return this.failed("launchctl could not load com.psyche.gateway");
     }
     if (loaded && !changed && (await this.healthy())) return this.refresh();
-    this.set({ kind: "starting", mode: "launchd" });
+    this.set({ kind: "starting", mode: "launchd", step: "waiting" });
     await this.run("/bin/launchctl", [...launchctl.kickstart(uid)]);
     if (await this.waitHealthy()) return this.refresh();
     const printed = await this.run("/bin/launchctl", [...launchctl.print(uid)]);
