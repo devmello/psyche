@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (M2 computer use: script and Shortcut approval kinds, J4)
+
+For the Gateway's computer-use tools (`apps.applescript`, `apps.jxa`, `apps.shortcut_run`), S05 (card titles, scopes) and S10 / S11 / S12 (card labels).
+
+- `ApprovalKind` gains `apple_script` and `shortcut_run` at the end of the list: running AppleScript / JXA or a user Shortcut gets its own card showing the exact source (or name and input) instead of a generic "Use app". Both are `destructive` and offer `once` only: the approval binds the exact params (security §5.4).
+
 ### v1 additive — 2026-10-21 (S01: web passkeys, #79)
 
 - `passkeys.register.begin | register.finish | reauth.begin | list | remove` and `PasskeyInfo`, `PasskeyReauth`: WebAuthn passkeys per device for the server-mode web client. Options and responses use the WebAuthn JSON forms. A device that already has a passkey re-authenticates with one before adding or removing another.

@@ -787,6 +787,7 @@ public struct DecidedByClass: Codable, Sendable {
 }
 
 public enum ApprovalKind: String, Codable, Sendable {
+    case appleScript = "apple_script"
     case archiveThread = "archive_thread"
     case browserSubmit = "browser_submit"
     case calendarWrite = "calendar_write"
@@ -805,6 +806,7 @@ public enum ApprovalKind: String, Codable, Sendable {
     case policyChange = "policy_change"
     case purchase = "purchase"
     case sendEmail = "send_email"
+    case shortcutRun = "shortcut_run"
     case skillInstall = "skill_install"
     case taskStart = "task_start"
 }

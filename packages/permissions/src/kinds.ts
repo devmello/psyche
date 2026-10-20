@@ -97,7 +97,18 @@ export function allowedScopes(
   kind: ApprovalKind,
 ): GrantScope[] {
   if (sideEffect === "financial" || kind === "purchase") return ["once"];
-  if (["pairing", "policy_change", "plan_exit", "skill_install"].includes(kind)) return ["once"];
+  // Scripts and Shortcuts are approved per exact source / name + input (security §5.4).
+  if (
+    [
+      "pairing",
+      "policy_change",
+      "plan_exit",
+      "skill_install",
+      "apple_script",
+      "shortcut_run",
+    ].includes(kind)
+  )
+    return ["once"];
   if (kind === "credential_fill") return ["once", "site"];
   // Security §5.4: exec_host offers `once` or an `always` bound to exact argv + cwd + binary.
   if (kind === "exec_host") return ["once", "always"];
