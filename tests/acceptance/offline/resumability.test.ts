@@ -18,7 +18,7 @@ import {
  * Resumability against the real stack (SQLite task engine, worker pool, agent loop, Permission
  * Broker, receipts): the happy path of V1, V2 and V7 killed at the scenarios' `randomKills`
  * seeded random kill points (8 + 8 + 9 = 25 across the three), plus an uninterrupted baseline per
- * scenario; then the Milestone 2 scenarios V3, V5, V6, V8 and V9 the same way (4 each, 20 more). docs/03 "Resumability": every kill resumes or ends with a correct receipt state, never
+ * scenario; then the Milestone 2 scenarios V3, V4, V5, V6, V8 and V9 the same way (4 each, 24 more). docs/03 "Resumability": every kill resumes or ends with a correct receipt state, never
  * a duplicate side effect; docs/05 §3.7 and §3.11 for re-issued cards and `uncertain` steps.
  */
 
@@ -32,6 +32,7 @@ const SEEDS: Record<string, number> = {
   "v8-subscription-audit": 8,
   "v9-weekly-review": 9,
   "v3-shopping": 3,
+  "v4-travel": 4,
 };
 
 interface ScenarioSweep {
@@ -100,7 +101,7 @@ describe("resumability sweep over the acceptance scenarios (real stack)", () => 
     });
   }
 
-  it("records the sweep (25 kill points across V1, V2, V7; 20 across V3, V5, V6, V8, V9)", () => {
+  it("records the sweep (25 kill points across V1, V2, V7; 24 across V3, V4, V5, V6, V8, V9)", () => {
     const m1 = new Set<string>(SCENARIO_IDS);
     const total = sweeps.reduce((n, s) => n + s.sampled, 0);
     const m1Total = sweeps.filter((s) => m1.has(s.scenario)).reduce((n, s) => n + s.sampled, 0);
@@ -119,6 +120,6 @@ describe("resumability sweep over the acceptance scenarios (real stack)", () => 
     });
     expect(sweeps).toHaveLength(ALL_IDS.length);
     expect(m1Total).toBe(25);
-    expect(total - m1Total).toBe(20);
+    expect(total - m1Total).toBe(24);
   });
 });

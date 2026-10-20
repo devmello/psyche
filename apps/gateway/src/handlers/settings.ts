@@ -1,8 +1,7 @@
-import { hashCanonical } from "@psyche/audit";
 import { getSettings, setSetting } from "@psyche/db";
-import { bindingHash } from "@psyche/permissions";
 import { isAdminSettingKey, PsycheError } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
+import { requireFreshPresence } from "../presence-gate.ts";
 import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
 
 /**
@@ -33,55 +32,6 @@ export function needsPresence(key: string): boolean {
   return PRESENCE_ROOTS.includes(root) || PRESENCE_KEYS.some((re) => re.test(key));
 }
 
-function settingBinding(key: string, value: unknown): string {
-  let valueSha256: string;
-  try {
-    valueSha256 = hashCanonical(value ?? null);
-  } catch {
-    throw new PsycheError("invalid_params", `The value of ${key} is not plain JSON`);
-  }
-  return bindingHash("policy_change", { setting: key, valueSha256 });
-}
-
-/** Fresh presence for one security setting change; throws until an approved card is consumed. */
-async function requirePresence(call: Call, key: string, value: unknown, approvalId?: string) {
-  const binding = settingBinding(key, value);
-  const { broker } = call.ctx;
-  if (approvalId === undefined) {
-    const issued = await broker.requestApproval({
-      kind: "policy_change",
-      summary: `Change the security setting ${key}`,
-      details: { setting: key, value: value as never, requestedByDevice: call.identity.deviceId },
-      bindingHash: binding,
-      grantKey: binding,
-      requestedBy: { runId: null, taskId: null, threadId: null },
-      sideEffect: "destructive",
-      // `web`: the server-mode web client answers with a passkey (issue #79).
-      surfaces: ["desktop", "web", "notification"],
-      scopesOffered: ["once"],
-      taint: false,
-    });
-    // Like nodes.invoke: clients learn of the card (and their answer token) from the event.
-    call.ctx.bus.publish("approval.created", { approval: issued.approval });
-    throw new PsycheError(
-      "approval_required",
-      `Changing ${key} needs your approval with Touch ID or a passkey`,
-      { details: { approvalId: issued.approval.id } },
-    );
-  }
-  const approval = await broker.get(approvalId);
-  if (approval?.kind !== "policy_change" || !approval.requiresAuthentication) {
-    throw new PsycheError("forbidden", "That approval is not a security-setting approval");
-  }
-  const v = await broker.verifyBinding(approvalId, binding);
-  if (!v.ok) {
-    throw new PsycheError(
-      "binding_mismatch",
-      `That approval does not cover this change (${v.reason})`,
-    );
-  }
-}
-
 export const settingsHandlers: Record<string, HandlerDef> = {
   "settings.get": {
     run(call: Call, params: { keys?: string[] }) {
@@ -106,9 +56,18 @@ export const settingsHandlers: Record<string, HandlerDef> = {
       if (isAdminSettingKey(key) && !call.identity.scopes.includes("operator.admin")) {
         throw new PsycheError("forbidden", `Changing ${key} requires operator.admin`);
       }
-      // Fresh presence once a verifier exists (helper Touch ID, passkeys); until then admin only.
-      if (needsPresence(key) && call.ctx.settingsPresence()) {
-        await requirePresence(call, key, value, params.approvalId);
+      // Fresh presence once a verifier was enrolled (helper Touch ID, passkeys); admin only before.
+      if (needsPresence(key)) {
+        await requireFreshPresence(
+          call,
+          {
+            name: key,
+            summary: `Change the security setting ${key}`,
+            subject: value ?? null,
+            details: { setting: key, value: (value ?? null) as never },
+          },
+          params.approvalId,
+        );
       }
       const entry = setSetting(call.ctx.db, key, value);
       const stateVersion = call.ctx.bus.bumpStateVersion();
