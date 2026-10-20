@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from "../components/ui/dialog.tsx";
 import { Kbd } from "../components/ui/kbd.tsx";
+import { t } from "../i18n/core.ts";
 import { CARD_SHORTCUTS, SHORTCUTS } from "./shortcuts.ts";
 
 /** ⌘/: the keyboard map (UI design §4.11); † marks Psyche additions. */
@@ -17,14 +18,14 @@ export function ShortcutTable(): ReactElement {
   ];
   return (
     <table className="w-full text-sm">
-      <caption className="sr-only">Keyboard shortcuts</caption>
+      <caption className="sr-only">{t("shell.shortcuts.title")}</caption>
       <thead>
-        <tr className="text-left text-muted-foreground">
+        <tr className="text-start text-muted-foreground">
           <th scope="col" className="w-28 py-1 font-normal">
-            Shortcut
+            {t("shell.shortcuts.shortcut")}
           </th>
           <th scope="col" className="py-1 font-normal">
-            Action
+            {t("shell.shortcuts.action")}
           </th>
         </tr>
       </thead>
@@ -37,7 +38,7 @@ export function ShortcutTable(): ReactElement {
             <td className="py-1">
               {r.label}
               {r.psyche ? (
-                <span className="text-muted-foreground" title="Psyche addition">
+                <span className="text-muted-foreground" title={t("shell.shortcuts.addition")}>
                   {" "}
                   †
                 </span>
@@ -61,8 +62,8 @@ export function ShortcutList({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Keyboard shortcuts</DialogTitle>
-          <DialogDescription>† marks Psyche additions to the Claude desktop map.</DialogDescription>
+          <DialogTitle>{t("shell.shortcuts.title")}</DialogTitle>
+          <DialogDescription>{t("shell.shortcuts.description")}</DialogDescription>
         </DialogHeader>
         <ShortcutTable />
       </DialogContent>

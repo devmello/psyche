@@ -5,6 +5,7 @@ import { SectionLabel } from "../components/page.tsx";
 import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { type ApprovalView, useApprovals, useGatewayQuery, useStoreState } from "../data/index.ts";
+import { t } from "../i18n/core.ts";
 import { displaySummary } from "../lib/cards.ts";
 import { formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
@@ -13,10 +14,11 @@ import { useReducedMotion } from "../theme/ThemeProvider.tsx";
 
 const RECENT_MS = 7 * 24 * 60 * 60 * 1000;
 
+/** Where an approval was answered (a surface or a channel), or "" when unknown. */
 function decidedWhere(by: unknown): string {
   if (by !== null && typeof by === "object") {
-    if ("surface" in by && typeof by.surface === "string") return ` on ${by.surface}`;
-    if ("channel" in by && typeof by.channel === "string") return ` on ${by.channel}`;
+    if ("surface" in by && typeof by.surface === "string") return by.surface;
+    if ("channel" in by && typeof by.channel === "string") return by.channel;
   }
   return "";
 }
@@ -45,18 +47,22 @@ export function useApprovalQueue() {
 
 function recentLine(v: ApprovalView): { text: string; variant: "success" | "danger" | "muted" } {
   const a = v.approval;
+  const where = decidedWhere(a.decidedBy);
   if (a.status === "approved")
-    return { text: `Approved${decidedWhere(a.decidedBy)}`, variant: "success" };
+    return { text: t("agent.approvals.approved", { where, on: where !== "" }), variant: "success" };
   if (a.status === "denied")
-    return { text: `Denied${decidedWhere(a.decidedBy)}`, variant: "danger" };
-  return { text: a.status === "expired" ? "Expired" : "Voided", variant: "muted" };
+    return { text: t("agent.approvals.denied", { where, on: where !== "" }), variant: "danger" };
+  return {
+    text: a.status === "expired" ? t("agent.approvals.expired") : t("agent.approvals.voided"),
+    variant: "muted",
+  };
 }
 
 const SECTIONS = [
-  { id: "approvals-needs-you", label: "Needs you" },
-  { id: "approvals-deferred", label: "Deferred" },
-  { id: "approvals-recent", label: "Recent" },
-  { id: "approvals-grants", label: "Standing grants" },
+  { id: "approvals-needs-you", label: () => t("agent.approvals.needsYou") },
+  { id: "approvals-deferred", label: () => t("agent.approvals.deferred") },
+  { id: "approvals-recent", label: () => t("agent.approvals.recent") },
+  { id: "approvals-grants", label: () => t("agent.approvals.grants") },
 ] as const;
 
 /**
@@ -88,7 +94,7 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
 
   return (
     <div className="flex flex-col gap-6">
-      <nav aria-label="Approval sections" className="flex flex-wrap gap-1.5">
+      <nav aria-label={t("agent.approvals.sections")} className="flex flex-wrap gap-1.5">
         {SECTIONS.map((sec) => (
           <Button
             key={sec.id}
@@ -98,7 +104,7 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
             className="text-gray-11"
             onClick={() => jump(sec.id)}
           >
-            {sec.label}
+            {sec.label()}
             <span className="tabular-nums text-gray-11">{counts[sec.id]}</span>
           </Button>
         ))}
@@ -106,11 +112,11 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
 
       <section aria-labelledby="approvals-needs-you" className="flex scroll-mt-2 flex-col gap-2">
         <SectionLabel as="h3" id="approvals-needs-you">
-          Needs you ({live.length})
+          {t("agent.approvals.needsYouCount", { n: live.length })}
         </SectionLabel>
         {live.length === 0 ? (
           <p className="text-small text-muted-foreground">
-            {loading ? "Loading…" : "Nothing needs you."}
+            {loading ? t("common.loading") : t("agent.approvals.nothingNeedsYou")}
           </p>
         ) : (
           <div className="flex flex-col gap-3">
@@ -139,10 +145,10 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
 
       <section aria-labelledby="approvals-deferred" className="flex scroll-mt-2 flex-col gap-2">
         <SectionLabel as="h3" id="approvals-deferred">
-          Deferred ({deferred.length})
+          {t("agent.approvals.deferredCount", { n: deferred.length })}
         </SectionLabel>
         {deferred.length === 0 ? (
-          <p className="text-small text-muted-foreground">Unattended runs have not been held up.</p>
+          <p className="text-small text-muted-foreground">{t("agent.approvals.noDeferred")}</p>
         ) : (
           <ul className="flex flex-col divide-y divide-gray-4 text-small">
             {deferred.map((v) => {
@@ -151,9 +157,11 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
                 <li key={v.approval.id} className="flex items-center gap-2 py-2">
                   <span className="min-w-0 flex-1">
                     <span className="font-medium">
-                      {tasks[taskId ?? ""]?.title ?? "An automation"}
+                      {tasks[taskId ?? ""]?.title ?? t("agent.approvals.anAutomation")}
                     </span>{" "}
-                    <span className="text-gray-11">wanted to {displaySummary(v.approval)}</span>
+                    <span className="text-gray-11">
+                      {t("agent.approvals.wantedTo", { what: displaySummary(v.approval) })}
+                    </span>
                   </span>
                   {taskId ? (
                     <Button
@@ -161,7 +169,7 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
                       variant="ghost"
                       onClick={() => slots.navigate?.(`/agent/activity/${taskId}`)}
                     >
-                      Open task
+                      {t("agent.approvals.openTask")}
                     </Button>
                   ) : null}
                 </li>
@@ -173,10 +181,10 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
 
       <section aria-labelledby="approvals-recent" className="flex scroll-mt-2 flex-col gap-2">
         <SectionLabel as="h3" id="approvals-recent">
-          Recent
+          {t("agent.approvals.recent")}
         </SectionLabel>
         {recentList.length === 0 ? (
-          <p className="text-small text-muted-foreground">No decisions in the last 7 days.</p>
+          <p className="text-small text-muted-foreground">{t("agent.approvals.noRecent")}</p>
         ) : (
           <ul className="flex flex-col divide-y divide-gray-4 text-small">
             {recentList.map((v) => {
@@ -202,21 +210,19 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
         className="flex scroll-mt-2 flex-col gap-2 rounded-lg border border-gray-6 bg-gray-2 p-3"
       >
         <SectionLabel as="h3" id="approvals-grants">
-          Standing grants
+          {t("agent.approvals.grants")}
         </SectionLabel>
         <div className="flex items-center gap-2 text-small">
           <ShieldCheck className="size-4 text-gray-11" aria-hidden="true" />
           <span className="min-w-0 flex-1">
-            {standing.length === 1
-              ? "1 site, session or always grant is active."
-              : `${standing.length} site, session and always grants are active.`}
+            {t("agent.approvals.grantsActive", { n: standing.length })}
           </span>
           <Button
             size="sm"
             variant="ghost"
             onClick={() => slots.navigate?.("/settings/permissions")}
           >
-            Review in Permissions
+            {t("agent.approvals.review")}
           </Button>
         </div>
       </section>

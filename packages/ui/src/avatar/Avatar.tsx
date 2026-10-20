@@ -1,4 +1,5 @@
 import { type ReactElement, useEffect, useState } from "react";
+import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { useReducedMotion } from "../theme/ThemeProvider.tsx";
 import { type CreaturePose, getCreature } from "./creatures/index.tsx";
@@ -18,13 +19,27 @@ export type AvatarState =
 export type AvatarSize = 20 | 28 | 40 | 64 | 160;
 
 export const AVATAR_STATE_LABEL: Record<AvatarState, string> = {
-  idle: "idle",
-  working: "working",
-  "needs-you": "needs you",
-  error: "error",
-  paused: "paused",
-  incognito: "incognito",
-  offline: "offline",
+  get idle() {
+    return t("agent.state.idle");
+  },
+  get working() {
+    return t("agent.state.working");
+  },
+  get "needs-you"() {
+    return t("agent.state.needsYou");
+  },
+  get error() {
+    return t("agent.state.error");
+  },
+  get paused() {
+    return t("agent.state.paused");
+  },
+  get incognito() {
+    return t("agent.state.incognito");
+  },
+  get offline() {
+    return t("agent.state.offline");
+  },
 };
 
 export interface AvatarProps {
@@ -82,7 +97,7 @@ export function Avatar({
         : delegated
           ? "ring-2 ring-info ring-offset-1 ring-offset-background"
           : "ring-1 ring-gray-6";
-  const label = `${name}, ${AVATAR_STATE_LABEL[state]}${delegated ? ", delegated" : ""}`;
+  const label = t("agent.avatar.label", { name, state: AVATAR_STATE_LABEL[state], delegated });
   const badgeSize = Math.max(8, Math.round(size * 0.32));
 
   return (
@@ -127,7 +142,7 @@ export function Avatar({
       </span>
       {state === "needs-you" && count !== undefined && count > 0 && size >= 28 ? (
         <span
-          className="absolute -top-1 -right-1 inline-flex min-w-4 items-center justify-center rounded-full bg-approval px-1 text-[10px] leading-4 font-semibold text-gray-12"
+          className="absolute -top-1 -end-1 inline-flex min-w-4 items-center justify-center rounded-full bg-approval px-1 text-[10px] leading-4 font-semibold text-gray-12"
           aria-hidden="true"
         >
           {count > 9 ? "9+" : count}
@@ -135,14 +150,14 @@ export function Avatar({
       ) : null}
       {state === "error" ? (
         <span
-          className="absolute -right-0.5 -bottom-0.5 rounded-full border-2 border-background bg-danger"
+          className="absolute -end-0.5 -bottom-0.5 rounded-full border-2 border-background bg-danger"
           style={{ width: badgeSize, height: badgeSize }}
           aria-hidden="true"
         />
       ) : null}
       {working && (reduced || size < 28) ? (
         <span
-          className="absolute -right-0.5 -bottom-0.5 rounded-full border-2 border-background bg-accent-9"
+          className="absolute -end-0.5 -bottom-0.5 rounded-full border-2 border-background bg-accent-9"
           style={{ width: badgeSize, height: badgeSize }}
           aria-hidden="true"
         />
