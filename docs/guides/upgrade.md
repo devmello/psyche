@@ -2,7 +2,7 @@
 
 An upgrade replaces the program, not your data. When the new Gateway starts, it updates its database in place. That step only goes forward, so you make a backup first and check the new version against your data before you start it.
 
-Read the release notes before you begin. They list breaking changes and, for Docker, the new image digest.
+Read the release notes before you begin. They list breaking changes and, for Docker, the new image digest. If you are also moving to another machine, move first with the version you have, then upgrade there ([migrate.md](migrate.md)).
 
 ## What an upgrade changes
 
@@ -13,7 +13,7 @@ Read the release notes before you begin. They list breaking changes and, for Doc
 
 ## 1. Make a backup
 
-On a Mac or a Linux host with systemd, back up while Psyche is running. The Gateway takes the snapshot itself, with no downtime:
+On a Mac or a Linux host with systemd, back up while Psyche is running. The CLI asks the running Gateway for the backup, which it takes with no downtime (Settings › Backups › **Back up now** does the same):
 
 ```bash
 psyche backup create --recipient age1…
@@ -25,7 +25,7 @@ Leave out `--recipient` to use a passphrase. With Docker Compose:
 deploy/backup/backup.sh /srv/psyche-backups age1…
 ```
 
-Then check the backup opens. This is the file you restore if you need to go back:
+Then check the backup opens. This is the file you restore if you need to go back. **Verify** in Settings › Backups works too:
 
 ```bash
 psyche backup verify ~/.psyche/backups/psyche-<time>.tar.gz.age -i key.txt
@@ -36,6 +36,8 @@ With Compose, use `deploy/backup/verify.sh` instead. Details are in [backup-rest
 ## 2. Install the new version
 
 Pick the line that matches how you installed Psyche. The running Gateway keeps running for now.
+
+**Desktop app, automatic updates:** a Developer ID-signed app checks for updates itself. It applies one only after verifying the release's signed update manifest (`update-manifest.json`) with a release key built into the app, and the downloaded file's SHA-256; it never installs an older version. A verified update installs when you quit Psyche. Until a release key is built into the app, and in unsigned builds, automatic updates stay off: upgrade with one of the lines below.
 
 **Desktop app with Homebrew:**
 
@@ -59,7 +61,7 @@ Confirm the CLI is the new version:
 psyche version
 ```
 
-**Docker Compose:** in `deploy/.env`, set `PSYCHE_IMAGE` to the new image and digest from the release notes. Verify the signature as in [install.md](install.md#2-pin-and-verify-the-image). If the release notes say files in `deploy/` changed, update your clone of the repository too. Then download the image without starting it:
+**Docker Compose:** in `deploy/.env`, set `PSYCHE_IMAGE` to the new image and digest from the release notes. Verify the signature as in [install.md](install.md#2-pin-and-verify-the-image). If the release notes say files in `deploy/` changed, update your clone of the repository too. Alternatively, use the new release's `psyche-compose-<version>.tar.gz`: its `docker-compose.yml` already pins that release's Gateway image by digest, and its `backup/` directory has the backup scripts. Copy your `.env` next to its `docker-compose.yml` without the `PSYCHE_IMAGE` line (that variable overrides the pinned image), and use that file wherever this guide says `deploy/docker-compose.yml`. Both files use the Compose project name `psyche`, so they share the same `psyche-home` volume. Then download the image without starting it:
 
 ```bash
 docker compose -f deploy/docker-compose.yml pull
@@ -142,7 +144,7 @@ With Compose, run them inside the container (`docker compose -f deploy/docker-co
 
 ## Go back to an older version
 
-Database migrations only go forward, so an older version cannot run on data a newer version has already started on. To go back, you restore the backup you made before the upgrade. Anything you did in Psyche after that backup is not carried back; it is kept in `$PSYCHE_HOME/.pre-restore-<time>/`.
+Database migrations only go forward, so an older version cannot run on data a newer version has already started on. To go back, you restore the backup you made before the upgrade. Anything you did in Psyche after that backup is not carried back; it is kept in `$PSYCHE_HOME/.pre-restore-<time>/`. Revocations are the exception: a device, grant or vault item you revoked after the backup stays revoked, because the Gateway replays its revocation ledger (`$PSYCHE_HOME/security/`, never in a backup) at the next start.
 
 ### Mac, or Linux with systemd
 
@@ -175,7 +177,7 @@ Database migrations only go forward, so an older version cannot run on data a ne
 
 ### Docker Compose
 
-1. In `deploy/.env`, set `PSYCHE_IMAGE` back to the older digest.
+1. In `deploy/.env`, set `PSYCHE_IMAGE` back to the older digest, or switch back to the older release's Compose bundle.
 2. Download it and recreate the container without starting it, so the older Gateway does not try to start on newer data:
 
    ```bash
