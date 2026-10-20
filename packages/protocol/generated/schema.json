@@ -19134,6 +19134,17 @@
             "$ref": "#/$defs/VmTransfer"
           },
           "type": "array"
+        },
+        "snapshots": {
+          "description": "Newest first",
+          "items": {
+            "$ref": "#/$defs/VmSnapshot"
+          },
+          "type": "array"
+        },
+        "baseSnapshot": {
+          "description": "Id of the `base` snapshot, if any",
+          "type": "string"
         }
       },
       "required": [
@@ -19198,7 +19209,9 @@
             "vm.install",
             "vm.state",
             "vm.psyche_install",
-            "vm.permissions"
+            "vm.permissions",
+            "vm.snapshot",
+            "vm.reset"
           ],
           "type": "string"
         },
@@ -19218,6 +19231,49 @@
       "required": [
         "type",
         "phase"
+      ],
+      "type": "object"
+    },
+    "VmResetParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "VmRestoreParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "snapshot": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "snapshot"
+      ],
+      "type": "object"
+    },
+    "VmRestoreResult": {
+      "properties": {
+        "guest": {
+          "$ref": "#/$defs/VmGuest"
+        },
+        "snapshot": {
+          "type": "string"
+        },
+        "durationMs": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "guest",
+        "snapshot",
+        "durationMs"
       ],
       "type": "object"
     },
@@ -19248,6 +19304,9 @@
             "guest"
           ],
           "type": "string"
+        },
+        "resetPerTask": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -19306,6 +19365,132 @@
       "required": [
         "share",
         "path"
+      ],
+      "type": "object"
+    },
+    "VmSnapshot": {
+      "properties": {
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/VmSnapshotKind"
+        },
+        "taskId": {
+          "type": "string"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "guestOS": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bytes": {
+          "description": "Allocated size; clones share unchanged blocks with the guest",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "savedState": {
+          "description": "Includes a machine state (restores to saved)",
+          "type": "boolean"
+        },
+        "provisioned": {
+          "type": "boolean"
+        },
+        "psycheInstalled": {
+          "type": "boolean"
+        },
+        "method": {
+          "$ref": "#/$defs/VmSnapshotMethod"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "kind",
+        "createdAt",
+        "bytes",
+        "savedState",
+        "provisioned",
+        "psycheInstalled",
+        "method"
+      ],
+      "type": "object"
+    },
+    "VmSnapshotDeleteParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "snapshot": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "snapshot"
+      ],
+      "type": "object"
+    },
+    "VmSnapshotKind": {
+      "enum": [
+        "base",
+        "manual",
+        "task"
+      ],
+      "type": "string"
+    },
+    "VmSnapshotMethod": {
+      "enum": [
+        "apfs-clone",
+        "overlay"
+      ],
+      "type": "string"
+    },
+    "VmSnapshotParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/VmSnapshotKind"
+        },
+        "taskId": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "VmSnapshotResult": {
+      "properties": {
+        "snapshot": {
+          "$ref": "#/$defs/VmSnapshot"
+        },
+        "guest": {
+          "$ref": "#/$defs/VmGuest"
+        }
+      },
+      "required": [
+        "snapshot",
+        "guest"
       ],
       "type": "object"
     },

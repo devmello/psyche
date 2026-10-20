@@ -18,6 +18,16 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (L6 VM snapshots and resets)
+
+For S14 (the helper's `vm.snapshot` / `vm.restore` / `vm.reset` / `vm.snapshot_delete`), S01 (the Gateway half: compose tools, "fresh Mac per task", broker sides), S11 (the Devices pane).
+
+- New `VmSnapshot` {id, label, kind (`VmSnapshotKind`: base | manual | task), taskId?, createdAt, guestOS, bytes, savedState, provisioned, psycheInstalled, method (`VmSnapshotMethod`: apfs-clone | overlay)}.
+- `VmGuest` gains optional `snapshots` (newest first) and `baseSnapshot`.
+- New params/results: `VmSnapshotParams`, `VmSnapshotResult`, `VmRestoreParams`, `VmResetParams`, `VmRestoreResult` {guest, snapshot, durationMs}, `VmSnapshotDeleteParams`.
+- `VmProgressEvent.type` gains `vm.snapshot` and `vm.reset` (at the end).
+- `VM_SETTING_KEYS.resetPerTask` (`vm.resetPerTask`, default false) and optional `VmSettings.resetPerTask`.
+
 ### v1 additive — 2026-10-20 (E12 "From your other chats")
 
 For S02 (agent-core's context providers), S01 (the Gateway's thread digests), S11 / S12 (the block in the chat).
