@@ -60,5 +60,8 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
       onCommand: (cb) => b.windows.onCommand((c) => cb(c as ShellCommand)),
     },
     notify: { show: (n) => b.notify.show(n) },
+    dialogs: {
+      pickFolder: (opts) => b.dialogs.pickFolder(opts) as Promise<string | null>,
+    },
   };
 }

@@ -31,6 +31,8 @@ export interface WindowOptions {
   preloadPath: string;
   onMainCreated?: (win: BaseWindow, view: WebContentsView) => void;
   onMainClosed?: () => void;
+  /** Every app renderer as it is made (main, pop-outs, quick entry): zoom and the like. */
+  onViewCreated?: (wc: WebContents) => void;
 }
 
 /**
@@ -98,6 +100,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       views.delete(wc);
       if (!wc.isDestroyed()) wc.close();
     });
+    opts.onViewCreated?.(wc);
     void wc.loadURL(urlFor(route));
     return view;
   }

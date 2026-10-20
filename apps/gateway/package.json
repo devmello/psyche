@@ -24,6 +24,7 @@
   "dependencies": {
     "@psyche/agent-core": "workspace:*",
     "@psyche/audit": "workspace:*",
+    "@psyche/backup": "workspace:*",
     "@psyche/browser": "workspace:*",
     "@psyche/channels": "workspace:*",
     "@psyche/connectors": "workspace:*",

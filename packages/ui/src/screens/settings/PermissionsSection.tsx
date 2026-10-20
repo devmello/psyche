@@ -16,7 +16,7 @@ import { useNow } from "../../lib/use-now.ts";
 import { useSlots } from "../../slots.tsx";
 import { ActionMatrix, type ActionRule } from "./ActionMatrix.tsx";
 import { SCOPE_MODE_LABEL } from "./ConnectorsSection.tsx";
-import { foldersFromSettings } from "./FileAccessSection.tsx";
+import { folderGrants } from "./FileAccessSection.tsx";
 import {
   EmptyNotice,
   ErrorNotice,
@@ -442,7 +442,7 @@ export function PermissionsSection({ now }: { now?: number }): ReactElement {
         needsApproval={form.needsApproval}
         connectors={connectors}
         grants={grantsQ.data?.grants ?? []}
-        folders={foldersFromSettings(form.values, "permissions.folders")}
+        folders={folderGrants(form.values)}
         onRevoke={onRevoke}
         onRuleChange={(c, action, rule) =>
           form.onChange(`permissions.connectors.${c.id}`, { ...c.actionMatrix, [action]: rule })

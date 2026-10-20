@@ -27,12 +27,14 @@ import type { ShellPlatform } from "../shell/platform.ts";
 import { type ChatSlotContext, ShellApp, type ShellSlots } from "../shell/ShellApp.tsx";
 import { kitClient } from "./kit-client.ts";
 import { writeOnboarding } from "./onboarding.ts";
+import { settingsRoute } from "./settings.tsx";
 
 /**
  * The composed Psyche app (INT-1): S11's shell (rail, threads, panes, browser, keyboard, `view.*`)
  * with the UI kit's screens in it (docs/06): onboarding on first run, the chat column with
  * message blocks, approval dock and question cards, and the agent sheet (Activity, Approvals,
- * Upcoming, Soul & Memory) behind the avatar and at `/agent/*`. One Gateway connection serves both.
+ * Upcoming, Soul & Memory) behind the avatar and at `/agent/*`, and Settings at `/settings/*`.
+ * One Gateway connection serves both.
  */
 
 /** Cosmetic key (no admin needed) recording that onboarding finished on this Gateway. */
@@ -275,7 +277,10 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
   const slots = useMemo<ShellSlots>(
     () => ({
       chat: (threadId, ctx) => <KitChat threadId={threadId} ctx={ctx} />,
-      section: (route, navigate) => agentRoute(route, navigate) ?? screenRoute(route, navigate),
+      section: (route, navigate) =>
+        settingsRoute(route, navigate, platform) ??
+        agentRoute(route, navigate) ??
+        screenRoute(route, navigate),
       rail: ({ route, compact, navigate }) => (
         <Rail active={railItemFor(route)} onNavigate={navigate} compact={compact} />
       ),
@@ -283,7 +288,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
         <ThreadList activeThreadId={threadId} onOpen={onOpen} onNewSideChat={onNew} />
       ),
     }),
-    [],
+    [platform],
   );
 
   let body: ReactNode;
