@@ -163,7 +163,9 @@ describe("approval card (docs/06 §3.3, §4.11)", () => {
       screen.getByRole("button", { name: "Allow with scope" }).getAttribute("aria-keyshortcuts"),
     ).toBe("Meta+Enter Control+Enter");
     // The shortcut is shown, and described on both buttons.
-    expect(screen.getByRole("button", { name: "Deny" }).getAttribute("aria-describedby")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Deny" }).getAttribute("aria-describedby"),
+    ).toBeTruthy();
   });
 });
 
