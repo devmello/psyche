@@ -18,6 +18,17 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (M3 model adapters: Settings → Model & providers, B1/B4)
+
+For the model router (S03 M3: endpoint probe), the Gateway (`models.*` handlers) and Settings → Model & providers in `packages/ui` / `apps/web`.
+
+- New methods in `methods/models.ts`:
+  - `models.list {}` → `{providers: ModelProviderSummary[], roles: ModelRoles}` (`operator.read`): configured providers, their known models with tool-check verdicts, and the last endpoint probe (`not_probed` until one runs).
+  - `models.probe {providerId}` → `{provider}` (`operator.admin`): reachability, model list and capability guesses for one configured provider; runs only when the owner asks.
+  - `models.check {ref}` → `{result: ToolCheckResult}` (`operator.admin`): the six-case tool-calling check (B4).
+  - `models.setRole {role: "primary" | "utility", ref, override?}` → `{roles}` (`operator.admin`, side-effecting): binds and persists a role; `policy_denied` for a chat-only primary without `override`.
+- New schemas in `schemas/models.ts`: `ModelFactSource`, `ModelCapabilityGuess`, `ProbedModel`, `EndpointProbeState`, `EndpointProbe`, `ToolCheckStatus`, `ToolCheckResult`, `ProviderModelEntry`, `ModelProviderSummary`, `PickableModelRole`, `ModelRoles`.
+
 ### v1 additive — 2026-10-19 (M2 computer use: per-app tier keys on the action)
 
 For S02 (the loop passes it through), S05 (the broker's per-app tier check) and the Gateway's computer-use tools (`computer.act`, `apps.open`, `apps.focus`).

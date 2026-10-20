@@ -230,6 +230,8 @@
 //   let documentsConvertParams = try? JSONDecoder().decode(DocumentsConvertParams.self, from: jsonData)
 //   let documentsConvertResult = try? JSONDecoder().decode(DocumentsConvertResult.self, from: jsonData)
 //   let emptyParams = try? JSONDecoder().decode(EmptyParams.self, from: jsonData)
+//   let endpointProbe = try? JSONDecoder().decode(EndpointProbe.self, from: jsonData)
+//   let endpointProbeState = try? JSONDecoder().decode(EndpointProbeState.self, from: jsonData)
 //   let errorCode = try? JSONDecoder().decode(ErrorCode.self, from: jsonData)
 //   let errorPayload = try? JSONDecoder().decode(ErrorPayload.self, from: jsonData)
 //   let eventFilters = try? JSONDecoder().decode(EventFilters.self, from: jsonData)
@@ -375,6 +377,18 @@
 //   let messagesStatus = try? JSONDecoder().decode(MessagesStatus.self, from: jsonData)
 //   let messagesWatchEvent = try? JSONDecoder().decode(MessagesWatchEvent.self, from: jsonData)
 //   let messagesWatchParams = try? JSONDecoder().decode(MessagesWatchParams.self, from: jsonData)
+//   let modelCapabilityGuess = try? JSONDecoder().decode(ModelCapabilityGuess.self, from: jsonData)
+//   let modelFactSource = try? JSONDecoder().decode(ModelFactSource.self, from: jsonData)
+//   let modelProviderSummary = try? JSONDecoder().decode(ModelProviderSummary.self, from: jsonData)
+//   let modelRoles = try? JSONDecoder().decode(ModelRoles.self, from: jsonData)
+//   let modelsCheckParams = try? JSONDecoder().decode(ModelsCheckParams.self, from: jsonData)
+//   let modelsCheckResult = try? JSONDecoder().decode(ModelsCheckResult.self, from: jsonData)
+//   let modelsListParams = try? JSONDecoder().decode(ModelsListParams.self, from: jsonData)
+//   let modelsListResult = try? JSONDecoder().decode(ModelsListResult.self, from: jsonData)
+//   let modelsProbeParams = try? JSONDecoder().decode(ModelsProbeParams.self, from: jsonData)
+//   let modelsProbeResult = try? JSONDecoder().decode(ModelsProbeResult.self, from: jsonData)
+//   let modelsSetRoleParams = try? JSONDecoder().decode(ModelsSetRoleParams.self, from: jsonData)
+//   let modelsSetRoleResult = try? JSONDecoder().decode(ModelsSetRoleResult.self, from: jsonData)
 //   let nodeCapability = try? JSONDecoder().decode(NodeCapability.self, from: jsonData)
 //   let nodeEventParams = try? JSONDecoder().decode(NodeEventParams.self, from: jsonData)
 //   let nodeInfo = try? JSONDecoder().decode(NodeInfo.self, from: jsonData)
@@ -420,14 +434,17 @@
 //   let permissionMode = try? JSONDecoder().decode(PermissionMode.self, from: jsonData)
 //   let personaIdentity = try? JSONDecoder().decode(PersonaIdentity.self, from: jsonData)
 //   let personaUpdatedPayload = try? JSONDecoder().decode(PersonaUpdatedPayload.self, from: jsonData)
+//   let pickableModelRole = try? JSONDecoder().decode(PickableModelRole.self, from: jsonData)
 //   let planBlock = try? JSONDecoder().decode(PlanBlock.self, from: jsonData)
 //   let planStep = try? JSONDecoder().decode(PlanStep.self, from: jsonData)
 //   let planStepStatus = try? JSONDecoder().decode(PlanStepStatus.self, from: jsonData)
 //   let policyRule = try? JSONDecoder().decode(PolicyRule.self, from: jsonData)
 //   let presenceAssertion = try? JSONDecoder().decode(PresenceAssertion.self, from: jsonData)
+//   let probedModel = try? JSONDecoder().decode(ProbedModel.self, from: jsonData)
 //   let protocolVersionRange = try? JSONDecoder().decode(ProtocolVersionRange.self, from: jsonData)
 //   let provenance = try? JSONDecoder().decode(Provenance.self, from: jsonData)
 //   let provenanceOut = try? JSONDecoder().decode(ProvenanceOut.self, from: jsonData)
+//   let providerModelEntry = try? JSONDecoder().decode(ProviderModelEntry.self, from: jsonData)
 //   let question = try? JSONDecoder().decode(Question.self, from: jsonData)
 //   let questionAnswers = try? JSONDecoder().decode(QuestionAnswers.self, from: jsonData)
 //   let questionBlock = try? JSONDecoder().decode(QuestionBlock.self, from: jsonData)
@@ -558,6 +575,8 @@
 //   let toolCallBlock = try? JSONDecoder().decode(ToolCallBlock.self, from: jsonData)
 //   let toolCallStatus = try? JSONDecoder().decode(ToolCallStatus.self, from: jsonData)
 //   let toolCallUpdatedPayload = try? JSONDecoder().decode(ToolCallUpdatedPayload.self, from: jsonData)
+//   let toolCheckResult = try? JSONDecoder().decode(ToolCheckResult.self, from: jsonData)
+//   let toolCheckStatus = try? JSONDecoder().decode(ToolCheckStatus.self, from: jsonData)
 //   let toolSpec = try? JSONDecoder().decode(ToolSpec.self, from: jsonData)
 //   let transcript = try? JSONDecoder().decode(Transcript.self, from: jsonData)
 //   let transcriptSegment = try? JSONDecoder().decode(TranscriptSegment.self, from: jsonData)
@@ -8375,6 +8394,310 @@ public struct MessagesWatchParams: Codable, Sendable {
     }
 }
 
+// MARK: - ModelsCheckParams
+public struct ModelsCheckParams: Codable, Sendable {
+    public let ref: String
+
+    public enum CodingKeys: String, CodingKey {
+        case ref = "ref"
+    }
+
+    public init(ref: String) {
+        self.ref = ref
+    }
+}
+
+// MARK: - ModelsCheckResult
+public struct ModelsCheckResult: Codable, Sendable {
+    public let result: ToolCheckResult
+
+    public enum CodingKeys: String, CodingKey {
+        case result = "result"
+    }
+
+    public init(result: ToolCheckResult) {
+        self.result = result
+    }
+}
+
+// MARK: - ToolCheckResult
+public struct ToolCheckResult: Codable, Sendable {
+    public let inconclusive: Bool
+    public let passed: Int
+    public let probedAt: String?
+    public let ref: String
+    public let status: ToolCheckStatus
+    public let total: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case inconclusive = "inconclusive"
+        case passed = "passed"
+        case probedAt = "probedAt"
+        case ref = "ref"
+        case status = "status"
+        case total = "total"
+    }
+
+    public init(inconclusive: Bool, passed: Int, probedAt: String?, ref: String, status: ToolCheckStatus, total: Int) {
+        self.inconclusive = inconclusive
+        self.passed = passed
+        self.probedAt = probedAt
+        self.ref = ref
+        self.status = status
+        self.total = total
+    }
+}
+
+public enum ToolCheckStatus: String, Codable, Sendable {
+    case agentCapable = "agent-capable"
+    case chatOnly = "chat-only"
+    case untested = "untested"
+}
+
+// MARK: - ModelsListResult
+public struct ModelsListResult: Codable, Sendable {
+    public let providers: [ModelProviderSummary]
+    public let roles: ModelRoles
+
+    public enum CodingKeys: String, CodingKey {
+        case providers = "providers"
+        case roles = "roles"
+    }
+
+    public init(providers: [ModelProviderSummary], roles: ModelRoles) {
+        self.providers = providers
+        self.roles = roles
+    }
+}
+
+// MARK: - ModelProviderSummary
+public struct ModelProviderSummary: Codable, Sendable {
+    public let baseURL: String?
+    public let id: String
+    public let keyConfigured: Bool
+    public let kind: String
+    public let label: String
+    public let local: Bool
+    public let models: [ProviderModelEntry]
+    public let probe: EndpointProbe
+
+    public enum CodingKeys: String, CodingKey {
+        case baseURL = "baseURL"
+        case id = "id"
+        case keyConfigured = "keyConfigured"
+        case kind = "kind"
+        case label = "label"
+        case local = "local"
+        case models = "models"
+        case probe = "probe"
+    }
+
+    public init(baseURL: String?, id: String, keyConfigured: Bool, kind: String, label: String, local: Bool, models: [ProviderModelEntry], probe: EndpointProbe) {
+        self.baseURL = baseURL
+        self.id = id
+        self.keyConfigured = keyConfigured
+        self.kind = kind
+        self.label = label
+        self.local = local
+        self.models = models
+        self.probe = probe
+    }
+}
+
+// MARK: - ProviderModelEntry
+public struct ProviderModelEntry: Codable, Sendable {
+    public let capabilities: ModelCapabilityGuess?
+    public let ref: String
+    public let toolCheck: ToolCheckStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case capabilities = "capabilities"
+        case ref = "ref"
+        case toolCheck = "toolCheck"
+    }
+
+    public init(capabilities: ModelCapabilityGuess?, ref: String, toolCheck: ToolCheckStatus) {
+        self.capabilities = capabilities
+        self.ref = ref
+        self.toolCheck = toolCheck
+    }
+}
+
+// MARK: - ModelCapabilityGuess
+public struct ModelCapabilityGuess: Codable, Sendable {
+    public let contextWindow: Int?
+    public let embeddings: Bool?
+    public let reasoning: Bool?
+    public let source: ModelFactSource
+    public let toolCalling: Bool?
+    public let vision: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case contextWindow = "contextWindow"
+        case embeddings = "embeddings"
+        case reasoning = "reasoning"
+        case source = "source"
+        case toolCalling = "toolCalling"
+        case vision = "vision"
+    }
+
+    public init(contextWindow: Int?, embeddings: Bool?, reasoning: Bool?, source: ModelFactSource, toolCalling: Bool?, vision: Bool?) {
+        self.contextWindow = contextWindow
+        self.embeddings = embeddings
+        self.reasoning = reasoning
+        self.source = source
+        self.toolCalling = toolCalling
+        self.vision = vision
+    }
+}
+
+public enum ModelFactSource: String, Codable, Sendable {
+    case catalog = "catalog"
+    case config = "config"
+    case heuristic = "heuristic"
+    case listing = "listing"
+}
+
+// MARK: - EndpointProbe
+public struct EndpointProbe: Codable, Sendable {
+    public let error: String?
+    public let latencyMS: Int?
+    public let models: [ProbedModel]
+    public let probedAt: String?
+    public let server: String?
+    public let state: EndpointProbeState
+
+    public enum CodingKeys: String, CodingKey {
+        case error = "error"
+        case latencyMS = "latencyMs"
+        case models = "models"
+        case probedAt = "probedAt"
+        case server = "server"
+        case state = "state"
+    }
+
+    public init(error: String?, latencyMS: Int?, models: [ProbedModel], probedAt: String?, server: String?, state: EndpointProbeState) {
+        self.error = error
+        self.latencyMS = latencyMS
+        self.models = models
+        self.probedAt = probedAt
+        self.server = server
+        self.state = state
+    }
+}
+
+// MARK: - ProbedModel
+public struct ProbedModel: Codable, Sendable {
+    public let capabilities: ModelCapabilityGuess
+    public let id: String
+    public let label: String?
+    public let loaded: Bool?
+    public let ref: String
+
+    public enum CodingKeys: String, CodingKey {
+        case capabilities = "capabilities"
+        case id = "id"
+        case label = "label"
+        case loaded = "loaded"
+        case ref = "ref"
+    }
+
+    public init(capabilities: ModelCapabilityGuess, id: String, label: String?, loaded: Bool?, ref: String) {
+        self.capabilities = capabilities
+        self.id = id
+        self.label = label
+        self.loaded = loaded
+        self.ref = ref
+    }
+}
+
+public enum EndpointProbeState: String, Codable, Sendable {
+    case authFailed = "auth_failed"
+    case error = "error"
+    case notProbed = "not_probed"
+    case reachable = "reachable"
+    case unreachable = "unreachable"
+}
+
+// MARK: - ModelRoles
+public struct ModelRoles: Codable, Sendable {
+    public let primary: String?
+    public let utility: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case primary = "primary"
+        case utility = "utility"
+    }
+
+    public init(primary: String?, utility: String?) {
+        self.primary = primary
+        self.utility = utility
+    }
+}
+
+// MARK: - ModelsProbeParams
+public struct ModelsProbeParams: Codable, Sendable {
+    public let providerID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case providerID = "providerId"
+    }
+
+    public init(providerID: String) {
+        self.providerID = providerID
+    }
+}
+
+// MARK: - ModelsProbeResult
+public struct ModelsProbeResult: Codable, Sendable {
+    public let provider: ModelProviderSummary
+
+    public enum CodingKeys: String, CodingKey {
+        case provider = "provider"
+    }
+
+    public init(provider: ModelProviderSummary) {
+        self.provider = provider
+    }
+}
+
+// MARK: - ModelsSetRoleParams
+public struct ModelsSetRoleParams: Codable, Sendable {
+    public let modelsSetRoleParamsOverride: Bool?
+    public let ref: String
+    public let role: PickableModelRole
+
+    public enum CodingKeys: String, CodingKey {
+        case modelsSetRoleParamsOverride = "override"
+        case ref = "ref"
+        case role = "role"
+    }
+
+    public init(modelsSetRoleParamsOverride: Bool?, ref: String, role: PickableModelRole) {
+        self.modelsSetRoleParamsOverride = modelsSetRoleParamsOverride
+        self.ref = ref
+        self.role = role
+    }
+}
+
+public enum PickableModelRole: String, Codable, Sendable {
+    case primary = "primary"
+    case utility = "utility"
+}
+
+// MARK: - ModelsSetRoleResult
+public struct ModelsSetRoleResult: Codable, Sendable {
+    public let roles: ModelRoles
+
+    public enum CodingKeys: String, CodingKey {
+        case roles = "roles"
+    }
+
+    public init(roles: ModelRoles) {
+        self.roles = roles
+    }
+}
+
 // MARK: - NodeEventParams
 public struct NodeEventParams: Codable, Sendable {
     public let data: JSONAny
@@ -12942,6 +13265,7 @@ public typealias EmptyParams = [String: JSONAny]
 public typealias MemoryExportParams = [String: JSONAny]
 public typealias MemoryPersonaGetParams = [String: JSONAny]
 public typealias MemoryStatusParams = [String: JSONAny]
+public typealias ModelsListParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]
 public typealias PasskeysListParams = [String: JSONAny]
 public typealias PasskeysReauthBeginParams = [String: JSONAny]

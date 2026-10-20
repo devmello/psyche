@@ -1153,6 +1153,38 @@
         "sideEffecting": true
       },
       {
+        "description": "Runs the six-case tool-calling check (B4) on one model and stores a conclusive verdict. Calls the model, so it may cost tokens.",
+        "name": "models.check",
+        "params": "#/$defs/ModelsCheckParams",
+        "result": "#/$defs/ModelsCheckResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists the configured model providers with their known models, the last endpoint probe (state not_probed until one runs) and tool-check verdicts, plus the primary and utility role bindings.",
+        "name": "models.list",
+        "params": "#/$defs/ModelsListParams",
+        "result": "#/$defs/ModelsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Probes one configured provider's endpoint: reachability, the model list and capability guesses (vision, tool use, context length). Stores and returns the result. not_found for an unknown provider id.",
+        "name": "models.probe",
+        "params": "#/$defs/ModelsProbeParams",
+        "result": "#/$defs/ModelsProbeResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Binds the primary or utility role to a model and persists it (settings models.primary / models.utility). policy_denied when a chat-only model is picked as primary without override; not_found when no configured provider serves the ref. Side-effecting.",
+        "name": "models.setRole",
+        "params": "#/$defs/ModelsSetRoleParams",
+        "result": "#/$defs/ModelsSetRoleResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Node → Gateway: streamed progress for an invocation.",
         "name": "node.event",
         "params": "#/$defs/NodeEventParams",
@@ -7611,6 +7643,49 @@
       "properties": {},
       "type": "object"
     },
+    "EndpointProbe": {
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/EndpointProbeState"
+        },
+        "probedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "latencyMs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "server": {
+          "type": "string"
+        },
+        "models": {
+          "items": {
+            "$ref": "#/$defs/ProbedModel"
+          },
+          "type": "array"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "models"
+      ],
+      "type": "object"
+    },
+    "EndpointProbeState": {
+      "enum": [
+        "not_probed",
+        "reachable",
+        "unreachable",
+        "auth_failed",
+        "error"
+      ],
+      "type": "string"
+    },
     "ErrorCode": {
       "description": "Machine-readable error code",
       "enum": [
@@ -11501,6 +11576,203 @@
       },
       "type": "object"
     },
+    "ModelCapabilityGuess": {
+      "properties": {
+        "toolCalling": {
+          "type": "boolean"
+        },
+        "vision": {
+          "type": "boolean"
+        },
+        "reasoning": {
+          "type": "boolean"
+        },
+        "embeddings": {
+          "type": "boolean"
+        },
+        "contextWindow": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "source": {
+          "$ref": "#/$defs/ModelFactSource"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "type": "object"
+    },
+    "ModelFactSource": {
+      "enum": [
+        "listing",
+        "catalog",
+        "config",
+        "heuristic"
+      ],
+      "type": "string"
+    },
+    "ModelProviderSummary": {
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "baseURL": {
+          "type": "string"
+        },
+        "local": {
+          "type": "boolean"
+        },
+        "keyConfigured": {
+          "type": "boolean"
+        },
+        "models": {
+          "items": {
+            "$ref": "#/$defs/ProviderModelEntry"
+          },
+          "type": "array"
+        },
+        "probe": {
+          "$ref": "#/$defs/EndpointProbe"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "label",
+        "local",
+        "keyConfigured",
+        "models",
+        "probe"
+      ],
+      "type": "object"
+    },
+    "ModelRoles": {
+      "properties": {
+        "primary": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "utility": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ModelsCheckParams": {
+      "properties": {
+        "ref": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "type": "object"
+    },
+    "ModelsCheckResult": {
+      "properties": {
+        "result": {
+          "$ref": "#/$defs/ToolCheckResult"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    },
+    "ModelsListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "ModelsListResult": {
+      "properties": {
+        "providers": {
+          "items": {
+            "$ref": "#/$defs/ModelProviderSummary"
+          },
+          "type": "array"
+        },
+        "roles": {
+          "$ref": "#/$defs/ModelRoles"
+        }
+      },
+      "required": [
+        "providers",
+        "roles"
+      ],
+      "type": "object"
+    },
+    "ModelsProbeParams": {
+      "properties": {
+        "providerId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "providerId"
+      ],
+      "type": "object"
+    },
+    "ModelsProbeResult": {
+      "properties": {
+        "provider": {
+          "$ref": "#/$defs/ModelProviderSummary"
+        }
+      },
+      "required": [
+        "provider"
+      ],
+      "type": "object"
+    },
+    "ModelsSetRoleParams": {
+      "properties": {
+        "role": {
+          "$ref": "#/$defs/PickableModelRole"
+        },
+        "ref": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "override": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "role",
+        "ref"
+      ],
+      "type": "object"
+    },
+    "ModelsSetRoleResult": {
+      "properties": {
+        "roles": {
+          "$ref": "#/$defs/ModelRoles"
+        }
+      },
+      "required": [
+        "roles"
+      ],
+      "type": "object"
+    },
     "NodeCapability": {
       "properties": {
         "name": {
@@ -12516,6 +12788,13 @@
       ],
       "type": "object"
     },
+    "PickableModelRole": {
+      "enum": [
+        "primary",
+        "utility"
+      ],
+      "type": "string"
+    },
     "PlanBlock": {
       "properties": {
         "type": {
@@ -12660,6 +12939,34 @@
       ],
       "type": "object"
     },
+    "ProbedModel": {
+      "properties": {
+        "ref": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/ModelCapabilityGuess"
+        },
+        "loaded": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref",
+        "id",
+        "capabilities"
+      ],
+      "type": "object"
+    },
     "ProtocolVersionRange": {
       "properties": {
         "min": {
@@ -12692,6 +12999,26 @@
         "untrusted"
       ],
       "type": "string"
+    },
+    "ProviderModelEntry": {
+      "properties": {
+        "ref": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/ModelCapabilityGuess"
+        },
+        "toolCheck": {
+          "$ref": "#/$defs/ToolCheckStatus"
+        }
+      },
+      "required": [
+        "ref",
+        "toolCheck"
+      ],
+      "type": "object"
     },
     "Question": {
       "properties": {
@@ -16172,6 +16499,50 @@
         "toolCall"
       ],
       "type": "object"
+    },
+    "ToolCheckResult": {
+      "properties": {
+        "ref": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/ToolCheckStatus"
+        },
+        "passed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "total": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "inconclusive": {
+          "type": "boolean"
+        },
+        "probedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref",
+        "status",
+        "passed",
+        "total",
+        "inconclusive"
+      ],
+      "type": "object"
+    },
+    "ToolCheckStatus": {
+      "enum": [
+        "untested",
+        "agent-capable",
+        "chat-only"
+      ],
+      "type": "string"
     },
     "ToolSpec": {
       "properties": {
