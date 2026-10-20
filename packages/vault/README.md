@@ -122,13 +122,6 @@ These four are registered on main (PR #47). System keychain mode (G9) also needs
    - the field must not sit in another frame (Stripe Elements' `js.stripe.com` iframe is refused; a Link Pay Token is the follow-up for those checkouts).
 5. **`complete(id, {outcome, orderNumber, merchantConfirmation})`** shreds the card file, reports the outcome to Link, and records the receipt. The receipt has `externalRefs.linkSpendRequestId` / `orderNumber` / `merchantConfirmation` and a payload with brand / last4 only.
 
-**Purchases the agent loop dispatched:** a purchase tool, such as V3's `shop.pay_with_link`, has its `once` purchase card issued, verified and consumed by the loop under the loop's binding recipe. `authorizeDispatched(approvalId, input, bindingHash)` re-checks that request itself before creating the spend request:
-- approved, kind `purchase`, scope `once`;
-- the same binding hash the loop verified for these exact arguments;
-- one spend request per approval.
-
-`complete({..., toolCallId})` ties the receipt to that tool call.
-
 **Clean-up:** `cancel(id)` cancels and shreds. `sweep()` shreds card files past `cardTtlMs` (2 h) and any file without a live approved record. Records (no secrets) live in `vault/payments/`.
 
 **`LinkCliWallet`** runs the owner-installed `@stripe/link-cli` (0.29.0 checked; deliberately not a dependency, because its postinstall runs a skills installer):

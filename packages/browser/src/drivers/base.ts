@@ -50,11 +50,6 @@ export interface DriverDeps {
   /** CredentialBroker.redact, for post-fill hygiene in snapshots and text. */
   redact?: (text: string) => string;
   downloadTimeoutMs?: number;
-  /**
-   * `deny` refuses `download` outright (real-Chrome mode, I13: that profile saves to its own
-   * folder, outside the Library quarantine). Default `quarantine`.
-   */
-  downloads?: "quarantine" | "deny";
 }
 
 export interface SessionState {
@@ -762,13 +757,6 @@ export abstract class DriverBase implements BrowserDriverEx {
     tabId: string,
     source: { ref: string } | { url: string },
   ): Promise<DriverDownload> {
-    if (this.deps.downloads === "deny") {
-      throw new PsycheError(
-        "policy_denied",
-        "downloads are off in this browser: they would bypass the Library quarantine",
-        { details: { reason: "downloads_denied" } },
-      );
-    }
     const t = this.tabState(tabId);
     const wait = this.#awaitDownload(tabId, this.deps.downloadTimeoutMs ?? 30_000);
     wait.catch(() => undefined);

@@ -1,6 +1,6 @@
-# INT-3 status: Milestone 1 and 2 acceptance (2026-10-19, updated with the Milestone 2 scenarios)
+# INT-3 status: Milestone 1 acceptance (2026-10-19, updated after the first live runs)
 
-Branches `int/3-acceptance` (PR #95, merged), `int/3-live-driver` (PR #116, merged: the model-agnostic live driver and the first live numbers) and `int/3-m2-guides` (the Milestone 2 scenarios and the user guides under `docs/guides/`). Plan: [docs/plans/int-3.md](../plans/int-3.md). Scorecard: [tests/acceptance/SCORECARD.md](../../tests/acceptance/SCORECARD.md) (generated; evidence in `out/acceptance/*.json`). Release notes draft: [docs/release-notes/0.1.md](../release-notes/0.1.md). Package: [tests/acceptance/README.md](../../tests/acceptance/README.md).
+Branches `int/3-acceptance` (PR #95, merged) and `int/3-live-driver` (the model-agnostic live driver and the first live numbers). Plan: [docs/plans/int-3.md](../plans/int-3.md). Scorecard: [tests/acceptance/SCORECARD.md](../../tests/acceptance/SCORECARD.md) (generated; evidence in `out/acceptance/*.json`). Release notes draft: [docs/release-notes/0.1.md](../release-notes/0.1.md). Package: [tests/acceptance/README.md](../../tests/acceptance/README.md).
 
 ## Verdict
 
@@ -34,35 +34,6 @@ Milestone 1 is **done offline; live, two of the three scenarios pass on a hosted
 | The scenario tools are registered with placeholder descriptions and open schemas (`world.ts`), unusable by a real model | S18 | overlaid by `tests/acceptance/live/tool-specs.ts`; request below |
 
 No new issue was needed: every failure already had one, or is a corpus / fixture fix.
-
-## Milestone 2 scenarios (scripted)
-
-docs/08 Milestone 2 lists V5, V6, V8 and V9 as its acceptance scenarios, plus V3 up to the payment hand-off. V3 landed separately in `tests/scenarios/v3-shopping` (S09, PR #166) and passes 18/18 hard in the M1 runner. None had fixtures, so INT-3 wrote them in S18's format under `tests/acceptance/scenarios-m2/` (README there: provisional tools, decisions, findings). They validate with `tests/scenarios/validate.mjs --dir` and run through S18's runner on the real agent loop, broker and audit chain, with the real documents pipeline (V5) and agent-core's `task.start` and `schedule` built-ins (V8, V9).
-
-| Scenario | Hard | Soft | Extra checks in `offline/scenarios-m2.test.ts` |
-| --- | --- | --- | --- |
-| V5 permission slip | 19/19 | 2/2 | one fill receipt with hashes only; a copy changed after review is refused (`binding_mismatch`) and nothing is sent |
-| V6 Messages and voice note | 21/21 | 1/1 | one CAF voice note, one message to the friend, nothing to the planted address |
-| V8 subscription audit | 26/26 | 3/3 | two cancellation tasks, both tainted, both pointing at the reads they came from |
-| V9 weekly review | 21/21 | 2/2 | the automation fires at 4 PM Pacific on both Fridays as unattended runs; one "Approval needed" notice for the deferred send |
-
-The resumability sweep now also kills each M2 happy path at 4 seeded random points: 16 kill points, no violations (41 with M1's 25).
-
-What the scenarios found:
-
-- **Starting a task asks (V8).** agent-core declares `task.start` as `none`, and the broker floors it to `write` (issue #48). A V8 draft that did not expect the card still "passed", because the default-deny policy refused both cards and nothing checked that the tasks existed. The test-level check caught it. The scenario now approves each task, which matches V8's "cancellations as approved tasks".
-- **S05:** tools that declare no approval kind are named by prefix. A `messages.read` card says `message_send`, a `calendar.list` card `calendar_write`.
-- **S02:** task taint sources are tool calls with their target account, not senders. A task cannot say which message tainted it.
-- **S13 / S18:** the documents pipeline records `file_write` receipts; the scenario vocabulary says `file.write`.
-- **Provisional tools** (no agent registration on main): `documents.form_fields`, `documents.fill_form` (S13), `messages.read`, `messages.send` (S14), `speech.transcribe`, `speech.voice_note` (S17), `goals.list` (S15). The scenarios fix their names and shapes; each owner replaces the fake.
-
-Not done for M2: live runs (none requested), and the live driver has no tool specs for the M2 tools yet.
-
-## User guides
-
-`docs/guides/` has six guides written against main: getting started (from source, models by environment variable, onboarding, admin rights, shared folders, Settings), approvals, memory and persona, connectors and channels, and server mode. Each says plainly what is built but not reachable from the app yet, with any workaround. The draft release notes (`docs/release-notes/0.1.md`) were corrected to match: they had claimed Google, web search, Telegram setup, dictation and nightly dreaming work.
-
-What the guides found not wired on main (owner in brackets): connecting any connector from a client, and the IMAP / JMAP mail connector (S09 / S01); web search (S09 / INT-2); creating the Telegram channel (S10 / S01); setting up the vault, so model keys and connector tokens cannot be stored in it (S06 / S01); speech in psyched (S17); dreaming, the persona settings and pencil, presets, incognito threads, git sync and the in-app export (S07 / S11 / S12); `threads.update`, so the permission mode cannot change (S01); onboarding steps 2 to 5 save nothing (S11 / S12); model keys in systemd and launchd units (S22).
 
 ## Live gates: what ran and what it showed
 
@@ -116,7 +87,5 @@ The same driver with a `FakeModelProvider` reproduces the scripted outcomes for 
 
 Outside `tests/acceptance/**`, `docs/release-notes/**`, `docs/plans/int-3.md` and this file, INT-3 changed:
 
-- `packages/testing/src/scenarios/stack.ts` (S18): the `provider` override, live-call arguments from `details.paramsRedacted`, and the `before_tool_call` hook that records every call's arguments (a parked call's details only arrive with its final event). For M2: `StackOverrides.impls` (extra fake executors) and `.services` (agent-core built-ins' services), and a run mode on `startRun`.
-- `packages/testing/src/scenarios/world.ts` (S18): `tools()` merges extra executors; `ToolImpl` type.
-- `tests/scenarios/validate.mjs` (S18): `--dir <path>`. `tests/scenarios/schema.json`: receipt kind `message.send`.
+- `packages/testing/src/scenarios/stack.ts` (S18): the `provider` override, live-call arguments from `details.paramsRedacted`, and the `before_tool_call` hook that records every call's arguments (a parked call's details only arrive with its final event).
 - `pnpm-workspace.yaml`, `vitest.config.ts`, `pnpm-lock.yaml` (S00): the new workspace package.

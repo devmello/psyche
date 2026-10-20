@@ -4,11 +4,8 @@
 
 ```
 offline/   scenarios.test.ts     V1, V2, V7 through S18's scripted runner; known failures stay tracked by issue
-           scenarios-m2.test.ts  V5, V6, V8, V9 (scenarios-m2/) through the same runner, plus fake-side checks
-           scenarios-m2-format.test.ts  the M2 scenario files pass S18's validator
            injection.test.ts     the injection corpus in balanced, manual and auto on the reference and INT-2 stacks
-           resumability.test.ts  the happy paths killed at seeded random points on the real stack (25 for V1, V2, V7; 16 for M2)
-scenarios-m2/                    the Milestone 2 scenarios in S18's format (README there: provisional tools, decisions, findings)
+           resumability.test.ts  the three scenarios' happy paths killed at 25 seeded random points on the real stack
 perf/      budgets.test.ts       Gateway boot and first delta, browser snapshot, memory search (scripted provider)
 a11y/      main-flows.test.tsx   axe-core, keyboard operation and reduced motion over the kit's main-flow screens (jsdom)
 live/      driver.ts             live-mode driver over S18's scenario Stack: real model, same fakes and clock
@@ -16,10 +13,8 @@ live/      driver.ts             live-mode driver over S18's scenario Stack: rea
            scenarios.live.test.ts  the live gates (PSYCHE_LIVE_TESTS=1)
            tool-specs.ts         descriptions and schemas a live model needs for the scenario tools
 src/       scenario-scripts.ts   scenario.json → resumability scripts, tools and policy
-           m2-world.ts           the M2 scenarios' fakes and built-in services (StackOverrides.impls / .services)
            report.ts             out/acceptance/*.json writers
 scripts/   offline.ts            the whole offline pass with capture on + secret-leak check + SCORECARD.md
-           make-m2-fixtures.ts   rebuilds V5's fillable PDF and its hashes in the mailbox fixture
 ```
 
 ## Running

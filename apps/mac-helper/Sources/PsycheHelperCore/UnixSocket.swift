@@ -81,15 +81,6 @@ public final class UnixSocketConnection: @unchecked Sendable {
         Darwin.close(fd)
     }
 
-    /// Hands the descriptor to the caller (who must close it) without shutting it down.
-    public func releaseDescriptor() -> Int32? {
-        lock.lock()
-        defer { lock.unlock() }
-        guard !closed else { return nil }
-        closed = true
-        return fd
-    }
-
     /// Wakes a blocked reader with EOF without releasing the fd (safe from any thread); the owner
     /// closes once its read loop has returned.
     public func shutdown() {

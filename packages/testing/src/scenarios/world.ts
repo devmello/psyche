@@ -1,8 +1,7 @@
 // Real packages are imported by relative path on purpose: they list @psyche/testing as a
 // devDependency, so declaring them in package.json would make a workspace cycle turbo rejects.
 import { createHash } from "node:crypto";
-import { mkdtempSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   type ApprovalKind,
@@ -28,8 +27,6 @@ import {
   safeFetch,
   type Transport,
 } from "../../../connectors/src/index.ts";
-import { PaymentBroker, type PurchaseInput } from "../../../vault/src/payments/broker.ts";
-import { SecretRedactor } from "../../../vault/src/redact.ts";
 import type { FakeClock } from "../clock.ts";
 import {
   FakeBrowserDriver,
@@ -39,7 +36,6 @@ import {
 import { FakeCredentialBroker } from "../fakes/FakeCredentialBroker.ts";
 import type { FakeNotifier } from "../fakes/FakeNotifier.ts";
 import { fixtureSecret } from "../secret-registry.ts";
-import { type CheckoutField, FixtureCheckout, ScenarioLinkWallet } from "./payments.ts";
 import type { Json } from "./types.ts";
 import { originOf, tzOffset } from "./util.ts";
 
@@ -66,8 +62,6 @@ export interface Fixtures {
 }
 
 export type ToolRun = (params: Json, ctx: ToolCtx) => Promise<ToolResult>;
-/** A fake executor: the tool's registry row, its arguments and the call context. */
-export type ToolImpl = (info: ToolInfo, a: Json, ctx: ToolCtx) => Promise<ToolResult>;
 export interface ToolCtx {
   callId: string;
   taskId?: string;
@@ -155,8 +149,6 @@ const SHOP_TOOL: Record<string, string> = {
   "shop.view_cart": "shop_view_cart",
   "shop.add_to_cart": "shop_add_to_cart",
   "shop.checkout_handoff": "shop_checkout_handoff",
-  // Same cart check as the hand-off, then Stripe Link pays (G12): see `#payWithLink`.
-  "shop.pay_with_link": "shop_checkout_handoff",
 };
 
 /** HTML → text with one line per block element (storefront fixtures). */
@@ -312,18 +304,7 @@ export class World {
 
   /** The shopping connector's own call description (purchase / connector_action binding). */
   shopDescribe(info: ToolInfo, params: Json) {
-    const d = this.#shopTools.get(SHOP_TOOL[info.name] ?? "")?.describeCall?.(params);
-    if (d === undefined || info.name !== "shop.pay_with_link") return d;
-    // Paying binds the payment source too, so a hand-off card can never authorize a payment.
-    const fields = (d.bindingFields ?? {}) as Record<string, unknown>;
-    const amount = String(fields.amount ?? "");
-    const items = (Array.isArray(params.items) ? params.items : []) as Json[];
-    const count = items.reduce((n, i) => n + Number(i.qty ?? 0), 0);
-    return {
-      ...d,
-      bindingFields: { ...fields, paymentSourceId: "stripe_link" },
-      summary: `Pay ${amount} at ${d.target?.display ?? d.target?.value ?? "the merchant"} for ${count} item(s) with Stripe Link (one-time card)`,
-    };
+    return this.#shopTools.get(SHOP_TOOL[info.name] ?? "")?.describeCall?.(params);
   }
 
   #page(p: Json): string {
@@ -427,7 +408,7 @@ export class World {
   }
 
   /** Executors by tool name; the runner wraps them with the binding re-check and fault hooks. */
-  impls(): Record<string, ToolImpl> {
+  impls(): Record<string, (info: ToolInfo, a: Json, ctx: ToolCtx) => Promise<ToolResult>> {
     const ok = (output: unknown, provenance: "trusted" | "untrusted" = "trusted"): ToolResult => ({
       output,
       provenance,
@@ -700,10 +681,6 @@ export class World {
   ): Record<string, (info: ToolInfo, a: Json, ctx: ToolCtx) => Promise<ToolResult>> {
     const out: Record<string, (info: ToolInfo, a: Json, ctx: ToolCtx) => Promise<ToolResult>> = {};
     for (const [name, toolName] of Object.entries(SHOP_TOOL)) {
-      if (name === "shop.pay_with_link") {
-        out[name] = (info, a, ctx) => this.#payWithLink(info, a, ctx, ok, taint);
-        continue;
-      }
       out[name] = async (info, a, ctx) => {
         const tool = this.#shopTools.get(toolName);
         if (tool === undefined) throw new PsycheError("unavailable", "no shopping fixtures");
@@ -729,141 +706,12 @@ export class World {
     return out;
   }
 
-  /** Stripe Link in test mode (G12): the wallet, the vault's payment broker, merchant pages. */
-  readonly linkWallet = new ScenarioLinkWallet((what) =>
-    this.#net({
-      via: "connector",
-      host: "api.link.com",
-      url: `link-cli ${what}`,
-      allowedBy: "connector:stripe_link",
-    }),
-  );
-  readonly checkouts: FixtureCheckout[] = [];
-  /** Values the payment path masks; shared with the vault broker. */
-  readonly paymentRedactor = new SecretRedactor();
-  #payments: PaymentBroker | undefined;
-
-  #paymentBroker(): PaymentBroker {
-    this.#payments ??= new PaymentBroker({
-      home: mkdtempSync(join(tmpdir(), "psyche-v3-")),
-      wallet: this.linkWallet,
-      permissions: this.broker(),
-      redactor: this.paymentRedactor,
-      clock: this.clock,
-    });
-    return this.#payments;
-  }
-
-  /**
-   * `shop.pay_with_link`: the connector re-reads the live cart (the hand-off check: items and
-   * total must equal the approved arguments), then the vault's `PaymentBroker` takes over. It
-   * re-checks the purchase approval the loop dispatched against this call's binding hash, creates
-   * a Link spend request in test mode, waits for the owner's approval in Link, has Link write the
-   * one-time card to a 0600 file, fills the merchant's card form field by field through the
-   * browser fill core, and records the `purchase` receipt with the Link reference and order
-   * number. The model gets brand / last4 and the order number only.
-   */
-  async #payWithLink(
-    info: ToolInfo,
-    a: Json,
-    ctx: ToolCtx,
-    ok: (output: unknown, provenance?: "trusted" | "untrusted") => ToolResult,
-    taint: (ctx: ToolCtx, sources: string[]) => void,
-  ): Promise<ToolResult> {
-    const handoff = this.#shopTools.get("shop_checkout_handoff");
-    if (handoff === undefined) throw new PsycheError("unavailable", "no shopping fixtures");
-    if (ctx.approvalId === undefined)
-      throw new PsycheError("approval_required", "paying needs the purchase approval");
-    const origin = originOf(a.merchant);
-    if (origin !== undefined) taint(ctx, [`web:${origin}`]);
-    const ready = (
-      await handoff.execute(a, { signal: new AbortController().signal, callId: ctx.callId })
-    ).output as Json;
-    const items = (a.items as Json[]).map((i) => ({
-      name: String(i.name),
-      quantity: Number(i.qty),
-      unitAmount: Number(i.unitPriceMinor),
-    }));
-    const input: PurchaseInput = {
-      merchantName: String(ready.seller),
-      merchantUrl: String(ready.checkoutUrl),
-      amount: Number(a.totalMinor),
-      currency: String(a.currency).toLowerCase(),
-      lineItems: items,
-      test: true,
-    };
-    const payments = this.#paymentBroker();
-    const spend = await payments.authorizeDispatched(
-      ctx.approvalId,
-      input,
-      this.loopBindingHash(info, a),
-    );
-    const card = await payments.awaitCard(spend.spendRequestId);
-    const page = new FixtureCheckout(input.merchantUrl);
-    this.checkouts.push(page);
-    this.#net({
-      callId: ctx.callId,
-      via: "browser",
-      host: new URL(page.origin).host,
-      url: input.merchantUrl,
-      allowedBy: `approval:${ctx.approvalId}`,
-    });
-    for (const field of ["number", "exp", "cvc"] as CheckoutField[]) {
-      page.focus(field);
-      const filled = await payments.fillCard({
-        cdp: page,
-        spendRequestId: spend.spendRequestId,
-        field,
-      });
-      if (!filled.ok) {
-        await payments.complete(spend.spendRequestId, { outcome: "blocked", tags: ["other"] });
-        throw new PsycheError("unavailable", `card fill failed (${filled.reason ?? "unknown"})`, {
-          details: { reason: filled.reason ?? "fill_failed" },
-        });
-      }
-    }
-    const orderNumber = page.submit();
-    if (orderNumber === null) {
-      await payments.complete(spend.spendRequestId, {
-        outcome: "blocked",
-        tags: ["payment_declined"],
-      });
-      throw new PsycheError("unavailable", "the merchant did not accept the card", {
-        details: { reason: "payment_declined" },
-      });
-    }
-    const receipt = await payments.complete(spend.spendRequestId, {
-      outcome: "success",
-      orderNumber,
-      toolCallId: ctx.callId,
-      payload: { evaluator: { verdict: "verified" } },
-    });
-    return {
-      ...ok(
-        {
-          status: "paid",
-          seller: ready.seller,
-          items: ready.items,
-          total: ready.total,
-          currency: ready.currency,
-          paidWith: { method: "stripe_link", brand: card.card?.brand, last4: card.card?.last4 },
-          orderNumber,
-          linkSpendRequestId: spend.spendRequestId,
-          testMode: true,
-        },
-        "untrusted",
-      ),
-      receiptId: receipt.id,
-    };
-  }
-
   /** Registrations for every tool in the registry that has a fake executor. */
   tools(
     infos: ToolInfo[],
     wrap?: (name: string, run: ToolRun) => ToolRun,
-    extra: Record<string, ToolImpl> = {},
   ): AgentToolRegistration[] {
-    const impls = { ...this.impls(), ...extra };
+    const impls = this.impls();
     return infos.flatMap((info) => {
       const impl = impls[info.name];
       if (impl === undefined) return [];
@@ -899,16 +747,6 @@ export class World {
     });
   }
 
-  /** The loop's recipe: kind-specific fields join the hash when the description has them. */
-  loopBindingHash(info: ToolInfo, params: Json): string {
-    const fields = this.shopDescribe(info, params)?.bindingFields;
-    return bindingHash(info.approvalKind ?? info.name, {
-      tool: info.name,
-      paramsHash: paramsHash(params),
-      ...(fields === undefined ? {} : { fields }),
-    });
-  }
-
   /** Fault hook → executor `bindingHash` re-check (security §3.5) → the fake provider. */
   async #dispatch(info: ToolInfo, run: ToolRun, p: Json, c: ToolCtx): Promise<ToolResult> {
     const ctx: ToolCtx = {
@@ -921,7 +759,13 @@ export class World {
     this.faults.delete(ctx.callId);
     if (info.approvalKind !== undefined && ctx.approvalId !== undefined) {
       const approved = await this.broker().get(ctx.approvalId);
-      const actual = this.loopBindingHash(info, params);
+      // The loop's recipe: kind-specific fields join the hash when the description has them.
+      const fields = this.shopDescribe(info, params)?.bindingFields;
+      const actual = bindingHash(info.approvalKind, {
+        tool: info.name,
+        paramsHash: paramsHash(params),
+        ...(fields === undefined ? {} : { fields }),
+      });
       if (approved !== undefined && approved.bindingHash !== actual) {
         // Through the broker so the mismatch is audited (`binding.mismatch`).
         await this.broker().verifyBinding(ctx.approvalId, actual);

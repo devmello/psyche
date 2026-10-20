@@ -162,20 +162,3 @@ See the speech section of the README for engine selection. On macOS 26+:
 | 10.6 | `personalVoice: true` with and without Personal Voice authorization | Uses it and flags `nonCommercial: true` / falls back to a system voice |
 | 10.6a | `contacts.list {limit: 500, fields: ["name"]}` before / after granting Contacts | No prompt and `forbidden/permission_denied` / names in family-name order, no phones or emails; `truncated` when over the limit |
 | 10.7 | macOS 15 machine | SFSpeechRecognizer on-device engine; Speech Recognition prompt |
-
-## 11. VM mode (L1–L5) — run on a host with more than 16 GB, one guest at a time
-
-Spike 06 restarted a 16 GB host under two guests plus an install. Never run these in CI.
-
-| # | Step | Expect |
-| --- | --- | --- |
-| 11.1 | `vm.restore_image` on a signed build | Latest version, build and size; unsigned build → `unavailable/virtualization_entitlement` |
-| 11.2 | `vm.create {}` then `vm.create {download: true}` (or `ipsw: <path>`) | First: `download_not_confirmed` with the size; then download, install (~5 min on 27), `phase: installed` |
-| 11.3 | `vm.start` (27 host and guest) | Provisioning boot; SSH reachable in about 40 s; `phase: running`; the admin password is in the keychain (`vm.sandbox.password`) |
-| 11.4 | Guest `guest-bootstrap.sh --vsock 2:7980` | psyche-node connects through the relay; a pending pairing appears on the host; approve it and the guest node shows in `nodes.list` |
-| 11.5 | `vm.share_add {share: "work", path: ~/Projects/x}` while running | Guest sees `/Volumes/Psyche Shares/work` (after mount); writes fail with EPERM; `readOnly: false` without approval → `approval_required` |
-| 11.6 | `vm.share_add` with `~`, `~/Library`, `~/.psyche`, `/` | `share_forbidden` |
-| 11.7 | `vm.stop`, then `vm.stop {force: true}` | Without a guest helper: `guest_did_not_stop`; force → `graceful: false` |
-| 11.8 | `vm.create` a second guest | `guest_exists` |
-| 11.9 | Start while two other macOS guests run (e.g. Tart) | `guest_limit` (Code 6 text) |
-| 11.10 | Re-test `saveMachineStateTo` from the signed helper | Record whether warm start works (spike 06 got Code 11) |

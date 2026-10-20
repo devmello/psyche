@@ -338,50 +338,6 @@ export class PaymentBroker {
         reason: "approval_wrong_kind",
       });
     }
-    return this.#createSpend(approvalId, verified.approval.requestedBy.taskId ?? null, input);
-  }
-
-  /**
-   * Step 2 for a purchase tool the agent loop already dispatched: the loop verified (and
-   * consumed) the `once` purchase approval against `bindingHash`, the hash of these exact
-   * arguments in the loop's recipe. The broker re-checks the request itself rather than trusting
-   * the caller: approved, kind `purchase`, scope `once`, the same binding hash, not invalidated
-   * since; and an approval pays at most one spend request.
-   */
-  async authorizeDispatched(
-    approvalId: string,
-    input: PurchaseInput,
-    bindingHash: string,
-  ): Promise<SpendRecord> {
-    this.#validate(input);
-    const approval = await this.#o.permissions.get(approvalId);
-    const reason =
-      approval === undefined
-        ? "approval_not_found"
-        : approval.status !== "approved"
-          ? `approval_${approval.status}`
-          : approval.kind !== "purchase"
-            ? "approval_wrong_kind"
-            : approval.scopeGranted !== "once"
-              ? "approval_not_once"
-              : approval.bindingHash !== bindingHash
-                ? "approval_binding_mismatch"
-                : [...this.#ledger.values()].some((r) => r.approvalId === approvalId)
-                  ? "approval_consumed"
-                  : null;
-    if (reason !== null || approval === undefined) {
-      return fail("approval_required", "the purchase is not approved as requested", {
-        reason: reason ?? "approval_not_found",
-      });
-    }
-    return this.#createSpend(approvalId, approval.requestedBy.taskId ?? null, input);
-  }
-
-  async #createSpend(
-    approvalId: string,
-    taskId: string | null,
-    input: PurchaseInput,
-  ): Promise<SpendRecord> {
     const sr = await this.#o.wallet.create({
       amount: input.amount,
       currency: input.currency,
@@ -398,7 +354,7 @@ export class PaymentBroker {
     const rec: SpendRecord = {
       spendRequestId: sr.id,
       approvalId,
-      taskId,
+      taskId: verified.approval.requestedBy.taskId ?? null,
       merchantName: input.merchantName,
       merchantHost: canonicalHost(input.merchantUrl) ?? "",
       amount: input.amount,
@@ -549,10 +505,6 @@ export class PaymentBroker {
       orderNumber?: string;
       merchantConfirmation?: string;
       tags?: string[];
-      /** Extra receipt payload, e.g. an evaluator verdict (never card data). */
-      payload?: JsonObject;
-      /** The tool call that paid, when an agent tool drove the purchase. */
-      toolCallId?: string;
     },
   ): Promise<Receipt> {
     const rec = this.#ledger.get(spendRequestId);
@@ -583,7 +535,6 @@ export class PaymentBroker {
           : `Purchase from ${rec.merchantName} ${result.outcome}${card}`,
       taskId: rec.taskId,
       approvalId: rec.approvalId,
-      ...(result.toolCallId === undefined ? {} : { toolCallId: result.toolCallId }),
       externalRefs,
       payload: {
         merchant: rec.merchantHost,
@@ -591,7 +542,6 @@ export class PaymentBroker {
         currency: rec.currency,
         card: rec.card === null ? null : { brand: rec.card.brand, last4: rec.card.last4 },
         outcome: result.outcome,
-        ...result.payload,
       },
     });
     rec.status = result.outcome === "success" ? "succeeded" : "failed";

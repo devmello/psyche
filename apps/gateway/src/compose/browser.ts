@@ -4,18 +4,15 @@ import {
   BridgeServer,
   type BrowserDriverEx,
   CdpBridgeDriver,
-  createRoutingDriver,
   DevServerRegistry,
   type DevServerRegistryOptions,
   FileRecordingSink,
   FsQuarantineWriter,
   type LibraryWriter,
   listeningPorts,
-  OriginPolicy,
   type OriginPolicyOptions,
   type PartitionMode,
   RecordingStore,
-  type RoutingDriver,
   registerBrowserTools,
   type SessionKind,
   systemLoopbackProbes,
@@ -32,7 +29,6 @@ import {
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
-import { createRealChromeMode, type RealChromeMode, type RealChromeSetup } from "./real-chrome.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -77,8 +73,6 @@ export interface BrowserSetup {
    * its port is one of Psyche's own and never a dev server.
    */
   realChromeCdpEndpoint?: string;
-  /** Real-Chrome mode (feature I13): off unless `enabled`. See `compose/real-chrome.ts`. */
-  realChrome?: RealChromeSetup;
 }
 
 export interface ComposedBrowser extends ComposedPart {
@@ -94,8 +88,6 @@ export interface ComposedBrowser extends ComposedPart {
   readonly devServers: DevServerRegistry;
   /** What the broker asks about loopback origins (mounted by the composition root). */
   readonly localProject: LocalProjectVerifier;
-  /** Real-Chrome mode: status for `psyche security audit`, and its lifecycle. */
-  readonly realChrome: RealChromeMode;
 }
 
 /** Retention for recordings (data model §12: 7 days when enabled). */
@@ -127,6 +119,9 @@ const STATUS: Record<string, string> = {
   "browser.fill_credential": "Filling sign-in",
   "browser.request_control": "Waiting for you",
 };
+
+/** Read-only lookups the tool layer calls synchronously in `describeCall`; never throw. */
+const PEEKS = new Set(["peek", "peekSnapshot", "sessionOf", "tabOrigin", "pendingDialog"]);
 
 export function composeBrowser(
   services: ComposeServices,
@@ -233,13 +228,13 @@ export function composeBrowser(
     return driver;
   };
 
-  // Calls go to the driver that owns their session or tab: the desktop's (primary, swapped on
-  // reconnect) or real Chrome while a task has it attached (I13).
-  const router = createRoutingDriver(() => current());
   // The tools hold this proxy, so a reconnecting desktop swaps the driver underneath them.
   const driverProxy = new Proxy({} as BrowserDriverEx, {
     get(_target, prop) {
-      const d = router;
+      if (driver === undefined && typeof prop === "string" && PEEKS.has(prop)) {
+        return () => undefined;
+      }
+      const d = current();
       const value = Reflect.get(d, prop, d);
       if (prop === "snapshot" && typeof value === "function") {
         return async (tabId: string, options?: unknown) => {
@@ -257,17 +252,6 @@ export function composeBrowser(
       return typeof value === "function" ? value.bind(d) : value;
     },
   });
-
-  /** One origin policy per task (or thread), shared by its web and real-Chrome sessions. */
-  const policies = new Map<string, OriginPolicy>();
-  const policyFor = (key: string): OriginPolicy => {
-    let p = policies.get(key);
-    if (p === undefined) {
-      p = new OriginPolicy(setup.policy === undefined ? {} : structuredClone(setup.policy));
-      policies.set(key, p);
-    }
-    return p;
-  };
 
   const keyFor = (callId: string, kind: SessionKind = "web"): string => {
     const ctx = services.calls.context(callId);
@@ -299,7 +283,7 @@ export function composeBrowser(
         ...(kind === "dev_preview"
           ? { policy: { devPreview: true, loopbackPorts: [] }, partition: "clean" }
           : {
-              policy: policyFor(key),
+              ...(setup.policy === undefined ? {} : { policy: structuredClone(setup.policy) }),
               ...(setup.partition === undefined ? {} : { partition: setup.partition }),
               ...(setup.signedInOrigins === undefined
                 ? {}
@@ -313,25 +297,9 @@ export function composeBrowser(
     return session.then((s) => s.id);
   };
 
-  const realChrome = createRealChromeMode({
-    services,
-    router,
-    setup: setup.realChrome ?? {},
-    library: recordingLibrary,
-    broker: services.broker,
-    ...(redact === undefined ? {} : { redact }),
-    keyFor: (callId) => keyFor(callId, "web"),
-    policyFor,
-  });
-
   const showStatus = (name: string, params: unknown): void => {
     const p = params as { tabId?: unknown; ref?: unknown; target?: { ref?: unknown } };
     const text = STATUS[name];
-    if (typeof p?.tabId === "string" && realChrome.owns(p.tabId)) {
-      // Real Chrome has no pane to show a pill in; any use keeps it from idling out.
-      realChrome.touch();
-      return;
-    }
     if (client === undefined || text === undefined || typeof p?.tabId !== "string") return;
     const ref = typeof p.ref === "string" ? p.ref : p.target?.ref;
     const box = typeof ref === "string" ? boxes.get(p.tabId)?.get(ref) : undefined;
@@ -372,12 +340,8 @@ export function composeBrowser(
         const s = sessions.get(keyFor(callId, kind));
         if (s !== undefined) ids.push((await s).id);
       }
-      const real = realChrome.attached(callId);
-      if (real !== undefined) ids.push(real);
       return ids;
     },
-    taskPolicy: (callId) => policyFor(keyFor(callId, "web")),
-    ...(setup.realChrome?.enabled === true ? { realChrome } : {}),
     devPreview: devServers,
     ...(redact === undefined ? {} : { containsSecret: (text: string) => redact(text) !== text }),
     // Hand-offs (S20): the pane shows the reason and the owner gets an "input needed" notice.
@@ -434,7 +398,7 @@ export function composeBrowser(
 
   return {
     handlers: {
-      ...browserHandlers(router, sessionsForClients),
+      ...browserHandlers(() => current(), sessionsForClients),
       ...recordingHandlers(recordingStore, publishRecording),
     },
     attach,
@@ -445,7 +409,6 @@ export function composeBrowser(
     recordingStore,
     devServers,
     localProject,
-    realChrome,
     async start(gateway: Gateway) {
       // Retention runs at boot; recordings are opt-in and short-lived (data model §12).
       void recordingStore.prune(RECORDING_RETENTION_MS).catch(() => undefined);
@@ -460,7 +423,6 @@ export function composeBrowser(
     },
     async stop() {
       unregister();
-      await realChrome.stop();
       unregisterCdp();
       driver?.dispose();
       driver = undefined;
@@ -474,10 +436,7 @@ export function composeBrowser(
   /** Every live agent session, for `browser.tabs`. */
   async function sessionsForClients(): Promise<DriverSession[]> {
     const all = await Promise.allSettled([...sessions.values()]);
-    return [
-      ...all.flatMap((r) => (r.status === "fulfilled" ? [r.value] : [])),
-      ...realChrome.sessions(),
-    ];
+    return all.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
   }
 }
 
@@ -541,10 +500,9 @@ function recordingHandlers(
  * A tab the owner opens lives in its own session whose policy holds only that origin, read-only.
  */
 function browserHandlers(
-  router: RoutingDriver,
+  driver: () => CdpBridgeDriver,
   agentSessions: () => Promise<DriverSession[]>,
 ): Record<string, HandlerDef> {
-  const driver = () => router;
   const toTab = (
     t: { id: string; url: string; title: string; partition: "profile" | "clean" },
     taskId: string | null,
@@ -556,8 +514,7 @@ function browserHandlers(
     profile: t.partition === "clean" ? ("clean" as const) : ("logged-in" as const),
     controller: "agent" as const,
     taskId,
-    // Real-Chrome tabs (I13) run on the Playwright driver; the pane's on CDP.
-    driver: router.ownerOf(t.id) === "real_chrome" ? ("playwright" as const) : ("cdp" as const),
+    driver: "cdp" as const,
   });
   const userSessions: DriverSession[] = [];
   return {

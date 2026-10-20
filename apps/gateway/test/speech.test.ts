@@ -1,0 +1,181 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { FakeModelProvider } from "@psyche/testing";
+import { afterEach, describe, expect, it } from "vitest";
+import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
+import { silentLogger } from "../src/log.ts";
+import { FakeNode, type FakeNodeHandler } from "./fake-node.ts";
+import { desktopClient, newDeviceKey, type TestClient } from "./helpers.ts";
+
+let composed: ComposedGateway | null = null;
+let home = "";
+const clients: TestClient[] = [];
+let helper: FakeNode | null = null;
+
+afterEach(async () => {
+  for (const c of clients.splice(0)) c.close();
+  await helper?.close();
+  helper = null;
+  await composed?.stop("test");
+  composed = null;
+  if (home) rmSync(home, { recursive: true, force: true });
+});
+
+const read = (name: string, streaming = false) => ({
+  name,
+  sideEffect: "read" as const,
+  streaming,
+});
+
+/**
+ * A Mac helper shaped like apps/mac-helper: `speech.transcribe_stream` (source push) announces
+ * the stream, `speech.audio_push` reports partials and finishes on `final`, `speech.voices` lists
+ * system voices.
+ */
+function speechHelper(): FakeNodeHandler[] {
+  const streams = new Map<
+    string,
+    { bytes: number; emit: (d: unknown) => void; done: (r: unknown) => void }
+  >();
+  let n = 0;
+  return [
+    {
+      capability: read("speech.transcribe_stream", true),
+      run: (_params, emit) =>
+        new Promise((done) => {
+          const streamId = `st_${++n}`;
+          streams.set(streamId, { bytes: 0, emit, done });
+          emit({ type: "speech.started", streamId, engine: "speechAnalyzer" });
+        }),
+    },
+    {
+      capability: read("speech.audio_push"),
+      run: (params) => {
+        const p = params as { streamId: string; data: string; final?: boolean };
+        const s = streams.get(p.streamId);
+        if (!s) throw new Error("unknown stream");
+        const bytes = Buffer.from(p.data, "base64").byteLength;
+        s.bytes += bytes;
+        if (p.final === true) {
+          const text = `heard ${s.bytes} bytes`;
+          s.emit({ type: "speech.final", text, startMs: 0, endMs: 100, final: true });
+          s.done({
+            streamId: p.streamId,
+            text,
+            segments: [{ text, startMs: 0, endMs: 100, final: true }],
+            engine: "speechAnalyzer",
+            language: "en-US",
+          });
+        }
+        return { accepted: bytes, bufferedBytes: 0, final: p.final === true };
+      },
+    },
+    { capability: read("speech.stop"), run: () => ({ ok: true }) },
+    { capability: read("speech.synthesize", true), run: () => ({}) },
+    {
+      capability: read("speech.voices"),
+      run: () => ({
+        voices: [{ id: "com.apple.voice.Ava", name: "Ava", language: "en-US", quality: "premium" }],
+        personalVoiceAuthorization: "notDetermined",
+      }),
+    },
+    { capability: read("speech.status"), run: () => ({ ready: true }) },
+  ];
+}
+
+async function setup(): Promise<ComposedGateway> {
+  home = mkdtempSync(join(tmpdir(), "psyche-speech-"));
+  composed = await composeGateway({
+    env: {},
+    logger: silentLogger,
+    retentionIntervalMs: 0,
+    background: false,
+    config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
+    model: { provider: new FakeModelProvider(), model: "fake/model" },
+  });
+  return composed;
+}
+
+describe("speech over the wire (S17 handlers mounted by the Gateway)", () => {
+  it("answers speech.voices without a helper, then lists the helper's voices", async () => {
+    const c = await setup();
+    const desk = await desktopClient(c.gateway);
+    clients.push(desk);
+    const before = await desk.call<{ voices: { id: string }[]; unavailable: string[] }>(
+      "speech.voices",
+      {},
+    );
+    expect(before.voices.some((v) => v.id === "com.apple.voice.Ava")).toBe(false);
+
+    helper = await FakeNode.connect(c.gateway.config.nodeSocketPath, {
+      origin: c.gateway.origin,
+      secret: c.gateway.handshakeSecret,
+      handlers: speechHelper(),
+    });
+    const after = await desk.call<{ voices: { id: string; location: string }[] }>(
+      "speech.voices",
+      {},
+    );
+    expect(after.voices).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "com.apple.voice.Ava", location: "node" }),
+      ]),
+    );
+  });
+
+  it("dictates through the helper and sends segments only to the dictating device", async () => {
+    const c = await setup();
+    helper = await FakeNode.connect(c.gateway.config.nodeSocketPath, {
+      origin: c.gateway.origin,
+      secret: c.gateway.handshakeSecret,
+      handlers: speechHelper(),
+    });
+    const desk = await desktopClient(c.gateway, newDeviceKey(), "desk-a");
+    const other = await desktopClient(c.gateway, newDeviceKey(), "desk-b");
+    clients.push(desk, other);
+
+    const started = await desk.call<{ sessionId: string; location: string }>("voice.start", {
+      format: { encoding: "pcm_s16le", sampleRate: 16_000, channels: 1 },
+    });
+    expect(started).toMatchObject({ location: "node" });
+    await desk.call("voice.push", {
+      sessionId: started.sessionId,
+      seq: 0,
+      audio: Buffer.alloc(3200).toString("base64"),
+    });
+    const stopped = await desk.call<{ transcript: { text: string } }>("voice.stop", {
+      sessionId: started.sessionId,
+    });
+    expect(stopped.transcript.text).toMatch(/^heard \d+ bytes$/);
+    await desk.waitForEvent((e) => String(e.event).startsWith("voice."));
+    expect(other.events.filter((e) => String(e.event).startsWith("voice."))).toEqual([]);
+    // Another device cannot drive this device's session.
+    expect((await other.request("voice.stop", { sessionId: started.sessionId })).ok).toBe(false);
+  });
+
+  it("ends a device's dictation sessions when its last connection closes", async () => {
+    const c = await setup();
+    helper = await FakeNode.connect(c.gateway.config.nodeSocketPath, {
+      origin: c.gateway.origin,
+      secret: c.gateway.handshakeSecret,
+      handlers: speechHelper(),
+    });
+    const key = newDeviceKey();
+    const first = await desktopClient(c.gateway, key, "desk-c");
+    const started = await first.call<{ sessionId: string }>("voice.start", {
+      format: { encoding: "pcm_s16le", sampleRate: 16_000, channels: 1 },
+    });
+    first.close();
+    await new Promise((r) => first.ws.once("close", r));
+    await new Promise((r) => setTimeout(r, 20));
+    const again = await desktopClient(c.gateway, key, "desk-c");
+    clients.push(again);
+    const push = await again.request("voice.push", {
+      sessionId: started.sessionId,
+      seq: 0,
+      audio: Buffer.alloc(320).toString("base64"),
+    });
+    expect(push.ok).toBe(false);
+  });
+});

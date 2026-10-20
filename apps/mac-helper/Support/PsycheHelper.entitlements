@@ -5,6 +5,7 @@
   provisioning profile. scripts/build-app.sh adds the profile-backed ones (keychain-access-groups,
   application-identifier, team-identifier, time-sensitive notifications) only when a profile is
   embedded: a restricted entitlement without a profile makes AMFI refuse to launch the app.
+  com.apple.security.virtualization is added for VM mode (M3).
 -->
 <plist version="1.0">
 <dict>
@@ -18,9 +19,6 @@
   <key>com.apple.security.personal-information.calendars</key>
   <true/>
   <key>com.apple.security.personal-information.addressbook</key>
-  <true/>
-  <!-- VM mode (L1–L5): Virtualization.framework; even the restore-image catalog needs it. -->
-  <key>com.apple.security.virtualization</key>
   <true/>
 </dict>
 </plist>

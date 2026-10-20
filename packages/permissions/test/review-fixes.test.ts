@@ -1,12 +1,6 @@
 import { fixtureSecret, sha256 } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
-import {
-  bindingFor,
-  buildClassifierInput,
-  canonicalUrl,
-  renderForSurface,
-  TargetError,
-} from "../src/index.ts";
+import { bindingFor, buildClassifierInput, renderForSurface } from "../src/index.ts";
 import { approve, CTX, call, makeBroker, origin, path } from "./helpers.ts";
 
 /** Regression tests for the S05 adversarial review findings (numbers match the review). */
@@ -319,41 +313,5 @@ describe("issue #78: connector kinds for mcp__ tools", () => {
       const d = await h.broker.decide(call("mcp__evil__tool", "write", undefined, { kind }), CTX);
       expect(d.rule, kind).toBe("kind:mismatch");
     }
-  });
-});
-
-describe("fuzz finding: restart ends approved-but-unused once approvals (design-09)", () => {
-  it("an approved once that was not dispatched before a restart no longer verifies", async () => {
-    const h = makeBroker();
-    const c = call("calendar.create", "write", origin("https://cal.example.com"));
-    const { approval } = await approve(h, c, CTX, "once");
-    await h.broker.reissue();
-    expect(await h.broker.verifyBinding(approval.id, approval.bindingHash)).toEqual({
-      ok: false,
-      reason: "revoked",
-    });
-    const audit = await h.audit.query({ kind: "approval.invalidated" });
-    expect(audit.at(-1)?.data).toMatchObject({ reason: "gateway_restart_unconsumed" });
-  });
-
-  it("a standing approval keeps verifying through its grant after a restart", async () => {
-    const h = makeBroker();
-    const c = call("calendar.create", "write", origin("https://cal.example.com"));
-    const { approval } = await approve(h, c, CTX, "always");
-    await h.broker.reissue();
-    expect((await h.broker.verifyBinding(approval.id, approval.bindingHash)).ok).toBe(true);
-  });
-});
-
-describe("fuzz finding: hosts with empty labels are not canonical", () => {
-  it.each(["http:..", "http://..:/@a.aa", "http://../", "http://a..b/", "http://localhost../"])(
-    "%s throws",
-    (u) => {
-      expect(() => canonicalUrl(u)).toThrow(TargetError);
-    },
-  );
-
-  it("a single trailing dot is still removed", () => {
-    expect(canonicalUrl("http://localhost.:3000/").host).toBe("localhost");
   });
 });
