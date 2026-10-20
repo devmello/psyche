@@ -1,7 +1,7 @@
 import { hashCanonical } from "@psyche/audit";
 import type { CallContext } from "@psyche/browser";
 import { getSetting } from "@psyche/db";
-import { appCap, bindingHash } from "@psyche/permissions";
+import { bindingHash } from "@psyche/permissions";
 import {
   createValidator,
   type ErrorPayload,
@@ -19,6 +19,7 @@ import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
 import { COMPUTER_USE_ENABLED, computerUseSettings } from "./computer-settings.ts";
+import { assertOpenAllowed, assertScriptAllowed } from "./script-guard.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -750,7 +751,10 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         if (!validator.check(params)) return {};
         try {
           return describe(params as Static<S>);
-        } catch {
+        } catch (err) {
+          // An action the executor or the helper always refuses is refused here, before the
+          // broker: the loop blocks it and no card is shown (#354).
+          if (err instanceof PsycheError && err.code === "policy_denied") throw err;
           return { sideEffect: "destructive" };
         }
       };
@@ -1119,19 +1123,20 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       schema: OpenParams,
       sideEffect: "write",
       targetKind: "app",
-      describe: (p) => ({
-        kind: "computer_action",
-        target: appTarget(p.app),
-        bindingFields: { app: p.app, tierRequired: "click", action: "open_app" },
-        grantKey: `${p.app}|click`,
-        meta: { app: p.app, action: "open_app" },
-        summary: `Open ${p.app}`,
-        ...(p.url === undefined ? {} : { details: { app: p.app, url: p.url } }),
-      }),
+      describe: (p) => {
+        assertOpenAllowed(p.app, p.url);
+        return {
+          kind: "computer_action",
+          target: appTarget(p.app),
+          bindingFields: { app: p.app, tierRequired: "click", action: "open_app" },
+          grantKey: `${p.app}|click`,
+          meta: { app: p.app, action: "open_app" },
+          summary: `Open ${p.app}`,
+          ...(p.url === undefined ? {} : { details: { app: p.app, url: p.url } }),
+        };
+      },
       async run(p, callId, signal) {
-        if (appCap(p.app).cap === "off") {
-          throw new PsycheError("policy_denied", appCap(p.app).reason);
-        }
+        assertOpenAllowed(p.app, p.url);
         // Web pages go through the agent browser and its origin policy (security §6), whatever
         // app would open them: only documents and mail drafts open here.
         if (p.url !== undefined && !/^(file|mailto):/i.test(p.url)) {
@@ -1192,25 +1197,23 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       schema: ScriptParams,
       sideEffect: "destructive",
       targetKind: "app",
-      describe: (p) => ({
-        sideEffect: "destructive",
-        kind: "apple_script",
-        target: appTarget(p.target),
-        bindingFields: {
-          target: p.target,
-          language: p.language ?? "applescript",
-          source: p.source,
-        },
-        summary: `Run ${p.language === "jxa" ? "JXA" : "AppleScript"} in ${p.target}`,
-        details: { target: p.target, language: p.language ?? "applescript", source: p.source },
-      }),
+      describe: (p) => {
+        assertScriptAllowed(p.target, p.source, p.language === "jxa" ? "jxa" : "applescript");
+        return {
+          sideEffect: "destructive",
+          kind: "apple_script",
+          target: appTarget(p.target),
+          bindingFields: {
+            target: p.target,
+            language: p.language ?? "applescript",
+            source: p.source,
+          },
+          summary: `Run ${p.language === "jxa" ? "JXA" : "AppleScript"} in ${p.target}`,
+          details: { target: p.target, language: p.language ?? "applescript", source: p.source },
+        };
+      },
       async run(p, callId, signal) {
-        if (appCap(p.target).cap !== "interact") {
-          throw new PsycheError(
-            "policy_denied",
-            appCap(p.target).reason || `${p.target} cannot be scripted`,
-          );
-        }
+        assertScriptAllowed(p.target, p.source, p.language === "jxa" ? "jxa" : "applescript");
         const capability = p.language === "jxa" ? "apps.jxa" : "apps.applescript";
         const { res, approvalId } = await invoke(
           callId,
