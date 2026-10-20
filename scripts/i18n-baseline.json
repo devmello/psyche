@@ -45,8 +45,6 @@
   "packages/ui/src/screens/ideas/IdeasScreen.tsx": 11,
   "packages/ui/src/screens/inbox/InboxScreen.tsx": 24,
   "packages/ui/src/screens/library/LibraryScreen.tsx": 29,
-  "packages/ui/src/screens/onboarding/OnboardingFlow.tsx": 8,
-  "packages/ui/src/screens/onboarding/OnboardingSteps.tsx": 62,
   "packages/ui/src/screens/search/SearchScreen.tsx": 20,
   "packages/ui/src/screens/settings/AboutSection.tsx": 9,
   "packages/ui/src/screens/settings/ActionMatrix.tsx": 2,
