@@ -32,6 +32,8 @@ import {
   TelegramAdapter,
   type TelegramAdapterOptions,
   WebChatAdapter,
+  WhatsAppAdapter,
+  type WhatsAppAdapterOptions,
   webChatChannelDefaults,
 } from "@psyche/channels";
 import {
@@ -64,6 +66,7 @@ import {
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
 import { MAIN_SESSION_KEY } from "../handlers/threads.ts";
+import { type WebhookRoute, webhookRoute } from "../http.ts";
 import type { Gateway } from "../server.ts";
 import type { TxHooks } from "../session/controller.ts";
 import { channelSecretHandlers, vaultChannelSecret } from "./channel-secrets.ts";
@@ -75,7 +78,7 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  * Channels (S10 `@psyche/channels`) mounted on the composed Gateway (INT-2; architecture §4.10,
  * security §9). The part:
  * - builds a `ChannelService` over `SqliteChannelStore` and attaches the configured adapters
- *   (Telegram, iMessage, SMS, WebChat); an adapter whose channel is not configured yet attaches as soon as
+ *   (Telegram, iMessage, SMS, WhatsApp, WebChat); an adapter whose channel is not configured yet attaches as soon as
  *   `channels.configure` creates it;
  * - turns an owner's private message into a chat turn on the routed thread through the session
  *   controller, as `chat.send` does, and sends the agent's committed replies back to that chat;
@@ -141,6 +144,26 @@ export interface SmsSetup {
 export const SMS_WEBHOOK_PATH = "/channels/sms/twilio";
 
 /**
+ * WhatsApp over Meta's Cloud API (N6). Off unless configured; `GET` + `POST
+ * /channels/whatsapp/webhook` is mounted only then (reached through the owner's tunnel or proxy).
+ * A secret not given here is read from the vault, where `channels.secrets.set` stores it.
+ */
+export interface WhatsAppSetup {
+  /** Psyche's WhatsApp business number (E.164): the channel's `account`. */
+  number: string;
+  /** Graph phone number id (digits). */
+  phoneNumberId: string;
+  accessToken?: SecretSource;
+  appSecret?: SecretSource;
+  verifyToken?: SecretSource;
+  options?: Partial<
+    Pick<WhatsAppAdapterOptions, "apiBase" | "apiVersion" | "fetch" | "mediaHosts">
+  >;
+}
+
+export const WHATSAPP_WEBHOOK_PATH = "/channels/whatsapp/webhook";
+
+/**
  * Slack over Socket Mode (N8). Off unless configured. A token not given here is read from the
  * vault, where `channels.secrets.set` stores it as a Gateway-owned item.
  */
@@ -159,6 +182,7 @@ export interface ChannelsSetup {
   slack?: SlackSetup;
   imessage?: IMessageSetup;
   sms?: SmsSetup;
+  whatsapp?: WhatsAppSetup;
   /** Attach the built-in WebChat adapter (owner-only defaults). */
   webchat?: boolean;
   /** Further adapters (tests, later transports). */
@@ -222,7 +246,9 @@ export function channelsSetupFromEnv(
   };
   const slackBot = secretFromEnv("PSYCHE_SLACK_BOT_TOKEN");
   const slackApp = secretFromEnv("PSYCHE_SLACK_APP_TOKEN");
+  const whatsapp = whatsappSetupFromEnv(env, readFile);
   return {
+    ...(whatsapp === undefined ? {} : { whatsapp }),
     webchat: true,
     ...(email === undefined ? {} : { email }),
     ...(token === "" ? {} : { telegram: { token, account } }),
@@ -280,6 +306,51 @@ export function smsSetupFromEnv(
     authToken: { use: (fn) => fn(token) },
     from: values.PSYCHE_SMS_FROM,
     publicUrl: values.PSYCHE_SMS_PUBLIC_URL,
+  };
+}
+
+/**
+ * `PSYCHE_WHATSAPP_NUMBER` (E.164) + `PSYCHE_WHATSAPP_PHONE_NUMBER_ID` (digits) → setup; neither
+ * → off; one without the other → refuse to boot. `PSYCHE_WHATSAPP_ACCESS_TOKEN`,
+ * `PSYCHE_WHATSAPP_APP_SECRET` and `PSYCHE_WHATSAPP_VERIFY_TOKEN` (each or its `_FILE`) are
+ * optional: a secret not set here is read from the vault (`channels.secrets.set`).
+ */
+export function whatsappSetupFromEnv(
+  env: NodeJS.ProcessEnv,
+  readFile: (path: string) => string,
+): WhatsAppSetup | undefined {
+  const number = env.PSYCHE_WHATSAPP_NUMBER?.trim() ?? "";
+  const phoneNumberId = env.PSYCHE_WHATSAPP_PHONE_NUMBER_ID?.trim() ?? "";
+  if (number === "" && phoneNumberId === "") return undefined;
+  if (number === "" || phoneNumberId === "") {
+    throw new PsycheError(
+      "invalid_params",
+      "WhatsApp needs both PSYCHE_WHATSAPP_NUMBER and PSYCHE_WHATSAPP_PHONE_NUMBER_ID",
+    );
+  }
+  if (!E164.test(number)) {
+    throw new PsycheError(
+      "invalid_params",
+      "PSYCHE_WHATSAPP_NUMBER must be an E.164 number (+1555…)",
+    );
+  }
+  if (!/^\d{1,32}$/.test(phoneNumberId)) {
+    throw new PsycheError("invalid_params", "PSYCHE_WHATSAPP_PHONE_NUMBER_ID must be digits");
+  }
+  const secret = (name: string): SecretSource | undefined => {
+    const path = env[`${name}_FILE`]?.trim() ?? "";
+    const value = (path !== "" ? readFile(path) : (env[name] ?? "")).trim();
+    return value === "" ? undefined : staticSecret(value);
+  };
+  const accessToken = secret("PSYCHE_WHATSAPP_ACCESS_TOKEN");
+  const appSecret = secret("PSYCHE_WHATSAPP_APP_SECRET");
+  const verifyToken = secret("PSYCHE_WHATSAPP_VERIFY_TOKEN");
+  return {
+    number,
+    phoneNumberId,
+    ...(accessToken === undefined ? {} : { accessToken }),
+    ...(appSecret === undefined ? {} : { appSecret }),
+    ...(verifyToken === undefined ? {} : { verifyToken }),
   };
 }
 
@@ -694,6 +765,44 @@ export function composeChannels(
           },
         });
   if (sms !== undefined) add(sms);
+  const wa = setup.whatsapp;
+  const whatsapp =
+    wa === undefined
+      ? undefined
+      : new WhatsAppAdapter({
+          ...wa.options,
+          number: wa.number,
+          phoneNumberId: wa.phoneNumberId,
+          accessToken:
+            wa.accessToken ??
+            vaultChannelSecret(() => services.vault, "whatsapp", wa.number, "access_token"),
+          appSecret:
+            wa.appSecret ??
+            vaultChannelSecret(() => services.vault, "whatsapp", wa.number, "app_secret"),
+          verifyToken:
+            wa.verifyToken ??
+            vaultChannelSecret(() => services.vault, "whatsapp", wa.number, "verify_token"),
+          clock,
+          // As SMS: refusals count against the inbound limit under their own key. A body whose
+          // signature failed is never parsed, so it claims no sender ("unknown").
+          onRejected: ({ reason, claimedFrom }) => {
+            logger.info?.("whatsapp.webhook_rejected", { reason });
+            services.rateLimits.inboundChat.admit(
+              `whatsapp-webhook-rejected|${wa.number}|${claimedFrom || "unknown"}`,
+              { channelType: "whatsapp", reason, senderId: claimedFrom || "unknown" },
+            );
+          },
+        });
+  if (whatsapp !== undefined) add(whatsapp);
+  // Webhook routes exist only for configured transports (security §9 "Webhook channels").
+  const webhooks: Record<string, WebhookRoute> = {};
+  if (sms !== undefined) webhooks[SMS_WEBHOOK_PATH] = (req) => sms.handleWebhook(req);
+  if (whatsapp !== undefined) {
+    // GET is Meta's subscription handshake (verify token); POST carries signed notifications.
+    webhooks[WHATSAPP_WEBHOOK_PATH] = webhookRoute(["GET", "POST"], (req) =>
+      whatsapp.handleWebhook(req),
+    );
+  }
   if (setup.email !== undefined) {
     const email = setup.email;
     add(
@@ -1010,13 +1119,7 @@ export function composeChannels(
     adapters,
     handlers,
     // Admission (signature, account, replay) is the adapter's; rate limits are `admitInbound`'s.
-    ...(sms === undefined
-      ? {}
-      : {
-          webhooks: {
-            [SMS_WEBHOOK_PATH]: (req) => sms.handleWebhook(req),
-          },
-        }),
+    ...(Object.keys(webhooks).length === 0 ? {} : { webhooks }),
     relay: {
       surfaces: () => service.ownerSurfaces(),
       async deliver(issued) {
