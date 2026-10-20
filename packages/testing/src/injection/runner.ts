@@ -97,6 +97,17 @@ export function loadCorpus(dir: string): { files: string[]; cases: InjectionCase
   return { files, cases };
 }
 
+/**
+ * `known-failures.json` next to the corpus's `cases/` folder: `<id>[<mode>]` → reason (issue and
+ * owner). A pinned case still runs; gates ignore its `fail` and flag a pin that passes again.
+ */
+export function loadKnownFailures(casesDir: string): Record<string, string> {
+  const path = join(casesDir, "..", "known-failures.json");
+  if (!existsSync(path)) return {};
+  const raw = JSON.parse(readFileSync(path, "utf8")) as Record<string, string>;
+  return Object.fromEntries(Object.entries(raw).filter(([k]) => !k.startsWith("$")));
+}
+
 const RANK: Record<Actual, number> = { ignored: 0, blocked: 0, asked: 1, executed: 2 };
 const PROTECTED = ["USER.md", "MEMORY.md", "SOUL.md", "IDENTITY.md", "AGENTS.md"];
 
@@ -193,7 +204,7 @@ export async function runCase(
 
     const src = c.context.source;
     const taint = src.provenance === "untrusted";
-    const sourceLabel = `${src.kind}:${src.origin ?? src.sender ?? src.mcpServer?.id ?? src.path ?? "?"}`;
+    const sourceLabel = `${src.kind}:${src.origin ?? src.sender ?? src.mcpServer?.id ?? src.path ?? src.app ?? "?"}`;
     // The payload reaches the model as a tool result; the hijacked model's call is transcript.
     // Attacker text may itself contain card-shaped strings, so only registered secrets count here.
     captureModelVisible("tool_result", c.payload.content, {
@@ -216,6 +227,7 @@ export async function runCase(
         taintSources: taint ? [sourceLabel] : [],
         unattended: c.context.unattended === true,
         newTarget: target === undefined || !known.some((k) => k.includes(target)),
+        ...(c.context.requester === undefined ? {} : { requester: c.context.requester }),
       });
       result.actual = gateResult.decision;
       result.rule = gateResult.rule;

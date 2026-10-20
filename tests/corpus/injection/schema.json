@@ -11,7 +11,7 @@
       "type": "string"
     },
     "family": {
-      "enum": ["web-documents", "email-calendar-messages", "mcp-skills-memory"]
+      "enum": ["web-documents", "email-calendar-messages", "mcp-skills-memory", "mac-surfaces"]
     },
     "version": {
       "const": 1
@@ -46,7 +46,17 @@
         "memory_import",
         "memory_entry",
         "skill_file",
-        "subagent_result"
+        "subagent_result",
+        "imessage_non_owner",
+        "imessage_group",
+        "messages_read",
+        "ax_snapshot_text",
+        "window_title",
+        "screenshot_ocr",
+        "dictation_adjacent",
+        "app_adapter_result",
+        "document_conversion",
+        "skill_manifest"
       ]
     },
     "goal": {
@@ -62,7 +72,9 @@
         "purchase",
         "exec",
         "destroy_data",
-        "credential_fill"
+        "credential_fill",
+        "computer_action",
+        "run_script"
       ]
     },
     "mode": {
@@ -90,7 +102,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^(web|doc|file|ocr|mail|cal|chat|mcp|skill|mem|sub)-[a-z0-9-]+-[0-9]{3}$",
+          "pattern": "^(web|doc|file|ocr|mail|cal|chat|mcp|skill|mem|sub|imsg|ax|dict|conv|app)-[a-z0-9-]+-[0-9]{3}$",
           "description": "Stable id; never reuse a retired id."
         },
         "title": {
@@ -148,7 +160,15 @@
               "lookalike_domain",
               "reply_chain",
               "impersonation",
-              "social_engineering"
+              "social_engineering",
+              "group_mention",
+              "handle_spoofing",
+              "quoted_reply",
+              "window_title_spoof",
+              "ui_label_spoof",
+              "filename_payload",
+              "document_metadata",
+              "tool_result_instruction"
             ]
           }
         },
@@ -191,7 +211,15 @@
                     "chat_message",
                     "memory_file",
                     "skill_package",
-                    "subagent"
+                    "subagent",
+                    "imessage",
+                    "messages_db",
+                    "ax_snapshot",
+                    "window_title",
+                    "screenshot",
+                    "dictation",
+                    "apple_app",
+                    "document"
                   ]
                 },
                 "provenance": {
@@ -212,6 +240,18 @@
                 },
                 "path": {
                   "type": "string"
+                },
+                "app": {
+                  "type": "string",
+                  "description": "Bundle id of the app the content was read from (computer use, Apple app adapters)."
+                },
+                "chatId": {
+                  "type": "string",
+                  "description": "Conversation id (iMessage chat GUID) the content arrived in."
+                },
+                "isGroup": {
+                  "type": "boolean",
+                  "description": "The conversation is a group chat."
                 }
               }
             },
@@ -257,6 +297,32 @@
               "type": "object",
               "description": "Owner identity facts the case relies on (owner email, owner chat ids).",
               "additionalProperties": true
+            },
+            "requester": {
+              "type": "object",
+              "required": ["role"],
+              "additionalProperties": false,
+              "description": "Who started the turn when it is not the owner at the desktop (security §9): an allowlisted sender or a designated person on a channel. The runner passes it to the broker as DecisionContext.requester.",
+              "properties": {
+                "role": {
+                  "enum": ["owner", "designated", "allowed"]
+                },
+                "identityId": {
+                  "type": "string"
+                },
+                "display": {
+                  "type": "string"
+                },
+                "channel": {
+                  "type": "string"
+                },
+                "senderId": {
+                  "type": "string"
+                },
+                "chatId": {
+                  "type": "string"
+                }
+              }
             }
           }
         },
@@ -278,7 +344,9 @@
                 "filename",
                 "ocr_text",
                 "url",
-                "yaml"
+                "yaml",
+                "ax_tree",
+                "imessage"
               ]
             },
             "content": {

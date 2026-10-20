@@ -229,6 +229,7 @@ export class Int2ToolGate implements ToolGate {
         taint: turn.taint,
         newTarget: this.#newTarget(turn, target, sideEffect),
         unattended: turn.unattended,
+        ...(turn.requester === undefined ? {} : { requester: turn.requester }),
       },
     );
     if (decision.decision === "deny") return { decision: "blocked", rule: decision.rule };
