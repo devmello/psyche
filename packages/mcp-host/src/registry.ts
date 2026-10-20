@@ -1,4 +1,10 @@
-import type { McpHost, ToolCallDescription, ToolRegistry, Unsubscribe } from "@psyche/protocol";
+import type {
+  McpHost,
+  McpTrustTier,
+  ToolCallDescription,
+  ToolRegistry,
+  Unsubscribe,
+} from "@psyche/protocol";
 import { sha256, strictCanonicalJSON } from "./canonical.ts";
 import { mcpToolName, parseMcpToolName } from "./naming.ts";
 
@@ -12,18 +18,23 @@ export function describeMcpCall(
   tool: string,
   toolsListHash: string,
   params: unknown,
+  tier: McpTrustTier = "unknown",
 ): ToolCallDescription {
-  let argsHash: string;
+  let argsSha256: string;
   try {
-    argsHash = sha256(strictCanonicalJSON(params ?? {}));
+    argsSha256 = sha256(strictCanonicalJSON(params ?? {}));
   } catch {
-    argsHash = sha256(String(params));
+    argsSha256 = sha256(String(params));
   }
   return {
     kind: "connector_action",
     target: { kind: "account", value: `mcp:${serverId}`, display: `MCP server ${serverId}` },
-    bindingFields: { serverId, tool, toolsListHash, argsHash },
+    // The field names of the broker's `mcp_tool` / `connector_action` binding (binding.ts).
+    bindingFields: { serverId, tool, toolsListHash, argsSha256 },
     grantKey: `mcp:${serverId}:${tool}:${toolsListHash}`,
+    // The broker binds grants to the server and hash (revokeMcpGrants, #279) and asks for
+    // write+ tools of unknown servers (#280).
+    meta: { mcpServerId: serverId, mcpToolsListHash: toolsListHash, mcpTier: tier },
     summary: `Called ${tool} on ${serverId}`,
   };
 }
@@ -64,6 +75,9 @@ export async function registerMcpServerTools(
   };
   const sync = async () => {
     const { tools, toolsListHash } = await host.listTools(serverId);
+    // Unknown unless the host says otherwise: an unlisted server asks (security §11).
+    const tier: McpTrustTier =
+      (await host.listServers()).find((s) => s.id === serverId)?.trust ?? "unknown";
     // Registry names are sanitized; map them back to the server's own tool names.
     const raw = new Map<string, string>();
     if (hasDescribe(host)) {
@@ -76,7 +90,7 @@ export async function registerMcpServerTools(
       unsubs.push(
         registry.register({
           spec,
-          describeCall: (params) => describeMcpCall(serverId, tool, toolsListHash, params),
+          describeCall: (params) => describeMcpCall(serverId, tool, toolsListHash, params, tier),
           execute: async (_callId, params, signal) => {
             const r = await host.callTool(serverId, tool, params, { toolsListHash, signal });
             return { output: r.content, isError: r.isError, provenance: r.provenance };
