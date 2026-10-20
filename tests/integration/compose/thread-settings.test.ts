@@ -80,6 +80,28 @@ describe("threads.update", () => {
     expect(provider.pins.has(thread.id)).toBe(false);
   });
 
+  it("threads.create refuses auto without an allowlisted model and pins the model it records", async () => {
+    const provider = new PinningProvider();
+    sk = await startSkeleton({ model: { provider, model: "fake/main" } });
+    await expect(
+      sk.client.call("threads.create", { kind: "side", permissionMode: "auto" }, true),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    await expect(
+      sk.client.call(
+        "threads.create",
+        { kind: "side", permissionMode: "auto", modelRef: OTHER },
+        true,
+      ),
+    ).rejects.toMatchObject({ code: "forbidden" });
+    const created = await sk.client.call<{ thread: Thread }>(
+      "threads.create",
+      { kind: "side", permissionMode: "auto", modelRef: ALLOWED },
+      true,
+    );
+    expect(created.thread).toMatchObject({ permissionMode: "auto", modelRef: ALLOWED });
+    await sk.client.until(() => provider.pins.get(created.thread.id) === ALLOWED, "router pin");
+  });
+
   it("re-applies stored pins to a fresh router after a restart", async () => {
     const provider = new PinningProvider();
     sk = await startSkeleton({ model: { provider, model: "fake/main" } });

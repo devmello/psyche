@@ -7,7 +7,7 @@ import {
   PsycheError,
   type Thread,
 } from "@psyche/protocol";
-import type { Call, HandlerDef } from "../context.ts";
+import type { Call, HandlerDef, ThreadModelPolicy } from "../context.ts";
 
 /**
  * `threads.update` (composer `/model` and `/plan`, the mode and model pills; feature C9, B2).
@@ -19,11 +19,8 @@ import type { Call, HandlerDef } from "../context.ts";
  * agent-capable) is never recorded.
  */
 
-export interface ModelPins {
-  allowsAutoMode(ref: ModelRef): boolean;
-  /** Absent when the provider is not the model router: the pin is then only recorded. */
-  setThreadModel?(threadId: string, ref: ModelRef | undefined): Promise<void>;
-}
+/** The Gateway's thread model policy, built from the composed provider. */
+export type ModelPins = ThreadModelPolicy;
 
 interface RouterLike {
   allowsAutoMode(ref: ModelRef): boolean;

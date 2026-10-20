@@ -492,3 +492,17 @@ describe("threads", () => {
     expect(JSON.parse(json.content).messages).toHaveLength(6);
   });
 });
+
+describe("threads.create and auto mode", () => {
+  it("never creates an auto thread without a composition root's model allowlist", async () => {
+    const c = await setup();
+    const res = await c.request(
+      "threads.create",
+      { kind: "side", permissionMode: "auto", modelRef: "anthropic/claude-sonnet-5-5" },
+      ik(),
+    );
+    expect(res).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    const manual = await newThread(c, { kind: "side", permissionMode: "manual" });
+    expect(manual.permissionMode).toBe("manual");
+  });
+});

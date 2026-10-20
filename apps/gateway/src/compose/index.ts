@@ -398,6 +398,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     memory,
     handlers,
     onDeviceRevoked: (deviceId) => rawBroker.revokeGrantsByDevice(deviceId),
+    threadModels: modelPins,
   });
   bus = gateway.bus;
   // The owner's folder grants and rules apply without a restart (settings.set → broker policy).

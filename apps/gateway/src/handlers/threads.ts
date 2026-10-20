@@ -81,6 +81,16 @@ export const threadsHandlers: Record<string, HandlerDef> = {
         );
       }
       if (params.parentThreadId !== undefined) requireThread(call, params.parentThreadId);
+      // Model choice is a security control (security §7.2): `auto` only with an allowlisted model.
+      if (params.permissionMode === "auto") {
+        const ref = params.modelRef;
+        if (ref === undefined || call.ctx.threadModels?.allowsAutoMode(ref) !== true) {
+          throw new PsycheError(
+            "forbidden",
+            "Auto mode needs a model on the auto-mode allowlist (modelRef).",
+          );
+        }
+      }
       if (kind === "main") {
         const existing = findThreadBySessionKey(db, MAIN_SESSION_KEY, "main");
         if (existing) return { thread: existing };
@@ -100,6 +110,19 @@ export const threadsHandlers: Record<string, HandlerDef> = {
             : null,
       });
       emitThread(call, thread);
+      const pin = call.ctx.threadModels?.setThreadModel;
+      const ref = params.modelRef;
+      if (pin !== undefined && ref !== undefined) {
+        // The router learns the pin once the row exists; a refusal is logged, not fatal.
+        call.afterCommit(() => {
+          pin(thread.id, ref).catch((err: unknown) =>
+            call.ctx.log.log("warn", "thread model refused by the router", {
+              threadId: thread.id,
+              code: PsycheError.from(err).code,
+            }),
+          );
+        });
+      }
       return { thread };
     },
   },
