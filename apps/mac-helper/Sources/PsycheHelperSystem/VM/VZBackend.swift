@@ -2,9 +2,11 @@ import AppKit
 import Foundation
 import PsycheHelperCore
 import PsycheProtocol
+#if arch(arm64)
 @preconcurrency import Virtualization
 #if canImport(DiskImageKit)
 import DiskImageKit
+#endif
 #endif
 
 /// SDK feature gates. DiskImageKit and `VZMacGuestProvisioningOptions` ship in the macOS 27 SDK;
@@ -26,6 +28,9 @@ public enum VZBackendInfo {
     }
 }
 
+// macOS guests (VZMacOS*, VZMac*) exist only on Apple silicon; Intel builds use the stub in
+// VZBackendUnsupported.swift, which reports VM mode as unavailable.
+#if arch(arm64)
 /// Virtualization.framework backend (spike 06 recipe). Every VM object lives on its own serial
 /// queue. Needs the `com.apple.security.virtualization` entitlement; without it even the restore
 /// image catalog fails (VZErrorDomain 10001), reported as `unavailable/virtualization_entitlement`.
@@ -513,3 +518,4 @@ final class RunningGuest: NSObject, VZVirtualMachineDelegate, VZVirtioSocketList
         onStop?(VZBackend.mapError(error).reason)
     }
 }
+#endif

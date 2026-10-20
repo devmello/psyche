@@ -25,6 +25,13 @@ public enum VMCapabilities {
     static let nameSchema = Schema.string("Guest name (default \"sandbox\")", maxLength: 32)
 
     public static func make(_ vm: VMManager) -> [any CapabilityHandler] {
+        let caps = all(vm)
+        // Intel Macs: the same capabilities, each answering why VM mode is unavailable.
+        guard let reason = vm.backend.unavailableReason else { return caps }
+        return caps.map { c in Capability(c.spec) { _ in throw reason } }
+    }
+
+    static func all(_ vm: VMManager) -> [any CapabilityHandler] {
         [
             Capability(CapabilitySpec(
                 name: "vm.status", description: "The sandbox Mac(s): phase, resources, guest macOS, shares, vsock ports; whether unattended provisioning is available.",
