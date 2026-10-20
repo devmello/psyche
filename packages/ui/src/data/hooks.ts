@@ -10,6 +10,7 @@ import type {
   IdeaDismissReason,
   InputRequest,
   LibraryItem,
+  LinkPaymentMethod,
   Message,
   MethodName,
   MethodParams,
@@ -23,6 +24,7 @@ import type {
   TaskAction,
   ThreadListEntry,
   ToolCall,
+  VaultPayment,
   VmUpdatedPayload,
 } from "@psyche/protocol";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -142,6 +144,52 @@ export function useGatewayQuery<M extends MethodName>(
     if (invalidated) reload();
   }, [invalidated, reload]);
   return { ...load, data: entry?.data as MethodResult<M> | undefined };
+}
+
+/** What `usePayments` keeps: Stripe Link's methods and recent spends, or "not set up". */
+export interface PaymentsData {
+  /** False when the Gateway answers `payments_not_configured`. */
+  configured: boolean;
+  methods: LinkPaymentMethod[];
+  payments: VaultPayment[];
+}
+
+function notConfigured(err: unknown): boolean {
+  const e = err as { code?: unknown; details?: { reason?: unknown } } | null;
+  return e?.code === "unavailable" && e.details?.reason === "payments_not_configured";
+}
+
+/**
+ * Stripe Link payments (G12) for Settings → Credentials: `vault.payments.methods` and
+ * `vault.payments.list` together. Reloads on `vault.payment.updated`.
+ */
+export function usePayments(limit = 20): LoadState & { data: PaymentsData | undefined } {
+  const key = `vault.payments:${limit}`;
+  const entry = useStoreState((s) => s.queries[key]);
+  const load = useLoader(`query:${key}`, async (store) => {
+    const version = store.version();
+    let data: PaymentsData;
+    try {
+      const [m, l] = await Promise.all([
+        store.call("vault.payments.methods", {}),
+        store.call("vault.payments.list", { limit }),
+      ]);
+      data = { configured: true, methods: m.methods, payments: l.payments };
+    } catch (err) {
+      if (!notConfigured(err)) throw err;
+      data = { configured: false, methods: [], payments: [] };
+    }
+    store.update((s) => ({
+      ...s,
+      queries: { ...s.queries, [key]: { data, error: null, loading: false, version } },
+    }));
+  });
+  const invalidated = entry?.version === -1;
+  const { reload } = load;
+  useEffect(() => {
+    if (invalidated) reload();
+  }, [invalidated, reload]);
+  return { ...load, data: entry?.data as PaymentsData | undefined };
 }
 
 // --- Threads ----------------------------------------------------------------------------------

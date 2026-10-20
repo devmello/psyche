@@ -1001,3 +1001,95 @@ describe("Browser (real-Chrome mode, I13)", () => {
     expect(screen.queryByRole("button", { name: "Open the profile in Chrome" })).toBeNull();
   });
 });
+
+describe("Credentials: Stripe Link payments and 1Password", () => {
+  it("shows Link payment methods and recent spends, brand and last4 only", async () => {
+    const { gateway } = setup({ defaultSection: "credentials" });
+    const table = await screen.findByRole("table", { name: "Recent payments" });
+    const methods = screen.getByRole("list", { name: "Link payment methods" });
+    expect(within(methods).getByText("Visa •••• 1881")).toBeTruthy();
+    expect(within(methods).getByText("Work card")).toBeTruthy();
+    expect(within(table).getByText("Lumen Air")).toBeTruthy();
+    expect(within(table).getByText("$412.80")).toBeTruthy();
+    expect(within(table).getByText("held")).toBeTruthy();
+    expect(within(table).getByText(/SB-1001/)).toBeTruthy();
+    expect(within(table).getByText("charged")).toBeTruthy();
+    expect(within(table).getByText("$18.99 · $18.99 refunded")).toBeTruthy();
+    expect(callsOf(gateway(), "vault.payments.list")[0]?.params).toEqual({ limit: 20 });
+  });
+
+  it("reloads the spends on vault.payment.updated", async () => {
+    const { gateway } = setup({ defaultSection: "credentials" });
+    const table = await screen.findByRole("table", { name: "Recent payments" });
+    const g = gateway();
+    const held = g.world.payments?.[0];
+    if (held === undefined) throw new Error("no fixture payment");
+    const captured = {
+      ...held,
+      payment: { state: "captured" as const, held: 0, captured: held.amount, refunded: 0 },
+    };
+    g.world.payments = [captured, ...(g.world.payments ?? []).slice(1)];
+    g.emit("vault.payment.updated", { payment: captured });
+    await waitFor(() => expect(within(table).queryByText("held")).toBeNull());
+    expect(within(table).getAllByText("charged")).toHaveLength(2);
+  });
+
+  it("explains that Stripe Link is not set up", async () => {
+    setup(
+      { defaultSection: "credentials" },
+      {
+        edit: (w) => {
+          delete w.linkMethods;
+        },
+      },
+    );
+    expect(await screen.findByText(/Stripe Link is not set up/)).toBeTruthy();
+    expect(screen.queryByRole("table", { name: "Recent payments" })).toBeNull();
+  });
+
+  it("links a 1Password item by reference and keeps its values out of the edit form", async () => {
+    const { gateway } = setup({ defaultSection: "credentials" });
+    const table = await screen.findByRole("table", { name: "Stored credentials" });
+    await userEvent.click(screen.getByRole("button", { name: "More ways to add" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Connect 1Password" }));
+    const form = screen.getByRole("form", { name: "Link a 1Password item" });
+    await userEvent.type(within(form).getByLabelText("Name"), "Fastmail");
+    await userEvent.type(within(form).getByLabelText("1Password vault"), "Private");
+    await userEvent.type(within(form).getByLabelText("1Password item"), "Fastmail");
+    await userEvent.type(within(form).getByLabelText("Only for this site"), "app.fastmail.com");
+    await userEvent.click(within(form).getByRole("button", { name: "Link item" }));
+    await waitFor(() => expect(callsOf(gateway(), "vault.linkExternal")).toHaveLength(1));
+    expect(callsOf(gateway(), "vault.linkExternal")[0]?.params).toEqual({
+      source: "1password",
+      kind: "login",
+      name: "Fastmail",
+      bindings: [{ origin: "https://app.fastmail.com" }],
+      ref: { vault: "Private", item: "Fastmail" },
+    });
+    expect(await within(table).findByText("Fastmail")).toBeTruthy();
+    expect(within(table).getByText("in 1Password")).toBeTruthy();
+    expect(screen.queryByRole("form", { name: "Link a 1Password item" })).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit Fastmail" }));
+    const edit = screen.getByRole("form", { name: "Edit Fastmail" });
+    expect(within(edit).queryByLabelText("New password")).toBeNull();
+    expect(within(edit).getByText(/The values stay in 1Password/)).toBeTruthy();
+  });
+
+  it("explains when 1Password is not set up on the Gateway", async () => {
+    const { gateway } = setup({ defaultSection: "credentials" });
+    await screen.findByRole("table", { name: "Stored credentials" });
+    gateway().failNext("vault.linkExternal", "unavailable", "1Password is not configured");
+    await userEvent.click(screen.getByRole("button", { name: "More ways to add" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Connect 1Password" }));
+    const form = screen.getByRole("form", { name: "Link a 1Password item" });
+    await userEvent.type(within(form).getByLabelText("Name"), "GitHub");
+    await userEvent.type(within(form).getByLabelText("1Password vault"), "Private");
+    await userEvent.type(within(form).getByLabelText("1Password item"), "GitHub");
+    await userEvent.click(within(form).getByRole("button", { name: "Link item" }));
+    expect(await within(form).findByRole("alert")).toHaveProperty(
+      "textContent",
+      expect.stringMatching(/1Password is not set up on the Gateway/),
+    );
+  });
+});
