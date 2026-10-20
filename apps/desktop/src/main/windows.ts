@@ -31,7 +31,23 @@ export interface WindowOptions {
   preloadPath: string;
   onMainCreated?: (win: BaseWindow, view: WebContentsView) => void;
   onMainClosed?: () => void;
+  /** Every app renderer as it is made (main, pop-outs, quick entry): zoom and the like. */
+  onViewCreated?: (wc: WebContents) => void;
 }
+
+/**
+ * The main window draws its own title bar (`hiddenInset`); the traffic lights sit at this
+ * position, vertically centred in the shell's 52 px bar (`TITLEBAR_HEIGHT` in the web shell).
+ */
+export const TRAFFIC_LIGHTS = { x: 18, y: 19 } as const;
+
+/** What the renderer needs to draw the window chrome (passed as a launch argument). */
+export interface ChromeArg {
+  titleBar: "inset" | "native";
+  trafficLights?: { x: number; y: number };
+}
+
+export const CHROME_ARG_PREFIX = "--psyche-chrome=";
 
 const APP_PREFS = {
   contextIsolation: true,
@@ -59,14 +75,22 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
     return url.toString();
   };
 
-  function makeView(win: BaseWindow, route: string, fill = true): WebContentsView {
+  function makeView(
+    win: BaseWindow,
+    route: string,
+    chrome: ChromeArg = { titleBar: "native" },
+  ): WebContentsView {
     const view = new WebContentsView({
-      webPreferences: { ...APP_PREFS, preload: opts.preloadPath },
+      webPreferences: {
+        ...APP_PREFS,
+        preload: opts.preloadPath,
+        additionalArguments: [`${CHROME_ARG_PREFIX}${JSON.stringify(chrome)}`],
+      },
     });
     win.contentView.addChildView(view, 0); // index 0: agent tab views stay above the app view
     const layout = () => {
       const { width, height } = win.getContentBounds();
-      if (fill) view.setBounds({ x: 0, y: 0, width, height });
+      view.setBounds({ x: 0, y: 0, width, height });
     };
     layout();
     win.on("resize", layout);
@@ -76,6 +100,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       views.delete(wc);
       if (!wc.isDestroyed()) wc.close();
     });
+    opts.onViewCreated?.(wc);
     void wc.loadURL(urlFor(route));
     return view;
   }
@@ -89,8 +114,15 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       title: "Psyche",
       show: false,
       titleBarStyle: "hiddenInset",
+      trafficLightPosition: { ...TRAFFIC_LIGHTS },
     });
-    const view = makeView(win, "/chat");
+    const view = makeView(
+      win,
+      "/chat",
+      process.platform === "darwin"
+        ? { titleBar: "inset", trafficLights: { ...TRAFFIC_LIGHTS } }
+        : { titleBar: "native" },
+    );
     mainView = view;
     view.webContents.once("did-finish-load", () => win.show());
     // "Close window" hides it: the agent browser's tab views live in this window and keep

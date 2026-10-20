@@ -36,6 +36,8 @@ export const IPC = {
   windowClose: "psyche:window:close",
   shellCommand: "psyche:shell:command",
   notifyShow: "psyche:notify:show",
+  // Native dialogs.
+  dialogPickFolder: "psyche:dialog:pick-folder",
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

@@ -25,6 +25,7 @@ export const Header: Story = {
       mode="balanced"
       onModeChange={() => {}}
       model="anthropic/claude-sonnet-5-5"
+      onOpenModelPicker={() => {}}
       onOpenInbox={() => {}}
     />
   ),

@@ -34,7 +34,9 @@ describe("AgentHeader", () => {
         <AgentHeader onOpenSheet={() => (opened = true)} mode="balanced" />
       </StoryWorld>,
     );
-    expect(await screen.findByText(/Needs you: \d+ items/)).toBeTruthy();
+    // The snippet names the current work; what needs you is the counter beside it (§3.1).
+    expect(await screen.findByText("Hold the 2:30 slot")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /^\d+ needs? you$/ })).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: /Open Wren's activity/ }));
     expect(opened).toBe(true);
   });
