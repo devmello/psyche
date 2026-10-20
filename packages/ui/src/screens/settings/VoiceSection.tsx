@@ -104,6 +104,7 @@ export function VoicePanel({
 }: SettingsFormProps & LoadProps & SystemDictationProps): ReactElement {
   const ptt = str(values, "voice.pushToTalk", "fn");
   const systemWide = bool(values, "voice.systemWide", true);
+  const conversation = bool(values, "voice.conversation.enabled", false);
   return (
     <SectionFrame
       needsApproval={needsApproval}
@@ -174,6 +175,62 @@ export function VoicePanel({
             />
           </Group>
         ) : null}
+        <Group title="Voice mode">
+          <SwitchField
+            label="Talk with Psyche"
+            description="A Voice button in the composer starts a spoken conversation: Psyche listens, answers out loud and listens again. Approvals still appear as cards on screen; voice never approves anything."
+            checked={conversation}
+            settingKey="voice.conversation.enabled"
+            onChange={(v) => onChange("voice.conversation.enabled", v)}
+          />
+          {conversation ? (
+            <>
+              <RadioField
+                label="Your turn"
+                value={str(values, "voice.conversation.start", "toggle")}
+                settingKey="voice.conversation.start"
+                onChange={(v) => onChange("voice.conversation.start", v)}
+                options={[
+                  {
+                    value: "toggle",
+                    label: "Hands-free",
+                    hint: "Psyche answers when you pause.",
+                  },
+                  {
+                    value: "push",
+                    label: "Hold a button to talk",
+                    hint: "Hold the composer's Hold to talk button while you speak.",
+                  },
+                ]}
+              />
+              <RadioField
+                label="Psyche's voice"
+                value={str(values, "voice.conversation.reply", "gateway")}
+                settingKey="voice.conversation.reply"
+                onChange={(v) => onChange("voice.conversation.reply", v)}
+                options={[
+                  {
+                    value: "gateway",
+                    label: "Persona voice",
+                    hint: "The voice set for the persona, or the Mac's system voice.",
+                  },
+                  {
+                    value: "browser",
+                    label: "This app's built-in voice",
+                    hint: "Starts faster; talking over it works best with headphones.",
+                  },
+                ]}
+              />
+              <SwitchField
+                label="Interrupt by talking"
+                description="Start speaking while Psyche talks and it stops to listen."
+                checked={bool(values, "voice.conversation.bargeIn", true)}
+                settingKey="voice.conversation.bargeIn"
+                onChange={(v) => onChange("voice.conversation.bargeIn", v)}
+              />
+            </>
+          ) : null}
+        </Group>
         <Group title="Engine">
           <RadioField
             label="Speech engine"

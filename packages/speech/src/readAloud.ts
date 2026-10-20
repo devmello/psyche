@@ -105,9 +105,21 @@ export function markdownToSpeech(md: string): string {
     .trim();
 }
 
+export interface ReadAloudStartOptions {
+  voice?: string;
+  signal?: AbortSignal;
+  /**
+   * Default `true`. `false` streams `speech.audio` only: no MP3, no Library item and no
+   * `speech.readAloud.completed` (voice mode, feature Q5); `done` resolves `null`.
+   */
+  save?: boolean;
+}
+
 export class ReadAloudService {
   readonly #opts: ReadAloudOptions;
   #counter = 0;
+  /** Running streams, so `cancel` can stop one (only for the device that started it). */
+  readonly #streams = new Map<string, { deviceId: string; abort: AbortController }>();
 
   async #nonCommercial(voice: string | undefined): Promise<boolean> {
     try {
@@ -124,35 +136,63 @@ export class ReadAloudService {
 
   /**
    * Starts a read-aloud and returns its stream id at once; `done` settles when the Library item
-   * exists (the Gateway answers the method with `streamId` and lets `done` run).
+   * exists (the Gateway answers the method with `streamId` and lets `done` run), or with `null`
+   * once the audio is out when `save` is `false`.
    */
   start(
     messageId: string,
     deviceId: string,
-    options: { voice?: string; signal?: AbortSignal } = {},
-  ): { streamId: string; done: Promise<LibraryItem> } {
+    options: ReadAloudStartOptions = {},
+  ): { streamId: string; done: Promise<LibraryItem | null> } {
     const streamId = this.#opts.newId?.() ?? `ra_${Date.now().toString(36)}_${++this.#counter}`;
-    const done = this.#run(streamId, messageId, deviceId, options).catch((err: unknown) => {
-      const error =
-        err instanceof PsycheError
-          ? { code: err.code, message: err.message }
-          : { code: "internal", message: "read-aloud failed" };
-      this.#opts.emit(deviceId, {
-        event: "speech.readAloud.failed",
-        payload: { streamId, messageId, error },
+    const abort = new AbortController();
+    const outer = options.signal;
+    const onOuter = () => abort.abort();
+    if (outer?.aborted === true) abort.abort();
+    else outer?.addEventListener("abort", onOuter, { once: true });
+    this.#streams.set(streamId, { deviceId, abort });
+    const run = this.#run(streamId, messageId, deviceId, { ...options, signal: abort.signal });
+    const done = run
+      .finally(() => {
+        outer?.removeEventListener("abort", onOuter);
+        this.#streams.delete(streamId);
+      })
+      .catch((err: unknown) => {
+        const error =
+          err instanceof PsycheError
+            ? { code: err.code, message: err.message }
+            : { code: "internal", message: "read-aloud failed" };
+        this.#opts.emit(deviceId, {
+          event: "speech.readAloud.failed",
+          payload: { streamId, messageId, error },
+        });
+        throw err;
       });
-      throw err;
-    });
     done.catch(() => {});
     return { streamId, done };
+  }
+
+  /**
+   * Stops a running stream now (`speech.readAloud.cancel`, voice-mode barge-in). Another device's
+   * stream id is treated like an unknown one; both answer without error.
+   */
+  cancel(streamId: string, deviceId: string): void {
+    const s = this.#streams.get(streamId);
+    if (s === undefined || s.deviceId !== deviceId) return;
+    s.abort.abort();
+  }
+
+  /** Streams still running (tests, shutdown). */
+  get active(): number {
+    return this.#streams.size;
   }
 
   async #run(
     streamId: string,
     messageId: string,
     deviceId: string,
-    options: { voice?: string; signal?: AbortSignal },
-  ): Promise<LibraryItem> {
+    options: ReadAloudStartOptions & { signal: AbortSignal },
+  ): Promise<LibraryItem | null> {
     const msg = await this.#opts.messages.get(messageId);
     const text = markdownToSpeech(msg.text);
     if (text === "") throw new PsycheError("invalid_params", "the message has nothing to read");
@@ -182,6 +222,8 @@ export class ReadAloudService {
       pending = undefined;
     };
     for await (const chunk of this.#opts.engine.synthesize(text, synth)) {
+      // Cancelled (barge-in): send nothing more, not even the held-back chunk.
+      if (options.signal.aborted) break;
       if (format !== undefined && !sameFormat(format, chunk.format)) {
         throw new PsycheError("internal", "engine changed audio format mid-stream");
       }
@@ -191,10 +233,10 @@ export class ReadAloudService {
       send(false);
       pending = chunk;
     }
+    if (options.signal.aborted) throw new PsycheError("cancelled", "read-aloud cancelled");
     send(true);
-    if (options.signal?.aborted === true)
-      throw new PsycheError("cancelled", "read-aloud cancelled");
     if (format === undefined) throw new PsycheError("internal", "the engine produced no audio");
+    if (options.save === false) return null;
     const encoded = await this.#opts.transcoder.encode(
       concatBytes(parts),
       format,
