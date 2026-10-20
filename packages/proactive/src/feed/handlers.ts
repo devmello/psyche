@@ -1,5 +1,5 @@
 import type { MethodParams, MethodResult } from "@psyche/protocol";
-import type { FeedService } from "./service.ts";
+import { type FeedService, toFeedPost } from "./service.ts";
 
 type FeedMethod = "feed.list" | "feed.feedback" | "feed.generate";
 
@@ -24,7 +24,7 @@ export function createFeedHandlers(feed: FeedService): FeedHandlers {
       const result = await feed.generate(
         p.briefingId === undefined ? {} : { briefingId: p.briefingId },
       );
-      return { posts: result.posts.map(({ batchId: _b, ...post }) => post) };
+      return { posts: result.posts.map(toFeedPost) };
     },
   };
 }

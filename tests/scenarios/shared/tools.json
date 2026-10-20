@@ -124,6 +124,41 @@
       "sideEffect": "none",
       "targetKind": null,
       "provenanceOut": "trusted"
+    },
+    {
+      "name": "shop.compare",
+      "sideEffect": "read",
+      "targetKind": null,
+      "provenanceOut": "untrusted",
+      "connector": "shopping",
+      "note": "Searches every allowlisted store through the browser; results are page text (untrusted)."
+    },
+    {
+      "name": "shop.view_cart",
+      "sideEffect": "read",
+      "targetKind": "origin",
+      "provenanceOut": "untrusted",
+      "connector": "shopping"
+    },
+    {
+      "name": "shop.add_to_cart",
+      "sideEffect": "write",
+      "targetKind": "origin",
+      "provenanceOut": "untrusted",
+      "connector": "shopping",
+      "approvalKind": "connector_action",
+      "receiptKind": "shop.cart",
+      "note": "A cart is reversible and private to the owner's session: write (docs/05 §3.1)."
+    },
+    {
+      "name": "shop.checkout_handoff",
+      "sideEffect": "financial",
+      "targetKind": "origin",
+      "provenanceOut": "untrusted",
+      "connector": "shopping",
+      "approvalKind": "purchase",
+      "receiptKind": "purchase.handoff",
+      "note": "Commits to pay once payment exists (G12): financial, once only, device-only. In M2 it re-reads the cart and stops; nothing is paid."
     }
   ]
 }

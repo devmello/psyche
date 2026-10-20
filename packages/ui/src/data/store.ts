@@ -356,8 +356,19 @@ export class GatewayStore {
         const t = e.payload.thread;
         const prev = s.threads[t.id];
         const activity = prev?.activity ?? { running: 0, awaitingInput: 0, awaitingApproval: 0 };
+        const lastMessage = prev?.lastMessage;
         return touch(
-          { ...s, threads: { ...s.threads, [t.id]: { thread: t, activity } } },
+          {
+            ...s,
+            threads: {
+              ...s.threads,
+              [t.id]: {
+                thread: t,
+                activity,
+                ...(lastMessage === undefined ? {} : { lastMessage }),
+              },
+            },
+          },
           `threads:${t.id}`,
           v,
         );

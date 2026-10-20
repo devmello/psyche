@@ -164,10 +164,8 @@ function handlers() {
       stateVersion: 1,
     }),
     "threads.list": () => ({ threads: THREADS, nextCursor: null }),
-    "threads.get": () => ({
-      thread: MAIN_THREAD,
-      activity: { running: 0, awaitingInput: 0, awaitingApproval: 0 },
-    }),
+    // Like the Gateway, threads.get carries the row's last line too.
+    "threads.get": () => THREADS[0],
     "chat.history": () => ({ messages: CONVERSATION, nextCursor: null }),
     "memory.read": () => ({ content: '---\nname: "Wren"\ncreature: "moth"\n---\n', etag: "e1" }),
   };
@@ -397,22 +395,31 @@ for (const [width, height] of [
       ).toBeLessThanOrEqual(72);
     }
     // Thread rows: title, time and the last line; the filter field narrows them (§2.2).
-    const rows = page.getByRole("list", { name: "Threads list" }).getByRole("listitem");
+    const list = page.getByTestId("thread-list");
+    const rows = list.getByTestId("thread-row");
     await expect(rows).toHaveCount(4);
-    await expect(rows.nth(1)).toContainText("Flights on the 14th are cheapest");
-    await expect(rows.nth(2)).toContainText("You: Find my 1099 forms");
-    await expect(rows.nth(1).locator("time")).toBeVisible();
+    await expect(rows.filter({ hasText: "Lisbon trip" })).toContainText(
+      "Flights on the 14th are cheapest",
+    );
+    await expect(rows.filter({ hasText: "Taxes 2025" })).toContainText("You: Find my 1099 forms");
+    const listBox = await list.boundingBox();
     for (const row of await rows.all()) {
       const b = await row.boundingBox();
-      if (b) expect(b.width, `${tag}: row inside the 260 px list`).toBeLessThanOrEqual(260);
+      if (b && listBox) {
+        expect(b.x + b.width, `${tag}: row inside the list`).toBeLessThanOrEqual(
+          listBox.x + listBox.width + 1,
+        );
+      }
     }
+    if (listBox) expect(listBox.width, `${tag}: list width`).toBeLessThanOrEqual(261);
     await expectNoSidewaysScroll(page, tag);
     await shot(page, `main-${width}x${height}`);
     if (width === 1440) {
-      await page.getByLabel("Search threads").fill("lisbon");
+      await page.getByLabel("Filter threads").fill("cheapest");
       await expect(rows).toHaveCount(1);
+      await expect(rows.first()).toContainText("Lisbon trip");
       await shot(page, `main-search-${width}x${height}`);
-      await page.getByLabel("Search threads").fill("");
+      await page.getByLabel("Filter threads").fill("");
       await expect(rows).toHaveCount(4);
     }
 

@@ -214,6 +214,14 @@ button {
   font-size: 12px;
   color: var(--shell-muted);
 }
+.thread-row-badge {
+  flex-shrink: 0;
+  padding: 0 6px;
+  border: 1px dashed var(--shell-border);
+  border-radius: 999px;
+  font-size: 11px;
+  color: var(--shell-muted);
+}
 .thread-row-dot {
   flex-shrink: 0;
   width: 7px;
