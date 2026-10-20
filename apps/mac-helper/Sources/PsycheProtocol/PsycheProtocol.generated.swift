@@ -354,6 +354,8 @@
 //   let inputRequest = try? JSONDecoder().decode(InputRequest.self, from: jsonData)
 //   let inputRequestResult = try? JSONDecoder().decode(InputRequestResult.self, from: jsonData)
 //   let inputRequestStatus = try? JSONDecoder().decode(InputRequestStatus.self, from: jsonData)
+//   let learnedBlock = try? JSONDecoder().decode(LearnedBlock.self, from: jsonData)
+//   let learnedFact = try? JSONDecoder().decode(LearnedFact.self, from: jsonData)
 //   let libraryDeleteParams = try? JSONDecoder().decode(LibraryDeleteParams.self, from: jsonData)
 //   let libraryGetParams = try? JSONDecoder().decode(LibraryGetParams.self, from: jsonData)
 //   let libraryGetResult = try? JSONDecoder().decode(LibraryGetResult.self, from: jsonData)
@@ -387,6 +389,8 @@
 //   let memoryFileInfo = try? JSONDecoder().decode(MemoryFileInfo.self, from: jsonData)
 //   let memoryFilesListParams = try? JSONDecoder().decode(MemoryFilesListParams.self, from: jsonData)
 //   let memoryFilesListResult = try? JSONDecoder().decode(MemoryFilesListResult.self, from: jsonData)
+//   let memoryForgetLearnedParams = try? JSONDecoder().decode(MemoryForgetLearnedParams.self, from: jsonData)
+//   let memoryForgetLearnedResult = try? JSONDecoder().decode(MemoryForgetLearnedResult.self, from: jsonData)
 //   let memoryForgetParams = try? JSONDecoder().decode(MemoryForgetParams.self, from: jsonData)
 //   let memoryForgetResult = try? JSONDecoder().decode(MemoryForgetResult.self, from: jsonData)
 //   let memoryHit = try? JSONDecoder().decode(MemoryHit.self, from: jsonData)
@@ -4635,6 +4639,9 @@ public struct ItemElement: Codable, Sendable {
     public let snippet: String?
     public let threadID: String?
     public let title: String?
+    public let date: String?
+    public let factID: String?
+    public let kind: LearnedFactKind?
 
     public enum CodingKeys: String, CodingKey {
         case status = "status"
@@ -4643,16 +4650,31 @@ public struct ItemElement: Codable, Sendable {
         case snippet = "snippet"
         case threadID = "threadId"
         case title = "title"
+        case date = "date"
+        case factID = "factId"
+        case kind = "kind"
     }
 
-    public init(status: ChecklistItemStatus?, text: String?, lastMessageAt: String?, snippet: String?, threadID: String?, title: String?) {
+    public init(status: ChecklistItemStatus?, text: String?, lastMessageAt: String?, snippet: String?, threadID: String?, title: String?, date: String?, factID: String?, kind: LearnedFactKind?) {
         self.status = status
         self.text = text
         self.lastMessageAt = lastMessageAt
         self.snippet = snippet
         self.threadID = threadID
         self.title = title
+        self.date = date
+        self.factID = factID
+        self.kind = kind
     }
+}
+
+public enum LearnedFactKind: String, Codable, Sendable {
+    case name = "name"
+    case other = "other"
+    case person = "person"
+    case preference = "preference"
+    case project = "project"
+    case routine = "routine"
 }
 
 public enum ChecklistItemStatus: String, Codable, Sendable {
@@ -4722,6 +4744,7 @@ public enum BlockType: String, Codable, Sendable {
     case checklist = "checklist"
     case compaction = "compaction"
     case file = "file"
+    case learned = "learned"
     case plan = "plan"
     case question = "question"
     case receipt = "receipt"
@@ -8260,6 +8283,51 @@ public enum InputRequestStatus: String, Codable, Sendable {
     case inputRequestStatusOpen = "open"
 }
 
+// MARK: - LearnedBlock
+public struct LearnedBlock: Codable, Sendable {
+    public let items: [LearnedFact]
+    public let type: LearnedBlockType
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+        case type = "type"
+    }
+
+    public init(items: [LearnedFact], type: LearnedBlockType) {
+        self.items = items
+        self.type = type
+    }
+}
+
+// MARK: - LearnedFact
+public struct LearnedFact: Codable, Sendable {
+    public let date: String
+    public let factID: String
+    public let kind: LearnedFactKind
+    public let text: String
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case date = "date"
+        case factID = "factId"
+        case kind = "kind"
+        case text = "text"
+        case threadID = "threadId"
+    }
+
+    public init(date: String, factID: String, kind: LearnedFactKind, text: String, threadID: String) {
+        self.date = date
+        self.factID = factID
+        self.kind = kind
+        self.text = text
+        self.threadID = threadID
+    }
+}
+
+public enum LearnedBlockType: String, Codable, Sendable {
+    case learned = "learned"
+}
+
 // MARK: - LibraryDeleteParams
 public struct LibraryDeleteParams: Codable, Sendable {
     public let itemID: String
@@ -8882,6 +8950,32 @@ public struct MemoryFileInfo: Codable, Sendable {
         self.protected = protected
         self.provenance = provenance
         self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - MemoryForgetLearnedParams
+public struct MemoryForgetLearnedParams: Codable, Sendable {
+    public let factID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case factID = "factId"
+    }
+
+    public init(factID: String) {
+        self.factID = factID
+    }
+}
+
+// MARK: - MemoryForgetLearnedResult
+public struct MemoryForgetLearnedResult: Codable, Sendable {
+    public let removed: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case removed = "removed"
+    }
+
+    public init(removed: Bool) {
+        self.removed = removed
     }
 }
 

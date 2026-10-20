@@ -103,3 +103,21 @@ export const PersonaIdentity = Type.Object(
   { $id: "PersonaIdentity" },
 );
 export type PersonaIdentity = Static<typeof PersonaIdentity>;
+
+/**
+ * Feature #509: a fact about the owner learned from their own words, kept in `USER.md`'s dated
+ * "Learned" section with the thread it came from. Text is the utility model's distillation of the
+ * owner's message: plain text.
+ */
+export const LearnedFact = Type.Object(
+  {
+    factId: Type.String({ pattern: "^lf_[a-z0-9]{6,32}$" }),
+    text: Type.String({ minLength: 1, maxLength: 300 }),
+    kind: StringEnum(["name", "preference", "routine", "person", "project", "other"]),
+    /** `YYYY-MM-DD`. */
+    date: Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" }),
+    threadId: Type.String(),
+  },
+  { $id: "LearnedFact" },
+);
+export type LearnedFact = Static<typeof LearnedFact>;
