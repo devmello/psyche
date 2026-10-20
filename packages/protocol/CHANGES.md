@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S02/S05: task_start approval kind, #48)
+
+For S02 (`task.start` declares `sideEffect: write` and `kind: task_start`), S05 (the broker infers `task_start` for `task.start` and titles its card), S10 (chat card label), S11 / S12 (approval cards).
+
+- `ApprovalKind` gains `task_start` at the end of the list: delegating a background task is a `write` (review design-08) with its own card instead of a generic `connector_action`. Offered scopes follow the `write` class (`once / task / site / session / always`); in a tainted turn it always asks (no target, so the target is new).
+
 ### v1 additive — 2026-10-19 (S11 M2: quote-reply)
 
 For S11 / S12 (chat column), S01 (session controller). `chat.send` gains optional `replyToMessageId` (feature E5): the message this one answers, in the same thread. The Gateway stores it as `Message.replyToMessageId` (already in the schema) and puts the quoted text ahead of the new message in what the agent sees, so replies carry a quote reference the agent reads.
