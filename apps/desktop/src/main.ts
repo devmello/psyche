@@ -152,7 +152,16 @@ function handle(channel: string, fn: Handler): void {
       const e = PsycheError.from(err);
       const code =
         err instanceof Error && err.name === "IpcPayloadError" ? "invalid_params" : e.code;
-      return { ok: false, error: { code, message: e.message, retryable: e.retryable } };
+      // Details carry what the renderer must act on, e.g. `approval_required` → `{ approvalId }`.
+      return {
+        ok: false,
+        error: {
+          code,
+          message: e.message,
+          retryable: e.retryable,
+          ...(e.details === undefined ? {} : { details: e.details }),
+        },
+      };
     }
   });
 }

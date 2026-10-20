@@ -10,17 +10,19 @@ import { IPC } from "./lib/ipc.ts";
 interface Envelope {
   ok: boolean;
   value?: unknown;
-  error?: { code: string; message: string; retryable?: boolean };
+  error?: { code: string; message: string; retryable?: boolean; details?: unknown };
 }
 
 class BridgeError extends Error {
   readonly code: string;
   readonly retryable: boolean;
-  constructor(e: { code: string; message: string; retryable?: boolean }) {
+  readonly details: unknown;
+  constructor(e: { code: string; message: string; retryable?: boolean; details?: unknown }) {
     super(e.message);
     this.name = "PsycheError";
     this.code = e.code;
     this.retryable = e.retryable ?? false;
+    this.details = e.details;
   }
 }
 
@@ -69,7 +71,13 @@ const bridge = {
   gateway: {
     getStatus: () => invoke(IPC.getStatus),
     onStatus: (cb: (s: unknown) => void) => listen(IPC.status, cb),
-    call: (method: string, params: unknown) => invoke(IPC.call, { method, params }),
+    /**
+     * Resolves the raw `{ok, value} | {ok: false, error}` envelope: `contextBridge` copies only
+     * an Error's message, so the renderer builds the error itself (`renderer/bridge.ts`) and
+     * keeps `code` and `details` (e.g. `approval_required` → `{ approvalId }`).
+     */
+    call: (method: string, params: unknown) =>
+      ipcRenderer.invoke(IPC.call, { method, params }) as Promise<Envelope>,
     onEvent: (cb: (e: unknown) => void) => listen(IPC.event, cb),
     onResync: (cb: () => void) => listen(IPC.resync, () => cb()),
   },
