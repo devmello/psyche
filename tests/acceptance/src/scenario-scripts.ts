@@ -28,7 +28,10 @@ export const SCENARIO_IDS = [
   "v4-travel",
   "v7-research-brief",
 ] as const;
-export type ScenarioId = (typeof SCENARIO_IDS)[number];
+export type ScenarioId = (typeof SCENARIO_IDS)[number] | "v3-shopping";
+
+/** Milestone 2 scenarios that live in tests/scenarios (S09 / S06: V3 to the payment step). */
+export const M2_SHARED_SCENARIO_IDS = ["v3-shopping"] as const;
 
 /** Milestone 2 scenarios (INT-3, tests/acceptance/scenarios-m2), same format. */
 export const M2_SCENARIOS_DIR = join(ROOT, "tests/acceptance/scenarios-m2");

@@ -25,7 +25,7 @@ import {
 } from "@psyche/protocol";
 import { VaultTokenVault } from "@psyche/vault";
 import type { Call, HandlerDef } from "../context.ts";
-import { taskOrigins } from "./fetch-origins.ts";
+import { fetchLimit, taskOrigins } from "./fetch-origins.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -109,7 +109,11 @@ function defaultFactories(setup: ConnectorsSetup, services: ComposeServices): Co
   if (setup.web?.fetch !== undefined) {
     // Redirect hops stay inside the Task's approved origins (#72).
     factories.push(
-      createWebFetchFactory({ allowedOrigins: taskOrigins(services), ...setup.web.fetch }),
+      createWebFetchFactory({
+        allowedOrigins: taskOrigins(services),
+        ...setup.web.fetch,
+        beforeFetch: fetchLimit(services),
+      }),
     );
   }
   return factories;

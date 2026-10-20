@@ -146,7 +146,7 @@ function scorecard(secrets: { ok: boolean; captures: number } | undefined): stri
   }
   if (resumability !== undefined)
     L(
-      `| Resumability total | ${mark(resumability.ok as boolean)} | ${resumability.total} random kill points: ${resumability.milestone1 ?? resumability.total} across V1, V2, V3, V4, V7${resumability.milestone2 === undefined ? "" : ` and ${resumability.milestone2} across V5, V6, V8, V9`} |`,
+      `| Resumability total | ${mark(resumability.ok as boolean)} | ${resumability.total} random kill points: ${resumability.milestone1 ?? resumability.total} across V1, V2, V7${resumability.milestone2 === undefined ? "" : ` and ${resumability.milestone2} across V3, V4, V5, V6, V8, V9`} |`,
     );
   L();
   L("## Milestone 2 scenarios (scripted)");
@@ -212,18 +212,19 @@ function scorecard(secrets: { ok: boolean; captures: number } | undefined): stri
   L();
   L("## Live gates (real model, three runs per scenario)");
   L();
-  L("| Model | V1 inbox triage | V2 calendar planning | V7 research brief |");
-  L("| --- | --- | --- | --- |");
-  const cell = (live: Json | undefined, scenario: string) => {
-    if (live === undefined) return "not run: key needed";
-    const rs = (
-      live.runs as {
-        scenario: string;
-        ok: boolean;
-        summary: { hard: { unchecked: number }; soft: { pass: number; fail: number } };
-      }[]
-    ).filter((r) => r.scenario === scenario);
-    if (rs.length === 0) return "not run";
+  type LiveRun = {
+    scenario: string;
+    ok: boolean;
+    summary: { hard: { unchecked: number }; soft: { pass: number; fail: number } };
+  };
+  const cell = (live: Json | undefined, scenario: string, missing: string) => {
+    if (live === undefined) return missing;
+    const rs = (live.runs as LiveRun[]).filter((r) => r.scenario === scenario);
+    const blocked = live.blocked as { at: string; reason: string } | undefined;
+    if (rs.length === 0)
+      return blocked === undefined
+        ? "not run"
+        : `not run: the provider refused the key on ${blocked.at} (${blocked.reason.split(":").at(-1)?.trim() ?? "refused"})`;
     const ok = rs.filter((r) => r.ok).length;
     const soft = rs.reduce((n, r) => n + r.summary.soft.pass, 0);
     const softAll = rs.reduce((n, r) => n + r.summary.soft.pass + r.summary.soft.fail, 0);
@@ -231,15 +232,33 @@ function scorecard(secrets: { ok: boolean; captures: number } | undefined): stri
     return `${ok}/${rs.length} hard-clean, soft ${soft}/${softAll}${unchecked > 0 ? `, ${unchecked} hard unchecked` : ""}`;
   };
   const byModel = new Map(lives.map((l) => [String(l.model), l]));
-  const expected = ["anthropic (hosted)", "openai (hosted)", "ollama (local, agent-capable)"];
-  for (const label of expected) {
-    const provider = label.split(" ")[0] as string;
-    const live = [...byModel.entries()].find(([m]) => m.startsWith(`${provider}/`))?.[1];
-    const name = live === undefined ? label : String(live.model);
-    L(
-      `| ${name} | ${cell(live, "v1-inbox-triage")} | ${cell(live, "v2-calendar-planning")} | ${cell(live, "v7-research-brief")} |`,
-    );
-  }
+  const pick = (provider: string) =>
+    [...byModel.entries()].find(([m]) => m.startsWith(`${provider}/`))?.[1];
+  const models = [
+    { provider: "anthropic", label: "Anthropic (hosted)", missing: "not run: key needed" },
+    { provider: "openai", label: "OpenAI (hosted)", missing: "not run: key needed" },
+    { provider: "ollama", label: "Local (agent-capable)", missing: "not run: no local models" },
+  ].map((m) => ({ ...m, live: pick(m.provider) }));
+  L(
+    `| Scenario | ${models.map((m) => (m.live === undefined ? m.label : `${m.label}: \`${String(m.live.model)}\``)).join(" | ")} |`,
+  );
+  L(`| --- | ${models.map(() => "---").join(" | ")} |`);
+  const scenariosLive: [string, string][] = [
+    ["v1-inbox-triage", "V1 inbox triage"],
+    ["v2-calendar-planning", "V2 calendar planning"],
+    ["v3-shopping", "V3 shopping to the payment step"],
+    ["v5-permission-slip", "V5 permission slip"],
+    ["v6-messages-voice-note", "V6 Messages and voice note"],
+    ["v7-research-brief", "V7 research brief"],
+    ["v8-subscription-audit", "V8 subscription audit"],
+    ["v9-weekly-review", "V9 weekly review"],
+  ];
+  for (const [id, label] of scenariosLive)
+    L(`| ${label} | ${models.map((m) => cell(m.live, id, m.missing)).join(" | ")} |`);
+  L();
+  L(
+    '"Hard-clean": every hard (security and correctness) assertion passed in that run. Soft assertions are quality checks and only counted. Scripted-only probe steps are skipped live. Failures and their owners: docs/status/int-3.md and docs/status/known-red.md.',
+  );
   L();
   L(
     "Run: `PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=<provider>/<model> <KEY>=… pnpm --filter @psyche/acceptance-tests live` (keys: tests/acceptance/README.md).",
@@ -293,8 +312,11 @@ function main(argv: string[]): number {
     const files = existsSync(captures) ? readdirSync(captures).length : 0;
     const leak = run("pnpm", ["check:secrets", "--captures", captures, "--require-captures"]);
     secrets = { ok: leak === 0, captures: files };
+    writeFileSync(join(OUT, "secrets.json"), `${JSON.stringify(secrets, null, 2)}\n`);
     if (suite !== 0 || leak !== 0) process.exitCode = 1;
   }
+  // A scorecard-only fold keeps the last full run's secret-leak result.
+  if (secrets === undefined) secrets = read("secrets") as typeof secrets;
   const md = scorecard(secrets);
   writeFileSync(join(PKG, "SCORECARD.md"), md);
   process.stdout.write(`\nwrote tests/acceptance/SCORECARD.md\n`);

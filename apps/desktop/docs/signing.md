@@ -78,3 +78,7 @@ These are flipped at package time: `RunAsNode` off, `EnableNodeOptionsEnvironmen
 `EnableCookieEncryption` on, `LoadBrowserProcessSpecificV8Snapshot` off, and
 `GrantFileProtocolExtraPrivileges` off, because the renderer loads from `app://`. Inspect a
 build with `npx @electron/fuses read --app "$APP"`.
+
+## Updates: the signed manifest
+
+Code signing makes Squirrel.Mac accept an update; it does not say which update is current or that the zip is the one the release meant. The updater therefore applies an update only after verifying `update-manifest.json` with an Ed25519 release key embedded in the app (`src/main/release-keys.ts`), the downloaded zip's SHA-256, and that it is newer and comes from the pinned release host (security §11, "Update manifest" and "Release key"). The release workflow produces the zip and signs the manifest with `RELEASE_SIGNING_KEY` from the `release` environment; without that secret it publishes no manifest and installed apps do not update. Until the first key is embedded, `startUpdater` returns `no_keys` and does nothing.
