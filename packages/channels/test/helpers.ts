@@ -7,7 +7,11 @@ import {
   FakeSpeechEngine,
 } from "@psyche/testing";
 import type { ChannelInboundEvent, LibraryIngestInput } from "../src/ports.ts";
-import { ChannelService, type InboundDecisionEvent } from "../src/service.ts";
+import {
+  ChannelService,
+  type InboundDecisionEvent,
+  type PairingDecidedEvent,
+} from "../src/service.ts";
 import { MemoryChannelStore } from "../src/store/memory.ts";
 import { FakeVoiceTranscoder, VoiceNotes } from "../src/voice.ts";
 
@@ -32,6 +36,8 @@ export interface Harness {
   channel: Channel;
   /** What `onInboundDecision` reported. */
   decisions: InboundDecisionEvent[];
+  /** `onPairingDecided` calls, with how many texts the adapter had sent at that moment. */
+  pairingDecisions: { event: PairingDecidedEvent; sentBefore: number }[];
 }
 
 let counter = 0;
@@ -57,8 +63,11 @@ export async function harness(
   const events: { event: string; payload: unknown }[] = [];
   const sleeps: number[] = [];
   const decisions: InboundDecisionEvent[] = [];
+  const pairingDecisions: Harness["pairingDecisions"] = [];
+  let sentCount = () => 0;
   const service = new ChannelService({
     onInboundDecision: (e) => decisions.push(e),
+    onPairingDecided: (event) => pairingDecisions.push({ event, sentBefore: sentCount() }),
     ...(options.admitInbound === undefined ? {} : { admitInbound: options.admitInbound }),
     store,
     broker,
@@ -103,6 +112,7 @@ export async function harness(
     account: "psyche_bot",
     ...(options.capabilities === undefined ? {} : { capabilities: options.capabilities }),
   });
+  sentCount = () => adapter.sent.filter((x) => x.kind !== "typing").length;
   service.attach(adapter);
   if (options.start !== false) await service.start(channel.id);
   return {
@@ -120,6 +130,7 @@ export async function harness(
     adapter,
     channel,
     decisions,
+    pairingDecisions,
   };
 }
 

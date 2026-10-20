@@ -1,7 +1,14 @@
 import { chmodSync, mkdirSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { getSetting, setSetting } from "@psyche/db";
-import type { AppTier, PolicyConfig } from "@psyche/permissions";
+import {
+  type AppTier,
+  BROWSER_APPS,
+  effectiveTier,
+  LOCKED_OFF_APPS,
+  type PolicyConfig,
+  TERMINAL_IDE_APPS,
+} from "@psyche/permissions";
 import { PsycheError } from "@psyche/protocol";
 import type { ComposeServices } from "./services.ts";
 
@@ -30,6 +37,21 @@ export interface ComputerUseFile {
   version: 1;
   default: "ask" | "off";
   apps: Record<string, AppTier>;
+  /**
+   * The broker's fixed caps (`@psyche/permissions` apps.ts), so both enforcers cap the same apps
+   * (#267): bundle ids or `prefix.*` patterns → the highest tier allowed. A tier above its cap in
+   * `apps` is already lowered here.
+   */
+  caps: Record<string, AppTier>;
+}
+
+/** Fixed caps as the helper reads them: password managers, banking, settings off; etc. */
+export function fixedCaps(): Record<string, AppTier> {
+  const caps: Record<string, AppTier> = {};
+  for (const id of TERMINAL_IDE_APPS) caps[id] = "click";
+  for (const id of BROWSER_APPS) caps[id] = "read";
+  for (const id of LOCKED_OFF_APPS) caps[id] = "off";
+  return caps;
 }
 
 /** Valid `{id, tier}` rows of `computerUse.apps`; anything else is dropped. */
@@ -45,9 +67,23 @@ export function appTiersFrom(value: unknown): Record<string, AppTier> {
   return out;
 }
 
-export function computerUseFile(enabled: unknown, apps: unknown): ComputerUseFile {
-  if (enabled !== true) return { version: 1, default: "off", apps: {} };
-  return { version: 1, default: "ask", apps: appTiersFrom(apps) };
+/**
+ * The helper's file: the owner's computer-use tiers over `permissions.policy`'s `apps` (the
+ * same layering the broker gets), each capped by the fixed caps, plus the caps themselves.
+ */
+export function computerUseFile(
+  enabled: unknown,
+  apps: unknown,
+  policyApps: PolicyConfig["apps"] = {},
+): ComputerUseFile {
+  const caps = fixedCaps();
+  if (enabled !== true) return { version: 1, default: "off", apps: {}, caps };
+  const merged: Record<string, AppTier> = {};
+  for (const [id, tier] of Object.entries({ ...(policyApps ?? {}), ...appTiersFrom(apps) })) {
+    if (!BUNDLE_ID.test(id) || !TIERS.includes(tier as AppTier)) continue;
+    merged[id] = effectiveTier(id, tier as AppTier).tier ?? "off";
+  }
+  return { version: 1, default: "ask", apps: merged, caps };
 }
 
 export function computerUsePath(home: string): string {
@@ -90,16 +126,15 @@ export function computerUseSettings(services: ComposeServices): ComputerUseSetti
     logger?.log("warn", msg, { code: PsycheError.from(err).code });
 
   function sync(): void {
-    const file = computerUseFile(
-      getSetting(db, COMPUTER_USE_ENABLED)?.value,
-      getSetting(db, COMPUTER_USE_APPS)?.value,
-    );
+    const enabled = getSetting(db, COMPUTER_USE_ENABLED)?.value;
+    const ownerApps = getSetting(db, COMPUTER_USE_APPS)?.value;
+    const file = computerUseFile(enabled, ownerApps, baseApps);
     try {
       writeComputerUseFile(home, file);
     } catch (err) {
       warn("writing config/computer-use.json failed", err);
     }
-    const apps = { ...(baseApps ?? {}), ...file.apps };
+    const apps = { ...(baseApps ?? {}), ...(enabled === true ? appTiersFrom(ownerApps) : {}) };
     try {
       rawBroker.setPolicy({ ...rawBroker.policy, apps });
     } catch (err) {
