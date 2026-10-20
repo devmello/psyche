@@ -225,6 +225,21 @@ One sandbox Mac per user, built on Virtualization.framework with spike 06's reci
   - the display pane (L4)
 - **Tests:** a fake backend covers the lifecycle, guest caps, provisioning, shares and the vsock relay into a real Unix socket. `PSYCHE_VM_LIVE_TESTS=1` runs a read-only check against the real framework: the catalog, plus `PSYCHE_VM_IPSW` to load a local image. It never downloads or boots.
 
+### Apple app adapters (J6)
+
+These are typed node capabilities. Their shapes are in `packages/protocol` `schemas/apple-apps.ts`. They are gated by the `apple.<app>` action matrix in `@psyche/permissions`: reads Allow, writes Ask, and `mail.send` always asks. Everything read from an app is `untrusted`.
+
+| App | Capabilities (side effect) | How |
+| --- | --- | --- |
+| Calendar | `calendar.list_calendars`, `calendar.list_events` (read); `calendar.create_event`, `calendar.update_event` (write, `span: future` for a recurring series) | EventKit. The first call asks for full Calendars access (macOS has no read-only option). |
+| Reminders | `reminders.list_lists`, `reminders.list` (read); `reminders.create`, `reminders.update` (write; `due: null` clears) | EventKit. Reminders access is asked on first use. |
+| Mail | `mail.search`, `mail.read` (read); `mail.draft` (write: saved, not sent); `mail.send` (write) | Mail scripting. `mail.send` refuses without an `approvalId`, even if the Gateway forwards it, and the approval binds the exact recipients, subject and body. Message bodies are plain text, capped by `maxLength`. |
+| Notes | `notes.list`, `notes.read` (read: HTML and plain text); `notes.create` (write: title plus plain text, HTML-escaped) | Notes scripting. |
+| Finder | `finder.list`, `finder.reveal` (read, `targetKind: path`) | Only inside the owner's granted folders (`permissions.folders` in `$PSYCHE_HOME/config.json`). Nothing is granted by default. Symlinks are listed, never followed out. |
+| Safari | `safari.tabs`, `safari.current_tab` (read); `safari.open_url` (write: http(s) only, a new tab in the user's Safari) | Safari scripting. Acting inside pages stays with the agent browser. |
+
+The scripting adapters run constant AppleScript handlers (`psyche_search`, `psyche_compose`, …) with the inputs passed as handler arguments, so app content and model text never become script source. The helper launches the target app in the background if needed and asks for Automation per app on first use. Messages (J7) is a separate adapter.
+
 ## Entitlements and Info.plist
 
 | Key | Where | Why |
