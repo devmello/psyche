@@ -34,6 +34,7 @@ import { ModelSection } from "./ModelSection.tsx";
 import { PermissionsSection } from "./PermissionsSection.tsx";
 import { PersonaSection } from "./PersonaSection.tsx";
 import { ServerSection } from "./ServerSection.tsx";
+import { SettingsApprovalProvider } from "./SettingsApproval.tsx";
 import type {
   AboutInfo,
   DoctorCheck,
@@ -283,8 +284,10 @@ export function SettingsScreen({
           </ul>
         </nav>
       </div>
-      <div className="min-w-0 max-w-[var(--page-width)]">
-        <SettingsSectionView section={current} shell={shell} />
+      <div className="flex min-w-0 max-w-[var(--page-width)] flex-col gap-4">
+        <SettingsApprovalProvider>
+          <SettingsSectionView section={current} shell={shell} />
+        </SettingsApprovalProvider>
       </div>
     </div>
   );

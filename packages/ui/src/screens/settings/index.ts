@@ -67,6 +67,7 @@ export {
   PersonaSection,
 } from "./PersonaSection.tsx";
 export { ServerPanel, type ServerPanelProps, ServerSection } from "./ServerSection.tsx";
+export { PRESENCE_UNAVAILABLE, SettingsApprovalProvider } from "./SettingsApproval.tsx";
 export {
   SETTINGS_SECTIONS,
   SettingsScreen,

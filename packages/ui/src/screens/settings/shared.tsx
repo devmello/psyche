@@ -59,12 +59,34 @@ export function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/** `details.approvalId` of an `approval_required` error (security settings, security §10). */
+export function approvalIdOf(err: unknown): string | null {
+  if (!hasCode(err, "approval_required")) return null;
+  const details = (err as { details?: unknown }).details;
+  const id = (details as { approvalId?: unknown } | null | undefined)?.approvalId;
+  return typeof id === "string" && id !== "" ? id : null;
+}
+
+/** A security setting waiting for the owner's approval with presence. */
+export interface PendingSettingApproval {
+  key: string;
+  approvalId: string;
+  /** Writes the value again with the approval; resolves once the Gateway saved it. */
+  retry: (approvalId: string) => Promise<unknown>;
+}
+
+/** Provided by the Settings screen (`SettingsApprovalProvider`); absent in isolated panels. */
+export const SettingsApprovalContext = createContext<
+  ((pending: PendingSettingApproval) => void) | null
+>(null);
+
 /**
  * `useSettings()` plus error handling for writes: an admin key refused with `forbidden` lands in
  * `needsApproval` (shown as "Needs approval on this device"); anything else in `writeError`.
  */
 export function useSettingsForm() {
   const { settings, set, loading, error, reload } = useSettings();
+  const requestApproval = useContext(SettingsApprovalContext);
   const [needsApproval, setNeedsApproval] = useState<ReadonlySet<string>>(() => new Set());
   const [writeError, setWriteError] = useState<string | null>(null);
 
@@ -80,7 +102,17 @@ export function useSettingsForm() {
             return next;
           }),
         (err: unknown) => {
-          if (hasCode(err, "forbidden") && isAdminSettingKey(key)) {
+          const approvalId = approvalIdOf(err);
+          if (approvalId !== null) {
+            // Security settings need fresh presence: the Gateway issued a device-only card.
+            if (requestApproval) {
+              requestApproval({ key, approvalId, retry: (id) => set(key, value, id) });
+            } else {
+              setWriteError(
+                `Changing ${key} needs your approval with Touch ID or a passkey. Approve it in Settings or in the Psyche notification, then change it again.`,
+              );
+            }
+          } else if (hasCode(err, "forbidden") && isAdminSettingKey(key)) {
             setNeedsApproval((prev) => new Set(prev).add(key));
           } else {
             setWriteError(`Psyche couldn't save ${key} (${messageOf(err)}). Nothing changed.`);
@@ -88,7 +120,7 @@ export function useSettingsForm() {
         },
       );
     },
-    [set],
+    [set, requestApproval],
   );
 
   return { values: settings, onChange, needsApproval, writeError, loading, error, reload };
