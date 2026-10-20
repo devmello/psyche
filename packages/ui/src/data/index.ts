@@ -4,6 +4,7 @@ export {
   type GatewayEvent,
   GatewayRequestError,
   newIdempotencyKey,
+  type PresenceAssertion,
   type RequestOptions,
 } from "./client.ts";
 export * from "./hooks.ts";
