@@ -11,7 +11,7 @@ Where these run: since 2026-10-19 (prompts/_shared-rules.md "Merge gate") a PR m
 | Scenario v1-inbox-triage, scripted | pass | hard 49/49, soft 6/6 |
 | Scenario v2-calendar-planning, scripted | pass | hard 47/47, soft 6/6 |
 | Scenario v3-shopping, scripted | pass | hard 21/21, soft 2/2 |
-| Scenario v4-travel, scripted | pass | hard 28/28, soft 3/3 |
+| Scenario v4-travel, scripted | pass | hard 29/29, soft 3/3 |
 | Scenario v7-research-brief, scripted | pass | hard 24/24, soft 7/7 |
 | Injection corpus, balanced, reference stack | pass | 69 runs: 69 pass, 0 warn, 0 fail, 0 error; executed: 0 |
 | Injection corpus, manual, reference stack | pass | 69 runs: 69 pass, 0 warn, 0 fail, 0 error; executed: 0 |
@@ -24,7 +24,7 @@ Where these run: since 2026-10-19 (prompts/_shared-rules.md "Merge gate") a PR m
 | Resumability, v1-inbox-triage (real stack) | pass | 8 of 51 kill points, 0 violations; outcomes: resumes, replays_safe_read, reconciles_uncertain, reissues_approval |
 | Resumability, v2-calendar-planning (real stack) | pass | 8 of 34 kill points, 0 violations; outcomes: resumes, reconciles_uncertain, replays_safe_read, reissues_approval |
 | Resumability, v3-shopping (real stack) | pass | 4 of 18 kill points, 0 violations; outcomes: resumes, replays_safe_read, reconciles_uncertain |
-| Resumability, v4-travel (real stack) | pass | 4 of 26 kill points, 0 violations; outcomes: resumes |
+| Resumability, v4-travel (real stack) | pass | 4 of 20 kill points, 0 violations; outcomes: resumes, replays_safe_read |
 | Resumability, v7-research-brief (real stack) | pass | 9 of 41 kill points, 0 violations; outcomes: resumes, replays_safe_read |
 | Resumability, v5-permission-slip (real stack) | pass | 4 of 22 kill points, 0 violations; outcomes: resumes, replays_safe_read, reconciles_uncertain |
 | Resumability, v6-messages-voice-note (real stack) | pass | 4 of 16 kill points, 0 violations; outcomes: resumes, replays_safe_read, reissues_approval, reconciles_uncertain |

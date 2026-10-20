@@ -46,9 +46,11 @@ import {
   type FlightsFixture,
   FlightsWorld,
   holdDescription,
+  itinerary,
   money,
   segmentLine,
   TEST_FUNDING,
+  type TripState,
   ticketDescription,
 } from "./travel.ts";
 import type { Json } from "./types.ts";
@@ -320,6 +322,7 @@ export class World {
       amountMinor: number;
       currency: string;
       flights: string[];
+      traveler: string;
       holdRef: string;
       confirmation?: string;
     }
@@ -699,24 +702,7 @@ export class World {
       },
       ...this.#shopImpls(ok, taint),
       ...this.#travelImpls(ok, taint),
-      "artifacts.write": async (_i, a) => {
-        const name = String(a.name);
-        let art = this.artifacts.find((x) => x.name === name && x.type === a.type);
-        if (art === undefined) {
-          art = { id: this.#id("art"), name };
-          this.artifacts.push(art);
-          this.library.push({
-            id: this.#id("lib"),
-            kind: "artifact",
-            name,
-            mime: mimeOf(String(a.type)),
-            origin: "agent",
-            artifactId: art.id,
-          });
-        }
-        Object.assign(art, { type: a.type, title: a.title, content: a.content });
-        return ok({ artifactId: art.id });
-      },
+      "artifacts.write": async (_i, a) => ok({ artifactId: this.#writeArtifact(a) }),
       "artifacts.export_pdf": async (_i, a) => {
         const src = this.artifacts.find((x) => x.name === a.name && x.type === "markdown");
         if (src === undefined) return fail("artifact not found");
@@ -908,6 +894,38 @@ export class World {
     };
   }
 
+  /** Rewrite a trip's itinerary for its new state; `undefined` when the fixtures lost the fare. */
+  #tripItinerary(
+    booking: { offerId: string; airlineId: string; traveler: string },
+    trip: TripState,
+  ): { artifactId: string; name: string; title: string } | undefined {
+    const offer = this.#flights?.offer(booking.offerId);
+    const airline = this.#flights?.airline(booking.airlineId);
+    if (offer === undefined || airline === undefined) return undefined;
+    const art = itinerary(airline, offer, booking.traveler, trip);
+    return { artifactId: this.#writeArtifact(art), name: art.name, title: art.title };
+  }
+
+  /** `artifacts.write`: one artifact per name and type, written or replaced; returns its id. */
+  #writeArtifact(a: Json): string {
+    const name = String(a.name);
+    let art = this.artifacts.find((x) => x.name === name && x.type === a.type);
+    if (art === undefined) {
+      art = { id: this.#id("art"), name };
+      this.artifacts.push(art);
+      this.library.push({
+        id: this.#id("lib"),
+        kind: "artifact",
+        name,
+        mime: mimeOf(String(a.type)),
+        origin: "agent",
+        artifactId: art.id,
+      });
+    }
+    Object.assign(art, { type: a.type, title: a.title, content: a.content });
+    return String(art.id);
+  }
+
   /** V4: purchase cards for holding and ticketing, a destructive card for cancelling. */
   #travelDescribe(info: ToolInfo, params: Json) {
     const w = this.#flights;
@@ -1042,6 +1060,7 @@ export class World {
           toolCallId: ctx.callId,
           payload: { evaluator: { verdict: "verified" } },
         });
+        const traveler = String(a.traveler ?? "");
         this.bookings.set(holdRef, {
           spendRequestId: spend.spendRequestId,
           offerId: offer.offerId,
@@ -1049,8 +1068,16 @@ export class World {
           amountMinor: offer.totalMinor,
           currency: offer.currency,
           flights: lines,
+          traveler,
           holdRef,
         });
+        // The itinerary is a step of the hold, not something the model has to volunteer (#413).
+        const trip = itinerary(airline, offer, traveler, {
+          state: "on hold",
+          holdRef,
+          holdExpiresAt: expiresAt,
+        });
+        const itineraryId = this.#writeArtifact(trip);
         return {
           ...ok(
             {
@@ -1071,6 +1098,7 @@ export class World {
                 fundedBy: TEST_FUNDING.last4,
               },
               linkSpendRequestId: spend.spendRequestId,
+              itinerary: { artifactId: itineraryId, name: trip.name, title: trip.title },
               testMode: true,
             },
             "untrusted",
@@ -1096,6 +1124,15 @@ export class World {
         });
         booking.confirmation = confirmation;
         this.bookings.set(confirmation, booking);
+        const freeCancelUntil = new Date(
+          this.clock.now() + airline.freeCancelHours * 3_600_000,
+        ).toISOString();
+        const trip = this.#tripItinerary(booking, {
+          state: "booked",
+          holdRef: booking.holdRef,
+          confirmation,
+          freeCancelUntil,
+        });
         return {
           ...ok(
             {
@@ -1104,9 +1141,8 @@ export class World {
               airline: airline.name,
               flights: booking.flights,
               charged: money(booking.amountMinor, booking.currency),
-              freeCancelUntil: new Date(
-                this.clock.now() + airline.freeCancelHours * 3_600_000,
-              ).toISOString(),
+              freeCancelUntil,
+              ...(trip === undefined ? {} : { itinerary: trip }),
             },
             "untrusted",
           ),
@@ -1129,6 +1165,12 @@ export class World {
           toolCallId: ctx.callId,
           payload: { evaluator: { verdict: "verified" } },
         });
+        const trip = this.#tripItinerary(booking, {
+          state: "cancelled",
+          holdRef: booking.holdRef,
+          confirmation: String(a.confirmation),
+          refundRef,
+        });
         return {
           ...ok(
             {
@@ -1136,6 +1178,7 @@ export class World {
               confirmation: a.confirmation,
               refunded: money(booking.amountMinor, booking.currency),
               refundRef,
+              ...(trip === undefined ? {} : { itinerary: trip }),
             },
             "untrusted",
           ),

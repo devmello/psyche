@@ -186,7 +186,7 @@
       "connector": "travel",
       "approvalKind": "purchase",
       "receiptKind": "purchase.hold",
-      "note": "V4 / G12: the airline authorizes the Stripe Link one-time card for the fare without charging it (the vault's hold). Once only, device-only; the card shows flights, traveler, fare class, total and the funding card's last4."
+      "note": "V4 / G12: the airline authorizes the Stripe Link one-time card for the fare without charging it (the vault's hold). Once only, device-only; the card shows flights, traveler, fare class, total and the funding card's last4. The hold writes the trip's itinerary artifact from the held fare (#413)."
     },
     {
       "name": "travel.ticket_hold",
@@ -196,7 +196,7 @@
       "connector": "travel",
       "approvalKind": "purchase",
       "receiptKind": "purchase",
-      "note": "Ticketing captures the held authorization (the vault's capture); a second once-only purchase card."
+      "note": "Ticketing captures the held authorization (the vault's capture); a second once-only purchase card. Updates the trip's itinerary."
     },
     {
       "name": "travel.cancel_booking",
@@ -206,7 +206,7 @@
       "connector": "travel",
       "approvalKind": "connector_action",
       "receiptKind": "purchase.refund",
-      "note": "Cancelling inside the airline's free window refunds the capture (the vault's refund)."
+      "note": "Cancelling inside the airline's free window refunds the capture (the vault's refund) and marks the itinerary cancelled."
     }
   ]
 }
