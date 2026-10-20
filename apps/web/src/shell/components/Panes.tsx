@@ -119,6 +119,41 @@ function PaneBody(props: {
   }
 }
 
+/** A keyboard-operable pane divider (docs/a11y-audit.md W5): drag it, or focus it and use ← →. */
+function PaneResizer({
+  onPointerDown,
+  onStep,
+  value,
+  label = "Resize panes",
+}: {
+  onPointerDown: (e: PointerEvent) => void;
+  onStep: (delta: number) => void;
+  /** Share of the width before the divider, 0–100. */
+  value: number;
+  label?: string;
+}): ReactElement {
+  return (
+    // biome-ignore lint/a11y/useSemanticElements: a focusable splitter has no native element
+    <div
+      className="resizer"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={label}
+      aria-valuenow={value}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      tabIndex={0}
+      onPointerDown={onPointerDown}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowLeft") onStep(-24);
+        else if (e.key === "ArrowRight") onStep(24);
+        else return;
+        e.preventDefault();
+      }}
+    />
+  );
+}
+
 /** The composed app's pane bodies (ShellSlots.pane). */
 export type PaneRenderer = (
   pane: PaneInstance,
@@ -165,7 +200,12 @@ export function PaneArea(props: {
       data-testid="pane-area"
     >
       {pres.mode === "compact" ? null : (
-        <div className="resizer" onPointerDown={startDrag(0)} aria-hidden="true" />
+        <PaneResizer
+          onPointerDown={startDrag(0)}
+          onStep={(delta) => props.dispatch({ type: "resize", boundary: 0, delta })}
+          value={Math.round(pres.chatFraction * 100)}
+          label="Resize chat and panes"
+        />
       )}
       {pres.groups.map((g, gi) => {
         const active = findPane(state, g.activePaneId);
@@ -178,10 +218,15 @@ export function PaneArea(props: {
             data-testid="pane-group"
           >
             {gi > 0 ? (
-              <div className="resizer" onPointerDown={startDrag(gi)} aria-hidden="true" />
+              <PaneResizer
+                onPointerDown={startDrag(gi)}
+                onStep={(delta) => props.dispatch({ type: "resize", boundary: gi, delta })}
+                value={Math.round(g.size * 100)}
+              />
             ) : null}
             <header>
-              <div className="tabs" role="tablist">
+              {/* biome-ignore lint/a11y/useSemanticElements: a button row, not a form group */}
+              <div className="tabs" role="group" aria-label="Panes in this group">
                 {g.paneIds.map((id) => {
                   const p = findPane(state, id);
                   if (!p) return null;
@@ -189,8 +234,7 @@ export function PaneArea(props: {
                     <button
                       key={id}
                       type="button"
-                      role="tab"
-                      aria-selected={id === g.activePaneId}
+                      aria-current={id === g.activePaneId ? "true" : undefined}
                       onClick={() => props.dispatch({ type: "activateTab", paneId: id })}
                       data-testid="pane-tab"
                       data-pane={p.pane}
@@ -204,6 +248,7 @@ export function PaneArea(props: {
                 <button
                   type="button"
                   title="Split"
+                  aria-label="Split pane"
                   onClick={() => props.dispatch({ type: "split", paneId: active.paneId })}
                 >
                   ⧉
@@ -213,6 +258,7 @@ export function PaneArea(props: {
                 <button
                   type="button"
                   title="Open in window"
+                  aria-label="Open pane in a window"
                   onClick={() => {
                     props.dispatch({ type: "popOut", paneId: active.paneId });
                     void platform.windows?.popOutPane(

@@ -177,7 +177,8 @@ function EditorBody(
 
   return (
     <div className="psy-md" data-mode={mode}>
-      <div className="psy-md__bar" role="toolbar" aria-label="Editor">
+      {/* biome-ignore lint/a11y/useSemanticElements: a button row, not a form group */}
+      <div className="psy-md__bar" role="group" aria-label="Editor">
         <span className="psy-md__name">{props.path}</span>
         <fieldset className="psy-segmented" aria-label="Mode">
           {(["rich", "source", "diff"] as const).map((m) => (
@@ -204,7 +205,12 @@ function EditorBody(
         </output>
         {mode === "diff" ? (
           <span className="psy-md__stats">
-            +{stats.added} −{stats.removed}
+            <span aria-hidden="true">
+              +{stats.added} −{stats.removed}
+            </span>
+            <span className="psy-visually-hidden">
+              {stats.added} {stats.added === 1 ? "line" : "lines"} added, {stats.removed} removed
+            </span>
           </span>
         ) : null}
         <button

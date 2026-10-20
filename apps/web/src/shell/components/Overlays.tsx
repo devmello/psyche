@@ -1,4 +1,4 @@
-import { type ReactElement, useEffect, useRef, useState } from "react";
+import { type ReactElement, type RefObject, useEffect, useId, useRef, useState } from "react";
 import { useShell } from "../context.tsx";
 import { chordLabel, SHORTCUTS } from "../keyboard.ts";
 
@@ -18,6 +18,54 @@ interface SearchHit {
  * ⌘K command palette shell (docs/06 §2.5): actions plus results from `search.query`. Result
  * rendering is S12/S16's; this lists titles and routes into the right screen.
  */
+/**
+ * Modal dialog focus (docs/a11y-audit.md W2): remembers what had focus, keeps Tab inside the
+ * dialog, closes on Escape and gives focus back when the dialog goes.
+ */
+export function useDialogFocus(ref: RefObject<HTMLElement | null>, onClose: () => void): void {
+  // Read during the first render, before any effect moves focus into the dialog.
+  const [opener] = useState(() =>
+    typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null),
+  );
+  // Callers pass onClose inline; a ref keeps the effect (and its focus return) to one run.
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    const el = ref.current;
+    if (el && !el.contains(document.activeElement)) {
+      el.querySelector<HTMLElement>("input, button, [tabindex]:not([tabindex='-1'])")?.focus();
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close.current();
+        return;
+      }
+      if (e.key !== "Tab" || !el) return;
+      const focusable = [
+        ...el.querySelectorAll<HTMLElement>(
+          "a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex='-1'])",
+        ),
+      ];
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) return;
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    el?.addEventListener("keydown", onKey);
+    return () => {
+      el?.removeEventListener("keydown", onKey);
+      opener?.focus?.();
+    };
+  }, [ref, opener]);
+}
+
 export function CommandPalette(props: {
   actions: PaletteAction[];
   onClose: () => void;
@@ -62,6 +110,9 @@ export function CommandPalette(props: {
       run: () => props.onNavigate(h.route),
     })),
   ];
+  const dialog = useRef<HTMLDivElement>(null);
+  const listId = useId();
+  useDialogFocus(dialog, props.onClose);
   const choose = (i: number) => {
     rows[i]?.run();
     props.onClose();
@@ -71,8 +122,10 @@ export function CommandPalette(props: {
     <div className="overlay" onClick={props.onClose} data-testid="palette">
       {/* biome-ignore lint/a11y: stops the backdrop click */}
       <div
+        ref={dialog}
         className="dialog"
         role="dialog"
+        aria-modal="true"
         aria-label="Command palette"
         onClick={(e) => e.stopPropagation()}
       >
@@ -91,12 +144,18 @@ export function CommandPalette(props: {
           }}
           placeholder="Search or run a command"
           aria-label="Search or run a command"
+          role="combobox"
+          aria-expanded="true"
+          aria-controls={listId}
+          aria-autocomplete="list"
+          {...(rows[sel] ? { "aria-activedescendant": `${listId}-${sel}` } : {})}
         />
-        <div role="listbox" aria-label="Results">
+        <div role="listbox" aria-label="Results" id={listId}>
           {rows.map((r, i) => (
             // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard handled on the input
             <div
               key={r.key}
+              id={`${listId}-${i}`}
               role="option"
               tabIndex={-1}
               aria-selected={i === sel}
@@ -114,11 +173,28 @@ export function CommandPalette(props: {
 
 export function ShortcutSheet({ onClose }: { onClose: () => void }): ReactElement {
   const { mac } = useShell();
+  const dialog = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialog, onClose);
   return (
-    // biome-ignore lint/a11y: backdrop click closes; Esc closes through the global handler
+    // biome-ignore lint/a11y: backdrop click closes; Esc closes through useDialogFocus
     <div className="overlay" onClick={onClose} data-testid="shortcut-sheet">
-      <div className="dialog" role="dialog" aria-label="Keyboard shortcuts">
-        <h2 style={{ marginTop: 0 }}>Keyboard shortcuts</h2>
+      {/* biome-ignore lint/a11y: stops the backdrop click */}
+      <div
+        ref={dialog}
+        className="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="psyche-shortcuts-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <h2 id="psyche-shortcuts-title" style={{ marginTop: 0, flex: 1 }}>
+            Keyboard shortcuts
+          </h2>
+          <button type="button" className="pill" onClick={onClose}>
+            Close
+          </button>
+        </div>
         <table>
           <tbody>
             {SHORTCUTS.map((s) => (
@@ -175,12 +251,21 @@ export function ModelPicker(props: {
       live = false;
     };
   }, [store]);
+  const dialog = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialog, props.onClose);
   const valid = /^[a-z0-9][a-z0-9_.-]*\/.+$/.test(v);
   return (
     // biome-ignore lint/a11y: backdrop click closes; Esc is handled on the input
     <div className="overlay" onClick={props.onClose} data-testid="model-picker">
       {/* biome-ignore lint/a11y: stops the backdrop click */}
-      <div className="dialog" role="dialog" aria-label="Model" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialog}
+        className="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Model"
+        onClick={(e) => e.stopPropagation()}
+      >
         <input
           // biome-ignore lint/a11y/noAutofocus: dialog's only field
           autoFocus

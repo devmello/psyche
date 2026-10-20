@@ -76,7 +76,7 @@ export function FeedPostCard({
         {post.title}
       </h2>
       {/* Every [n] marker reads the same: web citations are links, in-app ones plain text. */}
-      <Markdown className="text-body text-gray-12 [&_a]:text-inherit [&_a]:no-underline [&_a:hover]:underline [&_a]:rounded-sm [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-ring">
+      <Markdown className="text-body text-gray-12 [&_a]:text-inherit [&_a]:underline [&_a]:decoration-dotted [&_a]:underline-offset-2 [&_a:hover]:decoration-solid [&_a]:rounded-sm [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-ring">
         {withCitationLinks(post.bodyMd, post.citations)}
       </Markdown>
 

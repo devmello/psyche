@@ -1,5 +1,5 @@
 import { Ellipsis } from "lucide-react";
-import { type ReactElement, type ReactNode, useState } from "react";
+import { type ReactElement, type ReactNode, useRef, useState } from "react";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -47,13 +47,25 @@ export function RowMoreMenu({
   destructive?: readonly DestructiveRowAction[];
 }): ReactElement | null {
   const [asking, setAsking] = useState<DestructiveRowAction | null>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  // The menu item that opened the dialog is gone; focus goes back to ⋯ (docs/a11y-audit.md W8).
+  const closeDialog = () => {
+    setAsking(null);
+    setTimeout(() => trigger.current?.focus(), 0);
+  };
   if (items.length === 0 && destructive.length === 0) return null;
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            <Button type="button" variant="ghost" size="icon-sm" aria-label={`More for ${name}`} />
+            <Button
+              ref={trigger}
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`More for ${name}`}
+            />
           }
         >
           <Ellipsis aria-hidden="true" />
@@ -75,7 +87,7 @@ export function RowMoreMenu({
       <AlertDialog
         open={asking !== null}
         onOpenChange={(open) => {
-          if (!open) setAsking(null);
+          if (!open) closeDialog();
         }}
       >
         <AlertDialogContent>
@@ -90,7 +102,7 @@ export function RowMoreMenu({
               variant="destructive"
               onClick={() => {
                 const a = asking;
-                setAsking(null);
+                closeDialog();
                 a?.onConfirm();
               }}
             >
