@@ -48,6 +48,22 @@ afterEach(async () => {
   await rm(base, { recursive: true, force: true });
 });
 
+describe("Psyche's home under a granted folder (#285)", () => {
+  it("never reads or lists $PSYCHE_HOME, even with an ancestor granted", async () => {
+    await mkdir(join(home, "vault"), { recursive: true });
+    await writeFile(join(home, "vault", "slots.json"), "{}");
+    folders = [{ path: base, mode: "ro" }];
+    expect(await codeOf(run("files.read", { path: join(home, "vault", "slots.json") }))).toBe(
+      "forbidden",
+    );
+    expect(await codeOf(run("files.list", { path: home }))).toBe("forbidden");
+    const out = await run("files.list", { path: base });
+    expect((out.entries as { name: string }[]).map((e) => e.name)).not.toContain("home");
+    // The Library stays reachable by libraryPath.
+    expect(await codeOf(run("files.read", { libraryPath: "recordings/shot.png" }))).toBe("ok");
+  });
+});
+
 describe("files.list", () => {
   it("lists folders first, then files by name, and symlinks as other", async () => {
     const out = await run("files.list", { path: granted });
