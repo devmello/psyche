@@ -1,5 +1,4 @@
 import type { HashChainAuditLog } from "@psyche/audit";
-import type { AttentionState } from "@psyche/browser";
 import type { PsycheDb } from "@psyche/db";
 import type { PsycheNotifier } from "@psyche/notifications";
 import type {
@@ -61,13 +60,6 @@ export interface ComposeServices {
    * at check time by the browser part, so random-port OAuth receivers need no registration.
    */
   readonly ownPorts: OwnPorts;
-  /**
-   * Pause-when-unwatched (security §7.2 item 5, #272): the owner's attention per desktop pane, from
-   * `attention.report` (pane visible, input in the app) and the owner's own messages and answers.
-   * Supplied by the Gateway (S01); the browser part turns its sensitive-origin check on when it is
-   * present. Undefined state means nothing was reported: unwatched.
-   */
-  readonly attention?: (pane: "browser" | "computer") => AttentionState | undefined;
   /** Security §10 rate limits (inbound chat per sender, `web_fetch` per Task), audited. */
   readonly rateLimits: ComposeRateLimits;
 }

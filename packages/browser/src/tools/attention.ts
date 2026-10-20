@@ -14,8 +14,11 @@ import { PsycheError } from "@psyche/protocol";
 export const ATTENTION_WINDOW_MS = 5 * 60_000;
 
 export interface AttentionState {
-  /** The browser pane is on screen in the desktop app. */
-  visible: boolean;
+  /**
+   * Whether the browser pane is on screen. Undefined while the desktop has not reported it
+   * (server mode, an older desktop): then only the input check applies, as for computer use.
+   */
+  visible?: boolean;
   /** When the owner last gave input (epoch ms): keys or clicks in the app, a message, an answer. */
   lastInputAt?: number;
 }
@@ -23,7 +26,7 @@ export interface AttentionState {
 export interface AttentionGate {
   /** The tab's or target's origin is in a sensitive category. */
   isSensitive(origin: string): boolean;
-  /** Undefined while nothing has been reported: unwatched. */
+  /** Undefined while nothing is known: no input, so unwatched. */
   state(): AttentionState | undefined;
   now?(): number;
   windowMs?: number;
@@ -48,9 +51,9 @@ export function assertWatched(gate: AttentionGate, origin: string): void {
   const state = gate.state();
   const now = gate.now?.() ?? Date.now();
   const windowMs = gate.windowMs ?? ATTENTION_WINDOW_MS;
-  const visible = state?.visible === true;
+  const hidden = state?.visible === false;
   const recent = state?.lastInputAt !== undefined && now - state.lastInputAt <= windowMs;
-  if (visible && recent) return;
+  if (!hidden && recent) return;
   const host = (() => {
     try {
       return new URL(origin).host;
@@ -65,7 +68,7 @@ export function assertWatched(gate: AttentionGate, origin: string): void {
       details: {
         reason: "awaiting_attention",
         origin,
-        paneVisible: visible,
+        paneVisible: state?.visible ?? null,
         lastInputAt: state?.lastInputAt ?? null,
       },
       retryable: true,

@@ -115,7 +115,7 @@ describe("pause-when-unwatched in the browser (#272)", () => {
       (r.output as { error: { details: Record<string, unknown> } }).error.details,
     ).toMatchObject({
       origin: s.b,
-      paneVisible: false,
+      paneVisible: null,
       lastInputAt: null,
     });
     expect(s.desktop.tab(tabId).url).not.toContain(new URL(s.b).host);
@@ -124,7 +124,14 @@ describe("pause-when-unwatched in the browser (#272)", () => {
     );
   });
 
-  it("needs both the pane visible and input within five minutes", async () => {
+  it("needs input within five minutes, and the pane not reported hidden", async () => {
+    // The desktop has not reported the pane (server mode, older desktop): input alone decides.
+    s.watch.state = { lastInputAt: s.clock.now - 1000 };
+    expect((await s.call("browser.snapshot", { tabId })).isError).toBeUndefined();
+    s.watch.state = { lastInputAt: s.clock.now - ATTENTION_WINDOW_MS - 1 };
+    expect(
+      await s.call("browser.navigate", { tabId, url: s.desktop.browser.url("b/") }),
+    ).toMatchObject(away);
     // Visible, but the last input was more than five minutes ago.
     s.watch.state = { visible: true, lastInputAt: s.clock.now - ATTENTION_WINDOW_MS - 1 };
     expect(

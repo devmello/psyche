@@ -181,13 +181,17 @@ describe("composition refuses two parts answering the same security question", (
         ],
       }),
     ).rejects.toThrow(/presence verifier for "helper"/);
-    // Different kinds are fine.
+    // The Gateway composes its own passkey (webauthn) verifier now, so a part may not add
+    // another one; a helper verifier beside it is a different kind and composes fine.
+    await expect(
+      startSkeleton({
+        model: { provider: new ScriptedModel(), model: MAIN },
+        parts: [() => ({ presence: { kind: "webauthn" as const, verifier } })],
+      }),
+    ).rejects.toThrow(/presence verifier for "webauthn"/);
     const ok = await startSkeleton({
       model: { provider: new ScriptedModel(), model: MAIN },
-      parts: [
-        () => ({ presence: { kind: "helper" as const, verifier } }),
-        () => ({ presence: { kind: "webauthn" as const, verifier } }),
-      ],
+      parts: [() => ({ presence: { kind: "helper" as const, verifier } })],
     });
     await ok.stop();
   });

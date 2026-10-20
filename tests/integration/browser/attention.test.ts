@@ -1,5 +1,8 @@
-import type { AttentionState } from "@psyche/browser";
-import { type ComposedBrowser, composeBrowser } from "@psyche/gateway/compose";
+import {
+  type ComposedBrowser,
+  type ComposeServices,
+  composeBrowser,
+} from "@psyche/gateway/compose";
 import type { ModelRequest } from "@psyche/protocol";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type Client, type Skeleton, startSkeleton } from "../walking-skeleton/harness.ts";
@@ -26,7 +29,7 @@ function lastResult(req: ModelRequest): Json {
 
 describe("#272: the browser's sensitive origins in the composed Gateway", () => {
   const model = new ScriptedModel();
-  const attention: { state: AttentionState | undefined } = { state: undefined };
+  let services: ComposeServices;
   let sk: Skeleton;
   let c: Client;
   let threadId = "";
@@ -37,10 +40,8 @@ describe("#272: the browser's sensitive origins in the composed Gateway", () => 
       model: { provider: model, model: MAIN },
       parts: [
         (s) => {
-          browser = composeBrowser(
-            { ...s, attention: (pane) => (pane === "browser" ? attention.state : undefined) },
-            { socketPath: false },
-          );
+          services = s;
+          browser = composeBrowser(s, { socketPath: false });
           return browser;
         },
       ],
@@ -96,20 +97,25 @@ describe("#272: the browser's sensitive origins in the composed Gateway", () => 
     return result;
   }
 
-  it("parks on a sensitive site (accounts.google.com, bundled list) while the owner is away", async () => {
-    attention.state = undefined;
+  it("parks on a sensitive site (accounts.google.com, bundled list) with the pane hidden", async () => {
+    // The owner's chat message counts as input, so the pane decides here: the desktop reports it
+    // hidden (window minimized).
+    services.attention.report("browser", false, false);
     const r = await openTab("https://accounts.google.com/");
     expect(r).toMatchObject({
-      error: { code: "presence_required", details: { reason: "awaiting_attention" } },
+      error: {
+        code: "presence_required",
+        details: { reason: "awaiting_attention", paneVisible: false },
+      },
     });
   });
 
   it("leaves ordinary sites alone, and sensitive ones once the owner is watching", async () => {
-    attention.state = undefined;
+    services.attention.report("browser", false, false);
     const plain = await openTab("https://example.com/");
     expect((plain.error as Json | undefined)?.code).not.toBe("presence_required");
 
-    attention.state = { visible: true, lastInputAt: Date.now() };
+    services.attention.report("browser", true, true);
     const watched = await openTab("https://accounts.google.com/");
     // Past the attention check; it fails only because no desktop is attached here.
     expect((watched.error as Json | undefined)?.code).not.toBe("presence_required");

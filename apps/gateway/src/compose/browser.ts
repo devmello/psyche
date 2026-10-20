@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import {
+  type AttentionState,
   assertProfileName,
   type BridgeClient,
   BridgeServer,
@@ -417,11 +418,19 @@ export function composeBrowser(
       return false;
     }
   };
-  const attentionSource = services.attention;
-  const attentionGate =
-    attentionSource === undefined
-      ? undefined
-      : { isSensitive, state: () => attentionSource("browser"), now: () => services.clock.now() };
+  // The Gateway's view of the owner (S01's OwnerAttention): their last input anywhere, and
+  // whether the desktop reported the browser pane hidden. Unknown visibility is input-only.
+  const attentionGate = {
+    isSensitive,
+    state: (): AttentionState => {
+      const lastInputAt = services.attention.lastInput();
+      return {
+        ...(services.attention.paneHidden("browser") ? { visible: false } : {}),
+        ...(lastInputAt === undefined ? {} : { lastInputAt }),
+      };
+    },
+    now: () => services.clock.now(),
+  };
 
   const unregister = registerBrowserTools(tools, {
     driver: driverProxy,
@@ -449,10 +458,8 @@ export function composeBrowser(
       return realChromeOn() ? realChrome : undefined;
     },
     devPreview: devServers,
-    // Pause-when-unwatched (#272), once the Gateway knows the owner's attention.
-    get attention() {
-      return attentionGate;
-    },
+    // Pause-when-unwatched (#272).
+    attention: attentionGate,
     containsSecret: (text: string) => redact(text) !== text,
     // Hand-offs (S20): the pane shows the reason and the owner gets an "input needed" notice.
     async requestControl(req) {
