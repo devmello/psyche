@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
+import { INITIAL_STATE, upsertMessage } from "../src/data/state.ts";
 import { IDS } from "../src/fixtures/index.ts";
 import { AppShell } from "../src/shell/AppShell.tsx";
 import { SHORTCUTS } from "../src/shell/shortcuts.ts";
@@ -70,5 +71,54 @@ describe("AppShell", () => {
     await userEvent.type(input, "Go to Feed");
     await userEvent.keyboard("{Enter}");
     await waitFor(() => expect(routes).toContain("/feed"));
+  });
+});
+
+describe("ThreadList last line (§2.2)", () => {
+  it("shows each thread's last line and filters on it", async () => {
+    render(
+      <StoryWorld
+        edit={(w) => {
+          const entry = w.threads.find((t) => t.thread.id === IDS.threads.lisbon);
+          if (entry) {
+            (entry as { lastMessage?: unknown }).lastMessage = {
+              role: "agent",
+              text: "Flights on the 14th are cheapest.",
+              at: entry.thread.updatedAt,
+            };
+          }
+        }}
+      >
+        <ThreadList activeThreadId={null} onOpen={() => {}} now={STORY_NOW} />
+      </StoryWorld>,
+    );
+    expect(await screen.findByText("Flights on the 14th are cheapest.")).toBeTruthy();
+    await userEvent.type(screen.getByLabelText("Filter threads"), "cheapest");
+    const rows = screen.getAllByTestId("thread-row");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.textContent).toContain("Flights on the 14th are cheapest.");
+  });
+
+  it("a committed message becomes its thread's last line", () => {
+    const thread = {
+      thread: { id: "t1", title: "T", lastMessageAt: null },
+      activity: { running: 0, awaitingInput: 0, awaitingApproval: 0 },
+    } as never;
+    const state = { ...INITIAL_STATE, threads: { t1: thread } };
+    const next = upsertMessage(state, {
+      id: "m1",
+      threadId: "t1",
+      seq: 1,
+      role: "user",
+      blocks: [{ type: "text", md: "**Find** my `1099` forms" }],
+      provenance: "owner",
+      createdAt: "2026-10-20T10:00:00.000Z",
+    } as never);
+    expect(next.threads.t1?.lastMessage).toEqual({
+      role: "user",
+      text: "Find my 1099 forms",
+      at: "2026-10-20T10:00:00.000Z",
+    });
+    expect(next.threads.t1?.thread.lastMessageAt).toBe("2026-10-20T10:00:00.000Z");
   });
 });
