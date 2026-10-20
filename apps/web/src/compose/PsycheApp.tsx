@@ -29,6 +29,7 @@ import { type ChatSlotContext, ShellApp, type ShellSlots } from "../shell/ShellA
 import { chatFileSlots } from "./attachments.tsx";
 import { useMacHelper } from "./helper.tsx";
 import { kitClient } from "./kit-client.ts";
+import { checkModel, saveProviderKey, verifySetup } from "./model-setup.ts";
 import { writeOnboarding } from "./onboarding.ts";
 import { readPermissions, requestPermission } from "./permissions.tsx";
 import { settingsRoute } from "./settings.tsx";
@@ -279,6 +280,12 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
   const [error, setError] = useState<string | null>(null);
   const [persona, reloadPersona] = useWorkspacePersona(platform);
   const helper = useMacHelper(platform);
+  const helperRef = useRef(helper);
+  helperRef.current = helper;
+  const verify = useMemo(
+    () => (result: OnboardingResult) => verifySetup(platform, result, helperRef.current),
+    [platform],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -345,6 +352,9 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
             {...(helper ? { helper } : {})}
             onRequestPermission={(p) => requestPermission(platform, p)}
             onReadPermissions={() => readPermissions(platform)}
+            onSaveKey={(provider, key) => saveProviderKey(platform, provider, key)}
+            onCheckModel={(choice) => checkModel(platform, choice)}
+            onVerify={verify}
             onComplete={(result) => {
               completeOnboarding(platform, result).then(
                 () => {

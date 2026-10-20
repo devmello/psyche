@@ -27,6 +27,7 @@ import {
   type PermissionAnswer,
   type PermissionResult,
   type PersonaDraft,
+  type SetupCheck,
   type Workspace,
 } from "./types.ts";
 
@@ -88,6 +89,7 @@ export function OnboardingFlow({
   onCheckModel,
   vmAvailable = true,
   helper,
+  onVerify,
 }: OnboardingFlowProps): ReactElement {
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -116,6 +118,8 @@ export function OnboardingFlow({
   const [connectError, setConnectError] = useState<string | null>(null);
   const [model, setModel] = useState<ModelChoice>(initial.model ?? defaultModelChoice("cloud"));
   const [keyError, setKeyError] = useState<string | null>(null);
+  const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
+  const [checks, setChecks] = useState<SetupCheck[] | "checking" | null>(null);
   const [workspace, setWorkspace] = useState<Workspace>(initial.workspace ?? "local");
 
   const name = persona.name.trim() === "" ? DEFAULT_NAME : persona.name.trim();
@@ -222,7 +226,9 @@ export function OnboardingFlow({
     ? async (key: string) => {
         setKeyError(null);
         try {
-          const keyRef = await onSaveKey(model.provider, key);
+          const saved = await onSaveKey(model.provider, key);
+          const keyRef = typeof saved === "string" ? saved : saved.keyRef;
+          if (typeof saved !== "string" && saved.recoveryKey) setRecoveryKey(saved.recoveryKey);
           setModel((m) => ({ ...m, keyRef }));
         } catch (err) {
           setKeyError(`Psyche couldn't store the key (${messageOf(err)}).`);
@@ -244,6 +250,24 @@ export function OnboardingFlow({
     : undefined;
 
   const isLast = current === "done";
+
+  // Entering Done applies the model and checks the setup once per visit.
+  const resultRef = useRef(result);
+  resultRef.current = result;
+  useEffect(() => {
+    if (current !== "done" || !onVerify) return;
+    let live = true;
+    setChecks("checking");
+    onVerify(resultRef.current).then(
+      (c) => live && setChecks(c),
+      (err: unknown) =>
+        live &&
+        setChecks([{ id: "setup", label: "Setup check", state: "warn", detail: messageOf(err) }]),
+    );
+    return () => {
+      live = false;
+    };
+  }, [current, onVerify]);
 
   return (
     <div
@@ -345,6 +369,7 @@ export function OnboardingFlow({
             value={model}
             onChange={setModel}
             keyError={keyError}
+            {...(recoveryKey ? { recoveryKey } : {})}
             {...(ramGb === undefined ? {} : { ramGb })}
             {...(saveKey ? { onSaveKey: (k: string) => void saveKey(k) } : {})}
             {...(check ? { onCheck: () => void check() } : {})}
@@ -358,7 +383,9 @@ export function OnboardingFlow({
             vmAvailable={vmAvailable}
           />
         ) : null}
-        {current === "done" ? <DoneStep result={result} /> : null}
+        {current === "done" ? (
+          <DoneStep result={result} {...(checks === null ? {} : { checks })} />
+        ) : null}
       </section>
 
       <div
