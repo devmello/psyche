@@ -1,0 +1,105 @@
+# @psyche/channels
+
+## 0.3.0-alpha.0
+
+### Minor Changes
+
+- 7d01f0e: Security §10 rate limits: inbound chat 30/minute per sender (`ChannelServiceOptions.admitInbound`) and `web_fetch` 60/minute per Task (`WebFetchFactoryOptions.beforeFetch`), configurable with `gateway.rateLimits` and audited as `rate_limit.exceeded`.
+- 76bc9cc: Channels (S10): channel framework, OpenClaw-style authorization and pairing, routing by dmScope, approvals over chat, voice notes, WebChat and Telegram adapters, `channels.*` API handlers; `channels` and `identities` tables.
+
+### Patch Changes
+
+- fb320aa: An allowlisted (non-owner, non-designated) sender's route is chat-only: `toolAllow: []` (#293).
+- 428ec1e: `ApprovalKind` gains `apple_script` and `shortcut_run` (J4): scripts and Shortcuts run by the agent on the Mac get their own approval cards, offered `once` only.
+- 81cf744: Approval, question and wrap-up cards render per surface through one function (`@psyche/permissions/cards`, review design-12): chat transports send `renderForSurface(surface, approval)` and show a device-only approval as "Answer this on your Mac." with nothing answerable; the UI kit's cards consume the desktop rendering from the same function, so the surfaces cannot drift.
+- 3db2ac8: Inbound channel events carry `taintSources` for forwarded, third-party quoted and non-owner content, so the Gateway can taint the turn even when the owner sent the message (#275).
+- 4c4eac2: iMessage channel (N5): `IMessageAdapter` over the mac helper's `messages.*` capabilities (chat.db watch from a persisted cursor, SMS / RCS senders weak, echoes dropped, Full Disk Access health), outbound only through an explicit `authorizeSend` port that returns a `message_send` approval id, and approval cards answerable with `/approve` or a 👍 / 👎 tapback. The Gateway registers it when `ChannelsSetup.imessage` is configured.
+- 7ac975c: `task.start` is a `write` with its own `task_start` approval kind (#48, review design-08): agent-core declares it, the broker infers it and titles the card "Start background task", chat cards say "Start a background task".
+- c2c1f0b: iMessage pairing confirmations are no longer refused by the reply authority: an approved sender's pairing DM becomes answerable (#277).
+- 0c71158: `ApprovalKind` gains `git_write` and `git_push` (V10 coding helper; a push is offered `once` only), and `SandboxRunner.ensureSandbox` takes optional `mounts` (bind mounts of granted host folders, fixed per scope).
+- Updated dependencies [428ec1e]
+- Updated dependencies [a5cef4e]
+- Updated dependencies [81cf744]
+- Updated dependencies [1dc1561]
+- Updated dependencies [4f8dff6]
+- Updated dependencies [a43a514]
+- Updated dependencies [353afa9]
+- Updated dependencies [2558bfe]
+- Updated dependencies [7ac975c]
+- Updated dependencies [e3ef188]
+- Updated dependencies [2064c0c]
+- Updated dependencies [2be1a8a]
+- Updated dependencies [8e28cac]
+- Updated dependencies [e87d482]
+- Updated dependencies [42496a0]
+- Updated dependencies [ecf0dd5]
+- Updated dependencies [09c0c6f]
+- Updated dependencies [d982437]
+- Updated dependencies [c4175a2]
+- Updated dependencies [fa08fee]
+- Updated dependencies [493b4a5]
+- Updated dependencies [eaf91c6]
+- Updated dependencies [19c1ba5]
+- Updated dependencies [4f74993]
+- Updated dependencies [5e605af]
+- Updated dependencies [8a8dacb]
+- Updated dependencies [6665567]
+- Updated dependencies [310ac67]
+- Updated dependencies [2f63bac]
+- Updated dependencies [dc190a6]
+- Updated dependencies [5d2cbeb]
+- Updated dependencies [0899f3b]
+- Updated dependencies [08664c3]
+- Updated dependencies [e54d672]
+- Updated dependencies [3461262]
+- Updated dependencies [8a9ee2c]
+- Updated dependencies [f80b0ec]
+- Updated dependencies [75a0f80]
+- Updated dependencies [2e9c025]
+- Updated dependencies [e4c109b]
+- Updated dependencies [5dcf208]
+- Updated dependencies [c840e75]
+- Updated dependencies [2607fc3]
+- Updated dependencies [8d1c739]
+- Updated dependencies [f2761ef]
+- Updated dependencies [e83a19e]
+- Updated dependencies [412aaa1]
+- Updated dependencies [9a0cd76]
+- Updated dependencies [4bc7113]
+- Updated dependencies [1cf5421]
+- Updated dependencies [1cc7f5a]
+- Updated dependencies [0d9d34d]
+- Updated dependencies [515b904]
+- Updated dependencies [d74ccce]
+- Updated dependencies [e3014c1]
+- Updated dependencies [4876a72]
+- Updated dependencies [f4cf9c0]
+- Updated dependencies [e0d2f7e]
+- Updated dependencies [95f1980]
+- Updated dependencies [76bc9cc]
+- Updated dependencies [2b2e906]
+- Updated dependencies [13afc8a]
+- Updated dependencies [4d718e6]
+- Updated dependencies [1331bfc]
+- Updated dependencies [04be9ec]
+- Updated dependencies [2525712]
+- Updated dependencies [0ee0215]
+- Updated dependencies [031c829]
+- Updated dependencies [ed58763]
+- Updated dependencies [e7c3564]
+- Updated dependencies [a549b95]
+- Updated dependencies [06ae560]
+- Updated dependencies [75d2aa9]
+- Updated dependencies [420ab8e]
+- Updated dependencies [206f295]
+- Updated dependencies [e99009a]
+- Updated dependencies [38f71de]
+- Updated dependencies [952c222]
+- Updated dependencies [ee4c781]
+- Updated dependencies [e4e6f97]
+- Updated dependencies [0c71158]
+- Updated dependencies [94fe0da]
+- Updated dependencies [4b3f571]
+  - @psyche/protocol@0.3.0-alpha.0
+  - @psyche/permissions@0.3.0-alpha.0
+  - @psyche/db@0.3.0-alpha.0

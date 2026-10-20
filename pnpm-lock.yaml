@@ -553,10 +553,16 @@ importers:
       grammy:
         specifier: 1.46.0
         version: 1.46.0
+      ws:
+        specifier: 8.22.0
+        version: 8.22.0
     devDependencies:
       '@psyche/testing':
         specifier: workspace:*
         version: link:../testing
+      '@types/ws':
+        specifier: 8.18.2
+        version: 8.18.2
 
   packages/connectors:
     dependencies:

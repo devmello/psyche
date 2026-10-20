@@ -233,10 +233,11 @@ One sandbox Mac per user on Virtualization.framework, following spike 06 (`docs/
 | Guest install (L3) | `vm.install_psyche`, `vm.grant_permissions` (write, streaming) | Install shares a Psyche release read-only (`/Volumes/My Shared Files/psyche-payload`), installs an SSH key with the provisioning password on first contact, then runs `guest-bootstrap.sh --vsock 2:7980` with the helper's `vsock-bridge`. Grant writes the guest helper's Accessibility and Screen Recording rows into the stopped guest's `TCC.db` offline (bundle id plus `csreq`) |
 | Agent channel (L3) | `vm.agent_status` (read) | The guest helper listens on vsock 7000 (peer CID 2 only) and serves `guest.ping`, `guest.shutdown`, `guest.mount_shares` and `guest.export` as req/res frames. Root work uses the provisioning password sent per request, so there is no root daemon |
 | Shares (L5) | `vm.share_add`, `vm.share_remove` (write, `targetKind: path`) | `psyche` VirtioFS tag at `/Volumes/Psyche Shares/<share>`. Read-only by default; read-write needs an approval. `/`, home, `~/Library`, system trees and `$PSYCHE_HOME` are never shared. Changes apply live |
+| Snapshots (L6) | `vm.snapshot` (write, streaming); `vm.restore`, `vm.reset`, `vm.snapshot_delete` (destructive) | APFS clones (`clonefile`) of the stopped or saved guest's disk, `AuxiliaryStorage`, `state.json` and `SavedState.vzvmsave`, kept in `snapshots/<id>/`. Never the identity (`HardwareModel`, `MachineIdentifier`, MAC). `kind: base` is the "fresh Mac" `vm.reset` returns to; the previous base becomes manual. At most 10 manual snapshots; task snapshots are pruned to the newest 3. Restore clones beside the current files, then swaps them in, so a failed clone changes nothing. Non-APFS homes answer `clone_unsupported` |
 | File transfer | `vm.copy_in`, `vm.copy_out` (write, `targetKind: path`, receipts) | In: copied (APFS clone) to `psyche-in/<id>/`, read-only in the guest. Out: the guest helper stages the file in `_psyche-out/<id>/`, then the helper moves it into a granted host folder and never overwrites |
 
 - **vsock:** port 7980 relays guest psyche-node streams to the Gateway's node socket, where they pair like any node. Port 7000 is the guest helper. The guest IP is used only for the one-time SSH install, never as a control path.
-- **Bundle:** `$PSYCHE_HOME/vm/<name>/` (0700) holds `config.json`, `state.json`, `shares.json`, `transfers.json`, `transfer/in`, `transfer/out`, `ssh/`, `SavedState.vzvmsave`, `HardwareModel`, `MachineIdentifier`, `AuxiliaryStorage` and `Disk.asif` or `Disk.img`.
+- **Bundle:** `$PSYCHE_HOME/vm/<name>/` (0700) holds `config.json`, `state.json`, `shares.json`, `transfers.json`, `transfer/in`, `transfer/out`, `ssh/`, `SavedState.vzvmsave`, `HardwareModel`, `MachineIdentifier`, `AuxiliaryStorage`, `Disk.asif` or `Disk.img`, and `snapshots/` (L6).
 - **Builds:** the macOS 26 SDK (CI) has neither DiskImageKit nor `VZMacGuestProvisioningOptions`, so those paths compile only with the 27 SDK (`canImport(DiskImageKit)`).
 - **Tests:** the fake backend, shell, permission writer and guest agent cover the whole lifecycle, the agent protocol, transfers, install and permission ordering, `vm.watch`, and decoding against the protocol models. `PSYCHE_VM_LIVE_TESTS=1` runs a read-only catalog check. Nothing in tests downloads or boots.
 - **Not built:** overlay resets (L6, P2), the 26-guest Data-volume path, and clipboard sync (the mode is stored and reported; the display pane or desktop enforces it).
@@ -255,6 +256,28 @@ These are typed node capabilities. Their shapes are in `packages/protocol` `sche
 | Safari | `safari.tabs`, `safari.current_tab` (read); `safari.open_url` (write: http(s) only, a new tab in the user's Safari) | Safari scripting. Acting inside pages stays with the agent browser. |
 
 The scripting adapters run constant AppleScript handlers (`psyche_search`, `psyche_compose`, …) with the inputs passed as handler arguments, so app content and model text never become script source. The helper launches the target app in the background if needed and asks for Automation per app on first use. Messages (J7) is a separate adapter.
+
+### Teach mode (J8)
+
+The owner demonstrates a flow and the helper turns it into a skill draft. The Gateway offers `teach.*` to the owner's devices only, never to the agent.
+
+| Capability | Side effect | Notes |
+| --- | --- | --- |
+| `teach.start` | write (streaming, receipt `teach`, needs Accessibility) | `{name?, description?, app?, screenshots?, maxSteps? (≤ 200, default 100), maxSeconds? (10–1800, default 600)}`. Streams `teach.started`, then `teach.step` for each step; returns the draft when recording ends. Refused while a computer-use session runs (`computer_busy`) or another recording is active (`teach_busy`) |
+| `teach.stop` | none | `{sessionId}` → the draft (the same one `teach.start` returns) |
+| `teach.cancel` | none | `{sessionId}` → discards everything (`endedBy: cancel`, no steps, no files) |
+| `teach.status` | read | `{active, sessionId?, steps?, startedAt?}` |
+
+- **Recorder:** a listen-only session tap (left and right mouse down, key down), ignoring the helper's own `Input.marker` events. Targets come from the accessibility tree (`AXUIElementCopyElementAtPosition` for clicks, the focused element for keys): role, subrole, title or description, identifier, window title, app. It never reads `AXValue`.
+- **Steps:** typing into one field is coalesced into one `type` step, and backspace edits it. Keys that are not text become `press` steps with `KeyChord` names (`cmd+s`, `return`). A second click becomes `double_click`.
+- **Never recorded:**
+  - text typed into a password field: `secure: true`, no text, and backspace is ignored there;
+  - text typed while Secure Event Input is on (the field counts as secure, and taps get no keys anyway);
+  - text typed into an element whose target cannot be read;
+  - anything in Psyche, password managers, finance apps or system authority prompts: one `skipped` step with no target or text.
+- **Screenshots** (`screenshots: true`, needs Screen Recording): the clicked app's largest window, 300 ms after the click, downscaled, never for apps `computer.screenshot` excludes. The bytes ride on the `teach.step` event, and the draft lists `screens/step-N.jpg` by path.
+- **Draft:** `{sessionId, name, description, startedAt, endedAt, endedBy, steps, files}`. `SKILL.md` has frontmatter (`allowed-tools: ["computer.*", "apps.open", "apps.focus"]`, `metadata.psyche.source: teach`) and numbered steps that name targets by role and JSON-quoted label. App text is single-line, so a label cannot add lines to the skill. It parses with `packages/skills`' `parseSkill` and `manifestOf`.
+- **Nothing is written to disk.** After the owner reviews the draft, the Gateway writes it to `workspace/skills/<name>/`, and T2's `skill_install` trust card makes it active.
 
 ## Entitlements and Info.plist
 

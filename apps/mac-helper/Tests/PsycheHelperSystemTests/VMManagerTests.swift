@@ -270,8 +270,10 @@ struct VMManagerTests {
         #expect(Set(specs.keys) == [
             "vm.status", "vm.restore_image", "vm.create", "vm.start", "vm.stop", "vm.delete", "vm.share_add", "vm.share_remove", "vm.pause",
             "vm.resume", "vm.suspend", "vm.configure", "vm.display", "vm.agent_status", "vm.copy_in", "vm.copy_out", "vm.install_psyche",
-            "vm.grant_permissions", "vm.watch",
+            "vm.grant_permissions", "vm.watch", "vm.snapshot", "vm.restore", "vm.reset", "vm.snapshot_delete",
         ])
+        #expect(specs["vm.reset"]?.sideEffect == .destructive && specs["vm.restore"]?.sideEffect == .destructive)
+        #expect(specs["vm.snapshot"]?.sideEffect == .write && specs["vm.snapshot_delete"]?.sideEffect == .destructive)
         #expect(specs["vm.watch"]?.streaming == true && specs["vm.watch"]?.sideEffect == .read)
         #expect(specs["vm.copy_out"]?.targetKind == .path && specs["vm.copy_out"]?.receiptKind == "vm_transfer")
         for (name, spec) in specs where spec.sideEffect == .write || spec.sideEffect == .destructive { #expect(spec.receiptKind != nil, "\(name)") }

@@ -1,5 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, Nullable, StringEnum } from "../common.ts";
+import { CompactionSummary } from "./context.ts";
 
 /** Message content blocks (data model §9.1). Discriminated on `type`. */
 
@@ -106,6 +107,28 @@ export const RelatedThreadsBlock = Type.Object(
   { $id: "RelatedThreadsBlock" },
 );
 
+/**
+ * Features B7 / C2: a compaction of the thread's earlier turns, kept as a `system` message where
+ * it happened. The turns it replaced stay in the transcript (recoverable); the model reads this
+ * summary instead of them. Summary text is the utility model's: plain text, never Markdown.
+ */
+export const CompactionBlock = Type.Object(
+  {
+    type: Type.Literal("compaction"),
+    compactionId: Id,
+    trigger: StringEnum(["auto", "manual"]),
+    summary: CompactionSummary,
+    replaced: Type.Object({
+      turns: Type.Integer({ minimum: 0 }),
+      fromMessageId: Nullable(Id),
+      toMessageId: Nullable(Id),
+    }),
+    tokensBefore: Type.Integer({ minimum: 0 }),
+    tokensAfter: Type.Integer({ minimum: 0 }),
+  },
+  { $id: "CompactionBlock" },
+);
+
 export const Block = Type.Union(
   [
     TextBlock,
@@ -120,6 +143,7 @@ export const Block = Type.Union(
     TaskBlock,
     WrapUpBlock,
     RelatedThreadsBlock,
+    CompactionBlock,
   ],
   { $id: "Block" },
 );

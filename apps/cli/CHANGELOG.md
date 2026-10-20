@@ -1,0 +1,92 @@
+# @psyche/cli
+
+## 0.3.0-alpha.0
+
+### Minor Changes
+
+- 7f2b58f: Signed audit anchors: `SoftwareAnchorKey` (Ed25519, keyring and head outside `audit/`), hourly anchors, `verifyDetailed` reports `signedAnchors` / `anchorKeyIds` / `signingSinceSeq`, the Gateway composes it, and `psyche audit verify` prints it.
+- 420ab8e: `psyche security audit` covers every check in security §10: egress proxy, MCP sandboxing and unknown-tier servers with network, computer-use overrides, real-Chrome mode and consent, backup encryption and age, update manifest verification, token age and version. New `mcp.status`; `sandbox.status` is served and reports the egress proxy.
+- 08a9888: Backups without downtime: `@psyche/backup` holds the archive format shared by `psyche backup` and the Gateway, which now serves `backup.list`, `backup.create` (SQLite online backup), `backup.verify`, `backup.delete` and a redacted `logs.tail`. `psyche backup create` uses the running Gateway.
+- 1151a4b: The `psyche` CLI: onboard, service management (LaunchAgent, systemd), doctor, security audit, pairing and devices, skills, automations, vault, age-encrypted backups, export, config, completions; `--json` everywhere. Docker image, Compose, launchd/systemd files and the release workflow in `deploy/`.
+- 7324f31: `psyche migrate --check`: before starting a new version on old data, lists the database migrations the Gateway will apply, refuses downgrades and edited migrations, checks config.json and backup age. Release tooling for v1.0: tag-only publish workflow, DMG script, Homebrew cask and formula templates.
+
+### Patch Changes
+
+- 206f295: `psyche security audit` flags real-Chrome mode while it is attached (port, PID, profile dir), from the new `browser.realChrome.status` method.
+- Updated dependencies [428ec1e]
+- Updated dependencies [a5cef4e]
+- Updated dependencies [81cf744]
+- Updated dependencies [1dc1561]
+- Updated dependencies [4f8dff6]
+- Updated dependencies [a43a514]
+- Updated dependencies [353afa9]
+- Updated dependencies [2558bfe]
+- Updated dependencies [7ac975c]
+- Updated dependencies [e3ef188]
+- Updated dependencies [2064c0c]
+- Updated dependencies [2be1a8a]
+- Updated dependencies [8e28cac]
+- Updated dependencies [e87d482]
+- Updated dependencies [42496a0]
+- Updated dependencies [ecf0dd5]
+- Updated dependencies [09c0c6f]
+- Updated dependencies [d982437]
+- Updated dependencies [c4175a2]
+- Updated dependencies [fa08fee]
+- Updated dependencies [493b4a5]
+- Updated dependencies [eaf91c6]
+- Updated dependencies [19c1ba5]
+- Updated dependencies [4f74993]
+- Updated dependencies [5e605af]
+- Updated dependencies [8a8dacb]
+- Updated dependencies [6665567]
+- Updated dependencies [310ac67]
+- Updated dependencies [2f63bac]
+- Updated dependencies [dc190a6]
+- Updated dependencies [5d2cbeb]
+- Updated dependencies [0899f3b]
+- Updated dependencies [08664c3]
+- Updated dependencies [e54d672]
+- Updated dependencies [3461262]
+- Updated dependencies [8a9ee2c]
+- Updated dependencies [f80b0ec]
+- Updated dependencies [75a0f80]
+- Updated dependencies [2e9c025]
+- Updated dependencies [e4c109b]
+- Updated dependencies [5dcf208]
+- Updated dependencies [c840e75]
+- Updated dependencies [2607fc3]
+- Updated dependencies [e83a19e]
+- Updated dependencies [412aaa1]
+- Updated dependencies [9a0cd76]
+- Updated dependencies [4bc7113]
+- Updated dependencies [1cf5421]
+- Updated dependencies [1cc7f5a]
+- Updated dependencies [0d9d34d]
+- Updated dependencies [515b904]
+- Updated dependencies [d74ccce]
+- Updated dependencies [f4cf9c0]
+- Updated dependencies [e0d2f7e]
+- Updated dependencies [95f1980]
+- Updated dependencies [2b2e906]
+- Updated dependencies [13afc8a]
+- Updated dependencies [4d718e6]
+- Updated dependencies [1331bfc]
+- Updated dependencies [04be9ec]
+- Updated dependencies [2525712]
+- Updated dependencies [e7c3564]
+- Updated dependencies [a549b95]
+- Updated dependencies [75d2aa9]
+- Updated dependencies [420ab8e]
+- Updated dependencies [206f295]
+- Updated dependencies [08a9888]
+- Updated dependencies [e99009a]
+- Updated dependencies [38f71de]
+- Updated dependencies [952c222]
+- Updated dependencies [ee4c781]
+- Updated dependencies [e4e6f97]
+- Updated dependencies [0c71158]
+- Updated dependencies [4b3f571]
+  - @psyche/protocol@0.3.0-alpha.0
+  - @psyche/permissions@0.3.0-alpha.0
+  - @psyche/backup@0.3.0-alpha.0

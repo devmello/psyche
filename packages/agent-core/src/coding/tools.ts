@@ -344,10 +344,11 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
     let stats = { added: 0, removed: 0 };
     try {
       const parsed = parsePatch(p.patch);
-      files = parsed.map((f) => f.path).sort();
+      files = patchFiles(root, parsed);
       stats = patchStats(parsed);
     } catch {
-      // `validate` refuses invalid patches before the broker; this keeps describeCall total.
+      // `validate` refuses invalid patches and paths outside the workspace before the broker;
+      // this keeps describeCall total.
     }
     return {
       kind: "file_write",
@@ -359,7 +360,8 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
         contentSha256: sha256(p.patch),
       },
       grantKey: `patch|${root}|${sha256(p.patch)}`,
-      summary: `Edit ${files.length} file(s) in ${basename(root)} (+${stats.added} −${stats.removed})`,
+      // Every file by its path in the repository: the card never hides where an edit lands (#439).
+      summary: `Edit ${filesSummary(files)} in ${basename(root)} (+${stats.added} −${stats.removed})`,
       details: {
         path: root,
         operation: "patch",
@@ -472,7 +474,9 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
     validateEdit?.(params) ??
     (() => {
       try {
-        parsePatch((params as { patch: string }).patch);
+        const p = params as { root: string; patch: string };
+        // Refused before any card, with the error `run` gives (#439).
+        patchFiles(rootOf(p.root), parsePatch(p.patch));
         return undefined;
       } catch (err) {
         return (err as Error).message;
@@ -483,6 +487,35 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
   if (deps.runner !== undefined) tools.push(runTool(deps, deps.runner, workspace, receipt));
   if (deps.git !== undefined) tools.push(gitTool(deps.git, workspace, receipt));
   return tools;
+}
+
+/**
+ * A patch's files as paths inside the repository, sorted. Throws `forbidden` (the error `run`
+ * gives) for a path that leaves the workspace or lies under `.git`.
+ */
+export function patchFiles(root: string, patches: readonly { path: string }[]): string[] {
+  return patches
+    .map((f) => {
+      const full = resolveInRoot(root, f.path);
+      if (isGitInternal(root, full)) {
+        throw new PsycheError(
+          "forbidden",
+          `${f.path} is inside .git; code.edit never writes there`,
+        );
+      }
+      return relativeTo(root, full);
+    })
+    .sort();
+}
+
+/** `a.ts`, `a.ts, b.ts and c.ts`, or the first three and `and N more`. */
+export function filesSummary(files: readonly string[]): string {
+  if (files.length === 0) return "no files";
+  const shown = files.slice(0, 3);
+  const rest = files.length - shown.length;
+  if (rest > 0) return `${shown.join(", ")} and ${rest} more`;
+  if (shown.length === 1) return shown[0] as string;
+  return `${shown.slice(0, -1).join(", ")} and ${shown.at(-1)}`;
 }
 
 type WorkspaceOf = (ctx: ToolRunContext, root: string, access: "read" | "write") => CodingWorkspace;
