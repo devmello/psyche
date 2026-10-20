@@ -37,3 +37,7 @@ From `docs/05-security-and-permissions.md`: no secret may appear in model-visibl
 - Prefer boring, well-maintained, permissively licensed dependencies (see ADR-013 for the viewer exclusions). Check licenses; no GPL/AGPL in packages.
 - Keep docs in sync: if you change behavior described in `docs/`, update the doc in the same PR.
 - When you finish your M1 scope, continue with the M2 items in your prompt, in order, unless `docs/status/` shows a blocker you can help with.
+
+## Merge gate (owner decision, 2026-10-19)
+
+GitHub Actions no longer gates merges. A PR merges when, in its own checkout with `origin/main` merged in: `pnpm -w typecheck` passes, the test files of every package it touches pass (`pnpm exec vitest run --maxWorkers=2` in that package), and `biome check` is clean. Do not run the full workspace suite, the Electron end-to-end suite, real-browser proofs, containers, VMs or local models locally. Pull requests get a fast Linux lint and typecheck in CI; the full suite runs on pushes to main (Linux), and macOS, desktop, security and release workflows run on demand, nightly or on release tags. Breakage those later runs find is logged in `docs/status/known-red.md` and fixed at version bumps instead of blocking merges.

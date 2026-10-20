@@ -26,6 +26,10 @@ export interface GatewayLimits {
   maxPendingPairings: number;
   /** A `pending` connection is closed after this long. */
   pairingTtlMs: number;
+  /** Requests per paired device per minute, across its connections (node protocol excluded). */
+  deviceRequestsPerMinute: number;
+  /** Side-effecting requests (`chat.send`, `nodes.invoke`, …) per paired device per minute. */
+  deviceSideEffectsPerMinute: number;
 }
 
 export const DEFAULT_LIMITS: GatewayLimits = {
@@ -33,6 +37,8 @@ export const DEFAULT_LIMITS: GatewayLimits = {
   failedChallengesPerMinute: 10,
   maxPendingPairings: 20,
   pairingTtlMs: 5 * 60_000,
+  deviceRequestsPerMinute: 600,
+  deviceSideEffectsPerMinute: 120,
 };
 
 /** What a live connection exposes to the rest of the Gateway. */
@@ -59,6 +65,9 @@ export interface GatewayContext {
   readonly memory: MemoryStore | null;
   readonly limits: GatewayLimits;
   readonly failedChallenges: RateLimiter;
+  /** Per-device budgets (security §10), keyed by device id so extra connections do not help. */
+  readonly deviceRequests: RateLimiter;
+  readonly deviceSideEffects: RateLimiter;
   readonly handshakeSecret: string;
   readonly idempotency: Idempotency;
   readonly sessions: SessionController;

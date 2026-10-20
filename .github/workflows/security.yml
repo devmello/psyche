@@ -5,9 +5,12 @@
 name: security
 
 on:
+  # CI diet (2026-10-19): expensive suites run on demand, nightly and on release tags, not per PR.
+  workflow_dispatch:
+  schedule:
+    - cron: "17 9 * * *"
   push:
-    branches: [main]
-  pull_request:
+    tags: ["v*"]
 
 concurrency:
   group: security-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
