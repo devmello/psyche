@@ -84,6 +84,36 @@ describe("OnboardingFlow", () => {
     expect(screen.getByText("Skipped")).toBeTruthy();
   });
 
+  it("says Unavailable, not Skipped, when this shell can't ask (issue #384)", async () => {
+    setup({ defaultStep: "permissions" });
+    await userEvent.click(screen.getByRole("button", { name: "Allow Accessibility" }));
+    expect(await screen.findByText("Unavailable")).toBeTruthy();
+    expect(screen.queryByText("Skipped")).toBeNull();
+    expect(screen.getByText(/only in the Psyche app on a Mac/)).toBeTruthy();
+  });
+
+  it("shows Asking… during the prompt and re-reads macOS on window focus", async () => {
+    let answer: (s: "denied") => void = () => undefined;
+    const onRequestPermission = vi.fn(() => new Promise<"denied">((resolve) => (answer = resolve)));
+    let screenState: "denied" | "granted" = "denied";
+    const onReadPermissions = vi.fn(async () => ({ screenRecording: screenState }));
+    setup({ defaultStep: "permissions", onRequestPermission, onReadPermissions });
+    await userEvent.click(screen.getByRole("button", { name: "Allow Screen Recording" }));
+    expect(screen.getByRole("button", { name: "Allow Screen Recording" }).textContent).toContain(
+      "Asking…",
+    );
+    answer("denied");
+    expect(await screen.findByText("Denied in macOS")).toBeTruthy();
+    // The owner flips the switch in System Settings and comes back.
+    screenState = "granted";
+    window.dispatchEvent(new Event("focus"));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Allow Screen Recording" }).textContent).toBe(
+        "Allowed",
+      ),
+    );
+  });
+
   it("connects accounts one at a time with read-only vs read-and-act", async () => {
     const onConnect = vi.fn(async () => true);
     setup({ defaultStep: "connectors", onConnect });

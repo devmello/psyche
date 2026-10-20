@@ -11,6 +11,7 @@ import type { GatewayConnection } from "@psyche/web/client";
 import type { ShellCommand } from "@psyche/web/platform";
 import {
   app,
+  desktopCapturer,
   dialog,
   globalShortcut,
   type IpcMainEvent,
@@ -21,6 +22,7 @@ import {
   protocol,
   session,
   shell,
+  systemPreferences,
   type WebContents,
   webContents,
 } from "electron";
@@ -39,6 +41,7 @@ import {
   str,
 } from "./lib/ipc.ts";
 import { NotificationRelay } from "./lib/notify-relay.ts";
+import { pairingEdge } from "./lib/pairing-edge.ts";
 import { realChromeOpenCommand, realChromeProfileDir } from "./lib/real-chrome.ts";
 import { ZoomController } from "./lib/zoom.ts";
 import { BridgeClient } from "./main/bridge/bridge-client.ts";
@@ -48,6 +51,12 @@ import { SystemDictation } from "./main/dictation/controller.ts";
 import { HudWindow } from "./main/dictation/hud.ts";
 import { ACCESSIBILITY_SETTINGS_URL, DictationService } from "./main/dictation/service.ts";
 import { buildAppMenu } from "./main/menu.ts";
+import {
+  createPermissions,
+  notificationStateOf,
+  PERMISSION_KINDS,
+  type PermissionKind,
+} from "./main/permissions/permissions.ts";
 import { chooseMode, GatewaySupervisor } from "./main/supervisor.ts";
 import { TerminalHost } from "./main/terminal.ts";
 import { PsycheTray } from "./main/tray.ts";
@@ -225,6 +234,46 @@ async function refreshApprovals(): Promise<void> {
   });
 }
 
+/** The paired Mac helper's node id, when it is online (for its notify.* capabilities). */
+async function onlineHelper(): Promise<string | null> {
+  const res = (await requireGateway().call("nodes.list", {})) as {
+    nodes?: { id: string; kind: string; status: string }[];
+  };
+  return res.nodes?.find((n) => n.kind === "mac-helper" && n.status === "online")?.id ?? null;
+}
+
+async function invokeHelper(capability: string, params: unknown): Promise<unknown> {
+  const nodeId = await onlineHelper();
+  if (nodeId === null) throw new Error("the Psyche helper is not running");
+  const r = (await requireGateway().call("nodes.invoke", { nodeId, capability, params })) as {
+    ok: boolean;
+    result?: unknown;
+  };
+  if (!r.ok) throw new Error(`${capability} failed`);
+  return r.result;
+}
+
+/** macOS privacy permissions for onboarding and Settings (issue #384). */
+const permissions = createPermissions({
+  platform: process.platform,
+  systemPreferences,
+  desktopCapturer,
+  openExternal: (url) => shell.openExternal(url),
+  helper: {
+    notificationStatus: async () =>
+      notificationStateOf(await invokeHelper("notify.authorization_status", {})),
+    requestNotifications: async () =>
+      notificationStateOf(
+        await invokeHelper("notify.request_authorization", { provisional: false }),
+      ),
+  },
+  showFirstNotification: () => {
+    if (!Notification.isSupported()) return false;
+    new Notification({ title: "Psyche", body: "Notifications are on." }).show();
+    return true;
+  },
+});
+
 function requireGateway(): GatewayConnection {
   if (!gateway)
     throw new PsycheError("unavailable", "Gateway connection not ready", { retryable: true });
@@ -378,6 +427,14 @@ function registerIpc(): void {
   handle(IPC.dictationRecheck, async () => {
     await dictation?.recheck();
     return dictation?.status;
+  });
+  handle(IPC.permissionsStatus, () => permissions.statusAll());
+  handle(IPC.permissionsRequest, (_event, arg) => {
+    const kind = str(IPC.permissionsRequest, rec(IPC.permissionsRequest, arg).kind, "kind", 32);
+    if (!(PERMISSION_KINDS as readonly string[]).includes(kind)) {
+      throw new Error(`${IPC.permissionsRequest}: unknown permission ${kind}`);
+    }
+    return permissions.request(kind as PermissionKind);
   });
   handle(IPC.dictationCheckHotkey, (_event, arg) => {
     const r = rec(IPC.dictationCheckHotkey, arg);
@@ -578,6 +635,18 @@ void app.whenReady().then(async () => {
 
   const deviceKey = loadOrCreateDeviceKey(join(app.getPath("userData"), "device-key.json"));
   const origin = defaultGatewayOrigin();
+  // Pairing work runs once per pairing, not on every 10 s health tick (which re-sent
+  // dictation.watch and failed it as unavailable while the helper was offline).
+  const onPairing = pairingEdge({
+    onPaired: () => {
+      attention.resend();
+      void refreshHelperPresence();
+      void refreshApprovals();
+      void zoom.load();
+      void dictation?.load();
+    },
+    onUnpaired: () => dictation?.onDisconnected(),
+  });
   gateway = createDesktopGateway({
     deviceKey,
     httpOrigin: origin,
@@ -585,13 +654,7 @@ void app.whenReady().then(async () => {
     onStatus: (s) => {
       broadcast(IPC.status, s);
       tray?.update({ status: s });
-      if (s.phase === "paired") {
-        attention.resend();
-        void refreshHelperPresence();
-        void refreshApprovals();
-        void zoom.load();
-        void dictation?.load();
-      } else dictation?.onDisconnected();
+      onPairing(s);
     },
     onEvent: onGatewayEvent,
     onResync: () => {

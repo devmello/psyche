@@ -136,6 +136,11 @@ const bridge = {
     checkHotkey: (accelerator: string) => invoke(IPC.dictationCheckHotkey, { accelerator }),
     openAccessibilitySettings: () => ipcRenderer.send(IPC.dictationOpenAccessibility),
   },
+  /** macOS privacy permissions (onboarding, Settings): prompt or open the pane, and read status. */
+  permissions: {
+    status: () => invoke(IPC.permissionsStatus),
+    request: (kind: string) => invoke(IPC.permissionsRequest, { kind }),
+  },
 };
 
 export type PsycheBridge = typeof bridge;

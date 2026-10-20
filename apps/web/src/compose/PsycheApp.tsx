@@ -29,6 +29,7 @@ import { type ChatSlotContext, ShellApp, type ShellSlots } from "../shell/ShellA
 import { chatFileSlots } from "./attachments.tsx";
 import { kitClient } from "./kit-client.ts";
 import { writeOnboarding } from "./onboarding.ts";
+import { readPermissions, requestPermission } from "./permissions.tsx";
 import { settingsRoute } from "./settings.tsx";
 import { TranscriptModeBar, useTranscriptMode } from "./transcript-mode.tsx";
 import { ComposedFilesPane } from "./viewers.tsx";
@@ -249,8 +250,11 @@ function useWorkspacePersona(platform: ShellPlatform): [Persona | null, () => vo
       (s) => s.phase === "paired" && load(),
       () => undefined,
     );
+    // Status arrives on every health check; read IDENTITY.md again only when pairing begins.
+    let paired = false;
     const offStatus = platform.gateway.onStatus((s) => {
-      if (s.phase === "paired") load();
+      if (s.phase === "paired" && !paired) load();
+      paired = s.phase === "paired";
     });
     const offEvent = platform.gateway.onEvent((e) => {
       if (
@@ -286,8 +290,10 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
     };
     const retry = () => void check().catch(() => undefined);
     retry();
+    let paired = false;
     const off = platform.gateway.onStatus((s) => {
-      if (s.phase === "paired") retry();
+      if (s.phase === "paired" && !paired) retry();
+      paired = s.phase === "paired";
     });
     return () => {
       cancelled = true;
@@ -334,6 +340,8 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
             </p>
           ) : null}
           <OnboardingFlow
+            onRequestPermission={(p) => requestPermission(platform, p)}
+            onReadPermissions={() => readPermissions(platform)}
             onComplete={(result) => {
               completeOnboarding(platform, result).then(
                 () => {

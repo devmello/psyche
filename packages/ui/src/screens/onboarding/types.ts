@@ -14,7 +14,11 @@ export const ONBOARDING_STEP_IDS: readonly OnboardingStepId[] = [
   "done",
 ];
 
-export type PermissionAnswer = "pending" | "granted" | "denied" | "skipped";
+/** `unavailable`: this shell can't ask (the web build, or not macOS). */
+export type PermissionAnswer = "pending" | "granted" | "denied" | "skipped" | "unavailable";
+
+/** What asking for, or reading, a permission found. */
+export type PermissionResult = TccState | "unavailable";
 
 export interface PersonaDraft {
   name: string;
@@ -60,8 +64,13 @@ export interface OnboardingResult {
 export interface OnboardingShellProps {
   /** Installed RAM for local-model guidance. */
   ramGb?: number;
-  /** Asks macOS for a permission; resolves with the new state. */
-  onRequestPermission?: (permission: TccPermission) => Promise<TccState> | TccState;
+  /**
+   * Asks macOS for a permission (the prompt, or the System Settings pane); resolves with the
+   * new state. Without it the row says "Unavailable".
+   */
+  onRequestPermission?: (permission: TccPermission) => Promise<PermissionResult> | PermissionResult;
+  /** Reads every permission without prompting, e.g. when the owner returns from System Settings. */
+  onReadPermissions?: () => Promise<Partial<Record<TccPermission, PermissionResult>>>;
   /** Runs a connect flow (OAuth window); resolves `false` when the user backs out. */
   onConnect?: (type: string, mode: ScopeMode) => Promise<boolean | undefined> | boolean | undefined;
   /** Stores a provider key in the vault and resolves with its reference. */
