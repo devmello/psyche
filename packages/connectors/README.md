@@ -85,6 +85,23 @@ Credentials: the token or app password is a vault item bound to `{ connector: <c
 
 Parsing (`src/shopping/parse.ts`) reads snapshot text and refs only: one price per line is an offer (shipping and threshold lines are skipped), `Add to cart` buttons pair with offers in page order, a cart is `Seller:`, item rows with a quantity and price, and `Total:`. Page text is untrusted; all outputs are `untrusted`. Tests: `test/shopping/` (11) and scenario V3 (`tests/scenarios/v3-shopping`), where the scripted runner drives the real connector over fixture storefronts.
 
+## Microsoft 365 (M6)
+
+`microsoftFactory({ openBrowser?, showDeviceCode? })`, catalogue id `microsoft`, over Microsoft Graph v1.0. The owner registers a public client in Entra (Microsoft Entra admin center → App registrations → New registration; supported accounts as they need, often "personal and work"; platform **Mobile and desktop applications** with redirect URI `http://127.0.0.1/callback`; Authentication → "Allow public client flows" on for the device code flow). No client secret. Connect with `config: { clientId, tenant?: "common" | "consumers" | "organizations" | <tenant id or domain>, flow?: "auth_code" | "device_code" }`:
+
+- `auth_code` (desktop): PKCE S256 on a `127.0.0.1` loopback (Entra ignores the port for loopback redirects), `prompt=select_account`.
+- `device_code` (server mode, no browser): the owner enters the shown code at `https://microsoft.com/devicelogin`; Psyche polls at the given interval, backing off on `slow_down`.
+
+Scopes: `read` = `offline_access User.Read Mail.Read Calendars.Read Contacts.Read`; `read_act` = `offline_access User.Read Mail.ReadWrite Mail.Send Calendars.ReadWrite Contacts.Read Files.ReadWrite.AppFolder`. Microsoft returns every scope the app was ever granted, so a grant with more (or fewer) scopes than the mode needs fails the connect; there is no per-app revocation API, so the owner removes Psyche at `https://myaccount.microsoft.com/applications`. Refresh tokens rotate and are replaced on every refresh; `invalid_grant` moves the connector to `needs_auth` and emits `invalidated`. The token is sent only to `https://graph.microsoft.com`: paging and delta links are checked to stay there, and OneDrive downloads follow Graph's redirect to the pre-authenticated URL without it.
+
+Tools:
+- **Mail**: the shared `mail_*` tools (same names, matrix rows, side effects and `send_email` binding as IMAP / JMAP and Gmail). Reads fetch the raw MIME (`$value`) through the same parser; drafts and sends upload the MIME the tool built (`POST /me/messages`, `POST /me/sendMail`, base64), so Outlook sends exactly what the owner approved. Search uses `$filter`, or KQL `$search` when there is free text or a recipient. Flags map to `isRead`, the follow-up flag and categories; a move returns the message's new id.
+- **Calendar**: `calendar_list_calendars`, `calendar_list_events` (`calendarView`, at most 366 days, UTC), `calendar_free_busy` (`getSchedule`), `calendar_create_event` / `calendar_update_event` / `calendar_delete_event` with Google's input shape and the `calendar_write` binding. Outlook emails attendees on every change, so any event with attendees binds as an invite. Recurrence rules are refused for now.
+- **Contacts**: `contacts_search` (read).
+- **OneDrive**: `onedrive_list`, `onedrive_download` (to the Library, 25 MB, untrusted), `onedrive_upload` (text, 4 MB, `connector_action`), limited to Psyche's app folder; not offered in `read` mode (Graph has no read-only app-folder scope).
+
+Sync polls Graph delta queries (inbox messages and a −7 / +365 day `calendarView`), restarting on 410 / `syncStateNotFound`. Change-notification subscriptions are not used: they need a public HTTPS webhook (see docs/status/s09.md).
+
 ## Custom connectors (M9)
 
 A custom connector is a manifest (`CustomConnectorManifest` in `@psyche/protocol`): `baseUrl` (https), an exact `hosts` allowlist, `auth` (`none`, or `bearer` / `header` / `query` / `basic` with a `{{cred:slug}}` placeholder), and `tools`, each a `method` + `path` (`{param}`), `params` in path / query / body with a JSON Schema, and a `sideEffect` tier. No code from the manifest runs.

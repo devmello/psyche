@@ -26,6 +26,31 @@ For S09 (the manifest executor and proposal flow in `@psyche/connectors`), S12 /
 - New methods `connectors.proposeCustom` (`operator.admin`; a manifest or an OpenAPI document; opens a device-only `skill_install` approval with `details.kind: "connector"`), `connectors.getCustomProposal` (`operator.read`), `connectors.installCustom` (`operator.admin`; needs the approved `skill_install`) and `connectors.removeCustom` (`operator.admin`).
 - No fake: connectors have no contract in `src/contracts`.
 
+### v1 additive — 2026-10-20 (J8 teach mode)
+
+For S14 (the helper's `teach.start` / `teach.stop` / `teach.cancel` / `teach.status`), S01 (Gateway: owner-only teach tools, review then workspace skill), S11 (recording indicator and review screen).
+
+- New `schemas/teach.ts`: `TeachTarget`, `TeachStepKind` (click | right_click | double_click | type | press | skipped), `TeachScreenshot`, `TeachStep`, `TeachStartParams` {name?, description?, app?, screenshots?, maxSteps?, maxSeconds?}, `TeachSessionParams` {sessionId}, `TeachDraftFile`, `TeachEndedBy`, `TeachDraft` {sessionId, name, description, startedAt, endedAt, endedBy, steps, files}, `TeachStepEvent` (`teach.step`).
+- The helper never saves a draft. Password-field input and input in off-limits apps are never recorded.
+### v1 additive — 2026-10-20 (context usage, limits, compaction)
+
+For S02 (the loop's accounting and auto-compaction), S01 (the handlers), S11 (the context meter, settings and compaction markers).
+
+- New schemas (`schemas/context.ts`): `ContextBreakdown`, `ContextLimits`, `EffectiveContextLimits`, `ContextUsage`, `CompactionSummary`, `CompactionResult`.
+- New block `CompactionBlock` (`type: "compaction"`) at the end of the `Block` union.
+- New methods: `threads.contextUsage` (read), `threads.setContextLimits` (write), `threads.compact` (write, side-effecting).
+- New event `thread.context.updated {usage}`.
+- `apps/gateway` `blockToMarkdown` handles the new block (exhaustive switch).
+
+### v1 additive — 2026-10-20 (L7 prebuilt guest images)
+
+For S14 (the helper's image export / import and `deploy/macos/build-guest-image.sh`), S01 (Gateway: `vm.create {image}`), S11 (Devices: "Create from image").
+
+- `VmCreateParams` gains optional `image` (a guest image directory or `.aar`) and `imageSha256` (expected SHA-256 of its `manifest.json`).
+- New `VmImageFile` {name, bytes, sha256} and `VmImageManifest` {format "psyche-guest-image", formatVersion 1, id, guestOS, diskFormat, diskGB, username, createdAt, provisioned, psycheInstalled, permissionsGranted, psycheVersion?, files}.
+- New `VmExportImageParams` {name?, outDir, id?} and `VmExportImageResult` {path, manifest, manifestSha256} for `vm.export_image`.
+- `VmGuest` gains optional `image` {id, guestOS, createdAt} and `passwordRotationPending`.
+- `VmProgressEvent.type` gains `vm.import` and `vm.export` (at the end).
 ### v1 additive — 2026-10-20 (L6: Gateway methods for snapshots and resets)
 
 For S01 (the Gateway serves them over S14's helper capabilities) and S11 (Settings → VM mode). Builds on the L6 shapes (`VmSnapshot`, `VmSnapshotResult`, `VmRestoreResult`).

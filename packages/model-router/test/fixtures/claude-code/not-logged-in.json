@@ -1,0 +1,49 @@
+{
+  "name": "not-logged-in",
+  "steps": [
+    {
+      "read": 1
+    },
+    {
+      "emit": {
+        "type": "system",
+        "subtype": "init",
+        "cwd": "/tmp/psyche-cli/claude-code",
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "tools": ["mcp__psyche__weather", "mcp__psyche__notes_read"],
+        "mcp_servers": [
+          {
+            "name": "psyche",
+            "status": "connected"
+          }
+        ],
+        "model": "claude-sonnet-5-5",
+        "permissionMode": "default",
+        "apiKeySource": "none",
+        "output_style": "default",
+        "uuid": "u-init"
+      }
+    },
+    {
+      "emit": {
+        "type": "result",
+        "subtype": "success",
+        "is_error": true,
+        "duration_ms": 1200,
+        "duration_api_ms": 1100,
+        "num_turns": 1,
+        "result": "Invalid API key \u00b7 Please run /login",
+        "stop_reason": "end_turn",
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "total_cost_usd": 0.0123,
+        "usage": {
+          "input_tokens": 40,
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "output_tokens": 12
+        },
+        "uuid": "u-result"
+      }
+    }
+  ]
+}

@@ -70,31 +70,4 @@ export const VERIFIED_MCP_HOSTS = new Set(
   REMOTE_MCP_PRESETS.flatMap((e) => (e.remote === undefined ? [] : [new URL(e.remote.url).host])),
 );
 
-const later = (
-  id: string,
-  type: string,
-  label: string,
-  vendor: string,
-  description: string,
-): CatalogueEntry => ({
-  type,
-  id,
-  label,
-  description,
-  category: "first_party",
-  vendor,
-  auth: "oauth",
-  scopes: { read: [], read_act: [] },
-  actions: [],
-  available: false,
-});
-
-export const COMING_SOON: CatalogueEntry[] = [
-  later(
-    "microsoft",
-    "microsoft",
-    "Microsoft 365",
-    "Microsoft",
-    "Outlook mail and calendar, OneDrive (M6).",
-  ),
-];
+export const COMING_SOON: CatalogueEntry[] = [];

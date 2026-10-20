@@ -11,6 +11,7 @@ import type {
   ConnectorRecord,
   ConnectorTool,
   ConnectResult,
+  LibrarySink,
   SyncResult,
   ToolOutput,
   ToolRunContext,
@@ -206,233 +207,16 @@ export class MailConnector implements Connector {
   }
 
   tools(): ConnectorTool[] {
-    const account = () => {
-      if (this.#account === null)
-        throw new PsycheError("unavailable", "the mailbox is not connected");
-      return this.#account;
-    };
-    const untrusted = (output: unknown, extra: Partial<ToolOutput> = {}): ToolOutput => ({
-      output,
-      provenance: "untrusted",
-      ...extra,
+    return mailTools({
+      connectorId: this.id,
+      account: () => {
+        if (this.#account === null)
+          throw new PsycheError("unavailable", "the mailbox is not connected");
+        return this.#account;
+      },
+      library: this.#ctx.library,
+      withSession: (purpose, run, fn, signal) => this.#withSession(purpose, run, fn, signal),
     });
-    const ref = (o: Record<string, unknown>) => ({
-      id: reqString(o.id, "id"),
-      ...(typeof o.mailbox === "string" ? { mailbox: o.mailbox } : {}),
-    });
-    const tools: ConnectorTool[] = [
-      {
-        name: "mail_search_messages",
-        action: "mail.read",
-        description:
-          "Search messages (free text, from, to, subject, since / before ISO dates, unread) in a mailbox (default inbox). Returns subjects, senders, dates and snippets.",
-        inputSchema: schema.obj({
-          query: schema.str,
-          mailbox: schema.str,
-          from: schema.str,
-          to: schema.str,
-          subject: schema.str,
-          since: schema.str,
-          before: schema.str,
-          unread: schema.bool,
-          maxResults: schema.int(1, 50),
-          pageToken: schema.str,
-        }),
-        sideEffect: "read",
-        execute: (p, run) =>
-          this.#withSession(
-            "tool",
-            run,
-            async (s) => {
-              const o = asObject(p ?? {});
-              const input: MailSearch = {};
-              for (const k of [
-                "query",
-                "mailbox",
-                "from",
-                "to",
-                "subject",
-                "since",
-                "before",
-                "pageToken",
-              ] as const) {
-                const v = optString(o[k]);
-                if (v !== undefined) input[k] = v;
-              }
-              if (typeof o.unread === "boolean") input.unread = o.unread;
-              const max = optInt(o.maxResults, "maxResults", 1, 50);
-              if (max !== undefined) input.maxResults = max;
-              return untrusted(await s.search(input, run.signal));
-            },
-            run.signal,
-          ),
-      },
-      {
-        name: "mail_read_message",
-        action: "mail.read",
-        description:
-          "Read one message: headers, plain-text body (HTML stripped of hidden content) and attachment list.",
-        inputSchema: schema.obj({ id: schema.str, mailbox: schema.str }, ["id"]),
-        sideEffect: "read",
-        execute: (p, run) =>
-          this.#withSession(
-            "tool",
-            run,
-            async (s) => untrusted(await s.read(ref(asObject(p)), run.signal)),
-            run.signal,
-          ),
-      },
-      {
-        name: "mail_list_mailboxes",
-        action: "mail.read",
-        description: "List mailboxes (folders) with their roles and counts.",
-        inputSchema: schema.obj({}),
-        sideEffect: "read",
-        execute: (_p, run) =>
-          this.#withSession(
-            "tool",
-            run,
-            async (s) => untrusted(await s.listMailboxes(run.signal)),
-            run.signal,
-          ),
-      },
-      {
-        name: "mail_save_attachment",
-        action: "mail.attachments",
-        description:
-          "Save one attachment of a message to the Library (25 MB limit). Returns the Library item id.",
-        inputSchema: schema.obj({ id: schema.str, mailbox: schema.str, partId: schema.str }, [
-          "id",
-          "partId",
-        ]),
-        sideEffect: "read",
-        execute: (p, run) =>
-          this.#withSession(
-            "tool",
-            run,
-            async (s) => {
-              const o = asObject(p);
-              const partId = reqString(o.partId, "partId");
-              const a = await s.attachment({ ...ref(o), partId }, run.signal);
-              if (a.bytes.byteLength > MAX_ATTACHMENT_BYTES) {
-                throw new PsycheError("invalid_params", "attachment is larger than 25 MB");
-              }
-              const library = this.#ctx.library;
-              if (library === undefined)
-                throw new PsycheError("unavailable", "no Library to save attachments into");
-              const saved = await library.put({
-                name: a.filename,
-                mimeType: a.mimeType,
-                bytes: a.bytes,
-                source: { connectorId: this.id, ref: `${ref(o).id}/${partId}` },
-                provenance: "untrusted",
-              });
-              return untrusted({
-                ...saved,
-                filename: a.filename,
-                mimeType: a.mimeType,
-                size: a.bytes.byteLength,
-              });
-            },
-            run.signal,
-          ),
-      },
-      {
-        name: "mail_modify_flags",
-        action: "mail.labels",
-        description:
-          "Add or remove flags (seen, flagged, answered or custom keywords) and/or move a message to another mailbox (archive = move to the archive mailbox).",
-        inputSchema: schema.obj(
-          {
-            id: schema.str,
-            mailbox: schema.str,
-            addFlags: schema.strs,
-            removeFlags: schema.strs,
-            moveTo: schema.str,
-          },
-          ["id"],
-        ),
-        sideEffect: "write",
-        describeCall: (p) => actionBinding(this.id, "mail_modify_flags", p),
-        execute: (p, run) =>
-          this.#withSession(
-            "tool",
-            run,
-            async (s) => {
-              const o = asObject(p);
-              const r = ref(o);
-              const change = {
-                addFlags: flagList(o.addFlags, "addFlags"),
-                removeFlags: flagList(o.removeFlags, "removeFlags"),
-                ...(typeof o.moveTo === "string" ? { moveTo: o.moveTo } : {}),
-              };
-              const out = await s.modify(r, change, run.signal);
-              return untrusted(out, {
-                externalRefs: { messageId: out.id },
-                receiptSummary: `Updated message ${r.id}${change.moveTo === undefined ? "" : ` (moved to ${change.moveTo})`}`,
-              });
-            },
-            run.signal,
-          ),
-      },
-      {
-        name: "mail_create_draft",
-        action: "mail.draft",
-        description:
-          "Create a draft (plain text). Use inReplyTo and references to reply in a thread.",
-        inputSchema: mailSchema,
-        sideEffect: "write",
-        describeCall: (p) => actionBinding(this.id, "mail_create_draft", p),
-        execute: (p, run) =>
-          this.#withSession(
-            "tool",
-            run,
-            async (s) => {
-              const m = mailParams(p);
-              const mail = toMail(m, account());
-              const raw = decodeBase64Url(buildMime(mail)) ?? new Uint8Array();
-              const r = await s.createDraft(mail, raw, run.signal);
-              return untrusted(
-                { draftId: r.id },
-                {
-                  externalRefs: { draftId: r.id },
-                  receiptSummary: `Drafted "${m.subject.slice(0, 60)}"`,
-                },
-              );
-            },
-            run.signal,
-          ),
-      },
-      {
-        name: "mail_send",
-        action: "mail.send",
-        description:
-          "Send an email (plain text). Requires the owner's approval of the exact recipients, subject and body.",
-        inputSchema: mailSchema,
-        sideEffect: "destructive",
-        describeCall: (p) => sendBinding(account(), p),
-        execute: (p, run) =>
-          this.#withSession(
-            "tool",
-            run,
-            async (s) => {
-              const m = mailParams(p);
-              const mail = toMail(m, account());
-              const raw = decodeBase64Url(buildMime(mail)) ?? new Uint8Array();
-              const r = await s.send(mail, raw, run.signal);
-              return untrusted(
-                { messageId: r.id, ...(r.threadId === undefined ? {} : { threadId: r.threadId }) },
-                {
-                  externalRefs: { messageId: r.id },
-                  receiptSummary: sendBinding(account(), p).summary ?? "Sent mail",
-                },
-              );
-            },
-            run.signal,
-          ),
-      },
-    ];
-    return tools;
   }
 
   /**
@@ -493,6 +277,251 @@ export class MailConnector implements Connector {
       await session?.close().catch(() => undefined);
     }
   }
+}
+
+/** What the shared mail tools need from the connector that owns them. */
+export interface MailToolDeps {
+  connectorId: string;
+  /** The connected mailbox address; throws when not connected. */
+  account(): string;
+  library?: LibrarySink | undefined;
+  /** Opens a session for this call (credentials, auth refresh, needs_auth handling). */
+  withSession<T>(
+    purpose: MailCredentialPurpose,
+    run: ToolRunContext | undefined,
+    fn: (session: MailSession) => Promise<T>,
+    signal?: AbortSignal,
+  ): Promise<T>;
+}
+
+/**
+ * Gmail's tool surface over any `MailSession` (M7 IMAP / JMAP, M6 Outlook): the same names,
+ * actions, side-effect classes and `send_email` / `connector_action` bindings.
+ */
+export function mailTools(deps: MailToolDeps): ConnectorTool[] {
+  const account = deps.account;
+  const untrusted = (output: unknown, extra: Partial<ToolOutput> = {}): ToolOutput => ({
+    output,
+    provenance: "untrusted",
+    ...extra,
+  });
+  const ref = (o: Record<string, unknown>) => ({
+    id: reqString(o.id, "id"),
+    ...(typeof o.mailbox === "string" ? { mailbox: o.mailbox } : {}),
+  });
+  const tools: ConnectorTool[] = [
+    {
+      name: "mail_search_messages",
+      action: "mail.read",
+      description:
+        "Search messages (free text, from, to, subject, since / before ISO dates, unread) in a mailbox (default inbox). Returns subjects, senders, dates and snippets.",
+      inputSchema: schema.obj({
+        query: schema.str,
+        mailbox: schema.str,
+        from: schema.str,
+        to: schema.str,
+        subject: schema.str,
+        since: schema.str,
+        before: schema.str,
+        unread: schema.bool,
+        maxResults: schema.int(1, 50),
+        pageToken: schema.str,
+      }),
+      sideEffect: "read",
+      execute: (p, run) =>
+        deps.withSession(
+          "tool",
+          run,
+          async (s) => {
+            const o = asObject(p ?? {});
+            const input: MailSearch = {};
+            for (const k of [
+              "query",
+              "mailbox",
+              "from",
+              "to",
+              "subject",
+              "since",
+              "before",
+              "pageToken",
+            ] as const) {
+              const v = optString(o[k]);
+              if (v !== undefined) input[k] = v;
+            }
+            if (typeof o.unread === "boolean") input.unread = o.unread;
+            const max = optInt(o.maxResults, "maxResults", 1, 50);
+            if (max !== undefined) input.maxResults = max;
+            return untrusted(await s.search(input, run.signal));
+          },
+          run.signal,
+        ),
+    },
+    {
+      name: "mail_read_message",
+      action: "mail.read",
+      description:
+        "Read one message: headers, plain-text body (HTML stripped of hidden content) and attachment list.",
+      inputSchema: schema.obj({ id: schema.str, mailbox: schema.str }, ["id"]),
+      sideEffect: "read",
+      execute: (p, run) =>
+        deps.withSession(
+          "tool",
+          run,
+          async (s) => untrusted(await s.read(ref(asObject(p)), run.signal)),
+          run.signal,
+        ),
+    },
+    {
+      name: "mail_list_mailboxes",
+      action: "mail.read",
+      description: "List mailboxes (folders) with their roles and counts.",
+      inputSchema: schema.obj({}),
+      sideEffect: "read",
+      execute: (_p, run) =>
+        deps.withSession(
+          "tool",
+          run,
+          async (s) => untrusted(await s.listMailboxes(run.signal)),
+          run.signal,
+        ),
+    },
+    {
+      name: "mail_save_attachment",
+      action: "mail.attachments",
+      description:
+        "Save one attachment of a message to the Library (25 MB limit). Returns the Library item id.",
+      inputSchema: schema.obj({ id: schema.str, mailbox: schema.str, partId: schema.str }, [
+        "id",
+        "partId",
+      ]),
+      sideEffect: "read",
+      execute: (p, run) =>
+        deps.withSession(
+          "tool",
+          run,
+          async (s) => {
+            const o = asObject(p);
+            const partId = reqString(o.partId, "partId");
+            const a = await s.attachment({ ...ref(o), partId }, run.signal);
+            if (a.bytes.byteLength > MAX_ATTACHMENT_BYTES) {
+              throw new PsycheError("invalid_params", "attachment is larger than 25 MB");
+            }
+            const library = deps.library;
+            if (library === undefined)
+              throw new PsycheError("unavailable", "no Library to save attachments into");
+            const saved = await library.put({
+              name: a.filename,
+              mimeType: a.mimeType,
+              bytes: a.bytes,
+              source: { connectorId: deps.connectorId, ref: `${ref(o).id}/${partId}` },
+              provenance: "untrusted",
+            });
+            return untrusted({
+              ...saved,
+              filename: a.filename,
+              mimeType: a.mimeType,
+              size: a.bytes.byteLength,
+            });
+          },
+          run.signal,
+        ),
+    },
+    {
+      name: "mail_modify_flags",
+      action: "mail.labels",
+      description:
+        "Add or remove flags (seen, flagged, answered or custom keywords) and/or move a message to another mailbox (archive = move to the archive mailbox).",
+      inputSchema: schema.obj(
+        {
+          id: schema.str,
+          mailbox: schema.str,
+          addFlags: schema.strs,
+          removeFlags: schema.strs,
+          moveTo: schema.str,
+        },
+        ["id"],
+      ),
+      sideEffect: "write",
+      describeCall: (p) => actionBinding(deps.connectorId, "mail_modify_flags", p),
+      execute: (p, run) =>
+        deps.withSession(
+          "tool",
+          run,
+          async (s) => {
+            const o = asObject(p);
+            const r = ref(o);
+            const change = {
+              addFlags: flagList(o.addFlags, "addFlags"),
+              removeFlags: flagList(o.removeFlags, "removeFlags"),
+              ...(typeof o.moveTo === "string" ? { moveTo: o.moveTo } : {}),
+            };
+            const out = await s.modify(r, change, run.signal);
+            return untrusted(out, {
+              externalRefs: { messageId: out.id },
+              receiptSummary: `Updated message ${r.id}${change.moveTo === undefined ? "" : ` (moved to ${change.moveTo})`}`,
+            });
+          },
+          run.signal,
+        ),
+    },
+    {
+      name: "mail_create_draft",
+      action: "mail.draft",
+      description:
+        "Create a draft (plain text). Use inReplyTo and references to reply in a thread.",
+      inputSchema: mailSchema,
+      sideEffect: "write",
+      describeCall: (p) => actionBinding(deps.connectorId, "mail_create_draft", p),
+      execute: (p, run) =>
+        deps.withSession(
+          "tool",
+          run,
+          async (s) => {
+            const m = mailParams(p);
+            const mail = toMail(m, account());
+            const raw = decodeBase64Url(buildMime(mail)) ?? new Uint8Array();
+            const r = await s.createDraft(mail, raw, run.signal);
+            return untrusted(
+              { draftId: r.id },
+              {
+                externalRefs: { draftId: r.id },
+                receiptSummary: `Drafted "${m.subject.slice(0, 60)}"`,
+              },
+            );
+          },
+          run.signal,
+        ),
+    },
+    {
+      name: "mail_send",
+      action: "mail.send",
+      description:
+        "Send an email (plain text). Requires the owner's approval of the exact recipients, subject and body.",
+      inputSchema: mailSchema,
+      sideEffect: "destructive",
+      describeCall: (p) => sendBinding(account(), p),
+      execute: (p, run) =>
+        deps.withSession(
+          "tool",
+          run,
+          async (s) => {
+            const m = mailParams(p);
+            const mail = toMail(m, account());
+            const raw = decodeBase64Url(buildMime(mail)) ?? new Uint8Array();
+            const r = await s.send(mail, raw, run.signal);
+            return untrusted(
+              { messageId: r.id, ...(r.threadId === undefined ? {} : { threadId: r.threadId }) },
+              {
+                externalRefs: { messageId: r.id },
+                receiptSummary: sendBinding(account(), p).summary ?? "Sent mail",
+              },
+            );
+          },
+          run.signal,
+        ),
+    },
+  ];
+  return tools;
 }
 
 export function mailFactory(options: MailConnectorOptions): ConnectorFactory {

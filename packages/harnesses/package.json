@@ -1,0 +1,25 @@
+{
+  "name": "@psyche/harnesses",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Coding-harness adapters (C10) behind agent-core's HarnessPlugin seam: Claude Code in the sandbox; Codex and pi stubs.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@psyche/agent-core": "workspace:*",
+    "@psyche/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@psyche/testing": "workspace:*"
+  }
+}

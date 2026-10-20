@@ -1,0 +1,12 @@
+{
+  "name": "crash",
+  "steps": [
+    {
+      "read": 1
+    },
+    {
+      "exit": 1,
+      "stderr": "Error: unexpected failure in the CLI\n"
+    }
+  ]
+}

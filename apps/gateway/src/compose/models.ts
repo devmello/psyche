@@ -31,6 +31,8 @@ const KINDS: readonly ProviderKind[] = [
   "ollama",
   "llamacpp",
   "lmstudio",
+  "claude-code",
+  "codex",
 ];
 
 /**
@@ -42,6 +44,21 @@ const LOCAL_URL_ENV: Partial<Record<ProviderKind, string>> = {
   llamacpp: "PSYCHE_LLAMACPP_URL",
   lmstudio: "PSYCHE_LMSTUDIO_URL",
 };
+
+/**
+ * The owner's subscriptions through their CLIs (Claude Code, Codex): always listed in Settings
+ * → Model & providers, where the probe says whether each is installed and signed in. Nothing
+ * runs until the owner picks one. `PSYCHE_SUBSCRIPTION_CLIS=off` leaves them out;
+ * `PSYCHE_CLAUDE_PATH` / `PSYCHE_CODEX_PATH` name a CLI that is not on PATH.
+ */
+export function subscriptionProviders(env: NodeJS.ProcessEnv): ProviderConfig[] {
+  if (env.PSYCHE_SUBSCRIPTION_CLIS === "off") return [];
+  const claude: ProviderConfig = { id: "claude-code", kind: "claude-code" };
+  if (env.PSYCHE_CLAUDE_PATH) claude.command = env.PSYCHE_CLAUDE_PATH;
+  const codex: ProviderConfig = { id: "codex", kind: "codex" };
+  if (env.PSYCHE_CODEX_PATH) codex.command = env.PSYCHE_CODEX_PATH;
+  return [claude, codex];
+}
 
 function envKeys(env: NodeJS.ProcessEnv, names: string[]): KeySource {
   const values = () => names.map((n) => env[n]).filter((v): v is string => !!v);
@@ -72,7 +89,10 @@ export function modelSetupFromEnv(env: NodeJS.ProcessEnv): ModelSetup | null {
       );
     }
     const keyEnv = KEY_ENV[kind];
-    const config: ProviderConfig = { id: provider, kind };
+    const config: ProviderConfig = subscriptionProviders({
+      ...env,
+      PSYCHE_SUBSCRIPTION_CLIS: "on",
+    }).find((p) => p.kind === kind) ?? { id: provider, kind };
     const urlEnv = LOCAL_URL_ENV[kind];
     if (urlEnv !== undefined && env[urlEnv]) config.baseURL = env[urlEnv];
     if (keyEnv !== undefined) {
@@ -86,6 +106,7 @@ export function modelSetupFromEnv(env: NodeJS.ProcessEnv): ModelSetup | null {
     const url = env[urlEnv];
     if (url && !providers.has(kind)) providers.set(kind, { id: kind, kind, baseURL: url });
   }
+  for (const p of subscriptionProviders(env)) if (!providers.has(p.id)) providers.set(p.id, p);
   const router: ModelRouterConfig = {
     providers: [...providers.values()],
     roles: { primary: { model: primary }, utility: { model: utility } },
@@ -104,6 +125,7 @@ export function vaultModelSetup(env: NodeJS.ProcessEnv): ModelSetup {
     const url = env[urlEnv];
     if (url) providers.push({ id: kind, kind, baseURL: url });
   }
+  providers.push(...subscriptionProviders(env));
   return { router: { providers }, vaultKeys: true };
 }
 

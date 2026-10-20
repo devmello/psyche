@@ -1,0 +1,26 @@
+{
+  "name": "bridge-failed",
+  "steps": [
+    {
+      "read": 1
+    },
+    {
+      "emit": {
+        "type": "system",
+        "subtype": "init",
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "tools": [],
+        "mcp_servers": [
+          {
+            "name": "psyche",
+            "status": "failed"
+          }
+        ],
+        "model": "claude-sonnet-5-5"
+      }
+    },
+    {
+      "hang": 1
+    }
+  ]
+}

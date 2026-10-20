@@ -27,7 +27,7 @@ export interface ProviderInfo {
   kind: ProviderKind;
   keyRef: string | null;
   /** `unknown`: configured, but nobody has checked the endpoint yet. */
-  status: "ok" | "missing" | "invalid" | "offline" | "unknown";
+  status: "ok" | "missing" | "invalid" | "offline" | "unknown" | "signed_out";
   models: ProviderModel[];
   /** Endpoint, shown for local servers (never carries a key). */
   baseURL?: string;

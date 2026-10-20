@@ -2,6 +2,9 @@ import type {
   ApprovalRequest,
   Artifact,
   Block,
+  ContextLimits,
+  ContextUsage,
+  EffectiveContextLimits,
   FeedPost,
   Goal,
   Idea,
@@ -49,6 +52,16 @@ export interface QueryEntry {
 
 export type Dict<T> = Readonly<Record<string, T>>;
 
+/** A thread's context usage and limits (`threads.contextUsage`, `thread.context.updated`). */
+export interface ThreadContextEntry {
+  /** The last turn's usage; null before the first turn. */
+  usage: ContextUsage | null;
+  /** Effective limits; absent until `threads.contextUsage` answers or a turn reports them. */
+  limits?: EffectiveContextLimits;
+  /** The thread's own override; absent until `threads.contextUsage` answers. */
+  threadLimits?: ContextLimits;
+}
+
 /** Normalized client state. Every collection is keyed by id. */
 export interface UiState {
   connection: ConnectionState;
@@ -88,6 +101,8 @@ export interface UiState {
   queries: Dict<QueryEntry>;
   /** Sandbox Mac guests as `vm.updated` last reported them, by `<nodeId>/<guest name>`. */
   vmGuests: Dict<VmUpdatedPayload>;
+  /** Context usage and limits by thread id. */
+  threadContext: Dict<ThreadContextEntry>;
   /** stateVersion of the last event that touched an entity (`<collection>:<id>`). */
   touched: Dict<number>;
 }
@@ -123,6 +138,7 @@ export const INITIAL_STATE: UiState = {
   memoryEtags: {},
   queries: {},
   vmGuests: {},
+  threadContext: {},
   touched: {},
 };
 

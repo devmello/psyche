@@ -47,6 +47,8 @@ const KIND_LABEL: Record<ProviderKind, string> = {
   ollama: "Ollama",
   llamacpp: "llama.cpp",
   lmstudio: "LM Studio",
+  "claude-code": "Claude Code (subscription)",
+  codex: "ChatGPT via Codex (subscription)",
 };
 
 export interface ModelSettingsSetup {
@@ -58,6 +60,8 @@ export interface ModelSettingsSetup {
   clock: Clock;
   /** Probe transport (tests replay fixtures through this). */
   fetch?: typeof fetch;
+  /** Subscription CLIs: the environment their probe runs in (tests run a fake CLI). */
+  cliEnv?: NodeJS.ProcessEnv;
   /** The fixed provider's model when there is no router. */
   fixedModel?: ModelRef;
   endpoints?: EndpointProbeStore;
@@ -195,6 +199,7 @@ export function modelSettingsHandlers(setup: ModelSettingsSetup): Record<string,
           clock,
           ...(setup.keys === undefined ? {} : { keys: setup.keys }),
           ...(setup.fetch === undefined ? {} : { fetch: setup.fetch }),
+          ...(setup.cliEnv === undefined ? {} : { cliEnv: setup.cliEnv }),
         });
         await endpoints.set(config.id, result);
         if (result.state === "reachable") adapterOf(router, config.id)?.learn(result.models);

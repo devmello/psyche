@@ -177,8 +177,24 @@ public struct VMStateRecord: Codable, Sendable, Equatable {
     public var psycheInstalled: Bool = false
     /// Accessibility / Screen Recording rows written into the guest's TCC.db offline (L3).
     public var permissionsGranted: Bool = false
+    /// L7: created from a prebuilt image whose bootstrap password is not rotated yet.
+    public var passwordRotationPending: Bool = false
+    /// L7: the image this guest came from.
+    public var image: ImageRef?
 
-    enum CodingKeys: String, CodingKey { case phase, updatedAt, lastError, provisioned, psycheInstalled, permissionsGranted }
+    public struct ImageRef: Codable, Sendable, Equatable {
+        public var id: String
+        public var guestOS: String
+        public var createdAt: String
+
+        public init(id: String, guestOS: String, createdAt: String) {
+            self.id = id
+            self.guestOS = guestOS
+            self.createdAt = createdAt
+        }
+    }
+
+    enum CodingKeys: String, CodingKey { case phase, updatedAt, lastError, provisioned, psycheInstalled, permissionsGranted, passwordRotationPending, image }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -188,6 +204,8 @@ public struct VMStateRecord: Codable, Sendable, Equatable {
         provisioned = try c.decodeIfPresent(Bool.self, forKey: .provisioned) ?? false
         psycheInstalled = try c.decodeIfPresent(Bool.self, forKey: .psycheInstalled) ?? false
         permissionsGranted = try c.decodeIfPresent(Bool.self, forKey: .permissionsGranted) ?? false
+        passwordRotationPending = try c.decodeIfPresent(Bool.self, forKey: .passwordRotationPending) ?? false
+        image = try c.decodeIfPresent(ImageRef.self, forKey: .image)
     }
 
     public init(phase: VMPhase, updatedAt: String = ISO8601DateFormatter().string(from: Date()), lastError: String? = nil, provisioned: Bool = false) {

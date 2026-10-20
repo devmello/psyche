@@ -10,20 +10,22 @@ import {
   sampleModelProviders,
   sampleModelRoles,
   sampleSettings,
+  sampleSubscriptionProbes,
+  sampleSubscriptionProviders,
 } from "../src/screens/settings/sample-data.ts";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
 /** Settings → Model & providers over `models.*` (B1, B4), against recorded probe fixtures. */
 
-function setup(): () => MockGateway {
+function setup(subscriptions = false): () => MockGateway {
   let gw: MockGateway | null = null;
   render(
     <StoryWorld
       edit={(w) => {
         Object.assign(w.settings, sampleSettings());
-        w.modelProviders = sampleModelProviders();
-        w.modelRoles = sampleModelRoles();
-        w.modelProbes = sampleEndpointProbes();
+        w.modelProviders = subscriptions ? sampleSubscriptionProviders() : sampleModelProviders();
+        w.modelRoles = subscriptions ? {} : sampleModelRoles();
+        w.modelProbes = subscriptions ? sampleSubscriptionProbes() : sampleEndpointProbes();
       }}
       onGateway={(g) => {
         gw = g;
@@ -164,6 +166,38 @@ describe("Model & providers over models.*", () => {
       ]),
     );
     expect(await screen.findAllByText("Tool calling: passed")).toBeTruthy();
+  });
+});
+
+describe("subscription providers (Claude Code, Codex)", () => {
+  it("shows them without keys, probes them on click and picks a Claude Code model", async () => {
+    const gateway = setup(true);
+    expect(await screen.findByText("Claude Code (subscription)")).toBeTruthy();
+    expect(screen.getByText("ChatGPT via Codex (subscription)")).toBeTruthy();
+    expect(
+      screen.getAllByText(/No API key: runs through the CLI you are signed in to/),
+    ).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: /Add the .* key/ })).toBeNull();
+    expect(callsOf(gateway(), "models.probe")).toEqual([]);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Check the Claude Code (subscription) endpoint" }),
+    );
+    expect(await screen.findByText(/Claude Code 2\.1\.286 \(claude\.ai, max plan\)/)).toBeTruthy();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Check the ChatGPT via Codex (subscription) endpoint" }),
+    );
+    expect(await screen.findByText("Not signed in")).toBeTruthy();
+    expect(
+      screen.getByText("Codex is installed but not signed in: run `codex login`"),
+    ).toBeTruthy();
+
+    await userEvent.selectOptions(screen.getByLabelText(/^Primary/), "claude-code/sonnet");
+    await waitFor(() =>
+      expect(callsOf(gateway(), "models.setRole").map((c) => c.params)).toEqual([
+        { role: "primary", ref: "claude-code/sonnet" },
+      ]),
+    );
   });
 });
 

@@ -38,6 +38,11 @@ if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "vsock-bridge" 
     }
 }
 
+// `psyche-helper guest-image build|verify …` (L7): offline image pipeline, never a node.
+if CommandLine.arguments.count >= 2, CommandLine.arguments[1] == "guest-image" {
+    GuestImageCLI.run(Array(CommandLine.arguments.dropFirst(2)), log: HelperLog())
+}
+
 var args = CommandLine.arguments.dropFirst()
 while let arg = args.popFirst() {
     switch arg {

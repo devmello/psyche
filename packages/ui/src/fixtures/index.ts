@@ -57,7 +57,13 @@ import { artifacts, inputRequests, library, receipts, taskActions, tasks } from 
  * Persona "Wren" (a pale moth); owner "you"; the clock is fixed at FIXTURE_NOW.
  */
 
-import type { EndpointProbe, ModelProviderSummary, ModelRoles } from "@psyche/protocol";
+import type {
+  ContextLimits,
+  ContextUsage,
+  EndpointProbe,
+  ModelProviderSummary,
+  ModelRoles,
+} from "@psyche/protocol";
 
 export { ago, at, FIXTURE_NOW, fakeHex, fakeSha, IDS, inMinutes, PERSONA, today } from "./ids.ts";
 export type { UsageSummary } from "./settings.ts";
@@ -108,6 +114,10 @@ export interface FixtureWorld {
   /** What reviewing a folder finds: a proposal to stage, or policy violations. */
   skillSources: Record<string, MockSkillSource>;
   usage: UsageSummary;
+  /** The last turn's context usage by thread id; absent → no turn has reported yet. */
+  contextUsage?: Record<string, ContextUsage>;
+  /** Each thread's own context limits. */
+  contextLimits?: Record<string, ContextLimits>;
   /** `models.*` (B1, B4); stories and tests seed them from the settings sample data. */
   modelProviders?: ModelProviderSummary[];
   modelRoles?: ModelRoles;

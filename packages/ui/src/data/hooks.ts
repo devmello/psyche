@@ -2,6 +2,8 @@ import type {
   ApprovalRequest,
   Artifact,
   Automation,
+  CompactionResult,
+  ContextLimits,
   FeedPost,
   Goal,
   GoalMilestone,
@@ -30,7 +32,14 @@ import type {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ConnectionState } from "./client.ts";
 import { useStore, useStoreState } from "./provider.tsx";
-import { put, putMany, type QueuedFollowUp, type StreamingMessage, type UiState } from "./state.ts";
+import {
+  put,
+  putMany,
+  type QueuedFollowUp,
+  type StreamingMessage,
+  type ThreadContextEntry,
+  type UiState,
+} from "./state.ts";
 import type { GatewayStore } from "./store.ts";
 
 /**
@@ -429,18 +438,7 @@ export function useThread(threadId: string | null) {
     },
     loadOlder: async () => {
       if (threadId === null) return;
-      const cursor = store.getState().historyCursor[threadId];
-      if (cursor == null) return;
-      const page = await store.call("chat.history", { threadId, cursor, limit: 100 });
-      store.update((s) => {
-        const byId = new Map((s.messages[threadId] ?? []).map((m) => [m.id, m]));
-        for (const m of page.messages) if (!byId.has(m.id)) byId.set(m.id, m);
-        return {
-          ...s,
-          messages: { ...s.messages, [threadId]: [...byId.values()].sort((a, b) => a.seq - b.seq) },
-          historyCursor: { ...s.historyCursor, [threadId]: page.nextCursor ?? null },
-        };
-      });
+      await loadOlderMessages(store, threadId);
     },
     exportAs: (format: "markdown" | "json") =>
       threadId === null
@@ -450,6 +448,102 @@ export function useThread(threadId: string | null) {
 }
 
 const EMPTY: readonly Message[] = [];
+
+/** Loads the page of a thread's history before what is loaded; false when there is none. */
+export async function loadOlderMessages(store: GatewayStore, threadId: string): Promise<boolean> {
+  const cursor = store.getState().historyCursor[threadId];
+  if (cursor == null) return false;
+  const page = await store.call("chat.history", { threadId, cursor, limit: 100 });
+  store.update((s) => {
+    const byId = new Map((s.messages[threadId] ?? []).map((m) => [m.id, m]));
+    for (const m of page.messages) if (!byId.has(m.id)) byId.set(m.id, m);
+    return {
+      ...s,
+      messages: { ...s.messages, [threadId]: [...byId.values()].sort((a, b) => a.seq - b.seq) },
+      historyCursor: { ...s.historyCursor, [threadId]: page.nextCursor ?? null },
+    };
+  });
+  return true;
+}
+
+const NO_CONTEXT: ThreadContextEntry = { usage: null };
+
+/** Reads a thread's context usage and limits into the store. */
+export async function refreshThreadContext(store: GatewayStore, threadId: string): Promise<void> {
+  const version = store.version();
+  const res = await store.call("threads.contextUsage", { threadId });
+  store.update((s) => {
+    const prev = s.threadContext[threadId];
+    // A turn that ended after the request started reported newer usage than the answer.
+    const newer = (s.touched[`threadContext:${threadId}`] ?? -1) > version ? prev : undefined;
+    return {
+      ...s,
+      threadContext: {
+        ...s.threadContext,
+        [threadId]: {
+          usage: newer?.usage ?? res.usage ?? null,
+          ...((newer?.limits ?? res.limits) ? { limits: newer?.limits ?? res.limits } : {}),
+          threadLimits: res.threadLimits ?? {},
+        },
+      },
+    };
+  });
+}
+
+/** Compacts a thread's earlier turns now, then rereads its usage; null when nothing to compact. */
+export async function compactThread(
+  store: GatewayStore,
+  threadId: string,
+): Promise<CompactionResult | null> {
+  const { compaction } = await store.call("threads.compact", { threadId });
+  await refreshThreadContext(store, threadId).catch(() => undefined);
+  return compaction;
+}
+
+/**
+ * A thread's context usage and limits (the header meter, "Compact now", the per-chat limits):
+ * `threads.contextUsage` on open, then `thread.context.updated` after every turn.
+ */
+export function useThreadContext(threadId: string | null) {
+  const store = useStore();
+  const entry = useStoreState((s) =>
+    threadId === null ? NO_CONTEXT : (s.threadContext[threadId] ?? NO_CONTEXT),
+  );
+  const load = useLoader(threadId === null ? null : `threadContext:${threadId}`, (st) =>
+    threadId === null ? Promise.resolve() : refreshThreadContext(st, threadId),
+  );
+  const [compacting, setCompacting] = useState(false);
+  return {
+    ...load,
+    ...entry,
+    compacting,
+    /** Compacts the thread's earlier turns now; null when there was nothing to compact. */
+    compact: async () => {
+      if (threadId === null) return null;
+      setCompacting(true);
+      try {
+        return await compactThread(store, threadId);
+      } finally {
+        setCompacting(false);
+      }
+    },
+    /** Sets this thread's own limits; null clears them and the thread follows Settings again. */
+    setLimits: async (limits: ContextLimits | null) => {
+      if (threadId === null) return;
+      const res = await store.call("threads.setContextLimits", { threadId, limits });
+      store.update((s) => {
+        const prev = s.threadContext[threadId] ?? NO_CONTEXT;
+        return {
+          ...s,
+          threadContext: {
+            ...s.threadContext,
+            [threadId]: { ...prev, limits: res.limits, threadLimits: res.threadLimits },
+          },
+        };
+      });
+    },
+  };
+}
 
 /** Like `useStoreState`, but keeps the previous object when every field is identical. */
 function useStoreStateShallow<T extends object>(select: (s: UiState) => T): T {
