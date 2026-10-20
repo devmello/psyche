@@ -57,7 +57,7 @@ export const GOOGLE_ID = "google-1";
  */
 export type ToolAliases = ReadonlyMap<string, string>;
 
-class Registry implements ToolRegistry {
+export class Registry implements ToolRegistry {
   readonly tools = new Map<string, ToolRegistration>();
   list() {
     return [...this.tools.values()].map((t) => t.spec);
@@ -73,7 +73,7 @@ class Registry implements ToolRegistry {
   }
 }
 
-class SettableClock implements Clock {
+export class SettableClock implements Clock {
   #t = Date.parse("2026-10-19T09:00:00.000Z");
   now() {
     return this.#t;
@@ -96,7 +96,7 @@ const stricter = (a: SideEffect, b: SideEffect | undefined): SideEffect =>
   b === undefined || SEVERITY[b] <= SEVERITY[a] ? a : b;
 
 /** Same seeding as `referenceStack`, so the fallback sees the shared fixture vault. */
-function fixtureCredentials(): FakeCredentialBroker {
+export function fixtureCredentials(): FakeCredentialBroker {
   const credentials = new FakeCredentialBroker();
   for (const item of loadSecretRegistry().vaultItems) {
     const secret = item.fields.password ?? item.fields.token;
@@ -119,7 +119,7 @@ function fixtureCredentials(): FakeCredentialBroker {
 }
 
 /** Waits for the store's first-run setup before every call (the runner's factory is sync). */
-function lazyMemory(store: SqliteMemoryStore, ready: Promise<void>): MemoryStore {
+export function lazyMemory(store: SqliteMemoryStore, ready: Promise<void>): MemoryStore {
   return new Proxy(store, {
     get(target, prop, receiver) {
       const value = Reflect.get(target, prop, receiver);
@@ -292,12 +292,19 @@ export interface Int2Rig {
   close(): Promise<void>;
 }
 
+/** The real browser and Google connector registrations, shared by the INT-2 and M2 stacks. */
+export interface Int2Tools {
+  tools: Registry;
+  /** Corpus action name (`gmail.send`) → registered tool name. */
+  aliases: Map<string, string>;
+  close(): Promise<void>;
+}
+
 /**
- * Registers the real tools once (their descriptions are static; executors are never invoked) and
- * returns a factory for per-run stacks. `cases` gives the gate each case's owner request.
+ * Registers the browser tools (over a mock desktop) and the offline Google connector. Their
+ * executors use a deny-all broker and refuse to run: callers decide, they never execute.
  */
-export async function prepareInt2(cases: readonly InjectionCase[]): Promise<Int2Rig> {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "psyche-int2-injection-")));
+export async function registerInt2Tools(root: string): Promise<Int2Tools> {
   const tools = new Registry();
   // Executors are never called by the runner; their broker is a deny-all stand-in.
   const executorBroker = FakePermissionBroker.policy({ default: "deny" });
@@ -331,6 +338,25 @@ export async function prepareInt2(cases: readonly InjectionCase[]): Promise<Int2
   });
   const aliases = new Map<string, string>();
   for (const row of await connectors.permissionRows()) aliases.set(row.action, row.tool);
+  return {
+    tools,
+    aliases,
+    async close() {
+      await connectors.close();
+      driver.dispose();
+      desktop.disconnect();
+    },
+  };
+}
+
+/**
+ * Registers the real tools once (their descriptions are static; executors are never invoked) and
+ * returns a factory for per-run stacks. `cases` gives the gate each case's owner request.
+ */
+export async function prepareInt2(cases: readonly InjectionCase[]): Promise<Int2Rig> {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "psyche-int2-injection-")));
+  const shared = await registerInt2Tools(root);
+  const { tools, aliases } = shared;
 
   const owners = new Map(cases.map((c) => [c.id, c.context.ownerRequest]));
   const dbs: PsycheDb[] = [];
@@ -397,9 +423,7 @@ export async function prepareInt2(cases: readonly InjectionCase[]): Promise<Int2
     toolNames: () => [...tools.tools.keys()].sort(),
     async close() {
       for (const db of dbs) db.close();
-      await connectors.close();
-      driver.dispose();
-      desktop.disconnect();
+      await shared.close();
       rmSync(root, { recursive: true, force: true });
     },
   };
