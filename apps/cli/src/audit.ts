@@ -1,5 +1,7 @@
+import { appCap, TIER_RANK } from "@psyche/permissions";
 import { isLoopbackHost } from "./paths.ts";
 import { type Snapshot, setting } from "./snapshot.ts";
+import { CLI_VERSION } from "./version.ts";
 
 /**
  * `psyche security audit` (security §10, architecture §14): misconfigurations, not bugs. Each
@@ -292,6 +294,176 @@ export function auditRules(s: Snapshot, now: Date): AuditReport {
     });
   }
 
+  // Egress proxy (security §5.2, K4): sandboxes with network reach only their allowlist through it.
+  if (s.sandbox.ok && s.sandbox.value.available && s.sandbox.value.egress === false) {
+    add({
+      id: "sandbox.egress_off",
+      severity: "high",
+      message:
+        "the sandbox runs without its egress proxy: `network: proxy` sandboxes have nothing enforcing their allowlist",
+      fix: "Update the Gateway; the egress proxy is part of every sandbox it composes",
+    });
+  }
+
+  // MCP servers (security §11): isolation and network reach.
+  const mcpServers = s.mcp.ok
+    ? s.mcp.value.servers
+    : mcpServersFromSettings(setting(s, "mcp.servers"));
+  if (s.mcp.ok) {
+    const refused = s.mcp.value.servers.filter(
+      (x) => x.transport === "stdio" && x.trust !== "bundled",
+    );
+    if (s.mcp.value.launcher === "none" && refused.length) {
+      add({
+        id: "mcp.no_launcher",
+        severity: "low",
+        message: `${refused.length} stdio MCP server(s) are refused: no sandbox launcher (srt or a container) is configured: ${refused.map((x) => x.id).join(", ")}`,
+        fix: "Set PSYCHE_SRT_PATH, or PSYCHE_MCP_LAUNCHER=container with a sandbox backend; they never run unsandboxed",
+      });
+    }
+  } else if (mcpServers.length) {
+    skip("mcp (launcher)", s.mcp);
+  }
+  const unknownNet = mcpServers.filter((x) => x.trust === "unknown" && x.network);
+  if (unknownNet.length) {
+    add({
+      id: "mcp.unknown_with_network",
+      severity: "medium",
+      message: `${unknownNet.length} MCP server(s) of unknown trust reach the network: ${unknownNet.map((x) => x.id).join(", ")}`,
+      fix: "Review them, narrow their allowed domains, or remove them (Settings › Connectors › MCP)",
+    });
+  }
+
+  // Computer use (feature F6; security §12): owner tiers above the fixed caps on banking,
+  // password-manager, browser and terminal apps. The caps still apply; the setting is misleading.
+  const cuApps = setting(s, "computerUse.apps");
+  if (setting(s, "computerUse.enabled") === true && Array.isArray(cuApps)) {
+    const over = (cuApps as { id?: unknown; tier?: unknown }[]).filter((a) => {
+      if (typeof a?.id !== "string" || typeof a.tier !== "string" || !(a.tier in TIER_RANK))
+        return false;
+      return TIER_RANK[a.tier as keyof typeof TIER_RANK] > TIER_RANK[appCap(a.id).cap];
+    });
+    if (over.length) {
+      add({
+        id: "computer_use.sensitive_override",
+        severity: "medium",
+        message: `computer-use tiers above the fixed caps for: ${over.map((a) => `${String(a.id)} (${String(a.tier)}, capped at ${appCap(String(a.id)).cap})`).join(", ")}`,
+        fix: "Lower them in Settings › Computer use; password managers, banking and system settings always stay off",
+      });
+    }
+  }
+
+  // Real-Chrome mode (I13): consent is per task, with presence; a standing grant must not exist.
+  if (rc?.enabled) {
+    add({
+      id: "browser.real_chrome_enabled",
+      severity: "low",
+      message:
+        "real-Chrome mode is on: tasks may ask to drive your own Chrome profile (each time, with Touch ID or a passkey)",
+      fix: "Turn it off in Settings › Browser when you do not need it",
+    });
+  }
+  if (s.grants.ok) {
+    const standing = s.grants.value.filter(
+      (g) => g.grantKey?.startsWith("real_chrome|") && g.scope !== "once",
+    );
+    if (standing.length) {
+      add({
+        id: "browser.real_chrome_standing_grant",
+        severity: "high",
+        message: `${standing.length} standing real-Chrome grant(s): consent should be asked every time`,
+        fix: "Revoke them in Settings › Permissions and report it",
+      });
+    }
+  }
+
+  // Backups (feature U4; security §14): encrypted, and recent.
+  if (s.backups.ok) {
+    const plain = s.backups.value.filter((b) => !b.encrypted);
+    if (plain.length) {
+      add({
+        id: "backups.unencrypted",
+        severity: "medium",
+        message: `${plain.length} unencrypted backup(s) in $PSYCHE_HOME/backups hold the vault database and transcripts: ${plain
+          .map((b) => b.file)
+          .slice(0, 3)
+          .join(", ")}`,
+        fix: "Delete them and make an encrypted one (psyche backup create)",
+      });
+    }
+    const latest = s.backups.value.reduce<number>(
+      (t, b) => Math.max(t, Date.parse(b.createdAt) || 0),
+      0,
+    );
+    if (now.getTime() - latest > 7 * DAY) {
+      add({
+        id: "backups.stale",
+        severity: "low",
+        message: latest
+          ? `the newest backup is ${Math.floor((now.getTime() - latest) / DAY)} days old`
+          : "no backup in $PSYCHE_HOME/backups",
+        fix: "psyche backup create (or schedule it: docs/guides/backup-restore.md)",
+      });
+    }
+  } else skip("backups", s.backups);
+
+  // Update manifest verification (security §11), from the desktop's last check.
+  if (s.updater.ok) {
+    const u = s.updater.value;
+    if (u.state === "refused") {
+      add({
+        id: "updates.refused",
+        severity: "high",
+        message: `the last update was refused (${u.code ?? "?"}): ${u.reason ?? "verification failed"}`,
+        fix: "Do not install updates from elsewhere; download the release from GitHub and check SHA256SUMS, and report it",
+      });
+    } else if (u.state === "no_keys") {
+      add({
+        id: "updates.no_release_key",
+        severity: "low",
+        message: "auto-update is off: this build embeds no release key to verify update manifests",
+        fix: "Install a release build; until then update by hand (docs/guides/upgrade.md)",
+      });
+    }
+  } else if (s.platform === "darwin") {
+    skip("updates (manifest verification)", s.updater);
+  }
+
+  // Device tokens (security §10 "token age").
+  if (s.devices.ok) {
+    for (const d of s.devices.value) {
+      const paired = d.pairedAt ? Date.parse(d.pairedAt) : Number.NaN;
+      if (!d.revokedAt && Number.isFinite(paired) && now.getTime() - paired > 365 * DAY) {
+        add({
+          id: "devices.old_token",
+          severity: "low",
+          message: `${d.name} (${d.id}) was paired over a year ago`,
+          fix: `Re-pair it, or revoke it if unused: psyche devices revoke ${d.id}`,
+        });
+      }
+    }
+  }
+
+  // Version (security §10 "outdated version"; no phone-home, so only CLI vs Gateway).
+  const gwVersion = s.probe.version?.version;
+  if (gwVersion && CLI_VERSION !== "0.0.0" && gwVersion !== "0.0.0" && gwVersion !== CLI_VERSION) {
+    add({
+      id: "version.mismatch",
+      severity: "low",
+      message: `the Gateway is ${gwVersion}, this CLI ${CLI_VERSION}`,
+      fix: "Upgrade the older one (docs/guides/upgrade.md)",
+    });
+  }
+
+  // Named in security §10 but with no data source yet: listed, never passed.
+  for (const rule of [
+    "tls pins (mobile clients)",
+    "vm shares",
+    "chat surfaces for device-only kinds",
+  ]) {
+    notChecked.push({ rule, reason: "no data source yet" });
+  }
+
   findings.sort((a, b) => RANK[b.severity] - RANK[a.severity]);
   return { findings, notChecked };
 }
@@ -306,4 +478,26 @@ export function parseSeverity(s: string | undefined): Severity {
   if (!Object.hasOwn(RANK, v))
     throw new Error(`severity must be one of ${Object.keys(RANK).join(", ")}`);
   return v;
+}
+
+/** `mcp.servers` setting entries → the fields the audit needs (when `mcp.status` is unavailable). */
+function mcpServersFromSettings(value: unknown): { id: string; trust: string; network: boolean }[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((c) => {
+    const x = c as {
+      id?: unknown;
+      trust?: unknown;
+      transport?: { kind?: unknown };
+      sandbox?: { allowedDomains?: unknown };
+    };
+    if (typeof x?.id !== "string") return [];
+    const domains = x.sandbox?.allowedDomains;
+    return [
+      {
+        id: x.id,
+        trust: typeof x.trust === "string" ? x.trust : "unknown",
+        network: x.transport?.kind === "http" || (Array.isArray(domains) && domains.length > 0),
+      },
+    ];
+  });
 }

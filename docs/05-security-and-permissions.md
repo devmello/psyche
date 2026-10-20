@@ -412,6 +412,29 @@ A versioned corpus of at least 200 cases (hidden DOM fields, URL and tab-title p
 - **Rate limits.** Pairing 5/hour/IP; failed challenges 10/minute/IP; approval answers 10/minute/identity; inbound chat 30/minute/sender; `fetch` 60/minute/Task. The last two are configurable (`gateway.rateLimits` in `config.json`); refusals are audited (`rate_limit.exceeded`, once per key and minute). Inbound chat is counted per channel and sender before authorization; `fetch` per Task, or per thread for an interactive turn.
 - **Docker defaults.** The image binds the container interface only with `PSYCHE_BIND=container`, requires `PSYCHE_GATEWAY_TOKEN_FILE` (a Compose secret, at least 32 characters, mode 0600 or 0400, else the Gateway refuses to start), publishes no port in the sample Compose except to the proxy's internal network, serves an unauthenticated bare-`ok` `/healthz`, runs non-root, and refuses `dmPolicy: open` without a paired owner device (OpenClaw's images "default to an exposed bind"; roundups counted tens of thousands of exposed gateways, openclaw notes, 2f, 2l).
 - **`psyche security audit`** checks: bind and proxy configuration; auth mode and public ingress; `operator.admin` devices and last-seen; token age; `always` and `exec` grants with age and uses; `open` DMs and groups without mention gating; chat surfaces configured for device-only kinds; vault backend (`basic_text`), unconfirmed recovery key, auto-lock off; file modes under `$PSYCHE_HOME`; `exec_host` enabled; unknown-tier MCP servers with network; unverified or unpinned skills; real-Chrome debugging port; missing TLS pins; outdated version; logs with bodies; rw or home-root VM shares; computer-use overrides on banking or password-manager apps.
+  Coverage today (`apps/cli/src/audit.ts`; a check whose data the Gateway cannot provide is listed as "not checked", never passed):
+
+  | Check | Rule id(s) | Data source | Severity |
+  | --- | --- | --- | --- |
+  | Bind and proxy configuration | `bind.non_loopback_without_auth`, `transport.plain_http`, `proxy.no_cidrs` | `config.json`, the CLI's URL | critical, high |
+  | Auth mode and public ingress | `proxy.public_ingress_without_passkeys` | `settings.get` | high |
+  | `operator.admin` devices and last-seen | `devices.stale_admin` | `devices.list` | low |
+  | Token age | `devices.old_token` (paired over a year ago) | `devices.list` | low |
+  | `always` and `exec` grants | `grants.standing_without_expiry` | `grants.list` | high (exec, purchase, fills, computer), medium |
+  | `open` DMs, groups without mention gating | `channels.dm_open`, `channels.group_without_mention` | `channels.list` | critical / high, medium |
+  | Vault backend, recovery key, auto-lock | `vault.key_file_only`, `vault.recovery_unconfirmed`, `vault.no_autolock` | `vault.status` | medium, low |
+  | File modes under `$PSYCHE_HOME` | `files.home_mode`, `files.sensitive_modes`, `files.modes` | local scan | high, medium |
+  | Sandbox disabled, egress proxy (§5.2) | `sandbox.disabled`, `sandbox.egress_off` | `sandbox.status` | high |
+  | `exec_host` enabled | `exec_host.enabled` | `settings.get` | high |
+  | MCP sandboxing; unknown-tier MCP servers with network | `mcp.no_launcher`, `mcp.unknown_with_network` | `mcp.status`, else the `mcp.servers` setting | low, medium |
+  | Unverified or unpinned skills | `skills.unverified` | `skills.list` | high (hash mismatch), medium |
+  | Real-Chrome mode (I13) and its consent | `browser.real_chrome_attached`, `browser.real_chrome_enabled`, `browser.real_chrome_standing_grant`, `browser.chrome_debug_port` | `browser.realChrome.status`, `grants.list`, a probe of 127.0.0.1:9222 | medium, low, high, high |
+  | Computer-use overrides on banking, password-manager, browser and terminal apps | `computer_use.sensitive_override` | `computerUse.*` settings against the fixed caps (`@psyche/permissions` `appCap`) | medium |
+  | Backup encryption and age (U4) | `backups.unencrypted`, `backups.stale` (over 7 days) | `backup.list` | medium, low |
+  | Update manifest verification (§11) | `updates.refused`, `updates.no_release_key` | `$PSYCHE_HOME/run/updater.json` written by the desktop | high, low |
+  | Outdated version | `version.mismatch` (CLI vs Gateway only: there is no phone-home) | `/version` | low |
+  | Logs with bodies; telemetry | `logs.bodies`, `telemetry.enabled` | `settings.get` | medium |
+  | Missing TLS pins; rw or home-root VM shares; chat surfaces configured for device-only kinds | not checked yet ("no data source yet") | — | — |
 
 ---
 

@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@psyche/backup": "workspace:*",
+    "@psyche/permissions": "workspace:*",
     "@psyche/protocol": "workspace:*"
   },
   "devDependencies": {
