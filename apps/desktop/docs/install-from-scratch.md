@@ -34,23 +34,23 @@ How it is built and signed: [signing.md](signing.md).
    - **Done:** binds the model you picked and confirms three things: the Gateway is running, the helper is connected, and the model is set with a key.
 5. **Main chat.** The Gateway answers with the model you picked. No environment variables are involved.
 
-## Until the first-run gaps close (2026-10-20)
+## Admin rights and the vault on an unsigned build
 
-Two first-run steps still need a decision (docs/status/s11.md, "Packaging"):
+Decided 2026-10-20 (docs/05 §4.3.1).
 
-- **Admin rights for the window.** The window pairs with `operator.read`, `operator.write` and `operator.approvals`, but never `operator.admin`. Any process running as you can read the handshake secret, so it can't buy admin. Creating the vault, storing a key and picking a model all need admin. Until the app can bootstrap its first admin device, grant it once in Terminal, then quit Psyche (⌘Q) and open it again:
+- **Admin.** The first time the window pairs with a Gateway that has no admin device, it makes this Mac the admin device (`devices.bootstrapAdmin`, audited). Settings → Devices then says "This Mac is the admin device", and the Done step checks it. If an admin already exists, nothing happens.
+- **Vault.** When the bundled Psyche Helper cannot hold the Keychain (Touch ID) slot, as with an ad-hoc build, the vault key lives in `~/.psyche/secrets/vault.key`. That file is mode 0600 in a 0700 folder. Settings → Credentials shows "Vault protected by: a key file on this Mac".
+- **Recovery key.** The Model & provider step creates the vault and shows its recovery key once. **Copy** it, save it, and tick **I saved it**: the step will not move on until you do.
 
-  ```bash
-  P=/Applications/Psyche.app/Contents/Resources/psyched/psyched; $P devices list
-  ```
+Until those changes are in your build (#406, #407, #408), grant admin once in Terminal instead, then quit Psyche (⌘Q) and open it again:
 
-  ```bash
-  /Applications/Psyche.app/Contents/Resources/psyched/psyched devices grant <the "Psyche Desktop" id> operator.read,operator.write,operator.approvals,operator.admin
-  ```
+```bash
+/Applications/Psyche.app/Contents/Resources/psyched/psyched devices list
+```
 
-- **The vault's key slot.** On a build signed without a provisioning profile, Psyche Helper cannot use the data-protection Keychain, so the vault's Touch ID slot is unavailable. Until the key-file slot change lands (#403), **Save to vault** reports the vault as unavailable on such builds.
-
-Without a key, a chat turn fails with `credential unavailable`. The chat does not show that failure yet.
+```bash
+/Applications/Psyche.app/Contents/Resources/psyched/psyched devices grant <the "Psyche Desktop" id> operator.read,operator.write,operator.approvals,operator.admin
+```
 
 ## macOS prompts, in order
 
@@ -74,7 +74,7 @@ What the 2026-10-20 run showed, on a locally built app (not quarantined, so ther
 | Path | What |
 | --- | --- |
 | `/Applications/Psyche.app` | The app, the bundled Gateway and Psyche Helper |
-| `~/.psyche/` (`PSYCHE_HOME`) | Everything the Gateway keeps: `psyche.db`, `workspace/` (memory files), `vault/` (encrypted vault and its slots), `logs/gateway.out.log` and `gateway.err.log`, `run/` (node socket, `handshake.secret`, `helper.lock`), backups |
+| `~/.psyche/` (`PSYCHE_HOME`) | Everything the Gateway keeps: `state/psyche.sqlite`, `workspace/` (memory files), `vault/` (encrypted vault and its slots), `secrets/vault.key` (unsigned builds only), `logs/gateway.out.log` and `gateway.err.log`, `run/` (node socket, `handshake.secret`, `helper.lock`), backups |
 | `~/Library/LaunchAgents/com.psyche.gateway.plist` | The Gateway's LaunchAgent (label `com.psyche.gateway`, `KeepAlive`, `RunAtLoad`) |
 | `~/Library/Application Support/Psyche/` | The window's own data: device key, browser profiles, window state |
 | `~/Library/Preferences/com.psyche.desktop.plist`, `com.psyche.helper.plist` | macOS preferences for the two apps |
