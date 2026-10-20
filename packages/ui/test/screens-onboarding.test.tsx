@@ -150,6 +150,25 @@ describe("OnboardingFlow", () => {
     expect(screen.queryByLabelText("API key")).toBeNull();
   });
 
+  it("keeps the key field open when the provider refuses the saved key (#504)", async () => {
+    const onSaveKey = vi.fn(async (provider: string) => ({
+      keyRef: `model-${provider}`,
+      refused: "the endpoint refused the key (HTTP 401: invalid x-api-key)",
+    }));
+    setup({ defaultStep: "model", onSaveKey });
+    await userEvent.type(screen.getByLabelText("API key"), "sk-ant-wrong");
+    await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
+    expect(
+      await screen.findByText(
+        /The provider refused this key \(the endpoint refused the key \(HTTP 401: invalid x-api-key\)\)/,
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("The key was not stored.")).toBeNull();
+    // Not marked stored: another paste replaces it.
+    expect(screen.queryByText("model-anthropic")).toBeNull();
+    expect(screen.getByLabelText("API key")).toBeTruthy();
+  });
+
   it("explains what the VM guest can see", async () => {
     setup({ defaultStep: "where", initial: { persona: { name: "Wren" } } });
     expect(heading().textContent).toContain("Where Wren works");

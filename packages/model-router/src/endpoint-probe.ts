@@ -95,10 +95,61 @@ interface Listing {
 
 class HttpError extends Error {
   readonly status: number;
-  constructor(status: number, message: string) {
+  /** The provider's own reason from the error body (`invalid x-api-key`), when it gave one. */
+  readonly reason: string | undefined;
+  constructor(status: number, message: string, reason?: string) {
     super(message);
     this.status = status;
+    this.reason = reason;
   }
+}
+
+/**
+ * The reason in a provider error body: Anthropic / OpenAI / OpenRouter `{error: {message}}`,
+ * Gemini `{error: {message, status}}`, LM Studio `{error: "…"}`, or `{message}`.
+ */
+export function providerErrorReason(body: string): string | undefined {
+  try {
+    const j = JSON.parse(body) as { error?: unknown; message?: unknown };
+    const e = j.error;
+    const text =
+      typeof e === "string"
+        ? e
+        : isObject(e) && typeof e.message === "string"
+          ? e.message
+          : typeof j.message === "string"
+            ? j.message
+            : undefined;
+    return text === undefined ? undefined : text.replace(/\s+/g, " ").trim().slice(0, 200);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * What a failed probe tells the owner. 401 / 403: the key (a missing key says so). 400, 404,
+ * 405, 415, 422: the request itself, which is Psyche's or the endpoint's problem, not the key's.
+ */
+export function probeHttpError(err: { status: number; reason?: string | undefined }): {
+  state: "auth_failed" | "error";
+  error: string;
+} {
+  const detail = `HTTP ${err.status}${err.reason === undefined ? "" : `: ${err.reason}`}`;
+  if (err.status === 401 || err.status === 403) {
+    const missing = /header is required|missing (?:api )?key|no api key|not provided/i.test(
+      err.reason ?? "",
+    );
+    return {
+      state: "auth_failed",
+      error: missing
+        ? `no key reached the endpoint (${detail})`
+        : `the endpoint refused the key (${detail})`,
+    };
+  }
+  if ([400, 404, 405, 415, 422].includes(err.status)) {
+    return { state: "error", error: `the endpoint rejected the request as malformed (${detail})` };
+  }
+  return { state: "error", error: `the endpoint failed (${detail})` };
 }
 
 type Get = (
@@ -483,7 +534,9 @@ export async function probeEndpoint(
       }
       const res = await fetchFn(url, req);
       const text = await res.text();
-      if (!res.ok) throw new HttpError(res.status, `HTTP ${res.status}`);
+      if (!res.ok) {
+        throw new HttpError(res.status, `HTTP ${res.status}`, providerErrorReason(text));
+      }
       return { json: text.length === 0 ? {} : (JSON.parse(text) as unknown), headers: res.headers };
     } finally {
       clearTimeout(timer);
@@ -520,14 +573,9 @@ export async function probeEndpoint(
     const latencyMs = Math.max(0, clock.now() - started);
     const message = keys.redact(err instanceof Error ? err.message : String(err)).slice(0, 300);
     if (err instanceof HttpError) {
-      const auth = err.status === 401 || err.status === 403;
-      return {
-        state: auth ? "auth_failed" : "error",
-        probedAt,
-        latencyMs,
-        models: [],
-        error: auth ? `the endpoint refused the key (${message})` : message,
-      };
+      const reason = err.reason === undefined ? undefined : keys.redact(err.reason);
+      const { state, error } = probeHttpError({ status: err.status, reason });
+      return { state, probedAt, latencyMs, models: [], error };
     }
     const unreachable =
       NETWORK.test(message) || (err instanceof Error && err.name === "AbortError");
