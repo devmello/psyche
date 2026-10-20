@@ -111,12 +111,34 @@ export const ApprovalRequest = Type.Object(
 );
 export type ApprovalRequest = Static<typeof ApprovalRequest>;
 
+/**
+ * Fresh user presence for approvals that require authentication (security §3.7): a WebAuthn
+ * assertion (web passkeys) or the helper's Touch ID signature, over the approval's presence
+ * challenge `sha256("psyche.presence.v1|<approvalId>|<bindingHash>|<answerToken>")` (hex; a
+ * WebAuthn client passes its 32 raw bytes as the challenge).
+ */
+export const PresenceAssertionSchema = Type.Object(
+  {
+    kind: StringEnum(["webauthn", "helper"]),
+    deviceId: Id,
+    signature: Type.String({ minLength: 1, maxLength: 4096, description: "base64url" }),
+    payload: Type.Optional(
+      Type.Record(Type.String({ maxLength: 64 }), Type.String({ maxLength: 16_384 }), {
+        description:
+          "webauthn: credentialId, authenticatorData, clientDataJSON, userHandle? (base64url); helper: keyId",
+      }),
+    ),
+  },
+  { $id: "PresenceAssertion" },
+);
+
 export const ApprovalAnswer = Type.Object(
   {
     approvalId: Id,
     answerToken: Type.String({ minLength: 1 }),
     decision: StringEnum(["approve", "deny"]),
     scope: Type.Optional(GrantScope),
+    presence: Type.Optional(PresenceAssertionSchema),
   },
   { $id: "ApprovalAnswer" },
 );

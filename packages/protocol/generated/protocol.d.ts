@@ -5,10 +5,27 @@ export interface ApprovalAnswer {
     answerToken: string;
     approvalId:  string;
     decision:    DecisionEnum;
+    presence?:   PresenceAssertion;
     scope?:      GrantScope;
 }
 
 export type DecisionEnum = "approve" | "deny";
+
+export interface PresenceAssertion {
+    deviceId: string;
+    kind:     PresenceAssertionKind;
+    /**
+     * webauthn: credentialId, authenticatorData, clientDataJSON, userHandle? (base64url);
+     * helper: keyId
+     */
+    payload?: { [key: string]: string };
+    /**
+     * base64url
+     */
+    signature: string;
+}
+
+export type PresenceAssertionKind = "webauthn" | "helper";
 
 export type GrantScope = "once" | "task" | "site" | "session" | "always";
 
@@ -2416,6 +2433,53 @@ export interface OkResult {
 
 export interface PairingRequestedPayload {
     pairingRequest: PairingRequest;
+}
+
+export interface PasskeysListResult {
+    passkeys: PasskeyInfo[];
+}
+
+export interface PasskeyInfo {
+    /**
+     * Synced passkey (multi-device credential)
+     */
+    backedUp:    boolean;
+    createdAt:   string;
+    deviceId:    string;
+    id:          string;
+    lastUsedAt?: null | string;
+    name:        string;
+}
+
+export interface PasskeysReauthBeginResult {
+    ceremonyId: string;
+    options:    { [key: string]: unknown };
+}
+
+export interface PasskeysRegisterBeginResult {
+    ceremonyId: string;
+    options:    { [key: string]: unknown };
+}
+
+export interface PasskeysRegisterFinishParams {
+    ceremonyId: string;
+    name?:      string;
+    reauth?:    PasskeyReauth;
+    response:   { [key: string]: unknown };
+}
+
+export interface PasskeyReauth {
+    ceremonyId: string;
+    response:   { [key: string]: unknown };
+}
+
+export interface PasskeysRegisterFinishResult {
+    passkey: PasskeyInfo;
+}
+
+export interface PasskeysRemoveParams {
+    passkeyId: string;
+    reauth:    PasskeyReauth;
 }
 
 export interface PersonaUpdatedPayload {

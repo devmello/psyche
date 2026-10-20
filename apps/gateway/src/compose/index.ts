@@ -68,6 +68,7 @@ import {
   receiptHandlers,
   surfaceOf,
 } from "./handlers.ts";
+import { composePasskeys } from "./passkeys.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import {
   type ApprovalRelay,
@@ -387,6 +388,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   };
   const partFactories = [
     composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
+    // Web passkeys (issue #79): unavailable until gateway.publicOrigin is an https origin. A
+    // caller-supplied `presence` verifier takes the passkey role instead.
+    ...(presence === NO_PRESENCE ? [composePasskeys({ publicOrigin: config.publicOrigin })] : []),
     ...extraParts,
   ];
   let localProjectSupplied = false;
@@ -629,6 +633,7 @@ export {
 export { type McpGrantRevoker, type McpLifecycleEvent, mcpGrantRevocation } from "./mcp-grants.ts";
 export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { partsFromEnv } from "./parts.ts";
+export { composePasskeys, PasskeyService, webauthnChallengeFor } from "./passkeys.ts";
 export { type ComposedProactive, composeProactive, type ProactiveSetup } from "./proactive.ts";
 export {
   createRealChromeMode,

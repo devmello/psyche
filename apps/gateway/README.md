@@ -21,6 +21,7 @@ Precedence: overrides passed to `startGateway` → environment → `$PSYCHE_HOME
 | --- | --- | --- | --- |
 | — | `PSYCHE_HOME` | `~/.psyche` | Created 0700 with `state/`, `run/`, `logs/` |
 | `gateway.host` | `PSYCHE_HOST` | `127.0.0.1` | Non-loopback refused (security §10) |
+| `gateway.publicOrigin` | `PSYCHE_PUBLIC_ORIGIN` | — | The https origin of the web client behind a proxy (`http://localhost` for development). Added to the allowed Origins; its host is the passkey RP ID |
 | — | `PSYCHE_BIND` | `loopback` | `container` listens on the container interface (`src/transport-gate.ts`): trusted proxies need a verified identity (Cloudflare Access assertion, or Tailscale headers from `trustedProxy.tailscaleProxies`), every other peer the token. Pairing still applies |
 | — | `PSYCHE_GATEWAY_TOKEN_FILE` | — | Required with `PSYCHE_BIND=container`: ≥ 32 characters, mode 0600/0400, owned by the Gateway's user, else startup fails. Presented as `Authorization: Bearer` |
 | `gateway.port` | `PSYCHE_PORT` | `7979` | `0` = ephemeral |
@@ -48,6 +49,7 @@ HTTP: `GET /healthz` (bare `{"ok":true}`), `GET /version`, the web UI at `/` (CS
 | Nodes | `nodes.list`, `nodes.capabilities`, `nodes.invoke`; node side `node.event`, `node.result` | Through the Permission Broker |
 | Events | `events.subscribe` (`events` name/prefix patterns, `threadIds`) | Returns `stateVersion` |
 | Speech | `voice.start`, `voice.push`, `voice.stop`, `voice.cancel`, `voice.memo.save`, `speech.readAloud`, `speech.voices` | S17's `@psyche/speech` handlers, mounted by the composition root (`src/compose/speech.ts`). Engine: the newest connected mac-helper node with `speech.*` (whisper.cpp / Kokoro when installed). `voice.*` / `speech.audio` events go to the requesting device only; its sessions end when its last connection closes. ffmpeg / whisper-cli run behind `PSYCHE_SPEECH_RUNNER_PREFIX` when set (e.g. `srt`) |
+| Passkeys | `passkeys.register.begin`, `passkeys.register.finish`, `passkeys.reauth.begin`, `passkeys.list`, `passkeys.remove` | WebAuthn passkeys per device (`src/compose/passkeys.ts`, `@simplewebauthn/server`), only with an https `publicOrigin`. A passkey assertion is the `webauthn` presence on `approvals.answer`; once one is registered, security settings need a presence-approved `policy_change` card. Adding or removing a passkey on a device that has one needs a fresh assertion |
 | Audit | `audit.list`, `audit.verify` (`operator.read`), `audit.export` (`operator.admin`) | S05's `@psyche/permissions` handlers over the hash-chained log, mounted by the composition root |
 
 Every other registered method answers `not_implemented` (tasks, approvals, memory, … belong to other sessions and are wired in as they land).

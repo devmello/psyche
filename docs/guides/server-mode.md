@@ -248,7 +248,17 @@ This grants read, write and approvals. Add `--admin` to grant admin too. You can
 
 Open the tunnel or tailnet URL in a browser. The page shows "Approve this device from a paired device to continue" and a pairing code. Approve it as above.
 
-The web client keeps its device key in memory, so every reload is a new device that needs approving again. Passkey sign-in for the web is not available yet.
+The web client keeps its device key in memory, so every reload is a new device that needs approving again.
+
+#### Passkeys
+
+Behind HTTPS, the web client can register a passkey. The passkey proves you are present for approvals that need authentication, and for security settings once any passkey exists.
+
+1. Set the public origin, so the passkey is bound to your hostname. Either `{"gateway": {"publicOrigin": "https://psyche.example.com"}}` in `config.json`, or `PSYCHE_PUBLIC_ORIGIN`. It must be `https://`; `http://localhost` works for development. Changing the hostname later invalidates every passkey.
+2. In the web client, add a passkey (Settings). The Gateway stores it for that device only, with at most 20 per device.
+3. To add or remove another passkey on the same device, you first confirm with an existing one. A stolen device key alone cannot swap in someone else's passkey.
+
+Once a paired device has a passkey, changing a security setting (permissions, exec, vault, devices, gateway, owner identities, channel policies) shows an approval card first. Approve it with your passkey or with Touch ID on the Mac; the change then goes through. Failed attempts are limited to 20 per address or device per 5 minutes. Revoking a device ends its passkeys.
 
 ### The desktop app
 
@@ -311,7 +321,6 @@ node apps/cli/src/main.ts security audit
 
 - A published container image, release binaries, or a packaged `psyched`.
 - The shipped Compose file on the container bind: it still uses host networking (see "Container bind").
-- Passkey sign-in for the web client.
 - Model keys from the vault, and setting the vault up from the app or the CLI.
 - The agent's browser on a server: the headless browser profile is not used.
 - Using a Mac's helper (approval notifications, Touch ID, apps) from a server Gateway.

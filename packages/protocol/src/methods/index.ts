@@ -19,6 +19,7 @@ import { MemoryMethods } from "./memory.ts";
 import { NodeMethods } from "./node.ts";
 import { NodesMethods } from "./nodes.ts";
 import { NotificationsMethods } from "./notifications.ts";
+import { PasskeysMethods } from "./passkeys.ts";
 import { FeedMethods, GoalsMethods, IdeasMethods } from "./proactive.ts";
 import { QuestionsMethods } from "./questions.ts";
 import { ArtifactsMethods, ReceiptsMethods } from "./receipts.ts";
@@ -51,6 +52,7 @@ export * from "./memory.ts";
 export * from "./node.ts";
 export * from "./nodes.ts";
 export * from "./notifications.ts";
+export * from "./passkeys.ts";
 export * from "./proactive.ts";
 export * from "./questions.ts";
 export * from "./receipts.ts";
@@ -82,6 +84,7 @@ export const Methods = {
   ...NotificationsMethods,
   ...NodesMethods,
   ...DevicesMethods,
+  ...PasskeysMethods,
   ...ConnectorsMethods,
   ...ChannelsMethods,
   ...AutomationsMethods,

@@ -27,6 +27,7 @@ const TABLES = [
   "notification_deliveries",
   "notifications",
   "pairing_requests",
+  "passkeys",
   "policy_rules",
   "receipts",
   "runs",

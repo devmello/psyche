@@ -194,6 +194,20 @@ export const toolPayloads = sqliteTable("tool_payloads", {
   createdAt: text("created_at").notNull(),
 });
 
+/** WebAuthn passkeys per device (issue #79). */
+export const passkeys = sqliteTable("passkeys", {
+  id: text("id").primaryKey(),
+  deviceId: text("device_id").notNull(),
+  credentialId: text("credential_id").notNull(),
+  publicKey: blob("public_key", { mode: "buffer" }).notNull(),
+  counter: integer("counter").notNull(),
+  transports: text("transports").notNull(),
+  name: text("name").notNull(),
+  backedUp: integer("backed_up").notNull(),
+  createdAt: text("created_at").notNull(),
+  lastUsedAt: text("last_used_at"),
+});
+
 /** The agent loop's per-thread state (issue #52), JSON. */
 export const agentThreadState = sqliteTable("agent_thread_state", {
   threadId: text("thread_id").primaryKey(),
@@ -279,6 +293,7 @@ export const schema = {
   toolPayloads,
   gatewayIdempotency,
   agentThreadState,
+  passkeys,
   settings,
   usage,
   ...s04Schema,
