@@ -393,6 +393,18 @@ export class MockGateway implements GatewayClient {
         ? fail("forbidden", "the main chat cannot be archived")
         : this.patchThread(p.threadId, { archivedAt: this.now() }),
     "threads.restore": (p) => this.patchThread(p.threadId, { archivedAt: null }),
+    "threads.update": (p) => {
+      const current = this.thread(p.threadId).thread;
+      const modelRef = p.modelRef === undefined ? current.modelRef : p.modelRef;
+      // The real Gateway checks the auto-mode allowlist; the mock only refuses auto without a model.
+      if (p.permissionMode === "auto" && !modelRef) {
+        fail("forbidden", "Auto mode needs a model on the auto-mode allowlist");
+      }
+      return this.patchThread(p.threadId, {
+        ...(p.permissionMode === undefined ? {} : { permissionMode: p.permissionMode }),
+        modelRef: modelRef ?? null,
+      });
+    },
     "threads.pin": (p) => this.patchThread(p.threadId, { pinned: p.pinned }),
     "threads.delete": (p) => {
       this.thread(p.threadId);
@@ -860,6 +872,13 @@ export class MockGateway implements GatewayClient {
       const claim = this.find(this.world.memoryClaims, p.claimId, "claim");
       const chunks = claim.sources.map((source, i) => this.chunk(source, i + 1, claim.text));
       return { claim, chunks };
+    },
+    "memory.remember": (p) => {
+      const path = `memory/${this.now().slice(0, 10)}.md`;
+      const before = this.world.memoryFiles[path] ?? "";
+      const after = before === "" ? `- ${p.text}` : `${before}\n- ${p.text}`;
+      this.world.memoryFiles[path] = after;
+      return { path, chunk: this.chunk(path, after.split("\n").length, p.text) };
     },
     "memory.forget": (p) => {
       const q = p.subject.toLowerCase();

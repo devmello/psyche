@@ -6,7 +6,7 @@ import {
   type PsycheAgentLoop,
 } from "@psyche/agent-core";
 import { createAuditLog, type HashChainAuditLog } from "@psyche/audit";
-import { getDevice, getSetting, openDb, type PsycheDb } from "@psyche/db";
+import { getDevice, getSetting, getThread, openDb, type PsycheDb } from "@psyche/db";
 import {
   brokerApprovalCheck,
   createMemoryHandlers,
@@ -404,6 +404,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(timeZone === undefined ? {} : { timeZone }),
     approvalSurfaces: ["desktop", "web"],
     ...(compaction === undefined ? {} : { compaction }),
+    // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
+    isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
   });
   const pool = new TaskWorkerPool({
     engine: tasks,
