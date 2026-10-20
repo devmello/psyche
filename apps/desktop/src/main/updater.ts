@@ -3,7 +3,12 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { app, autoUpdater } from "electron";
 import { TRUSTED_RELEASE_KEYS } from "./release-keys.ts";
-import { checkForVerifiedUpdate, serveVerifiedUpdate } from "./update-flow.ts";
+import {
+  checkForVerifiedUpdate,
+  serveVerifiedUpdate,
+  type UpdaterStateFile,
+  writeUpdaterState,
+} from "./update-flow.ts";
 
 /**
  * Auto-update (feature A6; security §11). Before Squirrel.Mac sees anything, the updater fetches
@@ -27,6 +32,8 @@ export interface UpdaterOptions {
   feedUrl?: string;
   /** Defaults to stderr. */
   log?: (message: string) => void;
+  /** `$PSYCHE_HOME/run/updater.json`: the result, for `psyche security audit`. */
+  stateFile?: string;
 }
 
 function stderrLog(message: string): void {
@@ -49,8 +56,32 @@ async function isDeveloperIdSigned(): Promise<boolean> {
 }
 
 export async function startUpdater(opts: UpdaterOptions = {}): Promise<UpdaterState> {
+  const state = await runUpdater(opts);
+  if (opts.stateFile) {
+    try {
+      writeUpdaterState(opts.stateFile, {
+        state: state.state,
+        appVersion: app.getVersion(),
+        keys: TRUSTED_RELEASE_KEYS.length,
+        checkedAt: new Date().toISOString(),
+        ...(state.code ? { code: state.code } : {}),
+        ...(state.reason ? { reason: state.reason } : {}),
+        ...(state.release ? { release: state.release } : {}),
+      });
+    } catch {
+      // The audit then reports the check as not run; the update itself is unaffected.
+    }
+  }
+  return state.state;
+}
+
+type RunResult = { state: UpdaterState } & Partial<
+  Pick<UpdaterStateFile, "code" | "reason" | "release">
+>;
+
+async function runUpdater(opts: UpdaterOptions): Promise<RunResult> {
   const log = opts.log ?? stderrLog;
-  if (!app.isPackaged || !(await isDeveloperIdSigned())) return "disabled";
+  if (!app.isPackaged || !(await isDeveloperIdSigned())) return { state: "disabled" };
   const feed = opts.feedUrl ?? process.env.PSYCHE_UPDATE_FEED;
   const result = await checkForVerifiedUpdate({
     fetch,
@@ -68,12 +99,12 @@ export async function startUpdater(opts: UpdaterOptions = {}): Promise<UpdaterSt
   switch (result.state) {
     case "no_keys":
       log("no release key embedded: updates stay off (security §11)");
-      return "no_keys";
+      return { state: "no_keys" };
     case "none":
-      return "none";
+      return { state: "none", reason: result.reason };
     case "refused":
       log(`refused update (${result.code}): ${result.reason}`);
-      return "refused";
+      return { state: "refused", code: result.code, reason: result.reason };
     case "ready": {
       const served = await serveVerifiedUpdate(result.file, result.release);
       autoUpdater.on("error", (error) => {
@@ -88,7 +119,7 @@ export async function startUpdater(opts: UpdaterOptions = {}): Promise<UpdaterSt
       });
       autoUpdater.setFeedURL({ url: served.feedUrl, serverType: "json" });
       autoUpdater.checkForUpdates();
-      return "started";
+      return { state: "started", release: result.release };
     }
   }
 }

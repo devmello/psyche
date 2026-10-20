@@ -1,10 +1,14 @@
 import { execFileSync } from "node:child_process";
 import { createHash, generateKeyPairSync, type KeyObject, sign } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { checkForVerifiedUpdate, serveVerifiedUpdate } from "../../src/main/update-flow.ts";
+import {
+  checkForVerifiedUpdate,
+  serveVerifiedUpdate,
+  writeUpdaterState,
+} from "../../src/main/update-flow.ts";
 import {
   compareVersions,
   keyIdOf,
@@ -310,5 +314,29 @@ describe("checkForVerifiedUpdate and the loopback feed", () => {
         dir: temp(),
       }),
     ).toMatchObject({ state: "none" });
+  });
+});
+
+describe("updater state file (read by psyche security audit)", () => {
+  it("writes the result to $PSYCHE_HOME/run/updater.json, 0600, without keys or secrets", () => {
+    const file = join(temp(), "run", "updater.json");
+    writeUpdaterState(file, {
+      state: "refused",
+      appVersion: "1.0.0",
+      keys: 1,
+      checkedAt: "2026-10-20T00:00:00.000Z",
+      code: "bad_signature",
+      reason: "manifest signature does not match",
+    });
+    expect(JSON.parse(readFileSync(file, "utf8"))).toEqual({
+      version: 1,
+      state: "refused",
+      appVersion: "1.0.0",
+      keys: 1,
+      checkedAt: "2026-10-20T00:00:00.000Z",
+      code: "bad_signature",
+      reason: "manifest signature does not match",
+    });
+    expect(statSync(file).mode & 0o777).toBe(0o600);
   });
 });

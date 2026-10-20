@@ -1,8 +1,16 @@
 import { createHash, randomBytes } from "node:crypto";
-import { createReadStream, createWriteStream, mkdirSync, rmSync, statSync } from "node:fs";
+import {
+  createReadStream,
+  createWriteStream,
+  mkdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import {
@@ -162,4 +170,28 @@ export async function serveVerifiedUpdate(
     feedUrl: `http://127.0.0.1:${port}/${token}/feed`,
     close: () => new Promise<void>((r) => server.close(() => r())),
   };
+}
+
+/**
+ * What the last update check found, for `psyche security audit` (it reads
+ * `$PSYCHE_HOME/run/updater.json`; no network call). Never holds a URL with credentials, a key
+ * or a file path outside $PSYCHE_HOME.
+ */
+export interface UpdaterStateFile {
+  version: 1;
+  state: "disabled" | "no_keys" | "none" | "refused" | "started";
+  appVersion: string;
+  /** Embedded release keys (0 = updates off). */
+  keys: number;
+  checkedAt: string;
+  code?: string;
+  reason?: string;
+  release?: string;
+}
+
+export function writeUpdaterState(file: string, state: Omit<UpdaterStateFile, "version">): void {
+  mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+  const tmp = `${file}.${process.pid}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify({ version: 1, ...state }, null, 2)}\n`, { mode: 0o600 });
+  renameSync(tmp, file);
 }
