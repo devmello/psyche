@@ -73,6 +73,7 @@ import {
   type ComposeServices,
   createOwnPorts,
 } from "./services.ts";
+import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 
 /**
@@ -302,6 +303,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   );
 
   const { provider, model: modelRef, utility } = providerFor(model, clock);
+  const modelPins = modelPinsFor(provider);
   const memory = await createMemoryStore({
     db,
     workspaceDir: join(config.home, "workspace"),
@@ -451,6 +453,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...proactive.handlers,
     ...questionHandlers(loop, tasks),
     ...receiptHandlers(broker),
+    ...threadSettingsHandlers(modelPins),
     ...vault.handlers,
   };
   for (const part of parts) Object.assign(handlers, part.handlers ?? {});
@@ -463,6 +466,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     memory,
     handlers,
     onDeviceRevoked: (deviceId) => rawBroker.revokeGrantsByDevice(deviceId),
+    threadModels: modelPins,
   });
   bus = gateway.bus;
   vault.attach(gateway.context.nodes);
@@ -485,6 +489,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }
   });
   memory.watch();
+  await restoreModelPins(db, modelPins, (msg, fields) =>
+    gwOptions.logger?.log("warn", msg, fields),
+  );
   ownPorts.add(gateway.port, "gateway (bound)");
   for (const part of parts) await part.start?.(gateway);
   await proactive.start();
@@ -557,6 +564,7 @@ export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { partsFromEnv } from "./parts.ts";
 export { type ComposedProactive, composeProactive, type ProactiveSetup } from "./proactive.ts";
 export type { ApprovalRelay, ComposedPart, ComposeServices, OwnPorts } from "./services.ts";
+export { type ModelPins, modelPinsFor, restoreModelPins } from "./threads.ts";
 export {
   type ComposedVault,
   chooseWrapper,
