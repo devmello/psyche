@@ -1276,4 +1276,21 @@ export const settings = {
   "settings.voice.engine.systemHint": "Apple's on-device recognizer.",
   "settings.voice.engine.cloud": "Your model provider",
   "settings.voice.engine.cloudHint": "Audio goes to the provider you configured.",
+  "settings.connect.starting": "Starting the sign-in to {name}…",
+  "settings.connect.finish":
+    "Finish signing in to {name} in your browser. This updates when you're done.",
+  "settings.connect.finishOpened":
+    "The sign-in to {name} opened in your browser on the Gateway's Mac. This updates when you're done.",
+  "settings.connect.enterCode": "Enter this code on the sign-in page:",
+  "settings.connect.openPage": "Open the sign-in page",
+  "settings.connect.connected": "{name} is connected.",
+  "settings.connect.connectedAs": "{name} is connected as {account}.",
+  "settings.connect.failed": "{name} wasn't connected: {reason}",
+  "settings.connect.signInFailed": "the sign-in didn't finish",
+  "settings.connect.expired": "the sign-in page expired. Try again.",
+  "settings.connect.noSignIn": "the Gateway didn't return a sign-in page",
+  "settings.connect.notConfigured":
+    "{name} isn't set up on this Gateway yet: it needs your own OAuth client (the Connecting Google guide in Psyche's docs). Set it up later in Settings → Connectors.",
+  "settings.connect.unavailable":
+    "Signing in to {name} isn't available on this Gateway yet. Set it up later in Settings → Connectors.",
 } as const;

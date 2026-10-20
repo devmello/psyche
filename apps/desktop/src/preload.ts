@@ -153,6 +153,10 @@ const bridge = {
   clipboard: {
     writeText: (text: string) => invoke(IPC.clipboardWrite, { text }),
   },
+  /** Opens an https page in the default browser (a connector's sign-in, #505). */
+  external: {
+    open: (url: string) => invoke(IPC.openExternal, { url }),
+  },
   /** The macOS region format and preferred languages (A12). */
   locale: {
     get: () => invoke(IPC.localeGet),

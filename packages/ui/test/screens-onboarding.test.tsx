@@ -1,6 +1,8 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import type { MockGateway } from "../src/data/mock-gateway.ts";
+import type { FixtureWorld } from "../src/fixtures/index.ts";
 import {
   OnboardingFlow,
   type OnboardingFlowProps,
@@ -13,7 +15,13 @@ function setup(props: Partial<OnboardingFlowProps> = {}, slots: UiSlots = {}) {
   const onComplete = vi.fn<(r: OnboardingResult) => void>();
   const onStepChange = vi.fn();
   render(
-    <StoryWorld slots={slots}>
+    // First run: the Gateway has no connectors yet.
+    <StoryWorld
+      slots={slots}
+      edit={(w) => {
+        w.connectors = [];
+      }}
+    >
       <OnboardingFlow onComplete={onComplete} onStepChange={onStepChange} {...props} />
     </StoryWorld>,
   );
@@ -379,5 +387,80 @@ describe("Onboarding polish (UI design §3.19)", () => {
     const group = screen.getByRole("radiogroup", { name: "Bundled creatures" });
     const owl = within(group).getByRole("radio", { name: "Owl" });
     expect(owl.querySelector('[role="radio"]')).toBeNull();
+  });
+});
+
+describe("Connect in onboarding is the real sign-in (#505)", () => {
+  async function startGoogle(slots: UiSlots = {}, edit?: (w: FixtureWorld) => void) {
+    let gw: MockGateway | null = null;
+    render(
+      <StoryWorld
+        slots={slots}
+        onGateway={(g) => (gw = g)}
+        edit={(w) => {
+          w.connectors = [];
+          edit?.(w);
+        }}
+      >
+        <OnboardingFlow onComplete={() => {}} defaultStep="connectors" />
+      </StoryWorld>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: "Connect" }));
+    return gw as unknown as MockGateway;
+  }
+
+  it("opens the consent page and shows Connected only once the Gateway holds a token", async () => {
+    const openExternal = vi.fn(async (_url: string) => {});
+    const gw = await startGoogle({ openExternal });
+    const pending = await screen.findByTestId("connect-signing-in");
+    expect(pending.textContent).toContain("Finish signing in to Google");
+    const call = gw.calls.find((c) => c.method === "connectors.connect");
+    expect(call?.params).toMatchObject({ catalogueId: "google", scopeMode: "read" });
+    expect(openExternal).toHaveBeenCalledWith(
+      expect.stringContaining("https://accounts.example.test/"),
+    );
+    // Not connected yet: the Gateway has no token.
+    expect(screen.getByRole("heading", { name: /Connected \(0\)/ })).toBeTruthy();
+    const id = gw.world.connectors.at(-1)?.id ?? "";
+    act(() => gw.finishConnectorSignIn(id, "connected", "owner@gmail.com"));
+    expect(
+      await screen.findByText("Google (Gmail, Calendar, Drive) is connected as owner@gmail.com."),
+    ).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: /Connected \(1\)/ })).toBeTruthy();
+  });
+
+  it("says when the sign-in failed and offers to try again", async () => {
+    const gw = await startGoogle();
+    await screen.findByTestId("connect-signing-in");
+    const id = gw.world.connectors.at(-1)?.id ?? "";
+    act(() => gw.finishConnectorSignIn(id, "failed"));
+    expect(await screen.findByRole("alert")).toHaveProperty(
+      "textContent",
+      "Google (Gmail, Calendar, Drive) wasn't connected: Google said the consent was refused.",
+    );
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Connected \(0\)/ })).toBeTruthy();
+  });
+
+  it("never claims Connected when the Gateway can't sign in yet", async () => {
+    await startGoogle({}, (w) => {
+      w.connectorConnect = "unavailable";
+    });
+    expect(
+      await screen.findByText(
+        /Signing in to Google \(Gmail, Calendar, Drive\) isn't available on this Gateway yet/,
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Connected \(0\)/ })).toBeTruthy();
+  });
+
+  it("says when the Gateway has no OAuth client for Google yet (#524)", async () => {
+    await startGoogle({}, (w) => {
+      w.connectorConnect = "not_configured";
+    });
+    expect(
+      await screen.findByText(/isn't set up on this Gateway yet: it needs your own OAuth client/),
+    ).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Connected \(0\)/ })).toBeTruthy();
   });
 });

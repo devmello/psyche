@@ -120,6 +120,8 @@ export interface FixtureWorld {
   /** Agent-proposed skill drafts (T3). */
   skillDrafts: SkillDraft[];
   usage: UsageSummary;
+  /** `connectors.connect` behaviour in the mock: "unavailable" answers not_implemented. */
+  connectorConnect?: "unavailable" | "not_configured";
   /** The last turn's context usage by thread id; absent → no turn has reported yet. */
   contextUsage?: Record<string, ContextUsage>;
   /** Each thread's own context limits. */

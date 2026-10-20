@@ -48,6 +48,9 @@ export const IPC = {
   helperState: "psyche:helper:state",
   // The owner's macOS region format (A12: numbers, dates and times; Settings can override it).
   localeGet: "psyche:locale:get",
+  // Open an https page in the default browser: a connector's sign-in (#505). Agent tabs stay
+  // in the browser pane; app windows refuse window.open.
+  openExternal: "psyche:shell:open-external",
   // Copy text to the system clipboard (the session refuses navigator.clipboard; #507).
   clipboardWrite: "psyche:clipboard:write",
   // Native dialogs.
@@ -100,6 +103,16 @@ export function rec(channel: string, v: unknown): Record<string, unknown> {
 /** Text the renderer may put on the clipboard: a non-empty string up to 64 KiB. */
 export function checkClipboardText(v: unknown): string {
   return str(IPC.clipboardWrite, rec(IPC.clipboardWrite, v).text, "text", 65_536);
+}
+
+/** Pages the renderer may open in the system browser: https only, no userinfo (#505). */
+export function checkExternalUrl(v: unknown): string {
+  const url = checkHttpUrl(
+    IPC.openExternal,
+    str(IPC.openExternal, rec(IPC.openExternal, v).url, "url"),
+  );
+  if (!url.startsWith("https://")) throw new IpcPayloadError(IPC.openExternal, "url must be https");
+  return url;
 }
 
 /** Methods the renderer may call through main: any protocol method except the handshake. */

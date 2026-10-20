@@ -1,6 +1,6 @@
 import type { Connector } from "@psyche/protocol";
 import { Plug } from "lucide-react";
-import { type ReactElement, useId, useState } from "react";
+import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { EmptyState } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
@@ -9,6 +9,7 @@ import { t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
+import { ConnectProgress, useConnectorConnect } from "./connect-flow.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
   Group,
@@ -133,6 +134,8 @@ export interface ConnectorsPanelProps extends LoadProps {
   onRemove?: (connector: Connector) => void;
   /** Opens with the connect form showing (stories). */
   defaultAdding?: boolean;
+  /** The sign-in under way, shown above the list (#505). */
+  connectProgress?: ReactNode;
 }
 
 export function ConnectorsPanel({
@@ -144,6 +147,7 @@ export function ConnectorsPanel({
   onDisconnect,
   onRemove,
   defaultAdding = false,
+  connectProgress,
   loading,
   error,
   onRetry,
@@ -168,6 +172,7 @@ export function ConnectorsPanel({
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
+        {connectProgress}
         {adding && onConnect ? (
           <ConnectForm
             persona={persona}
@@ -332,7 +337,7 @@ function ConnectForm({
 export interface ConnectorsSectionProps {
   persona?: string;
   now?: number;
-  /** Connect flows run in the shell (OAuth windows); the Gateway has no connectors.connect yet. */
+  /** Overrides the built-in `connectors.connect` flow (stories, tests). */
   onConnect?: (type: string, mode: ScopeMode) => void;
   onReconnect?: (connector: Connector) => void;
   onDisconnect?: (connector: Connector) => void;
@@ -342,9 +347,30 @@ export interface ConnectorsSectionProps {
 export function ConnectorsSection({ persona, ...props }: ConnectorsSectionProps): ReactElement {
   const fallback = usePersona();
   const q = useGatewayQuery("connectors.list", {});
+  // Connect drives the real sign-in unless the host supplies its own (#505).
+  const flow = useConnectorConnect();
+  const builtIn = props.onConnect === undefined;
   return (
     <ConnectorsPanel
       {...props}
+      {...(builtIn
+        ? {
+            onConnect: (type: string, mode: ScopeMode) =>
+              void flow.start(
+                type,
+                mode,
+                CONNECTOR_CATALOG.find((c) => c.type === type)?.label ?? type,
+              ),
+            connectProgress: (
+              <ConnectProgress
+                state={flow.state}
+                onOpen={(url) => void flow.open(url)}
+                onCancel={flow.cancel}
+                onRetry={flow.retry}
+              />
+            ),
+          }
+        : {})}
       persona={persona ?? fallback.name}
       connectors={q.data?.connectors ?? []}
       loading={q.loading && q.data === undefined}
