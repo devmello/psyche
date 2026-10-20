@@ -28,7 +28,7 @@ import { authorizeInbound, mayRunCommands, senderRef } from "./policy.ts";
 import type { ChannelLogger, EmitEvent, InboundPart, InboundSink, LibraryIngest } from "./ports.ts";
 import { backoffDelay, RateLimiter, realSleep, type Sleep } from "./ratelimit.ts";
 import type { RouteContext } from "./routing.ts";
-import { channelSettings, validateChannel } from "./settings.ts";
+import { channelSettings, isWeakTransport, validateChannel } from "./settings.ts";
 import type { ChannelStore } from "./store/types.ts";
 import { INBOUND_VOICE_FORMAT, type VoiceNotes } from "./voice.ts";
 
@@ -163,7 +163,7 @@ export class ChannelService {
           }),
         isOwner: (channel, senderId) =>
           this.#identities.isOwner(
-            { type: channel.type, senderId, strong: true },
+            { type: channel.type, senderId, strong: !isWeakTransport(channel.type) },
             channel.ownerIds,
           ),
         sendText: async (channel, chatId, text) => {

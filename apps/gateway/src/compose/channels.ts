@@ -8,12 +8,17 @@ import {
   ChannelService,
   type ChannelsApi,
   createChannelsApi,
+  E164,
   IMessageAdapter,
   type IMessageCursorStore,
   type IMessageSendAuthorizer,
   type InboundPart,
+  isWeakTransport,
   type LibraryIngest,
   type OutboundTarget,
+  SmsAdapter,
+  type SmsAdapterOptions,
+  type SmsSecretSource,
   SqliteChannelStore,
   TelegramAdapter,
   type TelegramAdapterOptions,
@@ -58,7 +63,7 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  * Channels (S10 `@psyche/channels`) mounted on the composed Gateway (INT-2; architecture §4.10,
  * security §9). The part:
  * - builds a `ChannelService` over `SqliteChannelStore` and attaches the configured adapters
- *   (Telegram, iMessage, WebChat); an adapter whose channel is not configured yet attaches as soon as
+ *   (Telegram, iMessage, SMS, WebChat); an adapter whose channel is not configured yet attaches as soon as
  *   `channels.configure` creates it;
  * - turns an owner's private message into a chat turn on the routed thread through the session
  *   controller, as `chat.send` does, and sends the agent's committed replies back to that chat;
@@ -97,9 +102,26 @@ export interface IMessageSetup {
   cursor?: IMessageCursorStore;
 }
 
+/**
+ * SMS over Twilio (N9). Off unless configured; `POST /channels/sms/twilio` is mounted only then.
+ * The Gateway stays on loopback: Twilio reaches the route through the owner's tunnel or proxy at
+ * `publicUrl`, the URL the webhook signature covers.
+ */
+export interface SmsSetup {
+  accountSid: string;
+  authToken: SmsSecretSource;
+  /** Psyche's Twilio number (E.164): the channel's `account`. */
+  from: string;
+  publicUrl: string;
+  options?: Partial<Pick<SmsAdapterOptions, "apiBase" | "fetch" | "messagingServiceSid">>;
+}
+
+export const SMS_WEBHOOK_PATH = "/channels/sms/twilio";
+
 export interface ChannelsSetup {
   telegram?: TelegramSetup;
   imessage?: IMessageSetup;
+  sms?: SmsSetup;
   /** Attach the built-in WebChat adapter (owner-only defaults). */
   webchat?: boolean;
   /** Further adapters (tests, later transports). */
@@ -147,10 +169,54 @@ export function channelsSetupFromEnv(
   }
   // iMessage through the Mac helper (N5) is opt-in: the Messages account to answer as.
   const imessage = env.PSYCHE_IMESSAGE_ACCOUNT?.trim() ?? "";
+  const sms = smsSetupFromEnv(env, readFile);
   return {
     webchat: true,
     ...(token === "" ? {} : { telegram: { token, account } }),
     ...(imessage === "" ? {} : { imessage: { account: imessage } }),
+    ...(sms === undefined ? {} : { sms }),
+  };
+}
+
+const SMS_ENV = [
+  "PSYCHE_SMS_TWILIO_ACCOUNT_SID",
+  "PSYCHE_SMS_TWILIO_AUTH_TOKEN",
+  "PSYCHE_SMS_FROM",
+  "PSYCHE_SMS_PUBLIC_URL",
+] as const;
+
+/**
+ * `PSYCHE_SMS_TWILIO_ACCOUNT_SID`, `PSYCHE_SMS_TWILIO_AUTH_TOKEN(_FILE)`, `PSYCHE_SMS_FROM` (E.164)
+ * and `PSYCHE_SMS_PUBLIC_URL` (https) → setup; none set → off; some set → refuse to boot.
+ */
+export function smsSetupFromEnv(
+  env: NodeJS.ProcessEnv,
+  readFile: (path: string) => string,
+): SmsSetup | undefined {
+  const file = env.PSYCHE_SMS_TWILIO_AUTH_TOKEN_FILE;
+  const token = (file ? readFile(file) : (env.PSYCHE_SMS_TWILIO_AUTH_TOKEN ?? "")).trim();
+  const values = {
+    PSYCHE_SMS_TWILIO_ACCOUNT_SID: env.PSYCHE_SMS_TWILIO_ACCOUNT_SID?.trim() ?? "",
+    PSYCHE_SMS_TWILIO_AUTH_TOKEN: token,
+    PSYCHE_SMS_FROM: env.PSYCHE_SMS_FROM?.trim() ?? "",
+    PSYCHE_SMS_PUBLIC_URL: env.PSYCHE_SMS_PUBLIC_URL?.trim() ?? "",
+  };
+  const missing = SMS_ENV.filter((k) => values[k] === "");
+  if (missing.length === SMS_ENV.length) return undefined;
+  if (missing.length > 0) {
+    throw new PsycheError("invalid_params", `SMS needs ${missing.join(", ")} as well`);
+  }
+  if (!E164.test(values.PSYCHE_SMS_FROM)) {
+    throw new PsycheError("invalid_params", "PSYCHE_SMS_FROM must be an E.164 number (+1555…)");
+  }
+  if (!values.PSYCHE_SMS_PUBLIC_URL.startsWith("https://")) {
+    throw new PsycheError("invalid_params", "PSYCHE_SMS_PUBLIC_URL must be an https:// URL");
+  }
+  return {
+    accountSid: values.PSYCHE_SMS_TWILIO_ACCOUNT_SID,
+    authToken: { use: (fn) => fn(token) },
+    from: values.PSYCHE_SMS_FROM,
+    publicUrl: values.PSYCHE_SMS_PUBLIC_URL,
   };
 }
 
@@ -473,6 +539,18 @@ export function composeChannels(
       }),
     );
   }
+  const sms =
+    setup.sms === undefined
+      ? undefined
+      : new SmsAdapter({
+          ...setup.sms.options,
+          accountSid: setup.sms.accountSid,
+          authToken: setup.sms.authToken,
+          from: setup.sms.from,
+          publicUrl: setup.sms.publicUrl,
+          clock,
+        });
+  if (sms !== undefined) add(sms);
   const webchat = setup.webchat === true ? new WebChatAdapter({ clock }) : undefined;
   if (webchat !== undefined) add(webchat);
   for (const a of setup.adapters ?? []) add(a);
@@ -771,6 +849,14 @@ export function composeChannels(
     service,
     adapters,
     handlers,
+    // Admission (signature, account, replay) is the adapter's; rate limits are `admitInbound`'s.
+    ...(sms === undefined
+      ? {}
+      : {
+          webhooks: {
+            [SMS_WEBHOOK_PATH]: (req) => sms.handleWebhook(req),
+          },
+        }),
     relay: {
       surfaces: () => service.ownerSurfaces(),
       async deliver(issued) {
@@ -796,7 +882,7 @@ export function composeChannels(
             isGroup: false,
             text: "",
             receivedAt: clock.now(),
-            identityStrength: "strong",
+            identityStrength: isWeakTransport(c.type) ? "weak" : "strong",
           };
           return service.isOwner(c.id, probe);
         });
