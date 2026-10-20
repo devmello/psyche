@@ -9,6 +9,7 @@ import {
   FileRecordingSink,
   FsQuarantineWriter,
   type LibraryWriter,
+  listeningPorts,
   type OriginPolicyOptions,
   type PartitionMode,
   RecordingStore,
@@ -63,9 +64,15 @@ export interface BrowserSetup {
   devPreview?: DevServerRegistryOptions;
   /**
    * The broker's localhost rule. Default: OS probes (`lsof`, `ps`, DNS) against the PIDs
-   * registered with `devServers.started({pid})`; tests pass their own.
+   * registered with `devServers.started({pid})`, behind a refusal of Psyche's own ports;
+   * tests pass their own.
    */
   localProject?: LocalProjectVerifier;
+  /**
+   * The real-Chrome DevTools endpoint while that mode is attached (feature I13, security §6):
+   * its port is one of Psyche's own and never a dev server.
+   */
+  realChromeCdpEndpoint?: string;
 }
 
 export interface ComposedBrowser extends ComposedPart {
@@ -127,10 +134,34 @@ export function composeBrowser(
   let server: BridgeServer | undefined;
   /** Session key (task or thread, `#dev` for dev preview) → session on the current driver. */
   const sessions = new Map<string, Promise<DriverSession>>();
-  const devServers = new DevServerRegistry(setup.devPreview ?? {});
-  const localProject =
-    setup.localProject ??
-    createLocalProjectVerifier(systemLoopbackProbes({ roots: () => devServers.spawnedPids() }));
+  // Psyche's own listeners are never the owner's project (security §3.10): the ports parts
+  // registered (the Gateway's, a real-Chrome CDP port) plus whatever the Gateway process is
+  // listening on right now, which covers OAuth receivers on random ports.
+  const unregisterCdp =
+    setup.realChromeCdpEndpoint === undefined
+      ? () => undefined
+      : services.ownPorts.add(
+          Number(new URL(setup.realChromeCdpEndpoint.replace(/^ws/, "http")).port),
+          "real-Chrome CDP",
+        );
+  const reservedPorts = async (): Promise<number[]> => [
+    ...services.ownPorts.list(),
+    ...(await listeningPorts(process.pid)),
+  ];
+  const devServers = new DevServerRegistry({ ...(setup.devPreview ?? {}), reservedPorts });
+  const ownProjectRule = createLocalProjectVerifier(
+    systemLoopbackProbes({
+      roots: () => devServers.spawnedPids(),
+      psychePorts: () => services.ownPorts.list(),
+    }),
+  );
+  const localProject: LocalProjectVerifier = setup.localProject ?? {
+    async check(url) {
+      const port = url.port ?? (url.scheme === "https" ? 443 : 80);
+      if ((await reservedPorts()).includes(port)) return { ok: false, reason: "psyche_port" };
+      return ownProjectRule.check(url);
+    },
+  };
   // Post-fill hygiene (security §4.7) and page-echo detection (S23 design-18) from the vault.
   const creds = setup.credentials;
   const redact = creds === undefined ? undefined : (text: string) => creds.redact(text);
@@ -392,6 +423,7 @@ export function composeBrowser(
     },
     async stop() {
       unregister();
+      unregisterCdp();
       driver?.dispose();
       driver = undefined;
       for (const t of publishTimers.values()) clearTimeout(t);

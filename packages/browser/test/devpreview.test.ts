@@ -9,7 +9,11 @@ import type { ToolRegistration, ToolRegistry, ToolResult } from "@psyche/protoco
 import { FakePermissionBroker } from "@psyche/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DevServerRegistry } from "../src/devpreview/gate.ts";
-import { type ProbeRunner, systemLoopbackProbes } from "../src/devpreview/probes.ts";
+import {
+  listeningPorts,
+  type ProbeRunner,
+  systemLoopbackProbes,
+} from "../src/devpreview/probes.ts";
 import { FsQuarantineWriter } from "../src/downloads/library.ts";
 import { CdpBridgeDriver } from "../src/drivers/cdp.ts";
 import { OriginPolicy } from "../src/origin/policy.ts";
@@ -87,6 +91,31 @@ describe("dev-server registry (I12, security §3.10)", () => {
     ]);
   });
 
+  it("refuses Psyche's own ports and the Gateway's PID as a dev server", async () => {
+    const reg = new DevServerRegistry({
+      ownerPorts: [5173, 7979],
+      reservedPorts: async () => [7979],
+    });
+    await expect(reg.check("http://localhost:7979/", {})).resolves.toMatchObject({
+      ok: false,
+      reason: "psyche_port",
+    });
+    await expect(reg.check("http://localhost:5173/", {})).resolves.toMatchObject({ ok: true });
+    expect(() => reg.started({ port: 6000, pid: process.pid })).toThrow(/pid/);
+    expect(() => reg.started({ port: 6000, pid: 1 })).toThrow(/pid/);
+    const run: ProbeRunner = async (file, args) => {
+      expect(file).toBe("lsof");
+      expect(args).toEqual(["-nP", "-a", "-p", "77", "-iTCP", "-sTCP:LISTEN", "-Fn"]);
+      return "p77\nf21\nn127.0.0.1:7979\nf22\nn127.0.0.1:53117\nf23\nn[::1]:53117\n";
+    };
+    expect((await listeningPorts(77, run)).sort()).toEqual([53117, 7979]);
+    expect(
+      await listeningPorts(77, async () => {
+        throw new Error("no lsof");
+      }),
+    ).toEqual([]);
+  });
+
   it("pins a dev-preview policy to its ports", () => {
     const p = new OriginPolicy({ devPreview: true, loopbackPorts: [5173] });
     expect(p.evaluateSync("http://localhost:5173/").action).toBe("allow");
@@ -129,7 +158,8 @@ describe("loopback probes for the broker's localhost rule (S23 design-03)", () =
     const roots = new Set<number>([800]);
     const probes = systemLoopbackProbes({
       roots: () => roots,
-      psychePorts: [7979],
+      psychePorts: () => [7979],
+      selfPid: 4242,
       run,
       lookup: async (host) => (host === "app.localhost" ? ["127.0.0.1"] : ["93.184.216.34"]),
     });
@@ -146,6 +176,10 @@ describe("loopback probes for the broker's localhost rule (S23 design-03)", () =
     expect(await probes.spawnedByPsyche(900)).toBe(true);
     expect(await probes.spawnedByPsyche(700)).toBe(false);
     expect(await probes.spawnedByPsyche(12345)).toBe(false);
+    // The Gateway's own process is never a project, even when registered as a root.
+    roots.add(4242);
+    expect(await probes.spawnedByPsyche(4242)).toBe(false);
+    roots.delete(4242);
     roots.clear();
     expect(await probes.spawnedByPsyche(900)).toBe(false);
     // Fixed binaries with argument arrays only.
