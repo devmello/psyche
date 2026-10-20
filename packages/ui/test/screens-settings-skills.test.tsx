@@ -109,7 +109,10 @@ describe("Settings → Skills", () => {
 
   it("removes an installed skill and checks for updates", async () => {
     const gateway = setup();
-    await userEvent.click(await screen.findByRole("button", { name: "Remove receipt-filer" }));
+    await userEvent.click(await screen.findByRole("button", { name: "More for receipt-filer" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    const confirm = await screen.findByRole("alertdialog", { name: "Remove receipt-filer?" });
+    await userEvent.click(within(confirm).getByRole("button", { name: "Remove" }));
     expect(await screen.findByText("Removed “receipt-filer”.")).toBeTruthy();
     await waitFor(() => expect(screen.queryByTestId("skill-receipt-filer")).toBeNull());
     expect(gateway().calls.find((c) => c.method === "skills.remove")?.params).toEqual({
