@@ -329,7 +329,9 @@ describe("Credentials", () => {
   it("lists metadata only and explains that card numbers are refused", async () => {
     const { gateway } = setup({ defaultSection: "credentials" });
     const table = await screen.findByRole("table", { name: "Stored credentials" });
-    expect(within(table).getByText("github-login")).toBeTruthy();
+    expect(within(table).getByText("GitHub")).toBeTruthy();
+    // Slugs are level 2: in the item sheet, not the row.
+    expect(within(table).queryByText("github-login")).toBeNull();
     expect(within(table).getByText("github.com")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Add item" }));
     expect(screen.getByText(CARD_REFUSAL)).toBeTruthy();
@@ -367,12 +369,12 @@ describe("Credentials", () => {
     const table = await screen.findByRole("table", { name: "Stored credentials" });
     const search = screen.getByRole("searchbox", { name: "Search credentials" });
     await userEvent.type(search, "acme");
-    expect(within(table).queryByText("github-login")).toBeNull();
-    expect(within(table).getByText("acme-login")).toBeTruthy();
+    expect(within(table).queryByText("GitHub")).toBeNull();
+    expect(within(table).getByRole("button", { name: "acme.com" })).toBeTruthy();
     await userEvent.clear(search);
     await userEvent.type(search, "payment");
-    expect(within(table).getByText("stripe-link")).toBeTruthy();
-    expect(within(table).queryByText("acme-login")).toBeNull();
+    expect(within(table).getByRole("button", { name: "Link wallet" })).toBeTruthy();
+    expect(within(table).queryByRole("button", { name: "acme.com" })).toBeNull();
     await userEvent.clear(search);
     await userEvent.type(search, "nothing-here");
     expect(screen.getByText('No credentials match "nothing-here".')).toBeTruthy();
@@ -426,7 +428,9 @@ describe("Credentials", () => {
     expect(callsOf(gateway(), "vault.delete")[0]?.params).toEqual({
       credentialId: IDS.credentials.acme,
     });
-    await waitFor(() => expect(within(table).queryByText("acme-login")).toBeNull());
+    await waitFor(() =>
+      expect(within(table).queryByRole("button", { name: "acme.com" })).toBeNull(),
+    );
   });
 
   it("leaves connector-owned items to their connector", async () => {
@@ -450,7 +454,8 @@ describe("Credentials", () => {
   it("imports a CSV export, reports skipped rows and never shows a value", async () => {
     const { gateway } = setup({ defaultSection: "credentials" });
     const table = await screen.findByRole("table", { name: "Stored credentials" });
-    await userEvent.click(screen.getByRole("button", { name: "Import CSV" }));
+    await userEvent.click(screen.getByRole("button", { name: "More ways to add" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Import a CSV export" }));
     const form = screen.getByRole("form", { name: "Import credentials" });
     const importButton = within(form).getByRole("button", { name: "Import" });
     expect((importButton as HTMLButtonElement).disabled).toBe(true);
@@ -479,7 +484,8 @@ describe("Credentials", () => {
   it("explains a CSV the vault can't read", async () => {
     setup({ defaultSection: "credentials" });
     await screen.findByRole("table", { name: "Stored credentials" });
-    await userEvent.click(screen.getByRole("button", { name: "Import CSV" }));
+    await userEvent.click(screen.getByRole("button", { name: "More ways to add" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Import a CSV export" }));
     const form = screen.getByRole("form", { name: "Import credentials" });
     await userEvent.upload(
       within(form).getByLabelText("CSV file"),
@@ -508,7 +514,7 @@ describe("Credentials", () => {
     expect(within(rows[2] as HTMLElement).getByText("Denied")).toBeTruthy();
     expect(within(rows[2] as HTMLElement).getByText("ap_github_fill_2")).toBeTruthy();
     expect(within(rows[3] as HTMLElement).getByText("Failed")).toBeTruthy();
-    expect(within(rows[3] as HTMLElement).getByText("none")).toBeTruthy();
+    expect(within(rows[3] as HTMLElement).getByText("None")).toBeTruthy();
     const [openTask] = within(uses).getAllByRole("button", { name: "Open task" });
     await userEvent.click(openTask as HTMLElement);
     expect(navigate).toHaveBeenCalledWith(`/agent/activity/${IDS.tasks.subscriptionAudit}`);
@@ -1043,7 +1049,8 @@ describe("Credentials: Stripe Link payments and 1Password", () => {
   it("links a 1Password item by reference and keeps its values out of the edit form", async () => {
     const { gateway } = setup({ defaultSection: "credentials" });
     const table = await screen.findByRole("table", { name: "Stored credentials" });
-    await userEvent.click(screen.getByRole("button", { name: "Connect 1Password" }));
+    await userEvent.click(screen.getByRole("button", { name: "More ways to add" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Connect 1Password" }));
     const form = screen.getByRole("form", { name: "Link a 1Password item" });
     await userEvent.type(within(form).getByLabelText("Name"), "Fastmail");
     await userEvent.type(within(form).getByLabelText("1Password vault"), "Private");
@@ -1072,7 +1079,8 @@ describe("Credentials: Stripe Link payments and 1Password", () => {
     const { gateway } = setup({ defaultSection: "credentials" });
     await screen.findByRole("table", { name: "Stored credentials" });
     gateway().failNext("vault.linkExternal", "unavailable", "1Password is not configured");
-    await userEvent.click(screen.getByRole("button", { name: "Connect 1Password" }));
+    await userEvent.click(screen.getByRole("button", { name: "More ways to add" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Connect 1Password" }));
     const form = screen.getByRole("form", { name: "Link a 1Password item" });
     await userEvent.type(within(form).getByLabelText("Name"), "GitHub");
     await userEvent.type(within(form).getByLabelText("1Password vault"), "Private");
