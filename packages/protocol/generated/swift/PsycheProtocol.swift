@@ -461,6 +461,21 @@
 //   let planBlock = try? JSONDecoder().decode(PlanBlock.self, from: jsonData)
 //   let planStep = try? JSONDecoder().decode(PlanStep.self, from: jsonData)
 //   let planStepStatus = try? JSONDecoder().decode(PlanStepStatus.self, from: jsonData)
+//   let pluginCapability = try? JSONDecoder().decode(PluginCapability.self, from: jsonData)
+//   let pluginManifest = try? JSONDecoder().decode(PluginManifest.self, from: jsonData)
+//   let pluginProposal = try? JSONDecoder().decode(PluginProposal.self, from: jsonData)
+//   let pluginStatus = try? JSONDecoder().decode(PluginStatus.self, from: jsonData)
+//   let pluginSummary = try? JSONDecoder().decode(PluginSummary.self, from: jsonData)
+//   let pluginsGetProposalParams = try? JSONDecoder().decode(PluginsGetProposalParams.self, from: jsonData)
+//   let pluginsGetProposalResult = try? JSONDecoder().decode(PluginsGetProposalResult.self, from: jsonData)
+//   let pluginsInstallParams = try? JSONDecoder().decode(PluginsInstallParams.self, from: jsonData)
+//   let pluginsInstallResult = try? JSONDecoder().decode(PluginsInstallResult.self, from: jsonData)
+//   let pluginsListResult = try? JSONDecoder().decode(PluginsListResult.self, from: jsonData)
+//   let pluginsProposeInstallParams = try? JSONDecoder().decode(PluginsProposeInstallParams.self, from: jsonData)
+//   let pluginsProposeInstallResult = try? JSONDecoder().decode(PluginsProposeInstallResult.self, from: jsonData)
+//   let pluginsRemoveParams = try? JSONDecoder().decode(PluginsRemoveParams.self, from: jsonData)
+//   let pluginsSetEnabledParams = try? JSONDecoder().decode(PluginsSetEnabledParams.self, from: jsonData)
+//   let pluginsSetEnabledResult = try? JSONDecoder().decode(PluginsSetEnabledResult.self, from: jsonData)
 //   let policyRule = try? JSONDecoder().decode(PolicyRule.self, from: jsonData)
 //   let presenceAssertion = try? JSONDecoder().decode(PresenceAssertion.self, from: jsonData)
 //   let presenceKeyInfo = try? JSONDecoder().decode(PresenceKeyInfo.self, from: jsonData)
@@ -7868,7 +7883,7 @@ public struct MemoryForgetResult: Codable, Sendable {
 public struct MemoryImportParams: Codable, Sendable {
     public let content: String?
     public let dryRun: Bool?
-    public let files: [File]?
+    public let files: [MemoryImportParamsFile]?
     public let format: MemoryImportFormat
 
     public enum CodingKeys: String, CodingKey {
@@ -7878,7 +7893,7 @@ public struct MemoryImportParams: Codable, Sendable {
         case format = "format"
     }
 
-    public init(content: String?, dryRun: Bool?, files: [File]?, format: MemoryImportFormat) {
+    public init(content: String?, dryRun: Bool?, files: [MemoryImportParamsFile]?, format: MemoryImportFormat) {
         self.content = content
         self.dryRun = dryRun
         self.files = files
@@ -7886,8 +7901,8 @@ public struct MemoryImportParams: Codable, Sendable {
     }
 }
 
-// MARK: - File
-public struct File: Codable, Sendable {
+// MARK: - MemoryImportParamsFile
+public struct MemoryImportParamsFile: Codable, Sendable {
     public let content: String
     public let path: String
 
@@ -9821,6 +9836,320 @@ public enum PlanBlockType: String, Codable, Sendable {
     case plan = "plan"
 }
 
+// MARK: - PluginsGetProposalParams
+public struct PluginsGetProposalParams: Codable, Sendable {
+    public let proposalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case proposalID = "proposalId"
+    }
+
+    public init(proposalID: String) {
+        self.proposalID = proposalID
+    }
+}
+
+// MARK: - PluginsGetProposalResult
+public struct PluginsGetProposalResult: Codable, Sendable {
+    public let proposal: PluginProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case proposal = "proposal"
+    }
+
+    public init(proposal: PluginProposal) {
+        self.proposal = proposal
+    }
+}
+
+// MARK: - PluginProposal
+public struct PluginProposal: Codable, Sendable {
+    public let bindingHash: String
+    public let files: [PluginProposalFile]
+    public let findings: [ScanFinding]
+    public let fromHash: String?
+    public let hash: String
+    public let id: String
+    public let manifest: PluginManifest
+    public let source: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bindingHash = "bindingHash"
+        case files = "files"
+        case findings = "findings"
+        case fromHash = "fromHash"
+        case hash = "hash"
+        case id = "id"
+        case manifest = "manifest"
+        case source = "source"
+    }
+
+    public init(bindingHash: String, files: [PluginProposalFile], findings: [ScanFinding], fromHash: String?, hash: String, id: String, manifest: PluginManifest, source: String) {
+        self.bindingHash = bindingHash
+        self.files = files
+        self.findings = findings
+        self.fromHash = fromHash
+        self.hash = hash
+        self.id = id
+        self.manifest = manifest
+        self.source = source
+    }
+}
+
+// MARK: - PluginProposalFile
+public struct PluginProposalFile: Codable, Sendable {
+    public let bytes: Int
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case path = "path"
+    }
+
+    public init(bytes: Int, path: String) {
+        self.bytes = bytes
+        self.path = path
+    }
+}
+
+// MARK: - ScanFinding
+public struct ScanFinding: Codable, Sendable {
+    /// Path inside the skill folder
+    public let file: String?
+    public let line: Int?
+    /// Never quotes the matched text
+    public let message: String
+    public let rule: String
+    public let severity: Severity
+
+    public enum CodingKeys: String, CodingKey {
+        case file = "file"
+        case line = "line"
+        case message = "message"
+        case rule = "rule"
+        case severity = "severity"
+    }
+
+    public init(file: String?, line: Int?, message: String, rule: String, severity: Severity) {
+        self.file = file
+        self.line = line
+        self.message = message
+        self.rule = rule
+        self.severity = severity
+    }
+}
+
+public enum Severity: String, Codable, Sendable {
+    case high = "high"
+    case info = "info"
+    case warn = "warn"
+}
+
+// MARK: - PluginManifest
+public struct PluginManifest: Codable, Sendable {
+    public let capabilities: [PluginCapability]
+    public let description: String
+    /// ES module inside the folder
+    public let main: String
+    public let name: String
+    public let version: String
+
+    public enum CodingKeys: String, CodingKey {
+        case capabilities = "capabilities"
+        case description = "description"
+        case main = "main"
+        case name = "name"
+        case version = "version"
+    }
+
+    public init(capabilities: [PluginCapability], description: String, main: String, name: String, version: String) {
+        self.capabilities = capabilities
+        self.description = description
+        self.main = main
+        self.name = name
+        self.version = version
+    }
+}
+
+public enum PluginCapability: String, Codable, Sendable {
+    case afterToolCall = "after_tool_call"
+    case agentEnd = "agent_end"
+    case beforeToolCall = "before_tool_call"
+    case context = "context"
+    case evaluate = "evaluate"
+}
+
+// MARK: - PluginsInstallParams
+public struct PluginsInstallParams: Codable, Sendable {
+    public let approvalID: String
+    public let proposalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case proposalID = "proposalId"
+    }
+
+    public init(approvalID: String, proposalID: String) {
+        self.approvalID = approvalID
+        self.proposalID = proposalID
+    }
+}
+
+// MARK: - PluginsInstallResult
+public struct PluginsInstallResult: Codable, Sendable {
+    public let plugin: PluginSummary
+
+    public enum CodingKeys: String, CodingKey {
+        case plugin = "plugin"
+    }
+
+    public init(plugin: PluginSummary) {
+        self.plugin = plugin
+    }
+}
+
+// MARK: - PluginSummary
+public struct PluginSummary: Codable, Sendable {
+    public let capabilities: [PluginCapability]
+    public let description: String
+    /// The owner's switch for this plugin
+    public let enabled: Bool
+    public let error: String?
+    /// Tree hash pinned at install
+    public let hash: String
+    public let installedAt: String
+    public let name: String
+    /// Where it was installed from (a local folder)
+    public let source: String
+    public let status: PluginStatus
+    public let version: String
+
+    public enum CodingKeys: String, CodingKey {
+        case capabilities = "capabilities"
+        case description = "description"
+        case enabled = "enabled"
+        case error = "error"
+        case hash = "hash"
+        case installedAt = "installedAt"
+        case name = "name"
+        case source = "source"
+        case status = "status"
+        case version = "version"
+    }
+
+    public init(capabilities: [PluginCapability], description: String, enabled: Bool, error: String?, hash: String, installedAt: String, name: String, source: String, status: PluginStatus, version: String) {
+        self.capabilities = capabilities
+        self.description = description
+        self.enabled = enabled
+        self.error = error
+        self.hash = hash
+        self.installedAt = installedAt
+        self.name = name
+        self.source = source
+        self.status = status
+        self.version = version
+    }
+}
+
+/// `off`: the owner's switch is on but `plugins.enabled` is off; `failed`: its process did
+/// not start or stopped answering
+public enum PluginStatus: String, Codable, Sendable {
+    case active = "active"
+    case disabled = "disabled"
+    case failed = "failed"
+    case hashMismatch = "hash_mismatch"
+    case invalid = "invalid"
+    case off = "off"
+}
+
+// MARK: - PluginsListResult
+public struct PluginsListResult: Codable, Sendable {
+    /// The admin setting plugins.enabled
+    public let enabled: Bool
+    public let plugins: [PluginSummary]
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+        case plugins = "plugins"
+    }
+
+    public init(enabled: Bool, plugins: [PluginSummary]) {
+        self.enabled = enabled
+        self.plugins = plugins
+    }
+}
+
+// MARK: - PluginsProposeInstallParams
+public struct PluginsProposeInstallParams: Codable, Sendable {
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case path = "path"
+    }
+
+    public init(path: String) {
+        self.path = path
+    }
+}
+
+// MARK: - PluginsProposeInstallResult
+public struct PluginsProposeInstallResult: Codable, Sendable {
+    public let approval: ApprovalRequest
+    public let proposal: PluginProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case approval = "approval"
+        case proposal = "proposal"
+    }
+
+    public init(approval: ApprovalRequest, proposal: PluginProposal) {
+        self.approval = approval
+        self.proposal = proposal
+    }
+}
+
+// MARK: - PluginsRemoveParams
+public struct PluginsRemoveParams: Codable, Sendable {
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+    }
+
+    public init(name: String) {
+        self.name = name
+    }
+}
+
+// MARK: - PluginsSetEnabledParams
+public struct PluginsSetEnabledParams: Codable, Sendable {
+    public let enabled: Bool
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+        case name = "name"
+    }
+
+    public init(enabled: Bool, name: String) {
+        self.enabled = enabled
+        self.name = name
+    }
+}
+
+// MARK: - PluginsSetEnabledResult
+public struct PluginsSetEnabledResult: Codable, Sendable {
+    public let plugin: PluginSummary
+
+    public enum CodingKeys: String, CodingKey {
+        case plugin = "plugin"
+    }
+
+    public init(plugin: PluginSummary) {
+        self.plugin = plugin
+    }
+}
+
 // MARK: - PolicyRule
 public struct PolicyRule: Codable, Sendable {
     public let createdAt: String
@@ -10799,39 +11128,6 @@ public struct SkillProposalFile: Codable, Sendable {
         self.path = path
         self.text = text
     }
-}
-
-// MARK: - ScanFinding
-public struct ScanFinding: Codable, Sendable {
-    /// Path inside the skill folder
-    public let file: String?
-    public let line: Int?
-    /// Never quotes the matched text
-    public let message: String
-    public let rule: String
-    public let severity: Severity
-
-    public enum CodingKeys: String, CodingKey {
-        case file = "file"
-        case line = "line"
-        case message = "message"
-        case rule = "rule"
-        case severity = "severity"
-    }
-
-    public init(file: String?, line: Int?, message: String, rule: String, severity: Severity) {
-        self.file = file
-        self.line = line
-        self.message = message
-        self.rule = rule
-        self.severity = severity
-    }
-}
-
-public enum Severity: String, Codable, Sendable {
-    case high = "high"
-    case info = "info"
-    case warn = "warn"
 }
 
 // MARK: - SkillManifest
