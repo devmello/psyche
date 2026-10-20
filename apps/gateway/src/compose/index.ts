@@ -63,6 +63,7 @@ import { ApprovalTokens } from "./approval-tokens.ts";
 import { CallContexts } from "./call-context.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
 import { composeComputer } from "./computer.ts";
+import { composeConversion } from "./convert.ts";
 import { composeDictation } from "./dictation.ts";
 import { filesHandlers } from "./files.ts";
 import {
@@ -508,6 +509,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   launcher = proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool);
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
+  // documents.convert: LibreOffice in its own sandbox on the full image (P4).
+  parts.push(
+    composeConversion({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
+  );
   const handlers: Record<string, HandlerDef> = {
     ...mountPermissions(db, createPermissionHandlers(rawBroker, audit), tokens),
     ...mountParamsOnly(createMemoryHandlers(memory) as never),
