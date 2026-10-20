@@ -58,7 +58,12 @@ import {
   PERMISSION_KINDS,
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
-import { chooseMode, execRunner, GatewaySupervisor } from "./main/supervisor.ts";
+import {
+  chooseMode,
+  desktopVaultKeyFile,
+  execRunner,
+  GatewaySupervisor,
+} from "./main/supervisor.ts";
 import { TerminalHost } from "./main/terminal.ts";
 import { PsycheTray } from "./main/tray.ts";
 import { startUpdater } from "./main/updater.ts";
@@ -719,6 +724,7 @@ void app.whenReady().then(async () => {
     gatewayDir: resolve(app.getAppPath(), "..", "gateway"),
     bundledProgram: join(process.resourcesPath, "psyched", "psyched"),
     bundledPlist: join(process.resourcesPath, "launchd", "com.psyche.gateway.plist"),
+    vaultKeyFile: () => desktopVaultKeyFile(home),
     onState: (run) => {
       tray?.update({ run });
       broadcast(IPC.gatewayRun, run);

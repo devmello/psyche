@@ -1,4 +1,5 @@
 import { type ChildProcess, execFile, spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -57,6 +58,43 @@ export function renderPlistTemplate(
   return template
     .replaceAll("{{PSYCHED}}", xml(values.program))
     .replaceAll("{{PSYCHE_HOME}}", xml(values.psycheHome));
+}
+
+/** Adds variables to the plist's `EnvironmentVariables` dict (values XML-escaped). */
+export function withPlistEnv(plist: string, env: Record<string, string>): string {
+  const entries = Object.entries(env);
+  if (entries.length === 0) return plist;
+  const lines = entries
+    .map(([k, v]) => `    <key>${xml(k)}</key>\n    <string>${xml(v)}</string>`)
+    .join("\n");
+  const anchor = /(<key>EnvironmentVariables<\/key>\s*<dict>)/;
+  if (!anchor.test(plist))
+    throw new Error("the LaunchAgent plist has no EnvironmentVariables dict");
+  return plist.replace(anchor, (m) => `${m}\n${lines}`);
+}
+
+/**
+ * The packaged desktop's vault key slot: a 0600 random key file under `$PSYCHE_HOME/secrets/`,
+ * like server mode, because an ad-hoc helper has no keychain access group (keychain.* answers
+ * missing_entitlement). Created on first use; never when the vault already exists with another
+ * slot (switching would lock the owner out).
+ */
+export function desktopVaultKeyFile(psycheHome: string): string | undefined {
+  const keyFile = join(psycheHome, "secrets", "vault.key");
+  const slotsFile = join(psycheHome, "vault", "slots.json");
+  if (existsSync(slotsFile)) {
+    try {
+      const slots = (JSON.parse(readFileSync(slotsFile, "utf8")) as { slots?: object }).slots;
+      if (!slots || !("key_file" in slots)) return undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  if (!existsSync(keyFile)) {
+    mkdirSync(dirname(keyFile), { recursive: true, mode: 0o700 });
+    writeFileSync(keyFile, randomBytes(32), { mode: 0o600, flag: "wx" });
+  }
+  return keyFile;
 }
 
 /**
@@ -155,6 +193,8 @@ export interface SupervisorOptions {
   uid?: number;
   /** Defaults to `~/Library/LaunchAgents` (tests pass a tmp dir). */
   launchAgentsDir?: string;
+  /** launchd: pass `PSYCHE_VAULT_KEY_FILE` to the Gateway (`desktopVaultKeyFile`). */
+  vaultKeyFile?: () => string | undefined;
   /** launchd: how long to wait for `/healthz` after starting the agent (default 60 s). */
   healthTimeoutMs?: number;
   run?: Runner;
@@ -280,10 +320,12 @@ export class GatewaySupervisor {
     const program = this.opts.bundledProgram;
     if (!program || !existsSync(program)) return undefined;
     const values = { program, psycheHome: this.opts.psycheHome };
-    if (this.opts.bundledPlist && existsSync(this.opts.bundledPlist)) {
-      return renderPlistTemplate(readFileSync(this.opts.bundledPlist, "utf8"), values);
-    }
-    return renderLaunchAgentPlist({ ...values, logDir: this.logDir() });
+    const plist =
+      this.opts.bundledPlist && existsSync(this.opts.bundledPlist)
+        ? renderPlistTemplate(readFileSync(this.opts.bundledPlist, "utf8"), values)
+        : renderLaunchAgentPlist({ ...values, logDir: this.logDir() });
+    const keyFile = this.opts.vaultKeyFile?.();
+    return keyFile === undefined ? plist : withPlistEnv(plist, { PSYCHE_VAULT_KEY_FILE: keyFile });
   }
 
   private async bootstrap(uid: number, plistPath: string): Promise<boolean> {
