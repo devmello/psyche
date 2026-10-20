@@ -1,5 +1,5 @@
 import { ComposerPrimitive } from "@assistant-ui/react";
-import type { Message } from "@psyche/protocol";
+import type { Message, QueueMode } from "@psyche/protocol";
 import { ArrowUp, Mic, Paperclip, Square, X } from "lucide-react";
 import type { ReactElement } from "react";
 import { Button } from "../components/ui/button.tsx";
@@ -13,6 +13,8 @@ export interface ComposerProps {
   disabled?: boolean;
   quoting?: Message | null;
   onClearQuote?: () => void;
+  /** How a message sent mid-turn goes; the follow-up strip changes it per queued message. */
+  mode?: QueueMode;
   onAttach?: () => void;
   onDictate?: () => void;
   /** Stops the active run (`chat.cancel`). */
@@ -31,6 +33,7 @@ export function Composer({
   disabled = false,
   quoting,
   onClearQuote,
+  mode = "followUp",
   onAttach,
   onDictate,
   onStop,
@@ -83,7 +86,13 @@ export function Composer({
           </Button>
         ) : null}
         <span className="ml-1 text-caption text-muted-foreground">
-          {running ? `Sends when ${persona} finishes this turn` : "Type / for commands"}
+          {!running
+            ? "Type / for commands"
+            : mode === "followUp"
+              ? `Sends when ${persona} finishes this turn`
+              : mode === "steer"
+                ? `Sends now, to steer ${persona}`
+                : `Sends now, interrupting ${persona}`}
         </span>
         <span className="ml-auto" />
         {running && onStop ? (

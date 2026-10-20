@@ -185,6 +185,7 @@ export function ChatThread({ threadId, onAttach, onDictate, now }: ChatThreadPro
               disabled={offline}
               quoting={quoting}
               onClearQuote={() => setQuoting(null)}
+              mode={mode}
               onStop={() => void t.cancel()}
               {...(onAttach ? { onAttach } : {})}
               {...(onDictate ? { onDictate } : {})}
