@@ -1,0 +1,176 @@
+import Foundation
+import PsycheHelperCore
+import PsycheProtocol
+import Testing
+
+/// Scripted AX / typing side: records what the inserter tried, never touches the system.
+final class FakeDictationBackend: DictationBackend, @unchecked Sendable {
+    private let lock = NSLock()
+    var focusQueue: [DictationFocus?]
+    var lastFocus: DictationFocus?
+    var secure = false
+    var selectedTextWorks = true
+    var rangeWorks = true
+    var typeError: Error?
+    private(set) var calls: [String] = []
+    private(set) var inserted: [String] = []
+
+    init(_ focus: DictationFocus?) {
+        focusQueue = []
+        lastFocus = focus
+    }
+
+    func focus() -> DictationFocus? {
+        lock.withLock {
+            if !focusQueue.isEmpty { lastFocus = focusQueue.removeFirst() }
+            return lastFocus
+        }
+    }
+
+    func secureInputActive() -> Bool { secure }
+
+    func setSelectedText(_ text: String) -> Bool {
+        lock.withLock { calls.append("selectedText") }
+        if selectedTextWorks { lock.withLock { inserted.append(text) } }
+        return selectedTextWorks
+    }
+
+    func replaceSelectedRange(_ text: String) -> Bool {
+        lock.withLock { calls.append("range") }
+        if rangeWorks { lock.withLock { inserted.append(text) } }
+        return rangeWorks
+    }
+
+    func type(_ text: String, guardChunk: @escaping () throws -> Void) throws {
+        lock.withLock { calls.append("type") }
+        try guardChunk()
+        if let typeError { throw typeError }
+        lock.withLock { inserted.append(text) }
+    }
+}
+
+let textEdit = DictationFocus(
+    pid: 42, bundleId: "com.apple.TextEdit", appName: "TextEdit", role: "AXTextArea",
+    element: DictationElementInfo(selectedTextSettable: true, valueSettable: true, hasSelectedRange: true))
+
+@Suite("dictation (J9, Q2)")
+struct DictationTests {
+    @Test func sanitizeCollapsesControlCharacters() {
+        #expect(DictationPolicy.sanitize("hello\nworld") == "hello world")
+        #expect(DictationPolicy.sanitize("  a\t\tb \r\n c  ") == "a b c")
+        #expect(DictationPolicy.sanitize("rm -rf ~\n") == "rm -rf ~")  // never presses Return
+        #expect(DictationPolicy.sanitize("\u{0}\u{7}") == "")
+        #expect(DictationPolicy.sanitize("José 👍🏽 ok") == "José 👍🏽 ok")
+    }
+
+    @Test func refusals() {
+        #expect(DictationPolicy.refusal(nil, secureInput: false) == .noFocus)
+        var own = textEdit
+        own.bundleId = "com.psyche.desktop"
+        #expect(DictationPolicy.refusal(own, secureInput: false) == .ownWindow)
+        var pw = textEdit
+        pw.secure = true
+        #expect(DictationPolicy.refusal(pw, secureInput: false) == .secureField)
+        #expect(DictationPolicy.refusal(textEdit, secureInput: true) == .secureField)
+        #expect(DictationPolicy.refusal(textEdit, secureInput: false, expectPid: 7) == .focusChanged)
+        let button = DictationFocus(
+            pid: 42, bundleId: "com.apple.finder", appName: "Finder", role: "AXButton",
+            element: DictationElementInfo(selectedTextSettable: false, valueSettable: false, hasSelectedRange: false))
+        #expect(DictationPolicy.refusal(button, secureInput: false) == .notEditable)
+        // Chromium web areas and apps without an AX tree fall through to typing.
+        let web = DictationFocus(
+            pid: 9, bundleId: "com.tinyspeck.slackmacgap", appName: "Slack", role: "AXWebArea",
+            element: DictationElementInfo(selectedTextSettable: false, valueSettable: false, hasSelectedRange: false, isWebArea: true))
+        #expect(DictationPolicy.refusal(web, secureInput: false) == nil)
+        #expect(DictationPolicy.refusal(DictationFocus(pid: 9, bundleId: "com.tinyspeck.slackmacgap", appName: "Slack"), secureInput: false) == nil)
+        #expect(DictationPolicy.refusal(textEdit, secureInput: false, expectPid: 42) == nil)
+    }
+
+    @Test func targetWireKeepsNullsAndNeverCarriesContents() {
+        let t = DictationPolicy.target(DictationFocus(pid: 3, bundleId: nil, appName: "X"), secureInput: true)!
+        #expect(t.wire == ["pid": 3, "bundleId": .null, "appName": "X", "role": .null, "insertable": false, "refusal": "secure_field"])
+    }
+
+    @Test func insertsThroughSelectedTextFirst() throws {
+        let b = FakeDictationBackend(textEdit)
+        let r = try DictationInserter.insert("hello\nthere", expectPid: 42, backend: b)
+        #expect(r.method == .ax && r.chars == 11 && r.target.appName == "TextEdit")
+        #expect(b.calls == ["selectedText"] && b.inserted == ["hello there"])
+    }
+
+    @Test func fallsBackToRangeThenTyping() throws {
+        let b = FakeDictationBackend(textEdit)
+        b.selectedTextWorks = false
+        #expect(try DictationInserter.insert("hi", expectPid: nil, backend: b).method == .ax)
+        #expect(b.calls == ["selectedText", "range"])
+
+        let c = FakeDictationBackend(textEdit)
+        c.selectedTextWorks = false
+        c.rangeWorks = false
+        #expect(try DictationInserter.insert("hi", expectPid: nil, backend: c).method == .typed)
+        #expect(c.calls == ["selectedText", "range", "type"] && c.inserted == ["hi"])
+
+        let slack = FakeDictationBackend(DictationFocus(pid: 9, bundleId: "com.tinyspeck.slackmacgap", appName: "Slack"))
+        #expect(try DictationInserter.insert("hi", expectPid: 9, backend: slack).method == .typed)
+        #expect(slack.calls == ["type"])
+    }
+
+    @Test func refusesBeforeTouchingAnything() {
+        for (focus, secure, expect, reason) in [
+            (DictationFocus?.none, false, Int?.none, "no_focus"),
+            (DictationFocus(pid: 5, bundleId: "com.psyche.helper", appName: "Psyche"), false, nil, "own_window"),
+            (textEdit, true, nil, "secure_field"),
+            (textEdit, false, 99, "focus_changed"),
+        ] {
+            let b = FakeDictationBackend(focus)
+            b.secure = secure
+            do {
+                _ = try DictationInserter.insert("x", expectPid: expect, backend: b)
+                Issue.record("expected \(reason)")
+            } catch let e as CapabilityError {
+                #expect(e.code == .policyDenied && e.reason == reason && e.details["refusal"] == .string(reason))
+            } catch { Issue.record("unexpected \(error)") }
+            #expect(b.calls.isEmpty)
+        }
+    }
+
+    @Test func typingStopsWhenFocusMovesIntoAPasswordField() {
+        let b = FakeDictationBackend(DictationFocus(pid: 9, bundleId: "com.tinyspeck.slackmacgap", appName: "Slack"))
+        b.focusQueue = [b.lastFocus, DictationFocus(pid: 9, bundleId: "com.tinyspeck.slackmacgap", appName: "Slack", secure: true)]
+        #expect(throws: CapabilityError.self) { _ = try DictationInserter.insert("secret words", expectPid: nil, backend: b) }
+        #expect(b.inserted.isEmpty)
+    }
+
+    @Test func rejectsEmptyAndOversizedText() {
+        let b = FakeDictationBackend(textEdit)
+        #expect(throws: CapabilityError.self) { _ = try DictationInserter.insert("\n\n", expectPid: nil, backend: b) }
+        #expect(throws: CapabilityError.self) {
+            _ = try DictationInserter.insert(String(repeating: "a", count: DictationPolicy.maxChars + 1), expectPid: nil, backend: b)
+        }
+        #expect(b.calls.isEmpty)
+    }
+
+    @Test func keyTrackerHoldAndChord() {
+        var fn = DictationKeyTracker(key: .fn)
+        #expect(fn.flagsChanged(keyCode: 63, flags: 0x80_0000) == true)
+        #expect(fn.flagsChanged(keyCode: 63, flags: 0x80_0000) == nil)  // repeated flags: no change
+        #expect(fn.flagsChanged(keyCode: 56, flags: 0x80_0000 | 0x2) == nil)  // another modifier
+        #expect(fn.flagsChanged(keyCode: 63, flags: 0) == false)
+
+        // fn+arrow is a chord: it releases at once and the real release is swallowed.
+        #expect(fn.flagsChanged(keyCode: 63, flags: 0x80_0000) == true)
+        #expect(fn.keyDown() == false)
+        #expect(fn.keyDown() == nil)
+        #expect(fn.flagsChanged(keyCode: 63, flags: 0) == nil)
+        #expect(!fn.isDown)
+        #expect(fn.keyDown() == nil)  // typing while not held is ignored
+
+        // Right Option uses its device bit, so Left Option held alongside does not confuse it.
+        var ro = DictationKeyTracker(key: .rightOption)
+        #expect(ro.flagsChanged(keyCode: 58, flags: 0x20 | 0x80000) == nil)  // left option
+        #expect(ro.flagsChanged(keyCode: 61, flags: 0x40 | 0x20 | 0x80000) == true)
+        #expect(ro.flagsChanged(keyCode: 61, flags: 0x20 | 0x80000) == false)
+        var rc = DictationKeyTracker(key: .rightCommand)
+        #expect(rc.flagsChanged(keyCode: 54, flags: 0x10 | 0x100000) == true)
+    }
+}
