@@ -16,7 +16,7 @@ Permission Broker).
 | Goals, check-ins, confirm-first candidates, `goals.*`, heartbeat budget | O9, O2 | **done** (PR 1) |
 | Interest ledger, Feed pipeline, briefings, `feed.*` | O5, O6 | **done** (PR 2) |
 | Ideas pipeline, acceptance model, delivery windows, `ideas.*` | O7, O8 | **done** (PR 3) |
-| Goal watches, budget audit | O3 | last |
+| Goal watches, budget audit | O3 | **done** (PR 4) |
 
 ## Public API (`src/index.ts`)
 
@@ -37,6 +37,13 @@ Permission Broker).
   - `get`, `list`, `progress`, `update` (title, category, status `active | paused | done`, plan,
     cadence), `archive`, `milestone` (add / edit / complete / remove), `link` (exactly one of
     task, automation, watch; `unlink`).
+  - `addWatch(goalId, { url, check, selector?, text?, threshold?, every = "PT6H", title? })`: a
+    scheduler `watch` automation linked as `goal_links.watch_id` (the automation's id). The
+    scheduler fetches through its injected `watchFetch`, alerts once per transition (a price
+    drop produces one `proactive` alert), backs off on failures (interval × 2^failures, ≤ 24 h)
+    and never starts the agent. Linked watches run only while the goal is active (pause, done
+    and archive disable them). `removeWatch(goalId, automationId)` unlinks and deletes;
+    `progress()` lists each watch with its last status (`missing` when deleted elsewhere).
   - `checkinJob()`: the in-process job behind check-in automations. It raises at most one
     `reminder` (dedupe key `goal:<id>:checkin`, route `/goals/<id>`) with milestone and task
     progress and reports `no_reply` to the scheduler, so nothing else is delivered.
@@ -194,7 +201,14 @@ held for a later window until it expires (14 days).
 scheduler's launcher (`proactive.launcher(createTaskLauncher(...), pool)`) and syncs check-ins on
 `start()`.
 
-## Invariants (tested in `test/`)
+## Invariants (tested in `test/`; `test/budget.test.ts` audits them together)
+
+`budget.test.ts` runs one simulated day on one real scheduler (heartbeat every 30 min in active
+hours, a goal with a daily check-in and a price watch, the 07:00 brief, nightly idea mining and
+the 09:00 window) and checks every bound below at once: one heartbeat notification, one reminder,
+one watch alert, one briefing, one ideas notification, at most five interruptions in all, every
+notification routed and resolvable, no channel send, no task, no agent run except the
+heartbeat's light runs.
 
 - **Bounded.** Candidates stop at `maxOpenCandidates`; a check-in raises one reminder however
   many ticks it coalesced; the heartbeat task carries `maxTokens: 5000` and an overspending run
@@ -226,7 +240,6 @@ scheduler's launcher (`proactive.launcher(createTaskLauncher(...), pool)`) and s
 
 ## What is stubbed
 
-- Goal watches (PR 4).
 - Ideas: connector signals need S09's provider (`signals`), nothing supplies it yet. Skill drafts
   are saved by the accepted task as `draft-unverified`; the replay verification and install go
   through S16's skill loader (`skill_install` approval) and are not automated here.

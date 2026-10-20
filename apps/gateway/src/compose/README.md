@@ -4,7 +4,7 @@
 
 | File | What it wires |
 | --- | --- |
-| `index.ts` | agent loop, model router or injected provider, Permission Broker + SQLite store, audit log, memory (with flush), task engine + worker pool, scheduler, notifier; mounts package handlers; forwards package events to the bus; applies `permissions.policy` changes |
+| `index.ts` | agent loop, model router or injected provider, Permission Broker + SQLite store, audit log, memory (with flush), task engine + worker pool, scheduler (watches through `publicFetch` until S09's fetch), notifier; mounts package handlers; forwards package events to the bus; applies `permissions.policy` changes |
 | `handlers.ts` | adapters from package handler maps to `HandlerDef`; `questions.*` over the loop and the task engine |
 | `approval-tokens.ts` | in-memory delivery of single-use answer tokens to the caller's surface (security §3.7) |
 | `file-tools.ts` | stand-in `read_file` / `write_file` / `list_dir` until P9 ships (#49) |

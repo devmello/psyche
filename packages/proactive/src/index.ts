@@ -68,7 +68,9 @@ export {
 export { FeedStore, type StoredPost } from "./feed/store.ts";
 export { createGoalHandlers, type GoalHandlers } from "./goals/handlers.ts";
 export {
+  DEFAULT_WATCH_EVERY,
   GOAL_CHECKIN_JOB,
+  GOAL_WATCH_JOB,
   type GoalCandidateInput,
   type GoalCreateInput,
   type GoalDetail,
@@ -77,6 +79,8 @@ export {
   type GoalProgress,
   GoalsService,
   type GoalsServiceOptions,
+  type GoalWatchInput,
+  type GoalWatchStatus,
 } from "./goals/service.ts";
 export { GoalStore, normalizeTitle } from "./goals/store.ts";
 export {
