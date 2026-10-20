@@ -30,6 +30,14 @@ import {
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
+import { useSlots } from "../../slots.tsx";
+import { CredentialDetailSheet } from "./CredentialDetail.tsx";
+import {
+  ImportCredentialsForm,
+  type ImportFormat,
+  type ImportOutcome,
+} from "./CredentialImport.tsx";
+import { bindingLabel, CARD_REFUSAL, KIND_LABEL } from "./credential-labels.ts";
 import {
   EmptyNotice,
   ErrorNotice,
@@ -47,24 +55,7 @@ import {
 
 /** Credentials (UI design §3.18; architecture §4.7). Values never reach this screen. */
 
-export const KIND_LABEL: Record<CredentialKind, string> = {
-  login: "login",
-  api_key: "API key",
-  oauth_token: "OAuth token",
-  ssh_key: "SSH key",
-  note: "secure note",
-  payment_link: "payment",
-  signing_key: "signing key",
-};
-
-export const CARD_REFUSAL =
-  "Psyche refuses raw card numbers, CVVs, bank account numbers and government IDs. For payments, add a payment link such as a Link wallet; the card stays with the provider.";
-
-export function bindingLabel(b: CredentialBinding): string {
-  if ("origin" in b) return b.origin.replace(/^https?:\/\//, "");
-  if ("host" in b) return b.host;
-  return b.connector === "stripe_link" ? "Link wallet" : b.connector;
-}
+export { bindingLabel, CARD_REFUSAL, KIND_LABEL } from "./credential-labels.ts";
 
 /** True when the search text matches the item's name, slug, kind or a site it is bound to. */
 export function matchesCredential(c: CredentialMeta, query: string): boolean {
@@ -127,6 +118,12 @@ export interface CredentialsPanelProps extends SettingsFormProps, LoadProps {
   /** Stories: open with this search text, or with this item's edit form showing. */
   defaultQuery?: string;
   defaultEditingId?: string;
+  /** Sends a CSV export to `vault.import`; rejects with an Error to show. */
+  onImport?: (format: ImportFormat, csv: string) => Promise<ImportOutcome>;
+  /** Stories: open with the import form showing. */
+  defaultImporting?: boolean;
+  /** Opens an item's detail and recent uses. */
+  onOpen?: (credential: CredentialMeta) => void;
 }
 
 export function CredentialsPanel({
@@ -144,6 +141,9 @@ export function CredentialsPanel({
   itemError = null,
   defaultQuery = "",
   defaultEditingId,
+  onImport,
+  defaultImporting = false,
+  onOpen,
   loading,
   error,
   onRetry,
@@ -153,6 +153,7 @@ export function CredentialsPanel({
   const [query, setQuery] = useState(defaultQuery);
   const [editingId, setEditingId] = useState<string | null>(defaultEditingId ?? null);
   const [deleting, setDeleting] = useState<CredentialMeta | null>(null);
+  const [importing, setImporting] = useState(defaultImporting);
   const shown = credentials.filter((c) => matchesCredential(c, query));
   const actions = onUpdate !== undefined || onDelete !== undefined;
   const columns = actions ? 6 : 5;
@@ -205,6 +206,17 @@ export function CredentialsPanel({
                   Add item
                 </Button>
               ) : null}
+              {onImport ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setImporting(true)}
+                  disabled={importing}
+                >
+                  Import CSV
+                </Button>
+              ) : null}
               {onConnectManager ? (
                 <>
                   <Button
@@ -239,6 +251,9 @@ export function CredentialsPanel({
             />
           ) : null}
           {itemError ? <ErrorNotice what={itemError} did="Nothing was changed." /> : null}
+          {importing && onImport ? (
+            <ImportCredentialsForm onImport={onImport} onClose={() => setImporting(false)} />
+          ) : null}
           {credentials.length > 0 ? (
             <div className="relative max-w-sm">
               <Search
@@ -280,7 +295,17 @@ export function CredentialsPanel({
                   <Fragment key={c.id}>
                     <TableRow>
                       <TableCell>
-                        <span className="font-medium">{c.name}</span>
+                        {onOpen ? (
+                          <button
+                            type="button"
+                            className="text-left font-medium underline-offset-2 hover:underline focus-visible:underline"
+                            onClick={() => onOpen(c)}
+                          >
+                            {c.name}
+                          </button>
+                        ) : (
+                          <span className="font-medium">{c.name}</span>
+                        )}
                         <span className="block font-mono text-xs text-muted-foreground">
                           {c.slug}
                         </span>
@@ -707,15 +732,38 @@ export function vaultChangeError(
   return `Psyche couldn't ${verb} ${c.name} (${messageOf(err)}).`;
 }
 
+/** Plain words for a failed `vault.import`. */
+export function vaultImportError(err: unknown): string {
+  if (
+    hasCode(err, "unavailable") &&
+    (err as { details?: { reason?: unknown } }).details?.reason === "locked"
+  ) {
+    return "The vault is locked. Unlock it with Touch ID, then import again.";
+  }
+  if (hasCode(err, "forbidden")) return "Only a device paired as admin can import vault items.";
+  if (hasCode(err, "invalid_params")) {
+    return "Psyche couldn't read that file as a 1Password, Bitwarden or Chrome export. Pick the app it came from, or export it again as CSV.";
+  }
+  return `Psyche couldn't import the file (${messageOf(err)}).`;
+}
+
 export interface CredentialsSectionProps {
   now?: number;
   onConnectManager?: (manager: "1password" | "bitwarden") => void;
+  /** Opens a task from an item's recent uses; defaults to the Activity route. */
+  onOpenTask?: (taskId: string) => void;
 }
 
 export function CredentialsSection({
   now,
   onConnectManager,
+  onOpenTask,
 }: CredentialsSectionProps): ReactElement {
+  const { navigate } = useSlots();
+  const openTask =
+    onOpenTask ??
+    (navigate ? (taskId: string) => navigate(`/agent/activity/${taskId}`) : undefined);
+  const [detail, setDetail] = useState<CredentialMeta | null>(null);
   const form = useSettingsForm();
   const call = useCall();
   const q = useGatewayQuery("vault.list", {});
@@ -741,6 +789,16 @@ export function CredentialsSection({
       },
     );
   };
+  const onImport = (format: ImportFormat, csv: string): Promise<ImportOutcome> =>
+    call("vault.import", { format, csv }).then(
+      (result) => {
+        q.reload();
+        return result;
+      },
+      (err: unknown) => {
+        throw new Error(vaultImportError(err));
+      },
+    );
   const onAdd = (item: NewCredential) => {
     setAddError(null);
     call("vault.add", item).then(
@@ -767,6 +825,8 @@ export function CredentialsSection({
         onUpdate={onUpdate}
         onDelete={onDelete}
         itemError={itemError}
+        onImport={onImport}
+        onOpen={setDetail}
         loading={q.loading && q.data === undefined}
         error={q.error}
         onRetry={q.reload}
@@ -774,6 +834,17 @@ export function CredentialsSection({
         {...(onConnectManager ? { onConnectManager } : {})}
       />
       {form.writeError ? <ErrorNotice what={form.writeError} did="" /> : null}
+      <CredentialDetailSheet
+        // The row's latest metadata, so the sheet follows edits and new uses.
+        credential={
+          detail === null ? null : (q.data?.credentials.find((c) => c.id === detail.id) ?? null)
+        }
+        onOpenChange={(open) => {
+          if (!open) setDetail(null);
+        }}
+        {...(openTask ? { onOpenTask: openTask } : {})}
+        {...(now === undefined ? {} : { now })}
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import type {
   Channel,
   Connector,
   CredentialMeta,
+  CredentialUse,
   Device,
   FeedPost,
   Goal,
@@ -34,6 +35,7 @@ import {
   channels,
   connectors,
   credentials,
+  credentialUses,
   devices,
   nodes,
   pairingRequests,
@@ -78,6 +80,8 @@ export interface FixtureWorld {
   devices: Device[];
   nodes: NodeInfo[];
   credentials: CredentialMeta[];
+  /** The fill audit behind `vault.uses`, newest first. */
+  credentialUses: CredentialUse[];
   settings: Record<string, unknown>;
   /** Workspace file contents by workspace-relative path. */
   memoryFiles: Record<string, string>;
@@ -116,6 +120,7 @@ export function createFixtureWorld(): FixtureWorld {
     devices: devices(),
     nodes: nodes(),
     credentials: credentials(),
+    credentialUses: credentialUses(),
     settings: settings(),
     memoryFiles: memoryFiles(),
     memoryFileInfos: memoryFileInfos(),
