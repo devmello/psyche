@@ -52,6 +52,12 @@ import {
 } from "./crypto.ts";
 import { fail } from "./errors.ts";
 import {
+  type BitwardenField,
+  type BitwardenRef,
+  type BitwardenSource,
+  checkBitwardenRef,
+} from "./external/bitwarden.ts";
+import {
   checkRef,
   type OnePasswordField,
   type OnePasswordRef,
@@ -63,7 +69,7 @@ import { SecretRedactor } from "./redact.ts";
 import { findRefusal, REFUSAL_EXPLANATION } from "./refusals.ts";
 import type { KeychainItemStore } from "./slots/KeychainItems.ts";
 import type { KeyWrapper, WrappedKey } from "./slots/KeyWrapper.ts";
-import { type ItemRow, type ItemSecret, VaultStore } from "./store.ts";
+import { type ItemAttrs, type ItemRow, type ItemSecret, VaultStore } from "./store.ts";
 import { parseTotpSeed, totpCode } from "./totp.ts";
 
 /** Default idle lock (security §4.3, `vault.autoLockMinutes`). */
@@ -107,6 +113,8 @@ export interface VaultOptions {
   keychainItems?: KeychainItemStore;
   /** G10: read-only 1Password source for items linked with `linkOnePassword`. */
   onePassword?: OnePasswordSource;
+  /** G11: read-only Bitwarden source for items linked with `linkBitwarden`. */
+  bitwarden?: BitwardenSource;
   /** Recovery-slot KDF parameters (tests lower them). */
   argon2?: Argon2Params;
   redactor?: SecretRedactor;
@@ -273,6 +281,40 @@ const OP_FIELD: Partial<Record<keyof ItemSecret, OnePasswordField>> = {
   privateKey: "private_key",
   text: "notes",
 };
+
+/** The Bitwarden field a vault secret key reads (G11). */
+const BW_FIELD: Partial<Record<keyof ItemSecret, BitwardenField>> = {
+  username: "username",
+  password: "password",
+  totpSecret: "totp",
+  token: "token",
+  privateKey: "private_key",
+  text: "notes",
+};
+
+/** External managers the vault reads at fill time and never writes (G10, G11). */
+type ExternalBackend = "1password" | "bitwarden";
+const EXTERNAL_NAME: Record<ExternalBackend, string> = {
+  "1password": "1Password",
+  bitwarden: "Bitwarden",
+};
+function externalOf(item: ItemRow): ExternalBackend | undefined {
+  const b = item.attrs.backend;
+  return b === "1password" || b === "bitwarden" ? b : undefined;
+}
+
+/** Item linked to Bitwarden (G11): which fields it offers. */
+export interface LinkBitwardenInput {
+  kind: "login" | "api_key" | "ssh_key" | "note";
+  name: string;
+  slug?: string;
+  bindings: CredentialBinding[];
+  ref: BitwardenRef;
+  /** Default: username + password for logins, the token for API keys, the key, the notes. */
+  fields?: ("username" | "password" | "totp" | "token" | "privateKey" | "text")[];
+  headerName?: string;
+  headerPrefix?: string;
+}
 
 /** Item linked to 1Password (G10): which fields it offers. */
 export interface LinkOnePasswordInput {
@@ -710,8 +752,10 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
 
   /** Read an item's secret: from the row, or from the system keychain (prompts) for G9 items. */
   async #secretOf(item: ItemRow, reason: string): Promise<ItemSecret> {
-    if (item.attrs.backend === "1password") {
-      return fail("forbidden", "1Password items are read-only here: edit them in 1Password");
+    const ext = externalOf(item);
+    if (ext !== undefined) {
+      const name = EXTERNAL_NAME[ext];
+      return fail("forbidden", `${name} items are read-only here: edit them in ${name}`);
     }
     if (item.attrs.backend !== "keychain") return item.secret;
     const raw = await this.#keychainItems().get(item.id, reason);
@@ -817,8 +861,10 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     if (item.ownerConnectorId !== null && patch.secret !== undefined) {
       return fail("forbidden", "connector-owned tokens change only through their connector");
     }
-    if (item.attrs.backend === "1password" && patch.secret !== undefined) {
-      return fail("forbidden", "1Password items are read-only here: edit them in 1Password");
+    const ext = externalOf(item);
+    if (ext !== undefined && patch.secret !== undefined) {
+      const name = EXTERNAL_NAME[ext];
+      return fail("forbidden", `${name} items are read-only here: edit them in ${name}`);
     }
     const name = patch.name ?? item.name;
     this.#checkRefusals(name, patch.secret ?? {});
@@ -1117,7 +1163,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     const key = secretKeyFor(item.kind, field);
     const hasField =
       key !== undefined &&
-      (item.attrs.backend === "keychain" || item.attrs.backend === "1password"
+      (item.attrs.backend === "keychain" || externalOf(item) !== undefined
         ? (item.attrs.fields ?? []).includes(key)
         : item.secret[key] !== undefined);
     if (!hasField) {
@@ -1209,25 +1255,31 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       this.#claimedOnce.add(approvalId);
     }
     // TOTP codes are computed at the moment of use.
-    if (item.attrs.backend === "1password" && key !== undefined) {
-      // G10: read the one field after the approval, read-only. 1Password returns the current
-      // TOTP code itself.
-      const ref = item.attrs.external;
-      const opField = OP_FIELD[key];
-      if (this.#o.onePassword === undefined || ref === undefined || opField === undefined) {
+    const ext = externalOf(item);
+    if (ext !== undefined && key !== undefined) {
+      // G10 / G11: read the one field after the approval, read-only. Both managers return the
+      // current TOTP code themselves.
+      const reader = this.#externalReader(ext, item, key);
+      if (reader === undefined) {
         failed("external_unavailable");
-        return fail("unavailable", "1Password is not configured", {
+        return fail("unavailable", `${EXTERNAL_NAME[ext]} is not configured`, {
           reason: "external_unavailable",
         });
       }
       let read: string;
       try {
-        read = await this.#o.onePassword.readField(ref, opField);
+        read = await reader();
       } catch (err) {
         failed("external_unavailable");
         throw err;
       }
       this.#redactor.add(read, { sticky: true });
+      // What the manager holds is not checked when it is linked: refuse card, bank and id
+      // numbers here, before anything is filled (security §4.8).
+      if (key !== "privateKey" && key !== "totpSecret" && findRefusal({ [key]: read }) !== null) {
+        failed("refused_data");
+        return fail("policy_denied", REFUSAL_EXPLANATION, { reason: "refused_data" });
+      }
       if (key === "totpSecret") {
         this.#redactor.markSticky(read);
         this.#recordUse(
@@ -1247,7 +1299,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
           approvalId,
           field: "totp",
           outcome: "filled",
-          source: "1password",
+          source: ext,
         });
         return new ResolvedSecret(read, { credentialId: meta.id, target, field: "totp" });
       }
@@ -1301,8 +1353,9 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     if (item.ownerConnectorId !== null) {
       return fail("forbidden", "connector tokens stay in the vault");
     }
-    if (item.attrs.backend === "1password") {
-      return fail("forbidden", "1Password items stay in 1Password");
+    const ext = externalOf(item);
+    if (ext !== undefined) {
+      return fail("forbidden", `${EXTERNAL_NAME[ext]} items stay in ${EXTERNAL_NAME[ext]}`);
     }
     const current = item.attrs.backend === "keychain" ? "keychain" : "vault";
     if (current !== backend) {
@@ -1337,23 +1390,52 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
   }
 
   /** Where an item's secret lives (G9). */
-  backendOf(credentialId: string): "vault" | "keychain" | "1password" | undefined {
+  backendOf(credentialId: string): "vault" | "keychain" | ExternalBackend | undefined {
     const item = this.#requireUnlocked().store.get(credentialId);
     if (item === undefined) return undefined;
     return item.attrs.backend ?? "vault";
   }
 
+  /** Reads one field of an external item, or `undefined` when its manager is not configured. */
+  #externalReader(
+    ext: ExternalBackend,
+    item: ItemRow,
+    key: keyof ItemSecret,
+  ): (() => Promise<string>) | undefined {
+    const ref = item.attrs.external;
+    if (ref === undefined) return undefined;
+    if (ext === "1password") {
+      const source = this.#o.onePassword;
+      const field = OP_FIELD[key];
+      if (source === undefined || field === undefined || !("vault" in ref)) return undefined;
+      return () => source.readField(ref, field);
+    }
+    const source = this.#o.bitwarden;
+    const field = BW_FIELD[key];
+    if (source === undefined || field === undefined) return undefined;
+    return () => source.readField({ item: ref.item }, field);
+  }
+
   /**
-   * Link a 1Password item (G10): Psyche stores the reference, bindings and the fields it offers,
-   * never a value. Fills read one field at a time after the approval; nothing is written back.
+   * Link a Bitwarden item (G11), like a 1Password one: the reference, bindings and the fields it
+   * offers, never a value. Fills read one field after the approval; nothing is written back.
    */
-  async linkOnePassword(input: LinkOnePasswordInput): Promise<CredentialMeta> {
-    checkRef(input.ref);
+  async linkBitwarden(input: LinkBitwardenInput): Promise<CredentialMeta> {
+    checkBitwardenRef(input.ref);
     this.#checkRefusals(input.name, {});
     const u = this.#requireUnlocked();
-    if (this.#o.onePassword === undefined) {
-      return fail("unavailable", "1Password is not configured");
+    if (this.#o.bitwarden === undefined) {
+      return fail("unavailable", "Bitwarden is not configured", { reason: "external_unavailable" });
     }
+    return this.#linkExternal(u, "bitwarden", { item: input.ref.item }, input);
+  }
+
+  async #linkExternal(
+    u: Unlocked,
+    backend: ExternalBackend,
+    external: NonNullable<ItemAttrs["external"]>,
+    input: LinkBitwardenInput | LinkOnePasswordInput,
+  ): Promise<CredentialMeta> {
     const fields =
       input.fields ??
       (input.kind === "login"
@@ -1367,8 +1449,8 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       return fail("invalid_params", "a login needs a password or a TOTP field");
     }
     const attrs: ItemRow["attrs"] = {
-      backend: "1password",
-      external: { vault: input.ref.vault, item: input.ref.item },
+      backend,
+      external,
       // Stored as `ItemSecret` keys, like keychain items.
       fields: fields.map((f) => (f === "totp" ? "totpSecret" : f)),
     };
@@ -1379,9 +1461,28 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       credentialId: meta.id,
       kind: meta.kind,
       slug: meta.slug,
-      backend: "1password",
+      backend,
     });
     return structuredClone(meta);
+  }
+
+  /**
+   * Link a 1Password item (G10): Psyche stores the reference, bindings and the fields it offers,
+   * never a value. Fills read one field at a time after the approval; nothing is written back.
+   */
+  async linkOnePassword(input: LinkOnePasswordInput): Promise<CredentialMeta> {
+    checkRef(input.ref);
+    this.#checkRefusals(input.name, {});
+    const u = this.#requireUnlocked();
+    if (this.#o.onePassword === undefined) {
+      return fail("unavailable", "1Password is not configured");
+    }
+    return this.#linkExternal(
+      u,
+      "1password",
+      { vault: input.ref.vault, item: input.ref.item },
+      input,
+    );
   }
 
   /** Header name for `.header` fills (not secret). */
