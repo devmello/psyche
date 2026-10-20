@@ -174,10 +174,15 @@ describe("LibraryScreen", () => {
     expect(openLibraryItem).toHaveBeenCalledWith(
       expect.objectContaining({ id: IDS.library.intakeForm }),
     );
+    // One Open per card; the rest sit under ⋯ (§3.12).
+    expect(within(form).getAllByRole("button", { name: /^Open/ })).toHaveLength(1);
     await user.click(
-      within(form).getByRole("button", { name: "Send acme-intake-form.pdf to chat" }),
+      within(form).getByRole("button", { name: "More actions for acme-intake-form.pdf" }),
     );
-    expect(onSendToChat).toHaveBeenCalled();
+    await user.click(await screen.findByRole("menuitem", { name: "Send to chat" }));
+    expect(onSendToChat).toHaveBeenCalledWith(
+      expect.objectContaining({ id: IDS.library.intakeForm }),
+    );
   });
 
   it("switches tabs and opens system files in the editor", async () => {
