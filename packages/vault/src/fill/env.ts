@@ -56,16 +56,19 @@ export async function buildSecretEnv(input: SecretEnvInput): Promise<SecretEnv> 
   }
   let active = true;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let untrack: (() => void) | undefined;
+  const ids: string[] = [];
   const dispose = () => {
     active = false;
     if (timer !== undefined) clearTimeout(timer);
+    untrack?.();
     for (const k of Object.keys(env)) {
       env[k] = "";
       delete env[k];
     }
   };
   try {
-    await fillEnv(input, env, names);
+    await fillEnv(input, env, names, ids);
   } catch (err) {
     dispose();
     throw err;
@@ -74,6 +77,9 @@ export async function buildSecretEnv(input: SecretEnvInput): Promise<SecretEnv> 
   // The command cannot outlive its timeout, and neither may the values (#290).
   timer = setTimeout(dispose, lifetime);
   timer.unref?.();
+  // Deleting or revoking an item it was drawn from ends the lease too (#511).
+  const leases = input.broker as Partial<LeaseRegistry>;
+  if (typeof leases.trackLease === "function") untrack = leases.trackLease(ids, dispose);
   return {
     env,
     names,
@@ -86,7 +92,17 @@ export async function buildSecretEnv(input: SecretEnvInput): Promise<SecretEnv> 
   };
 }
 
-async function fillEnv(input: SecretEnvInput, env: Record<string, string>, names: string[]) {
+/** A broker that can end leases early (the vault: deleting an item wipes its leases). */
+export interface LeaseRegistry {
+  trackLease(credentialIds: readonly string[], dispose: () => void): () => void;
+}
+
+async function fillEnv(
+  input: SecretEnvInput,
+  env: Record<string, string>,
+  names: string[],
+  ids: string[],
+) {
   for (const entry of input.entries) {
     if (!NAME_RE.test(entry.name))
       return fail("invalid_params", "secret env names are A-Z, 0-9, _");
@@ -96,6 +112,7 @@ async function fillEnv(input: SecretEnvInput, env: Record<string, string>, names
       executor: "sandbox",
       ...(input.taskId === undefined ? {} : { taskId: input.taskId }),
     });
+    ids.push(handle.credentialId);
     handle.use((value) => {
       env[key] = value;
     });

@@ -69,6 +69,7 @@ export interface ModelSettingsSetup {
   vaultKeys?: {
     has(providerId: string): boolean;
     store(providerId: HostedModelKind, key: string): Promise<void>;
+    clear(providerId: HostedModelKind): Promise<boolean>;
   };
 }
 
@@ -249,6 +250,28 @@ export function modelSettingsHandlers(setup: ModelSettingsSetup): Record<string,
           if (err instanceof PsycheError && err.code !== "internal") throw err;
           throw new PsycheError("internal", "models.setKey failed");
         }
+        return { provider: await summary(config) };
+      },
+    },
+    "models.clearKey": {
+      async run(
+        _call: Call,
+        params: MethodParams<"models.clearKey">,
+      ): Promise<MethodResult<"models.clearKey">> {
+        const config = configs.get(params.providerId);
+        if (config === undefined) {
+          throw new PsycheError("not_found", `no model provider "${params.providerId}"`);
+        }
+        if (!isHostedModelKind(config.id) || isLocalKind(config.kind)) {
+          throw new PsycheError("invalid_params", `${config.id} takes no API key`);
+        }
+        if (setup.vaultKeys === undefined) {
+          throw new PsycheError(
+            "unavailable",
+            "this Gateway reads provider keys from its environment (PSYCHE_MODEL is set)",
+          );
+        }
+        await setup.vaultKeys.clear(config.id);
         return { provider: await summary(config) };
       },
     },

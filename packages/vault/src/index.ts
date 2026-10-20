@@ -69,6 +69,7 @@ export {
 } from "./fill/browser.ts";
 export {
   buildSecretEnv,
+  type LeaseRegistry,
   SECRET_LEASE_DEFAULT_MS,
   type SecretEnv,
   type SecretEnvEntry,
@@ -186,6 +187,7 @@ export {
   type ImportResult,
   type LinkBitwardenInput,
   type LinkOnePasswordInput,
+  type ManagedBy,
   type UpdateItemInput,
   Vault,
   type VaultEventName,
