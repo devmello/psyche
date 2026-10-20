@@ -208,7 +208,25 @@ export function auditRules(s: Snapshot, now: Date): AuditReport {
         });
       }
     }
+    // First admin without a terminal (devices.bootstrapAdmin): there must be one, made once.
+    if (admins.length === 0) {
+      add({
+        id: "devices.no_admin",
+        severity: "medium",
+        message: "no paired device has operator.admin, so security settings cannot be changed",
+        fix: "Open Psyche on this Mac (it becomes the admin device), or: psyched devices grant <id> <scopes>",
+      });
+    }
   } else skip("devices", s.devices);
+  if (s.adminBootstraps?.ok && s.adminBootstraps.value.length > 1) {
+    add({
+      id: "devices.bootstrap_repeated",
+      severity: "high",
+      message: `the first-admin bootstrap ran ${s.adminBootstraps.value.length} times (${s.adminBootstraps.value.map((b) => b.deviceId).join(", ")}); it may run only once`,
+      fix: "Review the admin devices in Settings → Devices and revoke the ones you do not recognise",
+    });
+  } else if (s.adminBootstraps && !s.adminBootstraps.ok)
+    skip("devices.bootstrap", s.adminBootstraps);
 
   // Vault.
   if (s.vault.ok) {

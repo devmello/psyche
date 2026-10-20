@@ -161,6 +161,10 @@ export interface Snapshot {
     itemCount: number;
   }>;
   apiKeys: Query<{ name: string; bindings: Record<string, string>[] }[]>;
+  /** Hosted providers whose key is a Gateway-owned vault item (`models.setKey`), from `models.list`. */
+  modelKeys?: Query<string[]>;
+  /** `device.bootstrap_admin` audit entries (first admin without a terminal). */
+  adminBootstraps?: Query<{ deviceId: string; ts: string }[]>;
   skills: Query<{ name: string; status: string; trust: string; enabled: boolean }[]>;
   /** The Gateway's real-Chrome mode (I13): the owner's profile on a loopback DevTools port. */
   realChrome: Query<RealChromeStatus>;
@@ -297,6 +301,8 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
     realChrome,
     mcp,
     backups,
+    modelKeys,
+    adminBootstraps,
   ] = await Promise.all([
     q(client, "settings.get", {}, (v: { settings: Record<string, unknown> }) => v.settings),
     q(client, "channels.list", {}, (v: { channels: never[] }) => v.channels),
@@ -315,6 +321,20 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
       (v: { launcher: "srt" | "container" | "none"; servers: McpServerStatus[] }) => v,
     ),
     q(client, "backup.list", {}, (v: { backups: BackupInfo[] }) => v.backups),
+    q(
+      client,
+      "models.list",
+      {},
+      (v: { providers: { id: string; local: boolean; keyConfigured: boolean }[] }) =>
+        v.providers.filter((p) => !p.local && p.keyConfigured).map((p) => p.id),
+    ),
+    q(
+      client,
+      "audit.list",
+      { kind: "device.bootstrap_admin", limit: 100 },
+      (v: { entries: { ts: string; data?: { deviceId?: string } }[] }) =>
+        v.entries.map((e) => ({ deviceId: e.data?.deviceId ?? "?", ts: e.ts })),
+    ),
   ]);
 
   // The helper reports what macOS has granted it (a read capability; never prompts).
@@ -391,6 +411,8 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
     sandbox,
     vault,
     apiKeys,
+    modelKeys,
+    adminBootstraps,
     skills,
     localSandboxBackends,
     disk,

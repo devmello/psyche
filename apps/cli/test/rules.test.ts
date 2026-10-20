@@ -1,7 +1,13 @@
 import { PROTOCOL_VERSION } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import { type AuditReport, auditExitCode, auditRules, parseSeverity } from "../src/audit.ts";
-import { type Check, doctorChecks, doctorExitCode, firstRunChecklist } from "../src/doctor.ts";
+import {
+  type Check,
+  doctorChecks,
+  doctorExitCode,
+  firstRunChecklist,
+  slotLabel,
+} from "../src/doctor.ts";
 import { appOfProgram, launchAgentProgram, type Snapshot } from "../src/snapshot.ts";
 import { renderLaunchAgentPlist } from "../src/supervisor.ts";
 
@@ -231,6 +237,20 @@ describe("doctor rules", () => {
       status: "ok",
       message: expect.stringMatching(/Ollama/),
     });
+  });
+
+  it("doctor names the vault's key slot", () => {
+    expect(slotLabel(["key_file", "recovery"])).toBe("a key file on this Mac");
+    expect(slotLabel(["keychain", "recovery"])).toBe("the Keychain (Touch ID)");
+  });
+
+  it("models: a Gateway-owned provider key (models.setKey) counts", () => {
+    const s = snap({
+      apiKeys: { ok: true, value: [] },
+      modelKeys: { ok: true, value: ["anthropic"] },
+      localModel: false,
+    });
+    expect(check(s, "models")).toMatchObject({ status: "ok" });
   });
 
   it("models: zero keys and no local model → warn", () => {
@@ -668,6 +688,27 @@ describe("audit rules", () => {
       "psyche devices revoke never",
     ]);
     expect(f.every((x) => x.severity === "low")).toBe(true);
+  });
+
+  it("devices.no_admin and devices.bootstrap_repeated (first admin without a terminal)", () => {
+    const none = snap({
+      devices: { ok: true, value: [{ id: "d1", name: "Mac", scopes: ["operator.write"] }] },
+    });
+    expect(finding(none, "devices.no_admin")).toHaveLength(1);
+    const once = snap({
+      adminBootstraps: { ok: true, value: [{ deviceId: "d1", ts: "2026-10-20T10:00:00Z" }] },
+    });
+    expect(finding(once, "devices.bootstrap_repeated")).toHaveLength(0);
+    const twice = snap({
+      adminBootstraps: {
+        ok: true,
+        value: [
+          { deviceId: "d1", ts: "2026-10-20T10:00:00Z" },
+          { deviceId: "d2", ts: "2026-10-20T11:00:00Z" },
+        ],
+      },
+    });
+    expect(finding(twice, "devices.bootstrap_repeated")).toMatchObject([{ severity: "high" }]);
   });
 
   const vault = (v: Record<string, unknown>) => {

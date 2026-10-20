@@ -129,7 +129,8 @@ export function doctorChecks(s: Snapshot): Check[] {
   }
 
   // Models.
-  const keys = s.apiKeys.ok ? s.apiKeys.value.length : 0;
+  const keys =
+    (s.apiKeys.ok ? s.apiKeys.value.length : 0) + (s.modelKeys?.ok ? s.modelKeys.value.length : 0);
   if (keys > 0 || s.localModel) {
     const parts = [
       keys ? `${keys} provider key(s) in the vault` : "",
@@ -234,7 +235,12 @@ export function doctorChecks(s: Snapshot): Check[] {
         status: "warn",
         message: "recovery key not confirmed; restoring a backup elsewhere needs it",
       });
-    else add({ id: "vault", status: "ok", message: `vault ${v.state}, ${v.itemCount} item(s)` });
+    else
+      add({
+        id: "vault",
+        status: "ok",
+        message: `vault ${v.state}, ${v.itemCount} item(s), protected by ${slotLabel(v.slots)}`,
+      });
   }
 
   // Disk.
@@ -370,4 +376,13 @@ export function doctorExitCode(checks: readonly Check[], strict: boolean): numbe
   if (checks.some((c) => c.status === "fail")) return 1;
   if (strict && checks.some((c) => c.status === "warn")) return 1;
   return 0;
+}
+
+/** The vault's key slot as the owner reads it (`recovery` is always there too). */
+export function slotLabel(slots: readonly string[]): string {
+  const primary = slots.filter((s) => s !== "recovery");
+  if (primary.includes("keychain")) return "the Keychain (Touch ID)";
+  if (primary.includes("safe_storage")) return "the desktop's safeStorage";
+  if (primary.includes("key_file")) return "a key file on this Mac";
+  return "the recovery key only";
 }

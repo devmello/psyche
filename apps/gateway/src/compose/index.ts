@@ -74,6 +74,7 @@ import { createLogger } from "../log.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
+import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
 import { CallContexts } from "./call-context.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
 import { composeComputer } from "./computer.ts";
@@ -695,6 +696,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...receiptHandlers(broker),
     ...threadSettingsHandlers(modelPins),
     ...vault.handlers,
+    ...bootstrapAdminHandlers({ db, audit }),
     ...filesHandlers({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
     ...attentionHandlers(attention),
     ...libraryHandlers({ db, home: config.home }),
