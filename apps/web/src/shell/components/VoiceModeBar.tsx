@@ -43,23 +43,23 @@ export function useVoiceMode(store: ShellStore, threadId: string | null) {
   }, [store]);
 
   // One controller per settings combination; a change ends the running conversation.
-  const key = `${settings.enabled}|${settings.start}|${settings.reply}|${settings.bargeIn}`;
+  const { enabled, start, reply, bargeIn } = settings;
   const vm = useMemo(() => {
-    if (!settings.enabled) return undefined;
+    if (!enabled) return undefined;
     const call = (m: string, p: unknown) => store.call(m, p);
     const speaker =
-      (settings.reply === "browser" ? browserSpeaker() : undefined) ??
+      (reply === "browser" ? browserSpeaker() : undefined) ??
       new GatewaySpeaker(call, webAudioPlayer);
     const local = webSpeechDictation();
     return new VoiceMode({
       call,
       source: microphoneSource(),
       speaker,
-      settings,
+      settings: { enabled, start, reply, bargeIn },
       onState: setState,
       ...(local ? { local } : {}),
     });
-  }, [store, key]);
+  }, [store, enabled, start, reply, bargeIn]);
 
   useEffect(() => {
     if (!vm) return;
@@ -70,8 +70,10 @@ export function useVoiceMode(store: ShellStore, threadId: string | null) {
     };
   }, [store, vm]);
 
-  // Switching threads ends the conversation (it belongs to the thread it started in).
-  useEffect(() => () => vm?.stop(), [threadId]);
+  // Switching threads ends the conversation: it belongs to the thread it started in.
+  useEffect(() => {
+    if (vm?.thread != null && vm.thread !== threadId) vm.stop();
+  }, [vm, threadId]);
 
   return {
     settings,

@@ -408,6 +408,11 @@ export class VoiceMode {
     return this.state.phase !== "off";
   }
 
+  /** The thread the running conversation belongs to, or null when voice mode is off. */
+  get thread(): string | null {
+    return this.threadId;
+  }
+
   private set(s: VoiceModePhase): void {
     this.state = s;
     this.opts.onState(s);
