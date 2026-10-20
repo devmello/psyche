@@ -5,6 +5,7 @@ import {
   CircleCheck,
   CircleHelp,
   CircleX,
+  Inbox,
   Info,
   Lightbulb,
   type LucideIcon,
@@ -12,32 +13,42 @@ import {
 } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useId, useState } from "react";
 import { toast } from "sonner";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+  Page,
+  PageHeader,
+  useDelayedFlag,
+} from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useApproval, useNotifications, useTask } from "../../data/hooks.ts";
 import { formatCountdown, formatRelative, plural } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { cn } from "../../lib/utils.ts";
 import { useSlots } from "../../slots.tsx";
-import {
-  EmptyState,
-  ErrorState,
-  LoadingCards,
-  ScreenHeader,
-  useDelayedFlag,
-} from "../feed/states.tsx";
+
+/** Semantic tones only (§4.8): approval, success, danger, info, or neutral gray. */
+const TONE = {
+  approval: "bg-amber-3 text-amber-11",
+  success: "bg-grass-3 text-grass-11",
+  danger: "bg-tomato-3 text-tomato-11",
+  info: "bg-sky-3 text-sky-11",
+  muted: "bg-gray-3 text-gray-11",
+} as const;
 
 export const NOTIFICATION_KIND: Record<
   NotificationKind,
   { label: string; icon: LucideIcon; tone: string }
 > = {
-  approval: { label: "Approval", icon: CircleAlert, tone: "text-approval-text" },
-  input_needed: { label: "Input", icon: CircleHelp, tone: "text-approval-text" },
-  task_done: { label: "Done", icon: CircleCheck, tone: "text-success-text" },
-  task_failed: { label: "Failed", icon: CircleX, tone: "text-danger-text" },
-  proactive: { label: "Idea", icon: Lightbulb, tone: "text-accent-11" },
-  briefing: { label: "Brief", icon: Newspaper, tone: "text-accent-11" },
-  reminder: { label: "Reminder", icon: Bell, tone: "text-info-text" },
-  system: { label: "System", icon: Info, tone: "text-info-text" },
+  approval: { label: "Approval", icon: CircleAlert, tone: TONE.approval },
+  input_needed: { label: "Input", icon: CircleHelp, tone: TONE.approval },
+  task_done: { label: "Done", icon: CircleCheck, tone: TONE.success },
+  task_failed: { label: "Failed", icon: CircleX, tone: TONE.danger },
+  proactive: { label: "Idea", icon: Lightbulb, tone: TONE.muted },
+  briefing: { label: "Brief", icon: Newspaper, tone: TONE.muted },
+  reminder: { label: "Reminder", icon: Bell, tone: TONE.info },
+  system: { label: "System", icon: Info, tone: TONE.muted },
 };
 
 /** What the row knows about the approval behind an `approval` notification. */
@@ -95,24 +106,24 @@ function ApprovalControls({
     return () => clearTimeout(t);
   }, []);
   const openCard = (
-    <Button type="button" size="sm" variant="outline" onClick={() => onOpen?.(n)}>
+    <Button type="button" size="sm" variant="ghost" onClick={() => onOpen?.(n)}>
       Open card
     </Button>
   );
   const a = state?.approval ?? null;
   if (a === null) return openCard;
   if (a.status !== "pending") {
-    return <span className="text-xs text-muted-foreground">{DECIDED[a.status] ?? a.status}</span>;
+    return <span className="text-caption text-gray-11">{DECIDED[a.status] ?? a.status}</span>;
   }
   const remaining = Date.parse(a.expiresAt) - now;
   if (remaining <= 0) {
-    return <span className="text-xs text-muted-foreground">Expired. Nothing was done.</span>;
+    return <span className="text-caption text-gray-11">Expired. Nothing was done.</span>;
   }
   const countdown = (
     <span
       className={cn(
-        "text-xs tabular-nums",
-        remaining < 60_000 ? "font-semibold text-danger-text" : "text-muted-foreground",
+        "mr-1 text-caption tabular-nums",
+        remaining < 60_000 ? "font-semibold text-danger-text" : "text-gray-11",
       )}
     >
       <span className="sr-only">Expires in </span>
@@ -133,6 +144,17 @@ function ApprovalControls({
       {countdown}
       {inline ? (
         <>
+          {/* Deny sits left of Approve, as on the approval card (§3.3). */}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={busy || !armed}
+            onClick={() => onDeny?.(n)}
+            aria-label={`Deny: ${a.summary}`}
+          >
+            Deny
+          </Button>
           <Button
             type="button"
             size="sm"
@@ -141,16 +163,6 @@ function ApprovalControls({
             aria-label={`Approve once: ${a.summary}`}
           >
             Approve
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            disabled={busy || !armed}
-            onClick={() => onDeny?.(n)}
-            aria-label={`Deny: ${a.summary}`}
-          >
-            Deny
           </Button>
         </>
       ) : (
@@ -195,7 +207,7 @@ export function InboxRow({
       />
     );
   } else if (resolved) {
-    actions = <span className="text-xs text-muted-foreground">Resolved</span>;
+    actions = <span className="text-caption text-gray-11">Resolved</span>;
   } else if (n.kind === "input_needed") {
     actions = (
       <Button type="button" size="sm" onClick={() => onOpen?.(n)} disabled={n.route == null}>
@@ -205,13 +217,13 @@ export function InboxRow({
   } else if (n.kind === "task_failed") {
     actions = (
       <>
-        <Button type="button" size="sm" variant="outline" onClick={() => onOpen?.(n)}>
+        <Button type="button" size="sm" variant="ghost" onClick={() => onOpen?.(n)}>
           Open
         </Button>
         <Button
           type="button"
           size="sm"
-          variant="outline"
+          variant="secondary"
           disabled={busy || n.taskId == null}
           onClick={() => onRetry?.(n)}
         >
@@ -220,12 +232,12 @@ export function InboxRow({
       </>
     );
   } else if (n.kind === "reminder" && n.actions.length > 0) {
-    actions = n.actions.map((a) => (
+    actions = n.actions.map((a, i) => (
       <Button
         key={a.id}
         type="button"
         size="sm"
-        variant={a.destructive ? "destructive" : "outline"}
+        variant={a.destructive ? "destructive" : i === 0 ? "secondary" : "ghost"}
         disabled={busy}
         onClick={() => onAction?.(n, a.id)}
       >
@@ -234,7 +246,7 @@ export function InboxRow({
     ));
   } else if (n.route != null) {
     actions = (
-      <Button type="button" size="sm" variant="outline" onClick={() => onOpen?.(n)}>
+      <Button type="button" size="sm" variant="ghost" onClick={() => onOpen?.(n)}>
         Open
       </Button>
     );
@@ -245,14 +257,29 @@ export function InboxRow({
       aria-labelledby={titleId}
       data-unread={unread || undefined}
       className={cn(
-        "flex flex-wrap items-start gap-3 border-b border-gray-6 px-2 py-3 text-sm",
-        unread ? "bg-accent-2" : "",
+        "flex flex-wrap items-start gap-3 border-b border-gray-6 py-3 pr-2 pl-0 text-sm",
         resolved || isStale ? "opacity-75" : "",
       )}
     >
+      {/* Unread is the dot plus weight; the dot marks the row read (§3.20). */}
+      <span className="flex h-7 w-5 shrink-0 items-center justify-center">
+        {unread && onMarkRead ? (
+          <button
+            type="button"
+            aria-label={`Mark "${n.title}" read`}
+            title="Mark read"
+            onClick={() => onMarkRead(n)}
+            className="group/dot flex size-5 items-center justify-center rounded-full hover:bg-gray-3 focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <span className="size-2 rounded-full bg-accent-9 transition-transform group-hover/dot:scale-125" />
+          </button>
+        ) : unread ? (
+          <span className="size-2 rounded-full bg-accent-9" aria-hidden="true" />
+        ) : null}
+      </span>
       <span
         className={cn(
-          "mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-gray-3",
+          "inline-flex size-7 shrink-0 items-center justify-center rounded-full",
           kind.tone,
         )}
         aria-hidden="true"
@@ -260,40 +287,32 @@ export function InboxRow({
         <Icon className="size-4" />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-          <span className={cn("font-semibold uppercase", kind.tone)}>{kind.label}</span>
+        <p className="flex flex-wrap items-center gap-x-1.5 text-caption text-gray-11">
+          <span className="font-medium">{kind.label}</span>
+          <span aria-hidden="true">·</span>
           <span>{formatRelative(n.createdAt, now)}</span>
-          {unread ? (
-            <span className="inline-flex items-center gap-1 font-medium text-accent-11">
-              <span className="size-1.5 rounded-full bg-accent-9" aria-hidden="true" />
-              Unread
-            </span>
-          ) : null}
+          {unread ? <span className="sr-only">Unread</span> : null}
           {isStale ? (
-            <span className="font-medium text-approval-text">
-              Stale · {n.staleReason ?? "sent before Psyche restarted"}
-            </span>
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="font-medium text-approval-text">
+                Stale · {n.staleReason ?? "sent before Psyche restarted"}
+              </span>
+            </>
           ) : null}
         </p>
-        <h2 id={titleId} className={cn("text-sm", unread ? "font-semibold" : "font-normal")}>
+        <h2
+          id={titleId}
+          className={cn(
+            "text-body",
+            unread ? "font-semibold text-foreground" : "font-normal text-gray-12",
+          )}
+        >
           {n.title}
         </h2>
-        {n.body ? <p className="text-gray-11">{n.body}</p> : null}
+        {n.body ? <p className="text-small text-gray-11">{n.body}</p> : null}
       </div>
-      <div className="flex flex-wrap items-center gap-1.5 self-center">
-        {actions}
-        {unread && onMarkRead ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            aria-label={`Mark "${n.title}" read`}
-            onClick={() => onMarkRead(n)}
-          >
-            Mark read
-          </Button>
-        ) : null}
-      </div>
+      <div className="flex flex-wrap items-center gap-1.5 self-center">{actions}</div>
     </article>
   );
 }
@@ -348,6 +367,7 @@ export function InboxView({
   } else if (notifications.length === 0) {
     body = (
       <EmptyState
+        icon={Inbox}
         {...(onOpenActivity ? { action: { label: "Open Activity", onClick: onOpenActivity } } : {})}
       >
         Nothing needs you.
@@ -366,23 +386,27 @@ export function InboxView({
   }
 
   return (
-    <section aria-label="Inbox" className="mx-auto flex max-w-[80ch] flex-col gap-3 p-4">
-      <ScreenHeader
-        title="Inbox"
-        meta={
-          !loading && error === null && unread > 0 ? `${plural(unread, "unread", "unread")}` : null
-        }
-        {...(unread > 0 && onMarkAllRead
-          ? {
-              actions: (
-                <Button type="button" size="sm" variant="ghost" onClick={onMarkAllRead}>
-                  Mark all read
-                </Button>
-              ),
-            }
-          : {})}
-      />
-      {body}
+    <section aria-label="Inbox">
+      <Page width="wide">
+        <PageHeader
+          title="Inbox"
+          meta={
+            !loading && error === null && unread > 0
+              ? `${plural(unread, "unread", "unread")}`
+              : null
+          }
+          {...(unread > 0 && onMarkAllRead
+            ? {
+                actions: (
+                  <Button type="button" size="sm" variant="ghost" onClick={onMarkAllRead}>
+                    Mark all read
+                  </Button>
+                ),
+              }
+            : {})}
+        />
+        {body}
+      </Page>
     </section>
   );
 }

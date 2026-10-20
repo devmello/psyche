@@ -15,10 +15,18 @@ export {
 } from "./host.ts";
 export { inspectTool, MAX_DESCRIPTION_CHARS, type ToolWarning } from "./inspect.ts";
 export {
+  type ContainerLauncherOptions,
+  containerLauncher,
   defaultDenyRead,
   directLauncher,
   type McpSandboxPolicy,
+  mcpSandboxScope,
+  type OpenedLaunch,
   type PreparedLaunch,
+  SANDBOX_WORKSPACE,
+  type SandboxStdioHost,
+  type SandboxStdioProcess,
+  type SpawnLauncher,
   type SrtLauncherOptions,
   type StdioLauncher,
   type StdioLaunchSpec,
@@ -42,6 +50,7 @@ export {
   MemoryTokenStore,
   PsycheOAuthProvider,
 } from "./oauth.ts";
+export { PIPE_MAX_MESSAGE_BYTES, type PipeProcess, PipeTransport } from "./pipe-transport.ts";
 export { provenanceFor, requiresUserInteraction, sideEffectFor } from "./policy.ts";
 export { describeMcpCall, type McpRegistration, registerMcpServerTools } from "./registry.ts";
 export {

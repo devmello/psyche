@@ -24,6 +24,7 @@ import {
   ShortcutSheet,
 } from "./components/Overlays.tsx";
 import { PaneArea } from "./components/Panes.tsx";
+import { hasInsetTitleBar, TitleBar } from "./components/TitleBar.tsx";
 import { ShellProvider, useShell, useShellState } from "./context.tsx";
 import { matchShortcut, type ShortcutAction } from "./keyboard.ts";
 import {
@@ -43,6 +44,12 @@ import "./shell.css";
  * The shared shell (docs/06 §3.1): rail, thread list, chat column and pane area, with the
  * keyboard map, palette, offline banner and `view.*` handling. Hosts pass a `ShellPlatform`.
  */
+
+/** The title bar's label for a non-chat route (`/settings/files` → "Settings"). */
+export function sectionTitle(route: string): string {
+  const head = route.split("/")[1] ?? "";
+  return head === "" ? "Psyche" : head.charAt(0).toUpperCase() + head.slice(1);
+}
 
 function initialRoute(): string {
   const p = globalThis.location?.pathname ?? "/chat";
@@ -72,8 +79,24 @@ function isTextTarget(t: EventTarget | null): boolean {
  * shell's built-in views.
  */
 export interface ShellSlots {
-  chat?: (threadId: string) => ReactNode;
+  chat?: (threadId: string, ctx: ChatSlotContext) => ReactNode;
   section?: (route: string, navigate: (to: string) => void) => ReactNode | null;
+  /** The left rail, or the bottom tab bar when `compact` (docs/06 §2.1, §3.24). */
+  rail?: (props: { route: string; compact: boolean; navigate: (to: string) => void }) => ReactNode;
+  /** The thread list beside the chat (§2.2); its first child is a 56 px `.threads-header`. */
+  threadList?: (props: {
+    threadId: string | null;
+    onOpen: (threadId: string) => void;
+    onNew: () => void;
+  }) => ReactNode;
+}
+
+/** What the chat slot needs from the shell to drive the agent header (§3.1). */
+export interface ChatSlotContext {
+  thread: Thread | null;
+  navigate: (to: string) => void;
+  setPermissionMode: (mode: Thread["permissionMode"]) => void;
+  openModelPicker: () => void;
 }
 
 export function ShellApp({
@@ -206,19 +229,27 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       .catch(() => store.toast("Psyche couldn't create a side chat.", "error"));
   }, [store, navigate]);
 
+  const setPermissionMode = useCallback(
+    (permissionMode: Thread["permissionMode"]) => {
+      if (!thread) return;
+      void store
+        .call("threads.update", { threadId: thread.id, permissionMode })
+        .then((r) => {
+          if (r === undefined)
+            store.toast("Changing the permission mode needs a newer Gateway.", "warn");
+          else void store.refresh();
+        })
+        .catch(() => store.toast("Changing the permission mode needs a newer Gateway.", "warn"));
+    },
+    [thread, store],
+  );
+
   const cycleMode = useCallback(() => {
     if (!thread) return;
     const i = PERMISSION_MODES.indexOf(thread.permissionMode);
     const next = PERMISSION_MODES[(i + 1) % PERMISSION_MODES.length];
-    void store
-      .call("threads.update", { threadId: thread.id, permissionMode: next })
-      .then((r) => {
-        if (r === undefined)
-          store.toast("Changing the permission mode needs a newer Gateway.", "warn");
-        else void store.refresh();
-      })
-      .catch(() => store.toast("Changing the permission mode needs a newer Gateway.", "warn"));
-  }, [thread, store]);
+    if (next) setPermissionMode(next);
+  }, [thread, setPermissionMode]);
 
   useEffect(
     () =>
@@ -364,72 +395,115 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   }
 
   const onChat = route.startsWith("/chat");
+  const inset = hasInsetTitleBar(platform.chrome);
+  const barTitle = onChat
+    ? thread?.kind === "main" || thread === null
+      ? "Main chat"
+      : thread.title || "Side chat"
+    : sectionTitle(route);
   return (
-    <div className="shell" data-compact={compact} data-testid="shell">
-      <Rail route={route} compact={compact} onNavigate={navigate} />
-      {onChat && !compact ? (
-        <ThreadList
-          hidden={listHidden}
-          currentThreadId={threadId}
-          onOpen={(id) => navigate(`/chat/${id}`)}
-          onNew={newSideChat}
-        />
-      ) : (
-        <span />
-      )}
-      <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
-        <OfflineBanner status={status} />
-        <div style={{ position: "absolute", top: 8, right: 12 }}>
-          <GatewayPill status={status} />
-        </div>
-        {onChat && slots.chat && threadId ? (
-          slots.chat(threadId)
-        ) : onChat ? (
-          <ChatView
-            thread={thread}
-            onModeCycle={cycleMode}
-            onModelPicker={() => setOverlay("model")}
-            focusToken={focusToken}
+    <div className="app-frame" data-testid="app-frame">
+      <TitleBar chrome={platform.chrome}>
+        <span className="title">{barTitle}</span>
+        {/* Connected is the quiet default; only other states earn a chip (docs/06 §3.0). */}
+        {status.phase === "paired" ? null : (
+          <span data-no-drag="">
+            <GatewayPill status={status} />
+          </span>
+        )}
+      </TitleBar>
+      <div className="shell" data-compact={compact} data-testid="shell">
+        {slots.rail ? (
+          <div className="rail-slot" data-testid="rail">
+            {slots.rail({ route, compact, navigate })}
+          </div>
+        ) : (
+          <Rail
+            route={route}
+            compact={compact}
+            onNavigate={navigate}
+            {...(inset ? {} : { footer: <GatewayPill status={status} /> })}
+          />
+        )}
+        {onChat && !compact && slots.threadList ? (
+          <div className="threads-slot" hidden={listHidden} data-testid="thread-list">
+            {slots.threadList({
+              threadId,
+              onOpen: (id) => navigate(`/chat/${id}`),
+              onNew: newSideChat,
+            })}
+          </div>
+        ) : onChat && !compact ? (
+          <ThreadList
+            hidden={listHidden}
+            currentThreadId={threadId}
+            onOpen={(id) => navigate(`/chat/${id}`)}
+            onNew={newSideChat}
           />
         ) : (
-          (slots.section?.(route, navigate) ?? <SectionPlaceholder route={route} />)
+          <span />
         )}
+        <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
+          <OfflineBanner status={status} />
+          {onChat && slots.chat && threadId ? (
+            slots.chat(threadId, {
+              thread,
+              navigate,
+              setPermissionMode,
+              openModelPicker: () => setOverlay("model"),
+            })
+          ) : onChat ? (
+            <ChatView
+              thread={thread}
+              onModeCycle={cycleMode}
+              onModelPicker={() => setOverlay("model")}
+              focusToken={focusToken}
+            />
+          ) : (
+            (slots.section?.(route, navigate) ?? <SectionPlaceholder route={route} />)
+          )}
+        </div>
+        {onChat && threadId ? (
+          <PaneArea
+            layout={layout}
+            threadId={threadId}
+            width={width}
+            covered={overlay !== null}
+            dispatch={dispatch}
+          />
+        ) : (
+          <span />
+        )}
+        {overlay === "palette" ? (
+          <CommandPalette
+            actions={actions}
+            onClose={() => setOverlay(null)}
+            onNavigate={navigate}
+          />
+        ) : null}
+        {overlay === "shortcuts" ? <ShortcutSheet onClose={() => setOverlay(null)} /> : null}
+        {overlay === "model" ? (
+          <ModelPicker
+            current={thread?.modelRef ?? null}
+            onClose={() => {
+              setOverlay(null);
+              setFocusToken((n) => n + 1);
+            }}
+            onPick={(modelRef) => {
+              if (!thread) return;
+              void store
+                .call("threads.update", { threadId: thread.id, modelRef })
+                .then(
+                  (r) =>
+                    r === undefined &&
+                    store.toast("Picking a model needs a newer Gateway.", "warn"),
+                )
+                .catch(() => store.toast("Picking a model needs a newer Gateway.", "warn"));
+            }}
+          />
+        ) : null}
+        <Toasts />
       </div>
-      {onChat && threadId ? (
-        <PaneArea
-          layout={layout}
-          threadId={threadId}
-          width={width}
-          covered={overlay !== null}
-          dispatch={dispatch}
-        />
-      ) : (
-        <span />
-      )}
-      {overlay === "palette" ? (
-        <CommandPalette actions={actions} onClose={() => setOverlay(null)} onNavigate={navigate} />
-      ) : null}
-      {overlay === "shortcuts" ? <ShortcutSheet onClose={() => setOverlay(null)} /> : null}
-      {overlay === "model" ? (
-        <ModelPicker
-          current={thread?.modelRef ?? null}
-          onClose={() => {
-            setOverlay(null);
-            setFocusToken((n) => n + 1);
-          }}
-          onPick={(modelRef) => {
-            if (!thread) return;
-            void store
-              .call("threads.update", { threadId: thread.id, modelRef })
-              .then(
-                (r) =>
-                  r === undefined && store.toast("Picking a model needs a newer Gateway.", "warn"),
-              )
-              .catch(() => store.toast("Picking a model needs a newer Gateway.", "warn"));
-          }}
-        />
-      ) : null}
-      <Toasts />
     </div>
   );
 }

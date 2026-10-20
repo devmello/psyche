@@ -7,3 +7,4 @@ export * from "./surfaces.ts";
 export * from "./tasks.ts";
 export * from "./threads.ts";
 export * from "./tools.ts";
+export * from "./vm.ts";

@@ -20,6 +20,8 @@ export const feedPosts = sqliteTable("feed_posts", {
   feedback: text("feedback"),
   batchId: text("batch_id").notNull(),
   createdAt: text("created_at").notNull(),
+  // 202610211100_proactive_feed-read
+  readAt: text("read_at"),
 });
 
 export const ideas = sqliteTable("ideas", {

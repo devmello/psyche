@@ -1,5 +1,24 @@
 import type { Receipt, ToolCall, ToolCallStatus } from "@psyche/protocol";
-import { ChevronRight, ShieldAlert } from "lucide-react";
+import {
+  Bell,
+  Brain,
+  CalendarDays,
+  ChevronRight,
+  CreditCard,
+  FilePen,
+  FileText,
+  Globe,
+  HardDrive,
+  ListChecks,
+  type LucideIcon,
+  Mail,
+  MessageCircleQuestion,
+  Plug,
+  Search,
+  ShieldAlert,
+  SquareTerminal,
+  Wrench,
+} from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { formatDuration, formatTime, plural, toolFamily } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
@@ -51,7 +70,42 @@ function duration(call: ToolCall | null | undefined): string | null {
   return formatDuration(Date.parse(call.endedAt) - Date.parse(call.startedAt));
 }
 
-/** A level-1 row: time, tool family, the status line, outcome, duration and receipt id. */
+/** Lucide icon per tool family (UI design §3.2, §4.6); the family name stays as text for AT. */
+const FAMILY_ICON: Record<string, LucideIcon> = {
+  browser: Globe,
+  gmail: Mail,
+  mail: Mail,
+  calendar: CalendarDays,
+  drive: HardDrive,
+  exec: SquareTerminal,
+  sandbox: SquareTerminal,
+  write: FilePen,
+  read: FileText,
+  edit: FilePen,
+  file: FileText,
+  web: Search,
+  search: Search,
+  memory: Brain,
+  remember: Brain,
+  forget: Brain,
+  payments: CreditCard,
+  purchase: CreditCard,
+  task: ListChecks,
+  subagent: ListChecks,
+  harness: ListChecks,
+  notify: Bell,
+  ask: MessageCircleQuestion,
+};
+
+export function toolIcon(tool: string): LucideIcon {
+  if (tool.startsWith("mcp__")) return Plug;
+  return FAMILY_ICON[toolFamily(tool)] ?? Wrench;
+}
+
+/**
+ * A level-1 row: tool icon, the status line, outcome dot and duration in aligned columns. Time,
+ * the raw tool name, the receipt id and the I/O are level 2.
+ */
 export function ToolCallRow({
   item,
   raw = false,
@@ -61,34 +115,40 @@ export function ToolCallRow({
 }): ReactElement {
   const { block, call, receipt } = item;
   const untrusted = call?.provenanceOut === "untrusted";
+  const Icon = toolIcon(block.tool);
+  const family = toolFamily(block.tool);
+  const failed = block.status === "failed" || block.status === "blocked";
   return (
-    <li className="flex flex-col gap-1 py-1 text-sm">
+    <li className="flex flex-col gap-1 py-1 text-small">
       <div className="flex items-center gap-2">
-        <span className="w-11 shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
-          {call ? formatTime(call.startedAt) : ""}
-        </span>
-        <span className="w-16 shrink-0 truncate font-mono text-xs text-gray-11">
-          {toolFamily(block.tool)}
-        </span>
+        <Icon className="size-4 shrink-0 text-gray-11" aria-hidden="true">
+          <title>{family}</title>
+        </Icon>
+        <span className="sr-only">{family}: </span>
         <span className="min-w-0 flex-1 truncate text-foreground">{block.level1}</span>
-        <StatusDot status={block.status} />
-        <span className="sr-only">{STATUS_LABEL[block.status]}</span>
-        <span className="text-xs text-muted-foreground" aria-hidden="true">
-          {block.status === "ok" ? "ok" : STATUS_LABEL[block.status]}
-        </span>
-        {duration(call) ? (
-          <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">
-            {duration(call)}
+        <span className="flex w-28 shrink-0 items-center gap-1.5">
+          <StatusDot status={block.status} />
+          <span
+            className={cn(
+              "truncate text-caption",
+              failed ? "text-danger-text" : "text-muted-foreground",
+            )}
+          >
+            {STATUS_LABEL[block.status]}
           </span>
-        ) : null}
-        {receipt?.shortId ? (
-          <span className="font-mono text-xs text-success-text">{receipt.shortId}</span>
-        ) : null}
+        </span>
+        <span className="w-10 shrink-0 text-right text-caption text-muted-foreground tabular-nums">
+          {duration(call) ?? ""}
+        </span>
       </div>
       {raw && call ? (
-        <div className="ml-13 flex flex-col gap-1 rounded-md bg-gray-2 p-2">
+        <div className="ml-6 flex flex-col gap-1 rounded-md bg-gray-2 p-2">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span className="tabular-nums">{formatTime(call.startedAt)}</span>
             <span className="font-mono text-foreground">{block.tool}</span>
+            {receipt?.shortId ? (
+              <span className="font-mono text-success-text">{receipt.shortId}</span>
+            ) : null}
             <span
               className={cn(
                 "inline-flex items-center gap-1 rounded-full border px-1.5",

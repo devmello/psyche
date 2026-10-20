@@ -4,6 +4,7 @@ import {
   type MemoryStore,
   type Notifier,
   PsycheError,
+  type TaintSource,
   type TaskEngine,
 } from "@psyche/protocol";
 import { ulid } from "ulid";
@@ -93,6 +94,11 @@ export interface MineReport {
 
 export interface AcceptParams {
   ideaId: string;
+  /**
+   * The accepting turn's taint (agent tool on a tainted turn): the task starts tainted with these
+   * sources too, and the turn's text may not become a standing automation prompt.
+   */
+  taintSources?: TaintSource[];
   recurring?: boolean;
   brief?: string;
   schedule?: string;
@@ -377,6 +383,12 @@ export class IdeasService {
     } else if (wantsAutomation) {
       // An automation prompt is an instruction for every future run: only template text or the
       // owner's own brief, never text that came from an untrusted source.
+      if (brief !== undefined && (params.taintSources?.length ?? 0) > 0) {
+        throw new PsycheError(
+          "conflict",
+          "a brief written in a turn that read untrusted content cannot become a recurring prompt",
+        );
+      }
       const prompt = brief ?? (action.type === "automation" ? action.prompt : undefined);
       if (
         prompt === undefined ||
@@ -409,8 +421,14 @@ export class IdeasService {
         title: action.title,
         goal,
         createdFrom: "idea",
-        ...(idea.untrusted
-          ? { taint: true, taintSources: [{ sourceKind: "idea", origin: idea.source }] }
+        ...(idea.untrusted || (params.taintSources?.length ?? 0) > 0
+          ? {
+              taint: true,
+              taintSources: [
+                ...(idea.untrusted ? [{ sourceKind: "idea", origin: idea.source }] : []),
+                ...(params.taintSources ?? []),
+              ],
+            }
           : {}),
       });
       taskId = task.id;
