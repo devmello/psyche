@@ -25,7 +25,7 @@ import {
 } from "@psyche/protocol";
 import { diffTools, type ToolChange, toolsListHash } from "./hash.ts";
 import { inspectTool, type ToolWarning } from "./inspect.ts";
-import type { McpSandboxPolicy, PreparedLaunch, StdioLauncher } from "./launcher.ts";
+import type { McpSandboxPolicy, StdioLauncher, StdioLaunchSpec } from "./launcher.ts";
 import { startLoopbackReceiver } from "./loopback.ts";
 import { isValidServerId, MAX_TOOL_NAME_LENGTH, mcpToolName } from "./naming.ts";
 import { blockRegistration, type McpOAuthOptions, PsycheOAuthProvider } from "./oauth.ts";
@@ -122,7 +122,7 @@ interface ServerState {
   config: PsycheMcpServerConfig;
   status: McpServerInfo["status"];
   client?: Client;
-  launch?: PreparedLaunch;
+  launch?: { cleanup?: () => Promise<void> };
   /** Callable tools: the listing minus names that are invalid or collide after sanitizing. */
   tools: Tool[];
   /** The listing exactly as the server sent it (hashed and diffed). */
@@ -496,18 +496,34 @@ export class PsycheMcpHost implements McpHost {
       );
     }
     const env = await resolveEnv(s.config.id, t.env ?? {}, this.#options.secrets, signal);
-    const launch = await launcher.prepare({
+    const spec: StdioLaunchSpec = {
       serverId: s.config.id,
       trust: s.config.trust,
       command: t.command,
       env: { ...getDefaultEnvironment(), ...env },
+      serverEnv: env,
       ...(s.config.cwd === undefined ? {} : { cwd: s.config.cwd }),
       sandbox: {
         allowedDomains: s.config.sandbox?.allowedDomains ?? [],
         allowWrite: s.config.sandbox?.allowWrite ?? [],
         denyRead: s.config.sandbox?.denyRead ?? [],
       },
-    });
+    };
+    if (launcher.open !== undefined) {
+      // The launcher starts the process itself (sandbox container) and hands over its pipes.
+      const opened = await launcher.open(spec, signal);
+      s.launch = opened.cleanup === undefined ? {} : { cleanup: opened.cleanup };
+      opened.stderr?.on("data", (chunk: Buffer) => {
+        s.stderr = (s.stderr + chunk.toString("utf8")).slice(-STDERR_TAIL);
+      });
+      const client = this.#newClient(s);
+      await client.connect(opened.transport, this.#requestOptions(signal));
+      return client;
+    }
+    if (launcher.prepare === undefined) {
+      throw new PsycheError("internal", "launcher has neither prepare nor open");
+    }
+    const launch = await launcher.prepare(spec);
     s.launch = launch;
     const transport = new StdioClientTransport({
       command: launch.command,

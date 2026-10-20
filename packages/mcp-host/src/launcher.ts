@@ -2,13 +2,17 @@ import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
-import type { McpTrustTier } from "@psyche/protocol";
+import type { Readable, Writable } from "node:stream";
+import type { Transport } from "@modelcontextprotocol/client";
+import type { McpTrustTier, SandboxInstance, SandboxNetwork, SandboxScope } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
+import { PipeTransport } from "./pipe-transport.ts";
 
 /**
- * How a stdio MCP server process is started (security §11, §5.3). M1 ships the `srt` launcher
- * (Seatbelt on macOS, bubblewrap on Linux); the sandbox-container launcher is M3. There is no
- * silent fallback: a non-`bundled` server with no sandboxing launcher is refused.
+ * How a stdio MCP server process is started (security §11, §5.3): under `srt` (Seatbelt on macOS,
+ * bubblewrap on Linux), or inside the sandbox container through the runner (M3,
+ * `containerLauncher`). There is no silent fallback: a non-`bundled` server with no sandboxing
+ * launcher is refused.
  */
 export interface McpSandboxPolicy {
   /** Domains the server may reach through srt's proxy; empty means no network. */
@@ -26,7 +30,10 @@ export interface StdioLaunchSpec {
   serverId: string;
   trust: McpTrustTier;
   command: string[];
+  /** Environment for a host-spawned process: the host's safe defaults plus `serverEnv`. */
   env: Record<string, string>;
+  /** Only the server's own configured env, vault placeholders resolved. */
+  serverEnv: Record<string, string>;
   cwd?: string;
   sandbox: McpSandboxPolicy;
 }
@@ -40,14 +47,31 @@ export interface PreparedLaunch {
   cleanup?: () => Promise<void>;
 }
 
+/** A server the launcher started itself and hands over as a connected transport. */
+export interface OpenedLaunch {
+  transport: Transport;
+  stderr?: Readable;
+  cleanup?: () => Promise<void>;
+}
+
+/**
+ * Either `prepare` (the host spawns the returned command) or `open` (the launcher starts the
+ * process, e.g. inside a container, and returns a transport over its pipes).
+ */
 export interface StdioLauncher {
   /** `none` launchers run the command as is and are accepted for `bundled` servers only. */
   readonly isolation: "srt" | "container" | "none";
+  prepare?(spec: StdioLaunchSpec): Promise<PreparedLaunch>;
+  open?(spec: StdioLaunchSpec, signal?: AbortSignal): Promise<OpenedLaunch>;
+}
+
+/** A launcher whose command the host spawns (`srt`, direct). */
+export interface SpawnLauncher extends StdioLauncher {
   prepare(spec: StdioLaunchSpec): Promise<PreparedLaunch>;
 }
 
 /** Runs the command unwrapped. Only for servers that ship with Psyche. */
-export function directLauncher(): StdioLauncher {
+export function directLauncher(): SpawnLauncher {
   return {
     isolation: "none",
     async prepare(spec) {
@@ -128,7 +152,7 @@ export function srtSettings(
   };
 }
 
-export function srtLauncher(options: SrtLauncherOptions): StdioLauncher {
+export function srtLauncher(options: SrtLauncherOptions): SpawnLauncher {
   if (!isAbsolute(options.srtPath)) {
     throw new PsycheError("invalid_params", "srtPath must be absolute (no PATH lookup)");
   }
@@ -160,6 +184,116 @@ export function srtLauncher(options: SrtLauncherOptions): StdioLauncher {
           await rm(file, { force: true });
           await rm(scratch, { recursive: true, force: true });
         },
+      };
+    },
+  };
+}
+
+// --- sandbox container (M3) ----------------------------------------------------------------------
+
+/** A long-lived process with raw pipes inside a sandbox (S21 `openStdio`, issue #143). */
+export interface SandboxStdioProcess {
+  readonly stdin: Writable;
+  readonly stdout: Readable;
+  readonly stderr: Readable;
+  readonly exited: Promise<{ exitCode: number | null; signal: NodeJS.Signals | null }>;
+  kill(signal?: "TERM" | "KILL"): Promise<void>;
+}
+
+/**
+ * The part of the sandbox runner the container launcher needs (`SandboxRunner.ensureSandbox`
+ * plus the requested `openStdio`). `ContainerSandboxRunner` from `@psyche/sandbox` satisfies it
+ * once #143 lands; the Gateway passes it in.
+ */
+export interface SandboxStdioHost {
+  ensureSandbox(
+    scope: SandboxScope,
+    options?: { network?: SandboxNetwork },
+  ): Promise<SandboxInstance>;
+  openStdio(
+    sandboxId: string,
+    options: { argv: string[]; cwd?: string; env?: Record<string, string> },
+  ): Promise<SandboxStdioProcess>;
+}
+
+export interface ContainerLauncherOptions {
+  sandbox: SandboxStdioHost;
+  /**
+   * Hands a server's domain allowlist to the egress proxy (security §5.2) before its sandbox
+   * starts with `network: "proxy"`. Without it, servers that ask for network are refused.
+   */
+  egressAllowlist?: (scope: SandboxScope, domains: string[]) => void | Promise<void>;
+}
+
+export const SANDBOX_WORKSPACE = "/workspace";
+
+/** One sandbox per server: its own container and `/workspace` volume. */
+export function mcpSandboxScope(serverId: string): SandboxScope {
+  return { kind: "task", id: `mcp:${serverId}` };
+}
+
+/**
+ * Runs each stdio server in its own sandbox container (security §5.1, §11; feature M3): no host
+ * mounts besides the server's own `/workspace` volume, so Psyche's vault, `~/.ssh` and every
+ * other host path are absent; `network: none` unless the config allowlists domains (then the
+ * egress proxy); only the server's own env reaches it, with vault values delivered by the
+ * runner inside the container (never in host argv). Host folders cannot be granted to a
+ * containerized server (`allowWrite` and host `cwd` are refused).
+ */
+export function containerLauncher(options: ContainerLauncherOptions): StdioLauncher {
+  return {
+    isolation: "container",
+    async open(spec, signal) {
+      if (spec.command.length === 0) throw new PsycheError("invalid_params", "empty command");
+      if (spec.sandbox.allowWrite.length > 0) {
+        throw new PsycheError(
+          "policy_denied",
+          "host folders cannot be mounted into an MCP server's sandbox; it writes only its /workspace",
+        );
+      }
+      const cwd = spec.cwd ?? SANDBOX_WORKSPACE;
+      if (cwd !== SANDBOX_WORKSPACE && !cwd.startsWith(`${SANDBOX_WORKSPACE}/`)) {
+        throw new PsycheError(
+          "invalid_params",
+          "cwd must be inside /workspace: host paths are never visible in the sandbox",
+        );
+      }
+      const scope = mcpSandboxScope(spec.serverId);
+      const domains = [...new Set(spec.sandbox.allowedDomains)];
+      const network: SandboxNetwork = domains.length > 0 ? "proxy" : "none";
+      if (network === "proxy") {
+        if (options.egressAllowlist === undefined) {
+          throw new PsycheError(
+            "policy_denied",
+            "this server asks for network access, but no egress proxy is configured",
+          );
+        }
+        await options.egressAllowlist(scope, domains);
+      }
+      const aborted = () => signal?.aborted === true;
+      if (aborted()) throw new PsycheError("cancelled", "launch aborted");
+      const instance = await options.sandbox.ensureSandbox(scope, { network });
+      if (aborted()) throw new PsycheError("cancelled", "launch aborted");
+      const proc = await options.sandbox.openStdio(instance.id, {
+        argv: [...spec.command],
+        cwd,
+        env: { ...spec.serverEnv },
+      });
+      // Closing the transport and the host's cleanup both stop the process: kill once.
+      let killing: Promise<void> | undefined;
+      const kill = (sig: "TERM" | "KILL" = "TERM") => {
+        killing ??= proc.kill(sig).catch(() => undefined);
+        return killing;
+      };
+      return {
+        transport: new PipeTransport({
+          stdin: proc.stdin,
+          stdout: proc.stdout,
+          exited: proc.exited,
+          kill,
+        }),
+        stderr: proc.stderr,
+        cleanup: () => kill("TERM"),
       };
     },
   };
