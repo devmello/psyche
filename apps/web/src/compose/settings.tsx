@@ -17,6 +17,7 @@ import type { DictationPort, ShellPlatform, SystemDictationStatus } from "../she
 import { BackupsPanel } from "./backups.tsx";
 import { LogViewer } from "./logs.tsx";
 import { PasskeysPanel } from "./passkeys.tsx";
+import { ComputerUseSettings } from "./permissions.tsx";
 import { ZoomSetting } from "./ZoomSetting.tsx";
 
 /**
@@ -228,6 +229,7 @@ export function settingsRoute(
             }
           : {})}
         sections={{
+          "computer-use": <ComputerUseSettings platform={platform} />,
           files: <FileAccessSettings platform={platform} />,
           ...(platform.dictation
             ? { voice: <SystemVoiceSettings dictation={platform.dictation} /> }
