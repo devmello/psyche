@@ -109,6 +109,8 @@ export interface SettingsShellProps {
   vmMode?: boolean;
   thisDeviceId?: string;
   onConnectManager?: (manager: "1password" | "bitwarden") => void;
+  /** Opens a task from a vault item's recent uses (Credentials). */
+  onOpenTask?: (taskId: string) => void;
   onExportReady?: (file: ExportFile) => void;
   server?: ServerStatus;
   onAddPasskey?: () => void;
@@ -197,6 +199,7 @@ export function SettingsSectionView({
         <CredentialsSection
           {...opt("now", s.now)}
           {...opt("onConnectManager", s.onConnectManager)}
+          {...opt("onOpenTask", s.onOpenTask)}
         />
       );
     case "appearance":

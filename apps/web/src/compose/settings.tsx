@@ -179,6 +179,7 @@ export function settingsRoute(
       <SettingsScreen
         section={section}
         onSectionChange={(id) => navigate(`/settings/${id}`)}
+        onOpenTask={(taskId) => navigate(`/agent/activity/${taskId}`)}
         {...(platform.browser?.openRealChromeProfile
           ? {
               onOpenRealChromeProfile: (profile: string) =>
