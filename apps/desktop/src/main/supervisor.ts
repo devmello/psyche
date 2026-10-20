@@ -204,7 +204,7 @@ export interface SupervisorOptions {
   /** Defaults to `~/Library/LaunchAgents` (tests pass a tmp dir). */
   launchAgentsDir?: string;
   /** launchd: pass `PSYCHE_VAULT_KEY_FILE` to the Gateway (`desktopVaultKeyFile`). */
-  vaultKeyFile?: () => string | undefined;
+  vaultKeyFile?: () => string | undefined | Promise<string | undefined>;
   /** launchd: how long to wait for `/healthz` after starting the agent (default 60 s). */
   healthTimeoutMs?: number;
   /**
@@ -332,7 +332,7 @@ export class GatewaySupervisor {
   }
 
   /** The plist this build wants installed, or undefined when no Gateway is bundled. */
-  private launchAgentContent(): string | undefined {
+  private async launchAgentContent(): Promise<string | undefined> {
     const program = this.opts.bundledProgram;
     if (!program || !existsSync(program)) return undefined;
     const values = { program, psycheHome: this.opts.psycheHome };
@@ -340,7 +340,7 @@ export class GatewaySupervisor {
       this.opts.bundledPlist && existsSync(this.opts.bundledPlist)
         ? renderPlistTemplate(readFileSync(this.opts.bundledPlist, "utf8"), values)
         : renderLaunchAgentPlist({ ...values, logDir: this.logDir() });
-    const keyFile = this.opts.vaultKeyFile?.();
+    const keyFile = await this.opts.vaultKeyFile?.();
     return keyFile === undefined ? plist : withPlistEnv(plist, { PSYCHE_VAULT_KEY_FILE: keyFile });
   }
 
@@ -384,7 +384,7 @@ export class GatewaySupervisor {
       });
       return;
     }
-    const content = this.launchAgentContent();
+    const content = await this.launchAgentContent();
     if (content === undefined) {
       this.set({ kind: "stopped", mode: "launchd", reason: "psyched is not bundled" });
       return;

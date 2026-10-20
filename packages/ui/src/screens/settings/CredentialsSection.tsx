@@ -796,6 +796,58 @@ export interface CredentialsSectionProps {
   onOpenTask?: (taskId: string) => void;
 }
 
+/** The vault's key slot as the owner reads it (`recovery` always exists beside it). */
+export function vaultSlotLabel(slots: readonly string[]): string {
+  if (slots.includes("keychain")) return "the Keychain (Touch ID)";
+  if (slots.includes("safe_storage")) return "this Mac's app storage";
+  if (slots.includes("key_file")) return "a key file on this Mac";
+  return "its recovery key only";
+}
+
+/**
+ * "Vault protected by: …" (docs/05 "Key storage on unsigned builds"). A build without a signed
+ * helper keeps the vault key in a 0600 file; moving it to the Keychain needs a Psyche Helper
+ * signed with a Developer ID and a provisioning profile.
+ */
+export function VaultProtectionPanel({ slots }: { slots: readonly string[] }): ReactElement {
+  const keyFile = slots.includes("key_file") && !slots.includes("keychain");
+  return (
+    <div
+      className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-6 bg-gray-2 p-3 text-sm"
+      data-testid="vault-protection"
+    >
+      <span>
+        Vault protected by: <span className="font-medium">{vaultSlotLabel(slots)}</span>
+      </span>
+      {keyFile ? (
+        <>
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            className="ml-auto"
+            disabled
+            title="Needs a Psyche Helper signed with a Developer ID and a provisioning profile"
+          >
+            Move to Keychain
+          </Button>
+          <p className="w-full text-xs text-muted-foreground">
+            The key that opens your vault is a file only your account can read. Moving it to the
+            Keychain (Touch ID) needs a signed Psyche Helper; this build's helper is not signed.
+          </p>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function VaultProtection(): ReactElement | null {
+  const q = useGatewayQuery("vault.status", {});
+  const status = q.data?.status;
+  if (!status || status.state === "uninitialized") return null;
+  return <VaultProtectionPanel slots={status.slots} />;
+}
+
 export function CredentialsSection({
   now,
   onConnectManager,
@@ -865,6 +917,7 @@ export function CredentialsSection({
   };
   return (
     <div className="flex flex-col gap-3">
+      <VaultProtection />
       <CredentialsPanel
         credentials={q.data?.credentials ?? []}
         values={form.values}

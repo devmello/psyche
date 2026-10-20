@@ -10,6 +10,7 @@ import type {
   ModelRequest,
 } from "@psyche/protocol";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { fillableItem } from "../src/compose/exec-tool.ts";
 import { type ComposedGateway, composeGateway, vaultModelSetup } from "../src/compose/index.ts";
 import {
   hasModelKey,
@@ -106,6 +107,16 @@ describe("provider keys in the vault (first run without env)", () => {
     }>("models.list");
     expect(anthropic(after.providers)?.keyConfigured).toBe(true);
     expect(after.roles.primary).toBe("anthropic/claude-sonnet-5-5");
+  });
+
+  it("never offers a provider key to an agent fill", async () => {
+    const gw = await compose();
+    await gw.vault.setup();
+    const c = await client(gw);
+    await c.call("models.setKey", { providerId: "anthropic", key: KEY }, ik());
+    const items = await gw.vault.list();
+    expect(items.some((m) => m.slug === "model-anthropic")).toBe(true);
+    expect(fillableItem(items, "model-anthropic")).toBeUndefined();
   });
 
   it("refuses unknown and keyless providers", async () => {

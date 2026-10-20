@@ -234,6 +234,10 @@ describe("First run from scratch", () => {
       "ABCD-EFGH-IJKL",
     );
     expect(screen.getByRole("status").textContent).toContain("model-anthropic");
+    const next = screen.getByRole("button", { name: "Next" }) as HTMLButtonElement;
+    expect(next.disabled).toBe(true);
+    await userEvent.click(screen.getByRole("checkbox", { name: "I saved it" }));
+    expect(next.disabled).toBe(false);
   });
 
   it("lists the setup checks on Done", async () => {

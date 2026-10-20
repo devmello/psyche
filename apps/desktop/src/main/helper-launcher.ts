@@ -109,3 +109,23 @@ export class HelperLauncher {
     await this.launch();
   }
 }
+
+/**
+ * Whether the bundled helper can hold the vault's Keychain (Touch ID) slot: signed with a team
+ * (Developer ID) and carrying a provisioning profile, which grants the keychain access group. An
+ * ad-hoc or profile-less helper answers keychain.* with missing_entitlement, so the packaged
+ * desktop gives the vault a key file instead (approved design, docs/05 "Key storage on unsigned
+ * builds").
+ */
+export async function helperCanHoldKeychain(
+  appPath: string | undefined,
+  run: Runner,
+): Promise<boolean> {
+  if (appPath === undefined || !existsSync(appPath)) return false;
+  if (!existsSync(join(appPath, "Contents", "embedded.provisionprofile"))) return false;
+  const res = await run("/usr/bin/codesign", ["-dv", appPath]);
+  const info = `${res.stdout}\n${res.stderr}`;
+  if (res.code !== 0 || /Signature=adhoc/.test(info)) return false;
+  const team = /^TeamIdentifier=(.+)$/m.exec(info)?.[1]?.trim();
+  return team !== undefined && team !== "not set";
+}
