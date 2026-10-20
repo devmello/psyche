@@ -73,6 +73,7 @@ import type { HandlerDef } from "../context.ts";
 import { createLogger } from "../log.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
+import { attentionHandlers, OwnerAttention } from "./attention.ts";
 import { CallContexts } from "./call-context.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
 import { composeComputer } from "./computer.ts";
@@ -349,6 +350,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   let localProject: LocalProjectVerifier = DENY_ALL_LOOPBACK;
   // Inbound channel decisions (filled by the channels part) back the broker's reply authority.
   const channelConversations = new ChannelConversations();
+  const attention = new OwnerAttention(() => clock.now());
   const rawBroker = new PsychePermissionBroker({
     channelConversations: (ref) => channelConversations.get(ref),
     approvers: {
@@ -496,6 +498,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     broker: executorBroker,
     rawBroker,
     channelConversations,
+    attention,
     audit,
     notifier,
     tools: calls.adopt(registry),
@@ -642,6 +645,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...threadSettingsHandlers(modelPins),
     ...vault.handlers,
     ...filesHandlers({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
+    ...attentionHandlers(attention),
     ...libraryHandlers({ db, home: config.home }),
     ...modelSettingsHandlers(modelSettings),
   };
@@ -676,6 +680,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     return answerToken === undefined ? undefined : { ...p, answerToken };
   });
   gatewayRef = gateway;
+  // The owner's own messages and approval answers count as input (pause-when-unwatched, #272).
+  const unsubscribeAttention = gateway.bus.subscribe(["operator.read"], (frame) =>
+    attention.observe(frame),
+  );
   vault.attach(gateway.context.nodes);
   // The owner's folder grants and rules apply without a restart (settings.set → broker policy).
   const unsubscribePolicy = gateway.bus.subscribe(["operator.read"], (frame) => {
@@ -739,6 +747,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       scheduler.stop();
       memory.unwatch();
       unsubscribePolicy();
+      unsubscribeAttention();
       await gateway.stop(reason);
       if (ownsDb) db.close();
     },
