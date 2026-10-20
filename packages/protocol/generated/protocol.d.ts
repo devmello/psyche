@@ -1280,6 +1280,29 @@ export interface ChannelsPairingListResult {
     requests: PairingRequest[];
 }
 
+export interface ChannelsSecretsSetParams {
+    account: string;
+    name:    ChannelSecretName;
+    type:    ChannelType;
+    value:   string;
+}
+
+export type ChannelSecretName = "bot_token" | "app_token" | "auth_token";
+
+export interface ChannelsSecretsSetResult {
+    set: ChannelSecretName[];
+}
+
+export interface ChannelsSecretsStatusParams {
+    account: string;
+    type:    ChannelType;
+}
+
+export interface ChannelsSecretsStatusResult {
+    required: ChannelSecretName[];
+    set:      ChannelSecretName[];
+}
+
 export interface ChannelsUpdatedPayload {
     channel: Channel;
     detail?: string;
