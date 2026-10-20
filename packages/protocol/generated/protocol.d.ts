@@ -1195,10 +1195,11 @@ export interface ChatSendParams {
     /**
      * Library item ids
      */
-    attachments?: string[];
-    content:      string;
-    mode?:        QueueMode;
-    threadId:     string;
+    attachments?:      string[];
+    content:           string;
+    mode?:             QueueMode;
+    replyToMessageId?: string;
+    threadId:          string;
 }
 
 export type QueueMode = "steer" | "followUp" | "interrupt";
@@ -3249,8 +3250,9 @@ export interface ThreadsListResult {
 }
 
 export interface ThreadListEntry {
-    activity: ThreadActivity;
-    thread:   Thread;
+    activity:     ThreadActivity;
+    lastMessage?: ThreadPreview;
+    thread:       Thread;
 }
 
 export interface ThreadActivity {
@@ -3258,6 +3260,14 @@ export interface ThreadActivity {
     awaitingInput:    number;
     running:          number;
 }
+
+export interface ThreadPreview {
+    at:   string;
+    role: Role;
+    text: string;
+}
+
+export type Role = "user" | "agent";
 
 export interface ThreadsPinParams {
     pinned:   boolean;
