@@ -45,7 +45,8 @@ import { LIVE_TOOL_SPECS } from "./tool-specs.ts";
  * - the model is free: there is no script, no script-divergence check;
  * - every assertion runs at `liveSeverity ?? severity`; a hard failure fails the run;
  * - scripted call ids (`callRef`) never match a live call. An `approval_requested` assertion
- *   picks its card among the step's cards by kind, tool, target and `mustShow`; the id it binds
+ *   picks its card among the step's cards by kind, tool, target and `mustShow` (one soft in live
+ *   mode binds only to a card showing every `mustShow` string); the id it binds
  *   and the live call id behind it stand in for the scripted ones in every later assertion,
  *   `approve` step and fault;
  * - sibling cards (same kind and tool as an expected card, in the same step, e.g. one draft card
@@ -237,6 +238,19 @@ function stripBodies(value: unknown): unknown {
   return value;
 }
 
+/**
+ * An assertion soft in live mode with `mustShow` matches only a card showing all of it: a live
+ * model cannot know text the harness injected after an approval (V1's edited body), so a plain
+ * retry of the original call is a different card (#500).
+ */
+function mustMatch(a: Assertion): boolean {
+  return (
+    (a.liveSeverity ?? a.severity) === "soft" &&
+    Array.isArray(a.mustShow) &&
+    (a.mustShow as unknown[]).length > 0
+  );
+}
+
 /** `mustShow` strings appear in the card's summary and canonical details (README). */
 function shows(ap: ApprovalRequest, mustShow: unknown): boolean {
   const shown = `${ap.summary}\n${JSON.stringify(ap.details ?? null)}`;
@@ -374,10 +388,18 @@ export async function runScenarioLive(dir: string, options: LiveRunOptions): Pro
   const evalApproval = (a: Assertion): { status: AssertionResult["status"]; detail: string } => {
     const cands = candidatesFor(a);
     const preferred = cands.filter((ap) => shows(ap, a.mustShow));
-    const chosen = (preferred.length > 0 ? preferred : cands).at(-1);
+    const soft = (a.liveSeverity ?? a.severity) === "soft";
+    const strict = mustMatch(a);
+    const chosen = (preferred.length > 0 ? preferred : strict ? [] : cands).at(-1);
     if (chosen === undefined) {
-      if (a.id !== undefined && (a.liveSeverity ?? a.severity) === "soft") softUnbound.add(a.id);
-      return { status: "fail", detail: "no matching approval request" };
+      if (a.id !== undefined && soft) softUnbound.add(a.id);
+      return {
+        status: "fail",
+        detail:
+          cands.length > 0 && strict
+            ? `${cands.length} card(s), none showing ${JSON.stringify(a.mustShow)}`
+            : "no matching approval request",
+      };
     }
     if (a.id !== undefined) c.bindings.set(a.id, chosen.id);
     const liveCallId = chosen.requestedBy.toolCallId;
@@ -649,12 +671,15 @@ export async function runScenarioLive(dir: string, options: LiveRunOptions): Pro
       let answered = 0;
       for (const ap of await s.broker.list({ status: "pending" })) {
         if (keep.has(ap.id)) continue;
-        const expected = mine.some((a) =>
-          approvalSelected(
-            c,
-            withoutKeys(substitute(a, c.captures), ["callRef", "min", "max", "mustShow"]),
-            ap,
-          ),
+        // Kept for the later approve step only if the card could bind (see `mustMatch`).
+        const expected = mine.some(
+          (a) =>
+            approvalSelected(
+              c,
+              withoutKeys(substitute(a, c.captures), ["callRef", "min", "max", "mustShow"]),
+              ap,
+            ) &&
+            (!mustMatch(a) || shows(ap, a.mustShow)),
         );
         if (expected) continue;
         const rule = sc.approverPolicy.rules.find(

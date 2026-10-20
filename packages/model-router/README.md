@@ -145,6 +145,7 @@ These providers run on the owner's own plans through the installed CLIs: Claude 
 - Each turn starts a CLI process, which takes about 1–2 s.
 - A run waiting on an approval keeps its process alive for up to 4 h. After a Gateway restart, it resumes from the stored session id.
 - The CLIs' output formats can change between versions; this was built against Claude Code 2.1.286 and codex-cli 0.162.0.
+- When a tool call is refused (for example, arguments changed after approval), Claude Code models tend to retry the same call where API Haiku stops. The retry is a new tool call with the arguments the model knows, so it needs a fresh approval, and the provider never re-sends the old one (#500).
 
 ### Tool input schemas (#414)
 

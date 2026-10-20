@@ -189,6 +189,36 @@ describe("claude-code provider (fake CLI, recorded stream-json)", () => {
     ]);
   });
 
+  it("hands a refused call back to the CLI as an MCP error and never re-emits it (#500)", async () => {
+    const { adapter, seen } = setup(["tool-refused"]);
+    const gmailSend: ToolSpec = { ...weatherTool, name: "gmail.send", description: "Send mail" };
+    const first = ask("Send Lena's reply.", { tools: [gmailSend] });
+    const turn = await accumulate(adapter.stream(first));
+    expect(turn.toolCalls().map((c) => c.id)).toEqual(["toolu_fxSend"]);
+    const refused = { error: "arguments changed after approval", errorCode: "binding_mismatch" };
+    const second = await run(adapter, {
+      ...first,
+      messages: [
+        ...first.messages,
+        turn.message(),
+        {
+          role: "tool",
+          parts: [{ type: "tool_result", callId: "toolu_fxSend", output: refused, isError: true }],
+        },
+      ],
+    });
+    // Whatever the model does next is its own call; the old one is never sent again.
+    expect(second.events.filter((e) => e.type === "tool_call")).toEqual([]);
+    expect(second.events.at(-1)).toEqual({ type: "finish", reason: "stop" });
+    expect(seen().filter((e) => e.kind === "result")).toEqual([
+      {
+        kind: "result",
+        id: "S",
+        result: { content: [{ type: "text", text: JSON.stringify(refused) }], isError: true },
+      },
+    ]);
+  });
+
   it("resumes the CLI session on the next turn and sends only what is new", async () => {
     const { adapter, seen } = setup(["text", "text"]);
     const first = ask("Say hello.");

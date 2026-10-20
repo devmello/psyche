@@ -1,0 +1,281 @@
+{
+  "name": "tool-refused",
+  "steps": [
+    {
+      "read": 1
+    },
+    {
+      "mcp": "start"
+    },
+    {
+      "emit": {
+        "type": "system",
+        "subtype": "init",
+        "cwd": "/tmp/psyche-cli/claude-code",
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "tools": ["mcp__psyche__weather", "mcp__psyche__notes_read"],
+        "mcp_servers": [
+          {
+            "name": "psyche",
+            "status": "connected"
+          }
+        ],
+        "model": "claude-sonnet-5-5",
+        "permissionMode": "default",
+        "apiKeySource": "none",
+        "output_style": "default",
+        "uuid": "u-init"
+      }
+    },
+    {
+      "emit": {
+        "type": "stream_event",
+        "event": {
+          "type": "message_start",
+          "message": {
+            "id": "msg_fx_r1",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [],
+            "stop_reason": null,
+            "usage": {
+              "input_tokens": 200,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "output_tokens": 1
+            }
+          }
+        },
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "parent_tool_use_id": null,
+        "uuid": "u-message_start"
+      }
+    },
+    {
+      "emit": {
+        "type": "stream_event",
+        "event": {
+          "type": "content_block_start",
+          "index": 0,
+          "content_block": {
+            "type": "tool_use",
+            "id": "toolu_fxSend",
+            "name": "mcp__psyche__gmail_send",
+            "input": {}
+          }
+        },
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "parent_tool_use_id": null,
+        "uuid": "u-content_block_start"
+      }
+    },
+    {
+      "emit": {
+        "type": "stream_event",
+        "event": {
+          "type": "content_block_delta",
+          "index": 0,
+          "delta": {
+            "type": "input_json_delta",
+            "partial_json": "{\"city\":\"Lena\"}"
+          }
+        },
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "parent_tool_use_id": null,
+        "uuid": "u-content_block_delta"
+      }
+    },
+    {
+      "emit": {
+        "type": "stream_event",
+        "event": {
+          "type": "content_block_stop",
+          "index": 0
+        },
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "parent_tool_use_id": null,
+        "uuid": "u-content_block_stop"
+      }
+    },
+    {
+      "emit": {
+        "type": "stream_event",
+        "event": {
+          "type": "message_delta",
+          "delta": {
+            "stop_reason": "tool_use",
+            "stop_sequence": null
+          },
+          "usage": {
+            "output_tokens": 20
+          }
+        },
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "parent_tool_use_id": null,
+        "uuid": "u-message_delta"
+      }
+    },
+    {
+      "emit": {
+        "type": "stream_event",
+        "event": {
+          "type": "message_stop"
+        },
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "parent_tool_use_id": null,
+        "uuid": "u-message_stop"
+      }
+    },
+    {
+      "call": {
+        "name": "gmail_send",
+        "arguments": {
+          "city": "Lena"
+        }
+      },
+      "id": "S"
+    },
+    {
+      "await": ["S"]
+    },
+    {
+      "emit": {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_fxSend",
+              "is_error": true,
+              "content": [
+                {
+                  "type": "text",
+                  "text": "{\"error\":\"arguments changed after approval\",\"errorCode\":\"binding_mismatch\"}"
+                }
+              ]
+            }
+          ]
+        },
+        "parent_tool_use_id": null,
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "uuid": "u-user"
+      }
+    },
+    {
+      "emit": {
+        "type": "stream_event",
+        "event": {
+          "type": "message_start",
+          "message": {
+            "id": "msg_fx_r2",
+            "type": "message",
+            "role": "assistant",
+            "model": "claude-haiku-5-5",
+            "content": [],
+            "stop_reason": null,
+            "usage": {
+              "input_tokens": 260,
+              "cache_creation_input_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "output_tokens": 1
+            }
+          }
+        },
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "parent_tool_use_id": null,
+        "uuid": "u-message_start"
+      }
+    },
+    {
+      "emit": {
+        "type": "stream_event",
+        "event": {
+          "type": "content_block_start",
+          "index": 0,
+          "content_block": {
+            "type": "text",
+            "text": ""
+          }
+        },
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "parent_tool_use_id": null,
+        "uuid": "u-content_block_start"
+      }
+    },
+    {
+      "emit": {
+        "type": "stream_event",
+        "event": {
+          "type": "content_block_delta",
+          "index": 0,
+          "delta": {
+            "type": "text_delta",
+            "text": "The send was refused: its arguments changed after you approved it."
+          }
+        },
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "parent_tool_use_id": null,
+        "uuid": "u-content_block_delta"
+      }
+    },
+    {
+      "emit": {
+        "type": "stream_event",
+        "event": {
+          "type": "content_block_stop",
+          "index": 0
+        },
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "parent_tool_use_id": null,
+        "uuid": "u-content_block_stop"
+      }
+    },
+    {
+      "emit": {
+        "type": "stream_event",
+        "event": {
+          "type": "message_delta",
+          "delta": {
+            "stop_reason": "end_turn",
+            "stop_sequence": null
+          },
+          "usage": {
+            "output_tokens": 15
+          }
+        },
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "parent_tool_use_id": null,
+        "uuid": "u-message_delta"
+      }
+    },
+    {
+      "emit": {
+        "type": "stream_event",
+        "event": {
+          "type": "message_stop"
+        },
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "parent_tool_use_id": null,
+        "uuid": "u-message_stop"
+      }
+    },
+    {
+      "emit": {
+        "type": "result",
+        "subtype": "success",
+        "is_error": false,
+        "num_turns": 2,
+        "result": "The send was refused.",
+        "stop_reason": "end_turn",
+        "session_id": "2f0c9a1e-7b7e-4c1d-9c55-0f1e2d3c4b5a",
+        "usage": {
+          "input_tokens": 460,
+          "output_tokens": 35
+        },
+        "uuid": "u-result"
+      }
+    }
+  ]
+}
