@@ -207,9 +207,12 @@ export function PermissionsPanel({
                     </p>
                   ) : null}
                   {c.type === "mcp" && typeof hash === "string" ? (
-                    <p className="truncate font-mono text-xs text-muted-foreground">
-                      tools/list {hash.slice(0, 19)}…
-                    </p>
+                    <details className="text-xs text-muted-foreground">
+                      <summary className="w-fit cursor-pointer select-none hover:text-foreground">
+                        Details
+                      </summary>
+                      <p className="mt-1 truncate font-mono">tools/list {hash.slice(0, 19)}…</p>
+                    </details>
                   ) : null}
                   <ActionMatrix
                     connectorLabel={c.label}

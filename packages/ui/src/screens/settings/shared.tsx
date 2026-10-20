@@ -128,14 +128,15 @@ export function SectionFrame({
   const id = useId();
   return (
     <section aria-labelledby={id} className="flex min-w-0 flex-col gap-4">
-      <header className="flex flex-wrap items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <h2 id={id} className="text-xl font-semibold text-foreground">
+      {/* PageHeader's layout one level down: Settings owns the page's h1, each section an h2. */}
+      <header className="mb-2 flex flex-wrap items-end gap-x-3 gap-y-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <h2 id={id} className="text-h2 text-foreground">
             {title}
           </h2>
-          {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+          {description ? <p className="text-small text-muted-foreground">{description}</p> : null}
         </div>
-        {actions}
+        {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
       </header>
       <NeedsApprovalContext.Provider value={needsApproval}>
         {children}
@@ -159,20 +160,19 @@ export function Group({
 }): ReactElement {
   const id = useId();
   return (
-    <section
-      aria-labelledby={id}
-      className={cn("rounded-lg border border-gray-6 bg-gray-2 p-4 text-sm", className)}
-    >
+    <section aria-labelledby={id} className={cn("elevation-1 rounded-lg p-4 text-sm", className)}>
       <div className="flex flex-wrap items-start gap-2">
         <div className="min-w-0 flex-1">
-          <h3 id={id} className="text-base font-semibold text-foreground">
+          <h3 id={id} className="text-h3 text-foreground">
             {title}
           </h3>
-          {description ? <p className="mt-0.5 text-muted-foreground">{description}</p> : null}
+          {description ? (
+            <p className="mt-0.5 text-small text-muted-foreground">{description}</p>
+          ) : null}
         </div>
         {actions}
       </div>
-      {children ? <div className="mt-3 flex flex-col gap-3">{children}</div> : null}
+      {children ? <div className="mt-4 flex flex-col gap-4">{children}</div> : null}
     </section>
   );
 }

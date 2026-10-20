@@ -98,6 +98,8 @@ export { FollowUpQueue } from "./chat/FollowUpQueue.tsx";
 export { MessageView, type MessageViewProps, messageText } from "./chat/MessageView.tsx";
 export { OfflineBanner } from "./chat/OfflineBanner.tsx";
 export { ChatThread, type ChatThreadProps } from "./chat/Thread.tsx";
+export { Page, PageHeader, type PageProps, SectionLabel } from "./components/page.tsx";
+export { NativeSelect } from "./components/ui/native-select.tsx";
 export * from "./data/index.ts";
 // Formatting helpers.
 export * from "./lib/format.ts";

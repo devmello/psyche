@@ -14,15 +14,8 @@
 name: release
 
 on:
-  pull_request:
-    paths:
-      - "deploy/**"
-      - "apps/cli/**"
-      - "apps/gateway/**"
-      - "packages/db/**"
-      - ".github/workflows/release.yml"
+  # CI diet (2026-10-19): release jobs (deploy smoke, images, packages) run on tags and on demand only.
   push:
-    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
 

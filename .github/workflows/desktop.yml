@@ -4,11 +4,12 @@
 name: desktop
 
 on:
+  # CI diet (2026-10-19): expensive suites run on demand, nightly and on release tags, not per PR.
+  workflow_dispatch:
+  schedule:
+    - cron: "17 9 * * *"
   push:
-    branches: [main]
-    paths: ["apps/**", "packages/**", "tests/integration/**", "pnpm-lock.yaml"]
-  pull_request:
-    paths: ["apps/**", "packages/**", "tests/integration/**", "pnpm-lock.yaml"]
+    tags: ["v*"]
 
 concurrency:
   group: desktop-${{ github.event.pull_request.number || github.ref }}
