@@ -46,6 +46,8 @@ const DEFAULT_RATE: Record<string, ChannelSettings["rateLimit"]> = {
   webchat: { perChatPerSec: 20, perChannelPerSec: 50, burst: 20 },
   // Messages.app scripting: keep it human-paced.
   imessage: { perChatPerSec: 1, perChannelPerSec: 5, burst: 3 },
+  // Web API chat.postMessage: about 1 message per second per channel.
+  slack: { perChatPerSec: 1, perChannelPerSec: 10, burst: 3 },
 };
 
 function strings(value: unknown): string[] {
@@ -121,6 +123,14 @@ export function validateChannel(channel: Channel): string[] {
     for (const id of [...channel.allowFrom, ...channel.ownerIds, ...channel.groupAllowFrom]) {
       if (id !== "*" && !/^\+\d{6,15}$/.test(id) && !/^[^\sA-Z@]+@[^\sA-Z@]+$/.test(id)) {
         problems.push(`iMessage ids are E.164 phones or lowercase emails: ${id}`);
+      }
+    }
+  }
+  if (channel.type === "slack") {
+    // Slack user ids (U…, W… for Enterprise Grid); groups are channel ids (C…, G…).
+    for (const id of [...channel.allowFrom, ...channel.ownerIds, ...channel.groupAllowFrom]) {
+      if (id !== "*" && !/^[UW][A-Z0-9]{2,}$/.test(id)) {
+        problems.push(`Slack ids are user ids like U012ABCDEF: ${id}`);
       }
     }
   }
