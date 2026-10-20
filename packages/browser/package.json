@@ -29,14 +29,7 @@
     "playwright-core": "1.64.1"
   },
   "devDependencies": {
-    "@psyche/testing": "workspace:*"
-  },
-  "peerDependencies": {
-    "vitest": "^5.0.0"
-  },
-  "peerDependenciesMeta": {
-    "vitest": {
-      "optional": true
-    }
+    "@psyche/testing": "workspace:*",
+    "vitest": "5.0.5"
   }
 }
