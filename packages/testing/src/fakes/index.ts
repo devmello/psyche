@@ -16,3 +16,4 @@ export * from "./FakeSkillLoader.ts";
 export * from "./FakeSpeechEngine.ts";
 export * from "./FakeTaskEngine.ts";
 export * from "./FakeViewerRegistry.ts";
+export * from "./mail/index.ts";

@@ -380,6 +380,33 @@ export const FIXTURE_SITE: FxSite = {
         },
       ],
     },
+    "a/cart": {
+      title: "Cart",
+      body: [
+        { kind: "heading", level: 1, text: "Your cart" },
+        { kind: "text", text: "Seller: Fixture Shop" },
+        {
+          kind: "table",
+          caption: "Cart",
+          rows: [
+            ["Item", "Qty", "Price"],
+            ["Laptop Stand 13-inch", "1", "$29.00"],
+          ],
+        },
+        { kind: "status", id: "total", text: "Total: $29.00" },
+        {
+          kind: "button",
+          text: "Apply coupon",
+          onClick: { kind: "set_text", id: "total", text: "Total: $19.00" },
+        },
+        {
+          kind: "form",
+          action: "/submit/order",
+          method: "post",
+          children: [{ kind: "button", text: "Place order", type: "submit" }],
+        },
+      ],
+    },
     "a/cookies": {
       title: "Cookie banner",
       body: [

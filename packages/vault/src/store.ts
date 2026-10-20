@@ -13,6 +13,9 @@ export interface ItemSecret {
   refreshToken?: string;
   expiresAt?: string;
   scopes?: string[];
+  /** OAuth extras a connector stores with its tokens (G13). */
+  tokenType?: string;
+  obtainedAt?: string;
   privateKey?: string;
   text?: string;
 }
@@ -23,7 +26,9 @@ export interface ItemAttrs {
   headerPrefix?: string;
   requireAuthEachUse?: boolean;
   /** G9: the secret lives in the system keychain; `items.secret` is `{}`. */
-  backend?: "keychain";
+  backend?: "keychain" | "1password";
+  /** G10: where the 1Password item lives (names or ids; never a value). */
+  external?: { vault: string; item: string };
   /** Secret fields present (keychain items), so `resolve` can check them without a prompt. */
   fields?: string[];
 }

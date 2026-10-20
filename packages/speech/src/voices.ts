@@ -82,4 +82,13 @@ export class VoiceCatalog {
     for (const v of voices) v.default = v === def;
     return { voices, default: def?.ref ?? null, unavailable };
   }
+
+  /**
+   * `true` when `voiceRef` (or, without one, the configured default) resolves to a voice marked
+   * non-commercial (Apple Personal Voice). For `ReadAloudService({nonCommercial})`.
+   */
+  async isNonCommercial(voiceRef?: string): Promise<boolean> {
+    const r = await this.list(voiceRef === undefined ? {} : { personaVoice: voiceRef });
+    return r.voices.find((v) => v.default)?.nonCommercial === true;
+  }
 }

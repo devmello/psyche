@@ -16,8 +16,14 @@ import {
 } from "./shared.tsx";
 import type { FolderGrant } from "./types.ts";
 
-/** File access (UI design §3.18): folder grants ro / rw; VirtioFS shares in VM mode. */
+/**
+ * File access (UI design §3.18): folder grants ro / rw; VirtioFS shares in VM mode. Folder grants
+ * live in the broker policy the Gateway applies (`permissions.policy.folders`, `{path, mode}`),
+ * the same setting the CLI and other devices write; `permissions.folders` is the kit's older
+ * UI-local key, read only as a fallback when the policy has no folder list.
+ */
 
+export const POLICY_KEY = "permissions.policy";
 export const FOLDERS_KEY = "permissions.folders";
 export const VM_SHARES_KEY = "vm.shares";
 
@@ -36,6 +42,49 @@ export function foldersFromSettings(
 ): FolderGrant[] {
   const raw = values[key];
   return Array.isArray(raw) ? raw.filter(isFolder) : [];
+}
+
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+/** The stored broker policy, or `{}` when unset or malformed. */
+export function policyOf(values: Readonly<Record<string, unknown>>): Record<string, unknown> {
+  const raw = values[POLICY_KEY];
+  return isRecord(raw) ? raw : {};
+}
+
+/**
+ * The folder grants the broker applies (`permissions.policy.folders`) in the kit's
+ * `{path, access}` shape; the UI-local `permissions.folders` only when the policy has no list.
+ */
+export function folderGrants(values: Readonly<Record<string, unknown>>): FolderGrant[] {
+  const folders = policyOf(values).folders;
+  if (!Array.isArray(folders)) return foldersFromSettings(values, FOLDERS_KEY);
+  return folders.flatMap((f): FolderGrant[] =>
+    isRecord(f) &&
+    typeof f.path === "string" &&
+    f.path !== "" &&
+    (f.mode === "ro" || f.mode === "rw")
+      ? [{ path: f.path, access: f.mode }]
+      : [],
+  );
+}
+
+/** The stored policy with its `folders` replaced (deduped, trimmed); other keys are kept. */
+export function policyWithFolders(
+  values: Readonly<Record<string, unknown>>,
+  grants: readonly FolderGrant[],
+): Record<string, unknown> {
+  const seen = new Set<string>();
+  const folders: { path: string; mode: FolderGrant["access"] }[] = [];
+  for (const g of grants) {
+    const path = g.path.trim();
+    if (path === "" || seen.has(path)) continue;
+    seen.add(path);
+    folders.push({ path, mode: g.access });
+  }
+  return { ...policyOf(values), folders };
 }
 
 function FolderList({
@@ -164,13 +213,13 @@ export function FileAccessPanel({
         >
           <FolderList
             label="Shared folders"
-            folders={foldersFromSettings(values, FOLDERS_KEY)}
-            onChange={(next) => onChange(FOLDERS_KEY, next)}
+            folders={folderGrants(values)}
+            onChange={(next) => onChange(POLICY_KEY, policyWithFolders(values, next))}
             emptyText={`No folders shared. ${persona} works only in its own workspace.`}
             addLabel="Share a folder"
             defaultAccess="ro"
           />
-          <SettingHint settingKey={FOLDERS_KEY} />
+          <SettingHint settingKey={POLICY_KEY} />
         </Group>
         <Group
           title="VM shares"

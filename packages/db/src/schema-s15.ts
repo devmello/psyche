@@ -36,6 +36,11 @@ export const ideas = sqliteTable("ideas", {
   dismissReason: text("dismiss_reason"),
   createdAt: text("created_at").notNull(),
   decidedAt: text("decided_at"),
+  // 202610210900_proactive_ideas-delivery
+  source: text("source").notNull(),
+  action: text("action"),
+  untrusted: integer("untrusted").notNull(),
+  deliveredAt: text("delivered_at"),
 });
 
 export const goals = sqliteTable("goals", {

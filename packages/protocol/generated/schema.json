@@ -1431,6 +1431,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Sets a thread's permission mode and/or model (composer /plan, /model, the mode and model pills). auto is refused with forbidden unless the thread's model is on the auto-mode allowlist; picking a model that is not allowed drops an auto thread to balanced.",
+        "name": "threads.update",
+        "params": "#/$defs/ThreadsUpdateParams",
+        "result": "#/$defs/ThreadResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
         "description": "Adds an item. Card numbers, CVVs, bank account numbers and government ids are refused (policy_denied). Side-effecting.",
         "name": "vault.add",
         "params": "#/$defs/VaultAddParams",
@@ -13568,6 +13576,35 @@
       "required": [
         "threadId",
         "title"
+      ],
+      "type": "object"
+    },
+    "ThreadsUpdateParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "permissionMode": {
+          "$ref": "#/$defs/PermissionMode"
+        },
+        "modelRef": {
+          "anyOf": [
+            {
+              "description": "provider/model",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "threadId"
       ],
       "type": "object"
     },
