@@ -12,7 +12,7 @@ import { adminClient, ik, type TestClient } from "./helpers.ts";
 
 /** N8 / N9: channel transport secrets as Gateway-owned vault items (`channels.secrets.*`). */
 
-const BOT = "xoxb-test-0123456789-SECRET";
+const BOT = "fake-slack-bot-token-SECRET";
 let home: string;
 let composed: ComposedGateway | undefined;
 const clients: TestClient[] = [];
