@@ -1,4 +1,5 @@
 import {
+  deleteAgentThreadState,
   deleteThread,
   deleteToolPayloadsBefore,
   getSetting,
@@ -51,6 +52,7 @@ export function runRetention(ctx: GatewayContext): RetentionReport {
       const a = activity.get(thread.id);
       if (a && a.running + a.awaitingApproval + a.awaitingInput > 0) continue;
       deleteThread(db, thread.id);
+      deleteAgentThreadState(db, thread.id);
       report.expiredThreads.push(thread.id);
     }
     report.idempotencyRecords = pruneIdempotencyRecords(
