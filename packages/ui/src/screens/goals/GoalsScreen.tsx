@@ -265,7 +265,8 @@ export function GoalsView({
   const tracked = !loading && error === null && goals.length > 0;
   return (
     <section aria-label={t("screens.goals.title")}>
-      <Page width={detail ? "full" : "wide"}>
+      {/* The list is a centred prose column like Feed (#512); the goal page needs the full width. */}
+      <Page width={detail ? "full" : "prose"}>
         <PageHeader
           title={t("screens.goals.title")}
           {...(tracked ? { meta: plural(goals.length, "goal") } : {})}
@@ -280,11 +281,7 @@ export function GoalsView({
             : {})}
         />
         <div
-          className={cn(
-            detail
-              ? "grid items-start gap-8 md:grid-cols-[minmax(240px,300px)_1fr]"
-              : "max-w-[68ch]",
-          )}
+          className={cn(detail && "grid items-start gap-8 md:grid-cols-[minmax(240px,300px)_1fr]")}
         >
           <div className="-mx-3">{list}</div>
           {detail ? (

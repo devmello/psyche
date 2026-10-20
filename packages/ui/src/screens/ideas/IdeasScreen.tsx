@@ -99,7 +99,8 @@ export function IdeasView({
   }
   return (
     <section aria-label={t("screens.ideas.title")}>
-      <Page width="wide">
+      {/* Idea cards read like Feed posts: the same centred prose column (#512). */}
+      <Page width="prose">
         <PageHeader
           title={t("screens.ideas.title")}
           meta={
