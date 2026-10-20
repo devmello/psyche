@@ -86,6 +86,8 @@ export function inferApprovalKind(tool: string): ApprovalKind {
   if (tool === "memory") return "memory_protected_write";
   if (tool === "skills.install") return "skill_install";
   if (tool === "exit_plan_mode" || tool === "ExitPlanMode") return "plan_exit";
+  // Delegation is a `write` (design-08): it gets its own card, not a generic connector action.
+  if (tool === "task.start" || tool === "task.create") return "task_start";
   return "connector_action";
 }
 

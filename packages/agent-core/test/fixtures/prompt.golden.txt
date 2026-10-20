@@ -48,7 +48,7 @@ Permission mode: balanced.
 - wrap_up (none)
 - subagent.spawn (none)
 - memory (none)
-- task.start (none)
+- task.start (write)
 - schedule (write)
 - notify (write)
 </section>
@@ -71,6 +71,6 @@ update_plan none trusted
 wrap_up none trusted
 subagent.spawn none trusted
 memory none trusted
-task.start none trusted
+task.start write trusted
 schedule write trusted
 notify write trusted

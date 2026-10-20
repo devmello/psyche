@@ -1764,7 +1764,8 @@
         "archive_thread",
         "memory_protected_write",
         "pairing",
-        "policy_change"
+        "policy_change",
+        "task_start"
       ],
       "type": "string"
     },

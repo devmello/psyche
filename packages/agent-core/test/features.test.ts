@@ -240,7 +240,12 @@ describe("provenance and taint", () => {
       say("Started."),
       say("ok"),
     ]);
-    await runTurn(h, "read and delegate");
+    // Delegating from a tainted turn always asks (design-08, #48).
+    const turn = start(h, "read and delegate");
+    await until(() => h.broker.issued.length === 1, "task_start card");
+    expect(h.broker.issued[0]?.approval).toMatchObject({ kind: "task_start", taint: true });
+    await h.broker.decideLatest("approve", h.clock);
+    await turn.done;
     const [task] = await h.tasks.list();
     expect(task?.taint).toBe(true);
     h.loop.registry.register({ spec: spec("noop", "none"), execute: recorder().execute });

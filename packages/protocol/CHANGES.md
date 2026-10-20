@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S02/S05: task_start approval kind, #48)
+
+For S02 (`task.start` declares `sideEffect: write` and `kind: task_start`), S05 (the broker infers `task_start` for `task.start` and titles its card), S10 (chat card label), S11 / S12 (approval cards).
+
+- `ApprovalKind` gains `task_start` at the end of the list: delegating a background task is a `write` (review design-08) with its own card instead of a generic `connector_action`. Offered scopes follow the `write` class (`once / task / site / session / always`); in a tainted turn it always asks (no target, so the target is new).
 ### v1 additive — 2026-10-19 (P9 file tools, #49)
 
 For `@psyche/files` and the approval cards (S11 / S12). `ToolCallDescription` gains optional `details?: JsonObject`: what the approval card shows besides the params, display only and never part of the binding. The agent loop spreads it into `ApprovalRequest.details` under `tool`, `params` and `target`, which it cannot override. `write_file` / `edit_file` use it for `{path, operation, diff}`, which the UI kit's `file_write` card already renders.
