@@ -1616,6 +1616,14 @@
         "sideEffecting": true
       },
       {
+        "description": "Stops one of the caller's read-aloud streams now (voice mode barge-in, feature Q5); nothing is saved and speech.readAloud.failed reports cancelled. Unknown or finished streams answer ok.",
+        "name": "speech.readAloud.cancel",
+        "params": "#/$defs/SpeechReadAloudCancelParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
         "description": "Lists every synthesis voice the available engines offer as <engine>:<voice> refs, for voice selection per persona.",
         "name": "speech.voices",
         "params": "#/$defs/SpeechVoicesParams",
@@ -16521,6 +16529,19 @@
       ],
       "type": "string"
     },
+    "SpeechReadAloudCancelParams": {
+      "properties": {
+        "streamId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "streamId"
+      ],
+      "type": "object"
+    },
     "SpeechReadAloudCompletedPayload": {
       "properties": {
         "streamId": {
@@ -16584,6 +16605,10 @@
           "description": "<engine>:<voice>",
           "maxLength": 128,
           "type": "string"
+        },
+        "save": {
+          "description": "Default true. false: stream speech.audio only, save no Library item and emit no speech.readAloud.completed (voice mode, feature Q5)",
+          "type": "boolean"
         }
       },
       "required": [

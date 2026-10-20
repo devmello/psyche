@@ -579,6 +579,7 @@
 //   let skillsSetEnabledResult = try? JSONDecoder().decode(SkillsSetEnabledResult.self, from: jsonData)
 //   let speechAudioPayload = try? JSONDecoder().decode(SpeechAudioPayload.self, from: jsonData)
 //   let speechEngineLocation = try? JSONDecoder().decode(SpeechEngineLocation.self, from: jsonData)
+//   let speechReadAloudCancelParams = try? JSONDecoder().decode(SpeechReadAloudCancelParams.self, from: jsonData)
 //   let speechReadAloudCompletedPayload = try? JSONDecoder().decode(SpeechReadAloudCompletedPayload.self, from: jsonData)
 //   let speechReadAloudFailedPayload = try? JSONDecoder().decode(SpeechReadAloudFailedPayload.self, from: jsonData)
 //   let speechReadAloudParams = try? JSONDecoder().decode(SpeechReadAloudParams.self, from: jsonData)
@@ -11926,6 +11927,19 @@ public enum Encoding: String, Codable, Sendable {
     case wav = "wav"
 }
 
+// MARK: - SpeechReadAloudCancelParams
+public struct SpeechReadAloudCancelParams: Codable, Sendable {
+    public let streamID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case streamID = "streamId"
+    }
+
+    public init(streamID: String) {
+        self.streamID = streamID
+    }
+}
+
 // MARK: - SpeechReadAloudCompletedPayload
 public struct SpeechReadAloudCompletedPayload: Codable, Sendable {
     public let durationMS: Int
@@ -11970,16 +11984,21 @@ public struct SpeechReadAloudFailedPayload: Codable, Sendable {
 // MARK: - SpeechReadAloudParams
 public struct SpeechReadAloudParams: Codable, Sendable {
     public let messageID: String
+    /// Default true. false: stream speech.audio only, save no Library item and emit no
+    /// speech.readAloud.completed (voice mode, feature Q5)
+    public let save: Bool?
     /// <engine>:<voice>
     public let voice: String?
 
     public enum CodingKeys: String, CodingKey {
         case messageID = "messageId"
+        case save = "save"
         case voice = "voice"
     }
 
-    public init(messageID: String, voice: String?) {
+    public init(messageID: String, save: Bool?, voice: String?) {
         self.messageID = messageID
+        self.save = save
         self.voice = voice
     }
 }
