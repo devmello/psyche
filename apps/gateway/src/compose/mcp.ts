@@ -53,6 +53,8 @@ export interface McpSetup {
    * hosts runs with `network: "proxy"` and reaches only those. Without it such servers are refused.
    */
   egressAllowlist?: ContainerLauncherOptions["egressAllowlist"];
+  /** Clears a removed server's egress allowlist (#284 TM-18); its volume goes with it. */
+  egressRevoke?: ContainerLauncherOptions["egressRevoke"];
   /** Host overrides (tests: bundled ids and launcher). */
   hostOptions?: Partial<McpHostOptions>;
 }
@@ -68,6 +70,7 @@ function launcherFor(services: ComposeServices, setup: McpSetup): StdioLauncher 
     return containerLauncher({
       sandbox: setup.container,
       ...(setup.egressAllowlist === undefined ? {} : { egressAllowlist: setup.egressAllowlist }),
+      ...(setup.egressRevoke === undefined ? {} : { egressRevoke: setup.egressRevoke }),
     });
   }
   if (setup.srtPath !== undefined) {

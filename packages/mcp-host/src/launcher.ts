@@ -63,6 +63,8 @@ export interface StdioLauncher {
   readonly isolation: "srt" | "container" | "none";
   prepare?(spec: StdioLaunchSpec): Promise<PreparedLaunch>;
   open?(spec: StdioLaunchSpec, signal?: AbortSignal): Promise<OpenedLaunch>;
+  /** The server was removed: drop any state kept for it (sandbox volume, egress allowlist). */
+  forget?(serverId: string): Promise<void>;
 }
 
 /** A launcher whose command the host spawns (`srt`, direct). */
@@ -214,6 +216,8 @@ export interface SandboxStdioHost {
     sandboxId: string,
     options: { argv: string[]; cwd?: string; env?: Record<string, string> },
   ): Promise<SandboxStdioProcess>;
+  /** Removes the scope's container and `/workspace` volume (`ContainerSandboxRunner`). */
+  deleteWorkspace?(scope: SandboxScope): Promise<void>;
 }
 
 export interface ContainerLauncherOptions {
@@ -223,6 +227,8 @@ export interface ContainerLauncherOptions {
    * starts with `network: "proxy"`. Without it, servers that ask for network are refused.
    */
   egressAllowlist?: (scope: SandboxScope, domains: string[]) => void | Promise<void>;
+  /** Clears a removed server's egress allowlist, so a new config with its id starts empty. */
+  egressRevoke?: (scope: SandboxScope) => void | Promise<void>;
 }
 
 export const SANDBOX_WORKSPACE = "/workspace";
@@ -243,6 +249,11 @@ export function mcpSandboxScope(serverId: string): SandboxScope {
 export function containerLauncher(options: ContainerLauncherOptions): StdioLauncher {
   return {
     isolation: "container",
+    async forget(serverId) {
+      const scope = mcpSandboxScope(serverId);
+      await options.egressRevoke?.(scope);
+      await options.sandbox.deleteWorkspace?.(scope);
+    },
     async open(spec, signal) {
       if (spec.command.length === 0) throw new PsycheError("invalid_params", "empty command");
       if (spec.sandbox.allowWrite.length > 0) {

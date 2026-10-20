@@ -270,3 +270,53 @@ describe("oauth provider", () => {
     expect("saveClientInformation" in new PsycheOAuthProvider("a", opts)).toBe(false);
   });
 });
+
+describe("#284 hardening", () => {
+  it("redactDeep replaces secrets in every string of a result, leaving other values", async () => {
+    const { redactDeep } = await import("../src/index.ts");
+    const out = redactDeep(
+      { blocks: [{ type: "text", text: "a SECRET b" }], structured: { n: 1, deep: ["SECRET"] } },
+      (t) => t.split("SECRET").join("•••"),
+    );
+    expect(out).toEqual({
+      blocks: [{ type: "text", text: "a ••• b" }],
+      structured: { n: 1, deep: ["•••"] },
+    });
+  });
+
+  it("bearer credentials never travel over plain http: remote servers must be https (TM-21)", async () => {
+    const { PsycheMcpHost } = await import("../src/index.ts");
+    const requests: string[] = [];
+    const host = new PsycheMcpHost({
+      fetch: async (u) => {
+        requests.push(String(u));
+        return new Response("", { status: 500 });
+      },
+      secrets: {
+        credentials: {
+          resolve: async () => {
+            throw new Error("must not resolve");
+          },
+          list: async () => [],
+          get: async () => undefined,
+          redact: (t: string) => t,
+        },
+        approve: async () => "ap",
+      },
+    });
+    try {
+      await expect(
+        host.addServer({
+          id: "remote",
+          name: "Remote",
+          trust: "unknown",
+          transport: { kind: "http", url: "http://mcp.example.com/mcp" },
+          auth: { kind: "bearer", credential: "{{cred:remote-token}}" },
+        } as never),
+      ).rejects.toThrow(/must use https/);
+      expect(requests).toEqual([]);
+    } finally {
+      await host.close();
+    }
+  });
+});
