@@ -16,7 +16,7 @@
   "signing": {
     "tool": "cosign",
     "mode": "keyless",
-    "certificateIdentityRegexp": "^https://github\\.com/devmello/psyche/\\.github/workflows/.+@refs/heads/main$",
+    "certificateIdentityRegexp": "^https://github\\.com/devmello/psyche/\\.github/workflows/release\\.yml@refs/tags/v[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
     "certificateOidcIssuer": "https://token.actions.githubusercontent.com"
   }
 }

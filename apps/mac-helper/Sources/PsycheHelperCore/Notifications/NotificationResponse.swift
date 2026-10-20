@@ -82,7 +82,7 @@ public struct NotificationResponse: Sendable, Equatable {
     /// Machine reason when authentication was required and failed (`user_cancelled`, …).
     public var authError: String?
     /// The Secure Enclave assertion over `PresenceMessage.bytes(challenge)` (issue #84).
-    public var presence: PresenceAssertion?
+    public var presence: PresenceSignature?
     /// Why no assertion was made although one was asked for (e.g. `missing_entitlement`).
     public var presenceError: String?
 

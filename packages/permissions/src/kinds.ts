@@ -1,4 +1,5 @@
 import type { ApprovalKind, GrantScope, SideEffect } from "@psyche/protocol";
+import { appleAppAction } from "./apple-apps.ts";
 
 /** Side-effect ranks; a grant never covers a more severe call than it was approved for. */
 export const SEVERITY: Record<SideEffect, number> = {
@@ -63,7 +64,12 @@ const SIDE_EFFECT_FLOORS: { re: RegExp; floor: SideEffect }[] = [
 ];
 
 export function effectiveSideEffect(tool: string, declared: SideEffect): SideEffect {
-  let se = declared;
+  // Apple app adapters (J6): never weaker than the matrix row, whatever the node declares.
+  const apple = appleAppAction(tool);
+  let se =
+    apple !== undefined && SEVERITY[apple.sideEffect] > SEVERITY[declared]
+      ? apple.sideEffect
+      : declared;
   for (const { re, floor } of SIDE_EFFECT_FLOORS) {
     if (re.test(tool) && SEVERITY[floor] > SEVERITY[se]) se = floor;
   }
@@ -71,6 +77,8 @@ export function effectiveSideEffect(tool: string, declared: SideEffect): SideEff
 }
 
 export function inferApprovalKind(tool: string): ApprovalKind {
+  const apple = appleAppAction(tool);
+  if (apple !== undefined) return apple.kind;
   if (tool === "exec_host") return "exec_host";
   if (tool === "exec" || tool.startsWith("sandbox.")) return "exec";
   if (tool.startsWith("email.") || tool === "gmail.send") return "send_email";
