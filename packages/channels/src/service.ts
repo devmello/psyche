@@ -62,6 +62,11 @@ export interface ChannelServiceOptions {
    * with a pairing code (`pair`). The Gateway feeds the broker's channel reply authority with it.
    */
   onInboundDecision?: (event: InboundDecisionEvent) => void;
+  /**
+   * Admission control before any policy runs (security §10: inbound chat 30/minute/sender).
+   * `false` drops the message silently; the Gateway counts and audits it.
+   */
+  admitInbound?: (channel: Channel, message: InboundMessage) => boolean;
 }
 
 export interface InboundDecisionEvent {
@@ -105,6 +110,7 @@ export class ChannelService {
   #identities = new IdentityDirectory();
   #ownerAllowFrom: string[];
   #onInboundDecision: ((event: InboundDecisionEvent) => void) | undefined;
+  #admitInbound: ((channel: Channel, message: InboundMessage) => boolean) | undefined;
   #channels = new Map<string, Channel>();
   #attached = new Map<string, Attached>();
 
@@ -123,6 +129,7 @@ export class ChannelService {
     this.#random = options.random ?? Math.random;
     this.#ownerAllowFrom = options.ownerAllowFrom ?? [];
     this.#onInboundDecision = options.onInboundDecision;
+    this.#admitInbound = options.admitInbound;
     this.#limiter = new RateLimiter({ clock: this.#clock, sleep: this.#sleep });
     this.pairing = new PairingService({
       store: options.store,
@@ -567,6 +574,11 @@ export class ChannelService {
     const channel = this.#channels.get(channelId);
     const attached = this.#attached.get(channelId);
     if (channel === undefined || attached === undefined) return;
+    // Before authorization: unknown senders flooding pairing requests count too.
+    if (this.#admitInbound?.(channel, message) === false) {
+      this.#logger.info?.("channel.inbound_rate_limited", { channelId });
+      return;
+    }
     const decision = authorizeInbound(channel, message, this.#identities);
     if (decision.action === "drop") {
       this.#logger.info?.("channel.inbound_dropped", { channelId, reason: decision.reason });

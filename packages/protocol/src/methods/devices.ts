@@ -26,10 +26,13 @@ export const DevicesMethods = {
           description: "The code shown on the new device; when given it must match the request",
         }),
       ),
+      /** Fresh presence: the approved `policy_change` card from a first `approval_required` call. */
+      approvalId: Type.Optional(Id),
     }),
     result: Type.Object({ device: Device }),
     scope: "operator.admin",
-    description: "Approves a pending pairing request with owner-chosen scopes.",
+    description:
+      "Approves a pending pairing request with owner-chosen scopes. Needs fresh presence once the Gateway has a presence verifier (approval_required with details.approvalId, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now).",
   }),
   "devices.deny": defineMethod({
     params: Type.Object({

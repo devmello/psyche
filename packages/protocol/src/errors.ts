@@ -40,6 +40,9 @@ export const ErrorCode = StringEnum(
     "debugger_detached",
     "tab_not_found",
     "method_not_allowed",
+    // M3 hardening: a security change needs fresh presence, and no verifier on this Gateway can
+    // provide one (presence was enrolled, then every passkey / helper key was lost or revoked).
+    "presence_required",
   ],
   { $id: "ErrorCode", description: "Machine-readable error code" },
 );

@@ -159,6 +159,24 @@ export interface NewOriginBindingArgs {
   taskId?: string | null;
 }
 
+/**
+ * `skill_install` (feature T2, security §11): what the owner saw on the trust card. The tree hash
+ * covers every file; the declared tools, approval kinds and prompt files are bound as well so a
+ * card can never be replayed for a skill that asks for more. Lists are sorted and de-duplicated.
+ */
+export interface SkillInstallBindingArgs {
+  name: string;
+  scope: "home" | "workspace";
+  source: { kind: "path" | "zip"; path: string } | { kind: "git"; url: string; ref: string };
+  /** Git sources: the commit the ref resolved to. */
+  commit?: string;
+  /** `sha256:<hex>` over the whole skill folder. */
+  treeHash: string;
+  tools: string[];
+  permissions: string[];
+  prompts: string[];
+}
+
 export interface GenericBindingArgs {
   tool: string;
   paramsHash: string;
@@ -600,6 +618,38 @@ function newOriginBinding(raw: unknown): [JsonObject, JsonObject] {
   return [{ origin, taskId }, { origin }];
 }
 
+function skillInstallBinding(raw: unknown): [JsonObject, JsonObject] {
+  const k = "skill_install";
+  const a = obj(k, raw);
+  const name = str(k, "name", a.name);
+  const scope = str(k, "scope", a.scope);
+  if (scope !== "home" && scope !== "workspace") bad(k, "scope must be home or workspace");
+  const src = obj(k, a.source);
+  const kind = str(k, "source.kind", src.kind);
+  let source: JsonObject;
+  if (kind === "git") {
+    source = { kind, url: str(k, "source.url", src.url), ref: str(k, "source.ref", src.ref) };
+  } else if (kind === "path" || kind === "zip") {
+    source = { kind, path: str(k, "source.path", src.path) };
+  } else {
+    bad(k, "source.kind must be path, zip or git");
+  }
+  const sorted = (field: string) => [...new Set(strArray(k, field, a[field] ?? []))].sort();
+  return [
+    compact({
+      name,
+      scope,
+      source,
+      commit: optStr(k, "commit", a.commit),
+      treeHash: sha(k, "treeHash", a.treeHash),
+      tools: sorted("tools"),
+      permissions: sorted("permissions"),
+      prompts: sorted("prompts"),
+    }),
+    { name, scope },
+  ];
+}
+
 function genericBinding(kind: string, raw: unknown): [JsonObject, JsonObject] {
   const a = obj(kind, raw);
   const tool = str(kind, "tool", a.tool);
@@ -624,6 +674,7 @@ export const DEDICATED_BINDING_KINDS: readonly ApprovalKind[] = [
   "mcp_tool",
   "computer_action",
   "new_origin",
+  "skill_install",
 ];
 
 /** Build the binding for `kind` from kind-specific arguments; throws `invalid_params`. */
@@ -668,6 +719,9 @@ export function bindingFor(kind: ApprovalKind, args: unknown): Binding {
       break;
     case "new_origin":
       pair = newOriginBinding(args);
+      break;
+    case "skill_install":
+      pair = skillInstallBinding(args);
       break;
     default:
       pair = genericBinding(kind, args);

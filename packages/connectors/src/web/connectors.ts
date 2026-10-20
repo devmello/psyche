@@ -307,6 +307,11 @@ export interface WebFetchFactoryOptions {
   allowedOrigins?: (
     run: ToolRunContext,
   ) => Iterable<string> | undefined | Promise<Iterable<string> | undefined>;
+  /**
+   * Admission control before the request (security §10: `fetch` 60/minute/Task). Throws to refuse
+   * (the Gateway throws `rate_limited`); the network is never touched then.
+   */
+  beforeFetch?: (run: ToolRunContext) => void | Promise<void>;
 }
 
 function parseFetchParams(params: unknown): { url: string; maxChars?: number } {
@@ -349,6 +354,7 @@ export function createWebFetchFactory(options: WebFetchFactoryOptions = {}): Con
         },
         async execute(params, run): Promise<ToolOutput> {
           const p = parseFetchParams(params);
+          await options.beforeFetch?.(run);
           // No privateAllowlist here: the model-facing fetch never reaches private hosts.
           const fetchOptions: SafeFetchOptions = { signal: run.signal };
           if (p.maxChars !== undefined) fetchOptions.maxChars = p.maxChars;
