@@ -29,6 +29,10 @@
     "./compose/onboarding": {
       "types": "./src/compose/onboarding.ts",
       "default": "./src/compose/onboarding.ts"
+    },
+    "./compose/zoom": {
+      "types": "./src/compose/zoom.ts",
+      "default": "./src/compose/zoom.ts"
     }
   },
   "scripts": {
