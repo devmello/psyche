@@ -1,0 +1,18 @@
+{
+  "name": "@psyche/site",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Psyche's documentation site (VitePress), published to GitHub Pages",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "docs:sync": "tsx scripts/sync.ts",
+    "docs:dev": "pnpm docs:sync && vitepress dev",
+    "docs:build": "pnpm docs:sync && vitepress build",
+    "docs:check": "pnpm docs:build && node scripts/check-links.mjs"
+  },
+  "devDependencies": {
+    "tsx": "4.23.15",
+    "vitepress": "2.0.0-alpha.20"
+  }
+}
