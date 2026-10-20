@@ -10,6 +10,7 @@ import type {
   TaskOrigin,
   TaskPlan,
   TaskStatus,
+  TaskWorkspace,
 } from "../schemas/tasks.ts";
 
 /**
@@ -34,6 +35,8 @@ export interface TaskCreateInput {
    * them until the owner re-approves its goal. Persisted with the task, shown on its cards.
    */
   taintSources?: TaintSource[];
+  /** Where its commands run; absent means the owner's default (`vm.defaultWorkspace`). */
+  workspace?: TaskWorkspace;
 }
 
 export interface TaskFilter {

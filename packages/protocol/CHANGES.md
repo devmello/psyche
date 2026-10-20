@@ -28,6 +28,23 @@ For the model router (S03 M3: endpoint probe), the Gateway (`models.*` handlers)
   - `models.check {ref}` → `{result: ToolCheckResult}` (`operator.admin`): the six-case tool-calling check (B4).
   - `models.setRole {role: "primary" | "utility", ref, override?}` → `{roles}` (`operator.admin`, side-effecting): binds and persists a role; `policy_denied` for a chat-only primary without `override`.
 - New schemas in `schemas/models.ts`: `ModelFactSource`, `ModelCapabilityGuess`, `ProbedModel`, `EndpointProbeState`, `EndpointProbe`, `ToolCheckStatus`, `ToolCheckResult`, `ProviderModelEntry`, `ModelProviderSummary`, `PickableModelRole`, `ModelRoles`.
+### v1 additive — 2026-10-19 (M3 T2: skills install and trust)
+
+For S16 (`packages/skills`), the Gateway (`skills.*` handlers), S05 (`skill_install` binding) and Settings → Skills (S11 / S12).
+
+- New `SkillManifest {tools, permissions: ApprovalKind[], prompts}`: what a skill declares it needs. Optional `manifest` on `SkillDetails` and `SkillProposal`; optional `manifest` on the contract's `SkillInstallProposal` (`SkillManifestDecl`).
+- New `SkillUpdateStatus {name, installedHash, availableHash?, commit?, updateAvailable, manifestChanged, error?, checkedAt}`; optional `update` on `SkillDetails`.
+- New method `skills.checkUpdates {name?}` → `{updates: SkillUpdateStatus[]}` (`operator.admin`, no install) and event `skills.updated` (payload `SkillUpdateStatus`) for each update found. Optional `SkillLoader.checkUpdates`.
+- `skills.proposeInstall` documents its refusal: `policy_denied` with `details.violations` when the manifest asks for more than the owner's policy allows (no approval card is opened).
+- `@psyche/permissions`: `skill_install` gets a dedicated binding `{name, scope, source, commit?, treeHash, tools, permissions, prompts}` (lists sorted, de-duplicated; grant key `{name, scope}`), joins `DEVICE_ONLY_KINDS`, and its card lists name, source, hash, permissions, tools and prompts first (`none` when empty).
+### v1 additive — 2026-10-19 (M3 VM mode, Gateway side: Task workspace, L1–L5)
+
+For S01 (the Gateway's `vm` runner and Task mode selection), S04 (tasks persist the workspace), S02 (`task.start` may name it), S11 (Settings → VM mode).
+
+- New `TaskWorkspace` (`sandbox | vm`). `Task.workspace` and `TaskCreateInput.workspace` are optional: absent means the owner's default.
+- `SandboxBackendKind` gains `vm`, the runner that executes in the sandbox Mac guest through its psyche-node. `@psyche/sandbox`'s `ContainerBackendKind` excludes it (one line).
+- `schemas/vm.ts`: `VM_SETTING_KEYS`, which name the admin-only settings `vm.enabled`, `vm.guestNodeId`, `vm.defaultWorkspace`, `vm.clipboard` and `vm.credentials`, plus `VmSettings` and `VmClipboardMode` for typing them.
+- `FakeTaskEngine` keeps `workspace`.
 
 ### v1 additive — 2026-10-19 (M2 computer use: per-app tier keys on the action)
 

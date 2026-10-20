@@ -502,6 +502,7 @@
 //   let skillCommand = try? JSONDecoder().decode(SkillCommand.self, from: jsonData)
 //   let skillDetails = try? JSONDecoder().decode(SkillDetails.self, from: jsonData)
 //   let skillInstallSource = try? JSONDecoder().decode(SkillInstallSource.self, from: jsonData)
+//   let skillManifest = try? JSONDecoder().decode(SkillManifest.self, from: jsonData)
 //   let skillProposal = try? JSONDecoder().decode(SkillProposal.self, from: jsonData)
 //   let skillProposalFile = try? JSONDecoder().decode(SkillProposalFile.self, from: jsonData)
 //   let skillProposalResult = try? JSONDecoder().decode(SkillProposalResult.self, from: jsonData)
@@ -509,6 +510,9 @@
 //   let skillStatus = try? JSONDecoder().decode(SkillStatus.self, from: jsonData)
 //   let skillSummary = try? JSONDecoder().decode(SkillSummary.self, from: jsonData)
 //   let skillTrust = try? JSONDecoder().decode(SkillTrust.self, from: jsonData)
+//   let skillUpdateStatus = try? JSONDecoder().decode(SkillUpdateStatus.self, from: jsonData)
+//   let skillsCheckUpdatesParams = try? JSONDecoder().decode(SkillsCheckUpdatesParams.self, from: jsonData)
+//   let skillsCheckUpdatesResult = try? JSONDecoder().decode(SkillsCheckUpdatesResult.self, from: jsonData)
 //   let skillsCommandsResult = try? JSONDecoder().decode(SkillsCommandsResult.self, from: jsonData)
 //   let skillsGetParams = try? JSONDecoder().decode(SkillsGetParams.self, from: jsonData)
 //   let skillsGetProposalParams = try? JSONDecoder().decode(SkillsGetProposalParams.self, from: jsonData)
@@ -548,6 +552,7 @@
 //   let taskResult = try? JSONDecoder().decode(TaskResult.self, from: jsonData)
 //   let taskStatus = try? JSONDecoder().decode(TaskStatus.self, from: jsonData)
 //   let taskUpdatedPayload = try? JSONDecoder().decode(TaskUpdatedPayload.self, from: jsonData)
+//   let taskWorkspace = try? JSONDecoder().decode(TaskWorkspace.self, from: jsonData)
 //   let tasksActionsParams = try? JSONDecoder().decode(TasksActionsParams.self, from: jsonData)
 //   let tasksActionsResult = try? JSONDecoder().decode(TasksActionsResult.self, from: jsonData)
 //   let tasksListParams = try? JSONDecoder().decode(TasksListParams.self, from: jsonData)
@@ -623,10 +628,12 @@
 //   let viewPaneState = try? JSONDecoder().decode(ViewPaneState.self, from: jsonData)
 //   let viewPlacement = try? JSONDecoder().decode(ViewPlacement.self, from: jsonData)
 //   let viewReportParams = try? JSONDecoder().decode(ViewReportParams.self, from: jsonData)
+//   let vMClipboardMode = try? JSONDecoder().decode(VMClipboardMode.self, from: jsonData)
 //   let vMCreateParams = try? JSONDecoder().decode(VMCreateParams.self, from: jsonData)
 //   let vMGuest = try? JSONDecoder().decode(VMGuest.self, from: jsonData)
 //   let vMPhase = try? JSONDecoder().decode(VMPhase.self, from: jsonData)
 //   let vMProgressEvent = try? JSONDecoder().decode(VMProgressEvent.self, from: jsonData)
+//   let vMSettings = try? JSONDecoder().decode(VMSettings.self, from: jsonData)
 //   let vMShare = try? JSONDecoder().decode(VMShare.self, from: jsonData)
 //   let vMShareAddParams = try? JSONDecoder().decode(VMShareAddParams.self, from: jsonData)
 //   let vMStatus = try? JSONDecoder().decode(VMStatus.self, from: jsonData)
@@ -10327,6 +10334,7 @@ public struct SkillProposal: Codable, Sendable {
     public let grantKey: String
     public let hash: String
     public let id: String
+    public let manifest: SkillManifest?
     public let name: String
     public let scope: Scope
     public let source: SkillInstallSource
@@ -10346,6 +10354,7 @@ public struct SkillProposal: Codable, Sendable {
         case grantKey = "grantKey"
         case hash = "hash"
         case id = "id"
+        case manifest = "manifest"
         case name = "name"
         case scope = "scope"
         case source = "source"
@@ -10354,7 +10363,7 @@ public struct SkillProposal: Codable, Sendable {
         case update = "update"
     }
 
-    public init(approvalKind: ApprovalKindEnum, bindingHash: String, commit: String?, expiresAt: Int, files: [SkillProposalFile], findings: [ScanFinding], grantKey: String, hash: String, id: String, name: String, scope: Scope, source: SkillInstallSource, text: String, trust: SkillTrust, update: Update?) {
+    public init(approvalKind: ApprovalKindEnum, bindingHash: String, commit: String?, expiresAt: Int, files: [SkillProposalFile], findings: [ScanFinding], grantKey: String, hash: String, id: String, manifest: SkillManifest?, name: String, scope: Scope, source: SkillInstallSource, text: String, trust: SkillTrust, update: Update?) {
         self.approvalKind = approvalKind
         self.bindingHash = bindingHash
         self.commit = commit
@@ -10364,6 +10373,7 @@ public struct SkillProposal: Codable, Sendable {
         self.grantKey = grantKey
         self.hash = hash
         self.id = id
+        self.manifest = manifest
         self.name = name
         self.scope = scope
         self.source = source
@@ -10433,6 +10443,28 @@ public enum Severity: String, Codable, Sendable {
     case warn = "warn"
 }
 
+// MARK: - SkillManifest
+public struct SkillManifest: Codable, Sendable {
+    /// Approval kinds the skill expects its steps to request, sorted
+    public let permissions: [ApprovalKind]
+    /// Prompt files inside the skill folder (relative paths), sorted
+    public let prompts: [String]
+    /// Tool names or `family.*` globs, sorted, without duplicates
+    public let tools: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case permissions = "permissions"
+        case prompts = "prompts"
+        case tools = "tools"
+    }
+
+    public init(permissions: [ApprovalKind], prompts: [String], tools: [String]) {
+        self.permissions = permissions
+        self.prompts = prompts
+        self.tools = tools
+    }
+}
+
 public enum Scope: String, Codable, Sendable {
     case home = "home"
     case workspace = "workspace"
@@ -10491,6 +10523,71 @@ public struct Update: Codable, Sendable {
         self.diff = diff
         self.fromHash = fromHash
         self.upToDate = upToDate
+    }
+}
+
+// MARK: - SkillsCheckUpdatesParams
+public struct SkillsCheckUpdatesParams: Codable, Sendable {
+    public let name: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+    }
+
+    public init(name: String?) {
+        self.name = name
+    }
+}
+
+// MARK: - SkillsCheckUpdatesResult
+public struct SkillsCheckUpdatesResult: Codable, Sendable {
+    public let updates: [SkillUpdateStatus]
+
+    public enum CodingKeys: String, CodingKey {
+        case updates = "updates"
+    }
+
+    public init(updates: [SkillUpdateStatus]) {
+        self.updates = updates
+    }
+}
+
+// MARK: - SkillUpdateStatus
+public struct SkillUpdateStatus: Codable, Sendable {
+    /// Tree hash at the source; absent when the check failed
+    public let availableHash: String?
+    /// Epoch ms
+    public let checkedAt: Int
+    /// Git sources: the commit the ref names
+    public let commit: String?
+    /// Why the source could not be checked
+    public let error: String?
+    public let installedHash: String
+    /// The update declares different tools, permissions or prompts
+    public let manifestChanged: Bool
+    public let name: String
+    public let updateAvailable: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case availableHash = "availableHash"
+        case checkedAt = "checkedAt"
+        case commit = "commit"
+        case error = "error"
+        case installedHash = "installedHash"
+        case manifestChanged = "manifestChanged"
+        case name = "name"
+        case updateAvailable = "updateAvailable"
+    }
+
+    public init(availableHash: String?, checkedAt: Int, commit: String?, error: String?, installedHash: String, manifestChanged: Bool, name: String, updateAvailable: Bool) {
+        self.availableHash = availableHash
+        self.checkedAt = checkedAt
+        self.commit = commit
+        self.error = error
+        self.installedHash = installedHash
+        self.manifestChanged = manifestChanged
+        self.name = name
+        self.updateAvailable = updateAvailable
     }
 }
 
@@ -10602,6 +10699,7 @@ public struct SkillDetails: Codable, Sendable {
     public let findings: [ScanFinding]
     /// Tree hash; empty for a skill that could not be read
     public let hash: String
+    public let manifest: SkillManifest?
     public let name: String
     /// Lower-precedence sources this skill overrides
     public let overrides: [SkillSource]
@@ -10610,6 +10708,7 @@ public struct SkillDetails: Codable, Sendable {
     public let source: SkillSource
     public let status: SkillStatus
     public let trust: SkillTrust
+    public let update: SkillUpdateStatus?
     /// The owner's switch (`enabled` is the effective state)
     public let userEnabled: Bool
     public let userInvocable: Bool
@@ -10622,6 +10721,7 @@ public struct SkillDetails: Codable, Sendable {
         case enabled = "enabled"
         case findings = "findings"
         case hash = "hash"
+        case manifest = "manifest"
         case name = "name"
         case overrides = "overrides"
         case path = "path"
@@ -10629,18 +10729,20 @@ public struct SkillDetails: Codable, Sendable {
         case source = "source"
         case status = "status"
         case trust = "trust"
+        case update = "update"
         case userEnabled = "userEnabled"
         case userInvocable = "userInvocable"
         case version = "version"
     }
 
-    public init(commit: String?, description: String, disableModelInvocation: Bool, enabled: Bool, findings: [ScanFinding], hash: String, name: String, overrides: [SkillSource], path: String, reasons: [String], source: SkillSource, status: SkillStatus, trust: SkillTrust, userEnabled: Bool, userInvocable: Bool, version: String?) {
+    public init(commit: String?, description: String, disableModelInvocation: Bool, enabled: Bool, findings: [ScanFinding], hash: String, manifest: SkillManifest?, name: String, overrides: [SkillSource], path: String, reasons: [String], source: SkillSource, status: SkillStatus, trust: SkillTrust, update: SkillUpdateStatus?, userEnabled: Bool, userInvocable: Bool, version: String?) {
         self.commit = commit
         self.description = description
         self.disableModelInvocation = disableModelInvocation
         self.enabled = enabled
         self.findings = findings
         self.hash = hash
+        self.manifest = manifest
         self.name = name
         self.overrides = overrides
         self.path = path
@@ -10648,6 +10750,7 @@ public struct SkillDetails: Codable, Sendable {
         self.source = source
         self.status = status
         self.trust = trust
+        self.update = update
         self.userEnabled = userEnabled
         self.userInvocable = userInvocable
         self.version = version
@@ -11252,6 +11355,7 @@ public struct Task: Codable, Sendable {
     public let threadID: String
     public let title: String
     public let updatedAt: String
+    public let workspace: TaskWorkspace?
 
     public enum CodingKeys: String, CodingKey {
         case attempt = "attempt"
@@ -11275,9 +11379,10 @@ public struct Task: Codable, Sendable {
         case threadID = "threadId"
         case title = "title"
         case updatedAt = "updatedAt"
+        case workspace = "workspace"
     }
 
-    public init(attempt: Int, browserSessionID: String?, checklist: [ChecklistItem], completedAt: String?, createdAt: String, createdFrom: TaskOrigin, currentStepID: String?, goal: String, id: String, leaseOwner: String?, leaseUntil: String?, outcome: [String: JSONAny]?, plan: TaskPlan?, sandboxID: String?, status: TaskStatus, summary: String?, taint: Bool?, taintSources: [TaintSource]?, threadID: String, title: String, updatedAt: String) {
+    public init(attempt: Int, browserSessionID: String?, checklist: [ChecklistItem], completedAt: String?, createdAt: String, createdFrom: TaskOrigin, currentStepID: String?, goal: String, id: String, leaseOwner: String?, leaseUntil: String?, outcome: [String: JSONAny]?, plan: TaskPlan?, sandboxID: String?, status: TaskStatus, summary: String?, taint: Bool?, taintSources: [TaintSource]?, threadID: String, title: String, updatedAt: String, workspace: TaskWorkspace?) {
         self.attempt = attempt
         self.browserSessionID = browserSessionID
         self.checklist = checklist
@@ -11299,6 +11404,7 @@ public struct Task: Codable, Sendable {
         self.threadID = threadID
         self.title = title
         self.updatedAt = updatedAt
+        self.workspace = workspace
     }
 }
 
@@ -11366,6 +11472,11 @@ public enum TaskStatus: String, Codable, Sendable {
     case paused = "paused"
     case queued = "queued"
     case running = "running"
+}
+
+public enum TaskWorkspace: String, Codable, Sendable {
+    case sandbox = "sandbox"
+    case vm = "vm"
 }
 
 // MARK: - TaskUpdatedPayload
@@ -12789,6 +12900,42 @@ public enum VMProgressEventType: String, Codable, Sendable {
     case vmDownload = "vm.download"
     case vmInstall = "vm.install"
     case vmState = "vm.state"
+}
+
+// MARK: - VMSettings
+public struct VMSettings: Codable, Sendable {
+    public let clipboard: VMClipboardMode
+    public let credentials: Credentials
+    public let defaultWorkspace: TaskWorkspace
+    public let enabled: Bool
+    public let guestNodeID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case clipboard = "clipboard"
+        case credentials = "credentials"
+        case defaultWorkspace = "defaultWorkspace"
+        case enabled = "enabled"
+        case guestNodeID = "guestNodeId"
+    }
+
+    public init(clipboard: VMClipboardMode, credentials: Credentials, defaultWorkspace: TaskWorkspace, enabled: Bool, guestNodeID: String?) {
+        self.clipboard = clipboard
+        self.credentials = credentials
+        self.defaultWorkspace = defaultWorkspace
+        self.enabled = enabled
+        self.guestNodeID = guestNodeID
+    }
+}
+
+public enum VMClipboardMode: String, Codable, Sendable {
+    case bidirectional = "bidirectional"
+    case off = "off"
+    case pasteOnly = "paste-only"
+}
+
+public enum Credentials: String, Codable, Sendable {
+    case guest = "guest"
+    case host = "host"
 }
 
 // MARK: - VMShareAddParams

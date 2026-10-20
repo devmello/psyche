@@ -3383,14 +3383,15 @@ export interface SkillProposal {
     /**
      * Every file of the skill (security §11)
      */
-    files:    SkillProposalFile[];
-    findings: ScanFinding[];
-    grantKey: string;
-    hash:     string;
-    id:       string;
-    name:     string;
-    scope:    Scope;
-    source:   SkillInstallSource;
+    files:     SkillProposalFile[];
+    findings:  ScanFinding[];
+    grantKey:  string;
+    hash:      string;
+    id:        string;
+    manifest?: SkillManifest;
+    name:      string;
+    scope:     Scope;
+    source:    SkillInstallSource;
     /**
      * Full `SKILL.md` text, shown before enabling
      */
@@ -3430,6 +3431,21 @@ export interface ScanFinding {
 
 export type Severity = "info" | "warn" | "high";
 
+export interface SkillManifest {
+    /**
+     * Approval kinds the skill expects its steps to request, sorted
+     */
+    permissions: ApprovalKind[];
+    /**
+     * Prompt files inside the skill folder (relative paths), sorted
+     */
+    prompts: string[];
+    /**
+     * Tool names or `family.*` globs, sorted, without duplicates
+     */
+    tools: string[];
+}
+
 export type Scope = "home" | "workspace";
 
 export interface SkillInstallSource {
@@ -3453,6 +3469,40 @@ export interface Update {
     diff:     string;
     fromHash: string;
     upToDate: boolean;
+}
+
+export interface SkillsCheckUpdatesParams {
+    name?: string;
+}
+
+export interface SkillsCheckUpdatesResult {
+    updates: SkillUpdateStatus[];
+}
+
+export interface SkillUpdateStatus {
+    /**
+     * Tree hash at the source; absent when the check failed
+     */
+    availableHash?: string;
+    /**
+     * Epoch ms
+     */
+    checkedAt: number;
+    /**
+     * Git sources: the commit the ref names
+     */
+    commit?: string;
+    /**
+     * Why the source could not be checked
+     */
+    error?:        string;
+    installedHash: string;
+    /**
+     * The update declares different tools, permissions or prompts
+     */
+    manifestChanged: boolean;
+    name:            string;
+    updateAvailable: boolean;
 }
 
 export interface SkillsCommandsResult {
@@ -3503,8 +3553,9 @@ export interface SkillDetails {
     /**
      * Tree hash; empty for a skill that could not be read
      */
-    hash: string;
-    name: string;
+    hash:      string;
+    manifest?: SkillManifest;
+    name:      string;
     /**
      * Lower-precedence sources this skill overrides
      */
@@ -3514,6 +3565,7 @@ export interface SkillDetails {
     source:    SkillSource;
     status:    SkillStatus;
     trust:     SkillTrust;
+    update?:   SkillUpdateStatus;
     /**
      * The owner's switch (`enabled` is the effective state)
      */
@@ -3755,6 +3807,7 @@ export interface Task {
     threadId:      string;
     title:         string;
     updatedAt:     string;
+    workspace?:    TaskWorkspace;
 }
 
 export type TaskOrigin = "chat" | "automation" | "idea" | "goal" | "channel" | "subagent";
@@ -3774,6 +3827,8 @@ export interface PlanStep {
 export type PlanStepStatus = "pending" | "running" | "done" | "failed" | "skipped";
 
 export type TaskStatus = "queued" | "running" | "awaiting_input" | "awaiting_approval" | "paused" | "done" | "failed" | "cancelled";
+
+export type TaskWorkspace = "sandbox" | "vm";
 
 export interface TaskUpdatedPayload {
     task: Task;
@@ -4255,6 +4310,18 @@ export interface VMProgressEvent {
 }
 
 export type VMProgressEventType = "vm.download" | "vm.install" | "vm.state";
+
+export interface VMSettings {
+    clipboard:        VMClipboardMode;
+    credentials:      Credentials;
+    defaultWorkspace: TaskWorkspace;
+    enabled:          boolean;
+    guestNodeId?:     null | string;
+}
+
+export type VMClipboardMode = "paste-only" | "bidirectional" | "off";
+
+export type Credentials = "host" | "guest";
 
 export interface VMShareAddParams {
     name?:     string;
