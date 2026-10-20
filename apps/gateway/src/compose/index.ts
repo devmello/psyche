@@ -73,6 +73,7 @@ import {
   receiptHandlers,
   surfaceOf,
 } from "./handlers.ts";
+import { libraryHandlers } from "./library.ts";
 import { composePasskeys } from "./passkeys.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import {
@@ -525,6 +526,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...threadSettingsHandlers(modelPins),
     ...vault.handlers,
     ...filesHandlers({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
+    ...libraryHandlers({ db, home: config.home }),
   };
   for (const part of parts) Object.assign(handlers, part.handlers ?? {});
 
@@ -649,6 +651,13 @@ export {
   helperPresenceMessage,
   helperPresenceVerifier,
 } from "./helper.ts";
+export {
+  IndexedQuarantineWriter,
+  indexedChannelLibrary,
+  kindOfMime,
+  type LibrarySetup,
+  libraryHandlers,
+} from "./library.ts";
 export { type McpGrantRevoker, type McpLifecycleEvent, mcpGrantRevocation } from "./mcp-grants.ts";
 export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { partsFromEnv } from "./parts.ts";

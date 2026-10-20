@@ -251,6 +251,26 @@ export const usage = sqliteTable("usage", {
   createdAt: text("created_at").notNull(),
 });
 
+// §9 Library index (P4; migration 202610221000_gateway_library-items) -------------------------
+
+export const libraryItems = sqliteTable("library_items", {
+  id: text("id").primaryKey(),
+  kind: text("kind").notNull(),
+  name: text("name").notNull(),
+  mime: text("mime").notNull(),
+  path: text("path").notNull(),
+  size: integer("size").notNull(),
+  sha256: text("sha256").notNull(),
+  origin: text("origin").notNull(),
+  threadId: text("thread_id"),
+  taskId: text("task_id"),
+  tags: text("tags").notNull(),
+  textExtractRef: text("text_extract_ref"),
+  quarantined: integer("quarantined").notNull(),
+  source: text("source"),
+  createdAt: text("created_at").notNull(),
+});
+
 // §6 Credentials (metadata mirror; owner S06, migration 202610191000_vault_credentials) --------
 
 export const credentialMeta = sqliteTable("credential_meta", {
@@ -296,6 +316,7 @@ export const schema = {
   passkeys,
   settings,
   usage,
+  libraryItems,
   ...s04Schema,
   ...permissionsSchema,
   credentialMeta,
@@ -332,3 +353,5 @@ export type CredentialMetaRow = typeof credentialMeta.$inferSelect;
 export type CredentialUseRow = typeof credentialUses.$inferSelect;
 export type UsageRow = typeof usage.$inferSelect;
 export type NewUsageRow = typeof usage.$inferInsert;
+export type LibraryItemRow = typeof libraryItems.$inferSelect;
+export type NewLibraryItemRow = typeof libraryItems.$inferInsert;

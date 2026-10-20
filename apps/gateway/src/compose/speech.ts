@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { chmod, mkdir, writeFile } from "node:fs/promises";
+import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getMessage, getSetting } from "@psyche/db";
 import type { LibraryItem, NodeClient, NodeInfo } from "@psyche/protocol";
@@ -23,6 +23,7 @@ import { ulid } from "ulid";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
 import { surfaceOf } from "./handlers.ts";
+import { indexSavedAudio } from "./library.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -74,16 +75,23 @@ const EXT: Record<string, string> = {
 };
 
 /**
- * Stores clips and recordings under `$PSYCHE_HOME/library/audio/` (0700 / 0600) until the Library
- * owner ships a store; `untrusted` recordings are marked quarantined (data model §9).
+ * Stores clips and recordings under `$PSYCHE_HOME/library/audio/` (0700 / 0600) and hands each
+ * saved item to `onSaved` (the Gateway indexes it in `library_items`; a failure removes the file);
+ * `untrusted` recordings are marked quarantined (data model §9).
  */
 export class FsAudioLibrary implements LibraryWriter {
   readonly #root: string;
   readonly #now: () => Date;
+  readonly #onSaved: ((item: LibraryItem) => void) | undefined;
 
-  constructor(home: string, now: () => Date = () => new Date()) {
+  constructor(
+    home: string,
+    now: () => Date = () => new Date(),
+    onSaved?: (item: LibraryItem) => void,
+  ) {
     this.#root = join(home, "library");
     this.#now = now;
+    this.#onSaved = onSaved;
   }
 
   async saveAudio(file: LibrarySaveInput): Promise<LibraryItem> {
@@ -110,6 +118,12 @@ export class FsAudioLibrary implements LibraryWriter {
       createdAt: this.#now().toISOString(),
     };
     if (file.provenance === "untrusted") item.quarantined = true;
+    try {
+      this.#onSaved?.(item);
+    } catch (err) {
+      await rm(join(this.#root, rel), { force: true }).catch(() => undefined);
+      throw err;
+    }
     return item;
   }
 }
@@ -145,7 +159,7 @@ export function composeSpeech(setup: SpeechSetup = {}) {
     });
     const toDevice = (deviceId: string, e: { event: string; payload: unknown }) =>
       gateway?.bus.publishToDevice(deviceId, e.event as never, e.payload as never);
-    const library = new FsAudioLibrary(services.home);
+    const library = new FsAudioLibrary(services.home, undefined, indexSavedAudio(db));
     const voice = new VoiceSessionManager({ selector: stack.selector, emit: toDevice });
     const readAloud = new ReadAloudService({
       engine: stack.engine,

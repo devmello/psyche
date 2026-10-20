@@ -10,6 +10,7 @@ import type {
   DevicePlatform,
   DeviceRole,
   DeviceScope,
+  LibraryItem,
   Message,
   MessageRole,
   NodeCapability,
@@ -35,6 +36,7 @@ import type {
 } from "@psyche/protocol";
 import type {
   DeviceRow,
+  LibraryItemRow,
   MessageRow,
   NodeRow,
   PairingRequestRow,
@@ -205,4 +207,24 @@ export function usageFromRow(row: UsageRow): UsageRecord {
     costUsd: row.costUsd,
     createdAt: row.createdAt,
   };
+}
+
+export function libraryItemFromRow(row: LibraryItemRow): LibraryItem {
+  const item: LibraryItem = {
+    id: row.id,
+    kind: row.kind as LibraryItem["kind"],
+    name: row.name,
+    mime: row.mime,
+    path: row.path,
+    size: row.size,
+    sha256: row.sha256,
+    origin: row.origin as LibraryItem["origin"],
+    threadId: row.threadId,
+    taskId: row.taskId,
+    tags: JSON.parse(row.tags) as string[],
+    textExtractRef: row.textExtractRef,
+    createdAt: row.createdAt,
+  };
+  if (row.quarantined === 1) item.quarantined = true;
+  return item;
 }
