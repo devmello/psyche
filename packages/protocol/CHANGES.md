@@ -18,6 +18,14 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S02/S05: connector rule and taint sources, #71)
+
+For S02 (`agent-core` passes both), S05 (the broker reads `connectorRule` and fills `taintSources`), S11 / S12 (approval cards show `taint.sources`, security §3.11), S18 (the scenario and injection runners drop their glue).
+
+- New contract type `ConnectorRule` (`{id, action}`): the connector action-matrix key (feature F5, `permissions.connectors[id][action]`). Optional `connectorRule` on `ToolCallIntent` and on `ToolCallDescription` (a tool's `describeCall` declares it; the loop forwards it).
+- `ApprovalRequest` (wire) gains optional `taintSources: TaintSource[]` (`{sourceKind, origin?, sender?, toolCallId?}`, security §3.6), present when the request is tainted. `ApprovalRequestInput` gains optional `taintSources`; the broker falls back to `context.taintSources`.
+- `FakePermissionBroker` fills `ApprovalRequest.taintSources` from the input or its context.
+
 ### v1 additive — 2026-10-19 (S11 M2: quote-reply)
 
 For S11 / S12 (chat column), S01 (session controller). `chat.send` gains optional `replyToMessageId` (feature E5): the message this one answers, in the same thread. The Gateway stores it as `Message.replyToMessageId` (already in the schema) and puts the quoted text ahead of the new message in what the agent sees, so replies carry a quote reference the agent reads.

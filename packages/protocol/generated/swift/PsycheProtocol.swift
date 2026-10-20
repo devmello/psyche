@@ -657,6 +657,7 @@ public struct ApprovalRequest: Codable, Sendable {
     public let summary: String
     public let surfaces: [String]
     public let taint: Bool
+    public let taintSources: [TaintSource]?
     public let target: Target?
     public let targetKind: TargetKind?
 
@@ -682,11 +683,12 @@ public struct ApprovalRequest: Codable, Sendable {
         case summary = "summary"
         case surfaces = "surfaces"
         case taint = "taint"
+        case taintSources = "taintSources"
         case target = "target"
         case targetKind = "targetKind"
     }
 
-    public init(bindingHash: String, decidedAt: String?, decidedBy: DecidedByClass?, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, grantID: String?, grantKey: String, id: String, invalidatedReason: String?, kind: ApprovalKind, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, scopeGranted: GrantScope?, scopesOffered: [GrantScope], sideEffect: SideEffect?, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, target: Target?, targetKind: TargetKind?) {
+    public init(bindingHash: String, decidedAt: String?, decidedBy: DecidedByClass?, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, grantID: String?, grantKey: String, id: String, invalidatedReason: String?, kind: ApprovalKind, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, scopeGranted: GrantScope?, scopesOffered: [GrantScope], sideEffect: SideEffect?, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]?, target: Target?, targetKind: TargetKind?) {
         self.bindingHash = bindingHash
         self.decidedAt = decidedAt
         self.decidedBy = decidedBy
@@ -708,6 +710,7 @@ public struct ApprovalRequest: Codable, Sendable {
         self.summary = summary
         self.surfaces = surfaces
         self.taint = taint
+        self.taintSources = taintSources
         self.target = target
         self.targetKind = targetKind
     }
@@ -797,6 +800,29 @@ public enum ApprovalStatus: String, Codable, Sendable {
     case expired = "expired"
     case invalidated = "invalidated"
     case pending = "pending"
+}
+
+// MARK: - TaintSource
+public struct TaintSource: Codable, Sendable {
+    public let origin: String?
+    public let sender: String?
+    /// Tool name or source kind (web, email, transcript, task, …)
+    public let sourceKind: String
+    public let toolCallID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case origin = "origin"
+        case sender = "sender"
+        case sourceKind = "sourceKind"
+        case toolCallID = "toolCallId"
+    }
+
+    public init(origin: String?, sender: String?, sourceKind: String, toolCallID: String?) {
+        self.origin = origin
+        self.sender = sender
+        self.sourceKind = sourceKind
+        self.toolCallID = toolCallID
+    }
 }
 
 // MARK: - Target
@@ -9535,29 +9561,6 @@ public enum TaskStatus: String, Codable, Sendable {
     case paused = "paused"
     case queued = "queued"
     case running = "running"
-}
-
-// MARK: - TaintSource
-public struct TaintSource: Codable, Sendable {
-    public let origin: String?
-    public let sender: String?
-    /// Tool name or source kind (web, email, transcript, task, …)
-    public let sourceKind: String
-    public let toolCallID: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case origin = "origin"
-        case sender = "sender"
-        case sourceKind = "sourceKind"
-        case toolCallID = "toolCallId"
-    }
-
-    public init(origin: String?, sender: String?, sourceKind: String, toolCallID: String?) {
-        self.origin = origin
-        self.sender = sender
-        self.sourceKind = sourceKind
-        self.toolCallID = toolCallID
-    }
 }
 
 // MARK: - TaskUpdatedPayload

@@ -369,11 +369,12 @@ export class FakePermissionBroker implements PermissionBroker {
         requester.display ?? requester.identityId ?? requester.senderId ?? "unknown"
       }`;
     }
-    const sources = input.context?.taintSources;
+    const sources = input.taintSources ?? input.context?.taintSources;
     if (sources !== undefined && sources.length > 0) {
       approval.details.taintSources = sources.map((s) =>
         [s.sourceKind, s.origin ?? s.sender].filter((x) => x !== undefined).join(":"),
       );
+      if (approval.taint) approval.taintSources = structuredClone(sources);
     }
     const tokens = new Map<string, { surface: Surface; used: boolean }>();
     const answerTokens: Record<Surface, string> = {};
