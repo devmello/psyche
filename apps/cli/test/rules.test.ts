@@ -81,7 +81,21 @@ function baseSnapshot(): Snapshot {
     modeIssues: [],
     homeMode: "700",
     chromeDebugPort: false,
-    realChrome: { ok: true, value: { enabled: true, attached: false, sessions: 0 } },
+    realChrome: { ok: true, value: { enabled: false, attached: false, sessions: 0 } },
+    mcp: { ok: true, value: { launcher: "srt", servers: [] } },
+    backups: {
+      ok: true,
+      value: [
+        {
+          file: "psyche-2026-10-19T00-00-00-000Z.tar.gz.age",
+          createdAt: "2026-10-19T00:00:00.000Z",
+          bytes: 1024,
+          encrypted: true,
+          verifiedAt: null,
+        },
+      ],
+    },
+    updater: { ok: true, value: { state: "none", keys: 1 } },
     localModel: false,
   };
 }
@@ -111,9 +125,14 @@ describe("baseSnapshot", () => {
     expect(doctorExitCode(checks, true)).toBe(0);
   });
 
-  it("has zero audit findings and nothing unchecked", () => {
+  it("has zero audit findings; only the checks with no data source yet are unchecked", () => {
     const r = auditRules(baseSnapshot(), NOW);
-    expect(r).toEqual({ findings: [], notChecked: [] });
+    expect(r.findings).toEqual([]);
+    expect(r.notChecked).toEqual([
+      { rule: "tls pins (mobile clients)", reason: "no data source yet" },
+      { rule: "vm shares", reason: "no data source yet" },
+      { rule: "chat surfaces for device-only kinds", reason: "no data source yet" },
+    ]);
     expect(auditExitCode(r, "info")).toBe(0);
   });
 });
@@ -610,13 +629,18 @@ describe("audit rules", () => {
         vault: unavailable,
         skills: unavailable,
         realChrome: unavailable,
+        backups: unavailable,
       }),
       NOW,
     );
     expect(r.findings).toEqual([]);
     expect(r.notChecked.map((n) => n.rule).sort()).toEqual(
       [
+        "backups",
         "browser.realChrome",
+        "chat surfaces for device-only kinds",
+        "tls pins (mobile clients)",
+        "vm shares",
         "channels",
         "devices",
         "grants",
@@ -626,7 +650,11 @@ describe("audit rules", () => {
         "vault",
       ].sort(),
     );
-    expect(r.notChecked.every((n) => n.reason === "x not available")).toBe(true);
+    expect(
+      r.notChecked.every(
+        (n) => n.reason === "x not available" || n.reason === "no data source yet",
+      ),
+    ).toBe(true);
   });
 
   it("findings are sorted by severity, most severe first", () => {
@@ -676,5 +704,199 @@ describe("parseSeverity edge cases", () => {
   // Regression: `v in RANK` used to accept Object.prototype keys.
   it("rejects names inherited from Object.prototype", () => {
     expect(() => parseSeverity("constructor")).toThrow();
+  });
+});
+
+describe("audit completeness (M3: docs/05 §10 and the S05 review)", () => {
+  const settings = (value: Record<string, unknown>) => ({ ok: true as const, value });
+
+  it("sandbox.egress_off when a sandbox runs without its egress proxy", () => {
+    const off = snap({
+      sandbox: { ok: true, value: { backend: "docker", available: true, egress: false } },
+    });
+    expect(finding(off, "sandbox.egress_off")).toMatchObject([{ severity: "high" }]);
+    const on = snap({
+      sandbox: { ok: true, value: { backend: "docker", available: true, egress: true } },
+    });
+    expect(finding(on, "sandbox.egress_off")).toEqual([]);
+  });
+
+  it("mcp.no_launcher and mcp.unknown_with_network from mcp.status, or from the setting", () => {
+    const server = (
+      id: string,
+      trust: "bundled" | "verified" | "unknown",
+      transport: "stdio" | "http",
+      network: boolean,
+    ) => ({
+      id,
+      name: id,
+      trust,
+      transport,
+      network,
+      connected: false,
+    });
+    const s = snap({
+      mcp: {
+        ok: true,
+        value: {
+          launcher: "none",
+          servers: [
+            server("echo", "bundled", "stdio", false),
+            server("gh", "unknown", "stdio", true),
+            server("docs", "verified", "http", true),
+          ],
+        },
+      },
+    });
+    expect(finding(s, "mcp.no_launcher")[0]?.message).toContain(
+      "1 stdio MCP server(s) are refused",
+    );
+    expect(finding(s, "mcp.unknown_with_network")[0]?.message).toContain(": gh");
+    // An older Gateway without mcp.status: the setting still shows unknown servers with network.
+    const fromSettings = snap({
+      mcp: unavailable,
+      settings: settings({
+        "mcp.servers": [
+          { id: "remote", name: "R", transport: { kind: "http", url: "https://x.example" } },
+          { id: "quiet", name: "Q", transport: { kind: "stdio", command: ["q"] } },
+        ],
+      }),
+    });
+    expect(finding(fromSettings, "mcp.unknown_with_network")[0]?.message).toContain(": remote");
+    expect(auditRules(fromSettings, NOW).notChecked.map((n) => n.rule)).toContain("mcp (launcher)");
+  });
+
+  it("computer_use.sensitive_override for tiers above the fixed caps", () => {
+    const s = snap({
+      settings: settings({
+        "computerUse.enabled": true,
+        "computerUse.apps": [
+          { id: "com.1password.1password", name: "1Password", tier: "read" },
+          { id: "com.google.Chrome", name: "Chrome", tier: "interact" },
+          { id: "com.apple.Notes", name: "Notes", tier: "interact" },
+        ],
+      }),
+    });
+    const f = finding(s, "computer_use.sensitive_override");
+    expect(f).toMatchObject([{ severity: "medium" }]);
+    expect(f[0]?.message).toContain("com.1password.1password (read, capped at off)");
+    expect(f[0]?.message).toContain("com.google.Chrome (interact, capped at read)");
+    expect(f[0]?.message).not.toContain("Notes");
+    // Off: nothing to report.
+    expect(
+      finding(
+        snap({
+          settings: settings({
+            "computerUse.enabled": false,
+            "computerUse.apps": [{ id: "com.1password.1password", tier: "read" }],
+          }),
+        }),
+        "computer_use.sensitive_override",
+      ),
+    ).toEqual([]);
+  });
+
+  it("browser.real_chrome_enabled while on, and a standing real-Chrome grant", () => {
+    expect(
+      finding(
+        snap({ realChrome: { ok: true, value: { enabled: true, attached: false, sessions: 0 } } }),
+        "browser.real_chrome_enabled",
+      ),
+    ).toMatchObject([{ severity: "low" }]);
+    const g = snap({
+      grants: {
+        ok: true,
+        value: [
+          {
+            id: "g1",
+            kind: "policy_change",
+            scope: "session",
+            grantKey: "real_chrome|thread:t1",
+            expiresAt: "2026-11-01T00:00:00Z",
+          },
+          {
+            id: "g2",
+            kind: "policy_change",
+            scope: "once",
+            grantKey: "real_chrome|task:x",
+            expiresAt: null,
+          },
+        ],
+      },
+    });
+    expect(finding(g, "browser.real_chrome_standing_grant")).toMatchObject([{ severity: "high" }]);
+  });
+
+  it("backups.unencrypted and backups.stale", () => {
+    const b = (file: string, createdAt: string, encrypted: boolean) => ({
+      file,
+      createdAt,
+      bytes: 1,
+      encrypted,
+      verifiedAt: null,
+    });
+    const s = snap({
+      backups: { ok: true, value: [b("psyche-a.tar.gz", "2026-10-01T00:00:00.000Z", false)] },
+    });
+    expect(finding(s, "backups.unencrypted")[0]?.message).toContain("psyche-a.tar.gz");
+    expect(finding(s, "backups.stale")[0]?.message).toContain("18 days old");
+    expect(finding(snap({ backups: { ok: true, value: [] } }), "backups.stale")[0]?.message).toBe(
+      "no backup in $PSYCHE_HOME/backups",
+    );
+  });
+
+  it("updates.refused and updates.no_release_key from run/updater.json", () => {
+    expect(
+      finding(
+        snap({
+          updater: {
+            ok: true,
+            value: {
+              state: "refused",
+              code: "bad_signature",
+              reason: "manifest signature does not match",
+            },
+          },
+        }),
+        "updates.refused",
+      ),
+    ).toMatchObject([{ severity: "high" }]);
+    expect(
+      finding(
+        snap({ updater: { ok: true, value: { state: "no_keys", keys: 0 } } }),
+        "updates.no_release_key",
+      ),
+    ).toHaveLength(1);
+    const mac = snap({ platform: "darwin", updater: unavailable });
+    expect(auditRules(mac, NOW).notChecked.map((n) => n.rule)).toContain(
+      "updates (manifest verification)",
+    );
+  });
+
+  it("devices.old_token for devices paired over a year ago", () => {
+    const s = snap({
+      devices: {
+        ok: true,
+        value: [
+          {
+            id: "d1",
+            name: "Old phone",
+            scopes: ["operator.read"],
+            pairedAt: "2025-01-01T00:00:00Z",
+            lastSeenAt: "2026-10-18T00:00:00Z",
+          },
+          {
+            id: "d2",
+            name: "Gone",
+            scopes: ["operator.read"],
+            pairedAt: "2024-01-01T00:00:00Z",
+            revokedAt: "2025-01-01T00:00:00Z",
+          },
+        ],
+      },
+    });
+    expect(finding(s, "devices.old_token").map((f) => f.message)).toEqual([
+      expect.stringContaining("Old phone"),
+    ]);
   });
 });
