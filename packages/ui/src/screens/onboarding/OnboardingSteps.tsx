@@ -7,6 +7,7 @@ import { Label } from "../../components/ui/label.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { Textarea } from "../../components/ui/textarea.tsx";
 import { activeI18n, t } from "../../i18n/core.ts";
+import { useCopy } from "../../lib/clipboard.ts";
 import { TCC_LABEL } from "../settings/ComputerUseSection.tsx";
 import {
   CONNECTOR_CATALOG,
@@ -624,6 +625,7 @@ export function ModelStep({
   const known = models.some((m) => m.ref === value.modelRef);
   const picked = other || !known ? OTHER_MODEL : value.modelRef;
   const needsKey = value.kind === "cloud" || value.kind === "openrouter";
+  const clip = useCopy();
   return (
     <div className="flex flex-col gap-4">
       <RadioField
@@ -779,10 +781,21 @@ export function ModelStep({
                   type="button"
                   size="xs"
                   variant="outline"
-                  onClick={() => void globalThis.navigator?.clipboard?.writeText(recoveryKey)}
+                  onClick={() => void clip.copy(recoveryKey)}
                 >
-                  {t("onboarding.model.copy")}
+                  {clip.state === "copied" ? <Check aria-hidden="true" /> : null}
+                  {clip.state === "copied"
+                    ? t("onboarding.model.copied")
+                    : t("onboarding.model.copy")}
                 </Button>
+                <span role="status" className="sr-only">
+                  {clip.state === "copied" ? t("onboarding.model.copiedStatus") : ""}
+                </span>
+                {clip.state === "failed" ? (
+                  <span className="text-xs text-danger-text" role="alert">
+                    {t("onboarding.model.copyFailed")}
+                  </span>
+                ) : null}
               </div>
               <p className="text-xs text-muted-foreground">{t("onboarding.model.recoveryBody")}</p>
               <label className="flex items-center gap-2 text-sm">

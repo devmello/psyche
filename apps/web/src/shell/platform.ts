@@ -194,6 +194,12 @@ export interface ShellPlatform {
   helper?: HelperPort;
   /** Desktop only: the macOS region format; the web uses the browser's language (A12). */
   locale?: LocalePort;
+  /** Desktop only: the system clipboard through main; the web uses `navigator.clipboard` (#507). */
+  clipboard?: ClipboardPort;
+}
+
+export interface ClipboardPort {
+  writeText(text: string): Promise<void>;
 }
 
 /** The system's locales as macOS reports them (`app.getSystemLocale()`, preferred languages). */

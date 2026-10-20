@@ -48,6 +48,8 @@ export const IPC = {
   helperState: "psyche:helper:state",
   // The owner's macOS region format (A12: numbers, dates and times; Settings can override it).
   localeGet: "psyche:locale:get",
+  // Copy text to the system clipboard (the session refuses navigator.clipboard; #507).
+  clipboardWrite: "psyche:clipboard:write",
   // Native dialogs.
   dialogPickFolder: "psyche:dialog:pick-folder",
   // Dictation HUD only (main → HUD state and capture commands, HUD → main audio).
@@ -93,6 +95,11 @@ export function num(channel: string, v: unknown, name: string, min = 0, max = 10
 export function rec(channel: string, v: unknown): Record<string, unknown> {
   if (!isRecord(v)) throw new IpcPayloadError(channel, "expected an object");
   return v;
+}
+
+/** Text the renderer may put on the clipboard: a non-empty string up to 64 KiB. */
+export function checkClipboardText(v: unknown): string {
+  return str(IPC.clipboardWrite, rec(IPC.clipboardWrite, v).text, "text", 65_536);
 }
 
 /** Methods the renderer may call through main: any protocol method except the handshake. */
