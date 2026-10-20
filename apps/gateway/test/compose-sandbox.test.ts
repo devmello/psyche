@@ -129,3 +129,23 @@ describe("composeSandbox: dev servers reach the browser's dev-preview registry (
     expect(calls[0]?.[1]).not.toHaveProperty("taskId");
   });
 });
+
+describe("sandbox.status (for psyche security audit)", () => {
+  it("reports the backend and the egress proxy", async () => {
+    const part = composeSandbox(services, {
+      exec: false,
+      runner: { cli: fakeCli(() => ({})) } as never,
+    });
+    (part.runner as unknown as { backends: () => Promise<string[]> }).backends = async () => [
+      "docker",
+    ];
+    const status = part.handlers?.["sandbox.status"];
+    expect(await status?.run({} as never, {} as never)).toEqual({
+      backend: "docker",
+      available: true,
+      sandbox: null,
+      egress: true,
+    });
+    await part.stop?.();
+  });
+});

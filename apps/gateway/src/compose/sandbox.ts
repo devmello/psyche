@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import type { DecisionContext, SandboxScope } from "@psyche/protocol";
+import type { DecisionContext, SandboxBackend, SandboxScope } from "@psyche/protocol";
 import {
   type ContainerSandboxRunner,
   type ContainerSandboxRunnerOptions,
@@ -153,10 +153,24 @@ export function composeSandbox(
   };
   sync();
   let unsubscribe: (() => void) | undefined;
+  const backend = async (): Promise<SandboxBackend> => {
+    const first = (await runner.backends().catch(() => []))[0];
+    return first === "apple-container" || first === "docker" || first === "podman" ? first : "none";
+  };
   return {
     runner,
     egress,
     track,
+    handlers: {
+      // For `psyche security audit` (security §5): the backend, and that the egress proxy for
+      // `network: "proxy"` sandboxes runs (it is created with every sandbox part).
+      "sandbox.status": {
+        run: async () => {
+          const b = await backend();
+          return { backend: b, available: b !== "none", sandbox: null, egress: true };
+        },
+      },
+    },
     start(gateway: Gateway) {
       if (setup.vm === undefined) return;
       unsubscribe = gateway.bus.subscribe(["operator.read"], (frame) => {
@@ -196,5 +210,12 @@ export async function composeSandboxIfAvailable(
     return composeSandbox(services, { ...setup, containers: false });
   }
   services.logger?.log("info", "sandbox: no container backend; exec is off");
-  return {};
+  // Still answer, so the audit reports "no backend" rather than "not checked".
+  return {
+    handlers: {
+      "sandbox.status": {
+        run: () => ({ backend: "none" as const, available: false, sandbox: null, egress: false }),
+      },
+    },
+  };
 }

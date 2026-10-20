@@ -180,6 +180,15 @@ interface GrantEntry {
  * surface, the 400 ms arm delay, first-answer-wins, binding re-verification with `once`
  * consumption, run revocation and restart re-issue. Not a policy engine: S05 owns that.
  */
+/** `*` matches any run of characters; everything else is literal (a tool-name glob). */
+function globMatches(glob: string, name: string): boolean {
+  const re = glob
+    .split("*")
+    .map((p) => p.replace(/[.+?^${}()|[\]\\]/g, "\\$&"))
+    .join(".*");
+  return new RegExp(`^${re}$`).test(name);
+}
+
 export class FakePermissionBroker implements PermissionBroker {
   readonly clock: Clock;
   #ids: IdGenerator;
@@ -279,6 +288,15 @@ export class FakePermissionBroker implements PermissionBroker {
         "an allowlisted sender cannot have the owner's messages, mail, files or memory read",
       );
     }
+    // A chat-only route (`toolAllow: []`) gets no tools at all.
+    if (
+      requester !== undefined &&
+      requester.role === "allowed" &&
+      requester.toolAllow !== undefined &&
+      !requester.toolAllow.some((g) => globMatches(g, call.tool))
+    ) {
+      return deny("requester:not_owner", `${call.tool} is not available in this sender's chat`);
+    }
     if (designated && se === "financial") {
       return deny("designated:persona_limit", "a delegated persona cannot move money");
     }
@@ -304,6 +322,18 @@ export class FakePermissionBroker implements PermissionBroker {
       ctx.newTarget === true &&
       (WRITE_PLUS.includes(se) || (kind === "new_origin" && se !== "none"));
     const taintRule = WRITE_PLUS.includes(se) ? "taint:new_target" : "taint:new_origin";
+
+    // The owner's own inbox (#307, @psyche/permissions `owner_inbox`): `notify` to the owner
+    // needs no card unless a tool rule says otherwise.
+    if (
+      call.tool === "notify" &&
+      call.target?.kind === "recipient" &&
+      call.target.value === "owner" &&
+      se === "write" &&
+      p.byTool?.[call.tool] === undefined
+    ) {
+      return { decision: "allow", rule: "owner_inbox" };
+    }
 
     const consultGrants = !(ctx.permissionMode === "manual" && WRITE_PLUS.includes(se));
     if (consultGrants && se !== "financial") {

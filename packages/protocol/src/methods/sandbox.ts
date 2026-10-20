@@ -39,6 +39,8 @@ export const SandboxMethods = {
         description: "false → exec reports an error; there is never a host fallback",
       }),
       sandbox: Nullable(SandboxInfo),
+      /** The host egress proxy for `network: "proxy"` sandboxes is running (security §5.2, K4). */
+      egress: Type.Optional(Type.Boolean()),
     }),
     scope: "operator.read",
     description: "Reports the container backend and, with sandboxId, one sandbox's state.",
