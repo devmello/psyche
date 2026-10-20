@@ -13,13 +13,14 @@ import {
   renderApprovalCard,
   renderDevicePointer,
 } from "./format/approval-card.ts";
-import { channelSettings } from "./settings.ts";
+import { channelSettings, isWeakTransport } from "./settings.ts";
 
 /**
  * Approvals over chat (architecture §4.6, security §3.7 and §9, feature N4). The broker issues one
  * single-use answer token per surface (`<channel>:<peerId>`); this router delivers cards to the
  * owner's chats, and turns button presses and `/approve <ref> approve|deny` into
- * `PermissionBroker.answer` calls. Only owner identities on strong transports may answer; chat
+ * `PermissionBroker.answer` calls. Only owner identities on strong transports may answer (an SMS
+ * owner number gets an "Answer this on your Mac." pointer, never a card it could answer); chat
  * answers are always scope `once` (review design-28); kinds that are device-only never get here.
  */
 
@@ -100,9 +101,13 @@ export class ChatApprovals {
       if (sep <= 0) continue;
       const type = surface.slice(0, sep);
       const peerId = surface.slice(sep + 1);
+      // A weak transport (SMS) has no owner: its configured owner number gets a pointer only.
+      const weak = isWeakTransport(type as Channel["type"]);
       const targets = this.#host
         .channelsOfType(type)
-        .filter(({ channel }) => this.#host.isOwner(channel, peerId));
+        .filter(({ channel }) =>
+          weak ? channel.ownerIds.includes(peerId) : this.#host.isOwner(channel, peerId),
+        );
       if (targets.length === 0) {
         reports.push({ surface, delivered: false, reason: "no_owner_channel" });
         continue;
@@ -112,6 +117,17 @@ export class ChatApprovals {
         // `operator.approvals` scope); a chat card there would bypass that scope.
         if (!CHAT_APPROVAL_CHANNELS(channel)) {
           reports.push({ surface, delivered: false, reason: "not_a_chat_surface" });
+          continue;
+        }
+        if (weak) {
+          // Spoofable sender, plaintext carrier: the header and "Answer this on your Mac." only,
+          // never the arguments, never `/approve`, and no delivery to answer against.
+          try {
+            await this.#host.sendText(channel, peerId, renderDevicePointer(surface, approval));
+          } catch {
+            // A courtesy, as below.
+          }
+          reports.push({ surface, delivered: false, reason: "weak_identity" });
           continue;
         }
         const eligibility = chatEligibility(approval, {
@@ -234,7 +250,7 @@ export class ChatApprovals {
       await this.#host.sendText(channel, chatId, "Answer approvals on the approval card.");
       return;
     }
-    if (!this.#host.isOwner(channel, senderId)) {
+    if (isWeakTransport(channel.type) || !this.#host.isOwner(channel, senderId)) {
       await this.#host.sendText(channel, chatId, "Only the owner can answer approvals.");
       return;
     }
