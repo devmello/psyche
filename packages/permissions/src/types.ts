@@ -90,6 +90,9 @@ export interface CallMeta {
   writesOutsideWorkspace?: boolean;
   /** MCP server trust tier. */
   mcpTier?: "bundled" | "verified" | "unknown";
+  /** MCP server and the `tools/list` hash the call was described with (grant subject, #279). */
+  mcpServerId?: string;
+  mcpToolsListHash?: string;
 }
 
 export interface PolicyCall extends ToolCallIntent {
