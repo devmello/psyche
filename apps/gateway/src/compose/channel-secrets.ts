@@ -24,6 +24,8 @@ export const CHANNEL_SECRETS: Partial<Record<ChannelType, readonly ChannelSecret
   slack: ["bot_token", "app_token"],
   discord: ["bot_token"],
   sms: ["auth_token"],
+  // Cloud API: Graph bearer token, webhook signature key, subscription handshake token.
+  whatsapp: ["access_token", "app_secret", "verify_token"],
 };
 
 /** The owner id (and slug) of one secret: `channel-slack-<account digest>-bot-token`. */

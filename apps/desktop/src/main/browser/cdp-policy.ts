@@ -38,6 +38,13 @@ const ALLOWED_METHODS = new Set([
   "DOM.getContentQuads",
   "DOM.scrollIntoViewIfNeeded",
   "DOM.resolveNode",
+  // Fetch: top-level document requests only, paused at the request stage (param rules below), so
+  // the Gateway can stop a navigation to a blocked origin before it leaves and add Web Bot Auth
+  // signatures (I14). Responses are never touched (fulfill / continueResponse stay denied).
+  "Fetch.enable",
+  "Fetch.disable",
+  "Fetch.continueRequest",
+  "Fetch.failRequest",
   "DOM.requestNode",
   "DOM.getNodeForLocation",
   "DOM.focus",
@@ -98,7 +105,51 @@ const KEY_COMMAND_OK =
   /^(selectAll|undo|redo|delete[A-Za-z]*|move[A-Za-z]*|insertNewline|insertTab|insertLineBreak|insertBacktab|scroll[A-Za-z]*)$/;
 
 /** Parameters each allowed method may carry beyond its own; anything else is refused. */
+/** The only headers the Gateway may add to a paused request (Web Bot Auth, I14). */
+const SIGNATURE_HEADERS = new Set(["signature", "signature-input", "signature-agent"]);
+
 const PARAM_RULES: Record<string, (p: Record<string, unknown>) => string | null> = {
+  "Fetch.enable": (p) => {
+    if (p.handleAuthRequests === true) return "Fetch.enable may not handle auth requests";
+    const patterns = p.patterns;
+    if (!Array.isArray(patterns) || patterns.length === 0) {
+      return "Fetch.enable needs patterns (document requests only)";
+    }
+    return patterns.every(
+      (x) =>
+        isRecord(x) &&
+        x.resourceType === "Document" &&
+        x.requestStage === "Request" &&
+        Object.keys(x).every(
+          (k) => k === "urlPattern" || k === "resourceType" || k === "requestStage",
+        ),
+    )
+      ? null
+      : "Fetch.enable only for Document requests at the request stage";
+  },
+  "Fetch.continueRequest": (p) => {
+    if (!Object.keys(p).every((k) => k === "requestId" || k === "headers")) {
+      return "Fetch.continueRequest may only add signature headers";
+    }
+    if (p.headers === undefined) return null;
+    const ok =
+      Array.isArray(p.headers) &&
+      p.headers.length <= 3 &&
+      p.headers.every(
+        (h) =>
+          isRecord(h) &&
+          typeof h.name === "string" &&
+          typeof h.value === "string" &&
+          SIGNATURE_HEADERS.has(h.name.toLowerCase()) &&
+          h.value.length <= 4096 &&
+          !/[\r\n\0]/.test(h.value),
+      );
+    return ok ? null : "Fetch.continueRequest may only add signature headers";
+  },
+  "Fetch.failRequest": (p) =>
+    Object.keys(p).every((k) => k === "requestId" || k === "errorReason")
+      ? null
+      : "Fetch.failRequest takes only requestId and errorReason",
   // scriptToEvaluateOnLoad would inject main-world script into every frame after the reload.
   "Page.reload": (p) =>
     Object.keys(p).every((k) => k === "ignoreCache" || k === "loaderId")
@@ -187,7 +238,6 @@ const DENIED_DOMAINS: Record<string, string> = {
   Target: "Target.* is not allowed (OOPIF auto-attach is a follow-up)",
   Browser: "Browser.* is not allowed",
   Debugger: "Debugger.* is not allowed",
-  Fetch: "request interception is not allowed",
 };
 
 const BLOCKED_SCHEMES =
@@ -198,6 +248,11 @@ interface SessionState {
   contexts: Map<number, string>;
   /** Remote object id → execution context id it lives in. */
   objects: Map<string, number>;
+  /**
+   * Paused document requests → their real headers. The Gateway sees them redacted, so it sends
+   * only signature headers and `prepare` adds them to these (I14).
+   */
+  paused: Map<string, Record<string, string>>;
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -377,6 +432,19 @@ export class CdpPolicy {
 
   /** Forgets contexts (and their objects) that CDP reports as gone. */
   observeEvent(method: string, params: unknown, sessionId?: string): void {
+    if (method === "Fetch.requestPaused" && isRecord(params)) {
+      const req = isRecord(params.request) ? params.request : undefined;
+      const headers: Record<string, string> = {};
+      if (isRecord(req?.headers)) {
+        for (const [k, v] of Object.entries(req.headers)) if (typeof v === "string") headers[k] = v;
+      }
+      if (typeof params.requestId === "string") {
+        const s = this.session(sessionId);
+        // A page cannot pile up paused requests here: each is answered or the tab resets.
+        if (s.paused.size < 256) s.paused.set(params.requestId, headers);
+      }
+      return;
+    }
     const s = this.sessions.get(sessionId ?? "");
     if (s === undefined) return;
     switch (method) {
@@ -419,7 +487,7 @@ export class CdpPolicy {
     const key = sessionId ?? "";
     let s = this.sessions.get(key);
     if (s === undefined) {
-      s = { contexts: new Map(), objects: new Map() };
+      s = { contexts: new Map(), objects: new Map(), paused: new Map() };
       this.sessions.set(key, s);
     }
     return s;
@@ -442,5 +510,40 @@ export class CdpPolicy {
   private clearSession(s: SessionState): void {
     s.contexts.clear();
     s.objects.clear();
+  }
+
+  /**
+   * The params actually sent, after `check` passed. `Fetch.continueRequest` with signature headers
+   * becomes the paused request's real headers plus those (Chromium replaces the whole list), and
+   * an unknown request is refused rather than sent with headers it never had.
+   */
+  prepare(
+    method: string,
+    params: Record<string, unknown> | undefined,
+    sessionId?: string,
+  ): { ok: true; params: Record<string, unknown> | undefined } | { ok: false; reason: string } {
+    if (method !== "Fetch.continueRequest" && method !== "Fetch.failRequest") {
+      return { ok: true, params };
+    }
+    const s = this.sessions.get(sessionId ?? "");
+    const id = typeof params?.requestId === "string" ? params.requestId : undefined;
+    const real = id === undefined ? undefined : s?.paused.get(id);
+    if (id !== undefined) s?.paused.delete(id);
+    if (method === "Fetch.failRequest" || !Array.isArray(params?.headers))
+      return { ok: true, params };
+    if (real === undefined) return { ok: false, reason: "no such paused request" };
+    const added = params.headers as { name: string; value: string }[];
+    return {
+      ok: true,
+      params: {
+        requestId: id,
+        headers: [
+          ...Object.entries(real)
+            .filter(([n]) => !SIGNATURE_HEADERS.has(n.toLowerCase()))
+            .map(([name, value]) => ({ name, value })),
+          ...added,
+        ],
+      },
+    };
   }
 }

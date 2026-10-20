@@ -1019,6 +1019,48 @@ describe("Browser (real-Chrome mode, I13)", () => {
     ).toBeTruthy();
   });
 
+  it("Web Bot Auth: creates and rotates the key, and writes the switch and directory URL", async () => {
+    const { gateway } = setup({ defaultSection: "browser" });
+    expect(await screen.findByText("No key yet")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Create key" }));
+    expect(
+      await screen.findByText("Key created. Publish the directory, then enter its address above."),
+    ).toBeTruthy();
+    expect(callsOf(gateway(), "browser.botAuth.rotate")).toHaveLength(1);
+    const first = (await screen.findByTestId("bot-auth-fingerprint")).textContent;
+    expect(first).toMatch(/^fixture-key-/);
+
+    await userEvent.click(screen.getByRole("switch", { name: "Sign requests for sites that ask" }));
+    await waitFor(() =>
+      expect(settingValue(gateway(), "browser.botAuth")).toEqual({ enabled: true }),
+    );
+    const url = screen.getByLabelText("Key directory URL");
+    await userEvent.type(
+      url,
+      "https://psyche.example/.well-known/http-message-signatures-directory{Enter}",
+    );
+    await waitFor(() =>
+      expect(
+        callsOf(gateway(), "settings.set")
+          .filter((c) => (c.params as { key: string }).key === "browser.botAuth")
+          .map((c) => (c.params as { value: unknown }).value)
+          .at(-1),
+      ).toMatchObject({
+        signatureAgent: "https://psyche.example/.well-known/http-message-signatures-directory",
+      }),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Rotate key" }));
+    expect(
+      await screen.findByText(
+        "A new key is in place and the old one no longer signs. Update the directory you publish.",
+      ),
+    ).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByTestId("bot-auth-fingerprint").textContent).not.toBe(first),
+    );
+  });
+
   it("without the desktop app it says where to open the profile", async () => {
     setup({ defaultSection: "browser" });
     expect(
@@ -1116,6 +1158,51 @@ describe("Credentials: Stripe Link payments and 1Password", () => {
     expect(await within(form).findByRole("alert")).toHaveProperty(
       "textContent",
       expect.stringMatching(/1Password is not set up on the Gateway/),
+    );
+  });
+
+  it("links a Bitwarden item by id or name, and says where it lives", async () => {
+    const { gateway } = setup({ defaultSection: "credentials" });
+    const table = await screen.findByRole("table", { name: "Stored credentials" });
+    await userEvent.click(screen.getByRole("button", { name: "More ways to add" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Connect Bitwarden" }));
+    const form = screen.getByRole("form", { name: "Link a Bitwarden item" });
+    expect(within(form).queryByLabelText("1Password vault")).toBeNull();
+    expect(within(form).getByText(/Cards and identities are never read/)).toBeTruthy();
+    await userEvent.selectOptions(within(form).getByLabelText("Kind"), "api_key");
+    await userEvent.type(within(form).getByLabelText("Name"), "Example API");
+    await userEvent.type(within(form).getByLabelText("Bitwarden item id or name"), "Example API");
+    await userEvent.type(within(form).getByLabelText("Only for this site"), "api.example.com");
+    await userEvent.click(within(form).getByRole("button", { name: "Link item" }));
+    await waitFor(() => expect(callsOf(gateway(), "vault.linkExternal")).toHaveLength(1));
+    expect(callsOf(gateway(), "vault.linkExternal")[0]?.params).toEqual({
+      source: "bitwarden",
+      kind: "api_key",
+      name: "Example API",
+      bindings: [{ origin: "https://api.example.com" }],
+      ref: { item: "Example API" },
+    });
+    expect(await within(table).findByText("Example API")).toBeTruthy();
+    expect(within(table).getByText("in Bitwarden")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Edit Example API" }));
+    const edit = screen.getByRole("form", { name: "Edit Example API" });
+    expect(within(edit).queryByLabelText("New key")).toBeNull();
+    expect(within(edit).getByText(/The values stay in Bitwarden/)).toBeTruthy();
+  });
+
+  it("explains what the Gateway needs before Bitwarden works", async () => {
+    const { gateway } = setup({ defaultSection: "credentials" });
+    await screen.findByRole("table", { name: "Stored credentials" });
+    gateway().failNext("vault.linkExternal", "unavailable", "Bitwarden is not configured");
+    await userEvent.click(screen.getByRole("button", { name: "More ways to add" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Connect Bitwarden" }));
+    const form = screen.getByRole("form", { name: "Link a Bitwarden item" });
+    await userEvent.type(within(form).getByLabelText("Name"), "GitHub");
+    await userEvent.type(within(form).getByLabelText("Bitwarden item id or name"), "GitHub");
+    await userEvent.click(within(form).getByRole("button", { name: "Link item" }));
+    expect(await within(form).findByRole("alert")).toHaveProperty(
+      "textContent",
+      expect.stringMatching(/Bitwarden is not set up on the Gateway.*bw unlock/),
     );
   });
 });

@@ -102,12 +102,23 @@ Tools:
 
 Sync polls Graph delta queries (inbox messages and a −7 / +365 day `calendarView`), restarting on 410 / `syncStateNotFound`. Change-notification subscriptions are not used: they need a public HTTPS webhook (see docs/status/s09.md).
 
+## Custom connectors (M9)
+
+A custom connector is a manifest (`CustomConnectorManifest` in `@psyche/protocol`): `baseUrl` (https), an exact `hosts` allowlist, `auth` (`none`, or `bearer` / `header` / `query` / `basic` with a `{{cred:slug}}` placeholder), and `tools`, each a `method` + `path` (`{param}`), `params` in path / query / body with a JSON Schema, and a `sideEffect` tier. No code from the manifest runs.
+
+- **Draft.** The owner writes one or imports an OpenAPI 3 document (JSON or YAML; `manifestFromOpenApi`: path and query params, JSON object bodies, local `$ref`s, auth from `securitySchemes`; skipped operations and header params become findings). The agent can only draft through the Gateway tool `connectors_propose_custom`, which opens the card and marks the manifest `drafted: "agent"`.
+- **Check** (`checkManifest`): schema, https only, `baseUrl`'s host in `hosts`, no local / private / literal hosts, each tool at least as severe as its method (GET read, POST / PUT / PATCH write, DELETE destructive), no `allow` for destructive, no body on GET / DELETE, path params declared, no auth-parameter collisions. A violation refuses the proposal before any card. A scan of names and descriptions flags text aimed at the model (`instruction_like`, `hidden_markup`, `invisible_characters`, credential references).
+- **Trust card** (`CustomConnectors.propose`, method `connectors.proposeCustom`): the canonical manifest text and hash, the findings, and a device-only `skill_install` approval with `details.kind: "connector"` (hosts, auth, every request with its tier first). The binding is the broker's own `skill_install` recipe (`bindingFor`) over the manifest hash, tool names and the approval kinds the tools can raise; updates show a line diff.
+- **Install** (`connectors.installCustom`): only with that approved card (`verifyBinding`), within 30 minutes. The record keeps the manifest and its hash; a manifest that no longer matches its hash refuses to load. Rules per tool (`custom.<tool>`): read `allow`, writes `ask`, destructive `ask` (never `allow`); every tool `deny` when the scan found high-severity text. A `connector_install` receipt is recorded. `connectors.removeCustom` disconnects and deletes.
+- **Executor** (`CustomConnector`): one HTTPS request per call, to allowlisted hosts only (redirects too, at most 3, each re-vetted against private addresses like `web_fetch`). The credential is resolved per call from the vault and attached only for `baseUrl`'s host. Unknown parameters and path segments like `..` are refused. Write tools bind to the arguments and the manifest hash. Responses are capped at 1 MB, passed through the vault redactor and returned as untrusted data.
+
 ## Stubbed / not yet
 
 - Persistence: `ConnectorStore` is in memory. The `connectors` table needs a migration plus `schema.ts` from S01 (docs/status/s09.md).
 - Token storage: `TokenVault` is injected and needs the S06 vault write API.
 - `connectors.*` beyond `list` / `get` are not in packages/protocol yet. `CONNECTOR_METHODS` is the proposal for a `protocol:` PR.
 - Shopping: no payment (G12), no login to store accounts, no quantity other than one per add, no order-email polling (the tool parses an email the agent read).
+- Custom connectors: no OAuth (static keys only), no multipart / form bodies, no header params, no streaming; the drafting tool needs the owner at a device to install.
 - Mail: threads for JMAP (messages carry `threadId`, there is no thread tool yet); attachments on outgoing mail; the Gateway does not compose `jmapFactory` / `imapFactory` yet (INT). IMAP: no STARTTLS, no modified-UTF-7 mailbox names, no `STATUS` counts, no OAuth (XOAUTH2) for Gmail / Outlook over IMAP (use the Google connector).
 - Drive upload takes text content only. Uploading Library items needs a Library reader (S13).
 - Gmail attachments on outgoing mail (the builder supports them; no tool exposes them yet), Microsoft Graph (M6), IMAP / JMAP (M7), shopping helpers (M10).

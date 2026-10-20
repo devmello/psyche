@@ -390,6 +390,12 @@ export class FsSkillLoader implements SkillLoader {
     });
   }
 
+  /** Every discovered skill name, any source or status (synchronous; for name collisions). */
+  names(): string[] {
+    this.#fresh();
+    return [...new Set(this.#entries.map((e) => e.details.name))];
+  }
+
   /** The winning skill of `name` with its body, or `undefined` (never drafts or invalid ones). */
   async load(name: string): Promise<LoadedSkill | undefined> {
     this.#fresh();

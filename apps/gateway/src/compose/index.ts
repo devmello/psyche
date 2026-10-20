@@ -73,7 +73,7 @@ import { createTaskHandlers, SqliteTaskEngine, TaskWorkerPool } from "@psyche/ta
 import { SecretRedactor, type Vault } from "@psyche/vault";
 import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
-import type { WebhookRoute } from "../http.ts";
+import type { PublicRoute, WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
@@ -480,6 +480,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       ...(vaultSetup?.onePassword === undefined && config.onePassword
         ? { onePassword: config.onePassword }
         : {}),
+      // credentials.bitwarden (G11), the same way.
+      ...(vaultSetup?.bitwarden === undefined && config.bitwarden
+        ? { bitwarden: config.bitwarden }
+        : {}),
     },
   );
 
@@ -783,6 +787,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }
   }
 
+  const publicRoutes: Record<string, PublicRoute> = {};
+  for (const part of parts) {
+    for (const [path, route] of Object.entries(part.publicRoutes ?? {})) {
+      if (path in publicRoutes) throw new PsycheError("conflict", `two public routes for ${path}`);
+      publicRoutes[path] = route;
+    }
+  }
+
   const gateway = await startGateway({
     ...gwOptions,
     db,
@@ -791,6 +803,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     memory,
     handlers,
     webhooks,
+    publicRoutes,
     onDeviceRevoked: (deviceId) => {
       revocations.recordDevice(deviceId);
       return rawBroker.revokeGrantsByDevice(deviceId);
@@ -891,7 +904,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
 }
 
 export { fileTools } from "@psyche/files";
-export { type BrowserSetup, type ComposedBrowser, composeBrowser } from "./browser.ts";
+export {
+  BOT_AUTH_SETTING,
+  type BrowserSetup,
+  botAuthFromSetting,
+  type ComposedBrowser,
+  composeBrowser,
+} from "./browser.ts";
 export { CallContexts } from "./call-context.ts";
 export {
   type ChannelsSetup,

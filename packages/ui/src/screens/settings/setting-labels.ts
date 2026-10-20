@@ -16,6 +16,7 @@ export const SETTING_LABELS: Readonly<Record<string, string>> = {
   "appearance.zoom": "Zoom",
   "backup.schedule": "Backup schedule",
   "browser.realChrome": "Real-Chrome mode",
+  "browser.botAuth": "Web Bot Auth",
   "computerUse.enabled": "Allow computer use",
   "computerUse.apps": "App access",
   "context.maxTokens": "Context limit",
@@ -51,6 +52,10 @@ export const SETTING_LABELS: Readonly<Record<string, string>> = {
   "voice.systemWide": "Dictate into any app",
   "voice.hotkey": "System-wide hotkey",
   "voice.engine": "Speech engine",
+  "voice.conversation.enabled": "Voice mode",
+  "voice.conversation.start": "Voice mode turn-taking",
+  "voice.conversation.reply": "Voice mode voice",
+  "voice.conversation.bargeIn": "Interrupt by talking",
   "ui.onboarding.completedAt": "Onboarding",
   "ui.transcriptMode": "Transcript detail",
 };

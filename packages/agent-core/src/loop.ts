@@ -694,6 +694,10 @@ export class PsycheAgentLoop implements AgentLoop {
           usage: { ...run.usage },
           steps: run.steps,
           ...(error === undefined ? {} : { error }),
+          ownerText: run.ownerText,
+          mode: run.mode,
+          taint: run.taint,
+          subagent: run.subagent !== undefined,
         });
       } catch {
         // agent_end observes; it cannot change the outcome.

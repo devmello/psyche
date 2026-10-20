@@ -3,9 +3,15 @@ import { existsSync, writeFileSync } from "node:fs";
 import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { twilioSignature } from "@psyche/channels";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { channelSecretOwner, vaultChannelSecret } from "../src/compose/channel-secrets.ts";
-import { channelsSetupFromEnv, composeChannels } from "../src/compose/channels.ts";
+import {
+  type ChannelsSetup,
+  channelsSetupFromEnv,
+  composeChannels,
+  SMS_WEBHOOK_PATH,
+} from "../src/compose/channels.ts";
 import { type ComposedGateway, composeGateway, vaultModelSetup } from "../src/compose/index.ts";
 import { silentLogger } from "../src/log.ts";
 import { adminClient, ik, type TestClient } from "./helpers.ts";
@@ -17,7 +23,7 @@ let home: string;
 let composed: ComposedGateway | undefined;
 const clients: TestClient[] = [];
 
-async function compose(): Promise<ComposedGateway> {
+async function compose(channels: ChannelsSetup = {}): Promise<ComposedGateway> {
   const keyFile = join(home, "vault.key");
   if (!existsSync(keyFile)) writeFileSync(keyFile, randomBytes(32), { mode: 0o600 });
   composed = await composeGateway({
@@ -28,7 +34,7 @@ async function compose(): Promise<ComposedGateway> {
     config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
     model: vaultModelSetup({}),
     vault: { keyFile, argon2: { memory: 64, passes: 1, parallelism: 1 } },
-    parts: [(s) => composeChannels(s, { healthIntervalMs: 0 })],
+    parts: [(s) => composeChannels(s, { ...channels, healthIntervalMs: 0 })],
   });
   return composed;
 }
@@ -113,5 +119,65 @@ describe("Slack setup from the environment", () => {
     ).slack;
     expect(await env?.botToken?.use(async (v) => v)).toBe("xoxb-env");
     expect(await env?.appToken?.use(async (v) => v)).toBe("xapp-file");
+  });
+});
+
+describe("SMS and Discord read their tokens from the vault when the environment has none", () => {
+  it("an SMS webhook verifies against the auth token stored with channels.secrets.set", async () => {
+    const SID = "AC_TEST_ACCOUNT_SID_NOT_REAL";
+    const FROM = "+15550009999";
+    const URL = "https://psyche.example.test/channels/sms/twilio";
+    const TOKEN = "vault-held-sms-token-0123456789";
+    const gw = await compose({ sms: { accountSid: SID, from: FROM, publicUrl: URL } });
+    await gw.vault.setup();
+    const c = await adminClient(gw.gateway);
+    clients.push(c);
+    await c.call(
+      "channels.configure",
+      { type: "sms", account: FROM, dmPolicy: "allowlist", allowFrom: [] },
+      ik(),
+    );
+    const fields = {
+      AccountSid: SID,
+      MessageSid: `SM${"7".repeat(32)}`,
+      From: "+15550003333",
+      To: FROM,
+      Body: "hi",
+    };
+    const post = (signature: string) =>
+      fetch(`${gw.gateway.origin}${SMS_WEBHOOK_PATH}`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/x-www-form-urlencoded",
+          "x-twilio-signature": signature,
+        },
+        body: new URLSearchParams(fields).toString(),
+      });
+    const signature = twilioSignature(TOKEN, URL, Object.entries(fields));
+    // No token stored yet: nothing verifies (the route never falls back to accepting).
+    expect((await post(signature)).status).not.toBe(200);
+    await c.call(
+      "channels.secrets.set",
+      { type: "sms", account: FROM, name: "auth_token", value: TOKEN },
+      ik(),
+    );
+    await vi.waitFor(async () => expect((await post(signature)).status).toBe(200));
+  });
+
+  it("Discord's adapter reads the stored bot token", async () => {
+    const gw = await compose({ discord: { account: "psyche" } });
+    await gw.vault.setup();
+    const c = await adminClient(gw.gateway);
+    clients.push(c);
+    await c.call(
+      "channels.secrets.set",
+      { type: "discord", account: "psyche", name: "bot_token", value: "vault-discord-token" },
+      ik(),
+    );
+    expect(
+      await vaultChannelSecret(() => gw.vault, "discord", "psyche", "bot_token").use(
+        async (v) => v,
+      ),
+    ).toBe("vault-discord-token");
   });
 });
