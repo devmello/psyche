@@ -139,6 +139,10 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>
       now().getTime(),
     ),
+    deviceRequests: new RateLimiter(limits.deviceRequestsPerMinute, 60_000, () => now().getTime()),
+    deviceSideEffects: new RateLimiter(limits.deviceSideEffectsPerMinute, 60_000, () =>
+      now().getTime(),
+    ),
     handshakeSecret,
     idempotency: new Idempotency(db),
     serverOrigin: () => origin,
