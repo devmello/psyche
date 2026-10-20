@@ -192,6 +192,20 @@ export interface ShellPlatform {
   permissions?: PermissionsPort;
   /** Desktop only: the bundled Mac helper the app launches (docs/status/s14.md "Packaging"). */
   helper?: HelperPort;
+  /** Desktop only: the macOS region format; the web uses the browser's language (A12). */
+  locale?: LocalePort;
+}
+
+/** The system's locales as macOS reports them (`app.getSystemLocale()`, preferred languages). */
+export interface SystemLocale {
+  /** The region format, e.g. "en-GB": numbers, dates and times. */
+  system: string;
+  /** Preferred languages, most preferred first: which catalogue to show once more ship. */
+  preferred: string[];
+}
+
+export interface LocalePort {
+  get(): Promise<SystemLocale>;
 }
 
 /** The desktop's view of its bundled Mac helper (apps/desktop/src/main/helper-launcher.ts). */

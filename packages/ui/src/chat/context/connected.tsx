@@ -18,6 +18,8 @@ import {
   useStoreState,
   useThreadContext,
 } from "../../data/index.ts";
+import { activeI18n, t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
 import { usePersona } from "../../slots.tsx";
 import { CompactionMarker } from "./CompactionMarker.tsx";
 import { ContextMeter } from "./ContextMeter.tsx";
@@ -25,7 +27,7 @@ import {
   type CompactionBlock,
   compactionView,
   formatTokens,
-  LIMIT_FROM_LABEL,
+  limitFromLabel,
   usageView,
 } from "./types.ts";
 
@@ -40,16 +42,20 @@ export async function compactWithToast(
 ): Promise<void> {
   try {
     const c = await compact();
-    if (c === null) toast("Nothing to compact yet: every turn is still kept verbatim.");
+    if (c === null) toast(t("context.compact.nothing"));
     else
       toast(
-        `Compacted ${c.replacedTurns} earlier turn${c.replacedTurns === 1 ? "" : "s"}, ${formatTokens(c.tokensBefore)} → ${formatTokens(c.tokensAfter)} tokens.`,
+        t("context.compact.done", {
+          turns: c.replacedTurns,
+          before: formatTokens(c.tokensBefore),
+          after: formatTokens(c.tokensAfter),
+        }),
       );
   } catch (err) {
     toast.error(
       err instanceof GatewayRequestError && err.code === "conflict"
-        ? "Can't compact while the agent is working or waiting on an approval."
-        : `Couldn't compact: ${err instanceof Error ? err.message : String(err)}`,
+        ? t("context.compact.busy")
+        : t("context.compact.failed", { reason: describeError(err) }),
     );
   }
 }
@@ -105,20 +111,26 @@ export function parseLimitDrafts(
     const n = whole(d.maxTokens, BOUNDS.maxTokens.min, max);
     if (n === null)
       errors.maxTokens = contextWindow
-        ? `Enter a whole number from ${BOUNDS.maxTokens.min.toLocaleString()} to ${contextWindow.toLocaleString()} (the model's window).`
-        : `Enter a whole number of at least ${BOUNDS.maxTokens.min.toLocaleString()}.`;
+        ? t("context.limits.errorWindow", { min: BOUNDS.maxTokens.min, max: contextWindow })
+        : t("context.limits.errorMin", { min: BOUNDS.maxTokens.min });
     else limits.maxTokens = n;
   }
   if (d.compactAt.trim()) {
     const n = whole(d.compactAt, BOUNDS.compactAt.min, BOUNDS.compactAt.max);
     if (n === null)
-      errors.compactAt = `Enter a whole number from ${BOUNDS.compactAt.min} to ${BOUNDS.compactAt.max}.`;
+      errors.compactAt = t("context.limits.errorRange", {
+        min: BOUNDS.compactAt.min,
+        max: BOUNDS.compactAt.max,
+      });
     else limits.compactAt = n / 100;
   }
   if (d.keepRecentTurns.trim()) {
     const n = whole(d.keepRecentTurns, BOUNDS.keepRecentTurns.min, BOUNDS.keepRecentTurns.max);
     if (n === null)
-      errors.keepRecentTurns = `Enter a whole number from ${BOUNDS.keepRecentTurns.min} to ${BOUNDS.keepRecentTurns.max}.`;
+      errors.keepRecentTurns = t("context.limits.errorRange", {
+        min: BOUNDS.keepRecentTurns.min,
+        max: BOUNDS.keepRecentTurns.max,
+      });
     else limits.keepRecentTurns = n;
   }
   return { limits, errors };
@@ -205,9 +217,9 @@ export function ThreadContextDialog({
     try {
       await ctx.setLimits(limits);
       onOpenChange(false);
-      toast(limits === null ? "This chat follows Settings again." : "Saved this chat's limits.");
+      toast(limits === null ? t("context.limits.followingSettings") : t("context.limits.saved"));
     } catch (err) {
-      setFailure(err instanceof Error ? err.message : String(err));
+      setFailure(describeError(err));
     } finally {
       setSaving(false);
     }
@@ -238,36 +250,40 @@ export function ThreadContextDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle>Context limits for this chat</DialogTitle>
+            <DialogTitle>{t("context.limits.title")}</DialogTitle>
             <DialogDescription>
               {eff
-                ? `Now ${eff.maxTokens.toLocaleString()} tokens, from ${LIMIT_FROM_LABEL[eff.maxTokensFrom]}${contextWindow ? `; the model reads up to ${contextWindow.toLocaleString()}` : ""}. Leave a field blank to follow Settings.`
-                : "Leave a field blank to follow Settings."}
+                ? t("context.limits.now", {
+                    max: eff.maxTokens,
+                    from: limitFromLabel(eff.maxTokensFrom),
+                    window: contextWindow ? activeI18n().number(contextWindow) : "none",
+                  })
+                : t("context.limits.blankFollows")}
             </DialogDescription>
           </DialogHeader>
           <LimitField
-            label="Context limit"
-            description="The most tokens a turn in this chat may send."
+            label={t("context.limits.maxTokens")}
+            description={t("context.limits.maxTokensHint")}
             placeholder={inherited("maxTokens")}
-            suffix="tokens"
+            suffix={t("context.limits.tokens")}
             value={drafts.maxTokens}
             error={errors.maxTokens}
             onChange={set("maxTokens")}
           />
           <LimitField
-            label="Compact at"
-            description="Earlier turns are summarised when a turn reaches this share of the limit."
+            label={t("context.limits.compactAt")}
+            description={t("context.limits.compactAtHint")}
             placeholder={inherited("compactAt")}
-            suffix="% of the limit"
+            suffix={t("context.limits.percentOfLimit")}
             value={drafts.compactAt}
             error={errors.compactAt}
             onChange={set("compactAt")}
           />
           <LimitField
-            label="Recent turns kept verbatim"
-            description="These are never summarised."
+            label={t("context.limits.keep")}
+            description={t("context.limits.keepHint")}
             placeholder={inherited("keepRecentTurns")}
-            suffix="turns"
+            suffix={t("context.limits.turns")}
             value={drafts.keepRecentTurns}
             error={errors.keepRecentTurns}
             onChange={set("keepRecentTurns")}
@@ -285,11 +301,11 @@ export function ThreadContextDialog({
                 disabled={saving}
                 onClick={() => void save(null)}
               >
-                Follow Settings
+                {t("context.limits.followSettings")}
               </Button>
             ) : null}
             <Button type="submit" disabled={saving}>
-              Save
+              {t("common.save")}
             </Button>
           </DialogFooter>
         </form>
@@ -348,17 +364,21 @@ export function CompactionMessage({
       to < 0 ? [] : all.slice(Math.max(0, from), to + 1).filter((m) => m.role !== "system");
     replaced =
       turns.length === 0 ? (
-        <p className="text-xs text-muted-foreground">The replaced turns aren't loaded here.</p>
+        <p className="text-xs text-muted-foreground">{t("context.marker.notLoaded")}</p>
       ) : (
         <ol
-          aria-label="Replaced turns"
-          className="flex flex-col gap-1.5 border-l-2 border-gray-6 pl-2"
+          aria-label={t("context.marker.replacedList")}
+          className="flex flex-col gap-1.5 border-s-2 border-gray-6 ps-2"
         >
           {turns.map((m) => (
             <li key={m.id} className="text-sm">
-              <span className="font-medium">{m.role === "user" ? "You" : persona.name}: </span>
+              <span className="font-medium">
+                {t("context.marker.speaker", {
+                  name: m.role === "user" ? t("common.you") : persona.name,
+                })}{" "}
+              </span>
               <span className="line-clamp-3 text-muted-foreground">
-                {excerpt(m) || "(no text)"}
+                {excerpt(m) || t("common.noText")}
               </span>
             </li>
           ))}

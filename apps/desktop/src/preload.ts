@@ -149,6 +149,10 @@ const bridge = {
     getState: () => invoke(IPC.helperGetState),
     onState: (cb: (s: unknown) => void) => listen(IPC.helperState, cb),
   },
+  /** The macOS region format and preferred languages (A12). */
+  locale: {
+    get: () => invoke(IPC.localeGet),
+  },
 };
 
 export type PsycheBridge = typeof bridge;

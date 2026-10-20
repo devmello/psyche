@@ -289,8 +289,28 @@ function useWorkspacePersona(platform: ShellPlatform): [Persona | null, () => vo
   return [persona, load];
 }
 
+/**
+ * The owner's region format for numbers, dates and times (A12): macOS's on the desktop, the
+ * browser's language on the web. Settings → Appearance → Language and region can override it.
+ */
+function useSystemLocale(platform: ShellPlatform): string | null {
+  const [locale, setLocale] = useState<string | null>(() => globalThis.navigator?.language ?? null);
+  useEffect(() => {
+    let live = true;
+    void platform.locale?.get().then(
+      (l) => live && setLocale(l.system),
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [platform]);
+  return locale;
+}
+
 export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactElement {
   const client = useMemo(() => kitClient(platform.gateway, platform.passkeys), [platform]);
+  const systemLocale = useSystemLocale(platform);
   const [gate, setGate] = useState<Gate>("loading");
   const [error, setError] = useState<string | null>(null);
   const [persona, reloadPersona] = useWorkspacePersona(platform);
@@ -394,7 +414,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
   return (
     <GatewayProvider client={client}>
       {/* Appearance (theme, contrast, reduce motion) and the kit's toasts (docs/a11y-audit.md A1, A2). */}
-      <AppearanceProvider>
+      <AppearanceProvider systemLocale={systemLocale}>
         <UiSlotsProvider value={uiSlots}>
           {body}
           <Toaster />

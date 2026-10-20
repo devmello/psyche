@@ -11,6 +11,7 @@ import {
   type ShellCommand,
   type ShellPlatform,
   type SystemDictationStatus,
+  type SystemLocale,
   type TerminalOpenResult,
 } from "@psyche/web/platform";
 import type { PsycheBridge } from "../preload.ts";
@@ -107,6 +108,9 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
     helper: {
       getState: () => b.helper.getState() as Promise<MacHelperState>,
       onState: (cb) => b.helper.onState((s) => cb(s as MacHelperState)),
+    },
+    locale: {
+      get: () => b.locale.get() as Promise<SystemLocale>,
     },
     dictation: {
       getStatus: () => b.dictation.getStatus() as Promise<SystemDictationStatus>,
