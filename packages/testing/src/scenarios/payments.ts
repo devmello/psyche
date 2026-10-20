@@ -60,7 +60,9 @@ export class ScenarioLinkWallet implements LinkWallet {
   /** The owner's Link wallet in test mode: one default Visa. */
   async paymentMethods(): Promise<PaymentMethod[]> {
     this.#onCall("payment-methods list");
-    return [{ id: "csmrpd_test_visa", brand: "visa", last4: "1881", nickname: null, isDefault: true }];
+    return [
+      { id: "csmrpd_test_visa", brand: "visa", last4: "1881", nickname: null, isDefault: true },
+    ];
   }
 
   async create(input: SpendRequestInput): Promise<SpendRequest> {
