@@ -18,7 +18,7 @@ const PROVIDER_ID: readonly [key: string, label: string][] = [
 
 /** "18c4f2a9e3b1d7c0" → "18c4…". */
 function shortRef(value: string): string {
-  return value.length > 8 ? `${value.slice(0, 4)}…` : value;
+  return value.length > 10 ? `${value.slice(0, 4)}…` : value;
 }
 
 /** The one provider id a receipt line names ("Gmail id 18c4…"), or null. */

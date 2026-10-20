@@ -46,8 +46,9 @@ export function ApprovalDock({
     <div
       aria-live="polite"
       aria-relevant="additions"
-      // Compact (§3.3): one open card, the rest one line each, never most of the column.
-      className="flex max-h-[45vh] flex-col gap-1.5 overflow-y-auto"
+      // Compact (§3.3): one open card, the rest one line each. The card is never clipped (its
+      // choices and buttons stay in view); its binding rows scroll instead when they run long.
+      className="flex flex-col gap-1.5"
     >
       {mine.length > 0 ? (
         <p className="sr-only">
@@ -55,7 +56,7 @@ export function ApprovalDock({
         </p>
       ) : null}
       {mine.length > 1 ? (
-        <ul aria-label="Other approvals" className="flex flex-col gap-1">
+        <ul aria-label="Other approvals" className="flex max-h-24 flex-col gap-1 overflow-y-auto">
           {mine
             .filter((v) => v !== open)
             .map((v) => (
@@ -100,6 +101,7 @@ export function ApprovalDock({
                 onAnswer={(decision, scope) => answer(open.approval.id, decision, scope)}
                 autoFocus
                 now={now}
+                detailsClassName="max-h-[min(9rem,18vh)] overflow-y-auto"
               />
             );
           })()

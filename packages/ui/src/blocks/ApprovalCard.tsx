@@ -61,6 +61,8 @@ export interface ApprovalCardProps {
   /** Arming delay; tests may set 0. */
   armDelayMs?: number;
   className?: string;
+  /** Caps the binding rows (the dock scrolls them so the choices and buttons stay in view). */
+  detailsClassName?: string;
 }
 
 /**
@@ -124,6 +126,7 @@ export function ApprovalCard({
   autoFocus = false,
   armDelayMs = 400,
   className,
+  detailsClassName,
 }: ApprovalCardProps): ReactElement {
   const approval = useMemo(() => sanitizeApproval(raw), [raw]);
   // First line of the per-surface template: kind · side effect · taint (never attacker text).
@@ -258,12 +261,19 @@ export function ApprovalCard({
         {approval.summary}
       </h3>
 
-      <div className="mt-2">
-        <ApprovalDetails approval={approval} persona={persona} />
-      </div>
+      {detailsClassName ? (
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: a capped region must scroll by keyboard
+        <section className={cn("mt-2", detailsClassName)} aria-label="What it will do" tabIndex={0}>
+          <ApprovalDetails approval={approval} persona={persona} />
+        </section>
+      ) : (
+        <div className="mt-2">
+          <ApprovalDetails approval={approval} persona={persona} />
+        </div>
+      )}
 
       <dl className="mt-2 border-t border-gray-5 pt-2">
-        <div className="grid grid-cols-[7rem_1fr] gap-2 py-0.5">
+        <div className="grid grid-cols-[7rem_1fr] gap-2">
           <dt className="text-muted-foreground">Requested by</dt>
           <dd>
             {persona}
@@ -275,7 +285,7 @@ export function ApprovalCard({
           </dd>
         </div>
         {why ? (
-          <div className="grid grid-cols-[7rem_1fr] gap-2 py-0.5">
+          <div className="grid grid-cols-[7rem_1fr] gap-2 pt-0.5">
             <dt className="text-muted-foreground">Why asked</dt>
             <dd>{why}</dd>
           </div>
@@ -297,7 +307,7 @@ export function ApprovalCard({
       {interactive ? (
         <>
           <RadioGroup
-            className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2"
+            className="mt-3 flex flex-wrap gap-x-6 gap-y-1.5"
             value={choice}
             onValueChange={(v) => setChoice(v as ApprovalChoice)}
             aria-label="Decision"
@@ -334,23 +344,20 @@ export function ApprovalCard({
             <Choice value="deny" label="Deny" />
           </RadioGroup>
 
-          {approval.requiresAuthentication ? (
-            <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Fingerprint className="size-3.5" aria-hidden="true" /> Needs Touch ID to approve.
-            </p>
-          ) : null}
-          {otherSurfaces.length > 0 ? (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Also sent to: {otherSurfaces.join(", ")}. The first answer wins.
+          {approval.requiresAuthentication || otherSurfaces.length > 0 ? (
+            <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-muted-foreground">
+              {approval.requiresAuthentication ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <Fingerprint className="size-3.5" aria-hidden="true" /> Needs Touch ID to approve.
+                </span>
+              ) : null}
+              {otherSurfaces.length > 0 ? (
+                <span>Also sent to: {otherSurfaces.join(", ")}. The first answer wins.</span>
+              ) : null}
             </p>
           ) : null}
         </>
       ) : null}
-
-      <p className="mt-3 truncate text-caption text-muted-foreground">
-        Binding <span className="font-mono">{approval.bindingHash.slice(0, 15)}…</span> · any change
-        above voids this card
-      </p>
 
       {error ? (
         <p className="mt-2 text-danger-text" role="alert">
@@ -373,8 +380,12 @@ export function ApprovalCard({
           />
           Details
         </Button>
+        <p className="min-w-0 flex-1 truncate text-caption text-muted-foreground">
+          Binding <span className="font-mono">{approval.bindingHash.slice(0, 15)}…</span> · any
+          change above voids this card
+        </p>
         {interactive ? (
-          <div className="ml-auto flex gap-2">
+          <div className="flex shrink-0 gap-2">
             <Button
               variant="outline"
               disabled={!armed || busy}
