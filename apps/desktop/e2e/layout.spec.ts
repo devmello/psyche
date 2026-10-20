@@ -329,6 +329,14 @@ for (const [width, height] of [
         `${tag}: chat column centred`,
       ).toBeLessThanOrEqual(8);
     }
+    // A short conversation sits just above the composer: no empty band in between.
+    const last = await page.getByTestId("kit-chat").getByRole("article").last().boundingBox();
+    if (last && composer) {
+      expect(
+        composer.y - (last.y + last.height),
+        `${tag}: gap above the composer`,
+      ).toBeLessThanOrEqual(72);
+    }
     await expectNoSidewaysScroll(page, tag);
     await shot(page, `main-${width}x${height}`);
 
