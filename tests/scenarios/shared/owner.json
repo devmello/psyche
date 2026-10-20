@@ -56,7 +56,8 @@
         "drive.write": "deny"
       },
       "search:brave": { "search.web": "allow" },
-      "shopping": { "shop.compare": "allow", "shop.view_cart": "allow" }
+      "shopping": { "shop.compare": "allow", "shop.view_cart": "allow" },
+      "travel": { "travel.search_flights": "allow" }
     },
     "standingGrants": [
       {
@@ -93,6 +94,13 @@
       "account": "stores",
       "scopeMode": "read_act",
       "$comment": "No credential: the stores are fixture sites the owner allowlisted (v3-shopping)."
+    },
+    {
+      "id": "con_travel",
+      "type": "travel",
+      "account": "airlines",
+      "scopeMode": "read_act",
+      "$comment": "No credential: the airlines are fixture sites the owner allowlisted (v4-travel)."
     }
   ],
   "clock": {

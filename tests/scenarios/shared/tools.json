@@ -169,6 +169,44 @@
       "approvalKind": "purchase",
       "receiptKind": "purchase",
       "note": "G12: the hand-off's cart check, then Stripe Link pays (test mode in scenarios): the vault's PaymentBroker re-checks the dispatched once-only purchase approval, Link writes a one-time card to a 0600 file, the browser fill core types it into the merchant's card form. The model sees brand / last4 and the order number only."
+    },
+    {
+      "name": "travel.search_flights",
+      "sideEffect": "read",
+      "targetKind": null,
+      "provenanceOut": "untrusted",
+      "connector": "travel",
+      "note": "Fares from the owner's allowlisted airlines (fixture sites); offer text is untrusted page content."
+    },
+    {
+      "name": "travel.hold_fare",
+      "sideEffect": "financial",
+      "targetKind": "origin",
+      "provenanceOut": "untrusted",
+      "connector": "travel",
+      "approvalKind": "purchase",
+      "receiptKind": "purchase.hold",
+      "note": "V4 / G12: the airline authorizes the Stripe Link one-time card for the fare without charging it (the vault's hold). Once only, device-only; the card shows flights, traveler, fare class, total and the funding card's last4."
+    },
+    {
+      "name": "travel.ticket_hold",
+      "sideEffect": "financial",
+      "targetKind": "origin",
+      "provenanceOut": "untrusted",
+      "connector": "travel",
+      "approvalKind": "purchase",
+      "receiptKind": "purchase",
+      "note": "Ticketing captures the held authorization (the vault's capture); a second once-only purchase card."
+    },
+    {
+      "name": "travel.cancel_booking",
+      "sideEffect": "destructive",
+      "targetKind": "origin",
+      "provenanceOut": "untrusted",
+      "connector": "travel",
+      "approvalKind": "connector_action",
+      "receiptKind": "purchase.refund",
+      "note": "Cancelling inside the airline's free window refunds the capture (the vault's refund)."
     }
   ]
 }

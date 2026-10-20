@@ -49,6 +49,7 @@ describe("acceptance scenarios, scripted mode", () => {
       "v1-inbox-triage",
       "v2-calendar-planning",
       "v3-shopping",
+      "v4-travel",
       "v7-research-brief",
     ]);
     for (const r of rows) {

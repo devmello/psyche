@@ -24,6 +24,8 @@ export const SCENARIOS_DIR = join(ROOT, "tests/scenarios");
 export const SCENARIO_IDS = [
   "v1-inbox-triage",
   "v2-calendar-planning",
+  "v3-shopping",
+  "v4-travel",
   "v7-research-brief",
 ] as const;
 export type ScenarioId = (typeof SCENARIO_IDS)[number];
@@ -77,7 +79,8 @@ function targetOf(info: ToolInfo, input: Record<string, unknown>): string | unde
     case "origin": {
       if (info.name === "search.web") return "https://api.search.brave.com";
       try {
-        return new URL(String(input.url)).origin;
+        // Shopping tools name the store (`merchant`), travel tools the airline.
+        return new URL(String(input.url ?? input.merchant ?? input.airline)).origin;
       } catch {
         return undefined;
       }
