@@ -49,6 +49,10 @@ export function canonicalUrl(input: string): CanonicalUrl {
     const ascii = domainToASCII(host);
     if (ascii === "") throw new TargetError(`invalid host ${JSON.stringify(url.hostname)}`);
     host = ascii;
+    // Empty labels ("..", "a..b", ".") are not hosts (found by fuzzing: ".." became ".").
+    if (host.split(".").some((label) => label === "")) {
+      throw new TargetError(`invalid host ${JSON.stringify(url.hostname)}`);
+    }
   }
   const scheme = url.protocol === "https:" ? "https" : "http";
   // URL already drops default ports; keep the explicit check for clarity.
