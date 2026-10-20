@@ -4,6 +4,7 @@ import { basename, join, resolve } from "node:path";
 import {
   assertGranted,
   assertNoSymlinks,
+  assertNotProtected,
   canonicalTarget,
   fsError,
   type GrantedFolder,
@@ -19,12 +20,14 @@ import {
 } from "@psyche/protocol";
 import { mimeFromName } from "@psyche/viewers/core/detect";
 import type { Call, HandlerDef } from "../context.ts";
+import { protectedRoots } from "./protected-paths.ts";
 
 /**
  * `files.list` and `files.read` (feature P4; UI design §3.7): read-only access for the Files pane
  * and the viewers. A path must lie in a folder the owner granted (`permissions.policy.folders`)
  * and go through no symlink, the same checks the agent's file tools make (@psyche/files); a
- * `libraryPath` must stay inside `$PSYCHE_HOME/library`. Bytes go out in base64 chunks of at
+ * `libraryPath` must stay inside `$PSYCHE_HOME/library`. Psyche's own home and the owner's
+ * credential stores are refused even under a granted folder (#285). Bytes go out in base64 chunks of at
  * most FILE_CHUNK_BYTES so every frame stays under MAX_FRAME_BYTES.
  */
 
@@ -52,6 +55,7 @@ export async function resolveFileSource(
   }
   if (path !== undefined) {
     const target = canonicalTarget(path);
+    assertNotProtected(target, protectedRoots(setup.home));
     assertGranted(target, setup.folders(), "read");
     await assertNoSymlinks(target);
     return { path: target, name: basename(target) };
@@ -122,6 +126,8 @@ async function listFolder(
   setup: FilesSetup,
 ): Promise<MethodResult<"files.list">> {
   const dir = canonicalTarget(params.path);
+  const roots = protectedRoots(setup.home);
+  assertNotProtected(dir, roots);
   assertGranted(dir, setup.folders(), "read");
   await assertNoSymlinks(dir);
   let names: import("node:fs").Dirent[];
@@ -133,6 +139,8 @@ async function listFolder(
   const entries: FileEntry[] = [];
   for (const d of names) {
     const path = join(dir, d.name);
+    // A protected folder under a granted one (`~/.psyche`, `~/.ssh`) is not even listed.
+    if (roots.some((r) => path === r)) continue;
     const kind = d.isDirectory() ? "folder" : d.isFile() ? "file" : "other";
     let size: number | null = null;
     let modifiedAt: string | null = null;
