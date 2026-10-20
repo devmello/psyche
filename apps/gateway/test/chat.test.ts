@@ -492,3 +492,34 @@ describe("threads", () => {
     expect(JSON.parse(json.content).messages).toHaveLength(6);
   });
 });
+
+describe("threads.list last line (UI design §2.2)", () => {
+  it("carries each thread's newest user or agent text as plain text", async () => {
+    const c = await setup();
+    const thread = await newThread(c);
+    agent.script([
+      {
+        type: "chat.delta",
+        messageId: "a1",
+        delta: "Three **slots** work: see [the list](https://x.test).",
+      },
+      { type: "end", outcome: "final" },
+    ]);
+    await c.call("chat.send", { threadId: thread.id, content: "Book the dentist" }, ik());
+    await t.gateway.context.sessions.idle();
+    const res = await c.call<{
+      threads: { thread: Thread; lastMessage?: { role: string; text: string; at: string } }[];
+    }>("threads.list", {});
+    const row = res.threads.find((x) => x.thread.id === thread.id);
+    expect(row?.lastMessage).toMatchObject({
+      role: "agent",
+      text: "Three slots work: see the list.",
+    });
+    const empty = await newThread(c);
+    const again = await c.call<{ threads: { thread: Thread; lastMessage?: unknown }[] }>(
+      "threads.list",
+      {},
+    );
+    expect(again.threads.find((x) => x.thread.id === empty.id)?.lastMessage).toBeUndefined();
+  });
+});
