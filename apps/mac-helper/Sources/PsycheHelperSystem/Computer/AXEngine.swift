@@ -252,6 +252,7 @@ final class AXEngine: @unchecked Sendable {
         var pid: pid_t
         var element: AXUIElement
         var secure: Bool
+        var role: String?
         /// Labels of the hit element and up to two ancestors (for risk checks on point clicks).
         var labels: [String]
 
@@ -282,7 +283,7 @@ final class AXEngine: @unchecked Sendable {
             labels += [AX.string(a["AXTitle"]), AX.string(a["AXDescription"])].compactMap { $0 }.filter { !$0.isEmpty }
             cur = AX.element(AX.attr(c, "AXParent"))
         }
-        return Hit(pid: pid, element: hit, secure: AX.string(AX.attr(hit, "AXSubrole")) == "AXSecureTextField", labels: labels)
+        return Hit(pid: pid, element: hit, secure: AX.string(AX.attr(hit, "AXSubrole")) == "AXSecureTextField", role: AX.string(AX.attr(hit, "AXRole")), labels: labels)
     }
 
     /// The app owning the element under a screen point (top-left origin).
