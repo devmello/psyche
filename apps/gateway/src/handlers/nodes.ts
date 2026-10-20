@@ -132,7 +132,7 @@ export const nodesHandlers: Record<string, HandlerDef> = {
           approvalId: approvalId ?? null,
           ...(result.receipt?.externalRefs ? { externalRefs: result.receipt.externalRefs } : {}),
         });
-        ctx.bus.publish("receipt.created", { receipt });
+        if (!ctx.brokerPublishesReceipts) ctx.bus.publish("receipt.created", { receipt });
       }
       const out: {
         invocationId: string;

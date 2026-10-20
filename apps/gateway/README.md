@@ -23,7 +23,7 @@ Precedence: overrides passed to `startGateway` → environment → `$PSYCHE_HOME
 | `gateway.host` | `PSYCHE_HOST` | `127.0.0.1` | Non-loopback refused (security §10) |
 | `gateway.port` | `PSYCHE_PORT` | `7979` | `0` = ephemeral |
 | — | `PSYCHE_DB` | `state/psyche.sqlite` | `:memory:` in tests |
-| — | `PSYCHE_NODE_SOCKET` | `run/node.sock` | macOS limits socket paths to 104 bytes |
+| — | `PSYCHE_NODE_SOCKET` | `run/node.sock` | Unix socket paths are limited to 103 bytes on macOS (107 on Linux): an explicit path that is too long fails naming the variable; a deep `$PSYCHE_HOME` falls back to `<tmpdir>/psyche-<uid>/<hash>.sock` (directory 0700, owner checked). The actual path is written to `run/node-socket` for local clients |
 | — | `PSYCHE_WEB_ROOT` | `apps/web/dist` | Served at `/` with a strict CSP |
 | `gateway.allowedOrigins`, `gateway.publicOrigin` | `PSYCHE_ALLOWED_ORIGINS` | `[]` | Extra WebSocket `Origin`s besides the Gateway's own |
 | `gateway.trustedProxy.{enabled, trustedProxies}` | — | off | Tailscale Serve / `cloudflared` in front. From a peer in `trustedProxies` (CIDRs, validated at startup), the first untrusted `X-Forwarded-For` hop from the right is the client address (rate limits, pairing cards) and `Tailscale-User-Login` is shown on the pairing card as a claim. Headers never authorize: every device still pairs. Any request with forwarding headers is never treated as loopback, in either mode. Passkeys come later (INT-2) |

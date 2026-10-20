@@ -95,6 +95,8 @@ export interface GatewayContext {
    * the composition root wires `PsychePermissionBroker.revokeGrantsByDevice`).
    */
   readonly onDeviceRevoked: ((deviceId: string) => Promise<unknown>) | null;
+  /** The broker emits `receipt.created` itself; handlers must not publish it again. */
+  readonly brokerPublishesReceipts: boolean;
   /** Null without a composition root: a thread can then never be created in `auto`. */
   readonly threadModels: ThreadModelPolicy | null;
   /** Called with a device id when its last paired connection closes (parts register here). */

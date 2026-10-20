@@ -7,6 +7,7 @@ import {
   type Server as NetServer,
   type Socket,
 } from "node:net";
+import { join } from "node:path";
 import type { Duplex } from "node:stream";
 import { openDb, type PsycheDb } from "@psyche/db";
 import {
@@ -44,6 +45,7 @@ import { RateLimiter } from "./rate-limit.ts";
 import { type RecoveryReport, recoverAfterRestart } from "./recovery.ts";
 import { RETENTION_INTERVAL_MS, runRetention } from "./retention.ts";
 import { SessionController } from "./session/controller.ts";
+import { ensureSocketDir, writeSocketPointer } from "./socket-path.ts";
 import { readStateVersion, writeStateVersion } from "./state-version.ts";
 import { NdjsonDecoder } from "./transports/ndjson.ts";
 
@@ -65,6 +67,11 @@ export interface GatewayOptions {
   limits?: Partial<GatewayLimits>;
   /** After a device is revoked (composition root: end the grants it approved). */
   onDeviceRevoked?: (deviceId: string) => Promise<unknown>;
+  /**
+   * The broker publishes its own `receipt.created` events (the composition root forwards them),
+   * so `nodes.invoke` must not publish the same receipt again (issue #50).
+   */
+  brokerPublishesReceipts?: boolean;
   /** Which models may run `auto` threads, and the router's per-thread pin (composition root). */
   threadModels?: ThreadModelPolicy;
   /** Package handlers to mount (composition root); a name the Gateway already handles is refused. */
@@ -138,6 +145,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     memory: options.memory ?? null,
     extraHandlers: checkExtraHandlers(options.handlers ?? {}),
     onDeviceRevoked: options.onDeviceRevoked ?? null,
+    brokerPublishesReceipts: options.brokerPublishesReceipts ?? false,
     threadModels: options.threadModels ?? null,
     deviceDisconnected: new Set<(deviceId: string) => void>(),
     limits,
@@ -233,6 +241,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
 
   // Unix socket for local nodes (mac helper): NDJSON frames, mode 0600. A socket that still
   // accepts connections belongs to another running Gateway: refuse instead of stealing it.
+  ensureSocketDir(config.nodeSocketPath, config.home);
   if (existsSync(config.nodeSocketPath)) {
     if (await socketIsLive(config.nodeSocketPath)) {
       await new Promise<void>((r) => http.close(() => r()));
@@ -275,6 +284,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     });
   });
   chmodSync(config.nodeSocketPath, 0o600);
+  writeSocketPointer(config.home, config.nodeSocketPath);
   const { path: secretPath } = writeHandshakeSecret(config.home, handshakeSecret);
 
   // Follow-ups queued before the restart run now; then the hourly retention sweep.
@@ -309,6 +319,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       http.closeAllConnections();
       await new Promise<void>((r) => http.close(() => r()));
       rmSync(config.nodeSocketPath, { force: true });
+      rmSync(join(config.home, "run", "node-socket"), { force: true });
       removeHandshakeSecret(secretPath);
       if (!options.db) db.close();
       log.log("info", "gateway stopped", { reason });
