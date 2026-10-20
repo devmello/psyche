@@ -23,6 +23,8 @@ import {
   type LibraryIngest,
   type OutboundTarget,
   type SecretSource,
+  SignalAdapter,
+  type SignalAdapterOptions,
   SlackAdapter,
   SmsAdapter,
   type SmsAdapterOptions,
@@ -78,7 +80,7 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  * Channels (S10 `@psyche/channels`) mounted on the composed Gateway (INT-2; architecture §4.10,
  * security §9). The part:
  * - builds a `ChannelService` over `SqliteChannelStore` and attaches the configured adapters
- *   (Telegram, iMessage, SMS, WhatsApp, WebChat); an adapter whose channel is not configured yet attaches as soon as
+ *   (Telegram, iMessage, SMS, WhatsApp, Signal, WebChat); an adapter whose channel is not configured yet attaches as soon as
  *   `channels.configure` creates it;
  * - turns an owner's private message into a chat turn on the routed thread through the session
  *   controller, as `chat.send` does, and sends the agent's committed replies back to that chat;
@@ -178,8 +180,20 @@ export interface SlackSetup {
   appToken?: SecretSource;
 }
 
+/**
+ * Signal through the owner's own signal-cli daemon (N7). Off unless configured. Psyche connects to
+ * `signal-cli -a <account> daemon --socket <socketPath>`; it never registers or links a number.
+ */
+export interface SignalSetup {
+  socketPath: string;
+  /** Psyche's Signal number (E.164): the channel's `account`. */
+  account: string;
+  options?: Partial<Omit<SignalAdapterOptions, "socketPath" | "account">>;
+}
+
 export interface ChannelsSetup {
   telegram?: TelegramSetup;
+  signal?: SignalSetup;
   discord?: DiscordSetup;
   /** Email over the mail connector's IMAP + SMTP backend (N9); off unless configured. */
   email?: EmailSetup;
@@ -250,10 +264,12 @@ export function channelsSetupFromEnv(
   };
   const slackBot = secretFromEnv("PSYCHE_SLACK_BOT_TOKEN");
   const slackApp = secretFromEnv("PSYCHE_SLACK_APP_TOKEN");
+  const signal = signalSetupFromEnv(env);
   const whatsapp = whatsappSetupFromEnv(env, readFile);
   return {
     ...(whatsapp === undefined ? {} : { whatsapp }),
     webchat: true,
+    ...(signal === undefined ? {} : { signal }),
     ...(email === undefined ? {} : { email }),
     ...(token === "" ? {} : { telegram: { token, account } }),
     ...(discord === undefined ? {} : { discord }),
@@ -269,6 +285,32 @@ export function channelsSetupFromEnv(
     ...(imessage === "" ? {} : { imessage: { account: imessage } }),
     ...(sms === undefined ? {} : { sms }),
   };
+}
+
+/**
+ * `PSYCHE_SIGNAL_SOCKET` (signal-cli's `--socket` path) + `PSYCHE_SIGNAL_NUMBER` (E.164, the
+ * daemon's account) → setup; neither → off; one without the other → refuse to boot.
+ */
+export function signalSetupFromEnv(env: NodeJS.ProcessEnv): SignalSetup | undefined {
+  const socketPath = env.PSYCHE_SIGNAL_SOCKET?.trim() ?? "";
+  const account = env.PSYCHE_SIGNAL_NUMBER?.trim() ?? "";
+  if (socketPath === "" && account === "") return undefined;
+  if (socketPath === "") {
+    throw new PsycheError("invalid_params", "Signal needs PSYCHE_SIGNAL_SOCKET as well");
+  }
+  if (account === "") {
+    throw new PsycheError("invalid_params", "Signal needs PSYCHE_SIGNAL_NUMBER as well");
+  }
+  if (!E164.test(account)) {
+    throw new PsycheError(
+      "invalid_params",
+      "PSYCHE_SIGNAL_NUMBER must be an E.164 number (+1555…)",
+    );
+  }
+  if (!socketPath.startsWith("/")) {
+    throw new PsycheError("invalid_params", "PSYCHE_SIGNAL_SOCKET must be an absolute path");
+  }
+  return { socketPath, account };
 }
 
 /** What turns SMS on; the auth token comes from env / file or else the vault. */
@@ -698,6 +740,16 @@ export function composeChannels(
           setup.discord.token ??
           vaultChannelSecret(() => services.vault, "discord", setup.discord.account, "bot_token"),
         account: setup.discord.account,
+        clock,
+      }),
+    );
+  }
+  if (setup.signal !== undefined) {
+    add(
+      new SignalAdapter({
+        ...setup.signal.options,
+        socketPath: setup.signal.socketPath,
+        account: setup.signal.account,
         clock,
       }),
     );
