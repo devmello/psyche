@@ -162,6 +162,25 @@ Default categories: approval → Approve / Deny (destructive); input_needed → 
 
 Names only (S17's `NodeContactsSource` feeds them to `DictationTranscriber` as contextual strings): the fetch requests name, nickname and organization keys only, so phone numbers, emails and addresses are never read. Contacts without a name are skipped. The capability never prompts: without the Contacts grant it fails with `forbidden/permission_denied` (`details.permission: "contacts"`), which the Gateway treats as "no names"; the prompt comes from `permissions.request {permission: "contacts"}`.
 
+### Messages (J7)
+
+Code: `Sources/PsycheHelperCore/Messages/` (SQLite reader, chat.db queries, typedstream text, watcher, send script) and `Sources/PsycheHelperSystem/Messages/` (the capability group). Shapes: `packages/protocol/src/schemas/messages.ts`.
+
+| Capability | Side effect | Params → result |
+| --- | --- | --- |
+| `messages.status` | none | → `MessagesStatus {fullDiskAccess, automation, databasePresent, lastCursor}`; never prompts |
+| `messages.chats` | read | `limit` (≤ 200, default 50), `query?` → `{chats: [MessagesChat]}` newest first |
+| `messages.read` | read | `chatId?`, `handle?`, `sinceCursor?`, `limit` (≤ 200, default 20) → `{messages, cursor, hasMore}` ascending; without `sinceCursor` the newest `limit` |
+| `messages.watch` | read, streaming | `sinceCursor?` (default: now), `intervalMs` (500–60000, default 2000), `includeFromMe?` → `node.event`s `{type: "messages.new", messages, cursor}` / `{type: "messages.watch_error", reason, retryable}` until `node.cancel` |
+| `messages.send` | destructive, `recipient` | `to` (E.164 or email) or `chatId`, `text` (≤ 20000), `service?` (`imessage`/`sms`) → `{sent, recipient, sentAt}` + receipt (`message_send`, recipient and length, never the text) |
+
+- **Read-only chat.db.** `~/Library/Messages/chat.db` is opened `file:…?mode=ro` with bound parameters only; optional columns (`thread_originator_guid`, `date_edited`, `associated_message_emoji`, `is_sticker`) are probed per database. The cursor is `message.ROWID`. Dates are Apple-epoch nanoseconds (seconds on old rows).
+- **Full Disk Access** cannot be requested programmatically (security §12). Without it every read fails with `forbidden/full_disk_access_missing` and a message naming System Settings › Privacy & Security › Full Disk Access (`details.settingsURL`); `messages.watch` emits one `watch_error` and ends instead of spinning. A busy database backs off (doubling, ≤ 30 s) and emits one `watch_error` per failure streak. No `~/Library/Messages` at all is `not_found/database_missing` (Messages never set up), not a grant problem.
+- **Cursor safety.** Each message is returned once (one chat per row, the lowest `chat_id`, so merged SMS/iMessage threads do not duplicate). The watcher also reads rows not yet linked to a chat: one younger than 30 s holds the cursor before it until the next poll, an older one is skipped, so a late `chat_message_join` write cannot make a row vanish. `hasMore` means "newer rows after `cursor`" and is always false in newest-N mode.
+- **Bodies.** `message.text`, or when it is NULL (macOS 13+), the first `NSString` in `attributedBody`, read from the typedstream bytes without `NSUnarchiver` (no object instantiation from untrusted data). U+FFFC attachment placeholders are stripped. Tapbacks (`associated_message_type` 2000–2006 / 3000–3006) become `reaction`; inline replies `replyToGuid`. Everything from other people is untrusted content for the Gateway.
+- **Attachments are metadata only:** guid, transfer name (not the path), MIME type, UTI, size, `isVoiceNote` (CAF / `is_audio_message`), `isSticker`. No bytes, no paths.
+- **Send.** Refused without `approvalId` (`approval_required`): the Gateway asks with the `message_send` kind, `once` / `task` only (security §3.4). Automation for `com.apple.MobileSMS` is checked (and asked once, launching Messages hidden if needed); denied → `forbidden/automation_denied`. The script is in-process AppleScript with the text and recipient as escaped string literals (validated handle and chat-id grammars), inside `with timeout of 20 seconds` so a hung Messages cannot hold the main thread for the default two minutes. Only "no such chat / participant" errors (-1728, -1719) fall through to another chat-id spelling; any other failure is final, so a slow send is never sent twice. A 1:1 `chatId` is sent to its participant handle, because macOS 26+ chat GUIDs (`any;-;…`) do not always resolve through scripting; its account comes from the prefix, or for `any;` from the chat's last message service (SMS and RCS go through the SMS account); a group chat tries the `iMessage;+;` and `any;+;` spellings.
+- **Not yet:** sending attachments or CAF voice bubbles, reading attachment bytes, polls (26+). The Messages.app send has no message id; the watcher (with `includeFromMe`) sees the sent row.
 ### Dictation (system-wide dictation, J9 / Q2)
 
 | Capability | Side effect | Params → result |
