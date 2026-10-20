@@ -13,7 +13,8 @@ export const EXEC_DEFAULT_TIMEOUT_MS = 60_000;
 /** stdout and stderr are each capped at 128 KB (architecture §9). */
 export const EXEC_OUTPUT_CAP_BYTES = 128 * 1024;
 
-export type SandboxBackendKind = "apple-container" | "docker" | "podman" | "fake";
+/** `vm`: commands run in the sandbox Mac guest through its psyche-node (L1–L5). */
+export type SandboxBackendKind = "apple-container" | "docker" | "podman" | "fake" | "vm";
 export type SandboxNetwork = "none" | "proxy";
 
 export interface SandboxScope {
