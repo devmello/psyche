@@ -536,6 +536,20 @@ export class PolicyEngine {
       });
     }
 
+    // The owner's own inbox (#307): `notify` reaches only the owner, like the reply in their own
+    // chat, so it is not an action the owner approves: no card in any mode, tainted or not (an
+    // automation's deliverable is delivered, docs/02 §4.3). Plan mode, deny rules, prohibitions
+    // and the requester check above still apply, and so do user ask rules and hooks (floors).
+    if (
+      call.tool === "notify" &&
+      call.target?.kind === "recipient" &&
+      call.target.value === "owner" &&
+      se === "write" &&
+      floors.length === 0
+    ) {
+      return done("allow", "owner_inbox", undefined, { binding });
+    }
+
     // 4. Taint escalation.
     trace.push("step4:taint");
     const tk = targetKey(call);

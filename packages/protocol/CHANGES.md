@@ -23,6 +23,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 - New `mcp.status` (`operator.read`) → `{launcher: "srt" | "container" | "none", servers: McpServerStatus[]}` (`id`, `name`, `trust`, `transport`, `network`, `connected`): how the composed Gateway isolates MCP servers, for `psyche security audit`.
 - `sandbox.status` result gains optional `egress` (the host egress proxy for `network: "proxy"` sandboxes is running, security §5.2).
 - No fake changes: no contract changed.
+### v1 additive — 2026-10-20 (#275: forwarded and quoted text taints the turn)
+
+For S01 (channel turns), S02 (the loop starts the turn tainted with them).
+
+- New optional `StartTurnInput.taintSources`: untrusted content inside the input itself, such as forwarded or quoted third-party text in an owner's message. The turn starts tainted with these sources.
 
 ### v1 additive — 2026-10-20 (M3 hardening, issues #279 and #280)
 

@@ -255,3 +255,21 @@ struct ThreatModelTierTests {
         #expect((try? policy.authorize(.click, bundleId: "com.apple.Terminal", appName: "Terminal", approval: nil)) != nil)
     }
 }
+
+@Suite("send-equivalent keys (#270)")
+struct SendKeysTests {
+    @Test func returnAndMailSendChordsSendInMessagingApps() throws {
+        for app in ["com.apple.MobileSMS", "com.apple.mail", "com.tinyspeck.slackmacgap", "net.whatsapp.WhatsApp", "com.microsoft.Outlook"] {
+            #expect(SendKeys.isMessagingApp(app), "\(app)")
+        }
+        #expect(!SendKeys.isMessagingApp("com.apple.Notes") && !SendKeys.isMessagingApp(nil))
+        for chord in ["return", "enter", "cmd+return", "shift+return", "keypadenter", "cmd+shift+d"] {
+            #expect(SendKeys.isSendChord(try KeyChord.parse(chord)), "\(chord)")
+        }
+        for chord in ["tab", "cmd+d", "shift+d", "escape"] {
+            #expect(!SendKeys.isSendChord(try KeyChord.parse(chord)), "\(chord)")
+        }
+        #expect(SendKeys.textSends("see you\n") && SendKeys.textSends("a\rb") && SendKeys.textSends("x\u{2028}"))
+        #expect(!SendKeys.textSends("no line break"))
+    }
+}
