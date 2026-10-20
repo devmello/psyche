@@ -163,8 +163,7 @@
         "calendar.update",
         "calendar.delete",
         "file.write",
-        "exec"
-      ]
+        "exec", "message.send"]
     },
     "approvalKind": {
       "enum": [

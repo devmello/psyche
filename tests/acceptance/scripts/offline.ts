@@ -60,6 +60,7 @@ function scorecard(secrets: { ok: boolean; captures: number } | undefined): stri
   const scenarios = read("scenarios");
   const injection = read("injection");
   const resumability = read("resumability");
+  const scenariosM2 = read("scenarios-m2");
   const perf = read("perf");
   const a11y = read("a11y");
   const lives = readdirSync(existsSync(OUT) ? OUT : PKG)
@@ -141,8 +142,33 @@ function scorecard(secrets: { ok: boolean; captures: number } | undefined): stri
   }
   if (resumability !== undefined)
     L(
-      `| Resumability total | ${mark(resumability.ok as boolean)} | ${resumability.total} random kill points across the three scenarios |`,
+      `| Resumability total | ${mark(resumability.ok as boolean)} | ${resumability.total} random kill points: ${resumability.milestone1 ?? resumability.total} across V1, V2, V7${resumability.milestone2 === undefined ? "" : ` and ${resumability.milestone2} across V5, V6, V8, V9`} |`,
     );
+  L();
+  L("## Milestone 2 scenarios (scripted)");
+  L();
+  L(
+    "Authored by INT-3 in S18's format under `tests/acceptance/scenarios-m2` (validated by `tests/scenarios/validate.mjs --dir`). Real agent loop, broker and audit; the real documents pipeline (V5) and agent-core's `task.start` / `schedule` built-ins (V8, V9); tools without an agent registration on main are provisional fakes (`tests/acceptance/scenarios-m2/README.md`).",
+  );
+  L();
+  L("| Scenario | Result | Detail |");
+  L("| --- | --- | --- |");
+  for (const s of ((scenariosM2?.scenarios as Json[] | undefined) ?? []) as {
+    scenario: string;
+    hard: { pass: number; fail: number };
+    soft: { pass: number; fail: number };
+    known: { id: string; issue: string }[];
+    unexpected: string[];
+  }[]) {
+    const known =
+      s.known.length === 0
+        ? ""
+        : `; known: ${s.known.map((k) => `${k.id} (${k.issue})`).join(", ")}`;
+    L(
+      `| ${s.scenario} | ${mark(s.unexpected.length === 0)} | hard ${s.hard.pass}/${s.hard.pass + s.hard.fail}, soft ${s.soft.pass}/${s.soft.pass + s.soft.fail}${known} |`,
+    );
+  }
+  if (scenariosM2 === undefined) L("| V5, V6, V8, V9 | not run | run the offline pass |");
   L();
   L("## Performance budgets");
   L();

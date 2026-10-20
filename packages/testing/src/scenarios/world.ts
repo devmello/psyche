@@ -53,6 +53,8 @@ export interface Fixtures {
 }
 
 export type ToolRun = (params: Json, ctx: ToolCtx) => Promise<ToolResult>;
+/** A fake executor: the tool's registry row, its arguments and the call context. */
+export type ToolImpl = (info: ToolInfo, a: Json, ctx: ToolCtx) => Promise<ToolResult>;
 export interface ToolCtx {
   callId: string;
   taskId?: string;
@@ -311,7 +313,7 @@ export class World {
   }
 
   /** Executors by tool name; the runner wraps them with the binding re-check and fault hooks. */
-  impls(): Record<string, (info: ToolInfo, a: Json, ctx: ToolCtx) => Promise<ToolResult>> {
+  impls(): Record<string, ToolImpl> {
     const ok = (output: unknown, provenance: "trusted" | "untrusted" = "trusted"): ToolResult => ({
       output,
       provenance,
@@ -576,8 +578,9 @@ export class World {
   tools(
     infos: ToolInfo[],
     wrap?: (name: string, run: ToolRun) => ToolRun,
+    extra: Record<string, ToolImpl> = {},
   ): AgentToolRegistration[] {
-    const impls = this.impls();
+    const impls = { ...this.impls(), ...extra };
     return infos.flatMap((info) => {
       const impl = impls[info.name];
       if (impl === undefined) return [];

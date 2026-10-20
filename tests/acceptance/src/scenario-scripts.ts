@@ -28,6 +28,16 @@ export const SCENARIO_IDS = [
 ] as const;
 export type ScenarioId = (typeof SCENARIO_IDS)[number];
 
+/** Milestone 2 scenarios (INT-3, tests/acceptance/scenarios-m2), same format. */
+export const M2_SCENARIOS_DIR = join(ROOT, "tests/acceptance/scenarios-m2");
+export const M2_SCENARIO_IDS = [
+  "v5-permission-slip",
+  "v6-messages-voice-note",
+  "v8-subscription-audit",
+  "v9-weekly-review",
+] as const;
+export type M2ScenarioId = (typeof M2_SCENARIO_IDS)[number];
+
 /** Calls on the happy path by `expect`, but excluded by hand, with the reason. */
 const EXCLUDED: Record<string, Record<string, string>> = {
   "v1-inbox-triage": {
@@ -44,7 +54,7 @@ interface ToolInfo {
 }
 
 export interface ScenarioScript {
-  id: ScenarioId;
+  id: ScenarioId | M2ScenarioId;
   script: ResumabilityScript;
   tools: ResumabilityTool[];
   policy: PolicyConfig;
@@ -111,8 +121,9 @@ function onHappyPath(call: ScriptCall): boolean {
 }
 
 /** Loads a scenario and derives its happy-path script, tools and policy. */
-export function scenarioScript(id: ScenarioId): ScenarioScript {
-  const dir = join(SCENARIOS_DIR, id);
+export function scenarioScript(id: ScenarioId | M2ScenarioId): ScenarioScript {
+  const m2 = (M2_SCENARIO_IDS as readonly string[]).includes(id);
+  const dir = join(m2 ? M2_SCENARIOS_DIR : SCENARIOS_DIR, id);
   const sc = JSON.parse(readFileSync(join(dir, "scenario.json"), "utf8")) as Scenario & {
     resumability: { randomKills: number };
   };
