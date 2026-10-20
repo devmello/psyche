@@ -42,17 +42,6 @@ export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
     parts.push((s) =>
       composeBrowser(s, {
         record: env.PSYCHE_BROWSER_RECORD === "1",
-        // Real-Chrome mode (I13) is off unless the owner turns it on; each task still asks.
-        ...(env.PSYCHE_REAL_CHROME === "1"
-          ? {
-              realChrome: {
-                enabled: true,
-                ...(env.PSYCHE_REAL_CHROME_PROFILE === undefined
-                  ? {}
-                  : { profile: env.PSYCHE_REAL_CHROME_PROFILE }),
-              },
-            }
-          : {}),
         ...(devPorts.length === 0 ? {} : { devPreview: { ownerPorts: devPorts } }),
         ...(partition === "profile" || partition === "clean" || partition === "auto"
           ? { partition }

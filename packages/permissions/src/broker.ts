@@ -1082,19 +1082,6 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#bootId = this.#newId("boot");
     const pending = this.#store.listApprovals({ status: "pending" });
     for (const rec of pending) await this.#invalidate(rec, "gateway_restart");
-    // An approved `once` that was never dispatched belonged to a call parked in the previous
-    // process; that call is gone, so the approval ends too (S23 design-09). Found by fuzzing.
-    for (const rec of this.#store.listApprovals({ status: "approved" })) {
-      if (rec.approval.scopeGranted !== "once" || rec.consumedAt !== null || rec.revoked) continue;
-      rec.revoked = true;
-      this.#store.updateApproval(rec);
-      await this.#log(
-        "approval.invalidated",
-        { type: "system" },
-        { approvalId: rec.approval.id },
-        { reason: "gateway_restart_unconsumed" },
-      );
-    }
     for (const g of this.#store.listGrants()) {
       if (
         g.grant.scope === "session" &&

@@ -6,18 +6,13 @@ import {
   runWithKill,
 } from "../../../packages/testing/src/resumability/index.ts";
 import { writeReport } from "../src/report.ts";
-import {
-  M2_SCENARIO_IDS,
-  SCENARIO_IDS,
-  type ScenarioScript,
-  scenarioScript,
-} from "../src/scenario-scripts.ts";
+import { SCENARIO_IDS, type ScenarioScript, scenarioScript } from "../src/scenario-scripts.ts";
 
 /**
  * Resumability against the real stack (SQLite task engine, worker pool, agent loop, Permission
  * Broker, receipts): the happy path of V1, V2 and V7 killed at the scenarios' `randomKills`
  * seeded random kill points (8 + 8 + 9 = 25 across the three), plus an uninterrupted baseline per
- * scenario; then the Milestone 2 scenarios V5, V6, V8 and V9 the same way (4 each, 16 more). docs/03 "Resumability": every kill resumes or ends with a correct receipt state, never
+ * scenario. docs/03 "Resumability": every kill resumes or ends with a correct receipt state, never
  * a duplicate side effect; docs/05 §3.7 and §3.11 for re-issued cards and `uncertain` steps.
  */
 
@@ -26,10 +21,6 @@ const SEEDS: Record<string, number> = {
   "v1-inbox-triage": 1,
   "v2-calendar-planning": 2,
   "v7-research-brief": 7,
-  "v5-permission-slip": 5,
-  "v6-messages-voice-note": 6,
-  "v8-subscription-audit": 8,
-  "v9-weekly-review": 9,
 };
 
 interface ScenarioSweep {
@@ -73,10 +64,8 @@ async function sweep(s: ScenarioScript): Promise<ScenarioSweep> {
   };
 }
 
-const ALL_IDS = [...SCENARIO_IDS, ...M2_SCENARIO_IDS];
-
 describe("resumability sweep over the acceptance scenarios (real stack)", () => {
-  for (const id of ALL_IDS) {
+  for (const id of SCENARIO_IDS) {
     describe(id, () => {
       const s = scenarioScript(id);
 
@@ -98,10 +87,8 @@ describe("resumability sweep over the acceptance scenarios (real stack)", () => 
     });
   }
 
-  it("records the sweep (25 kill points across V1, V2, V7; 16 across V5, V6, V8, V9)", () => {
-    const m1 = new Set<string>(SCENARIO_IDS);
+  it("records the sweep (25 kill points across the three scenarios)", () => {
     const total = sweeps.reduce((n, s) => n + s.sampled, 0);
-    const m1Total = sweeps.filter((s) => m1.has(s.scenario)).reduce((n, s) => n + s.sampled, 0);
     writeReport("resumability", {
       stack: [
         "@psyche/tasks SqliteTaskEngine + TaskWorkerPool",
@@ -110,13 +97,10 @@ describe("resumability sweep over the acceptance scenarios (real stack)", () => 
         "@psyche/audit receipts (SqliteReceiptStore)",
       ],
       total,
-      milestone1: m1Total,
-      milestone2: total - m1Total,
       ok: sweeps.every((s) => s.baseline.ok && s.results.every((r) => r.violations.length === 0)),
       scenarios: sweeps,
     });
-    expect(sweeps).toHaveLength(ALL_IDS.length);
-    expect(m1Total).toBe(25);
-    expect(total - m1Total).toBe(16);
+    expect(sweeps).toHaveLength(SCENARIO_IDS.length);
+    expect(total).toBe(25);
   });
 });

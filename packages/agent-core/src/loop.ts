@@ -946,9 +946,7 @@ export class PsycheAgentLoop implements AgentLoop {
       messages: run.thread.messages,
       ...(tools.length === 0 ? {} : { tools }),
     };
-    // The thread lets the router apply its `/model` pin (strict) and attribute usage.
-    const callOptions = { signal: run.abort.signal, threadId: run.threadId, runId: run.runId };
-    for await (const ev of this.#o.provider.stream(request, callOptions)) {
+    for await (const ev of this.#o.provider.stream(request, { signal: run.abort.signal })) {
       switch (ev.type) {
         case "text_delta": {
           text += ev.text;

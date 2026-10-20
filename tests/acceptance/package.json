@@ -12,7 +12,6 @@
     "live": "vitest run --config vitest.live.config.ts"
   },
   "devDependencies": {
-    "@cantoo/pdf-lib": "2.11.1",
     "@psyche/agent-core": "workspace:*",
     "@psyche/audit": "workspace:*",
     "@psyche/browser": "workspace:*",
