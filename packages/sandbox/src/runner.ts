@@ -1094,7 +1094,8 @@ export class ContainerSandboxRunner implements SandboxRunner {
       "psyche-exec",
       execId,
       (timeoutMs / 1000).toFixed(3),
-      "--",
+      // With env, the pairs on stdin go to the trampoline, never to the wrapper shell.
+      envPairs.length > 0 ? "--env" : "--",
       ...argv,
     ];
     const proc = this.#driver.start(
