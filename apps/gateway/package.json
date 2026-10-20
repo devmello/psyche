@@ -37,7 +37,6 @@
     "@psyche/protocol": "workspace:*",
     "@psyche/sandbox": "workspace:*",
     "@psyche/scheduler": "workspace:*",
-    "@psyche/speech": "workspace:*",
     "@psyche/tasks": "workspace:*",
     "@psyche/vault": "workspace:*",
     "@sinclair/typebox": "0.34.52",

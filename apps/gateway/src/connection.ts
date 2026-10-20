@@ -72,10 +72,6 @@ export class Connection implements LiveConnection {
     this.#ctx = ctx;
   }
 
-  get open(): boolean {
-    return this.#phase === "paired";
-  }
-
   get phase(): Phase {
     return this.#phase;
   }
@@ -142,23 +138,6 @@ export class Connection implements LiveConnection {
     this.#outbound.clear();
     if (this.#identity?.role === "node") this.#ctx.nodes.detach(this);
     this.#transport.close(reason);
-    const deviceId = this.#identity?.deviceId;
-    if (deviceId !== undefined) {
-      const stillThere = [...this.#ctx.connections()].some(
-        (c) => c !== this && c.identity?.deviceId === deviceId && c.open,
-      );
-      if (!stillThere) {
-        for (const listener of this.#ctx.deviceDisconnected) {
-          try {
-            listener(deviceId);
-          } catch (err) {
-            this.#ctx.log.log("warn", "disconnect listener failed", {
-              code: PsycheError.from(err).code,
-            });
-          }
-        }
-      }
-    }
   }
 
   setEventFilter(filter: EventFilter | null): void {
@@ -372,7 +351,7 @@ export class Connection implements LiveConnection {
       this.#identity = identity;
       const sink: FrameSink = (frame) => this.#send(frame);
       this.#sink = sink;
-      this.#unsubscribe = ctx.bus.subscribe(identity.scopes, sink, identity.deviceId);
+      this.#unsubscribe = ctx.bus.subscribe(identity.scopes, sink);
       let nodeId: string | undefined;
       if (identity.role === "node" && this.#connectParams) {
         nodeId = ctx.nodes.attach(this, identity, this.#connectParams).id;

@@ -36,7 +36,20 @@ import { FakeModelProvider } from "../fakes/FakeModelProvider.ts";
 import { FakeNotifier } from "../fakes/FakeNotifier.ts";
 import { createIdGenerator } from "../ids.ts";
 import type { Json, ScriptCall, ScriptTurn } from "./types.ts";
-import { connectorOf, type Fixtures, type ToolInfo, type ToolRun, World } from "./world.ts";
+import {
+  connectorOf,
+  type Fixtures,
+  type ToolImpl,
+  type ToolInfo,
+  type ToolRun,
+  World,
+} from "./world.ts";
+
+/** Services agent-core's built-in tools need (`task.start`, `schedule`, `notify`, `memory`). */
+export type BuiltinServices = Pick<
+  Parameters<typeof createAgentLoop>[0],
+  "tasks" | "scheduler" | "notifier" | "memory"
+>;
 
 export interface StackOverrides {
   /** Wrap a fake connector executor (inside the broker and binding checks). */
@@ -48,6 +61,14 @@ export interface StackOverrides {
    * The loop runs `model` on it; script turns and script-divergence checks do not apply.
    */
   provider?: { provider: ModelProvider; model: string };
+  /**
+   * Extra fake executors by tool name, merged over the World's own (INT-3's Milestone 2
+   * scenarios: documents, messages, speech, goals). Called once, so their state survives a
+   * restart; a tool still needs a row in the scenario's tool registry to be registered.
+   */
+  impls?: (world: World, stack: Stack) => Record<string, ToolImpl>;
+  /** Services for agent-core's built-in tools; without them those tools are not offered. */
+  services?: (stack: Stack) => BuiltinServices;
 }
 
 export interface RunRec {
@@ -189,6 +210,8 @@ export class Stack {
   step = "";
   loop!: PsycheAgentLoop;
   #state = new InMemoryThreadStateStore();
+  #extra: Record<string, ToolImpl> = {};
+  #services: BuiltinServices = {};
 
   readonly thread: string;
   readonly mode: PermissionMode;
@@ -276,6 +299,8 @@ export class Stack {
     this.gateway = new GatewayBroker(this.broker, this);
     this.loopBroker = overrides.wrapBroker?.(this.gateway) ?? this.gateway;
     this.world = new World(fx, this.clock, this.notifier, () => this.loopBroker);
+    this.#extra = overrides.impls?.(this.world, this) ?? {};
+    this.#services = overrides.services?.(this) ?? {};
     this.#boot();
   }
 
@@ -290,6 +315,7 @@ export class Stack {
       stream: (req, opts) => this.#stream(gen, req, opts),
     };
     this.loop = createAgentLoop({
+      ...this.#services,
       provider,
       model: live?.model ?? "fake/main",
       broker: this.loopBroker,
@@ -325,7 +351,11 @@ export class Stack {
         },
       },
     });
-    for (const t of this.world.tools([...this.toolInfo.values()], this.overrides.wrapTool))
+    for (const t of this.world.tools(
+      [...this.toolInfo.values()],
+      this.overrides.wrapTool,
+      this.#extra,
+    ))
       this.loop.registry.register(t);
   }
 
@@ -370,7 +400,13 @@ export class Stack {
     this.approvalRun.set(id, runId);
   }
 
-  startRun(text: string, taskId: string, runId = `run_${this.step}`): RunRec {
+  /** `unattended`: an automation or background run (no one is there to answer a card). */
+  startRun(
+    text: string,
+    taskId: string,
+    runId = `run_${this.step}`,
+    mode: "attended" | "unattended" = "attended",
+  ): RunRec {
     const rec: RunRec = {
       runId,
       taskId,
@@ -388,7 +424,7 @@ export class Stack {
         runId,
         taskId,
         input: { text },
-        mode: "attended",
+        mode,
         permissionMode: this.mode,
       });
       for await (const e of turn) {

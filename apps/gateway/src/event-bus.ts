@@ -28,8 +28,6 @@ export function eventScope(event: EventName): DeviceScope | null {
 interface Subscriber {
   scopes: readonly DeviceScope[];
   filter: EventFilter | null;
-  /** The paired device behind the sink, for events meant for one device (`publishToDevice`). */
-  deviceId: string | null;
 }
 
 function matches(filter: EventFilter | null, event: string, threadId: string | undefined): boolean {
@@ -78,12 +76,8 @@ export class EventBus {
     return this.#stateVersion;
   }
 
-  subscribe(
-    scopes: readonly DeviceScope[],
-    sink: FrameSink,
-    deviceId: string | null = null,
-  ): () => void {
-    this.#subscribers.set(sink, { scopes, filter: null, deviceId });
+  subscribe(scopes: readonly DeviceScope[], sink: FrameSink): () => void {
+    this.#subscribers.set(sink, { scopes, filter: null });
     return () => this.#subscribers.delete(sink);
   }
 
@@ -110,22 +104,6 @@ export class EventBus {
     for (const [sink, sub] of this.#subscribers) {
       if (requiredScope !== null && !sub.scopes.includes(requiredScope)) continue;
       if (!matches(sub.filter, event, threadId)) continue;
-      sink(frame);
-    }
-  }
-
-  /**
-   * Delivers an event to one device's connections only (read-aloud audio, dictation segments:
-   * they belong to the device that asked). Scope and `events.subscribe` filters still apply.
-   */
-  publishToDevice<E extends EventName>(deviceId: string, event: E, payload: EventPayload<E>): void {
-    this.#seq += 1;
-    const requiredScope = eventScope(event);
-    const frame = JSON.stringify(eventFrame(event, payload, this.#seq, this.#stateVersion));
-    for (const [sink, sub] of this.#subscribers) {
-      if (sub.deviceId !== deviceId) continue;
-      if (requiredScope !== null && !sub.scopes.includes(requiredScope)) continue;
-      if (!matches(sub.filter, event, undefined)) continue;
       sink(frame);
     }
   }

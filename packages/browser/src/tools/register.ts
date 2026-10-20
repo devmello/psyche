@@ -16,6 +16,7 @@ import {
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import type { DevPreviewGate } from "../devpreview/gate.ts";
 import { tryOrigin } from "../origin/canonical.ts";
+import type { OriginPolicy } from "../origin/policy.ts";
 import { redactUrlsIn } from "../origin/redact-url.ts";
 import type { ActionTarget, BrowserDriverEx, ElementMeta } from "../types.ts";
 import {
@@ -65,11 +66,32 @@ export interface BrowserToolDeps {
    */
   containsSecret?: (text: string) => boolean;
   /**
+   * Real-Chrome mode (feature I13): the owner's Psyche Chrome profile, attached per session
+   * after a `policy_change` approval. Without it `browser.use_real_chrome` is unavailable.
+   */
+  realChrome?: RealChromeDeps;
+  /**
+   * The task's origin policy, shared by all of its sessions (web, real Chrome). An approved new
+   * origin is granted here; without it the web session's policy is used.
+   */
+  taskPolicy?(callId: string): OriginPolicy;
+  /**
    * Ask the owner to take a tab over (S20: 2FA codes, personal details, logins): show the
    * reason in the pane and notify them. Returns a function that withdraws the request. Without
    * it `browser.request_control` is unavailable (no pane to hand control in).
    */
   requestControl?(request: ControlRequest): Promise<(() => Promise<void> | void) | undefined>;
+}
+
+export interface RealChromeDeps {
+  /** The call's real-Chrome session, if this task or thread already attached one. */
+  attached(callId: string): string | undefined;
+  /** Launch (or reuse) Chrome and open this task's session there, sharing its origin policy. */
+  attach(callId: string): Promise<string>;
+  /** End this task's real-Chrome session; Chrome closes when no session uses it. */
+  detach(callId: string): Promise<boolean>;
+  /** True when the tab lives in real Chrome. */
+  owns(tabId: string): boolean;
 }
 
 export interface ControlRequest {
@@ -719,6 +741,14 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       describe: (p) => ({ summary: `Ask the owner to take over: ${p.reason.slice(0, 120)}` }),
       run: async (p, { callId, signal }) => {
         const tabId = await sessionTab(callId, p.tabId);
+        if (deps.realChrome?.owns(tabId) === true) {
+          // Real Chrome is the owner's own window: there is no pane to hand over.
+          throw new PsycheError(
+            "unavailable",
+            "this tab is in your Chrome window, which you can use directly; ask in chat instead",
+            { details: { reason: "real_chrome" } },
+          );
+        }
         const sessionId = d.sessionOf(tabId);
         if (deps.requestControl === undefined || sessionId === undefined) {
           throw new PsycheError("unavailable", "there is no browser pane to hand control in", {
@@ -751,6 +781,71 @@ export function browserToolDefs(deps: BrowserToolDeps) {
           await withdraw?.();
         }
       },
+    }),
+    def({
+      name: "browser.use_real_chrome",
+      description:
+        "Open a URL in the owner's Psyche Chrome profile (real-Chrome mode): a separate Chrome where the owner is signed in and has extensions such as 1Password. Use it only when the embedded browser cannot do the job (a store extension, a site that needs the owner's existing sign-in there). The owner approves it once per task on their device. Origin approvals, the vault and every other rule stay the same; the tab works with the other browser.* tools.",
+      schema: Type.Object({
+        url: Url,
+        reason: Type.String({ minLength: 1, maxLength: 200 }),
+      }),
+      sideEffect: "destructive",
+      rerun: true,
+      describe: (p) => ({
+        sideEffect: "destructive",
+        kind: "policy_change",
+        target: { kind: "app", value: "chrome" },
+        summary: `Use your Psyche Chrome profile (your sign-ins and extensions there) for this task: ${p.reason.slice(0, 160)}`,
+      }),
+      run: async (p, { callId, signal }) => {
+        const rc = deps.realChrome;
+        if (rc === undefined) {
+          throw new PsycheError("unavailable", "real-Chrome mode is not enabled on this Gateway", {
+            details: { reason: "no_real_chrome" },
+          });
+        }
+        let sessionId = rc.attached(callId);
+        if (sessionId === undefined) {
+          const ctx = deps.context(callId);
+          // Per-session consent (security §6): once, on the owner's device, with presence.
+          if (ctx.approvalId === undefined) {
+            const scope = ctx.taskId ?? `thread:${ctx.threadId}`;
+            const outcome = await approvals.check(
+              {
+                tool: "browser.use_real_chrome",
+                kind: "policy_change",
+                sideEffect: "destructive",
+                target: { kind: "app", value: "chrome" },
+                summary: `Use your Psyche Chrome profile (your sign-ins and extensions there) for this task: ${p.reason.slice(0, 160)}`,
+                details: { mode: "real_chrome", reason: p.reason, taskId: ctx.taskId ?? null },
+                bindingFields: { mode: "real_chrome", scope },
+                grantKey: `real_chrome|${scope}`,
+              },
+              ctx,
+              signal,
+            );
+            if (!outcome.ok) throw gateError(outcome);
+          }
+          sessionId = await rc.attach(callId);
+        }
+        const tab = await d.openTab(sessionId, p.url);
+        return {
+          tab,
+          browser: "real_chrome",
+          hint: "This tab is in the owner's Psyche Chrome window. Use the other browser.* tools on it; credential fills still go through browser.fill_credential, and 1Password may fill by itself after the owner approves there. Call browser.stop_real_chrome when done.",
+        };
+      },
+    }),
+    def({
+      name: "browser.stop_real_chrome",
+      description:
+        "End this task's real-Chrome session. Chrome closes, and its debugging port with it, once no task uses it.",
+      schema: Type.Object({}),
+      sideEffect: "none",
+      run: async (_p, { callId }) => ({
+        stopped: (await deps.realChrome?.detach(callId)) === true,
+      }),
     }),
     def({
       name: "browser.console",
@@ -1004,7 +1099,10 @@ async function withOriginApprovals(
         signal,
       );
       if (!outcome.ok) throw gateError(outcome);
-      deps.driver.policy(await deps.session(callId)).grant(origin, "read");
+      (deps.taskPolicy?.(callId) ?? deps.driver.policy(await deps.session(callId))).grant(
+        origin,
+        "read",
+      );
       if (typeof tabId === "string") {
         const r = await deps.driver.retryBlocked(tabId).catch(() => "unchanged" as const);
         if (t.rerun !== true) return { ok: true, approvedOrigin: origin, resumed: r };

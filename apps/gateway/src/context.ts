@@ -5,6 +5,7 @@ import type {
   EventName,
   EventPayload,
   MemoryStore,
+  ModelRef,
   PermissionBroker,
 } from "@psyche/protocol";
 import type { PairedIdentity, PeerInfo } from "./auth.ts";
@@ -15,6 +16,16 @@ import type { Logger } from "./log.ts";
 import type { NodeRegistry } from "./nodes/registry.ts";
 import type { RateLimiter } from "./rate-limit.ts";
 import type { SessionController } from "./session/controller.ts";
+
+/**
+ * Model policy for thread writes (architecture §4.4, security §7.2): which models may run a
+ * thread in `auto`, and the model router's per-thread pin. The composition root supplies it.
+ */
+export interface ThreadModelPolicy {
+  allowsAutoMode(ref: ModelRef): boolean;
+  /** Absent when the provider is not the model router: the pin is then only recorded. */
+  setThreadModel?(threadId: string, ref: ModelRef | undefined): Promise<void>;
+}
 
 /** Limits from security §10, overridable in tests. */
 export interface GatewayLimits {
@@ -47,8 +58,6 @@ export interface LiveConnection {
   readonly peer: PeerInfo;
   readonly identity: PairedIdentity | null;
   readonly pendingDeviceId: string | null;
-  /** Paired and not closed. */
-  readonly open: boolean;
   close(reason: string): void;
   setEventFilter(filter: EventFilter | null): void;
   /** Gateway → peer request (node protocol); resolves with the `res` payload. */
@@ -84,8 +93,8 @@ export interface GatewayContext {
    * the composition root wires `PsychePermissionBroker.revokeGrantsByDevice`).
    */
   readonly onDeviceRevoked: ((deviceId: string) => Promise<unknown>) | null;
-  /** Called with a device id when its last paired connection closes (parts register here). */
-  readonly deviceDisconnected: Set<(deviceId: string) => void>;
+  /** Null without a composition root: a thread can then never be created in `auto`. */
+  readonly threadModels: ThreadModelPolicy | null;
   serverOrigin(): string;
   connections(): Iterable<LiveConnection>;
 }
