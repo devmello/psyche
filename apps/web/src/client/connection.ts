@@ -229,8 +229,7 @@ export class GatewayConnection {
       void handshake
         .onFrame(frame)
         .then((step) => {
-          // Callable before anyone hears "paired": a status listener may call at once (the web
-          // client reads the persona on pairing; it used to be refused as "can't reach").
+          // Callable before anyone hears "paired": a status listener may call at once.
           const paired = step.status?.type === "paired";
           if (paired) this.paired = true;
           if (step.status) this.dispatch(step.status);

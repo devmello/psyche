@@ -41,6 +41,11 @@ export const ChatMethods = {
       content: MessageContent,
       attachments: Type.Optional(Type.Array(Id, { maxItems: 32, description: "Library item ids" })),
       mode: Type.Optional(QueueMode),
+      /**
+       * Quote-reply (feature E5): the message this one answers, in the same thread. Stored as
+       * `Message.replyToMessageId`; the agent sees the quoted text ahead of the new message.
+       */
+      replyToMessageId: Type.Optional(Id),
     }),
     result: ChatSendResult,
     scope: "operator.write",

@@ -9,6 +9,7 @@ import {
   PsycheError,
   type Task,
   type TaskEngine,
+  type WatchConfig,
 } from "@psyche/protocol";
 import { ulid } from "ulid";
 import { PROACTIVITY_BUDGET } from "../budget.ts";
@@ -34,6 +35,33 @@ import { GoalStore } from "./store.ts";
  */
 
 export const GOAL_CHECKIN_JOB = "goal-checkin";
+export const GOAL_WATCH_JOB = "goal-watch";
+/** Default watch interval (the scheduler backs off on failures: interval × 2^failures, ≤ 24 h). */
+export const DEFAULT_WATCH_EVERY = "PT6H";
+
+export interface GoalWatchInput {
+  url: string;
+  check: WatchConfig["check"];
+  selector?: string;
+  text?: string;
+  threshold?: number;
+  /** ISO-8601 duration between checks; default every 6 hours. */
+  every?: string;
+  title?: string;
+}
+
+export interface GoalWatchStatus {
+  automationId: string;
+  title: string;
+  url: string | null;
+  check: WatchConfig["check"] | null;
+  enabled: boolean;
+  lastStatus: string | null;
+  lastRunAt: string | null;
+  nextRunAt: string | null;
+  /** The automation was deleted elsewhere (Upcoming); the link stays until unlinked. */
+  missing: boolean;
+}
 
 export interface GoalDetail {
   goal: Goal;
@@ -46,6 +74,8 @@ export interface GoalProgress {
   milestones: { done: number; total: number; next: GoalMilestone | null };
   tasks: { total: number; byStatus: Record<string, number>; missing: number };
   links: { automations: number; watches: number };
+  /** Linked watches with their last result (UI §3.11 "Watches"). */
+  watches: GoalWatchStatus[];
 }
 
 export interface GoalCandidateInput {
@@ -292,14 +322,99 @@ export class GoalsService {
       }
       byStatus[task.status] = (byStatus[task.status] ?? 0) + 1;
     }
+    const watches: GoalWatchStatus[] = [];
+    for (const l of detail.links) {
+      if (l.watchId == null) continue;
+      const a = await this.#o.scheduler.get(l.watchId);
+      watches.push({
+        automationId: l.watchId,
+        title: a?.title ?? "(deleted watch)",
+        url: a?.watch?.url ?? null,
+        check: a?.watch?.check ?? null,
+        enabled: a?.enabled ?? false,
+        lastStatus: a?.lastStatus ?? null,
+        lastRunAt: a?.lastRunAt ?? null,
+        nextRunAt: a?.nextRunAt ?? null,
+        missing: a === undefined,
+      });
+    }
     return {
       milestones: { done, total: detail.milestones.length, next },
       tasks: { total: detail.taskIds.length, byStatus, missing },
       links: {
         automations: detail.links.filter((l) => l.automationId != null).length,
-        watches: detail.links.filter((l) => l.watchId != null).length,
+        watches: watches.length,
       },
+      watches,
     };
+  }
+
+  // --- watches (O3) ----------------------------------------------------------------------------
+
+  /**
+   * A watch for a goal ("registration page - price", UI §3.11): a scheduler `watch` automation
+   * linked through `goal_links.watch_id` (the automation's id). The scheduler checks the page
+   * through its injected fetch, alerts once per transition (a price drop produces one alert),
+   * backs off on failures and never starts the agent. It runs only while the goal is active.
+   */
+  async addWatch(
+    goalId: string,
+    input: GoalWatchInput,
+  ): Promise<{ automation: Automation; detail: GoalDetail }> {
+    const goal = this.#confirmed(this.#goal(goalId));
+    const automation = await this.#o.scheduler.create({
+      kind: "watch",
+      title: input.title?.trim() || `Watch for "${goal.title}"`,
+      schedule: input.every ?? DEFAULT_WATCH_EVERY,
+      timezone: this.#o.timezone ?? "UTC",
+      sessionTarget: "isolated",
+      delivery: {},
+      prompt: jobMarker(GOAL_WATCH_JOB, goal.id),
+      enabled: goal.status === "active",
+      scratch: null,
+      watch: {
+        url: input.url,
+        check: input.check,
+        ...(input.selector === undefined ? {} : { selector: input.selector }),
+        ...(input.text === undefined ? {} : { text: input.text }),
+        ...(input.threshold === undefined ? {} : { threshold: input.threshold }),
+      },
+    });
+    try {
+      await this.link({ goalId, watchId: automation.id });
+    } catch (e) {
+      await this.#o.scheduler.remove(automation.id);
+      throw e;
+    }
+    return { automation, detail: await this.get(goalId) };
+  }
+
+  /** Unlinks a watch and deletes its automation. */
+  async removeWatch(goalId: string, automationId: string): Promise<GoalDetail> {
+    const goal = this.#goal(goalId);
+    if (!this.store.links(goalId).some((l) => l.watchId === automationId)) {
+      throw new PsycheError("not_found", "watch not linked to this goal");
+    }
+    this.store.unlink({ goalId, taskId: null, automationId: null, watchId: automationId });
+    if ((await this.#o.scheduler.get(automationId)) !== undefined) {
+      await this.#o.scheduler.remove(automationId);
+    }
+    const touched: Goal = { ...goal, updatedAt: this.#now() };
+    this.store.update(touched);
+    this.#emit(touched);
+    return this.get(goalId);
+  }
+
+  /** Linked watches run only while the goal is active (pause, done and archive stop them). */
+  async #syncWatches(goal: Goal): Promise<void> {
+    const enabled = goal.status === "active";
+    for (const l of this.store.links(goal.id)) {
+      if (l.watchId == null) continue;
+      const a = await this.#o.scheduler.get(l.watchId);
+      if (a !== undefined && a.enabled !== enabled) {
+        await this.#o.scheduler.update(a.id, { enabled });
+      }
+    }
   }
 
   // --- change ----------------------------------------------------------------------------------
@@ -323,6 +438,7 @@ export class GoalsService {
       this.store.update(goal);
       throw e;
     }
+    if (patch.status !== undefined && patch.status !== goal.status) await this.#syncWatches(next);
     this.#emit(this.#goal(goalId));
     return this.get(goalId);
   }
@@ -334,6 +450,7 @@ export class GoalsService {
     const next: Goal = { ...goal, status: "archived", archivedAt: now, updatedAt: now };
     this.store.update(next);
     await this.#syncCheckin(next);
+    await this.#syncWatches(next);
     const stored = this.#goal(goalId);
     this.#emit(stored);
     return stored;

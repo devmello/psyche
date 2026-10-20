@@ -4,7 +4,7 @@
 
 | File | What it wires |
 | --- | --- |
-| `index.ts` | agent loop, model router or injected provider, Permission Broker + SQLite store, audit log, memory (with flush), task engine + worker pool, scheduler, notifier; mounts package handlers; forwards package events to the bus; applies `permissions.policy` changes |
+| `index.ts` | agent loop, model router or injected provider, Permission Broker + SQLite store, audit log, memory (with flush), task engine + worker pool, scheduler (watches through `publicFetch` until S09's fetch), notifier; mounts package handlers; forwards package events to the bus; applies `permissions.policy` changes |
 | `handlers.ts` | adapters from package handler maps to `HandlerDef`; `questions.*` over the loop and the task engine |
 | `approval-tokens.ts` | in-memory delivery of single-use answer tokens to the caller's surface (security §3.7) |
 | `file-tools.ts` | stand-in `read_file` / `write_file` / `list_dir` until P9 ships (#49) |
@@ -15,7 +15,9 @@
 | `connectors.ts` | `ConnectorRegistry` with Google, token vault stand-in, sync timer, `connectors.list` / `get` |
 | `channels.ts` | `ChannelService` with Telegram and WebChat, inbound → chat turns, replies, `channels.*`, approvals over chat |
 | `helper.ts` | approvals on the Mac: cards to a connected helper as `notify.show`, `notify.response` → broker answers on the `notification` surface, the helper's Touch ID `PresenceVerifier` (signed assertion, #84) |
+| `backup.ts` | `backup.list` / `create` / `verify` / `delete` with `@psyche/backup` (SQLite online backup, no downtime; restore stays in the CLI) and `logs.tail` over `logs/gateway*.log` with every line redacted (S22) |
 | `proactive.ts` | S15 goals (`goals.*`) and the Feed (`feed.*`, sources from the `feed.sources` setting, the daily brief at 07:00); check-ins and briefs run in-process through `withProactiveJobs`; the heartbeat on a launcher bounded by `HEARTBEAT_TASK_BUDGET` (O2) |
+| `proactive.ts` | S15 goals (`goals.*`), the Feed (`feed.*`, sources from the `feed.sources` setting, the daily brief at 07:00) and Ideas (`ideas.*`, mining at 02:30, delivery window at 09:00, accepted ideas as task cards in the main thread); check-ins, briefs and idea jobs run in-process through `withProactiveJobs`; the heartbeat on a launcher bounded by `HEARTBEAT_TASK_BUDGET` (O2) |
 | `parts.ts` | the parts `psyched` mounts from its environment |
 
 Approvals that need Touch ID or a passkey are refused until a verifier accepts a real assertion (fail closed): helper assertions need a registered presence key, which nothing registers yet (#84); passkeys need S01 (#79).

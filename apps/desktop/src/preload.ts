@@ -84,6 +84,9 @@ const bridge = {
     show: (n: { title: string; body: string; route?: string }) =>
       ipcRenderer.send(IPC.notifyShow, n),
   },
+  dialogs: {
+    pickFolder: (opts?: { title?: string }) => invoke(IPC.dialogPickFolder, opts ?? {}),
+  },
 };
 
 export type PsycheBridge = typeof bridge;

@@ -71,7 +71,7 @@ The unit restarts on failure, sets `UMask=0077`, `NoNewPrivileges`, and passes `
 
 ## Backups (U4)
 
-Archives hold `state/` (SQLite and the channel sessions in `state/channels/`), `workspace/`, `vault/`, `library/`, `audit/` and `config.json`, with a SHA-256 manifest, gzip'd and encrypted with [age](https://age-encryption.org) (passphrase or X25519 recipients). Not included: the device keys in `cli/`, sockets in `run/`, logs, browser profiles, sandbox workspaces, VM disks. A live WAL database is not a consistent snapshot and the CLI never opens the database, so a backup stops the Gateway for its duration.
+Archives hold `state/` (SQLite and the channel sessions in `state/channels/`), `workspace/`, `vault/`, `library/`, `audit/` and `config.json`, with a SHA-256 manifest, gzip'd and encrypted with [age](https://age-encryption.org) (passphrase or X25519 recipients). Not included: the device keys in `cli/`, sockets in `run/`, logs, browser profiles, sandbox workspaces, VM disks. The running Gateway makes backups itself without downtime (`backup.create`: SQLite's online backup API on its own connection); that is what Settings › Backups and `psyche backup create` use. The CLI never opens the database, so its offline path (`--out`, `--stop`, or no Gateway running) needs the Gateway stopped. Restoring always goes through the CLI with the Gateway stopped.
 
 ```bash
 # Mac or systemd host

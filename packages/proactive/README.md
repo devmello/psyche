@@ -15,8 +15,8 @@ Permission Broker).
 | --- | --- | --- |
 | Goals, check-ins, confirm-first candidates, `goals.*`, heartbeat budget | O9, O2 | **done** (PR 1) |
 | Interest ledger, Feed pipeline, briefings, `feed.*` | O5, O6 | **done** (PR 2) |
-| Ideas pipeline, acceptance model, delivery windows, `ideas.*` | O7, O8 | after the Feed |
-| Goal watches, budget audit | O3 | last |
+| Ideas pipeline, acceptance model, delivery windows, `ideas.*` | O7, O8 | **done** (PR 3) |
+| Goal watches, budget audit | O3 | **done** (PR 4) |
 
 ## Public API (`src/index.ts`)
 
@@ -37,6 +37,13 @@ Permission Broker).
   - `get`, `list`, `progress`, `update` (title, category, status `active | paused | done`, plan,
     cadence), `archive`, `milestone` (add / edit / complete / remove), `link` (exactly one of
     task, automation, watch; `unlink`).
+  - `addWatch(goalId, { url, check, selector?, text?, threshold?, every = "PT6H", title? })`: a
+    scheduler `watch` automation linked as `goal_links.watch_id` (the automation's id). The
+    scheduler fetches through its injected `watchFetch`, alerts once per transition (a price
+    drop produces one `proactive` alert), backs off on failures (interval × 2^failures, ≤ 24 h)
+    and never starts the agent. Linked watches run only while the goal is active (pause, done
+    and archive disable them). `removeWatch(goalId, automationId)` unlinks and deletes;
+    `progress()` lists each watch with its last status (`missing` when deleted elsewhere).
   - `checkinJob()`: the in-process job behind check-in automations. It raises at most one
     `reminder` (dedupe key `goal:<id>:checkin`, route `/goals/<id>`) with milestone and task
     progress and reports `no_reply` to the scheduler, so nothing else is delivered.
@@ -129,6 +136,64 @@ today's daily note (`agent` provenance). Owner edits win: the file is re-read be
 - Every post's `reasons` lists the matched interest and its contribution, recency, cluster size,
   rerank position, exploration and who wrote it (`written by the model` / `templated (…)`).
 
+### Ideas (O7, O8)
+
+```
+nightly mine job (02:30) ─▶ miners
+   (a) tool sequences in the owner's main / side threads (3+ runs, 2+ days) → SKILL.md drafts
+   (b) daily notes ([owner] only): "I need to …" on 2+ days → task ideas;
+       "I want to …" on 2+ days → GoalsService.propose (confirm-first goal candidates)
+       active goals: no cadence → check-in idea; no task on the next milestone → plan idea
+   (c) connector signals (S09): unanswered mail ≥ 3 days, subscriptions, upcoming trips
+ ─▶ suppression ─▶ queued (delivered_at NULL)
+delivery window (09:00) ─▶ refit the acceptance model ─▶ p ≥ 0.3, best first, ≤ 5
+ ─▶ delivered (ideas.list) + one `proactive` notification (dedupe key ideas:window)
+ideas.accept ─▶ Task in the main thread (createdFrom: idea) │ Automation │ goal cadence
+ideas.dismiss ─▶ suppression + a training example
+```
+
+- `IdeasService({ db, clock, scheduler, tasks, mainThread, memory?, goals?, notifier?, signals?,
+  newId?, timezone?, onEvent?, perWindow?, minAcceptanceProb?, sequences?, onError? })`:
+  `mine()`, `deliver()`, `list({ status?, cursor?, limit? })` (delivered ideas only; default
+  `proposed`), `accept({ ideaId, recurring?, brief?, schedule?, timezone?, threadId? })`,
+  `dismiss(ideaId, reason)`, `model()`, `stats()` (the ADR-012 acceptance-rate metric),
+  `ensureSchedules({ mine?, windows?, timezone? })`, `job()`.
+- `createIdeaHandlers(ideas)`: `ideas.list | ideas.accept | ideas.dismiss`.
+- Miners and helpers: `loadToolRuns`, `findSequences`, `sequenceCandidates`, `skillDraft`,
+  `loadOwnerNotes`, `mineNotes`, `mineGoals`, `signalCandidates`, `fitAcceptanceModel`.
+
+#### Suppression rules
+
+| History of the same pattern (or source) | New candidate |
+| --- | --- |
+| open (queued or delivered) | not queued |
+| accepted / edited | never again |
+| dismissed `not_interested` | never again |
+| dismissed `never_from_source` | nothing from that source again |
+| dismissed `not_now`, or expired | not for 7 days, then allowed |
+
+#### Acceptance model
+
+Logistic regression over `bias`, `kind`, `source`, source family (`connector`), effort
+(log-scaled minutes) and evidence count (log-scaled), fit by batch gradient descent (300
+iterations, rate 0.5, L2 0.02) on delivered, decided ideas before every window. Labels: accepted /
+edited 1 (weight 1); dismissed `not_interested` / `never_from_source` 0 (1); `not_now` 0 (0.3);
+expired after delivery 0 (0.2). No history → 0.5. Below `minAcceptanceProb` (0.3) an idea is
+held for a later window until it expires (14 days).
+
+#### Accepting
+
+- `task` action → `TaskEngine.create({ threadId: main, createdFrom: "idea" })`, so a task card
+  appears in chat (O8). An idea whose evidence is untrusted (connector text) starts tainted
+  (`taintSources: [{ sourceKind: "idea", origin }]`); its brief quotes the untrusted values and
+  says they are data, and tells the task to draft, not send.
+- `automation` action (subscription audit) → a scheduler automation whose prompt is template
+  text only; `recurring: false` gives the one-off task instead.
+- `recurring: true` on a task idea needs a `schedule`; an untrusted idea also needs the owner's
+  own `brief` (`conflict` otherwise), so account text never becomes a standing instruction.
+- `goal_cadence` → `goals.update({ cadence })`; plan ideas link their task to the goal.
+- A `brief` marks the idea `edited`.
+
 ## Gateway wiring
 
 `composeProactive({ db, clock, scheduler, notifier, tasks, publish, timeZone, logger })` in
@@ -136,7 +201,14 @@ today's daily note (`agent` provenance). Owner edits win: the file is re-read be
 scheduler's launcher (`proactive.launcher(createTaskLauncher(...), pool)`) and syncs check-ins on
 `start()`.
 
-## Invariants (tested in `test/`)
+## Invariants (tested in `test/`; `test/budget.test.ts` audits them together)
+
+`budget.test.ts` runs one simulated day on one real scheduler (heartbeat every 30 min in active
+hours, a goal with a daily check-in and a price watch, the 07:00 brief, nightly idea mining and
+the 09:00 window) and checks every bound below at once: one heartbeat notification, one reminder,
+one watch alert, one briefing, one ideas notification, at most five interruptions in all, every
+notification routed and resolvable, no channel send, no task, no agent run except the
+heartbeat's light runs.
 
 - **Bounded.** Candidates stop at `maxOpenCandidates`; a check-in raises one reminder however
   many ticks it coalesced; the heartbeat task carries `maxTokens: 5000` and an overspending run
@@ -159,14 +231,20 @@ scheduler's launcher (`proactive.launcher(createTaskLauncher(...), pool)`) and s
 ## How this package maps to the docs
 
 - Tables `feed_posts`, `ideas`, `goals`, `goal_milestones`, `goal_links` (data model §8) in
-  `packages/db/migrations/202610201700_proactive_init.sql`, mirrored in `packages/db/src/schema-s15.ts`.
+  `packages/db/migrations/202610201700_proactive_init.sql`, mirrored in `packages/db/src/schema-s15.ts`;
+  `202610210900_proactive_ideas-delivery.sql` adds `ideas.source`, `action`, `untrusted`,
+  `delivered_at`.
   Additions: `feed_posts.exploration`, `feed_posts.batch_id`, `ideas.pattern_key`,
   `ideas.dismiss_reason`, `goal_milestones.position`, `goal_links.created_at`.
 - Check-ins arrive as `reminder` notifications (UI §3.11); the confirm card reads `plan.evidence`.
 
 ## What is stubbed
 
-- Ideas (PR 3) and goal watches (PR 4).
+- Ideas: connector signals need S09's provider (`signals`), nothing supplies it yet. Skill drafts
+  are saved by the accepted task as `draft-unverified`; the replay verification and install go
+  through S16's skill loader (`skill_install` approval) and are not automated here.
+- `goal.*`, `idea.*`, `feed.*` agent tools (architecture §4.3) are not registered yet; the
+  surfaces are reachable through the client methods.
 - Bluesky Jetstream, saved Library items and connector summaries are `providedSource` hooks;
   nothing supplies them yet (S13 Library, S09 connectors). Paid search is wired as `search` but
   no provider is configured in the Gateway.
