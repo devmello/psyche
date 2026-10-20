@@ -813,12 +813,44 @@
         "sideEffecting": false
       },
       {
+        "description": "The staged custom connector (full manifest text, findings, diff) for the trust card.",
+        "name": "connectors.getCustomProposal",
+        "params": "#/$defs/ConnectorsGetCustomProposalParams",
+        "result": "#/$defs/ConnectorsGetCustomProposalResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: enables a staged custom connector; approval_required without its approved skill_install.",
+        "name": "connectors.installCustom",
+        "params": "#/$defs/ConnectorsInstallCustomParams",
+        "result": "#/$defs/ConnectorsInstallCustomResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Lists configured connectors.",
         "name": "connectors.list",
         "params": "#/$defs/ConnectorsListParams",
         "result": "#/$defs/ConnectorsListResult",
         "scope": "operator.read",
         "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: validates and scans a custom connector manifest (or one derived from OpenAPI) and opens a device-only skill_install approval (details.kind connector); invalid_params with details.violations when the manifest is unsafe.",
+        "name": "connectors.proposeCustom",
+        "params": "#/$defs/ConnectorsProposeCustomParams",
+        "result": "#/$defs/CustomConnectorProposalResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting: disconnects and deletes a custom connector and its manifest.",
+        "name": "connectors.removeCustom",
+        "params": "#/$defs/ConnectorsRemoveCustomParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
       },
       {
         "description": "Approves a pending pairing request with owner-chosen scopes. Needs fresh presence once the Gateway has a presence verifier (approval_required with details.approvalId, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now).",
@@ -6021,7 +6053,10 @@
       "enum": [
         "bot_token",
         "app_token",
-        "auth_token"
+        "auth_token",
+        "access_token",
+        "app_secret",
+        "verify_token"
       ],
       "type": "string"
     },
@@ -7480,6 +7515,31 @@
       ],
       "type": "string"
     },
+    "ConnectorsGetCustomProposalParams": {
+      "properties": {
+        "proposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId"
+      ],
+      "type": "object"
+    },
+    "ConnectorsGetCustomProposalResult": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/CustomConnectorProposal"
+        }
+      },
+      "required": [
+        "proposal"
+      ],
+      "type": "object"
+    },
     "ConnectorsGetParams": {
       "properties": {
         "connectorId": {
@@ -7505,6 +7565,38 @@
       ],
       "type": "object"
     },
+    "ConnectorsInstallCustomParams": {
+      "properties": {
+        "proposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "proposalId",
+        "approvalId"
+      ],
+      "type": "object"
+    },
+    "ConnectorsInstallCustomResult": {
+      "properties": {
+        "connector": {
+          "$ref": "#/$defs/Connector"
+        }
+      },
+      "required": [
+        "connector"
+      ],
+      "type": "object"
+    },
     "ConnectorsListParams": {
       "properties": {},
       "type": "object"
@@ -7520,6 +7612,62 @@
       },
       "required": [
         "connectors"
+      ],
+      "type": "object"
+    },
+    "ConnectorsProposeCustomParams": {
+      "properties": {
+        "manifest": {
+          "$ref": "#/$defs/CustomConnectorManifest"
+        },
+        "openapi": {
+          "properties": {
+            "document": {
+              "maxLength": 2000000,
+              "type": "string"
+            },
+            "id": {
+              "pattern": "^[a-z][a-z0-9-]{1,40}$",
+              "type": "string"
+            },
+            "operations": {
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 50,
+              "type": "array"
+            },
+            "auth": {
+              "$ref": "#/$defs/CustomConnectorAuth"
+            }
+          },
+          "required": [
+            "document",
+            "id"
+          ],
+          "type": "object"
+        },
+        "scopeMode": {
+          "enum": [
+            "read",
+            "read_act"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ConnectorsRemoveCustomParams": {
+      "properties": {
+        "connectorId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "connectorId"
       ],
       "type": "object"
     },
@@ -7934,6 +8082,406 @@
         "target",
         "outcome",
         "createdAt"
+      ],
+      "type": "object"
+    },
+    "CustomConnectorAuth": {
+      "anyOf": [
+        {
+          "properties": {
+            "kind": {
+              "const": "none",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "bearer",
+              "type": "string"
+            },
+            "credential": {
+              "description": "A vault placeholder; the value is resolved only inside the executor",
+              "pattern": "^\\{\\{cred:[a-z0-9][a-z0-9-]{0,63}(\\.(username|password|totp|token|header))?\\}\\}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "credential"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "header",
+              "type": "string"
+            },
+            "name": {
+              "pattern": "^[A-Za-z][A-Za-z0-9-]{0,63}$",
+              "type": "string"
+            },
+            "credential": {
+              "description": "A vault placeholder; the value is resolved only inside the executor",
+              "pattern": "^\\{\\{cred:[a-z0-9][a-z0-9-]{0,63}(\\.(username|password|totp|token|header))?\\}\\}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "name",
+            "credential"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "query",
+              "type": "string"
+            },
+            "name": {
+              "pattern": "^[A-Za-z_][A-Za-z0-9_.-]{0,63}$",
+              "type": "string"
+            },
+            "credential": {
+              "description": "A vault placeholder; the value is resolved only inside the executor",
+              "pattern": "^\\{\\{cred:[a-z0-9][a-z0-9-]{0,63}(\\.(username|password|totp|token|header))?\\}\\}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "name",
+            "credential"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "kind": {
+              "const": "basic",
+              "type": "string"
+            },
+            "credential": {
+              "description": "A vault placeholder; the value is resolved only inside the executor",
+              "pattern": "^\\{\\{cred:[a-z0-9][a-z0-9-]{0,63}(\\.(username|password|totp|token|header))?\\}\\}$",
+              "type": "string"
+            },
+            "description": {
+              "description": "Login item: username + password",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "credential"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "CustomConnectorManifest": {
+      "properties": {
+        "schemaVersion": {
+          "const": 1,
+          "type": "number"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9-]{1,40}$",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 100,
+          "minLength": 1,
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "version": {
+          "maxLength": 40,
+          "type": "string"
+        },
+        "baseUrl": {
+          "pattern": "^https://",
+          "type": "string"
+        },
+        "hosts": {
+          "items": {
+            "pattern": "^[a-z0-9.-]+$",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "type": "array"
+        },
+        "auth": {
+          "$ref": "#/$defs/CustomConnectorAuth"
+        },
+        "tools": {
+          "items": {
+            "$ref": "#/$defs/CustomConnectorTool"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "type": "array"
+        },
+        "source": {
+          "properties": {
+            "kind": {
+              "enum": [
+                "openapi",
+                "declarative"
+              ],
+              "type": "string"
+            },
+            "title": {
+              "maxLength": 200,
+              "type": "string"
+            },
+            "drafted": {
+              "enum": [
+                "owner",
+                "agent"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "id",
+        "name",
+        "description",
+        "version",
+        "baseUrl",
+        "hosts",
+        "auth",
+        "tools"
+      ],
+      "type": "object"
+    },
+    "CustomConnectorParam": {
+      "properties": {
+        "name": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_.-]{0,63}$",
+          "type": "string"
+        },
+        "in": {
+          "enum": [
+            "path",
+            "query",
+            "body"
+          ],
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "schema": {
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        },
+        "description": {
+          "maxLength": 1000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "in",
+        "schema"
+      ],
+      "type": "object"
+    },
+    "CustomConnectorProposal": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "const": "connector",
+          "type": "string"
+        },
+        "approvalKind": {
+          "const": "skill_install",
+          "type": "string"
+        },
+        "manifest": {
+          "$ref": "#/$defs/CustomConnectorManifest"
+        },
+        "text": {
+          "type": "string"
+        },
+        "hash": {
+          "type": "string"
+        },
+        "findings": {
+          "items": {
+            "properties": {
+              "rule": {
+                "type": "string"
+              },
+              "severity": {
+                "enum": [
+                  "info",
+                  "warn",
+                  "high"
+                ],
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "rule",
+              "severity",
+              "message"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "scopeMode": {
+          "enum": [
+            "read",
+            "read_act"
+          ],
+          "type": "string"
+        },
+        "bindingHash": {
+          "type": "string"
+        },
+        "grantKey": {
+          "type": "string"
+        },
+        "expiresAt": {
+          "description": "Epoch ms",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "update": {
+          "properties": {
+            "fromHash": {
+              "type": "string"
+            },
+            "diff": {
+              "description": "Line diff of `text`",
+              "type": "string"
+            }
+          },
+          "required": [
+            "fromHash",
+            "diff"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "approvalKind",
+        "manifest",
+        "text",
+        "hash",
+        "findings",
+        "scopeMode",
+        "bindingHash",
+        "grantKey",
+        "expiresAt"
+      ],
+      "type": "object"
+    },
+    "CustomConnectorProposalResult": {
+      "properties": {
+        "proposal": {
+          "$ref": "#/$defs/CustomConnectorProposal"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        }
+      },
+      "required": [
+        "proposal",
+        "approval"
+      ],
+      "type": "object"
+    },
+    "CustomConnectorTool": {
+      "properties": {
+        "name": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "method": {
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 500,
+          "pattern": "^/[A-Za-z0-9._~!$&'()*+,;=:@/{}%-]*$",
+          "type": "string"
+        },
+        "params": {
+          "items": {
+            "$ref": "#/$defs/CustomConnectorParam"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
+        "sideEffect": {
+          "enum": [
+            "read",
+            "write",
+            "destructive"
+          ],
+          "type": "string"
+        },
+        "defaultRule": {
+          "enum": [
+            "allow",
+            "ask",
+            "deny"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "method",
+        "path",
+        "params",
+        "sideEffect"
       ],
       "type": "object"
     },
