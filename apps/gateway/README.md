@@ -21,12 +21,15 @@ Precedence: overrides passed to `startGateway` → environment → `$PSYCHE_HOME
 | --- | --- | --- | --- |
 | — | `PSYCHE_HOME` | `~/.psyche` | Created 0700 with `state/`, `run/`, `logs/` |
 | `gateway.host` | `PSYCHE_HOST` | `127.0.0.1` | Non-loopback refused (security §10) |
+| — | `PSYCHE_BIND` | `loopback` | `container` listens on the container interface (`src/transport-gate.ts`): trusted proxies need a verified identity (Cloudflare Access assertion, or Tailscale headers from `trustedProxy.tailscaleProxies`), every other peer the token. Pairing still applies |
+| — | `PSYCHE_GATEWAY_TOKEN_FILE` | — | Required with `PSYCHE_BIND=container`: ≥ 32 characters, mode 0600/0400, owned by the Gateway's user, else startup fails. Presented as `Authorization: Bearer` |
 | `gateway.port` | `PSYCHE_PORT` | `7979` | `0` = ephemeral |
 | — | `PSYCHE_DB` | `state/psyche.sqlite` | `:memory:` in tests |
 | — | `PSYCHE_NODE_SOCKET` | `run/node.sock` | macOS limits socket paths to 104 bytes |
 | — | `PSYCHE_WEB_ROOT` | `apps/web/dist` | Served at `/` with a strict CSP |
 | `gateway.allowedOrigins`, `gateway.publicOrigin` | `PSYCHE_ALLOWED_ORIGINS` | `[]` | Extra WebSocket `Origin`s besides the Gateway's own |
 | `gateway.trustedProxy.{enabled, trustedProxies}` | — | off | Tailscale Serve / `cloudflared` in front. From a peer in `trustedProxies` (CIDRs, validated at startup), the first untrusted `X-Forwarded-For` hop from the right is the client address (rate limits, pairing cards) and `Tailscale-User-Login` is shown on the pairing card as a claim. Headers never authorize: every device still pairs. Any request with forwarding headers is never treated as loopback, in either mode. Passkeys come later (INT-2) |
+| `gateway.cloudflareAccess.{teamDomain, audience}` | — | off | `cloudflared` + Cloudflare Access in front: every forwarded or non-loopback WebSocket upgrade must carry a `Cf-Access-Jwt-Assertion` that verifies against `https://<teamDomain>/cdn-cgi/access/certs` (RS256, `aud` = the application AUD tag, `iss`, `exp`/`nbf`), else 401. The verified email is shown on the pairing card; it never authorizes by itself. JWKS refreshed at most every 5 minutes on an unknown key id |
 | — | `PSYCHE_LOG_LEVEL` | `info` | JSON logs on stderr, metadata only (no bodies, params or secrets) |
 
 Settings (`settings.set`) that the Gateway reads: `cleanupPeriodDays` (default 30, admin-only like every non-cosmetic key).
