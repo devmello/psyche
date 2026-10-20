@@ -330,12 +330,18 @@ importers:
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@psyche/sandbox':
+        specifier: workspace:*
+        version: link:../../packages/sandbox
       '@psyche/scheduler':
         specifier: workspace:*
         version: link:../../packages/scheduler
       '@psyche/tasks':
         specifier: workspace:*
         version: link:../../packages/tasks
+      '@psyche/vault':
+        specifier: workspace:*
+        version: link:../../packages/vault
       '@sinclair/typebox':
         specifier: 0.34.52
         version: 0.34.52

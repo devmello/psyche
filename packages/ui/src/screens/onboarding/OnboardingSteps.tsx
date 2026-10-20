@@ -1,9 +1,10 @@
-import { Check, KeyRound, Loader } from "lucide-react";
+import { Check, KeyRound, Loader, Plug } from "lucide-react";
 import { type ReactElement, useId, useState } from "react";
 import { Avatar } from "../../avatar/Avatar.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
+import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { Textarea } from "../../components/ui/textarea.tsx";
 import { TCC_LABEL } from "../settings/ComputerUseSection.tsx";
 import {
@@ -274,29 +275,42 @@ export function ConnectorsStep({
         Decide now which accounts to connect, one at a time. {persona} only sees what you connect,
         and you can add more later in Settings.
       </p>
-      {connected.length > 0 ? (
-        <ul className="flex flex-col gap-1.5" aria-label="Connected accounts">
-          {connected.map((c) => (
-            <li key={c.type} className="flex items-center gap-2 text-sm">
-              <Check className="size-4 text-success-text" aria-hidden="true" />
-              <span className="font-medium">{c.label}</span>
-              <StatusChip tone="neutral">{SCOPE_MODE_LABEL[c.mode]}</StatusChip>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <section aria-labelledby={`${id}-connected`} className="flex flex-col gap-2">
+        <h3 id={`${id}-connected`} className="text-label text-gray-11">
+          Connected ({connected.length})
+        </h3>
+        {connected.length > 0 ? (
+          <ul
+            className="flex flex-col divide-y divide-gray-5 rounded-lg border border-gray-6"
+            aria-label="Connected accounts"
+          >
+            {connected.map((c) => (
+              <li key={c.type} className="flex items-center gap-2 px-3 py-2 text-sm">
+                <Check className="size-4 text-success-text" aria-hidden="true" />
+                <span className="min-w-0 flex-1 font-medium">{c.label}</span>
+                <StatusChip tone="neutral">{SCOPE_MODE_LABEL[c.mode]}</StatusChip>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Plug className="size-4" aria-hidden="true" />
+            Nothing connected yet. You can skip this and connect accounts later in Settings.
+          </p>
+        )}
+      </section>
       {error ? <ErrorNotice what={error} did="Nothing was connected." /> : null}
       {available.length === 0 ? (
         <p className="text-sm">Every account type is connected.</p>
       ) : (
-        <div className="flex flex-col gap-3 rounded-lg border border-gray-6 bg-gray-2 p-4">
+        <div className="elevation-1 flex flex-col gap-3 rounded-lg p-4">
           <div className="flex flex-col gap-1">
             <Label htmlFor={`${id}-type`}>
               {connected.length === 0 ? "Account to connect" : "Connect another account"}
             </Label>
-            <select
+            <NativeSelect
               id={`${id}-type`}
-              className="h-8 max-w-sm rounded-lg border border-input bg-background px-2 text-sm"
+              className="min-w-64"
               value={current}
               onChange={(e) => setType(e.target.value)}
             >
@@ -305,7 +319,7 @@ export function ConnectorsStep({
                   {c.label}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
           <ConnectAccessChoice
             label={`What can ${persona} do with it?`}
@@ -332,25 +346,118 @@ export function ConnectorsStep({
 
 // --- 4 Model & provider ----------------------------------------------------------------------------
 
+export interface ModelOption {
+  ref: string;
+  label: string;
+  hint: string;
+}
+
 export const PROVIDERS: Record<
   ProviderKind,
-  readonly { id: string; label: string; defaultModel: string }[]
+  readonly { id: string; label: string; defaultModel: string; models: readonly ModelOption[] }[]
 > = {
   cloud: [
-    { id: "anthropic", label: "Anthropic", defaultModel: "anthropic/claude-sonnet-5-5" },
-    { id: "openai", label: "OpenAI", defaultModel: "openai/gpt-5.5" },
-    { id: "google", label: "Google", defaultModel: "google/gemini-3-pro" },
+    {
+      id: "anthropic",
+      label: "Anthropic",
+      defaultModel: "anthropic/claude-sonnet-5-5",
+      models: [
+        {
+          ref: "anthropic/claude-sonnet-5-5",
+          label: "Claude Sonnet 5.5",
+          hint: "Recommended: fast, strong with tools",
+        },
+        {
+          ref: "anthropic/claude-opus-5-5",
+          label: "Claude Opus 5.5",
+          hint: "Most capable, slower and pricier",
+        },
+        {
+          ref: "anthropic/claude-haiku-5-5",
+          label: "Claude Haiku 5.5",
+          hint: "Fastest and cheapest",
+        },
+      ],
+    },
+    {
+      id: "openai",
+      label: "OpenAI",
+      defaultModel: "openai/gpt-5.5",
+      models: [
+        { ref: "openai/gpt-5.5", label: "GPT-5.5", hint: "OpenAI's general model" },
+        { ref: "openai/gpt-5.5-mini", label: "GPT-5.5 mini", hint: "Faster and cheaper" },
+      ],
+    },
+    {
+      id: "google",
+      label: "Google",
+      defaultModel: "google/gemini-3-pro",
+      models: [
+        { ref: "google/gemini-3-pro", label: "Gemini 3 Pro", hint: "Google's strongest model" },
+        { ref: "google/gemini-3-flash", label: "Gemini 3 Flash", hint: "Faster and cheaper" },
+      ],
+    },
   ],
   subscription: [
-    { id: "anthropic", label: "Claude subscription", defaultModel: "anthropic/claude-sonnet-5-5" },
-    { id: "openai", label: "ChatGPT subscription", defaultModel: "openai/gpt-5.5" },
+    {
+      id: "anthropic",
+      label: "Claude subscription",
+      defaultModel: "anthropic/claude-sonnet-5-5",
+      models: [
+        { ref: "anthropic/claude-sonnet-5-5", label: "Claude Sonnet 5.5", hint: "Recommended" },
+        {
+          ref: "anthropic/claude-opus-5-5",
+          label: "Claude Opus 5.5",
+          hint: "Uses your plan faster",
+        },
+      ],
+    },
+    {
+      id: "openai",
+      label: "ChatGPT subscription",
+      defaultModel: "openai/gpt-5.5",
+      models: [{ ref: "openai/gpt-5.5", label: "GPT-5.5", hint: "Included with your plan" }],
+    },
   ],
-  openrouter: [{ id: "openrouter", label: "OpenRouter", defaultModel: "openrouter/auto" }],
+  openrouter: [
+    {
+      id: "openrouter",
+      label: "OpenRouter",
+      defaultModel: "openrouter/auto",
+      models: [
+        { ref: "openrouter/auto", label: "Auto", hint: "OpenRouter picks per request" },
+        {
+          ref: "openrouter/anthropic/claude-sonnet-5-5",
+          label: "Claude Sonnet 5.5",
+          hint: "Through OpenRouter",
+        },
+      ],
+    },
+  ],
   local: [
-    { id: "ollama", label: "Ollama", defaultModel: "ollama/qwen3.8-27b" },
-    { id: "lmstudio", label: "LM Studio", defaultModel: "lmstudio/gemma4-31b" },
+    {
+      id: "ollama",
+      label: "Ollama",
+      defaultModel: "ollama/qwen3.8-27b",
+      models: [
+        {
+          ref: "ollama/qwen3.8-27b",
+          label: "Qwen 3.8 27B",
+          hint: "Good with tools; 32 GB RAM or more",
+        },
+        { ref: "ollama/glm-4.7-flash", label: "GLM 4.7 Flash", hint: "Lighter; 16 GB RAM" },
+      ],
+    },
+    {
+      id: "lmstudio",
+      label: "LM Studio",
+      defaultModel: "lmstudio/gemma4-31b",
+      models: [{ ref: "lmstudio/gemma4-31b", label: "Gemma 4 31B", hint: "32 GB RAM or more" }],
+    },
   ],
 };
+
+const OTHER_MODEL = "__other__";
 
 export function defaultModelChoice(kind: ProviderKind): ModelChoice {
   const first = PROVIDERS[kind][0];
@@ -382,13 +489,20 @@ export function ModelStep({
   const id = useId();
   const [key, setKey] = useState("");
   const providers = PROVIDERS[value.kind];
+  const models = providers.find((p) => p.id === value.provider)?.models ?? [];
+  const [other, setOther] = useState(false);
+  const known = models.some((m) => m.ref === value.modelRef);
+  const picked = other || !known ? OTHER_MODEL : value.modelRef;
   const needsKey = value.kind === "cloud" || value.kind === "openrouter";
   return (
     <div className="flex flex-col gap-4">
       <RadioField
         label="How should the agent think?"
         value={value.kind}
-        onChange={(kind) => onChange(defaultModelChoice(kind))}
+        onChange={(kind) => {
+          setOther(false);
+          onChange(defaultModelChoice(kind));
+        }}
         options={[
           {
             value: "cloud",
@@ -404,45 +518,70 @@ export function ModelStep({
           { value: "local", label: "Local model", hint: "Runs on this Mac; nothing leaves it." },
         ]}
       />
-      <div className="grid gap-3 sm:grid-cols-2">
-        {providers.length > 1 ? (
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={`${id}-provider`}>Provider</Label>
-            <select
-              id={`${id}-provider`}
-              className="h-8 rounded-lg border border-input bg-background px-2 text-sm"
-              value={value.provider}
-              onChange={(e) => {
-                const p = providers.find((x) => x.id === e.target.value);
-                onChange({
-                  ...value,
-                  provider: e.target.value,
-                  modelRef: p?.defaultModel ?? value.modelRef,
-                  keyRef: null,
-                  toolCheck: "untested",
-                });
-              }}
-            >
-              {providers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
+      {providers.length > 1 ? (
+        <div className="flex flex-col gap-1">
+          <Label htmlFor={`${id}-provider`}>Provider</Label>
+          <NativeSelect
+            id={`${id}-provider`}
+            className="min-w-56"
+            value={value.provider}
+            onChange={(e) => {
+              const p = providers.find((x) => x.id === e.target.value);
+              setOther(false);
+              onChange({
+                ...value,
+                provider: e.target.value,
+                modelRef: p?.defaultModel ?? value.modelRef,
+                keyRef: null,
+                toolCheck: "untested",
+              });
+            }}
+          >
+            {providers.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+      ) : null}
+      <RadioField
+        label="Model"
+        value={picked}
+        onChange={(ref) => {
+          if (ref === OTHER_MODEL) {
+            setOther(true);
+            return;
+          }
+          setOther(false);
+          onChange({ ...value, modelRef: ref, toolCheck: "untested" });
+        }}
+        options={[
+          ...models.map((m) => ({ value: m.ref, label: m.label, hint: m.hint })),
+          {
+            value: OTHER_MODEL,
+            label: "Another model",
+            hint: "Type its id, as the provider names it",
+          },
+        ]}
+      >
+        {picked === OTHER_MODEL ? (
+          <div className="ml-6 flex flex-col gap-1">
+            <Label htmlFor={`${id}-model`} className="sr-only">
+              Model id
+            </Label>
+            <Input
+              id={`${id}-model`}
+              className="max-w-sm"
+              placeholder={`${value.provider}/model-name`}
+              value={value.modelRef}
+              onChange={(e) =>
+                onChange({ ...value, modelRef: e.target.value, toolCheck: "untested" })
+              }
+            />
           </div>
         ) : null}
-        <div className="flex flex-col gap-1">
-          <Label htmlFor={`${id}-model`}>Model</Label>
-          <Input
-            id={`${id}-model`}
-            className="font-mono"
-            value={value.modelRef}
-            onChange={(e) =>
-              onChange({ ...value, modelRef: e.target.value, toolCheck: "untested" })
-            }
-          />
-        </div>
-      </div>
+      </RadioField>
 
       {needsKey ? (
         <div className="flex flex-col gap-1">
