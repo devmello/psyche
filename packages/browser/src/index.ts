@@ -2,6 +2,8 @@
 // Test helpers (fixture site, mock desktop) live at "@psyche/browser/testing"; the driver
 // conformance suite (imports vitest) at "@psyche/browser/conformance".
 
+export * from "./botauth/signer.ts";
+export * from "./botauth/verify.ts";
 export * from "./bridge/allowlist.ts";
 export * from "./bridge/bridge.ts";
 export { BRIDGE_MAX_FRAME_BYTES, FrameConnection } from "./bridge/framing.ts";

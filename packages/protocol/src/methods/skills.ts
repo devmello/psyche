@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id, Sha256, StringEnum } from "../common.ts";
+import { Id, IsoDateTime, Sha256, SideEffect, StringEnum } from "../common.ts";
 import { ApprovalKind, ApprovalRequest } from "../schemas/permissions.ts";
 import { defineMethod, EmptyParams, OkResult } from "./define.ts";
 
@@ -237,6 +237,65 @@ export const SkillChangeEvent = Type.Union(
 );
 export type SkillChangeEvent = Static<typeof SkillChangeEvent>;
 
+/**
+ * Agent-proposed skills (feature T3; security §11 "Agent-proposed skills stay drafts until
+ * accepted"). When the agent notices a routine repeated in one thread, the Gateway drafts a skill
+ * from it: tool names and input names only, the owner's words with secrets and personal data
+ * stripped. A draft is never installed by itself: the owner edits, accepts (a replay check, then
+ * the T2 trust card and `skill_install` approval like any install) or dismisses it.
+ */
+export const SkillDraftStatus = StringEnum(
+  ["open", "accepted", "installed", "dismissed", "expired"],
+  { $id: "SkillDraftStatus" },
+);
+export type SkillDraftStatus = Static<typeof SkillDraftStatus>;
+
+export const SkillDraftStep = Type.Object(
+  {
+    tool: Type.String(),
+    sideEffect: SideEffect,
+    summary: Type.String({ description: "Input names only, never values" }),
+  },
+  { $id: "SkillDraftStep" },
+);
+export type SkillDraftStep = Static<typeof SkillDraftStep>;
+
+/** The replay check at accept time: the routine still runs with today's tools and policy. */
+export const SkillDraftReplay = Type.Object(
+  {
+    ok: Type.Boolean(),
+    problems: Type.Array(Type.String()),
+    checkedAt: IsoDateTime,
+  },
+  { $id: "SkillDraftReplay" },
+);
+export type SkillDraftReplay = Static<typeof SkillDraftReplay>;
+
+export const SkillDraft = Type.Object(
+  {
+    id: Id,
+    threadId: Id,
+    name: Type.String(),
+    description: Type.String(),
+    text: Type.String({ description: "Full SKILL.md, editable by the owner while open" }),
+    manifest: SkillManifest,
+    steps: Type.Array(SkillDraftStep),
+    occurrences: Type.Integer({ minimum: 2, description: "Runs in the thread with this routine" }),
+    signature: Sha256,
+    redactions: Type.Integer({ minimum: 0, description: "Values stripped from the owner's words" }),
+    tainted: Type.Boolean({ description: "A run of the routine had read untrusted content" }),
+    edited: Type.Boolean(),
+    status: SkillDraftStatus,
+    createdAt: IsoDateTime,
+    updatedAt: IsoDateTime,
+    installProposalId: Type.Optional(Id),
+    approvalId: Type.Optional(Id),
+    replay: Type.Optional(SkillDraftReplay),
+  },
+  { $id: "SkillDraft" },
+);
+export type SkillDraft = Static<typeof SkillDraft>;
+
 const ProposalResult = Type.Object(
   { proposal: SkillProposal, approval: ApprovalRequest },
   { $id: "SkillProposalResult" },
@@ -334,6 +393,39 @@ export const SkillsMethods = {
     scope: "operator.admin",
     description:
       "Re-fetches installed skills from their pinned sources (no install) and reports which changed; emits skills.updated for each update found.",
+  }),
+  "skills.drafts.list": defineMethod({
+    params: Type.Object({ status: Type.Optional(SkillDraftStatus) }),
+    result: Type.Object({ drafts: Type.Array(SkillDraft) }),
+    scope: "operator.read",
+    description: "Skills the agent proposed from repeated routines (T3), newest first.",
+  }),
+  "skills.drafts.update": defineMethod({
+    params: Type.Object({ draftId: Id, text: Type.String({ minLength: 1, maxLength: 65_536 }) }),
+    result: Type.Object({ draft: SkillDraft }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: replaces an open draft's SKILL.md (the owner's edit); the manifest is re-read from it.",
+  }),
+  "skills.drafts.accept": defineMethod({
+    params: Type.Object({ draftId: Id }),
+    result: Type.Object({
+      draft: SkillDraft,
+      proposal: SkillProposal,
+      approval: ApprovalRequest,
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: replays the draft against today's tools, then stages it like skills.proposeInstall (trust card, device-only skill_install approval); install with skills.install. policy_denied when the replay or the policy refuses it.",
+  }),
+  "skills.drafts.dismiss": defineMethod({
+    params: Type.Object({ draftId: Id }),
+    result: Type.Object({ draft: SkillDraft }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description: "Side-effecting: dismisses a draft; the same routine is not proposed again.",
   }),
   "skills.remove": defineMethod({
     params: Type.Object({ name: SkillName }),

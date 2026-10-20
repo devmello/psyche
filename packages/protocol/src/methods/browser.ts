@@ -151,6 +151,44 @@ export const RealChromeStatus = Type.Object(
 );
 export type RealChromeStatus = Static<typeof RealChromeStatus>;
 
+/**
+ * Web Bot Auth (feature I14; security §6): Psyche signs the browser's document requests with an
+ * Ed25519 key from the vault (RFC 9421 HTTP Message Signatures, `Signature-Agent` pointing at a
+ * key directory the owner hosts), so sites can tell a signed agent from an unknown bot. Opt-in
+ * (the admin setting `browser.botAuth {enabled, signatureAgent, origins}`); it signs only for
+ * origins that asked (`Accept-Signature`) or that the owner listed, and never in logged-out
+ * (`clean`) tabs.
+ */
+export const BotAuthJwk = Type.Object(
+  {
+    kty: Type.Literal("OKP"),
+    crv: Type.Literal("Ed25519"),
+    x: Type.String({ description: "base64url public key" }),
+  },
+  { $id: "BotAuthJwk" },
+);
+export type BotAuthJwk = Static<typeof BotAuthJwk>;
+
+export const BotAuthStatus = Type.Object(
+  {
+    enabled: Type.Boolean(),
+    /** JWK thumbprint (RFC 7638), null until a key exists. */
+    keyId: Nullable(Type.String()),
+    publicJwk: Nullable(BotAuthJwk),
+    createdAt: Nullable(IsoDateTime),
+    /** The key directory URL sites fetch (`Signature-Agent`); null until the owner sets it. */
+    signatureAgent: Nullable(Type.String()),
+    /** Where the Gateway serves the directory, for the owner to expose on their domain. */
+    directoryPath: Type.String(),
+    /** Origins the owner always signs for. */
+    origins: Type.Array(Type.String()),
+    /** Origins that asked for signatures (`Accept-Signature`) since the Gateway started. */
+    advertised: Type.Array(Type.String()),
+  },
+  { $id: "BotAuthStatus" },
+);
+export type BotAuthStatus = Static<typeof BotAuthStatus>;
+
 export const BrowserMethods = {
   "browser.tabs": defineMethod({
     params: Type.Object({ taskId: Type.Optional(Id) }),
@@ -240,5 +278,19 @@ export const BrowserMethods = {
     sideEffecting: true,
     description:
       "Side-effecting. Deletes a recording and its files (retention is otherwise 7 days, data model §12).",
+  }),
+  "browser.botAuth.status": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({ status: BotAuthStatus }),
+    scope: "operator.read",
+    description: "Web Bot Auth (I14): whether signing is on, the key's fingerprint and directory.",
+  }),
+  "browser.botAuth.rotate": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({ status: BotAuthStatus }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting. Creates the Web Bot Auth key, or replaces it; the old key stops signing at once, so republish the directory.",
   }),
 } as const;

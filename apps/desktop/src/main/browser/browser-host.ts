@@ -588,6 +588,11 @@ export class BrowserHost implements BridgeTabHost {
       });
     const decision = t.policy.check(method, params, sessionId);
     if (!decision.ok) throw new PsycheError("method_not_allowed", decision.reason);
+    // Signature headers join the paused request's real ones here (I14): the Gateway never sees
+    // cookies or authorization, so it cannot be the one to rebuild the list.
+    const prepared = t.policy.prepare(method, params, sessionId);
+    if (!prepared.ok) throw new PsycheError("method_not_allowed", prepared.reason);
+    params = prepared.params;
     const isInput = method.startsWith("Input.");
     const refuseWhileUser = () => {
       // Input and page-changing calls wait for the user: "user input pauses the agent at once".
