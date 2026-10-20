@@ -13,6 +13,7 @@ import { createValidator, type MethodSpec, type Validator } from "./define.ts";
 import { DevicesMethods } from "./devices.ts";
 import { DictationMethods } from "./dictation.ts";
 import { EventsMethods } from "./events.ts";
+import { FilesMethods } from "./files.ts";
 import { GrantsMethods } from "./grants.ts";
 import { LibraryMethods } from "./library.ts";
 import { LogsMethods } from "./logs.ts";
@@ -47,6 +48,7 @@ export * from "./define.ts";
 export * from "./devices.ts";
 export * from "./dictation.ts";
 export * from "./events.ts";
+export * from "./files.ts";
 export * from "./grants.ts";
 export * from "./library.ts";
 export * from "./logs.ts";
@@ -81,6 +83,7 @@ export const Methods = {
   ...GrantsMethods,
   ...MemoryMethods,
   ...LibraryMethods,
+  ...FilesMethods,
   ...SettingsMethods,
   ...SearchMethods,
   ...NotificationsMethods,

@@ -162,6 +162,35 @@ Default categories: approval → Approve / Deny (destructive); input_needed → 
 
 Names only (S17's `NodeContactsSource` feeds them to `DictationTranscriber` as contextual strings): the fetch requests name, nickname and organization keys only, so phone numbers, emails and addresses are never read. Contacts without a name are skipped. The capability never prompts: without the Contacts grant it fails with `forbidden/permission_denied` (`details.permission: "contacts"`), which the Gateway treats as "no names"; the prompt comes from `permissions.request {permission: "contacts"}`.
 
+### Messages (J7)
+
+Code: `Sources/PsycheHelperCore/Messages/` (SQLite reader, chat.db queries, typedstream text, watcher, send script) and `Sources/PsycheHelperSystem/Messages/` (the capability group). Shapes: `packages/protocol/src/schemas/messages.ts`.
+
+| Capability | Side effect | Params → result |
+| --- | --- | --- |
+| `messages.status` | none | → `MessagesStatus {fullDiskAccess, automation, databasePresent, lastCursor}`; never prompts |
+| `messages.chats` | read | `limit` (≤ 200, default 50), `query?` → `{chats: [MessagesChat]}` newest first |
+| `messages.read` | read | `chatId?`, `handle?`, `sinceCursor?`, `limit` (≤ 200, default 20) → `{messages, cursor, hasMore}` ascending; without `sinceCursor` the newest `limit` |
+| `messages.watch` | read, streaming | `sinceCursor?` (default: now), `intervalMs` (500–60000, default 2000), `includeFromMe?` → `node.event`s `{type: "messages.new", messages, cursor}` / `{type: "messages.watch_error", reason, retryable}` until `node.cancel` |
+| `messages.send` | destructive, `recipient` | `to` (E.164 or email) or `chatId`, `text` (≤ 20000), `service?` (`imessage`/`sms`) → `{sent, recipient, sentAt}` + receipt (`message_send`, recipient and length, never the text) |
+
+- **Read-only chat.db.** `~/Library/Messages/chat.db` is opened `file:…?mode=ro` with bound parameters only; optional columns (`thread_originator_guid`, `date_edited`, `associated_message_emoji`, `is_sticker`) are probed per database. The cursor is `message.ROWID`. Dates are Apple-epoch nanoseconds (seconds on old rows).
+- **Full Disk Access** cannot be requested programmatically (security §12). Without it every read fails with `forbidden/full_disk_access_missing` and a message naming System Settings › Privacy & Security › Full Disk Access (`details.settingsURL`); `messages.watch` emits one `watch_error` and ends instead of spinning. A busy database backs off (doubling, ≤ 30 s) and emits one `watch_error` per failure streak. No `~/Library/Messages` at all is `not_found/database_missing` (Messages never set up), not a grant problem.
+- **Cursor safety.** Each message is returned once (one chat per row, the lowest `chat_id`, so merged SMS/iMessage threads do not duplicate). The watcher also reads rows not yet linked to a chat: one younger than 30 s holds the cursor before it until the next poll, an older one is skipped, so a late `chat_message_join` write cannot make a row vanish. `hasMore` means "newer rows after `cursor`" and is always false in newest-N mode.
+- **Bodies.** `message.text`, or when it is NULL (macOS 13+), the first `NSString` in `attributedBody`, read from the typedstream bytes without `NSUnarchiver` (no object instantiation from untrusted data). U+FFFC attachment placeholders are stripped. Tapbacks (`associated_message_type` 2000–2006 / 3000–3006) become `reaction`; inline replies `replyToGuid`. Everything from other people is untrusted content for the Gateway.
+- **Attachments are metadata only:** guid, transfer name (not the path), MIME type, UTI, size, `isVoiceNote` (CAF / `is_audio_message`), `isSticker`. No bytes, no paths.
+- **Send.** Refused without `approvalId` (`approval_required`): the Gateway asks with the `message_send` kind, `once` / `task` only (security §3.4). Automation for `com.apple.MobileSMS` is checked (and asked once, launching Messages hidden if needed); denied → `forbidden/automation_denied`. The script is in-process AppleScript with the text and recipient as escaped string literals (validated handle and chat-id grammars), inside `with timeout of 20 seconds` so a hung Messages cannot hold the main thread for the default two minutes. Only "no such chat / participant" errors (-1728, -1719) fall through to another chat-id spelling; any other failure is final, so a slow send is never sent twice. A 1:1 `chatId` is sent to its participant handle, because macOS 26+ chat GUIDs (`any;-;…`) do not always resolve through scripting; its account comes from the prefix, or for `any;` from the chat's last message service (SMS and RCS go through the SMS account); a group chat tries the `iMessage;+;` and `any;+;` spellings.
+- **Not yet:** sending attachments or CAF voice bubbles, reading attachment bytes, polls (26+). The Messages.app send has no message id; the watcher (with `includeFromMe`) sees the sent row.
+### Dictation (system-wide dictation, J9 / Q2)
+
+| Capability | Side effect | Params → result |
+| --- | --- | --- |
+| `dictation.target` | read | `{}` → `{target: {pid, bundleId, appName, role, insertable, refusal?} \| null}` |
+| `dictation.insert` | write | `text` (≤ 4000), `expectPid?` → `{method: "ax" \| "typed", chars, target}`; receipt "Dictated N characters into App", never the text |
+| `dictation.watch` | read, streaming | `key: "fn" \| "rightOption" \| "rightCommand" \| null` → events `{key, down, at}` until a newer watch, `key: null` or cancel |
+
+The Gateway forwards its `dictation.*` methods here for desktop callers only; `nodes.invoke` and agent tools never reach them. Inserted text is the owner's keystrokes into another app and never goes to the agent. Insertion order: set `kAXSelectedTextAttribute` (checked by reading the value back, since Chromium answers success and ignores it), then replace the selected range in `kAXValueAttribute` and move the caret, then unicode CGEvent typing through the HID tap (16 UTF-16 units per event). Refusals (`forbidden`-class `policy_denied`, `details.refusal`): `no_focus`, `own_window` (`com.psyche.desktop` / `com.psyche.helper`: the composer dictates there), `secure_field` (AX subrole `AXSecureTextField` or Carbon Secure Event Input, which also covers Electron apps without an AX tree), `not_editable` (a focused control with no caret; web areas and apps without AX fall through to typing), `focus_changed` (`expectPid` no longer has focus; re-checked before every typed chunk). Control characters, newlines and tabs included, collapse to one space, so dictation never presses Return or Tab. `dictation.watch` is a listen-only session tap on `flagsChanged` / `keyDown` using the device-dependent flag bit of the exact key, so Left Option does not trigger Right Option; a key pressed while the modifier is held (fn+arrow) is a chord and ends the hold at once. Holding fn alone can also open macOS's emoji picker or dictation on release: set System Settings › Keyboard › "Press 🌐 key to" to "Do Nothing", or pick Right Option.
+
 ### Presence (Touch ID approvals, issue #84)
 
 Approvals that require authentication (purchase, credential fill, exec_host, pairing, policy change; security §3.7) need proof, not a boolean. When `notify.show` carries `requireBiometry: true` and `presenceChallenge` (hex SHA-256 from the Gateway; the answer token never leaves it), a non-destructive answer runs Touch ID for the presence key's access control (`LAContext.evaluateAccessControl(.useKeySign)`) and signs with that same context, so the owner sees one prompt:
@@ -214,6 +243,21 @@ One sandbox Mac per user, built on Virtualization.framework with spike 06's reci
   - warm start (`saveMachineStateTo` failed in spike 06)
   - the display pane (L4)
 - **Tests:** a fake backend covers the lifecycle, guest caps, provisioning, shares and the vsock relay into a real Unix socket. `PSYCHE_VM_LIVE_TESTS=1` runs a read-only check against the real framework: the catalog, plus `PSYCHE_VM_IPSW` to load a local image. It never downloads or boots.
+
+### Apple app adapters (J6)
+
+These are typed node capabilities. Their shapes are in `packages/protocol` `schemas/apple-apps.ts`. They are gated by the `apple.<app>` action matrix in `@psyche/permissions`: reads Allow, writes Ask, and `mail.send` always asks. Everything read from an app is `untrusted`.
+
+| App | Capabilities (side effect) | How |
+| --- | --- | --- |
+| Calendar | `calendar.list_calendars`, `calendar.list_events` (read); `calendar.create_event`, `calendar.update_event` (write, `span: future` for a recurring series) | EventKit. The first call asks for full Calendars access (macOS has no read-only option). |
+| Reminders | `reminders.list_lists`, `reminders.list` (read); `reminders.create`, `reminders.update` (write; `due: null` clears) | EventKit. Reminders access is asked on first use. |
+| Mail | `mail.search`, `mail.read` (read); `mail.draft` (write: saved, not sent); `mail.send` (write) | Mail scripting. `mail.send` refuses without an `approvalId`, even if the Gateway forwards it, and the approval binds the exact recipients, subject and body. Message bodies are plain text, capped by `maxLength`. |
+| Notes | `notes.list`, `notes.read` (read: HTML and plain text); `notes.create` (write: title plus plain text, HTML-escaped) | Notes scripting. |
+| Finder | `finder.list`, `finder.reveal` (read, `targetKind: path`) | Only inside the owner's granted folders (`permissions.folders` in `$PSYCHE_HOME/config.json`). Nothing is granted by default. Symlinks are listed, never followed out. |
+| Safari | `safari.tabs`, `safari.current_tab` (read); `safari.open_url` (write: http(s) only, a new tab in the user's Safari) | Safari scripting. Acting inside pages stays with the agent browser. |
+
+The scripting adapters run constant AppleScript handlers (`psyche_search`, `psyche_compose`, …) with the inputs passed as handler arguments, so app content and model text never become script source. The helper launches the target app in the background if needed and asks for Automation per app on first use. Messages (J7) is a separate adapter.
 
 ## Entitlements and Info.plist
 

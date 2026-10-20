@@ -310,7 +310,13 @@ export async function checkProhibitions(
     if (!PLACEHOLDER_PATTERN.test(s.value)) continue;
     const execEnv =
       (effectiveKind === "exec" || effectiveKind === "exec_host") && s.path.startsWith("$.env.");
-    if (!fillTool && !execEnv) {
+    // The browser's fill executor (§4.6): only its `placeholder` argument, and only a bare
+    // placeholder there. The executor checks origin, element and approval before resolving.
+    const browserFill =
+      tool === "browser.fill_credential" &&
+      s.path === "$.placeholder" &&
+      /^\{\{cred:[a-z0-9][a-z0-9-]{0,63}(\.[a-z]+)?\}\}$/.test(s.value.trim());
+    if (!fillTool && !execEnv && !browserFill) {
       return deny(
         "placeholder_outside_fill",
         "credential placeholders are only resolved by credentials.request",

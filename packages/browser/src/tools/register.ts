@@ -1,5 +1,6 @@
 import {
   type CredentialBroker,
+  type CredentialMeta,
   createValidator,
   type FillElement,
   type PermissionBroker,
@@ -13,6 +14,7 @@ import {
   type Unsubscribe,
   type WaitCondition,
 } from "@psyche/protocol";
+import { toolCallBindingHash } from "@psyche/protocol/binding";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import type { DevPreviewGate } from "../devpreview/gate.ts";
 import { tryOrigin } from "../origin/canonical.ts";
@@ -45,6 +47,12 @@ export interface BrowserToolDeps {
   driver: BrowserDriverEx;
   broker: PermissionBroker;
   credentials?: CredentialBroker;
+  /**
+   * The vault item behind a placeholder slug, read synchronously, so a fill's approval binds the
+   * fields the vault re-checks at resolve time (item id, origin, field, selector, element). Without
+   * it a fill's binding cannot match and the vault refuses it.
+   */
+  credentialMeta?(slug: string): CredentialMeta | undefined;
   /** Decision context of a running call; the agent loop knows thread, run, task and taint. */
   context(callId: string): CallContext;
   /**
@@ -644,17 +652,11 @@ export function browserToolDefs(deps: BrowserToolDeps) {
         out.target = { kind: "origin", value: origin };
         out.summary = `Fill a saved credential on ${origin}`;
         if (ph !== undefined) {
-          // Data model §4.2 credential_fill: item, origin, field selector, tab — the same fields
-          // the executor's own gate binds, so a loop-level approval binds the origin too.
-          out.bindingFields = {
-            item: ph.slug,
-            field: ph.field ?? null,
-            origin,
-            ref: p.ref,
-            element: meta?.name ?? null,
-            tabId: p.tabId,
-          };
-          out.grantKey = `credential_fill|${ph.slug}|${origin}`;
+          // The same fields the executor's own gate and the vault bind, so a loop-level
+          // approval is the one the vault accepts.
+          const b = fillBinding(deps.credentialMeta?.(ph.slug), ph, origin, p.ref, meta);
+          out.bindingFields = b.fields;
+          out.grantKey = b.grantKey;
         }
         return out;
       },
@@ -866,6 +868,39 @@ export function browserToolDefs(deps: BrowserToolDeps) {
   ];
 }
 
+/**
+ * The `credential_fill` binding (security §3.5, S23 design-13): item id, canonical origin, field,
+ * executor, selector and the element's tag / type / autocomplete, hashed exactly as the vault
+ * recomputes it before resolving. The grant key carries the field class and executor (S23
+ * design-01). An unknown slug or an unseen element binds fields no vault fill can match.
+ */
+function fillBinding(
+  item: CredentialMeta | undefined,
+  ph: { slug: string; field?: string },
+  origin: string,
+  ref: string,
+  meta: ElementMeta | undefined,
+): { fields: Record<string, unknown>; grantKey: string } {
+  const itemId = item?.id ?? `unknown:${ph.slug}`;
+  const field = ph.field ?? "secret";
+  const fields: Record<string, unknown> = {
+    executor: "browser",
+    field,
+    itemId,
+    target: origin,
+    selector: ref,
+  };
+  if (meta !== undefined) {
+    fields.element = {
+      autocomplete: (meta.autocomplete ?? "").toLowerCase(),
+      tagName: meta.tag.toLowerCase(),
+      type: (meta.inputType ?? "").toLowerCase(),
+    };
+  }
+  const fieldClass = field === "secret" ? (item?.kind === "login" ? "password" : "token") : field;
+  return { fields, grantKey: `credential_fill|${itemId}|${origin}|${fieldClass}|browser` };
+}
+
 async function fillCredential(
   deps: BrowserToolDeps,
   callId: string,
@@ -884,6 +919,7 @@ async function fillCredential(
   if (origin === undefined) throw new PsycheError("conflict", "the tab has no page yet");
   const meta = await d.describe(p.tabId, p.ref);
   const ctx = deps.context(callId);
+  const binding = fillBinding(deps.credentialMeta?.(ph.slug), ph, origin, p.ref, meta);
   let approvalId = ctx.approvalId;
   if (approvalId === undefined) {
     const gate = new ApprovalGate(deps.broker);
@@ -900,16 +936,13 @@ async function fillCredential(
           origin,
           element: `${meta.role} "${meta.name}"`,
         },
-        // Data model §4.2 credential_fill: item, origin, field selector, tab.
-        bindingFields: {
-          item: ph.slug,
-          field: ph.field ?? null,
-          origin,
-          ref: p.ref,
-          element: meta.name,
-          tabId: p.tabId,
-        },
-        grantKey: `credential_fill|${ph.slug}|${origin}`,
+        bindingFields: binding.fields,
+        // The loop's envelope over this call, which the vault recomputes before resolving.
+        bindingHash: toolCallBindingHash("browser.fill_credential", p, {
+          kind: "credential_fill",
+          bindingFields: binding.fields,
+        }),
+        grantKey: binding.grantKey,
       },
       ctx,
       signal,
@@ -937,6 +970,7 @@ async function fillCredential(
     signal,
     element,
     selector: p.ref,
+    call: { tool: "browser.fill_credential", params: p, toolCallId: callId },
     ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
   });
   try {

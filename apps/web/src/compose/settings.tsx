@@ -2,6 +2,7 @@ import {
   AboutSection,
   AppearanceSection,
   DataControlsSection,
+  DevicesSection,
   FileAccessPanel,
   type FolderGrant,
   SETTINGS_SECTIONS,
@@ -15,6 +16,7 @@ import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from 
 import type { DictationPort, ShellPlatform, SystemDictationStatus } from "../shell/platform.ts";
 import { BackupsPanel } from "./backups.tsx";
 import { LogViewer } from "./logs.tsx";
+import { PasskeysPanel } from "./passkeys.tsx";
 import { ZoomSetting } from "./ZoomSetting.tsx";
 
 /**
@@ -23,7 +25,8 @@ import { ZoomSetting } from "./ZoomSetting.tsx";
  * grants under a UI-local key; the Gateway applies `permissions.policy.folders` to the broker
  * (INT-1), so this section reads and writes the policy and, on the desktop, adds a native folder
  * picker ("Settings does not have a folder picker yet" in the README). Data controls gains the
- * Backups panel (U4) and About the log viewer (U5).
+ * Backups panel (U4), About the log viewer (U5), and on the web Devices & nodes this browser's
+ * passkeys (issue #79).
  */
 
 /** The broker policy setting (security §10: admin-only). */
@@ -203,6 +206,7 @@ export function settingsRoute(
       <SettingsScreen
         section={section}
         onSectionChange={(id) => navigate(`/settings/${id}`)}
+        onOpenTask={(taskId) => navigate(`/agent/activity/${taskId}`)}
         {...(platform.browser?.openRealChromeProfile
           ? {
               onOpenRealChromeProfile: (profile: string) =>
@@ -214,6 +218,16 @@ export function settingsRoute(
           files: <FileAccessSettings platform={platform} />,
           ...(platform.dictation
             ? { voice: <SystemVoiceSettings dictation={platform.dictation} /> }
+            : {}),
+          ...(platform.kind === "web"
+            ? {
+                devices: (
+                  <div className="flex flex-col gap-4">
+                    <DevicesSection />
+                    <PasskeysPanel host={platform.passkeys} />
+                  </div>
+                ),
+              }
             : {}),
           appearance: (
             <div className="flex flex-col gap-4">

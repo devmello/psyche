@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  type ApprovalRequest,
   type AuditLog,
   type Clock,
   type ConnectorCredentialStore,
@@ -279,6 +280,18 @@ export interface LinkOnePasswordInput {
  * placeholder resolution for executors, the use log and the metadata mirror. Implements the
  * `CredentialBroker` contract and the connector-owned token store.
  */
+/** The contract reports every approval failure as `approval_required`; the reason says which. */
+const APPROVAL_MESSAGES: Record<string, string> = {
+  expired: "the approval expired",
+  revoked: "the approval or its grant was revoked",
+  binding_mismatch: "the approval was for a different fill",
+  consumed: "the approval was already used",
+  not_approved: "the approval is not approved",
+  not_found: "no such approval",
+  wrong_kind: "the approval is not a credential_fill",
+  another_call: "the approval was for another tool call",
+};
+
 export class Vault implements CredentialBroker, ConnectorCredentialStore {
   readonly clock: Clock;
   readonly #o: Required<Pick<VaultOptions, "autoLockMinutes" | "unlockOnFill" | "argon2">> &
@@ -292,6 +305,8 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
   #unlocking: Promise<void> | undefined;
   readonly #listeners = new Map<VaultEventName, Set<(p: unknown) => void>>();
   readonly #revoked = new Set<(e: CredentialRevokedEvent) => void>();
+  /** `once` approvals a fill has claimed in this process (persisted as `filled` uses). */
+  readonly #claimedOnce = new Set<string>();
 
   constructor(options: VaultOptions) {
     this.#o = {
@@ -909,6 +924,11 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     return this.#o.meta.get(id);
   }
 
+  /** One item's metadata by slug, synchronously (an executor binding a fill before dispatch). */
+  metaBySlug(slug: string): CredentialMeta | undefined {
+    return this.#o.meta.list().find((m) => m.slug === slug);
+  }
+
   redact(text: string): string {
     return this.#redactor.redact(text);
   }
@@ -1097,28 +1117,55 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       ...(options.selector === undefined ? {} : { selector: options.selector }),
       ...(options.element === undefined ? {} : { element: options.element }),
     });
-    const verified = await this.#o.permissions.verifyBinding(
-      approvalId,
-      credentialFillBindingHash(bindingInput),
-    );
-    if (!verified.ok) {
-      // The contract reports every approval failure as `approval_required`; the reason says which.
-      const messages = {
-        expired: "the approval expired",
-        revoked: "the approval or its grant was revoked",
-        binding_mismatch: "the approval was for a different fill",
-        consumed: "the approval was already used",
-        not_approved: "the approval is not approved",
-        not_found: "no such approval",
-      } as const;
-      return deny("approval_required", `approval_${verified.reason}`, messages[verified.reason]);
-    }
-    if (verified.approval.kind !== "credential_fill") {
-      return deny(
+    const denied = (reason: string) =>
+      deny(
         "approval_required",
-        "approval_wrong_kind",
-        "the approval is not a credential_fill",
+        `approval_${reason}`,
+        APPROVAL_MESSAGES[reason] ?? `the approval is ${reason}`,
       );
+    // The vault verifies independently (security §3.5): it recomputes the binding from the fill
+    // it is about to resolve, through the shared recipe, and the broker compares it with the
+    // approval record. A fill the loop approved binds the loop's envelope (tool, params, these
+    // fields); the vault never takes a hash from the caller.
+    const call = options.call;
+    const expected = credentialFillBindingHash(bindingInput, call);
+    const verified = await this.#o.permissions.verifyBinding(approvalId, expected);
+    let approval: ApprovalRequest;
+    if (verified.ok) {
+      approval = verified.approval;
+    } else if (verified.reason === "consumed" && call !== undefined) {
+      // The loop consumes a `once` approval at the broker right before dispatching this very
+      // call (the broker reports `consumed` only once the binding matched). Re-read the record:
+      // it must still be that call's live, approved `once` approval for this exact binding.
+      const record = await this.#o.permissions.get(approvalId);
+      if (
+        record === undefined ||
+        record.status !== "approved" ||
+        record.scopeGranted !== "once" ||
+        record.bindingHash !== expected ||
+        this.clock.now() >= Date.parse(record.expiresAt)
+      ) {
+        return denied("consumed");
+      }
+      approval = record;
+    } else {
+      return denied(verified.reason);
+    }
+    if (approval.kind !== "credential_fill") return denied("wrong_kind");
+    const approvedCall = approval.requestedBy?.toolCallId;
+    if (
+      call?.toolCallId !== undefined &&
+      approvedCall !== undefined &&
+      approvedCall !== call.toolCallId
+    ) {
+      return denied("another_call");
+    }
+    if (approval.scopeGranted === "once") {
+      // Claimed synchronously, so two concurrent resolves cannot both pass.
+      if (this.#claimedOnce.has(approvalId) || this.#o.meta.filledUnder(approvalId)) {
+        return denied("consumed");
+      }
+      this.#claimedOnce.add(approvalId);
     }
     // TOTP codes are computed at the moment of use.
     if (item.attrs.backend === "1password" && key !== undefined) {

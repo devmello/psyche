@@ -5,6 +5,24 @@
 // To parse the JSON, add this file to your project and do:
 //
 //   let actionRule = try? JSONDecoder().decode(ActionRule.self, from: jsonData)
+//   let appleCalendar = try? JSONDecoder().decode(AppleCalendar.self, from: jsonData)
+//   let appleCalendarEvent = try? JSONDecoder().decode(AppleCalendarEvent.self, from: jsonData)
+//   let appleCalendarEventInput = try? JSONDecoder().decode(AppleCalendarEventInput.self, from: jsonData)
+//   let appleCalendarEventUpdate = try? JSONDecoder().decode(AppleCalendarEventUpdate.self, from: jsonData)
+//   let appleCalendarListEventsParams = try? JSONDecoder().decode(AppleCalendarListEventsParams.self, from: jsonData)
+//   let appleFinderEntry = try? JSONDecoder().decode(AppleFinderEntry.self, from: jsonData)
+//   let appleMailDraftInput = try? JSONDecoder().decode(AppleMailDraftInput.self, from: jsonData)
+//   let appleMailMessage = try? JSONDecoder().decode(AppleMailMessage.self, from: jsonData)
+//   let appleMailMessageSummary = try? JSONDecoder().decode(AppleMailMessageSummary.self, from: jsonData)
+//   let appleMailSearchParams = try? JSONDecoder().decode(AppleMailSearchParams.self, from: jsonData)
+//   let appleNote = try? JSONDecoder().decode(AppleNote.self, from: jsonData)
+//   let appleNoteInput = try? JSONDecoder().decode(AppleNoteInput.self, from: jsonData)
+//   let appleNoteSummary = try? JSONDecoder().decode(AppleNoteSummary.self, from: jsonData)
+//   let appleReminder = try? JSONDecoder().decode(AppleReminder.self, from: jsonData)
+//   let appleReminderInput = try? JSONDecoder().decode(AppleReminderInput.self, from: jsonData)
+//   let appleReminderUpdate = try? JSONDecoder().decode(AppleReminderUpdate.self, from: jsonData)
+//   let appleRemindersListParams = try? JSONDecoder().decode(AppleRemindersListParams.self, from: jsonData)
+//   let appleSafariTab = try? JSONDecoder().decode(AppleSafariTab.self, from: jsonData)
 //   let approvalAnswer = try? JSONDecoder().decode(ApprovalAnswer.self, from: jsonData)
 //   let approvalBlock = try? JSONDecoder().decode(ApprovalBlock.self, from: jsonData)
 //   let approvalCreatedPayload = try? JSONDecoder().decode(ApprovalCreatedPayload.self, from: jsonData)
@@ -172,6 +190,7 @@
 //   let connectorsGetResult = try? JSONDecoder().decode(ConnectorsGetResult.self, from: jsonData)
 //   let connectorsListParams = try? JSONDecoder().decode(ConnectorsListParams.self, from: jsonData)
 //   let connectorsListResult = try? JSONDecoder().decode(ConnectorsListResult.self, from: jsonData)
+//   let conversionTarget = try? JSONDecoder().decode(ConversionTarget.self, from: jsonData)
 //   let credentialBinding = try? JSONDecoder().decode(CredentialBinding.self, from: jsonData)
 //   let credentialKind = try? JSONDecoder().decode(CredentialKind.self, from: jsonData)
 //   let credentialMeta = try? JSONDecoder().decode(CredentialMeta.self, from: jsonData)
@@ -208,6 +227,8 @@
 //   let dictationWatchParams = try? JSONDecoder().decode(DictationWatchParams.self, from: jsonData)
 //   let dictationWatchResult = try? JSONDecoder().decode(DictationWatchResult.self, from: jsonData)
 //   let dmPolicy = try? JSONDecoder().decode(DmPolicy.self, from: jsonData)
+//   let documentsConvertParams = try? JSONDecoder().decode(DocumentsConvertParams.self, from: jsonData)
+//   let documentsConvertResult = try? JSONDecoder().decode(DocumentsConvertResult.self, from: jsonData)
 //   let emptyParams = try? JSONDecoder().decode(EmptyParams.self, from: jsonData)
 //   let errorCode = try? JSONDecoder().decode(ErrorCode.self, from: jsonData)
 //   let errorPayload = try? JSONDecoder().decode(ErrorPayload.self, from: jsonData)
@@ -226,6 +247,12 @@
 //   let feedPostPayload = try? JSONDecoder().decode(FeedPostPayload.self, from: jsonData)
 //   let feedUpdatedPayload = try? JSONDecoder().decode(FeedUpdatedPayload.self, from: jsonData)
 //   let fileBlock = try? JSONDecoder().decode(FileBlock.self, from: jsonData)
+//   let fileEntry = try? JSONDecoder().decode(FileEntry.self, from: jsonData)
+//   let fileEntryKind = try? JSONDecoder().decode(FileEntryKind.self, from: jsonData)
+//   let filesListParams = try? JSONDecoder().decode(FilesListParams.self, from: jsonData)
+//   let filesListResult = try? JSONDecoder().decode(FilesListResult.self, from: jsonData)
+//   let filesReadParams = try? JSONDecoder().decode(FilesReadParams.self, from: jsonData)
+//   let filesReadResult = try? JSONDecoder().decode(FilesReadResult.self, from: jsonData)
 //   let frame = try? JSONDecoder().decode(Frame.self, from: jsonData)
 //   let gatewayShutdownPayload = try? JSONDecoder().decode(GatewayShutdownPayload.self, from: jsonData)
 //   let goal = try? JSONDecoder().decode(Goal.self, from: jsonData)
@@ -330,6 +357,24 @@
 //   let memoryWriteResult = try? JSONDecoder().decode(MemoryWriteResult.self, from: jsonData)
 //   let message = try? JSONDecoder().decode(Message.self, from: jsonData)
 //   let messageRole = try? JSONDecoder().decode(MessageRole.self, from: jsonData)
+//   let messagesAttachment = try? JSONDecoder().decode(MessagesAttachment.self, from: jsonData)
+//   let messagesAutomationStatus = try? JSONDecoder().decode(MessagesAutomationStatus.self, from: jsonData)
+//   let messagesChat = try? JSONDecoder().decode(MessagesChat.self, from: jsonData)
+//   let messagesChatsParams = try? JSONDecoder().decode(MessagesChatsParams.self, from: jsonData)
+//   let messagesChatsResult = try? JSONDecoder().decode(MessagesChatsResult.self, from: jsonData)
+//   let messagesHandle = try? JSONDecoder().decode(MessagesHandle.self, from: jsonData)
+//   let messagesMessage = try? JSONDecoder().decode(MessagesMessage.self, from: jsonData)
+//   let messagesReaction = try? JSONDecoder().decode(MessagesReaction.self, from: jsonData)
+//   let messagesReactionKind = try? JSONDecoder().decode(MessagesReactionKind.self, from: jsonData)
+//   let messagesReadParams = try? JSONDecoder().decode(MessagesReadParams.self, from: jsonData)
+//   let messagesReadResult = try? JSONDecoder().decode(MessagesReadResult.self, from: jsonData)
+//   let messagesSendParams = try? JSONDecoder().decode(MessagesSendParams.self, from: jsonData)
+//   let messagesSendResult = try? JSONDecoder().decode(MessagesSendResult.self, from: jsonData)
+//   let messagesSendService = try? JSONDecoder().decode(MessagesSendService.self, from: jsonData)
+//   let messagesService = try? JSONDecoder().decode(MessagesService.self, from: jsonData)
+//   let messagesStatus = try? JSONDecoder().decode(MessagesStatus.self, from: jsonData)
+//   let messagesWatchEvent = try? JSONDecoder().decode(MessagesWatchEvent.self, from: jsonData)
+//   let messagesWatchParams = try? JSONDecoder().decode(MessagesWatchParams.self, from: jsonData)
 //   let nodeCapability = try? JSONDecoder().decode(NodeCapability.self, from: jsonData)
 //   let nodeEventParams = try? JSONDecoder().decode(NodeEventParams.self, from: jsonData)
 //   let nodeInfo = try? JSONDecoder().decode(NodeInfo.self, from: jsonData)
@@ -587,6 +632,504 @@
 
 import Foundation
 
+// MARK: - AppleCalendar
+public struct AppleCalendar: Codable, Sendable {
+    public let color: String?
+    public let id: String
+    public let source: String
+    public let title: String
+    public let writable: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case color = "color"
+        case id = "id"
+        case source = "source"
+        case title = "title"
+        case writable = "writable"
+    }
+
+    public init(color: String?, id: String, source: String, title: String, writable: Bool) {
+        self.color = color
+        self.id = id
+        self.source = source
+        self.title = title
+        self.writable = writable
+    }
+}
+
+// MARK: - AppleCalendarEvent
+public struct AppleCalendarEvent: Codable, Sendable {
+    public let allDay: Bool
+    public let calendarID: String
+    public let end: String
+    /// EKEvent.calendarItemIdentifier
+    public let id: String
+    public let location: String?
+    public let notes: String?
+    public let recurring: Bool
+    public let start: String
+    public let title: String
+    public let url: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case allDay = "allDay"
+        case calendarID = "calendarId"
+        case end = "end"
+        case id = "id"
+        case location = "location"
+        case notes = "notes"
+        case recurring = "recurring"
+        case start = "start"
+        case title = "title"
+        case url = "url"
+    }
+
+    public init(allDay: Bool, calendarID: String, end: String, id: String, location: String?, notes: String?, recurring: Bool, start: String, title: String, url: String?) {
+        self.allDay = allDay
+        self.calendarID = calendarID
+        self.end = end
+        self.id = id
+        self.location = location
+        self.notes = notes
+        self.recurring = recurring
+        self.start = start
+        self.title = title
+        self.url = url
+    }
+}
+
+// MARK: - AppleCalendarEventInput
+public struct AppleCalendarEventInput: Codable, Sendable {
+    public let allDay: Bool?
+    /// Default: the default calendar for new events
+    public let calendarID: String?
+    public let end: String
+    public let location: String?
+    public let notes: String?
+    public let start: String
+    public let title: String
+    public let url: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case allDay = "allDay"
+        case calendarID = "calendarId"
+        case end = "end"
+        case location = "location"
+        case notes = "notes"
+        case start = "start"
+        case title = "title"
+        case url = "url"
+    }
+
+    public init(allDay: Bool?, calendarID: String?, end: String, location: String?, notes: String?, start: String, title: String, url: String?) {
+        self.allDay = allDay
+        self.calendarID = calendarID
+        self.end = end
+        self.location = location
+        self.notes = notes
+        self.start = start
+        self.title = title
+        self.url = url
+    }
+}
+
+// MARK: - AppleCalendarEventUpdate
+public struct AppleCalendarEventUpdate: Codable, Sendable {
+    public let allDay: Bool?
+    public let end: String?
+    public let id: String
+    public let location: String?
+    public let notes: String?
+    /// Recurring events (default this)
+    public let span: Span?
+    public let start: String?
+    public let title: String?
+    public let url: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case allDay = "allDay"
+        case end = "end"
+        case id = "id"
+        case location = "location"
+        case notes = "notes"
+        case span = "span"
+        case start = "start"
+        case title = "title"
+        case url = "url"
+    }
+
+    public init(allDay: Bool?, end: String?, id: String, location: String?, notes: String?, span: Span?, start: String?, title: String?, url: String?) {
+        self.allDay = allDay
+        self.end = end
+        self.id = id
+        self.location = location
+        self.notes = notes
+        self.span = span
+        self.start = start
+        self.title = title
+        self.url = url
+    }
+}
+
+/// Recurring events (default this)
+public enum Span: String, Codable, Sendable {
+    case future = "future"
+    case this = "this"
+}
+
+// MARK: - AppleCalendarListEventsParams
+public struct AppleCalendarListEventsParams: Codable, Sendable {
+    public let calendarIDS: [String]?
+    public let from: String
+    public let limit: Int?
+    public let to: String
+
+    public enum CodingKeys: String, CodingKey {
+        case calendarIDS = "calendarIds"
+        case from = "from"
+        case limit = "limit"
+        case to = "to"
+    }
+
+    public init(calendarIDS: [String]?, from: String, limit: Int?, to: String) {
+        self.calendarIDS = calendarIDS
+        self.from = from
+        self.limit = limit
+        self.to = to
+    }
+}
+
+// MARK: - AppleFinderEntry
+public struct AppleFinderEntry: Codable, Sendable {
+    public let kind: AppleFinderEntryKind
+    public let modified: String?
+    public let name: String
+    public let path: String
+    public let size: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case modified = "modified"
+        case name = "name"
+        case path = "path"
+        case size = "size"
+    }
+
+    public init(kind: AppleFinderEntryKind, modified: String?, name: String, path: String, size: Int?) {
+        self.kind = kind
+        self.modified = modified
+        self.name = name
+        self.path = path
+        self.size = size
+    }
+}
+
+public enum AppleFinderEntryKind: String, Codable, Sendable {
+    case directory = "directory"
+    case file = "file"
+    case other = "other"
+    case symlink = "symlink"
+}
+
+// MARK: - AppleMailDraftInput
+public struct AppleMailDraftInput: Codable, Sendable {
+    public let body: String
+    public let cc: [String]?
+    public let subject: String
+    public let to: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case body = "body"
+        case cc = "cc"
+        case subject = "subject"
+        case to = "to"
+    }
+
+    public init(body: String, cc: [String]?, subject: String, to: [String]) {
+        self.body = body
+        self.cc = cc
+        self.subject = subject
+        self.to = to
+    }
+}
+
+// MARK: - AppleMailMessage
+public struct AppleMailMessage: Codable, Sendable {
+    /// Plain text, untrusted
+    public let body: String
+    public let cc: [String]
+    public let summary: AppleMailMessageSummary
+    public let to: [String]
+    public let truncated: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case body = "body"
+        case cc = "cc"
+        case summary = "summary"
+        case to = "to"
+        case truncated = "truncated"
+    }
+
+    public init(body: String, cc: [String], summary: AppleMailMessageSummary, to: [String], truncated: Bool) {
+        self.body = body
+        self.cc = cc
+        self.summary = summary
+        self.to = to
+        self.truncated = truncated
+    }
+}
+
+// MARK: - AppleMailMessageSummary
+public struct AppleMailMessageSummary: Codable, Sendable {
+    public let account: String
+    public let date: String
+    public let from: String
+    /// Mail message id (stable within the account)
+    public let id: String
+    public let mailbox: String
+    public let read: Bool
+    public let subject: String
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case date = "date"
+        case from = "from"
+        case id = "id"
+        case mailbox = "mailbox"
+        case read = "read"
+        case subject = "subject"
+    }
+
+    public init(account: String, date: String, from: String, id: String, mailbox: String, read: Bool, subject: String) {
+        self.account = account
+        self.date = date
+        self.from = from
+        self.id = id
+        self.mailbox = mailbox
+        self.read = read
+        self.subject = subject
+    }
+}
+
+// MARK: - AppleMailSearchParams
+public struct AppleMailSearchParams: Codable, Sendable {
+    public let limit: Int?
+    /// Default: inbox
+    public let mailbox: String?
+    /// Matched against subject and sender
+    public let query: String
+
+    public enum CodingKeys: String, CodingKey {
+        case limit = "limit"
+        case mailbox = "mailbox"
+        case query = "query"
+    }
+
+    public init(limit: Int?, mailbox: String?, query: String) {
+        self.limit = limit
+        self.mailbox = mailbox
+        self.query = query
+    }
+}
+
+// MARK: - AppleNote
+public struct AppleNote: Codable, Sendable {
+    /// Notes body HTML, untrusted
+    public let html: String
+    public let summary: AppleNoteSummary
+    /// Plain text of the body
+    public let text: String
+    public let truncated: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case html = "html"
+        case summary = "summary"
+        case text = "text"
+        case truncated = "truncated"
+    }
+
+    public init(html: String, summary: AppleNoteSummary, text: String, truncated: Bool) {
+        self.html = html
+        self.summary = summary
+        self.text = text
+        self.truncated = truncated
+    }
+}
+
+// MARK: - AppleNoteSummary
+public struct AppleNoteSummary: Codable, Sendable {
+    public let folder: String
+    public let id: String
+    public let modified: String
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case folder = "folder"
+        case id = "id"
+        case modified = "modified"
+        case title = "title"
+    }
+
+    public init(folder: String, id: String, modified: String, title: String) {
+        self.folder = folder
+        self.id = id
+        self.modified = modified
+        self.title = title
+    }
+}
+
+// MARK: - AppleNoteInput
+public struct AppleNoteInput: Codable, Sendable {
+    /// Plain text; HTML is escaped
+    public let body: String
+    public let folder: String?
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case body = "body"
+        case folder = "folder"
+        case title = "title"
+    }
+
+    public init(body: String, folder: String?, title: String) {
+        self.body = body
+        self.folder = folder
+        self.title = title
+    }
+}
+
+// MARK: - AppleReminder
+public struct AppleReminder: Codable, Sendable {
+    public let completed: Bool
+    public let due: String?
+    public let id: String
+    public let listID: String
+    public let notes: String?
+    /// 0 none, 1 high … 9 low (EventKit)
+    public let priority: Int
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case completed = "completed"
+        case due = "due"
+        case id = "id"
+        case listID = "listId"
+        case notes = "notes"
+        case priority = "priority"
+        case title = "title"
+    }
+
+    public init(completed: Bool, due: String?, id: String, listID: String, notes: String?, priority: Int, title: String) {
+        self.completed = completed
+        self.due = due
+        self.id = id
+        self.listID = listID
+        self.notes = notes
+        self.priority = priority
+        self.title = title
+    }
+}
+
+// MARK: - AppleReminderInput
+public struct AppleReminderInput: Codable, Sendable {
+    public let due: String?
+    public let listID: String?
+    public let notes: String?
+    public let priority: Int?
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case due = "due"
+        case listID = "listId"
+        case notes = "notes"
+        case priority = "priority"
+        case title = "title"
+    }
+
+    public init(due: String?, listID: String?, notes: String?, priority: Int?, title: String) {
+        self.due = due
+        self.listID = listID
+        self.notes = notes
+        self.priority = priority
+        self.title = title
+    }
+}
+
+// MARK: - AppleReminderUpdate
+public struct AppleReminderUpdate: Codable, Sendable {
+    public let completed: Bool?
+    public let due: String?
+    public let id: String
+    public let notes: String?
+    public let priority: Int?
+    public let title: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case completed = "completed"
+        case due = "due"
+        case id = "id"
+        case notes = "notes"
+        case priority = "priority"
+        case title = "title"
+    }
+
+    public init(completed: Bool?, due: String?, id: String, notes: String?, priority: Int?, title: String?) {
+        self.completed = completed
+        self.due = due
+        self.id = id
+        self.notes = notes
+        self.priority = priority
+        self.title = title
+    }
+}
+
+// MARK: - AppleRemindersListParams
+public struct AppleRemindersListParams: Codable, Sendable {
+    public let completed: Bool?
+    public let dueBefore: String?
+    public let limit: Int?
+    public let listIDS: [String]?
+
+    public enum CodingKeys: String, CodingKey {
+        case completed = "completed"
+        case dueBefore = "dueBefore"
+        case limit = "limit"
+        case listIDS = "listIds"
+    }
+
+    public init(completed: Bool?, dueBefore: String?, limit: Int?, listIDS: [String]?) {
+        self.completed = completed
+        self.dueBefore = dueBefore
+        self.limit = limit
+        self.listIDS = listIDS
+    }
+}
+
+// MARK: - AppleSafariTab
+public struct AppleSafariTab: Codable, Sendable {
+    public let current: Bool
+    public let index: Int
+    public let title: String
+    public let url: String
+    public let window: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case current = "current"
+        case index = "index"
+        case title = "title"
+        case url = "url"
+        case window = "window"
+    }
+
+    public init(current: Bool, index: Int, title: String, url: String, window: Int) {
+        self.current = current
+        self.index = index
+        self.title = title
+        self.url = url
+        self.window = window
+    }
+}
+
 // MARK: - ApprovalAnswer
 public struct ApprovalAnswer: Codable, Sendable {
     public let answerToken: String
@@ -798,6 +1341,7 @@ public struct DecidedByClass: Codable, Sendable {
 }
 
 public enum ApprovalKind: String, Codable, Sendable {
+    case appleScript = "apple_script"
     case archiveThread = "archive_thread"
     case browserSubmit = "browser_submit"
     case calendarWrite = "calendar_write"
@@ -816,6 +1360,7 @@ public enum ApprovalKind: String, Codable, Sendable {
     case policyChange = "policy_change"
     case purchase = "purchase"
     case sendEmail = "send_email"
+    case shortcutRun = "shortcut_run"
     case skillInstall = "skill_install"
     case taskStart = "task_start"
 }
@@ -4916,6 +5461,72 @@ public struct DictationWatchResult: Codable, Sendable {
     }
 }
 
+// MARK: - DocumentsConvertParams
+public struct DocumentsConvertParams: Codable, Sendable {
+    /// bytes to return; default and maximum 524288
+    public let length: Int?
+    /// a path relative to the Library (LibraryItem.path)
+    public let libraryPath: String?
+    /// byte offset; default 0
+    public let offset: Int?
+    /// an absolute path in a granted folder
+    public let path: String?
+    public let target: ConversionTarget
+
+    public enum CodingKeys: String, CodingKey {
+        case length = "length"
+        case libraryPath = "libraryPath"
+        case offset = "offset"
+        case path = "path"
+        case target = "target"
+    }
+
+    public init(length: Int?, libraryPath: String?, offset: Int?, path: String?, target: ConversionTarget) {
+        self.length = length
+        self.libraryPath = libraryPath
+        self.offset = offset
+        self.path = path
+        self.target = target
+    }
+}
+
+public enum ConversionTarget: String, Codable, Sendable {
+    case pdf = "pdf"
+    case thumbnail = "thumbnail"
+}
+
+// MARK: - DocumentsConvertResult
+public struct DocumentsConvertResult: Codable, Sendable {
+    /// this chunk, base64
+    public let bytes: String
+    public let mime: DocumentsConvertResultMIME
+    public let nextOffset: Int?
+    public let offset: Int
+    /// the whole content's size in bytes
+    public let size: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case mime = "mime"
+        case nextOffset = "nextOffset"
+        case offset = "offset"
+        case size = "size"
+    }
+
+    public init(bytes: String, mime: DocumentsConvertResultMIME, nextOffset: Int?, offset: Int, size: Int) {
+        self.bytes = bytes
+        self.mime = mime
+        self.nextOffset = nextOffset
+        self.offset = offset
+        self.size = size
+    }
+}
+
+public enum DocumentsConvertResultMIME: String, Codable, Sendable {
+    case applicationPDF = "application/pdf"
+    case imagePNG = "image/png"
+}
+
 // MARK: - EventFrame
 public struct EventFrame: Codable, Sendable {
     public let event: String
@@ -5210,6 +5821,133 @@ public struct FileBlock: Codable, Sendable {
 
 public enum FileBlockType: String, Codable, Sendable {
     case file = "file"
+}
+
+// MARK: - FilesListParams
+public struct FilesListParams: Codable, Sendable {
+    public let offset: Int?
+    /// an absolute path in a granted folder
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case offset = "offset"
+        case path = "path"
+    }
+
+    public init(offset: Int?, path: String) {
+        self.offset = offset
+        self.path = path
+    }
+}
+
+// MARK: - FilesListResult
+public struct FilesListResult: Codable, Sendable {
+    public let entries: [FileEntry]
+    public let nextOffset: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case entries = "entries"
+        case nextOffset = "nextOffset"
+    }
+
+    public init(entries: [FileEntry], nextOffset: Int?) {
+        self.entries = entries
+        self.nextOffset = nextOffset
+    }
+}
+
+// MARK: - FileEntry
+public struct FileEntry: Codable, Sendable {
+    public let kind: FileEntryKind
+    public let modifiedAt: String?
+    public let name: String
+    public let path: String
+    public let size: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case modifiedAt = "modifiedAt"
+        case name = "name"
+        case path = "path"
+        case size = "size"
+    }
+
+    public init(kind: FileEntryKind, modifiedAt: String?, name: String, path: String, size: Int?) {
+        self.kind = kind
+        self.modifiedAt = modifiedAt
+        self.name = name
+        self.path = path
+        self.size = size
+    }
+}
+
+public enum FileEntryKind: String, Codable, Sendable {
+    case file = "file"
+    case folder = "folder"
+    case other = "other"
+}
+
+// MARK: - FilesReadParams
+public struct FilesReadParams: Codable, Sendable {
+    /// bytes to return; default and maximum 524288
+    public let length: Int?
+    /// a path relative to the Library (LibraryItem.path)
+    public let libraryPath: String?
+    /// byte offset; default 0
+    public let offset: Int?
+    /// an absolute path in a granted folder
+    public let path: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case length = "length"
+        case libraryPath = "libraryPath"
+        case offset = "offset"
+        case path = "path"
+    }
+
+    public init(length: Int?, libraryPath: String?, offset: Int?, path: String?) {
+        self.length = length
+        self.libraryPath = libraryPath
+        self.offset = offset
+        self.path = path
+    }
+}
+
+// MARK: - FilesReadResult
+public struct FilesReadResult: Codable, Sendable {
+    /// this chunk, base64
+    public let bytes: String
+    public let etag: String
+    /// from the extension; application/octet-stream if unknown
+    public let mime: String
+    public let modifiedAt: String
+    public let name: String
+    public let nextOffset: Int?
+    public let offset: Int
+    /// the whole content's size in bytes
+    public let size: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case etag = "etag"
+        case mime = "mime"
+        case modifiedAt = "modifiedAt"
+        case name = "name"
+        case nextOffset = "nextOffset"
+        case offset = "offset"
+        case size = "size"
+    }
+
+    public init(bytes: String, etag: String, mime: String, modifiedAt: String, name: String, nextOffset: Int?, offset: Int, size: Int) {
+        self.bytes = bytes
+        self.etag = etag
+        self.mime = mime
+        self.modifiedAt = modifiedAt
+        self.name = name
+        self.nextOffset = nextOffset
+        self.offset = offset
+        self.size = size
+    }
 }
 
 // MARK: - Frame
@@ -6606,7 +7344,7 @@ public struct MemoryExportResult: Codable, Sendable {
     public let bytes: Int
     public let data: String
     public let filename: String
-    public let mime: MIME
+    public let mime: MemoryExportResultMIME
 
     public enum CodingKeys: String, CodingKey {
         case bytes = "bytes"
@@ -6615,7 +7353,7 @@ public struct MemoryExportResult: Codable, Sendable {
         case mime = "mime"
     }
 
-    public init(bytes: Int, data: String, filename: String, mime: MIME) {
+    public init(bytes: Int, data: String, filename: String, mime: MemoryExportResultMIME) {
         self.bytes = bytes
         self.data = data
         self.filename = filename
@@ -6623,7 +7361,7 @@ public struct MemoryExportResult: Codable, Sendable {
     }
 }
 
-public enum MIME: String, Codable, Sendable {
+public enum MemoryExportResultMIME: String, Codable, Sendable {
     case applicationZip = "application/zip"
 }
 
@@ -7267,6 +8005,373 @@ public struct MemoryWriteResult: Codable, Sendable {
         self.etag = etag
         self.path = path
         self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - MessagesChatsParams
+public struct MessagesChatsParams: Codable, Sendable {
+    public let limit: Int?
+    /// Substring of a handle or display name
+    public let query: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case limit = "limit"
+        case query = "query"
+    }
+
+    public init(limit: Int?, query: String?) {
+        self.limit = limit
+        self.query = query
+    }
+}
+
+// MARK: - MessagesChatsResult
+public struct MessagesChatsResult: Codable, Sendable {
+    public let chats: [MessagesChat]
+
+    public enum CodingKeys: String, CodingKey {
+        case chats = "chats"
+    }
+
+    public init(chats: [MessagesChat]) {
+        self.chats = chats
+    }
+}
+
+// MARK: - MessagesChat
+public struct MessagesChat: Codable, Sendable {
+    /// chat.db chat.guid (e.g. iMessage;-;+15551234567, any;-;… on macOS 26+). Opaque; pass back
+    /// as-is.
+    public let chatID: String
+    public let displayName: String?
+    public let isGroup: Bool
+    public let lastCursor: Int?
+    public let lastMessageAt: String?
+    public let participants: [MessagesHandle]
+    public let service: MessagesService
+
+    public enum CodingKeys: String, CodingKey {
+        case chatID = "chatId"
+        case displayName = "displayName"
+        case isGroup = "isGroup"
+        case lastCursor = "lastCursor"
+        case lastMessageAt = "lastMessageAt"
+        case participants = "participants"
+        case service = "service"
+    }
+
+    public init(chatID: String, displayName: String?, isGroup: Bool, lastCursor: Int?, lastMessageAt: String?, participants: [MessagesHandle], service: MessagesService) {
+        self.chatID = chatID
+        self.displayName = displayName
+        self.isGroup = isGroup
+        self.lastCursor = lastCursor
+        self.lastMessageAt = lastMessageAt
+        self.participants = participants
+        self.service = service
+    }
+}
+
+// MARK: - MessagesHandle
+public struct MessagesHandle: Codable, Sendable {
+    public let handle: String
+    public let service: MessagesService
+
+    public enum CodingKeys: String, CodingKey {
+        case handle = "handle"
+        case service = "service"
+    }
+
+    public init(handle: String, service: MessagesService) {
+        self.handle = handle
+        self.service = service
+    }
+}
+
+public enum MessagesService: String, Codable, Sendable {
+    case imessage = "imessage"
+    case rcs = "rcs"
+    case sms = "sms"
+    case unknown = "unknown"
+}
+
+// MARK: - MessagesReadParams
+public struct MessagesReadParams: Codable, Sendable {
+    public let chatID: String?
+    public let handle: String?
+    public let limit: Int?
+    public let sinceCursor: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case chatID = "chatId"
+        case handle = "handle"
+        case limit = "limit"
+        case sinceCursor = "sinceCursor"
+    }
+
+    public init(chatID: String?, handle: String?, limit: Int?, sinceCursor: Int?) {
+        self.chatID = chatID
+        self.handle = handle
+        self.limit = limit
+        self.sinceCursor = sinceCursor
+    }
+}
+
+// MARK: - MessagesReadResult
+public struct MessagesReadResult: Codable, Sendable {
+    public let cursor: Int?
+    public let hasMore: Bool
+    public let messages: [MessagesMessage]
+
+    public enum CodingKeys: String, CodingKey {
+        case cursor = "cursor"
+        case hasMore = "hasMore"
+        case messages = "messages"
+    }
+
+    public init(cursor: Int?, hasMore: Bool, messages: [MessagesMessage]) {
+        self.cursor = cursor
+        self.hasMore = hasMore
+        self.messages = messages
+    }
+}
+
+// MARK: - MessagesMessage
+public struct MessagesMessage: Codable, Sendable {
+    public let attachments: [MessagesAttachment]
+    public let chatID: String
+    public let cursor: Int
+    public let editedAt: String?
+    public let guid: String
+    public let isFromMe: Bool
+    public let reaction: MessagesReaction?
+    public let replyToGUID: String?
+    public let sender: MessagesHandle?
+    public let sentAt: String
+    public let service: MessagesService
+    public let text: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case attachments = "attachments"
+        case chatID = "chatId"
+        case cursor = "cursor"
+        case editedAt = "editedAt"
+        case guid = "guid"
+        case isFromMe = "isFromMe"
+        case reaction = "reaction"
+        case replyToGUID = "replyToGuid"
+        case sender = "sender"
+        case sentAt = "sentAt"
+        case service = "service"
+        case text = "text"
+    }
+
+    public init(attachments: [MessagesAttachment], chatID: String, cursor: Int, editedAt: String?, guid: String, isFromMe: Bool, reaction: MessagesReaction?, replyToGUID: String?, sender: MessagesHandle?, sentAt: String, service: MessagesService, text: String?) {
+        self.attachments = attachments
+        self.chatID = chatID
+        self.cursor = cursor
+        self.editedAt = editedAt
+        self.guid = guid
+        self.isFromMe = isFromMe
+        self.reaction = reaction
+        self.replyToGUID = replyToGUID
+        self.sender = sender
+        self.sentAt = sentAt
+        self.service = service
+        self.text = text
+    }
+}
+
+// MARK: - MessagesAttachment
+public struct MessagesAttachment: Codable, Sendable {
+    public let filename: String?
+    /// attachment.guid
+    public let id: String
+    public let isSticker: Bool
+    /// An audio message bubble (CAF)
+    public let isVoiceNote: Bool
+    public let mimeType: String?
+    public let totalBytes: Int?
+    public let uti: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case filename = "filename"
+        case id = "id"
+        case isSticker = "isSticker"
+        case isVoiceNote = "isVoiceNote"
+        case mimeType = "mimeType"
+        case totalBytes = "totalBytes"
+        case uti = "uti"
+    }
+
+    public init(filename: String?, id: String, isSticker: Bool, isVoiceNote: Bool, mimeType: String?, totalBytes: Int?, uti: String?) {
+        self.filename = filename
+        self.id = id
+        self.isSticker = isSticker
+        self.isVoiceNote = isVoiceNote
+        self.mimeType = mimeType
+        self.totalBytes = totalBytes
+        self.uti = uti
+    }
+}
+
+// MARK: - MessagesReaction
+public struct MessagesReaction: Codable, Sendable {
+    /// For kind emoji
+    public let emoji: String?
+    public let kind: MessagesReactionKind
+    public let removed: Bool
+    /// The reacted-to message's guid
+    public let targetGUID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case emoji = "emoji"
+        case kind = "kind"
+        case removed = "removed"
+        case targetGUID = "targetGuid"
+    }
+
+    public init(emoji: String?, kind: MessagesReactionKind, removed: Bool, targetGUID: String) {
+        self.emoji = emoji
+        self.kind = kind
+        self.removed = removed
+        self.targetGUID = targetGUID
+    }
+}
+
+public enum MessagesReactionKind: String, Codable, Sendable {
+    case dislike = "dislike"
+    case emoji = "emoji"
+    case emphasize = "emphasize"
+    case laugh = "laugh"
+    case like = "like"
+    case love = "love"
+    case question = "question"
+    case unknown = "unknown"
+}
+
+// MARK: - MessagesSendParams
+public struct MessagesSendParams: Codable, Sendable {
+    public let chatID: String?
+    public let service: MessagesSendService?
+    public let text: String
+    public let to: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case chatID = "chatId"
+        case service = "service"
+        case text = "text"
+        case to = "to"
+    }
+
+    public init(chatID: String?, service: MessagesSendService?, text: String, to: String?) {
+        self.chatID = chatID
+        self.service = service
+        self.text = text
+        self.to = to
+    }
+}
+
+public enum MessagesSendService: String, Codable, Sendable {
+    case imessage = "imessage"
+    case sms = "sms"
+}
+
+// MARK: - MessagesSendResult
+public struct MessagesSendResult: Codable, Sendable {
+    /// The handle or chat id the text went to
+    public let recipient: String
+    public let sent: Bool
+    public let sentAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case recipient = "recipient"
+        case sent = "sent"
+        case sentAt = "sentAt"
+    }
+
+    public init(recipient: String, sent: Bool, sentAt: String) {
+        self.recipient = recipient
+        self.sent = sent
+        self.sentAt = sentAt
+    }
+}
+
+// MARK: - MessagesStatus
+public struct MessagesStatus: Codable, Sendable {
+    public let automation: MessagesAutomationStatus
+    public let databasePresent: Bool
+    /// chat.db is readable
+    public let fullDiskAccess: Bool
+    public let lastCursor: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case automation = "automation"
+        case databasePresent = "databasePresent"
+        case fullDiskAccess = "fullDiskAccess"
+        case lastCursor = "lastCursor"
+    }
+
+    public init(automation: MessagesAutomationStatus, databasePresent: Bool, fullDiskAccess: Bool, lastCursor: Int?) {
+        self.automation = automation
+        self.databasePresent = databasePresent
+        self.fullDiskAccess = fullDiskAccess
+        self.lastCursor = lastCursor
+    }
+}
+
+public enum MessagesAutomationStatus: String, Codable, Sendable {
+    case denied = "denied"
+    case granted = "granted"
+    case notDetermined = "not_determined"
+}
+
+// MARK: - MessagesWatchEvent
+public struct MessagesWatchEvent: Codable, Sendable {
+    public let cursor: Int?
+    public let messages: [MessagesMessage]?
+    public let type: MessagesWatchEventType
+    /// e.g. full_disk_access_missing, database_locked
+    public let reason: String?
+    public let retryable: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case cursor = "cursor"
+        case messages = "messages"
+        case type = "type"
+        case reason = "reason"
+        case retryable = "retryable"
+    }
+
+    public init(cursor: Int?, messages: [MessagesMessage]?, type: MessagesWatchEventType, reason: String?, retryable: Bool?) {
+        self.cursor = cursor
+        self.messages = messages
+        self.type = type
+        self.reason = reason
+        self.retryable = retryable
+    }
+}
+
+public enum MessagesWatchEventType: String, Codable, Sendable {
+    case messagesNew = "messages.new"
+    case messagesWatchError = "messages.watch_error"
+}
+
+// MARK: - MessagesWatchParams
+public struct MessagesWatchParams: Codable, Sendable {
+    public let includeFromMe: Bool?
+    public let intervalMS: Int?
+    public let sinceCursor: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case includeFromMe = "includeFromMe"
+        case intervalMS = "intervalMs"
+        case sinceCursor = "sinceCursor"
+    }
+
+    public init(includeFromMe: Bool?, intervalMS: Int?, sinceCursor: Int?) {
+        self.includeFromMe = includeFromMe
+        self.intervalMS = intervalMS
+        self.sinceCursor = sinceCursor
     }
 }
 

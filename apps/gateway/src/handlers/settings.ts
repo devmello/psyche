@@ -6,13 +6,23 @@ import type { Call, HandlerDef } from "../context.ts";
 import { INTERNAL_SETTING_PREFIX } from "../state-version.ts";
 
 /**
- * Security settings (security §10): `permissions.*`, `exec.*`, `vault.*`, `devices.*`,
+ * Security settings (security §10): `permissions.*`, `computerUse.*`, `exec.*`, `vault.*`, `devices.*`,
  * `gateway.*`, the owner identities and the channel DM / allow policies. Besides
  * `operator.admin` they need fresh user presence: a device-only `policy_change` approval bound to
  * the exact key and value, which the broker only accepts with a verified presence assertion
  * (requiresAuthentication).
  */
-const PRESENCE_ROOTS = ["permissions", "exec", "vault", "devices", "gateway", "identityLinks"];
+// `computerUse`: enabling computer use and raising an app's tier widen what the agent may do on
+// the Mac (security §12), like `permissions.apps`.
+const PRESENCE_ROOTS = [
+  "permissions",
+  "exec",
+  "vault",
+  "devices",
+  "gateway",
+  "identityLinks",
+  "computerUse",
+];
 const PRESENCE_KEYS = [
   /^commands\.ownerAllowFrom$/,
   /^channels\.[^.]+\.(dmPolicy|allowFrom|groupAllowFrom)$/,

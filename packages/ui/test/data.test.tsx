@@ -1,7 +1,7 @@
 import type { ApprovalRequest, InputRequest, Run, ThreadListEntry } from "@psyche/protocol";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   GatewayProvider,
   GatewayStore,
@@ -206,6 +206,48 @@ describe("useApprovals", () => {
     });
     expect(result.current.pending).toHaveLength(0);
     expect(result.current.recent[0]?.approval.scopeGranted).toBe("task");
+  });
+
+  it("adds the host's presence when approving a card that requires authentication", async () => {
+    const { gateway, wrapper } = setup({
+      approvals: [
+        approval("ap_auth", { kind: "purchase", requiresAuthentication: true }),
+        approval("ap_plain"),
+      ],
+      answerTokens: { ap_auth: "at_auth", ap_plain: "at_plain" },
+    });
+    const presence = vi.fn(async (a: ApprovalRequest, token: string) => ({
+      kind: "webauthn" as const,
+      deviceId: "dev_web",
+      signature: `sig-${a.id}-${token}`,
+    }));
+    gateway.presence = presence;
+    const { result } = renderHook(() => useApprovals(), { wrapper });
+    await waitFor(() => expect(result.current.pending).toHaveLength(2));
+
+    await act(() => result.current.answer("ap_plain", "approve", "once"));
+    expect(presence).not.toHaveBeenCalled();
+    await act(() => result.current.answer("ap_auth", "approve", "once"));
+    expect(presence).toHaveBeenCalledTimes(1);
+    const answers = gateway.calls.filter((c) => c.method === "approvals.answer");
+    expect(answers[0]?.params).not.toHaveProperty("presence");
+    expect(answers[1]?.params).toMatchObject({
+      approvalId: "ap_auth",
+      presence: { kind: "webauthn", deviceId: "dev_web", signature: "sig-ap_auth-at_auth" },
+    });
+  });
+
+  it("denies a card that requires authentication without asking for presence", async () => {
+    const { gateway, wrapper } = setup({
+      approvals: [approval("ap_auth", { requiresAuthentication: true })],
+      answerTokens: { ap_auth: "at_auth" },
+    });
+    const presence = vi.fn();
+    gateway.presence = presence;
+    const { result } = renderHook(() => useApprovals(), { wrapper });
+    await waitFor(() => expect(result.current.pending).toHaveLength(1));
+    await act(() => result.current.answer("ap_auth", "deny"));
+    expect(presence).not.toHaveBeenCalled();
   });
 
   it("cannot answer without a token (answered elsewhere / not delivered here)", async () => {

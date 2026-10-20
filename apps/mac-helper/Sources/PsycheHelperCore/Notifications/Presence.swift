@@ -23,7 +23,7 @@ public enum PresenceMessage {
 }
 
 /// `presence` on `notify.response`: base64url DER signature and the key id.
-public struct PresenceAssertion: Sendable, Equatable {
+public struct PresenceSignature: Sendable, Equatable {
     public var signature: String
     public var keyId: String
 

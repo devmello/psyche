@@ -1,6 +1,7 @@
 import type { BridgeControlState, BridgeProfile } from "@psyche/protocol";
 import type { CallOptions, GatewayEvent } from "../client/connection.ts";
 import type { GatewayStatus } from "../client/status.ts";
+import type { PasskeyHost } from "../lib/webauthn.ts";
 
 /**
  * What the shared shell needs from its host. `apps/web` implements it over a browser WebSocket;
@@ -171,6 +172,8 @@ export interface ShellPlatform {
   chrome?: WindowChrome;
   dialogs?: DialogPort;
   dictation?: DictationPort;
+  /** Web only, in a secure context: WebAuthn passkeys for presence (issue #79). */
+  passkeys?: PasskeyHost;
 }
 
 /**

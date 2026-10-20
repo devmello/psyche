@@ -3,7 +3,8 @@ import { toBase64Url } from "../client/encoding.ts";
 /**
  * Ephemeral browser device identity: a WebCrypto Ed25519 key pair with a non-extractable private
  * key, held in memory only (stub: a reload creates a new device and a new pairing request).
- * S11 persists it in IndexedDB as a non-extractable CryptoKey and adds passkeys (INT-2).
+ * S11 persists it in IndexedDB as a non-extractable CryptoKey. Passkeys belong to a device, so
+ * until then a reloaded page starts without the ones it registered.
  */
 export interface WebDeviceKey {
   deviceId: string;

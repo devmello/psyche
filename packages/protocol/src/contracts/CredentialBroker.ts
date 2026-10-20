@@ -204,6 +204,14 @@ export interface ResolveOptions extends CallOptions {
   element?: FillElement;
   /** Browser fills: the approved field selector (`ref_N`), part of the binding hash. */
   selector?: string;
+  /**
+   * The tool call this fill runs for, when the agent loop approved it. The broker recomputes the
+   * loop's binding (`toolCallBindingHash(tool, params, {kind: "credential_fill", bindingFields})`,
+   * with the fill fields it derives itself) and checks it against the approval record it reads by
+   * id; it never takes a hash from the caller. Without it the approval must bind the bare fill
+   * fields (`credential_fill` requests built by the broker itself).
+   */
+  call?: { tool: string; params: unknown; toolCallId?: string };
 }
 
 export interface CredentialBroker {

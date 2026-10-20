@@ -129,7 +129,9 @@ export class ChatApprovals {
           continue;
         }
         const caps = adapter.capabilities();
-        const buttons = adapter.sendApprovalButtons !== undefined && caps.buttons;
+        // Buttons, or reactions on the card (iMessage tapbacks): the adapter renders and tracks it.
+        const buttons =
+          adapter.sendApprovalButtons !== undefined && (caps.buttons || caps.reactions);
         const card = renderApprovalCard(approval, {
           surface,
           ref: approvalRef(approval.id),

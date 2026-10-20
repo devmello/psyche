@@ -1,9 +1,12 @@
+import { join } from "node:path";
 import {
   type ContainerSandboxRunner,
   type ContainerSandboxRunnerOptions,
   createSandboxRunner,
   type DevServerEvent,
+  FileProvenanceStore,
 } from "@psyche/sandbox";
+import { execTool } from "./exec-tool.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -28,6 +31,8 @@ export interface SandboxSetup {
   devServers?: DevServerSink;
   /** Runner options (backend, image, limits); tests pass a fake driver. */
   runner?: Omit<ContainerSandboxRunnerOptions, "onDevServer">;
+  /** Register the agent's `exec` tool (default true). */
+  exec?: boolean;
 }
 
 export interface ComposedSandbox extends ComposedPart {
@@ -64,16 +69,48 @@ export function devServerBridge(sink: DevServerSink): (event: DevServerEvent) =>
  * never runs anything on the host, so the egress and `exec_host` policies are unchanged.
  */
 export function composeSandbox(
-  _services: ComposeServices,
+  services: ComposeServices,
   setup: SandboxSetup = {},
 ): ComposedSandbox {
   const runner = createSandboxRunner({
+    // File provenance survives a restart (S23 design-07).
+    ...(setup.exec === false
+      ? {}
+      : { provenanceStore: new FileProvenanceStore(join(services.home, "sandbox", "provenance")) }),
     ...setup.runner,
     ...(setup.devServers === undefined ? {} : { onDevServer: devServerBridge(setup.devServers) }),
   });
+  const unregister =
+    setup.exec === false
+      ? undefined
+      : services.tools.register(
+          execTool({ runner, vault: services.vault, broker: services.broker }),
+        );
   return {
     runner,
     // Stops the containers this process started; their servers are announced `stopped`.
-    stop: () => runner.dispose(),
+    stop: async () => {
+      unregister?.();
+      await runner.dispose();
+    },
   };
+}
+
+/**
+ * Mounts the sandbox only where a container backend exists (default off otherwise): without
+ * one there is no `exec` tool at all, never a host fallback. `PSYCHE_SANDBOX=off` skips it.
+ */
+export async function composeSandboxIfAvailable(
+  services: ComposeServices,
+  setup: SandboxSetup = {},
+): Promise<ComposedPart> {
+  const part = composeSandbox(services, setup);
+  const backends = await part.runner.backends().catch(() => []);
+  if (backends.length > 0) {
+    services.logger?.log("info", "sandbox: exec enabled", { backend: backends[0] ?? null });
+    return part;
+  }
+  services.logger?.log("info", "sandbox: no container backend; exec is off");
+  await part.stop?.();
+  return {};
 }

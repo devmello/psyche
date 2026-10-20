@@ -31,6 +31,16 @@ export {
   type ScopeMode,
 } from "./ConnectorsSection.tsx";
 export {
+  CredentialDetail,
+  type CredentialDetailProps,
+  CredentialDetailSheet,
+} from "./CredentialDetail.tsx";
+export {
+  ImportCredentialsForm,
+  type ImportFormat,
+  type ImportOutcome,
+} from "./CredentialImport.tsx";
+export {
   CARD_REFUSAL,
   CredentialsPanel,
   type CredentialsPanelProps,

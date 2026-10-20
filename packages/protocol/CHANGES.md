@@ -18,6 +18,27 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S11 M2: Files pane and viewers, P4)
+
+For S11 (the Files pane and chat attachments render `@psyche/viewers`), S01 (the Gateway serves them), S13 (a `ConversionService` over the Gateway).
+
+- New methods in `methods/files.ts`, all `operator.read`:
+  - `files.list {path, offset?}` → `{entries: FileEntry[], nextOffset}`: a folder inside a granted folder, 500 entries per page.
+  - `files.read {path | libraryPath, offset?, length?}` → `{name, mime, modifiedAt, etag, size, offset, bytes (base64), nextOffset}`: a chunk of a file in a granted folder or the Library.
+  - `documents.convert {path | libraryPath, target: "pdf" | "thumbnail", offset?, length?}` → `{mime, size, offset, bytes, nextOffset}`: LibreOffice in the sandbox, cached by etag; `unavailable` with `details.reason` `sandbox_unavailable` or `image_missing`.
+- New schemas: `FileEntry`, `FileEntryKind`, `ConversionTarget`; constants `FILE_CHUNK_BYTES` (512 KiB, so a base64 chunk stays under `MAX_FRAME_BYTES`) and `FILE_LIST_PAGE` (500).
+
+### v1 additive — 2026-10-19 (S14 M2: Apple app adapters, J6)
+
+For S14 (the mac helper's `calendar.*`, `reminders.*`, `mail.*`, `notes.*`, `finder.*`, `safari.*` node capabilities), S02 (typed node tools), S05 (the `apple.<app>` connector matrix).
+
+- New schemas in `schemas/apple-apps.ts`: `AppleCalendar`, `AppleCalendarEvent`, `AppleCalendarListEventsParams`, `AppleCalendarEventInput`, `AppleCalendarEventUpdate`, `AppleReminder`, `AppleRemindersListParams`, `AppleReminderInput`, `AppleReminderUpdate`, `AppleMailMessageSummary`, `AppleMailMessage`, `AppleMailSearchParams`, `AppleMailDraftInput`, `AppleNoteSummary`, `AppleNote`, `AppleNoteInput`, `AppleFinderEntry`, `AppleSafariTab`.
+- No new methods: the capabilities are reached through `nodes.invoke` (and the agent's node tools) as `node.<capability>`; app content they return is `untrusted`.
+### v1 additive — 2026-10-19 (M2 computer use: script and Shortcut approval kinds, J4)
+
+For the Gateway's computer-use tools (`apps.applescript`, `apps.jxa`, `apps.shortcut_run`), S05 (card titles, scopes) and S10 / S11 / S12 (card labels).
+
+- `ApprovalKind` gains `apple_script` and `shortcut_run` at the end of the list: running AppleScript / JXA or a user Shortcut gets its own card showing the exact source (or name and input) instead of a generic "Use app". Both are `destructive` and offer `once` only: the approval binds the exact params (security §5.4).
 ### v1 additive — 2026-10-19 (S14/S11: system-wide dictation, J9 / Q2)
 
 For S14 (the helper's `dictation.*` capabilities), S01 (the Gateway forwards the methods to the local mac-helper), S11 (the desktop hotkey, HUD and Settings).
@@ -26,6 +47,14 @@ For S14 (the helper's `dictation.*` capabilities), S01 (the Gateway forwards the
 - New schemas `DictationKey` (`fn | rightOption | rightCommand`), `DictationTarget`, `DictationRefusal` (`no_focus | secure_field | own_window | not_editable | focus_changed`), `DictationInsertMethod` (`ax | typed`), `DictationKeyPayload`.
 - New event `dictation.key` (`{key, down, at}`), sent only to the watching device.
 - The helper's capabilities take the same params and results, so the generated Swift `DictationInsertParams` / `DictationTarget` are its typed params. Inserted text is keystrokes into another app, never owner input to the agent.
+### v1 additive — 2026-10-19 (M2 messages: J7 / N5)
+
+For S14 (the mac helper's `messages.*` capabilities), S10 / N5 (the iMessage channel adapter) and S05 (`message_send` approvals).
+
+- New `schemas/messages.ts`: `MessagesService` (`imessage | sms | rcs | unknown`; `sms` / `rcs` senders are weak identities), `MessagesCursor` (chat.db `message.ROWID`), `MessagesHandle`, `MessagesChat`, `MessagesAttachment` (metadata only, with `isVoiceNote`), `MessagesReaction` / `MessagesReactionKind` (tapbacks), `MessagesMessage`, `MessagesStatus` / `MessagesAutomationStatus`, and params / results for the node capabilities `messages.status`, `messages.chats`, `messages.read`, `messages.send` (`MessagesSendService`) and `messages.watch` (streaming; its `node.event` data is `MessagesWatchEvent`: `messages.new {messages, cursor}` or `messages.watch_error {reason, retryable}`).
+- `MESSAGES_CAPABILITIES`: the manifest entries a Messages node declares. `messages.send` is `destructive` with `targetKind: recipient`, so the existing `message_send` approval kind applies with `once` / `task` scopes only (security §3.4, §3.5). No new approval kind.
+- No Gateway broadcast event: message bodies flow only on the node invocation to the channel adapter, never to every paired client.
+- Fakes: new `FakeMessagesNode` (an in-memory chat.db behind `FakeNodeClient`); `FakeCapabilityHandler.handle` gets the invocation's `AbortSignal` as an optional third argument so streaming handlers can end.
 
 ### v1 additive — 2026-10-21 (S01: web passkeys, #79)
 
