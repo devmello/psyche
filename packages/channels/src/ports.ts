@@ -73,3 +73,17 @@ export interface ChannelLogger {
 }
 
 export type ChannelStatus = Channel["status"];
+
+/**
+ * A transport secret (a bot or app token) the Gateway keeps in the vault (`channels.secrets.set`)
+ * or a Compose secret: the value exists only inside `use`, so an adapter never stores, logs or
+ * returns it (security §4).
+ */
+export interface SecretSource {
+  use<T>(fn: (value: string) => Promise<T>): Promise<T>;
+}
+
+/** A fixed value (env, file, tests). */
+export function staticSecret(value: string): SecretSource {
+  return { use: (fn) => fn(value) };
+}
