@@ -5,7 +5,16 @@ import type {
   ToolCheckStatus,
 } from "@psyche/protocol";
 import { KeyRound, Loader, Server } from "lucide-react";
-import { type ReactElement, useCallback, useId, useState } from "react";
+import { type ReactElement, useCallback, useId, useRef, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
@@ -234,9 +243,28 @@ export interface ModelProvidersPanelProps extends SettingsFormProps, LoadProps {
   onProbe?: (providerId: string) => void;
   /** The provider whose probe is running. */
   probing?: string | null;
+  /** `models.list` failed; the panel shows the providers saved in settings beneath it. */
+  listError?: string | null;
+  onRetryList?: () => void;
+}
+
+/** A model's name at level 1: its human label, or the ref when nothing names it. */
+export function modelLabel(m: { ref: string; label?: string }): string {
+  return m.label !== undefined && m.label.trim() !== "" ? m.label : m.ref;
+}
+
+/** The label an endpoint probe reported for `ref`, if any. */
+function labelFromProbe(
+  probed: readonly { ref: string; label?: string | undefined }[] | undefined,
+  ref: string,
+): { label?: string } {
+  const label = probed?.find((m) => m.ref === ref)?.label;
+  return label ? { label } : {};
 }
 
 export function ModelProvidersPanel({
+  listError = null,
+  onRetryList,
   providers,
   values,
   onChange,
@@ -274,6 +302,13 @@ export function ModelProvidersPanel({
         {...(onRetry ? { onRetry } : {})}
       >
         <Group title="Providers" actions={providers.length === 0 ? undefined : add}>
+          {listError ? (
+            <ErrorNotice
+              what={`Psyche couldn't list the models (${listError}).`}
+              did="Showing the providers saved in settings."
+              {...(onRetryList ? { onRetry: onRetryList } : {})}
+            />
+          ) : null}
           {providers.length === 0 ? (
             <EmptyNotice
               text="No model provider yet. Add a key, a subscription or a local model."
@@ -321,7 +356,10 @@ export function ModelProvidersPanel({
                     <ul className="flex flex-col gap-1" aria-label={`${p.label} models`}>
                       {p.models.map((m) => (
                         <li key={m.ref} className="flex flex-wrap items-center gap-2">
-                          <code className="font-mono text-xs">{m.ref}</code>
+                          <span className="text-sm">{modelLabel(m)}</span>
+                          {m.label ? (
+                            <code className="font-mono text-xs text-muted-foreground">{m.ref}</code>
+                          ) : null}
                           {m.capabilities?.embeddings === true ? null : (
                             <ToolCheckBadge status={m.toolCheck} />
                           )}
@@ -334,7 +372,7 @@ export function ModelProvidersPanel({
                               variant="ghost"
                               size="xs"
                               onClick={() => onRunCheck(m.ref)}
-                              aria-label={`Run the tool-calling check on ${m.ref}`}
+                              aria-label={`Run the tool-calling check on ${modelLabel(m)}`}
                             >
                               {m.toolCheck === "untested" ? "Run check" : "Check again"}
                             </Button>
@@ -379,7 +417,7 @@ export function ModelProvidersPanel({
                     {current === "" ? <option value="">Choose a model</option> : null}
                     {options.map((m) => (
                       <option key={m.ref} value={m.ref}>
-                        {m.ref}
+                        {modelLabel(m)}
                         {m.toolCheck === "failed" ? " (chat only)" : ""}
                       </option>
                     ))}
@@ -446,6 +484,7 @@ export function providerInfoFromSummary(p: ModelProviderSummary): ProviderInfo {
     probe: p.probe,
     models: p.models.map((m) => ({
       ref: m.ref,
+      ...labelFromProbe(p.probe?.models, m.ref),
       toolCheck: TOOL_CHECK[m.toolCheck],
       ...(m.capabilities === undefined ? {} : { capabilities: m.capabilities }),
     })),
@@ -484,6 +523,8 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
     null,
   );
   const live = list.data !== undefined && list.data.providers.length > 0;
+  // setRole is memoised; it reads the latest labels through this ref.
+  const labelOfRef = useRef<(ref: string) => string>((ref) => ref);
   const reload = list.reload;
 
   const providers: readonly ProviderInfo[] =
@@ -521,7 +562,8 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
         () => reload(),
         (err: unknown) => {
           if (hasCode(err, "policy_denied")) setChatOnly({ role, ref });
-          else setActionError(`Psyche couldn't use ${ref} (${messageOf(err)}).`);
+          else
+            setActionError(`Psyche couldn't use ${labelOfRef.current(ref)} (${messageOf(err)}).`);
         },
       );
     },
@@ -564,6 +606,10 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
         }
       : undefined);
 
+  const labelOf = (ref: string): string =>
+    modelLabel(providers.flatMap((p) => p.models).find((m) => m.ref === ref) ?? { ref });
+  labelOfRef.current = labelOf;
+  const chatOnlyLabel = chatOnly === null ? "" : labelOf(chatOnly.ref);
   const { providers: _p, onRunCheck: _r, ...rest } = props;
   return (
     <div className="flex flex-col gap-3">
@@ -583,31 +629,38 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
           reload();
         }}
         probing={probing}
+        listError={props.providers === undefined && !live ? list.error : null}
+        onRetryList={reload}
         {...(live ? { onProbe } : {})}
         {...(onRunCheck === undefined ? {} : { onRunCheck })}
       />
-      {chatOnly !== null ? (
-        <div
-          role="alert"
-          className="flex flex-wrap items-center gap-2 rounded-lg border border-approval-border bg-gray-2 p-3 text-sm"
-        >
-          <span>
-            {chatOnly.ref} failed the tool-calling check, so it can chat but not use tools. Use it
-            as the {chatOnly.role} model anyway?
-          </span>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => setRole(chatOnly.role, chatOnly.ref, true)}
-          >
-            Use anyway
-          </Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => setChatOnly(null)}>
-            Keep the current model
-          </Button>
-        </div>
-      ) : null}
+      <AlertDialog
+        open={chatOnly !== null}
+        onOpenChange={(open) => {
+          if (!open) setChatOnly(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Use {chatOnlyLabel} without tools?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {chatOnlyLabel} failed the tool-calling check, so it can chat but can't use tools. It
+              would be the {chatOnly?.role} model.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep the current model</AlertDialogCancel>
+            <Button
+              type="button"
+              onClick={() => {
+                if (chatOnly) setRole(chatOnly.role, chatOnly.ref, true);
+              }}
+            >
+              Use anyway
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {actionError ? <ErrorNotice what={actionError} /> : null}
       {form.writeError ? <ErrorNotice what={form.writeError} did="" /> : null}
     </div>

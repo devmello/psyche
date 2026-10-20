@@ -13,6 +13,8 @@ export type ProviderKind = "cloud" | "subscription" | "openrouter" | "local";
 export interface ProviderModel {
   /** `provider/model`, e.g. `anthropic/claude-sonnet-5-5`. */
   ref: string;
+  /** A human name from the endpoint or the adapter's catalog; the ref stays at level 2. */
+  label?: string;
   toolCheck: ToolCheck;
   /** What the last endpoint probe (or the catalog) says the model can do. */
   capabilities?: ModelCapabilityGuess;

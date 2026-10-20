@@ -148,5 +148,6 @@ The ten items this pass left open were decided as follows. Each is now a rule in
 9. **Voice hotkey.** The field is free text, and a conflicting shortcut is shown only as muted description text. Options: a shortcut recorder, and an approval-tone hint for the conflict.
 10. **Credential detail.** Approval ids appear in the uses table. That's acceptable at level 2, but they could read "Approved" with the id in a tooltip.
 
+**Decision 3 (model names):** done. Models show the label the endpoint or adapter reports (`modelLabel`, falling back to the ref), with the ref muted at level 2. A failed `models.list` is an inline error over the providers saved in settings. The chat-only confirm is a kit `AlertDialog`.
 **Decision 1 (setting labels):** done. `packages/ui/src/screens/settings/setting-labels.ts` holds the key-to-label map, and `test/setting-labels.test.ts` scans the kit and the composed app for every key they read or write and fails when one has no label. Write errors and the approval banner quote the label, never the key.
 **Decision 2 (matrix radios):** done. `settings/RadioTableRow.tsx` makes each matrix row one radio group of kit `RadioGroupItem`s. Each item is labelled "row: column", and the arrow keys move within the row. Computer use and `ActionMatrix` both use it.
