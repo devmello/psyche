@@ -64,6 +64,7 @@ import {
 } from "./handlers.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import type { ApprovalRelay, ComposedPart, ComposeServices } from "./services.ts";
+import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
 
 /**
  * Composition root for `psyched` (INT-1): the real agent loop, model router, Permission Broker,
@@ -270,6 +271,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
 
   const { provider, model: modelRef, utility } = providerFor(model, clock);
+  const modelPins = modelPinsFor(provider);
   const memory = await createMemoryStore({
     db,
     workspaceDir: join(config.home, "workspace"),
@@ -384,6 +386,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...proactive.handlers,
     ...questionHandlers(loop, tasks),
     ...receiptHandlers(broker),
+    ...threadSettingsHandlers(modelPins),
   };
   for (const part of parts) Object.assign(handlers, part.handlers ?? {});
 
@@ -416,6 +419,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }
   });
   memory.watch();
+  await restoreModelPins(db, modelPins, (msg, fields) =>
+    gwOptions.logger?.log("warn", msg, fields),
+  );
   for (const part of parts) await part.start?.(gateway);
   await proactive.start();
 
@@ -484,6 +490,7 @@ export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { partsFromEnv } from "./parts.ts";
 export { type ComposedProactive, composeProactive, type ProactiveSetup } from "./proactive.ts";
 export type { ApprovalRelay, ComposedPart, ComposeServices } from "./services.ts";
+export { type ModelPins, modelPinsFor, restoreModelPins } from "./threads.ts";
 export { createLogger, surfaceOf };
 
 /**
