@@ -94,7 +94,13 @@ export class PlaywrightDriver extends DriverBase {
   #downloadDir: string | undefined;
 
   constructor(options: PlaywrightDriverOptions) {
-    super(options);
+    // Real Chrome (connect mode) saves downloads in its own profile folder, outside the
+    // Library quarantine (security §6), so they are off there unless a caller opts in.
+    super(
+      options.mode === "connect" && options.downloads === undefined
+        ? { ...options, downloads: "deny" }
+        : options,
+    );
     this.#o = options;
   }
 
@@ -122,6 +128,12 @@ export class PlaywrightDriver extends DriverBase {
       this.#o.mode === "connect"
         ? await chromium.connectOverCDP(this.#endpoint(), { timeout: 15_000 })
         : await chromium.launch(this.#launchOptions());
+    if (this.#o.mode === "connect" && (this.#o.downloads ?? "deny") === "deny") {
+      // A click that starts a download is cancelled by Chrome itself. This browser-level
+      // session belongs to the driver; the model's page sessions cannot reach `Browser.*`.
+      const cdp = await this.#browser.newBrowserCDPSession();
+      await cdp.send("Browser.setDownloadBehavior", { behavior: "deny" });
+    }
     return this.#browser;
   }
 
