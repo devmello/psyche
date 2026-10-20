@@ -18,6 +18,14 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S14 M3: VM mode shapes)
+
+For S14 (the mac helper's `vm.*` node capabilities), S11 (Settings → Devices → "Create a sandbox Mac"), S01 (re-broadcasting guest changes).
+
+- New schemas in `schemas/vm.ts` (features L1–L5; spike 06): `VmPhase`, `VmShare`, `VmGuest`, `VmStatus` (the `vm.status` result), `VmCreateParams`, `VmShareAddParams`, `VmProgressEvent` (streamed by `vm.create` / `vm.start`) and `VmUpdatedPayload`.
+- New event `vm.updated` (`{nodeId, guest, at}`) for the Gateway to broadcast when a helper reports a guest change.
+- No new methods: clients call the helper's `vm.*` capabilities through `nodes.invoke`, so the Permission Broker gates them like any node write; read-write shares need an `approvalId`.
+
 ### v1 additive — 2026-10-19 (S11 M2: backups and logs for Settings)
 
 For S11 (Settings → Data controls and About), S01 / S22 (the Gateway handlers; `psyche backup` and `psyche logs` do the same work locally today).

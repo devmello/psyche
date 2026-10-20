@@ -324,6 +324,11 @@
         "payload": "#/$defs/ViewCommandPayload"
       },
       {
+        "description": "A sandbox Mac guest changed phase, resources or shares (mac helper vm.* capabilities).",
+        "name": "vm.updated",
+        "payload": "#/$defs/VmUpdatedPayload"
+      },
+      {
         "description": "A dictation session ended (stopped, cancelled, idle timeout or engine error).",
         "name": "voice.ended",
         "payload": "#/$defs/VoiceEndedPayload"
@@ -15049,6 +15054,265 @@
       },
       "required": [
         "layout"
+      ],
+      "type": "object"
+    },
+    "VmCreateParams": {
+      "properties": {
+        "name": {
+          "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
+          "type": "string"
+        },
+        "cpus": {
+          "maximum": 32,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "memoryGB": {
+          "maximum": 256,
+          "minimum": 4,
+          "type": "integer"
+        },
+        "diskGB": {
+          "maximum": 2048,
+          "minimum": 40,
+          "type": "integer"
+        },
+        "ipsw": {
+          "description": "Absolute path to a local IPSW",
+          "type": "string"
+        },
+        "download": {
+          "type": "boolean"
+        },
+        "username": {
+          "maxLength": 32,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "VmGuest": {
+      "properties": {
+        "name": {
+          "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
+          "type": "string"
+        },
+        "phase": {
+          "$ref": "#/$defs/VmPhase"
+        },
+        "provisioned": {
+          "description": "First (provisioning) boot completed",
+          "type": "boolean"
+        },
+        "cpus": {
+          "minimum": 2,
+          "type": "integer"
+        },
+        "memoryGB": {
+          "minimum": 4,
+          "type": "integer"
+        },
+        "diskGB": {
+          "minimum": 40,
+          "type": "integer"
+        },
+        "guestOS": {
+          "anyOf": [
+            {
+              "description": "Guest macOS version, e.g. 27.0.1",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "username": {
+          "type": "string"
+        },
+        "shares": {
+          "items": {
+            "$ref": "#/$defs/VmShare"
+          },
+          "type": "array"
+        },
+        "vsock": {
+          "properties": {
+            "hostCid": {
+              "description": "2: the host as seen from the guest",
+              "type": "integer"
+            },
+            "gatewayNodePort": {
+              "description": "Guest psyche-node → host Gateway node socket",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "hostCid",
+            "gatewayNodePort"
+          ],
+          "type": "object"
+        },
+        "lastError": {
+          "description": "Machine reason of the last failure",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "phase",
+        "provisioned",
+        "cpus",
+        "memoryGB",
+        "diskGB",
+        "username",
+        "shares",
+        "vsock"
+      ],
+      "type": "object"
+    },
+    "VmPhase": {
+      "enum": [
+        "created",
+        "installing",
+        "installed",
+        "provisioning",
+        "stopped",
+        "starting",
+        "running",
+        "stopping",
+        "failed"
+      ],
+      "type": "string"
+    },
+    "VmProgressEvent": {
+      "properties": {
+        "type": {
+          "enum": [
+            "vm.download",
+            "vm.install",
+            "vm.state"
+          ],
+          "type": "string"
+        },
+        "phase": {
+          "description": "started | progress | finished, or a VmPhase for vm.state",
+          "type": "string"
+        },
+        "fraction": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "phase"
+      ],
+      "type": "object"
+    },
+    "VmShare": {
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "hostPath": {
+          "description": "Absolute host folder (symlinks resolved)",
+          "type": "string"
+        },
+        "readOnly": {
+          "type": "boolean"
+        },
+        "guestPath": {
+          "description": "e.g. /Volumes/Psyche Shares/<name>",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "hostPath",
+        "readOnly",
+        "guestPath"
+      ],
+      "type": "object"
+    },
+    "VmShareAddParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "share": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "readOnly": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "share",
+        "path"
+      ],
+      "type": "object"
+    },
+    "VmStatus": {
+      "properties": {
+        "guests": {
+          "items": {
+            "$ref": "#/$defs/VmGuest"
+          },
+          "type": "array"
+        },
+        "active": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxActive": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "supportsGuestProvisioning": {
+          "description": "Unattended setup (macOS 27 host and guest)",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "guests",
+        "active",
+        "maxActive",
+        "supportsGuestProvisioning"
+      ],
+      "type": "object"
+    },
+    "VmUpdatedPayload": {
+      "properties": {
+        "nodeId": {
+          "type": "string"
+        },
+        "guest": {
+          "$ref": "#/$defs/VmGuest"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "nodeId",
+        "guest",
+        "at"
       ],
       "type": "object"
     },
