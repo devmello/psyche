@@ -151,6 +151,22 @@ export const settings = {
   "settings.credentials.managedByConnector": "Managed by its connector",
   "settings.credentials.editItem": "Edit {name}",
   "settings.credentials.deleteTitle": "Delete {name}?",
+  "settings.credentials.removeTitle": "Remove {name}?",
+  "settings.credentials.removeLinkDescription":
+    "Psyche forgets the link and stops filling it. The item stays in {manager}.",
+  "settings.credentials.removeIn": "Remove in {setting}…",
+  "settings.credentials.payments.removeInLink":
+    "Psyche reads these cards from Stripe Link; remove one in your Link account. Removing the Link key above stops Psyche paying with any of them.",
+  "settings.credentials.managed.connector": "Managed by its connector",
+  "settings.credentials.managed.model_provider": "A model provider's key",
+  "settings.credentials.managed.channel": "A channel's token",
+  "settings.credentials.managed.external_manager": "Linked from your password manager",
+  "settings.credentials.setting.connectors": "Connectors",
+  "settings.credentials.setting.models": "Model & providers",
+  "settings.credentials.setting.channels": "Channels",
+  "settings.credentials.setting.credentials": "Credentials",
+  "settings.credentials.err.gatewayOwned":
+    "{name} belongs to the Gateway; remove it in Settings → {setting}.",
   "settings.credentials.deleteDescription":
     "Psyche erases the stored value and stops filling it{bound, select, true { on {sites}} other {}}. Tasks that need it will ask you to sign in yourself. This can't be undone.",
   "settings.credentials.moreWays": "More ways to add",

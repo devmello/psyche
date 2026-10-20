@@ -178,6 +178,11 @@ export function PaymentsGroup({
                 ))}
               </ul>
             )}
+            {view.methods.length > 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {t("settings.credentials.payments.removeInLink")}
+              </p>
+            ) : null}
             {view.payments.length === 0 ? (
               <EmptyNotice text={t("settings.credentials.payments.none")} />
             ) : (
