@@ -35,8 +35,6 @@
   "packages/ui/src/chat/MessageView.tsx": 11,
   "packages/ui/src/chat/OfflineBanner.tsx": 2,
   "packages/ui/src/chat/Thread.tsx": 4,
-  "packages/ui/src/screens/onboarding/OnboardingFlow.tsx": 8,
-  "packages/ui/src/screens/onboarding/OnboardingSteps.tsx": 62,
   "packages/ui/src/screens/settings/AboutSection.tsx": 9,
   "packages/ui/src/screens/settings/ActionMatrix.tsx": 2,
   "packages/ui/src/screens/settings/AppearanceSection.tsx": 31,
