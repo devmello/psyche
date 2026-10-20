@@ -87,7 +87,8 @@ describe("context usage, limits and compaction (Gateway)", () => {
     // 1. The meter: exact prompt tokens after a turn, as an event and from the method.
     await turn("Plan: launch on Nov 3 with Maya.");
     const event = owner.events.find((e) => e.event === "thread.context.updated");
-    const usage = (event?.payload as { usage: ContextUsage }).usage;
+    if (event === undefined) throw new Error("no thread.context.updated event");
+    const usage = (event.payload as { usage: ContextUsage }).usage;
     expect(usage).toMatchObject({ threadId: thread.id, estimated: false, compactions: 0 });
     expect(usage.limits).toMatchObject({
       contextWindow: 16_000,
