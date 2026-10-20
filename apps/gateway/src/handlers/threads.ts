@@ -1,6 +1,7 @@
 import {
   copyMessagesForFork,
   createThread,
+  deleteAgentThreadState,
   deleteThread,
   findThreadBySessionKey,
   getMessage,
@@ -247,6 +248,7 @@ export const threadsHandlers: Record<string, HandlerDef> = {
       // for a deleted transcript.
       await ctx.sessions.closeThread(params.threadId, () => {
         deleteThread(ctx.db, params.threadId);
+        deleteAgentThreadState(ctx.db, params.threadId);
         ctx.bus.bumpStateVersion();
       });
       ctx.bus.publish("thread.deleted", { threadId: params.threadId }, params.threadId);

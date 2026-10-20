@@ -28,6 +28,8 @@ import {
   type PolicyConfig,
   type PresenceVerifier,
   PsychePermissionBroker,
+  RevocationLedger,
+  replayRevocations,
   SqlitePermissionStore,
 } from "@psyche/permissions";
 import { proactiveTools, publicFetch } from "@psyche/proactive";
@@ -74,6 +76,7 @@ import {
   createOwnPorts,
 } from "./services.ts";
 import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
+import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
@@ -230,6 +233,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   };
 
   const audit = createAuditLog({ dir: join(config.home, "audit"), clock });
+  // Revocations live outside the backup scope; a restored database cannot bring a revoked device
+  // or grant back (S23 design-26). Replay before anything authenticates.
+  const nowIso = () => new Date(clock.now()).toISOString();
+  const revocations = new RevocationLedger(config.home, nowIso);
+  const replay = replayRevocations(db.sqlite, config.home, nowIso);
+  if (replay.unknownEpoch || replay.devicesRevoked + replay.grantsRevoked > 0) {
+    void audit
+      .append({
+        kind: "revocations.replayed",
+        actor: { type: "system" },
+        data: { revocationReplay: { ...replay } },
+      })
+      .catch(() => undefined);
+  }
   const notifier = new PsycheNotifier({
     // Tables come from @psyche/db's migration ledger (202610190200_notifications_init).
     store: new SqliteNotificationStore(db.sqlite),
@@ -267,6 +284,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     audit,
     notifier,
     clock,
+    revocations,
     psycheHome: config.home,
     presence: {
       verify: (assertion, challenge, deviceId) =>
@@ -414,6 +432,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(timeZone === undefined ? {} : { defaultTimezone: timeZone }),
   });
   const loop = createAgentLoop({
+    // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
+    state: new SqliteThreadStateStore(db, redactor),
     provider,
     model: modelRef,
     ...(utility === undefined ? {} : { utilityModel: utility }),
@@ -486,7 +506,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     broker,
     memory,
     handlers,
-    onDeviceRevoked: (deviceId) => rawBroker.revokeGrantsByDevice(deviceId),
+    onDeviceRevoked: (deviceId) => {
+      revocations.recordDevice(deviceId);
+      return rawBroker.revokeGrantsByDevice(deviceId);
+    },
     threadModels: modelPins,
   });
   bus = gateway.bus;
@@ -602,6 +625,7 @@ export {
   speechNode,
   speechSetupFromEnv,
 } from "./speech.ts";
+export { SqliteThreadStateStore } from "./thread-state.ts";
 export { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 export { type ModelPins, modelPinsFor, restoreModelPins } from "./threads.ts";
 export {
