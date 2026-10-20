@@ -2,11 +2,12 @@ import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createSandboxRunner } from "@psyche/sandbox";
 import { composeBackup } from "./backup.ts";
-import { composeBrowser } from "./browser.ts";
+import { type ComposedBrowser, composeBrowser } from "./browser.ts";
 import { channelsSetupFromEnv, composeChannels } from "./channels.ts";
 import { composeConnectors } from "./connectors.ts";
 import { composeHelper } from "./helper.ts";
 import { composeMcp } from "./mcp.ts";
+import { composeSandboxIfAvailable } from "./sandbox.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | ComposedPart;
@@ -23,12 +24,15 @@ type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | Compos
  * - approvals on the Mac through a connected helper's notifications. No presence key is
  *   registered yet (the helper does not sign, S14 issue), so approvals that need Touch ID
  *   stay refused there; Approve / Deny works for the rest;
+ * - the sandbox's `exec` tool, only when a container backend is found (`PSYCHE_SANDBOX=off`
+ *   skips it); servers it leaves listening are offered to the browser's dev preview;
  * - the MCP host (`mcp.servers` in settings; `PSYCHE_MCP=off` skips it): stdio servers under
  *   `srt` at `PSYCHE_SRT_PATH`, or each in its own sandbox container with
  *   `PSYCHE_MCP_LAUNCHER=container`; without either only HTTP servers run.
  */
 export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
   const parts: PartFactory[] = [];
+  let browser: ComposedBrowser | undefined;
   if (env.PSYCHE_BROWSER !== "off") {
     // Logged out by default (I15). `PSYCHE_BROWSER_PARTITION=profile|clean|auto` and the
     // comma-separated `PSYCHE_BROWSER_SIGNED_IN_ORIGINS` (used by `auto`) stand in until
@@ -44,8 +48,8 @@ export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
       .split(",")
       .map((p) => Number.parseInt(p.trim(), 10))
       .filter((p) => Number.isInteger(p) && p > 0 && p < 65_536);
-    parts.push((s) =>
-      composeBrowser(s, {
+    parts.push((s) => {
+      browser = composeBrowser(s, {
         record: env.PSYCHE_BROWSER_RECORD === "1",
         // Real-Chrome mode (I13) is off unless the owner turns it on; each task still asks.
         ...(env.PSYCHE_REAL_CHROME === "1"
@@ -63,7 +67,14 @@ export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
           ? { partition }
           : {}),
         ...(signedIn.length === 0 ? {} : { signedInOrigins: signedIn }),
-      }),
+      });
+      return browser;
+    });
+  }
+  if (env.PSYCHE_SANDBOX !== "off") {
+    // Parts compose in order, so the browser (when mounted) exists by now.
+    parts.push((s) =>
+      composeSandboxIfAvailable(s, browser === undefined ? {} : { devServers: browser.devServers }),
     );
   }
   parts.push((s) =>

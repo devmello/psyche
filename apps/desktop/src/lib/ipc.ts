@@ -39,6 +39,11 @@ export const IPC = {
   notifyShow: "psyche:notify:show",
   // Native dialogs.
   dialogPickFolder: "psyche:dialog:pick-folder",
+  // Dictation HUD only (main → HUD state and capture commands, HUD → main audio).
+  dictationHudState: "psyche:dictation:hud-state",
+  dictationCapture: "psyche:dictation:capture",
+  dictationAudio: "psyche:dictation:audio",
+  dictationCaptured: "psyche:dictation:captured",
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];
@@ -75,7 +80,13 @@ export function rec(channel: string, v: unknown): Record<string, unknown> {
 export function checkCallable(method: unknown, isMethodName: (m: unknown) => boolean): string {
   if (typeof method !== "string" || !isMethodName(method))
     throw new IpcPayloadError(IPC.call, "unknown method");
-  if (method === "connect" || method === "connect.verify" || method.startsWith("node."))
+  // dictation.* types into other apps as the owner: only main calls it, after a key it watched.
+  if (
+    method === "connect" ||
+    method === "connect.verify" ||
+    method.startsWith("node.") ||
+    method.startsWith("dictation.")
+  )
     throw new IpcPayloadError(IPC.call, `${method} is not callable from the renderer`);
   return method;
 }
@@ -121,5 +132,16 @@ export function checkRoute(channel: string, v: unknown): string {
     throw new IpcPayloadError(channel, "route must be an app path");
   if (s.includes("..") || s.includes("//"))
     throw new IpcPayloadError(channel, "route must be an app path");
+  return s;
+}
+
+/** Largest audio chunk the HUD may send: 100 ms of 16 kHz s16le is 4.3 kB as base64. */
+export const DICTATION_AUDIO_MAX = 64_000;
+
+/** A HUD audio chunk: base64 PCM, nothing else. */
+export function checkAudioChunk(v: unknown): string {
+  const s = str(IPC.dictationAudio, v, "chunk", DICTATION_AUDIO_MAX);
+  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(s))
+    throw new IpcPayloadError(IPC.dictationAudio, "not base64");
   return s;
 }

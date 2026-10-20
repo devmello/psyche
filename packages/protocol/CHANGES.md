@@ -18,6 +18,16 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S11 M2: Files pane and viewers, P4)
+
+For S11 (the Files pane and chat attachments render `@psyche/viewers`), S01 (the Gateway serves them), S13 (a `ConversionService` over the Gateway).
+
+- New methods in `methods/files.ts`, all `operator.read`:
+  - `files.list {path, offset?}` → `{entries: FileEntry[], nextOffset}`: a folder inside a granted folder, 500 entries per page.
+  - `files.read {path | libraryPath, offset?, length?}` → `{name, mime, modifiedAt, etag, size, offset, bytes (base64), nextOffset}`: a chunk of a file in a granted folder or the Library.
+  - `documents.convert {path | libraryPath, target: "pdf" | "thumbnail", offset?, length?}` → `{mime, size, offset, bytes, nextOffset}`: LibreOffice in the sandbox, cached by etag; `unavailable` with `details.reason` `sandbox_unavailable` or `image_missing`.
+- New schemas: `FileEntry`, `FileEntryKind`, `ConversionTarget`; constants `FILE_CHUNK_BYTES` (512 KiB, so a base64 chunk stays under `MAX_FRAME_BYTES`) and `FILE_LIST_PAGE` (500).
+
 ### v1 additive — 2026-10-19 (S14 M2: Apple app adapters, J6)
 
 For S14 (the mac helper's `calendar.*`, `reminders.*`, `mail.*`, `notes.*`, `finder.*`, `safari.*` node capabilities), S02 (typed node tools), S05 (the `apple.<app>` connector matrix).

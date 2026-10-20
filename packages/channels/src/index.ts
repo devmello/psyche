@@ -1,6 +1,7 @@
-// @psyche/channels (S10): channel framework, authorization, approvals over chat, WebChat and
-// Telegram adapters. See README.md.
+// @psyche/channels (S10): channel framework, authorization, approvals over chat, WebChat,
+// Telegram and iMessage adapters. See README.md.
 
+export * from "./adapters/imessage/index.ts";
 export * from "./adapters/telegram/index.ts";
 export * from "./adapters/webchat.ts";
 export * from "./api.ts";
