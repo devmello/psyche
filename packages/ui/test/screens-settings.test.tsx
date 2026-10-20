@@ -650,3 +650,37 @@ describe("Security settings need approval with presence (security §10)", () => 
     expect(writes).toHaveLength(1);
   });
 });
+
+describe("Browser (real-Chrome mode, I13)", () => {
+  it("the switch writes browser.realChrome and the profile opens through the shell", async () => {
+    const opened: string[] = [];
+    const { gateway } = setup({
+      defaultSection: "browser",
+      onOpenRealChromeProfile: async (profile) => {
+        opened.push(profile);
+        return { path: `/Users/me/.psyche/browser/real-chrome/${profile}` };
+      },
+    });
+    await userEvent.click(
+      await screen.findByRole("switch", { name: "Let tasks use the Psyche Chrome profile" }),
+    );
+    await waitFor(() =>
+      expect(settingValue(gateway(), "browser.realChrome")).toEqual({ enabled: true }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Open the profile in Chrome" }));
+    expect(opened).toEqual(["default"]);
+    expect(
+      await screen.findByText(
+        "Opened /Users/me/.psyche/browser/real-chrome/default in Google Chrome.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("without the desktop app it says where to open the profile", async () => {
+    setup({ defaultSection: "browser" });
+    expect(
+      await screen.findByText("Open it from the Psyche app on the Mac that runs the Gateway."),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Open the profile in Chrome" })).toBeNull();
+  });
+});

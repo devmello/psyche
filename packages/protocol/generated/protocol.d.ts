@@ -2487,6 +2487,16 @@ export interface QueuedMessageResult {
     messageId: string;
 }
 
+export interface RealChromeStatus {
+    attached:     boolean;
+    enabled:      boolean;
+    pid?:         number;
+    port?:        number;
+    sessions:     number;
+    since?:       string;
+    userDataDir?: string;
+}
+
 export interface ReceiptBlock {
     receiptId: string;
     type:      ReceiptBlockType;
@@ -2685,8 +2695,9 @@ export interface SettingsGetResult {
 }
 
 export interface SettingsSetParams {
-    key:   string;
-    value: unknown;
+    approvalId?: string;
+    key:         string;
+    value:       unknown;
 }
 
 export interface SettingsSetResult {

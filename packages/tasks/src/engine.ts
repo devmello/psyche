@@ -78,6 +78,20 @@ function lastTask(events: PendingEvent[]): Task {
   throw new PsycheError("internal", "mutation emitted no task.updated");
 }
 
+type CheckpointStatus = TaskCheckpoint["status"];
+
+/**
+ * Moves `checkpoint()` may make on an existing step (#65). `pending` and `running` are open and
+ * may become anything; `done`, `failed` and `uncertain` are settled and only accept the same
+ * status again (a payload or receipt update). Only `retry` (failed / completed safe → pending)
+ * and `reconcile` (uncertain → done / failed) move a step out of a settled status.
+ */
+const CHECKPOINT_OPEN: readonly CheckpointStatus[] = ["pending", "running"];
+
+export function checkpointMayMove(from: CheckpointStatus, to: CheckpointStatus): boolean {
+  return from === to || CHECKPOINT_OPEN.includes(from);
+}
+
 function fail(code: PsycheError["code"], message: string): never {
   throw new PsycheError(code, message);
 }
@@ -521,6 +535,13 @@ export class SqliteTaskEngine implements TaskEngine {
         .prepare("SELECT * FROM task_checkpoints WHERE task_id = ? AND step_id = ?")
         .get(taskId, input.stepId) as CheckpointRow | undefined;
       if (existing !== undefined) {
+        const from = existing.status as CheckpointStatus;
+        if (!checkpointMayMove(from, input.status)) {
+          fail(
+            "conflict",
+            `step ${input.stepId} is ${from}; checkpoint cannot make it ${input.status}`,
+          );
+        }
         const next: CheckpointRow = {
           ...existing,
           status: input.status,
@@ -529,11 +550,18 @@ export class SqliteTaskEngine implements TaskEngine {
           receipt_id: input.receiptId === undefined ? existing.receipt_id : input.receiptId,
           updated_at: now,
         };
-        this.#db.sqlite
+        const res = this.#db.sqlite
           .prepare(
-            "UPDATE task_checkpoints SET status = @status, replay_safe = @replay_safe, payload = @payload, receipt_id = @receipt_id, updated_at = @updated_at WHERE id = @id",
+            // Guarded like the check above, so the table never takes a disallowed move (#65).
+            "UPDATE task_checkpoints SET status = @status, replay_safe = @replay_safe, payload = @payload, receipt_id = @receipt_id, updated_at = @updated_at WHERE id = @id AND (status IN ('pending', 'running') OR status = @status)",
           )
           .run(next);
+        if (res.changes !== 1) {
+          fail(
+            "conflict",
+            `step ${input.stepId} changed; checkpoint cannot make it ${input.status}`,
+          );
+        }
         this.#patch(taskId, { current_step_id: input.stepId, updated_at: now });
         return checkpointFromRow(next);
       }
