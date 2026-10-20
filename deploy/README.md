@@ -17,6 +17,7 @@ Every recipe runs the same `psyched` with the same rules: it binds `127.0.0.1` o
 | `backup/` | Backup, restore and verify scripts for Compose deployments |
 | `browser/` | The Compose `browser` sidecar: pinned Playwright base, `playwright` from `package-lock.json` (`npm ci`) |
 | `homebrew/` | Cask (desktop app) and formula (`psyche` CLI) templates for the `devmello/psyche` tap |
+| `macos/build-helper.sh` | `apps/mac-helper/dist/PsycheHelper.app` (com.psyche.helper) for `Psyche.app/Contents/Resources`; Developer ID with `PSYCHE_SIGN_IDENTITY`, else ad-hoc (TCC grants do not survive ad-hoc upgrades). Owner: S14; contract in `docs/status/s14.md` "Packaging" |
 | `macos/make-dmg.sh` | `Psyche-<version>-<arch>.dmg` from a packaged app; signs, notarizes and staples when the signing variables are set |
 | `scripts/build-psyched.mjs` | The self-contained Gateway bundle for Psyche.app (`apps/gateway/dist-bin/darwin-<arch>/psyched/`): Node 24 runtime checked against nodejs.org, the Gateway and CLI sources with production dependencies, launchers, plist template. `--smoke` starts it with only `PSYCHE_HOME` and checks `/healthz` |
 | `scripts/release-preflight.mjs` | Repository checks before a tag (24 h dependency cool-down, Node pins, pinned release Compose file, update policy, sandbox signer; warns without an update key). The release workflow runs it first |
