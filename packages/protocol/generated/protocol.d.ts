@@ -1325,7 +1325,7 @@ export interface Block {
     tool?:           string;
     toolCallId?:     string;
     planId?:         string;
-    items?:          ChecklistItem[];
+    items?:          ItemElement[];
     approvalId?:     string;
     inputRequestId?: string;
     artifactId?:     string;
@@ -1343,16 +1343,20 @@ export interface WrapUpAction {
     message?: string;
 }
 
-export interface ChecklistItem {
-    status: ChecklistItemStatus;
-    text:   string;
+export interface ItemElement {
+    status?:        ChecklistItemStatus;
+    text?:          string;
+    lastMessageAt?: null | string;
+    snippet?:       string;
+    threadId?:      string;
+    title?:         string;
 }
 
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
 export type ToolCallStatus = "pending" | "running" | "ok" | "failed" | "uncertain" | "blocked";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -1490,6 +1494,11 @@ export interface ChatSteerParams {
 export interface ChecklistBlock {
     items: ChecklistItem[];
     type:  ChecklistBlockType;
+}
+
+export interface ChecklistItem {
+    status: ChecklistItemStatus;
+    text:   string;
 }
 
 export type ChecklistBlockType = "checklist";
@@ -3411,6 +3420,20 @@ export interface ReceiptsListResult {
     nextCursor?: null | string;
     receipts:    Receipt[];
 }
+
+export interface RelatedThreadsBlock {
+    items: RelatedThread[];
+    type:  RelatedThreadsBlockType;
+}
+
+export interface RelatedThread {
+    lastMessageAt?: null | string;
+    snippet:        string;
+    threadId:       string;
+    title:          string;
+}
+
+export type RelatedThreadsBlockType = "related_threads";
 
 export interface ReqFrame {
     id:              string;

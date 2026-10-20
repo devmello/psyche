@@ -10,6 +10,7 @@ export * from "./context.ts";
 export * from "./evaluator.ts";
 export * from "./hooks.ts";
 export * from "./loop.ts";
+export * from "./plugins.ts";
 export * from "./questions.ts";
 export * from "./registry.ts";
 export * from "./requester.ts";

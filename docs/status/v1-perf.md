@@ -26,6 +26,8 @@ PSYCHE_PERF_TESTS=1 pnpm --filter @psyche/acceptance-tests exec vitest run perf/
 | Cold start to first chat token (scripted model) | < 3000 ms | not measured | **≈ 715 ms** | ≈ 760 ms |
 | First chat token on a warm Gateway | none | not measured | 5 ms | 7 ms |
 | Web client first contentful paint (headless Chrome) | < 1000 ms | not measured | **172 ms** | n/a |
+| Packaged app: main window `did-finish-load` after the main process starts | none | not measured | 689 ms (one run) | n/a |
+| Packaged app: window to first paint | < 2000 ms from spawn | not measured | **not measured**: the window stayed hidden (#441) | n/a |
 
 **Where the numbers come from**
 - **Before:** the same built bundle (after the size cut, #416) without this PR, measured by hand the same way: spawn → `"gateway listening"` → `/healthz`, then `ps -o rss`.
@@ -68,7 +70,10 @@ The packages that cost the most to import on their own:
 
 ## Not changed, and follow-ups
 
-- **Window to first paint in the packaged app:** run once in desktop CI or on a spare Mac, which needs the app launched. Add it to `desktop.yml`'s nightly e2e, which already starts the packaged app.
+- **Window to first paint in the packaged app:**
+  - The opt-in `PSYCHE_PERF_PACKAGED=1` case launches `apps/desktop/out` in isolation, with scratch home and userData, a mock keychain, an external Gateway and the app's perf mode.
+  - Two runs on the owner's Mac. The second reached `did-finish-load` 689 ms after the main process started. The window stayed `hidden` (not frontmost), so nothing painted.
+  - The case now disables Chromium's occlusion backgrounding. The number should come from a frontmost run: the desktop nightly e2e or a launch through `open` (#441).
 - **The MCP client (25 ms) and the AI SDK providers (≈ 45 ms together):** they could load on first use too. Providers would then move the cost to the first model call, which is already on the cold-start-to-first-token path. Not worth it until boot matters more than first token.
 - **The sandbox probe before listen (≈ 30 ms wall):** it could run after the Gateway listens, with `exec` registered once the probe answers. That is a small ordering change in `compose/sandbox.ts` (S21).
 - **Module count:** the largest remaining cost is resolving and loading about 1,600 files. Bundling psyched into a few files would cut most of it, but the Gateway reads migrations and templates next to its sources (see `build-psyched.mjs`), so that is a larger change for after v1.0.

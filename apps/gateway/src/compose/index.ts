@@ -105,6 +105,7 @@ import {
 } from "./model-settings.ts";
 import { composePasskeys } from "./passkeys.ts";
 import { composePayments, paymentsSetupFromEnv } from "./payments.ts";
+import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { protectedRoots } from "./protected-paths.ts";
 import { createRateLimits } from "./rate-limits.ts";
@@ -682,6 +683,16 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   launcher = proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool);
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
+  // Code plugins (T4): off until the owner turns on `plugins.enabled`.
+  parts.push(
+    composePlugins({
+      db,
+      home: config.home,
+      broker: executorBroker,
+      loop,
+      ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+    }),
+  );
   // documents.convert: LibreOffice in its own sandbox on the full image (P4).
   parts.push(
     composeConversion({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
