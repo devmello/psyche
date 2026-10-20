@@ -24,6 +24,7 @@ export const IPC = {
   browserSetControl: "psyche:browser:set-control",
   browserPopOut: "psyche:browser:pop-out",
   browserClearData: "psyche:browser:clear-data",
+  browserOpenRealChromeProfile: "psyche:browser:open-real-chrome-profile",
   // Terminal.
   terminalOpen: "psyche:terminal:open",
   terminalWrite: "psyche:terminal:write",

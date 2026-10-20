@@ -89,6 +89,11 @@ export interface BrowserPort {
   /** Moves a tab into its own window (Open in window) or back into the pane. */
   popOut(tabId: string, fullScreen?: boolean): Promise<void>;
   clearBrowsingData(profile: BridgeProfile): Promise<void>;
+  /**
+   * Opens the Psyche Chrome profile real-Chrome mode uses (feature I13) in Google Chrome, with
+   * no DevTools port, so the owner can sign in there; resolves to the profile's directory.
+   */
+  openRealChromeProfile?(profile?: string): Promise<{ path: string }>;
 }
 
 export interface TerminalOpenResult {
