@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import PsycheHelperCore
 import PsycheProtocol
@@ -191,10 +192,10 @@ public final class VZBackend: VMBackend, @unchecked Sendable {
     // MARK: Run (L2, L3, L5)
 
     public func start(
-        _ bundle: VMBundle, config: VMConfig, shares: [ShareGrant], provisioning: GuestProvisioning?,
-        onGatewayConnection: @escaping @Sendable (Int32) -> Void, onStop: @escaping @Sendable (String?) -> Void
+        _ bundle: VMBundle, config: VMConfig, shares: [ShareGrant], system: VMSystemShares, provisioning: GuestProvisioning?,
+        restoreFrom: URL?, onGatewayConnection: @escaping @Sendable (Int32) -> Void, onStop: @escaping @Sendable (String?) -> Void
     ) async throws {
-        let guest = try RunningGuest(name: config.name, bundle: bundle, config: config, shares: shares)
+        let guest = try RunningGuest(name: config.name, bundle: bundle, config: config, shares: shares, system: system)
         guest.onGatewayConnection = onGatewayConnection
         guest.onStop = { [weak self] error in
             self?.lock.withLock { _ = self?.guests.removeValue(forKey: config.name) }
@@ -203,6 +204,14 @@ public final class VZBackend: VMBackend, @unchecked Sendable {
         try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
             guest.queue.async {
                 guest.attachListener()
+                if let restoreFrom {
+                    // Warm start (spike 06: unproven on 27.0.1, code 11); the caller falls back to a cold boot.
+                    guest.vm.restoreMachineStateFrom(url: restoreFrom) { error in
+                        if let error { c.resume(throwing: CapabilityError(.unavailable, reason: "restore_failed", "Restoring the saved state failed (\((error as NSError).code))")); return }
+                        guest.vm.resume { r in c.resume(with: r.mapError { Self.mapError($0) }) }
+                    }
+                    return
+                }
                 let options = VZMacOSVirtualMachineStartOptions()
                 do {
                     if let provisioning { try Self.apply(provisioning, to: options) }
@@ -239,9 +248,17 @@ public final class VZBackend: VMBackend, @unchecked Sendable {
         throw CapabilityError(.unavailable, reason: "provisioning_unsupported", "Unattended setup needs macOS 27")
     }
 
+    func guest(_ name: String) throws -> RunningGuest {
+        guard let g = lock.withLock({ guests[name] }) else {
+            throw CapabilityError(.conflict, reason: "vm_not_running", "\(name) is not running")
+        }
+        return g
+    }
+
     public func stop(_ name: String, force: Bool) async throws -> Bool {
         guard let guest = lock.withLock({ guests[name] }) else { return true }
-        if await guest.requestGuestShutdown(timeout: 60) { return true }
+        _ = try? await guest.onQueue { [guest] in try guest.vm.requestStop() }
+        if await guest.waitForStop(timeout: force ? 15 : 60) { return true }
         guard force else {
             throw CapabilityError(.unavailable, reason: "guest_did_not_stop",
                                   "The guest did not shut down (requestStop is ignored by a logged-in macOS guest). Retry with force: true.", retryable: true)
@@ -250,10 +267,65 @@ public final class VZBackend: VMBackend, @unchecked Sendable {
         return false
     }
 
-    public func setShares(_ name: String, shares: [ShareGrant]) async throws {
-        guard let guest = lock.withLock({ guests[name] }) else { return }
-        try await guest.onQueue { guest.replaceShares(shares) }
+    public func pause(_ name: String) async throws {
+        let g = try guest(name)
+        try await g.call { vm, done in vm.pause { done($0) } }
+        g.markPaused(true)
     }
+
+    public func resume(_ name: String) async throws {
+        let g = try guest(name)
+        try await g.call { vm, done in vm.resume { done($0) } }
+        g.markPaused(false)
+    }
+
+    public func saveState(_ name: String, to url: URL) async throws {
+        let g = try guest(name)
+        if !g.isPaused { try await g.call { vm, done in vm.pause { done($0) } } }
+        do {
+            try await g.call { vm, done in vm.saveMachineStateTo(url: url) { done($0.map { .failure($0) } ?? .success(())) } }
+        } catch {
+            try? await g.call { vm, done in vm.resume { done($0) } }
+            throw CapabilityError(.unavailable, reason: "save_failed", "Saving the machine state failed (spike 06 saw code 11 on 27.0.1); the guest keeps running")
+        }
+        try await g.forceStop()
+    }
+
+    public func setShares(_ name: String, shares: [ShareGrant], system: VMSystemShares) async throws {
+        guard let guest = lock.withLock({ guests[name] }) else { return }
+        try await guest.onQueue { guest.replaceShares(shares, system: system) }
+    }
+
+    public func setDisplay(_ name: String, visible: Bool) async throws {
+        let g = try guest(name)
+        await MainActor.run { g.setDisplay(visible) }
+    }
+
+    public func connectGuestAgent(_ name: String) async throws -> Int32 {
+        let g = try guest(name)
+        return try await withCheckedThrowingContinuation { (c: CheckedContinuation<Int32, Error>) in
+            g.queue.async {
+                guard let sock = g.vm.socketDevices.first as? VZVirtioSocketDevice else {
+                    c.resume(throwing: CapabilityError.unavailable("no_socket_device", "The guest has no vsock device"))
+                    return
+                }
+                sock.connect(toPort: VsockPorts.guestControl) { result in
+                    switch result {
+                    case .success(let conn):
+                        let fd = dup(conn.fileDescriptor)
+                        conn.close()
+                        if fd >= 0 { c.resume(returning: fd) } else { c.resume(throwing: CapabilityError.unavailable("vsock_dup", "vsock descriptor unavailable")) }
+                    case .failure:
+                        c.resume(throwing: CapabilityError(.unavailable, reason: "guest_agent_unreachable", "The guest helper is not listening yet (install Psyche in the guest)", retryable: true))
+                    }
+                }
+            }
+        }
+    }
+
+    public func isPaused(_ name: String) -> Bool { lock.withLock { guests[name] }?.isPaused ?? false }
+
+    public func isDisplayVisible(_ name: String) -> Bool { lock.withLock { guests[name] }?.displayVisible ?? false }
 }
 
 /// One VZVirtualMachine with its queue, vsock listener and the live `psyche` share device.
@@ -267,10 +339,15 @@ final class RunningGuest: NSObject, VZVirtualMachineDelegate, VZVirtioSocketList
     var onStop: (@Sendable (String?) -> Void)?
     private var stopWaiters: [CheckedContinuation<Void, Never>] = []
 
-    init(name: String, bundle: VMBundle, config: VMConfig, shares: [ShareGrant]) throws {
+    private(set) var isPaused = false
+    func markPaused(_ p: Bool) { isPaused = p }
+    private(set) var displayVisible = false
+    private var window: NSWindow?
+
+    init(name: String, bundle: VMBundle, config: VMConfig, shares: [ShareGrant], system: VMSystemShares? = nil) throws {
         self.name = name
         queue = DispatchQueue(label: "com.psyche.helper.vm.\(name)")
-        let c = try Self.configuration(bundle: bundle, config: config, shares: shares)
+        let c = try Self.configuration(bundle: bundle, config: config, shares: shares, system: system ?? .of(bundle))
         vm = VZVirtualMachine(configuration: c, queue: queue)
         super.init()
         queue.sync { vm.delegate = self }
@@ -280,7 +357,45 @@ final class RunningGuest: NSObject, VZVirtualMachineDelegate, VZVirtioSocketList
         try await withCheckedThrowingContinuation { (c: CheckedContinuation<T, Error>) in queue.async { c.resume(with: Result { try body() }) } }
     }
 
-    static func configuration(bundle: VMBundle, config: VMConfig, shares: [ShareGrant]) throws -> VZVirtualMachineConfiguration {
+    /// Runs a completion-style VM call on `queue`.
+    func call(_ body: @escaping @Sendable (VZVirtualMachine, @escaping @Sendable (Result<Void, Error>) -> Void) -> Void) async throws {
+        try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+            queue.async { [self] in body(vm) { c.resume(with: $0.mapError { VZBackend.mapError($0) }) } }
+        }
+    }
+
+    /// On the main thread: a window with the guest display (VZVirtualMachineView).
+    @MainActor
+    func setDisplay(_ visible: Bool) {
+        if visible {
+            if window == nil {
+                let view = VZVirtualMachineView()
+                view.virtualMachine = vm
+                view.capturesSystemKeys = true
+                view.automaticallyReconfiguresDisplay = true
+                let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1440, height: 900), styleMask: [.titled, .closable, .resizable, .miniaturizable],
+                                 backing: .buffered, defer: false)
+                w.title = "Sandbox Mac — \(name)"
+                w.contentView = view
+                w.isReleasedWhenClosed = false
+                w.center()
+                window = w
+            }
+            window?.makeKeyAndOrderFront(nil)
+            NSApplication.shared.activate()
+        } else {
+            window?.orderOut(nil)
+        }
+        displayVisible = visible
+    }
+
+    static func systemDirectories(_ system: VMSystemShares) -> (automount: [String: VZSharedDirectory], psyche: [String: VZSharedDirectory]) {
+        var auto: [String: VZSharedDirectory] = ["psyche-in": VZSharedDirectory(url: system.transferIn, readOnly: true)]
+        if let p = system.payload { auto["psyche-payload"] = VZSharedDirectory(url: p, readOnly: true) }
+        return (auto, ["_psyche-out": VZSharedDirectory(url: system.transferOut, readOnly: false)])
+    }
+
+    static func configuration(bundle: VMBundle, config: VMConfig, shares: [ShareGrant], system: VMSystemShares) throws -> VZVirtualMachineConfiguration {
         let c = VZVirtualMachineConfiguration()
         let platform = VZMacPlatformConfiguration()
         guard let hw = VZMacHardwareModel(dataRepresentation: try Data(contentsOf: bundle.hardwareModelURL)), hw.isSupported,
@@ -309,10 +424,15 @@ final class RunningGuest: NSObject, VZVirtualMachineDelegate, VZVirtioSocketList
         c.entropyDevices = [VZVirtioEntropyDeviceConfiguration()]
         c.memoryBalloonDevices = [VZVirtioTraditionalMemoryBalloonDeviceConfiguration()]
         c.socketDevices = [VZVirtioSocketDeviceConfiguration()]
-        // The `psyche` device always exists (possibly empty): only its share set can change live.
+        // Both devices always exist: only their share sets can change live (spike 06).
+        try? FileManager.default.createDirectory(at: system.transferIn, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        try? FileManager.default.createDirectory(at: system.transferOut, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let (autoDirs, psycheDirs) = systemDirectories(system)
         let user = VZVirtioFileSystemDeviceConfiguration(tag: ShareGrant.userTag)
-        user.share = directoryShare(shares.filter { $0.tag == ShareGrant.userTag })
-        c.directorySharingDevices = [user]
+        user.share = directoryShare(shares.filter { $0.tag == ShareGrant.userTag }, extra: psycheDirs)
+        let auto = VZVirtioFileSystemDeviceConfiguration(tag: VZVirtioFileSystemDeviceConfiguration.macOSGuestAutomountTag)
+        auto.share = VZMultipleDirectoryShare(directories: autoDirs)
+        c.directorySharingDevices = [user, auto]
         do {
             try c.validate()
         } catch {
@@ -321,16 +441,21 @@ final class RunningGuest: NSObject, VZVirtualMachineDelegate, VZVirtioSocketList
         return c
     }
 
-    static func directoryShare(_ shares: [ShareGrant]) -> VZDirectoryShare {
-        var dirs: [String: VZSharedDirectory] = [:]
+    static func directoryShare(_ shares: [ShareGrant], extra: [String: VZSharedDirectory] = [:]) -> VZDirectoryShare {
+        var dirs: [String: VZSharedDirectory] = extra
         for s in shares { dirs[s.name] = VZSharedDirectory(url: URL(fileURLWithPath: s.hostPath), readOnly: s.readOnly) }
         return VZMultipleDirectoryShare(directories: dirs)
     }
 
     /// On `queue`.
-    func replaceShares(_ shares: [ShareGrant]) {
-        for case let dev as VZVirtioFileSystemDevice in vm.directorySharingDevices where dev.tag == ShareGrant.userTag {
-            dev.share = Self.directoryShare(shares.filter { $0.tag == ShareGrant.userTag })
+    func replaceShares(_ shares: [ShareGrant], system: VMSystemShares) {
+        let (autoDirs, psycheDirs) = Self.systemDirectories(system)
+        for case let dev as VZVirtioFileSystemDevice in vm.directorySharingDevices {
+            if dev.tag == ShareGrant.userTag {
+                dev.share = Self.directoryShare(shares.filter { $0.tag == ShareGrant.userTag }, extra: psycheDirs)
+            } else if dev.tag == VZVirtioFileSystemDeviceConfiguration.macOSGuestAutomountTag {
+                dev.share = VZMultipleDirectoryShare(directories: autoDirs)
+            }
         }
     }
 
@@ -347,27 +472,6 @@ final class RunningGuest: NSObject, VZVirtualMachineDelegate, VZVirtioSocketList
         connections.append(connection)
         handler(fd)
         return true
-    }
-
-    /// Sends `guest.shutdown` to the guest helper's control port, then waits for the stop.
-    func requestGuestShutdown(timeout: TimeInterval) async -> Bool {
-        let sent: Bool = await withCheckedContinuation { (c: CheckedContinuation<Bool, Never>) in
-            queue.async { [self] in
-                guard let sock = vm.socketDevices.first as? VZVirtioSocketDevice else { c.resume(returning: false); return }
-                sock.connect(toPort: VsockPorts.guestControl) { result in
-                    guard case .success(let conn) = result else { c.resume(returning: false); return }
-                    let line = Data(#"{"type":"req","id":"shutdown","method":"guest.shutdown"}"#.utf8 + [0x0A])
-                    let ok = line.withUnsafeBytes { Darwin.write(conn.fileDescriptor, $0.baseAddress, line.count) } == line.count
-                    conn.close()
-                    c.resume(returning: ok)
-                }
-            }
-        }
-        if !sent {
-            // No guest helper yet: try the framework's request (ignored by logged-in guests, spike 06).
-            _ = try? await onQueue { [self] in try vm.requestStop() }
-        }
-        return await waitForStop(timeout: timeout)
     }
 
     func waitForStop(timeout: TimeInterval) async -> Bool {

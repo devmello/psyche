@@ -629,15 +629,21 @@
 //   let viewPlacement = try? JSONDecoder().decode(ViewPlacement.self, from: jsonData)
 //   let viewReportParams = try? JSONDecoder().decode(ViewReportParams.self, from: jsonData)
 //   let vMClipboardMode = try? JSONDecoder().decode(VMClipboardMode.self, from: jsonData)
+//   let vMConfigureParams = try? JSONDecoder().decode(VMConfigureParams.self, from: jsonData)
+//   let vMCopyInParams = try? JSONDecoder().decode(VMCopyInParams.self, from: jsonData)
+//   let vMCopyOutParams = try? JSONDecoder().decode(VMCopyOutParams.self, from: jsonData)
 //   let vMCreateParams = try? JSONDecoder().decode(VMCreateParams.self, from: jsonData)
 //   let vMGuest = try? JSONDecoder().decode(VMGuest.self, from: jsonData)
+//   let vMGuestAgentStatus = try? JSONDecoder().decode(VMGuestAgentStatus.self, from: jsonData)
 //   let vMPhase = try? JSONDecoder().decode(VMPhase.self, from: jsonData)
 //   let vMProgressEvent = try? JSONDecoder().decode(VMProgressEvent.self, from: jsonData)
 //   let vMSettings = try? JSONDecoder().decode(VMSettings.self, from: jsonData)
 //   let vMShare = try? JSONDecoder().decode(VMShare.self, from: jsonData)
 //   let vMShareAddParams = try? JSONDecoder().decode(VMShareAddParams.self, from: jsonData)
 //   let vMStatus = try? JSONDecoder().decode(VMStatus.self, from: jsonData)
+//   let vMTransfer = try? JSONDecoder().decode(VMTransfer.self, from: jsonData)
 //   let vMUpdatedPayload = try? JSONDecoder().decode(VMUpdatedPayload.self, from: jsonData)
+//   let vMVaultPlacement = try? JSONDecoder().decode(VMVaultPlacement.self, from: jsonData)
 //   let voiceCancelParams = try? JSONDecoder().decode(VoiceCancelParams.self, from: jsonData)
 //   let voiceEndReason = try? JSONDecoder().decode(VoiceEndReason.self, from: jsonData)
 //   let voiceEndedPayload = try? JSONDecoder().decode(VoiceEndedPayload.self, from: jsonData)
@@ -1377,6 +1383,8 @@ public enum ApprovalKind: String, Codable, Sendable {
     case exec = "exec"
     case execHost = "exec_host"
     case fileWrite = "file_write"
+    case gitPush = "git_push"
+    case gitWrite = "git_write"
     case mcpTool = "mcp_tool"
     case memoryProtectedWrite = "memory_protected_write"
     case messageSend = "message_send"
@@ -12875,6 +12883,83 @@ public struct ViewReportParams: Codable, Sendable {
     }
 }
 
+// MARK: - VMConfigureParams
+public struct VMConfigureParams: Codable, Sendable {
+    public let clipboard: VMClipboardMode?
+    public let cpus: Int?
+    public let displayHeight: Int?
+    public let displayWidth: Int?
+    public let memoryGB: Int?
+    public let name: String?
+    public let vault: VMVaultPlacement?
+
+    public enum CodingKeys: String, CodingKey {
+        case clipboard = "clipboard"
+        case cpus = "cpus"
+        case displayHeight = "displayHeight"
+        case displayWidth = "displayWidth"
+        case memoryGB = "memoryGB"
+        case name = "name"
+        case vault = "vault"
+    }
+
+    public init(clipboard: VMClipboardMode?, cpus: Int?, displayHeight: Int?, displayWidth: Int?, memoryGB: Int?, name: String?, vault: VMVaultPlacement?) {
+        self.clipboard = clipboard
+        self.cpus = cpus
+        self.displayHeight = displayHeight
+        self.displayWidth = displayWidth
+        self.memoryGB = memoryGB
+        self.name = name
+        self.vault = vault
+    }
+}
+
+public enum VMClipboardMode: String, Codable, Sendable {
+    case bidirectional = "bidirectional"
+    case off = "off"
+    case pasteOnly = "paste-only"
+}
+
+public enum VMVaultPlacement: String, Codable, Sendable {
+    case guest = "guest"
+    case host = "host"
+}
+
+// MARK: - VMCopyInParams
+public struct VMCopyInParams: Codable, Sendable {
+    public let hostPath: String
+    public let name: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case hostPath = "hostPath"
+        case name = "name"
+    }
+
+    public init(hostPath: String, name: String?) {
+        self.hostPath = hostPath
+        self.name = name
+    }
+}
+
+// MARK: - VMCopyOutParams
+public struct VMCopyOutParams: Codable, Sendable {
+    public let guestPath: String
+    public let hostDir: String
+    public let name: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case guestPath = "guestPath"
+        case hostDir = "hostDir"
+        case name = "name"
+    }
+
+    public init(guestPath: String, hostDir: String, name: String?) {
+        self.guestPath = guestPath
+        self.hostDir = hostDir
+        self.name = name
+    }
+}
+
 // MARK: - VMCreateParams
 public struct VMCreateParams: Codable, Sendable {
     public let cpus: Int?
@@ -12933,13 +13018,15 @@ public struct VMProgressEvent: Codable, Sendable {
 public enum VMProgressEventType: String, Codable, Sendable {
     case vmDownload = "vm.download"
     case vmInstall = "vm.install"
+    case vmPermissions = "vm.permissions"
+    case vmPsycheInstall = "vm.psyche_install"
     case vmState = "vm.state"
 }
 
 // MARK: - VMSettings
 public struct VMSettings: Codable, Sendable {
     public let clipboard: VMClipboardMode
-    public let credentials: Credentials
+    public let credentials: VMVaultPlacement
     public let defaultWorkspace: TaskWorkspace
     public let enabled: Bool
     public let guestNodeID: String?
@@ -12952,24 +13039,13 @@ public struct VMSettings: Codable, Sendable {
         case guestNodeID = "guestNodeId"
     }
 
-    public init(clipboard: VMClipboardMode, credentials: Credentials, defaultWorkspace: TaskWorkspace, enabled: Bool, guestNodeID: String?) {
+    public init(clipboard: VMClipboardMode, credentials: VMVaultPlacement, defaultWorkspace: TaskWorkspace, enabled: Bool, guestNodeID: String?) {
         self.clipboard = clipboard
         self.credentials = credentials
         self.defaultWorkspace = defaultWorkspace
         self.enabled = enabled
         self.guestNodeID = guestNodeID
     }
-}
-
-public enum VMClipboardMode: String, Codable, Sendable {
-    case bidirectional = "bidirectional"
-    case off = "off"
-    case pasteOnly = "paste-only"
-}
-
-public enum Credentials: String, Codable, Sendable {
-    case guest = "guest"
-    case host = "host"
 }
 
 // MARK: - VMShareAddParams
@@ -13019,46 +13095,117 @@ public struct VMStatus: Codable, Sendable {
 
 // MARK: - VMGuest
 public struct VMGuest: Codable, Sendable {
+    public let agent: VMGuestAgentStatus?
+    public let clipboard: VMClipboardMode?
     public let cpus: Int
     public let diskGB: Int
+    public let display: Display?
     public let guestOS: String?
     /// Machine reason of the last failure
     public let lastError: String?
     public let memoryGB: Int
     public let name: String
+    /// Accessibility / Screen Recording pre-granted offline (L3)
+    public let permissionsGranted: Bool?
     public let phase: VMPhase
     /// First (provisioning) boot completed
     public let provisioned: Bool
+    /// Guest Psyche payload installed (L3)
+    public let psycheInstalled: Bool?
+    /// A machine-state file exists (warm start)
+    public let savedState: Bool?
     public let shares: [VMShare]
+    public let transfers: [VMTransfer]?
     public let username: String
+    public let vault: VMVaultPlacement?
     public let vsock: Vsock
 
     public enum CodingKeys: String, CodingKey {
+        case agent = "agent"
+        case clipboard = "clipboard"
         case cpus = "cpus"
         case diskGB = "diskGB"
+        case display = "display"
         case guestOS = "guestOS"
         case lastError = "lastError"
         case memoryGB = "memoryGB"
         case name = "name"
+        case permissionsGranted = "permissionsGranted"
         case phase = "phase"
         case provisioned = "provisioned"
+        case psycheInstalled = "psycheInstalled"
+        case savedState = "savedState"
         case shares = "shares"
+        case transfers = "transfers"
         case username = "username"
+        case vault = "vault"
         case vsock = "vsock"
     }
 
-    public init(cpus: Int, diskGB: Int, guestOS: String?, lastError: String?, memoryGB: Int, name: String, phase: VMPhase, provisioned: Bool, shares: [VMShare], username: String, vsock: Vsock) {
+    public init(agent: VMGuestAgentStatus?, clipboard: VMClipboardMode?, cpus: Int, diskGB: Int, display: Display?, guestOS: String?, lastError: String?, memoryGB: Int, name: String, permissionsGranted: Bool?, phase: VMPhase, provisioned: Bool, psycheInstalled: Bool?, savedState: Bool?, shares: [VMShare], transfers: [VMTransfer]?, username: String, vault: VMVaultPlacement?, vsock: Vsock) {
+        self.agent = agent
+        self.clipboard = clipboard
         self.cpus = cpus
         self.diskGB = diskGB
+        self.display = display
         self.guestOS = guestOS
         self.lastError = lastError
         self.memoryGB = memoryGB
         self.name = name
+        self.permissionsGranted = permissionsGranted
         self.phase = phase
         self.provisioned = provisioned
+        self.psycheInstalled = psycheInstalled
+        self.savedState = savedState
         self.shares = shares
+        self.transfers = transfers
         self.username = username
+        self.vault = vault
         self.vsock = vsock
+    }
+}
+
+// MARK: - VMGuestAgentStatus
+public struct VMGuestAgentStatus: Codable, Sendable {
+    public let accessibility: Bool?
+    public let connected: Bool
+    public let lastSeenAt: String?
+    public let screenRecording: Bool?
+    public let version: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case accessibility = "accessibility"
+        case connected = "connected"
+        case lastSeenAt = "lastSeenAt"
+        case screenRecording = "screenRecording"
+        case version = "version"
+    }
+
+    public init(accessibility: Bool?, connected: Bool, lastSeenAt: String?, screenRecording: Bool?, version: String?) {
+        self.accessibility = accessibility
+        self.connected = connected
+        self.lastSeenAt = lastSeenAt
+        self.screenRecording = screenRecording
+        self.version = version
+    }
+}
+
+// MARK: - Display
+public struct Display: Codable, Sendable {
+    public let height: Int
+    public let visible: Bool
+    public let width: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case height = "height"
+        case visible = "visible"
+        case width = "width"
+    }
+
+    public init(height: Int, visible: Bool, width: Int) {
+        self.height = height
+        self.visible = visible
+        self.width = width
     }
 }
 
@@ -13067,8 +13214,10 @@ public enum VMPhase: String, Codable, Sendable {
     case failed = "failed"
     case installed = "installed"
     case installing = "installing"
+    case paused = "paused"
     case provisioning = "provisioning"
     case running = "running"
+    case saved = "saved"
     case starting = "starting"
     case stopped = "stopped"
     case stopping = "stopping"
@@ -13096,6 +13245,39 @@ public struct VMShare: Codable, Sendable {
         self.name = name
         self.readOnly = readOnly
     }
+}
+
+// MARK: - VMTransfer
+public struct VMTransfer: Codable, Sendable {
+    public let bytes: Int
+    public let createdAt: String
+    public let direction: Direction
+    public let guestPath: String
+    public let hostPath: String
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case createdAt = "createdAt"
+        case direction = "direction"
+        case guestPath = "guestPath"
+        case hostPath = "hostPath"
+        case id = "id"
+    }
+
+    public init(bytes: Int, createdAt: String, direction: Direction, guestPath: String, hostPath: String, id: String) {
+        self.bytes = bytes
+        self.createdAt = createdAt
+        self.direction = direction
+        self.guestPath = guestPath
+        self.hostPath = hostPath
+        self.id = id
+    }
+}
+
+public enum Direction: String, Codable, Sendable {
+    case directionIn = "in"
+    case out = "out"
 }
 
 // MARK: - Vsock

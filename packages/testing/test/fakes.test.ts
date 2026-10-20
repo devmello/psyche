@@ -257,6 +257,30 @@ describe("FakeScheduler", () => {
 });
 
 describe("FakeSandboxRunner", () => {
+  it("keeps the mounts a sandbox was created with and refuses different ones", async () => {
+    const r = new FakeSandboxRunner();
+    const mounts = [
+      { source: "/repo", target: "/workspace/repo", readOnly: false },
+      { source: "/repo/.git", target: "/workspace/repo/.git", readOnly: true },
+    ];
+    const a = await r.ensureSandbox({ kind: "project", id: "w" }, { mounts });
+    expect(a.mounts).toEqual(mounts);
+    const b = await r.ensureSandbox(
+      { kind: "project", id: "w" },
+      { mounts: [...mounts].reverse() },
+    );
+    expect(b.id).toBe(a.id);
+    await expect(r.ensureSandbox({ kind: "project", id: "w" })).rejects.toMatchObject({
+      code: "conflict",
+    });
+    await expect(
+      r.ensureSandbox(
+        { kind: "project", id: "x" },
+        { mounts: [{ source: "/etc", target: "/etc", readOnly: true }] },
+      ),
+    ).rejects.toMatchObject({ code: "forbidden" });
+  });
+
   it("caps output and never touches the host", async () => {
     const r = new FakeSandboxRunner().script(["cat", "big.log"], {
       stdout: "x".repeat(EXEC_OUTPUT_CAP_BYTES + 10),
