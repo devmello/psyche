@@ -1,3 +1,4 @@
+export * from "./apple-apps.ts";
 export * from "./apps.ts";
 export * from "./binding.ts";
 export * from "./broker.ts";

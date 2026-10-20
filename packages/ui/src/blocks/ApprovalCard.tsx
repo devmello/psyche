@@ -348,7 +348,8 @@ export function ApprovalCard({
             <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-muted-foreground">
               {approval.requiresAuthentication ? (
                 <span className="inline-flex items-center gap-1.5">
-                  <Fingerprint className="size-3.5" aria-hidden="true" /> Needs Touch ID to approve.
+                  <Fingerprint className="size-3.5" aria-hidden="true" /> Needs Touch ID or a
+                  passkey to approve.
                 </span>
               ) : null}
               {otherSurfaces.length > 0 ? (

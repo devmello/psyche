@@ -1,4 +1,5 @@
 import type { ApprovalKind, GrantScope, JsonObject, SideEffect } from "@psyche/protocol";
+import { appleAppConnector, appleAppEffect } from "./apple-apps.ts";
 import { appCap, effectiveTier, TIER_RANK, tierRequired } from "./apps.ts";
 import { type Binding, bindingFor, genericBindingFor, readsCwdConfig } from "./binding.ts";
 import {
@@ -382,9 +383,17 @@ export class PolicyEngine {
       else requesterAllowances.push({ rule: v.rule });
     }
 
-    const connector = call.connectorRule ?? call.meta?.connector ?? mcpConnector(call.tool);
+    const connector =
+      call.connectorRule ??
+      call.meta?.connector ??
+      mcpConnector(call.tool) ??
+      appleAppConnector(call.tool);
     if (connector !== undefined) {
-      const effect = p.config.connectors?.[connector.id]?.[connector.action];
+      // Apple app adapters (J6) carry defaults, and `alwaysAsk` actions never become silent.
+      const effect = appleAppEffect(
+        call.tool,
+        p.config.connectors?.[connector.id]?.[connector.action],
+      );
       const rule = `connector:${connector.id}/${connector.action}`;
       if (effect === "deny") return done("deny", rule, "connector matrix denies this action");
       if (effect === "ask") floors.push({ rule, reason: "connector matrix asks" });

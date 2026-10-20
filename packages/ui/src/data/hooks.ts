@@ -499,6 +499,13 @@ export async function answerApproval(
       "This device has no answer token for that approval. Answer it where it was sent.",
     );
   }
+  // Approving a card that requires authentication carries the host's presence assertion
+  // (a passkey on the web); without a host verifier the Gateway decides whether one is needed.
+  const approval = store.getState().approvals[approvalId];
+  const presence =
+    decision === "approve" && approval?.requiresAuthentication && store.client.presence
+      ? await store.client.presence(approval, token)
+      : undefined;
   return store.mutate({
     run: () =>
       store.call("approvals.answer", {
@@ -506,6 +513,7 @@ export async function answerApproval(
         answerToken: token,
         decision,
         ...(decision === "approve" && scope !== undefined ? { scope } : {}),
+        ...(presence === undefined ? {} : { presence }),
       }),
     commit: (s, r) => {
       const { [approvalId]: _used, ...answerTokens } = s.answerTokens;

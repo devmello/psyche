@@ -123,6 +123,8 @@ const KIND_TITLES: Record<string, string> = {
   pairing: "Pair device",
   policy_change: "Change permissions",
   task_start: "Start background task",
+  apple_script: "Run AppleScript",
+  shortcut_run: "Run Shortcut",
 };
 
 /** Detail keys shown first, in this order, per kind. */
@@ -139,6 +141,8 @@ const KEY_FIELDS: Record<string, string[]> = {
   mcp_tool: ["server", "tool", "args"],
   new_origin: ["url", "origin"],
   computer_action: ["app", "action"],
+  apple_script: ["target", "language", "source"],
+  shortcut_run: ["name", "input"],
 };
 
 export type CardSurfaceKind =

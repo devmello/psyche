@@ -10,7 +10,7 @@ public protocol PresenceSigning: Sendable {
     func publicKey() throws -> (x963: Data, keyId: String)
     /// Runs Touch ID for the key's access control with `reason`, then signs
     /// `PresenceMessage.bytes(challenge)` with the same `LAContext` (one prompt).
-    func sign(challenge: String, reason: String) async throws -> PresenceAssertion
+    func sign(challenge: String, reason: String) async throws -> PresenceSignature
 }
 
 /// The helper's presence key: one Secure Enclave P-256 key in the data-protection keychain
@@ -111,7 +111,7 @@ public final class PresenceKey: PresenceSigning, @unchecked Sendable {
         return (data, PresenceMessage.keyId(x963: data))
     }
 
-    public func sign(challenge: String, reason: String) async throws -> PresenceAssertion {
+    public func sign(challenge: String, reason: String) async throws -> PresenceSignature {
         guard PresenceMessage.isValidChallenge(challenge) else {
             throw CapabilityError.invalidParams("presenceChallenge must be 64 hex characters", field: "presenceChallenge")
         }
@@ -133,7 +133,7 @@ public final class PresenceKey: PresenceSigning, @unchecked Sendable {
         guard let der = SecKeyCreateSignature(key, Self.algorithm, PresenceMessage.bytes(challenge: challenge) as CFData, &error) as Data? else {
             throw Self.failure(error?.takeRetainedValue())
         }
-        return PresenceAssertion(signature: Base64URL.encode(der), keyId: keyId)
+        return PresenceSignature(signature: Base64URL.encode(der), keyId: keyId)
     }
 
     static func failure(_ error: CFError?) -> CapabilityError {

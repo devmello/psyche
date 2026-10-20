@@ -175,7 +175,7 @@ The smoke test is the OpenMuse one plus PATH-hijack, PTY and concurrency checks 
 
 - Egress: no per-connection backpressure from host to shim; plain-HTTP keep-alive is not supported (one request per connection).
 - `srt` wrapper for host-side helpers (K5) and `exec_host` (K7) are other sessions' work.
-- Image publishing and signing: `deploy/sandbox-image/publish.sh` is written but has not been run, so `versions.json` digests are `null`.
+- Image publishing and signing: the release workflow runs `deploy/sandbox-image/publish.sh` on `v*` tags and opens a PR with the digests, but no tag has run it yet, so `versions.json` digests are `null`.
 - Podman has not been run on a real host (it was not installed on the dev machine); its flags are Docker's.
 - Dev servers: only those an `exec` starts in its own session; PTY-started servers are not detected.
 - File provenance: no xattr on the files themselves (the index is host-side only), no owner "mark trusted" path, and PTY writes are unobserved (they read back as untrusted, which is the safe answer).
