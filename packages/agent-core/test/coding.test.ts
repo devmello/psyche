@@ -127,12 +127,16 @@ function ctx(over: Partial<ToolRunContext> = {}): ToolRunContext {
   };
 }
 
-function setup(folders: CodingFolderGrant[] = [{ path: dir, mode: "rw" }]) {
+function setup(
+  folders: CodingFolderGrant[] = [{ path: dir, mode: "rw" }],
+  protectedRoots: string[] = [],
+) {
   const writes: string[] = [];
   const runner = new FakeSandboxRunner();
   const tools = codingTools({
     files: fileTools(writes),
     folders: () => folders,
+    protectedRoots: () => protectedRoots,
     runner,
     git: hostGit,
   });
@@ -194,6 +198,17 @@ describe("code.* tools (V10)", () => {
     await expect(
       ok.use("code.read", { root: repo, path: "src/add.js" }, ctx({ taskId: "task_2" })),
     ).rejects.toMatchObject({ code: "forbidden" });
+  });
+
+  it("never opens a protected location, or a root that holds one (#285)", async () => {
+    // The repo's parent holds a protected folder: opening the parent would mount it.
+    const { use } = setup([{ path: dir, mode: "rw" }], [join(dir, ".psyche")]);
+    await expect(use("code.open", { path: dir })).rejects.toMatchObject({ code: "forbidden" });
+    await expect(use("code.open", { path: repo })).resolves.toBeDefined();
+    const inside = setup([{ path: dir, mode: "rw" }], [repo]);
+    await expect(inside.use("code.open", { path: repo })).rejects.toMatchObject({
+      code: "forbidden",
+    });
   });
 
   it("searches and reads with root-relative paths, never outside the root", async () => {
