@@ -241,7 +241,12 @@ describe("Connectors", () => {
       expect.objectContaining({ id: IDS.connectors.gmail }),
     );
     expect(onRemove).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole("button", { name: "Remove Gmail" }));
+    // Remove lives under ⋯ and asks first (audit decision 7).
+    await userEvent.click(screen.getByRole("button", { name: "More for Gmail" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    const confirm = await screen.findByRole("alertdialog", { name: "Remove Gmail?" });
+    expect(onRemove).not.toHaveBeenCalled();
+    await userEvent.click(within(confirm).getByRole("button", { name: "Remove" }));
     expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({ id: IDS.connectors.gmail }));
     expect(screen.getAllByText("Trust: community")).toHaveLength(1);
 
@@ -416,12 +421,14 @@ describe("Credentials", () => {
   it("deletes an item only after confirmation", async () => {
     const { gateway } = setup({ defaultSection: "credentials" });
     const table = await screen.findByRole("table", { name: "Stored credentials" });
-    await userEvent.click(within(table).getByRole("button", { name: "Delete acme.com" }));
+    await userEvent.click(within(table).getByRole("button", { name: "More for acme.com" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Delete acme.com?" });
     await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     expect(callsOf(gateway(), "vault.delete")).toHaveLength(0);
-    await userEvent.click(within(table).getByRole("button", { name: "Delete acme.com" }));
+    await userEvent.click(within(table).getByRole("button", { name: "More for acme.com" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
     const again = await screen.findByRole("alertdialog", { name: "Delete acme.com?" });
     await userEvent.click(within(again).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(callsOf(gateway(), "vault.delete")).toHaveLength(1));
@@ -446,7 +453,7 @@ describe("Credentials", () => {
     );
     const table = await screen.findByRole("table", { name: "Stored credentials" });
     expect(within(table).queryByRole("button", { name: "Edit GitHub" })).toBeNull();
-    expect(within(table).queryByRole("button", { name: "Delete GitHub" })).toBeNull();
+    expect(within(table).queryByRole("button", { name: "More for GitHub" })).toBeNull();
     expect(within(table).getByText("Managed by its connector")).toBeTruthy();
     expect(within(table).getByRole("button", { name: "Edit acme.com" })).toBeTruthy();
   });
@@ -712,7 +719,7 @@ describe("Devices", () => {
       }),
     );
     expect(screen.getByText("This device")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Revoke MacBook Pro" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "More for MacBook Pro" })).toBeNull();
   });
 });
 
