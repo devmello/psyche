@@ -21,6 +21,11 @@ export interface GatewayConfig {
   nodeSocketPath: string;
   /** Built web UI served at `/` when present, default `apps/web/dist`. */
   webRoot: string | null;
+  /**
+   * The public HTTPS origin the web client is served from behind a proxy (`gateway.publicOrigin`
+   * or `PSYCHE_PUBLIC_ORIGIN`). Passkeys use its host as the WebAuthn RP ID; `null` = none.
+   */
+  publicOrigin: string | null;
   /** Extra allowed WebSocket `Origin` values (configured publicOrigin, app scheme). */
   allowedOrigins: string[];
   /**
@@ -138,6 +143,31 @@ export function readConfigFile(path: string): ConfigFile {
   return { gateway: out };
 }
 
+/** An HTTPS origin (or `http://localhost[:port]` for development), without path. */
+function normalizePublicOrigin(value: string | null): string | null {
+  if (value === null || value === "") return null;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new PsycheError("invalid_params", `gateway.publicOrigin is not a URL: ${value}`);
+  }
+  const local = url.protocol === "http:" && url.hostname === "localhost";
+  if (url.protocol !== "https:" && !local) {
+    throw new PsycheError(
+      "invalid_params",
+      "gateway.publicOrigin must be https:// (passkeys need a secure origin)",
+    );
+  }
+  if (url.pathname !== "/" || url.search !== "" || url.hash !== "") {
+    throw new PsycheError(
+      "invalid_params",
+      "gateway.publicOrigin must be an origin without a path",
+    );
+  }
+  return url.origin;
+}
+
 export function resolveConfig(
   env: NodeJS.ProcessEnv = process.env,
   overrides: Partial<GatewayConfig> = {},
@@ -195,6 +225,11 @@ export function resolveConfig(
   const tailscaleProxies = file.trustedProxy?.tailscaleProxies ?? [];
   trustedProxyList(trustedProxies); // malformed CIDRs fail at startup
   trustedProxyList(tailscaleProxies);
+  const publicOrigin = normalizePublicOrigin(
+    overrides.publicOrigin !== undefined
+      ? overrides.publicOrigin
+      : (env.PSYCHE_PUBLIC_ORIGIN ?? file.publicOrigin ?? null),
+  );
   const defaultWebRoot = resolve(import.meta.dirname, "../../web/dist");
   return {
     home,
@@ -204,10 +239,11 @@ export function resolveConfig(
     nodeSocketPath: resolveNodeSocketPath(home, overrides.nodeSocketPath ?? env.PSYCHE_NODE_SOCKET),
     webRoot:
       overrides.webRoot === undefined ? (env.PSYCHE_WEB_ROOT ?? defaultWebRoot) : overrides.webRoot,
+    publicOrigin,
     allowedOrigins: overrides.allowedOrigins ??
       env.PSYCHE_ALLOWED_ORIGINS?.split(",").filter(Boolean) ?? [
         ...(file.allowedOrigins ?? []),
-        ...(file.publicOrigin ? [file.publicOrigin] : []),
+        ...(publicOrigin ? [publicOrigin] : []),
       ],
     trustedProxy: overrides.trustedProxy ?? {
       enabled: trustedProxyEnabled,
