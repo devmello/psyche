@@ -23,6 +23,7 @@
     "@psyche/memory": "workspace:*",
     "@psyche/permissions": "workspace:*",
     "@psyche/protocol": "workspace:*",
+    "@psyche/skills": "workspace:*",
     "@psyche/testing": "workspace:*",
     "@psyche/web": "workspace:*",
     "yaml": "2.9.1"
