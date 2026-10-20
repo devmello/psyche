@@ -135,7 +135,7 @@ The ten items this pass left open were decided as follows. Each is now a rule in
 | 6 | Facts value casing | Sentence case. | Done |
 | 7 | Destructive rows | Remove goes under ⋯ with a confirm dialog; Disconnect stays in the row. Applies to Connectors and every row with a destructive action. | In progress |
 | 8 | Skills trust card | Hash and commit go in a Details disclosure; tool names show as a count on the row, with the list in Details. | In progress |
-| 9 | Voice hotkey | A shortcut recorder. A conflict shows the approval-tone hint, and the field refuses to save it. | In progress |
+| 9 | Voice hotkey | A shortcut recorder. A conflict shows the approval-tone hint, and the field refuses to save it. | Done: `settings/ShortcutRecorder.tsx` records by physical key. It refuses shortcuts reserved by macOS or Psyche, and ones the desktop finds taken (`dictation.checkHotkey`), with an approval-tone hint; it never saves them. |
 | 10 | Credential detail | "Approved", with the approval id in a tooltip and copy on click. | Done |
 1. **Raw keys in write errors.** `settings/shared.tsx` names the raw setting key, as in "Psyche couldn't save vault.backend". This breaks §4.12 in every section, and fixing it needs a key-to-label map.
 2. **Matrix radios.** Computer use and `ActionMatrix` use raw `<input type="radio">` per cell. Choose a kit `RadioGroupItem` per cell or one `NativeSelect` per row, and apply it to both.

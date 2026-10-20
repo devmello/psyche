@@ -194,6 +194,8 @@ export interface DictationPort {
   recheck(): Promise<SystemDictationStatus>;
   /** Opens System Settings › Privacy & Security › Accessibility. */
   openAccessibilitySettings(): void;
+  /** Whether another app holds a shortcut, asked before Settings saves the toggle hotkey. */
+  checkHotkey?(accelerator: string): Promise<"ok" | "taken" | "invalid">;
 }
 
 /** localStorage-backed store that degrades to memory (private windows, blocked storage). */

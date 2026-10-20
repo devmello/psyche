@@ -54,6 +54,7 @@ describe("Voice & dictation: system-wide dictation (J9, Q2)", () => {
     render(
       <VoicePanel
         {...base}
+        values={{ ...base.values, "voice.hotkey": "Alt+Space" }}
         onChange={vi.fn()}
         system={{
           helper: "offline",
@@ -64,6 +65,6 @@ describe("Voice & dictation: system-wide dictation (J9, Q2)", () => {
       />,
     );
     expect(screen.getByText("Helper not running")).toBeTruthy();
-    expect(screen.getByText(/Alt\+Space is taken by another app/)).toBeTruthy();
+    expect(screen.getByText(/⌥Space is taken by another app/)).toBeTruthy();
   });
 });
