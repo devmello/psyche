@@ -68,6 +68,20 @@ export interface ToolCallIntent {
   grantKey?: string;
   /** The connector action-matrix key for this call, when the tool belongs to a connector. */
   connectorRule?: ConnectorRule;
+  /**
+   * Computer-use facts from the executor's description (`ToolCallDescription.meta`): the app's
+   * bundle id and the action (`click`, `type`, `open_app`, …) the per-app tier check keys on
+   *. Absent means the tier check uses the tool name.
+   */
+  meta?: ToolCallMeta;
+}
+
+/** Per-call facts the broker's per-app tier check needs (see `ToolCallIntent.meta`). */
+export interface ToolCallMeta {
+  /** Bundle id of the app the action targets; must equal an `app` target when both are set. */
+  app?: string;
+  /** Computer-use action name, e.g. `click`, `type`, `open_app`, `focus`. */
+  action?: string;
 }
 
 /**
