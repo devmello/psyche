@@ -86,6 +86,8 @@ export interface UserProfileDeps {
   memory: SqliteMemoryStore;
   provider: ModelProvider;
   model: ModelRef;
+  /** False when no utility model is configured: the evaluator never runs. */
+  active: boolean;
   redactor: SecretRedactor;
   audit: AuditLog;
   broker: PermissionBroker;
@@ -155,6 +157,7 @@ export function createUserProfile(deps: UserProfileDeps) {
     taskId?: string;
     ownerText: string;
   }) => {
+    if (!deps.active) return;
     const config = userProfileConfig(db);
     if (!config.enabled) return;
     const thread = getThread(db, turn.threadId);

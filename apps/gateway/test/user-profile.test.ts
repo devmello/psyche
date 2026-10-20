@@ -92,7 +92,7 @@ describe("learning about the owner (Gateway)", () => {
       retentionIntervalMs: 0,
       background: false,
       config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
-      model: { provider: model, model: "scripted/main" },
+      model: { provider: model, model: "scripted/main", utilityModel: "scripted/utility" },
     });
     const gw = composed;
     const owner = await adminClient(gw.gateway);

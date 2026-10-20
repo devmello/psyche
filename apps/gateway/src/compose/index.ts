@@ -670,12 +670,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     publish: (event, payload, threadId) => publish(event, payload as never, threadId),
     isRunning: (threadId) => loop.isBusy(threadId),
   });
-  // Learning about the owner (#509): facts from the owner's own words into USER.md's Learned section.
+  // Learning about the owner (#509): facts from the owner's own words into USER.md's Learned
+  // section. It runs on the utility model, so only when one is configured (the router always has one).
   const userProfile = createUserProfile({
     db,
     memory,
     provider,
     model: utility ?? modelRef,
+    active: utility !== undefined,
     redactor,
     audit,
     broker: executorBroker,
