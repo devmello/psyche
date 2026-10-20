@@ -2,6 +2,7 @@ import { FolderPlus } from "lucide-react";
 import { type ReactElement, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
+import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { usePersona } from "../../slots.tsx";
 import {
   EmptyNotice,
@@ -122,9 +123,9 @@ function FolderList({
               <label className="sr-only" htmlFor={`${id}-${f.path}`}>
                 Access to {f.path}
               </label>
-              <select
+              <NativeSelect
                 id={`${id}-${f.path}`}
-                className="h-7 rounded-md border border-input bg-background px-1 text-xs"
+                size="sm"
                 value={f.access}
                 onChange={(e) =>
                   onChange(
@@ -138,7 +139,7 @@ function FolderList({
               >
                 <option value="ro">Read only</option>
                 <option value="rw">Read and write</option>
-              </select>
+              </NativeSelect>
               <Button
                 type="button"
                 variant="ghost"

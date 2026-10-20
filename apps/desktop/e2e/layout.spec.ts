@@ -9,7 +9,9 @@ import {
   type Page,
   test,
 } from "@playwright/test";
+import { MockGateway as KitGateway } from "@psyche/ui/testing";
 import { MockGateway } from "@psyche/web/testing";
+import { createFixtureWorld } from "../../../packages/ui/src/fixtures/index.ts";
 
 /**
  * Window layout (docs/06 §3.1, §3.19, §4.1) in the packaged desktop app and the web client:
@@ -73,6 +75,32 @@ const CONVERSATION = [
   message("01JBXY6Q8Z00000000000000M3", 3, "user", "The 11:00 one, please."),
 ];
 
+/** Side chats for the sidebar: title, last line and time (docs/06 §2.2). */
+const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
+const side = (n: number, title: string, line: string, minutes: number) => ({
+  thread: {
+    ...MAIN_THREAD,
+    id: `01JBXY6Q8Z00000000000000S${n}`,
+    kind: "side",
+    title,
+    sessionKey: `owner:side:${n}`,
+    updatedAt: ago(minutes),
+    lastMessageAt: ago(minutes),
+  },
+  activity: { running: n === 1 ? 1 : 0, awaitingInput: 0, awaitingApproval: 0 },
+  lastMessage: { role: n === 2 ? "user" : "agent", text: line, at: ago(minutes) },
+});
+const THREADS = [
+  {
+    thread: MAIN_THREAD,
+    activity: { running: 0, awaitingInput: 0, awaitingApproval: 0 },
+    lastMessage: { role: "user", text: "The 11:00 one, please.", at: ago(1) },
+  },
+  side(1, "Lisbon trip", "Flights on the 14th are cheapest; I'm watching the fare.", 35),
+  side(2, "Taxes 2025", "Find my 1099 forms in Documents", 60 * 26),
+  side(3, "Birthday dinner for Sam", "Three places have a table for six on Saturday.", 60 * 24 * 9),
+];
+
 const STEPS = [
   "Meet your agent",
   "Permissions",
@@ -95,18 +123,47 @@ let app: ElectronApplication;
 let page: Page;
 let onboarded = false;
 
+/**
+ * The rail screens and the agent sheet read the UI kit's fixture world (feed, ideas, goals,
+ * library, inbox, tasks, approvals, automations, memory, search), so their captures show real
+ * content; the thread list and the conversation stay this spec's own.
+ */
+const kit = new KitGateway(createFixtureWorld());
+const FIXTURE_METHODS = [
+  "feed.list",
+  "ideas.list",
+  "goals.list",
+  "goals.get",
+  "library.list",
+  "notifications.list",
+  "tasks.list",
+  "tasks.get",
+  "tasks.actions",
+  "approvals.list",
+  "grants.list",
+  "questions.list",
+  "automations.list",
+  "search.query",
+  "memory.list",
+  "memory.search",
+] as const;
+function fixtureHandlers(): Record<string, (params: unknown) => unknown> {
+  return Object.fromEntries(
+    FIXTURE_METHODS.map((m) => [
+      m,
+      (params: unknown) => kit.request(m as never, (params ?? {}) as never),
+    ]),
+  );
+}
+
 function handlers() {
   return {
+    ...fixtureHandlers(),
     "settings.get": () => ({
       settings: onboarded ? { [ONBOARDED]: T0 } : {},
       stateVersion: 1,
     }),
-    "threads.list": () => ({
-      threads: [
-        { thread: MAIN_THREAD, activity: { running: 0, awaitingInput: 0, awaitingApproval: 0 } },
-      ],
-      nextCursor: null,
-    }),
+    "threads.list": () => ({ threads: THREADS, nextCursor: null }),
     "threads.get": () => ({
       thread: MAIN_THREAD,
       activity: { running: 0, awaitingInput: 0, awaitingApproval: 0 },
@@ -290,7 +347,9 @@ for (const [width, height] of [
     }
     await page.waitForSelector('[data-testid="kit-chat"]');
     await setWindowSize(width, height);
-    await expect(page.getByText("The 11:00 one, please.")).toBeVisible();
+    await expect(
+      page.getByTestId("conversation-column").getByText("The 11:00 one, please."),
+    ).toBeVisible();
     const tag = `main ${width}x${height}`;
     const bar = await box(page, "titlebar");
     expect(bar.height).toBe(52);
@@ -337,8 +396,25 @@ for (const [width, height] of [
         `${tag}: gap above the composer`,
       ).toBeLessThanOrEqual(72);
     }
+    // Thread rows: title, time and the last line; the filter field narrows them (§2.2).
+    const rows = page.getByRole("list", { name: "Threads list" }).getByRole("listitem");
+    await expect(rows).toHaveCount(4);
+    await expect(rows.nth(1)).toContainText("Flights on the 14th are cheapest");
+    await expect(rows.nth(2)).toContainText("You: Find my 1099 forms");
+    await expect(rows.nth(1).locator("time")).toBeVisible();
+    for (const row of await rows.all()) {
+      const b = await row.boundingBox();
+      if (b) expect(b.width, `${tag}: row inside the 260 px list`).toBeLessThanOrEqual(260);
+    }
     await expectNoSidewaysScroll(page, tag);
     await shot(page, `main-${width}x${height}`);
+    if (width === 1440) {
+      await page.getByLabel("Search threads").fill("lisbon");
+      await expect(rows).toHaveCount(1);
+      await shot(page, `main-search-${width}x${height}`);
+      await page.getByLabel("Search threads").fill("");
+      await expect(rows).toHaveCount(4);
+    }
 
     // With a pane open, its header lines up with the chat header too.
     gw.emit("view.command", { command: "open", args: { pane: "tasks" } });
@@ -356,6 +432,59 @@ for (const [width, height] of [
     await expect(page.getByTestId("pane-tab").filter({ hasText: "Tasks" })).toHaveCount(0);
   });
 }
+
+test("rail screens, inbox and agent sheet at 1440x900: kit chrome, no sideways scroll", async () => {
+  if (!onboarded) {
+    onboarded = true;
+    await page.reload();
+  }
+  await page.waitForSelector('[data-testid="kit-chat"]');
+  await setWindowSize(1440, 900);
+  const lights = await trafficLights();
+  const rail = page.getByRole("navigation", { name: "Main" });
+  // The kit's rail: six icon items, Chat current.
+  await expect(rail.getByRole("button")).toHaveCount(7); // six items + the bottom menu
+  await expect(rail.getByRole("button", { name: /^Chat/ })).toHaveAttribute("aria-current", "page");
+  // The kit's thread list: filter field and new-side-chat button in a 56 px header.
+  await expect(page.getByRole("textbox", { name: "Filter threads" })).toBeVisible();
+  const threadsHeader = await page.locator(".threads-header").boundingBox();
+  expect(threadsHeader?.height).toBe(56);
+  for (const [label, id] of [
+    ["Search", "search"],
+    ["Feed", "feed"],
+    ["Ideas", "ideas"],
+    ["Goals", "goals"],
+    ["Library", "library"],
+  ] as const) {
+    await rail.getByRole("button", { name: new RegExp(`^${label}`) }).click();
+    await expect(page.getByTestId(`screen-${id}`)).toBeVisible();
+    await expect(page.getByText("This screen arrives with the UI kit.")).toHaveCount(0);
+    await page.waitForTimeout(300);
+    expect(await intruders(page, lights), `${label}: under the traffic lights`).toEqual([]);
+    await expectNoSidewaysScroll(page, label);
+    await shot(page, `screen-${id}-1440x900`);
+  }
+  await rail.getByRole("button", { name: /^Chat/ }).click();
+  await page.getByRole("button", { name: /^Notifications/ }).click();
+  await expect(page.getByTestId("screen-inbox")).toBeVisible();
+  await page.waitForTimeout(300);
+  await expectNoSidewaysScroll(page, "Inbox");
+  await shot(page, "screen-inbox-1440x900");
+
+  await rail.getByRole("button", { name: /^Chat/ }).click();
+  await page.getByRole("button", { name: /activity, approvals, upcoming and memory/ }).click();
+  for (const [tab, id] of [
+    ["Activity", "activity"],
+    ["Approvals", "approvals"],
+    ["Upcoming", "upcoming"],
+    ["Soul & Memory", "soul"],
+  ] as const) {
+    await page.getByRole("tab", { name: new RegExp(`^${tab}`) }).click();
+    await page.waitForTimeout(400);
+    await shot(page, `sheet-${id}-1440x900`);
+  }
+  await page.keyboard.press("Escape");
+});
 
 test("web client at 390 px: no title bar, every onboarding step, main chat", async () => {
   test.skip(!existsSync(join(webDist, "index.html")), "build apps/web first");
@@ -393,7 +522,9 @@ test("web client at 390 px: no title bar, every onboarding step, main chat", asy
     webOnboarded = true;
     await p.reload();
     await p.waitForSelector('[data-testid="kit-chat"]');
-    await expect(p.getByText("The 11:00 one, please.")).toBeVisible();
+    await expect(
+      p.getByTestId("conversation-column").getByText("The 11:00 one, please."),
+    ).toBeVisible();
     await expect(p.getByTestId("titlebar")).toHaveCount(0);
     await expect(p.getByTestId("shell")).toHaveAttribute("data-compact", "true");
     await expectNoSidewaysScroll(p, "web main");
