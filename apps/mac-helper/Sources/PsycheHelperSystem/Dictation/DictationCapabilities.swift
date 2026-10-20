@@ -32,17 +32,22 @@ public enum DictationCapabilities {
                     "text": Schema.string("Dictated text", maxLength: DictationPolicy.maxChars),
                     "expectPid": Schema.integer("Refuse with focus_changed unless this process still has focus", min: 0, max: Int(Int32.max)),
                 ], required: ["text"]),
-                permissions: [.accessibility]
+                permissions: [.accessibility],
+                receiptKind: "dictation"
             )) { ctx in
                 let p = try ctx.decode(DictationInsertParams.self)
                 let outcome = try await DictationQueue.run {
                     try DictationInserter.insert(p.text, expectPid: p.expectPID, backend: backend)
                 }
+                // The receipt names the app and the length, never the text.
+                let receipt = ReceiptDraft(
+                    outcome: .ok, summary: "Dictated \(outcome.chars) characters into \(outcome.target.appName)",
+                    externalRefs: outcome.target.bundleID.map { ["bundleId": .string($0)] } ?? [:])
                 return CapabilityOutput([
                     "method": .string(outcome.method.rawValue),
                     "chars": .int(outcome.chars),
                     "target": outcome.target.wire,
-                ])
+                ], receipt: receipt)
             },
 
             Capability(CapabilitySpec(
