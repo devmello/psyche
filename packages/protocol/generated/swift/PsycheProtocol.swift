@@ -194,10 +194,16 @@
 //   let connectVerifyParams = try? JSONDecoder().decode(ConnectVerifyParams.self, from: jsonData)
 //   let connector = try? JSONDecoder().decode(Connector.self, from: jsonData)
 //   let connectorStatus = try? JSONDecoder().decode(ConnectorStatus.self, from: jsonData)
+//   let connectorsGetCustomProposalParams = try? JSONDecoder().decode(ConnectorsGetCustomProposalParams.self, from: jsonData)
+//   let connectorsGetCustomProposalResult = try? JSONDecoder().decode(ConnectorsGetCustomProposalResult.self, from: jsonData)
 //   let connectorsGetParams = try? JSONDecoder().decode(ConnectorsGetParams.self, from: jsonData)
 //   let connectorsGetResult = try? JSONDecoder().decode(ConnectorsGetResult.self, from: jsonData)
+//   let connectorsInstallCustomParams = try? JSONDecoder().decode(ConnectorsInstallCustomParams.self, from: jsonData)
+//   let connectorsInstallCustomResult = try? JSONDecoder().decode(ConnectorsInstallCustomResult.self, from: jsonData)
 //   let connectorsListParams = try? JSONDecoder().decode(ConnectorsListParams.self, from: jsonData)
 //   let connectorsListResult = try? JSONDecoder().decode(ConnectorsListResult.self, from: jsonData)
+//   let connectorsProposeCustomParams = try? JSONDecoder().decode(ConnectorsProposeCustomParams.self, from: jsonData)
+//   let connectorsRemoveCustomParams = try? JSONDecoder().decode(ConnectorsRemoveCustomParams.self, from: jsonData)
 //   let conversionTarget = try? JSONDecoder().decode(ConversionTarget.self, from: jsonData)
 //   let credentialBinding = try? JSONDecoder().decode(CredentialBinding.self, from: jsonData)
 //   let credentialKind = try? JSONDecoder().decode(CredentialKind.self, from: jsonData)
@@ -205,6 +211,12 @@
 //   let credentialSecretInput = try? JSONDecoder().decode(CredentialSecretInput.self, from: jsonData)
 //   let credentialUpdatedPayload = try? JSONDecoder().decode(CredentialUpdatedPayload.self, from: jsonData)
 //   let credentialUse = try? JSONDecoder().decode(CredentialUse.self, from: jsonData)
+//   let customConnectorAuth = try? JSONDecoder().decode(CustomConnectorAuth.self, from: jsonData)
+//   let customConnectorManifest = try? JSONDecoder().decode(CustomConnectorManifest.self, from: jsonData)
+//   let customConnectorParam = try? JSONDecoder().decode(CustomConnectorParam.self, from: jsonData)
+//   let customConnectorProposal = try? JSONDecoder().decode(CustomConnectorProposal.self, from: jsonData)
+//   let customConnectorProposalResult = try? JSONDecoder().decode(CustomConnectorProposalResult.self, from: jsonData)
+//   let customConnectorTool = try? JSONDecoder().decode(CustomConnectorTool.self, from: jsonData)
 //   let decidedBy = try? JSONDecoder().decode(DecidedBy.self, from: jsonData)
 //   let decision = try? JSONDecoder().decode(Decision.self, from: jsonData)
 //   let delivery = try? JSONDecoder().decode(Delivery.self, from: jsonData)
@@ -5154,6 +5166,317 @@ public struct ConnectVerifyParams: Codable, Sendable {
     }
 }
 
+// MARK: - ConnectorsGetCustomProposalParams
+public struct ConnectorsGetCustomProposalParams: Codable, Sendable {
+    public let proposalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case proposalID = "proposalId"
+    }
+
+    public init(proposalID: String) {
+        self.proposalID = proposalID
+    }
+}
+
+// MARK: - ConnectorsGetCustomProposalResult
+public struct ConnectorsGetCustomProposalResult: Codable, Sendable {
+    public let proposal: CustomConnectorProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case proposal = "proposal"
+    }
+
+    public init(proposal: CustomConnectorProposal) {
+        self.proposal = proposal
+    }
+}
+
+// MARK: - CustomConnectorProposal
+public struct CustomConnectorProposal: Codable, Sendable {
+    public let approvalKind: ApprovalKindEnum
+    public let bindingHash: String
+    /// Epoch ms
+    public let expiresAt: Int
+    public let findings: [Finding]
+    public let grantKey: String
+    public let hash: String
+    public let id: String
+    public let kind: CustomConnectorProposalKind
+    public let manifest: CustomConnectorManifest
+    public let scopeMode: ScopeMode
+    public let text: String
+    public let update: CustomConnectorProposalUpdate?
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalKind = "approvalKind"
+        case bindingHash = "bindingHash"
+        case expiresAt = "expiresAt"
+        case findings = "findings"
+        case grantKey = "grantKey"
+        case hash = "hash"
+        case id = "id"
+        case kind = "kind"
+        case manifest = "manifest"
+        case scopeMode = "scopeMode"
+        case text = "text"
+        case update = "update"
+    }
+
+    public init(approvalKind: ApprovalKindEnum, bindingHash: String, expiresAt: Int, findings: [Finding], grantKey: String, hash: String, id: String, kind: CustomConnectorProposalKind, manifest: CustomConnectorManifest, scopeMode: ScopeMode, text: String, update: CustomConnectorProposalUpdate?) {
+        self.approvalKind = approvalKind
+        self.bindingHash = bindingHash
+        self.expiresAt = expiresAt
+        self.findings = findings
+        self.grantKey = grantKey
+        self.hash = hash
+        self.id = id
+        self.kind = kind
+        self.manifest = manifest
+        self.scopeMode = scopeMode
+        self.text = text
+        self.update = update
+    }
+}
+
+public enum ApprovalKindEnum: String, Codable, Sendable {
+    case skillInstall = "skill_install"
+}
+
+// MARK: - Finding
+public struct Finding: Codable, Sendable {
+    public let message: String
+    public let rule: String
+    public let severity: Severity
+
+    public enum CodingKeys: String, CodingKey {
+        case message = "message"
+        case rule = "rule"
+        case severity = "severity"
+    }
+
+    public init(message: String, rule: String, severity: Severity) {
+        self.message = message
+        self.rule = rule
+        self.severity = severity
+    }
+}
+
+public enum Severity: String, Codable, Sendable {
+    case high = "high"
+    case info = "info"
+    case warn = "warn"
+}
+
+public enum CustomConnectorProposalKind: String, Codable, Sendable {
+    case connector = "connector"
+}
+
+// MARK: - CustomConnectorManifest
+public struct CustomConnectorManifest: Codable, Sendable {
+    public let auth: CustomConnectorAuth
+    public let baseURL: String
+    public let description: String
+    public let hosts: [String]
+    public let id: String
+    public let name: String
+    public let schemaVersion: Double
+    public let source: SourceClass?
+    public let tools: [CustomConnectorTool]
+    public let version: String
+
+    public enum CodingKeys: String, CodingKey {
+        case auth = "auth"
+        case baseURL = "baseUrl"
+        case description = "description"
+        case hosts = "hosts"
+        case id = "id"
+        case name = "name"
+        case schemaVersion = "schemaVersion"
+        case source = "source"
+        case tools = "tools"
+        case version = "version"
+    }
+
+    public init(auth: CustomConnectorAuth, baseURL: String, description: String, hosts: [String], id: String, name: String, schemaVersion: Double, source: SourceClass?, tools: [CustomConnectorTool], version: String) {
+        self.auth = auth
+        self.baseURL = baseURL
+        self.description = description
+        self.hosts = hosts
+        self.id = id
+        self.name = name
+        self.schemaVersion = schemaVersion
+        self.source = source
+        self.tools = tools
+        self.version = version
+    }
+}
+
+// MARK: - CustomConnectorAuth
+public struct CustomConnectorAuth: Codable, Sendable {
+    public let kind: CustomConnectorAuthKind
+    /// A vault placeholder; the value is resolved only inside the executor
+    public let credential: String?
+    public let name: String?
+    /// Login item: username + password
+    public let description: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case credential = "credential"
+        case name = "name"
+        case description = "description"
+    }
+
+    public init(kind: CustomConnectorAuthKind, credential: String?, name: String?, description: String?) {
+        self.kind = kind
+        self.credential = credential
+        self.name = name
+        self.description = description
+    }
+}
+
+public enum CustomConnectorAuthKind: String, Codable, Sendable {
+    case basic = "basic"
+    case bearer = "bearer"
+    case header = "header"
+    case none = "none"
+    case query = "query"
+}
+
+// MARK: - SourceClass
+public struct SourceClass: Codable, Sendable {
+    public let drafted: Drafted?
+    public let kind: SourceKind
+    public let title: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case drafted = "drafted"
+        case kind = "kind"
+        case title = "title"
+    }
+
+    public init(drafted: Drafted?, kind: SourceKind, title: String?) {
+        self.drafted = drafted
+        self.kind = kind
+        self.title = title
+    }
+}
+
+public enum Drafted: String, Codable, Sendable {
+    case agent = "agent"
+    case owner = "owner"
+}
+
+public enum SourceKind: String, Codable, Sendable {
+    case declarative = "declarative"
+    case openapi = "openapi"
+}
+
+// MARK: - CustomConnectorTool
+public struct CustomConnectorTool: Codable, Sendable {
+    public let defaultRule: Decision?
+    public let description: String
+    public let method: Method
+    public let name: String
+    public let params: [CustomConnectorParam]
+    public let path: String
+    public let sideEffect: SideEffectEnum
+
+    public enum CodingKeys: String, CodingKey {
+        case defaultRule = "defaultRule"
+        case description = "description"
+        case method = "method"
+        case name = "name"
+        case params = "params"
+        case path = "path"
+        case sideEffect = "sideEffect"
+    }
+
+    public init(defaultRule: Decision?, description: String, method: Method, name: String, params: [CustomConnectorParam], path: String, sideEffect: SideEffectEnum) {
+        self.defaultRule = defaultRule
+        self.description = description
+        self.method = method
+        self.name = name
+        self.params = params
+        self.path = path
+        self.sideEffect = sideEffect
+    }
+}
+
+public enum Decision: String, Codable, Sendable {
+    case allow = "allow"
+    case ask = "ask"
+    case deny = "deny"
+}
+
+public enum Method: String, Codable, Sendable {
+    case delete = "DELETE"
+    case methodGET = "GET"
+    case patch = "PATCH"
+    case post = "POST"
+    case put = "PUT"
+}
+
+// MARK: - CustomConnectorParam
+public struct CustomConnectorParam: Codable, Sendable {
+    public let description: String?
+    public let customConnectorParamIn: In
+    public let name: String
+    public let customConnectorParamRequired: Bool?
+    public let schema: [String: JSONAny]
+
+    public enum CodingKeys: String, CodingKey {
+        case description = "description"
+        case customConnectorParamIn = "in"
+        case name = "name"
+        case customConnectorParamRequired = "required"
+        case schema = "schema"
+    }
+
+    public init(description: String?, customConnectorParamIn: In, name: String, customConnectorParamRequired: Bool?, schema: [String: JSONAny]) {
+        self.description = description
+        self.customConnectorParamIn = customConnectorParamIn
+        self.name = name
+        self.customConnectorParamRequired = customConnectorParamRequired
+        self.schema = schema
+    }
+}
+
+public enum In: String, Codable, Sendable {
+    case body = "body"
+    case path = "path"
+    case query = "query"
+}
+
+public enum SideEffectEnum: String, Codable, Sendable {
+    case destructive = "destructive"
+    case read = "read"
+    case write = "write"
+}
+
+public enum ScopeMode: String, Codable, Sendable {
+    case read = "read"
+    case readAct = "read_act"
+}
+
+// MARK: - CustomConnectorProposalUpdate
+public struct CustomConnectorProposalUpdate: Codable, Sendable {
+    /// Line diff of `text`
+    public let diff: String
+    public let fromHash: String
+
+    public enum CodingKeys: String, CodingKey {
+        case diff = "diff"
+        case fromHash = "fromHash"
+    }
+
+    public init(diff: String, fromHash: String) {
+        self.diff = diff
+        self.fromHash = fromHash
+    }
+}
+
 // MARK: - ConnectorsGetParams
 public struct ConnectorsGetParams: Codable, Sendable {
     public let connectorID: String
@@ -5230,22 +5553,40 @@ public struct Connector: Codable, Sendable {
     }
 }
 
-public enum Decision: String, Codable, Sendable {
-    case allow = "allow"
-    case ask = "ask"
-    case deny = "deny"
-}
-
-public enum ScopeMode: String, Codable, Sendable {
-    case read = "read"
-    case readAct = "read_act"
-}
-
 public enum ConnectorStatus: String, Codable, Sendable {
     case connected = "connected"
     case disconnected = "disconnected"
     case error = "error"
     case needsAuth = "needs_auth"
+}
+
+// MARK: - ConnectorsInstallCustomParams
+public struct ConnectorsInstallCustomParams: Codable, Sendable {
+    public let approvalID: String
+    public let proposalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case proposalID = "proposalId"
+    }
+
+    public init(approvalID: String, proposalID: String) {
+        self.approvalID = approvalID
+        self.proposalID = proposalID
+    }
+}
+
+// MARK: - ConnectorsInstallCustomResult
+public struct ConnectorsInstallCustomResult: Codable, Sendable {
+    public let connector: Connector
+
+    public enum CodingKeys: String, CodingKey {
+        case connector = "connector"
+    }
+
+    public init(connector: Connector) {
+        self.connector = connector
+    }
 }
 
 // MARK: - ConnectorsListResult
@@ -5258,6 +5599,60 @@ public struct ConnectorsListResult: Codable, Sendable {
 
     public init(connectors: [Connector]) {
         self.connectors = connectors
+    }
+}
+
+// MARK: - ConnectorsProposeCustomParams
+public struct ConnectorsProposeCustomParams: Codable, Sendable {
+    public let manifest: CustomConnectorManifest?
+    public let openapi: Openapi?
+    public let scopeMode: ScopeMode?
+
+    public enum CodingKeys: String, CodingKey {
+        case manifest = "manifest"
+        case openapi = "openapi"
+        case scopeMode = "scopeMode"
+    }
+
+    public init(manifest: CustomConnectorManifest?, openapi: Openapi?, scopeMode: ScopeMode?) {
+        self.manifest = manifest
+        self.openapi = openapi
+        self.scopeMode = scopeMode
+    }
+}
+
+// MARK: - Openapi
+public struct Openapi: Codable, Sendable {
+    public let auth: CustomConnectorAuth?
+    public let document: String
+    public let id: String
+    public let operations: [String]?
+
+    public enum CodingKeys: String, CodingKey {
+        case auth = "auth"
+        case document = "document"
+        case id = "id"
+        case operations = "operations"
+    }
+
+    public init(auth: CustomConnectorAuth?, document: String, id: String, operations: [String]?) {
+        self.auth = auth
+        self.document = document
+        self.id = id
+        self.operations = operations
+    }
+}
+
+// MARK: - ConnectorsRemoveCustomParams
+public struct ConnectorsRemoveCustomParams: Codable, Sendable {
+    public let connectorID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case connectorID = "connectorId"
+    }
+
+    public init(connectorID: String) {
+        self.connectorID = connectorID
     }
 }
 
@@ -5368,6 +5763,22 @@ public enum CredentialKind: String, Codable, Sendable {
     case paymentLink = "payment_link"
     case signingKey = "signing_key"
     case sshKey = "ssh_key"
+}
+
+// MARK: - CustomConnectorProposalResult
+public struct CustomConnectorProposalResult: Codable, Sendable {
+    public let approval: ApprovalRequest
+    public let proposal: CustomConnectorProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case approval = "approval"
+        case proposal = "proposal"
+    }
+
+    public init(approval: ApprovalRequest, proposal: CustomConnectorProposal) {
+        self.approval = approval
+        self.proposal = proposal
+    }
 }
 
 // MARK: - DecidedBy
@@ -9986,12 +10397,6 @@ public struct ScanFinding: Codable, Sendable {
     }
 }
 
-public enum Severity: String, Codable, Sendable {
-    case high = "high"
-    case info = "info"
-    case warn = "warn"
-}
-
 // MARK: - PluginManifest
 public struct PluginManifest: Codable, Sendable {
     public let capabilities: [PluginCapability]
@@ -11151,7 +11556,7 @@ public struct SkillProposal: Codable, Sendable {
     public let text: String
     public let trust: SkillTrust
     /// Updates and re-approvals: the installed hash and the diff
-    public let update: Update?
+    public let update: SkillProposalUpdate?
 
     public enum CodingKeys: String, CodingKey {
         case approvalKind = "approvalKind"
@@ -11172,7 +11577,7 @@ public struct SkillProposal: Codable, Sendable {
         case update = "update"
     }
 
-    public init(approvalKind: ApprovalKindEnum, bindingHash: String, commit: String?, expiresAt: Int, files: [SkillProposalFile], findings: [ScanFinding], grantKey: String, hash: String, id: String, manifest: SkillManifest?, name: String, scope: Scope, source: SkillInstallSource, text: String, trust: SkillTrust, update: Update?) {
+    public init(approvalKind: ApprovalKindEnum, bindingHash: String, commit: String?, expiresAt: Int, files: [SkillProposalFile], findings: [ScanFinding], grantKey: String, hash: String, id: String, manifest: SkillManifest?, name: String, scope: Scope, source: SkillInstallSource, text: String, trust: SkillTrust, update: SkillProposalUpdate?) {
         self.approvalKind = approvalKind
         self.bindingHash = bindingHash
         self.commit = commit
@@ -11190,10 +11595,6 @@ public struct SkillProposal: Codable, Sendable {
         self.trust = trust
         self.update = update
     }
-}
-
-public enum ApprovalKindEnum: String, Codable, Sendable {
-    case skillInstall = "skill_install"
 }
 
 // MARK: - SkillProposalFile
@@ -11282,8 +11683,8 @@ public enum SkillTrust: String, Codable, Sendable {
 }
 
 /// Updates and re-approvals: the installed hash and the diff
-// MARK: - Update
-public struct Update: Codable, Sendable {
+// MARK: - SkillProposalUpdate
+public struct SkillProposalUpdate: Codable, Sendable {
     /// Unified diff per file
     public let diff: String
     public let fromHash: String
@@ -13181,7 +13582,7 @@ public struct VaultLinkExternalParams: Codable, Sendable {
     public let name: String
     public let ref: OnePasswordRef
     public let slug: String?
-    public let source: Source
+    public let source: SourceEnum
 
     public enum CodingKeys: String, CodingKey {
         case bindings = "bindings"
@@ -13193,7 +13594,7 @@ public struct VaultLinkExternalParams: Codable, Sendable {
         case source = "source"
     }
 
-    public init(bindings: [CredentialBinding], fields: [Field]?, kind: VaultLinkExternalParamsKind, name: String, ref: OnePasswordRef, slug: String?, source: Source) {
+    public init(bindings: [CredentialBinding], fields: [Field]?, kind: VaultLinkExternalParamsKind, name: String, ref: OnePasswordRef, slug: String?, source: SourceEnum) {
         self.bindings = bindings
         self.fields = fields
         self.kind = kind
@@ -13236,7 +13637,7 @@ public struct OnePasswordRef: Codable, Sendable {
     }
 }
 
-public enum Source: String, Codable, Sendable {
+public enum SourceEnum: String, Codable, Sendable {
     case the1Password = "1password"
 }
 
