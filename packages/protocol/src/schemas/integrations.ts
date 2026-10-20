@@ -35,6 +35,19 @@ export const CredentialMeta = Type.Object(
      * external manager (1Password, Bitwarden) read at fill time.
      */
     backend: Type.Optional(StringEnum(["vault", "keychain", "1password", "bitwarden"])),
+    /**
+     * Gateway-owned items (#511): who manages the item and where in Settings it is removed.
+     * `removable` says whether `vault.delete` takes it; when false, remove it through `setting`
+     * (a provider key in Models, a channel token in Channels, a connector's token by
+     * disconnecting it). Absent for items the owner created in the vault.
+     */
+    managedBy: Type.Optional(
+      Type.Object({
+        kind: StringEnum(["connector", "model_provider", "channel", "external_manager"]),
+        setting: StringEnum(["connectors", "models", "channels", "credentials"]),
+        removable: Type.Boolean(),
+      }),
+    ),
   },
   { $id: "CredentialMeta" },
 );

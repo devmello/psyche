@@ -709,6 +709,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Removes a channel transport secret (the Gateway-owned vault item channels.secrets.set stored; #511) and returns which secrets are still set. The channel cannot connect until it is set again. invalid_params for a name the type does not use. Audited. Side-effecting.",
+        "name": "channels.secrets.clear",
+        "params": "#/$defs/ChannelsSecretsClearParams",
+        "result": "#/$defs/ChannelsSecretsClearResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Stores a channel transport secret (Slack bot/app token, Discord bot token, SMS auth token) as a Gateway-owned vault item for that channel type and account, replacing an earlier one, and returns which secrets are now set. Agents can never fill it. invalid_params for a name the type does not use, unavailable when the vault cannot be opened. Side-effecting; its params are never logged.",
         "name": "channels.secrets.set",
         "params": "#/$defs/ChannelsSecretsSetParams",
@@ -1291,6 +1299,14 @@
         "result": "#/$defs/ModelsCheckResult",
         "scope": "operator.admin",
         "sideEffecting": false
+      },
+      {
+        "description": "Removes a hosted provider's API key from the vault (the Gateway-owned item models.setKey stored; #511) and returns the provider with keyConfigured false. Requests to that provider fail until a key is set again. not_found for an unknown provider id, invalid_params for a keyless (local) provider. Audited. Side-effecting.",
+        "name": "models.clearKey",
+        "params": "#/$defs/ModelsClearKeyParams",
+        "result": "#/$defs/ModelsClearKeyResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
       },
       {
         "description": "Lists the configured model providers with their known models, the last endpoint probe (state not_probed until one runs) and tool-check verdicts, plus the primary and utility role bindings.",
@@ -1893,7 +1909,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Overwrites and deletes an item. Side-effecting.",
+        "description": "Overwrites and deletes an item the owner created (any kind, external-manager links included), revokes its credential_fill grants and wipes secret env leases and unused fill handles drawn from it; audited. A Gateway-owned item (a provider key, a channel token, a connector's token) is refused forbidden with details {reason: \"gateway_owned\", kind, setting}: remove it through that setting. Side-effecting.",
         "name": "vault.delete",
         "params": "#/$defs/VaultDeleteParams",
         "result": "#/$defs/VaultDeleteResult",
@@ -6482,6 +6498,41 @@
       ],
       "type": "object"
     },
+    "ChannelsSecretsClearParams": {
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/ChannelType"
+        },
+        "account": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "$ref": "#/$defs/ChannelSecretName"
+        }
+      },
+      "required": [
+        "type",
+        "account",
+        "name"
+      ],
+      "type": "object"
+    },
+    "ChannelsSecretsClearResult": {
+      "properties": {
+        "set": {
+          "items": {
+            "$ref": "#/$defs/ChannelSecretName"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "set"
+      ],
+      "type": "object"
+    },
     "ChannelsSecretsSetParams": {
       "properties": {
         "type": {
@@ -7909,6 +7960,37 @@
             "bitwarden"
           ],
           "type": "string"
+        },
+        "managedBy": {
+          "properties": {
+            "kind": {
+              "enum": [
+                "connector",
+                "model_provider",
+                "channel",
+                "external_manager"
+              ],
+              "type": "string"
+            },
+            "setting": {
+              "enum": [
+                "connectors",
+                "models",
+                "channels",
+                "credentials"
+              ],
+              "type": "string"
+            },
+            "removable": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "setting",
+            "removable"
+          ],
+          "type": "object"
         }
       },
       "required": [
@@ -13380,6 +13462,30 @@
       },
       "required": [
         "result"
+      ],
+      "type": "object"
+    },
+    "ModelsClearKeyParams": {
+      "properties": {
+        "providerId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "providerId"
+      ],
+      "type": "object"
+    },
+    "ModelsClearKeyResult": {
+      "properties": {
+        "provider": {
+          "$ref": "#/$defs/ModelProviderSummary"
+        }
+      },
+      "required": [
+        "provider"
       ],
       "type": "object"
     },
