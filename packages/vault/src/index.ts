@@ -71,7 +71,12 @@ export {
   type SafeHttpError,
   safeHttpError,
 } from "./fill/http.ts";
-export { createVaultHandlers, type VaultHandlers, type VaultMethodName } from "./handlers.ts";
+export {
+  createVaultHandlers,
+  type VaultHandlerOptions,
+  type VaultHandlers,
+  type VaultMethodName,
+} from "./handlers.ts";
 export {
   detectFormat,
   type ImportedRow,
@@ -97,6 +102,7 @@ export {
   type SpendRecord,
   shred,
   spendContext,
+  toVaultPayment,
 } from "./payments/broker.ts";
 export {
   type CardFile,

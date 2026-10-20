@@ -311,6 +311,7 @@
 //   let libraryItemKind = try? JSONDecoder().decode(LibraryItemKind.self, from: jsonData)
 //   let libraryListParams = try? JSONDecoder().decode(LibraryListParams.self, from: jsonData)
 //   let libraryListResult = try? JSONDecoder().decode(LibraryListResult.self, from: jsonData)
+//   let linkPaymentMethod = try? JSONDecoder().decode(LinkPaymentMethod.self, from: jsonData)
 //   let logLevel = try? JSONDecoder().decode(LogLevel.self, from: jsonData)
 //   let logLine = try? JSONDecoder().decode(LogLine.self, from: jsonData)
 //   let logsTailParams = try? JSONDecoder().decode(LogsTailParams.self, from: jsonData)
@@ -423,6 +424,7 @@
 //   let notificationsResolveParams = try? JSONDecoder().decode(NotificationsResolveParams.self, from: jsonData)
 //   let notificationsResolveResult = try? JSONDecoder().decode(NotificationsResolveResult.self, from: jsonData)
 //   let okResult = try? JSONDecoder().decode(OkResult.self, from: jsonData)
+//   let onePasswordRef = try? JSONDecoder().decode(OnePasswordRef.self, from: jsonData)
 //   let pairingRequest = try? JSONDecoder().decode(PairingRequest.self, from: jsonData)
 //   let pairingRequestedPayload = try? JSONDecoder().decode(PairingRequestedPayload.self, from: jsonData)
 //   let pairingStatus = try? JSONDecoder().decode(PairingStatus.self, from: jsonData)
@@ -606,11 +608,19 @@
 //   let vaultImportParams = try? JSONDecoder().decode(VaultImportParams.self, from: jsonData)
 //   let vaultImportResult = try? JSONDecoder().decode(VaultImportResult.self, from: jsonData)
 //   let vaultKeySlot = try? JSONDecoder().decode(VaultKeySlot.self, from: jsonData)
+//   let vaultLinkExternalParams = try? JSONDecoder().decode(VaultLinkExternalParams.self, from: jsonData)
+//   let vaultLinkExternalResult = try? JSONDecoder().decode(VaultLinkExternalResult.self, from: jsonData)
 //   let vaultListParams = try? JSONDecoder().decode(VaultListParams.self, from: jsonData)
 //   let vaultListResult = try? JSONDecoder().decode(VaultListResult.self, from: jsonData)
 //   let vaultLockParams = try? JSONDecoder().decode(VaultLockParams.self, from: jsonData)
 //   let vaultLockResult = try? JSONDecoder().decode(VaultLockResult.self, from: jsonData)
 //   let vaultLockedPayload = try? JSONDecoder().decode(VaultLockedPayload.self, from: jsonData)
+//   let vaultPayment = try? JSONDecoder().decode(VaultPayment.self, from: jsonData)
+//   let vaultPaymentUpdatedPayload = try? JSONDecoder().decode(VaultPaymentUpdatedPayload.self, from: jsonData)
+//   let vaultPaymentsListParams = try? JSONDecoder().decode(VaultPaymentsListParams.self, from: jsonData)
+//   let vaultPaymentsListResult = try? JSONDecoder().decode(VaultPaymentsListResult.self, from: jsonData)
+//   let vaultPaymentsMethodsParams = try? JSONDecoder().decode(VaultPaymentsMethodsParams.self, from: jsonData)
+//   let vaultPaymentsMethodsResult = try? JSONDecoder().decode(VaultPaymentsMethodsResult.self, from: jsonData)
 //   let vaultSetupParams = try? JSONDecoder().decode(VaultSetupParams.self, from: jsonData)
 //   let vaultSetupResult = try? JSONDecoder().decode(VaultSetupResult.self, from: jsonData)
 //   let vaultStatus = try? JSONDecoder().decode(VaultStatus.self, from: jsonData)
@@ -5095,6 +5105,7 @@ public enum Change: String, Codable, Sendable {
 
 // MARK: - CredentialMeta
 public struct CredentialMeta: Codable, Sendable {
+    public let backend: Backend?
     public let bindings: [CredentialBinding]
     public let createdAt: String
     public let id: String
@@ -5107,6 +5118,7 @@ public struct CredentialMeta: Codable, Sendable {
     public let useCount: Int
 
     public enum CodingKeys: String, CodingKey {
+        case backend = "backend"
         case bindings = "bindings"
         case createdAt = "createdAt"
         case id = "id"
@@ -5119,7 +5131,8 @@ public struct CredentialMeta: Codable, Sendable {
         case useCount = "useCount"
     }
 
-    public init(bindings: [CredentialBinding], createdAt: String, id: String, kind: CredentialKind, lastUsedAt: String?, name: String, ownerConnectorID: String?, slug: String, updatedAt: String, useCount: Int) {
+    public init(backend: Backend?, bindings: [CredentialBinding], createdAt: String, id: String, kind: CredentialKind, lastUsedAt: String?, name: String, ownerConnectorID: String?, slug: String, updatedAt: String, useCount: Int) {
+        self.backend = backend
         self.bindings = bindings
         self.createdAt = createdAt
         self.id = id
@@ -5131,6 +5144,12 @@ public struct CredentialMeta: Codable, Sendable {
         self.updatedAt = updatedAt
         self.useCount = useCount
     }
+}
+
+public enum Backend: String, Codable, Sendable {
+    case keychain = "keychain"
+    case the1Password = "1password"
+    case vault = "vault"
 }
 
 // MARK: - CredentialBinding
@@ -12392,7 +12411,7 @@ public struct VaultStatus: Codable, Sendable {
     public let lockAt: String?
     public let recoveryConfirmed: Bool
     public let slots: [VaultKeySlot]
-    public let state: State
+    public let state: VaultStatusState
 
     public enum CodingKeys: String, CodingKey {
         case autoLockMinutes = "autoLockMinutes"
@@ -12403,7 +12422,7 @@ public struct VaultStatus: Codable, Sendable {
         case state = "state"
     }
 
-    public init(autoLockMinutes: Int, itemCount: Int, lockAt: String?, recoveryConfirmed: Bool, slots: [VaultKeySlot], state: State) {
+    public init(autoLockMinutes: Int, itemCount: Int, lockAt: String?, recoveryConfirmed: Bool, slots: [VaultKeySlot], state: VaultStatusState) {
         self.autoLockMinutes = autoLockMinutes
         self.itemCount = itemCount
         self.lockAt = lockAt
@@ -12420,7 +12439,7 @@ public enum VaultKeySlot: String, Codable, Sendable {
     case safeStorage = "safe_storage"
 }
 
-public enum State: String, Codable, Sendable {
+public enum VaultStatusState: String, Codable, Sendable {
     case locked = "locked"
     case uninitialized = "uninitialized"
     case unlocked = "unlocked"
@@ -12533,6 +12552,86 @@ public struct Skipped: Codable, Sendable {
     }
 }
 
+// MARK: - VaultLinkExternalParams
+public struct VaultLinkExternalParams: Codable, Sendable {
+    public let bindings: [CredentialBinding]
+    public let fields: [Field]?
+    public let kind: VaultLinkExternalParamsKind
+    public let name: String
+    public let ref: OnePasswordRef
+    public let slug: String?
+    public let source: Source
+
+    public enum CodingKeys: String, CodingKey {
+        case bindings = "bindings"
+        case fields = "fields"
+        case kind = "kind"
+        case name = "name"
+        case ref = "ref"
+        case slug = "slug"
+        case source = "source"
+    }
+
+    public init(bindings: [CredentialBinding], fields: [Field]?, kind: VaultLinkExternalParamsKind, name: String, ref: OnePasswordRef, slug: String?, source: Source) {
+        self.bindings = bindings
+        self.fields = fields
+        self.kind = kind
+        self.name = name
+        self.ref = ref
+        self.slug = slug
+        self.source = source
+    }
+}
+
+public enum Field: String, Codable, Sendable {
+    case password = "password"
+    case privateKey = "privateKey"
+    case text = "text"
+    case token = "token"
+    case totp = "totp"
+    case username = "username"
+}
+
+public enum VaultLinkExternalParamsKind: String, Codable, Sendable {
+    case apiKey = "api_key"
+    case login = "login"
+    case note = "note"
+    case sshKey = "ssh_key"
+}
+
+// MARK: - OnePasswordRef
+public struct OnePasswordRef: Codable, Sendable {
+    public let item: String
+    public let vault: String
+
+    public enum CodingKeys: String, CodingKey {
+        case item = "item"
+        case vault = "vault"
+    }
+
+    public init(item: String, vault: String) {
+        self.item = item
+        self.vault = vault
+    }
+}
+
+public enum Source: String, Codable, Sendable {
+    case the1Password = "1password"
+}
+
+// MARK: - VaultLinkExternalResult
+public struct VaultLinkExternalResult: Codable, Sendable {
+    public let credential: CredentialMeta
+
+    public enum CodingKeys: String, CodingKey {
+        case credential = "credential"
+    }
+
+    public init(credential: CredentialMeta) {
+        self.credential = credential
+    }
+}
+
 // MARK: - VaultListParams
 public struct VaultListParams: Codable, Sendable {
     public let kind: CredentialKind?
@@ -12594,6 +12693,199 @@ public enum VaultLockedPayloadReason: String, Codable, Sendable {
     case screenLock = "screen_lock"
     case shutdown = "shutdown"
     case sleep = "sleep"
+}
+
+// MARK: - VaultPaymentUpdatedPayload
+public struct VaultPaymentUpdatedPayload: Codable, Sendable {
+    public let payment: VaultPayment
+
+    public enum CodingKeys: String, CodingKey {
+        case payment = "payment"
+    }
+
+    public init(payment: VaultPayment) {
+        self.payment = payment
+    }
+}
+
+// MARK: - VaultPayment
+public struct VaultPayment: Codable, Sendable {
+    public let amount: Int
+    public let approvalID: String
+    public let card: Card?
+    public let createdAt: String
+    public let currency: String
+    public let fundingSource: FundingSource?
+    public let merchantHost: String
+    public let merchantName: String
+    public let payment: Payment
+    public let refs: [String: String]
+    public let spendRequestID: String
+    public let status: String
+    public let taskID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case amount = "amount"
+        case approvalID = "approvalId"
+        case card = "card"
+        case createdAt = "createdAt"
+        case currency = "currency"
+        case fundingSource = "fundingSource"
+        case merchantHost = "merchantHost"
+        case merchantName = "merchantName"
+        case payment = "payment"
+        case refs = "refs"
+        case spendRequestID = "spendRequestId"
+        case status = "status"
+        case taskID = "taskId"
+    }
+
+    public init(amount: Int, approvalID: String, card: Card?, createdAt: String, currency: String, fundingSource: FundingSource?, merchantHost: String, merchantName: String, payment: Payment, refs: [String: String], spendRequestID: String, status: String, taskID: String?) {
+        self.amount = amount
+        self.approvalID = approvalID
+        self.card = card
+        self.createdAt = createdAt
+        self.currency = currency
+        self.fundingSource = fundingSource
+        self.merchantHost = merchantHost
+        self.merchantName = merchantName
+        self.payment = payment
+        self.refs = refs
+        self.spendRequestID = spendRequestID
+        self.status = status
+        self.taskID = taskID
+    }
+}
+
+// MARK: - Card
+public struct Card: Codable, Sendable {
+    public let brand: String
+    public let last4: String
+
+    public enum CodingKeys: String, CodingKey {
+        case brand = "brand"
+        case last4 = "last4"
+    }
+
+    public init(brand: String, last4: String) {
+        self.brand = brand
+        self.last4 = last4
+    }
+}
+
+// MARK: - FundingSource
+public struct FundingSource: Codable, Sendable {
+    public let brand: String
+    public let last4: String
+
+    public enum CodingKeys: String, CodingKey {
+        case brand = "brand"
+        case last4 = "last4"
+    }
+
+    public init(brand: String, last4: String) {
+        self.brand = brand
+        self.last4 = last4
+    }
+}
+
+// MARK: - Payment
+public struct Payment: Codable, Sendable {
+    public let captured: Int
+    public let held: Int
+    public let refunded: Int
+    public let state: PaymentState
+
+    public enum CodingKeys: String, CodingKey {
+        case captured = "captured"
+        case held = "held"
+        case refunded = "refunded"
+        case state = "state"
+    }
+
+    public init(captured: Int, held: Int, refunded: Int, state: PaymentState) {
+        self.captured = captured
+        self.held = held
+        self.refunded = refunded
+        self.state = state
+    }
+}
+
+public enum PaymentState: String, Codable, Sendable {
+    case captured = "captured"
+    case declined = "declined"
+    case held = "held"
+    case none = "none"
+    case partiallyRefunded = "partially_refunded"
+    case refunded = "refunded"
+    case released = "released"
+}
+
+// MARK: - VaultPaymentsListParams
+public struct VaultPaymentsListParams: Codable, Sendable {
+    public let limit: Int?
+    public let taskID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case limit = "limit"
+        case taskID = "taskId"
+    }
+
+    public init(limit: Int?, taskID: String?) {
+        self.limit = limit
+        self.taskID = taskID
+    }
+}
+
+// MARK: - VaultPaymentsListResult
+public struct VaultPaymentsListResult: Codable, Sendable {
+    public let payments: [VaultPayment]
+
+    public enum CodingKeys: String, CodingKey {
+        case payments = "payments"
+    }
+
+    public init(payments: [VaultPayment]) {
+        self.payments = payments
+    }
+}
+
+// MARK: - VaultPaymentsMethodsResult
+public struct VaultPaymentsMethodsResult: Codable, Sendable {
+    public let methods: [LinkPaymentMethod]
+
+    public enum CodingKeys: String, CodingKey {
+        case methods = "methods"
+    }
+
+    public init(methods: [LinkPaymentMethod]) {
+        self.methods = methods
+    }
+}
+
+// MARK: - LinkPaymentMethod
+public struct LinkPaymentMethod: Codable, Sendable {
+    public let brand: String
+    public let id: String
+    public let isDefault: Bool
+    public let last4: String
+    public let nickname: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case brand = "brand"
+        case id = "id"
+        case isDefault = "isDefault"
+        case last4 = "last4"
+        case nickname = "nickname"
+    }
+
+    public init(brand: String, id: String, isDefault: Bool, last4: String, nickname: String?) {
+        self.brand = brand
+        self.id = id
+        self.isDefault = isDefault
+        self.last4 = last4
+        self.nickname = nickname
+    }
 }
 
 // MARK: - VaultSetupParams
@@ -13734,6 +14026,7 @@ public typealias PasskeysRegisterBeginParams = [String: JSONAny]
 public typealias SandboxListParams = [String: JSONAny]
 public typealias Settings = [String: JSONAny]
 public typealias VaultLockParams = [String: JSONAny]
+public typealias VaultPaymentsMethodsParams = [String: JSONAny]
 public typealias VaultStatusParams = [String: JSONAny]
 public typealias ViewLayoutParams = [String: JSONAny]
 public typealias VoicePushResult = [String: JSONAny]

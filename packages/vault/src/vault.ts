@@ -657,6 +657,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       useCount: previous?.useCount ?? 0,
       createdAt: item.createdAt,
       updatedAt: item.updatedAt,
+      backend: item.attrs.backend ?? "vault",
     };
   }
 
@@ -950,11 +951,18 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
   // CredentialBroker ---------------------------------------------------------------------------
 
   async list(): Promise<CredentialMeta[]> {
-    return this.#o.meta.list();
+    return this.#o.meta.list().map((m) => this.#withBackend(m));
   }
 
   async get(id: string): Promise<CredentialMeta | undefined> {
-    return this.#o.meta.get(id);
+    const m = this.#o.meta.get(id);
+    return m === undefined ? undefined : this.#withBackend(m);
+  }
+
+  /** While unlocked, say where each item's secret lives (G9 / G10); locked, the mirror has no column for it. */
+  #withBackend(m: CredentialMeta): CredentialMeta {
+    const item = this.#unlocked?.store.get(m.id);
+    return item === undefined ? m : { ...m, backend: item.attrs.backend ?? "vault" };
   }
 
   /** One item's metadata by slug, synchronously (an executor binding a fill before dispatch). */
