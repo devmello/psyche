@@ -66,6 +66,9 @@ public enum DictationCapabilities {
                     return CapabilityOutput(["watching": false])
                 }
                 let changes = try watcher.start(key)
+                // The first event is the key's state once the tap is installed: the Gateway answers
+                // `watching: true` on it.
+                await ctx.emit(try JSONValue(encoding: DictationKeyPayload(at: DictationCapabilities.timestamp(), down: false, key: key)))
                 for await down in changes {
                     let payload = DictationKeyPayload(at: Self.timestamp(), down: down, key: key)
                     await ctx.emit(try JSONValue(encoding: payload))
