@@ -18,6 +18,7 @@ import {
   PsycheError,
 } from "@psyche/protocol";
 import { type WebSocket, WebSocketServer } from "ws";
+import pkg from "../package.json" with { type: "json" };
 import { CloudflareAccessVerifier } from "./cf-access.ts";
 import { type GatewayConfig, resolveConfig } from "./config.ts";
 import { Connection } from "./connection.ts";
@@ -59,7 +60,11 @@ import { readStateVersion, writeStateVersion } from "./state-version.ts";
 import { TransportGate } from "./transport-gate.ts";
 import { NdjsonDecoder } from "./transports/ndjson.ts";
 
-export const GATEWAY_VERSION = "0.1.0";
+/**
+ * From package.json, like the CLI's: changesets versions every workspace package together, so
+ * `psyche security audit`'s CLI-vs-Gateway check (version.mismatch) compares like with like.
+ */
+export const GATEWAY_VERSION: string = pkg.version;
 const WS_PATH = "/ws";
 
 export interface GatewayOptions {

@@ -10,6 +10,7 @@ import {
 } from "../src/doctor.ts";
 import { appOfProgram, launchAgentProgram, type Snapshot } from "../src/snapshot.ts";
 import { renderLaunchAgentPlist } from "../src/supervisor.ts";
+import { CLI_VERSION } from "../src/version.ts";
 
 const NOW = new Date("2026-10-19T12:00:00.000Z");
 const GiB = 1024 ** 3;
@@ -24,7 +25,8 @@ function baseSnapshot(): Snapshot {
     probe: {
       reachable: true,
       healthy: true,
-      version: { name: "psyched", version: "0.1.0", protocolVersion: PROTOCOL_VERSION },
+      // Same version as this CLI: a release ships both from one changesets version.
+      version: { name: "psyched", version: CLI_VERSION, protocolVersion: PROTOCOL_VERSION },
     },
     config: {
       exists: true,
@@ -481,6 +483,31 @@ describe("launchAgentProgram / appOfProgram", () => {
     expect(appOfProgram(program as string)).toBe("/Applications/A & B/Psyche.app");
     expect(appOfProgram("/usr/local/bin/psyched")).toBeNull();
     expect(launchAgentProgram("<plist><dict></dict></plist>")).toBeNull();
+  });
+});
+
+describe("audit rule version.mismatch (CLI vs Gateway)", () => {
+  const withGateway = (version: string) =>
+    snap({
+      probe: {
+        reachable: true,
+        healthy: true,
+        version: { name: "psyched", version, protocolVersion: PROTOCOL_VERSION },
+      },
+    });
+
+  it("finds nothing when both come from the same release", () => {
+    expect(finding(withGateway(CLI_VERSION), "version.mismatch")).toEqual([]);
+  });
+
+  it("flags a Gateway on another version, low severity", () => {
+    const [f] = finding(withGateway("0.1.0"), "version.mismatch");
+    expect(f).toMatchObject({ severity: "low" });
+    expect(f?.message).toContain(`this CLI ${CLI_VERSION}`);
+  });
+
+  it("ignores an unversioned (0.0.0) Gateway", () => {
+    expect(finding(withGateway("0.0.0"), "version.mismatch")).toEqual([]);
   });
 });
 
