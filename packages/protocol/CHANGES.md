@@ -18,6 +18,15 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (L7 prebuilt guest images)
+
+For S14 (the helper's image export / import and `deploy/macos/build-guest-image.sh`), S01 (Gateway: `vm.create {image}`), S11 (Devices: "Create from image").
+
+- `VmCreateParams` gains optional `image` (a guest image directory or `.aar`) and `imageSha256` (expected SHA-256 of its `manifest.json`).
+- New `VmImageFile` {name, bytes, sha256} and `VmImageManifest` {format "psyche-guest-image", formatVersion 1, id, guestOS, diskFormat, diskGB, username, createdAt, provisioned, psycheInstalled, permissionsGranted, psycheVersion?, files}.
+- New `VmExportImageParams` {name?, outDir, id?} and `VmExportImageResult` {path, manifest, manifestSha256} for `vm.export_image`.
+- `VmGuest` gains optional `image` {id, guestOS, createdAt} and `passwordRotationPending`.
+- `VmProgressEvent.type` gains `vm.import` and `vm.export` (at the end).
 ### v1 additive — 2026-10-20 (L6: Gateway methods for snapshots and resets)
 
 For S01 (the Gateway serves them over S14's helper capabilities) and S11 (Settings → VM mode). Builds on the L6 shapes (`VmSnapshot`, `VmSnapshotResult`, `VmRestoreResult`).

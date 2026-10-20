@@ -19059,8 +19059,63 @@
         "username": {
           "maxLength": 32,
           "type": "string"
+        },
+        "image": {
+          "description": "Absolute path to a guest image directory or .aar archive",
+          "type": "string"
+        },
+        "imageSha256": {
+          "description": "Expected SHA-256 of the image's manifest.json, from the publisher",
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
         }
       },
+      "type": "object"
+    },
+    "VmDiskFormat": {
+      "enum": [
+        "asif",
+        "raw"
+      ],
+      "type": "string"
+    },
+    "VmExportImageParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "outDir": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9.-]{0,63}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "outDir"
+      ],
+      "type": "object"
+    },
+    "VmExportImageResult": {
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "manifest": {
+          "$ref": "#/$defs/VmImageManifest"
+        },
+        "manifestSha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "manifest",
+        "manifestSha256"
+      ],
       "type": "object"
     },
     "VmGuest": {
@@ -19185,6 +19240,13 @@
         "baseSnapshot": {
           "description": "Id of the `base` snapshot, if any",
           "type": "string"
+        },
+        "image": {
+          "$ref": "#/$defs/VmGuestImageRef"
+        },
+        "passwordRotationPending": {
+          "description": "Imported guest still has the image's bootstrap password (rotated at first start)",
+          "type": "boolean"
         }
       },
       "required": [
@@ -19225,6 +19287,116 @@
       ],
       "type": "object"
     },
+    "VmGuestImageRef": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "guestOS": {
+          "type": "string"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "guestOS",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "VmImageFile": {
+      "properties": {
+        "name": {
+          "pattern": "^[A-Za-z0-9._-]{1,64}$",
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "VmImageManifest": {
+      "properties": {
+        "format": {
+          "const": "psyche-guest-image",
+          "type": "string"
+        },
+        "formatVersion": {
+          "const": 1,
+          "type": "number"
+        },
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9.-]{0,63}$",
+          "type": "string"
+        },
+        "guestOS": {
+          "type": "string"
+        },
+        "diskFormat": {
+          "$ref": "#/$defs/VmDiskFormat"
+        },
+        "diskGB": {
+          "minimum": 40,
+          "type": "integer"
+        },
+        "username": {
+          "type": "string"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "provisioned": {
+          "type": "boolean"
+        },
+        "psycheInstalled": {
+          "type": "boolean"
+        },
+        "permissionsGranted": {
+          "type": "boolean"
+        },
+        "psycheVersion": {
+          "type": "string"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/VmImageFile"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "format",
+        "formatVersion",
+        "id",
+        "guestOS",
+        "diskFormat",
+        "diskGB",
+        "username",
+        "createdAt",
+        "provisioned",
+        "psycheInstalled",
+        "permissionsGranted",
+        "files"
+      ],
+      "type": "object"
+    },
     "VmPhase": {
       "enum": [
         "created",
@@ -19251,7 +19423,9 @@
             "vm.psyche_install",
             "vm.permissions",
             "vm.snapshot",
-            "vm.reset"
+            "vm.reset",
+            "vm.import",
+            "vm.export"
           ],
           "type": "string"
         },

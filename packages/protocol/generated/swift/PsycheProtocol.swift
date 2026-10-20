@@ -682,8 +682,14 @@
 //   let vMCopyInParams = try? JSONDecoder().decode(VMCopyInParams.self, from: jsonData)
 //   let vMCopyOutParams = try? JSONDecoder().decode(VMCopyOutParams.self, from: jsonData)
 //   let vMCreateParams = try? JSONDecoder().decode(VMCreateParams.self, from: jsonData)
+//   let vMDiskFormat = try? JSONDecoder().decode(VMDiskFormat.self, from: jsonData)
+//   let vMExportImageParams = try? JSONDecoder().decode(VMExportImageParams.self, from: jsonData)
+//   let vMExportImageResult = try? JSONDecoder().decode(VMExportImageResult.self, from: jsonData)
 //   let vMGuest = try? JSONDecoder().decode(VMGuest.self, from: jsonData)
 //   let vMGuestAgentStatus = try? JSONDecoder().decode(VMGuestAgentStatus.self, from: jsonData)
+//   let vMGuestImageRef = try? JSONDecoder().decode(VMGuestImageRef.self, from: jsonData)
+//   let vMImageFile = try? JSONDecoder().decode(VMImageFile.self, from: jsonData)
+//   let vMImageManifest = try? JSONDecoder().decode(VMImageManifest.self, from: jsonData)
 //   let vMPhase = try? JSONDecoder().decode(VMPhase.self, from: jsonData)
 //   let vMProgressEvent = try? JSONDecoder().decode(VMProgressEvent.self, from: jsonData)
 //   let vMResetParams = try? JSONDecoder().decode(VMResetParams.self, from: jsonData)
@@ -13121,20 +13127,20 @@ public struct VaultGetResult: Codable, Sendable {
 // MARK: - VaultImportParams
 public struct VaultImportParams: Codable, Sendable {
     public let csv: String
-    public let format: Format
+    public let format: VaultImportParamsFormat
 
     public enum CodingKeys: String, CodingKey {
         case csv = "csv"
         case format = "format"
     }
 
-    public init(csv: String, format: Format) {
+    public init(csv: String, format: VaultImportParamsFormat) {
         self.csv = csv
         self.format = format
     }
 }
 
-public enum Format: String, Codable, Sendable {
+public enum VaultImportParamsFormat: String, Codable, Sendable {
     case auto = "auto"
     case bitwarden = "bitwarden"
     case chrome = "chrome"
@@ -13975,6 +13981,10 @@ public struct VMCreateParams: Codable, Sendable {
     public let cpus: Int?
     public let diskGB: Int?
     public let download: Bool?
+    /// Absolute path to a guest image directory or .aar archive
+    public let image: String?
+    /// Expected SHA-256 of the image's manifest.json, from the publisher
+    public let imageSha256: String?
     /// Absolute path to a local IPSW
     public let ipsw: String?
     public let memoryGB: Int?
@@ -13985,21 +13995,140 @@ public struct VMCreateParams: Codable, Sendable {
         case cpus = "cpus"
         case diskGB = "diskGB"
         case download = "download"
+        case image = "image"
+        case imageSha256 = "imageSha256"
         case ipsw = "ipsw"
         case memoryGB = "memoryGB"
         case name = "name"
         case username = "username"
     }
 
-    public init(cpus: Int?, diskGB: Int?, download: Bool?, ipsw: String?, memoryGB: Int?, name: String?, username: String?) {
+    public init(cpus: Int?, diskGB: Int?, download: Bool?, image: String?, imageSha256: String?, ipsw: String?, memoryGB: Int?, name: String?, username: String?) {
         self.cpus = cpus
         self.diskGB = diskGB
         self.download = download
+        self.image = image
+        self.imageSha256 = imageSha256
         self.ipsw = ipsw
         self.memoryGB = memoryGB
         self.name = name
         self.username = username
     }
+}
+
+// MARK: - VMExportImageParams
+public struct VMExportImageParams: Codable, Sendable {
+    public let id: String?
+    public let name: String?
+    public let outDir: String
+
+    public enum CodingKeys: String, CodingKey {
+        case id = "id"
+        case name = "name"
+        case outDir = "outDir"
+    }
+
+    public init(id: String?, name: String?, outDir: String) {
+        self.id = id
+        self.name = name
+        self.outDir = outDir
+    }
+}
+
+// MARK: - VMExportImageResult
+public struct VMExportImageResult: Codable, Sendable {
+    public let manifest: VMImageManifest
+    public let manifestSha256: String
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case manifest = "manifest"
+        case manifestSha256 = "manifestSha256"
+        case path = "path"
+    }
+
+    public init(manifest: VMImageManifest, manifestSha256: String, path: String) {
+        self.manifest = manifest
+        self.manifestSha256 = manifestSha256
+        self.path = path
+    }
+}
+
+// MARK: - VMImageManifest
+public struct VMImageManifest: Codable, Sendable {
+    public let createdAt: String
+    public let diskFormat: VMDiskFormat
+    public let diskGB: Int
+    public let files: [VMImageFile]
+    public let format: VMImageManifestFormat
+    public let formatVersion: Double
+    public let guestOS: String
+    public let id: String
+    public let permissionsGranted: Bool
+    public let provisioned: Bool
+    public let psycheInstalled: Bool
+    public let psycheVersion: String?
+    public let username: String
+
+    public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case diskFormat = "diskFormat"
+        case diskGB = "diskGB"
+        case files = "files"
+        case format = "format"
+        case formatVersion = "formatVersion"
+        case guestOS = "guestOS"
+        case id = "id"
+        case permissionsGranted = "permissionsGranted"
+        case provisioned = "provisioned"
+        case psycheInstalled = "psycheInstalled"
+        case psycheVersion = "psycheVersion"
+        case username = "username"
+    }
+
+    public init(createdAt: String, diskFormat: VMDiskFormat, diskGB: Int, files: [VMImageFile], format: VMImageManifestFormat, formatVersion: Double, guestOS: String, id: String, permissionsGranted: Bool, provisioned: Bool, psycheInstalled: Bool, psycheVersion: String?, username: String) {
+        self.createdAt = createdAt
+        self.diskFormat = diskFormat
+        self.diskGB = diskGB
+        self.files = files
+        self.format = format
+        self.formatVersion = formatVersion
+        self.guestOS = guestOS
+        self.id = id
+        self.permissionsGranted = permissionsGranted
+        self.provisioned = provisioned
+        self.psycheInstalled = psycheInstalled
+        self.psycheVersion = psycheVersion
+        self.username = username
+    }
+}
+
+public enum VMDiskFormat: String, Codable, Sendable {
+    case asif = "asif"
+    case raw = "raw"
+}
+
+// MARK: - VMImageFile
+public struct VMImageFile: Codable, Sendable {
+    public let bytes: Int
+    public let name: String
+    public let sha256: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case name = "name"
+        case sha256 = "sha256"
+    }
+
+    public init(bytes: Int, name: String, sha256: String) {
+        self.bytes = bytes
+        self.name = name
+        self.sha256 = sha256
+    }
+}
+
+public enum VMImageManifestFormat: String, Codable, Sendable {
+    case psycheGuestImage = "psyche-guest-image"
 }
 
 // MARK: - VMProgressEvent
@@ -14027,6 +14156,8 @@ public struct VMProgressEvent: Codable, Sendable {
 
 public enum VMProgressEventType: String, Codable, Sendable {
     case vmDownload = "vm.download"
+    case vmExport = "vm.export"
+    case vmImport = "vm.import"
     case vmInstall = "vm.install"
     case vmPermissions = "vm.permissions"
     case vmPsycheInstall = "vm.psyche_install"
@@ -14093,10 +14224,13 @@ public struct VMGuest: Codable, Sendable {
     public let diskGB: Int
     public let display: Display?
     public let guestOS: String?
+    public let image: VMGuestImageRef?
     /// Machine reason of the last failure
     public let lastError: String?
     public let memoryGB: Int
     public let name: String
+    /// Imported guest still has the image's bootstrap password (rotated at first start)
+    public let passwordRotationPending: Bool?
     /// Accessibility / Screen Recording pre-granted offline (L3)
     public let permissionsGranted: Bool?
     public let phase: VMPhase
@@ -14122,9 +14256,11 @@ public struct VMGuest: Codable, Sendable {
         case diskGB = "diskGB"
         case display = "display"
         case guestOS = "guestOS"
+        case image = "image"
         case lastError = "lastError"
         case memoryGB = "memoryGB"
         case name = "name"
+        case passwordRotationPending = "passwordRotationPending"
         case permissionsGranted = "permissionsGranted"
         case phase = "phase"
         case provisioned = "provisioned"
@@ -14138,7 +14274,7 @@ public struct VMGuest: Codable, Sendable {
         case vsock = "vsock"
     }
 
-    public init(agent: VMGuestAgentStatus?, baseSnapshot: String?, clipboard: VMClipboardMode?, cpus: Int, diskGB: Int, display: Display?, guestOS: String?, lastError: String?, memoryGB: Int, name: String, permissionsGranted: Bool?, phase: VMPhase, provisioned: Bool, psycheInstalled: Bool?, savedState: Bool?, shares: [VMShare], snapshots: [VMSnapshot]?, transfers: [VMTransfer]?, username: String, vault: VMVaultPlacement?, vsock: Vsock) {
+    public init(agent: VMGuestAgentStatus?, baseSnapshot: String?, clipboard: VMClipboardMode?, cpus: Int, diskGB: Int, display: Display?, guestOS: String?, image: VMGuestImageRef?, lastError: String?, memoryGB: Int, name: String, passwordRotationPending: Bool?, permissionsGranted: Bool?, phase: VMPhase, provisioned: Bool, psycheInstalled: Bool?, savedState: Bool?, shares: [VMShare], snapshots: [VMSnapshot]?, transfers: [VMTransfer]?, username: String, vault: VMVaultPlacement?, vsock: Vsock) {
         self.agent = agent
         self.baseSnapshot = baseSnapshot
         self.clipboard = clipboard
@@ -14146,9 +14282,11 @@ public struct VMGuest: Codable, Sendable {
         self.diskGB = diskGB
         self.display = display
         self.guestOS = guestOS
+        self.image = image
         self.lastError = lastError
         self.memoryGB = memoryGB
         self.name = name
+        self.passwordRotationPending = passwordRotationPending
         self.permissionsGranted = permissionsGranted
         self.phase = phase
         self.provisioned = provisioned
@@ -14204,6 +14342,25 @@ public struct Display: Codable, Sendable {
         self.height = height
         self.visible = visible
         self.width = width
+    }
+}
+
+// MARK: - VMGuestImageRef
+public struct VMGuestImageRef: Codable, Sendable {
+    public let createdAt: String
+    public let guestOS: String
+    public let id: String
+
+    public enum CodingKeys: String, CodingKey {
+        case createdAt = "createdAt"
+        case guestOS = "guestOS"
+        case id = "id"
+    }
+
+    public init(createdAt: String, guestOS: String, id: String) {
+        self.createdAt = createdAt
+        self.guestOS = guestOS
+        self.id = id
     }
 }
 
