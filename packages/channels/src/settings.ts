@@ -54,6 +54,8 @@ const DEFAULT_RATE: Record<string, ChannelSettings["rateLimit"]> = {
   sms: { perChatPerSec: 0.2, perChannelPerSec: 1, burst: 2 },
   // Web API chat.postMessage: about 1 message per second per channel.
   slack: { perChatPerSec: 1, perChannelPerSec: 10, burst: 3 },
+  // signal-cli against Signal's servers: human-paced, or the number gets rate-limit challenges.
+  signal: { perChatPerSec: 1, perChannelPerSec: 5, burst: 3 },
 };
 
 /**
@@ -174,6 +176,26 @@ export function validateChannel(channel: Channel): string[] {
       if (id !== "*" && !/^[UW][A-Z0-9]{2,}$/.test(id)) {
         problems.push(`Slack ids are user ids like U012ABCDEF: ${id}`);
       }
+    }
+  }
+  if (channel.type === "signal") {
+    // Sender ids: E.164 numbers, or `uuid:<aci>` for senders who hide their number. Group ids
+    // (`group:<base64>`) are chats, not people; they may sit in groupAllowFrom and are left alone.
+    const sender = (id: string) =>
+      /^\+\d{6,15}$/.test(id) ||
+      /^uuid:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id);
+    for (const id of [...channel.allowFrom, ...channel.ownerIds]) {
+      if (id !== "*" && !sender(id)) {
+        problems.push(`Signal ids are E.164 numbers or uuid:<uuid>: ${id}`);
+      }
+    }
+    for (const id of channel.groupAllowFrom) {
+      if (id !== "*" && !id.startsWith("group:") && !sender(id)) {
+        problems.push(`Signal ids are E.164 numbers or uuid:<uuid>: ${id}`);
+      }
+    }
+    if (!/^\+\d{6,15}$/.test(channel.account)) {
+      problems.push(`the Signal account is Psyche's E.164 number: ${channel.account}`);
     }
   }
   if (channel.ownerIds.includes("*")) problems.push('"*" is not a valid owner id');
