@@ -75,9 +75,9 @@ import {
   type ComposeServices,
   createOwnPorts,
 } from "./services.ts";
+import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
-import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 
 /**
@@ -510,6 +510,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     threadModels: modelPins,
   });
   bus = gateway.bus;
+  // approval.created carries each approver's own surface token (issue #50, security §3.7):
+  // only to devices that hold operator.approvals, and only their surface's token.
+  gateway.bus.setPersonalizer((event, payload, sub) => {
+    if (event !== "approval.created" || sub.deviceId === null) return undefined;
+    if (!sub.scopes.includes("operator.approvals")) return undefined;
+    const p = payload as { approval: { id: string } };
+    const answerToken = tokens.tokenFor(p.approval.id, surfaceOf(db, sub.deviceId));
+    return answerToken === undefined ? undefined : { ...p, answerToken };
+  });
   gatewayRef = gateway;
   vault.attach(gateway.context.nodes);
   // The owner's folder grants and rules apply without a restart (settings.set → broker policy).
@@ -614,8 +623,6 @@ export {
   type RealChromeStatus,
 } from "./real-chrome.ts";
 export type { ApprovalRelay, ComposedPart, ComposeServices, OwnPorts } from "./services.ts";
-export { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
-export { type ModelPins, modelPinsFor, restoreModelPins } from "./threads.ts";
 export {
   composeSpeech,
   dbMessageSource,
@@ -624,6 +631,8 @@ export {
   speechNode,
   speechSetupFromEnv,
 } from "./speech.ts";
+export { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
+export { type ModelPins, modelPinsFor, restoreModelPins } from "./threads.ts";
 export {
   type ComposedVault,
   chooseWrapper,
