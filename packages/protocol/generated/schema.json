@@ -17691,6 +17691,75 @@
       ],
       "type": "string"
     },
+    "VmConfigureParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "cpus": {
+          "maximum": 32,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "memoryGB": {
+          "maximum": 256,
+          "minimum": 4,
+          "type": "integer"
+        },
+        "displayWidth": {
+          "maximum": 3840,
+          "minimum": 640,
+          "type": "integer"
+        },
+        "displayHeight": {
+          "maximum": 2400,
+          "minimum": 480,
+          "type": "integer"
+        },
+        "clipboard": {
+          "$ref": "#/$defs/VmClipboardMode"
+        },
+        "vault": {
+          "$ref": "#/$defs/VmVaultPlacement"
+        }
+      },
+      "type": "object"
+    },
+    "VmCopyInParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "hostPath": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "hostPath"
+      ],
+      "type": "object"
+    },
+    "VmCopyOutParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "guestPath": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "hostDir": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "guestPath",
+        "hostDir"
+      ],
+      "type": "object"
+    },
     "VmCreateParams": {
       "properties": {
         "name": {
@@ -17791,6 +17860,52 @@
         "lastError": {
           "description": "Machine reason of the last failure",
           "type": "string"
+        },
+        "display": {
+          "properties": {
+            "width": {
+              "type": "integer"
+            },
+            "height": {
+              "type": "integer"
+            },
+            "visible": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "width",
+            "height",
+            "visible"
+          ],
+          "type": "object"
+        },
+        "clipboard": {
+          "$ref": "#/$defs/VmClipboardMode"
+        },
+        "vault": {
+          "$ref": "#/$defs/VmVaultPlacement"
+        },
+        "agent": {
+          "$ref": "#/$defs/VmGuestAgentStatus"
+        },
+        "psycheInstalled": {
+          "description": "Guest Psyche payload installed (L3)",
+          "type": "boolean"
+        },
+        "permissionsGranted": {
+          "description": "Accessibility / Screen Recording pre-granted offline (L3)",
+          "type": "boolean"
+        },
+        "savedState": {
+          "description": "A machine-state file exists (warm start)",
+          "type": "boolean"
+        },
+        "transfers": {
+          "items": {
+            "$ref": "#/$defs/VmTransfer"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -17806,6 +17921,31 @@
       ],
       "type": "object"
     },
+    "VmGuestAgentStatus": {
+      "properties": {
+        "connected": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": "string"
+        },
+        "accessibility": {
+          "type": "boolean"
+        },
+        "screenRecording": {
+          "type": "boolean"
+        },
+        "lastSeenAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "connected"
+      ],
+      "type": "object"
+    },
     "VmPhase": {
       "enum": [
         "created",
@@ -17816,7 +17956,9 @@
         "starting",
         "running",
         "stopping",
-        "failed"
+        "failed",
+        "paused",
+        "saved"
       ],
       "type": "string"
     },
@@ -17826,7 +17968,9 @@
           "enum": [
             "vm.download",
             "vm.install",
-            "vm.state"
+            "vm.state",
+            "vm.psyche_install",
+            "vm.permissions"
           ],
           "type": "string"
         },
@@ -17966,6 +18110,44 @@
       ],
       "type": "object"
     },
+    "VmTransfer": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "direction": {
+          "enum": [
+            "in",
+            "out"
+          ],
+          "type": "string"
+        },
+        "hostPath": {
+          "type": "string"
+        },
+        "guestPath": {
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "direction",
+        "hostPath",
+        "guestPath",
+        "bytes",
+        "createdAt"
+      ],
+      "type": "object"
+    },
     "VmUpdatedPayload": {
       "properties": {
         "nodeId": {
@@ -17986,6 +18168,13 @@
         "at"
       ],
       "type": "object"
+    },
+    "VmVaultPlacement": {
+      "enum": [
+        "host",
+        "guest"
+      ],
+      "type": "string"
     },
     "VoiceCancelParams": {
       "properties": {

@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S14 M3: VM mode, rest of L1–L5)
+
+For S14 (helper `vm.*`), S01 (sandbox runner "vm" mode, `vm.updated` rebroadcast), S11 (Settings → Devices).
+
+- `VmPhase` gains `paused` and `saved` (appended).
+- `VmGuest` gains optional `display`, `clipboard` (the existing `VmClipboardMode`: paste-only / bidirectional / off), `vault` (`VmVaultPlacement`: host / guest), `agent` (`VmGuestAgentStatus`), `psycheInstalled`, `permissionsGranted`, `savedState`, `transfers` (`VmTransfer[]`).
+- New `VmConfigureParams`, `VmCopyInParams`, `VmCopyOutParams`; `VmProgressEvent.type` gains `vm.psyche_install` and `vm.permissions`.
 ### v1 additive — 2026-10-19 (M3 gateway hardening, docs/status/s05.md §2)
 
 - Error code `presence_required`: a security change needs fresh presence and no verifier on this Gateway can give one (presence was enrolled, then every passkey and helper key was lost or revoked). The UI tells the owner to add a passkey or register the helper's key.
