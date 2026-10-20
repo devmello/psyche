@@ -200,6 +200,9 @@ importers:
       '@psyche/backup':
         specifier: workspace:*
         version: link:../../packages/backup
+      '@psyche/permissions':
+        specifier: workspace:*
+        version: link:../../packages/permissions
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol

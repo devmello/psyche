@@ -115,8 +115,8 @@ User tiers come from `$PSYCHE_HOME/config/computer-use.json`, written by the Gat
 | `apps.list` | read | running apps with tier and fixed cap |
 | `apps.open` | write | `app`/`bundleId`/`name`, `url?`; password managers and finance apps refused |
 | `apps.focus` | write | activate, raise window `window?` |
-| `apps.applescript` | destructive | `source`, `target?` (Automation asked first via `AEDeterminePermissionToAutomateTarget`); in-process `OSAScript` on the main thread; `do shell script` / `run script` refused |
-| `apps.jxa` | destructive | same, JavaScript; `doShellScript` / `ObjC.import` refused |
+| `apps.applescript` | destructive | `source`, `target`, `timeoutSeconds?` (Automation asked first via `AEDeterminePermissionToAutomateTarget`); disclaimed `osascript`, out of process; shell, ASObjC and apps other than `target` refused (#268) |
+| `apps.jxa` | destructive | same, JavaScript; `doShellScript`, ObjC bridging, `$` and `eval` refused |
 | `apps.shortcut_run` | destructive | `name`, `input?` → text output; `/usr/bin/shortcuts` spawned with responsibility disclaimed and a minimal environment |
 | `apps.shortcuts_list` | read | shortcut names |
 

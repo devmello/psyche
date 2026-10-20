@@ -26,6 +26,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 - Event `vault.payment.updated {payment}`.
 - `CredentialMeta.backend` (optional): `vault | keychain | 1password`.
 
+### v1 additive — 2026-10-20 (S22, M3 security audit completeness)
+
+- New `mcp.status` (`operator.read`) → `{launcher: "srt" | "container" | "none", servers: McpServerStatus[]}` (`id`, `name`, `trust`, `transport`, `network`, `connected`): how the composed Gateway isolates MCP servers, for `psyche security audit`.
+- `sandbox.status` result gains optional `egress` (the host egress proxy for `network: "proxy"` sandboxes is running, security §5.2).
+- No fake changes: no contract changed.
 ### v1 additive — 2026-10-20 (#275: forwarded and quoted text taints the turn)
 
 For S01 (channel turns), S02 (the loop starts the turn tainted with them).

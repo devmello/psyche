@@ -97,6 +97,44 @@ export function isRiskyChord(keys: string): boolean {
   return parts.includes("cmd") && ["q", "w", "delete", "backspace"].includes(key);
 }
 
+/**
+ * Messaging and mail apps, where Return (and the apps' send chords) sends to a third party
+ * (security §3.1 destructive, §9 every other send asks; #270). Bundle ids, case-insensitive.
+ */
+export const SEND_APPS = [
+  "com.apple.MobileSMS",
+  "com.apple.mail",
+  "com.microsoft.Outlook",
+  "com.tinyspeck.slackmacgap",
+  "com.hnc.Discord",
+  "net.whatsapp.WhatsApp",
+  "desktop.WhatsApp",
+  "ru.keepcoder.Telegram",
+  "org.whispersystems.signal-desktop",
+  "com.facebook.archon",
+  "com.microsoft.teams2",
+  "com.readdle.smartemail-Mac",
+  "com.superhuman.electron",
+];
+
+export function isSendApp(app: string): boolean {
+  const id = app.toLowerCase();
+  return SEND_APPS.some((a) => a.toLowerCase() === id);
+}
+
+/** Return / Enter (with or without cmd), and Mail's cmd+shift+D: send in a messaging app. */
+export function isSendChord(app: string, keys: string): boolean {
+  if (!isSendApp(app)) return false;
+  const parts = keys
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .split("+")
+    .map((k) => (k === "command" || k === "⌘" ? "cmd" : k === "enter" ? "return" : k));
+  const key = parts.at(-1) ?? "";
+  if (key === "return" || key === "kp_enter" || key === "\n") return true;
+  return parts.includes("cmd") && parts.includes("shift") && key === "d";
+}
+
 // --- Schemas -------------------------------------------------------------------------------------
 
 const BundleId = Type.String({
@@ -319,10 +357,14 @@ function clip(text: string, max: number): string {
  */
 export function elementsIn(text: string): { ref: string; role: string; label?: string }[] {
   const out: { ref: string; role: string; label?: string }[] = [];
-  for (const m of text.matchAll(/^[ ]*\[(e[0-9]{1,7})\] (\S+)(.*)$/gm)) {
+  // Lines end at `\n` only: a `\r`, U+2028 or U+2029 inside a label is part of the label, never
+  // the start of a forged element line (#271). No `m` flag, so `^`/`$` see only these lines.
+  for (const line of text.split("\n")) {
+    const m = /^[ ]*\[(e[0-9]{1,7})\] (\S+)([^\n]*)$/.exec(line);
+    if (m === null) continue;
     const [, ref, role, rest] = m;
     if (ref === undefined || role === undefined) continue;
-    const label = /^ "(.*?)"(?= |$)/.exec(rest ?? "")?.[1];
+    const label = /^ "([^\n]*?)"(?= |$)/.exec(rest ?? "")?.[1];
     out.push({ ref, role, ...(label === undefined ? {} : { label }) });
   }
   return out;
@@ -830,6 +872,9 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       unknown(p) ||
       unknown(p.to) ||
       (p.action === "key" && p.keys !== undefined && isRiskyChord(p.keys)) ||
+      // A send in a messaging or mail app (#270): the key, or typed text that ends a line.
+      (p.action === "key" && p.keys !== undefined && isSendChord(p.app, p.keys)) ||
+      (p.action === "type" && isSendApp(p.app) && /[\r\n]/.test(p.text ?? "")) ||
       (p.action === "menu" && (p.path ?? "").split(">").some((seg) => isRiskyLabel(seg))) ||
       (p.action === "press" && isRiskyLabel(p.press?.replace(/^custom:/, "")));
     const what =

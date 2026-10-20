@@ -316,6 +316,9 @@
 //   let logLine = try? JSONDecoder().decode(LogLine.self, from: jsonData)
 //   let logsTailParams = try? JSONDecoder().decode(LogsTailParams.self, from: jsonData)
 //   let logsTailResult = try? JSONDecoder().decode(LogsTailResult.self, from: jsonData)
+//   let mCPServerStatus = try? JSONDecoder().decode(MCPServerStatus.self, from: jsonData)
+//   let mCPStatusParams = try? JSONDecoder().decode(MCPStatusParams.self, from: jsonData)
+//   let mCPStatusResult = try? JSONDecoder().decode(MCPStatusResult.self, from: jsonData)
 //   let memoTaskMode = try? JSONDecoder().decode(MemoTaskMode.self, from: jsonData)
 //   let memoryChangeSource = try? JSONDecoder().decode(MemoryChangeSource.self, from: jsonData)
 //   let memoryChunk = try? JSONDecoder().decode(MemoryChunk.self, from: jsonData)
@@ -4034,7 +4037,7 @@ public struct PairingRequest: Codable, Sendable {
     public let senderID: String?
     public let status: PairingStatus
     /// Device requests: how the device connected
-    public let transport: Transport?
+    public let transport: PairingRequestTransport?
 
     public enum CodingKeys: String, CodingKey {
         case channelID = "channelId"
@@ -4054,7 +4057,7 @@ public struct PairingRequest: Codable, Sendable {
         case transport = "transport"
     }
 
-    public init(channelID: String?, code: String, createdAt: String, decidedAt: String?, decidedByDeviceID: String?, deviceID: String?, display: String, expiresAt: String, id: String, kind: PairingRequestKind, publicKeyFingerprint: String?, remoteAddress: String?, senderID: String?, status: PairingStatus, transport: Transport?) {
+    public init(channelID: String?, code: String, createdAt: String, decidedAt: String?, decidedByDeviceID: String?, deviceID: String?, display: String, expiresAt: String, id: String, kind: PairingRequestKind, publicKeyFingerprint: String?, remoteAddress: String?, senderID: String?, status: PairingStatus, transport: PairingRequestTransport?) {
         self.channelID = channelID
         self.code = code
         self.createdAt = createdAt
@@ -4086,7 +4089,7 @@ public enum PairingStatus: String, Codable, Sendable {
 }
 
 /// Device requests: how the device connected
-public enum Transport: String, Codable, Sendable {
+public enum PairingRequestTransport: String, Codable, Sendable {
     case unix = "unix"
     case ws = "ws"
 }
@@ -7296,6 +7299,67 @@ public struct LogLine: Codable, Sendable {
     }
 }
 
+// MARK: - MCPStatusResult
+public struct MCPStatusResult: Codable, Sendable {
+    public let launcher: Launcher
+    public let servers: [MCPServerStatus]
+
+    public enum CodingKeys: String, CodingKey {
+        case launcher = "launcher"
+        case servers = "servers"
+    }
+
+    public init(launcher: Launcher, servers: [MCPServerStatus]) {
+        self.launcher = launcher
+        self.servers = servers
+    }
+}
+
+public enum Launcher: String, Codable, Sendable {
+    case container = "container"
+    case none = "none"
+    case srt = "srt"
+}
+
+// MARK: - MCPServerStatus
+public struct MCPServerStatus: Codable, Sendable {
+    public let connected: Bool
+    public let id: String
+    public let name: String
+    public let network: Bool
+    public let transport: MCPServerStatusTransport
+    public let trust: Trust
+
+    public enum CodingKeys: String, CodingKey {
+        case connected = "connected"
+        case id = "id"
+        case name = "name"
+        case network = "network"
+        case transport = "transport"
+        case trust = "trust"
+    }
+
+    public init(connected: Bool, id: String, name: String, network: Bool, transport: MCPServerStatusTransport, trust: Trust) {
+        self.connected = connected
+        self.id = id
+        self.name = name
+        self.network = network
+        self.transport = transport
+        self.trust = trust
+    }
+}
+
+public enum MCPServerStatusTransport: String, Codable, Sendable {
+    case http = "http"
+    case stdio = "stdio"
+}
+
+public enum Trust: String, Codable, Sendable {
+    case bundled = "bundled"
+    case unknown = "unknown"
+    case verified = "verified"
+}
+
 // MARK: - MemoryClaimsConfirmParams
 public struct MemoryClaimsConfirmParams: Codable, Sendable {
     public let claimID: String
@@ -10148,17 +10212,20 @@ public struct SandboxStatusResult: Codable, Sendable {
     /// false → exec reports an error; there is never a host fallback
     public let available: Bool
     public let backend: SandboxBackend
+    public let egress: Bool?
     public let sandbox: SandboxInfo?
 
     public enum CodingKeys: String, CodingKey {
         case available = "available"
         case backend = "backend"
+        case egress = "egress"
         case sandbox = "sandbox"
     }
 
-    public init(available: Bool, backend: SandboxBackend, sandbox: SandboxInfo?) {
+    public init(available: Bool, backend: SandboxBackend, egress: Bool?, sandbox: SandboxInfo?) {
         self.available = available
         self.backend = backend
+        self.egress = egress
         self.sandbox = sandbox
     }
 }
@@ -14015,6 +14082,7 @@ public typealias ConnectorsListParams = [String: JSONAny]
 public typealias DevicesPresenceKeyListParams = [String: JSONAny]
 public typealias DictationTargetParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]
+public typealias MCPStatusParams = [String: JSONAny]
 public typealias MemoryExportParams = [String: JSONAny]
 public typealias MemoryPersonaGetParams = [String: JSONAny]
 public typealias MemoryStatusParams = [String: JSONAny]

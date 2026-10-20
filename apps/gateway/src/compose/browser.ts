@@ -483,7 +483,8 @@ export function composeBrowser(
       ...recordingHandlers(recordingStore, publishRecording),
       // For `psyche security audit` (#169; security §6): the port is flagged while attached.
       "browser.realChrome.status": {
-        run: () => ({ enabled: setup.realChrome?.enabled === true, ...realChrome.status() }),
+        // On by the env (PSYCHE_REAL_CHROME=1) or by the `browser.realChrome` setting.
+        run: () => ({ enabled: realChromeOn(), ...realChrome.status() }),
       },
     },
     attach,

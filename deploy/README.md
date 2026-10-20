@@ -40,7 +40,7 @@ psyche security audit
 
 ```bash
 git clone https://github.com/devmello/psyche && cd psyche
-cp deploy/env.example deploy/.env           # set PSYCHE_IMAGE to a pinned digest for production
+cp deploy/env.example deploy/.env           # without PSYCHE_IMAGE, Compose builds the image from this checkout
 docker compose -f deploy/docker-compose.yml up -d --wait
 docker compose -f deploy/docker-compose.yml exec gateway psyche status
 docker compose -f deploy/docker-compose.yml exec gateway psyche doctor
@@ -53,7 +53,8 @@ docker compose -f deploy/docker-compose.yml exec gateway psyche doctor
 - **Headless browser** (topology D): `--profile browser` runs Playwright's `run-server` on `127.0.0.1:3000`. It has no authentication of its own; keep the host single-tenant.
 - **Hardening.** Read-only root filesystem, all capabilities dropped, `no-new-privileges`, uid 10001, logs rotated (10 MB × 5). `$PSYCHE_HOME` is the named volume `psyche-home` at `/data`.
 - **Sandbox in Docker.** The sandbox needs a container runtime. Mounting `/var/run/docker.sock` into the Gateway works but gives whoever controls the Gateway process root on the host; the line is commented out in the Compose file with that warning. Prefer a rootless Podman socket or a separate sandbox host.
-- **Upgrades.** Pin `PSYCHE_IMAGE` to a digest from the release notes, then `docker compose -f deploy/docker-compose.yml pull && docker compose -f deploy/docker-compose.yml up -d --wait`. Back up first.
+- **Pinned release file.** Each release attaches `psyche-compose-<version>.tar.gz`: the same files with `docker-compose.yml` defaulting to `ghcr.io/devmello/psyche-gateway:<version>@sha256:<digest>`. In a checkout, the file never defaults to an unpinned `latest`: without `PSYCHE_IMAGE` it builds `psyche-gateway:local` from source.
+- **Upgrades.** Pin `PSYCHE_IMAGE` to a digest from the release notes (or use the new release's bundle), then `docker compose -f deploy/docker-compose.yml pull && docker compose -f deploy/docker-compose.yml up -d --wait`. Back up first.
 - **Settings.** Gateway keys (`gateway.port`, `gateway.publicOrigin`, `gateway.trustedProxy.*`) live in `config.json` on the volume: `docker compose -f deploy/docker-compose.yml exec gateway psyche config set <key> <value>`, then `restart gateway`. The Compose file sets no `PSYCHE_HOST`/`PSYCHE_PORT` because environment variables override `config.json`.
 - **Verify the image** (keyless cosign signature from the release workflow):
   ```bash

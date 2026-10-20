@@ -23,19 +23,19 @@ public enum DisclaimedProcess {
     public static var isSupported: Bool { setDisclaim != nil }
 
     /// Runs `path args` (absolute path only, no shell), capturing up to 1 MiB of each stream.
-    public static func run(_ path: String, _ args: [String], timeout: TimeInterval) async throws -> Output {
+    public static func run(_ path: String, _ args: [String], stdin: Data? = nil, timeout: TimeInterval) async throws -> Output {
         guard path.hasPrefix("/") else { throw CapabilityError.invalidParams("absolute path required") }
         guard let setDisclaim else {
             throw CapabilityError.unavailable("disclaim_unsupported", "This macOS cannot spawn tools without the helper's permissions")
         }
         return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Output, Error>) in
             DispatchQueue.global(qos: .userInitiated).async {
-                cont.resume(with: Result { try spawn(path, args, timeout: timeout, setDisclaim: setDisclaim) })
+                cont.resume(with: Result { try spawn(path, args, stdin: stdin, timeout: timeout, setDisclaim: setDisclaim) })
             }
         }
     }
 
-    private static func spawn(_ path: String, _ args: [String], timeout: TimeInterval, setDisclaim: SetDisclaim) throws -> Output {
+    private static func spawn(_ path: String, _ args: [String], stdin: Data?, timeout: TimeInterval, setDisclaim: SetDisclaim) throws -> Output {
         var attr: posix_spawnattr_t?
         posix_spawnattr_init(&attr)
         defer { posix_spawnattr_destroy(&attr) }
@@ -49,7 +49,12 @@ public enum DisclaimedProcess {
         var actions: posix_spawn_file_actions_t?
         posix_spawn_file_actions_init(&actions)
         defer { posix_spawn_file_actions_destroy(&actions) }
-        posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0)
+        let inPipe = Pipe()
+        if stdin != nil {
+            posix_spawn_file_actions_adddup2(&actions, inPipe.fileHandleForReading.fileDescriptor, 0)
+        } else {
+            posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0)
+        }
         posix_spawn_file_actions_adddup2(&actions, outPipe.fileHandleForWriting.fileDescriptor, 1)
         posix_spawn_file_actions_adddup2(&actions, errPipe.fileHandleForWriting.fileDescriptor, 2)
 
@@ -65,6 +70,16 @@ public enum DisclaimedProcess {
         let rc = posix_spawn(&pid, path, &actions, &attr, argv, envp)
         try? outPipe.fileHandleForWriting.close()
         try? errPipe.fileHandleForWriting.close()
+        try? inPipe.fileHandleForReading.close()
+        if let stdin, rc == 0 {
+            let writer = inPipe.fileHandleForWriting
+            DispatchQueue.global().async {
+                try? writer.write(contentsOf: stdin)
+                try? writer.close()
+            }
+        } else {
+            try? inPipe.fileHandleForWriting.close()
+        }
         guard rc == 0 else { throw CapabilityError.unavailable("spawn_failed", "Could not start \(path) (\(rc))") }
 
         let group = DispatchGroup()

@@ -315,9 +315,31 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
   };
 
   let unsubscribe: (() => void) | undefined;
+  const launcherKind =
+    setup.container !== undefined ? "container" : setup.srtPath !== undefined ? "srt" : "none";
   return {
     host,
     idle: () => queue,
+    handlers: {
+      // For `psyche security audit` (security §11 "MCP servers").
+      "mcp.status": {
+        run: () => ({
+          launcher: launcherKind,
+          servers: [...configs.values()].map((json) => {
+            const c = JSON.parse(json) as PsycheMcpServerConfig;
+            const http = c.transport.kind === "http";
+            return {
+              id: c.id,
+              name: c.name,
+              trust: c.trust,
+              transport: http ? ("http" as const) : ("stdio" as const),
+              network: http || (c.sandbox?.allowedDomains?.length ?? 0) > 0,
+              connected: registrations.has(c.id),
+            };
+          }),
+        }),
+      },
+    },
     start(gateway: Gateway) {
       void enqueue(getSetting(services.db, MCP_SERVERS_SETTING)?.value);
       unsubscribe = gateway.bus.subscribe(["operator.read"], (frame) => {

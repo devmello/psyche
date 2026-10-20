@@ -99,6 +99,20 @@ export function checkRequester(
         },
       ];
     }
+    // The route's tool list narrows further: channels route allowlisted senders chat-only
+    // (`toolAllow: []`, #321), so not even the public web is used for them.
+    if (
+      r.toolAllow !== undefined &&
+      !r.toolAllow.some((g) => globToRegExp(g, "plain").test(call.tool))
+    ) {
+      return [
+        {
+          effect: "deny",
+          rule: "requester:not_owner",
+          reason: `${call.tool} is not available in this sender's chat`,
+        },
+      ];
+    }
     return [];
   }
   // designated

@@ -160,6 +160,17 @@ describe("designated persons", () => {
       );
     }
     expect((await h.broker.decide(call("think", "none"), as(friend))).decision).toBe("allow");
+    // A chat-only route (channels, #321: toolAllow []) gets no tools at all, not even the web.
+    const chatOnly: Requester = { ...friend, toolAllow: [] };
+    for (const [tool, se] of [
+      ["web_search", "read"],
+      ["think", "none"],
+    ] as const) {
+      expect(await h.broker.decide(call(tool, se, web), as(chatOnly))).toMatchObject({
+        decision: "deny",
+        rule: "requester:not_owner",
+      });
+    }
     // The owner is unaffected.
     expect((await h.broker.decide(call("calendar.list", "read"), CTX)).decision).toBe("allow");
   });
