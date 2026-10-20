@@ -168,4 +168,11 @@ describe("live answers", () => {
       answerFor("v1-inbox-triage", request, [{ header: "Slot", answer: "Fri" }]).answer.Slot,
     ).toBe("Tue 2:30");
   });
+
+  it("reads a single-choice rule's list as an order of preference", () => {
+    const pick = (answer: string[]) =>
+      answerFor("v2-calendar-planning", request, [{ header: "Slot", answer }]).answer.Slot;
+    expect(pick(["Fri", "wed", "tue"])).toBe("Wed 9:00");
+    expect(pick(["Fri", "Sat"])).toBe("Tue 2:30");
+  });
 });

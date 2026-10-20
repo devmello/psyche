@@ -9,7 +9,7 @@
  *    model, a transcript, a log, a card or a receipt;
  * 3. SCORECARD.md regenerated from out/acceptance/*.json and any live reports present.
  *
- *   tsx scripts/offline.ts [--scorecard-only] [--captures <dir>]
+ *   tsx scripts/offline.ts [--scorecard-only] [--captures <dir>] [--max-workers <n>]
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import {
@@ -311,6 +311,9 @@ function main(argv: string[]): number {
         "--reporter=json",
         "--outputFile",
         join(OUT, "vitest.json"),
+        ...(arg("--max-workers") === undefined
+          ? []
+          : ["--maxWorkers", String(arg("--max-workers"))]),
       ],
       {
         PSYCHE_CAPTURE_DIR: captures,

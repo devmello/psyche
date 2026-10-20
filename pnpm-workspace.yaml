@@ -21,6 +21,11 @@ allowBuilds:
 #   loads it; 2.0.4 is patched.
 # - sandpack-client's Node client pulls @codesandbox/nodebox (Sustainable Use License, not open
 #   source). Psyche imports only `clients/runtime`, so the dependency is removed (ADR-013).
+# - sprintf-js 1.0.3 (GHSA-hp3w-g68c-fv3c, moderate) has no patched release; it is reachable only
+#   from mammoth's CLI through argparse, which Psyche never runs. Accepted risk (issue #299, DEP-10).
+auditConfig:
+  ignoreGhsas:
+    - GHSA-hp3w-g68c-fv3c
 overrides:
   "pptxgenjs>image-size": "2.0.4"
   "@codesandbox/sandpack-client>@codesandbox/nodebox": "-"
