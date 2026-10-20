@@ -66,6 +66,21 @@ describe("hard prohibitions", () => {
     expect(d.rule).not.toBe("prohibition:placeholder_outside_fill");
   });
 
+  it("allows a bare placeholder in browser.fill_credential's placeholder only", async () => {
+    const target = origin("https://shop.example.com");
+    const ok = await decide(["browser.fill_credential", "write", target], {
+      params: { tabId: "t1", ref: "ref_3", placeholder: "{{cred:shop-login.password}}" },
+    });
+    expect(ok.rule).not.toBe("prohibition:placeholder_outside_fill");
+    for (const params of [
+      { tabId: "t1", ref: "ref_3", placeholder: "x {{cred:shop-login.password}}" },
+      { tabId: "{{cred:shop-login.password}}", ref: "ref_3", placeholder: "{{cred:shop-login}}" },
+    ]) {
+      const d = await decide(["browser.fill_credential", "write", target], { params });
+      expect(d).toMatchObject({ decision: "deny", rule: "prohibition:placeholder_outside_fill" });
+    }
+  });
+
   it("never solves a CAPTCHA", async () => {
     for (const extra of [
       { meta: { captcha: true } },

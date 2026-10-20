@@ -10,6 +10,10 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./binding": {
+      "types": "./src/binding.ts",
+      "default": "./src/binding.ts"
+    },
     "./schema.json": "./generated/schema.json"
   },
   "scripts": {

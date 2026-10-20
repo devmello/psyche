@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { constants as osConstants } from "node:os";
+import type { Duplex } from "node:stream";
 import type {
   ExecRequest,
   ExecResult,
@@ -28,7 +29,13 @@ import {
   volumeInspectArgs,
   volumeRemoveArgs,
 } from "./backends.ts";
-import { type CliDriver, type CliOptions, type CliResult, nodeCliDriver } from "./cli.ts";
+import {
+  type CliDriver,
+  type CliOptions,
+  type CliResult,
+  type CliStream,
+  nodeCliDriver,
+} from "./cli.ts";
 import {
   type DetectedBackend,
   type DetectOptions,
@@ -47,6 +54,7 @@ import {
   parseProbe,
   type SandboxDevServer,
 } from "./devservers.ts";
+import { attachTunnel, type EgressTunnel } from "./egress/tunnel.ts";
 import { fail } from "./errors.ts";
 import { WorkspaceFiles } from "./files.ts";
 import { type ImageVariant, resolveImage } from "./image.ts";
@@ -75,6 +83,7 @@ import {
 import { clampDim, createPtySession, type PtyOptions, type SandboxPty } from "./pty.ts";
 import {
   BASH,
+  EGRESS_SHIM,
   EXEC_WRAPPER,
   FILES_CHANGED,
   KILL_GROUP,
@@ -109,6 +118,19 @@ export interface EgressProxyConfig {
   noProxy?: string;
 }
 
+/**
+ * Where a proxy-mode sandbox's connections go (feature K4): `EgressProxy` from `./egress`. Each
+ * connection the in-container shim accepts is handed over with the sandbox's scope.
+ */
+export interface EgressTunnelHandler {
+  handle(scope: SandboxScope, conn: Duplex): void;
+  /** The scope's workspace was deleted: forget its allowlist and decisions. */
+  clear?(scope: SandboxScope): void;
+}
+
+/** Port the egress shim listens on inside the container (`HTTP_PROXY=http://127.0.0.1:3128`). */
+export const EGRESS_SHIM_PORT = 3128;
+
 export interface ContainerSandboxRunnerOptions extends DetectOptions {
   /** Image reference; default from versions.json or the local dev tag (see image.ts). */
   image?: string;
@@ -132,6 +154,12 @@ export interface ContainerSandboxRunnerOptions extends DetectOptions {
   /** Largest accepted `timeoutMs`. Default 30 min. */
   maxTimeoutMs?: number;
   egressProxy?: EgressProxyConfig;
+  /**
+   * The egress proxy for `network: "proxy"` (feature K4), preferred over `egressProxy`: the
+   * container keeps network `none` and a shim inside it carries every connection to this
+   * handler over `exec -i` stdio. Works on Apple `container`, Docker and Podman alike.
+   */
+  egressTunnel?: EgressTunnelHandler;
   /** Prefix for container and volume names. Default `"psyche"`. */
   namePrefix?: string;
   /** Apple volumes are fixed-size ext4 images. Default `"8G"`. */
@@ -178,6 +206,10 @@ interface Entry {
   devPoll: NodeJS.Timeout | undefined;
   devPolling: boolean;
   devProbes: Set<NodeJS.Timeout>;
+  /** `network: "proxy"` through the egress shim (K4). */
+  tunnel: boolean;
+  shim: { tunnel: EgressTunnel; stream: CliStream } | undefined;
+  shimStarting: Promise<void> | undefined;
   /** File provenance of this scope's workspace (design-07). */
   provenance: WorkspaceProvenance;
 }
@@ -368,6 +400,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
     // The files are gone, and so is what was known about them.
     await entry?.provenance.clear();
     await this.#provenanceStore.remove(scopeKey(scope));
+    this.#options.egressTunnel?.clear?.(scope);
     const { container, volume } = this.#names(scope);
     await this.#cli(backend, removeArgs(backend.kind, container), { timeoutMs: 60_000 });
     const r = await this.#cli(backend, volumeRemoveArgs(backend.kind, volume), {
@@ -628,7 +661,20 @@ export class ContainerSandboxRunner implements SandboxRunner {
 
     let netName = "none";
     const env: Record<string, string> = {};
-    if (network === "proxy") {
+    const tunnel = network === "proxy" && this.#options.egressTunnel !== undefined;
+    if (tunnel) {
+      // K4: no network at all; the shim on the container's own loopback carries every
+      // connection to the host-side proxy over stdio.
+      const url = `http://127.0.0.1:${EGRESS_SHIM_PORT}`;
+      Object.assign(env, {
+        HTTP_PROXY: url,
+        HTTPS_PROXY: url,
+        http_proxy: url,
+        https_proxy: url,
+        NO_PROXY: "",
+        no_proxy: "",
+      });
+    } else if (network === "proxy") {
       if (backend.kind === "apple-container") {
         // Spike 02: an --internal vmnet exposes every host service bound to 0.0.0.0, so
         // Apple needs the --publish-socket bridge profile, which is not implemented yet.
@@ -703,6 +749,9 @@ export class ContainerSandboxRunner implements SandboxRunner {
       devPolling: false,
       devProbes: new Set(),
       provenance,
+      tunnel,
+      shim: undefined,
+      shimStarting: undefined,
     };
     await this.#ensureRunning(entry);
     if (this.#disposed) {
@@ -788,7 +837,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
 
   /** Starts a stopped container, adopts a matching one, or (re)creates it. */
   #ensureRunning(entry: Entry): Promise<void> {
-    if (entry.running) return Promise.resolve();
+    if (entry.running) return this.#ensureShim(entry);
     entry.starting ??= (async () => {
       if (entry.stopping) await entry.stopping;
       const release = await this.#startLock.acquire();
@@ -807,7 +856,56 @@ export class ContainerSandboxRunner implements SandboxRunner {
     })().finally(() => {
       entry.starting = undefined;
     });
-    return entry.starting;
+    return entry.starting.then(() => this.#ensureShim(entry));
+  }
+
+  /** Proxy mode: the egress shim runs whenever the container does (restarted if it died). */
+  #ensureShim(entry: Entry): Promise<void> {
+    const handler = this.#options.egressTunnel;
+    if (!entry.tunnel || handler === undefined || entry.shim !== undefined)
+      return Promise.resolve();
+    entry.shimStarting ??= (async () => {
+      const stream = this.#driver.stream(
+        entry.backend.cli,
+        execArgs(entry.backend.kind, entry.container, "/", [
+          PYTHON,
+          "-I",
+          "-S",
+          "-c",
+          EGRESS_SHIM,
+          String(EGRESS_SHIM_PORT),
+        ]),
+      );
+      const scope = { ...entry.instance.scope };
+      const tunnel = attachTunnel(stream, (conn) => handler.handle(scope, conn));
+      stream.stderr.resume();
+      const shim = { tunnel, stream };
+      void stream.exited.then(() => {
+        tunnel.close();
+        if (entry.shim === shim) entry.shim = undefined;
+      });
+      const ok = await Promise.race([
+        tunnel.ready.then(() => true).catch(() => false),
+        new Promise<boolean>((r) => setTimeout(() => r(false), 15_000).unref()),
+      ]);
+      if (!ok) {
+        tunnel.close();
+        stream.kill("SIGKILL");
+        fail("unavailable", "the sandbox's egress shim did not start");
+      }
+      entry.shim = shim;
+    })().finally(() => {
+      entry.shimStarting = undefined;
+    });
+    return entry.shimStarting;
+  }
+
+  #stopShim(entry: Entry): void {
+    const shim = entry.shim;
+    entry.shim = undefined;
+    if (shim === undefined) return;
+    shim.tunnel.close();
+    shim.stream.kill("SIGTERM");
   }
 
   /** Adopts a container with a matching config (starting it if stopped), or (re)creates it. */
@@ -850,8 +948,9 @@ export class ContainerSandboxRunner implements SandboxRunner {
     if (entry.starting) await entry.starting.catch(() => undefined);
     if (entry.idleTimer) clearTimeout(entry.idleTimer);
     entry.idleTimer = undefined;
-    // Stopping the container kills its servers.
+    // Stopping the container kills its servers and the egress shim.
     this.#closeDevServers(entry, "sandbox");
+    this.#stopShim(entry);
     if (!entry.stopping) {
       entry.running = false;
       entry.instance.status = "stopped";
@@ -874,6 +973,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
     if (entry.idleTimer) clearTimeout(entry.idleTimer);
     entry.idleTimer = undefined;
     this.#closeDevServers(entry, "sandbox");
+    this.#stopShim(entry);
     entry.running = false;
     this.#live.delete(entry);
     this.#byId.delete(entry.instance.id);

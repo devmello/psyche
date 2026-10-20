@@ -61,6 +61,7 @@ import { createLogger } from "../log.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { CallContexts } from "./call-context.ts";
+import { composeComputer } from "./computer.ts";
 import {
   mountParamsOnly,
   mountPermissions,
@@ -387,6 +388,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   };
   const partFactories = [
+    composeComputer,
     composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
     // Web passkeys (issue #79): unavailable until gateway.publicOrigin is an https origin. A
     // caller-supplied `presence` verifier takes the passkey role instead.

@@ -132,3 +132,12 @@ The owner-authored policy (`config.json` → `permissions`). Schema: [`policy.sc
 - Card rendering for desktop, web and chat belongs to S12 / S10; `renderForSurface` is the shared text template they should use.
 - The unattended approvals queue keeps the 30-minute expiry; re-deriving queued proposals (design-28 #5) is S04's.
 - Per-sender grant matrices for designated persons (M2, with S10); model-backed classifier evaluation set (M2).
+
+## Apple app action matrix (J6)
+
+`src/apple-apps.ts` maps the mac helper's Apple app capabilities (reached as `node.<capability>`) to connector keys `apple.calendar`, `apple.reminders`, `apple.mail`, `apple.notes`, `apple.finder` and `apple.safari`. The owner sets them in `policy.connectors` like any connector (Allow / Ask / Deny per action).
+
+- **Defaults when the owner has set nothing:** reads are Allow; writes (create or update events and reminders, mail drafts, new notes, opening a URL in Safari) are Ask.
+- **`mail.send` always asks:** an owner Allow is downgraded to Ask, so mail never goes out without an approval card.
+- **Side-effect classes come from the matrix row:** a node that declares less is not believed.
+- **Not device-only:** none of these kinds is device-only (security §3.7, §9).

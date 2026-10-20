@@ -57,7 +57,10 @@ export interface ConnectorsSetup {
   tokens?: TokenVault;
   /** Every connector network call goes through this (tests inject a fake Google). */
   fetch?: FetchFn;
-  /** Resolves `{{cred:slug}}` placeholders in connector config (client secrets, API keys). */
+  /**
+   * Resolves `{{cred:slug}}` placeholders in connector config (client secrets, API keys).
+   * Default: the composed vault (G5).
+   */
   credentials?: CredentialBroker;
   /** Attachments and Drive downloads (the Library, S13). */
   library?: LibrarySink;
@@ -125,7 +128,7 @@ export function composeConnectors(
       clock: services.clock,
       fetch: setup.fetch ?? ((input, init) => fetch(input, init)),
       tokens: setup.tokens ?? new VaultTokenVault(services.vault),
-      ...(setup.credentials === undefined ? {} : { credentials: setup.credentials }),
+      credentials: setup.credentials ?? services.vault,
       ...(setup.library === undefined ? {} : { library: setup.library }),
     },
     tools: services.tools,
