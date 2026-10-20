@@ -57,6 +57,20 @@ The `site` grant key is `credential_fill|<item>|<origin>|<field class>|<executor
 
 `fillBrowserField` re-reads the top-frame origin and checks that the approved node still has focus *after* `resolve` returns. Resolve can wait seconds on Touch ID, and the page may have navigated in that time. It reports `secureField: true` for every fill.
 
+### Hardening (M3 review)
+
+- **#292, https only:** credentials bind to, and fill into, https origins. Plain http is allowed only for a loopback dev server: `localhost`, `*.localhost`, `127.0.0.1`, `[::1]` (docs/05 §3.10). `.test` names are excluded because they can resolve anywhere (S23 design-03). The rule applies:
+  - when adding or editing an item (`bindingProblem`);
+  - when matching a target (`bindingMatches`, so an http binding stored earlier never fills);
+  - on import, where http URIs are skipped with a warning;
+  - in the browser fill core, which returns `insecure_origin` before asking the broker.
+- **#290, one command per secret:** `buildSecretEnv({..., lease: {timeoutMs}})` ties the env to one command.
+  - Once the timeout plus 5 s of grace has passed, the values are wiped even if no one calls `dispose()`.
+  - `active` turns false.
+  - The `once` fill approval cannot be used for another command.
+  - The sandbox runner reaps every process of a secret-bearing exec (#314), so no background child keeps the value either.
+  - The Gateway's exec tool passes the exec's own timeout.
+
 ### Mac helper contract (S14)
 
 | Capability | Params | Result |
