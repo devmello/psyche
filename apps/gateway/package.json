@@ -30,6 +30,7 @@
     "@psyche/connectors": "workspace:*",
     "@psyche/db": "workspace:*",
     "@psyche/files": "workspace:*",
+    "@psyche/harnesses": "workspace:*",
     "@psyche/mcp-host": "workspace:*",
     "@psyche/memory": "workspace:*",
     "@psyche/model-router": "workspace:*",

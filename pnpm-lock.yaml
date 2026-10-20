@@ -322,6 +322,9 @@ importers:
       '@psyche/files':
         specifier: workspace:*
         version: link:../../packages/files
+      '@psyche/harnesses':
+        specifier: workspace:*
+        version: link:../../packages/harnesses
       '@psyche/mcp-host':
         specifier: workspace:*
         version: link:../../packages/mcp-host
@@ -616,6 +619,19 @@ importers:
       pdfjs-dist:
         specifier: 6.4.299
         version: 6.4.299
+
+  packages/harnesses:
+    dependencies:
+      '@psyche/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@psyche/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+    devDependencies:
+      '@psyche/testing':
+        specifier: workspace:*
+        version: link:../testing
 
   packages/mcp-host:
     dependencies:

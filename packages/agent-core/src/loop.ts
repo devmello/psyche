@@ -2414,6 +2414,9 @@ export class PsycheAgentLoop implements AgentLoop {
       describeCall: () => ({
         summary: action.summary,
         ...(action.target === undefined ? {} : { target: action.target }),
+        ...(action.kind === undefined ? {} : { kind: action.kind }),
+        ...(action.bindingFields === undefined ? {} : { bindingFields: action.bindingFields }),
+        ...(action.details === undefined ? {} : { details: action.details }),
       }),
     };
     this.#toolEvent(run, actionId, name, "pending", action.summary);
