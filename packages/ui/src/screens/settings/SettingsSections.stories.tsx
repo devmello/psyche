@@ -3,6 +3,7 @@ import { createFixtureWorld, IDS, PERSONA } from "../../fixtures/index.ts";
 import { STORY_NOW, withWorld } from "../../stories/harness.tsx";
 import { AboutPanel } from "./AboutSection.tsx";
 import { AppearancePanel } from "./AppearanceSection.tsx";
+import { BrowserPanel } from "./BrowserSection.tsx";
 import { ChannelsPanel } from "./ChannelsSection.tsx";
 import { ComputerUsePanel } from "./ComputerUseSection.tsx";
 import { ConnectorsPanel } from "./ConnectorsSection.tsx";
@@ -200,6 +201,31 @@ export const ComputerUseOffNoApps: Story = {
       tcc={{ accessibility: "granted", screenRecording: "granted" }}
     />
   ),
+};
+
+// --- Browser -----------------------------------------------------------------------------------
+
+const openProfile = async (profile: string) => ({
+  path: `/Users/you/.psyche/browser/real-chrome/${profile}`,
+});
+
+export const BrowserLoading: Story = {
+  render: () => <BrowserPanel {...form} persona={PERSONA.name} loading />,
+};
+/** Desktop: real-Chrome mode on with a named profile, and the button that opens it. */
+export const BrowserOnDesktop: Story = {
+  render: () => (
+    <BrowserPanel
+      {...form}
+      values={{ ...values, "browser.realChrome": { enabled: true, profile: "work" } }}
+      persona={PERSONA.name}
+      onOpenProfile={openProfile}
+    />
+  ),
+};
+/** Web: off, and the profile can only be opened from the Mac that runs the Gateway. */
+export const BrowserOffWeb: Story = {
+  render: () => <BrowserPanel {...form} persona={PERSONA.name} />,
 };
 
 // --- File access -------------------------------------------------------------------------------

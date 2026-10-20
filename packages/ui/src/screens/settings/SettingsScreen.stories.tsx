@@ -51,6 +51,15 @@ export const Persona: Story = { args: { defaultSection: "persona" } };
 export const Connectors: Story = { args: { defaultSection: "connectors" } };
 export const Permissions: Story = { args: { defaultSection: "permissions" } };
 export const ComputerUse: Story = { args: { defaultSection: "computer-use" } };
+/** Real-Chrome mode (I13); the desktop shell can open the Psyche Chrome profile. */
+export const Browser: Story = {
+  args: {
+    defaultSection: "browser",
+    onOpenRealChromeProfile: async (profile: string) => ({
+      path: `/Users/you/.psyche/browser/real-chrome/${profile}`,
+    }),
+  },
+};
 export const FileAccess: Story = { args: { defaultSection: "files" } };
 export const DevicesAndNodes: Story = { args: { defaultSection: "devices" } };
 /** `channels.pairing.list` and `channels.identities.list` are not in the mock: inline errors. */
