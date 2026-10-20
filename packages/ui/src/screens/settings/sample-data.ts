@@ -133,7 +133,9 @@ export function sampleSettings(): Record<string, unknown> {
     "models.image": "none",
     "computerUse.enabled": true,
     "computerUse.apps": sampleComputerUseApps(),
-    "permissions.folders": sampleFolders(),
+    "permissions.policy": {
+      folders: sampleFolders().map((f) => ({ path: f.path, mode: f.access })),
+    },
     "vm.shares": sampleVmShares(),
     "vault.backend": "psyche",
     "vault.fillDefault": "once",

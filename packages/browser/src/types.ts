@@ -216,6 +216,10 @@ export interface BrowserDriverEx extends BrowserDriver {
   describe(tabId: string, ref: string): Promise<ElementMeta>;
   /** Synchronous `describe` for `describeCall`; undefined when the ref is unknown or stale. */
   peek(tabId: string, ref: string): ElementMeta | undefined;
+  /** The latest snapshot the model read of the tab's current document (purchase cards). */
+  peekSnapshot(tabId: string): { text: string; url: string } | undefined;
+  /** The session a tab belongs to. */
+  sessionOf(tabId: string): string | undefined;
   /** After an approved `new_origin`: lift the content block or replay a stopped navigation. */
   retryBlocked(tabId: string): Promise<"unblocked" | "renavigated" | "unchanged">;
   /** Current top-frame origin of a tab (canonical), or undefined before the first navigation. */
