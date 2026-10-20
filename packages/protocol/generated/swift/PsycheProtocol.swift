@@ -473,6 +473,7 @@
 //   let threadIDParams = try? JSONDecoder().decode(ThreadIDParams.self, from: jsonData)
 //   let threadKind = try? JSONDecoder().decode(ThreadKind.self, from: jsonData)
 //   let threadListEntry = try? JSONDecoder().decode(ThreadListEntry.self, from: jsonData)
+//   let threadPreview = try? JSONDecoder().decode(ThreadPreview.self, from: jsonData)
 //   let threadResult = try? JSONDecoder().decode(ThreadResult.self, from: jsonData)
 //   let threadUpdatedPayload = try? JSONDecoder().decode(ThreadUpdatedPayload.self, from: jsonData)
 //   let threadsCreateParams = try? JSONDecoder().decode(ThreadsCreateParams.self, from: jsonData)
@@ -533,6 +534,14 @@
 //   let viewPaneState = try? JSONDecoder().decode(ViewPaneState.self, from: jsonData)
 //   let viewPlacement = try? JSONDecoder().decode(ViewPlacement.self, from: jsonData)
 //   let viewReportParams = try? JSONDecoder().decode(ViewReportParams.self, from: jsonData)
+//   let vMCreateParams = try? JSONDecoder().decode(VMCreateParams.self, from: jsonData)
+//   let vMGuest = try? JSONDecoder().decode(VMGuest.self, from: jsonData)
+//   let vMPhase = try? JSONDecoder().decode(VMPhase.self, from: jsonData)
+//   let vMProgressEvent = try? JSONDecoder().decode(VMProgressEvent.self, from: jsonData)
+//   let vMShare = try? JSONDecoder().decode(VMShare.self, from: jsonData)
+//   let vMShareAddParams = try? JSONDecoder().decode(VMShareAddParams.self, from: jsonData)
+//   let vMStatus = try? JSONDecoder().decode(VMStatus.self, from: jsonData)
+//   let vMUpdatedPayload = try? JSONDecoder().decode(VMUpdatedPayload.self, from: jsonData)
 //   let voiceCancelParams = try? JSONDecoder().decode(VoiceCancelParams.self, from: jsonData)
 //   let voiceEndReason = try? JSONDecoder().decode(VoiceEndReason.self, from: jsonData)
 //   let voiceEndedPayload = try? JSONDecoder().decode(VoiceEndedPayload.self, from: jsonData)
@@ -3933,19 +3942,22 @@ public struct ChatSendParams: Codable, Sendable {
     public let attachments: [String]?
     public let content: String
     public let mode: QueueMode?
+    public let replyToMessageID: String?
     public let threadID: String
 
     public enum CodingKeys: String, CodingKey {
         case attachments = "attachments"
         case content = "content"
         case mode = "mode"
+        case replyToMessageID = "replyToMessageId"
         case threadID = "threadId"
     }
 
-    public init(attachments: [String]?, content: String, mode: QueueMode?, threadID: String) {
+    public init(attachments: [String]?, content: String, mode: QueueMode?, replyToMessageID: String?, threadID: String) {
         self.attachments = attachments
         self.content = content
         self.mode = mode
+        self.replyToMessageID = replyToMessageID
         self.threadID = threadID
     }
 }
@@ -9917,15 +9929,18 @@ public struct ThreadsListResult: Codable, Sendable {
 // MARK: - ThreadListEntry
 public struct ThreadListEntry: Codable, Sendable {
     public let activity: ThreadActivity
+    public let lastMessage: ThreadPreview?
     public let thread: Thread
 
     public enum CodingKeys: String, CodingKey {
         case activity = "activity"
+        case lastMessage = "lastMessage"
         case thread = "thread"
     }
 
-    public init(activity: ThreadActivity, thread: Thread) {
+    public init(activity: ThreadActivity, lastMessage: ThreadPreview?, thread: Thread) {
         self.activity = activity
+        self.lastMessage = lastMessage
         self.thread = thread
     }
 }
@@ -9947,6 +9962,30 @@ public struct ThreadActivity: Codable, Sendable {
         self.awaitingInput = awaitingInput
         self.running = running
     }
+}
+
+// MARK: - ThreadPreview
+public struct ThreadPreview: Codable, Sendable {
+    public let at: String
+    public let role: Role
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case role = "role"
+        case text = "text"
+    }
+
+    public init(at: String, role: Role, text: String) {
+        self.at = at
+        self.role = role
+        self.text = text
+    }
+}
+
+public enum Role: String, Codable, Sendable {
+    case agent = "agent"
+    case user = "user"
 }
 
 // MARK: - ThreadsPinParams
@@ -10880,6 +10919,230 @@ public struct ViewReportParams: Codable, Sendable {
 
     public init(layout: ViewLayout) {
         self.layout = layout
+    }
+}
+
+// MARK: - VMCreateParams
+public struct VMCreateParams: Codable, Sendable {
+    public let cpus: Int?
+    public let diskGB: Int?
+    public let download: Bool?
+    /// Absolute path to a local IPSW
+    public let ipsw: String?
+    public let memoryGB: Int?
+    public let name: String?
+    public let username: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case cpus = "cpus"
+        case diskGB = "diskGB"
+        case download = "download"
+        case ipsw = "ipsw"
+        case memoryGB = "memoryGB"
+        case name = "name"
+        case username = "username"
+    }
+
+    public init(cpus: Int?, diskGB: Int?, download: Bool?, ipsw: String?, memoryGB: Int?, name: String?, username: String?) {
+        self.cpus = cpus
+        self.diskGB = diskGB
+        self.download = download
+        self.ipsw = ipsw
+        self.memoryGB = memoryGB
+        self.name = name
+        self.username = username
+    }
+}
+
+// MARK: - VMProgressEvent
+public struct VMProgressEvent: Codable, Sendable {
+    public let fraction: Double?
+    /// started | progress | finished, or a VmPhase for vm.state
+    public let phase: String
+    public let type: VMProgressEventType
+    public let version: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case fraction = "fraction"
+        case phase = "phase"
+        case type = "type"
+        case version = "version"
+    }
+
+    public init(fraction: Double?, phase: String, type: VMProgressEventType, version: String?) {
+        self.fraction = fraction
+        self.phase = phase
+        self.type = type
+        self.version = version
+    }
+}
+
+public enum VMProgressEventType: String, Codable, Sendable {
+    case vmDownload = "vm.download"
+    case vmInstall = "vm.install"
+    case vmState = "vm.state"
+}
+
+// MARK: - VMShareAddParams
+public struct VMShareAddParams: Codable, Sendable {
+    public let name: String?
+    public let path: String
+    public let readOnly: Bool?
+    public let share: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case path = "path"
+        case readOnly = "readOnly"
+        case share = "share"
+    }
+
+    public init(name: String?, path: String, readOnly: Bool?, share: String) {
+        self.name = name
+        self.path = path
+        self.readOnly = readOnly
+        self.share = share
+    }
+}
+
+// MARK: - VMStatus
+public struct VMStatus: Codable, Sendable {
+    public let active: Int
+    public let guests: [VMGuest]
+    public let maxActive: Int
+    /// Unattended setup (macOS 27 host and guest)
+    public let supportsGuestProvisioning: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case active = "active"
+        case guests = "guests"
+        case maxActive = "maxActive"
+        case supportsGuestProvisioning = "supportsGuestProvisioning"
+    }
+
+    public init(active: Int, guests: [VMGuest], maxActive: Int, supportsGuestProvisioning: Bool) {
+        self.active = active
+        self.guests = guests
+        self.maxActive = maxActive
+        self.supportsGuestProvisioning = supportsGuestProvisioning
+    }
+}
+
+// MARK: - VMGuest
+public struct VMGuest: Codable, Sendable {
+    public let cpus: Int
+    public let diskGB: Int
+    public let guestOS: String?
+    /// Machine reason of the last failure
+    public let lastError: String?
+    public let memoryGB: Int
+    public let name: String
+    public let phase: VMPhase
+    /// First (provisioning) boot completed
+    public let provisioned: Bool
+    public let shares: [VMShare]
+    public let username: String
+    public let vsock: Vsock
+
+    public enum CodingKeys: String, CodingKey {
+        case cpus = "cpus"
+        case diskGB = "diskGB"
+        case guestOS = "guestOS"
+        case lastError = "lastError"
+        case memoryGB = "memoryGB"
+        case name = "name"
+        case phase = "phase"
+        case provisioned = "provisioned"
+        case shares = "shares"
+        case username = "username"
+        case vsock = "vsock"
+    }
+
+    public init(cpus: Int, diskGB: Int, guestOS: String?, lastError: String?, memoryGB: Int, name: String, phase: VMPhase, provisioned: Bool, shares: [VMShare], username: String, vsock: Vsock) {
+        self.cpus = cpus
+        self.diskGB = diskGB
+        self.guestOS = guestOS
+        self.lastError = lastError
+        self.memoryGB = memoryGB
+        self.name = name
+        self.phase = phase
+        self.provisioned = provisioned
+        self.shares = shares
+        self.username = username
+        self.vsock = vsock
+    }
+}
+
+public enum VMPhase: String, Codable, Sendable {
+    case created = "created"
+    case failed = "failed"
+    case installed = "installed"
+    case installing = "installing"
+    case provisioning = "provisioning"
+    case running = "running"
+    case starting = "starting"
+    case stopped = "stopped"
+    case stopping = "stopping"
+}
+
+// MARK: - VMShare
+public struct VMShare: Codable, Sendable {
+    /// e.g. /Volumes/Psyche Shares/<name>
+    public let guestPath: String
+    /// Absolute host folder (symlinks resolved)
+    public let hostPath: String
+    public let name: String
+    public let readOnly: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case guestPath = "guestPath"
+        case hostPath = "hostPath"
+        case name = "name"
+        case readOnly = "readOnly"
+    }
+
+    public init(guestPath: String, hostPath: String, name: String, readOnly: Bool) {
+        self.guestPath = guestPath
+        self.hostPath = hostPath
+        self.name = name
+        self.readOnly = readOnly
+    }
+}
+
+// MARK: - Vsock
+public struct Vsock: Codable, Sendable {
+    /// Guest psyche-node → host Gateway node socket
+    public let gatewayNodePort: Int
+    /// 2: the host as seen from the guest
+    public let hostCid: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case gatewayNodePort = "gatewayNodePort"
+        case hostCid = "hostCid"
+    }
+
+    public init(gatewayNodePort: Int, hostCid: Int) {
+        self.gatewayNodePort = gatewayNodePort
+        self.hostCid = hostCid
+    }
+}
+
+// MARK: - VMUpdatedPayload
+public struct VMUpdatedPayload: Codable, Sendable {
+    public let at: String
+    public let guest: VMGuest
+    public let nodeID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case guest = "guest"
+        case nodeID = "nodeId"
+    }
+
+    public init(at: String, guest: VMGuest, nodeID: String) {
+        self.at = at
+        self.guest = guest
+        self.nodeID = nodeID
     }
 }
 

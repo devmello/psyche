@@ -1,6 +1,7 @@
 import type { ChecklistItem, PlanStep } from "@psyche/protocol";
 import { Check, Circle, CircleDashed, X } from "lucide-react";
 import type { ReactElement } from "react";
+import { Badge } from "../components/ui/badge.tsx";
 import { cn } from "../lib/utils.ts";
 
 const ITEM_LABEL: Record<ChecklistItem["status"], string> = {
@@ -88,9 +89,13 @@ export function PlanCard({
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className="text-sm font-semibold">Plan · {title}</h3>
-        <span className="text-xs text-muted-foreground">
-          {approvedAt === null ? "Not approved yet" : "Approved"}
-        </span>
+        {approvedAt === null ? (
+          <Badge variant="approval">Not approved yet</Badge>
+        ) : (
+          <Badge variant="success">
+            <Check aria-hidden="true" /> Approved
+          </Badge>
+        )}
       </div>
       <ol className="flex flex-col gap-1 text-sm">
         {steps.map((s, i) => (

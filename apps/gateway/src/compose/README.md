@@ -12,7 +12,8 @@
 | `services.ts` | `ComposeServices` handed to each part; `ComposedPart`; `ApprovalRelay` (approvals over chat) |
 | `call-context.ts` | the loop's per-call decision context (thread, run, task, taint and its sources, requester, approval id, and `authorityFor`: the approval or standing grant that allowed the call) for package executors |
 | `browser.ts` | bridge socket, `CdpBridgeDriver` per desktop, `browser.*` tools with per-task sessions and recordings, status pill, client `browser.*` methods |
-| `connectors.ts` | `ConnectorRegistry` with Google, token vault stand-in, sync timer, `connectors.list` / `get` |
+| `connectors.ts` | `ConnectorRegistry` with Google, OAuth tokens in the vault (`VaultTokenVault`), disconnect on token revocation, sync timer, `connectors.list` / `get` |
+| `vault.ts` | the S06 `Vault` (key slot per deployment: key file, safeStorage, or the keychain through the Mac helper), `vault.*` handlers without param logging, vault events as frames, the shared `SecretRedactor` and the masking logger |
 | `channels.ts` | `ChannelService` with Telegram and WebChat, inbound → chat turns, replies, `channels.*`, approvals over chat |
 | `helper.ts` | approvals on the Mac: cards to a connected helper as `notify.show`, `notify.response` → broker answers on the `notification` surface, the helper's Touch ID `PresenceVerifier` (signed assertion, #84) |
 | `backup.ts` | `backup.list` / `create` / `verify` / `delete` with `@psyche/backup` (SQLite online backup, no downtime; restore stays in the CLI) and `logs.tail` over `logs/gateway*.log` with every line redacted (S22) |

@@ -1195,10 +1195,11 @@ export interface ChatSendParams {
     /**
      * Library item ids
      */
-    attachments?: string[];
-    content:      string;
-    mode?:        QueueMode;
-    threadId:     string;
+    attachments?:      string[];
+    content:           string;
+    mode?:             QueueMode;
+    replyToMessageId?: string;
+    threadId:          string;
 }
 
 export type QueueMode = "steer" | "followUp" | "interrupt";
@@ -3249,8 +3250,9 @@ export interface ThreadsListResult {
 }
 
 export interface ThreadListEntry {
-    activity: ThreadActivity;
-    thread:   Thread;
+    activity:     ThreadActivity;
+    lastMessage?: ThreadPreview;
+    thread:       Thread;
 }
 
 export interface ThreadActivity {
@@ -3258,6 +3260,14 @@ export interface ThreadActivity {
     awaitingInput:    number;
     running:          number;
 }
+
+export interface ThreadPreview {
+    at:   string;
+    role: Role;
+    text: string;
+}
+
+export type Role = "user" | "agent";
 
 export interface ThreadsPinParams {
     pinned:   boolean;
@@ -3561,6 +3571,100 @@ export interface ViewPaneRef {
 
 export interface ViewReportParams {
     layout: ViewLayout;
+}
+
+export interface VMCreateParams {
+    cpus?:     number;
+    diskGB?:   number;
+    download?: boolean;
+    /**
+     * Absolute path to a local IPSW
+     */
+    ipsw?:     string;
+    memoryGB?: number;
+    name?:     string;
+    username?: string;
+}
+
+export interface VMProgressEvent {
+    fraction?: number;
+    /**
+     * started | progress | finished, or a VmPhase for vm.state
+     */
+    phase:    string;
+    type:     VMProgressEventType;
+    version?: string;
+}
+
+export type VMProgressEventType = "vm.download" | "vm.install" | "vm.state";
+
+export interface VMShareAddParams {
+    name?:     string;
+    path:      string;
+    readOnly?: boolean;
+    share:     string;
+}
+
+export interface VMStatus {
+    active:    number;
+    guests:    VMGuest[];
+    maxActive: number;
+    /**
+     * Unattended setup (macOS 27 host and guest)
+     */
+    supportsGuestProvisioning: boolean;
+}
+
+export interface VMGuest {
+    cpus:     number;
+    diskGB:   number;
+    guestOS?: null | string;
+    /**
+     * Machine reason of the last failure
+     */
+    lastError?: string;
+    memoryGB:   number;
+    name:       string;
+    phase:      VMPhase;
+    /**
+     * First (provisioning) boot completed
+     */
+    provisioned: boolean;
+    shares:      VMShare[];
+    username:    string;
+    vsock:       Vsock;
+}
+
+export type VMPhase = "created" | "installing" | "installed" | "provisioning" | "stopped" | "starting" | "running" | "stopping" | "failed";
+
+export interface VMShare {
+    /**
+     * e.g. /Volumes/Psyche Shares/<name>
+     */
+    guestPath: string;
+    /**
+     * Absolute host folder (symlinks resolved)
+     */
+    hostPath: string;
+    name:     string;
+    readOnly: boolean;
+}
+
+export interface Vsock {
+    /**
+     * Guest psyche-node → host Gateway node socket
+     */
+    gatewayNodePort: number;
+    /**
+     * 2: the host as seen from the guest
+     */
+    hostCid: number;
+}
+
+export interface VMUpdatedPayload {
+    at:     string;
+    guest:  VMGuest;
+    nodeId: string;
 }
 
 export interface VoiceCancelParams {
