@@ -1,4 +1,5 @@
 import type { Channel, ChannelType } from "@psyche/protocol";
+import { WHATSAPP_IDENTITY_STRENGTH } from "./adapters/whatsapp/mapping.ts";
 
 /**
  * Typed view of `Channel.config` (data model §8 keeps per-channel extras as JSON). Unknown keys are
@@ -54,13 +55,21 @@ const DEFAULT_RATE: Record<string, ChannelSettings["rateLimit"]> = {
   sms: { perChatPerSec: 0.2, perChannelPerSec: 1, burst: 2 },
   // Web API chat.postMessage: about 1 message per second per channel.
   slack: { perChatPerSec: 1, perChannelPerSec: 10, burst: 3 },
+  // Cloud API: about 1 message per second to one user; tier throughput is far higher overall.
+  whatsapp: { perChatPerSec: 1, perChannelPerSec: 20, burst: 3 },
 };
 
 /**
  * Transports where every sender is weak (security §9): they chat as non-owners under the DM
- * policy, but never match an owner, never run commands and never answer approvals.
+ * policy, but never match an owner, never run commands and never answer approvals. WhatsApp is
+ * strong (Meta-verified numbers over a signed webhook) and joins this set only if
+ * `WHATSAPP_IDENTITY_STRENGTH` is flipped to `"weak"`.
  */
-export const WEAK_TRANSPORTS: ReadonlySet<ChannelType> = new Set<ChannelType>(["sms", "email"]);
+export const WEAK_TRANSPORTS: ReadonlySet<ChannelType> = new Set<ChannelType>([
+  "sms",
+  "email",
+  ...(WHATSAPP_IDENTITY_STRENGTH === "weak" ? (["whatsapp"] as const) : []),
+]);
 
 export function isWeakTransport(type: ChannelType): boolean {
   return WEAK_TRANSPORTS.has(type);
@@ -155,6 +164,16 @@ export function validateChannel(channel: Channel): string[] {
     }
     if (!/^\+\d{6,15}$/.test(channel.account)) {
       problems.push(`the SMS account is Psyche's E.164 number: ${channel.account}`);
+    }
+  }
+  if (channel.type === "whatsapp") {
+    for (const id of [...channel.allowFrom, ...channel.ownerIds, ...channel.groupAllowFrom]) {
+      if (id !== "*" && !/^\+\d{6,15}$/.test(id)) {
+        problems.push(`WhatsApp ids are E.164 phones: ${id}`);
+      }
+    }
+    if (!/^\+\d{6,15}$/.test(channel.account)) {
+      problems.push(`the WhatsApp account is Psyche's E.164 business number: ${channel.account}`);
     }
   }
   if (channel.type === "email") {
