@@ -10,6 +10,7 @@ import {
   type ApprovalRequest,
   type Artifact,
   type Automation,
+  type BotAuthStatus,
   type Channel,
   type ChannelIdentity,
   type Connector,
@@ -92,6 +93,8 @@ export interface MockWorld {
   pairingRequests: PairingRequest[];
   channelIdentities: ChannelIdentity[];
   devices: Device[];
+  /** Web Bot Auth (I14). */
+  botAuth: BotAuthStatus;
   nodes: NodeInfo[];
   credentials: CredentialMeta[];
   credentialUses: CredentialUse[];
@@ -144,6 +147,16 @@ export const EMPTY_WORLD: MockWorld = {
   pairingRequests: [],
   channelIdentities: [],
   devices: [],
+  botAuth: {
+    enabled: false,
+    keyId: null,
+    publicJwk: null,
+    createdAt: null,
+    signatureAgent: null,
+    directoryPath: "/.well-known/http-message-signatures-directory",
+    origins: [],
+    advertised: [],
+  },
   nodes: [],
   credentials: [],
   credentialUses: [],
@@ -1264,6 +1277,17 @@ export class MockGateway implements GatewayClient {
     "connectors.list": () => ({ connectors: this.world.connectors }),
     "channels.list": () => ({ channels: this.world.channels }),
     "devices.list": () => ({ devices: this.world.devices }),
+    "browser.botAuth.status": () => ({ status: structuredClone(this.world.botAuth) }),
+    "browser.botAuth.rotate": () => {
+      // A fresh fake thumbprint each time, as a real rotation gives.
+      this.world.botAuth = {
+        ...this.world.botAuth,
+        keyId: `fixture-key-${this.calls.length}`,
+        publicJwk: { kty: "OKP", crv: "Ed25519", x: "fixture-public-key" },
+        createdAt: this.now(),
+      };
+      return { status: structuredClone(this.world.botAuth) };
+    },
     "skills.list": () => ({ skills: this.world.skills }),
     "skills.commands": () => ({
       commands: this.world.skills

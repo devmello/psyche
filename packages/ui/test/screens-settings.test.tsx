@@ -1019,6 +1019,48 @@ describe("Browser (real-Chrome mode, I13)", () => {
     ).toBeTruthy();
   });
 
+  it("Web Bot Auth: creates and rotates the key, and writes the switch and directory URL", async () => {
+    const { gateway } = setup({ defaultSection: "browser" });
+    expect(await screen.findByText("No key yet")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Create key" }));
+    expect(
+      await screen.findByText("Key created. Publish the directory, then enter its address above."),
+    ).toBeTruthy();
+    expect(callsOf(gateway(), "browser.botAuth.rotate")).toHaveLength(1);
+    const first = (await screen.findByTestId("bot-auth-fingerprint")).textContent;
+    expect(first).toMatch(/^fixture-key-/);
+
+    await userEvent.click(screen.getByRole("switch", { name: "Sign requests for sites that ask" }));
+    await waitFor(() =>
+      expect(settingValue(gateway(), "browser.botAuth")).toEqual({ enabled: true }),
+    );
+    const url = screen.getByLabelText("Key directory URL");
+    await userEvent.type(
+      url,
+      "https://psyche.example/.well-known/http-message-signatures-directory{Enter}",
+    );
+    await waitFor(() =>
+      expect(
+        callsOf(gateway(), "settings.set")
+          .filter((c) => (c.params as { key: string }).key === "browser.botAuth")
+          .map((c) => (c.params as { value: unknown }).value)
+          .at(-1),
+      ).toMatchObject({
+        signatureAgent: "https://psyche.example/.well-known/http-message-signatures-directory",
+      }),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Rotate key" }));
+    expect(
+      await screen.findByText(
+        "A new key is in place and the old one no longer signs. Update the directory you publish.",
+      ),
+    ).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.getByTestId("bot-auth-fingerprint").textContent).not.toBe(first),
+    );
+  });
+
   it("without the desktop app it says where to open the profile", async () => {
     setup({ defaultSection: "browser" });
     expect(
