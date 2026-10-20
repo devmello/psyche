@@ -577,3 +577,130 @@ try:
 except OSError:
     pass
 os._exit(os.waitstatus_to_exitcode(status) if os.WIFEXITED(status) else 128 + os.WTERMSIG(status))`;
+
+/**
+ * Egress shim (feature K4). Runs inside a `network: "proxy"` sandbox, whose network is really
+ * `none`: listens on the container's own `127.0.0.1:$1` (what `HTTP_PROXY` points to) and
+ * multiplexes every accepted connection over this process's stdio to the host-side proxy, so
+ * the container needs no network at all. Frames both ways: type (1 byte), connection id
+ * (4 bytes), length (4 bytes), payload. Types: 1 open (shim → host), 2 data, 3 eof (no more
+ * data from the sender), 4 close, 5 ready (shim → host, payload = the port). `$1` may be 0
+ * (tests): the ready frame names the port actually bound. Exits when the host closes stdin.
+ */
+export const EGRESS_SHIM = String.raw`import os, select, socket, struct, sys
+OPEN, DATA, EOF, CLOSE, READY = 1, 2, 3, 4, 5
+ls = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+ls.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+ls.bind(("127.0.0.1", int(sys.argv[1])))
+ls.listen(128)
+ls.setblocking(False)
+os.set_blocking(0, False)
+os.set_blocking(1, False)
+out = bytearray()
+inbuf = bytearray()
+conns = {}
+next_id = 1
+MAX_OUT = 4 << 20
+
+def frame(t, cid, payload=b""):
+    out.extend(struct.pack(">BII", t, cid, len(payload)))
+    out.extend(payload)
+
+class Conn:
+    def __init__(self, s):
+        self.s = s
+        self.pending = bytearray()
+        self.host_eof = False
+        self.sock_eof = False
+
+def drop(cid, notify):
+    c = conns.pop(cid, None)
+    if c is None:
+        return
+    try:
+        c.s.close()
+    except OSError:
+        pass
+    if notify:
+        frame(CLOSE, cid)
+
+frame(READY, 0, str(ls.getsockname()[1]).encode())
+stdin_open = True
+while True:
+    rl = [ls] + ([0] if stdin_open else [])
+    if len(out) < MAX_OUT:
+        rl += [c.s for c in conns.values() if not c.sock_eof]
+    wl = ([1] if out else []) + [c.s for c in conns.values() if c.pending]
+    r, w, _ = select.select(rl, wl, [])
+    if 1 in w:
+        try:
+            n = os.write(1, out[:65536])
+            del out[:n]
+        except BlockingIOError:
+            pass
+        except OSError:
+            os._exit(0)
+    if ls in r:
+        try:
+            s, _ = ls.accept()
+            s.setblocking(False)
+            cid = next_id
+            next_id += 1
+            conns[cid] = Conn(s)
+            frame(OPEN, cid)
+        except OSError:
+            pass
+    if stdin_open and 0 in r:
+        try:
+            chunk = os.read(0, 65536)
+        except BlockingIOError:
+            chunk = None
+        if chunk == b"":
+            os._exit(0)
+        if chunk:
+            inbuf.extend(chunk)
+            while len(inbuf) >= 9:
+                t, cid, n = struct.unpack(">BII", inbuf[:9])
+                if len(inbuf) < 9 + n:
+                    break
+                p = bytes(inbuf[9:9 + n])
+                del inbuf[:9 + n]
+                c = conns.get(cid)
+                if c is None:
+                    continue
+                if t == DATA:
+                    c.pending.extend(p)
+                elif t == EOF:
+                    c.host_eof = True
+                elif t == CLOSE:
+                    drop(cid, False)
+    for cid, c in list(conns.items()):
+        if c.s in w and c.pending:
+            try:
+                n = c.s.send(c.pending)
+                del c.pending[:n]
+            except BlockingIOError:
+                pass
+            except OSError:
+                drop(cid, True)
+                continue
+        if c.host_eof and not c.pending:
+            try:
+                c.s.shutdown(socket.SHUT_WR)
+            except OSError:
+                pass
+        if c.s in r and not c.sock_eof:
+            try:
+                d = c.s.recv(65536)
+            except BlockingIOError:
+                continue
+            except OSError:
+                drop(cid, True)
+                continue
+            if d:
+                frame(DATA, cid, d)
+            else:
+                c.sock_eof = True
+                frame(EOF, cid)
+        if c.sock_eof and c.host_eof and not c.pending:
+            drop(cid, True)`;

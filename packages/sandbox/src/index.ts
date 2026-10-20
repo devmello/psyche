@@ -11,6 +11,7 @@ export {
   type DevServerStopReason,
   type SandboxDevServer,
 } from "./devservers.ts";
+export * from "./egress/index.ts";
 export {
   type WorkspaceEntry,
   type WorkspaceEntryKind,
@@ -36,6 +37,8 @@ export {
   ContainerSandboxRunner,
   type ContainerSandboxRunnerOptions,
   createSandboxRunner,
+  EGRESS_SHIM_PORT,
   type EgressProxyConfig,
+  type EgressTunnelHandler,
 } from "./runner.ts";
 export type { OpenStdioOptions, SandboxStdio, SandboxStdioReceipt } from "./stdio.ts";
