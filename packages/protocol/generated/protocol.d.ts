@@ -1684,6 +1684,10 @@ export interface DevicesApproveResult {
     device: Device;
 }
 
+export interface DevicesBootstrapAdminResult {
+    device: Device;
+}
+
 export interface DevicesDenyParams {
     pairingRequestId: string;
     reason?:          string;

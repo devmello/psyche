@@ -787,6 +787,14 @@
         "sideEffecting": false
       },
       {
+        "description": "First run without a terminal: grants operator.admin to the calling device when the Gateway has no operator.admin device at all, in one transaction, and audits it as device.bootstrap_admin. Only the desktop shell's own connection may call it (loopback, no Origin, deviceFamily desktop, the per-launch handshake secret); forbidden otherwise, conflict once any admin exists. Side-effecting.",
+        "name": "devices.bootstrapAdmin",
+        "params": "#/$defs/DevicesBootstrapAdminParams",
+        "result": "#/$defs/DevicesBootstrapAdminResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Denies a pending pairing request.",
         "name": "devices.deny",
         "params": "#/$defs/DevicesDenyParams",
@@ -7458,6 +7466,21 @@
       "type": "object"
     },
     "DevicesApproveResult": {
+      "properties": {
+        "device": {
+          "$ref": "#/$defs/Device"
+        }
+      },
+      "required": [
+        "device"
+      ],
+      "type": "object"
+    },
+    "DevicesBootstrapAdminParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "DevicesBootstrapAdminResult": {
       "properties": {
         "device": {
           "$ref": "#/$defs/Device"
