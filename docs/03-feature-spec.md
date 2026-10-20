@@ -90,7 +90,7 @@ Build notes: follow the Claude desktop split (thin Electron shell, downloaded/up
 | E9 | **Incognito threads**: memory-only, no flush, expire after 24 h (OpenClaw) | P1 | Nothing from an incognito thread reaches memory or search |
 | E10 | **Keyboard-first**: ⌘N new side chat, ⌘K palette, ⌘B sidebar, Esc stop, ⌘⇧B browser, ⌘⇧M permission mode, ⌘⇧I model, ⌃` terminal, ⌘\ close pane (Claude) | P0 | Shortcut sheet lists all bindings |
 | E11 | **Transcript view modes**: Normal (tools collapsed), Thinking, Verbose (Claude) | P1 | Mode persists per user |
-| E12 | **Cross-thread awareness** (opt-in): the agent can list, read and message other threads; archiving another thread needs approval (Claude) | P2 | A main-chat request can resume a side-chat task |
+| E12 | **Cross-thread awareness** (opt-in): the agent can list, read and message other threads; archiving another thread needs approval (Claude). With the owner's standing grant (`threads.otherChats`, off by default), each owner turn also draws on short digests of the owner's other chats that match what was asked: they enter the prompt as untrusted context and the reply shows a collapsible "From your other chats" block; only digests cross (reading another chat in full asks on its first read), and every sharing is audited | P2 | A main-chat request can resume a side-chat task; a side chat asking about the main chat's plan gets it from the main chat's digest, with the block and an audit entry |
 
 ---
 
