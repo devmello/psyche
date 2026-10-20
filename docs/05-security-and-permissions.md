@@ -81,6 +81,7 @@ Hostile multi-tenancy (one trusted boundary per Gateway; mutually untrusted user
 | **Channel impersonation** | A3, A4 | `dmPolicy: pairing`; explicit owner identity; chat cannot approve `financial`, credential fills, `exec_host`, policy or pairing; replies to a bot do not bypass group allowlists (§9) | SMS and email sender identity is weak; a compromised phone approves `write`-class actions until revoked |
 | **Supply chain** | A1–A7 | Full-text display, static scan, optional VirusTotal, explicit approval, pinned versions, provenance, signed updates (§11) | ClawHavoc: 341 of 2,857 skills flagged, later counts above 1,000 (openclaw notes, 2l); scanners lag campaigns |
 | **VM shared-folder escape** | A5 | Shares read-only by default, never the home root or `/`, per-folder rw grants at dedicated mount points (§13) | SharedRoot chained a guest kernel bug with a read-write host mount (claude-desktop notes, Q4); any rw share remains a bridge |
+| **Unsigned-build key storage** (a build whose helper cannot hold the Keychain slot) | A1, A6 | Vault key in a 0600 key file under a 0700 `$PSYCHE_HOME/secrets`, chosen only when the bundled helper cannot hold the Keychain slot, and shown in Settings and `psyche doctor` / `security audit`; recovery key confirmed at setup; first admin bootstrapped once, atomically and audited (§4.3.1) | Any process running as the owner can read the key file and open the vault without Touch ID, and can take the first admin before the desktop does. Same reach as the bundled CLI; FileVault and the account boundary are the only protection at rest. A signed, provisioned helper removes the first part. |
 | **Device loss** | A1–A3, A6 | FileVault assumed; device-only keychain accessibility; hashed device tokens; remote revocation from another paired device (§10, §14) | State DB and transcripts rely on FileVault; SQLCipher for `state/` is open |
 
 ---
@@ -265,6 +266,40 @@ An `uncertain` receipt (timeout after dispatch) is never retried automatically; 
 ### 4.3 Unlock flows
 
 **Per session (desktop default):** the first fill prompts Touch ID; the DEK stays in Gateway memory, zeroized on lock, until `vault.autoLockMinutes` (480), screen lock or sleep. **Per fill:** items flagged `requireAuthEachUse` (default for `payment`, `ssh_key`, and `api_key` tagged `live`) prompt every time with `LAContext` reuse duration 0. **Server mode:** unlock at boot from `PSYCHE_VAULT_KEY_FILE` (0600) or an interactive passphrase; fills still need a device-surface approval, the UI says biometric gating is absent, and high-value items should stay in a Mac node's vault (§13). `vault.unlock` is a helper capability the agent cannot call.
+
+### 4.3.1 Key storage on unsigned builds
+
+Decided 2026-10-20 for the packaged desktop's first run from scratch (docs/status/s11.md "Packaging"). An ad-hoc or profile-less build of Psyche Helper has no keychain access group, so the Keychain slot above fails with `errSecMissingEntitlement`. Nothing else may block a no-terminal install.
+
+**Vault slot**
+- **Automatic.** The packaged desktop gives the Gateway a key file only when the bundled helper cannot hold the Keychain slot, i.e. it is not team-signed with an embedded provisioning profile.
+  - The key file is `$PSYCHE_HOME/secrets/vault.key`: 32 random bytes, mode 0600, directory 0700, passed as `PSYCHE_VAULT_KEY_FILE` in the LaunchAgent.
+  - It is the server-mode slot, and it unlocks without a prompt.
+  - With a signed, provisioned helper the Keychain (Touch ID) slot stays the default.
+  - A vault that already exists with another slot is never switched.
+- **Visible.**
+  - Settings → Credentials shows "Vault protected by: a key file on this Mac".
+  - "Move to Keychain" appears there and becomes usable once a signed helper is present; re-wrapping the vault key for that slot is still to be built.
+  - `psyche doctor` names the slot, and `psyche security audit` reports `vault.key_file_only`.
+- **Recovery key.** Onboarding creates the vault silently but shows the recovery key once, with Copy and a required "I saved it" before the step can be left. The key is never logged or written anywhere else.
+- **No passphrase prompt** for now.
+
+**Model provider keys**
+- Keys the owner enters in onboarding or Settings (`models.setKey`) are Gateway-owned vault items (`model-<provider>`), bound to the provider's API origin.
+- The model router reads them per request without per-turn approvals, inside `ResolvedSecret.use`.
+- Agents can never list or fill them: `connector_owned`, and `exec` treats them as missing.
+- They pass through the vault's redactor in logs and captures. Backups carry them only inside the encrypted archive.
+
+**First admin device**
+- The handshake secret never grants `operator.admin` (§10). A fresh install with no admin device used to need `psyched devices grant` in a terminal.
+- The packaged desktop's main process, never its renderer, now calls `devices.bootstrapAdmin` once it pairs.
+- The Gateway grants admin to that connection only if:
+  - it is the desktop shell's own connection: loopback, no Origin, `deviceFamily: desktop`, and the per-launch handshake secret;
+  - **no admin device exists**.
+- The check and the grant are one immediate SQLite transaction, so two callers cannot both win. Once any admin exists the path answers `conflict` and is inert.
+- It reaches no further than a same-user process with the bundled CLI already can.
+- It is audited as `device.bootstrap_admin`. Settings → Devices and onboarding say "This Mac is the admin device", and the usual revoke path applies.
+- `psyche security audit` flags a Gateway with no admin device (`devices.no_admin`) or more than one bootstrap event (`devices.bootstrap_repeated`).
 
 ### 4.4 Item kinds and refusals
 
