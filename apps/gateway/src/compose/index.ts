@@ -388,8 +388,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   };
   const partFactories = [
     composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
-    // Web passkeys (issue #79): unavailable until gateway.publicOrigin is an https origin.
-    composePasskeys({ publicOrigin: config.publicOrigin }),
+    // Web passkeys (issue #79): unavailable until gateway.publicOrigin is an https origin. A
+    // caller-supplied `presence` verifier takes the passkey role instead.
+    ...(presence === NO_PRESENCE ? [composePasskeys({ publicOrigin: config.publicOrigin })] : []),
     ...extraParts,
   ];
   let localProjectSupplied = false;
