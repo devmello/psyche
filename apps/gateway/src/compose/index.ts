@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
   AgentToolRegistry,
@@ -5,7 +6,12 @@ import {
   createAgentLoop,
   type PsycheAgentLoop,
 } from "@psyche/agent-core";
-import { createAuditLog, type HashChainAuditLog } from "@psyche/audit";
+import {
+  createAuditLog,
+  FileAuditStore,
+  type HashChainAuditLog,
+  SoftwareAnchorKey,
+} from "@psyche/audit";
 import { getDevice, getSetting, getThread, openDb, type PsycheDb } from "@psyche/db";
 import { fileTools } from "@psyche/files";
 import {
@@ -29,6 +35,7 @@ import {
   type PolicyConfig,
   type PresenceVerifier,
   PsychePermissionBroker,
+  RESTORE_MARKER,
   RevocationLedger,
   replayRevocations,
   SqlitePermissionStore,
@@ -144,6 +151,9 @@ export interface ComposeOptions
  * verifier handles (passkeys until S01 #79) is refused, so approvals that require
  * authentication cannot be answered with it.
  */
+/** A quiet log still gets an anchor this often (on its next entry). */
+const ANCHOR_INTERVAL_MS = 60 * 60_000;
+
 const NO_PRESENCE: PresenceVerifier = { verify: async () => false };
 
 export interface ComposedGateway {
@@ -240,7 +250,48 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     bus.publish(event, payload, threadId);
   };
 
-  const audit = createAuditLog({ dir: join(config.home, "audit"), clock });
+  // Signed anchors (security §15.1): the server's software key until the helper's Secure Enclave
+  // key can sign; every 1,000 entries and at least hourly, with the head kept in security/.
+  const auditStore = new FileAuditStore(join(config.home, "audit"));
+  const anchorKey = SoftwareAnchorKey.open(
+    config.home,
+    (auditStore.tail()?.seq ?? -1) + 1,
+    () => new Date(clock.now()),
+  );
+  const audit = createAuditLog({
+    store: auditStore,
+    clock,
+    signer: anchorKey,
+    verifier: anchorKey,
+    anchorIntervalMs: ANCHOR_INTERVAL_MS,
+  });
+  // A restored backup's log is shorter than what this key anchored; the restore is audited with
+  // the head it had (replayRevocations below consumes the marker).
+  if (existsSync(join(config.home, RESTORE_MARKER))) {
+    const previous = anchorKey.forgetHead();
+    if (previous !== undefined) {
+      void audit
+        .append({
+          kind: "audit.anchor_head.reset",
+          actor: { type: "system" },
+          data: {
+            reason: "restore",
+            previousHeadSeq: previous.seq,
+            previousHeadHash: previous.hash,
+          },
+        })
+        .catch(() => undefined);
+    }
+  }
+  if (anchorKey.created) {
+    void audit
+      .append({
+        kind: "audit.anchor_key.created",
+        actor: { type: "system" },
+        data: { keyId: anchorKey.keyId, sinceSeq: anchorKey.signingSinceSeq(), kind: "software" },
+      })
+      .catch(() => undefined);
+  }
   // Revocations live outside the backup scope; a restored database cannot bring a revoked device
   // or grant back (S23 design-26). Replay before anything authenticates.
   const nowIso = () => new Date(clock.now()).toISOString();
