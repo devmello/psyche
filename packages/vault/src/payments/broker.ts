@@ -18,10 +18,12 @@ import {
   type Clock,
   type IssuedApproval,
   type JsonObject,
+  type LinkPaymentMethod,
   type PermissionBroker,
   type Receipt,
   ResolvedSecret,
   type Surface,
+  type VaultPayment,
 } from "@psyche/protocol";
 import { canonicalHost, strictCanonicalJSON } from "../binding.ts";
 import { fail } from "../errors.ts";
@@ -280,8 +282,44 @@ export class PaymentBroker {
     }
   }
 
+  readonly #listeners = new Set<(payment: VaultPayment) => void>();
+
+  /** Every change to a spend record, as the protocol's `VaultPayment` (no card data). */
+  onUpdate(listener: (payment: VaultPayment) => void): () => void {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
+  }
+
+  /** Spends, newest first, for Settings → Credentials (`vault.payments.list`). */
+  list(filter: { limit?: number; taskId?: string } = {}): VaultPayment[] {
+    return [...this.#ledger.values()]
+      .filter((r) => filter.taskId === undefined || r.taskId === filter.taskId)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, Math.min(Math.max(filter.limit ?? 50, 1), 200))
+      .map(toVaultPayment);
+  }
+
+  /** The owner's Link payment methods, redacted (`vault.payments.methods`). */
+  async methods(): Promise<LinkPaymentMethod[]> {
+    return (await this.#o.wallet.paymentMethods()).map((m) => ({
+      id: m.id,
+      brand: m.brand,
+      last4: m.last4,
+      nickname: m.nickname,
+      isDefault: m.isDefault,
+    }));
+  }
+
   #save(rec: SpendRecord): void {
     this.#ledger.set(rec.spendRequestId, rec);
+    const payment = toVaultPayment(rec);
+    for (const l of this.#listeners) {
+      try {
+        l(payment);
+      } catch {
+        // A listener's failure never changes the record.
+      }
+    }
     const path = join(this.#records, `${rec.spendRequestId}.json`);
     const fd = openSync(path, "w", 0o600);
     try {
@@ -1020,6 +1058,33 @@ export class PaymentBroker {
     }
     return n;
   }
+}
+
+/** A spend record as the protocol shows it: brand / last4 and merchant refs only. */
+export function toVaultPayment(r: SpendRecord): VaultPayment {
+  return {
+    spendRequestId: r.spendRequestId,
+    merchantName: r.merchantName,
+    merchantHost: r.merchantHost,
+    amount: r.amount,
+    currency: r.currency,
+    status: r.status,
+    payment: {
+      state: r.payment.state,
+      held: r.payment.held,
+      captured: r.payment.captured,
+      refunded: r.payment.refunded,
+    },
+    card: r.card === null ? null : { brand: r.card.brand, last4: r.card.last4 },
+    fundingSource:
+      r.fundingSource === null
+        ? null
+        : { brand: r.fundingSource.brand, last4: r.fundingSource.last4 },
+    refs: { ...r.payment.refs },
+    approvalId: r.approvalId,
+    taskId: r.taskId,
+    createdAt: new Date(r.createdAt).toISOString(),
+  };
 }
 
 /** Overwrite with zeros, flush, unlink. Missing files are fine. */

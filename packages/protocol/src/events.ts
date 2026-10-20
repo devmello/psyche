@@ -20,6 +20,7 @@ import {
   AutomationRun,
   Channel,
   CredentialMeta,
+  VaultPayment,
   VaultStatus,
 } from "./schemas/integrations.ts";
 import { MemoryChangeSource, MemoryJob, PersonaIdentity } from "./schemas/memory.ts";
@@ -203,6 +204,11 @@ export const Events = {
     }),
     description:
       "A vault item was added, edited, deleted, used, rotated or revoked; revocation invalidates connection-bound work.",
+  }),
+  "vault.payment.updated": defineEvent({
+    payload: Type.Object({ payment: VaultPayment }),
+    description:
+      "A Stripe Link payment changed: requested, card issued, held, captured, refunded, declined or released. Never card data.",
   }),
   "question.updated": defineEvent({
     payload: Type.Object({ inputRequest: InputRequest }),
