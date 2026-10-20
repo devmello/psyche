@@ -1,17 +1,19 @@
 import type { Idea, IdeaDismissReason } from "@psyche/protocol";
+import { Lightbulb } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { toast } from "sonner";
-import { useIdeas } from "../../data/hooks.ts";
-import { plural } from "../../lib/format.ts";
-import { usePersona, useSlots } from "../../slots.tsx";
 import {
   EmptyState,
   ErrorState,
   LoadingCards,
-  ScreenHeader,
+  Page,
+  PageHeader,
   useDelayedFlag,
-} from "../feed/states.tsx";
-import { DISMISS_OPTIONS, IdeaCard } from "./IdeaCard.tsx";
+} from "../../components/page.tsx";
+import { useIdeas } from "../../data/hooks.ts";
+import { plural } from "../../lib/format.ts";
+import { usePersona, useSlots } from "../../slots.tsx";
+import { DISMISS_OPTIONS, type IdeaAcceptOptions, IdeaCard } from "./IdeaCard.tsx";
 
 export interface IdeasViewProps {
   ideas: readonly Idea[];
@@ -21,7 +23,7 @@ export interface IdeasViewProps {
   onRetry?: () => void;
   busyIds?: ReadonlySet<string>;
   persona?: string;
-  onAccept?: (idea: Idea, options: { recurring: boolean }) => void;
+  onAccept?: (idea: Idea, options: IdeaAcceptOptions) => void;
   onEdit?: (idea: Idea) => void;
   onDismiss?: (idea: Idea, reason: IdeaDismissReason) => void;
   onViewSkill?: (idea: Idea) => void;
@@ -66,6 +68,7 @@ export function IdeasView({
   } else if (ideas.length === 0) {
     body = (
       <EmptyState
+        icon={Lightbulb}
         {...(onOpenChat ? { action: { label: `Talk to ${persona}`, onClick: onOpenChat } } : {})}
       >
         Ideas come from your goals, conversations and connected accounts.
@@ -73,7 +76,7 @@ export function IdeasView({
     );
   } else {
     body = (
-      <ul aria-label="Ideas" className="flex flex-col gap-3">
+      <ul aria-label="Ideas" className="flex flex-col gap-4">
         {ideas.map((idea) => (
           <li key={idea.id}>
             <IdeaCard
@@ -91,12 +94,17 @@ export function IdeasView({
     );
   }
   return (
-    <section aria-label="Ideas" className="mx-auto flex max-w-[68ch] flex-col gap-4 p-4">
-      <ScreenHeader
-        title="Ideas"
-        meta={!loading && error === null && ideas.length > 0 ? plural(ideas.length, "idea") : null}
-      />
-      {body}
+    <section aria-label="Ideas">
+      <Page width="wide">
+        <PageHeader
+          title="Ideas"
+          meta={
+            !loading && error === null && ideas.length > 0 ? plural(ideas.length, "idea") : null
+          }
+          description="Accepted ideas become tasks or automations; nothing runs until you say so."
+        />
+        {body}
+      </Page>
     </section>
   );
 }
@@ -128,10 +136,14 @@ export function IdeasScreen({ onEdit, onViewSkill }: IdeasScreenProps): ReactEle
     );
   };
 
-  const accept = (idea: Idea, { recurring }: { recurring: boolean }) => {
+  const accept = (idea: Idea, { recurring, schedule }: IdeaAcceptOptions) => {
+    // A recurring Task idea needs a schedule (`ideas.accept`); the hook passes options through.
+    const options: { recurring?: boolean; schedule?: string } = recurring
+      ? { recurring: true, ...(schedule === undefined ? {} : { schedule }) }
+      : {};
     track(
       idea.id,
-      ideas.accept(idea.id, recurring ? { recurring: true } : {}).then(
+      ideas.accept(idea.id, options).then(
         (r) => {
           toast(
             r.automationId !== null
