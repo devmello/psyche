@@ -1,5 +1,6 @@
 import { ChevronRight, MessagesSquare } from "lucide-react";
 import { type ReactElement, useState } from "react";
+import { t } from "../i18n/core.ts";
 import { formatDate } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
 import { useSlots } from "../slots.tsx";
@@ -23,24 +24,25 @@ export function RelatedThreads({ block }: { block: BlockOf<"related_threads"> })
         onClick={() => setOpen((o) => !o)}
       >
         <ChevronRight
-          className={cn("size-3.5 transition-transform duration-120", open && "rotate-90")}
+          className={cn(
+            "size-3.5 transition-transform duration-120",
+            open ? "rotate-90" : "rtl:rotate-180",
+          )}
           aria-hidden="true"
         />
         <MessagesSquare className="size-3.5" aria-hidden="true" />
-        <span>
-          From your other chats ({n} {n === 1 ? "chat" : "chats"})
-        </span>
+        <span>{t("blocks.related.toggle", { count: n })}</span>
       </button>
       {open ? (
-        <ul className="mt-1 ml-1 flex flex-col gap-1 border-l-2 border-untrusted pl-2">
+        <ul className="mt-1 ms-1 flex flex-col gap-1 border-s-2 border-untrusted ps-2">
           {block.items.map((item) => (
             <li key={item.threadId} className="flex flex-col">
               <button
                 type="button"
-                className="self-start text-left text-accent-11 hover:underline"
+                className="self-start text-start text-accent-11 hover:underline"
                 onClick={() => navigate?.(`/chat/${item.threadId}`)}
               >
-                {item.title || "Untitled chat"}
+                {item.title || t("blocks.related.untitled")}
               </button>
               <span className="text-caption text-muted-foreground">
                 {item.lastMessageAt ? `${formatDate(item.lastMessageAt)} · ` : ""}
