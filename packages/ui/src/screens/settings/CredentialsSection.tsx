@@ -4,8 +4,9 @@ import type {
   CredentialMeta,
   CredentialSecretInput,
 } from "@psyche/protocol";
-import { CreditCard, KeyRound, Pencil, Search, Trash2, X } from "lucide-react";
+import { CreditCard, Ellipsis, KeyRound, Pencil, Search, Trash2, X } from "lucide-react";
 import { type FormEvent, Fragment, type ReactElement, useId, useState } from "react";
+import { EmptyState } from "../../components/page.tsx";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -16,6 +17,12 @@ import {
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog.tsx";
 import { Button } from "../../components/ui/button.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
@@ -183,7 +190,7 @@ export function CredentialsPanel({
               { value: "keychain", label: "System keychain" },
               { value: "external", label: "External manager" },
             ]}
-          ></RadioField>
+          />
           <RadioField
             label="Fill default"
             inline
@@ -194,50 +201,25 @@ export function CredentialsPanel({
               { value: "once", label: "Ask every fill" },
               { value: "site", label: "Ask once per site" },
             ]}
-          ></RadioField>
+          />
         </Group>
 
         <Group
           title="Items"
           actions={
-            <div className="flex flex-wrap gap-2">
-              {onAdd ? (
-                <Button type="button" size="sm" onClick={() => setAdding(true)} disabled={adding}>
-                  Add item
-                </Button>
-              ) : null}
-              {onImport ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setImporting(true)}
-                  disabled={importing}
-                >
-                  Import CSV
-                </Button>
-              ) : null}
-              {onConnectManager ? (
-                <>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onConnectManager("1password")}
-                  >
-                    Connect 1Password
+            credentials.length === 0 && !adding ? undefined : (
+              <div className="flex items-center gap-1">
+                {onAdd ? (
+                  <Button type="button" size="sm" onClick={() => setAdding(true)} disabled={adding}>
+                    Add item
                   </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onConnectManager("bitwarden")}
-                  >
-                    Connect Bitwarden
-                  </Button>
-                </>
-              ) : null}
-            </div>
+                ) : null}
+                <MoreWaysToAdd
+                  {...(onImport ? { onImport: () => setImporting(true) } : {})}
+                  {...(onConnectManager ? { onConnectManager } : {})}
+                />
+              </div>
+            )
           }
         >
           {addError ? <ErrorNotice what={addError} did="Nothing was stored." /> : null}
@@ -271,9 +253,34 @@ export function CredentialsPanel({
             </div>
           ) : null}
           {credentials.length === 0 ? (
-            <EmptyNotice text="No credentials stored. When a site needs a login, you can type it yourself or add it here." />
+            adding || importing ? null : (
+              <EmptyState
+                icon={KeyRound}
+                {...(onAdd
+                  ? { action: { label: "Add item", onClick: () => setAdding(true) } }
+                  : {})}
+              >
+                No credentials stored yet. When a site needs a login, type it yourself or add it
+                here.
+                {onImport || onConnectManager ? (
+                  <span className="mt-2 flex justify-center">
+                    <MoreWaysToAdd
+                      {...(onImport ? { onImport: () => setImporting(true) } : {})}
+                      {...(onConnectManager ? { onConnectManager } : {})}
+                    />
+                  </span>
+                ) : null}
+              </EmptyState>
+            )
           ) : shown.length === 0 ? (
-            <EmptyNotice text={`No credentials match "${query.trim()}".`} />
+            <EmptyNotice
+              text={`No credentials match "${query.trim()}".`}
+              action={
+                <Button type="button" variant="ghost" size="sm" onClick={() => setQuery("")}>
+                  Clear search
+                </Button>
+              }
+            />
           ) : (
             <Table aria-label="Stored credentials">
               <TableHeader>
@@ -306,14 +313,11 @@ export function CredentialsPanel({
                         ) : (
                           <span className="font-medium">{c.name}</span>
                         )}
-                        <span className="block font-mono text-xs text-muted-foreground">
-                          {c.slug}
-                        </span>
                       </TableCell>
                       <TableCell>{KIND_LABEL[c.kind]}</TableCell>
-                      <TableCell>{c.bindings.map(bindingLabel).join(", ") || "anywhere"}</TableCell>
+                      <TableCell>{c.bindings.map(bindingLabel).join(", ") || "Any site"}</TableCell>
                       <TableCell>
-                        {c.lastUsedAt ? formatRelative(c.lastUsedAt, clock) : "never"}
+                        {c.lastUsedAt ? formatRelative(c.lastUsedAt, clock) : "Never"}
                       </TableCell>
                       <TableCell className="tabular-nums">{c.useCount}</TableCell>
                       {actions ? (
@@ -392,6 +396,41 @@ export function CredentialsPanel({
   );
 }
 
+/** Import and password-manager connections, under one menu beside the primary Add item. */
+function MoreWaysToAdd({
+  onImport,
+  onConnectManager,
+}: {
+  onImport?: () => void;
+  onConnectManager?: (manager: "1password" | "bitwarden") => void;
+}): ReactElement | null {
+  if (onImport === undefined && onConnectManager === undefined) return null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={<Button type="button" variant="ghost" size="sm" aria-label="More ways to add" />}
+      >
+        <Ellipsis aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {onImport ? (
+          <DropdownMenuItem onClick={onImport}>Import a CSV export</DropdownMenuItem>
+        ) : null}
+        {onConnectManager ? (
+          <>
+            <DropdownMenuItem onClick={() => onConnectManager("1password")}>
+              Connect 1Password
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onConnectManager("bitwarden")}>
+              Connect Bitwarden
+            </DropdownMenuItem>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 /** The secret fields an edit can replace, per kind; blank keeps the stored value. */
 const SECRET_FIELDS: Partial<
   Record<CredentialKind, readonly { key: keyof CredentialSecretInput; label: string }[]>
@@ -460,7 +499,7 @@ function EditCredentialForm({
     <form
       onSubmit={submit}
       aria-label={`Edit ${credential.name}`}
-      className="flex flex-col gap-3 rounded-md border border-gray-6 bg-background p-3"
+      className="flex flex-col gap-4 rounded-lg border border-gray-6 bg-background p-4"
     >
       <p className="text-xs text-muted-foreground">
         Leave a value blank to keep it. Psyche never shows stored values.
@@ -630,12 +669,12 @@ function AddCredentialForm({
     <form
       onSubmit={submit}
       aria-label="Add a credential"
-      className="flex flex-col gap-3 rounded-md border border-gray-6 bg-background p-3"
+      className="flex flex-col gap-4 rounded-lg border border-gray-6 bg-background p-4"
     >
       <p
         className={
           payment
-            ? "flex items-start gap-1.5 rounded-md bg-approval-surface p-2 text-approval-text"
+            ? "flex items-start gap-1.5 rounded-md bg-approval-surface p-2 text-xs text-approval-text"
             : "flex items-start gap-1.5 text-xs text-muted-foreground"
         }
       >

@@ -1,5 +1,6 @@
 import type { CredentialMeta, CredentialUse } from "@psyche/protocol";
 import { type ReactElement, useId, useRef } from "react";
+import { SectionLabel } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import {
   Sheet,
@@ -70,18 +71,18 @@ export function CredentialDetail({
           { term: "Kind", value: KIND_LABEL[c.kind] },
           {
             term: "Bound to",
-            value: c.bindings.map(bindingLabel).join(", ") || "no site; Psyche asks each time",
+            value: c.bindings.map(bindingLabel).join(", ") || "Any site, after you approve",
           },
           { term: "Added", value: formatRelative(c.createdAt, now) },
           { term: "Changed", value: formatRelative(c.updatedAt, now) },
-          { term: "Last used", value: c.lastUsedAt ? formatRelative(c.lastUsedAt, now) : "never" },
+          { term: "Last used", value: c.lastUsedAt ? formatRelative(c.lastUsedAt, now) : "Never" },
           { term: "Uses", value: <span className="tabular-nums">{c.useCount}</span> },
         ]}
       />
       <section aria-labelledby={headingId} className="flex flex-col gap-2">
-        <h3 id={headingId} className="text-sm font-medium">
+        <SectionLabel as="h3" id={headingId}>
           Recent uses
-        </h3>
+        </SectionLabel>
         <p className="text-xs text-muted-foreground">
           The last {USES_SHOWN} fills, newest first. Psyche records where and why, never the value.
         </p>
@@ -115,7 +116,7 @@ export function CredentialDetail({
                     </TableCell>
                     <TableCell className="align-top">
                       {u.taskId === null ? (
-                        <span className="text-muted-foreground">none</span>
+                        <span className="text-muted-foreground">None</span>
                       ) : onOpenTask ? (
                         <Button
                           type="button"
@@ -192,7 +193,7 @@ export function CredentialDetailSheet({
         {c ? (
           <>
             <SheetHeader className="px-6 pt-6 pb-4">
-              <SheetTitle className="text-xl font-semibold">{c.name}</SheetTitle>
+              <SheetTitle className="text-h2">{c.name}</SheetTitle>
               <SheetDescription>
                 {KIND_LABEL[c.kind]} · <span className="font-mono">{c.slug}</span>
               </SheetDescription>

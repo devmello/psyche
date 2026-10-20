@@ -13,6 +13,7 @@ import {
   Presentation,
 } from "lucide-react";
 import { type CSSProperties, type ReactElement, type ReactNode, useState } from "react";
+import { EmptyState } from "../../components/page.tsx";
 import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useGatewayQuery, useLibrary, useSettings } from "../../data/hooks.ts";
@@ -146,7 +147,7 @@ function listError(error: string): string {
     ? "This folder is no longer shared."
     : /does not exist|not_found/i.test(error)
       ? "This folder is gone."
-      : `Couldn't list it (${error}).`;
+      : `Psyche couldn't list this folder (${error}).`;
 }
 
 function FolderChildren({ path, depth, selected, onSelect }: TreeProps & { path: string }) {
@@ -156,14 +157,14 @@ function FolderChildren({ path, depth, selected, onSelect }: TreeProps & { path:
     return (
       <Note depth={depth - 1}>
         {listError(q.error)}{" "}
-        <button type="button" className="underline" onClick={q.reload}>
-          Retry
-        </button>
+        <Button type="button" variant="link" size="xs" className="h-auto p-0" onClick={q.reload}>
+          Try again
+        </Button>
       </Note>
     );
   }
   const entries = q.data?.entries ?? [];
-  if (entries.length === 0) return <Note depth={depth - 1}>Empty folder</Note>;
+  if (entries.length === 0) return <Note depth={depth - 1}>Empty folder.</Note>;
   return (
     <>
       {entries.map((e: FileEntry) =>
@@ -275,7 +276,18 @@ function LibraryNode({ selected, onSelect }: Omit<TreeProps, "depth">): ReactEle
           {lib.loading && lib.items.length === 0 ? (
             <Note depth={0}>Loading…</Note>
           ) : lib.error !== null && lib.items.length === 0 ? (
-            <Note depth={0}>The Library isn't available ({lib.error}).</Note>
+            <Note depth={0}>
+              Psyche couldn't load the Library ({lib.error}).{" "}
+              <Button
+                type="button"
+                variant="link"
+                size="xs"
+                className="h-auto p-0"
+                onClick={lib.reload}
+              >
+                Try again
+              </Button>
+            </Note>
           ) : lib.items.length === 0 ? (
             <Note depth={0}>Nothing saved yet.</Note>
           ) : (
@@ -353,7 +365,7 @@ export function FilesPaneView({
             <div className="flex flex-col items-start gap-2 p-2 text-xs text-muted-foreground">
               <p>No folders are shared with {persona.name}.</p>
               {onShareFolder ? (
-                <Button type="button" size="xs" variant="outline" onClick={onShareFolder}>
+                <Button type="button" size="xs" onClick={onShareFolder}>
                   Share a folder
                 </Button>
               ) : (
@@ -399,9 +411,9 @@ export function FilesPaneView({
               </div>
             </>
           ) : (
-            <p className="m-auto p-6 text-center text-sm text-muted-foreground">
+            <EmptyState icon={FileText} className="m-auto">
               Pick a file to preview it here.
-            </p>
+            </EmptyState>
           )}
         </section>
       </div>
