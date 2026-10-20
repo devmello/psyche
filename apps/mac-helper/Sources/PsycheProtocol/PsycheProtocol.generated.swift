@@ -78,6 +78,21 @@
 //   let browserOpenParams = try? JSONDecoder().decode(BrowserOpenParams.self, from: jsonData)
 //   let browserOpenResult = try? JSONDecoder().decode(BrowserOpenResult.self, from: jsonData)
 //   let browserProfile = try? JSONDecoder().decode(BrowserProfile.self, from: jsonData)
+//   let browserRecording = try? JSONDecoder().decode(BrowserRecording.self, from: jsonData)
+//   let browserRecordingEvent = try? JSONDecoder().decode(BrowserRecordingEvent.self, from: jsonData)
+//   let browserRecordingEventKind = try? JSONDecoder().decode(BrowserRecordingEventKind.self, from: jsonData)
+//   let browserRecordingFrame = try? JSONDecoder().decode(BrowserRecordingFrame.self, from: jsonData)
+//   let browserRecordingFrameMIME = try? JSONDecoder().decode(BrowserRecordingFrameMIME.self, from: jsonData)
+//   let browserRecordingUpdatedPayload = try? JSONDecoder().decode(BrowserRecordingUpdatedPayload.self, from: jsonData)
+//   let browserRecordingsDeleteParams = try? JSONDecoder().decode(BrowserRecordingsDeleteParams.self, from: jsonData)
+//   let browserRecordingsFrameParams = try? JSONDecoder().decode(BrowserRecordingsFrameParams.self, from: jsonData)
+//   let browserRecordingsFrameResult = try? JSONDecoder().decode(BrowserRecordingsFrameResult.self, from: jsonData)
+//   let browserRecordingsGetParams = try? JSONDecoder().decode(BrowserRecordingsGetParams.self, from: jsonData)
+//   let browserRecordingsGetResult = try? JSONDecoder().decode(BrowserRecordingsGetResult.self, from: jsonData)
+//   let browserRecordingsListParams = try? JSONDecoder().decode(BrowserRecordingsListParams.self, from: jsonData)
+//   let browserRecordingsListResult = try? JSONDecoder().decode(BrowserRecordingsListResult.self, from: jsonData)
+//   let browserRecordingsSnapshotParams = try? JSONDecoder().decode(BrowserRecordingsSnapshotParams.self, from: jsonData)
+//   let browserRecordingsSnapshotResult = try? JSONDecoder().decode(BrowserRecordingsSnapshotResult.self, from: jsonData)
 //   let browserSnapshot = try? JSONDecoder().decode(BrowserSnapshot.self, from: jsonData)
 //   let browserSnapshotParams = try? JSONDecoder().decode(BrowserSnapshotParams.self, from: jsonData)
 //   let browserSnapshotResult = try? JSONDecoder().decode(BrowserSnapshotResult.self, from: jsonData)
@@ -240,6 +255,7 @@
 //   let libraryItemKind = try? JSONDecoder().decode(LibraryItemKind.self, from: jsonData)
 //   let libraryListParams = try? JSONDecoder().decode(LibraryListParams.self, from: jsonData)
 //   let libraryListResult = try? JSONDecoder().decode(LibraryListResult.self, from: jsonData)
+//   let memoTaskMode = try? JSONDecoder().decode(MemoTaskMode.self, from: jsonData)
 //   let memoryChangeSource = try? JSONDecoder().decode(MemoryChangeSource.self, from: jsonData)
 //   let memoryChunk = try? JSONDecoder().decode(MemoryChunk.self, from: jsonData)
 //   let memoryClaim = try? JSONDecoder().decode(MemoryClaim.self, from: jsonData)
@@ -415,6 +431,9 @@
 //   let speechReadAloudFailedPayload = try? JSONDecoder().decode(SpeechReadAloudFailedPayload.self, from: jsonData)
 //   let speechReadAloudParams = try? JSONDecoder().decode(SpeechReadAloudParams.self, from: jsonData)
 //   let speechReadAloudResult = try? JSONDecoder().decode(SpeechReadAloudResult.self, from: jsonData)
+//   let speechVoice = try? JSONDecoder().decode(SpeechVoice.self, from: jsonData)
+//   let speechVoicesParams = try? JSONDecoder().decode(SpeechVoicesParams.self, from: jsonData)
+//   let speechVoicesResult = try? JSONDecoder().decode(SpeechVoicesResult.self, from: jsonData)
 //   let taintSource = try? JSONDecoder().decode(TaintSource.self, from: jsonData)
 //   let target = try? JSONDecoder().decode(Target.self, from: jsonData)
 //   let targetKind = try? JSONDecoder().decode(TargetKind.self, from: jsonData)
@@ -450,6 +469,7 @@
 //   let threadsListResult = try? JSONDecoder().decode(ThreadsListResult.self, from: jsonData)
 //   let threadsPinParams = try? JSONDecoder().decode(ThreadsPinParams.self, from: jsonData)
 //   let threadsRenameParams = try? JSONDecoder().decode(ThreadsRenameParams.self, from: jsonData)
+//   let threadsUpdateParams = try? JSONDecoder().decode(ThreadsUpdateParams.self, from: jsonData)
 //   let toolCall = try? JSONDecoder().decode(ToolCall.self, from: jsonData)
 //   let toolCallBlock = try? JSONDecoder().decode(ToolCallBlock.self, from: jsonData)
 //   let toolCallStatus = try? JSONDecoder().decode(ToolCallStatus.self, from: jsonData)
@@ -503,6 +523,9 @@
 //   let voiceCancelParams = try? JSONDecoder().decode(VoiceCancelParams.self, from: jsonData)
 //   let voiceEndReason = try? JSONDecoder().decode(VoiceEndReason.self, from: jsonData)
 //   let voiceEndedPayload = try? JSONDecoder().decode(VoiceEndedPayload.self, from: jsonData)
+//   let voiceMemoContent = try? JSONDecoder().decode(VoiceMemoContent.self, from: jsonData)
+//   let voiceMemoSaveParams = try? JSONDecoder().decode(VoiceMemoSaveParams.self, from: jsonData)
+//   let voiceMemoSaveResult = try? JSONDecoder().decode(VoiceMemoSaveResult.self, from: jsonData)
 //   let voicePushParams = try? JSONDecoder().decode(VoicePushParams.self, from: jsonData)
 //   let voicePushResult = try? JSONDecoder().decode(VoicePushResult.self, from: jsonData)
 //   let voiceSegmentPayload = try? JSONDecoder().decode(VoiceSegmentPayload.self, from: jsonData)
@@ -2316,6 +2339,319 @@ public struct BrowserTab: Codable, Sendable {
 public enum BrowserDriverKind: String, Codable, Sendable {
     case cdp = "cdp"
     case playwright = "playwright"
+}
+
+// MARK: - BrowserRecordingUpdatedPayload
+public struct BrowserRecordingUpdatedPayload: Codable, Sendable {
+    public let recording: BrowserRecording
+
+    public enum CodingKeys: String, CodingKey {
+        case recording = "recording"
+    }
+
+    public init(recording: BrowserRecording) {
+        self.recording = recording
+    }
+}
+
+// MARK: - BrowserRecording
+public struct BrowserRecording: Codable, Sendable {
+    public let bytes: Int
+    public let endedAt: String?
+    public let eventCount: Int
+    public let frameCount: Int
+    /// Recording id: the task id, or thread:<id> for chat turns
+    public let id: String
+    public let libraryItemID: String?
+    public let startedAt: String
+    public let taskID: String?
+    public let threadID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case endedAt = "endedAt"
+        case eventCount = "eventCount"
+        case frameCount = "frameCount"
+        case id = "id"
+        case libraryItemID = "libraryItemId"
+        case startedAt = "startedAt"
+        case taskID = "taskId"
+        case threadID = "threadId"
+    }
+
+    public init(bytes: Int, endedAt: String?, eventCount: Int, frameCount: Int, id: String, libraryItemID: String?, startedAt: String, taskID: String?, threadID: String?) {
+        self.bytes = bytes
+        self.endedAt = endedAt
+        self.eventCount = eventCount
+        self.frameCount = frameCount
+        self.id = id
+        self.libraryItemID = libraryItemID
+        self.startedAt = startedAt
+        self.taskID = taskID
+        self.threadID = threadID
+    }
+}
+
+// MARK: - BrowserRecordingsDeleteParams
+public struct BrowserRecordingsDeleteParams: Codable, Sendable {
+    /// Recording id: the task id, or thread:<id> for chat turns
+    public let recordingID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case recordingID = "recordingId"
+    }
+
+    public init(recordingID: String) {
+        self.recordingID = recordingID
+    }
+}
+
+// MARK: - BrowserRecordingsFrameParams
+public struct BrowserRecordingsFrameParams: Codable, Sendable {
+    /// Recording id: the task id, or thread:<id> for chat turns
+    public let recordingID: String
+    public let seq: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case recordingID = "recordingId"
+        case seq = "seq"
+    }
+
+    public init(recordingID: String, seq: Int) {
+        self.recordingID = recordingID
+        self.seq = seq
+    }
+}
+
+// MARK: - BrowserRecordingsFrameResult
+public struct BrowserRecordingsFrameResult: Codable, Sendable {
+    /// Base64 image bytes
+    public let data: String
+    public let frame: BrowserRecordingFrame
+    public let mime: BrowserRecordingFrameMIME
+
+    public enum CodingKeys: String, CodingKey {
+        case data = "data"
+        case frame = "frame"
+        case mime = "mime"
+    }
+
+    public init(data: String, frame: BrowserRecordingFrame, mime: BrowserRecordingFrameMIME) {
+        self.data = data
+        self.frame = frame
+        self.mime = mime
+    }
+}
+
+// MARK: - BrowserRecordingFrame
+public struct BrowserRecordingFrame: Codable, Sendable {
+    public let at: String
+    public let seq: Int
+    public let tabID: String
+    /// Origin and path only
+    public let url: String
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case seq = "seq"
+        case tabID = "tabId"
+        case url = "url"
+    }
+
+    public init(at: String, seq: Int, tabID: String, url: String) {
+        self.at = at
+        self.seq = seq
+        self.tabID = tabID
+        self.url = url
+    }
+}
+
+public enum BrowserRecordingFrameMIME: String, Codable, Sendable {
+    case imageJPEG = "image/jpeg"
+    case imagePNG = "image/png"
+}
+
+// MARK: - BrowserRecordingsGetParams
+public struct BrowserRecordingsGetParams: Codable, Sendable {
+    public let limit: Int?
+    /// Recording id: the task id, or thread:<id> for chat turns
+    public let recordingID: String
+    public let sinceSeq: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case limit = "limit"
+        case recordingID = "recordingId"
+        case sinceSeq = "sinceSeq"
+    }
+
+    public init(limit: Int?, recordingID: String, sinceSeq: Int?) {
+        self.limit = limit
+        self.recordingID = recordingID
+        self.sinceSeq = sinceSeq
+    }
+}
+
+// MARK: - BrowserRecordingsGetResult
+public struct BrowserRecordingsGetResult: Codable, Sendable {
+    public let events: [BrowserRecordingEvent]
+    public let frames: [BrowserRecordingFrame]
+    public let recording: BrowserRecording
+
+    public enum CodingKeys: String, CodingKey {
+        case events = "events"
+        case frames = "frames"
+        case recording = "recording"
+    }
+
+    public init(events: [BrowserRecordingEvent], frames: [BrowserRecordingFrame], recording: BrowserRecording) {
+        self.events = events
+        self.frames = frames
+        self.recording = recording
+    }
+}
+
+// MARK: - BrowserRecordingEvent
+public struct BrowserRecordingEvent: Codable, Sendable {
+    public let action: String?
+    public let at: String
+    public let detail: [String: JSONAny]?
+    public let element: Element?
+    public let frameSeq: Int?
+    public let kind: BrowserRecordingEventKind
+    public let ref: String?
+    public let seq: Int
+    public let snapshotSeq: Int?
+    public let summary: String
+    public let tabID: String
+    public let url: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case at = "at"
+        case detail = "detail"
+        case element = "element"
+        case frameSeq = "frameSeq"
+        case kind = "kind"
+        case ref = "ref"
+        case seq = "seq"
+        case snapshotSeq = "snapshotSeq"
+        case summary = "summary"
+        case tabID = "tabId"
+        case url = "url"
+    }
+
+    public init(action: String?, at: String, detail: [String: JSONAny]?, element: Element?, frameSeq: Int?, kind: BrowserRecordingEventKind, ref: String?, seq: Int, snapshotSeq: Int?, summary: String, tabID: String, url: String?) {
+        self.action = action
+        self.at = at
+        self.detail = detail
+        self.element = element
+        self.frameSeq = frameSeq
+        self.kind = kind
+        self.ref = ref
+        self.seq = seq
+        self.snapshotSeq = snapshotSeq
+        self.summary = summary
+        self.tabID = tabID
+        self.url = url
+    }
+}
+
+// MARK: - Element
+public struct Element: Codable, Sendable {
+    public let name: String
+    public let role: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case role = "role"
+    }
+
+    public init(name: String, role: String) {
+        self.name = name
+        self.role = role
+    }
+}
+
+public enum BrowserRecordingEventKind: String, Codable, Sendable {
+    case action = "action"
+    case blocked = "blocked"
+    case control = "control"
+    case dialog = "dialog"
+    case download = "download"
+    case fill = "fill"
+    case navigation = "navigation"
+    case snapshot = "snapshot"
+    case tab = "tab"
+}
+
+// MARK: - BrowserRecordingsListParams
+public struct BrowserRecordingsListParams: Codable, Sendable {
+    /// Opaque cursor
+    public let cursor: String?
+    public let limit: Int?
+    public let taskID: String?
+    public let threadID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case cursor = "cursor"
+        case limit = "limit"
+        case taskID = "taskId"
+        case threadID = "threadId"
+    }
+
+    public init(cursor: String?, limit: Int?, taskID: String?, threadID: String?) {
+        self.cursor = cursor
+        self.limit = limit
+        self.taskID = taskID
+        self.threadID = threadID
+    }
+}
+
+// MARK: - BrowserRecordingsListResult
+public struct BrowserRecordingsListResult: Codable, Sendable {
+    public let nextCursor: String?
+    public let recordings: [BrowserRecording]
+
+    public enum CodingKeys: String, CodingKey {
+        case nextCursor = "nextCursor"
+        case recordings = "recordings"
+    }
+
+    public init(nextCursor: String?, recordings: [BrowserRecording]) {
+        self.nextCursor = nextCursor
+        self.recordings = recordings
+    }
+}
+
+// MARK: - BrowserRecordingsSnapshotParams
+public struct BrowserRecordingsSnapshotParams: Codable, Sendable {
+    /// Recording id: the task id, or thread:<id> for chat turns
+    public let recordingID: String
+    public let seq: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case recordingID = "recordingId"
+        case seq = "seq"
+    }
+
+    public init(recordingID: String, seq: Int) {
+        self.recordingID = recordingID
+        self.seq = seq
+    }
+}
+
+// MARK: - BrowserRecordingsSnapshotResult
+public struct BrowserRecordingsSnapshotResult: Codable, Sendable {
+    /// The snapshot text the model saw (untrusted page content)
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case text = "text"
+    }
+
+    public init(text: String) {
+        self.text = text
+    }
 }
 
 // MARK: - BrowserSnapshotParams
@@ -8580,6 +8916,88 @@ public struct SpeechReadAloudResult: Codable, Sendable {
     }
 }
 
+// MARK: - SpeechVoicesParams
+public struct SpeechVoicesParams: Codable, Sendable {
+    /// The persona's current <engine>:<voice>
+    public let personaVoice: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case personaVoice = "personaVoice"
+    }
+
+    public init(personaVoice: String?) {
+        self.personaVoice = personaVoice
+    }
+}
+
+// MARK: - SpeechVoicesResult
+public struct SpeechVoicesResult: Codable, Sendable {
+    public let speechVoicesResultDefault: String?
+    /// Synthesis engines in order that could not list voices now
+    public let unavailable: [String]
+    public let voices: [SpeechVoice]
+
+    public enum CodingKeys: String, CodingKey {
+        case speechVoicesResultDefault = "default"
+        case unavailable = "unavailable"
+        case voices = "voices"
+    }
+
+    public init(speechVoicesResultDefault: String?, unavailable: [String], voices: [SpeechVoice]) {
+        self.speechVoicesResultDefault = speechVoicesResultDefault
+        self.unavailable = unavailable
+        self.voices = voices
+    }
+}
+
+// MARK: - SpeechVoice
+public struct SpeechVoice: Codable, Sendable {
+    /// The voice the settings or the persona select now
+    public let speechVoiceDefault: Bool
+    public let engine: String
+    public let id: String
+    /// BCP 47, or * for any
+    public let language: String
+    public let local: Bool
+    public let location: SpeechEngineLocation
+    public let name: String
+    /// Apple Personal Voice: non-commercial use only
+    public let nonCommercial: Bool?
+    /// <engine>:<voice>, the form IDENTITY.md voice: takes
+    public let ref: String
+
+    public enum CodingKeys: String, CodingKey {
+        case speechVoiceDefault = "default"
+        case engine = "engine"
+        case id = "id"
+        case language = "language"
+        case local = "local"
+        case location = "location"
+        case name = "name"
+        case nonCommercial = "nonCommercial"
+        case ref = "ref"
+    }
+
+    public init(speechVoiceDefault: Bool, engine: String, id: String, language: String, local: Bool, location: SpeechEngineLocation, name: String, nonCommercial: Bool?, ref: String) {
+        self.speechVoiceDefault = speechVoiceDefault
+        self.engine = engine
+        self.id = id
+        self.language = language
+        self.local = local
+        self.location = location
+        self.name = name
+        self.nonCommercial = nonCommercial
+        self.ref = ref
+    }
+}
+
+public enum SpeechEngineLocation: String, Codable, Sendable {
+    case client = "client"
+    case cloud = "cloud"
+    case gateway = "gateway"
+    case node = "node"
+}
+
 // MARK: - TaskActionPayload
 public struct TaskActionPayload: Codable, Sendable {
     public let action: TaskAction
@@ -9331,6 +9749,25 @@ public struct ThreadsRenameParams: Codable, Sendable {
     public init(threadID: String, title: String) {
         self.threadID = threadID
         self.title = title
+    }
+}
+
+// MARK: - ThreadsUpdateParams
+public struct ThreadsUpdateParams: Codable, Sendable {
+    public let modelRef: String?
+    public let permissionMode: PermissionMode?
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case modelRef = "modelRef"
+        case permissionMode = "permissionMode"
+        case threadID = "threadId"
+    }
+
+    public init(modelRef: String?, permissionMode: PermissionMode?, threadID: String) {
+        self.modelRef = modelRef
+        self.permissionMode = permissionMode
+        self.threadID = threadID
     }
 }
 
@@ -10256,6 +10693,130 @@ public enum VoiceEndReason: String, Codable, Sendable {
     case timeout = "timeout"
 }
 
+// MARK: - VoiceMemoSaveParams
+public struct VoiceMemoSaveParams: Codable, Sendable {
+    public let sessionID: String
+    public let task: MemoTaskMode?
+    public let threadID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case sessionID = "sessionId"
+        case task = "task"
+        case threadID = "threadId"
+    }
+
+    public init(sessionID: String, task: MemoTaskMode?, threadID: String?) {
+        self.sessionID = sessionID
+        self.task = task
+        self.threadID = threadID
+    }
+}
+
+public enum MemoTaskMode: String, Codable, Sendable {
+    case always = "always"
+    case auto = "auto"
+    case never = "never"
+}
+
+// MARK: - VoiceMemoSaveResult
+public struct VoiceMemoSaveResult: Codable, Sendable {
+    /// Quoted transcript, file and task blocks for the message that carries the memo
+    public let blocks: [Block]
+    public let content: VoiceMemoContent
+    public let durationMS: Int
+    public let item: LibraryItem
+    public let provenance: Provenance
+    public let task: Task?
+    public let transcript: Transcript
+
+    public enum CodingKeys: String, CodingKey {
+        case blocks = "blocks"
+        case content = "content"
+        case durationMS = "durationMs"
+        case item = "item"
+        case provenance = "provenance"
+        case task = "task"
+        case transcript = "transcript"
+    }
+
+    public init(blocks: [Block], content: VoiceMemoContent, durationMS: Int, item: LibraryItem, provenance: Provenance, task: Task?, transcript: Transcript) {
+        self.blocks = blocks
+        self.content = content
+        self.durationMS = durationMS
+        self.item = item
+        self.provenance = provenance
+        self.task = task
+        self.transcript = transcript
+    }
+}
+
+// MARK: - VoiceMemoContent
+public struct VoiceMemoContent: Codable, Sendable {
+    /// Which patterns matched (override, secrecy, …)
+    public let flags: [String]
+    /// The memo reads like instructions to the agent; shown as a note, not obeyed
+    public let instructionLike: Bool
+    /// URL-like strings in the memo; never fetched
+    public let urls: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case flags = "flags"
+        case instructionLike = "instructionLike"
+        case urls = "urls"
+    }
+
+    public init(flags: [String], instructionLike: Bool, urls: [String]) {
+        self.flags = flags
+        self.instructionLike = instructionLike
+        self.urls = urls
+    }
+}
+
+// MARK: - Transcript
+public struct Transcript: Codable, Sendable {
+    public let language: String?
+    public let segments: [TranscriptSegment]
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case language = "language"
+        case segments = "segments"
+        case text = "text"
+    }
+
+    public init(language: String?, segments: [TranscriptSegment], text: String) {
+        self.language = language
+        self.segments = segments
+        self.text = text
+    }
+}
+
+// MARK: - TranscriptSegment
+public struct TranscriptSegment: Codable, Sendable {
+    public let confidence: Double?
+    public let endMS: Int
+    /// false = volatile partial a later segment replaces
+    public let transcriptSegmentFinal: Bool
+    public let startMS: Int
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case confidence = "confidence"
+        case endMS = "endMs"
+        case transcriptSegmentFinal = "final"
+        case startMS = "startMs"
+        case text = "text"
+    }
+
+    public init(confidence: Double?, endMS: Int, transcriptSegmentFinal: Bool, startMS: Int, text: String) {
+        self.confidence = confidence
+        self.endMS = endMS
+        self.transcriptSegmentFinal = transcriptSegmentFinal
+        self.startMS = startMS
+        self.text = text
+    }
+}
+
 // MARK: - VoicePushParams
 public struct VoicePushParams: Codable, Sendable {
     /// Base64 PCM in the session format
@@ -10293,37 +10854,13 @@ public struct VoiceSegmentPayload: Codable, Sendable {
     }
 }
 
-// MARK: - TranscriptSegment
-public struct TranscriptSegment: Codable, Sendable {
-    public let confidence: Double?
-    public let endMS: Int
-    /// false = volatile partial a later segment replaces
-    public let transcriptSegmentFinal: Bool
-    public let startMS: Int
-    public let text: String
-
-    public enum CodingKeys: String, CodingKey {
-        case confidence = "confidence"
-        case endMS = "endMs"
-        case transcriptSegmentFinal = "final"
-        case startMS = "startMs"
-        case text = "text"
-    }
-
-    public init(confidence: Double?, endMS: Int, transcriptSegmentFinal: Bool, startMS: Int, text: String) {
-        self.confidence = confidence
-        self.endMS = endMS
-        self.transcriptSegmentFinal = transcriptSegmentFinal
-        self.startMS = startMS
-        self.text = text
-    }
-}
-
 // MARK: - VoiceStartParams
 public struct VoiceStartParams: Codable, Sendable {
     public let format: AudioFormat
     /// BCP 47
     public let language: String?
+    /// Keep the audio so voice.memo.save can file the session as a voice memo
+    public let memo: Bool?
     public let threadID: String?
     /// Extra terms; merged with the agent name, contacts and recent topics
     public let vocabulary: [String]?
@@ -10331,13 +10868,15 @@ public struct VoiceStartParams: Codable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case format = "format"
         case language = "language"
+        case memo = "memo"
         case threadID = "threadId"
         case vocabulary = "vocabulary"
     }
 
-    public init(format: AudioFormat, language: String?, threadID: String?, vocabulary: [String]?) {
+    public init(format: AudioFormat, language: String?, memo: Bool?, threadID: String?, vocabulary: [String]?) {
         self.format = format
         self.language = language
+        self.memo = memo
         self.threadID = threadID
         self.vocabulary = vocabulary
     }
@@ -10360,13 +10899,6 @@ public struct VoiceStartResult: Codable, Sendable {
         self.location = location
         self.sessionID = sessionID
     }
-}
-
-public enum SpeechEngineLocation: String, Codable, Sendable {
-    case client = "client"
-    case cloud = "cloud"
-    case gateway = "gateway"
-    case node = "node"
 }
 
 // MARK: - VoiceStopParams
@@ -10392,25 +10924,6 @@ public struct VoiceStopResult: Codable, Sendable {
 
     public init(transcript: Transcript) {
         self.transcript = transcript
-    }
-}
-
-// MARK: - Transcript
-public struct Transcript: Codable, Sendable {
-    public let language: String?
-    public let segments: [TranscriptSegment]
-    public let text: String
-
-    public enum CodingKeys: String, CodingKey {
-        case language = "language"
-        case segments = "segments"
-        case text = "text"
-    }
-
-    public init(language: String?, segments: [TranscriptSegment], text: String) {
-        self.language = language
-        self.segments = segments
-        self.text = text
     }
 }
 

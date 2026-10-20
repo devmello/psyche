@@ -1,12 +1,14 @@
+import { renderForSurface, TOO_LONG_TEXT } from "@psyche/permissions/cards";
 import type { ApprovalKind, ApprovalRequest } from "@psyche/protocol";
-import { sanitizeValue } from "./sanitize.ts";
 
 /**
- * Chat approval cards (architecture §4.6, security §3.7 and §9, review design-12). A card is a
- * fixed plain-text template: the security-relevant lines (action class, target) come first,
- * every attacker-reachable string is a sanitized value slot, nothing goes through a parse mode,
- * and a card that does not fit the surface is replaced by a pointer to a paired device instead
- * of being truncated.
+ * Chat approval cards (architecture §4.6, security §3.7 and §9, review design-12). The text is
+ * `renderForSurface` from `@psyche/permissions`, the one renderer every surface (desktop kit,
+ * notifications, chat) uses, so what a chat may show cannot drift from what the Broker decided:
+ * a fixed plain-text template with the security-relevant lines first, every attacker-reachable
+ * string in a sanitized value slot, no parse mode, a pointer to the Mac instead of a truncated
+ * card, and for `deviceOnly` approvals the header and "Answer this on your Mac." only. This
+ * module adds the chat-specific trailer (relative expiry, `/approve` ref and fallback).
  */
 
 const KIND_LABELS: Record<ApprovalKind, string> = {
@@ -31,6 +33,7 @@ const KIND_LABELS: Record<ApprovalKind, string> = {
   policy_change: "Change a permission policy",
 };
 
+/** Short label for answer confirmations ("Approved: Send an email."). */
 export function kindLabel(kind: ApprovalKind): string {
   return KIND_LABELS[kind] ?? kind;
 }
@@ -66,20 +69,20 @@ export function chatEligibility(
   return { ok: true };
 }
 
-function detailValue(value: unknown): string {
-  return sanitizeValue(typeof value === "string" ? value : JSON.stringify(value));
-}
-
 export interface ApprovalCard {
   text: string;
-  /** False when the card did not fit and was replaced by a "review on your device" note. */
+  /** False when the chat may not answer: the card did not fit, or the approval is device-only. */
   answerable: boolean;
+  reason?: "device_only" | "too_long";
 }
 
 export interface ApprovalCardOptions {
+  /** The Broker surface this card is for (`<channel>:<peerId>`); picks the template and limit. */
+  surface: string;
   /** Short reference used by `/approve <ref> approve|deny`. */
   ref: string;
   now: number;
+  /** The transport's own message limit, when tighter than the surface's. */
   maxChars?: number;
   /** Add the `/approve` fallback lines (channels without buttons). */
   commandFallback?: boolean;
@@ -89,31 +92,31 @@ export function renderApprovalCard(
   approval: ApprovalRequest,
   options: ApprovalCardOptions,
 ): ApprovalCard {
-  const lines: string[] = [];
-  const effect = approval.sideEffect ?? "write";
-  lines.push(`Approval needed: ${kindLabel(approval.kind)} [${effect}]`);
-  if (approval.target !== undefined) {
-    lines.push(`Target (${approval.target.kind}): ${sanitizeValue(approval.target.value)}`);
-  }
-  lines.push(`Request: ${sanitizeValue(approval.summary)}`);
-  for (const [key, value] of Object.entries(approval.details)) {
-    if (value === undefined) continue;
-    lines.push(`- ${sanitizeValue(key)}: ${detailValue(value)}`);
-  }
-  if (approval.taint) lines.push("Note: this run read untrusted content.");
+  const rendered = renderForSurface(options.surface, approval);
+  const header = rendered.text.split("\n")[0] ?? "";
+  if (rendered.deviceOnly) return { text: rendered.text, answerable: false, reason: "device_only" };
+  const tooLong = (): ApprovalCard => ({
+    text: `${header}\n${TOO_LONG_TEXT} (ref ${options.ref})`,
+    answerable: false,
+    reason: "too_long",
+  });
+  if (rendered.truncated) return tooLong();
   const minutes = Math.max(0, Math.round((Date.parse(approval.expiresAt) - options.now) / 60_000));
-  lines.push(`Expires in ${minutes} min · ref ${options.ref}`);
+  const lines = [rendered.text, `Expires in ${minutes} min · ref ${options.ref}`];
   if (options.commandFallback === true) {
     lines.push(`Reply "/approve ${options.ref} approve" or "/approve ${options.ref} deny".`);
   }
   const text = lines.join("\n");
-  if (options.maxChars !== undefined && text.length > options.maxChars) {
-    return {
-      text: `Approval needed: ${kindLabel(approval.kind)} [${effect}]. It is too long to show here; review it in Psyche on a paired device (ref ${options.ref}).`,
-      answerable: false,
-    };
-  }
+  if (options.maxChars !== undefined && text.length > options.maxChars) return tooLong();
   return { text, answerable: true };
+}
+
+/**
+ * The message a chat gets for an approval it may not answer (device-only kinds, financial, or
+ * `destructive` without opt-in): the header and "Answer this on your Mac.", never the arguments.
+ */
+export function renderDevicePointer(surface: string, approval: ApprovalRequest): string {
+  return renderForSurface(surface, { ...approval, deviceOnly: true }).text;
 }
 
 /** Short, stable reference for `/approve <ref>`: the last 8 characters of the id, lowercased. */

@@ -27,9 +27,22 @@ export interface LibraryImport {
   mismatch: boolean;
 }
 
+export interface RecordingImport {
+  /** The recording id (task id or `thread:<id>`). */
+  id: string;
+  /** Absolute directory holding frames, snapshots and `index.json`. */
+  dir: string;
+  taskId: string | null;
+  threadId: string | null;
+  frameCount: number;
+  eventCount: number;
+}
+
 export interface LibraryWriter {
   /** Move a quarantined download into the Library as `kind: download`, still quarantined. */
   importDownload(file: QuarantinedFile, sniffed: SniffResult): Promise<LibraryImport>;
+  /** Register a finished recording as `kind: recording` (feature I10); files stay in place. */
+  importRecording?(recording: RecordingImport): Promise<{ libraryItemId: string }>;
 }
 
 /** Strip path separators, control characters and leading dots from a server-chosen name. */
@@ -76,6 +89,8 @@ export async function headAndHash(
  */
 export class FsQuarantineWriter implements LibraryWriter {
   readonly items = new Map<string, LibraryImport & QuarantinedFile & { storedPath: string }>();
+  /** Recordings by recording id → Library item id (in memory until the Library owner ships). */
+  readonly recordings = new Map<string, RecordingImport & { libraryItemId: string }>();
   #dir: string;
 
   constructor(libraryDir: string) {
@@ -105,5 +120,12 @@ export class FsQuarantineWriter implements LibraryWriter {
     };
     this.items.set(id, { ...item, ...file, storedPath });
     return item;
+  }
+
+  async importRecording(recording: RecordingImport): Promise<{ libraryItemId: string }> {
+    const existing = this.recordings.get(recording.id);
+    const libraryItemId = existing?.libraryItemId ?? randomUUID();
+    this.recordings.set(recording.id, { ...recording, libraryItemId });
+    return { libraryItemId };
   }
 }

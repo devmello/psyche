@@ -1,5 +1,6 @@
 import { PsycheError, type ToolCallDescription } from "@psyche/protocol";
 import { canonicalJSON, sha256 } from "../framework/binding.ts";
+import { asObject, reqString, strArray } from "../framework/params.ts";
 import type {
   CatalogueEntry,
   ConnectInput,
@@ -14,6 +15,7 @@ import type {
   SyncResult,
   ToolOutput,
 } from "../framework/types.ts";
+import { actionBinding, mailParams, mailSchema, sendBinding, toMail } from "../mail/binding.ts";
 import { GoogleApi } from "./api.ts";
 import {
   type GmailScopeChoice,
@@ -25,7 +27,8 @@ import {
 import { Calendar, type EventInput } from "./calendar.ts";
 import { Drive } from "./drive.ts";
 import { Gmail } from "./gmail.ts";
-import { canonicalAddress, type OutgoingMail } from "./mime.ts";
+
+export { actionBinding, sendBinding } from "../mail/binding.ts";
 
 /** Matrix rows (M11). `send` / calendar writes ask by default; deletes can never be `allow`. */
 export const GOOGLE_ACTIONS: ConnectorAction[] = [
@@ -138,109 +141,6 @@ const eventSchema = obj(
   },
   [],
 );
-const mailSchema = obj(
-  {
-    to: strs,
-    cc: strs,
-    bcc: strs,
-    subject: str,
-    body: str,
-    threadId: str,
-    inReplyTo: str,
-    references: strs,
-  },
-  ["to", "subject", "body"],
-);
-
-interface MailParams {
-  to: string[];
-  cc?: string[];
-  bcc?: string[];
-  subject: string;
-  body: string;
-  threadId?: string;
-  inReplyTo?: string;
-  references?: string[];
-}
-
-function asObject(params: unknown): Record<string, unknown> {
-  if (typeof params !== "object" || params === null || Array.isArray(params)) {
-    throw new PsycheError("invalid_params", "parameters must be an object");
-  }
-  return params as Record<string, unknown>;
-}
-
-function strArray(v: unknown, name: string): string[] {
-  if (v === undefined) return [];
-  if (!Array.isArray(v) || !v.every((x) => typeof x === "string")) {
-    throw new PsycheError("invalid_params", `${name} must be a list of strings`);
-  }
-  return v as string[];
-}
-
-function reqString(v: unknown, name: string): string {
-  if (typeof v !== "string" || v === "")
-    throw new PsycheError("invalid_params", `${name} is required`);
-  return v;
-}
-
-function mailParams(params: unknown): MailParams {
-  const p = asObject(params);
-  const out: MailParams = {
-    to: strArray(p.to, "to"),
-    cc: strArray(p.cc, "cc"),
-    bcc: strArray(p.bcc, "bcc"),
-    subject: typeof p.subject === "string" ? p.subject : "",
-    body: typeof p.body === "string" ? p.body : "",
-  };
-  if (typeof p.threadId === "string") out.threadId = p.threadId;
-  if (typeof p.inReplyTo === "string") out.inReplyTo = p.inReplyTo;
-  if (p.references !== undefined) out.references = strArray(p.references, "references");
-  return out;
-}
-
-function toMail(m: MailParams): OutgoingMail {
-  const mail: OutgoingMail = {
-    to: m.to,
-    cc: m.cc ?? [],
-    bcc: m.bcc ?? [],
-    subject: m.subject,
-    text: m.body,
-  };
-  if (m.inReplyTo !== undefined) mail.inReplyTo = m.inReplyTo;
-  if (m.references !== undefined) mail.references = m.references;
-  return mail;
-}
-
-const sortedLower = (xs: string[] | undefined) => [...(xs ?? [])].map(canonicalAddress).sort();
-
-/** Security §3.5 `email.send`: account, recipients (lowercased, sorted), subject, body hash, attachment hashes. */
-export function sendBinding(account: string, params: unknown): ToolCallDescription {
-  const m = mailParams(params);
-  const to = sortedLower(m.to);
-  const cc = sortedLower(m.cc);
-  const bcc = sortedLower(m.bcc);
-  const recipients = [...new Set([...to, ...cc, ...bcc])].sort();
-  return {
-    kind: "send_email",
-    target: { kind: "recipient", value: recipients.join(","), display: recipients.join(", ") },
-    bindingFields: {
-      account,
-      to,
-      cc,
-      bcc,
-      subject: m.subject,
-      bodyHash: sha256(m.body),
-      attachmentHashes: [],
-      threadId: m.threadId ?? null,
-      inReplyTo: m.inReplyTo ?? null,
-      references: m.references ?? [],
-    },
-    grantKey: `send_email:${account}:${recipients.join(",")}`,
-    summary: `Sent "${m.subject.slice(0, 60)}" to ${recipients.join(", ").slice(0, 120)}`,
-  };
-}
-
 /**
  * Security §3.5 `calendar.*`: account, operation, event payload hash; grant key account +
  * calendar + operation. An event that invites people (attendees, or `sendUpdates: "all"`) also
@@ -294,20 +194,6 @@ export function calendarBinding(
       ? `calendar_write:${account}:${calendarId}:${operation}:invite:${attendees.join(",")}`
       : `calendar_write:${account}:${calendarId}:${operation}`,
     summary: `${verb} an event on ${calendarId}${attendees.length > 0 ? ` with ${attendees.join(", ")}` : ""}`,
-  };
-}
-
-/** Other writes (labels, drafts, uploads): connector id, tool, params hash. */
-export function actionBinding(
-  connectorId: string,
-  tool: string,
-  params: unknown,
-): ToolCallDescription {
-  return {
-    kind: "connector_action",
-    target: { kind: "account", value: connectorId },
-    bindingFields: { connectorId, tool, paramsHash: sha256(canonicalJSON(params ?? {})) },
-    grantKey: `connector_action:${connectorId}:${tool}`,
   };
 }
 

@@ -18,6 +18,30 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S11 M2: threads.update, per-thread model context)
+
+For S11 (composer `/model` and `/plan`, the mode and model pills), the composition root (handler), S02 (`agent-core` passes the thread to the model), S03 (the router's per-thread pin).
+
+- New `threads.update` (`threadId`, optional `permissionMode`, optional `modelRef` or `null`; `operator.write`) → `ThreadResult`. `auto` is refused with `forbidden` unless the thread's model is on the auto-mode allowlist (security §7.2, architecture §4.4); picking a model that is not allowed drops an `auto` thread to `balanced`. The shell has called this method since M1 and treats `unknown_method` as unavailable.
+- New contract type `ModelCallOptions extends CallOptions` (`threadId?`, `runId?`); `ModelProvider.stream` takes it, so the router can apply a thread's `/model` pin and attribute usage. Providers that ignore the fields need no change. `FakeModelProvider` records them in `callContexts`.
+
+### v1 additive — 2026-10-19 (S08 browser M2: recordings, I10)
+
+For S08 (`packages/browser` recorder), the Gateway composition (handlers) and S12 (the Activity sheet's replay UI).
+
+- New schemas `BrowserRecording`, `BrowserRecordingEvent` (`BrowserRecordingEventKind`: tab, navigation, snapshot, action, fill, download, blocked, control, dialog), `BrowserRecordingFrame`, `BrowserRecordingId`.
+- New methods `browser.recordings.list` (paged, by task or thread), `browser.recordings.get` (the replay index: events and frames, `sinceSeq` for a live recording), `browser.recordings.frame` (one screencast frame, base64), `browser.recordings.snapshot` (the snapshot text a `snapshot` event recorded, untrusted) and `browser.recordings.delete` (`operator.write`, side-effecting).
+- New event `browser.recording.updated {recording}`.
+- No contract or fake change: these are client methods over files the browser package writes.
+### v1 additive — 2026-10-19 (S17 M2: voice memos, speech.voices)
+
+For S17 (`packages/speech`), S01 (Gateway routing), S11/S12 (composer memo button, persona voice picker), S10 (channel voice notes).
+
+- `voice.start` gains optional `memo: boolean`: the session keeps its audio.
+- New `voice.memo.save {sessionId, threadId?, task?: MemoTaskMode}` → `{transcript, item: LibraryItem, task: Task | null, provenance, content: VoiceMemoContent, blocks: Block[], durationMs}` (`operator.write`, side-effecting): files the session as a Library `recording` with the transcript as text extract and creates a Task when the memo asks for one (`auto` = only on a cue such as "remind me to…"). The transcript is content: `VoiceMemoContent` lists URLs (never fetched) and flags instruction-like phrasing; `blocks` quote it under a label (feature Q4).
+- New `speech.voices {personaVoice?}` → `{voices: SpeechVoice[], default, unavailable}`: every synthesis voice as `<engine>:<voice>` for voice selection per persona (feature Q3). `SpeechVoice.nonCommercial` marks Apple Personal Voice.
+- New schemas `MemoTaskMode`, `VoiceMemoContent`, `SpeechVoice`.
+- Contract `Voice` gains optional `nonCommercial` (the helper's `speech.voices` already reports `personalVoice`). `FakeSpeechEngine` is unchanged (the field is optional).
 ### v1 additive — 2026-10-20 (S21 sandbox: file provenance, design-07; issue #97)
 
 For S21 (`packages/sandbox`) and the owner of the `exec` / workspace file tools (S01).

@@ -648,6 +648,128 @@ export interface BrowserTab {
 
 export type BrowserDriverKind = "cdp" | "playwright";
 
+export interface BrowserRecordingUpdatedPayload {
+    recording: BrowserRecording;
+}
+
+export interface BrowserRecording {
+    bytes:      number;
+    endedAt?:   null | string;
+    eventCount: number;
+    frameCount: number;
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    id:             string;
+    libraryItemId?: null | string;
+    startedAt:      string;
+    taskId?:        null | string;
+    threadId?:      null | string;
+}
+
+export interface BrowserRecordingsDeleteParams {
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    recordingId: string;
+}
+
+export interface BrowserRecordingsFrameParams {
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    recordingId: string;
+    seq:         number;
+}
+
+export interface BrowserRecordingsFrameResult {
+    /**
+     * Base64 image bytes
+     */
+    data:  string;
+    frame: BrowserRecordingFrame;
+    mime:  BrowserRecordingFrameMIME;
+}
+
+export interface BrowserRecordingFrame {
+    at:    string;
+    seq:   number;
+    tabId: string;
+    /**
+     * Origin and path only
+     */
+    url: string;
+}
+
+export type BrowserRecordingFrameMIME = "image/jpeg" | "image/png";
+
+export interface BrowserRecordingsGetParams {
+    limit?: number;
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    recordingId: string;
+    sinceSeq?:   number;
+}
+
+export interface BrowserRecordingsGetResult {
+    events:    BrowserRecordingEvent[];
+    frames:    BrowserRecordingFrame[];
+    recording: BrowserRecording;
+}
+
+export interface BrowserRecordingEvent {
+    action?:      string;
+    at:           string;
+    detail?:      { [key: string]: unknown };
+    element?:     Element;
+    frameSeq?:    number;
+    kind:         BrowserRecordingEventKind;
+    ref?:         string;
+    seq:          number;
+    snapshotSeq?: number;
+    summary:      string;
+    tabId:        string;
+    url?:         string;
+}
+
+export interface Element {
+    name: string;
+    role: string;
+}
+
+export type BrowserRecordingEventKind = "tab" | "navigation" | "snapshot" | "action" | "fill" | "download" | "blocked" | "control" | "dialog";
+
+export interface BrowserRecordingsListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:   string;
+    limit?:    number;
+    taskId?:   string;
+    threadId?: string;
+}
+
+export interface BrowserRecordingsListResult {
+    nextCursor?: null | string;
+    recordings:  BrowserRecording[];
+}
+
+export interface BrowserRecordingsSnapshotParams {
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    recordingId: string;
+    seq:         number;
+}
+
+export interface BrowserRecordingsSnapshotResult {
+    /**
+     * The snapshot text the model saw (untrusted page content)
+     */
+    text: string;
+}
+
 export interface BrowserSnapshotParams {
     tabId: string;
 }
@@ -2776,6 +2898,48 @@ export interface SpeechReadAloudResult {
     streamId: string;
 }
 
+export interface SpeechVoicesParams {
+    /**
+     * The persona's current <engine>:<voice>
+     */
+    personaVoice?: string;
+}
+
+export interface SpeechVoicesResult {
+    default?: null | string;
+    /**
+     * Synthesis engines in order that could not list voices now
+     */
+    unavailable: string[];
+    voices:      SpeechVoice[];
+}
+
+export interface SpeechVoice {
+    /**
+     * The voice the settings or the persona select now
+     */
+    default: boolean;
+    engine:  string;
+    id:      string;
+    /**
+     * BCP 47, or * for any
+     */
+    language: string;
+    local:    boolean;
+    location: SpeechEngineLocation;
+    name:     string;
+    /**
+     * Apple Personal Voice: non-commercial use only
+     */
+    nonCommercial?: boolean;
+    /**
+     * <engine>:<voice>, the form IDENTITY.md voice: takes
+     */
+    ref: string;
+}
+
+export type SpeechEngineLocation = "node" | "gateway" | "client" | "cloud";
+
 export interface TaskActionPayload {
     action: TaskAction;
 }
@@ -3035,6 +3199,12 @@ export interface ThreadsPinParams {
 export interface ThreadsRenameParams {
     threadId: string;
     title:    string;
+}
+
+export interface ThreadsUpdateParams {
+    modelRef?:       null | string;
+    permissionMode?: PermissionMode;
+    threadId:        string;
 }
 
 export interface ToolCallBlock {
@@ -3337,6 +3507,59 @@ export interface VoiceEndedPayload {
 
 export type VoiceEndReason = "stopped" | "cancelled" | "timeout" | "error";
 
+export interface VoiceMemoSaveParams {
+    sessionId: string;
+    task?:     MemoTaskMode;
+    threadId?: string;
+}
+
+export type MemoTaskMode = "auto" | "always" | "never";
+
+export interface VoiceMemoSaveResult {
+    /**
+     * Quoted transcript, file and task blocks for the message that carries the memo
+     */
+    blocks:     Block[];
+    content:    VoiceMemoContent;
+    durationMs: number;
+    item:       LibraryItem;
+    provenance: Provenance;
+    task?:      Task | null;
+    transcript: Transcript;
+}
+
+export interface VoiceMemoContent {
+    /**
+     * Which patterns matched (override, secrecy, …)
+     */
+    flags: string[];
+    /**
+     * The memo reads like instructions to the agent; shown as a note, not obeyed
+     */
+    instructionLike: boolean;
+    /**
+     * URL-like strings in the memo; never fetched
+     */
+    urls: string[];
+}
+
+export interface Transcript {
+    language?: string;
+    segments:  TranscriptSegment[];
+    text:      string;
+}
+
+export interface TranscriptSegment {
+    confidence?: number;
+    endMs:       number;
+    /**
+     * false = volatile partial a later segment replaces
+     */
+    final:   boolean;
+    startMs: number;
+    text:    string;
+}
+
 export interface VoicePushParams {
     /**
      * Base64 PCM in the session format
@@ -3354,23 +3577,16 @@ export interface VoiceSegmentPayload {
     sessionId: string;
 }
 
-export interface TranscriptSegment {
-    confidence?: number;
-    endMs:       number;
-    /**
-     * false = volatile partial a later segment replaces
-     */
-    final:   boolean;
-    startMs: number;
-    text:    string;
-}
-
 export interface VoiceStartParams {
     format: AudioFormat;
     /**
      * BCP 47
      */
     language?: string;
+    /**
+     * Keep the audio so voice.memo.save can file the session as a voice memo
+     */
+    memo?:     boolean;
     threadId?: string;
     /**
      * Extra terms; merged with the agent name, contacts and recent topics
@@ -3384,20 +3600,12 @@ export interface VoiceStartResult {
     sessionId: null | string;
 }
 
-export type SpeechEngineLocation = "node" | "gateway" | "client" | "cloud";
-
 export interface VoiceStopParams {
     sessionId: string;
 }
 
 export interface VoiceStopResult {
     transcript: Transcript;
-}
-
-export interface Transcript {
-    language?: string;
-    segments:  TranscriptSegment[];
-    text:      string;
 }
 
 export interface WrapUpBlock {

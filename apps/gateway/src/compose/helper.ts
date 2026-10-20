@@ -125,8 +125,8 @@ const SUBSCRIBE_TIMEOUT_MS = 2_147_483_647;
  */
 function card(a: ApprovalRequest): { title: string; body: string; approvable: boolean } {
   const title = cardHeader(a);
-  const full = renderForSurface("chat", a);
-  if (!full.truncated && full.text.length <= SURFACE_LIMITS.notification) {
+  const full = renderForSurface("desktop", a);
+  if (full.text.length <= SURFACE_LIMITS.notification) {
     return { title, body: full.text.split("\n").slice(1).join("\n"), approvable: true };
   }
   return { title, body: "Open Psyche on your Mac to review.", approvable: false };

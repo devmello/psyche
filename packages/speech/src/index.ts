@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import type { NodeClient, ResolvedSecret, SpeechEngine } from "@psyche/protocol";
+import { DecodingSpeechEngine } from "./adapters.ts";
 import { DEFAULT_KOKORO_MODEL, DEFAULT_WHISPER_MODEL, MODEL_CATALOG } from "./catalog.ts";
 import { CloudTtsEngine } from "./engines/cloud.ts";
 import {
@@ -22,6 +23,7 @@ import {
 import type { ProcessRunner } from "./process.ts";
 import { VoiceNoteTranscoder } from "./transcode/ffmpeg.ts";
 
+export * from "./adapters.ts";
 export * from "./audio.ts";
 export * from "./catalog.ts";
 export * from "./engines/cloud.ts";
@@ -30,6 +32,7 @@ export * from "./engines/node.ts";
 export * from "./engines/phonemize.ts";
 export * from "./engines/web.ts";
 export * from "./engines/whisper.ts";
+export * from "./handlers.ts";
 export * from "./memo.ts";
 export * from "./models.ts";
 export * from "./policy.ts";
@@ -43,6 +46,7 @@ export * from "./transcode/ffmpeg.ts";
 export * from "./transcode/formats.ts";
 export * from "./vocabulary.ts";
 export * from "./voice.ts";
+export * from "./voices.ts";
 
 export interface SpeechStackOptions {
   /** `$PSYCHE_HOME`; models live under `models/`. */
@@ -50,6 +54,8 @@ export interface SpeechStackOptions {
   settings?: SpeechSettings;
   /** The Mac node to use now (paired and online), if any. */
   macNode?: () => NodeClient | undefined | Promise<NodeClient | undefined>;
+  /** Owner opt-in for Apple Personal Voice on the Mac node (`speech.tts.personalVoice`, Q3). */
+  personalVoice?: () => boolean | Promise<boolean>;
   /** Runner for ffmpeg and whisper-cli (wrap with `srt` / the sandbox in the Gateway). */
   runner?: ProcessRunner;
   whisper?: { binary?: string; model?: string; threads?: number };
@@ -66,7 +72,7 @@ export interface SpeechStackOptions {
 
 export interface SpeechStack {
   selector: SpeechEngineSelector;
-  /** Per-call routed engine for the Gateway's own use (channels, read-aloud). */
+  /** Per-call routed engine for the Gateway's own use (channels, read-aloud); decodes compressed input. */
   engine: SpeechEngine;
   transcoder: VoiceNoteTranscoder;
   models: ModelManager;
@@ -89,7 +95,10 @@ export function createSpeechStack(options: SpeechStackOptions = {}): SpeechStack
 
   const macNode = options.macNode;
   if (macNode !== undefined) {
-    const node = new NodeSpeechEngine({ node: macNode });
+    const node = new NodeSpeechEngine({
+      node: macNode,
+      ...(options.personalVoice === undefined ? {} : { personalVoice: options.personalVoice }),
+    });
     selector.register({
       id: "mac-node",
       location: "node",
@@ -156,7 +165,12 @@ export function createSpeechStack(options: SpeechStackOptions = {}): SpeechStack
     });
   }
 
-  return { selector, engine: new RoutedSpeechEngine(selector), transcoder, models };
+  return {
+    selector,
+    engine: new DecodingSpeechEngine(new RoutedSpeechEngine(selector), transcoder),
+    transcoder,
+    models,
+  };
 }
 
 /** The Gateway's routed `SpeechEngine` (contract entry point). */

@@ -2,6 +2,7 @@ import { ShieldCheck } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { ApprovalCard } from "../blocks/ApprovalCard.tsx";
 import { useApprovals, useStoreState } from "../data/index.ts";
+import { displaySummary } from "../lib/cards.ts";
 import { formatCountdown } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
@@ -54,7 +55,7 @@ export function ApprovalDock({
                   className="flex w-full items-center gap-2 rounded-lg border border-approval-border bg-approval-surface px-3 py-1.5 text-left text-sm hover:bg-amber-3"
                 >
                   <ShieldCheck className="size-3.5 text-approval-text" aria-hidden="true" />
-                  <span className="min-w-0 flex-1 truncate">{v.approval.summary}</span>
+                  <span className="min-w-0 flex-1 truncate">{displaySummary(v.approval)}</span>
                   <span
                     className={cn(
                       "text-xs tabular-nums",
