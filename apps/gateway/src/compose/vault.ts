@@ -1,3 +1,5 @@
+import { accessSync, constants } from "node:fs";
+import { delimiter, isAbsolute, join } from "node:path";
 import type { PsycheDb } from "@psyche/db";
 import {
   type AuditLog,
@@ -19,6 +21,9 @@ import {
   KeychainWrapper,
   KeyFileWrapper,
   type KeyWrapper,
+  type OnePasswordSource,
+  OpCliSource,
+  OpConnectSource,
   type SafeStorageAdapter,
   SafeStorageWrapper,
   SecretRedactor,
@@ -27,6 +32,7 @@ import {
   type VaultEventName,
   type VaultRemovals,
 } from "@psyche/vault";
+import type { OnePasswordConfig } from "../config.ts";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import type { NodeRegistry } from "../nodes/registry.ts";
@@ -50,6 +56,57 @@ export interface VaultSetup {
   /** Recovery-slot KDF parameters (tests lower them). */
   argon2?: Argon2Params;
   autoLockMinutes?: number;
+  /**
+   * 1Password as an external, read-only source (G10): `credentials.onePassword` from
+   * `config.json`, or a ready source (tests). Without it `vault.linkExternal` answers unavailable.
+   */
+  onePassword?: OnePasswordConfig | OnePasswordSource;
+}
+
+/** The connector id of the vault item holding the 1Password service-account / Connect token. */
+export const ONEPASSWORD_CONNECTOR = "onepassword";
+
+/** The first executable `op` on PATH, as an absolute path (the source takes no PATH lookup). */
+export function opOnPath(path = process.env.PATH ?? ""): string | undefined {
+  for (const dir of path.split(delimiter)) {
+    if (!isAbsolute(dir)) continue;
+    const candidate = join(dir, "op");
+    try {
+      accessSync(candidate, constants.X_OK);
+      return candidate;
+    } catch {
+      // not here
+    }
+  }
+  return undefined;
+}
+
+/**
+ * The source for `credentials.onePassword`. The token is the vault's own connector-owned
+ * `onepassword` item, read for each call as a one-shot handle; config never holds it.
+ */
+function onePasswordSource(
+  config: OnePasswordConfig,
+  vault: () => Vault,
+): { source?: OnePasswordSource; reason?: string } {
+  const token = async () => {
+    const v = vault();
+    const item = v.connectorItem(ONEPASSWORD_CONNECTOR);
+    if (item === undefined) {
+      throw new PsycheError(
+        "unavailable",
+        "store the 1Password token in the vault first (connector item onepassword)",
+        { details: { reason: "op_token_missing" } },
+      );
+    }
+    return v.accessToken(item.id, ONEPASSWORD_CONNECTOR);
+  };
+  if (config.kind === "connect") {
+    return { source: new OpConnectSource({ baseUrl: config.url, token }) };
+  }
+  const op = config.op ?? opOnPath();
+  if (op === undefined) return { reason: "op_not_on_path" };
+  return { source: new OpCliSource({ op, token }) };
 }
 
 /** Methods whose params carry a secret or the recovery key: no param or raw message is logged. */
@@ -229,7 +286,16 @@ export function composeVault(
   const helper = new HelperNodeClient(() => nodes);
   const { wrapper, choice } = chooseWrapper(setup, helper);
   const redactor = deps.redactor ?? new SecretRedactor();
+  // The source reads the token from the vault it serves, once that exists.
+  let built: Vault | undefined;
+  const op =
+    setup.onePassword === undefined
+      ? undefined
+      : "readField" in setup.onePassword
+        ? { source: setup.onePassword }
+        : onePasswordSource(setup.onePassword, () => built as Vault);
   const vault = new Vault({
+    ...(op?.source === undefined ? {} : { onePassword: op.source }),
     home: deps.home,
     wrapper,
     meta: new SqliteMetaMirror(deps.db.sqlite),
@@ -241,6 +307,24 @@ export function composeVault(
     ...(setup.argon2 === undefined ? {} : { argon2: setup.argon2 }),
     ...(setup.autoLockMinutes === undefined ? {} : { autoLockMinutes: setup.autoLockMinutes }),
   });
+  built = vault;
+  if (setup.onePassword !== undefined) {
+    // Audited: which external source the vault reads linked items through (read-only, G10).
+    void deps.audit
+      .append({
+        kind: "vault.external_source",
+        actor: { type: "system" },
+        data: {
+          source: "1password",
+          kind:
+            op?.source?.kind ??
+            ("readField" in setup.onePassword ? "custom" : setup.onePassword.kind),
+          available: op?.source !== undefined,
+          ...(op?.reason === undefined ? {} : { reason: op.reason }),
+        },
+      })
+      .catch(() => undefined);
+  }
   const unsubscribe = VAULT_EVENTS.map((event) =>
     vault.on(event, (payload) => deps.publish(event, payload as never)),
   );
