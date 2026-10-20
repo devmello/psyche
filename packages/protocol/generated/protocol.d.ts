@@ -273,7 +273,7 @@ export interface DecidedByClass {
     senderId?: string;
 }
 
-export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start";
+export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run";
 
 export interface RequestedBy {
     agent?:      string;
@@ -1685,6 +1685,59 @@ export interface DevicesRevokeParams {
 
 export interface DevicesRevokeResult {
     device: Device;
+}
+
+export interface DictationInsertParams {
+    /**
+     * Refuse with focus_changed unless this process still has focus
+     */
+    expectPid?: number;
+    text:       string;
+}
+
+export interface DictationInsertResult {
+    chars:  number;
+    method: DictationInsertMethod;
+    target: DictationTarget;
+}
+
+export type DictationInsertMethod = "ax" | "typed";
+
+export interface DictationTarget {
+    appName:    string;
+    bundleId?:  null | string;
+    insertable: boolean;
+    pid:        number;
+    refusal?:   DictationRefusal;
+    role?:      null | string;
+}
+
+export type DictationRefusal = "no_focus" | "secure_field" | "own_window" | "not_editable" | "focus_changed";
+
+export interface DictationKeyPayload {
+    /**
+     * ISO time the helper saw the change
+     */
+    at:   string;
+    down: boolean;
+    key:  DictationKey;
+}
+
+export type DictationKey = "fn" | "rightOption" | "rightCommand";
+
+export interface DictationTargetResult {
+    target?: DictationTarget | null;
+}
+
+export interface DictationWatchParams {
+    /**
+     * null stops watching
+     */
+    key: DictationKey | null;
+}
+
+export interface DictationWatchResult {
+    watching: boolean;
 }
 
 export interface EventFrame {

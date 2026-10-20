@@ -24,6 +24,19 @@ For S14 (the mac helper's `calendar.*`, `reminders.*`, `mail.*`, `notes.*`, `fin
 
 - New schemas in `schemas/apple-apps.ts`: `AppleCalendar`, `AppleCalendarEvent`, `AppleCalendarListEventsParams`, `AppleCalendarEventInput`, `AppleCalendarEventUpdate`, `AppleReminder`, `AppleRemindersListParams`, `AppleReminderInput`, `AppleReminderUpdate`, `AppleMailMessageSummary`, `AppleMailMessage`, `AppleMailSearchParams`, `AppleMailDraftInput`, `AppleNoteSummary`, `AppleNote`, `AppleNoteInput`, `AppleFinderEntry`, `AppleSafariTab`.
 - No new methods: the capabilities are reached through `nodes.invoke` (and the agent's node tools) as `node.<capability>`; app content they return is `untrusted`.
+### v1 additive — 2026-10-19 (M2 computer use: script and Shortcut approval kinds, J4)
+
+For the Gateway's computer-use tools (`apps.applescript`, `apps.jxa`, `apps.shortcut_run`), S05 (card titles, scopes) and S10 / S11 / S12 (card labels).
+
+- `ApprovalKind` gains `apple_script` and `shortcut_run` at the end of the list: running AppleScript / JXA or a user Shortcut gets its own card showing the exact source (or name and input) instead of a generic "Use app". Both are `destructive` and offer `once` only: the approval binds the exact params (security §5.4).
+### v1 additive — 2026-10-19 (S14/S11: system-wide dictation, J9 / Q2)
+
+For S14 (the helper's `dictation.*` capabilities), S01 (the Gateway forwards the methods to the local mac-helper), S11 (the desktop hotkey, HUD and Settings).
+
+- New methods `dictation.target` (focused app and element, whether it can take text), `dictation.insert` (side-effecting: AX insertion with a CGEvent typing fallback, optional `expectPid`) and `dictation.watch` (hold-to-talk modifier watch; `key: null` stops). All `operator.write`; the Gateway serves them to desktop devices only and never through `nodes.invoke` or agent tools.
+- New schemas `DictationKey` (`fn | rightOption | rightCommand`), `DictationTarget`, `DictationRefusal` (`no_focus | secure_field | own_window | not_editable | focus_changed`), `DictationInsertMethod` (`ax | typed`), `DictationKeyPayload`.
+- New event `dictation.key` (`{key, down, at}`), sent only to the watching device.
+- The helper's capabilities take the same params and results, so the generated Swift `DictationInsertParams` / `DictationTarget` are its typed params. Inserted text is keystrokes into another app, never owner input to the agent.
 ### v1 additive — 2026-10-19 (M2 messages: J7 / N5)
 
 For S14 (the mac helper's `messages.*` capabilities), S10 / N5 (the iMessage channel adapter) and S05 (`message_send` approvals).

@@ -29,6 +29,36 @@ Or by hand: `docker build --target base -t psyche-sandbox:base-dev deploy/sandbo
 
 Measured on an M5 Mac: `container build` of `core` took 117 s the first time (it boots a BuildKit VM); a Docker (OrbStack) build of `base` took about 3 minutes uncached.
 
-## Publish
+## Publish (release tags only)
 
-[`publish.sh`](publish.sh) does a multi-arch `buildx` build and push with provenance and an SBOM, signs the image with `cosign sign` (keyless) and writes the digest into `versions.json`. It needs a release workflow with registry credentials and an OIDC identity. That workflow does not exist yet and is a request to S00/S22. The runner prefers the pinned digest once it is set.
+The `sandbox-image` job in [`.github/workflows/release.yml`](../../.github/workflows/release.yml) runs [`publish.sh`](publish.sh) on every `v*` tag. Nothing has been published yet: the first real run is the next version tag, and until then every `digest` in `versions.json` is `null` and the runner uses the local dev tag.
+
+For each of `core`, `base` and `full`, in that order (one job, so each target reuses the previous one's layers), `publish.sh`:
+
+1. builds `linux/arm64` + `linux/amd64` (from `platforms`) with `docker buildx build --push`, provenance (`mode=max`) and an SBOM, passing the digest-pinned `baseImages` as `NODE_IMAGE` / `UV_IMAGE` build args (it refuses to run if they are not pinned or differ from the Dockerfile defaults) and `SOURCE_DATE_EPOCH` from the commit;
+2. tags it `<version>` (base) or `<version>-<variant>`, where the version is the release tag without the `v`;
+3. reads the pushed manifest-list digest from the buildx metadata file and signs `repository@digest` with `cosign sign --yes` (keyless, GitHub OIDC);
+4. writes `version`, `variants.<v>.tag` and `variants.<v>.digest` into `versions.json` with `jq`, leaving everything else alone.
+
+The workflow then runs `cosign verify` on all three digests against `signing` in `versions.json`, attaches the updated file to the GitHub release as `sandbox-image-versions.json`, and opens a PR against `main` that copies `version` and `variants` into `versions.json` (a tag build cannot push to `main`). That PR is opened with `GITHUB_TOKEN`, so its CI does not start on its own (close and reopen it), and the repository must allow GitHub Actions to create pull requests. Once it merges, the runner prefers the pinned digest.
+
+A manual run with `dry_run` ticked, or a manual run from a branch, only runs `publish.sh --dry-run` (a manual run on a `v*` tag with `dry_run` unticked publishes, which is how to retry a failed release). Locally:
+
+```bash
+deploy/sandbox-image/publish.sh --dry-run --version 0.2.0 core base full   # prints the commands; needs bash + jq
+```
+
+Apt packages are not snapshot-pinned, so two builds of the same commit are not byte-identical; the pinned digest in `versions.json` is what makes a run reproducible.
+
+## Verify
+
+The signer is the release workflow on a version tag; `versions.json` `signing` holds the exact identity:
+
+```bash
+cd deploy/sandbox-image
+cosign verify "$(jq -r .repository versions.json)@$(jq -r .variants.base.digest versions.json)" \
+  --certificate-identity-regexp "$(jq -r .signing.certificateIdentityRegexp versions.json)" \
+  --certificate-oidc-issuer "$(jq -r .signing.certificateOidcIssuer versions.json)"
+```
+
+The regexp accepts only `https://github.com/devmello/psyche/.github/workflows/release.yml@refs/tags/vX.Y.Z[-pre]`: a signature from any other workflow, branch or fork fails.

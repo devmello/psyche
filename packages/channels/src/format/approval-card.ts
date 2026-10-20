@@ -32,6 +32,8 @@ const KIND_LABELS: Record<ApprovalKind, string> = {
   pairing: "Pair a device or sender",
   policy_change: "Change a permission policy",
   task_start: "Start a background task",
+  apple_script: "Run an AppleScript",
+  shortcut_run: "Run a Shortcut",
 };
 
 /** Short label for answer confirmations ("Approved: Send an email."). */
