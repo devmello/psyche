@@ -189,7 +189,15 @@ export function ChatThread({ threadId, onAttach, onDictate, now }: ChatThreadPro
               {...(t.thread ? { mode: t.thread.thread.permissionMode } : {})}
               {...(now === undefined ? {} : { now })}
             />
-            <FollowUpQueue items={t.queue} onRemove={t.removeQueued} onRetry={t.retryQueued} />
+            <FollowUpQueue
+              items={t.queue}
+              onRemove={t.removeQueued}
+              onRetry={t.retryQueued}
+              onSendNow={(q, m) => {
+                t.removeQueued(q.id);
+                void t.send(q.content, { mode: m, replyToMessageId: q.replyToMessageId });
+              }}
+            />
             <Composer
               persona={persona.name}
               running={t.running}
@@ -197,7 +205,6 @@ export function ChatThread({ threadId, onAttach, onDictate, now }: ChatThreadPro
               quoting={quoting}
               onClearQuote={() => setQuoting(null)}
               mode={mode}
-              onModeChange={setMode}
               onStop={() => void t.cancel()}
               {...(onAttach ? { onAttach } : {})}
               {...(onDictate ? { onDictate } : {})}

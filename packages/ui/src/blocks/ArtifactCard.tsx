@@ -13,6 +13,7 @@ import {
 import type { ReactElement, ReactNode } from "react";
 import { Button } from "../components/ui/button.tsx";
 import { formatDate } from "../lib/format.ts";
+import { cn } from "../lib/utils.ts";
 
 /** Preview kinds the artifact block names in `preview` (data model §9.1). */
 export type ArtifactPreviewKind =
@@ -50,6 +51,59 @@ const ICONS: Record<ArtifactPreviewKind, typeof FileText> = {
   dashboard: LayoutDashboard,
 };
 
+const KIND_LABEL: Record<ArtifactPreviewKind, string> = {
+  email: "Email",
+  file: "File",
+  browser: "Web page",
+  pdf: "PDF",
+  finance: "Finance",
+  itinerary: "Itinerary",
+  sheet: "Sheet",
+  html: "Web page",
+  markdown: "Document",
+  dashboard: "Dashboard",
+};
+
+/**
+ * The thumbnail when the shell's viewers give none: a small page drawn for the artifact's kind
+ * (lines for documents, a grid for sheets, a timeline for itineraries) with the kind's icon, so a
+ * card reads as a document rather than a generic glyph.
+ */
+function Thumbnail({ kind }: { kind: ArtifactPreviewKind }): ReactElement {
+  const Icon = ICONS[kind];
+  const body =
+    kind === "sheet" || kind === "finance" || kind === "dashboard" ? (
+      <div className="grid grid-cols-3 gap-0.5">
+        {Array.from({ length: 12 }, (_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: static decoration
+          <span key={i} className={cn("h-1.5 rounded-[1px]", i < 3 ? "bg-gray-7" : "bg-gray-5")} />
+        ))}
+      </div>
+    ) : kind === "itinerary" ? (
+      <div className="flex flex-col gap-1.5">
+        {[0, 1, 2].map((i) => (
+          <span key={i} className="flex items-center gap-1">
+            <span className="size-1.5 rounded-full bg-accent-8" />
+            <span className="h-1 flex-1 rounded-full bg-gray-5" />
+          </span>
+        ))}
+      </div>
+    ) : (
+      <div className="flex flex-col gap-1">
+        <span className="h-1.5 w-3/4 rounded-full bg-gray-7" />
+        {[100, 90, 95, 60].map((w) => (
+          <span key={w} className="h-1 rounded-full bg-gray-5" style={{ width: `${w}%` }} />
+        ))}
+      </div>
+    );
+  return (
+    <div className="absolute inset-x-3 top-3 -bottom-2 flex flex-col gap-2 rounded-t-md border border-gray-6 bg-background p-2 shadow-level-2">
+      <Icon className="size-4 text-accent-11" />
+      {body}
+    </div>
+  );
+}
+
 export function previewKindOf(artifact: Artifact, preview?: string): ArtifactPreviewKind {
   if (preview !== undefined && preview in ICONS) return preview as ArtifactPreviewKind;
   switch (artifact.type) {
@@ -86,19 +140,21 @@ export function ArtifactCard({
   onSave,
 }: ArtifactCardProps): ReactElement {
   const kind = previewKindOf(artifact, preview);
-  const Icon = ICONS[kind];
   return (
     <article
       aria-label={`Artifact: ${artifact.title}`}
       className="my-2 flex max-w-md overflow-hidden rounded-lg border border-gray-6 bg-gray-2 psy-enter"
     >
-      <div className="flex w-24 shrink-0 items-center justify-center bg-gray-3" aria-hidden="true">
-        {renderPreview?.({ artifact, kind }) ?? <Icon className="size-8 text-gray-9" />}
+      <div
+        className="relative w-28 shrink-0 overflow-hidden border-r border-gray-6 bg-gray-3"
+        aria-hidden="true"
+      >
+        {renderPreview?.({ artifact, kind }) ?? <Thumbnail kind={kind} />}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1 p-3">
-        <h3 className="truncate text-sm font-semibold">{artifact.title}</h3>
-        <p className="text-xs text-muted-foreground">
-          {kind} · v{artifact.version} · {formatDate(artifact.updatedAt)}
+        <h3 className="truncate text-h3">{artifact.title}</h3>
+        <p className="text-caption text-muted-foreground">
+          {KIND_LABEL[kind]} · v{artifact.version} · {formatDate(artifact.updatedAt)}
         </p>
         <div className="mt-1 flex gap-2">
           {onOpen ? (
