@@ -56,6 +56,8 @@ public final class VMManager: @unchecked Sendable {
     let environment: [String: String]
     let host: @Sendable () -> HostResources
     let log: HelperLog
+    /// L6: APFS clones live, plain copies in tests.
+    let snapshotStore: VMSnapshotStore
     public let events = VMEventHub()
     private let lock = NSLock()
     private var busy: Set<String> = []
@@ -67,8 +69,10 @@ public final class VMManager: @unchecked Sendable {
     public init(
         backend: any VMBackend, secrets: any VMSecretStore = KeychainVMSecretStore(), shell: any GuestShell = SSHGuestShell(),
         permissions: any GuestPermissionWriter = OfflineTCCWriter(), environment: [String: String] = ProcessInfo.processInfo.environment,
-        host: @escaping @Sendable () -> HostResources = { HostResources.current() }, log: HelperLog = HelperLog()
+        host: @escaping @Sendable () -> HostResources = { HostResources.current() }, log: HelperLog = HelperLog(),
+        cloner: any FileCloner = APFSCloner()
     ) {
+        snapshotStore = VMSnapshotStore(cloner: cloner)
         self.backend = backend
         self.secrets = secrets
         self.shell = shell
@@ -111,6 +115,9 @@ public final class VMManager: @unchecked Sendable {
             "psycheInstalled": .bool(state.psycheInstalled), "permissionsGranted": .bool(state.permissionsGranted), "savedState": .bool(saved),
             "transfers": (try? JSONValue(encoding: Array(b.loadTransfers().suffix(20)))) ?? .array([]),
         ]
+        let snapshots = b.loadSnapshots()
+        o["snapshots"] = (try? JSONValue(encoding: snapshots)) ?? .array([])
+        if let base = snapshots.first(where: { $0.kind == "base" }) { o["baseSnapshot"] = .string(base.id) }
         if let e = state.lastError { o["lastError"] = .string(e) }
         return .object(o)
     }
