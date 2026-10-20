@@ -1,13 +1,14 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { updateDevice } from "@psyche/db";
 import { FakeModelProvider } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
 import { isUnreachableCapability } from "../src/handlers/nodes.ts";
 import { silentLogger } from "../src/log.ts";
 import { FakeNode, type FakeNodeHandler } from "./fake-node.ts";
-import { desktopClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
+import { desktopClient, handshake, ik, newDeviceKey, TestClient, wsUrlOf } from "./helpers.ts";
 
 let composed: ComposedGateway | null = null;
 let home = "";
@@ -115,15 +116,30 @@ describe("system-wide dictation (J9, Q2)", () => {
     ).rejects.toThrow(/Focus moved/);
   });
 
-  it("refuses callers that are not the desktop app", async () => {
+  it("refuses callers that are not the desktop app, whatever platform they declare (#278)", async () => {
     const c = await setup();
     await withHelper(c, dictationHelper());
-    const desk = await desktopClient(c.gateway, newDeviceKey(), "phone");
-    clients.push(desk);
-    c.db.sqlite.prepare("UPDATE devices SET platform = 'web' WHERE id = ?").run("phone");
-    await expect(desk.call("dictation.insert", { text: "hi" }, ik())).rejects.toThrow(
+    // A CLI on this Mac declares platform "macos" and is paired by the owner with write scope.
+    const key = newDeviceKey();
+    const first = await TestClient.open(wsUrlOf(c.gateway));
+    await handshake(first, c.gateway.origin, { key, deviceId: "cli-1", deviceFamily: "cli" });
+    first.close();
+    updateDevice(c.db, "cli-1", {
+      scopes: ["operator.read", "operator.write"],
+      pairedAt: new Date().toISOString(),
+    });
+    const cli = await TestClient.open(wsUrlOf(c.gateway));
+    clients.push(cli);
+    const r = await handshake(cli, c.gateway.origin, {
+      key,
+      deviceId: "cli-1",
+      deviceFamily: "cli",
+    });
+    expect((r.verifyRes?.payload as { phase?: string } | undefined)?.phase).toBe("paired");
+    await expect(cli.call("dictation.insert", { text: "hi" }, ik())).rejects.toThrow(
       /"code":"forbidden"/,
     );
+    await expect(cli.call("dictation.target", {})).rejects.toThrow(/"code":"forbidden"/);
   });
 
   it("never reaches dictation through nodes.invoke", async () => {
