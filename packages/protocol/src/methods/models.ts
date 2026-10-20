@@ -47,4 +47,16 @@ export const ModelsMethods = {
     description:
       "Binds the primary or utility role to a model and persists it (settings models.primary / models.utility). policy_denied when a chat-only model is picked as primary without override; not_found when no configured provider serves the ref. Side-effecting.",
   }),
+  "models.setKey": defineMethod({
+    params: Type.Object({
+      providerId: Type.String({ minLength: 1, maxLength: 64 }),
+      /** The provider's API key. Stored in the vault; never logged, echoed or returned. */
+      key: Type.String({ minLength: 1, maxLength: 4096 }),
+    }),
+    result: Type.Object({ provider: ModelProviderSummary }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Stores a hosted provider's API key in the vault as a Gateway-owned item bound to the provider's API origin (replacing an earlier one) and returns the provider with keyConfigured true. The model router reads it per request; agents can never fill it. not_found for an unknown provider id, invalid_params for a keyless (local) provider, unavailable when the vault cannot be opened. Side-effecting; its params are never logged.",
+  }),
 } as const;

@@ -2905,6 +2905,15 @@ export interface ModelsProbeResult {
     provider: ModelProviderSummary;
 }
 
+export interface ModelsSetKeyParams {
+    key:        string;
+    providerId: string;
+}
+
+export interface ModelsSetKeyResult {
+    provider: ModelProviderSummary;
+}
+
 export interface ModelsSetRoleParams {
     override?: boolean;
     ref:       string;
