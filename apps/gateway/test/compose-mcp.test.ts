@@ -125,6 +125,29 @@ describe("MCP host in the Gateway (K5)", () => {
     expect(revoke).toHaveBeenCalledWith("echo", "removed");
   }, 30_000);
 
+  it("a tools/list change revokes the server's grants bound to the old hash (design-28)", async () => {
+    const { owner, mcp, services } = await setup(new FakeModelProvider());
+    const revoke = vi.spyOn(services.rawBroker, "revokeMcpGrants");
+    const server = {
+      ...echoServer("bundled"),
+      transport: { kind: "stdio", command: [process.execPath, SERVER, "--mutate-after", "300"] },
+    };
+    await owner.call("settings.set", { key: MCP_SERVERS_SETTING, value: [server] }, ik());
+    await mcp.idle();
+    expect(services.tools.get("mcp__echo__echo")).toBeDefined();
+    const hashes = () => [...new Set(revoke.mock.calls.map((c) => c[1]))];
+    await vi.waitFor(() => expect(hashes().length).toBeGreaterThan(0));
+    const pinned = hashes()[0];
+    // The server adds a tool and notifies: the host re-pins with a new hash, and the grants bound
+    // to any other hash (the one the owner approved) are revoked.
+    await vi.waitFor(() => expect(hashes().length).toBe(2), { timeout: 10_000 });
+    const changed = revoke.mock.calls.at(-1) as [string, string];
+    expect(changed[0]).toBe("echo");
+    expect(changed[1]).toMatch(/^sha256:/);
+    expect(changed[1]).not.toBe(pinned);
+    expect(changed[1]).not.toBe("removed");
+  }, 30_000);
+
   it("refuses a non-bundled stdio server without srt or a container", async () => {
     const logs: string[] = [];
     const { owner, mcp, services } = await setup(new FakeModelProvider(), logs);
