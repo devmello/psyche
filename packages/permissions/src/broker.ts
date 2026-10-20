@@ -27,8 +27,16 @@ import {
   type Surface,
 } from "@psyche/protocol";
 import { monotonicFactory } from "ulid";
-import type { Binding } from "./binding.ts";
+import { type Binding, bindingFor } from "./binding.ts";
 import { cardHeader, sanitizeDetails, sanitizeDisplay } from "./cards.ts";
+import {
+  CHANNEL_PAIRING_WINDOW_MS,
+  CHANNEL_REPLY_TTL_MS,
+  CHANNEL_REPLY_WINDOW_MS,
+  type ChannelReplyAuthorization,
+  type ChannelReplyInput,
+  type ChannelReplyRefusal,
+} from "./channel-reply.ts";
 import { type ActionClassifier, RulesClassifier } from "./classifier.ts";
 import {
   newTaskState,
@@ -1075,6 +1083,223 @@ export class PsychePermissionBroker implements PermissionBroker {
           },
     );
     return result;
+  }
+
+  /**
+   * The channel reply authority (security §3.4–3.7, §9; `channel-reply.ts`): an already-decided,
+   * audited `once` `message_send` approval bound to exactly this recipient and body, issued only
+   * for a reply into the conversation an authorized sender just wrote in (allowed by the turn's
+   * mode, deny rules and taint), a pairing code to a sender with a pending request, or an
+   * approval card to the owner's own 1:1 conversation. Anything else is refused and audited; the
+   * caller then sends nothing (an agent send elsewhere goes through `decide` and asks).
+   */
+  async authorizeChannelReply(input: ChannelReplyInput): Promise<ChannelReplyAuthorization> {
+    this.#sweep();
+    const { intent, conversation: conv, turn } = input;
+    const now = this.clock.now();
+    const subject = {
+      channel: intent.channel,
+      ...(turn === undefined ? {} : { runId: turn.context.runId, threadId: turn.context.threadId }),
+      ...(turn?.context.taskId === undefined ? {} : { taskId: turn.context.taskId }),
+    };
+    const refuse = async (
+      reason: ChannelReplyRefusal,
+      message: string,
+      rule?: string,
+    ): Promise<ChannelReplyAuthorization> => {
+      await this.#log("channel_reply.refused", { type: "system" }, subject, {
+        purpose: intent.purpose,
+        reason,
+        recipient: intent.recipient,
+        bindingHash: intent.bindingHash,
+        ...(rule === undefined ? {} : { rule }),
+        taint: turn?.context.taint ?? false,
+      });
+      return { ok: false, reason, message, ...(rule === undefined ? {} : { rule }) };
+    };
+
+    // The binding is recomputed from the fields, never taken from the caller (security §3.5).
+    let binding: Binding;
+    try {
+      binding = bindingFor("message_send", {
+        channel: intent.channel,
+        account: intent.account,
+        recipient: intent.recipient,
+        bodySha256: intent.bodySha256,
+      });
+    } catch {
+      return refuse("binding_mismatch", "the send's binding fields are malformed");
+    }
+    if (binding.bindingHash !== intent.bindingHash || binding.grantKey !== intent.grantKey) {
+      return refuse("binding_mismatch", "the binding does not match the recipient and body");
+    }
+    if (conv === undefined) {
+      return refuse("no_conversation", "the channel reports no such conversation");
+    }
+    if (
+      conv.channel !== intent.channel ||
+      conv.account !== intent.account ||
+      conv.recipient !== intent.recipient
+    ) {
+      return refuse("recipient_mismatch", "the channel reports a different conversation");
+    }
+    const age = conv.receivedAt === undefined ? Number.POSITIVE_INFINITY : now - conv.receivedAt;
+    let rule: string;
+    switch (intent.purpose) {
+      case "reply": {
+        if (!conv.authorized) {
+          return refuse("sender_not_authorized", "nobody authorized wrote in this conversation");
+        }
+        if (age > CHANNEL_REPLY_WINDOW_MS) {
+          return refuse("stale_conversation", "the sender's last message is too old to answer");
+        }
+        if (turn === undefined) {
+          rule = "channel_reply:notice";
+          break;
+        }
+        // Only the conversation the request came from is not a new target (security §3.6).
+        if (turn.requestRecipient !== intent.recipient) {
+          return turn.context.taint
+            ? refuse("taint_new_target", "a tainted turn cannot send to a new conversation")
+            : refuse("not_requesting_conversation", "replies go only to the requesting chat");
+        }
+        const { decision } = await this.engine.evaluate(
+          {
+            tool: "channel.reply",
+            kind: "message_send",
+            sideEffect: "destructive",
+            targetKind: "recipient",
+            target: { kind: "recipient", value: intent.recipient },
+            params: { channel: intent.channel, recipient: intent.recipient },
+            paramsHash: intent.bodySha256,
+            binding: {
+              channel: intent.channel,
+              account: intent.account,
+              recipient: intent.recipient,
+              bodySha256: intent.bodySha256,
+            },
+          },
+          { ...turn.context, newTarget: false },
+        );
+        // Hard prohibitions, deny rules, plan mode and requester limits still refuse; taint
+        // escalation cannot fire for the requesting conversation, but would refuse if it did.
+        // The destructive default `ask` is what this authority answers.
+        if (decision.decision === "deny") {
+          return refuse("policy_denied", decision.reason ?? "denied by policy", decision.rule);
+        }
+        if (decision.rule.startsWith("taint:")) {
+          return refuse("taint_new_target", decision.reason ?? "tainted", decision.rule);
+        }
+        rule = "channel_reply:turn";
+        break;
+      }
+      case "pairing_code": {
+        if (turn !== undefined)
+          return refuse("unexpected_turn", "pairing codes are not agent text");
+        if (conv.isGroup) return refuse("group_chat", "pairing codes go only to 1:1 chats");
+        if (conv.pairingPending !== true) {
+          return refuse("no_pairing", "no pending pairing request from this sender");
+        }
+        if (age > CHANNEL_PAIRING_WINDOW_MS) {
+          return refuse("stale_conversation", "the pairing request is too old");
+        }
+        rule = "channel_reply:pairing_code";
+        break;
+      }
+      case "approval_card": {
+        if (turn !== undefined)
+          return refuse("unexpected_turn", "approval cards are not agent text");
+        if (conv.isGroup) return refuse("group_chat", "approval cards go only to 1:1 chats");
+        if (!(await this.#approvers.isOwnerSender(intent.channel, conv.senderId))) {
+          return refuse("not_owner", "approval cards go only to the owner");
+        }
+        rule = "channel_reply:approval_card";
+        break;
+      }
+      default:
+        return refuse("policy_denied", "unknown purpose");
+    }
+
+    const by: DecidedBy = { channel: intent.channel, senderId: conv.senderId };
+    const at = new Date(now).toISOString();
+    const ctx = turn?.context;
+    const approval: ApprovalRequest = {
+      id: this.#newId("apr"),
+      kind: "message_send",
+      summary: sanitizeDisplay(`${intent.purpose.replace("_", " ")} on ${intent.channel}`),
+      details: sanitizeDetails({
+        channel: intent.channel,
+        account: intent.account,
+        recipient: intent.recipient,
+        bodySha256: intent.bodySha256,
+        purpose: intent.purpose,
+        decided: rule,
+      }) as JsonObject,
+      bindingHash: binding.bindingHash,
+      grantKey: binding.grantKey,
+      requestedBy: {
+        runId: ctx?.runId ?? null,
+        taskId: ctx?.taskId ?? null,
+        threadId: ctx?.threadId ?? null,
+        agent: `channel:${intent.channel}`,
+      },
+      sideEffect: "destructive",
+      targetKind: "recipient",
+      target: { kind: "recipient", value: intent.recipient },
+      surfaces: [],
+      scopesOffered: ["once"],
+      deviceOnly: false,
+      requiresAuthentication: false,
+      taint: ctx?.taint === true,
+      status: "approved",
+      scopeGranted: "once",
+      decidedBy: by,
+      requestedAt: at,
+      expiresAt: new Date(now + CHANNEL_REPLY_TTL_MS).toISOString(),
+      decidedAt: at,
+      grantId: null,
+    };
+    if (approval.taint && ctx?.taintSources !== undefined && ctx.taintSources.length > 0) {
+      approval.taintSources = ctx.taintSources.map((s) => ({ ...s }));
+    }
+    this.#store.insertApproval({
+      approval,
+      tokens: [],
+      input: {
+        kind: "message_send",
+        summary: approval.summary,
+        details: approval.details,
+        bindingHash: approval.bindingHash,
+        grantKey: approval.grantKey,
+        requestedBy: { ...approval.requestedBy },
+        sideEffect: "destructive",
+        surfaces: [],
+        scopesOffered: ["once"],
+        taint: approval.taint,
+        ...(ctx === undefined ? {} : { context: structuredClone(ctx) }),
+      },
+      consumedAt: null,
+      revoked: false,
+      bootId: this.#bootId,
+    });
+    await this.#log(
+      "approval.decided",
+      { type: "system" },
+      { approvalId: approval.id, ...subject },
+      {
+        decision: "allow",
+        grantScope: "once",
+        rule,
+        purpose: intent.purpose,
+        recipient: intent.recipient,
+        bindingHash: approval.bindingHash,
+        decidedBy: { channel: by.channel, senderId: by.senderId },
+        ...(conv.inboundMessageId === undefined ? {} : { inboundMessageId: conv.inboundMessageId }),
+        taint: approval.taint,
+        ...(ctx === undefined ? {} : { mode: ctx.permissionMode }),
+      },
+    );
+    return { ok: true, approval: structuredClone(approval) };
   }
 
   async get(approvalId: string): Promise<ApprovalRequest | undefined> {

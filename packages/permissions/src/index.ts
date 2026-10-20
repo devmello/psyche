@@ -3,6 +3,7 @@ export * from "./apps.ts";
 export * from "./binding.ts";
 export * from "./broker.ts";
 export * from "./cards.ts";
+export * from "./channel-reply.ts";
 export * from "./classifier.ts";
 export * from "./classifier-eval.ts";
 export {
