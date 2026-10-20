@@ -105,3 +105,44 @@ build with `npx @electron/fuses read --app "$APP"`.
 ## Updates: the signed manifest
 
 Code signing makes Squirrel.Mac accept an update; it does not say which update is current or that the zip is the one the release meant. The updater therefore applies an update only after verifying `update-manifest.json` with an Ed25519 release key embedded in the app (`src/main/release-keys.ts`), the downloaded zip's SHA-256, and that it is newer and comes from the pinned release host (security §11, "Update manifest" and "Release key"). The release workflow produces the zip and signs the manifest with `RELEASE_SIGNING_KEY` from the `release` environment; without that secret it publishes no manifest and installed apps do not update. Until the first key is embedded, `startUpdater` returns `no_keys` and does nothing.
+
+## Without a Developer ID: ad-hoc signed DMG
+
+`deploy/macos/make-dmg.sh` builds the installer DMG from a packaged `Psyche.app`. Without
+`PSYCHE_SIGN_IDENTITY` the package step already signs the app ad-hoc, inside out. If the app it is
+given does not pass `codesign --verify --deep --strict` (a build from a host or branch that did not
+sign it), the script signs the copy that goes into the DMG ad-hoc itself:
+
+```sh
+codesign --force --deep --sign - --entitlements apps/desktop/entitlements.plist Psyche.app
+```
+
+That fallback has no hardened runtime, so library validation does not reject the bundled
+Gateway's Node runtime and native addons (`Contents/Resources/psyched/`), but `--deep` gives
+`Psyche Helper.app` the app's entitlements; the inside-out signing of the package step is the one
+to ship. The DMG also
+holds an `Applications` link and a background with drag-to-install instructions, and a
+`Psyche-<version>-<arch>.dmg.sha256` file is written next to it. With a Developer ID the app is
+signed and notarized by `electron-forge package` as above, and the DMG is signed, notarized and
+stapled too.
+
+Gatekeeper does not trust an ad-hoc app downloaded from the internet. To open it the first time:
+
+1. Drag Psyche to Applications and open it. macOS refuses with "Psyche can't be opened" (or
+   "cannot verify that it is free of malware"). Click **Done**.
+2. Open **System Settings › Privacy & Security**, scroll to Security, and click **Open Anyway**
+   next to the Psyche message. Confirm with your password.
+
+On macOS 14 and earlier, right-clicking (Control-clicking) the app in Finder and choosing **Open**
+does the same. From macOS 15 on, right-click Open no longer skips the check, so use the
+System Settings button. If you verified the checksum and prefer the terminal, run
+`xattr -dr com.apple.quarantine /Applications/Psyche.app`.
+
+Check the checksum before you trust the download:
+
+```sh
+shasum -a 256 -c Psyche-<version>-<arch>.dmg.sha256
+```
+
+TCC grants (Accessibility, Screen Recording, Microphone) are tied to the signature. An ad-hoc
+build gets a new identity with every release, so after an update macOS may ask for them again.

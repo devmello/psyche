@@ -305,6 +305,107 @@ describe("deploy/scripts/release-preflight.mjs (before a tag)", () => {
   });
 });
 
+describe("deploy/macos/make-dmg.sh (no Developer ID)", () => {
+  // Builds and mounts a disk image, so it runs only when asked (PSYCHE_DMG_TEST=1, macOS).
+  it
+    .skipIf(process.platform !== "darwin" || !has("hdiutil") || process.env.PSYCHE_DMG_TEST !== "1")
+    .each([
+      { presigned: false, identifier: "dev.psyche.test" },
+      // The package step's inside-out signature is kept, not replaced by a --deep one.
+      { presigned: true, identifier: "dev.psyche.kept" },
+    ])(
+    "presigned=$presigned: ad-hoc signed app, Applications link and checksum",
+    ({ presigned, identifier }) => {
+      const dir = mkdtempSync(join(tmpdir(), "psyche-dmg-"));
+      try {
+        // A stub app: one Mach-O executable and its Info.plist.
+        const app = join(dir, "Psyche.app");
+        mkdirSync(join(app, "Contents", "MacOS"), { recursive: true });
+        execFileSync("/bin/cp", ["/usr/bin/true", join(app, "Contents", "MacOS", "Psyche")]);
+        writeFileSync(
+          join(app, "Contents", "Info.plist"),
+          `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>Psyche</string>
+<key>CFBundleIdentifier</key><string>dev.psyche.test</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+</dict></plist>
+`,
+        );
+        if (presigned) {
+          execFileSync("/usr/bin/codesign", [
+            "--force",
+            "--sign",
+            "-",
+            "--identifier",
+            identifier,
+            app,
+          ]);
+        }
+        const out = join(dir, "out");
+        const env: NodeJS.ProcessEnv = {
+          ...process.env,
+          PSYCHE_DMG_BACKGROUND: join(dir, "none.png"),
+          PSYCHE_DMG_LAYOUT: "0",
+        };
+        delete env.PSYCHE_SIGN_IDENTITY;
+        // No Finder layout, so the test scripts no app and opens no windows.
+        const dmg = execFileSync(
+          "/bin/bash",
+          [resolve(deploy, "macos/make-dmg.sh"), app, "1.2.3", "arm64", out],
+          { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+        )
+          .trim()
+          .split("\n")
+          .at(-1);
+        expect(dmg).toBe(join(out, "Psyche-1.2.3-arm64.dmg"));
+        const sum = execFileSync("/usr/bin/shasum", ["-a", "256", "Psyche-1.2.3-arm64.dmg"], {
+          cwd: out,
+          encoding: "utf8",
+        });
+        expect(readFileSync(join(out, "Psyche-1.2.3-arm64.dmg.sha256"), "utf8")).toBe(sum);
+
+        const mnt = join(dir, "mnt");
+        mkdirSync(mnt);
+        execFileSync("/usr/bin/hdiutil", [
+          "attach",
+          "-readonly",
+          "-nobrowse",
+          "-noautoopen",
+          "-mountpoint",
+          mnt,
+          dmg as string,
+        ]);
+        try {
+          expect(existsSync(join(mnt, "Applications"))).toBe(true);
+          const info = spawnSync(
+            "/usr/bin/codesign",
+            ["-dv", "--verbose=2", join(mnt, "Psyche.app")],
+            { encoding: "utf8" },
+          );
+          expect(info.status).toBe(0);
+          expect(info.stderr).toContain("Signature=adhoc");
+          expect(info.stderr).toContain(`Identifier=${identifier}`);
+          expect(
+            spawnSync("/usr/bin/codesign", [
+              "--verify",
+              "--deep",
+              "--strict",
+              join(mnt, "Psyche.app"),
+            ]).status,
+          ).toBe(0);
+        } finally {
+          execFileSync("/usr/bin/hdiutil", ["detach", mnt, "-quiet"]);
+        }
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+    120_000,
+  );
+});
+
 describe("deploy/scripts/build-psyched.mjs launchers", () => {
   it.skipIf(process.platform === "win32")(
     "find the bundle through absolute and relative symlinks (`/usr/local/bin/psyche`)",
