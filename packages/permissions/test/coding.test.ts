@@ -16,8 +16,9 @@ describe("code.* tools (V10)", () => {
     const rule = async (tool: string, se: "read" | "write", p: string) =>
       (await h.broker.decide(at(tool, se, p), CTX)).rule;
     expect(await rule("code.open", "read", "/Users/o/elsewhere")).toBe("folder:not_granted");
+    // Normalized before any check; SSH keys are refused outright (#285).
     expect(await rule("code.read", "read", "/Users/o/src/app/../../.ssh/id_ed25519")).toBe(
-      "folder:not_granted",
+      "prohibition:system_credentials",
     );
     // A command's cwd outside every grant is refused before any card.
     expect(await rule("code.run", "write", "/Users/o")).toBe("folder:not_granted");

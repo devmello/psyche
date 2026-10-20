@@ -356,3 +356,65 @@ describe("localhost test-credential exception (security §3.10, S23 design-03)",
     expect((await decideOn("http://127.0.0.1:9333/", {}, v)).reason).toContain("psyche_port");
   });
 });
+
+describe("Psyche's own files and CLI credentials are never file targets (#285)", () => {
+  const H = "/Users/o";
+  const home = `${H}/.psyche`;
+  const broker = () =>
+    makeBroker({ policy: { folders: [{ path: H, mode: "rw" }] }, psycheHome: home });
+  const at = (tool: string, sideEffect: "read" | "write", path: string) =>
+    call(tool, sideEffect, { kind: "path", value: path });
+
+  it("denies reads of state, audit, browser profiles, settings and SSH keys under a granted ancestor", async () => {
+    const h = broker();
+    for (const p of [
+      `${home}/state/psyche.sqlite`,
+      `${home}/audit/2026-10.jsonl`,
+      `${home}/browser/profiles/default/Cookies`,
+      `${home}/security/audit-anchor-key.json`,
+      `${home}/config.json`,
+      `${home}/vault/slots.json`,
+      `${H}/.ssh/id_rsa`,
+      `${H}/.aws/credentials`,
+      `${H}/Library/Application Support/Google/Chrome/Default/Login Data`,
+      "/home/o/.ssh/id_ed25519",
+    ]) {
+      const d = await h.broker.decide(at("read_file", "read", p), CTX);
+      expect(d.decision, p).toBe("deny");
+      expect(d.rule, p).toMatch(/^prohibition:(psyche_state|system_credentials)$/);
+    }
+  });
+
+  it("file tools cannot change protected memory or workspace skills, even in a clean turn", async () => {
+    const h = broker();
+    for (const p of [
+      `${home}/workspace/MEMORY.md`,
+      `${home}/workspace/agents.md`,
+      `${home}/workspace/skills/evil/SKILL.md`,
+    ]) {
+      expect((await h.broker.decide(at("write_file", "write", p), CTX)).rule, p).toBe(
+        "prohibition:protected_workspace",
+      );
+    }
+    const tainted = { ...CTX, taint: true };
+    expect(
+      (await h.broker.decide(at("edit_file", "write", `${home}/workspace/MEMORY.md`), tainted))
+        .rule,
+    ).toBe("prohibition:protected_workspace");
+  });
+
+  it("the workspace and the Library stay reachable; the memory tool keeps its own rule", async () => {
+    const h = broker();
+    for (const [tool, se, p] of [
+      ["read_file", "read", `${home}/workspace/MEMORY.md`],
+      ["read_file", "read", `${home}/library/files/report.pdf`],
+      ["write_file", "write", `${home}/workspace/notes/today.md`],
+      ["read_file", "read", `${H}/projects/app/README.md`],
+    ] as const) {
+      expect((await h.broker.decide(at(tool, se, p), CTX)).decision, p).not.toBe("deny");
+    }
+    expect(
+      (await h.broker.decide(at("memory", "write", `${home}/workspace/MEMORY.md`), CTX)).rule,
+    ).not.toBe("prohibition:protected_workspace");
+  });
+});
