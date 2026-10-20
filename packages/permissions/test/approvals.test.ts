@@ -401,6 +401,8 @@ describe("grant scopes and the ledger", () => {
           toolsListHash,
           argsSha256: sha256("args"),
         },
+        // Unknown-tier write tools always ask (#280); this one is from a verified server.
+        meta: { mcpTier: "verified" },
       });
     await approve(h, mcp(v1), CTX, "always");
     expect((await h.broker.decide(mcp(v1), CTX)).decision).toBe("allow");
@@ -441,6 +443,42 @@ describe("grant scopes and the ledger", () => {
     expect(await h.broker.revokeMcpGrants("s", B)).toHaveLength(1);
     // …so B → A does not revive it.
     expect((await h.broker.decide(loopCall(A), CTX)).decision).toBe("ask");
+  });
+
+  it("write tools of unknown-tier MCP servers ask even with a matching always grant (#280)", async () => {
+    const h = makeBroker();
+    const hash = `sha256:${"c".repeat(64)}`;
+    const mcp = (
+      sideEffect: "read" | "write",
+      tier?: "bundled" | "verified" | "unknown",
+      tool = "mcp__s__t",
+    ) =>
+      call(
+        tool,
+        sideEffect,
+        { kind: "account", value: "mcp:s" },
+        {
+          kind: "connector_action",
+          bindingHash: sha256(`binding|${tool}|${hash}`),
+          grantKey: `${tool}|mcp:s:t:${hash}`,
+          meta: {
+            mcpServerId: "s",
+            mcpToolsListHash: hash,
+            ...(tier === undefined ? {} : { mcpTier: tier }),
+          },
+        },
+      );
+    // A grant made while the server was verified…
+    await approve(h, mcp("write", "verified"), CTX, "always");
+    expect((await h.broker.decide(mcp("write", "verified"), CTX)).decision).toBe("allow");
+    // …does not cover the same tool once the server is unknown: it asks, once only.
+    const d = await h.broker.decide(mcp("write", "unknown"), CTX);
+    expect(d).toMatchObject({ decision: "ask", rule: "mcp:unknown_tier" });
+    expect((d as { scopesOffered?: string[] }).scopesOffered).toEqual(["once"]);
+    // An mcp__ tool that names no tier counts as unknown.
+    expect(await h.broker.decide(mcp("write"), CTX)).toMatchObject({ rule: "mcp:unknown_tier" });
+    // Reads of unknown servers follow the mode as before.
+    expect((await h.broker.decide(mcp("read", "unknown"), CTX)).rule).not.toBe("mcp:unknown_tier");
   });
 
   it("exec_host always grants refuse cwd-config executables unless their config is bound (design-14)", async () => {
