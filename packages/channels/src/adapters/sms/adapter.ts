@@ -39,6 +39,24 @@ export interface SmsAdapterOptions {
   clock?: { now(): number };
   /** fetchAttachment cap, default 5 MB (Twilio's MMS limit). */
   maxDownloadBytes?: number;
+  /**
+   * Every refused webhook request, with the sender it claims (unverified; empty when the body
+   * could not be read). The Gateway counts it against the inbound limit (#254) under its own key,
+   * so forged requests are counted and audited without spending a real sender's budget.
+   */
+  onRejected?: (rejection: SmsWebhookRejection) => void;
+}
+
+export type SmsRejectReason =
+  | "too_large"
+  | "unsigned"
+  | "bad_signature"
+  | "wrong_account"
+  | "replayed";
+
+export interface SmsWebhookRejection {
+  reason: SmsRejectReason;
+  claimedFrom: string;
 }
 
 export interface SmsWebhookRequest {
@@ -66,7 +84,12 @@ const reply = (status: number, body: string, type: string): SmsWebhookResponse =
   headers: { "content-type": type, "cache-control": "no-store" },
   body,
 });
-const FORBIDDEN = () => reply(403, "forbidden", "text/plain; charset=utf-8");
+/** A refusal says nothing: no body, so a prober learns only the status. */
+const FORBIDDEN = (): SmsWebhookResponse => ({
+  status: 403,
+  headers: { "cache-control": "no-store" },
+  body: "",
+});
 
 export class SmsAdapter implements ChannelAdapter {
   readonly type = "sms" as const;
@@ -138,24 +161,27 @@ export class SmsAdapter implements ChannelAdapter {
   async handleWebhook(request: SmsWebhookRequest): Promise<SmsWebhookResponse> {
     const raw =
       typeof request.body === "string" ? request.body : Buffer.from(request.body).toString("utf8");
-    if (Buffer.byteLength(raw, "utf8") > SMS_WEBHOOK_MAX_BYTES) return FORBIDDEN();
+    if (Buffer.byteLength(raw, "utf8") > SMS_WEBHOOK_MAX_BYTES) {
+      return this.#reject("too_large", "");
+    }
+    const params = parseForm(raw);
+    const map = new Map(params);
+    const claimed = map.get("From") ?? "";
     const header = request.headers["x-twilio-signature"];
     const given = Array.isArray(header) ? header[0] : header;
-    if (given === undefined || given === "") return FORBIDDEN();
-    const params = parseForm(raw);
+    if (given === undefined || given === "") return this.#reject("unsigned", claimed);
     const expected = await this.#o.authToken.use(async (token) =>
       twilioSignature(token, this.#o.publicUrl, params),
     );
-    if (!signatureMatches(expected, given)) return FORBIDDEN();
+    if (!signatureMatches(expected, given)) return this.#reject("bad_signature", claimed);
 
-    const map = new Map(params);
     if (map.get("AccountSid") !== this.#o.accountSid || map.get("To") !== this.#o.from) {
-      return FORBIDDEN();
+      return this.#reject("wrong_account", claimed);
     }
     const now = this.#clock.now();
     const sid = map.get("MessageSid") ?? map.get("SmsSid") ?? "";
     this.#prune(now);
-    if (sid === "" || this.#seen.has(sid)) return FORBIDDEN();
+    if (sid === "" || this.#seen.has(sid)) return this.#reject("replayed", claimed);
     if (!this.#started) return reply(503, "unavailable", "text/plain; charset=utf-8");
     this.#seen.set(sid, now);
     this.#lastEventAt = now;
@@ -165,6 +191,15 @@ export class SmsAdapter implements ChannelAdapter {
       this.#inflight.add(job);
     }
     return reply(200, EMPTY_TWIML, "text/xml; charset=utf-8");
+  }
+
+  #reject(reason: SmsRejectReason, claimedFrom: string): SmsWebhookResponse {
+    try {
+      this.#o.onRejected?.({ reason, claimedFrom: claimedFrom.slice(0, 32) });
+    } catch {
+      // Counting is best effort; the refusal stands.
+    }
+    return FORBIDDEN();
   }
 
   async send(message: OutboundMessage): Promise<SendResult> {

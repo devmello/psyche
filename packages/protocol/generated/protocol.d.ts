@@ -4891,6 +4891,34 @@ export interface VMSnapshotResult {
     snapshot: VMSnapshot;
 }
 
+export interface VMSnapshotsCreateParams {
+    /**
+     * Make it the reset point (`vm.snapshots.reset` returns here)
+     */
+    base?:  boolean;
+    label?: string;
+}
+
+export interface VMSnapshotsDeleteParams {
+    snapshot: string;
+}
+
+export interface VMSnapshotsDeleteResult {
+    deleted: boolean;
+}
+
+export interface VMSnapshotsListResult {
+    baseSnapshot?: null | string;
+    /**
+     * Newest first
+     */
+    snapshots: VMSnapshot[];
+}
+
+export interface VMSnapshotsRestoreParams {
+    snapshot: string;
+}
+
 export interface VMStatus {
     active:    number;
     guests:    VMGuest[];
