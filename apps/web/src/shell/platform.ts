@@ -20,7 +20,19 @@ export interface GatewayPort {
   onEvent(cb: (event: GatewayEvent) => void): Unsubscribe;
   /** Fired after reconnects and `seq` gaps: refetch collections (data model §11). */
   onResync(cb: () => void): Unsubscribe;
+  /** Desktop only: the Gateway process the app starts (LaunchAgent or dev child). */
+  getRun?(): Promise<GatewayRunView>;
+  onRun?(cb: (run: GatewayRunView) => void): Unsubscribe;
+  /** Desktop only: opens `$PSYCHE_HOME/logs` (gateway.out.log, gateway.err.log). */
+  showLogs?(): Promise<void>;
 }
+
+/** The desktop supervisor's view of the Gateway process (apps/desktop/src/main/supervisor.ts). */
+export type GatewayRunView =
+  | { kind: "unknown" }
+  | { kind: "starting"; mode: string }
+  | { kind: "running"; mode: string; pid?: number }
+  | { kind: "stopped"; mode: string; reason?: string; logs?: string };
 
 /** CSS-pixel rectangle relative to the window's content area. */
 export interface Rect {
