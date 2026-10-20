@@ -193,6 +193,30 @@ describe("traversal and granted folders", () => {
   });
 });
 
+describe("protected locations (#285)", () => {
+  it("refuses Psyche's home and credential stores under a granted rw folder", async () => {
+    const home = join(granted, ".psyche");
+    mkdirSync(join(home, "workspace"), { recursive: true });
+    writeFileSync(join(home, "workspace", "MEMORY.md"), "memory");
+    mkdirSync(join(granted, ".ssh"));
+    writeFileSync(join(granted, ".ssh", "id_rsa"), "key");
+    ({ run } = toolset({
+      folders: () => folders,
+      protectedRoots: () => [home, join(granted, ".ssh")],
+    }));
+    await expect(
+      run("write_file", { path: join(home, "workspace", "MEMORY.md"), content: "x" }),
+    ).rejects.toMatchObject({ code: "forbidden", details: { reason: "protected_path" } });
+    await expect(run("read_file", { path: join(granted, ".ssh", "id_rsa") })).rejects.toMatchObject(
+      { code: "forbidden" },
+    );
+    await expect(run("list_dir", { path: home })).rejects.toMatchObject({ code: "forbidden" });
+    expect(readFileSync(join(home, "workspace", "MEMORY.md"), "utf8")).toBe("memory");
+    // Everything else in the granted folder works as before.
+    await run("write_file", { path: join(granted, "ok.md"), content: "ok" });
+  });
+});
+
 describe("symlinks", () => {
   it("refuses edits and searches through links, and never searches into one", async () => {
     symlinkSync(join(outside, "secret.txt"), join(granted, "link.txt"));

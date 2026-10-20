@@ -33,7 +33,11 @@ export interface RouteContext {
   injectMemory: boolean;
   /** Delegated persona overlay name (feature N10). */
   personaOverlay?: string;
-  /** Tool allowlist (globs) for delegated personas; absent = the owner's normal tool set. */
+  /**
+   * Tool allowlist (globs). Absent only for the owner (their normal tool set); a delegated
+   * persona's list from its identity; `[]` for an allowlisted sender, who has no delegation:
+   * a chat-only turn that reads none of the owner's sources (security §9, #293).
+   */
   toolAllow?: string[];
   /**
    * Subject for the Permission Broker's per-sender grant matrix (S05 owns the matrix): the identity
@@ -92,7 +96,11 @@ export function buildRoute(input: RouteInput): RouteContext {
     provenance: input.role === "owner" ? "owner" : "untrusted",
     injectMemory: input.role === "owner" && !input.isGroup,
     ...(delegated?.delegatedPersona == null ? {} : { personaOverlay: delegated.delegatedPersona }),
-    ...(delegated === undefined ? {} : { toolAllow: delegated.toolAllow ?? [] }),
+    ...(delegated !== undefined
+      ? { toolAllow: delegated.toolAllow ?? [] }
+      : input.role === "owner"
+        ? {}
+        : { toolAllow: [] }),
     grantSubject: identityId ?? `${channel.type}:${input.senderId}`,
     approvalsToOwner: true,
   };

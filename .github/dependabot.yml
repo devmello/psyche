@@ -16,6 +16,10 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    # Majors (TypeScript 7, @types/node 26, ...) are done by hand at version bumps, not by bot PRs.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-and-patch:
         update-types: ["minor", "patch"]

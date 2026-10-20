@@ -5,6 +5,7 @@ import type {
   EventPayload,
   InboundMessage,
   Provenance,
+  TaintSource,
 } from "@psyche/protocol";
 import type { ParsedCommand } from "./commands.ts";
 import type { RouteContext } from "./routing.ts";
@@ -34,6 +35,14 @@ export interface ChannelInboundEvent {
   parts: InboundPart[];
   attachments: { libraryItemId: string }[];
   command?: ParsedCommand;
+  /**
+   * Where untrusted content in `parts` / `attachments` came from (security §3.6): forwarded
+   * text, quoted text by anyone but the owner, a non-owner's own words, and their attachments.
+   * Empty when everything is the owner's or Psyche's. The Gateway must start the turn tainted
+   * with these when non-empty, whatever `route.provenance` says (issue #275). Always set by
+   * `ChannelService`.
+   */
+  taintSources?: TaintSource[];
 }
 
 /** Where routed inbound traffic goes (the Gateway's session controller / agent-core). */

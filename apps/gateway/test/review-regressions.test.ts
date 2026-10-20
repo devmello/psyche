@@ -183,7 +183,18 @@ describe("S01 review regressions", () => {
     ]) {
       expect(isUnreachableCapability(name), name).toBe(true);
     }
-    for (const name of ["notify.show", "vaulted.door", "computer.click", "keychainy"]) {
+    // Capabilities with an agent tool are reachable only through it (#274).
+    for (const name of [
+      "apps.applescript",
+      "apps.jxa",
+      "apps.shortcut_run",
+      "computer.click",
+      "messages.send",
+      "notify.show",
+    ]) {
+      expect(isUnreachableCapability(name), name).toBe(true);
+    }
+    for (const name of ["calendar.list_events", "vaulted.door", "vm.status", "keychainy"]) {
       expect(isUnreachableCapability(name), name).toBe(false);
     }
   });
