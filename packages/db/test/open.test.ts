@@ -5,6 +5,7 @@ import { listMigrationFiles, openDb } from "../src/index.ts";
 import { makeTmpDir, memoryDb } from "./helpers.ts";
 
 const TABLES = [
+  "agent_thread_state",
   "approvals",
   "automation_runs",
   "automations",

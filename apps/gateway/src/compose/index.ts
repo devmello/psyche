@@ -73,9 +73,10 @@ import {
   type ComposeServices,
   createOwnPorts,
 } from "./services.ts";
+import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
+import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
-import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 
 /**
@@ -414,6 +415,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(timeZone === undefined ? {} : { defaultTimezone: timeZone }),
   });
   const loop = createAgentLoop({
+    // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
+    state: new SqliteThreadStateStore(db, redactor),
     provider,
     model: modelRef,
     ...(utility === undefined ? {} : { utilityModel: utility }),
@@ -594,8 +597,6 @@ export {
   type RealChromeStatus,
 } from "./real-chrome.ts";
 export type { ApprovalRelay, ComposedPart, ComposeServices, OwnPorts } from "./services.ts";
-export { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
-export { type ModelPins, modelPinsFor, restoreModelPins } from "./threads.ts";
 export {
   composeSpeech,
   dbMessageSource,
@@ -604,6 +605,9 @@ export {
   speechNode,
   speechSetupFromEnv,
 } from "./speech.ts";
+export { SqliteThreadStateStore } from "./thread-state.ts";
+export { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
+export { type ModelPins, modelPinsFor, restoreModelPins } from "./threads.ts";
 export {
   type ComposedVault,
   chooseWrapper,
