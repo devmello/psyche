@@ -1,13 +1,15 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { type AgentToolRegistration, codingTools } from "@psyche/agent-core";
 import { FakeModelProvider } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { runScenario, SCENARIOS_DIR } from "../../../packages/testing/src/scenarios/index.ts";
 import { parseSlots } from "../../../packages/testing/src/scenarios/util.ts";
-import { m2Overrides } from "../src/m2-world.ts";
-import { M2_SCENARIO_IDS, M2_SCENARIOS_DIR } from "../src/scenario-scripts.ts";
+import { flattenTopLevelUnion } from "../src/m3-world.ts";
+import { M2_SCENARIOS_DIR } from "../src/scenario-scripts.ts";
 import { answerFor } from "./answers.ts";
 import { runScenarioLive } from "./driver.ts";
+import { LIVE_SCENARIO_IDS, scenarioSetup } from "./setup.ts";
 import { canonicalLines, extractSlots } from "./slots.ts";
 import { LIVE_TOOL_SPECS } from "./tool-specs.ts";
 
@@ -17,14 +19,6 @@ import { LIVE_TOOL_SPECS } from "./tool-specs.ts";
  * settle, approver policy, `liveSeverity` and tool-spec overlay. Every hard assertion the scripted
  * runner passes must pass here too (the known V7 failures stay known).
  */
-
-const known = JSON.parse(
-  readFileSync(join(SCENARIOS_DIR, "known-failures.json"), "utf8"),
-) as Record<string, Record<string, string>>;
-
-const knownM2 = JSON.parse(
-  readFileSync(join(M2_SCENARIOS_DIR, "known-failures.json"), "utf8"),
-) as Record<string, Record<string, string>>;
 
 const hardFailures = (r: { assertions: { id: string; severity: string; status: string }[] }) =>
   r.assertions.filter((a) => a.severity === "hard" && a.status === "fail").map((a) => a.id);
@@ -44,50 +38,52 @@ describe("live driver plumbing (scripted provider through the live code path)", 
       if (!builtins.has(t.name)) expect(LIVE_TOOL_SPECS[t.name], t.name).toBeDefined();
   });
 
-  const ids = [
-    "v1-inbox-triage",
-    "v2-calendar-planning",
-    "v3-shopping",
-    "v7-research-brief",
-    ...M2_SCENARIO_IDS,
-  ];
-  for (const id of ids) {
+  for (const id of LIVE_SCENARIO_IDS) {
     it(`${id}: reaches the scripted runner's outcome`, async () => {
-      const m2 = (M2_SCENARIO_IDS as readonly string[]).includes(id);
-      const dir = join(m2 ? M2_SCENARIOS_DIR : SCENARIOS_DIR, id);
-      expect(existsSync(dir)).toBe(true);
-      const scripted = await runScenario(dir, m2 ? { stack: m2Overrides(id).overrides } : {});
-      const fake = new FakeModelProvider({ id: "fake" });
-      const r = await runScenarioLive(dir, {
-        provider: fake,
-        model: "fake/main",
-        script: true,
-        stepTimeoutMs: 60_000,
-        ...(m2 ? { overrides: m2Overrides(id).overrides } : {}),
-      });
-      expect(r.mode).toBe("live");
-      // Known failures (tests/scenarios/known-failures.json) are the only hard failures allowed,
-      // minus the scripted runner's own script-divergence checks (`runner/*`), which live mode
-      // has no equivalent for.
-      const tracked = m2 ? knownM2 : known;
-      const expected = Object.keys(tracked[id] ?? {}).filter((k) => !k.startsWith("runner/"));
-      expect(hardFailures(r)).toEqual(expected);
-      // Live mode ran at least every step the scripted runner ran minus the scripted-only ones.
-      const ran = r.steps.filter((s) => s.status === "ran").length;
-      const scriptedRan = scripted.steps.filter((s) => s.status === "ran").length;
-      expect(ran).toBeGreaterThanOrEqual(scriptedRan - 2);
-      expect(ran).toBeLessThanOrEqual(scriptedRan);
-      expect(r.calls.length).toBeGreaterThan(0);
-      expect(r.summary.hard.unchecked).toBe(0);
-      // Triage material: every card the owner saw, every answer given, every question asked.
-      expect(r.cards.length).toBeGreaterThan(0);
-      for (const card of r.cards) {
-        expect(card.step).not.toBe("");
-        expect(JSON.stringify(card.details)).not.toMatch(/Hi (Maya|Lena|Sam),/);
+      const first = await scenarioSetup(id);
+      const second = await scenarioSetup(id);
+      try {
+        expect(existsSync(first.dir)).toBe(true);
+        const scripted = await runScenario(first.dir, {
+          ...(first.overrides === undefined ? {} : { stack: first.overrides }),
+          ...(first.mutate === undefined ? {} : { mutate: first.mutate }),
+        });
+        const fake = new FakeModelProvider({ id: "fake" });
+        const r = await runScenarioLive(second.dir, {
+          provider: fake,
+          model: "fake/main",
+          script: true,
+          stepTimeoutMs: 60_000,
+          ...(second.overrides === undefined ? {} : { overrides: second.overrides }),
+          ...(second.mutate === undefined ? {} : { mutate: second.mutate }),
+        });
+        expect((await second.check?.()) ?? []).toEqual([]);
+        expect(r.mode).toBe("live");
+        // Known failures (tests/scenarios/known-failures.json) are the only hard failures allowed,
+        // minus the scripted runner's own script-divergence checks (`runner/*`), which live mode
+        // has no equivalent for.
+        const expected = first.known.filter((k) => !k.startsWith("runner/"));
+        expect(hardFailures(r)).toEqual(expected);
+        // Live mode ran at least every step the scripted runner ran minus the scripted-only ones.
+        const ran = r.steps.filter((s) => s.status === "ran").length;
+        const scriptedRan = scripted.steps.filter((s) => s.status === "ran").length;
+        expect(ran).toBeGreaterThanOrEqual(scriptedRan - 2);
+        expect(ran).toBeLessThanOrEqual(scriptedRan);
+        expect(r.calls.length).toBeGreaterThan(0);
+        expect(r.summary.hard.unchecked).toBe(0);
+        // Triage material: every card the owner saw, every answer given, every question asked.
+        expect(r.cards.length).toBeGreaterThan(0);
+        for (const card of r.cards) {
+          expect(card.step).not.toBe("");
+          expect(JSON.stringify(card.details)).not.toMatch(/Hi (Maya|Lena|Sam),/);
+        }
+        // V1 and V2 answer through approve steps; V7's origin cards go through the approver policy.
+        expect(r.answers.length).toBeGreaterThan(0);
+        expect(r.questions).toEqual([]);
+      } finally {
+        first.dispose();
+        second.dispose();
       }
-      // V1 and V2 answer through approve steps; V7's origin cards go through the approver policy.
-      expect(r.answers.length).toBeGreaterThan(0);
-      expect(r.questions).toEqual([]);
     });
   }
 });
@@ -174,5 +170,27 @@ describe("live answers", () => {
       answerFor("v2-calendar-planning", request, [{ header: "Slot", answer }]).answer.Slot;
     expect(pick(["Fri", "wed", "tue"])).toBe("Wed 9:00");
     expect(pick(["Fri", "Sat"])).toBe("Tue 2:30");
+  });
+});
+
+describe("harness workaround #414 (code.git's top-level anyOf)", () => {
+  it("offers one object with every branch's fields and op as an enum", () => {
+    const stub = { spec: { name: "x" } } as unknown as AgentToolRegistration;
+    const git = codingTools({
+      files: { read: stub, write: stub },
+      folders: () => [],
+      git: { run: async () => ({ exitCode: 0, stdout: "", stderr: "" }) },
+      broker: {} as never,
+    } as never).find((t) => t.spec.name === "code.git");
+    const schema = git?.spec.inputSchema as Record<string, unknown>;
+    expect(schema.type).toBeUndefined();
+    const flat = flattenTopLevelUnion(schema) as {
+      type: string;
+      properties: Record<string, { enum?: string[] }>;
+      required: string[];
+    };
+    expect(flat.type).toBe("object");
+    expect(flat.required).toEqual(["root", "op"]);
+    expect(flat.properties.op?.enum).toEqual(expect.arrayContaining(["status", "commit", "push"]));
   });
 });

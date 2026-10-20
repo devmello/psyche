@@ -46,11 +46,25 @@ export const M2_SCENARIO_IDS = [
 ] as const;
 export type M2ScenarioId = (typeof M2_SCENARIO_IDS)[number];
 
+/** Milestone 3 scenarios (tests/acceptance/scenarios-m3), same format; their world: m3-world.ts. */
+export const M3_SCENARIOS_DIR = join(ROOT, "tests/acceptance/scenarios-m3");
+export const M3_SCENARIO_IDS = ["v10-coding-helper"] as const;
+export type M3ScenarioId = (typeof M3_SCENARIO_IDS)[number];
+
 /** Calls on the happy path by `expect`, but excluded by hand, with the reason. */
 const EXCLUDED: Record<string, Record<string, string>> = {
   "v1-inbox-triage": {
     c_v1_send_lena_2: "the retry after the tampered send (fault step s8); the first send stands",
   },
+};
+
+/**
+ * Tools whose calls are stricter than their listed floor, by scenario. The sweep's fake has one
+ * side effect per tool; `code.git` is listed `read` (status, diff, log) and the loop raises a
+ * commit or push to a write per call, so here it is a write: every V10 git call is ledgered.
+ */
+const SIDE_EFFECT_FLOOR: Record<string, Record<string, ToolInfo["sideEffect"]>> = {
+  "v10-coding-helper": { "code.git": "write" },
 };
 
 interface ToolInfo {
@@ -62,7 +76,7 @@ interface ToolInfo {
 }
 
 export interface ScenarioScript {
-  id: ScenarioId | M2ScenarioId;
+  id: ScenarioId | M2ScenarioId | M3ScenarioId;
   script: ResumabilityScript;
   tools: ResumabilityTool[];
   policy: PolicyConfig;
@@ -130,15 +144,19 @@ function onHappyPath(call: ScriptCall): boolean {
 }
 
 /** Loads a scenario and derives its happy-path script, tools and policy. */
-export function scenarioScript(id: ScenarioId | M2ScenarioId): ScenarioScript {
+export function scenarioScript(id: ScenarioId | M2ScenarioId | M3ScenarioId): ScenarioScript {
   const m2 = (M2_SCENARIO_IDS as readonly string[]).includes(id);
-  const dir = join(m2 ? M2_SCENARIOS_DIR : SCENARIOS_DIR, id);
+  const m3 = (M3_SCENARIO_IDS as readonly string[]).includes(id);
+  const dir = join(m3 ? M3_SCENARIOS_DIR : m2 ? M2_SCENARIOS_DIR : SCENARIOS_DIR, id);
   const sc = JSON.parse(readFileSync(join(dir, "scenario.json"), "utf8")) as Scenario & {
     resumability: { randomKills: number };
   };
   const infos = (JSON.parse(readFileSync(join(dir, sc.tools), "utf8")) as { tools: ToolInfo[] })
     .tools;
-  const byName = new Map(infos.map((t) => [t.name, t]));
+  const floor = SIDE_EFFECT_FLOOR[id] ?? {};
+  const byName = new Map<string, ToolInfo>(
+    infos.map((t) => [t.name, { ...t, sideEffect: floor[t.name] ?? t.sideEffect }]),
+  );
   const excluded = EXCLUDED[id] ?? {};
   const steps: ScriptStep[] = [];
   const used = new Set<string>();

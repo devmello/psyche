@@ -31,7 +31,14 @@ export const LIVE_ANSWERS: Record<string, LiveAnswerRule[]> = {
   "v1-inbox-triage": [
     // "Maya asks two things; what should I tell her?": confirm the launch date, as the fixture
     // reply does (tests/scenarios/v1-inbox-triage/scenario.json, c_v1_draft_maya).
-    { question: /launch|roadmap|maya/i, answer: "Confirm" },
+    // "When will you send the one-pager?": the fixture reply says by end of day today.
+    { question: /one-?pager/i, answer: "By end of day today.", literal: true },
+    {
+      question: /launch|roadmap|maya|nov(ember)? 12/i,
+      answer:
+        "Nov 12 still holds: confirm it, and say I'll send the one-pager by end of day today.",
+      literal: true,
+    },
     // "Lena's draft has a placeholder for the time and place": the fixture reply's (c_v1_draft_lena).
     {
       question: /lena|time and (a )?place|placeholder/i,
@@ -87,6 +94,27 @@ export const LIVE_ANSWERS: Record<string, LiveAnswerRule[]> = {
     { question: /keep/i, answer: ["FitLoop", "CloudHost", "NewsDaily"] },
   ],
   "v9-weekly-review": [{ question: /time|when|day/i, answer: "Fridays at 4 PM", literal: true }],
+};
+
+/**
+ * The owner's one reply when a model asks in prose instead of with `ask_user` and the step's
+ * expected card is missing (`when`: a pattern on what the model said in the step). Each says
+ * what the scenario's owner message and fixtures already imply.
+ */
+export interface LiveFollowUp {
+  step: string;
+  when?: RegExp;
+  text: string;
+}
+
+export const LIVE_FOLLOW_UPS: Record<string, LiveFollowUp[]> = {
+  "v1-inbox-triage": [
+    {
+      step: "s5-send-maya",
+      when: /placeholder|bracket|which version|tell me|before I send|need (you|to know)/i,
+      text: "Nov 12 still holds. Fill in the reply: confirm Thursday Nov 12 and say I'll send the one-pager by end of day today. Then send it.",
+    },
+  ],
 };
 
 export type QuestionAnswer = Record<string, string | string[]>;
