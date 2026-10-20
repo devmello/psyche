@@ -7,6 +7,7 @@ import {
   type Server as NetServer,
   type Socket,
 } from "node:net";
+import { join } from "node:path";
 import type { Duplex } from "node:stream";
 import { openDb, type PsycheDb } from "@psyche/db";
 import {
@@ -17,6 +18,7 @@ import {
   PsycheError,
 } from "@psyche/protocol";
 import { type WebSocket, WebSocketServer } from "ws";
+import { CloudflareAccessVerifier } from "./cf-access.ts";
 import { type GatewayConfig, resolveConfig } from "./config.ts";
 import { Connection } from "./connection.ts";
 import {
@@ -44,7 +46,9 @@ import { RateLimiter } from "./rate-limit.ts";
 import { type RecoveryReport, recoverAfterRestart } from "./recovery.ts";
 import { RETENTION_INTERVAL_MS, runRetention } from "./retention.ts";
 import { SessionController } from "./session/controller.ts";
+import { ensureSocketDir, writeSocketPointer } from "./socket-path.ts";
 import { readStateVersion, writeStateVersion } from "./state-version.ts";
+import { TransportGate } from "./transport-gate.ts";
 import { NdjsonDecoder } from "./transports/ndjson.ts";
 
 export const GATEWAY_VERSION = "0.1.0";
@@ -63,6 +67,8 @@ export interface GatewayOptions {
   broker?: PermissionBroker;
   memory?: MemoryStore;
   limits?: Partial<GatewayLimits>;
+  /** Tests: where the Cloudflare Access JWKS comes from. */
+  cloudflareAccessFetch?: ConstructorParameters<typeof CloudflareAccessVerifier>[1];
   /**
    * Whether a presence verifier exists (helper Touch ID key, passkeys). When it returns true,
    * security settings need a presence-approved `policy_change` card (security §10).
@@ -70,6 +76,11 @@ export interface GatewayOptions {
   settingsPresence?: () => boolean;
   /** After a device is revoked (composition root: end the grants it approved). */
   onDeviceRevoked?: (deviceId: string) => Promise<unknown>;
+  /**
+   * The broker publishes its own `receipt.created` events (the composition root forwards them),
+   * so `nodes.invoke` must not publish the same receipt again (issue #50).
+   */
+  brokerPublishesReceipts?: boolean;
   /** Which models may run `auto` threads, and the router's per-thread pin (composition root). */
   threadModels?: ThreadModelPolicy;
   /** Package handlers to mount (composition root); a name the Gateway already handles is refused. */
@@ -117,6 +128,17 @@ function checkExtraHandlers(
 export async function startGateway(options: GatewayOptions = {}): Promise<Gateway> {
   const config = resolveConfig(options.env ?? process.env, options.config ?? {});
   const proxies = trustedProxyList(config.trustedProxy.trustedProxies);
+  const cfAccess =
+    config.cloudflareAccess === null
+      ? null
+      : new CloudflareAccessVerifier(config.cloudflareAccess, options.cloudflareAccessFetch ?? {});
+  const transportGate = new TransportGate({
+    mode: config.bind,
+    token: config.gatewayToken,
+    trustedProxies: proxies,
+    tailscaleProxies: trustedProxyList(config.trustedProxy.tailscaleProxies ?? []),
+    cfAccess,
+  });
   const log = options.logger ?? createLogger();
   const now = options.now ?? (() => new Date());
   const limits: GatewayLimits = { ...DEFAULT_LIMITS, ...options.limits };
@@ -128,8 +150,8 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   // The secret is written to disk only after both listeners are up (see below).
   const handshakeSecret = newHandshakeSecret();
   const connections = new Set<Connection>();
-  let connSeq = 0;
-  let origin = "";
+  const connSeq = 0;
+  const origin = "";
 
   const broker = options.broker ?? new LockedPermissionBroker();
   const ctx = {
@@ -143,7 +165,11 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     memory: options.memory ?? null,
     extraHandlers: checkExtraHandlers(options.handlers ?? {}),
     onDeviceRevoked: options.onDeviceRevoked ?? null,
+<<<<<<< HEAD
+    brokerPublishesReceipts: options.brokerPublishesReceipts ?? false,
+=======
     settingsPresence: options.settingsPresence ?? (() => false),
+>>>>>>> origin/main
     threadModels: options.threadModels ?? null,
     deviceDisconnected: new Set<(deviceId: string) => void>(),
     limits,
@@ -168,9 +194,26 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     log.log("warn", "approval reissue failed", { code: PsycheError.from(err).code });
   }
 
-  const http: Server = createServer((req, res) =>
-    handleHttp(req, res, { webRoot: config.webRoot, version: GATEWAY_VERSION }),
-  );
+  const http: Server = createServer((req, res) => {
+    const serve = () => handleHttp(req, res, { webRoot: config.webRoot, version: GATEWAY_VERSION });
+    // The container bind gates every route but the bare health check (Compose healthcheck).
+    const path = new URL(req.url ?? "/", "http://gateway.invalid").pathname;
+    if (transportGate.mode !== "container" || path === "/healthz") return serve();
+    const resolved = resolvePeer(
+      req.socket.remoteAddress,
+      req.headers,
+      config.trustedProxy,
+      proxies,
+    );
+    void transportGate.admit(req, resolved).then((admission) => {
+      if ("refused" in admission) {
+        res.writeHead(401, { "content-type": "application/json", "cache-control": "no-store" });
+        res.end(JSON.stringify({ ok: false, error: "unauthorized" }));
+        return;
+      }
+      serve();
+    });
+  });
   const wss = new WebSocketServer({ noServer: true, maxPayload: 1_048_576 });
 
   http.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => {
@@ -189,7 +232,32 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     }
     // Proxy headers never authorize the API; every device pairs (security §10). They only make a
     // forwarded connection non-loopback and, in trusted-proxy mode, name the client address.
-    const peer = resolvePeer(req.socket.remoteAddress, req.headers, config.trustedProxy, proxies);
+    const resolved = resolvePeer(
+      req.socket.remoteAddress,
+      req.headers,
+      config.trustedProxy,
+      proxies,
+    );
+    // Transport gate (§10): Cloudflare Access and, with PSYCHE_BIND=container, the token or a
+    // verified proxy identity. Pairing still applies after it.
+    void transportGate.admit(req, resolved).then((admission) => {
+      if ("refused" in admission) {
+        log.log("warn", "websocket upgrade rejected", { reason: admission.refused });
+        socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+      acceptUpgrade(req, socket, head, requestOrigin, admission.peer);
+    });
+  });
+
+  const acceptUpgrade = (
+    req: IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+    requestOrigin: string | null,
+    peer: ReturnType<typeof resolvePeer>,
+  ) => {
     wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
       const conn = new Connection(
         `ws-${++connSeq}`,
@@ -220,7 +288,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       });
       ws.on("error", () => conn.close("socket error"));
     });
-  });
+  };
 
   try {
     await new Promise<void>((resolveListen, reject) => {
@@ -239,6 +307,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
 
   // Unix socket for local nodes (mac helper): NDJSON frames, mode 0600. A socket that still
   // accepts connections belongs to another running Gateway: refuse instead of stealing it.
+  ensureSocketDir(config.nodeSocketPath, config.home);
   if (existsSync(config.nodeSocketPath)) {
     if (await socketIsLive(config.nodeSocketPath)) {
       await new Promise<void>((r) => http.close(() => r()));
@@ -281,6 +350,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     });
   });
   chmodSync(config.nodeSocketPath, 0o600);
+  writeSocketPointer(config.home, config.nodeSocketPath);
   const { path: secretPath } = writeHandshakeSecret(config.home, handshakeSecret);
 
   // Follow-ups queued before the restart run now; then the hourly retention sweep.
@@ -315,6 +385,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
       http.closeAllConnections();
       await new Promise<void>((r) => http.close(() => r()));
       rmSync(config.nodeSocketPath, { force: true });
+      rmSync(join(config.home, "run", "node-socket"), { force: true });
       removeHandshakeSecret(secretPath);
       if (!options.db) db.close();
       log.log("info", "gateway stopped", { reason });

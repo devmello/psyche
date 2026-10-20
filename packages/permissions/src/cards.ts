@@ -122,6 +122,7 @@ const KIND_TITLES: Record<string, string> = {
   memory_protected_write: "Edit protected memory",
   pairing: "Pair device",
   policy_change: "Change permissions",
+  task_start: "Start background task",
 };
 
 /** Detail keys shown first, in this order, per kind. */

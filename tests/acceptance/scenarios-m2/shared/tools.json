@@ -106,11 +106,11 @@
     },
     {
       "name": "task.start",
-      "sideEffect": "none",
+      "sideEffect": "write",
       "targetKind": null,
       "provenanceOut": "trusted",
-      "note": "agent-core built-in (packages/agent-core/src/builtins/services.ts) over a FakeTaskEngine. agent-core declares none; the broker floors task.start to write, so in balanced each start asks (issue #48) and the card is connector_action. V8's 'cancellations as approved tasks' relies on that card.",
-      "approvalKind": "connector_action"
+      "note": "agent-core built-in (packages/agent-core/src/builtins/services.ts) over a FakeTaskEngine. Declared write with approval kind task_start (design-08, #48), matching the broker floor, so in balanced each start asks. V8's 'cancellations as approved tasks' relies on that card.",
+      "approvalKind": "task_start"
     },
     {
       "name": "schedule",
