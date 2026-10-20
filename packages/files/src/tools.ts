@@ -20,6 +20,7 @@ import {
   canonicalTarget,
   fsError,
   type GrantedFolder,
+  isUnder,
 } from "./paths.ts";
 import { type FileProvenanceIndex, MemoryFileProvenance, readProvenance } from "./provenance.ts";
 
@@ -156,6 +157,9 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
   const now = options.now ?? (() => new Date());
   // With no trusted roots every read is untrusted, and the spec says so up front.
   const readOut: ProvenanceOut = trustedRoots.length > 0 ? "trusted" : "untrusted";
+  /** Inside a protected root: never read, searched or listed, even under a granted folder. */
+  const isProtected = (path: string) =>
+    (options.protectedRoots?.() ?? []).some((r) => isUnder(path, canonicalTarget(r)));
   const granted = (path: string, access: "read" | "write") => {
     assertNotProtected(path, options.protectedRoots?.());
     assertGranted(path, options.folders?.(), access);
@@ -449,6 +453,8 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
       } catch (err) {
         throw fsError(err, path);
       }
+      // A protected folder under the listed one (`~/.ssh`, `~/.psyche`) is not even named (#285).
+      all = all.filter((e) => !isProtected(join(path, e.name)));
       all.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
       const offset = p.offset ?? 0;
       const page = all.slice(offset, offset + MAX_ENTRIES);
@@ -520,6 +526,8 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
             continue;
           }
           const full = join(dir, e.name);
+          // The walk never enters a protected folder under the searched root (#285).
+          if (isProtected(full)) continue;
           if (fold(e.name).includes(needle)) {
             // A name is data from the file system, never vouched for.
             provenance = "untrusted";
