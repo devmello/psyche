@@ -135,7 +135,7 @@ export function composeSandbox(
 export async function composeSandboxIfAvailable(
   services: ComposeServices,
   setup: SandboxSetup = {},
-): Promise<ComposedPart> {
+): Promise<ComposedSandbox | ComposedPart> {
   const part = composeSandbox(services, setup);
   const backends = await part.runner.backends().catch(() => []);
   if (backends.length > 0) {

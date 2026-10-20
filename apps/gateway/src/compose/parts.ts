@@ -1,13 +1,12 @@
 import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { createSandboxRunner } from "@psyche/sandbox";
 import { composeBackup } from "./backup.ts";
 import { type ComposedBrowser, composeBrowser } from "./browser.ts";
 import { channelsSetupFromEnv, composeChannels } from "./channels.ts";
 import { composeConnectors } from "./connectors.ts";
 import { composeHelper } from "./helper.ts";
 import { composeMcp } from "./mcp.ts";
-import { composeSandboxIfAvailable } from "./sandbox.ts";
+import { type ComposedSandbox, composeSandboxIfAvailable } from "./sandbox.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | ComposedPart;
@@ -28,11 +27,13 @@ type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | Compos
  *   skips it); servers it leaves listening are offered to the browser's dev preview;
  * - the MCP host (`mcp.servers` in settings; `PSYCHE_MCP=off` skips it): stdio servers under
  *   `srt` at `PSYCHE_SRT_PATH`, or each in its own sandbox container with
- *   `PSYCHE_MCP_LAUNCHER=container`; without either only HTTP servers run.
+ *   `PSYCHE_MCP_LAUNCHER=container` (needs the sandbox part; network only through its egress
+ *   proxy and the server's allowlist); without either only HTTP servers run.
  */
 export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
   const parts: PartFactory[] = [];
   let browser: ComposedBrowser | undefined;
+  let sandbox: ComposedSandbox | undefined;
   if (env.PSYCHE_BROWSER !== "off") {
     // Logged out by default (I15). `PSYCHE_BROWSER_PARTITION=profile|clean|auto` and the
     // comma-separated `PSYCHE_BROWSER_SIGNED_IN_ORIGINS` (used by `auto`) stand in until
@@ -73,9 +74,14 @@ export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
   }
   if (env.PSYCHE_SANDBOX !== "off") {
     // Parts compose in order, so the browser (when mounted) exists by now.
-    parts.push((s) =>
-      composeSandboxIfAvailable(s, browser === undefined ? {} : { devServers: browser.devServers }),
-    );
+    parts.push(async (s) => {
+      const part = await composeSandboxIfAvailable(
+        s,
+        browser === undefined ? {} : { devServers: browser.devServers },
+      );
+      if ("runner" in part) sandbox = part as ComposedSandbox;
+      return part;
+    });
   }
   parts.push((s) =>
     composeConnectors(s, {
@@ -92,15 +98,24 @@ export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
     }),
   );
   if (env.PSYCHE_MCP !== "off") {
-    parts.push((s) =>
-      composeMcp(s, {
-        ...(env.PSYCHE_MCP_LAUNCHER === "container"
-          ? { container: createSandboxRunner() }
+    parts.push((s) => {
+      const runner = sandbox?.runner;
+      const egress = sandbox?.egress;
+      return composeMcp(s, {
+        // The sandbox part's runner (not disposed by the MCP part) and its egress allowlists.
+        ...(env.PSYCHE_MCP_LAUNCHER === "container" && runner !== undefined && egress !== undefined
+          ? {
+              container: {
+                ensureSandbox: (scope, options) => runner.ensureSandbox(scope, options),
+                openStdio: (id, options) => runner.openStdio(id, options),
+              },
+              egressAllowlist: (scope, hosts) => egress.egressAllowlist(scope, hosts),
+            }
           : env.PSYCHE_SRT_PATH
             ? { srtPath: env.PSYCHE_SRT_PATH }
             : {}),
-      }),
-    );
+      });
+    });
   }
   return parts;
 }
