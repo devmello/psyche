@@ -1,4 +1,5 @@
 import type { ApprovalRequest, Message, Notification, ThreadListEntry } from "@psyche/protocol";
+import { t } from "@psyche/ui";
 import type { GatewayEvent } from "../client/connection.ts";
 import { type GatewayStatus, INITIAL_STATUS } from "../client/status.ts";
 import type { GatewayPort, Unsubscribe } from "./platform.ts";
@@ -238,10 +239,7 @@ export class ShellStore {
       token = got?.answerToken;
     }
     if (!token) {
-      this.toast(
-        "This approval can't be answered here. Open it on the device it was sent to.",
-        "warn",
-      );
+      this.toast(t("web.toast.approvalElsewhere"), "warn");
       return;
     }
     await this.gateway.call("approvals.answer", {
@@ -319,9 +317,9 @@ export class ShellStore {
         });
         break;
       case "gateway.shutdown":
-        this.toast("The Gateway is restarting. Psyche will reconnect.", "warn");
+        this.toast(t("web.toast.gatewayRestarting"), "warn");
         break;
     }
-    for (const t of this.eventTaps) t(e);
+    for (const tap of this.eventTaps) tap(e);
   }
 }

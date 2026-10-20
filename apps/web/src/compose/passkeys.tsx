@@ -1,5 +1,5 @@
 import type { PasskeyInfo } from "@psyche/protocol";
-import { useCall } from "@psyche/ui";
+import { activeI18n, t, useCall } from "@psyche/ui";
 import { type ReactElement, useCallback, useEffect, useId, useState } from "react";
 import {
   type PasskeyCall,
@@ -17,17 +17,23 @@ import {
  * passkey (purchases, credential fills, host commands, security settings).
  */
 
-export const PASSKEYS_UNAVAILABLE =
-  "Passkeys need the server's https address. Set gateway.publicOrigin (or PSYCHE_PUBLIC_ORIGIN) to the https:// address you open Psyche at, restart the Gateway, then add one here.";
-export const PASSKEYS_INSECURE =
-  "Passkeys work only when Psyche is open at its https:// address, in a browser that supports them. Open it there to add one.";
+/** Shown when the Gateway has no https origin for passkeys. */
+export function passkeysUnavailableText(): string {
+  return t("web.passkeys.unavailable");
+}
+/** Shown when this page isn't a secure context or the browser lacks WebAuthn. */
+export function passkeysInsecureText(): string {
+  return t("web.passkeys.insecure");
+}
 
 const button =
   "inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-medium shadow-xs hover:bg-gray-3 disabled:opacity-50";
 const input = "h-8 rounded-md border border-input bg-background px-2 text-sm";
 
-export const FIRST_PASSKEY_APPROVAL =
-  "Approve “Add a passkey” with Touch ID on your Mac or with a passkey on another device, then press Add again.";
+/** Asks for the owner's approval of this device's first passkey. */
+export function firstPasskeyApprovalText(): string {
+  return t("web.passkeys.firstApproval");
+}
 
 /** `details.approvalId` when the Gateway asks for the owner's approval of a first passkey. */
 function firstPasskeyApproval(err: unknown): string | null {
@@ -78,7 +84,7 @@ export function PasskeysPanel({ host }: { host: PasskeyHost | undefined }): Reac
           ? { kind: "unavailable" }
           : {
               kind: "error",
-              text: `Psyche couldn't load your passkeys (${passkeyErrorText(err)}).`,
+              text: t("web.passkeys.loadError", { error: passkeyErrorText(err) }),
             },
       );
     }
@@ -128,18 +134,18 @@ export function PasskeysPanel({ host }: { host: PasskeyHost | undefined }): Reac
         const pending = firstPasskeyApproval(err);
         if (pending === null) throw err;
         setApprovalId(pending);
-        throw new Error(FIRST_PASSKEY_APPROVAL);
+        throw new Error(firstPasskeyApprovalText());
       }
       setApprovalId(null);
       setName("");
-      return `Added ${res.passkey.name}. It now approves changes that need Touch ID or a passkey.`;
+      return t("web.passkeys.added", { name: res.passkey.name });
     });
 
   const remove = (p: PasskeyInfo) =>
     run(`remove:${p.id}`, async (h) => {
       const reauth = await reauthenticate(call, h.authenticator);
       await call("passkeys.remove", { passkeyId: p.id, reauth });
-      return `Removed ${p.name}.`;
+      return t("web.passkeys.removed", { name: p.name });
     });
 
   return (
@@ -150,12 +156,9 @@ export function PasskeysPanel({ host }: { host: PasskeyHost | undefined }): Reac
     >
       <div>
         <h3 id={`${id}-title`} className="text-base font-semibold text-foreground">
-          Passkeys
+          {t("web.passkeys.title")}
         </h3>
-        <p className="text-muted-foreground">
-          A passkey on this browser proves it's you when you approve purchases, credential fills,
-          commands on the server and security settings.
-        </p>
+        <p className="text-muted-foreground">{t("web.passkeys.description")}</p>
       </div>
       {notice ? (
         <p
@@ -171,11 +174,11 @@ export function PasskeysPanel({ host }: { host: PasskeyHost | undefined }): Reac
       ) : null}
       {list.kind === "unavailable" ? (
         <p role="status" className="text-muted-foreground" data-testid="passkeys-unavailable">
-          {PASSKEYS_UNAVAILABLE}
+          {passkeysUnavailableText()}
         </p>
       ) : !host ? (
         <p role="status" className="text-muted-foreground" data-testid="passkeys-unavailable">
-          {PASSKEYS_INSECURE}
+          {passkeysInsecureText()}
         </p>
       ) : null}
       {list.kind === "error" ? (
@@ -185,31 +188,33 @@ export function PasskeysPanel({ host }: { host: PasskeyHost | undefined }): Reac
       ) : null}
       {list.kind === "loading" ? (
         <p role="status" className="text-muted-foreground">
-          Loading passkeys…
+          {t("web.passkeys.loading")}
         </p>
       ) : list.kind === "ready" ? (
         passkeys.length === 0 ? (
           <p className="rounded-lg border border-dashed border-gray-6 p-3 text-muted-foreground">
-            No passkeys on this browser yet.
+            {t("web.passkeys.empty")}
           </p>
         ) : (
-          <ul className="flex flex-col divide-y divide-gray-6" aria-label="Passkeys">
+          <ul className="flex flex-col divide-y divide-gray-6" aria-label={t("web.passkeys.title")}>
             {passkeys.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center gap-3 py-1.5">
                 <span className="min-w-0 flex-1 font-medium text-foreground">{p.name}</span>
                 <span className="text-xs text-muted-foreground">
-                  Added {new Date(p.createdAt).toLocaleDateString()}
-                  {p.lastUsedAt ? ` · used ${new Date(p.lastUsedAt).toLocaleDateString()}` : ""}
-                  {p.backedUp ? " · synced" : ""}
+                  {t("web.passkeys.addedOn", { date: activeI18n().date(p.createdAt) })}
+                  {p.lastUsedAt
+                    ? t("web.passkeys.usedOn", { date: activeI18n().date(p.lastUsedAt) })
+                    : ""}
+                  {p.backedUp ? t("web.passkeys.synced") : ""}
                 </span>
                 <button
                   type="button"
                   className={button}
                   disabled={busy !== null || !host}
                   onClick={() => void remove(p)}
-                  aria-label={`Remove ${p.name}`}
+                  aria-label={t("web.passkeys.removeName", { name: p.name })}
                 >
-                  {busy === `remove:${p.id}` ? "Removing…" : "Remove"}
+                  {busy === `remove:${p.id}` ? t("web.passkeys.removing") : t("common.remove")}
                 </button>
               </li>
             ))}
@@ -219,11 +224,11 @@ export function PasskeysPanel({ host }: { host: PasskeyHost | undefined }): Reac
       {host && list.kind === "ready" ? (
         <div className="flex flex-wrap items-end gap-2">
           <label className="flex flex-col gap-1">
-            <span className="font-medium text-foreground">Name</span>
+            <span className="font-medium text-foreground">{t("web.passkeys.name")}</span>
             <input
               className={input}
               maxLength={64}
-              placeholder="Passkey"
+              placeholder={t("web.passkeys.namePlaceholder")}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -234,11 +239,11 @@ export function PasskeysPanel({ host }: { host: PasskeyHost | undefined }): Reac
             disabled={busy !== null}
             onClick={() => void add()}
           >
-            {busy === "add" ? "Waiting for the passkey…" : "Add a passkey"}
+            {busy === "add" ? t("web.passkeys.waiting") : t("web.passkeys.add")}
           </button>
           {passkeys.length > 0 ? (
             <span className="pb-1.5 text-xs text-muted-foreground">
-              You'll confirm with an existing passkey first.
+              {t("web.passkeys.confirmFirst")}
             </span>
           ) : null}
         </div>

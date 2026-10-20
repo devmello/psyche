@@ -6,6 +6,7 @@ import {
   FilesPane,
   type GatewayCall,
   readFileBytes,
+  t,
   useCall,
 } from "@psyche/ui";
 import { configurePdfJs, ViewerHost, type ViewerItem } from "@psyche/viewers";
@@ -32,10 +33,10 @@ export function conversionUnavailableMessage(err: unknown): string | null {
   const code = (err as { code?: unknown }).code;
   const reason = (err as { details?: { reason?: unknown } }).details?.reason;
   if (code === "unavailable" && reason === "sandbox_unavailable") {
-    return "Previews of slides need the sandbox, and no container runtime (Apple container, Docker or Podman) is available.";
+    return t("web.viewers.noSandbox");
   }
   if (code === "unavailable" || code === "not_implemented") {
-    return "This preview needs the full sandbox image, which includes LibreOffice. The text of each slide is below.";
+    return t("web.viewers.needsFullImage");
   }
   return null;
 }
@@ -97,7 +98,7 @@ export function FileViewer({
   // biome-ignore lint/correctness/useExhaustiveDependencies: keyed by the source's identity
   const load = useCallback(
     async (signal: AbortSignal) => {
-      if (source === null) throw new Error("This file has no path.");
+      if (source === null) throw new Error(t("web.viewers.noPath"));
       return (await readFileBytes(call, source, { signal })).bytes;
     },
     [call, key],

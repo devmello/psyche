@@ -1,5 +1,5 @@
 import type { LogLevel, LogLine } from "@psyche/protocol";
-import { useGatewayQuery } from "@psyche/ui";
+import { activeI18n, t, useGatewayQuery } from "@psyche/ui";
 import { type ReactElement, useId, useState } from "react";
 import { isUnavailableMessage } from "./backups.tsx";
 
@@ -81,11 +81,10 @@ export function LogViewer({
     >
       <div>
         <h3 id={`${id}-title`} className="text-base font-semibold text-foreground">
-          Logs
+          {t("web.logs.title")}
         </h3>
         <p className="text-muted-foreground">
-          The Gateway's structured log: method names, ids, codes and timings, never message bodies
-          or secrets. The same lines as <code>psyche logs</code>.
+          {t("web.logs.description")} <code>psyche logs</code>.
         </p>
       </div>
       <form
@@ -97,7 +96,7 @@ export function LogViewer({
         }}
       >
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium">Level</span>
+          <span className="text-xs font-medium">{t("web.logs.level")}</span>
           <select
             className={select}
             value={filter.level}
@@ -105,19 +104,19 @@ export function LogViewer({
           >
             {LEVELS.map((l) => (
               <option key={l} value={l}>
-                {l} and above
+                {t("web.logs.levelAndAbove", { level: l })}
               </option>
             ))}
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium">Subsystem</span>
+          <span className="text-xs font-medium">{t("web.logs.subsystem")}</span>
           <select
             className={select}
             value={filter.subsystem}
             onChange={(e) => setFilter({ ...filter, subsystem: e.target.value })}
           >
-            <option value="">all</option>
+            <option value="">{t("web.logs.allSubsystems")}</option>
             {subsystems.map((s) => (
               <option key={s} value={s}>
                 {s}
@@ -126,16 +125,16 @@ export function LogViewer({
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium">Search</span>
+          <span className="text-xs font-medium">{t("web.logs.search")}</span>
           <input
             className={select}
             value={filter.search}
-            placeholder="tool, code, id…"
+            placeholder={t("web.logs.searchPlaceholder")}
             onChange={(e) => setFilter({ ...filter, search: e.target.value })}
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium">Lines</span>
+          <span className="text-xs font-medium">{t("web.logs.lines")}</span>
           <select
             className={select}
             value={filter.lines}
@@ -143,7 +142,7 @@ export function LogViewer({
           >
             {[100, 200, 500, 1000].map((n) => (
               <option key={n} value={n}>
-                {n}
+                {activeI18n().number(n)}
               </option>
             ))}
           </select>
@@ -152,28 +151,28 @@ export function LogViewer({
           type="submit"
           className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 font-medium shadow-xs hover:bg-gray-3"
         >
-          {q.loading ? "Loading…" : "Refresh"}
+          {q.loading ? t("common.loading") : t("web.logs.refresh")}
         </button>
       </form>
       {unavailable ? (
         <p role="status" className="text-approval-text">
-          The log viewer needs a newer Gateway. Meanwhile: <code>psyche logs -n 200</code>.
+          {t("web.logs.needsGateway")} <code>psyche logs -n 200</code>.
         </p>
       ) : q.error !== null ? (
         <p role="alert" className="text-danger-text">
-          Psyche couldn't load the logs ({q.error}).
+          {t("web.logs.loadError", { error: q.error })}
         </p>
       ) : lines.length === 0 ? (
         <p className="rounded-lg border border-dashed border-gray-6 p-3 text-muted-foreground">
-          {q.loading ? "Loading…" : "No matching lines."}
+          {q.loading ? t("common.loading") : t("web.logs.empty")}
         </p>
       ) : (
         <ol
           className="flex max-h-[60vh] flex-col gap-0.5 overflow-auto font-mono text-xs"
-          aria-label="Log lines"
+          aria-label={t("web.logs.linesLabel")}
         >
           {q.data?.truncated ? (
-            <li className="text-muted-foreground">Older matching lines were left out.</li>
+            <li className="text-muted-foreground">{t("web.logs.truncated")}</li>
           ) : null}
           {keyed(lines).map(({ key, line: l }) => (
             <li key={key} className="flex flex-wrap items-baseline gap-2">

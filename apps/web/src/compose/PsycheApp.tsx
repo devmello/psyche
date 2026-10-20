@@ -7,6 +7,7 @@ import {
   ChatThread,
   compactThread,
   compactWithToast,
+  describeError,
   FeedScreen,
   GatewayProvider,
   GoalsScreen,
@@ -24,6 +25,7 @@ import {
   ThreadContextMeter,
   ThreadList,
   Toaster,
+  t,
   type UiSlots,
   UiSlotsProvider,
   useStore,
@@ -114,12 +116,15 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
 function agentRoute(route: string, navigate: (to: string) => void): ReactNode | null {
   const m = /^\/agent\/(activity|approvals|upcoming|soul)(?:\/([^/?]+))?/.exec(route);
   if (m === null) return null;
-  const tab = (TABS.find((t) => t === m[1]) ?? "activity") as AgentTab;
+  const tab = (TABS.find((x) => x === m[1]) ?? "activity") as AgentTab;
   return (
-    <section className="flex min-h-0 flex-1 flex-col overflow-auto" aria-label="Agent">
+    <section
+      className="flex min-h-0 flex-1 flex-col overflow-auto"
+      aria-label={t("web.agent.label")}
+    >
       <AgentSheetBody
         tab={tab}
-        onTabChange={(t) => navigate(`/agent/${t}`)}
+        onTabChange={(next) => navigate(`/agent/${next}`)}
         {...(m[2] === undefined ? {} : { taskId: m[2] })}
       />
     </section>
@@ -372,7 +377,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
     body = (
       <div className="flex h-dvh flex-col" data-testid="onboarding">
         <TitleBar chrome={platform.chrome}>
-          <span className="title">Set up Psyche</span>
+          <span className="title">{t("web.onboarding.title")}</span>
         </TitleBar>
         <main
           className="flex min-h-0 flex-1 flex-col overflow-auto"
@@ -399,7 +404,8 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
                   reloadPersona();
                   setGate("ready");
                 },
-                (err: unknown) => setError(`Could not save your agent: ${String(err)}`),
+                (err: unknown) =>
+                  setError(t("web.onboarding.saveError", { error: describeError(err) })),
               );
             }}
           />
