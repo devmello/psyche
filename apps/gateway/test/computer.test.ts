@@ -33,6 +33,8 @@ class FakeHelper implements NodeClient {
   allowed = new Set<string>();
   lock: string | undefined;
   stopNext = false;
+  /** An older helper that acts on whatever app is under the point (#267). */
+  pointApp: string | undefined;
 
   async info(): Promise<NodeInfo> {
     throw new Error("unused");
@@ -107,7 +109,7 @@ class FakeHelper implements NodeClient {
       default:
         return {
           ok: true,
-          result: { status: "ok", method: "ax", app },
+          result: { status: "ok", method: "ax", app: this.pointApp ?? app },
           receipt: { outcome: "ok", summary: `${capability} ok` },
         };
     }
@@ -234,6 +236,27 @@ describe("computer-use agent tools (J1–J5)", () => {
     expect(cu.sessions()).toEqual([{ id: "run_1", nodeId: "node-mac", runIds: ["run_1"] }]);
   });
 
+  it("names the approved app on every action and refuses one that reached another (#267)", async () => {
+    await call("computer.snapshot", { app: notes });
+    const approvalId = await loopApproval("computer_action");
+    helper.pointApp = "com.apple.systempreferences";
+    const r = await call(
+      "computer.act",
+      { app: notes, action: "click", x: 10, y: 20 },
+      {
+        approvalId,
+      },
+    );
+    expect(helper.calls.at(-1)).toMatchObject({
+      capability: "computer.click",
+      params: { x: 10, y: 20, app: notes, approvedTier: "click" },
+    });
+    expect(r).toMatchObject({
+      isError: true,
+      output: { error: { code: "policy_denied", details: { reason: "app_mismatch" } } },
+    });
+  });
+
   it("fails clearly without a helper", async () => {
     connected = false;
     const r = await call("computer.snapshot", { app: notes });
@@ -253,7 +276,13 @@ describe("computer-use agent tools (J1–J5)", () => {
     expect(r.receiptId).toBeDefined();
     expect(helper.calls.at(-1)).toEqual({
       capability: "computer.click",
-      params: { ref: "e1", expect: { role: "textarea", label: "Body" }, session: "run_1" },
+      params: {
+        ref: "e1",
+        expect: { role: "textarea", label: "Body" },
+        app: notes,
+        approvedTier: "click",
+        session: "run_1",
+      },
       approvalId,
     });
   });

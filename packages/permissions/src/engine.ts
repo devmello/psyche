@@ -192,10 +192,17 @@ export class PolicyEngine {
     const precomputed = call.bindingHash !== undefined && call.grantKey !== undefined;
     if (call.binding === undefined) {
       if (precomputed) {
+        // The agent loop's MCP calls arrive precomputed; their meta names the server and the
+        // tools/list hash, so the grant is found by revokeMcpGrants (#279).
+        const m = call.meta;
+        const mcp =
+          typeof m?.mcpServerId === "string" && typeof m.mcpToolsListHash === "string"
+            ? { serverId: m.mcpServerId, tool: call.tool, toolsListHash: m.mcpToolsListHash }
+            : {};
         return {
           kind,
           fields: {},
-          grantFields: {},
+          grantFields: mcp,
           bindingHash: call.bindingHash as Binding["bindingHash"],
           grantKey: call.grantKey as Binding["grantKey"],
         };

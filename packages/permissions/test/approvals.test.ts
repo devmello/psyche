@@ -414,6 +414,35 @@ describe("grant scopes and the ledger", () => {
     );
   });
 
+  it("a loop-shaped MCP call (precomputed binding, meta) is revoked on a tools/list change (#279)", async () => {
+    const h = makeBroker();
+    const A = `sha256:${"a".repeat(64)}`;
+    const B = `sha256:${"b".repeat(64)}`;
+    // What the agent loop sends: a precomputed bindingHash and grantKey, no binding, and the
+    // MCP identity in meta (from @psyche/mcp-host describeMcpCall).
+    const loopCall = (hash: string) =>
+      call(
+        "mcp__s__t",
+        "write",
+        { kind: "account", value: "mcp:s" },
+        {
+          kind: "connector_action",
+          bindingHash: sha256(`binding|${hash}`),
+          grantKey: `mcp__s__t|mcp:s:t:${hash}`,
+          meta: { mcpServerId: "s", mcpToolsListHash: hash, mcpTier: "verified" },
+        },
+      );
+    await approve(h, loopCall(A), CTX, "always");
+    expect((await h.broker.decide(loopCall(A), CTX)).decision).toBe("allow");
+    const [g] = await h.broker.listGrants();
+    expect(g?.subject).toMatchObject({ serverId: "s", toolsListHash: A });
+
+    // A → B: the grant bound to A is revoked…
+    expect(await h.broker.revokeMcpGrants("s", B)).toHaveLength(1);
+    // …so B → A does not revive it.
+    expect((await h.broker.decide(loopCall(A), CTX)).decision).toBe("ask");
+  });
+
   it("exec_host always grants refuse cwd-config executables unless their config is bound (design-14)", async () => {
     const h = makeBroker({ policy: { exec: { execHostEnabled: true } } });
     const git = (cwdConfigHashes?: Record<string, string>) =>

@@ -36,6 +36,29 @@ describe("connector rule and taint sources reach the broker (#71)", () => {
     expect(h.broker.decisions[0]?.call.meta).toEqual({ app: "com.apple.Notes", action: "click" });
   });
 
+  it("forwards an MCP tool's server, tools/list hash and tier (#279, #280)", async () => {
+    const h = harness({
+      script: [call("m1", "mcp__s__t", {}), say("Done.")],
+      policy: { bySideEffect: { write: "allow" } },
+    });
+    const hash = `sha256:${"a".repeat(64)}`;
+    h.loop.registry.register({
+      spec: spec("mcp__s__t", "write"),
+      execute: recorder().execute,
+      describeCall: () => ({
+        kind: "connector_action",
+        grantKey: `mcp:s:t:${hash}`,
+        meta: { mcpServerId: "s", mcpToolsListHash: hash, mcpTier: "unknown", other: 1 } as never,
+      }),
+    });
+    await runTurn(h, "call it");
+    expect(h.broker.decisions[0]?.call.meta).toEqual({
+      mcpServerId: "s",
+      mcpToolsListHash: hash,
+      mcpTier: "unknown",
+    });
+  });
+
   it("a tainted approval request carries the turn's taint sources", async () => {
     const h = harness({
       script: [call("f1", "web.fetch", {}), call("s1", "email.send", { to: "x@evil.example" })],
