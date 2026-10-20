@@ -86,7 +86,10 @@ describe("channel input taint (#275)", () => {
     await vi.waitFor(() => expect(model.requests).toHaveLength(1));
     await c.gateway.context.sessions.idle();
     expect((await savedTaint(c))?.sources).toEqual(
-      expect.arrayContaining([{ sourceKind: "channel_forwarded", sender: "telegram:777" }]),
+      // The channel service's own sources (#319): origin is the chat, sender the author.
+      expect.arrayContaining([
+        { sourceKind: "channel_forwarded", origin: `telegram:${OWNER}`, sender: "777" },
+      ]),
     );
   });
 
@@ -119,5 +122,14 @@ describe("channel input taint (#275)", () => {
     expect(inputTaintSources({ ...base, parts: [{ text: "mine", provenance: "owner" }] })).toEqual(
       [],
     );
+    // When the channel service names the sources, its list wins over the parts.
+    const named = [{ sourceKind: "channel_attachment", origin: "telegram:1001", sender: "555" }];
+    expect(
+      inputTaintSources({
+        ...base,
+        parts: [{ text: "q", provenance: "untrusted", label: "quoted" }],
+        taintSources: named,
+      }),
+    ).toEqual(named);
   });
 });
