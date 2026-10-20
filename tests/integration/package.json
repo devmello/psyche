@@ -1,6 +1,6 @@
 {
   "name": "@psyche/integration-tests",
-  "version": "0.0.0",
+  "version": "0.3.0-alpha.0",
   "private": true,
   "description": "Cross-package integration tests (INT-1..3): the walking skeleton against a composed Gateway",
   "license": "Apache-2.0",

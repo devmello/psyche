@@ -80,7 +80,7 @@ export function FollowUpQueue({
           <button
             type="button"
             onClick={() => onRemove(q.id)}
-            className="rounded-full p-0.5 text-muted-foreground hover:bg-gray-4 hover:text-foreground"
+            className="inline-flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-gray-4 hover:text-foreground"
             aria-label={`Remove queued message "${q.content}"`}
           >
             <X className="size-3.5" aria-hidden="true" />

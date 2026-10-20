@@ -1,6 +1,6 @@
 {
   "name": "@psyche/files",
-  "version": "0.0.0",
+  "version": "0.3.0-alpha.0",
   "private": true,
   "description": "P9 file tools for the agent: read_file (with PDF, DOCX and XLSX text extraction), write_file, edit_file, list_dir and search_files over granted folders.",
   "license": "Apache-2.0",
