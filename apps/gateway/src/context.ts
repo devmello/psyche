@@ -82,6 +82,8 @@ export interface GatewayContext {
    * the composition root wires `PsychePermissionBroker.revokeGrantsByDevice`).
    */
   readonly onDeviceRevoked: ((deviceId: string) => Promise<unknown>) | null;
+  /** True once a presence verifier exists: security settings then need fresh presence. */
+  readonly settingsPresence: () => boolean;
   serverOrigin(): string;
   connections(): Iterable<LiveConnection>;
 }

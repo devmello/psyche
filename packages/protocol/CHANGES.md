@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S05 M2: fresh presence on security settings)
+
+For S05 (the Gateway's `settings.set`) and S11 (Settings). `settings.set` gains optional `approvalId`. Once the Gateway has a presence verifier (helper Touch ID, passkeys), a security key (security §10: `permissions.*`, `exec.*`, `vault.*`, `devices.*`, `gateway.*`, `identityLinks.*`, `commands.ownerAllowFrom`, the channel DM / allow policies) fails `approval_required` with `details.approvalId`: a device-only `policy_change` card bound to the key and the value's hash, which needs a presence assertion to approve. The client retries with that `approvalId`; the approval covers that one value, once.
+
 ### v1 additive — 2026-10-20 (S11 M2: thread list rows)
 
 For S11 (sidebar rows, UI design §2.2) and S01 (`threads.list`). `ThreadListEntry` gains optional `lastMessage: ThreadPreview` (`role` user | agent, `text` up to 160 characters of plain text, `at`), so the thread list can show each thread's last line without fetching its history.

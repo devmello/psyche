@@ -295,7 +295,8 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       isOwnerSender: async () => false,
     },
     approver: (deviceId) => [...helpers.values()].some((h) => h.deviceId === deviceId),
-    presence: { kind: "helper", verifier },
+    // No registered keys, no assertion can pass: not a reason to gate security settings.
+    presence: { kind: "helper", verifier, ready: () => setup.presenceKeys !== undefined },
     start(gw) {
       gateway = gw;
       unsubscribe.push(

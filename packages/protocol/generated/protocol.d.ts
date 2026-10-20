@@ -2674,8 +2674,9 @@ export interface SettingsGetResult {
 }
 
 export interface SettingsSetParams {
-    key:   string;
-    value: unknown;
+    approvalId?: string;
+    key:         string;
+    value:       unknown;
 }
 
 export interface SettingsSetResult {

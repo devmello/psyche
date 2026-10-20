@@ -229,6 +229,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const relays: ApprovalRelay[] = [];
   const parts: ComposedPart[] = [];
   const presenceByKind = new Map<string, PresenceVerifier>();
+  const presenceReady: (() => boolean)[] = [];
   // The localhost rule (security §3.10) needs OS probes a part supplies (the browser's dev
   // preview); until one does, no loopback origin is the owner's project.
   let localProject: LocalProjectVerifier = DENY_ALL_LOOPBACK;
@@ -362,7 +363,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       throw new PsycheError("invalid_params", `two composed parts supply a ${duplicate}`);
     }
     if (part.relay !== undefined) relays.push(part.relay);
-    if (part.presence !== undefined) presenceByKind.set(part.presence.kind, part.presence.verifier);
+    if (part.presence !== undefined) {
+      presenceByKind.set(part.presence.kind, part.presence.verifier);
+      presenceReady.push(part.presence.ready ?? (() => true));
+    }
     if (part.localProject !== undefined) {
       localProject = part.localProject;
       localProjectSupplied = true;
@@ -452,6 +456,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     memory,
     handlers,
     onDeviceRevoked: (deviceId) => rawBroker.revokeGrantsByDevice(deviceId),
+    // Security settings need fresh presence once a verifier can verify (security §10): an
+    // explicit one, or a part's with a registered key (the helper without keys is not).
+    settingsPresence: () => presence !== NO_PRESENCE || presenceReady.some((ready) => ready()),
   });
   bus = gateway.bus;
   vault.attach(gateway.context.nodes);

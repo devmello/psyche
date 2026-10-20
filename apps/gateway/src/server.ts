@@ -62,6 +62,11 @@ export interface GatewayOptions {
   broker?: PermissionBroker;
   memory?: MemoryStore;
   limits?: Partial<GatewayLimits>;
+  /**
+   * Whether a presence verifier exists (helper Touch ID key, passkeys). When it returns true,
+   * security settings need a presence-approved `policy_change` card (security §10).
+   */
+  settingsPresence?: () => boolean;
   /** After a device is revoked (composition root: end the grants it approved). */
   onDeviceRevoked?: (deviceId: string) => Promise<unknown>;
   /** Package handlers to mount (composition root); a name the Gateway already handles is refused. */
@@ -135,6 +140,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     memory: options.memory ?? null,
     extraHandlers: checkExtraHandlers(options.handlers ?? {}),
     onDeviceRevoked: options.onDeviceRevoked ?? null,
+    settingsPresence: options.settingsPresence ?? (() => false),
     limits,
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>
       now().getTime(),
