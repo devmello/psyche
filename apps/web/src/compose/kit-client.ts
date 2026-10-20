@@ -43,11 +43,12 @@ export function kitClient(port: GatewayPort): GatewayClient {
         return (await port.call(method, params, options ?? {})) as MethodResult<M>;
       } catch (err) {
         if (err instanceof GatewayRequestError) throw err;
-        const e = err as { code?: unknown; message?: unknown };
+        const e = err as { code?: unknown; message?: unknown; details?: unknown };
         throw new GatewayRequestError(
           method,
           typeof e.code === "string" ? e.code : "internal",
           typeof e.message === "string" ? e.message : String(err),
+          e.details,
         );
       }
     },

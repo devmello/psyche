@@ -28,6 +28,8 @@ import {
   type PolicyConfig,
   type PresenceVerifier,
   PsychePermissionBroker,
+  RevocationLedger,
+  replayRevocations,
   SqlitePermissionStore,
 } from "@psyche/permissions";
 import { proactiveTools, publicFetch } from "@psyche/proactive";
@@ -75,6 +77,7 @@ import {
 } from "./services.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
+import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 
 /**
@@ -109,6 +112,11 @@ export interface ComposeOptions
    * part with a `relay` delivers approvals beyond the in-app surfaces (chat, the Mac helper).
    */
   parts?: ReadonlyArray<(services: ComposeServices) => Promise<ComposedPart> | ComposedPart>;
+  /**
+   * Speech (S17: dictation, voice memos, read-aloud, voices) is always mounted; this sets its
+   * process runner prefix (default: `speechSetupFromEnv`).
+   */
+  speech?: SpeechSetup;
   /**
    * Passkey assertions for approvals that require authentication (purchase, credential fill,
    * host exec; security §3.7). Helper (Touch ID) assertions go to the helper part's verifier.
@@ -196,7 +204,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     background = true,
     taskPollMs,
     compaction,
-    parts: partFactories = [],
+    parts: extraParts = [],
+    speech: speechSetup,
     presence = NO_PRESENCE,
     vault: vaultSetup,
     ...gwOptions
@@ -223,6 +232,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   };
 
   const audit = createAuditLog({ dir: join(config.home, "audit"), clock });
+  // Revocations live outside the backup scope; a restored database cannot bring a revoked device
+  // or grant back (S23 design-26). Replay before anything authenticates.
+  const nowIso = () => new Date(clock.now()).toISOString();
+  const revocations = new RevocationLedger(config.home, nowIso);
+  const replay = replayRevocations(db.sqlite, config.home, nowIso);
+  if (replay.unknownEpoch || replay.devicesRevoked + replay.grantsRevoked > 0) {
+    void audit
+      .append({
+        kind: "revocations.replayed",
+        actor: { type: "system" },
+        data: { revocationReplay: { ...replay } },
+      })
+      .catch(() => undefined);
+  }
   const notifier = new PsycheNotifier({
     // Tables come from @psyche/db's migration ledger (202610190200_notifications_init).
     store: new SqliteNotificationStore(db.sqlite),
@@ -261,6 +284,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     audit,
     notifier,
     clock,
+    revocations,
     psycheHome: config.home,
     presence: {
       verify: (assertion, challenge, deviceId) =>
@@ -358,6 +382,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ownPorts,
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   };
+  const partFactories = [
+    composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
+    ...extraParts,
+  ];
   let localProjectSupplied = false;
   for (const factory of partFactories) {
     const part = await factory(services);
@@ -479,7 +507,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     broker,
     memory,
     handlers,
-    onDeviceRevoked: (deviceId) => rawBroker.revokeGrantsByDevice(deviceId),
+    onDeviceRevoked: (deviceId) => {
+      revocations.recordDevice(deviceId);
+      return rawBroker.revokeGrantsByDevice(deviceId);
+    },
     // Security settings need fresh presence once a verifier can verify (security §10): an
     // explicit one, or a part's with a registered key (the helper without keys is not).
     settingsPresence: () => presence !== NO_PRESENCE || presenceReady.some((ready) => ready()),
@@ -592,6 +623,14 @@ export {
 export type { ApprovalRelay, ComposedPart, ComposeServices, OwnPorts } from "./services.ts";
 export { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 export { type ModelPins, modelPinsFor, restoreModelPins } from "./threads.ts";
+export {
+  composeSpeech,
+  dbMessageSource,
+  FsAudioLibrary,
+  type SpeechSetup,
+  speechNode,
+  speechSetupFromEnv,
+} from "./speech.ts";
 export {
   type ComposedVault,
   chooseWrapper,

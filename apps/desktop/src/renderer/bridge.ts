@@ -17,6 +17,31 @@ declare global {
   }
 }
 
+/** A Gateway error rebuilt in the renderer from the preload's envelope (code and details kept). */
+export class GatewayCallError extends Error {
+  readonly code: string;
+  readonly retryable: boolean;
+  readonly details: unknown;
+  constructor(e: { code: string; message: string; retryable?: boolean; details?: unknown }) {
+    super(e.message);
+    this.name = "PsycheError";
+    this.code = e.code;
+    this.retryable = e.retryable ?? false;
+    this.details = e.details;
+  }
+}
+
+/** Unwraps the preload's `{ok, value} | {ok: false, error}` envelope. */
+export async function unwrapCall(envelope: Promise<unknown>): Promise<unknown> {
+  const res = (await envelope) as {
+    ok?: boolean;
+    value?: unknown;
+    error?: { code: string; message: string; retryable?: boolean; details?: unknown };
+  };
+  if (res?.ok === true) return res.value;
+  throw new GatewayCallError(res?.error ?? { code: "internal", message: "IPC failed" });
+}
+
 /** Adapts the preload bridge to the shell's `ShellPlatform` port. */
 export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform {
   return {
@@ -26,7 +51,7 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
     gateway: {
       getStatus: () => b.gateway.getStatus() as Promise<GatewayStatus>,
       onStatus: (cb) => b.gateway.onStatus((s) => cb(s as GatewayStatus)),
-      call: (method, params) => b.gateway.call(method, params),
+      call: (method, params) => unwrapCall(b.gateway.call(method, params)),
       onEvent: (cb) => b.gateway.onEvent((e) => cb(e as GatewayEvent)),
       onResync: (cb) => b.gateway.onResync(cb),
     },

@@ -145,6 +145,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     onDeviceRevoked: options.onDeviceRevoked ?? null,
     settingsPresence: options.settingsPresence ?? (() => false),
     threadModels: options.threadModels ?? null,
+    deviceDisconnected: new Set<(deviceId: string) => void>(),
     limits,
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>
       now().getTime(),

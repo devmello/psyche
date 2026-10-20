@@ -981,10 +981,19 @@ export function useSettings() {
   return {
     ...load,
     settings,
-    set: (key: string, value: unknown) =>
+    /**
+     * `approvalId`: the retry after a security setting's `approval_required` (security §10;
+     * the optional `settings.set.approvalId` param arrives with S05's devmello/psyche#178).
+     */
+    set: (key: string, value: unknown, approvalId?: string) =>
       store.mutate({
         optimistic: (s) => ({ ...s, settings: { ...s.settings, [key]: value } }),
-        run: () => store.call("settings.set", { key, value }),
+        run: () =>
+          store.call("settings.set", {
+            key,
+            value,
+            ...(approvalId === undefined ? {} : { approvalId }),
+          }),
         commit: (s, r) => ({
           ...s,
           settings: { ...s.settings, [r.entry.key]: r.entry.value },

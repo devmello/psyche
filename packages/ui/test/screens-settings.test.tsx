@@ -1,18 +1,28 @@
+import type { ApprovalRequest } from "@psyche/protocol";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { MockGateway, RecordedCall } from "../src/data/mock-gateway.ts";
+import {
+  type GatewayClient,
+  GatewayProvider,
+  GatewayRequestError,
+  GatewayStore,
+} from "../src/data/index.ts";
+import type { RecordedCall } from "../src/data/mock-gateway.ts";
+import { MockGateway } from "../src/data/mock-gateway.ts";
 import { createFixtureWorld, FIXTURE_NOW, IDS, PERSONA } from "../src/fixtures/index.ts";
 import { actionLabel } from "../src/screens/settings/ActionMatrix.tsx";
 import { ChannelsPanel } from "../src/screens/settings/ChannelsSection.tsx";
 import { CARD_REFUSAL } from "../src/screens/settings/CredentialsSection.tsx";
 import { folderGrants, policyWithFolders } from "../src/screens/settings/FileAccessSection.tsx";
 import { ModelProvidersPanel } from "../src/screens/settings/ModelSection.tsx";
+import { PRESENCE_UNAVAILABLE } from "../src/screens/settings/SettingsApproval.tsx";
 import {
   SettingsScreen,
   type SettingsScreenProps,
 } from "../src/screens/settings/SettingsScreen.tsx";
 import { sampleProviders, sampleSettings } from "../src/screens/settings/sample-data.ts";
+import { UiSlotsProvider } from "../src/slots.tsx";
 import { StoryWorld, type StoryWorldProps } from "../src/stories/harness.tsx";
 
 const NOW = Date.parse(FIXTURE_NOW);
@@ -540,5 +550,103 @@ describe("Settings polish (UI design §3.18, §4.12)", () => {
     setup({ defaultSection: "appearance" });
     const group = await screen.findByRole("radiogroup", { name: "Accent color" });
     expect(within(group).getAllByRole("radio").length).toBe(7);
+  });
+});
+
+describe("Security settings need approval with presence (security §10)", () => {
+  /** The kit's mock Gateway plus #178's flow: the first security write issues a policy card. */
+  function approvingGateway(options: { presenceFails?: boolean } = {}) {
+    const inner = new MockGateway(
+      (() => {
+        const w = createFixtureWorld();
+        Object.assign(w.settings, sampleSettings());
+        return w;
+      })(),
+      { now: () => FIXTURE_NOW },
+    );
+    const writes: unknown[] = [];
+    const base = inner.world.approvals[0] as ApprovalRequest;
+    const client: GatewayClient = {
+      async request(method, params, opts) {
+        const p = params as { key?: string; value?: unknown; approvalId?: string };
+        if (method === "settings.set") writes.push(params);
+        if (method === "settings.set" && p.key === "permissions.policy" && !p.approvalId) {
+          const { target: _target, ...rest } = base;
+          const approval: ApprovalRequest = {
+            ...rest,
+            id: "ap_policy_change",
+            kind: "policy_change",
+            summary: "Change permissions.policy",
+            details: { setting: p.key, value: p.value },
+            requestedBy: { deviceId: "dev_this" } as ApprovalRequest["requestedBy"],
+            surfaces: ["desktop", "notification"],
+            scopesOffered: ["once"],
+            deviceOnly: true,
+            requiresAuthentication: true,
+            taint: false,
+            status: "pending",
+            expiresAt: "2099-01-01T00:00:00.000Z",
+          };
+          inner.world.approvals.push(approval);
+          inner.world.answerTokens[approval.id] = "tok_policy";
+          inner.emit("approval.created", { approval, answerToken: "tok_policy" });
+          throw new GatewayRequestError(method, "approval_required", "Approve the change first", {
+            approvalId: approval.id,
+          });
+        }
+        if (method === "approvals.answer" && options.presenceFails) {
+          throw new GatewayRequestError(method, "forbidden", "a presence assertion is required", {
+            reason: "presence_required",
+          });
+        }
+        return inner.request(method, params, opts);
+      },
+      subscribe: (l) => inner.subscribe(l),
+      connectionState: () => inner.connectionState(),
+      onConnectionState: (l) => inner.onConnectionState(l),
+    };
+    render(
+      <GatewayProvider client={client} store={new GatewayStore(client, { now: () => FIXTURE_NOW })}>
+        <UiSlotsProvider value={{ persona: { name: "Wren", creature: "moth" } }}>
+          <SettingsScreen now={NOW} defaultSection="files" />
+        </UiSlotsProvider>
+      </GatewayProvider>,
+    );
+    return { writes };
+  }
+
+  async function shareFolder() {
+    await userEvent.type(await screen.findByLabelText("Share a folder"), "/Users/me/Taxes{Enter}");
+    return screen.findByTestId("settings-approval");
+  }
+
+  async function approve(banner: HTMLElement) {
+    await waitFor(() => expect(within(banner).queryByText("Loading the approval…")).toBeNull());
+    await userEvent.click(within(banner).getByText("Allow once", { exact: true }));
+    const button = within(banner).getByRole("button", { name: "Allow with scope" });
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+    await userEvent.click(button);
+  }
+
+  it("shows the approval card, then saves with the approvalId once approved", async () => {
+    const { writes } = approvingGateway();
+    const banner = await shareFolder();
+    expect(within(banner).getByText(/Approve this change to permissions\.policy/)).toBeTruthy();
+    await approve(banner);
+    expect(await screen.findByText("Saved permissions.policy.")).toBeTruthy();
+    expect(writes).toHaveLength(2);
+    expect(writes[1]).toMatchObject({ key: "permissions.policy", approvalId: "ap_policy_change" });
+    expect((writes[1] as { value: unknown }).value).toEqual(
+      (writes[0] as { value: unknown }).value,
+    );
+    expect(screen.queryByTestId("settings-approval")).toBeNull();
+  });
+
+  it("says so clearly when this window cannot confirm presence", async () => {
+    const { writes } = approvingGateway({ presenceFails: true });
+    const banner = await shareFolder();
+    await approve(banner);
+    expect(await within(banner).findAllByText(PRESENCE_UNAVAILABLE)).not.toHaveLength(0);
+    expect(writes).toHaveLength(1);
   });
 });

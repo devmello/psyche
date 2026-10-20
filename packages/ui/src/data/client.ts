@@ -42,11 +42,14 @@ export interface GatewayClient {
 export class GatewayRequestError extends Error {
   readonly code: string;
   readonly method: string;
-  constructor(method: string, code: string, message: string) {
+  /** The error's structured details from the Gateway (e.g. `{ approvalId }`), when any. */
+  readonly details: unknown;
+  constructor(method: string, code: string, message: string, details?: unknown) {
     super(message);
     this.name = "GatewayRequestError";
     this.code = code;
     this.method = method;
+    this.details = details;
   }
 }
 
