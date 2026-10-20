@@ -2,6 +2,7 @@ import { FsSkillLoader, type FsSkillLoaderOptions } from "./loader.ts";
 
 export * from "./binding.ts";
 export * from "./diff.ts";
+export * from "./drafts.ts";
 export * from "./frontmatter.ts";
 export * from "./gating.ts";
 export * from "./handlers.ts";
