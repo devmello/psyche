@@ -452,6 +452,9 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     : sectionTitle(route);
   return (
     <div className="app-frame" data-testid="app-frame">
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
       <TitleBar chrome={platform.chrome}>
         <span className="title">{barTitle}</span>
         {/* Connected is the quiet default; only other states earn a chip (docs/06 §3.0). */}
@@ -492,7 +495,20 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         ) : (
           <span />
         )}
-        <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
+        <main
+          id="main"
+          tabIndex={-1}
+          aria-label={barTitle}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            minWidth: 0,
+            minHeight: 0,
+            outline: "none",
+          }}
+        >
+          {/* The chat has no visible page title (docs/a11y-audit.md L2). */}
+          {onChat ? <h1 className="sr-only">{barTitle}</h1> : null}
           <OfflineBanner
             status={status}
             {...(gatewayRun ? { run: gatewayRun } : {})}
@@ -518,7 +534,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           ) : (
             (slots.section?.(route, navigate) ?? <SectionPlaceholder route={route} />)
           )}
-        </div>
+        </main>
         {onChat && threadId ? (
           <PaneArea
             layout={layout}

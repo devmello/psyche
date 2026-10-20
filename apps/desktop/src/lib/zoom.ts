@@ -1,4 +1,6 @@
-import { clampZoom, ZOOM_DEFAULT, ZOOM_KEY, zoomFactor, zoomStep } from "@psyche/web/compose";
+// The zoom module itself, not the `@psyche/web/compose` barrel: the barrel re-exports the viewers,
+// which pulled ≈ 23 MB of renderer code into the main-process bundle.
+import { clampZoom, ZOOM_DEFAULT, ZOOM_KEY, zoomFactor, zoomStep } from "@psyche/web/compose/zoom";
 
 /**
  * Applies the `appearance.zoom` setting to every app renderer and persists the View menu's

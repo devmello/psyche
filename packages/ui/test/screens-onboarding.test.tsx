@@ -21,7 +21,7 @@ function setup(props: Partial<OnboardingFlowProps> = {}) {
 
 const steps = () => within(screen.getByRole("navigation", { name: "Onboarding progress" }));
 const next = () => userEvent.click(screen.getByRole("button", { name: "Next" }));
-const heading = () => screen.getByRole("heading", { level: 2 });
+const heading = () => screen.getByRole("heading", { level: 1 });
 
 describe("OnboardingFlow", () => {
   it("shows the steps as an ordered list with aria-current on the current one", async () => {

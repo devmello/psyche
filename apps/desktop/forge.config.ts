@@ -15,6 +15,7 @@ import {
   skipOuterSigning,
   verifyNestedHelper,
 } from "./src/packaging/bundle-resources.ts";
+import { pruneLocales } from "./src/packaging/locales.ts";
 import { macSigningOptions, signingIdentity } from "./src/packaging/signing-config.ts";
 
 /**
@@ -89,6 +90,7 @@ const config: ForgeConfig = {
       if (platform !== "darwin") return;
       // buildPath is Contents/Resources/app; osx-sign runs after this hook and seals the bundle.
       const resourcesDir = dirname(buildPath);
+      pruneLocales(dirname(resourcesDir));
       copyBundleResources(bundleSources(process.env, repoRoot, arch), resourcesDir, arch, {
         allowPartial: allowPartial(process.env),
         warn: (m) => console.warn(m),

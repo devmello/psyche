@@ -3,11 +3,12 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils.ts";
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-md border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,opacity] outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-md border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,opacity] outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-accent-10",
+        default:
+          "bg-primary text-primary-foreground hover:bg-accent-10 dark:hover:bg-accent-9 dark:hover:shadow-[inset_0_0_0_1px_var(--accent-11)]",
         outline:
           "border-gray-7 bg-background hover:border-gray-8 hover:bg-gray-3 hover:text-foreground aria-expanded:bg-gray-3 aria-expanded:text-foreground dark:bg-gray-2 dark:hover:bg-gray-4",
         secondary:
@@ -15,8 +16,8 @@ const buttonVariants = cva(
         ghost:
           "hover:bg-gray-3 hover:text-foreground aria-expanded:bg-gray-3 aria-expanded:text-foreground dark:hover:bg-gray-4",
         destructive:
-          "bg-danger-surface text-danger-text hover:bg-tomato-4 focus-visible:border-tomato-8 focus-visible:ring-tomato-8/40",
-        link: "text-primary underline-offset-4 hover:underline",
+          "bg-danger-surface text-tomato-12 hover:bg-tomato-4 focus-visible:border-tomato-9 focus-visible:ring-tomato-9 dark:text-danger-text",
+        link: "text-accent-11 underline-offset-4 hover:underline",
       },
       size: {
         default:
