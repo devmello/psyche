@@ -29,6 +29,7 @@ import { classifyError, ModelCallError } from "./errors.ts";
 import { buildProvider } from "./factory.ts";
 import { Prices } from "./prices.ts";
 import { formatModelRef, parseModelRef } from "./refs.ts";
+import { thinkingPrefix } from "./thinking.ts";
 import { ToolNameMap, toolNameRuleFor } from "./tool-names.ts";
 import { normalizeUsage } from "./usage.ts";
 
@@ -224,7 +225,14 @@ export class AiSdkAdapter implements ModelProvider {
     aborted.catch(() => {});
 
     const toolNames = ToolNameMap.for(request, toolNameRuleFor(this.config.kind));
-    const converter = new StreamConverter(this.id, modelId, toolNames);
+    const converter = new StreamConverter(
+      this.id,
+      modelId,
+      toolNames,
+      this.config.kind === "anthropic"
+        ? { thinkingPrefix: thinkingPrefix(request, toolNames) }
+        : {},
+    );
     let reader: ReadableStreamDefaultReader<LanguageModelV4StreamPart> | undefined;
     arm(timeouts.firstEventMs);
     let model: LanguageModelV4;

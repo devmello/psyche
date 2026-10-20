@@ -1,0 +1,14 @@
+{
+  "name": "anthropic 400: a replayed thinking block bound to another prefix (#306, INT-3 live gate)",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/messages"
+  },
+  "response": {
+    "status": 400,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"messages.1.content.0: Invalid `signature` in `thinking` block. The block is bound to a different conversation. Remove the block, or set thinking.block_binding.prefix_mismatch_behavior to \\\"drop_block\\\"\"}}"
+  }
+}

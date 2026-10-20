@@ -12,6 +12,7 @@ import type {
 import type { JsonObject, ModelMessage, ModelPart, ModelRequest, ToolSpec } from "@psyche/protocol";
 import { type ProviderConfig, packageKey } from "./config.ts";
 import { isEnvelope, type OpaqueEnvelope, type ProviderMetadata } from "./envelope.ts";
+import { THINKING_BINDING_BETA, thinkingOn, thinkingPrefix } from "./thinking.ts";
 import { ToolNameMap, toolNameRuleFor } from "./tool-names.ts";
 
 type AssistantContent = Extract<LanguageModelV4Message, { role: "assistant" }>["content"];
@@ -24,6 +25,19 @@ export interface ConvertContext {
   modelId: string;
   /** Provider-safe tool names for this request (see `tool-names.ts`); built when absent. */
   toolNames?: ToolNameMap;
+  /** Anthropic thinking replay rules for this request (see `thinking.ts`); set by `convertRequest`. */
+  thinking?: ThinkingReplay;
+}
+
+interface ThinkingReplay {
+  /** Thinking is on for this call; with it off, earlier thinking blocks are not sent. */
+  on: boolean;
+  /** The current prefix fingerprint. */
+  prefix: string;
+  /** Messages from this index on are the tool loop in flight (after the last user message). */
+  liveFrom: number;
+  /** Thinking blocks actually replayed (counted while converting). */
+  replayed: number;
 }
 
 /** Claude models with adaptive thinking (4.6 and later; "always on" from the 5.5 generation). */
@@ -133,8 +147,8 @@ export function convertMessages(request: ModelRequest, ctx: ConvertContext): Lan
     output: convertToolResultOutput(p),
   });
 
-  for (const message of request.messages) {
-    prompt.push(...convertMessage(message, c, toolResult));
+  for (const [index, message] of request.messages.entries()) {
+    prompt.push(...convertMessage(message, c, toolResult, index));
   }
   return prompt;
 }
@@ -143,6 +157,7 @@ function convertMessage(
   message: ModelMessage,
   ctx: ConvertContext,
   toolResult: (p: Extract<ModelPart, { type: "tool_result" }>) => ToolResultPart,
+  index = 0,
 ): LanguageModelV4Message[] {
   const out: LanguageModelV4Message[] = [];
   if (message.role === "assistant") {
@@ -186,6 +201,15 @@ function convertMessage(
           const env = ownEnvelope(p, ctx);
           if (env === undefined) break;
           if (env.kind === "reasoning") {
+            const t = ctx.thinking;
+            if (t !== undefined) {
+              // Thinking off: earlier blocks are not sent. A completed turn's block whose prefix
+              // changed is dropped; the tool loop in flight keeps its block (the API's
+              // drop_block binding covers it).
+              if (!t.on) break;
+              if (env.prefix !== undefined && env.prefix !== t.prefix && index < t.liveFrom) break;
+              t.replayed += 1;
+            }
             const part: Extract<AssistantContent[number], { type: "reasoning" }> = {
               type: "reasoning",
               text: env.text,
@@ -332,9 +356,24 @@ export function convertRequest(
   request: ModelRequest,
   ctx: ConvertContext,
 ): Omit<LanguageModelV4CallOptions, "abortSignal"> {
+  const toolNames = ctx.toolNames ?? ToolNameMap.for(request, toolNameRuleFor(ctx.config.kind));
+  const po = providerOptionsFor(request, ctx);
+  const key = packageKey(ctx.config);
+  let thinking: ThinkingReplay | undefined;
+  if (ctx.config.kind === "anthropic") {
+    let lastUser = -1;
+    for (const [i, m] of request.messages.entries()) if (m.role === "user") lastUser = i;
+    thinking = {
+      on: thinkingOn(po, key),
+      prefix: thinkingPrefix(request, toolNames),
+      liveFrom: lastUser + 1,
+      replayed: 0,
+    };
+  }
   const c: ConvertContext = {
     ...ctx,
-    toolNames: ctx.toolNames ?? ToolNameMap.for(request, toolNameRuleFor(ctx.config.kind)),
+    toolNames,
+    ...(thinking === undefined ? {} : { thinking }),
   };
   const prompt = convertMessages(request, c);
   if (ctx.config.kind === "anthropic" && ctx.config.promptCaching !== false) {
@@ -347,7 +386,13 @@ export function convertRequest(
   if (toolChoice !== undefined && tools !== undefined) options.toolChoice = toolChoice;
   if (request.maxOutputTokens !== undefined) options.maxOutputTokens = request.maxOutputTokens;
   if (request.temperature !== undefined) options.temperature = request.temperature;
-  const po = providerOptionsFor(request, ctx);
+  if (thinking?.on && thinking.replayed > 0 && ctx.config.thinkingBlockBinding !== false) {
+    const own = po[key] as { thinking?: Record<string, unknown> } | undefined;
+    if (own?.thinking !== undefined && own.thinking.blockBinding === undefined) {
+      own.thinking.blockBinding = { prefixMismatchBehavior: "drop_block" };
+      options.headers = { "anthropic-beta": THINKING_BINDING_BETA };
+    }
+  }
   if (Object.keys(po).length > 0) options.providerOptions = po;
   return options;
 }
