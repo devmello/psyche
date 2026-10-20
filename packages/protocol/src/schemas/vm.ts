@@ -21,6 +21,9 @@ export const VmPhase = StringEnum(
     "running",
     "stopping",
     "failed",
+    // M3 (L1): paused in memory; machine state saved to disk (warm start).
+    "paused",
+    "saved",
   ],
   { $id: "VmPhase" },
 );

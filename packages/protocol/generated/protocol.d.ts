@@ -4253,7 +4253,7 @@ export interface Display {
     width:   number;
 }
 
-export type VMPhase = "created" | "installing" | "installed" | "provisioning" | "stopped" | "starting" | "running" | "stopping" | "failed";
+export type VMPhase = "created" | "installing" | "installed" | "provisioning" | "stopped" | "starting" | "running" | "stopping" | "failed" | "paused" | "saved";
 
 export interface VMShare {
     /**

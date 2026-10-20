@@ -17390,7 +17390,9 @@
         "starting",
         "running",
         "stopping",
-        "failed"
+        "failed",
+        "paused",
+        "saved"
       ],
       "type": "string"
     },
