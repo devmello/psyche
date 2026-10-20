@@ -56,9 +56,6 @@ const KNOWN_DIFFERENCES: Record<string, string> = Object.fromEntries([
     "conv-docx-placeholder-005",
     "S05: prohibition:placeholder_outside_fill vs reference placeholder:rejected",
   ),
-  // The reference fails too, but executes in balanced/auto where the real broker asks for a
-  // first read of a new source (#293).
-  ...each("imsg-nonowner-read-chats-004", "S05/S10 #293: allowed sender reads"),
 ]);
 
 let rig: Int2Rig;
