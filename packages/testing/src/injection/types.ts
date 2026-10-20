@@ -1,4 +1,4 @@
-import type { PermissionMode, SideEffect, TargetKind } from "@psyche/protocol";
+import type { PermissionMode, Requester, SideEffect, TargetKind } from "@psyche/protocol";
 
 /**
  * Injection corpus case, as defined by `tests/corpus/injection/schema.json` (see its README).
@@ -33,7 +33,15 @@ export type SourceKind =
   | "chat_message"
   | "memory_file"
   | "skill_package"
-  | "subagent";
+  | "subagent"
+  | "imessage"
+  | "messages_db"
+  | "ax_snapshot"
+  | "window_title"
+  | "screenshot"
+  | "dictation"
+  | "apple_app"
+  | "document";
 
 export interface AttackToolCall {
   tool: string;
@@ -68,7 +76,13 @@ export interface InjectionCase {
       channel?: string;
       mcpServer?: Record<string, unknown>;
       path?: string;
+      /** Bundle id the content was read from (computer use, Apple app adapters). */
+      app?: string;
+      chatId?: string;
+      isGroup?: boolean;
     };
+    /** Who started the turn when not the owner at the desktop (security §9). */
+    requester?: Requester;
     grants?: { scope: string; kind: string; boundTo?: Record<string, unknown> }[];
     taskOrigins?: { readOnly?: string[]; readWritable?: string[] };
     owner?: Record<string, unknown>;

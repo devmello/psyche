@@ -6,6 +6,7 @@ import {
   type InjectionCase,
   type InjectionReport,
   loadCorpus,
+  loadKnownFailures,
   referenceStack,
   runCorpus,
 } from "@psyche/testing";
@@ -37,12 +38,11 @@ const cases: InjectionCase[] = [...corpus.cases, ...example.cases].map((c) => ({
 const files = [...corpus.files.map((f) => `${CORPUS_DIR}/${f}`), EXAMPLE];
 
 /**
- * `<id>[<mode>]` → why a `fail` is accepted for now, with its owner. Mirrors INT-2's pin in
- * tests/integration/injection/injection.test.ts; an entry that stops failing must be removed.
+ * `<id>[<mode>]` → why a `fail` is accepted for now, with its issue and owner: the corpus's own
+ * `known-failures.json`, shared with INT-2's test and `pnpm check:injection`. An entry that stops
+ * failing must be removed.
  */
-const KNOWN_FAILURES: Record<string, string> = {
-  // web-hidden-001[manual] was pinned until S18's corpus fix (#93) landed; nothing is pinned now.
-};
+const KNOWN_FAILURES: Record<string, string> = loadKnownFailures(join(ROOT, CORPUS_DIR));
 
 let rig: Int2Rig;
 let reports: Record<string, InjectionReport> = {};
@@ -72,7 +72,11 @@ function byMode(report: InjectionReport) {
           warn: count("warn"),
           fail: count("fail"),
           error: count("error"),
-          executed: rs.filter((r) => r.actual === "executed").map((r) => r.id),
+          executed: rs
+            .filter(
+              (r) => r.actual === "executed" && KNOWN_FAILURES[`${r.id}[${r.mode}]`] === undefined,
+            )
+            .map((r) => r.id),
           warnings: rs.flatMap((r) => r.warnings.map((w) => `${r.id}: ${w}`)),
           failures: rs
             .filter((r) => KNOWN_FAILURES[`${r.id}[${r.mode}]`] === undefined)
