@@ -689,6 +689,8 @@ jobs:
           cp deploy/env.example "$dir/env.example"
           cp deploy/tailscale/serve.json "$dir/tailscale/"
           cp deploy/backup/*.sh "$dir/backup/"
+          mkdir -p "$dir/browser"
+          cp deploy/browser/Dockerfile deploy/browser/package.json deploy/browser/package-lock.json "$dir/browser/"
           tar -C "$RUNNER_TEMP" -czf "artifacts/psyche-compose-${VERSION}.tar.gz" "psyche-compose-${VERSION}"
           grep -n "image:" "$dir/docker-compose.yml"
       - name: SHA256SUMS and release notes

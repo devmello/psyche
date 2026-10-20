@@ -1,13 +1,15 @@
 // Renders the release copy of deploy/docker-compose.yml (security §11: "the published Compose
 // file pins image digests"; issue #296). The gateway service defaults to the release's image by
-// digest, and its `build:` block (which needs a checkout) is dropped. Every other service is
-// already pinned by digest in the repository file; this refuses a file where one is not.
+// digest, and its `build:` block (which needs a checkout) is dropped. Every other image must be
+// pinned by digest, or be a `<name>:local` build whose context ships in the bundle (the browser
+// sidecar, deploy/browser); anything else is refused.
 //
 // Usage: node render-compose.mjs <docker-compose.yml> <ghcr.io/…/psyche-gateway:<version>@sha256:…>
 // Prints the rendered file.
 import { readFileSync } from "node:fs";
 
 const PINNED = /^[a-z0-9./_-]+(:[A-Za-z0-9._-]+)?@sha256:[0-9a-f]{64}$/;
+const LOCAL = /^[a-z0-9-]+:local$/;
 
 export function renderCompose(text, imageRef) {
   if (!PINNED.test(imageRef)) throw new Error(`image must be pinned by digest: ${imageRef}`);
@@ -38,7 +40,9 @@ export function renderCompose(text, imageRef) {
       "# Release file: the Gateway image is pinned by digest (set PSYCHE_IMAGE to override).\n",
     );
   for (const m of rendered.matchAll(/^\s+image:\s*(\S+)\s*$/gm)) {
-    const ref = m[1].replace(/^\$\{PSYCHE_IMAGE:-(.+)\}$/, "$1");
+    const ref = m[1].replace(/^\$\{[A-Z_]+:-(.+)\}$/, "$1");
+    // `<name>:local` images are built from a context shipped in the bundle (the browser sidecar).
+    if (LOCAL.test(ref)) continue;
     if (!PINNED.test(ref)) throw new Error(`unpinned image in the release compose file: ${ref}`);
   }
   return rendered;
