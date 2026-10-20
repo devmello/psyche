@@ -16,6 +16,7 @@ import {
   type Surface,
 } from "@psyche/protocol";
 import type { Gateway } from "../server.ts";
+import { HelperPresenceKeys, presenceKeyHandlers } from "./presence-keys.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -44,7 +45,8 @@ export interface HelperSetup {
   /**
    * The owner-registered presence key of a helper device: a Secure Enclave P-256 public key in
    * X9.63 uncompressed form (`SecKeyCopyExternalRepresentation`), base64url. No key → presence
-   * approvals answered from that helper are refused.
+   * approvals answered from that helper are refused. Default: the keys registered with
+   * `devices.presenceKey.register` (issue #253); tests may pass their own.
    */
   presenceKeys?: (deviceId: string) => string | undefined;
 }
@@ -287,9 +289,27 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       .catch(() => undefined);
   }
 
-  const verifier = helperPresenceVerifier(setup.presenceKeys);
+  const keyStore = new HelperPresenceKeys(services.db);
+  const presenceKeys = setup.presenceKeys ?? ((deviceId: string) => keyStore.get(deviceId));
+  const verifier = helperPresenceVerifier(presenceKeys);
+  const handlers = presenceKeyHandlers({
+    store: keyStore,
+    audit: services.audit,
+    helperNode: (deviceId) =>
+      [...helpers.values()].find((h) => h.deviceId === deviceId)?.nodeId ??
+      gateway?.context.nodes
+        .list()
+        .find((n) => n.deviceId === deviceId && gateway?.context.nodes.isLive(n.id))?.id,
+    invoke: async (nodeId, capability) => {
+      const c = client(nodeId);
+      if (c === undefined) return { ok: false, error: { code: "unavailable", message: "gone" } };
+      return c.invoke(capability, {}, { timeoutMs: 10_000 });
+    },
+    now: () => new Date(services.clock.now()),
+  });
 
   return {
+    handlers,
     relay: {
       surfaces: () => (latest === undefined ? [] : [HELPER_SURFACE]),
       deliver,
@@ -302,9 +322,8 @@ export function composeHelper(services: ComposeServices, setup: HelperSetup = {}
       // Ready only while some paired, non-revoked device has a registered key: without one no
       // assertion can pass, and gating security settings on it would lock the owner out.
       ready: () =>
-        setup.presenceKeys !== undefined &&
         listDevices(services.db).some(
-          (d) => d.pairedAt !== null && setup.presenceKeys?.(d.id) !== undefined,
+          (d) => d.pairedAt !== null && !d.revokedAt && presenceKeys(d.id) !== undefined,
         ),
     },
     start(gw) {

@@ -102,6 +102,7 @@ export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
   // Read (and validated) at boot, so a bad token file stops psyched instead of a silent channel.
   const channels = channelsSetupFromEnv(env, (path) => readFileSync(path, "utf8"));
   parts.push((s) => composeChannels(s, channels));
+  // Touch ID answers verify against keys the owner registers (devices.presenceKey.*, #253).
   parts.push((s) => composeHelper(s));
   parts.push((s) =>
     composeBackup(s, {
