@@ -97,6 +97,16 @@ export function desktopVaultKeyFile(psycheHome: string): string | undefined {
   return keyFile;
 }
 
+/** The program a LaunchAgent plist runs: the first `ProgramArguments` string, XML-unescaped. */
+export function plistProgram(plist: string): string | undefined {
+  const raw = /<key>ProgramArguments<\/key>\s*<array>\s*<string>([^<]*)<\/string>/.exec(plist)?.[1];
+  return raw
+    ?.replaceAll("&quot;", '"')
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&amp;", "&");
+}
+
 /**
  * macOS runs an app opened straight from a DMG or a quarantined download from a random read-only
  * path (App Translocation) that disappears on quit: a LaunchAgent must never point there.
@@ -197,6 +207,12 @@ export interface SupervisorOptions {
   vaultKeyFile?: () => string | undefined | Promise<string | undefined>;
   /** launchd: how long to wait for `/healthz` after starting the agent (default 60 s). */
   healthTimeoutMs?: number;
+  /**
+   * launchd: two copies of Psyche (an installed one and a build in out/, say) share the agent
+   * label. When the installed agent runs another copy's psyched that still exists, ask before
+   * pointing it here; without an answer (or on "no") this copy attaches to that Gateway.
+   */
+  confirmTakeover?: (otherProgram: string) => Promise<boolean>;
   run?: Runner;
   fetch?: typeof fetch;
   sleep?: (ms: number) => Promise<void>;
@@ -377,6 +393,23 @@ export class GatewaySupervisor {
     const loaded = (await this.run("/bin/launchctl", [...launchctl.print(uid)])).code === 0;
     const current = existsSync(plistPath) ? readFileSync(plistPath, "utf8") : undefined;
     const changed = current !== content;
+    const other = current === undefined ? undefined : plistProgram(current);
+    if (other !== undefined && other !== program && existsSync(other)) {
+      const takeOver = (await this.opts.confirmTakeover?.(other).catch(() => false)) ?? false;
+      if (!takeOver) {
+        this.set(
+          (await this.healthy())
+            ? { kind: "running", mode: "launchd" }
+            : {
+                kind: "stopped",
+                mode: "launchd",
+                reason: `Another copy of Psyche runs the Gateway (${other})`,
+                logs: this.logDir(),
+              },
+        );
+        return;
+      }
+    }
     if (!loaded && (await this.healthy())) {
       // Someone else serves the Gateway on this port; starting ours would crash-loop on bind.
       this.set({ kind: "running", mode: "launchd" });
@@ -436,9 +469,16 @@ export class GatewaySupervisor {
     this.set({ kind: "stopped", mode: this.opts.mode, reason: "quit" });
   }
 
-  /** Boots the agent out and removes its plist; the next launch installs it again. */
+  /**
+   * Boots the agent out and removes its plist; the next launch installs it again. An agent that
+   * runs another copy's psyched is left alone: quitting this copy must not break that install.
+   */
   async uninstallLaunchAgent(): Promise<void> {
+    const plistPath = this.plistPath();
+    const current = existsSync(plistPath) ? readFileSync(plistPath, "utf8") : undefined;
+    const program = current === undefined ? undefined : plistProgram(current);
+    if (program !== undefined && program !== this.opts.bundledProgram) return;
     await this.run("/bin/launchctl", [...launchctl.bootout(this.uid())]);
-    rmSync(this.plistPath(), { force: true });
+    rmSync(plistPath, { force: true });
   }
 }

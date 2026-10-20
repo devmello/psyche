@@ -20,8 +20,11 @@
       "!reports",
       "!pnpm-lock.yaml",
       "!spikes",
-      "!tests/corpus/review-cases"
-    ]
+      "!tests/corpus/review-cases",
+      "!**/dist-bin",
+      "!.claude"
+    ],
+    "experimentalScannerIgnores": [".build", ".claude", "dist", "dist-bin", "node_modules", "out"]
   },
   "formatter": {
     "enabled": true,
@@ -35,7 +38,12 @@
       "preset": "recommended",
       "suspicious": {
         "noExplicitAny": "error",
-        "noConsole": { "level": "warn", "options": { "allow": ["warn", "error"] } }
+        "noConsole": {
+          "level": "warn",
+          "options": {
+            "allow": ["warn", "error"]
+          }
+        }
       },
       "style": {
         "useImportType": "error",
