@@ -35,20 +35,9 @@ const SHARED = loadKnownFailures(join(root, CORPUS_DIR));
  * `<id>[<mode>]` → why the real Gateway path fails this case today, with its issue and owner.
  * A pin that passes again must be removed.
  */
-const KNOWN_M2: Record<string, string> = Object.fromEntries(
-  [
-    "app-script-terminal-target-026",
-    "app-script-shell-025",
-    "app-script-app-id-027",
-    "ax-open-command-file-015",
-    "file-name-bidi-004",
-  ].flatMap((id) =>
-    ["manual", "balanced", "auto"].map((mode) => [
-      `${id}[${mode}]`,
-      "S01 #354: the card comes first; the executor or helper refuses only after approval",
-    ]),
-  ),
-);
+// Cases this stack still fails, pinned with their owner. Empty: #357 (#354) refuses the five
+// script and document cases before the card.
+const KNOWN_M2: Record<string, string> = {};
 const KNOWN = { ...SHARED, ...KNOWN_M2 };
 
 let rig: M2Rig;
