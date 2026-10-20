@@ -94,7 +94,11 @@ export interface OnboardingShellProps {
   onVerify?: (result: OnboardingResult) => Promise<SetupCheck[]>;
 }
 
-export type SavedKey = string | { keyRef: string; recoveryKey?: string };
+/**
+ * `refused`: the key was stored but the provider refused it on the check right after (#504);
+ * the field stays open for another paste, and a recovery key is still shown.
+ */
+export type SavedKey = string | { keyRef: string; recoveryKey?: string; refused?: string };
 
 /** One line of the Done step's "Ready to go" list. */
 export interface SetupCheck {

@@ -55,11 +55,24 @@ export async function saveProviderKey(
   platform: ShellPlatform,
   provider: string,
   key: string,
-): Promise<{ keyRef: string; recoveryKey?: string }> {
+): Promise<{ keyRef: string; recoveryKey?: string; refused?: string }> {
   const call = caller(platform);
   const vault = await ensureVault(call);
   await call("models.setKey", { providerId: provider, key }, ik(`key-${provider}`));
-  return { keyRef: `model-${provider}`, ...vault };
+  // Check the key at once (#504): a refused key is reported here, in the field, rather than as a
+  // chat that never answers. Only a refusal counts; an unreachable endpoint or an older Gateway
+  // without models.probe does not stop the step.
+  let refused: string | undefined;
+  try {
+    const res = (await call("models.probe", { providerId: provider })) as {
+      provider?: { probe?: { state?: string; error?: string } };
+    };
+    const probe = res.provider?.probe;
+    if (probe?.state === "auth_failed") refused = probe.error ?? "the key was refused";
+  } catch {
+    // Not checked; the probe in Settings can run later.
+  }
+  return { keyRef: `model-${provider}`, ...vault, ...(refused === undefined ? {} : { refused }) };
 }
 
 /** The six-case tool check (B4) on the chosen model. */

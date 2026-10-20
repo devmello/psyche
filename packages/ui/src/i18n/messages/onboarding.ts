@@ -8,6 +8,7 @@ export const onboarding = {
   "onboarding.step.done": "Done",
   "onboarding.connectFailed": "Psyche couldn't connect that account ({reason}).",
   "onboarding.keyFailed": "Psyche couldn't store the key ({reason}).",
+  "onboarding.keyRefused": "The provider refused this key ({reason}). Paste the key again.",
   "onboarding.setupCheck": "Setup check",
   "onboarding.progress": "Onboarding progress",
   "onboarding.doneMark": " (done)",
