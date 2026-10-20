@@ -43,7 +43,11 @@ afterEach(async () => {
   if (home) rmSync(home, { recursive: true, force: true });
 });
 
-async function setup(model: FakeModelProvider, logs: string[] = []) {
+async function setup(
+  model: FakeModelProvider,
+  logs: string[] = [],
+  extra: Partial<Parameters<typeof composeMcp>[1]> = {},
+) {
   home = mkdtempSync(join(tmpdir(), "psyche-mcp-"));
   let mcp: ComposedMcp | undefined;
   let services: ComposeServices | undefined;
@@ -59,6 +63,7 @@ async function setup(model: FakeModelProvider, logs: string[] = []) {
         // No srt here: only a server that ships with Psyche may run unwrapped.
         mcp = composeMcp(s, {
           hostOptions: { bundledServerIds: ["echo"], bundledLauncher: directLauncher() },
+          ...extra,
         });
         return mcp;
       },
@@ -131,5 +136,36 @@ describe("MCP host in the Gateway (K5)", () => {
     await mcp.idle();
     expect(services.tools.get("mcp__echo__echo")).toBeUndefined();
     expect(logs.join("\n")).toMatch(/mcp server (did not connect|could not be added)/);
+  });
+
+  it("runs container servers with network only through the egress allowlist", async () => {
+    const calls: unknown[] = [];
+    const { owner, mcp } = await setup(new FakeModelProvider(), [], {
+      container: {
+        ensureSandbox: async (scope, options) => {
+          calls.push(["ensureSandbox", scope, options]);
+          throw new Error("no container in this test");
+        },
+        openStdio: async () => {
+          throw new Error("unreachable");
+        },
+      },
+      egressAllowlist: (scope, domains) => {
+        calls.push(["egressAllowlist", scope, domains]);
+      },
+    });
+    await owner.call(
+      "settings.set",
+      {
+        key: MCP_SERVERS_SETTING,
+        value: [{ ...echoServer("unknown"), sandbox: { allowedDomains: ["api.example.test"] } }],
+      },
+      ik(),
+    );
+    await mcp.idle();
+    expect(calls).toEqual([
+      ["egressAllowlist", { kind: "task", id: "mcp:echo" }, ["api.example.test"]],
+      ["ensureSandbox", { kind: "task", id: "mcp:echo" }, { network: "proxy" }],
+    ]);
   });
 });
