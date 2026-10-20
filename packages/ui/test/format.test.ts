@@ -25,3 +25,12 @@ describe("formatRelative (UI design §4.12)", () => {
     expect(formatRelative(at(13 * D + 22 * H), NOW)).toBe("on Nov 2");
   });
 });
+
+describe("cn keeps the type roles (UI design §4.2)", () => {
+  it("does not read text-label or text-h1 as a colour", async () => {
+    const { cn } = await import("../src/lib/utils.ts");
+    expect(cn("text-label text-gray-11")).toBe("text-label text-gray-11");
+    expect(cn("text-h1 text-foreground")).toBe("text-h1 text-foreground");
+    expect(cn("text-small", "text-caption")).toBe("text-caption");
+  });
+});
