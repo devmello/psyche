@@ -445,6 +445,7 @@
 //   let threadIDParams = try? JSONDecoder().decode(ThreadIDParams.self, from: jsonData)
 //   let threadKind = try? JSONDecoder().decode(ThreadKind.self, from: jsonData)
 //   let threadListEntry = try? JSONDecoder().decode(ThreadListEntry.self, from: jsonData)
+//   let threadPreview = try? JSONDecoder().decode(ThreadPreview.self, from: jsonData)
 //   let threadResult = try? JSONDecoder().decode(ThreadResult.self, from: jsonData)
 //   let threadUpdatedPayload = try? JSONDecoder().decode(ThreadUpdatedPayload.self, from: jsonData)
 //   let threadsCreateParams = try? JSONDecoder().decode(ThreadsCreateParams.self, from: jsonData)
@@ -9359,15 +9360,18 @@ public struct ThreadsListResult: Codable, Sendable {
 // MARK: - ThreadListEntry
 public struct ThreadListEntry: Codable, Sendable {
     public let activity: ThreadActivity
+    public let lastMessage: ThreadPreview?
     public let thread: Thread
 
     public enum CodingKeys: String, CodingKey {
         case activity = "activity"
+        case lastMessage = "lastMessage"
         case thread = "thread"
     }
 
-    public init(activity: ThreadActivity, thread: Thread) {
+    public init(activity: ThreadActivity, lastMessage: ThreadPreview?, thread: Thread) {
         self.activity = activity
+        self.lastMessage = lastMessage
         self.thread = thread
     }
 }
@@ -9389,6 +9393,30 @@ public struct ThreadActivity: Codable, Sendable {
         self.awaitingInput = awaitingInput
         self.running = running
     }
+}
+
+// MARK: - ThreadPreview
+public struct ThreadPreview: Codable, Sendable {
+    public let at: String
+    public let role: Role
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case role = "role"
+        case text = "text"
+    }
+
+    public init(at: String, role: Role, text: String) {
+        self.at = at
+        self.role = role
+        self.text = text
+    }
+}
+
+public enum Role: String, Codable, Sendable {
+    case agent = "agent"
+    case user = "user"
 }
 
 // MARK: - ThreadsPinParams
