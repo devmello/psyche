@@ -144,7 +144,9 @@ describe("design-12: card spoofing", () => {
       target: { kind: "recipient", value: "attacker@evil.test" },
       surfaces: ["desktop"],
       scopesOffered: ["once"],
-      deviceOnly: true,
+      // Chat surfaces render a device-only approval as a pointer to the Mac; the spoofing cases
+      // below need the full card.
+      deviceOnly: false,
       requiresAuthentication: false,
       taint: true,
       status: "pending",
