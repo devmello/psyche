@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, cpSync, existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getDevice } from "@psyche/db";
@@ -131,5 +131,70 @@ describe("restore does not resurrect revocations (design-26)", () => {
     const again = await desktopClient(c.gateway, newDeviceKey(), "desk-new");
     clients.push(again);
     expect(existsSync(join(home, "security", "revocations.jsonl"))).toBe(true);
+  });
+});
+
+describe("restore does not resurrect deleted vault items (design-26)", () => {
+  const TEST_ARGON2 = { memory: 64, passes: 1, parallelism: 1 };
+
+  async function bootWithVault(keyFile: string): Promise<ComposedGateway> {
+    composed = await composeGateway({
+      env: { PSYCHE_VAULT_KEY_FILE: keyFile },
+      logger: silentLogger,
+      retentionIntervalMs: 0,
+      background: false,
+      config: { home, port: 0, dbPath: dbPath(), webRoot: null },
+      model: { provider: new FakeModelProvider(), model: "fake/model" },
+      vault: { keyFile, argon2: TEST_ARGON2 },
+    });
+    return composed;
+  }
+
+  it("3: an item deleted after the backup is gone from the list and the store after the restore", async () => {
+    home = mkdtempSync(join(tmpdir(), "psyche-restore-vault-"));
+    const keyFile = join(home, "vault.key");
+    writeFileSync(keyFile, Buffer.alloc(32, 7), { mode: 0o600 });
+    const c = await bootWithVault(keyFile);
+    await c.vault.setup();
+    const kept = await c.vault.add({
+      kind: "api_key",
+      name: "Kept",
+      bindings: [{ host: "api.kept.test" }],
+      secret: { token: "kept-token-1234567890", headerName: "X-Api-Key" },
+    });
+    const gone = await c.vault.add({
+      kind: "api_key",
+      name: "Leaked",
+      bindings: [{ host: "api.leaked.test" }],
+      secret: { token: "leaked-token-1234567890", headerName: "X-Api-Key" },
+    });
+    // The "backup": the database and the vault directory as they were.
+    const snapshot = join(home, "snapshot.db");
+    await c.gateway.context.db.sqlite.backup(snapshot);
+    c.vault.lock("manual");
+    cpSync(join(home, "vault"), join(home, "vault-backup"), { recursive: true });
+    await c.vault.unlock("test");
+    expect(await c.vault.delete(gone.id)).toBe(true);
+    await c.stop("test");
+    c.gateway.context.db.close();
+    composed = null;
+
+    for (const suffix of ["-wal", "-shm"]) rmSync(`${dbPath()}${suffix}`, { force: true });
+    copyFileSync(snapshot, dbPath());
+    rmSync(join(home, "vault"), { recursive: true, force: true });
+    cpSync(join(home, "vault-backup"), join(home, "vault"), { recursive: true });
+    writeRestoreMarker(home, { restoredAt: new Date().toISOString(), backupCreatedAt: "earlier" });
+
+    const after = await bootWithVault(keyFile);
+    // The mirror is clean before the vault is even unlocked.
+    expect((await after.vault.list()).map((m) => m.id)).toEqual([kept.id]);
+    await after.vault.unlock("test");
+    expect((await after.vault.list()).map((m) => m.id)).toEqual([kept.id]);
+    const dropped = await after.audit.query({ kind: "vault.restored_items_dropped" });
+    expect(dropped.map((e) => e.data)).toEqual([{ count: 1 }]);
+    // The row left the encrypted store itself: the next unlock has nothing to drop.
+    after.vault.lock("manual");
+    await after.vault.unlock("test");
+    expect(await after.audit.query({ kind: "vault.restored_items_dropped" })).toHaveLength(1);
   });
 });
