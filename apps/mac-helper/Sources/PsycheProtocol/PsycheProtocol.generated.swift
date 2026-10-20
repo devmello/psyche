@@ -3933,19 +3933,22 @@ public struct ChatSendParams: Codable, Sendable {
     public let attachments: [String]?
     public let content: String
     public let mode: QueueMode?
+    public let replyToMessageID: String?
     public let threadID: String
 
     public enum CodingKeys: String, CodingKey {
         case attachments = "attachments"
         case content = "content"
         case mode = "mode"
+        case replyToMessageID = "replyToMessageId"
         case threadID = "threadId"
     }
 
-    public init(attachments: [String]?, content: String, mode: QueueMode?, threadID: String) {
+    public init(attachments: [String]?, content: String, mode: QueueMode?, replyToMessageID: String?, threadID: String) {
         self.attachments = attachments
         self.content = content
         self.mode = mode
+        self.replyToMessageID = replyToMessageID
         self.threadID = threadID
     }
 }
