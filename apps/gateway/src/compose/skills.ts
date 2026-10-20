@@ -1,6 +1,9 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { attachRoutineDetector, PsycheAgentLoop } from "@psyche/agent-core";
+import { redactSensitive } from "@psyche/audit";
+import { getThread } from "@psyche/db";
 import {
   PsycheError,
   type SkillLoader,
@@ -16,6 +19,7 @@ import {
   deniedToolsFromPolicy,
   type FsSkillLoader,
   provenanceOfTrust,
+  SkillDrafts,
   SqliteSkillStateStore,
 } from "@psyche/skills";
 import type { HandlerDef } from "../context.ts";
@@ -29,6 +33,12 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  * `skill_install` card (announced through the executor broker); only `skills.install` with that
  * approval writes files. The agent sees approved, enabled skills only: the loop's skills index,
  * `skills_search` and `skills_read` all read the same loader.
+ *
+ * Agent-proposed skills (T3): once the Gateway listens, routine detection hooks into the agent
+ * loop (`attachRoutineDetector` over its in-process hooks); a tool sequence that ends the owner's
+ * turns again in one thread becomes a draft (`SkillDrafts`) with the owner's words passed
+ * through the vault and audit redactors. Drafts live in `$PSYCHE_HOME/skills/.drafts/`, which
+ * the loader never reads; accepting one goes through the same trust card and approval.
  */
 
 export interface SkillsOptions {
@@ -36,6 +46,8 @@ export interface SkillsOptions {
   bundledDir?: string | null;
   /** Watch the folders for hot reload (default true). */
   watch?: boolean;
+  /** Agent-proposed skills from repeated routines (T3; default true). */
+  proposeSkills?: boolean;
 }
 
 export interface ComposedSkills {
@@ -135,26 +147,57 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
       gate: () => defaultGateContext(tools.list().map((t) => t.name)),
       // The owner's tool-only deny rules: a skill may not even declare a denied tool.
       installPolicy: () => ({ deniedTools: deniedToolsFromPolicy(rawBroker.policy) }),
-      onChange: (event) => publish("skills.changed", event),
+      onChange: (event) => {
+        publish("skills.changed", event);
+        if (event.type === "installed") drafts.installed(event.name);
+      },
     });
     real = fs;
+    const drafts = new SkillDrafts({
+      dir: join(home, "skills", ".drafts"),
+      loader: fs,
+      redact: (text) => redactSensitive(services.redactor.redact(text)),
+      knownTools: () => tools.list().map((t) => t.name),
+      audit: (entry) =>
+        services.audit
+          .append({
+            kind: entry.kind,
+            actor: { type: "system" },
+            subject: { draftId: entry.draftId },
+            data: entry.data as never,
+          })
+          .catch(() => undefined),
+      onUpdate: (draft) => publish("skills.draft.updated", { draft }),
+    });
     const unregister = createSkillTools(fs).map((t) => tools.register(markedSearch(t)));
     const handlers: Record<string, HandlerDef> = {};
     const table = createSkillsHandlers(fs, {
       broker: services.broker,
       surfaces: ["desktop", "web"],
       onUpdate: (update) => publish("skills.updated", update),
+      drafts,
     });
     for (const [name, fn] of Object.entries(table)) {
       handlers[name] = { run: (_call, params) => (fn as (p: unknown) => unknown)(params ?? {}) };
     }
     let unwatch: (() => void) | undefined;
+    let undetect: (() => void) | undefined;
     return {
       handlers,
-      start() {
+      start(gateway) {
         if (opts.watch !== false) unwatch = fs.watch();
+        const agent = gateway.context.agent;
+        if (opts.proposeSkills !== false && agent instanceof PsycheAgentLoop) {
+          undetect = attachRoutineDetector(agent.hooks, {
+            isIncognito: (threadId) => getThread(services.db, threadId)?.kind === "incognito",
+            onRoutine: (r) => {
+              drafts.propose({ threadId: r.threadId, tools: r.tools, runs: r.runs });
+            },
+          });
+        }
       },
       stop() {
+        undetect?.();
         unwatch?.();
         fs.close();
         for (const u of unregister) u();

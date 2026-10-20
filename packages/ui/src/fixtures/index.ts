@@ -24,6 +24,7 @@ import type {
   Run,
   SearchHit,
   SkillDetails,
+  SkillDraft,
   Task,
   TaskAction,
   ThreadListEntry,
@@ -49,7 +50,7 @@ import {
   type UsageSummary,
   usage,
 } from "./settings.ts";
-import { type MockSkillSource, skillSources, skills } from "./skills.ts";
+import { type MockSkillSource, skillDrafts, skillSources, skills } from "./skills.ts";
 import { artifacts, inputRequests, library, receipts, taskActions, tasks } from "./tasks.ts";
 
 /**
@@ -113,6 +114,8 @@ export interface FixtureWorld {
   skills: SkillDetails[];
   /** What reviewing a folder finds: a proposal to stage, or policy violations. */
   skillSources: Record<string, MockSkillSource>;
+  /** Agent-proposed skill drafts (T3). */
+  skillDrafts: SkillDraft[];
   usage: UsageSummary;
   /** The last turn's context usage by thread id; absent → no turn has reported yet. */
   contextUsage?: Record<string, ContextUsage>;
@@ -163,6 +166,7 @@ export function createFixtureWorld(): FixtureWorld {
     searchHits: searchHits(),
     skills: skills(),
     skillSources: skillSources(),
+    skillDrafts: skillDrafts(),
     usage: usage(),
   });
 }
@@ -171,6 +175,7 @@ export {
   GREEDY_SKILL_FOLDER,
   type MockSkillSource,
   SKILL_FOLDER,
+  skillDrafts,
   skillSources,
   skills,
   stagedSkillProposal,
