@@ -79,7 +79,7 @@ import { type Evaluation, evaluateTask } from "./evaluator.ts";
 import { EventQueue } from "./events.ts";
 import { type HookMap, HookRegistry } from "./hooks.ts";
 import { type QuestionAnswer, validateAnswer } from "./questions.ts";
-import { type AgentToolRegistration, AgentToolRegistry } from "./registry.ts";
+import { type AgentToolRegistration, AgentToolRegistry, parseMcpToolName } from "./registry.ts";
 import {
   emptyThreadState,
   InMemoryThreadStateStore,
@@ -882,6 +882,17 @@ export class PsycheAgentLoop implements AgentLoop {
     }
     run.active = new Map(tools.map((t) => [t.spec.name, t]));
     run.hidden = hidden;
+    // #281 (TM-14): a third party wrote these descriptions (an MCP server's `tools/list`) and the
+    // model reads them with every request, so the turn is tainted like any untrusted content:
+    // one source per server (or per tool outside MCP), once per run.
+    for (const t of tools) {
+      if (t.spec.descriptionProvenance !== "untrusted") continue;
+      const origin = parseMcpToolName(t.spec.name)?.server ?? t.spec.name;
+      const known = run.taintSources.some(
+        (x) => x.sourceKind === "tool_description" && x.origin === origin,
+      );
+      if (!known) this.#taint(run, { sourceKind: "tool_description", origin });
+    }
     return {
       system: renderSystemPrompt(sections),
       sections,
