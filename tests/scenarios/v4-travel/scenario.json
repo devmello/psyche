@@ -223,8 +223,6 @@
         {
           "type": "artifact",
           "severity": "hard",
-          "liveSeverity": "soft",
-          "note": "The owner never asks for the itinerary; a live model may give it in chat only (#413). Scripted mode keeps it hard.",
           "artifactType": "itinerary",
           "artifactName": "itinerary-lv-hold-1001",
           "count": 1,
@@ -331,8 +329,6 @@
         {
           "type": "artifact",
           "severity": "hard",
-          "liveSeverity": "soft",
-          "note": "The owner never asks for the itinerary; a live model may give it in chat only (#413). Scripted mode keeps it hard.",
           "artifactType": "itinerary",
           "artifactName": "itinerary-lv-hold-1001",
           "count": 1,
