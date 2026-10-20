@@ -10,6 +10,9 @@ import {
   createWebSearchFactory,
   type FetchFn,
   googleFactory,
+  type ImapBackendOptions,
+  imapFactory,
+  jmapFactory,
   type LibrarySink,
   REMOTE_MCP_PRESETS,
   type StoredTokens,
@@ -26,6 +29,7 @@ import {
 import { VaultTokenVault } from "@psyche/vault";
 import type { Call, HandlerDef } from "../context.ts";
 import { fetchLimit, taskOrigins } from "./fetch-origins.ts";
+import { type MailCredentials, mailCredentials } from "./mail-credentials.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -39,8 +43,10 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
 export const DEFAULT_SYNC_INTERVAL_MS = 3 * 60_000;
 
 export interface ConnectorsSetup {
-  /** Replaces the default factories (Google, plus web search / fetch when configured). */
+  /** Replaces the default factories (Google, IMAP, JMAP, plus web search / fetch when configured). */
   factories?: ConnectorFactory[];
+  /** The IMAP backend's dialer (tests: the connector's fake servers). */
+  imap?: ImapBackendOptions;
   /**
    * Opens Google's consent page in the owner's browser (desktop OAuth, loopback redirect). The
    * daemon has no browser of its own: without one, connecting Google fails `unavailable`.
@@ -98,12 +104,20 @@ const noBrowser = () => {
   throw new PsycheError("unavailable", "no browser to open Google's consent page");
 };
 
-function defaultFactories(setup: ConnectorsSetup, services: ComposeServices): ConnectorFactory[] {
+function defaultFactories(
+  setup: ConnectorsSetup,
+  services: ComposeServices,
+  mail: MailCredentials,
+): ConnectorFactory[] {
   const factories = [
     googleFactory({
       openBrowser: setup.openBrowser ?? noBrowser,
       ...(setup.oauthTimeoutMs === undefined ? {} : { timeoutMs: setup.oauthTimeoutMs }),
     }),
+    // Other mail (M7): the app password or token is a vault item bound to the connector, read
+    // under a credential_fill approval the owner gives once per mailbox (mail-credentials.ts).
+    imapFactory({ approveCredential: mail.approve, ...(setup.imap ?? {}) }),
+    jmapFactory({ approveCredential: mail.approve }),
   ];
   if (setup.web?.search !== undefined) factories.push(createWebSearchFactory(setup.web.search));
   if (setup.web?.fetch !== undefined) {
@@ -122,10 +136,11 @@ function defaultFactories(setup: ConnectorsSetup, services: ComposeServices): Co
 export function composeConnectors(
   services: ComposeServices,
   setup: ConnectorsSetup = {},
-): ComposedPart & { readonly registry: ConnectorRegistry } {
+): ComposedPart & { readonly registry: ConnectorRegistry; readonly mail: MailCredentials } {
   const log = services.logger;
-  const registry = new ConnectorRegistry({
-    factories: setup.factories ?? defaultFactories(setup, services),
+  const mail = mailCredentials(services, () => registry);
+  const registry: ConnectorRegistry = new ConnectorRegistry({
+    factories: setup.factories ?? defaultFactories(setup, services, mail),
     extraCatalogue: setup.extraCatalogue ?? [...REMOTE_MCP_PRESETS, ...COMING_SOON],
     ...(setup.store === undefined ? {} : { store: setup.store }),
     context: {
@@ -194,6 +209,7 @@ export function composeConnectors(
 
   return {
     registry,
+    mail,
     handlers,
     start() {
       if (interval <= 0) return;

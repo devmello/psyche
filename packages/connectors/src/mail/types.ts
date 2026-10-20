@@ -64,6 +64,29 @@ export interface MailMessageView extends MailSummary {
   bodySource: "plain" | "html" | "none";
   attachments: AttachmentInfo[];
   warnings: string[];
+  /**
+   * `Authentication-Results` headers (RFC 8601), topmost (added last, by the receiving server)
+   * first, at most 10. Any sender can forge these: trust only an entry whose `authservId` is
+   * the owner's own mail provider, and only the topmost one it added (N9 email channel).
+   */
+  authenticationResults: AuthenticationResults[];
+  /** `Auto-Submitted` (RFC 3834), lower-cased: `no`, `auto-generated`, `auto-replied`, … or "". */
+  autoSubmitted: string;
+  /** `List-Id` (RFC 2919): mailing-list mail carries it; "" otherwise. */
+  listId: string;
+  /** `Precedence` (`bulk`, `list`, `junk`), lower-cased, or "". */
+  precedence: string;
+}
+
+/** One parsed `Authentication-Results` header. Header text is untrusted data. */
+export interface AuthenticationResults {
+  /** The server that added the header, e.g. `mx.fastmail.com`. */
+  authservId: string;
+  /** Method → result, e.g. `{ dkim: "pass", spf: "pass", dmarc: "pass" }` (first of each). */
+  results: Record<string, string>;
+  /** The `header.d` / `header.from` / `smtp.mailfrom` properties seen with each method. */
+  properties: Record<string, Record<string, string>>;
+  raw: string;
 }
 
 export interface MailChange {

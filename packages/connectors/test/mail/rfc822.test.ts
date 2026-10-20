@@ -5,6 +5,7 @@ import {
   decodeHeaderValue,
   decodeQuotedPrintable,
   messageViewFromRaw,
+  parseAuthenticationResults,
   parseContentType,
   parseHeaders,
   parseRawMessage,
@@ -118,5 +119,61 @@ describe("raw message parsing", () => {
       "A",
       "B",
     ]);
+  });
+});
+
+describe("authentication and automation headers (N9 email channel)", () => {
+  const raw = Buffer.from(
+    [
+      "Authentication-Results: mx.fastmail.com; dkim=pass (2048-bit key) header.d=example.com",
+      "  header.i=@example.com; spf=pass smtp.mailfrom=owner@example.com;",
+      "  dmarc=pass (p=reject) header.from=example.com",
+      "Authentication-Results: evil.example; dkim=pass header.d=example.com",
+      "From: Avery <owner@example.com>",
+      "To: wren@example.net",
+      "Subject: hello",
+      "Auto-Submitted: Auto-Generated; reason=vacation",
+      "List-Id: Weekly news <news.lists.example.org>",
+      "Precedence: Bulk",
+      "",
+      "body",
+    ].join("\r\n"),
+  );
+
+  it("exposes Authentication-Results topmost first, parsed, plus Auto-Submitted, List-Id, Precedence", () => {
+    const view = messageViewFromRaw(raw, meta);
+    expect(view.authenticationResults).toHaveLength(2);
+    expect(view.authenticationResults[0]).toMatchObject({
+      authservId: "mx.fastmail.com",
+      results: { dkim: "pass", spf: "pass", dmarc: "pass" },
+      properties: {
+        dkim: { "header.d": "example.com", "header.i": "@example.com" },
+        spf: { "smtp.mailfrom": "owner@example.com" },
+        dmarc: { "header.from": "example.com" },
+      },
+    });
+    // A header the sender added sits lower and names another server: consumers ignore it.
+    expect(view.authenticationResults[1]?.authservId).toBe("evil.example");
+    expect(view.autoSubmitted).toBe("auto-generated");
+    expect(view.listId).toBe("Weekly news <news.lists.example.org>");
+    expect(view.precedence).toBe("bulk");
+  });
+
+  it("defaults to empty values and never throws on malformed headers", () => {
+    const plain = messageViewFromRaw(Buffer.from("From: a@example.com\r\n\r\nhi"), meta);
+    expect(plain).toMatchObject({
+      authenticationResults: [],
+      autoSubmitted: "",
+      listId: "",
+      precedence: "",
+    });
+    expect(parseAuthenticationResults(";;; = ; dkim")).toMatchObject({
+      authservId: "",
+      results: {},
+    });
+    expect(parseAuthenticationResults("mx.example; none").results).toEqual({});
+    expect(parseAuthenticationResults("mx.example 1; dkim=fail; dkim=pass").results).toEqual({
+      dkim: "fail",
+    });
   });
 });
