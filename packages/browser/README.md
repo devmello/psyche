@@ -31,7 +31,7 @@ The pane UI and the Electron `WebContentsView` host belong to S11.
 | `src/recording/` | `FileRecordingSink` (frames, snapshots and the event log), `RecordingStore` (reads them back for `browser.recordings.*`) |
 | `src/tools/` | `registerBrowserTools`, `classifyActivation`, `ApprovalGate` |
 | `@psyche/browser/testing` | fixture site DSL, `FixtureServer`, `MockBrowser`, `MockDesktop` |
-| `@psyche/browser/conformance` | `describeBrowserDriverConformance` (imports vitest) |
+| `@psyche/browser/conformance` | `describeBrowserDriverConformance` (imports vitest; a test-only entry, so `vitest` is a devDependency here and callers bring their own — it never reaches a production install, #299 DEP-12) |
 
 ## Design in one paragraph
 
