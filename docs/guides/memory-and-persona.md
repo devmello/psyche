@@ -114,7 +114,7 @@ The folder must be new or empty. The CLI collects:
 
 `export.json` in the folder lists anything that was skipped and why. The CLI pairs as its own device the first time; approve its code with `pnpm --filter @psyche/gateway start devices approve <CODE>` and run the command again.
 
-Backups are a separate, encrypted copy of everything, made for restoring rather than reading. See [server-mode.md](server-mode.md#backups-and-restore).
+Backups are a separate, encrypted copy of everything, made for restoring rather than reading. See [backup-restore.md](backup-restore.md).
 
 ## Git sync
 

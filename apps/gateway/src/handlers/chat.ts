@@ -21,7 +21,7 @@ function decodeSeqCursor(cursor: string | undefined): number | undefined {
 
 function send(
   call: Call,
-  params: { threadId: string; content: string; attachments?: string[] },
+  params: { threadId: string; content: string; attachments?: string[]; replyToMessageId?: string },
   mode: QueueMode | undefined,
 ) {
   requireThread(call, params.threadId);
@@ -30,6 +30,9 @@ function send(
       threadId: params.threadId,
       content: params.content,
       ...(params.attachments === undefined ? {} : { attachments: params.attachments }),
+      ...(params.replyToMessageId === undefined
+        ? {}
+        : { replyToMessageId: params.replyToMessageId }),
       ...(mode === undefined ? {} : { mode }),
       deviceId: call.identity.deviceId,
     },
@@ -88,7 +91,13 @@ export const chatHandlers: Record<string, HandlerDef> = {
     transactional: true,
     run: (
       call: Call,
-      params: { threadId: string; content: string; attachments?: string[]; mode?: QueueMode },
+      params: {
+        threadId: string;
+        content: string;
+        attachments?: string[];
+        mode?: QueueMode;
+        replyToMessageId?: string;
+      },
     ) => send(call, params, params.mode),
   },
   "chat.steer": {

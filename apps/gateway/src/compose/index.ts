@@ -6,7 +6,7 @@ import {
   type PsycheAgentLoop,
 } from "@psyche/agent-core";
 import { createAuditLog, type HashChainAuditLog } from "@psyche/audit";
-import { getDevice, getSetting, openDb, type PsycheDb } from "@psyche/db";
+import { getDevice, getSetting, getThread, openDb, type PsycheDb } from "@psyche/db";
 import {
   brokerApprovalCheck,
   createMemoryHandlers,
@@ -30,7 +30,7 @@ import {
   PsychePermissionBroker,
   SqlitePermissionStore,
 } from "@psyche/permissions";
-import { publicFetch } from "@psyche/proactive";
+import { proactiveTools, publicFetch } from "@psyche/proactive";
 import {
   type ApprovalRequestInput,
   type Clock,
@@ -404,6 +404,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(timeZone === undefined ? {} : { timeZone }),
     approvalSurfaces: ["desktop", "web"],
     ...(compaction === undefined ? {} : { compaction }),
+    // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
+    isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
   });
   const pool = new TaskWorkerPool({
     engine: tasks,
@@ -428,6 +430,15 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...(timeZone === undefined ? {} : { timeZone }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   });
+  // The agent's proactive tools (goals.*, ideas.*, feed.*): reads allow, changes ask.
+  for (const tool of proactiveTools({
+    goals: proactive.goals,
+    ideas: proactive.ideas,
+    feed: proactive.feed,
+    clock,
+  })) {
+    registry.register(tool);
+  }
   launcher = proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool);
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 

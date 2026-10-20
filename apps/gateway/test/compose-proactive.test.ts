@@ -39,6 +39,27 @@ describe("composition root: proactive surfaces (S15)", () => {
     ]) {
       expect(Object.keys(proactive.handlers)).toContain(m);
     }
+    // The agent's tools are in the loop's registry: reads `none`, changes `write`.
+    const se = (name: string) => composed?.loop.registry.get(name)?.spec.sideEffect;
+    for (const name of [
+      "goals.list",
+      "ideas.list",
+      "feed.list",
+      "feed.explain",
+      "feed.mark_read",
+    ]) {
+      expect(se(name)).toBe("none");
+    }
+    for (const name of [
+      "goals.propose",
+      "goals.update_progress",
+      "goals.add_checkin",
+      "ideas.accept",
+      "ideas.dismiss",
+      "ideas.snooze",
+    ]) {
+      expect(se(name)).toBe("write");
+    }
     const system = (await scheduler.list()).map((a) => a.title).sort();
     expect(system).toEqual(["Daily brief", "Ideas: delivery window", "Ideas: nightly mining"]);
 

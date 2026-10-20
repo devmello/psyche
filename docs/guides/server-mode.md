@@ -11,7 +11,7 @@ You can run the Gateway (`psyched`) on a Linux server or a Mac without a screen,
 
 Before you start:
 
-- There is no release yet: no published container image, no `psyche` or `psyched` binaries. You build from a source checkout.
+- There is no release yet: no published container image, no `psyche` or `psyched` binaries. You build from a source checkout. [install.md](install.md) describes the release path for when it exists.
 - The model is set with environment variables, as in [getting-started.md](getting-started.md#2-choose-a-model-and-start-the-gateway). Model keys in the vault are not available yet.
 
 ## Docker Compose on Linux
@@ -243,68 +243,17 @@ With a remote Gateway, the agent has no browser and no Mac helper: both connect 
 
 ## Backups and restore
 
-A backup is an encrypted `.tar.gz` of `state/`, `workspace/`, `vault/`, `library/`, `audit/` and `config.json`, with a SHA-256 manifest. It is encrypted with [age](https://age-encryption.org), to a passphrase or to age recipients. Device keys, sockets, logs, browser profiles and sandbox workspaces are not included. Keep the age identity or the passphrase somewhere other than the backup.
-
-### From the app
-
-Settings → Data controls → Backups:
-
-- "Back up now" with a passphrase of at least 12 characters, or "Skip encryption". The passphrase is sent once and never stored. The Gateway keeps running.
-- Each backup in the list has Verify and Delete.
-- Archives land in `$PSYCHE_HOME/backups/`.
-- "Scheduled backups" (Off, Daily, Weekly) is saved but not applied yet. Use cron (below).
-
-Creating, verifying and deleting backups needs a device paired as admin.
-
-### From the CLI
-
-With the Gateway running, `psyche backup create` asks the Gateway for the archive, with no downtime:
+[backup-restore.md](backup-restore.md) covers backups, schedules, verification and restore for every setup. From a source checkout, run the CLI as `node apps/cli/src/main.ts` wherever that guide says `psyche`, for example:
 
 ```bash
 node apps/cli/src/main.ts backup create --recipient age1…
 ```
 
-Use `--passphrase-stdin` or `PSYCHE_BACKUP_PASSPHRASE` for a passphrase instead. `--out <file>` or `--stop` take the offline path, which needs the Gateway stopped; `--stop` stops the service for the backup and starts it again.
-
-Check a backup without restoring it:
-
-```bash
-node apps/cli/src/main.ts backup verify <file> -i key.txt
-```
-
-### With Compose
-
-The scripts in `deploy/backup/` stop the Gateway, write `psyche-<time>.tar.gz.age` and start it again:
-
-```bash
-sudo install -d -o 10001 -g 10001 -m 700 /srv/psyche-backups
-```
-
-```bash
-deploy/backup/backup.sh /srv/psyche-backups age1…
-```
-
-```bash
-deploy/backup/verify.sh /srv/psyche-backups/psyche-<time>.tar.gz.age key.txt
-```
-
-To schedule it, add a cron line such as `15 3 * * * /opt/psyche/deploy/backup/backup.sh /srv/psyche-backups age1…`.
-
-### Restore
-
-Restore always goes through the CLI with the Gateway stopped. It verifies every file first, and with `--force` it moves existing state aside to `.pre-restore-<time>/` in `$PSYCHE_HOME`.
-
 ```bash
 node apps/cli/src/main.ts backup restore <file> --stop --force -i key.txt
 ```
 
-With Compose:
-
-```bash
-deploy/backup/restore.sh /srv/psyche-backups/psyche-<time>.tar.gz.age key.txt
-```
-
-`--stop` stops a launchd or systemd service. A Gateway you run in a terminal has to be stopped by hand first (Ctrl-C).
+With Compose, the scripts in `deploy/backup/` work the same from a source checkout. `--stop` stops a launchd or systemd service; a Gateway you run in a terminal has to be stopped by hand first (Ctrl-C).
 
 ## Logs
 

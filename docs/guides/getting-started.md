@@ -4,7 +4,7 @@ This guide gets the Psyche desktop app running on your Mac from a source checkou
 
 ## Before you start
 
-There is no signed DMG or other release of Psyche yet. You build and run it from source.
+There is no signed DMG or other release of Psyche yet. You build and run it from source. Once a release is out, [install.md](install.md) is the shorter path.
 
 You need:
 
