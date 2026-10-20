@@ -31,6 +31,28 @@ public struct HostResources: Sendable, Equatable {
 
 /// One guest's settings (`config.json` in the bundle). Defaults: 4 vCPU / 8 GB / 80 GB (L1).
 public struct VMConfig: Codable, Sendable, Equatable {
+    enum CodingKeys: String, CodingKey {
+        case name, cpus, memoryGB, diskGB, displayWidth, displayHeight, macAddress, diskFormat, username, guestOS, createdAt, clipboard, vault
+    }
+
+    /// Bundles written before M3 have no clipboard / vault keys.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        cpus = try c.decode(Int.self, forKey: .cpus)
+        memoryGB = try c.decode(Int.self, forKey: .memoryGB)
+        diskGB = try c.decode(Int.self, forKey: .diskGB)
+        displayWidth = try c.decodeIfPresent(Int.self, forKey: .displayWidth) ?? 1920
+        displayHeight = try c.decodeIfPresent(Int.self, forKey: .displayHeight) ?? 1200
+        macAddress = try c.decode(String.self, forKey: .macAddress)
+        diskFormat = try c.decodeIfPresent(String.self, forKey: .diskFormat) ?? "raw"
+        username = try c.decodeIfPresent(String.self, forKey: .username) ?? "psyche"
+        guestOS = try c.decodeIfPresent(String.self, forKey: .guestOS)
+        createdAt = try c.decodeIfPresent(String.self, forKey: .createdAt) ?? ""
+        clipboard = try c.decodeIfPresent(String.self, forKey: .clipboard) ?? "paste-only"
+        vault = try c.decodeIfPresent(String.self, forKey: .vault) ?? "host"
+    }
+
     public var name: String
     public var cpus: Int
     public var memoryGB: Int
@@ -45,6 +67,13 @@ public struct VMConfig: Codable, Sendable, Equatable {
     /// Guest macOS version from the restore image, e.g. "27.0.1".
     public var guestOS: String?
     public var createdAt: String
+    /// Host ↔ guest clipboard (security §13): `paste-only` (into the guest) by default.
+    public var clipboard: String = "paste-only"
+    /// Credential placement (L5): the host vault as a node capability by default.
+    public var vault: String = "host"
+
+    public static let clipboardModes: Set = ["off", "paste-only", "bidirectional"]
+    public static let vaultPlacements: Set = ["host", "guest"]
 
     public static let defaultCPUs = 4
     public static let defaultMemoryGB = 8
@@ -97,6 +126,8 @@ public struct VMConfig: Codable, Sendable, Equatable {
         guard (640...3840).contains(displayWidth), (480...2400).contains(displayHeight) else {
             throw CapabilityError.invalidParams("display must be 640×480 to 3840×2400", field: "display")
         }
+        guard Self.clipboardModes.contains(clipboard) else { throw CapabilityError.invalidParams("clipboard is off, paste-only or bidirectional", field: "clipboard") }
+        guard Self.vaultPlacements.contains(vault) else { throw CapabilityError.invalidParams("vault is host or guest", field: "vault") }
         guard !username.isEmpty, username.count <= 32, username.utf8.allSatisfy({ (97...122).contains($0) || (48...57).contains($0) }) else {
             throw CapabilityError.invalidParams("username must be lowercase letters and digits", field: "username")
         }
@@ -114,10 +145,10 @@ public struct VMConfig: Codable, Sendable, Equatable {
 /// helper adds the transition rules. Persisted in `state.json` so a helper restart knows where a
 /// guest stands.
 extension VMPhase: CaseIterable {
-    public static let allCases: [VMPhase] = [.created, .installing, .installed, .provisioning, .stopped, .starting, .running, .stopping, .failed]
+    public static let allCases: [VMPhase] = [.created, .installing, .installed, .provisioning, .stopped, .starting, .running, .stopping, .failed, .paused, .saved]
 
     /// Phases that count against the framework's two-active-guests cap (installs count, spike 06).
-    public var isActive: Bool { [.installing, .provisioning, .starting, .running, .stopping].contains(self) }
+    public var isActive: Bool { [.installing, .provisioning, .starting, .running, .stopping, .paused].contains(self) }
 
     static let transitions: [VMPhase: Set<VMPhase>] = [
         .created: [.installing, .failed],
@@ -126,7 +157,9 @@ extension VMPhase: CaseIterable {
         .provisioning: [.running, .stopped, .failed],
         .stopped: [.starting, .failed],
         .starting: [.running, .stopped, .failed],
-        .running: [.stopping, .stopped, .failed],
+        .running: [.stopping, .stopped, .failed, .paused],
+        .paused: [.running, .saved, .stopping, .stopped, .failed],
+        .saved: [.starting, .stopped, .failed],
         .stopping: [.stopped, .failed],
         .failed: [.created, .installed, .stopped, .starting, .installing],
     ]
@@ -140,6 +173,22 @@ public struct VMStateRecord: Codable, Sendable, Equatable {
     public var lastError: String?
     /// Whether the first (provisioning) boot completed; later boots skip provisioning.
     public var provisioned: Bool
+    /// Guest Psyche payload installed over SSH (L3).
+    public var psycheInstalled: Bool = false
+    /// Accessibility / Screen Recording rows written into the guest's TCC.db offline (L3).
+    public var permissionsGranted: Bool = false
+
+    enum CodingKeys: String, CodingKey { case phase, updatedAt, lastError, provisioned, psycheInstalled, permissionsGranted }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        phase = try c.decode(VMPhase.self, forKey: .phase)
+        updatedAt = try c.decodeIfPresent(String.self, forKey: .updatedAt) ?? ""
+        lastError = try c.decodeIfPresent(String.self, forKey: .lastError)
+        provisioned = try c.decodeIfPresent(Bool.self, forKey: .provisioned) ?? false
+        psycheInstalled = try c.decodeIfPresent(Bool.self, forKey: .psycheInstalled) ?? false
+        permissionsGranted = try c.decodeIfPresent(Bool.self, forKey: .permissionsGranted) ?? false
+    }
 
     public init(phase: VMPhase, updatedAt: String = ISO8601DateFormatter().string(from: Date()), lastError: String? = nil, provisioned: Bool = false) {
         self.phase = phase
@@ -174,6 +223,16 @@ public struct VMBundle: Sendable, Equatable {
     public func diskURL(format: String) -> URL { root.appendingPathComponent(format == "asif" ? "Disk.asif" : "Disk.img") }
 
     public var exists: Bool { FileManager.default.fileExists(atPath: configURL.path) }
+    /// Machine state for warm start (`saveMachineStateTo`; unproven on 27.0.1, spike 06).
+    public var savedStateURL: URL { root.appendingPathComponent("SavedState.vzvmsave") }
+    /// Host → guest staging, shared read-only on the automount tag as `psyche-in`.
+    public var transferInURL: URL { root.appendingPathComponent("transfer/in", isDirectory: true) }
+    /// Guest → host staging, shared read-write on the `psyche` tag as `_psyche-out` (only the guest helper writes it).
+    public var transferOutURL: URL { root.appendingPathComponent("transfer/out", isDirectory: true) }
+    public var transfersURL: URL { root.appendingPathComponent("transfers.json") }
+    public var sshDirURL: URL { root.appendingPathComponent("ssh", isDirectory: true) }
+    public func saveTransfers(_ t: [VMTransferRecord]) throws { try write(t, to: transfersURL) }
+    public func loadTransfers() -> [VMTransferRecord] { (try? read([VMTransferRecord].self, from: transfersURL)) ?? [] }
 
     public func create() throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -225,5 +284,24 @@ public enum GuestCap {
                                   "The maximum supported number of active virtual machines has been reached (two macOS guests, installs included).",
                                   retryable: true)
         }
+    }
+}
+
+/// One copy in or out of the guest (security §13: write-back is an explicit copy with a receipt).
+public struct VMTransferRecord: Codable, Sendable, Equatable {
+    public var id: String
+    public var direction: String
+    public var hostPath: String
+    public var guestPath: String
+    public var bytes: Int
+    public var createdAt: String
+
+    public init(id: String, direction: String, hostPath: String, guestPath: String, bytes: Int, createdAt: String = ISO8601DateFormatter().string(from: Date())) {
+        self.id = id
+        self.direction = direction
+        self.hostPath = hostPath
+        self.guestPath = guestPath
+        self.bytes = bytes
+        self.createdAt = createdAt
     }
 }

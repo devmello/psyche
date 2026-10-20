@@ -41,6 +41,28 @@ public enum SharePolicy {
         return s.unicodeScalars.allSatisfy { $0.isASCII && (CharacterSet.alphanumerics.contains($0) || " ._-".unicodeScalars.contains($0)) }
     }
 
+    /// Refuses `/`, the home root, `~/Library`, system folders and `$PSYCHE_HOME` (or anything
+    /// containing them) for shares and copies into the guest. `path` must already be resolved.
+    public static func checkSensitive(_ resolved: String, home: String = NSHomeDirectory(), psycheHome: String = HelperPaths.psycheHome()) throws {
+        let canon: (String) -> String = { URL(fileURLWithPath: $0).resolvingSymlinksInPath().standardizedFileURL.path }
+        let homeC = canon(home), psycheC = canon(psycheHome), libraryC = canon(home + "/Library")
+        func inside(_ p: String, _ root: String) -> Bool { p == root || p.hasPrefix(root.hasSuffix("/") ? root : root + "/") }
+        let refused: String? =
+            resolved == "/" ? "the root of the disk"
+            : resolved == homeC ? "your whole home folder"
+            : inside(resolved, libraryC) ? "~/Library"
+            : inside(resolved, psycheC) || inside(psycheC, resolved) ? "Psyche's own data"
+            : inside(libraryC, resolved) ? "a folder containing ~/Library"
+            // System trees, and their contents.
+            : ["/System", "/Library", "/usr", "/bin", "/sbin", "/etc", "/private/etc", "/private/var/db"].contains(where: { inside(resolved, $0) }) ? "a system folder"
+            // Roots whose contents can be legitimate (temp folders, external drives, other users' are not readable anyway).
+            : ["/private", "/var", "/Volumes", "/Users", "/Applications", "/tmp"].contains(resolved) ? "a system folder"
+            : nil
+        if let refused {
+            throw CapabilityError(.policyDenied, reason: "share_forbidden", "Sharing \(refused) with the guest is not allowed", details: ["path": .string(resolved)])
+        }
+    }
+
     /// Validates a folder grant: an existing directory (symlinks resolved), never `/`, the home
     /// root, `~/Library`, `$PSYCHE_HOME` or anything containing them; read-write needs an approval.
     public static func validate(
@@ -55,20 +77,7 @@ public enum SharePolicy {
         guard fileManager.fileExists(atPath: resolved, isDirectory: &isDir), isDir.boolValue else {
             throw CapabilityError(.notFound, reason: "not_a_directory", "\(path) is not an existing folder")
         }
-        let canon: (String) -> String = { URL(fileURLWithPath: $0).resolvingSymlinksInPath().standardizedFileURL.path }
-        let homeC = canon(home), psycheC = canon(psycheHome), libraryC = canon(home + "/Library")
-        func inside(_ p: String, _ root: String) -> Bool { p == root || p.hasPrefix(root.hasSuffix("/") ? root : root + "/") }
-        let refused: String? =
-            resolved == "/" ? "the root of the disk"
-            : resolved == homeC ? "your whole home folder"
-            : inside(resolved, libraryC) ? "~/Library"
-            : inside(resolved, psycheC) || inside(psycheC, resolved) ? "Psyche's own data"
-            : inside(libraryC, resolved) ? "a folder containing ~/Library"
-            : ["/System", "/Library", "/private", "/usr", "/bin", "/sbin", "/etc", "/var", "/Volumes"].contains(resolved) ? "a system folder"
-            : nil
-        if let refused {
-            throw CapabilityError(.policyDenied, reason: "share_forbidden", "Sharing \(refused) with the guest is not allowed", details: ["path": .string(path)])
-        }
+        try checkSensitive(resolved, home: home, psycheHome: psycheHome)
         if !readOnly, approvalId == nil {
             throw CapabilityError(.approvalRequired, reason: "share_rw_needs_approval",
                                   "Read-write access to \(path) needs your approval", details: ["path": .string(resolved), "name": .string(name)])
@@ -160,5 +169,26 @@ public final class StreamRelay: @unchecked Sendable {
         closed = true
         Darwin.close(a)
         Darwin.close(b)
+    }
+}
+
+/// Finds a guest's NAT address in the host's DHCP leases (`/var/db/dhcpd_leases`, written by
+/// vmnet's bootpd, readable without root). Octets are stored without leading zeros; the newest
+/// lease for the MAC wins (spike 06: leases move between boots, so this is never a control path).
+public enum DHCPLeases {
+    public static func address(mac: String, leases text: String) -> String? {
+        let want = mac.lowercased().split(separator: ":").map { String(Int($0, radix: 16) ?? -1, radix: 16) }.joined(separator: ":")
+        var best: (ip: String, lease: UInt64)?
+        for block in text.components(separatedBy: "}") {
+            var ip: String?, hw: String?, lease: UInt64 = 0
+            for line in block.split(separator: "\n") {
+                let t = line.trimmingCharacters(in: .whitespaces)
+                if t.hasPrefix("ip_address=") { ip = String(t.dropFirst(11)) }
+                if t.hasPrefix("hw_address=") { hw = t.dropFirst(11).split(separator: ",").last.map(String.init) }
+                if t.hasPrefix("lease=0x") { lease = UInt64(t.dropFirst(8), radix: 16) ?? 0 }
+            }
+            if let ip, hw?.lowercased() == want, lease >= (best?.lease ?? 0) { best = (ip, lease) }
+        }
+        return best?.ip
     }
 }
