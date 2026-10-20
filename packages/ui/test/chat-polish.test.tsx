@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { modelLabel } from "../src/agent/AgentHeader.tsx";
@@ -8,6 +8,7 @@ import { ReceiptLine } from "../src/blocks/Receipt.tsx";
 import { ToolCallRow } from "../src/blocks/ToolRun.tsx";
 import { FollowUpQueue } from "../src/chat/FollowUpQueue.tsx";
 import { ChatThread } from "../src/chat/Thread.tsx";
+import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { createFixtureWorld, IDS } from "../src/fixtures/index.ts";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
 
@@ -154,6 +155,42 @@ describe("ChatThread approvals (§3.3)", () => {
     await waitFor(() =>
       expect(document.activeElement?.textContent).toMatch(/Send an email to jane\.ortiz/),
     );
+  });
+});
+
+describe("approval dock accessibility (docs/a11y-audit.md C2, C4)", () => {
+  it("keeps the open card when a sooner-expiring approval arrives, and announces one line", async () => {
+    let gw: MockGateway | null = null;
+    render(
+      <StoryWorld onGateway={(g) => (gw = g)}>
+        <div style={{ height: 900 }}>
+          <ChatThread threadId={IDS.threads.dentist} now={STORY_NOW} />
+        </div>
+      </StoryWorld>,
+    );
+    const dock = await screen.findByTestId("approval-dock");
+    const card = () => dock.querySelector<HTMLElement>("[data-approval-id]");
+    await waitFor(() => expect(card()).not.toBeNull());
+    const first = card()?.dataset.approvalId;
+    const base = approval(IDS.approvals.sendEmail);
+    act(() => {
+      (gw as unknown as MockGateway).requestApproval({
+        ...base,
+        id: "ap_sooner",
+        summary: "Delete an old draft",
+        requestedAt: new Date(STORY_NOW).toISOString(),
+        expiresAt: new Date(STORY_NOW + 30_000).toISOString(),
+      });
+    });
+    expect(await within(dock).findByRole("status")).toHaveProperty(
+      "textContent",
+      expect.stringContaining("Approval needed: Delete an old draft"),
+    );
+    // The card under the owner's focus stays; the new one is a row.
+    expect(card()?.dataset.approvalId).toBe(first);
+    expect(within(dock).getByRole("button", { name: /Delete an old draft/ })).toBeTruthy();
+    // The dock is no longer one big live region.
+    expect(dock.getAttribute("aria-live")).toBeNull();
   });
 });
 

@@ -239,6 +239,85 @@ describe("modelSetupFromEnv local endpoints", () => {
     expect(setup && "router" in setup ? setup.router.providers : []).toEqual([
       { id: "lmstudio", kind: "lmstudio", baseURL: "http://10.0.0.5:1234/v1" },
       { id: "llamacpp", kind: "llamacpp", baseURL: "http://127.0.0.1:8080/v1" },
+      { id: "claude-code", kind: "claude-code" },
+      { id: "codex", kind: "codex" },
     ]);
+  });
+
+  it("supports the subscription CLIs as PSYCHE_MODEL and lets them be left out", () => {
+    const setup = modelSetupFromEnv({
+      PSYCHE_MODEL: "claude-code/sonnet",
+      PSYCHE_CLAUDE_PATH: "/opt/claude/bin/claude",
+    });
+    expect(setup && "router" in setup ? setup.router : undefined).toMatchObject({
+      providers: [
+        { id: "claude-code", kind: "claude-code", command: "/opt/claude/bin/claude" },
+        { id: "codex", kind: "codex" },
+      ],
+      roles: { primary: { model: "claude-code/sonnet" } },
+    });
+    const off = modelSetupFromEnv({
+      PSYCHE_MODEL: "ollama/qwen3.8:27b",
+      PSYCHE_SUBSCRIPTION_CLIS: "off",
+    });
+    expect(off && "router" in off ? off.router.providers.map((p) => p.id) : []).toEqual(["ollama"]);
+  });
+});
+
+describe("subscription CLIs in Settings (fake CLI)", () => {
+  const FAKE = join(
+    import.meta.dirname,
+    "../../../packages/model-router/test/fake-cli/fake-cli.mjs",
+  );
+
+  it("lists Claude Code and Codex, probes them on request and binds one as primary", async () => {
+    const env = {
+      ...process.env,
+      FAKE_CLI_AUTH: JSON.stringify({
+        loggedIn: true,
+        authMethod: "claude.ai",
+        email: "owner@example.com",
+        subscriptionType: "pro",
+      }),
+      FAKE_CLI_VERSION: "2.1.286 (Claude Code)",
+    };
+    const desk = await client(
+      await compose({
+        router: {
+          providers: [
+            { id: "claude-code", kind: "claude-code", command: FAKE },
+            { id: "codex", kind: "codex", command: join(home, "no-codex-here") },
+          ],
+        },
+        cli: { env },
+      }),
+    );
+    const list = await desk.call<{ providers: ModelProviderSummary[] }>("models.list", {});
+    expect(
+      list.providers.map((p) => [p.id, p.label, p.local, p.keyConfigured, p.probe.state]),
+    ).toEqual([
+      ["claude-code", "Claude Code (subscription)", false, false, "not_probed"],
+      ["codex", "ChatGPT via Codex (subscription)", false, false, "not_probed"],
+    ]);
+    const claude = await desk.call<{ provider: ModelProviderSummary }>("models.probe", {
+      providerId: "claude-code",
+    });
+    expect(claude.provider.probe).toMatchObject({
+      state: "reachable",
+      server: "Claude Code 2.1.286 (claude.ai, pro plan)",
+    });
+    expect(claude.provider.models.map((m) => m.ref)).toContain("claude-code/sonnet");
+    expect(JSON.stringify(claude)).not.toContain("owner@example.com");
+    const codex = await desk.call<{ provider: ModelProviderSummary }>("models.probe", {
+      providerId: "codex",
+    });
+    expect(codex.provider.probe).toMatchObject({ state: "unreachable" });
+    expect(codex.provider.probe.error).toContain("not installed");
+    const picked = await desk.call<{ roles: ModelRoles }>(
+      "models.setRole",
+      { role: "primary", ref: "claude-code/sonnet" },
+      ik(),
+    );
+    expect(picked.roles.primary).toBe("claude-code/sonnet");
   });
 });

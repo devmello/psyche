@@ -1,6 +1,8 @@
 import type { Clock, CredentialBroker } from "@psyche/protocol";
 import { AiSdkAdapter } from "./adapter.ts";
-import type { ProviderConfig } from "./config.ts";
+import { CliAdapter, type CliAdapterDeps } from "./cli/adapter.ts";
+import { cliDialectFor } from "./cli/index.ts";
+import { isSubscriptionKind, type ProviderConfig } from "./config.ts";
 import type { CooldownPolicy } from "./cooldown.ts";
 import { brokerKeySource, type KeySource, NO_KEYS } from "./credentials.ts";
 import type { UsageLedger } from "./ledger.ts";
@@ -28,6 +30,8 @@ export interface ModelRouterDeps {
   prices?: Prices;
   prepareStep?: PrepareStep;
   fetch?: typeof fetch;
+  /** Subscription CLIs (`claude-code`, `codex`): bridge and environment (tests use a fake CLI). */
+  cli?: CliAdapterDeps;
 }
 
 /** Build adapters for each provider config and the router over them. */
@@ -38,7 +42,11 @@ export function createModelRouter(config: ModelRouterConfig, deps: ModelRouterDe
   const adapterDeps: ConstructorParameters<typeof AiSdkAdapter>[1] = { keys, prices };
   if (deps.fetch !== undefined) adapterDeps.fetch = deps.fetch;
   const options: ConstructorParameters<typeof ModelRouter>[0] = {
-    providers: config.providers.map((p) => new AiSdkAdapter(p, adapterDeps)),
+    providers: config.providers.map((p) =>
+      isSubscriptionKind(p.kind)
+        ? new CliAdapter(p, cliDialectFor(p), deps.cli)
+        : new AiSdkAdapter(p, adapterDeps),
+    ),
     clock: deps.clock,
   };
   if (config.roles !== undefined) options.roles = config.roles;

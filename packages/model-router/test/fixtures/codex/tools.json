@@ -1,0 +1,147 @@
+{
+  "name": "tools",
+  "steps": [
+    {
+      "read": 1
+    },
+    {
+      "mcp": "start"
+    },
+    {
+      "emit": {
+        "type": "thread.started",
+        "thread_id": "019a0f3c-5e7d-7c11-9b2a-4f1e2d3c4b5a"
+      }
+    },
+    {
+      "emit": {
+        "type": "turn.started"
+      }
+    },
+    {
+      "emit": {
+        "type": "item.started",
+        "item": {
+          "id": "item_1",
+          "type": "mcp_tool_call",
+          "server": "psyche",
+          "tool": "weather",
+          "arguments": {
+            "city": "Paris"
+          },
+          "result": null,
+          "error": null,
+          "status": "in_progress"
+        }
+      }
+    },
+    {
+      "emit": {
+        "type": "item.started",
+        "item": {
+          "id": "item_2",
+          "type": "mcp_tool_call",
+          "server": "psyche",
+          "tool": "notes_read",
+          "arguments": {
+            "city": "Tokyo"
+          },
+          "result": null,
+          "error": null,
+          "status": "in_progress"
+        }
+      }
+    },
+    {
+      "call": {
+        "name": "weather",
+        "arguments": {
+          "city": "Paris"
+        }
+      },
+      "id": "A"
+    },
+    {
+      "call": {
+        "name": "notes_read",
+        "arguments": {
+          "city": "Tokyo"
+        }
+      },
+      "id": "B"
+    },
+    {
+      "await": ["A", "B"]
+    },
+    {
+      "emit": {
+        "type": "item.completed",
+        "item": {
+          "id": "item_1",
+          "type": "mcp_tool_call",
+          "server": "psyche",
+          "tool": "weather",
+          "arguments": {
+            "city": "Paris"
+          },
+          "result": {
+            "content": [
+              {
+                "type": "text",
+                "text": "{\"tempC\":18}"
+              }
+            ]
+          },
+          "error": null,
+          "status": "completed"
+        }
+      }
+    },
+    {
+      "emit": {
+        "type": "item.completed",
+        "item": {
+          "id": "item_2",
+          "type": "mcp_tool_call",
+          "server": "psyche",
+          "tool": "notes_read",
+          "arguments": {
+            "city": "Tokyo"
+          },
+          "result": {
+            "content": [
+              {
+                "type": "text",
+                "text": "notes"
+              }
+            ]
+          },
+          "error": null,
+          "status": "completed"
+        }
+      }
+    },
+    {
+      "emit": {
+        "type": "item.completed",
+        "item": {
+          "id": "item_3",
+          "type": "agent_message",
+          "text": "Paris is 18\u00b0C."
+        }
+      }
+    },
+    {
+      "emit": {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 2400,
+          "cached_input_tokens": 1800,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 45,
+          "reasoning_output_tokens": 10
+        }
+      }
+    }
+  ]
+}

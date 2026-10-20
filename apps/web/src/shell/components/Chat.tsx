@@ -476,12 +476,12 @@ export function ChatView(props: {
           {props.thread?.modelRef ?? "default model"}
         </button>
       </header>
-      <div className="messages" aria-live="polite">
+      <div className="messages" role="log" aria-label="Conversation">
         {(messages ?? []).map((m) => (
           <MessageRow key={m.id} m={m} />
         ))}
         {live.map(([id, v]) => (
-          <div key={id} className="msg-agent" data-testid="streaming">
+          <div key={id} className="msg-agent" data-testid="streaming" aria-busy="true">
             {v.text}
           </div>
         ))}

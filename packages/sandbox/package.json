@@ -1,6 +1,6 @@
 {
   "name": "@psyche/sandbox",
-  "version": "0.0.0",
+  "version": "0.3.0-alpha.0",
   "private": true,
   "description": "Sandbox container runner (Apple container, Docker, Podman), command receipts, workspace file API and PTY",
   "license": "Apache-2.0",

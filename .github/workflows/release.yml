@@ -19,8 +19,8 @@
 #   Homebrew       Casks/psyche.rb and Formula/psyche-cli.rb pushed to <owner>/homebrew-psyche
 #   Version PR     manual run with version_pr: changesets opens the "Version Packages" PR
 #
-# Everything is unsigned unless these secrets exist (steps skip cleanly without them; never echo
-# them):
+# Without these secrets the macOS DMG and CLI binaries are signed ad-hoc, there is no update
+# manifest and the tap is not updated; every step skips cleanly (never echo them):
 #   MACOS_CERTIFICATE_P12_BASE64, MACOS_CERTIFICATE_PASSWORD, MACOS_SIGNING_IDENTITY
 #       Developer ID Application certificate; signs the app, the DMG and the macOS CLI binaries
 #   APPLE_API_KEY_P8_BASE64, APPLE_API_KEY_ID, APPLE_API_ISSUER
@@ -506,7 +506,10 @@ jobs:
           TARGET: ${{ matrix.target }}
         run: |
           if [ -z "$P12" ] || [ -z "$IDENTITY" ]; then
-            echo "::notice::No signing secrets; shipping an unsigned binary."
+            # No Developer ID: sign ad-hoc, since arm64 macOS runs no unsigned code.
+            codesign --force --sign - "$BIN"
+            codesign --verify --strict "$BIN"
+            echo "::notice::No signing secrets; shipping an ad-hoc signed binary."
             exit 0
           fi
           kc="$RUNNER_TEMP/signing.keychain-db"; kcpw="$(openssl rand -hex 16)"

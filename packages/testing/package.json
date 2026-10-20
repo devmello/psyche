@@ -1,6 +1,6 @@
 {
   "name": "@psyche/testing",
-  "version": "0.0.0",
+  "version": "0.3.0-alpha.0",
   "private": true,
   "description": "In-memory fakes, fixtures, conformance suites and the secret-leak checker",
   "license": "Apache-2.0",

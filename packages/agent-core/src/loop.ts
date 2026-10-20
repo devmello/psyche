@@ -6,9 +6,14 @@ import {
   type ApprovalStatus,
   type Block,
   type Clock,
+  type CompactionSummary,
+  type ContextBreakdown,
   type ContextExplanation,
+  type ContextLimits,
   type ContextSection,
+  type ContextUsage,
   type DecisionResult,
+  type EffectiveContextLimits,
   EMPTY_USAGE,
   type InputRequest,
   type MemoryStore,
@@ -65,9 +70,13 @@ import {
   type CompactionPolicy,
   containsUntrusted,
   DEFAULT_COMPACTION_POLICY,
+  estimateBreakdown,
   estimateContextTokens,
+  hasUnansweredToolCalls,
+  renderCompactionSummary,
+  scaleBreakdown,
   splitForCompaction,
-  summarize,
+  summarizeStructured,
 } from "./compaction.ts";
 import {
   assembleContext,
@@ -128,6 +137,26 @@ export const DEFAULT_NOTIFY_BUDGET = 3;
 /** One budget per Task (an automation's run is one), else per run. */
 const notifyKey = (run: { taskId?: string; runId: string }) =>
   run.taskId === undefined ? `run:${run.runId}` : `task:${run.taskId}`;
+
+export const DEFAULT_COMPACT_AT = 0.8;
+export const DEFAULT_KEEP_RECENT_TURNS = 4;
+
+/** What a compaction did, for the Gateway's `compaction` block and audit entry. */
+export interface CompactionInfo {
+  threadId: string;
+  runId: string;
+  compactionId: string;
+  trigger: "auto" | "manual";
+  summary: CompactionSummary;
+  /** Owner turns folded into the summary. */
+  replacedTurns: number;
+  /** Owner turns kept verbatim. */
+  keptTurns: number;
+  tokensBefore: number;
+  tokensAfter: number;
+}
+
+const estimateTokensOf = (text: string) => estimateContextTokens(text, [], []);
 
 function pluginRef(run: RunState): PluginRunRef {
   return {
@@ -201,6 +230,16 @@ export interface AgentLoopOptions {
   harnesses?: HarnessRegistry;
   /** Context drawn from the owner's own data, once per owner turn (E12 "From your other chats"). */
   contextProviders?: readonly TurnContextProvider[];
+  /**
+   * The owner's context limits for a thread (its override, else the `context.*` settings); a
+   * field left out falls back to the model: `maxTokens` = the context window, `compactAt` 0.8,
+   * `keepRecentTurns` 4.
+   */
+  contextLimits?: (threadId: string) => ContextLimits | undefined;
+  /** After every turn that called the model: what its last call sent (the context meter). */
+  onContextUsage?: (usage: ContextUsage) => void;
+  /** After a compaction: the Gateway stores the `compaction` block and audits it. */
+  onCompaction?: (compaction: CompactionInfo) => Promise<void> | void;
   /** Code plugins (T4); the Gateway registers the owner's enabled ones while plugins are on. */
   plugins?: AgentPluginRegistry;
   /** Every event of a subagent run, for the Subagents pane's view-only transcript (C6). */
@@ -234,6 +273,13 @@ interface PendingQuestion {
 }
 
 interface RunState {
+  /** Index in `thread.messages` where this turn's input starts (history before, current after). */
+  turnStart: number;
+  /** Per model call of the turn: prompt tokens and where they came from. */
+  contextCalls: { promptTokens: number; estimated: boolean; breakdown: ContextBreakdown }[];
+  /** The breakdown estimated for the call about to be made. */
+  pendingBreakdown?: { estimate: number; breakdown: ContextBreakdown };
+  limits?: EffectiveContextLimits;
   /** Turn context providers' sections, fetched on the run's first prompt (undefined until then). */
   provided?: ContextSection[];
   runId: string;
@@ -543,6 +589,8 @@ export class PsycheAgentLoop implements AgentLoop {
       children: 0,
       reopens: 0,
       harnessActions: 0,
+      turnStart: 0,
+      contextCalls: [],
       harnessPending: new Map(),
       ...(child === undefined
         ? {}
@@ -598,6 +646,7 @@ export class PsycheAgentLoop implements AgentLoop {
         });
       }
       run.model = await this.#resolveModel(run);
+      run.turnStart = run.thread.messages.length;
       run.thread.messages.push({ role: "user", parts: [{ type: "text", text: userText(input) }] });
       outcome = await this.#loop(run);
     } catch (err) {
@@ -627,6 +676,7 @@ export class PsycheAgentLoop implements AgentLoop {
       this.#runs.delete(runId);
       thread.activeRunId = undefined;
     }
+    this.#reportContext(run);
     for (const plugin of this.plugins.with("agent_end", "agentEnd")) {
       // Observers: a failing or slow plugin changes nothing.
       await withDeadline(
@@ -968,11 +1018,28 @@ export class PsycheAgentLoop implements AgentLoop {
 
   async #prepare(run: RunState): Promise<{ system: string; tools: ToolSpec[] }> {
     let built = await this.#assemble(run);
-    const window = await this.#contextWindow(run.model);
-    const estimate = estimateContextTokens(built.system, run.thread.messages, built.tools);
-    if (estimate > window * this.#policy.thresholdRatio) {
-      if (await this.#compact(run, estimate, window)) built = await this.#assemble(run);
+    const limits = await this.#limitsFor(run.threadId, run.model);
+    run.limits = limits;
+    let estimate = estimateContextTokens(built.system, run.thread.messages, built.tools);
+    // Owner-set limits (thread → settings → model): compact before the call would pass compactAt.
+    if (estimate > limits.maxTokens * limits.compactAt) {
+      if (await this.#compact(run, estimate, limits.contextWindow, "auto")) {
+        built = await this.#assemble(run);
+        estimate = estimateContextTokens(built.system, run.thread.messages, built.tools);
+      }
     }
+    if (estimate > limits.maxTokens) {
+      // Never send more than the owner allows: the turn ends instead (B7, owner priority).
+      this.#marker(
+        run,
+        `[stopped: this turn needs about ${estimate} tokens of context, over the ${limits.maxTokens}-token limit; compact the thread or raise the limit]`,
+      );
+      throw new RunEnd("failed", "context_limit");
+    }
+    run.pendingBreakdown = {
+      estimate,
+      breakdown: estimateBreakdown(built.sections, built.tools, run.thread.messages, run.turnStart),
+    };
     this.#remember({
       runId: run.runId,
       threadId: run.threadId,
@@ -1089,9 +1156,17 @@ export class PsycheAgentLoop implements AgentLoop {
   }
 
   /** B7: flush (private copy) → `before_compaction` → utility-model summary of older turns. */
-  async #compact(run: RunState, estimate: number, window: number): Promise<boolean> {
-    const { older, recent } = splitForCompaction(run.thread.messages, this.#policy.keepRecentTurns);
+  async #compact(
+    run: RunState,
+    estimate: number,
+    window: number,
+    trigger: "auto" | "manual",
+  ): Promise<boolean> {
+    const keep = run.limits?.keepRecentTurns ?? this.#policy.keepRecentTurns;
+    const { older, recent } = splitForCompaction(run.thread.messages, keep);
     if (older.length === 0) return false;
+    // Never fold a call whose result has not come back (an approval still pending).
+    if (hasUnansweredToolCalls(older)) return false;
     const untrusted = containsUntrusted(older) || run.thread.summary?.untrusted === true;
     const signal = run.abort.signal;
     const memory = this.#o.memory;
@@ -1113,23 +1188,133 @@ export class PsycheAgentLoop implements AgentLoop {
         contextWindow: window,
       });
     }
-    let text: string;
+    let structured: CompactionSummary;
     try {
-      text = await summarize(
+      structured = await summarizeStructured(
         this.#o.provider,
         this.#o.utilityModel ?? run.model,
-        run.thread.summary?.text,
+        run.thread.summary?.structured,
+        run.thread.summary?.structured === undefined ? run.thread.summary?.text : undefined,
         older,
         this.#policy,
         { signal },
       );
     } catch {
+      // An unusable summary never replaces the turns (fail closed: the limit check decides).
       this.#checkAbort(run);
       return false;
     }
-    run.thread.summary = { text, untrusted };
+    const replacedTurns = older.filter(
+      (m) => m.role === "user" && m.parts.some((p) => p.type === "text"),
+    ).length;
+    run.thread.summary = { text: renderCompactionSummary(structured), untrusted, structured };
     run.thread.messages = recent;
+    run.turnStart = Math.max(0, run.turnStart - older.length);
+    run.thread.compactions = (run.thread.compactions ?? 0) + 1;
+    const after = estimateContextTokens("", recent, []) + estimateTokensOf(run.thread.summary.text);
+    await Promise.resolve(
+      this.#o.onCompaction?.({
+        threadId: run.threadId,
+        runId: run.runId,
+        compactionId: this.#ids.next("cmp"),
+        trigger,
+        summary: structuredClone(structured),
+        replacedTurns,
+        keptTurns: keep,
+        tokensBefore: estimate,
+        tokensAfter: after,
+      }),
+    ).catch(() => undefined);
     return true;
+  }
+
+  /** The owner's limits for a thread, resolved against the model's window. */
+  async #limitsFor(threadId: string, model: ModelRef): Promise<EffectiveContextLimits> {
+    const window = await this.#contextWindow(model);
+    const own = this.#o.contextLimits?.(threadId);
+    const maxTokens = Math.min(own?.maxTokens ?? window, window);
+    return {
+      maxTokens,
+      compactAt: own?.compactAt ?? DEFAULT_COMPACT_AT,
+      keepRecentTurns: own?.keepRecentTurns ?? DEFAULT_KEEP_RECENT_TURNS,
+      contextWindow: window,
+      maxTokensFrom: own?.maxTokens === undefined ? "model" : "settings",
+    };
+  }
+
+  /** The turn's context usage, from its last model call (C2 meter). */
+  #reportContext(run: RunState): void {
+    const last = run.contextCalls.at(-1);
+    if (last === undefined || run.limits === undefined || this.#o.onContextUsage === undefined)
+      return;
+    try {
+      this.#o.onContextUsage({
+        threadId: run.threadId,
+        runId: run.runId,
+        model: run.model,
+        at: toIso(this.#clock.now()),
+        promptTokens: last.promptTokens,
+        estimated: last.estimated,
+        breakdown: last.breakdown,
+        peakTokens: Math.max(...run.contextCalls.map((c) => c.promptTokens)),
+        limits: run.limits,
+        compactions: run.thread.compactions ?? 0,
+      });
+    } catch {
+      // The meter observes; it never changes the turn.
+    }
+  }
+
+  /** The thread's limits resolved against `model`'s window (`threads.contextUsage`). */
+  effectiveContextLimits(threadId: string, model?: ModelRef): Promise<EffectiveContextLimits> {
+    return this.#limitsFor(threadId, model ?? this.#o.model);
+  }
+
+  /** Whether a run holds the thread right now. */
+  isBusy(threadId: string): boolean {
+    return this.#threads.get(threadId)?.activeRunId !== undefined;
+  }
+
+  /**
+   * Compacts a thread now (`threads.compact`): the same structured summary as an automatic
+   * compaction, with the thread's limits. `undefined` when there is nothing to fold; `conflict`
+   * while the thread has a run (it may be waiting on an approval).
+   */
+  async compactThread(threadId: string): Promise<CompactionInfo | undefined> {
+    if (this.#threads.get(threadId)?.activeRunId !== undefined) {
+      throw new PsycheError("conflict", "the thread is running; compact it when the turn ends");
+    }
+    const thread = (await this.#state.load(threadId)) ?? emptyThreadState();
+    let info: CompactionInfo | undefined;
+    const model = this.#o.model;
+    const limits = await this.#limitsFor(threadId, model);
+    const controller = new AbortController();
+    const run = {
+      threadId,
+      runId: this.#ids.next("run"),
+      model,
+      thread,
+      limits,
+      turnStart: thread.messages.length,
+      taint: false,
+      abort: controller,
+    } as unknown as RunState;
+    const before = estimateContextTokens(thread.summary?.text ?? "", thread.messages, []);
+    const hook = this.#o.onCompaction;
+    const capture: AgentLoopOptions["onCompaction"] = async (c) => {
+      info = { ...c, trigger: "manual" };
+      await hook?.(info);
+    };
+    const saved = this.#o.onCompaction;
+    (this.#o as { onCompaction?: AgentLoopOptions["onCompaction"] }).onCompaction = capture;
+    try {
+      const done = await this.#compact(run, before, limits.contextWindow, "manual");
+      if (!done) return undefined;
+      await this.#state.save(threadId, thread);
+    } finally {
+      (this.#o as { onCompaction?: AgentLoopOptions["onCompaction"] }).onCompaction = saved;
+    }
+    return info;
   }
 
   // --- Model call -------------------------------------------------------------------------------
@@ -1158,6 +1343,7 @@ export class PsycheAgentLoop implements AgentLoop {
     };
     // The thread lets the router apply its `/model` pin (strict) and attribute usage.
     const callOptions = { signal: run.abort.signal, threadId: run.threadId, runId: run.runId };
+    let promptTokens = 0;
     for await (const ev of this.#o.provider.stream(request, callOptions)) {
       switch (ev.type) {
         case "text_delta": {
@@ -1197,12 +1383,25 @@ export class PsycheAgentLoop implements AgentLoop {
           break;
         case "usage":
           run.usage = addUsage(run.usage, ev.usage);
+          // Everything the provider read for this call: fresh input plus cached prefix.
+          promptTokens += ev.usage.input + ev.usage.cacheRead + ev.usage.cacheWrite;
           break;
         case "finish":
           finish = ev.reason;
           error = ev.error;
           break;
       }
+    }
+    const pending = run.pendingBreakdown;
+    if (pending !== undefined) {
+      const exact = promptTokens > 0;
+      const total = exact ? promptTokens : pending.estimate;
+      run.contextCalls.push({
+        promptTokens: total,
+        estimated: !exact,
+        breakdown: scaleBreakdown(pending.breakdown, total),
+      });
+      run.pendingBreakdown = undefined;
     }
     return { parts, text, calls, finish, ...(error === undefined ? {} : { error }) };
   }
@@ -2215,6 +2414,9 @@ export class PsycheAgentLoop implements AgentLoop {
       describeCall: () => ({
         summary: action.summary,
         ...(action.target === undefined ? {} : { target: action.target }),
+        ...(action.kind === undefined ? {} : { kind: action.kind }),
+        ...(action.bindingFields === undefined ? {} : { bindingFields: action.bindingFields }),
+        ...(action.details === undefined ? {} : { details: action.details }),
       }),
     };
     this.#toolEvent(run, actionId, name, "pending", action.summary);

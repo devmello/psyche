@@ -4145,6 +4145,100 @@ export interface TasksRetryParams {
     taskId:      string;
 }
 
+export interface TeachDraft {
+    description: string;
+    endedAt:     string;
+    endedBy:     TeachEndedBy;
+    /**
+     * SKILL.md first
+     */
+    files:     TeachDraftFile[];
+    name:      string;
+    sessionId: string;
+    startedAt: string;
+    /**
+     * Without screenshot bytes
+     */
+    steps: TeachStep[];
+}
+
+export type TeachEndedBy = "stop" | "timeout" | "limit" | "cancel";
+
+export interface TeachDraftFile {
+    fromStep?: number;
+    path:      string;
+    text?:     string;
+}
+
+export interface TeachStep {
+    at:    string;
+    index: number;
+    /**
+     * A chord, e.g. cmd+s, return
+     */
+    keys?:       string;
+    kind:        TeachStepKind;
+    note?:       string;
+    screenshot?: TeachScreenshot;
+    secure?:     boolean;
+    target?:     TeachTarget;
+    text?:       string;
+}
+
+export type TeachStepKind = "click" | "right_click" | "double_click" | "type" | "press" | "skipped";
+
+export interface TeachScreenshot {
+    base64:   string;
+    mimeType: string;
+    /**
+     * Path in the draft, e.g. screens/step-3.jpg
+     */
+    path: string;
+}
+
+export interface TeachTarget {
+    /**
+     * Bundle id
+     */
+    app:         string;
+    appName:     string;
+    identifier?: string;
+    label?:      string;
+    role?:       string;
+    subrole?:    string;
+    window?:     string;
+}
+
+export interface TeachSessionParams {
+    sessionId: string;
+}
+
+export interface TeachStartParams {
+    /**
+     * Record only this bundle id
+     */
+    app?:         string;
+    description?: string;
+    maxSeconds?:  number;
+    maxSteps?:    number;
+    /**
+     * Skill name
+     */
+    name?: string;
+    /**
+     * Window screenshot after each click (default false)
+     */
+    screenshots?: boolean;
+}
+
+export interface TeachStepEvent {
+    sessionId: string;
+    step:      TeachStep;
+    type:      TeachStepEventType;
+}
+
+export type TeachStepEventType = "teach.step";
+
 export interface TextBlock {
     md:   string;
     type: TextBlockType;
@@ -4483,10 +4577,10 @@ export interface VaultGetResult {
 
 export interface VaultImportParams {
     csv:    string;
-    format: Format;
+    format: VaultImportParamsFormat;
 }
 
-export type Format = "auto" | "1password" | "bitwarden" | "chrome";
+export type VaultImportParamsFormat = "auto" | "1password" | "bitwarden" | "chrome";
 
 export interface VaultImportResult {
     imported: CredentialMeta[];
@@ -4756,6 +4850,14 @@ export interface VMCreateParams {
     diskGB?:   number;
     download?: boolean;
     /**
+     * Absolute path to a guest image directory or .aar archive
+     */
+    image?: string;
+    /**
+     * Expected SHA-256 of the image's manifest.json, from the publisher
+     */
+    imageSha256?: string;
+    /**
      * Absolute path to a local IPSW
      */
     ipsw?:     string;
@@ -4763,6 +4865,44 @@ export interface VMCreateParams {
     name?:     string;
     username?: string;
 }
+
+export interface VMExportImageParams {
+    id?:    string;
+    name?:  string;
+    outDir: string;
+}
+
+export interface VMExportImageResult {
+    manifest:       VMImageManifest;
+    manifestSha256: string;
+    path:           string;
+}
+
+export interface VMImageManifest {
+    createdAt:          string;
+    diskFormat:         VMDiskFormat;
+    diskGB:             number;
+    files:              VMImageFile[];
+    format:             VMImageManifestFormat;
+    formatVersion:      number;
+    guestOS:            string;
+    id:                 string;
+    permissionsGranted: boolean;
+    provisioned:        boolean;
+    psycheInstalled:    boolean;
+    psycheVersion?:     string;
+    username:           string;
+}
+
+export type VMDiskFormat = "asif" | "raw";
+
+export interface VMImageFile {
+    bytes:  number;
+    name:   string;
+    sha256: string;
+}
+
+export type VMImageManifestFormat = "psyche-guest-image";
 
 export interface VMProgressEvent {
     fraction?: number;
@@ -4774,7 +4914,7 @@ export interface VMProgressEvent {
     version?: string;
 }
 
-export type VMProgressEventType = "vm.download" | "vm.install" | "vm.state" | "vm.psyche_install" | "vm.permissions" | "vm.snapshot" | "vm.reset";
+export type VMProgressEventType = "vm.download" | "vm.install" | "vm.state" | "vm.psyche_install" | "vm.permissions" | "vm.snapshot" | "vm.reset" | "vm.import" | "vm.export";
 
 export interface VMResetParams {
     name?: string;
@@ -4802,12 +4942,17 @@ export interface VMGuest {
     diskGB:        number;
     display?:      Display;
     guestOS?:      null | string;
+    image?:        VMGuestImageRef;
     /**
      * Machine reason of the last failure
      */
     lastError?: string;
     memoryGB:   number;
     name:       string;
+    /**
+     * Imported guest still has the image's bootstrap password (rotated at first start)
+     */
+    passwordRotationPending?: boolean;
     /**
      * Accessibility / Screen Recording pre-granted offline (L3)
      */
@@ -4848,6 +4993,12 @@ export interface Display {
     height:  number;
     visible: boolean;
     width:   number;
+}
+
+export interface VMGuestImageRef {
+    createdAt: string;
+    guestOS:   string;
+    id:        string;
 }
 
 export type VMPhase = "created" | "installing" | "installed" | "provisioning" | "stopped" | "starting" | "running" | "stopping" | "failed" | "paused" | "saved";

@@ -120,7 +120,7 @@ export function ThreadRow({
             <Button
               variant="ghost"
               size="icon-xs"
-              className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100"
+              className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100 pointer-coarse:opacity-100"
               aria-label={`More for ${t.title}`}
             />
           }

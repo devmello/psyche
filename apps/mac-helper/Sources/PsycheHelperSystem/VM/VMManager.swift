@@ -56,6 +56,8 @@ public final class VMManager: @unchecked Sendable {
     let environment: [String: String]
     let host: @Sendable () -> HostResources
     let log: HelperLog
+    /// L6: APFS clones live, plain copies in tests.
+    let snapshotStore: VMSnapshotStore
     public let events = VMEventHub()
     private let lock = NSLock()
     private var busy: Set<String> = []
@@ -67,8 +69,10 @@ public final class VMManager: @unchecked Sendable {
     public init(
         backend: any VMBackend, secrets: any VMSecretStore = KeychainVMSecretStore(), shell: any GuestShell = SSHGuestShell(),
         permissions: any GuestPermissionWriter = OfflineTCCWriter(), environment: [String: String] = ProcessInfo.processInfo.environment,
-        host: @escaping @Sendable () -> HostResources = { HostResources.current() }, log: HelperLog = HelperLog()
+        host: @escaping @Sendable () -> HostResources = { HostResources.current() }, log: HelperLog = HelperLog(),
+        cloner: any FileCloner = APFSCloner()
     ) {
+        snapshotStore = VMSnapshotStore(cloner: cloner)
         self.backend = backend
         self.secrets = secrets
         self.shell = shell
@@ -111,6 +115,11 @@ public final class VMManager: @unchecked Sendable {
             "psycheInstalled": .bool(state.psycheInstalled), "permissionsGranted": .bool(state.permissionsGranted), "savedState": .bool(saved),
             "transfers": (try? JSONValue(encoding: Array(b.loadTransfers().suffix(20)))) ?? .array([]),
         ]
+        if state.passwordRotationPending { o["passwordRotationPending"] = true }
+        if let i = state.image { o["image"] = ["id": .string(i.id), "guestOS": .string(i.guestOS), "createdAt": .string(i.createdAt)] }
+        let snapshots = b.loadSnapshots()
+        o["snapshots"] = (try? JSONValue(encoding: snapshots)) ?? .array([])
+        if let base = snapshots.first(where: { $0.kind == "base" }) { o["baseSnapshot"] = .string(base.id) }
         if let e = state.lastError { o["lastError"] = .string(e) }
         return .object(o)
     }
@@ -123,6 +132,9 @@ public final class VMManager: @unchecked Sendable {
             r.psycheInstalled = r.psycheInstalled || old.psycheInstalled
             r.permissionsGranted = r.permissionsGranted || old.permissionsGranted
             r.provisioned = r.provisioned || old.provisioned
+            // L7: cleared only by `rotateBootstrapPassword` (it writes the record directly).
+            r.passwordRotationPending = r.passwordRotationPending || old.passwordRotationPending
+            r.image = r.image ?? old.image
         }
         try bundle.saveState(r)
         publish(bundle)
@@ -144,9 +156,13 @@ public final class VMManager: @unchecked Sendable {
         public var ipsw: String?
         public var download: Bool?
         public var username: String?
+        /// L7: a prebuilt guest image (directory or `.aar`) instead of an IPSW install.
+        public var image: String?
+        public var imageSha256: String?
     }
 
     public func create(_ p: CreateParams, emit: @escaping @Sendable (JSONValue) async -> Void) async throws -> JSONValue {
+        if p.image != nil { return try await importImage(p, emit: emit) }
         let name = p.name ?? "sandbox"
         let existing = VMBundle.all(environment: environment).map { $0.root.lastPathComponent }
         try GuestCap.checkCreate(existing: existing)
@@ -266,6 +282,9 @@ public final class VMManager: @unchecked Sendable {
         running.permissionsGranted = state.permissionsGranted
         try setState(bundle, running)
         log.info("vm started name=\(name) provisioning=\(provisioning != nil) warm=\(restore != nil)")
+        if bundle.loadState()?.passwordRotationPending == true {
+            await rotateBootstrapPassword(name: name, emit: emit)
+        }
         return describe(bundle, config)
     }
 

@@ -213,6 +213,11 @@ export function ToolRun({ items }: { items: readonly ToolCallItem[] }): ReactEle
         />
         <span>{summarizeRun(items)}</span>
         {running ? <StatusDot status="running" /> : failed ? <StatusDot status="failed" /> : null}
+        {running ? (
+          <span className="sr-only">, running</span>
+        ) : failed ? (
+          <span className="sr-only">, something failed</span>
+        ) : null}
       </button>
       {shown > 0 ? (
         <ul className="ml-1 border-l border-gray-5 pl-2" aria-label={summarizeRun(items)}>

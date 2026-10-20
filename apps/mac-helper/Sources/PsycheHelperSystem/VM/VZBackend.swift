@@ -151,6 +151,16 @@ public final class VZBackend: VMBackend, @unchecked Sendable {
         }
     }
 
+    public func prepareImported(_ bundle: VMBundle, config: VMConfig) async throws {
+        guard let data = FileManager.default.contents(atPath: bundle.hardwareModelURL.path),
+              let hw = VZMacHardwareModel(dataRepresentation: data), hw.isSupported
+        else {
+            throw CapabilityError(.unavailable, reason: "image_unsupported", "This Mac cannot run the guest image's hardware model")
+        }
+        try VZMacMachineIdentifier().dataRepresentation.write(to: bundle.machineIdentifierURL, options: .atomic)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: bundle.machineIdentifierURL.path)
+    }
+
     static func createDisk(_ url: URL, format: String, gigabytes: Int) throws {
         let bytes = UInt64(gigabytes) * 1_000_000_000
         #if canImport(DiskImageKit)

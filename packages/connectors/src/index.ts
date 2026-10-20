@@ -8,5 +8,6 @@ export * from "./framework/registry.ts";
 export * from "./framework/types.ts";
 export * from "./google/index.ts";
 export * from "./mail/index.ts";
+export * from "./microsoft/index.ts";
 export * from "./shopping/index.ts";
 export * from "./web/index.ts";

@@ -33,6 +33,10 @@ public protocol VMBackend: AnyObject, Sendable {
     /// Writes HardwareModel, MachineIdentifier, AuxiliaryStorage and the empty disk.
     func prepareBundle(_ bundle: VMBundle, config: VMConfig, image: URL) async throws
     func install(_ bundle: VMBundle, config: VMConfig, image: URL, progress: @escaping @Sendable (Double) -> Void) async throws
+    /// L7: an imported bundle (disk, auxiliary storage and hardware model copied from an image)
+    /// gets a fresh MachineIdentifier; throws `image_unsupported` when this Mac cannot run its
+    /// hardware model.
+    func prepareImported(_ bundle: VMBundle, config: VMConfig) async throws
     /// Boots the guest headless, cold or from `restoreFrom` (a saved machine state). Every guest
     /// connection to `VsockPorts.gatewayNode` is handed to `onGatewayConnection` as a descriptor
     /// the callee owns.
