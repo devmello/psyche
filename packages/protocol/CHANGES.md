@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (M3 hardening, issues #279 and #280)
+
+- `ToolCallMeta` gains optional `mcpServerId`, `mcpToolsListHash` and `mcpTier`: an MCP tool's description carries them to the broker, so its grants are bound to the server and `tools/list` hash, and unknown-tier write tools ask. No fake change.
+
 ### v1 additive — 2026-10-20 (M3 gateway hardening, issue #253)
 
 - New `devices.presenceKey.list`, `devices.presenceKey.register` (side-effecting; optional `expectKeyId`, `approvalId`) and `devices.presenceKey.remove` (side-effecting), all `operator.admin`: the owner registers a paired helper's Secure Enclave presence key, so Touch ID answers from that helper verify. New schema `PresenceKeyInfo` (`deviceId`, `keyId`, `registeredAt`).
