@@ -29,6 +29,8 @@ function services(withFiles = true) {
   const receipts: unknown[] = [];
   const s = {
     tools: registry,
+    // Psyche's home sits beside the repo, as on a real Mac; it is protected, the repo is not.
+    home: join(dir, ".psyche"),
     rawBroker: { policy: { folders } },
     broker: {
       recordReceipt: async (r: unknown) => {

@@ -214,6 +214,21 @@ describe("protected locations (#285)", () => {
     expect(readFileSync(join(home, "workspace", "MEMORY.md"), "utf8")).toBe("memory");
     // Everything else in the granted folder works as before.
     await run("write_file", { path: join(granted, "ok.md"), content: "ok" });
+    // Searching or listing the granted ancestor never reaches into them either.
+    writeFileSync(join(home, "workspace", "secret.md"), "needle in memory");
+    writeFileSync(join(granted, ".ssh", "config"), "needle in ssh");
+    writeFileSync(join(granted, "public.md"), "needle in public");
+    const found = await run("search_files", {
+      path: granted,
+      query: "needle",
+      include_hidden: true,
+    });
+    expect(JSON.stringify(found.output)).not.toMatch(/\.ssh|\.psyche/);
+    expect(JSON.stringify(found.output)).toContain("public.md");
+    const listed = await run("list_dir", { path: granted });
+    const names = (listed.output.entries as { name: string }[]).map((e) => e.name);
+    expect(names).not.toContain(".psyche");
+    expect(names).not.toContain(".ssh");
   });
 });
 
