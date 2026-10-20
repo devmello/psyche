@@ -129,6 +129,28 @@ These four are registered on main (PR #47). System keychain mode (G9) also needs
 
 `complete({..., toolCallId})` ties the receipt to that tool call.
 
+**Funding source:** `requestPurchase` resolves the Link payment method behind the purchase (`paymentMethodId`, else the owner's default) through `wallet.paymentMethods()`.
+- The card shows "funded by Visa •••• 1881".
+- The binding hash covers `stripe_link:<method id>` and its last4, so a changed default funding card fails `authorize` with `approval_binding_mismatch`.
+- The spend request is created with `--payment-method-id`.
+
+**Merchant lifecycle:** each spend record carries `payment: {state, held, captured, refunded, refs}`. The executor reports what the merchant did:
+
+| Call | From | To | Receipt kind | Rule |
+| --- | --- | --- | --- | --- |
+| `hold(id, {amount?, holdRef, expiresAt?})` | none | held | `purchase.hold` | At most the approved amount (an increase needs a new approval, §4.9 step 5). The card file is shredded, because capture needs no card. |
+| `capture(id, {amount?, orderNumber, merchantConfirmation?})` | none, held | captured | `purchase` | At most the held, or approved, amount. Reports `success` to Link. |
+| `refund(id, {amount?, refundRef, reason?})` | captured, partially_refunded | partially_refunded, refunded | `purchase.refund` | Never more than captured. |
+| `decline(id, {code?})` | none, held | declined | `purchase.declined` (failed) | Nothing charged. Reports `blocked` / `payment_declined`. |
+| `releaseHold(id, {reason?})` | held | released | `purchase.hold_released` | Nothing charged. |
+
+- Any other transition is `conflict`.
+- Every transition writes its receipt (Link spend request id plus merchant refs, brand / last4 only) and an audit entry `purchase.<state>` carrying the receipt id.
+- `complete()` maps onto these:
+  - `success` captures;
+  - `blocked` with `payment_declined` declines;
+  - anything else releases a hold, or ends the purchase without a charge.
+
 **Clean-up:** `cancel(id)` cancels and shreds. `sweep()` shreds card files past `cardTtlMs` (2 h) and any file without a live approved record. Records (no secrets) live in `vault/payments/`.
 
 **`LinkCliWallet`** runs the owner-installed `@stripe/link-cli` (0.29.0 checked; deliberately not a dependency, because its postinstall runs a skills installer):
