@@ -100,7 +100,10 @@ describe("default iMessage authorizeSend (N5)", () => {
       scopeGranted: "once",
       decidedBy: { channel: "imessage", senderId: "+15550001111" },
     });
-    // Already verified and spent by the Gateway: it cannot authorize a second send.
+    // Spent at dispatch (`verifiedMessagesSends`) against the actual text, once.
+    expect(
+      await s.rawBroker.verifyBinding(id, intent(OWNER_CHAT, "Sure, done.").bindingHash),
+    ).toMatchObject({ ok: true });
     expect(
       await s.rawBroker.verifyBinding(id, intent(OWNER_CHAT, "Sure, done.").bindingHash),
     ).toEqual({ ok: false, reason: "consumed" });

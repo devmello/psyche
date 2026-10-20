@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { requesterFromRoute } from "@psyche/agent-core";
@@ -21,7 +21,15 @@ import {
   WebChatAdapter,
   webChatChannelDefaults,
 } from "@psyche/channels";
-import { createThread, findThreadBySessionKey, getSetting, updateThread } from "@psyche/db";
+import {
+  createThread,
+  findThreadBySessionKey,
+  getAgentThreadState,
+  getSetting,
+  getThread,
+  updateThread,
+} from "@psyche/db";
+import { bindingFor, type ChannelReplyTurn } from "@psyche/permissions";
 import {
   type Channel,
   type ChannelAdapter,
@@ -30,11 +38,15 @@ import {
   type EventPayload,
   type InboundMessage,
   type Message,
+  type MessagesSendParams,
+  type NodeClient,
   PsycheError,
   type Requester,
   type Run,
   type SpeechEngine,
+  type TaintSource,
   type Thread,
+  type ToolCall,
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
 import { MAIN_SESSION_KEY } from "../handlers/threads.ts";
@@ -79,6 +91,8 @@ export interface IMessageSetup {
   authorizeSend?: IMessageSendAuthorizer;
   /** Pin one node; default the first live node offering `messages.watch`. */
   nodeId?: string;
+  /** Test transport: the Messages node (its sends are still verified at dispatch). */
+  node?: () => NodeClient | undefined;
   /** Default: `$PSYCHE_HOME/channels/imessage-<account>.cursor`. */
   cursor?: IMessageCursorStore;
 }
@@ -143,11 +157,16 @@ export function channelsSetupFromEnv(
 /**
  * The default iMessage send port (N5): a system-decided `message_send` approval from the broker
  * for exactly this text and conversation, refused unless the channel's policy lets Psyche answer
- * there. The node only checks that an approval id is present, so the Gateway verifies and spends
- * the approval here (scope `once`) before handing the id over.
+ * there and, for an agent's reply, the replying turn's mode, deny rules and taint allow it
+ * (`turnFor`). The node only checks that an approval id is present, so the Gateway verifies and
+ * spends it at dispatch against the actual send (`verifiedMessagesSends`).
  */
-export function channelReplyAuthority(services: ComposeServices): IMessageSendAuthorizer {
+export function channelReplyAuthority(
+  services: ComposeServices,
+  turnFor: (recipient: string) => ChannelReplyTurn | undefined = () => undefined,
+): IMessageSendAuthorizer {
   return async (intent) => {
+    const turn = intent.purpose === "reply" ? turnFor(intent.recipient) : undefined;
     const approval = await services.rawBroker.authorizeChannelReply({
       channel: intent.channel,
       account: intent.account,
@@ -155,12 +174,60 @@ export function channelReplyAuthority(services: ComposeServices): IMessageSendAu
       bodySha256: intent.bodySha256,
       bindingHash: intent.bindingHash,
       purpose: intent.purpose,
+      ...(turn === undefined ? {} : { turn }),
     });
-    const verified = await services.rawBroker.verifyBinding(approval.id, intent.bindingHash);
-    if (!verified.ok) {
-      throw new PsycheError("forbidden", `the reply authority did not verify (${verified.reason})`);
-    }
     return approval.id;
+  };
+}
+
+/**
+ * The executor's check (security §3.5, §3.7 "Dispatch"): a `messages.send` reaches the Mac only
+ * if its approval binds exactly the recipient and text being sent, spent once; a receipt records
+ * it. The node itself only checks that an approval id is present.
+ */
+export function verifiedMessagesSends(
+  services: ComposeServices,
+  client: NodeClient,
+  account: string,
+): NodeClient {
+  return {
+    nodeId: client.nodeId,
+    info: () => client.info(),
+    capabilities: () => client.capabilities(),
+    async invoke(capability, params, options = {}) {
+      if (capability !== "messages.send") return client.invoke(capability, params, options);
+      const p = params as MessagesSendParams;
+      const approvalId = options.approvalId;
+      if (approvalId === undefined) {
+        return { ok: false, error: { code: "approval_required", message: "no approval" } };
+      }
+      const binding = bindingFor("message_send", {
+        channel: "imessage",
+        account,
+        recipient: p.chatId ?? p.to ?? "",
+        bodySha256: `sha256:${createHash("sha256").update(p.text, "utf8").digest("hex")}`,
+      });
+      const verified = await services.rawBroker.verifyBinding(approvalId, binding.bindingHash);
+      if (!verified.ok) {
+        return {
+          ok: false,
+          error: {
+            code: verified.reason === "binding_mismatch" ? "binding_mismatch" : "approval_required",
+            message: `approval ${approvalId} does not cover this send (${verified.reason})`,
+          },
+        };
+      }
+      const res = await client.invoke(capability, params, options);
+      await services.broker
+        .recordReceipt({
+          kind: "node.messages.send",
+          outcome: res.receipt?.outcome ?? (res.ok ? "ok" : "failed"),
+          summary: res.receipt?.summary ?? "iMessage send",
+          approvalId,
+        })
+        .catch(() => undefined);
+      return res;
+    },
   };
 }
 
@@ -236,6 +303,17 @@ export function turnText(parts: readonly InboundPart[]): string {
     .join("\n\n");
 }
 
+/** A channel-started run, kept until its last reply has been sent (the reply authority's turn). */
+interface TurnState {
+  threadId: string;
+  requester: Requester;
+  /** The conversation the request came from. */
+  chatId: string;
+  taint: boolean;
+  sources: TaintSource[];
+  finished: boolean;
+}
+
 interface Pending {
   target: OutboundTarget;
   content: string;
@@ -256,6 +334,10 @@ export function composeChannels(
   const replyTo = new Map<string, OutboundTarget>();
   const repliesSent = new Map<string, number>();
   const waiting = new Map<string, Pending[]>();
+  // For the reply authority: each channel run's taint, and the sends in flight per conversation
+  // (`<type>:<account>|<chatId>` → run id, or null for Gateway-composed text).
+  const turns = new Map<string, TurnState>();
+  const inflight = new Map<string, (string | null)[]>();
 
   const publish = <E extends EventName>(event: E, payload: EventPayload<E>) =>
     services.publish(event, payload);
@@ -278,6 +360,53 @@ export function composeChannels(
     ...(Array.isArray(storedOwners) ? { ownerAllowFrom: storedOwners.map(String) } : {}),
     onInboundDecision: (event) => services.channelConversations.record(event),
   });
+
+  // --- the replying turn, for the reply authority (security §3.6) -----------------------------
+
+  const convKey = (type: string, account: string, chatId: string) => `${type}:${account}|${chatId}`;
+  const targetKey = (target: OutboundTarget) => {
+    const c = service.listChannels().find((x) => x.id === target.channelId);
+    return c === undefined ? undefined : convKey(c.type, c.account, target.chatId);
+  };
+  /** Runs a send into a conversation while recording whose text it is. */
+  const tracked = async <T>(target: OutboundTarget, runId: string | null, fn: () => Promise<T>) => {
+    const key = targetKey(target);
+    if (key !== undefined) inflight.set(key, [...(inflight.get(key) ?? []), runId]);
+    try {
+      return await fn();
+    } finally {
+      const list = key === undefined ? undefined : inflight.get(key);
+      if (key !== undefined && list !== undefined) {
+        const i = list.indexOf(runId);
+        if (i >= 0) list.splice(i, 1);
+        if (list.length === 0) inflight.delete(key);
+      }
+      if (runId !== null) releaseTurn(runId);
+    }
+  };
+  const releaseTurn = (runId: string) => {
+    const t = turns.get(runId);
+    if (t === undefined || !t.finished) return;
+    if (![...inflight.values()].some((l) => l.includes(runId))) turns.delete(runId);
+  };
+  /** The run whose reply is being sent into this conversation, if any (else Gateway text). */
+  const replyTurn = (key: string): ChannelReplyTurn | undefined => {
+    const runId = inflight.get(key)?.find((r) => r !== null);
+    if (runId === undefined || runId === null) return undefined;
+    const t = turns.get(runId);
+    if (t === undefined) return undefined;
+    return {
+      requestRecipient: t.chatId,
+      context: {
+        threadId: t.threadId,
+        runId,
+        permissionMode: getThread(db, t.threadId)?.permissionMode ?? "balanced",
+        taint: t.taint,
+        ...(t.taint ? { taintSources: [...t.sources] } : {}),
+        requester: t.requester,
+      },
+    };
+  };
 
   const adapters = new Map<string, ChannelAdapter>();
   const add = (adapter: ChannelAdapter) =>
@@ -309,8 +438,17 @@ export function composeChannels(
     add(
       new IMessageAdapter({
         account: im.account,
-        authorizeSend: im.authorizeSend ?? channelReplyAuthority(services),
-        node: () => messagesNode(im.nodeId),
+        authorizeSend:
+          im.authorizeSend ??
+          channelReplyAuthority(services, (recipient) =>
+            replyTurn(convKey("imessage", im.account, recipient)),
+          ),
+        node: () => {
+          const client = im.node === undefined ? messagesNode(im.nodeId) : im.node();
+          return client === undefined
+            ? undefined
+            : verifiedMessagesSends(services, client, im.account);
+        },
         cursor:
           im.cursor ??
           fileCursorStore(
@@ -348,8 +486,7 @@ export function composeChannels(
   // --- inbound → chat turns ----------------------------------------------------------------
 
   const reply = (target: OutboundTarget, text: string) =>
-    service
-      .send(target, text, { format: "plain" })
+    tracked(target, null, () => service.send(target, text, { format: "plain" }))
       .then(() => undefined)
       .catch((err: unknown) =>
         logger.warn("channel.reply_failed", {
@@ -408,6 +545,18 @@ export function composeChannels(
     if (runId !== null) {
       replyTo.set(runId, pending.target);
       repliesSent.set(runId, 0);
+      // Taint carried in the thread's saved state (security §3.6: it survives the turn).
+      const carried = getAgentThreadState(db, threadId)?.taint as
+        | { sources?: TaintSource[] }
+        | undefined;
+      turns.set(runId, {
+        threadId,
+        requester: pending.requester,
+        chatId: pending.target.chatId,
+        taint: carried !== undefined,
+        sources: [...(carried?.sources ?? [])],
+        finished: false,
+      });
     }
     for (const fn of events) fn();
     for (const fn of after) fn();
@@ -505,11 +654,12 @@ export function composeChannels(
         .trim();
       if (text === "") return;
       repliesSent.set(runId, (repliesSent.get(runId) ?? 0) + 1);
-      service.send(target, text, { format: "markdown" }).catch((err: unknown) =>
-        logger.warn("channel.reply_failed", {
-          channelId: target.channelId,
-          code: PsycheError.from(err).code,
-        }),
+      tracked(target, runId, () => service.send(target, text, { format: "markdown" })).catch(
+        (err: unknown) =>
+          logger.warn("channel.reply_failed", {
+            channelId: target.channelId,
+            code: PsycheError.from(err).code,
+          }),
       );
       return;
     }
@@ -525,8 +675,25 @@ export function composeChannels(
         }
         replyTo.delete(run.id);
         repliesSent.delete(run.id);
+        const turn = turns.get(run.id);
+        if (turn !== undefined) {
+          turn.finished = true;
+          releaseTurn(run.id);
+        }
       }
       if (run.status !== "running") drain(run.threadId);
+      return;
+    }
+    if (f.event === "tool_call.updated") {
+      // Untrusted content in or out of any call taints the turn's replies (security §3.6).
+      const call = (f.payload as { toolCall: ToolCall }).toolCall;
+      const turn = turns.get(call.runId);
+      if (turn !== undefined && (call.taintIn || call.taintOut)) {
+        turn.taint = true;
+        if (!turn.sources.some((x) => x.toolCallId === call.id)) {
+          turn.sources.push({ sourceKind: call.tool, toolCallId: call.id });
+        }
+      }
       return;
     }
     if (f.event === "settings.changed") {
