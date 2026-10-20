@@ -13,6 +13,9 @@ export interface ItemSecret {
   refreshToken?: string;
   expiresAt?: string;
   scopes?: string[];
+  /** OAuth extras a connector stores with its tokens (G13). */
+  tokenType?: string;
+  obtainedAt?: string;
   privateKey?: string;
   text?: string;
 }
