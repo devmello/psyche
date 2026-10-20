@@ -21,6 +21,12 @@ export {
   strictCanonicalJSON,
 } from "./binding.ts";
 export {
+  connectorSlug,
+  type StoredConnectorTokens,
+  VaultTokenVault,
+  type VaultTokenVaultOptions,
+} from "./connectors/tokenVault.ts";
+export {
   type Argon2Params,
   base32Decode,
   base32Encode,
@@ -29,6 +35,17 @@ export {
   parseRecoveryKey,
 } from "./crypto.ts";
 export { reasonOf } from "./errors.ts";
+export {
+  checkRef,
+  type OnePasswordField,
+  type OnePasswordRef,
+  type OnePasswordSource,
+  type OpCliOptions,
+  OpCliSource,
+  type OpConnectOptions,
+  OpConnectSource,
+  type TokenProvider,
+} from "./external/onepassword.ts";
 export {
   assertFilled,
   type BrowserFillInput,
@@ -141,8 +158,10 @@ export {
 export { parseTotpSeed, type TotpSeed, totpCode } from "./totp.ts";
 export {
   type AddItemInput,
+  type ConnectorTokenRead,
   DEFAULT_AUTO_LOCK_MINUTES,
   type ImportResult,
+  type LinkOnePasswordInput,
   type UpdateItemInput,
   Vault,
   type VaultEventName,

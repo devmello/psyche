@@ -154,6 +154,14 @@ Errors (`details.reason`): `-34018` → `unavailable/missing_entitlement`; `-253
 
 Default categories: approval → Approve / Deny (destructive); input_needed → text reply; task_failed → Open / Retry; reminder → Open / Snooze; others → Open; custom action sets get `psyche.custom.<hash>`. Interruption: approval and input_needed time-sensitive, proactive and briefing passive, others active; quiet hours (overnight ranges work) make everything passive and silent. With `requireBiometry`, a non-destructive action or reply runs `LAContext.evaluatePolicy(.deviceOwnerAuthentication)` before it is forwarded (`authenticated: false` + `authError` on failure, so the Gateway refuses). Without the time-sensitive entitlement, time-sensitive posts as active. `userInfo` and logs carry ids only.
 
+### Contacts (dictation vocabulary, issue #121)
+
+| Capability | Side effect | Params → result |
+| --- | --- | --- |
+| `contacts.list` | read | `limit` (1–2000, default 500), `fields` (`["name"]` only), `query?` (≤ 80, prefix of given or family name; case- and diacritic-insensitive) → `{contacts: [{id, name, nickname?, organization?}], total, truncated}` ordered by family then given name |
+
+Names only (S17's `NodeContactsSource` feeds them to `DictationTranscriber` as contextual strings): the fetch requests name, nickname and organization keys only, so phone numbers, emails and addresses are never read. Contacts without a name are skipped. The capability never prompts: without the Contacts grant it fails with `forbidden/permission_denied` (`details.permission: "contacts"`), which the Gateway treats as "no names"; the prompt comes from `permissions.request {permission: "contacts"}`.
+
 ### Presence (Touch ID approvals, issue #84)
 
 Approvals that require authentication (purchase, credential fill, exec_host, pairing, policy change; security §3.7) need proof, not a boolean. When `notify.show` carries `requireBiometry: true` and `presenceChallenge` (hex SHA-256 from the Gateway; the answer token never leaves it), a non-destructive answer runs Touch ID for the presence key's access control (`LAContext.evaluateAccessControl(.useKeySign)`) and signs with that same context, so the owner sees one prompt:

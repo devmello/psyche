@@ -47,6 +47,6 @@ pnpm --filter @psyche/web typecheck
 ## Stubbed
 
 - Device key: an in-memory WebCrypto Ed25519 pair (non-extractable); every reload is a new device. Persisting it in IndexedDB and passkey login are INT-2 (hooks: the pairing banner and `createWebGatewayConnection`).
-- Feed, Ideas, Goals, Library and Search still show the shell's placeholders in the composed app (the kit has the screens; mounting them is next).
+- In the composed app (`src/compose/PsycheApp.tsx`) the kit's chat column, agent sheet, onboarding and Settings are mounted; Feed, Ideas, Goals, Library and Search still show the shell's placeholders. Settings → File access is S11's own section (`src/compose/settings.tsx`): it reads and writes `permissions.policy.folders`, the key the Gateway applies to the broker, and uses `ShellPlatform.dialogs.pickFolder` on the desktop. Data controls gains the Backups panel (`src/compose/backups.tsx`, `backup.*`) and About the log viewer (`src/compose/logs.tsx`, `logs.tail`); both degrade to a "needs a newer Gateway" notice.
 - Methods the protocol lacks are treated as unavailable: `commands.list`, `threads.update` (mode, model), `library.upload` (attachments), `voice.*`, `terminal.open`, `chat.queue.*` (S01's protocol branch).
 - Web Push, the server-mode browser screencast, and a keyboard-operable pane resizer.

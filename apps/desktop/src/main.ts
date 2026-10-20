@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
   type ApprovalRequest,
@@ -10,6 +10,7 @@ import type { GatewayConnection } from "@psyche/web/client";
 import type { ShellCommand } from "@psyche/web/platform";
 import {
   app,
+  dialog,
   globalShortcut,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
@@ -36,6 +37,7 @@ import {
   str,
 } from "./lib/ipc.ts";
 import { NotificationRelay } from "./lib/notify-relay.ts";
+import { ZoomController } from "./lib/zoom.ts";
 import { BridgeClient } from "./main/bridge/bridge-client.ts";
 import { BrowserHost } from "./main/browser/browser-host.ts";
 import { buildAppMenu } from "./main/menu.ts";
@@ -85,6 +87,11 @@ let terminal: TerminalHost | undefined;
 let tray: PsycheTray | undefined;
 let supervisor: GatewaySupervisor | undefined;
 const relay = new NotificationRelay();
+const zoom = new ZoomController({
+  targets: () => windows?.appContents() ?? [],
+  call: (method, params) => requireGateway().call(method, params),
+  warn: (message) => console.warn(`[zoom] ${message}`),
+});
 const pendingCommands: ShellCommand[] = [];
 let quittingEntirely = false;
 
@@ -318,6 +325,27 @@ function registerIpc(): void {
     );
   });
   on(IPC.windowClose, (event) => windows?.closeFor(event.sender));
+  handle(IPC.dialogPickFolder, async (event, arg) => {
+    const r = rec(IPC.dialogPickFolder, arg);
+    const title =
+      typeof r.title === "string" ? str(IPC.dialogPickFolder, r.title, "title", 120) : undefined;
+    const win = windows?.main();
+    const opts = {
+      properties: ["openDirectory", "createDirectory"] as ("openDirectory" | "createDirectory")[],
+      title: title ?? "Share a folder with Psyche",
+      message: title ?? "Share a folder with Psyche",
+      buttonLabel: "Share",
+    };
+    const res =
+      win && windows?.isAppContents(event.sender)
+        ? await dialog.showOpenDialog(win, opts)
+        : await dialog.showOpenDialog(opts);
+    const picked = res.canceled ? undefined : res.filePaths[0];
+    if (picked === undefined) return null;
+    // The broker matches folder grants as text against real paths (no symlinks), so the grant
+    // must name the real path: /private/tmp rather than /tmp on macOS.
+    return realpath(picked);
+  });
   on(IPC.notifyShow, (_e, arg) => {
     const r = rec(IPC.notifyShow, arg);
     showNotification(
@@ -350,6 +378,9 @@ function onGatewayEvent(e: {
 }): void {
   broadcast(IPC.event, e);
   const p = e.payload as Record<string, unknown>;
+  if (e.event === "settings.changed") {
+    zoom.onSettingsChanged((p.entries as { key: string; value: unknown }[] | undefined) ?? []);
+  }
   if (e.event === "notification.created") {
     const d = relay.decide(p.notification as PsycheNotification);
     if (d.show && d.title && d.body && d.route)
@@ -427,12 +458,17 @@ void app.whenReady().then(async () => {
         if (wc) wc.send(IPC.shellCommand, { type: "closeThreadView" } satisfies ShellCommand);
       },
       quitEntirely,
+      zoomIn: () => void zoom.zoomIn(),
+      zoomOut: () => void zoom.zoomOut(),
+      zoomReset: () => void zoom.reset(),
     }),
   );
 
   windows = createAppWindows({
     rendererUrl,
     preloadPath: preloadPath(),
+    // The stored zoom wins over Electron's own per-origin memory on every load.
+    onViewCreated: (wc) => wc.on("did-finish-load", () => zoom.applyTo(wc)),
     onMainCreated: (win, view) => {
       view.webContents.once("did-finish-load", () => {
         for (const c of pendingCommands.splice(0)) view.webContents.send(IPC.shellCommand, c);
@@ -474,6 +510,7 @@ void app.whenReady().then(async () => {
       if (s.phase === "paired") {
         void refreshHelperPresence();
         void refreshApprovals();
+        void zoom.load();
       }
     },
     onEvent: onGatewayEvent,

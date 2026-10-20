@@ -54,6 +54,15 @@
 //   let automationsUpcomingParams = try? JSONDecoder().decode(AutomationsUpcomingParams.self, from: jsonData)
 //   let automationsUpcomingResult = try? JSONDecoder().decode(AutomationsUpcomingResult.self, from: jsonData)
 //   let automationsUpdateParams = try? JSONDecoder().decode(AutomationsUpdateParams.self, from: jsonData)
+//   let backupCreateParams = try? JSONDecoder().decode(BackupCreateParams.self, from: jsonData)
+//   let backupCreateResult = try? JSONDecoder().decode(BackupCreateResult.self, from: jsonData)
+//   let backupDeleteParams = try? JSONDecoder().decode(BackupDeleteParams.self, from: jsonData)
+//   let backupDeleteResult = try? JSONDecoder().decode(BackupDeleteResult.self, from: jsonData)
+//   let backupInfo = try? JSONDecoder().decode(BackupInfo.self, from: jsonData)
+//   let backupListParams = try? JSONDecoder().decode(BackupListParams.self, from: jsonData)
+//   let backupListResult = try? JSONDecoder().decode(BackupListResult.self, from: jsonData)
+//   let backupVerifyParams = try? JSONDecoder().decode(BackupVerifyParams.self, from: jsonData)
+//   let backupVerifyResult = try? JSONDecoder().decode(BackupVerifyResult.self, from: jsonData)
 //   let block = try? JSONDecoder().decode(Block.self, from: jsonData)
 //   let bridgeCDPEventPayload = try? JSONDecoder().decode(BridgeCDPEventPayload.self, from: jsonData)
 //   let bridgeCDPSendParams = try? JSONDecoder().decode(BridgeCDPSendParams.self, from: jsonData)
@@ -78,6 +87,21 @@
 //   let browserOpenParams = try? JSONDecoder().decode(BrowserOpenParams.self, from: jsonData)
 //   let browserOpenResult = try? JSONDecoder().decode(BrowserOpenResult.self, from: jsonData)
 //   let browserProfile = try? JSONDecoder().decode(BrowserProfile.self, from: jsonData)
+//   let browserRecording = try? JSONDecoder().decode(BrowserRecording.self, from: jsonData)
+//   let browserRecordingEvent = try? JSONDecoder().decode(BrowserRecordingEvent.self, from: jsonData)
+//   let browserRecordingEventKind = try? JSONDecoder().decode(BrowserRecordingEventKind.self, from: jsonData)
+//   let browserRecordingFrame = try? JSONDecoder().decode(BrowserRecordingFrame.self, from: jsonData)
+//   let browserRecordingFrameMIME = try? JSONDecoder().decode(BrowserRecordingFrameMIME.self, from: jsonData)
+//   let browserRecordingUpdatedPayload = try? JSONDecoder().decode(BrowserRecordingUpdatedPayload.self, from: jsonData)
+//   let browserRecordingsDeleteParams = try? JSONDecoder().decode(BrowserRecordingsDeleteParams.self, from: jsonData)
+//   let browserRecordingsFrameParams = try? JSONDecoder().decode(BrowserRecordingsFrameParams.self, from: jsonData)
+//   let browserRecordingsFrameResult = try? JSONDecoder().decode(BrowserRecordingsFrameResult.self, from: jsonData)
+//   let browserRecordingsGetParams = try? JSONDecoder().decode(BrowserRecordingsGetParams.self, from: jsonData)
+//   let browserRecordingsGetResult = try? JSONDecoder().decode(BrowserRecordingsGetResult.self, from: jsonData)
+//   let browserRecordingsListParams = try? JSONDecoder().decode(BrowserRecordingsListParams.self, from: jsonData)
+//   let browserRecordingsListResult = try? JSONDecoder().decode(BrowserRecordingsListResult.self, from: jsonData)
+//   let browserRecordingsSnapshotParams = try? JSONDecoder().decode(BrowserRecordingsSnapshotParams.self, from: jsonData)
+//   let browserRecordingsSnapshotResult = try? JSONDecoder().decode(BrowserRecordingsSnapshotResult.self, from: jsonData)
 //   let browserSnapshot = try? JSONDecoder().decode(BrowserSnapshot.self, from: jsonData)
 //   let browserSnapshotParams = try? JSONDecoder().decode(BrowserSnapshotParams.self, from: jsonData)
 //   let browserSnapshotResult = try? JSONDecoder().decode(BrowserSnapshotResult.self, from: jsonData)
@@ -240,6 +264,10 @@
 //   let libraryItemKind = try? JSONDecoder().decode(LibraryItemKind.self, from: jsonData)
 //   let libraryListParams = try? JSONDecoder().decode(LibraryListParams.self, from: jsonData)
 //   let libraryListResult = try? JSONDecoder().decode(LibraryListResult.self, from: jsonData)
+//   let logLevel = try? JSONDecoder().decode(LogLevel.self, from: jsonData)
+//   let logLine = try? JSONDecoder().decode(LogLine.self, from: jsonData)
+//   let logsTailParams = try? JSONDecoder().decode(LogsTailParams.self, from: jsonData)
+//   let logsTailResult = try? JSONDecoder().decode(LogsTailResult.self, from: jsonData)
 //   let memoTaskMode = try? JSONDecoder().decode(MemoTaskMode.self, from: jsonData)
 //   let memoryChangeSource = try? JSONDecoder().decode(MemoryChangeSource.self, from: jsonData)
 //   let memoryChunk = try? JSONDecoder().decode(MemoryChunk.self, from: jsonData)
@@ -454,6 +482,7 @@
 //   let threadsListResult = try? JSONDecoder().decode(ThreadsListResult.self, from: jsonData)
 //   let threadsPinParams = try? JSONDecoder().decode(ThreadsPinParams.self, from: jsonData)
 //   let threadsRenameParams = try? JSONDecoder().decode(ThreadsRenameParams.self, from: jsonData)
+//   let threadsUpdateParams = try? JSONDecoder().decode(ThreadsUpdateParams.self, from: jsonData)
 //   let toolCall = try? JSONDecoder().decode(ToolCall.self, from: jsonData)
 //   let toolCallBlock = try? JSONDecoder().decode(ToolCallBlock.self, from: jsonData)
 //   let toolCallStatus = try? JSONDecoder().decode(ToolCallStatus.self, from: jsonData)
@@ -1905,6 +1934,146 @@ public struct AutomationsUpdateParams: Codable, Sendable {
     }
 }
 
+// MARK: - BackupCreateParams
+public struct BackupCreateParams: Codable, Sendable {
+    public let passphrase: String?
+    public let recipients: [String]?
+    public let unencrypted: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case passphrase = "passphrase"
+        case recipients = "recipients"
+        case unencrypted = "unencrypted"
+    }
+
+    public init(passphrase: String?, recipients: [String]?, unencrypted: Bool?) {
+        self.passphrase = passphrase
+        self.recipients = recipients
+        self.unencrypted = unencrypted
+    }
+}
+
+// MARK: - BackupCreateResult
+public struct BackupCreateResult: Codable, Sendable {
+    public let backup: BackupInfo
+    public let files: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case backup = "backup"
+        case files = "files"
+    }
+
+    public init(backup: BackupInfo, files: Int) {
+        self.backup = backup
+        self.files = files
+    }
+}
+
+// MARK: - BackupInfo
+public struct BackupInfo: Codable, Sendable {
+    public let bytes: Int
+    public let createdAt: String
+    public let encrypted: Bool
+    public let file: String
+    public let verifiedAt: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case createdAt = "createdAt"
+        case encrypted = "encrypted"
+        case file = "file"
+        case verifiedAt = "verifiedAt"
+    }
+
+    public init(bytes: Int, createdAt: String, encrypted: Bool, file: String, verifiedAt: String?) {
+        self.bytes = bytes
+        self.createdAt = createdAt
+        self.encrypted = encrypted
+        self.file = file
+        self.verifiedAt = verifiedAt
+    }
+}
+
+// MARK: - BackupDeleteParams
+public struct BackupDeleteParams: Codable, Sendable {
+    public let file: String
+
+    public enum CodingKeys: String, CodingKey {
+        case file = "file"
+    }
+
+    public init(file: String) {
+        self.file = file
+    }
+}
+
+// MARK: - BackupDeleteResult
+public struct BackupDeleteResult: Codable, Sendable {
+    public let ok: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case ok = "ok"
+    }
+
+    public init(ok: Bool) {
+        self.ok = ok
+    }
+}
+
+// MARK: - BackupListResult
+public struct BackupListResult: Codable, Sendable {
+    public let backups: [BackupInfo]
+    public let dir: String
+
+    public enum CodingKeys: String, CodingKey {
+        case backups = "backups"
+        case dir = "dir"
+    }
+
+    public init(backups: [BackupInfo], dir: String) {
+        self.backups = backups
+        self.dir = dir
+    }
+}
+
+// MARK: - BackupVerifyParams
+public struct BackupVerifyParams: Codable, Sendable {
+    public let file: String
+    public let passphrase: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case file = "file"
+        case passphrase = "passphrase"
+    }
+
+    public init(file: String, passphrase: String?) {
+        self.file = file
+        self.passphrase = passphrase
+    }
+}
+
+// MARK: - BackupVerifyResult
+public struct BackupVerifyResult: Codable, Sendable {
+    public let backup: BackupInfo
+    public let files: Int
+    public let ok: Bool
+    public let problems: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case backup = "backup"
+        case files = "files"
+        case ok = "ok"
+        case problems = "problems"
+    }
+
+    public init(backup: BackupInfo, files: Int, ok: Bool, problems: [String]) {
+        self.backup = backup
+        self.files = files
+        self.ok = ok
+        self.problems = problems
+    }
+}
+
 // MARK: - BridgeCDPEventPayload
 public struct BridgeCDPEventPayload: Codable, Sendable {
     public let method: String
@@ -2323,6 +2492,319 @@ public struct BrowserTab: Codable, Sendable {
 public enum BrowserDriverKind: String, Codable, Sendable {
     case cdp = "cdp"
     case playwright = "playwright"
+}
+
+// MARK: - BrowserRecordingUpdatedPayload
+public struct BrowserRecordingUpdatedPayload: Codable, Sendable {
+    public let recording: BrowserRecording
+
+    public enum CodingKeys: String, CodingKey {
+        case recording = "recording"
+    }
+
+    public init(recording: BrowserRecording) {
+        self.recording = recording
+    }
+}
+
+// MARK: - BrowserRecording
+public struct BrowserRecording: Codable, Sendable {
+    public let bytes: Int
+    public let endedAt: String?
+    public let eventCount: Int
+    public let frameCount: Int
+    /// Recording id: the task id, or thread:<id> for chat turns
+    public let id: String
+    public let libraryItemID: String?
+    public let startedAt: String
+    public let taskID: String?
+    public let threadID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case endedAt = "endedAt"
+        case eventCount = "eventCount"
+        case frameCount = "frameCount"
+        case id = "id"
+        case libraryItemID = "libraryItemId"
+        case startedAt = "startedAt"
+        case taskID = "taskId"
+        case threadID = "threadId"
+    }
+
+    public init(bytes: Int, endedAt: String?, eventCount: Int, frameCount: Int, id: String, libraryItemID: String?, startedAt: String, taskID: String?, threadID: String?) {
+        self.bytes = bytes
+        self.endedAt = endedAt
+        self.eventCount = eventCount
+        self.frameCount = frameCount
+        self.id = id
+        self.libraryItemID = libraryItemID
+        self.startedAt = startedAt
+        self.taskID = taskID
+        self.threadID = threadID
+    }
+}
+
+// MARK: - BrowserRecordingsDeleteParams
+public struct BrowserRecordingsDeleteParams: Codable, Sendable {
+    /// Recording id: the task id, or thread:<id> for chat turns
+    public let recordingID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case recordingID = "recordingId"
+    }
+
+    public init(recordingID: String) {
+        self.recordingID = recordingID
+    }
+}
+
+// MARK: - BrowserRecordingsFrameParams
+public struct BrowserRecordingsFrameParams: Codable, Sendable {
+    /// Recording id: the task id, or thread:<id> for chat turns
+    public let recordingID: String
+    public let seq: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case recordingID = "recordingId"
+        case seq = "seq"
+    }
+
+    public init(recordingID: String, seq: Int) {
+        self.recordingID = recordingID
+        self.seq = seq
+    }
+}
+
+// MARK: - BrowserRecordingsFrameResult
+public struct BrowserRecordingsFrameResult: Codable, Sendable {
+    /// Base64 image bytes
+    public let data: String
+    public let frame: BrowserRecordingFrame
+    public let mime: BrowserRecordingFrameMIME
+
+    public enum CodingKeys: String, CodingKey {
+        case data = "data"
+        case frame = "frame"
+        case mime = "mime"
+    }
+
+    public init(data: String, frame: BrowserRecordingFrame, mime: BrowserRecordingFrameMIME) {
+        self.data = data
+        self.frame = frame
+        self.mime = mime
+    }
+}
+
+// MARK: - BrowserRecordingFrame
+public struct BrowserRecordingFrame: Codable, Sendable {
+    public let at: String
+    public let seq: Int
+    public let tabID: String
+    /// Origin and path only
+    public let url: String
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case seq = "seq"
+        case tabID = "tabId"
+        case url = "url"
+    }
+
+    public init(at: String, seq: Int, tabID: String, url: String) {
+        self.at = at
+        self.seq = seq
+        self.tabID = tabID
+        self.url = url
+    }
+}
+
+public enum BrowserRecordingFrameMIME: String, Codable, Sendable {
+    case imageJPEG = "image/jpeg"
+    case imagePNG = "image/png"
+}
+
+// MARK: - BrowserRecordingsGetParams
+public struct BrowserRecordingsGetParams: Codable, Sendable {
+    public let limit: Int?
+    /// Recording id: the task id, or thread:<id> for chat turns
+    public let recordingID: String
+    public let sinceSeq: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case limit = "limit"
+        case recordingID = "recordingId"
+        case sinceSeq = "sinceSeq"
+    }
+
+    public init(limit: Int?, recordingID: String, sinceSeq: Int?) {
+        self.limit = limit
+        self.recordingID = recordingID
+        self.sinceSeq = sinceSeq
+    }
+}
+
+// MARK: - BrowserRecordingsGetResult
+public struct BrowserRecordingsGetResult: Codable, Sendable {
+    public let events: [BrowserRecordingEvent]
+    public let frames: [BrowserRecordingFrame]
+    public let recording: BrowserRecording
+
+    public enum CodingKeys: String, CodingKey {
+        case events = "events"
+        case frames = "frames"
+        case recording = "recording"
+    }
+
+    public init(events: [BrowserRecordingEvent], frames: [BrowserRecordingFrame], recording: BrowserRecording) {
+        self.events = events
+        self.frames = frames
+        self.recording = recording
+    }
+}
+
+// MARK: - BrowserRecordingEvent
+public struct BrowserRecordingEvent: Codable, Sendable {
+    public let action: String?
+    public let at: String
+    public let detail: [String: JSONAny]?
+    public let element: Element?
+    public let frameSeq: Int?
+    public let kind: BrowserRecordingEventKind
+    public let ref: String?
+    public let seq: Int
+    public let snapshotSeq: Int?
+    public let summary: String
+    public let tabID: String
+    public let url: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case action = "action"
+        case at = "at"
+        case detail = "detail"
+        case element = "element"
+        case frameSeq = "frameSeq"
+        case kind = "kind"
+        case ref = "ref"
+        case seq = "seq"
+        case snapshotSeq = "snapshotSeq"
+        case summary = "summary"
+        case tabID = "tabId"
+        case url = "url"
+    }
+
+    public init(action: String?, at: String, detail: [String: JSONAny]?, element: Element?, frameSeq: Int?, kind: BrowserRecordingEventKind, ref: String?, seq: Int, snapshotSeq: Int?, summary: String, tabID: String, url: String?) {
+        self.action = action
+        self.at = at
+        self.detail = detail
+        self.element = element
+        self.frameSeq = frameSeq
+        self.kind = kind
+        self.ref = ref
+        self.seq = seq
+        self.snapshotSeq = snapshotSeq
+        self.summary = summary
+        self.tabID = tabID
+        self.url = url
+    }
+}
+
+// MARK: - Element
+public struct Element: Codable, Sendable {
+    public let name: String
+    public let role: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case role = "role"
+    }
+
+    public init(name: String, role: String) {
+        self.name = name
+        self.role = role
+    }
+}
+
+public enum BrowserRecordingEventKind: String, Codable, Sendable {
+    case action = "action"
+    case blocked = "blocked"
+    case control = "control"
+    case dialog = "dialog"
+    case download = "download"
+    case fill = "fill"
+    case navigation = "navigation"
+    case snapshot = "snapshot"
+    case tab = "tab"
+}
+
+// MARK: - BrowserRecordingsListParams
+public struct BrowserRecordingsListParams: Codable, Sendable {
+    /// Opaque cursor
+    public let cursor: String?
+    public let limit: Int?
+    public let taskID: String?
+    public let threadID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case cursor = "cursor"
+        case limit = "limit"
+        case taskID = "taskId"
+        case threadID = "threadId"
+    }
+
+    public init(cursor: String?, limit: Int?, taskID: String?, threadID: String?) {
+        self.cursor = cursor
+        self.limit = limit
+        self.taskID = taskID
+        self.threadID = threadID
+    }
+}
+
+// MARK: - BrowserRecordingsListResult
+public struct BrowserRecordingsListResult: Codable, Sendable {
+    public let nextCursor: String?
+    public let recordings: [BrowserRecording]
+
+    public enum CodingKeys: String, CodingKey {
+        case nextCursor = "nextCursor"
+        case recordings = "recordings"
+    }
+
+    public init(nextCursor: String?, recordings: [BrowserRecording]) {
+        self.nextCursor = nextCursor
+        self.recordings = recordings
+    }
+}
+
+// MARK: - BrowserRecordingsSnapshotParams
+public struct BrowserRecordingsSnapshotParams: Codable, Sendable {
+    /// Recording id: the task id, or thread:<id> for chat turns
+    public let recordingID: String
+    public let seq: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case recordingID = "recordingId"
+        case seq = "seq"
+    }
+
+    public init(recordingID: String, seq: Int) {
+        self.recordingID = recordingID
+        self.seq = seq
+    }
+}
+
+// MARK: - BrowserRecordingsSnapshotResult
+public struct BrowserRecordingsSnapshotResult: Codable, Sendable {
+    /// The snapshot text the model saw (untrusted page content)
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case text = "text"
+    }
+
+    public init(text: String) {
+        self.text = text
+    }
 }
 
 // MARK: - BrowserSnapshotParams
@@ -5579,6 +6061,82 @@ public struct LibraryListResult: Codable, Sendable {
     public init(items: [LibraryItem], nextCursor: String?) {
         self.items = items
         self.nextCursor = nextCursor
+    }
+}
+
+// MARK: - LogsTailParams
+public struct LogsTailParams: Codable, Sendable {
+    public let level: LogLevel?
+    public let lines: Int?
+    public let search: String?
+    public let since: String?
+    public let subsystem: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case level = "level"
+        case lines = "lines"
+        case search = "search"
+        case since = "since"
+        case subsystem = "subsystem"
+    }
+
+    public init(level: LogLevel?, lines: Int?, search: String?, since: String?, subsystem: String?) {
+        self.level = level
+        self.lines = lines
+        self.search = search
+        self.since = since
+        self.subsystem = subsystem
+    }
+}
+
+public enum LogLevel: String, Codable, Sendable {
+    case debug = "debug"
+    case error = "error"
+    case info = "info"
+    case warn = "warn"
+}
+
+// MARK: - LogsTailResult
+public struct LogsTailResult: Codable, Sendable {
+    public let lines: [LogLine]
+    public let subsystems: [String]
+    public let truncated: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case lines = "lines"
+        case subsystems = "subsystems"
+        case truncated = "truncated"
+    }
+
+    public init(lines: [LogLine], subsystems: [String], truncated: Bool) {
+        self.lines = lines
+        self.subsystems = subsystems
+        self.truncated = truncated
+    }
+}
+
+// MARK: - LogLine
+public struct LogLine: Codable, Sendable {
+    public let fields: [String: JSONAny]?
+    public let level: LogLevel
+    public let msg: String
+    public let subsystem: String?
+    public let ts: String
+
+    public enum CodingKeys: String, CodingKey {
+        case fields = "fields"
+        case level = "level"
+        case msg = "msg"
+        case subsystem = "subsystem"
+        case ts = "ts"
+    }
+
+    public init(fields: [String: JSONAny]?, level: LogLevel, msg: String, subsystem: String?, ts: String) {
+        self.fields = fields
+        self.level = level
+        self.msg = msg
+        self.subsystem = subsystem
+        self.ts = ts
     }
 }
 
@@ -9423,6 +9981,25 @@ public struct ThreadsRenameParams: Codable, Sendable {
     }
 }
 
+// MARK: - ThreadsUpdateParams
+public struct ThreadsUpdateParams: Codable, Sendable {
+    public let modelRef: String?
+    public let permissionMode: PermissionMode?
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case modelRef = "modelRef"
+        case permissionMode = "permissionMode"
+        case threadID = "threadId"
+    }
+
+    public init(modelRef: String?, permissionMode: PermissionMode?, threadID: String) {
+        self.modelRef = modelRef
+        self.permissionMode = permissionMode
+        self.threadID = threadID
+    }
+}
+
 // MARK: - ToolCallBlock
 public struct ToolCallBlock: Codable, Sendable {
     /// One-line status shown in the transcript
@@ -10606,6 +11183,7 @@ public enum WrapUpBlockType: String, Codable, Sendable {
 }
 
 public typealias AuditVerifyParams = [String: JSONAny]
+public typealias BackupListParams = [String: JSONAny]
 public typealias BridgeTabsListParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]

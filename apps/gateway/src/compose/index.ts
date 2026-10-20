@@ -23,11 +23,14 @@ import {
 import {
   compilePolicy,
   createPermissionHandlers,
+  DENY_ALL_LOOPBACK,
+  type LocalProjectVerifier,
   type PolicyConfig,
   type PresenceVerifier,
   PsychePermissionBroker,
   SqlitePermissionStore,
 } from "@psyche/permissions";
+import { publicFetch } from "@psyche/proactive";
 import {
   type ApprovalRequestInput,
   type Clock,
@@ -63,7 +66,12 @@ import {
   surfaceOf,
 } from "./handlers.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
-import type { ApprovalRelay, ComposedPart, ComposeServices } from "./services.ts";
+import {
+  type ApprovalRelay,
+  type ComposedPart,
+  type ComposeServices,
+  createOwnPorts,
+} from "./services.ts";
 
 /**
  * Composition root for `psyched` (INT-1): the real agent loop, model router, Permission Broker,
@@ -206,6 +214,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const relays: ApprovalRelay[] = [];
   const parts: ComposedPart[] = [];
   const presenceByKind = new Map<string, PresenceVerifier>();
+  // The localhost rule (security §3.10) needs OS probes a part supplies (the browser's dev
+  // preview); until one does, no loopback origin is the owner's project.
+  let localProject: LocalProjectVerifier = DENY_ALL_LOOPBACK;
   const rawBroker = new PsychePermissionBroker({
     approvers: {
       async device(deviceId) {
@@ -235,6 +246,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       verify: (assertion, challenge, deviceId) =>
         (presenceByKind.get(assertion.kind) ?? presence).verify(assertion, challenge, deviceId),
     },
+    localProject: { check: (url) => localProject.check(url) },
     // The agent never acts on Psyche's own UI (prohibitions `gateway_origin`): every origin it is served on.
     gatewayOrigins: [
       `http://127.0.0.1:${config.port}`,
@@ -295,6 +307,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const registry = new AgentToolRegistry();
   for (const tool of fileTools()) registry.register(tool);
   const calls = new CallContexts();
+  const ownPorts = createOwnPorts();
+  ownPorts.add(config.port, "gateway (configured)");
   const services: ComposeServices = {
     db,
     clock,
@@ -306,13 +320,31 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     tools: calls.adopt(registry),
     calls,
     publish,
+    ownPorts,
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   };
+  let localProjectSupplied = false;
   for (const factory of partFactories) {
     const part = await factory(services);
     parts.push(part);
+    // Two parts deciding the same security question would leave one silently ignored: refuse
+    // at compose time instead.
+    const duplicate =
+      part.presence !== undefined && presenceByKind.has(part.presence.kind)
+        ? `presence verifier for "${part.presence.kind}"`
+        : part.localProject !== undefined && localProjectSupplied
+          ? "localhost verifier (localProject)"
+          : undefined;
+    if (duplicate !== undefined) {
+      for (const p of parts) await Promise.resolve(p.stop?.()).catch(() => undefined);
+      throw new PsycheError("invalid_params", `two composed parts supply a ${duplicate}`);
+    }
     if (part.relay !== undefined) relays.push(part.relay);
     if (part.presence !== undefined) presenceByKind.set(part.presence.kind, part.presence.verifier);
+    if (part.localProject !== undefined) {
+      localProject = part.localProject;
+      localProjectSupplied = true;
+    }
   }
 
   // scheduler → launcher → worker pool → loop → scheduler: the launcher is bound once the pool exists.
@@ -332,6 +364,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     launcher: lateLauncher,
     sessions: createDbSessionResolver(db),
     deliverer: createDeliverer({ notifier, broker }),
+    // Watches (O3) read public pages through the guarded fetch until S09 exports its own.
+    watchFetch: publicFetch(),
     ...(timeZone === undefined ? {} : { defaultTimezone: timeZone }),
   });
   const loop = createAgentLoop({
@@ -416,6 +450,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }
   });
   memory.watch();
+  ownPorts.add(gateway.port, "gateway (bound)");
   for (const part of parts) await part.start?.(gateway);
   await proactive.start();
 
@@ -483,7 +518,7 @@ export { type McpGrantRevoker, type McpLifecycleEvent, mcpGrantRevocation } from
 export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { partsFromEnv } from "./parts.ts";
 export { type ComposedProactive, composeProactive, type ProactiveSetup } from "./proactive.ts";
-export type { ApprovalRelay, ComposedPart, ComposeServices } from "./services.ts";
+export type { ApprovalRelay, ComposedPart, ComposeServices, OwnPorts } from "./services.ts";
 export { createLogger, surfaceOf };
 
 /**

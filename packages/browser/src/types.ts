@@ -12,6 +12,7 @@ import type {
 } from "@psyche/protocol";
 import type { PartitionMode, PartitionReason, TabPartition } from "./origin/partition.ts";
 import type { OriginPolicy, OriginPolicyOptions } from "./origin/policy.ts";
+import type { RecordingEventInput } from "./recording/recorder.ts";
 
 /**
  * Extensions to the protocol's `BrowserDriver` that the M1 tools need (prompt S08 mission).
@@ -141,7 +142,12 @@ export interface RecordingFrame {
 
 export interface RecordingSink {
   frame(frame: RecordingFrame): void | Promise<void>;
+  /** The event log beside the frames (I10); see `RecordingEventInput`. */
+  event?(event: RecordingEventInput): void | Promise<void>;
+  /** Flush; a tab closing calls it. */
   close(): void | Promise<void>;
+  /** The session is over; may return the final index. */
+  end?(): unknown;
 }
 
 export type DriverEventEx =
@@ -210,6 +216,10 @@ export interface BrowserDriverEx extends BrowserDriver {
   describe(tabId: string, ref: string): Promise<ElementMeta>;
   /** Synchronous `describe` for `describeCall`; undefined when the ref is unknown or stale. */
   peek(tabId: string, ref: string): ElementMeta | undefined;
+  /** The latest snapshot the model read of the tab's current document (purchase cards). */
+  peekSnapshot(tabId: string): { text: string; url: string } | undefined;
+  /** The session a tab belongs to. */
+  sessionOf(tabId: string): string | undefined;
   /** After an approved `new_origin`: lift the content block or replay a stopped navigation. */
   retryBlocked(tabId: string): Promise<"unblocked" | "renavigated" | "unchanged">;
   /** Current top-frame origin of a tab (canonical), or undefined before the first navigation. */
