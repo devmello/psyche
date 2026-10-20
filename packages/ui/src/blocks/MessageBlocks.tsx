@@ -19,6 +19,7 @@ import { Checklist, PlanCard } from "./Checklist.tsx";
 import { Markdown } from "./Markdown.tsx";
 import { QuestionCard } from "./QuestionCard.tsx";
 import { ReceiptLine } from "./Receipt.tsx";
+import { RelatedThreads } from "./RelatedThreads.tsx";
 import { TaskCard } from "./TaskCard.tsx";
 import { type ToolCallItem, ToolRun } from "./ToolRun.tsx";
 import type { ToolCallBlock } from "./types.ts";
@@ -79,7 +80,7 @@ function ApprovalPointer({ approvalId }: { approvalId: string }): ReactElement {
       <button
         type="button"
         onClick={() => focusApproval(approval.id)}
-        className="my-0.5 inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-small text-gray-11 transition-colors hover:bg-gray-3 hover:text-foreground"
+        className="my-0.5 inline-flex min-h-6 items-center gap-1.5 rounded-md px-1 py-0.5 text-small text-gray-11 transition-colors hover:bg-gray-3 hover:text-foreground"
         aria-label={`Review approval: ${summary}`}
         title={summary}
       >
@@ -282,6 +283,8 @@ function BlockView({
       return <TaskBlockView taskId={b.taskId} />;
     case "wrap_up":
       return <WrapUpBox block={b} {...(onWrapUpAction ? { onAction: onWrapUpAction } : {})} />;
+    case "related_threads":
+      return <RelatedThreads block={b} />;
     default:
       return null;
   }

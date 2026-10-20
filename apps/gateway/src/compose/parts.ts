@@ -7,7 +7,7 @@ import { composeCoding } from "./coding.ts";
 import { composeConnectors } from "./connectors.ts";
 import { composeHelper } from "./helper.ts";
 import { composeMcp } from "./mcp.ts";
-import { type ComposedSandbox, composeSandboxIfAvailable } from "./sandbox.ts";
+import { type ComposedSandbox, composeSandboxIfAvailable, type SandboxSetup } from "./sandbox.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 import { type ComposedVm, composeVm } from "./vm.ts";
 
@@ -19,7 +19,8 @@ type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | Compos
  * - connectors, with Google's consent page opened in the owner's default browser on macOS. On a
  *   server the link goes to the owner as a notification instead, since the daemon has no screen;
  * - channels: WebChat, and Telegram when `PSYCHE_TELEGRAM_BOT_TOKEN_FILE` (a Compose secret) or
- *   `PSYCHE_TELEGRAM_BOT_TOKEN` and `PSYCHE_TELEGRAM_BOT_USERNAME` are set;
+ *   `PSYCHE_TELEGRAM_BOT_TOKEN` and `PSYCHE_TELEGRAM_BOT_USERNAME` are set, and SMS (Twilio) when
+ *   the `PSYCHE_SMS_*` variables are (`smsSetupFromEnv`);
  * - backups and the log viewer (`backup.*`, `logs.tail`); `PSYCHE_BACKUP_IDENTITY_FILE` lets
  *   `backup.verify` open recipient-encrypted archives;
  * - approvals on the Mac through a connected helper's notifications. No presence key is
@@ -36,7 +37,11 @@ type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | Compos
  *   `PSYCHE_MCP_LAUNCHER=container` (needs the sandbox part; network only through its egress
  *   proxy and the server's allowlist); without either only HTTP servers run.
  */
-export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
+export function partsFromEnv(
+  env: NodeJS.ProcessEnv,
+  /** Test seam: runner options for the sandbox part (a fake CLI driver and detection). */
+  overrides: { sandboxRunner?: SandboxSetup["runner"] } = {},
+): PartFactory[] {
   const parts: PartFactory[] = [];
   let browser: ComposedBrowser | undefined;
   let sandbox: ComposedSandbox | undefined;
@@ -90,6 +95,7 @@ export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
     // Parts compose in order, so the browser (when mounted) exists by now.
     parts.push(async (s) => {
       const part = await composeSandboxIfAvailable(s, {
+        ...(overrides.sandboxRunner === undefined ? {} : { runner: overrides.sandboxRunner }),
         ...(browser === undefined ? {} : { devServers: browser.devServers }),
         ...(vm === undefined ? {} : { vm }),
       });

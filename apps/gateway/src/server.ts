@@ -37,7 +37,7 @@ import {
   removeHandshakeSecret,
   writeHandshakeSecret,
 } from "./home.ts";
-import { handleHttp } from "./http.ts";
+import { handleHttp, serveWebhook, type WebhookRoute } from "./http.ts";
 import { Idempotency } from "./idempotency.ts";
 import { createLogger, type Logger } from "./log.ts";
 import { NodeRegistry } from "./nodes/registry.ts";
@@ -87,6 +87,11 @@ export interface GatewayOptions {
   threadModels?: ThreadModelPolicy;
   /** Package handlers to mount (composition root); a name the Gateway already handles is refused. */
   handlers?: Readonly<Record<string, HandlerDef>>;
+  /**
+   * `POST <path>` routes of composed parts (channel webhooks). They authenticate themselves (a
+   * transport signature), so the container transport gate does not apply to them.
+   */
+  webhooks?: Readonly<Record<string, WebhookRoute>>;
   /** Run the retention sweep on this interval (0 disables the timer; tests call it directly). */
   retentionIntervalMs?: number;
 }
@@ -193,10 +198,13 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     log.log("warn", "approval reissue failed", { code: PsycheError.from(err).code });
   }
 
+  const webhooks: Readonly<Record<string, WebhookRoute>> = { ...options.webhooks };
   const http: Server = createServer((req, res) => {
     const serve = () => handleHttp(req, res, { webRoot: config.webRoot, version: GATEWAY_VERSION });
     // The container bind gates every route but the bare health check (Compose healthcheck).
     const path = new URL(req.url ?? "/", "http://gateway.invalid").pathname;
+    const webhook = req.method === "POST" ? webhooks[path] : undefined;
+    if (webhook !== undefined) return void serveWebhook(req, res, webhook);
     if (transportGate.mode !== "container" || path === "/healthz") return serve();
     const resolved = resolvePeer(
       req.socket.remoteAddress,

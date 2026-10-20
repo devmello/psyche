@@ -53,12 +53,14 @@ import { HudWindow } from "./main/dictation/hud.ts";
 import { ACCESSIBILITY_SETTINGS_URL, DictationService } from "./main/dictation/service.ts";
 import { HelperLauncher, helperCanHoldKeychain } from "./main/helper-launcher.ts";
 import { buildAppMenu } from "./main/menu.ts";
+import { perfProbeFile, startProbe, watchFirstPaint } from "./main/perf-probe.ts";
 import {
   createPermissions,
   notificationStateOf,
   PERMISSION_KINDS,
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
+import { startShell } from "./main/startup.ts";
 import {
   chooseMode,
   desktopVaultKeyFile,
@@ -91,7 +93,13 @@ if (!app.isPackaged && process.env.PSYCHE_USER_DATA)
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
-if (process.defaultApp) {
+// A first-paint measurement run (main/perf-probe.ts) changes nothing outside its scratch dirs.
+const perfProbe = perfProbeFile();
+if (perfProbe !== undefined) startProbe(perfProbe);
+
+if (perfProbe !== undefined) {
+  // No psyche:// registration: it would point the owner's links at the measured copy.
+} else if (process.defaultApp) {
   // Dev: register the deep link with the Electron binary and the app path as arguments.
   app.setAsDefaultProtocolClient("psyche", process.execPath, [resolve(process.argv[1] ?? ".")]);
 } else {
@@ -662,7 +670,7 @@ void app.whenReady().then(async () => {
   // The bundled Mac helper (docs/status/s14.md "Packaging"): started through LaunchServices once
   // this window pairs, i.e. the Gateway answers; dev builds use their own helper install.
   helper = new HelperLauncher({
-    appPath: bundledHelperPath(),
+    appPath: perfProbe === undefined ? bundledHelperPath() : undefined,
     psycheHome: home,
     run: execRunner,
     isPaired: async () => (await onlineMacHelpers()).length > 0,
@@ -785,14 +793,34 @@ void app.whenReady().then(async () => {
   );
 
   // ⌥Space by default (docs/06 §3.21); ⌃⌥Space when another utility owns it.
-  const skipShortcuts = !app.isPackaged && process.env.PSYCHE_DISABLE_GLOBAL_SHORTCUTS === "1";
+  const skipShortcuts =
+    perfProbe !== undefined ||
+    (!app.isPackaged && process.env.PSYCHE_DISABLE_GLOBAL_SHORTCUTS === "1");
   if (!skipShortcuts && !globalShortcut.register("Alt+Space", () => windows?.toggleQuickEntry()))
     globalShortcut.register("Control+Alt+Space", () => windows?.toggleQuickEntry());
 
-  windows.showMain();
+  // The window shows first and comes forward; the Gateway starts behind it (issue #441).
+  let shownAt: number | undefined;
+  const appWindows = windows;
+  const sup = supervisor;
+  startShell({
+    showMain: () => appWindows.showMain(),
+    focusApp: () => app.focus({ steal: true }),
+    startGateway: () => sup.ensureRunning().then(() => gateway?.start()),
+    openedAtLogin: app.getLoginItemSettings().wasOpenedAtLogin === true,
+    onShown: (at) => {
+      shownAt = at;
+    },
+    warn: (m) => console.warn(`[startup] ${m}`),
+  });
+  const measured = windows.mainContents();
+  if (perfProbe !== undefined && measured) {
+    watchFirstPaint(measured, perfProbe, () => app.quit(), {
+      ...(shownAt === undefined ? {} : { shownAt }),
+    });
+  }
   openDeepLink(deepLinkFromArgv(process.argv));
-  void supervisor.ensureRunning().then(() => gateway?.start());
-  void startUpdater({ stateFile: join(home, "run", "updater.json") });
+  if (perfProbe === undefined) void startUpdater({ stateFile: join(home, "run", "updater.json") });
 
   app.on("activate", () => windows?.showMain());
 });

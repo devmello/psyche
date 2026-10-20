@@ -134,6 +134,7 @@
 //   let channel = try? JSONDecoder().decode(Channel.self, from: jsonData)
 //   let channelIdentity = try? JSONDecoder().decode(ChannelIdentity.self, from: jsonData)
 //   let channelRef = try? JSONDecoder().decode(ChannelRef.self, from: jsonData)
+//   let channelSecretName = try? JSONDecoder().decode(ChannelSecretName.self, from: jsonData)
 //   let channelType = try? JSONDecoder().decode(ChannelType.self, from: jsonData)
 //   let channelsAllowlistUpdateParams = try? JSONDecoder().decode(ChannelsAllowlistUpdateParams.self, from: jsonData)
 //   let channelsAllowlistUpdateResult = try? JSONDecoder().decode(ChannelsAllowlistUpdateResult.self, from: jsonData)
@@ -154,6 +155,10 @@
 //   let channelsPairingDenyResult = try? JSONDecoder().decode(ChannelsPairingDenyResult.self, from: jsonData)
 //   let channelsPairingListParams = try? JSONDecoder().decode(ChannelsPairingListParams.self, from: jsonData)
 //   let channelsPairingListResult = try? JSONDecoder().decode(ChannelsPairingListResult.self, from: jsonData)
+//   let channelsSecretsSetParams = try? JSONDecoder().decode(ChannelsSecretsSetParams.self, from: jsonData)
+//   let channelsSecretsSetResult = try? JSONDecoder().decode(ChannelsSecretsSetResult.self, from: jsonData)
+//   let channelsSecretsStatusParams = try? JSONDecoder().decode(ChannelsSecretsStatusParams.self, from: jsonData)
+//   let channelsSecretsStatusResult = try? JSONDecoder().decode(ChannelsSecretsStatusResult.self, from: jsonData)
 //   let channelsUpdatedPayload = try? JSONDecoder().decode(ChannelsUpdatedPayload.self, from: jsonData)
 //   let chatBlockPayload = try? JSONDecoder().decode(ChatBlockPayload.self, from: jsonData)
 //   let chatCancelParams = try? JSONDecoder().decode(ChatCancelParams.self, from: jsonData)
@@ -456,6 +461,21 @@
 //   let planBlock = try? JSONDecoder().decode(PlanBlock.self, from: jsonData)
 //   let planStep = try? JSONDecoder().decode(PlanStep.self, from: jsonData)
 //   let planStepStatus = try? JSONDecoder().decode(PlanStepStatus.self, from: jsonData)
+//   let pluginCapability = try? JSONDecoder().decode(PluginCapability.self, from: jsonData)
+//   let pluginManifest = try? JSONDecoder().decode(PluginManifest.self, from: jsonData)
+//   let pluginProposal = try? JSONDecoder().decode(PluginProposal.self, from: jsonData)
+//   let pluginStatus = try? JSONDecoder().decode(PluginStatus.self, from: jsonData)
+//   let pluginSummary = try? JSONDecoder().decode(PluginSummary.self, from: jsonData)
+//   let pluginsGetProposalParams = try? JSONDecoder().decode(PluginsGetProposalParams.self, from: jsonData)
+//   let pluginsGetProposalResult = try? JSONDecoder().decode(PluginsGetProposalResult.self, from: jsonData)
+//   let pluginsInstallParams = try? JSONDecoder().decode(PluginsInstallParams.self, from: jsonData)
+//   let pluginsInstallResult = try? JSONDecoder().decode(PluginsInstallResult.self, from: jsonData)
+//   let pluginsListResult = try? JSONDecoder().decode(PluginsListResult.self, from: jsonData)
+//   let pluginsProposeInstallParams = try? JSONDecoder().decode(PluginsProposeInstallParams.self, from: jsonData)
+//   let pluginsProposeInstallResult = try? JSONDecoder().decode(PluginsProposeInstallResult.self, from: jsonData)
+//   let pluginsRemoveParams = try? JSONDecoder().decode(PluginsRemoveParams.self, from: jsonData)
+//   let pluginsSetEnabledParams = try? JSONDecoder().decode(PluginsSetEnabledParams.self, from: jsonData)
+//   let pluginsSetEnabledResult = try? JSONDecoder().decode(PluginsSetEnabledResult.self, from: jsonData)
 //   let policyRule = try? JSONDecoder().decode(PolicyRule.self, from: jsonData)
 //   let presenceAssertion = try? JSONDecoder().decode(PresenceAssertion.self, from: jsonData)
 //   let presenceKeyInfo = try? JSONDecoder().decode(PresenceKeyInfo.self, from: jsonData)
@@ -486,6 +506,8 @@
 //   let receiptsGetResult = try? JSONDecoder().decode(ReceiptsGetResult.self, from: jsonData)
 //   let receiptsListParams = try? JSONDecoder().decode(ReceiptsListParams.self, from: jsonData)
 //   let receiptsListResult = try? JSONDecoder().decode(ReceiptsListResult.self, from: jsonData)
+//   let relatedThread = try? JSONDecoder().decode(RelatedThread.self, from: jsonData)
+//   let relatedThreadsBlock = try? JSONDecoder().decode(RelatedThreadsBlock.self, from: jsonData)
 //   let reqFrame = try? JSONDecoder().decode(ReqFrame.self, from: jsonData)
 //   let resErrFrame = try? JSONDecoder().decode(ResErrFrame.self, from: jsonData)
 //   let resFrame = try? JSONDecoder().decode(ResFrame.self, from: jsonData)
@@ -664,9 +686,25 @@
 //   let vMGuestAgentStatus = try? JSONDecoder().decode(VMGuestAgentStatus.self, from: jsonData)
 //   let vMPhase = try? JSONDecoder().decode(VMPhase.self, from: jsonData)
 //   let vMProgressEvent = try? JSONDecoder().decode(VMProgressEvent.self, from: jsonData)
+//   let vMResetParams = try? JSONDecoder().decode(VMResetParams.self, from: jsonData)
+//   let vMRestoreParams = try? JSONDecoder().decode(VMRestoreParams.self, from: jsonData)
+//   let vMRestoreResult = try? JSONDecoder().decode(VMRestoreResult.self, from: jsonData)
 //   let vMSettings = try? JSONDecoder().decode(VMSettings.self, from: jsonData)
 //   let vMShare = try? JSONDecoder().decode(VMShare.self, from: jsonData)
 //   let vMShareAddParams = try? JSONDecoder().decode(VMShareAddParams.self, from: jsonData)
+//   let vMSnapshot = try? JSONDecoder().decode(VMSnapshot.self, from: jsonData)
+//   let vMSnapshotDeleteParams = try? JSONDecoder().decode(VMSnapshotDeleteParams.self, from: jsonData)
+//   let vMSnapshotKind = try? JSONDecoder().decode(VMSnapshotKind.self, from: jsonData)
+//   let vMSnapshotMethod = try? JSONDecoder().decode(VMSnapshotMethod.self, from: jsonData)
+//   let vMSnapshotParams = try? JSONDecoder().decode(VMSnapshotParams.self, from: jsonData)
+//   let vMSnapshotResult = try? JSONDecoder().decode(VMSnapshotResult.self, from: jsonData)
+//   let vMSnapshotsCreateParams = try? JSONDecoder().decode(VMSnapshotsCreateParams.self, from: jsonData)
+//   let vMSnapshotsDeleteParams = try? JSONDecoder().decode(VMSnapshotsDeleteParams.self, from: jsonData)
+//   let vMSnapshotsDeleteResult = try? JSONDecoder().decode(VMSnapshotsDeleteResult.self, from: jsonData)
+//   let vMSnapshotsListParams = try? JSONDecoder().decode(VMSnapshotsListParams.self, from: jsonData)
+//   let vMSnapshotsListResult = try? JSONDecoder().decode(VMSnapshotsListResult.self, from: jsonData)
+//   let vMSnapshotsResetParams = try? JSONDecoder().decode(VMSnapshotsResetParams.self, from: jsonData)
+//   let vMSnapshotsRestoreParams = try? JSONDecoder().decode(VMSnapshotsRestoreParams.self, from: jsonData)
 //   let vMStatus = try? JSONDecoder().decode(VMStatus.self, from: jsonData)
 //   let vMTransfer = try? JSONDecoder().decode(VMTransfer.self, from: jsonData)
 //   let vMUpdatedPayload = try? JSONDecoder().decode(VMUpdatedPayload.self, from: jsonData)
@@ -4201,6 +4239,79 @@ public struct ChannelsPairingListResult: Codable, Sendable {
     }
 }
 
+// MARK: - ChannelsSecretsSetParams
+public struct ChannelsSecretsSetParams: Codable, Sendable {
+    public let account: String
+    public let name: ChannelSecretName
+    public let type: ChannelType
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case name = "name"
+        case type = "type"
+        case value = "value"
+    }
+
+    public init(account: String, name: ChannelSecretName, type: ChannelType, value: String) {
+        self.account = account
+        self.name = name
+        self.type = type
+        self.value = value
+    }
+}
+
+public enum ChannelSecretName: String, Codable, Sendable {
+    case appToken = "app_token"
+    case authToken = "auth_token"
+    case botToken = "bot_token"
+}
+
+// MARK: - ChannelsSecretsSetResult
+public struct ChannelsSecretsSetResult: Codable, Sendable {
+    public let channelsSecretsSetResultSet: [ChannelSecretName]
+
+    public enum CodingKeys: String, CodingKey {
+        case channelsSecretsSetResultSet = "set"
+    }
+
+    public init(channelsSecretsSetResultSet: [ChannelSecretName]) {
+        self.channelsSecretsSetResultSet = channelsSecretsSetResultSet
+    }
+}
+
+// MARK: - ChannelsSecretsStatusParams
+public struct ChannelsSecretsStatusParams: Codable, Sendable {
+    public let account: String
+    public let type: ChannelType
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case type = "type"
+    }
+
+    public init(account: String, type: ChannelType) {
+        self.account = account
+        self.type = type
+    }
+}
+
+// MARK: - ChannelsSecretsStatusResult
+public struct ChannelsSecretsStatusResult: Codable, Sendable {
+    public let channelsSecretsStatusResultRequired: [ChannelSecretName]
+    public let channelsSecretsStatusResultSet: [ChannelSecretName]
+
+    public enum CodingKeys: String, CodingKey {
+        case channelsSecretsStatusResultRequired = "required"
+        case channelsSecretsStatusResultSet = "set"
+    }
+
+    public init(channelsSecretsStatusResultRequired: [ChannelSecretName], channelsSecretsStatusResultSet: [ChannelSecretName]) {
+        self.channelsSecretsStatusResultRequired = channelsSecretsStatusResultRequired
+        self.channelsSecretsStatusResultSet = channelsSecretsStatusResultSet
+    }
+}
+
 // MARK: - ChannelsUpdatedPayload
 public struct ChannelsUpdatedPayload: Codable, Sendable {
     public let channel: Channel
@@ -4246,7 +4357,7 @@ public struct Block: Codable, Sendable {
     public let tool: String?
     public let toolCallID: String?
     public let planID: String?
-    public let items: [ChecklistItem]?
+    public let items: [ItemElement]?
     public let approvalID: String?
     public let inputRequestID: String?
     public let artifactID: String?
@@ -4279,7 +4390,7 @@ public struct Block: Codable, Sendable {
         case recap = "recap"
     }
 
-    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ChecklistItem]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?) {
+    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ItemElement]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?) {
         self.md = md
         self.type = type
         self.level1 = level1
@@ -4317,19 +4428,31 @@ public struct WrapUpAction: Codable, Sendable {
     }
 }
 
-// MARK: - ChecklistItem
-public struct ChecklistItem: Codable, Sendable {
-    public let status: ChecklistItemStatus
-    public let text: String
+// MARK: - ItemElement
+public struct ItemElement: Codable, Sendable {
+    public let status: ChecklistItemStatus?
+    public let text: String?
+    public let lastMessageAt: String?
+    public let snippet: String?
+    public let threadID: String?
+    public let title: String?
 
     public enum CodingKeys: String, CodingKey {
         case status = "status"
         case text = "text"
+        case lastMessageAt = "lastMessageAt"
+        case snippet = "snippet"
+        case threadID = "threadId"
+        case title = "title"
     }
 
-    public init(status: ChecklistItemStatus, text: String) {
+    public init(status: ChecklistItemStatus?, text: String?, lastMessageAt: String?, snippet: String?, threadID: String?, title: String?) {
         self.status = status
         self.text = text
+        self.lastMessageAt = lastMessageAt
+        self.snippet = snippet
+        self.threadID = threadID
+        self.title = title
     }
 }
 
@@ -4356,6 +4479,7 @@ public enum BlockType: String, Codable, Sendable {
     case plan = "plan"
     case question = "question"
     case receipt = "receipt"
+    case relatedThreads = "related_threads"
     case task = "task"
     case text = "text"
     case toolCall = "tool_call"
@@ -4771,6 +4895,22 @@ public struct ChecklistBlock: Codable, Sendable {
     public init(items: [ChecklistItem], type: ChecklistBlockType) {
         self.items = items
         self.type = type
+    }
+}
+
+// MARK: - ChecklistItem
+public struct ChecklistItem: Codable, Sendable {
+    public let status: ChecklistItemStatus
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+        case text = "text"
+    }
+
+    public init(status: ChecklistItemStatus, text: String) {
+        self.status = status
+        self.text = text
     }
 }
 
@@ -7790,7 +7930,7 @@ public struct MemoryForgetResult: Codable, Sendable {
 public struct MemoryImportParams: Codable, Sendable {
     public let content: String?
     public let dryRun: Bool?
-    public let files: [File]?
+    public let files: [MemoryImportParamsFile]?
     public let format: MemoryImportFormat
 
     public enum CodingKeys: String, CodingKey {
@@ -7800,7 +7940,7 @@ public struct MemoryImportParams: Codable, Sendable {
         case format = "format"
     }
 
-    public init(content: String?, dryRun: Bool?, files: [File]?, format: MemoryImportFormat) {
+    public init(content: String?, dryRun: Bool?, files: [MemoryImportParamsFile]?, format: MemoryImportFormat) {
         self.content = content
         self.dryRun = dryRun
         self.files = files
@@ -7808,8 +7948,8 @@ public struct MemoryImportParams: Codable, Sendable {
     }
 }
 
-// MARK: - File
-public struct File: Codable, Sendable {
+// MARK: - MemoryImportParamsFile
+public struct MemoryImportParamsFile: Codable, Sendable {
     public let content: String
     public let path: String
 
@@ -9743,6 +9883,320 @@ public enum PlanBlockType: String, Codable, Sendable {
     case plan = "plan"
 }
 
+// MARK: - PluginsGetProposalParams
+public struct PluginsGetProposalParams: Codable, Sendable {
+    public let proposalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case proposalID = "proposalId"
+    }
+
+    public init(proposalID: String) {
+        self.proposalID = proposalID
+    }
+}
+
+// MARK: - PluginsGetProposalResult
+public struct PluginsGetProposalResult: Codable, Sendable {
+    public let proposal: PluginProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case proposal = "proposal"
+    }
+
+    public init(proposal: PluginProposal) {
+        self.proposal = proposal
+    }
+}
+
+// MARK: - PluginProposal
+public struct PluginProposal: Codable, Sendable {
+    public let bindingHash: String
+    public let files: [PluginProposalFile]
+    public let findings: [ScanFinding]
+    public let fromHash: String?
+    public let hash: String
+    public let id: String
+    public let manifest: PluginManifest
+    public let source: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bindingHash = "bindingHash"
+        case files = "files"
+        case findings = "findings"
+        case fromHash = "fromHash"
+        case hash = "hash"
+        case id = "id"
+        case manifest = "manifest"
+        case source = "source"
+    }
+
+    public init(bindingHash: String, files: [PluginProposalFile], findings: [ScanFinding], fromHash: String?, hash: String, id: String, manifest: PluginManifest, source: String) {
+        self.bindingHash = bindingHash
+        self.files = files
+        self.findings = findings
+        self.fromHash = fromHash
+        self.hash = hash
+        self.id = id
+        self.manifest = manifest
+        self.source = source
+    }
+}
+
+// MARK: - PluginProposalFile
+public struct PluginProposalFile: Codable, Sendable {
+    public let bytes: Int
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case path = "path"
+    }
+
+    public init(bytes: Int, path: String) {
+        self.bytes = bytes
+        self.path = path
+    }
+}
+
+// MARK: - ScanFinding
+public struct ScanFinding: Codable, Sendable {
+    /// Path inside the skill folder
+    public let file: String?
+    public let line: Int?
+    /// Never quotes the matched text
+    public let message: String
+    public let rule: String
+    public let severity: Severity
+
+    public enum CodingKeys: String, CodingKey {
+        case file = "file"
+        case line = "line"
+        case message = "message"
+        case rule = "rule"
+        case severity = "severity"
+    }
+
+    public init(file: String?, line: Int?, message: String, rule: String, severity: Severity) {
+        self.file = file
+        self.line = line
+        self.message = message
+        self.rule = rule
+        self.severity = severity
+    }
+}
+
+public enum Severity: String, Codable, Sendable {
+    case high = "high"
+    case info = "info"
+    case warn = "warn"
+}
+
+// MARK: - PluginManifest
+public struct PluginManifest: Codable, Sendable {
+    public let capabilities: [PluginCapability]
+    public let description: String
+    /// ES module inside the folder
+    public let main: String
+    public let name: String
+    public let version: String
+
+    public enum CodingKeys: String, CodingKey {
+        case capabilities = "capabilities"
+        case description = "description"
+        case main = "main"
+        case name = "name"
+        case version = "version"
+    }
+
+    public init(capabilities: [PluginCapability], description: String, main: String, name: String, version: String) {
+        self.capabilities = capabilities
+        self.description = description
+        self.main = main
+        self.name = name
+        self.version = version
+    }
+}
+
+public enum PluginCapability: String, Codable, Sendable {
+    case afterToolCall = "after_tool_call"
+    case agentEnd = "agent_end"
+    case beforeToolCall = "before_tool_call"
+    case context = "context"
+    case evaluate = "evaluate"
+}
+
+// MARK: - PluginsInstallParams
+public struct PluginsInstallParams: Codable, Sendable {
+    public let approvalID: String
+    public let proposalID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case proposalID = "proposalId"
+    }
+
+    public init(approvalID: String, proposalID: String) {
+        self.approvalID = approvalID
+        self.proposalID = proposalID
+    }
+}
+
+// MARK: - PluginsInstallResult
+public struct PluginsInstallResult: Codable, Sendable {
+    public let plugin: PluginSummary
+
+    public enum CodingKeys: String, CodingKey {
+        case plugin = "plugin"
+    }
+
+    public init(plugin: PluginSummary) {
+        self.plugin = plugin
+    }
+}
+
+// MARK: - PluginSummary
+public struct PluginSummary: Codable, Sendable {
+    public let capabilities: [PluginCapability]
+    public let description: String
+    /// The owner's switch for this plugin
+    public let enabled: Bool
+    public let error: String?
+    /// Tree hash pinned at install
+    public let hash: String
+    public let installedAt: String
+    public let name: String
+    /// Where it was installed from (a local folder)
+    public let source: String
+    public let status: PluginStatus
+    public let version: String
+
+    public enum CodingKeys: String, CodingKey {
+        case capabilities = "capabilities"
+        case description = "description"
+        case enabled = "enabled"
+        case error = "error"
+        case hash = "hash"
+        case installedAt = "installedAt"
+        case name = "name"
+        case source = "source"
+        case status = "status"
+        case version = "version"
+    }
+
+    public init(capabilities: [PluginCapability], description: String, enabled: Bool, error: String?, hash: String, installedAt: String, name: String, source: String, status: PluginStatus, version: String) {
+        self.capabilities = capabilities
+        self.description = description
+        self.enabled = enabled
+        self.error = error
+        self.hash = hash
+        self.installedAt = installedAt
+        self.name = name
+        self.source = source
+        self.status = status
+        self.version = version
+    }
+}
+
+/// `off`: the owner's switch is on but `plugins.enabled` is off; `failed`: its process did
+/// not start or stopped answering
+public enum PluginStatus: String, Codable, Sendable {
+    case active = "active"
+    case disabled = "disabled"
+    case failed = "failed"
+    case hashMismatch = "hash_mismatch"
+    case invalid = "invalid"
+    case off = "off"
+}
+
+// MARK: - PluginsListResult
+public struct PluginsListResult: Codable, Sendable {
+    /// The admin setting plugins.enabled
+    public let enabled: Bool
+    public let plugins: [PluginSummary]
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+        case plugins = "plugins"
+    }
+
+    public init(enabled: Bool, plugins: [PluginSummary]) {
+        self.enabled = enabled
+        self.plugins = plugins
+    }
+}
+
+// MARK: - PluginsProposeInstallParams
+public struct PluginsProposeInstallParams: Codable, Sendable {
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case path = "path"
+    }
+
+    public init(path: String) {
+        self.path = path
+    }
+}
+
+// MARK: - PluginsProposeInstallResult
+public struct PluginsProposeInstallResult: Codable, Sendable {
+    public let approval: ApprovalRequest
+    public let proposal: PluginProposal
+
+    public enum CodingKeys: String, CodingKey {
+        case approval = "approval"
+        case proposal = "proposal"
+    }
+
+    public init(approval: ApprovalRequest, proposal: PluginProposal) {
+        self.approval = approval
+        self.proposal = proposal
+    }
+}
+
+// MARK: - PluginsRemoveParams
+public struct PluginsRemoveParams: Codable, Sendable {
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+    }
+
+    public init(name: String) {
+        self.name = name
+    }
+}
+
+// MARK: - PluginsSetEnabledParams
+public struct PluginsSetEnabledParams: Codable, Sendable {
+    public let enabled: Bool
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case enabled = "enabled"
+        case name = "name"
+    }
+
+    public init(enabled: Bool, name: String) {
+        self.enabled = enabled
+        self.name = name
+    }
+}
+
+// MARK: - PluginsSetEnabledResult
+public struct PluginsSetEnabledResult: Codable, Sendable {
+    public let plugin: PluginSummary
+
+    public enum CodingKeys: String, CodingKey {
+        case plugin = "plugin"
+    }
+
+    public init(plugin: PluginSummary) {
+        self.plugin = plugin
+    }
+}
+
 // MARK: - PolicyRule
 public struct PolicyRule: Codable, Sendable {
     public let createdAt: String
@@ -10032,6 +10486,48 @@ public struct ReceiptsListResult: Codable, Sendable {
         self.nextCursor = nextCursor
         self.receipts = receipts
     }
+}
+
+// MARK: - RelatedThreadsBlock
+public struct RelatedThreadsBlock: Codable, Sendable {
+    public let items: [RelatedThread]
+    public let type: RelatedThreadsBlockType
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+        case type = "type"
+    }
+
+    public init(items: [RelatedThread], type: RelatedThreadsBlockType) {
+        self.items = items
+        self.type = type
+    }
+}
+
+// MARK: - RelatedThread
+public struct RelatedThread: Codable, Sendable {
+    public let lastMessageAt: String?
+    public let snippet: String
+    public let threadID: String
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case lastMessageAt = "lastMessageAt"
+        case snippet = "snippet"
+        case threadID = "threadId"
+        case title = "title"
+    }
+
+    public init(lastMessageAt: String?, snippet: String, threadID: String, title: String) {
+        self.lastMessageAt = lastMessageAt
+        self.snippet = snippet
+        self.threadID = threadID
+        self.title = title
+    }
+}
+
+public enum RelatedThreadsBlockType: String, Codable, Sendable {
+    case relatedThreads = "related_threads"
 }
 
 // MARK: - ReqFrame
@@ -10721,39 +11217,6 @@ public struct SkillProposalFile: Codable, Sendable {
         self.path = path
         self.text = text
     }
-}
-
-// MARK: - ScanFinding
-public struct ScanFinding: Codable, Sendable {
-    /// Path inside the skill folder
-    public let file: String?
-    public let line: Int?
-    /// Never quotes the matched text
-    public let message: String
-    public let rule: String
-    public let severity: Severity
-
-    public enum CodingKeys: String, CodingKey {
-        case file = "file"
-        case line = "line"
-        case message = "message"
-        case rule = "rule"
-        case severity = "severity"
-    }
-
-    public init(file: String?, line: Int?, message: String, rule: String, severity: Severity) {
-        self.file = file
-        self.line = line
-        self.message = message
-        self.rule = rule
-        self.severity = severity
-    }
-}
-
-public enum Severity: String, Codable, Sendable {
-    case high = "high"
-    case info = "info"
-    case warn = "warn"
 }
 
 // MARK: - SkillManifest
@@ -13567,82 +14030,64 @@ public enum VMProgressEventType: String, Codable, Sendable {
     case vmInstall = "vm.install"
     case vmPermissions = "vm.permissions"
     case vmPsycheInstall = "vm.psyche_install"
+    case vmReset = "vm.reset"
+    case vmSnapshot = "vm.snapshot"
     case vmState = "vm.state"
 }
 
-// MARK: - VMSettings
-public struct VMSettings: Codable, Sendable {
-    public let clipboard: VMClipboardMode
-    public let credentials: VMVaultPlacement
-    public let defaultWorkspace: TaskWorkspace
-    public let enabled: Bool
-    public let guestNodeID: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case clipboard = "clipboard"
-        case credentials = "credentials"
-        case defaultWorkspace = "defaultWorkspace"
-        case enabled = "enabled"
-        case guestNodeID = "guestNodeId"
-    }
-
-    public init(clipboard: VMClipboardMode, credentials: VMVaultPlacement, defaultWorkspace: TaskWorkspace, enabled: Bool, guestNodeID: String?) {
-        self.clipboard = clipboard
-        self.credentials = credentials
-        self.defaultWorkspace = defaultWorkspace
-        self.enabled = enabled
-        self.guestNodeID = guestNodeID
-    }
-}
-
-// MARK: - VMShareAddParams
-public struct VMShareAddParams: Codable, Sendable {
+// MARK: - VMResetParams
+public struct VMResetParams: Codable, Sendable {
     public let name: String?
-    public let path: String
-    public let readOnly: Bool?
-    public let share: String
 
     public enum CodingKeys: String, CodingKey {
         case name = "name"
-        case path = "path"
-        case readOnly = "readOnly"
-        case share = "share"
     }
 
-    public init(name: String?, path: String, readOnly: Bool?, share: String) {
+    public init(name: String?) {
         self.name = name
-        self.path = path
-        self.readOnly = readOnly
-        self.share = share
     }
 }
 
-// MARK: - VMStatus
-public struct VMStatus: Codable, Sendable {
-    public let active: Int
-    public let guests: [VMGuest]
-    public let maxActive: Int
-    /// Unattended setup (macOS 27 host and guest)
-    public let supportsGuestProvisioning: Bool
+// MARK: - VMRestoreParams
+public struct VMRestoreParams: Codable, Sendable {
+    public let name: String?
+    public let snapshot: String
 
     public enum CodingKeys: String, CodingKey {
-        case active = "active"
-        case guests = "guests"
-        case maxActive = "maxActive"
-        case supportsGuestProvisioning = "supportsGuestProvisioning"
+        case name = "name"
+        case snapshot = "snapshot"
     }
 
-    public init(active: Int, guests: [VMGuest], maxActive: Int, supportsGuestProvisioning: Bool) {
-        self.active = active
-        self.guests = guests
-        self.maxActive = maxActive
-        self.supportsGuestProvisioning = supportsGuestProvisioning
+    public init(name: String?, snapshot: String) {
+        self.name = name
+        self.snapshot = snapshot
+    }
+}
+
+// MARK: - VMRestoreResult
+public struct VMRestoreResult: Codable, Sendable {
+    public let durationMS: Int
+    public let guest: VMGuest
+    public let snapshot: String
+
+    public enum CodingKeys: String, CodingKey {
+        case durationMS = "durationMs"
+        case guest = "guest"
+        case snapshot = "snapshot"
+    }
+
+    public init(durationMS: Int, guest: VMGuest, snapshot: String) {
+        self.durationMS = durationMS
+        self.guest = guest
+        self.snapshot = snapshot
     }
 }
 
 // MARK: - VMGuest
 public struct VMGuest: Codable, Sendable {
     public let agent: VMGuestAgentStatus?
+    /// Id of the `base` snapshot, if any
+    public let baseSnapshot: String?
     public let clipboard: VMClipboardMode?
     public let cpus: Int
     public let diskGB: Int
@@ -13662,6 +14107,8 @@ public struct VMGuest: Codable, Sendable {
     /// A machine-state file exists (warm start)
     public let savedState: Bool?
     public let shares: [VMShare]
+    /// Newest first
+    public let snapshots: [VMSnapshot]?
     public let transfers: [VMTransfer]?
     public let username: String
     public let vault: VMVaultPlacement?
@@ -13669,6 +14116,7 @@ public struct VMGuest: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case agent = "agent"
+        case baseSnapshot = "baseSnapshot"
         case clipboard = "clipboard"
         case cpus = "cpus"
         case diskGB = "diskGB"
@@ -13683,14 +14131,16 @@ public struct VMGuest: Codable, Sendable {
         case psycheInstalled = "psycheInstalled"
         case savedState = "savedState"
         case shares = "shares"
+        case snapshots = "snapshots"
         case transfers = "transfers"
         case username = "username"
         case vault = "vault"
         case vsock = "vsock"
     }
 
-    public init(agent: VMGuestAgentStatus?, clipboard: VMClipboardMode?, cpus: Int, diskGB: Int, display: Display?, guestOS: String?, lastError: String?, memoryGB: Int, name: String, permissionsGranted: Bool?, phase: VMPhase, provisioned: Bool, psycheInstalled: Bool?, savedState: Bool?, shares: [VMShare], transfers: [VMTransfer]?, username: String, vault: VMVaultPlacement?, vsock: Vsock) {
+    public init(agent: VMGuestAgentStatus?, baseSnapshot: String?, clipboard: VMClipboardMode?, cpus: Int, diskGB: Int, display: Display?, guestOS: String?, lastError: String?, memoryGB: Int, name: String, permissionsGranted: Bool?, phase: VMPhase, provisioned: Bool, psycheInstalled: Bool?, savedState: Bool?, shares: [VMShare], snapshots: [VMSnapshot]?, transfers: [VMTransfer]?, username: String, vault: VMVaultPlacement?, vsock: Vsock) {
         self.agent = agent
+        self.baseSnapshot = baseSnapshot
         self.clipboard = clipboard
         self.cpus = cpus
         self.diskGB = diskGB
@@ -13705,6 +14155,7 @@ public struct VMGuest: Codable, Sendable {
         self.psycheInstalled = psycheInstalled
         self.savedState = savedState
         self.shares = shares
+        self.snapshots = snapshots
         self.transfers = transfers
         self.username = username
         self.vault = vault
@@ -13794,6 +14245,62 @@ public struct VMShare: Codable, Sendable {
     }
 }
 
+// MARK: - VMSnapshot
+public struct VMSnapshot: Codable, Sendable {
+    /// Allocated size; clones share unchanged blocks with the guest
+    public let bytes: Int
+    public let createdAt: String
+    public let guestOS: String?
+    public let id: String
+    public let kind: VMSnapshotKind
+    public let label: String
+    public let method: VMSnapshotMethod
+    public let provisioned: Bool
+    public let psycheInstalled: Bool
+    /// Includes a machine state (restores to saved)
+    public let savedState: Bool
+    public let taskID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case createdAt = "createdAt"
+        case guestOS = "guestOS"
+        case id = "id"
+        case kind = "kind"
+        case label = "label"
+        case method = "method"
+        case provisioned = "provisioned"
+        case psycheInstalled = "psycheInstalled"
+        case savedState = "savedState"
+        case taskID = "taskId"
+    }
+
+    public init(bytes: Int, createdAt: String, guestOS: String?, id: String, kind: VMSnapshotKind, label: String, method: VMSnapshotMethod, provisioned: Bool, psycheInstalled: Bool, savedState: Bool, taskID: String?) {
+        self.bytes = bytes
+        self.createdAt = createdAt
+        self.guestOS = guestOS
+        self.id = id
+        self.kind = kind
+        self.label = label
+        self.method = method
+        self.provisioned = provisioned
+        self.psycheInstalled = psycheInstalled
+        self.savedState = savedState
+        self.taskID = taskID
+    }
+}
+
+public enum VMSnapshotKind: String, Codable, Sendable {
+    case base = "base"
+    case manual = "manual"
+    case task = "task"
+}
+
+public enum VMSnapshotMethod: String, Codable, Sendable {
+    case apfsClone = "apfs-clone"
+    case overlay = "overlay"
+}
+
 // MARK: - VMTransfer
 public struct VMTransfer: Codable, Sendable {
     public let bytes: Int
@@ -13842,6 +14349,206 @@ public struct Vsock: Codable, Sendable {
     public init(gatewayNodePort: Int, hostCid: Int) {
         self.gatewayNodePort = gatewayNodePort
         self.hostCid = hostCid
+    }
+}
+
+// MARK: - VMSettings
+public struct VMSettings: Codable, Sendable {
+    public let clipboard: VMClipboardMode
+    public let credentials: VMVaultPlacement
+    public let defaultWorkspace: TaskWorkspace
+    public let enabled: Bool
+    public let guestNodeID: String?
+    public let resetPerTask: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case clipboard = "clipboard"
+        case credentials = "credentials"
+        case defaultWorkspace = "defaultWorkspace"
+        case enabled = "enabled"
+        case guestNodeID = "guestNodeId"
+        case resetPerTask = "resetPerTask"
+    }
+
+    public init(clipboard: VMClipboardMode, credentials: VMVaultPlacement, defaultWorkspace: TaskWorkspace, enabled: Bool, guestNodeID: String?, resetPerTask: Bool?) {
+        self.clipboard = clipboard
+        self.credentials = credentials
+        self.defaultWorkspace = defaultWorkspace
+        self.enabled = enabled
+        self.guestNodeID = guestNodeID
+        self.resetPerTask = resetPerTask
+    }
+}
+
+// MARK: - VMShareAddParams
+public struct VMShareAddParams: Codable, Sendable {
+    public let name: String?
+    public let path: String
+    public let readOnly: Bool?
+    public let share: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case path = "path"
+        case readOnly = "readOnly"
+        case share = "share"
+    }
+
+    public init(name: String?, path: String, readOnly: Bool?, share: String) {
+        self.name = name
+        self.path = path
+        self.readOnly = readOnly
+        self.share = share
+    }
+}
+
+// MARK: - VMSnapshotDeleteParams
+public struct VMSnapshotDeleteParams: Codable, Sendable {
+    public let name: String?
+    public let snapshot: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case snapshot = "snapshot"
+    }
+
+    public init(name: String?, snapshot: String) {
+        self.name = name
+        self.snapshot = snapshot
+    }
+}
+
+// MARK: - VMSnapshotParams
+public struct VMSnapshotParams: Codable, Sendable {
+    public let kind: VMSnapshotKind?
+    public let label: String?
+    public let name: String?
+    public let taskID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case label = "label"
+        case name = "name"
+        case taskID = "taskId"
+    }
+
+    public init(kind: VMSnapshotKind?, label: String?, name: String?, taskID: String?) {
+        self.kind = kind
+        self.label = label
+        self.name = name
+        self.taskID = taskID
+    }
+}
+
+// MARK: - VMSnapshotResult
+public struct VMSnapshotResult: Codable, Sendable {
+    public let guest: VMGuest
+    public let snapshot: VMSnapshot
+
+    public enum CodingKeys: String, CodingKey {
+        case guest = "guest"
+        case snapshot = "snapshot"
+    }
+
+    public init(guest: VMGuest, snapshot: VMSnapshot) {
+        self.guest = guest
+        self.snapshot = snapshot
+    }
+}
+
+// MARK: - VMSnapshotsCreateParams
+public struct VMSnapshotsCreateParams: Codable, Sendable {
+    /// Make it the reset point (`vm.snapshots.reset` returns here)
+    public let base: Bool?
+    public let label: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case base = "base"
+        case label = "label"
+    }
+
+    public init(base: Bool?, label: String?) {
+        self.base = base
+        self.label = label
+    }
+}
+
+// MARK: - VMSnapshotsDeleteParams
+public struct VMSnapshotsDeleteParams: Codable, Sendable {
+    public let snapshot: String
+
+    public enum CodingKeys: String, CodingKey {
+        case snapshot = "snapshot"
+    }
+
+    public init(snapshot: String) {
+        self.snapshot = snapshot
+    }
+}
+
+// MARK: - VMSnapshotsDeleteResult
+public struct VMSnapshotsDeleteResult: Codable, Sendable {
+    public let deleted: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case deleted = "deleted"
+    }
+
+    public init(deleted: Bool) {
+        self.deleted = deleted
+    }
+}
+
+// MARK: - VMSnapshotsListResult
+public struct VMSnapshotsListResult: Codable, Sendable {
+    public let baseSnapshot: String?
+    /// Newest first
+    public let snapshots: [VMSnapshot]
+
+    public enum CodingKeys: String, CodingKey {
+        case baseSnapshot = "baseSnapshot"
+        case snapshots = "snapshots"
+    }
+
+    public init(baseSnapshot: String?, snapshots: [VMSnapshot]) {
+        self.baseSnapshot = baseSnapshot
+        self.snapshots = snapshots
+    }
+}
+
+// MARK: - VMSnapshotsRestoreParams
+public struct VMSnapshotsRestoreParams: Codable, Sendable {
+    public let snapshot: String
+
+    public enum CodingKeys: String, CodingKey {
+        case snapshot = "snapshot"
+    }
+
+    public init(snapshot: String) {
+        self.snapshot = snapshot
+    }
+}
+
+// MARK: - VMStatus
+public struct VMStatus: Codable, Sendable {
+    public let active: Int
+    public let guests: [VMGuest]
+    public let maxActive: Int
+    /// Unattended setup (macOS 27 host and guest)
+    public let supportsGuestProvisioning: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case active = "active"
+        case guests = "guests"
+        case maxActive = "maxActive"
+        case supportsGuestProvisioning = "supportsGuestProvisioning"
+    }
+
+    public init(active: Int, guests: [VMGuest], maxActive: Int, supportsGuestProvisioning: Bool) {
+        self.active = active
+        self.guests = guests
+        self.maxActive = maxActive
+        self.supportsGuestProvisioning = supportsGuestProvisioning
     }
 }
 
@@ -14189,6 +14896,8 @@ public typealias VaultLockParams = [String: JSONAny]
 public typealias VaultPaymentsMethodsParams = [String: JSONAny]
 public typealias VaultStatusParams = [String: JSONAny]
 public typealias ViewLayoutParams = [String: JSONAny]
+public typealias VMSnapshotsListParams = [String: JSONAny]
+public typealias VMSnapshotsResetParams = [String: JSONAny]
 public typealias VoicePushResult = [String: JSONAny]
 
 // MARK: - Encode/decode helpers

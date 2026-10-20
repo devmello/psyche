@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ChecklistItem } from "@psyche/protocol";
 import {
@@ -21,6 +21,7 @@ import { userEvent } from "@testing-library/user-event";
 import axe from "axe-core";
 import { computeAccessibleName } from "dom-accessibility-api";
 import { describe, expect, it, vi } from "vitest";
+import { PsycheApp } from "../../../apps/web/src/compose/PsycheApp.tsx";
 import { SHORTCUTS } from "../../../apps/web/src/shell/keyboard.ts";
 import { createFixtureWorld, FIXTURE_NOW, IDS } from "../../../packages/ui/src/fixtures/index.ts";
 import { ROOT } from "../src/report.ts";
@@ -45,14 +46,44 @@ const AXE: axe.RunOptions = {
   },
 };
 
-async function expectNoAxeViolations(container: Element) {
-  const result = await axe.run(container, AXE);
-  expect(
-    result.violations.map(
-      (v) => `${v.id}: ${v.help} → ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`,
-    ),
-  ).toEqual([]);
+/**
+ * Fails on any axe violation that is not in `a11y/baseline.json`, and on any baselined one that
+ * no longer happens, so the list only shrinks (docs/a11y-audit.md, "Gates"). Each violation is
+ * fingerprinted as `rule|selector`, keyed by the test's name. Run with UPDATE_A11Y_BASELINE=1 to
+ * rewrite the file after fixing (or, with a reason in the PR, accepting) a violation.
+ */
+const BASELINE_FILE = join(ROOT, "tests", "acceptance", "a11y", "baseline.json");
+const baseline: Record<string, string[]> = existsSync(BASELINE_FILE)
+  ? (JSON.parse(readFileSync(BASELINE_FILE, "utf8")) as Record<string, string[]>)
+  : {};
+const updating = process.env.UPDATE_A11Y_BASELINE === "1";
+
+async function expectNoAxeViolations(container: Element, options: axe.RunOptions = AXE) {
+  const result = await axe.run(container, options);
+  const key = expect.getState().currentTestName ?? "unknown";
+  const found = result.violations.flatMap((v) =>
+    v.nodes.map((n) => `${v.id}|${n.target.join(" ")}`),
+  );
+  if (updating) {
+    if (found.length > 0) baseline[key] = [...new Set(found)].sort();
+    else delete baseline[key];
+    writeFileSync(BASELINE_FILE, `${JSON.stringify(baseline, null, 2)}\n`);
+    return;
+  }
+  const known = new Set(baseline[key] ?? []);
+  const fresh = found.filter((f) => !known.has(f));
+  const gone = [...known].filter((k) => !found.includes(k));
+  // New violations fail; so do baselined ones that were fixed (remove them from the baseline).
+  expect({ new: fresh, fixedButStillBaselined: gone }).toEqual({
+    new: [],
+    fixedButStillBaselined: [],
+  });
 }
+
+/** Page-level rules on: for the composed app rendered as a whole window. */
+const AXE_PAGE: axe.RunOptions = {
+  rules: { "color-contrast": { enabled: false } },
+};
 
 function pendingApproval() {
   const world = createFixtureWorld();
@@ -361,5 +392,70 @@ describe("shell keyboard map (docs/06 §4.11, E10)", () => {
         `${s.chord.mod ? "mod+" : ""}${s.chord.shift ? "shift+" : ""}${s.chord.alt ? "alt+" : ""}${s.chord.ctrl ? "ctrl+" : ""}${s.chord.key.toLowerCase()}`,
     );
     expect(new Set(chords).size).toBe(chords.length);
+  });
+});
+
+describe("the composed app as a window (landmarks, docs/a11y-audit.md A3)", () => {
+  it("has one main landmark, a skip link and no page-level violations beyond the baseline", async () => {
+    const MAIN = {
+      id: "01JBXY6Q8Z0000000000000001",
+      kind: "main",
+      title: "Main chat",
+      titleSource: "auto",
+      parentThreadId: null,
+      forkedFromMessageId: null,
+      sessionKey: "owner:main",
+      personaOverlay: null,
+      permissionMode: "balanced",
+      modelRef: null,
+      pinned: false,
+      archivedAt: null,
+      expiresAt: null,
+      activeWriterRunId: null,
+      createdAt: "2026-10-19T10:00:00.000Z",
+      updatedAt: "2026-10-19T10:00:00.000Z",
+      lastMessageAt: null,
+    };
+    const activity = { running: 0, awaitingInput: 0, awaitingApproval: 0 };
+    const handlers: Record<string, () => unknown> = {
+      "settings.get": () => ({
+        settings: { "ui.onboarding.completedAt": "2026-10-19T09:00:00.000Z" },
+        stateVersion: 1,
+      }),
+      "threads.list": () => ({ threads: [{ thread: MAIN, activity }], nextCursor: null }),
+      "threads.get": () => ({ thread: MAIN, activity }),
+      "chat.history": () => ({ messages: [], nextCursor: null }),
+      "chat.queue.list": () => ({ items: [] }),
+      "events.subscribe": () => ({ ok: true }),
+      "memory.read": () => ({ content: '---\nname: "Wren"\n---\n', etag: "e1" }),
+    };
+    const status = { phase: "paired", health: "ok", attempt: 0 } as const;
+    window.innerWidth = 1440;
+    window.history.replaceState(null, "", "/chat");
+    const { container } = render(
+      <PsycheApp
+        platform={{
+          kind: "web",
+          gateway: {
+            getStatus: async () => status,
+            onStatus: () => () => {},
+            call: async (method: string) => {
+              const h = handlers[method];
+              if (h) return h();
+              if (method.endsWith(".list")) return { [method.split(".")[0] ?? "items"]: [] };
+              return {};
+            },
+            onEvent: () => () => {},
+            onResync: () => () => {},
+          },
+          storage: { get: () => null, set: () => {} },
+          notify: { show: () => {} },
+        }}
+      />,
+    );
+    await screen.findByRole("textbox", { name: "Message Wren" });
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "Skip to content" })).toBeTruthy();
+    await expectNoAxeViolations(container, AXE_PAGE);
   });
 });

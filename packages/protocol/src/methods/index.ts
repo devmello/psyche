@@ -25,6 +25,7 @@ import { NodeMethods } from "./node.ts";
 import { NodesMethods } from "./nodes.ts";
 import { NotificationsMethods } from "./notifications.ts";
 import { PasskeysMethods } from "./passkeys.ts";
+import { PluginsMethods } from "./plugins.ts";
 import { FeedMethods, GoalsMethods, IdeasMethods } from "./proactive.ts";
 import { QuestionsMethods } from "./questions.ts";
 import { ArtifactsMethods, ReceiptsMethods } from "./receipts.ts";
@@ -36,6 +37,7 @@ import { TasksMethods } from "./tasks.ts";
 import { ThreadsMethods } from "./threads.ts";
 import { VaultMethods } from "./vault.ts";
 import { ViewMethods } from "./view.ts";
+import { VmMethods } from "./vm.ts";
 import { VoiceMethods } from "./voice.ts";
 
 export * from "./approvals.ts";
@@ -63,6 +65,7 @@ export * from "./node.ts";
 export * from "./nodes.ts";
 export * from "./notifications.ts";
 export * from "./passkeys.ts";
+export * from "./plugins.ts";
 export * from "./proactive.ts";
 export * from "./questions.ts";
 export * from "./receipts.ts";
@@ -74,6 +77,7 @@ export * from "./tasks.ts";
 export * from "./threads.ts";
 export * from "./vault.ts";
 export * from "./view.ts";
+export * from "./vm.ts";
 export * from "./voice.ts";
 
 /**
@@ -114,9 +118,11 @@ export const Methods = {
   ...IdeasMethods,
   ...GoalsMethods,
   ...VoiceMethods,
+  ...VmMethods,
   ...DictationMethods,
   ...AttentionMethods,
   ...SkillsMethods,
+  ...PluginsMethods,
   ...BackupMethods,
   ...LogsMethods,
   ...ModelsMethods,

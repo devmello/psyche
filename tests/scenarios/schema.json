@@ -638,6 +638,7 @@
             "artifactType": {
               "enum": ["markdown", "html", "react", "pdf", "sheet", "itinerary", "dashboard"]
             },
+            "artifactName": { "type": "string", "minLength": 1 },
             "titleMatch": { "$ref": "#/$defs/matcher" },
             "minCitations": { "type": "integer" },
             "citationsFrom": { "enum": ["sites", "sites_ok", "sites_fetched"] },

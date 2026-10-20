@@ -196,3 +196,59 @@ export function cancelDescription(
     summary: `Cancel ${airline.name} booking ${String(p.confirmation ?? "")} and refund ${total} to the Stripe Link card (free within ${airline.freeCancelHours} h of ticketing).`,
   };
 }
+
+/** Where a trip stands, as its itinerary card says. */
+export type TripState =
+  | { state: "on hold"; holdRef: string; holdExpiresAt: string }
+  | { state: "booked"; holdRef: string; confirmation: string; freeCancelUntil: string }
+  | { state: "cancelled"; holdRef: string; confirmation: string; refundRef: string };
+
+/** One itinerary per trip, keyed by the hold: holding writes it, ticketing and cancelling update it. */
+export function itineraryName(holdRef: string): string {
+  return `itinerary-${holdRef.toLowerCase()}`;
+}
+
+const WHEN = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  timeZone: "UTC",
+  timeZoneName: "short",
+});
+
+/**
+ * The trip's itinerary artifact, built from the fixture offer and the booking (never from what
+ * the model says about them): flights, traveler, cabin and fare class, the total, and where the
+ * payment stands. Card data never appears; the funding card shows as its last4.
+ */
+export function itinerary(
+  airline: Airline,
+  offer: Offer,
+  traveler: string,
+  trip: TripState,
+): { name: string; type: "itinerary"; title: string; content: string } {
+  const first = offer.segments[0];
+  const last = offer.segments[offer.segments.length - 1];
+  const day = (iso: string) => DAY.format(new Date(`${iso.slice(0, 10)}T12:00:00Z`));
+  const title =
+    first === undefined || last === undefined
+      ? `${airline.name} trip`
+      : `${first.from} → ${first.to}, ${day(first.depart)} – ${day(last.depart)}`;
+  const total = money(offer.totalMinor, offer.currency);
+  const fare =
+    trip.state === "on hold"
+      ? `${total} on hold with ${airline.name} (ref ${trip.holdRef}), not charged yet; the hold ends ${WHEN.format(new Date(trip.holdExpiresAt))}`
+      : trip.state === "booked"
+        ? `${total} charged to the Stripe Link card funded by ${funded}; confirmation ${trip.confirmation}, free cancellation until ${WHEN.format(new Date(trip.freeCancelUntil))}`
+        : `booking ${trip.confirmation} cancelled; ${total} refunded to the Stripe Link card (ref ${trip.refundRef})`;
+  const content = [
+    `# ${title} (${trip.state})`,
+    "",
+    ...offer.segments.map((s) => `- **Flight**: ${segmentLine(s)} → ${s.arrive.slice(11, 16)}`),
+    `- **Traveler**: ${traveler} · ${offer.cabin} (fare class ${offer.fareClass}), ${offer.seat}`,
+    `- **Airline**: ${airline.name} (${new URL(airline.origin).host})`,
+    `- **Fare**: ${fare}`,
+  ].join("\n");
+  return { name: itineraryName(trip.holdRef), type: "itinerary", title, content };
+}

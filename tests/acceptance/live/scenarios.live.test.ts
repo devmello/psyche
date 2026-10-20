@@ -3,15 +3,13 @@ import { join } from "node:path";
 import { modelSetupFromEnv } from "@psyche/gateway/compose";
 import { createModelRouter } from "@psyche/model-router";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { SCENARIOS_DIR } from "../../../packages/testing/src/scenarios/index.ts";
-import { m2Overrides } from "../src/m2-world.ts";
 import { OUT_DIR, writeReport } from "../src/report.ts";
-import { M2_SCENARIO_IDS, M2_SCENARIOS_DIR } from "../src/scenario-scripts.ts";
 import { type LiveReport, runScenarioLive } from "./driver.ts";
+import { LIVE_SCENARIO_IDS, scenarioSetup } from "./setup.ts";
 
 /**
- * Live model gates (docs/08 Milestones 1 and 2 "Acceptance"): V1, V2, V3, V5, V6, V7, V8 and V9 on a real model, three runs
- * each, through the live driver. Opt in with
+ * Live model gates (docs/08 Milestones 1 to 3 "Acceptance"): V1 to V10 on a real model, three
+ * runs each, through the live driver. Opt in with
  *
  *   PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=<provider>/<model> pnpm --filter @psyche/acceptance-tests live
  *
@@ -32,16 +30,7 @@ import { type LiveReport, runScenarioLive } from "./driver.ts";
 const MODEL = process.env.PSYCHE_MODEL ?? "";
 const LIVE = process.env.PSYCHE_LIVE_TESTS === "1" && MODEL !== "";
 const REPEATS = Number(process.env.PSYCHE_LIVE_REPEATS ?? 3);
-const SCENARIOS = (
-  process.env.PSYCHE_LIVE_SCENARIOS ??
-  [
-    "v1-inbox-triage",
-    "v2-calendar-planning",
-    "v3-shopping",
-    "v7-research-brief",
-    ...M2_SCENARIO_IDS,
-  ].join(",")
-)
+const SCENARIOS = (process.env.PSYCHE_LIVE_SCENARIOS ?? LIVE_SCENARIO_IDS.join(","))
   .split(",")
   .map((x) => x.trim())
   .filter((x) => x !== "");
@@ -66,6 +55,7 @@ interface RunRow {
   answers: LiveReport["answers"];
   texts: LiveReport["texts"];
   runInfo: LiveReport["runs"];
+  followUps: LiveReport["followUps"];
 }
 
 /**
@@ -98,6 +88,7 @@ afterAll(() => {
     answers: r.answers,
     texts: r.texts,
     runInfo: r.runs,
+    followUps: r.followUps,
   }));
   const all = [...kept, ...fresh].sort((a, b) => a.scenario.localeCompare(b.scenario));
   writeReport(`live-${slug}`, {
@@ -152,18 +143,35 @@ describe.skipIf(!LIVE)(`live gates on ${MODEL || "(no model)"}`, () => {
     for (let run = 1; run <= REPEATS; run += 1) {
       it(`${scenario} run ${run}/${REPEATS} passes every hard assertion`, async () => {
         if (provider === undefined) throw new Error("no model provider");
-        const m2 = (M2_SCENARIO_IDS as readonly string[]).includes(scenario);
-        const r = await runScenarioLive(join(m2 ? M2_SCENARIOS_DIR : SCENARIOS_DIR, scenario), {
-          ...(m2 ? { overrides: m2Overrides(scenario).overrides } : {}),
-          provider,
-          model: "router/primary",
-          log: (line) => process.stderr.write(`${line}\n`),
-        });
-        runs.push(r);
-        const hard = r.assertions
-          .filter((a) => a.severity === "hard" && a.status === "fail")
-          .map((a) => `${a.id}: ${a.detail}`);
-        expect(hard).toEqual([]);
+        const world = await scenarioSetup(scenario, { live: true });
+        try {
+          const r = await runScenarioLive(world.dir, {
+            ...(world.overrides === undefined ? {} : { overrides: world.overrides }),
+            ...(world.mutate === undefined ? {} : { mutate: world.mutate }),
+            provider,
+            model: "router/primary",
+            log: (line) => process.stderr.write(`${line}\n`),
+          });
+          // What the scenario file cannot check live (V10: the pushed commit is the approved one).
+          for (const [i, detail] of ((await world.check?.()) ?? []).entries()) {
+            r.assertions.push({
+              id: `extra/${i}`,
+              type: "extra",
+              severity: "hard",
+              status: "fail",
+              detail,
+            });
+            r.summary.hard.fail += 1;
+            r.ok = false;
+          }
+          runs.push(r);
+          const hard = r.assertions
+            .filter((a) => a.severity === "hard" && a.status === "fail")
+            .map((a) => `${a.id}: ${a.detail}`);
+          expect(hard).toEqual([]);
+        } finally {
+          world.dispose();
+        }
       });
     }
   }

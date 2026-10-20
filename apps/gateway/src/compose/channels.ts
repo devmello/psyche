@@ -8,13 +8,24 @@ import {
   ChannelService,
   type ChannelsApi,
   createChannelsApi,
+  E164,
+  EmailAdapter,
+  type EmailCursorStore,
+  type EmailSendAuthorizer,
   IMessageAdapter,
   type IMessageCursorStore,
   type IMessageSendAuthorizer,
   type InboundPart,
+  isWeakTransport,
   type LibraryIngest,
   type OutboundTarget,
+  type SecretSource,
+  SlackAdapter,
+  SmsAdapter,
+  type SmsAdapterOptions,
+  type SmsSecretSource,
   SqliteChannelStore,
+  staticSecret,
   TelegramAdapter,
   type TelegramAdapterOptions,
   WebChatAdapter,
@@ -36,6 +47,7 @@ import {
   type EventName,
   type EventPayload,
   type InboundMessage,
+  type JsonObject,
   type Message,
   type MessagesSendParams,
   type NodeClient,
@@ -51,6 +63,8 @@ import type { Call, HandlerDef } from "../context.ts";
 import { MAIN_SESSION_KEY } from "../handlers/threads.ts";
 import type { Gateway } from "../server.ts";
 import type { TxHooks } from "../session/controller.ts";
+import { channelSecretHandlers, vaultChannelSecret } from "./channel-secrets.ts";
+import { type EmailSetup, emailSetupFromEnv, mailEmailTransport } from "./email-channel.ts";
 import { indexedChannelLibrary } from "./library.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
@@ -58,7 +72,7 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  * Channels (S10 `@psyche/channels`) mounted on the composed Gateway (INT-2; architecture §4.10,
  * security §9). The part:
  * - builds a `ChannelService` over `SqliteChannelStore` and attaches the configured adapters
- *   (Telegram, iMessage, WebChat); an adapter whose channel is not configured yet attaches as soon as
+ *   (Telegram, iMessage, SMS, WebChat); an adapter whose channel is not configured yet attaches as soon as
  *   `channels.configure` creates it;
  * - turns an owner's private message into a chat turn on the routed thread through the session
  *   controller, as `chat.send` does, and sends the agent's committed replies back to that chat;
@@ -97,9 +111,40 @@ export interface IMessageSetup {
   cursor?: IMessageCursorStore;
 }
 
+/**
+ * SMS over Twilio (N9). Off unless configured; `POST /channels/sms/twilio` is mounted only then.
+ * The Gateway stays on loopback: Twilio reaches the route through the owner's tunnel or proxy at
+ * `publicUrl`, the URL the webhook signature covers.
+ */
+export interface SmsSetup {
+  accountSid: string;
+  authToken: SmsSecretSource;
+  /** Psyche's Twilio number (E.164): the channel's `account`. */
+  from: string;
+  publicUrl: string;
+  options?: Partial<Pick<SmsAdapterOptions, "apiBase" | "fetch" | "messagingServiceSid">>;
+}
+
+export const SMS_WEBHOOK_PATH = "/channels/sms/twilio";
+
+/**
+ * Slack over Socket Mode (N8). Off unless configured. A token not given here is read from the
+ * vault, where `channels.secrets.set` stores it as a Gateway-owned item.
+ */
+export interface SlackSetup {
+  /** The workspace label: the channel's `account`. */
+  account: string;
+  botToken?: SecretSource;
+  appToken?: SecretSource;
+}
+
 export interface ChannelsSetup {
   telegram?: TelegramSetup;
+  /** Email over the mail connector's IMAP + SMTP backend (N9); off unless configured. */
+  email?: EmailSetup;
+  slack?: SlackSetup;
   imessage?: IMessageSetup;
+  sms?: SmsSetup;
   /** Attach the built-in WebChat adapter (owner-only defaults). */
   webchat?: boolean;
   /** Further adapters (tests, later transports). */
@@ -147,10 +192,74 @@ export function channelsSetupFromEnv(
   }
   // iMessage through the Mac helper (N5) is opt-in: the Messages account to answer as.
   const imessage = env.PSYCHE_IMESSAGE_ACCOUNT?.trim() ?? "";
+  const sms = smsSetupFromEnv(env, readFile);
+  const email = emailSetupFromEnv(env, readFile);
+  // Slack (N8) is opt-in: the workspace label; tokens from env / files, else the vault.
+  const slackAccount = env.PSYCHE_SLACK_WORKSPACE?.trim() ?? "";
+  const secretFromEnv = (name: string): SecretSource | undefined => {
+    const path = env[`${name}_FILE`];
+    const value = (path ? readFile(path) : (env[name] ?? "")).trim();
+    return value === "" ? undefined : staticSecret(value);
+  };
+  const slackBot = secretFromEnv("PSYCHE_SLACK_BOT_TOKEN");
+  const slackApp = secretFromEnv("PSYCHE_SLACK_APP_TOKEN");
   return {
     webchat: true,
+    ...(email === undefined ? {} : { email }),
     ...(token === "" ? {} : { telegram: { token, account } }),
+    ...(slackAccount === ""
+      ? {}
+      : {
+          slack: {
+            account: slackAccount,
+            ...(slackBot === undefined ? {} : { botToken: slackBot }),
+            ...(slackApp === undefined ? {} : { appToken: slackApp }),
+          },
+        }),
     ...(imessage === "" ? {} : { imessage: { account: imessage } }),
+    ...(sms === undefined ? {} : { sms }),
+  };
+}
+
+const SMS_ENV = [
+  "PSYCHE_SMS_TWILIO_ACCOUNT_SID",
+  "PSYCHE_SMS_TWILIO_AUTH_TOKEN",
+  "PSYCHE_SMS_FROM",
+  "PSYCHE_SMS_PUBLIC_URL",
+] as const;
+
+/**
+ * `PSYCHE_SMS_TWILIO_ACCOUNT_SID`, `PSYCHE_SMS_TWILIO_AUTH_TOKEN(_FILE)`, `PSYCHE_SMS_FROM` (E.164)
+ * and `PSYCHE_SMS_PUBLIC_URL` (https) → setup; none set → off; some set → refuse to boot.
+ */
+export function smsSetupFromEnv(
+  env: NodeJS.ProcessEnv,
+  readFile: (path: string) => string,
+): SmsSetup | undefined {
+  const file = env.PSYCHE_SMS_TWILIO_AUTH_TOKEN_FILE;
+  const token = (file ? readFile(file) : (env.PSYCHE_SMS_TWILIO_AUTH_TOKEN ?? "")).trim();
+  const values = {
+    PSYCHE_SMS_TWILIO_ACCOUNT_SID: env.PSYCHE_SMS_TWILIO_ACCOUNT_SID?.trim() ?? "",
+    PSYCHE_SMS_TWILIO_AUTH_TOKEN: token,
+    PSYCHE_SMS_FROM: env.PSYCHE_SMS_FROM?.trim() ?? "",
+    PSYCHE_SMS_PUBLIC_URL: env.PSYCHE_SMS_PUBLIC_URL?.trim() ?? "",
+  };
+  const missing = SMS_ENV.filter((k) => values[k] === "");
+  if (missing.length === SMS_ENV.length) return undefined;
+  if (missing.length > 0) {
+    throw new PsycheError("invalid_params", `SMS needs ${missing.join(", ")} as well`);
+  }
+  if (!E164.test(values.PSYCHE_SMS_FROM)) {
+    throw new PsycheError("invalid_params", "PSYCHE_SMS_FROM must be an E.164 number (+1555…)");
+  }
+  if (!values.PSYCHE_SMS_PUBLIC_URL.startsWith("https://")) {
+    throw new PsycheError("invalid_params", "PSYCHE_SMS_PUBLIC_URL must be an https:// URL");
+  }
+  return {
+    accountSid: values.PSYCHE_SMS_TWILIO_ACCOUNT_SID,
+    authToken: { use: (fn) => fn(token) },
+    from: values.PSYCHE_SMS_FROM,
+    publicUrl: values.PSYCHE_SMS_PUBLIC_URL,
   };
 }
 
@@ -164,7 +273,7 @@ export function channelsSetupFromEnv(
 export function channelReplyAuthority(
   services: ComposeServices,
   turnFor: (recipient: string) => ChannelReplyTurn | undefined = () => undefined,
-): IMessageSendAuthorizer {
+): IMessageSendAuthorizer & EmailSendAuthorizer {
   return async (intent) => {
     const turn = intent.purpose === "reply" ? turnFor(intent.recipient) : undefined;
     const approval = await services.rawBroker.authorizeChannelReply({
@@ -289,6 +398,24 @@ export function inputTaintSources(event: ChannelInboundEvent): TaintSource[] {
     }
   }
   return out;
+}
+
+/** The email cursor (opaque JSON) in a 0600 file; unreadable means "start from now". */
+function jsonCursorStore(path: string): EmailCursorStore {
+  return {
+    async load() {
+      try {
+        const v = JSON.parse(readFileSync(path, "utf8")) as unknown;
+        return typeof v === "object" && v !== null && !Array.isArray(v) ? (v as JsonObject) : null;
+      } catch {
+        return null;
+      }
+    },
+    async save(cursor) {
+      mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+      writeFileSync(path, JSON.stringify(cursor), { mode: 0o600 });
+    },
+  };
 }
 
 /** One turn's text: the sender's own words as typed; other people's words labeled as data. */
@@ -435,6 +562,21 @@ export function composeChannels(
       }),
     );
   }
+  if (setup.slack !== undefined) {
+    const { account } = setup.slack;
+    add(
+      new SlackAdapter({
+        account,
+        botToken:
+          setup.slack.botToken ??
+          vaultChannelSecret(() => services.vault, "slack", account, "bot_token"),
+        appToken:
+          setup.slack.appToken ??
+          vaultChannelSecret(() => services.vault, "slack", account, "app_token"),
+        clock,
+      }),
+    );
+  }
   // A live, Messages-capable node (the mac helper); none → the adapter's start fails and retries.
   const messagesNode = (pinned?: string) => {
     const nodes = gateway?.context.nodes;
@@ -469,6 +611,42 @@ export function composeChannels(
           fileCursorStore(
             join(services.home, "channels", `imessage-${encodeURIComponent(im.account)}.cursor`),
           ),
+        clock,
+      }),
+    );
+  }
+  const sms =
+    setup.sms === undefined
+      ? undefined
+      : new SmsAdapter({
+          ...setup.sms.options,
+          accountSid: setup.sms.accountSid,
+          authToken: setup.sms.authToken,
+          from: setup.sms.from,
+          publicUrl: setup.sms.publicUrl,
+          clock,
+          // Refused webhook posts count against the inbound limit (#254) under their own key:
+          // a forger is limited and audited, and cannot spend a real sender's budget.
+          onRejected: ({ reason, claimedFrom }) => {
+            logger.info?.("sms.webhook_rejected", { reason });
+            services.rateLimits.inboundChat.admit(
+              `sms-webhook-rejected|${setup.sms?.from ?? ""}|${claimedFrom || "unknown"}`,
+              { channelType: "sms", reason, senderId: claimedFrom || "unknown" },
+            );
+          },
+        });
+  if (sms !== undefined) add(sms);
+  if (setup.email !== undefined) {
+    const email = setup.email;
+    add(
+      new EmailAdapter({
+        account: email.address,
+        transport: mailEmailTransport(services, email),
+        cursor: jsonCursorStore(
+          join(services.home, "channels", `email-${encodeURIComponent(email.address)}.cursor`),
+        ),
+        authorizeSend: channelReplyAuthority(services),
+        ...(email.pollMs === undefined ? {} : { pollMs: email.pollMs }),
         clock,
       }),
     );
@@ -731,7 +909,9 @@ export function composeChannels(
   // --- channels.* handlers -------------------------------------------------------------------
 
   const api = createChannelsApi(service, { newId: () => db.newId(), now: () => clock.now() });
-  const handlers: Record<string, HandlerDef> = {};
+  const handlers: Record<string, HandlerDef> = {
+    ...channelSecretHandlers(() => services.vault),
+  };
   for (const [name, fn] of Object.entries(api) as [
     keyof ChannelsApi,
     (p: unknown, c: { deviceId: string | null }) => Promise<unknown>,
@@ -771,6 +951,14 @@ export function composeChannels(
     service,
     adapters,
     handlers,
+    // Admission (signature, account, replay) is the adapter's; rate limits are `admitInbound`'s.
+    ...(sms === undefined
+      ? {}
+      : {
+          webhooks: {
+            [SMS_WEBHOOK_PATH]: (req) => sms.handleWebhook(req),
+          },
+        }),
     relay: {
       surfaces: () => service.ownerSurfaces(),
       async deliver(issued) {
@@ -796,7 +984,7 @@ export function composeChannels(
             isGroup: false,
             text: "",
             receivedAt: clock.now(),
-            identityStrength: "strong",
+            identityStrength: isWeakTransport(c.type) ? "weak" : "strong",
           };
           return service.isOwner(c.id, probe);
         });

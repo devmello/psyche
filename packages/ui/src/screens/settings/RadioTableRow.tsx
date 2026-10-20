@@ -37,10 +37,16 @@ export function RadioTableRow<T extends string>({
       onValueChange={(v) => onChange(v as T)}
     >
       {header}
-      {options.map((o) => (
+      {options.map((o, i) => (
         <TableCell key={o.value} className="text-center">
           <span className="inline-flex justify-center">
-            <RadioGroupItem value={o.value} aria-label={`${label}: ${o.label}`} />
+            {/* The row role hides the group's "1 of 4"; say it on each radio (docs/a11y-audit.md W9). */}
+            <RadioGroupItem
+              value={o.value}
+              aria-label={`${label}: ${o.label}`}
+              aria-posinset={i + 1}
+              aria-setsize={options.length}
+            />
           </span>
         </TableCell>
       ))}

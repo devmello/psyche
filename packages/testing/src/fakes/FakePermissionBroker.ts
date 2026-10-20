@@ -118,6 +118,8 @@ const ONCE_ONLY_KINDS: ApprovalKind[] = [
   "skill_install",
   "apple_script",
   "shortcut_run",
+  // A push publishes exact commits with the owner's credentials (V10).
+  "git_push",
 ];
 
 /** Scopes a side-effect class / kind may ever be granted (security §3.4). */

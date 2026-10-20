@@ -224,10 +224,10 @@ export const LIVE_TOOL_SPECS: Record<string, { description: string; inputSchema:
   },
   "artifacts.write": {
     description:
-      "Write a document to the owner's Library as an artifact (markdown or text) with a stable name. No approval needed. Cite sources as full http(s) URLs.",
+      "Write a document to the owner's Library as an artifact with a stable name: markdown or text, or an itinerary (a trip's flights, times, status and confirmation, shown as an itinerary card). Writing the same name again updates it. No approval needed. Cite sources as full http(s) URLs.",
     inputSchema: obj(
       {
-        type: str("'markdown' or 'text'"),
+        type: str("'markdown', 'text' or 'itinerary'"),
         name: str("Stable slug, e.g. cold-climate-heat-pumps-brief"),
         title: str("Title"),
         content: str("Full content"),
@@ -323,7 +323,7 @@ export const LIVE_TOOL_SPECS: Record<string, { description: string; inputSchema:
   },
   "travel.hold_fare": {
     description:
-      "Hold one fare after the owner approves flights, traveler, fare class, total and the funding card on their device (once only). The Stripe Link card is authorized, not charged. Returns the hold reference and when it ends.",
+      "Hold one fare after the owner approves flights, traveler, fare class, total and the funding card on their device (once only). The Stripe Link card is authorized, not charged. Also writes the trip's itinerary card to the Library (no need to write one). Returns the hold reference, when it ends, and the itinerary's name.",
     inputSchema: obj(
       {
         airline: str("The airline's origin, e.g. https://lakeview-air.example"),
@@ -337,7 +337,7 @@ export const LIVE_TOOL_SPECS: Record<string, { description: string; inputSchema:
   },
   "travel.ticket_hold": {
     description:
-      "Ticket a held fare: charges the held amount after a second once-only approval. Returns the confirmation number.",
+      "Ticket a held fare: charges the held amount after a second once-only approval and updates the trip's itinerary card. Returns the confirmation number.",
     inputSchema: obj(
       {
         airline: str("The airline's origin"),
@@ -348,7 +348,7 @@ export const LIVE_TOOL_SPECS: Record<string, { description: string; inputSchema:
   },
   "travel.cancel_booking": {
     description:
-      "Cancel a ticketed booking inside the airline's free window and refund it to the card. Asks the owner first.",
+      "Cancel a ticketed booking inside the airline's free window and refund it to the card; the trip's itinerary card is marked cancelled. Asks the owner first.",
     inputSchema: obj(
       {
         airline: str("The airline's origin"),

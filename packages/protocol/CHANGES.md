@@ -18,6 +18,45 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (L6: Gateway methods for snapshots and resets)
+
+For S01 (the Gateway serves them over S14's helper capabilities) and S11 (Settings → VM mode). Builds on the L6 shapes (`VmSnapshot`, `VmSnapshotResult`, `VmRestoreResult`).
+
+- New methods in `methods/vm.ts`:
+  - `vm.snapshots.list {}` → `{snapshots, baseSnapshot}`, `operator.read`;
+  - `vm.snapshots.create {label?, base?}` → `VmSnapshotResult`;
+  - `vm.snapshots.restore {snapshot}` → `VmRestoreResult`;
+  - `vm.snapshots.reset {}` → `VmRestoreResult`;
+  - `vm.snapshots.delete {snapshot}` → `{deleted}`.
+
+  All the changing ones are `operator.admin`, side-effecting and audited as receipts.
+
+### v1 additive — 2026-10-20 (L6 VM snapshots and resets)
+
+For S14 (the helper's `vm.snapshot` / `vm.restore` / `vm.reset` / `vm.snapshot_delete`), S01 (the Gateway half: compose tools, "fresh Mac per task", broker sides), S11 (the Devices pane).
+
+- New `VmSnapshot` {id, label, kind (`VmSnapshotKind`: base | manual | task), taskId?, createdAt, guestOS, bytes, savedState, provisioned, psycheInstalled, method (`VmSnapshotMethod`: apfs-clone | overlay)}.
+- `VmGuest` gains optional `snapshots` (newest first) and `baseSnapshot`.
+- New params/results: `VmSnapshotParams`, `VmSnapshotResult`, `VmRestoreParams`, `VmResetParams`, `VmRestoreResult` {guest, snapshot, durationMs}, `VmSnapshotDeleteParams`.
+- `VmProgressEvent.type` gains `vm.snapshot` and `vm.reset` (at the end).
+- `VM_SETTING_KEYS.resetPerTask` (`vm.resetPerTask`, default false) and optional `VmSettings.resetPerTask`.
+
+### v1 additive — 2026-10-20 (E12 "From your other chats")
+
+For S02 (agent-core's context providers), S01 (the Gateway's thread digests), S11 / S12 (the block in the chat).
+
+- New block `RelatedThreadsBlock` (`type: "related_threads"`, 1–5 `RelatedThread {threadId, title, snippet, lastMessageAt}`) at the end of the `Block` union: the owner's other chats a turn drew on, shown collapsible in the reply. Titles and snippets are untrusted data, rendered as plain text.
+
+### v1 additive — 2026-10-20 (T4 code plugins)
+
+For S02 (agent-core's plugin seam and `packages/plugins`), S01 (the Gateway's plugins part), S11 (a Settings → Plugins pane later).
+
+- New methods in `methods/plugins.ts`: `plugins.list` (read), `plugins.getProposal` (read), `plugins.proposeInstall {path}`, `plugins.install {proposalId, approvalId}`, `plugins.setEnabled {name, enabled}`, `plugins.remove {name}` (admin, side-effecting). Installing reuses the device-only `skill_install` approval with `details.kind: "plugin"`; nothing runs while the admin setting `plugins.enabled` is off.
+- New schemas: `PluginName`, `PluginCapability` (`context`, `before_tool_call`, `after_tool_call`, `agent_end`, `evaluate`), `PluginManifest`, `PluginStatus`, `PluginSummary`, `PluginProposal`.
+### v1 additive — 2026-10-20 (S10: channel transport secrets, N8 / N9)
+
+- `channels.secrets.set {type, account, name, value}` → `{set}` (`operator.admin`, side-effecting, params never logged) and `channels.secrets.status {type, account}` → `{required, set}` (names only), with `ChannelSecretName` (`bot_token | app_token | auth_token`). The Gateway stores each as a Gateway-owned vault item (like `models.setKey`), read by the Slack, Discord and SMS adapters per connection or request; never fillable by agents.
+
 ### v1 additive — 2026-10-20 (desktop bundle: first admin without a terminal)
 
 For the desktop bundle session and S01 (the Gateway handler), approved by the architecture session.
