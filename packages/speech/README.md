@@ -17,9 +17,13 @@ Speech-to-text and text-to-speech behind the `SpeechEngine` contract, engine sel
 | `webSpeechDictation`, `WEB_SPEECH_ENTRY` | Client-side helper for psyche-web (browser owns the mic) |
 | `VoiceSessionManager` | `voice.start / push / stop / cancel` and `voice.segment` / `voice.ended` events |
 | `ReadAloudService` | `speech.readAloud(messageId)`: streams `speech.audio` events, saves an MP3 Library item |
+| `VoiceMemoService`, `analyzeTranscript`, `looksLikeTask`, `memoTitle` | Voice memos (Q4): recorded audio → transcript → Library `recording` → optional Task, with provenance by speaker |
 | `VoiceNoteTranscoder`, `transcribeVoiceNote`, `VOICE_NOTE_PROFILES`, `oggOpusToCaf` | Voice notes per channel and inbound decode → transcript |
 | `ModelManager`, `MODEL_CATALOG` | Checksummed model downloads into `$PSYCHE_HOME/models/` |
 | `SegmentSequencer`, `buildVocabulary`, `parseSsmlLite`, PCM helpers | Building blocks shared by the engines |
+| `DictationVocabularyProvider`, `NodeContactsSource`, `agentNameFrom`, `ownerNamesFrom` | Session-default vocabulary from IDENTITY.md, USER.md, contacts and topics (below) |
+| `VoiceCatalog` | Every synthesis voice as `<engine>:<voice>` for persona voice selection (Q3) |
+| `DecodingSpeechEngine`, `channelVoiceTranscoder` | Glue for channels: compressed inbound notes decode before the engine; the encoder behind the channel package's transcoder port |
 
 ## Engine selection
 
@@ -32,6 +36,22 @@ Transcription order (setting `speech.stt.order`, default `["mac-node", "whisper"
 Synthesis order (`speech.tts.order`, default `["kokoro", "mac-node"]`, voice `kokoro:af_heart`). A persona voice `<engine>:<voice>` (IDENTITY.md `voice:`) puts its engine first. Cloud voices (`openai`, `elevenlabs`) are registered only when a vault key resolver is configured and are used only if the owner names them in the order or as the persona voice, because they send text off the machine.
 
 Each engine has a cheap `available()` probe (binary and model present, node online, key configured); a throwing probe counts as unavailable. `select()` rejects `unavailable` (retryable) with the reason per engine.
+
+## Custom vocabulary (Q1, spike 03)
+
+Spike 03 measured `DictationTranscriber` with contextual strings at 3.0–3.4 % WER against 6.5 % without them, and 4/4 on the agent's name; the helper picks that engine only when the stream carries a vocabulary. `DictationVocabularyProvider` therefore builds the session default that `VoiceSessionManager` and `VoiceMemoService` pass on every `voice.start` (and the Gateway hands to the helper as `speech.transcribe_stream.vocabulary`, to whisper.cpp as `--prompt`):
+
+| Source | Read from | Notes |
+| --- | --- | --- |
+| Agent name | `IDENTITY.md` frontmatter `name:` | Always first, so the list is never empty on a configured Psyche |
+| Owner name, people | `USER.md`: the `Name:` field and bullets under `## People` / `## Family` / `## Contacts` (text before the first `(`, `,`, `:` or dash) | Directives and free text are not mined |
+| Custom terms | `speech.stt.vocabulary` (Settings → Voice & dictation) | |
+| Contacts | a `ContactsSource`: `NodeContactsSource` asks the Mac helper for `contacts.list {limit, fields: ["name"]}` → `{contacts: [{id, name, nickname?}]}` (requested from S14; absent capability → no names) | Names and nicknames only; never numbers or addresses |
+| Recent topics | an injected callback (memory or search) | newest first |
+
+`buildVocabulary` de-duplicates, drops placeholders and markup, and caps the list at 64 terms of ≤ 48 characters; the result is cached for 60 s (`invalidate()` on `memory.file.changed` for IDENTITY.md / USER.md). Every source is best effort: an offline node or a throwing callback is skipped, never fatal.
+
+**Voice selection per persona** (Q3): `VoiceCatalog.list({personaVoice?})` returns every voice the available synthesis engines offer, in `speech.tts.order` with the persona's engine first, as `{ref: "<engine>:<voice>", engine, location, default, nonCommercial?}`; `ref` is what IDENTITY.md `voice:` and `speech.readAloud {voice}` take, and `nonCommercial` marks an Apple Personal Voice. Cloud engines appear only when the owner listed them in the order.
 
 ## Engine matrix
 
@@ -93,7 +113,21 @@ Synthesize once to PCM, then encode per channel. Caps are upload limits; when a 
 
 **iMessage caveat.** Apple documents only "CAF" for inline voice notes; Opus inside CAF is community-reported (OpenClaw/BlueBubbles skills), and the message must also be flagged as an audio message by the sender. ffmpeg cannot write Opus (or AAC) into CAF (`cafenc.c`: "muxing codec currently unsupported"), so `oggOpusToCaf` remuxes ffmpeg's Ogg packets into CAF in-process, with the chunk layout `afconvert -f caff -d opus` produces (`desc`, `kuki`, `chan`, `pakt`, `data`). Apple's `afinfo` and `afconvert` read and decode the result on macOS 27; whether Messages renders it as a bubble must be checked end to end with the Mac node (S14/S10).
 
-**Inbound.** `transcribeVoiceNote(engine, transcoder, file)` writes the file to a private temp dir (CAF and moov-at-end M4A cannot be decoded from a pipe), decodes to 16 kHz mono s16le with ffmpeg and transcribes with the selected engine. Channel adapters (S10) call it.
+**Inbound.** `transcribeVoiceNote(engine, transcoder, file)` writes the file to a private temp dir (CAF and moov-at-end M4A cannot be decoded from a pipe), decodes to 16 kHz mono s16le with ffmpeg and transcribes with the selected engine. `createSpeechStack().engine` is wrapped in `DecodingSpeechEngine`, so the channel service's existing `transcribeFile(data, {encoding: "opus"})` call works as is; outbound, `channelVoiceTranscoder(stack.transcoder)` satisfies the channel package's `VoiceTranscoder` port (by container, or by channel to get that channel's cap and file name). Together with `VoiceNotes` in `packages/channels` that is the Telegram round trip of Q4.
+
+## Voice memos (Q4)
+
+`VoiceMemoService.ingest({audio, format, speaker, source, threadId, task?})` turns a recording into a Library item and, when asked, a Task:
+
+1. **Decode.** Raw PCM and WAV are decoded in-process; Opus, MP3 and CAF go through the transcoder (ffmpeg), which also means a channel voice note is stored verbatim while a composer recording is stored as MP3 (WAV when ffmpeg is absent). Memos longer than 10 minutes are refused.
+2. **Transcribe** with the routed engine and the merged vocabulary, unless the caller passes a transcript it already has: a composer memo is a dictation session started with `memo: true`, and `fromDictation(manager, sessionId, ctx)` calls `VoiceSessionManager.stopMemo`, which returns the live transcript together with the PCM the session received, so the audio is transcribed once.
+3. **Classify the transcript as content.** `analyzeTranscript` lists URL-like strings (nothing fetches them) and flags instruction-like phrasing (`override`, `role_prefix`, `new_instructions`, `identity_swap`, `secrecy`, `exfiltration`, `placeholder`, `markup`). The text itself stays verbatim.
+4. **Provenance follows the speaker.** The owner's own voice is `owner`; anyone else is `untrusted`, and the item, the task (`taint: true`, `taintSources: [{sourceKind: "voice_note", origin, sender}]`) and the message block say so. An owner memo that reads like instructions still produces an untainted item, but a task forced from it starts tainted.
+5. **Library item**: kind `recording`, origin `upload` (composer) or `channel`, tags `voice-memo`, the source and the channel, the transcript as `textExtract`, named after the task title ("Call Alice at noon tomorrow.wav").
+6. **Task** (`task: "auto" | "always" | "never"`): in `auto`, only a memo that opens with a cue ("remind me to…", "todo:", "don't forget…", "add a task…") becomes a task; it needs a thread and a `TaskEngine`. The goal is the transcript plus a pointer to the memo item; `createdFrom` is `chat` or `channel`.
+7. **Blocks** for the carrying message: a text block quoting the transcript under a label (`**Voice memo, 0:05**` or `**Voice note from @sender on telegram (untrusted), 0:05**`, with a note when links or instruction-like phrasing were found), a `file` block and, if created, a `task` block.
+
+Inbound channel voice notes (N11/Q4 round trip) reach the same path: the adapter hands the attachment bytes with `memoFormatFor(mime)` and `speaker` from its owner check, so the transcript lands in the thread with the right provenance and the audio in the Library.
 
 ## Tests and gates
 
@@ -103,6 +137,7 @@ Synthesize once to PCM, then encode per channel. Caps are upload limits; when a 
 | --- | --- | --- |
 | whisper.cpp on the fixture clip | `whisper-cli` on PATH (or `PSYCHE_WHISPER_CLI`) and a model at `PSYCHE_WHISPER_MODEL` (default `$PSYCHE_HOME/models/whisper/ggml-tiny.en.bin`) | File and streaming transcription of `test/fixtures/remind-alice.wav` |
 | Transcoding matrix | `ffmpeg` and `ffprobe` with libopus and libmp3lame | 4 PCM input formats × 6 channels verified with ffprobe, decode round trip, CAF remux |
+| OGG/Opus voice memo | same ffmpeg gate | `test/memo.test.ts`: the fixture encoded for Telegram, ingested as an untrusted channel memo |
 
 `test/fixtures/remind-alice.wav` is 4.5 s of Kokoro-82M (Apache-2.0) voice `af_heart` saying "Hello Psyche. Remind me to call Alice at noon tomorrow.", 16 kHz mono. `test/fixtures/kokoro-tokenizer.json` is the Kokoro v1.0 ONNX tokenizer (Apache-2.0).
 

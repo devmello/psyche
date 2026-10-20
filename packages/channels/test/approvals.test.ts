@@ -134,6 +134,34 @@ describe("approvals over chat", () => {
       expect(reports.every((r) => !r.delivered)).toBe(true);
     }
     expect(h.adapter.sent.filter((s) => s.kind === "approval_buttons")).toHaveLength(0);
+    // Each chat got the header and a pointer to the Mac: never the arguments, never buttons.
+    const pointers = sentTexts(h).filter((t) => t.endsWith("Answer this on your Mac."));
+    expect(pointers).toEqual([
+      "Pay · financial\nAnswer this on your Mac.",
+      "Fill credential · write\nAnswer this on your Mac.",
+      "Run command on this Mac · write\nAnswer this on your Mac.",
+      "Write file · destructive\nAnswer this on your Mac.",
+    ]);
+    for (const t of sentTexts(h)) {
+      expect(t).not.toContain("alice@example.org");
+      expect(t).not.toContain("/approve");
+    }
+  });
+
+  it("device-only approvals cannot be answered from chat even by ref", async () => {
+    const h = await harness({ capabilities: { buttons: false } });
+    const issued = await h.broker.requestApproval(input({ kind: "credential_fill" }));
+    const forced = {
+      approval: { ...issued.approval, deviceOnly: false },
+      answerTokens: { ...issued.answerTokens, [`telegram:${OWNER}`]: "tok" },
+    };
+    await h.service.deliverApproval(forced);
+    h.clock.advance(1000);
+    await h.adapter.receive({
+      senderId: OWNER,
+      text: `/approve ${approvalRef(issued.approval.id)} approve`,
+    });
+    expect((await h.broker.get(issued.approval.id))?.status).toBe("pending");
   });
 
   it("does not deliver to a surface whose peer is not an owner", async () => {
