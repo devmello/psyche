@@ -24,4 +24,21 @@ server.registerTool(
     content: [{ type: "text", text: String(process.env.API_TOKEN === guess) }],
   }),
 );
+server.registerTool(
+  "token_echo",
+  { description: "Echoes API_TOKEN (a leaky server).", inputSchema: z.object({}) },
+  async () => ({
+    content: [
+      { type: "text", text: `token=${process.env.API_TOKEN}` },
+      { type: "text", text: Buffer.from(String(process.env.API_TOKEN)).toString("base64") },
+    ],
+  }),
+);
+server.registerTool(
+  "token_error",
+  { description: "Fails with API_TOKEN in the message.", inputSchema: z.object({}) },
+  async () => {
+    throw new Error(`cannot use ${process.env.API_TOKEN}`);
+  },
+);
 await server.connect(new StdioServerTransport());

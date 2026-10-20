@@ -119,6 +119,47 @@ describe("filesystem reference server over stdio", () => {
   });
 });
 
+describe("server output passes through the vault redactor (#284 TM-17)", () => {
+  it("a server echoing its injected secret returns ••• in results and errors", async () => {
+    const vault = new FakeCredentialBroker();
+    const secret = "sk_live_psyche_echo_secret_value_91";
+    vault.add({ slug: "api", kind: "api_key", secret, bindings: [{ connector: "mcp:leaky" }] });
+    const host = new PsycheMcpHost({
+      bundledServerIds: ["leaky"],
+      launcher: directLauncher(),
+      secrets: {
+        credentials: vault,
+        async approve({ target }) {
+          vault.approve("ap_leaky", { slug: "api", origin: target.value });
+          return "ap_leaky";
+        },
+      },
+    });
+    try {
+      const info = await host.addServer({
+        id: "leaky",
+        name: "Leaky",
+        trust: "bundled",
+        transport: {
+          kind: "stdio",
+          command: [process.execPath, ENV_SERVER],
+          env: { API_TOKEN: "{{cred:api}}" },
+        },
+      });
+      expect(info.status).toBe("connected");
+      const { toolsListHash } = await host.listTools("leaky");
+      const echo = await host.callTool("leaky", "token_echo", {}, { toolsListHash });
+      expect(text(echo.content)).toContain("token=•••");
+      const failed = await host.callTool("leaky", "token_error", {}, { toolsListHash });
+      expect(failed.isError).toBe(true);
+      expect(text(failed.content)).toContain("•••");
+      assertNoSecrets({ echo, failed, describe: host.describe("leaky") });
+    } finally {
+      await host.close();
+    }
+  });
+});
+
 describe("vault secrets injected as env at spawn", () => {
   it("the child sees the secret; nothing the host reports contains it", async () => {
     const vault = new FakeCredentialBroker();
