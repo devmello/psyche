@@ -21,6 +21,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 ### v1 additive — 2026-10-19 (P9 file tools, #49)
 
 For `@psyche/files` and the approval cards (S11 / S12). `ToolCallDescription` gains optional `details?: JsonObject`: what the approval card shows besides the params, display only and never part of the binding. The agent loop spreads it into `ApprovalRequest.details` under `tool`, `params` and `target`, which it cannot override. `write_file` / `edit_file` use it for `{path, operation, diff}`, which the UI kit's `file_write` card already renders.
+### v1 additive — 2026-10-19 (S02/S04: write-ahead dispatch hook, #63)
+
+For S02 (`agent-core` awaits it before every dispatch) and S04 (`TaskWorkerPool` commits the step's `running` checkpoint in it).
+
+- `StartTurnInput` gains optional `beforeDispatch(call: DispatchIntent) => Promise<void>`, awaited immediately before each tool call is dispatched (after the broker and any approval). A rejection blocks the call. New contract type `DispatchIntent` (`toolCallId`, `tool`, `sideEffect`, `approvalId?`). Contract-only (a function, not on the wire): no generated-file change.
+- `FakeAgentLoop` awaits it before yielding a scripted `tool_call` `running` event and no longer records it in `turns`.
+
 ### v1 additive — 2026-10-19 (S05 M2: fresh presence on security settings)
 
 For S05 (the Gateway's `settings.set`) and S11 (Settings). `settings.set` gains optional `approvalId`. Once the Gateway has a presence verifier (helper Touch ID, passkeys), a security key (security §10: `permissions.*`, `exec.*`, `vault.*`, `devices.*`, `gateway.*`, `identityLinks.*`, `commands.ownerAllowFrom`, the channel DM / allow policies) fails `approval_required` with `details.approvalId`: a device-only `policy_change` card bound to the key and the value's hash, which needs a presence assertion to approve. The client retries with that `approvalId`; the approval covers that one value, once.
