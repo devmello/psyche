@@ -30,6 +30,31 @@ async function invoke(channel: string, arg?: unknown): Promise<unknown> {
   return res.value;
 }
 
+/**
+ * The window chrome main chose for this view (`--psyche-chrome=` launch argument, see
+ * `main/windows.ts`): the main window draws its own title bar under the traffic lights.
+ */
+function chromeFromArgv(argv: readonly string[]): {
+  titleBar: "inset" | "native";
+  trafficLights?: { x: number; y: number };
+} {
+  const raw = argv.find((a) => a.startsWith("--psyche-chrome="))?.slice("--psyche-chrome=".length);
+  try {
+    const v = raw === undefined ? null : (JSON.parse(raw) as Record<string, unknown>);
+    const t = v?.trafficLights as { x?: unknown; y?: unknown } | undefined;
+    return v?.titleBar === "inset"
+      ? {
+          titleBar: "inset",
+          ...(typeof t?.x === "number" && typeof t.y === "number"
+            ? { trafficLights: { x: t.x, y: t.y } }
+            : {}),
+        }
+      : { titleBar: "native" };
+  } catch {
+    return { titleBar: "native" };
+  }
+}
+
 function listen<T>(channel: string, cb: (payload: T) => void): () => void {
   const listener = (_e: IpcRendererEvent, payload: T) => cb(payload);
   ipcRenderer.on(channel, listener);
@@ -40,6 +65,7 @@ function listen<T>(channel: string, cb: (payload: T) => void): () => void {
 
 const bridge = {
   platform: process.platform,
+  chrome: chromeFromArgv(process.argv),
   gateway: {
     getStatus: () => invoke(IPC.getStatus),
     onStatus: (cb: (s: unknown) => void) => listen(IPC.status, cb),

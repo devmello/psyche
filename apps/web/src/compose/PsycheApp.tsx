@@ -11,6 +11,7 @@ import {
   UiSlotsProvider,
 } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from "react";
+import { TitleBar } from "../shell/components/TitleBar.tsx";
 import type { ShellPlatform } from "../shell/platform.ts";
 import { ShellApp, type ShellSlots } from "../shell/ShellApp.tsx";
 import { kitClient } from "./kit-client.ts";
@@ -188,19 +189,31 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
   let body: ReactNode;
   if (gate === "onboarding") {
     body = (
-      <div className="h-dvh overflow-auto" data-testid="onboarding">
-        {error ? <p role="alert">{error}</p> : null}
-        <OnboardingFlow
-          onComplete={(result) => {
-            completeOnboarding(platform, result).then(
-              () => {
-                reloadPersona();
-                setGate("ready");
-              },
-              (err: unknown) => setError(`Could not save your agent: ${String(err)}`),
-            );
-          }}
-        />
+      <div className="flex h-dvh flex-col" data-testid="onboarding">
+        <TitleBar chrome={platform.chrome}>
+          <span className="title">Set up Psyche</span>
+        </TitleBar>
+        <div className="flex min-h-0 flex-1 flex-col overflow-auto" data-testid="onboarding-scroll">
+          {error ? (
+            <p
+              role="alert"
+              className="mx-auto mt-4 w-full max-w-4xl px-6 text-danger-text sm:px-10"
+            >
+              {error}
+            </p>
+          ) : null}
+          <OnboardingFlow
+            onComplete={(result) => {
+              completeOnboarding(platform, result).then(
+                () => {
+                  reloadPersona();
+                  setGate("ready");
+                },
+                (err: unknown) => setError(`Could not save your agent: ${String(err)}`),
+              );
+            }}
+          />
+        </div>
       </div>
     );
   } else {

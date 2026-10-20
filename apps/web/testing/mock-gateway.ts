@@ -1,8 +1,9 @@
 import { createPublicKey, randomBytes, verify } from "node:crypto";
-import { chmodSync, rmSync } from "node:fs";
+import { chmodSync, existsSync, readFileSync, rmSync, statSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { createServer as createNetServer, type Server as NetServer, type Socket } from "node:net";
+import { extname, join, normalize, sep } from "node:path";
 import {
   BRIDGE_MAX_FRAME_BYTES,
   errRes,
@@ -46,6 +47,30 @@ export interface MockGatewayOptions {
   bridgeSocketPath?: string;
   /** Secret the desktop must present in `bridge.hello`. */
   handshakeSecret?: string;
+  /** Serve this built web client at `/` (single-page fallback to index.html), like the Gateway. */
+  webRoot?: string;
+}
+
+const CONTENT_TYPES: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".ico": "image/x-icon",
+  ".woff2": "font/woff2",
+  ".wasm": "application/wasm",
+  ".map": "application/json",
+};
+
+/** A file under `root` for a request path, or index.html for app routes; null when outside. */
+function staticFile(root: string, url: string): string | null {
+  const path = decodeURIComponent(new URL(url, "http://x").pathname);
+  const file = normalize(join(root, path));
+  if (file !== root && !file.startsWith(root.endsWith(sep) ? root : root + sep)) return null;
+  if (existsSync(file) && statSync(file).isFile()) return file;
+  return extname(path) === "" ? join(root, "index.html") : null;
 }
 
 export interface RecordedCall {
@@ -222,6 +247,14 @@ export class MockGateway {
       if (req.url === "/healthz") {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: true }));
+        return;
+      }
+      const file = this.opts.webRoot ? staticFile(this.opts.webRoot, req.url ?? "/") : null;
+      if (file !== null && existsSync(file)) {
+        res.writeHead(200, {
+          "content-type": CONTENT_TYPES[extname(file)] ?? "application/octet-stream",
+        });
+        res.end(readFileSync(file));
         return;
       }
       res.writeHead(404);
