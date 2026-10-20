@@ -80,6 +80,43 @@ export {
 } from "./goals/service.ts";
 export { GoalStore, normalizeTitle } from "./goals/store.ts";
 export {
+  type AcceptanceModel,
+  effortMinutes,
+  fitAcceptanceModel,
+  type IdeaFeatures,
+  PRIOR as ACCEPTANCE_PRIOR,
+  type TrainingExample,
+} from "./ideas/acceptance.ts";
+export { createIdeaHandlers, type IdeaHandlers } from "./ideas/handlers.ts";
+export {
+  type ConnectorSignal,
+  categoryOf,
+  findSequences,
+  loadOwnerNotes,
+  loadToolRuns,
+  mineGoals,
+  mineNotes,
+  type SequencePattern,
+  type SignalsProvider,
+  sequenceCandidates,
+  signalCandidates,
+  skillDraft,
+  type ToolRun,
+} from "./ideas/mining.ts";
+export {
+  type AcceptParams,
+  DEFAULT_MINE_SCHEDULE,
+  DEFAULT_WINDOW_SCHEDULE,
+  IDEAS_DELIVER_JOB,
+  IDEAS_MINE_JOB,
+  type IdeaEvent,
+  IdeasService,
+  type IdeasServiceOptions,
+  type MineReport,
+  trainingExamples,
+} from "./ideas/service.ts";
+export { type IdeaAction, IdeaStore, type StoredIdea, toIdea } from "./ideas/store.ts";
+export {
   cadenceKind,
   jobMarker,
   type Launcher,

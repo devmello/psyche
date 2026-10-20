@@ -15,7 +15,7 @@
 | `connectors.ts` | `ConnectorRegistry` with Google, token vault stand-in, sync timer, `connectors.list` / `get` |
 | `channels.ts` | `ChannelService` with Telegram and WebChat, inbound → chat turns, replies, `channels.*`, approvals over chat |
 | `helper.ts` | approvals on the Mac: cards to a connected helper as `notify.show`, `notify.response` → broker answers on the `notification` surface, the helper's Touch ID `PresenceVerifier` (signed assertion, #84) |
-| `proactive.ts` | S15 goals (`goals.*`) and the Feed (`feed.*`, sources from the `feed.sources` setting, the daily brief at 07:00); check-ins and briefs run in-process through `withProactiveJobs`; the heartbeat on a launcher bounded by `HEARTBEAT_TASK_BUDGET` (O2) |
+| `proactive.ts` | S15 goals (`goals.*`), the Feed (`feed.*`, sources from the `feed.sources` setting, the daily brief at 07:00) and Ideas (`ideas.*`, mining at 02:30, delivery window at 09:00, accepted ideas as task cards in the main thread); check-ins, briefs and idea jobs run in-process through `withProactiveJobs`; the heartbeat on a launcher bounded by `HEARTBEAT_TASK_BUDGET` (O2) |
 | `parts.ts` | the parts `psyched` mounts from its environment |
 
 Approvals that need Touch ID or a passkey are refused until a verifier accepts a real assertion (fail closed): helper assertions need a registered presence key, which nothing registers yet (#84); passkeys need S01 (#79).
