@@ -38,13 +38,28 @@ export function formatCountdown(ms: number): string {
   return `${h > 0 ? `${h}:` : ""}${mm}:${String(s).padStart(2, "0")}`;
 }
 
-/** "2 h ago", "just now", "in 41 min". */
+/**
+ * "just now", "41 min ago", "3 h ago", "yesterday", "4 days ago", then a date ("Oct 2"); the
+ * future reads "in 41 min", "in 3 h", "tomorrow", "in 4 days", "on Oct 30". Hours drop their
+ * minutes from 2 h on, so a list never shows "409 h 7 min ago".
+ */
 export function formatRelative(iso: string, now: number): string {
   const diff = Date.parse(iso) - now;
   const abs = Math.abs(diff);
   if (abs < 45_000) return "just now";
-  const label = formatDuration(abs);
-  return diff < 0 ? `${label} ago` : `in ${label}`;
+  const past = diff < 0;
+  const hour = 3_600_000;
+  const day = 24 * hour;
+  let label: string;
+  if (abs < 2 * hour) label = formatDuration(abs);
+  else if (abs < day) label = `${Math.round(abs / hour)} h`;
+  else {
+    const days = Math.round(abs / day);
+    if (days === 1) return past ? "yesterday" : "tomorrow";
+    if (days < 7) label = `${days} days`;
+    else return past ? formatDate(iso) : `on ${formatDate(iso)}`;
+  }
+  return past ? `${label} ago` : `in ${label}`;
 }
 
 export function plural(n: number, one: string, many = `${one}s`): string {

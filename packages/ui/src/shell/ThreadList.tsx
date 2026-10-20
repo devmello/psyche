@@ -191,9 +191,10 @@ export function ThreadList({
   return (
     <aside
       aria-label="Threads"
-      className="flex h-full w-[var(--thread-list-width)] flex-col gap-2 border-r border-gray-6 bg-gray-1 p-2"
+      className="flex h-full w-[var(--thread-list-width)] flex-col border-r border-gray-6 bg-gray-1"
     >
-      <div className="flex items-center gap-1">
+      {/* 56 px, like the agent and pane headers, so their borders end on one line (§4.1). */}
+      <div className="threads-header flex h-14 shrink-0 items-center gap-1 border-b border-gray-6 px-2">
         <Input
           aria-label="Filter threads"
           placeholder="Search threads"
@@ -214,17 +215,17 @@ export function ThreadList({
         ) : null}
       </div>
       {threads.loading && threads.all.length === 0 ? (
-        <div className="flex flex-col gap-1" role="status" aria-label="Loading threads">
+        <div className="flex flex-col gap-1 p-2" role="status" aria-label="Loading threads">
           <Skeleton className="h-8" />
           <Skeleton className="h-8" />
           <Skeleton className="h-8" />
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2">
           {threads.main && match(threads.main) ? (
             <ul aria-label="Main chat">{row(threads.main)}</ul>
           ) : null}
-          <h2 className="text-label px-2 text-muted-foreground">Side chats</h2>
+          <h2 className="text-label mt-2 px-2 text-muted-foreground">Side chats</h2>
           {side.length === 0 ? (
             <p className="px-2 text-sm text-muted-foreground">
               {filter ? "No threads match." : "No side chats yet."}

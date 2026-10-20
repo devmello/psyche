@@ -117,10 +117,11 @@ const STATUS: Record<string, string> = {
   "browser.wait": "Waiting",
   "browser.dialog": "Answering dialog",
   "browser.fill_credential": "Filling sign-in",
+  "browser.request_control": "Waiting for you",
 };
 
 /** Read-only lookups the tool layer calls synchronously in `describeCall`; never throw. */
-const PEEKS = new Set(["peek", "tabOrigin", "pendingDialog"]);
+const PEEKS = new Set(["peek", "peekSnapshot", "sessionOf", "tabOrigin", "pendingDialog"]);
 
 export function composeBrowser(
   services: ComposeServices,
@@ -343,6 +344,31 @@ export function composeBrowser(
     },
     devPreview: devServers,
     ...(redact === undefined ? {} : { containsSecret: (text: string) => redact(text) !== text }),
+    // Hand-offs (S20): the pane shows the reason and the owner gets an "input needed" notice.
+    async requestControl(req) {
+      const host = req.origin === null ? "a page" : new URL(req.origin).host;
+      const reason = req.reason.replace(/\s+/g, " ").trim();
+      client
+        ?.call("bridge.tab.status", {
+          tabId: req.tabId,
+          text: `Needs you: ${reason}`.slice(0, 200),
+        })
+        .catch(() => undefined);
+      const note = await services.notifier
+        .notify({
+          kind: "input_needed",
+          title: "Psyche needs you in the browser",
+          body: `On ${host}, the agent asks: ${reason}. Take control in the browser pane, then hand it back.`,
+          ...(req.taskId === undefined ? {} : { taskId: req.taskId }),
+          route: "/browser",
+          dedupeKey: `browser-control:${req.tabId}`,
+        })
+        .catch(() => undefined);
+      return async () => {
+        client?.call("bridge.tab.status", { tabId: req.tabId, text: null }).catch(() => undefined);
+        if (note !== undefined) await services.notifier.resolve(note.id).catch(() => undefined);
+      };
+    },
   });
 
   const attach = (next: BridgeClient): CdpBridgeDriver => {

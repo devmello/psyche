@@ -1,57 +1,108 @@
 import type { Task, TaskAction } from "@psyche/protocol";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ListChecks } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { DISCLOSURE_LABEL, type DisclosureLevel } from "../blocks/disclosure.tsx";
 import { TASK_STATUS_LABEL, TaskStatusIcon } from "../blocks/TaskCard.tsx";
+import { EmptyState } from "../components/page.tsx";
+import { Badge } from "../components/ui/badge.tsx";
 import { Button } from "../components/ui/button.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
 import { ToggleGroup, ToggleGroupItem } from "../components/ui/toggle-group.tsx";
 import { useTask, useTasks } from "../data/index.ts";
 import { formatRelative, formatTime } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
-import { cn } from "../lib/utils.ts";
 
 type Filter = "running" | "needs-you" | "all";
+
+/**
+ * An action's outcome as a semantic chip (§4.8): "ok · 12s · r-101" reads as a success chip
+ * "ok" followed by the muted rest; failures are danger, waiting and unknown outcomes approval.
+ */
+export function outcomeTone(outcome: string): "success" | "danger" | "approval" {
+  const head = outcome.trim().toLowerCase();
+  if (/^(ok|done|delivered|sent|saved)\b/.test(head)) return "success";
+  if (/^(failed|error|denied|refused|cancelled)\b/.test(head)) return "danger";
+  return "approval";
+}
+
+function Outcome({ outcome }: { outcome: string }): ReactElement {
+  const [head = outcome, ...rest] = outcome.split(" · ");
+  return (
+    <span className="flex shrink-0 items-center gap-1.5">
+      <Badge variant={outcomeTone(outcome)}>{head}</Badge>
+      {rest.length > 0 ? (
+        <span className="text-caption text-muted-foreground">{rest.join(" · ")}</span>
+      ) : null}
+    </span>
+  );
+}
 
 /** Task rows (UI design §3.14): status glyph, title, status text, origin, lease owner. */
 export function TaskList({
   tasks,
   onSelect,
+  onRetry,
+  onResume,
   now,
 }: {
   tasks: readonly Task[];
   onSelect: (task: Task) => void;
+  /** Row controls (§3.14): Retry on failed and cancelled tasks, Resume on paused ones. */
+  onRetry?: (task: Task) => void;
+  onResume?: (task: Task) => void;
   now: number;
 }): ReactElement {
   if (tasks.length === 0) {
-    return <p className="px-1 py-6 text-center text-sm text-muted-foreground">No tasks yet.</p>;
+    return <EmptyState icon={ListChecks}>No tasks yet.</EmptyState>;
   }
   return (
     <ul className="flex flex-col" aria-label="Tasks">
       {tasks.map((t) => {
         const step = t.checklist.find((c) => c.status === "in_progress")?.text;
         return (
-          <li key={t.id}>
+          <li key={t.id} className="group/row flex items-center gap-1 rounded-md hover:bg-gray-3">
             <button
               type="button"
               onClick={() => onSelect(t)}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-gray-3"
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2 text-left"
             >
               <TaskStatusIcon status={t.status} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{t.title}</span>
-                <span className="block truncate text-xs text-muted-foreground">
+                <span className="block truncate text-small font-medium">{t.title}</span>
+                <span className="block truncate text-caption text-muted-foreground">
                   {TASK_STATUS_LABEL[t.status]}
                   {step ? ` · ${step}` : t.summary ? ` · ${t.summary}` : ""}
                 </span>
               </span>
-              <span className="shrink-0 text-right text-xs text-muted-foreground">
+              <span className="shrink-0 text-right text-caption text-muted-foreground">
                 {t.createdFrom}
                 <br />
                 {formatRelative(t.updatedAt, now)}
                 {t.leaseOwner && t.leaseOwner !== "local" ? ` · ${t.leaseOwner}` : ""}
               </span>
             </button>
+            {onRetry && (t.status === "failed" || t.status === "cancelled") ? (
+              <Button
+                size="xs"
+                variant="ghost"
+                className="mr-1"
+                aria-label={`Retry ${t.title}`}
+                onClick={() => onRetry(t)}
+              >
+                Retry
+              </Button>
+            ) : null}
+            {onResume && t.status === "paused" ? (
+              <Button
+                size="xs"
+                variant="ghost"
+                className="mr-1"
+                aria-label={`Resume ${t.title}`}
+                onClick={() => onResume(t)}
+              >
+                Resume
+              </Button>
+            ) : null}
           </li>
         );
       })}
@@ -68,41 +119,28 @@ export function ActionLog({
   level: DisclosureLevel;
 }): ReactElement {
   if (actions.length === 0) {
-    return <p className="py-4 text-sm text-muted-foreground">No actions yet.</p>;
+    return <p className="px-2 py-4 text-small text-muted-foreground">No actions yet.</p>;
   }
   if (level === 0) {
     const last = actions[actions.length - 1];
-    return <p className="py-2 text-sm">{last?.level1}</p>;
+    return <p className="px-2 py-2 text-small">{last?.level1}</p>;
   }
   return (
-    <ol className="flex flex-col divide-y divide-gray-4 text-sm" aria-label="Actions">
+    <ol className="flex flex-col divide-y divide-gray-4 text-small" aria-label="Actions">
       {actions.map((a) => (
-        <li key={a.id} className="py-1.5">
-          <div className="flex items-center gap-2">
+        <li key={a.id} className="px-2 py-2">
+          <div className="flex items-center gap-3">
             <span className="w-11 shrink-0 font-mono text-xs text-muted-foreground tabular-nums">
               {formatTime(a.createdAt)}
             </span>
-            <span className="w-16 shrink-0 truncate font-mono text-xs text-gray-11">
+            <span className="w-16 shrink-0 truncate text-caption text-gray-11">
               {a.level2.tool.split(/[._]/)[0]}
             </span>
             <span className="min-w-0 flex-1 truncate">{a.level1}</span>
-            {a.level2.outcome ? (
-              <span
-                className={cn(
-                  "text-xs",
-                  a.level2.outcome === "ok" && "text-success-text",
-                  a.level2.outcome === "failed" && "text-danger-text",
-                  a.level2.outcome !== "ok" &&
-                    a.level2.outcome !== "failed" &&
-                    "text-approval-text",
-                )}
-              >
-                {a.level2.outcome}
-              </span>
-            ) : null}
+            {a.level2.outcome ? <Outcome outcome={a.level2.outcome} /> : null}
           </div>
           {level === 2 ? (
-            <dl className="mt-1 ml-13 grid grid-cols-[5rem_1fr] gap-x-2 rounded-md bg-gray-2 p-2 font-mono text-xs">
+            <dl className="mt-1.5 ml-14 grid grid-cols-[5rem_1fr] gap-x-2 rounded-md bg-gray-2 p-2 font-mono text-xs">
               <dt className="text-muted-foreground">tool</dt>
               <dd>{a.level2.tool}</dd>
               {a.level2.target ? (
@@ -146,48 +184,57 @@ export function TaskDetail({
   const task = t.task;
   const live = task.status === "running" || task.status === "queued";
   return (
-    <section aria-labelledby={`task-${task.id}`} className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {onBack ? (
-          <Button variant="ghost" size="icon-sm" onClick={onBack} aria-label="Back to tasks">
-            <ArrowLeft aria-hidden="true" />
-          </Button>
-        ) : null}
-        <TaskStatusIcon status={task.status} />
-        <h3 id={`task-${task.id}`} className="font-semibold">
-          {task.title}
-        </h3>
-        <span className="text-xs text-muted-foreground">
+    <section aria-labelledby={`task-${task.id}`} className="flex flex-col gap-4">
+      <header className="flex flex-col gap-1 px-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {onBack ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="-ml-2"
+              onClick={onBack}
+              aria-label="Back to tasks"
+            >
+              <ArrowLeft aria-hidden="true" />
+            </Button>
+          ) : null}
+          <TaskStatusIcon status={task.status} />
+          <h3 id={`task-${task.id}`} className="min-w-0 flex-1 truncate text-h3">
+            {task.title}
+          </h3>
+          <span className="flex shrink-0 gap-1">
+            {live ? (
+              <Button size="sm" variant="outline" onClick={() => void t.pause(task.id)}>
+                Pause
+              </Button>
+            ) : null}
+            {task.status === "paused" ? (
+              <Button size="sm" onClick={() => void t.resume(task.id)}>
+                Resume
+              </Button>
+            ) : null}
+            {task.status === "failed" || task.status === "cancelled" ? (
+              <Button size="sm" onClick={() => void t.retry(task.id)}>
+                Retry
+              </Button>
+            ) : null}
+            {live || task.status === "paused" || task.status.startsWith("awaiting") ? (
+              <Button size="sm" variant="ghost" onClick={() => void t.cancel(task.id)}>
+                Cancel
+              </Button>
+            ) : null}
+          </span>
+        </div>
+        <p className="text-caption text-muted-foreground">
           from {task.createdFrom} · {formatTime(task.createdAt)} · attempt {task.attempt}
-        </span>
-        <span className="ml-auto flex gap-1">
-          {live ? (
-            <Button size="sm" variant="outline" onClick={() => void t.pause(task.id)}>
-              Pause
-            </Button>
-          ) : null}
-          {task.status === "paused" ? (
-            <Button size="sm" variant="outline" onClick={() => void t.resume(task.id)}>
-              Resume
-            </Button>
-          ) : null}
-          {live || task.status === "paused" || task.status.startsWith("awaiting") ? (
-            <Button size="sm" variant="ghost" onClick={() => void t.cancel(task.id)}>
-              Cancel
-            </Button>
-          ) : null}
-          {task.status === "failed" || task.status === "cancelled" ? (
-            <Button size="sm" variant="outline" onClick={() => void t.retry(task.id)}>
-              Retry
-            </Button>
-          ) : null}
-        </span>
-      </div>
-      <p className="text-sm text-gray-11">
-        {TASK_STATUS_LABEL[task.status]}
-        {task.summary ? ` · ${task.summary}` : ""} · updated {formatRelative(task.updatedAt, now)}
-      </p>
-      <div className="flex items-center gap-2 text-sm">
+          {task.leaseOwner && task.leaseOwner !== "local" ? ` · on ${task.leaseOwner}` : ""}
+        </p>
+        <p className="text-small text-gray-11">
+          {TASK_STATUS_LABEL[task.status]}
+          {task.summary ? ` · ${task.summary}` : ""} · updated {formatRelative(task.updatedAt, now)}
+        </p>
+      </header>
+      <div className="flex items-center gap-2 px-2 text-small">
         <span className="text-muted-foreground" id={`level-${task.id}`}>
           Level
         </span>
@@ -229,7 +276,7 @@ export function ActivityPanel({
   const shown =
     filter === "running" ? tasks.running : filter === "needs-you" ? tasks.needsYou : tasks.all;
   return (
-    <section aria-label="Activity" className="flex flex-col gap-2">
+    <section aria-label="Activity" className="flex flex-col gap-3">
       <ToggleGroup
         aria-label="Filter tasks"
         value={[filter]}
@@ -254,14 +301,20 @@ export function ActivityPanel({
           <Skeleton className="h-10" />
         </div>
       ) : tasks.error && tasks.all.length === 0 ? (
-        <p className="text-sm">
+        <p className="px-2 text-small">
           Psyche couldn't load tasks ({tasks.error}).{" "}
           <button type="button" className="text-accent-11 underline" onClick={tasks.reload}>
             Try again
           </button>
         </p>
       ) : (
-        <TaskList tasks={shown} onSelect={(t) => setSelected(t.id)} now={now} />
+        <TaskList
+          tasks={shown}
+          onSelect={(t) => setSelected(t.id)}
+          onRetry={(t) => void tasks.retry(t.id)}
+          onResume={(t) => void tasks.resume(t.id)}
+          now={now}
+        />
       )}
     </section>
   );
