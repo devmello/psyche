@@ -201,6 +201,50 @@ describe("subscription providers (Claude Code, Codex)", () => {
   });
 });
 
+describe("replacing a provider key in Settings (#504)", () => {
+  it("stores the pasted key, probes it at once and says when the provider refuses it", async () => {
+    const gateway = setup();
+    const world = () => gateway().world;
+    // The probe answers like Anthropic for a wrong key, then for the right one.
+    await screen.findByText("Anthropic");
+    world().modelProbes = {
+      ...world().modelProbes,
+      anthropic: {
+        state: "auth_failed",
+        probedAt: "2026-10-20T22:21:00Z",
+        models: [],
+        error: "the endpoint refused the key (HTTP 401: invalid x-api-key)",
+      },
+    };
+    await userEvent.click(screen.getByRole("button", { name: "Replace the Anthropic key" }));
+    const field = screen.getByLabelText("New API key for Anthropic") as HTMLInputElement;
+    expect(field.type).toBe("password");
+    await userEvent.type(field, "sk-ant-wrong");
+    await userEvent.click(screen.getByRole("button", { name: "Save key" }));
+    expect(
+      await screen.findByText(
+        "The provider refused this key (the endpoint refused the key (HTTP 401: invalid x-api-key)). Paste it again.",
+      ),
+    ).toBeTruthy();
+    expect(callsOf(gateway(), "models.setKey").map((c) => c.params)).toEqual([
+      { providerId: "anthropic", key: "sk-ant-wrong" },
+    ]);
+    expect(document.body.textContent).not.toContain("sk-ant-wrong");
+
+    world().modelProbes = {
+      ...world().modelProbes,
+      anthropic: { state: "reachable", probedAt: "2026-10-20T22:30:00Z", models: [] },
+    };
+    await userEvent.type(screen.getByLabelText("New API key for Anthropic"), "sk-ant-right");
+    await userEvent.click(screen.getByRole("button", { name: "Save key" }));
+    await waitFor(() => expect(screen.queryByLabelText("New API key for Anthropic")).toBeNull());
+    expect(callsOf(gateway(), "models.probe").map((c) => c.params)).toEqual([
+      { providerId: "anthropic" },
+      { providerId: "anthropic" },
+    ]);
+  });
+});
+
 describe("EndpointProbeStatus", () => {
   it("shows a refused key with its reason and offers a re-check", async () => {
     let clicked = 0;

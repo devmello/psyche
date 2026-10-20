@@ -119,6 +119,7 @@ export function OnboardingFlow({
   const [connectError, setConnectError] = useState<string | null>(null);
   const [model, setModel] = useState<ModelChoice>(initial.model ?? defaultModelChoice("cloud"));
   const [keyError, setKeyError] = useState<string | null>(null);
+  const [keyRefused, setKeyRefused] = useState(false);
   const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
   const [recoverySaved, setRecoverySaved] = useState(false);
   // A vault created in this step shows its recovery key once: the owner must confirm saving it
@@ -231,10 +232,17 @@ export function OnboardingFlow({
   const saveKey = onSaveKey
     ? async (key: string) => {
         setKeyError(null);
+        setKeyRefused(false);
         try {
           const saved = await onSaveKey(model.provider, key);
           const keyRef = typeof saved === "string" ? saved : saved.keyRef;
           if (typeof saved !== "string" && saved.recoveryKey) setRecoveryKey(saved.recoveryKey);
+          if (typeof saved !== "string" && saved.refused !== undefined) {
+            // Keep the field open: another paste replaces the refused key.
+            setKeyError(t("onboarding.keyRefused", { reason: saved.refused }));
+            setKeyRefused(true);
+            return;
+          }
           setModel((m) => ({ ...m, keyRef }));
         } catch (err) {
           setKeyError(t("onboarding.keyFailed", { reason: describeError(err) }));
@@ -382,6 +390,7 @@ export function OnboardingFlow({
             value={model}
             onChange={setModel}
             keyError={keyError}
+            keyRefused={keyRefused}
             {...(recoveryKey
               ? { recoveryKey, recoverySaved, onRecoverySaved: setRecoverySaved }
               : {})}

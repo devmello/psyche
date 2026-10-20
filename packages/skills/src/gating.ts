@@ -28,6 +28,92 @@ export function toolMatches(pattern: string, tool: string): boolean {
   return pattern === tool;
 }
 
+/**
+ * Capability names skills declare (S20's `requires.tools`, OpenClaw-style families) and the
+ * Gateway tools that provide them, with what the owner can do when none is there (issue #506).
+ * A requirement is met by its own name or by any listed tool; unlisted names match only
+ * themselves.
+ */
+export const TOOL_CAPABILITIES: Readonly<
+  Record<string, { tools: readonly string[]; label: string; hint: string }>
+> = {
+  "email.*": {
+    tools: ["gmail_*", "mail_*"],
+    label: "email",
+    hint: "connect Gmail or Apple Mail in Settings → Connectors",
+  },
+  "calendar.*": {
+    tools: ["calendar_*", "calendar.*"],
+    label: "a calendar",
+    hint: "connect Google Calendar or Apple Calendar in Settings → Connectors",
+  },
+  "messages.*": {
+    tools: ["imessage_*", "imessage.*", "messages.*"],
+    label: "messages",
+    hint: "turn on iMessage in Settings → Channels",
+  },
+  "browser.*": {
+    tools: ["browser.*"],
+    label: "the agent browser",
+    hint: "turn the browser on in Settings → Browser",
+  },
+  search: {
+    tools: ["web_search"],
+    label: "web search",
+    hint: "add a search provider key in Settings → Model & providers",
+  },
+  fetch: {
+    tools: ["web_fetch"],
+    label: "web pages",
+    hint: "web fetching comes with the web search provider",
+  },
+  memory_search: {
+    tools: ["memory"],
+    label: "memory search",
+    hint: "memory is part of every Gateway; restart Psyche if it is missing",
+  },
+  "artifact.create": {
+    tools: ["write_file"],
+    label: "saving files",
+    hint: "share a folder in Settings → File access",
+  },
+  "pdf.*": {
+    tools: ["read_file"],
+    label: "reading PDFs",
+    hint: "share a folder in Settings → File access",
+  },
+  "sheet.*": {
+    tools: ["read_file"],
+    label: "reading spreadsheets",
+    hint: "share a folder in Settings → File access",
+  },
+  exec: {
+    tools: ["exec"],
+    label: "the sandbox",
+    hint: "the sandbox needs Docker or the VM (Settings → Server)",
+  },
+};
+
+/** Whether `requirement` is met by a registered tool (its own name or a providing tool). */
+export function capabilityMet(requirement: string, tools: readonly string[]): boolean {
+  const providers = [requirement, ...(TOOL_CAPABILITIES[requirement]?.tools ?? [])];
+  return providers.some((p) => tools.some((x) => toolMatches(p, x)));
+}
+
+/** "needs email: connect Gmail or Apple Mail in Settings → Connectors" (or the raw name). */
+export function missingCapabilityText(requirement: string): string {
+  const c = TOOL_CAPABILITIES[requirement];
+  return c === undefined ? `missing tool: ${requirement}` : `needs ${c.label}: ${c.hint}`;
+}
+
+/** "needs email or a calendar (connect …; connect …)", or the raw tool names when unknown. */
+function anyOfText(requirements: readonly string[]): string {
+  const known = requirements.map((r) => TOOL_CAPABILITIES[r]);
+  const names = requirements.map((r, i) => known[i]?.label ?? `the tool ${r}`);
+  const hints = [...new Set(known.flatMap((k) => (k === undefined ? [] : [k.hint])))];
+  return `needs ${names.join(" or ")}${hints.length === 0 ? "" : ` (${hints.join("; ")})`}`;
+}
+
 export function evaluateGates(requires: SkillRequires, ctx: GateContext): GateResult {
   const missing: string[] = [];
   if (requires.os.length > 0 && !requires.os.includes(ctx.platform))
@@ -42,12 +128,9 @@ export function evaluateGates(requires: SkillRequires, ctx: GateContext): GateRe
   const tools = ctx.tools;
   if (tools !== undefined) {
     for (const t of requires.tools)
-      if (!tools.some((x) => toolMatches(t, x))) missing.push(`missing tool: ${t}`);
-    if (
-      requires.anyTools.length > 0 &&
-      !requires.anyTools.some((t) => tools.some((x) => toolMatches(t, x)))
-    )
-      missing.push(`needs one of the tools: ${requires.anyTools.join(", ")}`);
+      if (!capabilityMet(t, tools)) missing.push(missingCapabilityText(t));
+    if (requires.anyTools.length > 0 && !requires.anyTools.some((t) => capabilityMet(t, tools)))
+      missing.push(anyOfText(requires.anyTools));
   }
   return { eligible: missing.length === 0, missing };
 }

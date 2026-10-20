@@ -261,6 +261,72 @@ export interface ModelProvidersPanelProps extends SettingsFormProps, LoadProps {
   /** `models.list` failed; the panel shows the providers saved in settings beneath it. */
   listError?: string | null;
   onRetryList?: () => void;
+  /**
+   * Store a pasted key (`models.setKey`, then a probe). Resolves to an error to show, or null.
+   * When set, Add / Replace key opens a field in the provider's row instead of `onEditKey`.
+   */
+  onSaveKey?: (providerId: string, key: string) => Promise<string | null>;
+}
+
+/** The inline Add / Replace key field (#504): the key goes to the vault and is checked at once. */
+function KeyEditor({
+  provider,
+  onSave,
+  onClose,
+}: {
+  provider: ProviderInfo;
+  onSave: (key: string) => Promise<string | null>;
+  onClose: () => void;
+}): ReactElement {
+  const id = useId();
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    const problem = await onSave(draft.trim());
+    setSaving(false);
+    setDraft("");
+    if (problem === null) onClose();
+    else setError(problem);
+  };
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={`${id}-key`} className="text-xs font-medium">
+        {t("settings.model.key.newLabel", { name: provider.label })}
+      </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          id={`${id}-key`}
+          type="password"
+          autoComplete="off"
+          spellCheck={false}
+          className="h-8 min-w-72 rounded-md border border-input bg-transparent px-2 text-sm"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          disabled={saving}
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={saving || draft.trim() === ""}
+          onClick={() => void save()}
+        >
+          {saving ? t("settings.model.key.saving") : t("settings.model.key.save")}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={onClose} disabled={saving}>
+          {t("settings.model.key.cancel")}
+        </Button>
+      </div>
+      {error !== null ? (
+        <p role="alert" className="text-xs text-danger-text">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 /** A model's name at level 1: its human label, or the ref when nothing names it. */
@@ -293,7 +359,10 @@ export function ModelProvidersPanel({
   loading,
   error,
   onRetry,
+  onSaveKey,
 }: ModelProvidersPanelProps): ReactElement {
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const editKey = onSaveKey !== undefined ? (p: ProviderInfo) => setEditingKey(p.id) : onEditKey;
   // Embedding models cannot chat; they never appear as role choices.
   const models = providers
     .flatMap((p) => p.models)
@@ -354,12 +423,12 @@ export function ModelProvidersPanel({
                         : p.keyRef === null
                           ? t("settings.model.key.none")
                           : t("settings.model.key.stored")}
-                    {onEditKey && p.kind !== "local" && p.kind !== "subscription" ? (
+                    {editKey && p.kind !== "local" && p.kind !== "subscription" ? (
                       <Button
                         type="button"
                         variant="link"
                         size="xs"
-                        onClick={() => onEditKey(p)}
+                        onClick={() => editKey(p)}
                         aria-label={t("settings.model.key.editNamed", {
                           has: p.keyRef !== null,
                           name: p.label,
@@ -371,6 +440,13 @@ export function ModelProvidersPanel({
                       </Button>
                     ) : null}
                   </p>
+                  {onSaveKey !== undefined && editingKey === p.id ? (
+                    <KeyEditor
+                      provider={p}
+                      onSave={(key) => onSaveKey(p.id, key)}
+                      onClose={() => setEditingKey(null)}
+                    />
+                  ) : null}
                   {p.probe !== undefined ? (
                     <EndpointProbeStatus
                       label={p.label}
@@ -641,6 +717,29 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
       .finally(() => setProbing(null));
   };
 
+  /** Store a pasted key, then probe it at once so a refused key shows here (#504). */
+  const onSaveKey = async (providerId: string, key: string): Promise<string | null> => {
+    try {
+      await call("models.setKey", { providerId, key });
+    } catch (err) {
+      return t("settings.model.key.failed", { reason: messageOf(err) });
+    }
+    try {
+      const res = await call("models.probe", { providerId });
+      if (res.provider.probe.state === "auth_failed") {
+        return t("settings.model.key.refused", {
+          reason: res.provider.probe.error ?? "HTTP 401",
+        });
+      }
+      return null;
+    } catch {
+      // Stored; the probe can run again from the row.
+      return null;
+    } finally {
+      reload();
+    }
+  };
+
   const onRunCheck =
     props.onRunCheck ??
     (live
@@ -683,6 +782,7 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
         listError={props.providers === undefined && !live ? list.error : null}
         onRetryList={reload}
         {...(live ? { onProbe } : {})}
+        {...(live && props.onEditKey === undefined ? { onSaveKey } : {})}
         {...(onRunCheck === undefined ? {} : { onRunCheck })}
       />
       <AlertDialog

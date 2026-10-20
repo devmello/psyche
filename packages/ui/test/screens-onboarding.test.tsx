@@ -6,13 +6,14 @@ import {
   type OnboardingFlowProps,
 } from "../src/screens/onboarding/OnboardingFlow.tsx";
 import type { OnboardingResult } from "../src/screens/onboarding/types.ts";
+import type { UiSlots } from "../src/slots.tsx";
 import { StoryWorld } from "../src/stories/harness.tsx";
 
-function setup(props: Partial<OnboardingFlowProps> = {}) {
+function setup(props: Partial<OnboardingFlowProps> = {}, slots: UiSlots = {}) {
   const onComplete = vi.fn<(r: OnboardingResult) => void>();
   const onStepChange = vi.fn();
   render(
-    <StoryWorld>
+    <StoryWorld slots={slots}>
       <OnboardingFlow onComplete={onComplete} onStepChange={onStepChange} {...props} />
     </StoryWorld>,
   );
@@ -149,6 +150,25 @@ describe("OnboardingFlow", () => {
     expect(screen.queryByLabelText("API key")).toBeNull();
   });
 
+  it("keeps the key field open when the provider refuses the saved key (#504)", async () => {
+    const onSaveKey = vi.fn(async (provider: string) => ({
+      keyRef: `model-${provider}`,
+      refused: "the endpoint refused the key (HTTP 401: invalid x-api-key)",
+    }));
+    setup({ defaultStep: "model", onSaveKey });
+    await userEvent.type(screen.getByLabelText("API key"), "sk-ant-wrong");
+    await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
+    expect(
+      await screen.findByText(
+        /The provider refused this key \(the endpoint refused the key \(HTTP 401: invalid x-api-key\)\)/,
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("The key was not stored.")).toBeNull();
+    // Not marked stored: another paste replaces it.
+    expect(screen.queryByText("model-anthropic")).toBeNull();
+    expect(screen.getByLabelText("API key")).toBeTruthy();
+  });
+
   it("explains what the VM guest can see", async () => {
     setup({ defaultStep: "where", initial: { persona: { name: "Wren" } } });
     expect(heading().textContent).toContain("Where Wren works");
@@ -233,11 +253,56 @@ describe("First run from scratch", () => {
     expect((await screen.findByTestId("vault-recovery-key")).textContent).toContain(
       "ABCD-EFGH-IJKL",
     );
-    expect(screen.getByRole("status").textContent).toContain("model-anthropic");
+    expect(
+      screen.getAllByRole("status").some((s) => s.textContent?.includes("model-anthropic")),
+    ).toBe(true);
     const next = screen.getByRole("button", { name: "Next" }) as HTMLButtonElement;
     expect(next.disabled).toBe(true);
     await userEvent.click(screen.getByRole("checkbox", { name: "I saved it" }));
     expect(next.disabled).toBe(false);
+  });
+
+  it("copies the recovery key through the host's clipboard and says so (#507)", async () => {
+    const writeClipboard = vi.fn(async (_text: string) => {});
+    setup(
+      {
+        step: "model",
+        onSaveKey: async () => ({ keyRef: "model-anthropic", recoveryKey: "ABCD-EFGH-IJKL" }),
+      },
+      { writeClipboard },
+    );
+    await userEvent.type(screen.getByLabelText("API key"), "sk-ant-x");
+    await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
+    const box = await screen.findByTestId("vault-recovery-key");
+    await userEvent.click(within(box).getByRole("button", { name: "Copy" }));
+    expect(writeClipboard).toHaveBeenCalledWith("ABCD-EFGH-IJKL");
+    expect(await within(box).findByRole("button", { name: "Copied" })).toBeTruthy();
+    expect(within(box).getByText("Recovery key copied to the clipboard.")).toBeTruthy();
+  });
+
+  it("says when the key couldn't be copied", async () => {
+    const writeClipboard = vi.fn(async () => {
+      throw new Error("denied");
+    });
+    Object.defineProperty(globalThis.navigator, "clipboard", {
+      value: undefined,
+      configurable: true,
+    });
+    setup(
+      {
+        step: "model",
+        onSaveKey: async () => ({ keyRef: "model-anthropic", recoveryKey: "ABCD-EFGH-IJKL" }),
+      },
+      { writeClipboard },
+    );
+    await userEvent.type(screen.getByLabelText("API key"), "sk-ant-x");
+    await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
+    const box = await screen.findByTestId("vault-recovery-key");
+    await userEvent.click(within(box).getByRole("button", { name: "Copy" }));
+    expect(await within(box).findByRole("alert")).toHaveProperty(
+      "textContent",
+      "Couldn't copy. Select the key and copy it.",
+    );
   });
 
   it("lists the setup checks on Done", async () => {

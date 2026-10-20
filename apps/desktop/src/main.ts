@@ -11,6 +11,7 @@ import type { GatewayConnection } from "@psyche/web/client";
 import type { ShellCommand } from "@psyche/web/platform";
 import {
   app,
+  clipboard,
   desktopCapturer,
   dialog,
   globalShortcut,
@@ -32,6 +33,7 @@ import { deepLinkFromArgv, parseDeepLink } from "./lib/deep-link.ts";
 import { loadOrCreateDeviceKey } from "./lib/device-key.ts";
 import {
   checkCallable,
+  checkClipboardText,
   checkHttpUrl,
   checkRoute,
   checkViewport,
@@ -457,6 +459,11 @@ function registerIpc(): void {
   });
   handle(IPC.permissionsStatus, () => permissions.statusAll());
   handle(IPC.helperGetState, () => helper?.getState() ?? { kind: "unbundled" });
+  // The app session refuses navigator.clipboard (the permission check allows only audio), so
+  // copy buttons (vault recovery key, credential ids) write through main (#507).
+  handle(IPC.clipboardWrite, (_event, arg) => {
+    clipboard.writeText(checkClipboardText(arg));
+  });
   handle(IPC.localeGet, () => ({
     system: app.getSystemLocale(),
     preferred: app.getPreferredSystemLanguages(),

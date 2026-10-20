@@ -103,6 +103,45 @@ describe("channels.secrets.*", () => {
   });
 });
 
+describe("channels.secrets.clear (#511)", () => {
+  it("removes a stored token through the channel's setting, never through vault.delete", async () => {
+    const gw = await compose();
+    await gw.vault.setup();
+    const c = await adminClient(gw.gateway);
+    clients.push(c);
+    await c.call(
+      "channels.secrets.set",
+      { type: "slack", account: "acme", name: "bot_token", value: BOT },
+      ik(),
+    );
+    const owner = channelSecretOwner("slack", "acme", "bot_token");
+    const item = gw.vault.connectorItem(owner);
+    const refused = await c.request("vault.delete", { credentialId: item?.id }, ik());
+    expect(refused.error).toMatchObject({
+      code: "forbidden",
+      details: { reason: "gateway_owned", kind: "channel", setting: "channels" },
+    });
+    expect(
+      await c.call(
+        "channels.secrets.clear",
+        { type: "slack", account: "acme", name: "bot_token" },
+        ik(),
+      ),
+    ).toEqual({ set: [] });
+    expect(gw.vault.connectorItem(owner)).toBeUndefined();
+    await expect(
+      vaultChannelSecret(() => gw.vault, "slack", "acme", "bot_token").use(async (v) => v),
+    ).rejects.toMatchObject({ code: "unavailable" });
+    await expect(
+      c.call(
+        "channels.secrets.clear",
+        { type: "slack", account: "acme", name: "auth_token" },
+        ik(),
+      ),
+    ).rejects.toThrow(/"code":"invalid_params"/);
+  });
+});
+
 describe("Slack setup from the environment", () => {
   it("is off without a workspace, and takes tokens from env or files (else the vault)", async () => {
     const read = (p: string) => (p === "/run/secrets/slack_app" ? "xapp-file\n" : "");

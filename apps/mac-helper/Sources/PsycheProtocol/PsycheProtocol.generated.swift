@@ -162,6 +162,8 @@
 //   let channelsPairingDenyResult = try? JSONDecoder().decode(ChannelsPairingDenyResult.self, from: jsonData)
 //   let channelsPairingListParams = try? JSONDecoder().decode(ChannelsPairingListParams.self, from: jsonData)
 //   let channelsPairingListResult = try? JSONDecoder().decode(ChannelsPairingListResult.self, from: jsonData)
+//   let channelsSecretsClearParams = try? JSONDecoder().decode(ChannelsSecretsClearParams.self, from: jsonData)
+//   let channelsSecretsClearResult = try? JSONDecoder().decode(ChannelsSecretsClearResult.self, from: jsonData)
 //   let channelsSecretsSetParams = try? JSONDecoder().decode(ChannelsSecretsSetParams.self, from: jsonData)
 //   let channelsSecretsSetResult = try? JSONDecoder().decode(ChannelsSecretsSetResult.self, from: jsonData)
 //   let channelsSecretsStatusParams = try? JSONDecoder().decode(ChannelsSecretsStatusParams.self, from: jsonData)
@@ -354,6 +356,8 @@
 //   let inputRequest = try? JSONDecoder().decode(InputRequest.self, from: jsonData)
 //   let inputRequestResult = try? JSONDecoder().decode(InputRequestResult.self, from: jsonData)
 //   let inputRequestStatus = try? JSONDecoder().decode(InputRequestStatus.self, from: jsonData)
+//   let learnedBlock = try? JSONDecoder().decode(LearnedBlock.self, from: jsonData)
+//   let learnedFact = try? JSONDecoder().decode(LearnedFact.self, from: jsonData)
 //   let libraryDeleteParams = try? JSONDecoder().decode(LibraryDeleteParams.self, from: jsonData)
 //   let libraryGetParams = try? JSONDecoder().decode(LibraryGetParams.self, from: jsonData)
 //   let libraryGetResult = try? JSONDecoder().decode(LibraryGetResult.self, from: jsonData)
@@ -387,6 +391,8 @@
 //   let memoryFileInfo = try? JSONDecoder().decode(MemoryFileInfo.self, from: jsonData)
 //   let memoryFilesListParams = try? JSONDecoder().decode(MemoryFilesListParams.self, from: jsonData)
 //   let memoryFilesListResult = try? JSONDecoder().decode(MemoryFilesListResult.self, from: jsonData)
+//   let memoryForgetLearnedParams = try? JSONDecoder().decode(MemoryForgetLearnedParams.self, from: jsonData)
+//   let memoryForgetLearnedResult = try? JSONDecoder().decode(MemoryForgetLearnedResult.self, from: jsonData)
 //   let memoryForgetParams = try? JSONDecoder().decode(MemoryForgetParams.self, from: jsonData)
 //   let memoryForgetResult = try? JSONDecoder().decode(MemoryForgetResult.self, from: jsonData)
 //   let memoryHit = try? JSONDecoder().decode(MemoryHit.self, from: jsonData)
@@ -443,6 +449,8 @@
 //   let modelRoles = try? JSONDecoder().decode(ModelRoles.self, from: jsonData)
 //   let modelsCheckParams = try? JSONDecoder().decode(ModelsCheckParams.self, from: jsonData)
 //   let modelsCheckResult = try? JSONDecoder().decode(ModelsCheckResult.self, from: jsonData)
+//   let modelsClearKeyParams = try? JSONDecoder().decode(ModelsClearKeyParams.self, from: jsonData)
+//   let modelsClearKeyResult = try? JSONDecoder().decode(ModelsClearKeyResult.self, from: jsonData)
 //   let modelsListParams = try? JSONDecoder().decode(ModelsListParams.self, from: jsonData)
 //   let modelsListResult = try? JSONDecoder().decode(ModelsListResult.self, from: jsonData)
 //   let modelsProbeParams = try? JSONDecoder().decode(ModelsProbeParams.self, from: jsonData)
@@ -4417,6 +4425,47 @@ public struct ChannelsPairingListResult: Codable, Sendable {
     }
 }
 
+// MARK: - ChannelsSecretsClearParams
+public struct ChannelsSecretsClearParams: Codable, Sendable {
+    public let account: String
+    public let name: ChannelSecretName
+    public let type: ChannelType
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case name = "name"
+        case type = "type"
+    }
+
+    public init(account: String, name: ChannelSecretName, type: ChannelType) {
+        self.account = account
+        self.name = name
+        self.type = type
+    }
+}
+
+public enum ChannelSecretName: String, Codable, Sendable {
+    case accessToken = "access_token"
+    case appSecret = "app_secret"
+    case appToken = "app_token"
+    case authToken = "auth_token"
+    case botToken = "bot_token"
+    case verifyToken = "verify_token"
+}
+
+// MARK: - ChannelsSecretsClearResult
+public struct ChannelsSecretsClearResult: Codable, Sendable {
+    public let channelsSecretsClearResultSet: [ChannelSecretName]
+
+    public enum CodingKeys: String, CodingKey {
+        case channelsSecretsClearResultSet = "set"
+    }
+
+    public init(channelsSecretsClearResultSet: [ChannelSecretName]) {
+        self.channelsSecretsClearResultSet = channelsSecretsClearResultSet
+    }
+}
+
 // MARK: - ChannelsSecretsSetParams
 public struct ChannelsSecretsSetParams: Codable, Sendable {
     public let account: String
@@ -4437,15 +4486,6 @@ public struct ChannelsSecretsSetParams: Codable, Sendable {
         self.type = type
         self.value = value
     }
-}
-
-public enum ChannelSecretName: String, Codable, Sendable {
-    case accessToken = "access_token"
-    case appSecret = "app_secret"
-    case appToken = "app_token"
-    case authToken = "auth_token"
-    case botToken = "bot_token"
-    case verifyToken = "verify_token"
 }
 
 // MARK: - ChannelsSecretsSetResult
@@ -4635,6 +4675,9 @@ public struct ItemElement: Codable, Sendable {
     public let snippet: String?
     public let threadID: String?
     public let title: String?
+    public let date: String?
+    public let factID: String?
+    public let kind: LearnedFactKind?
 
     public enum CodingKeys: String, CodingKey {
         case status = "status"
@@ -4643,16 +4686,31 @@ public struct ItemElement: Codable, Sendable {
         case snippet = "snippet"
         case threadID = "threadId"
         case title = "title"
+        case date = "date"
+        case factID = "factId"
+        case kind = "kind"
     }
 
-    public init(status: ChecklistItemStatus?, text: String?, lastMessageAt: String?, snippet: String?, threadID: String?, title: String?) {
+    public init(status: ChecklistItemStatus?, text: String?, lastMessageAt: String?, snippet: String?, threadID: String?, title: String?, date: String?, factID: String?, kind: LearnedFactKind?) {
         self.status = status
         self.text = text
         self.lastMessageAt = lastMessageAt
         self.snippet = snippet
         self.threadID = threadID
         self.title = title
+        self.date = date
+        self.factID = factID
+        self.kind = kind
     }
+}
+
+public enum LearnedFactKind: String, Codable, Sendable {
+    case name = "name"
+    case other = "other"
+    case person = "person"
+    case preference = "preference"
+    case project = "project"
+    case routine = "routine"
 }
 
 public enum ChecklistItemStatus: String, Codable, Sendable {
@@ -4722,6 +4780,7 @@ public enum BlockType: String, Codable, Sendable {
     case checklist = "checklist"
     case compaction = "compaction"
     case file = "file"
+    case learned = "learned"
     case plan = "plan"
     case question = "question"
     case receipt = "receipt"
@@ -6277,6 +6336,7 @@ public struct CredentialMeta: Codable, Sendable {
     public let id: String
     public let kind: CredentialKind
     public let lastUsedAt: String?
+    public let managedBy: ManagedBy?
     public let name: String
     public let ownerConnectorID: String?
     public let slug: String
@@ -6290,6 +6350,7 @@ public struct CredentialMeta: Codable, Sendable {
         case id = "id"
         case kind = "kind"
         case lastUsedAt = "lastUsedAt"
+        case managedBy = "managedBy"
         case name = "name"
         case ownerConnectorID = "ownerConnectorId"
         case slug = "slug"
@@ -6297,13 +6358,14 @@ public struct CredentialMeta: Codable, Sendable {
         case useCount = "useCount"
     }
 
-    public init(backend: Backend?, bindings: [CredentialBinding], createdAt: String, id: String, kind: CredentialKind, lastUsedAt: String?, name: String, ownerConnectorID: String?, slug: String, updatedAt: String, useCount: Int) {
+    public init(backend: Backend?, bindings: [CredentialBinding], createdAt: String, id: String, kind: CredentialKind, lastUsedAt: String?, managedBy: ManagedBy?, name: String, ownerConnectorID: String?, slug: String, updatedAt: String, useCount: Int) {
         self.backend = backend
         self.bindings = bindings
         self.createdAt = createdAt
         self.id = id
         self.kind = kind
         self.lastUsedAt = lastUsedAt
+        self.managedBy = managedBy
         self.name = name
         self.ownerConnectorID = ownerConnectorID
         self.slug = slug
@@ -6346,6 +6408,39 @@ public enum CredentialKind: String, Codable, Sendable {
     case paymentLink = "payment_link"
     case signingKey = "signing_key"
     case sshKey = "ssh_key"
+}
+
+// MARK: - ManagedBy
+public struct ManagedBy: Codable, Sendable {
+    public let kind: ManagedByKind
+    public let removable: Bool
+    public let setting: Setting
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case removable = "removable"
+        case setting = "setting"
+    }
+
+    public init(kind: ManagedByKind, removable: Bool, setting: Setting) {
+        self.kind = kind
+        self.removable = removable
+        self.setting = setting
+    }
+}
+
+public enum ManagedByKind: String, Codable, Sendable {
+    case channel = "channel"
+    case connector = "connector"
+    case externalManager = "external_manager"
+    case modelProvider = "model_provider"
+}
+
+public enum Setting: String, Codable, Sendable {
+    case channels = "channels"
+    case connectors = "connectors"
+    case credentials = "credentials"
+    case models = "models"
 }
 
 // MARK: - CustomConnectorProposalResult
@@ -8260,6 +8355,51 @@ public enum InputRequestStatus: String, Codable, Sendable {
     case inputRequestStatusOpen = "open"
 }
 
+// MARK: - LearnedBlock
+public struct LearnedBlock: Codable, Sendable {
+    public let items: [LearnedFact]
+    public let type: LearnedBlockType
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+        case type = "type"
+    }
+
+    public init(items: [LearnedFact], type: LearnedBlockType) {
+        self.items = items
+        self.type = type
+    }
+}
+
+// MARK: - LearnedFact
+public struct LearnedFact: Codable, Sendable {
+    public let date: String
+    public let factID: String
+    public let kind: LearnedFactKind
+    public let text: String
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case date = "date"
+        case factID = "factId"
+        case kind = "kind"
+        case text = "text"
+        case threadID = "threadId"
+    }
+
+    public init(date: String, factID: String, kind: LearnedFactKind, text: String, threadID: String) {
+        self.date = date
+        self.factID = factID
+        self.kind = kind
+        self.text = text
+        self.threadID = threadID
+    }
+}
+
+public enum LearnedBlockType: String, Codable, Sendable {
+    case learned = "learned"
+}
+
 // MARK: - LibraryDeleteParams
 public struct LibraryDeleteParams: Codable, Sendable {
     public let itemID: String
@@ -8882,6 +9022,32 @@ public struct MemoryFileInfo: Codable, Sendable {
         self.protected = protected
         self.provenance = provenance
         self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - MemoryForgetLearnedParams
+public struct MemoryForgetLearnedParams: Codable, Sendable {
+    public let factID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case factID = "factId"
+    }
+
+    public init(factID: String) {
+        self.factID = factID
+    }
+}
+
+// MARK: - MemoryForgetLearnedResult
+public struct MemoryForgetLearnedResult: Codable, Sendable {
+    public let removed: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case removed = "removed"
+    }
+
+    public init(removed: Bool) {
+        self.removed = removed
     }
 }
 
@@ -9873,19 +10039,29 @@ public enum ToolCheckStatus: String, Codable, Sendable {
     case untested = "untested"
 }
 
-// MARK: - ModelsListResult
-public struct ModelsListResult: Codable, Sendable {
-    public let providers: [ModelProviderSummary]
-    public let roles: ModelRoles
+// MARK: - ModelsClearKeyParams
+public struct ModelsClearKeyParams: Codable, Sendable {
+    public let providerID: String
 
     public enum CodingKeys: String, CodingKey {
-        case providers = "providers"
-        case roles = "roles"
+        case providerID = "providerId"
     }
 
-    public init(providers: [ModelProviderSummary], roles: ModelRoles) {
-        self.providers = providers
-        self.roles = roles
+    public init(providerID: String) {
+        self.providerID = providerID
+    }
+}
+
+// MARK: - ModelsClearKeyResult
+public struct ModelsClearKeyResult: Codable, Sendable {
+    public let provider: ModelProviderSummary
+
+    public enum CodingKeys: String, CodingKey {
+        case provider = "provider"
+    }
+
+    public init(provider: ModelProviderSummary) {
+        self.provider = provider
     }
 }
 
@@ -10036,6 +10212,22 @@ public enum EndpointProbeState: String, Codable, Sendable {
     case notProbed = "not_probed"
     case reachable = "reachable"
     case unreachable = "unreachable"
+}
+
+// MARK: - ModelsListResult
+public struct ModelsListResult: Codable, Sendable {
+    public let providers: [ModelProviderSummary]
+    public let roles: ModelRoles
+
+    public enum CodingKeys: String, CodingKey {
+        case providers = "providers"
+        case roles = "roles"
+    }
+
+    public init(providers: [ModelProviderSummary], roles: ModelRoles) {
+        self.providers = providers
+        self.roles = roles
+    }
 }
 
 // MARK: - ModelRoles

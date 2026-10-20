@@ -149,6 +149,10 @@ const bridge = {
     getState: () => invoke(IPC.helperGetState),
     onState: (cb: (s: unknown) => void) => listen(IPC.helperState, cb),
   },
+  /** Copies text to the system clipboard (#507). */
+  clipboard: {
+    writeText: (text: string) => invoke(IPC.clipboardWrite, { text }),
+  },
   /** The macOS region format and preferred languages (A12). */
   locale: {
     get: () => invoke(IPC.localeGet),

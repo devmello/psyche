@@ -1316,14 +1316,24 @@ export interface ChannelsPairingListResult {
     requests: PairingRequest[];
 }
 
+export interface ChannelsSecretsClearParams {
+    account: string;
+    name:    ChannelSecretName;
+    type:    ChannelType;
+}
+
+export type ChannelSecretName = "bot_token" | "app_token" | "auth_token" | "access_token" | "app_secret" | "verify_token";
+
+export interface ChannelsSecretsClearResult {
+    set: ChannelSecretName[];
+}
+
 export interface ChannelsSecretsSetParams {
     account: string;
     name:    ChannelSecretName;
     type:    ChannelType;
     value:   string;
 }
-
-export type ChannelSecretName = "bot_token" | "app_token" | "auth_token" | "access_token" | "app_secret" | "verify_token";
 
 export interface ChannelsSecretsSetResult {
     set: ChannelSecretName[];
@@ -1392,7 +1402,12 @@ export interface ItemElement {
     snippet?:       string;
     threadId?:      string;
     title?:         string;
+    date?:          string;
+    factId?:        string;
+    kind?:          LearnedFactKind;
 }
+
+export type LearnedFactKind = "name" | "preference" | "routine" | "person" | "project" | "other";
 
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
@@ -1413,7 +1428,7 @@ export interface CompactionSummary {
 
 export type BlockTrigger = "auto" | "manual";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction";
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction" | "learned";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -1961,6 +1976,7 @@ export interface CredentialMeta {
     id:                string;
     kind:              CredentialKind;
     lastUsedAt?:       null | string;
+    managedBy?:        ManagedBy;
     name:              string;
     ownerConnectorId?: null | string;
     slug:              string;
@@ -1977,6 +1993,16 @@ export interface CredentialBinding {
 }
 
 export type CredentialKind = "login" | "api_key" | "oauth_token" | "ssh_key" | "note" | "payment_link" | "signing_key";
+
+export interface ManagedBy {
+    kind:      ManagedByKind;
+    removable: boolean;
+    setting:   Setting;
+}
+
+export type ManagedByKind = "connector" | "model_provider" | "channel" | "external_manager";
+
+export type Setting = "connectors" | "models" | "channels" | "credentials";
 
 export interface CustomConnectorProposalResult {
     approval: ApprovalRequest;
@@ -2638,6 +2664,21 @@ export interface QuestionOption {
 
 export type InputRequestStatus = "open" | "answered" | "cancelled";
 
+export interface LearnedBlock {
+    items: LearnedFact[];
+    type:  LearnedBlockType;
+}
+
+export interface LearnedFact {
+    date:     string;
+    factId:   string;
+    kind:     LearnedFactKind;
+    text:     string;
+    threadId: string;
+}
+
+export type LearnedBlockType = "learned";
+
 export interface LibraryDeleteParams {
     itemId: string;
 }
@@ -2846,6 +2887,14 @@ export interface MemoryFileInfo {
     protected:  boolean;
     provenance: Provenance;
     updatedAt:  string;
+}
+
+export interface MemoryForgetLearnedParams {
+    factId: string;
+}
+
+export interface MemoryForgetLearnedResult {
+    removed: boolean;
 }
 
 export interface MemoryForgetParams {
@@ -3191,9 +3240,12 @@ export interface ToolCheckResult {
 
 export type ToolCheckStatus = "untested" | "agent-capable" | "chat-only";
 
-export interface ModelsListResult {
-    providers: ModelProviderSummary[];
-    roles:     ModelRoles;
+export interface ModelsClearKeyParams {
+    providerId: string;
+}
+
+export interface ModelsClearKeyResult {
+    provider: ModelProviderSummary;
 }
 
 export interface ModelProviderSummary {
@@ -3242,6 +3294,11 @@ export interface ProbedModel {
 }
 
 export type EndpointProbeState = "not_probed" | "reachable" | "unreachable" | "auth_failed" | "error";
+
+export interface ModelsListResult {
+    providers: ModelProviderSummary[];
+    roles:     ModelRoles;
+}
 
 export interface ModelRoles {
     primary?: string;

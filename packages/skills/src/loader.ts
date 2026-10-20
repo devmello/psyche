@@ -163,6 +163,7 @@ export class FsSkillLoader implements SkillLoader {
   #debounceMs = 150;
   #reported = new Set<string>();
   #updates = new Map<string, SkillUpdateCheck>();
+  #gatedWith = "";
   #now: () => number;
   #newId: () => string;
 
@@ -203,6 +204,7 @@ export class FsSkillLoader implements SkillLoader {
     const before = new Map(this.#entries.map((e) => [key(e.details), e.details]));
     const lock = this.#readLock();
     const gate = this.#gate();
+    this.#gatedWith = gate.tools === undefined ? "" : [...gate.tools].sort().join("\n");
     const entries: Entry[] = [];
     for (const source of SOURCES) {
       const root = this.#root(source);
@@ -369,8 +371,18 @@ export class FsSkillLoader implements SkillLoader {
     }
   }
 
+  /**
+   * Without a watcher every read rescans. With one, a read still rescans when the agent's tool
+   * set changed since the last scan (a connector connected, the browser turned on), so gating
+   * never stays at the snapshot taken while the Gateway was starting (#506).
+   */
   #fresh(): void {
-    if (!this.#watching) this.refresh();
+    if (!this.#watching || this.#gateKey() !== this.#gatedWith) this.refresh();
+  }
+
+  #gateKey(): string {
+    const tools = this.#gate().tools;
+    return tools === undefined ? "" : [...tools].sort().join("\n");
   }
 
   // --- SkillLoader -----------------------------------------------------------------------------

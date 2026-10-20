@@ -59,4 +59,14 @@ export const ModelsMethods = {
     description:
       "Stores a hosted provider's API key in the vault as a Gateway-owned item bound to the provider's API origin (replacing an earlier one) and returns the provider with keyConfigured true. The model router reads it per request; agents can never fill it. not_found for an unknown provider id, invalid_params for a keyless (local) provider, unavailable when the vault cannot be opened. Side-effecting; its params are never logged.",
   }),
+  "models.clearKey": defineMethod({
+    params: Type.Object({
+      providerId: Type.String({ minLength: 1, maxLength: 64 }),
+    }),
+    result: Type.Object({ provider: ModelProviderSummary }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Removes a hosted provider's API key from the vault (the Gateway-owned item models.setKey stored; #511) and returns the provider with keyConfigured false. Requests to that provider fail until a key is set again. not_found for an unknown provider id, invalid_params for a keyless (local) provider. Audited. Side-effecting.",
+  }),
 } as const;

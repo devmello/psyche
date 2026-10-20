@@ -23,6 +23,7 @@ import {
   KeychainWrapper,
   KeyFileWrapper,
   type KeyWrapper,
+  type ManagedBy,
   type OnePasswordSource,
   OpCliSource,
   OpConnectSource,
@@ -75,6 +76,22 @@ export const ONEPASSWORD_CONNECTOR = "onepassword";
 
 /** The connector id of the vault item holding the Bitwarden session key (`bw unlock --raw`). */
 export const BITWARDEN_CONNECTOR = "bitwarden";
+
+/**
+ * Who manages a connector-owned vault item (#511), from the owner ids the Gateway uses:
+ * `model-<provider>` keys (Settings → Models, `models.clearKey`), `channel-…` transport secrets
+ * (Settings → Channels, `channels.secrets.clear`), the 1Password token and the Bitwarden session
+ * (the owner's own, removable here); anything else is a connector's token (disconnect it).
+ */
+export function gatewayOwner(connectorId: string): ManagedBy | undefined {
+  if (connectorId.startsWith("model-"))
+    return { kind: "model_provider", setting: "models", removable: false };
+  if (connectorId.startsWith("channel-"))
+    return { kind: "channel", setting: "channels", removable: false };
+  if (connectorId === ONEPASSWORD_CONNECTOR || connectorId === BITWARDEN_CONNECTOR)
+    return { kind: "external_manager", setting: "credentials", removable: true };
+  return undefined;
+}
 
 /** The first executable `op` on PATH, as an absolute path (the source takes no PATH lookup). */
 export function opOnPath(path = process.env.PATH ?? ""): string | undefined {
@@ -347,6 +364,7 @@ export function composeVault(
         ? { source: setup.bitwarden }
         : bitwardenSource(setup.bitwarden, () => built as Vault);
   const vault = new Vault({
+    owners: gatewayOwner,
     ...(op?.source === undefined ? {} : { onePassword: op.source }),
     ...(bw?.source === undefined ? {} : { bitwarden: bw.source }),
     home: deps.home,

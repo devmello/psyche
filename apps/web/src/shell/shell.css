@@ -82,6 +82,30 @@ button {
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
+/*
+ * Sheets, dialogs and menus are portaled over the whole window, title bar included. Electron
+ * swallows clicks inside a drag region unless the element on top opts out, so a sheet's ×
+ * near the top did nothing in the desktop app (#508). Every overlay surface opts out.
+ */
+[data-slot="sheet-content"],
+[data-slot="sheet-overlay"],
+[data-slot="dialog-content"],
+[data-slot="dialog-overlay"],
+[data-slot="alert-dialog-content"],
+[data-slot="alert-dialog-overlay"],
+[data-slot="drawer-content"],
+[data-slot="drawer-overlay"],
+[data-slot="drawer-popup"],
+[data-slot="popover-content"],
+[data-slot="hover-card-content"],
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"],
+[data-slot="select-content"],
+[data-slot="tooltip-content"],
+[data-sonner-toaster] {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
 .shell {
   display: grid;
   grid-template-columns: 56px auto minmax(480px, 1fr) auto;

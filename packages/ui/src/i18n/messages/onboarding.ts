@@ -8,6 +8,7 @@ export const onboarding = {
   "onboarding.step.done": "Done",
   "onboarding.connectFailed": "Psyche couldn't connect that account ({reason}).",
   "onboarding.keyFailed": "Psyche couldn't store the key ({reason}).",
+  "onboarding.keyRefused": "The provider refused this key ({reason}). Paste the key again.",
   "onboarding.setupCheck": "Setup check",
   "onboarding.progress": "Onboarding progress",
   "onboarding.doneMark": " (done)",
@@ -103,6 +104,9 @@ export const onboarding = {
   "onboarding.model.keyNotStored": "The key was not stored.",
   "onboarding.model.recoveryTitle": "Your vault recovery key",
   "onboarding.model.copy": "Copy",
+  "onboarding.model.copied": "Copied",
+  "onboarding.model.copiedStatus": "Recovery key copied to the clipboard.",
+  "onboarding.model.copyFailed": "Couldn't copy. Select the key and copy it.",
   "onboarding.model.recoveryBody":
     "Psyche just created your vault. Save this key in a password manager or on paper: it is shown only now and is the only way back into the vault after a restore or a lost key slot.",
   "onboarding.model.savedIt": "I saved it",
