@@ -1,0 +1,14 @@
+{
+  "name": "Anthropic GET /v1/models with a revoked key",
+  "request": {
+    "method": "GET",
+    "pathEndsWith": "/v1/models"
+  },
+  "response": {
+    "status": 401,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"}}"
+  }
+}

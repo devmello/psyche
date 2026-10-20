@@ -6,6 +6,7 @@ import type { EmbeddingModelV4, LanguageModelV4 } from "@ai-sdk/provider";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { PsycheError } from "@psyche/protocol";
 import { createOllama } from "ollama-ai-provider-v2";
+import { compatFetch, transformCompatRequest } from "./compat.ts";
 import type { ProviderConfig } from "./config.ts";
 import { KEY_SENTINEL } from "./credentials.ts";
 
@@ -87,7 +88,11 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
       settings.baseURL = config.baseURL ?? HOSTED_DEFAULT_BASE_URLS.google;
       if (headers !== undefined) settings.headers = headers;
       const p = createGoogle(settings);
-      return { language: (id) => p.interactions(id), embedding: (id) => p.embedding(id) };
+      return {
+        language: (id) =>
+          config.googleApi === "generate-content" ? p.languageModel(id) : p.interactions(id),
+        embedding: (id) => p.embedding(id),
+      };
     }
     case "openrouter": {
       const settings: Parameters<typeof createOpenRouter>[0] = {
@@ -96,6 +101,9 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
         compatibility: "strict",
       };
       settings.baseURL = config.baseURL ?? HOSTED_DEFAULT_BASE_URLS.openrouter;
+      // App attribution only when the owner asks for it (no telemetry by default).
+      if (config.attribution?.url !== undefined) settings.appUrl = config.attribution.url;
+      if (config.attribution?.title !== undefined) settings.appName = config.attribution.title;
       if (headers !== undefined) settings.headers = headers;
       const p = createOpenRouter(settings);
       return {
@@ -110,6 +118,25 @@ export function buildProvider(config: ProviderConfig, fetch: typeof globalThis.f
         apiKey: KEY_SENTINEL,
         fetch,
         includeUsage: true,
+      };
+      if (headers !== undefined) settings.headers = headers;
+      const p = createOpenAICompatible(settings);
+      return { language: (id) => p.chatModel(id), embedding: (id) => p.embeddingModel(id) };
+    }
+    case "llamacpp":
+    case "lmstudio": {
+      const kind = config.kind;
+      const settings: Parameters<typeof createOpenAICompatible>[0] = {
+        name: config.id,
+        baseURL:
+          config.baseURL ??
+          (kind === "llamacpp"
+            ? LOCAL_DEFAULT_BASE_URLS.llamaCpp
+            : LOCAL_DEFAULT_BASE_URLS.lmStudio),
+        apiKey: KEY_SENTINEL,
+        fetch: compatFetch(fetch),
+        includeUsage: true,
+        transformRequestBody: (body) => transformCompatRequest(kind, body),
       };
       if (headers !== undefined) settings.headers = headers;
       const p = createOpenAICompatible(settings);

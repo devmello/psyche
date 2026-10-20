@@ -1,0 +1,14 @@
+{
+  "name": "Ollama GET /api/ps",
+  "request": {
+    "method": "GET",
+    "pathEndsWith": "/api/ps"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"models\":[{\"name\":\"qwen3.8:27b\",\"model\":\"qwen3.8:27b\",\"size\":19000000000,\"digest\":\"sha256-fixture-qwen\",\"expires_at\":\"2026-10-19T21:00:00Z\",\"size_vram\":19000000000,\"context_length\":8192}]}"
+  }
+}

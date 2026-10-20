@@ -1,0 +1,14 @@
+{
+  "name": "LM Studio with API auth: missing token",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 401,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":{\"message\":\"Invalid or missing API token\",\"type\":\"invalid_request_error\"}}"
+  }
+}
