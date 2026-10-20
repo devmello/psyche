@@ -30,6 +30,7 @@ import type {
   VmUpdatedPayload,
 } from "@psyche/protocol";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { describeError } from "../i18n/errors.ts";
 import type { ConnectionState } from "./client.ts";
 import { useStore, useStoreState } from "./provider.tsx";
 import {
@@ -54,7 +55,8 @@ export interface LoadState {
   reload: () => void;
 }
 
-const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
+/** What a failed load shows: the error through the catalogue (`describeError`). */
+const messageOf = (err: unknown) => describeError(err);
 
 /** Runs `load` on mount and whenever `key` changes; reruns it after gaps and reconnects. */
 export function useLoader(
