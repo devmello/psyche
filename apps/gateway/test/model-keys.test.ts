@@ -17,6 +17,7 @@ import {
   untilPrimaryPicked,
   vaultModelKeys,
 } from "../src/compose/model-keys.ts";
+import { fillableItem } from "../src/compose/exec-tool.ts";
 import { silentLogger } from "../src/log.ts";
 import { adminClient, ik, type TestClient } from "./helpers.ts";
 
@@ -106,6 +107,16 @@ describe("provider keys in the vault (first run without env)", () => {
     }>("models.list");
     expect(anthropic(after.providers)?.keyConfigured).toBe(true);
     expect(after.roles.primary).toBe("anthropic/claude-sonnet-5-5");
+  });
+
+  it("never offers a provider key to an agent fill", async () => {
+    const gw = await compose();
+    await gw.vault.setup();
+    const c = await client(gw);
+    await c.call("models.setKey", { providerId: "anthropic", key: KEY }, ik());
+    const items = await gw.vault.list();
+    expect(items.some((m) => m.slug === "model-anthropic")).toBe(true);
+    expect(fillableItem(items, "model-anthropic")).toBeUndefined();
   });
 
   it("refuses unknown and keyless providers", async () => {

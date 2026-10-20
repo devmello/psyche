@@ -119,12 +119,17 @@ export function OnboardingFlow({
   const [model, setModel] = useState<ModelChoice>(initial.model ?? defaultModelChoice("cloud"));
   const [keyError, setKeyError] = useState<string | null>(null);
   const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
+  const [recoverySaved, setRecoverySaved] = useState(false);
+  // A vault created in this step shows its recovery key once: the owner must confirm saving it
+  // before leaving the step.
+  const recoveryPending = recoveryKey !== null && !recoverySaved;
   const [checks, setChecks] = useState<SetupCheck[] | "checking" | null>(null);
   const [workspace, setWorkspace] = useState<Workspace>(initial.workspace ?? "local");
 
   const name = persona.name.trim() === "" ? DEFAULT_NAME : persona.name.trim();
 
   const go = (next: OnboardingStepId) => {
+    if (recoveryPending) return;
     setOwn(next);
     setReached((r) => Math.max(r, ONBOARDING_STEP_IDS.indexOf(next)));
     onStepChange?.(next);
@@ -369,7 +374,9 @@ export function OnboardingFlow({
             value={model}
             onChange={setModel}
             keyError={keyError}
-            {...(recoveryKey ? { recoveryKey } : {})}
+            {...(recoveryKey
+              ? { recoveryKey, recoverySaved, onRecoverySaved: setRecoverySaved }
+              : {})}
             {...(ramGb === undefined ? {} : { ramGb })}
             {...(saveKey ? { onSaveKey: (k: string) => void saveKey(k) } : {})}
             {...(check ? { onCheck: () => void check() } : {})}
@@ -423,6 +430,7 @@ export function OnboardingFlow({
         ) : (
           <Button
             type="button"
+            disabled={recoveryPending}
             onClick={() => {
               const next = ONBOARDING_STEP_IDS[index + 1];
               if (next) go(next);

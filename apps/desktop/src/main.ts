@@ -50,7 +50,7 @@ import { BrowserHost } from "./main/browser/browser-host.ts";
 import { SystemDictation } from "./main/dictation/controller.ts";
 import { HudWindow } from "./main/dictation/hud.ts";
 import { ACCESSIBILITY_SETTINGS_URL, DictationService } from "./main/dictation/service.ts";
-import { HelperLauncher } from "./main/helper-launcher.ts";
+import { HelperLauncher, helperCanHoldKeychain } from "./main/helper-launcher.ts";
 import { buildAppMenu } from "./main/menu.ts";
 import {
   createPermissions,
@@ -280,6 +280,13 @@ const permissions = createPermissions({
     return true;
   },
 });
+
+/** `<Resources>/PsycheHelper.app` in packaged macOS builds; dev builds bundle no helper. */
+function bundledHelperPath(): string | undefined {
+  return app.isPackaged && process.platform === "darwin"
+    ? join(process.resourcesPath, "PsycheHelper.app")
+    : undefined;
+}
 
 function requireGateway(): GatewayConnection {
   if (!gateway)
@@ -652,10 +659,7 @@ void app.whenReady().then(async () => {
   // The bundled Mac helper (docs/status/s14.md "Packaging"): started through LaunchServices once
   // this window pairs, i.e. the Gateway answers; dev builds use their own helper install.
   helper = new HelperLauncher({
-    appPath:
-      app.isPackaged && process.platform === "darwin"
-        ? join(process.resourcesPath, "PsycheHelper.app")
-        : undefined,
+    appPath: bundledHelperPath(),
     psycheHome: home,
     run: execRunner,
     isPaired: async () => (await onlineMacHelpers()).length > 0,
@@ -724,7 +728,11 @@ void app.whenReady().then(async () => {
     gatewayDir: resolve(app.getAppPath(), "..", "gateway"),
     bundledProgram: join(process.resourcesPath, "psyched", "psyched"),
     bundledPlist: join(process.resourcesPath, "launchd", "com.psyche.gateway.plist"),
-    vaultKeyFile: () => desktopVaultKeyFile(home),
+    // Key-file slot unless the bundled helper can hold the Keychain (Touch ID) slot.
+    vaultKeyFile: async () =>
+      (await helperCanHoldKeychain(bundledHelperPath(), execRunner))
+        ? undefined
+        : desktopVaultKeyFile(home),
     onState: (run) => {
       tray?.update({ run });
       broadcast(IPC.gatewayRun, run);

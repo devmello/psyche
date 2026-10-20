@@ -489,6 +489,8 @@ export function ModelStep({
   onCheck,
   keyError = null,
   recoveryKey,
+  recoverySaved = false,
+  onRecoverySaved,
 }: {
   value: ModelChoice;
   onChange: (next: ModelChoice) => void;
@@ -499,6 +501,9 @@ export function ModelStep({
   keyError?: string | null;
   /** The vault's recovery key, when saving the key just created the vault. Shown once. */
   recoveryKey?: string;
+  /** The owner confirmed saving it; required before leaving the step. */
+  recoverySaved?: boolean;
+  onRecoverySaved?: (saved: boolean) => void;
 }): ReactElement {
   const id = useId();
   const [key, setKey] = useState("");
@@ -649,12 +654,30 @@ export function ModelStep({
               data-testid="vault-recovery-key"
             >
               <p className="text-sm font-medium">Your vault recovery key</p>
-              <code className="font-mono text-sm break-all select-all">{recoveryKey}</code>
+              <div className="flex flex-wrap items-center gap-2">
+                <code className="font-mono text-sm break-all select-all">{recoveryKey}</code>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  onClick={() => void globalThis.navigator?.clipboard?.writeText(recoveryKey)}
+                >
+                  Copy
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">
                 Psyche just created your vault. Save this key in a password manager or on paper: it
                 is shown only now and is the only way back into the vault after a restore or a lost
                 key slot.
               </p>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={recoverySaved}
+                  onChange={(e) => onRecoverySaved?.(e.target.checked)}
+                />
+                I saved it
+              </label>
             </div>
           ) : null}
         </div>

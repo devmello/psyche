@@ -60,6 +60,18 @@ function itemTarget(item: CredentialMeta): Target | undefined {
   return undefined;
 }
 
+/**
+ * The owner's item behind a placeholder. Items the Gateway or a connector owns (model provider
+ * keys from `models.setKey`, OAuth tokens) are never filled for the agent: they count as missing,
+ * before any approval card the owner could never use is raised.
+ */
+export function fillableItem(
+  items: readonly CredentialMeta[],
+  slug: string,
+): CredentialMeta | undefined {
+  return items.find((m) => m.slug === slug && m.ownerConnectorId === null);
+}
+
 async function secretEnv(
   deps: ExecToolDeps,
   ctx: ToolRunContext,
@@ -72,7 +84,7 @@ async function secretEnv(
   const items = await deps.vault.list();
   for (const [name, placeholder] of secrets) {
     const slug = placeholderOnly.exec(placeholder)?.[1] ?? "";
-    const item = items.find((m) => m.slug === slug);
+    const item = fillableItem(items, slug);
     const bound = item === undefined ? undefined : itemTarget(item);
     if (item === undefined || bound === undefined) {
       throw new PsycheError("not_found", `no vault item ${slug} with an origin or host binding`);

@@ -1,10 +1,11 @@
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   HelperLauncher,
   type HelperRunState,
+  helperCanHoldKeychain,
   openHelperArgs,
 } from "../../src/main/helper-launcher.ts";
 import type { Runner } from "../../src/main/supervisor.ts";
@@ -94,5 +95,22 @@ describe("HelperLauncher", () => {
     await none.launch();
     await none.onPresence(false);
     expect(none.getState()).toEqual({ kind: "unbundled" });
+  });
+
+  it("gives the vault the Keychain slot only for a team-signed helper with a provisioning profile", async () => {
+    const signed =
+      (team: string, adhoc = false): Runner =>
+      async () => ({
+        code: 0,
+        stdout: "",
+        stderr: `Identifier=com.psyche.helper\n${adhoc ? "Signature=adhoc\n" : ""}TeamIdentifier=${team}\n`,
+      });
+    const app = join(dir, "Signed.app");
+    mkdirSync(join(app, "Contents"), { recursive: true });
+    expect(await helperCanHoldKeychain(app, signed("ABCDE12345"))).toBe(false); // no profile
+    writeFileSync(join(app, "Contents", "embedded.provisionprofile"), "profile");
+    expect(await helperCanHoldKeychain(app, signed("ABCDE12345"))).toBe(true);
+    expect(await helperCanHoldKeychain(app, signed("not set", true))).toBe(false);
+    expect(await helperCanHoldKeychain(undefined, signed("ABCDE12345"))).toBe(false);
   });
 });
