@@ -18,6 +18,10 @@ protocol TranscriptionEngine: AnyObject, Sendable {
     func cancel() async
 }
 
+/// SpeechAnalyzer ships in the macOS 26 SDK. `canImport(FoundationModels)` is the SDK check (that
+/// framework is also new in 26; `canImport(Speech)` is true on older SDKs too), so the helper still
+/// compiles with the macOS 15 SDK on the Intel release runner and uses SFSpeechRecognizer there.
+#if canImport(FoundationModels)
 /// `SpeechAnalyzer` with `SpeechTranscriber` (general) or `DictationTranscriber` (custom
 /// vocabulary through `AnalysisContext.contextualStrings`). macOS 26+. Uses only macOS 26.0 API
 /// (checked against the 26.5 SDK interface); no presets, whose names changed during the 26 betas.
@@ -198,3 +202,4 @@ final class AnalyzerEngine: TranscriptionEngine, @unchecked Sendable {
             details: ["domain": .string(ns.domain), "code": .int(ns.code)], retryable: true)
     }
 }
+#endif

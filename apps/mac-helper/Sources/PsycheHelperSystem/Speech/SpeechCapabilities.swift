@@ -145,6 +145,7 @@ public enum SpeechCapabilities {
             "activeStreams": .int(registry.activeCount),
             "microphoneBusy": .bool(registry.microphoneBusy),
         ]
+        #if canImport(FoundationModels)  // macOS 26 SDK: see SpeechAnalyzerEngine.swift
         if #available(macOS 26.0, *) {
             let supported = await SpeechTranscriber.supportedLocales.map { $0.identifier(.bcp47) }.sorted()
             let installed = await SpeechTranscriber.installedLocales.map { $0.identifier(.bcp47) }.sorted()
@@ -153,6 +154,7 @@ public enum SpeechCapabilities {
                 "installed": .array(installed.map { .string($0) }),
             ]
         }
+        #endif
         return .object(o)
     }
 }
