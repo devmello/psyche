@@ -316,6 +316,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Executors (vault fills, the browser's mid-run gate, sandbox secrets) request approvals
   // outside the loop, which announces only its own: they announce theirs here.
   const executorBroker = announcing(broker, publish);
+  // Background Task runs have no session controller to announce their cards: the loop's handle
+  // announces those (requestedBy.taskId set); chat turns keep the controller's announcement.
+  const loopBroker = announcing(broker, publish, (a) => a.requestedBy.taskId != null);
   broker.subscribe((e) => {
     if (
       e.type === "approval.decided" ||
@@ -462,7 +465,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     provider,
     model: modelRef,
     ...(utility === undefined ? {} : { utilityModel: utility }),
-    broker,
+    broker: loopBroker,
     memory,
     tasks,
     notifier,
@@ -695,9 +698,10 @@ export {
 export { createLogger, surfaceOf };
 
 /**
- * A broker handle for executors: an approval they request is published as `approval.created`
- * once its answer tokens are recorded, so devices see the card (and their own token through the
- * personalizer). The agent loop keeps the plain handle and announces its approvals itself.
+ * A broker handle that publishes an approval it issues as `approval.created` once its answer
+ * tokens are recorded, so devices see the card (and their own token through the personalizer):
+ * every approval for executors, and only `which` ones for the agent loop, whose chat turns the
+ * session controller announces itself.
  */
 function announcing<B extends PermissionBroker>(
   broker: B,
@@ -706,12 +710,14 @@ function announcing<B extends PermissionBroker>(
     payload: EventPayload<"approval.created">,
     threadId?: string,
   ) => void,
+  which: (approval: IssuedApproval["approval"]) => boolean = () => true,
 ): B {
   return new Proxy(broker, {
     get(target, prop, receiver) {
       if (prop === "requestApproval") {
         return async (input: ApprovalRequestInput) => {
           const issued = await target.requestApproval(input);
+          if (!which(issued.approval)) return issued;
           publish(
             "approval.created",
             { approval: issued.approval },
