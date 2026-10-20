@@ -18,6 +18,19 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (L6: Gateway methods for snapshots and resets)
+
+For S01 (the Gateway serves them over S14's helper capabilities) and S11 (Settings → VM mode). Builds on the L6 shapes (`VmSnapshot`, `VmSnapshotResult`, `VmRestoreResult`).
+
+- New methods in `methods/vm.ts`:
+  - `vm.snapshots.list {}` → `{snapshots, baseSnapshot}`, `operator.read`;
+  - `vm.snapshots.create {label?, base?}` → `VmSnapshotResult`;
+  - `vm.snapshots.restore {snapshot}` → `VmRestoreResult`;
+  - `vm.snapshots.reset {}` → `VmRestoreResult`;
+  - `vm.snapshots.delete {snapshot}` → `{deleted}`.
+
+  All the changing ones are `operator.admin`, side-effecting and audited as receipts.
+
 ### v1 additive — 2026-10-20 (L6 VM snapshots and resets)
 
 For S14 (the helper's `vm.snapshot` / `vm.restore` / `vm.reset` / `vm.snapshot_delete`), S01 (the Gateway half: compose tools, "fresh Mac per task", broker sides), S11 (the Devices pane).
