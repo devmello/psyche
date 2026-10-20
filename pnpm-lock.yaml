@@ -1132,6 +1132,9 @@ importers:
 
   tests/acceptance:
     devDependencies:
+      '@cantoo/pdf-lib':
+        specifier: 2.11.1
+        version: 2.11.1(html-entities@2.6.0)
       '@psyche/agent-core':
         specifier: workspace:*
         version: link:../../packages/agent-core

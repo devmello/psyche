@@ -164,6 +164,7 @@
         "calendar.delete",
         "file.write",
         "exec",
+        "message.send",
         "shop.cart",
         "purchase.handoff",
         "purchase"

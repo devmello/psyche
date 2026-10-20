@@ -1,0 +1,3 @@
+{
+  "$comment": "Hard assertions of the Milestone 2 scenarios that fail on main for a tracked reason, as in tests/scenarios/known-failures.json. tests/acceptance/offline/scenarios-m2.test.ts fails on any other hard failure and on an entry that starts passing."
+}
