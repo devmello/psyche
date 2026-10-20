@@ -152,15 +152,24 @@ export function checkAddons(appDir, arch) {
   return bad;
 }
 
+// Both launchers find the bundle through any symlinks to them (`/usr/local/bin/psyche`).
+const RESOLVE_HERE = `self=$0
+case $self in */*) ;; *) self=./$self ;; esac
+while [ -L "$self" ]; do
+  link=$(readlink "$self")
+  case $link in /*) self=$link ;; *) self=\${self%/*}/$link ;; esac
+done
+here=\${self%/*}`;
+
 export const PSYCHED_LAUNCHER = `#!/bin/sh
 # Psyche Gateway (psyched) from Psyche.app. Needs only PSYCHE_HOME; no Node, PATH or checkout.
-here=\${0%/*}
+${RESOLVE_HERE}
 exec "$here/runtime/node" --disable-warning=ExperimentalWarning "$here/app/apps/gateway/src/main.ts" "$@"
 `;
 
 export const PSYCHE_LAUNCHER = `#!/bin/sh
 # The psyche CLI from Psyche.app, on the same runtime as psyched.
-here=\${0%/*}
+${RESOLVE_HERE}
 exec "$here/runtime/node" --disable-warning=ExperimentalWarning "$here/app/apps/cli/src/main.ts" "$@"
 `;
 

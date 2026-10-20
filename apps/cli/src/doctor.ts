@@ -180,6 +180,49 @@ export function doctorChecks(s: Snapshot): Check[] {
     }
   }
 
+  // What macOS has granted the helper, and how the helper is signed (S14 packaging contract).
+  if (s.platform === "darwin" && s.helperPermissions) {
+    const hp = s.helperPermissions;
+    if (!hp.ok) {
+      add({ id: "permissions", status: "skip", message: `permissions unknown (${hp.message})` });
+    } else {
+      const rows = hp.value.permissions ?? [];
+      const granted = rows.filter((r) => r.status === "granted").map((r) => r.permission);
+      const next = hp.value.next ? rows.find((r) => r.permission === hp.value.next) : undefined;
+      add(
+        hp.value.next
+          ? {
+              id: "permissions",
+              status: "warn",
+              message: `next permission to grant: ${next?.title ?? hp.value.next} (granted: ${granted.join(", ") || "none"})`,
+              hint: `Psyche › Settings › Permissions${next?.settingsURL ? `, or open ${next.settingsURL}` : ""}`,
+            }
+          : {
+              id: "permissions",
+              status: "ok",
+              message: `granted: ${granted.join(", ") || "none needed yet"}`,
+            },
+      );
+      const signing = hp.value.bundle?.signing;
+      if (signing === "adhoc" || signing === "unsigned") {
+        add({
+          id: "helper.signing",
+          status: "warn",
+          message: `Psyche Helper is ${signing === "adhoc" ? "signed ad-hoc" : "unsigned"}: macOS forgets its permissions when it is updated`,
+          hint: "After an update: tccutil reset All com.psyche.helper, then grant them again",
+        });
+      }
+      if (s.app && hp.value.bundle?.insideApp === false) {
+        add({
+          id: "helper.location",
+          status: "warn",
+          message: `Psyche Helper runs from ${hp.value.bundle.path ?? "outside Psyche.app"}, not from ${s.app}`,
+          hint: "Quit that helper and reopen Psyche.app, which starts its own",
+        });
+      }
+    }
+  }
+
   // Vault.
   if (s.vault.ok) {
     const v = s.vault.value;
@@ -233,18 +276,94 @@ export function doctorChecks(s: Snapshot): Check[] {
 
   // Service.
   if (s.service && s.service.kind !== "none") {
+    const what = s.service.kind === "launchd" ? "LaunchAgent" : `${s.service.kind} service`;
+    const state = !s.service.installed
+      ? "not installed"
+      : s.service.detail === "not loaded"
+        ? "installed but not loaded"
+        : "not running";
+    // A DMG install's LaunchAgent comes from the app; elsewhere `psyche start` installs it.
+    const hint =
+      s.service.kind === "launchd" && s.app
+        ? "Open Psyche.app, or run psyche start"
+        : "psyche start";
     add(
       s.service.running
-        ? { id: "service", status: "ok", message: `${s.service.kind} service running` }
+        ? { id: "service", status: "ok", message: `${what} running` }
         : {
             id: "service",
             status: s.probe.healthy ? "ok" : "warn",
-            message: `${s.service.kind} service not running${s.probe.healthy ? " (a Gateway is running outside it)" : ""}`,
-            ...(s.probe.healthy ? {} : { hint: "psyche start" }),
+            message: `${what} ${state}${s.probe.healthy ? " (a Gateway is running outside it)" : ""}`,
+            ...(s.probe.healthy ? {} : { hint }),
+          },
+    );
+  }
+
+  // The LaunchAgent's program: a moved or deleted Psyche.app leaves it pointing at nothing.
+  if (s.platform === "darwin" && s.launchAgent) {
+    const la = s.launchAgent;
+    add(
+      la.program === null
+        ? {
+            id: "launchagent",
+            status: "fail",
+            message: `${la.file} has no program`,
+            hint: "Open Psyche.app (it rewrites the LaunchAgent) or run psyche start",
+          }
+        : !la.programExists
+          ? {
+              id: "launchagent",
+              status: "fail",
+              message: `the LaunchAgent runs ${la.program}, which does not exist (Psyche.app moved or deleted?)`,
+              hint: "Open Psyche.app from where it is now (it rewrites the LaunchAgent) or run psyche start",
+            }
+          : {
+              id: "launchagent",
+              status: "ok",
+              message: la.app
+                ? `LaunchAgent runs the psyched inside ${la.app}`
+                : `LaunchAgent runs ${la.program}`,
+            },
+    );
+  }
+  if (s.platform === "darwin" && s.app !== undefined) {
+    add(
+      s.app
+        ? { id: "app", status: "ok", message: `Psyche.app at ${s.app}` }
+        : {
+            id: "app",
+            status: "skip",
+            message: "Psyche.app not found in /Applications (server or source install)",
           },
     );
   }
   return checks;
+}
+
+/**
+ * The first-run checklist for a from-scratch install (DMG on a Mac, or a server): the checks that
+ * say whether Psyche is installed and reachable, in the order an owner fixes them.
+ */
+export const FIRST_RUN_ORDER = [
+  "app",
+  "service",
+  "launchagent",
+  "gateway",
+  "auth",
+  "helper",
+  "permissions",
+  "helper.signing",
+  "helper.location",
+  "models",
+  "vault",
+] as const;
+
+export function firstRunChecklist(checks: readonly Check[]): Check[] {
+  const byId = new Map(checks.map((c) => [c.id, c]));
+  return FIRST_RUN_ORDER.flatMap((id) => {
+    const c = byId.get(id);
+    return c ? [c] : [];
+  });
 }
 
 export function doctorExitCode(checks: readonly Check[], strict: boolean): number {

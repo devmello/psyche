@@ -1,8 +1,9 @@
 import { PROTOCOL_VERSION } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import { type AuditReport, auditExitCode, auditRules, parseSeverity } from "../src/audit.ts";
-import { type Check, doctorChecks, doctorExitCode } from "../src/doctor.ts";
-import type { Snapshot } from "../src/snapshot.ts";
+import { type Check, doctorChecks, doctorExitCode, firstRunChecklist } from "../src/doctor.ts";
+import { appOfProgram, launchAgentProgram, type Snapshot } from "../src/snapshot.ts";
+import { renderLaunchAgentPlist } from "../src/supervisor.ts";
 
 const NOW = new Date("2026-10-19T12:00:00.000Z");
 const GiB = 1024 ** 3;
@@ -320,6 +321,146 @@ describe("doctor rules", () => {
     expect(doctorExitCode(warn, false)).toBe(0);
     expect(doctorExitCode(warn, true)).toBe(1);
     expect(doctorExitCode(fail, false)).toBe(1);
+  });
+});
+
+describe("doctor: a DMG install on macOS (first run)", () => {
+  const app = "/Applications/Psyche.app";
+  const program = `${app}/Contents/Resources/psyched/psyched`;
+  const mac = (over: Partial<Snapshot> = {}): Snapshot =>
+    snap({
+      platform: "darwin",
+      service: { kind: "launchd", installed: true, running: true, pid: 7 },
+      launchAgent: {
+        file: "/u/Library/LaunchAgents/com.psyche.gateway.plist",
+        program,
+        programExists: true,
+        app,
+      },
+      app,
+      nodes: {
+        ok: true,
+        value: [{ id: "n1", kind: "mac-helper", status: "online", capabilities: [] }],
+      },
+      helperPermissions: {
+        ok: true,
+        value: {
+          permissions: [
+            { permission: "accessibility", status: "granted" },
+            { permission: "notifications", status: "granted" },
+          ],
+          next: null,
+          bundle: { signing: "developer_id", insideApp: true },
+        },
+      },
+      ...over,
+    });
+
+  it("a healthy install has every first-run item ok, in order", () => {
+    const list = firstRunChecklist(doctorChecks(mac()));
+    expect(list.map((c) => c.id)).toEqual([
+      "app",
+      "service",
+      "launchagent",
+      "gateway",
+      "auth",
+      "helper",
+      "permissions",
+      "models",
+      "vault",
+    ]);
+    expect(list.every((c) => c.status === "ok")).toBe(true);
+    expect(doctorExitCode(list, true)).toBe(0);
+  });
+
+  it("a LaunchAgent that points at a moved or deleted app fails", () => {
+    const c = check(
+      mac({ launchAgent: { file: "f", program, programExists: false, app } }),
+      "launchagent",
+    );
+    expect(c).toMatchObject({ status: "fail" });
+    expect(c?.message).toContain("does not exist");
+    expect(c?.hint).toContain("Open Psyche.app");
+  });
+
+  it("a LaunchAgent installed but not loaded says so and points at the app", () => {
+    const c = check(
+      mac({
+        service: { kind: "launchd", installed: true, running: false, detail: "not loaded" },
+        probe: { reachable: false, healthy: false, version: null },
+      }),
+      "service",
+    );
+    expect(c).toMatchObject({
+      status: "warn",
+      message: "LaunchAgent installed but not loaded",
+      hint: "Open Psyche.app, or run psyche start",
+    });
+  });
+
+  it("names the next permission to grant, with its System Settings link", () => {
+    const c = check(
+      mac({
+        helperPermissions: {
+          ok: true,
+          value: {
+            permissions: [
+              {
+                permission: "accessibility",
+                status: "denied",
+                title: "Accessibility",
+                settingsURL: "x-apple.systempreferences:ax",
+              },
+            ],
+            next: "accessibility",
+          },
+        },
+      }),
+      "permissions",
+    );
+    expect(c).toMatchObject({ status: "warn" });
+    expect(c?.message).toContain("Accessibility");
+    expect(c?.hint).toContain("x-apple.systempreferences:ax");
+  });
+
+  it("warns on an ad-hoc or unsigned helper, and on one outside Psyche.app", () => {
+    for (const signing of ["adhoc", "unsigned"] as const) {
+      const s = mac({
+        helperPermissions: {
+          ok: true,
+          value: {
+            permissions: [],
+            next: null,
+            bundle: { signing, insideApp: false, path: "/tmp/H.app" },
+          },
+        },
+      });
+      expect(check(s, "helper.signing")).toMatchObject({ status: "warn" });
+      expect(check(s, "helper.location")?.message).toContain("/tmp/H.app");
+    }
+  });
+
+  it("an unknown permissions state is skipped, never a pass", () => {
+    expect(check(mac({ helperPermissions: unavailable }), "permissions")?.status).toBe("skip");
+  });
+
+  it("no Psyche.app (server or source install) is skipped", () => {
+    expect(check(mac({ app: null, launchAgent: null }), "app")?.status).toBe("skip");
+    expect(check(mac({ launchAgent: null }), "launchagent")).toBeUndefined();
+  });
+});
+
+describe("launchAgentProgram / appOfProgram", () => {
+  it("reads the program the CLI and the desktop write, XML-unescaped", () => {
+    const plist = renderLaunchAgentPlist({
+      program: "/Applications/A & B/Psyche.app/Contents/Resources/psyched/psyched",
+      psycheHome: "/u/.psyche",
+    });
+    const program = launchAgentProgram(plist);
+    expect(program).toBe("/Applications/A & B/Psyche.app/Contents/Resources/psyched/psyched");
+    expect(appOfProgram(program as string)).toBe("/Applications/A & B/Psyche.app");
+    expect(appOfProgram("/usr/local/bin/psyched")).toBeNull();
+    expect(launchAgentProgram("<plist><dict></dict></plist>")).toBeNull();
   });
 });
 

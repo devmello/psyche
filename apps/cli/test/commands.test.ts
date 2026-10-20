@@ -1,11 +1,12 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { Readable } from "node:stream";
 import { MockGateway } from "@psyche/web/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { run } from "../src/cli.ts";
 import { loadOrCreateIdentity } from "../src/identity.ts";
-import { AUTOMATION, CREDENTIAL, DEVICE, HANDLERS, PAIRING_REQUEST } from "./fixtures.ts";
+import { renderLaunchAgentPlist } from "../src/supervisor.ts";
+import { AUTOMATION, CREDENTIAL, DEVICE, HANDLERS, PAIRING_REQUEST, TS } from "./fixtures.ts";
 import { cleanupTempDirs, err, makeDeps, out, runJson, type TestDeps, tempDir } from "./helpers.ts";
 
 const ALL_SCOPES = ["operator.read", "operator.write", "operator.approvals", "operator.admin"];
@@ -437,6 +438,103 @@ describe("commands against a paired MockGateway", () => {
       const code = await run(["doctor", ...urlArgs(deps)], deps);
       expect([0, 1]).toContain(code);
       expect(out(deps)).toMatch(/^\[ok {2}\] config:/m);
+    });
+
+    it("doctor --first-run on a DMG install: numbered checklist with the helper's permissions", async () => {
+      const deps = noLocalServices(
+        makeDeps({
+          platform: "darwin",
+          execScript: (cmd) =>
+            cmd === "/bin/launchctl" ? { stdout: "\tstate = running\n\tpid = 4242\n" } : undefined,
+        }),
+      );
+      // Psyche.app in ~/Applications, and the LaunchAgent the desktop wrote for its psyched.
+      const psyched = join(
+        deps.userHome,
+        "Applications",
+        "Psyche.app",
+        "Contents",
+        "Resources",
+        "psyched",
+        "psyched",
+      );
+      mkdirSync(dirname(psyched), { recursive: true });
+      writeFileSync(psyched, "#!/bin/sh\n");
+      mkdirSync(join(deps.userHome, "Library", "LaunchAgents"), { recursive: true });
+      writeFileSync(
+        join(deps.userHome, "Library", "LaunchAgents", "com.psyche.gateway.plist"),
+        renderLaunchAgentPlist({ program: psyched, psycheHome: deps.home }),
+      );
+      const invoked: unknown[] = [];
+      Object.assign(gw.handlers, {
+        "nodes.list": () => ({
+          nodes: [
+            {
+              id: "01JNODE0000000000000000001",
+              deviceId: "01JDEVICE00000000000000009",
+              kind: "mac-helper",
+              capabilities: [],
+              status: "online",
+              lastHeartbeatAt: TS,
+            },
+          ],
+        }),
+        "nodes.invoke": (params: unknown) => {
+          invoked.push(params);
+          return {
+            invocationId: "inv1",
+            ok: true,
+            result: {
+              permissions: [
+                { permission: "accessibility", status: "granted", title: "Accessibility" },
+                {
+                  permission: "notifications",
+                  status: "notDetermined",
+                  title: "Notifications",
+                  settingsURL:
+                    "x-apple.systempreferences:com.apple.Notifications-Settings.extension",
+                },
+              ],
+              next: "notifications",
+              bundled: true,
+              bundle: {
+                signing: "adhoc",
+                insideApp: true,
+                path: "/Applications/Psyche.app/Contents/Resources/Psyche Helper.app",
+              },
+            },
+          };
+        },
+      });
+      const { json } = await runJson(["doctor", "--first-run", ...urlArgs(deps)], deps);
+      expect(invoked).toEqual([
+        { nodeId: "01JNODE0000000000000000001", capability: "permissions.status", params: {} },
+      ]);
+      const checks = json.checks as { id: string; status: string; message: string }[];
+      expect(checks.map((c) => c.id)).toEqual([
+        "app",
+        "service",
+        "launchagent",
+        "gateway",
+        "auth",
+        "helper",
+        "permissions",
+        "helper.signing",
+        "models",
+        "vault",
+      ]);
+      const by = (id: string) => checks.find((c) => c.id === id);
+      expect(by("app")?.message).toContain(join(deps.userHome, "Applications", "Psyche.app"));
+      expect(by("launchagent")).toMatchObject({ status: "ok" });
+      expect(by("launchagent")?.message).toContain("inside");
+      expect(by("permissions")).toMatchObject({ status: "warn" });
+      expect(by("permissions")?.message).toContain("Notifications");
+      expect(by("helper.signing")).toMatchObject({ status: "warn" });
+
+      const code = await run(["doctor", "--first-run", ...urlArgs(deps)], deps);
+      expect([0, 1]).toContain(code);
+      expect(out(deps)).toMatch(/^\[ok {2}\] 1\. Psyche\.app at /m);
+      expect(out(deps)).toMatch(/item\(s\) open; fix them top to bottom/);
     });
 
     it("doctor --offline does not connect", async () => {
