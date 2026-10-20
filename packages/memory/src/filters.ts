@@ -37,7 +37,7 @@ const FINANCIAL_ACCOUNT: RegExp[] = [
 ];
 
 const HEALTH =
-  /\b(?:diagnos(?:is|ed)|prescri(?:bed|ption)|medication|dosage|therapist|therapy|psychiatri\w*|hiv|cancer|chemo\w*|diabet\w*|depress(?:ion|ed)|anxiety disorder|bipolar|adhd|pregnan\w*|miscarriage|std|sti|blood test|biopsy|surgery)\b/i;
+  /\b(?:diagnos(?:is|ed)|prescri(?:bed|ption)|medication|dosage|therapist|therapy|psychiatri\w*|hiv|cancer|chemo\w*|diabet\w*|insulin|depress(?:ion|ed)|anxiety disorder|bipolar|adhd|pregnan\w*|miscarriage|std|sti|blood test|biopsy|surgery)\b/i;
 
 function luhn(digits: string): boolean {
   let sum = 0;

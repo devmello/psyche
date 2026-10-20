@@ -127,6 +127,7 @@ import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts
 import { SqliteThreadStateStore } from "./thread-state.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
+import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 
 /**
@@ -667,6 +668,18 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     publish: (event, payload, threadId) => publish(event, payload as never, threadId),
     isRunning: (threadId) => loop.isBusy(threadId),
   });
+  // Learning about the owner (#509): facts from the owner's own words into USER.md's Learned section.
+  const userProfile = createUserProfile({
+    db,
+    memory,
+    provider,
+    model: utility ?? modelRef,
+    redactor,
+    audit,
+    broker: executorBroker,
+    surfaces: ["desktop", "web"],
+    publish: (event, payload, threadId) => publish(event, payload as never, threadId),
+  });
   const loop = createAgentLoop({
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
     state: new SqliteThreadStateStore(db, redactor),
@@ -688,6 +701,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     contextLimits: context.contextLimits,
     onContextUsage: context.onContextUsage,
     onCompaction: context.onCompaction,
+    onOwnerTurn: userProfile.onOwnerTurn,
     // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
     isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
   });
@@ -757,6 +771,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const handlers: Record<string, HandlerDef> = {
     ...mountPermissions(db, createPermissionHandlers(rawBroker, audit), tokens),
     ...mountParamsOnly(createMemoryHandlers(memory) as never),
+    ...mountParamsOnly(userProfile.handlers as never),
     ...mountParamsOnly(
       context.handlers(
         () => loop,

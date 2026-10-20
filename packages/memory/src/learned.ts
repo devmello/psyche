@@ -1,0 +1,96 @@
+import { createHash } from "node:crypto";
+import type { LearnedFact } from "@psyche/protocol";
+import { blockingKinds, looksLikeInstruction } from "./filters.ts";
+
+/**
+ * `USER.md`'s dated "Learned" section (feature #509): facts about the owner distilled from the
+ * owner's own messages, one line each with its id, date and the thread it came from, beside the
+ * Directives section. This package is the one writer (security §8 "One writer"): the learner in
+ * the Gateway proposes, `learnUserFacts` filters, dedupes and writes; `forgetLearned` undoes.
+ */
+
+export const LEARNED_HEADING = "## Learned (dated; from your chats)";
+const LINE = /^- (\d{4}-\d{2}-\d{2}) \[(lf_[a-z0-9]{6,32}) thread:([^\]\s]+) (\w+)\] (.+)$/;
+
+export interface LearnedLine extends LearnedFact {
+  /** 1-based line in USER.md. */
+  line: number;
+}
+
+export function parseLearned(content: string): LearnedLine[] {
+  const out: LearnedLine[] = [];
+  content.split("\n").forEach((raw, i) => {
+    const m = LINE.exec(raw.trimEnd());
+    if (m === null) return;
+    out.push({
+      line: i + 1,
+      date: m[1] as string,
+      factId: m[2] as string,
+      threadId: m[3] as string,
+      kind: m[4] as LearnedFact["kind"],
+      text: m[5] as string,
+    });
+  });
+  return out;
+}
+
+/** Lowercase words only: "Prefers tea." and "prefers  tea" are the same fact. */
+export function normalizeFact(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+export function learnedFactId(text: string, threadId: string): string {
+  return `lf_${createHash("sha256")
+    .update(`${threadId}|${normalizeFact(text)}`)
+    .digest("hex")
+    .slice(0, 12)}`;
+}
+
+export type LearnRefusal = "empty" | "duplicate" | "sensitive" | "instruction" | "too_long";
+
+/** Why a proposed fact is not written, or undefined when it may be. */
+export function refuseFact(text: string, known: readonly string[]): LearnRefusal | undefined {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (t === "") return "empty";
+  if (t.length > 300) return "too_long";
+  // Secrets and cards always; government ids, financial accounts and health unless asked for.
+  if (blockingKinds(t, false).length > 0) return "sensitive";
+  if (looksLikeInstruction(t)) return "instruction";
+  const n = normalizeFact(t);
+  if (known.some((k) => k === n || (n.length > 12 && k.includes(n)))) return "duplicate";
+  return undefined;
+}
+
+/** Adds lines under the Learned heading (creating the section at the end of the file). */
+export function addLearned(content: string, facts: readonly LearnedFact[]): string {
+  if (facts.length === 0) return content;
+  const lines = facts.map(
+    (f) =>
+      `- ${f.date} [${f.factId} thread:${f.threadId} ${f.kind}] ${f.text.replace(/\s+/g, " ").trim()}`,
+  );
+  const all = content.split("\n");
+  const at = all.findIndex((l) => l.trim() === LEARNED_HEADING);
+  if (at < 0) {
+    const base = content.replace(/\s+$/, "");
+    return `${base}${base === "" ? "" : "\n\n"}${LEARNED_HEADING}\n\n${lines.join("\n")}\n`;
+  }
+  // After the heading's existing lines: the end of the section (the next heading or EOF).
+  let end = at + 1;
+  while (end < all.length && !(all[end] ?? "").startsWith("## ")) end++;
+  while (end > at + 1 && (all[end - 1] ?? "").trim() === "") end--;
+  const insert = end === at + 1 ? ["", ...lines] : lines;
+  all.splice(end, 0, ...insert);
+  return all.join("\n");
+}
+
+/** Removes one learned line; `undefined` when it is not there. */
+export function removeLearned(content: string, factId: string): string | undefined {
+  const lines = content.split("\n");
+  const i = lines.findIndex((l) => LINE.exec(l.trimEnd())?.[2] === factId);
+  if (i < 0) return undefined;
+  lines.splice(i, 1);
+  return lines.join("\n");
+}
