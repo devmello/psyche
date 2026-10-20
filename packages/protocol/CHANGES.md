@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (M2 computer use: per-app tier keys on the action)
+
+For S02 (the loop passes it through), S05 (the broker's per-app tier check) and the Gateway's computer-use tools (`computer.act`, `apps.open`, `apps.focus`).
+
+- New `ToolCallMeta {app?, action?}` and optional `meta` on `ToolCallDescription` and `ToolCallIntent`: the executor names the computer-use app and action, and the broker's tier check needs the tier of that action (`click` for a click, `interact` for typing) instead of the tool name's, which made every `computer.act` need `interact`.
+
 ### v1 additive — 2026-10-19 (S11 M2: Files pane and viewers, P4)
 
 For S11 (the Files pane and chat attachments render `@psyche/viewers`), S01 (the Gateway serves them), S13 (a `ConversionService` over the Gateway).
