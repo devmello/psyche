@@ -112,7 +112,9 @@
           "callRef": "c_v4_search",
           "status": "ok",
           "min": 1,
-          "max": 1
+          "max": 1,
+          "liveSeverity": "soft",
+          "note": "One search is the scripted model's choice; a live model may search again (a read). What it holds is checked hard below."
         },
         {
           "type": "approval_requested",
@@ -238,6 +240,8 @@
         {
           "type": "artifact",
           "severity": "hard",
+          "liveSeverity": "soft",
+          "note": "The owner never asks for the itinerary; a live model may give it in chat only (#413). Scripted mode keeps it hard.",
           "artifactType": "itinerary",
           "count": 1,
           "mentionsAllOf": ["LV 212", "LV 219", "hold", "268.00"]
@@ -350,6 +354,8 @@
         {
           "type": "artifact",
           "severity": "hard",
+          "liveSeverity": "soft",
+          "note": "The owner never asks for the itinerary; a live model may give it in chat only (#413). Scripted mode keeps it hard.",
           "artifactType": "itinerary",
           "count": 1,
           "mentionsAllOf": ["LV7301", "booked"]

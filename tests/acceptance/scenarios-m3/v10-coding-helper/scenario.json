@@ -400,7 +400,8 @@
     }
   ],
   "resumability": {
-    "note": "Documented for INT-3's sweep; not yet in offline/resumability.test.ts (the sweep's harness has no real-tool registrations).",
+    "note": "INT-3's sweep (offline/resumability.test.ts) kills the happy path at 4 seeded random points over fake tools, with code.git as a write so commits and pushes are ledgered; the named kill points below are documentation.",
+    "randomKills": 4,
     "killPoints": [
       {
         "id": "kp-v10-push-pending",

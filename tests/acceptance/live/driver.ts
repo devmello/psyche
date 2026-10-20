@@ -31,7 +31,7 @@ import {
 } from "../../../packages/testing/src/scenarios/util.ts";
 import { loadFixtures, type ToolInfo } from "../../../packages/testing/src/scenarios/world.ts";
 import { fixtureSecrets } from "../../../packages/testing/src/secret-registry.ts";
-import { answerFor, type LiveAnswerRule, type QuestionAnswer } from "./answers.ts";
+import { answerFor, LIVE_FOLLOW_UPS, type LiveAnswerRule, type QuestionAnswer } from "./answers.ts";
 import { canonicalLines, extractSlots, extractSlotsWithModel } from "./slots.ts";
 import { LIVE_TOOL_SPECS } from "./tool-specs.ts";
 
@@ -77,6 +77,8 @@ export interface LiveRunOptions {
   answers?: LiveAnswerRule[];
   /** Extra fakes and services for the Stack (the Milestone 2 scenarios: src/m2-world.ts). */
   overrides?: StackOverrides;
+  /** Fill the scenario's placeholders before the run (V10's repository paths: src/m3-world.ts). */
+  mutate?: (sc: Scenario) => void;
   /** Progress lines (a live run takes minutes). */
   log?: (line: string) => void;
 }
@@ -136,6 +138,8 @@ export interface LiveReport {
   }[];
   cards: LiveCard[];
   questions: LiveQuestion[];
+  /** Owner replies the driver sent after a model asked in prose instead of with `ask_user`. */
+  followUps: { step: string; text: string }[];
   answers: LiveAnswer[];
   /** What the model said in each step (the final text, cut at 2,000 chars). */
   texts: { step: string; text: string }[];
@@ -289,6 +293,7 @@ export async function runScenarioLive(dir: string, options: LiveRunOptions): Pro
   const sc = JSON.parse(readFileSync(join(dir, "scenario.json"), "utf8")) as Scenario & {
     harness?: { live?: { stepTimeoutSeconds?: number; maxToolCallsPerStep?: number } };
   };
+  options.mutate?.(sc);
   const tools = JSON.parse(readFileSync(join(dir, sc.tools), "utf8")).tools as ToolInfo[];
   const fx = loadFixtures(dir, sc.fixtures, sc.owner);
   const start = sc.setup.clockStart ?? String((fx.owner.clock as Json).start);
@@ -324,6 +329,7 @@ export async function runScenarioLive(dir: string, options: LiveRunOptions): Pro
   const results: AssertionResult[] = [];
   const steps: StepReport[] = [];
   const questions: LiveQuestion[] = [];
+  const followUps: { step: string; text: string }[] = [];
   const answers: LiveAnswer[] = [];
   const answeredQuestions = new Set<string>();
   let n = 0;
@@ -611,6 +617,24 @@ export async function runScenarioLive(dir: string, options: LiveRunOptions): Pro
    * Cards an expected assertion of this step could be about (any card of that kind and tool)
    * stay pending: the `approve` step answers the chosen one and its siblings.
    */
+  /** A live `approval_requested` assertion of this step that no card of the step matches yet. */
+  const missingCard = async (step: Step): Promise<boolean> => {
+    const wanted = (step.assertions ?? []).filter(
+      (a) => a.type === "approval_requested" && live(a.modes),
+    );
+    const cards = (await s.broker.list({})).filter((ap) => s.approvalStep.get(ap.id) === step.id);
+    return wanted.some(
+      (a) =>
+        !cards.some((ap) =>
+          approvalSelected(
+            c,
+            withoutKeys(substitute(a, c.captures), ["callRef", "min", "max", "mustShow"]),
+            ap,
+          ),
+        ),
+    );
+  };
+
   const settle = async (i: number, step: Step) => {
     const later = referencedAfter(sc, i);
     const mine = (step.assertions ?? []).filter(
@@ -764,6 +788,21 @@ export async function runScenarioLive(dir: string, options: LiveRunOptions): Pro
     const detail = await perform(step);
     const skipped = detail?.startsWith("skipped") === true;
     if (!skipped) await settle(i, step);
+    // A model that asks in prose (not with ask_user) gets the owner's one reply, as a person
+    // would give it, when the step's expected card is still missing.
+    const follow = (LIVE_FOLLOW_UPS[sc.id] ?? []).find((f) => f.step === step.id);
+    if (!skipped && step.kind === "owner_message" && follow !== undefined) {
+      const said = s.texts
+        .filter((t) => t.step === step.id)
+        .map((t) => t.text)
+        .join("");
+      if ((follow.when?.test(said) ?? true) && (await missingCard(step))) {
+        followUps.push({ step: step.id, text: follow.text });
+        log(`${sc.id} ${step.id}: owner follow-up`);
+        s.startRun(follow.text, `task_${step.id}`, `run_${step.id}_followup`);
+        await settle(i, step);
+      }
+    }
     await snapshot();
     await evalAll(step.assertions, step.id, step.id, skipped ? detail : undefined);
     steps.push({
@@ -846,6 +885,7 @@ export async function runScenarioLive(dir: string, options: LiveRunOptions): Pro
     }),
     cards,
     questions,
+    followUps,
     answers,
     runs: s.runs.map((r) => {
       const end = s.events.find((e) => e.event.type === "end" && e.event.runId === r.runId)

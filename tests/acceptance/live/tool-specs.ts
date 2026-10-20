@@ -224,10 +224,10 @@ export const LIVE_TOOL_SPECS: Record<string, { description: string; inputSchema:
   },
   "artifacts.write": {
     description:
-      "Write a document to the owner's Library as an artifact (markdown or text) with a stable name. No approval needed. Cite sources as full http(s) URLs.",
+      "Write a document to the owner's Library as an artifact with a stable name: markdown or text, or an itinerary (a trip's flights, times, status and confirmation, shown as an itinerary card). Writing the same name again updates it. No approval needed. Cite sources as full http(s) URLs.",
     inputSchema: obj(
       {
-        type: str("'markdown' or 'text'"),
+        type: str("'markdown', 'text' or 'itinerary'"),
         name: str("Stable slug, e.g. cold-climate-heat-pumps-brief"),
         title: str("Title"),
         content: str("Full content"),
