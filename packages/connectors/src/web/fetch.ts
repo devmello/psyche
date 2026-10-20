@@ -68,8 +68,59 @@ export interface SafeFetchOptions {
    * SearXNG). Never derived from model input; the model-facing `web_fetch` tool passes none.
    */
   privateAllowlist?: readonly string[];
+  /**
+   * Decides every redirect hop before it is vetted or connected (security §6, I7: allowlists
+   * are enforced on every hop against canonical hosts). Return false to refuse the hop with
+   * `policy_denied` / `redirect_not_allowlisted`. Without it `safeFetch` follows any hop that
+   * passes the SSRF, scheme and count checks; the model-facing `web_fetch` tool always sets one.
+   */
+  allowHop?: HopPolicy;
   lookup?: DnsLookup;
   transport?: Transport;
+}
+
+export interface HopContext {
+  /** The URL that answered with the redirect. */
+  from: URL;
+  /** The first URL of the request. */
+  initial: URL;
+  /** 1 for the first redirect. */
+  hop: number;
+}
+
+export type HopPolicy = (next: URL, context: HopContext) => boolean | Promise<boolean>;
+
+/**
+ * Canonical origin for allowlist comparison (security §6): scheme, lower-cased IDNA host
+ * without a trailing dot, port only when not the scheme's default. Subdomains stay separate.
+ */
+export function canonicalOrigin(input: string | URL): string {
+  const url = typeof input === "string" ? new URL(input) : input;
+  const host = url.hostname.replace(/\.$/, "");
+  return `${url.protocol}//${host}${url.port === "" ? "" : `:${url.port}`}`;
+}
+
+/**
+ * A hop policy that admits only these origins (canonicalized). An `http://` origin also admits
+ * its `https://` upgrade on the default port, so a site forcing TLS does not break the fetch.
+ */
+export function originAllowlist(origins: Iterable<string>): HopPolicy {
+  const allowed = new Set<string>();
+  for (const o of origins) {
+    try {
+      allowed.add(canonicalOrigin(o));
+    } catch {
+      // not a URL: never matches
+    }
+  }
+  return (next) => {
+    const origin = canonicalOrigin(next);
+    if (allowed.has(origin)) return true;
+    if (next.protocol === "https:" && next.port === "") {
+      return allowed.has(`http://${next.hostname.replace(/\.$/, "")}`);
+    }
+    return false;
+  };
 }
 
 export interface SafeFetchResult {
@@ -377,6 +428,7 @@ export async function safeFetch(
 
   try {
     let current = parseFetchUrl(input);
+    const initial = current;
     for (let hop = 0; ; hop += 1) {
       const target = await abortable(
         vetUrl(current, {
@@ -431,6 +483,18 @@ export async function safeFetch(
         }
         if (target.url.protocol === "https:" && next.protocol === "http:") {
           denied("redirect_downgrade", "redirect from https to http refused");
+        }
+        if (
+          options.allowHop !== undefined &&
+          !(await abortable(
+            Promise.resolve(options.allowHop(next, { from: target.url, initial, hop: hop + 1 })),
+          ))
+        ) {
+          denied(
+            "redirect_not_allowlisted",
+            `redirect to ${next.host} refused: that origin is not allowed for this task`,
+            { origin: canonicalOrigin(next) },
+          );
         }
         current = next;
         continue;
