@@ -1495,6 +1495,59 @@ export interface DevicesRevokeResult {
     device: Device;
 }
 
+export interface DictationInsertParams {
+    /**
+     * Refuse with focus_changed unless this process still has focus
+     */
+    expectPid?: number;
+    text:       string;
+}
+
+export interface DictationInsertResult {
+    chars:  number;
+    method: DictationInsertMethod;
+    target: DictationTarget;
+}
+
+export type DictationInsertMethod = "ax" | "typed";
+
+export interface DictationTarget {
+    appName:    string;
+    bundleId?:  null | string;
+    insertable: boolean;
+    pid:        number;
+    refusal?:   DictationRefusal;
+    role?:      null | string;
+}
+
+export type DictationRefusal = "no_focus" | "secure_field" | "own_window" | "not_editable" | "focus_changed";
+
+export interface DictationKeyPayload {
+    /**
+     * ISO time the helper saw the change
+     */
+    at:   string;
+    down: boolean;
+    key:  DictationKey;
+}
+
+export type DictationKey = "fn" | "rightOption" | "rightCommand";
+
+export interface DictationTargetResult {
+    target?: DictationTarget | null;
+}
+
+export interface DictationWatchParams {
+    /**
+     * null stops watching
+     */
+    key: DictationKey | null;
+}
+
+export interface DictationWatchResult {
+    watching: boolean;
+}
+
 export interface EventFrame {
     event:        string;
     payload:      unknown;

@@ -196,6 +196,17 @@
 //   let devicesPairingListResult = try? JSONDecoder().decode(DevicesPairingListResult.self, from: jsonData)
 //   let devicesRevokeParams = try? JSONDecoder().decode(DevicesRevokeParams.self, from: jsonData)
 //   let devicesRevokeResult = try? JSONDecoder().decode(DevicesRevokeResult.self, from: jsonData)
+//   let dictationInsertMethod = try? JSONDecoder().decode(DictationInsertMethod.self, from: jsonData)
+//   let dictationInsertParams = try? JSONDecoder().decode(DictationInsertParams.self, from: jsonData)
+//   let dictationInsertResult = try? JSONDecoder().decode(DictationInsertResult.self, from: jsonData)
+//   let dictationKey = try? JSONDecoder().decode(DictationKey.self, from: jsonData)
+//   let dictationKeyPayload = try? JSONDecoder().decode(DictationKeyPayload.self, from: jsonData)
+//   let dictationRefusal = try? JSONDecoder().decode(DictationRefusal.self, from: jsonData)
+//   let dictationTarget = try? JSONDecoder().decode(DictationTarget.self, from: jsonData)
+//   let dictationTargetParams = try? JSONDecoder().decode(DictationTargetParams.self, from: jsonData)
+//   let dictationTargetResult = try? JSONDecoder().decode(DictationTargetResult.self, from: jsonData)
+//   let dictationWatchParams = try? JSONDecoder().decode(DictationWatchParams.self, from: jsonData)
+//   let dictationWatchResult = try? JSONDecoder().decode(DictationWatchResult.self, from: jsonData)
 //   let dmPolicy = try? JSONDecoder().decode(DmPolicy.self, from: jsonData)
 //   let emptyParams = try? JSONDecoder().decode(EmptyParams.self, from: jsonData)
 //   let errorCode = try? JSONDecoder().decode(ErrorCode.self, from: jsonData)
@@ -4777,6 +4788,149 @@ public struct DevicesRevokeResult: Codable, Sendable {
 
     public init(device: Device) {
         self.device = device
+    }
+}
+
+// MARK: - DictationInsertParams
+public struct DictationInsertParams: Codable, Sendable {
+    /// Refuse with focus_changed unless this process still has focus
+    public let expectPID: Int?
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case expectPID = "expectPid"
+        case text = "text"
+    }
+
+    public init(expectPID: Int?, text: String) {
+        self.expectPID = expectPID
+        self.text = text
+    }
+}
+
+// MARK: - DictationInsertResult
+public struct DictationInsertResult: Codable, Sendable {
+    public let chars: Int
+    public let method: DictationInsertMethod
+    public let target: DictationTarget
+
+    public enum CodingKeys: String, CodingKey {
+        case chars = "chars"
+        case method = "method"
+        case target = "target"
+    }
+
+    public init(chars: Int, method: DictationInsertMethod, target: DictationTarget) {
+        self.chars = chars
+        self.method = method
+        self.target = target
+    }
+}
+
+public enum DictationInsertMethod: String, Codable, Sendable {
+    case ax = "ax"
+    case typed = "typed"
+}
+
+// MARK: - DictationTarget
+public struct DictationTarget: Codable, Sendable {
+    public let appName: String
+    public let bundleID: String?
+    public let insertable: Bool
+    public let pid: Int
+    public let refusal: DictationRefusal?
+    public let role: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case appName = "appName"
+        case bundleID = "bundleId"
+        case insertable = "insertable"
+        case pid = "pid"
+        case refusal = "refusal"
+        case role = "role"
+    }
+
+    public init(appName: String, bundleID: String?, insertable: Bool, pid: Int, refusal: DictationRefusal?, role: String?) {
+        self.appName = appName
+        self.bundleID = bundleID
+        self.insertable = insertable
+        self.pid = pid
+        self.refusal = refusal
+        self.role = role
+    }
+}
+
+public enum DictationRefusal: String, Codable, Sendable {
+    case focusChanged = "focus_changed"
+    case noFocus = "no_focus"
+    case notEditable = "not_editable"
+    case ownWindow = "own_window"
+    case secureField = "secure_field"
+}
+
+// MARK: - DictationKeyPayload
+public struct DictationKeyPayload: Codable, Sendable {
+    /// ISO time the helper saw the change
+    public let at: String
+    public let down: Bool
+    public let key: DictationKey
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case down = "down"
+        case key = "key"
+    }
+
+    public init(at: String, down: Bool, key: DictationKey) {
+        self.at = at
+        self.down = down
+        self.key = key
+    }
+}
+
+public enum DictationKey: String, Codable, Sendable {
+    case fn = "fn"
+    case rightCommand = "rightCommand"
+    case rightOption = "rightOption"
+}
+
+// MARK: - DictationTargetResult
+public struct DictationTargetResult: Codable, Sendable {
+    public let target: DictationTarget?
+
+    public enum CodingKeys: String, CodingKey {
+        case target = "target"
+    }
+
+    public init(target: DictationTarget?) {
+        self.target = target
+    }
+}
+
+// MARK: - DictationWatchParams
+public struct DictationWatchParams: Codable, Sendable {
+    /// null stops watching
+    public let key: DictationKey?
+
+    public enum CodingKeys: String, CodingKey {
+        case key = "key"
+    }
+
+    public init(key: DictationKey?) {
+        self.key = key
+    }
+}
+
+// MARK: - DictationWatchResult
+public struct DictationWatchResult: Codable, Sendable {
+    public let watching: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case watching = "watching"
+    }
+
+    public init(watching: Bool) {
+        self.watching = watching
     }
 }
 
@@ -12063,6 +12217,7 @@ public typealias BrowserRealChromeStatusParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]
+public typealias DictationTargetParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]
 public typealias MemoryExportParams = [String: JSONAny]
 public typealias MemoryPersonaGetParams = [String: JSONAny]
