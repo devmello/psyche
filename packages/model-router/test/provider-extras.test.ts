@@ -68,7 +68,9 @@ describe("OpenRouter app attribution", () => {
     const sent = replay.requests[0];
     expect(sent?.headers["http-referer"]).toBe("https://psyche.example");
     expect(sent?.headers["x-openrouter-title"]).toBe("Psyche");
-    expect((sent?.body as { model?: string } | undefined)?.model).toBe("anthropic/claude-sonnet-5-5");
+    expect((sent?.body as { model?: string } | undefined)?.model).toBe(
+      "anthropic/claude-sonnet-5-5",
+    );
   });
 });
 
