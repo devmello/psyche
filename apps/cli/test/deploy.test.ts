@@ -298,11 +298,14 @@ describe("deploy/scripts/release-preflight.mjs (before a tag)", () => {
 });
 
 describe("deploy/macos/make-dmg.sh (no Developer ID)", () => {
-  it.skipIf(process.platform !== "darwin" || !has("hdiutil")).each([
-    { presigned: false, identifier: "dev.psyche.test" },
-    // The package step's inside-out signature is kept, not replaced by a --deep one.
-    { presigned: true, identifier: "dev.psyche.kept" },
-  ])(
+  // Builds and mounts a disk image, so it runs only when asked (PSYCHE_DMG_TEST=1, macOS).
+  it
+    .skipIf(process.platform !== "darwin" || !has("hdiutil") || process.env.PSYCHE_DMG_TEST !== "1")
+    .each([
+      { presigned: false, identifier: "dev.psyche.test" },
+      // The package step's inside-out signature is kept, not replaced by a --deep one.
+      { presigned: true, identifier: "dev.psyche.kept" },
+    ])(
     "presigned=$presigned: ad-hoc signed app, Applications link and checksum",
     ({ presigned, identifier }) => {
       const dir = mkdtempSync(join(tmpdir(), "psyche-dmg-"));
@@ -336,9 +339,10 @@ describe("deploy/macos/make-dmg.sh (no Developer ID)", () => {
         const env: NodeJS.ProcessEnv = {
           ...process.env,
           PSYCHE_DMG_BACKGROUND: join(dir, "none.png"),
+          PSYCHE_DMG_LAYOUT: "0",
         };
         delete env.PSYCHE_SIGN_IDENTITY;
-        // No Finder layout here (no background), so the test opens no windows.
+        // No Finder layout, so the test scripts no app and opens no windows.
         const dmg = execFileSync(
           "/bin/bash",
           [resolve(deploy, "macos/make-dmg.sh"), app, "1.2.3", "arm64", out],

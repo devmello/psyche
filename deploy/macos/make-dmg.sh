@@ -15,6 +15,9 @@
 #   APPLE_API_KEY (path to the .p8), APPLE_API_KEY_ID, APPLE_API_ISSUER     (preferred), or
 #   APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID
 # Never commit real values; CI passes them from repository secrets.
+#   PSYCHE_DMG_LAYOUT      1 lays out the Finder window over the background. This scripts Finder,
+#                          which raises a one-time Automation prompt on a desktop Mac, so it is off
+#                          by default and on in CI (CI=true). 0 forces it off.
 set -eu
 
 app="${1:?usage: make-dmg.sh <Psyche.app> <version> <arm64|x64> <out-dir>}"
@@ -25,6 +28,7 @@ out="${4:?out-dir}"
 here="$(cd "$(dirname "$0")" && pwd)"
 entitlements="${PSYCHE_ENTITLEMENTS:-$here/../../apps/desktop/entitlements.plist}"
 background="${PSYCHE_DMG_BACKGROUND:-$here/dmg-background.png}"
+if [ "${CI:-}" = true ]; then layout="${PSYCHE_DMG_LAYOUT:-1}"; else layout="${PSYCHE_DMG_LAYOUT:-0}"; fi
 
 case "$arch" in arm64|x64) ;; *) echo "arch must be arm64 or x64" >&2; exit 2 ;; esac
 case "$version" in *[!0-9A-Za-z.-]*|"") echo "bad version: $version" >&2; exit 2 ;; esac
@@ -56,7 +60,7 @@ fi
 volname="Psyche $version"
 rm -f "$dmg"
 laid_out=0
-if [ -f "$background" ] && command -v osascript >/dev/null; then
+if [ "$layout" = 1 ] && [ -f "$background" ] && command -v osascript >/dev/null; then
   # A read-write image, laid out by Finder, then compressed. Finder scripting needs a GUI session;
   # where it is unavailable (some CI hosts) the plain image below is used instead.
   mkdir -p "$stage/.background"

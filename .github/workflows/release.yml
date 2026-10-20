@@ -627,7 +627,8 @@ jobs:
           # apps/gateway/dist-bin/darwin-<arch>/psyched, started once against /healthz (--smoke).
           node deploy/scripts/build-psyched.mjs --arch "$ARCH" --smoke
           deploy/macos/build-helper.sh --arch "$ARCH"
-          # forge.config.ts copies both into the app (apps/desktop/src/packaging/bundle-resources.ts).
+          # forge.config.ts copies both into the app (apps/desktop/src/packaging/bundle-resources.ts);
+          # dist/PsycheHelper.app is the agreed helper path, passed explicitly.
           echo "PSYCHE_HELPER_APP=$PWD/apps/mac-helper/dist/PsycheHelper.app" >> "$GITHUB_ENV"
       - name: Package Psyche.app (signed and notarized by electron-forge when configured)
         env:
@@ -636,6 +637,8 @@ jobs:
       - name: Build the DMG (Developer ID signed, notarized and stapled when configured; else ad-hoc)
         env:
           ARCH: ${{ matrix.arch }}
+          # The Finder window layout over the background (off by default outside CI).
+          PSYCHE_DMG_LAYOUT: "1"
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           app="$(find apps/desktop/out -maxdepth 2 -name Psyche.app -path "*darwin-${ARCH}*" | head -n1)"
