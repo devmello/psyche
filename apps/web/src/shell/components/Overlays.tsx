@@ -139,13 +139,42 @@ export function ShortcutSheet({ onClose }: { onClose: () => void }): ReactElemen
   );
 }
 
-/** ⌘⇧I model picker: a free `provider/model` field until the Gateway lists models. */
+interface ListedModels {
+  providers?: { models?: { ref: string; capabilities?: { embeddings?: boolean } }[] }[];
+}
+
+/** Chat models from `models.list` (embedding models cannot chat); none from older Gateways. */
+export function chatModelRefs(listed: ListedModels | undefined): string[] {
+  const refs = (listed?.providers ?? []).flatMap((p) =>
+    (p.models ?? []).filter((m) => m.capabilities?.embeddings !== true).map((m) => m.ref),
+  );
+  return [...new Set(refs)];
+}
+
+/**
+ * ⌘⇧I model picker: a free `provider/model` field, with the Gateway's known models
+ * (`models.list`: role chains, config and the last endpoint probes) as suggestions.
+ */
 export function ModelPicker(props: {
   current: string | null;
   onPick: (modelRef: string) => void;
   onClose: () => void;
 }): ReactElement {
+  const { store } = useShell();
   const [v, setV] = useState(props.current ?? "");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  useEffect(() => {
+    let live = true;
+    void store
+      .call<ListedModels>("models.list", {})
+      .then((r) => {
+        if (live) setSuggestions(chatModelRefs(r));
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [store]);
   const valid = /^[a-z0-9][a-z0-9_.-]*\/.+$/.test(v);
   return (
     // biome-ignore lint/a11y: backdrop click closes; Esc is handled on the input
@@ -166,7 +195,13 @@ export function ModelPicker(props: {
           }}
           placeholder="provider/model, e.g. anthropic/claude-opus-5-5"
           aria-label="Model reference"
+          list="psyche-model-suggestions"
         />
+        <datalist id="psyche-model-suggestions" data-testid="model-suggestions">
+          {suggestions.map((ref) => (
+            <option key={ref} value={ref} />
+          ))}
+        </datalist>
       </div>
     </div>
   );

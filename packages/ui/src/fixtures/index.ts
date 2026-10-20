@@ -51,6 +51,8 @@ import { artifacts, inputRequests, library, receipts, taskActions, tasks } from 
  * Persona "Wren" (a pale moth); owner "you"; the clock is fixed at FIXTURE_NOW.
  */
 
+import type { EndpointProbe, ModelProviderSummary, ModelRoles } from "@psyche/protocol";
+
 export { ago, at, FIXTURE_NOW, fakeHex, fakeSha, IDS, inMinutes, PERSONA, today } from "./ids.ts";
 export type { UsageSummary } from "./settings.ts";
 
@@ -93,6 +95,10 @@ export interface FixtureWorld {
   /** Unified search hits for the query "dentist", grouped by scope. */
   searchHits: SearchHit[];
   usage: UsageSummary;
+  /** `models.*` (B1, B4); stories and tests seed them from the settings sample data. */
+  modelProviders?: ModelProviderSummary[];
+  modelRoles?: ModelRoles;
+  modelProbes?: Record<string, EndpointProbe>;
 }
 
 /** Builds a fresh world; every call returns a deep copy, so callers may mutate freely. */
