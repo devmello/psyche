@@ -274,6 +274,11 @@
         "payload": "#/$defs/SkillChangeEvent"
       },
       {
+        "description": "An installed skill's pinned source now has different content; review it with skills.proposeUpdate (nothing is installed until approved).",
+        "name": "skills.updated",
+        "payload": "#/$defs/SkillUpdateStatus"
+      },
+      {
         "description": "One chunk of read-aloud PCM for progressive playback; last marks the end of audio.",
         "name": "speech.audio",
         "payload": "#/$defs/SpeechAudioPayload"
@@ -761,7 +766,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Approves a pending pairing request with owner-chosen scopes.",
+        "description": "Approves a pending pairing request with owner-chosen scopes. Needs fresh presence once the Gateway has a presence verifier (approval_required with details.approvalId, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now).",
         "name": "devices.approve",
         "params": "#/$defs/DevicesApproveParams",
         "result": "#/$defs/DevicesApproveResult",
@@ -1153,6 +1158,38 @@
         "sideEffecting": true
       },
       {
+        "description": "Runs the six-case tool-calling check (B4) on one model and stores a conclusive verdict. Calls the model, so it may cost tokens.",
+        "name": "models.check",
+        "params": "#/$defs/ModelsCheckParams",
+        "result": "#/$defs/ModelsCheckResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists the configured model providers with their known models, the last endpoint probe (state not_probed until one runs) and tool-check verdicts, plus the primary and utility role bindings.",
+        "name": "models.list",
+        "params": "#/$defs/ModelsListParams",
+        "result": "#/$defs/ModelsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Probes one configured provider's endpoint: reachability, the model list and capability guesses (vision, tool use, context length). Stores and returns the result. not_found for an unknown provider id.",
+        "name": "models.probe",
+        "params": "#/$defs/ModelsProbeParams",
+        "result": "#/$defs/ModelsProbeResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Binds the primary or utility role to a model and persists it (settings models.primary / models.utility). policy_denied when a chat-only model is picked as primary without override; not_found when no configured provider serves the ref. Side-effecting.",
+        "name": "models.setRole",
+        "params": "#/$defs/ModelsSetRoleParams",
+        "result": "#/$defs/ModelsSetRoleResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Node → Gateway: streamed progress for an invocation.",
         "name": "node.event",
         "params": "#/$defs/NodeEventParams",
@@ -1249,7 +1286,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Stores the new passkey. A device that already has one must include reauth (an assertion with an existing passkey). At most 20 per device. Side-effecting.",
+        "description": "Stores the new passkey. A device that already has one must include reauth (an assertion with an existing passkey). A device's first passkey needs fresh presence from another device's passkey or the helper's Touch ID key once the Gateway has one (approval_required with details.approvalId, then retry with approvalId). At most 20 per device. Side-effecting.",
         "name": "passkeys.register.finish",
         "params": "#/$defs/PasskeysRegisterFinishParams",
         "result": "#/$defs/PasskeysRegisterFinishResult",
@@ -1337,12 +1374,20 @@
         "sideEffecting": false
       },
       {
-        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges) also needs operator.admin. Security keys (permissions, exec, vault, devices, gateway, owner identities, channel DM / allow policies) also need fresh user presence once the Gateway has a presence verifier: the first call fails approval_required with details.approvalId (a device-only policy_change card bound to the key and value); retry with that approvalId after approving. Side-effecting.",
+        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges) also needs operator.admin. Security keys (permissions, exec, vault, devices, gateway, owner identities, channel DM / allow policies) also need fresh user presence once the Gateway has a presence verifier: the first call fails approval_required with details.approvalId (a device-only policy_change card bound to the key and value); retry with that approvalId after approving. Once presence was enrolled, a Gateway whose verifiers can no longer verify fails presence_required instead of falling back to operator.admin alone. Side-effecting.",
         "name": "settings.set",
         "params": "#/$defs/SettingsSetParams",
         "result": "#/$defs/SettingsSetResult",
         "scope": "operator.write",
         "sideEffecting": true
+      },
+      {
+        "description": "Re-fetches installed skills from their pinned sources (no install) and reports which changed; emits skills.updated for each update found.",
+        "name": "skills.checkUpdates",
+        "params": "#/$defs/SkillsCheckUpdatesParams",
+        "result": "#/$defs/SkillsCheckUpdatesResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
       },
       {
         "description": "Enabled user-invocable skills as composer slash commands.",
@@ -1393,7 +1438,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Side-effecting: fetches and scans a skill and opens a device-only skill_install approval.",
+        "description": "Side-effecting: fetches and scans a skill and opens a device-only skill_install approval; policy_denied (details.violations) when its manifest asks for more than the policy allows.",
         "name": "skills.proposeInstall",
         "params": "#/$defs/SkillsProposeInstallParams",
         "result": "#/$defs/SkillProposalResult",
@@ -3500,6 +3545,22 @@
         "line": {
           "minimum": 1,
           "type": "integer"
+        },
+        "signedAnchors": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "anchorKeyIds": {
+          "items": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "signingSinceSeq": {
+          "minimum": 0,
+          "type": "integer"
         }
       },
       "required": [
@@ -4114,6 +4175,12 @@
           "maxLength": 255,
           "minLength": 1,
           "pattern": "^[^/\\\\]+$",
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
           "type": "string"
         }
       },
@@ -5535,6 +5602,12 @@
           },
           "maxItems": 1000,
           "type": "array"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -5637,6 +5710,12 @@
             "^(.*)$": {}
           },
           "type": "object"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "type": "object"
@@ -5755,6 +5834,12 @@
               "type": "null"
             }
           ]
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -5808,6 +5893,12 @@
         },
         "code": {
           "maxLength": 16,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
           "minLength": 1,
           "type": "string"
         }
@@ -7226,6 +7317,12 @@
           "maxLength": 32,
           "minLength": 1,
           "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -7611,6 +7708,49 @@
       "properties": {},
       "type": "object"
     },
+    "EndpointProbe": {
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/EndpointProbeState"
+        },
+        "probedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "latencyMs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "server": {
+          "type": "string"
+        },
+        "models": {
+          "items": {
+            "$ref": "#/$defs/ProbedModel"
+          },
+          "type": "array"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "models"
+      ],
+      "type": "object"
+    },
+    "EndpointProbeState": {
+      "enum": [
+        "not_probed",
+        "reachable",
+        "unreachable",
+        "auth_failed",
+        "error"
+      ],
+      "type": "string"
+    },
     "ErrorCode": {
       "description": "Machine-readable error code",
       "enum": [
@@ -7644,7 +7784,8 @@
         "user_in_control",
         "debugger_detached",
         "tab_not_found",
-        "method_not_allowed"
+        "method_not_allowed",
+        "presence_required"
       ],
       "type": "string"
     },
@@ -10687,6 +10828,12 @@
       "properties": {
         "dryRun": {
           "type": "boolean"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "type": "object"
@@ -11499,6 +11646,203 @@
           "type": "boolean"
         }
       },
+      "type": "object"
+    },
+    "ModelCapabilityGuess": {
+      "properties": {
+        "toolCalling": {
+          "type": "boolean"
+        },
+        "vision": {
+          "type": "boolean"
+        },
+        "reasoning": {
+          "type": "boolean"
+        },
+        "embeddings": {
+          "type": "boolean"
+        },
+        "contextWindow": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "source": {
+          "$ref": "#/$defs/ModelFactSource"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "type": "object"
+    },
+    "ModelFactSource": {
+      "enum": [
+        "listing",
+        "catalog",
+        "config",
+        "heuristic"
+      ],
+      "type": "string"
+    },
+    "ModelProviderSummary": {
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "baseURL": {
+          "type": "string"
+        },
+        "local": {
+          "type": "boolean"
+        },
+        "keyConfigured": {
+          "type": "boolean"
+        },
+        "models": {
+          "items": {
+            "$ref": "#/$defs/ProviderModelEntry"
+          },
+          "type": "array"
+        },
+        "probe": {
+          "$ref": "#/$defs/EndpointProbe"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "label",
+        "local",
+        "keyConfigured",
+        "models",
+        "probe"
+      ],
+      "type": "object"
+    },
+    "ModelRoles": {
+      "properties": {
+        "primary": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "utility": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ModelsCheckParams": {
+      "properties": {
+        "ref": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "type": "object"
+    },
+    "ModelsCheckResult": {
+      "properties": {
+        "result": {
+          "$ref": "#/$defs/ToolCheckResult"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    },
+    "ModelsListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "ModelsListResult": {
+      "properties": {
+        "providers": {
+          "items": {
+            "$ref": "#/$defs/ModelProviderSummary"
+          },
+          "type": "array"
+        },
+        "roles": {
+          "$ref": "#/$defs/ModelRoles"
+        }
+      },
+      "required": [
+        "providers",
+        "roles"
+      ],
+      "type": "object"
+    },
+    "ModelsProbeParams": {
+      "properties": {
+        "providerId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "providerId"
+      ],
+      "type": "object"
+    },
+    "ModelsProbeResult": {
+      "properties": {
+        "provider": {
+          "$ref": "#/$defs/ModelProviderSummary"
+        }
+      },
+      "required": [
+        "provider"
+      ],
+      "type": "object"
+    },
+    "ModelsSetRoleParams": {
+      "properties": {
+        "role": {
+          "$ref": "#/$defs/PickableModelRole"
+        },
+        "ref": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "override": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "role",
+        "ref"
+      ],
+      "type": "object"
+    },
+    "ModelsSetRoleResult": {
+      "properties": {
+        "roles": {
+          "$ref": "#/$defs/ModelRoles"
+        }
+      },
+      "required": [
+        "roles"
+      ],
       "type": "object"
     },
     "NodeCapability": {
@@ -12414,6 +12758,12 @@
         },
         "reauth": {
           "$ref": "#/$defs/PasskeyReauth"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -12515,6 +12865,13 @@
         "avatarRequested"
       ],
       "type": "object"
+    },
+    "PickableModelRole": {
+      "enum": [
+        "primary",
+        "utility"
+      ],
+      "type": "string"
     },
     "PlanBlock": {
       "properties": {
@@ -12660,6 +13017,34 @@
       ],
       "type": "object"
     },
+    "ProbedModel": {
+      "properties": {
+        "ref": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/ModelCapabilityGuess"
+        },
+        "loaded": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref",
+        "id",
+        "capabilities"
+      ],
+      "type": "object"
+    },
     "ProtocolVersionRange": {
       "properties": {
         "min": {
@@ -12692,6 +13077,26 @@
         "untrusted"
       ],
       "type": "string"
+    },
+    "ProviderModelEntry": {
+      "properties": {
+        "ref": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/ModelCapabilityGuess"
+        },
+        "toolCheck": {
+          "$ref": "#/$defs/ToolCheckStatus"
+        }
+      },
+      "required": [
+        "ref",
+        "toolCheck"
+      ],
+      "type": "object"
     },
     "Question": {
       "properties": {
@@ -14095,6 +14500,12 @@
         },
         "commit": {
           "type": "string"
+        },
+        "manifest": {
+          "$ref": "#/$defs/SkillManifest"
+        },
+        "update": {
+          "$ref": "#/$defs/SkillUpdateStatus"
         }
       },
       "required": [
@@ -14176,6 +14587,37 @@
           "type": "object"
         }
       ]
+    },
+    "SkillManifest": {
+      "properties": {
+        "tools": {
+          "description": "Tool names or `family.*` globs, sorted, without duplicates",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "permissions": {
+          "description": "Approval kinds the skill expects its steps to request, sorted",
+          "items": {
+            "$ref": "#/$defs/ApprovalKind"
+          },
+          "type": "array"
+        },
+        "prompts": {
+          "description": "Prompt files inside the skill folder (relative paths), sorted",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "tools",
+        "permissions",
+        "prompts"
+      ],
+      "type": "object"
     },
     "SkillProposal": {
       "properties": {
@@ -14260,6 +14702,9 @@
           "description": "Epoch ms",
           "minimum": 0,
           "type": "integer"
+        },
+        "manifest": {
+          "$ref": "#/$defs/SkillManifest"
         }
       },
       "required": [
@@ -14393,6 +14838,73 @@
         "unknown"
       ],
       "type": "string"
+    },
+    "SkillUpdateStatus": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "installedHash": {
+          "type": "string"
+        },
+        "availableHash": {
+          "description": "Tree hash at the source; absent when the check failed",
+          "type": "string"
+        },
+        "commit": {
+          "description": "Git sources: the commit the ref names",
+          "type": "string"
+        },
+        "updateAvailable": {
+          "type": "boolean"
+        },
+        "manifestChanged": {
+          "description": "The update declares different tools, permissions or prompts",
+          "type": "boolean"
+        },
+        "error": {
+          "description": "Why the source could not be checked",
+          "type": "string"
+        },
+        "checkedAt": {
+          "description": "Epoch ms",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "installedHash",
+        "updateAvailable",
+        "manifestChanged",
+        "checkedAt"
+      ],
+      "type": "object"
+    },
+    "SkillsCheckUpdatesParams": {
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "SkillsCheckUpdatesResult": {
+      "properties": {
+        "updates": {
+          "items": {
+            "$ref": "#/$defs/SkillUpdateStatus"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "updates"
+      ],
+      "type": "object"
     },
     "SkillsCommandsResult": {
       "properties": {
@@ -15014,6 +15526,9 @@
             }
           ]
         },
+        "workspace": {
+          "$ref": "#/$defs/TaskWorkspace"
+        },
         "summary": {
           "anyOf": [
             {
@@ -15352,6 +15867,13 @@
         "task"
       ],
       "type": "object"
+    },
+    "TaskWorkspace": {
+      "enum": [
+        "sandbox",
+        "vm"
+      ],
+      "type": "string"
     },
     "TasksActionsParams": {
       "properties": {
@@ -16172,6 +16694,50 @@
         "toolCall"
       ],
       "type": "object"
+    },
+    "ToolCheckResult": {
+      "properties": {
+        "ref": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/ToolCheckStatus"
+        },
+        "passed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "total": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "inconclusive": {
+          "type": "boolean"
+        },
+        "probedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref",
+        "status",
+        "passed",
+        "total",
+        "inconclusive"
+      ],
+      "type": "object"
+    },
+    "ToolCheckStatus": {
+      "enum": [
+        "untested",
+        "agent-capable",
+        "chat-only"
+      ],
+      "type": "string"
     },
     "ToolSpec": {
       "properties": {
@@ -17119,9 +17685,9 @@
     },
     "VmClipboardMode": {
       "enum": [
-        "off",
-        "paste_only",
-        "bidirectional"
+        "paste-only",
+        "bidirectional",
+        "off"
       ],
       "type": "string"
     },
@@ -17424,6 +17990,43 @@
       "required": [
         "type",
         "phase"
+      ],
+      "type": "object"
+    },
+    "VmSettings": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "guestNodeId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "defaultWorkspace": {
+          "$ref": "#/$defs/TaskWorkspace"
+        },
+        "clipboard": {
+          "$ref": "#/$defs/VmClipboardMode"
+        },
+        "credentials": {
+          "enum": [
+            "host",
+            "guest"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "enabled",
+        "defaultWorkspace",
+        "clipboard",
+        "credentials"
       ],
       "type": "object"
     },

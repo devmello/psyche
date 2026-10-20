@@ -46,12 +46,14 @@ export const PasskeysMethods = {
       response: JsonObject,
       name: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
       reauth: Type.Optional(PasskeyReauth),
+      /** Fresh presence: the approved `policy_change` card from a first `approval_required` call. */
+      approvalId: Type.Optional(Id),
     }),
     result: Type.Object({ passkey: PasskeyInfo }),
     scope: "operator.approvals",
     sideEffecting: true,
     description:
-      "Stores the new passkey. A device that already has one must include reauth (an assertion with an existing passkey). At most 20 per device. Side-effecting.",
+      "Stores the new passkey. A device that already has one must include reauth (an assertion with an existing passkey). A device's first passkey needs fresh presence from another device's passkey or the helper's Touch ID key once the Gateway has one (approval_required with details.approvalId, then retry with approvalId). At most 20 per device. Side-effecting.",
   }),
   "passkeys.reauth.begin": defineMethod({
     params: Type.Object({}),

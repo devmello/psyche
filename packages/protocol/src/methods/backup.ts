@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { IsoDateTime, Nullable } from "../common.ts";
+import { Id, IsoDateTime, Nullable } from "../common.ts";
 import { defineMethod } from "./define.ts";
 
 /**
@@ -82,7 +82,11 @@ export const BackupMethods = {
     description: "Decrypts an archive into a scratch directory and checks every manifest hash.",
   }),
   "backup.delete": defineMethod({
-    params: Type.Object({ file: BackupFile }),
+    params: Type.Object({
+      file: BackupFile,
+      /** Fresh presence: the approved `policy_change` card from a first `approval_required` call. */
+      approvalId: Type.Optional(Id),
+    }),
     result: Type.Object({ ok: Type.Boolean() }),
     scope: "operator.admin",
     sideEffecting: true,

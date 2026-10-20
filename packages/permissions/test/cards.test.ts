@@ -214,3 +214,43 @@ describe("renderQuestionForSurface", () => {
     expect(renderQuestionForSurface("desktop", big).truncated).toBe(false);
   });
 });
+
+describe("renderForSurface: skill_install trust card (T2)", () => {
+  const install = approval({
+    kind: "skill_install",
+    sideEffect: "destructive",
+    deviceOnly: true,
+    target: undefined,
+    summary: 'Install skill "pdf-tools"',
+    details: {
+      name: "pdf-tools",
+      source: { kind: "path", path: "/Users/avery/skills/pdf-tools" },
+      hash: H("c"),
+      permissions: ["file_write"],
+      tools: ["files.read", "files.write"],
+      prompts: [],
+      findings: { high: 0, warn: 1, info: 0 },
+      scope: "home",
+      files: ["SKILL.md"],
+    },
+  });
+
+  it("puts what the skill asks for first and says none for an empty list", () => {
+    const lines = renderForSurface("desktop", install).text.split("\n");
+    expect(lines[0]).toBe("Install skill · destructive");
+    expect(lines.slice(1, 4)).toEqual([
+      "name: “pdf-tools”",
+      'source: “{"kind":"path","path":"/Users/avery/skills/pdf-tools"}”',
+      `hash: “${H("c")}”`,
+    ]);
+    expect(lines[4]).toBe("permissions: “file_write”");
+    expect(lines[5]).toBe("tools: “files.read, files.write”");
+    expect(lines[6]).toBe("prompts: none");
+  });
+
+  it("never reaches a chat surface", () => {
+    const card = renderForSurface("telegram:1", install);
+    expect(card.text).toBe(`Install skill · destructive\n${DEVICE_ONLY_TEXT}`);
+    expect(card.buttons).toEqual([]);
+  });
+});
