@@ -1495,6 +1495,59 @@ export interface DevicesRevokeResult {
     device: Device;
 }
 
+export interface DictationInsertParams {
+    /**
+     * Refuse with focus_changed unless this process still has focus
+     */
+    expectPid?: number;
+    text:       string;
+}
+
+export interface DictationInsertResult {
+    chars:  number;
+    method: DictationInsertMethod;
+    target: DictationTarget;
+}
+
+export type DictationInsertMethod = "ax" | "typed";
+
+export interface DictationTarget {
+    appName:    string;
+    bundleId?:  null | string;
+    insertable: boolean;
+    pid:        number;
+    refusal?:   DictationRefusal;
+    role?:      null | string;
+}
+
+export type DictationRefusal = "no_focus" | "secure_field" | "own_window" | "not_editable" | "focus_changed";
+
+export interface DictationKeyPayload {
+    /**
+     * ISO time the helper saw the change
+     */
+    at:   string;
+    down: boolean;
+    key:  DictationKey;
+}
+
+export type DictationKey = "fn" | "rightOption" | "rightCommand";
+
+export interface DictationTargetResult {
+    target?: DictationTarget | null;
+}
+
+export interface DictationWatchParams {
+    /**
+     * null stops watching
+     */
+    key: DictationKey | null;
+}
+
+export interface DictationWatchResult {
+    watching: boolean;
+}
+
 export interface EventFrame {
     event:        string;
     payload:      unknown;
@@ -2254,6 +2307,147 @@ export interface MemoryWriteResult {
     etag?:     string;
     path:      string;
     updatedAt: string;
+}
+
+export interface MessagesChatsParams {
+    limit?: number;
+    /**
+     * Substring of a handle or display name
+     */
+    query?: string;
+}
+
+export interface MessagesChatsResult {
+    chats: MessagesChat[];
+}
+
+export interface MessagesChat {
+    /**
+     * chat.db chat.guid (e.g. iMessage;-;+15551234567, any;-;… on macOS 26+). Opaque; pass back
+     * as-is.
+     */
+    chatId:         string;
+    displayName?:   null | string;
+    isGroup:        boolean;
+    lastCursor?:    number | null;
+    lastMessageAt?: null | string;
+    participants:   MessagesHandle[];
+    service:        MessagesService;
+}
+
+export interface MessagesHandle {
+    handle:  string;
+    service: MessagesService;
+}
+
+export type MessagesService = "imessage" | "sms" | "rcs" | "unknown";
+
+export interface MessagesReadParams {
+    chatId?:      string;
+    handle?:      string;
+    limit?:       number;
+    sinceCursor?: number;
+}
+
+export interface MessagesReadResult {
+    cursor?:  number | null;
+    hasMore:  boolean;
+    messages: MessagesMessage[];
+}
+
+export interface MessagesMessage {
+    attachments:  MessagesAttachment[];
+    chatId:       string;
+    cursor:       number;
+    editedAt?:    null | string;
+    guid:         string;
+    isFromMe:     boolean;
+    reaction?:    MessagesReaction | null;
+    replyToGuid?: null | string;
+    sender?:      MessagesHandle | null;
+    sentAt:       string;
+    service:      MessagesService;
+    text?:        null | string;
+}
+
+export interface MessagesAttachment {
+    filename?: null | string;
+    /**
+     * attachment.guid
+     */
+    id:        string;
+    isSticker: boolean;
+    /**
+     * An audio message bubble (CAF)
+     */
+    isVoiceNote: boolean;
+    mimeType?:   null | string;
+    totalBytes?: number | null;
+    uti?:        null | string;
+}
+
+export interface MessagesReaction {
+    /**
+     * For kind emoji
+     */
+    emoji?:  string;
+    kind:    MessagesReactionKind;
+    removed: boolean;
+    /**
+     * The reacted-to message's guid
+     */
+    targetGuid: string;
+}
+
+export type MessagesReactionKind = "love" | "like" | "dislike" | "laugh" | "emphasize" | "question" | "emoji" | "unknown";
+
+export interface MessagesSendParams {
+    chatId?:  string;
+    service?: MessagesSendService;
+    text:     string;
+    to?:      string;
+}
+
+export type MessagesSendService = "imessage" | "sms";
+
+export interface MessagesSendResult {
+    /**
+     * The handle or chat id the text went to
+     */
+    recipient: string;
+    sent:      boolean;
+    sentAt:    string;
+}
+
+export interface MessagesStatus {
+    automation:      MessagesAutomationStatus;
+    databasePresent: boolean;
+    /**
+     * chat.db is readable
+     */
+    fullDiskAccess: boolean;
+    lastCursor?:    number | null;
+}
+
+export type MessagesAutomationStatus = "granted" | "denied" | "not_determined";
+
+export interface MessagesWatchEvent {
+    cursor?:   number;
+    messages?: MessagesMessage[];
+    type:      MessagesWatchEventType;
+    /**
+     * e.g. full_disk_access_missing, database_locked
+     */
+    reason?:    string;
+    retryable?: boolean;
+}
+
+export type MessagesWatchEventType = "messages.new" | "messages.watch_error";
+
+export interface MessagesWatchParams {
+    includeFromMe?: boolean;
+    intervalMs?:    number;
+    sinceCursor?:   number;
 }
 
 export interface NodeEventParams {
