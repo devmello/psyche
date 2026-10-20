@@ -152,4 +152,5 @@ The ten items this pass left open were decided as follows. Each is now a rule in
 **Decision 1 (setting labels):** done. `packages/ui/src/screens/settings/setting-labels.ts` holds the key-to-label map, and `test/setting-labels.test.ts` scans the kit and the composed app for every key they read or write and fails when one has no label. Write errors and the approval banner quote the label, never the key.
 **Decision 2 (matrix radios):** done. `settings/RadioTableRow.tsx` makes each matrix row one radio group of kit `RadioGroupItem`s. Each item is labelled "row: column", and the arrow keys move within the row. Computer use and `ActionMatrix` both use it.
 
+**Decision 8 (Skills trust card):** Done: the trust card's commit, content hash and tool names are in a Details disclosure; rows show a tool count, with the names in a row Details.
 **Decision 7 (destructive rows):** Done: `settings/RowMoreMenu.tsx` in Connectors, Devices, Skills and Credentials. Exceptions: revoking a permission grant tightens access, so it stays a row action; removing a passkey already asks for Touch ID.
