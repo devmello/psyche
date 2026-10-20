@@ -166,7 +166,8 @@ export const VmGuest = Type.Object(
     image: Type.Optional(VmGuestImageRef),
     passwordRotationPending: Type.Optional(
       Type.Boolean({
-        description: "Imported guest still has the image's bootstrap password (rotated at first start)",
+        description:
+          "Imported guest still has the image's bootstrap password (rotated at first start)",
       }),
     ),
   },
