@@ -76,6 +76,7 @@ import {
 import { libraryHandlers } from "./library.ts";
 import { composePasskeys } from "./passkeys.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
+import { createRateLimits } from "./rate-limits.ts";
 import {
   type ApprovalRelay,
   type ComposedPart,
@@ -397,6 +398,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     vault: vault.vault,
     redactor,
     ownPorts,
+    rateLimits: createRateLimits(config.rateLimits, {
+      audit,
+      clock,
+      ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+    }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   };
   const partFactories = [

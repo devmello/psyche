@@ -179,7 +179,11 @@ export const MemoryMethods = {
     description: "Exports the whole workspace and the claims as a zip.",
   }),
   "memory.reset": defineMethod({
-    params: Type.Object({ dryRun: Type.Optional(Type.Boolean()) }),
+    params: Type.Object({
+      dryRun: Type.Optional(Type.Boolean()),
+      /** Fresh presence: the approved `policy_change` card from a first `approval_required` call. */
+      approvalId: Type.Optional(Id),
+    }),
     result: Type.Object({
       files: Type.Array(WorkspacePath),
       chunks: Type.Integer({ minimum: 0 }),

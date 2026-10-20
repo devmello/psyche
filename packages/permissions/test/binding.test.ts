@@ -532,6 +532,42 @@ const newOriginMutations: Mutation[] = [
   field("taskId", fc.option(ident, { nil: null }), false, (x, y) => (x ?? null) !== (y ?? null)),
 ];
 
+const toolArb = fc.stringMatching(/^[a-z]{1,8}(\.[a-z*]{1,6})?$/);
+const kindArb = fc.constantFrom("exec", "send_email", "browser_submit", "file_write", "purchase");
+const skillSourceArb = fc.oneof(
+  fc.record({ kind: fc.constant("path"), path: fc.stringMatching(/^\/[a-z]{1,8}$/) }),
+  fc.record({ kind: fc.constant("zip"), path: fc.stringMatching(/^\/[a-z]{1,8}\.zip$/) }),
+  fc.record({ kind: fc.constant("git"), url: urlArb, ref: fc.stringMatching(/^[a-z0-9]{1,8}$/) }),
+);
+const skillBase: fc.Arbitrary<Args> = fc.record({
+  name: fc.stringMatching(/^[a-z]{1,10}$/),
+  scope: fc.constantFrom("home", "workspace"),
+  source: skillSourceArb,
+  treeHash: shaArb,
+  tools: fc.array(toolArb, { maxLength: 4 }),
+  permissions: fc.array(kindArb, { maxLength: 3 }),
+  prompts: fc.array(fc.stringMatching(/^prompts\/[a-z]{1,6}\.md$/), { maxLength: 3 }),
+});
+const skillMutations: Mutation[] = [
+  field("name", fc.stringMatching(/^[a-z]{1,10}$/), true),
+  field("scope", fc.constantFrom("home", "workspace"), true),
+  field("source", skillSourceArb, false),
+  field("treeHash", shaArb, false),
+  field("tools", fc.array(toolArb, { maxLength: 4 }), false, (x, y) => setKey(x) !== setKey(y)),
+  field(
+    "permissions",
+    fc.array(kindArb, { maxLength: 3 }),
+    false,
+    (x, y) => setKey(x) !== setKey(y),
+  ),
+  field(
+    "prompts",
+    fc.array(fc.stringMatching(/^prompts\/[a-z]{1,6}\.md$/), { maxLength: 3 }),
+    false,
+    (x, y) => setKey(x) !== setKey(y),
+  ),
+];
+
 const COVERED: Record<string, [fc.Arbitrary<Args>, Mutation[]]> = {
   exec: [execBase(false), execMutations(false)],
   exec_host: [execBase(true), execMutations(true)],
@@ -545,6 +581,7 @@ const COVERED: Record<string, [fc.Arbitrary<Args>, Mutation[]]> = {
   mcp_tool: [mcpBase, mcpMutations],
   computer_action: [computerBase, computerMutations],
   new_origin: [newOriginBase, newOriginMutations],
+  skill_install: [skillBase, skillMutations],
 };
 
 // ---- 1. every bound field is bound ------------------------------------------------------------
@@ -1333,10 +1370,10 @@ describe("builder validation and generic bindings", () => {
   });
 
   it("genericBindingFor binds tool, paramsHash and target; grant key ignores paramsHash", () => {
-    const a = genericBindingFor("skill_install", { tool: "skills.install", paramsHash: SHA_A });
-    const b = genericBindingFor("skill_install", { tool: "skills.install", paramsHash: SHA_B });
-    const c = genericBindingFor("skill_install", {
-      tool: "skills.install",
+    const a = genericBindingFor("plan_exit", { tool: "exit_plan_mode", paramsHash: SHA_A });
+    const b = genericBindingFor("plan_exit", { tool: "exit_plan_mode", paramsHash: SHA_B });
+    const c = genericBindingFor("plan_exit", {
+      tool: "exit_plan_mode",
       paramsHash: SHA_A,
       target: "x",
     });
@@ -1344,7 +1381,7 @@ describe("builder validation and generic bindings", () => {
     expect(b.grantKey).toBe(a.grantKey);
     expect(c.bindingHash).not.toBe(a.bindingHash);
     expect(c.grantKey).not.toBe(a.grantKey);
-    expect(bindingFor("skill_install", { tool: "skills.install", paramsHash: SHA_A })).toEqual(a);
+    expect(bindingFor("plan_exit", { tool: "exit_plan_mode", paramsHash: SHA_A })).toEqual(a);
   });
 
   it("the kind is part of the hash", () => {

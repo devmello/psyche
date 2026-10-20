@@ -1,8 +1,41 @@
-# INT-3 status: Milestone 1 and 2 acceptance (2026-10-19, updated with the Milestone 2 scenarios)
+# INT-3 status: Milestone 1 and 2 acceptance (updated 2026-10-20 with the Milestone 2 acceptance run)
 
-Branches `int/3-acceptance` (PR #95, merged), `int/3-live-driver` (PR #116, merged: the model-agnostic live driver and the first live numbers) and `int/3-m2-guides` (the Milestone 2 scenarios and the user guides under `docs/guides/`). Plan: [docs/plans/int-3.md](../plans/int-3.md). Scorecard: [tests/acceptance/SCORECARD.md](../../tests/acceptance/SCORECARD.md) (generated; evidence in `out/acceptance/*.json`). Release notes draft: [docs/release-notes/0.1.md](../release-notes/0.1.md). Package: [tests/acceptance/README.md](../../tests/acceptance/README.md).
+Branches `int/3-acceptance` (PR #95, merged), `int/3-live-driver` (PR #116, merged: the model-agnostic live driver and the first live numbers) `int/3-m2-guides` (PR #177, merged: the Milestone 2 scenarios and the user guides under `docs/guides/`) and `int/3-m2-acceptance` (the Milestone 2 acceptance run on main at e36d23e). Plan: [docs/plans/int-3.md](../plans/int-3.md). Scorecard: [tests/acceptance/SCORECARD.md](../../tests/acceptance/SCORECARD.md) (generated; evidence in `out/acceptance/*.json`). Release notes draft: [docs/release-notes/0.1.md](../release-notes/0.1.md). Package: [tests/acceptance/README.md](../../tests/acceptance/README.md).
 
-## Verdict
+## Milestone 2 verdict (2026-10-20)
+
+Milestone 2 is **done offline and not verified live**. On main at e36d23e every offline check passes. The live gates could not run: Anthropic refused the acceptance machine's key ("invalid x-api-key"; the key is well-formed, so it was most likely revoked or rotated after the 2026-10-19 runs). The live harness now covers all eight scenarios and runs the moment a working key is set. No local model was run, as instructed.
+
+| Check (offline, scripted provider) | Result |
+| --- | --- |
+| Scenarios in tests/scenarios: V1 49/49, V2 47/47, V3 shopping to the Stripe Link payment 21/21, V7 24/24 | pass |
+| Milestone 2 scenarios: V5 19/19, V6 21/21, V8 26/26, V9 21/21, plus their fake-side checks | pass |
+| Resumability: 45 seeded kill points (25 for V1, V2, V7; 20 for V3, V5, V6, V8, V9) on the real task engine, loop and broker | pass, 0 violations |
+| Secret-leak checker over every capture of the acceptance runs | 0 hits |
+| Injection corpus, balanced / manual / auto, reference and INT-2 stacks | pass on the worked example; the corpus still has 0 committed cases |
+| Accessibility (axe, keyboard, reduced motion) | 13/13 |
+| Budgets: browser snapshot 5 ms, memory search 0.85 ms, Gateway boot to first delta 161 ms (scripted) | pass |
+
+The injection corpus has no committed cases, so "the new surfaces" (Messages, computer use, MCP, documents) are covered only by the planted instructions and hijacked probes in V5, V6, V8 and V9. Each of those stops at a card the owner denies, and nothing leaves.
+
+Live gates, `anthropic/claude-haiku-5-5`, three runs each: **not run** for V1, V2, V3, V5, V6, V7, V8 and V9 (key refused). OpenAI: not run, no key. Local: not run, no local models. The Milestone 1 Haiku numbers from 2026-10-19 (below) are the latest live evidence.
+
+What changed in the harness for this run (driver gaps fixed here):
+
+- The live suite runs V3 and the four Milestone 2 scenarios. The M2 ones load their fakes (`src/m2-world.ts`) through `LiveRunOptions.overrides`.
+- Live tool specs for the seven provisional M2 tools. Owner answers for the questions a live model may ask in V5, V6, V8 and V9 (`live/answers.ts`), with literal answers for values the options cannot hold (a phone number).
+- One tiny request to the provider before any run. A refused key or an unreachable model now fails once with the provider's reason (redacted), records it in the model's report, and shows in the scorecard as "the provider refused the key". Before this, each run filed 17 assertion failures about calls that never happened.
+- The driver's plumbing test reproduces the scripted outcome for all eight scenarios with the scripted provider.
+- The resumability sweep includes V3. A scorecard-only fold keeps the last full run's secret-leak result.
+
+Product gaps seen during the run (none fails a scenario; they are listed in docs/release-notes/0.2.md under "Not reachable from the app yet"):
+
+- Touch ID approvals stay refused. The helper signs them since #102, but the composition registers no presence key (`apps/gateway/src/compose/parts.ts` comment). Issue #253, owner S01 with S14, row in docs/status/known-red.md. Scripted V3 cannot see this (S18's Stack has no presence verifier); live V3 would.
+- Connecting connectors from a client: there is still no protocol connect method, and the JMAP and IMAP connectors are not composed. Owner S09 with S01.
+- Web search, nightly dreaming and onboarding's model step remain unwired. Owners S09, S07, S11.
+- **The user guides are partly out of date.** Since they were written, `threads.update`, speech, the Telegram channel setup, the vault editor, Messages and computer use have landed. A guides refresh for 0.2 is a follow-up.
+
+## Milestone 1 verdict
 
 Milestone 1 is **done offline; live, two of the three scenarios pass on a hosted model and the local model passes the one scenario it was run on**. Every check that runs without a hosted model passes on `main`. On `anthropic/claude-haiku-5-5` (the cheapest hosted model, three runs each): V1 inbox triage 3/3 hard-clean, V7 research brief 3/3 hard-clean, V2 calendar planning 2/3 hard-clean (the third run tried two unasked calendar writes while planning the week; the broker asked, the policy denied, and the scenario counts the attempt against the model). On `ollama/qwen3.5:9b` V7 passes 2/3 (one brief had no citations). OpenAI has not been run (no key). Do not tag `v0.1.0-alpha` until V2 passes on a hosted model, an OpenAI model has been run, and PR #60 is merged (it is).
 

@@ -54,6 +54,37 @@ export interface PurchaseInput {
   lineItems: LineItem[];
   /** Link test mode: test cards, no charge. */
   test?: boolean;
+  /** The Link payment method that funds it (`csmrpd_…`); default: the owner's default method. */
+  paymentMethodId?: string;
+}
+
+/** What funds a purchase, as the card shows it and the binding covers it (security §3.5). */
+export interface PaymentSource {
+  id: string;
+  brand: string;
+  last4: string;
+}
+
+/**
+ * The merchant's side of a spend, as the executor observes it: an authorization hold on the
+ * one-time card, its capture, refunds, a decline, or the hold released without capture.
+ */
+export type PaymentState =
+  | "none"
+  | "held"
+  | "captured"
+  | "partially_refunded"
+  | "refunded"
+  | "declined"
+  | "released";
+
+export interface PaymentLedger {
+  state: PaymentState;
+  held: number;
+  captured: number;
+  refunded: number;
+  /** Merchant references in order: hold, order / confirmation, refund ids. Never card data. */
+  refs: Record<string, string>;
 }
 
 export interface PurchaseRequester {
@@ -74,9 +105,20 @@ export interface SpendRecord {
   status: SpendStatus;
   approvalUrl: string | null;
   card: MaskedCard | null;
+  /** The owner's Link payment method behind the one-time card (brand / last4 only). */
+  fundingSource: PaymentSource | null;
+  payment: PaymentLedger;
   createdAt: number;
   revealedAt: number | null;
 }
+
+const NO_PAYMENT = (): PaymentLedger => ({
+  state: "none",
+  held: 0,
+  captured: 0,
+  refunded: 0,
+  refs: {},
+});
 
 export type CardField = "number" | "exp" | "exp_month" | "exp_year" | "cvc" | "name" | "postal";
 
@@ -95,6 +137,19 @@ export interface PaymentBrokerOptions {
 
 /** Link's own ceiling per spend request (USD minor units). */
 export const LINK_MAX_USD_MINOR = 50_000;
+
+/** `visa` → `Visa` for cards and receipts. */
+export function brandName(brand: string): string {
+  const known: Record<string, string> = {
+    visa: "Visa",
+    mastercard: "Mastercard",
+    amex: "American Express",
+    discover: "Discover",
+    bank_account: "Bank account",
+    link_balance: "Link balance",
+  };
+  return known[brand.toLowerCase()] ?? brand;
+}
 
 /** Minor-unit exponent per ISO 4217 code, from Intl (JPY 0, USD 2, KWD 3). */
 function exponent(currency: string): number {
@@ -117,8 +172,15 @@ export function formatAmount(amount: number, currency: string): string {
   }).format(amount / 10 ** exp);
 }
 
-/** Binding fields of a purchase (security §3.5): merchant host, amount, currency, line items, source. */
-export function purchaseBindingHash(input: PurchaseInput): `sha256:${string}` {
+/**
+ * Binding fields of a purchase (security §3.5): merchant host, amount, currency, line items and
+ * the payment source. With `source`, the source is the Link payment method (id and last4), so an
+ * approval for one funding card cannot pay with another.
+ */
+export function purchaseBindingHash(
+  input: PurchaseInput,
+  source?: PaymentSource,
+): `sha256:${string}` {
   const host = canonicalHost(input.merchantUrl) ?? "";
   const items = [...input.lineItems]
     .map((li) => ({ name: li.name, qty: li.quantity, unitPrice: li.unitAmount }))
@@ -129,7 +191,8 @@ export function purchaseBindingHash(input: PurchaseInput): `sha256:${string}` {
     currency: input.currency,
     lineItemHash,
     merchant: host,
-    paymentSource: "stripe_link",
+    paymentSource: source === undefined ? "stripe_link" : `stripe_link:${source.id}`,
+    ...(source === undefined ? {} : { cardLast4: source.last4 }),
   };
   const text = `psyche.binding.v1|purchase|${strictCanonicalJSON(fields)}`;
   return `sha256:${createHash("sha256").update(text, "utf8").digest("hex")}`;
@@ -208,6 +271,8 @@ export class PaymentBroker {
       if (!f.endsWith(".json")) continue;
       try {
         const rec = JSON.parse(readFileSync(join(this.#records, f), "utf8")) as SpendRecord;
+        rec.payment ??= NO_PAYMENT();
+        rec.fundingSource ??= null;
         this.#ledger.set(rec.spendRequestId, rec);
       } catch {
         // A damaged record is ignored; its card file is shredded by `sweep`.
@@ -289,9 +354,11 @@ export class PaymentBroker {
     }
     const host = canonicalHost(input.merchantUrl) ?? "";
     const display = formatAmount(input.amount, input.currency.toUpperCase());
+    const source = await this.resolveSource(input);
+    const funded = `${brandName(source.brand)} •••• ${source.last4}`;
     return this.#o.permissions.requestApproval({
       kind: "purchase",
-      summary: `Pay ${display} to ${input.merchantName} (${host}) with Stripe Link`,
+      summary: `Pay ${display} to ${input.merchantName} (${host}) with Stripe Link, funded by ${funded}`,
       details: {
         merchant: input.merchantName,
         merchantHost: host,
@@ -304,12 +371,13 @@ export class PaymentBroker {
           unitAmount: li.unitAmount,
         })),
         paymentSource: "Stripe Link (one-time card)",
+        paymentMethod: { id: source.id, brand: source.brand, last4: source.last4, display: funded },
         test: input.test === true,
         task: req.requestedBy.taskId,
         agent: req.requestedBy.agent ?? null,
         requiresAuthentication: true,
       },
-      bindingHash: purchaseBindingHash(input),
+      bindingHash: purchaseBindingHash(input, source),
       grantKey: `purchase|${host}`,
       requestedBy: req.requestedBy,
       sideEffect: "financial",
@@ -324,9 +392,10 @@ export class PaymentBroker {
   /** Step 2: verify the exact purchase (consumes the approval) and create the Link spend request. */
   async authorize(approvalId: string, input: PurchaseInput): Promise<SpendRecord> {
     this.#validate(input);
+    const source = await this.resolveSource(input);
     const verified = await this.#o.permissions.verifyBinding(
       approvalId,
-      purchaseBindingHash(input),
+      purchaseBindingHash(input, source),
     );
     if (!verified.ok) {
       return fail("approval_required", "the purchase is not approved as requested", {
@@ -338,7 +407,32 @@ export class PaymentBroker {
         reason: "approval_wrong_kind",
       });
     }
-    return this.#createSpend(approvalId, verified.approval.requestedBy.taskId ?? null, input);
+    return this.#createSpend(
+      approvalId,
+      verified.approval.requestedBy.taskId ?? null,
+      input,
+      source,
+    );
+  }
+
+  /**
+   * The Link payment method that funds `input`: the one it names, else the owner's default, else
+   * the first card. Refuses when Link has none or the named one is gone.
+   */
+  async resolveSource(input: Pick<PurchaseInput, "paymentMethodId">): Promise<PaymentSource> {
+    const methods = await this.#o.wallet.paymentMethods();
+    const pick =
+      input.paymentMethodId === undefined
+        ? (methods.find((m) => m.isDefault) ??
+          methods.find((m) => m.brand !== "link_balance") ??
+          methods[0])
+        : methods.find((m) => m.id === input.paymentMethodId);
+    if (pick === undefined) {
+      return fail("unavailable", "no Link payment method to fund this purchase", {
+        reason: input.paymentMethodId === undefined ? "no_payment_method" : "payment_method_gone",
+      });
+    }
+    return { id: pick.id, brand: pick.brand, last4: pick.last4 };
   }
 
   /**
@@ -374,15 +468,22 @@ export class PaymentBroker {
         reason: reason ?? "approval_not_found",
       });
     }
-    return this.#createSpend(approvalId, approval.requestedBy.taskId ?? null, input);
+    return this.#createSpend(
+      approvalId,
+      approval.requestedBy.taskId ?? null,
+      input,
+      await this.resolveSource(input),
+    );
   }
 
   async #createSpend(
     approvalId: string,
     taskId: string | null,
     input: PurchaseInput,
+    source: PaymentSource,
   ): Promise<SpendRecord> {
     const sr = await this.#o.wallet.create({
+      paymentMethodId: source.id,
       amount: input.amount,
       currency: input.currency,
       context: spendContext(input),
@@ -406,6 +507,8 @@ export class PaymentBroker {
       status: sr.status,
       approvalUrl: sr.approvalUrl,
       card: null,
+      fundingSource: source,
+      payment: NO_PAYMENT(),
       createdAt: this.#clock.now(),
       revealedAt: null,
     };
@@ -501,7 +604,12 @@ export class PaymentBroker {
   ): Promise<BrowserFillResult> {
     return fillFocused(opts, async (origin, element) => {
       const rec = this.#ledger.get(opts.spendRequestId);
-      if (rec === undefined || rec.status !== "approved" || rec.revealedAt === null) {
+      if (
+        rec === undefined ||
+        rec.status !== "approved" ||
+        rec.revealedAt === null ||
+        rec.payment.state !== "none"
+      ) {
         return fail("approval_required", "no approved Link card for this purchase", {
           reason: "no_card",
         });
@@ -541,7 +649,292 @@ export class PaymentBroker {
     });
   }
 
-  /** Step 5: shred the card, tell Link how it went, and record the receipt. */
+  /**
+   * One lifecycle transition: refuse it unless the ledger is in one of `from`, then shred the
+   * card when it is no longer needed, record the receipt (Link reference + merchant refs, brand /
+   * last4 only) and the audit entry with the receipt id.
+   */
+  async #transition(
+    spendRequestId: string,
+    t: {
+      from: PaymentState[];
+      to: PaymentState;
+      kind: string;
+      outcome: "ok" | "failed";
+      summary: (rec: SpendRecord) => string;
+      refs?: Record<string, string | undefined>;
+      apply?: (rec: SpendRecord) => void;
+      check?: (rec: SpendRecord) => void;
+      report?: { outcome: ReportOutcome; tags?: string[] };
+      toolCallId?: string;
+      payload?: JsonObject;
+    },
+  ): Promise<Receipt> {
+    const rec = this.#ledger.get(spendRequestId);
+    if (rec === undefined) return fail("not_found", "unknown spend request");
+    if (!t.from.includes(rec.payment.state)) {
+      return fail("conflict", `cannot go from ${rec.payment.state} to ${t.to}`, {
+        reason: `payment_${rec.payment.state}`,
+      });
+    }
+    t.check?.(rec);
+    // The card is needed only until the merchant authorizes it.
+    shred(this.#cardPath(spendRequestId));
+    if (t.report !== undefined) {
+      await this.#o.wallet
+        .report({
+          domain: rec.merchantHost,
+          outcome: t.report.outcome,
+          spendRequestId,
+          ...(t.report.tags ? { tags: t.report.tags } : {}),
+        })
+        .catch(() => undefined);
+    }
+    t.apply?.(rec);
+    rec.payment.state = t.to;
+    const externalRefs: Record<string, string> = { linkSpendRequestId: spendRequestId };
+    for (const [k, v] of Object.entries(t.refs ?? {})) {
+      if (v === undefined) continue;
+      const clean = this.#o.redactor.redact(v);
+      externalRefs[k] = clean;
+      rec.payment.refs[k] = clean;
+    }
+    const receipt = await this.#o.permissions.recordReceipt({
+      kind: t.kind,
+      outcome: t.outcome,
+      summary: t.summary(rec),
+      taskId: rec.taskId,
+      approvalId: rec.approvalId,
+      ...(t.toolCallId === undefined ? {} : { toolCallId: t.toolCallId }),
+      externalRefs,
+      payload: {
+        merchant: rec.merchantHost,
+        amount: rec.amount,
+        currency: rec.currency,
+        card: rec.card === null ? null : { brand: rec.card.brand, last4: rec.card.last4 },
+        fundingSource:
+          rec.fundingSource === null
+            ? null
+            : { brand: rec.fundingSource.brand, last4: rec.fundingSource.last4 },
+        payment: {
+          state: rec.payment.state,
+          held: rec.payment.held,
+          captured: rec.payment.captured,
+          refunded: rec.payment.refunded,
+        },
+        ...t.payload,
+      },
+    });
+    this.#save(rec);
+    await this.#audit(`purchase.${t.to}`, {
+      spendRequestId,
+      receiptId: receipt.id,
+      receiptKind: t.kind,
+      state: t.to,
+      held: rec.payment.held,
+      captured: rec.payment.captured,
+      refunded: rec.payment.refunded,
+      currency: rec.currency,
+    });
+    return receipt;
+  }
+
+  #cardTail(rec: SpendRecord): string {
+    return rec.card === null ? "" : ` (${rec.card.brand} •••• ${rec.card.last4})`;
+  }
+
+  #money(rec: SpendRecord, amount: number): string {
+    return formatAmount(amount, rec.currency.toUpperCase());
+  }
+
+  #cardWasRevealed(rec: SpendRecord): void {
+    if (rec.status !== "approved" || rec.revealedAt === null) {
+      fail("approval_required", "no approved Link card for this purchase", { reason: "no_card" });
+    }
+  }
+
+  /**
+   * The merchant authorized the one-time card without capturing it (a fare hold, a pre-order).
+   * The hold may not exceed the approved amount: an increase needs a new approval and spend
+   * request (security §4.9 step 5). The card file is shredded: capture needs no card.
+   */
+  hold(
+    spendRequestId: string,
+    r: {
+      amount?: number;
+      holdRef: string;
+      expiresAt?: string;
+      toolCallId?: string;
+      payload?: JsonObject;
+    },
+  ): Promise<Receipt> {
+    return this.#transition(spendRequestId, {
+      from: ["none"],
+      to: "held",
+      kind: "purchase.hold",
+      outcome: "ok",
+      check: (rec) => {
+        this.#cardWasRevealed(rec);
+        const amount = r.amount ?? rec.amount;
+        if (!Number.isSafeInteger(amount) || amount <= 0 || amount > rec.amount) {
+          fail("policy_denied", "the hold is more than the approved amount", {
+            reason: "amount_increase",
+          });
+        }
+      },
+      apply: (rec) => {
+        rec.payment.held = r.amount ?? rec.amount;
+      },
+      refs: { holdRef: r.holdRef, holdExpiresAt: r.expiresAt },
+      summary: (rec) =>
+        `Held ${this.#money(rec, rec.payment.held)} at ${rec.merchantName}${this.#cardTail(rec)}`,
+      ...(r.toolCallId === undefined ? {} : { toolCallId: r.toolCallId }),
+      ...(r.payload === undefined ? {} : { payload: r.payload }),
+    });
+  }
+
+  /**
+   * The merchant captured: from a hold (up to the held amount) or directly after the fill (up to
+   * the approved amount). Records the `purchase` receipt with the order number and confirmation.
+   */
+  capture(
+    spendRequestId: string,
+    r: {
+      amount?: number;
+      orderNumber?: string;
+      merchantConfirmation?: string;
+      toolCallId?: string;
+      payload?: JsonObject;
+    },
+  ): Promise<Receipt> {
+    return this.#transition(spendRequestId, {
+      from: ["none", "held"],
+      to: "captured",
+      kind: "purchase",
+      outcome: "ok",
+      check: (rec) => {
+        if (rec.payment.state === "none") this.#cardWasRevealed(rec);
+        const limit = rec.payment.state === "held" ? rec.payment.held : rec.amount;
+        const amount = r.amount ?? limit;
+        if (!Number.isSafeInteger(amount) || amount <= 0 || amount > limit) {
+          fail("policy_denied", "the capture is more than was approved or held", {
+            reason: "amount_increase",
+          });
+        }
+      },
+      apply: (rec) => {
+        rec.payment.captured =
+          r.amount ?? (rec.payment.state === "held" ? rec.payment.held : rec.amount);
+        rec.status = "succeeded";
+      },
+      refs: { orderNumber: r.orderNumber, merchantConfirmation: r.merchantConfirmation },
+      report: { outcome: "success" },
+      summary: (rec) =>
+        `Paid ${this.#money(rec, rec.payment.captured)} to ${rec.merchantName}${this.#cardTail(rec)}`,
+      ...(r.toolCallId === undefined ? {} : { toolCallId: r.toolCallId }),
+      payload: { outcome: "success", ...r.payload },
+    });
+  }
+
+  /** The merchant refunded part or all of a capture; refunds never exceed what was captured. */
+  refund(
+    spendRequestId: string,
+    r: {
+      amount?: number;
+      refundRef: string;
+      reason?: string;
+      toolCallId?: string;
+      payload?: JsonObject;
+    },
+  ): Promise<Receipt> {
+    let amount = 0;
+    return this.#transition(spendRequestId, {
+      from: ["captured", "partially_refunded"],
+      to: "refunded",
+      kind: "purchase.refund",
+      outcome: "ok",
+      check: (rec) => {
+        amount = r.amount ?? rec.payment.captured - rec.payment.refunded;
+        if (
+          !Number.isSafeInteger(amount) ||
+          amount <= 0 ||
+          rec.payment.refunded + amount > rec.payment.captured
+        ) {
+          fail("invalid_params", "the refund is more than was captured", {
+            reason: "refund_exceeds_capture",
+          });
+        }
+      },
+      apply: (rec) => {
+        rec.payment.refunded += amount;
+      },
+      refs: { refundRef: r.refundRef },
+      summary: (rec) =>
+        `Refunded ${this.#money(rec, amount)} from ${rec.merchantName}${this.#cardTail(rec)}`,
+      ...(r.toolCallId === undefined ? {} : { toolCallId: r.toolCallId }),
+      payload: {
+        refundAmount: amount,
+        ...(r.reason === undefined ? {} : { reason: r.reason }),
+        ...r.payload,
+      },
+    }).then((receipt) => {
+      const rec = this.#ledger.get(spendRequestId);
+      if (rec !== undefined && rec.payment.refunded < rec.payment.captured) {
+        rec.payment.state = "partially_refunded";
+        this.#save(rec);
+      }
+      return receipt;
+    });
+  }
+
+  /** The merchant declined the card; nothing was charged. */
+  decline(
+    spendRequestId: string,
+    r: { code?: string; toolCallId?: string; payload?: JsonObject } = {},
+  ): Promise<Receipt> {
+    return this.#transition(spendRequestId, {
+      from: ["none", "held"],
+      to: "declined",
+      kind: "purchase.declined",
+      outcome: "failed",
+      apply: (rec) => {
+        rec.payment.held = 0;
+        rec.status = "failed";
+      },
+      refs: { declineCode: r.code },
+      report: { outcome: "blocked", tags: ["payment_declined"] },
+      summary: (rec) =>
+        `${rec.merchantName} declined the card; nothing was charged${this.#cardTail(rec)}`,
+      ...(r.toolCallId === undefined ? {} : { toolCallId: r.toolCallId }),
+      ...(r.payload === undefined ? {} : { payload: r.payload }),
+    });
+  }
+
+  /** A hold ended without capture (it expired, or the owner did not buy); nothing was charged. */
+  releaseHold(
+    spendRequestId: string,
+    r: { reason?: string; toolCallId?: string; payload?: JsonObject } = {},
+  ): Promise<Receipt> {
+    return this.#transition(spendRequestId, {
+      from: ["held"],
+      to: "released",
+      kind: "purchase.hold_released",
+      outcome: "ok",
+      apply: (rec) => {
+        rec.payment.held = 0;
+      },
+      report: { outcome: "abandoned" },
+      summary: (rec) =>
+        `Released the hold at ${rec.merchantName}; nothing was charged${this.#cardTail(rec)}`,
+      ...(r.toolCallId === undefined ? {} : { toolCallId: r.toolCallId }),
+      payload: { ...(r.reason === undefined ? {} : { reason: r.reason }), ...r.payload },
+    });
+  }
+
+  /**
+   * Step 5 for a direct sale: `success` captures the full approved (or held) amount; `blocked`
+   * with `payment_declined` is a decline; anything else ends the purchase without a charge.
+   */
   async complete(
     spendRequestId: string,
     result: {
@@ -555,53 +948,37 @@ export class PaymentBroker {
       toolCallId?: string;
     },
   ): Promise<Receipt> {
-    const rec = this.#ledger.get(spendRequestId);
-    if (rec === undefined) return fail("not_found", "unknown spend request");
-    shred(this.#cardPath(spendRequestId));
-    await this.#o.wallet
-      .report({
-        domain: rec.merchantHost,
-        outcome: result.outcome,
-        spendRequestId,
-        ...(result.tags ? { tags: result.tags } : {}),
-      })
-      .catch(() => undefined);
-    const card = rec.card === null ? "" : ` (${rec.card.brand} •••• ${rec.card.last4})`;
-    const display = formatAmount(rec.amount, rec.currency.toUpperCase());
-    const externalRefs: Record<string, string> = { linkSpendRequestId: spendRequestId };
-    if (result.orderNumber !== undefined)
-      externalRefs.orderNumber = this.#o.redactor.redact(result.orderNumber);
-    if (result.merchantConfirmation !== undefined) {
-      externalRefs.merchantConfirmation = this.#o.redactor.redact(result.merchantConfirmation);
-    }
-    const receipt = await this.#o.permissions.recordReceipt({
-      kind: "purchase",
-      outcome: result.outcome === "success" ? "ok" : "failed",
-      summary:
-        result.outcome === "success"
-          ? `Paid ${display} to ${rec.merchantName}${card}`
-          : `Purchase from ${rec.merchantName} ${result.outcome}${card}`,
-      taskId: rec.taskId,
-      approvalId: rec.approvalId,
+    const extra = {
       ...(result.toolCallId === undefined ? {} : { toolCallId: result.toolCallId }),
-      externalRefs,
-      payload: {
-        merchant: rec.merchantHost,
-        amount: rec.amount,
-        currency: rec.currency,
-        card: rec.card === null ? null : { brand: rec.card.brand, last4: rec.card.last4 },
-        outcome: result.outcome,
-        ...result.payload,
+      ...(result.payload === undefined ? {} : { payload: result.payload }),
+    };
+    if (result.outcome === "success") {
+      return this.capture(spendRequestId, {
+        ...(result.orderNumber === undefined ? {} : { orderNumber: result.orderNumber }),
+        ...(result.merchantConfirmation === undefined
+          ? {}
+          : { merchantConfirmation: result.merchantConfirmation }),
+        ...extra,
+      });
+    }
+    if (result.tags?.includes("payment_declined") === true)
+      return this.decline(spendRequestId, extra);
+    const rec = this.#ledger.get(spendRequestId);
+    if (rec?.payment.state === "held")
+      return this.releaseHold(spendRequestId, { reason: result.outcome, ...extra });
+    return this.#transition(spendRequestId, {
+      from: ["none"],
+      to: "none",
+      kind: "purchase",
+      outcome: "failed",
+      apply: (r) => {
+        r.status = "failed";
       },
+      report: { outcome: result.outcome, ...(result.tags ? { tags: result.tags } : {}) },
+      summary: (r) => `Purchase from ${r.merchantName} ${result.outcome}${this.#cardTail(r)}`,
+      ...(result.toolCallId === undefined ? {} : { toolCallId: result.toolCallId }),
+      payload: { outcome: result.outcome, ...result.payload },
     });
-    rec.status = result.outcome === "success" ? "succeeded" : "failed";
-    this.#save(rec);
-    await this.#audit("purchase.completed", {
-      spendRequestId,
-      outcome: result.outcome,
-      receiptId: receipt.id,
-    });
-    return receipt;
   }
 
   /** Cancel in Link (when still possible) and shred the card. */
@@ -627,6 +1004,7 @@ export class PaymentBroker {
         rec === undefined ||
         rec.status !== "approved" ||
         rec.revealedAt === null ||
+        rec.payment.state !== "none" ||
         this.#clock.now() - rec.revealedAt > ttl;
       if (stale) {
         shred(join(this.#cards, f));

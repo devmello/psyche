@@ -1,3 +1,4 @@
+import { PsycheError } from "@psyche/protocol";
 import type { ComposeServices } from "./services.ts";
 
 /**
@@ -22,5 +23,29 @@ export function taskOrigins(services: Pick<ComposeServices, "broker" | "calls" |
       out.add(target.value);
     }
     return [...out];
+  };
+}
+
+/**
+ * `web_fetch` admission (security §10: 60/minute/Task, `gateway.rateLimits.fetchPerMinute`).
+ * The key is the call's Task, or its thread for an interactive turn; refusals are audited by the
+ * limit and fail the call `rate_limited` before any request leaves.
+ */
+export function fetchLimit(services: Pick<ComposeServices, "calls" | "rateLimits">) {
+  return (run: { callId: string }): void => {
+    const ctx = services.calls.get(run.callId);
+    const thread = ctx?.threadId ?? run.callId;
+    const [key, data]: [string, Record<string, string>] =
+      ctx?.taskId !== undefined
+        ? [`task:${ctx.taskId}`, { taskId: ctx.taskId }]
+        : [`thread:${thread}`, { threadId: thread }];
+    const limit = services.rateLimits.fetch;
+    if (!limit.admit(key, data)) {
+      throw new PsycheError(
+        "rate_limited",
+        `web_fetch is limited to ${limit.perMinute} requests a minute per task; wait a minute and retry`,
+        { retryable: true },
+      );
+    }
   };
 }

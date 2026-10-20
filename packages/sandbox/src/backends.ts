@@ -13,7 +13,7 @@ import {
  * Podman takes Docker's flags; it was not available on the spike machine.
  */
 
-export type ContainerBackendKind = Exclude<SandboxBackendKind, "fake">;
+export type ContainerBackendKind = Exclude<SandboxBackendKind, "fake" | "vm">;
 
 export const CONTAINER_BACKENDS: readonly ContainerBackendKind[] = [
   "apple-container",

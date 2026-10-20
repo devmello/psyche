@@ -22,6 +22,7 @@ import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
 import type { CallContexts } from "./call-context.ts";
 import type { ChannelConversations } from "./channel-conversations.ts";
+import type { ComposeRateLimits } from "./rate-limits.ts";
 
 /**
  * What the composition root hands to the INT-2 subsystems (browser, connectors, channels).
@@ -56,6 +57,8 @@ export interface ComposeServices {
    * at check time by the browser part, so random-port OAuth receivers need no registration.
    */
   readonly ownPorts: OwnPorts;
+  /** Security §10 rate limits (inbound chat per sender, `web_fetch` per Task), audited. */
+  readonly rateLimits: ComposeRateLimits;
 }
 
 export interface OwnPorts {
