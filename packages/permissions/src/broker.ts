@@ -27,8 +27,16 @@ import {
   type Surface,
 } from "@psyche/protocol";
 import { monotonicFactory } from "ulid";
-import type { Binding } from "./binding.ts";
+import { type Binding, bindingFor } from "./binding.ts";
 import { cardHeader, sanitizeDetails, sanitizeDisplay } from "./cards.ts";
+import {
+  CHANNEL_PAIRING_WINDOW_MS,
+  CHANNEL_REPLIES_PER_MINUTE,
+  CHANNEL_REPLY_TTL_MS,
+  CHANNEL_REPLY_WINDOW_MS,
+  type ChannelConversationLookup,
+  type ChannelReplyInput,
+} from "./channel-reply.ts";
 import { type ActionClassifier, RulesClassifier } from "./classifier.ts";
 import {
   newTaskState,
@@ -116,6 +124,8 @@ export interface PermissionBrokerOptions {
   newId?: (prefix: string) => string;
   /** Records grant revocations outside the backup scope (design-26). */
   revocations?: RevocationLedger;
+  /** The channel layer's view of its conversations; without it no reply authority is issued. */
+  channelConversations?: ChannelConversationLookup;
 }
 
 type GrantFields = { grantFields?: JsonObject };
@@ -176,6 +186,8 @@ export class PsychePermissionBroker implements PermissionBroker {
     { call: PolicyCall; ctx: PolicyContext; binding: Binding; decision: PolicyDecision; at: number }
   >();
   readonly #answerTimes = new Map<string, number[]>();
+  readonly #channelConversations: ChannelConversationLookup | undefined;
+  readonly #replyTimes = new Map<string, number[]>();
 
   constructor(options: PermissionBrokerOptions) {
     this.clock = options.clock ?? { now: () => Date.now() };
@@ -195,6 +207,7 @@ export class PsychePermissionBroker implements PermissionBroker {
     this.#ttlMs = options.ttlMs;
     this.#onEvent = options.onEvent;
     this.#revocations = options.revocations;
+    this.#channelConversations = options.channelConversations;
     const ulid = monotonicFactory();
     this.#newId = options.newId ?? ((prefix) => `${prefix}_${ulid(this.clock.now())}`);
     this.#bootId = options.bootId ?? this.#newId("boot");
@@ -1176,6 +1189,122 @@ export class PsychePermissionBroker implements PermissionBroker {
       );
       this.#settled(a, "approval.expired");
     }
+  }
+
+  /**
+   * A system-decided `message_send` approval (scope `once`, `decidedBy {channel, senderId}`) for
+   * one channel send into a conversation the channel's policy lets Psyche answer: a reply to the
+   * routed sender who just wrote there, a pairing code to an unknown sender who just wrote, or an
+   * approval card into the owner's own direct conversation. Refuses (`forbidden`) otherwise.
+   * Never shown as a card; every issue and refusal is audited.
+   */
+  async authorizeChannelReply(input: ChannelReplyInput): Promise<ApprovalRequest> {
+    this.#sweep();
+    const subject = { channel: input.channel, account: input.account };
+    const refuse = async (reason: string, message: string): Promise<never> => {
+      await this.#log("approval.channel_reply_refused", { type: "system" }, subject, {
+        reason,
+        purpose: input.purpose,
+      });
+      return fail("forbidden", message, { reason });
+    };
+    const lookup = this.#channelConversations;
+    if (lookup === undefined) {
+      return refuse("no_channel_policy", "no channel conversations are known to the broker");
+    }
+    const conv = await lookup({
+      channel: input.channel,
+      account: input.account,
+      conversation: input.recipient,
+    });
+    if (conv === undefined) {
+      return refuse("unknown_conversation", "nobody wrote in that conversation");
+    }
+    const now = this.clock.now();
+    const age = now - conv.lastInboundAt;
+    switch (input.purpose) {
+      case "reply":
+        if (conv.allows !== "reply") {
+          return refuse("sender_not_allowed", "the channel's policy does not answer that sender");
+        }
+        if (age > CHANNEL_REPLY_WINDOW_MS) {
+          return refuse("stale_conversation", "the last message there is too old to answer");
+        }
+        break;
+      case "pairing_code":
+        if (conv.allows !== "pairing_code" || age > CHANNEL_PAIRING_WINDOW_MS) {
+          return refuse("not_pairing", "no fresh pairing request in that conversation");
+        }
+        break;
+      case "approval_card":
+        if (!conv.owner || conv.isGroup) {
+          return refuse("not_owner_conversation", "approval cards go only to the owner's own chat");
+        }
+        break;
+      default:
+        return refuse("unknown_purpose", "unknown channel send purpose");
+    }
+    const key = `${input.channel}|${input.account}|${input.recipient}`;
+    const times = (this.#replyTimes.get(key) ?? []).filter((t) => t > now - 60_000);
+    if (times.length >= CHANNEL_REPLIES_PER_MINUTE) {
+      await this.#log("approval.channel_reply_refused", { type: "system" }, subject, {
+        reason: "rate_limited",
+        purpose: input.purpose,
+      });
+      return fail("rate_limited", "too many sends to that conversation");
+    }
+    times.push(now);
+    this.#replyTimes.set(key, times);
+    const binding = bindingFor("message_send", {
+      channel: input.channel,
+      account: input.account,
+      recipient: input.recipient,
+      bodySha256: input.bodySha256,
+    });
+    if (input.bindingHash !== undefined && input.bindingHash !== binding.bindingHash) {
+      return refuse("binding_mismatch", "the binding does not match the send");
+    }
+    const issued = this.#issue({
+      kind: "message_send",
+      summary: `Reply on ${input.channel}`,
+      details: { channel: input.channel, account: input.account, purpose: input.purpose },
+      bindingHash: binding.bindingHash,
+      grantKey: binding.grantKey,
+      requestedBy: { runId: null, taskId: null, threadId: null, agent: `channel:${input.channel}` },
+      sideEffect: "write",
+      surfaces: ["desktop"],
+      scopesOffered: ["once"],
+      taint: false,
+      ttlMs: CHANNEL_REPLY_TTL_MS,
+    });
+    const id = issued.approval.id;
+    const at = new Date(now).toISOString();
+    const decided = this.#store.transaction(() => {
+      const rec = this.#store.getApproval(id) as StoredApproval;
+      rec.approval.status = "approved";
+      rec.approval.scopeGranted = "once";
+      rec.approval.decidedBy = { channel: input.channel, senderId: conv.senderId };
+      rec.approval.decidedAt = at;
+      // Nobody answers a system-decided approval: its tokens are spent at birth.
+      for (const t of rec.tokens) t.usedAt = at;
+      this.#store.updateApproval(rec);
+      return rec.approval;
+    });
+    this.#timers.get(id)?.();
+    this.#timers.delete(id);
+    await this.#log(
+      "approval.channel_reply",
+      { type: "channel" },
+      { approvalId: id },
+      {
+        ...subject,
+        purpose: input.purpose,
+        senderId: conv.senderId,
+        bindingHash: binding.bindingHash,
+        expiresAt: decided.expiresAt,
+      },
+    );
+    return structuredClone(decided);
   }
 
   async revokeRunAuthority(runId: string): Promise<void> {

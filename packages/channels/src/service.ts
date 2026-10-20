@@ -57,6 +57,18 @@ export interface ChannelServiceOptions {
   /** Jitter source for reconnect backoff. */
   random?: () => number;
   pairingRandom?: (max: number) => number;
+  /**
+   * Every inbound message the channel's policy accepted (`deliver`, with its route) or answers
+   * with a pairing code (`pair`). The Gateway feeds the broker's channel reply authority with it.
+   */
+  onInboundDecision?: (event: InboundDecisionEvent) => void;
+}
+
+export interface InboundDecisionEvent {
+  channel: Channel;
+  message: InboundMessage;
+  action: "deliver" | "pair";
+  route?: RouteContext;
 }
 
 export interface OutboundTarget {
@@ -92,6 +104,7 @@ export class ChannelService {
   #limiter: RateLimiter;
   #identities = new IdentityDirectory();
   #ownerAllowFrom: string[];
+  #onInboundDecision: ((event: InboundDecisionEvent) => void) | undefined;
   #channels = new Map<string, Channel>();
   #attached = new Map<string, Attached>();
 
@@ -109,6 +122,7 @@ export class ChannelService {
     this.#newId = options.newId ?? (() => randomUUID());
     this.#random = options.random ?? Math.random;
     this.#ownerAllowFrom = options.ownerAllowFrom ?? [];
+    this.#onInboundDecision = options.onInboundDecision;
     this.#limiter = new RateLimiter({ clock: this.#clock, sleep: this.#sleep });
     this.pairing = new PairingService({
       store: options.store,
@@ -557,6 +571,15 @@ export class ChannelService {
     if (decision.action === "drop") {
       this.#logger.info?.("channel.inbound_dropped", { channelId, reason: decision.reason });
       return;
+    }
+    try {
+      this.#onInboundDecision?.(
+        decision.action === "pair"
+          ? { channel, message, action: "pair" }
+          : { channel, message, action: "deliver", route: decision.route },
+      );
+    } catch (error) {
+      this.#logger.warn("channel.inbound_decision_hook_failed", errorData(error));
     }
     if (decision.action === "pair") {
       await this.#pair(channel, attached.adapter, message);
