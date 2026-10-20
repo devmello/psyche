@@ -9,7 +9,6 @@ import {
   type LoadProps,
   messageOf,
   SectionFrame,
-  SettingHint,
   type SettingsFormProps,
   SwitchField,
   useSettingsForm,
@@ -76,7 +75,7 @@ export function BrowserPanel({
         >
           <SwitchField
             label="Let tasks use the Psyche Chrome profile"
-            description={`While a task uses it, Psyche runs Google Chrome with that profile and a DevTools port on this Mac's loopback (127.0.0.1), and closes it when the task is done. Each task still asks you first, on this device with Touch ID or a passkey.`}
+            description="Each task still asks you first, on this device with Touch ID or a passkey."
             checked={setting.enabled}
             settingKey={REAL_CHROME_KEY}
             onChange={(enabled) => onChange(REAL_CHROME_KEY, { ...setting, enabled })}
@@ -84,12 +83,20 @@ export function BrowserPanel({
         </Group>
         <Group
           title="Psyche Chrome profile"
-          description={`A Chrome profile only ${persona} uses, never your own. Open it once to sign in to the sites tasks need and to install 1Password; ${persona} is not attached while you do. Close that window before a task uses real-Chrome mode.`}
+          description={`A Chrome profile only ${persona} uses, never your own. Open it once to sign in and install 1Password, then close it.`}
         >
-          <p className="text-xs text-muted-foreground">
-            Profile <code className="font-mono">{profile}</code> in{" "}
-            <code className="font-mono">$PSYCHE_HOME/browser/real-chrome/{profile}</code>
-          </p>
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer">Details</summary>
+            <p className="mt-1">
+              While a task uses it, Psyche runs Google Chrome with this profile and a DevTools port
+              on this Mac's loopback (127.0.0.1), and closes it when the task is done. {persona} is
+              not attached while you have the profile open yourself.
+            </p>
+            <p className="mt-1">
+              Profile <code className="font-mono">{profile}</code> in{" "}
+              <code className="font-mono">$PSYCHE_HOME/browser/real-chrome/{profile}</code>
+            </p>
+          </details>
           {onOpenProfile ? (
             <div>
               <Button
@@ -125,7 +132,6 @@ export function BrowserPanel({
               </p>
             )
           ) : null}
-          <SettingHint settingKey={REAL_CHROME_KEY} />
         </Group>
       </LoadGate>
     </SectionFrame>
