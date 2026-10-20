@@ -17,8 +17,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@psyche/protocol": "workspace:*",
-    "age-encryption": "0.3.1"
+    "@psyche/backup": "workspace:*",
+    "@psyche/protocol": "workspace:*"
   },
   "devDependencies": {
     "@psyche/gateway": "workspace:*",
