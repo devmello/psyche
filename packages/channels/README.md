@@ -64,6 +64,16 @@ These never reach chat: `deviceOnly` requests, `financial`, `purchase`, `credent
 - **Health.** `invalid_auth`, a revoked token, a wrong token type or a missing scope is fatal ("Slack rejected the token (…)") with no reconnect loop. Drops reconnect with back-off up to 30 s; Slack's `disconnect` refresh reconnects at once.
 - **Not yet:** outbound file uploads, voice notes, Slack's markdown (replies are plain text), slash commands registered with Slack (`/new` etc. work as typed text).
 
+## Email (N9)
+
+`EmailAdapter` (`src/adapters/email/`) treats a mail thread as a conversation, keyed by its root Message-ID. A reply to Psyche's mail therefore continues the same session (N9 done-when). The transport is the Gateway's: `apps/gateway/src/compose/email-channel.ts` polls and sends through the mail connector's IMAP + SMTP backend (S09, implicit TLS only). The app password is used only to open each short session. Email is off unless `PSYCHE_EMAIL_ADDRESS`, `PSYCHE_EMAIL_IMAP_HOST` and `PSYCHE_EMAIL_PASSWORD(_FILE)` are all set (optional: `PSYCHE_EMAIL_SMTP_HOST`, `PSYCHE_EMAIL_USERNAME`).
+
+- **Identity (the limit).** `From:` is forgeable and DKIM / DMARC results are not checked yet, because the connector's message view does not expose `Authentication-Results`. Email is therefore a weak transport (`WEAK_TRANSPORTS`). Even the owner's address is a non-owner: an untrusted, chat-only route (`toolAllow: []`, no `MEMORY.md`), no commands and no approvals by mail. Turning a DKIM-aligned owner message into a strong identity needs S09 to surface the receiving server's `Authentication-Results`.
+- **Policy.** `dmPolicy: "allowlist"` is required: `validateChannel` refuses `pairing`, so there is no mail to strangers. Senders outside `allowFrom` are dropped silently. Automated mail (`automated`) and Psyche's own messages are dropped.
+- **Content.** The subject is prepended to the first message of a thread. The quoted history a client appends ("On … wrote:", `>` runs) becomes `quoted`. It is Psyche's own (`agent`) when the mail replies to a Psyche Message-ID, and otherwise is dropped under `contextVisibility: allowlist`. Attachments arrive as metadata, and `fetchAttachment` reads them through the connector.
+- **Replies.** A reply goes only to the sender of the thread being answered: never reply-all, never a new address. It is threaded (`Re:`, `In-Reply-To`, `References`), carries an unguessable `Message-ID` and `Auto-Submitted: auto-replied`, and is authorized by the broker's channel reply authority (`message_send`, scope `once`, recipient = the thread). The Gateway re-verifies that approval against the exact reply text right before SMTP and records a receipt.
+- **Not yet:** outbound attachments, HTML mail, the Gmail connector as a transport, and reading the mail connector's own vault credential (today the password comes from env / file).
+
 ## Recommended single-owner policy
 
 ```json
