@@ -210,6 +210,17 @@ For sites and extensions the embedded pane cannot serve, above all 1Password's A
 - **Downloads are off.** That profile would save into its own folder, outside the Library quarantine (security §6), so the driver refuses `browser.download` (`downloads_denied`) and tells Chrome to cancel downloads (`Browser.setDownloadBehavior {behavior: "deny"}` on the driver's own browser session; page sessions still cannot reach `Browser.*`). Routing them through the quarantine is a follow-up.
 - **Not yet:** recordings do not cover real-Chrome tabs.
 
+## Web Bot Auth (I14)
+
+Psyche can identify its browser to sites with HTTP Message Signatures (RFC 9421, the Web Bot Auth architecture draft), so a site (Cloudflare's verified bots, for one) can tell a signed agent from an anonymous bot. Honest UA always; nothing is spoofed.
+
+- **What is signed.** Top-level document requests, including each redirect hop, with `Signature-Agent` (the URL of the owner's key directory), `Signature-Input` (`sig1=("@authority" "signature-agent");created;keyid;alg="ed25519";expires;nonce;tag="web-bot-auth"`) and `Signature`. A signature expires after 60 s and carries a fresh nonce. `keyid` is the RFC 7638 JWK thumbprint. Subresources are not signed.
+- **When.** All of these must hold. The owner turned it on (admin setting `browser.botAuth {enabled, signatureAgent, origins?}`, opt-in as I14 says), the vault holds a key (`browser.botAuth.rotate`), and the directory URL is set (https; http only on loopback). The tab must be in the owner's `profile` partition, never a logged-out one. The origin must have asked (a document response with `Accept-Signature`, RFC 9421 §5.1, remembered for the Gateway's lifetime) or be on the owner's `origins` list.
+- **The key** is an Ed25519 `signing_key` item in the vault (slug `web-bot-auth`), created and rotated by the vault itself. `CredentialBroker.botAuthKey()` hands the browser a `sign` function; the private half never leaves the vault, and a rotated-away key refuses to sign. While the vault is locked nothing is signed.
+- **The directory** (`/.well-known/http-message-signatures-directory`, `application/http-message-signatures-directory+json`) is served by the Gateway as a public `GET` route, but only while signing is on and a key exists. The owner exposes it on their own domain or tunnel and points `signatureAgent` at it (security §6, §16 open question 5).
+- **How headers reach the request.** The page controller signs in its `Fetch.requestPaused` handler. Playwright sees real headers, so it sends them plus the signature. The desktop forwards headers redacted (no cookies or authorization), so the bridge driver sends only the three signature headers and the desktop's CDP policy adds them to the real ones (`CdpPolicy.prepare`). Both allowlists refuse any other header and any URL, method or body change.
+- `verifyBotAuth` is a minimal reference verifier (the fixture origin in tests uses it).
+
 ## Recording and replay (I10)
 
 Opt-in per task (`PSYCHE_BROWSER_RECORD=1`), under `library/recordings/<id>/` where the id is the task id or `thread:<id>`. A recording is:

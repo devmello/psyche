@@ -62,6 +62,8 @@ export interface FxPage {
   title: string;
   body: FxNode[];
   status?: number;
+  /** Extra response headers (I14: `Accept-Signature`). */
+  headers?: Record<string, string>;
 }
 
 export interface FxDownload {
@@ -179,6 +181,12 @@ export const FIXTURE_SITE: FxSite = {
         { kind: "console_log", text: "hello from the dev server" },
         { kind: "status", id: "status", text: "Ready" },
       ],
+    },
+    "b/signed": {
+      title: "Signed agents welcome",
+      // RFC 9421 §5.1: this site asks clients to sign (Web Bot Auth, I14).
+      headers: { "Accept-Signature": 'sig1=("@authority" "signature-agent");tag="web-bot-auth"' },
+      body: [{ kind: "heading", level: 1, text: "Signed agents welcome" }],
     },
     "a/account": {
       title: "Account",
