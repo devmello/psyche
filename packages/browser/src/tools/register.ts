@@ -22,6 +22,7 @@ import { tryOrigin } from "../origin/canonical.ts";
 import type { OriginPolicy } from "../origin/policy.ts";
 import { redactUrlsIn } from "../origin/redact-url.ts";
 import type { ActionTarget, BrowserDriverEx, ElementMeta } from "../types.ts";
+import { type AttentionGate, assertWatched, attentionExempt } from "./attention.ts";
 import {
   type ActionClass,
   classifyActivation,
@@ -74,6 +75,12 @@ export interface BrowserToolDeps {
    * composition derives it from `CredentialBroker.redact`.
    */
   containsSecret?: (text: string) => boolean;
+  /**
+   * Pause-when-unwatched (security §7.2 item 5, #272): when set, actions on sensitive-category
+   * origins need the browser pane visible and recent owner input, else `presence_required
+   * {reason: "awaiting_attention"}`. Without it nothing is checked.
+   */
+  attention?: AttentionGate;
   /**
    * Real-Chrome mode (feature I13): the owner's Psyche Chrome profile, attached per session
    * after a `policy_change` approval. Without it `browser.use_real_chrome` is unavailable.
@@ -1012,6 +1019,22 @@ async function waitForHandBack(
   }
 }
 
+/** The origins a call touches: its tab's page and any URL it opens or downloads. */
+function originsOf(deps: BrowserToolDeps, params: unknown): string[] {
+  const p = params as { tabId?: unknown; url?: unknown; source?: { url?: unknown } };
+  const out: string[] = [];
+  if (typeof p.tabId === "string") {
+    const o = deps.driver.tabOrigin(p.tabId);
+    if (o !== undefined) out.push(o);
+  }
+  for (const u of [p.url, p.source?.url]) {
+    if (typeof u !== "string") continue;
+    const o = tryOrigin(u);
+    if (o !== undefined) out.push(o);
+  }
+  return out;
+}
+
 /** Register every `browser.*` tool with the agent-core registry. Returns one unregister. */
 export function registerBrowserTools(registry: ToolRegistry, deps: BrowserToolDeps): Unsubscribe {
   const gate = new ApprovalGate(deps.broker);
@@ -1028,6 +1051,10 @@ export function registerBrowserTools(registry: ToolRegistry, deps: BrowserToolDe
           throw new PsycheError("invalid_params", validator.errors(params).join("; "));
         }
         const run = async () => {
+          // Re-checked on every attempt, so a redirect into a sensitive origin counts too.
+          if (deps.attention !== undefined && !attentionExempt(t.name)) {
+            for (const origin of originsOf(deps, params)) assertWatched(deps.attention, origin);
+          }
           await gateReadOnlyWrite(deps, gate, t, params, callId, signal);
           return t.run(params as never, { callId, signal });
         };
