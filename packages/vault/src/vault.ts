@@ -1,9 +1,18 @@
-import { randomUUID } from "node:crypto";
+import {
+  createHash,
+  createPrivateKey,
+  createPublicKey,
+  sign as edSign,
+  generateKeyPairSync,
+  type KeyObject,
+  randomUUID,
+} from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   type ApprovalRequest,
   type AuditLog,
+  type BotAuthKey,
   type Clock,
   type ConnectorCredentialStore,
   type ConnectorTokenInput,
@@ -225,6 +234,12 @@ function secretFor(kind: CredentialKind, s: CredentialSecretInput): ItemSecret {
     case "note":
       keep("text");
       break;
+    case "signing_key":
+      // Web Bot Auth (I14): an Ed25519 private key, PKCS#8 PEM, created by the vault itself.
+      keep("privateKey");
+      if (out.privateKey === undefined)
+        return fail("invalid_params", "signing_key needs a private key");
+      break;
     default:
       return fail("invalid_params", `unsupported kind ${kind}`);
   }
@@ -303,6 +318,9 @@ const APPROVAL_MESSAGES: Record<string, string> = {
   wrong_kind: "the approval is not a credential_fill",
   another_call: "the approval was for another tool call",
 };
+
+/** The vault item holding the Web Bot Auth key (I14). */
+export const BOT_AUTH_SLUG = "web-bot-auth";
 
 export class Vault implements CredentialBroker, ConnectorCredentialStore {
   readonly clock: Clock;
@@ -863,6 +881,76 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     });
     await this.#audit("credential.updated", { credentialId, fields: Object.keys(patch) });
     return structuredClone(meta);
+  }
+
+  // Web Bot Auth (feature I14) -------------------------------------------------------------------
+
+  #botAuth: { itemId: string; updatedAt: string; key: BotAuthKey } | undefined;
+
+  /**
+   * The Web Bot Auth key, if the owner created one. Undefined while the vault is locked, so the
+   * browser simply sends unsigned requests then. The private key never leaves the vault: the
+   * returned `sign` runs here and refuses once the key was rotated away or the vault locked.
+   */
+  async botAuthKey(): Promise<BotAuthKey | undefined> {
+    const u = this.#unlocked;
+    if (u === undefined) return undefined;
+    const item = u.store.all().find((i) => i.kind === "signing_key" && i.slug === BOT_AUTH_SLUG);
+    if (item === undefined || item.secret.privateKey === undefined) return undefined;
+    if (this.#botAuth?.itemId === item.id && this.#botAuth.updatedAt === item.updatedAt) {
+      return this.#botAuth.key;
+    }
+    const privateKey: KeyObject = createPrivateKey(item.secret.privateKey);
+    const jwk = createPublicKey(privateKey).export({ format: "jwk" }) as { x: string };
+    const itemId = item.id;
+    const key: BotAuthKey = {
+      // RFC 7638 thumbprint: SHA-256 over the required members in lexicographic order.
+      keyId: createHash("sha256")
+        .update(JSON.stringify({ crv: "Ed25519", kty: "OKP", x: jwk.x }))
+        .digest("base64url"),
+      publicJwk: { kty: "OKP", crv: "Ed25519", x: jwk.x },
+      createdAt: item.createdAt,
+      sign: async (data) => {
+        const now = this.#unlocked?.store.get(itemId);
+        if (now === undefined)
+          return fail("conflict", "the Web Bot Auth key was rotated or locked away");
+        return new Uint8Array(edSign(null, data, privateKey));
+      },
+    };
+    this.#botAuth = { itemId, updatedAt: item.updatedAt, key };
+    return key;
+  }
+
+  /** Create the Web Bot Auth key, or replace it: the old one stops signing at once. */
+  async rotateBotAuthKey(): Promise<BotAuthKey> {
+    const u = this.#requireUnlocked();
+    const { privateKey } = generateKeyPairSync("ed25519");
+    const pem = privateKey.export({ format: "pem", type: "pkcs8" }).toString();
+    for (const old of u.store.all()) {
+      if (old.kind === "signing_key" && old.slug === BOT_AUTH_SLUG) {
+        await this.#remove(u, old, "deleted");
+      }
+    }
+    // Always in the vault itself (never a keychain item): signing must not prompt per request.
+    const meta = await this.#insert(
+      u,
+      { kind: "signing_key", name: "Web Bot Auth key", slug: BOT_AUTH_SLUG, bindings: [] },
+      secretFor("signing_key", { privateKey: pem }),
+      {},
+      null,
+      "vault",
+    );
+    this.#botAuth = undefined;
+    await this.#audit("credential.created", {
+      credentialId: meta.id,
+      kind: meta.kind,
+      slug: meta.slug,
+      backend: "vault",
+      purpose: "web_bot_auth",
+    });
+    const key = await this.botAuthKey();
+    if (key === undefined) return fail("internal", "the new Web Bot Auth key is not readable");
+    return key;
   }
 
   /** Overwrite and delete (security §14). The redactor keeps values that already left the vault. */

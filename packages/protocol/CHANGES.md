@@ -18,6 +18,14 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S08, I14: Web Bot Auth)
+
+For S08 (the browser signs document requests), S06 (the vault keeps the key) and S11 / S12 (Settings → Browser).
+
+- `CredentialBroker` gains optional `botAuthKey()` and `rotateBotAuthKey()`, returning a `BotAuthKey` (`keyId` = RFC 7638 JWK thumbprint, `publicJwk`, `createdAt`, `sign(data)`). The private half never leaves the vault. `FakeCredentialBroker` implements both with a real Ed25519 key, and a rotated-away key refuses to sign.
+- Schemas `BotAuthJwk` and `BotAuthStatus` (`enabled`, `keyId`, `publicJwk`, `createdAt`, `signatureAgent`, `directoryPath`, `origins`, `advertised`).
+- Methods `browser.botAuth.status` (`operator.read`) and `browser.botAuth.rotate` (`operator.admin`, side-effecting).
+- The switch itself is the admin setting `browser.botAuth {enabled, signatureAgent?, origins?}` (no protocol change).
 ### v1 additive — 2026-10-20 (M3 T3: agent-proposed skills)
 
 For S16 (`packages/skills` draft generator), the Gateway (routine detection over agent-core's in-process hooks) and Settings → Skills (S11 / S12).

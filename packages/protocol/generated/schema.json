@@ -533,6 +533,22 @@
         "sideEffecting": false
       },
       {
+        "description": "Side-effecting. Creates the Web Bot Auth key, or replaces it; the old key stops signing at once, so republish the directory.",
+        "name": "browser.botAuth.rotate",
+        "params": "#/$defs/BrowserBotAuthRotateParams",
+        "result": "#/$defs/BrowserBotAuthRotateResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Web Bot Auth (I14): whether signing is on, the key's fingerprint and directory.",
+        "name": "browser.botAuth.status",
+        "params": "#/$defs/BrowserBotAuthStatusParams",
+        "result": "#/$defs/BrowserBotAuthStatusResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Closes a tab.",
         "name": "browser.close",
         "params": "#/$defs/BrowserCloseParams",
@@ -4660,6 +4676,99 @@
         }
       ]
     },
+    "BotAuthJwk": {
+      "properties": {
+        "kty": {
+          "const": "OKP",
+          "type": "string"
+        },
+        "crv": {
+          "const": "Ed25519",
+          "type": "string"
+        },
+        "x": {
+          "description": "base64url public key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kty",
+        "crv",
+        "x"
+      ],
+      "type": "object"
+    },
+    "BotAuthStatus": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "keyId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "publicJwk": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BotAuthJwk"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "signatureAgent": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "directoryPath": {
+          "type": "string"
+        },
+        "origins": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "advertised": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "enabled",
+        "directoryPath",
+        "origins",
+        "advertised"
+      ],
+      "type": "object"
+    },
     "BridgeCdpEventPayload": {
       "properties": {
         "tabId": {
@@ -5061,6 +5170,36 @@
       },
       "required": [
         "tabs"
+      ],
+      "type": "object"
+    },
+    "BrowserBotAuthRotateParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "BrowserBotAuthRotateResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/BotAuthStatus"
+        }
+      },
+      "required": [
+        "status"
+      ],
+      "type": "object"
+    },
+    "BrowserBotAuthStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "BrowserBotAuthStatusResult": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/BotAuthStatus"
+        }
+      },
+      "required": [
+        "status"
       ],
       "type": "object"
     },

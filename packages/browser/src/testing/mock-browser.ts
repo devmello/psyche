@@ -78,6 +78,12 @@ export interface MockBrowserHooks {
 
 const tick = (ms = 0) => new Promise<void>((r) => setTimeout(r, ms));
 
+/** The headers a mock document request carries before anyone changes them. */
+export const MOCK_REQUEST_HEADERS: Readonly<Record<string, string>> = {
+  Accept: "text/html",
+  "User-Agent": "Mozilla/5.0 PsycheMock/1.0",
+};
+
 export class MockBrowser {
   readonly site: FxSite;
   readonly port: number;
@@ -209,6 +215,9 @@ export class MockTab implements CdpTarget {
   lastLoaderId = "";
   #paused = new Map<string, (verdict: "continue" | "fail") => void>();
   #nextPause = 1;
+  /** Headers each document request went out with, by URL (the last request wins). */
+  readonly requestHeaders = new Map<string, Record<string, string>>();
+  #continuedHeaders = new Map<string, Record<string, string>>();
   /** URLs that "left the machine" (continued past interception), and the ones blocked. */
   readonly sentRequests: string[] = [];
   readonly blockedRequests: string[] = [];
@@ -568,6 +577,15 @@ export class MockTab implements CdpTarget {
         const r = this.#paused.get(String(p.requestId));
         if (r === undefined) throw new PsycheError("invalid_params", "Invalid InterceptionId.");
         this.#paused.delete(String(p.requestId));
+        if (method === "Fetch.continueRequest" && Array.isArray(p.headers)) {
+          // Like Chromium: the given list replaces the request's headers.
+          this.#continuedHeaders.set(
+            String(p.requestId),
+            Object.fromEntries(
+              (p.headers as { name: string; value: string }[]).map((h) => [h.name, h.value]),
+            ),
+          );
+        }
         r(method === "Fetch.continueRequest" ? "continue" : "fail");
         return {};
       }
@@ -1017,12 +1035,18 @@ export class MockTab implements CdpTarget {
           this.#paused.set(interceptionId, resolve);
           this.#emit("Fetch.requestPaused", {
             requestId: interceptionId,
-            request: { url: current, method },
+            request: { url: current, method, headers: { ...MOCK_REQUEST_HEADERS } },
             frameId: this.#frameId,
             resourceType: "Document",
             networkId: requestId,
           });
         });
+        // What the request went out with: replaced headers, or the browser's own.
+        this.requestHeaders.set(
+          current,
+          this.#continuedHeaders.get(interceptionId) ?? { ...MOCK_REQUEST_HEADERS },
+        );
+        this.#continuedHeaders.delete(interceptionId);
         if (verdict === "fail") {
           this.blockedRequests.push(current);
           this.#emit("Network.loadingFailed", {
@@ -1078,7 +1102,12 @@ export class MockTab implements CdpTarget {
         loaderId,
         type: "Document",
         frameId: this.#frameId,
-        response: { url: current, status: r.status, mimeType: "text/html" },
+        response: {
+          url: current,
+          status: r.status,
+          mimeType: "text/html",
+          headers: { "Content-Type": "text/html", ...(r.page.headers ?? {}) },
+        },
       });
       this.#loader++;
       this.url = current;

@@ -912,6 +912,38 @@ export interface BridgeTabsListResult {
     tabs: BridgeTab[];
 }
 
+export interface BrowserBotAuthRotateResult {
+    status: BotAuthStatus;
+}
+
+export interface BotAuthStatus {
+    advertised:      string[];
+    createdAt?:      null | string;
+    directoryPath:   string;
+    enabled:         boolean;
+    keyId?:          null | string;
+    origins:         string[];
+    publicJwk?:      BotAuthJwk | null;
+    signatureAgent?: null | string;
+}
+
+export interface BotAuthJwk {
+    crv: Crv;
+    kty: Kty;
+    /**
+     * base64url public key
+     */
+    x: string;
+}
+
+export type Crv = "Ed25519";
+
+export type Kty = "OKP";
+
+export interface BrowserBotAuthStatusResult {
+    status: BotAuthStatus;
+}
+
 export interface BrowserCloseParams {
     tabId: string;
 }

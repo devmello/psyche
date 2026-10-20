@@ -86,6 +86,8 @@
 //   let backupVerifyResult = try? JSONDecoder().decode(BackupVerifyResult.self, from: jsonData)
 //   let bitwardenRef = try? JSONDecoder().decode(BitwardenRef.self, from: jsonData)
 //   let block = try? JSONDecoder().decode(Block.self, from: jsonData)
+//   let botAuthJwk = try? JSONDecoder().decode(BotAuthJwk.self, from: jsonData)
+//   let botAuthStatus = try? JSONDecoder().decode(BotAuthStatus.self, from: jsonData)
 //   let bridgeCDPEventPayload = try? JSONDecoder().decode(BridgeCDPEventPayload.self, from: jsonData)
 //   let bridgeCDPSendParams = try? JSONDecoder().decode(BridgeCDPSendParams.self, from: jsonData)
 //   let bridgeCDPSendResult = try? JSONDecoder().decode(BridgeCDPSendResult.self, from: jsonData)
@@ -103,6 +105,10 @@
 //   let bridgeTabStatusParams = try? JSONDecoder().decode(BridgeTabStatusParams.self, from: jsonData)
 //   let bridgeTabsListParams = try? JSONDecoder().decode(BridgeTabsListParams.self, from: jsonData)
 //   let bridgeTabsListResult = try? JSONDecoder().decode(BridgeTabsListResult.self, from: jsonData)
+//   let browserBotAuthRotateParams = try? JSONDecoder().decode(BrowserBotAuthRotateParams.self, from: jsonData)
+//   let browserBotAuthRotateResult = try? JSONDecoder().decode(BrowserBotAuthRotateResult.self, from: jsonData)
+//   let browserBotAuthStatusParams = try? JSONDecoder().decode(BrowserBotAuthStatusParams.self, from: jsonData)
+//   let browserBotAuthStatusResult = try? JSONDecoder().decode(BrowserBotAuthStatusResult.self, from: jsonData)
 //   let browserCloseParams = try? JSONDecoder().decode(BrowserCloseParams.self, from: jsonData)
 //   let browserController = try? JSONDecoder().decode(BrowserController.self, from: jsonData)
 //   let browserDriverKind = try? JSONDecoder().decode(BrowserDriverKind.self, from: jsonData)
@@ -3256,6 +3262,94 @@ public struct BridgeTabsListResult: Codable, Sendable {
 
     public init(tabs: [BridgeTab]) {
         self.tabs = tabs
+    }
+}
+
+// MARK: - BrowserBotAuthRotateResult
+public struct BrowserBotAuthRotateResult: Codable, Sendable {
+    public let status: BotAuthStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: BotAuthStatus) {
+        self.status = status
+    }
+}
+
+// MARK: - BotAuthStatus
+public struct BotAuthStatus: Codable, Sendable {
+    public let advertised: [String]
+    public let createdAt: String?
+    public let directoryPath: String
+    public let enabled: Bool
+    public let keyID: String?
+    public let origins: [String]
+    public let publicJwk: BotAuthJwk?
+    public let signatureAgent: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case advertised = "advertised"
+        case createdAt = "createdAt"
+        case directoryPath = "directoryPath"
+        case enabled = "enabled"
+        case keyID = "keyId"
+        case origins = "origins"
+        case publicJwk = "publicJwk"
+        case signatureAgent = "signatureAgent"
+    }
+
+    public init(advertised: [String], createdAt: String?, directoryPath: String, enabled: Bool, keyID: String?, origins: [String], publicJwk: BotAuthJwk?, signatureAgent: String?) {
+        self.advertised = advertised
+        self.createdAt = createdAt
+        self.directoryPath = directoryPath
+        self.enabled = enabled
+        self.keyID = keyID
+        self.origins = origins
+        self.publicJwk = publicJwk
+        self.signatureAgent = signatureAgent
+    }
+}
+
+// MARK: - BotAuthJwk
+public struct BotAuthJwk: Codable, Sendable {
+    public let crv: Crv
+    public let kty: Kty
+    /// base64url public key
+    public let x: String
+
+    public enum CodingKeys: String, CodingKey {
+        case crv = "crv"
+        case kty = "kty"
+        case x = "x"
+    }
+
+    public init(crv: Crv, kty: Kty, x: String) {
+        self.crv = crv
+        self.kty = kty
+        self.x = x
+    }
+}
+
+public enum Crv: String, Codable, Sendable {
+    case ed25519 = "Ed25519"
+}
+
+public enum Kty: String, Codable, Sendable {
+    case okp = "OKP"
+}
+
+// MARK: - BrowserBotAuthStatusResult
+public struct BrowserBotAuthStatusResult: Codable, Sendable {
+    public let status: BotAuthStatus
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+    }
+
+    public init(status: BotAuthStatus) {
+        self.status = status
     }
 }
 
@@ -15911,6 +16005,8 @@ public enum WrapUpBlockType: String, Codable, Sendable {
 public typealias AuditVerifyParams = [String: JSONAny]
 public typealias BackupListParams = [String: JSONAny]
 public typealias BridgeTabsListParams = [String: JSONAny]
+public typealias BrowserBotAuthRotateParams = [String: JSONAny]
+public typealias BrowserBotAuthStatusParams = [String: JSONAny]
 public typealias BrowserRealChromeStatusParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
