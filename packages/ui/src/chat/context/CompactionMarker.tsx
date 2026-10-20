@@ -9,6 +9,16 @@ import {
   SUMMARY_LABEL,
 } from "./types.ts";
 
+/** Stable list keys for summary lines: the text itself, suffixed only when a line repeats. */
+function withUniqueKeys(items: readonly string[]): [string, string][] {
+  const seen = new Map<string, number>();
+  return items.map((item) => {
+    const n = seen.get(item) ?? 0;
+    seen.set(item, n + 1);
+    return [n === 0 ? item : `${item}#${n}`, item];
+  });
+}
+
 export interface CompactionMarkerProps {
   compaction: CompactionView;
   /** Shows the turns the summary replaced (loaded on request); absent hides the action. */
@@ -76,8 +86,8 @@ export function CompactionMarker({
                     {SUMMARY_LABEL[k]}
                   </p>
                   <ul aria-labelledby={`${id}-${k}`} className="ml-4 list-disc">
-                    {c.summary[k].map((item, i) => (
-                      <li key={i} className="whitespace-pre-wrap">
+                    {withUniqueKeys(c.summary[k]).map(([key, item]) => (
+                      <li key={key} className="whitespace-pre-wrap">
                         {item}
                       </li>
                     ))}

@@ -274,6 +274,11 @@
         "payload": "#/$defs/SkillChangeEvent"
       },
       {
+        "description": "The agent proposed a skill from a repeated routine, or a draft was edited, accepted, installed, dismissed or expired (T3).",
+        "name": "skills.draft.updated",
+        "payload": "#/$defs/SkillsDraftUpdatedPayload"
+      },
+      {
         "description": "An installed skill's pinned source now has different content; review it with skills.proposeUpdate (nothing is installed until approved).",
         "name": "skills.updated",
         "payload": "#/$defs/SkillUpdateStatus"
@@ -1544,6 +1549,38 @@
         "sideEffecting": false
       },
       {
+        "description": "Side-effecting: replays the draft against today's tools, then stages it like skills.proposeInstall (trust card, device-only skill_install approval); install with skills.install. policy_denied when the replay or the policy refuses it.",
+        "name": "skills.drafts.accept",
+        "params": "#/$defs/SkillsDraftsAcceptParams",
+        "result": "#/$defs/SkillsDraftsAcceptResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting: dismisses a draft; the same routine is not proposed again.",
+        "name": "skills.drafts.dismiss",
+        "params": "#/$defs/SkillsDraftsDismissParams",
+        "result": "#/$defs/SkillsDraftsDismissResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Skills the agent proposed from repeated routines (T3), newest first.",
+        "name": "skills.drafts.list",
+        "params": "#/$defs/SkillsDraftsListParams",
+        "result": "#/$defs/SkillsDraftsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: replaces an open draft's SKILL.md (the owner's edit); the manifest is re-read from it.",
+        "name": "skills.drafts.update",
+        "params": "#/$defs/SkillsDraftsUpdateParams",
+        "result": "#/$defs/SkillsDraftsUpdateResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "One skill and its SKILL.md text; the winning source unless `source` is given.",
         "name": "skills.get",
         "params": "#/$defs/SkillsGetParams",
@@ -1840,7 +1877,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Links an item held in 1Password (G10) by reference: Psyche stores the vault and item names, never a value, and reads one field at fill time. Side-effecting.",
+        "description": "Links an item held in 1Password (G10) or Bitwarden (G11) by reference: Psyche stores the item's names or id, never a value, and reads one field at fill time. Side-effecting.",
         "name": "vault.linkExternal",
         "params": "#/$defs/VaultLinkExternalParams",
         "result": "#/$defs/VaultLinkExternalResult",
@@ -4580,6 +4617,19 @@
         "files",
         "problems",
         "backup"
+      ],
+      "type": "object"
+    },
+    "BitwardenRef": {
+      "properties": {
+        "item": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "item"
       ],
       "type": "object"
     },
@@ -7699,7 +7749,8 @@
           "enum": [
             "vault",
             "keychain",
-            "1password"
+            "1password",
+            "bitwarden"
           ],
           "type": "string"
         }
@@ -15994,6 +16045,162 @@
       ],
       "type": "object"
     },
+    "SkillDraft": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "text": {
+          "description": "Full SKILL.md, editable by the owner while open",
+          "type": "string"
+        },
+        "manifest": {
+          "$ref": "#/$defs/SkillManifest"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/SkillDraftStep"
+          },
+          "type": "array"
+        },
+        "occurrences": {
+          "description": "Runs in the thread with this routine",
+          "minimum": 2,
+          "type": "integer"
+        },
+        "signature": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "redactions": {
+          "description": "Values stripped from the owner's words",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tainted": {
+          "description": "A run of the routine had read untrusted content",
+          "type": "boolean"
+        },
+        "edited": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/SkillDraftStatus"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "updatedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "installProposalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "replay": {
+          "$ref": "#/$defs/SkillDraftReplay"
+        }
+      },
+      "required": [
+        "id",
+        "threadId",
+        "name",
+        "description",
+        "text",
+        "manifest",
+        "steps",
+        "occurrences",
+        "signature",
+        "redactions",
+        "tainted",
+        "edited",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ],
+      "type": "object"
+    },
+    "SkillDraftReplay": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "problems": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "checkedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ok",
+        "problems",
+        "checkedAt"
+      ],
+      "type": "object"
+    },
+    "SkillDraftStatus": {
+      "enum": [
+        "open",
+        "accepted",
+        "installed",
+        "dismissed",
+        "expired"
+      ],
+      "type": "string"
+    },
+    "SkillDraftStep": {
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "sideEffect": {
+          "$ref": "#/$defs/SideEffect"
+        },
+        "summary": {
+          "description": "Input names only, never values",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tool",
+        "sideEffect",
+        "summary"
+      ],
+      "type": "object"
+    },
     "SkillInstallSource": {
       "anyOf": [
         {
@@ -16385,6 +16592,128 @@
       },
       "required": [
         "commands"
+      ],
+      "type": "object"
+    },
+    "SkillsDraftUpdatedPayload": {
+      "properties": {
+        "draft": {
+          "$ref": "#/$defs/SkillDraft"
+        }
+      },
+      "required": [
+        "draft"
+      ],
+      "type": "object"
+    },
+    "SkillsDraftsAcceptParams": {
+      "properties": {
+        "draftId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "draftId"
+      ],
+      "type": "object"
+    },
+    "SkillsDraftsAcceptResult": {
+      "properties": {
+        "draft": {
+          "$ref": "#/$defs/SkillDraft"
+        },
+        "proposal": {
+          "$ref": "#/$defs/SkillProposal"
+        },
+        "approval": {
+          "$ref": "#/$defs/ApprovalRequest"
+        }
+      },
+      "required": [
+        "draft",
+        "proposal",
+        "approval"
+      ],
+      "type": "object"
+    },
+    "SkillsDraftsDismissParams": {
+      "properties": {
+        "draftId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "draftId"
+      ],
+      "type": "object"
+    },
+    "SkillsDraftsDismissResult": {
+      "properties": {
+        "draft": {
+          "$ref": "#/$defs/SkillDraft"
+        }
+      },
+      "required": [
+        "draft"
+      ],
+      "type": "object"
+    },
+    "SkillsDraftsListParams": {
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/SkillDraftStatus"
+        }
+      },
+      "type": "object"
+    },
+    "SkillsDraftsListResult": {
+      "properties": {
+        "drafts": {
+          "items": {
+            "$ref": "#/$defs/SkillDraft"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "drafts"
+      ],
+      "type": "object"
+    },
+    "SkillsDraftsUpdateParams": {
+      "properties": {
+        "draftId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 65536,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "draftId",
+        "text"
+      ],
+      "type": "object"
+    },
+    "SkillsDraftsUpdateResult": {
+      "properties": {
+        "draft": {
+          "$ref": "#/$defs/SkillDraft"
+        }
+      },
+      "required": [
+        "draft"
       ],
       "type": "object"
     },
@@ -19037,7 +19366,8 @@
       "properties": {
         "source": {
           "enum": [
-            "1password"
+            "1password",
+            "bitwarden"
           ],
           "type": "string"
         },
@@ -19066,7 +19396,14 @@
           "type": "array"
         },
         "ref": {
-          "$ref": "#/$defs/OnePasswordRef"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OnePasswordRef"
+            },
+            {
+              "$ref": "#/$defs/BitwardenRef"
+            }
+          ]
         },
         "fields": {
           "items": {
