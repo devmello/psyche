@@ -4,6 +4,8 @@ Branches `int/3-acceptance` (PR #95, merged), `int/3-live-driver` (PR #116, merg
 
 ## Milestone 3 verdict (2026-10-20)
 
+**Update, later on 2026-10-20:** #414 is fixed at the source (#425, #426, #429), and V4's itinerary is a deterministic step of the travel tools (#427, #413). Reruns on Haiku as shipped: V4 3/3 hard-clean (soft 1/12: the chat says "$268", not "268.00"), with the itinerary checks hard again; V10 3/3 hard-clean (soft 3/3). Nine of ten scenarios are now 3/3 and V2 2/3. The harness workaround is gone (#430); #431 unpins the two fixed schemas from S18's check. Scorecard at 3093bb76 (main eb413817 plus #431). The text below is the first pass.
+
 Milestone 3 is **done offline; live, one release blocker**. Offline every scenario and surface passes on main at 8203e2f4. Live on `anthropic/claude-haiku-5-5` (three runs each), eight of the ten scenarios are 3/3 hard-clean and V2 is 2/3. **V10 cannot run on Anthropic as shipped (#414, high):** `code.git`'s input schema is a top-level `anyOf`, Anthropic refuses every request that offers it, and the Gateway offers it in every non-plan turn by default. A default install, the DMG included, therefore gets no reply from a Claude model. With that schema flattened in the harness (opt-in workaround, reported as such), V10 is 3/3. OpenAI: not run, no key. Local: not run, no local models, as instructed. Do not tag 0.3 before #414 is fixed.
 
 Offline, at aa4bdbc0 (main at 8203e2f4 plus this branch), scripted provider and fixtures (`pnpm --filter @psyche/acceptance-tests offline -- --max-workers 1`):
