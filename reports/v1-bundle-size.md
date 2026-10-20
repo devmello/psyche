@@ -130,6 +130,40 @@ The cut is checked by:
 - `apps/gateway/test/dist-bin.test.ts`;
 - the boot trace above, extended to a file-extraction call.
 
+## After the cut (PR 2)
+
+Measured the same way, from the same commit plus the cut: psyched rebuilt with `--smoke`, then one `electron-forge package`.
+
+| | Before (disk) | After (disk) | Before (compressed) | After (compressed) |
+| --- | ---: | ---: | ---: | ---: |
+| **Psyche.app** | 1472 MB | **531 MB** | 370 MB | **183 MB** |
+| `Resources/psyched/` | 1035 MB | 247 MB | 217 MB | 65 MB |
+|   `runtime/node` | 128 MB | 93 MB | 36 MB | 33 MB |
+|   `app/node_modules` | 809 MB (604 pkgs) | 117 MB (96 pkgs) | 151 MB | ≈ 25 MB |
+|   `app/apps/web/dist` | 83 MB | 24 MB | 18 MB | ≈ 6 MB |
+| `Electron Framework.framework` | 286 MB | 238 MB | 119 MB | 106 MB |
+| `Resources/app.asar` | 106 MB | 24 MB | 25 MB | 6 MB |
+|   `.vite/build/main.cjs` | 3.8 MB + 23 MB of chunks + 59 MB maps | 0.3 MB | | |
+| `Resources/PsycheHelper.app` | 17 MB | 17 MB | 3.5 MB | 3.5 MB |
+
+**The target is met: ≈ 183 MB, under 200 MB.**
+
+**Checks on the result**
+- `build-psyched --smoke` is healthy with only `PSYCHE_HOME` set.
+- `apps/gateway/test/dist-bin.test.ts` passes.
+- The bundled `psyche` CLI runs.
+- PDF text extraction works on the rebuilt bundle. pdf.js prints two warnings about `DOMMatrix`/`Path2D` polyfills when it first loads, harmless without rendering.
+- `codesign --verify --deep --strict` passes on the packaged app.
+- The build fails if any bare import in the shipped sources (lazy `import()` included) no longer resolves.
+
+**Not run:** the packaged app itself (the owner's Mac runs the first DMG install, so it is not launched here), and an x64 build.
+
+**What is left, and why it stays:**
+- **`.vite/renderer` (23 MB on disk):** the web client with its viewers, which the renderer does load. Code-splitting the viewers is S11/S13 work.
+- **The Electron binary (193 MB):** fixed.
+- **`resources.pak` and `icudtl.dat`:** fixed.
+- **ANGLE/SwiftShader:** kept for WebGL and the GPU fallback.
+
 ## Reproduce
 
 ```sh
