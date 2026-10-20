@@ -33,6 +33,8 @@ export function TitleBar({
   if (!hasInsetTitleBar(chrome)) return null;
   const style: CSSProperties = {
     height: TITLEBAR_HEIGHT,
+    // Physical on purpose: Electron places the traffic lights at a physical x, whatever the
+    // reading direction.
     paddingLeft: titleBarInset(chrome),
   };
   return (

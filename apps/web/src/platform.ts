@@ -30,12 +30,12 @@ export function createWebPlatform(loc: Pick<Location, "origin"> = window.locatio
     loc,
     deviceKey,
   );
-  const sub = <T>(set: Set<T>, cb: T) => {
+  function sub<T>(set: Set<T>, cb: T): () => void {
     set.add(cb);
     return () => {
       set.delete(cb);
     };
-  };
+  }
   const gateway: GatewayPort = {
     getStatus: async () => conn.getStatus(),
     onStatus: (cb) => sub(statusCbs, cb),

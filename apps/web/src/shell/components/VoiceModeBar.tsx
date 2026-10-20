@@ -1,3 +1,4 @@
+import { t } from "@psyche/ui";
 import { type ReactElement, useEffect, useMemo, useState } from "react";
 import type { ShellStore } from "../store.ts";
 import { microphoneSource, webSpeechDictation } from "../voice.ts";
@@ -105,9 +106,9 @@ export function VoiceModeBar(props: {
     <div className="voice-mode" data-testid="voice-mode" data-phase={state.phase}>
       <span className="pill voice-mode-state" role="status" aria-live="polite">
         {voiceModeLabel(state)}
-        {state.phase === "speaking" && settings.bargeIn ? " · talk to interrupt" : ""}
+        {state.phase === "speaking" && settings.bargeIn ? t("web.voiceMode.talkToInterrupt") : ""}
       </span>
-      <span className="grow voice-mode-heard" title="What Psyche heard">
+      <span className="grow voice-mode-heard" title={t("web.voiceMode.heard")}>
         {heard}
       </span>
       {push ? (
@@ -121,11 +122,11 @@ export function VoiceModeBar(props: {
           onPointerLeave={props.onPushEnd}
           data-testid="voice-mode-talk"
         >
-          Hold to talk
+          {t("web.voiceMode.holdToTalk")}
         </button>
       ) : null}
       <button type="button" className="pill" onClick={props.onEnd} data-testid="voice-mode-end">
-        End
+        {t("web.voiceMode.end")}
       </button>
     </div>
   );

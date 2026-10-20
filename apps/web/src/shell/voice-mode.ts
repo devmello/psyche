@@ -1,4 +1,5 @@
 import type { Message } from "@psyche/protocol";
+import { t } from "@psyche/ui";
 import { BARGE_IN_PROFILE, EnergyVad, LISTEN_PROFILE, SharedMic } from "./vad.ts";
 import {
   type AudioSource,
@@ -72,21 +73,21 @@ export type VoiceModePhase =
 export function voiceModeLabel(s: VoiceModePhase): string {
   switch (s.phase) {
     case "off":
-      return "Voice mode is off";
+      return t("web.voiceMode.off");
     case "starting":
-      return "Starting…";
+      return t("web.voiceMode.starting");
     case "ready":
-      return "Hold to talk";
+      return t("web.voiceMode.holdToTalk");
     case "listening":
-      return "Listening";
+      return t("web.voiceMode.listening");
     case "thinking":
-      return "Thinking";
+      return t("web.voiceMode.thinking");
     case "speaking":
-      return "Speaking";
+      return t("web.voiceMode.speaking");
     case "waiting":
       return s.reason === "approval"
-        ? "Needs your approval on screen"
-        : "Needs your answer on screen";
+        ? t("web.voiceMode.needsApproval")
+        : t("web.voiceMode.needsAnswer");
     case "error":
       return s.reason;
   }
@@ -426,7 +427,7 @@ export class VoiceMode {
     try {
       await this.mic.start((frames, rate) => this.vad.push(frames, rate));
     } catch {
-      this.set({ phase: "error", reason: "Psyche can't use the microphone." });
+      this.set({ phase: "error", reason: t("web.voice.noMicrophone") });
       return;
     }
     if (this.state.phase !== "starting") return;
@@ -591,7 +592,7 @@ export class VoiceMode {
     } catch {
       if (this.turn !== turn) return;
       this.awaitingReply = false;
-      this.set({ phase: "error", reason: "Psyche couldn't send that. Try again." });
+      this.set({ phase: "error", reason: t("web.voiceMode.sendFailed") });
     }
   }
 
