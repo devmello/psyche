@@ -674,6 +674,25 @@ jobs:
           pub="$(PSYCHE_RELEASE_SIGNING_KEY="$SIGNING_KEY" node -e 'const c=require("crypto");process.stdout.write(Buffer.from(c.createPublicKey(c.createPrivateKey(process.env.PSYCHE_RELEASE_SIGNING_KEY)).export({format:"jwk"}).x,"base64url").toString("base64"))')"
           node deploy/scripts/update-manifest.mjs verify artifacts/update-manifest.json "$pub"
           cat artifacts/update-manifest.json
+      - name: Compose bundle with the Gateway image pinned by digest (#296)
+        env:
+          DIGEST: ${{ needs.image.outputs.digest }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          if [ -z "$DIGEST" ]; then
+            echo "::notice::No image digest (dry run): no Compose bundle."
+            exit 0
+          fi
+          dir="$RUNNER_TEMP/psyche-compose-${VERSION}"
+          mkdir -p "$dir/tailscale" "$dir/backup"
+          node deploy/scripts/render-compose.mjs deploy/docker-compose.yml "${IMAGE}:${VERSION}@${DIGEST}" > "$dir/docker-compose.yml"
+          cp deploy/env.example "$dir/env.example"
+          cp deploy/tailscale/serve.json "$dir/tailscale/"
+          cp deploy/backup/*.sh "$dir/backup/"
+          mkdir -p "$dir/browser"
+          cp deploy/browser/Dockerfile deploy/browser/package.json deploy/browser/package-lock.json "$dir/browser/"
+          tar -C "$RUNNER_TEMP" -czf "artifacts/psyche-compose-${VERSION}.tar.gz" "psyche-compose-${VERSION}"
+          grep -n "image:" "$dir/docker-compose.yml"
       - name: SHA256SUMS and release notes
         env:
           DIGEST: ${{ needs.image.outputs.digest }}
