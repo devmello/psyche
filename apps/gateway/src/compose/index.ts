@@ -94,6 +94,7 @@ import {
   settingsKeyValue,
 } from "./model-settings.ts";
 import { composePasskeys } from "./passkeys.ts";
+import { composePayments, paymentsSetupFromEnv } from "./payments.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { protectedRoots } from "./protected-paths.ts";
 import { createRateLimits } from "./rate-limits.ts";
@@ -513,6 +514,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     composeComputer,
     composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
     composeDictation(),
+    composePayments(paymentsSetupFromEnv(gwOptions.env)),
     // Web passkeys (issue #79): unavailable until gateway.publicOrigin is an https origin. A
     // caller-supplied `presence` verifier takes the passkey role instead.
     ...(presence === NO_PRESENCE ? [composePasskeys({ publicOrigin: config.publicOrigin })] : []),
