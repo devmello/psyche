@@ -1,0 +1,14 @@
+{
+  "name": "Ollama POST /api/show nomic-embed-text",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/api/show"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"modelfile\":\"FROM nomic-embed-text\",\"details\":{\"format\":\"gguf\",\"family\":\"nomic-bert\",\"parameter_size\":\"137M\"},\"model_info\":{\"general.architecture\":\"nomic-bert\",\"nomic-bert.context_length\":2048},\"capabilities\":[\"embedding\"]}"
+  }
+}

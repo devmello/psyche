@@ -24,6 +24,11 @@ export class RateLimiter {
     return this.#recent(key).length < this.#limit;
   }
 
+  /** Drops keys with no hits left in the window (memory bound for one-off keys). */
+  sweep(): void {
+    for (const key of [...this.#hits.keys()]) this.#recent(key);
+  }
+
   record(key: string): void {
     const hits = this.#recent(key);
     hits.push(this.#now());

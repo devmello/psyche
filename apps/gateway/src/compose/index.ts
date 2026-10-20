@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
   AgentToolRegistry,
@@ -5,7 +6,12 @@ import {
   createAgentLoop,
   type PsycheAgentLoop,
 } from "@psyche/agent-core";
-import { createAuditLog, type HashChainAuditLog } from "@psyche/audit";
+import {
+  createAuditLog,
+  FileAuditStore,
+  type HashChainAuditLog,
+  SoftwareAnchorKey,
+} from "@psyche/audit";
 import { getDevice, getSetting, getThread, openDb, type PsycheDb } from "@psyche/db";
 import { fileTools } from "@psyche/files";
 import {
@@ -29,6 +35,7 @@ import {
   type PolicyConfig,
   type PresenceVerifier,
   PsychePermissionBroker,
+  RESTORE_MARKER,
   RevocationLedger,
   replayRevocations,
   SqlitePermissionStore,
@@ -76,6 +83,7 @@ import {
 import { libraryHandlers } from "./library.ts";
 import { composePasskeys } from "./passkeys.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
+import { createRateLimits } from "./rate-limits.ts";
 import {
   type ApprovalRelay,
   type ComposedPart,
@@ -143,6 +151,9 @@ export interface ComposeOptions
  * verifier handles (passkeys until S01 #79) is refused, so approvals that require
  * authentication cannot be answered with it.
  */
+/** A quiet log still gets an anchor this often (on its next entry). */
+const ANCHOR_INTERVAL_MS = 60 * 60_000;
+
 const NO_PRESENCE: PresenceVerifier = { verify: async () => false };
 
 export interface ComposedGateway {
@@ -239,7 +250,48 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     bus.publish(event, payload, threadId);
   };
 
-  const audit = createAuditLog({ dir: join(config.home, "audit"), clock });
+  // Signed anchors (security §15.1): the server's software key until the helper's Secure Enclave
+  // key can sign; every 1,000 entries and at least hourly, with the head kept in security/.
+  const auditStore = new FileAuditStore(join(config.home, "audit"));
+  const anchorKey = SoftwareAnchorKey.open(
+    config.home,
+    (auditStore.tail()?.seq ?? -1) + 1,
+    () => new Date(clock.now()),
+  );
+  const audit = createAuditLog({
+    store: auditStore,
+    clock,
+    signer: anchorKey,
+    verifier: anchorKey,
+    anchorIntervalMs: ANCHOR_INTERVAL_MS,
+  });
+  // A restored backup's log is shorter than what this key anchored; the restore is audited with
+  // the head it had (replayRevocations below consumes the marker).
+  if (existsSync(join(config.home, RESTORE_MARKER))) {
+    const previous = anchorKey.forgetHead();
+    if (previous !== undefined) {
+      void audit
+        .append({
+          kind: "audit.anchor_head.reset",
+          actor: { type: "system" },
+          data: {
+            reason: "restore",
+            previousHeadSeq: previous.seq,
+            previousHeadHash: previous.hash,
+          },
+        })
+        .catch(() => undefined);
+    }
+  }
+  if (anchorKey.created) {
+    void audit
+      .append({
+        kind: "audit.anchor_key.created",
+        actor: { type: "system" },
+        data: { keyId: anchorKey.keyId, sinceSeq: anchorKey.signingSinceSeq(), kind: "software" },
+      })
+      .catch(() => undefined);
+  }
   // Revocations live outside the backup scope; a restored database cannot bring a revoked device
   // or grant back (S23 design-26). Replay before anything authenticates.
   const nowIso = () => new Date(clock.now()).toISOString();
@@ -316,6 +368,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Executors (vault fills, the browser's mid-run gate, sandbox secrets) request approvals
   // outside the loop, which announces only its own: they announce theirs here.
   const executorBroker = announcing(broker, publish);
+  // Background Task runs have no session controller to announce their cards: the loop's handle
+  // announces those (requestedBy.taskId set); chat turns keep the controller's announcement.
+  const loopBroker = announcing(broker, publish, (a) => a.requestedBy.taskId != null);
   broker.subscribe((e) => {
     if (
       e.type === "approval.decided" ||
@@ -340,7 +395,20 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
 
   const vault = composeVault(
-    { home: config.home, db, permissions: executorBroker, audit, clock, publish, redactor },
+    {
+      home: config.home,
+      db,
+      permissions: executorBroker,
+      audit,
+      clock,
+      publish,
+      redactor,
+      // Removed items stay removed across a restore (design-26), like devices and grants.
+      removals: {
+        record: (id) => revocations.recordVaultItem(id),
+        ids: () => revocations.vaultItemIds(),
+      },
+    },
     vaultSetup ?? vaultSetupFromEnv(gwOptions.env ?? process.env),
   );
 
@@ -397,6 +465,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     vault: vault.vault,
     redactor,
     ownPorts,
+    rateLimits: createRateLimits(config.rateLimits, {
+      audit,
+      clock,
+      ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+    }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   };
   const partFactories = [
@@ -462,7 +535,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     provider,
     model: modelRef,
     ...(utility === undefined ? {} : { utilityModel: utility }),
-    broker,
+    broker: loopBroker,
     memory,
     tasks,
     notifier,
@@ -695,9 +768,10 @@ export {
 export { createLogger, surfaceOf };
 
 /**
- * A broker handle for executors: an approval they request is published as `approval.created`
- * once its answer tokens are recorded, so devices see the card (and their own token through the
- * personalizer). The agent loop keeps the plain handle and announces its approvals itself.
+ * A broker handle that publishes an approval it issues as `approval.created` once its answer
+ * tokens are recorded, so devices see the card (and their own token through the personalizer):
+ * every approval for executors, and only `which` ones for the agent loop, whose chat turns the
+ * session controller announces itself.
  */
 function announcing<B extends PermissionBroker>(
   broker: B,
@@ -706,12 +780,14 @@ function announcing<B extends PermissionBroker>(
     payload: EventPayload<"approval.created">,
     threadId?: string,
   ) => void,
+  which: (approval: IssuedApproval["approval"]) => boolean = () => true,
 ): B {
   return new Proxy(broker, {
     get(target, prop, receiver) {
       if (prop === "requestApproval") {
         return async (input: ApprovalRequestInput) => {
           const issued = await target.requestApproval(input);
+          if (!which(issued.approval)) return issued;
           publish(
             "approval.created",
             { approval: issued.approval },

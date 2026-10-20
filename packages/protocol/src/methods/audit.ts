@@ -30,6 +30,12 @@ export const AuditVerifyResult = Type.Object(
     ),
     file: Type.Optional(Type.String()),
     line: Type.Optional(Type.Integer({ minimum: 1 })),
+    /** Anchors whose signature was checked against an enrolled anchor key. */
+    signedAnchors: Type.Optional(Type.Integer({ minimum: 0 })),
+    /** Key ids of the anchor keys that signed them. */
+    anchorKeyIds: Type.Optional(Type.Array(Type.String({ maxLength: 200 }), { maxItems: 64 })),
+    /** First entry seq whose anchor boundary must be signed (signing was enrolled then). */
+    signingSinceSeq: Type.Optional(Type.Integer({ minimum: 0 })),
   },
   { $id: "AuditVerifyResult" },
 );

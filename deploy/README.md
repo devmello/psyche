@@ -17,7 +17,7 @@ Every recipe runs the same `psyched` with the same rules: it binds `127.0.0.1` o
 | `backup/` | Backup, restore and verify scripts for Compose deployments |
 | `homebrew/` | Cask (desktop app) and formula (`psyche` CLI) templates for the `devmello/psyche` tap |
 | `macos/make-dmg.sh` | `Psyche-<version>-<arch>.dmg` from a packaged app; signs, notarizes and staples when the signing variables are set |
-| `scripts/` | Release helpers: release notes, the migrations manifest baked into the CLI, the Homebrew renderer |
+| `scripts/` | Release helpers: release notes, the migrations manifest baked into the CLI, the Homebrew renderer, and `upgrade-roundtrip.mjs` (migrate --check, online backup, restore and reboot on fresh homes; `PSYCHE=<binary>` tests a release build) |
 | `sandbox-image/` | The sandbox container image (S21) |
 
 ## Recipe 1: Mac, local (topology A)

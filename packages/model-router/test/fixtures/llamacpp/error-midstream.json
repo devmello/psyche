@@ -1,0 +1,17 @@
+{
+  "name": "llama-server: streamed error before content",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream",
+      "server": "llama.cpp"
+    },
+    "chunks": [
+      "data: {\"error\": {\"code\": 500, \"message\": \"llama_decode failed: KV cache is full\", \"type\": \"server_error\"}}\n\n"
+    ]
+  }
+}

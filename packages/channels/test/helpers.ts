@@ -43,6 +43,7 @@ export async function harness(
     ownerAllowFrom?: string[];
     capabilities?: Partial<ChannelCapabilities>;
     start?: boolean;
+    admitInbound?: ConstructorParameters<typeof ChannelService>[0]["admitInbound"];
   } = {},
 ): Promise<Harness> {
   const clock = new FakeClock();
@@ -58,6 +59,7 @@ export async function harness(
   const decisions: InboundDecisionEvent[] = [];
   const service = new ChannelService({
     onInboundDecision: (e) => decisions.push(e),
+    ...(options.admitInbound === undefined ? {} : { admitInbound: options.admitInbound }),
     store,
     broker,
     clock,

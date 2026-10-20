@@ -298,7 +298,7 @@ export class Stack {
     });
     this.gateway = new GatewayBroker(this.broker, this);
     this.loopBroker = overrides.wrapBroker?.(this.gateway) ?? this.gateway;
-    this.world = new World(fx, this.clock, this.notifier, () => this.loopBroker);
+    this.world = new World(fx, this.clock, this.notifier, () => this.loopBroker, this.audit);
     this.#extra = overrides.impls?.(this.world, this) ?? {};
     this.#services = overrides.services?.(this) ?? {};
     this.#boot();

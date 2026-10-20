@@ -25,6 +25,7 @@ import {
   SqliteMetaMirror,
   Vault,
   type VaultEventName,
+  type VaultRemovals,
 } from "@psyche/vault";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
@@ -219,6 +220,8 @@ export function composeVault(
     clock: Clock;
     publish<E extends EventName>(event: E, payload: EventPayload<E>): void;
     redactor?: SecretRedactor;
+    /** The revocation ledger's vault part: a restore cannot bring removed items back. */
+    removals?: VaultRemovals;
   },
   setup: VaultSetup = {},
 ): ComposedVault {
@@ -234,6 +237,7 @@ export function composeVault(
     audit: deps.audit,
     clock: deps.clock,
     redactor,
+    ...(deps.removals === undefined ? {} : { removals: deps.removals }),
     ...(setup.argon2 === undefined ? {} : { argon2: setup.argon2 }),
     ...(setup.autoLockMinutes === undefined ? {} : { autoLockMinutes: setup.autoLockMinutes }),
   });

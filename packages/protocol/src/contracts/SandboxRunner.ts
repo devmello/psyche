@@ -13,12 +13,28 @@ export const EXEC_DEFAULT_TIMEOUT_MS = 60_000;
 /** stdout and stderr are each capped at 128 KB (architecture §9). */
 export const EXEC_OUTPUT_CAP_BYTES = 128 * 1024;
 
-export type SandboxBackendKind = "apple-container" | "docker" | "podman" | "fake";
+/** `vm`: commands run in the sandbox Mac guest through its psyche-node (L1–L5). */
+export type SandboxBackendKind = "apple-container" | "docker" | "podman" | "fake" | "vm";
 export type SandboxNetwork = "none" | "proxy";
 
 export interface SandboxScope {
   kind: "thread" | "project" | "task";
   id: string;
+}
+
+/**
+ * A host folder bind-mounted into a sandbox (V10 coding workspaces; security §5.1 "mount sources
+ * are validated against folder grants after path resolution"). The caller checks the folder
+ * grant; the runner refuses sources that are not their own real path and the roots security §13
+ * never shares (`/`, the home folder itself, `~/Library`, `$PSYCHE_HOME`). Mounts are fixed when
+ * the scope's container is created.
+ */
+export interface SandboxMount {
+  /** Absolute real path on the host. */
+  source: string;
+  /** Absolute container path under the workspace path, e.g. `/workspace/repo`. */
+  target: string;
+  readOnly: boolean;
 }
 
 export interface SandboxInstance {
@@ -29,6 +45,8 @@ export interface SandboxInstance {
   /** Container path of the persistent workspace volume, normally `/workspace`. */
   workspacePath: string;
   status: "ready" | "stopped" | "error";
+  /** Host folders mounted into this sandbox, as created; absent or empty means none. */
+  mounts?: SandboxMount[];
 }
 
 export interface ExecRequest {
@@ -74,10 +92,15 @@ export interface ExecResult {
 export interface SandboxRunner {
   /** Which backends this host offers; empty means every `ensureSandbox` fails. */
   backends(): Promise<SandboxBackendKind[]>;
-  /** Idempotent per scope. Rejects with `unavailable` when no backend exists. */
+  /**
+   * Idempotent per scope. Rejects with `unavailable` when no backend exists, and with `conflict`
+   * when the scope's sandbox exists with a different network or different `mounts` (destroy it
+   * first). `mounts` are bind mounts of host folders; a runner that cannot mount rejects with
+   * `unavailable`, and an invalid source with `forbidden`.
+   */
   ensureSandbox(
     scope: SandboxScope,
-    options?: { network?: SandboxNetwork },
+    options?: { network?: SandboxNetwork; mounts?: SandboxMount[] },
   ): Promise<SandboxInstance>;
   /**
    * Rejects with `invalid_params` for an empty argv, `not_found` for an unknown sandbox, and

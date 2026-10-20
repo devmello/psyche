@@ -22,6 +22,8 @@ export interface NodeConfig {
   exec: {
     sandbox: boolean;
     host: { enabled: boolean; cwdRoots: string[] };
+    /** Inside the sandbox Mac (VM mode): run `exec` on the guest itself, under `root`. */
+    guest: { enabled: boolean; root: string };
   };
   browser: { enabled: "auto" | boolean };
   helper: { enabled: "auto" | boolean; socket?: string };
@@ -38,7 +40,11 @@ interface FileConfig {
   name?: string;
   gateway?: { url?: string; socket?: string; vsock?: Partial<VsockEndpoint> };
   fs?: { roots?: FsRoot[] };
-  exec?: { sandbox?: boolean; host?: { enabled?: boolean; cwdRoots?: string[] } };
+  exec?: {
+    sandbox?: boolean;
+    host?: { enabled?: boolean; cwdRoots?: string[] };
+    guest?: { enabled?: boolean; root?: string };
+  };
   browser?: { enabled?: "auto" | boolean };
   helper?: { enabled?: "auto" | boolean; socket?: string };
 }
@@ -153,6 +159,10 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
       host: {
         enabled: file.exec?.host?.enabled === true,
         cwdRoots: (file.exec?.host?.cwdRoots ?? []).map((p) => resolve(p)),
+      },
+      guest: {
+        enabled: file.exec?.guest?.enabled === true,
+        root: resolve(file.exec?.guest?.root ?? join(home, "workspaces")),
       },
     },
     browser: { enabled: file.browser?.enabled ?? "auto" },

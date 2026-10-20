@@ -125,6 +125,8 @@ const KIND_TITLES: Record<string, string> = {
   task_start: "Start background task",
   apple_script: "Run AppleScript",
   shortcut_run: "Run Shortcut",
+  git_write: "Change git repository",
+  git_push: "Push to git remote",
 };
 
 /** Detail keys shown first, in this order, per kind. */
@@ -143,6 +145,25 @@ const KEY_FIELDS: Record<string, string[]> = {
   computer_action: ["app", "action"],
   apple_script: ["target", "language", "source"],
   shortcut_run: ["name", "input"],
+  git_write: ["repo", "operation", "branch", "message", "paths"],
+  git_push: ["remote", "remoteUrl", "branch", "commit", "repo"],
+  // What the skill asks for comes before anything else on the trust card (T2).
+  skill_install: [
+    "name",
+    "source",
+    "commit",
+    "hash",
+    "permissions",
+    "tools",
+    "prompts",
+    "findings",
+    "scope",
+  ],
+};
+
+/** Kinds whose list fields read "none" when empty (a trust card must say it asks for nothing). */
+const NONE_WHEN_EMPTY: Record<string, readonly string[]> = {
+  skill_install: ["permissions", "tools", "prompts"],
 };
 
 export type CardSurfaceKind =
@@ -296,9 +317,15 @@ export function renderForSurface(surface: string, a: ApprovalRequest): RenderedC
       .filter((k) => !order.includes(k))
       .sort(),
   ];
+  const noneWhenEmpty = NONE_WHEN_EMPTY[a.kind] ?? [];
   for (const k of keys) {
+    const v = details[k];
+    if (noneWhenEmpty.includes(k) && Array.isArray(v) && v.length === 0) {
+      lines.push(`${sanitizeDisplay(k, 60)}: none`);
+      continue;
+    }
     lines.push(
-      `${sanitizeDisplay(k, 60)}: “${punycodeHosts(sanitizeDisplay(valueText(details[k]), Number.POSITIVE_INFINITY))}”`,
+      `${sanitizeDisplay(k, 60)}: “${punycodeHosts(sanitizeDisplay(valueText(v), Number.POSITIVE_INFINITY))}”`,
     );
   }
   lines.push(`Summary: “${punycodeHosts(sanitizeDisplay(a.summary))}”`);

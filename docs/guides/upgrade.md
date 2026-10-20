@@ -197,3 +197,7 @@ Database migrations only go forward, so an older version cannot run on data a ne
    ```bash
    docker compose -f deploy/docker-compose.yml exec gateway psyche doctor
    ```
+
+## For maintainers: the scripted round trip
+
+`node deploy/scripts/upgrade-roundtrip.mjs` runs this whole path on throwaway homes with real processes: `migrate --check` on a fresh home, an online backup through a running Gateway, `migrate --check` on the live data, verify and restore into a second fresh home, `migrate --check` there, and a Gateway booting from the restored data. Point `PSYCHE` (and `PSYCHED`) at a release build to check it before tagging.

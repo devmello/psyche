@@ -33,12 +33,23 @@ final class FakeVMBackend: VMBackend, @unchecked Sendable {
         if installFails { throw CapabilityError(.unavailable, reason: "vz_error", "boom") }
         progress(1)
     }
-    func start(_ bundle: VMBundle, config: VMConfig, shares: [ShareGrant], provisioning: GuestProvisioning?,
-               onGatewayConnection: @escaping @Sendable (Int32) -> Void, onStop: @escaping @Sendable (String?) -> Void) async throws {
+    var lastRestore: URL?
+    var lastSystem: VMSystemShares?
+    var restoreFails = false
+    var paused: Set<String> = []
+    var display: Set<String> = []
+    /// Serves guest.* like the guest helper (nil: no agent listening).
+    var agentOps: (any GuestOperations)?
+
+    func start(_ bundle: VMBundle, config: VMConfig, shares: [ShareGrant], system: VMSystemShares, provisioning: GuestProvisioning?,
+               restoreFrom: URL?, onGatewayConnection: @escaping @Sendable (Int32) -> Void, onStop: @escaping @Sendable (String?) -> Void) async throws {
+        if restoreFrom != nil, restoreFails { throw CapabilityError(.unavailable, reason: "restore_failed", "x") }
         lock.withLock {
-            calls.append("start")
+            calls.append(restoreFrom == nil ? "start" : "restore")
             lastProvisioning = provisioning
             lastShares = shares
+            lastSystem = system
+            lastRestore = restoreFrom
             gatewayHandler = onGatewayConnection
             running.insert(config.name)
         }
@@ -47,13 +58,38 @@ final class FakeVMBackend: VMBackend, @unchecked Sendable {
         lock.withLock { calls.append("stop force=\(force)"); running.remove(name) }
         return !force
     }
-    func setShares(_ name: String, shares: [ShareGrant]) async throws { lock.withLock { calls.append("setShares \(shares.count)"); lastShares = shares } }
+    func pause(_ name: String) async throws { _ = lock.withLock { paused.insert(name) } }
+    func resume(_ name: String) async throws { _ = lock.withLock { paused.remove(name) } }
+    func saveState(_ name: String, to url: URL) async throws {
+        FileManager.default.createFile(atPath: url.path, contents: Data("state".utf8))
+        lock.withLock { calls.append("save"); running.remove(name) }
+    }
+    func setShares(_ name: String, shares: [ShareGrant], system: VMSystemShares) async throws {
+        lock.withLock { calls.append("setShares \(shares.count)"); lastShares = shares; lastSystem = system }
+    }
+    func setDisplay(_ name: String, visible: Bool) async throws { _ = lock.withLock { visible ? display.insert(name).inserted : display.remove(name) != nil } }
+    func connectGuestAgent(_ name: String) async throws -> Int32 {
+        guard let ops = agentOps else { throw CapabilityError(.unavailable, reason: "guest_agent_unreachable", "no agent", retryable: true) }
+        var fds: [Int32] = [0, 0]
+        _ = socketpair(AF_UNIX, SOCK_STREAM, 0, &fds)
+        let server = GuestAgentServer(ops: ops, log: HelperLog(echo: { _ in }))
+        let guestFD = fds[1]
+        Thread.detachNewThread { server.serve(FrameChannel(socket: UnixSocketConnection(fd: guestFD))) }
+        return fds[0]
+    }
+    func isPaused(_ name: String) -> Bool { lock.withLock { paused.contains(name) } }
+    func isDisplayVisible(_ name: String) -> Bool { lock.withLock { display.contains(name) } }
+
 }
 
 final class MemorySecrets: VMSecretStore, @unchecked Sendable {
     let lock = NSLock()
     var items: [String: Data] = [:]
     func store(name: String, secret: Data) async throws { lock.withLock { items[name] = secret } }
+    func read(name: String) async throws -> Data {
+        guard let d = lock.withLock({ items[name] }) else { throw CapabilityError(.notFound, reason: "item_not_found", "none") }
+        return d
+    }
     func delete(name: String) async throws { _ = lock.withLock { items.removeValue(forKey: name) } }
 }
 
@@ -231,7 +267,14 @@ struct VMManagerTests {
     @Test func capabilitiesDeclareSideEffects() {
         let caps = VMCapabilities.make(manager(FakeVMBackend(), home: tempHome()))
         let specs = Dictionary(uniqueKeysWithValues: caps.map { ($0.spec.name, $0.spec) })
-        #expect(Set(specs.keys) == ["vm.status", "vm.restore_image", "vm.create", "vm.start", "vm.stop", "vm.delete", "vm.share_add", "vm.share_remove"])
+        #expect(Set(specs.keys) == [
+            "vm.status", "vm.restore_image", "vm.create", "vm.start", "vm.stop", "vm.delete", "vm.share_add", "vm.share_remove", "vm.pause",
+            "vm.resume", "vm.suspend", "vm.configure", "vm.display", "vm.agent_status", "vm.copy_in", "vm.copy_out", "vm.install_psyche",
+            "vm.grant_permissions", "vm.watch",
+        ])
+        #expect(specs["vm.watch"]?.streaming == true && specs["vm.watch"]?.sideEffect == .read)
+        #expect(specs["vm.copy_out"]?.targetKind == .path && specs["vm.copy_out"]?.receiptKind == "vm_transfer")
+        for (name, spec) in specs where spec.sideEffect == .write || spec.sideEffect == .destructive { #expect(spec.receiptKind != nil, "\(name)") }
         #expect(specs["vm.delete"]?.sideEffect == .destructive && specs["vm.status"]?.sideEffect == .read)
         #expect(specs["vm.create"]?.streaming == true && specs["vm.share_add"]?.targetKind == .path)
     }

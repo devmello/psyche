@@ -18,6 +18,8 @@ export const DEVICE_ONLY_KINDS: readonly ApprovalKind[] = [
   "purchase",
   "pairing",
   "policy_change",
+  // A skill is code-adjacent text the agent will follow: installed only from a paired device (T2).
+  "skill_install",
 ];
 
 /** `authenticationRequired` on the Mac (security §3.7). */
@@ -114,6 +116,8 @@ export function allowedScopes(
       "skill_install",
       "apple_script",
       "shortcut_run",
+      // A push publishes exact commits with the owner's credentials (V10).
+      "git_push",
     ].includes(kind)
   )
     return ["once"];
