@@ -19,6 +19,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { cn } from "../../lib/utils.ts";
+import { ContextSettingsGroup } from "./ContextSettings.tsx";
 import {
   EmptyNotice,
   ErrorNotice,
@@ -284,6 +285,9 @@ export function ModelProvidersPanel({
     .flatMap((p) => p.models)
     .filter((m) => m.capabilities?.embeddings !== true);
   const id = useId();
+  const primaryRef = typeof values["models.primary"] === "string" ? values["models.primary"] : "";
+  const primaryContext = providers.flatMap((p) => p.models).find((m) => m.ref === primaryRef)
+    ?.capabilities?.contextWindow;
   const add = onAddProvider ? (
     <Button type="button" size="sm" onClick={onAddProvider}>
       Add a provider
@@ -429,6 +433,11 @@ export function ModelProvidersPanel({
           })}
         </Group>
 
+        <ContextSettingsGroup
+          values={values}
+          onChange={onChange}
+          {...(primaryContext === undefined ? {} : { modelContextLength: primaryContext })}
+        />
         <Group title="Local models" description="Run models on this Mac with Ollama or LM Studio.">
           <RamGuidance {...(ramGb === undefined ? {} : { ramGb })} />
         </Group>

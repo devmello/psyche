@@ -93,6 +93,7 @@ export * from "./brand.tsx";
 // Chat column.
 export { ApprovalDock } from "./chat/ApprovalDock.tsx";
 export { Composer, type ComposerProps, SLASH_COMMANDS } from "./chat/Composer.tsx";
+export * from "./chat/context/index.ts";
 export { type ExportFormat, ExportMenu, markdownToHtmlDocument } from "./chat/ExportMenu.tsx";
 export { FollowUpQueue } from "./chat/FollowUpQueue.tsx";
 export { MessageView, type MessageViewProps, messageText } from "./chat/MessageView.tsx";
@@ -114,6 +115,7 @@ export * from "./screens/inbox/index.ts";
 export * from "./screens/library/index.ts";
 export * from "./screens/onboarding/index.ts";
 export * from "./screens/search/index.ts";
+export { CONTEXT_KEYS, ContextSettingsGroup } from "./screens/settings/ContextSettings.tsx";
 export * from "./screens/settings/index.ts";
 export { AppearanceProvider } from "./shell/AppearanceProvider.tsx";
 // Shell pieces.
