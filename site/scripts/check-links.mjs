@@ -28,12 +28,16 @@ for (const file of markdown(site)) {
     checked += 1;
     const path = decodeURIComponent(m[2]).replace(/\/$/, "");
     const full = join(repo, path);
-    const ok = existsSync(full) && (m[1] === "tree" ? statSync(full).isDirectory() : statSync(full).isFile());
+    const ok =
+      existsSync(full) &&
+      (m[1] === "tree" ? statSync(full).isDirectory() : statSync(full).isFile());
     if (!ok) broken.push(`${relative(repo, file)}: ${m[0]}`);
   }
 }
 if (broken.length > 0) {
-  process.stderr.write(`docs:check: ${broken.length} broken repository link(s):\n${broken.map((b) => `  ${b}`).join("\n")}\n`);
+  process.stderr.write(
+    `docs:check: ${broken.length} broken repository link(s):\n${broken.map((b) => `  ${b}`).join("\n")}\n`,
+  );
   process.exit(1);
 }
 process.stdout.write(`docs:check: ${checked} repository links OK\n`);

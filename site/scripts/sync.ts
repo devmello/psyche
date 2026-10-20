@@ -10,7 +10,15 @@
  * GitHub links (`scripts/check-links.mjs` checks that those files exist). The output is
  * git-ignored.
  */
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join, posix, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { CommandSpec } from "../../apps/cli/src/command.ts";
@@ -28,7 +36,10 @@ function githubLink(repoPath: string, anchor: string): string {
 }
 
 /** Repository Markdown files that are also site pages, as site paths. */
-const SITE_PAGES: Record<string, string> = { "docs/guides/": "/guides/", "docs/release-notes/": "/release-notes/" };
+const SITE_PAGES: Record<string, string> = {
+  "docs/guides/": "/guides/",
+  "docs/release-notes/": "/release-notes/",
+};
 
 function sitePath(repoPath: string): string | undefined {
   for (const [dir, base] of Object.entries(SITE_PAGES)) {
@@ -76,7 +87,9 @@ function copyDir(fromDir: string, toDir: string): string[] {
   const out = join(site, toDir);
   rmSync(out, { recursive: true, force: true });
   mkdirSync(out, { recursive: true });
-  const files = readdirSync(join(repo, fromDir)).filter((f) => f.endsWith(".md")).sort();
+  const files = readdirSync(join(repo, fromDir))
+    .filter((f) => f.endsWith(".md"))
+    .sort();
   for (const f of files) {
     const source = posix.join(fromDir, f);
     const text = rewriteLinks(readFileSync(join(repo, source), "utf8"), fromDir);
@@ -117,9 +130,33 @@ function usage(c: CommandSpec): string {
     const name = `${a.name}${a.variadic === true ? "…" : ""}`;
     return a.required === true ? `<${name}>` : `[${name}]`;
   });
-  return ["psyche", ...c.path, ...args, ...(Object.keys(c.options ?? {}).length > 0 ? ["[options]"] : [])].join(" ");
+  return [
+    "psyche",
+    ...c.path,
+    ...args,
+    ...(Object.keys(c.options ?? {}).length > 0 ? ["[options]"] : []),
+  ].join(" ");
 }
-const escape = (s: string) => s.replace(/\|/g, "\\|");
+/**
+ * CLI help text as Markdown: placeholders such as `{{cred:<slug>}}` become inline code, and
+ * `<`/`>` outside code are escaped so Vue never reads them as tags. `table` also escapes pipes.
+ */
+function text(s: string, table = false): string {
+  const coded = s.replace(/(\{\{[^}]*\}\})/g, "`$1`");
+  return coded
+    .split(/(`[^`]*`)/)
+    .map((part) =>
+      part.startsWith("`")
+        ? part
+        : part
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/\|/g, table ? "\\|" : "|"),
+    )
+    .join("");
+}
+const cell = (s: string) => text(s, true);
+
 const cli: string[] = [
   "---",
   "title: CLI reference",
@@ -132,16 +169,21 @@ const cli: string[] = [
   "",
   "| Command | What it does |",
   "| --- | --- |",
-  ...COMMANDS.map((c) => `| [\`psyche ${c.path.join(" ")}\`](#${c.path.join("-")}) | ${escape(c.summary)} |`),
+  ...COMMANDS.map(
+    (c) => `| [\`psyche ${c.path.join(" ")}\`](#${c.path.join("-")}) | ${cell(c.summary)} |`,
+  ),
   "",
 ];
 for (const c of COMMANDS) {
-  cli.push(`## psyche ${c.path.join(" ")} {#${c.path.join("-")}}`, "", c.summary, "");
-  if (c.description !== undefined && c.description !== c.summary) cli.push(c.description, "");
+  cli.push(`## psyche ${c.path.join(" ")} {#${c.path.join("-")}}`, "", text(c.summary), "");
+  if (c.description !== undefined && c.description !== c.summary) cli.push(text(c.description), "");
   cli.push("```", usage(c), "```", "");
   if ((c.args ?? []).length > 0) {
     cli.push("| Argument | Description |", "| --- | --- |");
-    for (const a of c.args ?? []) cli.push(`| \`${a.name}\`${a.required === true ? "" : " (optional)"} | ${escape(a.description)} |`);
+    for (const a of c.args ?? [])
+      cli.push(
+        `| \`${a.name}\`${a.required === true ? "" : " (optional)"} | ${cell(a.description)} |`,
+      );
     cli.push("");
   }
   const opts = Object.entries(c.options ?? {});
@@ -149,8 +191,9 @@ for (const c of COMMANDS) {
     cli.push("| Option | Description |", "| --- | --- |");
     for (const [name, o] of opts) {
       const flag = `--${name}${o.type === "string" ? " <value>" : ""}${o.short === undefined ? "" : `, -${o.short}`}`;
-      const choices = o.choices === undefined ? "" : ` One of: ${o.choices.map((x) => `\`${x}\``).join(", ")}.`;
-      cli.push(`| \`${flag}\` | ${escape(o.description)}${choices} |`);
+      const choices =
+        o.choices === undefined ? "" : ` One of: ${o.choices.map((x) => `\`${x}\``).join(", ")}.`;
+      cli.push(`| \`${flag}\` | ${cell(o.description)}${choices} |`);
     }
     cli.push("");
   }

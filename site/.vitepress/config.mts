@@ -6,8 +6,7 @@ const page = (text: string, link: string) => ({ text, link });
 
 export default defineConfig({
   title: "Psyche",
-  description:
-    "An open-source, self-hosted personal AI agent for your Mac and your own server.",
+  description: "An open-source, self-hosted personal AI agent for your Mac and your own server.",
   lang: "en-US",
   // Published as a GitHub Pages project site: https://devmello.github.io/psyche/
   base: "/psyche/",
@@ -17,6 +16,17 @@ export default defineConfig({
   ignoreDeadLinks: false,
   srcExclude: ["**/node_modules/**", "scripts/**"],
   head: [["meta", { name: "color-scheme", content: "light dark" }]],
+  markdown: {
+    // Inline code is not compiled as a Vue template, so placeholders such as `{{cred:slug}}`
+    // show as written (fenced blocks are already `v-pre`).
+    config(md) {
+      const render = md.renderer.rules.code_inline;
+      md.renderer.rules.code_inline = (tokens, idx, options, env, self) => {
+        const html = render?.(tokens, idx, options, env, self) ?? "";
+        return html.replace(/^<code/, "<code v-pre");
+      };
+    },
+  },
   themeConfig: {
     nav: [
       page("Get started", "/get-started/"),
