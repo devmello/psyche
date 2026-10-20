@@ -104,8 +104,11 @@ Every click by ref is hit-tested first (`conflict {reason: "obscured"}` when ano
 | `browser.wait` | `tabId, for, timeoutMs?` | none | load, text, ref, network_idle, timeout |
 | `browser.dialog` | `tabId, accept, promptText?` | read → write when accepting a confirm | |
 | `browser.fill_credential` | `tabId, ref, placeholder` | write (`credential_fill`) | see below |
+| `browser.request_control` | `tabId, reason, timeoutMs?` | none | asks the owner to take the tab over (2FA, a login, personal details); waits until they hand it back or the timeout (default 10 min) passes; refs are stale after |
 | `browser.dev_preview` | `url` | read (`new_origin`) | opens the owner's own dev server in the task's dev-preview session (I12, below) |
 | `browser.console` / `network` | `tabId` | read | dev-preview tabs only (I12) |
+
+**Purchase cards** (INT-2 scenario 1; data model §4.2): when a click, Enter or a submit is classed `purchase`, `describeCall` reads the latest snapshot of the tab (`src/tools/order.ts`) and the card's summary lists the merchant, the seller line, the items (name, quantity, price) and the total, marked "as shown on the page" since it is page text. The binding is the data model's: merchant origin (from the tab, not the page), amount, currency, a line-item hash and the payment method id (`null`; the browser never knows it). Right before the click the executor reads the page again and refuses with `conflict {reason: "order_changed"}` when the total or the items differ from what the card showed.
 
 **Page echoes** (S23 design-18): when the vault is wired, every tool output and error is checked with `containsSecret` (the Gateway derives it from `CredentialBroker.redact`). A page that reflects a vault value in its text, title, a dialog or its URL gets `policy_denied {reason: "secret_echo"}` with nothing from the page; navigating away ends it. The driver's snapshots and text are masked with the same `redact`, and recording summaries too.
 

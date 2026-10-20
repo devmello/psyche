@@ -262,14 +262,14 @@ describe("INT-2 scenario 1: browser from chat", () => {
     });
     expect(purchase.surfaces.every((sf) => !sf.includes(":"))).toBe(true);
     expect(purchase.target).toEqual({ kind: "origin", value: B() });
+    // The card lists seller, items and total as shop B's cart shows them (S08 follow-up).
+    expect(purchase.summary).toBe(
+      `Click Place order on ${new URL(B()).host}; seller "Stand Shop B"; 1 × "Laptop Stand 13-inch" $29.00; total $29.00 (as shown on the page)`,
+    );
     expect(desktop.tab(tabId).url).toBe(`${B()}/cart`);
     expect(desktop.browser.submissions.some((sub) => sub.path === "/checkout")).toBe(false);
     timings.approvalCards = asked.length;
   });
-
-  it.todo(
-    "KNOWN GAP (S08): the purchase card lists seller, items and total (today: 'Click Place order' plus the origin)",
-  );
 
   it("showed the status pill and highlighted the element acted on", () => {
     expect(statuses.some((s) => s.text === "Typing")).toBe(true);
