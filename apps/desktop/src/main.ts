@@ -20,6 +20,7 @@ import {
   Notification,
   protocol,
   session,
+  shell,
   type WebContents,
   webContents,
 } from "electron";
@@ -44,7 +45,7 @@ import { BridgeClient } from "./main/bridge/bridge-client.ts";
 import { BrowserHost } from "./main/browser/browser-host.ts";
 import { SystemDictation } from "./main/dictation/controller.ts";
 import { HudWindow } from "./main/dictation/hud.ts";
-import { DictationService } from "./main/dictation/service.ts";
+import { ACCESSIBILITY_SETTINGS_URL, DictationService } from "./main/dictation/service.ts";
 import { buildAppMenu } from "./main/menu.ts";
 import { chooseMode, GatewaySupervisor } from "./main/supervisor.ts";
 import { TerminalHost } from "./main/terminal.ts";
@@ -368,6 +369,14 @@ function registerIpc(): void {
     );
   });
   on(IPC.windowClose, (event) => windows?.closeFor(event.sender));
+  handle(IPC.dictationGetStatus, () => dictation?.status);
+  handle(IPC.dictationRecheck, async () => {
+    await dictation?.recheck();
+    return dictation?.status;
+  });
+  on(IPC.dictationOpenAccessibility, () => {
+    void shell.openExternal(ACCESSIBILITY_SETTINGS_URL);
+  });
   handle(IPC.dialogPickFolder, async (event, arg) => {
     const r = rec(IPC.dialogPickFolder, arg);
     const title =
@@ -583,6 +592,7 @@ void app.whenReady().then(async () => {
       ? {}
       : { shortcuts: globalShortcut }),
     warn: (m) => console.warn(`[dictation] ${m}`),
+    onStatus: (s) => broadcast(IPC.dictationStatus, s),
   });
   terminal = new TerminalHost({ call: (m, p) => requireGateway().call(m, p) });
   terminal.onData((sessionId, data) => broadcast(IPC.terminalData, { sessionId, data }));

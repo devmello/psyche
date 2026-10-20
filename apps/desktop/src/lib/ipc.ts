@@ -44,6 +44,11 @@ export const IPC = {
   dictationCapture: "psyche:dictation:capture",
   dictationAudio: "psyche:dictation:audio",
   dictationCaptured: "psyche:dictation:captured",
+  // Settings → Voice & dictation (any app renderer).
+  dictationGetStatus: "psyche:dictation:get-status",
+  dictationStatus: "psyche:dictation:status",
+  dictationRecheck: "psyche:dictation:recheck",
+  dictationOpenAccessibility: "psyche:dictation:open-accessibility",
 } as const;
 
 export type IpcChannel = (typeof IPC)[keyof typeof IPC];

@@ -129,6 +129,11 @@ const bridge = {
     onCapture: (cb: (command: unknown) => void) => listen(IPC.dictationCapture, cb),
     sendAudio: (chunk: string) => ipcRenderer.send(IPC.dictationAudio, chunk),
     captured: (ok: boolean) => ipcRenderer.send(IPC.dictationCaptured, { ok }),
+    // Settings → Voice & dictation.
+    getStatus: () => invoke(IPC.dictationGetStatus),
+    onStatus: (cb: (s: unknown) => void) => listen(IPC.dictationStatus, cb),
+    recheck: () => invoke(IPC.dictationRecheck),
+    openAccessibilitySettings: () => ipcRenderer.send(IPC.dictationOpenAccessibility),
   },
 };
 

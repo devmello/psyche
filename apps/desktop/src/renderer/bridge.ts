@@ -6,6 +6,7 @@ import {
   type DownloadNotice,
   type ShellCommand,
   type ShellPlatform,
+  type SystemDictationStatus,
   type TerminalOpenResult,
 } from "@psyche/web/platform";
 import type { PsycheBridge } from "../preload.ts";
@@ -89,6 +90,12 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
     notify: { show: (n) => b.notify.show(n) },
     dialogs: {
       pickFolder: (opts) => b.dialogs.pickFolder(opts) as Promise<string | null>,
+    },
+    dictation: {
+      getStatus: () => b.dictation.getStatus() as Promise<SystemDictationStatus>,
+      onStatus: (cb) => b.dictation.onStatus((s) => cb(s as SystemDictationStatus)),
+      recheck: () => b.dictation.recheck() as Promise<SystemDictationStatus>,
+      openAccessibilitySettings: () => b.dictation.openAccessibilitySettings(),
     },
   };
 }

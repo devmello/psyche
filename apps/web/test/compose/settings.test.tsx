@@ -9,9 +9,14 @@ import {
   folderGrantsFromPolicy,
   POLICY_KEY,
   policyWithFolders,
+  SystemVoiceSettings,
   settingsSectionOf,
 } from "../../src/compose/settings.tsx";
-import type { ShellPlatform } from "../../src/shell/platform.ts";
+import type {
+  DictationPort,
+  ShellPlatform,
+  SystemDictationStatus,
+} from "../../src/shell/platform.ts";
 
 afterEach(cleanup);
 
@@ -112,5 +117,36 @@ describe("FileAccessSettings", () => {
       key: POLICY_KEY,
       value: { folders: [{ path: "/srv/docs", mode: "ro" }] },
     });
+  });
+});
+
+describe("system-wide dictation in Voice & dictation (J9, Q2)", () => {
+  it("shows the desktop's status, follows updates and re-checks", async () => {
+    let push: ((s: SystemDictationStatus) => void) | undefined;
+    const port: DictationPort = {
+      getStatus: async () => ({ helper: "online", accessibility: "missing", watching: false }),
+      onStatus: (cb) => {
+        push = cb;
+        return () => undefined;
+      },
+      recheck: vi.fn(async () => ({
+        helper: "online" as const,
+        accessibility: "granted" as const,
+        watching: true,
+      })),
+      openAccessibilitySettings: vi.fn(),
+    };
+    render(
+      <GatewayProvider client={new MockGateway()}>
+        <SystemVoiceSettings dictation={port} />
+      </GatewayProvider>,
+    );
+    expect(await screen.findByText("Needed")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Open System Settings" }));
+    expect(port.openAccessibilitySettings).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+    expect(await screen.findByText("Granted")).toBeTruthy();
+    push?.({ helper: "offline", accessibility: "unknown", watching: false });
+    expect(await screen.findByText("Helper not running")).toBeTruthy();
   });
 });
