@@ -847,6 +847,9 @@ importers:
 
   packages/skills:
     dependencies:
+      '@psyche/permissions':
+        specifier: workspace:*
+        version: link:../permissions
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../protocol

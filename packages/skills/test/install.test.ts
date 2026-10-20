@@ -410,7 +410,7 @@ describe("skills.* handlers", () => {
     expect(approval).toMatchObject({
       kind: "skill_install",
       bindingHash: proposal.bindingHash,
-      grantKey: "skill_install|cards",
+      grantKey: proposal.grantKey,
       deviceOnly: true,
       scopesOffered: ["once"],
     });

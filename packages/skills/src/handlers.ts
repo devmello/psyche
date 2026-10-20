@@ -6,6 +6,7 @@ import {
   type SkillInstallSource,
   type SkillSource,
   type SkillSummary,
+  type SkillUpdateCheck,
   type Surface,
 } from "@psyche/protocol";
 import type { FsSkillLoader, SkillDetails, SkillProposal } from "./loader.ts";
@@ -40,6 +41,7 @@ export interface SkillsHandlers {
     source?: SkillSource;
   }) => Promise<{ skill: SkillDetails }>;
   "skills.remove": (p: { name: string }) => Promise<{ ok: true }>;
+  "skills.checkUpdates": (p: { name?: string }) => Promise<{ updates: SkillUpdateCheck[] }>;
   /** The staged proposal (full text, files, findings, diff) for an approval card on any device. */
   "skills.getProposal": (p: { proposalId: string }) => Promise<{ proposal: SkillProposal }>;
 }
@@ -53,6 +55,8 @@ export interface SkillsHandlerOptions {
   broker: PermissionBroker;
   /** Surfaces for the approval card; `skill_install` is device-only, chat surfaces are dropped. */
   surfaces?: Surface[];
+  /** Called for every installed skill whose source has an update (the Gateway's `skills.updated`). */
+  onUpdate?: (update: SkillUpdateCheck) => void;
 }
 
 export function createSkillsHandlers(
@@ -76,6 +80,10 @@ export function createSkillsHandlers(
         source: proposal.source,
         ...(proposal.commit === undefined ? {} : { commit: proposal.commit }),
         hash: proposal.hash,
+        // What the skill asks for: the trust card lists these first (`none` when empty).
+        permissions: proposal.manifest.permissions,
+        tools: proposal.manifest.tools,
+        prompts: proposal.manifest.prompts,
         trust: proposal.trust,
         findings: counts,
         files: proposal.files.map((f) => f.path),
@@ -137,6 +145,11 @@ export function createSkillsHandlers(
       const proposal = loader.getProposal(p.proposalId);
       if (proposal === undefined) throw new PsycheError("not_found", "no such install proposal");
       return { proposal };
+    },
+    async "skills.checkUpdates"(p) {
+      const updates = await loader.checkUpdates(p.name);
+      for (const u of updates) if (u.updateAvailable) opts.onUpdate?.(u);
+      return { updates };
     },
     async "skills.remove"(p) {
       await loader.remove(p.name);
