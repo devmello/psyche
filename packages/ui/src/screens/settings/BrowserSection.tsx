@@ -3,6 +3,7 @@ import { ExternalLink, KeyRound } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
+import { t } from "../../i18n/core.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import {
   ErrorNotice,
@@ -29,7 +30,7 @@ export const REAL_CHROME_KEY = "browser.realChrome";
 
 /** The real-Chrome profile's name: "Psyche profile", with the persona's name when one is set. */
 export function realChromeProfileLabel(persona: string | undefined): string {
-  return persona ? `Psyche profile (${persona})` : "Psyche profile";
+  return persona ? t("settings.browser.profileNamed", { persona }) : t("settings.browser.profile");
 }
 
 export interface RealChromeSetting {
@@ -93,7 +94,7 @@ export function BrowserPanel({
   onChange,
   needsApproval,
   persona,
-  profileLabel = "Psyche profile",
+  profileLabel = t("settings.browser.profile"),
   onOpenProfile,
   botAuth,
   onRotateBotAuth,
@@ -111,22 +112,22 @@ export function BrowserPanel({
   return (
     <SectionFrame
       needsApproval={needsApproval}
-      title="Browser"
-      description={`${persona} browses in its own window by default. Real-Chrome mode lets a task use a separate Chrome profile you sign in to once.`}
+      title={t("settings.browser.title")}
+      description={t("settings.browser.description", { persona })}
     >
       <LoadGate
-        label="browser settings"
+        label={t("settings.browser.loadLabel")}
         loading={loading ?? false}
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
         <Group
-          title="Real-Chrome mode"
-          description="For sites that need your sign-ins or extensions such as 1Password."
+          title={t("settings.key.browser.realChrome")}
+          description={t("settings.browser.realChromeDescription")}
         >
           <SwitchField
-            label={`Let tasks use the ${profileLabel}`}
-            description="Each task still asks you first, on this device with Touch ID or a passkey."
+            label={t("settings.browser.letTasksUse", { profile: profileLabel })}
+            description={t("settings.browser.letTasksUseHint")}
             checked={setting.enabled}
             settingKey={REAL_CHROME_KEY}
             onChange={(enabled) => onChange(REAL_CHROME_KEY, { ...setting, enabled })}
@@ -134,17 +135,14 @@ export function BrowserPanel({
         </Group>
         <Group
           title={profileLabel[0]?.toUpperCase() + profileLabel.slice(1)}
-          description={`A Chrome profile only ${persona} uses, never your own. Open it once to sign in and install 1Password, then close it.`}
+          description={t("settings.browser.profileDescription", { persona })}
         >
           <details className="text-xs text-muted-foreground">
-            <summary className="cursor-pointer">Details</summary>
+            <summary className="cursor-pointer">{t("settings.browser.details")}</summary>
+            <p className="mt-1">{t("settings.browser.detailsText", { persona })}</p>
             <p className="mt-1">
-              While a task uses it, Psyche runs Google Chrome with this profile and a DevTools port
-              on this Mac's loopback (127.0.0.1), and closes it when the task is done. {persona} is
-              not attached while you have the profile open yourself.
-            </p>
-            <p className="mt-1">
-              Profile <code className="font-mono">{profile}</code> in{" "}
+              {t("settings.browser.profilePath.profile")}{" "}
+              <code className="font-mono">{profile}</code> {t("settings.browser.profilePath.in")}{" "}
               <code className="font-mono">$PSYCHE_HOME/browser/real-chrome/{profile}</code>
             </p>
           </details>
@@ -157,26 +155,28 @@ export function BrowserPanel({
                 onClick={() => {
                   setOpened(null);
                   onOpenProfile(profile).then(
-                    (r) => setOpened({ kind: "ok", text: `Opened ${r.path} in Google Chrome.` }),
+                    (r) =>
+                      setOpened({
+                        kind: "ok",
+                        text: t("settings.browser.opened", { path: r.path }),
+                      }),
                     (err: unknown) =>
                       setOpened({
                         kind: "error",
-                        text: `Psyche couldn't open the profile (${messageOf(err)}).`,
+                        text: t("settings.browser.openFailed", { reason: messageOf(err) }),
                       }),
                   );
                 }}
               >
-                <ExternalLink aria-hidden="true" /> Open the profile in Chrome
+                <ExternalLink aria-hidden="true" /> {t("settings.browser.openProfile")}
               </Button>
             </div>
           ) : (
-            <p className="text-muted-foreground">
-              Open it from the Psyche app on the Mac that runs the Gateway.
-            </p>
+            <p className="text-muted-foreground">{t("settings.browser.openFromMac")}</p>
           )}
           {opened ? (
             opened.kind === "error" ? (
-              <ErrorNotice what={opened.text} did="Nothing was changed." />
+              <ErrorNotice what={opened.text} did={t("settings.shared.nothingChanged")} />
             ) : (
               <p role="status" className="rounded-md bg-gray-3 px-3 py-2">
                 {opened.text}
@@ -185,27 +185,28 @@ export function BrowserPanel({
           ) : null}
         </Group>
         <Group
-          title="Web Bot Auth"
-          description={`Sign ${persona}'s requests so sites that check, such as Cloudflare's verified bots, can tell it apart from an unknown bot. Never in tasks that browse logged out.`}
+          title={t("settings.key.browser.botAuth")}
+          description={t("settings.browser.botAuthDescription", { persona })}
         >
           <SwitchField
-            label="Sign requests for sites that ask"
-            description="Also for the sites you list. Needs a key and a key directory URL."
+            label={t("settings.browser.signRequests")}
+            description={t("settings.browser.signRequestsHint")}
             checked={wba.enabled}
             settingKey={BOT_AUTH_KEY}
             onChange={(enabled) => onChange(BOT_AUTH_KEY, { ...wba, enabled })}
           />
           <TextSetting
-            label="Key directory URL"
+            label={t("settings.browser.directoryUrl")}
             description={
               <>
-                Where sites fetch your public key. The Gateway serves it at{" "}
+                {t("settings.browser.directoryHint.before")}{" "}
                 <code className="font-mono">
                   {botAuth?.directoryPath ?? "/.well-known/http-message-signatures-directory"}
                 </code>
-                ; publish that on a domain you control and enter its address here.
+                {t("settings.browser.directoryHint.after")}
               </>
             }
+            // i18n-ignore: an example URL, not text
             placeholder="https://example.com/.well-known/http-message-signatures-directory"
             value={wba.signatureAgent ?? ""}
             settingKey={BOT_AUTH_KEY}
@@ -217,24 +218,24 @@ export function BrowserPanel({
           <Facts
             items={[
               {
-                term: "Key fingerprint",
+                term: t("settings.browser.fingerprint"),
                 value: hasKey ? (
                   <code className="font-mono text-xs" data-testid="bot-auth-fingerprint">
                     {botAuth?.keyId}
                   </code>
                 ) : (
-                  "No key yet"
+                  t("settings.browser.noKey")
                 ),
               },
               ...(botAuth?.createdAt
-                ? [{ term: "Created", value: botAuth.createdAt.slice(0, 10) }]
+                ? [{ term: t("settings.browser.created"), value: botAuth.createdAt.slice(0, 10) }]
                 : []),
               {
-                term: "Sites that asked",
+                term: t("settings.browser.sitesAsked"),
                 value:
                   botAuth && botAuth.advertised.length > 0
                     ? botAuth.advertised.join(", ")
-                    : "None yet",
+                    : t("settings.browser.noneYet"),
               },
             ]}
           />
@@ -254,25 +255,29 @@ export function BrowserPanel({
                         setRotated({
                           kind: "ok",
                           text: hasKey
-                            ? "A new key is in place and the old one no longer signs. Update the directory you publish."
-                            : "Key created. Publish the directory, then enter its address above.",
+                            ? t("settings.browser.rotated")
+                            : t("settings.browser.keyCreated"),
                         }),
                       (err: unknown) =>
                         setRotated({
                           kind: "error",
-                          text: `Psyche couldn't ${hasKey ? "rotate" : "create"} the key (${messageOf(err)}).`,
+                          text: t("settings.browser.rotateFailed", {
+                            hasKey,
+                            reason: messageOf(err),
+                          }),
                         }),
                     )
                     .finally(() => setRotating(false));
                 }}
               >
-                <KeyRound aria-hidden="true" /> {hasKey ? "Rotate key" : "Create key"}
+                <KeyRound aria-hidden="true" />{" "}
+                {hasKey ? t("settings.browser.rotateKey") : t("settings.browser.createKey")}
               </Button>
             </div>
           ) : null}
           {rotated ? (
             rotated.kind === "error" ? (
-              <ErrorNotice what={rotated.text} did="The current key, if any, still signs." />
+              <ErrorNotice what={rotated.text} did={t("settings.browser.keyStillSigns")} />
             ) : (
               <p role="status" className="rounded-md bg-gray-3 px-3 py-2">
                 {rotated.text}

@@ -1,6 +1,7 @@
 import { type ReactElement, useEffect, useId, useState } from "react";
 import { formatTokens } from "../../chat/context/types.ts";
 import { Input } from "../../components/ui/input.tsx";
+import { t } from "../../i18n/core.ts";
 import { Group, num, SettingHint, type SettingsValues } from "./shared.tsx";
 
 /**
@@ -52,7 +53,7 @@ function BoundedNumber({
   const commit = () => {
     const n = Number(draft.replaceAll(",", ""));
     if (!Number.isInteger(n) || n < min || n > max) {
-      setError(`Enter a whole number from ${min.toLocaleString()} to ${max.toLocaleString()}.`);
+      setError(t("settings.context.errorRange", { min, max }));
       return;
     }
     setError(null);
@@ -116,41 +117,46 @@ export function ContextSettingsGroup({
   const keep = num(values, CONTEXT_KEYS.keepRecentTurns, CONTEXT_BOUNDS.keepRecentTurns.default);
   return (
     <Group
-      title="Context and compaction"
+      title={t("settings.context.title")}
       description={
         modelContextLength
-          ? `The primary model reads up to ${modelContextLength.toLocaleString()} tokens (${formatTokens(modelContextLength)}).`
-          : "The primary model's context length isn't known yet; run its endpoint check to read it."
+          ? t("settings.context.modelReads", {
+              n: modelContextLength,
+              short: formatTokens(modelContextLength),
+            })
+          : t("settings.context.modelUnknown")
       }
     >
       <BoundedNumber
-        label="Context limit"
-        description="Tokens a turn may carry. A chat can set its own limits from its ⋯ menu (Context limits…)."
+        label={t("settings.key.context.maxTokens")}
+        description={t("settings.context.maxTokensHint")}
         value={limit}
         min={CONTEXT_BOUNDS.maxTokens.min}
         max={ceiling}
         step={CONTEXT_BOUNDS.maxTokens.step}
-        suffix="tokens"
+        suffix={t("settings.context.tokens")}
         settingKey={CONTEXT_KEYS.maxTokens}
         onCommit={(v) => onChange(CONTEXT_KEYS.maxTokens, v)}
       />
       <BoundedNumber
-        label="Compact at"
-        description={`Earlier turns are summarised when a turn reaches this share of the limit (${Math.round((limit * compactPct) / 100).toLocaleString()} tokens now).`}
+        label={t("settings.key.context.compactAt")}
+        description={t("settings.context.compactAtHint", {
+          n: Math.round((limit * compactPct) / 100),
+        })}
         value={compactPct}
         min={CONTEXT_BOUNDS.compactAt.min}
         max={CONTEXT_BOUNDS.compactAt.max}
-        suffix="% of the limit"
+        suffix={t("settings.context.percentOfLimit")}
         settingKey={CONTEXT_KEYS.compactAt}
         onCommit={(v) => onChange(CONTEXT_KEYS.compactAt, v / 100)}
       />
       <BoundedNumber
-        label="Recent turns kept verbatim"
-        description="These are never summarised, however long they are."
+        label={t("settings.key.context.keepRecentTurns")}
+        description={t("settings.context.keepHint")}
         value={keep}
         min={CONTEXT_BOUNDS.keepRecentTurns.min}
         max={CONTEXT_BOUNDS.keepRecentTurns.max}
-        suffix="turns"
+        suffix={t("settings.context.turns")}
         settingKey={CONTEXT_KEYS.keepRecentTurns}
         onCommit={(v) => onChange(CONTEXT_KEYS.keepRecentTurns, v)}
       />

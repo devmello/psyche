@@ -2,7 +2,7 @@ import { DEFAULT_GATEWAY_HOST, DEFAULT_GATEWAY_PORT } from "@psyche/protocol";
 import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { useGatewayQuery } from "../../data/hooks.ts";
-import { plural } from "../../lib/format.ts";
+import { t } from "../../i18n/core.ts";
 import {
   EmptyNotice,
   ErrorNotice,
@@ -23,11 +23,8 @@ import type { ServerStatus } from "./types.ts";
 
 const DEFAULT_BIND = `${DEFAULT_GATEWAY_HOST}:${DEFAULT_GATEWAY_PORT}`;
 
-const REMOTE_LABEL: Record<ServerStatus["remote"]["kind"], string> = {
-  none: "Not set up",
-  tailscale: "Tailscale Serve",
-  proxy: "Reverse proxy",
-};
+const remoteLabel = (kind: ServerStatus["remote"]["kind"]): string =>
+  t(`settings.server.remote.${kind}`);
 
 export interface ServerPanelProps extends SettingsFormProps, LoadProps {
   status: ServerStatus | null;
@@ -57,51 +54,51 @@ export function ServerPanel({
   return (
     <SectionFrame
       needsApproval={needsApproval}
-      title="Server & remote access"
-      description="Where the Gateway listens and how your other devices reach it."
+      title={t("settings.server.title")}
+      description={t("settings.server.description")}
     >
       <LoadGate
-        label="server status"
+        label={t("settings.server.loadLabel")}
         loading={loading ?? false}
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title="Gateway">
+        <Group title={t("settings.about.gateway")}>
           <TextSetting
-            label="Bind address"
-            description="127.0.0.1 keeps it on this Mac. Use remote access below instead of binding to every interface."
+            label={t("settings.key.gateway.bind")}
+            description={t("settings.server.bindHint")}
             value={bind}
             settingKey="gateway.bind"
             onCommit={(v) => onChange("gateway.bind", v === "" ? DEFAULT_BIND : v)}
           >
             {exposed ? (
               <p className="text-xs text-approval-text" role="status">
-                The Gateway is reachable from your network. Every device still has to pair.
+                {t("settings.server.exposed")}
               </p>
             ) : null}
           </TextSetting>
         </Group>
 
         <Group
-          title="Remote access"
+          title={t("settings.server.remoteAccess")}
           actions={
             onSetUpRemote && (status?.remote.kind ?? "none") === "none" ? (
               <Button type="button" size="sm" variant="outline" onClick={onSetUpRemote}>
-                Set up
+                {t("settings.server.setUp")}
               </Button>
             ) : null
           }
         >
           {status === null ? (
-            <EmptyNotice text="Remote access status isn't available on this device." />
+            <EmptyNotice text={t("settings.server.remoteUnknown")} />
           ) : (
             <Facts
               items={[
                 {
-                  term: "Method",
+                  term: t("settings.server.method"),
                   value: (
                     <span className="flex flex-wrap items-center gap-2">
-                      {REMOTE_LABEL[status.remote.kind]}
+                      {remoteLabel(status.remote.kind)}
                       {status.remote.kind === "none" ? null : (
                         <StatusChip
                           tone={
@@ -112,11 +109,7 @@ export function ServerPanel({
                                 : "neutral"
                           }
                         >
-                          {status.remote.status === "ok"
-                            ? "Working"
-                            : status.remote.status === "error"
-                              ? "Error"
-                              : "Off"}
+                          {t("settings.server.remoteStatus", { status: status.remote.status })}
                         </StatusChip>
                       )}
                     </span>
@@ -125,19 +118,19 @@ export function ServerPanel({
                 ...(status.remote.url
                   ? [
                       {
-                        term: "Address",
+                        term: t("settings.server.address"),
                         value: <code className="font-mono text-xs">{status.remote.url}</code>,
                       },
                     ]
                   : []),
                 {
-                  term: "Passkeys",
+                  term: t("settings.server.passkeys"),
                   value: (
                     <span className="flex flex-wrap items-center gap-2">
-                      {plural(status.passkeys, "passkey")}
+                      {t("settings.server.passkeyCount", { n: status.passkeys })}
                       {onAddPasskey ? (
                         <Button type="button" variant="link" size="xs" onClick={onAddPasskey}>
-                          Add a passkey
+                          {t("settings.server.addPasskey")}
                         </Button>
                       ) : null}
                     </span>
@@ -148,38 +141,35 @@ export function ServerPanel({
           )}
         </Group>
 
-        <Group
-          title="Sandbox"
-          description="Commands run in a container. Psyche never falls back to the host shell."
-        >
+        <Group title={t("settings.server.sandbox")} description={t("settings.server.sandboxHint")}>
           {sandboxError ? (
             <ErrorNotice
-              what={`Psyche couldn't read sandbox health (${sandboxError}).`}
-              did="Commands stay blocked until a backend reports in."
+              what={t("settings.server.sandboxFailed", { reason: sandboxError })}
+              did={t("settings.server.sandboxBlocked")}
             />
           ) : status?.sandbox ? (
             <p className="flex flex-wrap items-center gap-2">
               <code className="font-mono text-xs">{status.sandbox.backend}</code>
               <StatusChip tone={status.sandbox.available ? "success" : "danger"}>
-                {status.sandbox.available ? "Available" : "Unavailable"}
+                {status.sandbox.available
+                  ? t("settings.server.available")
+                  : t("settings.server.unavailable")}
               </StatusChip>
               {status.sandbox.available ? null : (
-                <span className="text-xs text-danger-text">
-                  No sandbox backend is available. Psyche never falls back to the host shell.
-                </span>
+                <span className="text-xs text-danger-text">{t("settings.server.noBackend")}</span>
               )}
             </p>
           ) : (
-            <p className="text-muted-foreground">Checking the sandbox.</p>
+            <p className="text-muted-foreground">{t("settings.server.checkingSandbox")}</p>
           )}
         </Group>
 
-        <Group title="VM mode">
+        <Group title={t("settings.nav.vm")}>
           {status?.vm == null || status.vm.state === "none" ? (
-            <EmptyNotice text="No VM. VM mode runs Psyche inside a separate macOS guest; set it up from onboarding." />
+            <EmptyNotice text={t("settings.server.noVm")} />
           ) : (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium">{status.vm.name ?? "Guest"}</span>
+              <span className="font-medium">{status.vm.name ?? t("settings.server.guest")}</span>
               <StatusChip
                 tone={
                   status.vm.state === "running"
@@ -189,20 +179,16 @@ export function ServerPanel({
                       : "neutral"
                 }
               >
-                {status.vm.state === "running"
-                  ? "Running"
-                  : status.vm.state === "error"
-                    ? "Error"
-                    : "Stopped"}
+                {t("settings.server.vmState", { state: status.vm.state })}
               </StatusChip>
               {status.vm.state === "running" && onStopVm ? (
                 <Button type="button" size="sm" variant="outline" onClick={onStopVm}>
-                  Stop VM
+                  {t("settings.server.stopVm")}
                 </Button>
               ) : null}
               {status.vm.state !== "running" && onStartVm ? (
                 <Button type="button" size="sm" onClick={onStartVm}>
-                  Start VM
+                  {t("settings.server.startVm")}
                 </Button>
               ) : null}
             </div>

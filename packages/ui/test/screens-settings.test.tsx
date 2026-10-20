@@ -14,13 +14,13 @@ import { createFixtureWorld, FIXTURE_NOW, IDS, PERSONA } from "../src/fixtures/i
 import { actionLabel } from "../src/screens/settings/ActionMatrix.tsx";
 import { ChannelsPanel } from "../src/screens/settings/ChannelsSection.tsx";
 import {
-  CARD_REFUSAL,
+  cardRefusal,
   parseBinding,
   vaultChangeError,
 } from "../src/screens/settings/CredentialsSection.tsx";
 import { folderGrants, policyWithFolders } from "../src/screens/settings/FileAccessSection.tsx";
 import { ModelProvidersPanel } from "../src/screens/settings/ModelSection.tsx";
-import { PRESENCE_UNAVAILABLE } from "../src/screens/settings/SettingsApproval.tsx";
+import { presenceUnavailable } from "../src/screens/settings/SettingsApproval.tsx";
 import {
   SettingsScreen,
   type SettingsScreenProps,
@@ -349,7 +349,7 @@ describe("Credentials", () => {
     expect(within(table).queryByText("github-login")).toBeNull();
     expect(within(table).getByText("github.com")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Add item" }));
-    expect(screen.getByText(CARD_REFUSAL)).toBeTruthy();
+    expect(screen.getByText(cardRefusal())).toBeTruthy();
     const form = screen.getByRole("form", { name: "Add a credential" });
     await userEvent.type(within(form).getByLabelText("Name"), "Fastmail");
     await userEvent.type(within(form).getByLabelText("Username"), "you");
@@ -987,7 +987,7 @@ describe("Security settings need approval with presence (security §10)", () => 
     const { writes } = approvingGateway({ presenceFails: true });
     const banner = await shareFolder();
     await approve(banner);
-    expect(await within(banner).findAllByText(PRESENCE_UNAVAILABLE)).not.toHaveLength(0);
+    expect(await within(banner).findAllByText(presenceUnavailable())).not.toHaveLength(0);
     expect(writes).toHaveLength(1);
   });
 });

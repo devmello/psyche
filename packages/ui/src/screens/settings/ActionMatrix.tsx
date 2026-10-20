@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table.tsx";
+import { t } from "../../i18n/core.ts";
 import { RadioTableRow } from "./RadioTableRow.tsx";
 
 /**
@@ -20,10 +21,17 @@ import { RadioTableRow } from "./RadioTableRow.tsx";
 
 export type ActionRule = Connector["actionMatrix"][string];
 
-export const RULES: readonly { value: ActionRule; label: string }[] = [
-  { value: "allow", label: "Allow" },
-  { value: "ask", label: "Ask" },
-  { value: "deny", label: "Deny" },
+const rule = (value: ActionRule) => ({
+  value,
+  get label(): string {
+    return t(`settings.actions.rule.${value}`);
+  },
+});
+
+export const RULES: readonly { value: ActionRule; readonly label: string }[] = [
+  rule("allow"),
+  rule("ask"),
+  rule("deny"),
 ];
 
 interface MatrixRow {
@@ -39,34 +47,38 @@ export function isMcpKey(action: string): boolean {
   return /^mcp__[^_]+(?:_[^_]+)*__.+$/.test(action);
 }
 
-/** Plain-language names for built-in connector actions (§3.18: "read threads", "send"). */
-const ACTION_LABEL: Readonly<Record<string, string>> = {
-  "gmail.read": "read threads",
-  "gmail.send": "send",
-  "gmail.draft": "write drafts",
-  "gmail.delete": "delete",
-  "gmail.label": "label and archive",
-  "calendar.read": "read events",
-  "calendar.write": "create and change events",
-  "calendar.delete": "delete events",
-  "contacts.read": "read contacts",
-  "drive.read": "read files",
-  "drive.write": "create and change files",
-};
+/** Built-in connector actions with plain-language names (§3.18: "read threads", "send"). */
+const KNOWN_ACTIONS = [
+  "gmail.read",
+  "gmail.send",
+  "gmail.draft",
+  "gmail.delete",
+  "gmail.label",
+  "calendar.read",
+  "calendar.write",
+  "calendar.delete",
+  "contacts.read",
+  "drive.read",
+  "drive.write",
+] as const;
 
-const VERB: Readonly<Record<string, string>> = { read: "read", write: "change", delete: "delete" };
+const isKnownAction = (a: string): a is (typeof KNOWN_ACTIONS)[number] =>
+  (KNOWN_ACTIONS as readonly string[]).includes(a);
 
 /**
  * What a row says first: "read threads" for `gmail.read`, "create page" for
  * `mcp__notion__create_page`. The raw key stays beside it at disclosure level 2 (§4.12).
  */
 export function actionLabel(action: string): string {
-  const known = ACTION_LABEL[action];
-  if (known !== undefined) return known;
+  if (isKnownAction(action)) return t(`settings.actions.known.${action}`);
   if (isMcpKey(action)) return (action.split("__").pop() ?? action).replaceAll("_", " ");
   const [family = action, verb] = action.split(".");
   if (verb === undefined) return action.replaceAll("_", " ");
-  return `${VERB[verb] ?? verb.replaceAll("_", " ")} ${family.replaceAll("_", " ")}`;
+  return t("settings.actions.generic", {
+    verb,
+    raw: verb.replaceAll("_", " "),
+    family: family.replaceAll("_", " "),
+  });
 }
 
 export interface ActionMatrixProps {
@@ -91,11 +103,11 @@ export function ActionMatrix({
       helper.columns([
         helper.display({
           id: "label",
-          header: "Action",
+          header: t("settings.actions.action"),
           cell: ({ row }) => <span className="text-small">{actionLabel(row.original.action)}</span>,
         }),
         helper.accessor("action", {
-          header: () => <span className="sr-only">Key</span>,
+          header: () => <span className="sr-only">{t("settings.actions.key")}</span>,
           cell: (info) => <code className="font-mono text-xs text-gray-11">{info.getValue()}</code>,
         }),
         ...RULES.map((r) =>
@@ -111,7 +123,7 @@ export function ActionMatrix({
   const table = useTable({ features, columns, data });
 
   return (
-    <Table aria-label={`${connectorLabel} actions`}>
+    <Table aria-label={t("settings.actions.table", { connector: connectorLabel })}>
       <TableHeader>
         {table.getHeaderGroups().map((group) => (
           <TableRow key={group.id}>
@@ -152,7 +164,7 @@ export function ActionMatrix({
                   <th
                     key={cell.id}
                     scope="row"
-                    className="p-2 text-left font-normal whitespace-nowrap"
+                    className="p-2 text-start font-normal whitespace-nowrap"
                   >
                     <table.FlexRender cell={cell} />
                   </th>

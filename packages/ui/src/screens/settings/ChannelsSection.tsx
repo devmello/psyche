@@ -3,6 +3,7 @@ import { TriangleAlert } from "lucide-react";
 import { type ReactElement, useCallback, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
+import { t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
@@ -24,7 +25,8 @@ import {
 
 export const MAX_PENDING = 3;
 
-const CHANNEL_NAME: Record<Channel["type"], string> = {
+/** Product names stay as written; only the generic kinds are words to translate. */
+const CHANNEL_NAME: Record<Exclude<Channel["type"], "email" | "sms">, string> = {
   webchat: "WebChat",
   telegram: "Telegram",
   imessage: "iMessage",
@@ -32,28 +34,40 @@ const CHANNEL_NAME: Record<Channel["type"], string> = {
   signal: "Signal",
   slack: "Slack",
   discord: "Discord",
-  email: "Email",
-  sms: "SMS",
 };
 
-const STATUS: Record<Channel["status"], { tone: "success" | "danger" | "neutral"; text: string }> =
-  {
-    active: { tone: "success", text: "Connected" },
-    paused: { tone: "neutral", text: "Paused" },
-    error: { tone: "danger", text: "Error" },
-    disconnected: { tone: "neutral", text: "Disconnected" },
-  };
+const channelName = (type: Channel["type"]): string =>
+  type === "email" || type === "sms" ? t(`settings.channels.type.${type}`) : CHANNEL_NAME[type];
+
+const STATUS_TONE: Record<Channel["status"], "success" | "danger" | "neutral"> = {
+  active: "success",
+  paused: "neutral",
+  error: "danger",
+  disconnected: "neutral",
+};
 
 function policyOptions(persona: string) {
   return [
     {
       value: "pairing" as const,
-      label: "Pairing",
-      hint: "New senders get a code; you approve them here.",
+      label: t("settings.channels.policy.pairing"),
+      hint: t("settings.channels.policy.pairingHint"),
     },
-    { value: "allowlist" as const, label: "Allowlist", hint: "Only people on the list below." },
-    { value: "open" as const, label: "Open", hint: `Anyone can message ${persona}.` },
-    { value: "disabled" as const, label: "Disabled", hint: "Direct messages are ignored." },
+    {
+      value: "allowlist" as const,
+      label: t("settings.channels.policy.allowlist"),
+      hint: t("settings.channels.policy.allowlistHint"),
+    },
+    {
+      value: "open" as const,
+      label: t("settings.channels.policy.open"),
+      hint: t("settings.channels.policy.openHint", { persona }),
+    },
+    {
+      value: "disabled" as const,
+      label: t("settings.channels.policy.disabled"),
+      hint: t("settings.channels.policy.disabledHint"),
+    },
   ];
 }
 
@@ -101,20 +115,20 @@ export function ChannelsPanel({
   const designated = identities.filter((i) => i.delegatedPersona !== null);
   return (
     <SectionFrame
-      title="Channels"
-      description={`Where people can reach ${persona}, and who is allowed to.`}
+      title={t("settings.channels.title")}
+      description={t("settings.channels.description", { persona })}
     >
       <LoadGate
-        label="channels"
+        label={t("settings.channels.loadLabel")}
         loading={loading ?? false}
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        {actionError ? <ErrorNotice what={actionError} did="Nothing was changed." /> : null}
+        {actionError ? (
+          <ErrorNotice what={actionError} did={t("settings.shared.nothingChanged")} />
+        ) : null}
         {channels.length === 0 ? (
-          <EmptyNotice
-            text={`No channels yet. Connect Telegram, iMessage or Slack to reach ${persona} away from this Mac.`}
-          />
+          <EmptyNotice text={t("settings.channels.empty", { persona })} />
         ) : (
           channels.map((c) => (
             <ChannelCard
@@ -136,13 +150,15 @@ export function ChannelsPanel({
         )}
 
         <Group
-          title="Identity links"
-          description="One person across channels. Links change only from a paired device."
+          title={t("settings.channels.identities")}
+          description={t("settings.channels.identitiesDescription")}
         >
           {identitiesError ? (
-            <ErrorNotice what={`Psyche couldn't load identity links (${identitiesError}).`} />
+            <ErrorNotice
+              what={t("settings.channels.identitiesFailed", { reason: identitiesError })}
+            />
           ) : identities.length === 0 ? (
-            <EmptyNotice text="No identity links. Each sender is treated as a separate person." />
+            <EmptyNotice text={t("settings.channels.noIdentities")} />
           ) : (
             <ul className="flex flex-col gap-1">
               {identities.map((i) => (
@@ -156,20 +172,22 @@ export function ChannelsPanel({
         </Group>
 
         <Group
-          title="Designated people"
-          description={`${persona} answers them with a delegated persona and a smaller tool set. Their approvals come to you.`}
+          title={t("settings.channels.designated")}
+          description={t("settings.channels.designatedDescription", { persona })}
         >
           {identitiesError ? null : designated.length === 0 ? (
-            <p className="text-muted-foreground">No one designated.</p>
+            <p className="text-muted-foreground">{t("settings.channels.noDesignated")}</p>
           ) : (
             <ul className="flex flex-col gap-1">
               {designated.map((i) => (
                 <li key={i.id} className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{i.display}</span>
-                  <StatusChip tone="accent">delegated: {i.delegatedPersona}</StatusChip>
+                  <StatusChip tone="accent">
+                    {t("settings.channels.delegated", { persona: i.delegatedPersona ?? null })}
+                  </StatusChip>
                   {i.toolAllow ? (
                     <span className="text-xs text-muted-foreground">
-                      tools: {i.toolAllow.join(", ")}
+                      {t("settings.channels.tools", { tools: i.toolAllow.join(", ") })}
                     </span>
                   ) : null}
                 </li>
@@ -206,14 +224,18 @@ function ChannelCard({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const allow = displayMap(c, "allowFromDisplay");
   const groups = displayMap(c, "groupsDisplay");
-  const name = CHANNEL_NAME[c.type];
+  const name = channelName(c.type);
   return (
     <Group
-      title={`${name} ${c.account}`}
-      actions={<StatusChip tone={STATUS[c.status].tone}>{STATUS[c.status].text}</StatusChip>}
+      title={t("settings.channels.cardTitle", { name, account: c.account })}
+      actions={
+        <StatusChip tone={STATUS_TONE[c.status]}>
+          {t(`settings.channels.status.${c.status}`)}
+        </StatusChip>
+      }
     >
       <RadioField
-        label="Direct messages"
+        label={t("settings.channels.directMessages")}
         inline
         value={confirmOpen ? "open" : c.dmPolicy}
         options={policyOptions(persona)}
@@ -232,8 +254,7 @@ function ChannelCard({
           >
             <p className="flex items-start gap-1.5 text-approval-text">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-              Open lets anyone who finds {c.account} message {persona}, and their messages can try
-              to steer it. Pairing is safer.
+              {t("settings.channels.openWarning", { account: c.account, persona })}
             </p>
             {confirmOpen ? (
               <div className="flex gap-2">
@@ -246,7 +267,7 @@ function ChannelCard({
                     onPolicyChange?.(c, "open");
                   }}
                 >
-                  Open it anyway
+                  {t("settings.channels.openAnyway")}
                 </Button>
                 <Button
                   type="button"
@@ -254,7 +275,7 @@ function ChannelCard({
                   variant="ghost"
                   onClick={() => setConfirmOpen(false)}
                 >
-                  Keep {c.dmPolicy === "allowlist" ? "the allowlist" : c.dmPolicy}
+                  {t("settings.channels.keepPolicy", { policy: c.dmPolicy })}
                 </Button>
               </div>
             ) : null}
@@ -264,32 +285,32 @@ function ChannelCard({
 
       <div className="flex flex-col gap-1.5">
         <h4 className="font-medium">
-          Pending ({pending.length} of {MAX_PENDING})
+          {t("settings.channels.pending", { n: pending.length, max: MAX_PENDING })}
         </h4>
         {pairingError ? (
-          <ErrorNotice what={`Psyche couldn't load pairing requests (${pairingError}).`} />
+          <ErrorNotice what={t("settings.channels.pairingFailed", { reason: pairingError })} />
         ) : pending.length === 0 ? (
-          <p className="text-muted-foreground">No one is waiting. Codes expire after 1 hour.</p>
+          <p className="text-muted-foreground">{t("settings.channels.noPending")}</p>
         ) : (
           <ul className="flex flex-col gap-1.5">
             {pending.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{p.display}</span>
                 <span>
-                  code <code className="font-mono">{p.code}</code>
+                  {t("settings.channels.code")} <code className="font-mono">{p.code}</code>
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  expires {formatRelative(p.expiresAt, now)}
+                  {t("settings.channels.expires", { when: formatRelative(p.expiresAt, now) })}
                 </span>
-                <span className="ml-auto flex gap-1.5">
+                <span className="ms-auto flex gap-1.5">
                   {onApprove ? (
                     <Button
                       type="button"
                       size="xs"
                       onClick={() => onApprove(p)}
-                      aria-label={`Approve ${p.display}`}
+                      aria-label={t("settings.channels.approveSender", { name: p.display })}
                     >
-                      Approve
+                      {t("settings.channels.approve")}
                     </Button>
                   ) : null}
                   {onIgnore ? (
@@ -298,9 +319,9 @@ function ChannelCard({
                       size="xs"
                       variant="outline"
                       onClick={() => onIgnore(p)}
-                      aria-label={`Ignore ${p.display}`}
+                      aria-label={t("settings.channels.ignoreSender", { name: p.display })}
                     >
-                      Ignore
+                      {t("settings.channels.ignore")}
                     </Button>
                   ) : null}
                 </span>
@@ -312,16 +333,18 @@ function ChannelCard({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <h4 className="font-medium">Allowlist</h4>
+          <h4 className="font-medium">{t("settings.channels.policy.allowlist")}</h4>
           {c.allowFrom.length === 0 ? (
-            <p className="text-muted-foreground">No one yet.</p>
+            <p className="text-muted-foreground">{t("settings.channels.noOneYet")}</p>
           ) : (
             <ul className="mt-1 flex flex-col gap-0.5">
               {c.allowFrom.map((s) => (
                 <li key={s}>
                   {allow[s] ?? s}
                   {c.ownerIds.includes(s) ? (
-                    <span className="text-xs text-muted-foreground"> · owner</span>
+                    <span className="text-xs text-muted-foreground">
+                      {t("settings.channels.owner")}
+                    </span>
                   ) : null}
                 </li>
               ))}
@@ -329,9 +352,9 @@ function ChannelCard({
           )}
         </div>
         <div>
-          <h4 className="font-medium">Groups</h4>
+          <h4 className="font-medium">{t("settings.channels.groups")}</h4>
           {c.groupAllowFrom.length === 0 ? (
-            <p className="text-muted-foreground">No groups.</p>
+            <p className="text-muted-foreground">{t("settings.channels.noGroups")}</p>
           ) : (
             <ul className="mt-1 flex flex-col gap-0.5">
               {c.groupAllowFrom.map((g) => (
@@ -342,7 +365,7 @@ function ChannelCard({
         </div>
       </div>
       <SwitchField
-        label="Only answer in groups when mentioned"
+        label={t("settings.channels.requireMention")}
         checked={c.requireMention}
         onChange={(v) => onRequireMention?.(c, v)}
         disabled={onRequireMention === undefined}
@@ -351,10 +374,12 @@ function ChannelCard({
   );
 }
 
-function channelError(what: string, err: unknown): string {
+type ChannelAction = "policy" | "mention" | "approve" | "ignore";
+
+function channelError(action: ChannelAction, err: unknown): string {
   return hasCode(err, "forbidden")
-    ? `${what} needs approval on this device. Use a device paired as admin.`
-    : `Psyche couldn't ${what.toLowerCase()} (${messageOf(err)}).`;
+    ? t("settings.channels.err.forbidden", { action })
+    : t("settings.channels.err.failed", { action, reason: messageOf(err) });
 }
 
 export function ChannelsSection({ now }: { now?: number }): ReactElement {
@@ -369,9 +394,9 @@ export function ChannelsSection({ now }: { now?: number }): ReactElement {
     pairingQ.reload();
     identitiesQ.reload();
   }, [channelsQ.reload, pairingQ.reload, identitiesQ.reload]);
-  const run = (what: string, p: Promise<unknown>) => {
+  const run = (action: ChannelAction, p: Promise<unknown>) => {
     setActionError(null);
-    p.then(reload, (err: unknown) => setActionError(channelError(what, err)));
+    p.then(reload, (err: unknown) => setActionError(channelError(action, err)));
   };
   return (
     <ChannelsPanel
@@ -386,18 +411,13 @@ export function ChannelsSection({ now }: { now?: number }): ReactElement {
       identitiesError={identitiesQ.error}
       actionError={actionError}
       onPolicyChange={(c, dmPolicy) =>
-        run("Change who can message", call("channels.configure", { channelId: c.id, dmPolicy }))
+        run("policy", call("channels.configure", { channelId: c.id, dmPolicy }))
       }
       onRequireMention={(c, requireMention) =>
-        run(
-          "Change group mentions",
-          call("channels.configure", { channelId: c.id, requireMention }),
-        )
+        run("mention", call("channels.configure", { channelId: c.id, requireMention }))
       }
-      onApprove={(r) =>
-        run("Approve the sender", call("channels.pairing.approve", { requestId: r.id }))
-      }
-      onIgnore={(r) => run("Ignore the sender", call("channels.pairing.deny", { requestId: r.id }))}
+      onApprove={(r) => run("approve", call("channels.pairing.approve", { requestId: r.id }))}
+      onIgnore={(r) => run("ignore", call("channels.pairing.deny", { requestId: r.id }))}
       {...(now === undefined ? {} : { now })}
     />
   );

@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { t } from "../../i18n/core.ts";
 import { StatusChip, type Tone } from "./shared.tsx";
 
 /**
@@ -12,43 +13,33 @@ export type MacHelperStatus =
   | { kind: "paired" }
   | { kind: "offline"; reason?: string };
 
-const VIEW: Record<MacHelperStatus["kind"], { tone: Tone; chip: string; text: string }> = {
-  paired: {
-    tone: "success",
-    chip: "Connected",
-    text: "Runs computer use, Messages, dictation, Keychain and notifications on this Mac.",
-  },
-  starting: {
-    tone: "info",
-    chip: "Starting…",
-    text: "Psyche Helper is starting and connecting to the Gateway.",
-  },
-  offline: {
-    tone: "neutral",
-    chip: "Not connected",
-    text: "Psyche works without it; it is started again on its own.",
-  },
-  unbundled: {
-    tone: "neutral",
-    chip: "Not installed",
-    text: "This build of Psyche has no Mac helper.",
-  },
+const TONE: Record<MacHelperStatus["kind"], Tone> = {
+  paired: "success",
+  starting: "info",
+  offline: "neutral",
+  unbundled: "neutral",
 };
 
 export function MacHelperStatusRow({ state }: { state: MacHelperStatus }): ReactElement {
-  const v = VIEW[state.kind];
+  const v = {
+    tone: TONE[state.kind],
+    chip: t(`settings.macHelper.${state.kind}.chip`),
+    text: t(`settings.macHelper.${state.kind}.text`),
+  };
   return (
     <div
       className="flex flex-col gap-1 rounded-lg border border-gray-6 bg-gray-2 p-3"
       data-testid="mac-helper-status"
     >
       <p className="flex flex-wrap items-center gap-2 font-medium">
-        Psyche Helper
+        {t("settings.macHelper.name")}
         <StatusChip tone={v.tone}>{v.chip}</StatusChip>
       </p>
       <p className="text-sm text-muted-foreground">{v.text}</p>
       {state.kind === "offline" && state.reason ? (
-        <p className="text-xs text-muted-foreground">Last try: {state.reason}.</p>
+        <p className="text-xs text-muted-foreground">
+          {t("settings.macHelper.lastTry", { reason: state.reason })}
+        </p>
       ) : null}
     </div>
   );

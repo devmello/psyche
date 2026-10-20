@@ -56,10 +56,10 @@ export {
   paymentStateLabel,
 } from "./CredentialPayments.tsx";
 export {
-  CARD_REFUSAL,
   CredentialsPanel,
   type CredentialsPanelProps,
   CredentialsSection,
+  cardRefusal,
   type NewCredential,
 } from "./CredentialsSection.tsx";
 export {
@@ -88,7 +88,8 @@ export {
   ToolCheckBadge,
 } from "./ModelSection.tsx";
 export {
-  HARD_PROHIBITIONS,
+  HARD_PROHIBITION_IDS,
+  hardProhibitions,
   PermissionsPanel,
   type PermissionsPanelProps,
   PermissionsSection,
@@ -100,7 +101,7 @@ export {
   PersonaSection,
 } from "./PersonaSection.tsx";
 export { ServerPanel, type ServerPanelProps, ServerSection } from "./ServerSection.tsx";
-export { PRESENCE_UNAVAILABLE, SettingsApprovalProvider } from "./SettingsApproval.tsx";
+export { presenceUnavailable, SettingsApprovalProvider } from "./SettingsApproval.tsx";
 export {
   SETTINGS_SECTIONS,
   SettingsScreen,

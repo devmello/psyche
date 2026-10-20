@@ -2,6 +2,7 @@ import { RadioGroup as RadioGroupPrimitive } from "@base-ui/react/radio-group";
 import type { ReactElement, ReactNode } from "react";
 import { RadioGroupItem } from "../../components/ui/radio-group.tsx";
 import { TableCell, TableRow } from "../../components/ui/table.tsx";
+import { t } from "../../i18n/core.ts";
 
 /**
  * A matrix row whose cells hold one choice each (docs/ui-audit.md decision 2): the row is one
@@ -43,7 +44,7 @@ export function RadioTableRow<T extends string>({
             {/* The row role hides the group's "1 of 4"; say it on each radio (docs/a11y-audit.md W9). */}
             <RadioGroupItem
               value={o.value}
-              aria-label={`${label}: ${o.label}`}
+              aria-label={t("settings.matrix.cell", { row: label, column: o.label })}
               aria-posinset={i + 1}
               aria-setsize={options.length}
             />

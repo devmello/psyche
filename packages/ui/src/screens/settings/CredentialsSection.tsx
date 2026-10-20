@@ -26,6 +26,7 @@ import {
   TableRow,
 } from "../../components/ui/table.tsx";
 import { useCall, useGatewayQuery, usePayments } from "../../data/hooks.ts";
+import { activeI18n, t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { useSlots } from "../../slots.tsx";
@@ -44,7 +45,7 @@ import {
   type ImportOutcome,
 } from "./CredentialImport.tsx";
 import { PaymentsGroup, type PaymentsView } from "./CredentialPayments.tsx";
-import { bindingLabel, CARD_REFUSAL, KIND_LABEL } from "./credential-labels.ts";
+import { bindingLabel, cardRefusal, credentialKindLabel } from "./credential-labels.ts";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
   EmptyNotice,
@@ -63,14 +64,14 @@ import {
 
 /** Credentials (UI design §3.18; architecture §4.7). Values never reach this screen. */
 
-export { bindingLabel, CARD_REFUSAL, KIND_LABEL } from "./credential-labels.ts";
+export { bindingLabel, cardRefusal, credentialKindLabel } from "./credential-labels.ts";
 
 /** True when the search text matches the item's name, slug, kind or a site it is bound to. */
 export function matchesCredential(c: CredentialMeta, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (q === "") return true;
-  return [c.name, c.slug, KIND_LABEL[c.kind], ...c.bindings.map(bindingLabel)].some((t) =>
-    t.toLowerCase().includes(q),
+  return [c.name, c.slug, credentialKindLabel(c.kind), ...c.bindings.map(bindingLabel)].some(
+    (text) => text.toLowerCase().includes(q),
   );
 }
 
@@ -187,49 +188,49 @@ export function CredentialsPanel({
   return (
     <SectionFrame
       needsApproval={needsApproval}
-      title="Credentials"
-      description="Values are never shown, not even here. Psyche fills them for you after you approve."
+      title={t("settings.credentials.title")}
+      description={t("settings.credentials.description")}
     >
       <LoadGate
-        label="credentials"
+        label={t("settings.credentials.loadLabel")}
         loading={loading ?? false}
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title="Storage">
+        <Group title={t("settings.credentials.storage")}>
           <RadioField
-            label="Where credentials are kept"
+            label={t("settings.key.vault.backend")}
             inline
             value={backend}
             settingKey="vault.backend"
             onChange={(v) => onChange("vault.backend", v)}
             options={[
-              { value: "psyche", label: "Psyche vault (Touch ID)" },
-              { value: "keychain", label: "System keychain" },
-              { value: "external", label: "External manager" },
+              { value: "psyche", label: t("settings.credentials.backend.psyche") },
+              { value: "keychain", label: t("settings.credentials.backend.keychain") },
+              { value: "external", label: t("settings.credentials.backend.external") },
             ]}
           />
           <RadioField
-            label="Fill default"
+            label={t("settings.key.vault.fillDefault")}
             inline
             value={fill}
             settingKey="vault.fillDefault"
             onChange={(v) => onChange("vault.fillDefault", v)}
             options={[
-              { value: "once", label: "Ask every fill" },
-              { value: "site", label: "Ask once per site" },
+              { value: "once", label: t("settings.credentials.fill.once") },
+              { value: "site", label: t("settings.credentials.fill.site") },
             ]}
           />
         </Group>
 
         <Group
-          title="Items"
+          title={t("settings.credentials.items")}
           actions={
             credentials.length === 0 && !adding && linking === null ? undefined : (
               <div className="flex items-center gap-1">
                 {onAdd ? (
                   <Button type="button" size="sm" onClick={() => setAdding(true)} disabled={adding}>
-                    Add item
+                    {t("settings.credentials.addItem")}
                   </Button>
                 ) : null}
                 <MoreWaysToAdd
@@ -241,7 +242,9 @@ export function CredentialsPanel({
             )
           }
         >
-          {addError ? <ErrorNotice what={addError} did="Nothing was stored." /> : null}
+          {addError ? (
+            <ErrorNotice what={addError} did={t("settings.credentials.nothingStored")} />
+          ) : null}
           {adding && onAdd ? (
             <AddCredentialForm
               onCancel={() => setAdding(false)}
@@ -251,7 +254,9 @@ export function CredentialsPanel({
               }}
             />
           ) : null}
-          {itemError ? <ErrorNotice what={itemError} did="Nothing was changed." /> : null}
+          {itemError ? (
+            <ErrorNotice what={itemError} did={t("settings.shared.nothingChanged")} />
+          ) : null}
           {importing && onImport ? (
             <ImportCredentialsForm onImport={onImport} onClose={() => setImporting(false)} />
           ) : null}
@@ -267,16 +272,16 @@ export function CredentialsPanel({
           {credentials.length > 0 ? (
             <div className="relative max-w-sm">
               <Search
-                className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
+                className="pointer-events-none absolute top-1/2 start-2.5 size-4 -translate-y-1/2 text-muted-foreground"
                 aria-hidden="true"
               />
               <Input
                 type="search"
-                aria-label="Search credentials"
-                placeholder="Search by name, site or kind"
+                aria-label={t("settings.credentials.search")}
+                placeholder={t("settings.credentials.searchPlaceholder")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                className="pl-8"
+                className="ps-8"
               />
             </div>
           ) : null}
@@ -285,11 +290,15 @@ export function CredentialsPanel({
               <EmptyState
                 icon={KeyRound}
                 {...(onAdd
-                  ? { action: { label: "Add item", onClick: () => setAdding(true) } }
+                  ? {
+                      action: {
+                        label: t("settings.credentials.addItem"),
+                        onClick: () => setAdding(true),
+                      },
+                    }
                   : {})}
               >
-                No credentials stored yet. When a site needs a login, type it yourself or add it
-                here.
+                {t("settings.credentials.empty")}
                 {onImport || onLinkExternal || onConnectManager ? (
                   <span className="mt-2 flex justify-center">
                     <MoreWaysToAdd
@@ -303,25 +312,25 @@ export function CredentialsPanel({
             )
           ) : shown.length === 0 ? (
             <EmptyNotice
-              text={`No credentials match "${query.trim()}".`}
+              text={t("settings.credentials.noMatch", { query: query.trim() })}
               action={
                 <Button type="button" variant="ghost" size="sm" onClick={() => setQuery("")}>
-                  Clear search
+                  {t("settings.credentials.clearSearch")}
                 </Button>
               }
             />
           ) : (
-            <Table aria-label="Stored credentials">
+            <Table aria-label={t("settings.credentials.table")}>
               <TableHeader>
                 <TableRow>
-                  <TableHead scope="col">Name</TableHead>
-                  <TableHead scope="col">Kind</TableHead>
-                  <TableHead scope="col">Bound to</TableHead>
-                  <TableHead scope="col">Last used</TableHead>
-                  <TableHead scope="col">Uses</TableHead>
+                  <TableHead scope="col">{t("settings.credentials.col.name")}</TableHead>
+                  <TableHead scope="col">{t("settings.credentials.col.kind")}</TableHead>
+                  <TableHead scope="col">{t("settings.credentials.col.boundTo")}</TableHead>
+                  <TableHead scope="col">{t("settings.credentials.col.lastUsed")}</TableHead>
+                  <TableHead scope="col">{t("settings.credentials.col.uses")}</TableHead>
                   {actions ? (
                     <TableHead scope="col">
-                      <span className="sr-only">Actions</span>
+                      <span className="sr-only">{t("settings.credentials.col.actions")}</span>
                     </TableHead>
                   ) : null}
                 </TableRow>
@@ -334,7 +343,7 @@ export function CredentialsPanel({
                         {onOpen ? (
                           <button
                             type="button"
-                            className="text-left font-medium underline-offset-2 hover:underline focus-visible:underline"
+                            className="text-start font-medium underline-offset-2 hover:underline focus-visible:underline"
                             onClick={() => onOpen(c)}
                           >
                             {c.name}
@@ -344,23 +353,30 @@ export function CredentialsPanel({
                         )}
                       </TableCell>
                       <TableCell>
-                        {KIND_LABEL[c.kind]}
+                        {credentialKindLabel(c.kind)}
                         {c.backend !== undefined && c.backend !== "vault" ? (
                           <span className="block text-xs text-muted-foreground">
-                            {BACKEND_LABEL[c.backend]}
+                            {t(`settings.credentials.backendIn.${c.backend}`)}
                           </span>
                         ) : null}
                       </TableCell>
-                      <TableCell>{c.bindings.map(bindingLabel).join(", ") || "Any site"}</TableCell>
                       <TableCell>
-                        {c.lastUsedAt ? formatRelative(c.lastUsedAt, clock) : "Never"}
+                        {c.bindings.map(bindingLabel).join(", ") ||
+                          t("settings.credentials.anySite")}
                       </TableCell>
-                      <TableCell className="tabular-nums">{c.useCount}</TableCell>
+                      <TableCell>
+                        {c.lastUsedAt
+                          ? formatRelative(c.lastUsedAt, clock)
+                          : t("settings.credentials.never")}
+                      </TableCell>
+                      <TableCell className="tabular-nums">
+                        {activeI18n().number(c.useCount)}
+                      </TableCell>
                       {actions ? (
-                        <TableCell className="text-right">
+                        <TableCell className="text-end">
                           {c.ownerConnectorId !== null ? (
                             <span className="text-xs text-muted-foreground">
-                              Managed by its connector
+                              {t("settings.credentials.managedByConnector")}
                             </span>
                           ) : (
                             <span className="inline-flex gap-1">
@@ -369,7 +385,7 @@ export function CredentialsPanel({
                                   type="button"
                                   variant="ghost"
                                   size="icon-sm"
-                                  aria-label={`Edit ${c.name}`}
+                                  aria-label={t("settings.credentials.editItem", { name: c.name })}
                                   aria-expanded={editingId === c.id}
                                   onClick={() => setEditingId(editingId === c.id ? null : c.id)}
                                 >
@@ -381,10 +397,12 @@ export function CredentialsPanel({
                                   name={c.name}
                                   destructive={[
                                     {
-                                      label: "Delete",
-                                      title: `Delete ${c.name}?`,
+                                      label: t("common.delete"),
+                                      title: t("settings.credentials.deleteTitle", {
+                                        name: c.name,
+                                      }),
                                       description: deleteDescription(c),
-                                      confirm: "Delete",
+                                      confirm: t("common.delete"),
                                       onConfirm: () => {
                                         if (editingId === c.id) setEditingId(null);
                                         void Promise.resolve(onDelete(c)).catch(() => undefined);
@@ -428,13 +446,6 @@ export function CredentialsPanel({
   );
 }
 
-/** Where an item's value lives, when it is not the Psyche vault itself. */
-const BACKEND_LABEL = {
-  "1password": "in 1Password",
-  bitwarden: "in Bitwarden",
-  keychain: "in the system keychain",
-} as const;
-
 /** Import and password-manager connections, under one menu beside the primary Add item. */
 function MoreWaysToAdd({
   onImport,
@@ -451,18 +462,27 @@ function MoreWaysToAdd({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        render={<Button type="button" variant="ghost" size="sm" aria-label="More ways to add" />}
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-label={t("settings.credentials.moreWays")}
+          />
+        }
       >
         <Ellipsis aria-hidden="true" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {onImport ? (
-          <DropdownMenuItem onClick={onImport}>Import a CSV export</DropdownMenuItem>
+          <DropdownMenuItem onClick={onImport}>
+            {t("settings.credentials.importCsv")}
+          </DropdownMenuItem>
         ) : null}
         {connect
           ? (["1password", "bitwarden"] as const).map((m) => (
               <DropdownMenuItem key={m} onClick={() => connect(m)}>
-                Connect {EXTERNAL_NAME[m]}
+                {t("settings.credentials.connectManager", { name: EXTERNAL_NAME[m] })}
               </DropdownMenuItem>
             ))
           : null}
@@ -473,16 +493,16 @@ function MoreWaysToAdd({
 
 /** The secret fields an edit can replace, per kind; blank keeps the stored value. */
 const SECRET_FIELDS: Partial<
-  Record<CredentialKind, readonly { key: keyof CredentialSecretInput; label: string }[]>
+  Record<CredentialKind, readonly { key: keyof CredentialSecretInput; label: () => string }[]>
 > = {
   login: [
-    { key: "username", label: "New username" },
-    { key: "password", label: "New password" },
+    { key: "username", label: () => t("settings.credentials.new.username") },
+    { key: "password", label: () => t("settings.credentials.new.password") },
   ],
-  api_key: [{ key: "token", label: "New key" }],
-  payment_link: [{ key: "token", label: "New payment link token" }],
-  ssh_key: [{ key: "privateKey", label: "New private key" }],
-  note: [{ key: "text", label: "New note text" }],
+  api_key: [{ key: "token", label: () => t("settings.credentials.new.key") }],
+  payment_link: [{ key: "token", label: () => t("settings.credentials.new.paymentToken") }],
+  ssh_key: [{ key: "privateKey", label: () => t("settings.credentials.new.privateKey") }],
+  note: [{ key: "text", label: () => t("settings.credentials.new.noteText") }],
 };
 
 function EditCredentialForm({
@@ -511,7 +531,7 @@ function EditCredentialForm({
   const addSite = () => {
     const b = parseBinding(site, credential.kind);
     if (b === null) {
-      setSiteError(`Enter a site such as github.com.`);
+      setSiteError(t("settings.credentials.siteError"));
       return;
     }
     setSiteError(null);
@@ -543,24 +563,24 @@ function EditCredentialForm({
   return (
     <form
       onSubmit={submit}
-      aria-label={`Edit ${credential.name}`}
+      aria-label={t("settings.credentials.editItem", { name: credential.name })}
       className="flex flex-col gap-4 rounded-lg border border-gray-6 bg-background p-4"
     >
       <p className="text-xs text-muted-foreground">
         {external
-          ? `The values stay in ${external}; change them there. Psyche never shows stored values.`
-          : "Leave a value blank to keep it. Psyche never shows stored values."}
+          ? t("settings.credentials.editExternal", { manager: external })
+          : t("settings.credentials.editBlankKeeps")}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${id}-name`}>Name</Label>
+          <Label htmlFor={`${id}-name`}>{t("settings.credentials.col.name")}</Label>
           <Input id={`${id}-name`} value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         {fields.map((f) => (
           <div key={f.key} className="flex flex-col gap-1">
             <Label htmlFor={`${id}-${f.key}`} className="gap-1.5">
               {f.key === "username" ? null : <KeyRound className="size-3.5" aria-hidden="true" />}
-              {f.label}
+              {f.label()}
             </Label>
             <Input
               id={`${id}-${f.key}`}
@@ -574,18 +594,18 @@ function EditCredentialForm({
       </div>
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1 text-sm font-medium">
-          {credential.kind === "ssh_key" ? "Hosts" : "Sites"}
+          {credential.kind === "ssh_key"
+            ? t("settings.credentials.hosts")
+            : t("settings.credentials.sites")}
         </legend>
         {bindings.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            Not bound to a site: Psyche asks before filling it anywhere.
-          </p>
+          <p className="text-xs text-muted-foreground">{t("settings.credentials.notBound")}</p>
         ) : (
-          <ul className="flex flex-wrap gap-1.5" aria-label="Bound to">
+          <ul className="flex flex-wrap gap-1.5" aria-label={t("settings.credentials.col.boundTo")}>
             {bindings.map((b) => (
               <li
                 key={JSON.stringify(b)}
-                className="inline-flex items-center gap-1 rounded-md border border-gray-6 bg-gray-2 py-0.5 pr-0.5 pl-2 text-xs"
+                className="inline-flex items-center gap-1 rounded-md border border-gray-6 bg-gray-2 py-0.5 pe-0.5 ps-2 text-xs"
               >
                 {bindingLabel(b)}
                 {"connector" in b ? null : (
@@ -593,7 +613,7 @@ function EditCredentialForm({
                     type="button"
                     variant="ghost"
                     size="icon-xs"
-                    aria-label={`Remove ${bindingLabel(b)}`}
+                    aria-label={t("settings.credentials.removeSite", { site: bindingLabel(b) })}
                     onClick={() => setBindings(bindings.filter((x) => !sameBinding(x, b)))}
                   >
                     <X aria-hidden="true" />
@@ -605,8 +625,16 @@ function EditCredentialForm({
         )}
         <div className="flex max-w-sm gap-2">
           <Input
-            aria-label={credential.kind === "ssh_key" ? "Add a host" : "Add a site"}
-            placeholder={credential.kind === "ssh_key" ? "build.example.com" : "github.com"}
+            aria-label={
+              credential.kind === "ssh_key"
+                ? t("settings.credentials.addHost")
+                : t("settings.credentials.addSite")
+            }
+            placeholder={
+              credential.kind === "ssh_key"
+                ? t("settings.credentials.hostPlaceholder")
+                : t("settings.credentials.sitePlaceholder")
+            }
             value={site}
             aria-invalid={siteError !== null}
             onChange={(e) => setSite(e.target.value)}
@@ -618,7 +646,7 @@ function EditCredentialForm({
             }}
           />
           <Button type="button" size="sm" variant="outline" onClick={addSite}>
-            Add
+            {t("settings.credentials.add")}
           </Button>
         </div>
         {siteError ? (
@@ -629,10 +657,10 @@ function EditCredentialForm({
       </fieldset>
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={!changed || name.trim() === "" || saving}>
-          Save changes
+          {t("settings.credentials.saveChanges")}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       </div>
     </form>
@@ -642,7 +670,7 @@ function EditCredentialForm({
 /** What deleting a credential loses, for the confirm dialog. */
 function deleteDescription(c: CredentialMeta): string {
   const sites = c.bindings.map(bindingLabel).join(", ");
-  return `Psyche erases the stored value and stops filling it${sites ? ` on ${sites}` : ""}. Tasks that need it will ask you to sign in yourself. This can't be undone.`;
+  return t("settings.credentials.deleteDescription", { bound: sites !== "", sites });
 }
 
 const ADDABLE: readonly CredentialKind[] = ["login", "api_key", "payment_link", "ssh_key", "note"];
@@ -684,7 +712,7 @@ function AddCredentialForm({
   return (
     <form
       onSubmit={submit}
-      aria-label="Add a credential"
+      aria-label={t("settings.credentials.addForm")}
       className="flex flex-col gap-4 rounded-lg border border-gray-6 bg-background p-4"
     >
       <p
@@ -695,11 +723,11 @@ function AddCredentialForm({
         }
       >
         <CreditCard className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-        {CARD_REFUSAL}
+        {cardRefusal()}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${id}-kind`}>Kind</Label>
+          <Label htmlFor={`${id}-kind`}>{t("settings.credentials.col.kind")}</Label>
           <NativeSelect
             id={`${id}-kind`}
             className="min-w-48"
@@ -708,27 +736,27 @@ function AddCredentialForm({
           >
             {ADDABLE.map((k) => (
               <option key={k} value={k}>
-                {KIND_LABEL[k]}
+                {credentialKindLabel(k)}
               </option>
             ))}
           </NativeSelect>
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${id}-name`}>Name</Label>
+          <Label htmlFor={`${id}-name`}>{t("settings.credentials.col.name")}</Label>
           <Input id={`${id}-name`} value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${id}-origin`}>Only for this site</Label>
+          <Label htmlFor={`${id}-origin`}>{t("settings.credentials.onlyForSite")}</Label>
           <Input
             id={`${id}-origin`}
-            placeholder="github.com"
+            placeholder={t("settings.credentials.sitePlaceholder")}
             value={origin}
             onChange={(e) => setOrigin(e.target.value)}
           />
         </div>
         {kind === "login" ? (
           <div className="flex flex-col gap-1">
-            <Label htmlFor={`${id}-user`}>Username</Label>
+            <Label htmlFor={`${id}-user`}>{t("settings.credentials.username")}</Label>
             <Input
               id={`${id}-user`}
               autoComplete="off"
@@ -740,7 +768,11 @@ function AddCredentialForm({
         <div className="flex flex-col gap-1">
           <Label htmlFor={`${id}-secret`} className="gap-1.5">
             <KeyRound className="size-3.5" aria-hidden="true" />
-            {kind === "login" ? "Password" : payment ? "Payment link token" : "Secret"}
+            {kind === "login"
+              ? t("settings.credentials.password")
+              : payment
+                ? t("settings.credentials.paymentToken")
+                : t("settings.credentials.secret")}
           </Label>
           <Input
             id={`${id}-secret`}
@@ -753,10 +785,10 @@ function AddCredentialForm({
       </div>
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={name.trim() === "" || secret === ""}>
-          Store in vault
+          {t("settings.credentials.store")}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       </div>
     </form>
@@ -773,18 +805,19 @@ export function vaultChangeError(
     hasCode(err, "unavailable") &&
     (err as { details?: { reason?: unknown } }).details?.reason === "locked"
   ) {
-    return `The vault is locked. Unlock it with Touch ID, then ${verb} ${c.name} again.`;
+    return t("settings.credentials.err.lockedChange", { verb, name: c.name });
   }
   if (hasCode(err, "forbidden")) {
-    return /requires scope/.test(messageOf(err))
-      ? `Only a device paired as admin can ${verb} vault items.`
-      : `${c.name} is managed by its connector or password manager; ${verb} it there.`;
+    // The Gateway's own (English) wording tells a scope refusal from a managed item.
+    return /requires scope/.test(err instanceof Error ? err.message : String(err))
+      ? t("settings.credentials.err.adminOnlyChange", { verb })
+      : t("settings.credentials.err.managed", { verb, name: c.name });
   }
   if (hasCode(err, "policy_denied")) {
-    return "Psyche refused the new value because it looks like a card, bank or ID number.";
+    return t("settings.credentials.err.policyValue");
   }
-  if (hasCode(err, "not_found")) return `${c.name} is no longer in the vault.`;
-  return `Psyche couldn't ${verb} ${c.name} (${messageOf(err)}).`;
+  if (hasCode(err, "not_found")) return t("settings.credentials.err.gone", { name: c.name });
+  return t("settings.credentials.err.change", { verb, name: c.name, reason: messageOf(err) });
 }
 
 /** Plain words for a failed `vault.import`. */
@@ -793,13 +826,13 @@ export function vaultImportError(err: unknown): string {
     hasCode(err, "unavailable") &&
     (err as { details?: { reason?: unknown } }).details?.reason === "locked"
   ) {
-    return "The vault is locked. Unlock it with Touch ID, then import again.";
+    return t("settings.credentials.err.lockedImport");
   }
-  if (hasCode(err, "forbidden")) return "Only a device paired as admin can import vault items.";
+  if (hasCode(err, "forbidden")) return t("settings.credentials.err.adminOnlyImport");
   if (hasCode(err, "invalid_params")) {
-    return "Psyche couldn't read that file as a 1Password, Bitwarden or Chrome export. Pick the app it came from, or export it again as CSV.";
+    return t("settings.credentials.err.unreadable");
   }
-  return `Psyche couldn't import the file (${messageOf(err)}).`;
+  return t("settings.credentials.err.import", { reason: messageOf(err) });
 }
 
 export interface CredentialsSectionProps {
@@ -811,10 +844,10 @@ export interface CredentialsSectionProps {
 
 /** The vault's key slot as the owner reads it (`recovery` always exists beside it). */
 export function vaultSlotLabel(slots: readonly string[]): string {
-  if (slots.includes("keychain")) return "the Keychain (Touch ID)";
-  if (slots.includes("safe_storage")) return "this Mac's app storage";
-  if (slots.includes("key_file")) return "a key file on this Mac";
-  return "its recovery key only";
+  if (slots.includes("keychain")) return t("settings.credentials.slot.keychain");
+  if (slots.includes("safe_storage")) return t("settings.credentials.slot.safeStorage");
+  if (slots.includes("key_file")) return t("settings.credentials.slot.keyFile");
+  return t("settings.credentials.slot.recovery");
 }
 
 /**
@@ -830,7 +863,8 @@ export function VaultProtectionPanel({ slots }: { slots: readonly string[] }): R
       data-testid="vault-protection"
     >
       <span>
-        Vault protected by: <span className="font-medium">{vaultSlotLabel(slots)}</span>
+        {t("settings.credentials.protectedBy")}{" "}
+        <span className="font-medium">{vaultSlotLabel(slots)}</span>
       </span>
       {keyFile ? (
         <>
@@ -838,15 +872,14 @@ export function VaultProtectionPanel({ slots }: { slots: readonly string[] }): R
             type="button"
             size="xs"
             variant="outline"
-            className="ml-auto"
+            className="ms-auto"
             disabled
-            title="Needs a Psyche Helper signed with a Developer ID and a provisioning profile"
+            title={t("settings.credentials.moveToKeychainNeeds")}
           >
-            Move to Keychain
+            {t("settings.credentials.moveToKeychain")}
           </Button>
           <p className="w-full text-xs text-muted-foreground">
-            The key that opens your vault is a file only your account can read. Moving it to the
-            Keychain (Touch ID) needs a signed Psyche Helper; this build's helper is not signed.
+            {t("settings.credentials.keyFileExplainer")}
           </p>
         </>
       ) : null}
@@ -921,10 +954,10 @@ export function CredentialsSection({
       (err: unknown) =>
         setAddError(
           hasCode(err, "policy_denied")
-            ? "Psyche refused this item because it looks like a card, bank or ID number."
+            ? t("settings.credentials.err.policyItem")
             : hasCode(err, "forbidden")
-              ? "Adding items needs approval on this device. Use a device paired as admin."
-              : `Psyche couldn't store ${item.name} (${messageOf(err)}).`,
+              ? t("settings.credentials.err.addNeedsAdmin")
+              : t("settings.credentials.err.store", { name: item.name, reason: messageOf(err) }),
         ),
     );
   };

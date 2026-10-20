@@ -4,6 +4,7 @@ import { Button } from "../../components/ui/button.tsx";
 import { Checkbox } from "../../components/ui/checkbox.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
+import { t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
@@ -21,28 +22,21 @@ import {
 
 /** Devices & nodes (UI design §3.18; architecture §7, §11; security §10). */
 
-export const SCOPE_LABEL: Record<DeviceScope, string> = {
-  "operator.read": "Read",
-  "operator.write": "Write",
-  "operator.approvals": "Approvals",
-  "operator.admin": "Admin",
-  node: "Node",
-};
+/** A device scope as the owner reads it ("Read", "Admin"). */
+export const scopeLabel = (s: DeviceScope): string => t(`settings.devices.scope.${s}`);
 
-const PLATFORM: Record<Device["platform"], string> = {
-  macos: "Mac",
-  ios: "iPhone or iPad",
-  android: "Android",
-  web: "Web browser",
-  linux: "Linux",
-};
+const platformLabel = (p: Device["platform"]): string => t(`settings.devices.platform.${p}`);
 
-const NODE_KIND: Record<NodeInfo["kind"], string> = {
-  "mac-helper": "Mac helper",
-  "vm-guest": "VM guest",
-  remote: "Remote node",
-  phone: "Phone",
-};
+/** Message ids for node kinds (ids are camelCase). */
+const NODE_KIND_ID = {
+  "mac-helper": "macHelper",
+  "vm-guest": "vmGuest",
+  remote: "remote",
+  phone: "phone",
+} as const satisfies Record<NodeInfo["kind"], string>;
+
+const nodeKindLabel = (k: NodeInfo["kind"]): string =>
+  t(`settings.devices.nodeKind.${NODE_KIND_ID[k]}`);
 
 /** Short, grouped fingerprint of a base64url public key, for comparing on both screens. */
 export function keyFingerprint(publicKey: string): string {
@@ -83,20 +77,22 @@ export function DevicesPanel({
 
   return (
     <SectionFrame
-      title="Devices & nodes"
-      description="Devices that can reach this Gateway, and the nodes that give it hands."
+      title={t("settings.devices.title")}
+      description={t("settings.devices.description")}
     >
       <LoadGate
-        label="devices"
+        label={t("settings.devices.loadLabel")}
         loading={loading ?? false}
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        {actionError ? <ErrorNotice what={actionError} did="Nothing was changed." /> : null}
+        {actionError ? (
+          <ErrorNotice what={actionError} did={t("settings.shared.nothingChanged")} />
+        ) : null}
         {pending.length > 0 ? (
           <Group
-            title="Waiting to pair"
-            description="Approve only if the same code shows on the other device."
+            title={t("settings.devices.waiting")}
+            description={t("settings.devices.waitingHint")}
             className="border-approval-border bg-approval-surface"
           >
             <ul className="flex flex-col gap-3">
@@ -113,9 +109,9 @@ export function DevicesPanel({
           </Group>
         ) : null}
 
-        <Group title="Paired devices">
+        <Group title={t("settings.devices.paired")}>
           {active.length === 0 ? (
-            <EmptyNotice text="No devices paired. Open Psyche on another device to pair it." />
+            <EmptyNotice text={t("settings.devices.noDevices")} />
           ) : (
             <ul className="flex flex-col divide-y divide-gray-6">
               {active.map((d) => (
@@ -123,21 +119,26 @@ export function DevicesPanel({
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{d.name}</span>
                     {d.id === thisDeviceId ? (
-                      <StatusChip tone="accent">This device</StatusChip>
+                      <StatusChip tone="accent">{t("settings.devices.thisDevice")}</StatusChip>
                     ) : null}
                     <span className="text-xs text-muted-foreground">
-                      {PLATFORM[d.platform]} · {d.role === "both" ? "client and node" : d.role}
+                      {t("settings.devices.platformRole", {
+                        platform: platformLabel(d.platform),
+                        role: d.role,
+                      })}
                     </span>
                     {onRevoke && d.id !== thisDeviceId ? (
-                      <span className="ml-auto">
+                      <span className="ms-auto">
                         <RowMoreMenu
                           name={d.name}
                           destructive={[
                             {
-                              label: "Revoke",
-                              title: `Revoke ${d.name}?`,
-                              description: `${d.name} is signed out of this Gateway at once and has to pair again to come back.`,
-                              confirm: "Revoke",
+                              label: t("settings.devices.revoke"),
+                              title: t("settings.devices.revokeTitle", { name: d.name }),
+                              description: t("settings.devices.revokeDescription", {
+                                name: d.name,
+                              }),
+                              confirm: t("settings.devices.revoke"),
                               onConfirm: () => onRevoke(d),
                             },
                           ]}
@@ -145,23 +146,31 @@ export function DevicesPanel({
                       </span>
                     ) : null}
                   </div>
-                  <ul className="flex flex-wrap gap-1" aria-label={`${d.name} scopes`}>
+                  <ul
+                    className="flex flex-wrap gap-1"
+                    aria-label={t("settings.devices.scopesOf", { name: d.name })}
+                  >
                     {d.scopes.map((s) => (
                       <li key={s}>
                         <StatusChip tone={s === "operator.admin" ? "approval" : "neutral"}>
-                          {SCOPE_LABEL[s]}
+                          {scopeLabel(s)}
                         </StatusChip>
                       </li>
                     ))}
                   </ul>
                   {d.id === thisDeviceId && d.scopes.includes("operator.admin") ? (
                     <p className="text-sm" data-testid="this-mac-admin">
-                      This Mac is the admin device. Another admin device can revoke it here.
+                      {t("settings.devices.thisMacAdmin")}
                     </p>
                   ) : null}
                   <p className="text-xs text-muted-foreground">
-                    Key <code className="font-mono">{keyFingerprint(d.publicKey)}</code> · last seen{" "}
-                    {d.lastSeenAt ? formatRelative(d.lastSeenAt, clock) : "never"}
+                    {t("settings.devices.key")}{" "}
+                    <code className="font-mono">{keyFingerprint(d.publicKey)}</code>{" "}
+                    {d.lastSeenAt
+                      ? t("settings.devices.keyLastSeen", {
+                          when: formatRelative(d.lastSeenAt, clock),
+                        })
+                      : t("settings.devices.keyLastSeenNever")}
                   </p>
                 </li>
               ))}
@@ -169,11 +178,16 @@ export function DevicesPanel({
           )}
           {revoked.length > 0 ? (
             <details className="text-xs text-muted-foreground">
-              <summary className="cursor-pointer">Revoked ({revoked.length})</summary>
+              <summary className="cursor-pointer">
+                {t("settings.devices.revoked", { n: revoked.length })}
+              </summary>
               <ul className="mt-1 flex flex-col gap-0.5">
                 {revoked.map((d) => (
                   <li key={d.id}>
-                    {d.name}, revoked {d.revokedAt ? formatRelative(d.revokedAt, clock) : ""}
+                    {t("settings.devices.revokedItem", {
+                      name: d.name,
+                      when: d.revokedAt ? formatRelative(d.revokedAt, clock) : "",
+                    })}
                   </li>
                 ))}
               </ul>
@@ -181,20 +195,17 @@ export function DevicesPanel({
           ) : null}
         </Group>
 
-        <Group
-          title="Nodes"
-          description="Capabilities each node offers. Every call still goes through your permissions."
-        >
+        <Group title={t("settings.devices.nodes")} description={t("settings.devices.nodesHint")}>
           {nodes.length === 0 ? (
-            <EmptyNotice text="No nodes. The Mac helper appears here once Psyche runs on a Mac." />
+            <EmptyNotice text={t("settings.devices.noNodes")} />
           ) : (
             <ul className="flex flex-col divide-y divide-gray-6">
               {nodes.map((n) => (
                 <li key={n.id} className="flex flex-col gap-1 py-2 first:pt-0 last:pb-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{NODE_KIND[n.kind]}</span>
+                    <span className="font-medium">{nodeKindLabel(n.kind)}</span>
                     <span className="text-xs text-muted-foreground">
-                      on {deviceName(n.deviceId)}
+                      {t("settings.devices.onDevice", { device: deviceName(n.deviceId) })}
                     </span>
                     <StatusChip
                       tone={
@@ -205,20 +216,21 @@ export function DevicesPanel({
                             : "neutral"
                       }
                     >
-                      {n.status === "online"
-                        ? "Online"
-                        : n.status === "degraded"
-                          ? "Degraded"
-                          : "Offline"}
+                      {t("settings.devices.nodeStatus", { status: n.status })}
                     </StatusChip>
                     <span className="text-xs text-muted-foreground">
-                      last seen{" "}
-                      {n.lastHeartbeatAt ? formatRelative(n.lastHeartbeatAt, clock) : "never"}
+                      {n.lastHeartbeatAt
+                        ? t("settings.devices.lastSeen", {
+                            when: formatRelative(n.lastHeartbeatAt, clock),
+                          })
+                        : t("settings.devices.lastSeenNever")}
                     </span>
                   </div>
                   <ul
                     className="flex flex-wrap gap-1"
-                    aria-label={`${NODE_KIND[n.kind]} capabilities`}
+                    aria-label={t("settings.devices.capabilitiesOf", {
+                      kind: nodeKindLabel(n.kind),
+                    })}
                   >
                     {n.capabilities.map((c) => (
                       <li key={c.name}>
@@ -262,17 +274,19 @@ function PendingDevice({
   return (
     <li className="flex flex-col gap-2">
       <p>
-        <span className="font-medium">{request.display}</span> wants to pair. Challenge{" "}
+        <span className="font-medium">{request.display}</span> {t("settings.devices.wantsToPair")}{" "}
         <code className="rounded bg-gray-4 px-1 font-mono text-base tracking-wider">
           {request.code}
         </code>
         <span className="text-xs text-muted-foreground">
           {" "}
-          · expires {formatRelative(request.expiresAt, now)}
+          {t("settings.devices.expires", { when: formatRelative(request.expiresAt, now) })}
         </span>
       </p>
       <fieldset className="flex flex-wrap gap-x-4 gap-y-1">
-        <legend className="mb-1 text-xs text-muted-foreground">Scopes for {request.display}</legend>
+        <legend className="mb-1 text-xs text-muted-foreground">
+          {t("settings.devices.scopesFor", { name: request.display })}
+        </legend>
         {PAIR_SCOPES.map((s) => (
           <div key={s} className="flex items-center gap-1.5">
             <Checkbox
@@ -281,7 +295,7 @@ function PendingDevice({
               onCheckedChange={(v) => toggle(s, v === true)}
             />
             <Label htmlFor={`${id}-${s}`} className="font-normal">
-              {SCOPE_LABEL[s]}
+              {scopeLabel(s)}
             </Label>
           </div>
         ))}
@@ -293,9 +307,9 @@ function PendingDevice({
             size="sm"
             disabled={scopes.length === 0}
             onClick={() => onApprove(request, scopes)}
-            aria-label={`Approve ${request.display}`}
+            aria-label={t("settings.channels.approveSender", { name: request.display })}
           >
-            Approve
+            {t("settings.channels.approve")}
           </Button>
         ) : null}
         {onDeny ? (
@@ -304,9 +318,9 @@ function PendingDevice({
             variant="outline"
             size="sm"
             onClick={() => onDeny(request)}
-            aria-label={`Deny ${request.display}`}
+            aria-label={t("settings.devices.denyNamed", { name: request.display })}
           >
-            Deny
+            {t("settings.devices.deny")}
           </Button>
         ) : null}
       </div>
@@ -314,10 +328,12 @@ function PendingDevice({
   );
 }
 
-function deviceActionError(what: string, err: unknown): string {
+type DeviceAction = "approve" | "deny" | "revoke";
+
+function deviceActionError(action: DeviceAction, err: unknown): string {
   return hasCode(err, "forbidden")
-    ? `${what} needs approval on this device. Use a device paired as admin.`
-    : `Psyche couldn't ${what.toLowerCase()} (${messageOf(err)}).`;
+    ? t("settings.devices.err.forbidden", { action })
+    : t("settings.devices.err.failed", { action, reason: messageOf(err) });
 }
 
 export function DevicesSection({
@@ -338,9 +354,9 @@ export function DevicesSection({
     nodesQ.reload();
   }, [devicesQ.reload, pairingQ.reload, nodesQ.reload]);
 
-  const run = (what: string, p: Promise<unknown>) => {
+  const run = (action: DeviceAction, p: Promise<unknown>) => {
     setActionError(null);
-    p.then(reloadAll, (err: unknown) => setActionError(deviceActionError(what, err)));
+    p.then(reloadAll, (err: unknown) => setActionError(deviceActionError(action, err)));
   };
 
   return (
@@ -353,13 +369,13 @@ export function DevicesSection({
       onRetry={reloadAll}
       actionError={
         actionError ??
-        (pairingQ.error ? `Psyche couldn't load pairing requests (${pairingQ.error}).` : null)
+        (pairingQ.error ? t("settings.channels.pairingFailed", { reason: pairingQ.error }) : null)
       }
       onApprove={(r, scopes) =>
-        run("Approve pairing", call("devices.approve", { pairingRequestId: r.id, scopes }))
+        run("approve", call("devices.approve", { pairingRequestId: r.id, scopes }))
       }
-      onDeny={(r) => run("Deny pairing", call("devices.deny", { pairingRequestId: r.id }))}
-      onRevoke={(d) => run("Revoke the device", call("devices.revoke", { deviceId: d.id }))}
+      onDeny={(r) => run("deny", call("devices.deny", { pairingRequestId: r.id }))}
+      onRevoke={(d) => run("revoke", call("devices.revoke", { deviceId: d.id }))}
       {...(now === undefined ? {} : { now })}
       {...(thisDeviceId === undefined ? {} : { thisDeviceId })}
     />

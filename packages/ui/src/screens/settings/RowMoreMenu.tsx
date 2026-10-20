@@ -17,6 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu.tsx";
+import { t } from "../../i18n/core.ts";
 
 /** A row action that loses something: shown in red under ⋯, and only after a confirm dialog. */
 export interface DestructiveRowAction {
@@ -64,7 +65,7 @@ export function RowMoreMenu({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={`More for ${name}`}
+              aria-label={t("settings.row.moreFor", { name })}
             />
           }
         >
@@ -96,7 +97,7 @@ export function RowMoreMenu({
             <AlertDialogDescription>{asking?.description}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <Button
               type="button"
               variant="destructive"
