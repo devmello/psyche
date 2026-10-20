@@ -257,6 +257,62 @@ describe("endpoint probe (B4)", () => {
     expect(JSON.stringify(r)).not.toContain(KEY_SENTINEL);
   });
 
+  it.each([
+    [
+      401,
+      { type: "error", error: { type: "authentication_error", message: "invalid x-api-key" } },
+      "auth_failed",
+      "the endpoint refused the key (HTTP 401: invalid x-api-key)",
+    ],
+    [
+      401,
+      {
+        type: "error",
+        error: { type: "authentication_error", message: "x-api-key header is required" },
+      },
+      "auth_failed",
+      "no key reached the endpoint (HTTP 401: x-api-key header is required)",
+    ],
+    [
+      400,
+      {
+        type: "error",
+        error: {
+          type: "invalid_request_error",
+          message: "limit: Input should be less than or equal to 1000",
+        },
+      },
+      "error",
+      "the endpoint rejected the request as malformed (HTTP 400: limit: Input should be less than or equal to 1000)",
+    ],
+    [
+      529,
+      { type: "error", error: { type: "overloaded_error", message: "Overloaded" } },
+      "error",
+      "the endpoint failed (HTTP 529: Overloaded)",
+    ],
+  ])(
+    "explains HTTP %i with the provider's own reason (#504)",
+    async (status, body, state, error) => {
+      const secret = fakeKey("probe-reason");
+      const { config, keys } = withKey(
+        { id: "anthropic", kind: "anthropic" },
+        "https://api.anthropic.com",
+        secret,
+      );
+      const replay = replayFetch({
+        request: { method: "GET", pathEndsWith: "/v1/models" },
+        response: {
+          status,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      });
+      const r = await probeEndpoint(config, { fetch: replay.fetch, keys, clock });
+      expect(r).toMatchObject({ state, error });
+    },
+  );
+
   it("reports unreachable when nothing answers, and when it times out", async () => {
     const refused = (async () => {
       throw new TypeError("fetch failed", {

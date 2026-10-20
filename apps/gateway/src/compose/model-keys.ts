@@ -102,6 +102,50 @@ export function vaultModelKeys(vault: () => Vault | undefined): KeySource {
   };
 }
 
+/** Invisible characters a copy from a web page or a PDF can carry along with a key. */
+const INVISIBLE = /[\u00ad\u200b-\u200f\u2028\u2029\u2060-\u2064\ufeff]/g;
+
+const keyError = (reason: string, message: string): PsycheError =>
+  new PsycheError("invalid_params", message, { details: { reason } });
+
+/**
+ * The key as the provider expects it, from what the owner pasted (#504): surrounding spaces,
+ * quotes, invisible characters and a pasted `Bearer ` / `x-api-key:` prefix are dropped. A key
+ * that still holds whitespace or non-ASCII, or that is the wrong kind of credential, is refused
+ * with a reason the Settings field can show, instead of being stored and refused later by the
+ * provider as a bare 401. The error never quotes the key.
+ */
+export function normalizeModelKey(providerId: HostedModelKind, raw: string): string {
+  let key = raw.replace(INVISIBLE, "").trim();
+  key = key.replace(/^(?:authorization:\s*)?bearer\s+/i, "").replace(/^x-api-key:\s*/i, "");
+  key = key.replace(/^(["'`])(.*)\1$/s, "$2").trim();
+  if (key.length === 0) throw keyError("key_empty", "the key is empty");
+  if (/\s/.test(key)) {
+    throw keyError("key_whitespace", "the key contains spaces or line breaks; paste only the key");
+  }
+  if (!/^[\x21-\x7e]+$/.test(key)) {
+    throw keyError("key_characters", "the key contains characters an API key never has");
+  }
+  if (providerId === "anthropic") {
+    if (key.startsWith("sk-ant-oat")) {
+      throw keyError(
+        "subscription_token",
+        "this is a Claude subscription sign-in token, not an API key: use the Claude Code (subscription) provider, or create an API key at console.anthropic.com",
+      );
+    }
+    if (key.startsWith("sk-ant-admin")) {
+      throw keyError(
+        "admin_key",
+        "this is an Anthropic Admin API key, which cannot call models: create a regular API key at console.anthropic.com",
+      );
+    }
+    if (!key.startsWith("sk-ant-")) {
+      throw keyError("key_shape", "Anthropic API keys start with sk-ant-; this one does not");
+    }
+  }
+  return key;
+}
+
 /**
  * Removes a provider's key (`models.clearKey`, #511): the Gateway-owned item is revoked, which
  * also ends its grants and leases. Returns whether there was one.
@@ -114,12 +158,13 @@ export async function clearModelKey(vault: Vault, providerId: HostedModelKind): 
   return true;
 }
 
-/** Stores (or replaces) a provider's key as a Gateway-owned vault item. */
+/** Stores (or replaces) a provider's key as a Gateway-owned vault item, normalized first. */
 export async function storeModelKey(
   vault: Vault,
   providerId: HostedModelKind,
-  key: string,
+  pasted: string,
 ): Promise<void> {
+  const key = normalizeModelKey(providerId, pasted);
   const owner = modelKeyOwner(providerId);
   const existing = vault.connectorItem(owner);
   if (existing !== undefined) {

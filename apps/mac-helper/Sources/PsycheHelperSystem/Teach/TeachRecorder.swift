@@ -82,7 +82,9 @@ final class TeachRecorder: @unchecked Sendable {
         tap = port
         refcon = ref
         let ready = DispatchSemaphore(value: 0)
-        let t = Thread { [weak self, port] in
+        let box = UncheckedSendable(port)
+        let t = Thread { [weak self, box] in
+            let port = box.value
             let src = CFMachPortCreateRunLoopSource(nil, port, 0)
             CFRunLoopAddSource(CFRunLoopGetCurrent(), src, .commonModes)
             CGEvent.tapEnable(tap: port, enable: true)
@@ -110,7 +112,10 @@ final class TeachRecorder: @unchecked Sendable {
         }
         if let loop { CFRunLoopStop(loop) }
         // Pending lookups on the queue may still use self; release after them.
-        if let ref { queue.async { Unmanaged<TeachRecorder>.fromOpaque(ref).release() } }
+        if let ref {
+            let box = UncheckedSendable(ref)
+            queue.async { Unmanaged<TeachRecorder>.fromOpaque(box.value).release() }
+        }
     }
 
     private func handle(_ type: CGEventType, _ event: CGEvent) {

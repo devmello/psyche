@@ -1,6 +1,7 @@
 import ApplicationServices
 import CoreGraphics
 import Foundation
+import PsycheHelperCore
 
 /// Owner input recency for pause-when-unwatched (#272): a listen-only session tap records the
 /// last keyboard, mouse or trackpad event that did not come from the helper (`Input.marker`).
@@ -58,7 +59,9 @@ public final class AttentionMonitor: @unchecked Sendable {
         // Input before the tap existed: the system's idle time, read before the helper posts anything.
         let idle = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: CGEventType(rawValue: ~0)!)
         if idle.isFinite, idle >= 0, last == nil { last = Date().addingTimeInterval(-idle) }
-        let t = Thread { [port] in
+        let box = UncheckedSendable(port)
+        let t = Thread { [box] in
+            let port = box.value
             let src = CFMachPortCreateRunLoopSource(nil, port, 0)
             CFRunLoopAddSource(CFRunLoopGetCurrent(), src, .commonModes)
             CGEvent.tapEnable(tap: port, enable: true)
