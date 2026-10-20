@@ -10,6 +10,8 @@ public final class ComputerUse: @unchecked Sendable {
     public let policy: TierPolicy
     public let sessions: ComputerSessionLock
     public let stop = StopSignal()
+    /// Owner input recency for pause-when-unwatched (#272).
+    let attention = AttentionMonitor()
     private var escTap: EscStopTap?
     private let escLock = NSLock()
     private let settingsPath: String
@@ -19,13 +21,15 @@ public final class ComputerUse: @unchecked Sendable {
 
     public init(environment: [String: String] = ProcessInfo.processInfo.environment, log: HelperLog) {
         settingsPath = TierSettings.path(environment: environment)
-        policy = TierPolicy(settings: TierSettings.load(path: settingsPath))
+        policy = TierPolicy(settings: TierSettings.load(path: settingsPath), ownerInput: { [attention] in attention.lastOwnerInput })
         sessions = ComputerSessionLock()
         self.log = log
     }
 
-    /// Installs the Esc tap (needs Accessibility; retried on each computer-use call until it works).
+    /// Installs the Esc and attention taps (need Accessibility; retried on each computer-use call
+    /// until they work).
     func ensureEscTap() {
+        attention.start()
         escLock.lock()
         defer { escLock.unlock() }
         guard escTap == nil else { return }

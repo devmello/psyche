@@ -72,3 +72,15 @@ struct AppsTests {
         await #expect(throws: CapabilityError.self) { try await DisclaimedProcess.run("sh", [], timeout: 1) }
     }
 }
+
+@Suite("attention monitor (#272)")
+struct AttentionMonitorTests {
+    @Test func keepsTheLatestOwnerInput() {
+        let m = AttentionMonitor()
+        #expect(m.lastOwnerInput == nil)
+        let t = Date(timeIntervalSince1970: 1_000)
+        m.noteOwnerInput(at: t)
+        m.noteOwnerInput(at: t.addingTimeInterval(-10))
+        #expect(m.lastOwnerInput == t)
+    }
+}

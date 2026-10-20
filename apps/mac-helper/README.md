@@ -101,8 +101,10 @@ Rules every mutating call follows (spike 04):
 User tiers come from `$PSYCHE_HOME/config/computer-use.json`, written by the Gateway/desktop settings (never through `node.invoke`):
 
 ```json
-{ "version": 1, "default": "ask", "apps": { "com.apple.Notes": "interact", "com.apple.finder": "read" } }
+{ "version": 1, "default": "ask", "apps": { "com.apple.Notes": "interact", "com.apple.finder": "read" }, "sensitive": ["com.example.Health"] }
 ```
+
+**Pause-when-unwatched** (docs/05 §7.2 item 5): in sensitive apps (terminals and IDEs, messaging and mail apps, and the `sensitive` list), anything beyond reading and scrolling needs owner keyboard, mouse or trackpad input on this Mac within the last 5 minutes. A listen-only event tap records that input and ignores the helper's own tagged events. Otherwise the call fails with `presence_required/awaiting_attention` (`retryable`, `details.idleSeconds`, `details.windowSeconds`) before any approval is asked.
 
 `ask` (the default) answers `approval_required/tier_ask`; once the Gateway sends the call with an `approvalId`, the app is allowed for 30 minutes ("Allow for this session"). One session (`session` param, the run id) drives the computer at a time (`conflict/computer_busy`; released by `computer.end_session` or after 2 minutes idle). A bare **Esc** from the user during a session is consumed by an active event tap, stops the in-flight action within one 20 ms step and ends the session (`cancelled/user_stopped`); the helper's own key events are tagged and never trip it.
 

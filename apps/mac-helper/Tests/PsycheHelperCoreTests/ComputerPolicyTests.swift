@@ -273,3 +273,75 @@ struct SendKeysTests {
         #expect(!SendKeys.textSends("no line break"))
     }
 }
+
+private final class OwnerInput: @unchecked Sendable {
+    var last: Date?
+}
+
+@Suite("pause-when-unwatched (#272)")
+struct AttentionTests {
+    private func policy(_ clock: Clock, _ input: OwnerInput, settings: TierSettings = TierSettings(defaultValue: .interact)) -> TierPolicy {
+        TierPolicy(settings: settings, now: { clock.now }, ownerInput: { input.last })
+    }
+
+    private func reason(_ body: () throws -> Void) -> String? {
+        do {
+            try body()
+            return nil
+        } catch let e as CapabilityError {
+            return e.reason
+        } catch { return "\(error)" }
+    }
+
+    @Test func sensitiveAppsWaitWithoutOwnerInputForFiveMinutes() {
+        let clock = Clock()
+        let input = OwnerInput()
+        let p = policy(clock, input)
+        // No owner input on record: a click in Terminal parks; reading and scrolling do not.
+        do {
+            try p.authorize(.click, bundleId: "com.apple.Terminal", appName: "Terminal", approval: nil)
+            Issue.record("expected awaiting_attention")
+        } catch let e as CapabilityError {
+            #expect(e.code == .presenceRequired && e.reason == "awaiting_attention" && e.retryable)
+            #expect(e.details["windowSeconds"] == .number(300))
+        } catch { Issue.record("unexpected \(error)") }
+        #expect(reason { try p.authorize(.read, bundleId: "com.apple.Terminal", appName: "Terminal", approval: nil) } == nil)
+        #expect(reason { try p.authorize(.scroll, bundleId: "com.apple.Terminal", appName: "Terminal", approval: nil) } == nil)
+
+        input.last = clock.now.addingTimeInterval(-299)
+        #expect(reason { try p.authorize(.click, bundleId: "com.apple.Terminal", appName: "Terminal", approval: nil) } == nil)
+        #expect(reason { try p.authorize(.key, bundleId: "com.apple.MobileSMS", appName: "Messages", approval: nil) } == nil)
+        clock.now = clock.now.addingTimeInterval(2)
+        #expect(reason { try p.authorize(.click, bundleId: "com.apple.Terminal", appName: "Terminal", approval: nil) } == "awaiting_attention")
+        #expect(reason { try p.authorize(.type, bundleId: "com.apple.mail", appName: "Mail", approval: nil) } == "awaiting_attention")
+        // Other apps never wait.
+        #expect(reason { try p.authorize(.type, bundleId: "com.apple.Notes", appName: "Notes", approval: nil) } == nil)
+    }
+
+    @Test func anApprovalIsNotAttention() {
+        let clock = Clock()
+        let input = OwnerInput()
+        let p = policy(clock, input, settings: TierSettings(defaultValue: .ask))
+        let approval = ApprovalBinding(id: "a", app: "com.apple.mail", tier: .interact)
+        // It parks before asking, so no card is shown for an action that cannot run.
+        #expect(reason { try p.authorize(.type, bundleId: "com.apple.mail", appName: "Mail", approval: nil) } == "awaiting_attention")
+        #expect(reason { try p.authorize(.type, bundleId: "com.apple.mail", appName: "Mail", approval: approval) } == "awaiting_attention")
+        input.last = clock.now
+        #expect(reason { try p.authorize(.type, bundleId: "com.apple.mail", appName: "Mail", approval: nil) } == "tier_ask")
+        #expect(reason { try p.authorize(.type, bundleId: "com.apple.mail", appName: "Mail", approval: approval) } == nil)
+    }
+
+    @Test func refusalsComeFirstAndTheOwnerListCounts() {
+        let clock = Clock()
+        let input = OwnerInput()
+        let settings = TierSettings(defaultValue: .interact, apps: ["com.apple.Notes": .read], sensitive: ["com.apple.Notes", "com.example.Health"])
+        let p = policy(clock, input, settings: settings)
+        #expect(reason { try p.authorize(.type, bundleId: "com.apple.Notes", appName: "Notes", approval: nil) } == "tier_read")
+        #expect(reason { try p.authorize(.type, bundleId: "com.apple.Terminal", appName: "Terminal", approval: nil) } == "tier_click")
+        #expect(reason { try p.authorize(.click, bundleId: "com.example.health", appName: "Health", approval: nil) } == "awaiting_attention")
+        let decoded = try? JSONDecoder().decode(TierSettings.self, from: Data(#"{"default":"ask","sensitive":["com.example.Health"]}"#.utf8))
+        #expect(decoded?.sensitive == ["com.example.Health"])
+        #expect(Attention.isSensitive("com.jetbrains.intellij", settings: TierSettings()))
+        #expect(!Attention.isSensitive("com.apple.Notes", settings: TierSettings()))
+    }
+}
