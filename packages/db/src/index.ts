@@ -19,6 +19,7 @@ export * from "./repos/nodes.ts";
 export * from "./repos/pairing.ts";
 export * from "./repos/runs.ts";
 export * from "./repos/settings.ts";
+export * from "./repos/thread-state.ts";
 export * from "./repos/threads.ts";
 export * from "./repos/tool-calls.ts";
 export * from "./schema.ts";
