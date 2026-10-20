@@ -13,6 +13,7 @@ import type {
   Idea,
   InputRequest,
   LibraryItem,
+  LinkPaymentMethod,
   MemoryClaim,
   MemoryFileInfo,
   Message,
@@ -27,6 +28,7 @@ import type {
   TaskAction,
   ThreadListEntry,
   ToolCall,
+  VaultPayment,
 } from "@psyche/protocol";
 import { answerTokens, approvals, grants } from "./approvals.ts";
 import { messages, runs, threads, toolCalls } from "./chat.ts";
@@ -39,8 +41,10 @@ import {
   credentials,
   credentialUses,
   devices,
+  linkMethods,
   nodes,
   pairingRequests,
+  payments,
   settings,
   type UsageSummary,
   usage,
@@ -89,6 +93,9 @@ export interface FixtureWorld {
   credentials: CredentialMeta[];
   /** The fill audit behind `vault.uses`, newest first. */
   credentialUses: CredentialUse[];
+  /** Stripe Link (`vault.payments.*`); absent methods → Link is not set up. */
+  linkMethods?: LinkPaymentMethod[];
+  payments?: VaultPayment[];
   settings: Record<string, unknown>;
   /** Workspace file contents by workspace-relative path. */
   memoryFiles: Record<string, string>;
@@ -137,6 +144,8 @@ export function createFixtureWorld(): FixtureWorld {
     nodes: nodes(),
     credentials: credentials(),
     credentialUses: credentialUses(),
+    linkMethods: linkMethods(),
+    payments: payments(),
     settings: settings(),
     memoryFiles: memoryFiles(),
     memoryFileInfos: memoryFileInfos(),
