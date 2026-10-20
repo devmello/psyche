@@ -330,6 +330,24 @@
 //   let memoryWriteResult = try? JSONDecoder().decode(MemoryWriteResult.self, from: jsonData)
 //   let message = try? JSONDecoder().decode(Message.self, from: jsonData)
 //   let messageRole = try? JSONDecoder().decode(MessageRole.self, from: jsonData)
+//   let messagesAttachment = try? JSONDecoder().decode(MessagesAttachment.self, from: jsonData)
+//   let messagesAutomationStatus = try? JSONDecoder().decode(MessagesAutomationStatus.self, from: jsonData)
+//   let messagesChat = try? JSONDecoder().decode(MessagesChat.self, from: jsonData)
+//   let messagesChatsParams = try? JSONDecoder().decode(MessagesChatsParams.self, from: jsonData)
+//   let messagesChatsResult = try? JSONDecoder().decode(MessagesChatsResult.self, from: jsonData)
+//   let messagesHandle = try? JSONDecoder().decode(MessagesHandle.self, from: jsonData)
+//   let messagesMessage = try? JSONDecoder().decode(MessagesMessage.self, from: jsonData)
+//   let messagesReaction = try? JSONDecoder().decode(MessagesReaction.self, from: jsonData)
+//   let messagesReactionKind = try? JSONDecoder().decode(MessagesReactionKind.self, from: jsonData)
+//   let messagesReadParams = try? JSONDecoder().decode(MessagesReadParams.self, from: jsonData)
+//   let messagesReadResult = try? JSONDecoder().decode(MessagesReadResult.self, from: jsonData)
+//   let messagesSendParams = try? JSONDecoder().decode(MessagesSendParams.self, from: jsonData)
+//   let messagesSendResult = try? JSONDecoder().decode(MessagesSendResult.self, from: jsonData)
+//   let messagesSendService = try? JSONDecoder().decode(MessagesSendService.self, from: jsonData)
+//   let messagesService = try? JSONDecoder().decode(MessagesService.self, from: jsonData)
+//   let messagesStatus = try? JSONDecoder().decode(MessagesStatus.self, from: jsonData)
+//   let messagesWatchEvent = try? JSONDecoder().decode(MessagesWatchEvent.self, from: jsonData)
+//   let messagesWatchParams = try? JSONDecoder().decode(MessagesWatchParams.self, from: jsonData)
 //   let nodeCapability = try? JSONDecoder().decode(NodeCapability.self, from: jsonData)
 //   let nodeEventParams = try? JSONDecoder().decode(NodeEventParams.self, from: jsonData)
 //   let nodeInfo = try? JSONDecoder().decode(NodeInfo.self, from: jsonData)
@@ -7267,6 +7285,373 @@ public struct MemoryWriteResult: Codable, Sendable {
         self.etag = etag
         self.path = path
         self.updatedAt = updatedAt
+    }
+}
+
+// MARK: - MessagesChatsParams
+public struct MessagesChatsParams: Codable, Sendable {
+    public let limit: Int?
+    /// Substring of a handle or display name
+    public let query: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case limit = "limit"
+        case query = "query"
+    }
+
+    public init(limit: Int?, query: String?) {
+        self.limit = limit
+        self.query = query
+    }
+}
+
+// MARK: - MessagesChatsResult
+public struct MessagesChatsResult: Codable, Sendable {
+    public let chats: [MessagesChat]
+
+    public enum CodingKeys: String, CodingKey {
+        case chats = "chats"
+    }
+
+    public init(chats: [MessagesChat]) {
+        self.chats = chats
+    }
+}
+
+// MARK: - MessagesChat
+public struct MessagesChat: Codable, Sendable {
+    /// chat.db chat.guid (e.g. iMessage;-;+15551234567, any;-;… on macOS 26+). Opaque; pass back
+    /// as-is.
+    public let chatID: String
+    public let displayName: String?
+    public let isGroup: Bool
+    public let lastCursor: Int?
+    public let lastMessageAt: String?
+    public let participants: [MessagesHandle]
+    public let service: MessagesService
+
+    public enum CodingKeys: String, CodingKey {
+        case chatID = "chatId"
+        case displayName = "displayName"
+        case isGroup = "isGroup"
+        case lastCursor = "lastCursor"
+        case lastMessageAt = "lastMessageAt"
+        case participants = "participants"
+        case service = "service"
+    }
+
+    public init(chatID: String, displayName: String?, isGroup: Bool, lastCursor: Int?, lastMessageAt: String?, participants: [MessagesHandle], service: MessagesService) {
+        self.chatID = chatID
+        self.displayName = displayName
+        self.isGroup = isGroup
+        self.lastCursor = lastCursor
+        self.lastMessageAt = lastMessageAt
+        self.participants = participants
+        self.service = service
+    }
+}
+
+// MARK: - MessagesHandle
+public struct MessagesHandle: Codable, Sendable {
+    public let handle: String
+    public let service: MessagesService
+
+    public enum CodingKeys: String, CodingKey {
+        case handle = "handle"
+        case service = "service"
+    }
+
+    public init(handle: String, service: MessagesService) {
+        self.handle = handle
+        self.service = service
+    }
+}
+
+public enum MessagesService: String, Codable, Sendable {
+    case imessage = "imessage"
+    case rcs = "rcs"
+    case sms = "sms"
+    case unknown = "unknown"
+}
+
+// MARK: - MessagesReadParams
+public struct MessagesReadParams: Codable, Sendable {
+    public let chatID: String?
+    public let handle: String?
+    public let limit: Int?
+    public let sinceCursor: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case chatID = "chatId"
+        case handle = "handle"
+        case limit = "limit"
+        case sinceCursor = "sinceCursor"
+    }
+
+    public init(chatID: String?, handle: String?, limit: Int?, sinceCursor: Int?) {
+        self.chatID = chatID
+        self.handle = handle
+        self.limit = limit
+        self.sinceCursor = sinceCursor
+    }
+}
+
+// MARK: - MessagesReadResult
+public struct MessagesReadResult: Codable, Sendable {
+    public let cursor: Int?
+    public let hasMore: Bool
+    public let messages: [MessagesMessage]
+
+    public enum CodingKeys: String, CodingKey {
+        case cursor = "cursor"
+        case hasMore = "hasMore"
+        case messages = "messages"
+    }
+
+    public init(cursor: Int?, hasMore: Bool, messages: [MessagesMessage]) {
+        self.cursor = cursor
+        self.hasMore = hasMore
+        self.messages = messages
+    }
+}
+
+// MARK: - MessagesMessage
+public struct MessagesMessage: Codable, Sendable {
+    public let attachments: [MessagesAttachment]
+    public let chatID: String
+    public let cursor: Int
+    public let editedAt: String?
+    public let guid: String
+    public let isFromMe: Bool
+    public let reaction: MessagesReaction?
+    public let replyToGUID: String?
+    public let sender: MessagesHandle?
+    public let sentAt: String
+    public let service: MessagesService
+    public let text: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case attachments = "attachments"
+        case chatID = "chatId"
+        case cursor = "cursor"
+        case editedAt = "editedAt"
+        case guid = "guid"
+        case isFromMe = "isFromMe"
+        case reaction = "reaction"
+        case replyToGUID = "replyToGuid"
+        case sender = "sender"
+        case sentAt = "sentAt"
+        case service = "service"
+        case text = "text"
+    }
+
+    public init(attachments: [MessagesAttachment], chatID: String, cursor: Int, editedAt: String?, guid: String, isFromMe: Bool, reaction: MessagesReaction?, replyToGUID: String?, sender: MessagesHandle?, sentAt: String, service: MessagesService, text: String?) {
+        self.attachments = attachments
+        self.chatID = chatID
+        self.cursor = cursor
+        self.editedAt = editedAt
+        self.guid = guid
+        self.isFromMe = isFromMe
+        self.reaction = reaction
+        self.replyToGUID = replyToGUID
+        self.sender = sender
+        self.sentAt = sentAt
+        self.service = service
+        self.text = text
+    }
+}
+
+// MARK: - MessagesAttachment
+public struct MessagesAttachment: Codable, Sendable {
+    public let filename: String?
+    /// attachment.guid
+    public let id: String
+    public let isSticker: Bool
+    /// An audio message bubble (CAF)
+    public let isVoiceNote: Bool
+    public let mimeType: String?
+    public let totalBytes: Int?
+    public let uti: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case filename = "filename"
+        case id = "id"
+        case isSticker = "isSticker"
+        case isVoiceNote = "isVoiceNote"
+        case mimeType = "mimeType"
+        case totalBytes = "totalBytes"
+        case uti = "uti"
+    }
+
+    public init(filename: String?, id: String, isSticker: Bool, isVoiceNote: Bool, mimeType: String?, totalBytes: Int?, uti: String?) {
+        self.filename = filename
+        self.id = id
+        self.isSticker = isSticker
+        self.isVoiceNote = isVoiceNote
+        self.mimeType = mimeType
+        self.totalBytes = totalBytes
+        self.uti = uti
+    }
+}
+
+// MARK: - MessagesReaction
+public struct MessagesReaction: Codable, Sendable {
+    /// For kind emoji
+    public let emoji: String?
+    public let kind: MessagesReactionKind
+    public let removed: Bool
+    /// The reacted-to message's guid
+    public let targetGUID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case emoji = "emoji"
+        case kind = "kind"
+        case removed = "removed"
+        case targetGUID = "targetGuid"
+    }
+
+    public init(emoji: String?, kind: MessagesReactionKind, removed: Bool, targetGUID: String) {
+        self.emoji = emoji
+        self.kind = kind
+        self.removed = removed
+        self.targetGUID = targetGUID
+    }
+}
+
+public enum MessagesReactionKind: String, Codable, Sendable {
+    case dislike = "dislike"
+    case emoji = "emoji"
+    case emphasize = "emphasize"
+    case laugh = "laugh"
+    case like = "like"
+    case love = "love"
+    case question = "question"
+    case unknown = "unknown"
+}
+
+// MARK: - MessagesSendParams
+public struct MessagesSendParams: Codable, Sendable {
+    public let chatID: String?
+    public let service: MessagesSendService?
+    public let text: String
+    public let to: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case chatID = "chatId"
+        case service = "service"
+        case text = "text"
+        case to = "to"
+    }
+
+    public init(chatID: String?, service: MessagesSendService?, text: String, to: String?) {
+        self.chatID = chatID
+        self.service = service
+        self.text = text
+        self.to = to
+    }
+}
+
+public enum MessagesSendService: String, Codable, Sendable {
+    case imessage = "imessage"
+    case sms = "sms"
+}
+
+// MARK: - MessagesSendResult
+public struct MessagesSendResult: Codable, Sendable {
+    /// The handle or chat id the text went to
+    public let recipient: String
+    public let sent: Bool
+    public let sentAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case recipient = "recipient"
+        case sent = "sent"
+        case sentAt = "sentAt"
+    }
+
+    public init(recipient: String, sent: Bool, sentAt: String) {
+        self.recipient = recipient
+        self.sent = sent
+        self.sentAt = sentAt
+    }
+}
+
+// MARK: - MessagesStatus
+public struct MessagesStatus: Codable, Sendable {
+    public let automation: MessagesAutomationStatus
+    public let databasePresent: Bool
+    /// chat.db is readable
+    public let fullDiskAccess: Bool
+    public let lastCursor: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case automation = "automation"
+        case databasePresent = "databasePresent"
+        case fullDiskAccess = "fullDiskAccess"
+        case lastCursor = "lastCursor"
+    }
+
+    public init(automation: MessagesAutomationStatus, databasePresent: Bool, fullDiskAccess: Bool, lastCursor: Int?) {
+        self.automation = automation
+        self.databasePresent = databasePresent
+        self.fullDiskAccess = fullDiskAccess
+        self.lastCursor = lastCursor
+    }
+}
+
+public enum MessagesAutomationStatus: String, Codable, Sendable {
+    case denied = "denied"
+    case granted = "granted"
+    case notDetermined = "not_determined"
+}
+
+// MARK: - MessagesWatchEvent
+public struct MessagesWatchEvent: Codable, Sendable {
+    public let cursor: Int?
+    public let messages: [MessagesMessage]?
+    public let type: MessagesWatchEventType
+    /// e.g. full_disk_access_missing, database_locked
+    public let reason: String?
+    public let retryable: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case cursor = "cursor"
+        case messages = "messages"
+        case type = "type"
+        case reason = "reason"
+        case retryable = "retryable"
+    }
+
+    public init(cursor: Int?, messages: [MessagesMessage]?, type: MessagesWatchEventType, reason: String?, retryable: Bool?) {
+        self.cursor = cursor
+        self.messages = messages
+        self.type = type
+        self.reason = reason
+        self.retryable = retryable
+    }
+}
+
+public enum MessagesWatchEventType: String, Codable, Sendable {
+    case messagesNew = "messages.new"
+    case messagesWatchError = "messages.watch_error"
+}
+
+// MARK: - MessagesWatchParams
+public struct MessagesWatchParams: Codable, Sendable {
+    public let includeFromMe: Bool?
+    public let intervalMS: Int?
+    public let sinceCursor: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case includeFromMe = "includeFromMe"
+        case intervalMS = "intervalMs"
+        case sinceCursor = "sinceCursor"
+    }
+
+    public init(includeFromMe: Bool?, intervalMS: Int?, sinceCursor: Int?) {
+        self.includeFromMe = includeFromMe
+        self.intervalMS = intervalMS
+        self.sinceCursor = sinceCursor
     }
 }
 

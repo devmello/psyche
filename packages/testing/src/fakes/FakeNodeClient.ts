@@ -9,8 +9,15 @@ import type {
 
 export interface FakeCapabilityHandler {
   capability: NodeCapability;
-  /** Return the result; call `emit` to stream `node.event`s. Throwing yields `{ok:false}`. */
-  handle?: (params: unknown, emit: (data: unknown) => void) => unknown | Promise<unknown>;
+  /**
+   * Return the result; call `emit` to stream `node.event`s. Throwing yields `{ok:false}`. A
+   * long-running (streaming) handler should settle when `signal` aborts.
+   */
+  handle?: (
+    params: unknown,
+    emit: (data: unknown) => void,
+    signal?: AbortSignal,
+  ) => unknown | Promise<unknown>;
   receipt?: NodeReceipt;
 }
 
@@ -94,7 +101,7 @@ export class FakeNodeClient implements NodeClient {
     let seq = 0;
     const emit = (data: unknown) => options.onEvent?.({ seq: seq++, data });
     try {
-      const result = h.handle === undefined ? null : await h.handle(params, emit);
+      const result = h.handle === undefined ? null : await h.handle(params, emit, options.signal);
       if (aborted(options.signal)) {
         return { ok: false, error: { code: "cancelled", message: "invocation aborted" } };
       }

@@ -139,6 +139,8 @@ const fail = (code: ErrorCode, message: string): never => {
 export class MockGateway implements GatewayClient {
   readonly world: MockWorld;
   readonly calls: RecordedCall[] = [];
+  /** A host's presence (a web passkey); tests set it to exercise approvals that need one. */
+  presence?: GatewayClient["presence"];
   private seq = 0;
   private stateVersion = 1;
   private state: ConnectionState;

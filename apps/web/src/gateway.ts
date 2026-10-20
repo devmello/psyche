@@ -3,6 +3,15 @@ import { GatewayConnection, type GatewayConnectionOptions } from "./client/conne
 import { createEphemeralDeviceKey, type WebDeviceKey } from "./lib/device-key.ts";
 import { gatewayWsUrl, healthzUrl } from "./lib/ws-url.ts";
 
+/** One device key per page, created on first use (the connection and passkeys share it). */
+export function lazyDeviceKey(): () => Promise<WebDeviceKey> {
+  let key: Promise<WebDeviceKey> | undefined;
+  return () => {
+    key ??= createEphemeralDeviceKey();
+    return key;
+  };
+}
+
 /**
  * Browser Gateway connection. Connects only to `location.origin` (security §10) and never sends a
  * handshake secret: browser connections are never auto-approved, so a new browser shows "pending
@@ -11,12 +20,8 @@ import { gatewayWsUrl, healthzUrl } from "./lib/ws-url.ts";
 export function createWebGatewayConnection(
   handlers: Pick<GatewayConnectionOptions, "onStatus" | "onEvent" | "onResync">,
   loc: Pick<Location, "origin"> = window.location,
+  keyReady: () => Promise<WebDeviceKey> = lazyDeviceKey(),
 ): GatewayConnection {
-  let key: WebDeviceKey | undefined;
-  const keyReady = async () => {
-    key ??= await createEphemeralDeviceKey();
-    return key;
-  };
   return new GatewayConnection({
     wsUrl: gatewayWsUrl(loc),
     healthUrl: healthzUrl(loc),
