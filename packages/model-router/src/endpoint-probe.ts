@@ -7,7 +7,14 @@ import {
   guessFromName,
   mergeFacts,
 } from "./capability-guess.ts";
-import { type AuthProfile, type ProviderConfig, priceProviderOf } from "./config.ts";
+import { cliDialectFor } from "./cli/index.ts";
+import { probeCli } from "./cli/probe.ts";
+import {
+  type AuthProfile,
+  isSubscriptionKind,
+  type ProviderConfig,
+  priceProviderOf,
+} from "./config.ts";
 import { KEY_SENTINEL, type KeySource, keyInjectingFetch, NO_KEYS } from "./credentials.ts";
 import { HOSTED_DEFAULT_BASE_URLS, LOCAL_DEFAULT_BASE_URLS } from "./factory.ts";
 import { Prices } from "./prices.ts";
@@ -63,6 +70,8 @@ export interface EndpointProbeDeps {
   maxModels?: number;
   /** Most Ollama `/api/show` lookups (default 25); the rest keep name guesses. */
   maxDetails?: number;
+  /** Subscription CLIs: the environment their probe commands run in (default `process.env`). */
+  cliEnv?: NodeJS.ProcessEnv;
 }
 
 export interface EndpointProbeOptions {
@@ -436,6 +445,12 @@ export async function probeEndpoint(
   deps: EndpointProbeDeps = {},
   options: EndpointProbeOptions = {},
 ): Promise<EndpointProbeResult> {
+  if (isSubscriptionKind(config.kind)) {
+    return probeCli(config, cliDialectFor(config), {
+      ...(deps.clock === undefined ? {} : { clock: deps.clock }),
+      ...(deps.cliEnv === undefined ? {} : { env: deps.cliEnv }),
+    });
+  }
   const clock = deps.clock ?? { now: () => Date.now() };
   const keys = deps.keys ?? NO_KEYS;
   const timeoutMs = deps.timeoutMs ?? 5_000;

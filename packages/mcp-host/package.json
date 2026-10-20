@@ -1,6 +1,6 @@
 {
   "name": "@psyche/mcp-host",
-  "version": "0.0.0",
+  "version": "0.3.0-alpha.0",
   "private": true,
   "description": "MCP client host (spec 2026-07-28), trust tiers, tool policy integration.",
   "license": "Apache-2.0",

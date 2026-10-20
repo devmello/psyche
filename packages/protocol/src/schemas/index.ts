@@ -1,5 +1,6 @@
 export * from "./apple-apps.ts";
 export * from "./blocks.ts";
+export * from "./context.ts";
 export * from "./identity.ts";
 export * from "./integrations.ts";
 export * from "./memory.ts";
@@ -8,6 +9,7 @@ export * from "./models.ts";
 export * from "./permissions.ts";
 export * from "./surfaces.ts";
 export * from "./tasks.ts";
+export * from "./teach.ts";
 export * from "./threads.ts";
 export * from "./tools.ts";
 export * from "./vm.ts";

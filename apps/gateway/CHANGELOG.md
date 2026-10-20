@@ -1,0 +1,222 @@
+# @psyche/gateway
+
+## 0.3.0-alpha.0
+
+### Minor Changes
+
+- a67e905: psyched composes the S06 vault: `vault.*` methods, vault events as frames, a shared secret redactor on the Gateway's logs, and connector OAuth tokens stored as vault items (`VaultTokenVault`) so connections survive a restart. The key slot is the key file in server mode (`PSYCHE_VAULT_KEY_FILE`), else safeStorage, else the keychain through a connected Mac helper.
+- 51bf494: psyched composes the agent browser (desktop bridge socket, CDP driver, browser tools with per-task sessions and recordings), the connector registry with Google, and channels (Telegram, WebChat, approvals over chat). Approvals that need Touch ID or a passkey fail closed until a presence verifier is configured.
+- 3c35dfe: psyched relays approval cards to a connected Mac helper as notifications with Approve / Deny and turns the helper's answers into broker answers on the `notification` surface. Approvals that require authentication verify a Secure Enclave signature over the presence challenge against the helper's registered key; the helper does not sign yet (#84), so they stay refused there. Deny always works.
+- 8e13e02: Fresh presence for access-widening and destructive admin methods (devices.approve, channels access changes, memory.reset, backup.delete) and a device's first passkey; presence is sticky once enrolled (`presence_required` instead of an admin-only fallback); `psyched presence reset`. The web Passkeys panel retries a first passkey with the owner's approval.
+- 47f5512: Helper presence keys (issue #253): `devices.presenceKey.list | register | remove`; the helper part verifies Touch ID answers against the registered key of each paired helper.
+- 3bfb9f9: Settings → Model & providers over `models.*` (B1, B4): the Gateway lists configured providers with their last endpoint probe, probes and runs the tool-calling check only on the owner's click, and binds primary / utility picks (a chat-only primary asks before `override`); the Settings UI shows probe state, model capabilities (vision, tools, context) and the picks; the web model picker suggests the listed models.
+- 7d01f0e: Security §10 rate limits: inbound chat 30/minute per sender (`ChannelServiceOptions.admitInbound`) and `web_fetch` 60/minute per Task (`WebFetchFactoryOptions.beforeFetch`), configurable with `gateway.rateLimits` and audited as `rate_limit.exceeded`.
+- 7f2b58f: Signed audit anchors: `SoftwareAnchorKey` (Ed25519, keyring and head outside `audit/`), hourly anchors, `verifyDetailed` reports `signedAnchors` / `anchorKeyIds` / `signingSinceSeq`, the Gateway composes it, and `psyche audit verify` prints it.
+- 75a0f80: Web passkeys (WebAuthn) for the server-mode web client: `passkeys.*` methods, `ApprovalAnswer.presence`, a per-device passkey store, and a `webauthn` presence verifier that counts toward the security-settings presence check once a passkey is registered.
+- 515b904: Security settings need fresh presence once a presence verifier exists (security §10): `settings.set` on a security key returns `approval_required` with a device-only, presence-gated `policy_change` card, and goes through when retried with the approved `approvalId`.
+- 0ee0215: Agent tools for the proactive surfaces: `goals.list | propose | update_progress | add_checkin`, `ideas.list | accept | dismiss | snooze`, `feed.list | mark_read | explain`. Reads run without approval; proposals, acceptances and changes on the owner's behalf are `write` and ask, bound to their exact arguments; results with web or connector text are `untrusted`; non-owner turns are refused; a tainted turn's brief can no longer become a recurring automation prompt. psyched registers them in the loop's registry. A migration adds `feed_posts.read_at`.
+- d09baa7: The Feed (O5, O6): the `interests.md` ledger with its feedback rules and undo, RSS/Atom, Hacker News and arXiv sources behind an injected fetch, clustering, recall × recency, a seeded-shuffle utility-model rerank, exploration slots and posts with mandatory citations; the daily brief and user briefings as scheduler automations run in-process; `feed.*` handlers and `feed.updated` / `feed.post` events. psyched wires it with sources from the `feed.sources` setting.
+- 031c829: Goals (O9) and the heartbeat budget (O2): the proactive tables' migration with its drizzle mirror; `GoalsService` with confirm-first inferred candidates, milestones, links and check-ins as system automations on the scheduler (one `reminder` per check-in, run in-process through `withProactiveJobs`); `goals.*` handlers and `goal.updated` events; `PROACTIVITY_BUDGET`, and a heartbeat launcher whose tasks carry a 5k-token budget. psyched wires it in `compose/proactive.ts`.
+- ed58763: Ideas (O7, O8): nightly mining of repeated tool sequences (skill drafts, unverified), owner notes, goals and connector signals; suppression of accepted, dismissed and hidden-source patterns; a logistic acceptance model refit from accept / dismiss history; batched delivery windows with one notification; accepting creates a task card in the main thread, an automation with template text only, or a goal check-in. `ideas.*` handlers and `idea.updated` events; a migration adds the delivery columns. psyched wires mining at 02:30 and a 09:00 window.
+- 420ab8e: `psyche security audit` covers every check in security §10: egress proxy, MCP sandboxing and unknown-tier servers with network, computer-use overrides, real-Chrome mode and consent, backup encryption and age, update manifest verification, token age and version. New `mcp.status`; `sandbox.status` is served and reports the egress proxy.
+- 08a9888: Backups without downtime: `@psyche/backup` holds the archive format shared by `psyche backup` and the Gateway, which now serves `backup.list`, `backup.create` (SQLite online backup), `backup.verify`, `backup.delete` and a redacted `logs.tail`. `psyche backup create` uses the running Gateway.
+- 1955b55: Dev servers an `exec` leaves listening in a sandbox are forwarded to a host `127.0.0.1` port the runner owns and announced (`onDevServer`: host port, container port, root pid) for the browser's dev preview (I12). The Gateway's new sandbox part maps them onto the dev-preview registry.
+- 534326e: Skills install and trust (T2): manifest validation and install policy (refused before any card), update detection, the Gateway's `skills.*` handlers and skill tools with third-party descriptions marked untrusted (part of #281), and Settings → Skills with the trust card.
+- e4e6f97: V10 coding helper: `code.open`, `code.search`, `code.read`, `code.edit` (unified diffs), `code.run` (sandbox with the repository bind-mounted, `.git` read-only) and `code.git` (host git without hooks; pushes behind a `git_push` card, once only). The Gateway composes the tools after the sandbox part; the scenario Stack takes real tool registrations.
+
+### Patch Changes
+
+- 1dc1561: Channel reply authority: evaluate the replying turn (requesting conversation, mode, deny rules, taint) and verify each iMessage `messages.send` against the approved binding at dispatch, with a receipt.
+- a43a514: The broker's per-app computer-use tier check keys on the described action: the loop passes `ToolCallDescription.meta` to the broker, and `computer.act`, `apps.open` and `apps.focus` name their action, so a `click` tier (and the terminal/IDE click cap) lets the agent click but not type. A `meta.app` that differs from the app target is denied.
+- 4c4eac2: iMessage channel (N5): `IMessageAdapter` over the mac helper's `messages.*` capabilities (chat.db watch from a persisted cursor, SMS / RCS senders weak, echoes dropped, Full Disk Access health), outbound only through an explicit `authorizeSend` port that returns a `message_send` approval id, and approval cards answerable with `/approve` or a 👍 / 👎 tapback. The Gateway registers it when `ChannelsSetup.imessage` is configured.
+- bb2a7b5: Cloudflare Access keys are re-fetched hourly and fail closed after 24 h without a refresh; ffmpeg / whisper-cli run under srt with Psyche's speech profile when `PSYCHE_SRT_PATH` is set; an end-to-end test for MCP `tools/list` changes revoking grants.
+- fa08fee: Restores no longer resurrect deleted vault items: removals go to the revocation ledger (`recordVaultItem`, `vaultItemIds`), and the vault (`VaultOptions.removals`) drops them from its mirror at start and from the encrypted store at every unlock.
+- 4f74993: P9 file tools get a package (#49): `@psyche/files` ships `read_file`, `write_file`, `edit_file`, `list_dir` and `search_files` with symlink, traversal and granted-folder refusal, size caps and paging, atomic writes, exact-match edits with conflict detection, and write provenance. `ToolCallDescription` gains optional display-only `details`, which the agent loop puts on the approval card (the `file_write` card's diff). The Gateway registers the package in place of INT-1's stand-in.
+- c2c1f0b: iMessage pairing confirmations are no longer refused by the reply authority: an approved sender's pairing DM becomes answerable (#277).
+- 133844b: The #414 regression test covers every tool of the Gateway's default composition (`partsFromEnv`), `memory` included; `partsFromEnv` takes optional sandbox runner options as a test seam.
+- 5dcf208: Standing grants reach connector executors: the loop puts what authorized a dispatch (approval or standing grant, binding hash, scope) on `ToolRunContext.authority`, and the connector registry confirms a grant the way it confirms an approval. The sender of a channel turn travels as `StartTurnInput.requester` into `PermissionBroker.decide` and the approval card's context. Taint persists across kill/restart: `tool_call` events carry the persisted details, thread state keeps the taint sources, and tasks carry `taintSources`.
+- 0d9d34d: Restoring a backup no longer brings back revoked devices or grants: revocations go to a ledger outside the backup that the Gateway replays at every boot, and a restore into a home without it un-pairs devices and revokes every standing grant (S23 design-26).
+- d8d5631: Pause-when-unwatched for the browser (#272): actions on sensitive-category origins need the pane visible and recent owner input, else `presence_required/awaiting_attention`; the desktop reports pane visibility and owner input to the Gateway.
+- 1cf5421: Real-Chrome mode (I13): the owner's Google Chrome on a Psyche-owned profile with a loopback DevTools port registered as Psyche's own, attached per task after a device-only, presence-checked consent, behind a routing driver so the browser tools, origin sets and vault rules stay the same.
+- c3710ee: Browser: purchase cards list merchant, seller, items and total and bind to them, with the click refused when the order changed after approval; `browser.request_control` hands a tab to the owner (notification plus pane status) and waits for it back.
+- 3a3fa6a: Dev preview (I12): `browser.dev_preview` opens the owner's own local dev server in a logged-out, port-pinned dev-preview session after a `new_origin` approval, gated by `DevServerRegistry` (servers Psyche started, the launch config, the owner's allowlist); `browser.console` and `browser.network` read that tab.
+- 5760f08: Browser follow-ups: OS probes for the broker's localhost rule (dev preview now works for servers Psyche spawned and stays refused for anything else), and page-echo detection that withholds any tool output holding a vault value (S23 design-18); the Gateway wires the vault's redaction into the driver.
+- 7de91d6: Browser: logged-out partitions by default (I15). Sessions choose `profile`, `clean` or `auto`; in `auto` a tab uses the owner's profile only for origins they signed into. Tabs report their partition, the pane gets it on `bridge.tab.open`, and the fixtures prove the isolation on both drivers.
+- 1b7b61b: Browser recording and replay (I10): recordings hold an event log (tabs, navigations, snapshots, actions, fills, downloads, blocks, control, dialogs) beside the screencast frames, redacted at write time; `RecordingStore` and the Gateway's `browser.recordings.*` methods serve them to the Activity sheet, with 7-day retention and Library import.
+- 67605d1: MCP results pass through the vault redactor; removing a server clears its sandbox volume and egress allowlist (`StdioLauncher.forget`, `egressRevoke`); docs/05 §11 states the origin-bound bearer exception (#284).
+- e90b086: The web client's Settings → Devices & nodes lists, adds and removes this browser's passkeys, and approval cards that require authentication (purchases, credential fills, host commands, security settings) are approved with a passkey assertion over the card's presence challenge. The kit's `GatewayClient` gains an optional `presence` hook for that. Fixes the Gateway's WebAuthn challenge for `sha256:`-prefixed presence challenges, which made every real browser assertion fail.
+- 8ab7b0b: Goal watches (O3): `GoalsService.addWatch` / `removeWatch` link scheduler watch automations to a goal; they run only while the goal is active and show their last status on the goal's progress. psyched now gives the scheduler a guarded watch fetcher (watches previously failed with no fetcher). A simulated-day audit test checks every proactive producer against the budget together.
+- 206f295: `psyche security audit` flags real-Chrome mode while it is attached (port, PID, profile dir), from the new `browser.realChrome.status` method.
+- 355246e: The container runner bind-mounts validated host folders (`ensureSandbox(scope, {mounts})`, V10 coding workspaces); the Gateway protects `$PSYCHE_HOME` from mounts and exposes the sandbox part's egress context tracker.
+- f8c95bf: Credentials fill over https only (plain http just for loopback dev servers, #292); a sandbox secret env is leased to one command and wiped after its timeout (#290, vault side).
+- Updated dependencies [fb320aa]
+- Updated dependencies [7736e20]
+- Updated dependencies [428ec1e]
+- Updated dependencies [a5cef4e]
+- Updated dependencies [81cf744]
+- Updated dependencies [1dc1561]
+- Updated dependencies [4f8dff6]
+- Updated dependencies [3db2ac8]
+- Updated dependencies [a43a514]
+- Updated dependencies [353afa9]
+- Updated dependencies [2558bfe]
+- Updated dependencies [4c4eac2]
+- Updated dependencies [7ac975c]
+- Updated dependencies [cf3c922]
+- Updated dependencies [2463dc3]
+- Updated dependencies [e3ef188]
+- Updated dependencies [2064c0c]
+- Updated dependencies [2be1a8a]
+- Updated dependencies [8e28cac]
+- Updated dependencies [e87d482]
+- Updated dependencies [42496a0]
+- Updated dependencies [dc0fc10]
+- Updated dependencies [ecf0dd5]
+- Updated dependencies [09c0c6f]
+- Updated dependencies [d982437]
+- Updated dependencies [c4175a2]
+- Updated dependencies [7d01f0e]
+- Updated dependencies [fa08fee]
+- Updated dependencies [7f2b58f]
+- Updated dependencies [493b4a5]
+- Updated dependencies [eaf91c6]
+- Updated dependencies [19c1ba5]
+- Updated dependencies [30d46f9]
+- Updated dependencies [4f74993]
+- Updated dependencies [c2c1f0b]
+- Updated dependencies [5e605af]
+- Updated dependencies [8a8dacb]
+- Updated dependencies [6665567]
+- Updated dependencies [310ac67]
+- Updated dependencies [2f63bac]
+- Updated dependencies [dc190a6]
+- Updated dependencies [5d2cbeb]
+- Updated dependencies [0899f3b]
+- Updated dependencies [08664c3]
+- Updated dependencies [e54d672]
+- Updated dependencies [3461262]
+- Updated dependencies [8a9ee2c]
+- Updated dependencies [f80b0ec]
+- Updated dependencies [75a0f80]
+- Updated dependencies [2e9c025]
+- Updated dependencies [e4c109b]
+- Updated dependencies [81ca2c2]
+- Updated dependencies [0781486]
+- Updated dependencies [c41dfde]
+- Updated dependencies [5dcf208]
+- Updated dependencies [7f40b18]
+- Updated dependencies [89f4815]
+- Updated dependencies [c840e75]
+- Updated dependencies [6a7b799]
+- Updated dependencies [42dd7bd]
+- Updated dependencies [e307aba]
+- Updated dependencies [2607fc3]
+- Updated dependencies [8d1c739]
+- Updated dependencies [f2761ef]
+- Updated dependencies [a49d8b1]
+- Updated dependencies [e83a19e]
+- Updated dependencies [412aaa1]
+- Updated dependencies [9a0cd76]
+- Updated dependencies [4bc7113]
+- Updated dependencies [1cf5421]
+- Updated dependencies [1cc7f5a]
+- Updated dependencies [0d9d34d]
+- Updated dependencies [515b904]
+- Updated dependencies [d74ccce]
+- Updated dependencies [e3014c1]
+- Updated dependencies [230b794]
+- Updated dependencies [4876a72]
+- Updated dependencies [f4cf9c0]
+- Updated dependencies [0a6f9d6]
+- Updated dependencies [e0d2f7e]
+- Updated dependencies [d8d5631]
+- Updated dependencies [e0c2cf6]
+- Updated dependencies [e4d6f48]
+- Updated dependencies [7b10927]
+- Updated dependencies [1cf5421]
+- Updated dependencies [c3710ee]
+- Updated dependencies [3a3fa6a]
+- Updated dependencies [5760f08]
+- Updated dependencies [7de91d6]
+- Updated dependencies [1b7b61b]
+- Updated dependencies [cdb5b62]
+- Updated dependencies [0a0d2a6]
+- Updated dependencies [d02b6ef]
+- Updated dependencies [52d0dd3]
+- Updated dependencies [67605d1]
+- Updated dependencies [d2c228c]
+- Updated dependencies [6dda211]
+- Updated dependencies [0eb5a41]
+- Updated dependencies [9bb5dd4]
+- Updated dependencies [95f1980]
+- Updated dependencies [76bc9cc]
+- Updated dependencies [2b2e906]
+- Updated dependencies [13afc8a]
+- Updated dependencies [0b242ac]
+- Updated dependencies [f5d6a65]
+- Updated dependencies [4d718e6]
+- Updated dependencies [1331bfc]
+- Updated dependencies [04be9ec]
+- Updated dependencies [2525712]
+- Updated dependencies [0ee0215]
+- Updated dependencies [d09baa7]
+- Updated dependencies [031c829]
+- Updated dependencies [ed58763]
+- Updated dependencies [8ab7b0b]
+- Updated dependencies [e7c3564]
+- Updated dependencies [a549b95]
+- Updated dependencies [06ae560]
+- Updated dependencies [93d9add]
+- Updated dependencies [e01052d]
+- Updated dependencies [9cc53ce]
+- Updated dependencies [75d2aa9]
+- Updated dependencies [39dc17d]
+- Updated dependencies [dc49b2a]
+- Updated dependencies [420ab8e]
+- Updated dependencies [206f295]
+- Updated dependencies [08a9888]
+- Updated dependencies [1955b55]
+- Updated dependencies [a020ca4]
+- Updated dependencies [f5e8f54]
+- Updated dependencies [70207bd]
+- Updated dependencies [ee80eea]
+- Updated dependencies [a50c115]
+- Updated dependencies [575ec90]
+- Updated dependencies [e99009a]
+- Updated dependencies [534326e]
+- Updated dependencies [38f71de]
+- Updated dependencies [952c222]
+- Updated dependencies [0d41013]
+- Updated dependencies [ee4c781]
+- Updated dependencies [e4e6f97]
+- Updated dependencies [0c71158]
+- Updated dependencies [355246e]
+- Updated dependencies [75ad6fa]
+- Updated dependencies [f8c95bf]
+- Updated dependencies [94fe0da]
+- Updated dependencies [e519e1e]
+- Updated dependencies [0c82962]
+- Updated dependencies [396731a]
+- Updated dependencies [4b3f571]
+  - @psyche/channels@0.3.0-alpha.0
+  - @psyche/model-router@0.3.0-alpha.0
+  - @psyche/protocol@0.3.0-alpha.0
+  - @psyche/permissions@0.3.0-alpha.0
+  - @psyche/agent-core@0.3.0-alpha.0
+  - @psyche/tasks@0.3.0-alpha.0
+  - @psyche/mcp-host@0.3.0-alpha.0
+  - @psyche/connectors@0.3.0-alpha.0
+  - @psyche/vault@0.3.0-alpha.0
+  - @psyche/audit@0.3.0-alpha.0
+  - @psyche/files@0.3.0-alpha.0
+  - @psyche/db@0.3.0-alpha.0
+  - @psyche/scheduler@0.3.0-alpha.0
+  - @psyche/backup@0.3.0-alpha.0
+  - @psyche/memory@0.3.0-alpha.0
+  - @psyche/browser@0.3.0-alpha.0
+  - @psyche/viewers@0.3.0-alpha.0
+  - @psyche/proactive@0.3.0-alpha.0
+  - @psyche/skills@0.3.0-alpha.0
+  - @psyche/speech@0.3.0-alpha.0
+  - @psyche/sandbox@0.3.0-alpha.0
+  - @psyche/notifications@0.3.0-alpha.0

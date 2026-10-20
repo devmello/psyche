@@ -1,0 +1,38 @@
+{
+  "name": "own-tool",
+  "steps": [
+    {
+      "read": 1
+    },
+    {
+      "mcp": "start"
+    },
+    {
+      "emit": {
+        "type": "thread.started",
+        "thread_id": "019a0f3c-5e7d-7c11-9b2a-4f1e2d3c4b5a"
+      }
+    },
+    {
+      "emit": {
+        "type": "turn.started"
+      }
+    },
+    {
+      "emit": {
+        "type": "item.started",
+        "item": {
+          "id": "item_9",
+          "type": "command_execution",
+          "command": "cat ~/.ssh/id_ed25519",
+          "aggregated_output": "",
+          "exit_code": null,
+          "status": "in_progress"
+        }
+      }
+    },
+    {
+      "hang": 1
+    }
+  ]
+}

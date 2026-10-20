@@ -14,6 +14,7 @@ import {
   VoiceSegmentPayload,
 } from "./methods/voice.ts";
 import { Block } from "./schemas/blocks.ts";
+import { ContextUsage } from "./schemas/context.ts";
 import { Device, NodeInfo, PairingRequest } from "./schemas/identity.ts";
 import {
   Automation,
@@ -111,6 +112,10 @@ export const Events = {
   "thread.updated": defineEvent({
     payload: Type.Object({ thread: Thread }),
     description: "A thread was created, renamed, pinned, archived or restored.",
+  }),
+  "thread.context.updated": defineEvent({
+    payload: Type.Object({ usage: ContextUsage }),
+    description: "A turn ended: the thread's context usage and limits (the context meter).",
   }),
   "thread.deleted": defineEvent({
     payload: Type.Object({ threadId: Id }),

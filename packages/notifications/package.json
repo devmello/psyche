@@ -1,6 +1,6 @@
 {
   "name": "@psyche/notifications",
-  "version": "0.0.0",
+  "version": "0.3.0-alpha.0",
   "private": true,
   "description": "Durable notification inbox, delivery routing (desktop, OS via the mac helper, channels), quiet hours and restart reconciliation.",
   "license": "Apache-2.0",

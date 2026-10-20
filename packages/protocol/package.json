@@ -1,6 +1,6 @@
 {
   "name": "@psyche/protocol",
-  "version": "0.0.0",
+  "version": "0.3.0-alpha.0",
   "private": true,
   "description": "Psyche protocol: TypeBox schemas, WS frames, method/event registry, node and browser-bridge protocol, codegen and the cross-package contract interfaces",
   "license": "Apache-2.0",

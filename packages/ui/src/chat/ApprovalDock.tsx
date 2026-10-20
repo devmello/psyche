@@ -41,20 +41,34 @@ export function ApprovalDock({
   const mine = pending
     .filter((v) => v.approval.requestedBy.threadId === threadId)
     .sort((a, b) => a.approval.expiresAt.localeCompare(b.approval.expiresAt));
+  // The open card stays put: a new approval that expires sooner joins the rows instead of
+  // replacing the card under the owner's focus (docs/a11y-audit.md C2).
+  const ids = mine.map((v) => v.approval.id).join(" ");
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed by the pending ids
+  useEffect(() => {
+    if (openId === null || !mine.some((v) => v.approval.id === openId)) {
+      setOpenId(mine[0]?.approval.id ?? null);
+    }
+  }, [ids]);
   const open = mine.find((v) => v.approval.id === openId) ?? mine[0];
+  const newest = [...mine].sort((a, b) =>
+    b.approval.requestedAt.localeCompare(a.approval.requestedAt),
+  )[0];
   return (
     <div
-      aria-live="polite"
-      aria-relevant="additions"
       // Compact (§3.3): one open card, the rest one line each. The card is never clipped (its
       // choices and buttons stay in view); its binding rows scroll instead when they run long.
       className="flex flex-col gap-1.5"
+      data-testid="approval-dock"
     >
-      {mine.length > 0 ? (
-        <p className="sr-only">
-          {mine.length === 1 ? "1 approval needs you" : `${mine.length} approvals need you`}
-        </p>
-      ) : null}
+      {/* One short line per arrival, not the whole card (docs/a11y-audit.md C4). */}
+      <p className="sr-only" role="status">
+        {mine.length === 0
+          ? ""
+          : `Approval needed: ${newest ? displaySummary(newest.approval) : ""}. ${
+              mine.length === 1 ? "1 approval needs you" : `${mine.length} approvals need you`
+            }.`}
+      </p>
       {mine.length > 1 ? (
         <ul aria-label="Other approvals" className="flex max-h-24 flex-col gap-1 overflow-y-auto">
           {mine
@@ -98,7 +112,16 @@ export function ApprovalDock({
                 createdFrom={task?.createdFrom ?? null}
                 {...(mode === undefined ? {} : { mode })}
                 otherSurfaces={open.approval.surfaces.filter((s) => s !== "desktop" && s !== "web")}
-                onAnswer={(decision, scope) => answer(open.approval.id, decision, scope)}
+                onAnswer={async (decision, scope) => {
+                  await answer(open.approval.id, decision, scope);
+                  // The next card focuses its heading as it mounts; with none left, focus returns
+                  // to the composer instead of falling to the page (docs/a11y-audit.md C3).
+                  if (mine.length <= 1) {
+                    document
+                      .querySelector<HTMLTextAreaElement>('textarea[aria-label^="Message"]')
+                      ?.focus();
+                  }
+                }}
                 autoFocus
                 now={now}
                 detailsClassName="max-h-[min(9rem,18vh)] overflow-y-auto"

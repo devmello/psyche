@@ -1,0 +1,44 @@
+{
+  "name": "resumed",
+  "steps": [
+    {
+      "read": 1
+    },
+    {
+      "mcp": "start"
+    },
+    {
+      "emit": {
+        "type": "thread.started",
+        "thread_id": "019a0f3c-5e7d-7c11-9b2a-4f1e2d3c4b5a"
+      }
+    },
+    {
+      "emit": {
+        "type": "turn.started"
+      }
+    },
+    {
+      "emit": {
+        "type": "item.completed",
+        "item": {
+          "id": "item_4",
+          "type": "agent_message",
+          "text": "Hello again."
+        }
+      }
+    },
+    {
+      "emit": {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 2000,
+          "cached_input_tokens": 1600,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 30,
+          "reasoning_output_tokens": 10
+        }
+      }
+    }
+  ]
+}
