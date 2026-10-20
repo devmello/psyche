@@ -56,6 +56,10 @@ const KNOWN_DIFFERENCES: Record<string, string> = Object.fromEntries([
     "conv-docx-placeholder-005",
     "S05: prohibition:placeholder_outside_fill vs reference placeholder:rejected",
   ),
+  // Both ask. The real broker names the unknown-tier MCP floor (#280) before the taint rule.
+  ...["mcp-desc-unicode-tags-007", "mcp-result-upload-002"].flatMap((id) =>
+    each(id, "S05 #280: mcp:unknown_tier named before taint:new_target"),
+  ),
 ]);
 
 let rig: Int2Rig;
