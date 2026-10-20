@@ -21,6 +21,7 @@ import {
   type Clock,
   type DailyNoteInput,
   type ForgetResult,
+  type LearnedFact,
   type MemoryChunk,
   type MemoryClaim,
   type MemoryFile,
@@ -54,6 +55,14 @@ import {
   TEMPLATE_FILES,
   WORKSPACE_DIRS,
 } from "./layout.ts";
+import {
+  addLearned,
+  type LearnRefusal,
+  learnedFactId,
+  normalizeFact,
+  refuseFact,
+  removeLearned,
+} from "./learned.ts";
 import { canonicalWorkspacePath, resolveInWorkspace, toWorkspacePath } from "./paths.ts";
 import { substituteTokens } from "./persona.ts";
 import {
@@ -581,6 +590,63 @@ export class SqliteMemoryStore implements MemoryStore {
   /** The agent's write (contract): protected files need an approval. */
   async writeFile(path: string, content: string, options: WriteOptions): Promise<MemoryFile> {
     return this.write(path, content, options);
+  }
+
+  /**
+   * Feature #509: writes facts learned from the owner's own words to USER.md's Learned section,
+   * as this package's job (the one writer). Each proposal is refused when empty, too long,
+   * sensitive (secrets and cards always; government ids, financial accounts and health), worded
+   * like an instruction, or already known (USER.md or a live claim). Returns what was written.
+   */
+  async learnUserFacts(
+    proposals: readonly { text: string; kind: LearnedFact["kind"] }[],
+    context: { threadId: string },
+  ): Promise<{ written: LearnedFact[]; refused: { text: string; reason: LearnRefusal }[] }> {
+    const current = (await this.readFile("USER.md"))?.content ?? "";
+    const claims = (await this.listClaims()).map((c) => normalizeFact(c.text));
+    const known = [
+      ...current
+        .split("\n")
+        .map((l) => normalizeFact(l.replace(/^- \d{4}-\d{2}-\d{2} \[[^\]]*\] /, ""))),
+      ...claims,
+    ].filter((k) => k !== "");
+    const written: LearnedFact[] = [];
+    const refused: { text: string; reason: LearnRefusal }[] = [];
+    const date = this.now().date;
+    for (const p of proposals) {
+      const reason = refuseFact(p.text, known);
+      if (reason !== undefined) {
+        refused.push({ text: p.text, reason });
+        continue;
+      }
+      const text = p.text.replace(/\s+/g, " ").trim();
+      written.push({
+        factId: learnedFactId(text, context.threadId),
+        text,
+        kind: p.kind,
+        date,
+        threadId: context.threadId,
+      });
+      known.push(normalizeFact(text));
+    }
+    if (written.length > 0) {
+      await this.write("USER.md", addLearned(current, written), {
+        provenance: "owner",
+        actor: "job",
+        source: "job",
+      });
+    }
+    return { written, refused };
+  }
+
+  /** Undo for one learned fact (#509): removes its line; false when it is already gone. */
+  async forgetLearned(factId: string): Promise<boolean> {
+    const current = (await this.readFile("USER.md"))?.content;
+    if (current === undefined) return false;
+    const next = removeLearned(current, factId);
+    if (next === undefined) return false;
+    await this.write("USER.md", next, { provenance: "owner", actor: "job", source: "job" });
+    return true;
   }
 
   /** The owner's own write from a paired device: no approval, owner provenance. */

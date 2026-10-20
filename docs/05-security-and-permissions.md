@@ -412,6 +412,13 @@ A versioned corpus of at least 200 cases (hidden DOM fields, URL and tab-title p
 ## 8. Memory safety
 
 - **Write gating.** Only `owner` provenance (typed by the owner in a private session, or confirmed on a card) can become a fact in `USER.md` or `MEMORY.md`. Agent inferences carry `agent` provenance, shown by `memory_explain`. `untrusted` and `system` content is never promoted, only quoted in a daily note with its tag. Reference incidents: the Microsoft red-team case (4/10 to over 80 % once the agent consulted memory), SpAIware, the Gemini delayed invocation (models/memory/MCP notes, Memory 5).
+- **Learned facts about the owner (#509).** The one automatic `USER.md` writer. After an attended turn, the utility model reads only the owner's own message: never tool output, other people's channel text or incognito threads, and vault values are masked first. It proposes durable facts: name, preferences, routines, people, projects. `packages/memory` refuses:
+  - secrets and cards, always;
+  - government ids, financial accounts and health details;
+  - instruction-like text;
+  - duplicates of `USER.md` or live claims.
+
+  Kept facts are written, as owner provenance through memory's job actor, to the dated `## Learned` section with the source thread id. The chat shows a "Learned: …" note with Undo (`memory.forgetLearned`). Every write and undo is audited with ids and reasons, never the text. Setting `memory.userProfile`: `{enabled, review: auto | ask}`; with `ask`, a `memory_protected_write` card comes first.
 - **One writer.** Nightly dreaming is the only writer of `MEMORY.md`: it merges, supersedes and decays, requires promotion thresholds (score, recall count, unique queries) and excludes untrusted and system candidates, as OpenClaw's dreaming does. The agent's `memory` tool edits daily notes and `memory/` files; a direct edit of `MEMORY.md`, `USER.md`, `SOUL.md`, `IDENTITY.md` or `AGENTS.md` is a `write` on a protected path that always asks and is marked `agent`.
 - **Filters.** Flush and dreaming refuse secret-pattern strings and, by default, government identifiers, financial account numbers and health details unless the owner enables sensitive topics.
 - **Incognito** threads: no flush, no index, 24 h expiry; the UI notes that provider-side logging is outside Psyche's control.

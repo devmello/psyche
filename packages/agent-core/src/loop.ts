@@ -236,6 +236,18 @@ export interface AgentLoopOptions {
    * `keepRecentTurns` 4.
    */
   contextLimits?: (threadId: string) => ContextLimits | undefined;
+  /**
+   * After an attended, owner-authored turn (#509): the owner's own words, never tool output or a
+   * non-owner's text. Runs after the turn ends and never delays or changes it.
+   */
+  onOwnerTurn?: (turn: {
+    threadId: string;
+    runId: string;
+    taskId?: string;
+    ownerText: string;
+    /** The turn read untrusted content (the owner's words are still the owner's). */
+    taint: boolean;
+  }) => Promise<void> | void;
   /** After every turn that called the model: what its last call sent (the context meter). */
   onContextUsage?: (usage: ContextUsage) => void;
   /** After a compaction: the Gateway stores the `compaction` block and audits it. */
@@ -677,6 +689,26 @@ export class PsycheAgentLoop implements AgentLoop {
       thread.activeRunId = undefined;
     }
     this.#reportContext(run);
+    // #509: what the owner said this turn, for the Gateway's learner. Owner-authored, attended
+    // turns of the owner's own threads only; never a subagent, a non-owner, or an automation.
+    if (
+      this.#o.onOwnerTurn !== undefined &&
+      run.ownerText.trim() !== "" &&
+      run.subagent === undefined &&
+      run.mode === "attended" &&
+      (outcome === "final" || outcome === "awaiting_approval" || outcome === "awaiting_input")
+    ) {
+      const turn = {
+        threadId,
+        runId,
+        ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
+        ownerText: run.ownerText,
+        taint: run.taint,
+      };
+      void Promise.resolve()
+        .then(() => this.#o.onOwnerTurn?.(turn))
+        .catch(() => undefined);
+    }
     for (const plugin of this.plugins.with("agent_end", "agentEnd")) {
       // Observers: a failing or slow plugin changes nothing.
       await withDeadline(
