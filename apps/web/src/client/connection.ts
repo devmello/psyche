@@ -229,14 +229,16 @@ export class GatewayConnection {
       void handshake
         .onFrame(frame)
         .then((step) => {
+          // Callable before anyone hears "paired": a status listener may call at once.
+          const paired = step.status?.type === "paired";
+          if (paired) this.paired = true;
           if (step.status) this.dispatch(step.status);
           if (step.send) {
             ws.send(serializeFrame(step.send));
             this.dispatch({ type: "verifying" });
           }
           if (step.done) settled = true;
-          if (step.status?.type === "paired") {
-            this.paired = true;
+          if (paired) {
             if (this.everPaired) this.opts.onResync?.();
             this.everPaired = true;
           }

@@ -58,7 +58,7 @@ PSYCHE_MODEL=ollama/qwen3.8:27b pnpm --filter @psyche/gateway start
 pnpm --filter @psyche/desktop dev
 ```
 
-For a local model, install Ollama and pull an `agent-capable` model first (`ollama pull qwen3.8:27b`), then use `PSYCHE_MODEL=ollama/qwen3.8:27b` (and `PSYCHE_OLLAMA_URL` for a non-default server). Without `PSYCHE_MODEL`, `psyched` still starts and answers each turn with "No model is configured yet". Grant the agent a folder by setting `permissions.policy` to `{"folders":[{"path":"/Users/you/Notes","mode":"rw"}]}` from a device with `operator.admin` (`psyched devices grant`); the broker applies it without a restart. Settings does not have a folder picker yet. Remaining gaps per package are in [docs/status/int-1.md](docs/status/int-1.md).
+For a local model, install Ollama and pull an `agent-capable` model first (`ollama pull qwen3.8:27b`), then use `PSYCHE_MODEL=ollama/qwen3.8:27b` (and `PSYCHE_OLLAMA_URL` for a non-default server). Without `PSYCHE_MODEL`, `psyched` still starts and answers each turn with "No model is configured yet". Grant the agent a folder from Settings → File access ("Choose a folder…" on the desktop, or a typed path on the web), or by setting `permissions.policy` to `{"folders":[{"path":"/Users/you/Notes","mode":"rw"}]}` from the CLI; either way the device needs `operator.admin` (`psyched devices grant`), and the broker applies the grant without a restart. Remaining gaps per package are in [docs/status/int-1.md](docs/status/int-1.md).
 
 ## Architecture in one picture
 

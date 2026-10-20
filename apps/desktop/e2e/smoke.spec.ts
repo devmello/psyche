@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -85,6 +85,21 @@ test.beforeAll(async () => {
       "chat.history": () => ({ messages: [], nextCursor: null }),
       "chat.send": () => ({ messageId: "01JBXY6Q8Z0000000000000009", runId: null, queued: false }),
       "nodes.list": () => ({ nodes: [] }),
+      // Onboarding is done on this Gateway (the composed app gates on this key).
+      "settings.get": () => ({
+        settings: {
+          "ui.onboarding.completedAt": "2026-10-19T09:00:00.000Z",
+          "appearance.zoom": 125,
+        },
+        stateVersion: 1,
+      }),
+      "settings.set": (params) => {
+        const p = params as { key: string; value: unknown };
+        return {
+          entry: { key: p.key, value: p.value, updatedAt: "2026-10-19T10:00:00.000Z" },
+          stateVersion: 2,
+        };
+      },
     },
   }).start();
   fixture = await startFixture();
@@ -266,4 +281,54 @@ test("downloads land in quarantine and show a toast", async () => {
   await expect(page.getByTestId("toasts")).toContainText(
     "Downloaded invoice.txt to Library → Downloads (quarantined)",
   );
+});
+
+test("Settings shares a folder through the native picker as a permissions.policy grant", async () => {
+  const picked = join(dir, "Taxes");
+  mkdirSync(picked);
+  // Playwright cannot drive the OS folder chooser: stub it in the main process.
+  await app.evaluate(({ dialog }, folder) => {
+    dialog.showOpenDialog = (async () => ({
+      canceled: false,
+      filePaths: [folder],
+    })) as typeof dialog.showOpenDialog;
+  }, picked);
+  await page.getByTestId("rail").getByRole("button", { name: "Settings" }).click();
+  await page
+    .getByRole("navigation", { name: "Settings sections" })
+    .getByRole("button", { name: "File access" })
+    .click();
+  await page.getByRole("button", { name: "Choose a folder…" }).click();
+  const call = await gw.waitForCall("settings.set", (p) =>
+    JSON.stringify(p).includes('"permissions.policy"'),
+  );
+  // The grant names the real path (the broker matches real paths), read only by default.
+  expect(call.params).toEqual({
+    key: "permissions.policy",
+    value: { folders: [{ path: realpathSync(picked), mode: "ro" }] },
+  });
+  await expect(page.getByTestId("settings-files")).toContainText(realpathSync(picked));
+});
+
+test("the stored appearance.zoom is applied on launch and View → Actual Size stores 100", async () => {
+  const factor = () =>
+    app.evaluate(({ BaseWindow }) => {
+      const win = BaseWindow.getAllWindows().find((w) => w.getTitle() === "Psyche");
+      const view = win?.contentView.children[0] as { webContents?: { getZoomFactor(): number } };
+      return view?.webContents?.getZoomFactor() ?? -1;
+    });
+  await expect.poll(factor).toBeCloseTo(1.25, 2);
+  await app.evaluate(({ Menu }) => {
+    Menu.getApplicationMenu()?.getMenuItemById("zoom-reset")?.click();
+  });
+  const call = await gw.waitForCall("settings.set", (p) =>
+    JSON.stringify(p).includes('"appearance.zoom"'),
+  );
+  expect(call.params).toEqual({ key: "appearance.zoom", value: 100 });
+  await expect.poll(factor).toBeCloseTo(1, 2);
+  // Another device changing the setting reaches this renderer through settings.changed.
+  gw.emit("settings.changed", {
+    entries: [{ key: "appearance.zoom", value: 150, updatedAt: "2026-10-19T10:00:00.000Z" }],
+  });
+  await expect.poll(factor).toBeCloseTo(1.5, 2);
 });
