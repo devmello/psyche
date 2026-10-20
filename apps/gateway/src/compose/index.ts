@@ -207,6 +207,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // wherever it would be written.
   const redactor = new SecretRedactor();
   gwOptions.logger = maskingLogger(gwOptions.logger ?? createLogger(), redactor);
+  // A database the caller passes in stays theirs to close; one compose opens, `stop()` closes.
+  const ownsDb = gwOptions.db === undefined;
   const db =
     gwOptions.db ?? openDb(config.dbPath, { now: () => new Date(clock.now()).toISOString() });
 
@@ -514,6 +516,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       memory.unwatch();
       unsubscribePolicy();
       await gateway.stop(reason);
+      if (ownsDb) db.close();
     },
   };
 }
