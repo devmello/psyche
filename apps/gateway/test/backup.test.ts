@@ -20,6 +20,8 @@ let composed: ComposedGateway | null = null;
 let home = "";
 const clients: TestClient[] = [];
 const PASS = "correct horse battery staple";
+/** Passphrase archives use age's default scrypt cost on purpose: slow on CI runners. */
+const SCRYPT_TIMEOUT = 60_000;
 
 afterEach(async () => {
   for (const c of clients.splice(0)) c.close();
@@ -52,85 +54,97 @@ interface Info {
 }
 
 describe("backup.* on the running Gateway", () => {
-  it("creates a consistent archive without stopping, then lists, verifies and deletes it", async () => {
-    const c = await setup();
-    const admin = await adminClient(c.gateway);
-    clients.push(admin);
-    // Something to find in the snapshot: a setting written through the API.
-    await admin.call("settings.set", { key: "appearance.theme", value: "dark" }, ik());
+  it(
+    "creates a consistent archive without stopping, then lists, verifies and deletes it",
+    async () => {
+      const c = await setup();
+      const admin = await adminClient(c.gateway);
+      clients.push(admin);
+      // Something to find in the snapshot: a setting written through the API.
+      await admin.call("settings.set", { key: "appearance.theme", value: "dark" }, ik());
 
-    const created = await admin.call<{ backup: Info; files: number }>(
-      "backup.create",
-      { passphrase: PASS },
-      ik(),
-    );
-    expect(created.backup).toMatchObject({ encrypted: true, verifiedAt: null });
-    expect(created.backup.file).toMatch(/^psyche-.*\.tar\.gz\.age$/);
-    expect(created.files).toBeGreaterThanOrEqual(2);
-    // The Gateway is still serving.
-    expect(await admin.call("settings.get", { keys: ["appearance.theme"] })).toMatchObject({
-      settings: { "appearance.theme": "dark" },
-    });
+      const created = await admin.call<{ backup: Info; files: number }>(
+        "backup.create",
+        { passphrase: PASS },
+        ik(),
+      );
+      expect(created.backup).toMatchObject({ encrypted: true, verifiedAt: null });
+      expect(created.backup.file).toMatch(/^psyche-.*\.tar\.gz\.age$/);
+      expect(created.files).toBeGreaterThanOrEqual(2);
+      // The Gateway is still serving.
+      expect(await admin.call("settings.get", { keys: ["appearance.theme"] })).toMatchObject({
+        settings: { "appearance.theme": "dark" },
+      });
 
-    // The archived database is a complete SQLite file holding the setting.
-    const archive = join(home, "backups", created.backup.file);
-    const { dir, problems } = await extractAndVerify(
-      archive,
-      { kind: "passphrase", passphrase: PASS },
-      home,
-    );
-    expect(problems).toEqual([]);
-    const db = new DatabaseSync(join(dir, "state", "psyche.sqlite"), { readOnly: true });
-    expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
-    db.close();
-    rmSync(dir, { recursive: true, force: true });
+      // The archived database is a complete SQLite file holding the setting.
+      const archive = join(home, "backups", created.backup.file);
+      const { dir, problems } = await extractAndVerify(
+        archive,
+        { kind: "passphrase", passphrase: PASS },
+        home,
+      );
+      expect(problems).toEqual([]);
+      const db = new DatabaseSync(join(dir, "state", "psyche.sqlite"), { readOnly: true });
+      expect(db.prepare("PRAGMA integrity_check").get()).toEqual({ integrity_check: "ok" });
+      db.close();
+      rmSync(dir, { recursive: true, force: true });
 
-    const list = await admin.call<{ backups: Info[]; dir: string }>("backup.list", {});
-    expect(list.dir).toBe(join(home, "backups"));
-    expect(list.backups.map((b) => b.file)).toEqual([created.backup.file]);
+      const list = await admin.call<{ backups: Info[]; dir: string }>("backup.list", {});
+      expect(list.dir).toBe(join(home, "backups"));
+      expect(list.backups.map((b) => b.file)).toEqual([created.backup.file]);
 
-    const bad = await admin.request("backup.verify", {
-      file: created.backup.file,
-      passphrase: "wrong passphrase",
-    });
-    expect(bad).toMatchObject({ ok: false, error: { code: "invalid_params" } });
-    const verified = await admin.call<{ ok: boolean; problems: string[]; backup: Info }>(
-      "backup.verify",
-      {
+      const bad = await admin.request("backup.verify", {
         file: created.backup.file,
-        passphrase: PASS,
-      },
-    );
-    expect(verified).toMatchObject({ ok: true, problems: [] });
-    expect(verified.backup.verifiedAt).not.toBeNull();
+        passphrase: "wrong passphrase",
+      });
+      expect(bad).toMatchObject({ ok: false, error: { code: "invalid_params" } });
+      const verified = await admin.call<{ ok: boolean; problems: string[]; backup: Info }>(
+        "backup.verify",
+        {
+          file: created.backup.file,
+          passphrase: PASS,
+        },
+      );
+      expect(verified).toMatchObject({ ok: true, problems: [] });
+      expect(verified.backup.verifiedAt).not.toBeNull();
 
-    expect(await admin.call("backup.delete", { file: created.backup.file }, ik())).toEqual({
-      ok: true,
-    });
-    expect((await admin.call<{ backups: Info[] }>("backup.list", {})).backups).toEqual([]);
-  });
+      expect(await admin.call("backup.delete", { file: created.backup.file }, ik())).toEqual({
+        ok: true,
+      });
+      expect((await admin.call<{ backups: Info[] }>("backup.list", {})).backups).toEqual([]);
+    },
+    SCRYPT_TIMEOUT,
+  );
 
-  it("refuses to create without an encryption choice, and allows an explicit unencrypted archive", async () => {
-    const c = await setup();
-    const admin = await adminClient(c.gateway);
-    clients.push(admin);
-    expect(await admin.request("backup.create", {}, ik())).toMatchObject({
-      ok: false,
-      error: { code: "invalid_params" },
-    });
-    const plain = await admin.call<{ backup: Info }>("backup.create", { unencrypted: true }, ik());
-    expect(plain.backup).toMatchObject({ encrypted: false });
-    expect(plain.backup.file).toMatch(/\.tar\.gz$/);
-    expect(await admin.call("backup.verify", { file: plain.backup.file })).toMatchObject({
-      ok: true,
-    });
-    // An encrypted archive needs its passphrase.
-    const enc = await admin.call<{ backup: Info }>("backup.create", { passphrase: PASS }, ik());
-    expect(await admin.request("backup.verify", { file: enc.backup.file })).toMatchObject({
-      ok: false,
-      error: { code: "invalid_params" },
-    });
-  });
+  it(
+    "refuses to create without an encryption choice, and allows an explicit unencrypted archive",
+    async () => {
+      const c = await setup();
+      const admin = await adminClient(c.gateway);
+      clients.push(admin);
+      expect(await admin.request("backup.create", {}, ik())).toMatchObject({
+        ok: false,
+        error: { code: "invalid_params" },
+      });
+      const plain = await admin.call<{ backup: Info }>(
+        "backup.create",
+        { unencrypted: true },
+        ik(),
+      );
+      expect(plain.backup).toMatchObject({ encrypted: false });
+      expect(plain.backup.file).toMatch(/\.tar\.gz$/);
+      expect(await admin.call("backup.verify", { file: plain.backup.file })).toMatchObject({
+        ok: true,
+      });
+      // An encrypted archive needs its passphrase.
+      const enc = await admin.call<{ backup: Info }>("backup.create", { passphrase: PASS }, ik());
+      expect(await admin.request("backup.verify", { file: enc.backup.file })).toMatchObject({
+        ok: false,
+        error: { code: "invalid_params" },
+      });
+    },
+    SCRYPT_TIMEOUT,
+  );
 
   it("addresses archives by file name only", async () => {
     const c = await setup();
