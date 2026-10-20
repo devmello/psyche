@@ -18,6 +18,16 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (context usage, limits, compaction)
+
+For S02 (the loop's accounting and auto-compaction), S01 (the handlers), S11 (the context meter, settings and compaction markers).
+
+- New schemas (`schemas/context.ts`): `ContextBreakdown`, `ContextLimits`, `EffectiveContextLimits`, `ContextUsage`, `CompactionSummary`, `CompactionResult`.
+- New block `CompactionBlock` (`type: "compaction"`) at the end of the `Block` union.
+- New methods: `threads.contextUsage` (read), `threads.setContextLimits` (write), `threads.compact` (write, side-effecting).
+- New event `thread.context.updated {usage}`.
+- `apps/gateway` `blockToMarkdown` handles the new block (exhaustive switch).
+
 ### v1 additive — 2026-10-20 (L6: Gateway methods for snapshots and resets)
 
 For S01 (the Gateway serves them over S14's helper capabilities) and S11 (Settings → VM mode). Builds on the L6 shapes (`VmSnapshot`, `VmSnapshotResult`, `VmRestoreResult`).

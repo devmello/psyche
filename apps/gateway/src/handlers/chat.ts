@@ -73,6 +73,8 @@ function blockToMarkdown(block: Block): string {
       return `[plan ${block.planId}]`;
     case "task":
       return `[task ${block.taskId}]`;
+    case "compaction":
+      return `[compacted ${block.replaced.turns} earlier turns: ${block.summary.decisions.length} decisions, ${block.summary.openTasks.length} open tasks]`;
     case "related_threads":
       return `[from your other chats: ${block.items.map((i) => i.title || i.threadId).join(", ")}]`;
   }
