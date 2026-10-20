@@ -1,5 +1,5 @@
 import type { CredentialBroker, FillElement, ResolvedSecret } from "@psyche/protocol";
-import { canonicalOrigin } from "../binding.ts";
+import { canonicalOrigin, isFillableOrigin } from "../binding.ts";
 import { fail, reasonOf } from "../errors.ts";
 
 /** The CDP calls this routine makes; S08's `webContents.debugger` bridge satisfies it. */
@@ -104,6 +104,10 @@ export async function fillFocused(
   const origin = canonicalOrigin(frame?.securityOrigin ?? frame?.url ?? "");
   if (origin === null || frame?.id === undefined) {
     return { ok: false, secureField: false, origin: null, reason: "opaque_origin" };
+  }
+  if (!isFillableOrigin(origin)) {
+    // #292: never type a credential into a plain-http page outside a loopback dev server.
+    return { ok: false, secureField: false, origin, reason: "insecure_origin" };
   }
   const world = (await cdp.send("Page.createIsolatedWorld", {
     frameId: frame.id,
