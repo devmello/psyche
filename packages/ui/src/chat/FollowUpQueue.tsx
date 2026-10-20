@@ -7,12 +7,9 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
 import type { QueuedFollowUp } from "../data/state.ts";
+import { t } from "../i18n/core.ts";
 
-const MODE_LABEL: Record<QueuedFollowUp["mode"], string> = {
-  followUp: "after this turn",
-  steer: "steer",
-  interrupt: "interrupt",
-};
+const modeLabel = (mode: QueuedFollowUp["mode"]): string => t(`chat.queue.mode.${mode}`);
 
 /**
  * Strip above the composer with the queued messages, their mode and remove (UI design §3.2). The
@@ -34,45 +31,50 @@ export function FollowUpQueue({
 }): ReactElement | null {
   if (items.length === 0) return null;
   return (
-    <ul className="flex flex-wrap gap-1.5 px-1 pb-1.5" aria-label="Queued messages">
+    <ul className="flex flex-wrap gap-1.5 px-1 pb-1.5" aria-label={t("chat.queue.list")}>
       {items.map((q) => (
         <li
           key={q.id}
-          className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gray-6 bg-gray-2 py-0.5 pr-1 pl-2.5 text-small"
+          className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gray-6 bg-gray-2 py-0.5 ps-2.5 pe-1 text-small"
         >
           {onSendNow && !q.failed ? (
             <DropdownMenu>
               <DropdownMenuTrigger
                 className="inline-flex shrink-0 items-center gap-0.5 rounded-full text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                aria-label={`Queued ${MODE_LABEL[q.mode]}. Change when "${q.content}" is sent`}
+                aria-label={t("chat.queue.changeWhen", {
+                  mode: modeLabel(q.mode),
+                  content: q.content,
+                })}
               >
-                Queued ({MODE_LABEL[q.mode]})
+                {t("chat.queue.queued", { mode: modeLabel(q.mode) })}
                 <ChevronDown className="size-3.5" aria-hidden="true" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 <DropdownMenuItem onClick={() => onSendNow(q, "steer")}>
-                  Send now, to steer
+                  {t("chat.queue.sendNowSteer")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onSendNow(q, "interrupt")}>
-                  Send now, interrupting
+                  {t("chat.queue.sendNowInterrupt")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <span className="shrink-0 text-muted-foreground">Queued ({MODE_LABEL[q.mode]}):</span>
+            <span className="shrink-0 text-muted-foreground">
+              {t("chat.queue.queuedPrefix", { mode: modeLabel(q.mode) })}
+            </span>
           )}
-          <span className="truncate">"{q.content}"</span>
+          <span className="truncate">{t("chat.quote.text", { text: q.content })}</span>
           {q.failed ? (
             <>
-              <span className="text-danger-text">not sent</span>
+              <span className="text-danger-text">{t("chat.queue.notSent")}</span>
               {onRetry ? (
                 <button
                   type="button"
                   onClick={() => onRetry(q.id)}
                   className="rounded px-1 text-accent-11 hover:bg-gray-4"
-                  aria-label={`Retry sending "${q.content}"`}
+                  aria-label={t("chat.queue.retry", { content: q.content })}
                 >
-                  Retry
+                  {t("common.retry")}
                 </button>
               ) : null}
             </>
@@ -81,7 +83,7 @@ export function FollowUpQueue({
             type="button"
             onClick={() => onRemove(q.id)}
             className="inline-flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-gray-4 hover:text-foreground"
-            aria-label={`Remove queued message "${q.content}"`}
+            aria-label={t("chat.queue.remove", { content: q.content })}
           >
             <X className="size-3.5" aria-hidden="true" />
           </button>

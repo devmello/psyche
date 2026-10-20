@@ -7,10 +7,9 @@ import {
 import type { Message, QueueMode } from "@psyche/protocol";
 import { X } from "lucide-react";
 import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
-import { MODE_LABEL } from "../agent/AgentHeader.tsx";
 import { type DisclosureLevel, DisclosureProvider } from "../blocks/disclosure.tsx";
 import { useCall, useConnection, useStoreState, useThread, useThreads } from "../data/index.ts";
-import { activeI18n, t } from "../i18n/core.ts";
+import { t } from "../i18n/core.ts";
 import { describeError } from "../i18n/errors.ts";
 import { cn } from "../lib/utils.ts";
 import { usePersona, useSlots } from "../slots.tsx";
@@ -102,7 +101,7 @@ function NoticeBar({
       <button
         type="button"
         onClick={onDismiss}
-        aria-label="Dismiss"
+        aria-label={t("common.dismiss")}
         className="inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-gray-4"
       >
         <X className="size-3.5" aria-hidden="true" />
@@ -199,7 +198,10 @@ export function ChatThread({
         } catch (err) {
           setNotice({
             kind: "error",
-            text: t("chat.command.failed", { name: parsed.name, reason: describeError(err) }),
+            text: t("chat.thread.commandFailed", {
+              name: parsed.name,
+              reason: describeError(err),
+            }),
           });
         }
         return;
@@ -231,8 +233,8 @@ export function ChatThread({
           kind: "error",
           text:
             codeOf(err) === "unknown_method"
-              ? t("chat.command.newerGateway")
-              : t("chat.command.didntWork", { reason: describeError(err) }),
+              ? t("chat.thread.needsNewerGateway")
+              : t("chat.thread.failed", { reason: describeError(err) }),
         });
         return false;
       }
@@ -242,17 +244,17 @@ export function ChatThread({
         if (arg === "") {
           setNotice({
             kind: "info",
-            text: t("chat.command.modelCurrent", {
-              model: thread?.modelRef ?? t("chat.command.defaultModel"),
-            }),
+            text: thread?.modelRef
+              ? t("chat.thread.modelCurrent", { model: thread.modelRef })
+              : t("chat.thread.modelCurrentDefault"),
           });
           return;
         }
-        await updateThread({ modelRef: arg }, t("chat.command.modelSet", { model: arg }));
+        await updateThread({ modelRef: arg }, t("chat.thread.modelSet", { model: arg }));
         return;
       }
       case "plan": {
-        const ok = await updateThread({ permissionMode: "plan" }, t("chat.command.planMode"));
+        const ok = await updateThread({ permissionMode: "plan" }, t("chat.thread.planMode"));
         if (ok && arg !== "") await view.send(arg);
         return;
       }
@@ -289,15 +291,12 @@ export function ChatThread({
       }
       case "schedule": {
         // The agent turns the sentence into a schedule with its `schedule` tool (an approval).
-        // Sent to the agent, which reads English instructions; not UI text.
-        await view.send(
-          `/schedule ${arg}\n\nCreate this as an automation with your schedule tool, then tell me what you set up.`,
-        );
+        await view.send(t("chat.thread.schedulePrompt", { request: arg }));
         return;
       }
       case "remember": {
         const res = await call("memory.remember", { text: arg });
-        setNotice({ kind: "ok", text: t("chat.command.noted", { path: res.path }) });
+        setNotice({ kind: "ok", text: t("chat.thread.remembered", { path: res.path }) });
         return;
       }
       case "forget": {
@@ -305,28 +304,28 @@ export function ChatThread({
         const claims = preview.retractedClaimIds.length;
         const chunks = preview.removedChunkIds.length;
         if (claims === 0 && chunks === 0 && preview.files.length === 0) {
-          setNotice({ kind: "info", text: t("chat.command.nothingMatches", { subject: arg }) });
+          setNotice({ kind: "info", text: t("chat.thread.forgetNothing", { subject: arg }) });
           return;
         }
         setNotice({
           kind: "info",
-          text: t("chat.command.forgetPreview", {
+          text: t("chat.thread.forgetPreview", {
             subject: arg,
             claims,
             chunks,
-            files: activeI18n().list(preview.files),
             hasFiles: preview.files.length > 0,
+            files: preview.files.join(", "),
           }),
           confirm: {
-            label: t("chat.command.forget"),
+            label: t("chat.thread.forgetConfirm"),
             run: async () => {
               try {
                 await call("memory.forget", { subject: arg });
-                setNotice({ kind: "ok", text: t("chat.command.forgot", { subject: arg }) });
+                setNotice({ kind: "ok", text: t("chat.thread.forgot", { subject: arg }) });
               } catch (err) {
                 setNotice({
                   kind: "error",
-                  text: t("chat.command.forgetFailed", { reason: describeError(err) }),
+                  text: t("chat.thread.forgetFailed", { reason: describeError(err) }),
                 });
               }
             },
@@ -338,16 +337,13 @@ export function ChatThread({
         const running = Object.values(tasks).filter((x) => x.status === "running").length;
         setNotice({
           kind: "info",
-          text: [
-            t("chat.command.status.model", {
-              model: thread?.modelRef ?? t("chat.command.status.default"),
-            }),
-            t("chat.command.status.mode", {
-              mode: MODE_LABEL[thread?.permissionMode ?? "balanced"],
-            }),
-            t("chat.command.status.chat", { state: view.running ? "working" : "idle" }),
-            t("chat.command.status.tasks", { n: running }),
-          ].join("\n"),
+          text: t("chat.thread.status", {
+            model: thread?.modelRef ?? t("chat.thread.statusDefaultModel"),
+            // The permission mode is a protocol value, shown as is.
+            mode: thread?.permissionMode ?? "balanced",
+            running: view.running,
+            tasks: running,
+          }),
         });
         return;
       }
@@ -358,17 +354,19 @@ export function ChatThread({
         download(`${base}.${json ? "json" : "md"}`, res.mime, res.content);
         setNotice({
           kind: "ok",
-          text: t("chat.command.exported", { format: json ? "JSON" : "Markdown" }),
+          text: t("chat.thread.exported", {
+            format: json ? t("chat.export.json") : t("chat.export.markdown"),
+          }),
         });
         return;
       }
       case "stop": {
         if (!view.running) {
-          setNotice({ kind: "info", text: t("chat.command.nothingRunning") });
+          setNotice({ kind: "info", text: t("chat.thread.nothingRunning") });
           return;
         }
         await view.cancel();
-        setNotice({ kind: "ok", text: t("chat.command.stopped") });
+        setNotice({ kind: "ok", text: t("chat.thread.stopped") });
         return;
       }
     }
@@ -421,7 +419,7 @@ export function ChatThread({
           {offline ? <OfflineBanner state={connection} /> : null}
           <ThreadPrimitive.Viewport
             className="flex-1 overflow-y-auto px-4 py-3"
-            aria-label="Conversation"
+            aria-label={t("chat.thread.conversation")}
             role="log"
           >
             {/*
@@ -441,7 +439,7 @@ export function ChatThread({
                   className="py-6 text-center text-sm text-muted-foreground"
                   data-testid="chat-empty"
                 >
-                  Nothing here yet. Ask {persona.name} something below to start.
+                  {t("chat.thread.empty", { name: persona.name })}
                 </p>
               ) : null}
               <ThreadPrimitive.Messages>

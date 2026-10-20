@@ -1,6 +1,7 @@
 import { sanitizeDisplay } from "@psyche/permissions/cards";
 import type { ReactElement } from "react";
 import { Button } from "../components/ui/button.tsx";
+import { t } from "../i18n/core.ts";
 import type { WrapUpBlock } from "./types.ts";
 
 /**
@@ -24,13 +25,13 @@ export function WrapUpBox({
   const actions = (block.actions ?? []).slice(0, 2);
   return (
     <article
-      aria-label="Wrap-up"
+      aria-label={t("blocks.wrapUp.label")}
       className="my-2 rounded-lg border border-gray-6 bg-gray-2 p-3 psy-enter"
     >
       <p className="text-sm text-foreground">{recap}</p>
       {ask ? (
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <p className="mr-auto text-sm font-medium">{ask}</p>
+          <p className="me-auto text-sm font-medium">{ask}</p>
           {actions.map((a, i) => (
             <Button
               key={a.label}

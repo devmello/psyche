@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
 import { Button } from "../components/ui/button.tsx";
+import { activeI18n, t } from "../i18n/core.ts";
 import { formatDate } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
 
@@ -51,18 +52,7 @@ const ICONS: Record<ArtifactPreviewKind, typeof FileText> = {
   dashboard: LayoutDashboard,
 };
 
-const KIND_LABEL: Record<ArtifactPreviewKind, string> = {
-  email: "Email",
-  file: "File",
-  browser: "Web page",
-  pdf: "PDF",
-  finance: "Finance",
-  itinerary: "Itinerary",
-  sheet: "Sheet",
-  html: "Web page",
-  markdown: "Document",
-  dashboard: "Dashboard",
-};
+const kindLabel = (kind: ArtifactPreviewKind): string => t(`blocks.artifact.kind.${kind}`);
 
 /**
  * The thumbnail when the shell's viewers give none: a small page drawn for the artifact's kind
@@ -142,11 +132,11 @@ export function ArtifactCard({
   const kind = previewKindOf(artifact, preview);
   return (
     <article
-      aria-label={`Artifact: ${artifact.title}`}
+      aria-label={t("blocks.artifact.label", { title: artifact.title })}
       className="my-2 flex max-w-md overflow-hidden rounded-lg border border-gray-6 bg-gray-2 psy-enter"
     >
       <div
-        className="relative w-28 shrink-0 overflow-hidden border-r border-gray-6 bg-gray-3"
+        className="relative w-28 shrink-0 overflow-hidden border-e border-gray-6 bg-gray-3"
         aria-hidden="true"
       >
         {renderPreview?.({ artifact, kind }) ?? <Thumbnail kind={kind} />}
@@ -154,17 +144,21 @@ export function ArtifactCard({
       <div className="flex min-w-0 flex-1 flex-col gap-1 p-3">
         <h3 className="truncate text-h3">{artifact.title}</h3>
         <p className="text-caption text-muted-foreground">
-          {KIND_LABEL[kind]} · v{artifact.version} · {formatDate(artifact.updatedAt)}
+          {t("blocks.artifact.meta", {
+            kind: kindLabel(kind),
+            version: artifact.version,
+            date: formatDate(artifact.updatedAt),
+          })}
         </p>
         <div className="mt-1 flex gap-2">
           {onOpen ? (
             <Button size="sm" variant="outline" onClick={() => onOpen(artifact)}>
-              Open
+              {t("blocks.common.open")}
             </Button>
           ) : null}
           {onSave ? (
             <Button size="sm" variant="ghost" onClick={() => onSave(artifact)}>
-              Save to Library
+              {t("blocks.artifact.save")}
             </Button>
           ) : null}
         </div>
@@ -180,9 +174,12 @@ function iconForMime(mime: string) {
 }
 
 export function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  const { number } = activeI18n();
+  const oneDecimal = { minimumFractionDigits: 1, maximumFractionDigits: 1 };
+  if (n < 1024) return t("blocks.artifact.bytes", { size: number(n) });
+  if (n < 1024 * 1024)
+    return t("blocks.artifact.kilobytes", { size: number(n / 1024, oneDecimal) });
+  return t("blocks.artifact.megabytes", { size: number(n / 1024 / 1024, oneDecimal) });
 }
 
 /** A Library file in the transcript (file block). Downloads stay quarantined until opened. */
@@ -198,7 +195,7 @@ export function FileCard({
   const Icon = iconForMime(item.mime);
   return (
     <article
-      aria-label={`File: ${item.name}`}
+      aria-label={t("blocks.artifact.fileLabel", { name: item.name })}
       className="my-2 flex max-w-md items-center gap-3 rounded-lg border border-gray-6 bg-gray-2 p-2 psy-enter"
     >
       <div
@@ -213,14 +210,15 @@ export function FileCard({
           {formatBytes(item.size)} · {item.origin}
           {item.quarantined ? (
             <span className="inline-flex items-center gap-0.5 text-approval-text">
-              <ShieldAlert className="size-3" aria-hidden="true" /> quarantined
+              <ShieldAlert className="size-3" aria-hidden="true" />{" "}
+              {t("blocks.artifact.quarantined")}
             </span>
           ) : null}
         </p>
       </div>
       {onOpen ? (
         <Button size="sm" variant="outline" onClick={() => onOpen(item)}>
-          Open
+          {t("blocks.common.open")}
         </Button>
       ) : null}
     </article>

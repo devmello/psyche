@@ -2,13 +2,10 @@ import type { ChecklistItem, PlanStep } from "@psyche/protocol";
 import { Check, Circle, CircleDashed, X } from "lucide-react";
 import type { ReactElement } from "react";
 import { Badge } from "../components/ui/badge.tsx";
+import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 
-const ITEM_LABEL: Record<ChecklistItem["status"], string> = {
-  completed: "done",
-  in_progress: "in progress",
-  pending: "to do",
-};
+const itemLabel = (status: ChecklistItem["status"]): string => t(`blocks.checklist.item.${status}`);
 
 /**
  * The pinned checklist from `update_plan` (UI design §3.2): one item in progress, distinct from
@@ -24,7 +21,7 @@ export function Checklist({
   const done = items.filter((i) => i.status === "completed").length;
   return (
     <ul
-      aria-label={`Checklist, ${done} of ${items.length} done`}
+      aria-label={t("blocks.checklist.label", { done, total: items.length })}
       className={cn(
         "my-1 flex flex-wrap gap-x-4 gap-y-1 text-sm",
         pinned && "rounded-lg border border-gray-5 bg-gray-2 px-3 py-2",
@@ -55,7 +52,9 @@ export function Checklist({
           >
             {item.text}
           </span>
-          <span className="sr-only">({ITEM_LABEL[item.status]})</span>
+          <span className="sr-only">
+            {t("blocks.checklist.itemStatus", { status: itemLabel(item.status) })}
+          </span>
         </li>
       ))}
     </ul>
@@ -84,25 +83,23 @@ export function PlanCard({
 }): ReactElement {
   return (
     <article
-      aria-label={`Plan: ${title}`}
+      aria-label={t("blocks.plan.label", { title })}
       className="my-2 rounded-lg border border-gray-6 bg-gray-2 p-3 psy-enter"
     >
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">Plan · {title}</h3>
+        <h3 className="text-sm font-semibold">{t("blocks.plan.title", { title })}</h3>
         {approvedAt === null ? (
-          <Badge variant="approval">Not approved yet</Badge>
+          <Badge variant="approval">{t("blocks.plan.notApproved")}</Badge>
         ) : (
           <Badge variant="success">
-            <Check aria-hidden="true" /> Approved
+            <Check aria-hidden="true" /> {t("blocks.plan.approved")}
           </Badge>
         )}
       </div>
       <ol className="flex flex-col gap-1 text-sm">
         {steps.map((s, i) => (
           <li key={s.id} className="flex items-start gap-2">
-            <span className="w-4 text-right text-xs text-muted-foreground tabular-nums">
-              {i + 1}
-            </span>
+            <span className="w-4 text-end text-xs text-muted-foreground tabular-nums">{i + 1}</span>
             {STEP_ICON[s.status]}
             <span className={cn(s.status === "skipped" && "text-muted-foreground line-through")}>
               {s.title}
@@ -117,7 +114,7 @@ export function PlanCard({
           onClick={onOpen}
           className="mt-2 text-sm text-accent-11 hover:underline"
         >
-          Open in Plan pane
+          {t("blocks.plan.open")}
         </button>
       ) : null}
     </article>
