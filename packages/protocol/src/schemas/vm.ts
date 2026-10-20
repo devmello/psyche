@@ -79,6 +79,41 @@ export const VmTransfer = Type.Object(
 );
 export type VmTransfer = Static<typeof VmTransfer>;
 
+/**
+ * L6: a point-in-time copy of a stopped (or saved) guest: disk, auxiliary storage, the helper's
+ * state record and, when the guest was saved, its machine state. Taken with APFS clones (instant,
+ * copy-on-write; blocks are shared until either side changes). The guest's identity
+ * (HardwareModel, MachineIdentifier, MAC address) is never snapshotted: restoring keeps the same Mac.
+ */
+export const VmSnapshotKind = StringEnum(["base", "manual", "task"], { $id: "VmSnapshotKind" });
+export type VmSnapshotKind = Static<typeof VmSnapshotKind>;
+
+/** `apfs-clone` today; `overlay` reserved for DiskImageKit overlays (macOS 27 hosts). */
+export const VmSnapshotMethod = StringEnum(["apfs-clone", "overlay"], { $id: "VmSnapshotMethod" });
+export type VmSnapshotMethod = Static<typeof VmSnapshotMethod>;
+
+export const VmSnapshot = Type.Object(
+  {
+    id: Type.String({ pattern: "^[a-z0-9][a-z0-9-]{0,63}$" }),
+    label: Type.String({ maxLength: 120 }),
+    /** `base`: the "fresh Mac" `vm.reset` returns to (at most one per guest); `task`: taken around a Task, pruned automatically. */
+    kind: VmSnapshotKind,
+    taskId: Type.Optional(Type.String()),
+    createdAt: IsoDateTime,
+    guestOS: Nullable(Type.String()),
+    bytes: Type.Integer({
+      minimum: 0,
+      description: "Allocated size; clones share unchanged blocks with the guest",
+    }),
+    savedState: Type.Boolean({ description: "Includes a machine state (restores to saved)" }),
+    provisioned: Type.Boolean(),
+    psycheInstalled: Type.Boolean(),
+    method: VmSnapshotMethod,
+  },
+  { $id: "VmSnapshot" },
+);
+export type VmSnapshot = Static<typeof VmSnapshot>;
+
 export const VmGuest = Type.Object(
   {
     name: Type.String({ pattern: "^[a-z0-9][a-z0-9-]{0,31}$" }),
@@ -114,6 +149,9 @@ export const VmGuest = Type.Object(
       Type.Boolean({ description: "A machine-state file exists (warm start)" }),
     ),
     transfers: Type.Optional(Type.Array(VmTransfer)),
+    // L6 additions (optional).
+    snapshots: Type.Optional(Type.Array(VmSnapshot, { description: "Newest first" })),
+    baseSnapshot: Type.Optional(Type.String({ description: "Id of the `base` snapshot, if any" })),
   },
   { $id: "VmGuest" },
 );
@@ -169,6 +207,9 @@ export const VmProgressEvent = Type.Object(
       "vm.state",
       "vm.psyche_install",
       "vm.permissions",
+      // L6
+      "vm.snapshot",
+      "vm.reset",
     ]),
     phase: Type.String({ description: "started | progress | finished, or a VmPhase for vm.state" }),
     fraction: Type.Optional(Type.Number({ minimum: 0, maximum: 1 })),
@@ -218,6 +259,64 @@ export const VmCopyOutParams = Type.Object(
 export type VmCopyOutParams = Static<typeof VmCopyOutParams>;
 
 /**
+ * `vm.snapshot`: the guest must be stopped, saved or installed. `kind: "base"` makes it the reset
+ * point (the previous base becomes `manual`). Snapshots per guest: at most 10 `manual`, and the
+ * newest 3 `task` snapshots are kept.
+ */
+export const VmSnapshotParams = Type.Object(
+  {
+    name: Type.Optional(Type.String()),
+    label: Type.Optional(Type.String({ maxLength: 120 })),
+    kind: Type.Optional(VmSnapshotKind),
+    taskId: Type.Optional(Type.String()),
+  },
+  { $id: "VmSnapshotParams" },
+);
+export type VmSnapshotParams = Static<typeof VmSnapshotParams>;
+
+/** `vm.snapshot` result. */
+export const VmSnapshotResult = Type.Object(
+  { snapshot: VmSnapshot, guest: VmGuest },
+  { $id: "VmSnapshotResult" },
+);
+export type VmSnapshotResult = Static<typeof VmSnapshotResult>;
+
+/**
+ * `vm.restore` (a named snapshot) and `vm.reset` (the base snapshot, "fresh Mac"): the guest must
+ * not be active. The current disk is discarded (destructive); the snapshot is kept. A restored
+ * guest is `stopped`, or `saved` when the snapshot has a machine state.
+ */
+export const VmRestoreParams = Type.Object(
+  { name: Type.Optional(Type.String()), snapshot: Type.String({ minLength: 1 }) },
+  { $id: "VmRestoreParams" },
+);
+export type VmRestoreParams = Static<typeof VmRestoreParams>;
+
+export const VmResetParams = Type.Object(
+  { name: Type.Optional(Type.String()) },
+  { $id: "VmResetParams" },
+);
+export type VmResetParams = Static<typeof VmResetParams>;
+
+/** `vm.restore` / `vm.reset` result. */
+export const VmRestoreResult = Type.Object(
+  {
+    guest: VmGuest,
+    snapshot: Type.String(),
+    durationMs: Type.Integer({ minimum: 0 }),
+  },
+  { $id: "VmRestoreResult" },
+);
+export type VmRestoreResult = Static<typeof VmRestoreResult>;
+
+/** `vm.snapshot_delete`. Deleting the base leaves the guest without a reset point. */
+export const VmSnapshotDeleteParams = Type.Object(
+  { name: Type.Optional(Type.String()), snapshot: Type.String({ minLength: 1 }) },
+  { $id: "VmSnapshotDeleteParams" },
+);
+export type VmSnapshotDeleteParams = Static<typeof VmSnapshotDeleteParams>;
+
+/**
  * The owner's VM-mode settings (`settings.*` keys, admin-only; S11 draws the screen). Values are
  * plain JSON under these keys; absent keys take the defaults in brackets.
  */
@@ -232,6 +331,8 @@ export const VM_SETTING_KEYS = {
   clipboard: "vm.clipboard",
   /** [`host`] Where credentials live: the host vault as a node capability, or a guest vault. */
   credentials: "vm.credentials",
+  /** [false] L6 "fresh Mac per task": the Gateway runs `vm.reset` before each Task in the sandbox. */
+  resetPerTask: "vm.resetPerTask",
 } as const;
 
 export const VmSettings = Type.Object(
@@ -241,6 +342,7 @@ export const VmSettings = Type.Object(
     defaultWorkspace: TaskWorkspace,
     clipboard: VmClipboardMode,
     credentials: StringEnum(["host", "guest"]),
+    resetPerTask: Type.Optional(Type.Boolean()),
   },
   { $id: "VmSettings" },
 );

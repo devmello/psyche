@@ -4664,40 +4664,34 @@ export interface VMProgressEvent {
     version?: string;
 }
 
-export type VMProgressEventType = "vm.download" | "vm.install" | "vm.state" | "vm.psyche_install" | "vm.permissions";
+export type VMProgressEventType = "vm.download" | "vm.install" | "vm.state" | "vm.psyche_install" | "vm.permissions" | "vm.snapshot" | "vm.reset";
 
-export interface VMSettings {
-    clipboard:        VMClipboardMode;
-    credentials:      VMVaultPlacement;
-    defaultWorkspace: TaskWorkspace;
-    enabled:          boolean;
-    guestNodeId?:     null | string;
+export interface VMResetParams {
+    name?: string;
 }
 
-export interface VMShareAddParams {
-    name?:     string;
-    path:      string;
-    readOnly?: boolean;
-    share:     string;
+export interface VMRestoreParams {
+    name?:    string;
+    snapshot: string;
 }
 
-export interface VMStatus {
-    active:    number;
-    guests:    VMGuest[];
-    maxActive: number;
-    /**
-     * Unattended setup (macOS 27 host and guest)
-     */
-    supportsGuestProvisioning: boolean;
+export interface VMRestoreResult {
+    durationMs: number;
+    guest:      VMGuest;
+    snapshot:   string;
 }
 
 export interface VMGuest {
-    agent?:     VMGuestAgentStatus;
-    clipboard?: VMClipboardMode;
-    cpus:       number;
-    diskGB:     number;
-    display?:   Display;
-    guestOS?:   null | string;
+    agent?: VMGuestAgentStatus;
+    /**
+     * Id of the `base` snapshot, if any
+     */
+    baseSnapshot?: string;
+    clipboard?:    VMClipboardMode;
+    cpus:          number;
+    diskGB:        number;
+    display?:      Display;
+    guestOS?:      null | string;
     /**
      * Machine reason of the last failure
      */
@@ -4722,10 +4716,14 @@ export interface VMGuest {
      */
     savedState?: boolean;
     shares:      VMShare[];
-    transfers?:  VMTransfer[];
-    username:    string;
-    vault?:      VMVaultPlacement;
-    vsock:       Vsock;
+    /**
+     * Newest first
+     */
+    snapshots?: VMSnapshot[];
+    transfers?: VMTransfer[];
+    username:   string;
+    vault?:     VMVaultPlacement;
+    vsock:      Vsock;
 }
 
 export interface VMGuestAgentStatus {
@@ -4757,6 +4755,30 @@ export interface VMShare {
     readOnly: boolean;
 }
 
+export interface VMSnapshot {
+    /**
+     * Allocated size; clones share unchanged blocks with the guest
+     */
+    bytes:           number;
+    createdAt:       string;
+    guestOS?:        null | string;
+    id:              string;
+    kind:            VMSnapshotKind;
+    label:           string;
+    method:          VMSnapshotMethod;
+    provisioned:     boolean;
+    psycheInstalled: boolean;
+    /**
+     * Includes a machine state (restores to saved)
+     */
+    savedState: boolean;
+    taskId?:    string;
+}
+
+export type VMSnapshotKind = "base" | "manual" | "task";
+
+export type VMSnapshotMethod = "apfs-clone" | "overlay";
+
 export interface VMTransfer {
     bytes:     number;
     createdAt: string;
@@ -4777,6 +4799,49 @@ export interface Vsock {
      * 2: the host as seen from the guest
      */
     hostCid: number;
+}
+
+export interface VMSettings {
+    clipboard:        VMClipboardMode;
+    credentials:      VMVaultPlacement;
+    defaultWorkspace: TaskWorkspace;
+    enabled:          boolean;
+    guestNodeId?:     null | string;
+    resetPerTask?:    boolean;
+}
+
+export interface VMShareAddParams {
+    name?:     string;
+    path:      string;
+    readOnly?: boolean;
+    share:     string;
+}
+
+export interface VMSnapshotDeleteParams {
+    name?:    string;
+    snapshot: string;
+}
+
+export interface VMSnapshotParams {
+    kind?:   VMSnapshotKind;
+    label?:  string;
+    name?:   string;
+    taskId?: string;
+}
+
+export interface VMSnapshotResult {
+    guest:    VMGuest;
+    snapshot: VMSnapshot;
+}
+
+export interface VMStatus {
+    active:    number;
+    guests:    VMGuest[];
+    maxActive: number;
+    /**
+     * Unattended setup (macOS 27 host and guest)
+     */
+    supportsGuestProvisioning: boolean;
 }
 
 export interface VMUpdatedPayload {
