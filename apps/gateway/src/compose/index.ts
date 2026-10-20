@@ -102,6 +102,7 @@ import {
   restoreModelSettings,
   settingsKeyValue,
 } from "./model-settings.ts";
+import { createOtherChats, type OtherChats } from "./other-chats.ts";
 import { composePasskeys } from "./passkeys.ts";
 import { composePayments, paymentsSetupFromEnv } from "./payments.ts";
 import { composePlugins } from "./plugins.ts";
@@ -198,6 +199,8 @@ export interface ComposedGateway {
   readonly gateway: Gateway;
   readonly db: PsycheDb;
   readonly loop: PsycheAgentLoop;
+  /** E12 "From your other chats": the digests and the turn context provider. */
+  readonly otherChats: OtherChats;
   readonly broker: PsychePermissionBroker;
   readonly audit: HashChainAuditLog;
   readonly memory: SqliteMemoryStore;
@@ -627,6 +630,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     watchFetch: publicFetch(),
     ...(timeZone === undefined ? {} : { defaultTimezone: timeZone }),
   });
+  // E12 "From your other chats": digests of the owner's chats, shared only with threads.otherChats on.
+  const otherChats = createOtherChats({ db, audit, now: () => clock.now() });
   const loop = createAgentLoop({
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
     state: new SqliteThreadStateStore(db, redactor),
@@ -644,6 +649,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     approvalSurfaces: ["desktop", "web"],
     skills: skills.loader,
     ...(compaction === undefined ? {} : { compaction }),
+    contextProviders: [otherChats.provider],
     // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
     isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
   });
@@ -682,6 +688,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   launcher = proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool);
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
+  parts.push(otherChats.part());
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
   parts.push(
     composePlugins({
@@ -792,6 +799,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     gateway,
     db,
     loop,
+    otherChats,
     broker,
     audit,
     memory,

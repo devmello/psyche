@@ -352,6 +352,9 @@ importers:
       '@psyche/scheduler':
         specifier: workspace:*
         version: link:../../packages/scheduler
+      '@psyche/search':
+        specifier: workspace:*
+        version: link:../../packages/search
       '@psyche/skills':
         specifier: workspace:*
         version: link:../../packages/skills

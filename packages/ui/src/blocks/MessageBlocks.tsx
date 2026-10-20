@@ -19,6 +19,7 @@ import { Checklist, PlanCard } from "./Checklist.tsx";
 import { Markdown } from "./Markdown.tsx";
 import { QuestionCard } from "./QuestionCard.tsx";
 import { ReceiptLine } from "./Receipt.tsx";
+import { RelatedThreads } from "./RelatedThreads.tsx";
 import { TaskCard } from "./TaskCard.tsx";
 import { type ToolCallItem, ToolRun } from "./ToolRun.tsx";
 import type { ToolCallBlock } from "./types.ts";
@@ -281,6 +282,8 @@ function BlockView({
       return <TaskBlockView taskId={b.taskId} />;
     case "wrap_up":
       return <WrapUpBox block={b} {...(onWrapUpAction ? { onAction: onWrapUpAction } : {})} />;
+    case "related_threads":
+      return <RelatedThreads block={b} />;
     default:
       return null;
   }
