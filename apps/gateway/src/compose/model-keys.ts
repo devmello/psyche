@@ -102,6 +102,18 @@ export function vaultModelKeys(vault: () => Vault | undefined): KeySource {
   };
 }
 
+/**
+ * Removes a provider's key (`models.clearKey`, #511): the Gateway-owned item is revoked, which
+ * also ends its grants and leases. Returns whether there was one.
+ */
+export async function clearModelKey(vault: Vault, providerId: HostedModelKind): Promise<boolean> {
+  const owner = modelKeyOwner(providerId);
+  const existing = vault.connectorItem(owner);
+  if (existing === undefined) return false;
+  await vault.revoke(existing.id, owner, "deleted");
+  return true;
+}
+
 /** Stores (or replaces) a provider's key as a Gateway-owned vault item. */
 export async function storeModelKey(
   vault: Vault,
