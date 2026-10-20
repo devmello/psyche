@@ -392,6 +392,24 @@ export interface Artifact {
 
 export type ArtifactType = "markdown" | "html" | "react" | "pdf" | "sheet" | "itinerary" | "dashboard";
 
+export interface AttentionReportParams {
+    /**
+     * The owner gave input in the app just now (key, click)
+     */
+    input?: boolean;
+    pane:   AttentionPane;
+    /**
+     * The pane is on screen in the desktop app
+     */
+    visible: boolean;
+}
+
+export type AttentionPane = "browser" | "computer";
+
+export interface AttentionReportResult {
+    ok: boolean;
+}
+
 export interface AuditExportParams {
     format?: AuditExportFormat;
     since?:  string;

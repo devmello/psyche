@@ -21,6 +21,7 @@ import type { SecretRedactor, Vault } from "@psyche/vault";
 import type { HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
+import type { OwnerAttention } from "./attention.ts";
 import type { CallContexts } from "./call-context.ts";
 import type { ChannelConversations } from "./channel-conversations.ts";
 import type { ComposeRateLimits } from "./rate-limits.ts";
@@ -44,6 +45,8 @@ export interface ComposeServices {
   readonly tools: ToolRegistry;
   readonly calls: CallContexts;
   publish<E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string): void;
+  /** Whether the owner is watching (pause-when-unwatched, #272). */
+  readonly attention: OwnerAttention;
   /** Inbound channel policy decisions per conversation (the broker's channel reply authority). */
   readonly channelConversations: ChannelConversations;
   /** The credential vault (S06): connector tokens, Settings → Credentials. */

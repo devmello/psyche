@@ -434,6 +434,7 @@ A versioned corpus of at least 200 cases (hidden DOM fields, URL and tab-title p
   | Outdated version | `version.mismatch` (CLI vs Gateway only: there is no phone-home) | `/version` | low |
   | Logs with bodies; telemetry | `logs.bodies`, `telemetry.enabled` | `settings.get` | medium |
   | Missing TLS pins; rw or home-root VM shares; chat surfaces configured for device-only kinds | not checked yet ("no data source yet") | — | — |
+  | Supply chain: 24 h dependency cool-down (`minimumReleaseAge ≥ 1440`), Node base-image pins, pinned release Compose file | not a runtime check (the user's install has no lockfile): `deploy/scripts/release-preflight.mjs` (`cooldown`, `node-pins`, `compose`) runs first in the release workflow and blocks the tag | `pnpm-workspace.yaml`, the Dockerfiles, `deploy/docker-compose.yml` | blocks the release |
 
 ---
 

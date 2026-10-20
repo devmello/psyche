@@ -99,6 +99,9 @@ jobs:
       - name: Set up Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
+      - name: Release preflight (24 h dependency cool-down, pins, Compose, update policy, signer)
+        run: node deploy/scripts/release-preflight.mjs
+
       - name: Node base images are pinned, agree, and are the newest release (#295)
         run: node deploy/scripts/node-pins.mjs check --latest
 
