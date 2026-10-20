@@ -1,3 +1,4 @@
+import type { EndpointProbe, ModelProviderSummary, ModelRoles } from "@psyche/protocol";
 import {
   type ApprovalRequest,
   type Artifact,
@@ -89,8 +90,16 @@ export interface MockWorld {
   memoryFiles: Record<string, string>;
   memoryClaims: MemoryClaim[];
   searchHits: SearchHit[];
+<<<<<<< HEAD
   skills: SkillDetails[];
   skillSources: Record<string, MockSkillSource>;
+=======
+  /** `models.list` providers (B1, B4); absent → `models.list` answers with none. */
+  modelProviders?: ModelProviderSummary[];
+  modelRoles?: ModelRoles;
+  /** What `models.probe` finds per provider id (recorded fixtures); missing → unreachable. */
+  modelProbes?: Record<string, EndpointProbe>;
+>>>>>>> origin/main
 }
 
 export const EMPTY_WORLD: MockWorld = {
@@ -449,6 +458,17 @@ export class MockGateway implements GatewayClient {
     this.replace("tasks", task);
     this.emit("task.updated", { task });
     return { task };
+  }
+
+  private modelProvider(id: string): ModelProviderSummary {
+    const p = (this.world.modelProviders ?? []).find((x) => x.id === id);
+    return p ?? fail("not_found", `no model provider "${id}"`);
+  }
+
+  private modelEntry(ref: string): ModelProviderSummary["models"][number] {
+    const provider = this.modelProvider(ref.slice(0, ref.indexOf("/")));
+    const entry = provider.models.find((m) => m.ref === ref);
+    return entry ?? fail("not_found", `no configured provider serves ${ref}`);
   }
 
   private readonly handlers: { [M in MethodName]?: (params: MethodParams<M>) => unknown } = {
@@ -926,6 +946,54 @@ export class MockGateway implements GatewayClient {
       const entry = { key: p.key, value: p.value, updatedAt: this.now() };
       this.emit("settings.changed", { entries: [entry] });
       return { entry, stateVersion: this.stateVersion };
+    },
+
+    "models.list": () => ({
+      providers: this.world.modelProviders ?? [],
+      roles: this.world.modelRoles ?? {},
+    }),
+    "models.probe": (p) => {
+      const provider = this.modelProvider(p.providerId);
+      const found = this.world.modelProbes?.[p.providerId];
+      const probe: EndpointProbe = found ?? {
+        state: "unreachable",
+        probedAt: this.now(),
+        models: [],
+        error: `nothing answered at ${provider.baseURL ?? provider.id}`,
+      };
+      provider.probe = structuredClone(probe);
+      for (const m of probe.models) {
+        const known = provider.models.find((x) => x.ref === m.ref);
+        if (known === undefined) {
+          provider.models.push({ ref: m.ref, capabilities: m.capabilities, toolCheck: "untested" });
+        } else known.capabilities = m.capabilities;
+      }
+      return { provider };
+    },
+    "models.check": (p) => {
+      const entry = this.modelEntry(p.ref);
+      entry.toolCheck = "agent-capable";
+      return {
+        result: {
+          ref: p.ref,
+          status: "agent-capable",
+          passed: 6,
+          total: 6,
+          inconclusive: false,
+          probedAt: this.now(),
+        },
+      };
+    },
+    "models.setRole": (p) => {
+      const entry = this.modelEntry(p.ref);
+      if (p.role === "primary" && entry.toolCheck === "chat-only" && p.override !== true) {
+        fail("policy_denied", `${p.ref} failed the tool-calling probe and is chat-only`);
+      }
+      this.world.modelRoles = { ...this.world.modelRoles, [p.role]: p.ref };
+      const key = `models.${p.role}`;
+      this.world.settings[key] = p.ref;
+      this.emit("settings.changed", { entries: [{ key, value: p.ref, updatedAt: this.now() }] });
+      return { roles: this.world.modelRoles };
     },
 
     "automations.list": () => ({ automations: this.world.automations }),

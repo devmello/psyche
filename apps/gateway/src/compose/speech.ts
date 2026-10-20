@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
+import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { getMessage, getSetting } from "@psyche/db";
+import { defaultDenyRead } from "@psyche/mcp-host";
 import type { LibraryItem, NodeClient, NodeInfo } from "@psyche/protocol";
 import { PsycheError } from "@psyche/protocol";
 import {
@@ -41,11 +44,77 @@ export interface SpeechSetup {
    * §5.3). From `PSYCHE_SPEECH_RUNNER_PREFIX` (space-separated) in `speechSetupFromEnv`.
    */
   runnerPrefix?: string[];
+  /**
+   * `srt` (`PSYCHE_SRT_PATH`, as for stdio MCP servers): without an explicit prefix, ffmpeg and
+   * whisper-cli run under it with `speechSrtSettings` (security §5.3).
+   */
+  srtPath?: string;
 }
 
 export function speechSetupFromEnv(env: NodeJS.ProcessEnv = process.env): SpeechSetup {
   const prefix = env.PSYCHE_SPEECH_RUNNER_PREFIX?.trim();
-  return prefix ? { runnerPrefix: prefix.split(/\s+/) } : {};
+  if (prefix) return { runnerPrefix: prefix.split(/\s+/) };
+  return env.PSYCHE_SRT_PATH ? { srtPath: env.PSYCHE_SRT_PATH } : {};
+}
+
+/**
+ * srt settings for the speech helpers (security §5.3): reads of the secrets (vault, state,
+ * audit, security, browser profiles, the Library, backups and the usual credential stores)
+ * denied, while models stay readable; writes only to the temp directory, where the speech
+ * package makes its per-call scratch directories; no network; the escape hatches pinned off.
+ */
+export function speechSrtSettings(
+  home: string,
+  scratch: string = tmpdir(),
+): Record<string, unknown> {
+  const secrets = [
+    "vault",
+    "state",
+    "audit",
+    "security",
+    "browser",
+    "library",
+    "workspace",
+    "backups",
+    "mcp",
+  ].map((d) => join(home, d));
+  return {
+    filesystem: {
+      denyRead: [...new Set([...defaultDenyRead(home).filter((p) => p !== home), ...secrets])],
+      allowRead: [],
+      allowWrite: [scratch],
+      denyWrite: [home],
+    },
+    network: {
+      allowedDomains: [],
+      deniedDomains: [],
+      allowUnixSockets: [],
+      allowLocalBinding: false,
+    },
+    enableWeakerNestedSandbox: false,
+    allowNestedUserNamespaces: false,
+    enableWeakerNetworkIsolation: false,
+    allowAppleEvents: false,
+  };
+}
+
+/** The runner prefix: explicit, srt with the speech profile, or none (logged). */
+function speechPrefix(setup: SpeechSetup, services: ComposeServices): string[] | undefined {
+  if (setup.runnerPrefix !== undefined) return setup.runnerPrefix;
+  if (setup.srtPath === undefined) {
+    services.logger?.log("warn", "speech.unsandboxed", {
+      hint: "set PSYCHE_SRT_PATH so ffmpeg and whisper-cli run under srt (security §5.3)",
+    });
+    return undefined;
+  }
+  const dir = join(services.home, "speech");
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  chmodSync(dir, 0o700);
+  const file = join(dir, "srt-settings.json");
+  writeFileSync(file, `${JSON.stringify(speechSrtSettings(services.home), null, 2)}\n`, {
+    mode: 0o600,
+  });
+  return [setup.srtPath, "--settings", file, "--"];
 }
 
 /** The newest live mac-helper node that offers speech (it connects after the Gateway boots). */
@@ -148,9 +217,8 @@ export function composeSpeech(setup: SpeechSetup = {}) {
   return (services: ComposeServices): ComposedPart => {
     let gateway: Gateway | null = null;
     const { db } = services;
-    const runner = new LocalProcessRunner(
-      setup.runnerPrefix === undefined ? {} : { prefix: setup.runnerPrefix },
-    );
+    const prefix = speechPrefix(setup, services);
+    const runner = new LocalProcessRunner(prefix === undefined ? {} : { prefix });
     const stack = createSpeechStack({
       home: services.home,
       runner,

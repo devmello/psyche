@@ -1,14 +1,23 @@
-import { KeyRound, Loader } from "lucide-react";
-import { type ReactElement, useId } from "react";
+import type {
+  EndpointProbe,
+  ModelCapabilityGuess,
+  ModelProviderSummary,
+  ToolCheckStatus,
+} from "@psyche/protocol";
+import { KeyRound, Loader, Server } from "lucide-react";
+import { type ReactElement, useCallback, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
+import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { cn } from "../../lib/utils.ts";
 import {
   EmptyNotice,
   ErrorNotice,
   Group,
+  hasCode,
   LoadGate,
   type LoadProps,
+  messageOf,
   SectionFrame,
   SettingHint,
   type SettingsFormProps,
@@ -35,6 +44,7 @@ const STATUS: Record<
   missing: { tone: "neutral", text: "No key yet" },
   invalid: { tone: "danger", text: "Key rejected" },
   offline: { tone: "danger", text: "Not reachable" },
+  unknown: { tone: "neutral", text: "Not checked" },
 };
 
 export function ToolCheckBadge({ status }: { status: ToolCheck }): ReactElement {
@@ -53,6 +63,114 @@ export function ToolCheckBadge({ status }: { status: ToolCheck }): ReactElement 
     case "untested":
       return <StatusChip tone="neutral">Tool calling: not checked</StatusChip>;
   }
+}
+
+const PROBE: Record<
+  EndpointProbe["state"],
+  { tone: "success" | "danger" | "neutral"; text: string }
+> = {
+  not_probed: { tone: "neutral", text: "Endpoint not checked" },
+  reachable: { tone: "success", text: "Reachable" },
+  unreachable: { tone: "danger", text: "Not reachable" },
+  auth_failed: { tone: "danger", text: "Key refused" },
+  error: { tone: "danger", text: "Check failed" },
+};
+
+function contextLabel(tokens: number): string {
+  if (tokens >= 1_000_000) return `${Math.round(tokens / 100_000) / 10}M context`;
+  return `${Math.round(tokens / 1024)}K context`;
+}
+
+/** What a model can probably do, as text chips (B4). Unknown flags show nothing. */
+export function CapabilityChips({
+  capabilities,
+}: {
+  capabilities: ModelCapabilityGuess | undefined;
+}): ReactElement | null {
+  if (capabilities === undefined) return null;
+  const chips: string[] = [];
+  if (capabilities.embeddings === true) chips.push("Embeddings");
+  if (capabilities.toolCalling === true) chips.push("Tools");
+  if (capabilities.toolCalling === false && capabilities.embeddings !== true)
+    chips.push("No tools");
+  if (capabilities.vision === true) chips.push("Vision");
+  if (capabilities.reasoning === true) chips.push("Reasoning");
+  if (capabilities.contextWindow !== undefined)
+    chips.push(contextLabel(capabilities.contextWindow));
+  if (chips.length === 0) return null;
+  const guessed = capabilities.source === "heuristic";
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      {chips.map((c) => (
+        <StatusChip key={c} tone="neutral">
+          {c}
+        </StatusChip>
+      ))}
+      {guessed ? (
+        <span className="text-xs text-muted-foreground">(guessed from the name)</span>
+      ) : null}
+    </span>
+  );
+}
+
+function timeOf(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+/** The last endpoint probe of one provider, and the button that runs another. */
+export function EndpointProbeStatus({
+  label,
+  probe,
+  probing,
+  onProbe,
+}: {
+  label: string;
+  probe: EndpointProbe;
+  probing?: boolean;
+  onProbe?: () => void;
+}): ReactElement {
+  const chip = PROBE[probe.state];
+  const detail = [
+    probe.state === "reachable"
+      ? `${probe.models.length} ${probe.models.length === 1 ? "model" : "models"}`
+      : null,
+    probe.server ?? null,
+    probe.latencyMs === undefined ? null : `${probe.latencyMs} ms`,
+    probe.probedAt === undefined ? null : `checked ${timeOf(probe.probedAt)}`,
+  ].filter((x): x is string => x !== null);
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <Server className="size-3.5" aria-hidden="true" />
+        {probing === true ? (
+          <StatusChip tone="info">
+            <Loader className="size-3 motion-safe:animate-spin" aria-hidden="true" />
+            Checking the endpoint
+          </StatusChip>
+        ) : (
+          <StatusChip tone={chip.tone}>{chip.text}</StatusChip>
+        )}
+        {detail.length > 0 ? <span>{detail.join(" · ")}</span> : null}
+        {onProbe && probing !== true ? (
+          <Button
+            type="button"
+            variant="link"
+            size="xs"
+            onClick={onProbe}
+            aria-label={`Check the ${label} endpoint`}
+          >
+            {probe.state === "not_probed" ? "Check endpoint" : "Check again"}
+          </Button>
+        ) : null}
+      </div>
+      {probe.error !== undefined && probe.state !== "reachable" ? (
+        <p className="text-xs text-danger-text">{probe.error}</p>
+      ) : null}
+    </div>
+  );
 }
 
 /** RAM tiers for local models (architecture §4.4). */
@@ -112,6 +230,10 @@ export interface ModelProvidersPanelProps extends SettingsFormProps, LoadProps {
   onRunCheck?: (modelRef: string) => void;
   onAddProvider?: () => void;
   onEditKey?: (provider: ProviderInfo) => void;
+  /** Probe one provider's endpoint (`models.probe`); only ever on the owner's click. */
+  onProbe?: (providerId: string) => void;
+  /** The provider whose probe is running. */
+  probing?: string | null;
 }
 
 export function ModelProvidersPanel({
@@ -123,11 +245,16 @@ export function ModelProvidersPanel({
   onRunCheck,
   onAddProvider,
   onEditKey,
+  onProbe,
+  probing,
   loading,
   error,
   onRetry,
 }: ModelProvidersPanelProps): ReactElement {
-  const models = providers.flatMap((p) => p.models);
+  // Embedding models cannot chat; they never appear as role choices.
+  const models = providers
+    .flatMap((p) => p.models)
+    .filter((m) => m.capabilities?.embeddings !== true);
   const id = useId();
   const add = onAddProvider ? (
     <Button type="button" variant="outline" size="sm" onClick={onAddProvider}>
@@ -161,7 +288,9 @@ export function ModelProvidersPanel({
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <KeyRound className="size-3.5" aria-hidden="true" />
                     {p.kind === "local"
-                      ? "No key needed."
+                      ? p.baseURL === undefined
+                        ? "No key needed."
+                        : `No key needed. Endpoint ${p.baseURL}.`
                       : p.keyRef === null
                         ? "No key stored."
                         : `Key stored in the vault as ${p.keyRef}. Psyche never shows it.`}
@@ -177,13 +306,26 @@ export function ModelProvidersPanel({
                       </Button>
                     ) : null}
                   </p>
+                  {p.probe !== undefined ? (
+                    <EndpointProbeStatus
+                      label={p.label}
+                      probe={p.probe}
+                      probing={probing === p.id}
+                      {...(onProbe ? { onProbe: () => onProbe(p.id) } : {})}
+                    />
+                  ) : null}
                   {p.models.length > 0 ? (
                     <ul className="flex flex-col gap-1" aria-label={`${p.label} models`}>
                       {p.models.map((m) => (
                         <li key={m.ref} className="flex flex-wrap items-center gap-2">
                           <code className="font-mono text-xs">{m.ref}</code>
-                          <ToolCheckBadge status={m.toolCheck} />
-                          {onRunCheck && m.toolCheck !== "running" ? (
+                          {m.capabilities?.embeddings === true ? null : (
+                            <ToolCheckBadge status={m.toolCheck} />
+                          )}
+                          <CapabilityChips capabilities={m.capabilities} />
+                          {onRunCheck &&
+                          m.toolCheck !== "running" &&
+                          m.capabilities?.embeddings !== true ? (
                             <Button
                               type="button"
                               variant="ghost"
@@ -265,36 +407,204 @@ function isProvider(v: unknown): v is ProviderInfo {
   );
 }
 
-/** Reads `models.providers` from settings (there is no `providers.*` method yet). */
+/** Reads `models.providers` from settings (Gateways without `models.list`). */
 export function providersFromSettings(values: Readonly<Record<string, unknown>>): ProviderInfo[] {
   const raw = values["models.providers"];
   return Array.isArray(raw) ? raw.filter(isProvider) : [];
 }
 
+const TOOL_CHECK: Record<ToolCheckStatus, ToolCheck> = {
+  untested: "untested",
+  "agent-capable": "passed",
+  "chat-only": "failed",
+};
+
+/** A `models.list` provider as the panel shows it. */
+export function providerInfoFromSummary(p: ModelProviderSummary): ProviderInfo {
+  const kind: ProviderKind = p.local ? "local" : p.kind === "openrouter" ? "openrouter" : "cloud";
+  const status: ProviderInfo["status"] =
+    p.probe.state === "reachable"
+      ? "ok"
+      : p.probe.state === "auth_failed"
+        ? "invalid"
+        : p.probe.state === "unreachable"
+          ? "offline"
+          : !p.local && !p.keyConfigured
+            ? "missing"
+            : "unknown";
+  return {
+    id: p.id,
+    label: p.label,
+    kind,
+    // The key itself never reaches the UI; the vault holds it under the provider's profile.
+    keyRef: p.keyConfigured ? `the ${p.id} profile` : null,
+    status,
+    ...(p.baseURL === undefined || !p.local ? {} : { baseURL: p.baseURL }),
+    probe: p.probe,
+    models: p.models.map((m) => ({
+      ref: m.ref,
+      toolCheck: TOOL_CHECK[m.toolCheck],
+      ...(m.capabilities === undefined ? {} : { capabilities: m.capabilities }),
+    })),
+  };
+}
+
+const ROLE_OF: Record<string, "primary" | "utility"> = {
+  "models.primary": "primary",
+  "models.utility": "utility",
+};
+
 export interface ModelSectionProps {
   ramGb?: number;
-  /** Shell override; defaults to `models.providers` from settings. */
+  /** Shell override; defaults to `models.list`, then `models.providers` from settings. */
   providers?: readonly ProviderInfo[];
+  /** Shell override; defaults to `models.check`. */
   onRunCheck?: (modelRef: string) => void;
   onAddProvider?: () => void;
   onEditKey?: (provider: ProviderInfo) => void;
 }
 
+/**
+ * Connected Settings → Model & providers: `models.list` for providers, probes and roles;
+ * `models.probe` and `models.check` only on the owner's click; `models.setRole` for the primary
+ * and utility picks (a chat-only primary asks before `override`). Gateways without `models.*`
+ * fall back to the `models.providers` setting.
+ */
 export function ModelSection(props: ModelSectionProps): ReactElement {
   const form = useSettingsForm();
-  const providers = props.providers ?? providersFromSettings(form.values);
+  const call = useCall();
+  const list = useGatewayQuery("models.list", {});
+  const [probing, setProbing] = useState<string | null>(null);
+  const [checking, setChecking] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [chatOnly, setChatOnly] = useState<{ role: "primary" | "utility"; ref: string } | null>(
+    null,
+  );
+  const live = list.data !== undefined && list.data.providers.length > 0;
+  const reload = list.reload;
+
+  const providers: readonly ProviderInfo[] =
+    props.providers ??
+    (live
+      ? (list.data?.providers ?? []).map((p) => {
+          const info = providerInfoFromSummary(p);
+          return checking === null
+            ? info
+            : {
+                ...info,
+                models: info.models.map((m) =>
+                  m.ref === checking ? { ...m, toolCheck: "running" as const } : m,
+                ),
+              };
+        })
+      : providersFromSettings(form.values));
+  const values = live
+    ? {
+        ...form.values,
+        ...(list.data?.roles.primary === undefined
+          ? {}
+          : { "models.primary": list.data.roles.primary }),
+        ...(list.data?.roles.utility === undefined
+          ? {}
+          : { "models.utility": list.data.roles.utility }),
+      }
+    : form.values;
+
+  const setRole = useCallback(
+    (role: "primary" | "utility", ref: string, override?: boolean) => {
+      setActionError(null);
+      setChatOnly(null);
+      call("models.setRole", { role, ref, ...(override === true ? { override } : {}) }).then(
+        () => reload(),
+        (err: unknown) => {
+          if (hasCode(err, "policy_denied")) setChatOnly({ role, ref });
+          else setActionError(`Couldn't use ${ref} (${messageOf(err)})`);
+        },
+      );
+    },
+    [call, reload],
+  );
+
+  const onChange = (key: string, value: unknown) => {
+    const role = ROLE_OF[key];
+    if (live && role !== undefined && typeof value === "string" && value.length > 0) {
+      setRole(role, value);
+      return;
+    }
+    form.onChange(key, value);
+  };
+
+  const onProbe = (providerId: string) => {
+    setActionError(null);
+    setProbing(providerId);
+    call("models.probe", { providerId })
+      .then(
+        () => reload(),
+        (err: unknown) => setActionError(`Couldn't check the endpoint (${messageOf(err)})`),
+      )
+      .finally(() => setProbing(null));
+  };
+
+  const onRunCheck =
+    props.onRunCheck ??
+    (live
+      ? (ref: string) => {
+          setActionError(null);
+          setChecking(ref);
+          call("models.check", { ref })
+            .then(
+              () => reload(),
+              (err: unknown) => setActionError(`Couldn't run the check (${messageOf(err)})`),
+            )
+            .finally(() => setChecking(null));
+        }
+      : undefined);
+
+  const { providers: _p, onRunCheck: _r, ...rest } = props;
   return (
     <div className="flex flex-col gap-3">
       <ModelProvidersPanel
-        {...props}
+        {...rest}
         providers={providers}
-        values={form.values}
-        onChange={form.onChange}
+        values={values}
+        onChange={onChange}
         needsApproval={form.needsApproval}
-        loading={form.loading && Object.keys(form.values).length === 0}
+        loading={
+          (form.loading && Object.keys(form.values).length === 0) ||
+          (list.loading && list.data === undefined && list.error === null)
+        }
         error={form.error}
-        onRetry={form.reload}
+        onRetry={() => {
+          form.reload();
+          reload();
+        }}
+        probing={probing}
+        {...(live ? { onProbe } : {})}
+        {...(onRunCheck === undefined ? {} : { onRunCheck })}
       />
+      {chatOnly !== null ? (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-2 rounded-lg border border-approval-border bg-gray-2 p-3 text-sm"
+        >
+          <span>
+            {chatOnly.ref} failed the tool-calling check, so it can chat but not use tools. Use it
+            as the {chatOnly.role} model anyway?
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setRole(chatOnly.role, chatOnly.ref, true)}
+          >
+            Use anyway
+          </Button>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setChatOnly(null)}>
+            Keep the current model
+          </Button>
+        </div>
+      ) : null}
+      {actionError ? <ErrorNotice what={actionError} /> : null}
       {form.writeError ? <ErrorNotice what={form.writeError} did="" /> : null}
     </div>
   );

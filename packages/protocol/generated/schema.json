@@ -766,7 +766,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Approves a pending pairing request with owner-chosen scopes.",
+        "description": "Approves a pending pairing request with owner-chosen scopes. Needs fresh presence once the Gateway has a presence verifier (approval_required with details.approvalId, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now).",
         "name": "devices.approve",
         "params": "#/$defs/DevicesApproveParams",
         "result": "#/$defs/DevicesApproveResult",
@@ -796,6 +796,30 @@
         "result": "#/$defs/DevicesPairingListResult",
         "scope": "operator.admin",
         "sideEffecting": false
+      },
+      {
+        "description": "Lists the registered helper presence keys (Touch ID approvals, issue #253): device id and key id only.",
+        "name": "devices.presenceKey.list",
+        "params": "#/$defs/DevicesPresenceKeyListParams",
+        "result": "#/$defs/DevicesPresenceKeyListResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Reads the helper's Secure Enclave presence key (`presence.public_key`) and registers it for that device, so its Touch ID answers verify. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
+        "name": "devices.presenceKey.register",
+        "params": "#/$defs/DevicesPresenceKeyRegisterParams",
+        "result": "#/$defs/DevicesPresenceKeyRegisterResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Removes a helper's registered presence key. Side-effecting.",
+        "name": "devices.presenceKey.remove",
+        "params": "#/$defs/DevicesPresenceKeyRemoveParams",
+        "result": "#/$defs/DevicesPresenceKeyRemoveResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
       },
       {
         "description": "Revokes a device's token and node authority permanently and closes its connections.",
@@ -1022,6 +1046,14 @@
         "sideEffecting": false
       },
       {
+        "description": "The MCP launcher in use and each configured server's trust, transport and network reach.",
+        "name": "mcp.status",
+        "params": "#/$defs/McpStatusParams",
+        "result": "#/$defs/McpStatusResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "The owner confirms an agent or imported claim; it becomes an owner claim that supersedes it. Claims derived from untrusted sources are refused. Side-effecting.",
         "name": "memory.claims.confirm",
         "params": "#/$defs/MemoryClaimsConfirmParams",
@@ -1158,6 +1190,38 @@
         "sideEffecting": true
       },
       {
+        "description": "Runs the six-case tool-calling check (B4) on one model and stores a conclusive verdict. Calls the model, so it may cost tokens.",
+        "name": "models.check",
+        "params": "#/$defs/ModelsCheckParams",
+        "result": "#/$defs/ModelsCheckResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists the configured model providers with their known models, the last endpoint probe (state not_probed until one runs) and tool-check verdicts, plus the primary and utility role bindings.",
+        "name": "models.list",
+        "params": "#/$defs/ModelsListParams",
+        "result": "#/$defs/ModelsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Probes one configured provider's endpoint: reachability, the model list and capability guesses (vision, tool use, context length). Stores and returns the result. not_found for an unknown provider id.",
+        "name": "models.probe",
+        "params": "#/$defs/ModelsProbeParams",
+        "result": "#/$defs/ModelsProbeResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Binds the primary or utility role to a model and persists it (settings models.primary / models.utility). policy_denied when a chat-only model is picked as primary without override; not_found when no configured provider serves the ref. Side-effecting.",
+        "name": "models.setRole",
+        "params": "#/$defs/ModelsSetRoleParams",
+        "result": "#/$defs/ModelsSetRoleResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Node → Gateway: streamed progress for an invocation.",
         "name": "node.event",
         "params": "#/$defs/NodeEventParams",
@@ -1254,7 +1318,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Stores the new passkey. A device that already has one must include reauth (an assertion with an existing passkey). At most 20 per device. Side-effecting.",
+        "description": "Stores the new passkey. A device that already has one must include reauth (an assertion with an existing passkey). A device's first passkey needs fresh presence from another device's passkey or the helper's Touch ID key once the Gateway has one (approval_required with details.approvalId, then retry with approvalId). At most 20 per device. Side-effecting.",
         "name": "passkeys.register.finish",
         "params": "#/$defs/PasskeysRegisterFinishParams",
         "result": "#/$defs/PasskeysRegisterFinishResult",
@@ -1342,7 +1406,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges) also needs operator.admin. Security keys (permissions, exec, vault, devices, gateway, owner identities, channel DM / allow policies) also need fresh user presence once the Gateway has a presence verifier: the first call fails approval_required with details.approvalId (a device-only policy_change card bound to the key and value); retry with that approvalId after approving. Side-effecting.",
+        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges) also needs operator.admin. Security keys (permissions, exec, vault, devices, gateway, owner identities, channel DM / allow policies) also need fresh user presence once the Gateway has a presence verifier: the first call fails approval_required with details.approvalId (a device-only policy_change card bound to the key and value); retry with that approvalId after approving. Once presence was enrolled, a Gateway whose verifiers can no longer verify fails presence_required instead of falling back to operator.admin alone. Side-effecting.",
         "name": "settings.set",
         "params": "#/$defs/SettingsSetParams",
         "result": "#/$defs/SettingsSetResult",
@@ -2537,7 +2601,9 @@
         "policy_change",
         "task_start",
         "apple_script",
-        "shortcut_run"
+        "shortcut_run",
+        "git_write",
+        "git_push"
       ],
       "type": "string"
     },
@@ -3513,6 +3579,22 @@
         "line": {
           "minimum": 1,
           "type": "integer"
+        },
+        "signedAnchors": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "anchorKeyIds": {
+          "items": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "signingSinceSeq": {
+          "minimum": 0,
+          "type": "integer"
         }
       },
       "required": [
@@ -4127,6 +4209,12 @@
           "maxLength": 255,
           "minLength": 1,
           "pattern": "^[^/\\\\]+$",
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
           "type": "string"
         }
       },
@@ -5548,6 +5636,12 @@
           },
           "maxItems": 1000,
           "type": "array"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -5650,6 +5744,12 @@
             "^(.*)$": {}
           },
           "type": "object"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "type": "object"
@@ -5768,6 +5868,12 @@
               "type": "null"
             }
           ]
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -5821,6 +5927,12 @@
         },
         "code": {
           "maxLength": 16,
+          "minLength": 1,
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
           "minLength": 1,
           "type": "string"
         }
@@ -7239,6 +7351,12 @@
           "maxLength": 32,
           "minLength": 1,
           "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -7328,6 +7446,84 @@
       },
       "required": [
         "pairingRequests"
+      ],
+      "type": "object"
+    },
+    "DevicesPresenceKeyListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "DevicesPresenceKeyListResult": {
+      "properties": {
+        "presenceKeys": {
+          "items": {
+            "$ref": "#/$defs/PresenceKeyInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "presenceKeys"
+      ],
+      "type": "object"
+    },
+    "DevicesPresenceKeyRegisterParams": {
+      "properties": {
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "expectKeyId": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "deviceId"
+      ],
+      "type": "object"
+    },
+    "DevicesPresenceKeyRegisterResult": {
+      "properties": {
+        "presenceKey": {
+          "$ref": "#/$defs/PresenceKeyInfo"
+        }
+      },
+      "required": [
+        "presenceKey"
+      ],
+      "type": "object"
+    },
+    "DevicesPresenceKeyRemoveParams": {
+      "properties": {
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "deviceId"
+      ],
+      "type": "object"
+    },
+    "DevicesPresenceKeyRemoveResult": {
+      "properties": {
+        "removed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "removed"
       ],
       "type": "object"
     },
@@ -7624,6 +7820,49 @@
       "properties": {},
       "type": "object"
     },
+    "EndpointProbe": {
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/EndpointProbeState"
+        },
+        "probedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "latencyMs": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "server": {
+          "type": "string"
+        },
+        "models": {
+          "items": {
+            "$ref": "#/$defs/ProbedModel"
+          },
+          "type": "array"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "models"
+      ],
+      "type": "object"
+    },
+    "EndpointProbeState": {
+      "enum": [
+        "not_probed",
+        "reachable",
+        "unreachable",
+        "auth_failed",
+        "error"
+      ],
+      "type": "string"
+    },
     "ErrorCode": {
       "description": "Machine-readable error code",
       "enum": [
@@ -7657,7 +7896,8 @@
         "user_in_control",
         "debugger_detached",
         "tab_not_found",
-        "method_not_allowed"
+        "method_not_allowed",
+        "presence_required"
       ],
       "type": "string"
     },
@@ -9853,6 +10093,73 @@
       ],
       "type": "object"
     },
+    "McpServerStatus": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "trust": {
+          "enum": [
+            "bundled",
+            "verified",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "transport": {
+          "enum": [
+            "stdio",
+            "http"
+          ],
+          "type": "string"
+        },
+        "network": {
+          "type": "boolean"
+        },
+        "connected": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "trust",
+        "transport",
+        "network",
+        "connected"
+      ],
+      "type": "object"
+    },
+    "McpStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "McpStatusResult": {
+      "properties": {
+        "launcher": {
+          "enum": [
+            "srt",
+            "container",
+            "none"
+          ],
+          "type": "string"
+        },
+        "servers": {
+          "items": {
+            "$ref": "#/$defs/McpServerStatus"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "launcher",
+        "servers"
+      ],
+      "type": "object"
+    },
     "MemoTaskMode": {
       "enum": [
         "auto",
@@ -10700,6 +11007,12 @@
       "properties": {
         "dryRun": {
           "type": "boolean"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "type": "object"
@@ -11512,6 +11825,203 @@
           "type": "boolean"
         }
       },
+      "type": "object"
+    },
+    "ModelCapabilityGuess": {
+      "properties": {
+        "toolCalling": {
+          "type": "boolean"
+        },
+        "vision": {
+          "type": "boolean"
+        },
+        "reasoning": {
+          "type": "boolean"
+        },
+        "embeddings": {
+          "type": "boolean"
+        },
+        "contextWindow": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "source": {
+          "$ref": "#/$defs/ModelFactSource"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "type": "object"
+    },
+    "ModelFactSource": {
+      "enum": [
+        "listing",
+        "catalog",
+        "config",
+        "heuristic"
+      ],
+      "type": "string"
+    },
+    "ModelProviderSummary": {
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "baseURL": {
+          "type": "string"
+        },
+        "local": {
+          "type": "boolean"
+        },
+        "keyConfigured": {
+          "type": "boolean"
+        },
+        "models": {
+          "items": {
+            "$ref": "#/$defs/ProviderModelEntry"
+          },
+          "type": "array"
+        },
+        "probe": {
+          "$ref": "#/$defs/EndpointProbe"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "label",
+        "local",
+        "keyConfigured",
+        "models",
+        "probe"
+      ],
+      "type": "object"
+    },
+    "ModelRoles": {
+      "properties": {
+        "primary": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "utility": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "ModelsCheckParams": {
+      "properties": {
+        "ref": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref"
+      ],
+      "type": "object"
+    },
+    "ModelsCheckResult": {
+      "properties": {
+        "result": {
+          "$ref": "#/$defs/ToolCheckResult"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    },
+    "ModelsListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "ModelsListResult": {
+      "properties": {
+        "providers": {
+          "items": {
+            "$ref": "#/$defs/ModelProviderSummary"
+          },
+          "type": "array"
+        },
+        "roles": {
+          "$ref": "#/$defs/ModelRoles"
+        }
+      },
+      "required": [
+        "providers",
+        "roles"
+      ],
+      "type": "object"
+    },
+    "ModelsProbeParams": {
+      "properties": {
+        "providerId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "providerId"
+      ],
+      "type": "object"
+    },
+    "ModelsProbeResult": {
+      "properties": {
+        "provider": {
+          "$ref": "#/$defs/ModelProviderSummary"
+        }
+      },
+      "required": [
+        "provider"
+      ],
+      "type": "object"
+    },
+    "ModelsSetRoleParams": {
+      "properties": {
+        "role": {
+          "$ref": "#/$defs/PickableModelRole"
+        },
+        "ref": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "override": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "role",
+        "ref"
+      ],
+      "type": "object"
+    },
+    "ModelsSetRoleResult": {
+      "properties": {
+        "roles": {
+          "$ref": "#/$defs/ModelRoles"
+        }
+      },
+      "required": [
+        "roles"
+      ],
       "type": "object"
     },
     "NodeCapability": {
@@ -12427,6 +12937,12 @@
         },
         "reauth": {
           "$ref": "#/$defs/PasskeyReauth"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -12528,6 +13044,13 @@
         "avatarRequested"
       ],
       "type": "object"
+    },
+    "PickableModelRole": {
+      "enum": [
+        "primary",
+        "utility"
+      ],
+      "type": "string"
     },
     "PlanBlock": {
       "properties": {
@@ -12673,6 +13196,59 @@
       ],
       "type": "object"
     },
+    "PresenceKeyInfo": {
+      "properties": {
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "keyId": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "registeredAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "deviceId",
+        "keyId",
+        "registeredAt"
+      ],
+      "type": "object"
+    },
+    "ProbedModel": {
+      "properties": {
+        "ref": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/ModelCapabilityGuess"
+        },
+        "loaded": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref",
+        "id",
+        "capabilities"
+      ],
+      "type": "object"
+    },
     "ProtocolVersionRange": {
       "properties": {
         "min": {
@@ -12705,6 +13281,26 @@
         "untrusted"
       ],
       "type": "string"
+    },
+    "ProviderModelEntry": {
+      "properties": {
+        "ref": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/ModelCapabilityGuess"
+        },
+        "toolCheck": {
+          "$ref": "#/$defs/ToolCheckStatus"
+        }
+      },
+      "required": [
+        "ref",
+        "toolCheck"
+      ],
+      "type": "object"
     },
     "Question": {
       "properties": {
@@ -13553,6 +14149,9 @@
               "type": "null"
             }
           ]
+        },
+        "egress": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -15134,6 +15733,9 @@
             }
           ]
         },
+        "workspace": {
+          "$ref": "#/$defs/TaskWorkspace"
+        },
         "summary": {
           "anyOf": [
             {
@@ -15472,6 +16074,13 @@
         "task"
       ],
       "type": "object"
+    },
+    "TaskWorkspace": {
+      "enum": [
+        "sandbox",
+        "vm"
+      ],
+      "type": "string"
     },
     "TasksActionsParams": {
       "properties": {
@@ -16292,6 +16901,50 @@
         "toolCall"
       ],
       "type": "object"
+    },
+    "ToolCheckResult": {
+      "properties": {
+        "ref": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/ToolCheckStatus"
+        },
+        "passed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "total": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "inconclusive": {
+          "type": "boolean"
+        },
+        "probedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ref",
+        "status",
+        "passed",
+        "total",
+        "inconclusive"
+      ],
+      "type": "object"
+    },
+    "ToolCheckStatus": {
+      "enum": [
+        "untested",
+        "agent-capable",
+        "chat-only"
+      ],
+      "type": "string"
     },
     "ToolSpec": {
       "properties": {
@@ -17237,6 +17890,83 @@
       ],
       "type": "object"
     },
+    "VmClipboardMode": {
+      "enum": [
+        "paste-only",
+        "bidirectional",
+        "off"
+      ],
+      "type": "string"
+    },
+    "VmConfigureParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "cpus": {
+          "maximum": 32,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "memoryGB": {
+          "maximum": 256,
+          "minimum": 4,
+          "type": "integer"
+        },
+        "displayWidth": {
+          "maximum": 3840,
+          "minimum": 640,
+          "type": "integer"
+        },
+        "displayHeight": {
+          "maximum": 2400,
+          "minimum": 480,
+          "type": "integer"
+        },
+        "clipboard": {
+          "$ref": "#/$defs/VmClipboardMode"
+        },
+        "vault": {
+          "$ref": "#/$defs/VmVaultPlacement"
+        }
+      },
+      "type": "object"
+    },
+    "VmCopyInParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "hostPath": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "hostPath"
+      ],
+      "type": "object"
+    },
+    "VmCopyOutParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "guestPath": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "hostDir": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "guestPath",
+        "hostDir"
+      ],
+      "type": "object"
+    },
     "VmCreateParams": {
       "properties": {
         "name": {
@@ -17337,6 +18067,52 @@
         "lastError": {
           "description": "Machine reason of the last failure",
           "type": "string"
+        },
+        "display": {
+          "properties": {
+            "width": {
+              "type": "integer"
+            },
+            "height": {
+              "type": "integer"
+            },
+            "visible": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "width",
+            "height",
+            "visible"
+          ],
+          "type": "object"
+        },
+        "clipboard": {
+          "$ref": "#/$defs/VmClipboardMode"
+        },
+        "vault": {
+          "$ref": "#/$defs/VmVaultPlacement"
+        },
+        "agent": {
+          "$ref": "#/$defs/VmGuestAgentStatus"
+        },
+        "psycheInstalled": {
+          "description": "Guest Psyche payload installed (L3)",
+          "type": "boolean"
+        },
+        "permissionsGranted": {
+          "description": "Accessibility / Screen Recording pre-granted offline (L3)",
+          "type": "boolean"
+        },
+        "savedState": {
+          "description": "A machine-state file exists (warm start)",
+          "type": "boolean"
+        },
+        "transfers": {
+          "items": {
+            "$ref": "#/$defs/VmTransfer"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -17352,6 +18128,31 @@
       ],
       "type": "object"
     },
+    "VmGuestAgentStatus": {
+      "properties": {
+        "connected": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": "string"
+        },
+        "accessibility": {
+          "type": "boolean"
+        },
+        "screenRecording": {
+          "type": "boolean"
+        },
+        "lastSeenAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "connected"
+      ],
+      "type": "object"
+    },
     "VmPhase": {
       "enum": [
         "created",
@@ -17362,7 +18163,9 @@
         "starting",
         "running",
         "stopping",
-        "failed"
+        "failed",
+        "paused",
+        "saved"
       ],
       "type": "string"
     },
@@ -17372,7 +18175,9 @@
           "enum": [
             "vm.download",
             "vm.install",
-            "vm.state"
+            "vm.state",
+            "vm.psyche_install",
+            "vm.permissions"
           ],
           "type": "string"
         },
@@ -17392,6 +18197,43 @@
       "required": [
         "type",
         "phase"
+      ],
+      "type": "object"
+    },
+    "VmSettings": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "guestNodeId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "defaultWorkspace": {
+          "$ref": "#/$defs/TaskWorkspace"
+        },
+        "clipboard": {
+          "$ref": "#/$defs/VmClipboardMode"
+        },
+        "credentials": {
+          "enum": [
+            "host",
+            "guest"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "enabled",
+        "defaultWorkspace",
+        "clipboard",
+        "credentials"
       ],
       "type": "object"
     },
@@ -17475,6 +18317,44 @@
       ],
       "type": "object"
     },
+    "VmTransfer": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "direction": {
+          "enum": [
+            "in",
+            "out"
+          ],
+          "type": "string"
+        },
+        "hostPath": {
+          "type": "string"
+        },
+        "guestPath": {
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "direction",
+        "hostPath",
+        "guestPath",
+        "bytes",
+        "createdAt"
+      ],
+      "type": "object"
+    },
     "VmUpdatedPayload": {
       "properties": {
         "nodeId": {
@@ -17495,6 +18375,13 @@
         "at"
       ],
       "type": "object"
+    },
+    "VmVaultPlacement": {
+      "enum": [
+        "host",
+        "guest"
+      ],
+      "type": "string"
     },
     "VoiceCancelParams": {
       "properties": {

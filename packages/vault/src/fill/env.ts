@@ -15,7 +15,16 @@ export interface SecretEnvInput {
   /** The network destination the command is approved to use the secret against. */
   target: Target;
   taskId?: string;
+  /**
+   * The lease (#290): the values live for one command only. When the command's `timeoutMs`
+   * (plus `graceMs`, default 5 s) has passed, the env is wiped even if the caller never called
+   * `dispose()`. Default: 10 minutes, the longest exec the Gateway allows.
+   */
+  lease?: { timeoutMs: number; graceMs?: number; now?: () => number };
 }
+
+/** Default lease: the Gateway's longest exec (10 min) plus the grace. */
+export const SECRET_LEASE_DEFAULT_MS = 10 * 60_000;
 
 /**
  * Environment for ONE sandbox command (security §4.6): `PSYCHE_SECRET_<NAME>` values, nothing
@@ -26,6 +35,11 @@ export interface SecretEnvInput {
 export interface SecretEnv {
   readonly env: Record<string, string>;
   readonly names: string[];
+  /** Epoch ms after which the values are gone whatever the caller does. */
+  readonly expiresAt: number;
+  /** False once disposed or expired. */
+  readonly active: boolean;
+  /** Wipe the values now; idempotent. Call it right after spawn, or after the command returns. */
   dispose(): void;
 }
 
@@ -34,7 +48,17 @@ const NAME_RE = /^[A-Z][A-Z0-9_]{0,63}$/;
 export async function buildSecretEnv(input: SecretEnvInput): Promise<SecretEnv> {
   const env: Record<string, string> = {};
   const names: string[] = [];
+  const now = input.lease?.now ?? Date.now;
+  const lifetime =
+    (input.lease?.timeoutMs ?? SECRET_LEASE_DEFAULT_MS) + (input.lease?.graceMs ?? 5_000);
+  if (!Number.isFinite(lifetime) || lifetime <= 0) {
+    return fail("invalid_params", "a secret lease needs a positive timeout");
+  }
+  let active = true;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const dispose = () => {
+    active = false;
+    if (timer !== undefined) clearTimeout(timer);
     for (const k of Object.keys(env)) {
       env[k] = "";
       delete env[k];
@@ -46,7 +70,20 @@ export async function buildSecretEnv(input: SecretEnvInput): Promise<SecretEnv> 
     dispose();
     throw err;
   }
-  return { env, names, dispose };
+  const expiresAt = now() + lifetime;
+  // The command cannot outlive its timeout, and neither may the values (#290).
+  timer = setTimeout(dispose, lifetime);
+  timer.unref?.();
+  return {
+    env,
+    names,
+    expiresAt,
+    get active() {
+      if (active && now() >= expiresAt) dispose();
+      return active;
+    },
+    dispose,
+  };
 }
 
 async function fillEnv(input: SecretEnvInput, env: Record<string, string>, names: string[]) {

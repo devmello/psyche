@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import {
   AgentToolRegistry,
@@ -5,7 +6,12 @@ import {
   createAgentLoop,
   type PsycheAgentLoop,
 } from "@psyche/agent-core";
-import { createAuditLog, type HashChainAuditLog } from "@psyche/audit";
+import {
+  createAuditLog,
+  FileAuditStore,
+  type HashChainAuditLog,
+  SoftwareAnchorKey,
+} from "@psyche/audit";
 import { getDevice, getSetting, getThread, openDb, type PsycheDb } from "@psyche/db";
 import { fileTools } from "@psyche/files";
 import {
@@ -14,7 +20,13 @@ import {
   createMemoryStore,
   type SqliteMemoryStore,
 } from "@psyche/memory";
-import { createModelRouter, type KeySource, type ModelRouterConfig } from "@psyche/model-router";
+import {
+  createModelRouter,
+  type KeySource,
+  KeyValueProbeStore,
+  type ModelRouter,
+  type ModelRouterConfig,
+} from "@psyche/model-router";
 import {
   createNotificationHandlers,
   PsycheNotifier,
@@ -29,6 +41,7 @@ import {
   type PolicyConfig,
   type PresenceVerifier,
   PsychePermissionBroker,
+  RESTORE_MARKER,
   RevocationLedger,
   replayRevocations,
   SqlitePermissionStore,
@@ -74,8 +87,16 @@ import {
   surfaceOf,
 } from "./handlers.ts";
 import { libraryHandlers } from "./library.ts";
+import {
+  type ModelSettingsSetup,
+  modelSettingsHandlers,
+  restoreModelSettings,
+  settingsKeyValue,
+} from "./model-settings.ts";
 import { composePasskeys } from "./passkeys.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
+import { protectedRoots } from "./protected-paths.ts";
+import { createRateLimits } from "./rate-limits.ts";
 import {
   type ApprovalRelay,
   type ComposedPart,
@@ -100,7 +121,14 @@ export type ModelSetup =
   /** A ready provider: the scripted `FakeModelProvider` in CI, or anything implementing it. */
   | { provider: ModelProvider; model: ModelRef; utilityModel?: ModelRef }
   /** The model router over provider configs (hosted or local). */
-  | { router: ModelRouterConfig; keys?: KeySource; model?: ModelRef; utilityModel?: ModelRef };
+  | {
+      router: ModelRouterConfig;
+      keys?: KeySource;
+      model?: ModelRef;
+      utilityModel?: ModelRef;
+      /** Provider transport (tests replay recorded fixtures through this). */
+      fetch?: typeof fetch;
+    };
 
 export interface ComposeOptions
   extends Omit<GatewayOptions, "agent" | "broker" | "memory" | "handlers"> {
@@ -144,6 +172,9 @@ export interface ComposeOptions
  * verifier handles (passkeys until S01 #79) is refused, so approvals that require
  * authentication cannot be answered with it.
  */
+/** A quiet log still gets an anchor this often (on its next entry). */
+const ANCHOR_INTERVAL_MS = 60 * 60_000;
+
 const NO_PRESENCE: PresenceVerifier = { verify: async () => false };
 
 export interface ComposedGateway {
@@ -171,7 +202,8 @@ const systemClock: Clock = { now: () => Date.now() };
 function providerFor(
   setup: ModelSetup,
   clock: Clock,
-): { provider: ModelProvider; model: ModelRef; utility?: ModelRef } {
+  db: PsycheDb,
+): { provider: ModelProvider; model: ModelRef; utility?: ModelRef; router?: ModelRouter } {
   if ("provider" in setup) {
     return {
       provider: setup.provider,
@@ -181,9 +213,13 @@ function providerFor(
   }
   const router = createModelRouter(setup.router, {
     clock,
+    // Tool-check verdicts (B4) survive restarts as `models.probe.<ref>` settings rows.
+    probes: new KeyValueProbeStore(settingsKeyValue(db)),
     ...(setup.keys === undefined ? {} : { keys: setup.keys }),
+    ...(setup.fetch === undefined ? {} : { fetch: setup.fetch }),
   });
   return {
+    router,
     provider: router,
     model: setup.model ?? "router/primary",
     utility: setup.utilityModel ?? "router/utility",
@@ -240,7 +276,48 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     bus.publish(event, payload, threadId);
   };
 
-  const audit = createAuditLog({ dir: join(config.home, "audit"), clock });
+  // Signed anchors (security §15.1): the server's software key until the helper's Secure Enclave
+  // key can sign; every 1,000 entries and at least hourly, with the head kept in security/.
+  const auditStore = new FileAuditStore(join(config.home, "audit"));
+  const anchorKey = SoftwareAnchorKey.open(
+    config.home,
+    (auditStore.tail()?.seq ?? -1) + 1,
+    () => new Date(clock.now()),
+  );
+  const audit = createAuditLog({
+    store: auditStore,
+    clock,
+    signer: anchorKey,
+    verifier: anchorKey,
+    anchorIntervalMs: ANCHOR_INTERVAL_MS,
+  });
+  // A restored backup's log is shorter than what this key anchored; the restore is audited with
+  // the head it had (replayRevocations below consumes the marker).
+  if (existsSync(join(config.home, RESTORE_MARKER))) {
+    const previous = anchorKey.forgetHead();
+    if (previous !== undefined) {
+      void audit
+        .append({
+          kind: "audit.anchor_head.reset",
+          actor: { type: "system" },
+          data: {
+            reason: "restore",
+            previousHeadSeq: previous.seq,
+            previousHeadHash: previous.hash,
+          },
+        })
+        .catch(() => undefined);
+    }
+  }
+  if (anchorKey.created) {
+    void audit
+      .append({
+        kind: "audit.anchor_key.created",
+        actor: { type: "system" },
+        data: { keyId: anchorKey.keyId, sinceSeq: anchorKey.signingSinceSeq(), kind: "software" },
+      })
+      .catch(() => undefined);
+  }
   // Revocations live outside the backup scope; a restored database cannot bring a revoked device
   // or grant back (S23 design-26). Replay before anything authenticates.
   const nowIso = () => new Date(clock.now()).toISOString();
@@ -317,6 +394,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   // Executors (vault fills, the browser's mid-run gate, sandbox secrets) request approvals
   // outside the loop, which announces only its own: they announce theirs here.
   const executorBroker = announcing(broker, publish);
+  // Background Task runs have no session controller to announce their cards: the loop's handle
+  // announces those (requestedBy.taskId set); chat turns keep the controller's announcement.
+  const loopBroker = announcing(broker, publish, (a) => a.requestedBy.taskId != null);
   broker.subscribe((e) => {
     if (
       e.type === "approval.decided" ||
@@ -341,11 +421,34 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
 
   const vault = composeVault(
-    { home: config.home, db, permissions: executorBroker, audit, clock, publish, redactor },
+    {
+      home: config.home,
+      db,
+      permissions: executorBroker,
+      audit,
+      clock,
+      publish,
+      redactor,
+      // Removed items stay removed across a restore (design-26), like devices and grants.
+      removals: {
+        record: (id) => revocations.recordVaultItem(id),
+        ids: () => revocations.vaultItemIds(),
+      },
+    },
     vaultSetup ?? vaultSetupFromEnv(gwOptions.env ?? process.env),
   );
 
-  const { provider, model: modelRef, utility } = providerFor(model, clock);
+  const { provider, model: modelRef, utility, router } = providerFor(model, clock, db);
+  const modelSettings: ModelSettingsSetup = {
+    db,
+    clock,
+    providers: "router" in model ? model.router.providers : [],
+    ...(router === undefined ? {} : { router }),
+    ...("router" in model && model.keys !== undefined ? { keys: model.keys } : {}),
+    ...("router" in model && model.fetch !== undefined ? { fetch: model.fetch } : {}),
+    ...("provider" in model ? { fixedModel: model.model } : {}),
+  };
+  await restoreModelSettings(modelSettings);
   const modelPins = modelPinsFor(provider);
   const memory = await createMemoryStore({
     db,
@@ -371,7 +474,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
 
   const registry = new AgentToolRegistry();
   // P9 file tools (#49); the executors re-check the live granted folders behind the broker.
-  for (const tool of fileTools({ folders: () => rawBroker.policy.folders }))
+  for (const tool of fileTools({
+    folders: () => rawBroker.policy.folders,
+    protectedRoots: () => protectedRoots(config.home),
+  }))
     registry.register(tool);
   // E12 cross-thread awareness: registered only while the owner has turned it on.
   let gatewayRef: Gateway | null = null;
@@ -398,6 +504,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     vault: vault.vault,
     redactor,
     ownPorts,
+    rateLimits: createRateLimits(config.rateLimits, {
+      audit,
+      clock,
+      ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+    }),
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   };
   const skills = composeSkills();
@@ -465,7 +576,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     provider,
     model: modelRef,
     ...(utility === undefined ? {} : { utilityModel: utility }),
-    broker,
+    broker: loopBroker,
     memory,
     tasks,
     notifier,
@@ -531,6 +642,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...vault.handlers,
     ...filesHandlers({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
     ...libraryHandlers({ db, home: config.home }),
+    ...modelSettingsHandlers(modelSettings),
   };
   for (const part of parts) Object.assign(handlers, part.handlers ?? {});
 
@@ -643,6 +755,7 @@ export {
   type TelegramSetup,
   turnText,
 } from "./channels.ts";
+export { composeCoding, hostGit } from "./coding.ts";
 export {
   type ConnectorsSetup,
   composeConnectors,
@@ -699,9 +812,10 @@ export {
 export { createLogger, surfaceOf };
 
 /**
- * A broker handle for executors: an approval they request is published as `approval.created`
- * once its answer tokens are recorded, so devices see the card (and their own token through the
- * personalizer). The agent loop keeps the plain handle and announces its approvals itself.
+ * A broker handle that publishes an approval it issues as `approval.created` once its answer
+ * tokens are recorded, so devices see the card (and their own token through the personalizer):
+ * every approval for executors, and only `which` ones for the agent loop, whose chat turns the
+ * session controller announces itself.
  */
 function announcing<B extends PermissionBroker>(
   broker: B,
@@ -710,12 +824,14 @@ function announcing<B extends PermissionBroker>(
     payload: EventPayload<"approval.created">,
     threadId?: string,
   ) => void,
+  which: (approval: IssuedApproval["approval"]) => boolean = () => true,
 ): B {
   return new Proxy(broker, {
     get(target, prop, receiver) {
       if (prop === "requestApproval") {
         return async (input: ApprovalRequestInput) => {
           const issued = await target.requestApproval(input);
+          if (!which(issued.approval)) return issued;
           publish(
             "approval.created",
             { approval: issued.approval },

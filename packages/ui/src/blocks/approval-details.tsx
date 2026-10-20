@@ -1,6 +1,7 @@
 import type { ApprovalRequest } from "@psyche/protocol";
 import { TriangleAlert } from "lucide-react";
 import { type ReactElement, type ReactNode, useState } from "react";
+import { DiffBlock } from "./DiffBlock.tsx";
 
 /**
  * Binding details shown in full, by kind (UI design §3.3). Everything here comes from the
@@ -42,6 +43,24 @@ function Row({ label, children }: { label: string; children: ReactNode }): React
 
 function Code({ children }: { children: ReactNode }): ReactElement {
   return <code className="rounded bg-gray-3 px-1 font-mono text-[13px]">{children}</code>;
+}
+
+/** A diff behind "View diff", in the kit's code block (Shiki `diff`). */
+function ExpandableDiff({ diff }: { diff: string }): ReactElement {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        className="text-accent-11 hover:underline"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {open ? "Hide" : "View diff"}
+      </button>
+      {open ? <DiffBlock diff={diff} className="mt-1 max-h-80 overflow-auto" /> : null}
+    </>
+  );
 }
 
 function Expandable({ label, text }: { label: string; text: string }): ReactElement {
@@ -241,12 +260,58 @@ export function ApprovalDetails({
           <Row label="Path">
             <Code>{str(d.path)}</Code>
           </Row>
+          {Array.isArray(d.files) ? <Row label="Files">{str(d.files)}</Row> : null}
           {typeof d.diff === "string" ? (
             <Row label="Change">
-              <Expandable label="View diff" text={d.diff} />
+              <ExpandableDiff diff={d.diff} />
             </Row>
           ) : null}
-          <Rest details={d} shown={["path", "diff"]} />
+          <Rest details={d} shown={["path", "diff", "files"]} />
+        </dl>
+      );
+    case "git_write":
+      return (
+        <dl>
+          <Row label="Repository">
+            <Code>{str(d.repo)}</Code>
+          </Row>
+          <Row label="Operation">{str(d.operation)}</Row>
+          {d.branch !== undefined ? (
+            <Row label="Branch">
+              <Code>{str(d.branch)}</Code>
+            </Row>
+          ) : null}
+          {d.message !== undefined ? (
+            <Row label="Message">
+              <span className="whitespace-pre-wrap">{str(d.message)}</span>
+            </Row>
+          ) : null}
+          {d.paths !== undefined ? <Row label="Paths">{str(d.paths)}</Row> : null}
+          <Rest details={d} shown={["repo", "operation", "branch", "message", "paths"]} />
+        </dl>
+      );
+    case "git_push":
+      // The binding: remote, its URL, branch and the exact commit, all as rows (a commit hash
+      // would otherwise count as a level-2 id and hide in Details).
+      return (
+        <dl>
+          <Row label="Remote">
+            <Code>{str(d.remote)}</Code>
+          </Row>
+          <Row label="URL">
+            <Code>{str(d.remoteUrl)}</Code>
+          </Row>
+          <Row label="Branch">
+            <Code>{str(d.branch)}</Code>
+          </Row>
+          <Row label="Commit">
+            <span className="font-mono text-caption break-all">{str(d.commit)}</span>
+          </Row>
+          <Row label="Repository">
+            <Code>{str(d.repo)}</Code>
+          </Row>
+          <Row label="Force">never</Row>
+          <Rest details={d} shown={["remote", "remoteUrl", "branch", "commit", "repo"]} />
         </dl>
       );
     case "mcp_tool":

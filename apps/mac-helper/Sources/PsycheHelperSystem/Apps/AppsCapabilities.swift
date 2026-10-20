@@ -118,12 +118,12 @@ public enum AppsCapabilities {
     }
 
     static func focus(_ cu: ComputerUse) -> Capability {
-        Capability(CapabilitySpec(
+        Capability(ComputerCapabilities.withApprovalParam(CapabilitySpec(
             name: "apps.focus", description: "Bring a running app to the front, optionally raising one of its windows by index.",
             sideEffect: .write, targetKind: .app,
             inputSchema: Schema.object(["app": Schema.string(), "window": Schema.integer(min: 0)], required: ["app"]),
             receiptKind: "computer_action"
-        )) { ctx in
+        ))) { ctx in
             struct P: Decodable {
                 var app: String
                 var window: Int?
@@ -131,7 +131,7 @@ public enum AppsCapabilities {
             let p = try ctx.decode(P.self)
             let app = try AXEngine.findApp(p.app)
             let target = AXEngine.target(app)
-            try cu.policy.authorize(.read, bundleId: target.bundleId, appName: target.name, approvalId: ctx.approvalId)
+            try cu.policy.authorize(.read, bundleId: target.bundleId, appName: target.name, approval: ComputerCapabilities.binding(ctx))
             app.unhide()
             app.activate()
             if let w = p.window {
@@ -151,29 +151,29 @@ public enum AppsCapabilities {
     struct ScriptParams: Decodable {
         var source: String
         var target: String?
+        var timeoutSeconds: Int?
     }
 
     static func scriptSchema(_ language: String) -> JSONValue {
         Schema.object([
             "source": Schema.string("\(language) source", maxLength: 50_000),
-            "target": Schema.string("Bundle id of the app the script controls (Automation is asked for it first)"),
-        ], required: ["source"])
+            "target": Schema.string("Bundle id of the app the script controls (Automation is asked for it first); every app the script addresses must be this one"),
+            "timeoutSeconds": Schema.integer(min: 1, max: 300),
+        ], required: ["source", "target"])
     }
 
     static func applescript() -> Capability {
         Capability(CapabilitySpec(
             name: "apps.applescript",
-            description: "Run AppleScript in the helper (Automation prompt per target app on first use). Arbitrary scripts can change anything the targets allow, so this is destructive and approved per exact source. `do shell script` is refused.",
+            description: "Run AppleScript against one target app (osascript, out of process, without the helper's permissions). Destructive, device-only, approved per exact source; shell, ObjC and other apps are refused.",
             sideEffect: .destructive, targetKind: .app, inputSchema: scriptSchema("AppleScript"),
             permissions: [], receiptKind: "apple_event"
         )) { ctx in
             let p = try ctx.decode(ScriptParams.self)
-            try ScriptGuard.check(p.source, language: .appleScript)
-            if let t = p.target {
-                try ScriptGuard.checkTarget(t)
-                try await AutomationPermission.ensure(bundleId: t, ask: true)
-            }
-            let out = try await MainThreadScript.run(source: p.source, language: "AppleScript")
+            try ScriptGuard.check(p.source, language: .appleScript, target: p.target, resolve: AppResolver.bundleId)
+            let t = p.target ?? ""
+            try await AutomationPermission.ensure(bundleId: AppResolver.bundleId(t) ?? t, ask: true)
+            let out = try await OutOfProcessScript.run(source: p.source, language: .appleScript, timeout: TimeInterval(min(300, max(1, p.timeoutSeconds ?? 60))))
             return scriptOutput(out, target: p.target, kind: "AppleScript")
         }
     }
@@ -181,17 +181,15 @@ public enum AppsCapabilities {
     static func jxa() -> Capability {
         Capability(CapabilitySpec(
             name: "apps.jxa",
-            description: "Run JavaScript for Automation in the helper (Automation prompt per target app). Destructive and approved per exact source; doShellScript and ObjC bridging are refused.",
+            description: "Run JavaScript for Automation against one target app (osascript, out of process, without the helper's permissions). Destructive, device-only, approved per exact source; shell, ObjC bridging and other apps are refused.",
             sideEffect: .destructive, targetKind: .app, inputSchema: scriptSchema("JavaScript for Automation"),
             receiptKind: "apple_event"
         )) { ctx in
             let p = try ctx.decode(ScriptParams.self)
-            try ScriptGuard.check(p.source, language: .javaScript)
-            if let t = p.target {
-                try ScriptGuard.checkTarget(t)
-                try await AutomationPermission.ensure(bundleId: t, ask: true)
-            }
-            let out = try await MainThreadScript.run(source: p.source, language: "JavaScript")
+            try ScriptGuard.check(p.source, language: .javaScript, target: p.target, resolve: AppResolver.bundleId)
+            let t = p.target ?? ""
+            try await AutomationPermission.ensure(bundleId: AppResolver.bundleId(t) ?? t, ask: true)
+            let out = try await OutOfProcessScript.run(source: p.source, language: .javaScript, timeout: TimeInterval(min(300, max(1, p.timeoutSeconds ?? 60))))
             return scriptOutput(out, target: p.target, kind: "JXA")
         }
     }
@@ -261,70 +259,34 @@ public enum AppsCapabilities {
 
 // MARK: - Script execution
 
-/// Defense in depth for script capabilities: the binding approval is the real control (the source
-/// is approved verbatim), but the helper never runs host shell commands for a script (security §5.4:
-/// no host-shell fallback). This is a denylist, not a sandbox.
-public enum ScriptGuard {
-    public enum Language { case appleScript, javaScript }
-
-    public static func check(_ source: String, language: Language) throws {
-        let s = source.lowercased().replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-        let banned: [String] = switch language {
-        // Shell escapes, script loaders, and UI waits that would block the helper's main thread.
-        case .appleScript: ["do shell script", "do script", "run script", "load script", "«event sysoexec»", "«event sysodsct»",
-                            "delay ", "display dialog", "display alert", "choose from list", "choose file", "choose folder",
-                            "choose application", "keystroke", "key code"]
-        case .javaScript: ["doshellscript", "doscript", "objc.", "$.", "$[", "app.runscript", "eval(", "function(", "delay(",
-                           "displaydialog", "displayalert", "choosefromlist", "choosefile", "choosefolder", "keystroke", "keycode"]
-        }
-        if let hit = banned.first(where: { s.contains($0) }) {
-            throw CapabilityError(.policyDenied, reason: "shell_escape", "Scripts may not use \(hit); shell commands run in the sandbox")
-        }
-        if source.count > 50_000 { throw CapabilityError.invalidParams("script too long", field: "source") }
-        for app in addressedApps(source) {
-            try checkTarget(app)
-        }
-    }
-
-    /// App names or bundle ids a script addresses (`application "Notes"`, `Application('Notes')`,
-    /// `application id "com.apple.Notes"`).
-    public static func addressedApps(_ source: String) -> [String] {
-        let patterns = [#"application\s+id\s+"([^"]+)""#, #"application\s+"([^"]+)""#, #"Application\(\s*['"]([^'"]+)['"]\s*\)"#,
-                        #"app\s+"([^"]+)""#]
-        var out: [String] = []
-        for pattern in patterns {
-            guard let re = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
-            let ns = source as NSString
-            for m in re.matches(in: source, range: NSRange(location: 0, length: ns.length)) where m.numberOfRanges > 1 {
-                out.append(ns.substring(with: m.range(at: 1)))
-            }
-        }
-        return out
-    }
-
-    /// Refuses System Events (it would inject input with the helper's Accessibility grant, past
-    /// tiers and the Esc stop) and apps whose fixed cap is below Read and interact.
-    public static func checkTarget(_ nameOrId: String) throws {
-        let lower = nameOrId.lowercased()
-        if lower.contains("system events") || lower == "com.apple.systemevents" {
-            throw CapabilityError(.policyDenied, reason: "system_events", "Scripts may not drive System Events; use computer.* so tiers and Esc apply")
-        }
-        let bundleId: String? = nameOrId.contains(".")
-            ? nameOrId
-            : NSWorkspace.shared.urlForApplication(withBundleIdentifier: nameOrId) == nil
-                ? appFolderBundleId(named: nameOrId) : nameOrId
-        let cap = FixedCaps.cap(for: bundleId)
-        if cap < .interact || ["terminal", "iterm", "iterm2", "script editor", "xcode", "ghostty", "warp"].contains(lower) {
-            throw CapabilityError(.policyDenied, reason: "script_target_capped", "Scripts may not control \(nameOrId)")
-        }
-    }
-
-    static func appFolderBundleId(named name: String) -> String? {
+/// Resolves an app name or bundle id to an installed bundle id.
+enum AppResolver {
+    static func bundleId(_ nameOrId: String) -> String? {
+        if nameOrId.contains("."), NSWorkspace.shared.urlForApplication(withBundleIdentifier: nameOrId) != nil { return nameOrId }
+        let name = nameOrId.hasSuffix(".app") ? nameOrId : nameOrId + ".app"
+        guard !name.contains("/"), !name.contains("..") else { return nil }
         for dir in AppsCapabilities.appFolders {
-            let url = URL(fileURLWithPath: dir).appendingPathComponent(name.hasSuffix(".app") ? name : name + ".app")
-            if let id = Bundle(url: url)?.bundleIdentifier { return id }
+            if let id = Bundle(url: URL(fileURLWithPath: dir).appendingPathComponent(name))?.bundleIdentifier { return id }
         }
-        return nil
+        return nameOrId.contains(".") ? nameOrId : nil
+    }
+}
+
+/// Runs a checked script out of process (#268): `/usr/bin/osascript` spawned with responsibility
+/// disclaimed and a minimal environment, the source on stdin, with a timeout. The script never
+/// holds the helper's Accessibility or Full Disk Access, and a hung script cannot block the
+/// helper's main thread.
+enum OutOfProcessScript {
+    static func run(source: String, language: ScriptGuard.Language, timeout: TimeInterval) async throws -> String {
+        let lang = language == .appleScript ? "AppleScript" : "JavaScript"
+        let r = try await DisclaimedProcess.run("/usr/bin/osascript", ["-l", lang, "-"], stdin: Data(source.utf8), timeout: timeout)
+        guard r.status == 0 else {
+            if r.stderr.contains("-1743") {
+                throw CapabilityError(.forbidden, reason: "automation_denied", "Automation was denied for the target app. Allow it in System Settings › Privacy & Security › Automation.")
+            }
+            throw CapabilityError(.unavailable, reason: "script_error", "The script failed", details: ["stderr": .string(String(r.stderr.prefix(500)))])
+        }
+        return r.stdout.hasSuffix("\n") ? String(r.stdout.dropLast()) : r.stdout
     }
 }
 

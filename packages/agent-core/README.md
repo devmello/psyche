@@ -148,6 +148,10 @@ When a run with a `taskId` would end `final` and the task has receipts, the loop
 - `reopen` continues the run up to `evaluator.maxReopens` (1) times; after that, or on `escalate`, an attended task run asks the owner ("Not verified": mark done / try again / I'll handle it) and ends `awaiting_input`; an unattended run ends `failed` with `not_verified: …`, so the owner is notified and the task is never reported done.
 - A visible `[evaluator: …]` marker records each verdict. Disable with `evaluator: { enabled: false }`.
 
+## Coding helper (V10)
+
+`codingTools(deps)` returns `code.open`, `code.search`, `code.read`, `code.edit`, `code.run` and `code.git` (`src/coding/`). The Gateway registers them (`apps/gateway/src/compose/coding.ts`) with the P9 file tools' `read_file` / `write_file` registrations (reused for every read and write), the granted folders, a `SandboxRunner` (`code.run` runs in scope `project:<workspace>` with the repository at `/workspace/repo` and `.git` read-only; omitted without a runner), a `GitRunner` (host git, argv only; `code.git` is omitted without one) and the broker for receipts. Cards: `code.edit` is `file_write` with the whole patch, `code.run` is `exec`, `code.git` commit / branch are `git_write`, push is `git_push` (remote, URL, branch, commit; `once` only). Status and decisions: docs/status/s02.md "V10".
+
 ## How this maps to the docs
 
 - Request lifecycle and runtime: [architecture §4.2–§4.3](../../docs/02-architecture.md); hook names: §13.

@@ -1,6 +1,6 @@
-import { lstatSync, readdirSync, statfsSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync, statfsSync } from "node:fs";
 import { join, relative } from "node:path";
-import type { RealChromeStatus } from "@psyche/protocol";
+import type { BackupInfo, McpServerStatus, RealChromeStatus } from "@psyche/protocol";
 import type { GatewayClient, HttpProbe } from "./client.ts";
 import { callIfAvailable } from "./commands/util.ts";
 import { type ConfigObject, readConfig, validateConfig } from "./config-file.ts";
@@ -21,6 +21,30 @@ export interface FileModeIssue {
   path: string;
   mode: string;
   kind: "dir" | "file";
+}
+
+/** `$PSYCHE_HOME/run/updater.json`, written by the desktop after each update check. */
+export interface UpdaterState {
+  state: "disabled" | "no_keys" | "none" | "refused" | "started";
+  appVersion?: string;
+  keys?: number;
+  checkedAt?: string;
+  code?: string;
+  reason?: string;
+}
+
+export function readUpdaterState(home: string): Query<UpdaterState> {
+  try {
+    const v = JSON.parse(readFileSync(join(home, "run", "updater.json"), "utf8")) as UpdaterState;
+    if (typeof v?.state !== "string") throw new Error("no state");
+    return { ok: true, value: v };
+  } catch {
+    return {
+      ok: false,
+      reason: "unavailable",
+      message: "no run/updater.json (the desktop app has not checked for updates here)",
+    };
+  }
 }
 
 export interface Snapshot {
@@ -63,11 +87,12 @@ export interface Snapshot {
       name: string;
       scopes: string[];
       lastSeenAt?: string | null;
+      pairedAt?: string | null;
       revokedAt?: string | null;
     }[]
   >;
   nodes: Query<{ id: string; kind: string; status: string; capabilities: { name: string }[] }[]>;
-  sandbox: Query<{ backend: string; available: boolean }>;
+  sandbox: Query<{ backend: string; available: boolean; egress?: boolean }>;
   vault: Query<{
     state: string;
     slots: string[];
@@ -79,6 +104,12 @@ export interface Snapshot {
   skills: Query<{ name: string; status: string; trust: string; enabled: boolean }[]>;
   /** The Gateway's real-Chrome mode (I13): the owner's profile on a loopback DevTools port. */
   realChrome: Query<RealChromeStatus>;
+  /** How the Gateway isolates MCP servers (`mcp.status`). */
+  mcp: Query<{ launcher: "srt" | "container" | "none"; servers: McpServerStatus[] }>;
+  /** Archives in $PSYCHE_HOME/backups (`backup.list`). */
+  backups: Query<BackupInfo[]>;
+  /** The desktop's last update check, `$PSYCHE_HOME/run/updater.json` (security §11). */
+  updater: Query<UpdaterState>;
   localSandboxBackends: string[];
   disk: { freeBytes: number; totalBytes: number } | null;
   modeIssues: FileModeIssue[];
@@ -187,19 +218,38 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
       : { paired: false, scopes: [], error: toReport(r.error) };
   }
 
-  const [settings, channels, grants, devices, nodes, sandbox, vault, apiKeys, skills, realChrome] =
-    await Promise.all([
-      q(client, "settings.get", {}, (v: { settings: Record<string, unknown> }) => v.settings),
-      q(client, "channels.list", {}, (v: { channels: never[] }) => v.channels),
-      q(client, "grants.list", {}, (v: { grants: never[] }) => v.grants),
-      q(client, "devices.list", {}, (v: { devices: never[] }) => v.devices),
-      q(client, "nodes.list", {}, (v: { nodes: never[] }) => v.nodes),
-      q(client, "sandbox.status", {}, (v: { backend: string; available: boolean }) => v),
-      q(client, "vault.status", {}, (v: { status: never }) => v.status),
-      q(client, "vault.list", { kind: "api_key" }, (v: { credentials: never[] }) => v.credentials),
-      q(client, "skills.list", {}, (v: { skills: never[] }) => v.skills ?? []),
-      q(client, "browser.realChrome.status", {}, (v: RealChromeStatus) => v),
-    ]);
+  const [
+    settings,
+    channels,
+    grants,
+    devices,
+    nodes,
+    sandbox,
+    vault,
+    apiKeys,
+    skills,
+    realChrome,
+    mcp,
+    backups,
+  ] = await Promise.all([
+    q(client, "settings.get", {}, (v: { settings: Record<string, unknown> }) => v.settings),
+    q(client, "channels.list", {}, (v: { channels: never[] }) => v.channels),
+    q(client, "grants.list", {}, (v: { grants: never[] }) => v.grants),
+    q(client, "devices.list", {}, (v: { devices: never[] }) => v.devices),
+    q(client, "nodes.list", {}, (v: { nodes: never[] }) => v.nodes),
+    q(client, "sandbox.status", {}, (v: { backend: string; available: boolean }) => v),
+    q(client, "vault.status", {}, (v: { status: never }) => v.status),
+    q(client, "vault.list", { kind: "api_key" }, (v: { credentials: never[] }) => v.credentials),
+    q(client, "skills.list", {}, (v: { skills: never[] }) => v.skills ?? []),
+    q(client, "browser.realChrome.status", {}, (v: RealChromeStatus) => v),
+    q(
+      client,
+      "mcp.status",
+      {},
+      (v: { launcher: "srt" | "container" | "none"; servers: McpServerStatus[] }) => v,
+    ),
+    q(client, "backup.list", {}, (v: { backups: BackupInfo[] }) => v.backups),
+  ]);
 
   const localSandboxBackends: string[] = [];
   for (const bin of ["container", "docker", "podman"]) {
@@ -243,6 +293,9 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
     homeMode,
     chromeDebugPort,
     realChrome,
+    mcp,
+    backups,
+    updater: readUpdaterState(ctx.home),
     localModel,
   };
 }

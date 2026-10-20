@@ -97,6 +97,47 @@ export function isRiskyChord(keys: string): boolean {
   return parts.includes("cmd") && ["q", "w", "delete", "backspace"].includes(key);
 }
 
+/**
+ * Messaging and mail apps, where Return (and the apps' send chords) sends to a third party
+ * (security §3.1 destructive, §9 every other send asks; #270). Bundle ids, case-insensitive.
+ */
+export const SEND_APPS = [
+  "com.apple.MobileSMS",
+  "com.apple.mail",
+  "com.microsoft.Outlook",
+  "com.tinyspeck.slackmacgap",
+  "com.hnc.Discord",
+  "net.whatsapp.WhatsApp",
+  "desktop.WhatsApp",
+  "ru.keepcoder.Telegram",
+  "org.whispersystems.signal-desktop",
+  "com.facebook.archon",
+  "com.microsoft.teams2",
+  "com.readdle.smartemail-Mac",
+  "com.superhuman.electron",
+];
+
+/** How recent owner input must be for agent actions in a sensitive app (§7.2 item 5). */
+export const ATTENTION_WINDOW_MS = 5 * 60_000;
+
+export function isSendApp(app: string): boolean {
+  const id = app.toLowerCase();
+  return SEND_APPS.some((a) => a.toLowerCase() === id);
+}
+
+/** Return / Enter (with or without cmd), and Mail's cmd+shift+D: send in a messaging app. */
+export function isSendChord(app: string, keys: string): boolean {
+  if (!isSendApp(app)) return false;
+  const parts = keys
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .split("+")
+    .map((k) => (k === "command" || k === "⌘" ? "cmd" : k === "enter" ? "return" : k));
+  const key = parts.at(-1) ?? "";
+  if (key === "return" || key === "kp_enter" || key === "\n") return true;
+  return parts.includes("cmd") && parts.includes("shift") && key === "d";
+}
+
 // --- Schemas -------------------------------------------------------------------------------------
 
 const BundleId = Type.String({
@@ -262,6 +303,11 @@ export interface ComputerDeps {
   cancelRun(threadId: string, runId: string, reason: string): void;
   /** The agent used an app (Settings → Computer use lists it). */
   appUsed?(bundleId: string, name?: string): void;
+  /**
+   * When the owner last gave input (a message of their own, an approval answer), for
+   * pause-when-unwatched (docs/05 §7.2 item 5, #272). Absent: not enforced.
+   */
+  lastOwnerInput?(): number | undefined;
   now?: () => number;
   logger?: Logger;
 }
@@ -319,10 +365,14 @@ function clip(text: string, max: number): string {
  */
 export function elementsIn(text: string): { ref: string; role: string; label?: string }[] {
   const out: { ref: string; role: string; label?: string }[] = [];
-  for (const m of text.matchAll(/^[ ]*\[(e[0-9]{1,7})\] (\S+)(.*)$/gm)) {
+  // Lines end at `\n` only: a `\r`, U+2028 or U+2029 inside a label is part of the label, never
+  // the start of a forged element line (#271). No `m` flag, so `^`/`$` see only these lines.
+  for (const line of text.split("\n")) {
+    const m = /^[ ]*\[(e[0-9]{1,7})\] (\S+)([^\n]*)$/.exec(line);
+    if (m === null) continue;
     const [, ref, role, rest] = m;
     if (ref === undefined || role === undefined) continue;
-    const label = /^ "(.*?)"(?= |$)/.exec(rest ?? "")?.[1];
+    const label = /^ "([^\n]*?)"(?= |$)/.exec(rest ?? "")?.[1];
     out.push({ ref, role, ...(label === undefined ? {} : { label }) });
   }
   return out;
@@ -537,12 +587,21 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
   ): Promise<{ res: NodeInvokeResult; session?: Session; approvalId?: string }> {
     const ctx = deps.context(callId);
     let approvalId = ctx.approvalId;
+    // #267: every action names the app the broker and the owner decided about, and the tier an
+    // approval covered. The helper refuses when the app under a point or ref is another one, and
+    // an approval for a click never becomes an interact allowance.
+    const scoped = (approved: string | undefined): Record<string, unknown> => ({
+      ...inv.params,
+      ...(inv.session && inv.approval.app !== "*" ? { app: inv.approval.app } : {}),
+      ...(inv.session && approved !== undefined ? { approvedTier: inv.approval.tierRequired } : {}),
+    });
     for (let round = 0; ; round++) {
       const node = requireHelper();
       const session = inv.session ? acquire(ctx, node) : undefined;
+      const params = scoped(approvalId);
       const res = await node.client.invoke(
         inv.capability,
-        session === undefined ? inv.params : { ...inv.params, session: session.id },
+        session === undefined ? params : { ...params, session: session.id },
         {
           signal,
           timeoutMs: inv.timeoutMs ?? INVOKE_TIMEOUT_MS,
@@ -551,6 +610,22 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       );
       if (session !== undefined) session.lastUsed = now();
       if (res.ok) {
+        // A helper that acted on another app than the approved one (an older helper without
+        // the check): report it and stop, never treat it as the approved action.
+        const acted = (res.result as { bundleId?: unknown; app?: unknown } | undefined) ?? {};
+        const actedApp = typeof acted.bundleId === "string" ? acted.bundleId : acted.app;
+        if (
+          inv.session &&
+          inv.approval.app !== "*" &&
+          typeof actedApp === "string" &&
+          actedApp.toLowerCase() !== inv.approval.app.toLowerCase()
+        ) {
+          throw new PsycheError(
+            "policy_denied",
+            `The action reached ${actedApp}, not ${inv.approval.app}`,
+            { details: { reason: "app_mismatch", app: inv.approval.app, actedApp } },
+          );
+        }
         if (
           session !== undefined ||
           inv.capability === "apps.open" ||
@@ -788,6 +863,17 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     }
   }
 
+  /**
+   * Pause-when-unwatched (§7.2 item 5, #272): in a sensitive (messaging or mail) app, an action
+   * while the owner gave no input for 5 minutes always gets a card, so an unattended Task parks
+   * on it until the owner is back.
+   */
+  function unwatched(app: string): boolean {
+    if (deps.lastOwnerInput === undefined || !isSendApp(app)) return false;
+    const at = deps.lastOwnerInput();
+    return at === undefined || now() - at > ATTENTION_WINDOW_MS;
+  }
+
   /** What the owner sees and the broker classifies: risky labels and chords are destructive. */
   function describeAct(p: ActParams): ToolCallDescription {
     // Risk comes from what the snapshot showed, not only from what the agent copied: an element
@@ -805,6 +891,10 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       unknown(p) ||
       unknown(p.to) ||
       (p.action === "key" && p.keys !== undefined && isRiskyChord(p.keys)) ||
+      // A send in a messaging or mail app (#270): the key, or typed text that ends a line.
+      (p.action === "key" && p.keys !== undefined && isSendChord(p.app, p.keys)) ||
+      (p.action === "type" && isSendApp(p.app) && /[\r\n]/.test(p.text ?? "")) ||
+      unwatched(p.app) ||
       (p.action === "menu" && (p.path ?? "").split(">").some((seg) => isRiskyLabel(seg))) ||
       (p.action === "press" && isRiskyLabel(p.press?.replace(/^custom:/, "")));
     const what =
@@ -832,7 +922,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       grantKey: `${p.app}|${tierFor(p.action)}`,
       // The broker's per-app tier check keys on the action: a click needs `click`, typing `interact`.
       meta: { app: p.app, action: p.action },
-      summary: `${what} in ${p.app}`,
+      summary: `${unwatched(p.app) ? "While you're away: " : ""}${what} in ${p.app}`,
       details: {
         app: p.app,
         action: p.action,
@@ -1249,7 +1339,10 @@ export function composeComputer(services: ComposeServices): ComposedPart {
   let gateway: Gateway | undefined;
   const offs: (() => void)[] = [];
   let unregister: (() => void)[] = [];
+  // The owner's last own input (pause-when-unwatched, #272): their messages and approval answers.
+  let ownerInputAt: number | undefined;
   const cu = createComputerUse({
+    lastOwnerInput: () => ownerInputAt,
     broker: services.broker,
     helper: computerHelper(() => gateway),
     context: (callId) => services.calls.context(callId),
@@ -1279,6 +1372,13 @@ export function composeComputer(services: ComposeServices): ComposedPart {
         gw.bus.subscribe(["operator.read"], (frame) => {
           const f = JSON.parse(frame) as { event?: string; payload?: Record<string, unknown> };
           const p = f.payload ?? {};
+          if (f.event === "chat.message") {
+            const m = p.message as { role?: string; provenance?: string } | undefined;
+            if (m?.role === "user" && m.provenance === "owner") ownerInputAt = services.clock.now();
+          } else if (f.event === "approval.updated") {
+            const a = p.approval as { decidedBy?: { deviceId?: string } | null } | undefined;
+            if (typeof a?.decidedBy?.deviceId === "string") ownerInputAt = services.clock.now();
+          }
           if (f.event === "run.updated") {
             const run = p.run as { id: string; status: string } | undefined;
             if (run !== undefined && RUN_FINISHED.has(run.status)) void cu.runEnded(run.id);

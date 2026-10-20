@@ -44,6 +44,7 @@ export interface TaskRow {
   completed_at: string | null;
   /** JSON array of `TaintSource`; NULL when the creating turn was not tainted (design-08). */
   taint_sources: string | null;
+  workspace: string | null;
 }
 
 export interface CheckpointRow {
@@ -115,6 +116,7 @@ export function taskFromRow(r: TaskRow): Task {
   if (r.taint !== null) task.taint = r.taint === 1;
   const sources = parseJson<TaintSource[]>(r.taint_sources);
   if (sources !== null) task.taintSources = sources;
+  if (r.workspace === "sandbox" || r.workspace === "vm") task.workspace = r.workspace;
   return task;
 }
 

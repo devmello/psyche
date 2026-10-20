@@ -1,0 +1,35 @@
+# Dependency updates (issue #297, reports/m3-dependency-audit.md DEP-5). Weekly, grouped, so the
+# SHA-pinned Actions and digest-pinned images do not go stale. PRs still go through the normal gate.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    # Majors (TypeScript 7, @types/node 26, ...) are done by hand at version bumps, not by bot PRs.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      npm-minor-and-patch:
+        update-types: ["minor", "patch"]
+  - package-ecosystem: docker
+    directory: /deploy
+    schedule:
+      interval: weekly
+      day: monday
+  - package-ecosystem: docker
+    directory: /deploy/sandbox-image
+    schedule:
+      interval: weekly
+      day: monday

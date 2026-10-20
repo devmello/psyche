@@ -1,0 +1,3 @@
+{
+  "$comment": "`<case id>[<mode>]` → why a fail is accepted for now, with its issue and owner. `pnpm check:injection` and packages/testing/test/injection.test.ts ignore these and fail on any entry that passes again (unpin it)."
+}

@@ -1,3 +1,5 @@
+import type { EndpointProbe, ModelCapabilityGuess } from "@psyche/protocol";
+
 /**
  * UI-local shapes for settings data the protocol does not carry yet (providers, TCC state,
  * computer-use tiers, folder shares, server status, versions). The connected sections read them
@@ -12,6 +14,8 @@ export interface ProviderModel {
   /** `provider/model`, e.g. `anthropic/claude-sonnet-5-5`. */
   ref: string;
   toolCheck: ToolCheck;
+  /** What the last endpoint probe (or the catalog) says the model can do. */
+  capabilities?: ModelCapabilityGuess;
 }
 
 /** One configured model provider. `keyRef` is a vault reference; the key never reaches the UI. */
@@ -20,8 +24,13 @@ export interface ProviderInfo {
   label: string;
   kind: ProviderKind;
   keyRef: string | null;
-  status: "ok" | "missing" | "invalid" | "offline";
+  /** `unknown`: configured, but nobody has checked the endpoint yet. */
+  status: "ok" | "missing" | "invalid" | "offline" | "unknown";
   models: ProviderModel[];
+  /** Endpoint, shown for local servers (never carries a key). */
+  baseURL?: string;
+  /** The last endpoint probe (`models.probe`); `not_probed` until the owner runs one. */
+  probe?: EndpointProbe;
 }
 
 /** macOS privacy (TCC) permission state as the shell reads it. */

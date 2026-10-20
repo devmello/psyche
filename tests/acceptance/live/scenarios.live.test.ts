@@ -2,13 +2,15 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { modelSetupFromEnv } from "@psyche/gateway/compose";
 import { createModelRouter } from "@psyche/model-router";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { SCENARIOS_DIR } from "../../../packages/testing/src/scenarios/index.ts";
+import { m2Overrides } from "../src/m2-world.ts";
 import { OUT_DIR, writeReport } from "../src/report.ts";
+import { M2_SCENARIO_IDS, M2_SCENARIOS_DIR } from "../src/scenario-scripts.ts";
 import { type LiveReport, runScenarioLive } from "./driver.ts";
 
 /**
- * Live model gates (docs/08 Milestone 1 "Acceptance"): V1, V2 and V7 on a real model, three runs
+ * Live model gates (docs/08 Milestones 1 and 2 "Acceptance"): V1, V2, V3, V5, V6, V7, V8 and V9 on a real model, three runs
  * each, through the live driver. Opt in with
  *
  *   PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=<provider>/<model> pnpm --filter @psyche/acceptance-tests live
@@ -31,13 +33,24 @@ const MODEL = process.env.PSYCHE_MODEL ?? "";
 const LIVE = process.env.PSYCHE_LIVE_TESTS === "1" && MODEL !== "";
 const REPEATS = Number(process.env.PSYCHE_LIVE_REPEATS ?? 3);
 const SCENARIOS = (
-  process.env.PSYCHE_LIVE_SCENARIOS ?? "v1-inbox-triage,v2-calendar-planning,v7-research-brief"
+  process.env.PSYCHE_LIVE_SCENARIOS ??
+  [
+    "v1-inbox-triage",
+    "v2-calendar-planning",
+    "v3-shopping",
+    "v7-research-brief",
+    ...M2_SCENARIO_IDS,
+  ].join(",")
 )
   .split(",")
   .map((x) => x.trim())
   .filter((x) => x !== "");
 
 const runs: LiveReport[] = [];
+
+/** Error text from a provider may echo a credential; never print anything key-shaped. */
+const redact = (text: string) =>
+  text.replace(/\b(sk|xai|gsk|AIza)[-_A-Za-z0-9]{8,}/g, "[redacted]");
 const slug = MODEL.replace(/[^a-z0-9.-]+/gi, "-");
 
 interface RunRow {
@@ -52,6 +65,7 @@ interface RunRow {
   questions: LiveReport["questions"];
   answers: LiveReport["answers"];
   texts: LiveReport["texts"];
+  runInfo: LiveReport["runs"];
 }
 
 /**
@@ -60,7 +74,8 @@ interface RunRow {
  * scenario by scenario.
  */
 afterAll(() => {
-  if (!LIVE) return;
+  // Nothing ran (the provider check failed): keep the last report as it is.
+  if (!LIVE || runs.length === 0) return;
   const path = join(OUT_DIR, `live-${slug}.json`);
   const previous: RunRow[] = existsSync(path)
     ? ((JSON.parse(readFileSync(path, "utf8")) as { runs?: RunRow[] }).runs ?? [])
@@ -82,6 +97,7 @@ afterAll(() => {
     questions: r.questions,
     answers: r.answers,
     texts: r.texts,
+    runInfo: r.runs,
   }));
   const all = [...kept, ...fresh].sort((a, b) => a.scenario.localeCompare(b.scenario));
   writeReport(`live-${slug}`, {
@@ -103,11 +119,42 @@ describe.skipIf(!LIVE)(`live gates on ${MODEL || "(no model)"}`, () => {
           ...(setup.keys === undefined ? {} : { keys: setup.keys }),
         });
 
+  // One tiny request first: a refused key or an unreachable model fails here with the provider's
+  // reason, instead of as a page of assertions about calls that never happened.
+  beforeAll(async () => {
+    if (provider === undefined) throw new Error("no model provider");
+    let error: string | undefined;
+    for await (const ev of provider.stream({
+      model: "router/primary",
+      messages: [{ role: "user", parts: [{ type: "text", text: "Reply with OK." }] }],
+      maxOutputTokens: 8,
+    }))
+      if (ev.type === "finish" && ev.reason === "error") error = String(ev.error ?? "error");
+    if (error !== undefined) {
+      const reason = redact(error);
+      // Record the refusal next to the earlier runs, so the scorecard says why nothing ran.
+      const path = join(OUT_DIR, `live-${slug}.json`);
+      const previous = existsSync(path)
+        ? (JSON.parse(readFileSync(path, "utf8")) as { runs?: unknown[] }).runs
+        : undefined;
+      writeReport(`live-${slug}`, {
+        model: MODEL,
+        repeats: REPEATS,
+        blocked: { at: new Date().toISOString().slice(0, 10), reason },
+        ok: false,
+        runs: previous ?? [],
+      });
+      throw new Error(`${MODEL} refused a one-line request: ${reason}`);
+    }
+  }, 60_000);
+
   for (const scenario of SCENARIOS) {
     for (let run = 1; run <= REPEATS; run += 1) {
       it(`${scenario} run ${run}/${REPEATS} passes every hard assertion`, async () => {
         if (provider === undefined) throw new Error("no model provider");
-        const r = await runScenarioLive(join(SCENARIOS_DIR, scenario), {
+        const m2 = (M2_SCENARIO_IDS as readonly string[]).includes(scenario);
+        const r = await runScenarioLive(join(m2 ? M2_SCENARIOS_DIR : SCENARIOS_DIR, scenario), {
+          ...(m2 ? { overrides: m2Overrides(scenario).overrides } : {}),
           provider,
           model: "router/primary",
           log: (line) => process.stderr.write(`${line}\n`),

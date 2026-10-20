@@ -1,0 +1,18 @@
+{
+  "name": "LM Studio: stalls after one text delta",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream"
+    },
+    "chunks": [
+      "data: {\"id\":\"chatcmpl-fxlms0001\",\"object\":\"chat.completion.chunk\",\"created\":1760000000,\"model\":\"qwen/qwen3.8-27b\",\"system_fingerprint\":\"qwen/qwen3.8-27b\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+      "data: {\"id\":\"chatcmpl-fxlms0001\",\"object\":\"chat.completion.chunk\",\"created\":1760000000,\"model\":\"qwen/qwen3.8-27b\",\"system_fingerprint\":\"qwen/qwen3.8-27b\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Partial\"},\"logprobs\":null,\"finish_reason\":null}]}\n\n"
+    ],
+    "hang": true
+  }
+}

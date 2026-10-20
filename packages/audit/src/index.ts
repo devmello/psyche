@@ -1,3 +1,4 @@
+export { ANCHOR_KEY_FILE, SoftwareAnchorKey } from "./anchor-key.ts";
 export {
   CanonicalizationError,
   canonicalJSON,

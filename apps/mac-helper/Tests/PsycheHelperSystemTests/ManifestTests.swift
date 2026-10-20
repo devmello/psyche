@@ -52,20 +52,12 @@ struct ManifestTests {
     }
 }
 
-@Suite("script guard and disclaimed spawn")
+@Suite("disclaimed spawn")
 struct AppsTests {
-    @Test func shellEscapesAreRefused() {
-        #expect(throws: CapabilityError.self) { try ScriptGuard.check("do   shell script \"rm -rf ~\"", language: .appleScript) }
-        #expect(throws: CapabilityError.self) { try ScriptGuard.check("app = Application.currentApplication(); app.doShellScript('id')", language: .javaScript) }
-        #expect(throws: CapabilityError.self) { try ScriptGuard.check("ObjC.import('Foundation')", language: .javaScript) }
-        #expect(throws: CapabilityError.self) { try ScriptGuard.check("tell application \"Terminal\" to do script \"id\"", language: .appleScript) }
-        #expect(throws: CapabilityError.self) { try ScriptGuard.check("tell application \"System Events\" to keystroke \"x\"", language: .appleScript) }
-        #expect(throws: CapabilityError.self) { try ScriptGuard.check("tell application id \"com.apple.Terminal\" to activate", language: .appleScript) }
-        #expect(throws: CapabilityError.self) { try ScriptGuard.check("$['NSTask'].alloc", language: .javaScript) }
-        #expect(throws: CapabilityError.self) { try ScriptGuard.check("Application('Safari').quit()", language: .javaScript) }
-        #expect(ScriptGuard.addressedApps("tell application \"Notes\" to count notes") == ["Notes"])
-        #expect((try? ScriptGuard.check("tell application \"Notes\" to get name of every note", language: .appleScript)) != nil)
-        #expect((try? ScriptGuard.check("Application('Notes').notes().length", language: .javaScript)) != nil)
+    @Test func scriptsGetTheirSourceOnStdin() async throws {
+        guard DisclaimedProcess.isSupported else { return }
+        let r = try await DisclaimedProcess.run("/bin/cat", [], stdin: Data("tell application \"Notes\"\n".utf8), timeout: 10)
+        #expect(r.status == 0 && r.stdout == "tell application \"Notes\"\n")
     }
 
     @Test func disclaimedProcessRunsWithAMinimalEnvironment() async throws {
@@ -78,5 +70,17 @@ struct AppsTests {
         #expect(fail.status == 3)
         await #expect(throws: CapabilityError.self) { try await DisclaimedProcess.run("/bin/sleep", ["5"], timeout: 0.3) }
         await #expect(throws: CapabilityError.self) { try await DisclaimedProcess.run("sh", [], timeout: 1) }
+    }
+}
+
+@Suite("attention monitor (#272)")
+struct AttentionMonitorTests {
+    @Test func keepsTheLatestOwnerInput() {
+        let m = AttentionMonitor()
+        #expect(m.lastOwnerInput == nil)
+        let t = Date(timeIntervalSince1970: 1_000)
+        m.noteOwnerInput(at: t)
+        m.noteOwnerInput(at: t.addingTimeInterval(-10))
+        #expect(m.lastOwnerInput == t)
     }
 }

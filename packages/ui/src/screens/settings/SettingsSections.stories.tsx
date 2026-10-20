@@ -22,7 +22,7 @@ import { CredentialsPanel } from "./CredentialsSection.tsx";
 import { DataControlsPanel } from "./DataControlsSection.tsx";
 import { DevicesPanel } from "./DevicesSection.tsx";
 import { FileAccessPanel } from "./FileAccessSection.tsx";
-import { ModelProvidersPanel } from "./ModelSection.tsx";
+import { ModelProvidersPanel, providerInfoFromSummary } from "./ModelSection.tsx";
 import { PermissionsPanel } from "./PermissionsSection.tsx";
 import { PersonaPanel } from "./PersonaSection.tsx";
 import { ServerPanel } from "./ServerSection.tsx";
@@ -30,8 +30,10 @@ import { SkillsPanel, SkillTrustCard } from "./SkillsSection.tsx";
 import {
   sampleAbout,
   sampleDoctor,
+  sampleEndpointProbes,
   sampleFolders,
   sampleIdentities,
+  sampleModelProviders,
   sampleProviders,
   sampleServerStatus,
   sampleSettings,
@@ -98,6 +100,48 @@ export const ModelCheckRunningSmallMac: Story = {
       onRunCheck={noop}
     />
   ),
+};
+/** Local servers after the owner checked them: one reachable with its models, one down. */
+export const ModelEndpointsProbed: Story = {
+  render: () => {
+    const probes = sampleEndpointProbes();
+    const providers = sampleModelProviders().map((p) => {
+      if (p.id === "lmstudio" && probes.lmstudio !== undefined) {
+        const probe = probes.lmstudio;
+        return providerInfoFromSummary({
+          ...p,
+          probe,
+          models: probe.models.map((m) => ({
+            ref: m.ref,
+            capabilities: m.capabilities,
+            toolCheck: "untested" as const,
+          })),
+        });
+      }
+      if (p.id === "llamacpp") {
+        return providerInfoFromSummary({
+          ...p,
+          probe: {
+            state: "unreachable",
+            probedAt: "2026-10-19T20:00:00Z",
+            models: [],
+            error: "nothing answered at http://127.0.0.1:8080/v1",
+          },
+        });
+      }
+      return providerInfoFromSummary(p);
+    });
+    return (
+      <ModelProvidersPanel
+        {...form}
+        ramGb={32}
+        providers={providers}
+        onProbe={noop}
+        probing="anthropic"
+        onRunCheck={noop}
+      />
+    );
+  },
 };
 export const ModelNeedsApproval: Story = {
   render: () => (

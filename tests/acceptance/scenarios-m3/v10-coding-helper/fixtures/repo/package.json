@@ -1,0 +1,8 @@
+{
+  "name": "fixture-add",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node test/add.check.js"
+  }
+}

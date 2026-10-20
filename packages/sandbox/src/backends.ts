@@ -13,7 +13,7 @@ import {
  * Podman takes Docker's flags; it was not available on the spike machine.
  */
 
-export type ContainerBackendKind = Exclude<SandboxBackendKind, "fake">;
+export type ContainerBackendKind = Exclude<SandboxBackendKind, "fake" | "vm">;
 
 export const CONTAINER_BACKENDS: readonly ContainerBackendKind[] = [
   "apple-container",
@@ -45,6 +45,16 @@ export interface RunSpec {
    * values in its environment. Secrets never go here; they travel per exec over stdin.
    */
   env: Record<string, string>;
+  /** Host folders bind-mounted under `/workspace` (V10), validated by `validateMounts`. */
+  mounts?: readonly { source: string; target: string; readOnly: boolean }[];
+}
+
+/** `--mount type=bind,…` per mount, parents before children (read-only `.git` over its repo). */
+function mountFlags(spec: RunSpec): string[] {
+  return (spec.mounts ?? []).flatMap((m) => [
+    "--mount",
+    `type=bind,source=${m.source},target=${m.target}${m.readOnly ? ",readonly" : ""}`,
+  ]);
 }
 
 function labelFlags(flag: string, labels: Record<string, string>): string[] {
@@ -94,6 +104,7 @@ export function runArgs(kind: ContainerBackendKind, spec: RunSpec): string[] {
       `/tmp:size=${limits.tmpMb}m`,
       "--volume",
       `${spec.volume}:${WORKSPACE_PATH}`,
+      ...mountFlags(spec),
       "--workdir",
       WORKSPACE_PATH,
       ...labelFlags("--label", spec.labels),
@@ -130,6 +141,7 @@ export function runArgs(kind: ContainerBackendKind, spec: RunSpec): string[] {
     `/tmp:rw,nosuid,nodev,size=${limits.tmpMb}m`,
     "--mount",
     `type=volume,source=${spec.volume},target=${WORKSPACE_PATH}`,
+    ...mountFlags(spec),
     "--workdir",
     WORKSPACE_PATH,
     ...labelFlags("--label", spec.labels),

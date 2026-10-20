@@ -227,7 +227,9 @@
           "severity": "hard",
           "tool": "shop.view_cart",
           "callRef": "c_v3_view",
-          "status": "ok"
+          "status": "ok",
+          "liveSeverity": "soft",
+          "note": "Reviewing the cart before paying is the scripted model's choice; a live model may pay from the cart it just built. The security half is hard: the purchase card shows merchant, total, items and Stripe Link, and the receipts are counted."
         },
         {
           "type": "approval_requested",

@@ -1,6 +1,9 @@
 import type { JsonObject, ModelCapabilities } from "@psyche/protocol";
 
-/** Provider families (feature B1). `*-compatible` kinds take a `baseURL`. */
+/**
+ * Provider families (feature B1). `*-compatible` kinds take a `baseURL`; `llamacpp` and
+ * `lmstudio` are OpenAI-compatible servers with their own quirks, defaults and model listing.
+ */
 export const PROVIDER_KINDS = [
   "anthropic",
   "openai",
@@ -9,6 +12,8 @@ export const PROVIDER_KINDS = [
   "openai-compatible",
   "anthropic-compatible",
   "ollama",
+  "llamacpp",
+  "lmstudio",
 ] as const;
 export type ProviderKind = (typeof PROVIDER_KINDS)[number];
 
@@ -60,11 +65,32 @@ export interface ProviderConfig {
   timeouts?: ProviderTimeouts;
   /** Price-table provider to use for refs of this provider (default: the kind's family). */
   priceProvider?: string;
+  /**
+   * Google only: `interactions` (default, the Interactions API) or `generate-content` (the
+   * stable `models/*:streamGenerateContent` Gemini API).
+   */
+  googleApi?: "interactions" | "generate-content";
+  /**
+   * OpenRouter only: app attribution headers (`HTTP-Referer`, `X-OpenRouter-Title`). Off unless set, so
+   * nothing about the install leaves the machine by default.
+   */
+  attribution?: { url?: string; title?: string };
 }
 
 /** Kinds that run on the owner's machine: zero cost, longer timeouts, no keys required. */
 export function isLocalKind(kind: ProviderKind): boolean {
-  return kind === "ollama" || kind === "openai-compatible" || kind === "anthropic-compatible";
+  return (
+    kind === "ollama" ||
+    kind === "openai-compatible" ||
+    kind === "anthropic-compatible" ||
+    kind === "llamacpp" ||
+    kind === "lmstudio"
+  );
+}
+
+/** Kinds served by `@ai-sdk/openai-compatible` (provider metadata keyed by the config id). */
+export function isOpenAICompatibleKind(kind: ProviderKind): boolean {
+  return kind === "openai-compatible" || kind === "llamacpp" || kind === "lmstudio";
 }
 
 /** The key the provider package reads `providerOptions` and writes `providerMetadata` under. */
@@ -82,6 +108,8 @@ export function packageKey(config: ProviderConfig): string {
     case "ollama":
       return "ollama";
     case "openai-compatible":
+    case "llamacpp":
+    case "lmstudio":
       return config.id;
   }
 }

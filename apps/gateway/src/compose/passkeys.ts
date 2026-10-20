@@ -21,6 +21,7 @@ import {
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
 import type { Call, HandlerDef } from "../context.ts";
+import { requireFreshPresence } from "../presence-gate.ts";
 import { RateLimiter } from "../rate-limit.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
@@ -376,9 +377,27 @@ export function composePasskeys(setup: PasskeySetup = {}) {
         run: (call: Call) => get().registerBegin(call.identity.deviceId),
       },
       "passkeys.register.finish": {
-        run: async (call: Call, params: never) => ({
-          passkey: await get().registerFinish(call.identity.deviceId, address(call), params),
-        }),
+        run: async (call: Call, params: { approvalId?: string }) => {
+          const deviceId = call.identity.deviceId;
+          // A device's first passkey becomes a presence verifier: once the owner has one
+          // elsewhere (or the helper's key), adding it needs their fresh presence, or a stolen
+          // admin device could enroll its own authenticator and approve with it.
+          if (listPasskeys(services.db, deviceId).length === 0) {
+            await requireFreshPresence(
+              call,
+              {
+                name: "method:passkeys.register.finish",
+                summary: "Add a passkey on a device that has none",
+                subject: { deviceId },
+                details: { method: "passkeys.register.finish", deviceId },
+              },
+              params.approvalId,
+            );
+          }
+          const passkey = await get().registerFinish(deviceId, address(call), params as never);
+          call.ctx.presenceState(); // records the enrollment (sticky)
+          return { passkey };
+        },
       },
       "passkeys.reauth.begin": { run: (call: Call) => get().reauthBegin(call.identity.deviceId) },
       "passkeys.list": { run: (call: Call) => ({ passkeys: get().list(call.identity.deviceId) }) },

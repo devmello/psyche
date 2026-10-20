@@ -279,6 +279,13 @@ describe("agent-core registration", () => {
       bindingFields: { serverId: "echo", tool: "echo", toolsListHash: reg.hash },
     });
     expect(described?.grantKey).toBe(`mcp:echo:echo:${reg.hash}`);
+    // The broker's binding field names, and the identity it binds grants to (#279, #280).
+    expect(described?.bindingFields).toHaveProperty("argsSha256");
+    expect(described?.meta).toEqual({
+      mcpServerId: "echo",
+      mcpToolsListHash: reg.hash,
+      mcpTier: (await host.listServers()).find((s) => s.id === "echo")?.trust,
+    });
     expect(exec?.describeCall?.({ text: "other" })?.bindingFields).not.toEqual(
       described?.bindingFields,
     );

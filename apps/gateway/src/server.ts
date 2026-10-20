@@ -41,6 +41,7 @@ import { handleHttp } from "./http.ts";
 import { Idempotency } from "./idempotency.ts";
 import { createLogger, type Logger } from "./log.ts";
 import { NodeRegistry } from "./nodes/registry.ts";
+import { presenceStateFor } from "./presence-gate.ts";
 import { resolvePeer, trustedProxyList } from "./proxy.ts";
 import { RateLimiter } from "./rate-limit.ts";
 import { type RecoveryReport, recoverAfterRestart } from "./recovery.ts";
@@ -70,8 +71,9 @@ export interface GatewayOptions {
   /** Tests: where the Cloudflare Access JWKS comes from. */
   cloudflareAccessFetch?: ConstructorParameters<typeof CloudflareAccessVerifier>[1];
   /**
-   * Whether a presence verifier exists (helper Touch ID key, passkeys). When it returns true,
-   * security settings need a presence-approved `policy_change` card (security §10).
+   * Whether a presence verifier can verify now (helper Touch ID key, passkeys). Security changes
+   * then need a presence-approved `policy_change` card (security §10, `presence-gate.ts`); once
+   * it was true, it being false later fails them closed (`presence_required`).
    */
   settingsPresence?: () => boolean;
   /** After a device is revoked (composition root: end the grants it approved). */
@@ -166,7 +168,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     extraHandlers: checkExtraHandlers(options.handlers ?? {}),
     onDeviceRevoked: options.onDeviceRevoked ?? null,
     brokerPublishesReceipts: options.brokerPublishesReceipts ?? false,
-    settingsPresence: options.settingsPresence ?? (() => false),
+    presenceState: presenceStateFor(db, options.settingsPresence ?? (() => false)),
     threadModels: options.threadModels ?? null,
     deviceDisconnected: new Set<(deviceId: string) => void>(),
     limits,

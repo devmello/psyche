@@ -1,0 +1,14 @@
+{
+  "name": "LM Studio: model crashed",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 500,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":\"The model has crashed without additional information. (Exit code: 6)\"}"
+  }
+}

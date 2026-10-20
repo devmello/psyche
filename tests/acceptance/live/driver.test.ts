@@ -4,6 +4,8 @@ import { FakeModelProvider } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { runScenario, SCENARIOS_DIR } from "../../../packages/testing/src/scenarios/index.ts";
 import { parseSlots } from "../../../packages/testing/src/scenarios/util.ts";
+import { m2Overrides } from "../src/m2-world.ts";
+import { M2_SCENARIO_IDS, M2_SCENARIOS_DIR } from "../src/scenario-scripts.ts";
 import { answerFor } from "./answers.ts";
 import { runScenarioLive } from "./driver.ts";
 import { canonicalLines, extractSlots } from "./slots.ts";
@@ -20,6 +22,10 @@ const known = JSON.parse(
   readFileSync(join(SCENARIOS_DIR, "known-failures.json"), "utf8"),
 ) as Record<string, Record<string, string>>;
 
+const knownM2 = JSON.parse(
+  readFileSync(join(M2_SCENARIOS_DIR, "known-failures.json"), "utf8"),
+) as Record<string, Record<string, string>>;
+
 const hardFailures = (r: { assertions: { id: string; severity: string; status: string }[] }) =>
   r.assertions.filter((a) => a.severity === "hard" && a.status === "fail").map((a) => a.id);
 
@@ -30,23 +36,41 @@ describe("live driver plumbing (scripted provider through the live code path)", 
     for (const t of tools) expect(LIVE_TOOL_SPECS[t.name], t.name).toBeDefined();
   });
 
-  for (const id of ["v1-inbox-triage", "v2-calendar-planning", "v7-research-brief"]) {
+  it("describes every Milestone 2 tool except agent-core's built-ins", () => {
+    const tools = JSON.parse(readFileSync(join(M2_SCENARIOS_DIR, "shared/tools.json"), "utf8"))
+      .tools as { name: string }[];
+    const builtins = new Set(["task.start", "schedule"]);
+    for (const t of tools)
+      if (!builtins.has(t.name)) expect(LIVE_TOOL_SPECS[t.name], t.name).toBeDefined();
+  });
+
+  const ids = [
+    "v1-inbox-triage",
+    "v2-calendar-planning",
+    "v3-shopping",
+    "v7-research-brief",
+    ...M2_SCENARIO_IDS,
+  ];
+  for (const id of ids) {
     it(`${id}: reaches the scripted runner's outcome`, async () => {
-      const dir = join(SCENARIOS_DIR, id);
+      const m2 = (M2_SCENARIO_IDS as readonly string[]).includes(id);
+      const dir = join(m2 ? M2_SCENARIOS_DIR : SCENARIOS_DIR, id);
       expect(existsSync(dir)).toBe(true);
-      const scripted = await runScenario(dir);
+      const scripted = await runScenario(dir, m2 ? { stack: m2Overrides(id).overrides } : {});
       const fake = new FakeModelProvider({ id: "fake" });
       const r = await runScenarioLive(dir, {
         provider: fake,
         model: "fake/main",
         script: true,
         stepTimeoutMs: 60_000,
+        ...(m2 ? { overrides: m2Overrides(id).overrides } : {}),
       });
       expect(r.mode).toBe("live");
       // Known failures (tests/scenarios/known-failures.json) are the only hard failures allowed,
       // minus the scripted runner's own script-divergence checks (`runner/*`), which live mode
       // has no equivalent for.
-      const expected = Object.keys(known[id] ?? {}).filter((k) => !k.startsWith("runner/"));
+      const tracked = m2 ? knownM2 : known;
+      const expected = Object.keys(tracked[id] ?? {}).filter((k) => !k.startsWith("runner/"));
       expect(hardFailures(r)).toEqual(expected);
       // Live mode ran at least every step the scripted runner ran minus the scripted-only ones.
       const ran = r.steps.filter((s) => s.status === "ran").length;
@@ -143,5 +167,12 @@ describe("live answers", () => {
     expect(
       answerFor("v1-inbox-triage", request, [{ header: "Slot", answer: "Fri" }]).answer.Slot,
     ).toBe("Tue 2:30");
+  });
+
+  it("reads a single-choice rule's list as an order of preference", () => {
+    const pick = (answer: string[]) =>
+      answerFor("v2-calendar-planning", request, [{ header: "Slot", answer }]).answer.Slot;
+    expect(pick(["Fri", "wed", "tue"])).toBe("Wed 9:00");
+    expect(pick(["Fri", "Sat"])).toBe("Tue 2:30");
   });
 });

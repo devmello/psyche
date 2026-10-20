@@ -22,7 +22,25 @@ const KEY_ENV: Partial<Record<ProviderKind, string>> = {
   openrouter: "OPENROUTER_API_KEY",
 };
 
-const KINDS: readonly ProviderKind[] = ["anthropic", "openai", "google", "openrouter", "ollama"];
+const KINDS: readonly ProviderKind[] = [
+  "anthropic",
+  "openai",
+  "google",
+  "openrouter",
+  "ollama",
+  "llamacpp",
+  "lmstudio",
+];
+
+/**
+ * Local servers: `PSYCHE_<NAME>_URL` sets the endpoint, and setting it alone also lists the
+ * provider in Settings → Model & providers, where the owner can probe it and pick its models.
+ */
+const LOCAL_URL_ENV: Partial<Record<ProviderKind, string>> = {
+  ollama: "PSYCHE_OLLAMA_URL",
+  llamacpp: "PSYCHE_LLAMACPP_URL",
+  lmstudio: "PSYCHE_LMSTUDIO_URL",
+};
 
 function envKeys(env: NodeJS.ProcessEnv, names: string[]): KeySource {
   const values = () => names.map((n) => env[n]).filter((v): v is string => !!v);
@@ -54,13 +72,18 @@ export function modelSetupFromEnv(env: NodeJS.ProcessEnv): ModelSetup | null {
     }
     const keyEnv = KEY_ENV[kind];
     const config: ProviderConfig = { id: provider, kind };
-    if (kind === "ollama" && env.PSYCHE_OLLAMA_URL) config.baseURL = env.PSYCHE_OLLAMA_URL;
+    const urlEnv = LOCAL_URL_ENV[kind];
+    if (urlEnv !== undefined && env[urlEnv]) config.baseURL = env[urlEnv];
     if (keyEnv !== undefined) {
       if (!env[keyEnv]) throw new PsycheError("invalid_params", `${keyEnv} is not set`);
       config.profiles = [{ id: `env:${keyEnv}`, credential: "{{cred:env}}" }];
       keyNames.push(keyEnv);
     }
     providers.set(provider, config);
+  }
+  for (const [kind, urlEnv] of Object.entries(LOCAL_URL_ENV) as [ProviderKind, string][]) {
+    const url = env[urlEnv];
+    if (url && !providers.has(kind)) providers.set(kind, { id: kind, kind, baseURL: url });
   }
   const router: ModelRouterConfig = {
     providers: [...providers.values()],

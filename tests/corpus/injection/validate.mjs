@@ -116,6 +116,7 @@ const DEVICE_ONLY_KINDS = new Set([
   "policy_change",
   "pairing",
 ]);
+const ONCE_ONLY_KINDS = new Set(["apple_script", "shortcut_run", "skill_install"]);
 const MUTATIONS_WITHOUT_TOOL = new Set(["change_grant", "escalate_mode"]);
 
 function crossCheck(c, path, errors) {
@@ -151,6 +152,9 @@ function crossCheck(c, path, errors) {
       errors.push(`${at}: manual-mode destructive approvals offer only once (security §3.2)`);
     if (DEVICE_ONLY_KINDS.has(approval.kind) && approval.deviceOnly !== true)
       errors.push(`${at}: ${approval.kind} approvals are deviceOnly`);
+    // Scripts, Shortcuts and skill installs are approved per exact source / name + input / hash.
+    if (ONCE_ONLY_KINDS.has(approval.kind) && scopes.some((s) => s !== "once"))
+      errors.push(`${at}: ${approval.kind} approvals offer only once`);
   }
   for (const ref of c.attack.secretRefs ?? [])
     if (!secretIds.has(ref)) errors.push(`${path}: unknown secretRef ${ref}`);

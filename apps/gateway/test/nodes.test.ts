@@ -24,11 +24,15 @@ const HANDLERS: FakeNodeHandler[] = [
     },
   },
   {
-    capability: { name: "notify.show", sideEffect: "write", targetKind: "app" },
+    capability: { name: "reminders.create", sideEffect: "write", targetKind: "app" },
     run: () => ({ shown: true }),
     receipt: { outcome: "ok", summary: "Showed a notification" },
   },
   { capability: { name: "vault.unlock", sideEffect: "write" }, run: () => "should never run" },
+  {
+    capability: { name: "apps.applescript", sideEffect: "destructive", targetKind: "app" },
+    run: () => "should never run",
+  },
   { capability: { name: "slow.op", sideEffect: "none" }, hang: true },
 ];
 
@@ -78,12 +82,16 @@ describe("node registry", () => {
   });
 
   it("asks for approval, then runs with the approvalId passed through and records a receipt", async () => {
-    const { desk, node } = await setup({ policy: { byTool: { "node.notify.show": "ask" } } });
-    const args = { nodeId: node.nodeId, capability: "notify.show", params: { title: "Hi" } };
+    const { desk, node } = await setup({ policy: { byTool: { "node.reminders.create": "ask" } } });
+    const args = { nodeId: node.nodeId, capability: "reminders.create", params: { title: "Hi" } };
     const first = await desk.request("nodes.invoke", args, ik());
     expect(first).toMatchObject({ ok: false, error: { code: "approval_required" } });
     const approvalId = (first.error as { details: { approvalId: string } }).details.approvalId;
-    await desk.waitForEvent((e) => e.event === "approval.created");
+    const card = await desk.waitForEvent((e) => e.event === "approval.created");
+    // The card shows the full arguments (#274).
+    expect(card.payload).toMatchObject({
+      approval: { details: { capability: "reminders.create", params: { title: "Hi" } } },
+    });
     expect(node.invocations).toHaveLength(0);
 
     const issued = broker.issued[0];
@@ -100,9 +108,9 @@ describe("node registry", () => {
       ik(),
     );
     expect(res.ok).toBe(true);
-    expect(res.receipt).toMatchObject({ kind: "node.notify.show", approvalId });
+    expect(res.receipt).toMatchObject({ kind: "node.reminders.create", approvalId });
     expect(node.invocations).toEqual([
-      { capability: "notify.show", params: { title: "Hi" }, approvalId },
+      { capability: "reminders.create", params: { title: "Hi" }, approvalId },
     ]);
     await desk.waitForEvent((e) => e.event === "receipt.created");
 
@@ -118,13 +126,28 @@ describe("node registry", () => {
   });
 
   it("denies by policy without reaching the node", async () => {
-    const { desk, node } = await setup({ policy: { byTool: { "node.notify.show": "deny" } } });
+    const { desk, node } = await setup({ policy: { byTool: { "node.reminders.create": "deny" } } });
     const res = await desk.request(
       "nodes.invoke",
-      { nodeId: node.nodeId, capability: "notify.show", params: {} },
+      { nodeId: node.nodeId, capability: "reminders.create", params: {} },
       ik(),
     );
     expect(res).toMatchObject({ ok: false, error: { code: "policy_denied" } });
+    expect(node.invocations).toHaveLength(0);
+  });
+
+  it("never reaches a capability that has an agent tool, such as apps.applescript (#274)", async () => {
+    const { desk, node } = await setup({ policy: { default: "allow" } });
+    const res = await desk.request(
+      "nodes.invoke",
+      {
+        nodeId: node.nodeId,
+        capability: "apps.applescript",
+        params: { source: 'tell application "Mail" to send', target: "com.apple.mail" },
+      },
+      ik(),
+    );
+    expect(res).toMatchObject({ ok: false, error: { code: "forbidden" } });
     expect(node.invocations).toHaveLength(0);
   });
 

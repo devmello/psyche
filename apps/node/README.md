@@ -50,7 +50,7 @@ Each reconnect tries the plans in that order. Backoff is exponential with jitter
 | Capability | Side effect | Offered when |
 | --- | --- | --- |
 | `health` | none | always |
-| `exec` | write, `command`, streaming | a sandbox backend (Apple `container`, Docker, Podman) is present; never falls back to the host |
+| `exec` | write, `command`, streaming | a sandbox backend (Apple `container`, Docker, Podman) is present; never falls back to the host. Inside the sandbox Mac, `"exec": {"guest": {"enabled": true, "root": "…"}}` in `node.json` runs it on the guest itself instead (VM mode, L1–L5): no shell, one directory per scope under `root` mapped to `/workspace`, an explicit env |
 | `exec.host` | destructive, `command`, streaming | `exec.host.enabled` in `node.json`; every call needs an `approvalId` and a cwd inside `cwdRoots` (K7) |
 | `fs.list`, `fs.stat`, `fs.read` / `fs.write`, `fs.mkdir` / `fs.remove` | read / write / destructive, `path` | `fs.roots` configured; absolute paths only, `realpath`-confined, `ro` roots refuse writes, symlink escapes refused |
 | `browser.*` (sessions, tabs, navigate, snapshot, find, read_text, screenshot, click, type, select, scroll, wait) | none / read / write | a Chromium is found (`PSYCHE_CHROMIUM_PATH` or a standard location) or `browser.enabled: true`; persistent profiles under `<home>/browser/profiles` |

@@ -82,6 +82,12 @@ const OVERLOADED = /overloaded/i;
 const NETWORK =
   /ECONNREFUSED|ECONNRESET|ENOTFOUND|EAI_AGAIN|EHOSTUNREACH|fetch failed|socket hang up|network/i;
 const CONTENT_FILTER = /content[_ ]filter|safety|blocked by/i;
+/**
+ * The server cannot do tool calls with this setup (llama-server without `--jinja`, an Ollama
+ * model without a tools template): a configuration problem, so no cooldown and no silent
+ * fallback; the owner sees it.
+ */
+const TOOLS_UNSUPPORTED = /--jinja|tools param requires|does not support tools/i;
 
 function retryAfter(headers: Record<string, string> | undefined): number | undefined {
   if (headers === undefined) return undefined;
@@ -112,6 +118,7 @@ function textOf(err: unknown): string {
 }
 
 function kindFromStatus(status: number, text: string): ModelErrorKind {
+  if (status >= 400 && status !== 429 && TOOLS_UNSUPPORTED.test(text)) return "bad_request";
   if (status === 429) return BILLING.test(text) ? "billing" : "rate_limited";
   if (status === 401 || status === 403) return "auth";
   if (status === 402) return "billing";

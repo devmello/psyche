@@ -24,6 +24,20 @@ var timeout: TimeInterval = 10
 var handshakeOnly = false
 var verify = true
 var printManifest = false
+// `psyche-helper vsock-bridge CID:PORT`: stdin/stdout ⇄ vsock, the bridge psyche-node uses in a
+// macOS guest (PSYCHE_NODE_VSOCK_BRIDGE, VM mode L3). Handled before anything else starts.
+if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "vsock-bridge" {
+    let parts = CommandLine.arguments[2].split(separator: ":").compactMap { UInt32($0) }
+    guard parts.count == 2 else {
+        FileHandle.standardError.write(Data("usage: psyche-helper vsock-bridge CID:PORT\n".utf8))
+        exit(64)
+    }
+    do { try Vsock.bridge(cid: parts[0], port: parts[1]) } catch {
+        FileHandle.standardError.write(Data("vsock-bridge: \((error as? CapabilityError)?.message ?? "failed")\n".utf8))
+        exit(1)
+    }
+}
+
 var args = CommandLine.arguments.dropFirst()
 while let arg = args.popFirst() {
     switch arg {
@@ -97,6 +111,8 @@ let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 let runtime = HelperRuntime(log: log)
 runtime.start()
+// Inside a sandbox Mac guest: serve the host's guest.* requests on vsock 7000 (L3).
+GuestAgent.startIfGuest(log: log)
 let daemon = NodeDaemon(identity: identity, registry: runtime.registry, preflight: runtime.preflight, log: log)
 let nodeThread = Thread { daemon.run() }
 nodeThread.name = "com.psyche.helper.node"

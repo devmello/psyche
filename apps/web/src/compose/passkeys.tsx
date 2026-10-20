@@ -26,6 +26,16 @@ const button =
   "inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-medium shadow-xs hover:bg-gray-3 disabled:opacity-50";
 const input = "h-8 rounded-md border border-input bg-background px-2 text-sm";
 
+export const FIRST_PASSKEY_APPROVAL =
+  "Approve “Add a passkey” with Touch ID on your Mac or with a passkey on another device, then press Add again.";
+
+/** `details.approvalId` when the Gateway asks for the owner's approval of a first passkey. */
+function firstPasskeyApproval(err: unknown): string | null {
+  if (codeOf(err) !== "approval_required") return null;
+  const id = (err as { details?: { approvalId?: unknown } }).details?.approvalId;
+  return typeof id === "string" && id !== "" ? id : null;
+}
+
 function codeOf(err: unknown): unknown {
   return typeof err === "object" && err !== null ? (err as { code?: unknown }).code : undefined;
 }
@@ -47,6 +57,9 @@ export function PasskeysPanel({ host }: { host: PasskeyHost | undefined }): Reac
   const [name, setName] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
+  // A device's first passkey needs the owner's approval from a device that already has one
+  // (or the Mac's Touch ID); the next "Add" retries with that approval.
+  const [approvalId, setApprovalId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -102,12 +115,22 @@ export function PasskeysPanel({ host }: { host: PasskeyHost | undefined }): Reac
       };
       const response = await h.authenticator.create(begin.options);
       const label = name.trim();
-      const res = (await call("passkeys.register.finish", {
-        ceremonyId: begin.ceremonyId,
-        response,
-        ...(label ? { name: label } : {}),
-        ...(reauth ? { reauth } : {}),
-      })) as { passkey: PasskeyInfo };
+      let res: { passkey: PasskeyInfo };
+      try {
+        res = (await call("passkeys.register.finish", {
+          ceremonyId: begin.ceremonyId,
+          response,
+          ...(label ? { name: label } : {}),
+          ...(reauth ? { reauth } : {}),
+          ...(approvalId ? { approvalId } : {}),
+        })) as { passkey: PasskeyInfo };
+      } catch (err) {
+        const pending = firstPasskeyApproval(err);
+        if (pending === null) throw err;
+        setApprovalId(pending);
+        throw new Error(FIRST_PASSKEY_APPROVAL);
+      }
+      setApprovalId(null);
       setName("");
       return `Added ${res.passkey.name}. It now approves changes that need Touch ID or a passkey.`;
     });

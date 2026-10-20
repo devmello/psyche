@@ -115,7 +115,7 @@ cp deploy/env.example deploy/.env
 
 ### 2. Pin and verify the image
 
-Open `deploy/.env` and set `PSYCHE_IMAGE` to the image and digest from the release notes, for example `PSYCHE_IMAGE=ghcr.io/devmello/psyche-gateway:v0.1.0@sha256:...`. Without it, Compose uses the `latest` tag, which you should not run in production. Never commit `deploy/.env`.
+Open `deploy/.env` and set `PSYCHE_IMAGE` to the image and digest from the release notes, for example `PSYCHE_IMAGE=ghcr.io/devmello/psyche-gateway:v0.1.0@sha256:...`. Without it, Compose builds the image from your checkout instead of pulling one. Alternatively, download `psyche-compose-<version>.tar.gz` from the release: its `docker-compose.yml` already defaults to that release's image by digest. Never commit `deploy/.env`.
 
 Check the signature of that digest (needs [cosign](https://github.com/sigstore/cosign)):
 

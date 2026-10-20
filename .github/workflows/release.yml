@@ -26,6 +26,10 @@
 #       App Store Connect API key for notarytool (notarize + staple)
 #   HOMEBREW_TAP_TOKEN
 #       fine-grained token with contents:write on <owner>/homebrew-psyche only
+#   RELEASE_SIGNING_KEY  (environment "release", with required reviewers)
+#       Ed25519 PKCS#8 PEM that signs update-manifest.json; the desktop embeds the public half
+#       (apps/desktop/src/main/release-keys.ts). Without it no manifest is published and installed
+#       apps do not auto-update (they never apply an unsigned update).
 name: release
 
 on:
@@ -598,6 +602,10 @@ jobs:
               echo "APPLE_API_ISSUER=$API_ISSUER"
             } >> "$GITHUB_ENV"
           fi
+      - name: Stamp the release version (the updater compares against it)
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: node -e 'const f="apps/desktop/package.json",fs=require("fs"),p=JSON.parse(fs.readFileSync(f));p.version=process.env.VERSION;fs.writeFileSync(f,JSON.stringify(p,null,2)+"\n")'
       - name: Package Psyche.app (signed and notarized by electron-forge when configured)
         env:
           ARCH: ${{ matrix.arch }}
@@ -610,6 +618,8 @@ jobs:
           app="$(find apps/desktop/out -maxdepth 2 -name Psyche.app -path "*darwin-${ARCH}*" | head -n1)"
           test -n "$app" || { echo "::error::no Psyche.app for $ARCH"; exit 1; }
           deploy/macos/make-dmg.sh "$app" "$VERSION" "$ARCH" dist
+          # The zip Squirrel.Mac installs from; the signed update manifest names its SHA-256.
+          ditto -c -k --sequesterRsrc --keepParent "$app" "dist/Psyche-${VERSION}-darwin-${ARCH}.zip"
       - name: Remove the notarization key
         if: always()
         run: rm -f "$RUNNER_TEMP/AuthKey.p8"
@@ -617,7 +627,9 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: psyche-dmg-${{ matrix.arch }}
-          path: dist/*.dmg
+          path: |
+            dist/*.dmg
+            dist/*.zip
           if-no-files-found: error
 
   release:
@@ -625,6 +637,10 @@ jobs:
     needs: [version, image, sandbox-image, cli, dmg]
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # The update-manifest signing key lives in "release" (required reviewers, tags only; security
+    # §11). Manual dry runs use the unprotected "release-dry-run", which has no key and publishes
+    # nothing, so they never wait for an approval.
+    environment: ${{ (github.event_name == 'push' || inputs.dry_run == false) && 'release' || 'release-dry-run' }}
     permissions:
       contents: write
     steps:
@@ -637,6 +653,46 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+      - name: Signed update manifest (needs RELEASE_SIGNING_KEY in the release environment)
+        env:
+          SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+          VERSION: ${{ needs.version.outputs.version }}
+          TAG: ${{ github.ref_name }}
+          DIGEST: ${{ needs.image.outputs.digest }}
+        run: |
+          if [ -z "$SIGNING_KEY" ]; then
+            echo "::warning::No RELEASE_SIGNING_KEY: no update manifest. Installed apps will not auto-update to this release."
+            exit 0
+          fi
+          minimum="$(node -p 'require("./deploy/update-policy.json").minimumVersion')"
+          node deploy/scripts/update-manifest.mjs build --release "$VERSION" --minimum "$minimum" \
+            --base "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/" \
+            ${DIGEST:+--image "gateway=${IMAGE}@${DIGEST}"} \
+            artifacts/Psyche-*.zip artifacts/Psyche-*.dmg > artifacts/update-manifest.json
+          PSYCHE_RELEASE_SIGNING_KEY="$SIGNING_KEY" node deploy/scripts/update-manifest.mjs sign artifacts/update-manifest.json
+          # Self-check against the public half of the key that just signed.
+          pub="$(PSYCHE_RELEASE_SIGNING_KEY="$SIGNING_KEY" node -e 'const c=require("crypto");process.stdout.write(Buffer.from(c.createPublicKey(c.createPrivateKey(process.env.PSYCHE_RELEASE_SIGNING_KEY)).export({format:"jwk"}).x,"base64url").toString("base64"))')"
+          node deploy/scripts/update-manifest.mjs verify artifacts/update-manifest.json "$pub"
+          cat artifacts/update-manifest.json
+      - name: Compose bundle with the Gateway image pinned by digest (#296)
+        env:
+          DIGEST: ${{ needs.image.outputs.digest }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          if [ -z "$DIGEST" ]; then
+            echo "::notice::No image digest (dry run): no Compose bundle."
+            exit 0
+          fi
+          dir="$RUNNER_TEMP/psyche-compose-${VERSION}"
+          mkdir -p "$dir/tailscale" "$dir/backup"
+          node deploy/scripts/render-compose.mjs deploy/docker-compose.yml "${IMAGE}:${VERSION}@${DIGEST}" > "$dir/docker-compose.yml"
+          cp deploy/env.example "$dir/env.example"
+          cp deploy/tailscale/serve.json "$dir/tailscale/"
+          cp deploy/backup/*.sh "$dir/backup/"
+          mkdir -p "$dir/browser"
+          cp deploy/browser/Dockerfile deploy/browser/package.json deploy/browser/package-lock.json "$dir/browser/"
+          tar -C "$RUNNER_TEMP" -czf "artifacts/psyche-compose-${VERSION}.tar.gz" "psyche-compose-${VERSION}"
+          grep -n "image:" "$dir/docker-compose.yml"
       - name: SHA256SUMS and release notes
         env:
           DIGEST: ${{ needs.image.outputs.digest }}

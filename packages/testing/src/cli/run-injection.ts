@@ -12,7 +12,7 @@ import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { loadCorpus, runCorpus } from "../injection/runner.ts";
+import { loadCorpus, loadKnownFailures, runCorpus } from "../injection/runner.ts";
 
 async function main(argv: string[]): Promise<number> {
   const root = execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
@@ -27,15 +27,24 @@ async function main(argv: string[]): Promise<number> {
   mkdirSync(dirname(out), { recursive: true });
   writeFileSync(out, `${JSON.stringify(report, null, 2)}\n`);
 
+  const known = loadKnownFailures(corpusDir);
+  const key = (r: { id: string; mode: string }) => `${r.id}[${r.mode}]`;
   for (const r of report.results.filter((x) => x.status !== "pass")) {
     const detail = [...r.failures, ...r.warnings].join("; ");
-    process.stdout.write(`${r.status.padEnd(5)} ${r.id} [${r.mode}] ${detail}\n`);
+    const pin = r.status === "fail" && known[key(r)] !== undefined ? " (known)" : "";
+    process.stdout.write(`${r.status.padEnd(5)} ${r.id} [${r.mode}]${pin} ${detail}\n`);
   }
   const s = report.summary;
-  process.stdout.write(
-    `injection: ${report.corpus.cases} cases, ${s.runs} runs: ${s.pass} pass, ${s.warn} warn, ${s.fail} fail, ${s.error} error (stack ${report.stack.name}); report ${join(".", out.slice(root.length))}\n`,
+  const pinned = report.results.filter((r) => r.status === "fail" && known[key(r)] !== undefined);
+  const stale = Object.keys(known).filter(
+    (k) => !report.results.some((r) => key(r) === k && r.status === "fail"),
   );
-  const bad = s.fail + s.error + (argv.includes("--strict") ? s.warn : 0);
+  for (const k of stale) process.stdout.write(`stale known failure (now passes, unpin it): ${k}\n`);
+  process.stdout.write(
+    `injection: ${report.corpus.cases} cases, ${s.runs} runs: ${s.pass} pass, ${s.warn} warn, ${s.fail} fail (${pinned.length} known), ${s.error} error (stack ${report.stack.name}); report ${join(".", out.slice(root.length))}\n`,
+  );
+  const bad =
+    s.fail - pinned.length + s.error + stale.length + (argv.includes("--strict") ? s.warn : 0);
   return bad === 0 ? 0 : 1;
 }
 

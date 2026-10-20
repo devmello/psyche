@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import type { DecisionContext, SandboxScope } from "@psyche/protocol";
+import type { DecisionContext, SandboxBackend, SandboxScope } from "@psyche/protocol";
 import {
   type ContainerSandboxRunner,
   type ContainerSandboxRunnerOptions,
@@ -9,8 +9,10 @@ import {
   FileProvenanceStore,
   type SandboxEgress,
 } from "@psyche/sandbox";
+import type { Gateway } from "../server.ts";
 import { execTool } from "./exec-tool.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
+import type { ComposedVm } from "./vm.ts";
 
 /**
  * Where dev servers the sandbox starts are announced: the browser part's dev-preview registry
@@ -36,6 +38,13 @@ export interface SandboxSetup {
   runner?: Omit<ContainerSandboxRunnerOptions, "onDevServer">;
   /** Register the agent's `exec` tool (default true). */
   exec?: boolean;
+  /**
+   * VM mode (L1–L5): calls whose Task runs in the sandbox Mac go to its runner. With it, `exec`
+   * is offered while a container backend exists or VM mode is on, and follows `vm.enabled`.
+   */
+  vm?: ComposedVm;
+  /** Whether this host has a container backend (`composeSandboxIfAvailable` detects it). */
+  containers?: boolean;
 }
 
 export interface ComposedSandbox extends ComposedPart {
@@ -46,6 +55,12 @@ export interface ComposedSandbox extends ComposedPart {
    * through the broker with the running command's taint, `sandbox.egress` receipts and logs.
    */
   readonly egress: SandboxEgress;
+  /**
+   * Registers the decision context of a command running in `scope` while it runs, so the egress
+   * proxy decides that sandbox's new origins with the turn's taint (the coding helper's networked
+   * `code.run` uses it); returns the release function.
+   */
+  readonly track: (scope: SandboxScope, ctx: DecisionContext) => () => void;
 }
 
 /**
@@ -104,6 +119,8 @@ export function composeSandbox(
   };
   const runner = createSandboxRunner({
     egressTunnel: egress.egressTunnel,
+    // A bind mount (the coding helper's repositories) never exposes Psyche's own state.
+    ...(services.home === undefined ? {} : { protectedMountRoots: [services.home] }),
     // File provenance survives a restart (S23 design-07).
     ...(setup.exec === false
       ? {}
@@ -111,18 +128,61 @@ export function composeSandbox(
     ...setup.runner,
     ...(setup.devServers === undefined ? {} : { onDevServer: devServerBridge(setup.devServers) }),
   });
-  const unregister =
-    setup.exec === false
-      ? undefined
-      : services.tools.register(
-          execTool({ runner, vault: services.vault, broker: services.broker, track }),
-        );
+  const tool = execTool({
+    runner,
+    vault: services.vault,
+    broker: services.broker,
+    track,
+    ...(setup.vm === undefined
+      ? {}
+      : {
+          runnerFor: (ctx: { taskId?: string }) =>
+            setup.vm?.workspaceFor(ctx) === "vm" ? setup.vm.runner : runner,
+        }),
+  });
+  let unregister: (() => unknown) | undefined;
+  // Offered while something can run it: a container backend, or the sandbox Mac when on.
+  const sync = () => {
+    const want =
+      setup.exec !== false && (setup.containers !== false || setup.vm?.settings().enabled === true);
+    if (want && unregister === undefined) unregister = services.tools.register(tool);
+    if (!want && unregister !== undefined) {
+      unregister();
+      unregister = undefined;
+    }
+  };
+  sync();
+  let unsubscribe: (() => void) | undefined;
+  const backend = async (): Promise<SandboxBackend> => {
+    const first = (await runner.backends().catch(() => []))[0];
+    return first === "apple-container" || first === "docker" || first === "podman" ? first : "none";
+  };
   return {
     runner,
     egress,
+    track,
+    handlers: {
+      // For `psyche security audit` (security §5): the backend, and that the egress proxy for
+      // `network: "proxy"` sandboxes runs (it is created with every sandbox part).
+      "sandbox.status": {
+        run: async () => {
+          const b = await backend();
+          return { backend: b, available: b !== "none", sandbox: null, egress: true };
+        },
+      },
+    },
+    start(gateway: Gateway) {
+      if (setup.vm === undefined) return;
+      unsubscribe = gateway.bus.subscribe(["operator.read"], (frame) => {
+        const f = JSON.parse(frame) as { event?: string };
+        if (f.event === "settings.changed") sync();
+      });
+    },
     // Stops the containers this process started; their servers are announced `stopped`.
     stop: async () => {
+      unsubscribe?.();
       unregister?.();
+      unregister = undefined;
       await runner.dispose();
     },
   };
@@ -130,19 +190,32 @@ export function composeSandbox(
 
 /**
  * Mounts the sandbox only where a container backend exists (default off otherwise): without
- * one there is no `exec` tool at all, never a host fallback. `PSYCHE_SANDBOX=off` skips it.
+ * one there is no `exec` tool at all, never a host fallback, unless VM mode can run it in the
+ * guest. `PSYCHE_SANDBOX=off` skips it.
  */
 export async function composeSandboxIfAvailable(
   services: ComposeServices,
   setup: SandboxSetup = {},
 ): Promise<ComposedSandbox | ComposedPart> {
-  const part = composeSandbox(services, setup);
-  const backends = await part.runner.backends().catch(() => []);
+  const probe = createSandboxRunner({ ...setup.runner });
+  const backends = await probe.backends().catch(() => []);
+  await probe.dispose();
   if (backends.length > 0) {
     services.logger?.log("info", "sandbox: exec enabled", { backend: backends[0] ?? null });
-    return part;
+    return composeSandbox(services, { ...setup, containers: true });
+  }
+  if (setup.vm !== undefined) {
+    // No container here: `exec` exists only while VM mode is on, and runs only in the guest.
+    services.logger?.log("info", "sandbox: no container backend; exec follows VM mode");
+    return composeSandbox(services, { ...setup, containers: false });
   }
   services.logger?.log("info", "sandbox: no container backend; exec is off");
-  await part.stop?.();
-  return {};
+  // Still answer, so the audit reports "no backend" rather than "not checked".
+  return {
+    handlers: {
+      "sandbox.status": {
+        run: () => ({ backend: "none" as const, available: false, sandbox: null, egress: false }),
+      },
+    },
+  };
 }
