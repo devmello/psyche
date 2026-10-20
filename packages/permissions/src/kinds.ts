@@ -20,6 +20,8 @@ export const DEVICE_ONLY_KINDS: readonly ApprovalKind[] = [
   "policy_change",
   // A skill is code-adjacent text the agent will follow: installed only from a paired device (T2).
   "skill_install",
+  // A script drives an app with the owner's Automation grant; approved on the Mac only (#268).
+  "apple_script",
 ];
 
 /** `authenticationRequired` on the Mac (security §3.7). */
@@ -29,6 +31,7 @@ export const AUTH_KINDS: readonly ApprovalKind[] = [
   "exec_host",
   "pairing",
   "policy_change",
+  "apple_script",
 ];
 
 export const FILE_TOOLS = new Set([
