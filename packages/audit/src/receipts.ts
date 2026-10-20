@@ -35,6 +35,12 @@ export interface ReceiptFilter {
 
 export interface ReceiptStore {
   insert(receipt: Receipt): void;
+  /**
+   * Inserts `receipt` with the next short id, `R<n>` one past the highest `R<n>` already stored,
+   * chosen atomically with the insert so ids stay unique across restarts and instances (#66).
+   * Returns the short id.
+   */
+  insertNext(receipt: Receipt): string;
   get(id: string): Receipt | undefined;
   /** Oldest first. */
   query(filter: ReceiptFilter): Receipt[];
@@ -48,6 +54,14 @@ export class MemoryReceiptStore implements ReceiptStore {
     if (this.#rows.has(receipt.id))
       throw new PsycheError("conflict", `receipt ${receipt.id} exists`);
     this.#rows.set(receipt.id, structuredClone(receipt));
+  }
+
+  insertNext(receipt: Receipt): string {
+    let max = 0;
+    for (const r of this.#rows.values()) max = Math.max(max, shortSeq(r.shortId) ?? 0);
+    const shortId = `R${max + 1}`;
+    this.insert({ ...receipt, shortId });
+    return shortId;
   }
 
   get(id: string): Receipt | undefined {
@@ -66,6 +80,12 @@ export class MemoryReceiptStore implements ReceiptStore {
     if (!this.#rows.has(receipt.id)) throw new PsycheError("not_found", `receipt ${receipt.id}`);
     this.#rows.set(receipt.id, structuredClone(receipt));
   }
+}
+
+/** The `n` in a short id `R<n>`, or `undefined` for any other short id. */
+function shortSeq(shortId: string | undefined): number | undefined {
+  const m = shortId === undefined ? null : /^R(\d+)$/.exec(shortId);
+  return m === null ? undefined : Number(m[1]);
 }
 
 function matches(r: Receipt, f: ReceiptFilter): boolean {
@@ -102,7 +122,25 @@ interface ReceiptRow {
   created_at: string;
 }
 
-/** `receipts` table (migration `*_permissions_init.sql`). */
+const RECEIPT_COLS = `id, short_id, short_seq, kind, task_id, tool_call_id, approval_id, outcome,
+  summary, external_refs, payload, created_at, updated_at`;
+
+function insertParams(r: Receipt): unknown[] {
+  return [
+    r.kind,
+    r.taskId,
+    r.toolCallId,
+    r.approvalId,
+    r.outcome,
+    r.summary,
+    JSON.stringify(r.externalRefs),
+    r.payload === null ? null : JSON.stringify(r.payload),
+    r.createdAt,
+    r.createdAt,
+  ];
+}
+
+/** `receipts` table (migrations `*_permissions_init.sql`, `*_audit_receipt-short-seq.sql`). */
 export class SqliteReceiptStore implements ReceiptStore {
   readonly #db: SqliteLike;
 
@@ -113,24 +151,25 @@ export class SqliteReceiptStore implements ReceiptStore {
   insert(r: Receipt): void {
     this.#db
       .prepare(
-        `INSERT INTO receipts (id, short_id, kind, task_id, tool_call_id, approval_id, outcome, summary,
-           external_refs, payload, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO receipts (${RECEIPT_COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(
-        r.id,
-        r.shortId ?? null,
-        r.kind,
-        r.taskId,
-        r.toolCallId,
-        r.approvalId,
-        r.outcome,
-        r.summary,
-        JSON.stringify(r.externalRefs),
-        r.payload === null ? null : JSON.stringify(r.payload),
-        r.createdAt,
-        r.createdAt,
-      );
+      .run(r.id, r.shortId ?? null, shortSeq(r.shortId) ?? null, ...insertParams(r));
+  }
+
+  insertNext(r: Receipt): string {
+    // One statement, so SQLite's write lock covers reading MAX and inserting: no other writer
+    // (another instance, or a Gateway that restarted) can take the same number.
+    this.#db
+      .prepare(
+        `INSERT INTO receipts (${RECEIPT_COLS})
+         SELECT ?, 'R' || n, n, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+         FROM (SELECT COALESCE(MAX(short_seq), 0) + 1 AS n FROM receipts)`,
+      )
+      .run(r.id, ...insertParams(r));
+    const row = this.#db.prepare("SELECT short_id FROM receipts WHERE id = ?").get(r.id) as {
+      short_id: string;
+    };
+    return row.short_id;
   }
 
   get(id: string): Receipt | undefined {
@@ -215,7 +254,6 @@ export class Receipts {
   readonly #clock: Clock;
   readonly #newId: () => string;
   readonly #redact: ((text: string) => string) | undefined;
-  #count = 0;
 
   constructor(options: ReceiptsOptions = {}) {
     this.store = options.store ?? new MemoryReceiptStore();
@@ -228,10 +266,8 @@ export class Receipts {
 
   async record(input: ReceiptInput): Promise<Receipt> {
     const opts = this.#redact === undefined ? {} : { redact: this.#redact };
-    this.#count += 1;
     const receipt: Receipt = {
       id: this.#newId(),
-      shortId: input.shortId ?? `R${this.#count}`,
       kind: input.kind,
       taskId: input.taskId ?? null,
       toolCallId: input.toolCallId ?? null,
@@ -242,7 +278,13 @@ export class Receipts {
       payload: input.payload == null ? null : (redactForAudit(input.payload, opts) as JsonObject),
       createdAt: new Date(this.#clock.now()).toISOString(),
     };
-    this.store.insert(receipt);
+    // The store numbers short ids, so they continue across restarts (#66).
+    if (input.shortId !== undefined) {
+      receipt.shortId = input.shortId;
+      this.store.insert(receipt);
+    } else {
+      receipt.shortId = this.store.insertNext(receipt);
+    }
     await this.#audit?.append({
       kind: "receipt.recorded",
       actor: { type: "system" },

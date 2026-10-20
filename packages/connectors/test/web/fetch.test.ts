@@ -1,7 +1,10 @@
 import { gzipSync } from "node:zlib";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  canonicalOrigin,
+  type HopContext,
   nodeTransport,
+  originAllowlist,
   type PinnedRequest,
   safeFetch,
   type TransportResponse,
@@ -312,6 +315,91 @@ describe("safeFetch: redirects", () => {
       "too_many_redirects",
     );
     expect(transport.calls).toHaveLength(6);
+  });
+});
+
+describe("safeFetch: per-hop origin policy (#72, security §6, I7)", () => {
+  const lookup = fakeLookup({
+    "a.example": PUBLIC,
+    "b.example": "1.1.1.1",
+    "ads.example": "1.0.0.1",
+    "www.a.example": PUBLIC,
+  });
+
+  it("refuses a redirect chain the moment it leaves the allowed origins, before connecting", async () => {
+    const transport = fakeTransport({
+      "https://a.example/start": { status: 302, headers: { location: "/next" } },
+      "https://a.example/next": { status: 302, headers: { location: "https://b.example/page" } },
+      "https://b.example/page": { status: 302, headers: { location: "https://ads.example/track" } },
+      "https://ads.example/track": { headers: { "content-type": "text/plain" }, body: "tracked" },
+    });
+    const seen: [string, HopContext][] = [];
+    const allow = originAllowlist(["https://a.example", "https://b.example"]);
+    const err = await expectPsyche(
+      safeFetch("https://a.example/start", {
+        transport,
+        lookup,
+        allowHop: (next, ctx) => {
+          seen.push([next.href, ctx]);
+          return allow(next, ctx);
+        },
+      }),
+      "policy_denied",
+      "redirect_not_allowlisted",
+    );
+    expect((err.details as { origin?: string }).origin).toBe("https://ads.example");
+    // a.example twice and b.example once; ads.example is never resolved or contacted.
+    expect(transport.calls.map((c) => c.url.href)).toEqual([
+      "https://a.example/start",
+      "https://a.example/next",
+      "https://b.example/page",
+    ]);
+    expect(lookup.calls).not.toContain("ads.example");
+    expect(seen.map(([url, ctx]) => [url, ctx.from.href, ctx.initial.href, ctx.hop])).toEqual([
+      ["https://a.example/next", "https://a.example/start", "https://a.example/start", 1],
+      ["https://b.example/page", "https://a.example/next", "https://a.example/start", 2],
+      ["https://ads.example/track", "https://b.example/page", "https://a.example/start", 3],
+    ]);
+  });
+
+  it("an async policy works and a policy that allows everything keeps the old behavior", async () => {
+    const transport = fakeTransport({
+      "https://a.example/": { status: 301, headers: { location: "https://b.example/" } },
+      "https://b.example/": { headers: { "content-type": "text/plain" }, body: "ok" },
+    });
+    const r = await safeFetch("https://a.example/", {
+      transport,
+      lookup,
+      allowHop: async () => true,
+    });
+    expect(r.url).toBe("https://b.example/");
+  });
+
+  it("canonicalizes origins: case, trailing dot, default port; subdomains stay separate", () => {
+    expect(canonicalOrigin("HTTPS://A.Example.:443/x")).toBe("https://a.example");
+    expect(canonicalOrigin("http://a.example:8080/")).toBe("http://a.example:8080");
+    const allow = originAllowlist(["https://a.example", "not a url"]);
+    const ctx = {
+      from: new URL("https://a.example/"),
+      initial: new URL("https://a.example/"),
+      hop: 1,
+    };
+    expect(allow(new URL("https://A.EXAMPLE./p"), ctx)).toBe(true);
+    expect(allow(new URL("https://www.a.example/"), ctx)).toBe(false);
+    expect(allow(new URL("https://a.example:8443/"), ctx)).toBe(false);
+    expect(allow(new URL("http://a.example/"), ctx)).toBe(false);
+  });
+
+  it("an allowed http origin admits its https upgrade on the default port only", () => {
+    const allow = originAllowlist(["http://a.example"]);
+    const ctx = {
+      from: new URL("http://a.example/"),
+      initial: new URL("http://a.example/"),
+      hop: 1,
+    };
+    expect(allow(new URL("https://a.example/"), ctx)).toBe(true);
+    expect(allow(new URL("https://a.example:8443/"), ctx)).toBe(false);
+    expect(allow(new URL("https://b.example/"), ctx)).toBe(false);
   });
 });
 

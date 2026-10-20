@@ -49,6 +49,8 @@ HTTP: `GET /healthz` (bare `{"ok":true}`), `GET /version`, the web UI at `/` (CS
 
 Every other registered method answers `not_implemented` (tasks, approvals, memory, … belong to other sessions and are wired in as they land).
 
+`approval.created` carries `answerToken` per connection: the composition root's personalizer adds the token of the subscriber's own surface, only for devices holding `operator.approvals` (security §3.7, issue #50). `approvals.get` / `list` still return it for clients that reconnect.
+
 Events emitted: `chat.message`, `chat.delta`, `chat.block`, `chat.queue.updated`, `run.updated`, `tool_call.updated`, `approval.created`, `question.created`, `receipt.created`, `thread.updated`, `thread.deleted`, `node.updated`, `device.updated` and `pairing.requested` (admin only), `settings.changed`, `gateway.shutdown`. Each carries `seq` (per process) and `stateVersion` (persisted, bumped in the transaction of each mutation). Events are not replayed; a client that sees a gap calls `events.subscribe` / the list methods and compares `stateVersion`.
 
 ## Auth and pairing

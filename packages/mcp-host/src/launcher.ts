@@ -202,8 +202,8 @@ export interface SandboxStdioProcess {
 
 /**
  * The part of the sandbox runner the container launcher needs (`SandboxRunner.ensureSandbox`
- * plus the requested `openStdio`). `ContainerSandboxRunner` from `@psyche/sandbox` satisfies it
- * once #143 lands; the Gateway passes it in.
+ * plus `openStdio`). `ContainerSandboxRunner` from `@psyche/sandbox` satisfies it (#143; the
+ * M3 acceptance test checks that at compile time); the Gateway passes it in.
  */
 export interface SandboxStdioHost {
   ensureSandbox(

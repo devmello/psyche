@@ -21,25 +21,20 @@ import {
  * environment from inside its sandbox container.
  *
  * Runs on CI (and locally only with PSYCHE_SANDBOX_TESTS=1, since it starts a container);
- * PSYCHE_SANDBOX_TESTS=0 always skips. Needs a container backend and
- * `ContainerSandboxRunner.openStdio` (#143); builds the `core` image like the sandbox suite.
+ * PSYCHE_SANDBOX_TESTS=0 always skips. Needs a container backend; builds the `core` image like
+ * the sandbox suite.
  */
 const optIn =
   process.env.PSYCHE_SANDBOX_TESTS !== "0" &&
   (process.env.PSYCHE_SANDBOX_TESTS === "1" || process.env.CI === "true");
 const runner = createSandboxRunner({ image: localImageTag("core"), namePrefix: "psyche-m3test" });
-const hasStdio = typeof (runner as unknown as Partial<SandboxStdioHost>).openStdio === "function";
-const backend = optIn && hasStdio ? await runner.backend() : null;
+// Compile-time proof that the real runner is what the container launcher needs (#143).
+const stdioHost: SandboxStdioHost = runner;
+const backend = optIn ? await runner.backend() : null;
 const enabled = backend !== null;
 if (!enabled) {
   console.warn(
-    `[mcp-sandbox] skipped: ${
-      !optIn
-        ? "runs on CI or with PSYCHE_SANDBOX_TESTS=1"
-        : !hasStdio
-          ? "ContainerSandboxRunner.openStdio is missing (#143)"
-          : "no container backend"
-    }`,
+    `[mcp-sandbox] skipped: ${!optIn ? "runs on CI or with PSYCHE_SANDBOX_TESTS=1" : "no container backend"}`,
   );
 }
 
@@ -66,7 +61,7 @@ describe.skipIf(!enabled)("stdio MCP server in the real sandbox container (M3)",
       bindings: [{ connector: "mcp:probe" }],
     });
     host = new PsycheMcpHost({
-      launcher: containerLauncher({ sandbox: runner as unknown as SandboxStdioHost }),
+      launcher: containerLauncher({ sandbox: stdioHost }),
       secrets: {
         credentials: vault,
         async approve({ target }) {

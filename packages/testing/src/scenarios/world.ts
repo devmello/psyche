@@ -607,9 +607,22 @@ export class World {
       },
       fetch: async (_i, a, ctx) => {
         const url = String(a.url);
+        const allowed = await this.allowedOrigins(ctx);
         const r = await safeFetch(url, {
           lookup: async () => [{ address: "93.184.215.14", family: 4 }],
-          transport: this.#transport(ctx.callId, await this.allowedOrigins(ctx)),
+          // The real per-hop check (#72); the fake transport keeps its own as a backstop.
+          allowHop: (next) => {
+            if (allowed.has(next.origin)) return true;
+            this.blocked.push({
+              step: this.step,
+              callId: ctx.callId,
+              host: next.host,
+              via: "fetch",
+              rule: "redirect_not_allowlisted",
+            });
+            return false;
+          },
+          transport: this.#transport(ctx.callId, allowed),
           maxChars: Number(a.maxBytes ?? 200_000),
         });
         taint(ctx, [`web:${originOf(url)}`]);

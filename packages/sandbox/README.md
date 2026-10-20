@@ -34,6 +34,7 @@ for await (const chunk of pty.output) term.write(chunk); // pty.write(), pty.res
 | `stop(id)` / `destroy(id)` | Stop the container (it restarts on next use), or remove it. The volume stays in both cases. |
 | `deleteWorkspace(scope)` | Removes the container **and** the workspace volume. |
 | `files` | `list`, `stat`, `readText` / `writeText` (256 KB), `edit` (exact replace), `importFile` / `exportFile` (10 MB, byte-exact). Writes take `{ provenance, sources }`; reads, stats and listings return the file's provenance (see "File provenance"). |
+| `openStdio(id, { argv, cwd, env })` | A long-lived process with raw stdin / stdout / stderr pipes (no PTY, no CRLF translation), for stdio MCP servers (#143). Same user, network and no-fallback rules as `exec`; env goes to an in-container relay on stdin (a length-prefixed header), never into argv or the CLI's environment. Keeps the container busy until it exits, at most `maxStdioProcesses` (8) per scope. `kill()` signals the process group (TERM, then KILL); `destroy`, `deleteWorkspace` and `dispose` TERM every group first. `provenance` is `untrusted` and the scope's workspace counts as untrusted from then on. `receipt()` after exit names env keys, never values. |
 | `openPty(id, opts)` | Interactive terminal; `output` is an async iterator of raw bytes, and `transcript()` keeps the last 128 KB. |
 | `dispose({remove})` | Stops (or removes) every container this runner started. |
 | `receiptOf(request, result)` | The receipt shape for Activity and the audit log. It never includes env. |
@@ -49,6 +50,7 @@ for await (const chunk of pty.output) term.write(chunk); // pty.write(), pty.res
 | `limits` | 512 MB, 1 CPU, 128 pids, 64 MB `/tmp` | Per-container caps. |
 | `maxTimeoutMs` | 30 min | Largest accepted `timeoutMs`. |
 | `maxConcurrentExecs` | 4 | Per scope; extra calls queue, and an aborted waiter rejects with `cancelled`. |
+| `maxStdioProcesses` | 8 | Per scope; more `openStdio` rejects with `rate_limited`. |
 | `maxPtys` | 4 | Per scope; more rejects with `rate_limited`. |
 | `maxRunningSandboxes` | 3 on Apple, 8 elsewhere | Across scopes; the least recently used idle container is stopped first. |
 | `idleTimeoutMs` | 10 min | An idle container is stopped (warm reuse until then). 0 disables. |
