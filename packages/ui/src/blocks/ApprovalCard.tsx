@@ -14,6 +14,7 @@ import { Button } from "../components/ui/button.tsx";
 import { Label } from "../components/ui/label.tsx";
 import { NativeSelect } from "../components/ui/native-select.tsx";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group.tsx";
+import { describeError } from "../i18n/errors.ts";
 import { formatCountdown, formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
@@ -188,7 +189,7 @@ export function ApprovalCard({
     try {
       await onAnswer?.(decision, scope);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(describeError(err));
     } finally {
       setBusy(false);
     }

@@ -7,8 +7,11 @@ import {
 import type { Message, QueueMode } from "@psyche/protocol";
 import { X } from "lucide-react";
 import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
+import { MODE_LABEL } from "../agent/AgentHeader.tsx";
 import { type DisclosureLevel, DisclosureProvider } from "../blocks/disclosure.tsx";
 import { useCall, useConnection, useStoreState, useThread, useThreads } from "../data/index.ts";
+import { activeI18n, t } from "../i18n/core.ts";
+import { describeError } from "../i18n/errors.ts";
 import { cn } from "../lib/utils.ts";
 import { usePersona, useSlots } from "../slots.tsx";
 import { ApprovalDock } from "./ApprovalDock.tsx";
@@ -53,10 +56,6 @@ export interface CommandNotice {
 function codeOf(err: unknown): string | undefined {
   const c = typeof err === "object" && err !== null ? (err as { code?: unknown }).code : undefined;
   return typeof c === "string" ? c : undefined;
-}
-
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
 }
 
 function download(filename: string, mime: string, content: string): void {
@@ -125,7 +124,7 @@ export function ChatThread({
   disclosure,
   onDisclosureChange,
 }: ChatThreadProps): ReactElement {
-  const t = useThread(threadId);
+  const view = useThread(threadId);
   const { fork, create } = useThreads();
   const call = useCall();
   const { navigate } = useSlots();
@@ -138,12 +137,12 @@ export function ChatThread({
   const offline = connection !== "open";
 
   const display = useMemo<DisplayMessage[]>(() => {
-    const byId = new Map(t.messages.map((m) => [m.id, m]));
-    const out: DisplayMessage[] = t.messages.map((m) => ({
+    const byId = new Map(view.messages.map((m) => [m.id, m]));
+    const out: DisplayMessage[] = view.messages.map((m) => ({
       message: m,
       streamingText: null,
     }));
-    for (const s of t.streaming) {
+    for (const s of view.streaming) {
       const committed = byId.get(s.messageId);
       if (committed !== undefined) {
         const entry = out.find((d) => d.message.id === s.messageId);
@@ -168,7 +167,7 @@ export function ChatThread({
       });
     }
     return out;
-  }, [t.messages, t.streaming, threadId, now]);
+  }, [view.messages, view.streaming, threadId, now]);
 
   const latestChecklistId = useMemo(() => {
     for (let i = display.length - 1; i >= 0; i--) {
@@ -200,23 +199,23 @@ export function ChatThread({
         } catch (err) {
           setNotice({
             kind: "error",
-            text: `/${parsed.name} didn't work (${messageOf(err)}). Nothing was changed.`,
+            text: t("chat.command.failed", { name: parsed.name, reason: describeError(err) }),
           });
         }
         return;
       }
-      await t.send(parsed.text, { mode, replyToMessageId: quoting?.id ?? null });
+      await view.send(parsed.text, { mode, replyToMessageId: quoting?.id ?? null });
       setQuoting(null);
       setMode("followUp");
     },
-    [t, mode, quoting],
+    [view, mode, quoting],
   );
 
   runCommandRef.current = runCommand;
 
   /** Composer commands (feature C9), executed with protocol methods. */
   async function runCommand(name: CommandName, arg: string): Promise<void> {
-    const thread = t.thread?.thread;
+    const thread = view.thread?.thread;
     const openThread = (id: string) => navigate?.(`/chat/${id}`);
     /** `threads.update` with the outcome as a notice; true when the thread changed. */
     const updateThread = async (
@@ -232,8 +231,8 @@ export function ChatThread({
           kind: "error",
           text:
             codeOf(err) === "unknown_method"
-              ? "This needs a newer Gateway."
-              : `That didn't work (${messageOf(err)}). Nothing was changed.`,
+              ? t("chat.command.newerGateway")
+              : t("chat.command.didntWork", { reason: describeError(err) }),
         });
         return false;
       }
@@ -243,19 +242,18 @@ export function ChatThread({
         if (arg === "") {
           setNotice({
             kind: "info",
-            text: `This thread uses ${thread?.modelRef ?? "the default model"}. Type /model provider/model to pick another.`,
+            text: t("chat.command.modelCurrent", {
+              model: thread?.modelRef ?? t("chat.command.defaultModel"),
+            }),
           });
           return;
         }
-        await updateThread({ modelRef: arg }, `This thread now uses ${arg}.`);
+        await updateThread({ modelRef: arg }, t("chat.command.modelSet", { model: arg }));
         return;
       }
       case "plan": {
-        const ok = await updateThread(
-          { permissionMode: "plan" },
-          "Plan mode: read-only until you switch back.",
-        );
-        if (ok && arg !== "") await t.send(arg);
+        const ok = await updateThread({ permissionMode: "plan" }, t("chat.command.planMode"));
+        if (ok && arg !== "") await view.send(arg);
         return;
       }
       case "new": {
@@ -274,7 +272,7 @@ export function ChatThread({
         return;
       }
       case "fork": {
-        const last = t.messages.at(-1);
+        const last = view.messages.at(-1);
         const forked = last
           ? await fork(threadId, last.id)
           : await create({ kind: "side", parentThreadId: threadId });
@@ -291,14 +289,15 @@ export function ChatThread({
       }
       case "schedule": {
         // The agent turns the sentence into a schedule with its `schedule` tool (an approval).
-        await t.send(
+        // Sent to the agent, which reads English instructions; not UI text.
+        await view.send(
           `/schedule ${arg}\n\nCreate this as an automation with your schedule tool, then tell me what you set up.`,
         );
         return;
       }
       case "remember": {
         const res = await call("memory.remember", { text: arg });
-        setNotice({ kind: "ok", text: `Noted in ${res.path}.` });
+        setNotice({ kind: "ok", text: t("chat.command.noted", { path: res.path }) });
         return;
       }
       case "forget": {
@@ -306,23 +305,28 @@ export function ChatThread({
         const claims = preview.retractedClaimIds.length;
         const chunks = preview.removedChunkIds.length;
         if (claims === 0 && chunks === 0 && preview.files.length === 0) {
-          setNotice({ kind: "info", text: `Nothing remembered matches "${arg}".` });
+          setNotice({ kind: "info", text: t("chat.command.nothingMatches", { subject: arg }) });
           return;
         }
-        const files = preview.files.length > 0 ? `, editing ${preview.files.join(", ")}` : "";
         setNotice({
           kind: "info",
-          text: `Forgetting "${arg}" retracts ${claims} claim${claims === 1 ? "" : "s"} and ${chunks} indexed note${chunks === 1 ? "" : "s"}${files}.`,
+          text: t("chat.command.forgetPreview", {
+            subject: arg,
+            claims,
+            chunks,
+            files: activeI18n().list(preview.files),
+            hasFiles: preview.files.length > 0,
+          }),
           confirm: {
-            label: "Forget",
+            label: t("chat.command.forget"),
             run: async () => {
               try {
                 await call("memory.forget", { subject: arg });
-                setNotice({ kind: "ok", text: `Forgot "${arg}".` });
+                setNotice({ kind: "ok", text: t("chat.command.forgot", { subject: arg }) });
               } catch (err) {
                 setNotice({
                   kind: "error",
-                  text: `Forgetting didn't work (${messageOf(err)}). Nothing was changed.`,
+                  text: t("chat.command.forgetFailed", { reason: describeError(err) }),
                 });
               }
             },
@@ -335,10 +339,14 @@ export function ChatThread({
         setNotice({
           kind: "info",
           text: [
-            `Model: ${thread?.modelRef ?? "default"}`,
-            `Mode: ${thread?.permissionMode ?? "balanced"}`,
-            `This chat: ${t.running ? "working" : "idle"}`,
-            `Running tasks: ${running}`,
+            t("chat.command.status.model", {
+              model: thread?.modelRef ?? t("chat.command.status.default"),
+            }),
+            t("chat.command.status.mode", {
+              mode: MODE_LABEL[thread?.permissionMode ?? "balanced"],
+            }),
+            t("chat.command.status.chat", { state: view.running ? "working" : "idle" }),
+            t("chat.command.status.tasks", { n: running }),
           ].join("\n"),
         });
         return;
@@ -348,16 +356,19 @@ export function ChatThread({
         const res = await call("chat.export", { threadId, format: json ? "json" : "markdown" });
         const base = (thread?.title || "thread").replace(/[^\w.-]+/g, "-").slice(0, 60);
         download(`${base}.${json ? "json" : "md"}`, res.mime, res.content);
-        setNotice({ kind: "ok", text: `Exported this thread as ${json ? "JSON" : "Markdown"}.` });
+        setNotice({
+          kind: "ok",
+          text: t("chat.command.exported", { format: json ? "JSON" : "Markdown" }),
+        });
         return;
       }
       case "stop": {
-        if (!t.running) {
-          setNotice({ kind: "info", text: "Nothing is running in this chat." });
+        if (!view.running) {
+          setNotice({ kind: "info", text: t("chat.command.nothingRunning") });
           return;
         }
-        await t.cancel();
-        setNotice({ kind: "ok", text: "Stopped." });
+        await view.cancel();
+        setNotice({ kind: "ok", text: t("chat.command.stopped") });
         return;
       }
     }
@@ -368,8 +379,8 @@ export function ChatThread({
     // The follow-up queue is ours (client-side, removable), so the runtime never blocks sending.
     isRunning: false,
     isDisabled: offline,
-    hasEarlier: t.hasMore,
-    onLoadEarlier: t.loadOlder,
+    hasEarlier: view.hasMore,
+    onLoadEarlier: view.loadOlder,
     onNew,
     convertMessage: (d) => ({
       id: d.message.id,
@@ -380,7 +391,7 @@ export function ChatThread({
     }),
   });
 
-  const byId = useMemo(() => new Map(t.messages.map((m) => [m.id, m])), [t.messages]);
+  const byId = useMemo(() => new Map(view.messages.map((m) => [m.id, m])), [view.messages]);
 
   /**
    * Edit and resend (E5): a side chat forked just before the edited message (or a fresh side
@@ -389,15 +400,15 @@ export function ChatThread({
    */
   const editAndResend = useCallback(
     async (message: Message, text: string) => {
-      const index = t.messages.findIndex((m) => m.id === message.id);
-      const before = index > 0 ? t.messages[index - 1] : undefined;
+      const index = view.messages.findIndex((m) => m.id === message.id);
+      const before = index > 0 ? view.messages[index - 1] : undefined;
       const thread = before
         ? await fork(threadId, before.id)
         : await create({ kind: "side", parentThreadId: threadId });
       await call("chat.send", { threadId: thread.id, content: text });
       navigate?.(`/chat/${thread.id}`);
     },
-    [t.messages, threadId, fork, create, call, navigate],
+    [view.messages, threadId, fork, create, call, navigate],
   );
 
   return (
@@ -422,7 +433,7 @@ export function ChatThread({
               className="mx-auto flex min-h-full w-full max-w-[calc(var(--prose-width)+3rem)] flex-col justify-end"
               data-testid="conversation-column"
             >
-              {display.length === 0 && !t.loading ? (
+              {display.length === 0 && !view.loading ? (
                 // Empty state (UI design §3.0): one sentence in Psyche's voice; the composer
                 // below is the one action. The main chat is never empty (it opens with the
                 // agent's first message), so this is a new side chat.
@@ -462,7 +473,7 @@ export function ChatThread({
                           .getElementById(`message-${id}`)
                           ?.scrollIntoView({ block: "center" })
                       }
-                      onWrapUpAction={(text) => void t.send(text)}
+                      onWrapUpAction={(text) => void view.send(text)}
                     />
                   );
                 }}
@@ -472,27 +483,27 @@ export function ChatThread({
           <div className="mx-auto flex w-full max-w-[calc(var(--prose-width)+3rem)] flex-col gap-2 px-4 pb-3">
             <ApprovalDock
               threadId={threadId}
-              {...(t.thread ? { mode: t.thread.thread.permissionMode } : {})}
+              {...(view.thread ? { mode: view.thread.thread.permissionMode } : {})}
               {...(now === undefined ? {} : { now })}
             />
             <FollowUpQueue
-              items={t.queue}
-              onRemove={t.removeQueued}
-              onRetry={t.retryQueued}
+              items={view.queue}
+              onRemove={view.removeQueued}
+              onRetry={view.retryQueued}
               onSendNow={(q, m) => {
-                t.removeQueued(q.id);
-                void t.send(q.content, { mode: m, replyToMessageId: q.replyToMessageId });
+                view.removeQueued(q.id);
+                void view.send(q.content, { mode: m, replyToMessageId: q.replyToMessageId });
               }}
             />
             {notice ? <NoticeBar notice={notice} onDismiss={() => setNotice(null)} /> : null}
             <Composer
               persona={persona.name}
-              running={t.running}
+              running={view.running}
               disabled={offline}
               quoting={quoting}
               onClearQuote={() => setQuoting(null)}
               mode={mode}
-              onStop={() => void t.cancel()}
+              onStop={() => void view.cancel()}
               {...(onAttach ? { onAttach } : {})}
               {...(onDictate ? { onDictate } : {})}
             />

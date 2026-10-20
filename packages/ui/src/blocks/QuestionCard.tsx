@@ -13,6 +13,7 @@ import { Button } from "../components/ui/button.tsx";
 import { Checkbox } from "../components/ui/checkbox.tsx";
 import { Input } from "../components/ui/input.tsx";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group.tsx";
+import { describeError } from "../i18n/errors.ts";
 import { cn } from "../lib/utils.ts";
 
 /**
@@ -155,7 +156,7 @@ export function QuestionCard({
     try {
       await onAnswer(out);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(describeError(err));
     } finally {
       setBusy(false);
     }
