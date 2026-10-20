@@ -392,6 +392,14 @@ export class GatewayStore {
         };
       case "node.updated":
         return invalidate(s, ["nodes."]);
+      case "vm.updated":
+        return {
+          ...s,
+          vmGuests: {
+            ...s.vmGuests,
+            [`${e.payload.nodeId}/${e.payload.guest.name}`]: e.payload,
+          },
+        };
       case "device.updated":
       case "pairing.requested":
         return invalidate(s, ["devices."]);

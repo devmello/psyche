@@ -29,6 +29,7 @@ import {
   sampleSettings,
 } from "./sample-data.ts";
 import { UsagePanel } from "./UsageSection.tsx";
+import { VmPanel } from "./VmSection.tsx";
 import { VoicePanel } from "./VoiceSection.tsx";
 
 /**
@@ -295,6 +296,76 @@ export const FileAccessError: Story = {
     <FileAccessPanel {...form} persona={PERSONA.name} error="unavailable" onRetry={noop} />
   ),
 };
+
+// --- VM mode ---------------------------------------------------------------------------------
+
+const vmGuest = {
+  name: "work-mac",
+  phase: "running" as const,
+  provisioned: true,
+  cpus: 4,
+  memoryGB: 8,
+  diskGB: 80,
+  guestOS: "27.0.1",
+  username: "psyche",
+  shares: [
+    {
+      name: "Documents",
+      hostPath: "/Users/you/Documents",
+      readOnly: true,
+      guestPath: "/Volumes/Psyche Shares/Documents",
+    },
+  ],
+  vsock: { hostCid: 2, gatewayNodePort: 7001 },
+  agent: { connected: true, version: "0.3.0" },
+  clipboard: "paste-only" as const,
+  vault: "host" as const,
+};
+const vmProps = {
+  ...form,
+  persona: PERSONA.name,
+  now: STORY_NOW,
+  guestNodes: [{ id: "node_guest", name: "work-mac", status: "online" as const }],
+  guests: [],
+};
+export const VmOffNoGuest: Story = {
+  render: () => <VmPanel {...vmProps} guestNodes={[]} />,
+};
+export const VmRunning: Story = {
+  render: () => (
+    <VmPanel
+      {...vmProps}
+      values={{
+        ...values,
+        "vm.enabled": true,
+        "vm.guestNodeId": "node_guest",
+        "vm.defaultWorkspace": "vm",
+      }}
+      guests={[{ nodeId: "node_mac_helper", guest: vmGuest, at: "2026-10-18T10:10:00Z" }]}
+    />
+  ),
+};
+export const VmGuestFailed: Story = {
+  render: () => (
+    <VmPanel
+      {...vmProps}
+      values={{ ...values, "vm.enabled": true }}
+      guests={[
+        {
+          nodeId: "node_mac_helper",
+          guest: {
+            ...vmGuest,
+            phase: "failed",
+            lastError: "disk_full",
+            agent: { connected: false },
+          },
+          at: "2026-10-18T10:10:00Z",
+        },
+      ]}
+    />
+  ),
+};
+export const VmLoading: Story = { render: () => <VmPanel {...vmProps} loading /> };
 
 // --- Devices & nodes ---------------------------------------------------------------------------
 

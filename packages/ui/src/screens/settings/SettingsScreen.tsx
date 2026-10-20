@@ -9,6 +9,7 @@ import {
   type LucideIcon,
   MessagesSquare,
   Mic,
+  MonitorCog,
   MonitorSmartphone,
   MousePointerClick,
   Palette,
@@ -46,6 +47,7 @@ import type {
   TccState,
 } from "./types.ts";
 import { UsageSection } from "./UsageSection.tsx";
+import { VmSection } from "./VmSection.tsx";
 import { VoiceSection } from "./VoiceSection.tsx";
 
 /** Settings (UI design §2.6, §3.18): a section nav and one component per section. */
@@ -58,6 +60,7 @@ export type SettingsSectionId =
   | "computer-use"
   | "browser"
   | "files"
+  | "vm"
   | "devices"
   | "channels"
   | "credentials"
@@ -80,6 +83,7 @@ export const SETTINGS_SECTIONS: readonly {
   { id: "computer-use", label: "Computer use", icon: MousePointerClick },
   { id: "browser", label: "Browser", icon: Globe },
   { id: "files", label: "File access", icon: FolderLock },
+  { id: "vm", label: "VM mode", icon: MonitorCog },
   { id: "devices", label: "Devices & nodes", icon: MonitorSmartphone },
   { id: "channels", label: "Channels", icon: MessagesSquare },
   { id: "credentials", label: "Credentials", icon: KeyRound },
@@ -190,6 +194,8 @@ export function SettingsSectionView({
       return <BrowserSection {...opt("onOpenProfile", s.onOpenRealChromeProfile)} />;
     case "files":
       return <FileAccessSection {...opt("vmMode", s.vmMode)} />;
+    case "vm":
+      return <VmSection {...opt("now", s.now)} />;
     case "devices":
       return <DevicesSection {...opt("now", s.now)} {...opt("thisDeviceId", s.thisDeviceId)} />;
     case "channels":
