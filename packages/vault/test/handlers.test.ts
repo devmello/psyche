@@ -1,7 +1,7 @@
 import { validateEventPayload, validateParams, validateResult } from "@psyche/protocol";
 import { assertNoSecrets, clearSecrets, registerSecret } from "@psyche/testing";
 import { afterEach, describe, expect, it } from "vitest";
-import { createVaultHandlers } from "../src/index.ts";
+import { createVaultHandlers, PaymentBroker, SecretRedactor } from "../src/index.ts";
 import { makeHarness } from "./helpers.ts";
 
 afterEach(() => clearSecrets());
@@ -58,6 +58,136 @@ describe("vault.* handlers and events", () => {
     );
     assertNoSecrets(events, "vault events");
     assertNoSecrets(await h.audit.list(), "audit");
+    h.cleanup();
+  });
+});
+
+describe("vault.linkExternal and vault.payments.* (Settings → Credentials)", () => {
+  it("links a 1Password item by reference and reports where each item lives", async () => {
+    const h = makeHarness({
+      overrides: {
+        onePassword: {
+          kind: "cli",
+          unavailableReason: async () => null,
+          readField: async () => "op-value-123456",
+        },
+      },
+    });
+    const handlers = createVaultHandlers(h.vault);
+    await h.vault.setup();
+    const params = validateParams("vault.linkExternal", {
+      source: "1password",
+      kind: "login",
+      name: "GitHub (1Password)",
+      bindings: [{ origin: "https://github.com" }],
+      ref: { vault: "Work", item: "GitHub" },
+    });
+    const { credential } = await handlers["vault.linkExternal"](params);
+    validateResult("vault.linkExternal", { credential });
+    expect(credential.backend).toBe("1password");
+    await h.vault.add({
+      kind: "note",
+      name: "Wifi",
+      bindings: [],
+      secret: { text: "wifi-pass-123456" },
+    });
+    const listed = await handlers["vault.list"]({});
+    validateResult("vault.list", listed);
+    expect(listed.credentials.map((c) => c.backend).sort()).toEqual(["1password", "vault"]);
+    h.cleanup();
+  });
+
+  it("answers unavailable without Stripe Link, and lists payments and methods with it", async () => {
+    const h = makeHarness();
+    await h.vault.setup();
+    await expect(createVaultHandlers(h.vault)["vault.payments.list"]({})).rejects.toMatchObject({
+      code: "unavailable",
+      details: { reason: "payments_not_configured" },
+    });
+    const wallet = {
+      spendLimits: async () => ({
+        currency: "usd",
+        perTransaction: 50_000,
+        daily: null,
+        thirtyDay: null,
+      }),
+      paymentMethods: async () => [
+        { id: "csmrpd_v1", brand: "visa", last4: "1881", nickname: null, isDefault: true },
+      ],
+      create: async (i: {
+        amount: number;
+        currency: string;
+        merchantName: string;
+        merchantUrl: string;
+      }) => ({
+        id: "lsrq_h1",
+        status: "pending_approval" as const,
+        amount: i.amount,
+        currency: i.currency,
+        merchantName: i.merchantName,
+        merchantUrl: i.merchantUrl,
+        approvalUrl: null,
+        card: null,
+        requiresAction: null,
+      }),
+      retrieve: async () => {
+        throw new Error("unused");
+      },
+      revealCard: async () => {
+        throw new Error("unused");
+      },
+      cancel: async () => {
+        throw new Error("unused");
+      },
+      report: async () => {},
+    };
+    const payments = new PaymentBroker({
+      home: h.home,
+      wallet: wallet as never,
+      permissions: h.permissions,
+      redactor: new SecretRedactor(),
+      clock: h.clock,
+    });
+    const updates: string[] = [];
+    payments.onUpdate((p) => updates.push(`${p.spendRequestId}:${p.status}`));
+    const input = {
+      merchantName: "Stand Shop B",
+      merchantUrl: "https://shop-b.example/checkout",
+      amount: 2900,
+      currency: "usd",
+      lineItems: [{ name: "Laptop stand", quantity: 1, unitAmount: 2900 }],
+    };
+    const issued = await payments.requestPurchase(input, {
+      requestedBy: { runId: null, taskId: "task_1", threadId: null },
+      taint: false,
+    });
+    h.clock.advance(500);
+    await h.permissions.answer({
+      approvalId: issued.approval.id,
+      answerToken: issued.answerTokens.desktop ?? "",
+      decision: "approve",
+      scope: "once",
+      decidedBy: { deviceId: "dev_desktop", surface: "desktop" },
+    });
+    await payments.authorize(issued.approval.id, input);
+    const handlers = createVaultHandlers(h.vault, { payments });
+    const listed = await handlers["vault.payments.list"]({ taskId: "task_1" });
+    validateResult("vault.payments.list", listed);
+    expect(listed.payments).toEqual([
+      expect.objectContaining({
+        spendRequestId: "lsrq_h1",
+        merchantHost: "shop-b.example",
+        amount: 2900,
+        payment: { state: "none", held: 0, captured: 0, refunded: 0 },
+        fundingSource: { brand: "visa", last4: "1881" },
+      }),
+    ]);
+    expect((await handlers["vault.payments.list"]({ taskId: "task_other" })).payments).toEqual([]);
+    const methods = await handlers["vault.payments.methods"]({});
+    validateResult("vault.payments.methods", methods);
+    expect(methods.methods[0]).toMatchObject({ last4: "1881", isDefault: true });
+    expect(updates).toEqual(["lsrq_h1:pending_approval"]);
+    validateEventPayload("vault.payment.updated", { payment: listed.payments[0] });
     h.cleanup();
   });
 });

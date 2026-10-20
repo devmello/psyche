@@ -8,7 +8,6 @@ import {
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
 import type { Gateway } from "../server.ts";
-import { surfaceOf } from "./handlers.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -71,13 +70,14 @@ interface Watch {
 }
 
 export function composeDictation() {
-  return (services: ComposeServices): ComposedPart => {
+  return (_services: ComposeServices): ComposedPart => {
     let gateway: Gateway | null = null;
-    const { db } = services;
     const watches = new Map<string, Watch>();
 
+    // The desktop shell's own connection (handshake secret on loopback), never a device that
+    // only says it runs macOS: a CLI or any client could (#278).
     const requireDesktop = (call: Call) => {
-      if (surfaceOf(db, call.identity.deviceId) !== "desktop") {
+      if (call.identity.desktopShell !== true) {
         throw new PsycheError(
           "forbidden",
           "system-wide dictation is only for the Psyche desktop app",

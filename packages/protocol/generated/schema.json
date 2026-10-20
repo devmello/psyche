@@ -324,6 +324,11 @@
         "payload": "#/$defs/VaultLockedPayload"
       },
       {
+        "description": "A Stripe Link payment changed: requested, card issued, held, captured, refunded, declined or released. Never card data.",
+        "name": "vault.payment.updated",
+        "payload": "#/$defs/VaultPaymentUpdatedPayload"
+      },
+      {
         "description": "The vault unlocked through a key slot.",
         "name": "vault.unlocked",
         "payload": "#/$defs/VaultUnlockedPayload"
@@ -1702,6 +1707,14 @@
         "sideEffecting": true
       },
       {
+        "description": "Links an item held in 1Password (G10) by reference: Psyche stores the vault and item names, never a value, and reads one field at fill time. Side-effecting.",
+        "name": "vault.linkExternal",
+        "params": "#/$defs/VaultLinkExternalParams",
+        "result": "#/$defs/VaultLinkExternalResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Lists credential metadata (never values).",
         "name": "vault.list",
         "params": "#/$defs/VaultListParams",
@@ -1716,6 +1729,22 @@
         "result": "#/$defs/VaultLockResult",
         "scope": "operator.write",
         "sideEffecting": true
+      },
+      {
+        "description": "Lists Stripe Link payments, newest first, with their hold / capture / refund state and merchant references; brand and last4 only.",
+        "name": "vault.payments.list",
+        "params": "#/$defs/VaultPaymentsListParams",
+        "result": "#/$defs/VaultPaymentsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists the owner's Link payment methods (redacted) that can fund purchases.",
+        "name": "vault.payments.methods",
+        "params": "#/$defs/VaultPaymentsMethodsParams",
+        "result": "#/$defs/VaultPaymentsMethodsResult",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "Creates the vault with a random key wrapped by the chosen slot plus a recovery key, returned once. Side-effecting.",
@@ -6967,6 +6996,14 @@
           "description": "ISO-8601 timestamp (UTC)",
           "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
           "type": "string"
+        },
+        "backend": {
+          "enum": [
+            "vault",
+            "keychain",
+            "1password"
+          ],
+          "type": "string"
         }
       },
       "required": [
@@ -10002,6 +10039,42 @@
       ],
       "type": "object"
     },
+    "LinkPaymentMethod": {
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "brand": {
+          "type": "string"
+        },
+        "last4": {
+          "maxLength": 4,
+          "type": "string"
+        },
+        "nickname": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "isDefault": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "brand",
+        "last4",
+        "isDefault"
+      ],
+      "type": "object"
+    },
     "LogLevel": {
       "enum": [
         "debug",
@@ -12633,6 +12706,25 @@
       },
       "required": [
         "ok"
+      ],
+      "type": "object"
+    },
+    "OnePasswordRef": {
+      "properties": {
+        "vault": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "item": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "vault",
+        "item"
       ],
       "type": "object"
     },
@@ -17396,6 +17488,77 @@
       ],
       "type": "string"
     },
+    "VaultLinkExternalParams": {
+      "properties": {
+        "source": {
+          "enum": [
+            "1password"
+          ],
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "login",
+            "api_key",
+            "ssh_key",
+            "note"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "slug": {
+          "pattern": "^[a-z0-9][a-z0-9-]{0,63}$",
+          "type": "string"
+        },
+        "bindings": {
+          "items": {
+            "$ref": "#/$defs/CredentialBinding"
+          },
+          "type": "array"
+        },
+        "ref": {
+          "$ref": "#/$defs/OnePasswordRef"
+        },
+        "fields": {
+          "items": {
+            "enum": [
+              "username",
+              "password",
+              "totp",
+              "token",
+              "privateKey",
+              "text"
+            ],
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "source",
+        "kind",
+        "name",
+        "bindings",
+        "ref"
+      ],
+      "type": "object"
+    },
+    "VaultLinkExternalResult": {
+      "properties": {
+        "credential": {
+          "$ref": "#/$defs/CredentialMeta"
+        }
+      },
+      "required": [
+        "credential"
+      ],
+      "type": "object"
+    },
     "VaultListParams": {
       "properties": {
         "kind": {
@@ -17452,6 +17615,216 @@
       "required": [
         "reason",
         "status"
+      ],
+      "type": "object"
+    },
+    "VaultPayment": {
+      "properties": {
+        "spendRequestId": {
+          "type": "string"
+        },
+        "merchantName": {
+          "type": "string"
+        },
+        "merchantHost": {
+          "type": "string"
+        },
+        "amount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "currency": {
+          "maxLength": 3,
+          "minLength": 3,
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "payment": {
+          "properties": {
+            "state": {
+              "enum": [
+                "none",
+                "held",
+                "captured",
+                "partially_refunded",
+                "refunded",
+                "declined",
+                "released"
+              ],
+              "type": "string"
+            },
+            "held": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "captured": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "refunded": {
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "state",
+            "held",
+            "captured",
+            "refunded"
+          ],
+          "type": "object"
+        },
+        "card": {
+          "anyOf": [
+            {
+              "properties": {
+                "brand": {
+                  "type": "string"
+                },
+                "last4": {
+                  "maxLength": 4,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "brand",
+                "last4"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fundingSource": {
+          "anyOf": [
+            {
+              "properties": {
+                "brand": {
+                  "type": "string"
+                },
+                "last4": {
+                  "maxLength": 4,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "brand",
+                "last4"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "refs": {
+          "patternProperties": {
+            "^(.*)$": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "spendRequestId",
+        "merchantName",
+        "merchantHost",
+        "amount",
+        "currency",
+        "status",
+        "payment",
+        "refs",
+        "approvalId",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "VaultPaymentUpdatedPayload": {
+      "properties": {
+        "payment": {
+          "$ref": "#/$defs/VaultPayment"
+        }
+      },
+      "required": [
+        "payment"
+      ],
+      "type": "object"
+    },
+    "VaultPaymentsListParams": {
+      "properties": {
+        "limit": {
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "VaultPaymentsListResult": {
+      "properties": {
+        "payments": {
+          "items": {
+            "$ref": "#/$defs/VaultPayment"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "payments"
+      ],
+      "type": "object"
+    },
+    "VaultPaymentsMethodsParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "VaultPaymentsMethodsResult": {
+      "properties": {
+        "methods": {
+          "items": {
+            "$ref": "#/$defs/LinkPaymentMethod"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "methods"
       ],
       "type": "object"
     },

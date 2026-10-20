@@ -6,6 +6,9 @@ import {
   CredentialMeta,
   CredentialSecretInput,
   CredentialUse,
+  LinkPaymentMethod,
+  OnePasswordRef,
+  VaultPayment,
   VaultStatus,
 } from "../schemas/integrations.ts";
 import { defineMethod } from "./define.ts";
@@ -140,5 +143,42 @@ export const VaultMethods = {
     result: Type.Object({ uses: Type.Array(CredentialUse) }),
     scope: "operator.read",
     description: "Lists an item's recent fills and denials, newest first (default 50).",
+  }),
+  "vault.linkExternal": defineMethod({
+    params: Type.Object({
+      source: StringEnum(["1password"]),
+      kind: StringEnum(["login", "api_key", "ssh_key", "note"]),
+      name: Type.String({ minLength: 1, maxLength: 200 }),
+      slug: Type.Optional(Slug),
+      bindings: Type.Array(CredentialBinding),
+      ref: OnePasswordRef,
+      /** Fields the item offers; default by kind (login: username + password). */
+      fields: Type.Optional(
+        Type.Array(StringEnum(["username", "password", "totp", "token", "privateKey", "text"]), {
+          minItems: 1,
+        }),
+      ),
+    }),
+    result: Type.Object({ credential: CredentialMeta }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Links an item held in 1Password (G10) by reference: Psyche stores the vault and item names, never a value, and reads one field at fill time. Side-effecting.",
+  }),
+  "vault.payments.list": defineMethod({
+    params: Type.Object({
+      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200 })),
+      taskId: Type.Optional(Id),
+    }),
+    result: Type.Object({ payments: Type.Array(VaultPayment) }),
+    scope: "operator.read",
+    description:
+      "Lists Stripe Link payments, newest first, with their hold / capture / refund state and merchant references; brand and last4 only.",
+  }),
+  "vault.payments.methods": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({ methods: Type.Array(LinkPaymentMethod) }),
+    scope: "operator.read",
+    description: "Lists the owner's Link payment methods (redacted) that can fund purchases.",
   }),
 } as const;
