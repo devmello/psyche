@@ -16,6 +16,7 @@ import type {
   Surface,
   ToolRegistry,
 } from "@psyche/protocol";
+import type { SecretRedactor, Vault } from "@psyche/vault";
 import type { HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
@@ -40,6 +41,10 @@ export interface ComposeServices {
   readonly tools: ToolRegistry;
   readonly calls: CallContexts;
   publish<E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string): void;
+  /** The credential vault (S06): connector tokens, Settings → Credentials. */
+  readonly vault: Vault;
+  /** The redactor the vault registers handed-out values with; mask any output path with it. */
+  readonly redactor: SecretRedactor;
   readonly logger?: Logger;
   /**
    * Psyche's own listening ports (security §3.10: never "the owner's project"): the Gateway's

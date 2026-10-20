@@ -2,7 +2,10 @@ import { execFile } from "node:child_process";
 import type { ConnectorRegistry } from "@psyche/connectors";
 import { modelSetupFromEnv } from "@psyche/gateway/compose";
 import { afterAll, describe, expect, it } from "vitest";
-import { composeConnectors } from "../../../apps/gateway/src/compose/connectors.ts";
+import {
+  composeConnectors,
+  MemoryTokenVault,
+} from "../../../apps/gateway/src/compose/connectors.ts";
 import { answer, type PartsSkeleton, startWithParts } from "./harness.ts";
 
 /**
@@ -11,7 +14,8 @@ import { answer, type PartsSkeleton, startWithParts } from "./harness.ts";
  * `PSYCHE_MODEL` plus its key variable, as in ../walking-skeleton/live.test.ts. The consent page
  * opens in the default browser; the owner signs in and the loopback receiver gets the code.
  *
- * Skeleton only: tokens live in the in-memory stand-in vault, and a Desktop client whose token
+ * Skeleton only: tokens live in an in-memory token vault (the composed Gateway keeps them in
+ * the S06 vault, which this rig does not set up), and a Desktop client whose token
  * exchange insists on the client secret cannot connect until the secret can come from the vault
  * (`{{cred:…}}` with `approveSecret`, S06). It checks the reads and prints timings; the write
  * path through the loop (issue #78, fixed) is covered by google.test.ts.
@@ -42,7 +46,11 @@ describe.skipIf(!LIVE)("scenario 2: Google (live OAuth, live model)", () => {
       model,
       parts: [
         (s) => {
-          const part = composeConnectors(s, { openBrowser, syncIntervalMs: 0 });
+          const part = composeConnectors(s, {
+            openBrowser,
+            syncIntervalMs: 0,
+            tokens: new MemoryTokenVault(),
+          });
           registry = part.registry;
           return part;
         },

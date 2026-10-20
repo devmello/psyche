@@ -27,6 +27,7 @@ import { FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surf
 import { InputRequest, Task, TaskAction } from "./schemas/tasks.ts";
 import { Message, Run, Thread } from "./schemas/threads.ts";
 import { ToolCall } from "./schemas/tools.ts";
+import { VmUpdatedPayload } from "./schemas/vm.ts";
 
 /**
  * Server-pushed events (data model §11; architecture §4.2 step 5). Each arrives in an
@@ -116,6 +117,11 @@ export const Events = {
   "node.updated": defineEvent({
     payload: Type.Object({ node: NodeInfo }),
     description: "A node connected, disconnected or changed capabilities.",
+  }),
+  "vm.updated": defineEvent({
+    payload: VmUpdatedPayload,
+    description:
+      "A sandbox Mac guest changed phase, resources or shares (mac helper vm.* capabilities).",
   }),
   "device.updated": defineEvent({
     payload: Type.Object({ device: Device }),

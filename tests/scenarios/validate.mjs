@@ -453,7 +453,9 @@ function crossCheck(sc, dir, errors) {
   const fx = loadFixtures(sc, dir, errors, P);
 
   for (const c of sc.ownerDoc.connectors) {
-    if (!secretIds.has(c.secretRef)) errors.push(`${P}: owner connector ${c.id} secretRef unknown`);
+    // Connectors without a credential (the V3 shopping allowlist) have no secretRef.
+    if (c.secretRef !== undefined && !secretIds.has(c.secretRef))
+      errors.push(`${P}: owner connector ${c.id} secretRef unknown`);
   }
   const connectorIds = new Set(sc.ownerDoc.connectors.map((c) => c.id));
   for (const c of sc.setup.connectors) {

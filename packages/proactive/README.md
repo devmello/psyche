@@ -194,6 +194,34 @@ held for a later window until it expires (14 days).
 - `goal_cadence` → `goals.update({ cadence })`; plan ideas link their task to the goal.
 - A `brief` marks the idea `edited`.
 
+### Agent tools (`src/tools/index.ts`)
+
+`proactiveTools({ goals?, ideas?, feed?, clock })` returns `defineTool` registrations for the
+agent loop's registry (architecture §4.3 built-ins "`goal.*`, `idea.*`, `feed.*` (read-mostly)").
+
+| Tool | Side effect | Broker (balanced) | Result provenance |
+| --- | --- | --- | --- |
+| `goals.list` | none | allows | trusted |
+| `goals.propose` | write | asks; creates a candidate only (confirm-first) | trusted |
+| `goals.update_progress` | write | asks | trusted |
+| `goals.add_checkin` | write | asks | trusted |
+| `ideas.list` | none | allows | `untrusted` when any listed idea has connector evidence |
+| `ideas.accept` | write | asks; the task card lands in the current conversation | trusted |
+| `ideas.dismiss` | write | asks | trusted |
+| `ideas.snooze` | write | asks (`not_now`: may return after 7 days) | trusted |
+| `feed.list` | none | allows | `untrusted` (web text) |
+| `feed.mark_read` | none | allows (read state only) | trusted |
+| `feed.explain` | none | allows | `untrusted` (web titles) |
+
+- Each write's `describeCall` binds the approval to the exact arguments (`bindingFields`) and
+  gives the card a one-line summary. The broker infers the kind (`connector_action`).
+- Owner only: a turn requested by a designated or allowed person gets `forbidden`.
+- Taint: a tainted turn's `goals.propose` stores `provenance: "untrusted"` and the turn's taint
+  sources in the candidate's evidence; its `ideas.accept` starts the task tainted with those
+  sources and refuses to turn the turn's `brief` into a recurring automation prompt.
+- Names are plural (`goals.*`, `ideas.*`) because the broker floors every `goal.*` tool to
+  `write`, which would make reads ask.
+
 ## Gateway wiring
 
 `composeProactive({ db, clock, scheduler, notifier, tasks, publish, timeZone, logger })` in
@@ -233,7 +261,7 @@ heartbeat's light runs.
 - Tables `feed_posts`, `ideas`, `goals`, `goal_milestones`, `goal_links` (data model §8) in
   `packages/db/migrations/202610201700_proactive_init.sql`, mirrored in `packages/db/src/schema-s15.ts`;
   `202610210900_proactive_ideas-delivery.sql` adds `ideas.source`, `action`, `untrusted`,
-  `delivered_at`.
+  `delivered_at`; `202610211100_proactive_feed-read.sql` adds `feed_posts.read_at`.
   Additions: `feed_posts.exploration`, `feed_posts.batch_id`, `ideas.pattern_key`,
   `ideas.dismiss_reason`, `goal_milestones.position`, `goal_links.created_at`.
 - Check-ins arrive as `reminder` notifications (UI §3.11); the confirm card reads `plan.evidence`.
@@ -243,8 +271,6 @@ heartbeat's light runs.
 - Ideas: connector signals need S09's provider (`signals`), nothing supplies it yet. Skill drafts
   are saved by the accepted task as `draft-unverified`; the replay verification and install go
   through S16's skill loader (`skill_install` approval) and are not automated here.
-- `goal.*`, `idea.*`, `feed.*` agent tools (architecture §4.3) are not registered yet; the
-  surfaces are reachable through the client methods.
 - Bluesky Jetstream, saved Library items and connector summaries are `providedSource` hooks;
   nothing supplies them yet (S13 Library, S09 connectors). Paid search is wired as `search` but
   no provider is configured in the Gateway.

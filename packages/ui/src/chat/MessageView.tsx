@@ -1,6 +1,6 @@
 import type { Message, Task } from "@psyche/protocol";
-import { CornerUpLeft, Ellipsis, GitBranch } from "lucide-react";
-import type { ReactElement } from "react";
+import { CornerUpLeft, Ellipsis, GitBranch, Pencil } from "lucide-react";
+import { type ReactElement, useId, useState } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
 import { MessageBlocks } from "../blocks/MessageBlocks.tsx";
 import { Button } from "../components/ui/button.tsx";
@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu.tsx";
+import { Textarea } from "../components/ui/textarea.tsx";
 import { formatTime } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
 import { usePersona } from "../slots.tsx";
@@ -35,6 +36,8 @@ export interface MessageViewProps {
   showHeader?: boolean;
   onReply?: (message: Message) => void;
   onFork?: (message: Message) => void;
+  /** Edit a user message and resend it as a fork (E5): called with the edited text. */
+  onEdit?: (message: Message, text: string) => void;
   onJumpTo?: (messageId: string) => void;
   onWrapUpAction?: (text: string) => void;
 }
@@ -52,10 +55,14 @@ export function MessageView({
   showHeader = true,
   onReply,
   onFork,
+  onEdit,
   onJumpTo,
   onWrapUpAction,
 }: MessageViewProps): ReactElement {
   const persona = usePersona();
+  const editId = useId();
+  const [editing, setEditing] = useState<string | null>(null);
+  const canEdit = onEdit !== undefined && message.role === "user";
   const time = formatTime(message.createdAt);
   const quote = quoted ? (
     <button
@@ -82,7 +89,7 @@ export function MessageView({
   }
 
   const actions =
-    onReply || onFork ? (
+    onReply || onFork || canEdit ? (
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
@@ -107,6 +114,11 @@ export function MessageView({
               <GitBranch aria-hidden="true" /> Continue in a side chat
             </DropdownMenuItem>
           ) : null}
+          {canEdit ? (
+            <DropdownMenuItem onClick={() => setEditing(messageText(message))}>
+              <Pencil aria-hidden="true" /> Edit and resend
+            </DropdownMenuItem>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
     ) : null;
@@ -121,10 +133,43 @@ export function MessageView({
       >
         <div className="flex max-w-[80%] items-start gap-1">
           {actions}
-          <div className="rounded-2xl bg-gray-3 px-3.5 py-2 text-base text-foreground">
-            {quote}
-            <MessageBlocks message={message} />
-          </div>
+          {editing !== null && onEdit ? (
+            <form
+              className="flex w-full flex-col gap-2 rounded-2xl bg-gray-3 px-3.5 py-2"
+              aria-label="Edit and resend"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const text = editing.trim();
+                if (text === "") return;
+                setEditing(null);
+                onEdit(message, text);
+              }}
+            >
+              <label htmlFor={editId} className="text-xs text-muted-foreground">
+                Edits are sent in a side chat forked from here; this chat keeps the original.
+              </label>
+              <Textarea
+                id={editId}
+                value={editing}
+                onChange={(e) => setEditing(e.target.value)}
+                rows={3}
+                autoFocus
+              />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" size="sm" disabled={editing.trim() === ""}>
+                  Resend as a side chat
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <div className="rounded-2xl bg-gray-3 px-3.5 py-2 text-base text-foreground">
+              {quote}
+              <MessageBlocks message={message} />
+            </div>
+          )}
         </div>
         <span className="mt-0.5 text-xs text-muted-foreground">{time}</span>
       </article>

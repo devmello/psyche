@@ -172,6 +172,7 @@ describe("launchers", () => {
     trust: "unknown" as const,
     command: ["npx", "-y", "some-server"],
     env: { A: "1" },
+    serverEnv: { A: "1" },
     sandbox: { allowedDomains: ["api.example.com"], allowWrite: [] as string[], denyRead: [] },
   };
 
