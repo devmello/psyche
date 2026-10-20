@@ -167,4 +167,5 @@ export {
   type VaultEventName,
   type VaultEvents,
   type VaultOptions,
+  type VaultRemovals,
 } from "./vault.ts";
