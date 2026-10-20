@@ -1,0 +1,7 @@
+{
+  "name": "office-hours",
+  "version": "1.0.0",
+  "description": "Tells the agent the owner's office hours and holds notifications outside them.",
+  "main": "index.mjs",
+  "capabilities": ["context", "before_tool_call"]
+}
