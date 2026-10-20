@@ -34,6 +34,24 @@ How it is built and signed: [signing.md](signing.md).
    - **Done:** binds the model you picked and confirms three things: the Gateway is running, the helper is connected, and the model is set with a key.
 5. **Main chat.** The Gateway answers with the model you picked. No environment variables are involved.
 
+## Until the first-run gaps close (2026-10-20)
+
+Two first-run steps still need a decision (docs/status/s11.md, "Packaging"):
+
+- **Admin rights for the window.** The window pairs with `operator.read`, `operator.write` and `operator.approvals`, but never `operator.admin`. Any process running as you can read the handshake secret, so it can't buy admin. Creating the vault, storing a key and picking a model all need admin. Until the app can bootstrap its first admin device, grant it once in Terminal, then quit Psyche (⌘Q) and open it again:
+
+  ```bash
+  P=/Applications/Psyche.app/Contents/Resources/psyched/psyched; $P devices list
+  ```
+
+  ```bash
+  /Applications/Psyche.app/Contents/Resources/psyched/psyched devices grant <the "Psyche Desktop" id> operator.read,operator.write,operator.approvals,operator.admin
+  ```
+
+- **The vault's key slot.** On a build signed without a provisioning profile, Psyche Helper cannot use the data-protection Keychain, so the vault's Touch ID slot is unavailable. Until the key-file slot change lands (#403), **Save to vault** reports the vault as unavailable on such builds.
+
+Without a key, a chat turn fails with `credential unavailable`. The chat does not show that failure yet.
+
 ## macOS prompts, in order
 
 | When | Prompt | What to do |
@@ -47,7 +65,9 @@ How it is built and signed: [signing.md](signing.md).
 | First dictation | "Psyche would like to access the microphone" | **Allow**. |
 | First computer-use action on an app, by Psyche Helper | Accessibility / Automation prompts naming **Psyche Helper** | Allow for the apps you want it to use. |
 
-The rows after the Permissions step happen only when you use the feature. The table is checked against a real run in docs/status/s11.md, "Packaging".
+The rows after the Permissions step happen only when you use the feature.
+
+What the 2026-10-20 run showed, on a locally built app (not quarantined, so there was no Gatekeeper prompt): no prompt appeared from install through the main chat when the permission rows were skipped. The Gatekeeper and Background Items rows above are what macOS does for a downloaded app and a new LaunchAgent; they were not seen in that run.
 
 ## Where files live
 
@@ -59,16 +79,17 @@ The rows after the Permissions step happen only when you use the feature. The ta
 | `~/Library/Application Support/Psyche/` | The window's own data: device key, browser profiles, window state |
 | `~/Library/Preferences/com.psyche.desktop.plist`, `com.psyche.helper.plist` | macOS preferences for the two apps |
 
-To run against another home, open the app with `open -a Psyche --env PSYCHE_HOME=/path/to/home`. The LaunchAgent is rewritten for that home.
+To run against another home, open the app with `open -a Psyche --env PSYCHE_HOME=/path/to/home`. The LaunchAgent is rewritten for that home. Keep the path short: some of the Gateway's Unix sockets live under it, and macOS limits socket paths to 104 bytes.
 
 ## Quit, and quit entirely
 
 - **Close the window or ⌘Q:** the Gateway and the helper keep running, so scheduled and background tasks continue. Reopen the app to see them.
-- **Psyche menu (or the menu bar icon) → Quit Psyche Entirely:** stops the Gateway, boots its LaunchAgent out and removes `~/Library/LaunchAgents/com.psyche.gateway.plist`. The next launch installs it again.
+- **Psyche menu → Quit Psyche entirely:** stops the Gateway, boots its LaunchAgent out and removes `~/Library/LaunchAgents/com.psyche.gateway.plist`. The next launch installs it again.
+  - Psyche Helper keeps running and waits for the Gateway. Quit it with `pkill -x psyche-helper` if you want nothing left.
 
 ## Uninstall completely
 
-1. Psyche menu → **Quit Psyche Entirely**. If the app is already gone, run:
+1. Psyche menu → **Quit Psyche entirely**. If the app is already gone, run:
 
    ```bash
    launchctl bootout gui/$(id -u)/com.psyche.gateway; rm -f ~/Library/LaunchAgents/com.psyche.gateway.plist
