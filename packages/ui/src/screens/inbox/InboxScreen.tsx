@@ -23,7 +23,9 @@ import {
 } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useApproval, useNotifications, useTask } from "../../data/hooks.ts";
-import { formatCountdown, formatRelative, plural } from "../../lib/format.ts";
+import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
+import { formatCountdown, formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { cn } from "../../lib/utils.ts";
 import { useSlots } from "../../slots.tsx";
@@ -41,14 +43,62 @@ export const NOTIFICATION_KIND: Record<
   NotificationKind,
   { label: string; icon: LucideIcon; tone: string }
 > = {
-  approval: { label: "Approval", icon: CircleAlert, tone: TONE.approval },
-  input_needed: { label: "Input", icon: CircleHelp, tone: TONE.approval },
-  task_done: { label: "Done", icon: CircleCheck, tone: TONE.success },
-  task_failed: { label: "Failed", icon: CircleX, tone: TONE.danger },
-  proactive: { label: "Idea", icon: Lightbulb, tone: TONE.muted },
-  briefing: { label: "Brief", icon: Newspaper, tone: TONE.muted },
-  reminder: { label: "Reminder", icon: Bell, tone: TONE.info },
-  system: { label: "System", icon: Info, tone: TONE.muted },
+  approval: {
+    get label() {
+      return t("screens.inbox.kind.approval");
+    },
+    icon: CircleAlert,
+    tone: TONE.approval,
+  },
+  input_needed: {
+    get label() {
+      return t("screens.inbox.kind.input_needed");
+    },
+    icon: CircleHelp,
+    tone: TONE.approval,
+  },
+  task_done: {
+    get label() {
+      return t("screens.inbox.kind.task_done");
+    },
+    icon: CircleCheck,
+    tone: TONE.success,
+  },
+  task_failed: {
+    get label() {
+      return t("screens.inbox.kind.task_failed");
+    },
+    icon: CircleX,
+    tone: TONE.danger,
+  },
+  proactive: {
+    get label() {
+      return t("screens.inbox.kind.proactive");
+    },
+    icon: Lightbulb,
+    tone: TONE.muted,
+  },
+  briefing: {
+    get label() {
+      return t("screens.inbox.kind.briefing");
+    },
+    icon: Newspaper,
+    tone: TONE.muted,
+  },
+  reminder: {
+    get label() {
+      return t("screens.inbox.kind.reminder");
+    },
+    icon: Bell,
+    tone: TONE.info,
+  },
+  system: {
+    get label() {
+      return t("screens.inbox.kind.system");
+    },
+    icon: Info,
+    tone: TONE.muted,
+  },
 };
 
 /** What the row knows about the approval behind an `approval` notification. */
@@ -76,10 +126,18 @@ export interface InboxRowProps {
 }
 
 const DECIDED: Partial<Record<ApprovalRequest["status"], string>> = {
-  approved: "Approved",
-  denied: "Denied",
-  expired: "Expired. Nothing was done.",
-  invalidated: "Voided",
+  get approved() {
+    return t("screens.inbox.decided.approved");
+  },
+  get denied() {
+    return t("screens.inbox.decided.denied");
+  },
+  get expired() {
+    return t("screens.inbox.decided.expired");
+  },
+  get invalidated() {
+    return t("screens.inbox.decided.invalidated");
+  },
 };
 
 function ApprovalControls({
@@ -102,12 +160,12 @@ function ApprovalControls({
   // Inline buttons arm 400 ms after they appear, like the full card (UI design §3.3).
   const [armed, setArmed] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setArmed(true), 400);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setArmed(true), 400);
+    return () => clearTimeout(timer);
   }, []);
   const openCard = (
     <Button type="button" size="sm" variant="ghost" onClick={() => onOpen?.(n)}>
-      Open card
+      {t("screens.inbox.openCard")}
     </Button>
   );
   const a = state?.approval ?? null;
@@ -117,16 +175,16 @@ function ApprovalControls({
   }
   const remaining = Date.parse(a.expiresAt) - now;
   if (remaining <= 0) {
-    return <span className="text-caption text-gray-11">Expired. Nothing was done.</span>;
+    return <span className="text-caption text-gray-11">{t("screens.inbox.decided.expired")}</span>;
   }
   const countdown = (
     <span
       className={cn(
-        "mr-1 text-caption tabular-nums",
+        "me-1 text-caption tabular-nums",
         remaining < 60_000 ? "font-semibold text-danger-text" : "text-gray-11",
       )}
     >
-      <span className="sr-only">Expires in </span>
+      <span className="sr-only">{t("screens.inbox.expiresIn")} </span>
       {formatCountdown(remaining)}
     </span>
   );
@@ -151,18 +209,18 @@ function ApprovalControls({
             variant="outline"
             disabled={busy || !armed}
             onClick={() => onDeny?.(n)}
-            aria-label={`Deny: ${a.summary}`}
+            aria-label={t("screens.inbox.denyLabel", { summary: a.summary })}
           >
-            Deny
+            {t("screens.inbox.deny")}
           </Button>
           <Button
             type="button"
             size="sm"
             disabled={busy || !armed}
             onClick={() => onApprove?.(n)}
-            aria-label={`Approve once: ${a.summary}`}
+            aria-label={t("screens.inbox.approveLabel", { summary: a.summary })}
           >
-            Approve
+            {t("screens.inbox.approve")}
           </Button>
         </>
       ) : (
@@ -207,18 +265,18 @@ export function InboxRow({
       />
     );
   } else if (resolved) {
-    actions = <span className="text-caption text-gray-11">Resolved</span>;
+    actions = <span className="text-caption text-gray-11">{t("screens.inbox.resolved")}</span>;
   } else if (n.kind === "input_needed") {
     actions = (
       <Button type="button" size="sm" onClick={() => onOpen?.(n)} disabled={n.route == null}>
-        Answer
+        {t("screens.inbox.answer")}
       </Button>
     );
   } else if (n.kind === "task_failed") {
     actions = (
       <>
         <Button type="button" size="sm" variant="ghost" onClick={() => onOpen?.(n)}>
-          Open
+          {t("screens.inbox.open")}
         </Button>
         <Button
           type="button"
@@ -227,7 +285,7 @@ export function InboxRow({
           disabled={busy || n.taskId == null}
           onClick={() => onRetry?.(n)}
         >
-          Retry
+          {t("common.retry")}
         </Button>
       </>
     );
@@ -247,7 +305,7 @@ export function InboxRow({
   } else if (n.route != null) {
     actions = (
       <Button type="button" size="sm" variant="ghost" onClick={() => onOpen?.(n)}>
-        Open
+        {t("screens.inbox.open")}
       </Button>
     );
   }
@@ -257,7 +315,7 @@ export function InboxRow({
       aria-labelledby={titleId}
       data-unread={unread || undefined}
       className={cn(
-        "flex flex-wrap items-start gap-3 border-b border-gray-6 py-3 pr-2 pl-0 text-sm",
+        "flex flex-wrap items-start gap-3 border-b border-gray-6 py-3 pe-2 ps-0 text-sm",
         resolved || isStale ? "opacity-75" : "",
       )}
     >
@@ -266,8 +324,8 @@ export function InboxRow({
         {unread && onMarkRead ? (
           <button
             type="button"
-            aria-label={`Mark "${n.title}" read`}
-            title="Mark read"
+            aria-label={t("screens.inbox.markReadLabel", { title: n.title })}
+            title={t("screens.inbox.markRead")}
             onClick={() => onMarkRead(n)}
             className="group/dot flex size-5 items-center justify-center rounded-full hover:bg-gray-3 focus-visible:outline-2 focus-visible:outline-ring"
           >
@@ -291,12 +349,14 @@ export function InboxRow({
           <span className="font-medium">{kind.label}</span>
           <span aria-hidden="true">·</span>
           <span>{formatRelative(n.createdAt, now)}</span>
-          {unread ? <span className="sr-only">Unread</span> : null}
+          {unread ? <span className="sr-only">{t("screens.inbox.unread")}</span> : null}
           {isStale ? (
             <>
               <span aria-hidden="true">·</span>
               <span className="font-medium text-approval-text">
-                Stale · {n.staleReason ?? "sent before Psyche restarted"}
+                {t("screens.inbox.stale", {
+                  reason: n.staleReason ?? t("screens.inbox.staleRestart"),
+                })}
               </span>
             </>
           ) : null}
@@ -351,16 +411,16 @@ export function InboxView({
   let body: ReactElement;
   if (loading) {
     body = showSkeleton ? (
-      <LoadingCards label="Loading the inbox" count={4} lines={1} layout="rows" />
+      <LoadingCards label={t("screens.inbox.loading")} count={4} lines={1} layout="rows" />
     ) : (
       <div aria-busy="true" className="min-h-24" />
     );
   } else if (error !== null) {
     body = (
       <ErrorState
-        what="Psyche couldn't load the inbox"
+        what={t("screens.inbox.loadFailed")}
         reason={error}
-        did="Approvals still reach your other devices."
+        did={t("screens.inbox.stillReach")}
         {...(onRetryLoad ? { retry: { onClick: onRetryLoad } } : {})}
       />
     );
@@ -368,14 +428,16 @@ export function InboxView({
     body = (
       <EmptyState
         icon={Inbox}
-        {...(onOpenActivity ? { action: { label: "Open Activity", onClick: onOpenActivity } } : {})}
+        {...(onOpenActivity
+          ? { action: { label: t("screens.inbox.openActivity"), onClick: onOpenActivity } }
+          : {})}
       >
-        Nothing needs you.
+        {t("screens.inbox.empty")}
       </EmptyState>
     );
   } else {
     body = (
-      <ul aria-label="Notifications" className="flex flex-col">
+      <ul aria-label={t("screens.inbox.notifications")} className="flex flex-col">
         {notifications.map((n) => (
           <li key={n.id}>
             {renderRow ? renderRow(n) : <InboxRow notification={n} now={now} {...rowProps} />}
@@ -386,20 +448,20 @@ export function InboxView({
   }
 
   return (
-    <section aria-label="Inbox">
+    <section aria-label={t("screens.inbox.title")}>
       <Page width="wide">
         <PageHeader
-          title="Inbox"
+          title={t("screens.inbox.title")}
           meta={
             !loading && error === null && unread > 0
-              ? `${plural(unread, "unread", "unread")}`
+              ? t("screens.inbox.unreadCount", { n: unread })
               : null
           }
           {...(unread > 0 && onMarkAllRead
             ? {
                 actions: (
                   <Button type="button" size="sm" variant="ghost" onClick={onMarkAllRead}>
-                    Mark all read
+                    {t("screens.inbox.markAllRead")}
                   </Button>
                 ),
               }
@@ -410,8 +472,6 @@ export function InboxView({
     </section>
   );
 }
-
-const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 interface ConnectedRowProps {
   notification: Notification;
@@ -436,7 +496,7 @@ function ConnectedInboxRow({
     setBusy(true);
     work()
       .catch((err: unknown) => {
-        toast.error(`${failure} (${messageOf(err)}).`);
+        toast.error(t("screens.inbox.failed", { what: failure, reason: describeError(err) }));
       })
       .finally(() => setBusy(false));
   };
@@ -451,11 +511,11 @@ function ConnectedInboxRow({
       approval={{ approval: ap.approval, canAnswer: ap.canAnswer, stale: ap.stale }}
       onApprove={() => {
         read();
-        run(() => ap.answer("approve", "once"), "Psyche couldn't send the approval");
+        run(() => ap.answer("approve", "once"), t("screens.inbox.sendApprovalFailed"));
       }}
       onDeny={() => {
         read();
-        run(() => ap.answer("deny"), "Psyche couldn't send the denial");
+        run(() => ap.answer("deny"), t("screens.inbox.sendDenialFailed"));
       }}
       onOpen={(x) => {
         read();
@@ -467,10 +527,10 @@ function ConnectedInboxRow({
         read();
         run(
           () => retry(taskId).then(() => resolve(x.id, "retry")),
-          `Psyche couldn't retry "${x.title}"`,
+          t("screens.inbox.retryFailed", { title: x.title }),
         );
       }}
-      onAction={(x, actionId) => run(() => resolve(x.id, actionId), "Psyche couldn't save that")}
+      onAction={(x, actionId) => run(() => resolve(x.id, actionId), t("screens.inbox.saveFailed"))}
       onMarkRead={read}
     />
   );
@@ -507,7 +567,7 @@ export function InboxScreen({ now: fixedNow, onOpen }: InboxScreenProps): ReactE
         const ids = inbox.unread.map((n) => n.id);
         if (ids.length > 0)
           inbox.markRead(ids).catch((err: unknown) => {
-            toast.error(`Psyche couldn't mark these read (${messageOf(err)}).`);
+            toast.error(t("screens.inbox.markFailed", { reason: describeError(err) }));
           });
       }}
       onOpenActivity={() => navigate?.("/agent/activity")}

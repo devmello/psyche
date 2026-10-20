@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu.tsx";
+import { t } from "../../i18n/core.ts";
 import { formatTime } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
 import {
@@ -83,8 +84,13 @@ export function FeedPostCard({
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-2">
         {sources.length > 0 ? (
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-caption text-gray-11">
-            <span className="font-medium">Sources ({post.citations.length})</span>
-            <ul aria-label="Sources" className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="font-medium">
+              {t("screens.feed.sourcesCount", { n: post.citations.length })}
+            </span>
+            <ul
+              aria-label={t("screens.feed.sources")}
+              className="flex flex-wrap items-center gap-x-2 gap-y-1"
+            >
               {sources.map((s) => (
                 <li key={s.name}>
                   <a
@@ -109,14 +115,14 @@ export function FeedPostCard({
           <span className="flex-1" />
         )}
 
-        <fieldset className="m-0 -mr-2 flex min-w-0 items-center gap-0.5 border-0 p-0">
-          <legend className="sr-only">Feedback on {post.title}</legend>
+        <fieldset className="m-0 -me-2 flex min-w-0 items-center gap-0.5 border-0 p-0">
+          <legend className="sr-only">{t("screens.feed.feedbackOn", { title: post.title })}</legend>
           <Button
             type="button"
             size="icon-sm"
             variant="ghost"
-            aria-label="Like"
-            title="Like"
+            aria-label={t("screens.feed.like")}
+            title={t("screens.feed.like")}
             aria-pressed={liked}
             onClick={() => toggle("like")}
             className={cn("text-gray-11", liked ? "text-accent-11" : "")}
@@ -127,8 +133,8 @@ export function FeedPostCard({
             type="button"
             size="icon-sm"
             variant="ghost"
-            aria-label="Save"
-            title="Save"
+            aria-label={t("common.save")}
+            title={t("common.save")}
             aria-pressed={saved}
             onClick={() => toggle("save")}
             className={cn("text-gray-11", saved ? "text-accent-11" : "")}
@@ -140,8 +146,8 @@ export function FeedPostCard({
               type="button"
               size="icon-sm"
               variant="ghost"
-              aria-label={`Ask ${persona}`}
-              title={`Ask ${persona}`}
+              aria-label={t("screens.feed.ask", { name: persona })}
+              title={t("screens.feed.ask", { name: persona })}
               onClick={() => onAsk(post)}
               className="text-gray-11"
             >
@@ -155,8 +161,8 @@ export function FeedPostCard({
                   type="button"
                   size="icon-sm"
                   variant="ghost"
-                  aria-label={`More feedback on ${post.title}`}
-                  title="More"
+                  aria-label={t("screens.feed.moreFeedback", { title: post.title })}
+                  title={t("common.more")}
                   className="text-gray-11"
                 />
               }
@@ -169,16 +175,16 @@ export function FeedPostCard({
                 onCheckedChange={() => toggle("follow_topic", topic ?? undefined)}
               >
                 <Plus aria-hidden="true" />
-                {topic ? `Follow: ${topic}` : "Follow topic"}
+                {topic ? t("screens.feed.follow", { topic }) : t("screens.feed.followTopic")}
               </DropdownMenuCheckboxItem>
               <DropdownMenuItem onClick={() => onFeedback?.(post, "not_interested")}>
                 <ThumbsDown aria-hidden="true" />
-                Not interested
+                {t("screens.feed.notInterested")}
               </DropdownMenuItem>
               {hideTarget ? (
                 <DropdownMenuItem onClick={() => onFeedback?.(post, "hide_source")}>
                   <EyeOff aria-hidden="true" />
-                  Hide {hideTarget}
+                  {t("screens.feed.hide", { source: hideTarget })}
                 </DropdownMenuItem>
               ) : null}
             </DropdownMenuContent>

@@ -12,7 +12,9 @@ import {
 } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useFeed } from "../../data/hooks.ts";
-import { formatTime, plural } from "../../lib/format.ts";
+import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
+import { formatTime } from "../../lib/format.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { type FeedFeedbackValue, FeedPostCard } from "./FeedPostCard.tsx";
 import { feedTopic, primarySource } from "./feed-post.ts";
@@ -71,16 +73,16 @@ export function FeedView({
   let body: ReactElement;
   if (loading) {
     body = showSkeleton ? (
-      <LoadingCards label="Loading the feed" count={3} lines={3} />
+      <LoadingCards label={t("screens.feed.loading")} count={3} lines={3} />
     ) : (
       <div aria-busy="true" className="min-h-24" />
     );
   } else if (error !== null) {
     body = (
       <ErrorState
-        what="Psyche couldn't load the feed"
+        what={t("screens.feed.loadFailed")}
         reason={error}
-        did="Your posts and feedback are safe on the Gateway."
+        did={t("screens.feed.safe")}
         {...(onRetry ? { retry: { onClick: onRetry } } : {})}
       />
     );
@@ -89,9 +91,9 @@ export function FeedView({
       <div className="flex flex-col gap-3">
         <p role="status" className="flex items-center gap-2 text-sm text-gray-11">
           <Loader className="size-4 text-accent-11 motion-safe:animate-spin" aria-hidden="true" />
-          Writing your first brief. It lands here when it's ready.
+          {t("screens.feed.writingFirst")}
         </p>
-        <LoadingCards label="Generating the brief" count={2} lines={3} />
+        <LoadingCards label={t("screens.feed.generating")} count={2} lines={3} />
       </div>
     );
   } else if (posts.length === 0) {
@@ -99,16 +101,16 @@ export function FeedView({
       <EmptyState
         icon={Newspaper}
         {...(onGenerate
-          ? { action: { label: "Generate the first brief", onClick: onGenerate } }
+          ? { action: { label: t("screens.feed.generateFirst"), onClick: onGenerate } }
           : {})}
       >
-        No brief yet. Generate the first one, or wait until {nextAt ?? "07:00"}.
+        {t("screens.feed.empty", { at: nextAt ?? "07:00" })}
       </EmptyState>
     );
   } else {
     body = (
       <>
-        <ul aria-label="Posts" className="flex flex-col gap-4">
+        <ul aria-label={t("screens.feed.posts")} className="flex flex-col gap-4">
           {posts.map((post) => (
             <li key={post.id}>
               <FeedPostCard
@@ -123,7 +125,7 @@ export function FeedView({
         <div className="flex items-center gap-3 py-4">
           <span aria-hidden="true" className="h-px flex-1 bg-gray-6" />
           <p className="text-small text-gray-11">
-            That's it for today.{nextAt ? ` Next brief ${nextAt}.` : ""}
+            {t("screens.feed.end", { next: nextAt ?? "", hasNext: Boolean(nextAt) })}
           </p>
           <span aria-hidden="true" className="h-px flex-1 bg-gray-6" />
         </div>
@@ -132,30 +134,34 @@ export function FeedView({
   }
 
   return (
-    <section aria-label="Feed">
+    <section aria-label={t("screens.feed.title")}>
       <Page width="prose">
         <PageHeader
-          title="Feed"
-          meta={settled && posts.length > 0 ? `Today · ${plural(posts.length, "post")}` : "Today"}
+          title={t("screens.feed.title")}
+          meta={
+            settled && posts.length > 0
+              ? t("screens.feed.todayPosts", { n: posts.length })
+              : t("screens.feed.today")
+          }
           actions={
             <>
               {onEditInstructions ? (
                 <Button type="button" size="sm" variant="outline" onClick={onEditInstructions}>
                   <PenLine aria-hidden="true" />
-                  What should I write about
+                  {t("screens.feed.instructions")}
                 </Button>
               ) : null}
               {onSchedule ? (
                 <Button type="button" size="sm" variant="ghost" onClick={onSchedule}>
                   <CalendarClock aria-hidden="true" />
-                  Schedule
+                  {t("screens.feed.schedule")}
                 </Button>
               ) : null}
             </>
           }
         />
         {settled && sourceFailures.length > 0 ? (
-          <ul aria-label="Sources this brief skipped" className="flex flex-col gap-1">
+          <ul aria-label={t("screens.feed.skipped")} className="flex flex-col gap-1">
             {sourceFailures.map((f) => (
               <li
                 key={f.source}
@@ -163,7 +169,7 @@ export function FeedView({
               >
                 <CircleAlert className="size-4 shrink-0 text-approval-text" aria-hidden="true" />
                 <span className="min-w-0 flex-1">
-                  {f.source} wasn't read ({f.reason}). Psyche left it out of this brief.
+                  {t("screens.feed.sourceFailed", { source: f.source, reason: f.reason })}
                 </span>
                 {f.route !== undefined && onOpenRoute ? (
                   <Button
@@ -171,9 +177,9 @@ export function FeedView({
                     size="xs"
                     variant="outline"
                     onClick={() => onOpenRoute(f.route ?? "")}
-                    aria-label={`Fix ${f.source}`}
+                    aria-label={t("screens.feed.fixSource", { source: f.source })}
                   >
-                    Fix
+                    {t("screens.feed.fix")}
                   </Button>
                 ) : null}
               </li>
@@ -199,11 +205,15 @@ export interface FeedScreenProps {
 }
 
 const FEEDBACK_TOAST: Record<FeedFeedbackValue, (post: FeedPost) => string> = {
-  like: () => "Liked. You'll see more like this.",
-  save: () => "Saved.",
-  not_interested: () => "Hidden. You'll see less like this.",
-  hide_source: (p) => `Hidden posts from ${primarySource(p) ?? "this source"}.`,
-  follow_topic: (p) => `Following ${feedTopic(p) ?? "this topic"}.`,
+  like: () => t("screens.feed.toast.like"),
+  save: () => t("screens.feed.toast.save"),
+  not_interested: () => t("screens.feed.toast.notInterested"),
+  hide_source: (p) =>
+    t("screens.feed.toast.hideSource", {
+      source: primarySource(p) ?? t("screens.feed.thisSource"),
+    }),
+  follow_topic: (p) =>
+    t("screens.feed.toast.followTopic", { topic: feedTopic(p) ?? t("screens.feed.thisTopic") }),
 };
 
 /** Connected Feed: `feed.list`, `feed.feedback` (optimistic, with an undo toast). */
@@ -221,15 +231,13 @@ export function FeedScreen({
 
   const giveFeedback = (post: FeedPost, value: FeedFeedbackValue | null, topic?: string) => {
     feed.feedback(post.id, value, topic).catch((err: unknown) => {
-      toast.error(
-        `Psyche couldn't save that feedback (${err instanceof Error ? err.message : String(err)}). Nothing was changed.`,
-      );
+      toast.error(t("screens.feed.feedbackFailed", { reason: describeError(err) }));
     });
     if (value === null) return;
     toast(FEEDBACK_TOAST[value](post), {
       id: `feed-feedback-${post.id}`,
       action: {
-        label: "Undo",
+        label: t("screens.feed.undo"),
         onClick: () => {
           void feed.feedback(post.id, null).catch(() => {});
         },
@@ -241,9 +249,7 @@ export function FeedScreen({
     setGenerating(true);
     Promise.resolve(onGenerate ? onGenerate() : feed.generate())
       .catch((err: unknown) => {
-        toast.error(
-          `Psyche couldn't write the brief (${err instanceof Error ? err.message : String(err)}). Try again, or wait for the scheduled one.`,
-        );
+        toast.error(t("screens.feed.generateFailed", { reason: describeError(err) }));
       })
       .finally(() => setGenerating(false));
   };
