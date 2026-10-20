@@ -163,7 +163,7 @@ describe("Admin-only settings", () => {
       { onGateway: (g) => g.failNext("settings.set", "forbidden") },
     );
     await userEvent.click(await screen.findByRole("radio", { name: "Compact" }));
-    expect(await screen.findByText(/Psyche couldn't save appearance.density/)).toBeTruthy();
+    expect(await screen.findByText(/Psyche couldn't save “Density”/)).toBeTruthy();
     expect(screen.queryByText(/Needs approval on this device/)).toBeNull();
   });
 
@@ -965,9 +965,9 @@ describe("Security settings need approval with presence (security §10)", () => 
   it("shows the approval card, then saves with the approvalId once approved", async () => {
     const { writes } = approvingGateway();
     const banner = await shareFolder();
-    expect(within(banner).getByText(/Approve this change to permissions\.policy/)).toBeTruthy();
+    expect(within(banner).getByText(/Approve this change to “Permission policy”/)).toBeTruthy();
     await approve(banner);
-    expect(await screen.findByText("Saved permissions.policy.")).toBeTruthy();
+    expect(await screen.findByText("Saved “Permission policy”.")).toBeTruthy();
     expect(writes).toHaveLength(2);
     expect(writes[1]).toMatchObject({ key: "permissions.policy", approvalId: "ap_policy_change" });
     expect((writes[1] as { value: unknown }).value).toEqual(
