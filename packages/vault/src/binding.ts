@@ -25,6 +25,30 @@ export function canonicalOrigin(value: string): string | null {
   return url.origin;
 }
 
+/**
+ * Loopback dev hosts (docs/05 §3.10): exactly `localhost`, `*.localhost`, `127.0.0.1` or `[::1]`.
+ * Not `*.test`: a name can resolve anywhere (S23 design-03); fills go to literal loopback only.
+ */
+export function isLoopbackDevHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  return h === "localhost" || h.endsWith(".localhost") || h === "127.0.0.1" || h === "[::1]";
+}
+
+/**
+ * An origin a credential may be filled into: https, or http on a loopback dev host (#292).
+ * Plain http elsewhere would send the value in clear text to anyone on the path.
+ */
+export function isFillableOrigin(origin: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(origin);
+  } catch {
+    return false;
+  }
+  if (url.protocol === "https:") return true;
+  return url.protocol === "http:" && isLoopbackDevHost(url.hostname);
+}
+
 /** Host (with port when not default) of a URL or a bare `host[:port]`. */
 export function canonicalHost(value: string): string | null {
   const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(value) ? value : `https://${value}`;
@@ -104,7 +128,11 @@ export function bindingProblem(b: CredentialBinding): string | null {
     const wildcard = /^https:\/\/\*\.([^/*]+)$/i.exec(b.origin);
     if (wildcard !== null) return wildcardProblem(wildcard[1] ?? "");
     if (b.origin.includes("*")) return "only https://*.domain patterns are allowed";
-    if (canonicalOrigin(b.origin) === null) return "origin must be an http(s) origin";
+    const origin = canonicalOrigin(b.origin);
+    if (origin === null) return "origin must be an http(s) origin";
+    if (!isFillableOrigin(origin)) {
+      return "credentials bind to https origins (plain http only for a localhost dev server)";
+    }
     const url = new URL(b.origin);
     if (url.pathname !== "/" || url.search !== "" || url.hash !== "") {
       return "bind an origin, not a URL with a path";
@@ -140,7 +168,8 @@ export function bindingMatches(bindings: CredentialBinding[], target: Target): b
       return host !== null && host === canonicalHost(b.host);
     }
     const origin = canonicalOrigin(target.value);
-    if (origin === null) return false;
+    // An http binding stored before #292, or an http target, never matches outside loopback.
+    if (origin === null || !isFillableOrigin(origin)) return false;
     const wildcard = /^https:\/\/\*\.([^/*]+)$/.exec(b.origin);
     if (wildcard !== null) {
       const suffix = canonicalHost(wildcard[1] ?? "");

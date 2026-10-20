@@ -17,6 +17,8 @@ export {
   credentialFillFields,
   credentialFillGrantKey,
   fieldClass,
+  isFillableOrigin,
+  isLoopbackDevHost,
   normalizeBinding,
   strictCanonicalJSON,
 } from "./binding.ts";
@@ -59,6 +61,7 @@ export {
 } from "./fill/browser.ts";
 export {
   buildSecretEnv,
+  SECRET_LEASE_DEFAULT_MS,
   type SecretEnv,
   type SecretEnvEntry,
   type SecretEnvInput,

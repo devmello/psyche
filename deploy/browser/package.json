@@ -1,0 +1,9 @@
+{
+  "name": "psyche-browser-sidecar",
+  "private": true,
+  "description": "Playwright run-server for the Compose browser profile (deploy/docker-compose.yml); the version must match the base image's browsers.",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "playwright": "1.64.1"
+  }
+}

@@ -117,6 +117,9 @@ export const SEND_APPS = [
   "com.superhuman.electron",
 ];
 
+/** How recent owner input must be for agent actions in a sensitive app (§7.2 item 5). */
+export const ATTENTION_WINDOW_MS = 5 * 60_000;
+
 export function isSendApp(app: string): boolean {
   const id = app.toLowerCase();
   return SEND_APPS.some((a) => a.toLowerCase() === id);
@@ -300,6 +303,11 @@ export interface ComputerDeps {
   cancelRun(threadId: string, runId: string, reason: string): void;
   /** The agent used an app (Settings → Computer use lists it). */
   appUsed?(bundleId: string, name?: string): void;
+  /**
+   * When the owner last gave input (a message of their own, an approval answer), for
+   * pause-when-unwatched (docs/05 §7.2 item 5, #272). Absent: not enforced.
+   */
+  lastOwnerInput?(): number | undefined;
   now?: () => number;
   logger?: Logger;
 }
@@ -855,6 +863,17 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     }
   }
 
+  /**
+   * Pause-when-unwatched (§7.2 item 5, #272): in a sensitive (messaging or mail) app, an action
+   * while the owner gave no input for 5 minutes always gets a card, so an unattended Task parks
+   * on it until the owner is back.
+   */
+  function unwatched(app: string): boolean {
+    if (deps.lastOwnerInput === undefined || !isSendApp(app)) return false;
+    const at = deps.lastOwnerInput();
+    return at === undefined || now() - at > ATTENTION_WINDOW_MS;
+  }
+
   /** What the owner sees and the broker classifies: risky labels and chords are destructive. */
   function describeAct(p: ActParams): ToolCallDescription {
     // Risk comes from what the snapshot showed, not only from what the agent copied: an element
@@ -875,6 +894,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       // A send in a messaging or mail app (#270): the key, or typed text that ends a line.
       (p.action === "key" && p.keys !== undefined && isSendChord(p.app, p.keys)) ||
       (p.action === "type" && isSendApp(p.app) && /[\r\n]/.test(p.text ?? "")) ||
+      unwatched(p.app) ||
       (p.action === "menu" && (p.path ?? "").split(">").some((seg) => isRiskyLabel(seg))) ||
       (p.action === "press" && isRiskyLabel(p.press?.replace(/^custom:/, "")));
     const what =
@@ -902,7 +922,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       grantKey: `${p.app}|${tierFor(p.action)}`,
       // The broker's per-app tier check keys on the action: a click needs `click`, typing `interact`.
       meta: { app: p.app, action: p.action },
-      summary: `${what} in ${p.app}`,
+      summary: `${unwatched(p.app) ? "While you're away: " : ""}${what} in ${p.app}`,
       details: {
         app: p.app,
         action: p.action,
@@ -1319,7 +1339,10 @@ export function composeComputer(services: ComposeServices): ComposedPart {
   let gateway: Gateway | undefined;
   const offs: (() => void)[] = [];
   let unregister: (() => void)[] = [];
+  // The owner's last own input (pause-when-unwatched, #272): their messages and approval answers.
+  let ownerInputAt: number | undefined;
   const cu = createComputerUse({
+    lastOwnerInput: () => ownerInputAt,
     broker: services.broker,
     helper: computerHelper(() => gateway),
     context: (callId) => services.calls.context(callId),
@@ -1349,6 +1372,13 @@ export function composeComputer(services: ComposeServices): ComposedPart {
         gw.bus.subscribe(["operator.read"], (frame) => {
           const f = JSON.parse(frame) as { event?: string; payload?: Record<string, unknown> };
           const p = f.payload ?? {};
+          if (f.event === "chat.message") {
+            const m = p.message as { role?: string; provenance?: string } | undefined;
+            if (m?.role === "user" && m.provenance === "owner") ownerInputAt = services.clock.now();
+          } else if (f.event === "approval.updated") {
+            const a = p.approval as { decidedBy?: { deviceId?: string } | null } | undefined;
+            if (typeof a?.decidedBy?.deviceId === "string") ownerInputAt = services.clock.now();
+          }
           if (f.event === "run.updated") {
             const run = p.run as { id: string; status: string } | undefined;
             if (run !== undefined && RUN_FINISHED.has(run.status)) void cu.runEnded(run.id);
