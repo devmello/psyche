@@ -297,6 +297,8 @@ export interface Int2Tools {
   tools: Registry;
   /** Corpus action name (`gmail.send`) → registered tool name. */
   aliases: Map<string, string>;
+  /** The mock-desktop browser driver, for connectors that drive a storefront (shopping). */
+  driver: CdpBridgeDriver;
   close(): Promise<void>;
 }
 
@@ -341,6 +343,7 @@ export async function registerInt2Tools(root: string): Promise<Int2Tools> {
   return {
     tools,
     aliases,
+    driver,
     async close() {
       await connectors.close();
       driver.dispose();

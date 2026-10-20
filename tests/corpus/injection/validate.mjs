@@ -116,7 +116,7 @@ const DEVICE_ONLY_KINDS = new Set([
   "policy_change",
   "pairing",
 ]);
-const ONCE_ONLY_KINDS = new Set(["apple_script", "shortcut_run", "skill_install"]);
+const ONCE_ONLY_KINDS = new Set(["apple_script", "shortcut_run", "skill_install", "git_push"]);
 const MUTATIONS_WITHOUT_TOOL = new Set(["change_grant", "escalate_mode"]);
 
 function crossCheck(c, path, errors) {

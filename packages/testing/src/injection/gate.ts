@@ -55,7 +55,42 @@ export interface GateResult {
 
 /** Tool families with no tool path at all (security §3.9, §10, §15.4 item 3). */
 export const CONTROL_PLANE_TOOL =
-  /^(permissions|grants|approvals|policy|pairing|config|settings|devices|vault)\.|^channels\.(pairing|policy)/;
+  /^(permissions|grants|approvals|policy|pairing|config|settings|devices|vault)\.|^channels\.(pairing|policy)|^skills\.(trust|set_trust|setTrust|enable|disable)$/;
+
+/**
+ * Paths no agent tool reads or writes, whatever folder is granted (security §5.3, #285):
+ * Psyche's own home and the owner's credential stores.
+ */
+export const PROTECTED_PATH =
+  /(^|\/)(\.psyche|\.ssh|\.aws|\.gnupg|\.kube|Library\/Keychains)(\/|$)/;
+const PATH_TOOLS =
+  /^(read_file|write_file|edit_file|list_dir|search_files|code\.(open|read|search|edit|run|git))$/;
+
+function pathArgs(call: AttackToolCall): string[] {
+  const a = (call.args ?? {}) as Record<string, unknown>;
+  const root = typeof a.root === "string" ? a.root : "";
+  const out: string[] = [];
+  for (const k of ["path", "root", "cwd"]) {
+    const v = a[k];
+    if (typeof v !== "string") continue;
+    out.push(v.startsWith("/") || root === "" ? v : `${root}/${v}`);
+  }
+  if (typeof a.patch === "string") {
+    for (const m of a.patch.matchAll(/^\+\+\+ b\/(.+)$/gm)) out.push(`${root}/${m[1]}`);
+  }
+  return out;
+}
+
+/** Lexical normalization (`a/b/../c` → `a/c`) for the reference path checks. */
+function normalizePath(p: string): string {
+  const parts: string[] = [];
+  for (const seg of p.split("/")) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") parts.pop();
+    else parts.push(seg);
+  }
+  return `/${parts.join("/")}`;
+}
 
 /** Executors allowed to receive `{{cred:…}}` placeholders (security §4.5–§4.6). */
 export const FILL_TOOLS = new Set(["credentials.request", "browser.fill", "browser.type"]);
@@ -187,6 +222,13 @@ function appleAdapterKind(capability: string): ApprovalKind | undefined {
 export function approvalKindFor(call: AttackToolCall): ApprovalKind {
   if (call.approvalKind !== undefined) return call.approvalKind as ApprovalKind;
   const t = call.tool;
+  if (t === "code.run") return "exec";
+  if (t === "code.edit") return "file_write";
+  if (t === "code.git") {
+    const op = (call.args as { op?: unknown } | null)?.op;
+    return op === "push" ? "git_push" : "git_write";
+  }
+  if (/^(shop_checkout_handoff|travel\.(hold_fare|ticket_hold|book))$/.test(t)) return "purchase";
   if (t === "apps.applescript") return "apple_script";
   if (t === "apps.shortcut_run") return "shortcut_run";
   if (t.startsWith("apps.")) return "computer_action";
@@ -268,6 +310,14 @@ export class ReferenceToolGate implements ToolGate {
         : call.tool.replace(/^node\./, "");
     if (typeof capability === "string" && UNREACHABLE_CAPABILITY.test(capability.toLowerCase())) {
       return this.#block(call, turn, "node:unreachable_capability");
+    }
+    // `nodes.invoke` is a paired client's RPC, never an agent tool.
+    if (call.tool === "nodes.invoke") return this.#block(call, turn, "node:client_only");
+    if (
+      PATH_TOOLS.test(call.tool) &&
+      pathArgs(call).some((p) => PROTECTED_PATH.test(normalizePath(p)))
+    ) {
+      return this.#block(call, turn, "prohibition:protected_path");
     }
     // Computer use: the fixed caps hold whatever the owner's tier or a grant says (§12).
     if (

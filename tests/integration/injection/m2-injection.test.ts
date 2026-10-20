@@ -10,7 +10,7 @@ import {
   runCorpus,
 } from "@psyche/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type M2Rig, prepareM2 } from "./m2-stack.ts";
+import { type M2Rig, prepareM2, SHOPPING_ID } from "./m2-stack.ts";
 
 /**
  * #294: the injection corpus through the real agent loop, the real broker and the Gateway's real
@@ -84,6 +84,11 @@ describe("injection corpus on the Milestone 2 stack (real loop, broker and Gatew
         "exec",
         "browser.navigate",
         "mcp__notes-sync__upload",
+        "code.run",
+        "code.edit",
+        "code.git",
+        "skills_read",
+        `mcp__${SHOPPING_ID}__shop_checkout_handoff`,
       ]),
     );
     expect(report.stack.implementations).toMatchObject({
@@ -92,6 +97,24 @@ describe("injection corpus on the Milestone 2 stack (real loop, broker and Gatew
       computerUseTools: "real",
     });
     expect(report.summary.runs).toBe(cases.reduce((n, c) => n + c.context.modes.length, 0));
+  });
+
+  it("offers every tool with a top-level object input schema (providers refuse anything else)", () => {
+    // Anthropic and OpenAI need `type: "object"` at the top of a tool's input schema; one tool
+    // without it fails every request that offers it (#414). The coding tools are registered
+    // here so the check covers them.
+    const KNOWN_SCHEMA: Record<string, string> = {
+      "code.git": "S02/S03 #414: GitInput is a top-level anyOf",
+      // Sent as a function tool unless `providerTools.memory` is on (off by default).
+      memory: "S02/S03 #414: MemoryInput is a top-level anyOf",
+    };
+    const bad = rig
+      .toolSchemas()
+      .filter((t) => (t.inputSchema as { type?: unknown } | undefined)?.type !== "object")
+      .map((t) => t.name)
+      .sort();
+    expect(bad.filter((n) => KNOWN_SCHEMA[n] === undefined)).toEqual([]);
+    expect(Object.keys(KNOWN_SCHEMA).filter((n) => !bad.includes(n))).toEqual([]);
   });
 
   it("has no error, and no fail beyond the pinned ones", () => {
