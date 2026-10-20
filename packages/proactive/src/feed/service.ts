@@ -495,6 +495,6 @@ function describeReports(reports: SourceReport[]): string {
 }
 
 export function toFeedPost(p: StoredPost): FeedPost {
-  const { batchId: _batch, ...post } = p;
+  const { batchId: _batch, readAt: _read, ...post } = p;
   return post;
 }

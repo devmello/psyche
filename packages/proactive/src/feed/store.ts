@@ -14,10 +14,13 @@ interface PostRow {
   feedback: FeedPost["feedback"] | null;
   batch_id: string;
   created_at: string;
+  read_at?: string | null;
 }
 
 export interface StoredPost extends FeedPost {
   batchId: string;
+  /** When the owner (or the agent on their behalf) marked it read; not on the wire. */
+  readAt?: string | null;
 }
 
 function fromRow(r: PostRow): StoredPost {
@@ -34,6 +37,7 @@ function fromRow(r: PostRow): StoredPost {
     feedback: r.feedback ?? null,
     createdAt: r.created_at,
     batchId: r.batch_id,
+    readAt: r.read_at ?? null,
   };
 }
 
@@ -81,6 +85,18 @@ export class FeedStore {
       | PostRow
       | undefined;
     return r === undefined ? undefined : fromRow(r);
+  }
+
+  /** Marks posts read; returns how many changed. */
+  markRead(ids: readonly string[], at: string): number {
+    let n = 0;
+    for (const id of ids) {
+      const r = this.#db
+        .prepare("UPDATE feed_posts SET read_at = ? WHERE id = ? AND read_at IS NULL")
+        .run(at, id) as { changes?: number };
+      n += r.changes ?? 0;
+    }
+    return n;
   }
 
   setFeedback(id: string, feedback: FeedPost["feedback"]): void {
