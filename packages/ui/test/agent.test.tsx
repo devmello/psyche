@@ -1,9 +1,10 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { useState } from "react";
+import { describe, expect, it, vi } from "vitest";
 import { ActivityPanel, outcomeTone } from "../src/agent/ActivityPanel.tsx";
 import { AgentHeader } from "../src/agent/AgentHeader.tsx";
-import { AgentSheetBody } from "../src/agent/AgentSheet.tsx";
+import { AgentSheet, AgentSheetBody, type AgentTab } from "../src/agent/AgentSheet.tsx";
 import { ApprovalsPanel } from "../src/agent/ApprovalsPanel.tsx";
 import { SoulMemoryPanel } from "../src/agent/SoulMemoryPanel.tsx";
 import {
@@ -207,5 +208,65 @@ describe("Upcoming reminders", () => {
     await waitFor(() =>
       expect(ref.gateway?.calls.some((c) => c.method === "automations.delete")).toBe(true),
     );
+  });
+});
+
+function SheetHarness() {
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<AgentTab>("soul");
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}>
+        Open the agent
+      </button>
+      <AgentSheet
+        open={open}
+        onOpenChange={setOpen}
+        tab={tab}
+        onTabChange={setTab}
+        now={STORY_NOW}
+      />
+    </>
+  );
+}
+
+describe("AgentSheet (#508)", () => {
+  it("closes from its × and from Escape, and focus returns to the opener", async () => {
+    render(
+      <StoryWorld>
+        <SheetHarness />
+      </StoryWorld>,
+    );
+    const opener = screen.getByRole("button", { name: "Open the agent" });
+    await userEvent.click(opener);
+    const sheet = await screen.findByRole("dialog");
+    // The persona files are listed (the pencil view of SOUL.md, USER.md, …).
+    expect(within(sheet).getByRole("tab", { name: "SOUL.md" })).toBeTruthy();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+    await userEvent.click(opener);
+    await screen.findByRole("dialog");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
+});
+
+describe("the /agent page (#508)", () => {
+  it("closes from × and Escape and opens on the requested file", async () => {
+    const onClose = vi.fn();
+    render(
+      <StoryWorld>
+        <AgentSheetBody tab="soul" onTabChange={() => {}} file="USER.md" onClose={onClose} />
+      </StoryWorld>,
+    );
+    expect(
+      (await screen.findByRole("tab", { name: "USER.md" })).getAttribute("aria-selected"),
+    ).toBe("true");
+    await userEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    await userEvent.keyboard("{Escape}");
+    expect(onClose).toHaveBeenCalledTimes(2);
   });
 });

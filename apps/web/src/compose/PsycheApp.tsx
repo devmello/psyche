@@ -117,6 +117,8 @@ function agentRoute(route: string, navigate: (to: string) => void): ReactNode | 
   const m = /^\/agent\/(activity|approvals|upcoming|soul)(?:\/([^/?]+))?/.exec(route);
   if (m === null) return null;
   const tab = (TABS.find((x) => x === m[1]) ?? "activity") as AgentTab;
+  // Library's and Ideas' "Open in editor" link here with the file to show (#508).
+  const file = new URLSearchParams(route.split("?")[1] ?? "").get("file") ?? undefined;
   return (
     <section
       className="flex min-h-0 flex-1 flex-col overflow-auto"
@@ -126,6 +128,8 @@ function agentRoute(route: string, navigate: (to: string) => void): ReactNode | 
         tab={tab}
         onTabChange={(next) => navigate(`/agent/${next}`)}
         {...(m[2] === undefined ? {} : { taskId: m[2] })}
+        {...(file ? { file } : {})}
+        onClose={() => navigate("/chat")}
       />
     </section>
   );
