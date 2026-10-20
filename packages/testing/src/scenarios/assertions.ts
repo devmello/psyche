@@ -320,9 +320,14 @@ const EVALUATORS: Record<string, Evaluator> = {
   },
   artifact: (c, a) => {
     const arts = c.s.world.artifacts.filter(
-      (x) => a.artifactType === undefined || x.type === a.artifactType,
+      (x) =>
+        (a.artifactType === undefined || x.type === a.artifactType) &&
+        (a.artifactName === undefined || x.name === a.artifactName),
     );
-    if (arts.length === 0) return fail(`no ${a.artifactType} artifact`);
+    if (arts.length === 0)
+      return fail(
+        `no ${a.artifactType} artifact${a.artifactName === undefined ? "" : ` named ${a.artifactName}`}`,
+      );
     if (typeof a.count === "number" && arts.length !== a.count)
       return fail(`${arts.length} artifacts`);
     const pages = (c.s.world.fx.sites?.pages ?? []) as Json[];
