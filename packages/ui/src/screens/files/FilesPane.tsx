@@ -51,6 +51,34 @@ export interface FilesPaneProps {
   now?: number;
 }
 
+/** The Files pane target for a Library item (`view.open` targets are absolute paths). */
+export const libraryTarget = (item: Pick<LibraryItem, "path">): string => `library:${item.path}`;
+
+/** What a pane target names: an absolute path, or `library:<LibraryItem.path>`. */
+export function fileRefForTarget(
+  target: string | null | undefined,
+  library: readonly LibraryItem[],
+): FileRef | null {
+  if (target?.startsWith("/")) {
+    return { path: target, name: basename(target), size: null, modifiedAt: null };
+  }
+  if (target?.startsWith("library:")) {
+    const libraryPath = target.slice("library:".length);
+    if (libraryPath === "") return null;
+    const item = library.find((i) => i.path === libraryPath);
+    return item
+      ? {
+          libraryPath,
+          name: item.name,
+          size: item.size,
+          modifiedAt: item.createdAt,
+          libraryItem: item,
+        }
+      : { libraryPath, name: basename(libraryPath), size: null, modifiedAt: null };
+  }
+  return null;
+}
+
 /** `/Users/ada/Documents` → `~/Documents`, for labels only. */
 export function displayPath(path: string): string {
   return path.replace(/^\/(?:Users|home)\/[^/]+(?=\/|$)/, "~");
@@ -289,11 +317,11 @@ export function FilesPaneView({
 }: FilesPaneViewProps): ReactElement {
   const persona = usePersona();
   const clock = useNow(60_000, now);
-  const [selected, setSelected] = useState<FileRef | null>(
-    target?.startsWith("/")
-      ? { path: target, name: basename(target), size: null, modifiedAt: null }
-      : null,
-  );
+  const lib = useLibrary();
+  const [picked, setSelected] = useState<FileRef | null>(null);
+  // The target until the owner picks something else; a Library target takes the item's
+  // metadata from the store, so a quarantined download keeps its gate (§3.12).
+  const selected = picked ?? fileRefForTarget(target, lib.items);
   return (
     <div className="@container flex h-full min-h-0 flex-col bg-background" data-testid="files-pane">
       <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,12rem)_minmax(0,1fr)] @lg:grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)] @lg:grid-rows-1">
