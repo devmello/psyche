@@ -133,8 +133,10 @@ describe("provider keys in the vault (first run without env)", () => {
       keys.resolve(profile, { kind: "origin", value: "https://evil.example" }),
     ).rejects.toThrow(/bound to https:\/\/api\.anthropic\.com/);
     expect(keys.redact(`leaked ${KEY}`)).not.toContain(KEY);
+    // Locked (boot, idle lock): the first request unlocks through the slot, like a fill.
     gw.vault.lock();
-    await expect(keys.resolve(profile, origin)).rejects.toThrow(/locked/);
+    expect((await keys.resolve(profile, origin))?.use((v) => v)).toBe(KEY);
+    expect(gw.vault.locked).toBe(false);
   });
 });
 

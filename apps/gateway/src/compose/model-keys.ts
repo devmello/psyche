@@ -86,9 +86,15 @@ export function vaultModelKeys(vault: () => Vault | undefined): KeySource {
         });
       }
       if (v.locked) {
-        throw new PsycheError("unavailable", "the vault is locked", {
-          details: { reason: "vault_locked" },
-        });
+        // Like a fill (`unlockOnFill`): the slot unlocks on first use after boot or the idle
+        // lock (Touch ID with the Keychain slot, silent with a key file).
+        try {
+          await v.unlock(`Use your ${provider} API key`);
+        } catch {
+          throw new PsycheError("unavailable", "the vault is locked", {
+            details: { reason: "vault_locked" },
+          });
+        }
       }
       return v.accessToken(item.id, owner);
     },
