@@ -21,6 +21,7 @@ declare global {
 export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform {
   return {
     kind: "desktop",
+    chrome: b.chrome,
     storage: browserStorage(),
     gateway: {
       getStatus: () => b.gateway.getStatus() as Promise<GatewayStatus>,

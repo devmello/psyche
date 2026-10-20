@@ -1,5 +1,5 @@
 import { PsycheMark, StatusPill } from "@psyche/ui";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { GatewayStatus } from "../../client/status.ts";
 import { useShell, useShellState } from "../context.tsx";
 
@@ -19,6 +19,8 @@ export function Rail(props: {
   route: string;
   compact: boolean;
   onNavigate: (route: string) => void;
+  /** Shown above Settings on wide layouts (the web client's connection pill). */
+  footer?: ReactNode;
 }): ReactElement {
   const items = props.compact ? RAIL_ITEMS.filter((i) => COMPACT_TABS.has(i.route)) : RAIL_ITEMS;
   const section = `/${props.route.split("/")[1] ?? ""}`;
@@ -42,6 +44,7 @@ export function Rail(props: {
       {props.compact ? null : (
         <>
           <span className="spacer" />
+          {props.footer ? <div className="rail-status">{props.footer}</div> : null}
           <button type="button" onClick={() => props.onNavigate("/settings/model")}>
             Settings
           </button>
@@ -62,8 +65,8 @@ export function ThreadList(props: {
   const archived = threads.length - live.length;
   return (
     <aside className="threads" hidden={props.hidden} aria-label="Threads" data-testid="thread-list">
-      <div style={{ display: "flex", padding: 8, gap: 8, alignItems: "center" }}>
-        <strong style={{ flex: 1 }}>Threads</strong>
+      <div className="threads-header">
+        <strong>Threads</strong>
         <button type="button" className="pill" onClick={props.onNew} title="New side chat (⌘N)">
           + Side chat
         </button>
