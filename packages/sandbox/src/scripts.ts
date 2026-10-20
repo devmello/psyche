@@ -422,7 +422,7 @@ sys.exit(code if code >= 0 else 128 - code)
  * processes of that session count, so a server started by another exec or a PTY is not
  * attributed to this one. Runs as UID 1000, which can read its own processes' fds.
  */
-export const LISTENERS = String.raw`import json, os, socket, sys
+export const LISTENERS = `import json, os, socket, sys
 mode, arg = sys.argv[1], sys.argv[2]
 
 def session_of(pid):
