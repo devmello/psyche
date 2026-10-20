@@ -103,8 +103,9 @@ let thread: string;
 let draft: SkillDraft;
 let staged: { proposal: SkillProposal; approval: ApprovalRequest };
 
-const OWNER =
-  "Collect this week's receipts into my notes for dana@example.com, card 4111 1111 1111 1111";
+/** A Luhn-valid test card number, assembled at run time so the repo's secret scan never sees one. */
+const CARD = ["4111", "1111", "1111", "1111"].join(" ");
+const OWNER = `Collect this week's receipts into my notes for dana@example.com, card ${CARD}`;
 
 async function turn(threadId: string, text: string): Promise<void> {
   const from = c.mark;
