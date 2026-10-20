@@ -182,7 +182,15 @@ export class GatewaySupervisor {
       this.set({ kind: "stopped", mode: "dev", reason: "apps/gateway not found" });
       return;
     }
-    const tsx = join(dir, "node_modules", ".bin", "tsx");
+    // tsx is a workspace-root devDependency, so pnpm puts it in the root bin, not the Gateway's.
+    const tsx = [
+      join(dir, "node_modules", ".bin", "tsx"),
+      join(dir, "..", "..", "node_modules", ".bin", "tsx"),
+    ].find((candidate) => existsSync(candidate));
+    if (!tsx) {
+      this.set({ kind: "stopped", mode: "dev", reason: "tsx not found (run pnpm install)" });
+      return;
+    }
     // The child gets PSYCHE_HOME and PATH, not the desktop's whole environment.
     const child = spawn(tsx, ["src/main.ts"], {
       cwd: dir,
@@ -191,6 +199,12 @@ export class GatewaySupervisor {
     });
     this.child = child;
     this.set({ kind: "running", mode: "dev", ...(child.pid ? { pid: child.pid } : {}) });
+    // A spawn failure (ENOENT, EACCES) is an 'error', not an 'exit'; unhandled it crashes the main process.
+    child.on("error", (err) => {
+      if (this.child !== child) return;
+      this.child = undefined;
+      this.set({ kind: "stopped", mode: "dev", reason: err.message });
+    });
     child.on("exit", (code, signal) => {
       if (this.child !== child) return;
       this.child = undefined;
