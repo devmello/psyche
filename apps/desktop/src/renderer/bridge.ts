@@ -5,6 +5,8 @@ import {
   browserStorage,
   type DownloadNotice,
   type GatewayRunView,
+  type PermissionKind,
+  type PermissionState,
   type ShellCommand,
   type ShellPlatform,
   type SystemDictationStatus,
@@ -94,6 +96,11 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
     notify: { show: (n) => b.notify.show(n) },
     dialogs: {
       pickFolder: (opts) => b.dialogs.pickFolder(opts) as Promise<string | null>,
+    },
+    permissions: {
+      status: () =>
+        b.permissions.status() as Promise<Partial<Record<PermissionKind, PermissionState>>>,
+      request: (kind) => b.permissions.request(kind) as Promise<PermissionState>,
     },
     dictation: {
       getStatus: () => b.dictation.getStatus() as Promise<SystemDictationStatus>,

@@ -186,6 +186,8 @@ export interface ShellPlatform {
   dictation?: DictationPort;
   /** Web only, in a secure context: WebAuthn passkeys for presence (issue #79). */
   passkeys?: PasskeyHost;
+  /** Desktop only: macOS privacy permissions for onboarding and Settings (issue #384). */
+  permissions?: PermissionsPort;
 }
 
 /**
@@ -197,6 +199,17 @@ export interface SystemDictationStatus {
   accessibility: "granted" | "missing" | "unknown";
   watching: boolean;
   hotkeyTaken?: string;
+}
+
+/** Desktop only: macOS privacy permissions (issue #384). */
+export type PermissionKind = "accessibility" | "screenRecording" | "notifications";
+export type PermissionState = "granted" | "denied" | "not_determined" | "unavailable";
+
+export interface PermissionsPort {
+  /** Every permission's state, without prompting. */
+  status(): Promise<Partial<Record<PermissionKind, PermissionState>>>;
+  /** Shows the macOS prompt, or opens the System Settings pane, and answers the new state. */
+  request(kind: PermissionKind): Promise<PermissionState>;
 }
 
 export interface DictationPort {
