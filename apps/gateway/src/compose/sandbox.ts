@@ -55,6 +55,12 @@ export interface ComposedSandbox extends ComposedPart {
    * through the broker with the running command's taint, `sandbox.egress` receipts and logs.
    */
   readonly egress: SandboxEgress;
+  /**
+   * Registers the decision context of a command running in `scope` while it runs, so the egress
+   * proxy decides that sandbox's new origins with the turn's taint (the coding helper's networked
+   * `code.run` uses it); returns the release function.
+   */
+  readonly track: (scope: SandboxScope, ctx: DecisionContext) => () => void;
 }
 
 /**
@@ -113,6 +119,8 @@ export function composeSandbox(
   };
   const runner = createSandboxRunner({
     egressTunnel: egress.egressTunnel,
+    // A bind mount (the coding helper's repositories) never exposes Psyche's own state.
+    ...(services.home === undefined ? {} : { protectedMountRoots: [services.home] }),
     // File provenance survives a restart (S23 design-07).
     ...(setup.exec === false
       ? {}
@@ -148,6 +156,7 @@ export function composeSandbox(
   return {
     runner,
     egress,
+    track,
     start(gateway: Gateway) {
       if (setup.vm === undefined) return;
       unsubscribe = gateway.bus.subscribe(["operator.read"], (frame) => {
