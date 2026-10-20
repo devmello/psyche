@@ -222,6 +222,23 @@ describe("OnboardingFlow", () => {
   });
 });
 
+describe("Mac helper in onboarding", () => {
+  it("shows the bundled helper's state in Permissions without blocking Next", async () => {
+    setup({ step: "permissions", helper: { kind: "starting" } });
+    const row = screen.getByTestId("mac-helper-status");
+    expect(row.textContent).toContain("Psyche Helper");
+    expect(row.textContent).toContain("Starting…");
+    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+  });
+
+  it("shows nothing for it when the host has no helper (web)", () => {
+    setup({ step: "permissions" });
+    expect(screen.queryByTestId("mac-helper-status")).toBeNull();
+  });
+});
+
 describe("Onboarding polish (UI design §3.19)", () => {
   it("carries the Psyche mark above the steps", () => {
     setup();

@@ -27,6 +27,7 @@ import { TitleBar } from "../shell/components/TitleBar.tsx";
 import type { ShellPlatform } from "../shell/platform.ts";
 import { type ChatSlotContext, ShellApp, type ShellSlots } from "../shell/ShellApp.tsx";
 import { chatFileSlots } from "./attachments.tsx";
+import { useMacHelper } from "./helper.tsx";
 import { kitClient } from "./kit-client.ts";
 import { writeOnboarding } from "./onboarding.ts";
 import { readPermissions, requestPermission } from "./permissions.tsx";
@@ -277,6 +278,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
   const [gate, setGate] = useState<Gate>("loading");
   const [error, setError] = useState<string | null>(null);
   const [persona, reloadPersona] = useWorkspacePersona(platform);
+  const helper = useMacHelper(platform);
 
   useEffect(() => {
     let cancelled = false;
@@ -340,6 +342,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
             </p>
           ) : null}
           <OnboardingFlow
+            {...(helper ? { helper } : {})}
             onRequestPermission={(p) => requestPermission(platform, p)}
             onReadPermissions={() => readPermissions(platform)}
             onComplete={(result) => {

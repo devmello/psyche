@@ -5,6 +5,7 @@ import {
   browserStorage,
   type DownloadNotice,
   type GatewayRunView,
+  type MacHelperState,
   type PermissionKind,
   type PermissionState,
   type ShellCommand,
@@ -101,6 +102,10 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
       status: () =>
         b.permissions.status() as Promise<Partial<Record<PermissionKind, PermissionState>>>,
       request: (kind) => b.permissions.request(kind) as Promise<PermissionState>,
+    },
+    helper: {
+      getState: () => b.helper.getState() as Promise<MacHelperState>,
+      onState: (cb) => b.helper.onState((s) => cb(s as MacHelperState)),
     },
     dictation: {
       getStatus: () => b.dictation.getStatus() as Promise<SystemDictationStatus>,

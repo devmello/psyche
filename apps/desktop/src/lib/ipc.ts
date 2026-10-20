@@ -41,6 +41,9 @@ export const IPC = {
   windowClose: "psyche:window:close",
   shellCommand: "psyche:shell:command",
   notifyShow: "psyche:notify:show",
+  // The bundled Mac helper's launch and pairing state (onboarding, Settings → Devices).
+  helperGetState: "psyche:helper:get-state",
+  helperState: "psyche:helper:state",
   // Native dialogs.
   dialogPickFolder: "psyche:dialog:pick-folder",
   // Dictation HUD only (main → HUD state and capture commands, HUD → main audio).

@@ -87,6 +87,7 @@ export function OnboardingFlow({
   onSaveKey,
   onCheckModel,
   vmAvailable = true,
+  helper,
 }: OnboardingFlowProps): ReactElement {
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -325,6 +326,7 @@ export function OnboardingFlow({
             persona={name}
             value={permissions}
             busy={askingPermission}
+            {...(helper ? { helper } : {})}
             onAllow={(p) => void allow(p)}
             onSkip={(p) => setPermissions((s) => ({ ...s, [p]: "skipped" }))}
           />

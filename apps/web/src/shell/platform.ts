@@ -188,6 +188,20 @@ export interface ShellPlatform {
   passkeys?: PasskeyHost;
   /** Desktop only: macOS privacy permissions for onboarding and Settings (issue #384). */
   permissions?: PermissionsPort;
+  /** Desktop only: the bundled Mac helper the app launches (docs/status/s14.md "Packaging"). */
+  helper?: HelperPort;
+}
+
+/** The desktop's view of its bundled Mac helper (apps/desktop/src/main/helper-launcher.ts). */
+export type MacHelperState =
+  | { kind: "unbundled" }
+  | { kind: "starting" }
+  | { kind: "paired" }
+  | { kind: "offline"; reason?: string };
+
+export interface HelperPort {
+  getState(): Promise<MacHelperState>;
+  onState(cb: (state: MacHelperState) => void): Unsubscribe;
 }
 
 /**

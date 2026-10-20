@@ -50,6 +50,7 @@ import { BrowserHost } from "./main/browser/browser-host.ts";
 import { SystemDictation } from "./main/dictation/controller.ts";
 import { HudWindow } from "./main/dictation/hud.ts";
 import { ACCESSIBILITY_SETTINGS_URL, DictationService } from "./main/dictation/service.ts";
+import { HelperLauncher } from "./main/helper-launcher.ts";
 import { buildAppMenu } from "./main/menu.ts";
 import {
   createPermissions,
@@ -57,7 +58,7 @@ import {
   PERMISSION_KINDS,
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
-import { chooseMode, GatewaySupervisor } from "./main/supervisor.ts";
+import { chooseMode, execRunner, GatewaySupervisor } from "./main/supervisor.ts";
 import { TerminalHost } from "./main/terminal.ts";
 import { PsycheTray } from "./main/tray.ts";
 import { startUpdater } from "./main/updater.ts";
@@ -106,6 +107,7 @@ let bridge: BridgeClient | undefined;
 let terminal: TerminalHost | undefined;
 let tray: PsycheTray | undefined;
 let supervisor: GatewaySupervisor | undefined;
+let helper: HelperLauncher | undefined;
 let hud: HudWindow | undefined;
 let dictation: DictationService | undefined;
 const relay = new NotificationRelay();
@@ -431,6 +433,7 @@ function registerIpc(): void {
     return dictation?.status;
   });
   handle(IPC.permissionsStatus, () => permissions.statusAll());
+  handle(IPC.helperGetState, () => helper?.getState() ?? { kind: "unbundled" });
   handle(IPC.permissionsRequest, (_event, arg) => {
     const kind = str(IPC.permissionsRequest, rec(IPC.permissionsRequest, arg).kind, "kind", 32);
     if (!(PERMISSION_KINDS as readonly string[]).includes(kind)) {
@@ -520,16 +523,22 @@ function onGatewayEvent(e: {
   if (e.event === "node.updated") void refreshHelperPresence();
 }
 
-async function refreshHelperPresence(): Promise<void> {
+type NodeRow = { kind?: string; status?: string; capabilities?: { name?: string }[] };
+
+async function onlineMacHelpers(): Promise<NodeRow[]> {
   const res = (await gateway?.call("nodes.list", {}).catch(() => undefined)) as
-    | { nodes?: { kind?: string; status?: string; capabilities?: { name?: string }[] }[] }
+    | { nodes?: NodeRow[] }
     | undefined;
-  relay.helperOnline = (res?.nodes ?? []).some(
-    (n) =>
-      n.kind === "mac-helper" &&
-      n.status === "online" &&
-      (n.capabilities ?? []).some((c) => c.name?.startsWith("notify.")),
+  return (res?.nodes ?? []).filter((n) => n.kind === "mac-helper" && n.status === "online");
+}
+
+async function refreshHelperPresence(): Promise<void> {
+  const helpers = await onlineMacHelpers();
+  relay.helperOnline = helpers.some((n) =>
+    (n.capabilities ?? []).some((c) => c.name?.startsWith("notify.")),
   );
+  // Launches the bundled helper the first time and when it went away (packaged macOS only).
+  void helper?.onPresence(helpers.length > 0);
 }
 
 async function serveAppProtocol(): Promise<void> {
@@ -633,6 +642,19 @@ void app.whenReady().then(async () => {
       bridge.onConnectedChange((connected) => b.setBridgeConnected(connected));
       bridge.start();
     },
+  });
+
+  // The bundled Mac helper (docs/status/s14.md "Packaging"): started through LaunchServices once
+  // this window pairs, i.e. the Gateway answers; dev builds use their own helper install.
+  helper = new HelperLauncher({
+    appPath:
+      app.isPackaged && process.platform === "darwin"
+        ? join(process.resourcesPath, "PsycheHelper.app")
+        : undefined,
+    psycheHome: home,
+    run: execRunner,
+    isPaired: async () => (await onlineMacHelpers()).length > 0,
+    onState: (s) => broadcast(IPC.helperState, s),
   });
 
   const deviceKey = loadOrCreateDeviceKey(join(app.getPath("userData"), "device-key.json"));

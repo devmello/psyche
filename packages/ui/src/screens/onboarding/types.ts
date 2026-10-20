@@ -1,4 +1,5 @@
 import type { ScopeMode } from "../settings/ConnectorsSection.tsx";
+import type { MacHelperStatus } from "../settings/MacHelperStatus.tsx";
 import type { ProviderKind, TccPermission, TccState, ToolCheck } from "../settings/types.ts";
 
 /** Onboarding (UI design §3.19): the steps, the shell callbacks and the result. */
@@ -81,4 +82,6 @@ export interface OnboardingShellProps {
   ) => Promise<"passed" | "failed"> | "passed" | "failed";
   /** VM mode needs macOS 15+ on Apple silicon; `false` disables the option with a reason. */
   vmAvailable?: boolean;
+  /** Desktop: the bundled Mac helper's state, shown in Permissions; never blocks a step. */
+  helper?: MacHelperStatus;
 }

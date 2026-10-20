@@ -144,6 +144,10 @@ const bridge = {
     status: () => invoke(IPC.permissionsStatus),
     request: (kind: string) => invoke(IPC.permissionsRequest, { kind }),
   },
+  helper: {
+    getState: () => invoke(IPC.helperGetState),
+    onState: (cb: (s: unknown) => void) => listen(IPC.helperState, cb),
+  },
 };
 
 export type PsycheBridge = typeof bridge;
