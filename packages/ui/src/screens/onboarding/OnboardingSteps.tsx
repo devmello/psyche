@@ -287,9 +287,10 @@ export function ConnectorsStep({
         and you can add more later in Settings.
       </p>
       <section aria-labelledby={`${id}-connected`} className="flex flex-col gap-2">
-        <h3 id={`${id}-connected`} className="text-label text-gray-11">
+        {/* The step title is the page's h1 (docs/a11y-audit.md L3), so step sections are h2. */}
+        <h2 id={`${id}-connected`} className="text-label text-gray-11">
           Connected ({connected.length})
-        </h3>
+        </h2>
         {connected.length > 0 ? (
           <ul
             className="flex flex-col divide-y divide-gray-5 rounded-lg border border-gray-6"
@@ -753,9 +754,9 @@ export function WhereStep({
         ]}
       />
       <div className="rounded-lg border border-gray-6 bg-gray-2 p-4 text-sm">
-        <h3 className="mb-2 font-semibold">
+        <h2 className="mb-2 font-semibold">
           {value === "vm" ? "VM mode defaults" : "This Mac defaults"}
-        </h3>
+        </h2>
         {value === "vm" ? (
           <Facts
             items={[

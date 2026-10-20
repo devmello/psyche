@@ -23,7 +23,8 @@ export function ViewerMessage(props: {
 
 export function Toolbar(props: { label: string; children: ReactNode }) {
   return (
-    <div className="psy-viewer-toolbar" role="toolbar" aria-label={props.label}>
+    // biome-ignore lint/a11y/useSemanticElements: a button row, not a form group
+    <div className="psy-viewer-toolbar" role="group" aria-label={props.label}>
       {props.children}
     </div>
   );

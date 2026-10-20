@@ -79,7 +79,7 @@ function ApprovalPointer({ approvalId }: { approvalId: string }): ReactElement {
       <button
         type="button"
         onClick={() => focusApproval(approval.id)}
-        className="my-0.5 inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-small text-gray-11 transition-colors hover:bg-gray-3 hover:text-foreground"
+        className="my-0.5 inline-flex min-h-6 items-center gap-1.5 rounded-md px-1 py-0.5 text-small text-gray-11 transition-colors hover:bg-gray-3 hover:text-foreground"
         aria-label={`Review approval: ${summary}`}
         title={summary}
       >
