@@ -31,7 +31,7 @@ import { type CliItem, type CliLine, CliRun } from "./run.ts";
 /** Where we looked, for the "not installed" message. */
 export function notInstalled(dialect: CliDialect, command: string | undefined): string {
   const name = dialect.defaultCommand;
-  if (command !== undefined && command.includes("/")) {
+  if (command?.includes("/")) {
     return `${dialect.label} is not installed at ${command}`;
   }
   return `${dialect.label} is not installed: \`${name}\` was not found in PSYCHE_${name.toUpperCase()}_PATH, PATH, ${knownCliDirs("~").slice(0, 5).join(", ")} or the login shell's PATH`;
