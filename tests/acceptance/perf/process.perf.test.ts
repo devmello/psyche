@@ -7,11 +7,12 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { createRequire } from "node:module";
-import { arch, tmpdir } from "node:os";
+import { arch, homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { findChromium } from "@psyche/browser";
 import { PROTOCOL_VERSION } from "@psyche/protocol";
@@ -34,11 +35,25 @@ import { median } from "../src/report.ts";
  * (`node apps/gateway/src/main.ts`). Every run uses a temporary `$PSYCHE_HOME` and `HOME` and port 0,
  * so it never touches an installed Gateway or its LaunchAgent. Results: out/perf/process.json.
  * - first contentful paint of the web client the Gateway serves, in headless Chrome: the
- *   renderer's share of window-to-first-paint, since the packaged app is not launched here.
+ *   renderer's share of window-to-first-paint;
+ * - with PSYCHE_PERF_PACKAGED=1 as well: window to first paint of the packaged app in
+ *   `apps/desktop/out/` (never `/Applications`), launched once against this file's own psyched.
+ *   It runs with scratch HOME, userData and `PSYCHE_HOME`, `--use-mock-keychain` (no Keychain
+ *   prompt), `PSYCHE_GATEWAY_MODE=external` (no LaunchAgent), and the app's perf mode
+ *   (`PSYCHE_PERF_FIRST_PAINT_FILE`: no psyche:// handler, shortcuts, updater or helper). It is
+ *   unregistered from LaunchServices afterwards, and the owner's userData and LaunchAgent must be
+ *   unchanged.
  */
 
 const ENABLED = process.env.PSYCHE_PERF_TESTS === "1";
 const ROOT = resolve(import.meta.dirname, "../../..");
+const PACKAGED_APP = join(
+  ROOT,
+  "apps/desktop/out",
+  `Psyche-darwin-${arch() === "arm64" ? "arm64" : "x64"}`,
+  "Psyche.app",
+);
+const PACKAGED = ENABLED && process.env.PSYCHE_PERF_PACKAGED === "1" && existsSync(PACKAGED_APP);
 const CHROMIUM = findChromium();
 
 /** The slice of playwright-core this file drives (the acceptance package does not depend on it). */
@@ -62,6 +77,7 @@ const BUDGET = {
   idleRssMb: 250,
   coldStartToFirstTokenMs: 3_000,
   webFirstPaintMs: 1_000,
+  windowFirstPaintMs: 2_000,
 };
 
 interface Target {
@@ -393,6 +409,114 @@ describe.skipIf(!ENABLED)("psyched process startup (PSYCHE_PERF_TESTS=1)", () =>
         await browser.close();
         await gw.stop();
       }
+    },
+    120_000,
+  );
+  it.skipIf(!PACKAGED)(
+    "packaged app: window to first paint (one launch, scratch everything)",
+    async () => {
+      if (PACKAGED_APP.startsWith("/Applications/")) throw new Error("refusing an installed app");
+      const realHome = homedir();
+      const owned = [
+        join(realHome, "Library/Application Support/Psyche"),
+        join(realHome, "Library/LaunchAgents/com.psyche.gateway.plist"),
+        join(realHome, "Library/Preferences/com.psyche.desktop.plist"),
+        join(realHome, "Library/Saved Application State/com.psyche.desktop.savedState"),
+      ];
+      const before = owned.map((p) => (existsSync(p) ? statSync(p).mtimeMs : null));
+      const t = targets()[0] as Target;
+      const home = temp("psyche-perf-app-");
+      const userHome = temp("psyche-perf-appuser-");
+      const gw = await boot(t, home, userHome);
+      const file = join(temp("psyche-perf-paint-"), "first-paint.json");
+      const spawnedAt = Date.now();
+      const app = spawn(
+        join(PACKAGED_APP, "Contents/MacOS/Psyche"),
+        [
+          "--use-mock-keychain",
+          `--user-data-dir=${join(userHome, "userData")}`,
+          // Launched from a test, the window is not frontmost; Chromium treats an occluded window
+          // as hidden and does not paint it (the second packaged run, docs/status/s22.md).
+          "--disable-backgrounding-occluded-windows",
+          "--disable-features=CalculateNativeWinOcclusion",
+        ],
+        {
+          env: {
+            PATH: "/usr/bin:/bin:/usr/sbin:/sbin",
+            HOME: userHome,
+            CFFIXED_USER_HOME: userHome,
+            PSYCHE_HOME: home,
+            PSYCHE_GATEWAY_MODE: "external",
+            PSYCHE_GATEWAY_ORIGIN: gw.origin,
+            PSYCHE_PERF_FIRST_PAINT_FILE: file,
+          },
+          stdio: ["ignore", "pipe", "pipe"],
+        },
+      );
+      children.add(app);
+      let appLog = "";
+      app.stdout?.on("data", (d) => {
+        appLog += String(d);
+      });
+      app.stderr?.on("data", (d) => {
+        appLog += String(d);
+      });
+      try {
+        // The app writes each startup stage; `painted`, `no-paint` and `error` are final.
+        type Record = {
+          stage: string;
+          mainStartAt: number;
+          didFinishLoadAt?: number;
+          firstContentfulPaintAt?: number;
+        };
+        const read = (): Record | undefined =>
+          existsSync(file) ? (JSON.parse(readFileSync(file, "utf8")) as Record) : undefined;
+        const deadline = Date.now() + 30_000;
+        let record = read();
+        while (
+          !["painted", "no-paint", "error"].includes(record?.stage ?? "") &&
+          Date.now() < deadline
+        ) {
+          await new Promise((r) => setTimeout(r, 50));
+          record = read();
+        }
+        if (record?.didFinishLoadAt !== undefined) {
+          results.packaged = { didFinishLoadMs: record.didFinishLoadAt - spawnedAt };
+        }
+        if (record?.stage !== "painted" || record.firstContentfulPaintAt === undefined) {
+          throw new Error(
+            `no first paint: ${JSON.stringify(record ?? "no record")}\napp log:\n${appLog.slice(-4000)}`,
+          );
+        }
+        results.packaged = {
+          windowFirstPaintMs: record.firstContentfulPaintAt - spawnedAt,
+          mainStartMs: record.mainStartAt - spawnedAt,
+          didFinishLoadMs: (record.didFinishLoadAt ?? 0) - spawnedAt,
+        };
+        expect(results.packaged.windowFirstPaintMs).toBeLessThan(BUDGET.windowFirstPaintMs);
+      } finally {
+        if (app.exitCode === null) {
+          await new Promise<void>((done) => {
+            const t = setTimeout(() => {
+              app.kill("SIGKILL");
+              done();
+            }, 10_000);
+            app.once("exit", () => {
+              clearTimeout(t);
+              done();
+            });
+          });
+        }
+        children.delete(app);
+        await gw.stop();
+        // The measured copy leaves no LaunchServices registration behind.
+        execFileSync(
+          "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister",
+          ["-u", PACKAGED_APP],
+        );
+      }
+      const after = owned.map((p) => (existsSync(p) ? statSync(p).mtimeMs : null));
+      expect(after).toEqual(before);
     },
     120_000,
   );

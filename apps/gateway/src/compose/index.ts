@@ -70,6 +70,7 @@ import { createTaskHandlers, SqliteTaskEngine, TaskWorkerPool } from "@psyche/ta
 import { SecretRedactor, type Vault } from "@psyche/vault";
 import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
+import type { WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
@@ -102,8 +103,10 @@ import {
   restoreModelSettings,
   settingsKeyValue,
 } from "./model-settings.ts";
+import { createOtherChats, type OtherChats } from "./other-chats.ts";
 import { composePasskeys } from "./passkeys.ts";
 import { composePayments, paymentsSetupFromEnv } from "./payments.ts";
+import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { protectedRoots } from "./protected-paths.ts";
 import { createRateLimits } from "./rate-limits.ts";
@@ -197,6 +200,8 @@ export interface ComposedGateway {
   readonly gateway: Gateway;
   readonly db: PsycheDb;
   readonly loop: PsycheAgentLoop;
+  /** E12 "From your other chats": the digests and the turn context provider. */
+  readonly otherChats: OtherChats;
   readonly broker: PsychePermissionBroker;
   readonly audit: HashChainAuditLog;
   readonly memory: SqliteMemoryStore;
@@ -626,6 +631,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     watchFetch: publicFetch(),
     ...(timeZone === undefined ? {} : { defaultTimezone: timeZone }),
   });
+  // E12 "From your other chats": digests of the owner's chats, shared only with threads.otherChats on.
+  const otherChats = createOtherChats({ db, audit, now: () => clock.now() });
   const loop = createAgentLoop({
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
     state: new SqliteThreadStateStore(db, redactor),
@@ -643,6 +650,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     approvalSurfaces: ["desktop", "web"],
     skills: skills.loader,
     ...(compaction === undefined ? {} : { compaction }),
+    contextProviders: [otherChats.provider],
     // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
     isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
   });
@@ -681,6 +689,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   launcher = proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool);
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
+  parts.push(otherChats.part());
+  // Code plugins (T4): off until the owner turns on `plugins.enabled`.
+  parts.push(
+    composePlugins({
+      db,
+      home: config.home,
+      broker: executorBroker,
+      loop,
+      ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+    }),
+  );
   // documents.convert: LibreOffice in its own sandbox on the full image (P4).
   parts.push(
     composeConversion({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
@@ -703,6 +722,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...modelSettingsHandlers(modelSettings),
   };
   for (const part of parts) Object.assign(handlers, part.handlers ?? {});
+  const webhooks: Record<string, WebhookRoute> = { ...gwOptions.webhooks };
+  for (const part of parts) {
+    for (const [path, route] of Object.entries(part.webhooks ?? {})) {
+      if (path in webhooks) throw new PsycheError("conflict", `two webhooks for ${path}`);
+      webhooks[path] = route;
+    }
+  }
 
   const gateway = await startGateway({
     ...gwOptions,
@@ -711,6 +737,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     broker,
     memory,
     handlers,
+    webhooks,
     onDeviceRevoked: (deviceId) => {
       revocations.recordDevice(deviceId);
       return rawBroker.revokeGrantsByDevice(deviceId);
@@ -781,6 +808,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     gateway,
     db,
     loop,
+    otherChats,
     broker,
     audit,
     memory,

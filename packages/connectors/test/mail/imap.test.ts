@@ -280,7 +280,10 @@ describe("IMAP connector: reading", () => {
   it("reads a message (hidden HTML dropped, quoted-printable decoded) and saves an attachment", async () => {
     const { tools, library } = await connected();
     const html = (await run(tools, "mcp__imap-1__mail_read_message", { id: "4" })) as {
-      output: { body: string; unread: boolean; flags: string[]; messageId: string };
+      output: { body: string; unread: boolean; flags: string[]; messageId: string } & Record<
+        string,
+        unknown
+      >;
       provenance: string;
     };
     expect(html.provenance).toBe("untrusted");
@@ -288,6 +291,7 @@ describe("IMAP connector: reading", () => {
     expect(html.output.body).not.toContain("attacker@evil.example");
     expect(html.output.unread).toBe(false);
     expect(html.output.messageId).toBe("<msg_002.fixture@growthhub.example>");
+    expect(html.output).toMatchObject({ authenticationResults: [], autoSubmitted: "", listId: "" });
     const qp = (await run(tools, "mcp__imap-1__mail_read_message", {
       id: "2",
       mailbox: "INBOX",

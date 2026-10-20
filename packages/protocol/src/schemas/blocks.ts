@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id, StringEnum } from "../common.ts";
+import { Id, IsoDateTime, Nullable, StringEnum } from "../common.ts";
 
 /** Message content blocks (data model §9.1). Discriminated on `type`. */
 
@@ -83,6 +83,29 @@ export const WrapUpBlock = Type.Object(
   { $id: "WrapUpBlock" },
 );
 
+/**
+ * Feature E12 (cross-thread awareness): which of the owner's other chats the turn drew on, shown
+ * as a collapsible "From your other chats" block in the reply. Titles and snippets come from
+ * those chats' digests (untrusted data): render them as plain text, never as Markdown.
+ */
+export const RelatedThread = Type.Object(
+  {
+    threadId: Id,
+    title: Type.String({ maxLength: 200 }),
+    snippet: Type.String({ maxLength: 500 }),
+    lastMessageAt: Nullable(IsoDateTime),
+  },
+  { $id: "RelatedThread" },
+);
+
+export const RelatedThreadsBlock = Type.Object(
+  {
+    type: Type.Literal("related_threads"),
+    items: Type.Array(RelatedThread, { minItems: 1, maxItems: 5 }),
+  },
+  { $id: "RelatedThreadsBlock" },
+);
+
 export const Block = Type.Union(
   [
     TextBlock,
@@ -96,6 +119,7 @@ export const Block = Type.Union(
     ReceiptBlock,
     TaskBlock,
     WrapUpBlock,
+    RelatedThreadsBlock,
   ],
   { $id: "Block" },
 );

@@ -37,6 +37,7 @@ import { TasksMethods } from "./tasks.ts";
 import { ThreadsMethods } from "./threads.ts";
 import { VaultMethods } from "./vault.ts";
 import { ViewMethods } from "./view.ts";
+import { VmMethods } from "./vm.ts";
 import { VoiceMethods } from "./voice.ts";
 
 export * from "./approvals.ts";
@@ -76,6 +77,7 @@ export * from "./tasks.ts";
 export * from "./threads.ts";
 export * from "./vault.ts";
 export * from "./view.ts";
+export * from "./vm.ts";
 export * from "./voice.ts";
 
 /**
@@ -116,6 +118,7 @@ export const Methods = {
   ...IdeasMethods,
   ...GoalsMethods,
   ...VoiceMethods,
+  ...VmMethods,
   ...DictationMethods,
   ...AttentionMethods,
   ...SkillsMethods,

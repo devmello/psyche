@@ -41,12 +41,28 @@ export interface ChannelSettings {
 }
 
 const DEFAULT_RATE: Record<string, ChannelSettings["rateLimit"]> = {
+  // Mail is not chat: a reply every few seconds at most.
+  email: { perChatPerSec: 0.2, perChannelPerSec: 0.5, burst: 2 },
   // Bot API: ~1 msg/s per chat, ~30 msg/s overall.
   telegram: { perChatPerSec: 1, perChannelPerSec: 25, burst: 3 },
   webchat: { perChatPerSec: 20, perChannelPerSec: 50, burst: 20 },
   // Messages.app scripting: keep it human-paced.
   imessage: { perChatPerSec: 1, perChannelPerSec: 5, burst: 3 },
+  // Twilio: every segment is billed and long codes take ~1 segment/s; one reply per 5 s per chat.
+  sms: { perChatPerSec: 0.2, perChannelPerSec: 1, burst: 2 },
+  // Web API chat.postMessage: about 1 message per second per channel.
+  slack: { perChatPerSec: 1, perChannelPerSec: 10, burst: 3 },
 };
+
+/**
+ * Transports where every sender is weak (security §9): they chat as non-owners under the DM
+ * policy, but never match an owner, never run commands and never answer approvals.
+ */
+export const WEAK_TRANSPORTS: ReadonlySet<ChannelType> = new Set<ChannelType>(["sms", "email"]);
+
+export function isWeakTransport(type: ChannelType): boolean {
+  return WEAK_TRANSPORTS.has(type);
+}
 
 function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
@@ -121,6 +137,33 @@ export function validateChannel(channel: Channel): string[] {
     for (const id of [...channel.allowFrom, ...channel.ownerIds, ...channel.groupAllowFrom]) {
       if (id !== "*" && !/^\+\d{6,15}$/.test(id) && !/^[^\sA-Z@]+@[^\sA-Z@]+$/.test(id)) {
         problems.push(`iMessage ids are E.164 phones or lowercase emails: ${id}`);
+      }
+    }
+  }
+  if (channel.type === "sms") {
+    for (const id of [...channel.allowFrom, ...channel.ownerIds, ...channel.groupAllowFrom]) {
+      if (id !== "*" && !/^\+\d{6,15}$/.test(id)) problems.push(`SMS ids are E.164 phones: ${id}`);
+    }
+    if (!/^\+\d{6,15}$/.test(channel.account)) {
+      problems.push(`the SMS account is Psyche's E.164 number: ${channel.account}`);
+    }
+  }
+  if (channel.type === "email") {
+    // Bare lower-case addresses (the adapter's sender ids).
+    for (const id of [...channel.allowFrom, ...channel.ownerIds, ...channel.groupAllowFrom]) {
+      if (id !== "*" && !/^[^\sA-Z@<>]+@[^\sA-Z@<>]+\.[^\sA-Z@<>]+$/.test(id)) {
+        problems.push(`Email ids are bare lower-case addresses: ${id}`);
+      }
+    }
+    if (channel.dmPolicy === "pairing") {
+      problems.push('email channels cannot pair (no mail to strangers): use dmPolicy "allowlist"');
+    }
+  }
+  if (channel.type === "slack") {
+    // Slack user ids (U…, W… for Enterprise Grid); groups are channel ids (C…, G…).
+    for (const id of [...channel.allowFrom, ...channel.ownerIds, ...channel.groupAllowFrom]) {
+      if (id !== "*" && !/^[UW][A-Z0-9]{2,}$/.test(id)) {
+        problems.push(`Slack ids are user ids like U012ABCDEF: ${id}`);
       }
     }
   }
