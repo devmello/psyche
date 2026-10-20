@@ -1,11 +1,18 @@
-import type { ChecklistItem, ModelMessage, TaintSource } from "@psyche/protocol";
+import type { ChecklistItem, CompactionSummary, ModelMessage, TaintSource } from "@psyche/protocol";
 
 /** What the loop keeps per thread between turns. The Gateway (S01) supplies a durable store. */
 export interface ThreadState {
   /** Transcript after the last compaction; provider-native parts are kept verbatim. */
   messages: ModelMessage[];
   /** Summary of compacted turns; `untrusted` when it summarized untrusted content. */
-  summary?: { text: string; untrusted: boolean };
+  summary?: {
+    text: string;
+    untrusted: boolean;
+    /** The structured form the text renders (owner-set limits); absent for older summaries. */
+    structured?: CompactionSummary;
+  };
+  /** Compactions of this thread so far (the context meter). */
+  compactions?: number;
   /** The `update_plan` checklist pinned under the latest message (C5). */
   checklist: ChecklistItem[];
   /**
