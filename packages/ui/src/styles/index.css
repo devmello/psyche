@@ -48,13 +48,15 @@
   --destructive: var(--tomato-11);
   --border: var(--gray-6);
   --input: var(--gray-7);
-  --ring: var(--accent-8);
+  /* Focus ring: accent-9 at full strength, at least 3:1 on gray-1 and gray-2 in both modes (WCAG 1.4.11). */
+  --ring: var(--accent-9);
 
   /* Semantic tokens (§4.8). */
   --approval: var(--amber-9);
   --approval-border: var(--amber-7);
   --approval-surface: var(--amber-2);
-  --approval-text: var(--amber-11);
+  /* Light mode uses step 12: amber-11 is 4.0-4.5:1 on gray and amber surfaces (docs/a11y-audit.md A5). */
+  --approval-text: var(--amber-12);
   --danger: var(--tomato-9);
   --danger-surface: var(--tomato-3);
   --danger-text: var(--tomato-11);
@@ -90,6 +92,7 @@
 
 :root[data-theme="dark"] {
   --popover: var(--gray-3);
+  --approval-text: var(--amber-11);
   --card: var(--gray-2);
   /* Dark mode steps surfaces up instead of deepening shadows (§4.4). */
   --shadow-level-2: 0 0 0 1px var(--gray-7);
@@ -335,7 +338,7 @@
   --accent-contrast: var(--gray-1);
   --primary: var(--accent-9);
   --primary-foreground: var(--accent-contrast);
-  --ring: var(--accent-8);
+  --ring: var(--accent-9);
 }
 
 @layer utilities {
