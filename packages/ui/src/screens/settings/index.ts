@@ -36,9 +36,11 @@ export {
   CredentialDetailSheet,
 } from "./CredentialDetail.tsx";
 export {
-  LinkOnePasswordForm,
+  EXTERNAL_NAME,
+  type ExternalLink,
+  type ExternalSource,
+  LinkExternalForm,
   linkExternalError,
-  type OnePasswordLink,
 } from "./CredentialExternal.tsx";
 export {
   ImportCredentialsForm,

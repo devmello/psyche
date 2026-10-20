@@ -1,4 +1,4 @@
-import type { CredentialBinding, OnePasswordRef } from "@psyche/protocol";
+import type { BitwardenRef, CredentialBinding, OnePasswordRef } from "@psyche/protocol";
 import { type FormEvent, type ReactElement, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
@@ -8,48 +8,67 @@ import { KIND_LABEL } from "./credential-labels.ts";
 import { hasCode, messageOf } from "./shared.tsx";
 
 /**
- * Link an item held in 1Password (G10, `vault.linkExternal`). Psyche stores the vault and item
- * names, never a value; a fill reads one field from 1Password after the owner approves it, and
- * nothing is written back.
+ * Link an item held in 1Password (G10) or Bitwarden (G11) by reference (`vault.linkExternal`).
+ * Psyche stores the item's names or id, never a value; a fill reads one field from the manager
+ * after the owner approves it, and nothing is written back.
  */
 
 export type LinkableKind = "login" | "api_key" | "ssh_key" | "note";
+export type ExternalSource = "1password" | "bitwarden";
 
-export interface OnePasswordLink {
+export const EXTERNAL_NAME: Record<ExternalSource, string> = {
+  "1password": "1Password",
+  bitwarden: "Bitwarden",
+};
+
+export type ExternalLink = {
   kind: LinkableKind;
   name: string;
   bindings: CredentialBinding[];
-  ref: OnePasswordRef;
-}
+} & ({ source: "1password"; ref: OnePasswordRef } | { source: "bitwarden"; ref: BitwardenRef });
+
+/** What the Gateway needs before it can read the manager (`unavailable`), in plain words. */
+const SET_UP: Record<ExternalSource, string> = {
+  "1password":
+    "1Password is not set up on the Gateway. Give it a 1Password service account (the op CLI) or a Connect server, then link the item again.",
+  bitwarden:
+    "Bitwarden is not set up on the Gateway. Install the bw CLI there, set credentials.bitwarden, and store a session key from bw unlock in the vault, then link the item again.",
+};
 
 const LINKABLE: readonly LinkableKind[] = ["login", "api_key", "ssh_key", "note"];
 
 /** Plain words for a failed `vault.linkExternal`. */
-export function linkExternalError(err: unknown, name: string): string {
+export function linkExternalError(
+  err: unknown,
+  name: string,
+  source: ExternalSource = "1password",
+): string {
   const reason = (err as { details?: { reason?: unknown } }).details?.reason;
   if (hasCode(err, "unavailable") && reason === "locked") {
     return `The vault is locked. Unlock it with Touch ID, then link ${name} again.`;
   }
-  if (hasCode(err, "unavailable")) {
-    return "1Password is not set up on the Gateway. Give it a 1Password service account (the op CLI) or a Connect server, then link the item again.";
-  }
+  if (hasCode(err, "unavailable")) return SET_UP[source];
   if (hasCode(err, "forbidden")) return "Only a device paired as admin can link vault items.";
   if (hasCode(err, "policy_denied")) {
     return "Psyche refused this item because its name looks like a card, bank or ID number.";
   }
   if (hasCode(err, "invalid_params")) {
-    return "Psyche couldn't use that reference. Check the 1Password vault and item names.";
+    return source === "1password"
+      ? "Psyche couldn't use that reference. Check the 1Password vault and item names."
+      : "Psyche couldn't use that reference. Use the Bitwarden item's id, or a name no other item has.";
   }
   return `Psyche couldn't link ${name} (${messageOf(err)}).`;
 }
 
-export function LinkOnePasswordForm({
+export function LinkExternalForm({
+  source,
   onLink,
   onClose,
   parseSite,
 }: {
+  source: ExternalSource;
   /** Rejects with an Error whose message is shown; the form stays open. */
-  onLink: (item: OnePasswordLink) => Promise<void>;
+  onLink: (item: ExternalLink) => Promise<void>;
   onClose: () => void;
   parseSite: (text: string, kind: LinkableKind) => CredentialBinding | null;
 }): ReactElement {
@@ -61,7 +80,9 @@ export function LinkOnePasswordForm({
   const [item, setItem] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const ready = name.trim() !== "" && vault.trim() !== "" && item.trim() !== "" && !saving;
+  const op = source === "1password";
+  const manager = EXTERNAL_NAME[source];
+  const ready = name.trim() !== "" && (!op || vault.trim() !== "") && item.trim() !== "" && !saving;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -81,12 +102,12 @@ export function LinkOnePasswordForm({
     }
     setError(null);
     setSaving(true);
-    onLink({
-      kind,
-      name: name.trim(),
-      bindings,
-      ref: { vault: vault.trim(), item: item.trim() },
-    }).then(
+    const base = { kind, name: name.trim(), bindings };
+    onLink(
+      op
+        ? { ...base, source, ref: { vault: vault.trim(), item: item.trim() } }
+        : { ...base, source, ref: { item: item.trim() } },
+    ).then(
       () => {
         setSaving(false);
         onClose();
@@ -101,12 +122,14 @@ export function LinkOnePasswordForm({
   return (
     <form
       onSubmit={submit}
-      aria-label="Link a 1Password item"
+      aria-label={`Link a ${manager} item`}
       className="flex flex-col gap-3 rounded-md border border-gray-6 bg-background p-3"
     >
       <p className="text-xs text-muted-foreground">
-        Psyche keeps only the vault and item names. It reads one field from 1Password when you
-        approve a fill, and never writes back.
+        {op
+          ? "Psyche keeps only the vault and item names."
+          : "Psyche keeps only the item's id or name. Cards and identities are never read."}{" "}
+        It reads one field from {manager} when you approve a fill, and never writes back.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
@@ -128,21 +151,25 @@ export function LinkOnePasswordForm({
           <Label htmlFor={`${id}-name`}>Name</Label>
           <Input id={`${id}-name`} value={name} onChange={(e) => setName(e.target.value)} />
         </div>
+        {op ? (
+          <div className="flex flex-col gap-1">
+            <Label htmlFor={`${id}-vault`}>1Password vault</Label>
+            <Input
+              id={`${id}-vault`}
+              placeholder="Private"
+              autoComplete="off"
+              value={vault}
+              onChange={(e) => setVault(e.target.value)}
+            />
+          </div>
+        ) : null}
         <div className="flex flex-col gap-1">
-          <Label htmlFor={`${id}-vault`}>1Password vault</Label>
-          <Input
-            id={`${id}-vault`}
-            placeholder="Private"
-            autoComplete="off"
-            value={vault}
-            onChange={(e) => setVault(e.target.value)}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor={`${id}-item`}>1Password item</Label>
+          <Label htmlFor={`${id}-item`}>
+            {op ? "1Password item" : "Bitwarden item id or name"}
+          </Label>
           <Input
             id={`${id}-item`}
-            placeholder="GitHub"
+            placeholder={op ? "GitHub" : "GitHub, or the item's id"}
             autoComplete="off"
             value={item}
             onChange={(e) => setItem(e.target.value)}

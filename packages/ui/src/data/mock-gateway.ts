@@ -1452,7 +1452,7 @@ export class MockGateway implements GatewayClient {
         useCount: 0,
         createdAt: now,
         updatedAt: now,
-        backend: "1password",
+        backend: p.source,
       };
       this.world.credentials = [...this.world.credentials, credential];
       this.emit("credential.updated", {
