@@ -197,6 +197,7 @@ export class Connection implements LiveConnection {
     if (scope !== "none" && !identity.scopes.includes(scope)) {
       throw new PsycheError("forbidden", `${method} requires scope ${scope}`);
     }
+    this.#rateLimit(identity.deviceId, method, spec.sideEffecting);
     const def: HandlerDef | undefined = HANDLERS[method] ?? this.#ctx.extraHandlers[method];
     if (def === undefined) {
       throw new PsycheError("not_implemented", `${method} is not implemented yet`);
@@ -217,6 +218,26 @@ export class Connection implements LiveConnection {
       () => this.#execute(def, method, params, identity, { ref, hash }),
       def.transactional !== true,
     );
+  }
+
+  /**
+   * Per-device budgets (security §10 "rate limits per device token"). Node-protocol frames are
+   * exempt: a node streams `node.event`s for invocations the Gateway itself started.
+   */
+  #rateLimit(deviceId: string, method: string, sideEffecting: boolean): void {
+    if (method.startsWith("node.")) return;
+    const { deviceRequests, deviceSideEffects } = this.#ctx;
+    if (
+      !deviceRequests.allowed(deviceId) ||
+      (sideEffecting && !deviceSideEffects.allowed(deviceId))
+    ) {
+      throw new PsycheError("rate_limited", "Too many requests from this device; slow down", {
+        retryable: true,
+        details: { scope: sideEffecting ? "side_effects" : "requests", windowMs: 60_000 },
+      });
+    }
+    deviceRequests.record(deviceId);
+    if (sideEffecting) deviceSideEffects.record(deviceId);
   }
 
   /**
