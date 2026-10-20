@@ -537,12 +537,21 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
   ): Promise<{ res: NodeInvokeResult; session?: Session; approvalId?: string }> {
     const ctx = deps.context(callId);
     let approvalId = ctx.approvalId;
+    // #267: every action names the app the broker and the owner decided about, and the tier an
+    // approval covered. The helper refuses when the app under a point or ref is another one, and
+    // an approval for a click never becomes an interact allowance.
+    const scoped = (approved: string | undefined): Record<string, unknown> => ({
+      ...inv.params,
+      ...(inv.session && inv.approval.app !== "*" ? { app: inv.approval.app } : {}),
+      ...(inv.session && approved !== undefined ? { approvedTier: inv.approval.tierRequired } : {}),
+    });
     for (let round = 0; ; round++) {
       const node = requireHelper();
       const session = inv.session ? acquire(ctx, node) : undefined;
+      const params = scoped(approvalId);
       const res = await node.client.invoke(
         inv.capability,
-        session === undefined ? inv.params : { ...inv.params, session: session.id },
+        session === undefined ? params : { ...params, session: session.id },
         {
           signal,
           timeoutMs: inv.timeoutMs ?? INVOKE_TIMEOUT_MS,
@@ -551,6 +560,22 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       );
       if (session !== undefined) session.lastUsed = now();
       if (res.ok) {
+        // A helper that acted on another app than the approved one (an older helper without
+        // the check): report it and stop, never treat it as the approved action.
+        const acted = (res.result as { bundleId?: unknown; app?: unknown } | undefined) ?? {};
+        const actedApp = typeof acted.bundleId === "string" ? acted.bundleId : acted.app;
+        if (
+          inv.session &&
+          inv.approval.app !== "*" &&
+          typeof actedApp === "string" &&
+          actedApp.toLowerCase() !== inv.approval.app.toLowerCase()
+        ) {
+          throw new PsycheError(
+            "policy_denied",
+            `The action reached ${actedApp}, not ${inv.approval.app}`,
+            { details: { reason: "app_mismatch", app: inv.approval.app, actedApp } },
+          );
+        }
         if (
           session !== undefined ||
           inv.capability === "apps.open" ||
