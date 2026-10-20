@@ -213,6 +213,12 @@
 //   let devicesListResult = try? JSONDecoder().decode(DevicesListResult.self, from: jsonData)
 //   let devicesPairingListParams = try? JSONDecoder().decode(DevicesPairingListParams.self, from: jsonData)
 //   let devicesPairingListResult = try? JSONDecoder().decode(DevicesPairingListResult.self, from: jsonData)
+//   let devicesPresenceKeyListParams = try? JSONDecoder().decode(DevicesPresenceKeyListParams.self, from: jsonData)
+//   let devicesPresenceKeyListResult = try? JSONDecoder().decode(DevicesPresenceKeyListResult.self, from: jsonData)
+//   let devicesPresenceKeyRegisterParams = try? JSONDecoder().decode(DevicesPresenceKeyRegisterParams.self, from: jsonData)
+//   let devicesPresenceKeyRegisterResult = try? JSONDecoder().decode(DevicesPresenceKeyRegisterResult.self, from: jsonData)
+//   let devicesPresenceKeyRemoveParams = try? JSONDecoder().decode(DevicesPresenceKeyRemoveParams.self, from: jsonData)
+//   let devicesPresenceKeyRemoveResult = try? JSONDecoder().decode(DevicesPresenceKeyRemoveResult.self, from: jsonData)
 //   let devicesRevokeParams = try? JSONDecoder().decode(DevicesRevokeParams.self, from: jsonData)
 //   let devicesRevokeResult = try? JSONDecoder().decode(DevicesRevokeResult.self, from: jsonData)
 //   let dictationInsertMethod = try? JSONDecoder().decode(DictationInsertMethod.self, from: jsonData)
@@ -440,6 +446,7 @@
 //   let planStepStatus = try? JSONDecoder().decode(PlanStepStatus.self, from: jsonData)
 //   let policyRule = try? JSONDecoder().decode(PolicyRule.self, from: jsonData)
 //   let presenceAssertion = try? JSONDecoder().decode(PresenceAssertion.self, from: jsonData)
+//   let presenceKeyInfo = try? JSONDecoder().decode(PresenceKeyInfo.self, from: jsonData)
 //   let probedModel = try? JSONDecoder().decode(ProbedModel.self, from: jsonData)
 //   let protocolVersionRange = try? JSONDecoder().decode(ProtocolVersionRange.self, from: jsonData)
 //   let provenance = try? JSONDecoder().decode(Provenance.self, from: jsonData)
@@ -5350,6 +5357,96 @@ public struct DevicesPairingListResult: Codable, Sendable {
 
     public init(pairingRequests: [PairingRequest]) {
         self.pairingRequests = pairingRequests
+    }
+}
+
+// MARK: - DevicesPresenceKeyListResult
+public struct DevicesPresenceKeyListResult: Codable, Sendable {
+    public let presenceKeys: [PresenceKeyInfo]
+
+    public enum CodingKeys: String, CodingKey {
+        case presenceKeys = "presenceKeys"
+    }
+
+    public init(presenceKeys: [PresenceKeyInfo]) {
+        self.presenceKeys = presenceKeys
+    }
+}
+
+// MARK: - PresenceKeyInfo
+public struct PresenceKeyInfo: Codable, Sendable {
+    public let deviceID: String
+    public let keyID: String
+    public let registeredAt: String
+
+    public enum CodingKeys: String, CodingKey {
+        case deviceID = "deviceId"
+        case keyID = "keyId"
+        case registeredAt = "registeredAt"
+    }
+
+    public init(deviceID: String, keyID: String, registeredAt: String) {
+        self.deviceID = deviceID
+        self.keyID = keyID
+        self.registeredAt = registeredAt
+    }
+}
+
+// MARK: - DevicesPresenceKeyRegisterParams
+public struct DevicesPresenceKeyRegisterParams: Codable, Sendable {
+    public let approvalID: String?
+    public let deviceID: String
+    public let expectKeyID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
+        case deviceID = "deviceId"
+        case expectKeyID = "expectKeyId"
+    }
+
+    public init(approvalID: String?, deviceID: String, expectKeyID: String?) {
+        self.approvalID = approvalID
+        self.deviceID = deviceID
+        self.expectKeyID = expectKeyID
+    }
+}
+
+// MARK: - DevicesPresenceKeyRegisterResult
+public struct DevicesPresenceKeyRegisterResult: Codable, Sendable {
+    public let presenceKey: PresenceKeyInfo
+
+    public enum CodingKeys: String, CodingKey {
+        case presenceKey = "presenceKey"
+    }
+
+    public init(presenceKey: PresenceKeyInfo) {
+        self.presenceKey = presenceKey
+    }
+}
+
+// MARK: - DevicesPresenceKeyRemoveParams
+public struct DevicesPresenceKeyRemoveParams: Codable, Sendable {
+    public let deviceID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case deviceID = "deviceId"
+    }
+
+    public init(deviceID: String) {
+        self.deviceID = deviceID
+    }
+}
+
+// MARK: - DevicesPresenceKeyRemoveResult
+public struct DevicesPresenceKeyRemoveResult: Codable, Sendable {
+    public let removed: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case removed = "removed"
+    }
+
+    public init(removed: Bool) {
+        self.removed = removed
     }
 }
 
@@ -13623,6 +13720,7 @@ public typealias BrowserRealChromeStatusParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]
+public typealias DevicesPresenceKeyListParams = [String: JSONAny]
 public typealias DictationTargetParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]
 public typealias MemoryExportParams = [String: JSONAny]

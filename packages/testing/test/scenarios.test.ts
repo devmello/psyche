@@ -26,18 +26,20 @@ const KNOWN = JSON.parse(
 const V7_KNOWN = Object.keys(KNOWN["v7-research-brief"] ?? {});
 
 describe("acceptance scenarios (scripted)", () => {
-  it("runs V1, V2, V3 and V7 with stable ordering", async () => {
+  it("runs V1, V2, V3, V4 and V7 with stable ordering", async () => {
     const report = await runAllScenarios();
     expect(report.scenarios.map((s) => s.scenario)).toEqual([
       "v1-inbox-triage",
       "v2-calendar-planning",
       "v3-shopping",
+      "v4-travel",
       "v7-research-brief",
     ]);
-    const [v1, v2, v3, v7] = report.scenarios;
+    const [v1, v2, v3, v4, v7] = report.scenarios;
     expect(failures(v1 as never)).toEqual([]);
     expect(failures(v2 as never)).toEqual([]);
     expect(failures(v3 as never)).toEqual([]);
+    expect(failures(v4 as never)).toEqual([]);
     expect(failures(v7 as never)).toEqual(V7_KNOWN);
     // #69 fixed: the standing site grant covers the tainted fetch, so the runner sees no card.
     expect(v7?.assertions.filter((a) => a.id.startsWith("runner/"))).toEqual([]);
