@@ -379,6 +379,9 @@ export function elementsIn(text: string): { ref: string; role: string; label?: s
   return out;
 }
 
+/** AX roles whose click opens choices (`AXMenuItem` → `menuitem`): `interact`, not `click`. */
+const MENU_ROLES = new Set(["menuitem", "menubaritem", "menubutton", "popupbutton"]);
+
 /** Elements remembered for describing and checking actions (bounded). */
 const MAX_ELEMENTS = 20_000;
 
@@ -591,10 +594,16 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     // #267: every action names the app the broker and the owner decided about, and the tier an
     // approval covered. The helper refuses when the app under a point or ref is another one, and
     // an approval for a click never becomes an interact allowance.
+    // The helper's contract (docs/status/s14.md, #266 / #267): `approval: {app, tier}` with every
+    // approved `computer.*` / `apps.focus` call; without it the helper treats the call as
+    // unapproved.
+    const approvable = inv.session || inv.capability === "apps.focus";
     const scoped = (approved: string | undefined): Record<string, unknown> => ({
       ...inv.params,
       ...(inv.session && inv.approval.app !== "*" ? { app: inv.approval.app } : {}),
-      ...(inv.session && approved !== undefined ? { approvedTier: inv.approval.tierRequired } : {}),
+      ...(approvable && approved !== undefined && inv.approval.app !== "*"
+        ? { approval: { app: inv.approval.app, tier: inv.approval.tierRequired } }
+        : {}),
     });
     for (let round = 0; ; round++) {
       const node = requireHelper();
@@ -878,6 +887,17 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     return at === undefined || now() - at > ATTENTION_WINDOW_MS;
   }
 
+  /**
+   * The tier an act needs: `tierFor`, except that a click on a menu, menu-bar item, menu button
+   * or pop-up button opens choices like a menu and needs `interact` (#267).
+   */
+  function actTier(p: ActParams): "click" | "interact" {
+    const tier = tierFor(p.action);
+    if (tier !== "click" || p.ref === undefined) return tier;
+    const role = elements.get(p.ref)?.role?.toLowerCase() ?? "";
+    return MENU_ROLES.has(role.replace(/^ax/, "")) ? "interact" : tier;
+  }
+
   /** What the owner sees and the broker classifies: risky labels and chords are destructive. */
   function describeAct(p: ActParams): ToolCallDescription {
     // Risk comes from what the snapshot showed, not only from what the agent copied: an element
@@ -916,16 +936,20 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       // Data model §4.2 computer_action: app, tier, action, element ref, typed text.
       bindingFields: {
         app: p.app,
-        tierRequired: tierFor(p.action),
+        tierRequired: actTier(p),
         action: p.action,
         ...(p.ref === undefined ? {} : { elementRef: p.ref }),
         ...(p.text === undefined && p.keys === undefined
           ? {}
           : { textSha256: hashCanonical(p.text ?? p.keys ?? "") }),
       },
-      grantKey: `${p.app}|${tierFor(p.action)}`,
-      // The broker's per-app tier check keys on the action: a click needs `click`, typing `interact`.
-      meta: { app: p.app, action: p.action },
+      grantKey: `${p.app}|${actTier(p)}`,
+      // The broker's per-app tier check keys on the action: a click needs `click`, typing
+      // `interact`; a click that opens a menu is judged as `menu` (interact).
+      meta: {
+        app: p.app,
+        action: actTier(p) === "interact" && tierFor(p.action) === "click" ? "menu" : p.action,
+      },
       summary: `${unwatched(p.app) ? "While you're away: " : ""}${what} in ${p.app}`,
       details: {
         app: p.app,
@@ -1031,7 +1055,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
             capability,
             params,
             session: true,
-            approval: { app: p.app, action: p.action, tierRequired: tierFor(p.action) },
+            approval: { app: p.app, action: p.action, tierRequired: actTier(p) },
           },
           signal,
         );
