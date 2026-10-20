@@ -42,6 +42,9 @@ import { realChromeOpenCommand, realChromeProfileDir } from "./lib/real-chrome.t
 import { ZoomController } from "./lib/zoom.ts";
 import { BridgeClient } from "./main/bridge/bridge-client.ts";
 import { BrowserHost } from "./main/browser/browser-host.ts";
+import { SystemDictation } from "./main/dictation/controller.ts";
+import { HudWindow } from "./main/dictation/hud.ts";
+import { DictationService } from "./main/dictation/service.ts";
 import { buildAppMenu } from "./main/menu.ts";
 import { chooseMode, GatewaySupervisor } from "./main/supervisor.ts";
 import { TerminalHost } from "./main/terminal.ts";
@@ -88,6 +91,8 @@ let bridge: BridgeClient | undefined;
 let terminal: TerminalHost | undefined;
 let tray: PsycheTray | undefined;
 let supervisor: GatewaySupervisor | undefined;
+let hud: HudWindow | undefined;
+let dictation: DictationService | undefined;
 const relay = new NotificationRelay();
 const zoom = new ZoomController({
   targets: () => windows?.appContents() ?? [],
@@ -415,6 +420,7 @@ function onGatewayEvent(e: {
   stateVersion: number;
 }): void {
   broadcast(IPC.event, e);
+  dictation?.onEvent(e.event, e.payload);
   const p = e.payload as Record<string, unknown>;
   if (e.event === "settings.changed") {
     zoom.onSettingsChanged((p.entries as { key: string; value: unknown }[] | undefined) ?? []);
@@ -469,7 +475,7 @@ function lockDownDefaultSession(): void {
   ses.setPermissionRequestHandler((wc, permission, callback, details) => {
     const ok =
       permission === "media" &&
-      windows?.isAppContents(wc) === true &&
+      (windows?.isAppContents(wc) === true || hud?.owns(wc) === true) &&
       isAppUrl(details.requestingUrl) &&
       (details as { mediaTypes?: string[] }).mediaTypes?.every((t) => t === "audio") === true;
     callback(ok);
@@ -478,7 +484,7 @@ function lockDownDefaultSession(): void {
     (wc, permission, origin) =>
       permission === "media" &&
       wc !== null &&
-      windows?.isAppContents(wc) === true &&
+      (windows?.isAppContents(wc) === true || hud?.owns(wc) === true) &&
       isAppUrl(origin),
   );
 }
@@ -549,13 +555,34 @@ void app.whenReady().then(async () => {
         void refreshHelperPresence();
         void refreshApprovals();
         void zoom.load();
-      }
+        void dictation?.load();
+      } else dictation?.onDisconnected();
     },
     onEvent: onGatewayEvent,
     onResync: () => {
       broadcast(IPC.resync, null);
       void refreshApprovals();
     },
+  });
+  // System-wide dictation (J9, Q2): hold-to-talk through the helper, the toggle hotkey here.
+  hud = new HudWindow({
+    url: (route) => new URL(route, rendererUrl).toString(),
+    preloadPath: preloadPath(),
+    onAudio: (chunk) => controller.onAudio(chunk),
+  });
+  const controller = new SystemDictation({
+    call: (m, p) => requireGateway().call(m, p),
+    hud,
+    capture: hud,
+    warn: (m) => console.warn(`[dictation] ${m}`),
+  });
+  dictation = new DictationService({
+    dictation: controller,
+    call: (m, p) => requireGateway().call(m, p),
+    ...(!app.isPackaged && process.env.PSYCHE_DISABLE_GLOBAL_SHORTCUTS === "1"
+      ? {}
+      : { shortcuts: globalShortcut }),
+    warn: (m) => console.warn(`[dictation] ${m}`),
   });
   terminal = new TerminalHost({ call: (m, p) => requireGateway().call(m, p) });
   terminal.onData((sessionId, data) => broadcast(IPC.terminalData, { sessionId, data }));
@@ -625,6 +652,8 @@ app.on("window-all-closed", () => {
 });
 
 app.on("will-quit", () => {
+  dictation?.dispose();
+  hud?.destroy();
   globalShortcut.unregisterAll();
 });
 
