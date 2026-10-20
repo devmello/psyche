@@ -95,8 +95,7 @@ Schedule it with cron or a systemd timer, e.g. `15 3 * * * /opt/psyche/deploy/ba
 
 User guides: [docs/guides/](../docs/guides/README.md) (install, backup and restore, upgrade).
 
-`.github/workflows/publish.yml` runs only on `v*` tags (and by hand, as a dry run by default): the signed multi-arch image, the CLI binaries with the version and the database migrations baked in, both DMGs, the GitHub release with `SHA256SUMS`, and the Homebrew tap. Signing and notarization run only when the secrets listed at the top of the workflow exist; otherwise everything ships unsigned and says so.
+`.github/workflows/release.yml` runs only on `v*` tags (and by hand, as a dry run by default): the signed multi-arch image, the CLI binaries with the version and the database migrations baked in, both DMGs, the GitHub release with `SHA256SUMS`, and the Homebrew tap. Signing and notarization run only when the secrets listed at the top of the workflow exist; otherwise everything ships unsigned and says so.
 
-Before v1.0:
+The deploy smoke test (image build, `docker compose up --wait`, `psyche status` inside and outside the container, non-root/read-only/no-ports checks, backup scripts round trip) is the workflow's first job and gates the image push. A manual run with `version_pr` only opens or updates the changesets "Version Packages" PR. Nothing in it runs on pull requests or main pushes; the merge gate is local (`pnpm -w typecheck`, the touched packages' tests, `biome check`).
 
-`.github/workflows/release.yml` (tag `v*`): the multi-arch Gateway image on GHCR signed with cosign, `psyche` binaries for macOS arm64/x64 and Linux x64/arm64, the unsigned desktop package, and release notes from changesets. On pull requests that touch `deploy/` or `apps/cli/`, its `deploy-smoke` job builds the image, runs `docker compose up --wait`, and checks `psyche status` inside and outside the container.

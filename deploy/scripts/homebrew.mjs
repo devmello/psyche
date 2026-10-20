@@ -1,4 +1,4 @@
-// Renders the Homebrew cask and formula from a release (.github/workflows/publish.yml).
+// Renders the Homebrew cask and formula from a release (.github/workflows/release.yml).
 // Usage: node homebrew.mjs <version without v> <SHA256SUMS> <out-dir>
 // Writes <out-dir>/Casks/psyche.rb and <out-dir>/Formula/psyche-cli.rb (the tap's layout).
 // Every {{SHA256:<file>}} must have a line in SHA256SUMS; a missing asset fails the render.
