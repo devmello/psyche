@@ -24,6 +24,22 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 - `sandbox.status` result gains optional `egress` (the host egress proxy for `network: "proxy"` sandboxes is running, security §5.2).
 - No fake changes: no contract changed.
 
+### v1 additive — 2026-10-19 (M3 gateway hardening, docs/status/s05.md §2)
+
+- Error code `presence_required`: a security change needs fresh presence and no verifier on this Gateway can give one (presence was enrolled, then every passkey and helper key was lost or revoked). The UI tells the owner to add a passkey or register the helper's key.
+- Optional `approvalId` on `devices.approve`, `channels.configure`, `channels.allowlist.update`, `channels.pairing.approve`, `channels.identities.upsert`, `memory.reset`, `backup.delete` and `passkeys.register.finish`: the same fresh-presence round trip `settings.set` already has (the first call fails `approval_required` with `details.approvalId`; retry with it once the device-only `policy_change` card is approved).
+- `AuditVerifyResult` gains optional `signedAnchors`, `anchorKeyIds` and `signingSinceSeq` (signed audit anchors, security §15.1).
+- No fake change: no contract interface changed.
+### v1 additive — 2026-10-19 (M3 model adapters: Settings → Model & providers, B1/B4)
+
+For the model router (S03 M3: endpoint probe), the Gateway (`models.*` handlers) and Settings → Model & providers in `packages/ui` / `apps/web`.
+
+- New methods in `methods/models.ts`:
+  - `models.list {}` → `{providers: ModelProviderSummary[], roles: ModelRoles}` (`operator.read`): configured providers, their known models with tool-check verdicts, and the last endpoint probe (`not_probed` until one runs).
+  - `models.probe {providerId}` → `{provider}` (`operator.admin`): reachability, model list and capability guesses for one configured provider; runs only when the owner asks.
+  - `models.check {ref}` → `{result: ToolCheckResult}` (`operator.admin`): the six-case tool-calling check (B4).
+  - `models.setRole {role: "primary" | "utility", ref, override?}` → `{roles}` (`operator.admin`, side-effecting): binds and persists a role; `policy_denied` for a chat-only primary without `override`.
+- New schemas in `schemas/models.ts`: `ModelFactSource`, `ModelCapabilityGuess`, `ProbedModel`, `EndpointProbeState`, `EndpointProbe`, `ToolCheckStatus`, `ToolCheckResult`, `ProviderModelEntry`, `ModelProviderSummary`, `PickableModelRole`, `ModelRoles`.
 ### v1 additive — 2026-10-19 (M3 T2: skills install and trust)
 
 For S16 (`packages/skills`), the Gateway (`skills.*` handlers), S05 (`skill_install` binding) and Settings → Skills (S11 / S12).

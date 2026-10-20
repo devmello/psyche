@@ -1,3 +1,4 @@
+import { PsycheError } from "@psyche/protocol";
 import { assertNoSecrets, FakeClock, FakeCredentialBroker } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import type {
@@ -279,5 +280,21 @@ describe("web_fetch tool", () => {
       expect(out.output).toMatchObject({ url: "https://docs.example.org/page", markdown: "docs" });
       expect(asked).toHaveLength(1);
     });
+  });
+
+  it("beforeFetch refuses before any request leaves (security §10 fetch limit)", async () => {
+    const transport = fakeTransport({
+      "https://example.com/": { headers: { "content-type": "text/plain" }, body: "hi" },
+    });
+    const f = createWebFetchFactory({
+      lookup: fakeLookup({ "example.com": "93.184.216.34" }),
+      transport,
+      beforeFetch: () => {
+        throw new PsycheError("rate_limited", "web_fetch is limited");
+      },
+    });
+    const t = only(f.create(record("fetch", {}), context(jsonFetch({}))).tools());
+    await expectPsyche(t.execute({ url: "https://example.com/" }, run()), "rate_limited");
+    expect(transport.calls).toHaveLength(0);
   });
 });

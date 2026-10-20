@@ -4,6 +4,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import type { CdpSession, FocusedElement } from "../../../vault/src/fill/browser.ts";
 import type {
   LinkWallet,
+  PaymentMethod,
   ReportOutcome,
   SpendLimits,
   SpendRequest,
@@ -54,6 +55,14 @@ export class ScenarioLinkWallet implements LinkWallet {
   async spendLimits(): Promise<SpendLimits> {
     this.#onCall("user-info");
     return { currency: "usd", perTransaction: 50_000, daily: 50_000, thirtyDay: 2_000_000 };
+  }
+
+  /** The owner's Link wallet in test mode: one default Visa. */
+  async paymentMethods(): Promise<PaymentMethod[]> {
+    this.#onCall("payment-methods list");
+    return [
+      { id: "csmrpd_test_visa", brand: "visa", last4: "1881", nickname: null, isDefault: true },
+    ];
   }
 
   async create(input: SpendRequestInput): Promise<SpendRequest> {

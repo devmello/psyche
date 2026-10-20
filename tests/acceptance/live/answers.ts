@@ -17,6 +17,11 @@ export interface LiveAnswerRule {
   question?: RegExp;
   /** The option label(s) to answer with; a string for single-choice, a list for multi-select. */
   answer: string | string[];
+  /**
+   * Answer with this text as written, as the owner would type it into the question's "Other"
+   * box (a phone number the options cannot hold). Without it, the answer is matched to an option.
+   */
+  literal?: boolean;
 }
 
 export const LIVE_ANSWERS: Record<string, LiveAnswerRule[]> = {
@@ -26,7 +31,26 @@ export const LIVE_ANSWERS: Record<string, LiveAnswerRule[]> = {
     { question: /launch|roadmap|maya/i, answer: "Confirm" },
   ],
   "v2-calendar-planning": [],
+  "v3-shopping": [],
   "v7-research-brief": [],
+  // The owner's values for the permission slip (the scenario's s2 message gives the same ones).
+  "v5-permission-slip": [
+    { question: /emergency/i, answer: "Sam Kim, 555-0177", literal: true },
+    { question: /phone/i, answer: "555-0142", literal: true },
+    { question: /allerg|medical/i, answer: "None", literal: true },
+    { question: /permission|can (she|riley) go|attend/i, answer: "Yes" },
+    { question: /grade/i, answer: "3", literal: true },
+  ],
+  "v6-messages-voice-note": [
+    { question: /time|when|day/i, answer: "Thursday at 3 PM", literal: true },
+    { question: /voice/i, answer: "Yes" },
+  ],
+  // What the owner keeps and cancels (the scenario's s2 message says the same).
+  "v8-subscription-audit": [
+    { question: /cancel/i, answer: ["StreamFlix", "PhotoLab"] },
+    { question: /keep/i, answer: ["FitLoop", "CloudHost", "NewsDaily"] },
+  ],
+  "v9-weekly-review": [{ question: /time|when|day/i, answer: "Fridays at 4 PM", literal: true }],
 };
 
 export type QuestionAnswer = Record<string, string | string[]>;
@@ -54,6 +78,17 @@ export function answerFor(
         (r.header !== undefined && r.header === q.header) || r.question?.test(q.question) === true,
     );
     const wanted = rule === undefined ? undefined : rule.answer;
+    if (rule?.literal === true) {
+      answer[q.header] = q.multiSelect
+        ? Array.isArray(rule.answer)
+          ? rule.answer
+          : [rule.answer]
+        : Array.isArray(rule.answer)
+          ? (rule.answer[0] ?? "")
+          : rule.answer;
+      sources[q.header] = "rule";
+      continue;
+    }
     if (q.multiSelect) {
       const list = wanted === undefined ? [] : Array.isArray(wanted) ? wanted : [wanted];
       const labels = list.map((w) => optionLabel(q, w));

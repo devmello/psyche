@@ -85,6 +85,17 @@ export interface CardFile {
   postalCode?: string;
 }
 
+/** A Link payment method, redacted: what funds a spend request (cards and bank accounts). */
+export interface PaymentMethod {
+  /** `csmrpd_…`, passed as `--payment-method-id`. */
+  id: string;
+  /** `visa`, `mastercard`, `bank_account`, `link_balance`, … */
+  brand: string;
+  last4: string;
+  nickname: string | null;
+  isDefault: boolean;
+}
+
 export interface SpendLimits {
   currency: string;
   perTransaction: number | null;
@@ -97,6 +108,8 @@ export type ReportOutcome = "success" | "blocked" | "abandoned";
 /** Port over the Link Agent Wallet. `LinkCliWallet` is the production adapter; tests use a fake. */
 export interface LinkWallet {
   spendLimits(): Promise<SpendLimits>;
+  /** The owner's saved payment methods (`payment-methods list`), redacted. */
+  paymentMethods(): Promise<PaymentMethod[]>;
   /** Create the request and ask the owner to approve it (`--request-approval`). */
   create(input: SpendRequestInput): Promise<SpendRequest>;
   /** With `wait`, block until the status leaves the waiting states (or the CLI times out). */
@@ -159,6 +172,27 @@ export function parseSpendRequest(raw: unknown): SpendRequest {
     requiresAction:
       action === undefined ? null : { type: str(action.type), resolution: str(action.resolution) },
   };
+}
+
+/** Map `payment-methods list` JSON (a list, or `{data: [...]}`) onto `PaymentMethod`s. */
+export function parsePaymentMethods(raw: unknown): PaymentMethod[] {
+  const list = Array.isArray(raw) ? raw : (((raw ?? {}) as Json).data ?? []);
+  if (!Array.isArray(list)) return [];
+  return list.flatMap((r) => {
+    const m = (r ?? {}) as Json;
+    const card = (m.card ?? m.bank_account ?? {}) as Json;
+    const id = str(m.id);
+    if (!/^[A-Za-z0-9_]+$/.test(id)) return [];
+    return [
+      {
+        id,
+        brand: str(card.brand) || str(m.type) || "unknown",
+        last4: (str(card.last4) || str(m.last4)).slice(-4),
+        nickname: str(m.nickname) || null,
+        isDefault: m.is_default === true || m.default === true,
+      },
+    ];
+  });
 }
 
 /** Parse the 0600 card file Link writes (`--output-file`). */
@@ -252,6 +286,10 @@ export class LinkCliWallet implements LinkWallet {
       daily: val(l.daily),
       thirtyDay: val(l.thirty_day),
     };
+  }
+
+  async paymentMethods(): Promise<PaymentMethod[]> {
+    return parsePaymentMethods(await this.#call(["payment-methods", "list"]));
   }
 
   async create(input: SpendRequestInput): Promise<SpendRequest> {
