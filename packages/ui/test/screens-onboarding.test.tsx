@@ -16,7 +16,12 @@ function setup(props: Partial<OnboardingFlowProps> = {}, slots: UiSlots = {}) {
   const onStepChange = vi.fn();
   render(
     // First run: the Gateway has no connectors yet.
-    <StoryWorld slots={slots} edit={(w) => void (w.connectors = [])}>
+    <StoryWorld
+      slots={slots}
+      edit={(w) => {
+        w.connectors = [];
+      }}
+    >
       <OnboardingFlow onComplete={onComplete} onStepChange={onStepChange} {...props} />
     </StoryWorld>,
   );
@@ -445,6 +450,16 @@ describe("Connect in onboarding is the real sign-in (#505)", () => {
       await screen.findByText(
         /Signing in to Google \(Gmail, Calendar, Drive\) isn't available on this Gateway yet/,
       ),
+    ).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Connected \(0\)/ })).toBeTruthy();
+  });
+
+  it("says when the Gateway has no OAuth client for Google yet (#524)", async () => {
+    await startGoogle({}, (w) => {
+      w.connectorConnect = "not_configured";
+    });
+    expect(
+      await screen.findByText(/isn't set up on this Gateway yet: it needs your own OAuth client/),
     ).toBeTruthy();
     expect(screen.getByRole("heading", { name: /Connected \(0\)/ })).toBeTruthy();
   });

@@ -27,7 +27,9 @@ export type ConnectState =
     }
   | { phase: "connected"; type: string; label: string; connector: Connector }
   | { phase: "failed"; type: string; label: string; reason: string }
-  | { phase: "unavailable"; type: string; label: string };
+  | { phase: "unavailable"; type: string; label: string }
+  /** The Gateway knows the connector but has no OAuth client for it (#524: Google's guide). */
+  | { phase: "not-configured"; type: string; label: string };
 
 export function useConnectorConnect() {
   const store = useStore();
@@ -127,10 +129,13 @@ export function useConnectorConnect() {
         }
       } catch (err) {
         const code = errorCode(err);
+        const reason = (err as { details?: { reason?: unknown } }).details?.reason;
         setState(
           code === "not_implemented" || code === "unknown_method"
             ? { phase: "unavailable", type, label }
-            : { phase: "failed", type, label, reason: describeError(err) },
+            : code === "unavailable" && reason === "not_configured"
+              ? { phase: "not-configured", type, label }
+              : { phase: "failed", type, label, reason: describeError(err) },
         );
       }
     },
@@ -232,6 +237,12 @@ export function ConnectProgress({
             </Button>
           ) : null}
         </div>
+      );
+    case "not-configured":
+      return (
+        <p className="text-sm text-muted-foreground" role="status">
+          {t("settings.connect.notConfigured", { name: state.label })}
+        </p>
       );
     case "unavailable":
       return (

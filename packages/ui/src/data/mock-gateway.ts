@@ -115,7 +115,7 @@ export interface MockWorld {
   /** What `models.probe` finds per provider id (recorded fixtures); missing → unreachable. */
   modelProbes?: Record<string, EndpointProbe>;
   /** `connectors.connect` behaviour: "unavailable" answers not_implemented (#505). */
-  connectorConnect?: "unavailable";
+  connectorConnect?: "unavailable" | "not_configured";
   /** The last turn's context usage by thread id (`threads.contextUsage`). */
   contextUsage?: Record<string, ContextUsage>;
   /** Each thread's own context limits (`threads.setContextLimits`). */
@@ -1330,6 +1330,10 @@ export class MockGateway implements GatewayClient {
     "connectors.connect": (p) => {
       if (this.world.connectorConnect === "unavailable")
         fail("not_implemented", "connectors.connect is not available on this Gateway");
+      if (this.world.connectorConnect === "not_configured")
+        throw new PsycheError("unavailable", "Google is not set up on this Gateway", {
+          details: { reason: "not_configured" },
+        });
       const now = this.now();
       const connector: Connector = {
         id: p.connectorId ?? this.id("con"),

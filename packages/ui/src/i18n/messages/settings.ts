@@ -1273,6 +1273,8 @@ export const settings = {
   "settings.connect.signInFailed": "the sign-in didn't finish",
   "settings.connect.expired": "the sign-in page expired. Try again.",
   "settings.connect.noSignIn": "the Gateway didn't return a sign-in page",
+  "settings.connect.notConfigured":
+    "{name} isn't set up on this Gateway yet: it needs your own OAuth client (the Connecting Google guide in Psyche's docs). Set it up later in Settings → Connectors.",
   "settings.connect.unavailable":
     "Signing in to {name} isn't available on this Gateway yet. Set it up later in Settings → Connectors.",
 } as const;

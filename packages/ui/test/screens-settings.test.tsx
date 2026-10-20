@@ -1214,7 +1214,9 @@ describe("Settings → Connectors connects for real (#505)", () => {
     const openExternal = vi.fn(async (_url: string) => {});
     render(
       <StoryWorld
-        edit={(w) => void (w.connectors = [])}
+        edit={(w) => {
+          w.connectors = [];
+        }}
         onGateway={(g) => (gw = g)}
         slots={{ openExternal }}
       >
