@@ -14,6 +14,7 @@ import {
   PsycheError,
   type Usage,
 } from "@psyche/protocol";
+import { type CapabilityFacts, guessFromName } from "./capability-guess.ts";
 import {
   type AuthProfile,
   isLocalKind,
@@ -28,7 +29,7 @@ import { classifyError, ModelCallError } from "./errors.ts";
 import { buildProvider } from "./factory.ts";
 import { Prices } from "./prices.ts";
 import { formatModelRef, parseModelRef } from "./refs.ts";
-import { ToolNameMap } from "./tool-names.ts";
+import { ToolNameMap, toolNameRuleFor } from "./tool-names.ts";
 import { normalizeUsage } from "./usage.ts";
 
 /** What happened on one call, reported to the router (the stream itself never throws). */
@@ -95,6 +96,7 @@ export class AiSdkAdapter implements ModelProvider {
   readonly #fetch: typeof fetch;
   readonly #built = new Map<string, ReturnType<typeof buildProvider>>();
   readonly #dims = new Map<string, number>();
+  readonly #listed = new Map<string, CapabilityFacts>();
 
   constructor(config: ProviderConfig, deps: AdapterDeps = {}) {
     this.id = config.id;
@@ -221,7 +223,7 @@ export class AiSdkAdapter implements ModelProvider {
     });
     aborted.catch(() => {});
 
-    const toolNames = ToolNameMap.for(request);
+    const toolNames = ToolNameMap.for(request, toolNameRuleFor(this.config.kind));
     const converter = new StreamConverter(this.id, modelId, toolNames);
     let reader: ReadableStreamDefaultReader<LanguageModelV4StreamPart> | undefined;
     arm(timeouts.firstEventMs);
@@ -365,6 +367,23 @@ export class AiSdkAdapter implements ModelProvider {
     return v?.length ?? 0;
   }
 
+  /**
+   * Record what an endpoint probe learned about this provider's models (vision, tool use,
+   * context length); `capabilities()` prefers these facts to the catalog and name guesses.
+   */
+  learn(models: readonly { id: string; capabilities: CapabilityFacts }[]): void {
+    for (const m of models) {
+      const { toolCalling, vision, reasoning, embeddings, contextWindow } = m.capabilities;
+      const facts: CapabilityFacts = {};
+      if (toolCalling !== undefined) facts.toolCalling = toolCalling;
+      if (vision !== undefined) facts.vision = vision;
+      if (reasoning !== undefined) facts.reasoning = reasoning;
+      if (embeddings !== undefined) facts.embeddings = embeddings;
+      if (contextWindow !== undefined) facts.contextWindow = contextWindow;
+      this.#listed.set(m.id, facts);
+    }
+  }
+
   async capabilities(model?: ModelRef): Promise<ModelCapabilities> {
     const modelId = model === undefined ? undefined : parseModelRef(model).model;
     const priceRef = modelId === undefined ? undefined : this.#priceRef(modelId);
@@ -382,9 +401,16 @@ export class AiSdkAdapter implements ModelProvider {
     };
     if (price?.contextWindow !== undefined) caps.contextWindow = price.contextWindow;
     if (price?.maxOutput !== undefined) caps.maxOutputTokens = price.maxOutput;
-    if (local && price === undefined) caps.promptCaching = false;
+    if (local && price === undefined) {
+      caps.promptCaching = false;
+      // Local model names say a lot (`-vl`, `qwen3`); a probe listing or the config says more.
+      const guess = modelId === undefined ? {} : guessFromName(modelId);
+      if (guess.vision !== undefined) caps.vision = guess.vision;
+      if (guess.reasoning !== undefined) caps.reasoning = guess.reasoning;
+    }
+    const listed = modelId === undefined ? undefined : this.#listed.get(modelId);
     const override = modelId === undefined ? undefined : this.config.models?.[modelId];
-    return { ...caps, ...override };
+    return { ...caps, ...listed, ...override };
   }
 }
 

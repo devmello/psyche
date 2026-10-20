@@ -1,0 +1,14 @@
+{
+  "name": "llama-server: internal error",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 500,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":{\"code\":500,\"message\":\"Internal Server Error\",\"type\":\"server_error\"}}"
+  }
+}

@@ -159,6 +159,11 @@ export class ModelRouter implements ModelProvider {
     return this.#providers.get(id);
   }
 
+  /** Every provider in the registry; refs are `<provider id>/<model id>`. */
+  providers(): ModelProvider[] {
+    return [...this.#providers.values()];
+  }
+
   role(role: ModelRole): RoleBinding | undefined {
     const b = this.#roles.get(role);
     return b === undefined ? undefined : structuredClone(b);

@@ -1,0 +1,14 @@
+{
+  "name": "Ollama GET /api/version",
+  "request": {
+    "method": "GET",
+    "pathEndsWith": "/api/version"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"version\":\"0.12.6\"}"
+  }
+}

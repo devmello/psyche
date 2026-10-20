@@ -1,0 +1,14 @@
+{
+  "name": "LM Studio GET /v1/models",
+  "request": {
+    "method": "GET",
+    "pathEndsWith": "/v1/models"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"object\":\"list\",\"data\":[{\"id\":\"qwen/qwen3.8-27b\",\"object\":\"model\",\"owned_by\":\"organization_owner\"},{\"id\":\"text-embedding-nomic-embed-text-v1.5\",\"object\":\"model\",\"owned_by\":\"organization_owner\"}]}"
+  }
+}
