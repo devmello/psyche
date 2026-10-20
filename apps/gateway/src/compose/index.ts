@@ -62,6 +62,7 @@ import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { CallContexts } from "./call-context.ts";
 import { composeComputer } from "./computer.ts";
+import { composeDictation } from "./dictation.ts";
 import {
   mountParamsOnly,
   mountPermissions,
@@ -393,6 +394,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const partFactories = [
     composeComputer,
     composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
+    composeDictation(),
     // Web passkeys (issue #79): unavailable until gateway.publicOrigin is an https origin. A
     // caller-supplied `presence` verifier takes the passkey role instead.
     ...(presence === NO_PRESENCE ? [composePasskeys({ publicOrigin: config.publicOrigin })] : []),
