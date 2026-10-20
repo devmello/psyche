@@ -41,6 +41,7 @@
     "@psyche/protocol": "workspace:*",
     "@psyche/sandbox": "workspace:*",
     "@psyche/scheduler": "workspace:*",
+    "@psyche/search": "workspace:*",
     "@psyche/skills": "workspace:*",
     "@psyche/speech": "workspace:*",
     "@psyche/tasks": "workspace:*",
