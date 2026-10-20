@@ -70,6 +70,24 @@ export interface StartTurnInput {
    * matching; the broker decides every call of the turn as that person's.
    */
   requester?: Requester;
+  /**
+   * Write-ahead hook (architecture §4.5 "Leases"; security §3.11, #63): awaited immediately
+   * before each tool call is dispatched, after the broker and any approval let it through. The
+   * task worker commits the step's `running` checkpoint here, so a crash after a provider applied
+   * an effect always leaves an in-flight step to mark `uncertain` and reconcile, never a silent
+   * re-send. A rejection blocks the call: it is not dispatched.
+   */
+  beforeDispatch?: (call: DispatchIntent) => Promise<void>;
+}
+
+/** A tool call the loop is about to dispatch (`StartTurnInput.beforeDispatch`). */
+export interface DispatchIntent {
+  toolCallId: string;
+  tool: string;
+  /** Effective side-effect class (the stricter of the spec and the call's description). */
+  sideEffect: SideEffect;
+  /** The approval that authorized it, when the broker asked. */
+  approvalId?: string;
 }
 
 export type AgentEvent =
