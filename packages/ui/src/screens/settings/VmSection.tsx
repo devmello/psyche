@@ -8,6 +8,7 @@ import { type ReactElement, useId } from "react";
 import { Label } from "../../components/ui/label.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { useGatewayQuery, useVmGuests } from "../../data/hooks.ts";
+import { t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
@@ -68,73 +69,79 @@ export function vmSettingsOf(values: Readonly<Record<string, unknown>>): VmSetti
   };
 }
 
-const PHASE: Record<VmGuest["phase"], { label: string; tone: Tone }> = {
-  created: { label: "Created", tone: "neutral" },
-  installing: { label: "Installing macOS", tone: "info" },
-  installed: { label: "Installed", tone: "neutral" },
-  provisioning: { label: "Setting up", tone: "info" },
-  stopped: { label: "Stopped", tone: "neutral" },
-  starting: { label: "Starting", tone: "info" },
-  running: { label: "Running", tone: "success" },
-  stopping: { label: "Stopping", tone: "info" },
-  failed: { label: "Failed", tone: "danger" },
-  paused: { label: "Paused", tone: "neutral" },
-  saved: { label: "Saved", tone: "neutral" },
+const PHASE_TONE: Record<VmGuest["phase"], Tone> = {
+  created: "neutral",
+  installing: "info",
+  installed: "neutral",
+  provisioning: "info",
+  stopped: "neutral",
+  starting: "info",
+  running: "success",
+  stopping: "info",
+  failed: "danger",
+  paused: "neutral",
+  saved: "neutral",
 };
 
-const CLIPBOARD_WORDS: Record<VmClipboard, string> = {
-  "paste-only": "Paste into the guest only",
-  bidirectional: "Both ways",
-  off: "Off",
-};
+const clipboardLabel = (c: VmClipboard): string =>
+  t(`settings.vm.clipboard.${c === "paste-only" ? "pasteOnly" : c}`);
+const vaultLabel = (v: VmCredentials): string => t(`settings.vm.vault.${v}`);
 
 function GuestCard({ report, now }: { report: VmUpdatedPayload; now: number }): ReactElement {
   const g = report.guest;
-  const phase = PHASE[g.phase];
   return (
     <article
-      aria-label={`Guest ${g.name}`}
+      aria-label={t("settings.vm.guestNamed", { name: g.name })}
       className="flex flex-col gap-3 rounded-lg border border-gray-6 bg-gray-2 p-4"
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{g.name}</span>
-        <StatusChip tone={phase.tone}>{phase.label}</StatusChip>
-        <span className="ml-auto text-xs text-muted-foreground">
-          Reported {formatRelative(report.at, now)}
+        <StatusChip tone={PHASE_TONE[g.phase]}>{t(`settings.vm.phase.${g.phase}`)}</StatusChip>
+        <span className="ms-auto text-xs text-muted-foreground">
+          {t("settings.vm.reported", { when: formatRelative(report.at, now) })}
         </span>
       </div>
       {g.phase === "failed" && g.lastError ? (
         <ErrorNotice
-          what={`The guest stopped: ${g.lastError}.`}
-          did="Tasks that need it wait until it runs again."
+          what={t("settings.vm.stopped", { error: g.lastError })}
+          did={t("settings.vm.tasksWait")}
         />
       ) : null}
       <Facts
         items={[
-          { term: "macOS", value: g.guestOS ?? "Not installed yet" },
+          // i18n-ignore: the operating system's name
+          { term: "macOS", value: g.guestOS ?? t("settings.vm.notInstalled") },
           {
-            term: "Resources",
-            value: `${g.cpus} CPUs · ${g.memoryGB} GB memory · ${g.diskGB} GB disk`,
+            term: t("settings.vm.resources"),
+            value: t("settings.vm.resourcesValue", {
+              cpus: g.cpus,
+              memory: g.memoryGB,
+              disk: g.diskGB,
+            }),
           },
           {
-            term: "Guest helper",
+            term: t("settings.vm.guestHelper"),
             value: g.agent?.connected
-              ? `Connected${g.agent.version ? ` (${g.agent.version})` : ""}`
-              : "Not connected",
+              ? g.agent.version
+                ? t("settings.vm.connectedVersion", { version: g.agent.version })
+                : t("settings.vm.connected")
+              : t("settings.vm.notConnected"),
           },
           {
-            term: "Shared folders",
+            term: t("settings.key.permissions.folders"),
             value:
               g.shares.length === 0
-                ? "None"
+                ? t("settings.vm.none")
                 : g.shares
-                    .map((s) => `${s.name} (${s.readOnly ? "read only" : "read and write"})`)
+                    .map((s) =>
+                      t("settings.vm.share", { name: s.name, readOnly: s.readOnly === true }),
+                    )
                     .join(", "),
           },
-          ...(g.clipboard ? [{ term: "Clipboard", value: CLIPBOARD_WORDS[g.clipboard] }] : []),
-          ...(g.vault
-            ? [{ term: "Credentials", value: g.vault === "host" ? "Host vault" : "Guest vault" }]
+          ...(g.clipboard
+            ? [{ term: t("settings.key.vm.clipboard"), value: clipboardLabel(g.clipboard) }]
             : []),
+          ...(g.vault ? [{ term: t("settings.vm.credentials"), value: vaultLabel(g.vault) }] : []),
         ]}
       />
     </article>
@@ -175,25 +182,25 @@ export function VmPanel({
   return (
     <SectionFrame
       needsApproval={needsApproval}
-      title="VM mode"
-      description={`Run tasks in a separate sandbox Mac, so ${persona} works in its own copy of macOS instead of yours.`}
+      title={t("settings.nav.vm")}
+      description={t("settings.vm.description", { persona })}
     >
       <LoadGate
-        label="VM settings"
+        label={t("settings.vm.loadLabel")}
         loading={loading ?? false}
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title="Sandbox Mac">
+        <Group title={t("settings.vm.sandboxMac")}>
           <SwitchField
-            label="Use a sandbox Mac for tasks"
-            description="Tasks that ask for it run in the guest. It sees only the folders you share, read-only unless you approve more."
+            label={t("settings.key.vm.enabled")}
+            description={t("settings.vm.enabledHint")}
             checked={vm.enabled}
             settingKey={K.enabled}
             onChange={(enabled) => onChange(K.enabled, enabled)}
           />
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${id}-node`}>Guest that runs task commands</Label>
+            <Label htmlFor={`${id}-node`}>{t("settings.key.vm.guestNodeId")}</Label>
             <NativeSelect
               id={`${id}-node`}
               className="max-w-sm"
@@ -204,61 +211,62 @@ export function VmPanel({
               }
             >
               <option value="">
-                {guestNodes.length === 0 ? "No guest is paired yet" : "Choose a guest"}
+                {guestNodes.length === 0 ? t("settings.vm.noGuest") : t("settings.vm.chooseGuest")}
               </option>
               {guestNodes.map((n) => (
                 <option key={n.id} value={n.id}>
-                  {n.name}
-                  {n.status === "online" ? "" : ` (${n.status})`}
+                  {n.status === "online"
+                    ? n.name
+                    : t("settings.vm.guestStatus", { name: n.name, status: n.status })}
                 </option>
               ))}
             </NativeSelect>
             <SettingHint settingKey={K.guestNodeId} />
           </div>
           <RadioField<VmWorkspace>
-            label="Where a task runs when it doesn't say"
+            label={t("settings.vm.defaultWorkspace")}
             inline
             value={vm.defaultWorkspace}
             settingKey={K.defaultWorkspace}
             onChange={(v) => onChange(K.defaultWorkspace, v)}
             options={[
-              { value: "sandbox", label: "Container sandbox" },
-              { value: "vm", label: "Sandbox Mac", disabled: !vm.enabled },
+              { value: "sandbox", label: t("settings.vm.workspace.sandbox") },
+              { value: "vm", label: t("settings.vm.sandboxMac"), disabled: !vm.enabled },
             ]}
           />
         </Group>
-        <Group
-          title="Between your Mac and the guest"
-          description="Copying files out of the guest is always an explicit copy with a receipt."
-        >
+        <Group title={t("settings.vm.between")} description={t("settings.vm.betweenHint")}>
           <RadioField<VmClipboard>
-            label="Clipboard"
+            label={t("settings.key.vm.clipboard")}
             inline
             value={vm.clipboard}
             settingKey={K.clipboard}
             onChange={(v) => onChange(K.clipboard, v)}
             options={[
-              { value: "paste-only", label: "Paste into the guest only" },
-              { value: "bidirectional", label: "Both ways" },
-              { value: "off", label: "Off" },
+              { value: "paste-only", label: clipboardLabel("paste-only") },
+              { value: "bidirectional", label: clipboardLabel("bidirectional") },
+              { value: "off", label: clipboardLabel("off") },
             ]}
           />
           <RadioField<VmCredentials>
-            label="Credentials"
-            description="With the host vault, values stay on your Mac and are filled through the helper; a guest vault keeps its own copy inside the guest."
+            label={t("settings.vm.credentials")}
+            description={t("settings.vm.credentialsHint")}
             inline
             value={vm.credentials}
             settingKey={K.credentials}
             onChange={(v) => onChange(K.credentials, v)}
             options={[
-              { value: "host", label: "Host vault" },
-              { value: "guest", label: "Guest vault" },
+              { value: "host", label: vaultLabel("host") },
+              { value: "guest", label: vaultLabel("guest") },
             ]}
           />
         </Group>
-        <Group title="Guest status" description="What the Psyche helper last reported.">
+        <Group
+          title={t("settings.vm.guestStatusTitle")}
+          description={t("settings.vm.guestStatusHint")}
+        >
           {guests.length === 0 ? (
-            <EmptyNotice text="No guest has reported yet. Create one from the Psyche helper on this Mac; its state shows here." />
+            <EmptyNotice text={t("settings.vm.noReports")} />
           ) : (
             guests.map((r) => (
               <GuestCard key={`${r.nodeId}/${r.guest.name}`} report={r} now={clock} />
@@ -277,7 +285,7 @@ export function VmSection({ now }: { now?: number }): ReactElement {
   const devices = useGatewayQuery("devices.list", {});
   const guests = useVmGuests();
   const deviceName = (id: string) =>
-    devices.data?.devices.find((d) => d.id === id)?.name ?? "Sandbox Mac";
+    devices.data?.devices.find((d) => d.id === id)?.name ?? t("settings.vm.sandboxMac");
   const guestNodes = (nodes.data?.nodes ?? [])
     .filter((n) => n.kind === "vm-guest")
     .map((n) => ({ id: n.id, name: deviceName(n.deviceId), status: n.status }));

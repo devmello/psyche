@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Kbd } from "../../components/ui/kbd.tsx";
+import { t } from "../../i18n/core.ts";
 import { type ShortcutCheck, ShortcutRecorder } from "./ShortcutRecorder.tsx";
 import {
   bool,
@@ -42,11 +43,13 @@ export interface SystemDictationProps {
   onCheckShortcut?: (accelerator: string) => Promise<ShortcutCheck>;
 }
 
-const KEY_LABEL: Record<string, string> = {
-  fn: "fn",
-  rightOption: "Right Option",
-  rightCommand: "Right Command",
-};
+const PTT_KEYS = ["fn", "rightOption", "rightCommand"] as const;
+
+/** The push-to-talk key as printed or named on a Mac keyboard; an unknown key shows as stored. */
+function keyLabel(key: string): string {
+  const known = PTT_KEYS.find((k) => k === key);
+  return known === undefined ? key : t(`settings.voice.key.${known}`);
+}
 
 function AccessibilityRow({
   status,
@@ -59,29 +62,27 @@ function AccessibilityRow({
 }): ReactElement {
   const chip =
     status.helper === "offline"
-      ? { tone: "neutral" as const, text: "Helper not running" }
+      ? { tone: "neutral" as const, text: t("settings.voice.access.helperOff") }
       : status.accessibility === "granted"
-        ? { tone: "success" as const, text: "Granted" }
+        ? { tone: "success" as const, text: t("settings.computerUse.tccState.granted") }
         : status.accessibility === "missing"
-          ? { tone: "danger" as const, text: "Needed" }
-          : { tone: "neutral" as const, text: "Not checked yet" };
+          ? { tone: "danger" as const, text: t("settings.voice.access.needed") }
+          : { tone: "neutral" as const, text: t("settings.voice.access.unknown") };
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="font-medium">Accessibility</span>
+      <span className="font-medium">{t("settings.computerUse.tcc.accessibility.name")}</span>
       <StatusChip tone={chip.tone}>{chip.text}</StatusChip>
-      <span className="text-xs text-muted-foreground">
-        lets the Psyche helper see the key you hold and type into the focused app
-      </span>
+      <span className="text-xs text-muted-foreground">{t("settings.voice.access.why")}</span>
       {status.helper === "online" && status.accessibility !== "granted" ? (
-        <span className="ml-auto flex gap-2">
+        <span className="ms-auto flex gap-2">
           {onOpenAccessibility ? (
             <Button type="button" variant="outline" size="xs" onClick={onOpenAccessibility}>
-              Open System Settings
+              {t("settings.computerUse.openSystemSettings")}
             </Button>
           ) : null}
           {onRecheck ? (
             <Button type="button" variant="ghost" size="xs" onClick={onRecheck}>
-              Check again
+              {t("settings.model.checkAgain")}
             </Button>
           ) : null}
         </span>
@@ -104,55 +105,56 @@ export function VoicePanel({
 }: SettingsFormProps & LoadProps & SystemDictationProps): ReactElement {
   const ptt = str(values, "voice.pushToTalk", "fn");
   const systemWide = bool(values, "voice.systemWide", true);
+  const conversation = bool(values, "voice.conversation.enabled", false);
   return (
     <SectionFrame
       needsApproval={needsApproval}
-      title="Voice & dictation"
+      title={t("settings.nav.voice")}
       description={
         <>
-          Hold <Kbd>{KEY_LABEL[ptt] ?? ptt}</Kbd> to dictate into any message field.
+          {t("settings.voice.hold")} <Kbd>{keyLabel(ptt)}</Kbd> {t("settings.voice.toDictate")}
         </>
       }
     >
       <LoadGate
-        label="voice settings"
+        label={t("settings.voice.loadLabel")}
         loading={loading ?? false}
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title="Dictation">
+        <Group title={t("settings.voice.dictation")}>
           <RadioField
-            label="Push-to-talk key"
+            label={t("settings.key.voice.pushToTalk")}
             inline
             value={ptt}
             settingKey="voice.pushToTalk"
             onChange={(v) => onChange("voice.pushToTalk", v)}
             options={[
-              { value: "fn", label: "fn" },
-              { value: "rightOption", label: "Right Option" },
-              { value: "rightCommand", label: "Right Command" },
+              { value: "fn", label: keyLabel("fn") },
+              { value: "rightOption", label: keyLabel("rightOption") },
+              { value: "rightCommand", label: keyLabel("rightCommand") },
             ]}
           />
           <RadioField
-            label="Mode"
+            label={t("settings.voice.mode")}
             inline
             value={str(values, "voice.mode", "hold")}
             settingKey="voice.mode"
             onChange={(v) => onChange("voice.mode", v)}
             options={[
-              { value: "hold", label: "Hold to talk" },
-              { value: "toggle", label: "Press to start, press to stop" },
+              { value: "hold", label: t("settings.voice.mode.hold") },
+              { value: "toggle", label: t("settings.voice.mode.toggle") },
             ]}
           />
         </Group>
         {system ? (
-          <Group title="In any app">
+          <Group title={t("settings.voice.anyApp")}>
             <SwitchField
-              label="Dictate into any app"
+              label={t("settings.key.voice.systemWide")}
               description={
                 <>
-                  Hold <Kbd>{KEY_LABEL[ptt] ?? ptt}</Kbd> wherever you are typing. The text goes
-                  where your cursor is, never to the agent, and never into password fields.
+                  {t("settings.voice.hold")} <Kbd>{keyLabel(ptt)}</Kbd>{" "}
+                  {t("settings.voice.anyAppHint")}
                 </>
               }
               checked={systemWide}
@@ -165,8 +167,8 @@ export function VoicePanel({
               {...(onRecheck ? { onRecheck } : {})}
             />
             <ShortcutRecorder
-              label="System-wide hotkey"
-              description="Press once to start and again to stop, from any app. Backspace turns it off."
+              label={t("settings.key.voice.hotkey")}
+              description={t("settings.voice.hotkeyHint")}
               value={str(values, "voice.hotkey", "")}
               onChange={(v) => onChange("voice.hotkey", v)}
               {...(onCheckShortcut ? { onCheck: onCheckShortcut } : {})}
@@ -174,9 +176,65 @@ export function VoicePanel({
             />
           </Group>
         ) : null}
-        <Group title="Engine">
+        <Group title={t("settings.key.voice.conversation.enabled")}>
+          <SwitchField
+            label={t("settings.voice.talk")}
+            description={t("settings.voice.talkHint")}
+            checked={conversation}
+            settingKey="voice.conversation.enabled"
+            onChange={(v) => onChange("voice.conversation.enabled", v)}
+          />
+          {conversation ? (
+            <>
+              <RadioField
+                label={t("settings.voice.yourTurn")}
+                value={str(values, "voice.conversation.start", "toggle")}
+                settingKey="voice.conversation.start"
+                onChange={(v) => onChange("voice.conversation.start", v)}
+                options={[
+                  {
+                    value: "toggle",
+                    label: t("settings.voice.turn.toggle"),
+                    hint: t("settings.voice.turn.toggleHint"),
+                  },
+                  {
+                    value: "push",
+                    label: t("settings.voice.turn.push"),
+                    hint: t("settings.voice.turn.pushHint"),
+                  },
+                ]}
+              />
+              <RadioField
+                label={t("settings.voice.reply")}
+                value={str(values, "voice.conversation.reply", "gateway")}
+                settingKey="voice.conversation.reply"
+                onChange={(v) => onChange("voice.conversation.reply", v)}
+                options={[
+                  {
+                    value: "gateway",
+                    label: t("settings.voice.reply.gateway"),
+                    hint: t("settings.voice.reply.gatewayHint"),
+                  },
+                  {
+                    value: "browser",
+                    label: t("settings.voice.reply.browser"),
+                    hint: t("settings.voice.reply.browserHint"),
+                  },
+                ]}
+              />
+              <SwitchField
+                label={t("settings.key.voice.conversation.bargeIn")}
+                description={t("settings.voice.bargeInHint")}
+                checked={bool(values, "voice.conversation.bargeIn", true)}
+                settingKey="voice.conversation.bargeIn"
+                onChange={(v) => onChange("voice.conversation.bargeIn", v)}
+              />
+            </>
+          ) : null}
+        </Group>
+        <Group title={t("settings.voice.engine")}>
           <RadioField
-            label="Speech engine"
+            label={t("settings.key.voice.engine")}
             hideLabel
             value={str(values, "voice.engine", "local")}
             settingKey="voice.engine"
@@ -184,14 +242,18 @@ export function VoicePanel({
             options={[
               {
                 value: "local",
-                label: "On this Mac",
-                hint: "Whisper runs locally; audio never leaves the Mac.",
+                label: t("settings.voice.engine.local"),
+                hint: t("settings.voice.engine.localHint"),
               },
-              { value: "system", label: "macOS dictation", hint: "Apple's on-device recognizer." },
+              {
+                value: "system",
+                label: t("settings.voice.engine.system"),
+                hint: t("settings.voice.engine.systemHint"),
+              },
               {
                 value: "cloud",
-                label: "Your model provider",
-                hint: "Audio goes to the provider you configured.",
+                label: t("settings.voice.engine.cloud"),
+                hint: t("settings.voice.engine.cloudHint"),
               },
             ]}
           />

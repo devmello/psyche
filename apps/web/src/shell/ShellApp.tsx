@@ -1,4 +1,5 @@
 import type { Thread } from "@psyche/protocol";
+import { t } from "@psyche/ui";
 import {
   type ReactElement,
   type ReactNode,
@@ -49,7 +50,11 @@ import "./shell.css";
 /** The title bar's label for a non-chat route (`/settings/files` → "Settings"). */
 export function sectionTitle(route: string): string {
   const head = route.split("/")[1] ?? "";
-  return head === "" ? "Psyche" : head.charAt(0).toUpperCase() + head.slice(1);
+  if (head === "") return "Psyche"; // i18n-ignore: the product name as a brand
+  return t("web.section.title", {
+    section: head,
+    fallback: head.charAt(0).toUpperCase() + head.slice(1),
+  });
 }
 
 function initialRoute(): string {
@@ -165,10 +170,10 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   const newId = useRef(randomIds()).current;
   const createdMain = useRef(false);
 
-  const mainThread: Thread | undefined = threads.find((t) => t.thread.kind === "main")?.thread;
+  const mainThread: Thread | undefined = threads.find((x) => x.thread.kind === "main")?.thread;
   const routeThreadId = /^\/chat\/([^/]+)/.exec(route)?.[1];
   const threadId = routeThreadId ?? mainThread?.id ?? null;
-  const thread = threads.find((t) => t.thread.id === threadId)?.thread ?? null;
+  const thread = threads.find((x) => x.thread.id === threadId)?.thread ?? null;
   const popOutPane = /^\/chat\/[^/]+\/pane\/([^/]+)$/.exec(route)?.[1];
 
   const env = useCallback(
@@ -201,7 +206,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   useEffect(() => {
     if (status.phase !== "paired" || mainThread || createdMain.current || threads.length > 0)
       return;
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       if (createdMain.current) return;
       createdMain.current = true;
       void store
@@ -209,7 +214,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         .then(() => store.refresh())
         .catch(() => undefined);
     }, 1500);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [status.phase, mainThread, threads.length, store]);
 
   // Re-fit layouts when the window narrows or widens.
@@ -225,8 +230,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     const offCmd = store.tap((e) => {
       if (e.event !== "view.command" || !threadId) return;
       const out = layout.applyViewCommand(e.payload, threadId, env());
-      if (!out.ok)
-        store.toast(`The agent asked for a pane Psyche couldn't open (${out.error.code}).`, "warn");
+      if (!out.ok) store.toast(t("web.toast.paneFailed", { code: out.error.code }), "warn");
     });
     let timer: ReturnType<typeof setTimeout> | undefined;
     const offLayout = layout.subscribe((changed) => {
@@ -258,9 +262,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         })
         .catch(() =>
           store.toast(
-            kind === "incognito"
-              ? "Psyche couldn't create an incognito chat."
-              : "Psyche couldn't create a side chat.",
+            kind === "incognito" ? t("web.toast.incognitoFailed") : t("web.toast.sideChatFailed"),
             "error",
           ),
         );
@@ -276,11 +278,10 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       void store
         .call("threads.update", { threadId: thread.id, permissionMode })
         .then((r) => {
-          if (r === undefined)
-            store.toast("Changing the permission mode needs a newer Gateway.", "warn");
+          if (r === undefined) store.toast(t("web.toast.permissionModeUnsupported"), "warn");
           else void store.refresh();
         })
-        .catch(() => store.toast("Changing the permission mode needs a newer Gateway.", "warn"));
+        .catch(() => store.toast(t("web.toast.permissionModeUnsupported"), "warn"));
     },
     [thread, store],
   );
@@ -399,24 +400,33 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   }, [mac, run]);
 
   const actions: PaletteAction[] = [
-    { id: "new", label: "New side chat", run: newSideChat },
-    { id: "incognito", label: "New incognito chat (memory-only, 24 h)", run: newIncognitoChat },
+    { id: "new", label: t("web.palette.newSideChat"), run: newSideChat },
+    { id: "incognito", label: t("web.palette.newIncognito"), run: newIncognitoChat },
     {
       id: "browser",
-      label: "Open browser pane",
+      label: t("web.palette.openBrowser"),
       run: () => dispatch({ type: "open", pane: "browser" }),
     },
     {
       id: "terminal",
-      label: "Open terminal pane",
+      label: t("web.palette.openTerminal"),
       run: () => dispatch({ type: "open", pane: "terminal" }),
     },
-    { id: "tasks", label: "Open tasks pane", run: () => dispatch({ type: "open", pane: "tasks" }) },
-    { id: "files", label: "Open files pane", run: () => dispatch({ type: "open", pane: "files" }) },
+    {
+      id: "tasks",
+      label: t("web.palette.openTasks"),
+      run: () => dispatch({ type: "open", pane: "tasks" }),
+    },
+    {
+      id: "files",
+      label: t("web.palette.openFiles"),
+      run: () => dispatch({ type: "open", pane: "files" }),
+    },
+    // i18n-ignore: the composer command, typed as is in every language
     { id: "model", label: "/model", run: () => setOverlay("model") },
-    { id: "mode", label: "Switch permission mode", run: cycleMode },
-    { id: "settings", label: "Settings", run: () => navigate("/settings/model") },
-    { id: "shortcuts", label: "Keyboard shortcuts", run: () => setOverlay("shortcuts") },
+    { id: "mode", label: t("web.palette.switchMode"), run: cycleMode },
+    { id: "settings", label: t("web.rail.settings"), run: () => navigate("/settings/model") },
+    { id: "shortcuts", label: t("web.shortcuts.title"), run: () => setOverlay("shortcuts") },
   ];
 
   if (route === "/quick") {
@@ -447,13 +457,13 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
   const inset = hasInsetTitleBar(platform.chrome);
   const barTitle = onChat
     ? thread?.kind === "main" || thread === null
-      ? "Main chat"
-      : thread.title || "Side chat"
+      ? t("web.threads.mainChat")
+      : thread.title || t("web.threads.sideChat")
     : sectionTitle(route);
   return (
     <div className="app-frame" data-testid="app-frame">
       <a className="skip-link" href="#main">
-        Skip to content
+        {t("web.shell.skipToContent")}
       </a>
       <TitleBar chrome={platform.chrome}>
         <span className="title">{barTitle}</span>
@@ -567,11 +577,9 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
               void store
                 .call("threads.update", { threadId: thread.id, modelRef })
                 .then(
-                  (r) =>
-                    r === undefined &&
-                    store.toast("Picking a model needs a newer Gateway.", "warn"),
+                  (r) => r === undefined && store.toast(t("web.toast.modelUnsupported"), "warn"),
                 )
-                .catch(() => store.toast("Picking a model needs a newer Gateway.", "warn"));
+                .catch(() => store.toast(t("web.toast.modelUnsupported"), "warn"));
             }}
           />
         ) : null}

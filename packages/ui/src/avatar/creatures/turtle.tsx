@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { t } from "../../i18n/core.ts";
 import { AtLaptop } from "./laptop.tsx";
 import {
   ACCENT,
@@ -55,7 +56,11 @@ function render(pose: CreaturePose): ReactElement {
 
 export const turtle: CreatureDefinition = {
   id: "turtle",
-  name: "Turtle",
-  description: "A gentle turtle peeking out from under a domed accent shell.",
+  get name() {
+    return t("agent.creature.turtle.name");
+  },
+  get description() {
+    return t("agent.creature.turtle.description");
+  },
   render,
 };

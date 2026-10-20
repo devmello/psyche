@@ -17,6 +17,8 @@ import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group.tsx"
 import { Skeleton } from "../../components/ui/skeleton.tsx";
 import { Switch } from "../../components/ui/switch.tsx";
 import { useSettings } from "../../data/hooks.ts";
+import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
 import { cn } from "../../lib/utils.ts";
 import { settingLabel } from "./setting-labels.ts";
 
@@ -56,8 +58,9 @@ export function hasCode(err: unknown, code: string): boolean {
   return typeof err === "object" && err !== null && "code" in err && err.code === code;
 }
 
+/** What to show for a failure: the Gateway's sentence (`describeError`), else the value. */
 export function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
+  return err instanceof Error || typeof err === "string" ? describeError(err) : String(err);
 }
 
 /** `details.approvalId` of an `approval_required` error (security settings, security §10). */
@@ -109,15 +112,13 @@ export function useSettingsForm() {
             if (requestApproval) {
               requestApproval({ key, approvalId, retry: (id) => set(key, value, id) });
             } else {
-              setWriteError(
-                `Changing “${settingLabel(key)}” needs your approval with Touch ID or a passkey. Approve it in Settings or in the Psyche notification, then change it again.`,
-              );
+              setWriteError(t("settings.shared.needsPresence", { label: settingLabel(key) }));
             }
           } else if (hasCode(err, "forbidden") && isAdminSettingKey(key)) {
             setNeedsApproval((prev) => new Set(prev).add(key));
           } else {
             setWriteError(
-              `Psyche couldn't save “${settingLabel(key)}” (${messageOf(err)}). Nothing changed.`,
+              t("settings.shared.saveFailed", { label: settingLabel(key), reason: messageOf(err) }),
             );
           }
         },
@@ -222,7 +223,11 @@ export function SectionSkeleton({
   rows?: number;
 }): ReactElement {
   return (
-    <div role="status" aria-label={`Loading ${label}`} className="flex flex-col gap-3">
+    <div
+      role="status"
+      aria-label={t("settings.shared.loading", { label })}
+      className="flex flex-col gap-3"
+    >
       <Skeleton className="h-6 w-48" />
       {Array.from({ length: rows }, (_, i) => `row-${i}`).map((k) => (
         <Skeleton key={k} className="h-16 w-full rounded-lg" />
@@ -234,7 +239,7 @@ export function SectionSkeleton({
 /** Error state: what failed, what Psyche did, one next step (§3.0). */
 export function ErrorNotice({
   what,
-  did = "Nothing was changed.",
+  did = t("settings.shared.nothingChanged"),
   onRetry,
   className,
 }: {
@@ -257,7 +262,7 @@ export function ErrorNotice({
       </p>
       {onRetry ? (
         <Button type="button" variant="outline" size="sm" onClick={onRetry}>
-          Try again
+          {t("settings.shared.tryAgain")}
         </Button>
       ) : null}
     </div>
@@ -279,7 +284,7 @@ export function AdminHint({ show }: { show: boolean }): ReactElement | null {
   return (
     <p className="flex items-center gap-1.5 text-xs text-approval-text" role="status">
       <ShieldAlert className="size-3.5 shrink-0" aria-hidden="true" />
-      Needs approval on this device. Change it from a device paired as admin.
+      {t("settings.shared.needsAdmin")}
     </p>
   );
 }
@@ -479,8 +484,8 @@ export function LoadGate({
   if (error !== null)
     return (
       <ErrorNotice
-        what={`Psyche couldn't load ${label} (${error}).`}
-        did="Nothing was changed."
+        what={t("settings.shared.loadFailed", { label, reason: error })}
+        did={t("settings.shared.nothingChanged")}
         {...(onRetry ? { onRetry } : {})}
       />
     );

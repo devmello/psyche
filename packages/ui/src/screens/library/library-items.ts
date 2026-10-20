@@ -1,4 +1,5 @@
 import type { LibraryItem } from "@psyche/protocol";
+import { t } from "../../i18n/core.ts";
 
 /** Library sections (UI design §3.12) and the item kinds each one shows. */
 export type LibrarySection = "documents" | "images" | "artifacts" | "downloads" | "system";
@@ -11,33 +12,53 @@ export const LIBRARY_SECTIONS: readonly {
 }[] = [
   {
     id: "documents",
-    label: "Documents",
+    get label() {
+      return t("screens.library.section.documents");
+    },
     kinds: ["document", "audio", "video", "recording"],
-    empty: "No documents yet. Files the agent makes or receives land here.",
+    get empty() {
+      return t("screens.library.empty.documents");
+    },
   },
   {
     id: "images",
-    label: "Images",
+    get label() {
+      return t("screens.library.section.images");
+    },
     kinds: ["image"],
-    empty: "No images yet. Screenshots and pictures from chats land here.",
+    get empty() {
+      return t("screens.library.empty.images");
+    },
   },
   {
     id: "artifacts",
-    label: "Artifacts",
+    get label() {
+      return t("screens.library.section.artifacts");
+    },
     kinds: ["artifact"],
-    empty: "No artifacts yet. Plans, itineraries and reports the agent builds land here.",
+    get empty() {
+      return t("screens.library.empty.artifacts");
+    },
   },
   {
     id: "downloads",
-    label: "Downloads",
+    get label() {
+      return t("screens.library.section.downloads");
+    },
     kinds: ["download"],
-    empty: "No downloads. Files the agent downloads wait here until you open them.",
+    get empty() {
+      return t("screens.library.empty.downloads");
+    },
   },
   {
     id: "system",
-    label: "System files",
+    get label() {
+      return t("screens.library.section.system");
+    },
     kinds: ["system"],
-    empty: "No system files yet. They appear once the workspace is set up.",
+    get empty() {
+      return t("screens.library.empty.system");
+    },
   },
 ];
 
@@ -46,14 +67,30 @@ export function sectionOf(item: LibraryItem): LibrarySection {
 }
 
 export const KIND_LABEL: Record<LibraryItem["kind"], string> = {
-  document: "Document",
-  image: "Image",
-  audio: "Audio",
-  video: "Video",
-  artifact: "Artifact",
-  download: "Download",
-  recording: "Recording",
-  system: "System file",
+  get document() {
+    return t("screens.library.kind.document");
+  },
+  get image() {
+    return t("screens.library.kind.image");
+  },
+  get audio() {
+    return t("screens.library.kind.audio");
+  },
+  get video() {
+    return t("screens.library.kind.video");
+  },
+  get artifact() {
+    return t("screens.library.kind.artifact");
+  },
+  get download() {
+    return t("screens.library.kind.download");
+  },
+  get recording() {
+    return t("screens.library.kind.recording");
+  },
+  get system() {
+    return t("screens.library.kind.system");
+  },
 };
 
 /** A coarse file type for the type filter, from the mime type and extension. */
@@ -61,20 +98,27 @@ export function fileType(item: LibraryItem): string {
   const ext = /\.([a-z0-9]+)$/i.exec(item.name)?.[1]?.toLowerCase();
   if (item.mime === "application/pdf" || ext === "pdf") return "PDF";
   if (item.mime === "text/markdown" || ext === "md") return "Markdown";
-  if (item.mime.startsWith("image/")) return "Image";
+  if (item.mime.startsWith("image/")) return t("screens.library.type.image");
   if (item.mime === "text/html" || ext === "html") return "HTML";
-  if (item.mime.endsWith("+json") || item.mime === "application/json") return "Data";
-  if (item.mime.startsWith("audio/")) return "Audio";
-  if (item.mime.startsWith("video/")) return "Video";
-  return ext ? ext.toUpperCase() : "File";
+  if (item.mime.endsWith("+json") || item.mime === "application/json")
+    return t("screens.library.type.data");
+  if (item.mime.startsWith("audio/")) return t("screens.library.type.audio");
+  if (item.mime.startsWith("video/")) return t("screens.library.type.video");
+  return ext ? ext.toUpperCase() : t("screens.library.type.file");
 }
 
 export function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024) return t("screens.library.bytes", { n: bytes });
   const kb = bytes / 1024;
-  if (kb < 1024) return `${kb < 10 ? kb.toFixed(1) : Math.round(kb)} KB`;
+  // One decimal under 10 ("9.5 KB"), whole numbers above ("180 KB").
+  if (kb < 1024)
+    return kb < 10
+      ? t("screens.library.kbSmall", { n: Math.round(kb * 10) / 10 })
+      : t("screens.library.kb", { n: Math.round(kb) });
   const mb = kb / 1024;
-  return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
+  return mb < 10
+    ? t("screens.library.mbSmall", { n: Math.round(mb * 10) / 10 })
+    : t("screens.library.mb", { n: Math.round(mb) });
 }
 
 /** Workspace path for the editor: `system/SOUL.md` → `SOUL.md`. */
@@ -90,10 +134,34 @@ export function isReadOnly(item: LibraryItem): boolean {
 export type DateFilter = "any" | "today" | "week" | "month";
 
 export const DATE_FILTERS: readonly { id: DateFilter; label: string; ms: number }[] = [
-  { id: "any", label: "Any time", ms: Number.POSITIVE_INFINITY },
-  { id: "today", label: "Last 24 hours", ms: 24 * 3600_000 },
-  { id: "week", label: "Last 7 days", ms: 7 * 24 * 3600_000 },
-  { id: "month", label: "Last 30 days", ms: 30 * 24 * 3600_000 },
+  {
+    id: "any",
+    get label() {
+      return t("screens.library.date.any");
+    },
+    ms: Number.POSITIVE_INFINITY,
+  },
+  {
+    id: "today",
+    get label() {
+      return t("screens.library.date.today");
+    },
+    ms: 24 * 3600_000,
+  },
+  {
+    id: "week",
+    get label() {
+      return t("screens.library.date.week");
+    },
+    ms: 7 * 24 * 3600_000,
+  },
+  {
+    id: "month",
+    get label() {
+      return t("screens.library.date.month");
+    },
+    ms: 30 * 24 * 3600_000,
+  },
 ];
 
 export interface LibraryFilters {

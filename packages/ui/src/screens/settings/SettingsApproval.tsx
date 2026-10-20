@@ -3,6 +3,7 @@ import { type ReactElement, type ReactNode, useEffect, useRef, useState } from "
 import { ApprovalCard } from "../../blocks/ApprovalCard.tsx";
 import { answerApproval, useApproval } from "../../data/hooks.ts";
 import { useStore } from "../../data/provider.tsx";
+import { t } from "../../i18n/core.ts";
 import { usePersona } from "../../slots.tsx";
 import { settingLabel } from "./setting-labels.ts";
 import {
@@ -29,8 +30,8 @@ function presenceReason(err: unknown): "presence_required" | "presence_invalid" 
   return reason === "presence_required" || reason === "presence_invalid" ? reason : null;
 }
 
-export const PRESENCE_UNAVAILABLE =
-  "This window can't confirm it's you. Approve the change with Touch ID in the Psyche notification on this Mac, or from a device with a passkey. Nothing changes until then.";
+/** What to say when this window can't assert presence (no Touch ID or passkey here). */
+export const presenceUnavailable = (): string => t("settings.approval.presenceUnavailable");
 
 function PendingApprovalBanner({
   pending,
@@ -52,11 +53,11 @@ function PendingApprovalBanner({
     retried.current = true;
     if (status === "approved") {
       pending.retry(pending.approvalId).then(
-        () => onDone({ kind: "ok", text: `Saved “${label}”.` }),
+        () => onDone({ kind: "ok", text: t("settings.approval.saved", { label }) }),
         (err: unknown) =>
           onDone({
             kind: "error",
-            text: `Psyche couldn't save “${label}” (${messageOf(err)}). Nothing changed.`,
+            text: t("settings.shared.saveFailed", { label, reason: messageOf(err) }),
           }),
       );
       return;
@@ -65,23 +66,22 @@ function PendingApprovalBanner({
       kind: "error",
       text:
         status === "denied"
-          ? `Not changed: the approval for “${label}” was denied.`
-          : `Not changed: the approval for “${label}” ${status === "expired" ? "expired" : "was withdrawn"}. Change it again to ask for a new one.`,
+          ? t("settings.approval.denied", { label })
+          : t("settings.approval.lapsed", { label, expired: status === "expired" }),
     });
   }, [status, pending, onDone, label]);
 
   return (
     <section
-      aria-label="Approval needed"
+      aria-label={t("settings.approval.region")}
       className="flex flex-col gap-3 rounded-lg border border-approval-border bg-gray-2 p-4 text-sm"
       data-testid="settings-approval"
     >
       <p className="flex items-start gap-2">
         <Fingerprint className="mt-0.5 size-4 shrink-0 text-approval-text" aria-hidden="true" />
         <span>
-          <span className="font-medium">Approve this change to “{label}”.</span> Security settings
-          need Touch ID or a passkey. Approve it here or in the Psyche notification; the setting is
-          saved as soon as it is approved.
+          <span className="font-medium">{t("settings.approval.prompt", { label })}</span>{" "}
+          {t("settings.approval.promptDetail")}
         </span>
       </p>
       {presenceHint ? (
@@ -103,8 +103,8 @@ function PendingApprovalBanner({
               if (reason === null) throw err;
               const text =
                 reason === "presence_required"
-                  ? PRESENCE_UNAVAILABLE
-                  : "Touch ID or the passkey didn't confirm it's you. Try again.";
+                  ? presenceUnavailable()
+                  : t("settings.approval.presenceInvalid");
               setPresenceHint(text);
               throw new Error(text);
             }
@@ -112,7 +112,7 @@ function PendingApprovalBanner({
         />
       ) : (
         <p role="status" className="text-muted-foreground">
-          Loading the approval…
+          {t("settings.approval.loading")}
         </p>
       )}
     </section>

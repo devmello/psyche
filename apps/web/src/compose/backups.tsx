@@ -1,5 +1,13 @@
 import type { BackupInfo } from "@psyche/protocol";
-import { useCall, useGatewayQuery, usePersona, useSettingsForm } from "@psyche/ui";
+import {
+  activeI18n,
+  describeError,
+  t,
+  useCall,
+  useGatewayQuery,
+  usePersona,
+  useSettingsForm,
+} from "@psyche/ui";
 import { type ReactElement, useId, useState } from "react";
 
 /**
@@ -34,10 +42,12 @@ export function scheduleOf(values: Readonly<Record<string, unknown>>): BackupSch
 }
 
 export function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  const fixed = (v: number, digits: number) =>
+    activeI18n().number(v, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  if (n < 1024) return t("web.bytes.b", { n: fixed(n, 0) });
+  if (n < 1024 * 1024) return t("web.bytes.kb", { n: fixed(n / 1024, 0) });
+  if (n < 1024 * 1024 * 1024) return t("web.bytes.mb", { n: fixed(n / (1024 * 1024), 1) });
+  return t("web.bytes.gb", { n: fixed(n / (1024 * 1024 * 1024), 2) });
 }
 
 /** `true` when a Gateway error message says the method is not served yet (`unknown_method`). */
@@ -55,9 +65,7 @@ export function isUnavailable(err: unknown): boolean {
   );
 }
 
-function messageOf(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
+type BackupAction = "backup" | "verify" | "delete";
 
 const button =
   "inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-sm font-medium shadow-xs hover:bg-gray-3 disabled:opacity-50";
@@ -71,12 +79,12 @@ export function BackupsPanel(): ReactElement {
   const list = useGatewayQuery("backup.list", {});
   const [passphrase, setPassphrase] = useState("");
   const [unencrypted, setUnencrypted] = useState(false);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState<BackupAction | null>(null);
   const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const schedule = scheduleOf(form.values);
   const unavailable = isUnavailableMessage(list.error);
 
-  const run = async (what: string, fn: () => Promise<string>) => {
+  const run = async (what: BackupAction, fn: () => Promise<string>) => {
     setBusy(what);
     setNotice(null);
     try {
@@ -86,8 +94,8 @@ export function BackupsPanel(): ReactElement {
       setNotice({
         kind: "error",
         text: isUnavailable(err)
-          ? "Backups need a newer Gateway. Use `psyche backup create --stop` meanwhile."
-          : `${what} failed (${messageOf(err)}). Nothing was changed.`,
+          ? t("web.backups.needsGateway", { command: "psyche backup create --stop" })
+          : t("web.backups.failed", { action: what, error: describeError(err) }),
       });
     } finally {
       setBusy(null);
@@ -95,27 +103,27 @@ export function BackupsPanel(): ReactElement {
   };
 
   const create = () =>
-    run("Backup", async () => {
+    run("backup", async () => {
       const res = await call("backup.create", unencrypted ? { unencrypted: true } : { passphrase });
       setPassphrase("");
-      return `Backed up ${res.files} files to ${res.backup.file}.`;
+      return t("web.backups.created", { files: res.files, file: res.backup.file });
     });
 
   const verify = (b: BackupInfo) =>
-    run("Verify", async () => {
+    run("verify", async () => {
       const res = await call("backup.verify", {
         file: b.file,
         ...(b.encrypted && passphrase ? { passphrase } : {}),
       });
       return res.ok
-        ? `${b.file} verified: ${res.files} files match the manifest.`
-        : `${b.file} has problems: ${res.problems.join("; ")}`;
+        ? t("web.backups.verified", { file: b.file, files: res.files })
+        : t("web.backups.problems", { file: b.file, problems: res.problems.join("; ") });
     });
 
   const remove = (b: BackupInfo) =>
-    run("Delete", async () => {
+    run("delete", async () => {
       await call("backup.delete", { file: b.file });
-      return `Deleted ${b.file}.`;
+      return t("web.backups.deleted", { file: b.file });
     });
 
   const setSchedule = (next: Partial<BackupSchedule>) =>
@@ -132,11 +140,10 @@ export function BackupsPanel(): ReactElement {
     >
       <div>
         <h3 id={`${id}-title`} className="text-base font-semibold text-foreground">
-          Backups
+          {t("web.backups.title")}
         </h3>
         <p className="text-muted-foreground">
-          An encrypted archive of everything {persona.name} is: state, workspace, vault, Library and
-          channel sessions. The vault stays encrypted inside it.
+          {t("web.backups.description", { persona: persona.name })}
         </p>
       </div>
       {notice ? (
@@ -153,13 +160,13 @@ export function BackupsPanel(): ReactElement {
       ) : null}
       {unavailable ? (
         <p role="status" className="text-approval-text">
-          Backups need a newer Gateway. Meanwhile: <code>psyche backup create --stop</code>.
+          {t("web.backups.needsGatewayMeanwhile")} <code>psyche backup create --stop</code>.
         </p>
       ) : null}
 
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex flex-col gap-1">
-          <span className="font-medium text-foreground">Passphrase</span>
+          <span className="font-medium text-foreground">{t("web.backups.passphrase")}</span>
           <input
             type="password"
             className={input}
@@ -176,7 +183,7 @@ export function BackupsPanel(): ReactElement {
             checked={unencrypted}
             onChange={(e) => setUnencrypted(e.target.checked)}
           />
-          Skip encryption
+          {t("web.backups.skipEncryption")}
         </label>
         <button
           type="button"
@@ -184,49 +191,53 @@ export function BackupsPanel(): ReactElement {
           disabled={!canCreate}
           onClick={() => void create()}
         >
-          {busy === "Backup" ? "Backing up…" : "Back up now"}
+          {busy === "backup" ? t("web.backups.backingUp") : t("web.backups.backUpNow")}
         </button>
       </div>
       <p id={`${id}-pass-hint`} className="text-xs text-muted-foreground">
-        At least {MIN_PASSPHRASE} characters. It is sent once to encrypt the archive and never
-        stored; without it the backup cannot be opened.
+        {t("web.backups.passphraseHint", { min: MIN_PASSPHRASE })}
       </p>
 
       {list.loading && backups.length === 0 ? (
         <p role="status" className="text-muted-foreground">
-          Loading backups…
+          {t("web.backups.loading")}
         </p>
       ) : backups.length === 0 ? (
         <p className="rounded-lg border border-dashed border-gray-6 p-3 text-muted-foreground">
-          No backups yet.
+          {t("web.backups.empty")}
         </p>
       ) : (
-        <ul className="flex flex-col divide-y divide-gray-6" aria-label="Backups">
+        <ul className="flex flex-col divide-y divide-gray-6" aria-label={t("web.backups.title")}>
           {backups.map((b) => (
             <li key={b.file} className="flex flex-wrap items-center gap-3 py-1.5">
               <code className="min-w-0 flex-1 font-mono text-xs">{b.file}</code>
               <span className="text-xs text-muted-foreground">
-                {new Date(b.createdAt).toLocaleString()} · {formatBytes(b.bytes)} ·{" "}
-                {b.encrypted ? "encrypted" : "not encrypted"}
-                {b.verifiedAt ? ` · verified ${new Date(b.verifiedAt).toLocaleDateString()}` : ""}
+                {t("web.backups.meta", {
+                  created: activeI18n().dateTime(b.createdAt),
+                  size: formatBytes(b.bytes),
+                  encrypted: b.encrypted,
+                })}
+                {b.verifiedAt
+                  ? t("web.backups.verifiedOn", { date: activeI18n().date(b.verifiedAt) })
+                  : ""}
               </span>
               <button
                 type="button"
                 className={button}
                 disabled={busy !== null}
                 onClick={() => void verify(b)}
-                aria-label={`Verify ${b.file}`}
+                aria-label={t("web.backups.verifyFile", { file: b.file })}
               >
-                Verify
+                {t("web.backups.verify")}
               </button>
               <button
                 type="button"
                 className={button}
                 disabled={busy !== null}
                 onClick={() => void remove(b)}
-                aria-label={`Delete ${b.file}`}
+                aria-label={t("web.backups.deleteFile", { file: b.file })}
               >
-                Delete
+                {t("common.delete")}
               </button>
             </li>
           ))}
@@ -234,7 +245,7 @@ export function BackupsPanel(): ReactElement {
       )}
 
       <fieldset className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <legend className="font-medium text-foreground">Scheduled backups</legend>
+        <legend className="font-medium text-foreground">{t("web.backups.schedule")}</legend>
         {(["off", "daily", "weekly"] as const).map((v) => (
           <label key={v} className="flex items-center gap-1.5">
             <input
@@ -244,11 +255,11 @@ export function BackupsPanel(): ReactElement {
               checked={schedule.interval === v}
               onChange={() => setSchedule({ interval: v })}
             />
-            {v === "off" ? "Off" : v === "daily" ? "Daily" : "Weekly"}
+            {t(`web.backups.interval.${v}`)}
           </label>
         ))}
         <label className="flex items-center gap-1.5">
-          Keep
+          {t("web.backups.keep")}
           <input
             type="number"
             className={`${input} w-16`}
@@ -259,13 +270,13 @@ export function BackupsPanel(): ReactElement {
               const n = Number(e.target.value);
               if (Number.isInteger(n) && n >= 1 && n <= 365) setSchedule({ keep: n });
             }}
-            aria-label="Backups to keep"
+            aria-label={t("web.backups.keepLabel")}
           />
         </label>
       </fieldset>
       {form.needsApproval.has(BACKUP_SCHEDULE_KEY) ? (
         <p role="status" className="text-xs text-approval-text">
-          Needs approval on this device. Change it from a device paired as admin.
+          {t("web.backups.needsApproval")}
         </p>
       ) : null}
       {form.writeError ? (
@@ -275,9 +286,9 @@ export function BackupsPanel(): ReactElement {
       ) : null}
 
       <p className="text-xs text-muted-foreground">
-        Restore on a new Mac with the Gateway stopped:{" "}
-        <code>psyche backup restore {list.data?.dir ?? "$PSYCHE_HOME/backups"}/&lt;file&gt;</code>,
-        then unlock the vault with its recovery key.
+        {t("web.backups.restore")}{" "}
+        <code>psyche backup restore {list.data?.dir ?? "$PSYCHE_HOME/backups"}/&lt;file&gt;</code>
+        {t("web.backups.restoreUnlock")}
       </p>
     </section>
   );

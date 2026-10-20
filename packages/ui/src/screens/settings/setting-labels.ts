@@ -1,73 +1,98 @@
 import { VM_SETTING_KEYS } from "@psyche/protocol";
+import { t } from "../../i18n/core.ts";
 
 /**
  * Plain labels for setting keys (docs/ui-audit.md: a raw key never shows at level 1). Keys are
- * free-form strings in the protocol (`settings.get` / `settings.set`), so this map is the one
- * place their words live; `test/setting-labels.test.ts` fails when a key the kit reads or writes
+ * free-form strings in the protocol (`settings.get` / `settings.set`), so this list is the one
+ * place their words are looked up; the words themselves live in the catalogue as
+ * `settings.key.<key>`. `test/setting-labels.test.ts` fails when a key the kit reads or writes
  * has no label here. Labels match the field label the Settings screen shows for the key.
  */
-export const SETTING_LABELS: Readonly<Record<string, string>> = {
-  "appearance.theme": "Theme",
-  "appearance.gray": "Gray family",
-  "appearance.density": "Density",
-  "appearance.accentSeed": "Accent colour",
-  "appearance.reduceMotion": "Reduce motion",
-  "appearance.contrast": "High contrast",
-  "appearance.zoom": "Zoom",
-  "backup.schedule": "Backup schedule",
-  "browser.realChrome": "Real-Chrome mode",
-  "computerUse.enabled": "Allow computer use",
-  "computerUse.apps": "App access",
-  "context.maxTokens": "Context limit",
-  "context.compactAt": "Compact at",
-  "context.keepRecentTurns": "Recent turns kept verbatim",
-  "data.transcriptRecall": "Transcript recall",
-  "data.replayRetentionDays": "Keep task replays for",
-  "gateway.bind": "Bind address",
-  "models.primary": "Primary model",
-  "models.utility": "Utility model",
-  "models.image": "Image model",
-  "models.providers": "Model providers",
-  "permissions.mode": "Default mode",
-  "permissions.policy": "Permission policy",
-  "permissions.folders": "Shared folders",
-  "persona.name": "Name",
-  "persona.tagline": "Vibe or tagline",
-  "persona.emoji": "Emoji",
-  "persona.creature": "Creature",
-  "persona.creatureId": "Creature",
-  "vault.backend": "Where credentials are kept",
-  "vault.fillDefault": "Fill default",
-  [VM_SETTING_KEYS.enabled]: "Use a sandbox Mac for tasks",
-  [VM_SETTING_KEYS.guestNodeId]: "Guest that runs task commands",
-  [VM_SETTING_KEYS.defaultWorkspace]: "Where a task runs by default",
-  [VM_SETTING_KEYS.clipboard]: "Clipboard",
-  [VM_SETTING_KEYS.credentials]: "Credentials placement",
+const LABELLED_KEYS = [
+  "appearance.theme",
+  "appearance.gray",
+  "appearance.density",
+  "appearance.accentSeed",
+  "appearance.reduceMotion",
+  "appearance.contrast",
+  "appearance.zoom",
+  "backup.schedule",
+  "browser.realChrome",
+  "browser.botAuth",
+  "computerUse.enabled",
+  "computerUse.apps",
+  "context.maxTokens",
+  "context.compactAt",
+  "context.keepRecentTurns",
+  "data.transcriptRecall",
+  "data.replayRetentionDays",
+  "gateway.bind",
+  "models.primary",
+  "models.utility",
+  "models.image",
+  "models.providers",
+  "permissions.mode",
+  "permissions.policy",
+  "permissions.folders",
+  "persona.name",
+  "persona.tagline",
+  "persona.emoji",
+  "persona.creature",
+  "persona.creatureId",
+  "vault.backend",
+  "vault.fillDefault",
+  VM_SETTING_KEYS.enabled,
+  VM_SETTING_KEYS.guestNodeId,
+  VM_SETTING_KEYS.defaultWorkspace,
+  VM_SETTING_KEYS.clipboard,
+  VM_SETTING_KEYS.credentials,
   // L6 (#452): a fresh sandbox Mac for every task; the VM section adds its switch.
-  "vm.resetPerTask": "Fresh Mac for every task",
-  "vm.shares": "Shared folders in VM mode",
-  "voice.pushToTalk": "Push-to-talk key",
-  "voice.mode": "Dictation mode",
-  "voice.systemWide": "Dictate into any app",
-  "voice.hotkey": "System-wide hotkey",
-  "voice.engine": "Speech engine",
-  "ui.onboarding.completedAt": "Onboarding",
-  "ui.transcriptMode": "Transcript detail",
-};
+  VM_SETTING_KEYS.resetPerTask,
+  "vm.shares",
+  "voice.pushToTalk",
+  "voice.mode",
+  "voice.systemWide",
+  "voice.hotkey",
+  "voice.engine",
+  "voice.conversation.enabled",
+  "voice.conversation.start",
+  "voice.conversation.reply",
+  "voice.conversation.bargeIn",
+  "ui.onboarding.completedAt",
+  "ui.transcriptMode",
+] as const;
+
+type LabelledKey = (typeof LABELLED_KEYS)[number];
+
+/** The label for a labelled key, in the active language. */
+const labelOf = (key: LabelledKey): string => t(`settings.key.${key}`);
+
+/** Every labelled key and its label, read in the active language on each access. */
+export const SETTING_LABELS: Readonly<Record<string, string>> = Object.defineProperties(
+  {},
+  Object.fromEntries(
+    LABELLED_KEYS.map((key) => [key, { enumerable: true, get: () => labelOf(key) }]),
+  ),
+);
 
 /** Families of keys with an id at the end. */
 const PREFIX_LABELS: readonly [prefix: string, label: (rest: string) => string][] = [
-  ["permissions.connectors.", (id) => `Access for ${id.replace(/^conn_/, "")}`],
-  ["models.roles.", (role) => `Model for ${role}`],
+  [
+    "permissions.connectors.",
+    (id) => t("settings.key.permissions.connectors", { id: id.replace(/^conn_/, "") }),
+  ],
+  ["models.roles.", (role) => t("settings.key.models.roles", { role })],
 ];
+
+const isLabelled = (key: string): key is LabelledKey =>
+  (LABELLED_KEYS as readonly string[]).includes(key);
 
 /** The label for a key; never the raw key (an unknown key reads "this setting"). */
 export function settingLabel(key: string): string {
-  const exact = SETTING_LABELS[key];
-  if (exact !== undefined) return exact;
+  if (isLabelled(key)) return labelOf(key);
   for (const [prefix, label] of PREFIX_LABELS) {
     if (key.startsWith(prefix) && key.length > prefix.length)
       return label(key.slice(prefix.length));
   }
-  return "this setting";
+  return t("settings.key.unknown");
 }

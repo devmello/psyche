@@ -2,6 +2,7 @@ import { CircleAlert } from "lucide-react";
 import { type KeyboardEvent, type ReactElement, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Kbd } from "../../components/ui/kbd.tsx";
+import { t } from "../../i18n/core.ts";
 
 /**
  * A shortcut recorder (docs/ui-audit.md decision 9): focus it, press the keys, and it records an
@@ -11,23 +12,41 @@ import { Kbd } from "../../components/ui/kbd.tsx";
 
 export type ShortcutCheck = "ok" | "taken" | "invalid";
 
-/** Shortcuts macOS or Psyche already use; recording one is refused without asking the shell. */
-export const RESERVED_SHORTCUTS: Readonly<Record<string, string>> = {
-  "Command+Space": "Spotlight",
-  "Control+Space": "input source switching",
-  "Command+Tab": "the app switcher",
-  "Command+Q": "quitting apps",
-  "Command+W": "closing windows",
-  "Command+H": "hiding apps",
-  "Command+M": "minimising windows",
-  "Command+`": "switching windows",
+type ReservedBy =
+  | "spotlight"
+  | "inputSource"
+  | "appSwitcher"
+  | "quit"
+  | "close"
+  | "hide"
+  | "minimise"
+  | "switchWindows"
+  | "screenshots"
+  | "forceQuit"
+  | "quickEntry";
+
+/**
+ * Shortcuts macOS or Psyche already use, and what uses them; recording one is refused without
+ * asking the shell. `reservedByLabel` says what uses it in the active language.
+ */
+export const RESERVED_SHORTCUTS: Readonly<Record<string, ReservedBy>> = {
+  "Command+Space": "spotlight",
+  "Control+Space": "inputSource",
+  "Command+Tab": "appSwitcher",
+  "Command+Q": "quit",
+  "Command+W": "close",
+  "Command+H": "hide",
+  "Command+M": "minimise",
+  "Command+`": "switchWindows",
   "Command+Shift+3": "screenshots",
   "Command+Shift+4": "screenshots",
   "Command+Shift+5": "screenshots",
-  "Command+Alt+Escape": "Force Quit",
-  "Alt+Space": "Psyche's quick entry",
-  "Control+Alt+Space": "Psyche's quick entry",
+  "Command+Alt+Escape": "forceQuit",
+  "Alt+Space": "quickEntry",
+  "Control+Alt+Space": "quickEntry",
 };
+
+export const reservedByLabel = (by: ReservedBy): string => t(`settings.shortcut.reserved.${by}`);
 
 const CODE_KEY: Record<string, string> = {
   Space: "Space",
@@ -90,18 +109,15 @@ function Keys({ accelerator }: { accelerator: string }): ReactElement {
   );
 }
 
-const SPOKEN: Record<string, string> = {
-  Command: "Command",
-  Control: "Control",
-  Alt: "Option",
-  Shift: "Shift",
-};
+const MODIFIERS = ["Command", "Control", "Alt", "Shift"] as const;
+const isModifier = (p: string): p is (typeof MODIFIERS)[number] =>
+  (MODIFIERS as readonly string[]).includes(p);
 
 /** "Command+Alt+D" → "Command Option D", for screen readers (the glyphs read poorly). */
 export function spokenShortcut(accelerator: string): string {
   return accelerator
     .split("+")
-    .map((p) => SPOKEN[p] ?? p)
+    .map((p) => (isModifier(p) ? t(`settings.shortcut.key.${p}`) : p))
     .join(" ");
 }
 
@@ -140,7 +156,12 @@ export function ShortcutRecorder({
     setRecording(false);
     const reserved = RESERVED_SHORTCUTS[accelerator];
     if (reserved !== undefined) {
-      setRefused(`${shortcutText(accelerator)} is used by ${reserved}. Pick another shortcut.`);
+      setRefused(
+        t("settings.shortcut.usedBy", {
+          keys: shortcutText(accelerator),
+          by: reservedByLabel(reserved),
+        }),
+      );
       return;
     }
     if (onCheck) {
@@ -150,8 +171,8 @@ export function ShortcutRecorder({
       if (verdict !== "ok") {
         setRefused(
           verdict === "taken"
-            ? `${shortcutText(accelerator)} is taken by another app. Pick another shortcut.`
-            : `${shortcutText(accelerator)} can't be a system-wide shortcut. Pick another one.`,
+            ? t("settings.shortcut.taken", { keys: shortcutText(accelerator) })
+            : t("settings.shortcut.invalid", { keys: shortcutText(accelerator) }),
         );
         return;
       }
@@ -181,7 +202,7 @@ export function ShortcutRecorder({
   const hint =
     refused ??
     (takenNow && value !== ""
-      ? `${shortcutText(takenNow)} is taken by another app, so it does nothing. Pick another shortcut.`
+      ? t("settings.shortcut.takenNow", { keys: shortcutText(takenNow) })
       : null);
 
   return (
@@ -203,7 +224,7 @@ export function ShortcutRecorder({
             undefined
           }
           aria-pressed={recording}
-          className="flex h-8 min-w-44 items-center rounded-md border border-input bg-background px-2.5 text-left text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring aria-pressed:border-ring"
+          className="flex h-8 min-w-44 items-center rounded-md border border-input bg-background px-2.5 text-start text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring aria-pressed:border-ring"
           onClick={() => {
             setRefused(null);
             setRecording(true);
@@ -213,22 +234,22 @@ export function ShortcutRecorder({
         >
           <span id={`${id}-value`} className="sr-only">
             {checking
-              ? "checking"
+              ? t("settings.shortcut.spoken.checking")
               : recording
-                ? "recording, press the shortcut"
+                ? t("settings.shortcut.spoken.recording")
                 : value
                   ? spokenShortcut(value)
-                  : "off"}
+                  : t("settings.shortcut.spoken.off")}
           </span>
           <span aria-hidden="true" className="contents">
             {checking ? (
-              <span className="text-muted-foreground">Checking…</span>
+              <span className="text-muted-foreground">{t("settings.shortcut.checking")}</span>
             ) : recording ? (
-              <span className="text-muted-foreground">Press the shortcut…</span>
+              <span className="text-muted-foreground">{t("settings.shortcut.press")}</span>
             ) : value ? (
               <Keys accelerator={value} />
             ) : (
-              <span className="text-muted-foreground">Off. Click to record</span>
+              <span className="text-muted-foreground">{t("settings.shortcut.offClick")}</span>
             )}
           </span>
         </button>
@@ -242,7 +263,7 @@ export function ShortcutRecorder({
               onChange("");
             }}
           >
-            Turn off
+            {t("settings.shortcut.turnOff")}
           </Button>
         ) : null}
       </div>

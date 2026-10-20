@@ -42,7 +42,7 @@ import {
 } from "../../components/ui/dropdown-menu.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { useSearch } from "../../data/hooks.ts";
-import { plural } from "../../lib/format.ts";
+import { t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
 import { useSlots } from "../../slots.tsx";
 import {
@@ -62,8 +62,11 @@ export function groupHits(hits: readonly SearchHit[]): { scope: SearchScope; hit
   })).filter((g) => g.hits.length > 0);
 }
 
+// The filter keys (in:, type:, from:) are query syntax, typed as is in every language.
 const filterLabel = (f: SearchFilter) =>
-  f.key === "in" ? `in: ${SCOPE_LABEL[f.scope]}` : `${f.key}: ${f.value}`;
+  f.key === "in"
+    ? t("screens.search.filter", { key: "in", value: SCOPE_LABEL[f.scope] })
+    : t("screens.search.filter", { key: f.key, value: f.value });
 
 /** Lucide icons per result kind (§4.6). */
 export const SCOPE_ICON: Record<SearchScope, LucideIcon> = {
@@ -79,11 +82,11 @@ export const SCOPE_ICON: Record<SearchScope, LucideIcon> = {
 };
 
 /** `type:` values offered by the Type chip; any other extension can be typed. */
-const TYPE_CHOICES: readonly { value: string; label: string }[] = [
-  { value: "pdf", label: "PDF" },
-  { value: "md", label: "Markdown" },
-  { value: "html", label: "HTML" },
-  { value: "png", label: "PNG image" },
+const TYPE_CHOICES: readonly { value: string; label: () => string }[] = [
+  { value: "pdf", label: () => t("screens.search.type.pdf") },
+  { value: "md", label: () => t("screens.search.type.md") },
+  { value: "html", label: () => t("screens.search.type.html") },
+  { value: "png", label: () => t("screens.search.type.png") },
 ];
 
 /** The words to highlight: free text (quotes stripped) and `from:` names. */
@@ -97,9 +100,9 @@ export function Highlight({ text, terms }: { text: string; terms: readonly strin
   if (terms.length === 0) return text;
   const escaped = [...terms]
     .sort((a, b) => b.length - a.length)
-    .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   const parts = text.split(new RegExp(`(${escaped.join("|")})`, "gi"));
-  const lower = new Set(terms.map((t) => t.toLowerCase()));
+  const lower = new Set(terms.map((w) => w.toLowerCase()));
   return parts.map((part, i) =>
     lower.has(part.toLowerCase()) ? (
       // biome-ignore lint/suspicious/noArrayIndexKey: split parts never reorder
@@ -175,26 +178,28 @@ export function SearchView({
     body = (
       <EmptyState
         icon={Search}
-        action={{ label: "Try “dentist”", onClick: () => onQueryChange?.("dentist") }}
+        action={{
+          label: t("screens.search.tryExample", { example: t("screens.search.example") }),
+          onClick: () => onQueryChange?.(t("screens.search.example")),
+        }}
       >
-        Search threads, tasks, memory, Library and Feed. Narrow it with in:feed, type:pdf or
-        from:name.
+        {t("screens.search.intro")}
       </EmptyState>
     );
   } else if (parsed.queryText === "" && parsed.types.length === 0) {
-    body = <p className="text-small text-gray-11">Add a word to search for.</p>;
+    body = <p className="text-small text-gray-11">{t("screens.search.addWord")}</p>;
   } else if (loading) {
     body = showSkeleton ? (
-      <LoadingCards label="Searching" count={3} lines={1} layout="rows" />
+      <LoadingCards label={t("screens.search.searching")} count={3} lines={1} layout="rows" />
     ) : (
       <div aria-busy="true" className="min-h-24" />
     );
   } else if (error !== null) {
     body = (
       <ErrorState
-        what="Search failed"
+        what={t("screens.search.failed")}
         reason={error}
-        did="The index is unchanged."
+        did={t("screens.search.indexUnchanged")}
         {...(onRetry ? { retry: { onClick: onRetry } } : {})}
       />
     );
@@ -205,21 +210,23 @@ export function SearchView({
         action={
           hasFilters
             ? {
-                label: "Search without filters",
+                label: t("screens.search.withoutFilters"),
                 onClick: () => onQueryChange?.(parsed.text),
               }
-            : { label: "Clear search", onClick: () => onQueryChange?.("") }
+            : { label: t("screens.search.clear"), onClick: () => onQueryChange?.("") }
         }
       >
-        Nothing matches “{parsed.queryText || query.trim()}”
-        {hasFilters ? " with these filters" : ""}.
+        {t("screens.search.nothing", {
+          query: parsed.queryText || query.trim(),
+          filtered: hasFilters,
+        })}
       </EmptyState>
     );
   } else {
     body = (
       <div className="flex flex-col gap-6">
         <p className="sr-only" role="status">
-          {hits.length} results
+          {t("screens.search.results", { n: hits.length })}
         </p>
         {groups.map((g) => {
           const Icon = SCOPE_ICON[g.scope];
@@ -238,7 +245,7 @@ export function SearchView({
                     <button
                       type="button"
                       onClick={() => onOpen?.(hit)}
-                      className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-gray-3 focus-visible:outline-2 focus-visible:outline-ring"
+                      className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-start transition-colors hover:bg-gray-3 focus-visible:outline-2 focus-visible:outline-ring"
                     >
                       <span
                         aria-hidden="true"
@@ -258,7 +265,7 @@ export function SearchView({
                       {hit.scope === "memory" ? (
                         <Badge variant="muted">
                           <ShieldQuestion aria-hidden="true" />
-                          provenance unknown
+                          {t("screens.search.provenanceUnknown")}
                         </Badge>
                       ) : null}
                     </button>
@@ -273,23 +280,23 @@ export function SearchView({
   }
 
   return (
-    <section aria-label="Search">
+    <section aria-label={t("screens.search.title")}>
       <Page width="wide">
         <PageHeader
-          title="Search"
+          title={t("screens.search.title")}
           meta={
             !blank && !loading && error === null && groups.length > 0
-              ? plural(hits.length, "result")
+              ? t("screens.search.results", { n: hits.length })
               : undefined
           }
         />
         <div className="flex flex-col gap-3">
           <div className="relative">
             <label htmlFor={inputId} className="sr-only">
-              Search everything
+              {t("screens.search.label")}
             </label>
             <Search
-              className="pointer-events-none absolute top-1/2 left-3.5 size-5 -translate-y-1/2 text-gray-11"
+              className="pointer-events-none absolute top-1/2 start-3.5 size-5 -translate-y-1/2 text-gray-11"
               aria-hidden="true"
             />
             <Input
@@ -297,14 +304,18 @@ export function SearchView({
               id={inputId}
               type="search"
               value={query}
-              placeholder="Search, or filter with in:feed type:pdf from:alice"
-              className="h-12 rounded-lg border-gray-7 bg-gray-2 pl-11 text-body md:text-body"
+              placeholder={t("screens.search.placeholder")}
+              className="h-12 rounded-lg border-gray-7 bg-gray-2 ps-11 text-body md:text-body"
               autoFocus={autoFocus}
               onChange={(e) => onQueryChange?.(e.target.value)}
             />
           </div>
 
-          <div role="toolbar" aria-label="Filters" className="flex flex-wrap items-center gap-1.5">
+          <div
+            role="toolbar"
+            aria-label={t("screens.search.filters")}
+            className="flex flex-wrap items-center gap-1.5"
+          >
             <button
               type="button"
               aria-pressed={activeScopes.size === 0}
@@ -316,7 +327,7 @@ export function SearchView({
                   : "border-gray-6 text-gray-11 hover:bg-gray-3",
               )}
             >
-              All
+              {t("screens.search.all")}
             </button>
             {SCOPE_ORDER.map((scope) => {
               const Icon = SCOPE_ICON[scope];
@@ -326,7 +337,7 @@ export function SearchView({
                   key={scope}
                   type="button"
                   aria-pressed={on}
-                  aria-label={`in: ${SCOPE_LABEL[scope]}`}
+                  aria-label={t("screens.search.filter", { key: "in", value: SCOPE_LABEL[scope] })}
                   onClick={() => toggleScope(scope)}
                   className={cn(
                     chipClass,
@@ -350,13 +361,17 @@ export function SearchView({
                   />
                 }
               >
+                {/* i18n-ignore: query syntax */}
                 type:
                 <ChevronDown className="size-3.5" aria-hidden="true" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-44">
-                {TYPE_CHOICES.map((t) => (
-                  <DropdownMenuItem key={t.value} onClick={() => append(`type:${t.value}`)}>
-                    {t.label}
+                {TYPE_CHOICES.map((choice) => (
+                  <DropdownMenuItem
+                    key={choice.value}
+                    onClick={() => append(`type:${choice.value}`)}
+                  >
+                    {choice.label()}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -366,19 +381,23 @@ export function SearchView({
               onClick={addFrom}
               className={cn(chipClass, "border-gray-6 text-gray-11 hover:bg-gray-3")}
             >
+              {/* i18n-ignore: query syntax */}
               from:
             </button>
           </div>
 
           {otherFilters.length > 0 || parsed.unsupported.length > 0 ? (
-            <ul aria-label="Active filters" className="flex flex-wrap items-center gap-1.5">
+            <ul
+              aria-label={t("screens.search.activeFilters")}
+              className="flex flex-wrap items-center gap-1.5"
+            >
               {otherFilters.map((f) => (
                 <li key={`${f.key}:${f.value}`}>
-                  <span className="inline-flex h-6 items-center gap-1 rounded-full bg-accent-3 pr-1 pl-2.5 text-caption text-accent-11">
+                  <span className="inline-flex h-6 items-center gap-1 rounded-full bg-accent-3 pe-1 ps-2.5 text-caption text-accent-11">
                     {filterLabel(f)}
                     <button
                       type="button"
-                      aria-label={`Remove filter ${filterLabel(f)}`}
+                      aria-label={t("screens.search.removeFilter", { filter: filterLabel(f) })}
                       onClick={() => onQueryChange?.(removeFilter(query, f))}
                       className="rounded-full p-0.5 hover:bg-accent-5 focus-visible:outline-2 focus-visible:outline-ring"
                     >
@@ -390,14 +409,12 @@ export function SearchView({
               {parsed.unsupported.map((u) => (
                 <li key={u}>
                   <span className="inline-flex h-6 items-center rounded-full border border-dashed border-gray-7 px-2.5 text-caption text-gray-11">
-                    {u} (not a filter Psyche knows; ignored)
+                    {t("screens.search.unknownFilter", { filter: u })}
                   </span>
                 </li>
               ))}
               {parsed.from.length > 0 ? (
-                <li className="text-caption text-gray-11">
-                  from: matches the name in text; sender filtering isn't available yet.
-                </li>
+                <li className="text-caption text-gray-11">{t("screens.search.fromNote")}</li>
               ) : null}
             </ul>
           ) : null}

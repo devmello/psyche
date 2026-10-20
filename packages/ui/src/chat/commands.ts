@@ -5,6 +5,8 @@
  * The chat column executes the commands with protocol methods.
  */
 
+import { t } from "../i18n/core.ts";
+
 export type CommandName =
   | "model"
   | "new"
@@ -22,53 +24,41 @@ export type CommandName =
 export interface CommandInfo {
   name: CommandName;
   args: "none" | "optional" | "required";
-  hint: string;
-  description: string;
+  /** The argument's placeholder (catalogue text, read at use). */
+  readonly hint: string;
+  readonly description: string;
+}
+
+/** Commands that take an argument, so have a hint (`/remember <fact>`). */
+type HintedCommand = Exclude<CommandName, "new" | "status" | "stop">;
+
+/** A command whose hint and description come from the catalogue as they are read. */
+function command(name: CommandName, args: CommandInfo["args"]): CommandInfo {
+  return {
+    name,
+    args,
+    get hint() {
+      return args === "none" ? "" : t(`chat.commands.${name as HintedCommand}.hint`);
+    },
+    get description() {
+      return t(`chat.commands.${name}.description`);
+    },
+  };
 }
 
 export const COMMANDS: readonly CommandInfo[] = [
-  {
-    name: "model",
-    args: "optional",
-    hint: "provider/model",
-    description: "Pick this thread's model",
-  },
-  { name: "new", args: "none", hint: "", description: "Start a new side chat" },
-  { name: "btw", args: "required", hint: "question", description: "Ask aside in a side chat" },
-  { name: "fork", args: "optional", hint: "message", description: "Fork this thread from here" },
-  {
-    name: "schedule",
-    args: "required",
-    hint: "when and what",
-    description: "Create an automation",
-  },
-  {
-    name: "incognito",
-    args: "optional",
-    hint: "message",
-    description: "Start a chat that is not remembered",
-  },
-  {
-    name: "forget",
-    args: "required",
-    hint: "subject",
-    description: "Retract what is remembered about something",
-  },
-  {
-    name: "remember",
-    args: "required",
-    hint: "fact",
-    description: "Note a fact in today's memory",
-  },
-  {
-    name: "plan",
-    args: "optional",
-    hint: "goal",
-    description: "Switch this thread to plan mode (read-only)",
-  },
-  { name: "status", args: "none", hint: "", description: "Show model, mode and running work" },
-  { name: "export", args: "optional", hint: "md | json", description: "Export this thread" },
-  { name: "stop", args: "none", hint: "", description: "Stop the current run" },
+  command("model", "optional"),
+  command("new", "none"),
+  command("btw", "required"),
+  command("fork", "optional"),
+  command("schedule", "required"),
+  command("incognito", "optional"),
+  command("forget", "required"),
+  command("remember", "required"),
+  command("plan", "optional"),
+  command("status", "none"),
+  command("export", "optional"),
+  command("stop", "none"),
 ];
 
 export type CommandParse =
@@ -87,22 +77,16 @@ export function parseCommand(input: string): CommandParse {
   const arg = (m[2] ?? "").trim();
   const info = COMMANDS.find((c) => c.name === name);
   if (info === undefined) {
-    return {
-      type: "error",
-      message: `There's no /${name} command. Start with // to send text that begins with a slash.`,
-    };
+    return { type: "error", message: t("chat.commands.unknown", { name }) };
   }
   if (info.args === "none" && arg !== "") {
-    return { type: "error", message: `/${name} takes no arguments.` };
+    return { type: "error", message: t("chat.commands.noArgs", { name }) };
   }
   if (info.args === "required" && arg === "") {
-    return { type: "error", message: `Usage: /${name} <${info.hint}>` };
+    return { type: "error", message: t("chat.commands.usage", { name, hint: info.hint }) };
   }
   if (name === "model" && arg !== "" && !MODEL_REF.test(arg)) {
-    return {
-      type: "error",
-      message: "Usage: /model provider/model, for example anthropic/claude-sonnet-5-5",
-    };
+    return { type: "error", message: t("chat.commands.usageModel") };
   }
   if (
     name === "export" &&
@@ -110,7 +94,7 @@ export function parseCommand(input: string): CommandParse {
     arg.toLowerCase() !== "md" &&
     arg.toLowerCase() !== "json"
   ) {
-    return { type: "error", message: "Usage: /export [md | json]" };
+    return { type: "error", message: t("chat.commands.usageExport") };
   }
   return { type: "command", name: info.name, arg };
 }

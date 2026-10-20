@@ -46,6 +46,8 @@ export const IPC = {
   // The bundled Mac helper's launch and pairing state (onboarding, Settings → Devices).
   helperGetState: "psyche:helper:get-state",
   helperState: "psyche:helper:state",
+  // The owner's macOS region format (A12: numbers, dates and times; Settings can override it).
+  localeGet: "psyche:locale:get",
   // Native dialogs.
   dialogPickFolder: "psyche:dialog:pick-folder",
   // Dictation HUD only (main → HUD state and capture commands, HUD → main audio).

@@ -69,6 +69,9 @@ jobs:
       - name: Lint
         run: pnpm -w lint
 
+      - name: Strings come from the message catalogue (A12)
+        run: pnpm i18n:check
+
       - name: Test
         if: github.event_name != 'pull_request'
         run: pnpm -r test

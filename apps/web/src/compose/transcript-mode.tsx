@@ -1,4 +1,4 @@
-import { type DisclosureLevel, useSettings } from "@psyche/ui";
+import { type DisclosureLevel, t, useSettings } from "@psyche/ui";
 import { type ReactElement, useCallback, useId } from "react";
 
 /**
@@ -10,10 +10,32 @@ import { type ReactElement, useCallback, useId } from "react";
 
 export const TRANSCRIPT_MODE_KEY = "ui.transcriptMode";
 export type TranscriptMode = "normal" | "thinking" | "verbose";
-export const MODES: readonly { mode: TranscriptMode; level: DisclosureLevel; label: string }[] = [
-  { mode: "normal", level: 0, label: "Normal" },
-  { mode: "thinking", level: 1, label: "Thinking" },
-  { mode: "verbose", level: 2, label: "Verbose" },
+export const MODES: readonly {
+  mode: TranscriptMode;
+  level: DisclosureLevel;
+  readonly label: string;
+}[] = [
+  {
+    mode: "normal",
+    level: 0,
+    get label() {
+      return t("web.transcriptMode.normal");
+    },
+  },
+  {
+    mode: "thinking",
+    level: 1,
+    get label() {
+      return t("web.transcriptMode.thinking");
+    },
+  },
+  {
+    mode: "verbose",
+    level: 2,
+    get label() {
+      return t("web.transcriptMode.verbose");
+    },
+  },
 ];
 export const DEFAULT_MODE: TranscriptMode = "thinking";
 
@@ -57,20 +79,20 @@ export function TranscriptModeBar({
       {incognito ? (
         <span
           className="rounded-full border border-gray-7 px-2 py-0.5"
-          title="Memory-only; expires after 24 h"
+          title={t("web.transcriptMode.incognitoHint")}
         >
-          Incognito
+          {t("web.transcriptMode.incognito")}
         </span>
       ) : null}
-      <fieldset className="ml-auto flex items-center gap-2">
-        <legend className="sr-only">Transcript view mode</legend>
-        <span aria-hidden="true">View</span>
+      <fieldset className="ms-auto flex items-center gap-2">
+        <legend className="sr-only">{t("web.transcriptMode.legend")}</legend>
+        <span aria-hidden="true">{t("web.transcriptMode.view")}</span>
         <div className="flex rounded-md border border-gray-6">
           {MODES.map((m) => (
             <label
               key={m.mode}
               className={`inline-flex min-h-6 cursor-pointer items-center px-2 py-0.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring ${m.level === level ? "bg-gray-4 text-foreground" : ""}`}
-              title={`${m.label} (⌃O cycles)`}
+              title={t("web.transcriptMode.optionTitle", { mode: m.label })}
             >
               <input
                 type="radio"

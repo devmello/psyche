@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { t } from "../i18n/core.ts";
 
 /**
  * Three disclosure levels (UI design §1.2 principle 3, §3.2): 0 status line only, 1 action list,
@@ -16,10 +17,24 @@ import {
  */
 export type DisclosureLevel = 0 | 1 | 2;
 
-export const DISCLOSURE_LABEL: Record<DisclosureLevel, string> = {
+/** Stable names of the levels, for data attributes and tests (never translated). */
+export const DISCLOSURE_KEY: Readonly<Record<DisclosureLevel, "status" | "actions" | "raw">> = {
   0: "status",
   1: "actions",
   2: "raw",
+};
+
+/** The levels' names as shown, from the catalogue (read at use). */
+export const DISCLOSURE_LABEL: Readonly<Record<DisclosureLevel, string>> = {
+  get 0() {
+    return t("blocks.disclosure.status");
+  },
+  get 1() {
+    return t("blocks.disclosure.actions");
+  },
+  get 2() {
+    return t("blocks.disclosure.raw");
+  },
 };
 
 interface DisclosureValue {

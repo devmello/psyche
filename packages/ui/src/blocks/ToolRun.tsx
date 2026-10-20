@@ -20,10 +20,11 @@ import {
   Wrench,
 } from "lucide-react";
 import { type ReactElement, useState } from "react";
-import { formatDuration, formatTime, plural, toolFamily } from "../lib/format.ts";
+import { t } from "../i18n/core.ts";
+import { formatDuration, formatTime, toolFamily } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
 import { DiffBlock } from "./DiffBlock.tsx";
-import { DISCLOSURE_LABEL, useDisclosure } from "./disclosure.tsx";
+import { DISCLOSURE_KEY, useDisclosure } from "./disclosure.tsx";
 import type { ToolCallBlock } from "./types.ts";
 
 /** One tool call: the block from the message plus the live ToolCall row when it is known. */
@@ -33,14 +34,7 @@ export interface ToolCallItem {
   receipt?: Receipt | null;
 }
 
-const STATUS_LABEL: Record<ToolCallStatus, string> = {
-  pending: "pending",
-  running: "running",
-  ok: "ok",
-  failed: "failed",
-  uncertain: "outcome unknown",
-  blocked: "blocked",
-};
+const statusLabel = (status: ToolCallStatus): string => t(`blocks.toolRun.status.${status}`);
 
 const STATUS_DOT: Record<ToolCallStatus, string> = {
   pending: "bg-gray-8",
@@ -63,7 +57,7 @@ export function StatusDot({ status }: { status: ToolCallStatus }): ReactElement 
 /** "3 actions · browser, calendar" (UI design §3.2). */
 export function summarizeRun(items: readonly ToolCallItem[]): string {
   const families = [...new Set(items.map((i) => toolFamily(i.block.tool)))];
-  return `${plural(items.length, "action")} · ${families.join(", ")}`;
+  return t("blocks.toolRun.summary", { count: items.length, families: families.join(", ") });
 }
 
 function duration(call: ToolCall | null | undefined): string | null {
@@ -137,21 +131,23 @@ export function ToolCallRow({
               failed ? "text-danger-text" : "text-muted-foreground",
             )}
           >
-            {STATUS_LABEL[block.status]}
+            {statusLabel(block.status)}
           </span>
         </span>
-        <span className="w-10 shrink-0 text-right text-caption text-muted-foreground tabular-nums">
+        <span className="w-10 shrink-0 text-end text-caption text-muted-foreground tabular-nums">
           {duration(call) ?? ""}
         </span>
       </div>
       {diff !== undefined ? (
-        <details className="ml-6">
-          <summary className="cursor-pointer text-caption text-accent-11">View diff</summary>
+        <details className="ms-6">
+          <summary className="cursor-pointer text-caption text-accent-11">
+            {t("blocks.common.viewDiff")}
+          </summary>
           <DiffBlock diff={diff} className="mt-1 max-h-96 overflow-auto" />
         </details>
       ) : null}
       {raw && call ? (
-        <div className="ml-6 flex flex-col gap-1 rounded-md bg-gray-2 p-2">
+        <div className="ms-6 flex flex-col gap-1 rounded-md bg-gray-2 p-2">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="tabular-nums">{formatTime(call.startedAt)}</span>
             <span className="font-mono text-foreground">{block.tool}</span>
@@ -165,22 +161,25 @@ export function ToolCallRow({
               )}
             >
               {untrusted ? <ShieldAlert className="size-3" aria-hidden="true" /> : null}
-              {untrusted ? "untrusted output" : "trusted output"}
+              {untrusted ? t("blocks.toolRun.untrustedOutput") : t("blocks.toolRun.trustedOutput")}
             </span>
             {call.decision ? (
               <span>
-                Broker: {call.decision}
-                {call.decisionRule ? ` (${call.decisionRule})` : ""}
+                {t("blocks.toolRun.broker", {
+                  decision: call.decision,
+                  hasRule: Boolean(call.decisionRule),
+                  rule: call.decisionRule ?? "",
+                })}
               </span>
             ) : null}
-            {call.taintIn ? <span>turn tainted</span> : null}
+            {call.taintIn ? <span>{t("blocks.toolRun.tainted")}</span> : null}
           </div>
           <pre className="max-h-48 overflow-auto font-mono text-xs whitespace-pre-wrap text-foreground">
             {JSON.stringify(call.paramsRedacted, null, 2)}
           </pre>
           {call.resultRef ? (
             <span className="font-mono text-xs text-muted-foreground">
-              result: {call.resultRef}
+              {t("blocks.toolRun.result", { ref: call.resultRef })}
             </span>
           ) : null}
         </div>
@@ -200,7 +199,7 @@ export function ToolRun({ items }: { items: readonly ToolCallItem[] }): ReactEle
   const running = items.some((i) => i.block.status === "running");
   const failed = items.some((i) => i.block.status === "failed" || i.block.status === "uncertain");
   return (
-    <div className="my-1" data-disclosure={DISCLOSURE_LABEL[shown as 0 | 1 | 2]}>
+    <div className="my-1" data-disclosure={DISCLOSURE_KEY[shown as 0 | 1 | 2]}>
       <button
         type="button"
         className="inline-flex min-h-6 items-center gap-1.5 rounded-md px-1 py-0.5 text-sm text-gray-11 hover:bg-gray-3"
@@ -208,19 +207,22 @@ export function ToolRun({ items }: { items: readonly ToolCallItem[] }): ReactEle
         onClick={() => setExtra((e) => !e)}
       >
         <ChevronRight
-          className={cn("size-3.5 transition-transform duration-120", shown > 0 && "rotate-90")}
+          className={cn(
+            "size-3.5 transition-transform duration-120",
+            shown > 0 ? "rotate-90" : "rtl:rotate-180",
+          )}
           aria-hidden="true"
         />
         <span>{summarizeRun(items)}</span>
         {running ? <StatusDot status="running" /> : failed ? <StatusDot status="failed" /> : null}
         {running ? (
-          <span className="sr-only">, running</span>
+          <span className="sr-only">{t("blocks.toolRun.runningNote")}</span>
         ) : failed ? (
-          <span className="sr-only">, something failed</span>
+          <span className="sr-only">{t("blocks.toolRun.failedNote")}</span>
         ) : null}
       </button>
       {shown > 0 ? (
-        <ul className="ml-1 border-l border-gray-5 pl-2" aria-label={summarizeRun(items)}>
+        <ul className="ms-1 border-s border-gray-5 ps-2" aria-label={summarizeRun(items)}>
           {items.map((item) => (
             <ToolCallRow key={item.block.toolCallId} item={item} raw={shown === 2} />
           ))}

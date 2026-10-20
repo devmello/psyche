@@ -130,3 +130,50 @@ describe("Settings → Skills", () => {
     );
   });
 });
+
+describe("Settings → Skills: suggestions (T3)", () => {
+  it("shows what the agent proposed, with steps and what it removed", async () => {
+    setup();
+    const card = await screen.findByTestId("skill-draft-export-week-invoices-finance");
+    expect(within(card).getByText("Seen 3 times")).toBeTruthy();
+    expect(within(card).getByText(/removed 1 personal or secret value/)).toBeTruthy();
+    expect(within(card).getByText("write_file")).toBeTruthy();
+    const group = screen.getByRole("region", { name: /^Suggested by / });
+    expect(within(group).getByText(/Nothing is installed until you review it/)).toBeTruthy();
+  });
+
+  it("edits, then reviews through the trust card and installs only after approval", async () => {
+    const gateway = setup();
+    const card = await screen.findByTestId("skill-draft-export-week-invoices-finance");
+    await userEvent.click(within(card).getByRole("button", { name: "Edit" }));
+    const box = within(card).getByLabelText("SKILL.md");
+    await userEvent.type(box, "{End}Extra note.");
+    await userEvent.click(within(card).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(gateway().calls.some((c) => c.method === "skills.drafts.update")).toBe(true),
+    );
+    await userEvent.click(
+      await within(
+        await screen.findByTestId("skill-draft-export-week-invoices-finance"),
+      ).findByRole("button", { name: "Review and install" }),
+    );
+    const trust = await screen.findByTestId("skill-trust-card");
+    expect(within(trust).getByTestId("skill-text").textContent).toContain("Extra note.");
+    expect(methods(gateway())).not.toContain("skills.install");
+    await answer(trust, "Allow once");
+    expect(await screen.findByText("Installed “export-week-invoices-finance”.")).toBeTruthy();
+    expect(methods(gateway())).toContain("skills.install");
+  });
+
+  it("dismissing a suggestion removes it and says it won't come back", async () => {
+    const gateway = setup();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Dismiss export-week-invoices-finance" }),
+    );
+    expect(await screen.findByText(/won't suggest that routine again/)).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.queryByTestId("skill-draft-export-week-invoices-finance")).toBeNull(),
+    );
+    expect(gateway().world.skillDrafts[0]?.status).toBe("dismissed");
+  });
+});

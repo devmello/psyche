@@ -58,6 +58,7 @@ button {
   align-items: center;
   gap: 8px;
   box-sizing: border-box;
+  /* Physical, like the inline left padding that clears the macOS traffic lights (TitleBar). */
   padding-right: 12px;
   border-bottom: 1px solid var(--shell-border);
   background: var(--shell-panel);
@@ -100,7 +101,7 @@ button {
   flex-direction: column;
   gap: 4px;
   padding: 8px 4px;
-  border-right: 1px solid var(--shell-border);
+  border-inline-end: 1px solid var(--shell-border);
   background: var(--shell-panel);
 }
 .rail button {
@@ -122,7 +123,7 @@ button {
 .shell[data-compact="true"] .rail {
   flex-direction: row;
   justify-content: space-around;
-  border-right: 0;
+  border-inline-end: 0;
   border-top: 1px solid var(--shell-border);
   order: 3;
 }
@@ -147,7 +148,7 @@ button {
 }
 .threads {
   width: 260px;
-  border-right: 1px solid var(--shell-border);
+  border-inline-end: 1px solid var(--shell-border);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -163,7 +164,7 @@ button {
 }
 .threads li button {
   width: 100%;
-  text-align: left;
+  text-align: start;
   border: 0;
   background: transparent;
   padding: 8px;
@@ -376,14 +377,14 @@ button {
 .panes {
   display: flex;
   min-width: 0;
-  border-left: 1px solid var(--shell-border);
+  border-inline-start: 1px solid var(--shell-border);
 }
 .pane {
   display: flex;
   flex-direction: column;
   min-width: 360px;
   min-height: 0;
-  border-left: 1px solid var(--shell-border);
+  border-inline-start: 1px solid var(--shell-border);
 }
 .pane > header {
   display: flex;
@@ -476,7 +477,7 @@ button {
 .toasts {
   position: fixed;
   bottom: 16px;
-  right: 16px;
+  inset-inline-end: 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -507,7 +508,7 @@ button {
 /* Skip link (WCAG 2.4.1): off screen until focused, then above everything. */
 .skip-link {
   position: absolute;
-  left: 8px;
+  inset-inline-start: 8px;
   top: -48px;
   z-index: 100;
   padding: 8px 12px;
@@ -534,4 +535,34 @@ button {
 }
 .threads-slot[hidden] {
   display: none;
+}
+
+/* Voice mode (Q5): the state bar above the composer. */
+.voice-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0 8px;
+  font-size: 13px;
+}
+.voice-mode-state {
+  font-weight: 600;
+}
+.voice-mode[data-phase="listening"] .voice-mode-state {
+  color: var(--shell-accent, currentColor);
+}
+.voice-mode[data-phase="waiting"] .voice-mode-state,
+.voice-mode[data-phase="error"] .voice-mode-state {
+  color: var(--shell-danger, currentColor);
+}
+.voice-mode-heard {
+  color: var(--shell-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Glyphs that point along the reading direction (the browser's Back and Forward, like Chrome). */
+[dir="rtl"] .rtl-mirror {
+  display: inline-block;
+  transform: scaleX(-1);
 }

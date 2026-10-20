@@ -103,6 +103,7 @@ export { Page, PageHeader, type PageProps, SectionLabel } from "./components/pag
 export { NativeSelect } from "./components/ui/native-select.tsx";
 export { Toaster } from "./components/ui/sonner.tsx";
 export * from "./data/index.ts";
+export * from "./i18n/index.ts";
 // Formatting helpers.
 export * from "./lib/format.ts";
 export { cn } from "./lib/utils.ts";
@@ -117,7 +118,7 @@ export * from "./screens/onboarding/index.ts";
 export * from "./screens/search/index.ts";
 export { CONTEXT_KEYS, ContextSettingsGroup } from "./screens/settings/ContextSettings.tsx";
 export * from "./screens/settings/index.ts";
-export { AppearanceProvider } from "./shell/AppearanceProvider.tsx";
+export { AppearanceProvider, type AppearanceProviderProps } from "./shell/AppearanceProvider.tsx";
 // Shell pieces.
 export { AppShell, type AppShellProps } from "./shell/AppShell.tsx";
 export {

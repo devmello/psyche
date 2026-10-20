@@ -16,6 +16,8 @@ import { DriverBase, type DriverDeps, type SessionState, type TabState } from ".
  * (`setWindowOpenHandler`) join the opener's session when the desktop names the opener.
  */
 export class CdpBridgeDriver extends DriverBase {
+  // The desktop forwards headers redacted, so it adds signature headers to the real ones.
+  protected override readonly signedHeaders = "endpoint" as const;
   #bridge: BridgeClient;
   #off: Unsubscribe[] = [];
 

@@ -2,6 +2,7 @@ import type {
   ApprovalRequest,
   Artifact,
   Automation,
+  BotAuthStatus,
   Channel,
   Connector,
   CredentialMeta,
@@ -24,6 +25,7 @@ import type {
   Run,
   SearchHit,
   SkillDetails,
+  SkillDraft,
   Task,
   TaskAction,
   ThreadListEntry,
@@ -49,7 +51,7 @@ import {
   type UsageSummary,
   usage,
 } from "./settings.ts";
-import { type MockSkillSource, skillSources, skills } from "./skills.ts";
+import { type MockSkillSource, skillDrafts, skillSources, skills } from "./skills.ts";
 import { artifacts, inputRequests, library, receipts, taskActions, tasks } from "./tasks.ts";
 
 /**
@@ -95,6 +97,8 @@ export interface FixtureWorld {
   channels: Channel[];
   pairingRequests: PairingRequest[];
   devices: Device[];
+  /** Web Bot Auth (I14): no key until the owner creates one. */
+  botAuth: BotAuthStatus;
   nodes: NodeInfo[];
   credentials: CredentialMeta[];
   /** The fill audit behind `vault.uses`, newest first. */
@@ -113,6 +117,8 @@ export interface FixtureWorld {
   skills: SkillDetails[];
   /** What reviewing a folder finds: a proposal to stage, or policy violations. */
   skillSources: Record<string, MockSkillSource>;
+  /** Agent-proposed skill drafts (T3). */
+  skillDrafts: SkillDraft[];
   usage: UsageSummary;
   /** The last turn's context usage by thread id; absent → no turn has reported yet. */
   contextUsage?: Record<string, ContextUsage>;
@@ -151,6 +157,16 @@ export function createFixtureWorld(): FixtureWorld {
     channels: channels(),
     pairingRequests: pairingRequests(),
     devices: devices(),
+    botAuth: {
+      enabled: false,
+      keyId: null,
+      publicJwk: null,
+      createdAt: null,
+      signatureAgent: null,
+      directoryPath: "/.well-known/http-message-signatures-directory",
+      origins: [],
+      advertised: [],
+    },
     nodes: nodes(),
     credentials: credentials(),
     credentialUses: credentialUses(),
@@ -163,6 +179,7 @@ export function createFixtureWorld(): FixtureWorld {
     searchHits: searchHits(),
     skills: skills(),
     skillSources: skillSources(),
+    skillDrafts: skillDrafts(),
     usage: usage(),
   });
 }
@@ -171,6 +188,7 @@ export {
   GREEDY_SKILL_FOLDER,
   type MockSkillSource,
   SKILL_FOLDER,
+  skillDrafts,
   skillSources,
   skills,
   stagedSkillProposal,

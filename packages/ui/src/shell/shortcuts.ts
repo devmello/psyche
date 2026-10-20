@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { t } from "../i18n/core.ts";
 
 /**
  * The keyboard map (UI design §4.11), modelled on the Claude desktop shortcuts. `mod` is ⌘ on
@@ -41,118 +42,182 @@ export const SHORTCUTS: readonly Shortcut[] = [
   {
     id: "palette",
     keys: "⌘K",
-    label: "Command palette",
+    get label() {
+      return t("shell.shortcut.palette");
+    },
     psyche: true,
     match: (e, m) => mod(e, m) && !e.shiftKey && key(e, "k"),
   },
   {
     id: "newSideChat",
     keys: "⌘N",
-    label: "New side chat",
+    get label() {
+      return t("shell.shortcut.newSideChat");
+    },
     match: (e, m) => mod(e, m) && !e.shiftKey && key(e, "n"),
   },
   {
     id: "closeThread",
     keys: "⌘W",
-    label: "Close thread view or pop-out",
+    get label() {
+      return t("shell.shortcut.closeThread");
+    },
     match: (e, m) => mod(e, m) && !e.shiftKey && key(e, "w"),
   },
   {
     id: "toggleThreadList",
     keys: "⌘B",
-    label: "Toggle thread list",
+    get label() {
+      return t("shell.shortcut.toggleThreadList");
+    },
     match: (e, m) => mod(e, m) && !e.shiftKey && key(e, "b"),
   },
   {
     id: "cycleThreads",
     keys: "⌃Tab",
-    label: "Cycle threads",
+    get label() {
+      return t("shell.shortcut.cycleThreads");
+    },
     match: (e) => e.ctrlKey && e.key === "Tab",
   },
   {
     id: "forkSelection",
     keys: "⌘;",
-    label: "Fork from selection into a side chat",
+    get label() {
+      return t("shell.shortcut.forkSelection");
+    },
     match: (e, m) => mod(e, m) && e.key === ";",
   },
   {
     id: "stop",
     keys: "Esc",
-    label: "Stop the run; release Take control",
+    get label() {
+      return t("shell.shortcut.stop");
+    },
     match: (e) => e.key === "Escape",
   },
   {
     id: "cycleDisclosure",
     keys: "⌃O",
-    label: "Cycle disclosure level",
+    get label() {
+      return t("shell.shortcut.cycleDisclosure");
+    },
     match: (e) => e.ctrlKey && !e.metaKey && key(e, "o"),
   },
   {
     id: "browserPane",
     keys: "⌘⇧B",
-    label: "Browser pane",
+    get label() {
+      return t("shell.shortcut.browserPane");
+    },
     match: (e, m) => mod(e, m) && e.shiftKey && key(e, "b"),
   },
   {
     id: "diffPane",
     keys: "⌘⇧D",
-    label: "Diff pane",
+    get label() {
+      return t("shell.shortcut.diffPane");
+    },
     match: (e, m) => mod(e, m) && e.shiftKey && key(e, "d"),
   },
   {
     id: "terminalPane",
     keys: "⌃`",
-    label: "Terminal pane",
+    get label() {
+      return t("shell.shortcut.terminalPane");
+    },
     match: (e) => e.ctrlKey && e.key === "`",
   },
   {
     id: "permissionMode",
     keys: "⌘⇧M",
-    label: "Permission mode",
+    get label() {
+      return t("shell.shortcut.permissionMode");
+    },
     match: (e, m) => mod(e, m) && e.shiftKey && key(e, "m"),
   },
   {
     id: "modelPicker",
     keys: "⌘⇧I",
-    label: "Model picker",
+    get label() {
+      return t("shell.shortcut.modelPicker");
+    },
     match: (e, m) => mod(e, m) && e.shiftKey && key(e, "i"),
   },
   {
     id: "activity",
     keys: "⌘⇧A",
-    label: "Agent sheet → Activity",
+    get label() {
+      return t("shell.shortcut.activity");
+    },
     psyche: true,
     match: (e, m) => mod(e, m) && e.shiftKey && key(e, "a"),
   },
   {
     id: "approvals",
     keys: "⌘⇧P",
-    label: "Agent sheet → Approvals",
+    get label() {
+      return t("shell.shortcut.approvals");
+    },
     psyche: true,
     match: (e, m) => mod(e, m) && e.shiftKey && key(e, "p"),
   },
   {
     id: "closePane",
     keys: "⌘\\",
-    label: "Close focused pane",
+    get label() {
+      return t("shell.shortcut.closePane");
+    },
     match: (e, m) => mod(e, m) && e.key === "\\",
   },
   {
     id: "shortcutList",
     keys: "⌘/",
-    label: "Shortcut list",
+    get label() {
+      return t("shell.shortcut.shortcutList");
+    },
     match: (e, m) => mod(e, m) && e.key === "/",
   },
 ];
 
 /** Keys handled inside cards rather than globally, listed in the shortcut sheet. */
-export const CARD_SHORTCUTS = [
-  { keys: "1–9", label: "Select a menu or question option" },
-  { keys: "⌘Return", label: "Approve with the selected scope; answer a question" },
-  { keys: "⌘D", label: "Deny the focused approval", psyche: true },
-  { keys: "⌥Space", label: "Quick entry (global)", psyche: true },
-  { keys: "Hold fn", label: "Push-to-talk dictation", psyche: true },
-] as const;
+export const CARD_SHORTCUTS: readonly { keys: string; label: string; psyche?: true }[] = [
+  {
+    keys: "1–9",
+    get label() {
+      return t("shell.shortcut.cardOption");
+    },
+  },
+  {
+    keys: "⌘Return",
+    get label() {
+      return t("shell.shortcut.cardApprove");
+    },
+  },
+  {
+    keys: "⌘D",
+    get label() {
+      return t("shell.shortcut.cardDeny");
+    },
+    psyche: true,
+  },
+  {
+    keys: "⌥Space",
+    get label() {
+      return t("shell.shortcut.quickEntry");
+    },
+    psyche: true,
+  },
+  {
+    get keys() {
+      return t("shell.shortcut.pushToTalkKeys");
+    },
+    get label() {
+      return t("shell.shortcut.pushToTalk");
+    },
+    psyche: true,
+  },
+];
 
 export const isMac = (): boolean =>
   typeof navigator !== "undefined" &&

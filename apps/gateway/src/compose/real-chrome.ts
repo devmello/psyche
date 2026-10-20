@@ -1,4 +1,5 @@
 import {
+  type BotAuthSigner,
   type BrowserDriverEx,
   type LibraryWriter,
   launchRealChrome,
@@ -64,6 +65,8 @@ export function createRealChromeMode(o: {
   library: LibraryWriter;
   broker: PermissionBroker;
   redact?: (text: string) => string;
+  /** Web Bot Auth (I14): the Psyche Chrome profile is the owner's, so its requests may sign. */
+  botAuth?: BotAuthSigner;
   /** The task's (or thread's) session key, shared with the web session. */
   keyFor(callId: string): string;
   /** The task's shared origin policy. */
@@ -130,6 +133,7 @@ export function createRealChromeMode(o: {
             library: o.library,
             broker: o.broker,
             ...(o.redact === undefined ? {} : { redact: o.redact }),
+            ...(o.botAuth === undefined ? {} : { botAuth: o.botAuth }),
           });
         router.attach("real_chrome", driver);
       } catch (err) {

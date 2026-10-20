@@ -457,6 +457,10 @@ function registerIpc(): void {
   });
   handle(IPC.permissionsStatus, () => permissions.statusAll());
   handle(IPC.helperGetState, () => helper?.getState() ?? { kind: "unbundled" });
+  handle(IPC.localeGet, () => ({
+    system: app.getSystemLocale(),
+    preferred: app.getPreferredSystemLanguages(),
+  }));
   handle(IPC.permissionsRequest, (_event, arg) => {
     const kind = str(IPC.permissionsRequest, rec(IPC.permissionsRequest, arg).kind, "kind", 32);
     if (!(PERMISSION_KINDS as readonly string[]).includes(kind)) {

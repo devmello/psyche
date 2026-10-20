@@ -1,5 +1,6 @@
 import { CircleAlert, type LucideIcon } from "lucide-react";
 import { type ReactElement, type ReactNode, useEffect, useState } from "react";
+import { t } from "../i18n/core.ts";
 import { cn } from "../lib/utils.ts";
 import { Button } from "./ui/button.tsx";
 import { Skeleton } from "./ui/skeleton.tsx";
@@ -181,7 +182,7 @@ export function ErrorState({
       </p>
       {retry ? (
         <Button type="button" size="sm" variant="outline" onClick={retry.onClick}>
-          {retry.label ?? "Try again"}
+          {retry.label ?? t("common.tryAgain")}
         </Button>
       ) : null}
     </div>

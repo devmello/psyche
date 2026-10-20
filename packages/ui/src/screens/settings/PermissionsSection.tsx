@@ -11,7 +11,8 @@ import {
   TableRow,
 } from "../../components/ui/table.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
-import { formatDate, formatRelative, plural } from "../../lib/format.ts";
+import { activeI18n, t } from "../../i18n/core.ts";
+import { formatDate, formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { useSlots } from "../../slots.tsx";
 import { ActionMatrix, type ActionRule } from "./ActionMatrix.tsx";
@@ -38,66 +39,85 @@ import type { FolderGrant } from "./types.ts";
 
 export type PermissionMode = "manual" | "balanced" | "auto";
 
-export const MODE_OPTIONS = [
-  {
-    value: "balanced" as const,
-    label: "Balanced",
-    hint: "Reads run; writes to people and money ask first.",
+const modeOption = <V extends PermissionMode>(value: V) => ({
+  value,
+  get label(): string {
+    return t(`settings.permissions.mode.${value as PermissionMode}`);
   },
-  { value: "manual" as const, label: "Manual", hint: "Every action outside a grant asks first." },
-  {
-    value: "auto" as const,
-    label: "Auto",
-    hint: "Routine actions inside your grants run; a classifier asks on anything sensitive.",
+  get hint(): string {
+    return t(`settings.permissions.mode.${value as PermissionMode}Hint`);
   },
-];
+});
+
+export const MODE_OPTIONS = [modeOption("balanced"), modeOption("manual"), modeOption("auto")];
 
 /** Security §3.9 / architecture §4.6: not configurable, shown read-only. */
-export const HARD_PROHIBITIONS = [
-  "Type a password, card number, bank account or government ID it can see",
-  "Solve or bypass a CAPTCHA",
-  "Make a financial transfer or trade",
-  "Permanently delete data without a typed confirmation",
-  "Follow instructions found in web pages, email or files",
-  "Create third-party accounts without your approval",
-  "Act on a localhost origin that isn't your own project",
-  "Change permissions, grants, security settings or pairing from a tool call",
-  "Read Safari or Passwords.app credentials",
-  "Use a secret it can see, even one you paste",
+export const HARD_PROHIBITION_IDS = [
+  "secrets",
+  "captcha",
+  "money",
+  "delete",
+  "injection",
+  "accounts",
+  "localhost",
+  "selfChange",
+  "browserPasswords",
+  "seenSecret",
 ] as const;
 
-export const GRANT_KIND_LABEL: Partial<Record<Grant["kind"], string>> = {
-  new_origin: "Website",
-  connector_action: "Connector action",
-  send_email: "Send email",
-  calendar_write: "Calendar",
-  exec: "Command",
-  file_write: "File write",
-  mcp_tool: "MCP tool",
-  credential_fill: "Credential fill",
-  computer_action: "Computer use",
-};
+/** The hard prohibitions, one sentence each, in the active language. */
+export function hardProhibitions(): string[] {
+  return HARD_PROHIBITION_IDS.map((id) => t(`settings.permissions.never.${id}`));
+}
 
-const SCOPE_LABEL: Record<Grant["scope"], string> = {
-  once: "once",
-  task: "this task",
-  site: "this site",
-  session: "this session",
-  always: "always",
-};
+const GRANT_KINDS = [
+  "new_origin",
+  "connector_action",
+  "send_email",
+  "calendar_write",
+  "exec",
+  "file_write",
+  "mcp_tool",
+  "credential_fill",
+  "computer_action",
+] as const satisfies readonly Grant["kind"][];
+
+/** A grant kind as the owner reads it; a kind without words shows as written. */
+export function grantKindLabel(kind: Grant["kind"]): string {
+  const known = GRANT_KINDS.find((k) => k === kind);
+  return known === undefined ? kind : t(`settings.permissions.kind.${known}`);
+}
+
+const scopeLabel = (s: Grant["scope"]): string => t(`settings.permissions.scope.${s}`);
 
 /** One line naming exactly what a grant covers. */
 export function grantSubject(g: Grant): string {
   const s = g.subject;
   const text = (k: string) => (typeof s[k] === "string" ? (s[k] as string) : null);
   if (g.kind === "new_origin")
-    return `${(text("origin") ?? g.grantKey).replace(/^https?:\/\//, "")} (${text("access") ?? "r"})`;
+    return t("settings.permissions.subject.origin", {
+      origin: (text("origin") ?? g.grantKey).replace(/^https?:\/\//, ""),
+      access: text("access") ?? "r",
+    });
   if (g.kind === "connector_action" || g.kind === "mcp_tool")
     return text("action") ?? text("tool") ?? g.grantKey;
-  if (g.kind === "exec" && Array.isArray(s.argv))
-    return `${(s.argv as unknown[]).join(" ")}${text("cwd") ? ` in ${text("cwd")}` : ""}`;
-  if (g.kind === "send_email") return `to ${text("recipient") ?? "any recipient"}`;
-  if (g.kind === "calendar_write") return `calendar ${text("calendarId") ?? ""}`.trim();
+  if (g.kind === "exec" && Array.isArray(s.argv)) {
+    const argv = (s.argv as unknown[]).join(" ");
+    const cwd = text("cwd");
+    return cwd ? t("settings.permissions.subject.execIn", { argv, cwd }) : argv;
+  }
+  if (g.kind === "send_email") {
+    const recipient = text("recipient");
+    return recipient
+      ? t("settings.permissions.subject.emailTo", { recipient })
+      : t("settings.permissions.subject.emailAny");
+  }
+  if (g.kind === "calendar_write") {
+    const id = text("calendarId")?.trim();
+    return id
+      ? t("settings.permissions.subject.calendarNamed", { id })
+      : t("settings.permissions.subject.calendar");
+  }
   return g.grantKey;
 }
 
@@ -146,18 +166,18 @@ export function PermissionsPanel({
   return (
     <SectionFrame
       needsApproval={needsApproval}
-      title="Permissions"
-      description="What runs on its own, what asks first and what never happens."
+      title={t("settings.permissions.title")}
+      description={t("settings.permissions.description")}
     >
       <LoadGate
-        label="permissions"
+        label={t("settings.permissions.loadLabel")}
         loading={loading ?? false}
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title="Default mode for new threads">
+        <Group title={t("settings.permissions.defaultModeTitle")}>
           <RadioField
-            label="Default mode"
+            label={t("settings.key.permissions.mode")}
             hideLabel
             inline
             value={mode}
@@ -168,11 +188,11 @@ export function PermissionsPanel({
         </Group>
 
         <Group
-          title="Connector actions"
-          description="Allow runs without asking, Ask shows an approval card, Deny never runs."
+          title={t("settings.permissions.connectorActions")}
+          description={t("settings.permissions.connectorActionsHint")}
         >
           {connectors.length === 0 ? (
-            <EmptyNotice text="No connectors yet, so there are no actions to set." />
+            <EmptyNotice text={t("settings.permissions.noConnectors")} />
           ) : (
             connectors.map((c) => {
               const changed = toolsListChanged(c);
@@ -187,31 +207,37 @@ export function PermissionsPanel({
                     <h4 className="font-semibold">
                       {c.label}{" "}
                       <span className="font-normal text-muted-foreground">
-                        ({SCOPE_MODE_LABEL[c.scopeMode].toLowerCase()})
+                        {t("settings.permissions.scopeMode", {
+                          mode: SCOPE_MODE_LABEL[c.scopeMode].toLocaleLowerCase(
+                            activeI18n().locale,
+                          ),
+                        })}
                       </span>
                     </h4>
                     {c.type === "mcp" ? (
                       changed ? (
                         <StatusChip tone="danger">
-                          <ShieldOff className="size-3" aria-hidden="true" /> Grants revoked
+                          <ShieldOff className="size-3" aria-hidden="true" />{" "}
+                          {t("settings.permissions.grantsRevoked")}
                         </StatusChip>
                       ) : (
-                        <StatusChip tone="success">tools/list hash ok</StatusChip>
+                        <StatusChip tone="success">{t("settings.permissions.hashOk")}</StatusChip>
                       )
                     ) : null}
                   </div>
                   {changed ? (
                     <p className="text-xs text-danger-text">
-                      {c.label} changed its tool list since you approved it, so Psyche revoked its
-                      grants. Every action asks again until you review it.
+                      {t("settings.permissions.toolsChanged", { name: c.label })}
                     </p>
                   ) : null}
                   {c.type === "mcp" && typeof hash === "string" ? (
                     <details className="text-xs text-muted-foreground">
                       <summary className="w-fit cursor-pointer select-none hover:text-foreground">
-                        Details
+                        {t("settings.browser.details")}
                       </summary>
-                      <p className="mt-1 truncate font-mono">tools/list {hash.slice(0, 19)}…</p>
+                      <p className="mt-1 truncate font-mono">
+                        {t("settings.permissions.hash", { hash: hash.slice(0, 19) })}
+                      </p>
                     </details>
                   ) : null}
                   <ActionMatrix
@@ -227,17 +253,24 @@ export function PermissionsPanel({
           )}
         </Group>
 
-        <Group title="Browser origins" description="Sites the agent may open without asking.">
+        <Group
+          title={t("settings.permissions.origins")}
+          description={t("settings.permissions.originsHint")}
+        >
           {origins.length === 0 ? (
-            <EmptyNotice text="No standing website grants. New sites ask first." />
+            <EmptyNotice text={t("settings.permissions.noOrigins")} />
           ) : (
             <ul className="flex flex-col gap-1.5">
               {origins.map((g) => (
                 <li key={g.id} className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{grantSubject(g)}</span>
                   <span className="text-xs text-muted-foreground">
-                    {SCOPE_LABEL[g.scope]}
-                    {g.expiresAt ? `, expires ${formatDate(g.expiresAt)}` : ""}
+                    {g.expiresAt
+                      ? t("settings.permissions.scopeExpires", {
+                          scope: scopeLabel(g.scope),
+                          date: formatDate(g.expiresAt),
+                        })
+                      : scopeLabel(g.scope)}
                   </span>
                   {onRevoke ? (
                     <Button
@@ -246,9 +279,9 @@ export function PermissionsPanel({
                       size="xs"
                       onClick={() => onRevoke(g)}
                       disabled={revoking?.has(g.id) ?? false}
-                      aria-label={`Revoke ${grantSubject(g)}`}
+                      aria-label={t("settings.permissions.revokeNamed", { name: grantSubject(g) })}
                     >
-                      Revoke
+                      {t("settings.devices.revoke")}
                     </Button>
                   ) : null}
                 </li>
@@ -258,24 +291,26 @@ export function PermissionsPanel({
         </Group>
 
         <Group
-          title="Folders"
+          title={t("settings.files.folders")}
           actions={
             onOpenFiles ? (
               <Button type="button" variant="outline" size="sm" onClick={onOpenFiles}>
-                Edit in File access
+                {t("settings.permissions.editInFiles")}
               </Button>
             ) : null
           }
         >
           {folders.length === 0 ? (
-            <p className="text-muted-foreground">No folders shared.</p>
+            <p className="text-muted-foreground">{t("settings.permissions.noFolders")}</p>
           ) : (
             <ul className="flex flex-wrap gap-x-4 gap-y-1">
               {folders.map((f) => (
                 <li key={f.path}>
                   <code className="font-mono text-xs">{f.path}</code>{" "}
                   <span className="text-xs text-muted-foreground">
-                    {f.access === "rw" ? "read and write" : "read only"}
+                    {f.access === "rw"
+                      ? t("settings.permissions.folderRw")
+                      : t("settings.permissions.folderRo")}
                   </span>
                 </li>
               ))}
@@ -284,22 +319,24 @@ export function PermissionsPanel({
         </Group>
 
         <Group
-          title="Grants ledger"
-          description={`${plural(active.length, "active grant")}. Revoking takes effect at once.`}
+          title={t("settings.permissions.ledger")}
+          description={t("settings.permissions.ledgerHint", { n: active.length })}
         >
-          {revokeError ? <ErrorNotice what={revokeError} did="The grant is unchanged." /> : null}
+          {revokeError ? (
+            <ErrorNotice what={revokeError} did={t("settings.permissions.grantUnchanged")} />
+          ) : null}
           {grants.length === 0 ? (
-            <EmptyNotice text="No grants yet. Choosing “Always allow” on an approval adds one here." />
+            <EmptyNotice text={t("settings.permissions.noGrants")} />
           ) : (
-            <Table aria-label="Grants ledger">
+            <Table aria-label={t("settings.permissions.ledger")}>
               <TableHeader>
                 <TableRow>
-                  <TableHead scope="col">Grant</TableHead>
-                  <TableHead scope="col">Scope</TableHead>
-                  <TableHead scope="col">Uses</TableHead>
-                  <TableHead scope="col">Last used</TableHead>
+                  <TableHead scope="col">{t("settings.permissions.col.grant")}</TableHead>
+                  <TableHead scope="col">{t("settings.permissions.col.scope")}</TableHead>
+                  <TableHead scope="col">{t("settings.credentials.col.uses")}</TableHead>
+                  <TableHead scope="col">{t("settings.credentials.col.lastUsed")}</TableHead>
                   <TableHead scope="col">
-                    <span className="sr-only">Actions</span>
+                    <span className="sr-only">{t("settings.credentials.col.actions")}</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -308,29 +345,33 @@ export function PermissionsPanel({
                   <TableRow key={g.id} data-revoked={g.revokedAt !== null}>
                     <TableCell className="whitespace-normal">
                       <span className="block text-xs text-muted-foreground">
-                        {GRANT_KIND_LABEL[g.kind] ?? g.kind}
+                        {grantKindLabel(g.kind)}
                       </span>
                       <span className={g.revokedAt ? "text-muted-foreground line-through" : ""}>
                         {grantSubject(g)}
                       </span>
                     </TableCell>
                     <TableCell>
-                      {SCOPE_LABEL[g.scope]}
+                      {scopeLabel(g.scope)}
                       {g.expiresAt ? (
                         <span className="block text-xs text-muted-foreground">
                           {Date.parse(g.expiresAt) < clock
-                            ? "expired"
-                            : `until ${formatDate(g.expiresAt)}`}
+                            ? t("settings.permissions.expired")
+                            : t("settings.permissions.until", { date: formatDate(g.expiresAt) })}
                         </span>
                       ) : null}
                     </TableCell>
-                    <TableCell className="tabular-nums">{g.useCount}</TableCell>
-                    <TableCell>
-                      {g.lastUsedAt ? formatRelative(g.lastUsedAt, clock) : "never"}
+                    <TableCell className="tabular-nums">
+                      {activeI18n().number(g.useCount)}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
+                      {g.lastUsedAt
+                        ? formatRelative(g.lastUsedAt, clock)
+                        : t("settings.permissions.never")}
+                    </TableCell>
+                    <TableCell className="text-end">
                       {g.revokedAt ? (
-                        <StatusChip tone="neutral">Revoked</StatusChip>
+                        <StatusChip tone="neutral">{t("settings.permissions.revoked")}</StatusChip>
                       ) : onRevoke ? (
                         <Button
                           type="button"
@@ -338,9 +379,11 @@ export function PermissionsPanel({
                           size="xs"
                           onClick={() => onRevoke(g)}
                           disabled={revoking?.has(g.id) ?? false}
-                          aria-label={`Revoke ${grantSubject(g)}`}
+                          aria-label={t("settings.permissions.revokeNamed", {
+                            name: grantSubject(g),
+                          })}
                         >
-                          Revoke
+                          {t("settings.devices.revoke")}
                         </Button>
                       ) : null}
                     </TableCell>
@@ -352,8 +395,8 @@ export function PermissionsPanel({
         </Group>
 
         <Group
-          title="Hard prohibitions"
-          description="These never happen, in any mode. They can't be changed."
+          title={t("settings.permissions.hard")}
+          description={t("settings.permissions.hardHint")}
           actions={
             <Button
               type="button"
@@ -363,14 +406,14 @@ export function PermissionsPanel({
               aria-controls="psyche-hard-prohibitions"
               onClick={() => setShowProhibitions((v) => !v)}
             >
-              {showProhibitions ? "Hide" : "Show"}
+              {showProhibitions ? t("settings.permissions.hide") : t("settings.permissions.show")}
             </Button>
           }
         >
           {showProhibitions ? (
-            <ul id="psyche-hard-prohibitions" className="list-disc pl-5 text-gray-11">
-              {HARD_PROHIBITIONS.map((p) => (
-                <li key={p}>{p}</li>
+            <ul id="psyche-hard-prohibitions" className="list-disc ps-5 text-gray-11">
+              {HARD_PROHIBITION_IDS.map((id) => (
+                <li key={id}>{t(`settings.permissions.never.${id}`)}</li>
               ))}
             </ul>
           ) : (
@@ -418,7 +461,12 @@ export function PermissionsSection({ now }: { now?: number }): ReactElement {
         .then(
           () => reloadGrants(),
           (err: unknown) =>
-            setRevokeError(`Psyche couldn't revoke “${grantSubject(g)}” (${messageOf(err)}).`),
+            setRevokeError(
+              t("settings.permissions.revokeFailed", {
+                name: grantSubject(g),
+                reason: messageOf(err),
+              }),
+            ),
         )
         .finally(() =>
           setRevoking((s) => {

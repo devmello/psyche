@@ -85,16 +85,33 @@ export function createVaultHandlers(
       return { imported, skipped };
     },
     "vault.uses": async ({ credentialId, limit }) => ({ uses: vault.uses(credentialId, limit) }),
-    "vault.linkExternal": async (p) => ({
-      credential: await vault.linkOnePassword({
-        kind: p.kind,
-        name: p.name,
-        ...(p.slug === undefined ? {} : { slug: p.slug }),
-        bindings: p.bindings,
-        ref: p.ref,
-        ...(p.fields === undefined ? {} : { fields: p.fields }),
-      }),
-    }),
+    "vault.linkExternal": async (p) => {
+      if (p.source === "bitwarden") {
+        return {
+          credential: await vault.linkBitwarden({
+            kind: p.kind,
+            name: p.name,
+            ...(p.slug === undefined ? {} : { slug: p.slug }),
+            bindings: p.bindings,
+            ref: { item: p.ref.item },
+            ...(p.fields === undefined ? {} : { fields: p.fields }),
+          }),
+        };
+      }
+      if (!("vault" in p.ref)) {
+        return fail("invalid_params", "a 1Password reference needs the vault and the item");
+      }
+      return {
+        credential: await vault.linkOnePassword({
+          kind: p.kind,
+          name: p.name,
+          ...(p.slug === undefined ? {} : { slug: p.slug }),
+          bindings: p.bindings,
+          ref: p.ref,
+          ...(p.fields === undefined ? {} : { fields: p.fields }),
+        }),
+      };
+    },
     "vault.payments.list": async ({ limit, taskId }) => ({
       payments: payments().list({
         ...(limit === undefined ? {} : { limit }),

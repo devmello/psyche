@@ -2,6 +2,7 @@ import { PROTOCOL_VERSION } from "@psyche/protocol";
 import { CircleAlert, CircleCheck, CircleX, Loader } from "lucide-react";
 import type { ReactElement } from "react";
 import { Button } from "../../components/ui/button.tsx";
+import { t } from "../../i18n/core.ts";
 import { Facts, Group, SectionFrame } from "./shared.tsx";
 import type { AboutInfo, DoctorCheck } from "./types.ts";
 
@@ -12,8 +13,6 @@ const DOCTOR_ICON = {
   warn: <CircleAlert className="size-4 text-approval-text" aria-hidden="true" />,
   fail: <CircleX className="size-4 text-danger-text" aria-hidden="true" />,
 };
-
-const DOCTOR_TEXT = { ok: "OK", warn: "Warning", fail: "Failed" };
 
 export interface AboutPanelProps {
   info: AboutInfo | null;
@@ -31,18 +30,29 @@ export function AboutPanel({
   onOpenLogs,
 }: AboutPanelProps): ReactElement {
   return (
-    <SectionFrame title="About" description="Psyche is open source under the Apache 2.0 license.">
-      <Group title="Versions">
+    <SectionFrame title={t("settings.about.title")} description={t("settings.about.description")}>
+      <Group title={t("settings.about.versions")}>
         <Facts
           items={[
-            { term: "App", value: info?.appVersion ?? "unknown" },
-            { term: "Gateway", value: info?.gatewayVersion ?? "unknown" },
-            { term: "Protocol", value: `v${info?.protocolVersion ?? PROTOCOL_VERSION}` },
-            ...(info ? [{ term: "Platform", value: info.platform }] : []),
+            {
+              term: t("settings.about.app"),
+              value: info?.appVersion ?? t("settings.about.unknown"),
+            },
+            {
+              term: t("settings.about.gateway"),
+              value: info?.gatewayVersion ?? t("settings.about.unknown"),
+            },
+            {
+              term: t("settings.about.protocol"),
+              value: t("settings.about.protocolVersion", {
+                version: info?.protocolVersion ?? PROTOCOL_VERSION,
+              }),
+            },
+            ...(info ? [{ term: t("settings.about.platform"), value: info.platform }] : []),
             ...(info
               ? [
                   {
-                    term: "Data folder",
+                    term: t("settings.about.dataFolder"),
                     value: <code className="font-mono text-xs">{info.home}</code>,
                   },
                 ]
@@ -51,31 +61,33 @@ export function AboutPanel({
         />
       </Group>
       <Group
+        // i18n-ignore: the CLI command's name
         title="psyche doctor"
-        description="Checks the Gateway, sandbox, permissions and vault."
+        description={t("settings.about.doctorDescription")}
         actions={
           <div className="flex gap-2">
             {onRunDoctor ? (
               <Button type="button" size="sm" onClick={onRunDoctor} disabled={doctorRunning}>
                 {doctorRunning ? (
                   <>
-                    <Loader className="motion-safe:animate-spin" aria-hidden="true" /> Running
+                    <Loader className="motion-safe:animate-spin" aria-hidden="true" />{" "}
+                    {t("settings.about.running")}
                   </>
                 ) : (
-                  "Run checks"
+                  t("settings.about.runChecks")
                 )}
               </Button>
             ) : null}
             {onOpenLogs ? (
               <Button type="button" size="sm" variant="outline" onClick={onOpenLogs}>
-                Open logs
+                {t("settings.about.openLogs")}
               </Button>
             ) : null}
           </div>
         }
       >
         {doctor === null ? (
-          <p className="text-muted-foreground">Not run yet.</p>
+          <p className="text-muted-foreground">{t("settings.about.notRun")}</p>
         ) : (
           <ul className="flex flex-col gap-1" aria-live="polite">
             {doctor.map((c) => (
@@ -83,7 +95,9 @@ export function AboutPanel({
                 {DOCTOR_ICON[c.status]}
                 <span>
                   <span className="font-medium">{c.label}</span>{" "}
-                  <span className="sr-only">{DOCTOR_TEXT[c.status]}: </span>
+                  <span className="sr-only">
+                    {t("settings.about.doctorStatus", { status: c.status })}
+                  </span>
                   <span className="text-muted-foreground">{c.detail}</span>
                 </span>
               </li>

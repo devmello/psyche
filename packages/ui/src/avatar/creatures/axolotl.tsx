@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { t } from "../../i18n/core.ts";
 import { AtLaptop } from "./laptop.tsx";
 import { ACCENT, ACCENT_SOFT, Cheeks, Eyes, ink, Mirrored, PALE, Smile } from "./parts.tsx";
 import type { CreatureDefinition, CreaturePose } from "./types.ts";
@@ -49,7 +50,11 @@ function render(pose: CreaturePose): ReactElement {
 
 export const axolotl: CreatureDefinition = {
   id: "axolotl",
-  name: "Axolotl",
-  description: "A pale, wide-smiling axolotl with frilly accent-colored gills.",
+  get name() {
+    return t("agent.creature.axolotl.name");
+  },
+  get description() {
+    return t("agent.creature.axolotl.description");
+  },
   render,
 };
