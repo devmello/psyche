@@ -134,6 +134,16 @@ export interface NotifyPort {
   show(n: { id: string; title: string; body: string; route?: string }): void;
 }
 
+/**
+ * Desktop only: how the host window is framed. `inset` means the window has no native title
+ * bar (macOS `hiddenInset`): the shell draws a drag bar and keeps content clear of the traffic
+ * lights, whose top-left corner is `trafficLights` (CSS pixels in the window).
+ */
+export interface WindowChrome {
+  titleBar: "inset" | "native";
+  trafficLights?: { x: number; y: number };
+}
+
 export interface KeyValueStore {
   get(key: string): string | null;
   set(key: string, value: string): void;
@@ -147,6 +157,7 @@ export interface ShellPlatform {
   browser?: BrowserPort;
   terminal?: TerminalPort;
   windows?: WindowPort;
+  chrome?: WindowChrome;
 }
 
 /** localStorage-backed store that degrades to memory (private windows, blocked storage). */
