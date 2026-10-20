@@ -1380,8 +1380,8 @@ export class PsycheAgentLoop implements AgentLoop {
               : decision.scopesOffered === undefined
                 ? {}
                 : { scopesOffered: decision.scopesOffered }),
+            // Taint sources travel on `context`, where the Gateway can add what it knows (#71).
             taint: run.taint,
-            ...(run.taint ? { taintSources: dedupeSources(run.taintSources) } : {}),
           })
         ).approval;
       const approvalId = approval.id;
