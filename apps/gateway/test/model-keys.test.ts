@@ -10,6 +10,7 @@ import type {
   ModelRequest,
 } from "@psyche/protocol";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { fillableItem } from "../src/compose/exec-tool.ts";
 import { type ComposedGateway, composeGateway, vaultModelSetup } from "../src/compose/index.ts";
 import {
   hasModelKey,
@@ -17,7 +18,6 @@ import {
   untilPrimaryPicked,
   vaultModelKeys,
 } from "../src/compose/model-keys.ts";
-import { fillableItem } from "../src/compose/exec-tool.ts";
 import { silentLogger } from "../src/log.ts";
 import { adminClient, ik, type TestClient } from "./helpers.ts";
 
