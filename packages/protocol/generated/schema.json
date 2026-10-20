@@ -16986,6 +16986,256 @@
       ],
       "type": "object"
     },
+    "TeachDraft": {
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedBy": {
+          "$ref": "#/$defs/TeachEndedBy"
+        },
+        "steps": {
+          "description": "Without screenshot bytes",
+          "items": {
+            "$ref": "#/$defs/TeachStep"
+          },
+          "type": "array"
+        },
+        "files": {
+          "description": "SKILL.md first",
+          "items": {
+            "$ref": "#/$defs/TeachDraftFile"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "sessionId",
+        "name",
+        "description",
+        "startedAt",
+        "endedAt",
+        "endedBy",
+        "steps",
+        "files"
+      ],
+      "type": "object"
+    },
+    "TeachDraftFile": {
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "fromStep": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "TeachEndedBy": {
+      "enum": [
+        "stop",
+        "timeout",
+        "limit",
+        "cancel"
+      ],
+      "type": "string"
+    },
+    "TeachScreenshot": {
+      "properties": {
+        "path": {
+          "description": "Path in the draft, e.g. screens/step-3.jpg",
+          "type": "string"
+        },
+        "mimeType": {
+          "type": "string"
+        },
+        "base64": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "mimeType",
+        "base64"
+      ],
+      "type": "object"
+    },
+    "TeachSessionParams": {
+      "properties": {
+        "sessionId": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "type": "object"
+    },
+    "TeachStartParams": {
+      "properties": {
+        "name": {
+          "description": "Skill name",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "app": {
+          "description": "Record only this bundle id",
+          "type": "string"
+        },
+        "screenshots": {
+          "description": "Window screenshot after each click (default false)",
+          "type": "boolean"
+        },
+        "maxSteps": {
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maxSeconds": {
+          "maximum": 1800,
+          "minimum": 10,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "TeachStep": {
+      "properties": {
+        "index": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "kind": {
+          "$ref": "#/$defs/TeachStepKind"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/TeachTarget"
+        },
+        "text": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "secure": {
+          "type": "boolean"
+        },
+        "keys": {
+          "description": "A chord, e.g. cmd+s, return",
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "screenshot": {
+          "$ref": "#/$defs/TeachScreenshot"
+        }
+      },
+      "required": [
+        "index",
+        "kind",
+        "at"
+      ],
+      "type": "object"
+    },
+    "TeachStepEvent": {
+      "properties": {
+        "type": {
+          "const": "teach.step",
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "step": {
+          "$ref": "#/$defs/TeachStep"
+        }
+      },
+      "required": [
+        "type",
+        "sessionId",
+        "step"
+      ],
+      "type": "object"
+    },
+    "TeachStepKind": {
+      "enum": [
+        "click",
+        "right_click",
+        "double_click",
+        "type",
+        "press",
+        "skipped"
+      ],
+      "type": "string"
+    },
+    "TeachTarget": {
+      "properties": {
+        "app": {
+          "description": "Bundle id",
+          "type": "string"
+        },
+        "appName": {
+          "type": "string"
+        },
+        "window": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "subrole": {
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "identifier": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "required": [
+        "app",
+        "appName"
+      ],
+      "type": "object"
+    },
     "TextBlock": {
       "properties": {
         "type": {

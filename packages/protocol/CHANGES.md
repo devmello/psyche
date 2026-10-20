@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (J8 teach mode)
+
+For S14 (the helper's `teach.start` / `teach.stop` / `teach.cancel` / `teach.status`), S01 (Gateway: owner-only teach tools, review then workspace skill), S11 (recording indicator and review screen).
+
+- New `schemas/teach.ts`: `TeachTarget`, `TeachStepKind` (click | right_click | double_click | type | press | skipped), `TeachScreenshot`, `TeachStep`, `TeachStartParams` {name?, description?, app?, screenshots?, maxSteps?, maxSeconds?}, `TeachSessionParams` {sessionId}, `TeachDraftFile`, `TeachEndedBy`, `TeachDraft` {sessionId, name, description, startedAt, endedAt, endedBy, steps, files}, `TeachStepEvent` (`teach.step`).
+- The helper never saves a draft. Password-field input and input in off-limits apps are never recorded.
+
 ### v1 additive — 2026-10-20 (L6: Gateway methods for snapshots and resets)
 
 For S01 (the Gateway serves them over S14's helper capabilities) and S11 (Settings → VM mode). Builds on the L6 shapes (`VmSnapshot`, `VmSnapshotResult`, `VmRestoreResult`).

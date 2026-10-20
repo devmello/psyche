@@ -599,6 +599,16 @@
 //   let tasksListParams = try? JSONDecoder().decode(TasksListParams.self, from: jsonData)
 //   let tasksListResult = try? JSONDecoder().decode(TasksListResult.self, from: jsonData)
 //   let tasksRetryParams = try? JSONDecoder().decode(TasksRetryParams.self, from: jsonData)
+//   let teachDraft = try? JSONDecoder().decode(TeachDraft.self, from: jsonData)
+//   let teachDraftFile = try? JSONDecoder().decode(TeachDraftFile.self, from: jsonData)
+//   let teachEndedBy = try? JSONDecoder().decode(TeachEndedBy.self, from: jsonData)
+//   let teachScreenshot = try? JSONDecoder().decode(TeachScreenshot.self, from: jsonData)
+//   let teachSessionParams = try? JSONDecoder().decode(TeachSessionParams.self, from: jsonData)
+//   let teachStartParams = try? JSONDecoder().decode(TeachStartParams.self, from: jsonData)
+//   let teachStep = try? JSONDecoder().decode(TeachStep.self, from: jsonData)
+//   let teachStepEvent = try? JSONDecoder().decode(TeachStepEvent.self, from: jsonData)
+//   let teachStepKind = try? JSONDecoder().decode(TeachStepKind.self, from: jsonData)
+//   let teachTarget = try? JSONDecoder().decode(TeachTarget.self, from: jsonData)
 //   let textBlock = try? JSONDecoder().decode(TextBlock.self, from: jsonData)
 //   let thread = try? JSONDecoder().decode(Thread.self, from: jsonData)
 //   let threadActivity = try? JSONDecoder().decode(ThreadActivity.self, from: jsonData)
@@ -12357,6 +12367,234 @@ public struct TasksRetryParams: Codable, Sendable {
         self.fromStepID = fromStepID
         self.taskID = taskID
     }
+}
+
+// MARK: - TeachDraft
+public struct TeachDraft: Codable, Sendable {
+    public let description: String
+    public let endedAt: String
+    public let endedBy: TeachEndedBy
+    /// SKILL.md first
+    public let files: [TeachDraftFile]
+    public let name: String
+    public let sessionID: String
+    public let startedAt: String
+    /// Without screenshot bytes
+    public let steps: [TeachStep]
+
+    public enum CodingKeys: String, CodingKey {
+        case description = "description"
+        case endedAt = "endedAt"
+        case endedBy = "endedBy"
+        case files = "files"
+        case name = "name"
+        case sessionID = "sessionId"
+        case startedAt = "startedAt"
+        case steps = "steps"
+    }
+
+    public init(description: String, endedAt: String, endedBy: TeachEndedBy, files: [TeachDraftFile], name: String, sessionID: String, startedAt: String, steps: [TeachStep]) {
+        self.description = description
+        self.endedAt = endedAt
+        self.endedBy = endedBy
+        self.files = files
+        self.name = name
+        self.sessionID = sessionID
+        self.startedAt = startedAt
+        self.steps = steps
+    }
+}
+
+public enum TeachEndedBy: String, Codable, Sendable {
+    case cancel = "cancel"
+    case limit = "limit"
+    case stop = "stop"
+    case timeout = "timeout"
+}
+
+// MARK: - TeachDraftFile
+public struct TeachDraftFile: Codable, Sendable {
+    public let fromStep: Int?
+    public let path: String
+    public let text: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case fromStep = "fromStep"
+        case path = "path"
+        case text = "text"
+    }
+
+    public init(fromStep: Int?, path: String, text: String?) {
+        self.fromStep = fromStep
+        self.path = path
+        self.text = text
+    }
+}
+
+// MARK: - TeachStep
+public struct TeachStep: Codable, Sendable {
+    public let at: String
+    public let index: Int
+    /// A chord, e.g. cmd+s, return
+    public let keys: String?
+    public let kind: TeachStepKind
+    public let note: String?
+    public let screenshot: TeachScreenshot?
+    public let secure: Bool?
+    public let target: TeachTarget?
+    public let text: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case index = "index"
+        case keys = "keys"
+        case kind = "kind"
+        case note = "note"
+        case screenshot = "screenshot"
+        case secure = "secure"
+        case target = "target"
+        case text = "text"
+    }
+
+    public init(at: String, index: Int, keys: String?, kind: TeachStepKind, note: String?, screenshot: TeachScreenshot?, secure: Bool?, target: TeachTarget?, text: String?) {
+        self.at = at
+        self.index = index
+        self.keys = keys
+        self.kind = kind
+        self.note = note
+        self.screenshot = screenshot
+        self.secure = secure
+        self.target = target
+        self.text = text
+    }
+}
+
+public enum TeachStepKind: String, Codable, Sendable {
+    case click = "click"
+    case doubleClick = "double_click"
+    case press = "press"
+    case rightClick = "right_click"
+    case skipped = "skipped"
+    case type = "type"
+}
+
+// MARK: - TeachScreenshot
+public struct TeachScreenshot: Codable, Sendable {
+    public let base64: String
+    public let mimeType: String
+    /// Path in the draft, e.g. screens/step-3.jpg
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case base64 = "base64"
+        case mimeType = "mimeType"
+        case path = "path"
+    }
+
+    public init(base64: String, mimeType: String, path: String) {
+        self.base64 = base64
+        self.mimeType = mimeType
+        self.path = path
+    }
+}
+
+// MARK: - TeachTarget
+public struct TeachTarget: Codable, Sendable {
+    /// Bundle id
+    public let app: String
+    public let appName: String
+    public let identifier: String?
+    public let label: String?
+    public let role: String?
+    public let subrole: String?
+    public let window: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case app = "app"
+        case appName = "appName"
+        case identifier = "identifier"
+        case label = "label"
+        case role = "role"
+        case subrole = "subrole"
+        case window = "window"
+    }
+
+    public init(app: String, appName: String, identifier: String?, label: String?, role: String?, subrole: String?, window: String?) {
+        self.app = app
+        self.appName = appName
+        self.identifier = identifier
+        self.label = label
+        self.role = role
+        self.subrole = subrole
+        self.window = window
+    }
+}
+
+// MARK: - TeachSessionParams
+public struct TeachSessionParams: Codable, Sendable {
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case sessionID = "sessionId"
+    }
+
+    public init(sessionID: String) {
+        self.sessionID = sessionID
+    }
+}
+
+// MARK: - TeachStartParams
+public struct TeachStartParams: Codable, Sendable {
+    /// Record only this bundle id
+    public let app: String?
+    public let description: String?
+    public let maxSeconds: Int?
+    public let maxSteps: Int?
+    /// Skill name
+    public let name: String?
+    /// Window screenshot after each click (default false)
+    public let screenshots: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case app = "app"
+        case description = "description"
+        case maxSeconds = "maxSeconds"
+        case maxSteps = "maxSteps"
+        case name = "name"
+        case screenshots = "screenshots"
+    }
+
+    public init(app: String?, description: String?, maxSeconds: Int?, maxSteps: Int?, name: String?, screenshots: Bool?) {
+        self.app = app
+        self.description = description
+        self.maxSeconds = maxSeconds
+        self.maxSteps = maxSteps
+        self.name = name
+        self.screenshots = screenshots
+    }
+}
+
+// MARK: - TeachStepEvent
+public struct TeachStepEvent: Codable, Sendable {
+    public let sessionID: String
+    public let step: TeachStep
+    public let type: TeachStepEventType
+
+    public enum CodingKeys: String, CodingKey {
+        case sessionID = "sessionId"
+        case step = "step"
+        case type = "type"
+    }
+
+    public init(sessionID: String, step: TeachStep, type: TeachStepEventType) {
+        self.sessionID = sessionID
+        self.step = step
+        self.type = type
+    }
+}
+
+public enum TeachStepEventType: String, Codable, Sendable {
+    case teachStep = "teach.step"
 }
 
 // MARK: - TextBlock
