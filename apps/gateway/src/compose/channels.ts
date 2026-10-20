@@ -12,6 +12,9 @@ import {
   type DiscordAdapterOptions,
   type DiscordTokenSource,
   E164,
+  EmailAdapter,
+  type EmailCursorStore,
+  type EmailSendAuthorizer,
   IMessageAdapter,
   type IMessageCursorStore,
   type IMessageSendAuthorizer,
@@ -19,10 +22,13 @@ import {
   isWeakTransport,
   type LibraryIngest,
   type OutboundTarget,
+  type SecretSource,
+  SlackAdapter,
   SmsAdapter,
   type SmsAdapterOptions,
   type SmsSecretSource,
   SqliteChannelStore,
+  staticSecret,
   TelegramAdapter,
   type TelegramAdapterOptions,
   WebChatAdapter,
@@ -44,6 +50,7 @@ import {
   type EventName,
   type EventPayload,
   type InboundMessage,
+  type JsonObject,
   type Message,
   type MessagesSendParams,
   type NodeClient,
@@ -59,6 +66,8 @@ import type { Call, HandlerDef } from "../context.ts";
 import { MAIN_SESSION_KEY } from "../handlers/threads.ts";
 import type { Gateway } from "../server.ts";
 import type { TxHooks } from "../session/controller.ts";
+import { channelSecretHandlers, vaultChannelSecret } from "./channel-secrets.ts";
+import { type EmailSetup, emailSetupFromEnv, mailEmailTransport } from "./email-channel.ts";
 import { indexedChannelLibrary } from "./library.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
@@ -131,9 +140,23 @@ export interface SmsSetup {
 
 export const SMS_WEBHOOK_PATH = "/channels/sms/twilio";
 
+/**
+ * Slack over Socket Mode (N8). Off unless configured. A token not given here is read from the
+ * vault, where `channels.secrets.set` stores it as a Gateway-owned item.
+ */
+export interface SlackSetup {
+  /** The workspace label: the channel's `account`. */
+  account: string;
+  botToken?: SecretSource;
+  appToken?: SecretSource;
+}
+
 export interface ChannelsSetup {
   telegram?: TelegramSetup;
   discord?: DiscordSetup;
+  /** Email over the mail connector's IMAP + SMTP backend (N9); off unless configured. */
+  email?: EmailSetup;
+  slack?: SlackSetup;
   imessage?: IMessageSetup;
   sms?: SmsSetup;
   /** Attach the built-in WebChat adapter (owner-only defaults). */
@@ -189,10 +212,30 @@ export function channelsSetupFromEnv(
   const imessage = env.PSYCHE_IMESSAGE_ACCOUNT?.trim() ?? "";
   const discord = discordSetupFromEnv(env, readFile);
   const sms = smsSetupFromEnv(env, readFile);
+  const email = emailSetupFromEnv(env, readFile);
+  // Slack (N8) is opt-in: the workspace label; tokens from env / files, else the vault.
+  const slackAccount = env.PSYCHE_SLACK_WORKSPACE?.trim() ?? "";
+  const secretFromEnv = (name: string): SecretSource | undefined => {
+    const path = env[`${name}_FILE`];
+    const value = (path ? readFile(path) : (env[name] ?? "")).trim();
+    return value === "" ? undefined : staticSecret(value);
+  };
+  const slackBot = secretFromEnv("PSYCHE_SLACK_BOT_TOKEN");
+  const slackApp = secretFromEnv("PSYCHE_SLACK_APP_TOKEN");
   return {
     webchat: true,
+    ...(email === undefined ? {} : { email }),
     ...(token === "" ? {} : { telegram: { token, account } }),
     ...(discord === undefined ? {} : { discord }),
+    ...(slackAccount === ""
+      ? {}
+      : {
+          slack: {
+            account: slackAccount,
+            ...(slackBot === undefined ? {} : { botToken: slackBot }),
+            ...(slackApp === undefined ? {} : { appToken: slackApp }),
+          },
+        }),
     ...(imessage === "" ? {} : { imessage: { account: imessage } }),
     ...(sms === undefined ? {} : { sms }),
   };
@@ -278,7 +321,7 @@ function discordSetupFromEnv(
 export function channelReplyAuthority(
   services: ComposeServices,
   turnFor: (recipient: string) => ChannelReplyTurn | undefined = () => undefined,
-): IMessageSendAuthorizer {
+): IMessageSendAuthorizer & EmailSendAuthorizer {
   return async (intent) => {
     const turn = intent.purpose === "reply" ? turnFor(intent.recipient) : undefined;
     const approval = await services.rawBroker.authorizeChannelReply({
@@ -403,6 +446,24 @@ export function inputTaintSources(event: ChannelInboundEvent): TaintSource[] {
     }
   }
   return out;
+}
+
+/** The email cursor (opaque JSON) in a 0600 file; unreadable means "start from now". */
+function jsonCursorStore(path: string): EmailCursorStore {
+  return {
+    async load() {
+      try {
+        const v = JSON.parse(readFileSync(path, "utf8")) as unknown;
+        return typeof v === "object" && v !== null && !Array.isArray(v) ? (v as JsonObject) : null;
+      } catch {
+        return null;
+      }
+    },
+    async save(cursor) {
+      mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+      writeFileSync(path, JSON.stringify(cursor), { mode: 0o600 });
+    },
+  };
 }
 
 /** One turn's text: the sender's own words as typed; other people's words labeled as data. */
@@ -559,6 +620,21 @@ export function composeChannels(
       }),
     );
   }
+  if (setup.slack !== undefined) {
+    const { account } = setup.slack;
+    add(
+      new SlackAdapter({
+        account,
+        botToken:
+          setup.slack.botToken ??
+          vaultChannelSecret(() => services.vault, "slack", account, "bot_token"),
+        appToken:
+          setup.slack.appToken ??
+          vaultChannelSecret(() => services.vault, "slack", account, "app_token"),
+        clock,
+      }),
+    );
+  }
   // A live, Messages-capable node (the mac helper); none → the adapter's start fails and retries.
   const messagesNode = (pinned?: string) => {
     const nodes = gateway?.context.nodes;
@@ -607,8 +683,32 @@ export function composeChannels(
           from: setup.sms.from,
           publicUrl: setup.sms.publicUrl,
           clock,
+          // Refused webhook posts count against the inbound limit (#254) under their own key:
+          // a forger is limited and audited, and cannot spend a real sender's budget.
+          onRejected: ({ reason, claimedFrom }) => {
+            logger.info?.("sms.webhook_rejected", { reason });
+            services.rateLimits.inboundChat.admit(
+              `sms-webhook-rejected|${setup.sms?.from ?? ""}|${claimedFrom || "unknown"}`,
+              { channelType: "sms", reason, senderId: claimedFrom || "unknown" },
+            );
+          },
         });
   if (sms !== undefined) add(sms);
+  if (setup.email !== undefined) {
+    const email = setup.email;
+    add(
+      new EmailAdapter({
+        account: email.address,
+        transport: mailEmailTransport(services, email),
+        cursor: jsonCursorStore(
+          join(services.home, "channels", `email-${encodeURIComponent(email.address)}.cursor`),
+        ),
+        authorizeSend: channelReplyAuthority(services),
+        ...(email.pollMs === undefined ? {} : { pollMs: email.pollMs }),
+        clock,
+      }),
+    );
+  }
   const webchat = setup.webchat === true ? new WebChatAdapter({ clock }) : undefined;
   if (webchat !== undefined) add(webchat);
   for (const a of setup.adapters ?? []) add(a);
@@ -867,7 +967,9 @@ export function composeChannels(
   // --- channels.* handlers -------------------------------------------------------------------
 
   const api = createChannelsApi(service, { newId: () => db.newId(), now: () => clock.now() });
-  const handlers: Record<string, HandlerDef> = {};
+  const handlers: Record<string, HandlerDef> = {
+    ...channelSecretHandlers(() => services.vault),
+  };
   for (const [name, fn] of Object.entries(api) as [
     keyof ChannelsApi,
     (p: unknown, c: { deviceId: string | null }) => Promise<unknown>,

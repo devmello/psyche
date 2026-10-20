@@ -15,6 +15,7 @@ export * from "./questions.ts";
 export * from "./registry.ts";
 export * from "./requester.ts";
 export * from "./state.ts";
+export * from "./turn-context.ts";
 export {
   bindingHash,
   canonicalJSON,

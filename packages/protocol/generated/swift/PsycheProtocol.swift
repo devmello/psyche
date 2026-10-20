@@ -686,9 +686,25 @@
 //   let vMGuestAgentStatus = try? JSONDecoder().decode(VMGuestAgentStatus.self, from: jsonData)
 //   let vMPhase = try? JSONDecoder().decode(VMPhase.self, from: jsonData)
 //   let vMProgressEvent = try? JSONDecoder().decode(VMProgressEvent.self, from: jsonData)
+//   let vMResetParams = try? JSONDecoder().decode(VMResetParams.self, from: jsonData)
+//   let vMRestoreParams = try? JSONDecoder().decode(VMRestoreParams.self, from: jsonData)
+//   let vMRestoreResult = try? JSONDecoder().decode(VMRestoreResult.self, from: jsonData)
 //   let vMSettings = try? JSONDecoder().decode(VMSettings.self, from: jsonData)
 //   let vMShare = try? JSONDecoder().decode(VMShare.self, from: jsonData)
 //   let vMShareAddParams = try? JSONDecoder().decode(VMShareAddParams.self, from: jsonData)
+//   let vMSnapshot = try? JSONDecoder().decode(VMSnapshot.self, from: jsonData)
+//   let vMSnapshotDeleteParams = try? JSONDecoder().decode(VMSnapshotDeleteParams.self, from: jsonData)
+//   let vMSnapshotKind = try? JSONDecoder().decode(VMSnapshotKind.self, from: jsonData)
+//   let vMSnapshotMethod = try? JSONDecoder().decode(VMSnapshotMethod.self, from: jsonData)
+//   let vMSnapshotParams = try? JSONDecoder().decode(VMSnapshotParams.self, from: jsonData)
+//   let vMSnapshotResult = try? JSONDecoder().decode(VMSnapshotResult.self, from: jsonData)
+//   let vMSnapshotsCreateParams = try? JSONDecoder().decode(VMSnapshotsCreateParams.self, from: jsonData)
+//   let vMSnapshotsDeleteParams = try? JSONDecoder().decode(VMSnapshotsDeleteParams.self, from: jsonData)
+//   let vMSnapshotsDeleteResult = try? JSONDecoder().decode(VMSnapshotsDeleteResult.self, from: jsonData)
+//   let vMSnapshotsListParams = try? JSONDecoder().decode(VMSnapshotsListParams.self, from: jsonData)
+//   let vMSnapshotsListResult = try? JSONDecoder().decode(VMSnapshotsListResult.self, from: jsonData)
+//   let vMSnapshotsResetParams = try? JSONDecoder().decode(VMSnapshotsResetParams.self, from: jsonData)
+//   let vMSnapshotsRestoreParams = try? JSONDecoder().decode(VMSnapshotsRestoreParams.self, from: jsonData)
 //   let vMStatus = try? JSONDecoder().decode(VMStatus.self, from: jsonData)
 //   let vMTransfer = try? JSONDecoder().decode(VMTransfer.self, from: jsonData)
 //   let vMUpdatedPayload = try? JSONDecoder().decode(VMUpdatedPayload.self, from: jsonData)
@@ -14014,82 +14030,64 @@ public enum VMProgressEventType: String, Codable, Sendable {
     case vmInstall = "vm.install"
     case vmPermissions = "vm.permissions"
     case vmPsycheInstall = "vm.psyche_install"
+    case vmReset = "vm.reset"
+    case vmSnapshot = "vm.snapshot"
     case vmState = "vm.state"
 }
 
-// MARK: - VMSettings
-public struct VMSettings: Codable, Sendable {
-    public let clipboard: VMClipboardMode
-    public let credentials: VMVaultPlacement
-    public let defaultWorkspace: TaskWorkspace
-    public let enabled: Bool
-    public let guestNodeID: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case clipboard = "clipboard"
-        case credentials = "credentials"
-        case defaultWorkspace = "defaultWorkspace"
-        case enabled = "enabled"
-        case guestNodeID = "guestNodeId"
-    }
-
-    public init(clipboard: VMClipboardMode, credentials: VMVaultPlacement, defaultWorkspace: TaskWorkspace, enabled: Bool, guestNodeID: String?) {
-        self.clipboard = clipboard
-        self.credentials = credentials
-        self.defaultWorkspace = defaultWorkspace
-        self.enabled = enabled
-        self.guestNodeID = guestNodeID
-    }
-}
-
-// MARK: - VMShareAddParams
-public struct VMShareAddParams: Codable, Sendable {
+// MARK: - VMResetParams
+public struct VMResetParams: Codable, Sendable {
     public let name: String?
-    public let path: String
-    public let readOnly: Bool?
-    public let share: String
 
     public enum CodingKeys: String, CodingKey {
         case name = "name"
-        case path = "path"
-        case readOnly = "readOnly"
-        case share = "share"
     }
 
-    public init(name: String?, path: String, readOnly: Bool?, share: String) {
+    public init(name: String?) {
         self.name = name
-        self.path = path
-        self.readOnly = readOnly
-        self.share = share
     }
 }
 
-// MARK: - VMStatus
-public struct VMStatus: Codable, Sendable {
-    public let active: Int
-    public let guests: [VMGuest]
-    public let maxActive: Int
-    /// Unattended setup (macOS 27 host and guest)
-    public let supportsGuestProvisioning: Bool
+// MARK: - VMRestoreParams
+public struct VMRestoreParams: Codable, Sendable {
+    public let name: String?
+    public let snapshot: String
 
     public enum CodingKeys: String, CodingKey {
-        case active = "active"
-        case guests = "guests"
-        case maxActive = "maxActive"
-        case supportsGuestProvisioning = "supportsGuestProvisioning"
+        case name = "name"
+        case snapshot = "snapshot"
     }
 
-    public init(active: Int, guests: [VMGuest], maxActive: Int, supportsGuestProvisioning: Bool) {
-        self.active = active
-        self.guests = guests
-        self.maxActive = maxActive
-        self.supportsGuestProvisioning = supportsGuestProvisioning
+    public init(name: String?, snapshot: String) {
+        self.name = name
+        self.snapshot = snapshot
+    }
+}
+
+// MARK: - VMRestoreResult
+public struct VMRestoreResult: Codable, Sendable {
+    public let durationMS: Int
+    public let guest: VMGuest
+    public let snapshot: String
+
+    public enum CodingKeys: String, CodingKey {
+        case durationMS = "durationMs"
+        case guest = "guest"
+        case snapshot = "snapshot"
+    }
+
+    public init(durationMS: Int, guest: VMGuest, snapshot: String) {
+        self.durationMS = durationMS
+        self.guest = guest
+        self.snapshot = snapshot
     }
 }
 
 // MARK: - VMGuest
 public struct VMGuest: Codable, Sendable {
     public let agent: VMGuestAgentStatus?
+    /// Id of the `base` snapshot, if any
+    public let baseSnapshot: String?
     public let clipboard: VMClipboardMode?
     public let cpus: Int
     public let diskGB: Int
@@ -14109,6 +14107,8 @@ public struct VMGuest: Codable, Sendable {
     /// A machine-state file exists (warm start)
     public let savedState: Bool?
     public let shares: [VMShare]
+    /// Newest first
+    public let snapshots: [VMSnapshot]?
     public let transfers: [VMTransfer]?
     public let username: String
     public let vault: VMVaultPlacement?
@@ -14116,6 +14116,7 @@ public struct VMGuest: Codable, Sendable {
 
     public enum CodingKeys: String, CodingKey {
         case agent = "agent"
+        case baseSnapshot = "baseSnapshot"
         case clipboard = "clipboard"
         case cpus = "cpus"
         case diskGB = "diskGB"
@@ -14130,14 +14131,16 @@ public struct VMGuest: Codable, Sendable {
         case psycheInstalled = "psycheInstalled"
         case savedState = "savedState"
         case shares = "shares"
+        case snapshots = "snapshots"
         case transfers = "transfers"
         case username = "username"
         case vault = "vault"
         case vsock = "vsock"
     }
 
-    public init(agent: VMGuestAgentStatus?, clipboard: VMClipboardMode?, cpus: Int, diskGB: Int, display: Display?, guestOS: String?, lastError: String?, memoryGB: Int, name: String, permissionsGranted: Bool?, phase: VMPhase, provisioned: Bool, psycheInstalled: Bool?, savedState: Bool?, shares: [VMShare], transfers: [VMTransfer]?, username: String, vault: VMVaultPlacement?, vsock: Vsock) {
+    public init(agent: VMGuestAgentStatus?, baseSnapshot: String?, clipboard: VMClipboardMode?, cpus: Int, diskGB: Int, display: Display?, guestOS: String?, lastError: String?, memoryGB: Int, name: String, permissionsGranted: Bool?, phase: VMPhase, provisioned: Bool, psycheInstalled: Bool?, savedState: Bool?, shares: [VMShare], snapshots: [VMSnapshot]?, transfers: [VMTransfer]?, username: String, vault: VMVaultPlacement?, vsock: Vsock) {
         self.agent = agent
+        self.baseSnapshot = baseSnapshot
         self.clipboard = clipboard
         self.cpus = cpus
         self.diskGB = diskGB
@@ -14152,6 +14155,7 @@ public struct VMGuest: Codable, Sendable {
         self.psycheInstalled = psycheInstalled
         self.savedState = savedState
         self.shares = shares
+        self.snapshots = snapshots
         self.transfers = transfers
         self.username = username
         self.vault = vault
@@ -14241,6 +14245,62 @@ public struct VMShare: Codable, Sendable {
     }
 }
 
+// MARK: - VMSnapshot
+public struct VMSnapshot: Codable, Sendable {
+    /// Allocated size; clones share unchanged blocks with the guest
+    public let bytes: Int
+    public let createdAt: String
+    public let guestOS: String?
+    public let id: String
+    public let kind: VMSnapshotKind
+    public let label: String
+    public let method: VMSnapshotMethod
+    public let provisioned: Bool
+    public let psycheInstalled: Bool
+    /// Includes a machine state (restores to saved)
+    public let savedState: Bool
+    public let taskID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case createdAt = "createdAt"
+        case guestOS = "guestOS"
+        case id = "id"
+        case kind = "kind"
+        case label = "label"
+        case method = "method"
+        case provisioned = "provisioned"
+        case psycheInstalled = "psycheInstalled"
+        case savedState = "savedState"
+        case taskID = "taskId"
+    }
+
+    public init(bytes: Int, createdAt: String, guestOS: String?, id: String, kind: VMSnapshotKind, label: String, method: VMSnapshotMethod, provisioned: Bool, psycheInstalled: Bool, savedState: Bool, taskID: String?) {
+        self.bytes = bytes
+        self.createdAt = createdAt
+        self.guestOS = guestOS
+        self.id = id
+        self.kind = kind
+        self.label = label
+        self.method = method
+        self.provisioned = provisioned
+        self.psycheInstalled = psycheInstalled
+        self.savedState = savedState
+        self.taskID = taskID
+    }
+}
+
+public enum VMSnapshotKind: String, Codable, Sendable {
+    case base = "base"
+    case manual = "manual"
+    case task = "task"
+}
+
+public enum VMSnapshotMethod: String, Codable, Sendable {
+    case apfsClone = "apfs-clone"
+    case overlay = "overlay"
+}
+
 // MARK: - VMTransfer
 public struct VMTransfer: Codable, Sendable {
     public let bytes: Int
@@ -14289,6 +14349,206 @@ public struct Vsock: Codable, Sendable {
     public init(gatewayNodePort: Int, hostCid: Int) {
         self.gatewayNodePort = gatewayNodePort
         self.hostCid = hostCid
+    }
+}
+
+// MARK: - VMSettings
+public struct VMSettings: Codable, Sendable {
+    public let clipboard: VMClipboardMode
+    public let credentials: VMVaultPlacement
+    public let defaultWorkspace: TaskWorkspace
+    public let enabled: Bool
+    public let guestNodeID: String?
+    public let resetPerTask: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case clipboard = "clipboard"
+        case credentials = "credentials"
+        case defaultWorkspace = "defaultWorkspace"
+        case enabled = "enabled"
+        case guestNodeID = "guestNodeId"
+        case resetPerTask = "resetPerTask"
+    }
+
+    public init(clipboard: VMClipboardMode, credentials: VMVaultPlacement, defaultWorkspace: TaskWorkspace, enabled: Bool, guestNodeID: String?, resetPerTask: Bool?) {
+        self.clipboard = clipboard
+        self.credentials = credentials
+        self.defaultWorkspace = defaultWorkspace
+        self.enabled = enabled
+        self.guestNodeID = guestNodeID
+        self.resetPerTask = resetPerTask
+    }
+}
+
+// MARK: - VMShareAddParams
+public struct VMShareAddParams: Codable, Sendable {
+    public let name: String?
+    public let path: String
+    public let readOnly: Bool?
+    public let share: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case path = "path"
+        case readOnly = "readOnly"
+        case share = "share"
+    }
+
+    public init(name: String?, path: String, readOnly: Bool?, share: String) {
+        self.name = name
+        self.path = path
+        self.readOnly = readOnly
+        self.share = share
+    }
+}
+
+// MARK: - VMSnapshotDeleteParams
+public struct VMSnapshotDeleteParams: Codable, Sendable {
+    public let name: String?
+    public let snapshot: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case snapshot = "snapshot"
+    }
+
+    public init(name: String?, snapshot: String) {
+        self.name = name
+        self.snapshot = snapshot
+    }
+}
+
+// MARK: - VMSnapshotParams
+public struct VMSnapshotParams: Codable, Sendable {
+    public let kind: VMSnapshotKind?
+    public let label: String?
+    public let name: String?
+    public let taskID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case label = "label"
+        case name = "name"
+        case taskID = "taskId"
+    }
+
+    public init(kind: VMSnapshotKind?, label: String?, name: String?, taskID: String?) {
+        self.kind = kind
+        self.label = label
+        self.name = name
+        self.taskID = taskID
+    }
+}
+
+// MARK: - VMSnapshotResult
+public struct VMSnapshotResult: Codable, Sendable {
+    public let guest: VMGuest
+    public let snapshot: VMSnapshot
+
+    public enum CodingKeys: String, CodingKey {
+        case guest = "guest"
+        case snapshot = "snapshot"
+    }
+
+    public init(guest: VMGuest, snapshot: VMSnapshot) {
+        self.guest = guest
+        self.snapshot = snapshot
+    }
+}
+
+// MARK: - VMSnapshotsCreateParams
+public struct VMSnapshotsCreateParams: Codable, Sendable {
+    /// Make it the reset point (`vm.snapshots.reset` returns here)
+    public let base: Bool?
+    public let label: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case base = "base"
+        case label = "label"
+    }
+
+    public init(base: Bool?, label: String?) {
+        self.base = base
+        self.label = label
+    }
+}
+
+// MARK: - VMSnapshotsDeleteParams
+public struct VMSnapshotsDeleteParams: Codable, Sendable {
+    public let snapshot: String
+
+    public enum CodingKeys: String, CodingKey {
+        case snapshot = "snapshot"
+    }
+
+    public init(snapshot: String) {
+        self.snapshot = snapshot
+    }
+}
+
+// MARK: - VMSnapshotsDeleteResult
+public struct VMSnapshotsDeleteResult: Codable, Sendable {
+    public let deleted: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case deleted = "deleted"
+    }
+
+    public init(deleted: Bool) {
+        self.deleted = deleted
+    }
+}
+
+// MARK: - VMSnapshotsListResult
+public struct VMSnapshotsListResult: Codable, Sendable {
+    public let baseSnapshot: String?
+    /// Newest first
+    public let snapshots: [VMSnapshot]
+
+    public enum CodingKeys: String, CodingKey {
+        case baseSnapshot = "baseSnapshot"
+        case snapshots = "snapshots"
+    }
+
+    public init(baseSnapshot: String?, snapshots: [VMSnapshot]) {
+        self.baseSnapshot = baseSnapshot
+        self.snapshots = snapshots
+    }
+}
+
+// MARK: - VMSnapshotsRestoreParams
+public struct VMSnapshotsRestoreParams: Codable, Sendable {
+    public let snapshot: String
+
+    public enum CodingKeys: String, CodingKey {
+        case snapshot = "snapshot"
+    }
+
+    public init(snapshot: String) {
+        self.snapshot = snapshot
+    }
+}
+
+// MARK: - VMStatus
+public struct VMStatus: Codable, Sendable {
+    public let active: Int
+    public let guests: [VMGuest]
+    public let maxActive: Int
+    /// Unattended setup (macOS 27 host and guest)
+    public let supportsGuestProvisioning: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case active = "active"
+        case guests = "guests"
+        case maxActive = "maxActive"
+        case supportsGuestProvisioning = "supportsGuestProvisioning"
+    }
+
+    public init(active: Int, guests: [VMGuest], maxActive: Int, supportsGuestProvisioning: Bool) {
+        self.active = active
+        self.guests = guests
+        self.maxActive = maxActive
+        self.supportsGuestProvisioning = supportsGuestProvisioning
     }
 }
 
@@ -14636,6 +14896,8 @@ public typealias VaultLockParams = [String: JSONAny]
 public typealias VaultPaymentsMethodsParams = [String: JSONAny]
 public typealias VaultStatusParams = [String: JSONAny]
 public typealias ViewLayoutParams = [String: JSONAny]
+public typealias VMSnapshotsListParams = [String: JSONAny]
+public typealias VMSnapshotsResetParams = [String: JSONAny]
 public typealias VoicePushResult = [String: JSONAny]
 
 // MARK: - Encode/decode helpers

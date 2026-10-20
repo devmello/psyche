@@ -25,7 +25,10 @@
     "check:secrets": "tsx packages/testing/src/cli/check-secrets.ts",
     "check:injection": "tsx packages/testing/src/cli/run-injection.ts",
     "check:resumability": "pnpm --filter @psyche/testing exec vitest run test/resumability.test.ts",
-    "check:scenarios": "tsx packages/testing/src/scenarios/cli.ts --out out/security/scenarios-report.json"
+    "check:scenarios": "tsx packages/testing/src/scenarios/cli.ts --out out/security/scenarios-report.json",
+    "docs:dev": "pnpm --filter @psyche/site docs:dev",
+    "docs:build": "pnpm --filter @psyche/site docs:build",
+    "docs:check": "pnpm --filter @psyche/site docs:check"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
