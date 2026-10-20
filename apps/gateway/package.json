@@ -35,6 +35,7 @@
     "@psyche/permissions": "workspace:*",
     "@psyche/proactive": "workspace:*",
     "@psyche/protocol": "workspace:*",
+    "@psyche/sandbox": "workspace:*",
     "@psyche/scheduler": "workspace:*",
     "@psyche/tasks": "workspace:*",
     "@psyche/vault": "workspace:*",
