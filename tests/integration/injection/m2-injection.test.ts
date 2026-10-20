@@ -103,11 +103,8 @@ describe("injection corpus on the Milestone 2 stack (real loop, broker and Gatew
     // Anthropic and OpenAI need `type: "object"` at the top of a tool's input schema; one tool
     // without it fails every request that offers it (#414). The coding tools are registered
     // here so the check covers them.
-    const KNOWN_SCHEMA: Record<string, string> = {
-      "code.git": "S02/S03 #414: GitInput is a top-level anyOf",
-      // Sent as a function tool unless `providerTools.memory` is on (off by default).
-      memory: "S02/S03 #414: MemoryInput is a top-level anyOf",
-    };
+    // #414 (`code.git`, `memory`) is fixed at the source (#425, #426): nothing is pinned.
+    const KNOWN_SCHEMA: Record<string, string> = {};
     const bad = rig
       .toolSchemas()
       .filter((t) => (t.inputSchema as { type?: unknown } | undefined)?.type !== "object")
