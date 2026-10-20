@@ -51,6 +51,21 @@ export interface BrowserToolDeps {
   libraryPath?(libraryItemId: string): Promise<string>;
   /** Which loopback servers may be previewed (security §3.10); without it none can. */
   devPreview?: DevPreviewGate;
+  /**
+   * True when text holds a vault value in any tracked form (S23 design-18, page echoes). Every
+   * tool output and error is checked; a hit withholds the content (`secret_echo`). The
+   * composition derives it from `CredentialBroker.redact`.
+   */
+  containsSecret?: (text: string) => boolean;
+}
+
+/** The error a page echo produces; it carries nothing from the page. */
+function secretEcho(): PsycheError {
+  return new PsycheError(
+    "policy_denied",
+    "the page echoed a vault secret, so its content was withheld; navigate away or let the owner take control",
+    { details: { reason: "secret_echo" } },
+  );
 }
 
 export type SessionKind = "web" | "dev_preview";
@@ -752,11 +767,19 @@ export function registerBrowserTools(registry: ToolRegistry, deps: BrowserToolDe
           await gateReadOnlyWrite(deps, gate, t, params, callId, signal);
           return t.run(params as never, { callId, signal });
         };
-        const output = await withOriginApprovals(deps, gate, t, params, callId, signal, run);
-        return { output: redactUrlsIn(output), provenance };
+        const output = redactUrlsIn(
+          await withOriginApprovals(deps, gate, t, params, callId, signal, run),
+        );
+        // Snapshots, text, titles, dialog messages and URLs all end up here (design-18).
+        if (deps.containsSecret?.(JSON.stringify(output)) === true) throw secretEcho();
+        return { output, provenance };
       } catch (err) {
-        const e = PsycheError.from(err);
-        return { output: { error: e.toPayload() }, isError: true, provenance };
+        let payload = PsycheError.from(err).toPayload();
+        // Errors quote page content too (dialog text, URLs): never let one carry a secret.
+        if (deps.containsSecret?.(JSON.stringify(payload)) === true) {
+          payload = secretEcho().toPayload();
+        }
+        return { output: { error: payload }, isError: true, provenance };
       }
     };
     const registration: Parameters<ToolRegistry["register"]>[0] = {
