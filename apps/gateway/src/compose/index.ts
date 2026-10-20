@@ -518,6 +518,12 @@ export { type McpGrantRevoker, type McpLifecycleEvent, mcpGrantRevocation } from
 export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { partsFromEnv } from "./parts.ts";
 export { type ComposedProactive, composeProactive, type ProactiveSetup } from "./proactive.ts";
+export {
+  createRealChromeMode,
+  type RealChromeMode,
+  type RealChromeSetup,
+  type RealChromeStatus,
+} from "./real-chrome.ts";
 export type { ApprovalRelay, ComposedPart, ComposeServices, OwnPorts } from "./services.ts";
 export { createLogger, surfaceOf };
 

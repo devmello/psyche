@@ -26,6 +26,8 @@ The pane UI and the Electron `WebContentsView` host belong to S11.
 | `src/drivers/` | `DriverBase`, `CdpBridgeDriver`, `PlaywrightDriver` |
 | `src/downloads/` | magic-byte `sniff`, `LibraryWriter`, `FsQuarantineWriter` |
 | `src/devpreview/` | `DevServerRegistry`, the gate that says which loopback servers a task may preview (security §3.10); `systemLoopbackProbes`, the OS probes behind the broker's localhost rule |
+| `src/realchrome/` | `launchRealChrome`, `findBrandedChrome`: the Psyche Chrome profile for real-Chrome mode (I13) |
+| `src/drivers/routing.ts` | `createRoutingDriver`: one driver API over the pane's driver and an attached real Chrome |
 | `src/recording/` | `FileRecordingSink` (frames, snapshots and the event log), `RecordingStore` (reads them back for `browser.recordings.*`) |
 | `src/tools/` | `registerBrowserTools`, `classifyActivation`, `ApprovalGate` |
 | `@psyche/browser/testing` | fixture site DSL, `FixtureServer`, `MockBrowser`, `MockDesktop` |
@@ -104,6 +106,8 @@ Every click by ref is hit-tested first (`conflict {reason: "obscured"}` when ano
 | `browser.wait` | `tabId, for, timeoutMs?` | none | load, text, ref, network_idle, timeout |
 | `browser.dialog` | `tabId, accept, promptText?` | read → write when accepting a confirm | |
 | `browser.fill_credential` | `tabId, ref, placeholder` | write (`credential_fill`) | see below |
+| `browser.use_real_chrome` | `url, reason` | destructive (`policy_change`) | opens the URL in the Psyche Chrome profile (I13); asks once per task, device-only, with presence |
+| `browser.stop_real_chrome` | — | none | ends the task's real-Chrome session; Chrome and its port close when no task uses it |
 | `browser.request_control` | `tabId, reason, timeoutMs?` | none | asks the owner to take the tab over (2FA, a login, personal details); waits until they hand it back or the timeout (default 10 min) passes; refs are stale after |
 | `browser.dev_preview` | `url` | read (`new_origin`) | opens the owner's own dev server in the task's dev-preview session (I12, below) |
 | `browser.console` / `network` | `tabId` | read | dev-preview tabs only (I12) |
@@ -189,6 +193,18 @@ Security §6: each task chooses `logged-in` or `logged-out` explicitly, with a p
 
 The Gateway reads `PSYCHE_BROWSER_PARTITION` and `PSYCHE_BROWSER_SIGNED_IN_ORIGINS` until Settings → Browser exists; the desktop is asked to key `clean` partitions by task.
 
+## Real-Chrome mode (I13)
+
+For sites and extensions the embedded pane cannot serve, above all 1Password's Agentic Mode (security §4, ADR-006 / ADR-007), the owner can let a task drive a real Google Chrome.
+
+- **Which Chrome.** The owner's installed Google Chrome binary (`findBrandedChrome`, or `PSYCHE_REAL_CHROME_PATH`), started on its own data dir, `$PSYCHE_HOME/browser/real-chrome/<profile>/` (mode 0700). The owner signs in and installs extensions there once; it persists. It is never the owner's everyday profile: the launcher refuses Chrome's own data dirs (Chrome 136+ refuses remote debugging on them too), so the model can never reach that profile's cookies, history or tabs.
+- **The port.** `--remote-debugging-port=0` binds DevTools to 127.0.0.1 on a random port, read back from `DevToolsActivePort` (a stale file is deleted first). Callers cannot pass their own debugging, data-dir or extension switches. The Gateway registers the port on `ownPorts`, so the localhost rule refuses it (`psyche_port`), and closes Chrome, and the port with it, when the last task releases it, after 15 minutes idle, or when the Gateway stops. A pipe attachment would remove the port, but `connectOverCDP` needs a WebSocket (security §16, open question 3).
+- **Consent.** `browser.use_real_chrome {url, reason}` is `destructive` with approval kind `policy_change`: device-only, presence (Touch ID or passkey) required, once only. Each task or chat thread asks once; Chrome launches only after that. Until S14 / S01 ship presence verifiers, every such approval is refused, which keeps the mode unusable rather than unguarded.
+- **Same rules.** The real-Chrome session shares the task's `OriginPolicy` object, so approved origins carry over and new ones still ask. Every page operation goes through the same `PageController` and CDP allowlist (no `Storage.*`, cookies, `Target.*` or page script), so `browser.fill_credential` is still the only way the agent fills a secret, and 1Password fills on its own after the owner approves in its UI. The driver only sees tabs it opened and their popups, never the owner's other tabs in that window. `browser.request_control` refuses on these tabs: the owner can use the window directly.
+- **Indicator.** An unresolved "Psyche is driving your Chrome" notification while attached, and the window title "Psyche is driving this window" (`--window-name`). `ComposedBrowser.realChrome.status()` reports port, PID and sessions for `psyche security audit`.
+- **Routing.** The tools hold one `BrowserDriverEx`; `createRoutingDriver` sends each call to the driver that owns its session or tab (the pane's CDP driver, or the Playwright `connectOverCDP` driver attached as `real_chrome`).
+- **Not yet:** recordings do not cover real-Chrome tabs; downloads use Chrome's own download folder for that profile rather than the Library quarantine (Playwright's connected default context); both are follow-ups.
+
 ## Recording and replay (I10)
 
 Opt-in per task (`PSYCHE_BROWSER_RECORD=1`), under `library/recordings/<id>/` where the id is the task id or `thread:<id>`. A recording is:
@@ -263,4 +279,4 @@ See [docs/status/s08.md](../../docs/status/s08.md):
 - OOPIF content stays hidden.
 - The `browser_submit` binding has no field-value digest yet.
 - Clearing typed fields after a failed submit is not implemented.
-- I13 real-Chrome launcher, I14 Web Bot Auth and the I12 element picker are M2.
+- I14 Web Bot Auth and the I12 element picker are later milestones; real-Chrome mode's gaps are listed in its section.
