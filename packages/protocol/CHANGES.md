@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S14 M2: Apple app adapters, J6)
+
+For S14 (the mac helper's `calendar.*`, `reminders.*`, `mail.*`, `notes.*`, `finder.*`, `safari.*` node capabilities), S02 (typed node tools), S05 (the `apple.<app>` connector matrix).
+
+- New schemas in `schemas/apple-apps.ts`: `AppleCalendar`, `AppleCalendarEvent`, `AppleCalendarListEventsParams`, `AppleCalendarEventInput`, `AppleCalendarEventUpdate`, `AppleReminder`, `AppleRemindersListParams`, `AppleReminderInput`, `AppleReminderUpdate`, `AppleMailMessageSummary`, `AppleMailMessage`, `AppleMailSearchParams`, `AppleMailDraftInput`, `AppleNoteSummary`, `AppleNote`, `AppleNoteInput`, `AppleFinderEntry`, `AppleSafariTab`.
+- No new methods: the capabilities are reached through `nodes.invoke` (and the agent's node tools) as `node.<capability>`; app content they return is `untrusted`.
 ### v1 additive — 2026-10-19 (M2 messages: J7 / N5)
 
 For S14 (the mac helper's `messages.*` capabilities), S10 / N5 (the iMessage channel adapter) and S05 (`message_send` approvals).

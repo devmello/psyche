@@ -37,7 +37,7 @@ struct PresenceTests {
 
     @Test func responsePayloadCarriesTheAssertion() {
         var r = NotificationResponse(notificationId: "apr_1", actionId: "approve", approvalId: "apr_1", authenticated: true)
-        r.presence = PresenceAssertion(signature: "c2ln", keyId: "k1")
+        r.presence = PresenceSignature(signature: "c2ln", keyId: "k1")
         #expect(r.payload["presence"] == ["signature": "c2ln", "keyId": "k1"])
         #expect(r.payload["authenticated"] == true)
         r.presence = nil
