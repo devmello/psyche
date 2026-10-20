@@ -95,6 +95,7 @@ import {
 } from "./model-settings.ts";
 import { composePasskeys } from "./passkeys.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
+import { protectedRoots } from "./protected-paths.ts";
 import { createRateLimits } from "./rate-limits.ts";
 import {
   type ApprovalRelay,
@@ -472,7 +473,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
 
   const registry = new AgentToolRegistry();
   // P9 file tools (#49); the executors re-check the live granted folders behind the broker.
-  for (const tool of fileTools({ folders: () => rawBroker.policy.folders }))
+  for (const tool of fileTools({
+    folders: () => rawBroker.policy.folders,
+    protectedRoots: () => protectedRoots(config.home),
+  }))
     registry.register(tool);
   // E12 cross-thread awareness: registered only while the owner has turned it on.
   let gatewayRef: Gateway | null = null;
