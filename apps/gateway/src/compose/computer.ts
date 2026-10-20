@@ -47,7 +47,9 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
 /** The helper releases an idle session after 2 minutes; the Gateway's view follows it. */
 const SESSION_IDLE_MS = 2 * 60_000;
 const INVOKE_TIMEOUT_MS = 60_000;
-const SCRIPT_TIMEOUT_MS = 10 * 60_000;
+/** Shortcuts get `SHORTCUT_TIMEOUT_S` in the helper; the Gateway waits a little longer. */
+const SHORTCUT_TIMEOUT_S = 600;
+const SCRIPT_TIMEOUT_MS = (SHORTCUT_TIMEOUT_S + 30) * 1000;
 /** Snapshot text the model sees (the helper already caps it at `maxEmit` elements). */
 const SNAPSHOT_CHARS = 40_000;
 const OUTPUT_CHARS = 20_000;
@@ -86,7 +88,11 @@ export function isRiskyLabel(text: string | undefined): boolean {
 
 /** Quit, close, delete: chords the helper refuses without an approval. */
 export function isRiskyChord(keys: string): boolean {
-  const parts = keys.toLowerCase().replace(/\s+/g, "").split("+");
+  const parts = keys
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .split("+")
+    .map((k) => (k === "command" || k === "⌘" ? "cmd" : k));
   const key = parts.at(-1) ?? "";
   return parts.includes("cmd") && ["q", "w", "delete", "backspace"].includes(key);
 }
@@ -209,7 +215,10 @@ const OpenParams = Type.Object(
   {
     app: BundleId,
     url: Type.Optional(
-      Type.String({ maxLength: 2048, description: "file://, https:// or mailto: to open with it" }),
+      Type.String({
+        maxLength: 2048,
+        description: "file:// document or mailto: (web pages: browser tools)",
+      }),
     ),
   },
   { additionalProperties: false },
@@ -265,8 +274,13 @@ interface Session {
   lastUsed: number;
   /** Apps snapshotted in this session (screenshots come after AX). */
   snapshotted: Set<string>;
-  /** Ref → app bundle id from this session's snapshots. */
-  refApps: Map<string, string>;
+}
+
+/** An element as the latest snapshot showed it. Refs are helper-global and never reused. */
+interface SeenElement {
+  app: string;
+  role: string;
+  label?: string;
 }
 
 export interface ComputerUse {
@@ -298,10 +312,24 @@ function clip(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max)}\n… (cut at ${max} characters)`;
 }
 
-/** Refs and their app from a snapshot's text rendering (`[e12] button "Save"`). */
-function refsIn(text: string): string[] {
-  return [...text.matchAll(/\be([0-9]{1,7})\b/g)].map((m) => `e${m[1]}`);
+/**
+ * Elements from a snapshot's text rendering, one per line: `  [e12] button "Save" =… {press}`
+ * (apps/mac-helper `AXSnapshot.render`). Only line starts count, so refs quoted inside labels
+ * or values (untrusted text) cannot claim to be elements.
+ */
+export function elementsIn(text: string): { ref: string; role: string; label?: string }[] {
+  const out: { ref: string; role: string; label?: string }[] = [];
+  for (const m of text.matchAll(/^[ ]*\[(e[0-9]{1,7})\] (\S+)(.*)$/gm)) {
+    const [, ref, role, rest] = m;
+    if (ref === undefined || role === undefined) continue;
+    const label = /^ "(.*?)"(?= |$)/.exec(rest ?? "")?.[1];
+    out.push({ ref, role, ...(label === undefined ? {} : { label }) });
+  }
+  return out;
 }
+
+/** Elements remembered for describing and checking actions (bounded). */
+const MAX_ELEMENTS = 20_000;
 
 const STOPPED =
   "Computer use stopped: you pressed Esc on the Mac. The run is cancelled; nothing else was done.";
@@ -309,9 +337,29 @@ const STOPPED =
 export function createComputerUse(deps: ComputerDeps): ComputerUse {
   const now = deps.now ?? Date.now;
   const sessions = new Map<string, Session>();
+  const elements = new Map<string, SeenElement>();
 
+  function remember(app: string, text: string): void {
+    for (const e of elementsIn(text)) {
+      elements.delete(e.ref);
+      elements.set(e.ref, {
+        app: app.toLowerCase(),
+        role: e.role,
+        ...(e.label === undefined ? {} : { label: e.label }),
+      });
+    }
+    for (const ref of elements.keys()) {
+      if (elements.size <= MAX_ELEMENTS) break;
+      elements.delete(ref);
+    }
+  }
+
+  /**
+   * One session per run, grouped by Task: the helper refuses a session for good once Esc
+   * stopped it, so a later run of the same Task needs a fresh id.
+   */
   function sessionKey(ctx: CallContext): string {
-    return ctx.taskId ?? ctx.runId;
+    return ctx.taskId === undefined ? ctx.runId : `${ctx.taskId}:${ctx.runId}`;
   }
 
   /** One session drives the computer at a time (J5); a stale one (helper idle release) yields. */
@@ -337,7 +385,6 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
         lastUsed: now(),
         snapshotted: new Set(),
-        refApps: new Map(),
       };
       sessions.set(id, s);
     }
@@ -401,6 +448,27 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       action: fallback.action,
     };
     const hash = bindingHash("computer_action", fields);
+    const sideEffect = risky ? ("destructive" as const) : ("write" as const);
+    const target = { kind: "app" as const, value: app };
+    // The app the helper names may differ from the one the loop decided about: the broker's
+    // rules (deny, hooks, paused tasks) get their say before any card is shown.
+    const decision = await deps.broker.decide(
+      {
+        tool,
+        sideEffect,
+        targetKind: "app",
+        target,
+        params: fields,
+        paramsHash: hashCanonical(fields),
+        kind: "computer_action",
+        bindingHash: hash,
+        grantKey: hash,
+      },
+      ctx,
+    );
+    if (decision.decision === "deny") {
+      throw new PsycheError("policy_denied", decision.reason ?? `denied by ${decision.rule}`);
+    }
     const issued = await deps.broker.requestApproval({
       kind: "computer_action",
       summary: risky
@@ -421,12 +489,13 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         threadId: ctx.threadId,
         toolCallId: callId,
       },
-      sideEffect: risky ? "destructive" : "write",
+      sideEffect,
       targetKind: "app",
-      target: { kind: "app", value: app },
+      target,
       surfaces: ["desktop", "notification"],
       scopesOffered: ["once"],
       taint: ctx.taint,
+      context: ctx,
     });
     const approvalId = issued.approval.id;
     if (ctx.unattended === true) {
@@ -526,16 +595,24 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     summary: string,
   ): Promise<string | undefined> {
     const ctx = deps.context(callId);
-    const r = await deps.broker.recordReceipt({
-      kind,
-      outcome: res.receipt?.outcome ?? (res.ok ? "ok" : "failed"),
-      summary: res.receipt?.summary ?? summary,
-      taskId: ctx.taskId ?? null,
-      toolCallId: callId,
-      approvalId: approvalId ?? null,
-      ...(res.receipt?.externalRefs ? { externalRefs: res.receipt.externalRefs } : {}),
-    });
-    return r.id;
+    // The action already happened: a failed receipt must not make the agent do it again.
+    const r = await deps.broker
+      .recordReceipt({
+        kind,
+        outcome: res.receipt?.outcome ?? (res.ok ? "ok" : "failed"),
+        summary: res.receipt?.summary ?? summary,
+        taskId: ctx.taskId ?? null,
+        toolCallId: callId,
+        approvalId: approvalId ?? null,
+        ...(res.receipt?.externalRefs ? { externalRefs: res.receipt.externalRefs } : {}),
+      })
+      .catch((err: unknown) => {
+        deps.logger?.log("warn", "computer-use receipt not recorded", {
+          code: PsycheError.from(err).code,
+        });
+        return undefined;
+      });
+    return r?.id;
   }
 
   interface Def<S extends TSchema> {
@@ -599,13 +676,42 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
 
   const appTarget = (app: string) => ({ kind: "app" as const, value: app });
 
-  function actCapability(p: ActParams): { capability: string; params: Record<string, unknown> } {
-    const target = {
-      ...(p.ref === undefined ? {} : { ref: p.ref }),
-      ...(p.expect === undefined ? {} : { expect: p.expect }),
-      ...(p.x === undefined ? {} : { x: p.x }),
-      ...(p.y === undefined ? {} : { y: p.y }),
+  /**
+   * An element target the helper may act on: a ref must come from a snapshot of `app` (the app
+   * the broker and the owner decided about), and its snapshot label is always part of `expect`,
+   * so the helper refuses when the element changed since the owner saw it.
+   */
+  function endpoint(
+    app: string,
+    t: { ref?: string; expect?: Static<typeof Expect>; x?: number; y?: number },
+  ): Record<string, unknown> {
+    if (t.ref === undefined) {
+      return { ...(t.x === undefined ? {} : { x: t.x }), ...(t.y === undefined ? {} : { y: t.y }) };
+    }
+    const seen = elements.get(t.ref);
+    if (seen === undefined || seen.app !== app.toLowerCase()) {
+      throw new PsycheError(
+        "invalid_params",
+        `${t.ref} is not in the latest snapshot of ${app}. Take computer.snapshot of ${app} first.`,
+      );
+    }
+    if (t.expect === undefined) {
+      throw new PsycheError(
+        "invalid_params",
+        "Copy expect {role, label} from the snapshot when acting on a ref",
+      );
+    }
+    return {
+      ref: t.ref,
+      expect: {
+        ...t.expect,
+        ...(seen.label === undefined || t.expect.label !== undefined ? {} : { label: seen.label }),
+      },
     };
+  }
+
+  function actCapability(p: ActParams): { capability: string; params: Record<string, unknown> } {
+    const target = endpoint(p.app, p);
     const need = (field: keyof ActParams) => {
       if (p[field] === undefined) {
         throw new PsycheError("invalid_params", `${p.action} needs ${field}`);
@@ -614,12 +720,6 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     const element = () => {
       if (p.ref === undefined && (p.x === undefined || p.y === undefined)) {
         throw new PsycheError("invalid_params", `${p.action} needs a ref (or x and y)`);
-      }
-      if (p.ref !== undefined && p.expect === undefined) {
-        throw new PsycheError(
-          "invalid_params",
-          "Copy expect {role, label} from the snapshot when acting on a ref",
-        );
       }
     };
     switch (p.action) {
@@ -643,6 +743,12 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         return { capability: "computer.select", params: target };
       case "type":
         need("text");
+        if (p.x !== undefined || p.y !== undefined) {
+          throw new PsycheError(
+            "invalid_params",
+            "type takes a ref (or the focused field), not x/y",
+          );
+        }
         if (/\{\{\s*cred:/i.test(p.text ?? "")) {
           throw new PsycheError(
             "policy_denied",
@@ -672,7 +778,10 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       case "drag":
         element();
         need("to");
-        return { capability: "computer.drag", params: { from: target, to: p.to } };
+        return {
+          capability: "computer.drag",
+          params: { from: target, to: endpoint(p.app, p.to ?? {}) },
+        };
       case "menu":
         need("path");
         return { capability: "computer.menu", params: { app: p.app, path: p.path } };
@@ -681,11 +790,22 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
 
   /** What the owner sees and the broker classifies: risky labels and chords are destructive. */
   function describeAct(p: ActParams): ToolCallDescription {
-    const label = p.expect?.label;
+    // Risk comes from what the snapshot showed, not only from what the agent copied: an element
+    // the Gateway has not seen in this app, or a bare screen point, could be anything.
+    const unknown = (t: { ref?: string; x?: number; y?: number } | undefined): boolean => {
+      if (t === undefined) return false;
+      if (t.ref === undefined) return t.x !== undefined || t.y !== undefined;
+      const seen = elements.get(t.ref);
+      return seen === undefined || seen.app !== p.app.toLowerCase() || isRiskyLabel(seen.label);
+    };
+    const label = p.expect?.label ?? (p.ref === undefined ? undefined : elements.get(p.ref)?.label);
     const risky =
-      isRiskyLabel(label) ||
+      isRiskyLabel(p.expect?.label) ||
+      isRiskyLabel(p.to?.expect?.label) ||
+      unknown(p) ||
+      unknown(p.to) ||
       (p.action === "key" && p.keys !== undefined && isRiskyChord(p.keys)) ||
-      (p.action === "menu" && isRiskyLabel(p.path?.split(">").at(-1))) ||
+      (p.action === "menu" && (p.path ?? "").split(">").some((seg) => isRiskyLabel(seg))) ||
       (p.action === "press" && isRiskyLabel(p.press?.replace(/^custom:/, "")));
     const what =
       p.action === "type"
@@ -784,10 +904,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           hint?: unknown;
         };
         const text = typeof r.text === "string" ? r.text : "";
-        if (session !== undefined) {
-          session.snapshotted.add(p.app.toLowerCase());
-          for (const ref of refsIn(text)) session.refApps.set(ref, p.app.toLowerCase());
-        }
+        session?.snapshotted.add(p.app.toLowerCase());
+        remember(p.app, text);
         return {
           output: {
             app: p.app,
@@ -808,16 +926,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       targetKind: "app",
       describe: describeAct,
       async run(p, callId, signal) {
+        // Refs must come from a snapshot of `p.app` (checked in `endpoint`).
         const { capability, params } = actCapability(p);
-        const ctx = deps.context(callId);
-        // A ref from another app's snapshot would act outside the app the broker allowed.
-        const known = sessions.get(sessionKey(ctx))?.refApps.get(p.ref ?? "");
-        if (known !== undefined && known !== p.app.toLowerCase()) {
-          throw new PsycheError(
-            "invalid_params",
-            `${p.ref} belongs to ${known}, not ${p.app}. Take a snapshot of the app you act on.`,
-          );
-        }
         const { res, approvalId } = await invoke(
           callId,
           {
@@ -889,7 +999,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
     def({
       name: "apps.open",
       description:
-        "Open (launch or bring forward) an app by bundle id, optionally with a file, https or mailto URL. Browsers open no URLs here: use the browser tools.",
+        "Open (launch or bring forward) an app by bundle id, optionally with a file:// document or a mailto: URL. Web pages go through the browser tools.",
       schema: OpenParams,
       sideEffect: "write",
       targetKind: "app",
@@ -905,11 +1015,12 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         if (appCap(p.app).cap === "off") {
           throw new PsycheError("policy_denied", appCap(p.app).reason);
         }
-        // A URL opened in a browser would skip the agent browser's origin policy (security §6).
-        if (p.url !== undefined && appCap(p.app).cap !== "interact") {
+        // Web pages go through the agent browser and its origin policy (security §6), whatever
+        // app would open them: only documents and mail drafts open here.
+        if (p.url !== undefined && !/^(file|mailto):/i.test(p.url)) {
           throw new PsycheError(
             "policy_denied",
-            `${p.app} cannot open URLs from computer use; use the browser tools.`,
+            "apps.open opens file: and mailto: URLs only; use the browser tools for web pages.",
           );
         }
         const { res, approvalId } = await invoke(
@@ -1052,7 +1163,11 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           {
             tool: "apps.shortcut_run",
             capability: "apps.shortcut_run",
-            params: { name: p.name, ...(p.input === undefined ? {} : { input: p.input }) },
+            params: {
+              name: p.name,
+              ...(p.input === undefined ? {} : { input: p.input }),
+              timeoutSeconds: SHORTCUT_TIMEOUT_S,
+            },
             session: false,
             timeoutMs: SCRIPT_TIMEOUT_MS,
             approval: { app: "com.apple.shortcuts", action: "shortcut", tierRequired: "interact" },
@@ -1088,11 +1203,12 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
       }
     },
     async taskEnded(taskId) {
-      const s = sessions.get(taskId);
-      if (s !== undefined) await end(s);
+      for (const s of [...sessions.values()]) if (s.taskId === taskId) await end(s);
     },
     nodeGone(nodeId) {
       for (const s of [...sessions.values()]) if (s.nodeId === nodeId) sessions.delete(s.id);
+      // A reconnected helper starts its ref table over.
+      elements.clear();
     },
     async endAll() {
       for (const s of [...sessions.values()]) await end(s);
