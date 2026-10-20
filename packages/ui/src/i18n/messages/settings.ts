@@ -605,6 +605,8 @@ export const settings = {
   "settings.connectors.catalog.imap": "Other email (IMAP)",
   "settings.connectors.catalog.appleNotes": "Apple Notes",
   "settings.connectors.catalog.appleReminders": "Apple Reminders",
+  "settings.connectors.catalog.appleCalendar": "Apple Calendar",
+  "settings.connectors.catalog.appleMail": "Apple Mail",
   "settings.connectors.catalog.mcp": "MCP server",
   "settings.connectors.status.connected": "Connected",
   "settings.connectors.status.disconnected": "Disconnected",

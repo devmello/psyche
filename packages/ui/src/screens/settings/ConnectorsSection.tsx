@@ -69,7 +69,15 @@ export function ConnectAccessChoice({
 }
 
 /** Connector types offered in the connect flow (and onboarding). */
-type CatalogType = "google" | "microsoft" | "imap" | "apple:notes" | "apple:reminders" | "mcp";
+type CatalogType =
+  | "google"
+  | "microsoft"
+  | "imap"
+  | "apple:notes"
+  | "apple:reminders"
+  | "apple:calendar"
+  | "apple:mail"
+  | "mcp";
 
 /** Message ids for connector types (ids can't hold the type's colon). */
 const CATALOG_ID = {
@@ -78,6 +86,8 @@ const CATALOG_ID = {
   imap: "imap",
   "apple:notes": "appleNotes",
   "apple:reminders": "appleReminders",
+  "apple:calendar": "appleCalendar",
+  "apple:mail": "appleMail",
   mcp: "mcp",
 } as const satisfies Record<CatalogType, string>;
 
@@ -95,6 +105,8 @@ export const CONNECTOR_CATALOG = [
   catalogEntry("imap"),
   catalogEntry("apple:notes"),
   catalogEntry("apple:reminders"),
+  catalogEntry("apple:calendar"),
+  catalogEntry("apple:mail"),
   catalogEntry("mcp"),
 ] as const;
 

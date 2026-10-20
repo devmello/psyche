@@ -8,11 +8,12 @@ Connectors give the agent your accounts (mail, calendar, files); channels let yo
 | --- | --- |
 | Google (Gmail, Calendar, Drive) | The Gateway connects it with your own OAuth client ([connectors-google.md](connectors-google.md)); the app's Connect button is not wired yet |
 | Other mail (IMAP, Fastmail over JMAP) | Not available yet: the Gateway does not include the mail connector |
+| Apple Notes, Reminders, Calendar, Mail | Connect through the Psyche helper on your Mac ([below](#apple-apps-on-your-mac)) |
 | 1Password | Not available yet |
 | Telegram | The Gateway runs the bot, but the Telegram channel cannot be created from the app or the CLI yet |
 | Web search | Not available yet |
 
-The onboarding Connectors step and Settings → Connectors also list Microsoft (Outlook, Calendar), Other email (IMAP), Apple Notes, Apple Reminders and MCP server. None of them connect on main. In onboarding, Connect lists the account as connected without connecting anything; use Skip for now.
+The onboarding Connectors step and Settings → Connectors also list Microsoft (Outlook, Calendar), Other email (IMAP) and MCP server. None of them connect on main. In onboarding, Connect lists the account as connected without connecting anything; use Skip for now.
 
 ## Google
 
@@ -45,6 +46,25 @@ Not available yet. The mail connector exists in the code, but the Gateway does n
 - Other mail (IMAP), for any mailbox with an app password, over TLS only (IMAP on port 993, SMTP on port 465 by default; no STARTTLS, no plain text).
 
 There are no presets for other providers' server names. Gmail and Outlook over IMAP with their own sign-in are not supported; for Gmail, the Google connector is the way once it can be connected.
+
+## Apple apps on your Mac
+
+Apple Notes, Apple Reminders, Apple Calendar and Apple Mail connect through the Psyche helper, the small Mac app that comes with the desktop app. The helper talks to the apps on that Mac; Psyche never reads their files directly and nothing goes through Apple's servers on Psyche's behalf.
+
+- The helper must be paired and running. Without it, Connect says the app needs the Psyche helper, and an already connected app's tools say the same until the helper is back.
+- The first time the agent uses an app, macOS asks you on the Mac: Calendars or Reminders access for Calendar and Reminders, Automation for Notes and Mail. If you decline, the agent gets the error macOS gave; allow access in System Settings → Privacy & Security and try again.
+- The account shown is "This Mac". The scopes listed are the helper capabilities the connection can use.
+
+What each one can do:
+
+| App | Read only | Read and act adds |
+| --- | --- | --- |
+| Apple Notes | List notes (by folder, or matching a title) and read one | Create a note (plain text) |
+| Apple Reminders | List lists and reminders | Add a reminder, change or complete one |
+| Apple Calendar | List calendars and events (at most 366 days at a time) | Add an event, change one |
+| Apple Mail | Search by subject or sender, read a message | Save a draft; send a message |
+
+Reading is allowed by default. Every change asks first, and sending mail always asks with the exact recipients, subject and text, even if you set it to allow. Notes, reminders, events and mail are untrusted content (see [approvals.md](approvals.md#untrusted-content)). Deleting notes, reminders or events is not offered.
 
 ## 1Password
 
