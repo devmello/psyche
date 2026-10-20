@@ -1,0 +1,7 @@
+{
+  "name": "undeclared",
+  "version": "1.0.0",
+  "description": "Test fixture: registers a capability it did not declare.",
+  "main": "index.mjs",
+  "capabilities": ["context"]
+}

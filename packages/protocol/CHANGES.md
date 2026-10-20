@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (E12 "From your other chats")
+
+For S02 (agent-core's context providers), S01 (the Gateway's thread digests), S11 / S12 (the block in the chat).
+
+- New block `RelatedThreadsBlock` (`type: "related_threads"`, 1–5 `RelatedThread {threadId, title, snippet, lastMessageAt}`) at the end of the `Block` union: the owner's other chats a turn drew on, shown collapsible in the reply. Titles and snippets are untrusted data, rendered as plain text.
+
 ### v1 additive — 2026-10-20 (T4 code plugins)
 
 For S02 (agent-core's plugin seam and `packages/plugins`), S01 (the Gateway's plugins part), S11 (a Settings → Plugins pane later).

@@ -4532,6 +4532,9 @@
         },
         {
           "$ref": "#/$defs/WrapUpBlock"
+        },
+        {
+          "$ref": "#/$defs/RelatedThreadsBlock"
         }
       ]
     },
@@ -14504,6 +14507,63 @@
       },
       "required": [
         "receipts"
+      ],
+      "type": "object"
+    },
+    "RelatedThread": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "snippet": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "lastMessageAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "threadId",
+        "title",
+        "snippet"
+      ],
+      "type": "object"
+    },
+    "RelatedThreadsBlock": {
+      "properties": {
+        "type": {
+          "const": "related_threads",
+          "type": "string"
+        },
+        "items": {
+          "items": {
+            "$ref": "#/$defs/RelatedThread"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "type",
+        "items"
       ],
       "type": "object"
     },

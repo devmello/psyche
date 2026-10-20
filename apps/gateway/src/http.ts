@@ -41,6 +41,56 @@ function send(res: ServerResponse, status: number, body: string, type = "applica
   res.end(body);
 }
 
+/** A self-authenticating POST route a composed part mounts (a channel webhook, e.g. Twilio). */
+export interface WebhookRequest {
+  /** Path and query as received. */
+  url: string;
+  headers: Readonly<Record<string, string | string[] | undefined>>;
+  body: Uint8Array;
+}
+
+export interface WebhookResponse {
+  status: number;
+  headers?: Record<string, string>;
+  body: string;
+}
+
+export type WebhookRoute = (request: WebhookRequest) => Promise<WebhookResponse>;
+
+/** Webhook bodies past this are refused unread (413). */
+export const WEBHOOK_MAX_BYTES = 64 * 1024;
+
+/** Reads a capped body, hands it to the route, writes its answer; failures say nothing more. */
+export async function serveWebhook(
+  req: IncomingMessage,
+  res: ServerResponse,
+  route: WebhookRoute,
+): Promise<void> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  try {
+    for await (const chunk of req) {
+      size += (chunk as Buffer).byteLength;
+      if (size > WEBHOOK_MAX_BYTES) {
+        send(res, 413, JSON.stringify({ ok: false, error: "payload too large" }));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk as Buffer);
+    }
+    const out = await route({
+      url: req.url ?? "/",
+      headers: req.headers,
+      body: Buffer.concat(chunks),
+    });
+    res.writeHead(out.status, { "x-content-type-options": "nosniff", ...out.headers });
+    res.end(out.body);
+  } catch {
+    if (!res.headersSent) send(res, 500, JSON.stringify({ ok: false, error: "webhook failed" }));
+    else res.destroy();
+  }
+}
+
 export function handleHttp(req: IncomingMessage, res: ServerResponse, deps: HttpDeps): void {
   const url = new URL(req.url ?? "/", "http://gateway.invalid");
   if (req.method !== "GET" && req.method !== "HEAD") {

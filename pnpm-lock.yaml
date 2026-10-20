@@ -337,6 +337,9 @@ importers:
       '@psyche/permissions':
         specifier: workspace:*
         version: link:../../packages/permissions
+      '@psyche/plugins':
+        specifier: workspace:*
+        version: link:../../packages/plugins
       '@psyche/proactive':
         specifier: workspace:*
         version: link:../../packages/proactive
@@ -753,6 +756,25 @@ importers:
       fast-check:
         specifier: 4.10.2
         version: 4.10.2
+
+  packages/plugins:
+    dependencies:
+      '@psyche/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@psyche/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@psyche/skills':
+        specifier: workspace:*
+        version: link:../skills
+      '@sinclair/typebox':
+        specifier: 0.34.52
+        version: 0.34.52
+    devDependencies:
+      '@psyche/testing':
+        specifier: workspace:*
+        version: link:../testing
 
   packages/proactive:
     dependencies:
