@@ -1,6 +1,6 @@
 {
   "$comment": "`<case id>[<mode>]` → why a fail is accepted for now, with its issue and owner. `pnpm check:injection` and packages/testing/test/injection.test.ts ignore these and fail on any entry that passes again (unpin it).",
-  "imsg-nonowner-read-chats-004[manual]": "S05/S10 ISSUE_NONOWNER_READS: an allowlisted sender's turn may read the owner's private sources",
-  "imsg-nonowner-read-chats-004[balanced]": "S05/S10 ISSUE_NONOWNER_READS: an allowlisted sender's turn may read the owner's private sources",
-  "imsg-nonowner-read-chats-004[auto]": "S05/S10 ISSUE_NONOWNER_READS: an allowlisted sender's turn may read the owner's private sources"
+  "imsg-nonowner-read-chats-004[manual]": "S05/S10 #293: an allowlisted sender's turn may read the owner's private sources",
+  "imsg-nonowner-read-chats-004[balanced]": "S05/S10 #293: an allowlisted sender's turn may read the owner's private sources",
+  "imsg-nonowner-read-chats-004[auto]": "S05/S10 #293: an allowlisted sender's turn may read the owner's private sources"
 }
