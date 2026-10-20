@@ -10,7 +10,7 @@ import {
   type SandboxInstance,
   type SandboxScope,
 } from "@psyche/protocol";
-import { createSandboxRunner } from "@psyche/sandbox";
+import { type ContainerSandboxRunnerOptions, createSandboxRunner } from "@psyche/sandbox";
 import { libreOfficeArgv } from "@psyche/viewers/core/convert";
 import type { Call } from "../context.ts";
 import {
@@ -138,13 +138,20 @@ export async function runLibreOffice(
   }
 }
 
-const defaultRunner = (): ConversionRunner =>
-  createSandboxRunner({
-    variant: "full",
-    namePrefix: "psyche-convert",
-    idleTimeoutMs: 5 * 60_000,
-    maxRunningSandboxes: 1,
-  });
+/**
+ * The conversion runner's options. One container serves every document, so each exec's
+ * session is reaped when it returns (`reapBackground: "always"`, #286): a process a document
+ * starts in LibreOffice cannot outlive its conversion to read or swap the next one.
+ */
+export const CONVERSION_RUNNER_OPTIONS = {
+  variant: "full",
+  namePrefix: "psyche-convert",
+  idleTimeoutMs: 5 * 60_000,
+  maxRunningSandboxes: 1,
+  reapBackground: "always",
+} as const satisfies ContainerSandboxRunnerOptions;
+
+const defaultRunner = (): ConversionRunner => createSandboxRunner(CONVERSION_RUNNER_OPTIONS);
 
 /** `documents.convert` for the dispatcher, with the conversion runner stopped on shutdown. */
 export function composeConversion(setup: ConvertSetup): ComposedPart {
