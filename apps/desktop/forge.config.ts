@@ -64,6 +64,8 @@ const config: ForgeConfig = {
   packagerConfig: {
     name: "Psyche",
     executableName: "Psyche",
+    // apps/desktop/assets/icon.icns (and .png for the dev dock), from deploy/macos/make-icon.mjs.
+    icon: join(root, "assets", "icon"),
     appBundleId: "com.psyche.desktop",
     appCategoryType: "public.app-category.productivity",
     asar: { unpack: "{*.node,spawn-helper}" },

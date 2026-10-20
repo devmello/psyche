@@ -53,6 +53,11 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/psyche-helper"
 cp "$HERE/Support/Info.plist" "$APP/Contents/Info.plist"
+# App icon (deploy/macos/make-icon.mjs writes it); the helper shows up in System Settings and Dock.
+if [ -f "$HERE/dist-assets/PsycheHelper.icns" ]; then
+  cp "$HERE/dist-assets/PsycheHelper.icns" "$APP/Contents/Resources/PsycheHelper.icns"
+  plutil -replace CFBundleIconFile -string "PsycheHelper" "$APP/Contents/Info.plist"
+fi
 VERSION="${PSYCHE_HELPER_VERSION:-$(sed -n 's/.*current = "\(.*\)".*/\1/p' "$HERE/Sources/PsycheHelperSystem/HelperVersion.swift")}"
 BUILD="${PSYCHE_HELPER_BUILD:-$(git -C "$HERE" rev-list --count HEAD 2>/dev/null || echo 1)}"
 plutil -replace CFBundleShortVersionString -string "$VERSION" "$APP/Contents/Info.plist"
