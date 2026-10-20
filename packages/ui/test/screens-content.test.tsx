@@ -112,8 +112,45 @@ describe("SearchScreen", () => {
     expect(await screen.findByRole("heading", { name: "Feed (1)" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: /Threads/ })).toBeNull();
     expect(callsTo("search.query").at(-1)?.params).toEqual({ query: "dentist", scopes: ["feed"] });
-    await user.click(screen.getByRole("button", { name: "Remove filter in: Feed" }));
+    const feedChip = screen.getByRole("button", { name: "in: Feed" });
+    expect(feedChip.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "All" }).getAttribute("aria-pressed")).toBe("false");
+    await user.click(feedChip);
     expect(await screen.findByRole("heading", { name: /Threads/ })).toBeTruthy();
+    expect(screen.getByRole("searchbox", { name: "Search everything" })).toHaveProperty(
+      "value",
+      "dentist",
+    );
+  });
+
+  it("adds in:, type: and from: filters from the chips and removes them again", async () => {
+    const { callsTo, user } = setup(<SearchScreen debounceMs={0} initialQuery="slip" />);
+    const box = screen.getByRole("searchbox", { name: "Search everything" });
+    await user.click(screen.getByRole("button", { name: "in: Library" }));
+    expect(box).toHaveProperty("value", "slip in:library");
+    await waitFor(() =>
+      expect(callsTo("search.query").at(-1)?.params).toEqual({
+        query: "slip",
+        scopes: ["library"],
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "type:" }));
+    await user.click(await screen.findByRole("menuitem", { name: "PDF" }));
+    expect(box).toHaveProperty("value", "slip in:library type:pdf");
+    await user.click(screen.getByRole("button", { name: "Remove filter type: pdf" }));
+    expect(box).toHaveProperty("value", "slip in:library");
+    await user.click(screen.getByRole("button", { name: "All" }));
+    expect(box).toHaveProperty("value", "slip");
+    await user.click(screen.getByRole("button", { name: "from:" }));
+    expect(box).toHaveProperty("value", "slip from:");
+  });
+
+  it("highlights the matched words in titles and snippets", async () => {
+    setup(<SearchScreen debounceMs={0} initialQuery="dentist" />);
+    await screen.findByRole("heading", { name: "Threads (1)" });
+    const marks = document.querySelectorAll("mark");
+    expect(marks.length).toBeGreaterThan(0);
+    for (const m of marks) expect(m.textContent?.toLowerCase()).toBe("dentist");
   });
 
   it("marks memory hits with a provenance chip", async () => {
@@ -174,10 +211,15 @@ describe("LibraryScreen", () => {
     expect(openLibraryItem).toHaveBeenCalledWith(
       expect.objectContaining({ id: IDS.library.intakeForm }),
     );
+    // One Open per card; the rest sit under ⋯ (§3.12).
+    expect(within(form).getAllByRole("button", { name: /^Open/ })).toHaveLength(1);
     await user.click(
-      within(form).getByRole("button", { name: "Send acme-intake-form.pdf to chat" }),
+      within(form).getByRole("button", { name: "More actions for acme-intake-form.pdf" }),
     );
-    expect(onSendToChat).toHaveBeenCalled();
+    await user.click(await screen.findByRole("menuitem", { name: "Send to chat" }));
+    expect(onSendToChat).toHaveBeenCalledWith(
+      expect.objectContaining({ id: IDS.library.intakeForm }),
+    );
   });
 
   it("switches tabs and opens system files in the editor", async () => {

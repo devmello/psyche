@@ -1,8 +1,9 @@
+import { Radio as RadioPrimitive } from "@base-ui/react/radio";
 import { Check, X } from "lucide-react";
 import { type ReactElement, useId, useMemo, useState } from "react";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
-import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group.tsx";
+import { RadioGroup } from "../../components/ui/radio-group.tsx";
 import { cn } from "../../lib/utils.ts";
 import {
   DEFAULT_ACCENT_SEED,
@@ -145,19 +146,23 @@ function AccentPicker({
         className="flex flex-wrap gap-3"
       >
         {ACCENT_PRESETS.map((p) => (
-          <Label key={p.name} htmlFor={`${id}-${p.name}`} className="flex-col gap-1 font-normal">
-            <span
-              className={cn(
-                "size-7 rounded-full border border-gray-a4",
-                preset?.name === p.name && "ring-2 ring-ring ring-offset-2 ring-offset-background",
-              )}
+          // One control per swatch: the colored circle is the radio, its name is the label.
+          <Label
+            key={p.name}
+            htmlFor={`${id}-${p.name}`}
+            className="flex-col gap-1.5 text-xs font-normal"
+          >
+            <RadioPrimitive.Root
+              value={p.seed}
+              id={`${id}-${p.name}`}
+              className="flex size-8 items-center justify-center rounded-full border border-gray-a4 text-white outline-none transition-shadow focus-visible:ring-3 focus-visible:ring-ring/50 data-checked:ring-2 data-checked:ring-gray-12 data-checked:ring-offset-2 data-checked:ring-offset-background"
               style={{ backgroundColor: p.seed }}
-              aria-hidden="true"
-            />
-            <span className="flex items-center gap-1 text-xs">
-              <RadioGroupItem value={p.seed} id={`${id}-${p.name}`} />
-              {p.name}
-            </span>
+            >
+              <RadioPrimitive.Indicator>
+                <Check className="size-4 drop-shadow-sm" aria-hidden="true" />
+              </RadioPrimitive.Indicator>
+            </RadioPrimitive.Root>
+            {p.name}
           </Label>
         ))}
       </RadioGroup>

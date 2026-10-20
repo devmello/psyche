@@ -75,6 +75,32 @@ const CONVERSATION = [
   message("01JBXY6Q8Z00000000000000M3", 3, "user", "The 11:00 one, please."),
 ];
 
+/** Side chats for the sidebar: title, last line and time (docs/06 §2.2). */
+const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
+const side = (n: number, title: string, line: string, minutes: number) => ({
+  thread: {
+    ...MAIN_THREAD,
+    id: `01JBXY6Q8Z00000000000000S${n}`,
+    kind: "side",
+    title,
+    sessionKey: `owner:side:${n}`,
+    updatedAt: ago(minutes),
+    lastMessageAt: ago(minutes),
+  },
+  activity: { running: n === 1 ? 1 : 0, awaitingInput: 0, awaitingApproval: 0 },
+  lastMessage: { role: n === 2 ? "user" : "agent", text: line, at: ago(minutes) },
+});
+const THREADS = [
+  {
+    thread: MAIN_THREAD,
+    activity: { running: 0, awaitingInput: 0, awaitingApproval: 0 },
+    lastMessage: { role: "user", text: "The 11:00 one, please.", at: ago(1) },
+  },
+  side(1, "Lisbon trip", "Flights on the 14th are cheapest; I'm watching the fare.", 35),
+  side(2, "Taxes 2025", "Find my 1099 forms in Documents", 60 * 26),
+  side(3, "Birthday dinner for Sam", "Three places have a table for six on Saturday.", 60 * 24 * 9),
+];
+
 const STEPS = [
   "Meet your agent",
   "Permissions",
@@ -137,12 +163,7 @@ function handlers() {
       settings: onboarded ? { [ONBOARDED]: T0 } : {},
       stateVersion: 1,
     }),
-    "threads.list": () => ({
-      threads: [
-        { thread: MAIN_THREAD, activity: { running: 0, awaitingInput: 0, awaitingApproval: 0 } },
-      ],
-      nextCursor: null,
-    }),
+    "threads.list": () => ({ threads: THREADS, nextCursor: null }),
     "threads.get": () => ({
       thread: MAIN_THREAD,
       activity: { running: 0, awaitingInput: 0, awaitingApproval: 0 },
@@ -326,7 +347,9 @@ for (const [width, height] of [
     }
     await page.waitForSelector('[data-testid="kit-chat"]');
     await setWindowSize(width, height);
-    await expect(page.getByText("The 11:00 one, please.")).toBeVisible();
+    await expect(
+      page.getByTestId("conversation-column").getByText("The 11:00 one, please."),
+    ).toBeVisible();
     const tag = `main ${width}x${height}`;
     const bar = await box(page, "titlebar");
     expect(bar.height).toBe(52);
@@ -373,8 +396,25 @@ for (const [width, height] of [
         `${tag}: gap above the composer`,
       ).toBeLessThanOrEqual(72);
     }
+    // Thread rows: title, time and the last line; the filter field narrows them (§2.2).
+    const rows = page.getByRole("list", { name: "Threads list" }).getByRole("listitem");
+    await expect(rows).toHaveCount(4);
+    await expect(rows.nth(1)).toContainText("Flights on the 14th are cheapest");
+    await expect(rows.nth(2)).toContainText("You: Find my 1099 forms");
+    await expect(rows.nth(1).locator("time")).toBeVisible();
+    for (const row of await rows.all()) {
+      const b = await row.boundingBox();
+      if (b) expect(b.width, `${tag}: row inside the 260 px list`).toBeLessThanOrEqual(260);
+    }
     await expectNoSidewaysScroll(page, tag);
     await shot(page, `main-${width}x${height}`);
+    if (width === 1440) {
+      await page.getByLabel("Search threads").fill("lisbon");
+      await expect(rows).toHaveCount(1);
+      await shot(page, `main-search-${width}x${height}`);
+      await page.getByLabel("Search threads").fill("");
+      await expect(rows).toHaveCount(4);
+    }
 
     // With a pane open, its header lines up with the chat header too.
     gw.emit("view.command", { command: "open", args: { pane: "tasks" } });
@@ -482,7 +522,9 @@ test("web client at 390 px: no title bar, every onboarding step, main chat", asy
     webOnboarded = true;
     await p.reload();
     await p.waitForSelector('[data-testid="kit-chat"]');
-    await expect(p.getByText("The 11:00 one, please.")).toBeVisible();
+    await expect(
+      p.getByTestId("conversation-column").getByText("The 11:00 one, please."),
+    ).toBeVisible();
     await expect(p.getByTestId("titlebar")).toHaveCount(0);
     await expect(p.getByTestId("shell")).toHaveAttribute("data-compact", "true");
     await expectNoSidewaysScroll(p, "web main");
