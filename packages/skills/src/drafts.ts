@@ -81,6 +81,8 @@ interface StoreFile {
 }
 
 const DAY = 24 * 60 * 60 * 1000;
+// biome-ignore lint/suspicious/noControlCharactersInRegex: flattening to one line is the point
+const LINE_BREAKERS = /[\u0000-\u001f\u007f\u2028\u2029]+/g;
 const MAX_TEXT = 200;
 const STORE = "drafts.json";
 
@@ -257,11 +259,7 @@ export class SkillDrafts {
         return placeholder;
       });
     }
-    // biome-ignore lint/suspicious/noControlCharactersInRegex: flattening to one line is the point
-    s = s
-      .replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    s = s.replace(LINE_BREAKERS, " ").replace(/\s+/g, " ").trim();
     if (s.length > MAX_TEXT) s = `${s.slice(0, MAX_TEXT)}…`;
     return { text: s, redactions };
   }
