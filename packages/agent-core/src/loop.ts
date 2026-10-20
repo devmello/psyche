@@ -113,6 +113,12 @@ export interface FinishTurnContext {
   steps: number;
 }
 
+const NOTIFY_TOOL = "notify";
+export const DEFAULT_NOTIFY_BUDGET = 3;
+/** One budget per Task (an automation's run is one), else per run. */
+const notifyKey = (run: { taskId?: string; runId: string }) =>
+  run.taskId === undefined ? `run:${run.runId}` : `task:${run.taskId}`;
+
 export interface AgentLoopOptions {
   /** The model router (S03) or any `ModelProvider`. */
   provider: ModelProvider;
@@ -143,6 +149,14 @@ export interface AgentLoopOptions {
   maxRunTokens?: number;
   /** Characters of one tool result sent to the model (default 50,000). */
   maxToolResultChars?: number;
+  /**
+   * `notify` calls one Task may make without a card (default 3; #307). An automation's run is
+   * one Task, an attended turn outside a Task counts per run. The broker lets `notify` to the
+   * owner through without a card (`owner_inbox`), so a run that loops on it would flood the
+   * inbox; past the budget the loop asks once (a deferred card in an unattended run) and blocks
+   * further calls while that card waits.
+   */
+  notifyBudget?: number;
   approvalSurfaces?: Surface[];
   /** Mode a thread moves to when its plan is approved (default `balanced`). */
   planExitMode?: PermissionMode;
@@ -324,6 +338,8 @@ export class PsycheAgentLoop implements AgentLoop {
   #plans = new Map<string, { threadId: string; title: string; plan: string }>();
   #capabilities = new Map<string, Promise<ModelCapabilities>>();
   #subagents = new Map<string, SubagentInfo>();
+  /** `notify` dispatches per Task (or run) and the budget card waiting for each (#307). */
+  #notifies = new Map<string, { sent: number; card?: string }>();
 
   constructor(options: AgentLoopOptions) {
     this.#o = options;
@@ -1300,7 +1316,7 @@ export class PsycheAgentLoop implements AgentLoop {
     const context = this.#decisionContext(run, target, sideEffect);
     // Only the computer-use app and action reach the broker: its per-app tier check keys on them.
     const meta = toolCallMeta(desc.meta);
-    const decision = await this.#o.broker.decide(
+    let decision = await this.#o.broker.decide(
       {
         tool: call.name,
         sideEffect,
@@ -1322,6 +1338,39 @@ export class PsycheAgentLoop implements AgentLoop {
     gated.decision = decision;
     if (decision.decision === "deny") {
       return this.#finishBlocked(run, gated, `denied: ${decision.reason ?? decision.rule}`);
+    }
+    if (call.name === NOTIFY_TOOL && decision.decision === "allow") {
+      // #307: past the budget, a notification needs the owner's yes, asked once at a time.
+      const budget = this.#o.notifyBudget ?? DEFAULT_NOTIFY_BUDGET;
+      const used = this.#notifies.get(notifyKey(run));
+      if (used !== undefined && used.sent >= budget) {
+        if (used.card !== undefined) {
+          const card = await this.#o.broker.get(used.card).catch(() => undefined);
+          this.#checkAbort(run);
+          if (card?.status === "pending") {
+            return this.#finishBlocked(
+              run,
+              gated,
+              `blocked: notification budget reached (${budget}); the owner's card ${used.card} is still waiting. Put anything else in your final answer.`,
+            );
+          }
+        }
+        const reason = `this ${run.taskId === undefined ? "run" : "task"} already sent ${used.sent} notification${used.sent === 1 ? "" : "s"}`;
+        decision = {
+          decision: "ask",
+          rule: "notify:budget",
+          reason,
+          scopesOffered: ["once"],
+          ...(decision.bindingHash === undefined ? {} : { bindingHash: decision.bindingHash }),
+        };
+        gated.decision = decision;
+        desc = {
+          ...desc,
+          summary: `${desc.summary ?? "Notify the owner"} (${reason})`,
+          details: { ...desc.details, reason },
+        };
+        gated.desc = desc;
+      }
     }
     if (decision.decision === "ask" && run.subagent !== undefined) {
       // Subagents have no approval authority (C6): the parent decides whether to ask.
@@ -1404,6 +1453,10 @@ export class PsycheAgentLoop implements AgentLoop {
         ).approval;
       const approvalId = approval.id;
       gated.approvalId = approvalId;
+      if (decision.rule === "notify:budget") {
+        const used = this.#notifies.get(notifyKey(run));
+        if (used !== undefined) used.card = approvalId;
+      }
       run.emit({ type: "approval_requested", runId: run.runId, approval });
       this.#block(run, { type: "approval", approvalId });
       if (run.mode === "unattended") {
@@ -1463,6 +1516,12 @@ export class PsycheAgentLoop implements AgentLoop {
           ? {}
           : { scope: verified.approval.scopeGranted }),
       };
+    }
+    if (call.name === NOTIFY_TOOL) {
+      const key = notifyKey(run);
+      const used = this.#notifies.get(key) ?? { sent: 0 };
+      used.sent += 1;
+      this.#notifies.set(key, used);
     }
     return { proceed: gated };
   }

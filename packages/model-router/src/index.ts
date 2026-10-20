@@ -17,5 +17,6 @@ export * from "./prices.ts";
 export * from "./probe.ts";
 export * from "./refs.ts";
 export * from "./router.ts";
+export * from "./thinking.ts";
 export * from "./tool-names.ts";
 export * from "./usage.ts";
