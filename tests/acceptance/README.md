@@ -33,7 +33,9 @@ Results land in `out/acceptance/*.json` (git-ignored). The scorecard is regenera
 
 ## Live gates
 
-One model per invocation; the scorecard wants one hosted Anthropic model, one hosted OpenAI model and one local `agent-capable` model, three runs each (`PSYCHE_LIVE_REPEATS`, default 3).
+One model per invocation; the scorecard wants one hosted Anthropic model, one hosted OpenAI model and one local `agent-capable` model, three runs each (`PSYCHE_LIVE_REPEATS`, default 3). The default scenario list is all eight: V1, V2, V3 and V7 from tests/scenarios, and V5, V6, V8 and V9 from `scenarios-m2/` with their fakes. Run them one at a time with `PSYCHE_LIVE_SCENARIOS=<id>` to keep partial results.
+
+Before the first run the suite sends the provider one tiny request. A refused key or an unreachable model fails there with the provider's reason (credentials redacted), and the reason is recorded in the model's report so the scorecard can say why nothing ran.
 
 ```bash
 PSYCHE_LIVE_TESTS=1 PSYCHE_MODEL=anthropic/claude-sonnet-5-5 ANTHROPIC_API_KEY=… pnpm --filter @psyche/acceptance-tests live

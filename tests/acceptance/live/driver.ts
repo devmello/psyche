@@ -7,7 +7,11 @@ import {
   type EvalContext,
   evaluate,
 } from "../../../packages/testing/src/scenarios/assertions.ts";
-import { Stack, turnEvents } from "../../../packages/testing/src/scenarios/stack.ts";
+import {
+  Stack,
+  type StackOverrides,
+  turnEvents,
+} from "../../../packages/testing/src/scenarios/stack.ts";
 import type {
   Assertion,
   AssertionResult,
@@ -71,6 +75,8 @@ export interface LiveRunOptions {
   maxToolCallsPerStep?: number;
   /** Answers for `ask_user` questions; default `answers.ts` for the scenario. */
   answers?: LiveAnswerRule[];
+  /** Extra fakes and services for the Stack (the Milestone 2 scenarios: src/m2-world.ts). */
+  overrides?: StackOverrides;
   /** Progress lines (a live run takes minutes). */
   log?: (line: string) => void;
 }
@@ -275,6 +281,7 @@ export async function runScenarioLive(dir: string, options: LiveRunOptions): Pro
   const log = options.log ?? (() => {});
   const provider = new ReplayingProvider(options.provider);
   const s = new Stack(fx, tools, sc.setup.thread, mode, start, {
+    ...options.overrides,
     provider: { provider, model: options.model },
   });
   s.secretRefs = sc.secretRefs;
