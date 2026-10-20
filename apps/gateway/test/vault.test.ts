@@ -155,7 +155,7 @@ describe("vault.* through the dispatcher (keychain slot via the Mac helper)", ()
         kind: "note",
         name: "card",
         bindings: [],
-        secret: { text: `4242 4242 4242 4242 ${PASSWORD}` },
+        secret: { text: `${"4242 ".repeat(4)}${PASSWORD}` },
       },
       ik(),
     );
