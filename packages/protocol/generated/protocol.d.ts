@@ -2752,6 +2752,102 @@ export interface MessagesWatchParams {
     sinceCursor?:   number;
 }
 
+export interface ModelsCheckParams {
+    ref: string;
+}
+
+export interface ModelsCheckResult {
+    result: ToolCheckResult;
+}
+
+export interface ToolCheckResult {
+    inconclusive: boolean;
+    passed:       number;
+    probedAt?:    string;
+    ref:          string;
+    status:       ToolCheckStatus;
+    total:        number;
+}
+
+export type ToolCheckStatus = "untested" | "agent-capable" | "chat-only";
+
+export interface ModelsListResult {
+    providers: ModelProviderSummary[];
+    roles:     ModelRoles;
+}
+
+export interface ModelProviderSummary {
+    baseURL?:      string;
+    id:            string;
+    keyConfigured: boolean;
+    kind:          string;
+    label:         string;
+    local:         boolean;
+    models:        ProviderModelEntry[];
+    probe:         EndpointProbe;
+}
+
+export interface ProviderModelEntry {
+    capabilities?: ModelCapabilityGuess;
+    ref:           string;
+    toolCheck:     ToolCheckStatus;
+}
+
+export interface ModelCapabilityGuess {
+    contextWindow?: number;
+    embeddings?:    boolean;
+    reasoning?:     boolean;
+    source:         ModelFactSource;
+    toolCalling?:   boolean;
+    vision?:        boolean;
+}
+
+export type ModelFactSource = "listing" | "catalog" | "config" | "heuristic";
+
+export interface EndpointProbe {
+    error?:     string;
+    latencyMs?: number;
+    models:     ProbedModel[];
+    probedAt?:  string;
+    server?:    string;
+    state:      EndpointProbeState;
+}
+
+export interface ProbedModel {
+    capabilities: ModelCapabilityGuess;
+    id:           string;
+    label?:       string;
+    loaded?:      boolean;
+    ref:          string;
+}
+
+export type EndpointProbeState = "not_probed" | "reachable" | "unreachable" | "auth_failed" | "error";
+
+export interface ModelRoles {
+    primary?: string;
+    utility?: string;
+}
+
+export interface ModelsProbeParams {
+    providerId: string;
+}
+
+export interface ModelsProbeResult {
+    provider: ModelProviderSummary;
+}
+
+export interface ModelsSetRoleParams {
+    override?: boolean;
+    ref:       string;
+    role:      PickableModelRole;
+}
+
+export type PickableModelRole = "primary" | "utility";
+
+export interface ModelsSetRoleResult {
+    roles: ModelRoles;
+}
+
 export interface NodeEventParams {
     data:         unknown;
     invocationId: string;
