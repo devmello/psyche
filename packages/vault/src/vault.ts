@@ -909,6 +909,11 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     return this.#o.meta.get(id);
   }
 
+  /** One item's metadata by slug, synchronously (an executor binding a fill before dispatch). */
+  metaBySlug(slug: string): CredentialMeta | undefined {
+    return this.#o.meta.list().find((m) => m.slug === slug);
+  }
+
   redact(text: string): string {
     return this.#redactor.redact(text);
   }
