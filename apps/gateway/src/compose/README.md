@@ -7,7 +7,8 @@
 | `index.ts` | agent loop, P9 file tools from `@psyche/files` (#49), model router or injected provider, Permission Broker + SQLite store, audit log, memory (with flush), task engine + worker pool, scheduler (watches through `publicFetch` until S09's fetch), notifier; mounts package handlers; forwards package events to the bus; applies `permissions.policy` changes |
 | `handlers.ts` | adapters from package handler maps to `HandlerDef`; `questions.*` over the loop and the task engine |
 | `approval-tokens.ts` | in-memory delivery of single-use answer tokens to the caller's surface (security §3.7) |
-| `models.ts` | `PSYCHE_MODEL` → router config with env keys (dev and live tests); `NO_MODEL` |
+| `models.ts` | `PSYCHE_MODEL` → router config with env keys (dev and live tests); without it `vaultModelSetup` (hosted keys from the vault); `NO_MODEL` |
+| `model-keys.ts` | Hosted provider keys as Gateway-owned vault items (`models.setKey`), the router's `KeySource` over them, and the "no model picked yet" reply |
 | `services.ts` | `ComposeServices` handed to each part; `ComposedPart`; `ApprovalRelay` (approvals over chat) |
 | `call-context.ts` | the loop's per-call decision context (thread, run, task, taint and its sources, requester, approval id, and `authorityFor`: the approval or standing grant that allowed the call) for package executors |
 | `browser.ts` | bridge socket, `CdpBridgeDriver` per desktop, `browser.*` tools with per-task sessions and recordings, status pill, client `browser.*` methods |

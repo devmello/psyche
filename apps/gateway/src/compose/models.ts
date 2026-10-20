@@ -7,6 +7,7 @@ import {
 } from "@psyche/model-router";
 import { PsycheError, ResolvedSecret } from "@psyche/protocol";
 import type { ModelSetup } from "./index.ts";
+import { hostedProviderConfigs } from "./model-keys.ts";
 
 /**
  * Model setup from the environment, for `psyched` in development and the live skeleton test:
@@ -90,6 +91,20 @@ export function modelSetupFromEnv(env: NodeJS.ProcessEnv): ModelSetup | null {
     roles: { primary: { model: primary }, utility: { model: utility } },
   };
   return { router, keys: envKeys(env, keyNames) };
+}
+
+/**
+ * No `PSYCHE_MODEL` (a packaged install, first run from scratch): every hosted provider with its
+ * key in the vault (`models.setKey`, model-keys.ts) plus local servers named in the environment.
+ * The owner's picks (`models.primary` / `models.utility`) are restored at boot.
+ */
+export function vaultModelSetup(env: NodeJS.ProcessEnv): ModelSetup {
+  const providers = hostedProviderConfigs();
+  for (const [kind, urlEnv] of Object.entries(LOCAL_URL_ENV) as [ProviderKind, string][]) {
+    const url = env[urlEnv];
+    if (url) providers.push({ id: kind, kind, baseURL: url });
+  }
+  return { router: { providers }, vaultKeys: true };
 }
 
 /**

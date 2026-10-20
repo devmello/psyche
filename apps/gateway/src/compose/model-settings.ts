@@ -26,6 +26,7 @@ import {
   type ToolCheckStatus,
 } from "@psyche/protocol";
 import type { Call, HandlerDef } from "../context.ts";
+import { type HostedModelKind, isHostedModelKind } from "./model-keys.ts";
 
 /**
  * Settings → Model & providers (feature B1, B4; architecture §4.4): `models.list`,
@@ -60,6 +61,11 @@ export interface ModelSettingsSetup {
   /** The fixed provider's model when there is no router. */
   fixedModel?: ModelRef;
   endpoints?: EndpointProbeStore;
+  /** Hosted keys kept in the vault (model-keys.ts): `models.setKey` and `keyConfigured`. */
+  vaultKeys?: {
+    has(providerId: string): boolean;
+    store(providerId: HostedModelKind, key: string): Promise<void>;
+  };
 }
 
 export function settingsKeyValue(db: PsycheDb): KeyValueStore {
@@ -152,7 +158,10 @@ export function modelSettingsHandlers(setup: ModelSettingsSetup): Record<string,
       label: KIND_LABEL[config.kind] ?? config.id,
       ...(baseURL === undefined ? {} : { baseURL }),
       local: isLocalKind(config.kind),
-      keyConfigured: (config.profiles ?? []).some((p) => p.credential !== undefined),
+      keyConfigured:
+        setup.vaultKeys !== undefined && isHostedModelKind(config.id)
+          ? setup.vaultKeys.has(config.id)
+          : (config.profiles ?? []).some((p) => p.credential !== undefined),
       models,
       probe: structuredClone(probe),
     };
@@ -208,6 +217,34 @@ export function modelSettingsHandlers(setup: ModelSettingsSetup): Record<string,
             probedAt: r.probedAt,
           },
         };
+      },
+    },
+    "models.setKey": {
+      async run(
+        _call: Call,
+        params: MethodParams<"models.setKey">,
+      ): Promise<MethodResult<"models.setKey">> {
+        const config = configs.get(params.providerId);
+        if (config === undefined) {
+          throw new PsycheError("not_found", `no model provider "${params.providerId}"`);
+        }
+        if (!isHostedModelKind(config.id) || isLocalKind(config.kind)) {
+          throw new PsycheError("invalid_params", `${config.id} takes no API key`);
+        }
+        if (setup.vaultKeys === undefined) {
+          throw new PsycheError(
+            "unavailable",
+            "this Gateway reads provider keys from its environment (PSYCHE_MODEL is set)",
+          );
+        }
+        try {
+          await setup.vaultKeys.store(config.id, params.key);
+        } catch (err) {
+          // Never let a raw error (which could quote its input) reach the dispatcher's log.
+          if (err instanceof PsycheError && err.code !== "internal") throw err;
+          throw new PsycheError("internal", "models.setKey failed");
+        }
+        return { provider: await summary(config) };
       },
     },
     "models.setRole": {
