@@ -15,6 +15,7 @@ import type {
   TaskAction,
   ThreadListEntry,
   ToolCall,
+  VmUpdatedPayload,
 } from "@psyche/protocol";
 import type { ConnectionState } from "./client.ts";
 
@@ -85,6 +86,8 @@ export interface UiState {
   settings: Dict<unknown>;
   memoryEtags: Dict<string | null>;
   queries: Dict<QueryEntry>;
+  /** Sandbox Mac guests as `vm.updated` last reported them, by `<nodeId>/<guest name>`. */
+  vmGuests: Dict<VmUpdatedPayload>;
   /** stateVersion of the last event that touched an entity (`<collection>:<id>`). */
   touched: Dict<number>;
 }
@@ -119,6 +122,7 @@ export const INITIAL_STATE: UiState = {
   settings: {},
   memoryEtags: {},
   queries: {},
+  vmGuests: {},
   touched: {},
 };
 

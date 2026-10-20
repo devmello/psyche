@@ -1,5 +1,5 @@
 import type { ApprovalRequest } from "@psyche/protocol";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -79,10 +79,10 @@ describe("SettingsScreen", () => {
     const { navigate } = setup({ defaultSection: "appearance" });
     const nav = screen.getByRole("navigation", { name: "Settings sections" });
     const items = within(nav).getAllByRole("button");
-    // 15 sections of UI design §2.6 plus Browser (real-Chrome mode, I13), after Computer use,
-    // and Skills (T2), after Connectors.
-    expect(items).toHaveLength(17);
+    // 15 sections of UI design §2.6 plus Browser (I13), Skills (T2) and VM mode (L1–L5).
+    expect(items).toHaveLength(18);
     expect(items.map((b) => b.textContent?.trim())).toContain("Skills");
+    expect(items.map((b) => b.textContent?.trim())).toContain("VM mode");
     expect(items.map((b) => b.textContent?.trim())).toContain("Browser");
     expect(
       within(nav).getByRole("button", { name: "Appearance" }).getAttribute("aria-current"),
@@ -555,6 +555,109 @@ describe("Credentials", () => {
     expect(vaultChangeError(scope, c, "delete")).toBe(
       "Only a device paired as admin can delete vault items.",
     );
+  });
+});
+
+describe("VM mode", () => {
+  const guestWorld = (w: Parameters<NonNullable<StoryWorldProps["edit"]>>[0]) => {
+    w.devices = [
+      ...w.devices,
+      {
+        id: "dev_guest",
+        name: "work-mac",
+        platform: "macos",
+        role: "node",
+        publicKey: "gK3k9vQ2c8Lr0yT5uB7wN1eJ4hF6gD2sA9zP0oK3iM8",
+        scopes: ["node"],
+        pairedAt: "2026-10-18T09:00:00Z",
+        lastSeenAt: "2026-10-18T10:00:00Z",
+        revokedAt: null,
+      },
+    ];
+    w.nodes = [
+      ...w.nodes,
+      {
+        id: "node_guest",
+        deviceId: "dev_guest",
+        kind: "vm-guest",
+        status: "online",
+        capabilities: [],
+        lastHeartbeatAt: "2026-10-18T10:00:00Z",
+      },
+    ];
+  };
+
+  it("shows the defaults and writes each VM setting", async () => {
+    const { gateway } = setup({ defaultSection: "vm" }, { edit: guestWorld });
+    expect(await screen.findByRole("heading", { level: 2, name: "VM mode" })).toBeTruthy();
+    const toggle = screen.getByRole("switch", { name: "Use a sandbox Mac for tasks" });
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(
+      (screen.getByRole("radio", { name: "Container sandbox" }) as HTMLInputElement).getAttribute(
+        "aria-checked",
+      ),
+    ).toBe("true");
+    expect(
+      screen.getByRole("radio", { name: "Paste into the guest only" }).getAttribute("aria-checked"),
+    ).toBe("true");
+    expect(screen.getByRole("radio", { name: "Host vault" }).getAttribute("aria-checked")).toBe(
+      "true",
+    );
+    expect(screen.getByText(/No guest has reported yet/)).toBeTruthy();
+
+    await userEvent.click(toggle);
+    await waitFor(() => expect(settingValue(gateway(), "vm.enabled")).toBe(true));
+    const node = (await screen.findByLabelText(
+      "Guest that runs task commands",
+    )) as HTMLSelectElement;
+    await waitFor(() => expect(node.disabled).toBe(false));
+    expect(within(node).getByRole("option", { name: "work-mac" })).toBeTruthy();
+    await userEvent.selectOptions(node, "node_guest");
+    await waitFor(() => expect(settingValue(gateway(), "vm.guestNodeId")).toBe("node_guest"));
+    await userEvent.click(screen.getByRole("radio", { name: "Off" }));
+    await waitFor(() => expect(settingValue(gateway(), "vm.clipboard")).toBe("off"));
+    await userEvent.click(screen.getByRole("radio", { name: "Guest vault" }));
+    await waitFor(() => expect(settingValue(gateway(), "vm.credentials")).toBe("guest"));
+  });
+
+  it("shows the guest as vm.updated reports it", async () => {
+    const { gateway } = setup({ defaultSection: "vm" });
+    await screen.findByText(/No guest has reported yet/);
+    const guest = {
+      name: "work-mac",
+      phase: "running" as const,
+      provisioned: true,
+      cpus: 4,
+      memoryGB: 8,
+      diskGB: 80,
+      guestOS: "27.0.1",
+      username: "psyche",
+      shares: [
+        {
+          name: "Documents",
+          hostPath: "/Users/you/Documents",
+          readOnly: true,
+          guestPath: "/Volumes/Psyche Shares/Documents",
+        },
+      ],
+      vsock: { hostCid: 2, gatewayNodePort: 7001 },
+      agent: { connected: true, version: "0.3.0" },
+      clipboard: "paste-only" as const,
+    };
+    act(() => gateway().emit("vm.updated", { nodeId: "node_mac_helper", guest, at: FIXTURE_NOW }));
+    const card = await screen.findByRole("article", { name: "Guest work-mac" });
+    expect(within(card).getByText("Running")).toBeTruthy();
+    expect(within(card).getByText("Documents ro")).toBeTruthy();
+    expect(within(card).getByText("connected (0.3.0)")).toBeTruthy();
+    act(() =>
+      gateway().emit("vm.updated", {
+        nodeId: "node_mac_helper",
+        guest: { ...guest, phase: "failed", lastError: "disk_full" },
+        at: FIXTURE_NOW,
+      }),
+    );
+    expect(await within(card).findByText("Failed")).toBeTruthy();
+    expect(within(card).getByText(/The guest stopped: disk_full\./)).toBeTruthy();
   });
 });
 

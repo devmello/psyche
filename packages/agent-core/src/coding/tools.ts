@@ -61,6 +61,11 @@ export interface CodingToolsDeps {
   files: { read: AgentToolRegistration; write: AgentToolRegistration };
   /** The owner's granted folders, read on every call (`permissions.policy.folders`). */
   folders: () => readonly CodingFolderGrant[] | undefined;
+  /**
+   * Locations no coding workspace may be, or contain (Psyche's own home, credential stores;
+   * #285): a workspace root is mounted into the sandbox whole, so `~` would expose `~/.ssh`.
+   */
+  protectedRoots?: () => readonly string[];
   /** Where `code.run` runs; without one the tool is not offered. */
   runner?: SandboxRunner;
   /** Host git with a fixed argv; without one `code.git` is not offered. */
@@ -109,11 +114,19 @@ const worst = (a: ProvenanceOut, b: ProvenanceOut): ProvenanceOut =>
 
 export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
   const workspaces = deps.workspaces ?? new CodingWorkspaces(deps.now);
+  /** A folder grant for `path`, unless it is, or holds, a protected location. */
+  const grantOf = (path: string, isRoot = false): CodingFolderGrant | undefined => {
+    for (const raw of deps.protectedRoots?.() ?? []) {
+      const r = canonicalRoot(raw);
+      if (isUnder(path, r) || (isRoot && isUnder(r, path))) return undefined;
+    }
+    return grantFor(path, deps.folders());
+  };
 
   /** The workspace and a live re-check of its folder grant (a revoke applies at once). */
   const workspace = (ctx: ToolRunContext, root: string, access: "read" | "write") => {
     const ws = workspaces.get(ctx, canonicalRoot(root));
-    const grant = grantFor(ws.root, deps.folders());
+    const grant = grantOf(ws.root, true);
     if (grant === undefined) throw new PsycheError("forbidden", `${ws.root} is no longer granted`);
     if (access === "write" && grant.mode !== "rw") {
       throw new PsycheError("forbidden", `${grant.path} is granted read-only`);
@@ -197,7 +210,7 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
     }),
     async run(p, ctx) {
       const root = canonicalRoot(p.path);
-      const grant = grantFor(root, deps.folders());
+      const grant = grantOf(root, true);
       if (grant === undefined) {
         throw new PsycheError("forbidden", `${root} is outside every granted folder`);
       }
@@ -389,7 +402,7 @@ export function codingTools(deps: CodingToolsDeps): AgentToolRegistration[] {
             `${f.path} is inside .git; code.edit never writes there`,
           );
         }
-        const g = grantFor(full, deps.folders());
+        const g = grantOf(full);
         if (g?.mode !== "rw")
           throw new PsycheError("forbidden", `${f.path} is not in a read-write grant`);
         const exists = await lstat(full).then(
