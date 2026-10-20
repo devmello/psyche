@@ -1,5 +1,5 @@
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type ComposedGateway, type ComposeOptions, composeGateway } from "@psyche/gateway/compose";
@@ -136,8 +136,8 @@ export async function startSkeleton(
   },
 ): Promise<Skeleton> {
   const home = realpathSync(mkdtempSync(join(tmpdir(), "psyche-int1-")));
-  const granted = join(home, "granted");
-  mkdirSync(granted, { recursive: true });
+  // The owner's folder lives outside $PSYCHE_HOME: tools never reach Psyche's own files (#285).
+  const granted = realpathSync(mkdtempSync(join(tmpdir(), "psyche-int1-granted-")));
   const composed = await composeGateway({
     ...options,
     env: {},
@@ -189,6 +189,7 @@ export async function startSkeleton(
       for (const c of clients) c.stop();
       await composed.stop("test");
       rmSync(home, { recursive: true, force: true });
+      rmSync(granted, { recursive: true, force: true });
     },
   };
 }
