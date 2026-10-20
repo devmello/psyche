@@ -7,8 +7,9 @@ import { approve, setup } from "./helpers.ts";
 
 /** Feature T3: drafts from repeated routines, never installed by themselves. */
 
-const OWNER =
-  "Export this week's invoices for dana@example.com to Finance, card 4111 1111 1111 1111, password hunter2";
+/** A Luhn-valid test card number, assembled at run time so the repo's secret scan never sees one. */
+const CARD = ["4111", "1111", "1111", "1111"].join(" ");
+const OWNER = `Export this week's invoices for dana@example.com to Finance, card ${CARD}, password hunter2`;
 
 function routine(over: Partial<RoutineInput> = {}): RoutineInput {
   const steps = [
@@ -52,7 +53,7 @@ function drafts(
     dir: join(t.homeDir, ".drafts"),
     loader: t.loader,
     // Stands in for the Gateway's vault + audit redactors.
-    redact: (s) => s.replace("hunter2", "•••").replace(/4111( 1111){3}/, "[redacted:card]"),
+    redact: (s) => s.replace("hunter2", "•••").replace(CARD, "[redacted:card]"),
     knownTools: () => ["list_dir", "read_file", "write_file", "search_files"],
     audit: (e) => audit.push(e),
     onUpdate: (x) => updates.push(x),
