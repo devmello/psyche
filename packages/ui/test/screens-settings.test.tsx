@@ -1160,4 +1160,49 @@ describe("Credentials: Stripe Link payments and 1Password", () => {
       expect.stringMatching(/1Password is not set up on the Gateway/),
     );
   });
+
+  it("links a Bitwarden item by id or name, and says where it lives", async () => {
+    const { gateway } = setup({ defaultSection: "credentials" });
+    const table = await screen.findByRole("table", { name: "Stored credentials" });
+    await userEvent.click(screen.getByRole("button", { name: "More ways to add" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Connect Bitwarden" }));
+    const form = screen.getByRole("form", { name: "Link a Bitwarden item" });
+    expect(within(form).queryByLabelText("1Password vault")).toBeNull();
+    expect(within(form).getByText(/Cards and identities are never read/)).toBeTruthy();
+    await userEvent.selectOptions(within(form).getByLabelText("Kind"), "api_key");
+    await userEvent.type(within(form).getByLabelText("Name"), "Example API");
+    await userEvent.type(within(form).getByLabelText("Bitwarden item id or name"), "Example API");
+    await userEvent.type(within(form).getByLabelText("Only for this site"), "api.example.com");
+    await userEvent.click(within(form).getByRole("button", { name: "Link item" }));
+    await waitFor(() => expect(callsOf(gateway(), "vault.linkExternal")).toHaveLength(1));
+    expect(callsOf(gateway(), "vault.linkExternal")[0]?.params).toEqual({
+      source: "bitwarden",
+      kind: "api_key",
+      name: "Example API",
+      bindings: [{ origin: "https://api.example.com" }],
+      ref: { item: "Example API" },
+    });
+    expect(await within(table).findByText("Example API")).toBeTruthy();
+    expect(within(table).getByText("in Bitwarden")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Edit Example API" }));
+    const edit = screen.getByRole("form", { name: "Edit Example API" });
+    expect(within(edit).queryByLabelText("New key")).toBeNull();
+    expect(within(edit).getByText(/The values stay in Bitwarden/)).toBeTruthy();
+  });
+
+  it("explains what the Gateway needs before Bitwarden works", async () => {
+    const { gateway } = setup({ defaultSection: "credentials" });
+    await screen.findByRole("table", { name: "Stored credentials" });
+    gateway().failNext("vault.linkExternal", "unavailable", "Bitwarden is not configured");
+    await userEvent.click(screen.getByRole("button", { name: "More ways to add" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Connect Bitwarden" }));
+    const form = screen.getByRole("form", { name: "Link a Bitwarden item" });
+    await userEvent.type(within(form).getByLabelText("Name"), "GitHub");
+    await userEvent.type(within(form).getByLabelText("Bitwarden item id or name"), "GitHub");
+    await userEvent.click(within(form).getByRole("button", { name: "Link item" }));
+    expect(await within(form).findByRole("alert")).toHaveProperty(
+      "textContent",
+      expect.stringMatching(/Bitwarden is not set up on the Gateway.*bw unlock/),
+    );
+  });
 });

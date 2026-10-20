@@ -97,7 +97,7 @@ export function createOwnPorts(): OwnPorts {
 /** One subsystem as the composition root mounts it. */
 export interface ComposedPart {
   readonly handlers?: Readonly<Record<string, HandlerDef>>;
-  /** Self-authenticating `POST <path>` routes (channel webhooks) on the Gateway's HTTP server. */
+  /** Self-authenticating `POST <path>` routes (channel webhooks; `GET` where declared) on the Gateway's HTTP server. */
   readonly webhooks?: Readonly<Record<string, WebhookRoute>>;
   /** Public `GET <path>` routes (the Web Bot Auth key directory, I14). Public data only. */
   readonly publicRoutes?: Readonly<Record<string, PublicRoute>>;

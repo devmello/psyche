@@ -44,6 +44,7 @@ import {
   requiresIdempotencyKey,
   type SearchHit,
   type SkillDetails,
+  type SkillDraft,
   type SkillProposal,
   type Task,
   type TaskAction,
@@ -107,6 +108,7 @@ export interface MockWorld {
   searchHits: SearchHit[];
   skills: SkillDetails[];
   skillSources: Record<string, MockSkillSource>;
+  skillDrafts: SkillDraft[];
   /** `models.list` providers (B1, B4); absent → `models.list` answers with none. */
   modelProviders?: ModelProviderSummary[];
   modelRoles?: ModelRoles;
@@ -166,6 +168,7 @@ export const EMPTY_WORLD: MockWorld = {
   searchHits: [],
   skills: [],
   skillSources: {},
+  skillDrafts: [],
 };
 
 export interface MockGatewayOptions {
@@ -197,6 +200,13 @@ const MOCK_MIME: Record<string, string> = {
 };
 const mockMime = (name: string): string =>
   MOCK_MIME[name.toLowerCase().split(".").pop() ?? ""] ?? "application/octet-stream";
+
+/** A stable stand-in for a content hash (the mock never hashes). */
+const fakeHash = (text: string): `sha256:${string}` => {
+  let h = 0;
+  for (let i = 0; i < text.length; i += 1) h = (h * 31 + text.charCodeAt(i)) >>> 0;
+  return `sha256:${h.toString(16).padStart(8, "0").repeat(8)}`;
+};
 
 const fail = (code: ErrorCode, message: string): never => {
   throw new PsycheError(code, message);
@@ -355,6 +365,15 @@ export class MockGateway implements GatewayClient {
     this.world.messages = [...this.world.messages.filter((m) => m.id !== message.id), message];
     this.emit("chat.message", { message });
     return message;
+  }
+
+  private patchDraft(id: string, patch: (d: SkillDraft) => Partial<SkillDraft>): SkillDraft {
+    const d =
+      this.world.skillDrafts.find((x) => x.id === id) ?? fail("not_found", "no such skill draft");
+    const next: SkillDraft = { ...d, ...patch(d), updatedAt: this.now() };
+    this.world.skillDrafts = this.world.skillDrafts.map((x) => (x.id === id ? next : x));
+    this.emit("skills.draft.updated", { draft: next });
+    return next;
   }
 
   /** `skills.propose*`: stages a proposal and opens its device-only `skill_install` card. */
@@ -1390,6 +1409,49 @@ export class MockGateway implements GatewayClient {
       this.emit("skills.changed", { type: "removed", name: p.name, source: "home" });
       return { ok: true as const };
     },
+    "skills.drafts.list": (p) => ({
+      drafts: this.world.skillDrafts.filter((d) => p.status === undefined || d.status === p.status),
+    }),
+    "skills.drafts.update": (p) => {
+      const d = this.patchDraft(p.draftId, (x) => {
+        if (x.status !== "open") fail("conflict", `the draft is ${x.status}`);
+        if (!p.text.startsWith("---")) fail("invalid_params", "not a valid skill");
+        return { text: p.text, edited: true };
+      });
+      return { draft: d };
+    },
+    "skills.drafts.accept": (p) => {
+      const d =
+        this.world.skillDrafts.find((x) => x.id === p.draftId) ??
+        fail("not_found", "no such skill draft");
+      const staged = this.stageSkill(
+        {
+          proposal: {
+            name: d.name,
+            source: { kind: "path", path: `~/.psyche/skills/.drafts/${d.id}/${d.name}` },
+            text: d.text,
+            hash: fakeHash(d.text),
+            trust: "unknown",
+            findings: [],
+            approvalKind: "skill_install",
+            files: [{ path: "SKILL.md", bytes: d.text.length, executable: false, text: d.text }],
+            scope: "home",
+            manifest: d.manifest,
+          },
+        },
+        "no such skill draft",
+      );
+      const draft = this.patchDraft(d.id, () => ({
+        status: "accepted",
+        installProposalId: staged.proposal.id,
+        approvalId: staged.approval.id,
+        replay: { ok: true, problems: [], checkedAt: this.now() },
+      }));
+      return { ...staged, draft };
+    },
+    "skills.drafts.dismiss": (p) => ({
+      draft: this.patchDraft(p.draftId, () => ({ status: "dismissed" })),
+    }),
     "skills.checkUpdates": (p) => ({
       updates: this.world.skills
         .filter((x) => x.source === "home" && (p.name === undefined || x.name === p.name))
@@ -1476,7 +1538,7 @@ export class MockGateway implements GatewayClient {
         useCount: 0,
         createdAt: now,
         updatedAt: now,
-        backend: "1password",
+        backend: p.source,
       };
       this.world.credentials = [...this.world.credentials, credential];
       this.emit("credential.updated", {

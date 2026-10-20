@@ -1,0 +1,25 @@
+export {
+  APPROVAL_NONCE_GRACE_MS as WHATSAPP_APPROVAL_NONCE_GRACE_MS,
+  TOKEN_REJECTED_TEXT as WHATSAPP_TOKEN_REJECTED_TEXT,
+  WHATSAPP_DEFAULT_MAX_DOWNLOAD_BYTES,
+  WHATSAPP_MAX_INTERACTIVE_CHARS,
+  WHATSAPP_MAX_MESSAGE_CHARS,
+  WHATSAPP_REPLAY_WINDOW_MS,
+  WHATSAPP_SERVICE_WINDOW_MS,
+  WHATSAPP_WEBHOOK_MAX_BYTES,
+  WhatsAppAdapter,
+  type WhatsAppAdapterOptions,
+  type WhatsAppRejectReason,
+  type WhatsAppWebhookRejection,
+  type WhatsAppWebhookRequest,
+  type WhatsAppWebhookResponse,
+  WINDOW_CLOSED_TEXT as WHATSAPP_WINDOW_CLOSED_TEXT,
+  whatsappError,
+} from "./adapter.ts";
+export {
+  approvalButtonId as whatsappApprovalButtonId,
+  hubSignature,
+  mapWaMessage,
+  parseApprovalButtonId as parseWhatsAppApprovalButtonId,
+  WHATSAPP_IDENTITY_STRENGTH,
+} from "./mapping.ts";

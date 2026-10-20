@@ -34,6 +34,15 @@ Q3 is done when "a message can be played and saved as a file". `speech.readAloud
 - **Personal Voice is opt-in.** `NodeSpeechEngine` looks a voice id up in the helper's `speech.voices` (cached; an unknown id triggers one refresh). A Personal Voice is refused with `policy_denied` before the helper is called unless the owner setting (`createSpeechStack({personalVoice})`, `speech.tts.personalVoice`) is on; when it is, the call carries the helper's required `personalVoice: true`.
 - **Non-commercial caveat.** With `nonCommercial: (ref) => catalog.isNonCommercial(ref)`, a clip read by a Personal Voice is tagged `non-commercial` in the Library (Apple's terms limit that output to personal use); a failing check tags it too.
 
+## Voice mode (Q5)
+
+Voice mode runs in the shell (`apps/web/src/shell/voice-mode.ts`) on top of this package's methods; nothing here is specific to it except two read-aloud options:
+
+- `ReadAloudService.start(messageId, deviceId, {save: false})` (`speech.readAloud {save: false}`) streams the reply as `speech.audio` without encoding an MP3, saving a Library item or emitting `speech.readAloud.completed`; `done` resolves `null`.
+- `ReadAloudService.cancel(streamId, deviceId)` (`speech.readAloud.cancel`) stops a running stream at once for barge-in: no further audio is sent (the held-back last chunk is dropped) and `speech.readAloud.failed` reports `cancelled`. Another device's stream id is ignored.
+
+The loop: a dictation session per utterance (a 0.9 s pause or releasing hold-to-talk ends it), `chat.send`, the run's `run.updated` / `chat.message` events, then the last agent message read with `save: false` (or the browser's `speechSynthesis`). Talking over the reply cancels it and starts a new session fed with the last 600 ms of audio. A run waiting for an approval or an answer shows "Needs your approval on screen" and transcribes nothing; no voice path calls `approvals.*`.
+
 ## Engine selection
 
 Transcription order (setting `speech.stt.order`, default `["mac-node", "whisper", "web-speech"]`):

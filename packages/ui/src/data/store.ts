@@ -427,6 +427,7 @@ export class GatewayStore {
         return invalidate(s, ["vault.payments"]);
       case "skills.changed":
       case "skills.updated":
+      case "skills.draft.updated":
         return invalidate(s, ["skills."]);
       case "gateway.shutdown":
         return { ...s, connection: "offline" };
