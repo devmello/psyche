@@ -127,3 +127,59 @@ describe("composeSandbox: dev servers reach the browser's dev-preview registry (
     expect(calls[0]?.[1]).not.toHaveProperty("taskId");
   });
 });
+
+describe("with the browser's DevServerRegistry (I12, needs #128)", () => {
+  it("the task previews the forward, never the container's port number, and no other task does", async () => {
+    const { DevServerRegistry } = await import("@psyche/browser");
+    const registry = new DevServerRegistry();
+    let probe: object = {
+      sid: 41,
+      alive: true,
+      listeners: [{ port: 5173, addr: "0.0.0.0", pid: 57 }],
+    };
+    const part = composeSandbox(services, {
+      devServers: registry,
+      runner: {
+        driver: fakeCli(() => probe),
+        detect: async () => [{ kind: "docker", cli: "/usr/bin/docker", version: "29" }],
+        image: "psyche-sandbox:core-dev",
+        idleTimeoutMs: 0,
+        devServers: { probeDelaysMs: [], pollMs: 60_000 },
+      },
+    });
+    const sbx = await part.runner.ensureSandbox({ kind: "task", id: "task_1" });
+    await part.runner.exec({
+      sandboxId: sbx.id,
+      argv: ["npm", "run", "dev"],
+      cwd: "/workspace/app",
+      timeoutMs: 1000,
+    });
+
+    const [server] = await registry.list({ taskId: "task_1" });
+    if (server === undefined) throw new Error("not registered");
+    expect(server).toMatchObject({ source: "started", taskId: "task_1" });
+    const ok = await registry.check(`http://127.0.0.1:${server.port}/`, { taskId: "task_1" });
+    expect(ok.ok).toBe(true);
+    expect(
+      (await registry.check(`http://127.0.0.1:${server.port}/`, { taskId: "task_2" })).ok,
+    ).toBe(false);
+    // The container's port number means nothing on the host: still unknown.
+    expect(await registry.check("http://localhost:5173/", { taskId: "task_1" })).toMatchObject({
+      ok: false,
+      reason: "unknown_dev_server",
+    });
+
+    probe = { sid: 41, alive: false, listeners: [] };
+    await part.stop?.();
+    expect(await registry.list({ taskId: "task_1" })).toEqual([]);
+  });
+});
+
+describe("partsFromEnv", () => {
+  it("composes the sandbox part after the browser and skips it with PSYCHE_SANDBOX=off", async () => {
+    const { partsFromEnv } = await import("../src/compose/parts.ts");
+    const on = partsFromEnv({ PSYCHE_TELEGRAM_BOT_TOKEN: "" });
+    const off = partsFromEnv({ PSYCHE_SANDBOX: "off" });
+    expect(on.length - off.length).toBe(1);
+  });
+});
