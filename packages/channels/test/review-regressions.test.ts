@@ -57,7 +57,9 @@ describe("review regressions", () => {
   });
 
   it("a card too long for chat cannot be approved from chat (finding 4)", async () => {
-    const h = await harness({ capabilities: { buttons: false, maxMessageChars: 300 } });
+    const h = await harness({
+      capabilities: { buttons: false, reactions: false, maxMessageChars: 300 },
+    });
     const issued = await h.broker.requestApproval(input({ details: { body: "x".repeat(400) } }));
     const reports = await h.service.deliverApproval(issued);
     expect(reports).toEqual([

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { requesterFromRoute } from "@psyche/agent-core";
 import {
   type ChannelInboundEvent,
@@ -8,6 +8,9 @@ import {
   ChannelService,
   type ChannelsApi,
   createChannelsApi,
+  IMessageAdapter,
+  type IMessageCursorStore,
+  type IMessageSendAuthorizer,
   type InboundPart,
   type LibraryIngest,
   type LibraryIngestInput,
@@ -43,7 +46,7 @@ import type { ComposedPart, ComposeServices } from "./services.ts";
  * Channels (S10 `@psyche/channels`) mounted on the composed Gateway (INT-2; architecture §4.10,
  * security §9). The part:
  * - builds a `ChannelService` over `SqliteChannelStore` and attaches the configured adapters
- *   (Telegram, WebChat); an adapter whose channel is not configured yet attaches as soon as
+ *   (Telegram, iMessage, WebChat); an adapter whose channel is not configured yet attaches as soon as
  *   `channels.configure` creates it;
  * - turns an owner's private message into a chat turn on the routed thread through the session
  *   controller, as `chat.send` does, and sends the agent's committed replies back to that chat;
@@ -61,8 +64,24 @@ export interface TelegramSetup {
   options?: Partial<Omit<TelegramAdapterOptions, "token" | "account">>;
 }
 
+/**
+ * iMessage through a connected mac helper (N5). Off unless configured: every send needs a
+ * `message_send` approval id, so the composition root must supply `authorizeSend` (backed by the
+ * Permission Broker; see the `@psyche/channels` README, "iMessage").
+ */
+export interface IMessageSetup {
+  /** The Mac's Messages account: the channel's `account`. */
+  account: string;
+  authorizeSend: IMessageSendAuthorizer;
+  /** Pin one node; default the first live node offering `messages.watch`. */
+  nodeId?: string;
+  /** Default: `$PSYCHE_HOME/channels/imessage-<account>.cursor`. */
+  cursor?: IMessageCursorStore;
+}
+
 export interface ChannelsSetup {
   telegram?: TelegramSetup;
+  imessage?: IMessageSetup;
   /** Attach the built-in WebChat adapter (owner-only defaults). */
   webchat?: boolean;
   /** Further adapters (tests, later transports). */
@@ -151,6 +170,24 @@ function quarantineLibrary(home: string): LibraryIngest {
   };
 }
 
+/** The chat.db cursor in a small file (mode 0600); unreadable means "start from the newest row". */
+function fileCursorStore(path: string): IMessageCursorStore {
+  return {
+    async load() {
+      try {
+        const n = Number(readFileSync(path, "utf8").trim());
+        return Number.isSafeInteger(n) && n >= 0 ? n : null;
+      } catch {
+        return null;
+      }
+    },
+    async save(cursor) {
+      mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+      writeFileSync(path, String(cursor), { mode: 0o600 });
+    },
+  };
+}
+
 /** One turn's text: the sender's own words as typed; other people's words labeled as data. */
 export function turnText(parts: readonly InboundPart[]): string {
   return parts
@@ -219,6 +256,35 @@ export function composeChannels(
         ...setup.telegram.options,
         token: setup.telegram.token,
         account: setup.telegram.account,
+      }),
+    );
+  }
+  // A live, Messages-capable node (the mac helper); none → the adapter's start fails and retries.
+  const messagesNode = (pinned?: string) => {
+    const nodes = gateway?.context.nodes;
+    const node = nodes
+      ?.list()
+      .find(
+        (n) =>
+          (pinned === undefined || n.id === pinned) &&
+          nodes.isLive(n.id) &&
+          n.capabilities.some((c) => c.name === "messages.watch"),
+      );
+    return node === undefined ? undefined : nodes?.client(node.id);
+  };
+  const im = setup.imessage;
+  if (im !== undefined) {
+    add(
+      new IMessageAdapter({
+        account: im.account,
+        authorizeSend: im.authorizeSend,
+        node: () => messagesNode(im.nodeId),
+        cursor:
+          im.cursor ??
+          fileCursorStore(
+            join(services.home, "channels", `imessage-${encodeURIComponent(im.account)}.cursor`),
+          ),
+        clock,
       }),
     );
   }

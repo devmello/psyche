@@ -44,6 +44,8 @@ const DEFAULT_RATE: Record<string, ChannelSettings["rateLimit"]> = {
   // Bot API: ~1 msg/s per chat, ~30 msg/s overall.
   telegram: { perChatPerSec: 1, perChannelPerSec: 25, burst: 3 },
   webchat: { perChatPerSec: 20, perChannelPerSec: 50, burst: 20 },
+  // Messages.app scripting: keep it human-paced.
+  imessage: { perChatPerSec: 1, perChannelPerSec: 5, burst: 3 },
 };
 
 function strings(value: unknown): string[] {
@@ -111,6 +113,14 @@ export function validateChannel(channel: Channel): string[] {
     for (const id of ["1087968824", "136817688", "777000"]) {
       if (channel.ownerIds.includes(id) || channel.allowFrom.includes(id)) {
         problems.push(`${id} is a shared Telegram service account and can never be allowlisted`);
+      }
+    }
+  }
+  if (channel.type === "imessage") {
+    // Canonical handles only (the adapter's sender ids): E.164 phones or lowercased emails.
+    for (const id of [...channel.allowFrom, ...channel.ownerIds, ...channel.groupAllowFrom]) {
+      if (id !== "*" && !/^\+\d{6,15}$/.test(id) && !/^[^\sA-Z@]+@[^\sA-Z@]+$/.test(id)) {
+        problems.push(`iMessage ids are E.164 phones or lowercase emails: ${id}`);
       }
     }
   }
