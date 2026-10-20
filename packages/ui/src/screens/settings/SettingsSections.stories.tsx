@@ -314,6 +314,8 @@ const credentialProps = {
   now: STORY_NOW,
   onAdd: noop,
   onConnectManager: noop,
+  onUpdate: noop,
+  onDelete: noop,
 };
 export const CredentialsPopulated: Story = {
   render: () => <CredentialsPanel {...credentialProps} />,
@@ -327,6 +329,21 @@ export const CredentialsRefused: Story = {
       {...credentialProps}
       addError="Psyche refused this item because it looks like a card, bank or ID number."
       needsApproval={forbidden}
+    />
+  ),
+};
+/** Editing a login: rename, bind more sites, replace a value (blank keeps it). */
+export const CredentialsEditing: Story = {
+  render: () => <CredentialsPanel {...credentialProps} defaultEditingId={IDS.credentials.github} />,
+};
+export const CredentialsSearchNoMatch: Story = {
+  render: () => <CredentialsPanel {...credentialProps} defaultQuery="fastmail" />,
+};
+export const CredentialsEditFailed: Story = {
+  render: () => (
+    <CredentialsPanel
+      {...credentialProps}
+      itemError="The vault is locked. Unlock it with Touch ID, then change GitHub again."
     />
   ),
 };

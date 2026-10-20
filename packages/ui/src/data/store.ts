@@ -397,6 +397,8 @@ export class GatewayStore {
         return invalidate(s, ["devices."]);
       case "memory.job.updated":
         return invalidate(s, ["memory.status"]);
+      case "credential.updated":
+        return invalidate(s, ["vault."]);
       case "gateway.shutdown":
         return { ...s, connection: "offline" };
       default:
