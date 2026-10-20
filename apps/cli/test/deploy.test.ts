@@ -101,3 +101,31 @@ describe("deploy/backup", () => {
     expect(r.status).toBe(0);
   });
 });
+
+describe("deploy/sandbox-image/publish.sh --dry-run (what the release job runs before a tag)", () => {
+  it.skipIf(!has("jq"))(
+    "prints build, push and sign for every variant and leaves versions.json alone",
+    () => {
+      const script = resolve(deploy, "sandbox-image/publish.sh");
+      const before = read("sandbox-image/versions.json");
+      const r = spawnSync(
+        "bash",
+        [script, "--dry-run", "--version", "1.2.3", "core", "base", "full"],
+        {
+          encoding: "utf8",
+        },
+      );
+      expect(r.status, r.stderr).toBe(0);
+      const out = `${r.stdout}${r.stderr}`;
+      for (const tag of ["1.2.3-core", "1.2.3", "1.2.3-full"]) {
+        expect(out).toContain(`ghcr.io/devmello/psyche-sandbox:${tag}`);
+      }
+      expect(out.match(/\+ cosign sign --yes/g)).toHaveLength(3);
+      expect(out).toContain("--provenance=mode=max");
+      expect(read("sandbox-image/versions.json")).toBe(before);
+      expect(
+        spawnSync("bash", [script, "--dry-run", "--version", "1.2"], { encoding: "utf8" }).status,
+      ).toBe(2);
+    },
+  );
+});
