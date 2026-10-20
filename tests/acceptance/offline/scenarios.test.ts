@@ -17,7 +17,7 @@ const knownPath = join(SCENARIOS_DIR, "known-failures.json");
 const known: Known = existsSync(knownPath) ? JSON.parse(readFileSync(knownPath, "utf8")) : {};
 
 describe("acceptance scenarios, scripted mode", () => {
-  it("V1, V2 and V7 pass every hard assertion that is not a tracked known failure", async () => {
+  it("V1, V2, V3 and V7 pass every hard assertion that is not a tracked known failure", async () => {
     const report = await runAllScenarios();
     const rows = report.scenarios.map((s) => {
       const tracked = known[s.scenario] ?? {};
@@ -48,6 +48,7 @@ describe("acceptance scenarios, scripted mode", () => {
     expect(rows.map((r) => r.scenario)).toEqual([
       "v1-inbox-triage",
       "v2-calendar-planning",
+      "v3-shopping",
       "v7-research-brief",
     ]);
     for (const r of rows) {
