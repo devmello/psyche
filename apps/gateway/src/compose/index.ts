@@ -96,6 +96,7 @@ import {
 import { composeHarnesses } from "./harnesses.ts";
 import { libraryHandlers } from "./library.ts";
 import {
+  clearModelKey,
   type HostedModelKind,
   hasModelKey,
   storeModelKey,
@@ -512,6 +513,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
           vaultKeys: {
             has: (id: string) => hasModelKey(vault.vault, id),
             store: (id: HostedModelKind, key: string) => storeModelKey(vault.vault, id, key),
+            clear: (id: HostedModelKind) => clearModelKey(vault.vault, id),
           },
         }
       : {}),

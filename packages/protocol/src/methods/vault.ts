@@ -120,7 +120,8 @@ export const VaultMethods = {
     result: Type.Object({ deleted: Type.Boolean() }),
     scope: "operator.admin",
     sideEffecting: true,
-    description: "Overwrites and deletes an item. Side-effecting.",
+    description:
+      'Overwrites and deletes an item the owner created (any kind, external-manager links included), revokes its credential_fill grants and wipes secret env leases and unused fill handles drawn from it; audited. A Gateway-owned item (a provider key, a channel token, a connector\'s token) is refused forbidden with details {reason: "gateway_owned", kind, setting}: remove it through that setting. Side-effecting.',
   }),
   "vault.import": defineMethod({
     params: Type.Object({
