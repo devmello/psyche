@@ -1,5 +1,6 @@
 import { lstatSync, readdirSync, statfsSync } from "node:fs";
 import { join, relative } from "node:path";
+import type { RealChromeStatus } from "@psyche/protocol";
 import type { GatewayClient, HttpProbe } from "./client.ts";
 import { callIfAvailable } from "./commands/util.ts";
 import { type ConfigObject, readConfig, validateConfig } from "./config-file.ts";
@@ -76,6 +77,8 @@ export interface Snapshot {
   }>;
   apiKeys: Query<{ name: string; bindings: Record<string, string>[] }[]>;
   skills: Query<{ name: string; status: string; trust: string; enabled: boolean }[]>;
+  /** The Gateway's real-Chrome mode (I13): the owner's profile on a loopback DevTools port. */
+  realChrome: Query<RealChromeStatus>;
   localSandboxBackends: string[];
   disk: { freeBytes: number; totalBytes: number } | null;
   modeIssues: FileModeIssue[];
@@ -184,7 +187,7 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
       : { paired: false, scopes: [], error: toReport(r.error) };
   }
 
-  const [settings, channels, grants, devices, nodes, sandbox, vault, apiKeys, skills] =
+  const [settings, channels, grants, devices, nodes, sandbox, vault, apiKeys, skills, realChrome] =
     await Promise.all([
       q(client, "settings.get", {}, (v: { settings: Record<string, unknown> }) => v.settings),
       q(client, "channels.list", {}, (v: { channels: never[] }) => v.channels),
@@ -195,6 +198,7 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
       q(client, "vault.status", {}, (v: { status: never }) => v.status),
       q(client, "vault.list", { kind: "api_key" }, (v: { credentials: never[] }) => v.credentials),
       q(client, "skills.list", {}, (v: { skills: never[] }) => v.skills ?? []),
+      q(client, "browser.realChrome.status", {}, (v: RealChromeStatus) => v),
     ]);
 
   const localSandboxBackends: string[] = [];
@@ -238,6 +242,7 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
     modeIssues: issues,
     homeMode,
     chromeDebugPort,
+    realChrome,
     localModel,
   };
 }

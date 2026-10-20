@@ -91,6 +91,8 @@ export const receipts = sqliteTable("receipts", {
   payload: text("payload"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  /** `n` of `short_id` `R<n>` (`202610211300_audit_receipt-short-seq.sql`, #66). */
+  shortSeq: integer("short_seq"),
 });
 
 export const permissionsSchema = { approvals, grants, policyRules, receipts };

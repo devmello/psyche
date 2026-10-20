@@ -12,8 +12,10 @@ import type {
   ToolRunContext,
 } from "../framework/types.ts";
 import {
+  canonicalOrigin,
   DEFAULT_MAX_CHARS,
   type DnsLookup,
+  originAllowlist,
   parseFetchUrl,
   type SafeFetchOptions,
   safeFetch,
@@ -296,6 +298,15 @@ export interface WebFetchFactoryOptions {
   transport?: Transport;
   timeoutMs?: number;
   maxBytes?: number;
+  /**
+   * The origins this call's Task may read (its approved origin set; security §6, I7), checked
+   * on every redirect hop. The Gateway supplies it from the call's Task. Without it, or when it
+   * returns undefined, a hop may stay on the request's own origin only (plus an http→https
+   * upgrade): the broker approved that origin, any other one needs its own decision.
+   */
+  allowedOrigins?: (
+    run: ToolRunContext,
+  ) => Iterable<string> | undefined | Promise<Iterable<string> | undefined>;
 }
 
 function parseFetchParams(params: unknown): { url: string; maxChars?: number } {
@@ -345,6 +356,11 @@ export function createWebFetchFactory(options: WebFetchFactoryOptions = {}): Con
           if (options.transport !== undefined) fetchOptions.transport = options.transport;
           if (options.timeoutMs !== undefined) fetchOptions.timeoutMs = options.timeoutMs;
           if (options.maxBytes !== undefined) fetchOptions.maxBytes = options.maxBytes;
+          const taskOrigins = await options.allowedOrigins?.(run);
+          fetchOptions.allowHop = originAllowlist([
+            canonicalOrigin(parseFetchUrl(p.url)),
+            ...(taskOrigins ?? []),
+          ]);
           const result = await safeFetch(p.url, fetchOptions);
           const out: ToolOutput = {
             output: result,

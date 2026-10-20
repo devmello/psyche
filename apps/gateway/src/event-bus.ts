@@ -25,6 +25,16 @@ export function eventScope(event: EventName): DeviceScope | null {
   return scope === undefined ? "operator.read" : scope;
 }
 
+/**
+ * Adds per-connection fields to an event (the subscriber's own approval answer token, issue #50).
+ * Returns the payload for this subscriber, or `undefined` to send the shared frame.
+ */
+export type EventPersonalizer = (
+  event: EventName,
+  payload: unknown,
+  subscriber: { deviceId: string | null; scopes: readonly DeviceScope[] },
+) => unknown | undefined;
+
 interface Subscriber {
   scopes: readonly DeviceScope[];
   filter: EventFilter | null;
@@ -110,8 +120,25 @@ export class EventBus {
     for (const [sink, sub] of this.#subscribers) {
       if (requiredScope !== null && !sub.scopes.includes(requiredScope)) continue;
       if (!matches(sub.filter, event, threadId)) continue;
-      sink(frame);
+      const own = this.#personalizer?.(event, payload, {
+        deviceId: sub.deviceId,
+        scopes: sub.scopes,
+      });
+      sink(
+        own === undefined
+          ? frame
+          : JSON.stringify(
+              eventFrame(event, own as EventPayload<E>, this.#seq, this.#stateVersion),
+            ),
+      );
     }
+  }
+
+  #personalizer: EventPersonalizer | null = null;
+
+  /** Installs the per-connection payload hook (the composition root's answer-token delivery). */
+  setPersonalizer(fn: EventPersonalizer | null): void {
+    this.#personalizer = fn;
   }
 
   /**

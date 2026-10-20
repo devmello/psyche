@@ -436,6 +436,10 @@ export function composeBrowser(
     handlers: {
       ...browserHandlers(router, sessionsForClients),
       ...recordingHandlers(recordingStore, publishRecording),
+      // For `psyche security audit` (#169; security §6): the port is flagged while attached.
+      "browser.realChrome.status": {
+        run: () => ({ enabled: setup.realChrome?.enabled === true, ...realChrome.status() }),
+      },
     },
     attach,
     get driver() {
