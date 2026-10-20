@@ -1,5 +1,6 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { IsoDateTime, Nullable, StringEnum } from "../common.ts";
+import { TaskWorkspace } from "./tasks.ts";
 
 /**
  * VM mode (features L1–L5; architecture §10; security §13; ADR-009; spike 06). The mac helper's
@@ -119,3 +120,37 @@ export const VmUpdatedPayload = Type.Object(
   { $id: "VmUpdatedPayload" },
 );
 export type VmUpdatedPayload = Static<typeof VmUpdatedPayload>;
+
+/**
+ * The owner's VM-mode settings (`settings.*` keys, admin-only; S11 draws the screen). Values are
+ * plain JSON under these keys; absent keys take the defaults in brackets.
+ */
+export const VM_SETTING_KEYS = {
+  /** [false] Run Tasks in the sandbox Mac at all. */
+  enabled: "vm.enabled",
+  /** [null] The paired psyche-node inside the guest that runs Task commands. */
+  guestNodeId: "vm.guestNodeId",
+  /** [`sandbox`] Where a Task runs when it names no workspace. */
+  defaultWorkspace: "vm.defaultWorkspace",
+  /** [`paste-only`] Clipboard between host and guest (security §13). */
+  clipboard: "vm.clipboard",
+  /** [`host`] Where credentials live: the host vault as a node capability, or a guest vault. */
+  credentials: "vm.credentials",
+} as const;
+
+export const VmClipboardMode = StringEnum(["paste-only", "bidirectional", "off"], {
+  $id: "VmClipboardMode",
+});
+export type VmClipboardMode = Static<typeof VmClipboardMode>;
+
+export const VmSettings = Type.Object(
+  {
+    enabled: Type.Boolean(),
+    guestNodeId: Nullable(Type.String()),
+    defaultWorkspace: TaskWorkspace,
+    clipboard: VmClipboardMode,
+    credentials: StringEnum(["host", "guest"]),
+  },
+  { $id: "VmSettings" },
+);
+export type VmSettings = Static<typeof VmSettings>;

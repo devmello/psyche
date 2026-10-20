@@ -196,6 +196,7 @@ Security §3.5 is the normative table; this one lists the same kinds. The implem
 | git_write | tool, params hash, repository real path, operation (`commit`: message and paths; `branch`: name, create) |
 | git_push | tool, params hash, repository real path, remote name, remote URL, branch, commit SHA (never forced; `once` only) |
 | new_origin | origin, task id |
+| skill_install | skill name, scope, source (path / zip / git url + ref), commit, whole-tree hash, sorted declared tools, approval kinds and prompt files (grant key: name, scope; device-only, `once`) |
 
 ## 5. Receipts and audit
 
