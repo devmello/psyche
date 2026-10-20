@@ -257,7 +257,7 @@ export function ModelProvidersPanel({
     .filter((m) => m.capabilities?.embeddings !== true);
   const id = useId();
   const add = onAddProvider ? (
-    <Button type="button" variant="outline" size="sm" onClick={onAddProvider}>
+    <Button type="button" size="sm" onClick={onAddProvider}>
       Add a provider
     </Button>
   ) : null;
@@ -273,9 +273,12 @@ export function ModelProvidersPanel({
         error={error ?? null}
         {...(onRetry ? { onRetry } : {})}
       >
-        <Group title="Providers" actions={add}>
+        <Group title="Providers" actions={providers.length === 0 ? undefined : add}>
           {providers.length === 0 ? (
-            <EmptyNotice text="No model provider yet. Add a key, a subscription or a local model." />
+            <EmptyNotice
+              text="No model provider yet. Add a key, a subscription or a local model."
+              action={add}
+            />
           ) : (
             <ul className="flex flex-col divide-y divide-gray-6">
               {providers.map((p) => (
@@ -293,7 +296,7 @@ export function ModelProvidersPanel({
                         : `No key needed. Endpoint ${p.baseURL}.`
                       : p.keyRef === null
                         ? "No key stored."
-                        : `Key stored in the vault as ${p.keyRef}. Psyche never shows it.`}
+                        : "Key stored in the vault. Psyche never shows it."}
                     {onEditKey && p.kind !== "local" ? (
                       <Button
                         type="button"
@@ -518,7 +521,7 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
         () => reload(),
         (err: unknown) => {
           if (hasCode(err, "policy_denied")) setChatOnly({ role, ref });
-          else setActionError(`Couldn't use ${ref} (${messageOf(err)})`);
+          else setActionError(`Psyche couldn't use ${ref} (${messageOf(err)}).`);
         },
       );
     },
@@ -540,7 +543,7 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
     call("models.probe", { providerId })
       .then(
         () => reload(),
-        (err: unknown) => setActionError(`Couldn't check the endpoint (${messageOf(err)})`),
+        (err: unknown) => setActionError(`Psyche couldn't check the endpoint (${messageOf(err)}).`),
       )
       .finally(() => setProbing(null));
   };
@@ -554,7 +557,8 @@ export function ModelSection(props: ModelSectionProps): ReactElement {
           call("models.check", { ref })
             .then(
               () => reload(),
-              (err: unknown) => setActionError(`Couldn't run the check (${messageOf(err)})`),
+              (err: unknown) =>
+                setActionError(`Psyche couldn't run the check (${messageOf(err)}).`),
             )
             .finally(() => setChecking(null));
         }

@@ -27,7 +27,7 @@ describe("Voice & dictation: system-wide dictation (J9, Q2)", () => {
       />,
     );
     expect(screen.getByText("Needed")).toBeTruthy();
-    expect(screen.getAllByText("Right ⌥").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Right Option").length).toBeGreaterThan(0);
     await userEvent.click(screen.getByRole("switch"));
     expect(onChange).toHaveBeenCalledWith("voice.systemWide", false);
     await userEvent.click(screen.getByRole("button", { name: "Open System Settings" }));

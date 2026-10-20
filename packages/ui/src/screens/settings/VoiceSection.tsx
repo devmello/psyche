@@ -21,7 +21,7 @@ import {
 
 /**
  * What the desktop's system-wide dictation sees right now (features J9, Q2). `accessibility` is
- * the Psyche Helper's grant as the hold-to-talk watch found it; `hotkeyTaken` names a toggle
+ * the Psyche helper's grant as the hold-to-talk watch found it; `hotkeyTaken` names a toggle
  * hotkey another app already owns.
  */
 export interface SystemDictationStatus {
@@ -42,8 +42,8 @@ export interface SystemDictationProps {
 
 const KEY_LABEL: Record<string, string> = {
   fn: "fn",
-  rightOption: "Right ⌥",
-  rightCommand: "Right ⌘",
+  rightOption: "Right Option",
+  rightCommand: "Right Command",
 };
 
 function AccessibilityRow({
@@ -68,7 +68,7 @@ function AccessibilityRow({
       <span className="font-medium">Accessibility</span>
       <StatusChip tone={chip.tone}>{chip.text}</StatusChip>
       <span className="text-xs text-muted-foreground">
-        lets Psyche Helper see the key you hold and type into the focused app
+        lets the Psyche helper see the key you hold and type into the focused app
       </span>
       {status.helper === "online" && status.accessibility !== "granted" ? (
         <span className="ml-auto flex gap-2">
@@ -107,8 +107,7 @@ export function VoicePanel({
       title="Voice & dictation"
       description={
         <>
-          Hold <Kbd>{ptt === "fn" ? "fn" : ptt === "rightOption" ? "Right ⌥" : "Right ⌘"}</Kbd> to
-          dictate into any message field.
+          Hold <Kbd>{KEY_LABEL[ptt] ?? ptt}</Kbd> to dictate into any message field.
         </>
       }
     >
