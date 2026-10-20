@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S14 M2: Apple app adapters, J6)
+
+For S14 (the mac helper's `calendar.*`, `reminders.*`, `mail.*`, `notes.*`, `finder.*`, `safari.*` node capabilities), S02 (typed node tools), S05 (the `apple.<app>` connector matrix).
+
+- New schemas in `schemas/apple-apps.ts`: `AppleCalendar`, `AppleCalendarEvent`, `AppleCalendarListEventsParams`, `AppleCalendarEventInput`, `AppleCalendarEventUpdate`, `AppleReminder`, `AppleRemindersListParams`, `AppleReminderInput`, `AppleReminderUpdate`, `AppleMailMessageSummary`, `AppleMailMessage`, `AppleMailSearchParams`, `AppleMailDraftInput`, `AppleNoteSummary`, `AppleNote`, `AppleNoteInput`, `AppleFinderEntry`, `AppleSafariTab`.
+- No new methods: the capabilities are reached through `nodes.invoke` (and the agent's node tools) as `node.<capability>`; app content they return is `untrusted`.
+
 ### v1 additive — 2026-10-21 (S01: web passkeys, #79)
 
 - `passkeys.register.begin | register.finish | reauth.begin | list | remove` and `PasskeyInfo`, `PasskeyReauth`: WebAuthn passkeys per device for the server-mode web client. Options and responses use the WebAuthn JSON forms. A device that already has a passkey re-authenticates with one before adding or removing another.
