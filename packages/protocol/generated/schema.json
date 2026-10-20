@@ -1022,6 +1022,14 @@
         "sideEffecting": false
       },
       {
+        "description": "The MCP launcher in use and each configured server's trust, transport and network reach.",
+        "name": "mcp.status",
+        "params": "#/$defs/McpStatusParams",
+        "result": "#/$defs/McpStatusResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "The owner confirms an agent or imported claim; it becomes an owner claim that supersedes it. Claims derived from untrusted sources are refused. Side-effecting.",
         "name": "memory.claims.confirm",
         "params": "#/$defs/MemoryClaimsConfirmParams",
@@ -9853,6 +9861,73 @@
       ],
       "type": "object"
     },
+    "McpServerStatus": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "trust": {
+          "enum": [
+            "bundled",
+            "verified",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "transport": {
+          "enum": [
+            "stdio",
+            "http"
+          ],
+          "type": "string"
+        },
+        "network": {
+          "type": "boolean"
+        },
+        "connected": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "trust",
+        "transport",
+        "network",
+        "connected"
+      ],
+      "type": "object"
+    },
+    "McpStatusParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "McpStatusResult": {
+      "properties": {
+        "launcher": {
+          "enum": [
+            "srt",
+            "container",
+            "none"
+          ],
+          "type": "string"
+        },
+        "servers": {
+          "items": {
+            "$ref": "#/$defs/McpServerStatus"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "launcher",
+        "servers"
+      ],
+      "type": "object"
+    },
     "MemoTaskMode": {
       "enum": [
         "auto",
@@ -13553,6 +13628,9 @@
               "type": "null"
             }
           ]
+        },
+        "egress": {
+          "type": "boolean"
         }
       },
       "required": [

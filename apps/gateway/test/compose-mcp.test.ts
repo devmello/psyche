@@ -88,6 +88,9 @@ describe("MCP host in the Gateway (K5)", () => {
     );
     await mcp.idle();
     expect(services.tools.get("mcp__echo__echo")).toBeDefined();
+    expect(await owner.call("mcp.status", {})).toMatchObject({
+      servers: [{ id: "echo", trust: "bundled", connected: true }],
+    });
 
     const { thread } = await owner.call<{ thread: { id: string } }>(
       "threads.create",
@@ -136,6 +139,19 @@ describe("MCP host in the Gateway (K5)", () => {
     await mcp.idle();
     expect(services.tools.get("mcp__echo__echo")).toBeUndefined();
     expect(logs.join("\n")).toMatch(/mcp server (did not connect|could not be added)/);
+    // What `psyche security audit` sees: no launcher, the server refused.
+    expect(await owner.call("mcp.status", {})).toEqual({
+      launcher: "none",
+      servers: [
+        expect.objectContaining({
+          id: "echo",
+          trust: "unknown",
+          transport: "stdio",
+          network: false,
+          connected: false,
+        }),
+      ],
+    });
   });
 
   it("runs container servers with network only through the egress allowlist", async () => {

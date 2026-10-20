@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S22, M3 security audit completeness)
+
+- New `mcp.status` (`operator.read`) → `{launcher: "srt" | "container" | "none", servers: McpServerStatus[]}` (`id`, `name`, `trust`, `transport`, `network`, `connected`): how the composed Gateway isolates MCP servers, for `psyche security audit`.
+- `sandbox.status` result gains optional `egress` (the host egress proxy for `network: "proxy"` sandboxes is running, security §5.2).
+- No fake changes: no contract changed.
+
 ### v1 additive — 2026-10-19 (M3 T2: skills install and trust)
 
 For S16 (`packages/skills`), the Gateway (`skills.*` handlers), S05 (`skill_install` binding) and Settings → Skills (S11 / S12).
