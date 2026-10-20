@@ -1,4 +1,4 @@
-import type { InboundDecisionEvent } from "@psyche/channels";
+import type { InboundDecisionEvent, PairingDecidedEvent } from "@psyche/channels";
 import type { ChannelConversation } from "@psyche/permissions";
 
 /**
@@ -32,6 +32,22 @@ export class ChannelConversations {
     if (this.#byKey.size > ChannelConversations.MAX) {
       const oldest = this.#byKey.keys().next().value;
       if (oldest !== undefined) this.#byKey.delete(oldest);
+    }
+  }
+
+  /**
+   * `ChannelServiceOptions.onPairingDecided`: an approved sender's pairing DM becomes answerable
+   * (they are in `allowFrom` now), so the confirmation passes as a reply (#277). The window is
+   * still the reply window from their last message; group chats never pair. A denial leaves
+   * the record as it is: no code is re-sent and nothing else may be.
+   */
+  pairingDecided(event: PairingDecidedEvent): void {
+    if (event.decision !== "approved") return;
+    const prefix = this.#key(event.channel.type, event.channel.account, "");
+    for (const [key, c] of this.#byKey) {
+      if (!key.startsWith(prefix) || c.isGroup || c.allows !== "pairing_code") continue;
+      if (c.senderId !== event.senderId) continue;
+      this.#byKey.set(key, { ...c, allows: "reply" });
     }
   }
 
