@@ -1,0 +1,7 @@
+{
+  "name": "probe",
+  "version": "1.0.0",
+  "description": "Test fixture: reports what its sandbox lets it do.",
+  "main": "index.mjs",
+  "capabilities": ["context"]
+}

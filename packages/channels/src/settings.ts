@@ -48,7 +48,19 @@ const DEFAULT_RATE: Record<string, ChannelSettings["rateLimit"]> = {
   imessage: { perChatPerSec: 1, perChannelPerSec: 5, burst: 3 },
   // Discord: 5 msgs / 5 s per channel, ~50 req/s global per bot.
   discord: { perChatPerSec: 1, perChannelPerSec: 10, burst: 5 },
+  // Twilio: every segment is billed and long codes take ~1 segment/s; one reply per 5 s per chat.
+  sms: { perChatPerSec: 0.2, perChannelPerSec: 1, burst: 2 },
 };
+
+/**
+ * Transports where every sender is weak (security §9): they chat as non-owners under the DM
+ * policy, but never match an owner, never run commands and never answer approvals.
+ */
+export const WEAK_TRANSPORTS: ReadonlySet<ChannelType> = new Set<ChannelType>(["sms"]);
+
+export function isWeakTransport(type: ChannelType): boolean {
+  return WEAK_TRANSPORTS.has(type);
+}
 
 function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
@@ -131,6 +143,14 @@ export function validateChannel(channel: Channel): string[] {
     for (const id of [...channel.allowFrom, ...channel.ownerIds, ...channel.groupAllowFrom]) {
       if (id !== "*" && !/^\d{1,20}$/.test(id))
         problems.push(`Discord ids are numeric snowflakes: ${id}`);
+    }
+  }
+  if (channel.type === "sms") {
+    for (const id of [...channel.allowFrom, ...channel.ownerIds, ...channel.groupAllowFrom]) {
+      if (id !== "*" && !/^\+\d{6,15}$/.test(id)) problems.push(`SMS ids are E.164 phones: ${id}`);
+    }
+    if (!/^\+\d{6,15}$/.test(channel.account)) {
+      problems.push(`the SMS account is Psyche's E.164 number: ${channel.account}`);
     }
   }
   if (channel.ownerIds.includes("*")) problems.push('"*" is not a valid owner id');

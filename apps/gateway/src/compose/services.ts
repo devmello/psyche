@@ -18,6 +18,7 @@ import type {
 } from "@psyche/protocol";
 import type { SecretRedactor, Vault } from "@psyche/vault";
 import type { HandlerDef } from "../context.ts";
+import type { WebhookRoute } from "../http.ts";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
 import type { OwnerAttention } from "./attention.ts";
@@ -96,6 +97,8 @@ export function createOwnPorts(): OwnPorts {
 /** One subsystem as the composition root mounts it. */
 export interface ComposedPart {
   readonly handlers?: Readonly<Record<string, HandlerDef>>;
+  /** Self-authenticating `POST <path>` routes (channel webhooks) on the Gateway's HTTP server. */
+  readonly webhooks?: Readonly<Record<string, WebhookRoute>>;
   /** Runs once the Gateway is listening. */
   start?(gateway: Gateway): Promise<void> | void;
   stop?(): Promise<void> | void;

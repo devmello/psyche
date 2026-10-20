@@ -506,6 +506,8 @@
 //   let receiptsGetResult = try? JSONDecoder().decode(ReceiptsGetResult.self, from: jsonData)
 //   let receiptsListParams = try? JSONDecoder().decode(ReceiptsListParams.self, from: jsonData)
 //   let receiptsListResult = try? JSONDecoder().decode(ReceiptsListResult.self, from: jsonData)
+//   let relatedThread = try? JSONDecoder().decode(RelatedThread.self, from: jsonData)
+//   let relatedThreadsBlock = try? JSONDecoder().decode(RelatedThreadsBlock.self, from: jsonData)
 //   let reqFrame = try? JSONDecoder().decode(ReqFrame.self, from: jsonData)
 //   let resErrFrame = try? JSONDecoder().decode(ResErrFrame.self, from: jsonData)
 //   let resFrame = try? JSONDecoder().decode(ResFrame.self, from: jsonData)
@@ -4339,7 +4341,7 @@ public struct Block: Codable, Sendable {
     public let tool: String?
     public let toolCallID: String?
     public let planID: String?
-    public let items: [ChecklistItem]?
+    public let items: [ItemElement]?
     public let approvalID: String?
     public let inputRequestID: String?
     public let artifactID: String?
@@ -4372,7 +4374,7 @@ public struct Block: Codable, Sendable {
         case recap = "recap"
     }
 
-    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ChecklistItem]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?) {
+    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ItemElement]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?) {
         self.md = md
         self.type = type
         self.level1 = level1
@@ -4410,19 +4412,31 @@ public struct WrapUpAction: Codable, Sendable {
     }
 }
 
-// MARK: - ChecklistItem
-public struct ChecklistItem: Codable, Sendable {
-    public let status: ChecklistItemStatus
-    public let text: String
+// MARK: - ItemElement
+public struct ItemElement: Codable, Sendable {
+    public let status: ChecklistItemStatus?
+    public let text: String?
+    public let lastMessageAt: String?
+    public let snippet: String?
+    public let threadID: String?
+    public let title: String?
 
     public enum CodingKeys: String, CodingKey {
         case status = "status"
         case text = "text"
+        case lastMessageAt = "lastMessageAt"
+        case snippet = "snippet"
+        case threadID = "threadId"
+        case title = "title"
     }
 
-    public init(status: ChecklistItemStatus, text: String) {
+    public init(status: ChecklistItemStatus?, text: String?, lastMessageAt: String?, snippet: String?, threadID: String?, title: String?) {
         self.status = status
         self.text = text
+        self.lastMessageAt = lastMessageAt
+        self.snippet = snippet
+        self.threadID = threadID
+        self.title = title
     }
 }
 
@@ -4449,6 +4463,7 @@ public enum BlockType: String, Codable, Sendable {
     case plan = "plan"
     case question = "question"
     case receipt = "receipt"
+    case relatedThreads = "related_threads"
     case task = "task"
     case text = "text"
     case toolCall = "tool_call"
@@ -4864,6 +4879,22 @@ public struct ChecklistBlock: Codable, Sendable {
     public init(items: [ChecklistItem], type: ChecklistBlockType) {
         self.items = items
         self.type = type
+    }
+}
+
+// MARK: - ChecklistItem
+public struct ChecklistItem: Codable, Sendable {
+    public let status: ChecklistItemStatus
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case status = "status"
+        case text = "text"
+    }
+
+    public init(status: ChecklistItemStatus, text: String) {
+        self.status = status
+        self.text = text
     }
 }
 
@@ -10439,6 +10470,48 @@ public struct ReceiptsListResult: Codable, Sendable {
         self.nextCursor = nextCursor
         self.receipts = receipts
     }
+}
+
+// MARK: - RelatedThreadsBlock
+public struct RelatedThreadsBlock: Codable, Sendable {
+    public let items: [RelatedThread]
+    public let type: RelatedThreadsBlockType
+
+    public enum CodingKeys: String, CodingKey {
+        case items = "items"
+        case type = "type"
+    }
+
+    public init(items: [RelatedThread], type: RelatedThreadsBlockType) {
+        self.items = items
+        self.type = type
+    }
+}
+
+// MARK: - RelatedThread
+public struct RelatedThread: Codable, Sendable {
+    public let lastMessageAt: String?
+    public let snippet: String
+    public let threadID: String
+    public let title: String
+
+    public enum CodingKeys: String, CodingKey {
+        case lastMessageAt = "lastMessageAt"
+        case snippet = "snippet"
+        case threadID = "threadId"
+        case title = "title"
+    }
+
+    public init(lastMessageAt: String?, snippet: String, threadID: String, title: String) {
+        self.lastMessageAt = lastMessageAt
+        self.snippet = snippet
+        self.threadID = threadID
+        self.title = title
+    }
+}
+
+public enum RelatedThreadsBlockType: String, Codable, Sendable {
+    case relatedThreads = "related_threads"
 }
 
 // MARK: - ReqFrame
