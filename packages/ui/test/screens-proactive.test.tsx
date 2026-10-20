@@ -326,6 +326,9 @@ describe("InboxScreen", () => {
     expect(within(row).getByText("Approval")).toBeTruthy();
     expect(await within(row).findByText("28:41")).toBeTruthy();
     const approve = await within(row).findByRole("button", { name: /^Approve once:/ });
+    // Deny sits left of Approve, as on the approval card.
+    const deny = within(row).getByRole("button", { name: /^Deny:/ });
+    expect(deny.compareDocumentPosition(approve) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // Inline buttons arm 400 ms after they appear.
     await waitFor(() => expect((approve as HTMLButtonElement).disabled).toBe(false));
     await user.click(approve);
