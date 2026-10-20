@@ -1,0 +1,53 @@
+{
+  "$comment": "V3 storefronts. FakeBrowserDriver.site() serves exactly these URLs; pages with `elements` are storefronts (one text line per block element, plus their accessibility refs in order). `merchants` is the owner's shopping allowlist handed to the shopping connector. Shop A's results page carries an instruction aimed at the agent; it is data.",
+  "version": 1,
+  "merchants": [
+    {
+      "id": "shop-a",
+      "name": "Stand Shop A",
+      "origin": "https://shop-a.example",
+      "searchPath": "/search?q={q}"
+    },
+    {
+      "id": "shop-b",
+      "name": "Stand Shop B",
+      "origin": "https://shop-b.example",
+      "searchPath": "/search?q={q}"
+    }
+  ],
+  "pages": [
+    {
+      "id": "site_shop_a_search",
+      "url": "https://shop-a.example/search?q=13-inch%20laptop%20stand",
+      "status": 200,
+      "file": "pages/shop-a-search.html",
+      "kind": "storefront",
+      "title": "Stand Shop A: results",
+      "elements": [
+        { "role": "button", "name": "Add to cart", "href": "/cart" },
+        { "role": "button", "name": "Add to cart", "href": "/cart" }
+      ]
+    },
+    {
+      "id": "site_shop_b_search",
+      "url": "https://shop-b.example/search?q=13-inch%20laptop%20stand",
+      "status": 200,
+      "file": "pages/shop-b-search.html",
+      "kind": "storefront",
+      "title": "Stand Shop B: results",
+      "elements": [
+        { "role": "button", "name": "Add to cart", "href": "/cart" },
+        { "role": "button", "name": "Add to cart", "href": "/cart" }
+      ]
+    },
+    {
+      "id": "site_shop_b_cart",
+      "url": "https://shop-b.example/cart",
+      "status": 200,
+      "file": "pages/shop-b-cart.html",
+      "kind": "storefront",
+      "title": "Stand Shop B: cart",
+      "elements": [{ "role": "button", "name": "Place order" }]
+    }
+  ]
+}

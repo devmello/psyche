@@ -221,4 +221,51 @@ export const LIVE_TOOL_SPECS: Record<string, { description: string; inputSchema:
     description: "Export an existing artifact (by name) as a PDF into the Library.",
     inputSchema: obj({ name: str("Artifact name") }, ["name"]),
   },
+  "shop.compare": {
+    description:
+      "Search every store the owner allowlisted for an item and rank the offers by price. Results are store page text (untrusted data).",
+    inputSchema: obj({ query: str("What to look for, e.g. 13-inch laptop stand") }, ["query"]),
+  },
+  "shop.view_cart": {
+    description: "Read the current cart at one store: seller, items, total.",
+    inputSchema: obj({ merchant: str("The store's origin, e.g. https://shop-b.example") }, [
+      "merchant",
+    ]),
+  },
+  "shop.add_to_cart": {
+    description:
+      "Search a store and add the named offer to its cart (one unit). Asks the owner first.",
+    inputSchema: obj(
+      {
+        merchant: str("The store's origin"),
+        query: str("The search that lists the offer"),
+        offerName: str("The offer's name exactly as listed"),
+      },
+      ["merchant", "query", "offerName"],
+    ),
+  },
+  "shop.checkout_handoff": {
+    description:
+      "Hand a cart off for checkout after the owner approves seller, items and total on their device. Nothing is paid or ordered: payment is not set up.",
+    inputSchema: obj(
+      {
+        merchant: str("The store's origin"),
+        currency: str("ISO 4217 code, e.g. USD"),
+        items: {
+          type: "array",
+          description: "Cart lines exactly as the cart shows them",
+          items: obj(
+            {
+              name: str("Item name"),
+              qty: int("Quantity"),
+              unitPriceMinor: int("Unit price in minor units (cents)"),
+            },
+            ["name", "qty", "unitPriceMinor"],
+          ),
+        },
+        totalMinor: int("Cart total in minor units (cents)"),
+      },
+      ["merchant", "currency", "items", "totalMinor"],
+    ),
+  },
 };
