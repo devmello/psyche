@@ -9,4 +9,4 @@ Failures found by the nightly, on-demand or tag CI runs (or by anyone) that did 
 | 2026-10-19 | batched test pass on main 63e9cab | tests/acceptance offline/scenarios-m2-format.test.ts: validate.mjs | agent-core (issues-agent-loop) | #199 added ApprovalKind task_start without tests/scenarios/schema.json; fixed in #203. |
 | 2026-10-19 | batched test pass on main 63e9cab | tests/acceptance offline/scenarios-m2.test.ts: v9-weekly-review hard failure | agent-core (issues-agent-loop) | Likely #199 (task.start is now a write with a task_start card). |
 | 2026-10-19 | batched test pass on main 63e9cab | tests/acceptance live/driver.test.ts: `shop.pay_with_link` has no description in the shared tool registry | S06 vault | Tool added by #175 (V3 payments). |
-| 2026-10-19 | batched test pass on main 63e9cab | packages/ui test/screens-settings.test.tsx: expects 15 sections, now 16 | S11 desktop | #191 added Settings → Browser. |
+| 2026-10-19 | batched test pass on main 63e9cab | packages/ui test/screens-settings.test.tsx: expects 15 sections, now 16 | S11 desktop | #191 added Settings → Browser; fixed in #205. |
