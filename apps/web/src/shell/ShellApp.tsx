@@ -365,14 +365,19 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           return true;
         case "approve":
         case "deny": {
-          const btn = document.querySelector<HTMLButtonElement>(
-            `[data-testid="approval-dock"] button[data-action="${a}"]`,
+          // The kit card owns ⌘Return / ⌘D (arming delay, Deny preselected); hand it the key.
+          const card = document.querySelector<HTMLElement>(
+            '[data-testid="approval-dock"] [data-approval-id]',
           );
-          if (btn && !btn.disabled) {
-            btn.click();
-            return true;
-          }
-          return false;
+          if (!card) return false;
+          card.dispatchEvent(
+            new KeyboardEvent("keydown", {
+              key: a === "approve" ? "Enter" : "d",
+              metaKey: true,
+              bubbles: true,
+            }),
+          );
+          return true;
         }
         default:
           return false;

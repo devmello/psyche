@@ -238,9 +238,10 @@ export function MessageBlocks({
   }
   if (streamingText)
     out.push(
-      <Markdown key="streaming" streaming>
-        {streamingText}
-      </Markdown>,
+      // aria-busy: the conversation log announces the reply once it commits, not every token.
+      <div key="streaming" aria-busy="true">
+        <Markdown streaming>{streamingText}</Markdown>
+      </div>,
     );
   return <>{out}</>;
 }
