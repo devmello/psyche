@@ -95,6 +95,7 @@ import {
   type ThreadState,
   type ThreadStateStore,
 } from "./state.ts";
+import type { TurnContextProvider } from "./turn-context.ts";
 import {
   bindingHash,
   dedupeSources,
@@ -198,6 +199,8 @@ export interface AgentLoopOptions {
   evaluator?: { enabled?: boolean; model?: ModelRef; maxReopens?: number };
   /** Coding harness plugins (C10); `harness.delegate` is offered when one is registered. */
   harnesses?: HarnessRegistry;
+  /** Context drawn from the owner's own data, once per owner turn (E12 "From your other chats"). */
+  contextProviders?: readonly TurnContextProvider[];
   /** Code plugins (T4); the Gateway registers the owner's enabled ones while plugins are on. */
   plugins?: AgentPluginRegistry;
   /** Every event of a subagent run, for the Subagents pane's view-only transcript (C6). */
@@ -231,6 +234,8 @@ interface PendingQuestion {
 }
 
 interface RunState {
+  /** Turn context providers' sections, fetched on the run's first prompt (undefined until then). */
+  provided?: ContextSection[];
   runId: string;
   threadId: string;
   taskId?: string;
@@ -823,6 +828,45 @@ export class PsycheAgentLoop implements AgentLoop {
   }
 
   /**
+   * Turn context providers (E12): once per owner turn, never for a subagent or a non-owner
+   * requester. Sections are untrusted and taint the run; a block goes into the reply.
+   */
+  async #provideContext(run: RunState): Promise<ContextSection[]> {
+    const providers = this.#o.contextProviders ?? [];
+    if (providers.length === 0 || run.subagent !== undefined || run.ownerText.trim() === "")
+      return [];
+    const out: ContextSection[] = [];
+    for (const provider of providers) {
+      const got = await withDeadline(
+        provider.name,
+        provider.provide({
+          threadId: run.threadId,
+          runId: run.runId,
+          ...(run.taskId === undefined ? {} : { taskId: run.taskId }),
+          text: run.ownerText,
+          mode: run.mode,
+          permissionMode: run.permissionMode,
+        }),
+      ).catch(() => undefined);
+      if (got === undefined) continue;
+      const sections = got.sections.filter((x) => x.text.trim() !== "");
+      sections.forEach((sec, i) => {
+        out.push({
+          id: `context:${provider.name}:${i}`,
+          kind: "hook",
+          title: sec.title,
+          source: `context:${provider.name}`,
+          text: sec.text.trim(),
+          untrusted: true,
+        });
+      });
+      if (sections.length > 0) this.#taint(run, { ...got.source });
+      if (got.block !== undefined) this.#block(run, got.block);
+    }
+    return out;
+  }
+
+  /**
    * T4 context: sections from plugins that declared `context`, always untrusted. A run that
    * receives any is tainted by the plugin; one that fails or is slow is skipped.
    */
@@ -996,6 +1040,8 @@ export class PsycheAgentLoop implements AgentLoop {
         }));
       }
     }
+    run.provided ??= await this.#provideContext(run);
+    sections.push(...run.provided);
     sections.push(...(await this.#pluginSections(run)));
     run.active = new Map(tools.map((t) => [t.spec.name, t]));
     run.hidden = hidden;

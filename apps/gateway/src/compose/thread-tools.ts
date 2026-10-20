@@ -104,6 +104,14 @@ export function threadTools(deps: ThreadToolDeps): AgentToolRegistration[] {
     }),
     sideEffect: "read",
     provenanceOut: "untrusted",
+    // Raw content of another chat is a new source: its first read asks the owner (E12;
+    // docs/05 §3.2), who can allow it for the task.
+    describeCall: (p) => ({
+      kind: "connector_action",
+      target: { kind: "account", value: `thread:${p.threadId}` },
+      grantKey: `thread_read|${p.threadId}`,
+      summary: "Read another chat",
+    }),
     async run(p, ctx) {
       const thread = visibleThread(db, p.threadId, ctx.threadId);
       const { messages } = listMessagesPage(db, thread.id, { limit: p.limit ?? 20 });
