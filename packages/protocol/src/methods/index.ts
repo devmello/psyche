@@ -11,6 +11,7 @@ import { ConnectMethods } from "./connect.ts";
 import { ConnectorsMethods } from "./connectors.ts";
 import { createValidator, type MethodSpec, type Validator } from "./define.ts";
 import { DevicesMethods } from "./devices.ts";
+import { DictationMethods } from "./dictation.ts";
 import { EventsMethods } from "./events.ts";
 import { GrantsMethods } from "./grants.ts";
 import { LibraryMethods } from "./library.ts";
@@ -44,6 +45,7 @@ export * from "./connect.ts";
 export * from "./connectors.ts";
 export * from "./define.ts";
 export * from "./devices.ts";
+export * from "./dictation.ts";
 export * from "./events.ts";
 export * from "./grants.ts";
 export * from "./library.ts";
@@ -102,6 +104,7 @@ export const Methods = {
   ...IdeasMethods,
   ...GoalsMethods,
   ...VoiceMethods,
+  ...DictationMethods,
   ...SkillsMethods,
   ...BackupMethods,
   ...LogsMethods,

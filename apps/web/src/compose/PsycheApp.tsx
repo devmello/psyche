@@ -258,7 +258,7 @@ function useWorkspacePersona(platform: ShellPlatform): [Persona | null, () => vo
 }
 
 export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactElement {
-  const client = useMemo(() => kitClient(platform.gateway), [platform]);
+  const client = useMemo(() => kitClient(platform.gateway, platform.passkeys), [platform]);
   const [gate, setGate] = useState<Gate>("loading");
   const [error, setError] = useState<string | null>(null);
   const [persona, reloadPersona] = useWorkspacePersona(platform);

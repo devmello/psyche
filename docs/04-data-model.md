@@ -125,7 +125,8 @@ input_requests (
 approvals (
   id TEXT PK, kind TEXT,                           -- exec | exec_host | send_email | calendar_write | message_send | browser_submit |
                                                    -- credential_fill | purchase | file_write | connector_action | computer_action |
-                                                   -- new_origin | plan_exit | skill_install | mcp_tool | archive_thread
+                                                   -- new_origin | plan_exit | skill_install | mcp_tool | archive_thread |
+                                                   -- … | task_start | apple_script | shortcut_run
   summary TEXT, details TEXT JSON, binding_hash TEXT, grant_key TEXT,
   device_only INTEGER, requires_authentication INTEGER, taint INTEGER,
   requested_by_run_id FK NULL, task_id FK NULL, thread_id FK NULL,
@@ -190,6 +191,8 @@ Security §3.5 is the normative table; this one lists the same kinds. The implem
 | file_write | absolute path, content hash, mode |
 | connector_action / mcp_tool | server id, tool name, `tools/list` hash, params hash |
 | computer_action | app bundle id, tier required, action, element ref hash |
+| apple_script | tool (`apps.applescript` / `apps.jxa`), params hash (exact source and target bundle id) |
+| shortcut_run | tool, params hash (exact shortcut name and input) |
 | new_origin | origin, task id |
 
 ## 5. Receipts and audit
