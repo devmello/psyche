@@ -24,6 +24,14 @@ For S11 (Settings → Data controls and About), S01 / S22 (the Gateway handlers;
 
 - New `backup.*` methods (feature U4): `backup.list` (`operator.read`) → `BackupInfo[]` plus the backups directory; `backup.create` (`operator.admin`, side-effecting; `passphrase` sent once, `recipients`, or `unencrypted: true`) writing a consistent snapshot in the `psyche backup` format; `backup.verify` (`operator.admin`) checking every manifest hash; `backup.delete` (`operator.admin`, side-effecting). Restore stays a CLI operation with the Gateway stopped. New schema `BackupInfo` (`file`, `createdAt`, `bytes`, `encrypted`, `verifiedAt`).
 - New `logs.tail` (`operator.read`; feature U5): newest matching lines from the Gateway's structured logs (`lines`, minimum `level`, `subsystem`, `since`, `search`) with the subsystems seen and a `truncated` flag. New schemas `LogLevel` and `LogLine` (`ts`, `level`, `subsystem?`, `msg`, `fields?`); lines carry metadata only, never bodies or secrets (architecture §14).
+### v1 additive — 2026-10-19 (S08 browser M2: recordings, I10)
+
+For S08 (`packages/browser` recorder), the Gateway composition (handlers) and S12 (the Activity sheet's replay UI).
+
+- New schemas `BrowserRecording`, `BrowserRecordingEvent` (`BrowserRecordingEventKind`: tab, navigation, snapshot, action, fill, download, blocked, control, dialog), `BrowserRecordingFrame`, `BrowserRecordingId`.
+- New methods `browser.recordings.list` (paged, by task or thread), `browser.recordings.get` (the replay index: events and frames, `sinceSeq` for a live recording), `browser.recordings.frame` (one screencast frame, base64), `browser.recordings.snapshot` (the snapshot text a `snapshot` event recorded, untrusted) and `browser.recordings.delete` (`operator.write`, side-effecting).
+- New event `browser.recording.updated {recording}`.
+- No contract or fake change: these are client methods over files the browser package writes.
 ### v1 additive — 2026-10-19 (S17 M2: voice memos, speech.voices)
 
 For S17 (`packages/speech`), S01 (Gateway routing), S11/S12 (composer memo button, persona voice picker), S10 (channel voice notes).

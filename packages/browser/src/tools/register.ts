@@ -14,6 +14,7 @@ import {
   type WaitCondition,
 } from "@psyche/protocol";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
+import type { DevPreviewGate } from "../devpreview/gate.ts";
 import { tryOrigin } from "../origin/canonical.ts";
 import { redactUrlsIn } from "../origin/redact-url.ts";
 import type { ActionTarget, BrowserDriverEx, ElementMeta } from "../types.ts";
@@ -38,11 +39,21 @@ export interface BrowserToolDeps {
   credentials?: CredentialBroker;
   /** Decision context of a running call; the agent loop knows thread, run, task and taint. */
   context(callId: string): CallContext;
-  /** The browser session of the call's task (opened on first use with the task's policy). */
-  session(callId: string): Promise<string>;
+  /**
+   * The browser session of the call's task (opened on first use with the task's policy).
+   * `dev_preview` is the task's second session for its own dev server (feature I12): clean
+   * partition, `devPreview` policy pinned to the approved ports, console and network kept.
+   */
+  session(callId: string, kind?: SessionKind): Promise<string>;
+  /** The task's sessions that already exist (web and dev preview), without opening any. */
+  openSessions?(callId: string): Promise<string[]>;
   /** Library item → local path, for uploads. Paths never come from the model. */
   libraryPath?(libraryItemId: string): Promise<string>;
+  /** Which loopback servers may be previewed (security §3.10); without it none can. */
+  devPreview?: DevPreviewGate;
 }
+
+export type SessionKind = "web" | "dev_preview";
 
 const TabId = Type.String({
   minLength: 1,
@@ -80,13 +91,17 @@ function originTarget(url: string): ToolCallDescription {
 
 export function browserToolDefs(deps: BrowserToolDeps) {
   const d = deps.driver;
+  const approvals = new ApprovalGate(deps.broker);
   const sessionTab = async (callId: string, tabId: string) => {
-    const sessionId = await deps.session(callId);
-    const tabs = await d.listTabs(sessionId);
-    if (!tabs.some((t) => t.id === tabId)) {
-      throw new PsycheError("not_found", `tab ${tabId} is not one of this task's tabs`);
+    const sessionIds =
+      deps.openSessions === undefined
+        ? [await deps.session(callId)]
+        : await deps.openSessions(callId);
+    for (const sessionId of sessionIds) {
+      const tabs = await d.listTabs(sessionId).catch(() => []);
+      if (tabs.some((t) => t.id === tabId)) return tabId;
     }
-    return tabId;
+    throw new PsycheError("not_found", `tab ${tabId} is not one of this task's tabs`);
   };
   const activation = (
     tabId: string,
@@ -549,6 +564,74 @@ export function browserToolDefs(deps: BrowserToolDeps) {
         return out;
       },
       run: async (p, { callId, signal }) => fillCredential(deps, callId, signal, p),
+    }),
+    def({
+      name: "browser.dev_preview",
+      description:
+        "Open the owner's own local dev server (localhost) in a dev-preview tab, where browser.console and browser.network work. Only servers Psyche started, the project's launch config declares or the owner allowlisted; the first open asks.",
+      schema: Type.Object({ url: Url }),
+      sideEffect: "read",
+      describe: (p) => ({
+        ...originTarget(p.url),
+        summary: `Preview the dev server at ${tryOrigin(p.url) ?? p.url}`,
+      }),
+      run: async (p, { callId, signal }) => {
+        const gateCheck = deps.devPreview;
+        if (gateCheck === undefined) {
+          throw new PsycheError("policy_denied", "dev preview is not enabled for this Gateway", {
+            details: { reason: "no_dev_preview" },
+          });
+        }
+        const ctx = deps.context(callId);
+        const verdict = await gateCheck.check(p.url, {
+          ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
+        });
+        if (!verdict.ok) {
+          throw new PsycheError("policy_denied", verdict.message, {
+            details: { reason: verdict.reason },
+          });
+        }
+        // The owner approves the server once per task (`new_origin`, like any first visit);
+        // the loop's own approval for this call, when it got one, counts.
+        if (ctx.approvalId === undefined) {
+          const outcome = await approvals.check(
+            {
+              tool: "browser.dev_preview",
+              kind: "new_origin",
+              sideEffect: "read",
+              target: { kind: "origin", value: verdict.origin },
+              summary: `Preview your dev server at ${verdict.origin}${verdict.server.name === undefined ? "" : ` (${verdict.server.name})`}`,
+              details: {
+                origin: verdict.origin,
+                url: p.url,
+                hop: "initial",
+                devPreview: true,
+                source: verdict.server.source,
+                ...(verdict.server.cwd === undefined ? {} : { cwd: verdict.server.cwd }),
+                taskId: ctx.taskId ?? null,
+              },
+              bindingFields: { origin: verdict.origin, taskId: ctx.taskId ?? null },
+              grantKey: `new_origin|${verdict.origin}`,
+            },
+            ctx,
+            signal,
+          );
+          if (!outcome.ok) throw gateError(outcome);
+        }
+        const sessionId = await deps.session(callId, "dev_preview");
+        const policy = d.policy(sessionId);
+        policy.allowLoopbackPort(verdict.port);
+        policy.grant(verdict.origin, "write");
+        const tab = await d.openTab(sessionId, p.url);
+        await d
+          .wait(tab.id, { kind: "load" }, { signal, timeoutMs: 15_000 })
+          .catch(() => undefined);
+        return {
+          tab,
+          devServer: verdict.server,
+          hint: "browser.console and browser.network read this tab's console and requests",
+        };
+      },
     }),
     def({
       name: "browser.console",
