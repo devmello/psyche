@@ -62,7 +62,6 @@ pnpm --filter @psyche/acceptance-tests offline -- --scorecard-only   # fold the 
 | `PSYCHE_UTILITY_MODEL` | utility model ref (default: the primary) |
 | `PSYCHE_LIVE_REPEATS` | runs per scenario (default 3) |
 | `PSYCHE_LIVE_SCENARIOS` | comma-separated scenario ids (default all ten) |
-| `PSYCHE_LIVE_WORKAROUNDS` | issue numbers of open product defects the harness may work around (`414`: `code.git`'s schema flattened for V10). Off by default; a run that uses one is labelled in the report and on the scorecard, and is not the product as shipped |
 
 Each run writes `out/acceptance/live-<provider>-<model>.json` with the hard and soft results, the steps and every tool call. Hard assertions (security, correctness) fail the run; soft ones (quality) are counted.
 

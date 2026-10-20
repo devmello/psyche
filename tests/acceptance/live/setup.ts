@@ -40,20 +40,12 @@ const knownOf = (dir: string, id: string): string[] =>
     )[id] ?? {},
   );
 
-/** Harness workarounds for open product defects, by issue number (`PSYCHE_LIVE_WORKAROUNDS`). */
-export const WORKAROUNDS: Record<string, { scenarios: string[]; what: string }> = {
-  "414": { scenarios: ["v10-coding-helper"], what: "code.git's schema flattened to one object" },
-};
-
 export async function scenarioSetup(
   id: string,
-  options: { live?: boolean; workarounds?: readonly string[] } = {},
+  options: { live?: boolean } = {},
 ): Promise<ScenarioSetup> {
   if ((M3_SCENARIO_IDS as readonly string[]).includes(id)) {
-    const w = await v10World({
-      live: options.live === true,
-      ...(options.workarounds === undefined ? {} : { workarounds: options.workarounds }),
-    });
+    const w = await v10World({ live: options.live === true });
     return {
       dir: join(M3_SCENARIOS_DIR, id),
       overrides: w.overrides,

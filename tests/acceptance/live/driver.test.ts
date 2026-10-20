@@ -1,11 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { type AgentToolRegistration, codingTools } from "@psyche/agent-core";
 import { FakeModelProvider } from "@psyche/testing";
 import { describe, expect, it } from "vitest";
 import { runScenario, SCENARIOS_DIR } from "../../../packages/testing/src/scenarios/index.ts";
 import { parseSlots } from "../../../packages/testing/src/scenarios/util.ts";
-import { flattenTopLevelUnion } from "../src/m3-world.ts";
 import { M2_SCENARIOS_DIR } from "../src/scenario-scripts.ts";
 import { answerFor } from "./answers.ts";
 import { runScenarioLive } from "./driver.ts";
@@ -170,27 +168,5 @@ describe("live answers", () => {
       answerFor("v2-calendar-planning", request, [{ header: "Slot", answer }]).answer.Slot;
     expect(pick(["Fri", "wed", "tue"])).toBe("Wed 9:00");
     expect(pick(["Fri", "Sat"])).toBe("Tue 2:30");
-  });
-});
-
-describe("harness workaround #414 (code.git's top-level anyOf)", () => {
-  it("offers one object with every branch's fields and op as an enum", () => {
-    const stub = { spec: { name: "x" } } as unknown as AgentToolRegistration;
-    const git = codingTools({
-      files: { read: stub, write: stub },
-      folders: () => [],
-      git: { run: async () => ({ exitCode: 0, stdout: "", stderr: "" }) },
-      broker: {} as never,
-    } as never).find((t) => t.spec.name === "code.git");
-    const schema = git?.spec.inputSchema as Record<string, unknown>;
-    expect(schema.type).toBeUndefined();
-    const flat = flattenTopLevelUnion(schema) as {
-      type: string;
-      properties: Record<string, { enum?: string[] }>;
-      required: string[];
-    };
-    expect(flat.type).toBe("object");
-    expect(flat.required).toEqual(["root", "op"]);
-    expect(flat.properties.op?.enum).toEqual(expect.arrayContaining(["status", "commit", "push"]));
   });
 });
