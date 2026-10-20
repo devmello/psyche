@@ -24,6 +24,10 @@ export interface FirstPaintRecord {
   mainStartAt: number;
   readyAt?: number;
   didFinishLoadAt?: number;
+  /** When the main window was shown (`startShell`); window-to-first-paint starts here. */
+  shownAt?: number;
+  /** When the page first reported `visibilityState: "visible"` (occlusion delays painting). */
+  visibleAt?: number;
   firstContentfulPaintAt?: number;
   /** Renderer state when there was no paint: what to look at next. */
   page?: { url: string; visibility: string; readyState: string; textLength: number };
@@ -37,14 +41,22 @@ const FCP_SCRIPT = `new Promise((done) => {
     readyState: document.readyState,
     textLength: (document.body?.innerText ?? "").length,
   });
-  const report = (e) => done({ origin: performance.timeOrigin, fcp: e.startTime, page: page() });
+  let visibleAt = document.visibilityState === "visible" ? performance.timeOrigin : null;
+  document.addEventListener("visibilitychange", () => {
+    if (visibleAt === null && document.visibilityState === "visible") visibleAt = Date.now();
+  });
+  const report = (e) =>
+    done({ origin: performance.timeOrigin, fcp: e.startTime, page: page(), visibleAt });
   const seen = performance.getEntriesByName("first-contentful-paint")[0];
   if (seen) return report(seen);
   new PerformanceObserver((list) => {
     const e = list.getEntriesByName("first-contentful-paint")[0];
     if (e) report(e);
   }).observe({ type: "paint", buffered: true });
-  setTimeout(() => done({ origin: performance.timeOrigin, fcp: null, page: page() }), ${PAINT_TIMEOUT_MS});
+  setTimeout(
+    () => done({ origin: performance.timeOrigin, fcp: null, page: page(), visibleAt }),
+    ${PAINT_TIMEOUT_MS},
+  );
 })`;
 
 /**
@@ -70,11 +82,17 @@ export function startProbe(file: string): void {
  * Records the main window's progress and first contentful paint into `file`, then calls `done`.
  * Call it right after the main window is created, before its page can finish loading.
  */
-export function watchFirstPaint(wc: WebContents, file: string, done: () => void): void {
+export function watchFirstPaint(
+  wc: WebContents,
+  file: string,
+  done: () => void,
+  options: { shownAt?: number } = {},
+): void {
   const record: FirstPaintRecord = {
     stage: "ready",
     mainStartAt: Math.round(performance.timeOrigin),
     readyAt: Date.now(),
+    ...(options.shownAt === undefined ? {} : { shownAt: options.shownAt }),
   };
   const write = () => writeFileSync(file, `${JSON.stringify(record)}\n`);
   write();
@@ -84,15 +102,23 @@ export function watchFirstPaint(wc: WebContents, file: string, done: () => void)
     write();
     void wc
       .executeJavaScript(FCP_SCRIPT)
-      .then((r: { origin: number; fcp: number | null; page: FirstPaintRecord["page"] }) => {
-        if (r.fcp === null) {
-          record.stage = "no-paint";
-        } else {
-          record.stage = "painted";
-          record.firstContentfulPaintAt = Math.round(r.origin + r.fcp);
-        }
-        record.page = r.page;
-      })
+      .then(
+        (r: {
+          origin: number;
+          fcp: number | null;
+          page: FirstPaintRecord["page"];
+          visibleAt: number | null;
+        }) => {
+          if (r.visibleAt !== null) record.visibleAt = Math.round(r.visibleAt);
+          if (r.fcp === null) {
+            record.stage = "no-paint";
+          } else {
+            record.stage = "painted";
+            record.firstContentfulPaintAt = Math.round(r.origin + r.fcp);
+          }
+          record.page = r.page;
+        },
+      )
       .catch((err: unknown) => {
         record.stage = "error";
         record.error = err instanceof Error ? err.message : String(err);
