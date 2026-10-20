@@ -17,6 +17,7 @@ No release has been published yet. Until the first one, run Psyche from a source
 | [backup-restore.md](backup-restore.md) | You want encrypted backups, a backup schedule, or to check or restore one. |
 | [migrate.md](migrate.md) | You are moving Psyche to a new Mac, to or from a Linux server, or between Docker Compose and systemd. |
 | [upgrade.md](upgrade.md) | A new version is out, or you need to go back to an older one. |
+| [vm-guest-images.md](vm-guest-images.md) | You want to build a prebuilt sandbox Mac image, or create a sandbox Mac from one. |
 
 ## Where your data lives
 
