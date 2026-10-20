@@ -17,6 +17,7 @@ import { EmptyState, LoadingCards } from "../../components/page.tsx";
 import { Badge } from "../../components/ui/badge.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useGatewayQuery, useLibrary, useSettings } from "../../data/hooks.ts";
+import { t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { cn } from "../../lib/utils.ts";
@@ -98,10 +99,12 @@ export function fileIcon(name: string): typeof File {
   return File;
 }
 
-const indent = (depth: number): CSSProperties => ({ paddingLeft: `${0.5 + depth * 0.875}rem` });
+const indent = (depth: number): CSSProperties => ({
+  paddingInlineStart: `${0.5 + depth * 0.875}rem`,
+});
 
 const ROW =
-  "flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pr-2 text-left text-sm hover:bg-gray-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "flex w-full min-w-0 items-center gap-1.5 rounded-md py-1 pe-2 text-start text-sm hover:bg-gray-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 function sameFile(a: FileRef | null, b: FileRef): boolean {
   return a !== null && a.path === b.path && a.libraryPath === b.libraryPath;
@@ -136,7 +139,7 @@ function FileRow({ file, depth, selected, onSelect }: TreeProps & { file: FileRe
 
 function Note({ depth, children }: { depth: number; children: ReactNode }): ReactElement {
   return (
-    <li className="py-1 pr-2 text-xs text-muted-foreground" style={indent(depth + 1)}>
+    <li className="py-1 pe-2 text-xs text-muted-foreground" style={indent(depth + 1)}>
       {children}
     </li>
   );
@@ -145,7 +148,7 @@ function Note({ depth, children }: { depth: number; children: ReactNode }): Reac
 /** Skeleton rows in the tree while a folder loads (§3.0). */
 function TreeLoading({ depth, label }: { depth: number; label: string }): ReactElement {
   return (
-    <li style={indent(depth)} className="py-1 pr-2">
+    <li style={indent(depth)} className="py-1 pe-2">
       <LoadingCards label={label} count={2} lines={1} layout="rows" />
     </li>
   );
@@ -153,28 +156,28 @@ function TreeLoading({ depth, label }: { depth: number; label: string }): ReactE
 
 function listError(error: string): string {
   return /outside every granted folder|forbidden/i.test(error)
-    ? "This folder is no longer shared."
+    ? t("screens.files.noLongerShared")
     : /does not exist|not_found/i.test(error)
-      ? "This folder is gone."
-      : `Psyche couldn't list this folder (${error}).`;
+      ? t("screens.files.gone")
+      : t("screens.files.listFailed", { reason: error });
 }
 
 function FolderChildren({ path, depth, selected, onSelect }: TreeProps & { path: string }) {
   const q = useGatewayQuery("files.list", { path });
   if (q.loading && q.data === undefined)
-    return <TreeLoading depth={depth} label="Loading the folder" />;
+    return <TreeLoading depth={depth} label={t("screens.files.loadingFolder")} />;
   if (q.error !== null && q.data === undefined) {
     return (
       <Note depth={depth - 1}>
         {listError(q.error)}{" "}
         <Button type="button" variant="link" size="xs" className="h-auto p-0" onClick={q.reload}>
-          Try again
+          {t("common.tryAgain")}
         </Button>
       </Note>
     );
   }
   const entries = q.data?.entries ?? [];
-  if (entries.length === 0) return <Note depth={depth - 1}>Empty folder.</Note>;
+  if (entries.length === 0) return <Note depth={depth - 1}>{t("screens.files.empty")}</Note>;
   return (
     <>
       {entries.map((e: FileEntry) =>
@@ -205,7 +208,7 @@ function FolderChildren({ path, depth, selected, onSelect }: TreeProps & { path:
             <span
               className={cn(ROW, "cursor-default text-muted-foreground hover:bg-transparent")}
               style={indent(depth)}
-              title="A link; Psyche doesn't follow links out of shared folders"
+              title={t("screens.files.link")}
             >
               <span className="size-3.5 shrink-0" aria-hidden="true" />
               <Link2 className="size-4 shrink-0" aria-hidden="true" />
@@ -215,7 +218,7 @@ function FolderChildren({ path, depth, selected, onSelect }: TreeProps & { path:
         ),
       )}
       {q.data?.nextOffset != null ? (
-        <Note depth={depth - 1}>Only the first {entries.length} items are shown.</Note>
+        <Note depth={depth - 1}>{t("screens.files.firstOnly", { n: entries.length })}</Note>
       ) : null}
     </>
   );
@@ -243,7 +246,10 @@ function FolderNode({
         onClick={() => setOpen(!open)}
       >
         <ChevronRight
-          className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
+          className={cn(
+            "size-3.5 shrink-0 transition-transform",
+            open ? "rotate-90" : "rtl:rotate-180",
+          )}
           aria-hidden="true"
         />
         <Icon className="size-4 shrink-0 text-gray-11" aria-hidden="true" />
@@ -272,11 +278,14 @@ function LibraryNode({ selected, onSelect }: Omit<TreeProps, "depth">): ReactEle
         onClick={() => setOpen(!open)}
       >
         <ChevronRight
-          className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
+          className={cn(
+            "size-3.5 shrink-0 transition-transform",
+            open ? "rotate-90" : "rtl:rotate-180",
+          )}
           aria-hidden="true"
         />
         <Library className="size-4 shrink-0 text-gray-11" aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate">Library</span>
+        <span className="min-w-0 flex-1 truncate">{t("screens.files.library")}</span>
         {lib.items.length > 0 ? (
           <span className="text-xs text-muted-foreground tabular-nums">{lib.items.length}</span>
         ) : null}
@@ -284,10 +293,10 @@ function LibraryNode({ selected, onSelect }: Omit<TreeProps, "depth">): ReactEle
       {open ? (
         <ul>
           {lib.loading && lib.items.length === 0 ? (
-            <TreeLoading depth={1} label="Loading the Library" />
+            <TreeLoading depth={1} label={t("screens.files.loadingLibrary")} />
           ) : lib.error !== null && lib.items.length === 0 ? (
             <Note depth={0}>
-              Psyche couldn't load the Library ({lib.error}).{" "}
+              {t("screens.files.libraryFailed", { reason: lib.error })}{" "}
               <Button
                 type="button"
                 variant="link"
@@ -295,11 +304,11 @@ function LibraryNode({ selected, onSelect }: Omit<TreeProps, "depth">): ReactEle
                 className="h-auto p-0"
                 onClick={lib.reload}
               >
-                Try again
+                {t("common.tryAgain")}
               </Button>
             </Note>
           ) : lib.items.length === 0 ? (
-            <Note depth={0}>Nothing saved yet.</Note>
+            <Note depth={0}>{t("screens.files.nothingSaved")}</Note>
           ) : (
             lib.items.map((item) => (
               <FileRow
@@ -348,12 +357,12 @@ export function FilesPaneView({
     <div className="@container flex h-full min-h-0 flex-col bg-background" data-testid="files-pane">
       <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,12rem)_minmax(0,1fr)] @lg:grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)] @lg:grid-rows-1">
         <nav
-          aria-label="Shared folders"
-          className="min-h-0 overflow-auto border-b border-gray-6 p-1.5 @lg:border-r @lg:border-b-0"
+          aria-label={t("screens.files.sharedFolders")}
+          className="min-h-0 overflow-auto border-b border-gray-6 p-1.5 @lg:border-e @lg:border-b-0"
         >
           <ul>
             {loading && grants.length === 0 ? (
-              <TreeLoading depth={0} label="Loading shared folders" />
+              <TreeLoading depth={0} label={t("screens.files.loadingShared")} />
             ) : null}
             {grants.map((g, i) => (
               <FolderNode
@@ -375,19 +384,23 @@ export function FilesPaneView({
           </ul>
           {!loading && grants.length === 0 ? (
             <div className="flex flex-col items-start gap-2 p-2 text-xs text-muted-foreground">
-              <p>No folders are shared with {persona.name}.</p>
+              <p>{t("screens.files.noneShared", { name: persona.name })}</p>
               {onShareFolder ? (
                 <Button type="button" size="xs" onClick={onShareFolder}>
-                  Share a folder
+                  {t("screens.files.share")}
                 </Button>
               ) : (
-                <p>Share one in Settings → File access.</p>
+                <p>{t("screens.files.shareInSettings")}</p>
               )}
             </div>
           ) : null}
         </nav>
         <section
-          aria-label={selected ? `Preview of ${selected.name}` : "Preview"}
+          aria-label={
+            selected
+              ? t("screens.files.previewOf", { name: selected.name })
+              : t("screens.files.preview")
+          }
           className="flex min-h-0 min-w-0 flex-col"
         >
           {selected ? (
@@ -416,15 +429,13 @@ export function FilesPaneView({
                 {renderViewer ? (
                   renderViewer(selected)
                 ) : (
-                  <p className="p-4 text-sm text-muted-foreground">
-                    Previews need the desktop or web app.
-                  </p>
+                  <p className="p-4 text-sm text-muted-foreground">{t("screens.files.needsApp")}</p>
                 )}
               </div>
             </>
           ) : (
             <EmptyState icon={FileText} className="m-auto">
-              Pick a file to preview it here.
+              {t("screens.files.pick")}
             </EmptyState>
           )}
         </section>
