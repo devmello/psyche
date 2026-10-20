@@ -4145,6 +4145,100 @@ export interface TasksRetryParams {
     taskId:      string;
 }
 
+export interface TeachDraft {
+    description: string;
+    endedAt:     string;
+    endedBy:     TeachEndedBy;
+    /**
+     * SKILL.md first
+     */
+    files:     TeachDraftFile[];
+    name:      string;
+    sessionId: string;
+    startedAt: string;
+    /**
+     * Without screenshot bytes
+     */
+    steps: TeachStep[];
+}
+
+export type TeachEndedBy = "stop" | "timeout" | "limit" | "cancel";
+
+export interface TeachDraftFile {
+    fromStep?: number;
+    path:      string;
+    text?:     string;
+}
+
+export interface TeachStep {
+    at:    string;
+    index: number;
+    /**
+     * A chord, e.g. cmd+s, return
+     */
+    keys?:       string;
+    kind:        TeachStepKind;
+    note?:       string;
+    screenshot?: TeachScreenshot;
+    secure?:     boolean;
+    target?:     TeachTarget;
+    text?:       string;
+}
+
+export type TeachStepKind = "click" | "right_click" | "double_click" | "type" | "press" | "skipped";
+
+export interface TeachScreenshot {
+    base64:   string;
+    mimeType: string;
+    /**
+     * Path in the draft, e.g. screens/step-3.jpg
+     */
+    path: string;
+}
+
+export interface TeachTarget {
+    /**
+     * Bundle id
+     */
+    app:         string;
+    appName:     string;
+    identifier?: string;
+    label?:      string;
+    role?:       string;
+    subrole?:    string;
+    window?:     string;
+}
+
+export interface TeachSessionParams {
+    sessionId: string;
+}
+
+export interface TeachStartParams {
+    /**
+     * Record only this bundle id
+     */
+    app?:         string;
+    description?: string;
+    maxSeconds?:  number;
+    maxSteps?:    number;
+    /**
+     * Skill name
+     */
+    name?: string;
+    /**
+     * Window screenshot after each click (default false)
+     */
+    screenshots?: boolean;
+}
+
+export interface TeachStepEvent {
+    sessionId: string;
+    step:      TeachStep;
+    type:      TeachStepEventType;
+}
+
+export type TeachStepEventType = "teach.step";
+
 export interface TextBlock {
     md:   string;
     type: TextBlockType;

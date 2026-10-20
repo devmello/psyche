@@ -9,6 +9,7 @@ export * from "./models.ts";
 export * from "./permissions.ts";
 export * from "./surfaces.ts";
 export * from "./tasks.ts";
+export * from "./teach.ts";
 export * from "./threads.ts";
 export * from "./tools.ts";
 export * from "./vm.ts";
