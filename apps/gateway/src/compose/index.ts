@@ -73,7 +73,7 @@ import type { HandlerDef } from "../context.ts";
 import { createLogger } from "../log.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
-import { attentionHandlers, OwnerAttention } from "./attention.ts";
+import { attentionHandlers, OwnerAttention, parkWhenUnwatched } from "./attention.ts";
 import { CallContexts } from "./call-context.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
 import { composeComputer } from "./computer.ts";
@@ -507,7 +507,23 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     attention,
     audit,
     notifier,
-    tools: calls.adopt(registry),
+    // A Task's browser / computer-use call waits for the owner instead of failing (#272).
+    tools: parkWhenUnwatched(calls.adopt(registry), {
+      attention,
+      taskOf: (callId) => calls.get(callId)?.taskId,
+      notify: (taskId, tool) => {
+        notifier
+          .notify({
+            kind: "input_needed",
+            title: "A task is waiting for you",
+            body: `Paused before ${tool} on a sensitive app or site until you are back in Psyche.`,
+            taskId,
+            dedupeKey: `attention:${taskId}`,
+            route: `/tasks/${taskId}`,
+          })
+          .catch(() => undefined);
+      },
+    }),
     calls,
     publish,
     vault: vault.vault,
