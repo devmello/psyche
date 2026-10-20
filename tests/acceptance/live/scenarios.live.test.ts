@@ -65,6 +65,7 @@ interface RunRow {
   questions: LiveReport["questions"];
   answers: LiveReport["answers"];
   texts: LiveReport["texts"];
+  runInfo: LiveReport["runs"];
 }
 
 /**
@@ -96,6 +97,7 @@ afterAll(() => {
     questions: r.questions,
     answers: r.answers,
     texts: r.texts,
+    runInfo: r.runs,
   }));
   const all = [...kept, ...fresh].sort((a, b) => a.scenario.localeCompare(b.scenario));
   writeReport(`live-${slug}`, {

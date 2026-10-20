@@ -140,15 +140,28 @@ describe("designated persons", () => {
     expect(g).toBeDefined();
   });
 
-  it("allowlisted senders who are neither owner nor designated request nothing above read", async () => {
+  it("allowlisted senders get no writes and no reads of the owner's sources (#293)", async () => {
     const h = makeBroker({ policy: { allow: ["*"] } });
     const friend: Requester = { role: "allowed", channel: "telegram", senderId: "777" };
     expect((await h.broker.decide(call("calendar.create", "write"), as(friend))).rule).toBe(
       "requester:not_owner",
     );
-    expect((await h.broker.decide(call("calendar.list", "read"), as(friend))).decision).not.toBe(
-      "deny",
-    );
+    for (const tool of ["calendar.list", "messages.read", "gmail_search", "read_file", "memory"]) {
+      expect(await h.broker.decide(call(tool, "read"), as(friend))).toMatchObject({
+        decision: "deny",
+        rule: "requester:not_owner",
+      });
+    }
+    // The public web, without the owner's identity, stays usable; so do calls with no effect.
+    const web = { kind: "origin" as const, value: "https://example.com" };
+    for (const tool of ["web_search", "web_fetch"]) {
+      expect((await h.broker.decide(call(tool, "read", web), as(friend))).decision).not.toBe(
+        "deny",
+      );
+    }
+    expect((await h.broker.decide(call("think", "none"), as(friend))).decision).toBe("allow");
+    // The owner is unaffected.
+    expect((await h.broker.decide(call("calendar.list", "read"), CTX)).decision).toBe("allow");
   });
 
   it("requester keys", () => {

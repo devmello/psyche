@@ -1,0 +1,14 @@
+{
+  "name": "LM Studio 0.3: /api/v1/models does not exist",
+  "request": {
+    "method": "GET",
+    "pathEndsWith": "/api/v1/models"
+  },
+  "response": {
+    "status": 404,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\": \"Unexpected endpoint or method. (GET /api/v1/models)\"}"
+  }
+}

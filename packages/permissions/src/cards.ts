@@ -125,6 +125,8 @@ const KIND_TITLES: Record<string, string> = {
   task_start: "Start background task",
   apple_script: "Run AppleScript",
   shortcut_run: "Run Shortcut",
+  git_write: "Change git repository",
+  git_push: "Push to git remote",
 };
 
 /** Detail keys shown first, in this order, per kind. */
@@ -143,6 +145,8 @@ const KEY_FIELDS: Record<string, string[]> = {
   computer_action: ["app", "action"],
   apple_script: ["target", "language", "source"],
   shortcut_run: ["name", "input"],
+  git_write: ["repo", "operation", "branch", "message", "paths"],
+  git_push: ["remote", "remoteUrl", "branch", "commit", "repo"],
   // What the skill asks for comes before anything else on the trust card (T2).
   skill_install: [
     "name",

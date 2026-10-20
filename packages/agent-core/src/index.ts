@@ -3,6 +3,7 @@ export * from "./builtins/harness.ts";
 export * from "./builtins/services.ts";
 export * from "./builtins/turn.ts";
 export * from "./checklist.ts";
+export * from "./coding/index.ts";
 export * from "./commands.ts";
 export * from "./compaction.ts";
 export * from "./context.ts";

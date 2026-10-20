@@ -11,10 +11,11 @@ import { dirname, join } from "node:path";
 import type { SqliteDb } from "./store.ts";
 
 /**
- * Revocation ledger (S23 design-26): device and grant revocations recorded outside the backup
+ * Revocation ledger (S23 design-26): device, grant and vault item revocations recorded outside the backup
  * scope (`$PSYCHE_HOME/security/`, not in `@psyche/backup`'s entries), so restoring an older
  * backup cannot bring a revoked device or grant back. The Gateway replays the ledger against the
- * database at every boot. A restore leaves a marker; a restore into a home with no ledger (a new
+ * database at every boot; the vault drops deleted or revoked items from its mirror at start and
+ * from its encrypted store at every unlock (`vaultItemIds`). A restore leaves a marker; a restore into a home with no ledger (a new
  * machine, or a lost `security/`) cannot know what was revoked after the backup, so every device
  * must pair again and every standing grant is revoked.
  */
@@ -26,7 +27,8 @@ export const RESTORE_MARKER = join("security", "restored.json");
 export type RevocationEntry =
   | { type: "epoch"; at: string }
   | { type: "device"; id: string; at: string }
-  | { type: "grant"; id: string; at: string; reason: string };
+  | { type: "grant"; id: string; at: string; reason: string }
+  | { type: "vault_item"; id: string; at: string };
 
 export class RevocationLedger {
   readonly path: string;
@@ -64,6 +66,17 @@ export class RevocationLedger {
     this.#append({ type: "grant", id, at: this.#now(), reason });
   }
 
+  /** A vault item deleted (or a connector token revoked): a restore must not bring it back. */
+  recordVaultItem(id: string): void {
+    this.#append({ type: "vault_item", id, at: this.#now() });
+  }
+
+  vaultItemIds(): Set<string> {
+    const out = new Set<string>();
+    for (const e of this.entries()) if (e.type === "vault_item") out.add(e.id);
+    return out;
+  }
+
   entries(): RevocationEntry[] {
     if (!this.exists) return [];
     const out: RevocationEntry[] = [];
@@ -71,7 +84,13 @@ export class RevocationLedger {
       if (line.trim() === "") continue;
       try {
         const e = JSON.parse(line) as RevocationEntry;
-        if (e.type === "device" || e.type === "grant" || e.type === "epoch") out.push(e);
+        if (
+          e.type === "device" ||
+          e.type === "grant" ||
+          e.type === "vault_item" ||
+          e.type === "epoch"
+        )
+          out.push(e);
       } catch {
         // A torn line proves nothing; the rest still applies.
       }

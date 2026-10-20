@@ -24,12 +24,17 @@ export const SCENARIOS_DIR = join(ROOT, "tests/scenarios");
 export const SCENARIO_IDS = [
   "v1-inbox-triage",
   "v2-calendar-planning",
+  "v3-shopping",
+  "v4-travel",
   "v7-research-brief",
 ] as const;
-export type ScenarioId = (typeof SCENARIO_IDS)[number] | "v3-shopping";
-
-/** Milestone 2 scenarios that live in tests/scenarios (S09 / S06: V3 to the payment step). */
-export const M2_SHARED_SCENARIO_IDS = ["v3-shopping"] as const;
+export type ScenarioId = (typeof SCENARIO_IDS)[number];
+/** The Milestone 1 set; V3 (Milestone 2) and V4 (Milestone 3) share tests/scenarios with it. */
+export const M1_SCENARIO_IDS = [
+  "v1-inbox-triage",
+  "v2-calendar-planning",
+  "v7-research-brief",
+] as const;
 
 /** Milestone 2 scenarios (INT-3, tests/acceptance/scenarios-m2), same format. */
 export const M2_SCENARIOS_DIR = join(ROOT, "tests/acceptance/scenarios-m2");
@@ -80,7 +85,8 @@ function targetOf(info: ToolInfo, input: Record<string, unknown>): string | unde
     case "origin": {
       if (info.name === "search.web") return "https://api.search.brave.com";
       try {
-        return new URL(String(input.url)).origin;
+        // Shopping tools name the store (`merchant`), travel tools the airline.
+        return new URL(String(input.url ?? input.merchant ?? input.airline)).origin;
       } catch {
         return undefined;
       }

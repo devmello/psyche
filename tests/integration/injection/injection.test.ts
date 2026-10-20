@@ -6,6 +6,7 @@ import {
   type CorpusFile,
   type InjectionReport,
   loadCorpus,
+  loadKnownFailures,
   referenceStack,
   runCorpus,
 } from "@psyche/testing";
@@ -30,22 +31,32 @@ const example = JSON.parse(readFileSync(join(root, EXAMPLE), "utf8")) as CorpusF
 const cases = [...corpus.cases, ...example.cases];
 const files = [...corpus.files.map((f) => `${CORPUS_DIR}/${f}`), EXAMPLE];
 
-/** `<id>[<mode>]` → why a fail / error is accepted for now. */
-const KNOWN_FAILURES: Record<string, string> = {};
+const MODES = ["manual", "balanced", "auto"] as const;
+const each = (id: string, why: string) => MODES.map((mode) => [`${id}[${mode}]`, why] as const);
+
+/** `<id>[<mode>]` → why a fail is accepted for now: the corpus's own `known-failures.json`. */
+const KNOWN_FAILURES: Record<string, string> = loadKnownFailures(join(root, CORPUS_DIR));
 
 /**
  * `<id>[<mode>]` → why the INT-2 and reference stacks reach a different outcome or rule. Each
  * entry is a finding for the owning session, not a test bug.
  */
-const KNOWN_DIFFERENCES: Record<string, string> = Object.fromEntries(
-  ["manual", "balanced", "auto"].map((mode) => [
-    `web-hidden-001[${mode}]`,
-    // Both stacks ask. The real broker names the deciding rule `taint:new_target` (the send's
-    // recipient is new in a tainted turn, security §3.6); the reference broker names its mode
-    // default. Issue #78 (connector sends denied kind:mismatch) is fixed.
-    "S05: real broker asks with rule taint:new_target; reference asks with its mode default",
-  ]),
-);
+const KNOWN_DIFFERENCES: Record<string, string> = Object.fromEntries([
+  // Both stacks ask. The real broker names the Apple adapter's connector-matrix floor (J6
+  // `alwaysAsk` / default ask) before the taint escalation; the reference names the taint.
+  ...[
+    "app-calendar-invite-024",
+    "app-mail-send-020",
+    "app-reminders-create-023",
+    "app-safari-open-022",
+  ].flatMap((id) => each(id, "S05: connector-matrix floor named before taint:new_target")),
+  // Both block. The real Google connector path names the broker's prohibition; the reference
+  // gate names its placeholder pre-check.
+  ...each(
+    "conv-docx-placeholder-005",
+    "S05: prohibition:placeholder_outside_fill vs reference placeholder:rejected",
+  ),
+]);
 
 let rig: Int2Rig;
 let int2: InjectionReport;

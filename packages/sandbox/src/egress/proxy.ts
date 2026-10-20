@@ -77,15 +77,31 @@ export interface EgressProxyOptions {
   headTimeoutMs?: number;
   /** Upstream TCP connect timeout. Default 15 s. */
   connectTimeoutMs?: number;
+  /**
+   * How long an origin's decision is reused before the broker is asked again (#283, TM-16):
+   * a `once` approval covers one burst of connections, and a revoked grant stops applying
+   * after this. Default 60 s.
+   */
+  verdictTtlMs?: number;
+  /** Clock for the TTL (tests). */
+  now?: () => number;
 }
 
 type Verdict = { ok: true; approvalId?: string } | { ok: false; code: string; message: string };
 
+interface CachedVerdict {
+  verdict: Promise<Verdict>;
+  /** When it settled (`now()`); undefined while the decision or its card is pending. */
+  settledAt?: number;
+}
+
 interface ScopeState {
   scope: SandboxScope;
   entries: AllowEntry[];
-  /** First decision per origin, shared by concurrent connections. */
-  origins: Map<string, Promise<Verdict>>;
+  /** The current decision per allowlisted origin, shared by concurrent connections. */
+  origins: Map<string, CachedVerdict>;
+  /** Origins refused as not allowlisted, receipted once (never a cached decision: #283 TM-19). */
+  unlisted: Set<string>;
 }
 
 const MAX_HEAD_BYTES = 16 * 1024;
@@ -112,20 +128,21 @@ export class EgressProxy {
   /**
    * Replaces a scope's allowlist (the task's declared hosts, or an MCP server's
    * `allowedDomains`). Entries: `pypi.org`, `*.githubusercontent.com`, `host:8443`,
-   * `mirror.lan private`. Decisions already made for origins still on the list are kept.
+   * `mirror.lan private`. Decisions already made for origins still on the list are kept until
+   * they expire; an origin that was refused as not allowlisted goes to the broker once listed.
    */
   setAllowlist(scope: SandboxScope, entries: readonly (string | Partial<AllowEntry>)[]): void {
     const key = scopeKey(scope);
     const parsed = parseAllowlist(entries);
     const prev = this.#scopes.get(key);
-    const origins = new Map<string, Promise<Verdict>>();
-    for (const [origin, verdict] of prev?.origins ?? []) {
+    const origins = new Map<string, CachedVerdict>();
+    for (const [origin, cached] of prev?.origins ?? []) {
       const u = new URL(origin);
       const port = u.port === "" ? (u.protocol === "https:" ? 443 : 80) : Number(u.port);
       const host = u.hostname.replace(/^\[|\]$/g, "");
-      if (matchAllowlist(parsed, host, port) !== undefined) origins.set(origin, verdict);
+      if (matchAllowlist(parsed, host, port) !== undefined) origins.set(origin, cached);
     }
-    this.#scopes.set(key, { scope: { ...scope }, entries: parsed, origins });
+    this.#scopes.set(key, { scope: { ...scope }, entries: parsed, origins, unlisted: new Set() });
   }
 
   /** The scope's allowlist as parsed. */
@@ -159,6 +176,8 @@ export class EgressProxy {
     let port: number;
     let tunnel = false;
     let forwardHead: string | undefined;
+    /** Plain HTTP: the one request's body length; nothing after it is forwarded (#282). */
+    let bodyLength = 0;
     if (method === "CONNECT") {
       const m = /^(\[[^\]]+\]|[^:]+):(\d{1,5})$/.exec(target);
       host = m?.[1] === undefined ? undefined : canonicalHost(m[1]);
@@ -174,7 +193,13 @@ export class EgressProxy {
       }
       host = canonicalHost(u.hostname);
       port = u.port === "" ? 80 : Number(u.port);
-      forwardHead = rewriteHead(method, u, headerLines);
+      const prepared = prepareHttp(method, u, headerLines);
+      if ("error" in prepared) {
+        reject(client, 400, "invalid-request", prepared.error);
+        return;
+      }
+      forwardHead = prepared.head;
+      bodyLength = prepared.bodyLength;
     } else {
       reject(
         client,
@@ -211,10 +236,13 @@ export class EgressProxy {
     if (state === undefined || entry === undefined) {
       blocked(403, "blocked-by-allowlist", `${origin} is not on this sandbox's egress allowlist`);
       // Disallowed hosts are logged and, once per origin, receipted (K4 "blocked and logged").
-      if (state !== undefined && !state.origins.has(origin)) {
-        const v: Verdict = { ok: false, code: "blocked-by-allowlist", message: "not allowlisted" };
-        state.origins.set(origin, Promise.resolve(v));
-        void this.#receipt(scope, origin, v);
+      if (state !== undefined && !state.unlisted.has(origin)) {
+        state.unlisted.add(origin);
+        void this.#receipt(scope, origin, {
+          ok: false,
+          code: "blocked-by-allowlist",
+          message: "not allowlisted",
+        });
       }
       return;
     }
@@ -285,13 +313,18 @@ export class EgressProxy {
       upstream.write(forwardHead as string);
     }
     const rest = reader.release();
-    if (rest.length > 0) {
-      bytesUp += rest.length;
-      upstream.write(rest);
-    }
-    client.on("data", (d: Buffer) => {
-      bytesUp += d.length;
-    });
+    // A tunnel carries the client's TLS stream as is. Plain HTTP forwards exactly one request:
+    // its head and `Content-Length` body bytes; anything after that (a pipelined request for
+    // another virtual host) is dropped (#282).
+    let remaining = tunnel ? Number.POSITIVE_INFINITY : bodyLength;
+    const forward = (d: Buffer) => {
+      if (remaining <= 0) return;
+      const part = tunnel ? d : d.subarray(0, remaining);
+      remaining -= part.length;
+      bytesUp += part.length;
+      if (part.length > 0) upstream.write(part);
+    };
+    forward(rest);
     upstream.on("data", (d: Buffer) => {
       bytesDown += d.length;
     });
@@ -307,7 +340,14 @@ export class EgressProxy {
     upstream.on("error", done);
     client.on("close", done);
     upstream.on("close", done);
-    client.pipe(upstream);
+    if (tunnel) {
+      client.on("data", (d: Buffer) => {
+        bytesUp += d.length;
+      });
+      client.pipe(upstream);
+    } else {
+      client.on("data", forward);
+    }
     upstream.pipe(client);
     client.resume();
   }
@@ -319,12 +359,20 @@ export class EgressProxy {
    * the origin's decision for the next attempt.
    */
   async #verdict(state: ScopeState, origin: string): Promise<Verdict> {
-    let final = state.origins.get(origin);
-    if (final === undefined) {
-      final = this.#decide(state.scope, origin);
-      state.origins.set(origin, final);
-      void final.then((v) => this.#receipt(state.scope, origin, v));
+    const now = this.#o.now ?? Date.now;
+    const ttl = this.#o.verdictTtlMs ?? 60_000;
+    let cached = state.origins.get(origin);
+    if (cached?.settledAt !== undefined && now() - cached.settledAt >= ttl) cached = undefined;
+    if (cached === undefined) {
+      const entry: CachedVerdict = { verdict: this.#decide(state.scope, origin) };
+      state.origins.set(origin, entry);
+      void entry.verdict.then((v) => {
+        entry.settledAt = now();
+        return this.#receipt(state.scope, origin, v);
+      });
+      cached = entry;
     }
+    const final = cached.verdict;
     const wait = this.#o.approvalWaitMs ?? 20_000;
     let timer: NodeJS.Timeout | undefined;
     const pending = new Promise<Verdict>((resolve) => {
@@ -504,13 +552,48 @@ function reject(client: Duplex, status: number, code: string, message: string): 
   );
 }
 
-/** Absolute-form request → origin-form for the upstream, one request per connection. */
-function rewriteHead(method: string, u: URL, headerLines: string[]): string {
-  const drop = /^(proxy-connection|proxy-authorization|connection|keep-alive):/i;
-  const headers = headerLines.filter((l) => l !== "" && !drop.test(l));
-  if (!headers.some((l) => /^host:/i.test(l))) headers.unshift(`Host: ${u.host}`);
+/**
+ * Absolute-form request → origin-form for the upstream, one request per connection (#282).
+ * `Host` is always the request URL's host: a client-supplied `Host` could otherwise name another
+ * virtual host on the allowlisted address (a shared CDN). Bodies need one valid
+ * `Content-Length`; `Transfer-Encoding`, conflicting lengths and folded headers are refused.
+ */
+function prepareHttp(
+  method: string,
+  u: URL,
+  headerLines: string[],
+): { head: string; bodyLength: number } | { error: string } {
+  if (!/^[A-Z]+$/.test(method)) return { error: "invalid method" };
+  const drop = /^(host|proxy-connection|proxy-authorization|connection|keep-alive|te|upgrade):/i;
+  const headers: string[] = [];
+  let length: number | undefined;
+  for (const line of headerLines) {
+    if (line === "") continue;
+    if (/^[ \t]/.test(line)) return { error: "folded header lines are not accepted" };
+    const colon = line.indexOf(":");
+    if (colon <= 0 || !/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(line.slice(0, colon))) {
+      return { error: "malformed header line" };
+    }
+    const name = line.slice(0, colon).toLowerCase();
+    const value = line.slice(colon + 1).trim();
+    if (name === "transfer-encoding") {
+      return { error: "Transfer-Encoding request bodies are not accepted; send Content-Length" };
+    }
+    if (name === "content-length") {
+      if (!/^\d{1,15}$/.test(value)) return { error: "invalid Content-Length" };
+      const n = Number(value);
+      if (length !== undefined && length !== n) return { error: "conflicting Content-Length" };
+      length = n;
+    }
+    if (drop.test(line)) continue;
+    headers.push(line);
+  }
+  headers.unshift(`Host: ${u.host}`);
   headers.push("Connection: close");
-  return `${method} ${u.pathname}${u.search} HTTP/1.1\r\n${headers.join("\r\n")}\r\n\r\n`;
+  return {
+    head: `${method} ${u.pathname}${u.search} HTTP/1.1\r\n${headers.join("\r\n")}\r\n\r\n`,
+    bodyLength: length ?? 0,
+  };
 }
 
 /** Reads ahead from a stream without losing bytes, then hands the rest over. */

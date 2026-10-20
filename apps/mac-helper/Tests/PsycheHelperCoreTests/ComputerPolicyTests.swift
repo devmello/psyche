@@ -21,13 +21,13 @@ struct ComputerPolicyTests {
 
         let policy = TierPolicy(settings: TierSettings(defaultValue: .interact, apps: ["com.apple.Safari": .interact]))
         #expect(throws: CapabilityError.self) {
-            try policy.authorize(.type, bundleId: "com.apple.Safari", appName: "Safari", approvalId: "a")
+            try policy.authorize(.type, bundleId: "com.apple.Safari", appName: "Safari", approval: ApprovalBinding(id: "a", app: "com.apple.Safari", tier: .interact))
         }
-        #expect((try? policy.authorize(.read, bundleId: "com.apple.Safari", appName: "Safari", approvalId: nil)) != nil)
+        #expect((try? policy.authorize(.read, bundleId: "com.apple.Safari", appName: "Safari", approval: nil)) != nil)
         // Terminals: clicks yes, typing no.
-        #expect((try? policy.authorize(.click, bundleId: "com.apple.Terminal", appName: "Terminal", approvalId: nil)) != nil)
+        #expect((try? policy.authorize(.click, bundleId: "com.apple.Terminal", appName: "Terminal", approval: nil)) != nil)
         do {
-            try policy.authorize(.type, bundleId: "com.apple.Terminal", appName: "Terminal", approvalId: "a")
+            try policy.authorize(.type, bundleId: "com.apple.Terminal", appName: "Terminal", approval: ApprovalBinding(id: "a", app: "com.apple.Terminal", tier: .interact))
             Issue.record("typing into a terminal must be refused")
         } catch let e as CapabilityError {
             #expect(e.code == .policyDenied && e.reason == "tier_click" && e.details["fixedCap"] == true)
@@ -38,7 +38,7 @@ struct ComputerPolicyTests {
     @Test func readOnlyAppRefusesAClickWithAVisibleReason() {
         let policy = TierPolicy(settings: TierSettings(apps: ["com.apple.finder": .read]))
         do {
-            try policy.authorize(.click, bundleId: "com.apple.finder", appName: "Finder", approvalId: nil)
+            try policy.authorize(.click, bundleId: "com.apple.finder", appName: "Finder", approval: nil)
             Issue.record("expected refusal")
         } catch let e as CapabilityError {
             #expect(e.code == .policyDenied && e.reason == "tier_read" && e.message.contains("Read only"))
@@ -49,18 +49,18 @@ struct ComputerPolicyTests {
         let clock = Clock()
         let policy = TierPolicy(settings: TierSettings(defaultValue: .ask), now: { [clock] in clock.now })
         do {
-            try policy.authorize(.click, bundleId: "com.apple.Notes", appName: "Notes", approvalId: nil)
+            try policy.authorize(.click, bundleId: "com.apple.Notes", appName: "Notes", approval: nil)
             Issue.record("expected approval_required")
         } catch let e as CapabilityError {
             #expect(e.code == .approvalRequired && e.details["tierRequired"] == "click")
         }
-        try policy.authorize(.click, bundleId: "com.apple.Notes", appName: "Notes", approvalId: "appr_1")
-        try policy.authorize(.type, bundleId: "com.apple.Notes", appName: "Notes", approvalId: nil)
+        try policy.authorize(.click, bundleId: "com.apple.Notes", appName: "Notes", approval: ApprovalBinding(id: "appr_1", app: "com.apple.Notes", tier: .interact))
+        try policy.authorize(.type, bundleId: "com.apple.Notes", appName: "Notes", approval: nil)
         #expect(policy.effectiveTier(for: "com.apple.Notes") == .interact)
         clock.now = clock.now.addingTimeInterval(31 * 60)
         #expect(policy.effectiveTier(for: "com.apple.Notes") == .off)
         #expect(throws: CapabilityError.self) {
-            try policy.authorize(.click, bundleId: "com.apple.Notes", appName: "Notes", approvalId: nil)
+            try policy.authorize(.click, bundleId: "com.apple.Notes", appName: "Notes", approval: nil)
         }
     }
 
@@ -173,5 +173,85 @@ struct RiskLabelTests {
         #expect(!RiskLabels.isRisky(label: "New Note"))
         #expect(!RiskLabels.isRisky(label: "Sender details"))  // whole words only
         #expect(!RiskLabels.isRisky(label: "Add Reminder"))
+    }
+}
+
+@Suite("threat-model fixes: caps, approval binding, menu tier (#266, #267, #269)")
+struct ThreatModelTierTests {
+    @Test func psycheApprovalSurfacesAndSystemAgentsAreOff() {
+        // #269: Notification Center draws Psyche's approval banners; never pressable by the agent.
+        for id in ["com.apple.notificationcenterui", "com.apple.UserNotificationCenter", "com.apple.SecurityAgent",
+                   "com.apple.systempreferences", "com.apple.SystemSettings", "com.apple.LocalAuthentication.UIAgent", "com.apple.loginwindow"] {
+            #expect(FixedCaps.cap(for: id) == .off, "\(id)")
+        }
+        // Parity with the broker's LOCKED_OFF_APPS (packages/permissions/src/apps.ts).
+        for id in ["com.1password.1password", "com.agilebits.onepassword7", "com.bitwarden.desktop", "com.lastpass.LastPass",
+                   "com.dashlane.Dashlane", "com.apple.Passwords", "com.apple.keychainaccess", "com.robinhood.app", "com.coinbase.pro",
+                   "com.schwab.app", "com.fidelity.app", "com.etrade.app", "com.webull.app", "com.interactivebrokers.tws", "com.paypal.app",
+                   "com.chase.app", "com.psyche.desktop", "com.psyche.helper"] {
+            #expect(FixedCaps.cap(for: id) == .off, "\(id)")
+        }
+        let policy = TierPolicy(settings: TierSettings(defaultValue: .interact))
+        do {
+            try policy.authorize(.click, bundleId: "com.apple.notificationcenterui", appName: "Notification Center",
+                                 approval: ApprovalBinding(id: "apr_1", app: "com.apple.notificationcenterui", tier: .click))
+            Issue.record("clicked Notification Center")
+        } catch let e as CapabilityError {
+            #expect(e.code == .policyDenied && e.details["fixedCap"] == true)
+        } catch { Issue.record("unexpected \(error)") }
+    }
+
+    @Test func approvalsBindToTheNamedAppAndTier() throws {
+        let policy = TierPolicy(settings: TierSettings(defaultValue: .ask))
+        // #267: an approval for Notes does not authorize the app under the point.
+        do {
+            try policy.authorize(.click, bundleId: "com.apple.MobileSMS", appName: "Messages",
+                                 approval: ApprovalBinding(id: "apr_1", app: "com.apple.Notes", tier: .click))
+            Issue.record("approval for Notes reached Messages")
+        } catch let e as CapabilityError {
+            #expect(e.reason == "approval_app_mismatch")
+        }
+        #expect(throws: CapabilityError.self) {
+            try policy.authorize(.click, bundleId: "com.apple.systempreferences", appName: "System Settings",
+                                 approval: ApprovalBinding(id: "apr_1", app: "com.apple.systempreferences", tier: .click))
+        }
+        // An approval for click grants click only, not 30 minutes of interact.
+        try policy.authorize(.click, bundleId: "com.apple.Notes", appName: "Notes", approval: ApprovalBinding(id: "apr_2", app: "com.apple.Notes", tier: .click))
+        #expect(policy.effectiveTier(for: "com.apple.Notes") == .click)
+        do {
+            try policy.authorize(.type, bundleId: "com.apple.Notes", appName: "Notes", approval: nil)
+            Issue.record("typing without a fresh approval")
+        } catch let e as CapabilityError {
+            #expect(e.code == .approvalRequired)
+        }
+        // A click-tier approval cannot authorize typing either.
+        do {
+            try policy.authorize(.type, bundleId: "com.apple.Notes", appName: "Notes", approval: ApprovalBinding(id: "apr_3", app: "com.apple.Notes", tier: .click))
+            Issue.record("click approval authorized typing")
+        } catch let e as CapabilityError {
+            #expect(e.reason == "approval_tier_too_low")
+        }
+        // An approvalId without a binding approves nothing.
+        #expect(ApprovalBinding.from(approvalId: "apr_4", params: ["x": 1]) == nil)
+        #expect(ApprovalBinding.from(approvalId: "apr_4", params: ["approval": ["app": "com.apple.Notes", "tier": "interact"]])
+            == ApprovalBinding(id: "apr_4", app: "com.apple.Notes", tier: .interact))
+        #expect(ApprovalBinding.from(approvalId: nil, params: ["approval": ["app": "com.apple.Notes", "tier": "interact"]]) == nil)
+    }
+
+    @Test func clicksOnMenuItemsNeedInteract() {
+        // #266: AXPress on a menu item runs an app command (Terminal Shell>New Command…).
+        #expect(ComputerIntent.click.escalated(forRole: "AXMenuItem") == .menu)
+        #expect(ComputerIntent.press.escalated(forRole: "AXMenuBarItem") == .menu)
+        #expect(ComputerIntent.click.escalated(forRole: "AXPopUpButton") == .menu)
+        #expect(ComputerIntent.click.escalated(forRole: "AXButton") == .click)
+        #expect(ComputerIntent.scroll.escalated(forRole: "AXMenuItem") == .scroll)
+        let policy = TierPolicy(settings: TierSettings(defaultValue: .interact))
+        do {
+            try policy.authorize(ComputerIntent.click.escalated(forRole: "AXMenuItem"), bundleId: "com.apple.Terminal", appName: "Terminal", approval: nil)
+            Issue.record("menu command in a click-only app")
+        } catch let e as CapabilityError {
+            #expect(e.code == .policyDenied && e.reason == "tier_click")
+        } catch { Issue.record("unexpected \(error)") }
+        #expect((try? policy.authorize(.click, bundleId: "com.apple.Terminal", appName: "Terminal", approval: nil)) != nil)
     }
 }

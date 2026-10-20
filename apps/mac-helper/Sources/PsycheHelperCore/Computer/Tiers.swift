@@ -36,6 +36,15 @@ public enum ComputerIntent: String, Sendable {
     case press  // semantic AXPress on a non-menu control
     case menu  // menu items, menu-bar commands, other semantic actions: can run any app command
 
+    /// Roles whose AXPress runs an app command (#266): menu items, menu-bar items, pop-up and
+    /// menu buttons. A click or press on them needs Read and interact, even in a click-only app.
+    public static let menuLikeRoles: Set = ["AXMenuItem", "AXMenuBarItem", "AXMenuButton", "AXPopUpButton", "AXMenu", "AXMenuBar"]
+
+    public func escalated(forRole role: String?) -> ComputerIntent {
+        guard self == .click || self == .press, let role, Self.menuLikeRoles.contains(role) else { return self }
+        return .menu
+    }
+
     public var requiredTier: ComputerTier {
         switch self {
         case .read: .read
@@ -49,8 +58,16 @@ public enum ComputerIntent: String, Sendable {
 /// matched exactly, or by prefix for families (`com.jetbrains.`).
 public enum FixedCaps {
     public enum Category: String, Sendable {
-        case psyche, browser, terminalOrIDE, passwordManager, finance
+        case psyche, browser, terminalOrIDE, passwordManager, finance, systemAuthority
     }
+
+    /// System Settings and the processes that draw Psyche's notification banners or system
+    /// authorization prompts (#269): computer use must never press Approve on its own cards or
+    /// answer a security dialog. Matches the broker's `LOCKED_OFF_APPS`.
+    static let systemAuthority = [
+        "com.apple.systempreferences", "com.apple.SystemSettings", "com.apple.notificationcenterui", "com.apple.UserNotificationCenter",
+        "com.apple.SecurityAgent", "com.apple.LocalAuthentication.UIAgent", "com.apple.coreservices.uiagent", "com.apple.loginwindow",
+    ]
 
     /// Psyche's own UI: the agent must never click its own approval cards or settings.
     static let psyche = ["com.psyche.desktop", "com.psyche.helper"]
@@ -73,7 +90,7 @@ public enum FixedCaps {
 
     static let passwordManagers = [
         "com.1password.1password", "com.agilebits.onepassword7", "com.agilebits.onepassword-osx", "com.bitwarden.desktop",
-        "com.lastpass.LastPass", "com.dashlane.dashlanephonefinal", "com.apple.Passwords", "com.apple.keychainaccess",
+        "com.lastpass.LastPass", "com.dashlane.dashlanephonefinal", "com.dashlane.Dashlane", "com.apple.Passwords", "com.apple.keychainaccess",
         "org.keepassxc.keepassxc", "com.enpass.Enpass-Desktop", "com.nordpass.macos.NordPass", "me.proton.pass.electron",
         "com.keepersecurity.passwordmanager",
     ]
@@ -95,6 +112,7 @@ public enum FixedCaps {
             }
         }
         if matches(psyche) { return .psyche }
+        if matches(systemAuthority) { return .systemAuthority }
         if matches(passwordManagers) { return .passwordManager }
         if matches(finance) { return .finance }
         if matches(browsers) { return .browser }
@@ -105,7 +123,7 @@ public enum FixedCaps {
     /// The highest tier an app can ever get.
     public static func cap(for bundleId: String?) -> ComputerTier {
         switch category(of: bundleId) {
-        case .psyche, .passwordManager, .finance: .off
+        case .psyche, .passwordManager, .finance, .systemAuthority: .off
         case .browser: .read
         case .terminalOrIDE: .click
         case nil: .interact
@@ -166,6 +184,28 @@ public struct TierSettings: Codable, Sendable, Equatable {
     }
 }
 
+/// What the Gateway's approval covered (#267): the app the card named and the tier it asked for.
+/// An `approvalId` without a binding, or for a different app, approves nothing here.
+public struct ApprovalBinding: Sendable, Equatable {
+    public var id: String
+    public var app: String
+    public var tier: ComputerTier
+
+    public init(id: String, app: String, tier: ComputerTier) {
+        self.id = id
+        self.app = app
+        self.tier = tier
+    }
+
+    /// From `params.approval {app, tier}` next to the invocation's `approvalId`.
+    public static func from(approvalId: String?, params: JSONValue) -> ApprovalBinding? {
+        guard let id = approvalId, let a = params["approval"], let app = a["app"]?.stringValue, !app.isEmpty,
+              let tier = a["tier"]?.stringValue.flatMap(ComputerTier.init(rawValue:))
+        else { return nil }
+        return ApprovalBinding(id: id, app: app, tier: tier)
+    }
+}
+
 /// Decides whether a `computer.*` call may touch an app: fixed cap ∧ user tier ∧ "Allow for this
 /// session" allowances (30 minutes, recorded when the Gateway sends an approved invocation for an
 /// app set to `ask`). Thread-safe.
@@ -213,9 +253,10 @@ public final class TierPolicy: @unchecked Sendable {
         return min(cap, user)
     }
 
-    /// Checks `intent` on `bundleId`. When the user setting is `ask` and the call carries an
-    /// approval, records an "Allow for this session" allowance for the approved tier (capped).
-    public func authorize(_ intent: ComputerIntent, bundleId: String?, appName: String, approvalId: String?) throws {
+    /// Checks `intent` on `bundleId`. An approval counts only when it was granted for this exact
+    /// app (#267) and for at least the tier needed; when the user setting is `ask`, it records an
+    /// "Allow for this session" allowance for the approved tier only (never more).
+    public func authorize(_ intent: ComputerIntent, bundleId: String?, appName: String, approval: ApprovalBinding?) throws {
         lock.lock()
         defer { lock.unlock() }
         let needed = intent.requiredTier
@@ -223,17 +264,24 @@ public final class TierPolicy: @unchecked Sendable {
         if cap < needed {
             throw Self.refusal(needed: needed, have: cap, appName: appName, bundleId: bundleId, fixed: true)
         }
+        if let approval {
+            guard let id = bundleId, approval.app.lowercased() == id.lowercased() else {
+                throw CapabilityError(.policyDenied, reason: "approval_app_mismatch",
+                                      "The approval was for \(approval.app), but the action would reach \(appName)",
+                                      details: ["approvedApp": .string(approval.app), "app": .string(bundleId ?? appName)])
+            }
+        }
         var have = effectiveLocked(bundleId)
-        if have < needed, settings.value(for: bundleId) == .ask, approvalId != nil, let key = bundleId?.lowercased() {
-            // The Gateway asked the user ("Allow for this session") and approved this call.
-            let granted = min(cap, needed == .read ? .read : .interact)
+        if have < needed, settings.value(for: bundleId) == .ask, let approval, approval.tier >= needed, let key = bundleId?.lowercased() {
+            // The Gateway asked the user ("Allow for this session") for this app and tier.
+            let granted = min(cap, approval.tier)
             allowances[key] = (granted, now().addingTimeInterval(Self.sessionAllowance))
             have = granted
         }
         if have < needed {
             if settings.value(for: bundleId) == .ask {
                 throw CapabilityError(
-                    .approvalRequired, reason: "tier_ask",
+                    .approvalRequired, reason: approval == nil ? "tier_ask" : "approval_tier_too_low",
                     "\(appName) needs your permission for computer use. Approve it once to allow it for 30 minutes.",
                     details: ["app": .string(bundleId ?? appName), "tierRequired": .string(needed.rawValue)]
                 )
@@ -254,6 +302,7 @@ public final class TierPolicy: @unchecked Sendable {
         case (.off, .psyche?): why = "Psyche never drives its own windows."
         case (.off, .passwordManager?): why = "Password managers are off limits for computer use."
         case (.off, .finance?): why = "Banking, trading and crypto apps are off limits for computer use."
+        case (.off, .systemAuthority?): why = "System Settings, notifications and security prompts are off limits for computer use."
         case (.read, .browser?): why = "Browsers are read only; use the agent browser to act on the web."
         case (.click, .terminalOrIDE?): why = "Terminals and IDEs are click only (equivalent to shell access)."
         case (.off, _): why = "Computer use is off for this app."

@@ -2104,8 +2104,15 @@ function toolCallMeta(m: ToolCallMeta | undefined): ToolCallMeta | undefined {
   const out: ToolCallMeta = {
     ...(typeof m.app === "string" ? { app: m.app } : {}),
     ...(typeof m.action === "string" ? { action: m.action } : {}),
+    // MCP identity (#279, #280): grants bind to the server and its tools/list hash; the tier
+    // decides whether write tools ask.
+    ...(typeof m.mcpServerId === "string" ? { mcpServerId: m.mcpServerId } : {}),
+    ...(typeof m.mcpToolsListHash === "string" ? { mcpToolsListHash: m.mcpToolsListHash } : {}),
+    ...(m.mcpTier === "bundled" || m.mcpTier === "verified" || m.mcpTier === "unknown"
+      ? { mcpTier: m.mcpTier }
+      : {}),
   };
-  return out.app === undefined && out.action === undefined ? undefined : out;
+  return Object.keys(out).length === 0 ? undefined : out;
 }
 
 function worst(a: ProvenanceOut, b: ProvenanceOut | undefined): ProvenanceOut {

@@ -248,6 +248,8 @@ export function taskStartTool(tasks: TaskEngine): AgentToolRegistration {
         title: Type.String({ minLength: 1, maxLength: 120 }),
         goal: Type.String({ minLength: 1, maxLength: 4_000 }),
         checklist: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { maxItems: 20 })),
+        // Where its commands run (L1–L5); absent means the owner's default.
+        workspace: Type.Optional(Type.Union([Type.Literal("sandbox"), Type.Literal("vm")])),
       },
       { additionalProperties: false },
     ),
@@ -269,6 +271,7 @@ export function taskStartTool(tasks: TaskEngine): AgentToolRegistration {
         ...(p.checklist === undefined
           ? {}
           : { checklist: p.checklist.map((text) => ({ text, status: "pending" as const })) }),
+        ...(p.workspace === undefined ? {} : { workspace: p.workspace }),
       });
       turnOf(ctx)?.emitBlock({ type: "task", taskId: task.id });
       return { output: { taskId: task.id, status: task.status }, provenance: "trusted" };

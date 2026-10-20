@@ -98,6 +98,27 @@ const SEVERITY: Record<SideEffect, number> = {
 };
 const AUTH_KINDS: ApprovalKind[] = ["credential_fill", "purchase"];
 const WRITE_PLUS: SideEffect[] = ["write", "destructive", "financial"];
+const PERSONA_DENIED_KINDS: ApprovalKind[] = [
+  "exec",
+  "exec_host",
+  "credential_fill",
+  "purchase",
+  "browser_submit",
+  "memory_protected_write",
+  "skill_install",
+  "pairing",
+  "policy_change",
+];
+const PERSONA_DENIED_TOOLS =
+  /^(exec|exec_host|sandbox\.|credentials\.|vault\.|memory$|skills\.install)/;
+const ONCE_ONLY_KINDS: ApprovalKind[] = [
+  "pairing",
+  "policy_change",
+  "plan_exit",
+  "skill_install",
+  "apple_script",
+  "shortcut_run",
+];
 
 /** Scopes a side-effect class / kind may ever be granted (security §3.4). */
 export function allowedScopes(
@@ -105,12 +126,20 @@ export function allowedScopes(
   kind: ApprovalKind,
 ): GrantScope[] {
   if (sideEffect === "financial" || kind === "purchase") return ["once"];
+  // Mirrors @psyche/permissions `allowedScopes`: these are approved per exact source, name +
+  // input, hash or change (security §5.4, §11).
+  if (ONCE_ONLY_KINDS.includes(kind)) return ["once"];
   if (kind === "credential_fill") return ["once", "site"];
-  if (sideEffect === "destructive" || kind === "exec_host") return ["once", "task"];
+  // Security §5.4: exec_host offers `once` or an `always` bound to exact argv + cwd + binary.
+  if (kind === "exec_host") return ["once", "always"];
+  if (sideEffect === "destructive") return ["once", "task"];
   return ALL_SCOPES;
 }
 
 export function inferApprovalKind(tool: string): ApprovalKind {
+  if (tool === "apps.applescript") return "apple_script";
+  if (tool === "apps.shortcut_run") return "shortcut_run";
+  if (tool === "skills.install") return "skill_install";
   if (tool === "exec_host") return "exec_host";
   if (tool === "exec" || tool.startsWith("sandbox.")) return "exec";
   if (tool.startsWith("email.")) return "send_email";
@@ -237,8 +266,31 @@ export class FakePermissionBroker implements PermissionBroker {
         "only the owner or a designated person can request changes",
       );
     }
+    // Nor are the owner's sources read for them (#293): only the public, cookie-less web.
+    if (
+      requester !== undefined &&
+      requester.role === "allowed" &&
+      se === "read" &&
+      call.tool !== "web_search" &&
+      call.tool !== "web_fetch"
+    ) {
+      return deny(
+        "requester:not_owner",
+        "an allowlisted sender cannot have the owner's messages, mail, files or memory read",
+      );
+    }
     if (designated && se === "financial") {
       return deny("designated:persona_limit", "a delegated persona cannot move money");
+    }
+    // Fixed persona limits (security §9, @psyche/permissions `checkRequester`): no exec, vault,
+    // fills, money, protected memory or skill installs, and no browser or computer-use writes.
+    if (
+      designated &&
+      (PERSONA_DENIED_KINDS.includes(kind) ||
+        PERSONA_DENIED_TOOLS.test(call.tool) ||
+        (WRITE_PLUS.includes(se) && (kind === "computer_action" || /^browser\./.test(call.tool))))
+    ) {
+      return deny("designated:persona_limit", `a delegated persona cannot use ${call.tool}`);
     }
     const personal = designated
       ? p.designated?.[requester.identityId ?? ""]?.byTool?.[call.tool]
@@ -246,13 +298,18 @@ export class FakePermissionBroker implements PermissionBroker {
     if (personal === "deny") {
       return deny(`designated:deny:${call.tool}`, "the owner denies this for this person");
     }
-    const taintEscalates = ctx.taint && ctx.newTarget === true && WRITE_PLUS.includes(se);
+    // Security §3.6: in a tainted turn, write+ on a new target and navigation to a new origin ask.
+    const taintEscalates =
+      ctx.taint &&
+      ctx.newTarget === true &&
+      (WRITE_PLUS.includes(se) || (kind === "new_origin" && se !== "none"));
+    const taintRule = WRITE_PLUS.includes(se) ? "taint:new_target" : "taint:new_origin";
 
     const consultGrants = !(ctx.permissionMode === "manual" && WRITE_PLUS.includes(se));
     if (consultGrants && se !== "financial") {
       const grant = this.#matchGrant(grantKey, ctx.taskId, se, kind, requesterId);
       if (grant !== undefined) {
-        if (taintEscalates) return ask("taint:new_target", "tainted turn, new target");
+        if (taintEscalates) return ask(taintRule, "tainted turn, new target");
         grant.grant.useCount += 1;
         grant.grant.lastUsedAt = toIso(this.clock.now());
         return { decision: "allow", rule: `grant:${grant.grant.id}`, grantId: grant.grant.id };
@@ -284,8 +341,8 @@ export class FakePermissionBroker implements PermissionBroker {
     if (value === "allow" && (se === "destructive" || se === "financial")) {
       return ask(`floor:${se}`, `${se} actions always ask`);
     }
-    if (value === "allow" && taintEscalates)
-      return ask("taint:new_target", "tainted turn, new target");
+    // The real engine names the taint rule whenever it decides the ask (security §3.3 step 4).
+    if (value !== "deny" && taintEscalates) return ask(taintRule, "tainted turn, new target");
     if (value === "ask") return ask(rule);
     if (value === "deny") return deny(rule, "policy");
     return { decision: "allow", rule };

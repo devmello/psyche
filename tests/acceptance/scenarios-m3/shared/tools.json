@@ -1,0 +1,48 @@
+{
+  "$comment": "Tool registry of the Milestone 3 scenarios. The code.* rows describe the real V10 coding tools (packages/agent-core/src/coding), which the scenario registers as they are; the declared class is the tool's floor, and code.git raises it per operation (commit and branch: write, git_write; push: write, git_push).",
+  "version": 1,
+  "tools": [
+    {
+      "name": "code.open",
+      "sideEffect": "read",
+      "targetKind": "path",
+      "provenanceOut": "untrusted"
+    },
+    {
+      "name": "code.search",
+      "sideEffect": "read",
+      "targetKind": "path",
+      "provenanceOut": "untrusted"
+    },
+    {
+      "name": "code.read",
+      "sideEffect": "read",
+      "targetKind": "path",
+      "provenanceOut": "untrusted"
+    },
+    {
+      "name": "code.edit",
+      "sideEffect": "write",
+      "targetKind": "path",
+      "provenanceOut": "trusted",
+      "approvalKind": "file_write",
+      "receiptKind": "file.write"
+    },
+    {
+      "name": "code.run",
+      "sideEffect": "write",
+      "targetKind": "path",
+      "provenanceOut": "untrusted",
+      "approvalKind": "exec",
+      "receiptKind": "exec"
+    },
+    {
+      "name": "code.git",
+      "sideEffect": "read",
+      "targetKind": "path",
+      "provenanceOut": "untrusted",
+      "note": "Reads for status, diff and log; commit and branch are write (git_write), push is write (git_push). Receipts keep the approval kind as their kind.",
+      "approvalKinds": ["git_write", "git_push"]
+    }
+  ]
+}

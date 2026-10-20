@@ -133,3 +133,57 @@ describe("default iMessage authorizeSend (N5)", () => {
     });
   });
 });
+
+describe("pairing confirmation (#277)", () => {
+  const STRANGER_CHAT = "iMessage;-;+15550002222";
+  const stranger = (chatId = STRANGER_CHAT) => inbound(chatId, { senderId: "+15550002222" });
+  const approved = (senderId: string, decision: "approved" | "denied" = "approved") => ({
+    channel: { type: "imessage", account: ACCOUNT } as InboundDecisionEvent["channel"],
+    senderId,
+    decision,
+  });
+
+  it("an approved sender's pairing DM is answerable, so the confirmation is authorized", async () => {
+    const s = await services();
+    s.channelConversations.record(decision(stranger(), "pair"));
+    const authorize = channelReplyAuthority(s);
+    await expect(
+      authorize(intent(STRANGER_CHAT, "You're approved. Say hi!")),
+    ).rejects.toMatchObject({
+      details: { reason: "sender_not_allowed" },
+    });
+    s.channelConversations.pairingDecided(approved("+15550002222"));
+    await expect(authorize(intent(STRANGER_CHAT, "You're approved. Say hi!"))).resolves.toMatch(
+      /^apr_/,
+    );
+    // Still only a reply: never an owner approval card.
+    await expect(
+      authorize(intent(STRANGER_CHAT, "Approve?", "approval_card")),
+    ).rejects.toMatchObject({ details: { reason: "not_owner_conversation" } });
+  });
+
+  it("a denial, another sender, another account or a group changes nothing", async () => {
+    const s = await services();
+    s.channelConversations.record(decision(stranger(), "pair"));
+    s.channelConversations.record(
+      decision(inbound("iMessage;+;chat9", { senderId: "+15550002222", isGroup: true }), "pair"),
+    );
+    s.channelConversations.pairingDecided(approved("+15550002222", "denied"));
+    s.channelConversations.pairingDecided(approved("+15550003333"));
+    s.channelConversations.pairingDecided({
+      ...approved("+15550002222"),
+      channel: {
+        type: "imessage",
+        account: "other@icloud.test",
+      } as InboundDecisionEvent["channel"],
+    });
+    const authorize = channelReplyAuthority(s);
+    await expect(authorize(intent(STRANGER_CHAT, "You're approved."))).rejects.toMatchObject({
+      details: { reason: "sender_not_allowed" },
+    });
+    s.channelConversations.pairingDecided(approved("+15550002222"));
+    await expect(authorize(intent("iMessage;+;chat9", "You're approved."))).rejects.toMatchObject({
+      details: { reason: "sender_not_allowed" },
+    });
+  });
+});

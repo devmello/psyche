@@ -16,6 +16,7 @@ import {
 import {
   assertGranted,
   assertNoSymlinks,
+  assertNotProtected,
   canonicalTarget,
   fsError,
   type GrantedFolder,
@@ -40,6 +41,11 @@ export interface FileToolsOptions {
    * the executors refuse paths outside them (and writes outside `rw` ones) behind the broker.
    */
   folders?: () => readonly GrantedFolder[] | undefined;
+  /**
+   * Locations refused for every read and write whatever is granted: Psyche's own home and the
+   * owner's credential stores (security §5.3, #285).
+   */
+  protectedRoots?: () => readonly string[];
   /** Write records for read provenance; defaults to an in-memory index. */
   provenance?: FileProvenanceIndex;
   /**
@@ -150,8 +156,10 @@ export function fileTools(options: FileToolsOptions = {}): AgentToolRegistration
   const now = options.now ?? (() => new Date());
   // With no trusted roots every read is untrusted, and the spec says so up front.
   const readOut: ProvenanceOut = trustedRoots.length > 0 ? "trusted" : "untrusted";
-  const granted = (path: string, access: "read" | "write") =>
+  const granted = (path: string, access: "read" | "write") => {
+    assertNotProtected(path, options.protectedRoots?.());
     assertGranted(path, options.folders?.(), access);
+  };
   const recordWrite = (path: string, data: Uint8Array, ctx: ToolRunContext) =>
     index.record({
       path,

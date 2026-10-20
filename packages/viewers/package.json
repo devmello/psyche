@@ -33,7 +33,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@babel/standalone": "8.0.6",
+    "@babel/standalone": "8.0.7",
     "@cantoo/pdf-lib": "2.11.1",
     "@codemirror/commands": "6.11.1",
     "@codemirror/lang-markdown": "6.5.2",
@@ -47,10 +47,10 @@
     "@psyche/protocol": "workspace:*",
     "@tanstack/react-table": "9.3.1",
     "@tanstack/react-virtual": "3.14.21",
-    "@univerjs/core": "1.0.3",
-    "@univerjs/preset-sheets-core": "1.0.3",
-    "@univerjs/presets": "1.0.3",
-    "docx": "9.8.1",
+    "@univerjs/core": "1.0.4",
+    "@univerjs/preset-sheets-core": "1.0.4",
+    "@univerjs/presets": "1.0.4",
+    "docx": "9.12.0",
     "docx-preview": "0.4.1",
     "dompurify": "3.4.17",
     "jszip": "3.10.2",

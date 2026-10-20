@@ -798,6 +798,30 @@
         "sideEffecting": false
       },
       {
+        "description": "Lists the registered helper presence keys (Touch ID approvals, issue #253): device id and key id only.",
+        "name": "devices.presenceKey.list",
+        "params": "#/$defs/DevicesPresenceKeyListParams",
+        "result": "#/$defs/DevicesPresenceKeyListResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Reads the helper's Secure Enclave presence key (`presence.public_key`) and registers it for that device, so its Touch ID answers verify. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
+        "name": "devices.presenceKey.register",
+        "params": "#/$defs/DevicesPresenceKeyRegisterParams",
+        "result": "#/$defs/DevicesPresenceKeyRegisterResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Removes a helper's registered presence key. Side-effecting.",
+        "name": "devices.presenceKey.remove",
+        "params": "#/$defs/DevicesPresenceKeyRemoveParams",
+        "result": "#/$defs/DevicesPresenceKeyRemoveResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Revokes a device's token and node authority permanently and closes its connections.",
         "name": "devices.revoke",
         "params": "#/$defs/DevicesRevokeParams",
@@ -2577,7 +2601,9 @@
         "policy_change",
         "task_start",
         "apple_script",
-        "shortcut_run"
+        "shortcut_run",
+        "git_write",
+        "git_push"
       ],
       "type": "string"
     },
@@ -7420,6 +7446,84 @@
       },
       "required": [
         "pairingRequests"
+      ],
+      "type": "object"
+    },
+    "DevicesPresenceKeyListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "DevicesPresenceKeyListResult": {
+      "properties": {
+        "presenceKeys": {
+          "items": {
+            "$ref": "#/$defs/PresenceKeyInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "presenceKeys"
+      ],
+      "type": "object"
+    },
+    "DevicesPresenceKeyRegisterParams": {
+      "properties": {
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "expectKeyId": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "deviceId"
+      ],
+      "type": "object"
+    },
+    "DevicesPresenceKeyRegisterResult": {
+      "properties": {
+        "presenceKey": {
+          "$ref": "#/$defs/PresenceKeyInfo"
+        }
+      },
+      "required": [
+        "presenceKey"
+      ],
+      "type": "object"
+    },
+    "DevicesPresenceKeyRemoveParams": {
+      "properties": {
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "deviceId"
+      ],
+      "type": "object"
+    },
+    "DevicesPresenceKeyRemoveResult": {
+      "properties": {
+        "removed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "removed"
       ],
       "type": "object"
     },
@@ -13092,6 +13196,31 @@
       ],
       "type": "object"
     },
+    "PresenceKeyInfo": {
+      "properties": {
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "keyId": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "registeredAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "deviceId",
+        "keyId",
+        "registeredAt"
+      ],
+      "type": "object"
+    },
     "ProbedModel": {
       "properties": {
         "ref": {
@@ -17769,6 +17898,75 @@
       ],
       "type": "string"
     },
+    "VmConfigureParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "cpus": {
+          "maximum": 32,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "memoryGB": {
+          "maximum": 256,
+          "minimum": 4,
+          "type": "integer"
+        },
+        "displayWidth": {
+          "maximum": 3840,
+          "minimum": 640,
+          "type": "integer"
+        },
+        "displayHeight": {
+          "maximum": 2400,
+          "minimum": 480,
+          "type": "integer"
+        },
+        "clipboard": {
+          "$ref": "#/$defs/VmClipboardMode"
+        },
+        "vault": {
+          "$ref": "#/$defs/VmVaultPlacement"
+        }
+      },
+      "type": "object"
+    },
+    "VmCopyInParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "hostPath": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "hostPath"
+      ],
+      "type": "object"
+    },
+    "VmCopyOutParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "guestPath": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "hostDir": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "guestPath",
+        "hostDir"
+      ],
+      "type": "object"
+    },
     "VmCreateParams": {
       "properties": {
         "name": {
@@ -17869,6 +18067,52 @@
         "lastError": {
           "description": "Machine reason of the last failure",
           "type": "string"
+        },
+        "display": {
+          "properties": {
+            "width": {
+              "type": "integer"
+            },
+            "height": {
+              "type": "integer"
+            },
+            "visible": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "width",
+            "height",
+            "visible"
+          ],
+          "type": "object"
+        },
+        "clipboard": {
+          "$ref": "#/$defs/VmClipboardMode"
+        },
+        "vault": {
+          "$ref": "#/$defs/VmVaultPlacement"
+        },
+        "agent": {
+          "$ref": "#/$defs/VmGuestAgentStatus"
+        },
+        "psycheInstalled": {
+          "description": "Guest Psyche payload installed (L3)",
+          "type": "boolean"
+        },
+        "permissionsGranted": {
+          "description": "Accessibility / Screen Recording pre-granted offline (L3)",
+          "type": "boolean"
+        },
+        "savedState": {
+          "description": "A machine-state file exists (warm start)",
+          "type": "boolean"
+        },
+        "transfers": {
+          "items": {
+            "$ref": "#/$defs/VmTransfer"
+          },
+          "type": "array"
         }
       },
       "required": [
@@ -17884,6 +18128,31 @@
       ],
       "type": "object"
     },
+    "VmGuestAgentStatus": {
+      "properties": {
+        "connected": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": "string"
+        },
+        "accessibility": {
+          "type": "boolean"
+        },
+        "screenRecording": {
+          "type": "boolean"
+        },
+        "lastSeenAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "connected"
+      ],
+      "type": "object"
+    },
     "VmPhase": {
       "enum": [
         "created",
@@ -17894,7 +18163,9 @@
         "starting",
         "running",
         "stopping",
-        "failed"
+        "failed",
+        "paused",
+        "saved"
       ],
       "type": "string"
     },
@@ -17904,7 +18175,9 @@
           "enum": [
             "vm.download",
             "vm.install",
-            "vm.state"
+            "vm.state",
+            "vm.psyche_install",
+            "vm.permissions"
           ],
           "type": "string"
         },
@@ -18044,6 +18317,44 @@
       ],
       "type": "object"
     },
+    "VmTransfer": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "direction": {
+          "enum": [
+            "in",
+            "out"
+          ],
+          "type": "string"
+        },
+        "hostPath": {
+          "type": "string"
+        },
+        "guestPath": {
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "direction",
+        "hostPath",
+        "guestPath",
+        "bytes",
+        "createdAt"
+      ],
+      "type": "object"
+    },
     "VmUpdatedPayload": {
       "properties": {
         "nodeId": {
@@ -18064,6 +18375,13 @@
         "at"
       ],
       "type": "object"
+    },
+    "VmVaultPlacement": {
+      "enum": [
+        "host",
+        "guest"
+      ],
+      "type": "string"
     },
     "VoiceCancelParams": {
       "properties": {

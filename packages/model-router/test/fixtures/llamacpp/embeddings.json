@@ -1,0 +1,14 @@
+{
+  "name": "llama-server --embeddings",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/embeddings"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"model\":\"nomic-embed-text-v1.5\",\"object\":\"list\",\"usage\":{\"prompt_tokens\":6,\"total_tokens\":6},\"data\":[{\"embedding\":[0.5,-0.25,0.125],\"index\":0,\"object\":\"embedding\"},{\"embedding\":[-0.5,0.25,-0.125],\"index\":1,\"object\":\"embedding\"}]}"
+  }
+}

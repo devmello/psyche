@@ -30,6 +30,11 @@ const placeholderOnly = new RegExp(`^${PLACEHOLDER_PATTERN.source}$`);
 
 export interface ExecToolDeps {
   runner: SandboxRunner;
+  /**
+   * The runner for one call, when commands may run elsewhere than `runner` (a Task whose
+   * workspace is the sandbox Mac, L1–L5). Never a fallback: the chosen runner fails on its own.
+   */
+  runnerFor?(ctx: Pick<ToolRunContext, "taskId" | "threadId">): SandboxRunner;
   vault: Vault;
   broker: PermissionBroker;
   /**
@@ -114,7 +119,7 @@ export function execTool(deps: ExecToolDeps): AgentToolRegistration {
   return defineTool({
     name: "exec",
     description:
-      "Run one command (an argv array, no shell string) in your sandbox container: network off, /workspace persists, never the owner's machine. An env value of exactly {{cred:<item>}} is filled from the vault as PSYCHE_SECRET_<NAME> after the owner approves; its value never comes back.",
+      "Run one command (an argv array, no shell string) in your sandbox (a container with network off, or the sandbox Mac for a Task set to run there): /workspace persists, never the owner's machine. An env value of exactly {{cred:<item>}} is filled from the vault as PSYCHE_SECRET_<NAME> after the owner approves; its value never comes back.",
     input: Type.Object({
       argv: Type.Array(Type.String({ maxLength: 8192 }), { minItems: 1, maxItems: 256 }),
       cwd: Type.Optional(Type.String({ minLength: 1, maxLength: 1024 })),
@@ -153,7 +158,8 @@ export function execTool(deps: ExecToolDeps): AgentToolRegistration {
         } else plain[k] = v;
       }
       const scope = sandboxScope(ctx);
-      const sandbox = await deps.runner.ensureSandbox(scope);
+      const runner = deps.runnerFor?.(ctx) ?? deps.runner;
+      const sandbox = await runner.ensureSandbox(scope);
       const filled = await secretEnv(deps, ctx, secrets);
       let result: Awaited<ReturnType<SandboxRunner["exec"]>>;
       const release = deps.track?.(scope, {
@@ -167,7 +173,7 @@ export function execTool(deps: ExecToolDeps): AgentToolRegistration {
         ...(ctx.requester === undefined ? {} : { requester: ctx.requester }),
       });
       try {
-        result = await deps.runner.exec({
+        result = await runner.exec({
           sandboxId: sandbox.id,
           argv: p.argv,
           cwd: p.cwd ?? sandbox.workspacePath,

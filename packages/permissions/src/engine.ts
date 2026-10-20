@@ -12,6 +12,7 @@ import {
   ALL_SCOPES,
   allowedScopes,
   BROWSER_WRITE_TOOLS,
+  CODE_TOOLS,
   effectiveSideEffect,
   FILE_TOOLS,
   inferApprovalKind,
@@ -191,10 +192,17 @@ export class PolicyEngine {
     const precomputed = call.bindingHash !== undefined && call.grantKey !== undefined;
     if (call.binding === undefined) {
       if (precomputed) {
+        // The agent loop's MCP calls arrive precomputed; their meta names the server and the
+        // tools/list hash, so the grant is found by revokeMcpGrants (#279).
+        const m = call.meta;
+        const mcp =
+          typeof m?.mcpServerId === "string" && typeof m.mcpToolsListHash === "string"
+            ? { serverId: m.mcpServerId, tool: call.tool, toolsListHash: m.mcpToolsListHash }
+            : {};
         return {
           kind,
           fields: {},
-          grantFields: {},
+          grantFields: mcp,
           bindingHash: call.bindingHash as Binding["bindingHash"],
           grantKey: call.grantKey as Binding["grantKey"],
         };
@@ -427,7 +435,7 @@ export class PolicyEngine {
       }
     }
 
-    if (FILE_TOOLS.has(call.tool) && call.target?.kind === "path") {
+    if ((FILE_TOOLS.has(call.tool) || CODE_TOOLS.test(call.tool)) && call.target?.kind === "path") {
       let path: string;
       try {
         path = canonicalPath(call.target.value);
@@ -444,6 +452,10 @@ export class PolicyEngine {
     }
     if (kind === "memory_protected_write") {
       floors.push({ rule: "memory:protected_path", reason: "protected memory files always ask" });
+    }
+    if (kind === "git_push") {
+      // A push publishes commits with the owner's credentials: never silent, never reusable (V10).
+      floors.push({ rule: "git:push", reason: "pushes always ask", scopes: ["once"] });
     }
 
     const targetApp = call.target?.kind === "app" ? call.target.value : undefined;
@@ -480,8 +492,20 @@ export class PolicyEngine {
       if (tier !== undefined) allowances.push({ rule: `app_tier:${tier}` });
     }
 
-    if (kind === "mcp_tool" && call.meta?.mcpTier === "unknown" && SEVERITY[se] >= SEVERITY.write) {
-      floors.push({ rule: "mcp:unknown_tier", reason: "tools of unknown MCP servers ask" });
+    // Security §11: write+ tools of unknown-tier MCP servers ask every time, whatever grants
+    // exist (#280). MCP calls arrive as `connector_action` from @psyche/mcp-host with the tier in
+    // meta; an `mcp__` tool that names no tier counts as unknown.
+    const mcpTier = call.meta?.mcpTier ?? (call.tool.startsWith("mcp__") ? "unknown" : undefined);
+    if (
+      (kind === "mcp_tool" || kind === "connector_action") &&
+      mcpTier === "unknown" &&
+      SEVERITY[se] >= SEVERITY.write
+    ) {
+      floors.push({
+        rule: "mcp:unknown_tier",
+        reason: "tools of unknown MCP servers ask",
+        scopes: ["once"],
+      });
     }
 
     let noAlways = false;

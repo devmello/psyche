@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { runScenario } from "../../../packages/testing/src/scenarios/index.ts";
 import type { Stack, StackOverrides } from "../../../packages/testing/src/scenarios/stack.ts";
 import type { ScenarioReport } from "../../../packages/testing/src/scenarios/types.ts";
-import { type M2State, m2Overrides } from "../src/m2-world.ts";
+import { gmailQuery, type M2State, m2Overrides } from "../src/m2-world.ts";
 import { writeReport } from "../src/report.ts";
 import { M2_SCENARIO_IDS, M2_SCENARIOS_DIR } from "../src/scenario-scripts.ts";
 
@@ -175,5 +175,39 @@ describe("V9: the automation fires in the owner's time zone, unattended", () => 
     expect(
       notes.filter((n) => n.kind === "approval" && n.title.startsWith("Approval needed")),
     ).toHaveLength(1);
+  });
+});
+
+describe("V8: the mail search fake reads queries the way Gmail does", () => {
+  const mailbox = JSON.parse(
+    readFileSync(join(M2_SCENARIOS_DIR, "v8-subscription-audit/fixtures/mailbox.json"), "utf8"),
+  ) as { messages: { id: string }[] };
+  const now = Date.parse("2026-10-19T15:30:00Z");
+  const ids = (q: string) =>
+    mailbox.messages.filter((m) => gmailQuery(q, now)(m as never)).map((m) => m.id);
+
+  it("has no window unless asked, filters by sender, and ANDs plain words", () => {
+    expect(ids("from:streamflix")).toEqual([
+      "sf_0703",
+      "sf_0803",
+      "sf_0820",
+      "sf_0903",
+      "sf_1003",
+      "ph_1017",
+    ]);
+    // 60 days before Oct 19 is Aug 20 15:30 UTC: the Aug 20 price notice (13:00) is just outside.
+    expect(ids("from:billing@streamflix.example newer_than:60d")).toEqual(["sf_0903", "sf_1003"]);
+    expect(ids("PhotoLab trial")).toEqual(["pl_1011"]);
+  });
+
+  it("joins OR terms inside parentheses, and an excluded word drops a message", () => {
+    expect(ids("newer_than:90d (annual OR trial)")).toEqual(["pl_1011", "nd_1012"]);
+    expect(ids("from:streamflix -failed")).toEqual([
+      "sf_0703",
+      "sf_0803",
+      "sf_0820",
+      "sf_0903",
+      "sf_1003",
+    ]);
   });
 });

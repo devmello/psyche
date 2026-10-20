@@ -1,0 +1,14 @@
+{
+  "name": "LM Studio: unknown model id (plain-string error)",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 404,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":\"Model \\\"qwen/nope\\\" not found. Please specify a valid model.\"}"
+  }
+}

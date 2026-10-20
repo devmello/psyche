@@ -34,6 +34,8 @@ const KIND_LABELS: Record<ApprovalKind, string> = {
   task_start: "Start a background task",
   apple_script: "Run an AppleScript",
   shortcut_run: "Run a Shortcut",
+  git_write: "Change a git repository",
+  git_push: "Push to a git remote",
 };
 
 /** Short label for answer confirmations ("Approved: Send an email."). */

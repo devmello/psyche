@@ -14,6 +14,7 @@ import {
   PsycheError,
   type SendResult,
   type SpeechEngine,
+  type TaintSource,
   type Unsubscribe,
 } from "@psyche/protocol";
 import { ChatApprovals, type DeliveryReport } from "./approvals.ts";
@@ -63,6 +64,12 @@ export interface ChannelServiceOptions {
    */
   onInboundDecision?: (event: InboundDecisionEvent) => void;
   /**
+   * The owner approved or denied a pairing request, before the sender is told. The Gateway moves
+   * that DM from "pairing code only" to "answerable" in the broker's channel reply authority, so
+   * the "You're approved" confirmation is a reply to a now-routed sender (issue #277).
+   */
+  onPairingDecided?: (event: PairingDecidedEvent) => void;
+  /**
    * Admission control before any policy runs (security §10: inbound chat 30/minute/sender).
    * `false` drops the message silently; the Gateway counts and audits it.
    */
@@ -74,6 +81,12 @@ export interface InboundDecisionEvent {
   message: InboundMessage;
   action: "deliver" | "pair";
   route?: RouteContext;
+}
+
+export interface PairingDecidedEvent {
+  channel: Channel;
+  senderId: string;
+  decision: "approved" | "denied";
 }
 
 export interface OutboundTarget {
@@ -110,6 +123,7 @@ export class ChannelService {
   #identities = new IdentityDirectory();
   #ownerAllowFrom: string[];
   #onInboundDecision: ((event: InboundDecisionEvent) => void) | undefined;
+  #onPairingDecided: ((event: PairingDecidedEvent) => void) | undefined;
   #admitInbound: ((channel: Channel, message: InboundMessage) => boolean) | undefined;
   #channels = new Map<string, Channel>();
   #attached = new Map<string, Attached>();
@@ -129,6 +143,7 @@ export class ChannelService {
     this.#random = options.random ?? Math.random;
     this.#ownerAllowFrom = options.ownerAllowFrom ?? [];
     this.#onInboundDecision = options.onInboundDecision;
+    this.#onPairingDecided = options.onPairingDecided;
     this.#admitInbound = options.admitInbound;
     this.#limiter = new RateLimiter({ clock: this.#clock, sleep: this.#sleep });
     this.pairing = new PairingService({
@@ -309,6 +324,7 @@ export class ChannelService {
           updatedAt: new Date(this.#clock.now()).toISOString(),
         });
       }
+      this.#pairingDecided(channel, senderId, "approved");
       await this.send({ channelId, chatId: senderId }, "You're approved. Say hi!", {
         format: "plain",
       }).catch((error: unknown) => this.#logger.warn("pairing.notify_failed", errorData(error)));
@@ -321,7 +337,20 @@ export class ChannelService {
     decidedByDeviceId: string | null,
   ): Promise<PairingRequest> {
     const request = await this.#findPairing(ref);
-    return this.pairing.decide(request.id, "denied", decidedByDeviceId);
+    const decided = await this.pairing.decide(request.id, "denied", decidedByDeviceId);
+    const channel = this.#channels.get(decided.channelId ?? "");
+    if (channel !== undefined && decided.senderId != null) {
+      this.#pairingDecided(channel, decided.senderId, "denied");
+    }
+    return decided;
+  }
+
+  #pairingDecided(channel: Channel, senderId: string, decision: "approved" | "denied"): void {
+    try {
+      this.#onPairingDecided?.({ channel, senderId, decision });
+    } catch (error) {
+      this.#logger.warn("channel.pairing_decision_hook_failed", errorData(error));
+    }
   }
 
   // --- adapters ------------------------------------------------------------------------------
@@ -607,14 +636,26 @@ export class ChannelService {
       await this.#command(channel, route, message, command);
       return;
     }
-    const { parts, attachments } = await this.#collect(channel, attached.adapter, route, message);
+    const { parts, attachments, taintSources } = await this.#collect(
+      channel,
+      attached.adapter,
+      route,
+      message,
+    );
     if (message.editOf !== undefined) {
-      await this.#sink.deliver({ kind: "edit", route, message, parts, attachments });
+      await this.#sink.deliver({ kind: "edit", route, message, parts, attachments, taintSources });
       return;
     }
     if (parts.length === 0 && attachments.length === 0) return;
     await this.typing({ channelId, chatId: message.chatId });
-    await this.#sink.deliver({ kind: "message", route, message, parts, attachments });
+    await this.#sink.deliver({
+      kind: "message",
+      route,
+      message,
+      parts,
+      attachments,
+      taintSources,
+    });
   }
 
   async #pair(channel: Channel, adapter: ChannelAdapter, message: InboundMessage): Promise<void> {
@@ -699,12 +740,28 @@ export class ChannelService {
     adapter: ChannelAdapter,
     route: RouteContext,
     message: InboundMessage,
-  ): Promise<{ parts: InboundPart[]; attachments: { libraryItemId: string }[] }> {
+  ): Promise<{
+    parts: InboundPart[];
+    attachments: { libraryItemId: string }[];
+    taintSources: TaintSource[];
+  }> {
     const settings = channelSettings(channel);
     const parts: InboundPart[] = [];
     const attachments: { libraryItemId: string }[] = [];
     const forwarded = message.forwardedFrom !== undefined;
     const ownProvenance = forwarded ? "untrusted" : route.provenance;
+    // One source per kind and author (security §3.6: `{sourceKind, origin or sender}`).
+    const taintSources: TaintSource[] = [];
+    const origin = `${channel.type}:${message.chatId}`;
+    const taint = (sourceKind: string, sender: string | undefined) => {
+      if (taintSources.some((t) => t.sourceKind === sourceKind && t.sender === sender)) return;
+      taintSources.push({ sourceKind, origin, ...(sender === undefined ? {} : { sender }) });
+    };
+    // The author of the message's own text, voice and attachments when they are untrusted.
+    const ownTaint = () =>
+      forwarded
+        ? taint("channel_forwarded", message.forwardedFrom?.senderId)
+        : taint("channel_message", message.senderId);
 
     const quoted = message.quoted;
     if (quoted !== undefined && quoted.text.trim() !== "") {
@@ -726,6 +783,7 @@ export class ChannelService {
             provenance: authorIsOwner ? "owner" : "untrusted",
             label: "quoted",
           });
+          if (!authorIsOwner) taint("channel_quoted", quoted.senderId);
         }
       }
     }
@@ -735,6 +793,7 @@ export class ChannelService {
         provenance: ownProvenance,
         ...(forwarded ? { label: "forwarded" as const } : {}),
       });
+      if (ownProvenance === "untrusted") ownTaint();
     }
 
     for (const attachment of message.attachments ?? []) {
@@ -762,6 +821,7 @@ export class ChannelService {
           const transcript = await this.#speech.transcribeFile(data, INBOUND_VOICE_FORMAT);
           if (transcript.text.trim() !== "") {
             parts.push({ text: transcript.text, provenance: ownProvenance, label: "voice" });
+            if (ownProvenance === "untrusted") ownTaint();
           }
         } catch (error) {
           this.#logger.warn("voice.transcribe_failed", {
@@ -785,9 +845,15 @@ export class ChannelService {
           },
         });
         attachments.push(item);
+        if (ownProvenance !== "owner") {
+          taint(
+            "channel_attachment",
+            forwarded ? message.forwardedFrom?.senderId : message.senderId,
+          );
+        }
       }
     }
-    return { parts, attachments };
+    return { parts, attachments, taintSources };
   }
 
   /** For tests and the Gateway: is this sender an owner on this channel? */

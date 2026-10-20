@@ -273,7 +273,7 @@ export interface DecidedByClass {
     senderId?: string;
 }
 
-export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run";
+export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start" | "apple_script" | "shortcut_run" | "git_write" | "git_push";
 
 export interface RequestedBy {
     agent?:      string;
@@ -1686,6 +1686,34 @@ export interface DevicesPairingListParams {
 
 export interface DevicesPairingListResult {
     pairingRequests: PairingRequest[];
+}
+
+export interface DevicesPresenceKeyListResult {
+    presenceKeys: PresenceKeyInfo[];
+}
+
+export interface PresenceKeyInfo {
+    deviceId:     string;
+    keyId:        string;
+    registeredAt: string;
+}
+
+export interface DevicesPresenceKeyRegisterParams {
+    approvalId?:  string;
+    deviceId:     string;
+    expectKeyId?: string;
+}
+
+export interface DevicesPresenceKeyRegisterResult {
+    presenceKey: PresenceKeyInfo;
+}
+
+export interface DevicesPresenceKeyRemoveParams {
+    deviceId: string;
+}
+
+export interface DevicesPresenceKeyRemoveResult {
+    removed: boolean;
 }
 
 export interface DevicesRevokeParams {
@@ -4318,6 +4346,31 @@ export interface ViewReportParams {
     layout: ViewLayout;
 }
 
+export interface VMConfigureParams {
+    clipboard?:     VMClipboardMode;
+    cpus?:          number;
+    displayHeight?: number;
+    displayWidth?:  number;
+    memoryGB?:      number;
+    name?:          string;
+    vault?:         VMVaultPlacement;
+}
+
+export type VMClipboardMode = "paste-only" | "bidirectional" | "off";
+
+export type VMVaultPlacement = "host" | "guest";
+
+export interface VMCopyInParams {
+    hostPath: string;
+    name?:    string;
+}
+
+export interface VMCopyOutParams {
+    guestPath: string;
+    hostDir:   string;
+    name?:     string;
+}
+
 export interface VMCreateParams {
     cpus?:     number;
     diskGB?:   number;
@@ -4341,19 +4394,15 @@ export interface VMProgressEvent {
     version?: string;
 }
 
-export type VMProgressEventType = "vm.download" | "vm.install" | "vm.state";
+export type VMProgressEventType = "vm.download" | "vm.install" | "vm.state" | "vm.psyche_install" | "vm.permissions";
 
 export interface VMSettings {
     clipboard:        VMClipboardMode;
-    credentials:      Credentials;
+    credentials:      VMVaultPlacement;
     defaultWorkspace: TaskWorkspace;
     enabled:          boolean;
     guestNodeId?:     null | string;
 }
-
-export type VMClipboardMode = "paste-only" | "bidirectional" | "off";
-
-export type Credentials = "host" | "guest";
 
 export interface VMShareAddParams {
     name?:     string;
@@ -4373,26 +4422,57 @@ export interface VMStatus {
 }
 
 export interface VMGuest {
-    cpus:     number;
-    diskGB:   number;
-    guestOS?: null | string;
+    agent?:     VMGuestAgentStatus;
+    clipboard?: VMClipboardMode;
+    cpus:       number;
+    diskGB:     number;
+    display?:   Display;
+    guestOS?:   null | string;
     /**
      * Machine reason of the last failure
      */
     lastError?: string;
     memoryGB:   number;
     name:       string;
-    phase:      VMPhase;
+    /**
+     * Accessibility / Screen Recording pre-granted offline (L3)
+     */
+    permissionsGranted?: boolean;
+    phase:               VMPhase;
     /**
      * First (provisioning) boot completed
      */
     provisioned: boolean;
+    /**
+     * Guest Psyche payload installed (L3)
+     */
+    psycheInstalled?: boolean;
+    /**
+     * A machine-state file exists (warm start)
+     */
+    savedState?: boolean;
     shares:      VMShare[];
+    transfers?:  VMTransfer[];
     username:    string;
+    vault?:      VMVaultPlacement;
     vsock:       Vsock;
 }
 
-export type VMPhase = "created" | "installing" | "installed" | "provisioning" | "stopped" | "starting" | "running" | "stopping" | "failed";
+export interface VMGuestAgentStatus {
+    accessibility?:   boolean;
+    connected:        boolean;
+    lastSeenAt?:      string;
+    screenRecording?: boolean;
+    version?:         string;
+}
+
+export interface Display {
+    height:  number;
+    visible: boolean;
+    width:   number;
+}
+
+export type VMPhase = "created" | "installing" | "installed" | "provisioning" | "stopped" | "starting" | "running" | "stopping" | "failed" | "paused" | "saved";
 
 export interface VMShare {
     /**
@@ -4406,6 +4486,17 @@ export interface VMShare {
     name:     string;
     readOnly: boolean;
 }
+
+export interface VMTransfer {
+    bytes:     number;
+    createdAt: string;
+    direction: Direction;
+    guestPath: string;
+    hostPath:  string;
+    id:        string;
+}
+
+export type Direction = "in" | "out";
 
 export interface Vsock {
     /**
