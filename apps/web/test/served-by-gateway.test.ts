@@ -49,7 +49,16 @@ describe("web build served by the Gateway", () => {
     expect(script).toBeTruthy();
     const js = await fetch(`${gw.origin}${script}`);
     expect(js.status).toBe(200);
-    expect(await js.text()).toContain("Psyche can't reach the Gateway");
+    const code = await js.text();
+    expect(code).toContain("Psyche can't reach the Gateway");
+    // The composed app (A8): the kit's onboarding and chat column ship in the web bundle.
+    expect(code).toContain("Open the main chat");
+    // The kit's stylesheet is built by Tailwind and linked from index.html.
+    const css = /<link rel="stylesheet" crossorigin href="([^"]+)"/.exec(html)?.[1];
+    expect(css).toBeTruthy();
+    const sheet = await fetch(`${gw.origin}${css}`);
+    expect(sheet.status).toBe(200);
+    expect(await sheet.text()).toContain("--accent");
   });
 
   it("answers /healthz next to the UI", async () => {

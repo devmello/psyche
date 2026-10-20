@@ -91,6 +91,31 @@ These four are registered on main (PR #47). System keychain mode (G9) also needs
 
 **Trade-off:** keychain items are protected by `biometryCurrentSet` or the passcode. If re-enrolling Touch ID invalidates them, the recovery key cannot bring them back (they are not in `vault.db`). Move them back with `setBackend(id, "vault")` before re-enrolling. This is also recorded as an open question in docs/status/s06.md.
 
+### Payments through Stripe Link (G12)
+
+`PaymentBroker({ home, wallet: new LinkCliWallet({ cli, env }), permissions, redactor, audit })` implements security §4.9 in five steps:
+
+1. **`requestPurchase(input, {requestedBy, taint})`** issues a `purchase` ApprovalRequest:
+   - financial and device-only, `once` only, with authentication required;
+   - bound to merchant host + amount (minor units) + currency + line-item hash + payment source (`purchaseBindingHash`, security §3.5);
+   - refused up front over Link's $500 ceiling or the owner's `agent_wallet_spend_limits.per_transaction`.
+2. **`authorize(approvalId, input)`** recomputes the binding and calls `verifyBinding`, which consumes the approval. It then creates the Link spend request with `--request-approval`. The context Link shows the owner is written by Psyche from the approved facts (`spendContext`), never from agent or page text.
+3. **`awaitCard(id)`** waits for the owner's decision in Link (30-minute window). On `approved`, Link writes the one-time card to `vault/cards/<id>.json` (0600, directory 0700; anything wider is shredded and refused). Only brand, last4 and expiry come back; number and CVC go to the shared redactor.
+4. **`fillCard({cdp, spendRequestId, field})`** types one card field through the shared fill core (`fillFocused`):
+   - the top frame must be the merchant's https host or one of its subdomains;
+   - the focused input must match that field (`cc-number`, `cc-exp*`, `cc-csc`, `cc-name`, `postal-code`, or a matching `name`/`id`);
+   - the field must not sit in another frame (Stripe Elements' `js.stripe.com` iframe is refused; a Link Pay Token is the follow-up for those checkouts).
+5. **`complete(id, {outcome, orderNumber, merchantConfirmation})`** shreds the card file, reports the outcome to Link, and records the receipt. The receipt has `externalRefs.linkSpendRequestId` / `orderNumber` / `merchantConfirmation` and a payload with brand / last4 only.
+
+**Clean-up:** `cancel(id)` cancels and shreds. `sweep()` shreds card files past `cardTtlMs` (2 h) and any file without a live approved record. Records (no secrets) live in `vault/payments/`.
+
+**`LinkCliWallet`** runs the owner-installed `@stripe/link-cli` (0.29.0 checked; deliberately not a dependency, because its postinstall runs a skills installer):
+- no shell, `--format json`, and only `PATH`, `HOME` and the given env (`LINK_AUTH_FILE`);
+- card details travel only through `--include card --output-file`;
+- CLI failures become `unavailable` without its output.
+
+The card's 3-digit CVC is shorter than the redactor's minimum, so it is protected by never leaving the 0600 file and the fill, not by masking.
+
 ## How it maps to the docs
 
 | Doc | Where |
@@ -134,7 +159,7 @@ These four are registered on main (PR #47). System keychain mode (G9) also needs
 ## What is stubbed or deferred
 
 - **Passphrase mode** (server without a key file): not built. `KeyFileWrapper` covers server mode.
-- **1Password (G10)**, **Bitwarden (G11)**, **Stripe Link (G12)**: M2/M3. G9 waits on the helper registering its item capabilities (above), and no protocol method switches the backend yet (`setBackend` is in-process only). `payment_link` and `signing_key` items are refused at `add`.
+- **1Password (G10)** and **Bitwarden (G11)**: later. G12 open items: a Link Pay Token for Stripe-hosted checkouts, Link OAuth tokens held in the vault instead of the CLI's auth file, and wiring a `purchase` tool (S02 / S08). G9 waits on the helper registering its item capabilities (above), and no protocol method switches the backend yet (`setBackend` is in-process only). `payment_link` and `signing_key` items are refused at `add`.
 - **VM guest release (S23 design-05)**: no guest path exists yet. The review's controls (`vmAllowed`, once only, Touch ID each time, a rate limit) are a `todo` in `test/s23-review.test.ts`.
 - **Post-fill tab rules (S23 design-18)**: refusing screenshots and aborting a tool result on an echo belong to S08. They call `containsSecret` / `redact`.
 - **Fresh container per secret-bearing command (S23 design-15)**: S21.
