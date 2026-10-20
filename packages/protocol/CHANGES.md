@@ -24,6 +24,14 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 - Optional `approvalId` on `devices.approve`, `channels.configure`, `channels.allowlist.update`, `channels.pairing.approve`, `channels.identities.upsert`, `memory.reset`, `backup.delete` and `passkeys.register.finish`: the same fresh-presence round trip `settings.set` already has (the first call fails `approval_required` with `details.approvalId`; retry with it once the device-only `policy_change` card is approved).
 - `AuditVerifyResult` gains optional `signedAnchors`, `anchorKeyIds` and `signingSinceSeq` (signed audit anchors, security §15.1).
 - No fake change: no contract interface changed.
+### v1 additive — 2026-10-19 (M3 VM mode, Gateway side: Task workspace, L1–L5)
+
+For S01 (the Gateway's `vm` runner and Task mode selection), S04 (tasks persist the workspace), S02 (`task.start` may name it), S11 (Settings → VM mode).
+
+- New `TaskWorkspace` (`sandbox | vm`). `Task.workspace` and `TaskCreateInput.workspace` are optional: absent means the owner's default.
+- `SandboxBackendKind` gains `vm`, the runner that executes in the sandbox Mac guest through its psyche-node. `@psyche/sandbox`'s `ContainerBackendKind` excludes it (one line).
+- `schemas/vm.ts`: `VM_SETTING_KEYS`, which name the admin-only settings `vm.enabled`, `vm.guestNodeId`, `vm.defaultWorkspace`, `vm.clipboard` and `vm.credentials`, plus `VmSettings` and `VmClipboardMode` for typing them.
+- `FakeTaskEngine` keeps `workspace`.
 
 ### v1 additive — 2026-10-19 (M2 computer use: per-app tier keys on the action)
 

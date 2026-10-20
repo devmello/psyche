@@ -3670,6 +3670,7 @@ export interface Task {
     threadId:      string;
     title:         string;
     updatedAt:     string;
+    workspace?:    TaskWorkspace;
 }
 
 export type TaskOrigin = "chat" | "automation" | "idea" | "goal" | "channel" | "subagent";
@@ -3689,6 +3690,8 @@ export interface PlanStep {
 export type PlanStepStatus = "pending" | "running" | "done" | "failed" | "skipped";
 
 export type TaskStatus = "queued" | "running" | "awaiting_input" | "awaiting_approval" | "paused" | "done" | "failed" | "cancelled";
+
+export type TaskWorkspace = "sandbox" | "vm";
 
 export interface TaskUpdatedPayload {
     task: Task;
@@ -4170,6 +4173,18 @@ export interface VMProgressEvent {
 }
 
 export type VMProgressEventType = "vm.download" | "vm.install" | "vm.state";
+
+export interface VMSettings {
+    clipboard:        VMClipboardMode;
+    credentials:      Credentials;
+    defaultWorkspace: TaskWorkspace;
+    enabled:          boolean;
+    guestNodeId?:     null | string;
+}
+
+export type VMClipboardMode = "paste-only" | "bidirectional" | "off";
+
+export type Credentials = "host" | "guest";
 
 export interface VMShareAddParams {
     name?:     string;

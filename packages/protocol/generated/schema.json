@@ -15079,6 +15079,9 @@
             }
           ]
         },
+        "workspace": {
+          "$ref": "#/$defs/TaskWorkspace"
+        },
         "summary": {
           "anyOf": [
             {
@@ -15417,6 +15420,13 @@
         "task"
       ],
       "type": "object"
+    },
+    "TaskWorkspace": {
+      "enum": [
+        "sandbox",
+        "vm"
+      ],
+      "type": "string"
     },
     "TasksActionsParams": {
       "properties": {
@@ -17182,6 +17192,14 @@
       ],
       "type": "object"
     },
+    "VmClipboardMode": {
+      "enum": [
+        "paste-only",
+        "bidirectional",
+        "off"
+      ],
+      "type": "string"
+    },
     "VmCreateParams": {
       "properties": {
         "name": {
@@ -17337,6 +17355,43 @@
       "required": [
         "type",
         "phase"
+      ],
+      "type": "object"
+    },
+    "VmSettings": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "guestNodeId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "defaultWorkspace": {
+          "$ref": "#/$defs/TaskWorkspace"
+        },
+        "clipboard": {
+          "$ref": "#/$defs/VmClipboardMode"
+        },
+        "credentials": {
+          "enum": [
+            "host",
+            "guest"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "enabled",
+        "defaultWorkspace",
+        "clipboard",
+        "credentials"
       ],
       "type": "object"
     },
