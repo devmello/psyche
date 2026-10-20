@@ -1,4 +1,11 @@
-import type { MacHelperStatus, ModelChoice, OnboardingResult, SetupCheck } from "@psyche/ui";
+import {
+  describeError,
+  type MacHelperStatus,
+  type ModelChoice,
+  type OnboardingResult,
+  type SetupCheck,
+  t,
+} from "@psyche/ui";
 import type { ShellPlatform } from "../shell/platform.ts";
 
 /**
@@ -27,7 +34,7 @@ export async function ensureVault(call: Call): Promise<{ recoveryKey?: string }>
   const { status } = (await call("vault.status", {})) as { status: { state: string } };
   if (status.state === "unlocked") return {};
   if (status.state === "locked") {
-    await call("vault.unlock", { reason: "Store your model provider key" }, ik("vault-unlock"));
+    await call("vault.unlock", { reason: t("web.setup.vaultReason") }, ik("vault-unlock"));
     return {};
   }
   // The Gateway has exactly one slot; another answers invalid_params without side effects.
@@ -85,46 +92,55 @@ export async function verifySetup(
   const status = await platform.gateway.getStatus();
   checks.push(
     status.phase === "paired"
-      ? { id: "gateway", label: "Gateway", state: "ok", detail: "Running on this Mac." }
+      ? {
+          id: "gateway",
+          label: t("web.setup.gateway"),
+          state: "ok",
+          detail: t("web.setup.gatewayOk"),
+        }
       : {
           id: "gateway",
-          label: "Gateway",
+          label: t("web.setup.gateway"),
           state: "warn",
-          detail: "Not reachable right now; this window reconnects on its own.",
+          detail: t("web.setup.gatewayWarn"),
         },
   );
   // Desktop: the first-admin bootstrap (main process) makes this Mac the admin device.
   if (platform.gateway.deviceId !== undefined && status.phase === "paired") {
     checks.push(
       status.scopes?.includes("operator.admin")
-        ? { id: "admin", label: "Admin", state: "ok", detail: "This Mac is the admin device." }
+        ? { id: "admin", label: t("web.setup.admin"), state: "ok", detail: t("web.setup.adminOk") }
         : {
             id: "admin",
-            label: "Admin",
+            label: t("web.setup.admin"),
             state: "warn",
-            detail:
-              "This window has no admin rights, so it cannot store keys or pick the model. Another admin device can grant them in Settings → Devices.",
+            detail: t("web.setup.adminWarn"),
           },
     );
   }
   if (helper !== undefined && helper.kind !== "unbundled") {
     checks.push(
       helper.kind === "paired"
-        ? { id: "helper", label: "Psyche Helper", state: "ok", detail: "Connected." }
+        ? {
+            id: "helper",
+            label: t("web.setup.helper"),
+            state: "ok",
+            detail: t("web.setup.helperOk"),
+          }
         : {
             id: "helper",
-            label: "Psyche Helper",
+            label: t("web.setup.helper"),
             state: "warn",
-            detail: "Not connected yet. Computer use and notifications wait for it.",
+            detail: t("web.setup.helperWarn"),
           },
     );
   }
   const ref = result.model.modelRef.trim();
   let modelCheck: SetupCheck = {
     id: "model",
-    label: "Model",
+    label: t("web.setup.model"),
     state: "warn",
-    detail: "None picked. Add one in Settings → Model & providers.",
+    detail: t("web.setup.modelNone"),
   };
   if (ref !== "" && status.phase === "paired") {
     try {
@@ -139,21 +155,26 @@ export async function verifySetup(
       const keyed = provider?.local === true || provider?.keyConfigured === true;
       modelCheck =
         after.roles.primary === ref && keyed
-          ? { id: "model", label: "Model", state: "ok", detail: `${ref}, key in the vault.` }
+          ? {
+              id: "model",
+              label: t("web.setup.model"),
+              state: "ok",
+              detail: t("web.setup.modelOk", { ref }),
+            }
           : {
               id: "model",
-              label: "Model",
+              label: t("web.setup.model"),
               state: "warn",
               detail: keyed
-                ? `${ref} is not bound yet.`
-                : `${ref} is set but its provider has no key yet.`,
+                ? t("web.setup.modelUnbound", { ref })
+                : t("web.setup.modelNoKey", { ref }),
             };
     } catch (err) {
       modelCheck = {
         id: "model",
-        label: "Model",
+        label: t("web.setup.model"),
         state: "warn",
-        detail: `Could not set ${ref} (${(err as Error).message}).`,
+        detail: t("web.setup.modelError", { ref, error: describeError(err) }),
       };
     }
   }
