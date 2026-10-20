@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S11 M2: threads.update, per-thread model context)
+
+For S11 (composer `/model` and `/plan`, the mode and model pills), the composition root (handler), S02 (`agent-core` passes the thread to the model), S03 (the router's per-thread pin).
+
+- New `threads.update` (`threadId`, optional `permissionMode`, optional `modelRef` or `null`; `operator.write`) → `ThreadResult`. `auto` is refused with `forbidden` unless the thread's model is on the auto-mode allowlist (security §7.2, architecture §4.4); picking a model that is not allowed drops an `auto` thread to `balanced`. The shell has called this method since M1 and treats `unknown_method` as unavailable.
+- New contract type `ModelCallOptions extends CallOptions` (`threadId?`, `runId?`); `ModelProvider.stream` takes it, so the router can apply a thread's `/model` pin and attribute usage. Providers that ignore the fields need no change. `FakeModelProvider` records them in `callContexts`.
+
 ### v1 additive — 2026-10-19 (S17 M2: voice memos, speech.voices)
 
 For S17 (`packages/speech`), S01 (Gateway routing), S11/S12 (composer memo button, persona voice picker), S10 (channel voice notes).
