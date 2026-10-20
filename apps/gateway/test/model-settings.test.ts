@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway, type ModelSetup } from "../src/compose/index.ts";
 import { modelSetupFromEnv } from "../src/compose/models.ts";
 import { silentLogger } from "../src/log.ts";
-import { desktopClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
+import { adminClient, desktopClient, ik, newDeviceKey, type TestClient } from "./helpers.ts";
 
 /** Recorded listing answers for the local servers (no network, no model process). */
 const LISTINGS: Record<string, unknown> = {
@@ -75,7 +75,7 @@ async function compose(model: ModelSetup = ROUTER): Promise<ComposedGateway> {
 }
 
 async function client(gw: ComposedGateway): Promise<TestClient> {
-  const c = await desktopClient(gw.gateway);
+  const c = await adminClient(gw.gateway);
   clients.push(c);
   return c;
 }

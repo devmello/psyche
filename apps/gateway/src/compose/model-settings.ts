@@ -123,7 +123,11 @@ export function modelSettingsHandlers(setup: ModelSettingsSetup): Record<string,
 
   const summary = async (config: ProviderConfig): Promise<ModelProviderSummary> => {
     const probe: EndpointProbeResult = (await endpoints.get(config.id)) ?? NOT_PROBED;
-    const bound = Object.values(roles()).filter(
+    const chains = (["primary", "utility"] as const).flatMap((role) => {
+      const b = router?.role(role);
+      return b === undefined ? [] : [b.model, ...(b.fallbacks ?? [])];
+    });
+    const bound = [...Object.values(roles()), ...chains].filter(
       (ref): ref is ModelRef => ref !== undefined && parseModelRef(ref).provider === config.id,
     );
     const refs = new Set<ModelRef>([
