@@ -1231,7 +1231,7 @@ export interface PairingRequest {
     /**
      * Device requests: how the device connected
      */
-    transport?: Transport;
+    transport?: PairingRequestTransport;
 }
 
 export type PairingRequestKind = "device" | "channel-sender";
@@ -1241,7 +1241,7 @@ export type PairingStatus = "pending" | "approved" | "denied" | "expired";
 /**
  * Device requests: how the device connected
  */
-export type Transport = "ws" | "unix";
+export type PairingRequestTransport = "ws" | "unix";
 
 export interface ChannelsPairingDenyParams {
     channelId?: string;
@@ -2343,6 +2343,26 @@ export interface LogLine {
     ts:         string;
 }
 
+export interface MCPStatusResult {
+    launcher: Launcher;
+    servers:  MCPServerStatus[];
+}
+
+export type Launcher = "srt" | "container" | "none";
+
+export interface MCPServerStatus {
+    connected: boolean;
+    id:        string;
+    name:      string;
+    network:   boolean;
+    transport: MCPServerStatusTransport;
+    trust:     Trust;
+}
+
+export type MCPServerStatusTransport = "stdio" | "http";
+
+export type Trust = "bundled" | "verified" | "unknown";
+
 export interface MemoryClaimsConfirmParams {
     claimId: string;
 }
@@ -3305,6 +3325,7 @@ export interface SandboxStatusResult {
      */
     available: boolean;
     backend:   SandboxBackend;
+    egress?:   boolean;
     sandbox?:  SandboxInfo | null;
 }
 

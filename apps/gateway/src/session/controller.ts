@@ -28,6 +28,7 @@ import {
   type Requester,
   type Run,
   type RunStatus,
+  type TaintSource,
   type Thread,
 } from "@psyche/protocol";
 import type { GatewayContext } from "../context.ts";
@@ -58,6 +59,12 @@ export interface SendInput {
   provenance?: "owner" | "agent";
   /** The sending thread, for `agent` messages. */
   fromThreadId?: string;
+  /**
+   * Untrusted content inside `content` (forwarded or quoted third-party text in an owner's
+   * channel message, #275): the turn starts tainted with these sources. Not kept for queued
+   * follow-ups; channels send only to an idle thread.
+   */
+  taintSources?: TaintSource[];
 }
 
 type Emit = <E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string) => void;
@@ -149,6 +156,8 @@ function messageProvenance(requester: Requester | undefined): Provenance {
 export class SessionController {
   readonly #ctx: GatewayContext;
   readonly #active = new Map<string, ActiveTurn>();
+  /** Runs whose input carries untrusted content (#275), until their turn starts. */
+  readonly #inputTaint = new Map<string, TaintSource[]>();
   #stopping = false;
   /** Threads being deleted: no new turns, no queue drain. */
   readonly #closing = new Set<string>();
@@ -183,6 +192,7 @@ export class SessionController {
         input.provenance,
         quote,
       );
+      this.#noteTaint(run.id, input.taintSources);
       return { messageId, runId: run.id, queued: false };
     }
     const mode = input.mode ?? "followUp";
@@ -245,7 +255,13 @@ export class SessionController {
       input.provenance,
       quote,
     );
+    this.#noteTaint(run.id, input.taintSources);
     return { messageId, runId: run.id, queued: false };
+  }
+
+  /** Taint the input itself carries, picked up when the run's turn starts. */
+  #noteTaint(runId: string, sources: TaintSource[] | undefined): void {
+    if (sources !== undefined && sources.length > 0) this.#inputTaint.set(runId, sources);
   }
 
   /** The quoted message of a reply, which must belong to the same thread. */
@@ -567,6 +583,8 @@ export class SessionController {
     };
 
     try {
+      const inputTaint = this.#inputTaint.get(runId);
+      this.#inputTaint.delete(runId);
       const stream = agent.startTurn({
         threadId,
         runId,
@@ -580,6 +598,7 @@ export class SessionController {
         permissionMode: thread.permissionMode,
         signal: turn.abort.signal,
         ...(requester === undefined ? {} : { requester }),
+        ...(inputTaint === undefined ? {} : { taintSources: inputTaint }),
       });
       for await (const event of stream) {
         if (turn.detached || this.activeRunId(threadId) !== runId) {

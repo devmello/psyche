@@ -129,3 +129,36 @@ describe("deploy/sandbox-image/publish.sh --dry-run (what the release job runs b
     },
   );
 });
+
+describe("deploy/scripts/render-compose.mjs (the release's pinned Compose file, #296)", () => {
+  const script = resolve(deploy, "scripts/render-compose.mjs");
+  const digest = `sha256:${"a".repeat(64)}`;
+  const ref = `ghcr.io/devmello/psyche-gateway:1.2.3@${digest}`;
+
+  it("never defaults to an unpinned latest in the repository file", () => {
+    expect(read("docker-compose.yml")).not.toMatch(/psyche-gateway:latest/);
+    expect(read("docker-compose.yml")).toMatch(/image: \$\{PSYCHE_IMAGE:-psyche-gateway:local\}/);
+  });
+
+  it("defaults the gateway to the release image by digest and drops its build block", () => {
+    const r = spawnSync(process.execPath, [script, resolve(deploy, "docker-compose.yml"), ref], {
+      encoding: "utf8",
+    });
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toContain(`image: \${PSYCHE_IMAGE:-${ref}}`);
+    expect(r.stdout).not.toMatch(/^\s+build:/m);
+    expect(r.stdout).not.toContain("psyche-gateway:local");
+  });
+
+  it("refuses a reference that is not pinned by digest", () => {
+    const r = spawnSync(
+      process.execPath,
+      [script, resolve(deploy, "docker-compose.yml"), "ghcr.io/x/y:latest"],
+      {
+        encoding: "utf8",
+      },
+    );
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("pinned by digest");
+  });
+});
