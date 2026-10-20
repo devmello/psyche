@@ -1,24 +1,31 @@
 # tests/acceptance
 
-**Owner:** INT-3. Milestone 1 acceptance (prompts/int-3-acceptance.md): the checks behind [SCORECARD.md](SCORECARD.md). Criteria: docs/03-feature-spec.md "Cross-cutting acceptance criteria" and section V; docs/08-roadmap.md Milestone 1. Scenarios and fixtures belong to S18 (tests/scenarios); this package automates them.
+**Owner:** INT-3. Milestone 1 to 3 acceptance (prompts/int-3-acceptance.md): the checks behind [SCORECARD.md](SCORECARD.md). Criteria: docs/03-feature-spec.md "Cross-cutting acceptance criteria" and section V; docs/08-roadmap.md Milestones 1 to 3. Scenarios and fixtures belong to S18 (tests/scenarios); this package automates them.
 
 ```
-offline/   scenarios.test.ts     V1, V2, V7 through S18's scripted runner; known failures stay tracked by issue
+offline/   scenarios.test.ts     V1, V2, V3, V4, V7 through S18's scripted runner; known failures stay tracked by issue
            scenarios-m2.test.ts  V5, V6, V8, V9 (scenarios-m2/) through the same runner, plus fake-side checks
            scenarios-m2-format.test.ts  the M2 scenario files pass S18's validator
+           scenarios-m3.test.ts  V10 (scenarios-m3/) with the real coding tools over a fixture repository
            injection.test.ts     the injection corpus in balanced, manual and auto on the reference and INT-2 stacks
-           resumability.test.ts  the happy paths killed at seeded random points on the real stack (25 for V1, V2, V7; 16 for M2)
+           resumability.test.ts  the happy paths killed at seeded random points on the real stack (25 for V1, V2, V7; 28 for V3 to V10)
 scenarios-m2/                    the Milestone 2 scenarios in S18's format (README there: provisional tools, decisions, findings)
+scenarios-m3/                    the Milestone 3 scenarios (V10)
 perf/      budgets.test.ts       Gateway boot and first delta, browser snapshot, memory search (scripted provider)
+           process.perf.test.ts  S22's opt-in psyched startup numbers (PSYCHE_PERF_TESTS=1)
 a11y/      main-flows.test.tsx   axe-core, keyboard operation and reduced motion over the kit's main-flow screens (jsdom)
 live/      driver.ts             live-mode driver over S18's scenario Stack: real model, same fakes and clock
            driver.test.ts        the driver's plumbing, checked in CI with the scripted provider
            scenarios.live.test.ts  the live gates (PSYCHE_LIVE_TESTS=1)
+           setup.ts              the scenario list (V1 to V10) and each one's fakes, placeholders and extra checks
+           answers.ts            owner answers to `ask_user` questions and the one follow-up per step
            tool-specs.ts         descriptions and schemas a live model needs for the scenario tools
 src/       scenario-scripts.ts   scenario.json → resumability scripts, tools and policy
            m2-world.ts           the M2 scenarios' fakes and built-in services (StackOverrides.impls / .services)
+           m3-world.ts           V10's world: fixture repo and bare remote, real coding tools, sandbox fake
            report.ts             out/acceptance/*.json writers
-scripts/   offline.ts            the whole offline pass with capture on + secret-leak check + SCORECARD.md
+scripts/   offline.ts            the whole offline pass with capture on (this package, plus the T2 skills scenario,
+                                 the M2 injection stack and VM mode from their owners) + secret-leak check + SCORECARD.md
            make-m2-fixtures.ts   rebuilds V5's fillable PDF and its hashes in the mailbox fixture
 ```
 
@@ -27,13 +34,14 @@ scripts/   offline.ts            the whole offline pass with capture on + secret
 ```bash
 pnpm --filter @psyche/acceptance-tests test        # everything CI runs (also part of `pnpm -r test`)
 pnpm --filter @psyche/acceptance-tests offline     # same, with captures + `check:secrets`, then rewrites SCORECARD.md
+pnpm --filter @psyche/acceptance-tests offline -- --max-workers 1   # one test worker (a loaded machine)
 ```
 
 Results land in `out/acceptance/*.json` (git-ignored). The scorecard is regenerated from them; commit it with the run it describes.
 
 ## Live gates
 
-One model per invocation; the scorecard wants one hosted Anthropic model, one hosted OpenAI model and one local `agent-capable` model, three runs each (`PSYCHE_LIVE_REPEATS`, default 3). The default scenario list is all eight: V1, V2, V3 and V7 from tests/scenarios, and V5, V6, V8 and V9 from `scenarios-m2/` with their fakes. Run them one at a time with `PSYCHE_LIVE_SCENARIOS=<id>` to keep partial results.
+One model per invocation; the scorecard wants one hosted Anthropic model, one hosted OpenAI model and one local `agent-capable` model, three runs each (`PSYCHE_LIVE_REPEATS`, default 3). The default scenario list is all ten: V1, V2, V3, V4 and V7 from tests/scenarios, V5, V6, V8 and V9 from `scenarios-m2/` with their fakes, and V10 from `scenarios-m3/` (`live/setup.ts`). Run them one at a time with `PSYCHE_LIVE_SCENARIOS=<id>` to keep partial results.
 
 Before the first run the suite sends the provider one tiny request. A refused key or an unreachable model fails there with the provider's reason (credentials redacted), and the reason is recorded in the model's report so the scorecard can say why nothing ran.
 
@@ -53,7 +61,8 @@ pnpm --filter @psyche/acceptance-tests offline -- --scorecard-only   # fold the 
 | `PSYCHE_OLLAMA_URL` | a non-default Ollama (default `http://127.0.0.1:11434`) |
 | `PSYCHE_UTILITY_MODEL` | utility model ref (default: the primary) |
 | `PSYCHE_LIVE_REPEATS` | runs per scenario (default 3) |
-| `PSYCHE_LIVE_SCENARIOS` | comma-separated scenario ids (default all eight) |
+| `PSYCHE_LIVE_SCENARIOS` | comma-separated scenario ids (default all ten) |
+| `PSYCHE_LIVE_WORKAROUNDS` | issue numbers of open product defects the harness may work around (`414`: `code.git`'s schema flattened for V10). Off by default; a run that uses one is labelled in the report and on the scorecard, and is not the product as shipped |
 
 Each run writes `out/acceptance/live-<provider>-<model>.json` with the hard and soft results, the steps and every tool call. Hard assertions (security, correctness) fail the run; soft ones (quality) are counted.
 
@@ -71,6 +80,8 @@ The driver (`live/driver.ts`) uses S18's `Stack` (real agent loop, Permission Br
 - after `restart_gateway` the parked call is replayed from the driver's records (security §3.7), not asked of the model again, so the re-issued card is the one it waits on;
 - the scenario tools get real descriptions and schemas (`live/tool-specs.ts`) and the first owner message carries the session context (owner, zone, clock, connected accounts);
 - an `isolated` automation (what the `schedule` built-in creates) runs on its own thread, as in psyched;
+- a model that asks in prose instead of with `ask_user`, while the step's expected card is still missing, gets one owner follow-up from `live/answers.ts` (`LIVE_FOLLOW_UPS`), saying what the scenario's owner message and fixtures already imply; the report lists every follow-up sent;
+- a scenario's extra hard checks (`live/setup.ts`; V10: the remote's main is the commit the approved card named, nothing ran outside the mounted repository) join the run's assertions as `extra/*`;
 - the report records every card (id, kind, tool, summary, scopes, status, re-issue link, details without message bodies), every answer (step, sibling, policy or stale, with the broker's verdict) and every question with the answer given, each run's outcome and error, and the loop's reason for every call that did not succeed, so a failed run is triaged from `out/acceptance/live-<model>.json` alone. Partial runs (`PSYCHE_LIVE_SCENARIOS`) replace their scenarios' rows in that file and keep the rest.
 
 ## What is stubbed or not covered here
