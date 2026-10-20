@@ -534,6 +534,14 @@
 //   let viewPaneState = try? JSONDecoder().decode(ViewPaneState.self, from: jsonData)
 //   let viewPlacement = try? JSONDecoder().decode(ViewPlacement.self, from: jsonData)
 //   let viewReportParams = try? JSONDecoder().decode(ViewReportParams.self, from: jsonData)
+//   let vMCreateParams = try? JSONDecoder().decode(VMCreateParams.self, from: jsonData)
+//   let vMGuest = try? JSONDecoder().decode(VMGuest.self, from: jsonData)
+//   let vMPhase = try? JSONDecoder().decode(VMPhase.self, from: jsonData)
+//   let vMProgressEvent = try? JSONDecoder().decode(VMProgressEvent.self, from: jsonData)
+//   let vMShare = try? JSONDecoder().decode(VMShare.self, from: jsonData)
+//   let vMShareAddParams = try? JSONDecoder().decode(VMShareAddParams.self, from: jsonData)
+//   let vMStatus = try? JSONDecoder().decode(VMStatus.self, from: jsonData)
+//   let vMUpdatedPayload = try? JSONDecoder().decode(VMUpdatedPayload.self, from: jsonData)
 //   let voiceCancelParams = try? JSONDecoder().decode(VoiceCancelParams.self, from: jsonData)
 //   let voiceEndReason = try? JSONDecoder().decode(VoiceEndReason.self, from: jsonData)
 //   let voiceEndedPayload = try? JSONDecoder().decode(VoiceEndedPayload.self, from: jsonData)
@@ -10914,6 +10922,230 @@ public struct ViewReportParams: Codable, Sendable {
 
     public init(layout: ViewLayout) {
         self.layout = layout
+    }
+}
+
+// MARK: - VMCreateParams
+public struct VMCreateParams: Codable, Sendable {
+    public let cpus: Int?
+    public let diskGB: Int?
+    public let download: Bool?
+    /// Absolute path to a local IPSW
+    public let ipsw: String?
+    public let memoryGB: Int?
+    public let name: String?
+    public let username: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case cpus = "cpus"
+        case diskGB = "diskGB"
+        case download = "download"
+        case ipsw = "ipsw"
+        case memoryGB = "memoryGB"
+        case name = "name"
+        case username = "username"
+    }
+
+    public init(cpus: Int?, diskGB: Int?, download: Bool?, ipsw: String?, memoryGB: Int?, name: String?, username: String?) {
+        self.cpus = cpus
+        self.diskGB = diskGB
+        self.download = download
+        self.ipsw = ipsw
+        self.memoryGB = memoryGB
+        self.name = name
+        self.username = username
+    }
+}
+
+// MARK: - VMProgressEvent
+public struct VMProgressEvent: Codable, Sendable {
+    public let fraction: Double?
+    /// started | progress | finished, or a VmPhase for vm.state
+    public let phase: String
+    public let type: VMProgressEventType
+    public let version: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case fraction = "fraction"
+        case phase = "phase"
+        case type = "type"
+        case version = "version"
+    }
+
+    public init(fraction: Double?, phase: String, type: VMProgressEventType, version: String?) {
+        self.fraction = fraction
+        self.phase = phase
+        self.type = type
+        self.version = version
+    }
+}
+
+public enum VMProgressEventType: String, Codable, Sendable {
+    case vmDownload = "vm.download"
+    case vmInstall = "vm.install"
+    case vmState = "vm.state"
+}
+
+// MARK: - VMShareAddParams
+public struct VMShareAddParams: Codable, Sendable {
+    public let name: String?
+    public let path: String
+    public let readOnly: Bool?
+    public let share: String
+
+    public enum CodingKeys: String, CodingKey {
+        case name = "name"
+        case path = "path"
+        case readOnly = "readOnly"
+        case share = "share"
+    }
+
+    public init(name: String?, path: String, readOnly: Bool?, share: String) {
+        self.name = name
+        self.path = path
+        self.readOnly = readOnly
+        self.share = share
+    }
+}
+
+// MARK: - VMStatus
+public struct VMStatus: Codable, Sendable {
+    public let active: Int
+    public let guests: [VMGuest]
+    public let maxActive: Int
+    /// Unattended setup (macOS 27 host and guest)
+    public let supportsGuestProvisioning: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case active = "active"
+        case guests = "guests"
+        case maxActive = "maxActive"
+        case supportsGuestProvisioning = "supportsGuestProvisioning"
+    }
+
+    public init(active: Int, guests: [VMGuest], maxActive: Int, supportsGuestProvisioning: Bool) {
+        self.active = active
+        self.guests = guests
+        self.maxActive = maxActive
+        self.supportsGuestProvisioning = supportsGuestProvisioning
+    }
+}
+
+// MARK: - VMGuest
+public struct VMGuest: Codable, Sendable {
+    public let cpus: Int
+    public let diskGB: Int
+    public let guestOS: String?
+    /// Machine reason of the last failure
+    public let lastError: String?
+    public let memoryGB: Int
+    public let name: String
+    public let phase: VMPhase
+    /// First (provisioning) boot completed
+    public let provisioned: Bool
+    public let shares: [VMShare]
+    public let username: String
+    public let vsock: Vsock
+
+    public enum CodingKeys: String, CodingKey {
+        case cpus = "cpus"
+        case diskGB = "diskGB"
+        case guestOS = "guestOS"
+        case lastError = "lastError"
+        case memoryGB = "memoryGB"
+        case name = "name"
+        case phase = "phase"
+        case provisioned = "provisioned"
+        case shares = "shares"
+        case username = "username"
+        case vsock = "vsock"
+    }
+
+    public init(cpus: Int, diskGB: Int, guestOS: String?, lastError: String?, memoryGB: Int, name: String, phase: VMPhase, provisioned: Bool, shares: [VMShare], username: String, vsock: Vsock) {
+        self.cpus = cpus
+        self.diskGB = diskGB
+        self.guestOS = guestOS
+        self.lastError = lastError
+        self.memoryGB = memoryGB
+        self.name = name
+        self.phase = phase
+        self.provisioned = provisioned
+        self.shares = shares
+        self.username = username
+        self.vsock = vsock
+    }
+}
+
+public enum VMPhase: String, Codable, Sendable {
+    case created = "created"
+    case failed = "failed"
+    case installed = "installed"
+    case installing = "installing"
+    case provisioning = "provisioning"
+    case running = "running"
+    case starting = "starting"
+    case stopped = "stopped"
+    case stopping = "stopping"
+}
+
+// MARK: - VMShare
+public struct VMShare: Codable, Sendable {
+    /// e.g. /Volumes/Psyche Shares/<name>
+    public let guestPath: String
+    /// Absolute host folder (symlinks resolved)
+    public let hostPath: String
+    public let name: String
+    public let readOnly: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case guestPath = "guestPath"
+        case hostPath = "hostPath"
+        case name = "name"
+        case readOnly = "readOnly"
+    }
+
+    public init(guestPath: String, hostPath: String, name: String, readOnly: Bool) {
+        self.guestPath = guestPath
+        self.hostPath = hostPath
+        self.name = name
+        self.readOnly = readOnly
+    }
+}
+
+// MARK: - Vsock
+public struct Vsock: Codable, Sendable {
+    /// Guest psyche-node → host Gateway node socket
+    public let gatewayNodePort: Int
+    /// 2: the host as seen from the guest
+    public let hostCid: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case gatewayNodePort = "gatewayNodePort"
+        case hostCid = "hostCid"
+    }
+
+    public init(gatewayNodePort: Int, hostCid: Int) {
+        self.gatewayNodePort = gatewayNodePort
+        self.hostCid = hostCid
+    }
+}
+
+// MARK: - VMUpdatedPayload
+public struct VMUpdatedPayload: Codable, Sendable {
+    public let at: String
+    public let guest: VMGuest
+    public let nodeID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case guest = "guest"
+        case nodeID = "nodeId"
+    }
+
+    public init(at: String, guest: VMGuest, nodeID: String) {
+        self.at = at
+        self.guest = guest
+        self.nodeID = nodeID
     }
 }
 

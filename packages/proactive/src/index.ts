@@ -133,3 +133,10 @@ export {
   withProactiveJobs,
 } from "./jobs.ts";
 export type { SqliteDatabase, SqliteStatement } from "./sqlite.ts";
+export {
+  feedTools,
+  goalTools,
+  ideaTools,
+  type ProactiveToolsOptions,
+  proactiveTools,
+} from "./tools/index.ts";

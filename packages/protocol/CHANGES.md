@@ -21,6 +21,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 ### v1 additive — 2026-10-19 (S05 M2: fresh presence on security settings)
 
 For S05 (the Gateway's `settings.set`) and S11 (Settings). `settings.set` gains optional `approvalId`. Once the Gateway has a presence verifier (helper Touch ID, passkeys), a security key (security §10: `permissions.*`, `exec.*`, `vault.*`, `devices.*`, `gateway.*`, `identityLinks.*`, `commands.ownerAllowFrom`, the channel DM / allow policies) fails `approval_required` with `details.approvalId`: a device-only `policy_change` card bound to the key and the value's hash, which needs a presence assertion to approve. The client retries with that `approvalId`; the approval covers that one value, once.
+### v1 additive — 2026-10-19 (S14 M3: VM mode shapes)
+
+For S14 (the mac helper's `vm.*` node capabilities), S11 (Settings → Devices → "Create a sandbox Mac"), S01 (re-broadcasting guest changes).
+
+- New schemas in `schemas/vm.ts` (features L1–L5; spike 06): `VmPhase`, `VmShare`, `VmGuest`, `VmStatus` (the `vm.status` result), `VmCreateParams`, `VmShareAddParams`, `VmProgressEvent` (streamed by `vm.create` / `vm.start`) and `VmUpdatedPayload`.
+- New event `vm.updated` (`{nodeId, guest, at}`) for the Gateway to broadcast when a helper reports a guest change.
+- No new methods: clients call the helper's `vm.*` capabilities through `nodes.invoke`, so the Permission Broker gates them like any node write; read-write shares need an `approvalId`.
 
 ### v1 additive — 2026-10-20 (S11 M2: thread list rows)
 

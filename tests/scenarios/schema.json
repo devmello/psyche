@@ -163,7 +163,9 @@
         "calendar.update",
         "calendar.delete",
         "file.write",
-        "exec"
+        "exec",
+        "shop.cart",
+        "purchase.handoff"
       ]
     },
     "approvalKind": {
