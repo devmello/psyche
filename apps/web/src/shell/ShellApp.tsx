@@ -343,7 +343,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     { id: "tasks", label: "Open tasks pane", run: () => dispatch({ type: "open", pane: "tasks" }) },
     { id: "model", label: "/model", run: () => setOverlay("model") },
     { id: "mode", label: "Switch permission mode", run: cycleMode },
-    { id: "settings", label: "Settings", run: () => navigate("/settings/general") },
+    { id: "settings", label: "Settings", run: () => navigate("/settings/model") },
     { id: "shortcuts", label: "Keyboard shortcuts", run: () => setOverlay("shortcuts") },
   ];
 
