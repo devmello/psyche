@@ -381,6 +381,13 @@ function stripRuntime(node) {
   run("codesign", ["--force", "--sign", "-", node]);
 }
 
+// Node's compile cache (V8 code and stripped TypeScript) saves ≈ 150 ms of every start. It lives
+// in the per-user cache, outside the signed bundle, and only when HOME is known (launchd sets it).
+const COMPILE_CACHE = `if [ -z "\${NODE_COMPILE_CACHE:-}" ] && [ -n "\${HOME:-}" ]; then
+  NODE_COMPILE_CACHE="$HOME/Library/Caches/com.psyche.gateway/node-compile-cache"
+  export NODE_COMPILE_CACHE
+fi`;
+
 // Both launchers find the bundle through any symlinks to them (`/usr/local/bin/psyche`).
 const RESOLVE_HERE = `self=$0
 case $self in */*) ;; *) self=./$self ;; esac
@@ -392,13 +399,16 @@ here=\${self%/*}`;
 
 export const PSYCHED_LAUNCHER = `#!/bin/sh
 # Psyche Gateway (psyched) from Psyche.app. Needs only PSYCHE_HOME; no Node, PATH or checkout.
+# A 4 MB young generation keeps an idle Gateway near 200 MB instead of ≈ 330 MB.
 ${RESOLVE_HERE}
-exec "$here/runtime/node" --disable-warning=ExperimentalWarning "$here/app/apps/gateway/src/main.ts" "$@"
+${COMPILE_CACHE}
+exec "$here/runtime/node" --max-semi-space-size=4 --disable-warning=ExperimentalWarning "$here/app/apps/gateway/src/main.ts" "$@"
 `;
 
 export const PSYCHE_LAUNCHER = `#!/bin/sh
 # The psyche CLI from Psyche.app, on the same runtime as psyched.
 ${RESOLVE_HERE}
+${COMPILE_CACHE}
 exec "$here/runtime/node" --disable-warning=ExperimentalWarning "$here/app/apps/cli/src/main.ts" "$@"
 `;
 

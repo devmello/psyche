@@ -2,13 +2,13 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type DriverProfile, PsycheError } from "@psyche/protocol";
-import {
-  type Browser,
-  type BrowserContext,
-  type CDPSession,
-  chromium,
-  type Dialog,
-  type Page,
+import type {
+  Browser,
+  BrowserContext,
+  BrowserType,
+  CDPSession,
+  Dialog,
+  Page,
 } from "playwright-core";
 import { checkCdpCommand } from "../bridge/allowlist.ts";
 import type { CdpTarget } from "../cdp/page.ts";
@@ -17,6 +17,12 @@ import type { TabPartition } from "../origin/partition.ts";
 import { listProfileNames, profileDir, psycheHome } from "../profiles.ts";
 import type { OpenSessionOptions } from "../types.ts";
 import { DriverBase, type DriverDeps, newId, type SessionState, type TabState } from "./base.ts";
+
+/**
+ * playwright-core is loaded when a session first needs Chromium, not when the Gateway boots: it
+ * was ≈ 75 ms of every start, browser on or off (docs/status/v1-perf.md).
+ */
+const chromium = async (): Promise<BrowserType> => (await import("playwright-core")).chromium;
 
 /**
  * Playwright driver (ADR-007 modes): `launchPersistentContext` on
@@ -112,7 +118,7 @@ export class PlaywrightDriver extends DriverBase {
   }
 
   #launchOptions() {
-    const o: Parameters<typeof chromium.launch>[0] = {
+    const o: Parameters<BrowserType["launch"]>[0] = {
       headless: this.#o.headless ?? true,
       // Honest UA, no automation flags beyond Playwright's defaults; never a debugging port.
       args: ["--disable-features=Translate,MediaRouter", "--no-first-run"],
@@ -126,8 +132,8 @@ export class PlaywrightDriver extends DriverBase {
     if (this.#browser !== undefined) return this.#browser;
     this.#browser =
       this.#o.mode === "connect"
-        ? await chromium.connectOverCDP(this.#endpoint(), { timeout: 15_000 })
-        : await chromium.launch(this.#launchOptions());
+        ? await (await chromium()).connectOverCDP(this.#endpoint(), { timeout: 15_000 })
+        : await (await chromium()).launch(this.#launchOptions());
     if (this.#o.mode === "connect" && (this.#o.downloads ?? "deny") === "deny") {
       // A click that starts a download is cancelled by Chrome itself. This browser-level
       // session belongs to the driver; the model's page sessions cannot reach `Browser.*`.
@@ -182,7 +188,7 @@ export class PlaywrightDriver extends DriverBase {
         entry = shared;
       } else {
         const dir = await profileDir(name, this.#o.psycheHome ?? psycheHome());
-        const context = await chromium.launchPersistentContext(dir, {
+        const context = await (await chromium()).launchPersistentContext(dir, {
           ...this.#launchOptions(),
           viewport,
           acceptDownloads: true,

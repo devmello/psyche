@@ -12,18 +12,18 @@ import {
 } from "@psyche/db";
 import type { PresenceAssertion, PresenceVerifier } from "@psyche/permissions";
 import { type PasskeyInfo, PsycheError } from "@psyche/protocol";
-import {
-  type AuthenticationResponseJSON,
-  generateAuthenticationOptions,
-  generateRegistrationOptions,
-  type RegistrationResponseJSON,
-  verifyAuthenticationResponse,
-  verifyRegistrationResponse,
-} from "@simplewebauthn/server";
+import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
 import type { Call, HandlerDef } from "../context.ts";
 import { requireFreshPresence } from "../presence-gate.ts";
 import { RateLimiter } from "../rate-limit.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
+
+/**
+ * Loaded on the first passkey call (server mode only): with its ASN.1 and COSE dependencies it was
+ * ≈ 45 ms of every Gateway start (docs/status/v1-perf.md).
+ */
+const webauthn = () => import("@simplewebauthn/server");
+type WebAuthn = Awaited<ReturnType<typeof webauthn>>;
 
 /**
  * WebAuthn passkeys for the server-mode web client (security §10, issue #79). A passkey belongs to
@@ -171,7 +171,7 @@ export class PasskeyService {
         `a device can have at most ${MAX_PASSKEYS_PER_DEVICE} passkeys`,
       );
     }
-    const options = await generateRegistrationOptions({
+    const options = await (await webauthn()).generateRegistrationOptions({
       rpName: this.#rpName,
       rpID,
       userName: device.name || deviceId,
@@ -215,9 +215,9 @@ export class PasskeyService {
         `a device can have at most ${MAX_PASSKEYS_PER_DEVICE} passkeys`,
       );
     }
-    let verified: Awaited<ReturnType<typeof verifyRegistrationResponse>>;
+    let verified: Awaited<ReturnType<WebAuthn["verifyRegistrationResponse"]>>;
     try {
-      verified = await verifyRegistrationResponse({
+      verified = await (await webauthn()).verifyRegistrationResponse({
         response: input.response as RegistrationResponseJSON,
         expectedChallenge: ceremony.challenge,
         expectedOrigin: origin,
@@ -251,7 +251,7 @@ export class PasskeyService {
     const { rpID } = this.#require();
     const existing = listPasskeys(this.#db, deviceId);
     if (existing.length === 0) throw new PsycheError("not_found", "this device has no passkey");
-    const options = await generateAuthenticationOptions({
+    const options = await (await webauthn()).generateAuthenticationOptions({
       rpID,
       allowCredentials: existing.map((p) => ({ id: p.credentialId, transports: p.transports })),
       userVerification: "required",
@@ -288,7 +288,7 @@ export class PasskeyService {
     const device = getDevice(this.#db, deviceId);
     if (!device || device.revokedAt || !device.pairedAt) return false;
     try {
-      const result = await verifyAuthenticationResponse({
+      const result = await (await webauthn()).verifyAuthenticationResponse({
         response,
         expectedChallenge,
         expectedOrigin: origin,
