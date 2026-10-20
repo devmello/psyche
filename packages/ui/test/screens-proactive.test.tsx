@@ -180,11 +180,16 @@ describe("IdeasScreen", () => {
     expect(within(card).getByText(/Because:/)).toBeTruthy();
     expect(within(card).getByText(/~10 min · needs 1 approval/)).toBeTruthy();
     await user.click(within(card).getByRole("checkbox", { name: "Make recurring" }));
+    // The toggle names its cadence; a recurring task needs a schedule.
+    const cadence = within(card).getByRole("combobox", { name: "Cadence" });
+    expect((cadence as HTMLSelectElement).value).toBe("monthly");
+    await user.selectOptions(cadence, "weekly");
     await user.click(within(card).getByRole("button", { name: "Let's do it" }));
     await waitFor(() => expect(callsTo("ideas.accept")).toHaveLength(1));
     expect(callsTo("ideas.accept")[0]?.params).toEqual({
       ideaId: IDS.ideas.subscription,
       recurring: true,
+      schedule: "0 9 * * 1",
     });
     await waitFor(() =>
       expect(screen.queryByRole("article", { name: /streaming subscription/ })).toBeNull(),
@@ -216,7 +221,9 @@ describe("IdeasScreen", () => {
     const card = screen.getByRole("article", { name: "Friday afternoon week review" });
     await user.click(within(card).getByRole("button", { name: "Edit" }));
     expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ id: IDS.ideas.automation }));
-    // Skill drafts have no recurring toggle.
+    // Automation ideas already recur, and skill drafts never do: neither has the toggle.
+    expect(within(card).queryByRole("checkbox")).toBeNull();
+    expect(within(card).getByText(/Repeats on the schedule it proposes/)).toBeTruthy();
     const skill = screen.getByRole("article", { name: /Weekly expense export/ });
     expect(within(skill).queryByRole("checkbox")).toBeNull();
   });

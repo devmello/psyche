@@ -35,8 +35,10 @@
     "@psyche/permissions": "workspace:*",
     "@psyche/proactive": "workspace:*",
     "@psyche/protocol": "workspace:*",
+    "@psyche/sandbox": "workspace:*",
     "@psyche/scheduler": "workspace:*",
     "@psyche/tasks": "workspace:*",
+    "@psyche/vault": "workspace:*",
     "@sinclair/typebox": "0.34.52",
     "ulid": "3.0.2",
     "ws": "8.22.0"

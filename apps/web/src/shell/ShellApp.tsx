@@ -79,8 +79,24 @@ function isTextTarget(t: EventTarget | null): boolean {
  * shell's built-in views.
  */
 export interface ShellSlots {
-  chat?: (threadId: string) => ReactNode;
+  chat?: (threadId: string, ctx: ChatSlotContext) => ReactNode;
   section?: (route: string, navigate: (to: string) => void) => ReactNode | null;
+  /** The left rail, or the bottom tab bar when `compact` (docs/06 §2.1, §3.24). */
+  rail?: (props: { route: string; compact: boolean; navigate: (to: string) => void }) => ReactNode;
+  /** The thread list beside the chat (§2.2); its first child is a 56 px `.threads-header`. */
+  threadList?: (props: {
+    threadId: string | null;
+    onOpen: (threadId: string) => void;
+    onNew: () => void;
+  }) => ReactNode;
+}
+
+/** What the chat slot needs from the shell to drive the agent header (§3.1). */
+export interface ChatSlotContext {
+  thread: Thread | null;
+  navigate: (to: string) => void;
+  setPermissionMode: (mode: Thread["permissionMode"]) => void;
+  openModelPicker: () => void;
 }
 
 export function ShellApp({
@@ -213,19 +229,27 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       .catch(() => store.toast("Psyche couldn't create a side chat.", "error"));
   }, [store, navigate]);
 
+  const setPermissionMode = useCallback(
+    (permissionMode: Thread["permissionMode"]) => {
+      if (!thread) return;
+      void store
+        .call("threads.update", { threadId: thread.id, permissionMode })
+        .then((r) => {
+          if (r === undefined)
+            store.toast("Changing the permission mode needs a newer Gateway.", "warn");
+          else void store.refresh();
+        })
+        .catch(() => store.toast("Changing the permission mode needs a newer Gateway.", "warn"));
+    },
+    [thread, store],
+  );
+
   const cycleMode = useCallback(() => {
     if (!thread) return;
     const i = PERMISSION_MODES.indexOf(thread.permissionMode);
     const next = PERMISSION_MODES[(i + 1) % PERMISSION_MODES.length];
-    void store
-      .call("threads.update", { threadId: thread.id, permissionMode: next })
-      .then((r) => {
-        if (r === undefined)
-          store.toast("Changing the permission mode needs a newer Gateway.", "warn");
-        else void store.refresh();
-      })
-      .catch(() => store.toast("Changing the permission mode needs a newer Gateway.", "warn"));
-  }, [thread, store]);
+    if (next) setPermissionMode(next);
+  }, [thread, setPermissionMode]);
 
   useEffect(
     () =>
@@ -381,18 +405,35 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
     <div className="app-frame" data-testid="app-frame">
       <TitleBar chrome={platform.chrome}>
         <span className="title">{barTitle}</span>
-        <span data-no-drag="">
-          <GatewayPill status={status} />
-        </span>
+        {/* Connected is the quiet default; only other states earn a chip (docs/06 §3.0). */}
+        {status.phase === "paired" ? null : (
+          <span data-no-drag="">
+            <GatewayPill status={status} />
+          </span>
+        )}
       </TitleBar>
       <div className="shell" data-compact={compact} data-testid="shell">
-        <Rail
-          route={route}
-          compact={compact}
-          onNavigate={navigate}
-          {...(inset ? {} : { footer: <GatewayPill status={status} /> })}
-        />
-        {onChat && !compact ? (
+        {slots.rail ? (
+          <div className="rail-slot" data-testid="rail">
+            {slots.rail({ route, compact, navigate })}
+          </div>
+        ) : (
+          <Rail
+            route={route}
+            compact={compact}
+            onNavigate={navigate}
+            {...(inset ? {} : { footer: <GatewayPill status={status} /> })}
+          />
+        )}
+        {onChat && !compact && slots.threadList ? (
+          <div className="threads-slot" hidden={listHidden} data-testid="thread-list">
+            {slots.threadList({
+              threadId,
+              onOpen: (id) => navigate(`/chat/${id}`),
+              onNew: newSideChat,
+            })}
+          </div>
+        ) : onChat && !compact ? (
           <ThreadList
             hidden={listHidden}
             currentThreadId={threadId}
@@ -405,7 +446,12 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
         <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
           <OfflineBanner status={status} />
           {onChat && slots.chat && threadId ? (
-            slots.chat(threadId)
+            slots.chat(threadId, {
+              thread,
+              navigate,
+              setPermissionMode,
+              openModelPicker: () => setOverlay("model"),
+            })
           ) : onChat ? (
             <ChatView
               thread={thread}

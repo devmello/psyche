@@ -9,7 +9,9 @@ import {
   type Page,
   test,
 } from "@playwright/test";
+import { MockGateway as KitGateway } from "@psyche/ui/testing";
 import { MockGateway } from "@psyche/web/testing";
+import { createFixtureWorld } from "../../../packages/ui/src/fixtures/index.ts";
 
 /**
  * Window layout (docs/06 §3.1, §3.19, §4.1) in the packaged desktop app and the web client:
@@ -121,8 +123,42 @@ let app: ElectronApplication;
 let page: Page;
 let onboarded = false;
 
+/**
+ * The rail screens and the agent sheet read the UI kit's fixture world (feed, ideas, goals,
+ * library, inbox, tasks, approvals, automations, memory, search), so their captures show real
+ * content; the thread list and the conversation stay this spec's own.
+ */
+const kit = new KitGateway(createFixtureWorld());
+const FIXTURE_METHODS = [
+  "feed.list",
+  "ideas.list",
+  "goals.list",
+  "goals.get",
+  "library.list",
+  "notifications.list",
+  "tasks.list",
+  "tasks.get",
+  "tasks.actions",
+  "approvals.list",
+  "grants.list",
+  "questions.list",
+  "automations.list",
+  "search.query",
+  "memory.list",
+  "memory.search",
+] as const;
+function fixtureHandlers(): Record<string, (params: unknown) => unknown> {
+  return Object.fromEntries(
+    FIXTURE_METHODS.map((m) => [
+      m,
+      (params: unknown) => kit.request(m as never, (params ?? {}) as never),
+    ]),
+  );
+}
+
 function handlers() {
   return {
+    ...fixtureHandlers(),
     "settings.get": () => ({
       settings: onboarded ? { [ONBOARDED]: T0 } : {},
       stateVersion: 1,
@@ -396,6 +432,59 @@ for (const [width, height] of [
     await expect(page.getByTestId("pane-tab").filter({ hasText: "Tasks" })).toHaveCount(0);
   });
 }
+
+test("rail screens, inbox and agent sheet at 1440x900: kit chrome, no sideways scroll", async () => {
+  if (!onboarded) {
+    onboarded = true;
+    await page.reload();
+  }
+  await page.waitForSelector('[data-testid="kit-chat"]');
+  await setWindowSize(1440, 900);
+  const lights = await trafficLights();
+  const rail = page.getByRole("navigation", { name: "Main" });
+  // The kit's rail: six icon items, Chat current.
+  await expect(rail.getByRole("button")).toHaveCount(7); // six items + the bottom menu
+  await expect(rail.getByRole("button", { name: /^Chat/ })).toHaveAttribute("aria-current", "page");
+  // The kit's thread list: filter field and new-side-chat button in a 56 px header.
+  await expect(page.getByRole("textbox", { name: "Filter threads" })).toBeVisible();
+  const threadsHeader = await page.locator(".threads-header").boundingBox();
+  expect(threadsHeader?.height).toBe(56);
+  for (const [label, id] of [
+    ["Search", "search"],
+    ["Feed", "feed"],
+    ["Ideas", "ideas"],
+    ["Goals", "goals"],
+    ["Library", "library"],
+  ] as const) {
+    await rail.getByRole("button", { name: new RegExp(`^${label}`) }).click();
+    await expect(page.getByTestId(`screen-${id}`)).toBeVisible();
+    await expect(page.getByText("This screen arrives with the UI kit.")).toHaveCount(0);
+    await page.waitForTimeout(300);
+    expect(await intruders(page, lights), `${label}: under the traffic lights`).toEqual([]);
+    await expectNoSidewaysScroll(page, label);
+    await shot(page, `screen-${id}-1440x900`);
+  }
+  await rail.getByRole("button", { name: /^Chat/ }).click();
+  await page.getByRole("button", { name: /^Notifications/ }).click();
+  await expect(page.getByTestId("screen-inbox")).toBeVisible();
+  await page.waitForTimeout(300);
+  await expectNoSidewaysScroll(page, "Inbox");
+  await shot(page, "screen-inbox-1440x900");
+
+  await rail.getByRole("button", { name: /^Chat/ }).click();
+  await page.getByRole("button", { name: /activity, approvals, upcoming and memory/ }).click();
+  for (const [tab, id] of [
+    ["Activity", "activity"],
+    ["Approvals", "approvals"],
+    ["Upcoming", "upcoming"],
+    ["Soul & Memory", "soul"],
+  ] as const) {
+    await page.getByRole("tab", { name: new RegExp(`^${tab}`) }).click();
+    await page.waitForTimeout(400);
+    await shot(page, `sheet-${id}-1440x900`);
+  }
+  await page.keyboard.press("Escape");
+});
 
 test("web client at 390 px: no title bar, every onboarding step, main chat", async () => {
   test.skip(!existsSync(join(webDist, "index.html")), "build apps/web first");

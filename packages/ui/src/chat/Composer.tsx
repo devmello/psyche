@@ -13,8 +13,8 @@ export interface ComposerProps {
   disabled?: boolean;
   quoting?: Message | null;
   onClearQuote?: () => void;
-  mode: QueueMode;
-  onModeChange: (mode: QueueMode) => void;
+  /** How a message sent mid-turn goes; the follow-up strip changes it per queued message. */
+  mode?: QueueMode;
   onAttach?: () => void;
   onDictate?: () => void;
   /** Stops the active run (`chat.cancel`). */
@@ -23,7 +23,8 @@ export interface ComposerProps {
 
 /**
  * Composer (UI design §3.2): attachments, `/` commands, dictation, one Send/Stop pill, the reply
- * quote chip and, while the agent works, how the message is queued. Built on assistant-ui's
+ * quote chip. While the agent works a message waits for the turn to end; the follow-up strip above
+ * the composer can send it at once to steer or interrupt (§3.2). Built on assistant-ui's
  * composer primitives; sending goes through the external-store runtime's `onNew`.
  */
 export function Composer({
@@ -32,8 +33,7 @@ export function Composer({
   disabled = false,
   quoting,
   onClearQuote,
-  mode,
-  onModeChange,
+  mode = "followUp",
   onAttach,
   onDictate,
   onStop,
@@ -85,22 +85,15 @@ export function Composer({
             <Mic aria-hidden="true" />
           </Button>
         ) : null}
-        {running ? (
-          <label className="ml-1 flex items-center gap-1 text-xs text-muted-foreground">
-            Send
-            <select
-              value={mode}
-              onChange={(e) => onModeChange(e.target.value as QueueMode)}
-              className="h-6 rounded border border-input bg-background px-1 text-xs text-foreground"
-            >
-              <option value="followUp">after this turn</option>
-              <option value="steer">now, to steer</option>
-              <option value="interrupt">now, interrupting</option>
-            </select>
-          </label>
-        ) : (
-          <span className="ml-1 text-xs text-muted-foreground">Type / for commands</span>
-        )}
+        <span className="ml-1 text-caption text-muted-foreground">
+          {!running
+            ? "Type / for commands"
+            : mode === "followUp"
+              ? `Sends when ${persona} finishes this turn`
+              : mode === "steer"
+                ? `Sends now, to steer ${persona}`
+                : `Sends now, interrupting ${persona}`}
+        </span>
         <span className="ml-auto" />
         {running && onStop ? (
           <Button
