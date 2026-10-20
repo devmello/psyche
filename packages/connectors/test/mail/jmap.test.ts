@@ -143,11 +143,11 @@ describe("JMAP connector: reading", () => {
     };
     expect(all.provenance).toBe("untrusted");
     expect(all.output.messages.map((m) => m.id)).toEqual([
-      "msg_0001",
-      "msg_0002",
-      "msg_0003",
-      "msg_0004",
       "msg_0005",
+      "msg_0004",
+      "msg_0003",
+      "msg_0002",
+      "msg_0001",
     ]);
     expect(all.output.messages[0]?.subject).toBe("Q4 roadmap: confirm launch date by Tuesday");
     const unread = (await run(tools, "mcp__jmap-1__mail_search_messages", {
@@ -156,7 +156,7 @@ describe("JMAP connector: reading", () => {
     })) as {
       output: { messages: { id: string }[]; nextPageToken: string | null };
     };
-    expect(unread.output.messages.map((m) => m.id)).toEqual(["msg_0001", "msg_0003"]);
+    expect(unread.output.messages.map((m) => m.id)).toEqual(["msg_0005", "msg_0003"]);
     expect(unread.output.nextPageToken).toBe("2");
     const page2 = (await run(tools, "mcp__jmap-1__mail_search_messages", {
       unread: true,
@@ -165,7 +165,7 @@ describe("JMAP connector: reading", () => {
     })) as {
       output: { messages: { id: string }[]; nextPageToken: string | null };
     };
-    expect(page2.output.messages.map((m) => m.id)).toEqual(["msg_0004"]);
+    expect(page2.output.messages.map((m) => m.id)).toEqual(["msg_0002"]);
     const byText = (await run(tools, "mcp__jmap-1__mail_search_messages", {
       query: "invoice",
     })) as {
@@ -176,7 +176,7 @@ describe("JMAP connector: reading", () => {
 
   it("reads a message with hidden HTML stripped and quoted-printable decoded, as untrusted data", async () => {
     const { tools } = await connected();
-    const html = (await run(tools, "mcp__jmap-1__mail_read_message", { id: "msg_0002" })) as {
+    const html = (await run(tools, "mcp__jmap-1__mail_read_message", { id: "msg_0004" })) as {
       output: { body: string; subject: string; unread: boolean; flags: string[] };
       provenance: string;
     };
@@ -184,7 +184,7 @@ describe("JMAP connector: reading", () => {
     expect(html.output.body).toContain("retention loops");
     expect(html.output.body).not.toContain("attacker@evil.example");
     expect(html.output.unread).toBe(false);
-    const qp = (await run(tools, "mcp__jmap-1__mail_read_message", { id: "msg_0004" })) as {
+    const qp = (await run(tools, "mcp__jmap-1__mail_read_message", { id: "msg_0002" })) as {
       output: { body: string; subject: string; cc: string; flags: string[] };
     };
     expect(qp.output.subject).toBe("Café menu — Übersicht");
@@ -229,9 +229,9 @@ describe("JMAP connector: writes", () => {
   it("fails closed on writes without an approval, then flags and moves with a receipt", async () => {
     const { tools, store, receipts, approved } = await connected();
     await expect(
-      run(tools, "mcp__jmap-1__mail_modify_flags", { id: "msg_0001", addFlags: ["seen"] }),
+      run(tools, "mcp__jmap-1__mail_modify_flags", { id: "msg_0005", addFlags: ["seen"] }),
     ).rejects.toMatchObject({ code: "approval_required" });
-    const params = { id: "msg_0001", addFlags: ["Seen", "$flagged"], moveTo: "Archive" };
+    const params = { id: "msg_0005", addFlags: ["Seen", "$flagged"], moveTo: "Archive" };
     // The hash the loop approves is the one describeCall produces for these exact arguments.
     const reg = tools.get("mcp__jmap-1__mail_modify_flags");
     const desc = reg?.describeCall?.(params);
@@ -240,9 +240,9 @@ describe("JMAP connector: writes", () => {
       output: { id: string; mailbox: string };
       receiptId?: string;
     };
-    expect(out.output).toEqual({ id: "msg_0001", mailbox: "mbx_archive" });
+    expect(out.output).toEqual({ id: "msg_0005", mailbox: "mbx_archive" });
     expect(out.receiptId).toBe("rcpt_1");
-    const msg = store.get("msg_0001");
+    const msg = store.get("msg_0005");
     expect(msg?.mailbox).toBe("mbx_archive");
     expect([...(msg?.flags ?? [])].sort()).toEqual(["Flagged", "Seen"]);
     expect(receipts[0]).toMatchObject({ kind: "mail.labels", outcome: "ok", approvalId: "apr_1" });
@@ -338,7 +338,7 @@ describe("JMAP connector: credential handling", () => {
     const { registry, store, server } = await connected();
     const first = await registry.sync("jmap-1");
     expect(first.full).toBe(true);
-    store.add("INBOX", store.get("msg_0001")?.raw ?? new Uint8Array());
+    store.add("INBOX", store.get("msg_0005")?.raw ?? new Uint8Array());
     const second = await registry.sync("jmap-1");
     expect(second).toMatchObject({ changes: 1, full: false });
     expect((second.cursor as { newMessageIds: string[] }).newMessageIds).toEqual(["msg_0008"]);
