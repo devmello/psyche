@@ -13,21 +13,47 @@ import {
 } from "../../components/ui/dropdown-menu.tsx";
 import { Label } from "../../components/ui/label.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
+import { t } from "../../i18n/core.ts";
 import { cn } from "../../lib/utils.ts";
 import { EvidenceLine, readEvidence } from "./evidence.tsx";
 
 export const IDEA_KIND_LABEL: Record<Idea["kind"], string> = {
-  task: "Task",
-  automation: "Automation",
-  skill: "Skill draft",
-  goal: "Goal",
-  connector: "Connector",
+  get task() {
+    return t("screens.ideas.kind.task");
+  },
+  get automation() {
+    return t("screens.ideas.kind.automation");
+  },
+  get skill() {
+    return t("screens.ideas.kind.skill");
+  },
+  get goal() {
+    return t("screens.ideas.kind.goal");
+  },
+  get connector() {
+    return t("screens.ideas.kind.connector");
+  },
 };
 
 export const DISMISS_OPTIONS: readonly { reason: IdeaDismissReason; label: string }[] = [
-  { reason: "not_now", label: "Not now" },
-  { reason: "not_interested", label: "Not interested" },
-  { reason: "never_from_source", label: "Never from this source" },
+  {
+    reason: "not_now",
+    get label() {
+      return t("screens.ideas.dismiss.notNow");
+    },
+  },
+  {
+    reason: "not_interested",
+    get label() {
+      return t("screens.ideas.dismiss.notInterested");
+    },
+  },
+  {
+    reason: "never_from_source",
+    get label() {
+      return t("screens.ideas.dismiss.neverFromSource");
+    },
+  },
 ];
 
 /**
@@ -38,9 +64,27 @@ export const DISMISS_OPTIONS: readonly { reason: IdeaDismissReason; label: strin
 const RECURRABLE: ReadonlySet<Idea["kind"]> = new Set(["task"]);
 
 export const RECURRING_CADENCES = [
-  { id: "daily", label: "daily", schedule: "0 8 * * *" },
-  { id: "weekly", label: "weekly", schedule: "0 9 * * 1" },
-  { id: "monthly", label: "monthly", schedule: "0 9 1 * *" },
+  {
+    id: "daily",
+    get label() {
+      return t("screens.ideas.cadence.daily");
+    },
+    schedule: "0 8 * * *",
+  },
+  {
+    id: "weekly",
+    get label() {
+      return t("screens.ideas.cadence.weekly");
+    },
+    schedule: "0 9 * * 1",
+  },
+  {
+    id: "monthly",
+    get label() {
+      return t("screens.ideas.cadence.monthly");
+    },
+    schedule: "0 9 1 * *",
+  },
 ] as const;
 
 export type RecurringCadence = (typeof RECURRING_CADENCES)[number]["id"];
@@ -114,7 +158,7 @@ export function IdeaCard({
       <p className="flex items-center gap-1.5 text-small text-gray-11">
         <Clock className="size-4 shrink-0" aria-hidden="true" />
         <span>
-          <span className="sr-only">Effort: </span>
+          <span className="sr-only">{t("screens.ideas.effort")} </span>
           {idea.effort}
         </span>
       </p>
@@ -127,10 +171,10 @@ export function IdeaCard({
             onCheckedChange={(checked) => setRecurring(checked === true)}
           />
           <Label htmlFor={recurringId} className="text-small font-normal">
-            Make recurring
+            {t("screens.ideas.makeRecurring")}
           </Label>
           <label htmlFor={cadenceId} className="sr-only">
-            Cadence
+            {t("screens.ideas.cadence")}
           </label>
           <NativeSelect
             id={cadenceId}
@@ -152,7 +196,7 @@ export function IdeaCard({
       ) : idea.kind === "automation" ? (
         <p className="flex items-center gap-1.5 text-small text-gray-11">
           <Repeat className="size-4 shrink-0" aria-hidden="true" />
-          Repeats on the schedule it proposes; change it later in Upcoming.
+          {t("screens.ideas.repeats")}
         </p>
       ) : null}
       <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -161,11 +205,11 @@ export function IdeaCard({
             type="button"
             size="sm"
             variant="ghost"
-            className="mr-auto"
+            className="me-auto"
             onClick={() => onViewSkill(idea)}
           >
             <FileText aria-hidden="true" />
-            View SKILL.md
+            {t("screens.ideas.viewSkill")}
           </Button>
         ) : null}
         <Button
@@ -181,7 +225,7 @@ export function IdeaCard({
             )
           }
         >
-          Let's do it
+          {t("screens.ideas.accept")}
         </Button>
         <Button
           type="button"
@@ -190,14 +234,14 @@ export function IdeaCard({
           disabled={busy || onEdit === undefined}
           onClick={() => onEdit?.(idea)}
         >
-          Edit
+          {t("common.edit")}
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger
             disabled={busy || onDismiss === undefined}
             render={<Button type="button" size="sm" variant="ghost" />}
           >
-            Dismiss
+            {t("common.dismiss")}
             <ChevronDown aria-hidden="true" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">

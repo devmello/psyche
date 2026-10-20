@@ -1,4 +1,5 @@
 import type { SearchHit, SearchScope } from "@psyche/protocol";
+import { t } from "../../i18n/core.ts";
 
 /**
  * Typed search filters parsed from the query (UI design §3.13), e.g.
@@ -144,13 +145,31 @@ export const SCOPE_ORDER: readonly SearchScope[] = [
 ];
 
 export const SCOPE_LABEL: Record<SearchScope, string> = {
-  threads: "Threads",
-  messages: "Messages",
-  tasks: "Tasks",
-  memory: "Memory",
-  library: "Library",
-  feed: "Feed",
-  ideas: "Ideas",
-  goals: "Goals",
-  connectors: "Connectors",
+  get threads() {
+    return t("screens.search.scope.threads");
+  },
+  get messages() {
+    return t("screens.search.scope.messages");
+  },
+  get tasks() {
+    return t("screens.search.scope.tasks");
+  },
+  get memory() {
+    return t("screens.search.scope.memory");
+  },
+  get library() {
+    return t("screens.search.scope.library");
+  },
+  get feed() {
+    return t("screens.search.scope.feed");
+  },
+  get ideas() {
+    return t("screens.search.scope.ideas");
+  },
+  get goals() {
+    return t("screens.search.scope.goals");
+  },
+  get connectors() {
+    return t("screens.search.scope.connectors");
+  },
 };

@@ -11,9 +11,11 @@ import {
   useDelayedFlag,
 } from "../../components/page.tsx";
 import { useIdeas } from "../../data/hooks.ts";
+import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
 import { plural } from "../../lib/format.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
-import { DISMISS_OPTIONS, type IdeaAcceptOptions, IdeaCard } from "./IdeaCard.tsx";
+import { type IdeaAcceptOptions, IdeaCard } from "./IdeaCard.tsx";
 
 export interface IdeasViewProps {
   ideas: readonly Idea[];
@@ -52,16 +54,16 @@ export function IdeasView({
   let body: ReactElement;
   if (loading) {
     body = showSkeleton ? (
-      <LoadingCards label="Loading ideas" count={3} lines={4} />
+      <LoadingCards label={t("screens.ideas.loading")} count={3} lines={4} />
     ) : (
       <div aria-busy="true" className="min-h-24" />
     );
   } else if (error !== null) {
     body = (
       <ErrorState
-        what="Psyche couldn't load your ideas"
+        what={t("screens.ideas.loadFailed")}
         reason={error}
-        did="No idea was accepted or dismissed."
+        did={t("screens.ideas.nothingChanged")}
         {...(onRetry ? { retry: { onClick: onRetry } } : {})}
       />
     );
@@ -69,14 +71,16 @@ export function IdeasView({
     body = (
       <EmptyState
         icon={Lightbulb}
-        {...(onOpenChat ? { action: { label: `Talk to ${persona}`, onClick: onOpenChat } } : {})}
+        {...(onOpenChat
+          ? { action: { label: t("screens.ideas.talkTo", { name: persona }), onClick: onOpenChat } }
+          : {})}
       >
-        Ideas come from your goals, conversations and connected accounts.
+        {t("screens.ideas.empty")}
       </EmptyState>
     );
   } else {
     body = (
-      <ul aria-label="Ideas" className="flex flex-col gap-4">
+      <ul aria-label={t("screens.ideas.title")} className="flex flex-col gap-4">
         {ideas.map((idea) => (
           <li key={idea.id}>
             <IdeaCard
@@ -94,14 +98,14 @@ export function IdeasView({
     );
   }
   return (
-    <section aria-label="Ideas">
+    <section aria-label={t("screens.ideas.title")}>
       <Page width="wide">
         <PageHeader
-          title="Ideas"
+          title={t("screens.ideas.title")}
           meta={
             !loading && error === null && ideas.length > 0 ? plural(ideas.length, "idea") : null
           }
-          description="Accepted ideas become tasks or automations; nothing runs until you say so."
+          description={t("screens.ideas.description")}
         />
         {body}
       </Page>
@@ -115,8 +119,6 @@ export interface IdeasScreenProps {
   /** Defaults to opening `SKILL.md` in the editor (`/agent/soul?file=…`). */
   onViewSkill?: (idea: Idea) => void;
 }
-
-const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
 /** Connected Ideas: `ideas.list`, `ideas.accept` (with `recurring`), `ideas.dismiss`. */
 export function IdeasScreen({ onEdit, onViewSkill }: IdeasScreenProps): ReactElement {
@@ -147,12 +149,12 @@ export function IdeasScreen({ onEdit, onViewSkill }: IdeasScreenProps): ReactEle
         (r) => {
           toast(
             r.automationId !== null
-              ? `Added "${idea.title}" to Upcoming.`
-              : `${persona.name} started "${idea.title}".`,
+              ? t("screens.ideas.added", { title: idea.title })
+              : t("screens.ideas.started", { name: persona.name, title: idea.title }),
             r.taskId !== null
               ? {
                   action: {
-                    label: "Open",
+                    label: t("screens.ideas.open"),
                     onClick: () => navigate?.(`/agent/activity/${r.taskId}`),
                   },
                 }
@@ -160,22 +162,25 @@ export function IdeasScreen({ onEdit, onViewSkill }: IdeasScreenProps): ReactEle
           );
         },
         (err: unknown) => {
-          toast.error(`Psyche couldn't start "${idea.title}" (${messageOf(err)}). Nothing ran.`);
+          toast.error(
+            t("screens.ideas.startFailed", { title: idea.title, reason: describeError(err) }),
+          );
         },
       ),
     );
   };
 
   const dismiss = (idea: Idea, reason: IdeaDismissReason) => {
-    const label = DISMISS_OPTIONS.find((o) => o.reason === reason)?.label ?? "Dismissed";
     track(
       idea.id,
       ideas.dismiss(idea.id, reason).then(
         () => {
-          toast(`Dismissed: ${label.toLowerCase()}.`);
+          toast(t(`screens.ideas.dismissed.${reason}`));
         },
         (err: unknown) => {
-          toast.error(`Psyche couldn't dismiss "${idea.title}" (${messageOf(err)}).`);
+          toast.error(
+            t("screens.ideas.dismissFailed", { title: idea.title, reason: describeError(err) }),
+          );
         },
       ),
     );

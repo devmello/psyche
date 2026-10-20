@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { AvatarState } from "../avatar/Avatar.tsx";
 import { useApprovals, useQuestions, useStoreState, useTasks } from "../data/index.ts";
+import { t } from "../i18n/core.ts";
 
 export interface AgentStatus {
   state: AvatarState;
@@ -48,16 +49,14 @@ export function useAgentStatus(
 
     const snippet =
       state === "offline"
-        ? "Can't reach the Gateway"
+        ? t("agent.status.offline")
         : needsYou > 0
-          ? needsYou === 1
-            ? "Needs you: 1 item"
-            : `Needs you: ${needsYou} items`
+          ? t("agent.status.needsYou", { n: needsYou })
           : current
             ? (step ?? current.title)
             : latest?.status === "failed"
-              ? `${latest.title} failed`
-              : "Idle";
+              ? t("agent.status.failed", { title: latest.title })
+              : t("agent.status.idle");
     return {
       state,
       snippet,

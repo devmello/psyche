@@ -145,7 +145,7 @@ export function AppShell({
               )}
             </div>
             {panes && !compact ? (
-              <div className="flex min-w-[360px] border-l border-gray-6">{panes}</div>
+              <div className="flex min-w-[360px] border-s border-gray-6">{panes}</div>
             ) : null}
           </div>
         </main>
