@@ -337,17 +337,17 @@ export function OnboardingFlow({
       </header>
 
       <section aria-labelledby={headingId} className="flex flex-1 flex-col gap-4">
-        <h2
+        <h1
           id={headingId}
           ref={headingRef}
           tabIndex={-1}
-          className="text-h1 text-foreground outline-none"
+          className="text-h1 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="sr-only">
             Step {index + 1} of {ONBOARDING_STEP_IDS.length}:{" "}
           </span>
           {stepLabel(current, name)}
-        </h2>
+        </h1>
 
         {current === "agent" ? <MeetStep value={persona} onChange={setPersona} /> : null}
         {current === "permissions" ? (

@@ -88,6 +88,16 @@
     --accent-10 200ms var(--ease-psyche);
 }
 
+/* The accent change animates :root itself, which the reduced-motion rules below never reach. */
+:root[data-reduce-motion="true"] {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-reduce-motion="false"]) {
+    transition: none;
+  }
+}
+
 :root[data-theme="dark"] {
   --popover: var(--gray-3);
   --card: var(--gray-2);

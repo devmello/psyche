@@ -490,12 +490,34 @@ button {
   max-width: 360px;
 }
 @media (prefers-reduced-motion: reduce) {
-  * {
+  :root:not([data-reduce-motion="false"]) * {
     /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override component transitions */
     transition-duration: 0ms !important;
     /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override component animations */
     animation: none !important;
   }
+}
+/* The app's own Reduce motion setting (Appearance), whatever the OS says. */
+:root[data-reduce-motion="true"] * {
+  /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override component transitions */
+  transition-duration: 0ms !important;
+  /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override component animations */
+  animation: none !important;
+}
+/* Skip link (WCAG 2.4.1): off screen until focused, then above everything. */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  z-index: 100;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--shell-panel);
+  color: inherit;
+  border: 2px solid var(--ring, currentColor);
+}
+.skip-link:focus {
+  top: 8px;
 }
 /* Host-provided rail and thread list (the UI kit's, in the composed app). */
 .rail-slot {
