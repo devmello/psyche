@@ -4,6 +4,7 @@ import { ApprovalCard } from "../../blocks/ApprovalCard.tsx";
 import { answerApproval, useApproval } from "../../data/hooks.ts";
 import { useStore } from "../../data/provider.tsx";
 import { usePersona } from "../../slots.tsx";
+import { settingLabel } from "./setting-labels.ts";
 import {
   hasCode,
   messageOf,
@@ -44,17 +45,18 @@ function PendingApprovalBanner({
   const [presenceHint, setPresenceHint] = useState<string | null>(null);
   const retried = useRef(false);
   const status = approval?.status;
+  const label = settingLabel(pending.key);
 
   useEffect(() => {
     if (status === undefined || status === "pending" || retried.current) return;
     retried.current = true;
     if (status === "approved") {
       pending.retry(pending.approvalId).then(
-        () => onDone({ kind: "ok", text: `Saved ${pending.key}.` }),
+        () => onDone({ kind: "ok", text: `Saved “${label}”.` }),
         (err: unknown) =>
           onDone({
             kind: "error",
-            text: `Psyche couldn't save ${pending.key} (${messageOf(err)}). Nothing changed.`,
+            text: `Psyche couldn't save “${label}” (${messageOf(err)}). Nothing changed.`,
           }),
       );
       return;
@@ -63,8 +65,8 @@ function PendingApprovalBanner({
       kind: "error",
       text:
         status === "denied"
-          ? `Not changed: the approval for ${pending.key} was denied.`
-          : `Not changed: the approval for ${pending.key} ${status === "expired" ? "expired" : "was withdrawn"}. Change it again to ask for a new one.`,
+          ? `Not changed: the approval for “${label}” was denied.`
+          : `Not changed: the approval for “${label}” ${status === "expired" ? "expired" : "was withdrawn"}. Change it again to ask for a new one.`,
     });
   }, [status, pending, onDone]);
 
@@ -77,9 +79,9 @@ function PendingApprovalBanner({
       <p className="flex items-start gap-2">
         <Fingerprint className="mt-0.5 size-4 shrink-0 text-approval-text" aria-hidden="true" />
         <span>
-          <span className="font-medium">Approve this change to {pending.key}.</span> Security
-          settings need Touch ID or a passkey. Approve it here or in the Psyche notification; the
-          setting is saved as soon as it is approved.
+          <span className="font-medium">Approve this change to “{label}”.</span> Security settings
+          need Touch ID or a passkey. Approve it here or in the Psyche notification; the setting is
+          saved as soon as it is approved.
         </span>
       </p>
       {presenceHint ? (

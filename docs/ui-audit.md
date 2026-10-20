@@ -127,3 +127,5 @@ This pass covers screens added after the polish wave: Credentials, the Files pan
 8. **Skills trust card.** The content hash and commit are at level 1, and tool names appear on row line 3. Both belong in a Details disclosure, with a count on the row.
 9. **Voice hotkey.** The field is free text, and a conflicting shortcut is shown only as muted description text. Options: a shortcut recorder, and an approval-tone hint for the conflict.
 10. **Credential detail.** Approval ids appear in the uses table. That's acceptable at level 2, but they could read "Approved" with the id in a tooltip.
+
+**Decision 1 (setting labels):** done. `packages/ui/src/screens/settings/setting-labels.ts` holds the key-to-label map, and `test/setting-labels.test.ts` scans the kit and the composed app for every key they read or write and fails when one has no label. Write errors and the approval banner quote the label, never the key.
