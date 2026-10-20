@@ -1824,7 +1824,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Links an item held in 1Password (G10) by reference: Psyche stores the vault and item names, never a value, and reads one field at fill time. Side-effecting.",
+        "description": "Links an item held in 1Password (G10) or Bitwarden (G11) by reference: Psyche stores the item's names or id, never a value, and reads one field at fill time. Side-effecting.",
         "name": "vault.linkExternal",
         "params": "#/$defs/VaultLinkExternalParams",
         "result": "#/$defs/VaultLinkExternalResult",
@@ -4564,6 +4564,19 @@
         "files",
         "problems",
         "backup"
+      ],
+      "type": "object"
+    },
+    "BitwardenRef": {
+      "properties": {
+        "item": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "item"
       ],
       "type": "object"
     },
@@ -7560,7 +7573,8 @@
           "enum": [
             "vault",
             "keychain",
-            "1password"
+            "1password",
+            "bitwarden"
           ],
           "type": "string"
         }
@@ -18898,7 +18912,8 @@
       "properties": {
         "source": {
           "enum": [
-            "1password"
+            "1password",
+            "bitwarden"
           ],
           "type": "string"
         },
@@ -18927,7 +18942,14 @@
           "type": "array"
         },
         "ref": {
-          "$ref": "#/$defs/OnePasswordRef"
+          "anyOf": [
+            {
+              "$ref": "#/$defs/OnePasswordRef"
+            },
+            {
+              "$ref": "#/$defs/BitwardenRef"
+            }
+          ]
         },
         "fields": {
           "items": {
