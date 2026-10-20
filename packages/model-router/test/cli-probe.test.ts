@@ -30,7 +30,7 @@ describe("subscription CLI probe", () => {
     expect(r).toMatchObject({
       state: "reachable",
       probedAt: "2026-10-20T08:00:00.000Z",
-      server: "Claude Code 2.1.286 (claude.ai, max plan)",
+      server: `Claude Code 2.1.286 · ${FAKE} (claude.ai, max plan)`,
     });
     expect(r.models.map((m) => m.ref)).toEqual([
       "claude-code/default",
@@ -76,7 +76,7 @@ describe("subscription CLI probe", () => {
       FAKE_CLI_LOGIN: "Logged in using ChatGPT",
       FAKE_CLI_LOGIN_CODE: "0",
     });
-    expect(r).toMatchObject({ state: "reachable", server: "Codex 0.162.0 (ChatGPT)" });
+    expect(r).toMatchObject({ state: "reachable", server: `Codex 0.162.0 · ${FAKE} (ChatGPT)` });
     expect(r.models.map((m) => m.ref)).toEqual(["codex/default"]);
   });
 
