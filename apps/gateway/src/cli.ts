@@ -9,6 +9,7 @@ import {
 import { DeviceScope, PsycheError, type DeviceScope as Scope } from "@psyche/protocol";
 import { resolveConfig } from "./config.ts";
 import { approvePairing } from "./handlers/devices.ts";
+import { resetPresenceEnrollment } from "./presence-gate.ts";
 
 const SCOPES = (DeviceScope as unknown as { enum: Scope[] }).enum;
 
@@ -28,6 +29,9 @@ const USAGE = `usage:
   psyched devices list                      paired devices and pending pairing requests
   psyched devices approve <code> [scopes]   approve the pending request showing <code>
   psyched devices grant <deviceId> <scopes> set a paired device's scopes
+  psyched presence reset                    after losing every passkey and helper key: let
+                                            security changes run on operator.admin until a new
+                                            one is registered (they fail presence_required now)
 scopes: comma-separated; default for approve is every operator scope (the owner's first device)`;
 
 /**
@@ -41,6 +45,20 @@ export function runCli(
   out: (line: string) => void = (line) => process.stdout.write(`${line}\n`),
 ): number {
   const [group, verb, a, b] = argv;
+  if (group === "presence" && verb === "reset") {
+    const db = openDb(resolveConfig().dbPath);
+    try {
+      const had = resetPresenceEnrollment(db);
+      out(
+        had
+          ? "presence enrollment cleared: register a passkey or the helper's key again; restart psyched if it is running"
+          : "presence was not enrolled; nothing to reset",
+      );
+      return 0;
+    } finally {
+      db.close();
+    }
+  }
   if (group !== "devices" || verb === undefined) {
     out(USAGE);
     return group === undefined || group === "help" || group === "--help" ? 0 : 2;
