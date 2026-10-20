@@ -11,12 +11,15 @@ import { defineMethod, OkResult } from "./define.ts";
  */
 
 /**
- * Transport secrets a channel needs (N8, N9): Slack `bot_token` + `app_token`, Discord
- * `bot_token`, SMS `auth_token`. Stored as Gateway-owned vault items, like `models.setKey`.
+ * Transport secrets a channel needs (N6, N8, N9): Slack `bot_token` + `app_token`, Discord
+ * `bot_token`, SMS `auth_token`, WhatsApp Cloud API `access_token` (Graph sends), `app_secret`
+ * (webhook signature) and `verify_token` (webhook subscription handshake). Stored as
+ * Gateway-owned vault items, like `models.setKey`.
  */
-export const ChannelSecretName = StringEnum(["bot_token", "app_token", "auth_token"], {
-  $id: "ChannelSecretName",
-});
+export const ChannelSecretName = StringEnum(
+  ["bot_token", "app_token", "auth_token", "access_token", "app_secret", "verify_token"],
+  { $id: "ChannelSecretName" },
+);
 
 const SenderList = Type.Array(Type.String({ minLength: 1, maxLength: 256 }), { maxItems: 1000 });
 

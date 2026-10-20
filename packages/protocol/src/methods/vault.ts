@@ -1,6 +1,7 @@
 import { Type } from "@sinclair/typebox";
 import { Id, StringEnum } from "../common.ts";
 import {
+  BitwardenRef,
   CredentialBinding,
   CredentialKind,
   CredentialMeta,
@@ -146,12 +147,13 @@ export const VaultMethods = {
   }),
   "vault.linkExternal": defineMethod({
     params: Type.Object({
-      source: StringEnum(["1password"]),
+      source: StringEnum(["1password", "bitwarden"]),
       kind: StringEnum(["login", "api_key", "ssh_key", "note"]),
       name: Type.String({ minLength: 1, maxLength: 200 }),
       slug: Type.Optional(Slug),
       bindings: Type.Array(CredentialBinding),
-      ref: OnePasswordRef,
+      /** `{vault, item}` for 1Password, `{item}` for Bitwarden. */
+      ref: Type.Union([OnePasswordRef, BitwardenRef]),
       /** Fields the item offers; default by kind (login: username + password). */
       fields: Type.Optional(
         Type.Array(StringEnum(["username", "password", "totp", "token", "privateKey", "text"]), {
@@ -163,7 +165,7 @@ export const VaultMethods = {
     scope: "operator.admin",
     sideEffecting: true,
     description:
-      "Links an item held in 1Password (G10) by reference: Psyche stores the vault and item names, never a value, and reads one field at fill time. Side-effecting.",
+      "Links an item held in 1Password (G10) or Bitwarden (G11) by reference: Psyche stores the item's names or id, never a value, and reads one field at fill time. Side-effecting.",
   }),
   "vault.payments.list": defineMethod({
     params: Type.Object({

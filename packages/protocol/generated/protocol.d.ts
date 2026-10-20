@@ -782,6 +782,10 @@ export interface BackupVerifyResult {
     problems: string[];
 }
 
+export interface BitwardenRef {
+    item: string;
+}
+
 export interface BridgeCDPEventPayload {
     method:     string;
     params:     unknown;
@@ -906,6 +910,38 @@ export interface Highlight {
 
 export interface BridgeTabsListResult {
     tabs: BridgeTab[];
+}
+
+export interface BrowserBotAuthRotateResult {
+    status: BotAuthStatus;
+}
+
+export interface BotAuthStatus {
+    advertised:      string[];
+    createdAt?:      null | string;
+    directoryPath:   string;
+    enabled:         boolean;
+    keyId?:          null | string;
+    origins:         string[];
+    publicJwk?:      BotAuthJwk | null;
+    signatureAgent?: null | string;
+}
+
+export interface BotAuthJwk {
+    crv: Crv;
+    kty: Kty;
+    /**
+     * base64url public key
+     */
+    x: string;
+}
+
+export type Crv = "Ed25519";
+
+export type Kty = "OKP";
+
+export interface BrowserBotAuthStatusResult {
+    status: BotAuthStatus;
 }
 
 export interface BrowserCloseParams {
@@ -1287,7 +1323,7 @@ export interface ChannelsSecretsSetParams {
     value:   string;
 }
 
-export type ChannelSecretName = "bot_token" | "app_token" | "auth_token";
+export type ChannelSecretName = "bot_token" | "app_token" | "auth_token" | "access_token" | "app_secret" | "verify_token";
 
 export interface ChannelsSecretsSetResult {
     set: ChannelSecretName[];
@@ -1631,6 +1667,118 @@ export interface ConnectVerifyParams {
     signature: string;
 }
 
+export interface ConnectorsGetCustomProposalParams {
+    proposalId: string;
+}
+
+export interface ConnectorsGetCustomProposalResult {
+    proposal: CustomConnectorProposal;
+}
+
+export interface CustomConnectorProposal {
+    approvalKind: ApprovalKindEnum;
+    bindingHash:  string;
+    /**
+     * Epoch ms
+     */
+    expiresAt: number;
+    findings:  Finding[];
+    grantKey:  string;
+    hash:      string;
+    id:        string;
+    kind:      CustomConnectorProposalKind;
+    manifest:  CustomConnectorManifest;
+    scopeMode: ScopeMode;
+    text:      string;
+    update?:   CustomConnectorProposalUpdate;
+}
+
+export type ApprovalKindEnum = "skill_install";
+
+export interface Finding {
+    message:  string;
+    rule:     string;
+    severity: Severity;
+}
+
+export type Severity = "info" | "warn" | "high";
+
+export type CustomConnectorProposalKind = "connector";
+
+export interface CustomConnectorManifest {
+    auth:          CustomConnectorAuth;
+    baseUrl:       string;
+    description:   string;
+    hosts:         string[];
+    id:            string;
+    name:          string;
+    schemaVersion: number;
+    source?:       SourceClass;
+    tools:         CustomConnectorTool[];
+    version:       string;
+}
+
+export interface CustomConnectorAuth {
+    kind: CustomConnectorAuthKind;
+    /**
+     * A vault placeholder; the value is resolved only inside the executor
+     */
+    credential?: string;
+    name?:       string;
+    /**
+     * Login item: username + password
+     */
+    description?: string;
+}
+
+export type CustomConnectorAuthKind = "none" | "bearer" | "header" | "query" | "basic";
+
+export interface SourceClass {
+    drafted?: Drafted;
+    kind:     SourceKind;
+    title?:   string;
+}
+
+export type Drafted = "owner" | "agent";
+
+export type SourceKind = "openapi" | "declarative";
+
+export interface CustomConnectorTool {
+    defaultRule?: Decision;
+    description:  string;
+    method:       Method;
+    name:         string;
+    params:       CustomConnectorParam[];
+    path:         string;
+    sideEffect:   SideEffectEnum;
+}
+
+export type Decision = "allow" | "ask" | "deny";
+
+export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
+export interface CustomConnectorParam {
+    description?: string;
+    in:           In;
+    name:         string;
+    required?:    boolean;
+    schema:       { [key: string]: unknown };
+}
+
+export type In = "path" | "query" | "body";
+
+export type SideEffectEnum = "read" | "write" | "destructive";
+
+export type ScopeMode = "read" | "read_act";
+
+export interface CustomConnectorProposalUpdate {
+    /**
+     * Line diff of `text`
+     */
+    diff:     string;
+    fromHash: string;
+}
+
 export interface ConnectorsGetParams {
     connectorId: string;
 }
@@ -1658,14 +1806,36 @@ export interface Connector {
     updatedAt: string;
 }
 
-export type Decision = "allow" | "ask" | "deny";
-
-export type ScopeMode = "read" | "read_act";
-
 export type ConnectorStatus = "connected" | "disconnected" | "error" | "needs_auth";
+
+export interface ConnectorsInstallCustomParams {
+    approvalId: string;
+    proposalId: string;
+}
+
+export interface ConnectorsInstallCustomResult {
+    connector: Connector;
+}
 
 export interface ConnectorsListResult {
     connectors: Connector[];
+}
+
+export interface ConnectorsProposeCustomParams {
+    manifest?:  CustomConnectorManifest;
+    openapi?:   Openapi;
+    scopeMode?: ScopeMode;
+}
+
+export interface Openapi {
+    auth?:       CustomConnectorAuth;
+    document:    string;
+    id:          string;
+    operations?: string[];
+}
+
+export interface ConnectorsRemoveCustomParams {
+    connectorId: string;
 }
 
 export interface CredentialUpdatedPayload {
@@ -1691,7 +1861,7 @@ export interface CredentialMeta {
     useCount:          number;
 }
 
-export type Backend = "vault" | "keychain" | "1password";
+export type Backend = "vault" | "keychain" | "1password" | "bitwarden";
 
 export interface CredentialBinding {
     origin?:    string;
@@ -1700,6 +1870,11 @@ export interface CredentialBinding {
 }
 
 export type CredentialKind = "login" | "api_key" | "oauth_token" | "ssh_key" | "note" | "payment_link" | "signing_key";
+
+export interface CustomConnectorProposalResult {
+    approval: ApprovalRequest;
+    proposal: CustomConnectorProposal;
+}
 
 export interface DecidedBy {
     deviceId?: string;
@@ -3170,6 +3345,11 @@ export interface OkResult {
     ok: boolean;
 }
 
+export interface OnePasswordRef {
+    item:  string;
+    vault: string;
+}
+
 export interface PairingRequestedPayload {
     pairingRequest: PairingRequest;
 }
@@ -3272,8 +3452,6 @@ export interface ScanFinding {
     rule:     string;
     severity: Severity;
 }
-
-export type Severity = "info" | "warn" | "high";
 
 export interface PluginManifest {
     capabilities: PluginCapability[];
@@ -3693,10 +3871,8 @@ export interface SkillProposal {
     /**
      * Updates and re-approvals: the installed hash and the diff
      */
-    update?: Update;
+    update?: SkillProposalUpdate;
 }
-
-export type ApprovalKindEnum = "skill_install";
 
 export interface SkillProposalFile {
     bytes:      number;
@@ -3739,7 +3915,7 @@ export type SkillTrust = "bundled" | "verified" | "local" | "unknown";
 /**
  * Updates and re-approvals: the installed hash and the diff
  */
-export interface Update {
+export interface SkillProposalUpdate {
     /**
      * Unified diff per file
      */
@@ -3795,6 +3971,95 @@ export interface SkillCommand {
     name:        string;
     source:      SkillSource;
     trust:       SkillTrust;
+}
+
+export interface SkillsDraftUpdatedPayload {
+    draft: SkillDraft;
+}
+
+export interface SkillDraft {
+    approvalId?:        string;
+    createdAt:          string;
+    description:        string;
+    edited:             boolean;
+    id:                 string;
+    installProposalId?: string;
+    manifest:           SkillManifest;
+    name:               string;
+    /**
+     * Runs in the thread with this routine
+     */
+    occurrences: number;
+    /**
+     * Values stripped from the owner's words
+     */
+    redactions: number;
+    replay?:    SkillDraftReplay;
+    signature:  string;
+    status:     SkillDraftStatus;
+    steps:      SkillDraftStep[];
+    /**
+     * A run of the routine had read untrusted content
+     */
+    tainted: boolean;
+    /**
+     * Full SKILL.md, editable by the owner while open
+     */
+    text:      string;
+    threadId:  string;
+    updatedAt: string;
+}
+
+export interface SkillDraftReplay {
+    checkedAt: string;
+    ok:        boolean;
+    problems:  string[];
+}
+
+export type SkillDraftStatus = "open" | "accepted" | "installed" | "dismissed" | "expired";
+
+export interface SkillDraftStep {
+    sideEffect: SideEffect;
+    /**
+     * Input names only, never values
+     */
+    summary: string;
+    tool:    string;
+}
+
+export interface SkillsDraftsAcceptParams {
+    draftId: string;
+}
+
+export interface SkillsDraftsAcceptResult {
+    approval: ApprovalRequest;
+    draft:    SkillDraft;
+    proposal: SkillProposal;
+}
+
+export interface SkillsDraftsDismissParams {
+    draftId: string;
+}
+
+export interface SkillsDraftsDismissResult {
+    draft: SkillDraft;
+}
+
+export interface SkillsDraftsListParams {
+    status?: SkillDraftStatus;
+}
+
+export interface SkillsDraftsListResult {
+    drafts: SkillDraft[];
+}
+
+export interface SkillsDraftsUpdateParams {
+    draftId: string;
+    text:    string;
+}
+
+export interface SkillsDraftsUpdateResult {
+    draft: SkillDraft;
 }
 
 export interface SkillsGetParams {
@@ -4606,21 +4871,21 @@ export interface VaultLinkExternalParams {
     fields?:  Field[];
     kind:     VaultLinkExternalParamsKind;
     name:     string;
-    ref:      OnePasswordRef;
+    ref:      Ref;
     slug?:    string;
-    source:   Source;
+    source:   SourceEnum;
 }
 
 export type Field = "username" | "password" | "totp" | "token" | "privateKey" | "text";
 
 export type VaultLinkExternalParamsKind = "login" | "api_key" | "ssh_key" | "note";
 
-export interface OnePasswordRef {
-    item:  string;
-    vault: string;
+export interface Ref {
+    item:   string;
+    vault?: string;
 }
 
-export type Source = "1password";
+export type SourceEnum = "1password" | "bitwarden";
 
 export interface VaultLinkExternalResult {
     credential: CredentialMeta;

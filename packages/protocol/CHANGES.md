@@ -25,6 +25,32 @@ For S17 (`packages/speech` read-aloud), S11 (the shell's voice mode), S01 (mount
 - `speech.readAloud` gains optional `save: boolean` (default `true`). With `false` the reply is streamed as `speech.audio` only: no Library item and no `speech.readAloud.completed`; `speech.audio {last: true}` marks the end. Voice mode speaks every reply this way instead of filing an MP3 per turn.
 - New `speech.readAloud.cancel {streamId}` → `{ok: true}` (`operator.write`): stops one of the caller's own streams for barge-in; `speech.readAloud.failed` reports `cancelled`. Another device's stream id is treated as unknown.
 - No fake changes (no contract changed).
+### v1 additive — 2026-10-20 (S10: WhatsApp channel secrets, N6)
+
+- `ChannelSecretName` gains `access_token`, `app_secret` and `verify_token` (appended): the WhatsApp Cloud API's Graph access token, the Meta app secret that signs webhooks (`X-Hub-Signature-256`) and the webhook verify token. Stored by `channels.secrets.set` as Gateway-owned vault items.
+### v1 additive — 2026-10-20 (S09, M9: custom connectors)
+
+For S09 (the manifest executor and proposal flow in `@psyche/connectors`), S12 / S11 (the trust card and Settings → Connectors), S01 (mounting).
+
+- New schemas `CustomConnectorManifest` (`schemaVersion: 1`, `id`, `name`, `description`, `version`, `baseUrl` (https), `hosts` allowlist, `auth`, `tools[]`, optional `source`), `CustomConnectorAuth` (`none` | `bearer` | `header` | `query` | `basic`, each with a `{{cred:slug}}` placeholder), `CustomConnectorTool` (`name`, `description`, `method`, `path` with `{param}`, `params[]` in path / query / body, `sideEffect` read | write | destructive, optional `defaultRule`), `CustomConnectorParam`, `CredentialPlaceholder`, and `CustomConnectorProposal` (`kind: "connector"`, `approvalKind: "skill_install"`, the manifest, its canonical `text` and `hash`, `findings`, `scopeMode`, `bindingHash`, `grantKey`, `expiresAt`, optional `update` diff).
+- New methods `connectors.proposeCustom` (`operator.admin`; a manifest or an OpenAPI document; opens a device-only `skill_install` approval with `details.kind: "connector"`), `connectors.getCustomProposal` (`operator.read`), `connectors.installCustom` (`operator.admin`; needs the approved `skill_install`) and `connectors.removeCustom` (`operator.admin`).
+- No fake: connectors have no contract in `src/contracts`.
+### v1 additive — 2026-10-20 (S08, I14: Web Bot Auth)
+
+For S08 (the browser signs document requests), S06 (the vault keeps the key) and S11 / S12 (Settings → Browser).
+
+- `CredentialBroker` gains optional `botAuthKey()` and `rotateBotAuthKey()`, returning a `BotAuthKey` (`keyId` = RFC 7638 JWK thumbprint, `publicJwk`, `createdAt`, `sign(data)`). The private half never leaves the vault. `FakeCredentialBroker` implements both with a real Ed25519 key, and a rotated-away key refuses to sign.
+- Schemas `BotAuthJwk` and `BotAuthStatus` (`enabled`, `keyId`, `publicJwk`, `createdAt`, `signatureAgent`, `directoryPath`, `origins`, `advertised`).
+- Methods `browser.botAuth.status` (`operator.read`) and `browser.botAuth.rotate` (`operator.admin`, side-effecting).
+- The switch itself is the admin setting `browser.botAuth {enabled, signatureAgent?, origins?}` (no protocol change).
+### v1 additive — 2026-10-20 (M3 T3: agent-proposed skills)
+
+For S16 (`packages/skills` draft generator), the Gateway (routine detection over agent-core's in-process hooks) and Settings → Skills (S11 / S12).
+
+- New `SkillDraft {id, threadId, name, description, text, manifest, steps, occurrences, signature, redactions, tainted, edited, status, createdAt, updatedAt, installProposalId?, approvalId?, replay?}`, `SkillDraftStatus` (`open | accepted | installed | dismissed | expired`), `SkillDraftStep {tool, sideEffect, summary}`, `SkillDraftReplay {ok, problems, checkedAt}`.
+- New methods: `skills.drafts.list {status?}` (`operator.read`); `skills.drafts.update {draftId, text}`, `skills.drafts.accept {draftId}` → `{draft, proposal, approval}` (the T2 trust card), `skills.drafts.dismiss {draftId}` (all `operator.admin`, side-effecting).
+- New event `skills.draft.updated {draft}`.
+
 ### v1 additive — 2026-10-20 (J8 teach mode)
 
 For S14 (the helper's `teach.start` / `teach.stop` / `teach.cancel` / `teach.status`), S01 (Gateway: owner-only teach tools, review then workspace skill), S11 (recording indicator and review screen).
