@@ -164,6 +164,11 @@
         "payload": "#/$defs/ChatQueueUpdatedPayload"
       },
       {
+        "description": "A connector's state changed (Settings → Connectors and onboarding refresh from it): a sign-in finished or failed, it was disconnected, or its token was revoked.",
+        "name": "connectors.updated",
+        "payload": "#/$defs/ConnectorsUpdatedPayload"
+      },
+      {
         "description": "A vault item was added, edited, deleted, used, rotated or revoked; revocation invalidates connection-bound work.",
         "name": "credential.updated",
         "payload": "#/$defs/CredentialUpdatedPayload"
@@ -805,6 +810,30 @@
         "sideEffecting": false
       },
       {
+        "description": "Directory of connectors: first-party, remote MCP presets, custom.",
+        "name": "connectors.catalogue",
+        "params": "#/$defs/ConnectorsCatalogueParams",
+        "result": "#/$defs/ConnectorsCatalogueResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: starts connecting (or re-authorizing) a connector. OAuth connectors return at once with the consent page in `authorization`; the result arrives as connectors.updated.",
+        "name": "connectors.connect",
+        "params": "#/$defs/ConnectorsConnectParams",
+        "result": "#/$defs/ConnectorsConnectResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting: disconnects, revokes the provider tokens and invalidates pending work.",
+        "name": "connectors.disconnect",
+        "params": "#/$defs/ConnectorsDisconnectParams",
+        "result": "#/$defs/ConnectorsDisconnectResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Returns one connector.",
         "name": "connectors.get",
         "params": "#/$defs/ConnectorsGetParams",
@@ -851,6 +880,22 @@
         "result": "#/$defs/OkResult",
         "scope": "operator.admin",
         "sideEffecting": true
+      },
+      {
+        "description": "Side-effecting: sets allow / ask / deny per action; destructive and financial actions refuse allow.",
+        "name": "connectors.setMatrix",
+        "params": "#/$defs/ConnectorsSetMatrixParams",
+        "result": "#/$defs/ConnectorsSetMatrixResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Health check of one connector.",
+        "name": "connectors.status",
+        "params": "#/$defs/ConnectorsStatusParams",
+        "result": "#/$defs/ConnectorsStatusResult",
+        "scope": "operator.read",
+        "sideEffecting": false
       },
       {
         "description": "Approves a pending pairing request with owner-chosen scopes. Needs fresh presence once the Gateway has a presence verifier (approval_required with details.approvalId, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now).",
@@ -7506,6 +7551,159 @@
       ],
       "type": "object"
     },
+    "ConnectorAuthorization": {
+      "properties": {
+        "url": {
+          "description": "https consent page, or the device-code verification page",
+          "type": "string"
+        },
+        "userCode": {
+          "description": "Device code flow: the code to enter",
+          "type": "string"
+        },
+        "expiresAt": {
+          "description": "Epoch ms",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "opened": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "url",
+        "expiresAt",
+        "opened"
+      ],
+      "type": "object"
+    },
+    "ConnectorCatalogueAction": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "sideEffect": {
+          "type": "string"
+        },
+        "approvalKind": {
+          "type": "string"
+        },
+        "defaultRule": {
+          "enum": [
+            "allow",
+            "ask",
+            "deny"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "sideEffect",
+        "defaultRule"
+      ],
+      "type": "object"
+    },
+    "ConnectorCatalogueEntry": {
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "vendor": {
+          "type": "string"
+        },
+        "auth": {
+          "type": "string"
+        },
+        "scopes": {
+          "properties": {
+            "read": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "read_act": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "read",
+            "read_act"
+          ],
+          "type": "object"
+        },
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/ConnectorCatalogueAction"
+          },
+          "type": "array"
+        },
+        "remote": {
+          "properties": {
+            "url": {
+              "type": "string"
+            },
+            "transport": {
+              "const": "http",
+              "type": "string"
+            },
+            "readOnlyUrl": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "url",
+            "transport"
+          ],
+          "type": "object"
+        },
+        "setupGuide": {
+          "type": "string"
+        },
+        "docsUrl": {
+          "type": "string"
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "configured": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "type",
+        "id",
+        "label",
+        "description",
+        "category",
+        "vendor",
+        "auth",
+        "scopes",
+        "actions",
+        "available"
+      ],
+      "type": "object"
+    },
     "ConnectorStatus": {
       "enum": [
         "connected",
@@ -7514,6 +7712,100 @@
         "needs_auth"
       ],
       "type": "string"
+    },
+    "ConnectorsCatalogueParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "ConnectorsCatalogueResult": {
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/ConnectorCatalogueEntry"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "type": "object"
+    },
+    "ConnectorsConnectParams": {
+      "properties": {
+        "catalogueId": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "scopeMode": {
+          "enum": [
+            "read",
+            "read_act"
+          ],
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "config": {
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        },
+        "connectorId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "catalogueId",
+        "scopeMode"
+      ],
+      "type": "object"
+    },
+    "ConnectorsConnectResult": {
+      "properties": {
+        "connector": {
+          "$ref": "#/$defs/Connector"
+        },
+        "authorization": {
+          "$ref": "#/$defs/ConnectorAuthorization"
+        }
+      },
+      "required": [
+        "connector"
+      ],
+      "type": "object"
+    },
+    "ConnectorsDisconnectParams": {
+      "properties": {
+        "connectorId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "connectorId"
+      ],
+      "type": "object"
+    },
+    "ConnectorsDisconnectResult": {
+      "properties": {
+        "connector": {
+          "$ref": "#/$defs/Connector"
+        }
+      },
+      "required": [
+        "connector"
+      ],
+      "type": "object"
     },
     "ConnectorsGetCustomProposalParams": {
       "properties": {
@@ -7668,6 +7960,108 @@
       },
       "required": [
         "connectorId"
+      ],
+      "type": "object"
+    },
+    "ConnectorsSetMatrixParams": {
+      "properties": {
+        "connectorId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "matrix": {
+          "patternProperties": {
+            "^(.*)$": {
+              "enum": [
+                "allow",
+                "ask",
+                "deny"
+              ],
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "connectorId",
+        "matrix"
+      ],
+      "type": "object"
+    },
+    "ConnectorsSetMatrixResult": {
+      "properties": {
+        "connector": {
+          "$ref": "#/$defs/Connector"
+        }
+      },
+      "required": [
+        "connector"
+      ],
+      "type": "object"
+    },
+    "ConnectorsStatusParams": {
+      "properties": {
+        "connectorId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "connectorId"
+      ],
+      "type": "object"
+    },
+    "ConnectorsStatusResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/ConnectorStatus"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "checkedAt": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "ok",
+        "status",
+        "checkedAt"
+      ],
+      "type": "object"
+    },
+    "ConnectorsUpdatedPayload": {
+      "properties": {
+        "connector": {
+          "$ref": "#/$defs/Connector"
+        },
+        "reason": {
+          "enum": [
+            "connected",
+            "authorization_failed",
+            "disconnected",
+            "needs_auth",
+            "removed",
+            "updated"
+          ],
+          "type": "string"
+        },
+        "error": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "connector",
+        "reason"
       ],
       "type": "object"
     },
