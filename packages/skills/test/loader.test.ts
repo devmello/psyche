@@ -73,8 +73,32 @@ describe("bundled skills (T1 done-when)", () => {
     });
     const triage = (await loader.listDetailed()).find((s) => s.name === "inbox-triage");
     expect(triage).toMatchObject({ status: "ineligible", enabled: false });
-    expect(triage?.reasons).toContain("missing tool: email.*");
+    expect(triage?.reasons).toContain(
+      "needs email: connect Gmail or Apple Mail in Settings → Connectors",
+    );
     expect((await loader.promptIndex()).included).not.toContain("inbox-triage");
+  });
+
+  it("re-gates when the tool set changes, even while watching (#506)", async () => {
+    const tools: string[] = ["memory"];
+    const loader = new FsSkillLoader({
+      homeDir: tempDir(),
+      bundledDir: BUNDLED_DIR,
+      gate: () => ({ ...OPEN_GATE, tools: [...tools] }),
+    });
+    const stop = loader.watch(10_000, 3_600_000);
+    try {
+      const status = async () =>
+        (await loader.listDetailed()).find((s) => s.name === "inbox-triage")?.status;
+      expect(await status()).toBe("ineligible");
+      tools.push("gmail_search_threads", "gmail_send");
+      expect(await status()).toBe("active");
+      expect((await loader.listDetailed()).find((s) => s.name === "weekly-review")?.status).toBe(
+        "active",
+      );
+    } finally {
+      stop();
+    }
   });
 });
 

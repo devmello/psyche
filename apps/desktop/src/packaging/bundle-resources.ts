@@ -34,6 +34,8 @@ export interface BundlePiece {
   source: string;
   /** The file whose presence proves the piece was built. */
   marker: string;
+  /** Other paths a complete build has (psyched's bundled skills, #506). */
+  alsoRequires?: string[];
   dest: string;
   /** How to build it, for the error message. */
   build: string;
@@ -66,6 +68,8 @@ export function bundlePieces(
       name: "psyched (the Gateway)",
       source: sources.psychedDir,
       marker: join(sources.psychedDir, "psyched"),
+      // A psyched without its skills folder lists no bundled skills (#506): not shippable.
+      alsoRequires: [join(sources.psychedDir, "app", "skills", "README.md")],
       dest: join(resourcesDir, BUNDLED_PSYCHED_DIR),
       build: psyched,
     },
@@ -86,13 +90,18 @@ export function bundlePieces(
   ];
 }
 
+/** The marker, or the first other required path, that does not exist. */
+function firstMissing(p: BundlePiece): string {
+  return [p.marker, ...(p.alsoRequires ?? [])].find((f) => !existsSync(f)) ?? p.marker;
+}
+
 export function allowPartial(env: BuildEnv): boolean {
   return value(env, "PSYCHE_PACKAGE_ALLOW_PARTIAL") === "1";
 }
 
 export function missingPiecesMessage(missing: BundlePiece[]): string {
   const lines = missing.map(
-    (p) => `  - ${p.name}: not found at ${p.marker} (build it: ${p.build})`,
+    (p) => `  - ${p.name}: not found at ${firstMissing(p)} (build it: ${p.build})`,
   );
   return [
     "Psyche.app would not be self-contained; missing:",
@@ -113,7 +122,9 @@ export function copyBundleResources(
   opts: { allowPartial: boolean; warn?: (m: string) => void },
 ): BundlePiece[] {
   const pieces = bundlePieces(sources, resourcesDir, arch);
-  const missing = pieces.filter((p) => !existsSync(p.marker));
+  const missing = pieces.filter((p) =>
+    [p.marker, ...(p.alsoRequires ?? [])].some((f) => !existsSync(f)),
+  );
   if (missing.length > 0) {
     if (!opts.allowPartial) throw new Error(missingPiecesMessage(missing));
     opts.warn?.(`${missingPiecesMessage(missing)}\n(continuing: PSYCHE_PACKAGE_ALLOW_PARTIAL=1)`);
