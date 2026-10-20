@@ -7,6 +7,7 @@ import {
 } from "@psyche/agent-core";
 import { createAuditLog, type HashChainAuditLog } from "@psyche/audit";
 import { getDevice, getSetting, getThread, openDb, type PsycheDb } from "@psyche/db";
+import { fileTools } from "@psyche/files";
 import {
   brokerApprovalCheck,
   createMemoryHandlers,
@@ -60,7 +61,6 @@ import { createLogger } from "../log.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { CallContexts } from "./call-context.ts";
-import { fileTools } from "./file-tools.ts";
 import {
   mountParamsOnly,
   mountPermissions,
@@ -257,6 +257,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const relays: ApprovalRelay[] = [];
   const parts: ComposedPart[] = [];
   const presenceByKind = new Map<string, PresenceVerifier>();
+  const presenceReady: (() => boolean)[] = [];
   // The localhost rule (security §3.10) needs OS probes a part supplies (the browser's dev
   // preview); until one does, no loopback origin is the owner's project.
   let localProject: LocalProjectVerifier = DENY_ALL_LOOPBACK;
@@ -355,7 +356,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
 
   const registry = new AgentToolRegistry();
-  for (const tool of fileTools()) registry.register(tool);
+  // P9 file tools (#49); the executors re-check the live granted folders behind the broker.
+  for (const tool of fileTools({ folders: () => rawBroker.policy.folders }))
+    registry.register(tool);
   // E12 cross-thread awareness: registered only while the owner has turned it on.
   let gatewayRef: Gateway | null = null;
   const crossThread = crossThreadToggle(
@@ -403,7 +406,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       throw new PsycheError("invalid_params", `two composed parts supply a ${duplicate}`);
     }
     if (part.relay !== undefined) relays.push(part.relay);
-    if (part.presence !== undefined) presenceByKind.set(part.presence.kind, part.presence.verifier);
+    if (part.presence !== undefined) {
+      presenceByKind.set(part.presence.kind, part.presence.verifier);
+      presenceReady.push(part.presence.ready ?? (() => true));
+    }
     if (part.localProject !== undefined) {
       localProject = part.localProject;
       localProjectSupplied = true;
@@ -510,6 +516,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       revocations.recordDevice(deviceId);
       return rawBroker.revokeGrantsByDevice(deviceId);
     },
+    // Security settings need fresh presence once a verifier can verify (security §10): an
+    // explicit one, or a part's with a registered key (the helper without keys is not).
+    settingsPresence: () => presence !== NO_PRESENCE || presenceReady.some((ready) => ready()),
     threadModels: modelPins,
   });
   bus = gateway.bus;
@@ -592,6 +601,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   };
 }
 
+export { fileTools } from "@psyche/files";
 export { type BrowserSetup, type ComposedBrowser, composeBrowser } from "./browser.ts";
 export { CallContexts } from "./call-context.ts";
 export {
@@ -607,7 +617,6 @@ export {
   composeConnectors,
   MemoryTokenVault,
 } from "./connectors.ts";
-export { fileTools } from "./file-tools.ts";
 export {
   composeHelper,
   HELPER_SURFACE,

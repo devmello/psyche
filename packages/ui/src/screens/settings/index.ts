@@ -6,6 +6,13 @@ export {
   AppearanceSection,
   ThemePreview,
 } from "./AppearanceSection.tsx";
+export {
+  BrowserPanel,
+  type BrowserPanelProps,
+  BrowserSection,
+  REAL_CHROME_KEY,
+  realChromeOf,
+} from "./BrowserSection.tsx";
 export { ChannelsPanel, type ChannelsPanelProps, ChannelsSection } from "./ChannelsSection.tsx";
 export {
   ComputerUsePanel,
