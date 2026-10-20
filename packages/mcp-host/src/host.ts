@@ -80,6 +80,13 @@ export interface McpHostOptions {
   clientInfo?: Implementation;
   clock?: Clock;
   /**
+   * Replaces every known vault value (and its URL / base64 forms) in server output before it
+   * reaches the loop, as `exec` results are (security §4.7; #284 TM-17). Default: the
+   * Credential Broker's `redact` from `secrets`, so a server that echoes its own injected env
+   * secret returns `•••`.
+   */
+  redact?: (text: string) => string;
+  /**
    * Server ids that ship with Psyche. `trust: "bundled"` is accepted only for these, so an API
    * caller cannot self-declare a server bundled to get its annotations honored.
    */
@@ -154,10 +161,15 @@ const STDERR_TAIL = 8 * 1024;
 export class PsycheMcpHost implements McpHost {
   readonly #servers = new Map<string, ServerState>();
   readonly #options: McpHostOptions;
+  readonly #redact: (text: string) => string;
   readonly #bundled: Set<string>;
 
   constructor(options: McpHostOptions = {}) {
     this.#options = options;
+    const credentials = options.secrets?.credentials;
+    this.#redact =
+      options.redact ??
+      (credentials === undefined ? (text: string) => text : (text) => credentials.redact(text));
     this.#bundled = new Set(options.bundledServerIds ?? []);
     const cimd = options.oauth?.clientMetadataUrl;
     if (cimd !== undefined) {
@@ -182,11 +194,11 @@ export class PsycheMcpHost implements McpHost {
       ...this.#info(s),
       tools: structuredClone(s.tools),
       warnings: [...s.warnings],
-      stderrTail: s.stderr,
+      stderrTail: this.#redact(s.stderr),
     };
     if (s.era !== undefined) d.era = s.era;
     if (s.error !== undefined) {
-      d.error = s.error;
+      d.error = this.#redact(s.error);
       d.errorProvenance = "untrusted";
     }
     if (s.launch !== undefined || s.config.transport.kind === "stdio") {
@@ -264,6 +276,12 @@ export class PsycheMcpHost implements McpHost {
     await this.#disconnect(s);
     if (s.config.transport.kind === "http") {
       await this.#options.oauth?.tokenStore.clear(tokenKey(s.config.id, s.config.transport.url));
+    } else {
+      // A replacement config with the same id must not inherit this server's sandbox state
+      // (its /workspace volume, its egress allowlist; #284 TM-18).
+      await this.#launcherFor(s.config.trust)
+        ?.forget?.(serverId)
+        .catch(() => undefined);
     }
   }
 
@@ -309,13 +327,19 @@ export class PsycheMcpHost implements McpHost {
           ...(options.signal === undefined ? {} : { signal: options.signal }),
         },
       );
+      // Redact before capping, so truncation cannot cut a secret into unmatchable halves.
       return {
-        content: this.#cap({
-          blocks: Array.isArray(result.content) ? result.content : [],
-          ...(result.structuredContent === undefined
-            ? {}
-            : { structured: result.structuredContent }),
-        }),
+        content: this.#cap(
+          redactDeep(
+            {
+              blocks: Array.isArray(result.content) ? result.content : [],
+              ...(result.structuredContent === undefined
+                ? {}
+                : { structured: result.structuredContent }),
+            },
+            this.#redact,
+          ),
+        ),
         isError: result.isError === true,
         provenance,
       };
@@ -327,7 +351,10 @@ export class PsycheMcpHost implements McpHost {
         return {
           content: {
             blocks: [
-              { type: "text", text: `MCP error ${err.code}: ${untrustedText(err.message)}` },
+              {
+                type: "text",
+                text: `MCP error ${err.code}: ${this.#redact(untrustedText(err.message))}`,
+              },
             ],
           },
           isError: true,
@@ -387,7 +414,7 @@ export class PsycheMcpHost implements McpHost {
         serverId,
         uri,
         mimeType: item.mimeType ?? APP_MIME,
-        html: item.text,
+        html: this.#redact(item.text),
         csp: (ui.csp as Record<string, unknown> | undefined) ?? {},
         permissions: (ui.permissions as Record<string, unknown> | undefined) ?? {},
         toolsListHash: s.hash as Sha256,
@@ -549,6 +576,8 @@ export class PsycheMcpHost implements McpHost {
       s.config.auth ?? (this.#options.oauth === undefined ? { kind: "none" } : { kind: "oauth" });
 
     if (auth.kind === "bearer") {
+      // An origin-bound vault item, sent like a connector's Authorization header (security
+      // §4.6, §11): `#validate` already limits remote servers to https (loopback excepted).
       const injection = this.#options.secrets;
       if (injection === undefined)
         throw new PsycheError("unavailable", "no credential broker configured");
@@ -843,4 +872,19 @@ function toPsycheError(err: unknown): PsycheError {
   if (err instanceof Error && err.name === "AbortError")
     return new PsycheError("cancelled", err.message);
   return new PsycheError("internal", errorMessage(err), { cause: err });
+}
+
+/** Every string in a JSON-like value through `redact`; other values unchanged. */
+export function redactDeep<T>(value: T, redact: (text: string) => string): T {
+  const walk = (v: unknown, depth: number): unknown => {
+    if (typeof v === "string") return redact(v);
+    if (depth > 64 || v === null || typeof v !== "object") return v;
+    if (Array.isArray(v)) return v.map((x) => walk(x, depth + 1));
+    const proto = Object.getPrototypeOf(v);
+    if (proto !== Object.prototype && proto !== null) return v;
+    return Object.fromEntries(
+      Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, walk(x, depth + 1)]),
+    );
+  };
+  return walk(value, 0) as T;
 }

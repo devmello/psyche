@@ -1595,6 +1595,7 @@ export interface CredentialUpdatedPayload {
 export type Change = "created" | "updated" | "deleted" | "rotated" | "revoked" | "used";
 
 export interface CredentialMeta {
+    backend?:          Backend;
     bindings:          CredentialBinding[];
     createdAt:         string;
     id:                string;
@@ -1606,6 +1607,8 @@ export interface CredentialMeta {
     updatedAt:         string;
     useCount:          number;
 }
+
+export type Backend = "vault" | "keychain" | "1password";
 
 export interface CredentialBinding {
     origin?:    string;
@@ -4163,12 +4166,12 @@ export interface VaultStatus {
     lockAt?:           null | string;
     recoveryConfirmed: boolean;
     slots:             VaultKeySlot[];
-    state:             State;
+    state:             VaultStatusState;
 }
 
 export type VaultKeySlot = "keychain" | "safe_storage" | "key_file" | "recovery";
 
-export type State = "uninitialized" | "locked" | "unlocked";
+export type VaultStatusState = "uninitialized" | "locked" | "unlocked";
 
 export interface VaultDeleteParams {
     credentialId: string;
@@ -4203,6 +4206,31 @@ export interface Skipped {
     row:    number;
 }
 
+export interface VaultLinkExternalParams {
+    bindings: CredentialBinding[];
+    fields?:  Field[];
+    kind:     VaultLinkExternalParamsKind;
+    name:     string;
+    ref:      OnePasswordRef;
+    slug?:    string;
+    source:   Source;
+}
+
+export type Field = "username" | "password" | "totp" | "token" | "privateKey" | "text";
+
+export type VaultLinkExternalParamsKind = "login" | "api_key" | "ssh_key" | "note";
+
+export interface OnePasswordRef {
+    item:  string;
+    vault: string;
+}
+
+export type Source = "1password";
+
+export interface VaultLinkExternalResult {
+    credential: CredentialMeta;
+}
+
 export interface VaultListParams {
     kind?: CredentialKind;
 }
@@ -4221,6 +4249,66 @@ export interface VaultLockedPayload {
 }
 
 export type VaultLockedPayloadReason = "manual" | "idle" | "sleep" | "screen_lock" | "shutdown";
+
+export interface VaultPaymentUpdatedPayload {
+    payment: VaultPayment;
+}
+
+export interface VaultPayment {
+    amount:         number;
+    approvalId:     string;
+    card?:          Card | null;
+    createdAt:      string;
+    currency:       string;
+    fundingSource?: FundingSource | null;
+    merchantHost:   string;
+    merchantName:   string;
+    payment:        Payment;
+    refs:           { [key: string]: string };
+    spendRequestId: string;
+    status:         string;
+    taskId?:        null | string;
+}
+
+export interface Card {
+    brand: string;
+    last4: string;
+}
+
+export interface FundingSource {
+    brand: string;
+    last4: string;
+}
+
+export interface Payment {
+    captured: number;
+    held:     number;
+    refunded: number;
+    state:    PaymentState;
+}
+
+export type PaymentState = "none" | "held" | "captured" | "partially_refunded" | "refunded" | "declined" | "released";
+
+export interface VaultPaymentsListParams {
+    limit?:  number;
+    taskId?: string;
+}
+
+export interface VaultPaymentsListResult {
+    payments: VaultPayment[];
+}
+
+export interface VaultPaymentsMethodsResult {
+    methods: LinkPaymentMethod[];
+}
+
+export interface LinkPaymentMethod {
+    brand:     string;
+    id:        string;
+    isDefault: boolean;
+    last4:     string;
+    nickname?: null | string;
+}
 
 export interface VaultSetupParams {
     slot: Slot;

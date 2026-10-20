@@ -18,6 +18,14 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S06: Settings → Credentials, payments and 1Password)
+
+- `vault.linkExternal` (operator.admin, side-effecting): links a 1Password item (G10) by `OnePasswordRef` `{vault, item}` with the fields it offers; Psyche stores the reference, never a value.
+- `vault.payments.list` (operator.read): Stripe Link spends as `VaultPayment`, newest first, optionally per task. Each carries the merchant, the amount in minor units, Link's status, the lifecycle `payment {state, held, captured, refunded}`, brand / last4 of the one-time card and of its funding method, and the merchant refs. Never card data.
+- `vault.payments.methods` (operator.read): the owner's Link payment methods as `LinkPaymentMethod`, redacted.
+- Event `vault.payment.updated {payment}`.
+- `CredentialMeta.backend` (optional): `vault | keychain | 1password`.
+
 ### v1 additive — 2026-10-20 (S22, M3 security audit completeness)
 
 - New `mcp.status` (`operator.read`) → `{launcher: "srt" | "container" | "none", servers: McpServerStatus[]}` (`id`, `name`, `trust`, `transport`, `network`, `connected`): how the composed Gateway isolates MCP servers, for `psyche security audit`.

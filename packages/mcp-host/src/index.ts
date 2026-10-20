@@ -12,6 +12,7 @@ export {
   type McpServerDetails,
   PsycheMcpHost,
   type PsycheMcpServerConfig,
+  redactDeep,
 } from "./host.ts";
 export { inspectTool, MAX_DESCRIPTION_CHARS, type ToolWarning } from "./inspect.ts";
 export {

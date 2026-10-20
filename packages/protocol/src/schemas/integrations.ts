@@ -30,6 +30,8 @@ export const CredentialMeta = Type.Object(
     useCount: Type.Integer({ minimum: 0 }),
     createdAt: IsoDateTime,
     updatedAt: IsoDateTime,
+    /** Where the secret lives (G9 / G10): the vault database, the system keychain, or 1Password. */
+    backend: Type.Optional(StringEnum(["vault", "keychain", "1password"])),
   },
   { $id: "CredentialMeta" },
 );
@@ -59,6 +61,71 @@ export const VaultKeySlot = StringEnum(["keychain", "safe_storage", "key_file", 
   $id: "VaultKeySlot",
 });
 export type VaultKeySlot = Static<typeof VaultKeySlot>;
+
+/** A 1Password item reference (G10): names or ids, never a value. */
+export const OnePasswordRef = Type.Object(
+  {
+    vault: Type.String({ minLength: 1, maxLength: 128 }),
+    item: Type.String({ minLength: 1, maxLength: 128 }),
+  },
+  { $id: "OnePasswordRef" },
+);
+export type OnePasswordRef = Static<typeof OnePasswordRef>;
+
+/** One of the owner's Link payment methods, redacted (G12). */
+export const LinkPaymentMethod = Type.Object(
+  {
+    id: Type.String({ minLength: 1, maxLength: 128 }),
+    brand: Type.String(),
+    last4: Type.String({ maxLength: 4 }),
+    nickname: Nullable(Type.String()),
+    isDefault: Type.Boolean(),
+  },
+  { $id: "LinkPaymentMethod" },
+);
+export type LinkPaymentMethod = Static<typeof LinkPaymentMethod>;
+
+/** Brand / last4 of a card: the one-time Link card or its funding method. Never the number. */
+const MaskedCard = Type.Object({ brand: Type.String(), last4: Type.String({ maxLength: 4 }) });
+
+/**
+ * One Stripe Link spend (security §4.9) with the merchant's side of it: hold, capture, refund,
+ * decline. Amounts are minor units. No card number, CVC or token ever appears here.
+ */
+export const VaultPayment = Type.Object(
+  {
+    spendRequestId: Type.String(),
+    merchantName: Type.String(),
+    merchantHost: Type.String(),
+    amount: Type.Integer({ minimum: 0 }),
+    currency: Type.String({ minLength: 3, maxLength: 3 }),
+    /** Link's spend-request status: created … approved, succeeded, failed, denied, expired, canceled. */
+    status: Type.String(),
+    payment: Type.Object({
+      state: StringEnum([
+        "none",
+        "held",
+        "captured",
+        "partially_refunded",
+        "refunded",
+        "declined",
+        "released",
+      ]),
+      held: Type.Integer({ minimum: 0 }),
+      captured: Type.Integer({ minimum: 0 }),
+      refunded: Type.Integer({ minimum: 0 }),
+    }),
+    card: Nullable(MaskedCard),
+    fundingSource: Nullable(MaskedCard),
+    /** Merchant references: holdRef, orderNumber, merchantConfirmation, refundRef, declineCode. */
+    refs: Type.Record(Type.String(), Type.String()),
+    approvalId: Id,
+    taskId: Nullable(Id),
+    createdAt: IsoDateTime,
+  },
+  { $id: "VaultPayment" },
+);
+export type VaultPayment = Static<typeof VaultPayment>;
 
 export const VaultStatus = Type.Object(
   {
