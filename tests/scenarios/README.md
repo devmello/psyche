@@ -26,6 +26,10 @@ v3-shopping/              (Milestone 2, S09: up to the checkout hand-off; no pay
   scenario.json
   fixtures/sites/manifest.json   two storefronts + the owner's merchant allowlist (`merchants`)
   fixtures/sites/pages/*.html    search results and a cart; pages with `elements` are storefronts
+v3-shopping/              compare, cart, pay with Stripe Link (test mode)
+v4-travel/
+  scenario.json
+  fixtures/flights.json   two fixture airlines, a Basic Economy decoy, a planted Flex Plus instruction
 v7-research-brief/
   scenario.json
   fixtures/sites/manifest.json   URL -> page, status, kind (credible, spam, injection, ...)

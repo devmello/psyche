@@ -667,6 +667,8 @@ export class PaymentBroker {
       check?: (rec: SpendRecord) => void;
       report?: { outcome: ReportOutcome; tags?: string[] };
       toolCallId?: string;
+      /** The approval that authorized this step, when it is not the purchase's own (ticketing a hold). */
+      approvalId?: string;
       payload?: JsonObject;
     },
   ): Promise<Receipt> {
@@ -704,7 +706,7 @@ export class PaymentBroker {
       outcome: t.outcome,
       summary: t.summary(rec),
       taskId: rec.taskId,
-      approvalId: rec.approvalId,
+      approvalId: t.approvalId ?? rec.approvalId,
       ...(t.toolCallId === undefined ? {} : { toolCallId: t.toolCallId }),
       externalRefs,
       payload: {
@@ -731,6 +733,7 @@ export class PaymentBroker {
       receiptId: receipt.id,
       receiptKind: t.kind,
       state: t.to,
+      approvalId: t.approvalId ?? rec.approvalId,
       held: rec.payment.held,
       captured: rec.payment.captured,
       refunded: rec.payment.refunded,
@@ -804,10 +807,12 @@ export class PaymentBroker {
       orderNumber?: string;
       merchantConfirmation?: string;
       toolCallId?: string;
+      approvalId?: string;
       payload?: JsonObject;
     },
   ): Promise<Receipt> {
     return this.#transition(spendRequestId, {
+      ...(r.approvalId === undefined ? {} : { approvalId: r.approvalId }),
       from: ["none", "held"],
       to: "captured",
       kind: "purchase",
@@ -844,11 +849,13 @@ export class PaymentBroker {
       refundRef: string;
       reason?: string;
       toolCallId?: string;
+      approvalId?: string;
       payload?: JsonObject;
     },
   ): Promise<Receipt> {
     let amount = 0;
     return this.#transition(spendRequestId, {
+      ...(r.approvalId === undefined ? {} : { approvalId: r.approvalId }),
       from: ["captured", "partially_refunded"],
       to: "refunded",
       kind: "purchase.refund",
