@@ -1,6 +1,7 @@
 import { type AgentToolRegistration, defineTool, type ToolRunContext } from "@psyche/agent-core";
 import {
   type CredentialMeta,
+  type DecisionContext,
   EXEC_DEFAULT_TIMEOUT_MS,
   type PermissionBroker,
   PLACEHOLDER_PATTERN,
@@ -31,6 +32,11 @@ export interface ExecToolDeps {
   runner: SandboxRunner;
   vault: Vault;
   broker: PermissionBroker;
+  /**
+   * Called while a command runs with its scope and decision context, so the egress proxy can
+   * decide that sandbox's new origins with the turn's taint; returns the release function.
+   */
+  track?(scope: SandboxScope, ctx: DecisionContext): () => void;
 }
 
 /** The task's sandbox when the call belongs to one, else the thread's. */
@@ -146,9 +152,20 @@ export function execTool(deps: ExecToolDeps): AgentToolRegistration {
           );
         } else plain[k] = v;
       }
-      const sandbox = await deps.runner.ensureSandbox(sandboxScope(ctx));
+      const scope = sandboxScope(ctx);
+      const sandbox = await deps.runner.ensureSandbox(scope);
       const filled = await secretEnv(deps, ctx, secrets);
       let result: Awaited<ReturnType<SandboxRunner["exec"]>>;
+      const release = deps.track?.(scope, {
+        threadId: ctx.threadId,
+        runId: ctx.runId,
+        ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
+        permissionMode: ctx.permissionMode,
+        taint: ctx.taint,
+        ...(ctx.taint ? { taintSources: [...(ctx.taintSources ?? [])] } : {}),
+        ...(ctx.mode === "unattended" ? { unattended: true } : {}),
+        ...(ctx.requester === undefined ? {} : { requester: ctx.requester }),
+      });
       try {
         result = await deps.runner.exec({
           sandboxId: sandbox.id,
@@ -163,6 +180,7 @@ export function execTool(deps: ExecToolDeps): AgentToolRegistration {
         });
       } finally {
         filled?.dispose();
+        release?.();
       }
       const redact = (text: string) => deps.vault.redact(text);
       return {

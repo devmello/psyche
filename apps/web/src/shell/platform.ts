@@ -171,8 +171,29 @@ export interface ShellPlatform {
   windows?: WindowPort;
   chrome?: WindowChrome;
   dialogs?: DialogPort;
+  dictation?: DictationPort;
   /** Web only, in a secure context: WebAuthn passkeys for presence (issue #79). */
   passkeys?: PasskeyHost;
+}
+
+/**
+ * Desktop only: system-wide dictation (features J9, Q2), run by the desktop main process with the
+ * Mac helper. `accessibility` is the helper's grant as its hold-to-talk watch found it.
+ */
+export interface SystemDictationStatus {
+  helper: "online" | "offline";
+  accessibility: "granted" | "missing" | "unknown";
+  watching: boolean;
+  hotkeyTaken?: string;
+}
+
+export interface DictationPort {
+  getStatus(): Promise<SystemDictationStatus>;
+  onStatus(cb: (status: SystemDictationStatus) => void): () => void;
+  /** Re-arms the watch (after the owner granted Accessibility) and answers the new status. */
+  recheck(): Promise<SystemDictationStatus>;
+  /** Opens System Settings › Privacy & Security › Accessibility. */
+  openAccessibilitySettings(): void;
 }
 
 /** localStorage-backed store that degrades to memory (private windows, blocked storage). */

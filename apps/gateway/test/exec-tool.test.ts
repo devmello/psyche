@@ -79,10 +79,24 @@ describe("exec in the sandbox (K1, §4.6)", () => {
       say("Deployed."),
     ]);
     const logs: string[] = [];
+    const tracked: { scope: { kind: string; id: string }; taint: boolean; live: boolean }[] = [];
     const gw = await gateway(
       model,
       (s) => {
-        s.tools.register(execTool({ runner, vault: s.vault, broker: s.broker }));
+        s.tools.register(
+          execTool({
+            runner,
+            vault: s.vault,
+            broker: s.broker,
+            track: (scope, ctx) => {
+              tracked.push({ scope, taint: ctx.taint, live: true });
+              return () => {
+                const t = tracked.at(-1);
+                if (t !== undefined) t.live = false;
+              };
+            },
+          }),
+        );
         return {};
       },
       logs,
@@ -152,6 +166,10 @@ describe("exec in the sandbox (K1, §4.6)", () => {
     await gw.gateway.context.sessions.idle();
 
     expect(answered).toEqual(["exec", "credential_fill"]);
+    // The egress proxy saw this command's context while it ran, then let it go.
+    expect(tracked).toEqual([
+      { scope: { kind: "thread", id: thread.id }, taint: false, live: false },
+    ]);
     const ran = runner.execs[0];
     expect(ran?.argv).toEqual(["deploy", "--prod"]);
     expect(ran?.env).toEqual({ MODE: "prod", PSYCHE_SECRET_API_TOKEN: SECRET });

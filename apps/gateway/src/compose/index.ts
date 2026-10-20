@@ -64,6 +64,7 @@ import { CallContexts } from "./call-context.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
 import { composeComputer } from "./computer.ts";
 import { composeDictation } from "./dictation.ts";
+import { filesHandlers } from "./files.ts";
 import {
   mountParamsOnly,
   mountPermissions,
@@ -518,6 +519,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...receiptHandlers(broker),
     ...threadSettingsHandlers(modelPins),
     ...vault.handlers,
+    ...filesHandlers({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
   };
   for (const part of parts) Object.assign(handlers, part.handlers ?? {});
 

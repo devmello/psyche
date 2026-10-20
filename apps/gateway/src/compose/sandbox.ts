@@ -1,10 +1,13 @@
 import { join } from "node:path";
+import type { DecisionContext, SandboxScope } from "@psyche/protocol";
 import {
   type ContainerSandboxRunner,
   type ContainerSandboxRunnerOptions,
+  createSandboxEgress,
   createSandboxRunner,
   type DevServerEvent,
   FileProvenanceStore,
+  type SandboxEgress,
 } from "@psyche/sandbox";
 import { execTool } from "./exec-tool.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
@@ -37,6 +40,12 @@ export interface SandboxSetup {
 
 export interface ComposedSandbox extends ComposedPart {
   readonly runner: ContainerSandboxRunner;
+  /**
+   * The host-side egress proxy for `network: "proxy"` sandboxes (K4): allowlists per scope
+   * (`egressAllowlist`, also what `containerLauncher` takes for MCP servers), new origins
+   * through the broker with the running command's taint, `sandbox.egress` receipts and logs.
+   */
+  readonly egress: SandboxEgress;
 }
 
 /**
@@ -66,13 +75,35 @@ export function devServerBridge(sink: DevServerSink): (event: DevServerEvent) =>
  * The sandbox runner as the Gateway mounts it (K1–K3). With `devServers`, servers an `exec`
  * leaves listening are forwarded to host loopback and announced for dev preview (I12). The
  * container keeps network `none` (the forward is inbound from host loopback only) and this path
- * never runs anything on the host, so the egress and `exec_host` policies are unchanged.
+ * never runs anything on the host. A sandbox started with `network: "proxy"` reaches only its
+ * scope's allowlist through `egress` (K4); the agent's `exec` keeps network `none`, since tasks
+ * declare no egress hosts yet.
  */
 export function composeSandbox(
   services: ComposeServices,
   setup: SandboxSetup = {},
 ): ComposedSandbox {
+  // The decision context of the command running in each scope. A scope with none (a server
+  // left running between turns, an MCP server) counts as tainted, so its new origins ask.
+  const live = new Map<string, DecisionContext[]>();
+  const key = (scope: SandboxScope) => `${scope.kind}:${scope.id}`;
+  const egress = createSandboxEgress({
+    broker: services.broker,
+    context: (scope) => live.get(key(scope))?.at(-1),
+    surfaces: ["desktop", "web"],
+    ...(services.logger === undefined ? {} : { logger: services.logger }),
+  });
+  const track = (scope: SandboxScope, ctx: DecisionContext) => {
+    const list = live.get(key(scope)) ?? [];
+    list.push(ctx);
+    live.set(key(scope), list);
+    return () => {
+      list.splice(list.indexOf(ctx), 1);
+      if (list.length === 0) live.delete(key(scope));
+    };
+  };
   const runner = createSandboxRunner({
+    egressTunnel: egress.egressTunnel,
     // File provenance survives a restart (S23 design-07).
     ...(setup.exec === false
       ? {}
@@ -84,10 +115,11 @@ export function composeSandbox(
     setup.exec === false
       ? undefined
       : services.tools.register(
-          execTool({ runner, vault: services.vault, broker: services.broker }),
+          execTool({ runner, vault: services.vault, broker: services.broker, track }),
         );
   return {
     runner,
+    egress,
     // Stops the containers this process started; their servers are announced `stopped`.
     stop: async () => {
       unregister?.();

@@ -107,4 +107,9 @@ export type {
   ToolCheck,
 } from "./types.ts";
 export { UsageMeter, UsagePanel, UsageSection } from "./UsageSection.tsx";
-export { VoicePanel, VoiceSection } from "./VoiceSection.tsx";
+export {
+  type SystemDictationProps,
+  type SystemDictationStatus,
+  VoicePanel,
+  VoiceSection,
+} from "./VoiceSection.tsx";

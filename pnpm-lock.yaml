@@ -315,6 +315,9 @@ importers:
       '@psyche/files':
         specifier: workspace:*
         version: link:../../packages/files
+      '@psyche/mcp-host':
+        specifier: workspace:*
+        version: link:../../packages/mcp-host
       '@psyche/memory':
         specifier: workspace:*
         version: link:../../packages/memory
@@ -348,6 +351,9 @@ importers:
       '@psyche/vault':
         specifier: workspace:*
         version: link:../../packages/vault
+      '@psyche/viewers':
+        specifier: workspace:*
+        version: link:../../packages/viewers
       '@simplewebauthn/server':
         specifier: 14.0.3
         version: 14.0.3

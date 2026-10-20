@@ -10,9 +10,10 @@ import {
   type SettingsSectionId,
   usePersona,
   useSettingsForm,
+  VoiceSection,
 } from "@psyche/ui";
-import { type ReactElement, type ReactNode, useMemo, useState } from "react";
-import type { ShellPlatform } from "../shell/platform.ts";
+import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from "react";
+import type { DictationPort, ShellPlatform, SystemDictationStatus } from "../shell/platform.ts";
 import { BackupsPanel } from "./backups.tsx";
 import { LogViewer } from "./logs.tsx";
 import { PasskeysPanel } from "./passkeys.tsx";
@@ -163,6 +164,32 @@ export function settingsSectionOf(route: string): SettingsSectionId | null {
   return SETTINGS_SECTIONS.find((s) => s.id === m[1])?.id ?? "model";
 }
 
+/** Voice & dictation with the desktop's system-wide dictation status (J9, Q2). */
+export function SystemVoiceSettings({ dictation }: { dictation: DictationPort }): ReactElement {
+  const [status, setStatus] = useState<SystemDictationStatus | null>(null);
+  useEffect(() => {
+    let live = true;
+    void dictation.getStatus().then(
+      (s) => live && setStatus(s),
+      () => undefined,
+    );
+    const off = dictation.onStatus((s) => setStatus(s));
+    return () => {
+      live = false;
+      off();
+    };
+  }, [dictation]);
+  return (
+    <VoiceSection
+      system={status ?? { helper: "offline", accessibility: "unknown", watching: false }}
+      onOpenAccessibility={() => dictation.openAccessibilitySettings()}
+      onRecheck={() => {
+        void dictation.recheck().then(setStatus, () => undefined);
+      }}
+    />
+  );
+}
+
 export function settingsRoute(
   route: string,
   navigate: (to: string) => void,
@@ -189,6 +216,9 @@ export function settingsRoute(
           : {})}
         sections={{
           files: <FileAccessSettings platform={platform} />,
+          ...(platform.dictation
+            ? { voice: <SystemVoiceSettings dictation={platform.dictation} /> }
+            : {}),
           ...(platform.kind === "web"
             ? {
                 devices: (
