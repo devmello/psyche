@@ -17,7 +17,7 @@ Every recipe runs the same `psyched` with the same rules: it binds `127.0.0.1` o
 | `backup/` | Backup, restore and verify scripts for Compose deployments |
 | `browser/` | The Compose `browser` sidecar: pinned Playwright base, `playwright` from `package-lock.json` (`npm ci`) |
 | `homebrew/` | Cask (desktop app) and formula (`psyche` CLI) templates for the `devmello/psyche` tap |
-| `macos/make-dmg.sh` | `Psyche-<version>-<arch>.dmg` from a packaged app; signs, notarizes and staples when the signing variables are set |
+| `macos/make-dmg.sh` | `Psyche-<version>-<arch>.dmg` and its `.sha256` from a packaged app: an Applications link and a background (`macos/dmg-background.png`, drawn by `macos/make-background.mjs`); signs, notarizes and staples with a Developer ID, otherwise ad-hoc (`apps/desktop/docs/signing.md`) |
 | `scripts/build-psyched.mjs` | The self-contained Gateway bundle for Psyche.app (`apps/gateway/dist-bin/darwin-<arch>/psyched/`): Node 24 runtime checked against nodejs.org, the Gateway and CLI sources with production dependencies, launchers, plist template. `--smoke` starts it with only `PSYCHE_HOME` and checks `/healthz` |
 | `scripts/release-preflight.mjs` | Repository checks before a tag (24 h dependency cool-down, Node pins, pinned release Compose file, update policy, sandbox signer; warns without an update key). The release workflow runs it first |
 | `scripts/node-pins.mjs` | Node base-image pins: `check [--latest]` (exact versions, digests, all agree; the release's deploy smoke runs it), `update --version x.y.z` (re-pins every file from Docker Hub after a Node security release) |
