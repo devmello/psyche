@@ -104,7 +104,8 @@ export class GatewayStore {
       return await this.client.request(method, params, options);
     } catch (err) {
       if (err instanceof GatewayRequestError) throw err;
-      if (err instanceof PsycheError) throw new GatewayRequestError(method, err.code, err.message);
+      if (err instanceof PsycheError)
+        throw new GatewayRequestError(method, err.code, err.message, err.details);
       const message = err instanceof Error ? err.message : String(err);
       throw new GatewayRequestError(method, "internal", message);
     }
@@ -407,6 +408,9 @@ export class GatewayStore {
         return invalidate(s, ["memory.status"]);
       case "credential.updated":
         return invalidate(s, ["vault."]);
+      case "skills.changed":
+      case "skills.updated":
+        return invalidate(s, ["skills."]);
       case "gateway.shutdown":
         return { ...s, connection: "offline" };
       default:

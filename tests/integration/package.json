@@ -19,6 +19,7 @@
     "@psyche/connectors": "workspace:*",
     "@psyche/db": "workspace:*",
     "@psyche/gateway": "workspace:*",
+    "@psyche/mcp-host": "workspace:*",
     "@psyche/memory": "workspace:*",
     "@psyche/permissions": "workspace:*",
     "@psyche/protocol": "workspace:*",

@@ -1,5 +1,14 @@
+import type { ApprovalRequest } from "@psyche/protocol";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { createFixtureWorld, IDS, PERSONA } from "../../fixtures/index.ts";
+import { ApprovalCard } from "../../blocks/ApprovalCard.tsx";
+import {
+  createFixtureWorld,
+  FIXTURE_NOW,
+  IDS,
+  inMinutes,
+  PERSONA,
+  stagedSkillProposal,
+} from "../../fixtures/index.ts";
 import { STORY_NOW, withWorld } from "../../stories/harness.tsx";
 import { AboutPanel } from "./AboutSection.tsx";
 import { AppearancePanel } from "./AppearanceSection.tsx";
@@ -17,6 +26,7 @@ import { ModelProvidersPanel, providerInfoFromSummary } from "./ModelSection.tsx
 import { PermissionsPanel } from "./PermissionsSection.tsx";
 import { PersonaPanel } from "./PersonaSection.tsx";
 import { ServerPanel } from "./ServerSection.tsx";
+import { SkillsPanel, SkillTrustCard } from "./SkillsSection.tsx";
 import {
   sampleAbout,
   sampleDoctor,
@@ -622,4 +632,104 @@ export const AboutPopulated: Story = {
 };
 export const AboutDoctorRunning: Story = {
   render: () => <AboutPanel info={null} doctor={null} doctorRunning onRunDoctor={noop} />,
+};
+
+// --- Skills ------------------------------------------------------------------------------------
+
+const skillProposal = stagedSkillProposal();
+const skillApproval: ApprovalRequest = {
+  id: "apr_story_skill",
+  kind: "skill_install",
+  summary: 'Install skill "pdf-merge"',
+  details: {
+    name: "pdf-merge",
+    source: skillProposal.source,
+    hash: skillProposal.hash,
+    permissions: ["file_write"],
+    tools: ["list_dir", "read_file", "write_file"],
+    prompts: ["prompts/naming.md"],
+    scope: "home",
+  },
+  bindingHash: skillProposal.bindingHash,
+  grantKey: skillProposal.grantKey,
+  requestedBy: { runId: null, taskId: null, threadId: null },
+  sideEffect: "destructive",
+  surfaces: ["desktop", "web"],
+  scopesOffered: ["once"],
+  deviceOnly: true,
+  requiresAuthentication: false,
+  taint: false,
+  status: "pending",
+  scopeGranted: null,
+  decidedBy: null,
+  requestedAt: FIXTURE_NOW,
+  expiresAt: inMinutes(30),
+  decidedAt: null,
+  grantId: null,
+};
+const skillProps = {
+  skills: world.skills,
+  onReview: noop,
+  onToggle: noop,
+  onRemove: noop,
+  onCheckUpdates: noop,
+  onReviewUpdate: noop,
+};
+
+export const SkillsPopulated: Story = { render: () => <SkillsPanel {...skillProps} /> };
+export const SkillsEmpty: Story = { render: () => <SkillsPanel {...skillProps} skills={[]} /> };
+export const SkillsLoading: Story = { render: () => <SkillsPanel {...skillProps} loading /> };
+export const SkillsError: Story = {
+  render: () => <SkillsPanel {...skillProps} error="the Gateway is not reachable" onRetry={noop} />,
+};
+export const SkillsRefusedByPolicy: Story = {
+  render: () => (
+    <SkillsPanel
+      {...skillProps}
+      actionError="Psyche won't install this skill: it asks for the exec_host permission, which skills may not use."
+    />
+  ),
+};
+export const SkillsTrustCard: Story = {
+  render: () => (
+    <SkillsPanel
+      {...skillProps}
+      review={
+        <SkillTrustCard proposal={skillProposal} onCancel={noop}>
+          <ApprovalCard
+            approval={skillApproval}
+            canAnswer
+            persona={PERSONA.name}
+            now={Date.parse(FIXTURE_NOW)}
+            onAnswer={noop}
+          />
+        </SkillTrustCard>
+      }
+    />
+  ),
+};
+export const SkillsTrustCardHighFindings: Story = {
+  render: () => (
+    <SkillTrustCard
+      proposal={{
+        ...skillProposal,
+        findings: [
+          {
+            rule: "pipe-to-shell",
+            severity: "high",
+            message: "downloads a script and pipes it into a shell",
+            file: "SKILL.md",
+            line: 12,
+          },
+          {
+            rule: "agent-directed-instruction",
+            severity: "high",
+            message: "addresses the AI assistant directly",
+            file: "SKILL.md",
+            line: 9,
+          },
+        ],
+      }}
+    />
+  ),
 };

@@ -29,6 +29,10 @@ export interface SkillMeta {
   requires: SkillRequires;
   /** `allowed-tools` (informational; a skill never widens tool policy). */
   allowedTools: string[];
+  /** `permissions`: approval kinds the skill's steps expect to request (manifest, T2). */
+  permissions: string[];
+  /** `prompts`: prompt files the skill ships, relative to its folder (manifest, T2). */
+  prompts: string[];
   version?: string;
   license?: string;
   homepage?: string;
@@ -145,6 +149,8 @@ export function parseSkill(text: string, expectedName?: string): ParseResult {
     ),
     requires,
     allowedTools: strings(fm["allowed-tools"], "allowed-tools", errors),
+    permissions: [...new Set(strings(fm.permissions, "permissions", errors))],
+    prompts: [...new Set(strings(fm.prompts, "prompts", errors))],
   };
   const version = optString(fm.version ?? obj(fm.metadata)?.version, "version", errors);
   const license = optString(fm.license, "license", errors);

@@ -93,6 +93,15 @@ export {
   SettingsSectionView,
   type SettingsShellProps,
 } from "./SettingsScreen.tsx";
+export {
+  asksFor,
+  SkillsPanel,
+  type SkillsPanelProps,
+  SkillsSection,
+  SkillTrustCard,
+  type SkillTrustCardProps,
+  skillSourceOf,
+} from "./SkillsSection.tsx";
 export { useSettingsForm } from "./shared.tsx";
 export type {
   AboutInfo,

@@ -53,6 +53,8 @@ export interface InjectionStack {
   audit: AuditLog;
   /** Advance time (approval arm delay when seeding grants). */
   advance(ms: number): void;
+  /** Release the run (a stack that drives a real loop cancels its parked turn). */
+  dispose?(): Promise<void>;
 }
 
 export type StackFactory = () => InjectionStack;
@@ -300,6 +302,7 @@ export async function runCase(
     return result;
   } finally {
     drainCaptures();
+    await stack.dispose?.().catch(() => undefined);
   }
   result.status =
     result.failures.length > 0 ? "fail" : result.warnings.length > 0 ? "warn" : "pass";
