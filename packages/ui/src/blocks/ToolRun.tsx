@@ -22,6 +22,7 @@ import {
 import { type ReactElement, useState } from "react";
 import { formatDuration, formatTime, plural, toolFamily } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
+import { DiffBlock } from "./DiffBlock.tsx";
 import { DISCLOSURE_LABEL, useDisclosure } from "./disclosure.tsx";
 import type { ToolCallBlock } from "./types.ts";
 
@@ -118,6 +119,8 @@ export function ToolCallRow({
   const Icon = toolIcon(block.tool);
   const family = toolFamily(block.tool);
   const failed = block.status === "failed" || block.status === "blocked";
+  // A change the call made, as its receipt recorded it (`code.edit`, a file write).
+  const diff = typeof receipt?.payload?.diff === "string" ? receipt.payload.diff : undefined;
   return (
     <li className="flex flex-col gap-1 py-1 text-small">
       <div className="flex items-center gap-2">
@@ -141,6 +144,12 @@ export function ToolCallRow({
           {duration(call) ?? ""}
         </span>
       </div>
+      {diff !== undefined ? (
+        <details className="ml-6">
+          <summary className="cursor-pointer text-caption text-accent-11">View diff</summary>
+          <DiffBlock diff={diff} className="mt-1 max-h-96 overflow-auto" />
+        </details>
+      ) : null}
       {raw && call ? (
         <div className="ml-6 flex flex-col gap-1 rounded-md bg-gray-2 p-2">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
