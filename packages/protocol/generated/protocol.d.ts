@@ -4467,10 +4467,10 @@ export interface VaultGetResult {
 
 export interface VaultImportParams {
     csv:    string;
-    format: Format;
+    format: VaultImportParamsFormat;
 }
 
-export type Format = "auto" | "1password" | "bitwarden" | "chrome";
+export type VaultImportParamsFormat = "auto" | "1password" | "bitwarden" | "chrome";
 
 export interface VaultImportResult {
     imported: CredentialMeta[];
@@ -4740,6 +4740,14 @@ export interface VMCreateParams {
     diskGB?:   number;
     download?: boolean;
     /**
+     * Absolute path to a guest image directory or .aar archive
+     */
+    image?: string;
+    /**
+     * Expected SHA-256 of the image's manifest.json, from the publisher
+     */
+    imageSha256?: string;
+    /**
      * Absolute path to a local IPSW
      */
     ipsw?:     string;
@@ -4747,6 +4755,44 @@ export interface VMCreateParams {
     name?:     string;
     username?: string;
 }
+
+export interface VMExportImageParams {
+    id?:    string;
+    name?:  string;
+    outDir: string;
+}
+
+export interface VMExportImageResult {
+    manifest:       VMImageManifest;
+    manifestSha256: string;
+    path:           string;
+}
+
+export interface VMImageManifest {
+    createdAt:          string;
+    diskFormat:         VMDiskFormat;
+    diskGB:             number;
+    files:              VMImageFile[];
+    format:             VMImageManifestFormat;
+    formatVersion:      number;
+    guestOS:            string;
+    id:                 string;
+    permissionsGranted: boolean;
+    provisioned:        boolean;
+    psycheInstalled:    boolean;
+    psycheVersion?:     string;
+    username:           string;
+}
+
+export type VMDiskFormat = "asif" | "raw";
+
+export interface VMImageFile {
+    bytes:  number;
+    name:   string;
+    sha256: string;
+}
+
+export type VMImageManifestFormat = "psyche-guest-image";
 
 export interface VMProgressEvent {
     fraction?: number;
@@ -4758,7 +4804,7 @@ export interface VMProgressEvent {
     version?: string;
 }
 
-export type VMProgressEventType = "vm.download" | "vm.install" | "vm.state" | "vm.psyche_install" | "vm.permissions" | "vm.snapshot" | "vm.reset";
+export type VMProgressEventType = "vm.download" | "vm.install" | "vm.state" | "vm.psyche_install" | "vm.permissions" | "vm.snapshot" | "vm.reset" | "vm.import" | "vm.export";
 
 export interface VMResetParams {
     name?: string;
@@ -4786,12 +4832,17 @@ export interface VMGuest {
     diskGB:        number;
     display?:      Display;
     guestOS?:      null | string;
+    image?:        VMGuestImageRef;
     /**
      * Machine reason of the last failure
      */
     lastError?: string;
     memoryGB:   number;
     name:       string;
+    /**
+     * Imported guest still has the image's bootstrap password (rotated at first start)
+     */
+    passwordRotationPending?: boolean;
     /**
      * Accessibility / Screen Recording pre-granted offline (L3)
      */
@@ -4832,6 +4883,12 @@ export interface Display {
     height:  number;
     visible: boolean;
     width:   number;
+}
+
+export interface VMGuestImageRef {
+    createdAt: string;
+    guestOS:   string;
+    id:        string;
 }
 
 export type VMPhase = "created" | "installing" | "installed" | "provisioning" | "stopped" | "starting" | "running" | "stopping" | "failed" | "paused" | "saved";

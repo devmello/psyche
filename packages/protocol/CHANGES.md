@@ -25,6 +25,15 @@ For S14 (the helper's `teach.start` / `teach.stop` / `teach.cancel` / `teach.sta
 - New `schemas/teach.ts`: `TeachTarget`, `TeachStepKind` (click | right_click | double_click | type | press | skipped), `TeachScreenshot`, `TeachStep`, `TeachStartParams` {name?, description?, app?, screenshots?, maxSteps?, maxSeconds?}, `TeachSessionParams` {sessionId}, `TeachDraftFile`, `TeachEndedBy`, `TeachDraft` {sessionId, name, description, startedAt, endedAt, endedBy, steps, files}, `TeachStepEvent` (`teach.step`).
 - The helper never saves a draft. Password-field input and input in off-limits apps are never recorded.
 
+### v1 additive — 2026-10-20 (L7 prebuilt guest images)
+
+For S14 (the helper's image export / import and `deploy/macos/build-guest-image.sh`), S01 (Gateway: `vm.create {image}`), S11 (Devices: "Create from image").
+
+- `VmCreateParams` gains optional `image` (a guest image directory or `.aar`) and `imageSha256` (expected SHA-256 of its `manifest.json`).
+- New `VmImageFile` {name, bytes, sha256} and `VmImageManifest` {format "psyche-guest-image", formatVersion 1, id, guestOS, diskFormat, diskGB, username, createdAt, provisioned, psycheInstalled, permissionsGranted, psycheVersion?, files}.
+- New `VmExportImageParams` {name?, outDir, id?} and `VmExportImageResult` {path, manifest, manifestSha256} for `vm.export_image`.
+- `VmGuest` gains optional `image` {id, guestOS, createdAt} and `passwordRotationPending`.
+- `VmProgressEvent.type` gains `vm.import` and `vm.export` (at the end).
 ### v1 additive — 2026-10-20 (L6: Gateway methods for snapshots and resets)
 
 For S01 (the Gateway serves them over S14's helper capabilities) and S11 (Settings → VM mode). Builds on the L6 shapes (`VmSnapshot`, `VmSnapshotResult`, `VmRestoreResult`).
