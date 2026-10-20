@@ -39,24 +39,51 @@ export function notarizeCredentials(env: BuildEnv): NotarizeCredentials | undefi
 }
 
 /**
- * `osxSign` / `osxNotarize` for the packager config, or `{}` when unsigned. Notarization is
- * only configured together with signing (packager requires it).
+ * `osxSign` / `osxNotarize` for the packager config. With PSYCHE_SIGN_IDENTITY: Developer ID, the
+ * hardened runtime and notarization when credentials are complete. Without it and with
+ * `adHoc` (a macOS build host): an ad-hoc signature over the whole bundle, inside out, so the
+ * nested psyched binaries, the helper and the app agree (no hardened runtime, so library validation
+ * does not block psyched's native addons; no timestamp server). Otherwise `{}`.
+ * `ignore` skips files osx-sign must not sign itself (bundle-resources.ts `skipOuterSigning`).
  */
 export function macSigningOptions(
   env: BuildEnv,
-  opts: { entitlements: string },
+  opts: { entitlements: string; adHoc?: boolean; ignore?: (file: string) => boolean },
 ): MacSigningOptions {
   const identity = value(env, "PSYCHE_SIGN_IDENTITY");
-  if (!identity) return {};
+  const ignore = opts.ignore ? { ignore: opts.ignore } : {};
+  if (!identity) {
+    if (!opts.adHoc) return {};
+    return {
+      osxSign: {
+        identity: "-",
+        identityValidation: false,
+        continueOnError: false,
+        preAutoEntitlements: false,
+        optionsForFile: () => ({
+          hardenedRuntime: false,
+          entitlements: opts.entitlements,
+          timestamp: "none",
+        }),
+        ...ignore,
+      },
+    };
+  }
   const signing: MacSigningOptions = {
     osxSign: {
       identity,
       // A configured identity that fails to sign must fail the build, not ship unsigned.
       continueOnError: false,
       optionsForFile: () => ({ hardenedRuntime: true, entitlements: opts.entitlements }),
+      ...ignore,
     },
   };
   const credentials = notarizeCredentials(env);
   if (credentials) signing.osxNotarize = credentials;
   return signing;
+}
+
+/** The Developer ID the build signs with, or undefined for ad-hoc / unsigned builds. */
+export function signingIdentity(env: BuildEnv): string | undefined {
+  return value(env, "PSYCHE_SIGN_IDENTITY");
 }
