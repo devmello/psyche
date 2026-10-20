@@ -292,6 +292,18 @@ export class FakePermissionBroker implements PermissionBroker {
       (WRITE_PLUS.includes(se) || (kind === "new_origin" && se !== "none"));
     const taintRule = WRITE_PLUS.includes(se) ? "taint:new_target" : "taint:new_origin";
 
+    // The owner's own inbox (#307, @psyche/permissions `owner_inbox`): `notify` to the owner
+    // needs no card unless a tool rule says otherwise.
+    if (
+      call.tool === "notify" &&
+      call.target?.kind === "recipient" &&
+      call.target.value === "owner" &&
+      se === "write" &&
+      p.byTool?.[call.tool] === undefined
+    ) {
+      return { decision: "allow", rule: "owner_inbox" };
+    }
+
     const consultGrants = !(ctx.permissionMode === "manual" && WRITE_PLUS.includes(se));
     if (consultGrants && se !== "financial") {
       const grant = this.#matchGrant(grantKey, ctx.taskId, se, kind, requesterId);

@@ -100,6 +100,8 @@ Every tool and node capability declares `sideEffect: none | read | write | destr
 | `balanced` (default) | first read of a new source asks; sensitive categories always ask | standing grants honored, else ask with `once / task / site / session / always` | ask, `once` or `task` | ask, `once`, device surface |
 | `auto` | new ordinary origins allowed unless tainted or sensitive | within existing grants: classifier `routine` → allow, `sensitive` → ask, `prohibited` → deny; outside grants: ask | ask (`once` / `task`) | ask, `once`, device surface |
 
+`notify` to the owner (target `recipient: owner`) is not a `write` the owner approves: it reaches only the owner's own inbox, like the reply in their own chat, so it is allowed without a card in every mode but `plan`, tainted or not, and an unattended run's deliverable is delivered (rule `owner_inbox`, #307). Deny rules, ask rules and hooks still apply.
+
 A "new source" is an origin, connector account, folder, computer-use app or MCP server not yet touched in this Task. "Sensitive categories" is a bundled, editable list (banking, brokerage, government, health, password managers, identity providers, mail web UIs) that also triggers pause-when-unwatched (§7). Reads are asked per origin, not per page, as Claude's pane does (claude-desktop notes, Q2).
 
 ### 3.3 Policy evaluation order
