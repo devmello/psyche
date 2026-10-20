@@ -30,8 +30,11 @@ export const CredentialMeta = Type.Object(
     useCount: Type.Integer({ minimum: 0 }),
     createdAt: IsoDateTime,
     updatedAt: IsoDateTime,
-    /** Where the secret lives (G9 / G10): the vault database, the system keychain, or 1Password. */
-    backend: Type.Optional(StringEnum(["vault", "keychain", "1password"])),
+    /**
+     * Where the secret lives (G9 / G10 / G11): the vault database, the system keychain, or an
+     * external manager (1Password, Bitwarden) read at fill time.
+     */
+    backend: Type.Optional(StringEnum(["vault", "keychain", "1password", "bitwarden"])),
   },
   { $id: "CredentialMeta" },
 );
@@ -71,6 +74,15 @@ export const OnePasswordRef = Type.Object(
   { $id: "OnePasswordRef" },
 );
 export type OnePasswordRef = Static<typeof OnePasswordRef>;
+
+/** A Bitwarden item reference (G11): its id, or its exact name when that is unique. Never a value. */
+export const BitwardenRef = Type.Object(
+  {
+    item: Type.String({ minLength: 1, maxLength: 128 }),
+  },
+  { $id: "BitwardenRef" },
+);
+export type BitwardenRef = Static<typeof BitwardenRef>;
 
 /** One of the owner's Link payment methods, redacted (G12). */
 export const LinkPaymentMethod = Type.Object(

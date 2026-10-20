@@ -26,6 +26,13 @@ For S08 (the browser signs document requests), S06 (the vault keeps the key) and
 - Schemas `BotAuthJwk` and `BotAuthStatus` (`enabled`, `keyId`, `publicJwk`, `createdAt`, `signatureAgent`, `directoryPath`, `origins`, `advertised`).
 - Methods `browser.botAuth.status` (`operator.read`) and `browser.botAuth.rotate` (`operator.admin`, side-effecting).
 - The switch itself is the admin setting `browser.botAuth {enabled, signatureAgent?, origins?}` (no protocol change).
+### v1 additive — 2026-10-20 (M3 T3: agent-proposed skills)
+
+For S16 (`packages/skills` draft generator), the Gateway (routine detection over agent-core's in-process hooks) and Settings → Skills (S11 / S12).
+
+- New `SkillDraft {id, threadId, name, description, text, manifest, steps, occurrences, signature, redactions, tainted, edited, status, createdAt, updatedAt, installProposalId?, approvalId?, replay?}`, `SkillDraftStatus` (`open | accepted | installed | dismissed | expired`), `SkillDraftStep {tool, sideEffect, summary}`, `SkillDraftReplay {ok, problems, checkedAt}`.
+- New methods: `skills.drafts.list {status?}` (`operator.read`); `skills.drafts.update {draftId, text}`, `skills.drafts.accept {draftId}` → `{draft, proposal, approval}` (the T2 trust card), `skills.drafts.dismiss {draftId}` (all `operator.admin`, side-effecting).
+- New event `skills.draft.updated {draft}`.
 
 ### v1 additive — 2026-10-20 (J8 teach mode)
 
