@@ -154,6 +154,11 @@ export function DevicesPanel({
                       </li>
                     ))}
                   </ul>
+                  {d.id === thisDeviceId && d.scopes.includes("operator.admin") ? (
+                    <p className="text-sm" data-testid="this-mac-admin">
+                      This Mac is the admin device. Another admin device can revoke it here.
+                    </p>
+                  ) : null}
                   <p className="text-xs text-muted-foreground">
                     Key <code className="font-mono">{keyFingerprint(d.publicKey)}</code> · last seen{" "}
                     {d.lastSeenAt ? formatRelative(d.lastSeenAt, clock) : "never"}

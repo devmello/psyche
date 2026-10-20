@@ -28,9 +28,21 @@ describe("IPC validators", () => {
   it("the renderer cannot call the handshake or node methods", () => {
     const known = (m: unknown) =>
       typeof m === "string" &&
-      ["connect", "connect.verify", "node.invoke", "threads.list"].includes(m);
+      [
+        "connect",
+        "connect.verify",
+        "node.invoke",
+        "devices.bootstrapAdmin",
+        "threads.list",
+      ].includes(m);
     expect(checkCallable("threads.list", known)).toBe("threads.list");
-    for (const m of ["connect", "connect.verify", "node.invoke", "made.up"])
+    for (const m of [
+      "connect",
+      "connect.verify",
+      "node.invoke",
+      "devices.bootstrapAdmin",
+      "made.up",
+    ])
       expect(() => checkCallable(m, known)).toThrow();
   });
 

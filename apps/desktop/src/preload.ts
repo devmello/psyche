@@ -70,6 +70,7 @@ const bridge = {
   chrome: chromeFromArgv(process.argv),
   gateway: {
     getStatus: () => invoke(IPC.getStatus),
+    deviceId: () => invoke(IPC.getDeviceId),
     onStatus: (cb: (s: unknown) => void) => listen(IPC.status, cb),
     /**
      * Resolves the raw `{ok, value} | {ok: false, error}` envelope: `contextBridge` copies only

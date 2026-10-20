@@ -28,10 +28,17 @@ export function useMacHelper(platform: ShellPlatform): MacHelperStatus | undefin
 /** Settings → Devices on the desktop: the helper's launch state above the Gateway's nodes. */
 export function DesktopDevicesSettings({ platform }: { platform: ShellPlatform }): ReactElement {
   const helper = useMacHelper(platform);
+  const [deviceId, setDeviceId] = useState<string>();
+  useEffect(() => {
+    void platform.gateway.deviceId?.().then(
+      (id) => setDeviceId(id),
+      () => undefined,
+    );
+  }, [platform]);
   return (
     <div className="flex flex-col gap-4">
       {helper ? <MacHelperStatusRow state={helper} /> : null}
-      <DevicesSection />
+      <DevicesSection {...(deviceId === undefined ? {} : { thisDeviceId: deviceId })} />
     </div>
   );
 }
