@@ -30,9 +30,9 @@ import { useSlots } from "../../slots.tsx";
 
 /** Semantic tones only (§4.8): approval, success, danger, info, or neutral gray. */
 const TONE = {
-  approval: "bg-amber-3 text-amber-11",
+  approval: "bg-amber-3 text-approval-text",
   success: "bg-grass-3 text-grass-11",
-  danger: "bg-tomato-3 text-tomato-11",
+  danger: "bg-tomato-3 text-tomato-12 dark:text-tomato-11",
   info: "bg-sky-3 text-sky-11",
   muted: "bg-gray-3 text-gray-11",
 } as const;

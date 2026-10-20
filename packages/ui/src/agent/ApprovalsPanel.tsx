@@ -99,7 +99,7 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
             onClick={() => jump(sec.id)}
           >
             {sec.label}
-            <span className="tabular-nums text-gray-10">{counts[sec.id]}</span>
+            <span className="tabular-nums text-gray-11">{counts[sec.id]}</span>
           </Button>
         ))}
       </nav>

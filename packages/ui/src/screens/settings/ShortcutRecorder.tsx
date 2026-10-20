@@ -188,7 +188,7 @@ export function ShortcutRecorder({
             undefined
           }
           aria-pressed={recording}
-          className="flex h-8 min-w-44 items-center rounded-md border border-input bg-background px-2.5 text-left text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-pressed:border-ring"
+          className="flex h-8 min-w-44 items-center rounded-md border border-input bg-background px-2.5 text-left text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring aria-pressed:border-ring"
           onClick={() => {
             setRefused(null);
             setRecording(true);
