@@ -247,9 +247,8 @@
         {
           "type": "approval_not_requested",
           "severity": "hard",
-          "liveSeverity": "soft",
           "scope": "step",
-          "note": "No card at all. A live model may notify the owner, which the broker defers as a card (#307)."
+          "note": "No card at all: notify to the owner needs none (owner_inbox, #307)."
         },
         {
           "type": "task_state",
