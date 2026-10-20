@@ -1,4 +1,5 @@
 import type { ApprovalRequest } from "@psyche/protocol";
+import { activeI18n, t } from "@psyche/ui";
 import { type ReactElement, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useShell, useShellState } from "../context.tsx";
 import type { BrowserHostState, BrowserPort, BrowserTabView } from "../platform.ts";
@@ -40,25 +41,27 @@ function hostOf(url: string): string {
 function SitePrompt({ approval }: { approval: ApprovalRequest }): ReactElement {
   const { store } = useShell();
   const origin = String(
-    (approval.details as { origin?: unknown }).origin ?? approval.target ?? "this site",
+    (approval.details as { origin?: unknown }).origin ??
+      approval.target ??
+      t("web.browser.thisSite"),
   );
   const answer = (decision: "approve" | "deny", scope?: string) =>
     void store
       .answerApproval(approval.id, decision, scope)
-      .catch(() => store.toast("Psyche couldn't send that answer.", "error"));
+      .catch(() => store.toast(t("web.browser.answerFailed"), "error"));
   return (
     <fieldset
       className="dock"
-      aria-label={`Let Psyche act on ${origin}?`}
+      aria-label={t("web.browser.siteQuestion", { origin })}
       data-testid="site-prompt"
     >
-      <strong>Let Psyche act on {origin}?</strong>
+      <strong>{t("web.browser.siteQuestion", { origin })}</strong>
       <div className="row">
         <button type="button" onClick={() => answer("deny")}>
-          Deny
+          {t("web.approval.deny")}
         </button>
         <button type="button" onClick={() => answer("approve", "once")}>
-          Allow once
+          {t("web.approval.allowOnce")}
         </button>
         {approval.scopesOffered.includes("site") || approval.scopesOffered.includes("always") ? (
           <button
@@ -67,7 +70,7 @@ function SitePrompt({ approval }: { approval: ApprovalRequest }): ReactElement {
               answer("approve", approval.scopesOffered.includes("site") ? "site" : "always")
             }
           >
-            Always allow
+            {t("web.approval.alwaysAllow")}
           </button>
         ) : null}
       </div>
@@ -89,29 +92,36 @@ function CredentialPrompt(props: {
   const answer = (decision: "approve" | "deny", scope?: string) =>
     void store
       .answerApproval(props.approval.id, decision, scope)
-      .catch(() => store.toast("Psyche couldn't send that answer.", "error"));
+      .catch(() => store.toast(t("web.browser.answerFailed"), "error"));
   return (
-    <fieldset className="dock" aria-label="Login needed" data-testid="credential-prompt">
+    <fieldset
+      className="dock"
+      aria-label={t("web.browser.loginNeeded")}
+      data-testid="credential-prompt"
+    >
       <strong>{props.approval.summary}</strong>
       <div style={{ fontSize: 13 }}>
-        Item {String(d.item ?? "—")} · bound to {String(d.boundOrigin ?? "—")} · this page{" "}
-        {String(d.currentOrigin ?? "—")}
+        {t("web.browser.credentialDetails", {
+          item: String(d.item ?? "—"),
+          bound: String(d.boundOrigin ?? "—"),
+          current: String(d.currentOrigin ?? "—"),
+        })}
       </div>
       <div className="row">
         <button type="button" onClick={() => answer("deny")}>
-          Deny
+          {t("web.approval.deny")}
         </button>
         <button type="button" onClick={() => answer("approve", "once")}>
-          Fill from vault once
+          {t("web.browser.fillOnce")}
         </button>
         {props.approval.scopesOffered.includes("site") ? (
           <button type="button" onClick={() => answer("approve", "site")}>
-            Fill from vault for this site
+            {t("web.browser.fillForSite")}
           </button>
         ) : null}
         {/* biome-ignore lint/a11y/noAutofocus: the default choice */}
         <button type="button" autoFocus onClick={props.onTypeMyself}>
-          I'll type it myself
+          {t("web.browser.typeMyself")}
         </button>
       </div>
     </fieldset>
@@ -123,10 +133,7 @@ export function BrowserPane(props: { covered: boolean; onClose: () => void }): R
   const port = platform.browser;
   if (!port)
     return (
-      <p style={{ padding: 16, color: "var(--shell-muted)" }}>
-        The browser pane shows the agent's browser in the desktop app, or the server's browser
-        sidecar.
-      </p>
+      <p style={{ padding: 16, color: "var(--shell-muted)" }}>{t("web.browser.unavailable")}</p>
     );
   return (
     <DesktopBrowserPane port={port} covered={props.covered} onClose={props.onClose} store={store} />
@@ -144,7 +151,7 @@ function DesktopBrowserPane(props: {
   const viewport = useRef<HTMLDivElement>(null);
   const [findText, setFindText] = useState<string | null>(null);
   const approvals = useShellState((s) => s.approvals);
-  const tab: BrowserTabView | undefined = state.tabs.find((t) => t.tabId === state.activeTabId);
+  const tab: BrowserTabView | undefined = state.tabs.find((x) => x.tabId === state.activeTabId);
 
   useLayoutEffect(() => {
     const el = viewport.current;
@@ -154,6 +161,7 @@ function DesktopBrowserPane(props: {
     }
     const report = () => {
       const r = el.getBoundingClientRect();
+      // Physical on purpose: the native view is placed in window pixels.
       port.setViewport({ x: r.left, y: r.top, width: r.width, height: r.height });
     };
     report();
@@ -171,12 +179,9 @@ function DesktopBrowserPane(props: {
     () =>
       port.onDownload((d) => {
         if (d.state === "completed")
-          store.toast(
-            `Downloaded ${d.filename} to Library → Downloads (quarantined)`,
-            "info",
-            8_000,
-          );
-        if (d.state === "failed") store.toast(`The download of ${d.filename} failed.`, "warn");
+          store.toast(t("web.browser.downloaded", { file: d.filename }), "info", 8_000);
+        if (d.state === "failed")
+          store.toast(t("web.browser.downloadFailed", { file: d.filename }), "warn");
       }),
     [port, store],
   );
@@ -184,7 +189,7 @@ function DesktopBrowserPane(props: {
   const close = () => {
     const title = tab?.taskTitle;
     store.toast(
-      title ? `Browser closed. “${title}” keeps running` : "Browser closed. Tasks keep running",
+      title ? t("web.browser.closedTask", { title }) : t("web.browser.closedTasks"),
       "info",
     );
     props.onClose();
@@ -201,26 +206,26 @@ function DesktopBrowserPane(props: {
     >
       <div
         role="tablist"
-        aria-label="Browser tabs"
+        aria-label={t("web.browser.tabs")}
         style={{ display: "flex", gap: 2, padding: 4, overflowX: "auto" }}
       >
-        {state.tabs.map((t) => (
-          <span key={t.tabId} className="pill" style={{ display: "inline-flex", gap: 2 }}>
+        {state.tabs.map((x) => (
+          <span key={x.tabId} className="pill" style={{ display: "inline-flex", gap: 2 }}>
             <button
               type="button"
               role="tab"
-              aria-selected={t.tabId === state.activeTabId}
-              onClick={() => void port.activateTab(t.tabId)}
+              aria-selected={x.tabId === state.activeTabId}
+              onClick={() => void port.activateTab(x.tabId)}
               data-testid="browser-tab"
-              data-tab-id={t.tabId}
+              data-tab-id={x.tabId}
               style={{ border: 0, background: "transparent" }}
             >
-              {t.title || hostOf(t.url)}
+              {x.title || hostOf(x.url)}
             </button>
             <button
               type="button"
-              aria-label={`Close ${t.title || hostOf(t.url)}`}
-              onClick={() => void port.closeTab(t.tabId)}
+              aria-label={t("web.browser.closeTab", { title: x.title || hostOf(x.url) })}
+              onClick={() => void port.closeTab(x.tabId)}
               data-testid="browser-tab-close"
               style={{ border: 0, background: "transparent" }}
             >
@@ -231,19 +236,22 @@ function DesktopBrowserPane(props: {
         <button
           type="button"
           className="pill"
-          aria-label="New tab"
+          aria-label={t("web.browser.newTab")}
           onClick={() => {
-            const url = window.prompt("Open URL", "https://");
+            const url = window.prompt(t("web.browser.openUrl"), "https://");
             if (url)
-              void port
-                .openTab(url)
-                .catch(() => store.toast("Only http and https addresses open here.", "warn"));
+              void port.openTab(url).catch(() => store.toast(t("web.browser.httpOnly"), "warn"));
           }}
         >
           +
         </button>
         <span style={{ flex: 1 }} />
-        <button type="button" className="pill" onClick={close} aria-label="Close browser pane">
+        <button
+          type="button"
+          className="pill"
+          onClick={close}
+          aria-label={t("web.browser.closePane")}
+        >
           ×
         </button>
       </div>
@@ -262,27 +270,32 @@ function DesktopBrowserPane(props: {
               type="button"
               disabled={!tab.canGoBack}
               onClick={() => void port.navigate(tab.tabId, "back")}
-              aria-label="Back"
+              aria-label={t("web.browser.back")}
             >
-              ‹
+              {/* Mirrored in right-to-left, like Chrome's own Back and Forward. */}
+              <span className="rtl-mirror" aria-hidden="true">
+                ‹
+              </span>
             </button>
             <button
               type="button"
               disabled={!tab.canGoForward}
               onClick={() => void port.navigate(tab.tabId, "forward")}
-              aria-label="Forward"
+              aria-label={t("web.browser.forward")}
             >
-              ›
+              <span className="rtl-mirror" aria-hidden="true">
+                ›
+              </span>
             </button>
             <button
               type="button"
               onClick={() => void port.navigate(tab.tabId, tab.loading ? "stop" : "reload")}
-              aria-label={tab.loading ? "Stop loading" : "Reload"}
+              aria-label={tab.loading ? t("web.browser.stopLoading") : t("web.browser.reload")}
             >
               {tab.loading ? "■" : "↻"}
             </button>
             <output
-              aria-label="Address"
+              aria-label={t("web.browser.address")}
               style={{
                 flex: 1,
                 overflow: "hidden",
@@ -293,36 +306,38 @@ function DesktopBrowserPane(props: {
             >
               {tab.url}
             </output>
-            <span className="chip" title="Browser profile" data-testid="browser-profile">
-              {tab.profile === "clean" ? "logged-out profile" : "agent profile"}
+            <span className="chip" title={t("web.browser.profile")} data-testid="browser-profile">
+              {tab.profile === "clean"
+                ? t("web.browser.profileClean")
+                : t("web.browser.profileAgent")}
             </span>
             <button
               type="button"
               onClick={() => void port.navigate(tab.tabId, "zoomOut")}
-              aria-label="Zoom out"
+              aria-label={t("web.zoom.out")}
             >
               −
             </button>
             <button
               type="button"
               onClick={() => void port.navigate(tab.tabId, "zoomReset")}
-              aria-label="Reset zoom"
+              aria-label={t("web.browser.resetZoom")}
             >
-              {Math.round(tab.zoomFactor * 100)}%
+              {activeI18n().percent(tab.zoomFactor, { maximumFractionDigits: 0 })}
             </button>
             <button
               type="button"
               onClick={() => void port.navigate(tab.tabId, "zoomIn")}
-              aria-label="Zoom in"
+              aria-label={t("web.zoom.in")}
             >
               +
             </button>
             <button
               type="button"
               onClick={() => setFindText((f) => (f === null ? "" : null))}
-              aria-label="Find in page"
+              aria-label={t("web.browser.findInPage")}
             >
-              Find
+              {t("web.browser.find")}
             </button>
           </div>
           {findText !== null ? (
@@ -330,7 +345,7 @@ function DesktopBrowserPane(props: {
               // biome-ignore lint/a11y/noAutofocus: opened on demand
               autoFocus
               value={findText}
-              aria-label="Find in page"
+              aria-label={t("web.browser.findInPage")}
               onChange={(e) => {
                 setFindText(e.target.value);
                 if (e.target.value) void port.find(tab.tabId, e.target.value);
@@ -349,8 +364,9 @@ function DesktopBrowserPane(props: {
           ) : null}
           <span className="status-pill" aria-live="polite" data-testid="browser-status">
             {userHasControl
-              ? "Paused: you have control"
-              : (tab.status ?? (state.bridgeConnected ? "Idle" : "Agent browser not connected"))}
+              ? t("web.browser.paused")
+              : (tab.status ??
+                (state.bridgeConnected ? t("web.browser.idle") : t("web.browser.notConnected")))}
           </span>
         </>
       ) : null}
@@ -364,9 +380,7 @@ function DesktopBrowserPane(props: {
           data-testid="browser-viewport"
         >
           {tab ? null : (
-            <p style={{ padding: 16, color: "var(--shell-muted)" }}>
-              No tabs. The agent opens tabs here as it works.
-            </p>
+            <p style={{ padding: 16, color: "var(--shell-muted)" }}>{t("web.browser.noTabs")}</p>
           )}
         </div>
       </div>
@@ -379,7 +393,7 @@ function DesktopBrowserPane(props: {
             onClick={() => void port.setControl(tab.tabId, !userHasControl)}
             data-testid="take-control"
           >
-            {userHasControl ? "Return control" : "Take control"}
+            {userHasControl ? t("web.browser.returnControl") : t("web.browser.takeControl")}
           </button>
           {tab.taskId ? (
             <button
@@ -388,19 +402,19 @@ function DesktopBrowserPane(props: {
               onClick={() =>
                 void store
                   .call("tasks.cancel", { taskId: tab.taskId })
-                  .catch(() => store.toast("Psyche couldn't stop the task.", "error"))
+                  .catch(() => store.toast(t("web.browser.stopFailed"), "error"))
               }
               data-testid="stop-task"
             >
-              Stop the task
+              {t("web.browser.stopTask")}
             </button>
           ) : null}
           <span style={{ flex: 1 }} />
           <button type="button" className="pill" onClick={() => void port.popOut(tab.tabId)}>
-            Open in window
+            {t("web.panes.openInWindow")}
           </button>
           <button type="button" className="pill" onClick={() => void port.popOut(tab.tabId, true)}>
-            Full
+            {t("web.browser.full")}
           </button>
           <button
             type="button"
@@ -408,15 +422,17 @@ function DesktopBrowserPane(props: {
             onClick={() => {
               if (
                 window.confirm(
-                  `Clear cookies and site data for the ${tab.profile === "clean" ? "logged-out" : "agent"} profile?`,
+                  t("web.browser.clearConfirm", {
+                    profile: tab.profile === "clean" ? "clean" : "agent",
+                  }),
                 )
               )
                 void port
                   .clearBrowsingData(tab.profile)
-                  .then(() => store.toast("Browsing data cleared."));
+                  .then(() => store.toast(t("web.browser.cleared")));
             }}
           >
-            Clear browsing data
+            {t("web.browser.clearData")}
           </button>
         </div>
       ) : null}

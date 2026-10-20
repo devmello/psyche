@@ -3,11 +3,13 @@ import {
   AppearanceSection,
   DataControlsSection,
   DevicesSection,
+  describeError,
   FileAccessPanel,
   type FolderGrant,
   SETTINGS_SECTIONS,
   SettingsScreen,
   type SettingsSectionId,
+  t,
   usePersona,
   useSettingsForm,
   VoiceSection,
@@ -110,9 +112,9 @@ export function FileAccessSettings({ platform }: { platform: ShellPlatform }): R
     setPickError(null);
     let path: string | null;
     try {
-      path = await pickFolder({ title: `Share a folder with ${persona.name}` });
+      path = await pickFolder({ title: t("web.files.shareTitle", { persona: persona.name }) });
     } catch (err) {
-      setPickError(`Psyche couldn't open the folder chooser (${String(err)}). Nothing changed.`);
+      setPickError(t("web.files.pickError", { error: describeError(err) }));
       return;
     }
     if (path === null) return;
@@ -129,11 +131,9 @@ export function FileAccessSettings({ platform }: { platform: ShellPlatform }): R
             className="inline-flex h-8 items-center rounded-md border border-input bg-background px-3 font-medium shadow-xs hover:bg-gray-3"
             onClick={() => void choose()}
           >
-            Choose a folder…
+            {t("web.files.choose")}
           </button>
-          <span className="text-muted-foreground">
-            Shared read only; switch it to read and write in the list below.
-          </span>
+          <span className="text-muted-foreground">{t("web.files.chooseHint")}</span>
         </div>
       ) : null}
       {pickError ? (
@@ -208,7 +208,7 @@ export function settingsRoute(
   return (
     <section
       className="flex min-h-0 flex-1 flex-col overflow-auto p-6"
-      aria-label="Settings"
+      aria-label={t("web.settings.label")}
       data-testid="settings"
     >
       <SettingsScreen
@@ -218,7 +218,7 @@ export function settingsRoute(
         {...(platform.dialogs?.pickFolder
           ? {
               onPickSkillFolder: () =>
-                platform.dialogs?.pickFolder({ title: "Choose a skill folder" }) ??
+                platform.dialogs?.pickFolder({ title: t("web.settings.pickSkillFolder") }) ??
                 Promise.resolve(null),
             }
           : {})}

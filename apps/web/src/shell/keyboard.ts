@@ -1,3 +1,5 @@
+import { t } from "@psyche/ui";
+
 /**
  * Keyboard map (docs/06 §4.11, feature E10) as data, so the shortcut sheet (⌘/), the command
  * palette and the key handler share one source. `mod` is ⌘ on macOS and Ctrl elsewhere.
@@ -36,7 +38,8 @@ export interface KeyChord {
 
 export interface Shortcut {
   action: ShortcutAction;
-  label: string;
+  /** Localized: read it when rendering, not at import. */
+  readonly label: string;
   chord: KeyChord;
   /** `app`: handled in the window; `global`: registered by the desktop main process. */
   scope: "app" | "global";
@@ -47,144 +50,186 @@ export interface Shortcut {
 export const SHORTCUTS: readonly Shortcut[] = [
   {
     action: "palette",
-    label: "Command palette",
+    get label() {
+      return t("web.shortcut.palette");
+    },
     chord: { key: "k", mod: true },
     scope: "app",
     inText: true,
   },
   {
     action: "newSideChat",
-    label: "New side chat",
+    get label() {
+      return t("web.shortcut.newSideChat");
+    },
     chord: { key: "n", mod: true },
     scope: "app",
     inText: true,
   },
   {
     action: "closeThreadView",
-    label: "Close thread view or pop-out",
+    get label() {
+      return t("web.shortcut.closeThreadView");
+    },
     chord: { key: "w", mod: true },
     scope: "app",
     inText: true,
   },
   {
     action: "toggleThreadList",
-    label: "Toggle thread list",
+    get label() {
+      return t("web.shortcut.toggleThreadList");
+    },
     chord: { key: "b", mod: true },
     scope: "app",
     inText: true,
   },
   {
     action: "cycleThreads",
-    label: "Cycle threads",
+    get label() {
+      return t("web.shortcut.cycleThreads");
+    },
     chord: { key: "Tab", ctrl: true },
     scope: "app",
     inText: true,
   },
   {
     action: "forkSelection",
-    label: "Fork selection into a side chat",
+    get label() {
+      return t("web.shortcut.forkSelection");
+    },
     chord: { key: ";", mod: true },
     scope: "app",
   },
   {
     action: "stop",
-    label: "Stop the run; release Take control",
+    get label() {
+      return t("web.shortcut.stop");
+    },
     chord: { key: "Escape" },
     scope: "app",
     inText: true,
   },
   {
     action: "cycleDisclosure",
-    label: "Cycle disclosure: status, actions, raw",
+    get label() {
+      return t("web.shortcut.cycleDisclosure");
+    },
     chord: { key: "o", ctrl: true },
     scope: "app",
     inText: true,
   },
   {
     action: "openBrowserPane",
-    label: "Browser pane",
+    get label() {
+      return t("web.shortcut.openBrowserPane");
+    },
     chord: { key: "b", mod: true, shift: true },
     scope: "app",
     inText: true,
   },
   {
     action: "openDiffPane",
-    label: "Diff pane",
+    get label() {
+      return t("web.shortcut.openDiffPane");
+    },
     chord: { key: "d", mod: true, shift: true },
     scope: "app",
     inText: true,
   },
   {
     action: "toggleTerminalPane",
-    label: "Terminal pane",
+    get label() {
+      return t("web.shortcut.toggleTerminalPane");
+    },
     chord: { key: "`", ctrl: true },
     scope: "app",
     inText: true,
   },
   {
     action: "permissionMode",
-    label: "Permission mode",
+    get label() {
+      return t("web.shortcut.permissionMode");
+    },
     chord: { key: "m", mod: true, shift: true },
     scope: "app",
     inText: true,
   },
   {
     action: "modelPicker",
-    label: "Model picker",
+    get label() {
+      return t("web.shortcut.modelPicker");
+    },
     chord: { key: "i", mod: true, shift: true },
     scope: "app",
     inText: true,
   },
   {
     action: "agentActivity",
-    label: "Agent sheet: Activity",
+    get label() {
+      return t("web.shortcut.agentActivity");
+    },
     chord: { key: "a", mod: true, shift: true },
     scope: "app",
     inText: true,
   },
   {
     action: "agentApprovals",
-    label: "Agent sheet: Approvals",
+    get label() {
+      return t("web.shortcut.agentApprovals");
+    },
     chord: { key: "p", mod: true, shift: true },
     scope: "app",
     inText: true,
   },
   {
     action: "closePane",
-    label: "Close focused pane",
+    get label() {
+      return t("web.shortcut.closePane");
+    },
     chord: { key: "\\", mod: true },
     scope: "app",
     inText: true,
   },
   {
     action: "shortcutList",
-    label: "Shortcut list",
+    get label() {
+      return t("web.shortcut.shortcutList");
+    },
     chord: { key: "/", mod: true },
     scope: "app",
     inText: true,
   },
   {
     action: "approve",
-    label: "Approve with selected scope; answer a question",
+    get label() {
+      return t("web.shortcut.approve");
+    },
     chord: { key: "Enter", mod: true },
     scope: "app",
     inText: true,
   },
   {
     action: "deny",
-    label: "Deny the focused approval",
+    get label() {
+      return t("web.shortcut.deny");
+    },
     chord: { key: "d", mod: true },
     scope: "app",
   },
   {
     action: "quickEntry",
-    label: "Quick entry",
+    get label() {
+      return t("web.shortcut.quickEntry");
+    },
     chord: { key: "Space", alt: true },
     scope: "global",
   },
   {
     action: "pushToTalk",
-    label: "Push-to-talk dictation (hold)",
+    get label() {
+      return t("web.shortcut.pushToTalk");
+    },
     chord: { key: "Fn" },
     scope: "global",
   },

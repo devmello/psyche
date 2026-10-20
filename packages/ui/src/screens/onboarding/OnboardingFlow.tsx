@@ -3,9 +3,10 @@ import { type ReactElement, useEffect, useId, useRef, useState } from "react";
 import { DEFAULT_CREATURE } from "../../avatar/creatures/index.tsx";
 import { PsycheMark } from "../../brand.tsx";
 import { Button } from "../../components/ui/button.tsx";
+import { t } from "../../i18n/core.ts";
+import { describeError } from "../../i18n/errors.ts";
 import { cn } from "../../lib/utils.ts";
 import { CONNECTOR_CATALOG, type ScopeMode } from "../settings/ConnectorsSection.tsx";
-import { messageOf } from "../settings/shared.tsx";
 import type { TccPermission } from "../settings/types.ts";
 import {
   ConnectorsStep,
@@ -40,17 +41,17 @@ import {
 export function stepLabel(step: OnboardingStepId, persona: string): string {
   switch (step) {
     case "agent":
-      return "Meet your agent";
+      return t("onboarding.step.agent");
     case "permissions":
-      return "Permissions";
+      return t("onboarding.step.permissions");
     case "connectors":
-      return "Connectors";
+      return t("onboarding.step.connectors");
     case "model":
-      return "Model & provider";
+      return t("onboarding.step.model");
     case "where":
-      return `Where ${persona} works`;
+      return t("onboarding.step.where", { name: persona });
     case "done":
-      return "Done";
+      return t("onboarding.step.done");
   }
 }
 
@@ -221,7 +222,7 @@ export function OnboardingFlow({
         setConnectors((list) => [...list.filter((c) => c.type !== type), { type, label, mode }]);
       }
     } catch (err) {
-      setConnectError(`Psyche couldn't connect that account (${messageOf(err)}).`);
+      setConnectError(t("onboarding.connectFailed", { reason: describeError(err) }));
     } finally {
       setConnecting(false);
     }
@@ -236,7 +237,7 @@ export function OnboardingFlow({
           if (typeof saved !== "string" && saved.recoveryKey) setRecoveryKey(saved.recoveryKey);
           setModel((m) => ({ ...m, keyRef }));
         } catch (err) {
-          setKeyError(`Psyche couldn't store the key (${messageOf(err)}).`);
+          setKeyError(t("onboarding.keyFailed", { reason: describeError(err) }));
         }
       }
     : undefined;
@@ -267,7 +268,14 @@ export function OnboardingFlow({
       (c) => live && setChecks(c),
       (err: unknown) =>
         live &&
-        setChecks([{ id: "setup", label: "Setup check", state: "warn", detail: messageOf(err) }]),
+        setChecks([
+          {
+            id: "setup",
+            label: t("onboarding.setupCheck"),
+            state: "warn",
+            detail: describeError(err),
+          },
+        ]),
     );
     return () => {
       live = false;
@@ -288,7 +296,7 @@ export function OnboardingFlow({
         <span className="text-accent-11" data-testid="onboarding-mark">
           <PsycheMark size={24} />
         </span>
-        <nav aria-label="Onboarding progress">
+        <nav aria-label={t("onboarding.progress")}>
           <ol className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
             {ONBOARDING_STEP_IDS.map((s, i) => {
               const active = s === current;
@@ -324,7 +332,7 @@ export function OnboardingFlow({
                       onClick={() => go(s)}
                     >
                       {label}
-                      {done ? <span className="sr-only"> (done)</span> : null}
+                      {done ? <span className="sr-only">{t("onboarding.doneMark")}</span> : null}
                     </button>
                   ) : (
                     <span>{label}</span>
@@ -344,7 +352,7 @@ export function OnboardingFlow({
           className="text-h1 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="sr-only">
-            Step {index + 1} of {ONBOARDING_STEP_IDS.length}:{" "}
+            {t("onboarding.stepOf", { n: index + 1, total: ONBOARDING_STEP_IDS.length })}{" "}
           </span>
           {stepLabel(current, name)}
         </h1>
@@ -408,24 +416,24 @@ export function OnboardingFlow({
             if (prev) go(prev);
           }}
         >
-          <ArrowLeft aria-hidden="true" /> Back
+          <ArrowLeft aria-hidden="true" className="rtl:rotate-180" /> {t("onboarding.back")}
         </Button>
         {current === "connectors" && connectors.length === 0 ? (
           <Button
             type="button"
             variant="ghost"
-            className="ml-auto"
+            className="ms-auto"
             onClick={() => {
               const next = ONBOARDING_STEP_IDS[index + 1];
               if (next) go(next);
             }}
           >
-            Skip for now
+            {t("onboarding.skipForNow")}
           </Button>
         ) : null}
         {isLast ? (
           <Button type="button" onClick={() => onComplete(result)}>
-            Open the main chat
+            {t("onboarding.openChat")}
           </Button>
         ) : (
           <Button
@@ -436,8 +444,8 @@ export function OnboardingFlow({
               if (next) go(next);
             }}
           >
-            Next
-            <ArrowRight aria-hidden="true" />
+            {t("onboarding.next")}
+            <ArrowRight aria-hidden="true" className="rtl:rotate-180" />
           </Button>
         )}
       </div>

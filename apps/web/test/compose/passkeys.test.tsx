@@ -10,7 +10,7 @@ import { adminClient, type TestClient } from "../../../gateway/test/helpers.ts";
 import { SoftAuthenticator } from "../../../gateway/test/soft-authenticator.ts";
 import type { GatewayEvent } from "../../src/client/connection.ts";
 import { kitClient } from "../../src/compose/kit-client.ts";
-import { PASSKEYS_UNAVAILABLE, PasskeysPanel } from "../../src/compose/passkeys.tsx";
+import { PasskeysPanel, passkeysUnavailableText } from "../../src/compose/passkeys.tsx";
 import { settingsRoute } from "../../src/compose/settings.tsx";
 import { browserAuthenticator, type PasskeyHost } from "../../src/lib/webauthn.ts";
 import type { GatewayPort, ShellPlatform } from "../../src/shell/platform.ts";
@@ -183,7 +183,7 @@ describe("Settings → Passkeys against the Gateway (issue #79)", () => {
     const { authenticator } = mockedNavigator();
     renderPanel(owner, { deviceId: async () => deviceId, authenticator });
     expect((await screen.findByTestId("passkeys-unavailable")).textContent).toBe(
-      PASSKEYS_UNAVAILABLE,
+      passkeysUnavailableText(),
     );
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.queryByRole("button", { name: "Add a passkey" })).toBeNull();

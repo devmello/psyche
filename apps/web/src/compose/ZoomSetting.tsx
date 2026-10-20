@@ -1,4 +1,4 @@
-import { useSettingsForm } from "@psyche/ui";
+import { t, useSettingsForm } from "@psyche/ui";
 import type { ReactElement } from "react";
 import { clampZoom, ZOOM_DEFAULT, ZOOM_KEY, ZOOM_MAX, ZOOM_MIN, zoomStep } from "./zoom.ts";
 
@@ -18,23 +18,22 @@ export function ZoomSetting(): ReactElement {
     >
       <div>
         <h3 id="zoom-title" className="text-base font-semibold text-foreground">
-          Zoom
+          {t("web.zoom.title")}
         </h3>
         <p className="text-muted-foreground">
-          How large the app renders on this Mac. View → Zoom In and Zoom Out change the same
-          setting, so it survives a restart; {ZOOM_MIN}–{ZOOM_MAX} %.
+          {t("web.zoom.description", { min: ZOOM_MIN, max: ZOOM_MAX })}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <output className="w-16 font-medium text-foreground" aria-live="polite">
-          {zoom} %
+          {t("web.zoom.value", { zoom })}
         </output>
         <button
           type="button"
           className={button}
           disabled={zoom <= ZOOM_MIN}
           onClick={() => set(zoomStep(zoom, -1))}
-          aria-label="Zoom out"
+          aria-label={t("web.zoom.out")}
         >
           −
         </button>
@@ -43,7 +42,7 @@ export function ZoomSetting(): ReactElement {
           className={button}
           disabled={zoom >= ZOOM_MAX}
           onClick={() => set(zoomStep(zoom, 1))}
-          aria-label="Zoom in"
+          aria-label={t("web.zoom.in")}
         >
           +
         </button>
@@ -53,7 +52,7 @@ export function ZoomSetting(): ReactElement {
           disabled={zoom === ZOOM_DEFAULT}
           onClick={() => set(ZOOM_DEFAULT)}
         >
-          Actual size
+          {t("web.zoom.actualSize")}
         </button>
       </div>
       {form.writeError ? (

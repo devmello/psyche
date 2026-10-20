@@ -1,21 +1,4 @@
 {
-  "apps/web/src/compose/backups.tsx": 29,
-  "apps/web/src/compose/logs.tsx": 17,
-  "apps/web/src/compose/passkeys.tsx": 16,
-  "apps/web/src/compose/PsycheApp.tsx": 2,
-  "apps/web/src/compose/settings.tsx": 3,
-  "apps/web/src/compose/transcript-mode.tsx": 5,
-  "apps/web/src/compose/ZoomSetting.tsx": 5,
-  "apps/web/src/platform.ts": 8,
-  "apps/web/src/shell/components/BrowserPane.tsx": 51,
-  "apps/web/src/shell/components/Chat.tsx": 48,
-  "apps/web/src/shell/components/Chrome.tsx": 28,
-  "apps/web/src/shell/components/Overlays.tsx": 10,
-  "apps/web/src/shell/components/Panes.tsx": 15,
-  "apps/web/src/shell/components/VoiceModeBar.tsx": 4,
-  "apps/web/src/shell/panes/TerminalPane.tsx": 7,
-  "apps/web/src/shell/ShellApp.tsx": 8,
-  "apps/web/src/shell/store.ts": 2,
   "packages/ui/src/blocks/approval-details.tsx": 50,
   "packages/ui/src/blocks/ApprovalCard.tsx": 25,
   "packages/ui/src/blocks/ArtifactCard.tsx": 7,
@@ -34,7 +17,5 @@
   "packages/ui/src/chat/FollowUpQueue.tsx": 10,
   "packages/ui/src/chat/MessageView.tsx": 11,
   "packages/ui/src/chat/OfflineBanner.tsx": 2,
-  "packages/ui/src/chat/Thread.tsx": 4,
-  "packages/ui/src/screens/onboarding/OnboardingFlow.tsx": 8,
-  "packages/ui/src/screens/onboarding/OnboardingSteps.tsx": 62
+  "packages/ui/src/chat/Thread.tsx": 4
 }

@@ -14,6 +14,8 @@
  * Audio: mono PCM s16le at 16 kHz in ~100 ms chunks, base64 in `audio`.
  */
 
+import { t } from "@psyche/ui";
+
 export const VOICE_SAMPLE_RATE = 16_000;
 
 export const VOICE_FORMAT = {
@@ -93,12 +95,20 @@ export type VoiceState =
   | { phase: "finishing"; sessionId: string | null; partial: string }
   | { phase: "unavailable"; reason: string };
 
-const START_FAILURES: Record<string, string> = {
-  unknown_method: "Dictation needs the Gateway's voice service, which isn't available.",
-  not_implemented: "Dictation needs the Gateway's voice service, which isn't available.",
-  unavailable: "No speech engine is available. Connect the Mac helper or install a speech model.",
-  rate_limited: "Dictation is already running on this device.",
-};
+/** Why `voice.start` failed, by error code; anything else says `web.voice.startFailed`. */
+function startFailure(code: string): string {
+  switch (code) {
+    case "unknown_method":
+    case "not_implemented":
+      return t("web.voice.noService");
+    case "unavailable":
+      return t("web.voice.noEngine");
+    case "rate_limited":
+      return t("web.voice.alreadyRunning");
+    default:
+      return t("web.voice.startFailed");
+  }
+}
 
 export class VoiceCapture {
   private state: VoiceState = { phase: "idle" };
@@ -167,7 +177,7 @@ export class VoiceCapture {
       const code = (err as { code?: string } | null)?.code ?? "";
       this.set({
         phase: "unavailable",
-        reason: START_FAILURES[code] ?? "Psyche couldn't start dictation.",
+        reason: startFailure(code),
       });
       return;
     }
@@ -186,7 +196,7 @@ export class VoiceCapture {
       else this.stopAudio = stop;
     } catch {
       void this.call("voice.cancel", { sessionId }).catch(() => undefined);
-      this.set({ phase: "unavailable", reason: "Psyche can't use the microphone." });
+      this.set({ phase: "unavailable", reason: t("web.voice.noMicrophone") });
     }
   }
 
@@ -195,7 +205,7 @@ export class VoiceCapture {
     if (!localDictation) {
       this.set({
         phase: "unavailable",
-        reason: "This browser can't dictate. Choose a Gateway speech engine in Settings.",
+        reason: t("web.voice.browserCantDictateSettings"),
       });
       return;
     }
@@ -209,8 +219,8 @@ export class VoiceCapture {
           this.local = undefined;
           this.interrupt(
             code === "not-allowed" || code === "service-not-allowed"
-              ? "Psyche can't use the microphone."
-              : "The browser stopped dictating.",
+              ? t("web.voice.noMicrophone")
+              : t("web.voice.browserStopped"),
           );
         },
         onEnd: () => {
@@ -221,7 +231,7 @@ export class VoiceCapture {
       });
     } catch {
       this.local = undefined;
-      this.set({ phase: "unavailable", reason: "This browser can't dictate." });
+      this.set({ phase: "unavailable", reason: t("web.voice.browserCantDictate") });
     }
   }
 
@@ -276,7 +286,7 @@ export class VoiceCapture {
   onEnded(sessionId: string, reason: string): void {
     if (this.state.phase !== "listening" || this.state.sessionId !== sessionId) return;
     if (reason === "stopped" || reason === "cancelled") return;
-    this.interrupt(reason === "error" ? "The speech engine stopped dictating." : undefined);
+    this.interrupt(reason === "error" ? t("web.voice.engineStopped") : undefined);
   }
 
   private interrupt(reason?: string): void {
