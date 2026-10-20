@@ -267,8 +267,23 @@ export function auditRules(s: Snapshot, now: Date): AuditReport {
     });
   }
 
-  // A real Chrome with a debugging port on this machine (any local process can drive it).
-  if (s.chromeDebugPort) {
+  // Real-Chrome mode (I13; security §6): the owner's own Chrome profile on a loopback DevTools
+  // port while a task holds it. Any local process that finds the port can drive that profile.
+  const rc = s.realChrome.ok ? s.realChrome.value : null;
+  if (rc?.attached) {
+    add({
+      id: "browser.real_chrome_attached",
+      severity: "medium",
+      message: `real-Chrome mode is attached: your Chrome profile ${rc.userDataDir ?? "(unknown dir)"} is open on DevTools port 127.0.0.1:${rc.port ?? "?"} (pid ${rc.pid ?? "?"}, ${rc.sessions} task(s)${rc.since ? `, since ${rc.since}` : ""}); any local process can drive it until it closes`,
+      fix: "It closes when the last task releases it or after 15 minutes idle; stop the task, or turn the mode off (PSYCHE_REAL_CHROME unset)",
+    });
+  } else if (!s.realChrome.ok) {
+    skip("browser.realChrome", s.realChrome);
+  }
+
+  // A real Chrome with a debugging port on this machine (any local process can drive it). The
+  // Gateway's own real-Chrome port is reported above, not twice.
+  if (s.chromeDebugPort && !(rc?.attached && rc.port === 9222)) {
     add({
       id: "browser.chrome_debug_port",
       severity: "high",

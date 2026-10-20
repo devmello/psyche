@@ -21,6 +21,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 ### v1 additive — 2026-10-19 (P9 file tools, #49)
 
 For `@psyche/files` and the approval cards (S11 / S12). `ToolCallDescription` gains optional `details?: JsonObject`: what the approval card shows besides the params, display only and never part of the binding. The agent loop spreads it into `ApprovalRequest.details` under `tool`, `params` and `target`, which it cannot override. `write_file` / `edit_file` use it for `{path, operation, diff}`, which the UI kit's `file_write` card already renders.
+### v1 additive — 2026-10-20 (S22, issue #169)
+
+- New `browser.realChrome.status` (`operator.read`) → `RealChromeStatus {enabled, attached, port?, pid?, since?, sessions, userDataDir?}`: the composed Gateway's real-Chrome mode (I13) for `psyche security audit` (security §6: the DevTools port is flagged while it runs). No fake: no contract changed.
+
 ### v1 additive — 2026-10-19 (S11 M2: quote-reply)
 
 For S11 / S12 (chat column), S01 (session controller). `chat.send` gains optional `replyToMessageId` (feature E5): the message this one answers, in the same thread. The Gateway stores it as `Message.replyToMessageId` (already in the schema) and puts the quoted text ahead of the new message in what the agent sees, so replies carry a quote reference the agent reads.

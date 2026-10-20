@@ -47,11 +47,11 @@ Events (`onEvent`): `tools_changed` (previous / new hash, per-tool diff, poisoni
 - `oauth.test.ts`: mock authorization server (PRM, AS metadata, PKCE token exchange): CIMD flow, token reuse and removal, no DCR, forged `state`.
 - `contract.test.ts`: the same `McpHost` assertions against `FakeMcpHost` and `PsycheMcpHost`.
 - `container.test.ts`: `containerLauncher` against a fake runner that runs `test/fixtures/probe-server.mjs` (a dependency-free stdio server that lists env and reads files) with only the env it was given: per-server scope, `network none`, secrets out of argv, host env invisible, refusals, egress allowlist hand-off, kill on removal.
-- `tests/integration/mcp-sandbox/` (M3 acceptance; runs on CI, locally only with `PSYCHE_SANDBOX_TESTS=1`; skipped until `ContainerSandboxRunner.openStdio` exists and a backend is present; builds the `core` image): the probe server in the real container cannot read a planted `$PSYCHE_HOME/vault/vault.db`, `~/.ssh` or the host env.
+- `tests/integration/mcp-sandbox/` (M3 acceptance; runs on CI, locally only with `PSYCHE_SANDBOX_TESTS=1`; skipped without a container backend; builds the `core` image): the probe server in the real container cannot read a planted `$PSYCHE_HOME/vault/vault.db`, `~/.ssh` or the host env.
 
 ## Stubbed / not yet
 
-- The container launcher needs `ContainerSandboxRunner.openStdio` (S21, #143); until then the Gateway can compose only `srtLauncher`. `.mcpb` bundles with keychain-backed sensitive config are not done. `srt` is not installed in CI, so that launcher is tested for its argv and settings, not by running under it.
+- `ContainerSandboxRunner.openStdio` (S21, #143) is in `@psyche/sandbox`; the Gateway does not compose `containerLauncher({ sandbox: runner })` yet (S01 / INT). `.mcpb` bundles with keychain-backed sensitive config are not done. `srt` is not installed in CI, so that launcher is tested for its argv and settings, not by running under it.
 - Server code must already be in the image or the server's `/workspace` (or be fetched through the egress proxy with the registry host allowlisted).
 - Token persistence: `McpTokenStore` is injected; the vault-backed store needs a write API from S06.
 - Tasks extension (`io.modelcontextprotocol/tasks`) and `subscriptions/listen` beyond `tools` list-changed.
