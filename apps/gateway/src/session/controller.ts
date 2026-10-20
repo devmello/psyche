@@ -22,6 +22,7 @@ import {
   type EventPayload,
   type Message,
   type MethodResult,
+  type Provenance,
   PsycheError,
   type QueueMode,
   type Requester,
@@ -89,6 +90,15 @@ function userBlocks(content: string, attachments: readonly string[]): Block[] {
     { type: "text", md: content },
     ...attachments.map((id): Block => ({ type: "file", libraryItemId: id })),
   ];
+}
+
+/**
+ * A channel sender who is not the owner speaks as data, never as the owner (security §3.6, §9):
+ * their words go into the transcript as `untrusted`, so history, exports and other threads'
+ * readers never pass them off as the owner's.
+ */
+function messageProvenance(requester: Requester | undefined): Provenance {
+  return requester === undefined || requester.role === "owner" ? "owner" : "untrusted";
 }
 
 /**
@@ -165,7 +175,8 @@ export class SessionController {
           threadId: thread.id,
           role: "user",
           blocks: userBlocks(input.content, attachments),
-          provenance: input.provenance ?? "owner",
+          // An agent-sent cross-thread message stays `agent`; anything else is the sender's (§3.6).
+          provenance: input.provenance === "agent" ? "agent" : messageProvenance(input.requester),
           runId: active,
         },
         { expectedWriterRunId: active },
@@ -218,7 +229,7 @@ export class SessionController {
           threadId: thread.id,
           role: "user",
           blocks: userBlocks(content, attachments),
-          provenance,
+          provenance: provenance === "agent" ? "agent" : messageProvenance(requester),
         },
         { expectedWriterRunId: null },
       );
@@ -244,7 +255,7 @@ export class SessionController {
         threadId: thread.id,
         role: "user",
         blocks: userBlocks(content, attachments),
-        provenance,
+        provenance: provenance === "agent" ? "agent" : messageProvenance(requester),
         runId: run.id,
       },
       { expectedWriterRunId: run.id },

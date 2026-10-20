@@ -1,6 +1,7 @@
 import { KeyRound, Loader } from "lucide-react";
 import { type ReactElement, useId } from "react";
 import { Button } from "../../components/ui/button.tsx";
+import { NativeSelect } from "../../components/ui/native-select.tsx";
 import { cn } from "../../lib/utils.ts";
 import {
   EmptyNotice,
@@ -223,9 +224,9 @@ export function ModelProvidersPanel({
                   </span>
                 </label>
                 <div className="flex flex-col gap-1">
-                  <select
+                  <NativeSelect
                     id={`${id}-${role.key}`}
-                    className="h-8 w-full max-w-sm rounded-lg border border-input bg-background px-2 text-sm"
+                    className="min-w-72"
                     value={current}
                     onChange={(e) => onChange(role.key, e.target.value)}
                   >
@@ -237,7 +238,7 @@ export function ModelProvidersPanel({
                         {m.toolCheck === "failed" ? " (chat only)" : ""}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                   <SettingHint settingKey={role.key} />
                 </div>
               </div>

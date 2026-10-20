@@ -1,4 +1,4 @@
-import { Fragment, type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { cn } from "../../lib/utils.ts";
 
 /**
@@ -93,47 +93,57 @@ export interface EvidenceLineProps {
   className?: string;
 }
 
-/** "Because: 3 charges (Gmail); no logins in 90 days (Browser)". */
+const linkClass =
+  "cursor-pointer text-left text-gray-12 underline decoration-gray-7 underline-offset-2 hover:decoration-accent-9 focus-visible:outline-2 focus-visible:outline-ring";
+
+/**
+ * "Because:" then one line per item, each linked to its source with the source named after it
+ * ("3 charges · Gmail"). One item per line keeps long evidence from wrapping into a ragged run.
+ */
 export function EvidenceLine({ items, onOpenRoute, className }: EvidenceLineProps): ReactElement {
   return (
-    <p className={cn("text-sm text-gray-11", className)}>
-      <span className="font-medium text-gray-12">Because:</span>{" "}
-      {items.length === 0 ? <span>no evidence recorded.</span> : null}
-      {items.map((e, i) => {
-        const label = e.source ? `${e.text} (${sourceLabel(e.source)})` : e.text;
-        let node: ReactElement;
-        if (e.route !== null && onOpenRoute) {
-          const route = e.route;
-          node = (
-            <button
-              type="button"
-              onClick={() => onOpenRoute(route)}
-              className="cursor-pointer text-accent-11 underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-ring"
-            >
-              {label}
-            </button>
-          );
-        } else if (e.href !== null) {
-          node = (
-            <a
-              href={e.href}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="text-accent-11 underline underline-offset-2"
-            >
-              {label}
-            </a>
-          );
-        } else {
-          node = <span>{label}</span>;
-        }
-        return (
-          <Fragment key={`${e.ref ?? ""}-${e.text}`}>
-            {i > 0 ? "; " : null}
-            {node}
-          </Fragment>
-        );
-      })}
-    </p>
+    <div className={cn("flex flex-col gap-1 text-small text-gray-11", className)}>
+      <p className="font-medium text-gray-12">
+        Because:
+        {items.length === 0 ? <span className="font-normal"> no evidence recorded.</span> : null}
+      </p>
+      {items.length > 0 ? (
+        <ul className="flex flex-col gap-0.5">
+          {items.map((e) => {
+            let node: ReactElement;
+            if (e.route !== null && onOpenRoute) {
+              const route = e.route;
+              node = (
+                <button type="button" onClick={() => onOpenRoute(route)} className={linkClass}>
+                  {e.text}
+                </button>
+              );
+            } else if (e.href !== null) {
+              node = (
+                <a href={e.href} target="_blank" rel="noreferrer noopener" className={linkClass}>
+                  {e.text}
+                </a>
+              );
+            } else {
+              node = <span className="text-gray-12">{e.text}</span>;
+            }
+            return (
+              <li key={`${e.ref ?? ""}-${e.text}`} className="flex min-w-0 items-baseline gap-2">
+                <span
+                  aria-hidden="true"
+                  className="size-1 shrink-0 translate-y-[-2px] rounded-full bg-gray-8"
+                />
+                <span className="min-w-0">
+                  {node}
+                  {e.source ? (
+                    <span className="text-caption text-gray-11"> · {sourceLabel(e.source)}</span>
+                  ) : null}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </div>
   );
 }
