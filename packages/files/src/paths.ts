@@ -53,6 +53,22 @@ export function assertGranted(
 }
 
 /**
+ * Refuses paths in or under a protected root (Psyche's own home, credential stores), checked
+ * before any grant: a granted ancestor such as `~` never opens them (#285).
+ */
+export function assertNotProtected(path: string, roots: readonly string[] | undefined): void {
+  if (roots === undefined) return;
+  for (const raw of roots) {
+    const root = canonicalTarget(raw);
+    if (isUnder(path, root)) {
+      throw new PsycheError("forbidden", `${path} is a protected location`, {
+        details: { reason: "protected_path", root },
+      });
+    }
+  }
+}
+
+/**
  * Refuses unless `path` is its own real path: the deepest existing ancestor resolves to itself
  * and the final component, if present, is not a symlink (dangling or not). The broker compares
  * paths without resolving links, so a link inside a granted folder could otherwise point the

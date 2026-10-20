@@ -11,6 +11,7 @@ import {
   computerUseFile,
   computerUsePath,
   computerUseSettings,
+  fixedCaps,
 } from "../src/compose/computer-settings.ts";
 import type { ComposeServices } from "../src/compose/services.ts";
 import { needsPresence } from "../src/handlers/settings.ts";
@@ -65,13 +66,40 @@ describe("Settings → Computer use → computer-use.json and broker tiers (J5, 
       version: 1,
       default: "off",
       apps: {},
+      caps: fixedCaps(),
+    });
+  });
+
+  it("gives the helper the broker's fixed caps and caps the owner's tiers (#267)", () => {
+    const file = computerUseFile(
+      true,
+      [
+        { id: "com.apple.systempreferences", tier: "interact" },
+        { id: "com.apple.Safari", tier: "interact" },
+        { id: "com.apple.Notes", tier: "interact" },
+      ],
+      { "com.apple.Terminal": "interact", "com.apple.Maps": "read" },
+    );
+    expect(file.apps).toEqual({
+      "com.apple.systempreferences": "off",
+      "com.apple.Safari": "read",
+      "com.apple.Notes": "interact",
+      "com.apple.Terminal": "click",
+      "com.apple.Maps": "read",
+    });
+    expect(file.caps).toMatchObject({
+      "com.apple.systempreferences": "off",
+      "com.apple.SystemSettings": "off",
+      "com.robinhood.*": "off",
+      "com.google.Chrome": "read",
+      "com.jetbrains.*": "click",
     });
   });
 
   it("writes the helper's file (0600) and layers the tiers over permissions.policy", () => {
     const s = computerUseSettings(services());
     s.sync();
-    expect(readFile()).toEqual({ version: 1, default: "off", apps: {} });
+    expect(readFile()).toEqual({ version: 1, default: "off", apps: {}, caps: fixedCaps() });
     expect(statSync(computerUsePath(home)).mode & 0o777).toBe(0o600);
     expect(policy.apps).toEqual({ "com.apple.finder": "read" });
 
@@ -85,7 +113,9 @@ describe("Settings → Computer use → computer-use.json and broker tiers (J5, 
     expect(readFile()).toEqual({
       version: 1,
       default: "ask",
-      apps: { "com.apple.Notes": "interact" },
+      // permissions.policy's apps reach the helper too, under the owner's choices.
+      apps: { "com.apple.finder": "read", "com.apple.Notes": "interact" },
+      caps: fixedCaps(),
     });
     expect(policy.apps).toEqual({ "com.apple.finder": "read", "com.apple.Notes": "interact" });
 

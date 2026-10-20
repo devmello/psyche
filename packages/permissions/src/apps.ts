@@ -48,6 +48,17 @@ export const LOCKED_OFF_APPS = [
   "com.apple.keychainaccess",
   "com.apple.systempreferences",
   "com.apple.SystemSettings",
+  // Psyche's own windows and the processes that draw its approval banners and system
+  // authorization prompts (#269): the agent must never press Approve on its own cards.
+  "com.psyche.desktop",
+  "com.psyche.helper",
+  "com.apple.notificationcenterui",
+  "com.apple.UserNotificationCenter",
+  "com.apple.SecurityAgent",
+  "com.apple.LocalAuthentication.UIAgent",
+  "com.apple.coreservices.uiagent",
+  "com.apple.loginwindow",
+  "com.dashlane.dashlanephonefinal",
   "com.robinhood.*",
   "com.coinbase.*",
   "com.schwab.*",
@@ -72,7 +83,8 @@ export function appCap(bundleId: string): { cap: AppTier; reason: string } {
   if (matchesAny(bundleId, LOCKED_OFF_APPS)) {
     return {
       cap: "off",
-      reason: "password managers, banking, trading and system settings are off",
+      reason:
+        "password managers, banking, trading, system settings, notifications and security prompts are off",
     };
   }
   if (matchesAny(bundleId, BROWSER_APPS)) {

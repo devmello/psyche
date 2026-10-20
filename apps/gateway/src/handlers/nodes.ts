@@ -1,6 +1,7 @@
 import { getNode } from "@psyche/db";
 import {
   type ErrorPayload,
+  type JsonObject,
   type NodeEventParams,
   type NodeResultParams,
   PsycheError,
@@ -16,9 +17,14 @@ import { paramsHash } from "../idempotency.ts";
  * §10; S23 review TODO). The agent's own node tools go through the same broker path (S02).
  * `dictation.*` types into whatever app has focus as the owner; only the desktop reaches it,
  * through the Gateway's own `dictation.*` methods (J9).
+ *
+ * Capabilities that have a Gateway agent tool are reachable only through that tool, which
+ * describes them (kind, binding, the full arguments on the card, #274): `apps.*` (AppleScript,
+ * JXA, Shortcuts, open / focus), `computer.*` (sessions and per-app tiers), `messages.*`
+ * (the iMessage channel's reply authority) and `notify.*` (the Gateway's approval notifications).
  */
 const UNREACHABLE =
-  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation)([^a-z0-9]|$)/;
+  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation|apps|computer|messages|notify)([^a-z0-9]|$)/;
 
 export function isUnreachableCapability(name: string): boolean {
   return UNREACHABLE.test(name.toLowerCase());
@@ -89,7 +95,12 @@ export const nodesHandlers: Record<string, HandlerDef> = {
           const issued = await ctx.broker.requestApproval({
             kind: decision.approvalKind ?? "computer_action",
             summary: `${capability.name} on ${node.kind}`,
-            details: { nodeId: node.id, capability: capability.name },
+            // The full arguments, as on every card (security §3.7); the broker sanitizes them.
+            details: {
+              nodeId: node.id,
+              capability: capability.name,
+              params: (params.params ?? null) as JsonObject[string],
+            },
             bindingHash,
             grantKey: decision.grantKey ?? `node.${capability.name}|${node.id}`,
             requestedBy: {
