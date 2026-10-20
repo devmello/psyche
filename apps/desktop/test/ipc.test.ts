@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   checkAudioChunk,
   checkCallable,
+  checkClipboardText,
   checkHttpUrl,
   checkRoute,
   checkViewport,
@@ -64,5 +65,11 @@ describe("IPC validators", () => {
       height: 200,
     });
     expect(() => checkViewport({ x: Number.NaN, y: 0, width: 1, height: 1 })).toThrow();
+  });
+
+  it("clipboard writes take one non-empty string up to 64 KiB (#507)", () => {
+    expect(checkClipboardText({ text: "ABCD-EFGH" })).toBe("ABCD-EFGH");
+    for (const bad of [null, "x", {}, { text: "" }, { text: 3 }, { text: "a".repeat(65_537) }])
+      expect(() => checkClipboardText(bad), JSON.stringify(bad)?.slice(0, 40)).toThrow();
   });
 });

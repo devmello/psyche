@@ -29,6 +29,8 @@ export interface UiSlots {
   renderSandboxed?: (html: string) => ReactNode;
   /** The Markdown editor from `packages/viewers` (Rich / Source / Diff). */
   renderEditor?: (props: EditorSlotProps) => ReactNode;
+  /** Writes the system clipboard (the desktop's goes through main; #507). */
+  writeClipboard?: (text: string) => Promise<void>;
   /** Persona shown in agent messages and cards. */
   persona?: { name: string; creature?: string; imageSrc?: string };
 }
