@@ -12,8 +12,8 @@ import {
   bundleSources,
   copyBundleResources,
   HELPER_APP_NAME,
-  signNestedHelper,
   skipOuterSigning,
+  verifyNestedHelper,
 } from "./src/packaging/bundle-resources.ts";
 import { macSigningOptions, signingIdentity } from "./src/packaging/signing-config.ts";
 
@@ -94,7 +94,7 @@ const config: ForgeConfig = {
         warn: (m) => console.warn(m),
       });
       if (isMacHost)
-        signNestedHelper(join(resourcesDir, HELPER_APP_NAME), signingIdentity(process.env));
+        verifyNestedHelper(join(resourcesDir, HELPER_APP_NAME), signingIdentity(process.env));
     },
   },
   plugins: [

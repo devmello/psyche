@@ -15,8 +15,8 @@ import {
   copyBundleResources,
   HELPER_APP_NAME,
   isMachO,
-  signNestedHelper,
   skipOuterSigning,
+  verifyNestedHelper,
 } from "../src/packaging/bundle-resources.ts";
 
 function fakeBuilds(dir: string, opts: { helper?: boolean; psyched?: boolean } = {}) {
@@ -43,7 +43,7 @@ describe("bundle resources", () => {
   it("defaults to the S22 and S14 build outputs, overridable from env", () => {
     expect(bundleSources({}, "/repo", "arm64")).toEqual({
       psychedDir: "/repo/apps/gateway/dist-bin/darwin-arm64/psyched",
-      helperApp: `/repo/apps/mac-helper/.build/${HELPER_APP_NAME}`,
+      helperApp: `/repo/apps/mac-helper/dist/${HELPER_APP_NAME}`,
     });
     expect(
       bundleSources({ PSYCHE_PSYCHED_DIR: "/b/psyched", PSYCHE_HELPER_APP: "/h.app" }, "/r", "x64"),
@@ -66,7 +66,7 @@ describe("bundle resources", () => {
     const sources = fakeBuilds(dir, { helper: false });
     const res = join(dir, "Resources");
     expect(() => copyBundleResources(sources, res, "arm64", { allowPartial: false })).toThrow(
-      /Psyche Helper\.app: not found .*build-app\.sh[\s\S]*PSYCHE_PACKAGE_ALLOW_PARTIAL=1/,
+      /PsycheHelper\.app: not found .*build-helper\.sh --arch arm64[\s\S]*PSYCHE_PACKAGE_ALLOW_PARTIAL=1/,
     );
     const warnings: string[] = [];
     const missing = copyBundleResources(sources, res, "arm64", {
@@ -92,18 +92,18 @@ describe("bundle resources", () => {
     expect(skipOuterSigning(join(dir, "Psyche.app", "Contents", "MacOS", "Psyche"))).toBe(false);
   });
 
-  it("signs the helper ad-hoc or with the Developer ID, keeping its entitlements", () => {
+  it("checks the helper's own signature instead of re-signing it", () => {
     const dir = mkdtempSync(join(tmpdir(), "psyche-bundle-"));
     const { helperApp } = fakeBuilds(dir);
-    const calls: string[][] = [];
-    signNestedHelper(helperApp, undefined, (a) => calls.push(a));
-    signNestedHelper(helperApp, "Developer ID Application: X (T)", (a) => calls.push(a));
-    signNestedHelper(join(dir, "nope.app"), undefined, (a) => calls.push(a));
-    expect(calls).toHaveLength(2);
-    expect(calls[0]).toEqual(
-      expect.arrayContaining(["--sign", "-", "--timestamp=none", helperApp]),
+    const adhoc = (args: string[]) => (args[0] === "-dv" ? "Signature=adhoc\n" : "");
+    expect(() => verifyNestedHelper(helperApp, undefined, adhoc)).not.toThrow();
+    expect(() => verifyNestedHelper(helperApp, "Developer ID Application: X (T)", adhoc)).toThrow(
+      /signed ad-hoc .*build-helper\.sh with the same PSYCHE_SIGN_IDENTITY/,
     );
-    expect(calls[0]?.join(" ")).toContain("--preserve-metadata=entitlements");
-    expect(calls[1]).toEqual(expect.arrayContaining(["--options", "runtime", "--timestamp"]));
+    const broken = () => {
+      throw new Error("invalid signature");
+    };
+    expect(() => verifyNestedHelper(helperApp, undefined, broken)).toThrow(/no valid signature/);
+    expect(() => verifyNestedHelper(join(dir, "nope.app"), undefined, broken)).not.toThrow();
   });
 });
