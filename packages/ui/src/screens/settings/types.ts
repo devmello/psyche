@@ -29,7 +29,8 @@ export type TccState = "granted" | "denied" | "not_determined";
 
 export type TccPermission = "accessibility" | "screenRecording" | "notifications";
 
-export type AppTier = "off" | "read" | "interact";
+/** `ask`: the owner has not chosen; each first use in a task asks (J5). */
+export type AppTier = "ask" | "off" | "read" | "interact";
 
 /** A per-app computer-use row. `locked` rows have a fixed cap the owner cannot raise. */
 export interface ComputerUseApp {

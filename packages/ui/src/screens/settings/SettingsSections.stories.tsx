@@ -7,6 +7,8 @@ import { BrowserPanel } from "./BrowserSection.tsx";
 import { ChannelsPanel } from "./ChannelsSection.tsx";
 import { ComputerUsePanel } from "./ComputerUseSection.tsx";
 import { ConnectorsPanel } from "./ConnectorsSection.tsx";
+import { CredentialDetail } from "./CredentialDetail.tsx";
+import { ImportCredentialsForm } from "./CredentialImport.tsx";
 import { CredentialsPanel } from "./CredentialsSection.tsx";
 import { DataControlsPanel } from "./DataControlsSection.tsx";
 import { DevicesPanel } from "./DevicesSection.tsx";
@@ -316,6 +318,8 @@ const credentialProps = {
   onConnectManager: noop,
   onUpdate: noop,
   onDelete: noop,
+  onOpen: noop,
+  onImport: async () => ({ imported: [], skipped: [] }),
 };
 export const CredentialsPopulated: Story = {
   render: () => <CredentialsPanel {...credentialProps} />,
@@ -346,6 +350,56 @@ export const CredentialsEditFailed: Story = {
       itemError="The vault is locked. Unlock it with Touch ID, then change GitHub again."
     />
   ),
+};
+export const CredentialsImporting: Story = {
+  render: () => <CredentialsPanel {...credentialProps} defaultImporting />,
+};
+/** After an import: what came in and which rows the vault skipped. */
+export const CredentialsImported: Story = {
+  render: () => (
+    <ImportCredentialsForm
+      onImport={async () => ({ imported: [], skipped: [] })}
+      onClose={noop}
+      defaultOutcome={{
+        imported: world.credentials.slice(0, 2),
+        skipped: [
+          { row: 4, reason: "looks like a card number" },
+          { row: 9, reason: "no name or password" },
+        ],
+      }}
+    />
+  ),
+};
+const github = world.credentials.find((c) => c.id === IDS.credentials.github);
+/** An item's detail (G14): metadata and its recent uses with task, approval and outcome. */
+export const CredentialDetailRecentUses: Story = {
+  render: () =>
+    github ? (
+      <CredentialDetail
+        credential={github}
+        uses={world.credentialUses.filter((u) => u.credentialId === github.id)}
+        now={STORY_NOW}
+        onOpenTask={noop}
+      />
+    ) : (
+      <p>missing fixture</p>
+    ),
+};
+export const CredentialDetailNotUsed: Story = {
+  render: () =>
+    github ? (
+      <CredentialDetail
+        credential={{ ...github, useCount: 0, lastUsedAt: null }}
+        uses={[]}
+        now={STORY_NOW}
+      />
+    ) : (
+      <p>missing fixture</p>
+    ),
+};
+export const CredentialDetailLoading: Story = {
+  render: () =>
+    github ? <CredentialDetail credential={github} uses={[]} now={STORY_NOW} loading /> : <p />,
 };
 export const CredentialsEmpty: Story = {
   render: () => <CredentialsPanel {...credentialProps} credentials={[]} />,

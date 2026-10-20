@@ -30,6 +30,7 @@ import type { AppTier, ComputerUseApp, TccPermission, TccState } from "./types.t
 /** Computer use (UI design §3.18; architecture §6). */
 
 export const TIERS: readonly { value: AppTier; label: string }[] = [
+  { value: "ask", label: "Ask" },
   { value: "off", label: "Off" },
   { value: "read", label: "Read only" },
   { value: "interact", label: "Read and interact" },
@@ -207,7 +208,7 @@ export function ComputerUsePanel({
             <TableBody>
               {apps.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={4}>
+                  <TableCell colSpan={TIERS.length + 1}>
                     <EmptyNotice text="No apps yet. Apps appear here the first time they're used." />
                   </TableCell>
                 </TableRow>
@@ -241,7 +242,7 @@ export function ComputerUsePanel({
                       {a.name}
                     </span>
                   </th>
-                  <TableCell colSpan={3} className="whitespace-normal">
+                  <TableCell colSpan={TIERS.length} className="whitespace-normal">
                     <span className="font-medium">{a.locked ? CAP_LABEL[a.locked.cap] : ""}</span>{" "}
                     <span className="text-xs text-muted-foreground">{a.locked?.reason}</span>
                   </TableCell>

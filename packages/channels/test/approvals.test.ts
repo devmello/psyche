@@ -68,7 +68,7 @@ describe("approvals over chat", () => {
   });
 
   it("/approve fallback on a channel without buttons", async () => {
-    const h = await harness({ capabilities: { buttons: false } });
+    const h = await harness({ capabilities: { buttons: false, reactions: false } });
     const issued = await h.broker.requestApproval(input());
     await h.service.deliverApproval(issued);
     const ref = approvalRef(issued.approval.id);
@@ -149,7 +149,7 @@ describe("approvals over chat", () => {
   });
 
   it("device-only approvals cannot be answered from chat even by ref", async () => {
-    const h = await harness({ capabilities: { buttons: false } });
+    const h = await harness({ capabilities: { buttons: false, reactions: false } });
     const issued = await h.broker.requestApproval(input({ kind: "credential_fill" }));
     const forced = {
       approval: { ...issued.approval, deviceOnly: false },

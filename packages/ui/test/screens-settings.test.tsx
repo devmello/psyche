@@ -275,6 +275,16 @@ describe("Computer use", () => {
       const apps = settingValue(gateway(), "computerUse.apps") as { id: string; tier: string }[];
       expect(apps.find((a) => a.id === "com.apple.Notes")?.tier).toBe("interact");
     });
+    // Apps the agent used but the owner never chose are on Ask (J5 first-use prompts).
+    await userEvent.click(screen.getByRole("radio", { name: "Notes: Ask" }));
+    await waitFor(() => {
+      const last = callsOf(gateway(), "settings.set")
+        .filter((c) => (c.params as { key: string }).key === "computerUse.apps")
+        .at(-1);
+      const apps =
+        (last?.params as { value: { id: string; tier: string }[] } | undefined)?.value ?? [];
+      expect(apps.find((a) => a.id === "com.apple.Notes")?.tier).toBe("ask");
+    });
     expect(screen.getByText("Esc")).toBeTruthy();
   });
 });
@@ -433,6 +443,82 @@ describe("Credentials", () => {
     expect(within(table).queryByRole("button", { name: "Delete GitHub" })).toBeNull();
     expect(within(table).getByText("Managed by its connector")).toBeTruthy();
     expect(within(table).getByRole("button", { name: "Edit acme.com" })).toBeTruthy();
+  });
+
+  it("imports a CSV export, reports skipped rows and never shows a value", async () => {
+    const { gateway } = setup({ defaultSection: "credentials" });
+    const table = await screen.findByRole("table", { name: "Stored credentials" });
+    await userEvent.click(screen.getByRole("button", { name: "Import CSV" }));
+    const form = screen.getByRole("form", { name: "Import credentials" });
+    const importButton = within(form).getByRole("button", { name: "Import" });
+    expect((importButton as HTMLButtonElement).disabled).toBe(true);
+    const csv = [
+      "name,url,username,password",
+      "Fastmail,https://app.fastmail.com/login,you,imported-secret-1",
+      "Half a row,https://example.com,you,",
+    ].join("\n");
+    await userEvent.upload(
+      within(form).getByLabelText("CSV file"),
+      new File([csv], "chrome.csv", { type: "text/csv" }),
+    );
+    await userEvent.selectOptions(within(form).getByLabelText("Exported from"), "chrome");
+    await userEvent.click(importButton);
+    const status = await within(form).findByRole("status");
+    expect(status.textContent).toContain("Imported 1 item; skipped 1 row.");
+    expect(status.textContent).toContain("Row 3: no name or password");
+    expect(callsOf(gateway(), "vault.import")[0]?.params).toEqual({ format: "chrome", csv });
+    expect(await within(table).findByText("Fastmail")).toBeTruthy();
+    expect(within(table).getByText("app.fastmail.com")).toBeTruthy();
+    expect(document.body.textContent).not.toContain("imported-secret-1");
+    await userEvent.click(within(form).getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("form", { name: "Import credentials" })).toBeNull();
+  });
+
+  it("explains a CSV the vault can't read", async () => {
+    setup({ defaultSection: "credentials" });
+    await screen.findByRole("table", { name: "Stored credentials" });
+    await userEvent.click(screen.getByRole("button", { name: "Import CSV" }));
+    const form = screen.getByRole("form", { name: "Import credentials" });
+    await userEvent.upload(
+      within(form).getByLabelText("CSV file"),
+      new File(["colour,size\nred,9"], "notes.csv", { type: "text/csv" }),
+    );
+    await userEvent.click(within(form).getByRole("button", { name: "Import" }));
+    expect(
+      await within(form).findByText(/couldn't read that file as a 1Password, Bitwarden or Chrome/),
+    ).toBeTruthy();
+  });
+
+  it("opens an item's detail with its last 50 uses and links each task", async () => {
+    const { gateway, navigate } = setup({ defaultSection: "credentials" });
+    const table = await screen.findByRole("table", { name: "Stored credentials" });
+    await userEvent.click(within(table).getByRole("button", { name: "GitHub" }));
+    const sheet = await screen.findByRole("dialog", { name: "GitHub" });
+    const uses = await within(sheet).findByRole("table", { name: "Recent uses" });
+    expect(callsOf(gateway(), "vault.uses")[0]?.params).toEqual({
+      credentialId: IDS.credentials.github,
+      limit: 50,
+    });
+    // A header row and the three fixture uses, newest first.
+    const rows = within(uses).getAllByRole("row");
+    expect(rows).toHaveLength(4);
+    expect(within(rows[1] as HTMLElement).getByText("Filled")).toBeTruthy();
+    expect(within(rows[2] as HTMLElement).getByText("Denied")).toBeTruthy();
+    expect(within(rows[2] as HTMLElement).getByText("ap_github_fill_2")).toBeTruthy();
+    expect(within(rows[3] as HTMLElement).getByText("Failed")).toBeTruthy();
+    expect(within(rows[3] as HTMLElement).getByText("none")).toBeTruthy();
+    const [openTask] = within(uses).getAllByRole("button", { name: "Open task" });
+    await userEvent.click(openTask as HTMLElement);
+    expect(navigate).toHaveBeenCalledWith(`/agent/activity/${IDS.tasks.subscriptionAudit}`);
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "GitHub" })).toBeNull());
+  });
+
+  it("says when an item has not been used", async () => {
+    setup({ defaultSection: "credentials" });
+    const table = await screen.findByRole("table", { name: "Stored credentials" });
+    await userEvent.click(within(table).getByRole("button", { name: "Link wallet" }));
+    const sheet = await screen.findByRole("dialog", { name: "Link wallet" });
+    expect(await within(sheet).findByText("Not used yet.")).toBeTruthy();
   });
 
   it("parses sites and words vault failures plainly", () => {

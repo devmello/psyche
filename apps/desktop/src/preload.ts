@@ -123,6 +123,13 @@ const bridge = {
   dialogs: {
     pickFolder: (opts?: { title?: string }) => invoke(IPC.dialogPickFolder, opts ?? {}),
   },
+  /** The dictation HUD window only; main ignores these from any other renderer. */
+  dictation: {
+    onState: (cb: (s: unknown) => void) => listen(IPC.dictationHudState, cb),
+    onCapture: (cb: (command: unknown) => void) => listen(IPC.dictationCapture, cb),
+    sendAudio: (chunk: string) => ipcRenderer.send(IPC.dictationAudio, chunk),
+    captured: (ok: boolean) => ipcRenderer.send(IPC.dictationCaptured, { ok }),
+  },
 };
 
 export type PsycheBridge = typeof bridge;

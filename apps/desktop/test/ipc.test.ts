@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { checkCallable, checkHttpUrl, checkRoute, checkViewport } from "../src/lib/ipc.ts";
+import {
+  checkAudioChunk,
+  checkCallable,
+  checkHttpUrl,
+  checkRoute,
+  checkViewport,
+} from "../src/lib/ipc.ts";
 
 describe("IPC validators", () => {
   it("routes are single-origin app paths", () => {
@@ -26,6 +32,15 @@ describe("IPC validators", () => {
     expect(checkCallable("threads.list", known)).toBe("threads.list");
     for (const m of ["connect", "connect.verify", "node.invoke", "made.up"])
       expect(() => checkCallable(m, known)).toThrow();
+  });
+
+  it("only main calls dictation.* (it types into other apps); HUD audio is base64 only", () => {
+    const known = (m: unknown) => typeof m === "string" && m.startsWith("dictation.");
+    for (const m of ["dictation.insert", "dictation.watch", "dictation.target"])
+      expect(() => checkCallable(m, known)).toThrow(/not callable/);
+    expect(checkAudioChunk("AAEC/+8=")).toBe("AAEC/+8=");
+    for (const bad of ["", "not base64!", "A".repeat(64_001), 42])
+      expect(() => checkAudioChunk(bad)).toThrow();
   });
 
   it("viewports are finite, rounded rectangles or null", () => {

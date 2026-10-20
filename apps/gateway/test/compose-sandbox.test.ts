@@ -52,6 +52,7 @@ describe("composeSandbox: dev servers reach the browser's dev-preview registry (
       listeners: [{ port: 5173, addr: "0.0.0.0", pid: 57 }],
     };
     const part = composeSandbox(services, {
+      exec: false,
       devServers: sink,
       runner: {
         driver: fakeCli(() => probe),
@@ -90,6 +91,7 @@ describe("composeSandbox: dev servers reach the browser's dev-preview registry (
   it("forwards nothing and never probes without a registry", async () => {
     let probed = false;
     const part = composeSandbox(services, {
+      exec: false,
       runner: {
         driver: fakeCli(() => {
           probed = true;

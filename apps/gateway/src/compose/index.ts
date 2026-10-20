@@ -62,6 +62,7 @@ import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { CallContexts } from "./call-context.ts";
 import { composeComputer } from "./computer.ts";
+import { composeDictation } from "./dictation.ts";
 import { filesHandlers } from "./files.ts";
 import {
   mountParamsOnly,
@@ -306,6 +307,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       : { policy: (policy ?? storedPolicy) as PolicyConfig }),
   });
   const broker = withRelay(tokens.wrap(rawBroker), relays, gwOptions.logger);
+  // Executors (vault fills, the browser's mid-run gate, sandbox secrets) request approvals
+  // outside the loop, which announces only its own: they announce theirs here.
+  const executorBroker = announcing(broker, publish);
   broker.subscribe((e) => {
     if (
       e.type === "approval.decided" ||
@@ -330,7 +334,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
 
   const vault = composeVault(
-    { home: config.home, db, permissions: broker, audit, clock, publish, redactor },
+    { home: config.home, db, permissions: executorBroker, audit, clock, publish, redactor },
     vaultSetup ?? vaultSetupFromEnv(gwOptions.env ?? process.env),
   );
 
@@ -376,7 +380,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     db,
     clock,
     home: config.home,
-    broker,
+    broker: executorBroker,
     rawBroker,
     audit,
     notifier,
@@ -391,6 +395,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const partFactories = [
     composeComputer,
     composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
+    composeDictation(),
     // Web passkeys (issue #79): unavailable until gateway.publicOrigin is an https origin. A
     // caller-supplied `presence` verifier takes the passkey role instead.
     ...(presence === NO_PRESENCE ? [composePasskeys({ publicOrigin: config.publicOrigin })] : []),
@@ -669,6 +674,38 @@ export {
   vaultSetupFromEnv,
 } from "./vault.ts";
 export { createLogger, surfaceOf };
+
+/**
+ * A broker handle for executors: an approval they request is published as `approval.created`
+ * once its answer tokens are recorded, so devices see the card (and their own token through the
+ * personalizer). The agent loop keeps the plain handle and announces its approvals itself.
+ */
+function announcing<B extends PermissionBroker>(
+  broker: B,
+  publish: (
+    event: "approval.created",
+    payload: EventPayload<"approval.created">,
+    threadId?: string,
+  ) => void,
+): B {
+  return new Proxy(broker, {
+    get(target, prop, receiver) {
+      if (prop === "requestApproval") {
+        return async (input: ApprovalRequestInput) => {
+          const issued = await target.requestApproval(input);
+          publish(
+            "approval.created",
+            { approval: issued.approval },
+            issued.approval.requestedBy.threadId ?? undefined,
+          );
+          return issued;
+        };
+      }
+      const value = Reflect.get(target, prop, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
 
 /**
  * Approvals also go to the owner's chat surfaces (S10 `ownerSurfaces`, `deliverApproval`) and
