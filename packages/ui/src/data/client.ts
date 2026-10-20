@@ -1,4 +1,5 @@
 import type {
+  ApprovalRequest,
   EventName,
   EventPayload,
   MethodName,
@@ -36,7 +37,16 @@ export interface GatewayClient {
   subscribe(listener: (event: GatewayEvent) => void): () => void;
   connectionState(): ConnectionState;
   onConnectionState(listener: (state: ConnectionState) => void): () => void;
+  /**
+   * Fresh user presence for approving a card that requires authentication (security §3.7): the
+   * web client's passkey assertion over the approval's presence challenge. Hosts without one omit
+   * it, and the Gateway refuses such an approval from them with `presence_required`.
+   */
+  presence?(approval: ApprovalRequest, answerToken: string): Promise<PresenceAssertion>;
 }
+
+/** `ApprovalAnswer.presence` (a WebAuthn or helper assertion). */
+export type PresenceAssertion = NonNullable<MethodParams<"approvals.answer">["presence"]>;
 
 /** Error surfaced by hooks; `code` is the wire error code when the Gateway sent one. */
 export class GatewayRequestError extends Error {
