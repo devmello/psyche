@@ -34,6 +34,7 @@ function fakeRunner(
     truncated: false,
     filesChanged: [],
     timedOut: false,
+    outcome: exitCode === 0 ? "ok" : "failed",
   });
   return {
     execs,
