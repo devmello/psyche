@@ -1,0 +1,14 @@
+{
+  "name": "OpenRouter GET /api/v1/models",
+  "request": {
+    "method": "GET",
+    "pathEndsWith": "/api/v1/models"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"data\":[{\"id\":\"anthropic/claude-sonnet-5-5\",\"canonical_slug\":\"anthropic/claude-sonnet-5-5\",\"name\":\"Anthropic: Claude Sonnet 5.5\",\"created\":1760000000,\"context_length\":1000000,\"architecture\":{\"modality\":\"text+image->text\",\"input_modalities\":[\"text\",\"image\",\"file\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Claude\"},\"pricing\":{\"prompt\":\"0.000003\",\"completion\":\"0.000015\"},\"top_provider\":{\"context_length\":1000000,\"max_completion_tokens\":64000,\"is_moderated\":false},\"supported_parameters\":[\"include_reasoning\",\"max_tokens\",\"reasoning\",\"tool_choice\",\"tools\",\"temperature\"]},{\"id\":\"meta-llama/llama-3.1-8b-instruct:free\",\"name\":\"Meta: Llama 3.1 8B Instruct (free)\",\"created\":1721692800,\"context_length\":131072,\"architecture\":{\"modality\":\"text->text\",\"input_modalities\":[\"text\"],\"output_modalities\":[\"text\"],\"tokenizer\":\"Llama3\"},\"pricing\":{\"prompt\":\"0\",\"completion\":\"0\"},\"top_provider\":{\"context_length\":131072,\"max_completion_tokens\":8192,\"is_moderated\":false},\"supported_parameters\":[\"max_tokens\",\"temperature\",\"top_p\"]}]}"
+  }
+}

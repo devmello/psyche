@@ -19,6 +19,7 @@ import type {
   ToolCallIntent,
 } from "@psyche/protocol";
 import {
+  type AgentToolRegistration,
   createAgentLoop,
   InMemoryThreadStateStore,
   type PsycheAgentLoop,
@@ -69,6 +70,12 @@ export interface StackOverrides {
   impls?: (world: World, stack: Stack) => Record<string, ToolImpl>;
   /** Services for agent-core's built-in tools; without them those tools are not offered. */
   services?: (stack: Stack) => BuiltinServices;
+  /**
+   * Real tool registrations (the V10 coding tools over a fixture repository), registered as
+   * they are, with their own `describeCall`; called once, so they survive a restart. A tool
+   * still needs a row in the scenario's tool registry for the validator and the assertions.
+   */
+  registrations?: (stack: Stack) => AgentToolRegistration[];
 }
 
 export interface RunRec {
@@ -215,6 +222,7 @@ export class Stack {
   #state = new InMemoryThreadStateStore();
   #extra: Record<string, ToolImpl> = {};
   #services: BuiltinServices = {};
+  #registrations: AgentToolRegistration[] = [];
 
   readonly thread: string;
   readonly mode: PermissionMode;
@@ -301,9 +309,21 @@ export class Stack {
     });
     this.gateway = new GatewayBroker(this.broker, this);
     this.loopBroker = overrides.wrapBroker?.(this.gateway) ?? this.gateway;
-    this.world = new World(fx, this.clock, this.notifier, () => this.loopBroker);
+    this.world = new World(fx, this.clock, this.notifier, () => this.loopBroker, this.audit);
     this.#extra = overrides.impls?.(this.world, this) ?? {};
     this.#services = overrides.services?.(this) ?? {};
+    // Dispatches are recorded as for the World's fakes (`tool_called.dispatched`).
+    this.#registrations = (overrides.registrations?.(this) ?? []).map((r) => {
+      const inner = r.run;
+      if (inner === undefined) return r;
+      return {
+        ...r,
+        run: (params, ctx) => {
+          this.world.dispatched.add(ctx.callId);
+          return inner(params, ctx);
+        },
+      };
+    });
     this.#boot();
   }
 
@@ -365,6 +385,7 @@ export class Stack {
       this.#extra,
     ))
       this.loop.registry.register(t);
+    for (const t of this.#registrations) this.loop.registry.register(t);
   }
 
   async *#stream(

@@ -27,6 +27,13 @@ type Fetch = (url: string) => Promise<{ ok: boolean; json(): Promise<unknown> }>
 const SKEW_S = 60;
 /** At most one JWKS refresh per this interval when an unknown `kid` shows up. */
 const REFRESH_MIN_MS = 5 * 60_000;
+/**
+ * Cached keys are re-fetched once this old, so a key Cloudflare rotated out (or revoked) stops
+ * verifying within the hour instead of being trusted for the life of the process.
+ */
+const MAX_KEY_AGE_MS = 60 * 60_000;
+/** Past this age without a successful refresh, nothing verifies (fail closed). */
+const STALE_KEYS_MS = 24 * 60 * 60_000;
 const MAX_TOKEN_BYTES = 16 * 1024;
 
 function b64urlJson(part: string): Record<string, unknown> {
@@ -91,6 +98,10 @@ export class CloudflareAccessVerifier {
   }
 
   async #key(kid: string): Promise<KeyObject | undefined> {
+    if (this.#fetchedAt !== 0 && this.#now() - this.#fetchedAt >= MAX_KEY_AGE_MS) {
+      await this.#refresh().catch(() => undefined);
+      if (this.#now() - this.#fetchedAt >= STALE_KEYS_MS) reject("signing keys are stale");
+    }
     const have = this.#keys.get(kid);
     if (have) return have;
     if (this.#fetchedAt === 0 || this.#now() - this.#fetchedAt >= REFRESH_MIN_MS) {

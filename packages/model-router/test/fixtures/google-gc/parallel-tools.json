@@ -1,0 +1,16 @@
+{
+  "name": "gemini streamGenerateContent: two parallel function calls, signature on the first",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": ":streamGenerateContent"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream"
+    },
+    "chunks": [
+      "data: {\"candidates\":[{\"content\":{\"parts\":[{\"functionCall\":{\"name\":\"weather\",\"args\":{\"city\":\"Paris\"}},\"thoughtSignature\":\"CiQBfixture-gc-fc-sig\"},{\"functionCall\":{\"name\":\"weather\",\"args\":{\"city\":\"Tokyo\"}}}],\"role\":\"model\"},\"index\":0,\"finishReason\":\"STOP\"}],\"modelVersion\":\"gemini-3.8-flash\",\"responseId\":\"fxGcResp0001\",\"usageMetadata\":{\"promptTokenCount\":300,\"candidatesTokenCount\":24,\"totalTokenCount\":324}}\n\n"
+    ]
+  }
+}

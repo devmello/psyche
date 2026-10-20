@@ -1,0 +1,14 @@
+{
+  "name": "llama-server --api-key: wrong key",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 401,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"error\":{\"code\":401,\"message\":\"Invalid API Key\",\"type\":\"authentication_error\"}}"
+  }
+}

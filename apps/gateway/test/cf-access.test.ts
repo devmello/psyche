@@ -107,6 +107,47 @@ describe("CloudflareAccessVerifier", () => {
       message: expect.stringContaining(reason),
     });
   });
+
+  it("re-fetches keys hourly: a rotated-out key stops verifying; stale keys fail closed", async () => {
+    let t = Date.now();
+    let keys: unknown[] = [k1.jwk];
+    let up = true;
+    const calls: string[] = [];
+    const v = new CloudflareAccessVerifier(
+      { teamDomain: TEAM, audience: AUD },
+      {
+        now: () => t,
+        fetch: async (url) => {
+          calls.push(url);
+          return { ok: up, json: async () => ({ keys }) };
+        },
+      },
+    );
+    const token = () =>
+      jwt(k1, good({ exp: Math.floor(t / 1000) + 600, iat: Math.floor(t / 1000) }));
+    await v.verify(token());
+    t += 30 * 60_000;
+    await v.verify(token());
+    expect(calls).toHaveLength(1); // cached within the hour
+    keys = [other.jwk]; // Cloudflare rotated k1 out
+    t += 31 * 60_000;
+    await expect(v.verify(token())).rejects.toMatchObject({
+      message: expect.stringContaining("unknown key"),
+    });
+    expect(calls).toHaveLength(2);
+
+    // The JWKS endpoint goes away: cached keys serve for a day, then nothing verifies.
+    keys = [k1.jwk];
+    t += 61 * 60_000;
+    await v.verify(token());
+    up = false;
+    t += 23 * 60 * 60_000;
+    await v.verify(token());
+    t += 2 * 60 * 60_000;
+    await expect(v.verify(token())).rejects.toMatchObject({
+      message: expect.stringContaining("stale"),
+    });
+  });
 });
 
 describe("Cloudflare Access in front of the Gateway", () => {

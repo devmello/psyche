@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { composeBackup } from "./backup.ts";
 import { type ComposedBrowser, composeBrowser } from "./browser.ts";
 import { channelsSetupFromEnv, composeChannels } from "./channels.ts";
+import { composeCoding } from "./coding.ts";
 import { composeConnectors } from "./connectors.ts";
 import { composeHelper } from "./helper.ts";
 import { composeMcp } from "./mcp.ts";
@@ -28,6 +29,8 @@ type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | Compos
  *   whose workspace is `vm` running their commands in the guest;
  * - the sandbox's `exec` tool, only when a container backend is found or VM mode is on
  *   (`PSYCHE_SANDBOX=off` skips it); servers it leaves listening reach the browser's preview;
+ * - the coding helper (V10, `code.*`; `PSYCHE_CODING=off` skips it): repositories in granted
+ *   folders, `code.run` in the sandbox part's runner when there is one, host git without hooks;
  * - the MCP host (`mcp.servers` in settings; `PSYCHE_MCP=off` skips it): stdio servers under
  *   `srt` at `PSYCHE_SRT_PATH`, or each in its own sandbox container with
  *   `PSYCHE_MCP_LAUNCHER=container` (needs the sandbox part; network only through its egress
@@ -94,6 +97,18 @@ export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
       return part;
     });
   }
+  if (env.PSYCHE_CODING !== "off") {
+    // After the sandbox part: `code.run` needs its container runner (VM mode alone has none).
+    parts.push(async (s) => {
+      const containers = (await sandbox?.runner.backends().catch(() => []))?.length ?? 0;
+      return composeCoding(
+        s,
+        sandbox === undefined || containers === 0
+          ? {}
+          : { runner: sandbox.runner, track: sandbox.track },
+      );
+    });
+  }
   parts.push((s) =>
     composeConnectors(s, {
       openBrowser: (url) => openConsent(s, url),
@@ -102,6 +117,7 @@ export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
   // Read (and validated) at boot, so a bad token file stops psyched instead of a silent channel.
   const channels = channelsSetupFromEnv(env, (path) => readFileSync(path, "utf8"));
   parts.push((s) => composeChannels(s, channels));
+  // Touch ID answers verify against keys the owner registers (devices.presenceKey.*, #253).
   parts.push((s) => composeHelper(s));
   parts.push((s) =>
     composeBackup(s, {

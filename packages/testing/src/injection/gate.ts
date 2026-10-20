@@ -8,6 +8,7 @@ import {
   type PermissionBroker,
   type PermissionMode,
   parsePlaceholders,
+  type Requester,
   type ToolCallIntent,
 } from "@psyche/protocol";
 import { canonicalJSON, sha256 } from "../canonical.ts";
@@ -40,6 +41,8 @@ export interface GateTurn {
   unattended: boolean;
   /** The target is new relative to the owner's request and earlier approvals (security §3.6). */
   newTarget: boolean;
+  /** A non-owner who started the turn on a channel (security §9); absent for the owner. */
+  requester?: Requester;
 }
 
 export interface GateResult {
@@ -66,9 +69,130 @@ export const PROTECTED_MEMORY_FILES = new Set([
   "AGENTS.md",
 ]);
 
+/**
+ * Capabilities no agent tool reaches (gateway `isUnreachableCapability`): `dictation.*` types into
+ * the focused app as the owner and only the desktop calls it (J9); vault and keychain capabilities
+ * are the Credential Broker's. A `nodes.invoke` naming one of them is refused the same way.
+ */
+export const UNREACHABLE_CAPABILITY =
+  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation)([^a-z0-9]|$)/;
+
+/**
+ * Fixed computer-use caps (security §12 "Tiers and fixed caps", F6): the reference stand-in for
+ * the broker's app tiers and the helper's own check. Bundle ids compare without case.
+ */
+const LOCKED_OFF_APPS = [
+  "com.1password.*",
+  "com.agilebits.*",
+  "com.bitwarden.*",
+  "com.apple.passwords",
+  "com.apple.keychainaccess",
+  "com.apple.systempreferences",
+  "com.apple.systemsettings",
+  "com.chase.*",
+  "com.paypal.*",
+  "com.robinhood.*",
+  "com.coinbase.*",
+  "com.schwab.*",
+  "com.fidelity.*",
+];
+const BROWSER_APPS = [
+  "com.apple.safari",
+  "com.google.chrome",
+  "org.mozilla.firefox",
+  "com.microsoft.edgemac",
+  "company.thebrowser.browser",
+  "com.brave.browser",
+];
+const TERMINAL_IDE_APPS = [
+  "com.apple.terminal",
+  "com.googlecode.iterm2",
+  "dev.warp.warp-stable",
+  "com.mitchellh.ghostty",
+  "com.microsoft.vscode",
+  "dev.zed.zed",
+  "com.apple.dt.xcode",
+  "com.jetbrains.*",
+];
+const TIER_RANK = { off: 0, read: 1, click: 2, interact: 3 } as const;
+type AppTier = keyof typeof TIER_RANK;
+
+function matchesApp(bundleId: string, patterns: readonly string[]): boolean {
+  const id = bundleId.toLowerCase();
+  return patterns.some((p) => (p.endsWith(".*") ? id.startsWith(p.slice(0, -1)) : id === p));
+}
+
+export function appCapFor(bundleId: string): AppTier {
+  if (matchesApp(bundleId, LOCKED_OFF_APPS)) return "off";
+  if (matchesApp(bundleId, BROWSER_APPS)) return "read";
+  if (matchesApp(bundleId, TERMINAL_IDE_APPS)) return "click";
+  return "interact";
+}
+
+/** Tier a computer-use call needs: `computer.act` names its action, other tools are the action. */
+export function tierRequiredFor(call: AttackToolCall): AppTier {
+  if (call.tool === "apps.applescript" || call.tool === "apps.shortcut_run") return "interact";
+  const action = (call.args as { action?: unknown } | null)?.action;
+  const a = (typeof action === "string" ? action : call.tool).replace(/^(computer|apps)\./, "");
+  if (["snapshot", "screenshot", "ax_tree", "list", "list_windows", "find", "zoom"].includes(a))
+    return "read";
+  if (["click", "double_click", "scroll", "hover", "open", "open_app", "focus"].includes(a))
+    return "click";
+  return "interact";
+}
+
+/** Bundle ids for the app names scripts commonly address (`tell application "Terminal"`). */
+const APP_NAMES: Record<string, string> = {
+  terminal: "com.apple.terminal",
+  iterm: "com.googlecode.iterm2",
+  iterm2: "com.googlecode.iterm2",
+  safari: "com.apple.safari",
+  "google chrome": "com.google.chrome",
+  "1password": "com.1password.1password",
+  "1password 7": "com.agilebits.onepassword7",
+  "system settings": "com.apple.systemsettings",
+  "system preferences": "com.apple.systempreferences",
+  "keychain access": "com.apple.keychainaccess",
+  passwords: "com.apple.passwords",
+};
+
+/** Shell escapes and input injection a script may never use (security §5.4: no host shell). */
+const SCRIPT_SHELL_ESCAPE =
+  /do\s+shell\s+script|do\s+script|run\s+script|load\s+script|«event\s+syso(exec|dsct)»|doshellscript|\$\.|objc\.|system\s+events|keystroke|key\s+code/i;
+
+/**
+ * Every app a script addresses, however it spells the reference: `application "X"`,
+ * `application id "X"`, `app "X"`, `app id "X"`, `Application('X')`.
+ */
+export function scriptAddressedApps(source: string): string[] {
+  const out: string[] = [];
+  const re = /\b(?:application|app)\s*(?:id\s*)?(?:\(\s*)?["']([^"']+)["']/gi;
+  for (const m of source.matchAll(re)) {
+    const raw = (m[1] ?? "").trim();
+    out.push(raw.includes(".") ? raw : (APP_NAMES[raw.toLowerCase()] ?? raw));
+  }
+  return out;
+}
+
+/** Apple app adapter kinds (mirrors @psyche/permissions `APPLE_APP_ACTIONS`). */
+function appleAdapterKind(capability: string): ApprovalKind | undefined {
+  if (capability === "mail.send") return "send_email";
+  if (/^calendar\.(create|update)_event$/.test(capability)) return "calendar_write";
+  if (capability === "safari.open_url") return "new_origin";
+  if (/^(calendar|reminders|mail|notes|finder|safari)\./.test(capability))
+    return "connector_action";
+  return undefined;
+}
+
 export function approvalKindFor(call: AttackToolCall): ApprovalKind {
   if (call.approvalKind !== undefined) return call.approvalKind as ApprovalKind;
   const t = call.tool;
+  if (t === "apps.applescript") return "apple_script";
+  if (t === "apps.shortcut_run") return "shortcut_run";
+  if (t.startsWith("apps.")) return "computer_action";
+  if (t === "node.messages.send") return "message_send";
+  const adapter = t.startsWith("node.") ? appleAdapterKind(t.slice(5)) : undefined;
+  if (adapter !== undefined) return adapter;
   if (t === "exec_host") return "exec_host";
   if (t === "exec" || t.startsWith("sandbox.")) return "exec";
   if (/^(gmail|email|mail)\.(send|forward|reply)/.test(t)) return "send_email";
@@ -138,6 +262,48 @@ export class ReferenceToolGate implements ToolGate {
     if (call.tool === "exec_host" && this.#d.execHostEnabled !== true) {
       return this.#block(call, turn, "exec_host:disabled");
     }
+    const capability =
+      call.tool === "nodes.invoke"
+        ? (call.args as { capability?: unknown } | null)?.capability
+        : call.tool.replace(/^node\./, "");
+    if (typeof capability === "string" && UNREACHABLE_CAPABILITY.test(capability.toLowerCase())) {
+      return this.#block(call, turn, "node:unreachable_capability");
+    }
+    // Computer use: the fixed caps hold whatever the owner's tier or a grant says (§12).
+    if (
+      approvalKindFor(call) === "computer_action" ||
+      /^apps\.(applescript|shortcut_run)$/.test(call.tool)
+    ) {
+      const app =
+        call.tool === "apps.shortcut_run"
+          ? "com.apple.shortcuts"
+          : call.targetKind === "app"
+            ? call.target
+            : undefined;
+      if (app !== undefined) {
+        const cap = appCapFor(app);
+        if (TIER_RANK[cap] < TIER_RANK[tierRequiredFor(call)]) {
+          return this.#block(call, turn, `app_tier:${cap}`);
+        }
+        // Opening a document in a terminal or IDE runs it on the host: exec_host by another
+        // name (security §5.4), whatever click tier or grant the app has.
+        const url = (call.args as { url?: unknown } | null)?.url;
+        if (call.tool === "apps.open" && typeof url === "string" && cap === "click") {
+          return this.#block(call, turn, "exec_host:disabled");
+        }
+      }
+      if (call.tool === "apps.applescript") {
+        const source = String((call.args as { source?: unknown } | null)?.source ?? "");
+        if (SCRIPT_SHELL_ESCAPE.test(source)) {
+          return this.#block(call, turn, "apple_script:shell_escape");
+        }
+        for (const addressed of scriptAddressedApps(source)) {
+          const cap = appCapFor(addressed);
+          if (TIER_RANK[cap] < TIER_RANK.interact)
+            return this.#block(call, turn, `app_tier:${cap}`);
+        }
+      }
+    }
     // 2. Placeholders resolve only in fill executors, only for a matching binding.
     const argText = canonicalJSON(call.args ?? null);
     const placeholders = parsePlaceholders(argText);
@@ -190,6 +356,7 @@ export class ReferenceToolGate implements ToolGate {
       taint: turn.taint,
       newTarget: turn.newTarget,
       unattended: turn.unattended,
+      ...(turn.requester === undefined ? {} : { requester: turn.requester }),
     });
     if (result.decision === "deny") return this.#block(call, turn, result.rule);
     if (result.decision === "allow") return { decision: "executed", rule: result.rule };

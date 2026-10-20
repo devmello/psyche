@@ -20,7 +20,13 @@ import {
   createMemoryStore,
   type SqliteMemoryStore,
 } from "@psyche/memory";
-import { createModelRouter, type KeySource, type ModelRouterConfig } from "@psyche/model-router";
+import {
+  createModelRouter,
+  type KeySource,
+  KeyValueProbeStore,
+  type ModelRouter,
+  type ModelRouterConfig,
+} from "@psyche/model-router";
 import {
   createNotificationHandlers,
   PsycheNotifier,
@@ -81,6 +87,12 @@ import {
   surfaceOf,
 } from "./handlers.ts";
 import { libraryHandlers } from "./library.ts";
+import {
+  type ModelSettingsSetup,
+  modelSettingsHandlers,
+  restoreModelSettings,
+  settingsKeyValue,
+} from "./model-settings.ts";
 import { composePasskeys } from "./passkeys.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { createRateLimits } from "./rate-limits.ts";
@@ -107,7 +119,14 @@ export type ModelSetup =
   /** A ready provider: the scripted `FakeModelProvider` in CI, or anything implementing it. */
   | { provider: ModelProvider; model: ModelRef; utilityModel?: ModelRef }
   /** The model router over provider configs (hosted or local). */
-  | { router: ModelRouterConfig; keys?: KeySource; model?: ModelRef; utilityModel?: ModelRef };
+  | {
+      router: ModelRouterConfig;
+      keys?: KeySource;
+      model?: ModelRef;
+      utilityModel?: ModelRef;
+      /** Provider transport (tests replay recorded fixtures through this). */
+      fetch?: typeof fetch;
+    };
 
 export interface ComposeOptions
   extends Omit<GatewayOptions, "agent" | "broker" | "memory" | "handlers"> {
@@ -181,7 +200,8 @@ const systemClock: Clock = { now: () => Date.now() };
 function providerFor(
   setup: ModelSetup,
   clock: Clock,
-): { provider: ModelProvider; model: ModelRef; utility?: ModelRef } {
+  db: PsycheDb,
+): { provider: ModelProvider; model: ModelRef; utility?: ModelRef; router?: ModelRouter } {
   if ("provider" in setup) {
     return {
       provider: setup.provider,
@@ -191,9 +211,13 @@ function providerFor(
   }
   const router = createModelRouter(setup.router, {
     clock,
+    // Tool-check verdicts (B4) survive restarts as `models.probe.<ref>` settings rows.
+    probes: new KeyValueProbeStore(settingsKeyValue(db)),
     ...(setup.keys === undefined ? {} : { keys: setup.keys }),
+    ...(setup.fetch === undefined ? {} : { fetch: setup.fetch }),
   });
   return {
+    router,
     provider: router,
     model: setup.model ?? "router/primary",
     utility: setup.utilityModel ?? "router/utility",
@@ -412,7 +436,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     vaultSetup ?? vaultSetupFromEnv(gwOptions.env ?? process.env),
   );
 
-  const { provider, model: modelRef, utility } = providerFor(model, clock);
+  const { provider, model: modelRef, utility, router } = providerFor(model, clock, db);
+  const modelSettings: ModelSettingsSetup = {
+    db,
+    clock,
+    providers: "router" in model ? model.router.providers : [],
+    ...(router === undefined ? {} : { router }),
+    ...("router" in model && model.keys !== undefined ? { keys: model.keys } : {}),
+    ...("router" in model && model.fetch !== undefined ? { fetch: model.fetch } : {}),
+    ...("provider" in model ? { fixedModel: model.model } : {}),
+  };
+  await restoreModelSettings(modelSettings);
   const modelPins = modelPinsFor(provider);
   const memory = await createMemoryStore({
     db,
@@ -600,6 +634,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...vault.handlers,
     ...filesHandlers({ folders: () => rawBroker.policy.folders ?? [], home: config.home }),
     ...libraryHandlers({ db, home: config.home }),
+    ...modelSettingsHandlers(modelSettings),
   };
   for (const part of parts) Object.assign(handlers, part.handlers ?? {});
 
@@ -712,6 +747,7 @@ export {
   type TelegramSetup,
   turnText,
 } from "./channels.ts";
+export { composeCoding, hostGit } from "./coding.ts";
 export {
   type ConnectorsSetup,
   composeConnectors,

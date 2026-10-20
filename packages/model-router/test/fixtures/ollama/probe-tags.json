@@ -1,0 +1,14 @@
+{
+  "name": "Ollama GET /api/tags",
+  "request": {
+    "method": "GET",
+    "pathEndsWith": "/api/tags"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"models\":[{\"name\":\"qwen3.8:27b\",\"model\":\"qwen3.8:27b\",\"modified_at\":\"2026-10-01T10:00:00Z\",\"size\":17000000000,\"digest\":\"sha256-fixture-qwen\",\"details\":{\"parent_model\":\"\",\"format\":\"gguf\",\"family\":\"qwen3\",\"families\":[\"qwen3\"],\"parameter_size\":\"27B\",\"quantization_level\":\"Q4_K_M\"}},{\"name\":\"nomic-embed-text:latest\",\"model\":\"nomic-embed-text:latest\",\"modified_at\":\"2026-09-01T10:00:00Z\",\"size\":274000000,\"digest\":\"sha256-fixture-nomic\",\"details\":{\"parent_model\":\"\",\"format\":\"gguf\",\"family\":\"nomic-bert\",\"families\":[\"nomic-bert\"],\"parameter_size\":\"137M\",\"quantization_level\":\"F16\"}}]}"
+  }
+}

@@ -154,6 +154,10 @@ The older `egressProxy: { network, url, noProxy }` option still attaches the con
 
 Not covered: throughput is a Python select loop, so it is fine for `pip install` or `git clone` and not meant for bulk transfer. There is no per-connection backpressure from the host back into the shim. Plain-HTTP keep-alive is not supported.
 
+## Bind mounts (V10 coding workspaces)
+
+`ensureSandbox(scope, { mounts: [{ source, target, readOnly }] })` bind-mounts host folders under `/workspace` (`--mount type=bind,…[,readonly]` on every backend). `validateMounts` refuses a source that is not its own real path, `/`, the home folder or any ancestor of it, `~/Library` and `protectedMountRoots` (the Gateway passes `$PSYCHE_HOME`), and any target outside `/workspace/`; the caller checks the owner's folder grant. Mounts are fixed per scope (part of the config label; asking for other mounts is a `conflict`). The coding helper mounts a repository read-write at `/workspace/repo` with its `.git` read-only on top. Only the fake driver has run this; a real-backend check belongs in the CI smoke test.
+
 ## Image selection
 
 In order: the `image` option, `PSYCHE_SANDBOX_IMAGE`, the digest-pinned published reference in `deploy/sandbox-image/versions.json`, and finally the local tag `psyche-sandbox:<variant>-dev`. No image is published yet, so today it is always the local tag. A missing local image rejects with `unavailable` and a hint to build it.

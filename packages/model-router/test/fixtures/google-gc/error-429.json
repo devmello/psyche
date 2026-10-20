@@ -1,0 +1,15 @@
+{
+  "name": "gemini generateContent 429 RESOURCE_EXHAUSTED",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": ":streamGenerateContent"
+  },
+  "response": {
+    "status": 429,
+    "headers": {
+      "content-type": "application/json",
+      "retry-after": "7"
+    },
+    "body": "{\"error\":{\"code\":429,\"message\":\"Resource has been exhausted (e.g. check quota).\",\"status\":\"RESOURCE_EXHAUSTED\"}}"
+  }
+}

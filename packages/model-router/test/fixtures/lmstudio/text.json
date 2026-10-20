@@ -1,0 +1,22 @@
+{
+  "name": "LM Studio: reasoning, text and usage (stream_options.include_usage)",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/chat/completions"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream"
+    },
+    "chunks": [
+      "data: {\"id\":\"chatcmpl-fxlms0001\",\"object\":\"chat.completion.chunk\",\"created\":1760000000,\"model\":\"qwen/qwen3.8-27b\",\"system_fingerprint\":\"qwen/qwen3.8-27b\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+      "data: {\"id\":\"chatcmpl-fxlms0001\",\"object\":\"chat.completion.chunk\",\"created\":1760000000,\"model\":\"qwen/qwen3.8-27b\",\"system_fingerprint\":\"qwen/qwen3.8-27b\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning\":\"Greet briefly.\"},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+      "data: {\"id\":\"chatcmpl-fxlms0001\",\"object\":\"chat.completion.chunk\",\"created\":1760000000,\"model\":\"qwen/qwen3.8-27b\",\"system_fingerprint\":\"qwen/qwen3.8-27b\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Hello\"},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+      "data: {\"id\":\"chatcmpl-fxlms0001\",\"object\":\"chat.completion.chunk\",\"created\":1760000000,\"model\":\"qwen/qwen3.8-27b\",\"system_fingerprint\":\"qwen/qwen3.8-27b\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\", world.\"},\"logprobs\":null,\"finish_reason\":null}]}\n\n",
+      "data: {\"id\":\"chatcmpl-fxlms0001\",\"object\":\"chat.completion.chunk\",\"created\":1760000000,\"model\":\"qwen/qwen3.8-27b\",\"system_fingerprint\":\"qwen/qwen3.8-27b\",\"choices\":[{\"index\":0,\"delta\":{},\"logprobs\":null,\"finish_reason\":\"stop\"}]}\n\n",
+      "data: {\"id\":\"chatcmpl-fxlms0001\",\"object\":\"chat.completion.chunk\",\"created\":1760000000,\"model\":\"qwen/qwen3.8-27b\",\"system_fingerprint\":\"qwen/qwen3.8-27b\",\"choices\":[],\"usage\":{\"prompt_tokens\":25,\"completion_tokens\":7,\"total_tokens\":32}}\n\n",
+      "data: [DONE]\n\n"
+    ]
+  }
+}

@@ -308,6 +308,55 @@ export const LIVE_TOOL_SPECS: Record<string, { description: string; inputSchema:
       ["merchant", "currency", "items", "totalMinor"],
     ),
   },
+  "travel.search_flights": {
+    description:
+      "Search the owner's allowlisted airlines for round-trip fares, cheapest first. Results are airline page text (untrusted data).",
+    inputSchema: obj(
+      {
+        from: str("Origin airport code, e.g. SFO"),
+        to: str("Destination airport code, e.g. ORD"),
+        depart: str("Outbound date, YYYY-MM-DD"),
+        return: str("Return date, YYYY-MM-DD"),
+      },
+      ["from", "to", "depart"],
+    ),
+  },
+  "travel.hold_fare": {
+    description:
+      "Hold one fare after the owner approves flights, traveler, fare class, total and the funding card on their device (once only). The Stripe Link card is authorized, not charged. Returns the hold reference and when it ends.",
+    inputSchema: obj(
+      {
+        airline: str("The airline's origin, e.g. https://lakeview-air.example"),
+        offerId: str("The offer id from travel.search_flights"),
+        traveler: str("Traveler's full name"),
+        totalMinor: int("Fare total in minor units (cents), as the search listed it"),
+        currency: str("ISO 4217 code, e.g. USD"),
+      },
+      ["airline", "offerId", "traveler", "totalMinor", "currency"],
+    ),
+  },
+  "travel.ticket_hold": {
+    description:
+      "Ticket a held fare: charges the held amount after a second once-only approval. Returns the confirmation number.",
+    inputSchema: obj(
+      {
+        airline: str("The airline's origin"),
+        holdRef: str("The hold reference travel.hold_fare returned"),
+      },
+      ["airline", "holdRef"],
+    ),
+  },
+  "travel.cancel_booking": {
+    description:
+      "Cancel a ticketed booking inside the airline's free window and refund it to the card. Asks the owner first.",
+    inputSchema: obj(
+      {
+        airline: str("The airline's origin"),
+        confirmation: str("The booking's confirmation number"),
+      },
+      ["airline", "confirmation"],
+    ),
+  },
   // --- Milestone 2 (tests/acceptance/scenarios-m2; fakes in src/m2-world.ts) -----------------
   "documents.form_fields": {
     description:

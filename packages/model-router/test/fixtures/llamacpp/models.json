@@ -1,0 +1,14 @@
+{
+  "name": "llama-server GET /v1/models",
+  "request": {
+    "method": "GET",
+    "pathEndsWith": "/v1/models"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"object\":\"list\",\"data\":[{\"id\":\"qwen3.8-27b\",\"object\":\"model\",\"created\":1760000000,\"owned_by\":\"llamacpp\",\"aliases\":[],\"tags\":[],\"architecture\":{\"input_modalities\":[\"text\"],\"output_modalities\":[\"text\"]},\"meta\":{\"n_ctx\":32768,\"vocab_type\":2,\"n_vocab\":151936,\"n_ctx_train\":262144,\"n_embd\":5120,\"n_params\":27000000000,\"size\":16500000000}}]}"
+  }
+}

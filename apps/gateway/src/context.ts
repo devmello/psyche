@@ -14,6 +14,7 @@ import type { EventBus, EventFilter } from "./event-bus.ts";
 import type { Idempotency } from "./idempotency.ts";
 import type { Logger } from "./log.ts";
 import type { NodeRegistry } from "./nodes/registry.ts";
+import type { PresenceState } from "./presence-gate.ts";
 import type { RateLimiter } from "./rate-limit.ts";
 import type { SessionController } from "./session/controller.ts";
 
@@ -97,8 +98,11 @@ export interface GatewayContext {
   readonly onDeviceRevoked: ((deviceId: string) => Promise<unknown>) | null;
   /** The broker emits `receipt.created` itself; handlers must not publish it again. */
   readonly brokerPublishesReceipts: boolean;
-  /** True once a presence verifier exists: security settings then need fresh presence. */
-  readonly settingsPresence: () => boolean;
+  /**
+   * Fresh presence for security changes (`presence-gate.ts`): `ready` once a verifier can
+   * verify, `unavailable` when one could before but none can now (fail closed), else `off`.
+   */
+  readonly presenceState: () => PresenceState;
   /** Null without a composition root: a thread can then never be created in `auto`. */
   readonly threadModels: ThreadModelPolicy | null;
   /** Called with a device id when its last paired connection closes (parts register here). */

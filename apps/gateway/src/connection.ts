@@ -26,6 +26,7 @@ import type { Call, GatewayContext, HandlerDef, LiveConnection } from "./context
 import type { EventFilter, FrameSink } from "./event-bus.ts";
 import { HANDLERS } from "./handlers/index.ts";
 import { paramsHash } from "./idempotency.ts";
+import { methodPresence, requireFreshPresence } from "./presence-gate.ts";
 
 export interface Transport {
   send(frame: string): void;
@@ -223,7 +224,15 @@ export class Connection implements LiveConnection {
     if (def === undefined) {
       throw new PsycheError("not_implemented", `${method} is not implemented yet`);
     }
-    if (!spec.sideEffecting) return this.#execute(def, method, params, identity, null);
+    // Admin calls first refresh the sticky presence state, so revoking the owner's last
+    // verifier cannot switch the gate off before it was ever observed.
+    if (scope === "operator.admin") this.#ctx.presenceState();
+    const gate = methodPresence(method, params);
+    if (!spec.sideEffecting) {
+      if (gate !== undefined)
+        await requireFreshPresence({ ctx: this.#ctx, identity }, gate.action, gate.approvalId);
+      return this.#execute(def, method, params, identity, null);
+    }
 
     if (!frame.idempotencyKey) {
       throw new PsycheError(
@@ -236,7 +245,14 @@ export class Connection implements LiveConnection {
     return this.#ctx.idempotency.run(
       ref,
       hash,
-      () => this.#execute(def, method, params, identity, { ref, hash }),
+      async () => {
+        // Inside the idempotency run: a replayed request returns its stored result without
+        // consuming a second approval.
+        if (gate !== undefined) {
+          await requireFreshPresence({ ctx: this.#ctx, identity }, gate.action, gate.approvalId);
+        }
+        return this.#execute(def, method, params, identity, { ref, hash });
+      },
       def.transactional !== true,
     );
   }

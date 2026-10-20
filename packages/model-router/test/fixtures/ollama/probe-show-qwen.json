@@ -1,0 +1,14 @@
+{
+  "name": "Ollama POST /api/show qwen3.8:27b",
+  "request": {
+    "method": "POST",
+    "pathEndsWith": "/api/show"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "content-type": "application/json"
+    },
+    "body": "{\"modelfile\":\"FROM qwen3.8:27b\",\"template\":\"{{- if .Tools }}...{{- end }}\",\"details\":{\"format\":\"gguf\",\"family\":\"qwen3\",\"parameter_size\":\"27B\",\"quantization_level\":\"Q4_K_M\"},\"model_info\":{\"general.architecture\":\"qwen3\",\"general.parameter_count\":27000000000,\"qwen3.context_length\":262144},\"capabilities\":[\"completion\",\"tools\",\"thinking\"],\"modified_at\":\"2026-10-01T10:00:00Z\"}"
+  }
+}

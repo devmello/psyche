@@ -87,13 +87,39 @@ Cost = `input×in + cacheRead×read + cacheWrite×write + output×out`. OpenRout
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `anthropic` | `@ai-sdk/anthropic` 4.0.82 | Messages | signed / redacted thinking | system + last message (`cacheTtl` 5m/1h) | yes | no | `x-api-key` |
 | `openai` | `@ai-sdk/openai` 4.0.96 | Responses, `store: false` | reasoning items with `encrypted_content` | automatic | yes | yes | Bearer |
-| `google` | `@ai-sdk/google` 4.0.99 | Interactions, `store: false` | signatures on steps and tool calls | implicit | yes | yes | `x-goog-api-key` |
+| `google` | `@ai-sdk/google` 4.0.99 | Interactions, `store: false` (default) or `googleApi: "generate-content"` (`streamGenerateContent`) | signatures on steps and tool calls | implicit | yes | yes | `x-goog-api-key` |
 | `openrouter` | `@openrouter/ai-sdk-provider` 3.1.0 | Chat Completions | `reasoning_details` | upstream | yes | yes | Bearer |
 | `openai-compatible` | `@ai-sdk/openai-compatible` 3.0.71 | Chat Completions at `baseURL` | `reasoning_content` deltas | server | server | yes | optional |
 | `anthropic-compatible` | `@ai-sdk/anthropic` 4.0.82 | Messages at `baseURL` | server | no | base64 | no | optional |
 | `ollama` | `ollama-ai-provider-v2` 4.0.1 | native `/api/chat` | `thinking` deltas | no | base64 | `/api/embed` | none |
+| `llamacpp` | `@ai-sdk/openai-compatible` 3.0.71 + compat fixes | Chat Completions, default `http://127.0.0.1:8080/v1` | `reasoning_content` deltas | server prompt cache (`cached_tokens`) | if `--mmproj` | `--embeddings` | optional (`--api-key`) |
+| `lmstudio` | `@ai-sdk/openai-compatible` 3.0.71 + compat fixes | Chat Completions, default `http://127.0.0.1:1234/v1` | `reasoning` / `reasoning_content` deltas | no | VLMs | yes | optional |
 
 Every kind supports streaming and parallel tool calls. Keys for hosted kinds come from the vault.
+
+### Feature coverage (fixture tests)
+
+Every row passes the shared conformance suite offline (`describeModelProviderConformance`).
+
+| Kind | Text stream | Parallel tools | Tool results / images in | Reasoning round-trip | Usage by class | Error mapping | Cancel | Tool-name rule | Capabilities source |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `google` (Interactions) | ✓ | ✓ | ✓ / ✓ | ✓ | ✓ priced | 400 ctx, 401, 403, 404, 429, 500, 503 | ✓ | 64 chars, letter or `_` first | catalog, probe listing |
+| `google` (generate-content) | ✓ | ✓ | ✓ / — | ✓ (`thoughtSignature`) | ✓ priced | 400 ctx, 403, 404, 429, 500, 503 | ✓ | 64 chars, letter or `_` first | catalog, probe listing |
+| `openrouter` | ✓ | ✓ | ✓ / ✓ | ✓ | ✓ provider cost | 400 ctx, 401, 429, 500, 503, midstream | ✓ | 64 chars | probe listing (context, modalities, `tools`) |
+| `llamacpp` | ✓ | ✓ (+ quirk repair) | ✓ / ✓ | ✓ | ✓ (or from `timings`) | 400 ctx, 401, 500, 503, midstream, no `--jinja` | ✓ | 64 chars | `/props`, `/v1/models`, names |
+| `lmstudio` | ✓ | ✓ | ✓ / — | ✓ | ✓ | 400 ctx, 401, 404, 500 (string errors) | ✓ | 64 chars | `/api/v1` or `/api/v0` models, names |
+
+Tool names are mapped per provider family (`toolNameRuleFor`): Anthropic accepts `[a-zA-Z0-9_-]{1,128}`, OpenAI and the servers that copy it 64 characters, Gemini 64 characters starting with a letter or `_`. The map is reversible per request; the loop only sees real names.
+
+### Local-server quirks (`compat.ts`)
+
+`llamacpp` and `lmstudio` run on `@ai-sdk/openai-compatible` with fixes at the HTTP boundary:
+
+- **Named tool choice.** llama-server reads `tool_choice` only as `auto` / `none` / `required` and silently treats an object as `auto`; LM Studio documents only the strings. `{tool: "x"}` goes out as `"required"` with only tool `x`.
+- **Tool-call deltas.** Parallel calls that reuse one `index` with different `id`s get distinct indices; an empty continuation `id` is dropped; object `arguments` are stringified; `finish_reason: "stop"` after tool calls becomes `tool_calls`.
+- **Usage.** A final chunk with llama.cpp `timings` and no `usage` (older builds) gets `usage` from `prompt_n`, `cache_n` and `predicted_n`.
+- **Errors.** LM Studio's `{"error": "message"}` is reshaped so the message survives. `tools param requires --jinja flag` (HTTP 500) maps to `bad_request`: no cooldown, no silent fallback.
+- **Assistant turns** that only call tools go out with `content: ""`.
 
 Anthropic specifics:
 
@@ -107,8 +133,10 @@ Anything in `providerOptions[<provider id or package key>]` passes through untou
 ```ts
 { id: "ollama", kind: "ollama" }                                                                // Ollama ≥ 0.40, http://127.0.0.1:11434/api
 { id: "ollama-anthropic", kind: "anthropic-compatible", baseURL: "http://127.0.0.1:11434/v1" } // Ollama /v1/messages
-{ id: "llamacpp", kind: "openai-compatible", baseURL: "http://127.0.0.1:8080/v1" }             // llama-server -m m.gguf --jinja --port 8080
-{ id: "lmstudio", kind: "openai-compatible", baseURL: "http://127.0.0.1:1234/v1" }             // lms server start (proprietary)
+{ id: "llamacpp", kind: "llamacpp" }                                                           // llama-server -m m.gguf --jinja --port 8080 (default baseURL)
+{ id: "lmstudio", kind: "lmstudio" }                                                           // lms server start (proprietary; default baseURL :1234/v1)
+{ id: "gemini", kind: "google", googleApi: "generate-content" }                                // stable Gemini API instead of Interactions
+{ id: "openrouter", kind: "openrouter", attribution: { url: "https://example.org", title: "Psyche" } } // opt-in app attribution
 { id: "vllm", kind: "openai-compatible", baseURL: "http://gpu-box:8000/v1" }                   // vllm serve <m> --enable-auto-tool-choice --tool-call-parser <p>
 ```
 
@@ -202,6 +230,22 @@ PSYCHE_LIVE_TESTS=1 PSYCHE_LIVE_OLLAMA=1 PSYCHE_LIVE_OLLAMA_MODEL=qwen3.8:27b pn
 ```
 
 The verdict and each case print to stderr.
+
+## Endpoint probe (B4, Settings → Model & providers)
+
+`probeEndpoint(config, {fetch, keys, prices, clock, timeoutMs})` asks one provider what it serves and never throws:
+
+| Kind | Requests | Facts |
+| --- | --- | --- |
+| `anthropic`, `anthropic-compatible` | `GET /v1/models` (`x-api-key`) | ids, display names; catalog |
+| `openai`, `openai-compatible` | `GET /models` (Bearer) | ids; catalog |
+| `google` | `GET /v1beta/models` (`x-goog-api-key`) | `inputTokenLimit`, `generateContent` / `embedContent`, `thinking` |
+| `openrouter` | `GET /api/v1/models` | `context_length`, `input_modalities`, `supported_parameters` (`tools`, `reasoning`) |
+| `llamacpp` | `GET /v1/models`, `GET /props` | runtime `n_ctx`, `modalities.vision`, `chat_template_caps.supports_tool_calls` |
+| `lmstudio` | `GET /api/v1/models`, else `/api/v0/models`, else `/v1/models` | type, load state, loaded context, `vision`, `trained_for_tool_use` |
+| `ollama` | `GET /api/tags`, `/api/ps`, `/api/version`, `POST /api/show` (first 25) | `capabilities`, `<arch>.context_length`, loaded |
+
+The result is `{state, probedAt, latencyMs, server, models, error}` with `state` one of `not_probed` (`NOT_PROBED`, before anyone asks), `reachable`, `unreachable`, `auth_failed`, `error`. Each model's `capabilities` merges, lowest authority first, a name heuristic (`guessFromName`), the catalog (price table), the listing and the provider config, and names the strongest `source`. Keys go through the adapters' `KeySource`; neither the key nor the sentinel appears in a result. `KeyValueEndpointProbeStore` keeps results as `models.endpoint.<provider id>` settings rows, and `AiSdkAdapter.learn(models)` feeds the facts into `capabilities()`.
 
 ## Tests
 
