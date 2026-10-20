@@ -30,6 +30,7 @@ export interface TrayActions {
 export function gatewayRowLabel(run: GatewayRunState): string {
   if (run.kind === "running")
     return `Gateway: running (${run.mode === "launchd" ? "launchd" : run.mode === "dev" ? "dev child" : "external"})`;
+  if (run.kind === "starting") return "Gateway: starting…";
   if (run.kind === "stopped") return `Gateway: stopped${run.reason ? ` (${run.reason})` : ""}`;
   return "Gateway: checking…";
 }

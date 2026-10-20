@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { closeSync, cpSync, existsSync, mkdirSync, openSync, readSync, rmSync } from "node:fs";
 import { dirname, join, sep } from "node:path";
 import type { BuildEnv } from "./signing-config.ts";
@@ -10,13 +10,13 @@ import type { BuildEnv } from "./signing-config.ts";
  *   psyched/                         S22's Gateway bundle, copied verbatim (never into app.asar)
  *   launchd/com.psyche.gateway.plist the LaunchAgent template ({{PSYCHED}}, {{PSYCHE_HOME}}),
  *                                    rendered by the supervisor at install time
- *   Psyche Helper.app                S14's Swift helper (com.psyche.helper)
+ *   PsycheHelper.app                 S14's Swift helper (com.psyche.helper), launched with `open`
  *
  * The package step fails when a piece is missing unless PSYCHE_PACKAGE_ALLOW_PARTIAL=1, so a
  * release never ships an app that cannot start its Gateway.
  */
 
-export const HELPER_APP_NAME = "Psyche Helper.app";
+export const HELPER_APP_NAME = "PsycheHelper.app";
 export const BUNDLED_PSYCHED_DIR = "psyched";
 export const BUNDLED_PLIST = join("launchd", "com.psyche.gateway.plist");
 const PLIST_TEMPLATE = "com.psyche.gateway.plist.template";
@@ -24,7 +24,7 @@ const PLIST_TEMPLATE = "com.psyche.gateway.plist.template";
 export interface BundleSources {
   /** apps/gateway/dist-bin/darwin-<arch>/psyched (or PSYCHE_PSYCHED_DIR). */
   psychedDir: string;
-  /** apps/mac-helper/.build/Psyche Helper.app (or PSYCHE_HELPER_APP). */
+  /** apps/mac-helper/dist/PsycheHelper.app (or PSYCHE_HELPER_APP). */
   helperApp: string;
 }
 
@@ -51,7 +51,7 @@ export function bundleSources(env: BuildEnv, repoRoot: string, arch: string): Bu
       join(repoRoot, "apps", "gateway", "dist-bin", `darwin-${arch}`, BUNDLED_PSYCHED_DIR),
     helperApp:
       value(env, "PSYCHE_HELPER_APP") ??
-      join(repoRoot, "apps", "mac-helper", ".build", HELPER_APP_NAME),
+      join(repoRoot, "apps", "mac-helper", "dist", HELPER_APP_NAME),
   };
 }
 
@@ -81,7 +81,7 @@ export function bundlePieces(
       source: sources.helperApp,
       marker: join(sources.helperApp, "Contents", "MacOS", "psyche-helper"),
       dest: join(resourcesDir, HELPER_APP_NAME),
-      build: "apps/mac-helper/scripts/build-app.sh",
+      build: `deploy/macos/build-helper.sh --arch ${arch}`,
     },
   ];
 }
@@ -150,7 +150,7 @@ export function isMachO(file: string): boolean {
 /**
  * osx-sign `ignore`: it signs every "binary" file it walks. Inside psyched/ only Mach-O files are
  * code (the web client's fonts, images and wasm are resources, sealed by the outer signature), and
- * the helper is signed on its own with its own entitlements (signNestedHelper).
+ * the helper arrives signed by its own build with its own entitlements (verifyNestedHelper).
  */
 export function skipOuterSigning(file: string): boolean {
   if (file.includes(`${sep}${HELPER_APP_NAME}`)) return true;
@@ -158,30 +158,35 @@ export function skipOuterSigning(file: string): boolean {
   return false;
 }
 
-export type Codesign = (args: string[]) => void;
+/** Runs `/usr/bin/codesign`; returns its stderr (where `-dv` prints), throws on a non-zero exit. */
+export type Codesign = (args: string[]) => string;
 
 export const runCodesign: Codesign = (args) => {
-  execFileSync("/usr/bin/codesign", args, { stdio: ["ignore", "ignore", "pipe"] });
+  const res = spawnSync("/usr/bin/codesign", args, { encoding: "utf8" });
+  if (res.status !== 0) throw new Error(res.stderr || `codesign exited ${res.status}`);
+  return res.stderr;
 };
 
 /**
- * Signs the nested helper before osx-sign seals the outer app. Its own entitlements (Apple Events,
- * camera for screen capture, …) are kept with --preserve-metadata; the identity is the app's
- * Developer ID, else ad-hoc. Gatekeeper and TCC then see one consistent signer for the bundle.
+ * The helper is signed by its own build (deploy/macos/build-helper.sh, with its own entitlements:
+ * Apple Events, audio input, Virtualization, …) and osx-sign leaves it alone (skipOuterSigning).
+ * Before the outer app seals it, check it is intact and signed like the app: ad-hoc for an ad-hoc
+ * app, a real identity for a Developer ID one (notarization rejects an ad-hoc nested app).
  */
-export function signNestedHelper(
+export function verifyNestedHelper(
   helperApp: string,
   identity: string | undefined,
   codesign: Codesign = runCodesign,
 ): void {
   if (!existsSync(helperApp)) return;
-  const args = [
-    "--force",
-    "--sign",
-    identity ?? "-",
-    "--preserve-metadata=entitlements,identifier",
-  ];
-  if (identity) args.push("--options", "runtime", "--timestamp");
-  else args.push("--timestamp=none");
-  codesign([...args, helperApp]);
+  const rebuild = `re-run deploy/macos/build-helper.sh${identity ? " with the same PSYCHE_SIGN_IDENTITY" : ""}`;
+  try {
+    codesign(["--verify", "--strict", helperApp]);
+  } catch {
+    throw new Error(`${HELPER_APP_NAME} has no valid signature: ${rebuild}`);
+  }
+  const info = codesign(["-dv", helperApp]);
+  if (identity && /Signature=adhoc/.test(info)) {
+    throw new Error(`${HELPER_APP_NAME} is signed ad-hoc but the app uses ${identity}: ${rebuild}`);
+  }
 }
