@@ -138,6 +138,7 @@ public enum PermissionsCapabilities {
                 "permissions": .array(rows), "automation": .object(automation),
                 "next": next.map { .string($0.rawValue) } ?? .null,
                 "bundled": .bool(Bundle.main.bundleIdentifier == "com.psyche.helper"),
+                "bundle": BundleIdentity.json(),
                 "disclaimSupported": .bool(DisclaimedProcess.isSupported),
             ])
         }
