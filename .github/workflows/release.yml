@@ -562,6 +562,10 @@ jobs:
     # a runner of that arch (deploy/scripts/build-psyched.mjs refuses a mismatch).
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
+    # The Intel DMG cannot block a pre-release: its older toolchain (macos-15-intel) keeps finding
+    # new Swift 6 errors in the helper. The release then ships Apple silicon only and says so; a
+    # stable release still needs both.
+    continue-on-error: ${{ matrix.arch == 'x64' && needs.version.outputs.prerelease == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -636,7 +640,13 @@ jobs:
       - name: Package Psyche.app (signed and notarized by electron-forge when configured)
         env:
           ARCH: ${{ matrix.arch }}
-        run: pnpm --filter @psyche/desktop run package --arch="$ARCH"
+        run: |
+          # One retry: electron-packager downloads Electron and occasionally gets "fetch failed".
+          pnpm --filter @psyche/desktop run package --arch="$ARCH" || {
+            echo "::warning::package failed; retrying once in 20 s"
+            sleep 20
+            pnpm --filter @psyche/desktop run package --arch="$ARCH"
+          }
       - name: Build the DMG (Developer ID signed, notarized and stapled when configured; else ad-hoc)
         env:
           ARCH: ${{ matrix.arch }}
@@ -665,6 +675,13 @@ jobs:
   release:
     name: GitHub release
     needs: [version, image, sandbox-image, cli, dmg]
+    # Every needed job must succeed, except the DMG matrix in a pre-release, whose Intel leg may
+    # fail (continue-on-error above); the "Desktop DMGs that shipped" step then requires arm64.
+    if: >-
+      ${{ !cancelled() && inputs.version_pr != true
+      && needs.version.result == 'success' && needs.image.result == 'success'
+      && needs.sandbox-image.result == 'success' && needs.cli.result == 'success'
+      && (needs.dmg.result == 'success' || needs.version.outputs.prerelease == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     # The update-manifest signing key lives in "release" (required reviewers, tags only; security
@@ -683,6 +700,20 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+      - name: Desktop DMGs that shipped (Apple silicon required; Intel optional for pre-releases)
+        env:
+          PRERELEASE: ${{ needs.version.outputs.prerelease }}
+        run: |
+          ls artifacts/Psyche-*-arm64.dmg >/dev/null 2>&1 \
+            || { echo "::error::no Apple silicon DMG: nothing to release"; exit 1; }
+          if ls artifacts/Psyche-*-x64.dmg >/dev/null 2>&1; then
+            echo "INTEL_DMG=true" >> "$GITHUB_ENV"
+          elif [ "$PRERELEASE" = "true" ]; then
+            echo "::warning::no Intel DMG; this pre-release ships Apple silicon only"
+            echo "INTEL_DMG=false" >> "$GITHUB_ENV"
+          else
+            echo "::error::no Intel DMG: a stable release needs both"; exit 1
+          fi
       - name: Signed update manifest (needs RELEASE_SIGNING_KEY in the release environment)
         env:
           SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
@@ -731,6 +762,12 @@ jobs:
           (cd artifacts && sha256sum -- * > ../SHA256SUMS)
           cat SHA256SUMS
           node deploy/scripts/release-notes.mjs . "$TAG" "${IMAGE}@${DIGEST}" > notes.md
+          if [ "$INTEL_DMG" = "false" ]; then
+            # Under the title: the Mac app in this pre-release is Apple silicon only.
+            { head -n 1 notes.md; echo
+              echo "> **Mac app: Apple silicon only.** The Intel (x64) DMG did not build for this pre-release. On an Intel Mac, use the server image or the CLI, or wait for the next alpha."
+              tail -n +2 notes.md; } > notes.tmp && mv notes.tmp notes.md
+          fi
       - name: Keep SHA256SUMS for the tap
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

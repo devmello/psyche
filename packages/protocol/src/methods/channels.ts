@@ -38,6 +38,18 @@ export const ChannelsMethods = {
     description:
       "Stores a channel transport secret (Slack bot/app token, Discord bot token, SMS auth token) as a Gateway-owned vault item for that channel type and account, replacing an earlier one, and returns which secrets are now set. Agents can never fill it. invalid_params for a name the type does not use, unavailable when the vault cannot be opened. Side-effecting; its params are never logged.",
   }),
+  "channels.secrets.clear": defineMethod({
+    params: Type.Object({
+      type: ChannelType,
+      account: Type.String({ minLength: 1, maxLength: 256 }),
+      name: ChannelSecretName,
+    }),
+    result: Type.Object({ set: Type.Array(ChannelSecretName) }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Removes a channel transport secret (the Gateway-owned vault item channels.secrets.set stored; #511) and returns which secrets are still set. The channel cannot connect until it is set again. invalid_params for a name the type does not use. Audited. Side-effecting.",
+  }),
   "channels.secrets.status": defineMethod({
     params: Type.Object({
       type: ChannelType,

@@ -1,7 +1,8 @@
-import { CalendarClock, Fingerprint, ListChecks, ShieldCheck } from "lucide-react";
-import type { ReactElement, ReactNode } from "react";
+import { CalendarClock, Fingerprint, ListChecks, ShieldCheck, X } from "lucide-react";
+import { type ReactElement, type ReactNode, useEffect } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
 import { Badge } from "../components/ui/badge.tsx";
+import { Button } from "../components/ui/button.tsx";
 import {
   Sheet,
   SheetContent,
@@ -60,6 +61,10 @@ export interface AgentSheetBodyProps {
   onStartIncognito?: () => void;
   /** Show the avatar, name and status above the tabs (the modal sheet renders its own). */
   header?: boolean;
+  /** Soul & Memory opens on this workspace file (`/agent/soul?file=SOUL.md`). */
+  file?: string;
+  /** The `/agent/*` page's × and Escape: back to where the owner came from (#508). */
+  onClose?: () => void;
 }
 
 /** The four tabs behind the avatar (UI design §2.3), also used by the `/agent/*` routes. */
@@ -70,12 +75,43 @@ export function AgentSheetBody({
   now,
   onStartIncognito,
   header = true,
+  file,
+  onClose,
 }: AgentSheetBodyProps): ReactElement {
+  // Escape closes the page unless something on top (a dialog, a menu) already handled it.
+  useEffect(() => {
+    if (!onClose) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      if (document.querySelector('[role="dialog"], [role="alertdialog"], [role="menu"]')) return;
+      onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
   // The badge counts what the Approvals panel lists under "Needs you", so the two always agree.
   const { live } = useApprovalQueue();
   return (
     <div className="@container flex min-h-0 flex-1 flex-col gap-4">
-      {header ? <AgentIdentity /> : null}
+      {header ? (
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <AgentIdentity />
+          </div>
+          {onClose ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={onClose}
+              aria-label={t("common.close")}
+              aria-keyshortcuts="Escape"
+            >
+              <X aria-hidden="true" />
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       <Tabs
         value={tab}
         onValueChange={(v) => onTabChange(v as AgentTab)}
@@ -116,7 +152,11 @@ export function AgentSheetBody({
             <UpcomingPanel {...(now === undefined ? {} : { now })} />
           </TabsContent>
           <TabsContent value="soul">
-            <SoulMemoryPanel {...(onStartIncognito ? { onStartIncognito } : {})} />
+            <SoulMemoryPanel
+              key={file ?? ""}
+              {...(file ? { initialFile: file } : {})}
+              {...(onStartIncognito ? { onStartIncognito } : {})}
+            />
           </TabsContent>
         </div>
       </Tabs>
