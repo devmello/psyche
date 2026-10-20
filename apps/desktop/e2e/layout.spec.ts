@@ -164,10 +164,8 @@ function handlers() {
       stateVersion: 1,
     }),
     "threads.list": () => ({ threads: THREADS, nextCursor: null }),
-    "threads.get": () => ({
-      thread: MAIN_THREAD,
-      activity: { running: 0, awaitingInput: 0, awaitingApproval: 0 },
-    }),
+    // Like the Gateway, threads.get carries the row's last line too.
+    "threads.get": () => THREADS[0],
     "chat.history": () => ({ messages: CONVERSATION, nextCursor: null }),
     "memory.read": () => ({ content: '---\nname: "Wren"\ncreature: "moth"\n---\n', etag: "e1" }),
   };
