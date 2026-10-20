@@ -265,6 +265,28 @@ function fileCursorStore(path: string): IMessageCursorStore {
   };
 }
 
+/**
+ * Taint the turn's own input carries (security §3.6, #275): each forwarded or untrusted quoted
+ * part, from the forwarder or the quoted chat. The owner sending it does not make it theirs.
+ */
+export function inputTaintSources(event: ChannelInboundEvent): TaintSource[] {
+  const m = event.message;
+  const out: TaintSource[] = [];
+  for (const p of event.parts) {
+    if (p.label === "forwarded" || (p.provenance === "untrusted" && p.label !== "voice")) {
+      const from =
+        p.label === "forwarded"
+          ? (m.forwardedFrom?.senderId ?? m.forwardedFrom?.senderName)
+          : (m.quoted?.senderId ?? undefined);
+      out.push({
+        sourceKind: p.label === "forwarded" ? "channel_forwarded" : "channel_quoted",
+        sender: `${m.channel}:${from ?? "unknown"}`,
+      });
+    }
+  }
+  return out;
+}
+
 /** One turn's text: the sender's own words as typed; other people's words labeled as data. */
 export function turnText(parts: readonly InboundPart[]): string {
   return parts
@@ -298,6 +320,8 @@ interface Pending {
   content: string;
   /** Who sent it (S10 `RouteContext` → `Requester`); the broker decides the turn as theirs. */
   requester: Requester;
+  /** Forwarded or quoted third-party text inside it (#275). */
+  taintSources?: TaintSource[];
 }
 
 export function composeChannels(
@@ -524,6 +548,7 @@ export function composeChannels(
           content: pending.content,
           deviceId: `channel:${pending.target.channelId}`,
           requester: pending.requester,
+          ...(pending.taintSources === undefined ? {} : { taintSources: pending.taintSources }),
         },
         hooks,
       ),
@@ -583,7 +608,13 @@ export function composeChannels(
     }
     const content = turnText(event.parts);
     if (content.trim() === "") return;
-    startTurn(thread.id, { target, content, requester: requesterFromRoute(route) });
+    const taintSources = inputTaintSources(event);
+    startTurn(thread.id, {
+      target,
+      content,
+      requester: requesterFromRoute(route),
+      ...(taintSources.length === 0 ? {} : { taintSources }),
+    });
   }
 
   async function onCommand(

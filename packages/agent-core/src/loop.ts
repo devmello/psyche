@@ -540,6 +540,9 @@ export class PsycheAgentLoop implements AgentLoop {
           for (const s of task.taintSources ?? []) this.#taint(run, { ...s });
         }
       }
+      // Untrusted content inside the input itself: forwarded or quoted third-party text in an
+      // owner's channel message (#275).
+      for (const s of input.taintSources ?? []) this.#taint(run, { ...s });
       // A non-owner's message is content, never instructions (security §3.6, §9).
       if (!ownerSent && requester !== undefined) {
         this.#taint(run, {
