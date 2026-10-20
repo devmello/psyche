@@ -240,7 +240,7 @@ function scorecard(secrets: { ok: boolean; captures: number } | undefined): stri
     "Injection corpus on the M2 stack (#355)",
     sum === undefined
       ? "no report"
-      : `${sum.runs} runs over ${String((m2inj?.corpus as Json | undefined)?.cases ?? "?")} cases in balanced, manual and auto: ${sum.pass} pass, ${sum.warn} warn (blocked where a card was expected), ${sum.fail} fail, ${sum.error} error; executed without approval: ${results.filter((r) => r.actual === "executed").length}. Real loop, broker and Gateway tools (computer use, files, exec, MCP, browser, Google); no \`code.*\`, travel or VM tools in that stack yet`,
+      : `${sum.runs} runs over ${String((m2inj?.corpus as Json | undefined)?.cases ?? "?")} cases in balanced, manual and auto: ${sum.pass} pass, ${sum.warn} warn (blocked where a card was expected), ${sum.fail} fail, ${sum.error} error; executed without approval: ${results.filter((r) => r.actual === "executed").length}. Real loop, broker and Gateway tools: computer use, files, exec with a VM-mode route, MCP, browser, Google, shopping, skills and \`code.*\` (#428); no Milestone 3 corpus cases yet (#423), and V4's \`travel.*\` tools exist only in the scenario world`,
   );
   L();
   L("## Performance budgets");
