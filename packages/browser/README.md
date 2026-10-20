@@ -25,7 +25,7 @@ The pane UI and the Electron `WebContentsView` host belong to S11.
 | `src/bridge/` | `FrameConnection` (NDJSON), `BridgeServer` / `BridgeClient`, the CDP allowlist |
 | `src/drivers/` | `DriverBase`, `CdpBridgeDriver`, `PlaywrightDriver` |
 | `src/downloads/` | magic-byte `sniff`, `LibraryWriter`, `FsQuarantineWriter` |
-| `src/devpreview/` | `DevServerRegistry`, the gate that says which loopback servers a task may preview (security §3.10) |
+| `src/devpreview/` | `DevServerRegistry`, the gate that says which loopback servers a task may preview (security §3.10); `systemLoopbackProbes`, the OS probes behind the broker's localhost rule |
 | `src/recording/` | `FileRecordingSink` (frames, snapshots and the event log), `RecordingStore` (reads them back for `browser.recordings.*`) |
 | `src/tools/` | `registerBrowserTools`, `classifyActivation`, `ApprovalGate` |
 | `@psyche/browser/testing` | fixture site DSL, `FixtureServer`, `MockBrowser`, `MockDesktop` |
@@ -106,6 +106,8 @@ Every click by ref is hit-tested first (`conflict {reason: "obscured"}` when ano
 | `browser.fill_credential` | `tabId, ref, placeholder` | write (`credential_fill`) | see below |
 | `browser.dev_preview` | `url` | read (`new_origin`) | opens the owner's own dev server in the task's dev-preview session (I12, below) |
 | `browser.console` / `network` | `tabId` | read | dev-preview tabs only (I12) |
+
+**Page echoes** (S23 design-18): when the vault is wired, every tool output and error is checked with `containsSecret` (the Gateway derives it from `CredentialBroker.redact`). A page that reflects a vault value in its text, title, a dialog or its URL gets `policy_denied {reason: "secret_echo"}` with nothing from the page; navigating away ends it. The driver's snapshots and text are masked with the same `redact`, and recording summaries too.
 
 **Credential fill** (security §4.6) runs in this order:
 
@@ -211,6 +213,8 @@ Loopback is not the web: `localhost:<port>` may be the owner's Vite app or a loc
 - `DevServerRegistry` (`src/devpreview/gate.ts`) answers `check(url, {taskId})` from three sources: servers Psyche started this session (`started({port, cwd, name, taskId})`, which the sandbox / exec layer or the terminal pane calls; a server started for one task is that task's only), the project's launch config, and the owner's allowlist (`PSYCHE_DEV_PREVIEW_PORTS` until Settings → Browser exists). The host must be exactly `localhost`, `127.0.0.1`, `[::1]` or a `.localhost` name; a LAN address is never a dev server.
 - `browser.dev_preview {url}` runs the gate, asks the broker once per task (`new_origin` with `devPreview: true`, the source and the folder on the card), and opens the URL in the task's **dev-preview session**: a second session, logged out (`clean`), whose policy is `devPreview: true` pinned to the approved ports (`loopbackPorts`), so a redirect or link to another local port is refused. `browser.console` and `browser.network` read that tab's console and requests (capped at 500 entries, kept for dev-preview sessions only); every other tool works on the tab as usual.
 - Without a `DevPreviewGate` the tool refuses; the Gateway passes `ComposedBrowser.devServers`.
+- The broker has the last word. Its localhost rule (`@psyche/permissions` `createLocalProjectVerifier`, S23 design-03) needs OS probes, which this package supplies as `systemLoopbackProbes({roots})`: the name is resolved by Psyche (`127.0.0.1.nip.io` is not loopback because it says so), the listening PID comes from `lsof -nP -iTCP:<port> -sTCP:LISTEN -t` (two different PIDs on one port count as none), and `ps -o ppid=` walks up to a root PID registered with `devServers.started({port, pid})`. Fixed binaries with argument arrays; every failure reads as "no". The Gateway mounts the verifier as the part's `localProject`, so until a server is registered with its PID, the broker refuses every loopback target, including allowlisted or launch-config ports the owner started by hand.
+- Psyche's own listeners are refused first, in the verifier and in the gate (`psyche_port`), even when the owner allowlists them: the ports registered on the Gateway's `ownPorts` (its configured and bound port, a real-Chrome CDP endpoint passed as `realChromeCdpEndpoint`) plus every port the Gateway process is listening on at check time (`listeningPorts(process.pid)`, which catches OAuth receivers on random ports). The Gateway's own PID is never accepted as a dev server's root.
 - The element picker (⌘⇧S) is the pane's; its protocol is a follow-up for S11 / S12.
 
 ## Testing

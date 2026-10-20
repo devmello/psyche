@@ -67,6 +67,7 @@ describe("browser.* tools", () => {
       credentials: creds,
       context: () => ctx,
       session: async () => sessionId,
+      containsSecret: (text) => creds.redact(text) !== text,
     });
   });
   afterAll(async () => {
@@ -199,5 +200,32 @@ describe("browser.* tools", () => {
     ctx.approvalId = undefined;
     expect(wrong).toMatchObject({ isError: true, output: { error: { code: "policy_denied" } } });
     expect(desktop.tab(tabId).fieldValue("username")).toBe("");
+  });
+
+  it("withholds any output or error that echoes a vault secret (S23 design-18)", async () => {
+    const open = await call("browser.open_tab", { url: desktop.browser.url("a/search") });
+    const tabId = (open.output as { tab: { id: string } }).tab.id;
+    // The page reflects a query that happens to hold the vault value: the URL in the navigate
+    // result and the text of the page would both carry it.
+    const secret = "correct horse battery";
+    const echoed = `${desktop.browser.url("a/submit/search")}?q=${encodeURIComponent(secret)}`;
+    const nav = await call("browser.navigate", { tabId, url: echoed });
+    expect(nav).toMatchObject({
+      isError: true,
+      output: { error: { code: "policy_denied", details: { reason: "secret_echo" } } },
+    });
+    for (const tool of ["browser.snapshot", "browser.read_text", "browser.tabs"]) {
+      const r = await call(tool, tool === "browser.tabs" ? {} : { tabId });
+      expect(r, tool).toMatchObject({
+        isError: true,
+        output: { error: { details: { reason: "secret_echo" } } },
+      });
+      expect(JSON.stringify(r)).not.toContain(secret);
+      expect(JSON.stringify(r)).not.toContain(encodeURIComponent(secret));
+    }
+    // Leaving the page ends it.
+    const away = await call("browser.navigate", { tabId, url: desktop.browser.url("a/") });
+    expect(away.isError).toBeUndefined();
+    expect((await call("browser.snapshot", { tabId })).isError).toBeUndefined();
   });
 });
