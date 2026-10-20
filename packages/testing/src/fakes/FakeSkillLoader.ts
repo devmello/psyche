@@ -9,6 +9,7 @@ import type {
   SkillLoader,
   SkillSource,
   SkillSummary,
+  SkillUpdateCheck,
 } from "@psyche/protocol";
 import { sha256 } from "../canonical.ts";
 import { createIdGenerator, type IdGenerator } from "../ids.ts";
@@ -53,6 +54,8 @@ export class FakeSkillLoader implements SkillLoader {
   #skills: LoadedSkill[] = [];
   #staged = new Map<string, { name: string; text: string }>();
   #proposals = new Map<string, SkillInstallProposal>();
+  /** Installed name → the source it came from (for `checkUpdates`). */
+  #origins = new Map<string, SkillInstallSource>();
   #ids: IdGenerator;
   #isApproved: (approvalId: string) => boolean;
 
@@ -127,6 +130,7 @@ export class FakeSkillLoader implements SkillLoader {
       trust: "unknown",
       findings: scanSkillText(staged.text),
       approvalKind: "skill_install",
+      manifest: { tools: [], permissions: [], prompts: [] },
     };
     this.#proposals.set(proposal.id, proposal);
     return structuredClone(proposal);
@@ -138,6 +142,8 @@ export class FakeSkillLoader implements SkillLoader {
     if (!this.#isApproved(approvalId))
       return fail("approval_required", "skill_install needs an approval");
     this.#proposals.delete(proposalId);
+    this.#skills = this.#skills.filter((x) => !(x.name === p.name && x.source === "home"));
+    this.#origins.set(p.name, p.source);
     this.add({ name: p.name, description: p.name, body: p.text, source: "home" });
     const s = this.#skills[this.#skills.length - 1];
     if (s === undefined) return fail("internal", "install failed");
@@ -147,6 +153,30 @@ export class FakeSkillLoader implements SkillLoader {
 
   async remove(name: string): Promise<void> {
     this.#skills = this.#skills.filter((s) => s.name !== name);
+    this.#origins.delete(name);
+  }
+
+  /** Compares each installed skill with what is staged at its source now. */
+  async checkUpdates(name?: string): Promise<SkillUpdateCheck[]> {
+    const out: SkillUpdateCheck[] = [];
+    for (const [skill, source] of this.#origins) {
+      if (name !== undefined && skill !== name) continue;
+      const installed = this.#skills.find((x) => x.name === skill && x.source === "home");
+      if (installed === undefined) continue;
+      const staged = this.#staged.get(JSON.stringify(source));
+      const availableHash = staged === undefined ? undefined : sha256(staged.text);
+      out.push({
+        name: skill,
+        installedHash: installed.hash,
+        ...(availableHash === undefined
+          ? { error: "nothing staged at the source" }
+          : { availableHash }),
+        updateAvailable: availableHash !== undefined && availableHash !== installed.hash,
+        manifestChanged: false,
+        checkedAt: 0,
+      });
+    }
+    return out;
   }
 
   async promptIndex(options: PromptIndexOptions = {}): Promise<PromptIndex> {
