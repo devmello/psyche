@@ -246,7 +246,7 @@ Build notes: follow the Claude desktop split (thin Electron shell, downloaded/up
 | N4 | **Telegram** (grammY): text, media, voice notes (OGG/Opus), inline-button approvals, `/approve`, typing indicators | P0 | The owner approves a purchase from Telegram |
 | N5 | **iMessage** via the Mac node (J7): inbound via `chat.db` watch, outbound via Messages.app, approvals via polls (26+) or 👍/👎 tapbacks, voice bubbles as CAF | P1 | Owner on iPhone chats with the agent through iMessage |
 | N6 | **WhatsApp**: Baileys on a personal number (clearly labeled unofficial, ban risk, separate number recommended) and Meta Cloud API (business number, 24-hour window, template costs) | P2 | QR pairing works; voice notes as OGG/Opus |
-| N7 | **Signal** via signal-cli (separate number recommended), 👍/👎 approvals | P2 | Linked device pairing works |
+| N7 | **Signal** via signal-cli (separate number recommended), 👍/👎 approvals | P2 | Connects to the owner's linked signal-cli daemon; Psyche never registers, verifies or links |
 | N8 | **Slack** (Socket Mode) and **Discord** bots with button approvals | P2 | Owner-only DM policy works |
 | N9 | **Email channel** (reply-by-email through the mail connector) and **SMS** (Twilio) | P2 | A reply to the agent's email continues the thread |
 | N10 | **Designated person mode**: per-sender delegated persona (own `SOUL` overlay), restricted tool set, no `MEMORY.md` injection, per-peer session, approvals still routed to the owner, per-sender grant matrix (for example "may schedule on my calendar") | P1 | A family member on Telegram can ask the agent to add an event; the owner approves |
