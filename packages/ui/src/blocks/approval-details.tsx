@@ -65,18 +65,51 @@ function Expandable({ label, text }: { label: string; text: string }): ReactElem
   );
 }
 
+/**
+ * Disclosure level 2 (UI design §1.2 principle 3): ids, hashes, digests, selectors and resolved
+ * paths. They bind the card but are not what a person reads to decide, so they sit in the card's
+ * "Details" disclosure rather than among the rows.
+ */
+export function isLevel2Key(key: string, value: unknown): boolean {
+  if (/(^id$|Id$|Ids$|^hash$|Hash$|Digest$|Selector$|Resolved$|Ref$|^grantKey$|Key$)/.test(key))
+    return true;
+  return typeof value === "string" && /^(sha256:)?[0-9a-f]{32,}$/i.test(value);
+}
+
 function Rest({ details, shown }: { details: Details; shown: readonly string[] }): ReactElement {
   return (
     <>
       {Object.entries(details)
         // `reason` is the Broker's explanation, shown as "Why asked" by the card.
-        .filter(([k]) => !shown.includes(k) && k !== "reason")
+        .filter(([k, v]) => !shown.includes(k) && k !== "reason" && !isLevel2Key(k, v))
         .map(([k, v]) => (
           <Row key={k} label={humanize(k)}>
             {str(v)}
           </Row>
         ))}
     </>
+  );
+}
+
+/** The level-2 entries of `details` in full, for the card's "Details" disclosure. */
+export function ApprovalIds({ approval }: { approval: ApprovalRequest }): ReactElement {
+  const d = approval.details as Details;
+  return (
+    <dl>
+      {Object.entries(d)
+        .filter(([k, v]) => k !== "reason" && isLevel2Key(k, v))
+        .map(([k, v]) => (
+          <Row key={k} label={humanize(k)}>
+            <span className="font-mono text-caption break-all">{str(v)}</span>
+          </Row>
+        ))}
+      <Row label="Approval">
+        <span className="font-mono text-caption break-all">{approval.id}</span>
+      </Row>
+      <Row label="Binding">
+        <span className="font-mono text-caption break-all">{approval.bindingHash}</span>
+      </Row>
+    </dl>
   );
 }
 

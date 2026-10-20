@@ -68,6 +68,7 @@ export const Queue: Story = {
         },
       ]}
       onRemove={() => {}}
+      onSendNow={() => {}}
     />
   ),
 };

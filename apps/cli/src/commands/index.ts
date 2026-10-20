@@ -6,6 +6,7 @@ import { configCommands } from "./config.ts";
 import { devicesCommands } from "./devices.ts";
 import { diagnosticsCommands } from "./diagnostics.ts";
 import { exportCommands } from "./export.ts";
+import { migrateCommands } from "./migrate.ts";
 import { onboardCommands } from "./onboard.ts";
 import { serviceCommands } from "./service.ts";
 import { skillsCommands } from "./skills.ts";
@@ -23,6 +24,7 @@ export const COMMANDS: readonly CommandSpec[] = [
   ...vaultCommands,
   ...backupCommands,
   ...exportCommands,
+  ...migrateCommands,
   ...configCommands,
   ...versionCommands,
   ...completionCommands,

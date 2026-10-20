@@ -1,10 +1,11 @@
+import { Radio as RadioPrimitive } from "@base-ui/react/radio";
 import { Pencil } from "lucide-react";
 import { type ReactElement, useId, useState } from "react";
 import { Avatar } from "../../avatar/Avatar.tsx";
 import { CREATURES, getCreature } from "../../avatar/creatures/index.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { Label } from "../../components/ui/label.tsx";
-import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group.tsx";
+import { RadioGroup } from "../../components/ui/radio-group.tsx";
 import { Textarea } from "../../components/ui/textarea.tsx";
 import { usePersona } from "../../slots.tsx";
 import {
@@ -47,17 +48,15 @@ export function CreaturePicker({
         className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6"
       >
         {CREATURES.map((c) => (
-          <Label
+          // One control per choice: the whole tile is the radio, named by the creature.
+          <RadioPrimitive.Root
             key={c.id}
-            htmlFor={`${id}-${c.id}`}
-            className="flex-col gap-1 rounded-lg border border-gray-6 bg-background p-2 font-normal has-data-checked:border-accent-8 has-data-checked:bg-accent-3"
+            value={c.id}
+            className="flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-gray-6 bg-background p-2 text-sm outline-none transition-colors hover:bg-gray-3 focus-visible:ring-3 focus-visible:ring-ring/50 data-checked:border-accent-8 data-checked:bg-accent-3 data-checked:text-accent-12"
           >
             <Avatar name={personaName} creature={c.id} size={40} decorative />
-            <span className="flex items-center gap-1.5">
-              <RadioGroupItem value={c.id} id={`${id}-${c.id}`} />
-              {c.name}
-            </span>
-          </Label>
+            <span>{c.name}</span>
+          </RadioPrimitive.Root>
         ))}
       </RadioGroup>
       <p className="text-xs text-muted-foreground" aria-live="polite">

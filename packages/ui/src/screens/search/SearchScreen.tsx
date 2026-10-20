@@ -1,10 +1,50 @@
 import type { SearchHit, SearchScope } from "@psyche/protocol";
-import { Search, ShieldQuestion, X } from "lucide-react";
-import { type ReactElement, useEffect, useId, useMemo, useState } from "react";
+import {
+  ChevronDown,
+  CircleCheck,
+  Fingerprint,
+  Library as LibraryIcon,
+  Lightbulb,
+  ListChecks,
+  type LucideIcon,
+  MessageCircle,
+  MessagesSquare,
+  Newspaper,
+  Plug,
+  Search,
+  ShieldQuestion,
+  X,
+} from "lucide-react";
+import {
+  type ReactElement,
+  type ReactNode,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  EmptyState,
+  ErrorState,
+  LoadingCards,
+  Page,
+  PageHeader,
+  SectionLabel,
+  useDelayedFlag,
+} from "../../components/page.tsx";
+import { Badge } from "../../components/ui/badge.tsx";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { useSearch } from "../../data/hooks.ts";
+import { plural } from "../../lib/format.ts";
+import { cn } from "../../lib/utils.ts";
 import { useSlots } from "../../slots.tsx";
-import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../feed/states.tsx";
 import {
   filterHits,
   type ParsedSearchQuery,
@@ -24,6 +64,56 @@ export function groupHits(hits: readonly SearchHit[]): { scope: SearchScope; hit
 
 const filterLabel = (f: SearchFilter) =>
   f.key === "in" ? `in: ${SCOPE_LABEL[f.scope]}` : `${f.key}: ${f.value}`;
+
+/** Lucide icons per result kind (§4.6). */
+export const SCOPE_ICON: Record<SearchScope, LucideIcon> = {
+  threads: MessageCircle,
+  messages: MessagesSquare,
+  tasks: ListChecks,
+  memory: Fingerprint,
+  library: LibraryIcon,
+  feed: Newspaper,
+  ideas: Lightbulb,
+  goals: CircleCheck,
+  connectors: Plug,
+};
+
+/** `type:` values offered by the Type chip; any other extension can be typed. */
+const TYPE_CHOICES: readonly { value: string; label: string }[] = [
+  { value: "pdf", label: "PDF" },
+  { value: "md", label: "Markdown" },
+  { value: "html", label: "HTML" },
+  { value: "png", label: "PNG image" },
+];
+
+/** The words to highlight: free text (quotes stripped) and `from:` names. */
+export function highlightTerms(parsed: ParsedSearchQuery): string[] {
+  const words = [...parsed.text.matchAll(/"([^"]*)"|(\S+)/g)].map((m) => m[1] ?? m[2] ?? "");
+  return [...new Set([...words, ...parsed.from].map((w) => w.trim()).filter((w) => w.length > 1))];
+}
+
+/** Wraps each case-insensitive match of `terms` in `<mark>`. */
+export function Highlight({ text, terms }: { text: string; terms: readonly string[] }): ReactNode {
+  if (terms.length === 0) return text;
+  const escaped = [...terms]
+    .sort((a, b) => b.length - a.length)
+    .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const parts = text.split(new RegExp(`(${escaped.join("|")})`, "gi"));
+  const lower = new Set(terms.map((t) => t.toLowerCase()));
+  return parts.map((part, i) =>
+    lower.has(part.toLowerCase()) ? (
+      // biome-ignore lint/suspicious/noArrayIndexKey: split parts never reorder
+      <mark key={i} className="rounded-sm bg-accent-4 px-0.5 text-inherit">
+        {part}
+      </mark>
+    ) : (
+      part
+    ),
+  );
+}
+
+const chipClass =
+  "inline-flex h-7 items-center gap-1.5 rounded-full border px-3 text-small transition-colors focus-visible:outline-2 focus-visible:outline-ring";
 
 export interface SearchViewProps {
   query: string;
@@ -53,21 +143,46 @@ export function SearchView({
   autoFocus = false,
 }: SearchViewProps): ReactElement {
   const inputId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
   const showSkeleton = useDelayedFlag(loading, loadingDelayMs);
   const groups = groupHits(hits);
   const blank = query.trim() === "";
   const hasFilters = parsed.filters.length > 0 || parsed.unsupported.length > 0;
+  const inFilters = parsed.filters.filter(
+    (f): f is Extract<SearchFilter, { key: "in" }> => f.key === "in",
+  );
+  const otherFilters = parsed.filters.filter((f) => f.key !== "in");
+  const activeScopes = new Set(inFilters.map((f) => f.scope));
+  const terms = highlightTerms(parsed);
+
+  const append = (token: string) => {
+    const trimmed = query.trimEnd();
+    onQueryChange?.(trimmed === "" ? token : `${trimmed} ${token}`);
+  };
+  const withoutScopes = (scopes: ReadonlySet<SearchScope>) =>
+    inFilters.filter((f) => scopes.has(f.scope)).reduce((q, f) => removeFilter(q, f), query);
+  const toggleScope = (scope: SearchScope) => {
+    if (activeScopes.has(scope)) onQueryChange?.(withoutScopes(new Set([scope])));
+    else append(`in:${scope}`);
+  };
+  const addFrom = () => {
+    append("from:");
+    requestAnimationFrame(() => inputRef.current?.focus());
+  };
 
   let body: ReactElement;
   if (blank) {
     body = (
-      <EmptyState action={{ label: "Try “dentist”", onClick: () => onQueryChange?.("dentist") }}>
+      <EmptyState
+        icon={Search}
+        action={{ label: "Try “dentist”", onClick: () => onQueryChange?.("dentist") }}
+      >
         Search threads, tasks, memory, Library and Feed. Narrow it with in:feed, type:pdf or
         from:name.
       </EmptyState>
     );
   } else if (parsed.queryText === "" && parsed.types.length === 0) {
-    body = <p className="text-sm text-muted-foreground">Add a word to search for.</p>;
+    body = <p className="text-small text-gray-11">Add a word to search for.</p>;
   } else if (loading) {
     body = showSkeleton ? (
       <LoadingCards label="Searching" count={3} lines={1} layout="rows" />
@@ -86,6 +201,7 @@ export function SearchView({
   } else if (groups.length === 0) {
     body = (
       <EmptyState
+        icon={Search}
         action={
           hasFilters
             ? {
@@ -101,98 +217,193 @@ export function SearchView({
     );
   } else {
     body = (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
         <p className="sr-only" role="status">
           {hits.length} results
         </p>
-        {groups.map((g) => (
-          <section key={g.scope} aria-labelledby={`${inputId}-${g.scope}`}>
-            <h2
-              id={`${inputId}-${g.scope}`}
-              className="text-label font-semibold text-muted-foreground uppercase"
+        {groups.map((g) => {
+          const Icon = SCOPE_ICON[g.scope];
+          return (
+            <section
+              key={g.scope}
+              aria-labelledby={`${inputId}-${g.scope}`}
+              className="flex flex-col gap-1"
             >
-              {SCOPE_LABEL[g.scope]} ({g.hits.length})
-            </h2>
-            <ul className="mt-1 flex flex-col">
-              {g.hits.map((hit) => (
-                <li key={`${hit.scope}:${hit.id}`}>
-                  <button
-                    type="button"
-                    onClick={() => onOpen?.(hit)}
-                    className="flex w-full flex-wrap items-baseline gap-x-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-gray-3 focus-visible:outline-2 focus-visible:outline-ring"
-                  >
-                    <span className="font-medium">{hit.title}</span>
-                    <span className="sr-only">: </span>
-                    <span className="min-w-0 flex-1 truncate text-gray-11">{hit.snippet}</span>
-                    {hit.scope === "memory" ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-gray-6 px-1.5 text-xs text-muted-foreground">
-                        <ShieldQuestion className="size-3" aria-hidden="true" />
-                        provenance unknown
+              <SectionLabel id={`${inputId}-${g.scope}`} className="px-2">
+                {SCOPE_LABEL[g.scope]} ({g.hits.length})
+              </SectionLabel>
+              <ul className="flex flex-col">
+                {g.hits.map((hit) => (
+                  <li key={`${hit.scope}:${hit.id}`}>
+                    <button
+                      type="button"
+                      onClick={() => onOpen?.(hit)}
+                      className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-gray-3 focus-visible:outline-2 focus-visible:outline-ring"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="flex size-8 shrink-0 items-center justify-center rounded-md bg-gray-3 text-gray-11"
+                      >
+                        <Icon className="size-4" />
                       </span>
-                    ) : null}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate text-body font-medium text-foreground">
+                          <Highlight text={hit.title} terms={terms} />
+                        </span>
+                        <span className="sr-only">: </span>
+                        <span className="truncate text-small text-gray-11">
+                          <Highlight text={hit.snippet} terms={terms} />
+                        </span>
+                      </span>
+                      {hit.scope === "memory" ? (
+                        <Badge variant="muted">
+                          <ShieldQuestion aria-hidden="true" />
+                          provenance unknown
+                        </Badge>
+                      ) : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          );
+        })}
       </div>
     );
   }
 
   return (
-    <section aria-label="Search" className="mx-auto flex max-w-[80ch] flex-col gap-4 p-4">
-      <h1 className="sr-only">Search</h1>
-      <div className="relative">
-        <label htmlFor={inputId} className="sr-only">
-          Search everything
-        </label>
-        <Search
-          className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
-          aria-hidden="true"
+    <section aria-label="Search">
+      <Page width="wide">
+        <PageHeader
+          title="Search"
+          meta={
+            !blank && !loading && error === null && groups.length > 0
+              ? plural(hits.length, "result")
+              : undefined
+          }
         />
-        <Input
-          id={inputId}
-          type="search"
-          value={query}
-          placeholder="Search, or filter with in:feed type:pdf from:alice"
-          className="h-10 pl-8 text-base"
-          autoFocus={autoFocus}
-          onChange={(e) => onQueryChange?.(e.target.value)}
-        />
-      </div>
-      {hasFilters ? (
-        <ul aria-label="Filters" className="flex flex-wrap gap-1.5">
-          {parsed.filters.map((f) => (
-            <li key={`${f.key}:${f.value}`}>
-              <span className="inline-flex items-center gap-1 rounded-full bg-accent-3 py-0.5 pr-1 pl-2 text-xs text-accent-11">
-                {filterLabel(f)}
+        <div className="flex flex-col gap-3">
+          <div className="relative">
+            <label htmlFor={inputId} className="sr-only">
+              Search everything
+            </label>
+            <Search
+              className="pointer-events-none absolute top-1/2 left-3.5 size-5 -translate-y-1/2 text-gray-11"
+              aria-hidden="true"
+            />
+            <Input
+              ref={inputRef}
+              id={inputId}
+              type="search"
+              value={query}
+              placeholder="Search, or filter with in:feed type:pdf from:alice"
+              className="h-12 rounded-lg border-gray-7 bg-gray-2 pl-11 text-body md:text-body"
+              autoFocus={autoFocus}
+              onChange={(e) => onQueryChange?.(e.target.value)}
+            />
+          </div>
+
+          <div role="toolbar" aria-label="Filters" className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              aria-pressed={activeScopes.size === 0}
+              onClick={() => onQueryChange?.(withoutScopes(activeScopes))}
+              className={cn(
+                chipClass,
+                activeScopes.size === 0
+                  ? "border-accent-7 bg-accent-3 text-accent-11"
+                  : "border-gray-6 text-gray-11 hover:bg-gray-3",
+              )}
+            >
+              All
+            </button>
+            {SCOPE_ORDER.map((scope) => {
+              const Icon = SCOPE_ICON[scope];
+              const on = activeScopes.has(scope);
+              return (
                 <button
+                  key={scope}
                   type="button"
-                  aria-label={`Remove filter ${filterLabel(f)}`}
-                  onClick={() => onQueryChange?.(removeFilter(query, f))}
-                  className="rounded-full p-0.5 hover:bg-accent-5 focus-visible:outline-2 focus-visible:outline-ring"
+                  aria-pressed={on}
+                  aria-label={`in: ${SCOPE_LABEL[scope]}`}
+                  onClick={() => toggleScope(scope)}
+                  className={cn(
+                    chipClass,
+                    on
+                      ? "border-accent-7 bg-accent-3 text-accent-11"
+                      : "border-gray-6 text-gray-11 hover:bg-gray-3",
+                  )}
                 >
-                  <X className="size-3" aria-hidden="true" />
+                  <Icon className="size-3.5" aria-hidden="true" />
+                  {SCOPE_LABEL[scope]}
                 </button>
-              </span>
-            </li>
-          ))}
-          {parsed.unsupported.map((u) => (
-            <li key={u}>
-              <span className="inline-flex items-center rounded-full border border-dashed border-gray-7 px-2 py-0.5 text-xs text-muted-foreground">
-                {u} (not a filter Psyche knows; ignored)
-              </span>
-            </li>
-          ))}
-          {parsed.from.length > 0 ? (
-            <li className="text-xs text-muted-foreground">
-              from: matches the name in text; sender filtering isn't available yet.
-            </li>
+              );
+            })}
+            <span aria-hidden="true" className="mx-1 h-4 w-px bg-gray-6" />
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <button
+                    type="button"
+                    className={cn(chipClass, "border-gray-6 text-gray-11 hover:bg-gray-3")}
+                  />
+                }
+              >
+                type:
+                <ChevronDown className="size-3.5" aria-hidden="true" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-44">
+                {TYPE_CHOICES.map((t) => (
+                  <DropdownMenuItem key={t.value} onClick={() => append(`type:${t.value}`)}>
+                    {t.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <button
+              type="button"
+              onClick={addFrom}
+              className={cn(chipClass, "border-gray-6 text-gray-11 hover:bg-gray-3")}
+            >
+              from:
+            </button>
+          </div>
+
+          {otherFilters.length > 0 || parsed.unsupported.length > 0 ? (
+            <ul aria-label="Active filters" className="flex flex-wrap items-center gap-1.5">
+              {otherFilters.map((f) => (
+                <li key={`${f.key}:${f.value}`}>
+                  <span className="inline-flex h-6 items-center gap-1 rounded-full bg-accent-3 pr-1 pl-2.5 text-caption text-accent-11">
+                    {filterLabel(f)}
+                    <button
+                      type="button"
+                      aria-label={`Remove filter ${filterLabel(f)}`}
+                      onClick={() => onQueryChange?.(removeFilter(query, f))}
+                      className="rounded-full p-0.5 hover:bg-accent-5 focus-visible:outline-2 focus-visible:outline-ring"
+                    >
+                      <X className="size-3" aria-hidden="true" />
+                    </button>
+                  </span>
+                </li>
+              ))}
+              {parsed.unsupported.map((u) => (
+                <li key={u}>
+                  <span className="inline-flex h-6 items-center rounded-full border border-dashed border-gray-7 px-2.5 text-caption text-gray-11">
+                    {u} (not a filter Psyche knows; ignored)
+                  </span>
+                </li>
+              ))}
+              {parsed.from.length > 0 ? (
+                <li className="text-caption text-gray-11">
+                  from: matches the name in text; sender filtering isn't available yet.
+                </li>
+              ) : null}
+            </ul>
           ) : null}
-        </ul>
-      ) : null}
-      {body}
+        </div>
+        {body}
+      </Page>
     </section>
   );
 }

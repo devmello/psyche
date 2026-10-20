@@ -1,0 +1,43 @@
+# Homebrew cask for the Psyche desktop app. Rendered by deploy/scripts/homebrew.mjs from a
+# release's SHA256SUMS and pushed to github.com/devmello/homebrew-psyche (Casks/psyche.rb).
+#   brew install --cask devmello/psyche/psyche
+cask "psyche" do
+  arch arm: "arm64", intel: "x64"
+
+  version "{{VERSION}}"
+  sha256 arm:   "{{SHA256:Psyche-{{VERSION}}-arm64.dmg}}",
+         intel: "{{SHA256:Psyche-{{VERSION}}-x64.dmg}}"
+
+  url "https://github.com/devmello/psyche/releases/download/v#{version}/Psyche-#{version}-#{arch}.dmg"
+  name "Psyche"
+  desc "Open-source, self-hosted personal AI agent"
+  homepage "https://github.com/devmello/psyche"
+
+  livecheck do
+    url :url
+    strategy :github_latest
+  end
+
+  depends_on macos: ">= :sequoia"
+
+  app "Psyche.app"
+
+  # The Gateway runs as a per-user LaunchAgent (feature A7); stop it before removing the app.
+  uninstall launchctl: "com.psyche.gateway",
+            quit:      "com.psyche.desktop"
+
+  # Your data in ~/.psyche (transcripts, memory, vault, backups) is never removed by Homebrew.
+  zap trash: [
+    "~/Library/Application Support/Psyche",
+    "~/Library/LaunchAgents/com.psyche.gateway.plist",
+    "~/Library/Logs/Psyche",
+    "~/Library/Preferences/com.psyche.desktop.plist",
+    "~/Library/Saved Application State/com.psyche.desktop.savedState",
+  ]
+
+  caveats <<~EOS
+    Psyche keeps your data in ~/.psyche. `brew uninstall --zap` does not delete it;
+    back it up first with `psyche backup create` if you want to keep it.
+    Before upgrading: https://github.com/devmello/psyche/blob/main/docs/guides/upgrade.md
+  EOS
+end
