@@ -116,6 +116,8 @@ Every click by ref is hit-tested first (`conflict {reason: "obscured"}` when ano
 
 **Page echoes** (S23 design-18): when the vault is wired, every tool output and error is checked with `containsSecret` (the Gateway derives it from `CredentialBroker.redact`). A page that reflects a vault value in its text, title, a dialog or its URL gets `policy_denied {reason: "secret_echo"}` with nothing from the page; navigating away ends it. The driver's snapshots and text are masked with the same `redact`, and recording summaries too.
 
+**Live element checks** (#291, TM-28 / TM-29): `describe()` reads the element's live attributes (type, autocomplete, form) through a fixed read-only helper, never its value, so the vault judges the field as it is now, not as the snapshot saw it. `fillSecret` checks focus and the vault's field-class rule (`fillElementAccepts`) again inside `ResolvedSecret.use`, right before `Input.insertText`, and checks focus once more after typing (`focus_moved_during_fill`). Screenshot and recording suppression is remembered per document a secret was typed into, so navigating back to it (including a bfcache restore) keeps screenshots refused.
+
 **Credential fill** (security §4.6) runs in this order:
 
 1. Use the loop's approval for the call, or ask for a `credential_fill` bound to item, origin, ref, element and tab.
