@@ -70,6 +70,7 @@ import { createTaskHandlers, SqliteTaskEngine, TaskWorkerPool } from "@psyche/ta
 import { SecretRedactor, type Vault } from "@psyche/vault";
 import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
+import type { WebhookRoute } from "../http.ts";
 import { createLogger } from "../log.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
@@ -721,6 +722,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...modelSettingsHandlers(modelSettings),
   };
   for (const part of parts) Object.assign(handlers, part.handlers ?? {});
+  const webhooks: Record<string, WebhookRoute> = { ...gwOptions.webhooks };
+  for (const part of parts) {
+    for (const [path, route] of Object.entries(part.webhooks ?? {})) {
+      if (path in webhooks) throw new PsycheError("conflict", `two webhooks for ${path}`);
+      webhooks[path] = route;
+    }
+  }
 
   const gateway = await startGateway({
     ...gwOptions,
@@ -729,6 +737,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     broker,
     memory,
     handlers,
+    webhooks,
     onDeviceRevoked: (deviceId) => {
       revocations.recordDevice(deviceId);
       return rawBroker.revokeGrantsByDevice(deviceId);

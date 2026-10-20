@@ -631,7 +631,11 @@ function aborted(signal: AbortSignal | undefined): boolean {
   return signal?.aborted === true;
 }
 
-async function readCapped(res: Response, max: number, signal?: AbortSignal): Promise<Uint8Array> {
+export async function readCapped(
+  res: Response,
+  max: number,
+  signal?: AbortSignal,
+): Promise<Uint8Array> {
   const tooLarge = () =>
     new PsycheError("invalid_params", "attachment too large", { details: { max } });
   if (res.body === null) {
