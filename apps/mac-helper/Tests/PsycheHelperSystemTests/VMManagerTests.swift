@@ -214,6 +214,20 @@ struct VMManagerTests {
         #expect(try guest.read(before: Date().addingTimeInterval(2)) == nil)
     }
 
+    @Test func statusMatchesTheProtocolSchema() async throws {
+        let home = tempHome()
+        let folder = home.appendingPathComponent("Projects")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let vm = manager(FakeVMBackend(), home: home)
+        _ = try await vm.create(.init(download: true), emit: { _ in })
+        _ = try await vm.addShare(name: "sandbox", share: "projects", path: folder.path, readOnly: true, approvalId: nil)
+        _ = try await vm.start(name: "sandbox", emit: { _ in })
+        // packages/protocol schemas/vm.ts VmStatus, through the generated Swift model.
+        let decoded = try JSONDecoder().decode(VMStatus.self, from: JSONEncoder().encode(vm.status()))
+        #expect(decoded.guests.first?.phase == .running && decoded.guests.first?.shares.first?.readOnly == true)
+        #expect(decoded.guests.first?.vsock.gatewayNodePort == 7980 && decoded.maxActive == 2)
+    }
+
     @Test func capabilitiesDeclareSideEffects() {
         let caps = VMCapabilities.make(manager(FakeVMBackend(), home: tempHome()))
         let specs = Dictionary(uniqueKeysWithValues: caps.map { ($0.spec.name, $0.spec) })

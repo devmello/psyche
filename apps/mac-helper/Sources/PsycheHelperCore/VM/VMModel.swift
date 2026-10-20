@@ -110,17 +110,11 @@ public struct VMConfig: Codable, Sendable, Equatable {
     }
 }
 
-/// Lifecycle (L1). Persisted in `state.json` so a helper restart knows where a guest stands.
-public enum VMPhase: String, Codable, Sendable, CaseIterable {
-    case created  // bundle made, macOS not installed
-    case installing
-    case installed  // installed, never booted (provisioning pending)
-    case provisioning  // first boot with VZMacGuestProvisioningOptions
-    case stopped
-    case starting
-    case running
-    case stopping
-    case failed
+/// Lifecycle (L1). `VMPhase` is the generated protocol enum (`packages/protocol` `VmPhase`); the
+/// helper adds the transition rules. Persisted in `state.json` so a helper restart knows where a
+/// guest stands.
+extension VMPhase: CaseIterable {
+    public static let allCases: [VMPhase] = [.created, .installing, .installed, .provisioning, .stopped, .starting, .running, .stopping, .failed]
 
     /// Phases that count against the framework's two-active-guests cap (installs count, spike 06).
     public var isActive: Bool { [.installing, .provisioning, .starting, .running, .stopping].contains(self) }

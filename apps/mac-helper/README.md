@@ -186,6 +186,35 @@ One microphone stream at a time (`microphone_busy`), at most 4 streams, 8 MiB pu
 
 **Measured** (M5, macOS 27.0.1; a synthesized 6 s clip pushed in real time in 100 ms chunks): first partial ≈ 1.04 s after speech onset with SpeechTranscriber, ≈ 0.75 s with DictationTranscriber; finalizing 55–115 ms; peak RSS ≈ 42 MiB (excluding the system speech daemon); synthesis first audio ≈ 0.8 s cold. This bench misses Q1's < 500 ms target; a real-microphone measurement is in the manual test plan, and Parakeet (spike 03) is the next lever if it still misses.
 
+### VM mode (L1–L5, M3 groundwork)
+
+One sandbox Mac per user, built on Virtualization.framework with spike 06's recipe (`docs/spikes/spike-06-vz-provisioning.md`). The shapes are `packages/protocol` `schemas/vm.ts` (`VmStatus`, `VmGuest`, `VmShare`, …); clients call these through `nodes.invoke`.
+
+| Capability | Side effect | Notes |
+| --- | --- | --- |
+| `vm.status` | read | guests (phase, resources, guest macOS, shares, vsock), active count, `supportsGuestProvisioning` |
+| `vm.restore_image` | read | latest supported restore image: version, build, download size (Apple's catalog) |
+| `vm.create` | write, streaming | `name` (default `sandbox`), `cpus` 4, `memoryGB` 8, `diskGB` 80 (the guest leaves the host ≥ 2 CPUs and 4 GB), and either `ipsw` (local path) or `download: true`. Without that confirmation it answers `download_not_confirmed` with the version and size. Streams `vm.download` and `vm.install` progress; one guest per user |
+| `vm.start` | write, streaming | boots headless. The first boot provisions the admin user, auto-login and Remote Login with `VZMacGuestProvisioningOptions`; this needs a macOS 27 host and guest, otherwise `provisioning_unsupported`. The admin password is random and kept in the keychain. Refused at the two-active-guests cap (installs count) |
+| `vm.stop` | write | asks the guest helper on vsock 7000 (`guest.shutdown`), then `requestStop`; `force: true` stops hard (`graceful: false`) |
+| `vm.delete` | destructive | stopped guests only; removes the bundle and the stored password |
+| `vm.share_add` / `vm.share_remove` | write, `targetKind: path` | user folders on the `psyche` VirtioFS tag at `/Volumes/Psyche Shares/<share>`. Read-only by default; read-write needs an approval. Never `/`, the home folder, `~/Library`, system folders or `$PSYCHE_HOME` (symlinks resolved). Applied live to a running guest |
+
+- **Bundle:** `$PSYCHE_HOME/vm/<name>/` (0700) holds `config.json`, `state.json`, `shares.json`, `HardwareModel`, `MachineIdentifier`, `AuxiliaryStorage` and `Disk.asif` (DiskImageKit, macOS 27 SDK) or `Disk.img` (RAW sparse).
+- **vsock:**
+  - The helper listens on host port 7980. Every guest connection, from psyche-node via `guest-bootstrap.sh --vsock 2:7980`, is relayed byte for byte to the Gateway's node socket. There it pairs like any node: a pending pairing the owner approves.
+  - Port 7000 is the guest helper's control port; port 5000 is reserved for guest → host capabilities (host vault fills, security §13).
+  - The guest IP is never a control path.
+- **Builds:** the macOS 26 SDK (CI) has neither DiskImageKit nor `VZMacGuestProvisioningOptions`, so those paths compile only with the 27 SDK (`canImport(DiskImageKit)`).
+- **Not built yet:**
+  - the offline `TCC.db` pre-grant (L3)
+  - the guest-side helper (vsock control, root LaunchDaemon for `mount_virtiofs` and shutdown)
+  - the 26-guest Data-volume path
+  - DiskImageKit overlay resets (L6)
+  - warm start (`saveMachineStateTo` failed in spike 06)
+  - the display pane (L4)
+- **Tests:** a fake backend covers the lifecycle, guest caps, provisioning, shares and the vsock relay into a real Unix socket. `PSYCHE_VM_LIVE_TESTS=1` runs a read-only check against the real framework: the catalog, plus `PSYCHE_VM_IPSW` to load a local image. It never downloads or boots.
+
 ## Entitlements and Info.plist
 
 | Key | Where | Why |
@@ -196,7 +225,7 @@ One microphone stream at a time (`microphone_busy`), at most 4 streams, 8 MiB pu
 | `com.apple.security.personal-information.calendars`, `.addressbook` | entitlements | EventKit / Contacts (J6) |
 | `keychain-access-groups` = `<TEAM>.com.psyche.helper`, `com.apple.application-identifier`, `com.apple.developer.team-identifier` | added by `build-app.sh` with `PSYCHE_HELPER_PROFILE` | data-protection keychain (restricted: needs an embedded provisioning profile) |
 | `com.apple.developer.usernotifications.time-sensitive` | added when the profile carries it | time-sensitive approvals; otherwise they post as active |
-| `com.apple.security.virtualization` | M3 | VM mode |
+| `com.apple.security.virtualization` | entitlements | VM mode (even the restore-image catalog needs it) |
 | `NSAppleEventsUsageDescription`, `NSCalendarsFullAccessUsageDescription`, `NSRemindersFullAccessUsageDescription`, `NSContactsUsageDescription`, `NSMicrophoneUsageDescription`, `NSSpeechRecognitionUsageDescription`, `NSScreenCaptureUsageDescription` | Info.plist | prompt text |
 | `PsycheKeychainAccessGroup` | Info.plist, set by `build-app.sh` | access group the keychain code uses (`PSYCHE_KEYCHAIN_GROUP` overrides in development) |
 | `LSUIElement` | Info.plist | no Dock icon |
