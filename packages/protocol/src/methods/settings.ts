@@ -1,4 +1,5 @@
 import { Type } from "@sinclair/typebox";
+import { Id } from "../common.ts";
 import { SettingEntry, Settings } from "../schemas/surfaces.ts";
 import { defineMethod } from "./define.ts";
 
@@ -24,11 +25,15 @@ export const SettingsMethods = {
     description: "Returns all settings, or only the given keys, with the current stateVersion.",
   }),
   "settings.set": defineMethod({
-    params: Type.Object({ key: SettingKey, value: Type.Unknown() }),
+    params: Type.Object({
+      key: SettingKey,
+      value: Type.Unknown(),
+      approvalId: Type.Optional(Id),
+    }),
     result: Type.Object({ entry: SettingEntry, stateVersion: Type.Integer({ minimum: 0 }) }),
     scope: "operator.write",
     sideEffecting: true,
     description:
-      "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges) also needs operator.admin. Side-effecting.",
+      "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges) also needs operator.admin. Security keys (permissions, exec, vault, devices, gateway, owner identities, channel DM / allow policies) also need fresh user presence once the Gateway has a presence verifier: the first call fails approval_required with details.approvalId (a device-only policy_change card bound to the key and value); retry with that approvalId after approving. Side-effecting.",
   }),
 } as const;

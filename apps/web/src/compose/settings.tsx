@@ -176,6 +176,13 @@ export function settingsRoute(
       <SettingsScreen
         section={section}
         onSectionChange={(id) => navigate(`/settings/${id}`)}
+        {...(platform.browser?.openRealChromeProfile
+          ? {
+              onOpenRealChromeProfile: (profile: string) =>
+                platform.browser?.openRealChromeProfile?.(profile) ??
+                Promise.reject(new Error("not available")),
+            }
+          : {})}
         sections={{
           files: <FileAccessSettings platform={platform} />,
           appearance: (

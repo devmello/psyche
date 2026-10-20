@@ -97,6 +97,8 @@ const bridge = {
     popOut: (tabId: string, fullScreen?: boolean) =>
       invoke(IPC.browserPopOut, { tabId, fullScreen }),
     clearBrowsingData: (profile: string) => invoke(IPC.browserClearData, profile),
+    openRealChromeProfile: (profile?: string) =>
+      invoke(IPC.browserOpenRealChromeProfile, profile ?? "default"),
   },
   terminal: {
     open: (opts: unknown) => invoke(IPC.terminalOpen, opts),

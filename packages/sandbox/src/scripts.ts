@@ -527,3 +527,53 @@ while True:
     while v:
         v = v[os.write(1, v):]
 os._exit(0)`;
+
+/**
+ * Long-lived process with raw pipes (`openStdio`, for stdio MCP servers). `$1` = pid file, the
+ * rest is the argv. stdin starts with a header: a 4-byte big-endian length, then that many
+ * bytes of NUL-terminated `KEY=value` pairs, read exactly (never past the header), so env
+ * values (vault-injected secrets) appear in no argv, host or container, and reach only this
+ * process. The command then runs as a new session leader that inherits the relay's stdin,
+ * stdout and stderr directly: plain byte pipes, no PTY, no copying. The pid file names the
+ * session, so `KILL_GROUP` from a second exec stops the whole process group. The relay waits
+ * and exits with the command's code (128 + signal when it was killed).
+ */
+export const STDIO_RELAY = String.raw`import os, struct, sys
+pidfile, argv = sys.argv[1], sys.argv[2:]
+
+def read_exact(n):
+    out = b""
+    while len(out) < n:
+        chunk = os.read(0, n - len(out))
+        if not chunk:
+            os._exit(2)
+        out += chunk
+    return out
+
+n = struct.unpack(">I", read_exact(4))[0]
+if n > 1 << 20:
+    os._exit(2)
+env = dict(os.environ)
+for kv in read_exact(n).split(b"\0"):
+    if kv:
+        k, _, v = kv.decode("utf-8").partition("=")
+        env[k] = v
+pid = os.fork()
+if pid == 0:
+    try:
+        os.setsid()
+        os.execvpe(argv[0], argv, env)
+    except OSError as e:
+        os.write(2, ("psyche-sandbox: cannot run %s: %s\n" % (argv[0], e.strerror)).encode())
+    os._exit(127)
+os.makedirs(os.path.dirname(pidfile), exist_ok=True)
+with open(pidfile, "w") as f:
+    f.write(str(pid))
+# The command owns the pipes now; the relay only waits.
+os.close(0)
+_, status = os.waitpid(pid, 0)
+try:
+    os.unlink(pidfile)
+except OSError:
+    pass
+os._exit(os.waitstatus_to_exitcode(status) if os.WIFEXITED(status) else 128 + os.WTERMSIG(status))`;

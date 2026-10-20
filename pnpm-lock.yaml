@@ -312,6 +312,9 @@ importers:
       '@psyche/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@psyche/files':
+        specifier: workspace:*
+        version: link:../../packages/files
       '@psyche/memory':
         specifier: workspace:*
         version: link:../../packages/memory
@@ -564,6 +567,18 @@ importers:
       drizzle-kit:
         specifier: 0.31.11
         version: 0.31.11
+
+  packages/files:
+    dependencies:
+      '@psyche/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
+      '@psyche/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@sinclair/typebox':
+        specifier: 0.34.52
+        version: 0.34.52
 
   packages/mcp-host:
     dependencies:

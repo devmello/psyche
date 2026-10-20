@@ -516,6 +516,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Whether real-Chrome mode is on and attached, with its DevTools port, PID and profile dir.",
+        "name": "browser.realChrome.status",
+        "params": "#/$defs/BrowserRealChromeStatusParams",
+        "result": "#/$defs/RealChromeStatus",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Side-effecting. Deletes a recording and its files (retention is otherwise 7 days, data model §12).",
         "name": "browser.recordings.delete",
         "params": "#/$defs/BrowserRecordingsDeleteParams",
@@ -1236,7 +1244,7 @@
         "sideEffecting": false
       },
       {
-        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges) also needs operator.admin. Side-effecting.",
+        "description": "Sets one setting. Every key outside the cosmetic allowlist (appearance, ui, editor, shortcuts, locale, notifications.sound, notifications.badges) also needs operator.admin. Security keys (permissions, exec, vault, devices, gateway, owner identities, channel DM / allow policies) also need fresh user presence once the Gateway has a presence verifier: the first call fails approval_required with details.approvalId (a device-only policy_change card bound to the key and value); retry with that approvalId after approving. Side-effecting.",
         "name": "settings.set",
         "params": "#/$defs/SettingsSetParams",
         "result": "#/$defs/SettingsSetResult",
@@ -1874,6 +1882,12 @@
         },
         "taint": {
           "type": "boolean"
+        },
+        "taintSources": {
+          "items": {
+            "$ref": "#/$defs/TaintSource"
+          },
+          "type": "array"
         },
         "status": {
           "$ref": "#/$defs/ApprovalStatus"
@@ -3970,6 +3984,10 @@
         "clean"
       ],
       "type": "string"
+    },
+    "BrowserRealChromeStatusParams": {
+      "properties": {},
+      "type": "object"
     },
     "BrowserRecording": {
       "properties": {
@@ -10985,6 +11003,43 @@
       ],
       "type": "object"
     },
+    "RealChromeStatus": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "attached": {
+          "type": "boolean"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "pid": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "sessions": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "userDataDir": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "enabled",
+        "attached",
+        "sessions"
+      ],
+      "type": "object"
+    },
     "Receipt": {
       "properties": {
         "id": {
@@ -11841,7 +11896,13 @@
           "pattern": "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$",
           "type": "string"
         },
-        "value": {}
+        "value": {},
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
       },
       "required": [
         "key",

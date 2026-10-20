@@ -3,6 +3,7 @@ import {
   Activity,
   Bot,
   FolderLock,
+  Globe,
   Info,
   KeyRound,
   type LucideIcon,
@@ -23,6 +24,7 @@ import { cn } from "../../lib/utils.ts";
 import { useSlots } from "../../slots.tsx";
 import { AboutSection } from "./AboutSection.tsx";
 import { AppearanceSection } from "./AppearanceSection.tsx";
+import { BrowserSection } from "./BrowserSection.tsx";
 import { ChannelsSection } from "./ChannelsSection.tsx";
 import { ComputerUseSection } from "./ComputerUseSection.tsx";
 import { ConnectorsSection, type ScopeMode } from "./ConnectorsSection.tsx";
@@ -54,6 +56,7 @@ export type SettingsSectionId =
   | "connectors"
   | "permissions"
   | "computer-use"
+  | "browser"
   | "files"
   | "devices"
   | "channels"
@@ -75,6 +78,7 @@ export const SETTINGS_SECTIONS: readonly {
   { id: "connectors", label: "Connectors", icon: Plug },
   { id: "permissions", label: "Permissions", icon: ShieldCheck },
   { id: "computer-use", label: "Computer use", icon: MousePointerClick },
+  { id: "browser", label: "Browser", icon: Globe },
   { id: "files", label: "File access", icon: FolderLock },
   { id: "devices", label: "Devices & nodes", icon: MonitorSmartphone },
   { id: "channels", label: "Channels", icon: MessagesSquare },
@@ -117,6 +121,8 @@ export interface SettingsShellProps {
   doctorRunning?: boolean;
   onRunDoctor?: () => void;
   onOpenLogs?: () => void;
+  /** Desktop only: opens the Psyche Chrome profile (real-Chrome mode) in Google Chrome. */
+  onOpenRealChromeProfile?: (profile: string) => Promise<{ path: string }>;
   /**
    * Section bodies the shell renders itself (for example a File access section backed by the
    * Gateway's `permissions.policy` with a native folder picker). Sections not listed here use
@@ -178,6 +184,8 @@ export function SettingsSectionView({
           {...opt("onOpenSystemSettings", s.onOpenSystemSettings)}
         />
       );
+    case "browser":
+      return <BrowserSection {...opt("onOpenProfile", s.onOpenRealChromeProfile)} />;
     case "files":
       return <FileAccessSection {...opt("vmMode", s.vmMode)} />;
     case "devices":

@@ -97,8 +97,17 @@ export interface ComposedPart {
    * `operator.approvals` (the mac helper node, which can never call `approvals.answer` itself).
    */
   approver?(deviceId: string): boolean;
-  /** Verifies presence assertions of one kind (the helper's Touch ID signature). */
-  readonly presence?: { kind: PresenceAssertion["kind"]; verifier: PresenceVerifier };
+  /**
+   * Verifies presence assertions of one kind (the helper's Touch ID signature). `ready` says
+   * whether it can verify anything at all (the owner registered a key); security settings need
+   * fresh presence only once some verifier is ready (security §10), so an unconfigured one never
+   * locks the owner out of them. Absent `ready` means always ready.
+   */
+  readonly presence?: {
+    kind: PresenceAssertion["kind"];
+    verifier: PresenceVerifier;
+    ready?: () => boolean;
+  };
   /**
    * Decides whether a loopback origin is the owner's own project (security §3.10). The browser
    * part supplies it from its dev-server registry; without one every loopback target is denied.
