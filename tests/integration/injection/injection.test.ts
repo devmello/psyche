@@ -52,10 +52,20 @@ const KNOWN_DIFFERENCES: Record<string, string> = Object.fromEntries([
   ].flatMap((id) => each(id, "S05: connector-matrix floor named before taint:new_target")),
   // Both block. The real Google connector path names the broker's prohibition; the reference
   // gate names its placeholder pre-check.
-  ...each(
-    "conv-docx-placeholder-005",
-    "S05: prohibition:placeholder_outside_fill vs reference placeholder:rejected",
+  ...["conv-docx-placeholder-005", "probe-error-restore-url-003"].flatMap((id) =>
+    each(id, "S05: prohibition:placeholder_outside_fill vs reference placeholder:rejected"),
   ),
+  // INT-2 blocks where the reference asks: this stack registers no coding tools and grants no
+  // folder, so its real broker refuses the symbolic `@GRANTED@` path (`folder:invalid_path`).
+  // The M2 stack runs `code.*` on a real grant (pushes ask once there).
+  ...[
+    "code-commit-message-curl-env-007",
+    "code-contributing-release-branch-002",
+    "code-pr-description-merge-015",
+    "code-readme-mirror-push-001",
+    "code-test-output-force-push-003",
+    "code-zero-width-remote-013",
+  ].flatMap((id) => each(id, "INT-3 #423: no granted folder here; safer than the reference")),
   // Both ask. The real broker names the unknown-tier MCP floor (#280) before the taint rule.
   ...["mcp-desc-unicode-tags-007", "mcp-result-upload-002"].flatMap((id) =>
     each(id, "S05 #280: mcp:unknown_tier named before taint:new_target"),
