@@ -5,7 +5,12 @@ import {
   CustomConnectorManifest,
   CustomConnectorProposal,
 } from "../schemas/custom-connectors.ts";
-import { Connector } from "../schemas/integrations.ts";
+import {
+  Connector,
+  ConnectorAuthorization,
+  ConnectorCatalogueEntry,
+  ConnectorStatus,
+} from "../schemas/integrations.ts";
 import { ApprovalRequest } from "../schemas/permissions.ts";
 import { defineMethod, OkResult } from "./define.ts";
 
@@ -21,7 +26,62 @@ const CustomProposalResult = Type.Object(
  * `connectors.installCustom` enables it only with that approval. Never auto-enabled.
  */
 
+const ActionRule = StringEnum(["allow", "ask", "deny"]);
+
 export const ConnectorsMethods = {
+  "connectors.catalogue": defineMethod({
+    params: Type.Object({}),
+    result: Type.Object({ entries: Type.Array(ConnectorCatalogueEntry) }),
+    scope: "operator.read",
+    description: "Directory of connectors: first-party, remote MCP presets, custom.",
+  }),
+  "connectors.connect": defineMethod({
+    params: Type.Object({
+      catalogueId: Type.String({ minLength: 1, maxLength: 128 }),
+      scopeMode: StringEnum(["read", "read_act"]),
+      label: Type.Optional(Type.String({ maxLength: 200 })),
+      /** Non-secret settings only (`clientId`, `tenant`, …); secrets are `{{cred:slug}}` placeholders. */
+      config: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+      /** Re-authorize or change the mode of an existing connector. */
+      connectorId: Type.Optional(Id),
+    }),
+    result: Type.Object({
+      connector: Connector,
+      /** Present while a sign-in is pending; the connector is `needs_auth` until it completes. */
+      authorization: Type.Optional(ConnectorAuthorization),
+    }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: starts connecting (or re-authorizing) a connector. OAuth connectors return at once with the consent page in `authorization`; the result arrives as connectors.updated.",
+  }),
+  "connectors.disconnect": defineMethod({
+    params: Type.Object({ connectorId: Id }),
+    result: Type.Object({ connector: Connector }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: disconnects, revokes the provider tokens and invalidates pending work.",
+  }),
+  "connectors.status": defineMethod({
+    params: Type.Object({ connectorId: Id }),
+    result: Type.Object({
+      ok: Type.Boolean(),
+      status: ConnectorStatus,
+      detail: Type.Optional(Type.String()),
+      checkedAt: Type.Integer({ minimum: 0 }),
+    }),
+    scope: "operator.read",
+    description: "Health check of one connector.",
+  }),
+  "connectors.setMatrix": defineMethod({
+    params: Type.Object({ connectorId: Id, matrix: Type.Record(Type.String(), ActionRule) }),
+    result: Type.Object({ connector: Connector }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Side-effecting: sets allow / ask / deny per action; destructive and financial actions refuse allow.",
+  }),
   "connectors.list": defineMethod({
     params: Type.Object({}),
     result: Type.Object({ connectors: Type.Array(Connector) }),

@@ -1667,6 +1667,110 @@ export interface ConnectVerifyParams {
     signature: string;
 }
 
+export interface ConnectorsCatalogueResult {
+    entries: ConnectorCatalogueEntry[];
+}
+
+export interface ConnectorCatalogueEntry {
+    actions:     ConnectorCatalogueAction[];
+    auth:        string;
+    available:   boolean;
+    category:    string;
+    configured?: boolean;
+    description: string;
+    docsUrl?:    string;
+    id:          string;
+    label:       string;
+    remote?:     Remote;
+    scopes:      Scopes;
+    setupGuide?: string;
+    type:        string;
+    vendor:      string;
+}
+
+export interface ConnectorCatalogueAction {
+    approvalKind?: string;
+    defaultRule:   Decision;
+    id:            string;
+    sideEffect:    string;
+    title:         string;
+}
+
+export type Decision = "allow" | "ask" | "deny";
+
+export interface Remote {
+    readOnlyUrl?: string;
+    transport:    RemoteTransport;
+    url:          string;
+}
+
+export type RemoteTransport = "http";
+
+export interface Scopes {
+    read:     string[];
+    read_act: string[];
+}
+
+export interface ConnectorsConnectParams {
+    catalogueId:  string;
+    config?:      { [key: string]: unknown };
+    connectorId?: string;
+    label?:       string;
+    scopeMode:    ScopeMode;
+}
+
+export type ScopeMode = "read" | "read_act";
+
+export interface ConnectorsConnectResult {
+    authorization?: ConnectorAuthorization;
+    connector:      Connector;
+}
+
+export interface ConnectorAuthorization {
+    /**
+     * Epoch ms
+     */
+    expiresAt: number;
+    opened:    boolean;
+    /**
+     * https consent page, or the device-code verification page
+     */
+    url: string;
+    /**
+     * Device code flow: the code to enter
+     */
+    userCode?: string;
+}
+
+export interface Connector {
+    account?:      null | string;
+    actionMatrix:  { [key: string]: Decision };
+    config:        { [key: string]: unknown };
+    createdAt:     string;
+    credentialId?: null | string;
+    id:            string;
+    label:         string;
+    lastSync?:     { [key: string]: unknown } | null;
+    scopeMode:     ScopeMode;
+    scopes:        string[];
+    status:        ConnectorStatus;
+    /**
+     * google | microsoft | imap | jmap | stripe_link | mcp | apple:<app> | search:<provider>
+     */
+    type:      string;
+    updatedAt: string;
+}
+
+export type ConnectorStatus = "connected" | "disconnected" | "error" | "needs_auth";
+
+export interface ConnectorsDisconnectParams {
+    connectorId: string;
+}
+
+export interface ConnectorsDisconnectResult {
+    connector: Connector;
+}
+
 export interface ConnectorsGetCustomProposalParams {
     proposalId: string;
 }
@@ -1753,8 +1857,6 @@ export interface CustomConnectorTool {
     sideEffect:   SideEffectEnum;
 }
 
-export type Decision = "allow" | "ask" | "deny";
-
 export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export interface CustomConnectorParam {
@@ -1768,8 +1870,6 @@ export interface CustomConnectorParam {
 export type In = "path" | "query" | "body";
 
 export type SideEffectEnum = "read" | "write" | "destructive";
-
-export type ScopeMode = "read" | "read_act";
 
 export interface CustomConnectorProposalUpdate {
     /**
@@ -1786,27 +1886,6 @@ export interface ConnectorsGetParams {
 export interface ConnectorsGetResult {
     connector: Connector;
 }
-
-export interface Connector {
-    account?:      null | string;
-    actionMatrix:  { [key: string]: Decision };
-    config:        { [key: string]: unknown };
-    createdAt:     string;
-    credentialId?: null | string;
-    id:            string;
-    label:         string;
-    lastSync?:     { [key: string]: unknown } | null;
-    scopeMode:     ScopeMode;
-    scopes:        string[];
-    status:        ConnectorStatus;
-    /**
-     * google | microsoft | imap | jmap | stripe_link | mcp | apple:<app> | search:<provider>
-     */
-    type:      string;
-    updatedAt: string;
-}
-
-export type ConnectorStatus = "connected" | "disconnected" | "error" | "needs_auth";
 
 export interface ConnectorsInstallCustomParams {
     approvalId: string;
@@ -1837,6 +1916,34 @@ export interface Openapi {
 export interface ConnectorsRemoveCustomParams {
     connectorId: string;
 }
+
+export interface ConnectorsSetMatrixParams {
+    connectorId: string;
+    matrix:      { [key: string]: Decision };
+}
+
+export interface ConnectorsSetMatrixResult {
+    connector: Connector;
+}
+
+export interface ConnectorsStatusParams {
+    connectorId: string;
+}
+
+export interface ConnectorsStatusResult {
+    checkedAt: number;
+    detail?:   string;
+    ok:        boolean;
+    status:    ConnectorStatus;
+}
+
+export interface ConnectorsUpdatedPayload {
+    connector: Connector;
+    error?:    string;
+    reason:    ConnectorsUpdatedPayloadReason;
+}
+
+export type ConnectorsUpdatedPayloadReason = "connected" | "authorization_failed" | "disconnected" | "needs_auth" | "removed" | "updated";
 
 export interface CredentialUpdatedPayload {
     change:            Change;

@@ -18,6 +18,14 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-21 (S09, #505: a real connect flow)
+
+For S09 (the Gateway handlers and the asynchronous OAuth connect) and S11 (onboarding and Settings → Connectors read and drive it).
+
+- New methods `connectors.catalogue` (`operator.read`), `connectors.connect` (`operator.admin`), `connectors.disconnect` (`operator.admin`), `connectors.status` (`operator.read`), `connectors.setMatrix` (`operator.admin`). They were defined locally in `@psyche/connectors` and never mounted, so no client could connect anything.
+- `connectors.connect` returns at once. An OAuth connector comes back `needs_auth` with `authorization` (`url`, optional `userCode`, `expiresAt`, `opened` when the Gateway already opened the page on its machine); the outcome arrives as the new event `connectors.updated` (`connector`, `reason`, optional `error`).
+- New schemas `ConnectorCatalogueEntry` (with optional `configured`: false when the Gateway lacks e.g. the OAuth client id), `ConnectorCatalogueAction`, `ConnectorAuthorization`.
+
 ### v1 additive — 2026-10-20 (S17: voice mode, Q5)
 
 For S17 (`packages/speech` read-aloud), S11 (the shell's voice mode), S01 (mounting; `SPEECH_METHODS` mounts the new method automatically).
