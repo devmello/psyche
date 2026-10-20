@@ -31,7 +31,7 @@ The pane UI and the Electron `WebContentsView` host belong to S11.
 | `src/recording/` | `FileRecordingSink` (frames, snapshots and the event log), `RecordingStore` (reads them back for `browser.recordings.*`) |
 | `src/tools/` | `registerBrowserTools`, `classifyActivation`, `ApprovalGate` |
 | `@psyche/browser/testing` | fixture site DSL, `FixtureServer`, `MockBrowser`, `MockDesktop` |
-| `@psyche/browser/conformance` | `describeBrowserDriverConformance` (imports vitest) |
+| `@psyche/browser/conformance` | `describeBrowserDriverConformance` (imports vitest; a test-only entry, so `vitest` is a devDependency here and callers bring their own — it never reaches a production install, #299 DEP-12) |
 
 ## Design in one paragraph
 
@@ -115,6 +115,8 @@ Every click by ref is hit-tested first (`conflict {reason: "obscured"}` when ano
 **Purchase cards** (INT-2 scenario 1; data model §4.2): when a click, Enter or a submit is classed `purchase`, `describeCall` reads the latest snapshot of the tab (`src/tools/order.ts`) and the card's summary lists the merchant, the seller line, the items (name, quantity, price) and the total, marked "as shown on the page" since it is page text. The binding is the data model's: merchant origin (from the tab, not the page), amount, currency, a line-item hash and the payment method id (`null`; the browser never knows it). Right before the click the executor reads the page again and refuses with `conflict {reason: "order_changed"}` when the total or the items differ from what the card showed.
 
 **Page echoes** (S23 design-18): when the vault is wired, every tool output and error is checked with `containsSecret` (the Gateway derives it from `CredentialBroker.redact`). A page that reflects a vault value in its text, title, a dialog or its URL gets `policy_denied {reason: "secret_echo"}` with nothing from the page; navigating away ends it. The driver's snapshots and text are masked with the same `redact`, and recording summaries too.
+
+**Live element checks** (#291, TM-28 / TM-29): `describe()` reads the element's live attributes (type, autocomplete, form) through a fixed read-only helper, never its value, so the vault judges the field as it is now, not as the snapshot saw it. `fillSecret` checks focus and the vault's field-class rule (`fillElementAccepts`) again inside `ResolvedSecret.use`, right before `Input.insertText`, and checks focus once more after typing (`focus_moved_during_fill`). Screenshot and recording suppression is remembered per document a secret was typed into, so navigating back to it (including a bfcache restore) keeps screenshots refused.
 
 **Credential fill** (security §4.6) runs in this order:
 

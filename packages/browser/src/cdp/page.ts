@@ -1,5 +1,7 @@
 import {
   type CallOptions,
+  type FillElement,
+  type FillElementCheck,
   type NavigateResult,
   PsycheError,
   type ResolvedSecret,
@@ -68,6 +70,80 @@ export const CONTAINS_HELPER = `/* psyche:contains */ function (other) {
 export const FOCUS_HELPER = `/* psyche:focused */ function () {
   return { ok: document.activeElement === this };
 }`;
+
+/**
+ * Fixed helper: the element's live field facts and whether it is focused (TM-28). Attributes
+ * only, never the value, so a page that changes `type` after the snapshot is judged as it is now.
+ */
+export const FIELD_HELPER = `/* psyche:field */ function () {
+  const form = this.form || null;
+  const input = this.tagName === "INPUT";
+  return {
+    focused: document.activeElement === this,
+    tag: this.tagName,
+    type: input ? String(this.type || "text").toLowerCase() : undefined,
+    autocomplete: this.getAttribute("autocomplete") || undefined,
+    inputMode: this.getAttribute("inputmode") || undefined,
+    contentEditable: this.isContentEditable === true,
+    maxLength: input && this.maxLength > 0 ? this.maxLength : undefined,
+    formAction: form ? form.action : undefined,
+    formHasPassword: form ? form.querySelector('input[type="password"]') !== null : undefined,
+  };
+}`;
+
+/** What `FIELD_HELPER` returns. */
+export interface LiveField {
+  focused: boolean;
+  tag: string;
+  type?: string;
+  autocomplete?: string;
+  inputMode?: string;
+  contentEditable?: boolean;
+  maxLength?: number;
+  formAction?: string;
+  formHasPassword?: boolean;
+}
+
+/** The vault's view of an element (`FillElement`) from cached or live facts. */
+export function fillElementOf(meta: ElementMeta): FillElement {
+  const element: FillElement = { tagName: meta.tag.toLowerCase(), frameOrigin: meta.frameOrigin };
+  if (meta.inputType !== undefined) element.type = meta.inputType;
+  if (meta.autocomplete !== undefined) element.autocomplete = meta.autocomplete.toLowerCase();
+  if (meta.inputMode !== undefined) element.inputMode = meta.inputMode;
+  if (meta.contentEditable === true) element.contentEditable = true;
+  if (meta.maxLength !== undefined) element.maxLength = meta.maxLength;
+  if (meta.formHasPassword !== undefined) element.formHasPassword = meta.formHasPassword;
+  if (meta.formAction !== undefined) {
+    const fo = tryOrigin(meta.formAction);
+    if (fo !== undefined) element.formActionOrigin = fo;
+  }
+  return element;
+}
+
+/** Cached snapshot facts with the live ones laid over them. */
+function withLive(meta: ElementMeta, live: LiveField): ElementMeta {
+  const out: ElementMeta = { ...meta, tag: live.tag };
+  const set = <K extends keyof ElementMeta>(k: K, v: ElementMeta[K] | undefined) => {
+    if (v === undefined) delete out[k];
+    else out[k] = v;
+  };
+  set("inputType", live.type);
+  set("autocomplete", live.autocomplete);
+  set("inputMode", live.inputMode);
+  set("maxLength", live.maxLength);
+  set("formAction", live.formAction);
+  set("formHasPassword", live.formHasPassword);
+  out.contentEditable = live.contentEditable === true;
+  const ac = (live.autocomplete ?? "").toLowerCase();
+  out.secure = meta.secure || live.type === "password" || /one-time-code|cc-/.test(ac);
+  return out;
+}
+
+/** A document's identity for "was a secret filled here" (TM-29): the URL without its fragment. */
+function documentKey(url: string): string {
+  const i = url.indexOf("#");
+  return i === -1 ? url : url.slice(0, i);
+}
 
 /** Fixed helper: starts a download of `url` from the page's context (cookies apply). */
 export const DOWNLOAD_HELPER = `/* psyche:download */ function (url) {
@@ -198,6 +274,11 @@ export class PageController {
   #stoppedUrl: string | undefined;
   #fetching = false;
   #filledSinceNav = false;
+  /**
+   * Documents a secret was typed into (TM-29). A back / forward or bfcache restore of one of them
+   * can bring the value back, so screenshots and recording frames stay suppressed there.
+   */
+  #filledDocs = new Set<string>();
   /** Main-frame document requests since the current navigation started (0 = initial hop). */
   #docHops = 0;
 
@@ -308,7 +389,7 @@ export class PageController {
         this.#worlds.clear();
         this.#dialog = undefined;
         this.#setSecure(false);
-        this.#filledSinceNav = false;
+        this.#filledSinceNav = this.#filledDocs.has(documentKey(frame.url));
         this.refs.setDocument(`${this.#loaderId}|${this.#url}`);
         this.#docHops = 0;
         for (const w of this.#loadWaiters) {
@@ -829,9 +910,17 @@ export class PageController {
     return this.refs.has(ref) ? { ...this.refs.resolve(ref).meta } : undefined;
   }
 
+  /**
+   * Element facts as they are now (TM-28): the snapshot's, with the live attributes laid over them
+   * when the page answers. The vault judges a fill on these, and `fillSecret` checks again.
+   */
   async describe(ref: string): Promise<ElementMeta> {
     this.#assertReadable();
-    return { ...this.refs.resolve(ref).meta };
+    const entry = this.refs.resolve(ref);
+    const live = await this.#isolatedCall<LiveField>(entry.backendNodeId, FIELD_HELPER, []).catch(
+      () => undefined,
+    );
+    return live === undefined ? { ...entry.meta } : withLive(entry.meta, live);
   }
 
   async screenshot(): Promise<{ mime: "image/png"; data: Uint8Array }> {
@@ -1174,7 +1263,18 @@ export class PageController {
     this.#dialog = undefined;
   }
 
-  async fillSecret(ref: string, secret: ResolvedSecret, origin: string): Promise<void> {
+  /**
+   * Types a vault secret into `ref` (security §4.6). `accepts` is the vault's field-class rule
+   * (`fillElementAccepts`); it is applied to the element's live facts right before the value is
+   * sent, together with the focus check, so a page cannot swap `type=password` for `text` or move
+   * focus between the approval and the keystrokes (TM-28).
+   */
+  async fillSecret(
+    ref: string,
+    secret: ResolvedSecret,
+    origin: string,
+    accepts?: (element: FillElement) => FillElementCheck,
+  ): Promise<void> {
     this.#assertActionable();
     const want = canonicalizeUrl(origin).origin;
     if (this.origin !== want) {
@@ -1184,19 +1284,39 @@ export class PageController {
     }
     const e = this.#resolveRef(ref);
     const loader = this.#loaderId;
+    // The element as it is at this moment: focused, and still the field class the vault allows.
+    const check = async (): Promise<LiveField> => {
+      const live = await this.#isolatedCall<LiveField>(e.backendNodeId, FIELD_HELPER, []);
+      // Focus must be on the approved element: a focus handler could move it to another field
+      // or into a frame (security §4.6; review finding 6a).
+      if (live?.focused !== true) {
+        throw new PsycheError(
+          "policy_denied",
+          `${ref} did not keep focus; the fill was not typed`,
+          {
+            details: { reason: "focus_moved" },
+          },
+        );
+      }
+      const verdict = accepts?.(fillElementOf(withLive(e.meta, live)));
+      if (verdict !== undefined && !verdict.ok) {
+        throw new PsycheError(
+          "policy_denied",
+          `${ref} is no longer a field this credential may go into; the fill was not typed`,
+          { details: { reason: verdict.reason ?? "field_mismatch" } },
+        );
+      }
+      return live;
+    };
     await this.#t.send("DOM.focus", { backendNodeId: e.backendNodeId });
-    // Focus must have landed on the approved element: a focus handler could move it to another
-    // field or into a frame (security §4.6; review finding 6a).
-    const focused = await this.#isolatedCall<{ ok: boolean }>(e.backendNodeId, FOCUS_HELPER, []);
-    if (focused?.ok !== true) {
-      throw new PsycheError("policy_denied", `${ref} did not keep focus; the fill was not typed`, {
-        details: { reason: "focus_moved" },
-      });
-    }
+    const before = await check();
     this.#filledSinceNav = true;
-    await secret.use((value) => {
-      // Last check right before the value leaves: same document, same origin, agent in control.
+    this.#filledDocs.add(documentKey(this.#url));
+    await secret.use(async (value) => {
+      // Last look right before the value leaves (TM-28): agent in control, same document and
+      // origin, the element still focused and still an acceptable field.
       this.#o.assertAgent();
+      await check();
       if (this.#loaderId !== loader || this.origin !== want) {
         throw new PsycheError("policy_denied", "the page changed before the fill", {
           details: { reason: "page_changed" },
@@ -1204,7 +1324,18 @@ export class PageController {
       }
       return this.#t.send("Input.insertText", { text: value });
     });
-    if (e.meta.secure) this.#setSecure(true);
+    if (e.meta.secure || before.type === "password") this.#setSecure(true);
+    // Focus moving during the keystrokes means part of the value may sit elsewhere: say so.
+    const after = await this.#isolatedCall<LiveField>(e.backendNodeId, FIELD_HELPER, []).catch(
+      () => undefined,
+    );
+    if (after?.focused !== true) {
+      throw new PsycheError(
+        "policy_denied",
+        `focus left ${ref} while the secret was being typed; check the page before going on`,
+        { details: { reason: "focus_moved_during_fill" } },
+      );
+    }
   }
 
   // --- waiting -----------------------------------------------------------------------------

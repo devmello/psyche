@@ -277,6 +277,16 @@ export class MockTab implements CdpTarget {
     return undefined;
   }
 
+  /** Test hook: the page script changes a field's `type` (TM-28). */
+  setFieldType(name: string, type: string): void {
+    for (const el of this.#doc.els.values()) if (el.attrs.name === name) el.attrs.type = type;
+  }
+
+  /** Test hook: page script moves focus to another field. */
+  focusField(name: string): void {
+    for (const el of this.#doc.els.values()) if (el.attrs.name === name) this.#focused = el;
+  }
+
   // --- document model ----------------------------------------------------------------------
 
   #build(page: FxPage, url: string, host: FxHost, frameId: string, crossOrigin: boolean): MockDoc {
@@ -468,9 +478,16 @@ export class MockTab implements CdpTarget {
 
   // --- CDP ---------------------------------------------------------------------------------
 
+  /**
+   * Test hook: runs before each CDP command is handled, so a test can play a page that changes
+   * itself at a precise moment (TM-28: flip `type` right before the fill's keystrokes).
+   */
+  beforeCommand: ((method: string, params: Record<string, unknown>) => void) | undefined;
+
   async send<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
     if (this.closed) throw new PsycheError("not_found", "target closed");
     this.calls.push(method);
+    this.beforeCommand?.(method, params);
     return (await this.#handle(method, params)) as T;
   }
 
@@ -756,6 +773,30 @@ export class MockTab implements CdpTarget {
     }
     if (fn.includes("psyche:focused")) {
       return { result: { type: "object", value: { ok: this.#focused === el } } };
+    }
+    if (fn.includes("psyche:field")) {
+      // Live attributes, as FIELD_HELPER reads them in a real page.
+      let form: MockEl | undefined = el.parent;
+      while (form !== undefined && form.tag !== "FORM") form = form.parent;
+      const input = el.tag === "INPUT";
+      const hasPassword =
+        form === undefined
+          ? undefined
+          : [...this.#doc.els.values()].some((x) => {
+              let p = x.parent;
+              while (p !== undefined && p !== form) p = p.parent;
+              return p === form && x.tag === "INPUT" && x.attrs.type === "password";
+            });
+      const value: Record<string, unknown> = {
+        focused: this.#focused === el,
+        tag: el.tag,
+        contentEditable: false,
+      };
+      if (input) value.type = (el.attrs.type ?? "text").toLowerCase();
+      if (el.attrs.autocomplete !== undefined) value.autocomplete = el.attrs.autocomplete;
+      if (form?.attrs.action !== undefined) value.formAction = form.attrs.action;
+      if (hasPassword !== undefined) value.formHasPassword = hasPassword;
+      return { result: { type: "object", value } };
     }
     if (fn.includes("psyche:download")) {
       void this.navigateTo(String(args[0]?.value), "GET", { downloadOnly: true });

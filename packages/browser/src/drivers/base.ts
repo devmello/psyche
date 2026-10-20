@@ -6,6 +6,8 @@ import {
   type DriverProfile,
   type DriverSession,
   type DriverTab,
+  type FillElement,
+  type FillElementCheck,
   type NavigateResult,
   type PageSnapshot,
   type PermissionBroker,
@@ -690,7 +692,13 @@ export abstract class DriverBase implements BrowserDriverEx {
   tabOrigin(tabId: string): string | undefined {
     return this.tabs.get(tabId)?.page.origin;
   }
-  fillSecret(tabId: string, ref: string, secret: ResolvedSecret, origin: string): Promise<void> {
+  fillSecret(
+    tabId: string,
+    ref: string,
+    secret: ResolvedSecret,
+    origin: string,
+    accepts?: (element: FillElement) => FillElementCheck,
+  ): Promise<void> {
     // Never the value: the credential id, the element and the origin are all Activity sees.
     this.record(tabId, {
       kind: "fill",
@@ -699,7 +707,7 @@ export abstract class DriverBase implements BrowserDriverEx {
       ...this.#elementOf(tabId, { ref }),
       detail: { credentialId: secret.credentialId, origin },
     });
-    return this.#page(tabId).fillSecret(ref, secret, origin);
+    return this.#page(tabId).fillSecret(ref, secret, origin, accepts);
   }
   /** After an approved `new_origin`: unblock content or replay a stopped navigation. */
   retryBlocked(tabId: string): Promise<"unblocked" | "renavigated" | "unchanged"> {

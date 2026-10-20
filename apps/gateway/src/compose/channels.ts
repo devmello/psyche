@@ -266,10 +266,14 @@ function fileCursorStore(path: string): IMessageCursorStore {
 }
 
 /**
- * Taint the turn's own input carries (security §3.6, #275): each forwarded or untrusted quoted
- * part, from the forwarder or the quoted chat. The owner sending it does not make it theirs.
+ * Taint the turn's own input carries (security §3.6, #275): forwarded or quoted third-party text,
+ * a non-owner's words and attachments. The owner sending it does not make it theirs.
  */
 export function inputTaintSources(event: ChannelInboundEvent): TaintSource[] {
+  // The channel service names them itself (forwarded, quoted, non-owner words, attachments;
+  // origin `<type>:<chatId>`, sender = author): its list is the one to start the turn with.
+  if (event.taintSources !== undefined) return event.taintSources.map((t) => ({ ...t }));
+  // Events built without it (other adapters' sinks, tests): derive from the parts.
   const m = event.message;
   const out: TaintSource[] = [];
   for (const p of event.parts) {

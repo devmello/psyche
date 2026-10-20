@@ -17062,6 +17062,9 @@
         },
         "provenanceOut": {
           "$ref": "#/$defs/ProvenanceOut"
+        },
+        "descriptionProvenance": {
+          "$ref": "#/$defs/ProvenanceOut"
         }
       },
       "required": [
