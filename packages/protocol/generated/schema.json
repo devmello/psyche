@@ -274,6 +274,11 @@
         "payload": "#/$defs/SkillChangeEvent"
       },
       {
+        "description": "An installed skill's pinned source now has different content; review it with skills.proposeUpdate (nothing is installed until approved).",
+        "name": "skills.updated",
+        "payload": "#/$defs/SkillUpdateStatus"
+      },
+      {
         "description": "One chunk of read-aloud PCM for progressive playback; last marks the end of audio.",
         "name": "speech.audio",
         "payload": "#/$defs/SpeechAudioPayload"
@@ -1345,6 +1350,14 @@
         "sideEffecting": true
       },
       {
+        "description": "Re-fetches installed skills from their pinned sources (no install) and reports which changed; emits skills.updated for each update found.",
+        "name": "skills.checkUpdates",
+        "params": "#/$defs/SkillsCheckUpdatesParams",
+        "result": "#/$defs/SkillsCheckUpdatesResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Enabled user-invocable skills as composer slash commands.",
         "name": "skills.commands",
         "params": "#/$defs/EmptyParams",
@@ -1393,7 +1406,7 @@
         "sideEffecting": true
       },
       {
-        "description": "Side-effecting: fetches and scans a skill and opens a device-only skill_install approval.",
+        "description": "Side-effecting: fetches and scans a skill and opens a device-only skill_install approval; policy_denied (details.violations) when its manifest asks for more than the policy allows.",
         "name": "skills.proposeInstall",
         "params": "#/$defs/SkillsProposeInstallParams",
         "result": "#/$defs/SkillProposalResult",
@@ -14095,6 +14108,12 @@
         },
         "commit": {
           "type": "string"
+        },
+        "manifest": {
+          "$ref": "#/$defs/SkillManifest"
+        },
+        "update": {
+          "$ref": "#/$defs/SkillUpdateStatus"
         }
       },
       "required": [
@@ -14176,6 +14195,37 @@
           "type": "object"
         }
       ]
+    },
+    "SkillManifest": {
+      "properties": {
+        "tools": {
+          "description": "Tool names or `family.*` globs, sorted, without duplicates",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "permissions": {
+          "description": "Approval kinds the skill expects its steps to request, sorted",
+          "items": {
+            "$ref": "#/$defs/ApprovalKind"
+          },
+          "type": "array"
+        },
+        "prompts": {
+          "description": "Prompt files inside the skill folder (relative paths), sorted",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "tools",
+        "permissions",
+        "prompts"
+      ],
+      "type": "object"
     },
     "SkillProposal": {
       "properties": {
@@ -14260,6 +14310,9 @@
           "description": "Epoch ms",
           "minimum": 0,
           "type": "integer"
+        },
+        "manifest": {
+          "$ref": "#/$defs/SkillManifest"
         }
       },
       "required": [
@@ -14393,6 +14446,73 @@
         "unknown"
       ],
       "type": "string"
+    },
+    "SkillUpdateStatus": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "installedHash": {
+          "type": "string"
+        },
+        "availableHash": {
+          "description": "Tree hash at the source; absent when the check failed",
+          "type": "string"
+        },
+        "commit": {
+          "description": "Git sources: the commit the ref names",
+          "type": "string"
+        },
+        "updateAvailable": {
+          "type": "boolean"
+        },
+        "manifestChanged": {
+          "description": "The update declares different tools, permissions or prompts",
+          "type": "boolean"
+        },
+        "error": {
+          "description": "Why the source could not be checked",
+          "type": "string"
+        },
+        "checkedAt": {
+          "description": "Epoch ms",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "installedHash",
+        "updateAvailable",
+        "manifestChanged",
+        "checkedAt"
+      ],
+      "type": "object"
+    },
+    "SkillsCheckUpdatesParams": {
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "SkillsCheckUpdatesResult": {
+      "properties": {
+        "updates": {
+          "items": {
+            "$ref": "#/$defs/SkillUpdateStatus"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "updates"
+      ],
+      "type": "object"
     },
     "SkillsCommandsResult": {
       "properties": {
@@ -15014,6 +15134,9 @@
             }
           ]
         },
+        "workspace": {
+          "$ref": "#/$defs/TaskWorkspace"
+        },
         "summary": {
           "anyOf": [
             {
@@ -15352,6 +15475,13 @@
         "task"
       ],
       "type": "object"
+    },
+    "TaskWorkspace": {
+      "enum": [
+        "sandbox",
+        "vm"
+      ],
+      "type": "string"
     },
     "TasksActionsParams": {
       "properties": {
@@ -17117,6 +17247,14 @@
       ],
       "type": "object"
     },
+    "VmClipboardMode": {
+      "enum": [
+        "paste-only",
+        "bidirectional",
+        "off"
+      ],
+      "type": "string"
+    },
     "VmCreateParams": {
       "properties": {
         "name": {
@@ -17272,6 +17410,43 @@
       "required": [
         "type",
         "phase"
+      ],
+      "type": "object"
+    },
+    "VmSettings": {
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "guestNodeId": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "defaultWorkspace": {
+          "$ref": "#/$defs/TaskWorkspace"
+        },
+        "clipboard": {
+          "$ref": "#/$defs/VmClipboardMode"
+        },
+        "credentials": {
+          "enum": [
+            "host",
+            "guest"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "enabled",
+        "defaultWorkspace",
+        "clipboard",
+        "credentials"
       ],
       "type": "object"
     },
