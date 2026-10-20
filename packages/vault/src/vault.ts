@@ -120,6 +120,16 @@ export interface UpdateItemInput {
   requireAuthEachUse?: boolean;
 }
 
+/** What `connectorTokens` hands a connector (G13). */
+export interface ConnectorTokenRead {
+  accessToken: ResolvedSecret;
+  refreshToken: ResolvedSecret | null;
+  expiresAt: string | null;
+  scopes: string[];
+  tokenType: string | null;
+  obtainedAt: string | null;
+}
+
 export interface ImportResult {
   format: ImportFormat;
   imported: CredentialMeta[];
@@ -1219,6 +1229,62 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       kind: "oauth_token",
       connectorId: input.connectorId,
     });
+    return structuredClone(meta);
+  }
+
+  /** The connector's own item, if it stored one (`ownerConnectorId`). */
+  connectorItem(connectorId: string): CredentialMeta | undefined {
+    return this.#o.meta.list().find((m) => m.ownerConnectorId === connectorId);
+  }
+
+  /**
+   * Everything a connector stored for its OAuth session, values as one-shot handles. Owner only;
+   * the connector itself is the executor (its API calls are approved per action).
+   */
+  async connectorTokens(credentialId: string, connectorId: string): Promise<ConnectorTokenRead> {
+    const { item } = this.#owned(credentialId, connectorId);
+    const target = { kind: "account" as const, value: connectorId };
+    const s = item.secret;
+    for (const v of [s.token, s.refreshToken]) if (v !== undefined) this.#redactor.markSticky(v);
+    this.#recordUse(item.id, "connector", connectorId, "", undefined, "filled", null);
+    return {
+      accessToken: new ResolvedSecret(s.token ?? "", { credentialId, field: "token", target }),
+      refreshToken:
+        s.refreshToken === undefined
+          ? null
+          : new ResolvedSecret(s.refreshToken, { credentialId, target }),
+      expiresAt: s.expiresAt ?? null,
+      scopes: s.scopes ?? [],
+      tokenType: s.tokenType ?? null,
+      obtainedAt: s.obtainedAt ?? null,
+    };
+  }
+
+  /** Replace a connector's token set atomically (re-consent, or a refresh done by the connector). */
+  async replaceConnectorTokens(
+    credentialId: string,
+    connectorId: string,
+    tokens: OAuthTokenSet & { tokenType?: string; obtainedAt?: string },
+  ): Promise<CredentialMeta> {
+    const { u, item } = this.#owned(credentialId, connectorId);
+    const secret: ItemSecret = { token: tokens.accessToken };
+    if (tokens.refreshToken !== undefined) secret.refreshToken = tokens.refreshToken;
+    if (tokens.expiresAt !== undefined) secret.expiresAt = tokens.expiresAt;
+    if (tokens.scopes !== undefined) secret.scopes = tokens.scopes;
+    if (tokens.tokenType !== undefined) secret.tokenType = tokens.tokenType;
+    if (tokens.obtainedAt !== undefined) secret.obtainedAt = tokens.obtainedAt;
+    const updated: ItemRow = { ...item, secret, updatedAt: toIso(this.clock.now()) };
+    u.store.transaction(() => u.store.update(updated));
+    for (const v of secretValues(secret)) this.#redactor.add(v, { sticky: true });
+    const meta = this.#metaOf(updated, this.#o.meta.get(credentialId));
+    this.#o.meta.upsert(meta);
+    this.#emit("credential.updated", {
+      credentialId,
+      change: "rotated",
+      credential: meta,
+      ownerConnectorId: connectorId,
+    });
+    await this.#audit("credential.rotated", { credentialId, connectorId });
     return structuredClone(meta);
   }
 

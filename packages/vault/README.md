@@ -116,6 +116,16 @@ These four are registered on main (PR #47). System keychain mode (G9) also needs
 
 The card's 3-digit CVC is shorter than the redactor's minimum, so it is protected by never leaving the 0600 file and the fill, not by masking.
 
+### Connector OAuth tokens for `@psyche/connectors` (G13)
+
+`new VaultTokenVault(vault, { bindings })` matches connectors' `TokenVault` (`load` / `save` / `clear`). It is typed structurally, so the vault does not import the connectors package.
+
+- **`save`:** creates an `oauth_token` item owned by the connector, `connector-<id>`, bound to `{connector: <id>}` plus any API hosts. Later saves replace the whole token set atomically (`replaceConnectorTokens`); old values stay masked for the life of the process.
+- **`load`:** reads through `connectorTokens`, which checks the owner and records a `connector` use row.
+- **`clear` (disconnect):** revokes the item. This emits `onRevoked` and `credential.updated {change: "revoked"}`, so connection-bound work is invalidated.
+- **While locked:** reads fail `unavailable`.
+- **Gateway:** replace `MemoryTokenVault` in `apps/gateway/src/compose/connectors.ts` with `new VaultTokenVault(vault)`.
+
 ## How it maps to the docs
 
 | Doc | Where |

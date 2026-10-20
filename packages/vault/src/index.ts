@@ -21,6 +21,12 @@ export {
   strictCanonicalJSON,
 } from "./binding.ts";
 export {
+  connectorSlug,
+  type StoredConnectorTokens,
+  VaultTokenVault,
+  type VaultTokenVaultOptions,
+} from "./connectors/tokenVault.ts";
+export {
   type Argon2Params,
   base32Decode,
   base32Encode,
@@ -141,6 +147,7 @@ export {
 export { parseTotpSeed, type TotpSeed, totpCode } from "./totp.ts";
 export {
   type AddItemInput,
+  type ConnectorTokenRead,
   DEFAULT_AUTO_LOCK_MINUTES,
   type ImportResult,
   type UpdateItemInput,
