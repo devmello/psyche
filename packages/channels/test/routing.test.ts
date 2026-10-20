@@ -55,6 +55,23 @@ describe("dmScope isolation", () => {
   });
 });
 
+describe("an allowlisted sender has no delegation (#293)", () => {
+  it("gets a chat-only route: no tools, no memory, untrusted; the owner keeps the full set", async () => {
+    const h = await harness({ channel: { allowFrom: [OWNER, FRIEND] } });
+    await h.adapter.receive({ senderId: FRIEND, text: "what did Sam text you this morning?" });
+    await h.adapter.receive({ senderId: OWNER, text: "hi" });
+    const [friend, owner] = h.delivered.map((d) => d.route);
+    expect(friend).toMatchObject({
+      role: "allowed",
+      toolAllow: [],
+      injectMemory: false,
+      provenance: "untrusted",
+    });
+    expect(owner?.role).toBe("owner");
+    expect(owner?.toolAllow).toBeUndefined();
+  });
+});
+
 describe("identity links", () => {
   it("merge one person's senders across channels into one per-peer session", async () => {
     const h = await harness({ channel: { dmScope: "per-peer", allowFrom: [OWNER, FRIEND] } });
