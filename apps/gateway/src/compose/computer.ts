@@ -366,6 +366,38 @@ function clip(text: string, max: number): string {
  * (apps/mac-helper `AXSnapshot.render`). Only line starts count, so refs quoted inside labels
  * or values (untrusted text) cannot claim to be elements.
  */
+/** Longest label kept in the element map and on cards (characters). */
+export const MAX_LABEL_CHARS = 200;
+/** Longest snapshot line the model reads; the rest is cut with an ellipsis. */
+export const MAX_SNAPSHOT_LINE_CHARS = 1_000;
+
+const LINE_BREAKS: Record<string, string> = {
+  "\r": "\\r",
+  "\u000b": "\\v",
+  "\u000c": "\\f",
+  "\u0085": "\\u0085",
+  "\u2028": "\\u2028",
+  "\u2029": "\\u2029",
+};
+
+/**
+ * The snapshot text as the model reads it (#271): lines end at `\n` only. Every other line
+ * terminator inside AX text (`\r`, VT, FF, NEL, U+2028, U+2029) is shown as an escape, so page or
+ * document text cannot draw a line that looks like an element to the model either; each line
+ * is bounded.
+ */
+export function sanitizeSnapshot(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => {
+      const safe = Array.from(line, (c) => LINE_BREAKS[c] ?? c).join("");
+      return safe.length > MAX_SNAPSHOT_LINE_CHARS
+        ? `${safe.slice(0, MAX_SNAPSHOT_LINE_CHARS)}…`
+        : safe;
+    })
+    .join("\n");
+}
+
 export function elementsIn(text: string): { ref: string; role: string; label?: string }[] {
   const out: { ref: string; role: string; label?: string }[] = [];
   // Lines end at `\n` only: a `\r`, U+2028 or U+2029 inside a label is part of the label, never
@@ -375,7 +407,8 @@ export function elementsIn(text: string): { ref: string; role: string; label?: s
     if (m === null) continue;
     const [, ref, role, rest] = m;
     if (ref === undefined || role === undefined) continue;
-    const label = /^ "([^\n]*?)"(?= |$)/.exec(rest ?? "")?.[1];
+    const raw = /^ "([^\n]*?)"(?= |$)/.exec(rest ?? "")?.[1];
+    const label = raw === undefined ? undefined : raw.slice(0, MAX_LABEL_CHARS);
     out.push({ ref, role, ...(label === undefined ? {} : { label }) });
   }
   return out;
@@ -1026,7 +1059,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           tier?: unknown;
           hint?: unknown;
         };
-        const text = typeof r.text === "string" ? r.text : "";
+        // What the element map and the model see: \n lines only, bounded (#271).
+        const text = sanitizeSnapshot(typeof r.text === "string" ? r.text : "");
         session?.snapshotted.add(p.app.toLowerCase());
         remember(p.app, text);
         return {
