@@ -1,11 +1,13 @@
-import { writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { PsycheError, type SkillUpdateCheck } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
 import { parseSkill } from "../src/frontmatter.ts";
 import { createSkillsHandlers } from "../src/handlers.ts";
 import { manifestOf } from "../src/manifest.ts";
 import { deniedToolsFromPolicy, policyViolations } from "../src/policy.ts";
+import { hasBlockingFindings } from "../src/scanner.ts";
 import { readSkillDir } from "../src/tree.ts";
 import { approve, setup, skillMd, tempDir, writeSkill } from "./helpers.ts";
 
@@ -205,4 +207,42 @@ describe("update detection", () => {
     expect(u?.updateAvailable).toBe(false);
     expect(u?.error).toBeTruthy();
   });
+});
+
+describe("injection corpus: malicious SKILL.md", () => {
+  const corpus = JSON.parse(
+    readFileSync(
+      fileURLToPath(
+        new URL("../../../tests/corpus/injection/cases/mcp-skills-memory.json", import.meta.url),
+      ),
+      "utf8",
+    ),
+  ) as { cases: { id: string; vector: string; payload: { content: string } }[] };
+  const skillCases = corpus.cases.filter((c) => c.vector === "skill_file");
+
+  it("has skill_file cases", () => {
+    expect(skillCases.length).toBeGreaterThan(0);
+  });
+
+  for (const c of skillCases) {
+    it(`${c.id}: installs disabled and never reaches the prompt`, async () => {
+      const t = setup();
+      const parsed = parseSkill(c.payload.content);
+      if (!parsed.ok) throw new Error(parsed.errors.join());
+      const name = parsed.skill.meta.name;
+      const src = join(tempDir(), name);
+      mkdirSync(src);
+      writeFileSync(join(src, "SKILL.md"), c.payload.content);
+      const p = await t.loader.proposeInstall({ kind: "path", path: src });
+      expect(hasBlockingFindings(p.findings)).toBe(true);
+      expect(p.findings.map((f) => f.rule)).toEqual(
+        expect.arrayContaining(["pipe-to-shell", "agent-directed-instruction"]),
+      );
+      const s = await t.loader.install(p.id, await approve(t.broker, t.clock, p));
+      expect(s.enabled).toBe(false);
+      expect((await t.loader.promptIndex()).included).not.toContain(name);
+      // The owner's switch cannot turn a skill with high findings on.
+      expect((await rejects(t.loader.setEnabled(name, true))).code).toBe("policy_denied");
+    });
+  }
 });
