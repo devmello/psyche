@@ -309,6 +309,8 @@ export interface ComputerDeps {
    * pause-when-unwatched (docs/05 §7.2 item 5, #272). Absent: not enforced.
    */
   lastOwnerInput?(): number | undefined;
+  /** True when the desktop reported the computer-use pane hidden (`attention.report`, #272). */
+  paneHidden?(): boolean;
   now?: () => number;
   logger?: Logger;
 }
@@ -878,11 +880,12 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
 
   /**
    * Pause-when-unwatched (§7.2 item 5, #272): in a sensitive (messaging or mail) app, an action
-   * while the owner gave no input for 5 minutes always gets a card, so an unattended Task parks
-   * on it until the owner is back.
+   * while the owner gave no input for 5 minutes, or while the desktop reports the pane hidden,
+   * always gets a card, so an unattended Task parks on it until the owner is back.
    */
   function unwatched(app: string): boolean {
     if (deps.lastOwnerInput === undefined || !isSendApp(app)) return false;
+    if (deps.paneHidden?.() === true) return true;
     const at = deps.lastOwnerInput();
     return at === undefined || now() - at > ATTENTION_WINDOW_MS;
   }
@@ -1366,10 +1369,10 @@ export function composeComputer(services: ComposeServices): ComposedPart {
   let gateway: Gateway | undefined;
   const offs: (() => void)[] = [];
   let unregister: (() => void)[] = [];
-  // The owner's last own input (pause-when-unwatched, #272): their messages and approval answers.
-  let ownerInputAt: number | undefined;
   const cu = createComputerUse({
-    lastOwnerInput: () => ownerInputAt,
+    // Pause-when-unwatched (#272): the Gateway's shared view of the owner's attention.
+    lastOwnerInput: () => services.attention.lastInput(),
+    paneHidden: () => services.attention.paneHidden("computer"),
     broker: services.broker,
     helper: computerHelper(() => gateway),
     context: (callId) => services.calls.context(callId),
@@ -1399,13 +1402,6 @@ export function composeComputer(services: ComposeServices): ComposedPart {
         gw.bus.subscribe(["operator.read"], (frame) => {
           const f = JSON.parse(frame) as { event?: string; payload?: Record<string, unknown> };
           const p = f.payload ?? {};
-          if (f.event === "chat.message") {
-            const m = p.message as { role?: string; provenance?: string } | undefined;
-            if (m?.role === "user" && m.provenance === "owner") ownerInputAt = services.clock.now();
-          } else if (f.event === "approval.updated") {
-            const a = p.approval as { decidedBy?: { deviceId?: string } | null } | undefined;
-            if (typeof a?.decidedBy?.deviceId === "string") ownerInputAt = services.clock.now();
-          }
           if (f.event === "run.updated") {
             const run = p.run as { id: string; status: string } | undefined;
             if (run !== undefined && RUN_FINISHED.has(run.status)) void cu.runEnded(run.id);
