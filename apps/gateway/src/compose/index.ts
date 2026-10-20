@@ -7,6 +7,7 @@ import {
 } from "@psyche/agent-core";
 import { createAuditLog, type HashChainAuditLog } from "@psyche/audit";
 import { getDevice, getSetting, getThread, openDb, type PsycheDb } from "@psyche/db";
+import { fileTools } from "@psyche/files";
 import {
   brokerApprovalCheck,
   createMemoryHandlers,
@@ -58,7 +59,6 @@ import { createLogger } from "../log.ts";
 import { type Gateway, type GatewayOptions, startGateway } from "../server.ts";
 import { ApprovalTokens } from "./approval-tokens.ts";
 import { CallContexts } from "./call-context.ts";
-import { fileTools } from "./file-tools.ts";
 import {
   mountParamsOnly,
   mountPermissions,
@@ -73,9 +73,9 @@ import {
   type ComposeServices,
   createOwnPorts,
 } from "./services.ts";
+import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
-import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 
 /**
@@ -337,7 +337,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
 
   const registry = new AgentToolRegistry();
-  for (const tool of fileTools()) registry.register(tool);
+  // P9 file tools (#49); the executors re-check the live granted folders behind the broker.
+  for (const tool of fileTools({ folders: () => rawBroker.policy.folders }))
+    registry.register(tool);
   // E12 cross-thread awareness: registered only while the owner has turned it on.
   let gatewayRef: Gateway | null = null;
   const crossThread = crossThreadToggle(
@@ -560,6 +562,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   };
 }
 
+export { fileTools } from "@psyche/files";
 export { type BrowserSetup, type ComposedBrowser, composeBrowser } from "./browser.ts";
 export { CallContexts } from "./call-context.ts";
 export {
@@ -575,7 +578,6 @@ export {
   composeConnectors,
   MemoryTokenVault,
 } from "./connectors.ts";
-export { fileTools } from "./file-tools.ts";
 export {
   composeHelper,
   HELPER_SURFACE,
@@ -594,8 +596,6 @@ export {
   type RealChromeStatus,
 } from "./real-chrome.ts";
 export type { ApprovalRelay, ComposedPart, ComposeServices, OwnPorts } from "./services.ts";
-export { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
-export { type ModelPins, modelPinsFor, restoreModelPins } from "./threads.ts";
 export {
   composeSpeech,
   dbMessageSource,
@@ -604,6 +604,8 @@ export {
   speechNode,
   speechSetupFromEnv,
 } from "./speech.ts";
+export { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
+export { type ModelPins, modelPinsFor, restoreModelPins } from "./threads.ts";
 export {
   type ComposedVault,
   chooseWrapper,

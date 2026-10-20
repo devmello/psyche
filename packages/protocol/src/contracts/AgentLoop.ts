@@ -1,6 +1,7 @@
 import type {
   Decision,
   GrantScope,
+  JsonObject,
   ModelRef,
   PermissionMode,
   ProvenanceOut,
@@ -216,6 +217,11 @@ export interface ToolCallDescription {
   grantKey?: string;
   /** One-line status for the transcript, e.g. `Opened united.com`. */
   summary?: string;
+  /**
+   * What the approval card shows besides the params (e.g. `{path, diff}` for `file_write`).
+   * Display only: never part of the binding, and it cannot override `tool`, `params` or `target`.
+   */
+  details?: JsonObject;
 }
 
 /**

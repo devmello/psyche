@@ -1300,6 +1300,7 @@ export class PsycheAgentLoop implements AgentLoop {
         kind: approvalKind,
         summary: desc.summary ?? `${call.name}`,
         details: {
+          ...desc.details,
           tool: call.name,
           params: call.input as unknown,
           ...(target === undefined ? {} : { target }),
