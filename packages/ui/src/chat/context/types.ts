@@ -1,49 +1,96 @@
+import type {
+  Block,
+  ContextBreakdown,
+  ContextUsage,
+  EffectiveContextLimits,
+} from "@psyche/protocol";
+
 /**
- * What the chat's context UI shows (owner priority after #447). These view models follow the
- * agent-core brief for `threads.contextUsage`, `thread.context.updated` and compaction messages;
- * the connected wiring maps the protocol shapes onto them once they land (docs/status/s02.md).
+ * What the chat's context UI shows. The view models are the protocol's `threads.contextUsage`,
+ * `thread.context.updated` and `compaction` block shapes (docs/status/s02.md), flattened for the
+ * meter and the marker by `usageView` and `compactionView`.
  */
 
-/** Where a turn's tokens go. */
-export interface ContextBreakdown {
-  systemPrompt: number;
-  tools: number;
-  /** Memory, persona files, daily notes and other injected context. */
-  memory: number;
-  history: number;
-  currentMessage: number;
-}
+export type { ContextBreakdown };
+
+export type CompactionBlock = Extract<Block, { type: "compaction" }>;
 
 export interface ContextUsageView {
-  /** Tokens the next model call carries. */
+  /** Prompt tokens of the last turn's last model call. */
   used: number;
-  /** The thread's context limit (`context.maxTokens`, or the model's context length). */
+  /** The thread's context limit (`maxTokens`: thread, settings or the model's window). */
   limit: number;
-  /** Compaction starts at this many tokens (`context.compactAt` × limit). */
+  /** Where the limit comes from. */
+  limitFrom?: EffectiveContextLimits["maxTokensFrom"];
+  /** Compaction starts at this many tokens (`compactAt` × limit). */
   compactAt: number;
   /** True when the provider counted the tokens; false for an estimate. */
   exact: boolean;
   breakdown: ContextBreakdown;
 }
 
-/** A compaction message (kind "compaction") in the transcript. */
+export type CompactionSummary = CompactionBlock["summary"];
+
+/** A compaction (a `compaction` block in a system message) in the transcript. */
 export interface CompactionView {
   id: string;
+  trigger: "auto" | "manual";
   tokensBefore: number;
   tokensAfter: number;
-  /** How many earlier messages it replaced. */
-  replacedCount: number;
-  summaryMd: string;
+  /** How many earlier turns it replaced (they stay in the transcript). */
+  replacedTurns: number;
+  /** The utility model's plain-text summary, never Markdown. */
+  summary: CompactionSummary;
   createdAt: string;
 }
 
 export const BREAKDOWN_LABEL: Record<keyof ContextBreakdown, string> = {
-  systemPrompt: "System prompt",
+  system: "System prompt",
   tools: "Tools",
-  memory: "Memory and context",
+  context: "Memory and context",
   history: "Conversation so far",
-  currentMessage: "Current message",
+  current: "Current message",
 };
+
+export const SUMMARY_LABEL: Record<keyof CompactionSummary, string> = {
+  facts: "Facts",
+  decisions: "Decisions",
+  openTasks: "Open tasks",
+  pinnedInstructions: "Standing instructions",
+};
+
+export const LIMIT_FROM_LABEL: Record<EffectiveContextLimits["maxTokensFrom"], string> = {
+  thread: "this chat's own limit",
+  settings: "the limit in Settings",
+  model: "the model's context window",
+};
+
+/** The meter's view of a turn's usage under the thread's effective limits. */
+export function usageView(
+  usage: ContextUsage,
+  limits: EffectiveContextLimits = usage.limits,
+): ContextUsageView {
+  return {
+    used: usage.promptTokens,
+    limit: limits.maxTokens,
+    limitFrom: limits.maxTokensFrom,
+    compactAt: Math.round(limits.maxTokens * limits.compactAt),
+    exact: !usage.estimated,
+    breakdown: usage.breakdown,
+  };
+}
+
+export function compactionView(block: CompactionBlock, createdAt: string): CompactionView {
+  return {
+    id: block.compactionId,
+    trigger: block.trigger,
+    tokensBefore: block.tokensBefore,
+    tokensAfter: block.tokensAfter,
+    replacedTurns: block.replaced.turns,
+    summary: block.summary,
+    createdAt,
+  };
+}
 
 /** "12.4k", "200k", "1.2M": compact token counts for pills and markers. */
 export function formatTokens(n: number): string {

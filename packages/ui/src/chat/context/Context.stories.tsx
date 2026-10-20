@@ -9,22 +9,31 @@ const usage = (used: number, exact = true): ContextUsageView => ({
   limit: 200_000,
   compactAt: 160_000,
   exact,
+  limitFrom: "model",
   breakdown: {
-    systemPrompt: 6_200,
+    system: 6_200,
     tools: 9_800,
-    memory: 4_100,
+    context: 4_100,
     history: used - 6_200 - 9_800 - 4_100 - 900,
-    currentMessage: 900,
+    current: 900,
   },
 });
 
 const compaction: CompactionView = {
-  id: "msg_compaction_1",
+  id: "cmp_1",
+  trigger: "auto",
   tokensBefore: 148_200,
   tokensAfter: 3_100,
-  replacedCount: 42,
-  summaryMd:
-    "- Booked the dentist for **Tuesday 2:30** with Dr. Ortiz.\n- The owner prefers mornings; avoid Fridays.\n- Open: confirm the insurance form before Monday.",
+  replacedTurns: 42,
+  summary: {
+    facts: [
+      "The dentist appointment is Tuesday 2:30 with Dr. Ortiz.",
+      "The owner prefers mornings.",
+    ],
+    decisions: ["Avoid Fridays for appointments."],
+    openTasks: ["Confirm the insurance form before Monday."],
+    pinnedInstructions: ["Always give times in 24-hour format."],
+  },
   createdAt: "2026-10-20T10:00:00Z",
 };
 
@@ -45,6 +54,15 @@ export const MeterNearThreshold: Story = {
 };
 export const MeterPastThreshold: Story = {
   render: () => <ContextMeter usage={usage(171_000)} onCompact={() => {}} />,
+};
+export const MeterThreadLimit: Story = {
+  render: () => (
+    <ContextMeter
+      usage={{ ...usage(41_000), limit: 64_000, compactAt: 51_200, limitFrom: "thread" }}
+      onCompact={() => {}}
+      onEditLimits={() => {}}
+    />
+  ),
 };
 export const MeterEstimate: Story = { render: () => <ContextMeter usage={usage(58_000, false)} /> };
 export const MeterCompacting: Story = {

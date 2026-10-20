@@ -5,6 +5,8 @@ import {
   type AgentTab,
   AppearanceProvider,
   ChatThread,
+  compactThread,
+  compactWithToast,
   FeedScreen,
   GatewayProvider,
   GoalsScreen,
@@ -18,10 +20,13 @@ import {
   Rail,
   type RailItem,
   SearchScreen,
+  ThreadContextDialog,
+  ThreadContextMeter,
   ThreadList,
   Toaster,
   type UiSlots,
   UiSlotsProvider,
+  useStore,
   useThread,
 } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
@@ -57,6 +62,8 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
     tab: "activity",
   });
   const incognito = useThread(threadId).thread?.thread.kind === "incognito";
+  const [limitsOpen, setLimitsOpen] = useState(false);
+  const store = useStore();
   const [level, setLevel] = useTranscriptMode();
   // File blocks open in the Files pane (P4); a ref keeps the slots stable across renders.
   const openPane = useRef(ctx.openPane);
@@ -83,7 +90,13 @@ function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }):
           {...(ctx.thread?.modelRef
             ? { model: ctx.thread.modelRef, onOpenModelPicker: ctx.openModelPicker }
             : {})}
+          context={
+            <ThreadContextMeter threadId={threadId} onEditLimits={() => setLimitsOpen(true)} />
+          }
+          onContextLimits={() => setLimitsOpen(true)}
+          onCompact={() => void compactWithToast(() => compactThread(store, threadId))}
         />
+        <ThreadContextDialog threadId={threadId} open={limitsOpen} onOpenChange={setLimitsOpen} />
         <TranscriptModeBar level={level} onChange={setLevel} incognito={incognito} />
         <ChatThread threadId={threadId} disclosure={level} onDisclosureChange={setLevel} />
         <AgentSheet

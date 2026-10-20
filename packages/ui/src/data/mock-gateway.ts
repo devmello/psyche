@@ -1,4 +1,11 @@
-import type { EndpointProbe, ModelProviderSummary, ModelRoles } from "@psyche/protocol";
+import type {
+  ContextLimits,
+  ContextUsage,
+  EffectiveContextLimits,
+  EndpointProbe,
+  ModelProviderSummary,
+  ModelRoles,
+} from "@psyche/protocol";
 import {
   type ApprovalRequest,
   type Artifact,
@@ -102,7 +109,14 @@ export interface MockWorld {
   modelRoles?: ModelRoles;
   /** What `models.probe` finds per provider id (recorded fixtures); missing → unreachable. */
   modelProbes?: Record<string, EndpointProbe>;
+  /** The last turn's context usage by thread id (`threads.contextUsage`). */
+  contextUsage?: Record<string, ContextUsage>;
+  /** Each thread's own context limits (`threads.setContextLimits`). */
+  contextLimits?: Record<string, ContextLimits>;
 }
+
+/** The model window the mock reports when a thread has no usage yet. */
+export const MOCK_CONTEXT_WINDOW = 200_000;
 
 export const EMPTY_WORLD: MockWorld = {
   threads: [],
@@ -448,6 +462,32 @@ export class MockGateway implements GatewayClient {
     (this.world[key] as unknown) = [...list.filter((x) => x.id !== entity.id), entity];
   }
 
+  /** Effective context limits: the thread's own, then `context.*` settings, then the model. */
+  private contextLimits(threadId: string): EffectiveContextLimits {
+    const own = this.world.contextLimits?.[threadId] ?? {};
+    const set = (k: string) => {
+      const v = this.world.settings[`context.${k}`];
+      return typeof v === "number" ? v : undefined;
+    };
+    const contextWindow =
+      this.world.contextUsage?.[threadId]?.limits.contextWindow ?? MOCK_CONTEXT_WINDOW;
+    const fromSettings = set("maxTokens");
+    return {
+      maxTokens: Math.min(own.maxTokens ?? fromSettings ?? contextWindow, contextWindow),
+      compactAt: own.compactAt ?? set("compactAt") ?? 0.8,
+      keepRecentTurns: own.keepRecentTurns ?? set("keepRecentTurns") ?? 4,
+      contextWindow,
+      maxTokensFrom:
+        own.maxTokens !== undefined ? "thread" : fromSettings !== undefined ? "settings" : "model",
+    };
+  }
+
+  /** Records a turn's context usage and emits `thread.context.updated` (stories, tests). */
+  reportContextUsage(usage: ContextUsage): void {
+    this.world.contextUsage = { ...this.world.contextUsage, [usage.threadId]: usage };
+    this.emit("thread.context.updated", { usage });
+  }
+
   private thread(threadId: string): ThreadListEntry {
     return (
       this.world.threads.find((t) => t.thread.id === threadId) ??
@@ -553,6 +593,77 @@ export class MockGateway implements GatewayClient {
         parentThreadId: source.id,
       }) as { thread: ThreadListEntry["thread"] };
       return this.patchThread(created.thread.id, { forkedFromMessageId: p.messageId });
+    },
+
+    "threads.contextUsage": (p) => {
+      this.thread(p.threadId);
+      const limits = this.contextLimits(p.threadId);
+      const usage = this.world.contextUsage?.[p.threadId];
+      return {
+        usage: usage === undefined ? null : { ...usage, limits },
+        limits,
+        threadLimits: this.world.contextLimits?.[p.threadId] ?? {},
+      };
+    },
+    "threads.setContextLimits": (p) => {
+      this.thread(p.threadId);
+      const window = this.contextLimits(p.threadId).contextWindow;
+      if (p.limits?.maxTokens !== undefined && p.limits.maxTokens > window)
+        fail("invalid_params", `maxTokens is above the model's window (${window})`);
+      const { [p.threadId]: _old, ...rest } = this.world.contextLimits ?? {};
+      this.world.contextLimits = p.limits === null ? rest : { ...rest, [p.threadId]: p.limits };
+      return {
+        limits: this.contextLimits(p.threadId),
+        threadLimits: this.world.contextLimits[p.threadId] ?? {},
+      };
+    },
+    "threads.compact": (p) => {
+      this.thread(p.threadId);
+      if (this.world.runs.some((r) => r.threadId === p.threadId && r.status === "running"))
+        fail("conflict", "the thread is running");
+      const limits = this.contextLimits(p.threadId);
+      const turns = this.world.messages
+        .filter((m) => m.threadId === p.threadId && m.role !== "system")
+        .sort((a, b) => a.seq - b.seq);
+      const owner = turns.filter((m) => m.role === "user");
+      const keepFrom = owner[owner.length - limits.keepRecentTurns];
+      if (keepFrom === undefined || keepFrom === owner[0]) return { compaction: null };
+      const replaced = turns.filter((m) => m.seq < keepFrom.seq);
+      const before = this.world.contextUsage?.[p.threadId]?.promptTokens ?? replaced.length * 900;
+      const after = Math.max(600, Math.round(before / 8));
+      const compactionId = this.id("cmp");
+      const message = this.commitMessage(p.threadId, "system", [
+        {
+          type: "compaction",
+          compactionId,
+          trigger: "manual",
+          summary: { facts: [], decisions: [], openTasks: [], pinnedInstructions: [] },
+          replaced: {
+            turns: replaced.filter((m) => m.role === "user").length,
+            fromMessageId: replaced[0]?.id ?? null,
+            toMessageId: replaced[replaced.length - 1]?.id ?? null,
+          },
+          tokensBefore: before,
+          tokensAfter: after,
+        },
+      ]);
+      const usage = this.world.contextUsage?.[p.threadId];
+      if (usage !== undefined)
+        this.reportContextUsage({
+          ...usage,
+          promptTokens: after,
+          breakdown: { ...usage.breakdown, history: Math.max(0, after - usage.breakdown.system) },
+          compactions: usage.compactions + 1,
+        });
+      return {
+        compaction: {
+          compactionId,
+          messageId: message.id,
+          tokensBefore: before,
+          tokensAfter: after,
+          replacedTurns: replaced.filter((m) => m.role === "user").length,
+        },
+      };
     },
 
     "chat.history": (p) => ({

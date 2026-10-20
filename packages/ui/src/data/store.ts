@@ -374,6 +374,21 @@ export class GatewayStore {
           v,
         );
       }
+      case "thread.context.updated": {
+        const u = e.payload.usage;
+        const prev = s.threadContext[u.threadId];
+        return touch(
+          {
+            ...s,
+            threadContext: {
+              ...s.threadContext,
+              [u.threadId]: { ...prev, usage: u, limits: u.limits },
+            },
+          },
+          `threadContext:${u.threadId}`,
+          v,
+        );
+      }
       case "feed.updated": {
         let next = s;
         for (const post of e.payload.posts)
