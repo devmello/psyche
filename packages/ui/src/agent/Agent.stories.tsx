@@ -1,10 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { IDS } from "../fixtures/index.ts";
 import { STORY_NOW, withWorld } from "../stories/harness.tsx";
 import { ActivityPanel } from "./ActivityPanel.tsx";
 import { AgentHeader } from "./AgentHeader.tsx";
-import { AgentSheetBody, type AgentTab } from "./AgentSheet.tsx";
+import { AgentSheet, AgentSheetBody, type AgentTab } from "./AgentSheet.tsx";
 import { ApprovalsPanel } from "./ApprovalsPanel.tsx";
 import { SoulMemoryPanel } from "./SoulMemoryPanel.tsx";
 import { UpcomingPanel } from "./UpcomingPanel.tsx";
@@ -51,7 +51,7 @@ export const HeaderOffline: Story = {
 function SheetBody({ initial }: { initial: AgentTab }) {
   const [tab, setTab] = useState<AgentTab>(initial);
   return (
-    <div className="flex h-[640px] max-w-xl flex-col p-4">
+    <div className="flex h-[720px] max-w-xl flex-col p-6">
       <AgentSheetBody tab={tab} onTabChange={setTab} now={STORY_NOW} />
     </div>
   );
@@ -62,8 +62,27 @@ export const SheetApprovals: Story = { render: () => <SheetBody initial="approva
 export const SheetUpcoming: Story = { render: () => <SheetBody initial="upcoming" /> };
 export const SheetSoulAndMemory: Story = { render: () => <SheetBody initial="soul" /> };
 
+/** The modal side sheet as the avatar opens it (§2.3): 64 px avatar, name and status on top. */
+export const SheetOpen: Story = {
+  render: function Render() {
+    const [tab, setTab] = useState<AgentTab>("activity");
+    return (
+      <AgentSheet open onOpenChange={() => {}} tab={tab} onTabChange={setTab} now={STORY_NOW} />
+    );
+  },
+};
+
+/** The panels on their own sit in the sheet's 24 px gutter, as they do inside the sheet. */
+function Gutter({ children }: { children: ReactNode }) {
+  return <div className="max-w-xl p-6">{children}</div>;
+}
+
 export const ActivityTaskDetail: Story = {
-  render: () => <ActivityPanel initialTaskId={IDS.tasks.dentist} now={STORY_NOW} />,
+  render: () => (
+    <Gutter>
+      <ActivityPanel initialTaskId={IDS.tasks.dentist} now={STORY_NOW} />
+    </Gutter>
+  ),
 };
 export const ActivityEmpty: Story = {
   decorators: [
@@ -73,7 +92,11 @@ export const ActivityEmpty: Story = {
       },
     }),
   ],
-  render: () => <ActivityPanel now={STORY_NOW} />,
+  render: () => (
+    <Gutter>
+      <ActivityPanel now={STORY_NOW} />
+    </Gutter>
+  ),
 };
 export const ApprovalsNothingNeedsYou: Story = {
   decorators: [
@@ -83,7 +106,11 @@ export const ApprovalsNothingNeedsYou: Story = {
       },
     }),
   ],
-  render: () => <ApprovalsPanel now={STORY_NOW} />,
+  render: () => (
+    <Gutter>
+      <ApprovalsPanel now={STORY_NOW} />
+    </Gutter>
+  ),
 };
 export const UpcomingEmpty: Story = {
   decorators: [
@@ -93,14 +120,20 @@ export const UpcomingEmpty: Story = {
       },
     }),
   ],
-  render: () => <UpcomingPanel now={STORY_NOW} />,
+  render: () => (
+    <Gutter>
+      <UpcomingPanel now={STORY_NOW} />
+    </Gutter>
+  ),
 };
 export const SoulDailyNote: Story = {
   render: () => (
-    <SoulMemoryPanel
-      initialFile="memory/2026-10-18.md"
-      onStartIncognito={() => {}}
-      onImport={() => {}}
-    />
+    <Gutter>
+      <SoulMemoryPanel
+        initialFile="memory/2026-10-18.md"
+        onStartIncognito={() => {}}
+        onImport={() => {}}
+      />
+    </Gutter>
   ),
 };
