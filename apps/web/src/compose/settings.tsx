@@ -207,6 +207,13 @@ export function settingsRoute(
         section={section}
         onSectionChange={(id) => navigate(`/settings/${id}`)}
         onOpenTask={(taskId) => navigate(`/agent/activity/${taskId}`)}
+        {...(platform.dialogs?.pickFolder
+          ? {
+              onPickSkillFolder: () =>
+                platform.dialogs?.pickFolder({ title: "Choose a skill folder" }) ??
+                Promise.resolve(null),
+            }
+          : {})}
         {...(platform.browser?.openRealChromeProfile
           ? {
               onOpenRealChromeProfile: (profile: string) =>

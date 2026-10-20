@@ -7,6 +7,8 @@ export * from "./gating.ts";
 export * from "./handlers.ts";
 export * from "./loader.ts";
 export * from "./lock.ts";
+export * from "./manifest.ts";
+export * from "./policy.ts";
 export * from "./prompt.ts";
 export * from "./scanner.ts";
 export * from "./sources.ts";

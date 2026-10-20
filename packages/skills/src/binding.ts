@@ -1,35 +1,15 @@
-import { createHash } from "node:crypto";
+import { bindingFor, type SkillInstallBindingArgs } from "@psyche/permissions";
 
-/** Sorted-key JSON over strings, numbers, booleans, arrays and plain objects (security §3.5). */
-export function canonicalJSON(value: unknown): string {
-  if (value === null || typeof value === "boolean") return JSON.stringify(value);
-  if (typeof value === "number") {
-    if (!Number.isFinite(value)) throw new TypeError("canonicalJSON: non-finite number");
-    return JSON.stringify(value);
-  }
-  if (typeof value === "string") return JSON.stringify(value.normalize("NFC"));
-  if (Array.isArray(value)) return `[${value.map(canonicalJSON).join(",")}]`;
-  if (typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype) {
-    const obj = value as Record<string, unknown>;
-    const keys = Object.keys(obj)
-      .filter((k) => obj[k] !== undefined)
-      .sort();
-    return `{${keys.map((k) => `${JSON.stringify(k.normalize("NFC"))}:${canonicalJSON(obj[k])}`).join(",")}}`;
-  }
-  throw new TypeError(`canonicalJSON: unsupported ${typeof value}`);
+/**
+ * `skill_install` binding (security §3.5, data model §4.2): the Permission Broker's own table, so
+ * the hash the card carries and the one `install` verifies cannot drift. It covers the name,
+ * scope, source, pinned commit, whole-tree hash and the declared tools, approval kinds and prompt
+ * files; the grant key is `{name, scope}` (`skill_install` is `once`-only, so no grant is stored).
+ */
+export function skillInstallBinding(args: SkillInstallBindingArgs): {
+  bindingHash: `sha256:${string}`;
+  grantKey: string;
+} {
+  const b = bindingFor("skill_install", args);
+  return { bindingHash: b.bindingHash as `sha256:${string}`, grantKey: b.grantKey };
 }
-
-/** `bindingHash` for `skill_install` (security §3.5 formula; fields documented in the README). */
-export function skillInstallBinding(fields: {
-  name: string;
-  scope: "home" | "workspace";
-  source: unknown;
-  treeHash: string;
-}): `sha256:${string}` {
-  const digest = createHash("sha256")
-    .update(`psyche.binding.v1|skill_install|${canonicalJSON(fields)}`)
-    .digest("hex");
-  return `sha256:${digest}`;
-}
-
-export const skillInstallGrantKey = (name: string) => `skill_install|${name}`;
