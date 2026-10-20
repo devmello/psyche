@@ -6,8 +6,8 @@ import type { SlackWebSocket } from "../../src/adapters/slack/index.ts";
  * `apps.connections.open`), records every call, and lets a test push envelopes and see acks.
  */
 
-export const BOT_TOKEN = "xoxb-test-bot-SECRET";
-export const APP_TOKEN = "xapp-test-app-SECRET";
+export const BOT_TOKEN = "fake-slack-bot-token-SECRET";
+export const APP_TOKEN = "fake-slack-app-token-SECRET";
 export const BOT_USER = "UPSYCHE01";
 export const TEAM = "T0TEAM";
 
