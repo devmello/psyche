@@ -1,4 +1,6 @@
 import {
+  type ApprovalKind,
+  type JsonObject,
   PsycheError,
   type SideEffect,
   type Target,
@@ -27,6 +29,16 @@ export interface HarnessAction {
   targetKind?: TargetKind;
   target?: Target;
   summary: string;
+  /**
+   * The card this action asks with, when it is one Psyche already has: `file_write` for an edit,
+   * `exec` for a command, `git_push` for a push (always asked, `once` only). Absent means the
+   * broker infers one (`connector_action` for harness tools).
+   */
+  kind?: ApprovalKind;
+  /** The binding fields for `kind` (security §3.5); the params hash is always bound as well. */
+  bindingFields?: unknown;
+  /** What the card shows besides the input (a diff, the command, the remote). */
+  details?: JsonObject;
 }
 
 export type HarnessGateResult =
@@ -36,6 +48,8 @@ export type HarnessGateResult =
 export interface HarnessRunContext {
   /** Working folder the session is scoped to (a granted folder or a sandbox path). */
   cwd: string;
+  /** The delegating call's run, for approvals the harness's executor requests itself. */
+  run?: { runId: string; threadId: string; taskId?: string; callId: string; taint: boolean };
   brief: string;
   signal: AbortSignal;
   /** Ask Psyche before every action; resolves after any approval wait. Deny means do not run it. */
@@ -157,6 +171,13 @@ export function harnessDelegateTool(harnesses: HarnessRegistry): AgentToolRegist
       const done = turn.harnessActionDone;
       const result = await plugin.run({
         cwd: p.cwd,
+        run: {
+          runId: ctx.runId,
+          threadId: ctx.threadId,
+          ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
+          callId: ctx.callId,
+          taint: ctx.taint,
+        },
         brief: p.brief,
         signal: ctx.signal,
         gate: (action) => gate(plugin.id, ctx.callId, action),

@@ -89,6 +89,7 @@ import {
   receiptHandlers,
   surfaceOf,
 } from "./handlers.ts";
+import { composeHarnesses } from "./harnesses.ts";
 import { libraryHandlers } from "./library.ts";
 import {
   type HostedModelKind,
@@ -109,6 +110,7 @@ import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { protectedRoots } from "./protected-paths.ts";
 import { createRateLimits } from "./rate-limits.ts";
+import type { ComposedSandbox } from "./sandbox.ts";
 import {
   type ApprovalRelay,
   type ComposedPart,
@@ -683,6 +685,19 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   launcher = proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool);
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
+  // C10: Claude Code behind harness.delegate, only once the owner configured harness.claudeCode.
+  parts.push(
+    composeHarnesses({
+      db,
+      loop,
+      vault: vault.vault,
+      broker: executorBroker,
+      sandbox: parts.find(
+        (p): p is ComposedSandbox => "runner" in p && "egress" in p && "track" in p,
+      ),
+      folders: () => rawBroker.policy.folders ?? [],
+    }),
+  );
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
   parts.push(
     composePlugins({
