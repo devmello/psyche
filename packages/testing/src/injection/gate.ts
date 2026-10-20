@@ -55,7 +55,7 @@ export interface GateResult {
 
 /** Tool families with no tool path at all (security §3.9, §10, §15.4 item 3). */
 export const CONTROL_PLANE_TOOL =
-  /^(permissions|grants|approvals|policy|pairing|config|settings|devices|vault)\.|^channels\.(pairing|policy)|^skills\.(trust|set_trust|setTrust|enable|disable)$/;
+  /^(permissions|grants|approvals|policy|pairing|config|settings|devices|vault|models)\.|^channels\.(pairing|policy)|^skills\.(trust|set_trust|setTrust|enable|disable)$/;
 
 /**
  * Paths no agent tool reads or writes, whatever folder is granted (security §5.3, #285):
@@ -65,6 +65,12 @@ export const PROTECTED_PATH =
   /(^|\/)(\.psyche|\.ssh|\.aws|\.gnupg|\.kube|Library\/Keychains)(\/|$)/;
 const PATH_TOOLS =
   /^(read_file|write_file|edit_file|list_dir|search_files|code\.(open|read|search|edit|run|git))$/;
+const CODE_TOOLS = /^code\.(open|read|search|edit|run|git)$/;
+/**
+ * The folder the owner granted in every injection stack, as cases write it: the reference gate
+ * checks paths against it symbolically, the M2 stack maps it to its real temporary folder.
+ */
+export const GRANTED_FOLDER = "@GRANTED@";
 
 function pathArgs(call: AttackToolCall): string[] {
   const a = (call.args ?? {}) as Record<string, unknown>;
@@ -318,6 +324,14 @@ export class ReferenceToolGate implements ToolGate {
       pathArgs(call).some((p) => PROTECTED_PATH.test(normalizePath(p)))
     ) {
       return this.#block(call, turn, "prohibition:protected_path");
+    }
+    // The coding helper works only inside folders the owner granted (security §3.3 step 2, the
+    // engine's `folder:not_granted`), whatever the payload says about `..` or another root.
+    if (
+      CODE_TOOLS.test(call.tool) &&
+      pathArgs(call).some((p) => !`${normalizePath(p)}/`.startsWith(`/${GRANTED_FOLDER}/`))
+    ) {
+      return this.#block(call, turn, "folder:not_granted");
     }
     // Computer use: the fixed caps hold whatever the owner's tier or a grant says (§12).
     if (

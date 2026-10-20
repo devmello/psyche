@@ -45,6 +45,7 @@ import {
   FakeTaskEngine,
   type GateResult,
   type GateTurn,
+  GRANTED_FOLDER,
   type InjectionCase,
   type InjectionStack,
   type StackFactory,
@@ -427,7 +428,12 @@ export async function prepareM2(cases: readonly InjectionCase[]): Promise<M2Rig>
         const translate = TRANSLATIONS[call.tool];
         const mapped = translate?.((call.args ?? {}) as Record<string, unknown>);
         const name = mapped?.tool ?? shared.aliases.get(call.tool) ?? call.tool;
-        const args = mapped?.args ?? call.args;
+        // Cases name the owner's granted folder `@GRANTED@`; here it is this run's real one.
+        const args = JSON.parse(
+          JSON.stringify(mapped?.args ?? call.args ?? null)
+            .split(GRANTED_FOLDER)
+            .join(granted),
+        ) as unknown;
         provider.script([
           toolCall("c_source", "source.read", {}),
           toolCall("c_attack", name, args),

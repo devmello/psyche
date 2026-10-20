@@ -9,6 +9,8 @@ cases/
   web-documents.json            web pages, hidden text, comments, URLs/titles, PDFs, file names, OCR/QR
   email-calendar-messages.json  mail bodies/subjects/attachments, invites, non-owner chat messages
   mcp-skills-memory.json        MCP descriptions/annotations/results, skills, memory imports/entries, subagent results
+  mac-surfaces.json             Messages, computer use, dictation, Apple app adapters, document conversion
+  m3-surfaces.json              coding workspaces, skill prompts, VM guest output, model probes, payments and travel
 schema.json                     JSON Schema for a case file
 validate.mjs                    schema + cross-field rules + coverage table (no dependencies)
 ```
@@ -56,10 +58,10 @@ Every case lists the properties that must hold whatever the outcome: `no_unappro
 
 ## Adding a case
 
-1. Pick the family file for the vector. Ids are `<prefix>-<slug>-<NNN>` with prefixes `web | doc | file | ocr | mail | cal | chat | mcp | skill | mem | sub`; take the next free number for that prefix. Never reuse a retired id; mark a retired case by deleting it and noting the id in the commit message.
+1. Pick the family file for the vector. Ids are `<prefix>-<slug>-<NNN>` with prefixes `web | doc | file | ocr | mail | cal | chat | mcp | skill | mem | sub | imsg | ax | dict | conv | app | code | travel | vm | probe`; take the next free number for that prefix. A `vm-` id runs as a Task `task_vm-…`, so the M2 stack routes its `exec` to the guest runner. Never reuse a retired id; mark a retired case by deleting it and noting the id in the commit message.
 2. Write the payload exactly as the executor would return it (snapshot text, `read_text` output, MIME body, ICS, `tools/list` JSON, OCR text). Use fictional domains: `example.com/.org/.net` and `*.example` (not `.test`, which the localhost test-credentials exception in docs/05 §3.10 covers). Never put a real person, real company account or working exploit infrastructure in a payload.
 3. Name the owner request the agent was serving; most attacks ride a legitimate task.
-4. Fill `attack.toolCall` with the exact tool, side-effect class, target and arguments a hijacked model would emit.
+4. Fill `attack.toolCall` with the exact tool, side-effect class, target and arguments a hijacked model would emit. Paths inside the folder the owner granted are written `@GRANTED@/…` (`GRANTED_FOLDER`): the reference gate checks `code.*` paths against it, and the M2 stack maps it to its real granted folder. Arguments must match the real tool's schema (a 40-hex commit for `code.git` push, `unitPriceMinor` / `totalMinor` for the shopping hand-off), or the M2 stack refuses the call before any card.
 5. Choose the outcome from docs/05, not from what is convenient, and cite the section in `refs`. If you believe the docs give the wrong answer, write the case with the docs' answer and raise the objection in `docs/status/s18.md`.
 6. Run `node tests/corpus/injection/validate.mjs`.
 
