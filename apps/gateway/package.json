@@ -1,6 +1,6 @@
 {
   "name": "@psyche/gateway",
-  "version": "0.0.0",
+  "version": "0.3.0-alpha.0",
   "private": true,
   "description": "psyched: the Psyche Gateway (bootstrap skeleton; S01 takes it from here)",
   "license": "Apache-2.0",

@@ -1,6 +1,6 @@
 {
   "name": "@psyche/cli",
-  "version": "0.0.0",
+  "version": "0.3.0-alpha.0",
   "private": true,
   "description": "The psyche CLI; talks only to the Gateway API.",
   "license": "Apache-2.0",
