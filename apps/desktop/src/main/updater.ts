@@ -2,31 +2,38 @@ import { execFile } from "node:child_process";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { app, autoUpdater } from "electron";
+import { TRUSTED_RELEASE_KEYS } from "./release-keys.ts";
+import {
+  checkForVerifiedUpdate,
+  serveVerifiedUpdate,
+  type UpdaterStateFile,
+  writeUpdaterState,
+} from "./update-flow.ts";
 
 /**
- * Auto-update (feature A6), a placeholder.
+ * Auto-update (feature A6; security §11). Before Squirrel.Mac sees anything, the updater fetches
+ * `update-manifest.json` from the pinned release host, verifies its Ed25519 signature with a key
+ * embedded in the app (release-keys.ts), refuses downgrades and artifacts outside the pinned
+ * host, downloads the zip and checks its SHA-256 and size (update-flow.ts). Only the verified file
+ * is offered to Squirrel, through a loopback feed; Squirrel then checks the code signature too.
  *
- * Security §11 requires that before anything is staged the updater verifies a release manifest
- * (version, per-artifact SHA-256, minimum version) signed with the offline Ed25519 release key
- * embedded in the app, refuses downgrades and fetches only from the pinned release host.
- * Squirrel.Mac checks the code signature only, so until that manifest check exists (S22/C2) this
- * never calls `setFeedURL`: with a feed configured on a packaged, Developer ID-signed build it
- * logs that the feed is a placeholder and returns.
+ * Off for unpackaged or unsigned builds, and while no release key is embedded.
  */
 
-/** Flip only when the signed-manifest verification from security §11 is in place. */
-const MANIFEST_VERIFICATION_READY = false;
-
 export type UpdaterState =
-  | "disabled" // no feed, unpackaged, or unsigned
-  | "placeholder" // feed configured but manifest verification is not implemented
-  | "started";
+  | "disabled" // unpackaged, unsigned, or not macOS
+  | "no_keys" // no release key embedded yet: updates stay off
+  | "none" // up to date (or no manifest published)
+  | "refused" // a manifest or artifact failed verification; nothing applied
+  | "started"; // a verified update is handed to Squirrel
 
 export interface UpdaterOptions {
-  /** Defaults to PSYCHE_UPDATE_FEED. */
+  /** Overrides the feed (PSYCHE_UPDATE_FEED); still must be on the pinned release host. */
   feedUrl?: string;
   /** Defaults to stderr. */
   log?: (message: string) => void;
+  /** `$PSYCHE_HOME/run/updater.json`: the result, for `psyche security audit`. */
+  stateFile?: string;
 }
 
 function stderrLog(message: string): void {
@@ -48,31 +55,71 @@ async function isDeveloperIdSigned(): Promise<boolean> {
   }
 }
 
-function parseFeed(feedUrl: string | undefined): URL | undefined {
-  if (!feedUrl) return undefined;
-  try {
-    const url = new URL(feedUrl);
-    return url.protocol === "https:" ? url : undefined;
-  } catch {
-    return undefined;
+export async function startUpdater(opts: UpdaterOptions = {}): Promise<UpdaterState> {
+  const state = await runUpdater(opts);
+  if (opts.stateFile) {
+    try {
+      writeUpdaterState(opts.stateFile, {
+        state: state.state,
+        appVersion: app.getVersion(),
+        keys: TRUSTED_RELEASE_KEYS.length,
+        checkedAt: new Date().toISOString(),
+        ...(state.code ? { code: state.code } : {}),
+        ...(state.reason ? { reason: state.reason } : {}),
+        ...(state.release ? { release: state.release } : {}),
+      });
+    } catch {
+      // The audit then reports the check as not run; the update itself is unaffected.
+    }
   }
+  return state.state;
 }
 
-export async function startUpdater(opts: UpdaterOptions = {}): Promise<UpdaterState> {
+type RunResult = { state: UpdaterState } & Partial<
+  Pick<UpdaterStateFile, "code" | "reason" | "release">
+>;
+
+async function runUpdater(opts: UpdaterOptions): Promise<RunResult> {
   const log = opts.log ?? stderrLog;
-  const feed = parseFeed(opts.feedUrl ?? process.env.PSYCHE_UPDATE_FEED);
-  if (!feed || !app.isPackaged) return "disabled";
-  if (!(await isDeveloperIdSigned())) return "disabled";
+  if (!app.isPackaged || !(await isDeveloperIdSigned())) return { state: "disabled" };
+  const feed = opts.feedUrl ?? process.env.PSYCHE_UPDATE_FEED;
+  const result = await checkForVerifiedUpdate({
+    fetch,
+    currentVersion: app.getVersion(),
+    arch: process.arch,
+    keys: TRUSTED_RELEASE_KEYS,
+    ...(feed ? { feed } : {}),
+    dir: join(app.getPath("temp"), "psyche-update"),
+    log,
+  }).catch((err: unknown) => {
+    log(`update check failed: ${err instanceof Error ? err.message : String(err)}`);
+    return { state: "none" as const, reason: "check failed" };
+  });
 
-  if (!MANIFEST_VERIFICATION_READY) {
-    log(
-      `${feed.origin} is a placeholder feed: updates stay off until signed-manifest verification (security §11) lands.`,
-    );
-    return "placeholder";
+  switch (result.state) {
+    case "no_keys":
+      log("no release key embedded: updates stay off (security §11)");
+      return { state: "no_keys" };
+    case "none":
+      return { state: "none", reason: result.reason };
+    case "refused":
+      log(`refused update (${result.code}): ${result.reason}`);
+      return { state: "refused", code: result.code, reason: result.reason };
+    case "ready": {
+      const served = await serveVerifiedUpdate(result.file, result.release);
+      autoUpdater.on("error", (error) => {
+        log(error.message);
+        void served.close();
+      });
+      autoUpdater.on("update-downloaded", () => {
+        log(
+          `Psyche ${result.release} is ready; it installs when you quit${result.mandatory ? " (required)" : ""}`,
+        );
+        void served.close();
+      });
+      autoUpdater.setFeedURL({ url: served.feedUrl, serverType: "json" });
+      autoUpdater.checkForUpdates();
+      return { state: "started", release: result.release };
+    }
   }
-
-  autoUpdater.on("error", (error) => log(error.message));
-  autoUpdater.setFeedURL({ url: feed.toString() });
-  autoUpdater.checkForUpdates();
-  return "started";
 }
