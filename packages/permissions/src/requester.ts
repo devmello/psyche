@@ -14,8 +14,13 @@ import type { PolicyCall, PolicyContext, Requester } from "./types.ts";
  *   standing grants are per identity, so the owner's grants never cover them and theirs never
  *   cover the owner; every approval goes to the owner's devices, never back to their chat.
  * - `allowed`: an allowlisted sender who is neither. Evidence, never permission (§1.1 goal 2):
- *   nothing above `read`.
+ *   no writes, and no reads of the owner's sources (#293): whatever the turn reads can leave
+ *   through the reply into the sender's own conversation. Only public, cookie-less web reads
+ *   (`PUBLIC_READ_TOOLS`) and calls without side effects remain.
  */
+
+/** Reads of the public web without the owner's identity: what an allowlisted sender may use. */
+const PUBLIC_READ_TOOLS: ReadonlySet<string> = new Set(["web_search", "web_fetch"]);
 
 export interface DesignatedMatrix {
   allow: Rule[];
@@ -81,6 +86,16 @@ export function checkRequester(
           effect: "deny",
           rule: "requester:not_owner",
           reason: "only the owner or a designated person can request changes",
+        },
+      ];
+    }
+    if (se === "read" && !PUBLIC_READ_TOOLS.has(call.tool)) {
+      return [
+        {
+          effect: "deny",
+          rule: "requester:not_owner",
+          reason:
+            "an allowlisted sender cannot have the owner's messages, mail, files or memory read",
         },
       ];
     }
