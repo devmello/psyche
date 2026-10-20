@@ -181,6 +181,8 @@ export const chatQueue = sqliteTable("chat_queue", {
   status: text("status").notNull(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
+  provenance: text("provenance").notNull(),
+  fromThreadId: text("from_thread_id"),
 });
 
 export const toolPayloads = sqliteTable("tool_payloads", {

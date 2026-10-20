@@ -73,6 +73,7 @@ import {
   type ComposeServices,
   createOwnPorts,
 } from "./services.ts";
+import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 
@@ -330,6 +331,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
 
   const registry = new AgentToolRegistry();
   for (const tool of fileTools()) registry.register(tool);
+  // E12 cross-thread awareness: registered only while the owner has turned it on.
+  let gatewayRef: Gateway | null = null;
+  const crossThread = crossThreadToggle(
+    (tool) => registry.register(tool),
+    threadTools({ db, gateway: () => gatewayRef }),
+  );
+  crossThread.sync(getSetting(db, CROSS_THREAD_SETTING)?.value);
   const calls = new CallContexts();
   const ownPorts = createOwnPorts();
   ownPorts.add(config.port, "gateway (configured)");
@@ -471,6 +479,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     threadModels: modelPins,
   });
   bus = gateway.bus;
+  gatewayRef = gateway;
   vault.attach(gateway.context.nodes);
   // The owner's folder grants and rules apply without a restart (settings.set → broker policy).
   const unsubscribePolicy = gateway.bus.subscribe(["operator.read"], (frame) => {
@@ -480,6 +489,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     };
     if (f.event !== "settings.changed") return;
     for (const entry of f.payload?.entries ?? []) {
+      if (entry.key === CROSS_THREAD_SETTING) crossThread.sync(entry.value);
       if (entry.key !== "permissions.policy") continue;
       try {
         rawBroker.setPolicy((entry.value ?? {}) as PolicyConfig);
@@ -567,6 +577,7 @@ export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { partsFromEnv } from "./parts.ts";
 export { type ComposedProactive, composeProactive, type ProactiveSetup } from "./proactive.ts";
 export type { ApprovalRelay, ComposedPart, ComposeServices, OwnPorts } from "./services.ts";
+export { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 export { type ModelPins, modelPinsFor, restoreModelPins } from "./threads.ts";
 export {
   type ComposedVault,

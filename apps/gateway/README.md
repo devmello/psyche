@@ -79,6 +79,10 @@ Events emitted: `chat.message`, `chat.delta`, `chat.block`, `chat.queue.updated`
 
 `chat.cancel` revokes the run's authority (`AgentLoop.cancel` + `PermissionBroker.revokeRunAuthority`), waits up to 2 s for the agent to end, then force-finishes the run. Agent events map to `chat.delta` / `chat.block` / `tool_call.updated` / `approval.created` / `question.created` / `run.updated`; agent messages commit at message boundaries and at `end`. `tool_call` events with `details` persist full `tool_calls` rows.
 
+## Cross-thread awareness (E12, opt-in)
+
+With the admin setting `threads.crossThreadAwareness: true`, the composition root registers four agent tools (`src/compose/thread-tools.ts`): `threads_list` and `thread_read` (another thread's content is `untrusted` data; incognito threads are invisible), `thread_message` (queued as a follow-up recorded with `agent` provenance, never steering or interrupting; refused from a tainted turn) and `thread_archive` (always asks: `destructive`, approval kind `archive_thread`). Turning the setting off unregisters them.
+
 ## Restart recovery
 
 On boot (`src/recovery.ts`): runs still `running` fail with `gateway_restart`, their writers are released and a system note is appended; tool calls `pending` / `running` become `uncertain` and are never re-dispatched; nodes are marked offline; the broker re-issues approvals (`PermissionBroker.reissue`); queued follow-ups drain. Idempotency results live in SQLite (`gateway_idempotency`, written in the same transaction as the mutation), so a retry after a crash replays the original result.
