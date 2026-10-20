@@ -5,13 +5,16 @@
  * Fails on:
  * - **hard-coded strings**: letters in JSX text, in user-facing JSX attributes (`aria-label`,
  *   `title`, `placeholder`, `label`, `description`, …), in string expressions rendered as JSX
- *   children, and in `toast()` messages — above the file's count in the shrink-only baseline
+ *   children, in `toast()` messages, and in user-facing keys of object literals (`label`, `text`,
+ *   `hint`, `description`, `title`, `placeholder`, `term`, `empty`, `detail`, `did`: options,
+ *   actions, notices) — above the file's count in the shrink-only baseline
  *   (`scripts/i18n-baseline.json`, while the extraction lands screen group by screen group);
  * - **missing ids**: a `t("id")` whose id isn't in the English catalogue, or a `t(`prefix.${x}`)`
  *   whose prefix matches no id.
  *
  * Exempt: text inside `<code>`, `<kbd>`, `<pre>` and `<samp>`; a line marked `i18n-ignore` (on it
- * or the line above, with the reason); stories, fixtures and tests.
+ * or the line above, with the reason) or a block between `i18n-ignore-start` and `i18n-ignore-end`;
+ * class-name-like values in object literals; stories, fixtures, tests, `mock-*` and `sample-data`.
  *
  * `pnpm i18n:check --update` rewrites the baseline after an extraction; it refuses to raise any
  * file's count. docs/guides/translating.md has the details.
@@ -45,7 +48,30 @@ const TEXT_ATTRS = new Set([
   "confirmLabel",
   "cancelLabel",
   "actionLabel",
+  "did",
 ]);
+
+/** Keys of object literals whose string values are shown to people (options, actions, notices). */
+const TEXT_KEYS = new Set([
+  "label",
+  "text",
+  "hint",
+  "description",
+  "title",
+  "placeholder",
+  "term",
+  "empty",
+  "detail",
+  "did",
+]);
+
+/** Class lists and tokens ("text-muted-foreground", "md:grid"): every word has - or : and no capitals. */
+const looksLikeTokens = (text: string) =>
+  text.trim() !== "" &&
+  text
+    .trim()
+    .split(/\s+/)
+    .every((w) => /[-:]/.test(w) && !/[A-Z]/.test(w));
 const CODE_TAGS = new Set(["code", "kbd", "pre", "samp"]);
 const LETTER = /\p{L}/u;
 
@@ -53,7 +79,7 @@ interface Finding {
   file: string;
   line: number;
   col: number;
-  kind: "jsx-text" | "attribute" | "expression" | "toast" | "missing-id";
+  kind: "jsx-text" | "attribute" | "expression" | "toast" | "property" | "missing-id";
   text: string;
 }
 
@@ -64,7 +90,12 @@ function walkFiles(dir: string, out: string[] = []): string[] {
       if (entry.name === "node_modules" || entry.name === "fixtures" || entry.name === "stories")
         continue;
       walkFiles(path, out);
-    } else if (/\.tsx?$/.test(entry.name) && !/\.(stories|test)\.tsx?$/.test(entry.name)) {
+    } else if (
+      /\.tsx?$/.test(entry.name) &&
+      !/\.(stories|test)\.tsx?$/.test(entry.name) &&
+      // Test doubles and story data are not UI.
+      !/^(mock-|sample-data)/.test(entry.name)
+    ) {
       out.push(path);
     }
   }
@@ -79,8 +110,18 @@ function scan(path: string): Finding[] {
   const sf = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const lines = source.split("\n");
   const findings: Finding[] = [];
+  // `i18n-ignore-start` … `i18n-ignore-end` (with the reason) exempts a block, e.g. brand names.
+  const inRegion = new Set<number>();
+  let open = false;
+  lines.forEach((text, i) => {
+    if (text.includes("i18n-ignore-start")) open = true;
+    if (open) inRegion.add(i);
+    if (text.includes("i18n-ignore-end")) open = false;
+  });
   const ignored = (line: number) =>
-    (lines[line] ?? "").includes("i18n-ignore") || (lines[line - 1] ?? "").includes("i18n-ignore");
+    inRegion.has(line) ||
+    (lines[line] ?? "").includes("i18n-ignore") ||
+    (lines[line - 1] ?? "").includes("i18n-ignore");
   const add = (node: ts.Node, kind: Finding["kind"], text: string) => {
     const { line, character } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
     if (kind !== "missing-id" && ignored(line)) return;
@@ -110,7 +151,8 @@ function scan(path: string): Finding[] {
         return;
       }
       if (ts.isStringLiteral(n) || ts.isNoSubstitutionTemplateLiteral(n)) {
-        if (LETTER.test(n.text)) add(n, kind, n.text);
+        if (LETTER.test(n.text) && !(kind === "property" && looksLikeTokens(n.text)))
+          add(n, kind, n.text);
         return;
       }
       if (ts.isTemplateExpression(n)) {
@@ -158,6 +200,12 @@ function scan(path: string): Finding[] {
       }
     } else if (ts.isJsxExpression(node) && node.expression && !ts.isJsxAttribute(node.parent)) {
       if (!inCodeTag(node)) literalsIn(node.expression, "expression");
+    } else if (
+      ts.isPropertyAssignment(node) &&
+      (ts.isIdentifier(node.name) || ts.isStringLiteral(node.name)) &&
+      TEXT_KEYS.has(node.name.text)
+    ) {
+      literalsIn(node.initializer, "property");
     } else if (ts.isCallExpression(node)) {
       const callee = node.expression;
       const name = ts.isIdentifier(callee)

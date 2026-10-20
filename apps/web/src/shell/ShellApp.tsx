@@ -422,6 +422,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       label: t("web.palette.openFiles"),
       run: () => dispatch({ type: "open", pane: "files" }),
     },
+    // i18n-ignore: the composer command, typed as is in every language
     { id: "model", label: "/model", run: () => setOverlay("model") },
     { id: "mode", label: t("web.palette.switchMode"), run: cycleMode },
     { id: "settings", label: t("web.rail.settings"), run: () => navigate("/settings/model") },

@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { t } from "../../i18n/core.ts";
 import { AtLaptop } from "./laptop.tsx";
 import { ACCENT, ACCENT_SOFT, DEEP, GLINT, ink, LINE, MID, Mirrored, PALE } from "./parts.tsx";
 import type { CreatureDefinition, CreaturePose } from "./types.ts";
@@ -37,7 +38,11 @@ function render(pose: CreaturePose): ReactElement {
 
 export const owl: CreatureDefinition = {
   id: "owl",
-  name: "Owl",
-  description: "A round owl with tufted ears, a speckled belly and big accent-ringed eyes.",
+  get name() {
+    return t("agent.creature.owl.name");
+  },
+  get description() {
+    return t("agent.creature.owl.description");
+  },
   render,
 };

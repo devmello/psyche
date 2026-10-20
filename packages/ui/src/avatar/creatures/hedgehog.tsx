@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { t } from "../../i18n/core.ts";
 import { AtLaptop } from "./laptop.tsx";
 import { Cheeks, DEEP, Eyes, ink, LINE, MID, Mirrored, n, PALE } from "./parts.tsx";
 import type { CreatureDefinition, CreaturePose } from "./types.ts";
@@ -43,7 +44,11 @@ function render(pose: CreaturePose): ReactElement {
 
 export const hedgehog: CreatureDefinition = {
   id: "hedgehog",
-  name: "Hedgehog",
-  description: "A round hedgehog with a spiky coat, a soft pale face and a button nose.",
+  get name() {
+    return t("agent.creature.hedgehog.name");
+  },
+  get description() {
+    return t("agent.creature.hedgehog.description");
+  },
   render,
 };

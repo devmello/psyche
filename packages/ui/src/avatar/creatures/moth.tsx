@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import { t } from "../../i18n/core.ts";
 import { AtLaptop } from "./laptop.tsx";
 import {
   ACCENT,
@@ -84,8 +85,11 @@ function render(pose: CreaturePose): ReactElement {
 
 export const moth: CreatureDefinition = {
   id: "moth",
-  name: "Moth",
-  description:
-    "A pale, fluffy moth with glowing lantern eyes and accent-colored spots on its wings.",
+  get name() {
+    return t("agent.creature.moth.name");
+  },
+  get description() {
+    return t("agent.creature.moth.description");
+  },
   render,
 };

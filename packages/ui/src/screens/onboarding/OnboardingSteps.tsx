@@ -396,6 +396,7 @@ export interface ModelOption {
   hint: string;
 }
 
+// i18n-ignore-start: provider and model names are brands, written the same in every language.
 export const PROVIDERS: Record<
   ProviderKind,
   readonly { id: string; label: string; defaultModel: string; models: readonly ModelOption[] }[]
@@ -576,6 +577,7 @@ export const PROVIDERS: Record<
     },
   ],
 };
+// i18n-ignore-end
 
 const OTHER_MODEL = "__other__";
 
@@ -644,7 +646,7 @@ export function ModelStep({
           },
           {
             value: "openrouter",
-            label: "OpenRouter",
+            label: "OpenRouter", // i18n-ignore: a brand name
             hint: t("onboarding.model.kind.openrouterHint"),
           },
           {
