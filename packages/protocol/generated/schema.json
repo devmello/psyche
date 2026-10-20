@@ -798,6 +798,30 @@
         "sideEffecting": false
       },
       {
+        "description": "Lists the registered helper presence keys (Touch ID approvals, issue #253): device id and key id only.",
+        "name": "devices.presenceKey.list",
+        "params": "#/$defs/DevicesPresenceKeyListParams",
+        "result": "#/$defs/DevicesPresenceKeyListResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
+        "description": "Reads the helper's Secure Enclave presence key (`presence.public_key`) and registers it for that device, so its Touch ID answers verify. Replaces an earlier key; revoked with the device. Needs fresh presence once the Gateway has a presence verifier (approval_required, then retry with approvalId; presence_required when presence was enrolled but nothing can verify now). Side-effecting.",
+        "name": "devices.presenceKey.register",
+        "params": "#/$defs/DevicesPresenceKeyRegisterParams",
+        "result": "#/$defs/DevicesPresenceKeyRegisterResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Removes a helper's registered presence key. Side-effecting.",
+        "name": "devices.presenceKey.remove",
+        "params": "#/$defs/DevicesPresenceKeyRemoveParams",
+        "result": "#/$defs/DevicesPresenceKeyRemoveResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Revokes a device's token and node authority permanently and closes its connections.",
         "name": "devices.revoke",
         "params": "#/$defs/DevicesRevokeParams",
@@ -7417,6 +7441,84 @@
       ],
       "type": "object"
     },
+    "DevicesPresenceKeyListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "DevicesPresenceKeyListResult": {
+      "properties": {
+        "presenceKeys": {
+          "items": {
+            "$ref": "#/$defs/PresenceKeyInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "presenceKeys"
+      ],
+      "type": "object"
+    },
+    "DevicesPresenceKeyRegisterParams": {
+      "properties": {
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "expectKeyId": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "approvalId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "deviceId"
+      ],
+      "type": "object"
+    },
+    "DevicesPresenceKeyRegisterResult": {
+      "properties": {
+        "presenceKey": {
+          "$ref": "#/$defs/PresenceKeyInfo"
+        }
+      },
+      "required": [
+        "presenceKey"
+      ],
+      "type": "object"
+    },
+    "DevicesPresenceKeyRemoveParams": {
+      "properties": {
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "deviceId"
+      ],
+      "type": "object"
+    },
+    "DevicesPresenceKeyRemoveResult": {
+      "properties": {
+        "removed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "removed"
+      ],
+      "type": "object"
+    },
     "DevicesRevokeParams": {
       "properties": {
         "deviceId": {
@@ -13016,6 +13118,31 @@
         "kind",
         "deviceId",
         "signature"
+      ],
+      "type": "object"
+    },
+    "PresenceKeyInfo": {
+      "properties": {
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "keyId": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "registeredAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "deviceId",
+        "keyId",
+        "registeredAt"
       ],
       "type": "object"
     },
