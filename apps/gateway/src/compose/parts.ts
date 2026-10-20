@@ -19,7 +19,8 @@ type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | Compos
  * - connectors, with Google's consent page opened in the owner's default browser on macOS. On a
  *   server the link goes to the owner as a notification instead, since the daemon has no screen;
  * - channels: WebChat, and Telegram when `PSYCHE_TELEGRAM_BOT_TOKEN_FILE` (a Compose secret) or
- *   `PSYCHE_TELEGRAM_BOT_TOKEN` and `PSYCHE_TELEGRAM_BOT_USERNAME` are set;
+ *   `PSYCHE_TELEGRAM_BOT_TOKEN` and `PSYCHE_TELEGRAM_BOT_USERNAME` are set, and SMS (Twilio) when
+ *   the `PSYCHE_SMS_*` variables are (`smsSetupFromEnv`);
  * - backups and the log viewer (`backup.*`, `logs.tail`); `PSYCHE_BACKUP_IDENTITY_FILE` lets
  *   `backup.verify` open recipient-encrypted archives;
  * - approvals on the Mac through a connected helper's notifications. No presence key is
