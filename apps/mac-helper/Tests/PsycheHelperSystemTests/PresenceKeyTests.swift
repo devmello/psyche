@@ -6,9 +6,9 @@ import PsycheProtocol
 import Testing
 
 private struct FakeSigner: PresenceSigning {
-    var result: Result<PresenceAssertion, CapabilityError>
+    var result: Result<PresenceSignature, CapabilityError>
     func publicKey() throws -> (x963: Data, keyId: String) { (Data([4]), "k") }
-    func sign(challenge: String, reason: String) async throws -> PresenceAssertion { try result.get() }
+    func sign(challenge: String, reason: String) async throws -> PresenceSignature { try result.get() }
 }
 
 @Suite("presence key (issue #84)")
@@ -44,8 +44,8 @@ struct PresenceKeyTests {
     @Test func answersCarryTheAssertionOrTheRefusal() async {
         let base = NotificationResponse(notificationId: "apr_1", actionId: "approve", approvalId: "apr_1")
         let ok = await NotificationCenterBridge.answer(
-            base, challenge: Self.challenge, presence: FakeSigner(result: .success(PresenceAssertion(signature: "s", keyId: "k"))), reason: "r")
-        #expect(ok.authenticated && ok.presence == PresenceAssertion(signature: "s", keyId: "k"))
+            base, challenge: Self.challenge, presence: FakeSigner(result: .success(PresenceSignature(signature: "s", keyId: "k"))), reason: "r")
+        #expect(ok.authenticated && ok.presence == PresenceSignature(signature: "s", keyId: "k"))
         let cancelled = await NotificationCenterBridge.answer(
             base, challenge: Self.challenge,
             presence: FakeSigner(result: .failure(CapabilityError(.cancelled, reason: "user_cancelled", "x"))), reason: "r")
