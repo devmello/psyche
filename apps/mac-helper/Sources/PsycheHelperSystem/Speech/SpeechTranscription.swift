@@ -46,6 +46,7 @@ enum SpeechTranscription {
 
     static func probe(_ requested: Locale) async -> Probe {
         var probe = Probe(availability: SpeechEngineAvailability(speechTranscriber: false, dictationTranscriber: false, sfSpeechOnDevice: false))
+        #if canImport(FoundationModels)  // macOS 26 SDK: see SpeechAnalyzerEngine.swift
         if #available(macOS 26.0, *) {
             if SpeechTranscriber.isAvailable {
                 probe.speechLocale = await AnalyzerEngine.resolveLocale(requested, kind: .speechAnalyzer)
@@ -54,6 +55,7 @@ enum SpeechTranscription {
             probe.availability.speechTranscriber = probe.speechLocale != nil
             probe.availability.dictationTranscriber = probe.dictationLocale != nil
         }
+        #endif
         probe.availability.sfSpeechOnDevice = SFSpeechEngine.onDeviceAvailable(requested)
         return probe
     }
@@ -65,9 +67,11 @@ enum SpeechTranscription {
             os: ProcessInfo.processInfo.operatingSystemVersion, vocabulary: request.vocabulary, availability: probe.availability)
         switch kind {
         case .speechAnalyzer, .dictationTranscriber:
+            #if canImport(FoundationModels)
             if #available(macOS 26.0, *), let locale = kind == .speechAnalyzer ? probe.speechLocale : probe.dictationLocale {
                 return AnalyzerEngine(kind: kind, locale: locale, vocabulary: request.vocabulary, volatile: request.volatile)
             }
+            #endif
             throw CapabilityError.unavailable("no_speech_engine", "No on-device speech engine supports this locale on this Mac")
         case .sfSpeech:
             return try SFSpeechEngine(locale: requested, vocabulary: request.vocabulary, volatile: request.volatile)

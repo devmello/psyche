@@ -765,4 +765,3 @@ public enum ComputerCapabilities {
     }
 }
 
-extension AXEngine.SnapshotRequest: @unchecked Sendable {}

@@ -92,7 +92,8 @@ final class AXEngine: @unchecked Sendable {
 
     // MARK: Snapshot
 
-    struct SnapshotRequest: Sendable {
+    /// `@unchecked`: `NSRunningApplication` is not `Sendable` in every SDK the helper builds with.
+    struct SnapshotRequest: @unchecked Sendable {
         var app: NSRunningApplication
         var window: Int?
         var root: String?  // "window" | "app" | ref
