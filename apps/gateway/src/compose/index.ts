@@ -496,7 +496,6 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       revocations.recordDevice(deviceId);
       return rawBroker.revokeGrantsByDevice(deviceId);
     },
-    onDeviceRevoked: (deviceId) => rawBroker.revokeGrantsByDevice(deviceId),
     threadModels: modelPins,
   });
   bus = gateway.bus;
