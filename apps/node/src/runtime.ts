@@ -1,8 +1,9 @@
-import type { NodeCapability } from "@psyche/protocol";
+import type { NodeCapability, SandboxRunner } from "@psyche/protocol";
 import { NodeAgent } from "./agent.ts";
 import { createBrowserProvider } from "./capabilities/browser.ts";
 import { createExecProvider } from "./capabilities/exec.ts";
 import { createFsProvider } from "./capabilities/fs.ts";
+import { GuestRunner } from "./capabilities/guest-runner.ts";
 import { createHealthProvider } from "./capabilities/health.ts";
 import { createHelperProvider } from "./capabilities/helper.ts";
 import type { CapabilityProvider } from "./capabilities/types.ts";
@@ -38,8 +39,11 @@ export async function createNodeRuntime(input: RuntimeInput): Promise<NodeRuntim
   const clock = new SkewClock();
   const providers: CapabilityProvider[] = [];
 
-  let sandboxRunner = null;
-  if (config.exec.sandbox) {
+  let sandboxRunner: SandboxRunner | null = null;
+  if (config.exec.guest.enabled) {
+    // The sandbox Mac: commands run on the guest itself (VM mode); there is no container here.
+    sandboxRunner = new GuestRunner({ root: config.exec.guest.root });
+  } else if (config.exec.sandbox) {
     const { createSandboxRunner } = await import("@psyche/sandbox");
     sandboxRunner = createSandboxRunner();
   }

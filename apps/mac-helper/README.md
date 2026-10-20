@@ -215,34 +215,27 @@ One microphone stream at a time (`microphone_busy`), at most 4 streams, 8 MiB pu
 
 **Measured** (M5, macOS 27.0.1; a synthesized 6 s clip pushed in real time in 100 ms chunks): first partial ≈ 1.04 s after speech onset with SpeechTranscriber, ≈ 0.75 s with DictationTranscriber; finalizing 55–115 ms; peak RSS ≈ 42 MiB (excluding the system speech daemon); synthesis first audio ≈ 0.8 s cold. This bench misses Q1's < 500 ms target; a real-microphone measurement is in the manual test plan, and Parakeet (spike 03) is the next lever if it still misses.
 
-### VM mode (L1–L5, M3 groundwork)
+### VM mode (L1–L5)
 
-One sandbox Mac per user, built on Virtualization.framework with spike 06's recipe (`docs/spikes/spike-06-vz-provisioning.md`). The shapes are `packages/protocol` `schemas/vm.ts` (`VmStatus`, `VmGuest`, `VmShare`, …); clients call these through `nodes.invoke`.
+One sandbox Mac per user on Virtualization.framework, following spike 06 (`docs/spikes/spike-06-vz-provisioning.md`). Shapes live in `packages/protocol` `schemas/vm.ts`. Clients call these capabilities through `nodes.invoke`; the Permission Broker gates the writes.
 
-| Capability | Side effect | Notes |
+| Area | Capabilities | Notes |
 | --- | --- | --- |
-| `vm.status` | read | guests (phase, resources, guest macOS, shares, vsock), active count, `supportsGuestProvisioning` |
-| `vm.restore_image` | read | latest supported restore image: version, build, download size (Apple's catalog) |
-| `vm.create` | write, streaming | `name` (default `sandbox`), `cpus` 4, `memoryGB` 8, `diskGB` 80 (the guest leaves the host ≥ 2 CPUs and 4 GB), and either `ipsw` (local path) or `download: true`. Without that confirmation it answers `download_not_confirmed` with the version and size. Streams `vm.download` and `vm.install` progress; one guest per user |
-| `vm.start` | write, streaming | boots headless. The first boot provisions the admin user, auto-login and Remote Login with `VZMacGuestProvisioningOptions`; this needs a macOS 27 host and guest, otherwise `provisioning_unsupported`. The admin password is random and kept in the keychain. Refused at the two-active-guests cap (installs count) |
-| `vm.stop` | write | asks the guest helper on vsock 7000 (`guest.shutdown`), then `requestStop`; `force: true` stops hard (`graceful: false`) |
-| `vm.delete` | destructive | stopped guests only; removes the bundle and the stored password |
-| `vm.share_add` / `vm.share_remove` | write, `targetKind: path` | user folders on the `psyche` VirtioFS tag at `/Volumes/Psyche Shares/<share>`. Read-only by default; read-write needs an approval. Never `/`, the home folder, `~/Library`, system folders or `$PSYCHE_HOME` (symlinks resolved). Applied live to a running guest |
+| Status | `vm.status`, `vm.watch` (read; `vm.watch` streams) | `vm.watch` streams `{type: vm.updated, guest, at}` and `{type: vm.deleted, name}` for the Gateway's `vm.updated` broadcast |
+| Create, install (L1) | `vm.restore_image` (read), `vm.create` (write, streaming) | Local `ipsw`, or `download: true` to confirm the ~26 GB download. Defaults 4 vCPU / 8 GB / 80 GB, and the host keeps ≥ 2 CPUs and 4 GB. One guest per user; installs count against the two-guest cap |
+| Lifecycle (L1) | `vm.start`, `vm.stop`, `vm.pause`, `vm.resume`, `vm.suspend` (write); `vm.delete` (destructive) | Stop sends `guest.shutdown` through the guest helper, then `requestStop`, then `force`. `vm.suspend` saves the machine state, and the next start restores it; a failed restore is discarded and the guest boots cold. Spike 06 could not save on 27.0.1, so re-test |
+| Provisioning (L2) | first `vm.start` | `VZMacGuestProvisioningOptions` on a 27 host with a 27 guest: admin user, auto-login, Remote Login, random password in the keychain. Other pairs: `provisioning_unsupported` (needs one guided step) |
+| Settings (L1, L4, L5) | `vm.configure`, `vm.display` (write) | CPUs, memory and display size only while stopped. `clipboard`: off / paste-only (default) / bidirectional. `vault`: host (default) / guest. `vm.display` opens or hides a `VZVirtualMachineView` window (Take control) |
+| Guest install (L3) | `vm.install_psyche`, `vm.grant_permissions` (write, streaming) | Install shares a Psyche release read-only (`/Volumes/My Shared Files/psyche-payload`), installs an SSH key with the provisioning password on first contact, then runs `guest-bootstrap.sh --vsock 2:7980` with the helper's `vsock-bridge`. Grant writes the guest helper's Accessibility and Screen Recording rows into the stopped guest's `TCC.db` offline (bundle id plus `csreq`) |
+| Agent channel (L3) | `vm.agent_status` (read) | The guest helper listens on vsock 7000 (peer CID 2 only) and serves `guest.ping`, `guest.shutdown`, `guest.mount_shares` and `guest.export` as req/res frames. Root work uses the provisioning password sent per request, so there is no root daemon |
+| Shares (L5) | `vm.share_add`, `vm.share_remove` (write, `targetKind: path`) | `psyche` VirtioFS tag at `/Volumes/Psyche Shares/<share>`. Read-only by default; read-write needs an approval. `/`, home, `~/Library`, system trees and `$PSYCHE_HOME` are never shared. Changes apply live |
+| File transfer | `vm.copy_in`, `vm.copy_out` (write, `targetKind: path`, receipts) | In: copied (APFS clone) to `psyche-in/<id>/`, read-only in the guest. Out: the guest helper stages the file in `_psyche-out/<id>/`, then the helper moves it into a granted host folder and never overwrites |
 
-- **Bundle:** `$PSYCHE_HOME/vm/<name>/` (0700) holds `config.json`, `state.json`, `shares.json`, `HardwareModel`, `MachineIdentifier`, `AuxiliaryStorage` and `Disk.asif` (DiskImageKit, macOS 27 SDK) or `Disk.img` (RAW sparse).
-- **vsock:**
-  - The helper listens on host port 7980. Every guest connection, from psyche-node via `guest-bootstrap.sh --vsock 2:7980`, is relayed byte for byte to the Gateway's node socket. There it pairs like any node: a pending pairing the owner approves.
-  - Port 7000 is the guest helper's control port; port 5000 is reserved for guest → host capabilities (host vault fills, security §13).
-  - The guest IP is never a control path.
+- **vsock:** port 7980 relays guest psyche-node streams to the Gateway's node socket, where they pair like any node. Port 7000 is the guest helper. The guest IP is used only for the one-time SSH install, never as a control path.
+- **Bundle:** `$PSYCHE_HOME/vm/<name>/` (0700) holds `config.json`, `state.json`, `shares.json`, `transfers.json`, `transfer/in`, `transfer/out`, `ssh/`, `SavedState.vzvmsave`, `HardwareModel`, `MachineIdentifier`, `AuxiliaryStorage` and `Disk.asif` or `Disk.img`.
 - **Builds:** the macOS 26 SDK (CI) has neither DiskImageKit nor `VZMacGuestProvisioningOptions`, so those paths compile only with the 27 SDK (`canImport(DiskImageKit)`).
-- **Not built yet:**
-  - the offline `TCC.db` pre-grant (L3)
-  - the guest-side helper (vsock control, root LaunchDaemon for `mount_virtiofs` and shutdown)
-  - the 26-guest Data-volume path
-  - DiskImageKit overlay resets (L6)
-  - warm start (`saveMachineStateTo` failed in spike 06)
-  - the display pane (L4)
-- **Tests:** a fake backend covers the lifecycle, guest caps, provisioning, shares and the vsock relay into a real Unix socket. `PSYCHE_VM_LIVE_TESTS=1` runs a read-only check against the real framework: the catalog, plus `PSYCHE_VM_IPSW` to load a local image. It never downloads or boots.
+- **Tests:** the fake backend, shell, permission writer and guest agent cover the whole lifecycle, the agent protocol, transfers, install and permission ordering, `vm.watch`, and decoding against the protocol models. `PSYCHE_VM_LIVE_TESTS=1` runs a read-only catalog check. Nothing in tests downloads or boots.
+- **Not built:** overlay resets (L6, P2), the 26-guest Data-volume path, and clipboard sync (the mode is stored and reported; the display pane or desktop enforces it).
 
 ### Apple app adapters (J6)
 

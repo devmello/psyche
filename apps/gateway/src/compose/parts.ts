@@ -8,6 +8,7 @@ import { composeHelper } from "./helper.ts";
 import { composeMcp } from "./mcp.ts";
 import { type ComposedSandbox, composeSandboxIfAvailable } from "./sandbox.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
+import { type ComposedVm, composeVm } from "./vm.ts";
 
 type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | ComposedPart;
 
@@ -23,8 +24,10 @@ type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | Compos
  * - approvals on the Mac through a connected helper's notifications. No presence key is
  *   registered yet (the helper does not sign, S14 issue), so approvals that need Touch ID
  *   stay refused there; Approve / Deny works for the rest;
- * - the sandbox's `exec` tool, only when a container backend is found (`PSYCHE_SANDBOX=off`
- *   skips it); servers it leaves listening are offered to the browser's dev preview;
+ * - VM mode (`PSYCHE_VM=off` skips it): the sandbox Mac's status as `vm.updated`, and Tasks
+ *   whose workspace is `vm` running their commands in the guest;
+ * - the sandbox's `exec` tool, only when a container backend is found or VM mode is on
+ *   (`PSYCHE_SANDBOX=off` skips it); servers it leaves listening reach the browser's preview;
  * - the MCP host (`mcp.servers` in settings; `PSYCHE_MCP=off` skips it): stdio servers under
  *   `srt` at `PSYCHE_SRT_PATH`, or each in its own sandbox container with
  *   `PSYCHE_MCP_LAUNCHER=container` (needs the sandbox part; network only through its egress
@@ -34,6 +37,7 @@ export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
   const parts: PartFactory[] = [];
   let browser: ComposedBrowser | undefined;
   let sandbox: ComposedSandbox | undefined;
+  let vm: ComposedVm | undefined;
   if (env.PSYCHE_BROWSER !== "off") {
     // Logged out by default (I15). `PSYCHE_BROWSER_PARTITION=profile|clean|auto` and the
     // comma-separated `PSYCHE_BROWSER_SIGNED_IN_ORIGINS` (used by `auto`) stand in until
@@ -72,13 +76,20 @@ export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
       return browser;
     });
   }
+  if (env.PSYCHE_VM !== "off") {
+    // VM mode (L1–L5): idle until the owner turns it on (`vm.enabled`) and a helper reports.
+    parts.push((s) => {
+      vm = composeVm(s);
+      return vm;
+    });
+  }
   if (env.PSYCHE_SANDBOX !== "off") {
     // Parts compose in order, so the browser (when mounted) exists by now.
     parts.push(async (s) => {
-      const part = await composeSandboxIfAvailable(
-        s,
-        browser === undefined ? {} : { devServers: browser.devServers },
-      );
+      const part = await composeSandboxIfAvailable(s, {
+        ...(browser === undefined ? {} : { devServers: browser.devServers }),
+        ...(vm === undefined ? {} : { vm }),
+      });
       if ("runner" in part) sandbox = part as ComposedSandbox;
       return part;
     });

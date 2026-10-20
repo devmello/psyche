@@ -99,6 +99,17 @@ const CASES: Case[] = [
     calls: () => expect(lastParams("devices.revoke")).toEqual({ deviceId: DEVICE.id }),
   },
   {
+    name: "audit verify",
+    argv: () => ["audit", "verify"],
+    human: (t) => {
+      expect(t).toContain("Hash chain intact: 2400 entries");
+      expect(t).toContain("2 of 3 anchors signed and verified (keys: ed25519:0123456789abcdef)");
+      expect(t).toContain("signing since entry 1000");
+    },
+    json: (d) => expect(d).toMatchObject({ ok: true, signedAnchors: 2 }),
+    calls: () => expect(lastParams("audit.verify")).toEqual({}),
+  },
+  {
     name: "automations list",
     argv: () => ["automations", "list"],
     human: (t) => expect(t).toContain("Morning brief"),
