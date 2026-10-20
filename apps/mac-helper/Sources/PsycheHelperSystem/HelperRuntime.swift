@@ -24,7 +24,10 @@ public final class HelperRuntime: @unchecked Sendable {
         handlers += KeychainCapabilities.make()
         handlers += PresenceCapabilities.make(key: presence)
         handlers += ContactsCapabilities.make()
+        handlers += DictationCapabilities.make()
         handlers += VMCapabilities.make(VMManager(backend: VZBackend(), environment: environment, log: log))
+        // J6 Apple app adapters (Calendar, Reminders, Mail, Notes, Finder, Safari).
+        handlers += AppleAppsCapabilities.make(.live(environment: environment))
         registry = CapabilityRegistry(handlers)
     }
 

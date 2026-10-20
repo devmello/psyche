@@ -2,6 +2,7 @@ import type {
   Channel,
   Connector,
   CredentialMeta,
+  CredentialUse,
   Device,
   NodeInfo,
   PairingRequest,
@@ -292,6 +293,68 @@ export function credentials(): CredentialMeta[] {
       useCount: 2,
       createdAt: "2026-09-12T14:58:00Z",
       updatedAt: "2026-09-12T14:58:00Z",
+    },
+  ];
+}
+
+/** The fill audit (`vault.uses`, feature G14), newest first per item. Never values. */
+export function credentialUses(): CredentialUse[] {
+  const C = IDS.credentials;
+  return [
+    {
+      id: "use_github_1",
+      credentialId: C.github,
+      taskId: IDS.tasks.subscriptionAudit,
+      approvalId: null,
+      executor: "browser",
+      target: "https://github.com/login",
+      outcome: "filled",
+      reason: null,
+      createdAt: ago(120),
+    },
+    {
+      id: "use_github_2",
+      credentialId: C.github,
+      taskId: IDS.tasks.subscriptionAudit,
+      approvalId: "ap_github_fill_2",
+      executor: "browser",
+      target: "https://github.com/session",
+      outcome: "denied",
+      reason: "You denied the fill.",
+      createdAt: ago(26 * 60),
+    },
+    {
+      id: "use_github_3",
+      credentialId: C.github,
+      taskId: null,
+      approvalId: null,
+      executor: "sandbox",
+      target: "git push (github.com)",
+      outcome: "failed",
+      reason: "GitHub rejected the password; it may have changed.",
+      createdAt: ago(3 * 24 * 60),
+    },
+    {
+      id: "use_acme_1",
+      credentialId: C.acme,
+      taskId: IDS.tasks.priceWatch,
+      approvalId: IDS.approvals.credentialFill,
+      executor: "browser",
+      target: "https://acme.com/login",
+      outcome: "filled",
+      reason: null,
+      createdAt: "2026-09-12T15:00:00Z",
+    },
+    {
+      id: "use_acme_2",
+      credentialId: C.acme,
+      taskId: IDS.tasks.priceWatch,
+      approvalId: null,
+      executor: "browser",
+      target: "https://acme.com/login",
+      outcome: "failed",
+      reason: "The login form had no password field.",
+      createdAt: "2026-09-12T14:59:00Z",
     },
   ];
 }

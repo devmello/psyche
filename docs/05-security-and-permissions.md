@@ -138,11 +138,13 @@ For every tool call and `node.invoke`, the first terminal result wins:
 | `email.send` | account; recipients (to / cc / bcc lowercased, each sorted); subject; body hash (text and HTML parts); attachment hashes (sorted `sha256:size:name`) | account + sorted recipient set |
 | `calendar.*` | account; operation; event payload hash (canonical resource incl. id for update / delete) | account + calendar + operation |
 | browser form submit | origin (scheme, host, port); pathname; sorted field names; **plus** a digest of non-credential field values at approval time (credential fields contribute their placeholder id) | origin + pathname |
-| credential fill | item id; origin; field selector (`ref_N` plus element name / type); field (`username` / `password` / `totp` / `token`) | item id + origin (`site`) |
+| credential fill | item id; origin; field selector (`ref_N` plus element tag / type / autocomplete); field (`username` / `password` / `totp` / `token`); executor | item id + origin + field class + executor (`site`) |
 | `purchase` / spend request | merchant (canonical host or Link merchant name); amount in minor units; ISO 4217 currency; line-item hash (sorted `{name, qty, unitPrice}`); payment source id | none (`once` only) |
 | `write_file` / `edit_file` | real path; operation; SHA-256 of resulting content | folder-grant root + operation |
 | `messages.send` / channel send | channel; account; canonical recipient id; body hash; attachment hashes | channel + account + recipient |
 | MCP tool call | server id; tool name; `tools/list` hash; args hash | server + tool + `tools/list` hash |
+
+**One recipe for tool calls.** An approval the agent loop obtains for a tool call binds the envelope `bindingHash(kind, {tool, paramsHash, fields})`, where `paramsHash = sha256(canonicalJSON(params))` and `fields` are the kind's fields above as the tool's description gives them. Every verifier recomputes it with the same shared function (`toolCallBindingHash` in `@psyche/protocol/binding`): the loop at dispatch, the connector registry, and the vault before it resolves a credential. The vault never accepts a hash from its caller. It derives the fill fields itself (item id, origin, field, selector, element, executor) from the fill it is about to resolve, takes the tool and params of the call, and has the broker compare the result with the approval record. A `once` approval fills at most once: the loop consumes it at the broker right before dispatch, and the vault separately allows one fill per approval id (`credential_uses`). A fill request the vault builds itself (`requestFill`, no tool call) binds the bare fields.
 
 ### 3.6 Taint
 
