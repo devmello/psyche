@@ -1,5 +1,5 @@
-import type { SkillDetails, SkillManifest, SkillProposal } from "@psyche/protocol";
-import { ago, fakeSha, inMinutes } from "./ids.ts";
+import type { SkillDetails, SkillDraft, SkillManifest, SkillProposal } from "@psyche/protocol";
+import { ago, fakeSha, IDS, inMinutes } from "./ids.ts";
 
 /**
  * Settings → Skills (feature T2): installed and bundled skills, plus what the MockGateway finds
@@ -165,4 +165,59 @@ export function stagedSkillProposal(): SkillProposal {
     grantKey: fakeSha("grant:skill:pdf-merge"),
     expiresAt: Date.parse(inMinutes(30)),
   };
+}
+
+const DRAFT_TEXT = `---
+name: export-week-invoices-finance
+description: "Repeat the owner's routine for requests like: Export this week's invoices to Finance"
+user-invocable: true
+allowed-tools:
+  - list_dir
+  - read_file
+  - write_file
+permissions:
+  - file_write
+---
+
+# Export Week Invoices Finance
+
+Proposed by Psyche after the same steps ran 3 times in one conversation. Check every step before accepting.
+
+## Steps
+
+1. Call \`list_dir\` (reads) with inputs path.
+2. Call \`read_file\` (reads) with inputs path.
+3. Call \`write_file\` (changes something; asks when policy says so) with inputs path, content.
+`;
+
+/** An open agent-proposed draft (T3). The MockGateway stages it like a folder on accept. */
+export function skillDrafts(): SkillDraft[] {
+  return [
+    {
+      id: "skd_fixture_invoices",
+      threadId: IDS.threads.main,
+      name: "export-week-invoices-finance",
+      description:
+        "Repeat the owner's routine for requests like: Export this week's invoices to Finance",
+      text: DRAFT_TEXT,
+      manifest: {
+        tools: ["list_dir", "read_file", "write_file"],
+        permissions: ["file_write"],
+        prompts: [],
+      },
+      steps: [
+        { tool: "list_dir", sideEffect: "read", summary: "inputs: path" },
+        { tool: "read_file", sideEffect: "read", summary: "inputs: path" },
+        { tool: "write_file", sideEffect: "write", summary: "inputs: path, content" },
+      ],
+      occurrences: 3,
+      signature: fakeSha("routine:invoices"),
+      redactions: 1,
+      tainted: false,
+      edited: false,
+      status: "open",
+      createdAt: ago(45),
+      updatedAt: ago(45),
+    },
+  ];
 }

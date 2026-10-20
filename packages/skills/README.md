@@ -89,6 +89,18 @@ Sources in order: workspace `skills/` → `$PSYCHE_HOME/skills/` → bundled. Th
 
 **Workspace skills need approval too** (review design-02, Critical): the agent can write `workspace/skills/**` through the `memory` tool, so a workspace `SKILL.md` is a `draft` until the owner approves it (`skills.proposeWorkspaceApproval` → same `skill_install` card with `scope: "workspace"`); edits after approval are `hash_mismatch`, and the re-approval card diffs against a snapshot of the approved tree kept in `$PSYCHE_HOME/skills/.approved/workspace/`. The approval lives in the lock file outside the workspace, so the agent cannot forge it. `requireWorkspaceApproval: false` turns this off for development.
 
+### Agent-proposed skills (T3)
+
+`SkillDrafts` (`drafts.ts`) drafts a skill from a routine detected by agent-core's `attachRoutineDetector`. A routine is the same tool sequence ending the owner's attended turns at least twice in one thread.
+
+- **Contents**: tool names; input names, never values; the owner's words through the vault and audit redactors, with emails, links and long numbers generalized; `permissions` inferred for side-effecting steps.
+- **Limits**: one proposal per thread per day; five open drafts; never the same routine twice (proposed, installed or dismissed); 14-day expiry.
+- **`update`**: the owner's edit, re-validated.
+- **`accept`**: replays the draft (no tools or approval kinds the routine never used, every tool still available). It then stages the draft from `.drafts/<id>/<name>/` (never loaded) through `proposeInstall`, and the handler opens the usual device-only `skill_install` card with `proposedBy: agent`.
+- **`dismiss`**: remembers the routine so it is not proposed again.
+- **`installed`**: marks the accepted draft once the loader installs it.
+- **Audit**: everything is reported to the `audit` hook.
+
 ### Scanner rules
 
 Lines are matched both as written and shell-normalized (continuations joined, quotes and backslashes dropped, `/usr/bin/env` and absolute command paths stripped, `| tee x |` collapsed). Files that are not valid UTF-8 are scanned with a lossy decode; a script among them is itself `high`.

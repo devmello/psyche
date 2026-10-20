@@ -14,6 +14,7 @@ export * from "./plugins.ts";
 export * from "./questions.ts";
 export * from "./registry.ts";
 export * from "./requester.ts";
+export * from "./routines.ts";
 export * from "./state.ts";
 export * from "./turn-context.ts";
 export {

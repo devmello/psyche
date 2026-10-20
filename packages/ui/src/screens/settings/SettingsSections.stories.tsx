@@ -26,6 +26,7 @@ import { ModelProvidersPanel, providerInfoFromSummary } from "./ModelSection.tsx
 import { PermissionsPanel } from "./PermissionsSection.tsx";
 import { PersonaPanel } from "./PersonaSection.tsx";
 import { ServerPanel } from "./ServerSection.tsx";
+import { SkillSuggestions } from "./SkillDraftCard.tsx";
 import { SkillsPanel, SkillTrustCard } from "./SkillsSection.tsx";
 import {
   sampleAbout,
@@ -799,6 +800,38 @@ export const SkillsTrustCardHighFindings: Story = {
           },
         ],
       }}
+    />
+  ),
+};
+
+const draftProps = {
+  persona: PERSONA.name,
+  onSave: async () => {},
+  onAccept: noop,
+  onDismiss: noop,
+};
+export const SkillsWithSuggestion: Story = {
+  render: () => (
+    <SkillsPanel
+      {...skillProps}
+      suggestions={<SkillSuggestions {...draftProps} drafts={world.skillDrafts} />}
+    />
+  ),
+};
+export const SkillSuggestionDoesNotReplay: Story = {
+  render: () => (
+    <SkillSuggestions
+      {...draftProps}
+      drafts={world.skillDrafts.map((d) => ({
+        ...d,
+        edited: true,
+        tainted: true,
+        replay: {
+          ok: false,
+          problems: ["declares tools the routine never used: send_email"],
+          checkedAt: FIXTURE_NOW,
+        },
+      }))}
     />
   ),
 };
