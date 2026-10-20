@@ -383,6 +383,27 @@ function tighten(path: string): void {
 }
 
 /**
+ * Marker the next Gateway boot consumes (`@psyche/permissions` `replayRevocations`): it replays
+ * the revocation ledger kept in `security/`, which is outside `BACKUP_ENTRIES`, so a restored
+ * database cannot bring back a revoked device or grant (S23 design-26). Same path as
+ * `RESTORE_MARKER` there.
+ */
+export const RESTORE_MARKER = join("security", "restored.json");
+
+function writeRestoreMarker(home: string, restoredAt: string, backupCreatedAt: string): void {
+  const dir = join(home, "security");
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  chmodSync(dir, 0o700);
+  writeFileSync(
+    join(home, RESTORE_MARKER),
+    `${JSON.stringify({ restoredAt, backupCreatedAt })}\n`,
+    {
+      mode: 0o600,
+    },
+  );
+}
+
+/**
  * Restores into `home`. Existing entries are moved aside to `home/.pre-restore-<ts>/` when
  * `force` is set; otherwise a non-empty target is refused.
  */
@@ -436,6 +457,7 @@ export async function restoreBackup(
       throw err;
     }
     chmodSync(home, 0o700);
+    writeRestoreMarker(home, (opts.now ?? new Date()).toISOString(), manifest.createdAt);
     return { manifest, movedAside: movedAside ? relative(home, movedAside) : null };
   } finally {
     rmSync(dir, { recursive: true, force: true });
