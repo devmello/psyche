@@ -2,6 +2,7 @@ import { PsycheMark, StatusPill } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import type { GatewayStatus } from "../../client/status.ts";
 import { useShell, useShellState } from "../context.tsx";
+import type { GatewayRunView } from "../platform.ts";
 
 /** Left rail (docs/06 §2.1); below 720 px it renders as the bottom tab bar (§3.24). */
 export const RAIL_ITEMS = [
@@ -165,9 +166,37 @@ export function ThreadList(props: {
   );
 }
 
-/** docs/06 §3.0 Offline: the composer is disabled; tasks keep running. */
-export function OfflineBanner({ status }: { status: GatewayStatus }): ReactElement | null {
+/**
+ * docs/06 §3.0 Offline: the composer is disabled; tasks keep running. On the desktop, `run` is
+ * the supervisor's view of the Gateway process: a start that failed says why, with "Show logs".
+ */
+export function OfflineBanner({
+  status,
+  run,
+  onShowLogs,
+}: {
+  status: GatewayStatus;
+  run?: GatewayRunView;
+  onShowLogs?: () => void;
+}): ReactElement | null {
   if (status.phase === "paired") return null;
+  if (run?.kind === "stopped" && run.reason && run.reason !== "quit")
+    return (
+      <div className="banner" role="alert" data-testid="gateway-failed-banner">
+        Psyche couldn't start the Gateway: {run.reason}.{" "}
+        {run.logs && onShowLogs ? (
+          <button type="button" className="banner-action" onClick={onShowLogs}>
+            Show logs
+          </button>
+        ) : null}
+      </div>
+    );
+  if (run?.kind === "starting")
+    return (
+      <div className="banner" role="status" data-testid="gateway-starting-banner">
+        Starting the Gateway…
+      </div>
+    );
   if (status.phase === "pending")
     return (
       <div className="banner" role="status" data-testid="pairing-banner">

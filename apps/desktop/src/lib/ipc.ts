@@ -10,6 +10,10 @@ export const IPC = {
   call: "psyche:gateway:call",
   event: "psyche:gateway:event",
   resync: "psyche:gateway:resync",
+  // The Gateway process the app supervises (LaunchAgent / dev child), for the connection banner.
+  gatewayGetRun: "psyche:gateway:get-run",
+  gatewayRun: "psyche:gateway:run",
+  gatewayShowLogs: "psyche:gateway:show-logs",
   // Embedded agent browser.
   browserGetState: "psyche:browser:get-state",
   browserState: "psyche:browser:state",
