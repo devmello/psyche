@@ -131,9 +131,34 @@ describe("gating", () => {
       true,
     );
     expect(evaluateGates(r, { ...OPEN_GATE, tools: ["calendar.list"] }).missing).toEqual([
-      "missing tool: email.*",
-      "needs one of the tools: messages.send, email.draft",
+      "needs email: connect Gmail or Apple Mail in Settings → Connectors",
+      "needs the tool messages.send or the tool email.draft",
     ]);
     expect(evaluateGates(r, OPEN_GATE).eligible).toBe(true);
+  });
+
+  it("maps capability names to the Gateway's tools and says what to do (#506)", () => {
+    const r = {
+      ...req,
+      tools: ["search", "fetch", "memory_search"],
+      anyTools: ["email.*", "sheet.*"],
+    };
+    expect(
+      evaluateGates(r, {
+        ...OPEN_GATE,
+        tools: ["web_search", "web_fetch", "memory", "read_file"],
+      }).eligible,
+    ).toBe(true);
+    expect(evaluateGates(r, { ...OPEN_GATE, tools: ["gmail_send"] }).missing).toEqual([
+      "needs web search: add a search provider key in Settings → Model & providers",
+      "needs web pages: web fetching comes with the web search provider",
+      "needs memory search: memory is part of every Gateway; restart Psyche if it is missing",
+    ]);
+    expect(
+      evaluateGates({ ...req, anyTools: ["email.*", "messages.*"] }, { ...OPEN_GATE, tools: [] })
+        .missing,
+    ).toEqual([
+      "needs email or messages (connect Gmail or Apple Mail in Settings → Connectors; turn on iMessage in Settings → Channels)",
+    ]);
   });
 });

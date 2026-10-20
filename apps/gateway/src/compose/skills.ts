@@ -137,6 +137,12 @@ export function composeSkills(opts: SkillsOptions = {}): ComposedSkills {
   const part = (services: ComposeServices): ComposedPart => {
     const { home, publish, tools, rawBroker } = services;
     const bundledDir = bundledDirFor(opts);
+    if (bundledDir === undefined && opts.bundledDir !== null) {
+      // A packaged Gateway without its skills folder is a broken build (#506): say so loudly.
+      services.logger?.log("warn", "bundled skills folder not found", {
+        looked: process.env.PSYCHE_BUNDLED_SKILLS ?? REPO_SKILLS,
+      });
+    }
     const fs = createSkillLoader({
       workspaceDir: join(home, "workspace", "skills"),
       homeDir: join(home, "skills"),

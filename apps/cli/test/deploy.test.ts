@@ -477,6 +477,40 @@ describe("deploy/macos/make-dmg.sh refuses to --deep re-sign a bundled helper", 
   );
 });
 
+describe("deploy/scripts/build-psyched.mjs bundled skills (#506)", () => {
+  function app(skills: Record<string, string | null>): string {
+    const dir = mkdtempSync(join(tmpdir(), "psyche-skills-"));
+    mkdirSync(join(dir, "apps/gateway/src/compose"), { recursive: true });
+    for (const [name, md] of Object.entries(skills)) {
+      mkdirSync(join(dir, "skills", name), { recursive: true });
+      if (md !== null) writeFileSync(join(dir, "skills", name, "SKILL.md"), md);
+    }
+    return dir;
+  }
+  const md = (name: string) => `---\nname: ${name}\ndescription: x\n---\n`;
+
+  it("lists the shipped skills and fails when the folder or a SKILL.md is missing", async () => {
+    const { checkShippedSkills } = await import(resolve(deploy, "scripts/build-psyched.mjs"));
+    const ok = app({ "weekly-review": md("weekly-review"), browsing: md("browsing") });
+    const empty = app({});
+    const noMd = app({ browsing: null });
+    const wrong = app({ browsing: md("other") });
+    try {
+      expect(checkShippedSkills(ok)).toEqual(["browsing", "weekly-review"]);
+      expect(() => checkShippedSkills(empty)).toThrow(/bundled skills folder missing/);
+      expect(() => checkShippedSkills(noMd)).toThrow(/browsing has no SKILL\.md/);
+      expect(() => checkShippedSkills(wrong)).toThrow(/SKILL\.md names "other"/);
+    } finally {
+      for (const d of [ok, empty, noMd, wrong]) rmSync(d, { recursive: true, force: true });
+    }
+  });
+
+  it("the repository's own skills pass", async () => {
+    const { checkShippedSkills } = await import(resolve(deploy, "scripts/build-psyched.mjs"));
+    expect(checkShippedSkills(resolve(deploy, "..")).length).toBeGreaterThanOrEqual(12);
+  });
+});
+
 describe("deploy/scripts/build-psyched.mjs server subset", () => {
   /** A tiny pnpm layout: the Gateway, viewers (UI deps), ui, web, and a .pnpm store. */
   function layout(): string {
