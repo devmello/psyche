@@ -10,9 +10,46 @@ import { defineMethod, OkResult } from "./define.ts";
  * design-22 — identity links change only from a paired device, never from chat or a tool).
  */
 
+/**
+ * Transport secrets a channel needs (N8, N9): Slack `bot_token` + `app_token`, Discord
+ * `bot_token`, SMS `auth_token`. Stored as Gateway-owned vault items, like `models.setKey`.
+ */
+export const ChannelSecretName = StringEnum(["bot_token", "app_token", "auth_token"], {
+  $id: "ChannelSecretName",
+});
+
 const SenderList = Type.Array(Type.String({ minLength: 1, maxLength: 256 }), { maxItems: 1000 });
 
 export const ChannelsMethods = {
+  "channels.secrets.set": defineMethod({
+    params: Type.Object({
+      type: ChannelType,
+      account: Type.String({ minLength: 1, maxLength: 256 }),
+      name: ChannelSecretName,
+      /** The token. Stored in the vault; never logged, echoed or returned. */
+      value: Type.String({ minLength: 1, maxLength: 8192 }),
+    }),
+    result: Type.Object({ set: Type.Array(ChannelSecretName) }),
+    scope: "operator.admin",
+    sideEffecting: true,
+    description:
+      "Stores a channel transport secret (Slack bot/app token, Discord bot token, SMS auth token) as a Gateway-owned vault item for that channel type and account, replacing an earlier one, and returns which secrets are now set. Agents can never fill it. invalid_params for a name the type does not use, unavailable when the vault cannot be opened. Side-effecting; its params are never logged.",
+  }),
+  "channels.secrets.status": defineMethod({
+    params: Type.Object({
+      type: ChannelType,
+      account: Type.String({ minLength: 1, maxLength: 256 }),
+    }),
+    result: Type.Object({
+      /** Secret names this type needs. */
+      required: Type.Array(ChannelSecretName),
+      /** Those stored (names only, never values). */
+      set: Type.Array(ChannelSecretName),
+    }),
+    scope: "operator.admin",
+    description:
+      "Which transport secrets a channel needs and which are stored. Never returns values.",
+  }),
   "channels.list": defineMethod({
     params: Type.Object({}),
     result: Type.Object({ channels: Type.Array(Channel) }),
