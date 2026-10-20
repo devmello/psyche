@@ -63,6 +63,12 @@ export interface ChannelServiceOptions {
    */
   onInboundDecision?: (event: InboundDecisionEvent) => void;
   /**
+   * The owner approved or denied a pairing request, before the sender is told. The Gateway moves
+   * that DM from "pairing code only" to "answerable" in the broker's channel reply authority, so
+   * the "You're approved" confirmation is a reply to a now-routed sender (issue #277).
+   */
+  onPairingDecided?: (event: PairingDecidedEvent) => void;
+  /**
    * Admission control before any policy runs (security §10: inbound chat 30/minute/sender).
    * `false` drops the message silently; the Gateway counts and audits it.
    */
@@ -74,6 +80,12 @@ export interface InboundDecisionEvent {
   message: InboundMessage;
   action: "deliver" | "pair";
   route?: RouteContext;
+}
+
+export interface PairingDecidedEvent {
+  channel: Channel;
+  senderId: string;
+  decision: "approved" | "denied";
 }
 
 export interface OutboundTarget {
@@ -110,6 +122,7 @@ export class ChannelService {
   #identities = new IdentityDirectory();
   #ownerAllowFrom: string[];
   #onInboundDecision: ((event: InboundDecisionEvent) => void) | undefined;
+  #onPairingDecided: ((event: PairingDecidedEvent) => void) | undefined;
   #admitInbound: ((channel: Channel, message: InboundMessage) => boolean) | undefined;
   #channels = new Map<string, Channel>();
   #attached = new Map<string, Attached>();
@@ -129,6 +142,7 @@ export class ChannelService {
     this.#random = options.random ?? Math.random;
     this.#ownerAllowFrom = options.ownerAllowFrom ?? [];
     this.#onInboundDecision = options.onInboundDecision;
+    this.#onPairingDecided = options.onPairingDecided;
     this.#admitInbound = options.admitInbound;
     this.#limiter = new RateLimiter({ clock: this.#clock, sleep: this.#sleep });
     this.pairing = new PairingService({
@@ -309,6 +323,7 @@ export class ChannelService {
           updatedAt: new Date(this.#clock.now()).toISOString(),
         });
       }
+      this.#pairingDecided(channel, senderId, "approved");
       await this.send({ channelId, chatId: senderId }, "You're approved. Say hi!", {
         format: "plain",
       }).catch((error: unknown) => this.#logger.warn("pairing.notify_failed", errorData(error)));
@@ -321,7 +336,20 @@ export class ChannelService {
     decidedByDeviceId: string | null,
   ): Promise<PairingRequest> {
     const request = await this.#findPairing(ref);
-    return this.pairing.decide(request.id, "denied", decidedByDeviceId);
+    const decided = await this.pairing.decide(request.id, "denied", decidedByDeviceId);
+    const channel = this.#channels.get(decided.channelId ?? "");
+    if (channel !== undefined && decided.senderId != null) {
+      this.#pairingDecided(channel, decided.senderId, "denied");
+    }
+    return decided;
+  }
+
+  #pairingDecided(channel: Channel, senderId: string, decision: "approved" | "denied"): void {
+    try {
+      this.#onPairingDecided?.({ channel, senderId, decision });
+    } catch (error) {
+      this.#logger.warn("channel.pairing_decision_hook_failed", errorData(error));
+    }
   }
 
   // --- adapters ------------------------------------------------------------------------------

@@ -20,6 +20,27 @@ describe("onInboundDecision (the Gateway's channel reply authority)", () => {
   });
 });
 
+describe("onPairingDecided (#277)", () => {
+  it("reports an approval before the confirmation is sent, and a denial", async () => {
+    const h = await harness();
+    await h.adapter.receive({ senderId: STRANGER, text: "hi" });
+    await h.adapter.receive({ senderId: FRIEND, text: "hi" });
+    const pending = await h.service.listPairings({ status: "pending" });
+    const first = pending.find((p) => p.senderId === STRANGER);
+    const second = pending.find((p) => p.senderId === FRIEND);
+    await h.service.approvePairing({ requestId: first?.id ?? "" }, "dev1");
+    await h.service.denyPairing({ requestId: second?.id ?? "" }, "dev1");
+    expect(h.pairingDecisions.map((d) => [d.event.senderId, d.event.decision])).toEqual([
+      [STRANGER, "approved"],
+      [FRIEND, "denied"],
+    ]);
+    // Two pairing codes went out before the approval; the confirmation came after the hook.
+    expect(h.pairingDecisions[0]?.sentBefore).toBe(2);
+    expect(sentTexts(h)[2]).toMatch(/approved/i);
+    expect(h.pairingDecisions[0]?.event.channel.id).toBe(h.channel.id);
+  });
+});
+
 describe("dmPolicy pairing (default)", () => {
   it("gives an unknown sender a code and nothing else", async () => {
     const h = await harness();
