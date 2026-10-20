@@ -7,7 +7,7 @@ import {
   FakeSpeechEngine,
 } from "@psyche/testing";
 import type { ChannelInboundEvent, LibraryIngestInput } from "../src/ports.ts";
-import { ChannelService } from "../src/service.ts";
+import { ChannelService, type InboundDecisionEvent } from "../src/service.ts";
 import { MemoryChannelStore } from "../src/store/memory.ts";
 import { FakeVoiceTranscoder, VoiceNotes } from "../src/voice.ts";
 
@@ -30,6 +30,8 @@ export interface Harness {
   sleeps: number[];
   adapter: FakeChannelAdapter;
   channel: Channel;
+  /** What `onInboundDecision` reported. */
+  decisions: InboundDecisionEvent[];
 }
 
 let counter = 0;
@@ -53,7 +55,9 @@ export async function harness(
   const ingested: LibraryIngestInput[] = [];
   const events: { event: string; payload: unknown }[] = [];
   const sleeps: number[] = [];
+  const decisions: InboundDecisionEvent[] = [];
   const service = new ChannelService({
+    onInboundDecision: (e) => decisions.push(e),
     store,
     broker,
     clock,
@@ -113,6 +117,7 @@ export async function harness(
     sleeps,
     adapter,
     channel,
+    decisions,
   };
 }
 
