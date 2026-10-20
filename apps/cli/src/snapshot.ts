@@ -1,4 +1,4 @@
-import { lstatSync, readdirSync, readFileSync, statfsSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, statfsSync } from "node:fs";
 import { join, relative } from "node:path";
 import type { BackupInfo, McpServerStatus, RealChromeStatus } from "@psyche/protocol";
 import type { GatewayClient, HttpProbe } from "./client.ts";
@@ -7,7 +7,7 @@ import { type ConfigObject, readConfig, validateConfig } from "./config-file.ts"
 import type { Ctx } from "./context.ts";
 import { toReport } from "./errors.ts";
 import { which } from "./exec.ts";
-import { type ServiceState, serviceState } from "./supervisor.ts";
+import { launchAgentPath, type ServiceState, serviceState } from "./supervisor.ts";
 
 /**
  * Everything `doctor` and `security audit` look at, gathered once. Gateway queries that the
@@ -45,6 +45,66 @@ export function readUpdaterState(home: string): Query<UpdaterState> {
       message: "no run/updater.json (the desktop app has not checked for updates here)",
     };
   }
+}
+
+/** The installed LaunchAgent's program. A DMG install points it into Psyche.app. */
+export interface LaunchAgentInfo {
+  file: string;
+  /** `ProgramArguments[0]`, or null when the plist has none. */
+  program: string | null;
+  programExists: boolean;
+  /** The Psyche.app that holds `program` (`…/Psyche.app/Contents/Resources/psyched/psyched`). */
+  app: string | null;
+}
+
+const XML_ENTITIES: Record<string, string> = {
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&apos;": "'",
+};
+
+/** The program of a LaunchAgent plist (XML, as `psyche start` and the desktop write it). */
+export function launchAgentProgram(plist: string): string | null {
+  const m = /<key>ProgramArguments<\/key>\s*<array>\s*<string>([^<]*)<\/string>/.exec(plist);
+  if (!m?.[1]) return null;
+  return m[1].replace(/&(amp|lt|gt|quot|apos);/g, (e) => XML_ENTITIES[e] ?? e);
+}
+
+/** The Psyche.app a bundled psyched lives in, or null for any other program. */
+export function appOfProgram(program: string): string | null {
+  return /^(.*\.app)\/Contents\/Resources\/psyched\/psyched$/.exec(program)?.[1] ?? null;
+}
+
+export function readLaunchAgent(file: string): LaunchAgentInfo | null {
+  let plist: string;
+  try {
+    plist = readFileSync(file, "utf8");
+  } catch {
+    return null;
+  }
+  const program = launchAgentProgram(plist);
+  return {
+    file,
+    program,
+    programExists: program !== null && existsSync(program),
+    app: program === null ? null : appOfProgram(program),
+  };
+}
+
+/** The helper's `permissions.status` capability (S14 packaging contract), as doctor reads it. */
+export interface HelperPermissions {
+  permissions: { permission: string; status: string; title?: string; settingsURL?: string }[];
+  next: string | null;
+  bundled?: boolean;
+  bundle?: {
+    path?: string;
+    version?: string;
+    signing?: "developer_id" | "development" | "adhoc" | "unsigned";
+    teamId?: string;
+    insideApp?: boolean;
+  };
 }
 
 export interface Snapshot {
@@ -110,6 +170,12 @@ export interface Snapshot {
   backups: Query<BackupInfo[]>;
   /** The desktop's last update check, `$PSYCHE_HOME/run/updater.json` (security §11). */
   updater: Query<UpdaterState>;
+  /** macOS: the installed LaunchAgent (null when there is none). */
+  launchAgent?: LaunchAgentInfo | null;
+  /** macOS: Psyche.app, from the LaunchAgent's program, else /Applications or ~/Applications. */
+  app?: string | null;
+  /** macOS: the helper's `permissions.status` (read only, no prompts). */
+  helperPermissions?: Query<HelperPermissions>;
   localSandboxBackends: string[];
   disk: { freeBytes: number; totalBytes: number } | null;
   modeIssues: FileModeIssue[];
@@ -251,6 +317,45 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
     q(client, "backup.list", {}, (v: { backups: BackupInfo[] }) => v.backups),
   ]);
 
+  // The helper reports what macOS has granted it (a read capability; never prompts).
+  let helperPermissions: Query<HelperPermissions> | undefined;
+  if (ctx.deps.platform === "darwin" && client && nodes.ok) {
+    const list: { id: string; kind: string; status: string }[] = nodes.value;
+    const helper = list.find((n) => n.kind === "mac-helper" && n.status === "online");
+    if (helper) {
+      const r = await callIfAvailable<{
+        ok: boolean;
+        result?: HelperPermissions;
+        error?: { message?: string };
+      }>(client, "nodes.invoke", {
+        nodeId: helper.id,
+        capability: "permissions.status",
+        params: {},
+      });
+      helperPermissions = !r.ok
+        ? r
+        : r.value.ok && r.value.result
+          ? { ok: true, value: r.value.result }
+          : {
+              ok: false,
+              reason: "error",
+              message: `permissions.status: ${r.value.error?.message ?? "no result"}`,
+            };
+    }
+  }
+  let launchAgent: LaunchAgentInfo | null = null;
+  let app: string | null = null;
+  if (ctx.deps.platform === "darwin") {
+    launchAgent = readLaunchAgent(service?.file ?? launchAgentPath(ctx.env));
+    app =
+      launchAgent?.app ??
+      [
+        join("/Applications", "Psyche.app"),
+        join(ctx.env.HOME ?? "", "Applications", "Psyche.app"),
+      ].find((p) => existsSync(p)) ??
+      null;
+  }
+
   const localSandboxBackends: string[] = [];
   for (const bin of ["container", "docker", "podman"]) {
     if (await which(ctx.deps.exec, bin))
@@ -297,6 +402,8 @@ export async function gatherSnapshot(ctx: Ctx, opts: { connect: boolean }): Prom
     backups,
     updater: readUpdaterState(ctx.home),
     localModel,
+    ...(ctx.deps.platform === "darwin" ? { launchAgent, app } : {}),
+    ...(helperPermissions === undefined ? {} : { helperPermissions }),
   };
 }
 

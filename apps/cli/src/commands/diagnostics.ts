@@ -1,6 +1,6 @@
 import { auditExitCode, auditRules, parseSeverity } from "../audit.ts";
 import { bool, type CommandSpec, str } from "../command.ts";
-import { doctorChecks, doctorExitCode } from "../doctor.ts";
+import { type Check, doctorChecks, doctorExitCode, firstRunChecklist } from "../doctor.ts";
 import { CliError } from "../errors.ts";
 import { statusLine, table } from "../output.ts";
 import { gatherSnapshot } from "../snapshot.ts";
@@ -58,9 +58,14 @@ export const diagnosticsCommands: CommandSpec[] = [
   {
     path: ["doctor"],
     summary: "Check config, bind address, auth, sandbox, models, helper permissions and disk",
-    description: "Exits 1 when a check fails (and on warnings with --strict).",
+    description:
+      "Exits 1 when a check fails (and on warnings with --strict). --first-run prints only the install checklist, in the order to fix it: Psyche.app, LaunchAgent, Gateway health, this CLI's pairing, the helper, its permissions, a model and the vault.",
     options: {
       strict: { type: "boolean", description: "Treat warnings as failures" },
+      "first-run": {
+        type: "boolean",
+        description: "Only the install checklist, numbered, with the next step for each open item",
+      },
       offline: {
         type: "boolean",
         description: "Do not connect to the Gateway (HTTP probe and local checks only)",
@@ -68,18 +73,32 @@ export const diagnosticsCommands: CommandSpec[] = [
     },
     async run(ctx, { opts }) {
       const snapshot = await gatherSnapshot(ctx, { connect: !bool(opts, "offline") });
-      const checks = doctorChecks(snapshot);
+      const all = doctorChecks(snapshot);
+      const firstRun = bool(opts, "first-run");
+      const checks = firstRun ? firstRunChecklist(all) : all;
       const exitCode = doctorExitCode(checks, bool(opts, "strict"));
+      const line = (c: Check, label: string) =>
+        statusLine(
+          c.status,
+          `${label}${c.message}${c.hint && c.status !== "ok" ? `\n       → ${c.hint}` : ""}`,
+        );
+      if (!firstRun) {
+        return {
+          data: { ok: exitCode === 0, checks },
+          human: checks.map((c) => line(c, `${c.id}: `)).join("\n"),
+          exitCode,
+        };
+      }
+      const open = checks.filter((c) => c.status === "fail" || c.status === "warn");
       return {
-        data: { ok: exitCode === 0, checks },
-        human: checks
-          .map((c) =>
-            statusLine(
-              c.status,
-              `${c.id}: ${c.message}${c.hint && c.status !== "ok" ? `\n       → ${c.hint}` : ""}`,
-            ),
-          )
-          .join("\n"),
+        data: { ok: exitCode === 0, firstRun: true, checks },
+        human: [
+          ...checks.map((c, i) => line(c, `${i + 1}. `)),
+          "",
+          open.length === 0
+            ? "Psyche is installed and running."
+            : `${open.length} item(s) open; fix them top to bottom, then run psyche doctor --first-run again.`,
+        ].join("\n"),
         exitCode,
       };
     },

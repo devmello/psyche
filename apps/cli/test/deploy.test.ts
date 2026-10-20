@@ -1,5 +1,13 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -295,4 +303,41 @@ describe("deploy/scripts/release-preflight.mjs (before a tag)", () => {
       }
     }
   });
+});
+
+describe("deploy/scripts/build-psyched.mjs launchers", () => {
+  it.skipIf(process.platform === "win32")(
+    "find the bundle through absolute and relative symlinks (`/usr/local/bin/psyche`)",
+    async () => {
+      const { PSYCHE_LAUNCHER, PSYCHED_LAUNCHER } = await import(
+        resolve(deploy, "scripts/build-psyched.mjs")
+      );
+      const dir = mkdtempSync(join(tmpdir(), "psyche-launch-"));
+      try {
+        const bundle = join(dir, "Psyche.app", "Contents", "Resources", "psyched");
+        mkdirSync(join(bundle, "runtime"), { recursive: true });
+        // A stand-in runtime that prints the entry point it was given.
+        writeFileSync(join(bundle, "runtime", "node"), '#!/bin/sh\nprintf "%s\\n" "$2"\n', {
+          mode: 0o755,
+        });
+        writeFileSync(join(bundle, "psyche"), PSYCHE_LAUNCHER, { mode: 0o755 });
+        writeFileSync(join(bundle, "psyched"), PSYCHED_LAUNCHER, { mode: 0o755 });
+        const bin = join(dir, "bin");
+        mkdirSync(bin);
+        symlinkSync(join(bundle, "psyche"), join(bin, "psyche"));
+        symlinkSync("../Psyche.app/Contents/Resources/psyched/psyched", join(bin, "psyched"));
+        symlinkSync(join(bin, "psyche"), join(bin, "psyche2"));
+        const runIt = (p: string) => execFileSync(p, [], { encoding: "utf8" }).trim();
+        expect(runIt(join(bin, "psyche"))).toBe(join(bundle, "app/apps/cli/src/main.ts"));
+        expect(runIt(join(bin, "psyche2"))).toBe(join(bundle, "app/apps/cli/src/main.ts"));
+        expect(runIt(join(bin, "psyched"))).toBe(
+          // Not normalized: the launcher keeps the relative link's `..`.
+          `${bin}/../Psyche.app/Contents/Resources/psyched/app/apps/gateway/src/main.ts`,
+        );
+        expect(runIt(join(bundle, "psyched"))).toBe(join(bundle, "app/apps/gateway/src/main.ts"));
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
 });
