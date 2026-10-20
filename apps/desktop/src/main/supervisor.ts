@@ -116,6 +116,12 @@ export function isTranslocated(path: string): boolean {
   return path.includes("/AppTranslocation/");
 }
 
+/**
+ * launchd's PATH is `/usr/bin:/bin:/usr/sbin:/sbin`; Homebrew comes first so the CLIs the
+ * Gateway runs (Claude Code, Codex) are found (#530). Same line as `apps/cli`'s plist.
+ */
+export const LAUNCH_AGENT_PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin";
+
 /** LaunchAgent plist: KeepAlive, RunAtLoad, logs under `$PSYCHE_HOME/logs`, no secrets. */
 export function renderLaunchAgentPlist(input: PlistInput): string {
   const argv = [input.program, ...(input.args ?? [])]
@@ -135,6 +141,8 @@ ${argv}
   <dict>
     <key>PSYCHE_HOME</key>
     <string>${xml(input.psycheHome)}</string>
+    <key>PATH</key>
+    <string>${LAUNCH_AGENT_PATH}</string>
   </dict>
   <key>RunAtLoad</key>
   <true/>

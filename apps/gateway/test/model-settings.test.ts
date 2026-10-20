@@ -304,7 +304,7 @@ describe("subscription CLIs in Settings (fake CLI)", () => {
     });
     expect(claude.provider.probe).toMatchObject({
       state: "reachable",
-      server: "Claude Code 2.1.286 (claude.ai, pro plan)",
+      server: `Claude Code 2.1.286 · ${FAKE} (claude.ai, pro plan)`,
     });
     expect(claude.provider.models.map((m) => m.ref)).toContain("claude-code/sonnet");
     expect(JSON.stringify(claude)).not.toContain("owner@example.com");
