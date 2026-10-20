@@ -16,10 +16,13 @@ import {
   isWeakTransport,
   type LibraryIngest,
   type OutboundTarget,
+  type SecretSource,
+  SlackAdapter,
   SmsAdapter,
   type SmsAdapterOptions,
   type SmsSecretSource,
   SqliteChannelStore,
+  staticSecret,
   TelegramAdapter,
   type TelegramAdapterOptions,
   WebChatAdapter,
@@ -56,6 +59,7 @@ import type { Call, HandlerDef } from "../context.ts";
 import { MAIN_SESSION_KEY } from "../handlers/threads.ts";
 import type { Gateway } from "../server.ts";
 import type { TxHooks } from "../session/controller.ts";
+import { channelSecretHandlers, vaultChannelSecret } from "./channel-secrets.ts";
 import { indexedChannelLibrary } from "./library.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
@@ -103,6 +107,17 @@ export interface IMessageSetup {
 }
 
 /**
+ * Slack over Socket Mode (N8). Off unless configured. A token not given here is read from the
+ * vault, where `channels.secrets.set` stores it as a Gateway-owned item.
+ */
+export interface SlackSetup {
+  /** The workspace label: the channel's `account`. */
+  account: string;
+  botToken?: SecretSource;
+  appToken?: SecretSource;
+}
+
+/**
  * SMS over Twilio (N9). Off unless configured; `POST /channels/sms/twilio` is mounted only then.
  * The Gateway stays on loopback: Twilio reaches the route through the owner's tunnel or proxy at
  * `publicUrl`, the URL the webhook signature covers.
@@ -120,6 +135,7 @@ export const SMS_WEBHOOK_PATH = "/channels/sms/twilio";
 
 export interface ChannelsSetup {
   telegram?: TelegramSetup;
+  slack?: SlackSetup;
   imessage?: IMessageSetup;
   sms?: SmsSetup;
   /** Attach the built-in WebChat adapter (owner-only defaults). */
@@ -169,10 +185,28 @@ export function channelsSetupFromEnv(
   }
   // iMessage through the Mac helper (N5) is opt-in: the Messages account to answer as.
   const imessage = env.PSYCHE_IMESSAGE_ACCOUNT?.trim() ?? "";
+  // Slack (N8) is opt-in: the workspace label; tokens from env / files, else the vault.
+  const slackAccount = env.PSYCHE_SLACK_WORKSPACE?.trim() ?? "";
+  const secretFromEnv = (name: string): SecretSource | undefined => {
+    const path = env[`${name}_FILE`];
+    const value = (path ? readFile(path) : (env[name] ?? "")).trim();
+    return value === "" ? undefined : staticSecret(value);
+  };
+  const slackBot = secretFromEnv("PSYCHE_SLACK_BOT_TOKEN");
+  const slackApp = secretFromEnv("PSYCHE_SLACK_APP_TOKEN");
   const sms = smsSetupFromEnv(env, readFile);
   return {
     webchat: true,
     ...(token === "" ? {} : { telegram: { token, account } }),
+    ...(slackAccount === ""
+      ? {}
+      : {
+          slack: {
+            account: slackAccount,
+            ...(slackBot === undefined ? {} : { botToken: slackBot }),
+            ...(slackApp === undefined ? {} : { appToken: slackApp }),
+          },
+        }),
     ...(imessage === "" ? {} : { imessage: { account: imessage } }),
     ...(sms === undefined ? {} : { sms }),
   };
@@ -501,6 +535,21 @@ export function composeChannels(
       }),
     );
   }
+  if (setup.slack !== undefined) {
+    const { account } = setup.slack;
+    add(
+      new SlackAdapter({
+        account,
+        botToken:
+          setup.slack.botToken ??
+          vaultChannelSecret(() => services.vault, "slack", account, "bot_token"),
+        appToken:
+          setup.slack.appToken ??
+          vaultChannelSecret(() => services.vault, "slack", account, "app_token"),
+        clock,
+      }),
+    );
+  }
   // A live, Messages-capable node (the mac helper); none → the adapter's start fails and retries.
   const messagesNode = (pinned?: string) => {
     const nodes = gateway?.context.nodes;
@@ -809,7 +858,9 @@ export function composeChannels(
   // --- channels.* handlers -------------------------------------------------------------------
 
   const api = createChannelsApi(service, { newId: () => db.newId(), now: () => clock.now() });
-  const handlers: Record<string, HandlerDef> = {};
+  const handlers: Record<string, HandlerDef> = {
+    ...channelSecretHandlers(() => services.vault),
+  };
   for (const [name, fn] of Object.entries(api) as [
     keyof ChannelsApi,
     (p: unknown, c: { deviceId: string | null }) => Promise<unknown>,
