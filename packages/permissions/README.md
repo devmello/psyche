@@ -25,6 +25,7 @@ const api = createPermissionHandlers(broker, audit); // approvals.*, grants.*, a
 
 - `decide(call, ctx)` → `PolicyDecision` (`allow | ask | deny`, deciding `rule`, `trace`, and for `ask`: `approvalKind`, `bindingHash`, `grantKey`, `scopesOffered`, `typedConfirmation`, `deferred`).
 - `requestApproval`, `answer`, `awaitDecision`, `verifyBinding`, `get`, `list`, `reissue`, `revokeRunAuthority` (contract).
+- `authorizeChannelReply({channel, account, recipient, bodySha256, bindingHash?, purpose, turn?})` (package only; security §9 "Channel reply authority"): a system-decided `once` `message_send` for a channel send, from the `channelConversations` lookup. With `turn` (`{requestRecipient, context}`), a reply must go to the requesting conversation and the turn's mode, deny rules, requester and taint are evaluated (`taint_new_target`, `not_requesting_conversation`, `policy_denied`).
 - `recordReceipt`, `listReceipts` (contract) plus `broker.receipts.reconcile()` for `uncertain` outcomes.
 - Grant ledger: `listGrants`, `revokeGrant` (contract) plus `revokeAllGrants`, `revokeGrantsByDevice`, `revokeMcpGrants(serverId, toolsListHash)`, `endTask`, `endSession`, `exportGrants`.
 - `setPolicy(config)` (takes effect on the next call), `subscribe(listener)` for `approval.created | decided | expired | invalidated`, `grant.created | used | revoked`, `receipt.created`, `task.paused | downgraded`. Events never carry answer tokens.

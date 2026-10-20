@@ -5,8 +5,9 @@ import {
   CHANNEL_REPLIES_PER_MINUTE,
   CHANNEL_REPLY_WINDOW_MS,
   type ChannelConversation,
+  type PolicyContext,
 } from "../src/index.ts";
-import { makeBroker, memoryDb, sqliteBroker } from "./helpers.ts";
+import { CTX, call, makeBroker, memoryDb, recipient, sqliteBroker } from "./helpers.ts";
 
 const BODY = `sha256:${"a".repeat(64)}`;
 const OWNER_CHAT = "iMessage;-;+15550001111";
@@ -162,5 +163,70 @@ describe("authorizeChannelReply (N5)", () => {
     });
     const a = await broker.authorizeChannelReply(send(OWNER_CHAT));
     expect(await broker.get(a.id)).toMatchObject({ status: "approved", scopeGranted: "once" });
+  });
+});
+
+describe("authorizeChannelReply with the replying turn (security §3.3, §3.6)", () => {
+  const OTHER_CHAT = "iMessage;-;+15550009999";
+  const turn = (context: Partial<PolicyContext> = {}, requestRecipient = OWNER_CHAT) => ({
+    requestRecipient,
+    context: { ...CTX, ...context },
+  });
+  const tainted = { taint: true, taintSources: [{ sourceKind: "web", origin: "https://x.test" }] };
+
+  it("answers the requesting conversation, recording the run and its taint", async () => {
+    const h = harness({ [OWNER_CHAT]: {} });
+    const a = await h.broker.authorizeChannelReply({ ...send(OWNER_CHAT), turn: turn(tainted) });
+    expect(a).toMatchObject({
+      status: "approved",
+      scopeGranted: "once",
+      taint: true,
+      requestedBy: { runId: CTX.runId, threadId: CTX.threadId },
+    });
+    const [entry] = await h.audit.query({ kind: "approval.channel_reply" });
+    expect(entry?.data).toMatchObject({ taint: true, mode: "balanced" });
+  });
+
+  it("refuses a tainted turn's send to a new target; the agent's own send still asks", async () => {
+    // Someone allowed wrote in the other chat too: the conversation check alone would pass.
+    const h = harness({ [OWNER_CHAT]: {}, [OTHER_CHAT]: { senderId: "+15550009999" } });
+    await expect(
+      h.broker.authorizeChannelReply({ ...send(OTHER_CHAT), turn: turn(tainted) }),
+    ).rejects.toMatchObject({ code: "forbidden", details: { reason: "taint_new_target" } });
+    await expect(
+      h.broker.authorizeChannelReply({ ...send(OTHER_CHAT), turn: turn() }),
+    ).rejects.toMatchObject({ details: { reason: "not_requesting_conversation" } });
+    const refused = await h.audit.query({ kind: "approval.channel_reply_refused" });
+    expect(refused[0]?.data).toMatchObject({ reason: "taint_new_target", taint: true });
+
+    const d = await h.broker.decide(call("messages.send", "destructive", recipient(OTHER_CHAT)), {
+      ...CTX,
+      ...tainted,
+    });
+    expect(d).toMatchObject({ decision: "ask", approvalKind: "message_send" });
+    expect(d.scopesOffered).toEqual(["once", "task"]);
+  });
+
+  it("refuses under plan mode and user deny rules", async () => {
+    const h = harness({ [OWNER_CHAT]: {} });
+    await expect(
+      h.broker.authorizeChannelReply({
+        ...send(OWNER_CHAT),
+        turn: turn({ permissionMode: "plan" }),
+      }),
+    ).rejects.toMatchObject({ details: { reason: "policy_denied", rule: "mode:plan" } });
+    h.broker.setPolicy({ deny: ["channel.*"] });
+    await expect(
+      h.broker.authorizeChannelReply({ ...send(OWNER_CHAT), turn: turn() }),
+    ).rejects.toMatchObject({ details: { reason: "policy_denied" } });
+  });
+
+  it("pairing codes and approval cards are never agent text", async () => {
+    const h = harness({ [OWNER_CHAT]: { owner: true, allows: "pairing_code" } });
+    for (const purpose of ["pairing_code", "approval_card"] as const) {
+      await expect(
+        h.broker.authorizeChannelReply({ ...send(OWNER_CHAT, purpose), turn: turn() }),
+      ).rejects.toMatchObject({ details: { reason: "unexpected_turn" } });
+    }
   });
 });

@@ -1,3 +1,5 @@
+import type { PolicyContext } from "./types.ts";
+
 /**
  * Reply authority for chat channels (feature N5, security §3.5, §9). A channel send that the
  * transport gates on an approval (iMessage's `messages.send` speaks as the owner's Apple ID) gets
@@ -40,6 +42,20 @@ export interface ChannelReplyInput {
   /** When given, must equal the `message_send` binding of the fields above. */
   bindingHash?: string;
   purpose: ChannelReplyPurpose;
+  /**
+   * The agent turn whose text a `reply` carries; absent for Gateway-composed text (`/status`,
+   * "Stopped.", pairing codes, approval cards). With a turn, the reply must go to the
+   * conversation the turn's request came from, and the turn's mode, deny rules, requester and
+   * taint are evaluated as for a tool call (security §3.3, §3.6).
+   */
+  turn?: ChannelReplyTurn;
+}
+
+export interface ChannelReplyTurn {
+  /** The conversation the turn's request (its inbound message) came from. */
+  requestRecipient: string;
+  /** The turn's decision context: run, thread, task, mode, taint and requester. */
+  context: PolicyContext;
 }
 
 /** A reply may answer a message this recent (an agent turn with tools can take a while). */
