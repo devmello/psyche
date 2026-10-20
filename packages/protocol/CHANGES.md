@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (M2 computer use: script and Shortcut approval kinds, J4)
+
+For the Gateway's computer-use tools (`apps.applescript`, `apps.jxa`, `apps.shortcut_run`), S05 (card titles, scopes) and S10 / S11 / S12 (card labels).
+
+- `ApprovalKind` gains `apple_script` and `shortcut_run` at the end of the list: running AppleScript / JXA or a user Shortcut gets its own card showing the exact source (or name and input) instead of a generic "Use app". Both are `destructive` and offer `once` only: the approval binds the exact params (security §5.4).
 ### v1 additive — 2026-10-19 (S14/S11: system-wide dictation, J9 / Q2)
 
 For S14 (the helper's `dictation.*` capabilities), S01 (the Gateway forwards the methods to the local mac-helper), S11 (the desktop hotkey, HUD and Settings).
