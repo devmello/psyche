@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import {
+  type AttentionState,
   assertProfileName,
   type BridgeClient,
   BridgeServer,
@@ -21,7 +22,14 @@ import {
   systemLoopbackProbes,
 } from "@psyche/browser";
 import { getSetting } from "@psyche/db";
-import { createLocalProjectVerifier, type LocalProjectVerifier } from "@psyche/permissions";
+import {
+  type CompiledPolicy,
+  compilePolicy,
+  createLocalProjectVerifier,
+  isSensitiveHost,
+  type LocalProjectVerifier,
+  type PolicyConfig,
+} from "@psyche/permissions";
 import {
   type CredentialBroker,
   type DriverSession,
@@ -398,6 +406,32 @@ export function composeBrowser(
       });
     },
   };
+  // The owner-editable sensitive-category list lives in the permissions policy (security §3.2):
+  // compiled once per policy object, so a Settings edit applies on the next call.
+  let compiled: { from: PolicyConfig; policy: CompiledPolicy } | undefined;
+  const isSensitive = (origin: string): boolean => {
+    const from = services.rawBroker.policy;
+    if (compiled?.from !== from) compiled = { from, policy: compilePolicy(from) };
+    try {
+      return isSensitiveHost(compiled.policy, new URL(origin).hostname);
+    } catch {
+      return false;
+    }
+  };
+  // The Gateway's view of the owner (S01's OwnerAttention): their last input anywhere, and
+  // whether the desktop reported the browser pane hidden. Unknown visibility is input-only.
+  const attentionGate = {
+    isSensitive,
+    state: (): AttentionState => {
+      const lastInputAt = services.attention.lastInput();
+      return {
+        ...(services.attention.paneHidden("browser") ? { visible: false } : {}),
+        ...(lastInputAt === undefined ? {} : { lastInputAt }),
+      };
+    },
+    now: () => services.clock.now(),
+  };
+
   const unregister = registerBrowserTools(tools, {
     driver: driverProxy,
     broker: services.broker,
@@ -424,6 +458,8 @@ export function composeBrowser(
       return realChromeOn() ? realChrome : undefined;
     },
     devPreview: devServers,
+    // Pause-when-unwatched (#272).
+    attention: attentionGate,
     containsSecret: (text: string) => redact(text) !== text,
     // Hand-offs (S20): the pane shows the reason and the owner gets an "input needed" notice.
     async requestControl(req) {
