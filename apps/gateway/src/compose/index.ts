@@ -75,9 +75,9 @@ import {
   type ComposeServices,
   createOwnPorts,
 } from "./services.ts";
+import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
-import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 
 /**
@@ -621,8 +621,6 @@ export {
   type RealChromeStatus,
 } from "./real-chrome.ts";
 export type { ApprovalRelay, ComposedPart, ComposeServices, OwnPorts } from "./services.ts";
-export { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
-export { type ModelPins, modelPinsFor, restoreModelPins } from "./threads.ts";
 export {
   composeSpeech,
   dbMessageSource,
@@ -631,6 +629,8 @@ export {
   speechNode,
   speechSetupFromEnv,
 } from "./speech.ts";
+export { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
+export { type ModelPins, modelPinsFor, restoreModelPins } from "./threads.ts";
 export {
   type ComposedVault,
   chooseWrapper,
