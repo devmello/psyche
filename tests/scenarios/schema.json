@@ -165,7 +165,8 @@
         "file.write",
         "exec",
         "shop.cart",
-        "purchase.handoff"
+        "purchase.handoff",
+        "purchase"
       ]
     },
     "approvalKind": {
