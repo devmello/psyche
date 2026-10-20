@@ -7,7 +7,7 @@ import {
   parsePayload,
   sanitizeFilename,
 } from "../google/mime.ts";
-import type { MailMessageView } from "./types.ts";
+import type { AuthenticationResults, MailMessageView } from "./types.ts";
 
 /**
  * RFC 5322 / MIME parsing for raw messages (IMAP `BODY[]`, JMAP blobs). The message is turned
@@ -341,6 +341,7 @@ export function messageViewFromRaw(
 ): MailMessageView {
   const { headers, payload } = parseRawMessage(raw);
   const h = (name: string) => decodeHeaderValue(headerValue(headers, name) ?? "").slice(0, 2000);
+  const lower = (name: string) => h(name).trim().toLowerCase().slice(0, 200);
   const parsed = parsePayload(payload);
   const view: MailMessageView = {
     id: meta.id,
@@ -360,8 +361,47 @@ export function messageViewFromRaw(
     bodySource: parsed.source,
     attachments: parsed.attachments,
     warnings: parsed.warnings,
+    authenticationResults: headers
+      .filter((x) => x.name.toLowerCase() === "authentication-results")
+      .slice(0, 10)
+      .map((x) => parseAuthenticationResults(x.value)),
+    autoSubmitted: lower("Auto-Submitted").split(/[\s;]/)[0] ?? "",
+    listId: h("List-Id").trim().slice(0, 500),
+    precedence: lower("Precedence"),
   };
   if (meta.threadId !== undefined) view.threadId = meta.threadId;
   if (meta.size !== undefined) view.size = meta.size;
   return view;
+}
+
+/**
+ * RFC 8601 `Authentication-Results`: `authserv-id [version]; method=result prop=value …; …`.
+ * Lenient: comments in parentheses are dropped, unknown parts ignored, never throws.
+ */
+export function parseAuthenticationResults(value: string): AuthenticationResults {
+  const raw = value.slice(0, 4000);
+  const clean = raw
+    .replace(/\([^()]*\)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const [head = "", ...parts] = clean.split(";").map((p) => p.trim());
+  const out: AuthenticationResults = {
+    authservId: (head.split(" ")[0] ?? "").toLowerCase(),
+    results: {},
+    properties: {},
+    raw,
+  };
+  for (const part of parts) {
+    const m = /^([a-z0-9-]+)\s*=\s*([a-z0-9-]+)(.*)$/i.exec(part);
+    if (m === null) continue;
+    const method = (m[1] as string).toLowerCase();
+    if (method === "none" || out.results[method] !== undefined) continue;
+    out.results[method] = (m[2] as string).toLowerCase();
+    const props: Record<string, string> = {};
+    for (const p of (m[3] ?? "").matchAll(/([a-z0-9-]+\.[a-z0-9-]+)\s*=\s*("[^"]*"|[^\s;]+)/gi)) {
+      props[(p[1] as string).toLowerCase()] = (p[2] as string).replace(/^"|"$/g, "").toLowerCase();
+    }
+    out.properties[method] = props;
+  }
+  return out;
 }
