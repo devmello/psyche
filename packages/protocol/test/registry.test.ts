@@ -238,7 +238,11 @@ describe("method registry", () => {
     expect(methodSpec("connect.verify").scope).toBe("none");
     for (const name of names) {
       const { scope } = methodSpec(name);
-      if (name.startsWith("devices.")) expect(scope, name).toBe("operator.admin");
+      // devices.bootstrapAdmin is the one devices.* method a non-admin may call: the first device on
+      // a fresh install claims admin, gated inside the handler by "no admin exists yet", atomic and
+      // audited (docs/05 §4.3.1). Every other devices.* method is admin-only.
+      if (name === "devices.bootstrapAdmin") expect(scope, name).toBe("operator.write");
+      else if (name.startsWith("devices.")) expect(scope, name).toBe("operator.admin");
       if (name.startsWith("node.")) expect(scope, name).toBe("node");
       if (
         /\.(list|get|history|search|query|tabs|snapshot|status|capabilities|layout)$/.test(name)
