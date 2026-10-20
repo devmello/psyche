@@ -21,6 +21,7 @@ import type { HandlerDef } from "../context.ts";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
 import type { CallContexts } from "./call-context.ts";
+import type { ChannelConversations } from "./channel-conversations.ts";
 
 /**
  * What the composition root hands to the INT-2 subsystems (browser, connectors, channels).
@@ -41,6 +42,8 @@ export interface ComposeServices {
   readonly tools: ToolRegistry;
   readonly calls: CallContexts;
   publish<E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string): void;
+  /** Inbound channel policy decisions per conversation (the broker's channel reply authority). */
+  readonly channelConversations: ChannelConversations;
   /** The credential vault (S06): connector tokens, Settings → Credentials. */
   readonly vault: Vault;
   /** The redactor the vault registers handed-out values with; mask any output path with it. */

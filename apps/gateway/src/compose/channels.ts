@@ -72,7 +72,11 @@ export interface TelegramSetup {
 export interface IMessageSetup {
   /** The Mac's Messages account: the channel's `account`. */
   account: string;
-  authorizeSend: IMessageSendAuthorizer;
+  /**
+   * Default: the broker's channel reply authority (`authorizeChannelReply`), which answers only
+   * the conversation an authorized sender just wrote in (or the owner's own chat, for cards).
+   */
+  authorizeSend?: IMessageSendAuthorizer;
   /** Pin one node; default the first live node offering `messages.watch`. */
   nodeId?: string;
   /** Default: `$PSYCHE_HOME/channels/imessage-<account>.cursor`. */
@@ -127,9 +131,36 @@ export function channelsSetupFromEnv(
       "PSYCHE_TELEGRAM_BOT_USERNAME is required with a Telegram bot token",
     );
   }
+  // iMessage through the Mac helper (N5) is opt-in: the Messages account to answer as.
+  const imessage = env.PSYCHE_IMESSAGE_ACCOUNT?.trim() ?? "";
   return {
     webchat: true,
     ...(token === "" ? {} : { telegram: { token, account } }),
+    ...(imessage === "" ? {} : { imessage: { account: imessage } }),
+  };
+}
+
+/**
+ * The default iMessage send port (N5): a system-decided `message_send` approval from the broker
+ * for exactly this text and conversation, refused unless the channel's policy lets Psyche answer
+ * there. The node only checks that an approval id is present, so the Gateway verifies and spends
+ * the approval here (scope `once`) before handing the id over.
+ */
+export function channelReplyAuthority(services: ComposeServices): IMessageSendAuthorizer {
+  return async (intent) => {
+    const approval = await services.rawBroker.authorizeChannelReply({
+      channel: intent.channel,
+      account: intent.account,
+      recipient: intent.recipient,
+      bodySha256: intent.bodySha256,
+      bindingHash: intent.bindingHash,
+      purpose: intent.purpose,
+    });
+    const verified = await services.rawBroker.verifyBinding(approval.id, intent.bindingHash);
+    if (!verified.ok) {
+      throw new PsycheError("forbidden", `the reply authority did not verify (${verified.reason})`);
+    }
+    return approval.id;
   };
 }
 
@@ -245,6 +276,7 @@ export function composeChannels(
     ...(setup.speech === undefined ? {} : { speech: setup.speech }),
     ...(setup.pairingRandom === undefined ? {} : { pairingRandom: setup.pairingRandom }),
     ...(Array.isArray(storedOwners) ? { ownerAllowFrom: storedOwners.map(String) } : {}),
+    onInboundDecision: (event) => services.channelConversations.record(event),
   });
 
   const adapters = new Map<string, ChannelAdapter>();
@@ -277,7 +309,7 @@ export function composeChannels(
     add(
       new IMessageAdapter({
         account: im.account,
-        authorizeSend: im.authorizeSend,
+        authorizeSend: im.authorizeSend ?? channelReplyAuthority(services),
         node: () => messagesNode(im.nodeId),
         cursor:
           im.cursor ??
