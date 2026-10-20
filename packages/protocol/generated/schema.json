@@ -825,6 +825,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Converts an Office file (slides, documents, sheets) to PDF or a PNG thumbnail with LibreOffice in the sandbox, cached by the file's etag, and returns a chunk of the result; call again with nextOffset for the rest. unavailable with details.reason `sandbox_unavailable` (no container runtime) or `image_missing` (the full sandbox image with LibreOffice is not installed); invalid_params for a file it cannot convert.",
+        "name": "documents.convert",
+        "params": "#/$defs/DocumentsConvertParams",
+        "result": "#/$defs/DocumentsConvertResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Replaces this connection's event filters (no filters → every event the device's scopes allow). Returns the current stateVersion.",
         "name": "events.subscribe",
         "params": "#/$defs/EventsSubscribeParams",
@@ -853,6 +861,22 @@
         "name": "feed.list",
         "params": "#/$defs/FeedListParams",
         "result": "#/$defs/FeedListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists a folder inside a granted folder, folders first then by name, 500 entries per page. Symlinks are listed as `other`. forbidden outside every granted folder or through a symlink; not_found when missing.",
+        "name": "files.list",
+        "params": "#/$defs/FilesListParams",
+        "result": "#/$defs/FilesListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Reads a chunk of a file in a granted folder or the Library. invalid_params unless exactly one of path / libraryPath; forbidden outside them or through a symlink; not_found when missing.",
+        "name": "files.read",
+        "params": "#/$defs/FilesReadParams",
+        "result": "#/$defs/FilesReadResult",
         "scope": "operator.read",
         "sideEffecting": false
       },
@@ -6700,6 +6724,13 @@
       ],
       "type": "object"
     },
+    "ConversionTarget": {
+      "enum": [
+        "pdf",
+        "thumbnail"
+      ],
+      "type": "string"
+    },
     "CredentialBinding": {
       "anyOf": [
         {
@@ -7497,6 +7528,85 @@
       ],
       "type": "string"
     },
+    "DocumentsConvertParams": {
+      "properties": {
+        "path": {
+          "description": "an absolute path in a granted folder",
+          "maxLength": 4096,
+          "minLength": 2,
+          "pattern": "^/",
+          "type": "string"
+        },
+        "libraryPath": {
+          "description": "a path relative to the Library (LibraryItem.path)",
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "^[^/]",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/ConversionTarget"
+        },
+        "offset": {
+          "description": "byte offset; default 0",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "length": {
+          "description": "bytes to return; default and maximum 524288",
+          "maximum": 524288,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "target"
+      ],
+      "type": "object"
+    },
+    "DocumentsConvertResult": {
+      "properties": {
+        "mime": {
+          "enum": [
+            "application/pdf",
+            "image/png"
+          ],
+          "type": "string"
+        },
+        "size": {
+          "description": "the whole content's size in bytes",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "offset": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "bytes": {
+          "contentEncoding": "base64",
+          "description": "this chunk, base64",
+          "type": "string"
+        },
+        "nextOffset": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "mime",
+        "size",
+        "offset",
+        "bytes"
+      ],
+      "type": "object"
+    },
     "EmptyParams": {
       "properties": {},
       "type": "object"
@@ -7915,6 +8025,185 @@
       "required": [
         "type",
         "libraryItemId"
+      ],
+      "type": "object"
+    },
+    "FileEntry": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/FileEntryKind"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "modifiedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "path",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "FileEntryKind": {
+      "enum": [
+        "file",
+        "folder",
+        "other"
+      ],
+      "type": "string"
+    },
+    "FilesListParams": {
+      "properties": {
+        "path": {
+          "description": "an absolute path in a granted folder",
+          "maxLength": 4096,
+          "minLength": 2,
+          "pattern": "^/",
+          "type": "string"
+        },
+        "offset": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "FilesListResult": {
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/FileEntry"
+          },
+          "maxItems": 500,
+          "type": "array"
+        },
+        "nextOffset": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "entries"
+      ],
+      "type": "object"
+    },
+    "FilesReadParams": {
+      "properties": {
+        "path": {
+          "description": "an absolute path in a granted folder",
+          "maxLength": 4096,
+          "minLength": 2,
+          "pattern": "^/",
+          "type": "string"
+        },
+        "libraryPath": {
+          "description": "a path relative to the Library (LibraryItem.path)",
+          "maxLength": 4096,
+          "minLength": 1,
+          "pattern": "^[^/]",
+          "type": "string"
+        },
+        "offset": {
+          "description": "byte offset; default 0",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "length": {
+          "description": "bytes to return; default and maximum 524288",
+          "maximum": 524288,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "FilesReadResult": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "mime": {
+          "description": "from the extension; application/octet-stream if unknown",
+          "type": "string"
+        },
+        "modifiedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "etag": {
+          "type": "string"
+        },
+        "size": {
+          "description": "the whole content's size in bytes",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "offset": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "bytes": {
+          "contentEncoding": "base64",
+          "description": "this chunk, base64",
+          "type": "string"
+        },
+        "nextOffset": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "mime",
+        "modifiedAt",
+        "etag",
+        "size",
+        "offset",
+        "bytes"
       ],
       "type": "object"
     },

@@ -1740,6 +1740,44 @@ export interface DictationWatchResult {
     watching: boolean;
 }
 
+export interface DocumentsConvertParams {
+    /**
+     * bytes to return; default and maximum 524288
+     */
+    length?: number;
+    /**
+     * a path relative to the Library (LibraryItem.path)
+     */
+    libraryPath?: string;
+    /**
+     * byte offset; default 0
+     */
+    offset?: number;
+    /**
+     * an absolute path in a granted folder
+     */
+    path?:  string;
+    target: ConversionTarget;
+}
+
+export type ConversionTarget = "pdf" | "thumbnail";
+
+export interface DocumentsConvertResult {
+    /**
+     * this chunk, base64
+     */
+    bytes:       string;
+    mime:        DocumentsConvertResultMIME;
+    nextOffset?: number | null;
+    offset:      number;
+    /**
+     * the whole content's size in bytes
+     */
+    size: number;
+}
+
+export type DocumentsConvertResultMIME = "application/pdf" | "image/png";
+
 export interface EventFrame {
     event:        string;
     payload:      unknown;
@@ -1844,6 +1882,68 @@ export interface FileBlock {
 }
 
 export type FileBlockType = "file";
+
+export interface FilesListParams {
+    offset?: number;
+    /**
+     * an absolute path in a granted folder
+     */
+    path: string;
+}
+
+export interface FilesListResult {
+    entries:     FileEntry[];
+    nextOffset?: number | null;
+}
+
+export interface FileEntry {
+    kind:        FileEntryKind;
+    modifiedAt?: null | string;
+    name:        string;
+    path:        string;
+    size?:       number | null;
+}
+
+export type FileEntryKind = "file" | "folder" | "other";
+
+export interface FilesReadParams {
+    /**
+     * bytes to return; default and maximum 524288
+     */
+    length?: number;
+    /**
+     * a path relative to the Library (LibraryItem.path)
+     */
+    libraryPath?: string;
+    /**
+     * byte offset; default 0
+     */
+    offset?: number;
+    /**
+     * an absolute path in a granted folder
+     */
+    path?: string;
+}
+
+export interface FilesReadResult {
+    /**
+     * this chunk, base64
+     */
+    bytes: string;
+    etag:  string;
+    /**
+     * from the extension; application/octet-stream if unknown
+     */
+    mime:        string;
+    modifiedAt:  string;
+    name:        string;
+    nextOffset?: number | null;
+    offset:      number;
+    /**
+     * the whole content's size in bytes
+     */
+    size: number;
+}
 
 export interface Frame {
     id?:             string;
@@ -2282,10 +2382,10 @@ export interface MemoryExportResult {
     bytes:    number;
     data:     string;
     filename: string;
-    mime:     MIME;
+    mime:     MemoryExportResultMIME;
 }
 
-export type MIME = "application/zip";
+export type MemoryExportResultMIME = "application/zip";
 
 export interface MemoryFileChangedPayload {
     etag?: null | string;

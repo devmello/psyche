@@ -190,6 +190,7 @@
 //   let connectorsGetResult = try? JSONDecoder().decode(ConnectorsGetResult.self, from: jsonData)
 //   let connectorsListParams = try? JSONDecoder().decode(ConnectorsListParams.self, from: jsonData)
 //   let connectorsListResult = try? JSONDecoder().decode(ConnectorsListResult.self, from: jsonData)
+//   let conversionTarget = try? JSONDecoder().decode(ConversionTarget.self, from: jsonData)
 //   let credentialBinding = try? JSONDecoder().decode(CredentialBinding.self, from: jsonData)
 //   let credentialKind = try? JSONDecoder().decode(CredentialKind.self, from: jsonData)
 //   let credentialMeta = try? JSONDecoder().decode(CredentialMeta.self, from: jsonData)
@@ -226,6 +227,8 @@
 //   let dictationWatchParams = try? JSONDecoder().decode(DictationWatchParams.self, from: jsonData)
 //   let dictationWatchResult = try? JSONDecoder().decode(DictationWatchResult.self, from: jsonData)
 //   let dmPolicy = try? JSONDecoder().decode(DmPolicy.self, from: jsonData)
+//   let documentsConvertParams = try? JSONDecoder().decode(DocumentsConvertParams.self, from: jsonData)
+//   let documentsConvertResult = try? JSONDecoder().decode(DocumentsConvertResult.self, from: jsonData)
 //   let emptyParams = try? JSONDecoder().decode(EmptyParams.self, from: jsonData)
 //   let errorCode = try? JSONDecoder().decode(ErrorCode.self, from: jsonData)
 //   let errorPayload = try? JSONDecoder().decode(ErrorPayload.self, from: jsonData)
@@ -244,6 +247,12 @@
 //   let feedPostPayload = try? JSONDecoder().decode(FeedPostPayload.self, from: jsonData)
 //   let feedUpdatedPayload = try? JSONDecoder().decode(FeedUpdatedPayload.self, from: jsonData)
 //   let fileBlock = try? JSONDecoder().decode(FileBlock.self, from: jsonData)
+//   let fileEntry = try? JSONDecoder().decode(FileEntry.self, from: jsonData)
+//   let fileEntryKind = try? JSONDecoder().decode(FileEntryKind.self, from: jsonData)
+//   let filesListParams = try? JSONDecoder().decode(FilesListParams.self, from: jsonData)
+//   let filesListResult = try? JSONDecoder().decode(FilesListResult.self, from: jsonData)
+//   let filesReadParams = try? JSONDecoder().decode(FilesReadParams.self, from: jsonData)
+//   let filesReadResult = try? JSONDecoder().decode(FilesReadResult.self, from: jsonData)
 //   let frame = try? JSONDecoder().decode(Frame.self, from: jsonData)
 //   let gatewayShutdownPayload = try? JSONDecoder().decode(GatewayShutdownPayload.self, from: jsonData)
 //   let goal = try? JSONDecoder().decode(Goal.self, from: jsonData)
@@ -5452,6 +5461,72 @@ public struct DictationWatchResult: Codable, Sendable {
     }
 }
 
+// MARK: - DocumentsConvertParams
+public struct DocumentsConvertParams: Codable, Sendable {
+    /// bytes to return; default and maximum 524288
+    public let length: Int?
+    /// a path relative to the Library (LibraryItem.path)
+    public let libraryPath: String?
+    /// byte offset; default 0
+    public let offset: Int?
+    /// an absolute path in a granted folder
+    public let path: String?
+    public let target: ConversionTarget
+
+    public enum CodingKeys: String, CodingKey {
+        case length = "length"
+        case libraryPath = "libraryPath"
+        case offset = "offset"
+        case path = "path"
+        case target = "target"
+    }
+
+    public init(length: Int?, libraryPath: String?, offset: Int?, path: String?, target: ConversionTarget) {
+        self.length = length
+        self.libraryPath = libraryPath
+        self.offset = offset
+        self.path = path
+        self.target = target
+    }
+}
+
+public enum ConversionTarget: String, Codable, Sendable {
+    case pdf = "pdf"
+    case thumbnail = "thumbnail"
+}
+
+// MARK: - DocumentsConvertResult
+public struct DocumentsConvertResult: Codable, Sendable {
+    /// this chunk, base64
+    public let bytes: String
+    public let mime: DocumentsConvertResultMIME
+    public let nextOffset: Int?
+    public let offset: Int
+    /// the whole content's size in bytes
+    public let size: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case mime = "mime"
+        case nextOffset = "nextOffset"
+        case offset = "offset"
+        case size = "size"
+    }
+
+    public init(bytes: String, mime: DocumentsConvertResultMIME, nextOffset: Int?, offset: Int, size: Int) {
+        self.bytes = bytes
+        self.mime = mime
+        self.nextOffset = nextOffset
+        self.offset = offset
+        self.size = size
+    }
+}
+
+public enum DocumentsConvertResultMIME: String, Codable, Sendable {
+    case applicationPDF = "application/pdf"
+    case imagePNG = "image/png"
+}
+
 // MARK: - EventFrame
 public struct EventFrame: Codable, Sendable {
     public let event: String
@@ -5746,6 +5821,133 @@ public struct FileBlock: Codable, Sendable {
 
 public enum FileBlockType: String, Codable, Sendable {
     case file = "file"
+}
+
+// MARK: - FilesListParams
+public struct FilesListParams: Codable, Sendable {
+    public let offset: Int?
+    /// an absolute path in a granted folder
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case offset = "offset"
+        case path = "path"
+    }
+
+    public init(offset: Int?, path: String) {
+        self.offset = offset
+        self.path = path
+    }
+}
+
+// MARK: - FilesListResult
+public struct FilesListResult: Codable, Sendable {
+    public let entries: [FileEntry]
+    public let nextOffset: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case entries = "entries"
+        case nextOffset = "nextOffset"
+    }
+
+    public init(entries: [FileEntry], nextOffset: Int?) {
+        self.entries = entries
+        self.nextOffset = nextOffset
+    }
+}
+
+// MARK: - FileEntry
+public struct FileEntry: Codable, Sendable {
+    public let kind: FileEntryKind
+    public let modifiedAt: String?
+    public let name: String
+    public let path: String
+    public let size: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case kind = "kind"
+        case modifiedAt = "modifiedAt"
+        case name = "name"
+        case path = "path"
+        case size = "size"
+    }
+
+    public init(kind: FileEntryKind, modifiedAt: String?, name: String, path: String, size: Int?) {
+        self.kind = kind
+        self.modifiedAt = modifiedAt
+        self.name = name
+        self.path = path
+        self.size = size
+    }
+}
+
+public enum FileEntryKind: String, Codable, Sendable {
+    case file = "file"
+    case folder = "folder"
+    case other = "other"
+}
+
+// MARK: - FilesReadParams
+public struct FilesReadParams: Codable, Sendable {
+    /// bytes to return; default and maximum 524288
+    public let length: Int?
+    /// a path relative to the Library (LibraryItem.path)
+    public let libraryPath: String?
+    /// byte offset; default 0
+    public let offset: Int?
+    /// an absolute path in a granted folder
+    public let path: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case length = "length"
+        case libraryPath = "libraryPath"
+        case offset = "offset"
+        case path = "path"
+    }
+
+    public init(length: Int?, libraryPath: String?, offset: Int?, path: String?) {
+        self.length = length
+        self.libraryPath = libraryPath
+        self.offset = offset
+        self.path = path
+    }
+}
+
+// MARK: - FilesReadResult
+public struct FilesReadResult: Codable, Sendable {
+    /// this chunk, base64
+    public let bytes: String
+    public let etag: String
+    /// from the extension; application/octet-stream if unknown
+    public let mime: String
+    public let modifiedAt: String
+    public let name: String
+    public let nextOffset: Int?
+    public let offset: Int
+    /// the whole content's size in bytes
+    public let size: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case etag = "etag"
+        case mime = "mime"
+        case modifiedAt = "modifiedAt"
+        case name = "name"
+        case nextOffset = "nextOffset"
+        case offset = "offset"
+        case size = "size"
+    }
+
+    public init(bytes: String, etag: String, mime: String, modifiedAt: String, name: String, nextOffset: Int?, offset: Int, size: Int) {
+        self.bytes = bytes
+        self.etag = etag
+        self.mime = mime
+        self.modifiedAt = modifiedAt
+        self.name = name
+        self.nextOffset = nextOffset
+        self.offset = offset
+        self.size = size
+    }
 }
 
 // MARK: - Frame
@@ -7142,7 +7344,7 @@ public struct MemoryExportResult: Codable, Sendable {
     public let bytes: Int
     public let data: String
     public let filename: String
-    public let mime: MIME
+    public let mime: MemoryExportResultMIME
 
     public enum CodingKeys: String, CodingKey {
         case bytes = "bytes"
@@ -7151,7 +7353,7 @@ public struct MemoryExportResult: Codable, Sendable {
         case mime = "mime"
     }
 
-    public init(bytes: Int, data: String, filename: String, mime: MIME) {
+    public init(bytes: Int, data: String, filename: String, mime: MemoryExportResultMIME) {
         self.bytes = bytes
         self.data = data
         self.filename = filename
@@ -7159,7 +7361,7 @@ public struct MemoryExportResult: Codable, Sendable {
     }
 }
 
-public enum MIME: String, Codable, Sendable {
+public enum MemoryExportResultMIME: String, Codable, Sendable {
     case applicationZip = "application/zip"
 }
 
