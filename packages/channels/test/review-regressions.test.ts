@@ -63,7 +63,7 @@ describe("review regressions", () => {
     expect(reports).toEqual([
       { surface: `telegram:${OWNER}`, delivered: false, reason: "too_long_for_chat" },
     ]);
-    expect(sentTexts(h).at(-1)).toMatch(/paired device/);
+    expect(sentTexts(h).at(-1)).toMatch(/Open on your Mac to review/);
     h.clock.advance(1000);
     await h.adapter.receive({
       senderId: OWNER,

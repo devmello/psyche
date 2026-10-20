@@ -35,7 +35,10 @@ export {
   type BrowserFillResult,
   type CdpSession,
   clearFocusedField,
+  type FocusedElement,
+  type FocusedFillOptions,
   fillBrowserField,
+  fillFocused,
 } from "./fill/browser.ts";
 export {
   buildSecretEnv,
@@ -60,6 +63,37 @@ export {
   parseCsv,
 } from "./import.ts";
 export { type MetaMirror, type SqlHandle, SqliteMetaMirror } from "./meta.ts";
+export {
+  type CardField,
+  cardFieldAccepts,
+  formatAmount,
+  LINK_MAX_USD_MINOR,
+  PaymentBroker,
+  type PaymentBrokerOptions,
+  type PurchaseInput,
+  type PurchaseRequester,
+  purchaseBindingHash,
+  type SpendRecord,
+  shred,
+  spendContext,
+} from "./payments/broker.ts";
+export {
+  type CardFile,
+  type LineItem,
+  type LinkCliOptions,
+  LinkCliWallet,
+  type LinkWallet,
+  type MaskedCard,
+  parseCardFile,
+  parseSpendRequest,
+  type ReportOutcome,
+  SPEND_FINAL,
+  SPEND_WAITING,
+  type SpendLimits,
+  type SpendRequest,
+  type SpendRequestInput,
+  type SpendStatus,
+} from "./payments/link.ts";
 export {
   base64Fragments,
   encodingsOf,

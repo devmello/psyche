@@ -21,6 +21,15 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 ### v1 additive — 2026-10-19 (S11 M2: quote-reply)
 
 For S11 / S12 (chat column), S01 (session controller). `chat.send` gains optional `replyToMessageId` (feature E5): the message this one answers, in the same thread. The Gateway stores it as `Message.replyToMessageId` (already in the schema) and puts the quoted text ahead of the new message in what the agent sees, so replies carry a quote reference the agent reads.
+### v1 additive — 2026-10-19 (S17 M2: voice memos, speech.voices)
+
+For S17 (`packages/speech`), S01 (Gateway routing), S11/S12 (composer memo button, persona voice picker), S10 (channel voice notes).
+
+- `voice.start` gains optional `memo: boolean`: the session keeps its audio.
+- New `voice.memo.save {sessionId, threadId?, task?: MemoTaskMode}` → `{transcript, item: LibraryItem, task: Task | null, provenance, content: VoiceMemoContent, blocks: Block[], durationMs}` (`operator.write`, side-effecting): files the session as a Library `recording` with the transcript as text extract and creates a Task when the memo asks for one (`auto` = only on a cue such as "remind me to…"). The transcript is content: `VoiceMemoContent` lists URLs (never fetched) and flags instruction-like phrasing; `blocks` quote it under a label (feature Q4).
+- New `speech.voices {personaVoice?}` → `{voices: SpeechVoice[], default, unavailable}`: every synthesis voice as `<engine>:<voice>` for voice selection per persona (feature Q3). `SpeechVoice.nonCommercial` marks Apple Personal Voice.
+- New schemas `MemoTaskMode`, `VoiceMemoContent`, `SpeechVoice`.
+- Contract `Voice` gains optional `nonCommercial` (the helper's `speech.voices` already reports `personalVoice`). `FakeSpeechEngine` is unchanged (the field is optional).
 ### v1 additive — 2026-10-20 (S21 sandbox: file provenance, design-07; issue #97)
 
 For S21 (`packages/sandbox`) and the owner of the `exec` / workspace file tools (S01).
