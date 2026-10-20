@@ -1,11 +1,17 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { ActivityPanel } from "../src/agent/ActivityPanel.tsx";
+import { ActivityPanel, outcomeTone } from "../src/agent/ActivityPanel.tsx";
 import { AgentHeader } from "../src/agent/AgentHeader.tsx";
+import { AgentSheetBody } from "../src/agent/AgentSheet.tsx";
 import { ApprovalsPanel } from "../src/agent/ApprovalsPanel.tsx";
 import { SoulMemoryPanel } from "../src/agent/SoulMemoryPanel.tsx";
-import { scheduleSentence, UpcomingPanel } from "../src/agent/UpcomingPanel.tsx";
+import {
+  isReminder,
+  scheduleSentence,
+  snoozedSchedule,
+  UpcomingPanel,
+} from "../src/agent/UpcomingPanel.tsx";
 import type { MockGateway } from "../src/data/mock-gateway.ts";
 import { IDS } from "../src/fixtures/index.ts";
 import { STORY_NOW, StoryWorld } from "../src/stories/harness.tsx";
@@ -28,7 +34,9 @@ describe("AgentHeader", () => {
         <AgentHeader onOpenSheet={() => (opened = true)} mode="balanced" />
       </StoryWorld>,
     );
-    expect(await screen.findByText(/Needs you: \d+ items/)).toBeTruthy();
+    // The snippet names the current work; what needs you is the counter beside it (§3.1).
+    expect(await screen.findByText("Hold the 2:30 slot")).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /^\d+ needs? you$/ })).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: /Open Wren's activity/ }));
     expect(opened).toBe(true);
   });
@@ -133,6 +141,71 @@ describe("SoulMemoryPanel", () => {
     await userEvent.click(confirm);
     await waitFor(() =>
       expect(ref.gateway?.calls.some((c) => c.method === "memory.reset")).toBe(true),
+    );
+  });
+});
+
+describe("AgentSheetBody", () => {
+  it("shows the avatar, name and status, and the Approvals badge matches Needs you", async () => {
+    render(
+      <StoryWorld>
+        <AgentSheetBody tab="approvals" onTabChange={() => {}} now={STORY_NOW} />
+      </StoryWorld>,
+    );
+    expect(await screen.findByRole("heading", { name: "Wren" })).toBeTruthy();
+    const label = await screen.findByRole("heading", { name: /^Needs you \(\d+\)$/ });
+    const count = /\((\d+)\)/.exec(label.textContent ?? "")?.[1];
+    expect(Number(count)).toBeGreaterThan(0);
+    const tab = screen.getByRole("tab", { name: /^Approvals/ });
+    expect(tab.textContent).toContain(count);
+    for (const name of [/^Deferred/, /^Recent/, /^Standing grants/]) {
+      expect(
+        within(screen.getByRole("navigation", { name: "Approval sections" })).getByRole("button", {
+          name,
+        }),
+      ).toBeTruthy();
+    }
+  });
+});
+
+describe("Activity outcomes", () => {
+  it("map to semantic tones", () => {
+    expect(outcomeTone("ok · 12s · r-101")).toBe("success");
+    expect(outcomeTone("failed · field disabled")).toBe("danger");
+    expect(outcomeTone("outcome unknown · not retried")).toBe("approval");
+    expect(outcomeTone("waiting")).toBe("approval");
+  });
+});
+
+describe("Upcoming reminders", () => {
+  it("are one-shots with Snooze and Done", async () => {
+    expect(isReminder({ kind: "cron", schedule: "0 17 22 10 *" })).toBe(true);
+    expect(isReminder({ kind: "cron", schedule: "0 7 * * 1-5" })).toBe(false);
+    expect(scheduleSentence({ kind: "cron", schedule: "0 17 22 10 *" })).toBe("Oct 22 17:00");
+    expect(
+      snoozedSchedule(
+        { kind: "cron", schedule: "0 17 22 10 *", nextRunAt: "2026-10-22T17:00:00Z" },
+        3_600_000,
+        STORY_NOW,
+      ),
+    ).toBe("0 18 22 10 *");
+    const { ref, onGateway } = withGateway();
+    render(
+      <StoryWorld onGateway={onGateway}>
+        <UpcomingPanel now={STORY_NOW} />
+      </StoryWorld>,
+    );
+    const row = (await screen.findByText("Reminder: call Sam")).closest("li");
+    if (row === null) throw new Error("reminder row not found");
+    expect(within(row).getByText(/Delivers to .* and Telegram/)).toBeTruthy();
+    await userEvent.click(within(row).getByRole("button", { name: "Snooze" }));
+    await waitFor(() => {
+      const call = ref.gateway?.calls.find((c) => c.method === "automations.update");
+      expect(call?.params).toMatchObject({ schedule: "0 18 22 10 *" });
+    });
+    await userEvent.click(within(row).getByRole("button", { name: "Done" }));
+    await waitFor(() =>
+      expect(ref.gateway?.calls.some((c) => c.method === "automations.delete")).toBe(true),
     );
   });
 });

@@ -22,6 +22,7 @@ import {
   type EventPayload,
   type Message,
   type MethodResult,
+  type Provenance,
   PsycheError,
   type QueueMode,
   type Requester,
@@ -121,6 +122,15 @@ function userBlocks(content: string, attachments: readonly string[]): Block[] {
 }
 
 /**
+ * A channel sender who is not the owner speaks as data, never as the owner (security §3.6, §9):
+ * their words go into the transcript as `untrusted`, so history, exports and other threads'
+ * readers never pass them off as the owner's.
+ */
+function messageProvenance(requester: Requester | undefined): Provenance {
+  return requester === undefined || requester.role === "owner" ? "owner" : "untrusted";
+}
+
+/**
  * Session controller (architecture §4.2 steps 2, 5, 6). Serializes turns per thread with the
  * transcript writer guard as the source of truth: `threads.active_writer_run_id` names the one
  * run that may append, and every append states the writer it expects. Messages sent mid-turn are
@@ -192,7 +202,7 @@ export class SessionController {
           threadId: thread.id,
           role: "user",
           blocks: userBlocks(input.content, attachments),
-          provenance: "owner",
+          provenance: messageProvenance(input.requester),
           replyToMessageId: quote?.messageId ?? null,
           runId: active,
         },
@@ -260,7 +270,7 @@ export class SessionController {
           threadId: thread.id,
           role: "user",
           blocks: userBlocks(content, attachments),
-          provenance: "owner",
+          provenance: messageProvenance(requester),
           replyToMessageId: quote?.messageId ?? null,
         },
         { expectedWriterRunId: null },
@@ -289,7 +299,7 @@ export class SessionController {
         threadId: thread.id,
         role: "user",
         blocks: userBlocks(content, attachments),
-        provenance: "owner",
+        provenance: messageProvenance(requester),
         replyToMessageId: quote?.messageId ?? null,
         runId: run.id,
       },

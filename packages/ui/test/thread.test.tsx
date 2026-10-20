@@ -50,6 +50,35 @@ describe("ChatThread", () => {
   });
 });
 
+describe("ChatThread layout states", () => {
+  it("shows the empty state in a chat without messages, then the conversation", async () => {
+    const gateway = new MockGateway(createFixtureWorld(), { now: () => FIXTURE_NOW });
+    const store = new GatewayStore(gateway, { now: () => FIXTURE_NOW });
+    const { thread } = await gateway.request(
+      "threads.create",
+      { kind: "side" },
+      { idempotencyKey: "empty-side" },
+    );
+    render(
+      <GatewayProvider client={gateway} store={store}>
+        <UiSlotsProvider value={{ persona: { name: "Wren", creature: "moth" } }}>
+          <ChatThread threadId={thread.id} now={NOW} />
+        </UiSlotsProvider>
+      </GatewayProvider>,
+    );
+    expect(await screen.findByTestId("chat-empty")).toBeTruthy();
+    expect(screen.getByText("Nothing here yet. Ask Wren something below to start.")).toBeTruthy();
+    // Short conversations are anchored to the bottom of the column, next to the composer.
+    expect(screen.getByTestId("conversation-column").className).toContain("justify-end");
+  });
+
+  it("has no empty state once there are messages", async () => {
+    renderThread();
+    await waitFor(() => expect(screen.getAllByRole("article").length).toBeGreaterThan(0));
+    expect(screen.queryByTestId("chat-empty")).toBeNull();
+  });
+});
+
 function renderMain() {
   const gateway = new MockGateway(createFixtureWorld(), { now: () => FIXTURE_NOW });
   const store = new GatewayStore(gateway, { now: () => FIXTURE_NOW });

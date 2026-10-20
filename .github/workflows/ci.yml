@@ -1,12 +1,15 @@
 # CI for the Psyche monorepo (S00 owns this file).
-# The job names "ci (ubuntu-latest)" and "ci (macos-26)" are used as required status checks;
-# change them only together with the branch protection settings.
+# main has no branch protection; merges are gated on local per-change tests (docs/09-execution-plan.md).
 name: ci
 
+# CI diet (2026-10-19, owner decision): local per-change tests are the merge gate. Pull requests get a fast
+# Linux lint + typecheck; the full suite runs on pushes to main (Linux only); macOS runs on demand or on tags.
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -33,7 +36,7 @@ jobs:
       fail-fast: false
       matrix:
         # macos-26 is the newest GA Apple-silicon image (actions/runner-images, 2026-10).
-        os: [ubuntu-latest, macos-26]
+        os: ${{ fromJSON((github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')) && '["ubuntu-latest","macos-26"]' || '["ubuntu-latest"]') }}
     defaults:
       run:
         shell: bash
@@ -67,9 +70,11 @@ jobs:
         run: pnpm -w lint
 
       - name: Test
+        if: github.event_name != 'pull_request'
         run: pnpm -r test
 
       - name: Protocol codegen is fresh
+        if: github.event_name != 'pull_request' || contains(github.event.pull_request.title, 'protocol')
         run: |
           pnpm protocol:check
           git diff --exit-code -- packages/protocol/generated apps/mac-helper/Sources/PsycheProtocol

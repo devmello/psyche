@@ -408,3 +408,122 @@ except OSError:
 code = os.waitstatus_to_exitcode(status)
 sys.exit(code if code >= 0 else 128 - code)
 `;
+
+/**
+ * Dev-server listener probe (feature I12). Finds TCP sockets in LISTEN state in the container's
+ * network namespace that belong to one exec's session, so the runner can forward them to the
+ * host. Modes:
+ *
+ *   exec <execId>   the session is the one `EXEC_WRAPPER` recorded in `<execId>.pid`
+ *   sid  <sid>      a session found by an earlier probe (servers that bind late)
+ *
+ * Output: {"sid": int|null, "alive": bool, "listeners": [{"port", "addr", "pid"}]}. `alive`
+ * says whether any process of the session is still running (something was backgrounded). Only
+ * processes of that session count, so a server started by another exec or a PTY is not
+ * attributed to this one. Runs as UID 1000, which can read its own processes' fds.
+ */
+export const LISTENERS = String.raw`import json, os, socket, sys
+mode, arg = sys.argv[1], sys.argv[2]
+
+def session_of(pid):
+    try:
+        with open("/proc/%d/stat" % pid) as f:
+            s = f.read()
+        return int(s[s.rindex(")") + 2:].split()[3])
+    except Exception:
+        return None
+
+sid = None
+if mode == "exec":
+    try:
+        with open("${STATE_DIR}/" + arg + ".pid") as f:
+            sid = int(f.read().strip())
+    except Exception:
+        sid = None
+elif mode == "sid":
+    sid = int(arg)
+
+pids = []
+if sid is not None:
+    for name in os.listdir("/proc"):
+        if name.isdigit() and int(name) != os.getpid() and session_of(int(name)) == sid:
+            pids.append(int(name))
+
+def addr4(h):
+    return socket.inet_ntop(socket.AF_INET, bytes.fromhex(h)[::-1])
+
+def addr6(h):
+    b = b"".join(bytes.fromhex(h[i:i + 8])[::-1] for i in range(0, 32, 8))
+    return socket.inet_ntop(socket.AF_INET6, b)
+
+inodes = {}
+for path, dec in (("/proc/net/tcp", addr4), ("/proc/net/tcp6", addr6)):
+    try:
+        with open(path) as f:
+            lines = f.read().splitlines()[1:]
+    except Exception:
+        continue
+    for line in lines:
+        p = line.split()
+        if len(p) < 10 or p[3] != "0A":
+            continue
+        a, port = p[1].split(":")
+        inodes[p[9]] = (dec(a), int(port, 16))
+
+listeners = []
+seen = set()
+for pid in pids:
+    try:
+        fds = os.listdir("/proc/%d/fd" % pid)
+    except Exception:
+        continue
+    for fd in fds:
+        try:
+            link = os.readlink("/proc/%d/fd/%s" % (pid, fd))
+        except Exception:
+            continue
+        if link.startswith("socket:[") and link[8:-1] in inodes:
+            addr, port = inodes[link[8:-1]]
+            if (addr, port) not in seen:
+                seen.add((addr, port))
+                listeners.append({"port": port, "addr": addr, "pid": pid})
+
+sys.stdout.write(json.dumps({"sid": sid, "alive": len(pids) > 0, "listeners": listeners}))`;
+
+/**
+ * One forwarded TCP connection: connects to `$1`:`$2` inside the container and copies bytes
+ * between the socket and stdin / stdout until either side closes. The host end is a loopback
+ * listener the runner owns (dev-server forwarding); the container keeps network `none`.
+ */
+export const PORT_RELAY = String.raw`import os, socket, sys, threading
+host, port = sys.argv[1], int(sys.argv[2])
+s = socket.socket(socket.AF_INET6 if ":" in host else socket.AF_INET, socket.SOCK_STREAM)
+try:
+    s.connect((host, port))
+except OSError as e:
+    sys.stderr.write("psyche-relay: %s\n" % e.strerror)
+    os._exit(2)
+
+def up():
+    while True:
+        d = os.read(0, 65536)
+        if not d:
+            break
+        s.sendall(d)
+    try:
+        s.shutdown(socket.SHUT_WR)
+    except OSError:
+        pass
+
+threading.Thread(target=up, daemon=True).start()
+while True:
+    try:
+        d = s.recv(65536)
+    except OSError:
+        break
+    if not d:
+        break
+    v = memoryview(d)
+    while v:
+        v = v[os.write(1, v):]
+os._exit(0)`;

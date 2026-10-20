@@ -174,7 +174,7 @@ export function QuestionCard({
       aria-labelledby={headingId}
       onKeyDown={onKeyDown}
       className={cn(
-        "my-2 rounded-lg border border-accent-6 bg-gray-2 p-4 text-sm psy-enter",
+        "my-2 rounded-lg border border-gray-6 bg-gray-2 p-4 text-sm psy-enter",
         className,
       )}
     >

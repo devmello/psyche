@@ -22,8 +22,17 @@ Speech-to-text and text-to-speech behind the `SpeechEngine` contract, engine sel
 | `ModelManager`, `MODEL_CATALOG` | Checksummed model downloads into `$PSYCHE_HOME/models/` |
 | `SegmentSequencer`, `buildVocabulary`, `parseSsmlLite`, PCM helpers | Building blocks shared by the engines |
 | `DictationVocabularyProvider`, `NodeContactsSource`, `agentNameFrom`, `ownerNamesFrom` | Session-default vocabulary from IDENTITY.md, USER.md, contacts and topics (below) |
-| `VoiceCatalog` | Every synthesis voice as `<engine>:<voice>` for persona voice selection (Q3) |
+| `VoiceCatalog` | Every synthesis voice as `<engine>:<voice>` for persona voice selection (Q3); `isNonCommercial(ref)` for the Personal Voice caveat |
+| `createSpeechHandlers`, `SPEECH_METHODS` | `voice.*`, `voice.memo.save`, `speech.readAloud`, `speech.voices` handlers for the Gateway, typed against the protocol |
 | `DecodingSpeechEngine`, `channelVoiceTranscoder` | Glue for channels: compressed inbound notes decode before the engine; the encoder behind the channel package's transcoder port |
+
+## Read-aloud and Personal Voice (Q3)
+
+Q3 is done when "a message can be played and saved as a file". `speech.readAloud {messageId, voice?}` (`createSpeechHandlers`) answers `{streamId}` at once; `ReadAloudService` streams the synthesized PCM to the requesting device as ordered `speech.audio` events (`last: true` on the final chunk) so playback starts with the first sentence, then encodes MP3 (44.1 kHz mono, the Library profile), saves it as a Library `audio` item tagged `read-aloud` and `message:<id>`, and announces it with `speech.readAloud.completed`. `test/q3.test.ts` checks this end to end with real ffmpeg: the events reassemble to the exact PCM, ffprobe reads the saved file as MP3 of the same length, and it decodes back.
+
+- **Voice per persona.** Without a `voice` in the request, read-aloud uses `personaVoice()` (IDENTITY.md `voice:`), then `speech.tts.voice`. `speech.voices` lists the choices.
+- **Personal Voice is opt-in.** `NodeSpeechEngine` looks a voice id up in the helper's `speech.voices` (cached; an unknown id triggers one refresh). A Personal Voice is refused with `policy_denied` before the helper is called unless the owner setting (`createSpeechStack({personalVoice})`, `speech.tts.personalVoice`) is on; when it is, the call carries the helper's required `personalVoice: true`.
+- **Non-commercial caveat.** With `nonCommercial: (ref) => catalog.isNonCommercial(ref)`, a clip read by a Personal Voice is tagged `non-commercial` in the Library (Apple's terms limit that output to personal use); a failing check tags it too.
 
 ## Engine selection
 

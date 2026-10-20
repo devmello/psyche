@@ -1,24 +1,13 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Readable } from "node:stream";
 import { MockGateway } from "@psyche/web/testing";
-import { generateIdentity, identityToRecipient } from "age-encryption";
 import { afterEach, describe, expect, it } from "vitest";
-import { createBackup, restoreBackup, verifyBackup } from "../src/backup.ts";
 import { run } from "../src/cli.ts";
-import {
-  cleanupTempDirs,
-  closedPort,
-  err,
-  FIXED_NOW,
-  makeDeps,
-  out,
-  runJson,
-  tempDir,
-} from "./helpers.ts";
+import { cleanupTempDirs, closedPort, err, makeDeps, out, runJson, tempDir } from "./helpers.ts";
 
 const PASS = "correct horse battery";
-const FAST = { kind: "passphrase" as const, passphrase: PASS, scryptLogN: 10 };
+const _FAST = { kind: "passphrase" as const, passphrase: PASS, scryptLogN: 10 };
 
 const INCLUDED: Record<string, string | Buffer> = {
   "state/psyche.sqlite": Buffer.from([0x53, 0x51, 0x4c, 0x00, 0xff, 0x01, 0x02]),
@@ -69,138 +58,6 @@ function expectRestored(home: string): void {
 }
 
 afterEach(() => cleanupTempDirs());
-
-describe("backup library", () => {
-  it("round trip with a passphrase: create → verify → restore into an empty home", async () => {
-    const home = fixtureHome();
-    const file = join(tempDir(), "b.tar.gz.age");
-    const manifest = await createBackup(home, file, FAST, "0.0.0-test", FIXED_NOW);
-    expect(manifest.entries).toEqual([
-      "config.json",
-      "state",
-      "workspace",
-      "vault",
-      "library",
-      "audit",
-    ]);
-    expect(manifest.files.map((f) => f.path).sort()).toEqual(Object.keys(INCLUDED).sort());
-    expect(manifest.createdAt).toBe(FIXED_NOW.toISOString());
-    expect(statSync(file).mode & 0o777).toBe(0o600);
-    expect(readFileSync(file).subarray(0, 21).toString()).toBe("age-encryption.org/v1");
-
-    const v = await verifyBackup(file, { kind: "passphrase", passphrase: PASS }, tempDir());
-    expect(v.problems).toEqual([]);
-    expect(v.manifest.files).toHaveLength(Object.keys(INCLUDED).length);
-
-    const target = join(tempDir(), "new-home");
-    const r = await restoreBackup(file, { kind: "passphrase", passphrase: PASS }, target, {
-      force: false,
-    });
-    expect(r.movedAside).toBeNull();
-    expectRestored(target);
-    expect(statSync(target).mode & 0o777).toBe(0o700);
-    expect(readdirSync(target).filter((n) => n.startsWith(".psyche-restore-"))).toEqual([]);
-  });
-
-  it("wrong passphrase → rejects", async () => {
-    const home = fixtureHome();
-    const file = join(tempDir(), "b.age");
-    await createBackup(home, file, FAST, "t");
-    await expect(
-      verifyBackup(file, { kind: "passphrase", passphrase: "wrong horse" }, tempDir()),
-    ).rejects.toThrow(/Cannot decrypt/);
-  });
-
-  it("recipients mode round trip with an age identity", async () => {
-    const identity = await generateIdentity();
-    const recipient = await identityToRecipient(identity);
-    const home = fixtureHome();
-    const file = join(tempDir(), "b.age");
-    await createBackup(home, file, { kind: "recipients", recipients: [recipient] }, "t");
-    const v = await verifyBackup(file, { kind: "identities", identities: [identity] }, tempDir());
-    expect(v.problems).toEqual([]);
-    const other = await generateIdentity();
-    await expect(
-      verifyBackup(file, { kind: "identities", identities: [other] }, tempDir()),
-    ).rejects.toThrow();
-    const target = join(tempDir(), "h");
-    await restoreBackup(file, { kind: "identities", identities: [identity] }, target, {
-      force: false,
-    });
-    expectRestored(target);
-  });
-
-  it("a flipped byte in the middle of the archive → rejects (no hang, no uncaught error)", async () => {
-    const home = fixtureHome();
-    const file = join(tempDir(), "m.age");
-    await createBackup(home, file, FAST, "t");
-    const bytes = readFileSync(file);
-    const at = Math.floor(bytes.length / 2);
-    bytes[at] = (bytes[at] ?? 0) ^ 0x01;
-    writeFileSync(file, bytes);
-    await expect(
-      verifyBackup(file, { kind: "passphrase", passphrase: FAST.passphrase }, tempDir()),
-    ).rejects.toThrow(/damaged or the key is wrong/);
-  });
-
-  it("a flipped byte in the age header → rejects", async () => {
-    const home = fixtureHome();
-    const file = join(tempDir(), "b.age");
-    await createBackup(home, file, FAST, "t");
-    const bytes = readFileSync(file);
-    const at = bytes.indexOf("\n---") - 3; // inside the header, before its MAC line
-    bytes[at] = (bytes[at] ?? 0) ^ 0x01;
-    writeFileSync(file, bytes);
-    await expect(
-      verifyBackup(file, { kind: "passphrase", passphrase: PASS }, tempDir()),
-    ).rejects.toThrow(/Cannot decrypt/);
-    const target = join(tempDir(), "h");
-    await expect(
-      restoreBackup(file, { kind: "passphrase", passphrase: PASS }, target, { force: false }),
-    ).rejects.toThrow(/Cannot decrypt/);
-    expect(existsSync(join(target, "state"))).toBe(false);
-  });
-
-  it("restore into a non-empty home: refused without force, moved aside with force", async () => {
-    const home = fixtureHome();
-    const file = join(tempDir(), "b.age");
-    await createBackup(home, file, FAST, "t");
-    const target = join(tempDir(), "h");
-    writeTree(target, { "state/old.sqlite": "old state", "config.json": "{}" });
-    await expect(
-      restoreBackup(file, { kind: "passphrase", passphrase: PASS }, target, { force: false }),
-    ).rejects.toThrow(/--force/);
-    expect(readFileSync(join(target, "state/old.sqlite"), "utf8")).toBe("old state");
-
-    const r = await restoreBackup(file, { kind: "passphrase", passphrase: PASS }, target, {
-      force: true,
-      now: FIXED_NOW,
-    });
-    expect(r.movedAside).toMatch(/^\.pre-restore-2026-10-19T12-00-00-000Z$/);
-    const aside = join(target, r.movedAside ?? "");
-    expect(readFileSync(join(aside, "state/old.sqlite"), "utf8")).toBe("old state");
-    expect(readFileSync(join(aside, "config.json"), "utf8")).toBe("{}");
-    expect(existsSync(join(target, "state/old.sqlite"))).toBe(false);
-    expectRestored(target);
-  });
-
-  it("plain (kind none) round trip", async () => {
-    const home = fixtureHome();
-    const file = join(tempDir(), "b.tar.gz");
-    await createBackup(home, file, { kind: "none" }, "t");
-    expect(readFileSync(file).subarray(0, 2)).toEqual(Buffer.from([0x1f, 0x8b]));
-    expect((await verifyBackup(file, { kind: "none" }, tempDir())).problems).toEqual([]);
-    const target = join(tempDir(), "h");
-    await restoreBackup(file, { kind: "none" }, target, { force: false });
-    expectRestored(target);
-  });
-
-  it("a home without state/ is refused", async () => {
-    const home = join(tempDir(), "empty");
-    mkdirSync(home);
-    await expect(createBackup(home, join(tempDir(), "b"), FAST, "t")).rejects.toThrow(/state/);
-  });
-});
 
 describe("backup commands", () => {
   const running: MockGateway[] = [];

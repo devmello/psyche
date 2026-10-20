@@ -17,7 +17,13 @@ import {
   type WebFetchFactoryOptions,
   type WebSearchFactoryOptions,
 } from "@psyche/connectors";
-import { type CredentialBroker, isMethodName, PsycheError } from "@psyche/protocol";
+import {
+  type CredentialBroker,
+  type CredentialRevokedEvent,
+  isMethodName,
+  PsycheError,
+} from "@psyche/protocol";
+import { VaultTokenVault } from "@psyche/vault";
 import type { Call, HandlerDef } from "../context.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
@@ -43,7 +49,10 @@ export interface ConnectorsSetup {
   oauthTimeoutMs?: number;
   /** Web search / fetch connectors, only when the owner configured them (M8). */
   web?: { search?: WebSearchFactoryOptions; fetch?: WebFetchFactoryOptions };
-  /** OAuth token storage. Default: `MemoryTokenVault` (stand-in until the S06 vault write API). */
+  /**
+   * OAuth token storage. Default: `VaultTokenVault` over the composed vault (G13): tokens are
+   * connector-owned `oauth_token` items, so they survive a restart and need an unlocked vault.
+   */
   tokens?: TokenVault;
   /** Every connector network call goes through this (tests inject a fake Google). */
   fetch?: FetchFn;
@@ -63,10 +72,9 @@ export interface ConnectorsSetup {
 }
 
 /**
- * Stand-in `TokenVault`: tokens live in this process only, so every restart needs a reconnect.
- * S06's vault has no write path yet (docs/status/s09.md, "Requests to other sessions"); once it
- * does, tokens become `oauth_token` items bound to `{ connector: <id> }`. Never logged, never in
- * a connector record, never model-visible.
+ * In-process `TokenVault` for tests that do not exercise the vault: tokens live in this process
+ * only. The Gateway uses `VaultTokenVault`. Never logged, never in a connector record, never
+ * model-visible.
  */
 export class MemoryTokenVault implements TokenVault {
   readonly #tokens = new Map<string, StoredTokens>();
@@ -110,7 +118,7 @@ export function composeConnectors(
     context: {
       clock: services.clock,
       fetch: setup.fetch ?? ((input, init) => fetch(input, init)),
-      tokens: setup.tokens ?? new MemoryTokenVault(),
+      tokens: setup.tokens ?? new VaultTokenVault(services.vault),
       ...(setup.credentials === undefined ? {} : { credentials: setup.credentials }),
       ...(setup.library === undefined ? {} : { library: setup.library }),
     },
@@ -132,6 +140,20 @@ export function composeConnectors(
     if (!isMethodName(name)) continue;
     handlers[name] = { run: (_call: Call, params: never) => fn(params) };
   }
+
+  // A token revoked in the vault by anything but the registry's own disconnect (the owner, a
+  // provider revocation) disconnects the connector: its tools are torn down, so pending
+  // approvals bound to the connection fail re-verification, and `invalidated` is emitted (G13).
+  // A `disconnect` revoke is the registry's own `tokens.clear`, already mid-disconnect.
+  const unsubscribeRevoked = services.vault.onRevoked((event) => {
+    if (event.reason === "disconnect") return;
+    void disconnectRevoked(registry, event).catch((err) =>
+      log?.log("warn", "disconnect after token revocation failed", {
+        connectorId: event.connectorId,
+        code: PsycheError.from(err).code,
+      }),
+    );
+  });
 
   const interval = setup.syncIntervalMs ?? DEFAULT_SYNC_INTERVAL_MS;
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -166,11 +188,21 @@ export function composeConnectors(
       timer.unref?.();
     },
     async stop() {
+      unsubscribeRevoked();
       if (timer !== undefined) clearInterval(timer);
       timer = undefined;
       await registry.close();
     },
   };
+}
+
+async function disconnectRevoked(
+  registry: ConnectorRegistry,
+  event: CredentialRevokedEvent,
+): Promise<void> {
+  const record = (await registry.list()).find((r) => r.id === event.connectorId);
+  if (record === undefined || record.status === "disconnected") return;
+  await registry.disconnect(event.connectorId);
 }
 
 /**

@@ -54,6 +54,15 @@
 //   let automationsUpcomingParams = try? JSONDecoder().decode(AutomationsUpcomingParams.self, from: jsonData)
 //   let automationsUpcomingResult = try? JSONDecoder().decode(AutomationsUpcomingResult.self, from: jsonData)
 //   let automationsUpdateParams = try? JSONDecoder().decode(AutomationsUpdateParams.self, from: jsonData)
+//   let backupCreateParams = try? JSONDecoder().decode(BackupCreateParams.self, from: jsonData)
+//   let backupCreateResult = try? JSONDecoder().decode(BackupCreateResult.self, from: jsonData)
+//   let backupDeleteParams = try? JSONDecoder().decode(BackupDeleteParams.self, from: jsonData)
+//   let backupDeleteResult = try? JSONDecoder().decode(BackupDeleteResult.self, from: jsonData)
+//   let backupInfo = try? JSONDecoder().decode(BackupInfo.self, from: jsonData)
+//   let backupListParams = try? JSONDecoder().decode(BackupListParams.self, from: jsonData)
+//   let backupListResult = try? JSONDecoder().decode(BackupListResult.self, from: jsonData)
+//   let backupVerifyParams = try? JSONDecoder().decode(BackupVerifyParams.self, from: jsonData)
+//   let backupVerifyResult = try? JSONDecoder().decode(BackupVerifyResult.self, from: jsonData)
 //   let block = try? JSONDecoder().decode(Block.self, from: jsonData)
 //   let bridgeCDPEventPayload = try? JSONDecoder().decode(BridgeCDPEventPayload.self, from: jsonData)
 //   let bridgeCDPSendParams = try? JSONDecoder().decode(BridgeCDPSendParams.self, from: jsonData)
@@ -255,6 +264,10 @@
 //   let libraryItemKind = try? JSONDecoder().decode(LibraryItemKind.self, from: jsonData)
 //   let libraryListParams = try? JSONDecoder().decode(LibraryListParams.self, from: jsonData)
 //   let libraryListResult = try? JSONDecoder().decode(LibraryListResult.self, from: jsonData)
+//   let logLevel = try? JSONDecoder().decode(LogLevel.self, from: jsonData)
+//   let logLine = try? JSONDecoder().decode(LogLine.self, from: jsonData)
+//   let logsTailParams = try? JSONDecoder().decode(LogsTailParams.self, from: jsonData)
+//   let logsTailResult = try? JSONDecoder().decode(LogsTailResult.self, from: jsonData)
 //   let memoTaskMode = try? JSONDecoder().decode(MemoTaskMode.self, from: jsonData)
 //   let memoryChangeSource = try? JSONDecoder().decode(MemoryChangeSource.self, from: jsonData)
 //   let memoryChunk = try? JSONDecoder().decode(MemoryChunk.self, from: jsonData)
@@ -460,6 +473,7 @@
 //   let threadIDParams = try? JSONDecoder().decode(ThreadIDParams.self, from: jsonData)
 //   let threadKind = try? JSONDecoder().decode(ThreadKind.self, from: jsonData)
 //   let threadListEntry = try? JSONDecoder().decode(ThreadListEntry.self, from: jsonData)
+//   let threadPreview = try? JSONDecoder().decode(ThreadPreview.self, from: jsonData)
 //   let threadResult = try? JSONDecoder().decode(ThreadResult.self, from: jsonData)
 //   let threadUpdatedPayload = try? JSONDecoder().decode(ThreadUpdatedPayload.self, from: jsonData)
 //   let threadsCreateParams = try? JSONDecoder().decode(ThreadsCreateParams.self, from: jsonData)
@@ -1918,6 +1932,146 @@ public struct AutomationsUpdateParams: Codable, Sendable {
         self.timezone = timezone
         self.title = title
         self.watch = watch
+    }
+}
+
+// MARK: - BackupCreateParams
+public struct BackupCreateParams: Codable, Sendable {
+    public let passphrase: String?
+    public let recipients: [String]?
+    public let unencrypted: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case passphrase = "passphrase"
+        case recipients = "recipients"
+        case unencrypted = "unencrypted"
+    }
+
+    public init(passphrase: String?, recipients: [String]?, unencrypted: Bool?) {
+        self.passphrase = passphrase
+        self.recipients = recipients
+        self.unencrypted = unencrypted
+    }
+}
+
+// MARK: - BackupCreateResult
+public struct BackupCreateResult: Codable, Sendable {
+    public let backup: BackupInfo
+    public let files: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case backup = "backup"
+        case files = "files"
+    }
+
+    public init(backup: BackupInfo, files: Int) {
+        self.backup = backup
+        self.files = files
+    }
+}
+
+// MARK: - BackupInfo
+public struct BackupInfo: Codable, Sendable {
+    public let bytes: Int
+    public let createdAt: String
+    public let encrypted: Bool
+    public let file: String
+    public let verifiedAt: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case bytes = "bytes"
+        case createdAt = "createdAt"
+        case encrypted = "encrypted"
+        case file = "file"
+        case verifiedAt = "verifiedAt"
+    }
+
+    public init(bytes: Int, createdAt: String, encrypted: Bool, file: String, verifiedAt: String?) {
+        self.bytes = bytes
+        self.createdAt = createdAt
+        self.encrypted = encrypted
+        self.file = file
+        self.verifiedAt = verifiedAt
+    }
+}
+
+// MARK: - BackupDeleteParams
+public struct BackupDeleteParams: Codable, Sendable {
+    public let file: String
+
+    public enum CodingKeys: String, CodingKey {
+        case file = "file"
+    }
+
+    public init(file: String) {
+        self.file = file
+    }
+}
+
+// MARK: - BackupDeleteResult
+public struct BackupDeleteResult: Codable, Sendable {
+    public let ok: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case ok = "ok"
+    }
+
+    public init(ok: Bool) {
+        self.ok = ok
+    }
+}
+
+// MARK: - BackupListResult
+public struct BackupListResult: Codable, Sendable {
+    public let backups: [BackupInfo]
+    public let dir: String
+
+    public enum CodingKeys: String, CodingKey {
+        case backups = "backups"
+        case dir = "dir"
+    }
+
+    public init(backups: [BackupInfo], dir: String) {
+        self.backups = backups
+        self.dir = dir
+    }
+}
+
+// MARK: - BackupVerifyParams
+public struct BackupVerifyParams: Codable, Sendable {
+    public let file: String
+    public let passphrase: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case file = "file"
+        case passphrase = "passphrase"
+    }
+
+    public init(file: String, passphrase: String?) {
+        self.file = file
+        self.passphrase = passphrase
+    }
+}
+
+// MARK: - BackupVerifyResult
+public struct BackupVerifyResult: Codable, Sendable {
+    public let backup: BackupInfo
+    public let files: Int
+    public let ok: Bool
+    public let problems: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case backup = "backup"
+        case files = "files"
+        case ok = "ok"
+        case problems = "problems"
+    }
+
+    public init(backup: BackupInfo, files: Int, ok: Bool, problems: [String]) {
+        self.backup = backup
+        self.files = files
+        self.ok = ok
+        self.problems = problems
     }
 }
 
@@ -5914,6 +6068,82 @@ public struct LibraryListResult: Codable, Sendable {
     }
 }
 
+// MARK: - LogsTailParams
+public struct LogsTailParams: Codable, Sendable {
+    public let level: LogLevel?
+    public let lines: Int?
+    public let search: String?
+    public let since: String?
+    public let subsystem: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case level = "level"
+        case lines = "lines"
+        case search = "search"
+        case since = "since"
+        case subsystem = "subsystem"
+    }
+
+    public init(level: LogLevel?, lines: Int?, search: String?, since: String?, subsystem: String?) {
+        self.level = level
+        self.lines = lines
+        self.search = search
+        self.since = since
+        self.subsystem = subsystem
+    }
+}
+
+public enum LogLevel: String, Codable, Sendable {
+    case debug = "debug"
+    case error = "error"
+    case info = "info"
+    case warn = "warn"
+}
+
+// MARK: - LogsTailResult
+public struct LogsTailResult: Codable, Sendable {
+    public let lines: [LogLine]
+    public let subsystems: [String]
+    public let truncated: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case lines = "lines"
+        case subsystems = "subsystems"
+        case truncated = "truncated"
+    }
+
+    public init(lines: [LogLine], subsystems: [String], truncated: Bool) {
+        self.lines = lines
+        self.subsystems = subsystems
+        self.truncated = truncated
+    }
+}
+
+// MARK: - LogLine
+public struct LogLine: Codable, Sendable {
+    public let fields: [String: JSONAny]?
+    public let level: LogLevel
+    public let msg: String
+    public let subsystem: String?
+    public let ts: String
+
+    public enum CodingKeys: String, CodingKey {
+        case fields = "fields"
+        case level = "level"
+        case msg = "msg"
+        case subsystem = "subsystem"
+        case ts = "ts"
+    }
+
+    public init(fields: [String: JSONAny]?, level: LogLevel, msg: String, subsystem: String?, ts: String) {
+        self.fields = fields
+        self.level = level
+        self.msg = msg
+        self.subsystem = subsystem
+        self.ts = ts
+    }
+}
+
 // MARK: - MemoryClaimsConfirmParams
 public struct MemoryClaimsConfirmParams: Codable, Sendable {
     public let claimID: String
@@ -9691,15 +9921,18 @@ public struct ThreadsListResult: Codable, Sendable {
 // MARK: - ThreadListEntry
 public struct ThreadListEntry: Codable, Sendable {
     public let activity: ThreadActivity
+    public let lastMessage: ThreadPreview?
     public let thread: Thread
 
     public enum CodingKeys: String, CodingKey {
         case activity = "activity"
+        case lastMessage = "lastMessage"
         case thread = "thread"
     }
 
-    public init(activity: ThreadActivity, thread: Thread) {
+    public init(activity: ThreadActivity, lastMessage: ThreadPreview?, thread: Thread) {
         self.activity = activity
+        self.lastMessage = lastMessage
         self.thread = thread
     }
 }
@@ -9721,6 +9954,30 @@ public struct ThreadActivity: Codable, Sendable {
         self.awaitingInput = awaitingInput
         self.running = running
     }
+}
+
+// MARK: - ThreadPreview
+public struct ThreadPreview: Codable, Sendable {
+    public let at: String
+    public let role: Role
+    public let text: String
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case role = "role"
+        case text = "text"
+    }
+
+    public init(at: String, role: Role, text: String) {
+        self.at = at
+        self.role = role
+        self.text = text
+    }
+}
+
+public enum Role: String, Codable, Sendable {
+    case agent = "agent"
+    case user = "user"
 }
 
 // MARK: - ThreadsPinParams
@@ -10957,6 +11214,7 @@ public enum WrapUpBlockType: String, Codable, Sendable {
 }
 
 public typealias AuditVerifyParams = [String: JSONAny]
+public typealias BackupListParams = [String: JSONAny]
 public typealias BridgeTabsListParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]

@@ -213,7 +213,7 @@ function ChannelCard({
       actions={<StatusChip tone={STATUS[c.status].tone}>{STATUS[c.status].text}</StatusChip>}
     >
       <RadioField
-        label="Direct messages (dmPolicy)"
+        label="Direct messages"
         inline
         value={confirmOpen ? "open" : c.dmPolicy}
         options={policyOptions(persona)}
@@ -254,7 +254,7 @@ function ChannelCard({
                   variant="ghost"
                   onClick={() => setConfirmOpen(false)}
                 >
-                  Keep {c.dmPolicy}
+                  Keep {c.dmPolicy === "allowlist" ? "the allowlist" : c.dmPolicy}
                 </Button>
               </div>
             ) : null}
@@ -342,7 +342,7 @@ function ChannelCard({
         </div>
       </div>
       <SwitchField
-        label="Only answer in groups when mentioned (requireMention)"
+        label="Only answer in groups when mentioned"
         checked={c.requireMention}
         onChange={(v) => onRequireMention?.(c, v)}
         disabled={onRequireMention === undefined}

@@ -1,5 +1,5 @@
 import { PsycheMark, StatusPill } from "@psyche/ui";
-import type { ReactElement } from "react";
+import { type ReactElement, type ReactNode, useId, useState } from "react";
 import type { GatewayStatus } from "../../client/status.ts";
 import { useShell, useShellState } from "../context.tsx";
 
@@ -19,6 +19,8 @@ export function Rail(props: {
   route: string;
   compact: boolean;
   onNavigate: (route: string) => void;
+  /** Shown above Settings on wide layouts (the web client's connection pill). */
+  footer?: ReactNode;
 }): ReactElement {
   const items = props.compact ? RAIL_ITEMS.filter((i) => COMPACT_TABS.has(i.route)) : RAIL_ITEMS;
   const section = `/${props.route.split("/")[1] ?? ""}`;
@@ -42,13 +44,31 @@ export function Rail(props: {
       {props.compact ? null : (
         <>
           <span className="spacer" />
-          <button type="button" onClick={() => props.onNavigate("/settings/general")}>
+          {props.footer ? <div className="rail-status">{props.footer}</div> : null}
+          <button type="button" onClick={() => props.onNavigate("/settings/model")}>
             Settings
           </button>
         </>
       )}
     </nav>
   );
+}
+
+/** A row's time: the clock time today, the weekday within a week, else the date. */
+export function rowTime(iso: string, now: Date = new Date()): string {
+  const d = new Date(iso);
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  if (d.getTime() >= startOfToday) {
+    return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+  if (d.getTime() >= startOfToday - 6 * 86_400_000) {
+    return d.toLocaleDateString(undefined, { weekday: "short" });
+  }
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function titleOf(thread: { kind: string; title: string }): string {
+  return thread.kind === "main" ? "Main chat" : thread.title || "Untitled";
 }
 
 export function ThreadList(props: {
@@ -58,40 +78,85 @@ export function ThreadList(props: {
   onNew: () => void;
 }): ReactElement {
   const threads = useShellState((s) => s.threads);
+  const searchId = useId();
+  const [query, setQuery] = useState("");
   const live = threads.filter((t) => t.thread.archivedAt === null);
   const archived = threads.length - live.length;
+  const q = query.trim().toLowerCase();
+  const shown = q
+    ? live.filter((t) =>
+        `${titleOf(t.thread)} ${t.lastMessage?.text ?? ""}`.toLowerCase().includes(q),
+      )
+    : live;
+  const now = new Date();
   return (
     <aside className="threads" hidden={props.hidden} aria-label="Threads" data-testid="thread-list">
-      <div style={{ display: "flex", padding: 8, gap: 8, alignItems: "center" }}>
-        <strong style={{ flex: 1 }}>Threads</strong>
+      <div className="threads-header">
+        <strong>Threads</strong>
         <button type="button" className="pill" onClick={props.onNew} title="New side chat (⌘N)">
           + Side chat
         </button>
       </div>
+      <div className="threads-search">
+        <label htmlFor={searchId} className="sr-only">
+          Search threads
+        </label>
+        <input
+          id={searchId}
+          type="search"
+          placeholder="Search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
       {live.length === 0 ? (
         <p style={{ padding: "0 12px", color: "var(--shell-muted)" }}>No side chats yet.</p>
+      ) : shown.length === 0 ? (
+        <p style={{ padding: "0 12px", color: "var(--shell-muted)" }}>
+          No threads match “{query.trim()}”.
+        </p>
       ) : null}
-      <ul>
-        {live.map(({ thread, activity }) => (
-          <li key={thread.id}>
-            <button
-              type="button"
-              aria-current={thread.id === props.currentThreadId ? "true" : undefined}
-              onClick={() => props.onOpen(thread.id)}
-            >
-              {thread.kind === "main" ? "Main chat" : thread.title || "Untitled"}
-              {thread.kind === "incognito" ? (
-                <span className="muted" title="Incognito: memory-only, expires after 24 h">
-                  {" "}
-                  · incognito
+      <ul aria-label="Threads list">
+        {shown.map(({ thread, activity, lastMessage }) => {
+          const at = lastMessage?.at ?? thread.lastMessageAt;
+          const busy = activity.running + activity.awaitingApproval + activity.awaitingInput > 0;
+          return (
+            <li key={thread.id}>
+              <button
+                type="button"
+                className="thread-row"
+                aria-current={thread.id === props.currentThreadId ? "true" : undefined}
+                onClick={() => props.onOpen(thread.id)}
+              >
+                <span className="thread-row-top">
+                  <span className="thread-row-title">{titleOf(thread)}</span>
+                  {thread.kind === "incognito" ? (
+                    <span
+                      className="thread-row-badge"
+                      title="Incognito: memory-only, expires after 24 h"
+                    >
+                      incognito
+                    </span>
+                  ) : null}
+                  {busy ? (
+                    <span className="thread-row-dot" role="img" aria-label="Working or waiting" />
+                  ) : null}
+                  {at ? (
+                    <time className="thread-row-time" dateTime={at}>
+                      {rowTime(at, now)}
+                    </time>
+                  ) : null}
                 </span>
-              ) : null}
-              {activity.running + activity.awaitingApproval + activity.awaitingInput > 0
-                ? " •"
-                : ""}
-            </button>
-          </li>
-        ))}
+                {lastMessage ? (
+                  <span className="thread-row-line">
+                    {lastMessage.role === "user" ? "You: " : ""}
+                    {lastMessage.text}
+                  </span>
+                ) : null}
+              </button>
+            </li>
+          );
+        })}
       </ul>
       {archived > 0 ? (
         <p style={{ padding: "0 12px", color: "var(--shell-muted)" }}>Archived ({archived})</p>

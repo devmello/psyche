@@ -1,19 +1,22 @@
 import type { Goal } from "@psyche/protocol";
-import { Sparkles } from "lucide-react";
+import { CircleCheck, Sparkles } from "lucide-react";
 import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "../../components/ui/button.tsx";
-import { Progress } from "../../components/ui/progress.tsx";
-import { useGoals } from "../../data/hooks.ts";
-import { cn } from "../../lib/utils.ts";
-import { usePersona, useSlots } from "../../slots.tsx";
 import {
   EmptyState,
   ErrorState,
   LoadingCards,
-  ScreenHeader,
+  Page,
+  PageHeader,
+  SectionLabel,
   useDelayedFlag,
-} from "../feed/states.tsx";
+} from "../../components/page.tsx";
+import { Button } from "../../components/ui/button.tsx";
+import { Progress } from "../../components/ui/progress.tsx";
+import { useGoals } from "../../data/hooks.ts";
+import { plural } from "../../lib/format.ts";
+import { cn } from "../../lib/utils.ts";
+import { usePersona, useSlots } from "../../slots.tsx";
 import { EvidenceLine } from "../ideas/evidence.tsx";
 import { formatWhen, GoalPage } from "./GoalPage.tsx";
 import {
@@ -32,36 +35,46 @@ export interface GoalRowProps {
 /** List row: title, next check-in, milestone progress bar (UI design §3.11). */
 export function GoalRow({ goal, selected = false, onOpen }: GoalRowProps): ReactElement {
   const { done, total } = milestoneProgress(readGoalPlan(goal).milestones);
+  const complete = total > 0 && done === total;
   return (
     <div
       className={cn(
-        "flex flex-col gap-1 rounded-md px-2 py-2",
+        "relative flex flex-col gap-1.5 rounded-md px-3 py-2.5 transition-colors",
         selected ? "bg-accent-3" : "hover:bg-gray-3",
       )}
     >
-      <button
-        type="button"
-        aria-current={selected ? "page" : undefined}
-        onClick={() => onOpen?.(goal)}
-        className="text-left text-sm font-medium focus-visible:outline-2 focus-visible:outline-ring"
-      >
-        {goal.title}
-      </button>
-      <p className="text-xs text-muted-foreground">
+      <div className="flex items-baseline gap-2">
+        <button
+          type="button"
+          aria-current={selected ? "page" : undefined}
+          onClick={() => onOpen?.(goal)}
+          className={cn(
+            "min-w-0 flex-1 text-left text-body font-medium focus-visible:outline-2 focus-visible:outline-ring",
+            "after:absolute after:inset-0 after:content-['']",
+            selected ? "text-accent-12" : "text-foreground",
+          )}
+        >
+          {goal.title}
+        </button>
+        {total > 0 ? (
+          <span className="text-caption text-gray-11 tabular-nums" aria-hidden="true">
+            {done}/{total}
+          </span>
+        ) : null}
+      </div>
+      <p className="text-caption text-gray-11">
         {goal.nextCheckinAt ? `Next check-in ${formatWhen(goal.nextCheckinAt)}` : "No check-ins"}
         {goal.status !== "active" ? ` · ${goal.status}` : ""}
       </p>
       {total > 0 ? (
-        <div className="flex items-center gap-2">
-          <Progress
-            value={(done / total) * 100}
-            aria-label={`${goal.title}: ${done} of ${total} milestones`}
-            className="flex-1"
-          />
-          <span className="text-xs text-muted-foreground tabular-nums" aria-hidden="true">
-            {done}/{total}
-          </span>
-        </div>
+        <Progress
+          value={(done / total) * 100}
+          aria-label={`${goal.title}: ${done} of ${total} milestones`}
+          className={cn(
+            "[&_[data-slot=progress-track]]:h-1.5",
+            complete ? "[&_[data-slot=progress-indicator]]:bg-grass-9" : "",
+          )}
+        />
       ) : null}
     </div>
   );
@@ -88,27 +101,29 @@ export function CandidateGoalCard({
   return (
     <article
       aria-labelledby={titleId}
-      className="rounded-lg border border-dashed border-accent-7 bg-accent-2 p-3"
+      className="flex flex-col gap-2 rounded-lg border border-dashed border-accent-7 bg-accent-2 p-4"
     >
-      <p className="flex items-center gap-1 text-label font-semibold text-accent-11 uppercase">
+      <p className="flex items-center gap-1 text-label text-accent-11">
         <Sparkles className="size-3" aria-hidden="true" />
         Inferred goal · {GOAL_CATEGORY_LABEL[goal.category]}
       </p>
-      <h3 id={titleId} className="mt-1 text-sm font-semibold">
-        {goal.title}
-      </h3>
-      <p className="mt-0.5 text-xs text-muted-foreground">
-        {persona} thinks this might be a goal. Nothing is tracked until you confirm.
-      </p>
-      <EvidenceLine items={evidence} className="mt-1" {...(onOpenRoute ? { onOpenRoute } : {})} />
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="flex flex-col gap-0.5">
+        <h3 id={titleId} className="text-body font-semibold text-foreground">
+          {goal.title}
+        </h3>
+        <p className="text-caption text-gray-11">
+          {persona} thinks this might be a goal. Nothing is tracked until you confirm.
+        </p>
+      </div>
+      <EvidenceLine items={evidence} {...(onOpenRoute ? { onOpenRoute } : {})} />
+      <div className="mt-1 flex flex-wrap gap-1.5">
         <Button type="button" size="sm" disabled={busy} onClick={() => onDecide?.(goal, "confirm")}>
           Confirm
         </Button>
         <Button
           type="button"
           size="sm"
-          variant="outline"
+          variant="ghost"
           disabled={busy}
           onClick={() => onDecide?.(goal, "reject")}
         >
@@ -186,21 +201,21 @@ export function GoalsView({
     );
   } else if (goals.length === 0 && candidates.length === 0) {
     list = (
-      <EmptyState {...(onAddGoal ? { action: { label: "Add a goal", onClick: onAddGoal } } : {})}>
+      <EmptyState
+        icon={CircleCheck}
+        {...(onAddGoal ? { action: { label: "Add a goal", onClick: onAddGoal } } : {})}
+      >
         Tell {persona} a goal in chat, or add one here.
       </EmptyState>
     );
   } else {
     list = (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
         {groups.map((group) => (
           <section key={group.category} aria-labelledby={`goals-${group.category}`}>
-            <h2
-              id={`goals-${group.category}`}
-              className="px-2 text-label font-semibold text-muted-foreground uppercase"
-            >
+            <SectionLabel id={`goals-${group.category}`} className="px-3">
               {GOAL_CATEGORY_LABEL[group.category]}
-            </h2>
+            </SectionLabel>
             <ul className="mt-1 flex flex-col gap-0.5">
               {group.goals.map((g) => (
                 <li key={g.id}>
@@ -215,18 +230,15 @@ export function GoalsView({
           </section>
         ))}
         {goals.length === 0 ? (
-          <p className="px-2 text-sm text-muted-foreground">
+          <p className="px-3 text-small text-gray-11">
             No confirmed goals yet. Tell {persona} a goal in chat, or confirm one below.
           </p>
         ) : null}
         {candidates.length > 0 ? (
           <section aria-labelledby="goals-candidates" className="flex flex-col gap-2">
-            <h2
-              id="goals-candidates"
-              className="px-2 text-label font-semibold text-muted-foreground uppercase"
-            >
+            <SectionLabel id="goals-candidates" className="px-3">
               Suggested
-            </h2>
+            </SectionLabel>
             <ul className="flex flex-col gap-2">
               {candidates.map((g) => (
                 <li key={g.id}>
@@ -245,28 +257,36 @@ export function GoalsView({
     );
   }
 
+  const tracked = !loading && error === null && goals.length > 0;
   return (
-    <section aria-label="Goals" className="flex flex-col gap-4 p-4">
-      <ScreenHeader
-        title="Goals"
-        {...(onAddGoal && goals.length > 0
-          ? {
-              actions: (
-                <Button type="button" size="sm" variant="outline" onClick={onAddGoal}>
-                  Add a goal
-                </Button>
-              ),
-            }
-          : {})}
-      />
-      <div
-        className={cn(
-          detail ? "grid gap-6 md:grid-cols-[minmax(220px,280px)_1fr]" : "max-w-[68ch]",
-        )}
-      >
-        <div>{list}</div>
-        {detail ? <div className="min-w-0">{detail}</div> : null}
-      </div>
+    <section aria-label="Goals">
+      <Page width={detail ? "full" : "wide"}>
+        <PageHeader
+          title="Goals"
+          {...(tracked ? { meta: plural(goals.length, "goal") } : {})}
+          {...(onAddGoal && goals.length > 0
+            ? {
+                actions: (
+                  <Button type="button" size="sm" variant="outline" onClick={onAddGoal}>
+                    Add a goal
+                  </Button>
+                ),
+              }
+            : {})}
+        />
+        <div
+          className={cn(
+            detail
+              ? "grid items-start gap-8 md:grid-cols-[minmax(240px,300px)_1fr]"
+              : "max-w-[68ch]",
+          )}
+        >
+          <div className="-mx-3">{list}</div>
+          {detail ? (
+            <div className="min-w-0 rounded-lg border border-gray-6 bg-gray-2 p-6">{detail}</div>
+          ) : null}
+        </div>
+      </Page>
     </section>
   );
 }

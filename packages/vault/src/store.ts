@@ -1,3 +1,4 @@
+/// <reference path="./types/better-sqlite3-multiple-ciphers.d.ts" />
 import { chmodSync, closeSync, existsSync, mkdirSync, openSync } from "node:fs";
 import { dirname } from "node:path";
 import type { CredentialBinding, CredentialKind } from "@psyche/protocol";

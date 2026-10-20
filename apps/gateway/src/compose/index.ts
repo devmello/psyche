@@ -23,11 +23,14 @@ import {
 import {
   compilePolicy,
   createPermissionHandlers,
+  DENY_ALL_LOOPBACK,
+  type LocalProjectVerifier,
   type PolicyConfig,
   type PresenceVerifier,
   PsychePermissionBroker,
   SqlitePermissionStore,
 } from "@psyche/permissions";
+import { publicFetch } from "@psyche/proactive";
 import {
   type ApprovalRequestInput,
   type Clock,
@@ -48,6 +51,7 @@ import {
   SqliteScheduler,
 } from "@psyche/scheduler";
 import { createTaskHandlers, SqliteTaskEngine, TaskWorkerPool } from "@psyche/tasks";
+import { SecretRedactor, type Vault } from "@psyche/vault";
 import { resolveConfig } from "../config.ts";
 import type { HandlerDef } from "../context.ts";
 import { createLogger } from "../log.ts";
@@ -63,7 +67,13 @@ import {
   surfaceOf,
 } from "./handlers.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
-import type { ApprovalRelay, ComposedPart, ComposeServices } from "./services.ts";
+import {
+  type ApprovalRelay,
+  type ComposedPart,
+  type ComposeServices,
+  createOwnPorts,
+} from "./services.ts";
+import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 
 /**
  * Composition root for `psyched` (INT-1): the real agent loop, model router, Permission Broker,
@@ -103,6 +113,11 @@ export interface ComposeOptions
    * Defaults to refusing every assertion.
    */
   presence?: PresenceVerifier;
+  /**
+   * The vault's key slot (S06). Default from the environment: `PSYCHE_VAULT_KEY_FILE` in server
+   * mode, else the keychain through a connected Mac helper.
+   */
+  vault?: VaultSetup;
 }
 
 /**
@@ -125,6 +140,9 @@ export interface ComposedGateway {
   readonly notifier: PsycheNotifier;
   readonly proactive: ComposedProactive;
   readonly provider: ModelProvider;
+  readonly vault: Vault;
+  /** Shared by the vault, its payment broker and every output path that masks. */
+  readonly redactor: SecretRedactor;
   readonly parts: readonly ComposedPart[];
   stop(reason?: string): Promise<void>;
 }
@@ -178,12 +196,17 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     compaction,
     parts: partFactories = [],
     presence = NO_PRESENCE,
+    vault: vaultSetup,
     ...gwOptions
   } = options;
   const clock =
     clockOpt ??
     (options.now ? { now: () => options.now?.().getTime() ?? Date.now() } : systemClock);
   const config = resolveConfig(gwOptions.env ?? process.env, gwOptions.config ?? {});
+  // One redactor for the vault, payments and logs: a value the vault handed out is masked
+  // wherever it would be written.
+  const redactor = new SecretRedactor();
+  gwOptions.logger = maskingLogger(gwOptions.logger ?? createLogger(), redactor);
   const db =
     gwOptions.db ?? openDb(config.dbPath, { now: () => new Date(clock.now()).toISOString() });
 
@@ -206,6 +229,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const relays: ApprovalRelay[] = [];
   const parts: ComposedPart[] = [];
   const presenceByKind = new Map<string, PresenceVerifier>();
+  // The localhost rule (security §3.10) needs OS probes a part supplies (the browser's dev
+  // preview); until one does, no loopback origin is the owner's project.
+  let localProject: LocalProjectVerifier = DENY_ALL_LOOPBACK;
   const rawBroker = new PsychePermissionBroker({
     approvers: {
       async device(deviceId) {
@@ -235,6 +261,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       verify: (assertion, challenge, deviceId) =>
         (presenceByKind.get(assertion.kind) ?? presence).verify(assertion, challenge, deviceId),
     },
+    localProject: { check: (url) => localProject.check(url) },
     // The agent never acts on Psyche's own UI (prohibitions `gateway_origin`): every origin it is served on.
     gatewayOrigins: [
       `http://127.0.0.1:${config.port}`,
@@ -269,6 +296,11 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }
   });
 
+  const vault = composeVault(
+    { home: config.home, db, permissions: broker, audit, clock, publish, redactor },
+    vaultSetup ?? vaultSetupFromEnv(gwOptions.env ?? process.env),
+  );
+
   const { provider, model: modelRef, utility } = providerFor(model, clock);
   const memory = await createMemoryStore({
     db,
@@ -295,6 +327,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const registry = new AgentToolRegistry();
   for (const tool of fileTools()) registry.register(tool);
   const calls = new CallContexts();
+  const ownPorts = createOwnPorts();
+  ownPorts.add(config.port, "gateway (configured)");
   const services: ComposeServices = {
     db,
     clock,
@@ -306,13 +340,33 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     tools: calls.adopt(registry),
     calls,
     publish,
+    vault: vault.vault,
+    redactor,
+    ownPorts,
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   };
+  let localProjectSupplied = false;
   for (const factory of partFactories) {
     const part = await factory(services);
     parts.push(part);
+    // Two parts deciding the same security question would leave one silently ignored: refuse
+    // at compose time instead.
+    const duplicate =
+      part.presence !== undefined && presenceByKind.has(part.presence.kind)
+        ? `presence verifier for "${part.presence.kind}"`
+        : part.localProject !== undefined && localProjectSupplied
+          ? "localhost verifier (localProject)"
+          : undefined;
+    if (duplicate !== undefined) {
+      for (const p of parts) await Promise.resolve(p.stop?.()).catch(() => undefined);
+      throw new PsycheError("invalid_params", `two composed parts supply a ${duplicate}`);
+    }
     if (part.relay !== undefined) relays.push(part.relay);
     if (part.presence !== undefined) presenceByKind.set(part.presence.kind, part.presence.verifier);
+    if (part.localProject !== undefined) {
+      localProject = part.localProject;
+      localProjectSupplied = true;
+    }
   }
 
   // scheduler → launcher → worker pool → loop → scheduler: the launcher is bound once the pool exists.
@@ -332,6 +386,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     launcher: lateLauncher,
     sessions: createDbSessionResolver(db),
     deliverer: createDeliverer({ notifier, broker }),
+    // Watches (O3) read public pages through the guarded fetch until S09 exports its own.
+    watchFetch: publicFetch(),
     ...(timeZone === undefined ? {} : { defaultTimezone: timeZone }),
   });
   const loop = createAgentLoop({
@@ -386,6 +442,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...proactive.handlers,
     ...questionHandlers(loop, tasks),
     ...receiptHandlers(broker),
+    ...vault.handlers,
   };
   for (const part of parts) Object.assign(handlers, part.handlers ?? {});
 
@@ -399,6 +456,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     onDeviceRevoked: (deviceId) => rawBroker.revokeGrantsByDevice(deviceId),
   });
   bus = gateway.bus;
+  vault.attach(gateway.context.nodes);
   // The owner's folder grants and rules apply without a restart (settings.set → broker policy).
   const unsubscribePolicy = gateway.bus.subscribe(["operator.read"], (frame) => {
     const f = JSON.parse(frame) as {
@@ -418,6 +476,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     }
   });
   memory.watch();
+  ownPorts.add(gateway.port, "gateway (bound)");
   for (const part of parts) await part.start?.(gateway);
   await proactive.start();
 
@@ -446,9 +505,12 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     notifier,
     proactive,
     provider,
+    vault: vault.vault,
+    redactor,
     parts,
     async stop(reason) {
       for (const part of [...parts].reverse()) await part.stop?.();
+      vault.stop();
       await pool.stop();
       scheduler.stop();
       memory.unwatch();
@@ -485,7 +547,18 @@ export { type McpGrantRevoker, type McpLifecycleEvent, mcpGrantRevocation } from
 export { modelSetupFromEnv, NO_MODEL } from "./models.ts";
 export { partsFromEnv } from "./parts.ts";
 export { type ComposedProactive, composeProactive, type ProactiveSetup } from "./proactive.ts";
-export type { ApprovalRelay, ComposedPart, ComposeServices } from "./services.ts";
+export type { ApprovalRelay, ComposedPart, ComposeServices, OwnPorts } from "./services.ts";
+export {
+  type ComposedVault,
+  chooseWrapper,
+  composeVault,
+  HelperNodeClient,
+  isKeychainHelper,
+  maskingLogger,
+  SECRET_PARAM_METHODS,
+  type VaultSetup,
+  vaultSetupFromEnv,
+} from "./vault.ts";
 export { createLogger, surfaceOf };
 
 /**

@@ -413,7 +413,26 @@ export function ChatThread({
             aria-label="Conversation"
             role="log"
           >
-            <div className="mx-auto w-full max-w-[calc(var(--prose-width)+3rem)]">
+            {/*
+              Short conversations sit just above the composer, as in a messaging app, instead
+              of leaving an empty band between the last message and the composer; long ones
+              scroll as usual.
+            */}
+            <div
+              className="mx-auto flex min-h-full w-full max-w-[calc(var(--prose-width)+3rem)] flex-col justify-end"
+              data-testid="conversation-column"
+            >
+              {display.length === 0 && !t.loading ? (
+                // Empty state (UI design §3.0): one sentence in Psyche's voice; the composer
+                // below is the one action. The main chat is never empty (it opens with the
+                // agent's first message), so this is a new side chat.
+                <p
+                  className="py-6 text-center text-sm text-muted-foreground"
+                  data-testid="chat-empty"
+                >
+                  Nothing here yet. Ask {persona.name} something below to start.
+                </p>
+              ) : null}
               <ThreadPrimitive.Messages>
                 {({ message }) => {
                   const [d] = getExternalStoreMessages<DisplayMessage>(message);
@@ -456,7 +475,15 @@ export function ChatThread({
               {...(t.thread ? { mode: t.thread.thread.permissionMode } : {})}
               {...(now === undefined ? {} : { now })}
             />
-            <FollowUpQueue items={t.queue} onRemove={t.removeQueued} onRetry={t.retryQueued} />
+            <FollowUpQueue
+              items={t.queue}
+              onRemove={t.removeQueued}
+              onRetry={t.retryQueued}
+              onSendNow={(q, m) => {
+                t.removeQueued(q.id);
+                void t.send(q.content, { mode: m, replyToMessageId: q.replyToMessageId });
+              }}
+            />
             {notice ? <NoticeBar notice={notice} onDismiss={() => setNotice(null)} /> : null}
             <Composer
               persona={persona.name}
@@ -465,7 +492,6 @@ export function ChatThread({
               quoting={quoting}
               onClearQuote={() => setQuoting(null)}
               mode={mode}
-              onModeChange={setMode}
               onStop={() => void t.cancel()}
               {...(onAttach ? { onAttach } : {})}
               {...(onDictate ? { onDictate } : {})}

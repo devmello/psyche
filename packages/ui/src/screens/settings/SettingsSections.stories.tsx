@@ -41,7 +41,7 @@ const forbidden = new Set([
   "vault.backend",
   "gateway.bind",
   "models.primary",
-  "permissions.folders",
+  "permissions.policy",
 ]);
 const channelPairing = world.pairingRequests.filter((p) => p.kind === "channel-sender");
 
@@ -208,7 +208,7 @@ export const FileAccessEmpty: Story = {
   render: () => (
     <FileAccessPanel
       {...form}
-      values={{ ...values, "permissions.folders": [], "vm.shares": [] }}
+      values={{ ...values, "permissions.policy": { folders: [] }, "vm.shares": [] }}
       persona={PERSONA.name}
     />
   ),

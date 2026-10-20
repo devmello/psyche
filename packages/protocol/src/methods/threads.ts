@@ -1,5 +1,5 @@
 import { type Static, Type } from "@sinclair/typebox";
-import { Id, ModelRef, PermissionMode } from "../common.ts";
+import { Id, IsoDateTime, ModelRef, PermissionMode, StringEnum } from "../common.ts";
 import { Thread, ThreadActivity, ThreadKind } from "../schemas/threads.ts";
 import { defineMethod, nextCursor, OkResult, pageParams } from "./define.ts";
 
@@ -8,9 +8,28 @@ import { defineMethod, nextCursor, OkResult, pageParams } from "./define.ts";
 export const ThreadResult = Type.Object({ thread: Thread }, { $id: "ThreadResult" });
 export type ThreadResult = Static<typeof ThreadResult>;
 
-/** A thread plus the derived activity counts the sidebar shows. */
+/**
+ * The newest user or agent text of a thread, for the sidebar row (UI design §2.2: title, last
+ * line, time). Plain text, whitespace collapsed, at most 160 characters.
+ */
+export const ThreadPreview = Type.Object(
+  {
+    role: StringEnum(["user", "agent"]),
+    text: Type.String({ maxLength: 160 }),
+    at: IsoDateTime,
+  },
+  { $id: "ThreadPreview" },
+);
+export type ThreadPreview = Static<typeof ThreadPreview>;
+
+/** A thread plus the derived activity counts and the last line the sidebar shows. */
 export const ThreadListEntry = Type.Object(
-  { thread: Thread, activity: ThreadActivity },
+  {
+    thread: Thread,
+    activity: ThreadActivity,
+    /** Absent when the thread has no user or agent text yet. */
+    lastMessage: Type.Optional(ThreadPreview),
+  },
   { $id: "ThreadListEntry" },
 );
 export type ThreadListEntry = Static<typeof ThreadListEntry>;

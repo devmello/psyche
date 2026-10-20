@@ -6,7 +6,15 @@ export {
   readEvidence,
   sourceLabel,
 } from "./evidence.tsx";
-export { DISMISS_OPTIONS, IDEA_KIND_LABEL, IdeaCard, type IdeaCardProps } from "./IdeaCard.tsx";
+export {
+  DISMISS_OPTIONS,
+  IDEA_KIND_LABEL,
+  type IdeaAcceptOptions,
+  IdeaCard,
+  type IdeaCardProps,
+  RECURRING_CADENCES,
+  type RecurringCadence,
+} from "./IdeaCard.tsx";
 export {
   IdeasScreen,
   type IdeasScreenProps,
