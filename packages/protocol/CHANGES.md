@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S10: channel transport secrets, N8 / N9)
+
+- `channels.secrets.set {type, account, name, value}` → `{set}` (`operator.admin`, side-effecting, params never logged) and `channels.secrets.status {type, account}` → `{required, set}` (names only), with `ChannelSecretName` (`bot_token | app_token | auth_token`). The Gateway stores each as a Gateway-owned vault item (like `models.setKey`), read by the Slack, Discord and SMS adapters per connection or request; never fillable by agents.
+
 ### v1 additive — 2026-10-20 (desktop bundle: first admin without a terminal)
 
 For the desktop bundle session and S01 (the Gateway handler), approved by the architecture session.
