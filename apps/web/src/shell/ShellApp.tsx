@@ -23,7 +23,7 @@ import {
   type PaletteAction,
   ShortcutSheet,
 } from "./components/Overlays.tsx";
-import { PaneArea } from "./components/Panes.tsx";
+import { PaneArea, type PaneRenderer } from "./components/Panes.tsx";
 import { hasInsetTitleBar, TitleBar } from "./components/TitleBar.tsx";
 import { ShellProvider, useShell, useShellState } from "./context.tsx";
 import { matchShortcut, type ShortcutAction } from "./keyboard.ts";
@@ -89,6 +89,11 @@ export interface ShellSlots {
     onOpen: (threadId: string) => void;
     onNew: () => void;
   }) => ReactNode;
+  /**
+   * A pane's body (docs/06 §2.4), e.g. the Files pane with the viewers (§3.7); `null` or
+   * `undefined` keeps the shell's own view for that pane.
+   */
+  pane?: PaneRenderer;
 }
 
 /** What the chat slot needs from the shell to drive the agent header (§3.1). */
@@ -378,6 +383,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       run: () => dispatch({ type: "open", pane: "terminal" }),
     },
     { id: "tasks", label: "Open tasks pane", run: () => dispatch({ type: "open", pane: "tasks" }) },
+    { id: "files", label: "Open files pane", run: () => dispatch({ type: "open", pane: "files" }) },
     { id: "model", label: "/model", run: () => setOverlay("model") },
     { id: "mode", label: "Switch permission mode", run: cycleMode },
     { id: "settings", label: "Settings", run: () => navigate("/settings/model") },
@@ -401,6 +407,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           width={width}
           covered={overlay !== null}
           dispatch={dispatch}
+          {...(slots.pane ? { renderPane: slots.pane, navigate } : {})}
         />
         <Toasts />
       </div>
@@ -483,6 +490,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
             width={width}
             covered={overlay !== null}
             dispatch={dispatch}
+            {...(slots.pane ? { renderPane: slots.pane, navigate } : {})}
           />
         ) : (
           <span />

@@ -28,6 +28,7 @@ import type {
 } from "@psyche/protocol";
 import { answerTokens, approvals, grants } from "./approvals.ts";
 import { messages, runs, threads, toolCalls } from "./chat.ts";
+import { fileTree, type MockFileNode } from "./files.ts";
 import { memoryClaims, memoryFileInfos, memoryFiles, searchHits } from "./memory.ts";
 import { automations, feed, goals, ideas, NEXT_BRIEF_AT, notifications } from "./proactive.ts";
 import {
@@ -65,6 +66,8 @@ export interface FixtureWorld {
   receipts: Receipt[];
   artifacts: Artifact[];
   library: LibraryItem[];
+  /** Granted-folder files by absolute path (FILE_ROOTS), for the Files pane. */
+  files: Record<string, MockFileNode>;
   notifications: Notification[];
   feed: FeedPost[];
   nextBriefAt: string;
@@ -103,6 +106,7 @@ export function createFixtureWorld(): FixtureWorld {
     receipts: receipts(),
     artifacts: artifacts(),
     library: library(),
+    files: fileTree(),
     notifications: notifications(),
     feed: feed(),
     nextBriefAt: NEXT_BRIEF_AT,
@@ -124,3 +128,4 @@ export function createFixtureWorld(): FixtureWorld {
     usage: usage(),
   });
 }
+export { FILE_ROOTS, fileRootGrants, fileTree, type MockFileNode } from "./files.ts";

@@ -11,6 +11,7 @@ import {
   type EventName,
   type EventPayload,
   type FeedPost,
+  FILE_CHUNK_BYTES,
   type Goal,
   type GoalMilestone,
   type Grant,
@@ -39,7 +40,9 @@ import {
   validateParams,
   validateResult,
 } from "@psyche/protocol";
+import type { MockFileNode } from "../fixtures/files.ts";
 import type { ConnectionState, GatewayClient, GatewayEvent, RequestOptions } from "./client.ts";
+import { toBase64 } from "./files.ts";
 
 /**
  * In-memory Gateway for stories and tests (no network). It speaks the protocol exactly: every
@@ -62,6 +65,7 @@ export interface MockWorld {
   receipts: Receipt[];
   artifacts: Artifact[];
   library: LibraryItem[];
+  files: Record<string, MockFileNode>;
   notifications: Notification[];
   feed: FeedPost[];
   nextBriefAt: string | null;
@@ -95,6 +99,7 @@ export const EMPTY_WORLD: MockWorld = {
   receipts: [],
   artifacts: [],
   library: [],
+  files: {},
   notifications: [],
   feed: [],
   nextBriefAt: null,
@@ -131,6 +136,19 @@ export interface RecordedCall {
 }
 
 type Handler = (params: never) => unknown;
+
+const MOCK_MIME: Record<string, string> = {
+  md: "text/markdown",
+  txt: "text/plain",
+  pdf: "application/pdf",
+  png: "image/png",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  eml: "message/rfc822",
+};
+const mockMime = (name: string): string =>
+  MOCK_MIME[name.toLowerCase().split(".").pop() ?? ""] ?? "application/octet-stream";
 
 const fail = (code: ErrorCode, message: string): never => {
   throw new PsycheError(code, message);
@@ -320,6 +338,17 @@ export class MockGateway implements GatewayClient {
 
   private find<T extends { id: string }>(list: T[], id: string, what: string): T {
     return list.find((x) => x.id === id) ?? fail("not_found", `${what} ${id} not found`);
+  }
+
+  /** Like the Gateway: a path must lie in a folder `permissions.policy` grants. */
+  private assertGranted(path: string): void {
+    const policy = this.world.settings["permissions.policy"] as
+      | { folders?: { path: string }[] }
+      | undefined;
+    const ok = (policy?.folders ?? []).some(
+      (f) => path === f.path || path.startsWith(`${f.path}/`),
+    );
+    if (!ok) fail("forbidden", `${path} is outside every granted folder`);
   }
 
   private replace<K extends keyof MockWorld>(key: K, entity: { id: string }): void {
@@ -578,6 +607,63 @@ export class MockGateway implements GatewayClient {
     "artifacts.get": (p) => ({
       artifact: this.find(this.world.artifacts, p.artifactId, "artifact"),
     }),
+    "files.list": (p) => {
+      this.assertGranted(p.path);
+      const node = this.world.files[p.path];
+      if (node === undefined) return fail("not_found", `${p.path} does not exist`);
+      if (node.kind !== "folder") fail("invalid_params", `${p.path} is not a folder`);
+      const prefix = `${p.path}/`;
+      const rank = (k: string) => (k === "folder" ? 0 : k === "file" ? 1 : 2);
+      const entries = Object.entries(this.world.files)
+        .filter(([k]) => k.startsWith(prefix) && !k.slice(prefix.length).includes("/"))
+        .map(([path, n]) => ({
+          name: path.slice(prefix.length),
+          path,
+          kind: n.kind,
+          size: n.kind === "file" ? new TextEncoder().encode(n.text).length : null,
+          modifiedAt: n.kind === "other" ? null : (n.modifiedAt ?? null),
+        }))
+        .sort((a, b) => rank(a.kind) - rank(b.kind) || a.name.localeCompare(b.name));
+      return { entries, nextOffset: null };
+    },
+    "files.read": (p) => {
+      if ((p.path === undefined) === (p.libraryPath === undefined))
+        fail("invalid_params", "pass exactly one of path and libraryPath");
+      let name: string;
+      let bytes: Uint8Array;
+      let modifiedAt: string;
+      if (p.path !== undefined) {
+        this.assertGranted(p.path);
+        const node = this.world.files[p.path];
+        if (node === undefined) return fail("not_found", `${p.path} does not exist`);
+        if (node.kind !== "file") return fail("invalid_params", `${p.path} is not a file`);
+        name = p.path.split("/").pop() ?? p.path;
+        bytes = new TextEncoder().encode(node.text);
+        modifiedAt = node.modifiedAt ?? this.now();
+      } else {
+        const item = this.world.library.find((i) => i.path === p.libraryPath);
+        if (item === undefined) return fail("not_found", `${p.libraryPath} is not in the Library`);
+        name = item.name;
+        bytes = new TextEncoder().encode(`Fixture content of ${item.name}`);
+        modifiedAt = item.createdAt;
+      }
+      const offset = p.offset ?? 0;
+      if (offset > bytes.length) fail("invalid_params", `offset ${offset} is past the end`);
+      const end = Math.min(bytes.length, offset + (p.length ?? FILE_CHUNK_BYTES));
+      return {
+        name,
+        mime: mockMime(name),
+        modifiedAt,
+        etag: `${bytes.length}-${modifiedAt}`,
+        size: bytes.length,
+        offset,
+        bytes: toBase64(bytes.subarray(offset, end)),
+        nextOffset: end < bytes.length ? end : null,
+      };
+    },
+    // Like a Gateway without the full sandbox image: conversion is unavailable.
+    "documents.convert": () =>
+      fail("unavailable", "The full sandbox image with LibreOffice is not installed."),
     "library.list": (p) => ({
       items: this.world.library.filter(
         (i) =>
