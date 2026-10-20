@@ -18,6 +18,7 @@ import { GrantsMethods } from "./grants.ts";
 import { LibraryMethods } from "./library.ts";
 import { LogsMethods } from "./logs.ts";
 import { MemoryMethods } from "./memory.ts";
+import { ModelsMethods } from "./models.ts";
 import { NodeMethods } from "./node.ts";
 import { NodesMethods } from "./nodes.ts";
 import { NotificationsMethods } from "./notifications.ts";
@@ -53,6 +54,7 @@ export * from "./grants.ts";
 export * from "./library.ts";
 export * from "./logs.ts";
 export * from "./memory.ts";
+export * from "./models.ts";
 export * from "./node.ts";
 export * from "./nodes.ts";
 export * from "./notifications.ts";
@@ -111,6 +113,7 @@ export const Methods = {
   ...SkillsMethods,
   ...BackupMethods,
   ...LogsMethods,
+  ...ModelsMethods,
 } as const;
 
 export type MethodName = keyof typeof Methods;
