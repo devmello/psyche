@@ -1688,6 +1688,34 @@ export interface DevicesPairingListResult {
     pairingRequests: PairingRequest[];
 }
 
+export interface DevicesPresenceKeyListResult {
+    presenceKeys: PresenceKeyInfo[];
+}
+
+export interface PresenceKeyInfo {
+    deviceId:     string;
+    keyId:        string;
+    registeredAt: string;
+}
+
+export interface DevicesPresenceKeyRegisterParams {
+    approvalId?:  string;
+    deviceId:     string;
+    expectKeyId?: string;
+}
+
+export interface DevicesPresenceKeyRegisterResult {
+    presenceKey: PresenceKeyInfo;
+}
+
+export interface DevicesPresenceKeyRemoveParams {
+    deviceId: string;
+}
+
+export interface DevicesPresenceKeyRemoveResult {
+    removed: boolean;
+}
+
 export interface DevicesRevokeParams {
     deviceId: string;
 }
