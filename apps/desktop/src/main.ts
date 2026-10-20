@@ -60,6 +60,7 @@ import {
   PERMISSION_KINDS,
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
+import { startShell } from "./main/startup.ts";
 import {
   chooseMode,
   desktopVaultKeyFile,
@@ -798,11 +799,27 @@ void app.whenReady().then(async () => {
   if (!skipShortcuts && !globalShortcut.register("Alt+Space", () => windows?.toggleQuickEntry()))
     globalShortcut.register("Control+Alt+Space", () => windows?.toggleQuickEntry());
 
-  windows.showMain();
+  // The window shows first and comes forward; the Gateway starts behind it (issue #441).
+  let shownAt: number | undefined;
+  const appWindows = windows;
+  const sup = supervisor;
+  startShell({
+    showMain: () => appWindows.showMain(),
+    focusApp: () => app.focus({ steal: true }),
+    startGateway: () => sup.ensureRunning().then(() => gateway?.start()),
+    openedAtLogin: app.getLoginItemSettings().wasOpenedAtLogin === true,
+    onShown: (at) => {
+      shownAt = at;
+    },
+    warn: (m) => console.warn(`[startup] ${m}`),
+  });
   const measured = windows.mainContents();
-  if (perfProbe !== undefined && measured) watchFirstPaint(measured, perfProbe, () => app.quit());
+  if (perfProbe !== undefined && measured) {
+    watchFirstPaint(measured, perfProbe, () => app.quit(), {
+      ...(shownAt === undefined ? {} : { shownAt }),
+    });
+  }
   openDeepLink(deepLinkFromArgv(process.argv));
-  void supervisor.ensureRunning().then(() => gateway?.start());
   if (perfProbe === undefined) void startUpdater({ stateFile: join(home, "run", "updater.json") });
 
   app.on("activate", () => windows?.showMain());
