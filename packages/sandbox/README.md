@@ -55,6 +55,8 @@ for await (const chunk of pty.output) term.write(chunk); // pty.write(), pty.res
 | `egressProxy` | none | See "Egress proxy interface". |
 | `namePrefix` | `psyche` | Container `<prefix>-sbx-<hash>`, volume `<prefix>-ws-<hash>`; the hash is over the scope. |
 | `appleVolumeSize` | `8G` | Apple volumes are fixed-size ext4 images. |
+| `onDevServer` | unset | Dev-server forwarding (I12): `started` / `stopped` events for servers an exec leaves listening; see "Dev servers". Unset means no probe and no forward. |
+| `devServers` | re-probe at 0.5, 1, 2, 4, 8 s; poll 5 s; 32 connections | Timing and the per-server connection cap for dev-server forwarding. |
 | `provenanceStore` | in memory | Where each scope's file provenance index lives. `new FileProvenanceStore(dir)` keeps it across restarts (one JSON file per scope under `dir`, for example `$PSYCHE_HOME/sandbox/provenance`). |
 
 ## Backends
@@ -108,6 +110,16 @@ Taint is turn-scoped, so an injected payload only has to land in a workspace fil
 - `readText`, `exportFile` and `stat` return the latest recorded write's `provenance` and `sources`. A file with no record (written through a PTY, present before tracking, or after a restart without a persistent store) or whose bytes no longer match the recorded hash is `untrusted` with `{ sourceKind: "workspace", origin: "/workspace/<path>" }`: nobody vouches for it. `list` marks each file and returns `provenance: "untrusted"` for a listing that holds any untrusted file, symlink or special file. Names are data from inside the sandbox either way.
 - `deleteWorkspace` clears the index with the volume. There is no "mark trusted" call yet; the owner re-approving a file is a follow-up for the files pane.
 
+## Dev servers (feature I12)
+
+The browser's dev preview opens a loopback server only if Psyche started it (security §3.10). A sandbox has network `none`, so a server on port 5173 **inside** it is not the host's `localhost:5173`; announcing that number would let the preview open whatever host process holds it. With `onDevServer` set, the runner instead:
+
+- **Probes the exec's own session** right after it returns (`LISTENERS`, reading `/proc/net/tcp{,6}` and the session's fds inside the container). Only sockets in `LISTEN` owned by a process of that exec's session count, so a server another exec or a PTY started is not attributed to it. If the command left processes running but nothing listens yet (`npm run dev &`), it re-probes in the background at 0.5, 1, 2, 4 and 8 s.
+- **Forwards each listener** to a `127.0.0.1:<ephemeral>` port it binds on the host and relays every connection into the container over `exec -i` (`PORT_RELAY`, connecting to loopback there). The container keeps network `none`; the forward is inbound from host loopback only, and adds no egress.
+- **Reports** `started` with the host port, the container port, the root pid (the exec's session leader inside the container), the listener's pid, the exec's cwd and argv. A poll every 5 s reports `stopped` (`exited`) when the listener is gone; stopping, removing or disposing the container reports `stopped` (`sandbox`) for all of them. A forwarded server keeps its container from the idle stop.
+
+Each forwarded connection is one `exec -i` (about 60 ms on Docker); browsers reuse connections, so a preview pays it a few times. Servers a PTY starts, servers that call `setsid` themselves, and listeners bound to a non-loopback address are not forwarded. The node agent does not set `onDevServer`: a node's loopback is not the Gateway's.
+
 ## PTY
 
 `openPty` allocates the pseudo-terminal **inside** the container with a Python relay, so the host needs neither node-pty nor a TTY. Input, resize and env are framed over stdin (`[type u8][len u32 BE][payload]`); output is the raw terminal stream. `close()` hangs up, then kills the process group after 2 s. Who may type into a PTY is the caller's decision: an agent PTY needs a session-scoped approval (security §5.4).
@@ -151,5 +163,6 @@ The smoke test is the OpenMuse one plus PATH-hijack, PTY and concurrency checks 
 - `srt` wrapper for host-side helpers (K5) and `exec_host` (K7) are other sessions' work.
 - Image publishing and signing: `deploy/sandbox-image/publish.sh` is written but has not been run, so `versions.json` digests are `null`.
 - Podman has not been run on a real host (it was not installed on the dev machine); its flags are Docker's.
+- Dev servers: only those an `exec` starts in its own session; PTY-started servers are not detected.
 - File provenance: no xattr on the files themselves (the index is host-side only), no owner "mark trusted" path, and PTY writes are unobserved (they read back as untrusted, which is the safe answer).
 - `strictInlineEval` (security §5.1) applies to allowlist decisions in the Permission Broker, not to this runner, which runs what it is given inside the container.
