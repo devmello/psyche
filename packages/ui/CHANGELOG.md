@@ -1,0 +1,90 @@
+# @psyche/ui
+
+## 0.3.0-alpha.0
+
+### Minor Changes
+
+- 3bfb9f9: Settings → Model & providers over `models.*` (B1, B4): the Gateway lists configured providers with their last endpoint probe, probes and runs the tool-calling check only on the owner's click, and binds primary / utility picks (a chat-only primary asks before `override`); the Settings UI shows probe state, model capabilities (vision, tools, context) and the picks; the web model picker suggests the listed models.
+- e90b086: The web client's Settings → Devices & nodes lists, adds and removes this browser's passkeys, and approval cards that require authentication (purchases, credential fills, host commands, security settings) are approved with a passkey assertion over the card's presence challenge. The kit's `GatewayClient` gains an optional `presence` hook for that. Fixes the Gateway's WebAuthn challenge for `sha256:`-prefixed presence challenges, which made every real browser assertion fail.
+- 174516f: The UI kit: theme generator and tokens, typed Gateway hooks with a protocol-validating mock Gateway, every message block, approval and question cards, the avatar system, the chat column, the agent header and sheet, the screens, and Storybook with axe checks.
+- 534326e: Skills install and trust (T2): manifest validation and install policy (refused before any card), update detection, the Gateway's `skills.*` handlers and skill tools with third-party descriptions marked untrusted (part of #281), and Settings → Skills with the trust card.
+- c1d8e4a: `DiffBlock` shows unified diffs in the kit's code block (Shiki `diff`): on `file_write` cards and under tool rows whose receipt carries a diff. `git_write` and `git_push` cards get their own rows; a push shows its full commit.
+
+### Patch Changes
+
+- 81cf744: Approval, question and wrap-up cards render per surface through one function (`@psyche/permissions/cards`, review design-12): chat transports send `renderForSurface(surface, approval)` and show a device-only approval as "Answer this on your Mac." with nothing answerable; the UI kit's cards consume the desktop rendering from the same function, so the surfaces cannot drift.
+- Updated dependencies [428ec1e]
+- Updated dependencies [a5cef4e]
+- Updated dependencies [81cf744]
+- Updated dependencies [1dc1561]
+- Updated dependencies [4f8dff6]
+- Updated dependencies [a43a514]
+- Updated dependencies [353afa9]
+- Updated dependencies [2558bfe]
+- Updated dependencies [7ac975c]
+- Updated dependencies [e3ef188]
+- Updated dependencies [2064c0c]
+- Updated dependencies [2be1a8a]
+- Updated dependencies [8e28cac]
+- Updated dependencies [e87d482]
+- Updated dependencies [42496a0]
+- Updated dependencies [ecf0dd5]
+- Updated dependencies [09c0c6f]
+- Updated dependencies [d982437]
+- Updated dependencies [c4175a2]
+- Updated dependencies [fa08fee]
+- Updated dependencies [493b4a5]
+- Updated dependencies [eaf91c6]
+- Updated dependencies [19c1ba5]
+- Updated dependencies [4f74993]
+- Updated dependencies [5e605af]
+- Updated dependencies [8a8dacb]
+- Updated dependencies [6665567]
+- Updated dependencies [310ac67]
+- Updated dependencies [2f63bac]
+- Updated dependencies [dc190a6]
+- Updated dependencies [5d2cbeb]
+- Updated dependencies [0899f3b]
+- Updated dependencies [08664c3]
+- Updated dependencies [e54d672]
+- Updated dependencies [3461262]
+- Updated dependencies [8a9ee2c]
+- Updated dependencies [f80b0ec]
+- Updated dependencies [75a0f80]
+- Updated dependencies [2e9c025]
+- Updated dependencies [e4c109b]
+- Updated dependencies [5dcf208]
+- Updated dependencies [c840e75]
+- Updated dependencies [2607fc3]
+- Updated dependencies [e83a19e]
+- Updated dependencies [412aaa1]
+- Updated dependencies [9a0cd76]
+- Updated dependencies [4bc7113]
+- Updated dependencies [1cf5421]
+- Updated dependencies [1cc7f5a]
+- Updated dependencies [0d9d34d]
+- Updated dependencies [515b904]
+- Updated dependencies [d74ccce]
+- Updated dependencies [f4cf9c0]
+- Updated dependencies [e0d2f7e]
+- Updated dependencies [95f1980]
+- Updated dependencies [2b2e906]
+- Updated dependencies [13afc8a]
+- Updated dependencies [4d718e6]
+- Updated dependencies [1331bfc]
+- Updated dependencies [04be9ec]
+- Updated dependencies [2525712]
+- Updated dependencies [e7c3564]
+- Updated dependencies [a549b95]
+- Updated dependencies [75d2aa9]
+- Updated dependencies [420ab8e]
+- Updated dependencies [206f295]
+- Updated dependencies [e99009a]
+- Updated dependencies [38f71de]
+- Updated dependencies [952c222]
+- Updated dependencies [ee4c781]
+- Updated dependencies [e4e6f97]
+- Updated dependencies [0c71158]
+- Updated dependencies [4b3f571]
+  - @psyche/protocol@0.3.0-alpha.0
+  - @psyche/permissions@0.3.0-alpha.0

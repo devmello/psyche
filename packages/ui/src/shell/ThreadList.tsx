@@ -1,6 +1,7 @@
 import type { ThreadListEntry } from "@psyche/protocol";
 import { ChevronRight, Ellipsis, EyeOff, Pin, SquarePen } from "lucide-react";
 import { type ReactElement, useState } from "react";
+import { compactWithToast, ThreadContextDialog } from "../chat/context/connected.tsx";
 import { Button } from "../components/ui/button.tsx";
 import {
   DropdownMenu,
@@ -11,7 +12,7 @@ import {
 } from "../components/ui/dropdown-menu.tsx";
 import { Input } from "../components/ui/input.tsx";
 import { Skeleton } from "../components/ui/skeleton.tsx";
-import { useThreads } from "../data/index.ts";
+import { compactThread, useStore, useThreads } from "../data/index.ts";
 import { formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
@@ -35,6 +36,10 @@ export interface ThreadRowProps {
   onRestore?: () => void;
   onPin?: (pinned: boolean) => void;
   onExport?: (format: "markdown" | "json" | "html") => void;
+  /** Opens this chat's context limits. */
+  onContextLimits?: () => void;
+  /** Compacts this chat's earlier turns now. */
+  onCompact?: () => void;
 }
 
 /** Row: title, time, a status dot for running or waiting work, channel / incognito icon (§2.2). */
@@ -48,6 +53,8 @@ export function ThreadRow({
   onRestore,
   onPin,
   onExport,
+  onContextLimits,
+  onCompact,
 }: ThreadRowProps): ReactElement {
   const t = entry.thread;
   const [editing, setEditing] = useState(false);
@@ -113,7 +120,7 @@ export function ThreadRow({
             <Button
               variant="ghost"
               size="icon-xs"
-              className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100"
+              className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100 pointer-coarse:opacity-100"
               aria-label={`More for ${t.title}`}
             />
           }
@@ -137,6 +144,17 @@ export function ThreadRow({
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onExport("json")}>Export as JSON</DropdownMenuItem>
               <DropdownMenuItem onClick={() => onExport("html")}>Export as HTML</DropdownMenuItem>
+            </>
+          ) : null}
+          {onContextLimits || onCompact ? (
+            <>
+              <DropdownMenuSeparator />
+              {onContextLimits ? (
+                <DropdownMenuItem onClick={onContextLimits}>Context limits…</DropdownMenuItem>
+              ) : null}
+              {onCompact ? (
+                <DropdownMenuItem onClick={onCompact}>Compact now</DropdownMenuItem>
+              ) : null}
             </>
           ) : null}
           {t.kind !== "main" && (onArchive || onRestore) ? (
@@ -176,6 +194,8 @@ export function ThreadList({
 }: ThreadListProps): ReactElement {
   const now = useNow(60_000, fixedNow);
   const threads = useThreads();
+  const store = useStore();
+  const [limitsFor, setLimitsFor] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   // Matches the title or the last line (§2.2).
@@ -194,6 +214,12 @@ export function ThreadList({
       onPin={(p) => void threads.pin(e.thread.id, p)}
       onArchive={() => void threads.archive(e.thread.id)}
       onRestore={() => void threads.restore(e.thread.id)}
+      {...(e.thread.archivedAt == null
+        ? {
+            onContextLimits: () => setLimitsFor(e.thread.id),
+            onCompact: () => void compactWithToast(() => compactThread(store, e.thread.id)),
+          }
+        : {})}
       {...(onExport
         ? { onExport: (f: "markdown" | "json" | "html") => onExport(e.thread.id, f) }
         : {})}
@@ -272,6 +298,15 @@ export function ThreadList({
           ) : null}
         </div>
       )}
+      {limitsFor !== null ? (
+        <ThreadContextDialog
+          threadId={limitsFor}
+          open
+          onOpenChange={(open) => {
+            if (!open) setLimitsFor(null);
+          }}
+        />
+      ) : null}
     </aside>
   );
 }

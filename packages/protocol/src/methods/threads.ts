@@ -1,5 +1,11 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, IsoDateTime, ModelRef, PermissionMode, StringEnum } from "../common.ts";
+import {
+  CompactionResult,
+  ContextLimits,
+  ContextUsage,
+  EffectiveContextLimits,
+} from "../schemas/context.ts";
 import { Thread, ThreadActivity, ThreadKind } from "../schemas/threads.ts";
 import { defineMethod, nextCursor, OkResult, pageParams } from "./define.ts";
 
@@ -135,5 +141,37 @@ export const ThreadsMethods = {
     sideEffecting: true,
     description:
       "User-initiated fork: a new side thread with the transcript up to and including messageId. Side-effecting.",
+  }),
+  "threads.contextUsage": defineMethod({
+    params: Type.Object({ threadId: Id }),
+    result: Type.Object({
+      /** The last turn's usage; null before the first turn. */
+      usage: Type.Union([ContextUsage, Type.Null()]),
+      limits: EffectiveContextLimits,
+      /** The thread's own override (empty when it follows the settings). */
+      threadLimits: ContextLimits,
+    }),
+    scope: "operator.read",
+    description:
+      "A thread's context usage after its last turn (exact prompt tokens when the provider reports them) and its effective limits.",
+  }),
+  "threads.setContextLimits": defineMethod({
+    params: Type.Object({
+      threadId: Id,
+      /** Null clears the override; the thread follows `context.*` settings again. */
+      limits: Type.Union([ContextLimits, Type.Null()]),
+    }),
+    result: Type.Object({ limits: EffectiveContextLimits, threadLimits: ContextLimits }),
+    scope: "operator.write",
+    description:
+      "Sets or clears a thread's context limits (maxTokens, compactAt, keepRecentTurns); maxTokens above the model's window is refused with invalid_params.",
+  }),
+  "threads.compact": defineMethod({
+    params: Type.Object({ threadId: Id }),
+    result: Type.Object({ compaction: Type.Union([CompactionResult, Type.Null()]) }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Side-effecting: compacts the thread's earlier turns now (null when there is nothing to compact); conflict while the thread runs or waits on an approval.",
   }),
 } as const;

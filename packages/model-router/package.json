@@ -1,6 +1,6 @@
 {
   "name": "@psyche/model-router",
-  "version": "0.0.0",
+  "version": "0.3.0-alpha.0",
   "private": true,
   "description": "Provider adapters on AI SDK v7, the router (roles, fallbacks, cooldowns), usage ledger, price table, capability probe.",
   "license": "Apache-2.0",

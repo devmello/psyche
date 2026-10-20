@@ -21,7 +21,10 @@ import {
   type SqliteMemoryStore,
 } from "@psyche/memory";
 import {
+  CliAdapter,
+  type CliAdapterDeps,
   createModelRouter,
+  isSubscriptionKind,
   type KeySource,
   KeyValueProbeStore,
   type ModelRouter,
@@ -79,6 +82,7 @@ import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
 import { CallContexts } from "./call-context.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
 import { composeComputer } from "./computer.ts";
+import { createContext } from "./context.ts";
 import { composeConversion } from "./convert.ts";
 import { composeDictation } from "./dictation.ts";
 import { filesHandlers } from "./files.ts";
@@ -89,6 +93,7 @@ import {
   receiptHandlers,
   surfaceOf,
 } from "./handlers.ts";
+import { composeHarnesses } from "./harnesses.ts";
 import { libraryHandlers } from "./library.ts";
 import {
   type HostedModelKind,
@@ -110,6 +115,7 @@ import { composePlugins } from "./plugins.ts";
 import { type ComposedProactive, composeProactive } from "./proactive.ts";
 import { protectedRoots } from "./protected-paths.ts";
 import { createRateLimits } from "./rate-limits.ts";
+import type { ComposedSandbox } from "./sandbox.ts";
 import {
   type ApprovalRelay,
   type ComposedPart,
@@ -141,6 +147,8 @@ export type ModelSetup =
       utilityModel?: ModelRef;
       /** Provider transport (tests replay recorded fixtures through this). */
       fetch?: typeof fetch;
+      /** Subscription CLIs: their environment and bridge (tests run a fake CLI). */
+      cli?: CliAdapterDeps;
       /**
        * Hosted keys are the vault's Gateway-owned `model-<provider>` items (`models.setKey`), the
        * packaged first run with no environment. Until a primary model is picked, turns answer
@@ -224,6 +232,7 @@ function providerFor(
   setup: ModelSetup,
   clock: Clock,
   db: PsycheDb,
+  home: string,
 ): { provider: ModelProvider; model: ModelRef; utility?: ModelRef; router?: ModelRouter } {
   if ("provider" in setup) {
     return {
@@ -232,13 +241,23 @@ function providerFor(
       ...(setup.utilityModel === undefined ? {} : { utility: setup.utilityModel }),
     };
   }
-  const router = createModelRouter(setup.router, {
-    clock,
-    // Tool-check verdicts (B4) survive restarts as `models.probe.<ref>` settings rows.
-    probes: new KeyValueProbeStore(settingsKeyValue(db)),
-    ...(setup.keys === undefined ? {} : { keys: setup.keys }),
-    ...(setup.fetch === undefined ? {} : { fetch: setup.fetch }),
-  });
+  // Subscription CLIs keep their sessions per working directory: one each under the home.
+  const providers = setup.router.providers.map((p) =>
+    isSubscriptionKind(p.kind) && p.workdir === undefined
+      ? { ...p, workdir: join(home, "cli", p.id) }
+      : p,
+  );
+  const router = createModelRouter(
+    { ...setup.router, providers },
+    {
+      clock,
+      ...(setup.cli === undefined ? {} : { cli: setup.cli }),
+      // Tool-check verdicts (B4) survive restarts as `models.probe.<ref>` settings rows.
+      probes: new KeyValueProbeStore(settingsKeyValue(db)),
+      ...(setup.keys === undefined ? {} : { keys: setup.keys }),
+      ...(setup.fetch === undefined ? {} : { fetch: setup.fetch }),
+    },
+  );
   return {
     router,
     provider: router,
@@ -468,7 +487,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const modelSetup: ModelSetup = vaultKeys
     ? { ...model, keys: vaultModelKeys(() => vault.vault) }
     : model;
-  const routed = providerFor(modelSetup, clock, db);
+  const routed = providerFor(modelSetup, clock, db, config.home);
   const { model: modelRef, utility, router } = routed;
   const provider = vaultKeys && router !== undefined ? untilPrimaryPicked(router) : routed.provider;
   const modelSettings: ModelSettingsSetup = {
@@ -479,6 +498,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ...("router" in modelSetup && modelSetup.keys !== undefined ? { keys: modelSetup.keys } : {}),
     ...("router" in modelSetup && modelSetup.fetch !== undefined
       ? { fetch: modelSetup.fetch }
+      : {}),
+    ...("router" in modelSetup && modelSetup.cli?.env !== undefined
+      ? { cliEnv: modelSetup.cli.env }
       : {}),
     ...("provider" in modelSetup ? { fixedModel: modelSetup.model } : {}),
     ...(vaultKeys
@@ -633,6 +655,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   // E12 "From your other chats": digests of the owner's chats, shared only with threads.otherChats on.
   const otherChats = createOtherChats({ db, audit, now: () => clock.now() });
+  // Context usage, owner-set limits and compaction (B7, C2): the meter and the compaction blocks.
+  const context = createContext({
+    db,
+    audit,
+    broker,
+    publish: (event, payload, threadId) => publish(event, payload as never, threadId),
+    isRunning: (threadId) => loop.isBusy(threadId),
+  });
   const loop = createAgentLoop({
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
     state: new SqliteThreadStateStore(db, redactor),
@@ -651,6 +681,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     skills: skills.loader,
     ...(compaction === undefined ? {} : { compaction }),
     contextProviders: [otherChats.provider],
+    contextLimits: context.contextLimits,
+    onContextUsage: context.onContextUsage,
+    onCompaction: context.onCompaction,
     // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
     isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
   });
@@ -689,6 +722,19 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   launcher = proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool);
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
+  // C10: Claude Code behind harness.delegate, only once the owner configured harness.claudeCode.
+  parts.push(
+    composeHarnesses({
+      db,
+      loop,
+      vault: vault.vault,
+      broker: executorBroker,
+      sandbox: parts.find(
+        (p): p is ComposedSandbox => "runner" in p && "egress" in p && "track" in p,
+      ),
+      folders: () => rawBroker.policy.folders ?? [],
+    }),
+  );
   parts.push(otherChats.part());
   // Code plugins (T4): off until the owner turns on `plugins.enabled`.
   parts.push(
@@ -707,6 +753,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const handlers: Record<string, HandlerDef> = {
     ...mountPermissions(db, createPermissionHandlers(rawBroker, audit), tokens),
     ...mountParamsOnly(createMemoryHandlers(memory) as never),
+    ...mountParamsOnly(
+      context.handlers(
+        () => loop,
+        (threadId) =>
+          loop.effectiveContextLimits(threadId, getThread(db, threadId)?.modelRef ?? undefined),
+      ) as never,
+    ),
     ...mountParamsOnly(createTaskHandlers({ engine: tasks, pool, broker }) as never),
     ...mountParamsOnly(createAutomationHandlers(scheduler) as never),
     ...mountParamsOnly(createNotificationHandlers(notifier) as never),
@@ -829,6 +882,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
       memory.unwatch();
       unsubscribePolicy();
       unsubscribeAttention();
+      // Suspended subscription-CLI runs end with the Gateway.
+      for (const p of router?.providers() ?? []) if (p instanceof CliAdapter) await p.close();
       await gateway.stop(reason);
       if (ownsDb) db.close();
     },

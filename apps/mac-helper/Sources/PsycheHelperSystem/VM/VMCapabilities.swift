@@ -7,6 +7,10 @@ import PsycheProtocol
 /// approval (`approvalId`).
 public enum VMCapabilities {
     struct NameParams: Decodable { var name: String? }
+    struct SnapshotRef: Decodable {
+        var name: String?
+        var snapshot: String
+    }
     struct StopParams: Decodable {
         var name: String?
         var force: Bool?
@@ -43,6 +47,8 @@ public enum VMCapabilities {
                     "name": nameSchema, "cpus": Schema.integer(min: VMConfig.minCPUs, max: 32), "memoryGB": Schema.integer(min: VMConfig.minMemoryGB, max: 256),
                     "diskGB": Schema.integer(min: VMConfig.minDiskGB, max: 2048), "ipsw": Schema.string("Absolute path to a local IPSW"),
                     "download": Schema.boolean("Confirm downloading the latest restore image"), "username": Schema.string(maxLength: 32),
+                    "image": Schema.string("L7: absolute path to a prebuilt guest image (directory or .aar) instead of an IPSW"),
+                    "imageSha256": Schema.string("Expected SHA-256 of the image's manifest.json, from the publisher", maxLength: 64),
                 ]),
                 streaming: true, receiptKind: "vm"
             )) { ctx in
@@ -79,6 +85,67 @@ public enum VMCapabilities {
                 let p = try ctx.decode(NameParams.self)
                 let out = try await vm.delete(name: p.name ?? "sandbox")
                 return CapabilityOutput(out, receipt: ReceiptDraft(outcome: .ok, summary: "Deleted the sandbox Mac"))
+            },
+
+            // L7 prebuilt images.
+            Capability(CapabilitySpec(
+                name: "vm.export_image",
+                description: "Export the stopped, provisioned sandbox Mac as a prebuilt guest image in outDir/<id>/ (disk, auxiliary storage, hardware model, bootstrap credentials and a SHA-256 manifest). Never its machine identity. The image holds the guest password: share it only with people you trust.",
+                sideEffect: .write, targetKind: .path,
+                inputSchema: Schema.object([
+                    "name": nameSchema, "outDir": Schema.string("Absolute host folder"), "id": Schema.string(maxLength: 64),
+                ], required: ["outDir"]),
+                streaming: true, receiptKind: "vm"
+            )) { ctx in
+                let p = try ctx.decode(VMManager.ExportImageParams.self)
+                let out = try await vm.exportImage(p, emit: ctx.emit)
+                return CapabilityOutput(out, receipt: ReceiptDraft(outcome: .ok, summary: "Exported the sandbox Mac as a guest image"))
+            },
+
+            // L6 snapshots and resets.
+            Capability(CapabilitySpec(
+                name: "vm.snapshot",
+                description: "Snapshot the stopped or saved sandbox Mac (APFS clones: instant, copy-on-write). kind base makes it the \"fresh Mac\" vm.reset returns to; task snapshots are pruned to the newest 3; at most 10 manual.",
+                sideEffect: .write,
+                inputSchema: Schema.object([
+                    "name": nameSchema, "label": Schema.string(maxLength: 120), "kind": Schema.string(enum: ["base", "manual", "task"]),
+                    "taskId": Schema.string(maxLength: 128),
+                ]),
+                streaming: true, receiptKind: "vm"
+            )) { ctx in
+                let p = try ctx.decode(VMManager.SnapshotParams.self)
+                let out = try await vm.snapshot(p, emit: ctx.emit)
+                return CapabilityOutput(out, receipt: ReceiptDraft(outcome: .ok, summary: "Snapshot of the sandbox Mac"))
+            },
+            Capability(CapabilitySpec(
+                name: "vm.restore",
+                description: "Restore the stopped sandbox Mac to a snapshot. Discards the current disk (the snapshot is kept).",
+                sideEffect: .destructive,
+                inputSchema: Schema.object(["name": nameSchema, "snapshot": Schema.string(maxLength: 64)], required: ["snapshot"]),
+                streaming: true, receiptKind: "vm"
+            )) { ctx in
+                let p = try ctx.decode(SnapshotRef.self)
+                let out = try await vm.restore(name: p.name ?? "sandbox", snapshot: p.snapshot, emit: ctx.emit)
+                return CapabilityOutput(out, receipt: ReceiptDraft(outcome: .ok, summary: "Restored the sandbox Mac to a snapshot"))
+            },
+            Capability(CapabilitySpec(
+                name: "vm.reset",
+                description: "Reset the stopped sandbox Mac to its base snapshot (\"fresh Mac\"). Discards the current disk.",
+                sideEffect: .destructive, inputSchema: Schema.object(["name": nameSchema]), streaming: true, receiptKind: "vm"
+            )) { ctx in
+                let p = try ctx.decode(NameParams.self)
+                let out = try await vm.reset(name: p.name ?? "sandbox", emit: ctx.emit)
+                return CapabilityOutput(out, receipt: ReceiptDraft(outcome: .ok, summary: "Reset the sandbox Mac to a fresh Mac"))
+            },
+            Capability(CapabilitySpec(
+                name: "vm.snapshot_delete", description: "Delete one snapshot of the sandbox Mac. Deleting the base leaves no reset point.",
+                sideEffect: .destructive,
+                inputSchema: Schema.object(["name": nameSchema, "snapshot": Schema.string(maxLength: 64)], required: ["snapshot"]),
+                receiptKind: "vm"
+            )) { ctx in
+                let p = try ctx.decode(SnapshotRef.self)
+                let out = try await vm.deleteSnapshot(name: p.name ?? "sandbox", snapshot: p.snapshot)
+                return CapabilityOutput(out, receipt: ReceiptDraft(outcome: .ok, summary: "Deleted a sandbox Mac snapshot"))
             },
 
             Capability(CapabilitySpec(

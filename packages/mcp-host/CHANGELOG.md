@@ -1,0 +1,67 @@
+# @psyche/mcp-host
+
+## 0.3.0-alpha.0
+
+### Minor Changes
+
+- 52d0dd3: M3: `containerLauncher` runs each stdio MCP server in its own sandbox container through the runner and speaks MCP over its pipes (`PipeTransport`); `StdioLauncher` gains `open` beside `prepare`, and launch specs carry the server's own env as `serverEnv`.
+- 67605d1: MCP results pass through the vault redactor; removing a server clears its sandbox volume and egress allowlist (`StdioLauncher.forget`, `egressRevoke`); docs/05 §11 states the origin-bound bearer exception (#284).
+- 0eb5a41: MCP host on TypeScript SDK v2: 2026-07-28 with 2025-11-25 fallback, OAuth 2.1 with a client ID metadata document, stdio with vault env injection under a sandboxing launcher, `tools/list` hashing with rug-pull revocation, annotation downgrade, MRTR elicitation, MCP Apps resources.
+
+### Patch Changes
+
+- e87d482: MCP grants made from the agent loop name their server and `tools/list` hash, so `revokeMcpGrants` revokes them on a listing change and an A→B→A change no longer revives them (#279). `describeMcpCall` uses the broker's `argsSha256` field name.
+- Updated dependencies [428ec1e]
+- Updated dependencies [a5cef4e]
+- Updated dependencies [4f8dff6]
+- Updated dependencies [353afa9]
+- Updated dependencies [2558bfe]
+- Updated dependencies [7ac975c]
+- Updated dependencies [09c0c6f]
+- Updated dependencies [d982437]
+- Updated dependencies [c4175a2]
+- Updated dependencies [493b4a5]
+- Updated dependencies [eaf91c6]
+- Updated dependencies [19c1ba5]
+- Updated dependencies [4f74993]
+- Updated dependencies [5e605af]
+- Updated dependencies [8a8dacb]
+- Updated dependencies [6665567]
+- Updated dependencies [310ac67]
+- Updated dependencies [2f63bac]
+- Updated dependencies [dc190a6]
+- Updated dependencies [5d2cbeb]
+- Updated dependencies [0899f3b]
+- Updated dependencies [08664c3]
+- Updated dependencies [e54d672]
+- Updated dependencies [3461262]
+- Updated dependencies [8a9ee2c]
+- Updated dependencies [f80b0ec]
+- Updated dependencies [75a0f80]
+- Updated dependencies [2e9c025]
+- Updated dependencies [e4c109b]
+- Updated dependencies [5dcf208]
+- Updated dependencies [c840e75]
+- Updated dependencies [2607fc3]
+- Updated dependencies [4bc7113]
+- Updated dependencies [515b904]
+- Updated dependencies [f4cf9c0]
+- Updated dependencies [e0d2f7e]
+- Updated dependencies [95f1980]
+- Updated dependencies [2b2e906]
+- Updated dependencies [13afc8a]
+- Updated dependencies [1331bfc]
+- Updated dependencies [04be9ec]
+- Updated dependencies [2525712]
+- Updated dependencies [e7c3564]
+- Updated dependencies [a549b95]
+- Updated dependencies [75d2aa9]
+- Updated dependencies [420ab8e]
+- Updated dependencies [206f295]
+- Updated dependencies [e99009a]
+- Updated dependencies [38f71de]
+- Updated dependencies [952c222]
+- Updated dependencies [ee4c781]
+- Updated dependencies [0c71158]
+- Updated dependencies [4b3f571]
+  - @psyche/protocol@0.3.0-alpha.0

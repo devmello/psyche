@@ -14,6 +14,7 @@ import { Textarea } from "../components/ui/textarea.tsx";
 import { formatTime } from "../lib/format.ts";
 import { cn } from "../lib/utils.ts";
 import { usePersona } from "../slots.tsx";
+import { CompactionMessage } from "./context/connected.tsx";
 
 /** First text of a message, for quotes and previews. */
 export function messageText(message: Message): string {
@@ -82,6 +83,8 @@ export function MessageView({
           b.type === "text" ? (
             // biome-ignore lint/suspicious/noArrayIndexKey: blocks have no ids and never reorder
             <p key={i}>{b.md}</p>
+          ) : b.type === "compaction" ? (
+            <CompactionMessage key={b.compactionId} message={message} block={b} />
           ) : null,
         )}
       </div>
@@ -96,7 +99,7 @@ export function MessageView({
             <Button
               variant="ghost"
               size="icon-xs"
-              className="opacity-0 group-hover/message:opacity-100 focus-visible:opacity-100"
+              className="opacity-0 group-hover/message:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100 pointer-coarse:opacity-100"
               aria-label="Message actions"
             />
           }

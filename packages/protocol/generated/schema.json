@@ -304,6 +304,11 @@
         "payload": "#/$defs/TaskUpdatedPayload"
       },
       {
+        "description": "A turn ended: the thread's context usage and limits (the context meter).",
+        "name": "thread.context.updated",
+        "payload": "#/$defs/ThreadContextUpdatedPayload"
+      },
+      {
         "description": "A thread and its transcript were deleted.",
         "name": "thread.deleted",
         "payload": "#/$defs/ThreadDeletedPayload"
@@ -1715,6 +1720,22 @@
         "sideEffecting": false
       },
       {
+        "description": "Side-effecting: compacts the thread's earlier turns now (null when there is nothing to compact); conflict while the thread runs or waits on an approval.",
+        "name": "threads.compact",
+        "params": "#/$defs/ThreadsCompactParams",
+        "result": "#/$defs/ThreadsCompactResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "A thread's context usage after its last turn (exact prompt tokens when the provider reports them) and its effective limits.",
+        "name": "threads.contextUsage",
+        "params": "#/$defs/ThreadsContextUsageParams",
+        "result": "#/$defs/ThreadsContextUsageResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Creates a thread (default kind main). Side-effecting: a retried key returns the same thread.",
         "name": "threads.create",
         "params": "#/$defs/ThreadsCreateParams",
@@ -1775,6 +1796,14 @@
         "name": "threads.restore",
         "params": "#/$defs/ThreadIdParams",
         "result": "#/$defs/ThreadResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Sets or clears a thread's context limits (maxTokens, compactAt, keepRecentTurns); maxTokens above the model's window is refused with invalid_params.",
+        "name": "threads.setContextLimits",
+        "params": "#/$defs/ThreadsSetContextLimitsParams",
+        "result": "#/$defs/ThreadsSetContextLimitsResult",
         "scope": "operator.write",
         "sideEffecting": false
       },
@@ -4607,6 +4636,9 @@
         },
         {
           "$ref": "#/$defs/RelatedThreadsBlock"
+        },
+        {
+          "$ref": "#/$defs/CompactionBlock"
         }
       ]
     },
@@ -6796,6 +6828,165 @@
       ],
       "type": "object"
     },
+    "CompactionBlock": {
+      "properties": {
+        "type": {
+          "const": "compaction",
+          "type": "string"
+        },
+        "compactionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "trigger": {
+          "enum": [
+            "auto",
+            "manual"
+          ],
+          "type": "string"
+        },
+        "summary": {
+          "$ref": "#/$defs/CompactionSummary"
+        },
+        "replaced": {
+          "properties": {
+            "turns": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "fromMessageId": {
+              "anyOf": [
+                {
+                  "description": "ULID in production",
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "toMessageId": {
+              "anyOf": [
+                {
+                  "description": "ULID in production",
+                  "maxLength": 64,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "turns"
+          ],
+          "type": "object"
+        },
+        "tokensBefore": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tokensAfter": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "type",
+        "compactionId",
+        "trigger",
+        "summary",
+        "replaced",
+        "tokensBefore",
+        "tokensAfter"
+      ],
+      "type": "object"
+    },
+    "CompactionResult": {
+      "properties": {
+        "compactionId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "messageId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "tokensBefore": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tokensAfter": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "replacedTurns": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "compactionId",
+        "messageId",
+        "tokensBefore",
+        "tokensAfter",
+        "replacedTurns"
+      ],
+      "type": "object"
+    },
+    "CompactionSummary": {
+      "properties": {
+        "facts": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "maxItems": 40,
+          "type": "array"
+        },
+        "decisions": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "maxItems": 40,
+          "type": "array"
+        },
+        "openTasks": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "maxItems": 40,
+          "type": "array"
+        },
+        "pinnedInstructions": {
+          "items": {
+            "maxLength": 500,
+            "type": "string"
+          },
+          "maxItems": 40,
+          "type": "array"
+        }
+      },
+      "required": [
+        "facts",
+        "decisions",
+        "openTasks",
+        "pinnedInstructions"
+      ],
+      "type": "object"
+    },
     "ConnectChallenge": {
       "properties": {
         "phase": {
@@ -7277,6 +7468,117 @@
       },
       "required": [
         "connectorId"
+      ],
+      "type": "object"
+    },
+    "ContextBreakdown": {
+      "properties": {
+        "system": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tools": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "context": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "history": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "current": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "system",
+        "tools",
+        "context",
+        "history",
+        "current"
+      ],
+      "type": "object"
+    },
+    "ContextLimits": {
+      "properties": {
+        "maxTokens": {
+          "minimum": 1000,
+          "type": "integer"
+        },
+        "compactAt": {
+          "maximum": 0.95,
+          "minimum": 0.2,
+          "type": "number"
+        },
+        "keepRecentTurns": {
+          "maximum": 20,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "ContextUsage": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "runId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "model": {
+          "description": "provider/model",
+          "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+          "type": "string"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "promptTokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "estimated": {
+          "type": "boolean"
+        },
+        "breakdown": {
+          "$ref": "#/$defs/ContextBreakdown"
+        },
+        "peakTokens": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "limits": {
+          "$ref": "#/$defs/EffectiveContextLimits"
+        },
+        "compactions": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "threadId",
+        "runId",
+        "model",
+        "at",
+        "promptTokens",
+        "estimated",
+        "breakdown",
+        "peakTokens",
+        "limits",
+        "compactions"
       ],
       "type": "object"
     },
@@ -8667,6 +8969,49 @@
         "size",
         "offset",
         "bytes"
+      ],
+      "type": "object"
+    },
+    "EffectiveContextLimits": {
+      "properties": {
+        "maxTokens": {
+          "minimum": 1000,
+          "type": "integer"
+        },
+        "compactAt": {
+          "type": "number"
+        },
+        "keepRecentTurns": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "contextWindow": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maxTokensFrom": {
+          "anyOf": [
+            {
+              "const": "thread",
+              "type": "string"
+            },
+            {
+              "const": "settings",
+              "type": "string"
+            },
+            {
+              "const": "model",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "required": [
+        "maxTokens",
+        "compactAt",
+        "keepRecentTurns",
+        "contextWindow",
+        "maxTokensFrom"
       ],
       "type": "object"
     },
@@ -17531,6 +17876,256 @@
       ],
       "type": "object"
     },
+    "TeachDraft": {
+      "properties": {
+        "sessionId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedBy": {
+          "$ref": "#/$defs/TeachEndedBy"
+        },
+        "steps": {
+          "description": "Without screenshot bytes",
+          "items": {
+            "$ref": "#/$defs/TeachStep"
+          },
+          "type": "array"
+        },
+        "files": {
+          "description": "SKILL.md first",
+          "items": {
+            "$ref": "#/$defs/TeachDraftFile"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "sessionId",
+        "name",
+        "description",
+        "startedAt",
+        "endedAt",
+        "endedBy",
+        "steps",
+        "files"
+      ],
+      "type": "object"
+    },
+    "TeachDraftFile": {
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "text": {
+          "type": "string"
+        },
+        "fromStep": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "type": "object"
+    },
+    "TeachEndedBy": {
+      "enum": [
+        "stop",
+        "timeout",
+        "limit",
+        "cancel"
+      ],
+      "type": "string"
+    },
+    "TeachScreenshot": {
+      "properties": {
+        "path": {
+          "description": "Path in the draft, e.g. screens/step-3.jpg",
+          "type": "string"
+        },
+        "mimeType": {
+          "type": "string"
+        },
+        "base64": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "mimeType",
+        "base64"
+      ],
+      "type": "object"
+    },
+    "TeachSessionParams": {
+      "properties": {
+        "sessionId": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "type": "object"
+    },
+    "TeachStartParams": {
+      "properties": {
+        "name": {
+          "description": "Skill name",
+          "maxLength": 64,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "type": "string"
+        },
+        "description": {
+          "maxLength": 1024,
+          "type": "string"
+        },
+        "app": {
+          "description": "Record only this bundle id",
+          "type": "string"
+        },
+        "screenshots": {
+          "description": "Window screenshot after each click (default false)",
+          "type": "boolean"
+        },
+        "maxSteps": {
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maxSeconds": {
+          "maximum": 1800,
+          "minimum": 10,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "TeachStep": {
+      "properties": {
+        "index": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "kind": {
+          "$ref": "#/$defs/TeachStepKind"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/TeachTarget"
+        },
+        "text": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "secure": {
+          "type": "boolean"
+        },
+        "keys": {
+          "description": "A chord, e.g. cmd+s, return",
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "screenshot": {
+          "$ref": "#/$defs/TeachScreenshot"
+        }
+      },
+      "required": [
+        "index",
+        "kind",
+        "at"
+      ],
+      "type": "object"
+    },
+    "TeachStepEvent": {
+      "properties": {
+        "type": {
+          "const": "teach.step",
+          "type": "string"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "step": {
+          "$ref": "#/$defs/TeachStep"
+        }
+      },
+      "required": [
+        "type",
+        "sessionId",
+        "step"
+      ],
+      "type": "object"
+    },
+    "TeachStepKind": {
+      "enum": [
+        "click",
+        "right_click",
+        "double_click",
+        "type",
+        "press",
+        "skipped"
+      ],
+      "type": "string"
+    },
+    "TeachTarget": {
+      "properties": {
+        "app": {
+          "description": "Bundle id",
+          "type": "string"
+        },
+        "appName": {
+          "type": "string"
+        },
+        "window": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        },
+        "subrole": {
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "identifier": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "required": [
+        "app",
+        "appName"
+      ],
+      "type": "object"
+    },
     "TextBlock": {
       "properties": {
         "type": {
@@ -17721,6 +18316,17 @@
       ],
       "type": "object"
     },
+    "ThreadContextUpdatedPayload": {
+      "properties": {
+        "usage": {
+          "$ref": "#/$defs/ContextUsage"
+        }
+      },
+      "required": [
+        "usage"
+      ],
+      "type": "object"
+    },
     "ThreadDeletedPayload": {
       "properties": {
         "threadId": {
@@ -17823,6 +18429,78 @@
       },
       "required": [
         "thread"
+      ],
+      "type": "object"
+    },
+    "ThreadsCompactParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "threadId"
+      ],
+      "type": "object"
+    },
+    "ThreadsCompactResult": {
+      "properties": {
+        "compaction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CompactionResult"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "compaction"
+      ],
+      "type": "object"
+    },
+    "ThreadsContextUsageParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "threadId"
+      ],
+      "type": "object"
+    },
+    "ThreadsContextUsageResult": {
+      "properties": {
+        "usage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContextUsage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "limits": {
+          "$ref": "#/$defs/EffectiveContextLimits"
+        },
+        "threadLimits": {
+          "$ref": "#/$defs/ContextLimits"
+        }
+      },
+      "required": [
+        "usage",
+        "limits",
+        "threadLimits"
       ],
       "type": "object"
     },
@@ -17988,6 +18666,46 @@
       "required": [
         "threadId",
         "title"
+      ],
+      "type": "object"
+    },
+    "ThreadsSetContextLimitsParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limits": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContextLimits"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "threadId",
+        "limits"
+      ],
+      "type": "object"
+    },
+    "ThreadsSetContextLimitsResult": {
+      "properties": {
+        "limits": {
+          "$ref": "#/$defs/EffectiveContextLimits"
+        },
+        "threadLimits": {
+          "$ref": "#/$defs/ContextLimits"
+        }
+      },
+      "required": [
+        "limits",
+        "threadLimits"
       ],
       "type": "object"
     },
@@ -19604,8 +20322,63 @@
         "username": {
           "maxLength": 32,
           "type": "string"
+        },
+        "image": {
+          "description": "Absolute path to a guest image directory or .aar archive",
+          "type": "string"
+        },
+        "imageSha256": {
+          "description": "Expected SHA-256 of the image's manifest.json, from the publisher",
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
         }
       },
+      "type": "object"
+    },
+    "VmDiskFormat": {
+      "enum": [
+        "asif",
+        "raw"
+      ],
+      "type": "string"
+    },
+    "VmExportImageParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "outDir": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9.-]{0,63}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "outDir"
+      ],
+      "type": "object"
+    },
+    "VmExportImageResult": {
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "manifest": {
+          "$ref": "#/$defs/VmImageManifest"
+        },
+        "manifestSha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "manifest",
+        "manifestSha256"
+      ],
       "type": "object"
     },
     "VmGuest": {
@@ -19730,6 +20503,13 @@
         "baseSnapshot": {
           "description": "Id of the `base` snapshot, if any",
           "type": "string"
+        },
+        "image": {
+          "$ref": "#/$defs/VmGuestImageRef"
+        },
+        "passwordRotationPending": {
+          "description": "Imported guest still has the image's bootstrap password (rotated at first start)",
+          "type": "boolean"
         }
       },
       "required": [
@@ -19770,6 +20550,116 @@
       ],
       "type": "object"
     },
+    "VmGuestImageRef": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "guestOS": {
+          "type": "string"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "guestOS",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "VmImageFile": {
+      "properties": {
+        "name": {
+          "pattern": "^[A-Za-z0-9._-]{1,64}$",
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "VmImageManifest": {
+      "properties": {
+        "format": {
+          "const": "psyche-guest-image",
+          "type": "string"
+        },
+        "formatVersion": {
+          "const": 1,
+          "type": "number"
+        },
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9.-]{0,63}$",
+          "type": "string"
+        },
+        "guestOS": {
+          "type": "string"
+        },
+        "diskFormat": {
+          "$ref": "#/$defs/VmDiskFormat"
+        },
+        "diskGB": {
+          "minimum": 40,
+          "type": "integer"
+        },
+        "username": {
+          "type": "string"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "provisioned": {
+          "type": "boolean"
+        },
+        "psycheInstalled": {
+          "type": "boolean"
+        },
+        "permissionsGranted": {
+          "type": "boolean"
+        },
+        "psycheVersion": {
+          "type": "string"
+        },
+        "files": {
+          "items": {
+            "$ref": "#/$defs/VmImageFile"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "format",
+        "formatVersion",
+        "id",
+        "guestOS",
+        "diskFormat",
+        "diskGB",
+        "username",
+        "createdAt",
+        "provisioned",
+        "psycheInstalled",
+        "permissionsGranted",
+        "files"
+      ],
+      "type": "object"
+    },
     "VmPhase": {
       "enum": [
         "created",
@@ -19796,7 +20686,9 @@
             "vm.psyche_install",
             "vm.permissions",
             "vm.snapshot",
-            "vm.reset"
+            "vm.reset",
+            "vm.import",
+            "vm.export"
           ],
           "type": "string"
         },
