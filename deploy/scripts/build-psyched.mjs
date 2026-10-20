@@ -27,11 +27,15 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
+  rmdirSync,
   rmSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
+import { builtinModules } from "node:module";
 import { homedir, arch as hostArch, platform, tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { findPins } from "./node-pins.mjs";
 
@@ -55,6 +59,28 @@ const PRUNE = [
   "deploy/macos",
   "deploy/scripts",
 ];
+
+/** The workspace packages psyched and the CLI start from; their workspace closure ships. */
+const ENTRY_WORKSPACES = ["apps/gateway", "apps/cli"];
+
+/**
+ * Workspace packages the Gateway uses only a server-side corner of. Just these sources ship, and
+ * only these dependencies are followed: `@psyche/viewers` would otherwise install the whole viewer
+ * UI (Univer, Sandpack, CodeMirror, React, …), about 600 MB that psyched never loads
+ * (reports/v1-bundle-size.md).
+ */
+export const SERVER_SUBSETS = {
+  "@psyche/viewers": {
+    deps: ["@psyche/protocol"],
+    src: ["src/core/convert.ts", "src/core/detect.ts", "src/core/registry.ts"],
+  },
+};
+
+/** Optional dependencies psyched never needs: pdf.js only extracts text on the server, never renders. */
+export const DROP_PACKAGES = ["@napi-rs/canvas"];
+
+/** Files in node_modules the runtime never reads. */
+const DEAD_FILE = /\.(map|d\.ts|d\.mts|d\.cts)$/;
 
 function run(cmd, args, opts = {}) {
   execFileSync(cmd, args, { stdio: "inherit", ...opts });
@@ -152,6 +178,216 @@ export function checkAddons(appDir, arch) {
   return bad;
 }
 
+/** `name` → `{ dir, deps }` for every workspace package in the exported tree. */
+function workspacePackages(appDir) {
+  const out = new Map();
+  for (const group of ["apps", "packages"]) {
+    if (!existsSync(join(appDir, group))) continue;
+    for (const name of readdirSync(join(appDir, group))) {
+      const file = join(appDir, group, name, "package.json");
+      if (!existsSync(file)) continue;
+      const pkg = JSON.parse(readFileSync(file, "utf8"));
+      out.set(pkg.name, { dir: `${group}/${name}`, deps: Object.keys(pkg.dependencies ?? {}) });
+    }
+  }
+  return out;
+}
+
+/** The workspace packages reachable from the entry points, with `SERVER_SUBSETS` applied. */
+export function workspaceClosure(appDir, subsets = SERVER_SUBSETS) {
+  const all = workspacePackages(appDir);
+  const byDir = new Map([...all].map(([name, p]) => [p.dir, name]));
+  const closure = new Map();
+  const queue = ENTRY_WORKSPACES.map((d) => byDir.get(d)).filter(Boolean);
+  while (queue.length) {
+    const name = queue.shift();
+    if (closure.has(name)) continue;
+    const pkg = all.get(name);
+    const subset = subsets[name];
+    const deps = subset ? pkg.deps.filter((d) => subset.deps.includes(d)) : pkg.deps;
+    closure.set(name, { dir: pkg.dir, deps, subset });
+    for (const d of deps) if (all.has(d)) queue.push(d);
+  }
+  return { all, closure };
+}
+
+/** Dependency names in a node_modules dir (scoped ones as `@scope/name`), skipping dot entries. */
+function depNames(nm) {
+  if (!existsSync(nm)) return [];
+  const names = [];
+  for (const e of readdirSync(nm)) {
+    if (e.startsWith(".")) continue;
+    if (e.startsWith("@")) for (const sub of readdirSync(join(nm, e))) names.push(`${e}/${sub}`);
+    else names.push(e);
+  }
+  return names;
+}
+
+/** Removes symlinks that point nowhere (left by dropped packages), recursing into scopes. */
+function removeDanglingLinks(dir) {
+  if (!existsSync(dir)) return;
+  for (const e of readdirSync(dir)) {
+    const p = join(dir, e);
+    const st = lstatSync(p, { throwIfNoEntry: false });
+    if (!st) continue;
+    if (st.isSymbolicLink()) {
+      if (!existsSync(p)) unlinkSync(p);
+    } else if (st.isDirectory() && (e.startsWith("@") || e === ".bin")) {
+      removeDanglingLinks(p);
+      if (readdirSync(p).length === 0) rmdirSync(p);
+    }
+  }
+}
+
+/** Every link in the tree that points nowhere, wherever it is; returns how many were removed. */
+function removeAllDanglingLinks(dir) {
+  let n = 0;
+  for (const e of readdirSync(dir)) {
+    const p = join(dir, e);
+    const st = lstatSync(p, { throwIfNoEntry: false });
+    if (!st) continue;
+    if (st.isSymbolicLink()) {
+      if (!existsSync(p)) {
+        unlinkSync(p);
+        n++;
+      }
+    } else if (st.isDirectory()) n += removeAllDanglingLinks(p);
+  }
+  return n;
+}
+
+/**
+ * Cuts the installed tree down to what psyched and the CLI can load:
+ * - workspace packages outside the closure (apps/node, packages/ui, packages/testing, …) go;
+ * - `SERVER_SUBSETS` keep only their listed sources and dependencies;
+ * - `.pnpm` entries not reachable from the closure's dependencies (pnpm's symlink graph) go;
+ * - `DROP_PACKAGES`, sourcemaps and type declarations in node_modules go.
+ * pnpm installs per workspace package, so `--filter` alone keeps every dependency of a package
+ * even when the Gateway imports one file of it.
+ */
+export function pruneToServerSubset(
+  appDir,
+  { subsets = SERVER_SUBSETS, drop = DROP_PACKAGES } = {},
+) {
+  const { all, closure } = workspaceClosure(appDir, subsets);
+  const stats = { workspaces: 0, packages: 0, files: 0 };
+  for (const [name, pkg] of all) {
+    // The web client ships as its built dist only (served at /).
+    if (name === "@psyche/web") {
+      rmSync(join(appDir, pkg.dir, "node_modules"), { recursive: true, force: true });
+      continue;
+    }
+    if (closure.has(name)) continue;
+    rmSync(join(appDir, pkg.dir), { recursive: true, force: true });
+    stats.workspaces++;
+  }
+  for (const [, pkg] of closure) {
+    if (!pkg.subset) continue;
+    const keep = new Set(pkg.subset.src.map((f) => join(appDir, pkg.dir, f)));
+    walk(join(appDir, pkg.dir, "src"), (p) => {
+      if (!keep.has(p)) rmSync(p);
+    });
+    const nm = join(appDir, pkg.dir, "node_modules");
+    for (const dep of depNames(nm)) {
+      if (!pkg.deps.includes(dep)) rmSync(join(nm, dep), { recursive: true, force: true });
+    }
+  }
+
+  // Mark every .pnpm entry reachable through the symlink graph.
+  // Real path: symlinks resolve to it (macOS's /var is /private/var).
+  const pnpm = realpathSync(join(appDir, "node_modules", ".pnpm"));
+  const keep = new Set();
+  const queue = [];
+  const follow = (nm, self) => {
+    for (const dep of depNames(nm)) {
+      if (dep === self || drop.includes(dep)) continue;
+      let real;
+      try {
+        real = realpathSync(join(nm, dep));
+      } catch {
+        continue;
+      }
+      const rel = relative(pnpm, real);
+      if (rel.startsWith("..")) continue; // a workspace package
+      const id = rel.split(sep)[0];
+      if (keep.has(id)) continue;
+      keep.add(id);
+      queue.push([join(pnpm, id, "node_modules"), dep]);
+    }
+  };
+  for (const [, pkg] of closure) follow(join(appDir, pkg.dir, "node_modules"), null);
+  while (queue.length) follow(...queue.pop());
+  for (const id of readdirSync(pnpm)) {
+    if (id === "node_modules" || id.startsWith(".") || keep.has(id)) continue;
+    if (!lstatSync(join(pnpm, id)).isDirectory()) continue;
+    rmSync(join(pnpm, id), { recursive: true, force: true });
+    stats.packages++;
+  }
+  for (const id of keep) removeDanglingLinks(join(pnpm, id, "node_modules"));
+  removeDanglingLinks(join(pnpm, "node_modules"));
+  removeDanglingLinks(join(appDir, "node_modules"));
+  for (const [, pkg] of closure) removeDanglingLinks(join(appDir, pkg.dir, "node_modules"));
+
+  walk(join(appDir, "node_modules"), (p) => {
+    if (DEAD_FILE.test(p)) {
+      rmSync(p);
+      stats.files++;
+    }
+  });
+  // codesign cannot seal a link to nothing ("No such file or directory" for the whole app).
+  stats.links = removeAllDanglingLinks(appDir);
+  return stats;
+}
+
+const IMPORT_RE =
+  /(?:^|[\s;}])(?:import|export)\s+(?!type\s)(?:[^'"`;]*?\sfrom\s*)?["']([^"']+)["']|\bimport\(\s*["']([^"']+)["']\s*\)/g;
+
+/**
+ * Every bare import in the shipped workspace sources must resolve: pnpm links a package's direct
+ * dependencies into its own node_modules, so that is where each one has to be after pruning.
+ * Lazy `import()`s count too; they are what a boot smoke would miss.
+ */
+export function checkImports(appDir, subsets = SERVER_SUBSETS) {
+  const { closure } = workspaceClosure(appDir, subsets);
+  const builtins = new Set(builtinModules);
+  const missing = [];
+  for (const [name, pkg] of closure) {
+    const root = join(appDir, pkg.dir);
+    if (!existsSync(join(root, "src"))) continue;
+    walk(
+      join(root, "src"),
+      (p) => {
+        if (!/\.(m?ts|m?js)$/.test(p) || /\.test\.|\.spec\.|\.d\.m?ts$/.test(p)) return;
+        const text = readFileSync(p, "utf8");
+        for (const m of text.matchAll(IMPORT_RE)) {
+          const spec = m[1] ?? m[2];
+          if (/^[./#]/.test(spec) || spec.startsWith("node:") || builtins.has(spec)) continue;
+          const parts = spec.split("/");
+          const dep = spec.startsWith("@") ? parts.slice(0, 2).join("/") : parts[0];
+          if (dep === name || existsSync(join(root, "node_modules", dep))) continue;
+          missing.push(`${relative(appDir, p)}: ${spec}`);
+        }
+      },
+      // Test suites other packages' tests import (`@psyche/browser/conformance` needs vitest).
+      (_p, dir) => !["test", "__tests__", "conformance"].includes(dir),
+    );
+  }
+  return missing;
+}
+
+/** Strips local symbols from the Node runtime (≈ 24 MB) and signs it ad-hoc again so it runs. */
+function stripRuntime(node) {
+  run("strip", ["-x", node]);
+  run("codesign", ["--force", "--sign", "-", node]);
+}
+
+// Node's compile cache (V8 code and stripped TypeScript) saves ≈ 150 ms of every start. It lives
+// in the per-user cache, outside the signed bundle, and only when HOME is known (launchd sets it).
+const COMPILE_CACHE = `if [ -z "\${NODE_COMPILE_CACHE:-}" ] && [ -n "\${HOME:-}" ]; then
+  NODE_COMPILE_CACHE="$HOME/Library/Caches/com.psyche.gateway/node-compile-cache"
+  export NODE_COMPILE_CACHE
+fi`;
+
 // Both launchers find the bundle through any symlinks to them (`/usr/local/bin/psyche`).
 const RESOLVE_HERE = `self=$0
 case $self in */*) ;; *) self=./$self ;; esac
@@ -163,13 +399,16 @@ here=\${self%/*}`;
 
 export const PSYCHED_LAUNCHER = `#!/bin/sh
 # Psyche Gateway (psyched) from Psyche.app. Needs only PSYCHE_HOME; no Node, PATH or checkout.
+# A 4 MB young generation keeps an idle Gateway near 200 MB instead of ≈ 330 MB.
 ${RESOLVE_HERE}
-exec "$here/runtime/node" --disable-warning=ExperimentalWarning "$here/app/apps/gateway/src/main.ts" "$@"
+${COMPILE_CACHE}
+exec "$here/runtime/node" --max-semi-space-size=4 --disable-warning=ExperimentalWarning "$here/app/apps/gateway/src/main.ts" "$@"
 `;
 
 export const PSYCHE_LAUNCHER = `#!/bin/sh
 # The psyche CLI from Psyche.app, on the same runtime as psyched.
 ${RESOLVE_HERE}
+${COMPILE_CACHE}
 exec "$here/runtime/node" --disable-warning=ExperimentalWarning "$here/app/apps/cli/src/main.ts" "$@"
 `;
 
@@ -270,10 +509,20 @@ async function main(argv) {
   if (!existsSync(join(web, "index.html")))
     throw new Error("apps/web/dist is missing; build the web client");
   cpSync(web, join(app, "apps/web/dist"), { recursive: true });
+  // Sourcemaps stay in apps/web/dist for debugging; the shipped copy drops them (≈ 60 MB).
+  walk(join(app, "apps/web/dist"), (p) => {
+    if (p.endsWith(".map")) rmSync(p);
+  });
 
   // 4. Drop what the runtime never reads.
   for (const p of PRUNE) rmSync(join(app, p), { recursive: true, force: true });
   rmSync(join(app, "node_modules/.cache"), { recursive: true, force: true });
+  const cut = pruneToServerSubset(app);
+  process.stdout.write(
+    `pruned ${cut.workspaces} workspace package(s), ${cut.packages} unreachable package(s), ${cut.files} map/declaration file(s), ${cut.links} dangling link(s)\n`,
+  );
+  const missing = checkImports(app);
+  if (missing.length) throw new Error(`imports that no longer resolve:\n${missing.join("\n")}`);
 
   const pruned = pruneForeignPrebuilds(app, arch);
   process.stdout.write(`pruned ${pruned} prebuilt addon(s) for other platforms\n`);
@@ -288,6 +537,7 @@ async function main(argv) {
     rt.cleanup();
   }
   chmodSync(join(bundle, "runtime/node"), 0o755);
+  stripRuntime(join(bundle, "runtime/node"));
   writeFileSync(join(bundle, "psyched"), PSYCHED_LAUNCHER, { mode: 0o755 });
   writeFileSync(join(bundle, "psyche"), PSYCHE_LAUNCHER, { mode: 0o755 });
   const { renderLaunchAgentPlist } = await import(join(ROOT, "apps/cli/src/supervisor.ts"));

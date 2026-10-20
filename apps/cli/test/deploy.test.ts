@@ -418,9 +418,13 @@ describe("deploy/scripts/build-psyched.mjs launchers", () => {
         const bundle = join(dir, "Psyche.app", "Contents", "Resources", "psyched");
         mkdirSync(join(bundle, "runtime"), { recursive: true });
         // A stand-in runtime that prints the entry point it was given.
-        writeFileSync(join(bundle, "runtime", "node"), '#!/bin/sh\nprintf "%s\\n" "$2"\n', {
-          mode: 0o755,
-        });
+        writeFileSync(
+          join(bundle, "runtime", "node"),
+          '#!/bin/sh\nfor a; do case $a in *.ts) printf "%s\\n" "$a" ;; esac; done\n',
+          {
+            mode: 0o755,
+          },
+        );
         writeFileSync(join(bundle, "psyche"), PSYCHE_LAUNCHER, { mode: 0o755 });
         writeFileSync(join(bundle, "psyched"), PSYCHED_LAUNCHER, { mode: 0o755 });
         const bin = join(dir, "bin");
@@ -471,4 +475,104 @@ describe("deploy/macos/make-dmg.sh refuses to --deep re-sign a bundled helper", 
       }
     },
   );
+});
+
+describe("deploy/scripts/build-psyched.mjs server subset", () => {
+  /** A tiny pnpm layout: the Gateway, viewers (UI deps), ui, web, and a .pnpm store. */
+  function layout(): string {
+    const app = mkdtempSync(join(tmpdir(), "psyche-prune-"));
+    const file = (p: string, text = "") => {
+      mkdirSync(dirname(join(app, p)), { recursive: true });
+      writeFileSync(join(app, p), text);
+    };
+    const link = (target: string, at: string) => {
+      mkdirSync(dirname(join(app, at)), { recursive: true });
+      symlinkSync(target, join(app, at));
+    };
+    const pkg = (dir: string, name: string, deps: Record<string, string> = {}) =>
+      file(`${dir}/package.json`, JSON.stringify({ name, dependencies: deps }));
+    pkg("apps/gateway", "@psyche/gateway", {
+      "@psyche/viewers": "workspace:*",
+      ws: "1",
+      pdfjs: "1",
+    });
+    file(
+      "apps/gateway/src/main.ts",
+      'import { WebSocket } from "ws";\nimport type { X } from "react";\nimport { mimeFromName } from "@psyche/viewers/core/detect";\nconst p = () => import("pdfjs");\n',
+    );
+    pkg("apps/cli", "@psyche/cli");
+    pkg("apps/web", "@psyche/web");
+    file("apps/web/dist/index.html", "<!doctype html>");
+    pkg("packages/viewers", "@psyche/viewers", { "@psyche/protocol": "workspace:*", react: "1" });
+    for (const f of ["convert", "detect", "registry"]) file(`packages/viewers/src/core/${f}.ts`);
+    file("packages/viewers/src/react/Sheet.tsx", 'import React from "react";\n');
+    pkg("packages/protocol", "@psyche/protocol");
+    file("packages/protocol/src/index.ts");
+    pkg("packages/ui", "@psyche/ui", { react: "1" });
+    const store = "node_modules/.pnpm";
+    for (const id of [
+      "ws@1/node_modules/ws",
+      "dep-a@1/node_modules/dep-a",
+      "react@1/node_modules/react",
+      "pdfjs@1/node_modules/pdfjs",
+      "@napi-rs+canvas@1/node_modules/@napi-rs/canvas",
+    ])
+      file(`${store}/${id}/package.json`, "{}");
+    file(`${store}/ws@1/node_modules/ws/index.js.map`, "{}");
+    file(`${store}/ws@1/node_modules/ws/index.d.ts`, "");
+    link("../../dep-a@1/node_modules/dep-a", `${store}/ws@1/node_modules/dep-a`);
+    link(
+      "../../../@napi-rs+canvas@1/node_modules/@napi-rs/canvas",
+      `${store}/pdfjs@1/node_modules/@napi-rs/canvas`,
+    );
+    link("../../../node_modules/.pnpm/ws@1/node_modules/ws", "apps/gateway/node_modules/ws");
+    link(
+      "../../../node_modules/.pnpm/pdfjs@1/node_modules/pdfjs",
+      "apps/gateway/node_modules/pdfjs",
+    );
+    link("../../../../packages/viewers", "apps/gateway/node_modules/@psyche/viewers");
+    link(
+      "../../../node_modules/.pnpm/react@1/node_modules/react",
+      "packages/viewers/node_modules/react",
+    );
+    link("../../../protocol", "packages/viewers/node_modules/@psyche/protocol");
+    link(
+      "../../../node_modules/.pnpm/react@1/node_modules/react",
+      "packages/ui/node_modules/react",
+    );
+    link("../../../node_modules/.pnpm/react@1/node_modules/react", "apps/web/node_modules/react");
+    return app;
+  }
+
+  it("keeps what the Gateway can load and drops the viewer UI, ui, canvas, maps and declarations", async () => {
+    const { pruneToServerSubset, checkImports } = await import(
+      resolve(deploy, "scripts/build-psyched.mjs")
+    );
+    const app = layout();
+    try {
+      const stats = pruneToServerSubset(app);
+      const store = join(app, "node_modules/.pnpm");
+      expect(existsSync(join(store, "ws@1"))).toBe(true);
+      expect(existsSync(join(store, "dep-a@1"))).toBe(true);
+      expect(existsSync(join(store, "pdfjs@1"))).toBe(true);
+      expect(existsSync(join(store, "react@1"))).toBe(false);
+      expect(existsSync(join(store, "@napi-rs+canvas@1"))).toBe(false);
+      expect(existsSync(join(store, "pdfjs@1/node_modules/@napi-rs"))).toBe(false);
+      expect(existsSync(join(store, "ws@1/node_modules/ws/index.js.map"))).toBe(false);
+      expect(existsSync(join(store, "ws@1/node_modules/ws/index.d.ts"))).toBe(false);
+      expect(existsSync(join(app, "packages/ui"))).toBe(false);
+      expect(existsSync(join(app, "apps/web/dist/index.html"))).toBe(true);
+      expect(existsSync(join(app, "packages/viewers/src/core/detect.ts"))).toBe(true);
+      expect(existsSync(join(app, "packages/viewers/src/react/Sheet.tsx"))).toBe(false);
+      expect(existsSync(join(app, "packages/viewers/node_modules/react"))).toBe(false);
+      expect(stats).toMatchObject({ workspaces: 1, packages: 2, files: 2 });
+      expect(existsSync(join(app, "apps/web/node_modules"))).toBe(false);
+      // `import type` needs nothing at runtime; the lazy import("pdfjs") does.
+      expect(checkImports(app)).toEqual([]);
+      rmSync(join(app, "apps/gateway/node_modules/pdfjs"));
+      expect(checkImports(app)).toEqual(["apps/gateway/src/main.ts: pdfjs"]);
+    } finally {
+      rmSync(app, { recursive: true, force: true });
+    }
+  });
 });

@@ -9,6 +9,7 @@ import { displaySummary } from "../lib/cards.ts";
 import { formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { usePersona, useSlots } from "../slots.tsx";
+import { useReducedMotion } from "../theme/ThemeProvider.tsx";
 
 const RECENT_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -79,9 +80,10 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
     "approvals-recent": recentList.length,
     "approvals-grants": standing.length,
   };
+  const reducedMotion = useReducedMotion();
   const jump = (id: string) => {
     const el = document.getElementById(id);
-    el?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+    el?.scrollIntoView?.({ block: "start", behavior: reducedMotion ? "auto" : "smooth" });
   };
 
   return (
@@ -97,7 +99,7 @@ export function ApprovalsPanel({ now: fixedNow }: { now?: number }): ReactElemen
             onClick={() => jump(sec.id)}
           >
             {sec.label}
-            <span className="tabular-nums text-gray-10">{counts[sec.id]}</span>
+            <span className="tabular-nums text-gray-11">{counts[sec.id]}</span>
           </Button>
         ))}
       </nav>

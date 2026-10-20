@@ -203,7 +203,7 @@ export function ToolRun({ items }: { items: readonly ToolCallItem[] }): ReactEle
     <div className="my-1" data-disclosure={DISCLOSURE_LABEL[shown as 0 | 1 | 2]}>
       <button
         type="button"
-        className="inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-sm text-gray-11 hover:bg-gray-3"
+        className="inline-flex min-h-6 items-center gap-1.5 rounded-md px-1 py-0.5 text-sm text-gray-11 hover:bg-gray-3"
         aria-expanded={shown > 0}
         onClick={() => setExtra((e) => !e)}
       >

@@ -160,6 +160,8 @@ export function ThemeProvider({ settings, children, target }: ThemeProviderProps
 /** Theme state; outside a provider it reports the defaults without generating CSS. */
 export function useTheme(): ThemeContextValue {
   const ctx = useContext(ThemeContext);
+  // Outside a provider, motion still follows the OS (docs/a11y-audit.md M5).
+  const osReduced = useMedia("(prefers-reduced-motion: reduce)", false);
   const fallback = useMemo(
     () => (ctx === null ? generateTheme({ accentSeed: DEFAULT_ACCENT_SEED }) : null),
     [ctx],
@@ -168,7 +170,7 @@ export function useTheme(): ThemeContextValue {
   return {
     settings: DEFAULT_APPEARANCE,
     resolved: "light",
-    reduceMotion: false,
+    reduceMotion: osReduced,
     theme: fallback as GeneratedTheme,
   };
 }

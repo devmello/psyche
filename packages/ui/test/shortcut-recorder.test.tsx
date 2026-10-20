@@ -57,16 +57,23 @@ describe("ShortcutRecorder (audit decision 9)", () => {
   it("records a shortcut after the shell says it is free", async () => {
     const onCheck = vi.fn(async () => "ok" as const);
     render(<Harness onCheck={onCheck} />);
-    await userEvent.click(screen.getByRole("button", { name: "System-wide hotkey" }));
+    await userEvent.click(screen.getByRole("button", { name: /^System-wide hotkey/ }));
     expect(screen.getByText("Press the shortcut…")).toBeTruthy();
+    // The name carries the state, spelled out (docs/a11y-audit.md W7).
+    expect(
+      screen.getByRole("button", { name: "System-wide hotkey recording, press the shortcut" }),
+    ).toBeTruthy();
     await userEvent.keyboard("{Control>}{Alt>}d{/Alt}{/Control}");
     await waitFor(() => expect(screen.getByTestId("saved").textContent).toBe("Control+Alt+D"));
+    expect(
+      screen.getByRole("button", { name: "System-wide hotkey Control Option D" }),
+    ).toBeTruthy();
     expect(onCheck).toHaveBeenCalledWith("Control+Alt+D");
   });
 
   it("refuses a reserved or taken shortcut and keeps the old one", async () => {
     render(<Harness initial="Control+Alt+D" onCheck={async () => "taken"} />);
-    const field = screen.getByRole("button", { name: "System-wide hotkey" });
+    const field = screen.getByRole("button", { name: /^System-wide hotkey/ });
     await userEvent.click(field);
     await userEvent.keyboard("{Meta>} {/Meta}");
     expect(await screen.findByRole("status")).toHaveProperty(
@@ -86,7 +93,7 @@ describe("ShortcutRecorder (audit decision 9)", () => {
   it("turns off with Backspace and warns when the saved one turned out taken", async () => {
     render(<Harness initial="Control+Alt+D" takenNow="Control+Alt+D" />);
     expect(screen.getByRole("status").textContent).toMatch(/⌃⌥D is taken by another app/);
-    await userEvent.click(screen.getByRole("button", { name: "System-wide hotkey" }));
+    await userEvent.click(screen.getByRole("button", { name: /^System-wide hotkey/ }));
     await userEvent.keyboard("{Backspace}");
     expect(screen.getByTestId("saved").textContent).toBe("");
     expect(screen.queryByRole("status")).toBeNull();

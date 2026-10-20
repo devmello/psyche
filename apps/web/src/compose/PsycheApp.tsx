@@ -3,6 +3,7 @@ import {
   AgentSheet,
   AgentSheetBody,
   type AgentTab,
+  AppearanceProvider,
   ChatThread,
   FeedScreen,
   GatewayProvider,
@@ -18,6 +19,7 @@ import {
   type RailItem,
   SearchScreen,
   ThreadList,
+  Toaster,
   type UiSlots,
   UiSlotsProvider,
   useThread,
@@ -339,7 +341,10 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
         <TitleBar chrome={platform.chrome}>
           <span className="title">Set up Psyche</span>
         </TitleBar>
-        <div className="flex min-h-0 flex-1 flex-col overflow-auto" data-testid="onboarding-scroll">
+        <main
+          className="flex min-h-0 flex-1 flex-col overflow-auto"
+          data-testid="onboarding-scroll"
+        >
           {error ? (
             <p
               role="alert"
@@ -365,7 +370,7 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
               );
             }}
           />
-        </div>
+        </main>
       </div>
     );
   } else {
@@ -375,7 +380,13 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
   const uiSlots = useMemo<UiSlots>(() => (persona ? { persona } : {}), [persona]);
   return (
     <GatewayProvider client={client}>
-      <UiSlotsProvider value={uiSlots}>{body}</UiSlotsProvider>
+      {/* Appearance (theme, contrast, reduce motion) and the kit's toasts (docs/a11y-audit.md A1, A2). */}
+      <AppearanceProvider>
+        <UiSlotsProvider value={uiSlots}>
+          {body}
+          <Toaster />
+        </UiSlotsProvider>
+      </AppearanceProvider>
     </GatewayProvider>
   );
 }

@@ -100,6 +100,7 @@ export { OfflineBanner } from "./chat/OfflineBanner.tsx";
 export { ChatThread, type ChatThreadProps } from "./chat/Thread.tsx";
 export { Page, PageHeader, type PageProps, SectionLabel } from "./components/page.tsx";
 export { NativeSelect } from "./components/ui/native-select.tsx";
+export { Toaster } from "./components/ui/sonner.tsx";
 export * from "./data/index.ts";
 // Formatting helpers.
 export * from "./lib/format.ts";
@@ -114,6 +115,7 @@ export * from "./screens/library/index.ts";
 export * from "./screens/onboarding/index.ts";
 export * from "./screens/search/index.ts";
 export * from "./screens/settings/index.ts";
+export { AppearanceProvider } from "./shell/AppearanceProvider.tsx";
 // Shell pieces.
 export { AppShell, type AppShellProps } from "./shell/AppShell.tsx";
 export {

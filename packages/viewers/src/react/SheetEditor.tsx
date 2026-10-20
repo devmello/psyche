@@ -131,12 +131,14 @@ function EditorSurface(
           {save.kind === "saving" ? "Saving…" : "Save"}
         </button>
         {confirmClose ? (
-          <span role="alertdialog" aria-label="Discard unsaved changes?">
+          <span role="alertdialog" aria-label="Discard unsaved changes?" aria-modal="false">
             Discard unsaved changes?{" "}
             <button type="button" onClick={props.onClose}>
               Discard
             </button>
-            <button type="button" onClick={() => setConfirmClose(false)}>
+            {/* Focus moves here when the question appears ("Done" just unmounted). */}
+            {/* biome-ignore lint/a11y/noAutofocus: replaces the focused Done button */}
+            <button type="button" autoFocus onClick={() => setConfirmClose(false)}>
               Keep editing
             </button>
           </span>
@@ -160,6 +162,9 @@ function EditorSurface(
         ref={host}
         className="psy-sheet-editor__surface"
         data-testid="sheet-editor-surface"
+        role="application"
+        aria-label="Spreadsheet editor"
+        aria-roledescription="spreadsheet"
         style={{ flex: 1, minHeight: 360, position: "relative" }}
       />
     </div>

@@ -69,7 +69,7 @@ export function TranscriptModeBar({
           {MODES.map((m) => (
             <label
               key={m.mode}
-              className={`cursor-pointer px-2 py-0.5 ${m.level === level ? "bg-gray-4 text-foreground" : ""}`}
+              className={`inline-flex min-h-6 cursor-pointer items-center px-2 py-0.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring ${m.level === level ? "bg-gray-4 text-foreground" : ""}`}
               title={`${m.label} (⌃O cycles)`}
             >
               <input

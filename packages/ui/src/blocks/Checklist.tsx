@@ -45,7 +45,7 @@ export function Checklist({
           ) : item.status === "in_progress" ? (
             <CircleDashed className="size-3.5 text-accent-11" aria-hidden="true" />
           ) : (
-            <Circle className="size-3.5 text-gray-8" aria-hidden="true" />
+            <Circle className="size-3.5 text-gray-9" aria-hidden="true" />
           )}
           <span
             className={cn(
@@ -65,7 +65,7 @@ export function Checklist({
 const STEP_ICON: Record<PlanStep["status"], ReactElement> = {
   done: <Check className="size-3.5 text-success" aria-hidden="true" />,
   running: <CircleDashed className="size-3.5 text-accent-11" aria-hidden="true" />,
-  pending: <Circle className="size-3.5 text-gray-8" aria-hidden="true" />,
+  pending: <Circle className="size-3.5 text-gray-9" aria-hidden="true" />,
   failed: <X className="size-3.5 text-danger" aria-hidden="true" />,
   skipped: <Circle className="size-3.5 text-gray-6" aria-hidden="true" />,
 };

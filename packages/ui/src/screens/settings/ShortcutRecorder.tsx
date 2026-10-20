@@ -90,6 +90,21 @@ function Keys({ accelerator }: { accelerator: string }): ReactElement {
   );
 }
 
+const SPOKEN: Record<string, string> = {
+  Command: "Command",
+  Control: "Control",
+  Alt: "Option",
+  Shift: "Shift",
+};
+
+/** "Command+Alt+D" → "Command Option D", for screen readers (the glyphs read poorly). */
+export function spokenShortcut(accelerator: string): string {
+  return accelerator
+    .split("+")
+    .map((p) => SPOKEN[p] ?? p)
+    .join(" ");
+}
+
 /** "Command+Shift+D" → "⌘⇧D", for messages. */
 export function shortcutText(accelerator: string): string {
   return accelerator
@@ -182,13 +197,13 @@ export function ShortcutRecorder({
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          aria-labelledby={`${id}-label`}
+          aria-labelledby={`${id}-label ${id}-value`}
           aria-describedby={
             [description ? `${id}-desc` : "", hint ? `${id}-hint` : ""].filter(Boolean).join(" ") ||
             undefined
           }
           aria-pressed={recording}
-          className="flex h-8 min-w-44 items-center rounded-md border border-input bg-background px-2.5 text-left text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-pressed:border-ring"
+          className="flex h-8 min-w-44 items-center rounded-md border border-input bg-background px-2.5 text-left text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring aria-pressed:border-ring"
           onClick={() => {
             setRefused(null);
             setRecording(true);
@@ -196,15 +211,26 @@ export function ShortcutRecorder({
           onKeyDown={onKeyDown}
           onBlur={() => setRecording(false)}
         >
-          {checking ? (
-            <span className="text-muted-foreground">Checking…</span>
-          ) : recording ? (
-            <span className="text-muted-foreground">Press the shortcut…</span>
-          ) : value ? (
-            <Keys accelerator={value} />
-          ) : (
-            <span className="text-muted-foreground">Off. Click to record</span>
-          )}
+          <span id={`${id}-value`} className="sr-only">
+            {checking
+              ? "checking"
+              : recording
+                ? "recording, press the shortcut"
+                : value
+                  ? spokenShortcut(value)
+                  : "off"}
+          </span>
+          <span aria-hidden="true" className="contents">
+            {checking ? (
+              <span className="text-muted-foreground">Checking…</span>
+            ) : recording ? (
+              <span className="text-muted-foreground">Press the shortcut…</span>
+            ) : value ? (
+              <Keys accelerator={value} />
+            ) : (
+              <span className="text-muted-foreground">Off. Click to record</span>
+            )}
+          </span>
         </button>
         {value && !recording ? (
           <Button
