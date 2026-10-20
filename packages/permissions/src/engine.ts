@@ -492,8 +492,20 @@ export class PolicyEngine {
       if (tier !== undefined) allowances.push({ rule: `app_tier:${tier}` });
     }
 
-    if (kind === "mcp_tool" && call.meta?.mcpTier === "unknown" && SEVERITY[se] >= SEVERITY.write) {
-      floors.push({ rule: "mcp:unknown_tier", reason: "tools of unknown MCP servers ask" });
+    // Security §11: write+ tools of unknown-tier MCP servers ask every time, whatever grants
+    // exist (#280). MCP calls arrive as `connector_action` from @psyche/mcp-host with the tier in
+    // meta; an `mcp__` tool that names no tier counts as unknown.
+    const mcpTier = call.meta?.mcpTier ?? (call.tool.startsWith("mcp__") ? "unknown" : undefined);
+    if (
+      (kind === "mcp_tool" || kind === "connector_action") &&
+      mcpTier === "unknown" &&
+      SEVERITY[se] >= SEVERITY.write
+    ) {
+      floors.push({
+        rule: "mcp:unknown_tier",
+        reason: "tools of unknown MCP servers ask",
+        scopes: ["once"],
+      });
     }
 
     let noAlways = false;
