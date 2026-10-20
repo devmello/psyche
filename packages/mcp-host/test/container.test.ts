@@ -28,6 +28,11 @@ class FakeSandboxStdio implements SandboxStdioHost {
     env?: Record<string, string>;
   }[] = [];
   readonly killed: string[] = [];
+  readonly deleted: SandboxScope[] = [];
+
+  async deleteWorkspace(scope: SandboxScope): Promise<void> {
+    this.deleted.push(scope);
+  }
   readonly children: ChildProcess[] = [];
 
   async ensureSandbox(
@@ -172,6 +177,29 @@ describe("stdio MCP servers in the sandbox container (M3)", () => {
     expect(sandbox.children[0]?.exitCode !== null || sandbox.children[0]?.signalCode !== null).toBe(
       true,
     );
+  });
+
+  it("removing a server deletes its sandbox volume and clears its egress allowlist (#284 TM-18)", async () => {
+    const sandbox = new FakeSandboxStdio();
+    const revoked: SandboxScope[] = [];
+    const host = new PsycheMcpHost({
+      launcher: containerLauncher({
+        sandbox,
+        egressAllowlist: () => undefined,
+        egressRevoke: (scope) => void revoked.push(scope),
+      }),
+    });
+    hosts.push(host);
+    await host.addServer({
+      id: "probe",
+      name: "Probe",
+      trust: "unknown",
+      transport: { kind: "stdio", command: ["node", "s.mjs"] },
+      sandbox: { allowedDomains: ["api.example.com"] },
+    } as never);
+    await host.removeServer("probe");
+    expect(sandbox.deleted).toEqual([mcpSandboxScope("probe")]);
+    expect(revoked).toEqual([mcpSandboxScope("probe")]);
   });
 
   it("refuses host write roots and host working directories", async () => {

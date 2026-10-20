@@ -18,8 +18,8 @@
 # host networking: it listens on the host's loopback, and the proxy (Tailscale Serve, cloudflared)
 # reaches it there. No port is published.
 
-ARG NODE_IMAGE=node:24-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5
-ARG NODE_BUILD_IMAGE=node:24-bookworm@sha256:14078204b6bb268c107ceff6d3c43f45a888105e5c2b18b14c32b3409d93a1b0
+ARG NODE_IMAGE=node:24.22.0-bookworm-slim@sha256:a5f4366e834695d5f363b920c104953a535d3a9864d1bdf74566a0ebe01daee5
+ARG NODE_BUILD_IMAGE=node:24.22.0-bookworm@sha256:14078204b6bb268c107ceff6d3c43f45a888105e5c2b18b14c32b3409d93a1b0
 
 FROM ${NODE_BUILD_IMAGE} AS base
 ENV CI=1 \

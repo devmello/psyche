@@ -59,7 +59,7 @@ describe("deploy/Dockerfile", () => {
   it("runs as a non-root user with a /healthz healthcheck on Node 24", () => {
     expect(dockerfile).toMatch(/^USER 10001:10001$/m);
     expect(dockerfile).toMatch(/^HEALTHCHECK .*\n.*\/healthz/m);
-    expect(dockerfile).toMatch(/node:24-bookworm-slim@sha256:[0-9a-f]{64}/);
+    expect(dockerfile).toMatch(/node:24\.\d+\.\d+-bookworm-slim@sha256:[0-9a-f]{64}/);
     expect(dockerfile).not.toMatch(/EXPOSE/);
   });
 });
@@ -212,5 +212,44 @@ describe("Compose sidecars (#298)", () => {
     expect(r.status, r.stderr).toBe(0);
     expect(r.stdout).toContain("psyche-browser:local");
     expect(r.stdout).toMatch(/context: \.\/browser/);
+  });
+});
+
+describe("deploy/scripts/node-pins.mjs (#295)", () => {
+  const script = resolve(deploy, "scripts/node-pins.mjs");
+
+  it("every Node pin in the repository is an exact, digest-pinned version, and they agree", () => {
+    const r = spawnSync(process.execPath, [script, "check"], { encoding: "utf8" });
+    expect(r.stderr).toBe("");
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/deploy\/Dockerfile: node:24\.\d+\.\d+-bookworm-slim@sha256:/);
+    expect(r.stdout).toMatch(
+      /deploy\/sandbox-image\/Dockerfile: node:24\.\d+\.\d+-trixie-slim@sha256:/,
+    );
+  });
+
+  it("finds floating and disagreeing pins, and rewrites every variant to one version", async () => {
+    const { checkPins, findPins, repin } = (await import(script)) as {
+      checkPins: (b: Record<string, unknown[]>) => { problems: string[] };
+      findPins: (t: string) => { version: string; variant: string }[];
+      repin: (t: string, v: string, d: (tag: string) => Promise<string>) => Promise<string>;
+    };
+    const d = (c: string) => c.repeat(64);
+    const text = `FROM node:24-bookworm@sha256:${d("a")}\nARG X=node:24.22.0-trixie-slim@sha256:${d("b")}\n`;
+    expect(findPins(text).map((p) => `${p.version}-${p.variant}`)).toEqual([
+      "24-bookworm",
+      "24.22.0-trixie-slim",
+    ]);
+    expect(checkPins({ f: findPins(text) }).problems).toEqual([
+      "f: node:24-bookworm is not an exact version",
+      "pins disagree: 24, 24.22.0",
+    ]);
+    const out = await repin(text, "24.22.1", async (tag) =>
+      tag.endsWith("trixie-slim") ? d("d") : d("c"),
+    );
+    expect(out).toBe(
+      `FROM node:24.22.1-bookworm@sha256:${d("c")}\nARG X=node:24.22.1-trixie-slim@sha256:${d("d")}\n`,
+    );
+    expect(checkPins({ f: findPins(out) }).problems).toEqual([]);
   });
 });

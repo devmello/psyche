@@ -2,7 +2,7 @@
 # TEMPORARY INT-2 image for compose.yaml: the workspace with dev tooling, running psyched from
 # source through tsx. S22's deploy/Dockerfile (PR #60) replaces it with a bundled, slim,
 # non-root image once merged.
-FROM node:24-bookworm@sha256:14078204b6bb268c107ceff6d3c43f45a888105e5c2b18b14c32b3409d93a1b0
+FROM node:24.22.0-bookworm@sha256:14078204b6bb268c107ceff6d3c43f45a888105e5c2b18b14c32b3409d93a1b0
 ENV CI=1 \
     ELECTRON_SKIP_BINARY_DOWNLOAD=1 \
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
