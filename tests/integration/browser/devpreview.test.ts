@@ -3,8 +3,9 @@ import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { startLoopback } from "@psyche/connectors";
 import { type ComposedBrowser, composeBrowser } from "@psyche/gateway/compose";
-import { canonicalUrl } from "@psyche/permissions";
+import { canonicalUrl, DENY_ALL_LOOPBACK } from "@psyche/permissions";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { type Skeleton, startSkeleton } from "../walking-skeleton/harness.ts";
 import { MAIN, ScriptedModel } from "../walking-skeleton/scripted-model.ts";
@@ -22,13 +23,20 @@ describe.skipIf(!lsof || process.platform === "win32")("I12: the broker's localh
   let browser: ComposedBrowser;
   let child: ChildProcess;
   let port = 0;
+  /** A port nothing listens on, standing in for an attached real Chrome's DevTools port. */
+  const cdpPort = 47_000 + (process.pid % 1000);
 
   beforeAll(async () => {
     sk = await startSkeleton({
       model: { provider: new ScriptedModel(), model: MAIN },
       parts: [
         (s) => {
-          browser = composeBrowser(s, { socketPath: false });
+          browser = composeBrowser(s, {
+            socketPath: false,
+            realChromeCdpEndpoint: `ws://127.0.0.1:${cdpPort}/devtools/browser/x`,
+            // The owner allowlists Psyche's own ports by mistake: still refused.
+            devPreview: { ownerPorts: [cdpPort] },
+          });
           return browser;
         },
       ],
@@ -87,6 +95,49 @@ describe.skipIf(!lsof || process.platform === "win32")("I12: the broker's localh
     expect(after.decision).not.toBe("deny");
   });
 
+  it("refuses Psyche's own listeners: the Gateway, OAuth receivers and real-Chrome CDP", async () => {
+    const refused = { ok: false, reason: "psyche_port" };
+    const gatewayPort = sk.composed.gateway.port;
+    expect(gatewayPort).toBeGreaterThan(0);
+    expect(
+      await browser.localProject.check(canonicalUrl(`http://127.0.0.1:${gatewayPort}/`)),
+    ).toEqual(refused);
+    expect(await browser.devServers.check(`http://localhost:${gatewayPort}/`, {})).toMatchObject({
+      ok: false,
+      reason: "psyche_port",
+    });
+    expect((await decide(`http://127.0.0.1:${gatewayPort}`)).decision).toBe("deny");
+
+    // A Google OAuth receiver runs inside the Gateway process on a random port.
+    const receiver = await startLoopback("state-x");
+    try {
+      const oauthPort = Number(new URL(receiver.redirectUri).port);
+      expect(
+        await browser.localProject.check(canonicalUrl(`http://127.0.0.1:${oauthPort}/`)),
+      ).toEqual(refused);
+      expect(
+        await browser.devServers.check(`http://127.0.0.1:${oauthPort}/callback`, {}),
+      ).toMatchObject({
+        reason: "psyche_port",
+      });
+      expect((await decide(`http://127.0.0.1:${oauthPort}`)).decision).toBe("deny");
+      // Registering the Gateway itself as a dev server's root is refused outright.
+      expect(() => browser.devServers.started({ port: oauthPort, pid: process.pid })).toThrow();
+    } finally {
+      await receiver.close();
+    }
+
+    // The real-Chrome DevTools port, even though the owner allowlisted it.
+    expect(await browser.localProject.check(canonicalUrl(`http://127.0.0.1:${cdpPort}/`))).toEqual(
+      refused,
+    );
+    expect(await browser.devServers.check(`http://localhost:${cdpPort}/`, {})).toMatchObject({
+      ok: false,
+      reason: "psyche_port",
+    });
+    expect((await decide(`http://localhost:${cdpPort}`)).decision).toBe("deny");
+  });
+
   it("still refuses other local listeners and Psyche's own ports", async () => {
     const other = createServer(() => undefined);
     await new Promise<void>((r) => other.listen(0, "127.0.0.1", r));
@@ -103,5 +154,41 @@ describe.skipIf(!lsof || process.platform === "win32")("I12: the broker's localh
       ok: false,
       reason: "local_service_port",
     });
+  });
+});
+
+describe("composition refuses two parts answering the same security question", () => {
+  it("throws when two parts supply a localhost verifier", async () => {
+    await expect(
+      startSkeleton({
+        model: { provider: new ScriptedModel(), model: MAIN },
+        parts: [
+          () => ({ localProject: DENY_ALL_LOOPBACK }),
+          () => ({ localProject: DENY_ALL_LOOPBACK }),
+        ],
+      }),
+    ).rejects.toThrow(/two composed parts supply a localhost verifier/);
+  });
+
+  it("throws when two parts supply a presence verifier of the same kind", async () => {
+    const verifier = { verify: async () => false };
+    await expect(
+      startSkeleton({
+        model: { provider: new ScriptedModel(), model: MAIN },
+        parts: [
+          () => ({ presence: { kind: "helper" as const, verifier } }),
+          () => ({ presence: { kind: "helper" as const, verifier } }),
+        ],
+      }),
+    ).rejects.toThrow(/presence verifier for "helper"/);
+    // Different kinds are fine.
+    const ok = await startSkeleton({
+      model: { provider: new ScriptedModel(), model: MAIN },
+      parts: [
+        () => ({ presence: { kind: "helper" as const, verifier } }),
+        () => ({ presence: { kind: "webauthn" as const, verifier } }),
+      ],
+    });
+    await ok.stop();
   });
 });

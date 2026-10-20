@@ -41,6 +41,42 @@ export interface ComposeServices {
   readonly calls: CallContexts;
   publish<E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string): void;
   readonly logger?: Logger;
+  /**
+   * Psyche's own listening ports (security §3.10: never "the owner's project"): the Gateway's
+   * configured port, then the bound one once it listens; parts add theirs (a real-Chrome CDP
+   * port, a fixed OAuth redirect port). Listeners inside the Gateway process are also found
+   * at check time by the browser part, so random-port OAuth receivers need no registration.
+   */
+  readonly ownPorts: OwnPorts;
+}
+
+export interface OwnPorts {
+  /** Register a port; returns the unregister function. */
+  add(port: number, label: string): () => void;
+  list(): number[];
+}
+
+/** A small registry; the same port registered twice stays until both are removed. */
+export function createOwnPorts(): OwnPorts {
+  const ports = new Map<number, Set<symbol>>();
+  return {
+    add(port, _label) {
+      if (!Number.isInteger(port) || port <= 0 || port > 65_535) return () => undefined;
+      const token = Symbol(_label);
+      let set = ports.get(port);
+      if (set === undefined) {
+        set = new Set();
+        ports.set(port, set);
+      }
+      set.add(token);
+      return () => {
+        const s = ports.get(port);
+        s?.delete(token);
+        if (s !== undefined && s.size === 0) ports.delete(port);
+      };
+    },
+    list: () => [...ports.keys()],
+  };
 }
 
 /** One subsystem as the composition root mounts it. */

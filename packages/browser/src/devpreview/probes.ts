@@ -37,12 +37,36 @@ export const execProbe: ProbeRunner = (file, args) =>
 export interface LoopbackProbeOptions {
   /** PIDs Psyche spawned this session as dev-server roots (`DevServerRegistry.spawnedPids`). */
   roots: () => Iterable<number>;
-  /** Psyche's own listening ports (Gateway, OAuth loopback listener, real-Chrome CDP). */
-  psychePorts?: readonly number[];
+  /**
+   * Psyche's own listening ports (Gateway, a fixed OAuth redirect port, real-Chrome CDP),
+   * read on every check so later registrations count.
+   */
+  psychePorts?: () => readonly number[];
+  /** The Gateway's own PID (default `process.pid`): never a dev-server root. */
+  selfPid?: number;
   run?: ProbeRunner;
   lookup?: (host: string) => Promise<string[]>;
   /** Parent-chain depth limit (default 64). */
   maxDepth?: number;
+}
+
+/**
+ * TCP ports a process listens on (`lsof -a -p <pid> -iTCP -sTCP:LISTEN`): for the Gateway's
+ * own process this finds its port and every in-process OAuth receiver, whatever random port
+ * they took. Empty on any failure.
+ */
+export async function listeningPorts(pid: number, run: ProbeRunner = execProbe): Promise<number[]> {
+  try {
+    const out = await run("lsof", ["-nP", "-a", "-p", String(pid), "-iTCP", "-sTCP:LISTEN", "-Fn"]);
+    const ports = new Set<number>();
+    for (const line of out.split("\n")) {
+      const m = /^n.*:(\d+)$/.exec(line.trim());
+      if (m?.[1] !== undefined) ports.add(Number(m[1]));
+    }
+    return [...ports];
+  } catch {
+    return [];
+  }
 }
 
 async function systemLookup(host: string): Promise<string[]> {
@@ -65,8 +89,12 @@ export function systemLoopbackProbes(options: LoopbackProbeOptions): LoopbackPro
     }
   };
 
+  const selfPid = options.selfPid ?? process.pid;
   return {
-    psychePorts: options.psychePorts ?? [],
+    // A getter: the verifier reads it on every check, so ports registered later count.
+    get psychePorts() {
+      return options.psychePorts?.() ?? [];
+    },
     async resolve(host) {
       const bare = host.replace(/^\[|\]$/g, "");
       if (isIP(bare) !== 0) return [bare];
@@ -94,7 +122,9 @@ export function systemLoopbackProbes(options: LoopbackProbeOptions): LoopbackPro
       }
     },
     async spawnedByPsyche(pid) {
-      const roots = new Set(options.roots());
+      // The Gateway's own listeners (OAuth receivers, the Gateway itself) are never a project.
+      if (pid === selfPid) return false;
+      const roots = new Set([...options.roots()].filter((r) => r !== selfPid));
       if (roots.size === 0) return false;
       let current: number | undefined = pid;
       for (let depth = 0; current !== undefined && depth < maxDepth; depth++) {
