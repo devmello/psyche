@@ -9,6 +9,9 @@ import {
   type ChannelsApi,
   createChannelsApi,
   E164,
+  EmailAdapter,
+  type EmailCursorStore,
+  type EmailSendAuthorizer,
   IMessageAdapter,
   type IMessageCursorStore,
   type IMessageSendAuthorizer,
@@ -57,6 +60,7 @@ import { MAIN_SESSION_KEY } from "../handlers/threads.ts";
 import type { Gateway } from "../server.ts";
 import type { TxHooks } from "../session/controller.ts";
 import { indexedChannelLibrary } from "./library.ts";
+import { type EmailSetup, emailSetupFromEnv, mailEmailTransport } from "./email-channel.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
 /**
@@ -120,6 +124,8 @@ export const SMS_WEBHOOK_PATH = "/channels/sms/twilio";
 
 export interface ChannelsSetup {
   telegram?: TelegramSetup;
+  /** Email over the mail connector's IMAP + SMTP backend (N9); off unless configured. */
+  email?: EmailSetup;
   imessage?: IMessageSetup;
   sms?: SmsSetup;
   /** Attach the built-in WebChat adapter (owner-only defaults). */
@@ -170,8 +176,10 @@ export function channelsSetupFromEnv(
   // iMessage through the Mac helper (N5) is opt-in: the Messages account to answer as.
   const imessage = env.PSYCHE_IMESSAGE_ACCOUNT?.trim() ?? "";
   const sms = smsSetupFromEnv(env, readFile);
+  const email = emailSetupFromEnv(env, readFile);
   return {
     webchat: true,
+    ...(email === undefined ? {} : { email }),
     ...(token === "" ? {} : { telegram: { token, account } }),
     ...(imessage === "" ? {} : { imessage: { account: imessage } }),
     ...(sms === undefined ? {} : { sms }),
@@ -230,7 +238,7 @@ export function smsSetupFromEnv(
 export function channelReplyAuthority(
   services: ComposeServices,
   turnFor: (recipient: string) => ChannelReplyTurn | undefined = () => undefined,
-): IMessageSendAuthorizer {
+): IMessageSendAuthorizer & EmailSendAuthorizer {
   return async (intent) => {
     const turn = intent.purpose === "reply" ? turnFor(intent.recipient) : undefined;
     const approval = await services.rawBroker.authorizeChannelReply({
@@ -355,6 +363,24 @@ export function inputTaintSources(event: ChannelInboundEvent): TaintSource[] {
     }
   }
   return out;
+}
+
+/** The email cursor (opaque JSON) in a 0600 file; unreadable means "start from now". */
+function jsonCursorStore(path: string): EmailCursorStore {
+  return {
+    async load() {
+      try {
+        const v = JSON.parse(readFileSync(path, "utf8")) as unknown;
+        return typeof v === "object" && v !== null && !Array.isArray(v) ? (v as JsonObject) : null;
+      } catch {
+        return null;
+      }
+    },
+    async save(cursor) {
+      mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+      writeFileSync(path, JSON.stringify(cursor), { mode: 0o600 });
+    },
+  };
 }
 
 /** One turn's text: the sender's own words as typed; other people's words labeled as data. */
@@ -551,6 +577,21 @@ export function composeChannels(
           clock,
         });
   if (sms !== undefined) add(sms);
+  if (setup.email !== undefined) {
+    const email = setup.email;
+    add(
+      new EmailAdapter({
+        account: email.address,
+        transport: mailEmailTransport(services, email),
+        cursor: jsonCursorStore(
+          join(services.home, "channels", `email-${encodeURIComponent(email.address)}.cursor`),
+        ),
+        authorizeSend: channelReplyAuthority(services),
+        ...(email.pollMs === undefined ? {} : { pollMs: email.pollMs }),
+        clock,
+      }),
+    );
+  }
   const webchat = setup.webchat === true ? new WebChatAdapter({ clock }) : undefined;
   if (webchat !== undefined) add(webchat);
   for (const a of setup.adapters ?? []) add(a);

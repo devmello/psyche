@@ -41,6 +41,8 @@ export interface ChannelSettings {
 }
 
 const DEFAULT_RATE: Record<string, ChannelSettings["rateLimit"]> = {
+  // Mail is not chat: a reply every few seconds at most.
+  email: { perChatPerSec: 0.2, perChannelPerSec: 0.5, burst: 2 },
   // Bot API: ~1 msg/s per chat, ~30 msg/s overall.
   telegram: { perChatPerSec: 1, perChannelPerSec: 25, burst: 3 },
   webchat: { perChatPerSec: 20, perChannelPerSec: 50, burst: 20 },
@@ -54,7 +56,7 @@ const DEFAULT_RATE: Record<string, ChannelSettings["rateLimit"]> = {
  * Transports where every sender is weak (security §9): they chat as non-owners under the DM
  * policy, but never match an owner, never run commands and never answer approvals.
  */
-export const WEAK_TRANSPORTS: ReadonlySet<ChannelType> = new Set<ChannelType>(["sms"]);
+export const WEAK_TRANSPORTS: ReadonlySet<ChannelType> = new Set<ChannelType>(["sms", "email"]);
 
 export function isWeakTransport(type: ChannelType): boolean {
   return WEAK_TRANSPORTS.has(type);
@@ -142,6 +144,17 @@ export function validateChannel(channel: Channel): string[] {
     }
     if (!/^\+\d{6,15}$/.test(channel.account)) {
       problems.push(`the SMS account is Psyche's E.164 number: ${channel.account}`);
+    }
+  }
+  if (channel.type === "email") {
+    // Bare lower-case addresses (the adapter's sender ids).
+    for (const id of [...channel.allowFrom, ...channel.ownerIds, ...channel.groupAllowFrom]) {
+      if (id !== "*" && !/^[^\sA-Z@<>]+@[^\sA-Z@<>]+\.[^\sA-Z@<>]+$/.test(id)) {
+        problems.push(`Email ids are bare lower-case addresses: ${id}`);
+      }
+    }
+    if (channel.dmPolicy === "pairing") {
+      problems.push('email channels cannot pair (no mail to strangers): use dmPolicy "allowlist"');
     }
   }
   if (channel.ownerIds.includes("*")) problems.push('"*" is not a valid owner id');
