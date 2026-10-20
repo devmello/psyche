@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S17: voice mode, Q5)
+
+For S17 (`packages/speech` read-aloud), S11 (the shell's voice mode), S01 (mounting; `SPEECH_METHODS` mounts the new method automatically).
+
+- `speech.readAloud` gains optional `save: boolean` (default `true`). With `false` the reply is streamed as `speech.audio` only: no Library item and no `speech.readAloud.completed`; `speech.audio {last: true}` marks the end. Voice mode speaks every reply this way instead of filing an MP3 per turn.
+- New `speech.readAloud.cancel {streamId}` → `{ok: true}` (`operator.write`): stops one of the caller's own streams for barge-in; `speech.readAloud.failed` reports `cancelled`. Another device's stream id is treated as unknown.
+- No fake changes (no contract changed).
 ### v1 additive — 2026-10-20 (S10: WhatsApp channel secrets, N6)
 
 - `ChannelSecretName` gains `access_token`, `app_secret` and `verify_token` (appended): the WhatsApp Cloud API's Graph access token, the Meta app secret that signs webhooks (`X-Hub-Signature-256`) and the webhook verify token. Stored by `channels.secrets.set` as Gateway-owned vault items.
