@@ -182,6 +182,19 @@ export interface PageControllerOptions {
   enableNetwork?: boolean;
   /** Pause document requests with a narrow `Fetch.enable` (default true). */
   interceptDocuments?: boolean;
+  /**
+   * Web Bot Auth (I14): signature headers for a top-level document request, or undefined. The
+   * driver passes it only for `profile`-partition tabs.
+   */
+  signRequest?: (url: string) => Promise<{ name: string; value: string }[] | undefined>;
+  /**
+   * How signed headers reach the request: `self` sends the paused request's headers plus the
+   * signature (Playwright, which sees real headers); `endpoint` sends only the signature headers
+   * and the endpoint adds them to the real ones (the desktop, which redacts headers it forwards).
+   */
+  signedHeaders?: "self" | "endpoint";
+  /** A main-frame document response asked for signatures (`Accept-Signature`, RFC 9421 §5.1). */
+  onAcceptSignature?: (origin: string) => void;
 }
 
 interface Waiter {
@@ -429,7 +442,20 @@ export class PageController {
         return;
       case "Network.responseReceived": {
         const id = String(p.requestId);
-        const r = p.response as { status?: number } | undefined;
+        const r = p.response as
+          | { status?: number; url?: string; headers?: Record<string, unknown> }
+          | undefined;
+        if (
+          this.#o.onAcceptSignature !== undefined &&
+          p.type === "Document" &&
+          p.frameId === this.#mainFrameId &&
+          r?.headers !== undefined &&
+          Object.keys(r.headers).some((k) => k.toLowerCase() === "accept-signature") &&
+          typeof r.url === "string"
+        ) {
+          const origin = tryOrigin(r.url);
+          if (origin !== undefined) this.#o.onAcceptSignature(origin);
+        }
         const entry = this.#network.get(id);
         if (entry !== undefined && r?.status !== undefined) entry.status = r.status;
         if (p.type === "Document" && p.frameId === this.#mainFrameId) this.#mainStatus = r?.status;
@@ -513,12 +539,36 @@ export class PageController {
       const hop: Hop = this.#docHops++ === 0 ? "initial" : "redirect";
       allow = this.#judgeHop(req.url, req.method, hop);
     }
-    await this.#t
-      .send(
-        allow ? "Fetch.continueRequest" : "Fetch.failRequest",
-        allow ? { requestId } : { requestId, errorReason: "BlockedByClient" },
-      )
-      .catch(() => undefined);
+    if (!allow) {
+      await this.#t
+        .send("Fetch.failRequest", { requestId, errorReason: "BlockedByClient" })
+        .catch(() => undefined);
+      return;
+    }
+    const signed =
+      this.#o.signRequest !== undefined && p.frameId === this.#mainFrameId
+        ? await this.#o.signRequest(req.url).catch(() => undefined)
+        : undefined;
+    if (signed !== undefined && signed.length > 0) {
+      const names = new Set(signed.map((h) => h.name.toLowerCase()));
+      const own = (p.request as { headers?: Record<string, string> }).headers ?? {};
+      const headers =
+        this.#o.signedHeaders === "endpoint"
+          ? signed
+          : [
+              ...Object.entries(own)
+                .filter(([name]) => !names.has(name.toLowerCase()))
+                .map(([name, value]) => ({ name, value: String(value) })),
+              ...signed,
+            ];
+      const ok = await this.#t.send("Fetch.continueRequest", { requestId, headers }).then(
+        () => true,
+        () => false,
+      );
+      if (ok) return;
+    }
+    // Unsigned (or the endpoint refused the headers): the request goes on as it was.
+    await this.#t.send("Fetch.continueRequest", { requestId }).catch(() => undefined);
   }
 
   /**

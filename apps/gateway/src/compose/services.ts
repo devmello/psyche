@@ -18,7 +18,7 @@ import type {
 } from "@psyche/protocol";
 import type { SecretRedactor, Vault } from "@psyche/vault";
 import type { HandlerDef } from "../context.ts";
-import type { WebhookRoute } from "../http.ts";
+import type { PublicRoute, WebhookRoute } from "../http.ts";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
 import type { OwnerAttention } from "./attention.ts";
@@ -99,6 +99,8 @@ export interface ComposedPart {
   readonly handlers?: Readonly<Record<string, HandlerDef>>;
   /** Self-authenticating `POST <path>` routes (channel webhooks) on the Gateway's HTTP server. */
   readonly webhooks?: Readonly<Record<string, WebhookRoute>>;
+  /** Public `GET <path>` routes (the Web Bot Auth key directory, I14). Public data only. */
+  readonly publicRoutes?: Readonly<Record<string, PublicRoute>>;
   /** Runs once the Gateway is listening. */
   start?(gateway: Gateway): Promise<void> | void;
   stop?(): Promise<void> | void;

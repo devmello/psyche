@@ -214,6 +214,21 @@ export interface ResolveOptions extends CallOptions {
   call?: { tool: string; params: unknown; toolCallId?: string };
 }
 
+/**
+ * Web Bot Auth (feature I14; security §6): the vault's Ed25519 key for HTTP Message Signatures
+ * (RFC 9421). The private half never leaves the vault; executors get a signing function.
+ */
+export interface BotAuthKey {
+  /** JWK SHA-256 thumbprint (RFC 7638), base64url: the `keyid` of every signature. */
+  keyId: string;
+  /** What the owner's key directory publishes. */
+  publicJwk: { kty: "OKP"; crv: "Ed25519"; x: string };
+  /** ISO-8601. */
+  createdAt: string;
+  /** Ed25519 signature over `data`, made inside the vault. */
+  sign(data: Uint8Array): Promise<Uint8Array>;
+}
+
 export interface CredentialBroker {
   /**
    * Resolve a placeholder for one executor call. Rejects (PsycheError) when the placeholder is
@@ -232,6 +247,10 @@ export interface CredentialBroker {
   get(id: string): Promise<CredentialMeta | undefined>;
   /** Replace every known secret value (and its URL / base64 encodings) with `•••`. */
   redact(text: string): string;
+  /** The Web Bot Auth key, if the owner created one (I14). Optional for brokers. */
+  botAuthKey?(): Promise<BotAuthKey | undefined>;
+  /** Create the Web Bot Auth key, or replace it: the old key stops signing at once. */
+  rotateBotAuthKey?(): Promise<BotAuthKey>;
 }
 
 /** Tokens a connector hands to the vault after an OAuth exchange or refresh. */

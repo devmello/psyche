@@ -47,16 +47,15 @@ export interface ItemRow {
   updatedAt: string;
 }
 
-export const VAULT_SCHEMA_VERSION = 1;
+export const VAULT_SCHEMA_VERSION = 2;
 
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS header (
-  key TEXT PRIMARY KEY NOT NULL,
-  value TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS items (
+const KINDS = "'login','api_key','oauth_token','ssh_key','note','payment_link','signing_key'";
+
+/** The items table; v2 adds `signing_key` (Web Bot Auth, I14) to the kind check. */
+const ITEMS_TABLE = (name: string) => `
+CREATE TABLE IF NOT EXISTS ${name} (
   id TEXT PRIMARY KEY NOT NULL,
-  kind TEXT NOT NULL CHECK (kind IN ('login','api_key','oauth_token','ssh_key','note','payment_link')),
+  kind TEXT NOT NULL CHECK (kind IN (${KINDS})),
   name TEXT NOT NULL,
   slug TEXT NOT NULL UNIQUE,
   secret TEXT NOT NULL CHECK (json_valid(secret)),
@@ -65,8 +64,47 @@ CREATE TABLE IF NOT EXISTS items (
   owner_connector_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
+);`;
+
+const SCHEMA = `
+CREATE TABLE IF NOT EXISTS header (
+  key TEXT PRIMARY KEY NOT NULL,
+  value TEXT NOT NULL
 );
+${ITEMS_TABLE("items")}
 `;
+
+/**
+ * v1 → v2: SQLite cannot change a CHECK constraint, so the items table is rebuilt with the
+ * wider kind list inside one transaction (rows, ids and slugs unchanged).
+ */
+function migrate(db: Database.Database): void {
+  const version = (
+    db.prepare("SELECT value FROM header WHERE key = 'version'").get() as
+      | { value: string }
+      | undefined
+  )?.value;
+  if (version === undefined || Number(version) >= VAULT_SCHEMA_VERSION) return;
+  db.transaction(() => {
+    const sql = (
+      db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'items'").get() as
+        | { sql: string }
+        | undefined
+    )?.sql;
+    if (sql !== undefined && !sql.includes("'signing_key'")) {
+      db.exec(ITEMS_TABLE("items_v2"));
+      db.exec(
+        "INSERT INTO items_v2 (id, kind, name, slug, secret, bindings, attrs, owner_connector_id, created_at, updated_at) " +
+          "SELECT id, kind, name, slug, secret, bindings, attrs, owner_connector_id, created_at, updated_at FROM items",
+      );
+      db.exec("DROP TABLE items");
+      db.exec("ALTER TABLE items_v2 RENAME TO items");
+    }
+    db.prepare("UPDATE header SET value = ? WHERE key = 'version'").run(
+      String(VAULT_SCHEMA_VERSION),
+    );
+  })();
+}
 
 interface RawItem {
   id: string;
@@ -139,6 +177,7 @@ export class VaultStore {
     db.prepare("INSERT OR IGNORE INTO header (key, value) VALUES ('version', ?)").run(
       String(VAULT_SCHEMA_VERSION),
     );
+    migrate(db);
     return new VaultStore(db);
   }
 
