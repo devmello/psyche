@@ -35,9 +35,15 @@ const SHARED = loadKnownFailures(join(root, CORPUS_DIR));
  * `<id>[<mode>]` → why the real Gateway path fails this case today, with its issue and owner.
  * A pin that passes again must be removed.
  */
-// Cases this stack still fails, pinned with their owner. Empty: #357 (#354) refuses the five
-// script and document cases before the card.
-const KNOWN_M2: Record<string, string> = {};
+// Cases this stack still fails, pinned with their owner (#357 / #354 unpinned the five script and
+// document cases).
+const PATCH_ESCAPE =
+  "S02 #439: code.edit's describe accepts a patch path outside the repo, so a card asks (run refuses it)";
+const KNOWN_M2: Record<string, string> = {
+  "code-patch-gitconfig-hooks-011[manual]": PATCH_ESCAPE,
+  "code-patch-gitconfig-hooks-011[balanced]": PATCH_ESCAPE,
+  "code-patch-gitconfig-hooks-011[auto]": PATCH_ESCAPE,
+};
 const KNOWN = { ...SHARED, ...KNOWN_M2 };
 
 let rig: M2Rig;
