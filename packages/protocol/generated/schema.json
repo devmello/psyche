@@ -1748,6 +1748,667 @@
       ],
       "type": "string"
     },
+    "AppleCalendar": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "writable": {
+          "type": "boolean"
+        },
+        "color": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "source",
+        "writable"
+      ],
+      "type": "object"
+    },
+    "AppleCalendarEvent": {
+      "properties": {
+        "id": {
+          "description": "EKEvent.calendarItemIdentifier",
+          "type": "string"
+        },
+        "calendarId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "start": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "end": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "allDay": {
+          "type": "boolean"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "recurring": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "calendarId",
+        "title",
+        "start",
+        "end",
+        "allDay",
+        "recurring"
+      ],
+      "type": "object"
+    },
+    "AppleCalendarEventInput": {
+      "properties": {
+        "calendarId": {
+          "description": "Default: the default calendar for new events",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        "start": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "end": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "allDay": {
+          "type": "boolean"
+        },
+        "location": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "notes": {
+          "maxLength": 10000,
+          "type": "string"
+        },
+        "url": {
+          "maxLength": 2000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "start",
+        "end"
+      ],
+      "type": "object"
+    },
+    "AppleCalendarEventUpdate": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        "start": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "end": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "allDay": {
+          "type": "boolean"
+        },
+        "location": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "notes": {
+          "maxLength": 10000,
+          "type": "string"
+        },
+        "url": {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        "span": {
+          "anyOf": [
+            {
+              "const": "this",
+              "type": "string"
+            },
+            {
+              "const": "future",
+              "type": "string"
+            }
+          ],
+          "description": "Recurring events (default this)"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "AppleCalendarListEventsParams": {
+      "properties": {
+        "from": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "to": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "calendarIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "type": "object"
+    },
+    "AppleFinderEntry": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "const": "file",
+              "type": "string"
+            },
+            {
+              "const": "directory",
+              "type": "string"
+            },
+            {
+              "const": "symlink",
+              "type": "string"
+            },
+            {
+              "const": "other",
+              "type": "string"
+            }
+          ]
+        },
+        "size": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "modified": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "path",
+        "kind"
+      ],
+      "type": "object"
+    },
+    "AppleMailDraftInput": {
+      "properties": {
+        "to": {
+          "items": {
+            "maxLength": 320,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "minItems": 1,
+          "type": "array"
+        },
+        "cc": {
+          "items": {
+            "maxLength": 320,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "type": "array"
+        },
+        "subject": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "body": {
+          "maxLength": 100000,
+          "type": "string"
+        }
+      },
+      "required": [
+        "to",
+        "subject",
+        "body"
+      ],
+      "type": "object"
+    },
+    "AppleMailMessage": {
+      "properties": {
+        "summary": {
+          "$ref": "#/$defs/AppleMailMessageSummary"
+        },
+        "to": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "cc": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "body": {
+          "description": "Plain text, untrusted",
+          "type": "string"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "summary",
+        "to",
+        "cc",
+        "body",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "AppleMailMessageSummary": {
+      "properties": {
+        "id": {
+          "description": "Mail message id (stable within the account)",
+          "type": "string"
+        },
+        "mailbox": {
+          "type": "string"
+        },
+        "account": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string"
+        },
+        "from": {
+          "type": "string"
+        },
+        "date": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "read": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "mailbox",
+        "account",
+        "subject",
+        "from",
+        "date",
+        "read"
+      ],
+      "type": "object"
+    },
+    "AppleMailSearchParams": {
+      "properties": {
+        "query": {
+          "description": "Matched against subject and sender",
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "mailbox": {
+          "description": "Default: inbox",
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    },
+    "AppleNote": {
+      "properties": {
+        "summary": {
+          "$ref": "#/$defs/AppleNoteSummary"
+        },
+        "html": {
+          "description": "Notes body HTML, untrusted",
+          "type": "string"
+        },
+        "text": {
+          "description": "Plain text of the body",
+          "type": "string"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "summary",
+        "html",
+        "text",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "AppleNoteInput": {
+      "properties": {
+        "title": {
+          "maxLength": 300,
+          "minLength": 1,
+          "type": "string"
+        },
+        "body": {
+          "description": "Plain text; HTML is escaped",
+          "maxLength": 100000,
+          "type": "string"
+        },
+        "folder": {
+          "maxLength": 200,
+          "type": "string"
+        }
+      },
+      "required": [
+        "title",
+        "body"
+      ],
+      "type": "object"
+    },
+    "AppleNoteSummary": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "folder": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "modified": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "folder",
+        "title",
+        "modified"
+      ],
+      "type": "object"
+    },
+    "AppleReminder": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "listId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "due": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completed": {
+          "type": "boolean"
+        },
+        "priority": {
+          "description": "0 none, 1 high … 9 low (EventKit)",
+          "maximum": 9,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "listId",
+        "title",
+        "completed",
+        "priority"
+      ],
+      "type": "object"
+    },
+    "AppleReminderInput": {
+      "properties": {
+        "listId": {
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        "notes": {
+          "maxLength": 10000,
+          "type": "string"
+        },
+        "due": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "priority": {
+          "maximum": 9,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "type": "object"
+    },
+    "AppleReminderUpdate": {
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        "notes": {
+          "maxLength": 10000,
+          "type": "string"
+        },
+        "due": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "completed": {
+          "type": "boolean"
+        },
+        "priority": {
+          "maximum": 9,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "type": "object"
+    },
+    "AppleRemindersListParams": {
+      "properties": {
+        "listIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "completed": {
+          "type": "boolean"
+        },
+        "dueBefore": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "AppleSafariTab": {
+      "properties": {
+        "window": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "index": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "current": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "window",
+        "index",
+        "title",
+        "url",
+        "current"
+      ],
+      "type": "object"
+    },
     "ApprovalAnswer": {
       "properties": {
         "approvalId": {
@@ -1837,7 +2498,9 @@
         "memory_protected_write",
         "pairing",
         "policy_change",
-        "task_start"
+        "task_start",
+        "apple_script",
+        "shortcut_run"
       ],
       "type": "string"
     },
@@ -10019,6 +10682,535 @@
         "tool"
       ],
       "type": "string"
+    },
+    "MessagesAttachment": {
+      "properties": {
+        "id": {
+          "description": "attachment.guid",
+          "minLength": 1,
+          "type": "string"
+        },
+        "filename": {
+          "anyOf": [
+            {
+              "description": "transfer_name, not a path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mimeType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "uti": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "totalBytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "isVoiceNote": {
+          "description": "An audio message bubble (CAF)",
+          "type": "boolean"
+        },
+        "isSticker": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "isVoiceNote",
+        "isSticker"
+      ],
+      "type": "object"
+    },
+    "MessagesAutomationStatus": {
+      "enum": [
+        "granted",
+        "denied",
+        "not_determined"
+      ],
+      "type": "string"
+    },
+    "MessagesChat": {
+      "properties": {
+        "chatId": {
+          "description": "chat.db chat.guid (e.g. iMessage;-;+15551234567, any;-;… on macOS 26+). Opaque; pass back as-is.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "service": {
+          "$ref": "#/$defs/MessagesService"
+        },
+        "displayName": {
+          "anyOf": [
+            {
+              "description": "Group name the participants set",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "isGroup": {
+          "type": "boolean"
+        },
+        "participants": {
+          "items": {
+            "$ref": "#/$defs/MessagesHandle"
+          },
+          "type": "array"
+        },
+        "lastMessageAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastCursor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MessagesCursor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "chatId",
+        "service",
+        "isGroup",
+        "participants"
+      ],
+      "type": "object"
+    },
+    "MessagesChatsParams": {
+      "properties": {
+        "limit": {
+          "default": 50,
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "query": {
+          "description": "Substring of a handle or display name",
+          "maxLength": 128,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "MessagesChatsResult": {
+      "properties": {
+        "chats": {
+          "items": {
+            "$ref": "#/$defs/MessagesChat"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "chats"
+      ],
+      "type": "object"
+    },
+    "MessagesCursor": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "MessagesHandle": {
+      "properties": {
+        "handle": {
+          "maxLength": 320,
+          "minLength": 1,
+          "type": "string"
+        },
+        "service": {
+          "$ref": "#/$defs/MessagesService"
+        }
+      },
+      "required": [
+        "handle",
+        "service"
+      ],
+      "type": "object"
+    },
+    "MessagesMessage": {
+      "properties": {
+        "cursor": {
+          "$ref": "#/$defs/MessagesCursor"
+        },
+        "guid": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "chatId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "service": {
+          "$ref": "#/$defs/MessagesService"
+        },
+        "isFromMe": {
+          "type": "boolean"
+        },
+        "sender": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MessagesHandle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "text": {
+          "anyOf": [
+            {
+              "description": "message.text, or decoded from attributedBody (typedstream)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sentAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "editedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "replyToGuid": {
+          "anyOf": [
+            {
+              "description": "thread_originator_guid (inline reply)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reaction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MessagesReaction"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "attachments": {
+          "items": {
+            "$ref": "#/$defs/MessagesAttachment"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "cursor",
+        "guid",
+        "chatId",
+        "service",
+        "isFromMe",
+        "sentAt",
+        "attachments"
+      ],
+      "type": "object"
+    },
+    "MessagesReaction": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/MessagesReactionKind"
+        },
+        "removed": {
+          "type": "boolean"
+        },
+        "targetGuid": {
+          "description": "The reacted-to message's guid",
+          "minLength": 1,
+          "type": "string"
+        },
+        "emoji": {
+          "description": "For kind emoji",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "removed",
+        "targetGuid"
+      ],
+      "type": "object"
+    },
+    "MessagesReactionKind": {
+      "enum": [
+        "love",
+        "like",
+        "dislike",
+        "laugh",
+        "emphasize",
+        "question",
+        "emoji",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "MessagesReadParams": {
+      "properties": {
+        "chatId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "handle": {
+          "maxLength": 320,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sinceCursor": {
+          "$ref": "#/$defs/MessagesCursor"
+        },
+        "limit": {
+          "default": 20,
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "MessagesReadResult": {
+      "properties": {
+        "messages": {
+          "items": {
+            "$ref": "#/$defs/MessagesMessage"
+          },
+          "type": "array"
+        },
+        "cursor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MessagesCursor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hasMore": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "messages",
+        "hasMore"
+      ],
+      "type": "object"
+    },
+    "MessagesSendParams": {
+      "properties": {
+        "to": {
+          "maxLength": 320,
+          "minLength": 1,
+          "type": "string"
+        },
+        "chatId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "service": {
+          "$ref": "#/$defs/MessagesSendService"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
+    "MessagesSendResult": {
+      "properties": {
+        "sent": {
+          "const": true,
+          "type": "boolean"
+        },
+        "recipient": {
+          "description": "The handle or chat id the text went to",
+          "type": "string"
+        },
+        "sentAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sent",
+        "recipient",
+        "sentAt"
+      ],
+      "type": "object"
+    },
+    "MessagesSendService": {
+      "enum": [
+        "imessage",
+        "sms"
+      ],
+      "type": "string"
+    },
+    "MessagesService": {
+      "enum": [
+        "imessage",
+        "sms",
+        "rcs",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "MessagesStatus": {
+      "properties": {
+        "fullDiskAccess": {
+          "description": "chat.db is readable",
+          "type": "boolean"
+        },
+        "automation": {
+          "$ref": "#/$defs/MessagesAutomationStatus"
+        },
+        "databasePresent": {
+          "type": "boolean"
+        },
+        "lastCursor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MessagesCursor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "fullDiskAccess",
+        "automation",
+        "databasePresent"
+      ],
+      "type": "object"
+    },
+    "MessagesWatchEvent": {
+      "anyOf": [
+        {
+          "properties": {
+            "type": {
+              "const": "messages.new",
+              "type": "string"
+            },
+            "messages": {
+              "items": {
+                "$ref": "#/$defs/MessagesMessage"
+              },
+              "type": "array"
+            },
+            "cursor": {
+              "$ref": "#/$defs/MessagesCursor"
+            }
+          },
+          "required": [
+            "type",
+            "messages",
+            "cursor"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "messages.watch_error",
+              "type": "string"
+            },
+            "reason": {
+              "description": "e.g. full_disk_access_missing, database_locked",
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "reason",
+            "retryable"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "MessagesWatchParams": {
+      "properties": {
+        "sinceCursor": {
+          "$ref": "#/$defs/MessagesCursor"
+        },
+        "intervalMs": {
+          "default": 2000,
+          "maximum": 60000,
+          "minimum": 500,
+          "type": "integer"
+        },
+        "includeFromMe": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
     },
     "NodeCapability": {
       "properties": {

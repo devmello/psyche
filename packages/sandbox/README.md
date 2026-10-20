@@ -54,7 +54,8 @@ for await (const chunk of pty.output) term.write(chunk); // pty.write(), pty.res
 | `maxPtys` | 4 | Per scope; more rejects with `rate_limited`. |
 | `maxRunningSandboxes` | 3 on Apple, 8 elsewhere | Across scopes; the least recently used idle container is stopped first. |
 | `idleTimeoutMs` | 10 min | An idle container is stopped (warm reuse until then). 0 disables. |
-| `egressProxy` | none | See "Egress proxy interface". |
+| `egressTunnel` | none | The egress proxy for `network: "proxy"` (K4); see "Egress proxy". |
+| `egressProxy` | none | An external proxy on a backend network (Docker / Podman only); superseded by `egressTunnel`. |
 | `namePrefix` | `psyche` | Container `<prefix>-sbx-<hash>`, volume `<prefix>-ws-<hash>`; the hash is over the scope. |
 | `appleVolumeSize` | `8G` | Apple volumes are fixed-size ext4 images. |
 | `onDevServer` | unset | Dev-server forwarding (I12): `started` / `stopped` events for servers an exec leaves listening; see "Dev servers". Unset means no probe and no forward. |
@@ -126,21 +127,32 @@ Each forwarded connection is one `exec -i` (about 60 ms on Docker); browsers reu
 
 `openPty` allocates the pseudo-terminal **inside** the container with a Python relay, so the host needs neither node-pty nor a TTY. Input, resize and env are framed over stdin (`[type u8][len u32 BE][payload]`); output is the raw terminal stream. `close()` hangs up, then kills the process group after 2 s. Who may type into a PTY is the caller's decision: an agent PTY needs a session-scoped approval (security §5.4).
 
-## Egress proxy interface (`network: "proxy"`)
+## Egress proxy (`network: "proxy"`, feature K4)
 
-The proxy itself is not in this package (security §5.2; spike 02's `egress/proxy.py` is the reference). Its owner passes:
+Security §5.2: a sandbox that opts into network gets a host-side, domain-allowlisted proxy and nothing else. This package ships it (`src/egress/`).
+
+**How traffic leaves the container.** With `egressTunnel` set (normally `createSandboxEgress(...).egressTunnel`), a proxy-mode sandbox still runs with network **`none`**. A shim (`EGRESS_SHIM`, Python `-I -S`, UID 1000) listens on the container's own `127.0.0.1:3128`, which `HTTP_PROXY` / `HTTPS_PROXY` point to. It multiplexes every connection over one long-lived `exec -i` stdio stream to the host, where `EgressProxy` serves it with the sandbox's scope. There is no container network, no sidecar and no host port, so this works the same on Apple `container`, Docker and Podman. Docker's `--internal` networks cannot reach the host, and an Apple vmnet would expose host services (spike 02). The runner starts the shim with the container, waits for it to be ready, restarts it with the container, and stops it on stop and remove.
+
+**What the proxy enforces** (`EgressProxy`):
+
+- **Deny by default.** A scope reaches only hosts on its allowlist (`setAllowlist(scope, entries)`). Entries look like `pypi.org`, `*.githubusercontent.com` (subdomains only, never the apex or a bare TLD), `registry.example.com:8443`, or `mirror.lan private`. Ports 80 and 443 apply unless one is named.
+- **Two request forms only.** It accepts `CONNECT host:port`, which must carry TLS whose ClientHello server name equals the CONNECT host, so there is no plaintext tunnel and no domain fronting. It also accepts absolute-form `http://` requests, which are forwarded in origin-form with `Connection: close` and no proxy headers. There is no TLS interception.
+- **DNS by the proxy.** It resolves names itself, checks every address, and connects to the checked one, so a rebind cannot swap it. Loopback, link-local, cloud metadata (`169.254.169.254`, `fd00:ec2::254`), multicast and reserved ranges are always refused, IPv4-mapped and NAT64 forms included. Private and CGNAT ranges need an entry marked `private`.
+- **One decision per origin per scope** through the Permission Broker: `decide` as a `new_origin` read, with the task's context and `newTarget: true`. In a tainted task the broker asks, and the card names the taint sources. If the broker is set and the context is unknown, the scope counts as tainted. A connection waits up to 20 s for the card, then gets `approval-pending`. The answer then decides every later connection to that origin, and there is never a second card.
+- **Receipts and logs.** Each first decision per origin gets a receipt (`sandbox.egress`, `ok` or `failed`), whether allowed, denied or not allowlisted. Every connection is logged with host, address, byte counts and duration through `onLog` or the hook's `logger`. Blocked requests get `403` with `X-Proxy-Error`, using the codes `blocked-by-allowlist`, `blocked-address`, `approval-pending`, `approval-denied`, `denied-by-policy`, `dns-failure` and `upstream-unreachable`.
+
+**Composition** (Gateway, S01):
 
 ```ts
-egressProxy: {
-  network: "psyche-egress",          // a backend network with no internet route
-  url: (scope) => "http://10.89.0.2:3128", // the proxy as seen from inside the container
-  noProxy: "",                        // optional
-}
+const egress = createSandboxEgress({ broker, context: (scope) => contextForScope(scope), logger });
+composeSandbox(services, { runner: { egressTunnel: egress.egressTunnel } });
+containerLauncher({ sandbox: runner, egressAllowlist: egress.egressAllowlist }); // MCP servers
+egress.egressAllowlist({ kind: "task", id: taskId }, task.egressHosts);       // a task's declared hosts
 ```
 
-The runner attaches the container to `network` and sets `HTTP_PROXY`, `HTTPS_PROXY` and their lowercase forms, plus `NO_PROXY`. The proxy owner must make `network` unable to reach anything except the proxy. On Docker that means `docker network create --internal` plus a relay sidecar (Docker's internal networks cannot reach the host). If `network: "proxy"` is requested without this config, it rejects with `unavailable`. There is no fallback to a bridged network.
+The older `egressProxy: { network, url, noProxy }` option still attaches the container to an external proxy's internal network on Docker and Podman. `egressTunnel` takes precedence.
 
-**Apple `container`:** proxy mode currently rejects with `unavailable`. An `--internal` vmnet exposes every host service bound to 0.0.0.0 (spike 02). The safe design is `--network none` plus `--publish-socket` and an in-sandbox shim, which needs the "read-only system paths" profile and is a follow-up.
+Not covered: throughput is a Python select loop, so it is fine for `pip install` or `git clone` and not meant for bulk transfer. There is no per-connection backpressure from the host back into the shim. Plain-HTTP keep-alive is not supported.
 
 ## Image selection
 
@@ -161,9 +173,9 @@ The smoke test is the OpenMuse one plus PATH-hijack, PTY and concurrency checks 
 
 ## Not implemented / stubbed
 
-- Proxy mode on Apple `container` (socket bridge), as explained above.
+- Egress: no per-connection backpressure from host to shim; plain-HTTP keep-alive is not supported (one request per connection).
 - `srt` wrapper for host-side helpers (K5) and `exec_host` (K7) are other sessions' work.
-- Image publishing and signing: `deploy/sandbox-image/publish.sh` is written but has not been run, so `versions.json` digests are `null`.
+- Image publishing and signing: the release workflow runs `deploy/sandbox-image/publish.sh` on `v*` tags and opens a PR with the digests, but no tag has run it yet, so `versions.json` digests are `null`.
 - Podman has not been run on a real host (it was not installed on the dev machine); its flags are Docker's.
 - Dev servers: only those an `exec` starts in its own session; PTY-started servers are not detected.
 - File provenance: no xattr on the files themselves (the index is host-side only), no owner "mark trusted" path, and PTY writes are unobserved (they read back as untrusted, which is the safe answer).

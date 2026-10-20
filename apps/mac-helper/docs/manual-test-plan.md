@@ -179,3 +179,17 @@ Spike 06 restarted a 16 GB host under two guests plus an install. Never run thes
 | 11.8 | `vm.create` a second guest | `guest_exists` |
 | 11.9 | Start while two other macOS guests run (e.g. Tart) | `guest_limit` (Code 6 text) |
 | 11.10 | Re-test `saveMachineStateTo` from the signed helper | Record whether warm start works (spike 06 got Code 11) |
+
+## 12. Apple app adapters (J6)
+
+| # | Step | Expect |
+| --- | --- | --- |
+| 12.1 | `calendar.list_events` with no Calendars grant | System prompt once; then events; denied → `permission_missing/calendars` |
+| 12.2 | `calendar.create_event` then `calendar.update_event {span: future}` on a recurring event | Event appears in Calendar; the series changes from that date |
+| 12.3 | `reminders.create` with `due`; `reminders.update {completed: true}`; `{due: null}` | Shows, completes, clears the due date |
+| 12.4 | `mail.search {query: "invoice"}` and `mail.read` (Mail not running) | Mail launches hidden; Automation prompt once; plain-text body |
+| 12.5 | `mail.draft` | A draft appears in Drafts; nothing sent |
+| 12.6 | `mail.send` through the Gateway | Approval card with the exact recipients and body; sent only after approval; without `approvalId` → `send_needs_approval` |
+| 12.7 | `notes.create {title, body: "<b>x</b>"}` and `notes.read` | The note shows the literal `<b>x</b>`; read returns HTML and text |
+| 12.8 | `finder.list` with no granted folders / inside / outside / through a symlink out | `no_granted_folders` / entries / `outside_granted_folders` / refused |
+| 12.9 | `safari.tabs`, `safari.current_tab`, `safari.open_url` | Tabs and URLs; a new tab; `file:` and `javascript:` refused |

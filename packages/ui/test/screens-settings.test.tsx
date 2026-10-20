@@ -13,7 +13,11 @@ import { MockGateway } from "../src/data/mock-gateway.ts";
 import { createFixtureWorld, FIXTURE_NOW, IDS, PERSONA } from "../src/fixtures/index.ts";
 import { actionLabel } from "../src/screens/settings/ActionMatrix.tsx";
 import { ChannelsPanel } from "../src/screens/settings/ChannelsSection.tsx";
-import { CARD_REFUSAL } from "../src/screens/settings/CredentialsSection.tsx";
+import {
+  CARD_REFUSAL,
+  parseBinding,
+  vaultChangeError,
+} from "../src/screens/settings/CredentialsSection.tsx";
 import { folderGrants, policyWithFolders } from "../src/screens/settings/FileAccessSection.tsx";
 import { ModelProvidersPanel } from "../src/screens/settings/ModelSection.tsx";
 import { PRESENCE_UNAVAILABLE } from "../src/screens/settings/SettingsApproval.tsx";
@@ -344,6 +348,195 @@ describe("Credentials", () => {
     await userEvent.click(within(form).getByRole("button", { name: "Store in vault" }));
     expect(await screen.findByText(/looks like a card, bank or ID number/)).toBeTruthy();
     expect(document.body.textContent).not.toContain(cardLike);
+  });
+
+  it("searches by name, site or kind", async () => {
+    setup({ defaultSection: "credentials" });
+    const table = await screen.findByRole("table", { name: "Stored credentials" });
+    const search = screen.getByRole("searchbox", { name: "Search credentials" });
+    await userEvent.type(search, "acme");
+    expect(within(table).queryByText("github-login")).toBeNull();
+    expect(within(table).getByText("acme-login")).toBeTruthy();
+    await userEvent.clear(search);
+    await userEvent.type(search, "payment");
+    expect(within(table).getByText("stripe-link")).toBeTruthy();
+    expect(within(table).queryByText("acme-login")).toBeNull();
+    await userEvent.clear(search);
+    await userEvent.type(search, "nothing-here");
+    expect(screen.getByText('No credentials match "nothing-here".')).toBeTruthy();
+  });
+
+  it("edits a login: renames it, binds a second site and replaces only the typed value", async () => {
+    const { gateway } = setup({ defaultSection: "credentials" });
+    const table = await screen.findByRole("table", { name: "Stored credentials" });
+    await userEvent.click(within(table).getByRole("button", { name: "Edit GitHub" }));
+    const form = screen.getByRole("form", { name: "Edit GitHub" });
+    const save = within(form).getByRole("button", { name: "Save changes" });
+    expect((save as HTMLButtonElement).disabled).toBe(true);
+    const name = within(form).getByLabelText("Name");
+    await userEvent.clear(name);
+    await userEvent.type(name, "GitHub (work)");
+    const site = within(form).getByLabelText("Add a site");
+    await userEvent.type(site, "not a site{Enter}");
+    expect(within(form).getByRole("alert").textContent).toBe("Enter a site such as github.com.");
+    await userEvent.clear(site);
+    await userEvent.type(site, "https://gist.github.com/you{Enter}");
+    expect(within(form).getByRole("button", { name: "Remove gist.github.com" })).toBeTruthy();
+    const password = within(form).getByLabelText("New password") as HTMLInputElement;
+    expect(password.type).toBe("password");
+    await userEvent.type(password, "rotated-secret-9");
+    await userEvent.click(save);
+    await waitFor(() => expect(callsOf(gateway(), "vault.update")).toHaveLength(1));
+    // A blank username is left out, so the stored one is kept.
+    expect(callsOf(gateway(), "vault.update")[0]?.params).toEqual({
+      credentialId: IDS.credentials.github,
+      name: "GitHub (work)",
+      bindings: [{ origin: "https://github.com" }, { origin: "https://gist.github.com" }],
+      secret: { password: "rotated-secret-9" },
+    });
+    await waitFor(() => expect(screen.queryByRole("form", { name: /^Edit / })).toBeNull());
+    expect(await within(table).findByText("github.com, gist.github.com")).toBeTruthy();
+    expect(document.body.textContent).not.toContain("rotated-secret-9");
+  });
+
+  it("deletes an item only after confirmation", async () => {
+    const { gateway } = setup({ defaultSection: "credentials" });
+    const table = await screen.findByRole("table", { name: "Stored credentials" });
+    await userEvent.click(within(table).getByRole("button", { name: "Delete acme.com" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Delete acme.com?" });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(callsOf(gateway(), "vault.delete")).toHaveLength(0);
+    await userEvent.click(within(table).getByRole("button", { name: "Delete acme.com" }));
+    const again = await screen.findByRole("alertdialog", { name: "Delete acme.com?" });
+    await userEvent.click(within(again).getByRole("button", { name: "Delete" }));
+    await waitFor(() => expect(callsOf(gateway(), "vault.delete")).toHaveLength(1));
+    expect(callsOf(gateway(), "vault.delete")[0]?.params).toEqual({
+      credentialId: IDS.credentials.acme,
+    });
+    await waitFor(() => expect(within(table).queryByText("acme-login")).toBeNull());
+  });
+
+  it("leaves connector-owned items to their connector", async () => {
+    setup(
+      { defaultSection: "credentials" },
+      {
+        edit: (w) => {
+          w.credentials = w.credentials.map((c) =>
+            c.id === IDS.credentials.github ? { ...c, ownerConnectorId: "conn_github" } : c,
+          );
+        },
+      },
+    );
+    const table = await screen.findByRole("table", { name: "Stored credentials" });
+    expect(within(table).queryByRole("button", { name: "Edit GitHub" })).toBeNull();
+    expect(within(table).queryByRole("button", { name: "Delete GitHub" })).toBeNull();
+    expect(within(table).getByText("Managed by its connector")).toBeTruthy();
+    expect(within(table).getByRole("button", { name: "Edit acme.com" })).toBeTruthy();
+  });
+
+  it("imports a CSV export, reports skipped rows and never shows a value", async () => {
+    const { gateway } = setup({ defaultSection: "credentials" });
+    const table = await screen.findByRole("table", { name: "Stored credentials" });
+    await userEvent.click(screen.getByRole("button", { name: "Import CSV" }));
+    const form = screen.getByRole("form", { name: "Import credentials" });
+    const importButton = within(form).getByRole("button", { name: "Import" });
+    expect((importButton as HTMLButtonElement).disabled).toBe(true);
+    const csv = [
+      "name,url,username,password",
+      "Fastmail,https://app.fastmail.com/login,you,imported-secret-1",
+      "Half a row,https://example.com,you,",
+    ].join("\n");
+    await userEvent.upload(
+      within(form).getByLabelText("CSV file"),
+      new File([csv], "chrome.csv", { type: "text/csv" }),
+    );
+    await userEvent.selectOptions(within(form).getByLabelText("Exported from"), "chrome");
+    await userEvent.click(importButton);
+    const status = await within(form).findByRole("status");
+    expect(status.textContent).toContain("Imported 1 item; skipped 1 row.");
+    expect(status.textContent).toContain("Row 3: no name or password");
+    expect(callsOf(gateway(), "vault.import")[0]?.params).toEqual({ format: "chrome", csv });
+    expect(await within(table).findByText("Fastmail")).toBeTruthy();
+    expect(within(table).getByText("app.fastmail.com")).toBeTruthy();
+    expect(document.body.textContent).not.toContain("imported-secret-1");
+    await userEvent.click(within(form).getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("form", { name: "Import credentials" })).toBeNull();
+  });
+
+  it("explains a CSV the vault can't read", async () => {
+    setup({ defaultSection: "credentials" });
+    await screen.findByRole("table", { name: "Stored credentials" });
+    await userEvent.click(screen.getByRole("button", { name: "Import CSV" }));
+    const form = screen.getByRole("form", { name: "Import credentials" });
+    await userEvent.upload(
+      within(form).getByLabelText("CSV file"),
+      new File(["colour,size\nred,9"], "notes.csv", { type: "text/csv" }),
+    );
+    await userEvent.click(within(form).getByRole("button", { name: "Import" }));
+    expect(
+      await within(form).findByText(/couldn't read that file as a 1Password, Bitwarden or Chrome/),
+    ).toBeTruthy();
+  });
+
+  it("opens an item's detail with its last 50 uses and links each task", async () => {
+    const { gateway, navigate } = setup({ defaultSection: "credentials" });
+    const table = await screen.findByRole("table", { name: "Stored credentials" });
+    await userEvent.click(within(table).getByRole("button", { name: "GitHub" }));
+    const sheet = await screen.findByRole("dialog", { name: "GitHub" });
+    const uses = await within(sheet).findByRole("table", { name: "Recent uses" });
+    expect(callsOf(gateway(), "vault.uses")[0]?.params).toEqual({
+      credentialId: IDS.credentials.github,
+      limit: 50,
+    });
+    // A header row and the three fixture uses, newest first.
+    const rows = within(uses).getAllByRole("row");
+    expect(rows).toHaveLength(4);
+    expect(within(rows[1] as HTMLElement).getByText("Filled")).toBeTruthy();
+    expect(within(rows[2] as HTMLElement).getByText("Denied")).toBeTruthy();
+    expect(within(rows[2] as HTMLElement).getByText("ap_github_fill_2")).toBeTruthy();
+    expect(within(rows[3] as HTMLElement).getByText("Failed")).toBeTruthy();
+    expect(within(rows[3] as HTMLElement).getByText("none")).toBeTruthy();
+    const [openTask] = within(uses).getAllByRole("button", { name: "Open task" });
+    await userEvent.click(openTask as HTMLElement);
+    expect(navigate).toHaveBeenCalledWith(`/agent/activity/${IDS.tasks.subscriptionAudit}`);
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "GitHub" })).toBeNull());
+  });
+
+  it("says when an item has not been used", async () => {
+    setup({ defaultSection: "credentials" });
+    const table = await screen.findByRole("table", { name: "Stored credentials" });
+    await userEvent.click(within(table).getByRole("button", { name: "Link wallet" }));
+    const sheet = await screen.findByRole("dialog", { name: "Link wallet" });
+    expect(await within(sheet).findByText("Not used yet.")).toBeTruthy();
+  });
+
+  it("parses sites and words vault failures plainly", () => {
+    expect(parseBinding("github.com", "login")).toEqual({ origin: "https://github.com" });
+    expect(parseBinding("http://localhost:3000/x", "login")).toEqual({
+      origin: "http://localhost:3000",
+    });
+    expect(parseBinding("build.example.com:2222", "ssh_key")).toEqual({
+      host: "build.example.com:2222",
+    });
+    expect(parseBinding("ftp://example.com", "login")).toBeNull();
+    expect(parseBinding("intranet", "login")).toBeNull();
+    const c = createFixtureWorld().credentials[0];
+    if (c === undefined) throw new Error("no fixture credential");
+    const locked = new GatewayRequestError("vault.update", "unavailable", "locked", {
+      reason: "locked",
+    });
+    expect(vaultChangeError(locked, c, "change")).toBe(
+      "The vault is locked. Unlock it with Touch ID, then change GitHub again.",
+    );
+    const scope = new GatewayRequestError(
+      "vault.delete",
+      "forbidden",
+      "vault.delete requires scope operator.admin",
+    );
+    expect(vaultChangeError(scope, c, "delete")).toBe(
+      "Only a device paired as admin can delete vault items.",
+    );
   });
 });
 

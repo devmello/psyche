@@ -21,6 +21,8 @@ export interface MetaMirror {
   list(kind?: CredentialKind): CredentialMeta[];
   recordUse(use: CredentialUse): void;
   uses(credentialId: string, limit: number): CredentialUse[];
+  /** True when a fill already succeeded under this approval (a `once` approval fills once). */
+  filledUnder(approvalId: string): boolean;
 }
 
 interface MetaRaw {
@@ -149,6 +151,16 @@ export class SqliteMetaMirror implements MetaMirror {
         )
         .run(u.createdAt, u.credentialId);
     }
+  }
+
+  filledUnder(approvalId: string): boolean {
+    return (
+      this.#db
+        .prepare(
+          "SELECT 1 FROM credential_uses WHERE approval_id = ? AND outcome = 'filled' LIMIT 1",
+        )
+        .get(approvalId) !== undefined
+    );
   }
 
   uses(credentialId: string, limit: number): CredentialUse[] {
