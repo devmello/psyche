@@ -11,7 +11,13 @@
       "type": "string"
     },
     "family": {
-      "enum": ["web-documents", "email-calendar-messages", "mcp-skills-memory", "mac-surfaces"]
+      "enum": [
+        "web-documents",
+        "email-calendar-messages",
+        "mcp-skills-memory",
+        "mac-surfaces",
+        "m3-surfaces"
+      ]
     },
     "version": {
       "const": 1
@@ -56,7 +62,13 @@
         "dictation_adjacent",
         "app_adapter_result",
         "document_conversion",
-        "skill_manifest"
+        "skill_manifest",
+        "repo_file",
+        "test_output",
+        "fare_page",
+        "guest_output",
+        "skill_prompt",
+        "probe_result"
       ]
     },
     "goal": {
@@ -102,7 +114,7 @@
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^(web|doc|file|ocr|mail|cal|chat|mcp|skill|mem|sub|imsg|ax|dict|conv|app)-[a-z0-9-]+-[0-9]{3}$",
+          "pattern": "^(web|doc|file|ocr|mail|cal|chat|mcp|skill|mem|sub|imsg|ax|dict|conv|app|code|travel|vm|probe)-[a-z0-9-]+-[0-9]{3}$",
           "description": "Stable id; never reuse a retired id."
         },
         "title": {
@@ -219,7 +231,10 @@
                     "screenshot",
                     "dictation",
                     "apple_app",
-                    "document"
+                    "document",
+                    "repository",
+                    "vm_guest",
+                    "model_probe"
                   ]
                 },
                 "provenance": {

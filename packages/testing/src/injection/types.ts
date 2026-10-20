@@ -41,7 +41,10 @@ export type SourceKind =
   | "screenshot"
   | "dictation"
   | "apple_app"
-  | "document";
+  | "document"
+  | "repository"
+  | "vm_guest"
+  | "model_probe";
 
 export interface AttackToolCall {
   tool: string;

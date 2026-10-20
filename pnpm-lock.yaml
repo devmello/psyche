@@ -1289,6 +1289,9 @@ importers:
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@psyche/skills':
+        specifier: workspace:*
+        version: link:../../packages/skills
       '@psyche/testing':
         specifier: workspace:*
         version: link:../../packages/testing

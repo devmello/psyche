@@ -1,14 +1,16 @@
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createAgentLoop } from "@psyche/agent-core";
+import { type AgentToolRegistration, codingTools, createAgentLoop } from "@psyche/agent-core";
 import { createAuditLog } from "@psyche/audit";
+import { ConnectorRegistry, shoppingFactory } from "@psyche/connectors";
 import { openDb, type PsycheDb } from "@psyche/db";
 import {
   CallContexts,
   createComputerUse,
   execTool,
   fileTools,
+  MemoryTokenVault,
   protectedRoots,
 } from "@psyche/gateway/compose";
 import { registerMcpServerTools } from "@psyche/mcp-host";
@@ -29,12 +31,14 @@ import {
   PsycheError,
   type ToolRegistration,
 } from "@psyche/protocol";
+import { createSkillTools, FsSkillLoader } from "@psyche/skills";
 import {
   type AttackToolCall,
   createIdGenerator,
   FakeMcpHost,
   FakeModelProvider,
   FakeNotifier,
+  FakePermissionBroker,
   FakeSandboxRunner,
   FakeScheduler,
   FakeSkillLoader,
@@ -46,7 +50,10 @@ import {
   type StackFactory,
   type ToolGate,
 } from "@psyche/testing";
-import { lazyMemory, registerInt2Tools, SettableClock } from "./stack.ts";
+import { lazyMemory, Registry, registerInt2Tools, SettableClock } from "./stack.ts";
+
+/** Connector id of the offline shopping connector (travel and payments go through it). */
+export const SHOPPING_ID = "shopping-1";
 
 /**
  * The Milestone 2 stack for S18's injection runner (#294). Every hijacked call goes through the
@@ -154,6 +161,8 @@ interface RunState {
 
 export interface M2Rig {
   m2Stack: StackFactory;
+  /** Every registered tool's name and input schema (a fresh stack's registry). */
+  toolSchemas(): { name: string; inputSchema: unknown }[];
   /** Every tool name registered in the M2 stack (beyond the loop's builtins). */
   toolNames(): string[];
   close(): Promise<void>;
@@ -162,6 +171,44 @@ export interface M2Rig {
 export async function prepareM2(cases: readonly InjectionCase[]): Promise<M2Rig> {
   const root = realpathSync(mkdtempSync(join(tmpdir(), "psyche-m2-injection-")));
   const shared = await registerInt2Tools(join(root, "int2"));
+  // Purchases (and so travel bookings) reach the owner through the shopping connector's
+  // checkout hand-off (`purchase`, financial, device-only); its storefront is the mock desktop.
+  const shopTools = new Registry();
+  const shopping = new ConnectorRegistry({
+    factories: [shoppingFactory({ browser: shared.driver })],
+    context: {
+      clock: { now: () => Date.now() },
+      fetch: async () => new Response("", { status: 404 }),
+      tokens: new MemoryTokenVault(),
+    },
+    tools: shopTools,
+    broker: FakePermissionBroker.policy({ default: "deny" }),
+    newId: () => SHOPPING_ID,
+  });
+  await shopping.connect({
+    catalogueId: "shopping",
+    scopeMode: "read_act",
+    config: {
+      merchants: [
+        {
+          id: "skyways",
+          name: "Skyways",
+          origin: "https://www.skyways.example/",
+          searchPath: "/search?q={q}",
+        },
+        {
+          id: "giftcards",
+          name: "Gift Cards",
+          origin: "https://giftcards.example/",
+          searchPath: "/search?q={q}",
+        },
+      ],
+    },
+  });
+  for (const t of shopTools.list()) {
+    const short = /^mcp__.+?__(.+)$/.exec(t.name)?.[1];
+    if (short !== undefined) shared.aliases.set(short, t.name);
+  }
   const owners = new Map(cases.map((c) => [c.id, c]));
   const mcpServers = new Map<string, "bundled" | "verified" | "unknown">();
   for (const c of cases) {
@@ -294,10 +341,28 @@ export async function prepareM2(cases: readonly InjectionCase[]): Promise<M2Rig>
       now: () => clock.now(),
     });
     for (const r of cu.registrations()) register(r);
-    for (const r of fileTools({
+    for (const r of shopTools.list()) {
+      const reg = shopTools.get(r.name);
+      if (reg !== undefined) register(reg);
+    }
+    const files = fileTools({
       folders: () => broker.policy.folders ?? [],
       protectedRoots: () => protectedRoots(home),
+    });
+    for (const r of files) register(r);
+    // The coding helper (V10) over the same file executors, a fake sandbox and a fake git.
+    const byName = (n: string) => files.find((f) => f.spec.name === n) as AgentToolRegistration;
+    for (const r of codingTools({
+      files: { read: byName("read_file"), write: byName("write_file") },
+      folders: () => broker.policy.folders ?? [],
+      protectedRoots: () => protectedRoots(home),
+      runner: new FakeSandboxRunner(),
+      git: { run: async () => ({ exitCode: 0, stdout: "", stderr: "" }) },
+      broker,
     }))
+      register(r);
+    // Skills (T2): the agent's skills_search / skills_read over an empty skills home.
+    for (const r of createSkillTools(new FsSkillLoader({ homeDir: join(home, "skills") })))
       register(r);
     const vault = {
       list: async () => [],
@@ -306,7 +371,17 @@ export async function prepareM2(cases: readonly InjectionCase[]): Promise<M2Rig>
       },
       redact: (text: string) => text,
     } as unknown as Parameters<typeof execTool>[0]["vault"];
-    register(execTool({ runner: new FakeSandboxRunner(), vault, broker }));
+    // VM mode (L1–L5): a Task whose workspace is the sandbox Mac runs `exec` on another runner.
+    const hostRunner = new FakeSandboxRunner();
+    const vmRunner = new FakeSandboxRunner();
+    register(
+      execTool({
+        runner: hostRunner,
+        runnerFor: (ctx) => (ctx.taskId?.startsWith("task_vm-") === true ? vmRunner : hostRunner),
+        vault,
+        broker,
+      }),
+    );
     const mcp = new FakeMcpHost();
     const mcpReady = (async () => {
       for (const [id, tier] of mcpServers) {
@@ -426,6 +501,8 @@ export async function prepareM2(cases: readonly InjectionCase[]): Promise<M2Rig>
       },
     };
 
+    lastRegistry = () =>
+      loop.registry.list().map((t) => ({ name: t.name, inputSchema: t.inputSchema }));
     const stack: InjectionStack = {
       gate,
       broker,
@@ -440,12 +517,15 @@ export async function prepareM2(cases: readonly InjectionCase[]): Promise<M2Rig>
     return stack;
   };
 
+  let lastRegistry: (() => { name: string; inputSchema: unknown }[]) | undefined;
   return {
     m2Stack,
+    toolSchemas: () => lastRegistry?.() ?? [],
     toolNames: () => [...registered].sort(),
     async close() {
       for (const l of loops) await l.cancel(l.runId).catch(() => undefined);
       for (const db of dbs) db.close();
+      await shopping.close();
       await shared.close();
       rmSync(root, { recursive: true, force: true });
     },
