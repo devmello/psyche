@@ -1,166 +1,48 @@
-import { execFile } from "node:child_process";
-import { cpSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { promisify } from "node:util";
-import { type AgentToolRegistration, codingTools, type GitRunner } from "@psyche/agent-core";
 import { afterAll, describe, expect, it } from "vitest";
-import { fileTools } from "../../../packages/files/src/index.ts";
-import { FakeSandboxRunner } from "../../../packages/testing/src/fakes/FakeSandboxRunner.ts";
 import { runScenario } from "../../../packages/testing/src/scenarios/index.ts";
 import type { Stack } from "../../../packages/testing/src/scenarios/stack.ts";
 import type { Scenario } from "../../../packages/testing/src/scenarios/types.ts";
-import { ROOT, writeReport } from "../src/report.ts";
+import {
+  M3_SCENARIOS_DIR as DIR,
+  V10_FIXED as FIXED,
+  V10_MESSAGE as MESSAGE,
+  sh,
+  type V10World,
+  v10World,
+} from "../src/m3-world.ts";
+import { writeReport } from "../src/report.ts";
 
 /**
  * The Milestone 3 acceptance scenarios (tests/acceptance/scenarios-m3) in scripted mode: S18's
  * runner with the real agent loop, Permission Broker and audit chain, and for V10 the real
- * coding tools (`codingTools` from agent-core over the P9 file tools from @psyche/files) on a
- * fresh copy of the fixture repository with a bare remote. Commands run in the FakeSandboxRunner
- * (never on the host): `npm test` passes once src/add.js returns the sum, as the fixture's own
- * check would. Git is the host binary with a fixed identity and dates, so the fix's commit is
- * deterministic and the scenario can name it on the push card.
+ * coding tools over a fresh copy of the fixture repository with a bare remote
+ * (src/m3-world.ts). Commands run in the FakeSandboxRunner (never on the host).
  */
 
-const run = promisify(execFile);
-const DIR = join(ROOT, "tests/acceptance/scenarios-m3");
 const known: Record<string, Record<string, string>> = JSON.parse(
   readFileSync(join(DIR, "known-failures.json"), "utf8"),
 );
 
-const IDENTITY = {
-  GIT_AUTHOR_NAME: "Avery Lin",
-  GIT_AUTHOR_EMAIL: "owner@example.com",
-  GIT_AUTHOR_DATE: "2026-10-19T08:30:00-07:00",
-  GIT_COMMITTER_NAME: "Avery Lin",
-  GIT_COMMITTER_EMAIL: "owner@example.com",
-  GIT_COMMITTER_DATE: "2026-10-19T08:30:00-07:00",
-};
-const GIT_ENV = {
-  ...process.env,
-  ...IDENTITY,
-  GIT_TERMINAL_PROMPT: "0",
-  GIT_CONFIG_NOSYSTEM: "1",
-  GIT_CONFIG_GLOBAL: "/dev/null",
-};
-
-/** The host git the Gateway composes (argv only), with the scenario's fixed identity. */
-const git: GitRunner = {
-  async run(cwd, args) {
-    try {
-      const r = await run("git", [...args], { cwd, env: GIT_ENV });
-      return { exitCode: 0, stdout: r.stdout, stderr: r.stderr };
-    } catch (err) {
-      const e = err as { code?: unknown; stdout?: string; stderr?: string };
-      return {
-        exitCode: typeof e.code === "number" ? e.code : 1,
-        stdout: e.stdout ?? "",
-        stderr: e.stderr ?? "",
-      };
-    }
-  },
-};
-
-const sh = async (cwd: string, ...args: string[]) =>
-  (await run("git", args, { cwd, env: GIT_ENV })).stdout.trim();
-
-const MESSAGE = "Fix add() to return the sum";
-const FIXED = "export function add(a, b) {\n  return a + b;\n}\n";
-
-const temps: string[] = [];
+const worlds: V10World[] = [];
 afterAll(() => {
-  for (const t of temps) rmSync(t, { recursive: true, force: true });
+  for (const w of worlds) w.dispose();
 });
 
-/** A fresh copy of fixtures/repo, committed, with a bare `origin`. */
-async function fixtureRepo(): Promise<{ repo: string; remote: string }> {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), "psyche-v10-")));
-  temps.push(dir);
-  const repo = join(dir, "repo");
-  const remote = join(dir, "origin.git");
-  cpSync(join(DIR, "v10-coding-helper/fixtures/repo"), repo, { recursive: true });
-  await sh(dir, "init", "--quiet", "--bare", "--initial-branch=main", remote);
-  await sh(repo, "init", "--quiet", "--initial-branch=main");
-  await sh(repo, "add", "--all");
-  await sh(repo, "commit", "--quiet", "-m", "Add add() and its check");
-  await sh(repo, "remote", "add", "origin", remote);
-  return { repo, remote };
-}
-
-/** The commit the scenario's fix produces: same tree, parent, identity, dates and message. */
-async function expectedCommit(): Promise<string> {
-  const { repo } = await fixtureRepo();
-  writeFileSync(join(repo, "src/add.js"), FIXED);
-  await sh(repo, "add", "--all");
-  await sh(repo, "commit", "--quiet", "-m", MESSAGE);
-  return sh(repo, "rev-parse", "HEAD");
-}
-
-function substitute(value: unknown, vars: Record<string, string>): unknown {
-  if (typeof value === "string") {
-    return Object.entries(vars).reduce((s, [k, v]) => s.split(k).join(v), value);
-  }
-  if (Array.isArray(value)) return value.map((v) => substitute(v, vars));
-  if (value !== null && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, substitute(v, vars)]));
-  }
-  return value;
-}
-
-interface V10Run {
+interface V10Run extends V10World {
   report: Awaited<ReturnType<typeof runScenario>>;
-  stack: Stack;
-  runner: FakeSandboxRunner;
-  repo: string;
-  remote: string;
-  commit: string;
+  stackRef: Stack;
 }
 
 async function runV10(): Promise<V10Run> {
-  const commit = await expectedCommit();
-  const { repo, remote } = await fixtureRepo();
-  // Stands in for the fixture's check against the mounted repository: scripts match in
-  // order, and the passing one applies once the fix is on disk.
-  const fixed = () => readFileSync(join(repo, "src/add.js"), "utf8").includes("a + b");
-  const npmTest = (argv: string[]) => argv.join(" ") === "npm test";
-  const runner = new FakeSandboxRunner()
-    .script((r) => npmTest(r.argv) && fixed(), { stdout: "ok 2 checks\n" })
-    .script((r) => npmTest(r.argv), {
-      exitCode: 1,
-      stderr: "AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\n\n0 !== 4\n",
-    });
-  let stack: Stack | undefined;
+  const w = await v10World();
+  worlds.push(w);
   const report = await runScenario(join(DIR, "v10-coding-helper"), {
-    mutate: (sc: Scenario) => {
-      const filled = substitute(sc, {
-        "@REPO@": repo,
-        "@OUTSIDE@": join(repo, "../.."),
-        "@REMOTE@": remote,
-        "@COMMIT@": commit,
-      });
-      Object.assign(sc, filled);
-    },
-    stack: {
-      registrations: (s) => {
-        stack = s;
-        const folders = [{ path: repo, mode: "rw" as const }];
-        // The owner granted the repository folder read-write (permissions.policy.folders).
-        s.broker.setPolicy({ ...s.broker.policy, folders });
-        const files = fileTools({ folders: () => s.broker.policy.folders });
-        const pick = (name: string) =>
-          files.find((t) => t.spec.name === name) as AgentToolRegistration;
-        return codingTools({
-          files: { read: pick("read_file"), write: pick("write_file") },
-          folders: () => s.broker.policy.folders,
-          runner,
-          git,
-          broker: s.broker,
-        });
-      },
-    },
+    mutate: (sc: Scenario) => w.mutate(sc),
+    stack: w.overrides,
   });
-  if (stack === undefined) throw new Error("the Stack was never built");
-  return { report, stack, runner, repo, remote, commit };
+  return { ...w, report, stackRef: w.stack() };
 }
 
 let v10: V10Run | undefined;
@@ -210,12 +92,12 @@ describe("V10: what the scenario file cannot see", () => {
 
   it("the edit's receipt carries the diff and the push's receipt names the commit", async () => {
     const r = v10 ?? (await runV10());
-    const receipts = await r.stack.broker.listReceipts();
+    const receipts = await r.stackRef.broker.listReceipts();
     const edit = receipts.find((x) => x.kind === "file_write");
     expect(edit?.payload).toMatchObject({ diff: expect.stringContaining("+  return a + b;") });
     const push = receipts.find((x) => x.kind === "git_push");
     expect(push?.externalRefs).toEqual({ commit: r.commit, branch: "main" });
-    const card = (await r.stack.broker.list({})).find((a) => a.kind === "git_push");
+    const card = (await r.stackRef.broker.list({})).find((a) => a.kind === "git_push");
     expect(card?.scopesOffered).toEqual(["once"]);
   });
 });
