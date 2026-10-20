@@ -52,7 +52,7 @@ export function CreaturePicker({
           <RadioPrimitive.Root
             key={c.id}
             value={c.id}
-            className="flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-gray-6 bg-background p-2 text-sm outline-none transition-colors hover:bg-gray-3 focus-visible:ring-3 focus-visible:ring-ring/50 data-checked:border-accent-8 data-checked:bg-accent-3 data-checked:text-accent-12"
+            className="flex cursor-pointer flex-col items-center gap-1 rounded-lg border border-gray-6 bg-background p-2 text-sm outline-none transition-colors hover:bg-gray-3 focus-visible:ring-3 focus-visible:ring-ring data-checked:border-accent-8 data-checked:bg-accent-3 data-checked:text-accent-12"
           >
             <Avatar name={personaName} creature={c.id} size={40} decorative />
             <span>{c.name}</span>

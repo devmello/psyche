@@ -96,7 +96,7 @@ export function ActionMatrix({
         }),
         helper.accessor("action", {
           header: () => <span className="sr-only">Key</span>,
-          cell: (info) => <code className="font-mono text-xs text-gray-10">{info.getValue()}</code>,
+          cell: (info) => <code className="font-mono text-xs text-gray-11">{info.getValue()}</code>,
         }),
         ...RULES.map((r) =>
           helper.display({
