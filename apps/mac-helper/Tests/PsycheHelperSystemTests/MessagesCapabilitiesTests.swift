@@ -11,14 +11,24 @@ private actor Sent {
     func ask(_ a: Bool) { asked.append(a) }
 }
 
-private func registry(sent: Sent, automation: MessagesAutomationStatus = .granted, fail: Int = 0,
-                      dbPath: String = "/nonexistent-\(UUID().uuidString)/chat.db") -> CapabilityRegistry {
+/// A directory that cannot be listed: what ~/Library/Messages looks like without Full Disk Access.
+private let lockedDir: String = {
+    let d = NSTemporaryDirectory() + "psyche-locked-\(UUID().uuidString)"
+    try? FileManager.default.createDirectory(atPath: d, withIntermediateDirectories: true)
+    chmod(d, 0)
+    return d
+}()
+
+private func registry(sent: Sent, automation: MessagesAutomationStatus = .granted, fail: Int = 0, osaError: Int = -1728,
+                      dbPath: String = lockedDir + "/chat.db") -> CapabilityRegistry {
     let failures = Counter(fail)
     return CapabilityRegistry(MessagesCapabilities.make(
         databasePath: dbPath,
         sender: { s in
             await sent.add(s)
-            if await failures.take() { throw CapabilityError(.unavailable, reason: "script_error", "Can’t get chat id") }
+            if await failures.take() {
+                throw CapabilityError(.unavailable, reason: "script_error", "script failed", details: ["osaError": .int(osaError)])
+            }
         },
         automation: { ask in
             await sent.ask(ask)
@@ -77,6 +87,14 @@ struct MessagesCapabilitiesTests {
         _ = try await call(registry(sent: sent, fail: 1), "messages.send", ["chatId": "iMessage;+;chat123", "text": "x"], approval: "apr_1")
         let scripts = await sent.scripts
         #expect(scripts.count == 2 && scripts[1].contains("any;+;chat123"))
+    }
+
+    @Test func aTimeoutAfterMessagesTookTheTextIsNotRetried() async {
+        let sent = Sent()
+        await #expect(throws: CapabilityError.self) {
+            _ = try await call(registry(sent: sent, fail: 1, osaError: -1712), "messages.send", ["chatId": "iMessage;+;chat123", "text": "x"], approval: "a")
+        }
+        #expect(await sent.scripts.count == 1)
     }
 
     @Test func deniedAutomationIsAClearError() async {

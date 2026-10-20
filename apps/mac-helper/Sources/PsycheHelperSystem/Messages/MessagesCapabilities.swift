@@ -29,17 +29,14 @@ public enum MessagesCapabilities {
                 description: "Whether Psyche Helper can read Messages (Full Disk Access) and send through Messages.app (Automation). Never prompts.",
                 sideEffect: .none
             )) { _ in
-                var fda = false
-                var present = false
+                var fda = true
+                var present = true
                 var last: Int?
                 do {
-                    let db = try open()
-                    fda = true
-                    present = true
-                    last = try db.lastCursor()
+                    last = try await offMain { try open().lastCursor() }
                 } catch let e as CapabilityError {
-                    present = e.reason != "database_missing" && e.reason != "full_disk_access_missing"
-                    fda = e.reason == "database_missing"
+                    fda = e.reason != "full_disk_access_missing"
+                    present = e.reason != "database_missing" && fda
                 }
                 let status = MessagesStatus(automation: try await automation(false), databasePresent: present,
                                             fullDiskAccess: fda, lastCursor: last)
@@ -86,8 +83,8 @@ public enum MessagesCapabilities {
                 let p = try ctx.decode(MessagesCore.WatchParams.self)
                 let db = try await offMain { try open() }
                 let watcher = MessagesCore.Watcher(
-                    read: { since in try db.read(chatId: nil, handle: nil, since: since, limit: 100) },
-                    start: { try db.lastCursor() },
+                    read: { since in try await offMain { try db.read(chatId: nil, handle: nil, since: since, limit: 100, includeUnlinked: true) } },
+                    start: { try await offMain { try db.lastCursor() } },
                     sleep: sleep
                 )
                 try await watcher.run(since: p.sinceCursor, intervalMs: p.intervalMs ?? 2000,
@@ -122,18 +119,23 @@ public enum MessagesCapabilities {
                     throw CapabilityError(.forbidden, reason: "automation_not_granted", "Automation of Messages was not granted",
                                           details: ["permission": "automation", "target": .string(MessagesCore.messagesBundleId)])
                 }
+                var chatService: MessagesService?
+                if case .chat(let id) = recipient, id.contains(";-;") {
+                    chatService = try? await offMain { try open().lastService(chatId: id) }
+                }
                 var lastError: Error = CapabilityError.unavailable("send_failed", "Messages did not accept the message")
-                for source in MessagesCore.sendScripts(recipient, text: text) {
+                for source in MessagesCore.sendScripts(recipient, text: text, chatService: chatService) {
                     do {
                         try await sender(source)
                         let result = MessagesSendResult(recipient: recipient.display, sent: true,
-                                                        sentAt: ISO8601DateFormatter().string(from: Date()))
+                                                        sentAt: ChatDatabase.isoNow())
                         return CapabilityOutput(try JSONValue(encoding: result), receipt: ReceiptDraft(
                             outcome: .ok, summary: "Sent a message to \(recipient.display)",
                             externalRefs: ["recipient": .string(recipient.display), "length": .int(text.count)]
                         ))
-                    } catch let e as CapabilityError where e.reason == "script_error" {
-                        lastError = e
+                    } catch let e as CapabilityError where e.reason == "script_error"
+                        && MessagesCore.notFoundOSAErrors.contains(Int(e.details["osaError"]?.numberValue ?? 0)) {
+                        lastError = e  // nothing was sent: try the next chat-id spelling
                     }
                 }
                 throw lastError

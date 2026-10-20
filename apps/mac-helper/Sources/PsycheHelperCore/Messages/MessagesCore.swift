@@ -6,6 +6,10 @@ import PsycheProtocol
 public enum MessagesCore {
     public static let messagesBundleId = "com.apple.MobileSMS"
     public static let maxText = 20000
+    public static let sendTimeoutSeconds = 20
+    /// OSA errors that mean "no such chat / participant": safe to try the next spelling, because
+    /// nothing was sent. Anything else (a timeout after Messages took the text) is final.
+    public static let notFoundOSAErrors: Set<Int> = [-1728, -1719]
 
     // MARK: Params
 
@@ -86,21 +90,26 @@ public enum MessagesCore {
     /// Scripts to try, in order. A 1:1 chat id is sent to its participant handle, because macOS 26+
     /// renamed chat GUIDs (`any;-;…`) and Messages' scripting may not find the chat.db GUID; a group
     /// chat is addressed by id, trying the `any;` and `iMessage;` spellings.
-    public static func sendScripts(_ recipient: Recipient, text: String) -> [String] {
+    public static func sendScripts(_ recipient: Recipient, text: String, chatService: MessagesService? = nil) -> [String] {
+        // A bounded Apple Event wait: a hung Messages must not hold the helper's main thread.
         func toParticipant(_ handle: String, _ service: MessagesSendService) -> String {
             let type = service == .sms ? "SMS" : "iMessage"
             return """
-                tell application id "\(messagesBundleId)"
-                    set svc to first account whose service type is \(type)
-                    send \(literal(text)) to participant \(literal(handle)) of svc
-                end tell
+                with timeout of \(sendTimeoutSeconds) seconds
+                    tell application id "\(messagesBundleId)"
+                        set svc to first account whose service type is \(type)
+                        send \(literal(text)) to participant \(literal(handle)) of svc
+                    end tell
+                end timeout
                 """
         }
         func toChat(_ id: String) -> String {
             """
-            tell application id "\(messagesBundleId)"
-                send \(literal(text)) to chat id \(literal(id))
-            end tell
+            with timeout of \(sendTimeoutSeconds) seconds
+                tell application id "\(messagesBundleId)"
+                    send \(literal(text)) to chat id \(literal(id))
+                end tell
+            end timeout
             """
         }
         switch recipient {
@@ -110,7 +119,11 @@ public enum MessagesCore {
             let parts = id.components(separatedBy: ";")
             guard parts.count == 3 else { return [toChat(id)] }
             if parts[1] == "-" {
-                let service: MessagesSendService = parts[0].lowercased() == "sms" ? .sms : .imessage
+                // `any;` (macOS 26+) and `RCS;` ids say nothing about the account: use the chat's
+                // last message service; SMS and RCS go through the SMS account.
+                let prefix = parts[0].lowercased()
+                let svc: MessagesService = prefix == "imessage" ? .imessage : prefix == "sms" || prefix == "rcs" ? .sms : (chatService ?? .imessage)
+                let service: MessagesSendService = svc == .sms || svc == .rcs ? .sms : .imessage
                 return [toParticipant(ChatDatabase.normalize(handle: parts[2]), service)]
             }
             var ids = [id]
@@ -125,22 +138,47 @@ public enum MessagesCore {
     /// Starts at `since`, or at the newest row so nothing old is replayed. Busy or unreadable
     /// databases back off (up to 30 s) and emit one `messages.watch_error` per failure streak;
     /// a missing Full Disk Access grant emits it and ends the invocation with that error.
+    ///
+    /// `read` must return rows not yet linked to a chat (empty `chatID`): Messages writes the
+    /// `chat_message_join` row right after the message, so an unlinked row younger than
+    /// `holdBack` stops the cursor before it until the next poll; an older one is skipped.
     public struct Watcher: Sendable {
-        public typealias Read = @Sendable (_ since: Int) throws -> ChatDatabase.ReadPage
+        public typealias Read = @Sendable (_ since: Int) async throws -> ChatDatabase.ReadPage
         public var read: Read
-        public var start: @Sendable () throws -> Int?
+        public var start: @Sendable () async throws -> Int?
         public var sleep: @Sendable (Duration) async throws -> Void
+        public var now: @Sendable () -> Date
+        public var holdBack: TimeInterval = 30
 
-        public init(read: @escaping Read, start: @escaping @Sendable () throws -> Int?,
-                    sleep: @escaping @Sendable (Duration) async throws -> Void = { try await _Concurrency.Task.sleep(for: $0) }) {
+        public init(read: @escaping Read, start: @escaping @Sendable () async throws -> Int?,
+                    sleep: @escaping @Sendable (Duration) async throws -> Void = { try await _Concurrency.Task.sleep(for: $0) },
+                    now: @escaping @Sendable () -> Date = { Date() }) {
             self.read = read
             self.start = start
             self.sleep = sleep
+            self.now = now
+        }
+
+        /// Rows to deliver and the cursor to advance to, honouring the hold-back rule.
+        func accept(_ page: ChatDatabase.ReadPage, after cursor: Int) -> (messages: [MessagesMessage], cursor: Int, held: Bool) {
+            var out: [MessagesMessage] = []
+            var next = cursor
+            for m in page.messages {
+                if m.chatID.isEmpty {
+                    let sent = ISO8601DateFormatter.psyche.date(from: m.sentAt) ?? .distantPast
+                    if now().timeIntervalSince(sent) < holdBack { return (out, next, true) }
+                } else {
+                    out.append(m)
+                }
+                next = m.cursor
+            }
+            return (out, max(next, page.cursor ?? next), false)
         }
 
         public func run(since: Int?, intervalMs: Int, includeFromMe: Bool, emit: @Sendable (JSONValue) async -> Void) async throws {
             let interval = Duration.milliseconds(max(500, min(intervalMs, 60000)))
-            var cursor = try since ?? (start() ?? 0)
+            var cursor: Int
+            if let since { cursor = since } else { cursor = try await start() ?? 0 }
             var failing = false
             var delay = interval
             while true {
@@ -148,11 +186,12 @@ public enum MessagesCore {
                 do {
                     var more = true
                     while more {
-                        let page = try read(cursor)
-                        more = page.hasMore
-                        guard let next = page.cursor, next > cursor else { break }
+                        let page = try await read(cursor)
+                        let (accepted, next, held) = accept(page, after: cursor)
+                        more = page.hasMore && !held
+                        guard next > cursor else { break }
                         cursor = next
-                        let msgs = includeFromMe ? page.messages : page.messages.filter { !$0.isFromMe }
+                        let msgs = includeFromMe ? accepted : accepted.filter { !$0.isFromMe }
                         if !msgs.isEmpty {
                             let event = MessagesWatchEvent(cursor: next, messages: msgs, type: .messagesNew, reason: nil, retryable: nil)
                             await emit((try? JSONValue(encoding: event)) ?? .null)

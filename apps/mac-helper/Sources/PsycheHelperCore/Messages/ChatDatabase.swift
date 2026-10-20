@@ -19,11 +19,12 @@ public final class ChatDatabase: @unchecked Sendable {
     /// Opens `path` read-only. A permission failure becomes `forbidden/full_disk_access_missing`.
     public init(path: String) throws {
         guard FileManager.default.fileExists(atPath: path) else {
-            // Without Full Disk Access, ~/Library/Messages is not even listable.
-            if FileManager.default.isReadableFile(atPath: (path as NSString).deletingLastPathComponent) {
-                throw CapabilityError(.notFound, reason: "database_missing", "No Messages database at \(path); sign in to Messages first")
+            // Without Full Disk Access, ~/Library/Messages exists but cannot be listed.
+            let dir = (path as NSString).deletingLastPathComponent
+            if FileManager.default.fileExists(atPath: dir), (try? FileManager.default.contentsOfDirectory(atPath: dir)) == nil {
+                throw ChatDatabase.fullDiskAccessMissing
             }
-            throw ChatDatabase.fullDiskAccessMissing
+            throw CapabilityError(.notFound, reason: "database_missing", "No Messages database at \(path); sign in to Messages first")
         }
         do {
             db = try SQLiteReader(path: path)
@@ -31,6 +32,8 @@ public final class ChatDatabase: @unchecked Sendable {
             attachmentColumns = try db.columns("attachment")
         } catch let e as SQLiteReader.OpenError where e.isPermission {
             throw ChatDatabase.fullDiskAccessMissing
+        } catch let e as SQLiteReader.OpenError where e.isBusy {
+            throw CapabilityError(.unavailable, reason: "database_locked", "The Messages database is busy", retryable: true)
         } catch {
             throw CapabilityError(.unavailable, reason: "database_unreadable", "The Messages database could not be read", retryable: true)
         }
@@ -97,7 +100,7 @@ public final class ChatDatabase: @unchecked Sendable {
     }
 
     /// With `since`, rows after it ascending (one page); without, the newest `limit` rows ascending.
-    public func read(chatId: String?, handle: String?, since: Int?, limit: Int) throws -> ReadPage {
+    public func read(chatId: String?, handle: String?, since: Int?, limit: Int, includeUnlinked: Bool = false) throws -> ReadPage {
         let limit = clamp(limit)
         let mc = messageColumns
         func col(_ name: String) -> String { mc.contains(name) ? "m.\(name)" : "NULL" }
@@ -107,11 +110,13 @@ public final class ChatDatabase: @unchecked Sendable {
                    \(col("associated_message_guid")), \(col("associated_message_emoji")), \(col("is_audio_message")),
                    h.id, h.service, c.guid, c.service_name, c.style
             FROM message m
-            JOIN chat_message_join cmj ON cmj.message_id = m.ROWID
-            JOIN chat c ON c.ROWID = cmj.chat_id
+            LEFT JOIN chat c ON c.ROWID = (
+                CASE WHEN ?2 IS NULL THEN (SELECT MIN(chat_id) FROM chat_message_join WHERE message_id = m.ROWID)
+                     ELSE (SELECT j.chat_id FROM chat_message_join j JOIN chat x ON x.ROWID = j.chat_id
+                           WHERE j.message_id = m.ROWID AND x.guid = ?2) END)
             LEFT JOIN handle h ON h.ROWID = m.handle_id
             WHERE m.ROWID > ?1
-              AND (?2 IS NULL OR c.guid = ?2)
+              AND (?2 IS NULL OR c.guid IS NOT NULL)
               AND (?3 IS NULL OR h.id = ?3 OR c.chat_identifier = ?3)
             ORDER BY m.ROWID \(since == nil ? "DESC" : "ASC")
             LIMIT ?4
@@ -120,13 +125,29 @@ public final class ChatDatabase: @unchecked Sendable {
         var rows = try run {
             try db.query(sql, [.int(Int64(since ?? 0)), chatId.map { .text($0) } ?? .null, handleArg, .int(Int64(limit + 1))])
         }
-        let hasMore = rows.count > limit
-        if hasMore { rows.removeLast() }
+        // `hasMore` means "newer rows after cursor"; the newest-N mode has none by definition.
+        let hasMore = since != nil && rows.count > limit
+        if rows.count > limit { rows.removeLast() }
         if since == nil { rows.reverse() }
         let attachments = try attachments(for: rows.compactMap { $0[0].int })
-        let messages = rows.map { message(from: $0, attachments: attachments) }
-        return ReadPage(messages: messages, cursor: messages.last?.cursor ?? since, hasMore: hasMore)
+        let all = rows.map { message(from: $0, attachments: attachments) }
+        // A row not (yet) linked to a chat has an empty chatId; the watcher decides about it.
+        let messages = includeUnlinked ? all : all.filter { !$0.chatID.isEmpty }
+        return ReadPage(messages: messages, cursor: all.last?.cursor ?? since, hasMore: hasMore)
     }
+
+    /// The service of the newest message in a chat (macOS 26+ `any;` chats carry no service).
+    public func lastService(chatId: String) throws -> MessagesService {
+        let r = try run {
+            try db.query("""
+                SELECT m.service FROM message m JOIN chat_message_join j ON j.message_id = m.ROWID
+                JOIN chat c ON c.ROWID = j.chat_id WHERE c.guid = ? ORDER BY m.ROWID DESC LIMIT 1
+                """, [.text(chatId)])
+        }
+        return Self.service(r.first?.first?.text, chatGuid: chatId)
+    }
+
+    public static func isoNow() -> String { ISO8601DateFormatter.psyche.string(from: Date()) }
 
     // MARK: Row mapping
 

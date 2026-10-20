@@ -28,7 +28,7 @@ struct ChatDatabaseTests {
 
         let recent = try db.read(chatId: nil, handle: "+15551110000", since: nil, limit: 2)
         #expect(recent.messages.map(\.text) == ["two", "three"])
-        #expect(recent.hasMore)
+        #expect(!recent.hasMore) // newest-N mode: nothing newer to page to
         #expect(recent.cursor == 4)
         #expect(recent.messages[0].isFromMe && recent.messages[0].sender == nil)
         #expect(recent.messages[1].sender?.handle == "+15551110000")
@@ -86,6 +86,19 @@ struct ChatDatabaseTests {
         #expect(!encoded.contains("Library/Messages/Attachments"))
     }
 
+    @Test func aMessageInTwoChatsIsReturnedOnceAndUnlinkedRowsOnlyOnRequest() throws {
+        let (f, aliceChat, _, group, alice) = Self.fixture()
+        let both = f.message(chat: aliceChat, handle: alice, text: "merged thread")
+        f.insert("INSERT INTO chat_message_join (chat_id, message_id) VALUES (?, ?)", [group, both])
+        f.insert("INSERT INTO message (guid, text, handle_id, service, date) VALUES ('orphan', 'no chat yet', 1, 'iMessage', 0)", [])
+        let db = try ChatDatabase(path: f.path)
+        let page = try db.read(chatId: nil, handle: nil, since: 0, limit: 10)
+        #expect(page.messages.map(\.cursor) == [1])
+        #expect(page.cursor == 2) // the unlinked row still moves the read cursor
+        #expect(try db.read(chatId: nil, handle: nil, since: 0, limit: 10, includeUnlinked: true).messages.map(\.chatID) == ["iMessage;-;+15551110000", ""])
+        #expect(try db.read(chatId: "iMessage;+;chat123", handle: nil, since: 0, limit: 10).messages.map(\.chatID) == ["iMessage;+;chat123"])
+    }
+
     @Test func readsAnOlderSchemaWithoutOptionalColumns() throws {
         let (f, aliceChat, _, _, alice) = Self.fixture(modern: false)
         f.message(chat: aliceChat, handle: alice, text: "old")
@@ -110,8 +123,16 @@ struct ChatDatabaseTests {
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
         #expect(throws: CapabilityError.self) { try ChatDatabase(path: dir + "/chat.db") }
         do { _ = try ChatDatabase(path: dir + "/chat.db") } catch let e as CapabilityError { #expect(e.reason == "database_missing") } catch {}
-        // A parent directory we cannot list stands in for ~/Library/Messages without Full Disk Access.
+        // No ~/Library/Messages at all: Messages was never set up, not a missing grant.
         do { _ = try ChatDatabase(path: "/nonexistent-\(UUID().uuidString)/chat.db") } catch let e as CapabilityError {
+            #expect(e.reason == "database_missing")
+        } catch {}
+        // A directory we cannot list stands in for ~/Library/Messages without Full Disk Access.
+        let locked = NSTemporaryDirectory() + "psyche-locked-\(UUID().uuidString)"
+        try? FileManager.default.createDirectory(atPath: locked, withIntermediateDirectories: true)
+        chmod(locked, 0)
+        defer { chmod(locked, 0o755) }
+        do { _ = try ChatDatabase(path: locked + "/chat.db"); Issue.record("expected a refusal") } catch let e as CapabilityError {
             #expect(e.reason == "full_disk_access_missing")
             #expect(e.message.contains("Full Disk Access"))
         } catch {}
@@ -172,6 +193,10 @@ struct MessagesCoreTests {
         #expect(oneToOne.count == 1 && oneToOne[0].contains(#"participant "+15551110000""#))
         let sms = MessagesCore.sendScripts(.chat("SMS;-;+15552220000"), text: "x")
         #expect(sms[0].contains("service type is SMS"))
+        #expect(s[0].contains("with timeout of 20 seconds"))
+        let anySms = MessagesCore.sendScripts(.chat("any;-;+15552220000"), text: "x", chatService: .sms)
+        #expect(anySms[0].contains("service type is SMS"))
+        #expect(MessagesCore.sendScripts(.chat("RCS;-;+15552220000"), text: "x")[0].contains("service type is SMS"))
         let group = MessagesCore.sendScripts(.chat("iMessage;+;chat123"), text: "x")
         #expect(group.map { $0.contains("chat id \"iMessage;+;chat123\"") } == [true, false])
         #expect(group[1].contains("chat id \"any;+;chat123\""))
@@ -208,6 +233,24 @@ struct MessagesCoreTests {
         let texts = decoded.flatMap { $0.messages ?? [] }.map(\.text)
         #expect(texts == ["new1", "new2"]) // "old" is not replayed; the owner's own row is filtered
         #expect(decoded.last?.cursor == 4)
+    }
+
+    @Test func watcherHoldsTheCursorBeforeAFreshUnlinkedRowAndSkipsAStaleOne() {
+        func msg(_ c: Int, chat: String, at: String) -> MessagesMessage {
+            MessagesMessage(attachments: [], chatID: chat, cursor: c, editedAt: nil, guid: "g\(c)", isFromMe: false, reaction: nil,
+                            replyToGUID: nil, sender: nil, sentAt: at, service: .imessage, text: "t\(c)")
+        }
+        let now = ISO8601DateFormatter().date(from: "2026-10-19T12:00:00Z")!
+        let w = MessagesCore.Watcher(read: { _ in throw CancellationError() }, start: { 0 }, now: { now })
+        let fresh = ChatDatabase.ReadPage(messages: [msg(5, chat: "c", at: "2026-10-19T11:59:59.000Z"),
+                                                     msg(6, chat: "", at: "2026-10-19T11:59:59.000Z"),
+                                                     msg(7, chat: "c", at: "2026-10-19T11:59:59.000Z")], cursor: 7, hasMore: false)
+        let a = w.accept(fresh, after: 4)
+        #expect(a.messages.map(\.cursor) == [5] && a.cursor == 5 && a.held)
+        let stale = ChatDatabase.ReadPage(messages: [msg(6, chat: "", at: "2026-10-19T11:00:00.000Z"),
+                                                     msg(7, chat: "c", at: "2026-10-19T11:59:59.000Z")], cursor: 7, hasMore: false)
+        let b = w.accept(stale, after: 5)
+        #expect(b.messages.map(\.cursor) == [7] && b.cursor == 7 && !b.held)
     }
 
     @Test func watcherReportsMissingFullDiskAccessOnceAndEnds() async throws {

@@ -21,6 +21,7 @@ public final class SQLiteReader: @unchecked Sendable {
         public var code: Int32
         public var message: String
         public var isPermission: Bool { code == SQLITE_CANTOPEN || code == SQLITE_PERM || code == SQLITE_AUTH }
+        public var isBusy: Bool { code == SQLITE_BUSY || code == SQLITE_LOCKED }
     }
 
     public struct QueryError: Error, Sendable {
@@ -53,7 +54,9 @@ public final class SQLiteReader: @unchecked Sendable {
         } catch let e as QueryError {
             sqlite3_close(db)
             db = nil
-            throw OpenError(code: e.code == SQLITE_NOTADB ? SQLITE_NOTADB : SQLITE_CANTOPEN, message: e.message)
+            // Only access failures read as "no Full Disk Access"; busy / corrupt stay what they are.
+            let access = e.code == SQLITE_CANTOPEN || e.code == SQLITE_PERM || e.code == SQLITE_AUTH
+            throw OpenError(code: access ? SQLITE_CANTOPEN : e.code, message: e.message)
         }
     }
 
