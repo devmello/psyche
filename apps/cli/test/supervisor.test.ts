@@ -44,6 +44,10 @@ describe("LaunchAgent plist", () => {
     expect(plist).toContain(
       "<key>PSYCHE_HOME</key>\n    <string>/Users/me/.psyche &lt;test&gt;</string>",
     );
+    // #530: Homebrew first, so the Claude Code and Codex CLIs are found under launchd.
+    expect(plist).toContain(
+      "<key>PATH</key>\n    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>",
+    );
     expect(plist).toContain("<string>/Users/me/.psyche &lt;test&gt;/logs/gateway.out.log</string>");
     expect(plist).toContain("<string>/Users/me/.psyche &lt;test&gt;/logs/gateway.err.log</string>");
     expect(plist).toContain("<string>--port</string>");

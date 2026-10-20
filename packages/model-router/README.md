@@ -141,6 +141,8 @@ These providers run on the owner's own plans through the installed CLIs: Claude 
 
 **Limits, honestly.**
 - The CLI must be installed and signed in on the Gateway's machine.
+  - It is found through `config.command`, `PSYCHE_CLAUDE_PATH` / `PSYCHE_CODEX_PATH`, PATH, the usual install directories (Homebrew, `~/.local/bin`, npm, Bun, nvm), and finally the login shell (`resolveCli`).
+  - The probe shows which path it found.
 - Rate limits and usage caps are the plan's. A heavy agent turn uses the same quota as interactive use.
 - Each turn starts a CLI process, which takes about 1–2 s.
 - A run waiting on an approval keeps its process alive for up to 4 h. After a Gateway restart, it resumes from the stored session id.

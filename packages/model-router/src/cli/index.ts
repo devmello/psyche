@@ -9,6 +9,7 @@ export * from "./claude-code.ts";
 export * from "./codex.ts";
 export * from "./probe.ts";
 export * from "./prompt.ts";
+export * from "./resolve.ts";
 export * from "./run.ts";
 
 /** The dialect for a subscription-CLI provider config. */

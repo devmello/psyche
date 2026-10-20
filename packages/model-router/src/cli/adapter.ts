@@ -1,5 +1,5 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   EMPTY_USAGE,
@@ -18,7 +18,24 @@ import { parseModelRef } from "../refs.ts";
 import { ToolNameMap, type ToolNameRule } from "../tool-names.ts";
 import { BRIDGE_SCRIPT, type BridgeTool, type McpToolResult, ToolBridge } from "./bridge.ts";
 import { type CliPrompt, type CliSessionEnvelope, cliPrompt } from "./prompt.ts";
+import {
+  cliChildPath,
+  executable,
+  knownCliDirs,
+  type ResolveCliOptions,
+  type ResolvedCli,
+  resolveCli,
+} from "./resolve.ts";
 import { type CliItem, type CliLine, CliRun } from "./run.ts";
+
+/** Where we looked, for the "not installed" message. */
+export function notInstalled(dialect: CliDialect, command: string | undefined): string {
+  const name = dialect.defaultCommand;
+  if (command !== undefined && command.includes("/")) {
+    return `${dialect.label} is not installed at ${command}`;
+  }
+  return `${dialect.label} is not installed: \`${name}\` was not found in PSYCHE_${name.toUpperCase()}_PATH, PATH, ${knownCliDirs("~").slice(0, 5).join(", ")} or the login shell's PATH`;
+}
 
 /**
  * `ModelProvider` over a subscription CLI (Claude Code `claude -p`, Codex `codex exec`): the
@@ -89,6 +106,8 @@ export interface CliAdapterDeps {
   bridge?: ToolBridge;
   /** Base env for the CLI (default `process.env`). */
   env?: NodeJS.ProcessEnv;
+  /** How the CLI is found (tests: a home without the owner's bins, no login shell). */
+  resolve?: Omit<ResolveCliOptions, "command" | "env">;
 }
 
 interface LiveRun {
@@ -137,6 +156,8 @@ export class CliAdapter implements ModelProvider {
   readonly dialect: CliDialect;
   readonly #bridge: ToolBridge;
   readonly #env: NodeJS.ProcessEnv;
+  readonly #resolveOpts: Omit<ResolveCliOptions, "command" | "env">;
+  #resolved: ResolvedCli | undefined;
   /** Suspended runs by the CLI's tool-call id. */
   readonly #live = new Map<string, LiveRun>();
 
@@ -146,10 +167,27 @@ export class CliAdapter implements ModelProvider {
     this.dialect = dialect;
     this.#bridge = deps.bridge ?? new ToolBridge();
     this.#env = deps.env ?? process.env;
+    this.#resolveOpts = deps.resolve ?? {};
   }
 
   get command(): string {
-    return this.config.command ?? this.dialect.defaultCommand;
+    return this.#resolved?.path ?? this.config.command ?? this.dialect.defaultCommand;
+  }
+
+  /**
+   * The CLI's path (#530): `config.command`, `PSYCHE_<NAME>_PATH`, PATH, the installers'
+   * directories, then the login shell. Cached while the file is still there.
+   */
+  async resolveCommand(): Promise<ResolvedCli | undefined> {
+    const cached = this.#resolved;
+    if (cached !== undefined && executable(cached.path)) return cached;
+    const command = this.config.command;
+    this.#resolved = await resolveCli(this.dialect.defaultCommand, {
+      ...this.#resolveOpts,
+      env: this.#env,
+      ...(command === undefined ? {} : { command }),
+    });
+    return this.#resolved;
   }
 
   workdir(): string {
@@ -245,10 +283,21 @@ export class CliAdapter implements ModelProvider {
       workdir,
     });
     for (const f of spec.files ?? []) writeFileSync(f.path, f.data, { mode: 0o600 });
+    const resolved = await this.resolveCommand();
+    if (resolved === undefined) {
+      this.#bridge.close(channel.id);
+      rmSync(configFile, { force: true });
+      throw new ModelCallError("model_not_found", notInstalled(this.dialect, this.config.command));
+    }
     const env: NodeJS.ProcessEnv = { ...this.#env, ...this.dialect.env() };
     for (const k of this.dialect.stripEnv) delete env[k];
+    env.PATH = cliChildPath(
+      resolved.path,
+      this.#env,
+      this.#resolveOpts.home ?? this.#env.HOME ?? homedir(),
+    );
     run = new CliRun({
-      command: this.command,
+      command: resolved.path,
       args: spec.args,
       cwd: workdir,
       env,

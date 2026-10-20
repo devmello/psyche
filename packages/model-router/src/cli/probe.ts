@@ -1,10 +1,12 @@
 import { execFile } from "node:child_process";
+import { homedir } from "node:os";
 import type { Clock } from "@psyche/protocol";
 import type { CapabilityGuess } from "../capability-guess.ts";
 import type { ProviderConfig } from "../config.ts";
 import type { EndpointProbeResult, ProbedModel } from "../endpoint-probe.ts";
 import { formatModelRef } from "../refs.ts";
-import type { CliDialect } from "./adapter.ts";
+import { type CliDialect, notInstalled } from "./adapter.ts";
+import { cliChildPath, type ResolveCliOptions, resolveCli } from "./resolve.ts";
 
 /**
  * Probe for a subscription CLI (B4): is it installed (`--version`), and is it signed in
@@ -16,6 +18,8 @@ import type { CliDialect } from "./adapter.ts";
 
 export interface CliProbeDeps {
   env?: NodeJS.ProcessEnv;
+  /** How the CLI is found (tests: a fake home, no login shell). */
+  resolve?: Omit<ResolveCliOptions, "command" | "env">;
   clock?: Clock;
   timeoutMs?: number;
 }
@@ -78,10 +82,26 @@ export async function probeCli(
   const started = clock.now();
   const probedAt = new Date(started).toISOString();
   const timeoutMs = deps.timeoutMs ?? 10_000;
-  const command = config.command ?? dialect.defaultCommand;
-  const env: NodeJS.ProcessEnv = { ...(deps.env ?? process.env) };
-  for (const k of dialect.stripEnv) delete env[k];
+  const base: NodeJS.ProcessEnv = { ...(deps.env ?? process.env) };
   const elapsed = () => Math.max(0, clock.now() - started);
+  const resolved = await resolveCli(dialect.defaultCommand, {
+    ...deps.resolve,
+    env: base,
+    ...(config.command === undefined ? {} : { command: config.command }),
+  });
+  if (resolved === undefined) {
+    return {
+      state: "unreachable",
+      probedAt,
+      latencyMs: elapsed(),
+      models: [],
+      error: notInstalled(dialect, config.command),
+    };
+  }
+  const command = resolved.path;
+  const env: NodeJS.ProcessEnv = { ...base };
+  for (const k of dialect.stripEnv) delete env[k];
+  env.PATH = cliChildPath(command, base, deps.resolve?.home ?? base.HOME ?? homedir());
 
   const version = await exec(command, ["--version"], env, timeoutMs);
   if (version.missing || version.code !== 0) {
@@ -90,9 +110,7 @@ export async function probeCli(
       probedAt,
       latencyMs: elapsed(),
       models: [],
-      error: version.missing
-        ? `${dialect.label} is not installed (\`${command}\` was not found on PATH)`
-        : `\`${command} --version\` failed`,
+      error: `\`${command} --version\` failed`,
     };
   }
   const v = /\d+\.\d+\.\d+(?:[-.\w]*)?/.exec(version.stdout)?.[0];
@@ -122,7 +140,8 @@ export async function probeCli(
     const using = /logged in using ([\w -]+)/i.exec(text)?.[1]?.trim();
     detail = using ?? "";
   }
-  const server = `${dialect.label}${v === undefined ? "" : ` ${v}`}${detail.length > 0 ? ` (${detail})` : ""}`;
+  // The resolved path is shown in Settings, so the owner sees which CLI runs (#530).
+  const server = `${dialect.label}${v === undefined ? "" : ` ${v}`} · ${command}${detail.length > 0 ? ` (${detail})` : ""}`;
   if (!signedIn) {
     return {
       state: "auth_failed",
