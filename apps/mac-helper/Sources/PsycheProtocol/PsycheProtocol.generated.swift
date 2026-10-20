@@ -87,6 +87,7 @@
 //   let browserOpenParams = try? JSONDecoder().decode(BrowserOpenParams.self, from: jsonData)
 //   let browserOpenResult = try? JSONDecoder().decode(BrowserOpenResult.self, from: jsonData)
 //   let browserProfile = try? JSONDecoder().decode(BrowserProfile.self, from: jsonData)
+//   let browserRealChromeStatusParams = try? JSONDecoder().decode(BrowserRealChromeStatusParams.self, from: jsonData)
 //   let browserRecording = try? JSONDecoder().decode(BrowserRecording.self, from: jsonData)
 //   let browserRecordingEvent = try? JSONDecoder().decode(BrowserRecordingEvent.self, from: jsonData)
 //   let browserRecordingEventKind = try? JSONDecoder().decode(BrowserRecordingEventKind.self, from: jsonData)
@@ -372,6 +373,7 @@
 //   let queueMode = try? JSONDecoder().decode(QueueMode.self, from: jsonData)
 //   let queuedMessage = try? JSONDecoder().decode(QueuedMessage.self, from: jsonData)
 //   let queuedMessageResult = try? JSONDecoder().decode(QueuedMessageResult.self, from: jsonData)
+//   let realChromeStatus = try? JSONDecoder().decode(RealChromeStatus.self, from: jsonData)
 //   let receipt = try? JSONDecoder().decode(Receipt.self, from: jsonData)
 //   let receiptBlock = try? JSONDecoder().decode(ReceiptBlock.self, from: jsonData)
 //   let receiptCreatedPayload = try? JSONDecoder().decode(ReceiptCreatedPayload.self, from: jsonData)
@@ -7794,6 +7796,37 @@ public struct QueuedMessageResult: Codable, Sendable {
     }
 }
 
+// MARK: - RealChromeStatus
+public struct RealChromeStatus: Codable, Sendable {
+    public let attached: Bool
+    public let enabled: Bool
+    public let pid: Int?
+    public let port: Int?
+    public let sessions: Int
+    public let since: String?
+    public let userDataDir: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case attached = "attached"
+        case enabled = "enabled"
+        case pid = "pid"
+        case port = "port"
+        case sessions = "sessions"
+        case since = "since"
+        case userDataDir = "userDataDir"
+    }
+
+    public init(attached: Bool, enabled: Bool, pid: Int?, port: Int?, sessions: Int, since: String?, userDataDir: String?) {
+        self.attached = attached
+        self.enabled = enabled
+        self.pid = pid
+        self.port = port
+        self.sessions = sessions
+        self.since = since
+        self.userDataDir = userDataDir
+    }
+}
+
 // MARK: - ReceiptBlock
 public struct ReceiptBlock: Codable, Sendable {
     public let receiptID: String
@@ -11448,6 +11481,7 @@ public enum WrapUpBlockType: String, Codable, Sendable {
 public typealias AuditVerifyParams = [String: JSONAny]
 public typealias BackupListParams = [String: JSONAny]
 public typealias BridgeTabsListParams = [String: JSONAny]
+public typealias BrowserRealChromeStatusParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]

@@ -127,12 +127,43 @@ export const BrowserRecordingFrame = Type.Object(
 );
 export type BrowserRecordingFrame = Static<typeof BrowserRecordingFrame>;
 
+/**
+ * Real-Chrome mode (feature I13; ADR-007; security §6): the owner's own Chrome profile driven
+ * over a loopback DevTools port, opened per task with the owner's consent and closed when the
+ * last task releases it or after 15 minutes idle. While `attached`, any local process that finds
+ * the port can drive that profile, so `psyche security audit` flags it.
+ */
+export const RealChromeStatus = Type.Object(
+  {
+    /** The mode is turned on for this Gateway (`PSYCHE_REAL_CHROME=1`). */
+    enabled: Type.Boolean(),
+    /** Chrome is running with the DevTools port open. */
+    attached: Type.Boolean(),
+    port: Type.Optional(Type.Integer({ minimum: 1, maximum: 65535 })),
+    pid: Type.Optional(Type.Integer({ minimum: 1 })),
+    since: Type.Optional(IsoDateTime),
+    /** Tasks currently holding it. */
+    sessions: Type.Integer({ minimum: 0 }),
+    /** The Chrome profile directory in use. */
+    userDataDir: Type.Optional(Type.String()),
+  },
+  { $id: "RealChromeStatus" },
+);
+export type RealChromeStatus = Static<typeof RealChromeStatus>;
+
 export const BrowserMethods = {
   "browser.tabs": defineMethod({
     params: Type.Object({ taskId: Type.Optional(Id) }),
     result: Type.Object({ tabs: Type.Array(BrowserTab) }),
     scope: "operator.read",
     description: "Lists agent browser tabs.",
+  }),
+  "browser.realChrome.status": defineMethod({
+    params: Type.Object({}),
+    result: RealChromeStatus,
+    scope: "operator.read",
+    description:
+      "Whether real-Chrome mode is on and attached, with its DevTools port, PID and profile dir.",
   }),
   "browser.open": defineMethod({
     params: Type.Object({
