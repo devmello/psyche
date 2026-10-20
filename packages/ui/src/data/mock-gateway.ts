@@ -90,16 +90,13 @@ export interface MockWorld {
   memoryFiles: Record<string, string>;
   memoryClaims: MemoryClaim[];
   searchHits: SearchHit[];
-<<<<<<< HEAD
   skills: SkillDetails[];
   skillSources: Record<string, MockSkillSource>;
-=======
   /** `models.list` providers (B1, B4); absent → `models.list` answers with none. */
   modelProviders?: ModelProviderSummary[];
   modelRoles?: ModelRoles;
   /** What `models.probe` finds per provider id (recorded fixtures); missing → unreachable. */
   modelProbes?: Record<string, EndpointProbe>;
->>>>>>> origin/main
 }
 
 export const EMPTY_WORLD: MockWorld = {
