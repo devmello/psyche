@@ -1,6 +1,6 @@
 {
   "name": "@psyche/proactive",
-  "version": "0.0.0",
+  "version": "0.3.0-alpha.0",
   "private": true,
   "description": "Feed, Ideas and Goals pipelines: bounded, confirmable proactivity (interest ledger, goal check-ins, acceptance model).",
   "license": "Apache-2.0",

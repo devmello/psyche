@@ -576,3 +576,55 @@ describe("deploy/scripts/build-psyched.mjs server subset", () => {
     }
   });
 });
+
+describe("deploy/scripts/release-notes.mjs", () => {
+  it("leads with the curated notes for the tag's minor version, without dependency bumps", () => {
+    const root = mkdtempSync(join(tmpdir(), "psyche-notes-"));
+    try {
+      mkdirSync(join(root, "docs/release-notes"), { recursive: true });
+      writeFileSync(
+        join(root, "docs/release-notes/0.3.md"),
+        "# Psyche v0.3.0-alpha.0\n\nCurated.\n",
+      );
+      for (const [name, body] of [
+        [
+          "gateway",
+          "### Minor Changes\n\n- abc123: A feature.\n\n### Patch Changes\n\n- Updated dependencies [abc123]\n  - @psyche/protocol@0.3.0-alpha.0\n",
+        ],
+        [
+          "web",
+          "### Patch Changes\n\n- Updated dependencies [abc123]\n  - @psyche/protocol@0.3.0-alpha.0\n",
+        ],
+      ] as const) {
+        mkdirSync(join(root, "apps", name), { recursive: true });
+        writeFileSync(
+          join(root, "apps", name, "package.json"),
+          JSON.stringify({ name: `@psyche/${name}` }),
+        );
+        writeFileSync(
+          join(root, "apps", name, "CHANGELOG.md"),
+          `# @psyche/${name}\n\n## 0.3.0-alpha.0\n\n${body}\n## 0.2.0\n\n- old\n`,
+        );
+      }
+      const run = (tag: string) =>
+        execFileSync(process.execPath, [resolve(deploy, "scripts/release-notes.mjs"), root, tag], {
+          encoding: "utf8",
+        });
+      const notes = run("v0.3.0-alpha.0");
+      expect(notes.startsWith("# Psyche v0.3.0-alpha.0\n\nCurated.")).toBe(true);
+      expect(notes).toContain("<details><summary>Changes by package</summary>");
+      expect(notes).toContain("### @psyche/gateway 0.3.0-alpha.0");
+      expect(notes).toContain("- abc123: A feature.");
+      expect(notes).not.toContain("Updated dependencies");
+      expect(notes).not.toContain("@psyche/protocol@");
+      expect(notes).not.toContain("### Patch Changes");
+      // A package whose section held only dependency bumps drops out.
+      expect(notes).not.toContain("### @psyche/web");
+      expect(notes).not.toContain("- old");
+      // No curated file: the plain heading.
+      expect(run("v0.4.0").startsWith("# Psyche v0.4.0\n")).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});

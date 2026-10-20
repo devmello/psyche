@@ -104,7 +104,7 @@ function NoticeBar({
         type="button"
         onClick={onDismiss}
         aria-label="Dismiss"
-        className="rounded p-0.5 text-muted-foreground hover:bg-gray-4"
+        className="inline-flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-gray-4"
       >
         <X className="size-3.5" aria-hidden="true" />
       </button>

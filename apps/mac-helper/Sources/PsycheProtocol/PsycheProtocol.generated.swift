@@ -184,6 +184,9 @@
 //   let checklistItemStatus = try? JSONDecoder().decode(ChecklistItemStatus.self, from: jsonData)
 //   let checkpointStatus = try? JSONDecoder().decode(CheckpointStatus.self, from: jsonData)
 //   let citation = try? JSONDecoder().decode(Citation.self, from: jsonData)
+//   let compactionBlock = try? JSONDecoder().decode(CompactionBlock.self, from: jsonData)
+//   let compactionResult = try? JSONDecoder().decode(CompactionResult.self, from: jsonData)
+//   let compactionSummary = try? JSONDecoder().decode(CompactionSummary.self, from: jsonData)
 //   let connectChallenge = try? JSONDecoder().decode(ConnectChallenge.self, from: jsonData)
 //   let connectDenied = try? JSONDecoder().decode(ConnectDenied.self, from: jsonData)
 //   let connectPaired = try? JSONDecoder().decode(ConnectPaired.self, from: jsonData)
@@ -198,6 +201,9 @@
 //   let connectorsGetResult = try? JSONDecoder().decode(ConnectorsGetResult.self, from: jsonData)
 //   let connectorsListParams = try? JSONDecoder().decode(ConnectorsListParams.self, from: jsonData)
 //   let connectorsListResult = try? JSONDecoder().decode(ConnectorsListResult.self, from: jsonData)
+//   let contextBreakdown = try? JSONDecoder().decode(ContextBreakdown.self, from: jsonData)
+//   let contextLimits = try? JSONDecoder().decode(ContextLimits.self, from: jsonData)
+//   let contextUsage = try? JSONDecoder().decode(ContextUsage.self, from: jsonData)
 //   let conversionTarget = try? JSONDecoder().decode(ConversionTarget.self, from: jsonData)
 //   let credentialBinding = try? JSONDecoder().decode(CredentialBinding.self, from: jsonData)
 //   let credentialKind = try? JSONDecoder().decode(CredentialKind.self, from: jsonData)
@@ -245,6 +251,7 @@
 //   let dmPolicy = try? JSONDecoder().decode(DmPolicy.self, from: jsonData)
 //   let documentsConvertParams = try? JSONDecoder().decode(DocumentsConvertParams.self, from: jsonData)
 //   let documentsConvertResult = try? JSONDecoder().decode(DocumentsConvertResult.self, from: jsonData)
+//   let effectiveContextLimits = try? JSONDecoder().decode(EffectiveContextLimits.self, from: jsonData)
 //   let emptyParams = try? JSONDecoder().decode(EmptyParams.self, from: jsonData)
 //   let endpointProbe = try? JSONDecoder().decode(EndpointProbe.self, from: jsonData)
 //   let endpointProbeState = try? JSONDecoder().decode(EndpointProbeState.self, from: jsonData)
@@ -599,9 +606,20 @@
 //   let tasksListParams = try? JSONDecoder().decode(TasksListParams.self, from: jsonData)
 //   let tasksListResult = try? JSONDecoder().decode(TasksListResult.self, from: jsonData)
 //   let tasksRetryParams = try? JSONDecoder().decode(TasksRetryParams.self, from: jsonData)
+//   let teachDraft = try? JSONDecoder().decode(TeachDraft.self, from: jsonData)
+//   let teachDraftFile = try? JSONDecoder().decode(TeachDraftFile.self, from: jsonData)
+//   let teachEndedBy = try? JSONDecoder().decode(TeachEndedBy.self, from: jsonData)
+//   let teachScreenshot = try? JSONDecoder().decode(TeachScreenshot.self, from: jsonData)
+//   let teachSessionParams = try? JSONDecoder().decode(TeachSessionParams.self, from: jsonData)
+//   let teachStartParams = try? JSONDecoder().decode(TeachStartParams.self, from: jsonData)
+//   let teachStep = try? JSONDecoder().decode(TeachStep.self, from: jsonData)
+//   let teachStepEvent = try? JSONDecoder().decode(TeachStepEvent.self, from: jsonData)
+//   let teachStepKind = try? JSONDecoder().decode(TeachStepKind.self, from: jsonData)
+//   let teachTarget = try? JSONDecoder().decode(TeachTarget.self, from: jsonData)
 //   let textBlock = try? JSONDecoder().decode(TextBlock.self, from: jsonData)
 //   let thread = try? JSONDecoder().decode(Thread.self, from: jsonData)
 //   let threadActivity = try? JSONDecoder().decode(ThreadActivity.self, from: jsonData)
+//   let threadContextUpdatedPayload = try? JSONDecoder().decode(ThreadContextUpdatedPayload.self, from: jsonData)
 //   let threadDeletedPayload = try? JSONDecoder().decode(ThreadDeletedPayload.self, from: jsonData)
 //   let threadIDParams = try? JSONDecoder().decode(ThreadIDParams.self, from: jsonData)
 //   let threadKind = try? JSONDecoder().decode(ThreadKind.self, from: jsonData)
@@ -609,6 +627,10 @@
 //   let threadPreview = try? JSONDecoder().decode(ThreadPreview.self, from: jsonData)
 //   let threadResult = try? JSONDecoder().decode(ThreadResult.self, from: jsonData)
 //   let threadUpdatedPayload = try? JSONDecoder().decode(ThreadUpdatedPayload.self, from: jsonData)
+//   let threadsCompactParams = try? JSONDecoder().decode(ThreadsCompactParams.self, from: jsonData)
+//   let threadsCompactResult = try? JSONDecoder().decode(ThreadsCompactResult.self, from: jsonData)
+//   let threadsContextUsageParams = try? JSONDecoder().decode(ThreadsContextUsageParams.self, from: jsonData)
+//   let threadsContextUsageResult = try? JSONDecoder().decode(ThreadsContextUsageResult.self, from: jsonData)
 //   let threadsCreateParams = try? JSONDecoder().decode(ThreadsCreateParams.self, from: jsonData)
 //   let threadsDeleteParams = try? JSONDecoder().decode(ThreadsDeleteParams.self, from: jsonData)
 //   let threadsForkParams = try? JSONDecoder().decode(ThreadsForkParams.self, from: jsonData)
@@ -616,6 +638,8 @@
 //   let threadsListResult = try? JSONDecoder().decode(ThreadsListResult.self, from: jsonData)
 //   let threadsPinParams = try? JSONDecoder().decode(ThreadsPinParams.self, from: jsonData)
 //   let threadsRenameParams = try? JSONDecoder().decode(ThreadsRenameParams.self, from: jsonData)
+//   let threadsSetContextLimitsParams = try? JSONDecoder().decode(ThreadsSetContextLimitsParams.self, from: jsonData)
+//   let threadsSetContextLimitsResult = try? JSONDecoder().decode(ThreadsSetContextLimitsResult.self, from: jsonData)
 //   let threadsUpdateParams = try? JSONDecoder().decode(ThreadsUpdateParams.self, from: jsonData)
 //   let toolCall = try? JSONDecoder().decode(ToolCall.self, from: jsonData)
 //   let toolCallBlock = try? JSONDecoder().decode(ToolCallBlock.self, from: jsonData)
@@ -2385,7 +2409,7 @@ public struct AutomationRun: Codable, Sendable {
     public let summary: String?
     public let taskID: String?
     public let threadID: String?
-    public let trigger: Trigger
+    public let trigger: AutomationRunTrigger
 
     public enum CodingKeys: String, CodingKey {
         case automationID = "automationId"
@@ -2402,7 +2426,7 @@ public struct AutomationRun: Codable, Sendable {
         case trigger = "trigger"
     }
 
-    public init(automationID: String, coalesced: Int, endedAt: String?, id: String, notificationID: String?, scheduledFor: String, startedAt: String, status: AutomationRunStatus, summary: String?, taskID: String?, threadID: String?, trigger: Trigger) {
+    public init(automationID: String, coalesced: Int, endedAt: String?, id: String, notificationID: String?, scheduledFor: String, startedAt: String, status: AutomationRunStatus, summary: String?, taskID: String?, threadID: String?, trigger: AutomationRunTrigger) {
         self.automationID = automationID
         self.coalesced = coalesced
         self.endedAt = endedAt
@@ -2427,7 +2451,7 @@ public enum AutomationRunStatus: String, Codable, Sendable {
     case skipped = "skipped"
 }
 
-public enum Trigger: String, Codable, Sendable {
+public enum AutomationRunTrigger: String, Codable, Sendable {
     case manual = "manual"
     case schedule = "schedule"
 }
@@ -4374,6 +4398,12 @@ public struct Block: Codable, Sendable {
     public let actions: [WrapUpAction]?
     public let ask: String?
     public let recap: String?
+    public let compactionID: String?
+    public let replaced: Replaced?
+    public let summary: CompactionSummary?
+    public let tokensAfter: Int?
+    public let tokensBefore: Int?
+    public let trigger: BlockTrigger?
 
     public enum CodingKeys: String, CodingKey {
         case md = "md"
@@ -4394,9 +4424,15 @@ public struct Block: Codable, Sendable {
         case actions = "actions"
         case ask = "ask"
         case recap = "recap"
+        case compactionID = "compactionId"
+        case replaced = "replaced"
+        case summary = "summary"
+        case tokensAfter = "tokensAfter"
+        case tokensBefore = "tokensBefore"
+        case trigger = "trigger"
     }
 
-    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ItemElement]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?) {
+    public init(md: String?, type: BlockType, level1: String?, status: ToolCallStatus?, tool: String?, toolCallID: String?, planID: String?, items: [ItemElement]?, approvalID: String?, inputRequestID: String?, artifactID: String?, preview: String?, libraryItemID: String?, receiptID: String?, taskID: String?, actions: [WrapUpAction]?, ask: String?, recap: String?, compactionID: String?, replaced: Replaced?, summary: CompactionSummary?, tokensAfter: Int?, tokensBefore: Int?, trigger: BlockTrigger?) {
         self.md = md
         self.type = type
         self.level1 = level1
@@ -4415,6 +4451,12 @@ public struct Block: Codable, Sendable {
         self.actions = actions
         self.ask = ask
         self.recap = recap
+        self.compactionID = compactionID
+        self.replaced = replaced
+        self.summary = summary
+        self.tokensAfter = tokensAfter
+        self.tokensBefore = tokensBefore
+        self.trigger = trigger
     }
 }
 
@@ -4468,6 +4510,25 @@ public enum ChecklistItemStatus: String, Codable, Sendable {
     case pending = "pending"
 }
 
+// MARK: - Replaced
+public struct Replaced: Codable, Sendable {
+    public let fromMessageID: String?
+    public let toMessageID: String?
+    public let turns: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case fromMessageID = "fromMessageId"
+        case toMessageID = "toMessageId"
+        case turns = "turns"
+    }
+
+    public init(fromMessageID: String?, toMessageID: String?, turns: Int) {
+        self.fromMessageID = fromMessageID
+        self.toMessageID = toMessageID
+        self.turns = turns
+    }
+}
+
 public enum ToolCallStatus: String, Codable, Sendable {
     case blocked = "blocked"
     case failed = "failed"
@@ -4477,10 +4538,38 @@ public enum ToolCallStatus: String, Codable, Sendable {
     case uncertain = "uncertain"
 }
 
+// MARK: - CompactionSummary
+public struct CompactionSummary: Codable, Sendable {
+    public let decisions: [String]
+    public let facts: [String]
+    public let openTasks: [String]
+    public let pinnedInstructions: [String]
+
+    public enum CodingKeys: String, CodingKey {
+        case decisions = "decisions"
+        case facts = "facts"
+        case openTasks = "openTasks"
+        case pinnedInstructions = "pinnedInstructions"
+    }
+
+    public init(decisions: [String], facts: [String], openTasks: [String], pinnedInstructions: [String]) {
+        self.decisions = decisions
+        self.facts = facts
+        self.openTasks = openTasks
+        self.pinnedInstructions = pinnedInstructions
+    }
+}
+
+public enum BlockTrigger: String, Codable, Sendable {
+    case auto = "auto"
+    case manual = "manual"
+}
+
 public enum BlockType: String, Codable, Sendable {
     case approval = "approval"
     case artifact = "artifact"
     case checklist = "checklist"
+    case compaction = "compaction"
     case file = "file"
     case plan = "plan"
     case question = "question"
@@ -4922,6 +5011,41 @@ public struct ChecklistItem: Codable, Sendable {
 
 public enum ChecklistBlockType: String, Codable, Sendable {
     case checklist = "checklist"
+}
+
+// MARK: - CompactionBlock
+public struct CompactionBlock: Codable, Sendable {
+    public let compactionID: String
+    public let replaced: Replaced
+    public let summary: CompactionSummary
+    public let tokensAfter: Int
+    public let tokensBefore: Int
+    public let trigger: BlockTrigger
+    public let type: CompactionBlockType
+
+    public enum CodingKeys: String, CodingKey {
+        case compactionID = "compactionId"
+        case replaced = "replaced"
+        case summary = "summary"
+        case tokensAfter = "tokensAfter"
+        case tokensBefore = "tokensBefore"
+        case trigger = "trigger"
+        case type = "type"
+    }
+
+    public init(compactionID: String, replaced: Replaced, summary: CompactionSummary, tokensAfter: Int, tokensBefore: Int, trigger: BlockTrigger, type: CompactionBlockType) {
+        self.compactionID = compactionID
+        self.replaced = replaced
+        self.summary = summary
+        self.tokensAfter = tokensAfter
+        self.tokensBefore = tokensBefore
+        self.trigger = trigger
+        self.type = type
+    }
+}
+
+public enum CompactionBlockType: String, Codable, Sendable {
+    case compaction = "compaction"
 }
 
 // MARK: - ConnectChallenge
@@ -12365,6 +12489,234 @@ public struct TasksRetryParams: Codable, Sendable {
     }
 }
 
+// MARK: - TeachDraft
+public struct TeachDraft: Codable, Sendable {
+    public let description: String
+    public let endedAt: String
+    public let endedBy: TeachEndedBy
+    /// SKILL.md first
+    public let files: [TeachDraftFile]
+    public let name: String
+    public let sessionID: String
+    public let startedAt: String
+    /// Without screenshot bytes
+    public let steps: [TeachStep]
+
+    public enum CodingKeys: String, CodingKey {
+        case description = "description"
+        case endedAt = "endedAt"
+        case endedBy = "endedBy"
+        case files = "files"
+        case name = "name"
+        case sessionID = "sessionId"
+        case startedAt = "startedAt"
+        case steps = "steps"
+    }
+
+    public init(description: String, endedAt: String, endedBy: TeachEndedBy, files: [TeachDraftFile], name: String, sessionID: String, startedAt: String, steps: [TeachStep]) {
+        self.description = description
+        self.endedAt = endedAt
+        self.endedBy = endedBy
+        self.files = files
+        self.name = name
+        self.sessionID = sessionID
+        self.startedAt = startedAt
+        self.steps = steps
+    }
+}
+
+public enum TeachEndedBy: String, Codable, Sendable {
+    case cancel = "cancel"
+    case limit = "limit"
+    case stop = "stop"
+    case timeout = "timeout"
+}
+
+// MARK: - TeachDraftFile
+public struct TeachDraftFile: Codable, Sendable {
+    public let fromStep: Int?
+    public let path: String
+    public let text: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case fromStep = "fromStep"
+        case path = "path"
+        case text = "text"
+    }
+
+    public init(fromStep: Int?, path: String, text: String?) {
+        self.fromStep = fromStep
+        self.path = path
+        self.text = text
+    }
+}
+
+// MARK: - TeachStep
+public struct TeachStep: Codable, Sendable {
+    public let at: String
+    public let index: Int
+    /// A chord, e.g. cmd+s, return
+    public let keys: String?
+    public let kind: TeachStepKind
+    public let note: String?
+    public let screenshot: TeachScreenshot?
+    public let secure: Bool?
+    public let target: TeachTarget?
+    public let text: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case index = "index"
+        case keys = "keys"
+        case kind = "kind"
+        case note = "note"
+        case screenshot = "screenshot"
+        case secure = "secure"
+        case target = "target"
+        case text = "text"
+    }
+
+    public init(at: String, index: Int, keys: String?, kind: TeachStepKind, note: String?, screenshot: TeachScreenshot?, secure: Bool?, target: TeachTarget?, text: String?) {
+        self.at = at
+        self.index = index
+        self.keys = keys
+        self.kind = kind
+        self.note = note
+        self.screenshot = screenshot
+        self.secure = secure
+        self.target = target
+        self.text = text
+    }
+}
+
+public enum TeachStepKind: String, Codable, Sendable {
+    case click = "click"
+    case doubleClick = "double_click"
+    case press = "press"
+    case rightClick = "right_click"
+    case skipped = "skipped"
+    case type = "type"
+}
+
+// MARK: - TeachScreenshot
+public struct TeachScreenshot: Codable, Sendable {
+    public let base64: String
+    public let mimeType: String
+    /// Path in the draft, e.g. screens/step-3.jpg
+    public let path: String
+
+    public enum CodingKeys: String, CodingKey {
+        case base64 = "base64"
+        case mimeType = "mimeType"
+        case path = "path"
+    }
+
+    public init(base64: String, mimeType: String, path: String) {
+        self.base64 = base64
+        self.mimeType = mimeType
+        self.path = path
+    }
+}
+
+// MARK: - TeachTarget
+public struct TeachTarget: Codable, Sendable {
+    /// Bundle id
+    public let app: String
+    public let appName: String
+    public let identifier: String?
+    public let label: String?
+    public let role: String?
+    public let subrole: String?
+    public let window: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case app = "app"
+        case appName = "appName"
+        case identifier = "identifier"
+        case label = "label"
+        case role = "role"
+        case subrole = "subrole"
+        case window = "window"
+    }
+
+    public init(app: String, appName: String, identifier: String?, label: String?, role: String?, subrole: String?, window: String?) {
+        self.app = app
+        self.appName = appName
+        self.identifier = identifier
+        self.label = label
+        self.role = role
+        self.subrole = subrole
+        self.window = window
+    }
+}
+
+// MARK: - TeachSessionParams
+public struct TeachSessionParams: Codable, Sendable {
+    public let sessionID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case sessionID = "sessionId"
+    }
+
+    public init(sessionID: String) {
+        self.sessionID = sessionID
+    }
+}
+
+// MARK: - TeachStartParams
+public struct TeachStartParams: Codable, Sendable {
+    /// Record only this bundle id
+    public let app: String?
+    public let description: String?
+    public let maxSeconds: Int?
+    public let maxSteps: Int?
+    /// Skill name
+    public let name: String?
+    /// Window screenshot after each click (default false)
+    public let screenshots: Bool?
+
+    public enum CodingKeys: String, CodingKey {
+        case app = "app"
+        case description = "description"
+        case maxSeconds = "maxSeconds"
+        case maxSteps = "maxSteps"
+        case name = "name"
+        case screenshots = "screenshots"
+    }
+
+    public init(app: String?, description: String?, maxSeconds: Int?, maxSteps: Int?, name: String?, screenshots: Bool?) {
+        self.app = app
+        self.description = description
+        self.maxSeconds = maxSeconds
+        self.maxSteps = maxSteps
+        self.name = name
+        self.screenshots = screenshots
+    }
+}
+
+// MARK: - TeachStepEvent
+public struct TeachStepEvent: Codable, Sendable {
+    public let sessionID: String
+    public let step: TeachStep
+    public let type: TeachStepEventType
+
+    public enum CodingKeys: String, CodingKey {
+        case sessionID = "sessionId"
+        case step = "step"
+        case type = "type"
+    }
+
+    public init(sessionID: String, step: TeachStep, type: TeachStepEventType) {
+        self.sessionID = sessionID
+        self.step = step
+        self.type = type
+    }
+}
+
+public enum TeachStepEventType: String, Codable, Sendable {
+    case teachStep = "teach.step"
+}
+
 // MARK: - TextBlock
 public struct TextBlock: Codable, Sendable {
     public let md: String
@@ -12383,6 +12735,115 @@ public struct TextBlock: Codable, Sendable {
 
 public enum TextBlockType: String, Codable, Sendable {
     case text = "text"
+}
+
+// MARK: - ThreadContextUpdatedPayload
+public struct ThreadContextUpdatedPayload: Codable, Sendable {
+    public let usage: ContextUsage
+
+    public enum CodingKeys: String, CodingKey {
+        case usage = "usage"
+    }
+
+    public init(usage: ContextUsage) {
+        self.usage = usage
+    }
+}
+
+// MARK: - ContextUsage
+public struct ContextUsage: Codable, Sendable {
+    public let at: String
+    public let breakdown: ContextBreakdown
+    public let compactions: Int
+    public let estimated: Bool
+    public let limits: EffectiveContextLimits
+    public let model: String
+    public let peakTokens: Int
+    public let promptTokens: Int
+    public let runID: String
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case at = "at"
+        case breakdown = "breakdown"
+        case compactions = "compactions"
+        case estimated = "estimated"
+        case limits = "limits"
+        case model = "model"
+        case peakTokens = "peakTokens"
+        case promptTokens = "promptTokens"
+        case runID = "runId"
+        case threadID = "threadId"
+    }
+
+    public init(at: String, breakdown: ContextBreakdown, compactions: Int, estimated: Bool, limits: EffectiveContextLimits, model: String, peakTokens: Int, promptTokens: Int, runID: String, threadID: String) {
+        self.at = at
+        self.breakdown = breakdown
+        self.compactions = compactions
+        self.estimated = estimated
+        self.limits = limits
+        self.model = model
+        self.peakTokens = peakTokens
+        self.promptTokens = promptTokens
+        self.runID = runID
+        self.threadID = threadID
+    }
+}
+
+// MARK: - ContextBreakdown
+public struct ContextBreakdown: Codable, Sendable {
+    public let context: Int
+    public let current: Int
+    public let history: Int
+    public let system: Int
+    public let tools: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case context = "context"
+        case current = "current"
+        case history = "history"
+        case system = "system"
+        case tools = "tools"
+    }
+
+    public init(context: Int, current: Int, history: Int, system: Int, tools: Int) {
+        self.context = context
+        self.current = current
+        self.history = history
+        self.system = system
+        self.tools = tools
+    }
+}
+
+// MARK: - EffectiveContextLimits
+public struct EffectiveContextLimits: Codable, Sendable {
+    public let compactAt: Double
+    public let contextWindow: Int
+    public let keepRecentTurns: Int
+    public let maxTokens: Int
+    public let maxTokensFrom: MaxTokensFrom
+
+    public enum CodingKeys: String, CodingKey {
+        case compactAt = "compactAt"
+        case contextWindow = "contextWindow"
+        case keepRecentTurns = "keepRecentTurns"
+        case maxTokens = "maxTokens"
+        case maxTokensFrom = "maxTokensFrom"
+    }
+
+    public init(compactAt: Double, contextWindow: Int, keepRecentTurns: Int, maxTokens: Int, maxTokensFrom: MaxTokensFrom) {
+        self.compactAt = compactAt
+        self.contextWindow = contextWindow
+        self.keepRecentTurns = keepRecentTurns
+        self.maxTokens = maxTokens
+        self.maxTokensFrom = maxTokensFrom
+    }
+}
+
+public enum MaxTokensFrom: String, Codable, Sendable {
+    case model = "model"
+    case settings = "settings"
+    case thread = "thread"
 }
 
 // MARK: - ThreadDeletedPayload
@@ -12517,6 +12978,108 @@ public struct ThreadUpdatedPayload: Codable, Sendable {
 
     public init(thread: Thread) {
         self.thread = thread
+    }
+}
+
+// MARK: - ThreadsCompactParams
+public struct ThreadsCompactParams: Codable, Sendable {
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case threadID = "threadId"
+    }
+
+    public init(threadID: String) {
+        self.threadID = threadID
+    }
+}
+
+// MARK: - ThreadsCompactResult
+public struct ThreadsCompactResult: Codable, Sendable {
+    public let compaction: CompactionResult?
+
+    public enum CodingKeys: String, CodingKey {
+        case compaction = "compaction"
+    }
+
+    public init(compaction: CompactionResult?) {
+        self.compaction = compaction
+    }
+}
+
+// MARK: - CompactionResult
+public struct CompactionResult: Codable, Sendable {
+    public let compactionID: String
+    public let messageID: String
+    public let replacedTurns: Int
+    public let tokensAfter: Int
+    public let tokensBefore: Int
+
+    public enum CodingKeys: String, CodingKey {
+        case compactionID = "compactionId"
+        case messageID = "messageId"
+        case replacedTurns = "replacedTurns"
+        case tokensAfter = "tokensAfter"
+        case tokensBefore = "tokensBefore"
+    }
+
+    public init(compactionID: String, messageID: String, replacedTurns: Int, tokensAfter: Int, tokensBefore: Int) {
+        self.compactionID = compactionID
+        self.messageID = messageID
+        self.replacedTurns = replacedTurns
+        self.tokensAfter = tokensAfter
+        self.tokensBefore = tokensBefore
+    }
+}
+
+// MARK: - ThreadsContextUsageParams
+public struct ThreadsContextUsageParams: Codable, Sendable {
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case threadID = "threadId"
+    }
+
+    public init(threadID: String) {
+        self.threadID = threadID
+    }
+}
+
+// MARK: - ThreadsContextUsageResult
+public struct ThreadsContextUsageResult: Codable, Sendable {
+    public let limits: EffectiveContextLimits
+    public let threadLimits: ContextLimits
+    public let usage: ContextUsage?
+
+    public enum CodingKeys: String, CodingKey {
+        case limits = "limits"
+        case threadLimits = "threadLimits"
+        case usage = "usage"
+    }
+
+    public init(limits: EffectiveContextLimits, threadLimits: ContextLimits, usage: ContextUsage?) {
+        self.limits = limits
+        self.threadLimits = threadLimits
+        self.usage = usage
+    }
+}
+
+// MARK: - ContextLimits
+public struct ContextLimits: Codable, Sendable {
+    public let compactAt: Double?
+    public let keepRecentTurns: Int?
+    public let maxTokens: Int?
+
+    public enum CodingKeys: String, CodingKey {
+        case compactAt = "compactAt"
+        case keepRecentTurns = "keepRecentTurns"
+        case maxTokens = "maxTokens"
+    }
+
+    public init(compactAt: Double?, keepRecentTurns: Int?, maxTokens: Int?) {
+        self.compactAt = compactAt
+        self.keepRecentTurns = keepRecentTurns
+        self.maxTokens = maxTokens
     }
 }
 
@@ -12718,6 +13281,38 @@ public struct ThreadsRenameParams: Codable, Sendable {
     public init(threadID: String, title: String) {
         self.threadID = threadID
         self.title = title
+    }
+}
+
+// MARK: - ThreadsSetContextLimitsParams
+public struct ThreadsSetContextLimitsParams: Codable, Sendable {
+    public let limits: ContextLimits?
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case limits = "limits"
+        case threadID = "threadId"
+    }
+
+    public init(limits: ContextLimits?, threadID: String) {
+        self.limits = limits
+        self.threadID = threadID
+    }
+}
+
+// MARK: - ThreadsSetContextLimitsResult
+public struct ThreadsSetContextLimitsResult: Codable, Sendable {
+    public let limits: EffectiveContextLimits
+    public let threadLimits: ContextLimits
+
+    public enum CodingKeys: String, CodingKey {
+        case limits = "limits"
+        case threadLimits = "threadLimits"
+    }
+
+    public init(limits: EffectiveContextLimits, threadLimits: ContextLimits) {
+        self.limits = limits
+        self.threadLimits = threadLimits
     }
 }
 

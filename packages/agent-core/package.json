@@ -1,6 +1,6 @@
 {
   "name": "@psyche/agent-core",
-  "version": "0.0.0",
+  "version": "0.3.0-alpha.0",
   "private": true,
   "description": "The agent loop: steer/follow-up queues, tool registry, context assembly, compaction, ask_user, plan and checklist.",
   "license": "Apache-2.0",

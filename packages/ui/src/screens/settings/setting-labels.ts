@@ -18,6 +18,9 @@ export const SETTING_LABELS: Readonly<Record<string, string>> = {
   "browser.realChrome": "Real-Chrome mode",
   "computerUse.enabled": "Allow computer use",
   "computerUse.apps": "App access",
+  "context.maxTokens": "Context limit",
+  "context.compactAt": "Compact at",
+  "context.keepRecentTurns": "Recent turns kept verbatim",
   "data.transcriptRecall": "Transcript recall",
   "data.replayRetentionDays": "Keep task replays for",
   "gateway.bind": "Bind address",
@@ -40,6 +43,8 @@ export const SETTING_LABELS: Readonly<Record<string, string>> = {
   [VM_SETTING_KEYS.defaultWorkspace]: "Where a task runs by default",
   [VM_SETTING_KEYS.clipboard]: "Clipboard",
   [VM_SETTING_KEYS.credentials]: "Credentials placement",
+  // L6 (#452): a fresh sandbox Mac for every task; the VM section adds its switch.
+  "vm.resetPerTask": "Fresh Mac for every task",
   "vm.shares": "Shared folders in VM mode",
   "voice.pushToTalk": "Push-to-talk key",
   "voice.mode": "Dictation mode",

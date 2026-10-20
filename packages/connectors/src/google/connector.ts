@@ -125,7 +125,7 @@ const time = {
   properties: { dateTime: str, date: str, timeZone: str },
   additionalProperties: false,
 };
-const eventSchema = obj(
+export const calendarEventSchema = obj(
   {
     summary: str,
     description: str,
@@ -533,7 +533,7 @@ export class GoogleConnector implements Connector {
         action: "calendar.write",
         description: 'Create an event. sendUpdates "all" emails the attendees.',
         inputSchema: obj(
-          { calendarId: str, event: eventSchema, sendUpdates: { enum: ["all", "none"] } },
+          { calendarId: str, event: calendarEventSchema, sendUpdates: { enum: ["all", "none"] } },
           ["event"],
         ),
         sideEffect: "write",
@@ -562,7 +562,7 @@ export class GoogleConnector implements Connector {
           {
             calendarId: str,
             eventId: str,
-            event: eventSchema,
+            event: calendarEventSchema,
             sendUpdates: { enum: ["all", "none"] },
           },
           ["eventId", "event"],

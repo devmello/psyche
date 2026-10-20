@@ -124,14 +124,48 @@ export class ShellStore {
     for (const l of this.listeners) l();
   }
 
-  toast(text: string, tone: Toast["tone"] = "info", ttlMs = 5_000): void {
+  /**
+   * Shows a toast. Errors stay until dismissed; others close after `ttlMs` (8 s), and the timer
+   * pauses while the pointer or focus is on the toasts (WCAG 2.2.1; docs/a11y-audit.md T1).
+   */
+  toast(text: string, tone: Toast["tone"] = "info", ttlMs = 8_000): void {
     const id = `t${++toastSeq}`;
     this.set({ toasts: [...this.state.toasts, { id, text, tone }] });
-    setTimeout(() => this.dismissToast(id), ttlMs);
+    if (tone !== "error") this.#arm(id, ttlMs);
   }
 
   dismissToast(id: string): void {
+    const t = this.#toastTimers.get(id);
+    if (t) clearTimeout(t.timer);
+    this.#toastTimers.delete(id);
     this.set({ toasts: this.state.toasts.filter((t) => t.id !== id) });
+  }
+
+  /** Pauses (true) or resumes (false) every toast's timer. */
+  holdToasts(hold: boolean): void {
+    if (hold === this.#toastsHeld) return;
+    this.#toastsHeld = hold;
+    const now = Date.now();
+    for (const [id, t] of this.#toastTimers) {
+      if (hold) {
+        clearTimeout(t.timer);
+        t.remaining = Math.max(0, t.deadline - now);
+      } else this.#arm(id, t.remaining);
+    }
+  }
+
+  #toastTimers = new Map<
+    string,
+    { timer: ReturnType<typeof setTimeout>; deadline: number; remaining: number }
+  >();
+  #toastsHeld = false;
+
+  #arm(id: string, ms: number): void {
+    const timer = setTimeout(() => this.dismissToast(id), ms);
+    this.#toastTimers.set(id, { timer, deadline: Date.now() + ms, remaining: ms });
+    if (this.#toastsHeld) {
+      clearTimeout(timer);
+    }
   }
 
   /** Calls a method; marks it unavailable instead of throwing when the Gateway lacks it. */

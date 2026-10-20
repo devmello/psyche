@@ -619,12 +619,12 @@ export interface AutomationRun {
     summary?:        null | string;
     taskId?:         null | string;
     threadId?:       null | string;
-    trigger:         Trigger;
+    trigger:         AutomationRunTrigger;
 }
 
 export type AutomationRunStatus = "running" | "done" | "no_reply" | "failed" | "cancelled" | "skipped";
 
-export type Trigger = "schedule" | "manual";
+export type AutomationRunTrigger = "schedule" | "manual";
 
 export interface AutomationRunStartedPayload {
     run: AutomationRun;
@@ -1336,6 +1336,12 @@ export interface Block {
     actions?:        WrapUpAction[];
     ask?:            string;
     recap?:          string;
+    compactionId?:   string;
+    replaced?:       Replaced;
+    summary?:        CompactionSummary;
+    tokensAfter?:    number;
+    tokensBefore?:   number;
+    trigger?:        BlockTrigger;
 }
 
 export interface WrapUpAction {
@@ -1354,9 +1360,24 @@ export interface ItemElement {
 
 export type ChecklistItemStatus = "pending" | "in_progress" | "completed";
 
+export interface Replaced {
+    fromMessageId?: null | string;
+    toMessageId?:   null | string;
+    turns:          number;
+}
+
 export type ToolCallStatus = "pending" | "running" | "ok" | "failed" | "uncertain" | "blocked";
 
-export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads";
+export interface CompactionSummary {
+    decisions:          string[];
+    facts:              string[];
+    openTasks:          string[];
+    pinnedInstructions: string[];
+}
+
+export type BlockTrigger = "auto" | "manual";
+
+export type BlockType = "text" | "tool_call" | "plan" | "checklist" | "approval" | "question" | "artifact" | "file" | "receipt" | "task" | "wrap_up" | "related_threads" | "compaction";
 
 export interface ChatCancelParams {
     runId?:   string;
@@ -1502,6 +1523,18 @@ export interface ChecklistItem {
 }
 
 export type ChecklistBlockType = "checklist";
+
+export interface CompactionBlock {
+    compactionId: string;
+    replaced:     Replaced;
+    summary:      CompactionSummary;
+    tokensAfter:  number;
+    tokensBefore: number;
+    trigger:      BlockTrigger;
+    type:         CompactionBlockType;
+}
+
+export type CompactionBlockType = "compaction";
 
 export interface ConnectChallenge {
     expiresAt: string;
@@ -4112,12 +4145,141 @@ export interface TasksRetryParams {
     taskId:      string;
 }
 
+export interface TeachDraft {
+    description: string;
+    endedAt:     string;
+    endedBy:     TeachEndedBy;
+    /**
+     * SKILL.md first
+     */
+    files:     TeachDraftFile[];
+    name:      string;
+    sessionId: string;
+    startedAt: string;
+    /**
+     * Without screenshot bytes
+     */
+    steps: TeachStep[];
+}
+
+export type TeachEndedBy = "stop" | "timeout" | "limit" | "cancel";
+
+export interface TeachDraftFile {
+    fromStep?: number;
+    path:      string;
+    text?:     string;
+}
+
+export interface TeachStep {
+    at:    string;
+    index: number;
+    /**
+     * A chord, e.g. cmd+s, return
+     */
+    keys?:       string;
+    kind:        TeachStepKind;
+    note?:       string;
+    screenshot?: TeachScreenshot;
+    secure?:     boolean;
+    target?:     TeachTarget;
+    text?:       string;
+}
+
+export type TeachStepKind = "click" | "right_click" | "double_click" | "type" | "press" | "skipped";
+
+export interface TeachScreenshot {
+    base64:   string;
+    mimeType: string;
+    /**
+     * Path in the draft, e.g. screens/step-3.jpg
+     */
+    path: string;
+}
+
+export interface TeachTarget {
+    /**
+     * Bundle id
+     */
+    app:         string;
+    appName:     string;
+    identifier?: string;
+    label?:      string;
+    role?:       string;
+    subrole?:    string;
+    window?:     string;
+}
+
+export interface TeachSessionParams {
+    sessionId: string;
+}
+
+export interface TeachStartParams {
+    /**
+     * Record only this bundle id
+     */
+    app?:         string;
+    description?: string;
+    maxSeconds?:  number;
+    maxSteps?:    number;
+    /**
+     * Skill name
+     */
+    name?: string;
+    /**
+     * Window screenshot after each click (default false)
+     */
+    screenshots?: boolean;
+}
+
+export interface TeachStepEvent {
+    sessionId: string;
+    step:      TeachStep;
+    type:      TeachStepEventType;
+}
+
+export type TeachStepEventType = "teach.step";
+
 export interface TextBlock {
     md:   string;
     type: TextBlockType;
 }
 
 export type TextBlockType = "text";
+
+export interface ThreadContextUpdatedPayload {
+    usage: ContextUsage;
+}
+
+export interface ContextUsage {
+    at:           string;
+    breakdown:    ContextBreakdown;
+    compactions:  number;
+    estimated:    boolean;
+    limits:       EffectiveContextLimits;
+    model:        string;
+    peakTokens:   number;
+    promptTokens: number;
+    runId:        string;
+    threadId:     string;
+}
+
+export interface ContextBreakdown {
+    context: number;
+    current: number;
+    history: number;
+    system:  number;
+    tools:   number;
+}
+
+export interface EffectiveContextLimits {
+    compactAt:       number;
+    contextWindow:   number;
+    keepRecentTurns: number;
+    maxTokens:       number;
+    maxTokensFrom:   MaxTokensFrom;
+}
+
+export type MaxTokensFrom = "thread" | "settings" | "model";
 
 export interface ThreadDeletedPayload {
     threadId: string;
@@ -4162,6 +4324,38 @@ export type TitleSource = "user" | "auto";
 
 export interface ThreadUpdatedPayload {
     thread: Thread;
+}
+
+export interface ThreadsCompactParams {
+    threadId: string;
+}
+
+export interface ThreadsCompactResult {
+    compaction: CompactionResult | null;
+}
+
+export interface CompactionResult {
+    compactionId:  string;
+    messageId:     string;
+    replacedTurns: number;
+    tokensAfter:   number;
+    tokensBefore:  number;
+}
+
+export interface ThreadsContextUsageParams {
+    threadId: string;
+}
+
+export interface ThreadsContextUsageResult {
+    limits:       EffectiveContextLimits;
+    threadLimits: ContextLimits;
+    usage:        ContextUsage | null;
+}
+
+export interface ContextLimits {
+    compactAt?:       number;
+    keepRecentTurns?: number;
+    maxTokens?:       number;
 }
 
 export interface ThreadsCreateParams {
@@ -4234,6 +4428,16 @@ export interface ThreadsPinParams {
 export interface ThreadsRenameParams {
     threadId: string;
     title:    string;
+}
+
+export interface ThreadsSetContextLimitsParams {
+    limits:   ContextLimits | null;
+    threadId: string;
+}
+
+export interface ThreadsSetContextLimitsResult {
+    limits:       EffectiveContextLimits;
+    threadLimits: ContextLimits;
 }
 
 export interface ThreadsUpdateParams {

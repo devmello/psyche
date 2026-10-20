@@ -1,6 +1,6 @@
 {
   "name": "@psyche/browser",
-  "version": "0.0.0",
+  "version": "0.3.0-alpha.0",
   "private": true,
   "description": "Agent browser: BrowserDriver over the desktop CDP bridge and Playwright, snapshots, origin policy, browser.* tools",
   "license": "Apache-2.0",

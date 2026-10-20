@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { GatewayEvent } from "../../src/client/connection.ts";
 import { type GatewayStatus, INITIAL_STATUS } from "../../src/client/status.ts";
 import type { GatewayPort } from "../../src/shell/platform.ts";
@@ -88,5 +88,28 @@ describe("ShellStore", () => {
     ]);
     await expect(store.call("commands.list", {})).resolves.toBeUndefined();
     expect(store.getState().unavailable).toContain("commands.list");
+  });
+});
+
+describe("toasts (docs/a11y-audit.md T1)", () => {
+  it("pauses while held, closes after 8 s otherwise, and keeps errors until dismissed", async () => {
+    vi.useFakeTimers();
+    try {
+      const { port } = fakeGateway({});
+      const store = new ShellStore(port);
+      store.toast("Saved");
+      store.toast("Couldn't save", "error");
+      store.holdToasts(true);
+      vi.advanceTimersByTime(20_000);
+      expect(store.getState().toasts.map((t) => t.text)).toEqual(["Saved", "Couldn't save"]);
+      store.holdToasts(false);
+      vi.advanceTimersByTime(8_000);
+      expect(store.getState().toasts.map((t) => t.text)).toEqual(["Couldn't save"]);
+      const err = store.getState().toasts[0];
+      if (err) store.dismissToast(err.id);
+      expect(store.getState().toasts).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
