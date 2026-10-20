@@ -125,32 +125,17 @@ This pass covers screens added after the polish wave: Credentials, the Files pan
 
 The ten items this pass left open were decided as follows. Each is now a rule in "Cross-cutting rules for the screen PRs" above.
 
-| # | Item | Decision | Status |
+| # | Item | Decision | Done in |
 | --- | --- | --- | --- |
-| 1 | Raw keys in write errors | A key-to-label map next to the Settings schema, with a test that every key has a label. Used everywhere; never a raw key at level 1. | In progress |
-| 2 | Matrix radios | One kit `RadioGroupItem` per cell in Computer use and `ActionMatrix`. Keyboard-navigable, labelled by row and column. | In progress |
-| 3 | Model names | A human label at level 1 from the adapter's metadata, falling back to the ref; the ref at level 2. `models.list` errors as an inline error state. The chat-only confirm becomes a kit dialog. | In progress |
-| 4 | Files pane and `Page` | Split-view panes are exempt (the Files pane and the Library). Icon `FileText`; tree loading uses `LoadingCards`. | Done |
-| 5 | Real-Chrome profile name | "Psyche profile (persona)" when a persona is set, otherwise "Psyche profile". | Done |
-| 6 | Facts value casing | Sentence case. | Done |
-| 7 | Destructive rows | Remove goes under ⋯ with a confirm dialog; Disconnect stays in the row. Applies to Connectors and every row with a destructive action. | In progress |
-| 8 | Skills trust card | Hash and commit go in a Details disclosure; tool names show as a count on the row, with the list in Details. | In progress |
-| 9 | Voice hotkey | A shortcut recorder. A conflict shows the approval-tone hint, and the field refuses to save it. | In progress |
-| 10 | Credential detail | "Approved", with the approval id in a tooltip and copy on click. | Done |
-1. **Raw keys in write errors.** `settings/shared.tsx` names the raw setting key, as in "Psyche couldn't save vault.backend". This breaks §4.12 in every section, and fixing it needs a key-to-label map.
-2. **Matrix radios.** Computer use and `ActionMatrix` use raw `<input type="radio">` per cell. Choose a kit `RadioGroupItem` per cell or one `NativeSelect` per row, and apply it to both.
-3. **Model names.** Models & providers shows `m.ref` (the provider/model id) as the label everywhere. Human labels would move the ref to disclosure level 2. Separately, `models.list` errors are swallowed in favour of settings, and the chat-only confirm is a hand-rolled alert outside the frame.
-4. **The Files pane and `Page`.** Decide whether a split-view pane is exempt from `Page`/`PageHeader`. §4.6 names no icon for it; this pass uses `FileText` for the empty preview. Loading in the tree is still plain "Loading…" text, not `LoadingCards`.
-5. **Naming.** It's open whether "Psyche Chrome profile" should carry the persona's name instead.
-6. **Facts value casing.** This pass used sentence case in Credentials and VM mode. Write it into the rules.
-7. **Destructive rows.** Connectors pairs an outline Disconnect with a destructive Remove. Either accept that as the pattern for destructive rows or move Remove under ⋯.
-8. **Skills trust card.** The content hash and commit are at level 1, and tool names appear on row line 3. Both belong in a Details disclosure, with a count on the row.
-9. **Voice hotkey.** The field is free text, and a conflicting shortcut is shown only as muted description text. Options: a shortcut recorder, and an approval-tone hint for the conflict.
-10. **Credential detail.** Approval ids appear in the uses table. That's acceptable at level 2, but they could read "Approved" with the id in a tooltip.
+| 1 | Raw keys in write errors | A key-to-label map, with a test that every key has a label. Used everywhere; never a raw key at level 1. | #374. `settings/setting-labels.ts`; `test/setting-labels.test.ts` scans the kit and the composed app for every key. |
+| 2 | Matrix radios | One kit `RadioGroupItem` per cell in Computer use and `ActionMatrix`. Keyboard-navigable, labelled by row and column. | #376. `settings/RadioTableRow.tsx`: one radio group per row, labelled "row: column". |
+| 3 | Model names | A human label at level 1, falling back to the ref; the ref at level 2. `models.list` errors as an inline error state. The chat-only confirm becomes a kit dialog. | #377. `modelLabel`, an inline `ErrorNotice`, and an `AlertDialog`. |
+| 4 | Files pane and `Page` | Split-view panes are exempt (the Files pane and the Library). Icon `FileText`; tree loading uses `LoadingCards`. | #372 |
+| 5 | Real-Chrome profile name | "Psyche profile (persona)" when a persona is set, otherwise "Psyche profile". | #372 |
+| 6 | Facts value casing | Sentence case. | #365, #368; the rule is in #372 |
+| 7 | Destructive rows | Remove goes under ⋯ with a confirm dialog; Disconnect stays in the row. Applies to every row with a destructive action. | #378. `settings/RowMoreMenu.tsx` in Connectors, Devices, Skills and Credentials. Exceptions: revoking a permission grant tightens access, so it stays a row action; removing a passkey already asks for Touch ID. |
+| 8 | Skills trust card | Hash and commit go in a Details disclosure; tool names show as a count on the row, with the list in Details. | #379 |
+| 9 | Voice hotkey | A shortcut recorder. A conflict shows the approval-tone hint, and the field refuses to save it. | #380. `settings/ShortcutRecorder.tsx`, plus the desktop's `dictation.checkHotkey`. |
+| 10 | Credential detail | "Approved", with the approval id in a tooltip and copy on click. | #372 |
 
-**Decision 3 (model names):** done. Models show the label the endpoint or adapter reports (`modelLabel`, falling back to the ref), with the ref muted at level 2. A failed `models.list` is an inline error over the providers saved in settings. The chat-only confirm is a kit `AlertDialog`.
-**Decision 1 (setting labels):** done. `packages/ui/src/screens/settings/setting-labels.ts` holds the key-to-label map, and `test/setting-labels.test.ts` scans the kit and the composed app for every key they read or write and fails when one has no label. Write errors and the approval banner quote the label, never the key.
-**Decision 2 (matrix radios):** done. `settings/RadioTableRow.tsx` makes each matrix row one radio group of kit `RadioGroupItem`s. Each item is labelled "row: column", and the arrow keys move within the row. Computer use and `ActionMatrix` both use it.
-
-**Decision 8 (Skills trust card):** Done: the trust card's commit, content hash and tool names are in a Details disclosure; rows show a tool count, with the names in a row Details.
-**Decision 7 (destructive rows):** Done: `settings/RowMoreMenu.tsx` in Connectors, Devices, Skills and Credentials. Exceptions: revoking a permission grant tightens access, so it stays a row action; removing a passkey already asks for Touch ID.
+Nothing from the 2026-10-20 consistency pass remains open.
