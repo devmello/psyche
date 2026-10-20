@@ -1172,6 +1172,46 @@
         "sideEffecting": false
       },
       {
+        "description": "This device's passkeys.",
+        "name": "passkeys.list",
+        "params": "#/$defs/PasskeysListParams",
+        "result": "#/$defs/PasskeysListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Assertion options over this device's passkeys, for passkeys.register.finish / passkeys.remove (valid 5 minutes, single use).",
+        "name": "passkeys.reauth.begin",
+        "params": "#/$defs/PasskeysReauthBeginParams",
+        "result": "#/$defs/PasskeysReauthBeginResult",
+        "scope": "operator.approvals",
+        "sideEffecting": false
+      },
+      {
+        "description": "Starts registering a passkey for this device; pass options to navigator.credentials.create().",
+        "name": "passkeys.register.begin",
+        "params": "#/$defs/PasskeysRegisterBeginParams",
+        "result": "#/$defs/PasskeysRegisterBeginResult",
+        "scope": "operator.approvals",
+        "sideEffecting": false
+      },
+      {
+        "description": "Stores the new passkey. A device that already has one must include reauth (an assertion with an existing passkey). At most 20 per device. Side-effecting.",
+        "name": "passkeys.register.finish",
+        "params": "#/$defs/PasskeysRegisterFinishParams",
+        "result": "#/$defs/PasskeysRegisterFinishResult",
+        "scope": "operator.approvals",
+        "sideEffecting": true
+      },
+      {
+        "description": "Removes one of this device's passkeys; needs a fresh assertion (reauth). Side-effecting.",
+        "name": "passkeys.remove",
+        "params": "#/$defs/PasskeysRemoveParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.approvals",
+        "sideEffecting": true
+      },
+      {
         "description": "Answers an open input request; the run that asked consumes it. Side-effecting: a repeat with the same key returns the original result.",
         "name": "questions.answer",
         "params": "#/$defs/QuestionsAnswerParams",
@@ -1700,6 +1740,9 @@
         },
         "scope": {
           "$ref": "#/$defs/GrantScope"
+        },
+        "presence": {
+          "$ref": "#/$defs/PresenceAssertion"
         }
       },
       "required": [
@@ -10527,6 +10570,201 @@
       ],
       "type": "string"
     },
+    "PasskeyInfo": {
+      "properties": {
+        "id": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "backedUp": {
+          "description": "Synced passkey (multi-device credential)",
+          "type": "boolean"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "lastUsedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "deviceId",
+        "name",
+        "backedUp",
+        "createdAt"
+      ],
+      "type": "object"
+    },
+    "PasskeyReauth": {
+      "properties": {
+        "ceremonyId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "response": {
+          "description": "JSON object",
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "ceremonyId",
+        "response"
+      ],
+      "type": "object"
+    },
+    "PasskeysListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "PasskeysListResult": {
+      "properties": {
+        "passkeys": {
+          "items": {
+            "$ref": "#/$defs/PasskeyInfo"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "passkeys"
+      ],
+      "type": "object"
+    },
+    "PasskeysReauthBeginParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "PasskeysReauthBeginResult": {
+      "properties": {
+        "ceremonyId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "options": {
+          "description": "JSON object",
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "ceremonyId",
+        "options"
+      ],
+      "type": "object"
+    },
+    "PasskeysRegisterBeginParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "PasskeysRegisterBeginResult": {
+      "properties": {
+        "ceremonyId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "options": {
+          "description": "JSON object",
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "ceremonyId",
+        "options"
+      ],
+      "type": "object"
+    },
+    "PasskeysRegisterFinishParams": {
+      "properties": {
+        "ceremonyId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "response": {
+          "description": "JSON object",
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        },
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "reauth": {
+          "$ref": "#/$defs/PasskeyReauth"
+        }
+      },
+      "required": [
+        "ceremonyId",
+        "response"
+      ],
+      "type": "object"
+    },
+    "PasskeysRegisterFinishResult": {
+      "properties": {
+        "passkey": {
+          "$ref": "#/$defs/PasskeyInfo"
+        }
+      },
+      "required": [
+        "passkey"
+      ],
+      "type": "object"
+    },
+    "PasskeysRemoveParams": {
+      "properties": {
+        "passkeyId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "reauth": {
+          "$ref": "#/$defs/PasskeyReauth"
+        }
+      },
+      "required": [
+        "passkeyId",
+        "reauth"
+      ],
+      "type": "object"
+    },
     "PermissionMode": {
       "enum": [
         "plan",
@@ -10694,6 +10932,45 @@
         "match",
         "effect",
         "createdAt"
+      ],
+      "type": "object"
+    },
+    "PresenceAssertion": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "webauthn",
+            "helper"
+          ],
+          "type": "string"
+        },
+        "deviceId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "signature": {
+          "description": "base64url",
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "payload": {
+          "description": "webauthn: credentialId, authenticatorData, clientDataJSON, userHandle? (base64url); helper: keyId",
+          "patternProperties": {
+            "^(.*)$": {
+              "maxLength": 16384,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "kind",
+        "deviceId",
+        "signature"
       ],
       "type": "object"
     },

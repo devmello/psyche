@@ -18,6 +18,11 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-21 (S01: web passkeys, #79)
+
+- `passkeys.register.begin | register.finish | reauth.begin | list | remove` and `PasskeyInfo`, `PasskeyReauth`: WebAuthn passkeys per device for the server-mode web client. Options and responses use the WebAuthn JSON forms. A device that already has a passkey re-authenticates with one before adding or removing another.
+- `ApprovalAnswer.presence` (optional, `PresenceAssertion`): the fresh-presence assertion S05's `approvals.answer` handler already reads (`webauthn` from passkeys, `helper` from Touch ID). It is now declared in the schema.
+
 ### v1 additive — 2026-10-19 (S02/S04: write-ahead dispatch hook, #63)
 
 For S02 (`agent-core` awaits it before every dispatch) and S04 (`TaskWorkerPool` commits the step's `running` checkpoint in it).

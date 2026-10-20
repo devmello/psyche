@@ -350,6 +350,17 @@
 //   let pairingRequest = try? JSONDecoder().decode(PairingRequest.self, from: jsonData)
 //   let pairingRequestedPayload = try? JSONDecoder().decode(PairingRequestedPayload.self, from: jsonData)
 //   let pairingStatus = try? JSONDecoder().decode(PairingStatus.self, from: jsonData)
+//   let passkeyInfo = try? JSONDecoder().decode(PasskeyInfo.self, from: jsonData)
+//   let passkeyReauth = try? JSONDecoder().decode(PasskeyReauth.self, from: jsonData)
+//   let passkeysListParams = try? JSONDecoder().decode(PasskeysListParams.self, from: jsonData)
+//   let passkeysListResult = try? JSONDecoder().decode(PasskeysListResult.self, from: jsonData)
+//   let passkeysReauthBeginParams = try? JSONDecoder().decode(PasskeysReauthBeginParams.self, from: jsonData)
+//   let passkeysReauthBeginResult = try? JSONDecoder().decode(PasskeysReauthBeginResult.self, from: jsonData)
+//   let passkeysRegisterBeginParams = try? JSONDecoder().decode(PasskeysRegisterBeginParams.self, from: jsonData)
+//   let passkeysRegisterBeginResult = try? JSONDecoder().decode(PasskeysRegisterBeginResult.self, from: jsonData)
+//   let passkeysRegisterFinishParams = try? JSONDecoder().decode(PasskeysRegisterFinishParams.self, from: jsonData)
+//   let passkeysRegisterFinishResult = try? JSONDecoder().decode(PasskeysRegisterFinishResult.self, from: jsonData)
+//   let passkeysRemoveParams = try? JSONDecoder().decode(PasskeysRemoveParams.self, from: jsonData)
 //   let permissionMode = try? JSONDecoder().decode(PermissionMode.self, from: jsonData)
 //   let personaIdentity = try? JSONDecoder().decode(PersonaIdentity.self, from: jsonData)
 //   let personaUpdatedPayload = try? JSONDecoder().decode(PersonaUpdatedPayload.self, from: jsonData)
@@ -357,6 +368,7 @@
 //   let planStep = try? JSONDecoder().decode(PlanStep.self, from: jsonData)
 //   let planStepStatus = try? JSONDecoder().decode(PlanStepStatus.self, from: jsonData)
 //   let policyRule = try? JSONDecoder().decode(PolicyRule.self, from: jsonData)
+//   let presenceAssertion = try? JSONDecoder().decode(PresenceAssertion.self, from: jsonData)
 //   let protocolVersionRange = try? JSONDecoder().decode(ProtocolVersionRange.self, from: jsonData)
 //   let provenance = try? JSONDecoder().decode(Provenance.self, from: jsonData)
 //   let provenanceOut = try? JSONDecoder().decode(ProvenanceOut.self, from: jsonData)
@@ -569,19 +581,22 @@ public struct ApprovalAnswer: Codable, Sendable {
     public let answerToken: String
     public let approvalID: String
     public let decision: DecisionEnum
+    public let presence: PresenceAssertion?
     public let scope: GrantScope?
 
     public enum CodingKeys: String, CodingKey {
         case answerToken = "answerToken"
         case approvalID = "approvalId"
         case decision = "decision"
+        case presence = "presence"
         case scope = "scope"
     }
 
-    public init(answerToken: String, approvalID: String, decision: DecisionEnum, scope: GrantScope?) {
+    public init(answerToken: String, approvalID: String, decision: DecisionEnum, presence: PresenceAssertion?, scope: GrantScope?) {
         self.answerToken = answerToken
         self.approvalID = approvalID
         self.decision = decision
+        self.presence = presence
         self.scope = scope
     }
 }
@@ -589,6 +604,36 @@ public struct ApprovalAnswer: Codable, Sendable {
 public enum DecisionEnum: String, Codable, Sendable {
     case approve = "approve"
     case deny = "deny"
+}
+
+// MARK: - PresenceAssertion
+public struct PresenceAssertion: Codable, Sendable {
+    public let deviceID: String
+    public let kind: PresenceAssertionKind
+    /// webauthn: credentialId, authenticatorData, clientDataJSON, userHandle? (base64url);
+    /// helper: keyId
+    public let payload: [String: String]?
+    /// base64url
+    public let signature: String
+
+    public enum CodingKeys: String, CodingKey {
+        case deviceID = "deviceId"
+        case kind = "kind"
+        case payload = "payload"
+        case signature = "signature"
+    }
+
+    public init(deviceID: String, kind: PresenceAssertionKind, payload: [String: String]?, signature: String) {
+        self.deviceID = deviceID
+        self.kind = kind
+        self.payload = payload
+        self.signature = signature
+    }
+}
+
+public enum PresenceAssertionKind: String, Codable, Sendable {
+    case helper = "helper"
+    case webauthn = "webauthn"
 }
 
 public enum GrantScope: String, Codable, Sendable {
@@ -7619,6 +7664,147 @@ public struct PairingRequestedPayload: Codable, Sendable {
     }
 }
 
+// MARK: - PasskeysListResult
+public struct PasskeysListResult: Codable, Sendable {
+    public let passkeys: [PasskeyInfo]
+
+    public enum CodingKeys: String, CodingKey {
+        case passkeys = "passkeys"
+    }
+
+    public init(passkeys: [PasskeyInfo]) {
+        self.passkeys = passkeys
+    }
+}
+
+// MARK: - PasskeyInfo
+public struct PasskeyInfo: Codable, Sendable {
+    /// Synced passkey (multi-device credential)
+    public let backedUp: Bool
+    public let createdAt: String
+    public let deviceID: String
+    public let id: String
+    public let lastUsedAt: String?
+    public let name: String
+
+    public enum CodingKeys: String, CodingKey {
+        case backedUp = "backedUp"
+        case createdAt = "createdAt"
+        case deviceID = "deviceId"
+        case id = "id"
+        case lastUsedAt = "lastUsedAt"
+        case name = "name"
+    }
+
+    public init(backedUp: Bool, createdAt: String, deviceID: String, id: String, lastUsedAt: String?, name: String) {
+        self.backedUp = backedUp
+        self.createdAt = createdAt
+        self.deviceID = deviceID
+        self.id = id
+        self.lastUsedAt = lastUsedAt
+        self.name = name
+    }
+}
+
+// MARK: - PasskeysReauthBeginResult
+public struct PasskeysReauthBeginResult: Codable, Sendable {
+    public let ceremonyID: String
+    public let options: [String: JSONAny]
+
+    public enum CodingKeys: String, CodingKey {
+        case ceremonyID = "ceremonyId"
+        case options = "options"
+    }
+
+    public init(ceremonyID: String, options: [String: JSONAny]) {
+        self.ceremonyID = ceremonyID
+        self.options = options
+    }
+}
+
+// MARK: - PasskeysRegisterBeginResult
+public struct PasskeysRegisterBeginResult: Codable, Sendable {
+    public let ceremonyID: String
+    public let options: [String: JSONAny]
+
+    public enum CodingKeys: String, CodingKey {
+        case ceremonyID = "ceremonyId"
+        case options = "options"
+    }
+
+    public init(ceremonyID: String, options: [String: JSONAny]) {
+        self.ceremonyID = ceremonyID
+        self.options = options
+    }
+}
+
+// MARK: - PasskeysRegisterFinishParams
+public struct PasskeysRegisterFinishParams: Codable, Sendable {
+    public let ceremonyID: String
+    public let name: String?
+    public let reauth: PasskeyReauth?
+    public let response: [String: JSONAny]
+
+    public enum CodingKeys: String, CodingKey {
+        case ceremonyID = "ceremonyId"
+        case name = "name"
+        case reauth = "reauth"
+        case response = "response"
+    }
+
+    public init(ceremonyID: String, name: String?, reauth: PasskeyReauth?, response: [String: JSONAny]) {
+        self.ceremonyID = ceremonyID
+        self.name = name
+        self.reauth = reauth
+        self.response = response
+    }
+}
+
+// MARK: - PasskeyReauth
+public struct PasskeyReauth: Codable, Sendable {
+    public let ceremonyID: String
+    public let response: [String: JSONAny]
+
+    public enum CodingKeys: String, CodingKey {
+        case ceremonyID = "ceremonyId"
+        case response = "response"
+    }
+
+    public init(ceremonyID: String, response: [String: JSONAny]) {
+        self.ceremonyID = ceremonyID
+        self.response = response
+    }
+}
+
+// MARK: - PasskeysRegisterFinishResult
+public struct PasskeysRegisterFinishResult: Codable, Sendable {
+    public let passkey: PasskeyInfo
+
+    public enum CodingKeys: String, CodingKey {
+        case passkey = "passkey"
+    }
+
+    public init(passkey: PasskeyInfo) {
+        self.passkey = passkey
+    }
+}
+
+// MARK: - PasskeysRemoveParams
+public struct PasskeysRemoveParams: Codable, Sendable {
+    public let passkeyID: String
+    public let reauth: PasskeyReauth
+
+    public enum CodingKeys: String, CodingKey {
+        case passkeyID = "passkeyId"
+        case reauth = "reauth"
+    }
+
+    public init(passkeyID: String, reauth: PasskeyReauth) {
+        self.passkeyID = passkeyID
+        self.reauth = reauth
+    }
+}
+
 // MARK: - PersonaUpdatedPayload
 public struct PersonaUpdatedPayload: Codable, Sendable {
     public let avatarRequested: Bool
@@ -11497,6 +11683,9 @@ public typealias MemoryExportParams = [String: JSONAny]
 public typealias MemoryPersonaGetParams = [String: JSONAny]
 public typealias MemoryStatusParams = [String: JSONAny]
 public typealias NodesListParams = [String: JSONAny]
+public typealias PasskeysListParams = [String: JSONAny]
+public typealias PasskeysReauthBeginParams = [String: JSONAny]
+public typealias PasskeysRegisterBeginParams = [String: JSONAny]
 public typealias SandboxListParams = [String: JSONAny]
 public typealias Settings = [String: JSONAny]
 public typealias VaultLockParams = [String: JSONAny]

@@ -46,10 +46,13 @@ async function requirePresence(call: Call, key: string, value: unknown, approval
       grantKey: binding,
       requestedBy: { runId: null, taskId: null, threadId: null },
       sideEffect: "destructive",
-      surfaces: ["desktop", "notification"],
+      // `web`: the server-mode web client answers with a passkey (issue #79).
+      surfaces: ["desktop", "web", "notification"],
       scopesOffered: ["once"],
       taint: false,
     });
+    // Like nodes.invoke: clients learn of the card (and their answer token) from the event.
+    call.ctx.bus.publish("approval.created", { approval: issued.approval });
     throw new PsycheError(
       "approval_required",
       `Changing ${key} needs your approval with Touch ID or a passkey`,

@@ -17,6 +17,7 @@ export * from "./repos/idempotency.ts";
 export * from "./repos/messages.ts";
 export * from "./repos/nodes.ts";
 export * from "./repos/pairing.ts";
+export * from "./repos/passkeys.ts";
 export * from "./repos/runs.ts";
 export * from "./repos/settings.ts";
 export * from "./repos/thread-state.ts";
