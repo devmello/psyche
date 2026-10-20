@@ -418,9 +418,13 @@ describe("deploy/scripts/build-psyched.mjs launchers", () => {
         const bundle = join(dir, "Psyche.app", "Contents", "Resources", "psyched");
         mkdirSync(join(bundle, "runtime"), { recursive: true });
         // A stand-in runtime that prints the entry point it was given.
-        writeFileSync(join(bundle, "runtime", "node"), '#!/bin/sh\nprintf "%s\\n" "$2"\n', {
-          mode: 0o755,
-        });
+        writeFileSync(
+          join(bundle, "runtime", "node"),
+          '#!/bin/sh\nfor a; do case $a in *.ts) printf "%s\\n" "$a" ;; esac; done\n',
+          {
+            mode: 0o755,
+          },
+        );
         writeFileSync(join(bundle, "psyche"), PSYCHE_LAUNCHER, { mode: 0o755 });
         writeFileSync(join(bundle, "psyched"), PSYCHED_LAUNCHER, { mode: 0o755 });
         const bin = join(dir, "bin");
