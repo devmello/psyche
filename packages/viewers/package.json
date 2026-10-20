@@ -14,6 +14,14 @@
       "types": "./src/core/index.ts",
       "default": "./src/core/index.ts"
     },
+    "./core/detect": {
+      "types": "./src/core/detect.ts",
+      "default": "./src/core/detect.ts"
+    },
+    "./core/convert": {
+      "types": "./src/core/convert.ts",
+      "default": "./src/core/convert.ts"
+    },
     "./bundler": {
       "types": "./src/bundler/index.ts",
       "default": "./src/bundler/index.ts"

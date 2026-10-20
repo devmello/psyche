@@ -13,6 +13,7 @@ tools. Plan: [docs/plans/s13.md](../../docs/plans/s13.md). Status: [docs/status/
 | --- | --- | --- |
 | `@psyche/viewers` | React components + everything in `core` | renderer (desktop, web) |
 | `@psyche/viewers/core` | registry, detection, `extractText`, PDF/sheet/DOCX/email parsing, conversion, artifact sandbox builders, Markdown session, form fill (P2), file generators (P8) | Gateway (Node) and renderer; no React |
+| `@psyche/viewers/core/detect`, `@psyche/viewers/core/convert` | MIME detection; the `ConversionService` types and LibreOffice / Quick Look argv builders, without the DOM-typed parsers | Gateway (Node), which compiles without DOM types |
 | `@psyche/viewers/bundler` | `reactBundlerResponse(path, { appOrigin, bundlerOrigin })`: the self-hosted React artifact bundler's files (page, runtime, vendored React 19, Babel standalone) | Gateway only (Node: reads `node_modules`) |
 | `@psyche/viewers/styles.css` | structural styles (`psy-*` classes, theme via `--psy-*` variables) | renderer |
 
