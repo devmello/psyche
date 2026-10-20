@@ -61,6 +61,7 @@ import type {
   PolicyContext,
   PolicyDecision,
   PresenceAssertion,
+  TaintSource,
 } from "./types.ts";
 
 const HOUR = 3_600_000;
@@ -518,6 +519,15 @@ export class PsychePermissionBroker implements PermissionBroker {
       grantId: null,
     };
     approval.sideEffect = se;
+    if (approval.taint && sources !== undefined && sources.length > 0) {
+      approval.taintSources = sources.map((s) => {
+        const out: TaintSource = { sourceKind: sanitizeDisplay(s.sourceKind) };
+        if (s.origin !== undefined) out.origin = sanitizeDisplay(s.origin);
+        if (s.sender !== undefined) out.sender = sanitizeDisplay(s.sender);
+        if (s.toolCallId !== undefined) out.toolCallId = s.toolCallId;
+        return out;
+      });
+    }
     if (input.targetKind !== undefined) approval.targetKind = input.targetKind;
     if (input.target !== undefined) approval.target = { ...input.target };
     const answerTokens: Record<Surface, string> = {};
