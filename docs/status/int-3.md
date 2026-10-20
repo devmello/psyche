@@ -37,7 +37,7 @@ No new issue was needed: every failure already had one, or is a corpus / fixture
 
 ## Milestone 2 scenarios (scripted)
 
-docs/08 Milestone 2 lists V5, V6, V8 and V9 as its acceptance scenarios; V3 is with S06. None had fixtures, so INT-3 wrote them in S18's format under `tests/acceptance/scenarios-m2/` (README there: provisional tools, decisions, findings). They validate with `tests/scenarios/validate.mjs --dir` and run through S18's runner on the real agent loop, broker and audit chain, with the real documents pipeline (V5) and agent-core's `task.start` and `schedule` built-ins (V8, V9).
+docs/08 Milestone 2 lists V5, V6, V8 and V9 as its acceptance scenarios, plus V3 up to the payment hand-off. V3 landed separately in `tests/scenarios/v3-shopping` (S09, PR #166) and passes 18/18 hard in the M1 runner. None had fixtures, so INT-3 wrote them in S18's format under `tests/acceptance/scenarios-m2/` (README there: provisional tools, decisions, findings). They validate with `tests/scenarios/validate.mjs --dir` and run through S18's runner on the real agent loop, broker and audit chain, with the real documents pipeline (V5) and agent-core's `task.start` and `schedule` built-ins (V8, V9).
 
 | Scenario | Hard | Soft | Extra checks in `offline/scenarios-m2.test.ts` |
 | --- | --- | --- | --- |
