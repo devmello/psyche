@@ -75,6 +75,7 @@ export {
   folderGrants,
   policyWithFolders,
 } from "./FileAccessSection.tsx";
+export { type MacHelperStatus, MacHelperStatusRow } from "./MacHelperStatus.tsx";
 export {
   ModelProvidersPanel,
   type ModelProvidersPanelProps,

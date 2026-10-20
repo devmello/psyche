@@ -13,6 +13,7 @@ import {
   SCOPE_MODE_LABEL,
   type ScopeMode,
 } from "../settings/ConnectorsSection.tsx";
+import { type MacHelperStatus, MacHelperStatusRow } from "../settings/MacHelperStatus.tsx";
 import { RamGuidance, ToolCheckBadge } from "../settings/ModelSection.tsx";
 import { CreaturePicker } from "../settings/PersonaSection.tsx";
 import { ErrorNotice, Facts, RadioField, StatusChip } from "../settings/shared.tsx";
@@ -180,12 +181,14 @@ export function PermissionsStep({
   onAllow,
   onSkip,
   busy = null,
+  helper,
 }: {
   persona: string;
   value: Record<TccPermission, PermissionAnswer>;
   onAllow: (permission: TccPermission) => void;
   onSkip: (permission: TccPermission) => void;
   busy?: TccPermission | null;
+  helper?: MacHelperStatus;
 }): ReactElement {
   const why: Record<TccPermission, string> = {
     accessibility: `Lets ${persona} click, type and use apps.`,
@@ -198,6 +201,7 @@ export function PermissionsStep({
         Each one is optional. macOS asks you to confirm; you can change them later in System
         Settings.
       </p>
+      {helper ? <MacHelperStatusRow state={helper} /> : null}
       <ul className="flex flex-col gap-3">
         {ONBOARDING_PERMISSIONS.map((p) => {
           const answer = value[p];
