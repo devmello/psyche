@@ -14,12 +14,18 @@ NEVER.addSubnet("127.0.0.0", 8, "ipv4"); // loopback: the Gateway, the owner's d
 NEVER.addSubnet("169.254.0.0", 16, "ipv4"); // link-local, incl. 169.254.169.254 metadata
 NEVER.addSubnet("224.0.0.0", 4, "ipv4"); // multicast
 NEVER.addSubnet("240.0.0.0", 4, "ipv4"); // reserved, incl. broadcast
+NEVER.addSubnet("192.0.0.0", 24, "ipv4"); // IETF protocol assignments (#283)
+NEVER.addSubnet("192.0.2.0", 24, "ipv4"); // documentation
+NEVER.addSubnet("198.51.100.0", 24, "ipv4"); // documentation
+NEVER.addSubnet("203.0.113.0", 24, "ipv4"); // documentation
 // IPv6
 NEVER.addAddress("::", "ipv6");
 NEVER.addAddress("::1", "ipv6");
 NEVER.addSubnet("fe80::", 10, "ipv6"); // link-local
 NEVER.addSubnet("ff00::", 8, "ipv6"); // multicast
 NEVER.addAddress("fd00:ec2::254", "ipv6"); // AWS metadata over IPv6
+NEVER.addSubnet("fec0::", 10, "ipv6"); // deprecated site-local
+NEVER.addSubnet("2001:db8::", 32, "ipv6"); // documentation
 
 /** Reachable only through an allowlist entry that says `private` (a LAN package mirror). */
 const PRIVATE = new BlockList();
@@ -30,29 +36,69 @@ PRIVATE.addSubnet("100.64.0.0", 10, "ipv4"); // CGNAT, incl. Tailscale
 PRIVATE.addSubnet("198.18.0.0", 15, "ipv4"); // benchmarking, used by some VPNs
 PRIVATE.addSubnet("fc00::", 7, "ipv6"); // unique local
 
-export type AddressClass = "public" | "private" | "blocked";
-
-/** Embedded IPv4 of IPv4-mapped (`::ffff:a.b.c.d`) and NAT64 (`64:ff9b::/96`) addresses. */
-function embeddedV4(address: string): string | undefined {
-  const lower = address.toLowerCase();
-  const m = /^(?:::ffff:|64:ff9b::)(\d+\.\d+\.\d+\.\d+)$/.exec(lower);
-  if (m?.[1] !== undefined) return m[1];
-  const hex = /^(?:::ffff:|64:ff9b::)([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(lower);
-  if (hex?.[1] !== undefined && hex[2] !== undefined) {
-    const hi = Number.parseInt(hex[1], 16);
-    const lo = Number.parseInt(hex[2], 16);
-    return `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+/** 16 bytes of a valid IPv6 address (any textual form, incl. a trailing dotted quad). */
+function ipv6Bytes(address: string): number[] | undefined {
+  let a = address.toLowerCase();
+  const zone = a.indexOf("%");
+  if (zone >= 0) a = a.slice(0, zone);
+  let tail: number[] = [];
+  const dotted = /(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(a);
+  if (dotted !== null) {
+    tail = dotted.slice(1, 5).map(Number);
+    if (tail.some((n) => n > 255)) return undefined;
+    a = `${a.slice(0, dotted.index)}0:0`;
   }
+  const halves = a.split("::");
+  if (halves.length > 2) return undefined;
+  const words = (h: string | undefined) => (h === undefined || h === "" ? [] : h.split(":"));
+  const head = words(halves[0]);
+  const rest = halves.length === 2 ? words(halves[1]) : [];
+  const fill = halves.length === 2 ? 8 - head.length - rest.length : 0;
+  const all = [...head, ...Array<string>(Math.max(0, fill)).fill("0"), ...rest];
+  if (all.length !== 8 || all.some((w) => !/^[0-9a-f]{1,4}$/.test(w))) return undefined;
+  const bytes = all.flatMap((w) => {
+    const n = Number.parseInt(w, 16);
+    return [n >> 8, n & 255];
+  });
+  if (tail.length === 4) bytes.splice(12, 4, ...tail);
+  return bytes;
+}
+
+const startsWith = (bytes: number[], prefix: number[]) => prefix.every((b, i) => bytes[i] === b);
+const zeros = (n: number) => Array<number>(n).fill(0);
+const dottedQuad = (b: number[]) => b.join(".");
+
+/**
+ * The IPv4 address an IPv6 address stands for, when it embeds one, or `"blocked"` for
+ * translation ranges whose embedding is not fixed (#283, TM-20): IPv4-mapped (`::ffff:0:0/96`),
+ * IPv4-translated (`::ffff:0:0:0/96`), IPv4-compatible (`::/96`), NAT64 well-known
+ * (`64:ff9b::/96`) and 6to4 (`2002::/16`) are classified by their IPv4 address; local-use
+ * NAT64 (`64:ff9b:1::/48`) and Teredo (`2001::/32`) are refused outright.
+ */
+function embedded(bytes: number[]): string | "blocked" | undefined {
+  if (startsWith(bytes, [...zeros(10), 0xff, 0xff])) return dottedQuad(bytes.slice(12));
+  if (startsWith(bytes, [...zeros(8), 0xff, 0xff, 0, 0])) return dottedQuad(bytes.slice(12));
+  if (startsWith(bytes, zeros(12))) return dottedQuad(bytes.slice(12));
+  if (startsWith(bytes, [0, 0x64, 0xff, 0x9b, ...zeros(8)])) return dottedQuad(bytes.slice(12));
+  if (startsWith(bytes, [0, 0x64, 0xff, 0x9b, 0, 1])) return "blocked";
+  if (startsWith(bytes, [0x20, 0x02])) return dottedQuad(bytes.slice(2, 6));
+  if (startsWith(bytes, [0x20, 0x01, 0, 0])) return "blocked";
   return undefined;
 }
+
+export type AddressClass = "public" | "private" | "blocked";
 
 /** Classifies a resolved address. Anything that is not a valid IP is `blocked`. */
 export function classifyAddress(address: string): AddressClass {
   const family = isIP(address);
   if (family === 0) return "blocked";
   if (family === 6) {
-    const v4 = embeddedV4(address);
-    if (v4 !== undefined) return classifyAddress(v4);
+    const bytes = ipv6Bytes(address);
+    if (bytes === undefined) return "blocked";
+    const inner = embedded(bytes);
+    if (inner === "blocked") return "blocked";
+    // `::` and `::1` embed 0.0.0.0 and 0.0.0.1, both in the blocked 0.0.0.0/8.
+    if (inner !== undefined) return classifyAddress(inner);
   }
   const type = family === 4 ? "ipv4" : "ipv6";
   if (NEVER.check(address, type)) return "blocked";
