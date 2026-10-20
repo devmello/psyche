@@ -10,7 +10,7 @@ import type {
   Usage,
 } from "../common.ts";
 import type { Block, ToolCallStatus } from "../schemas/blocks.ts";
-import type { ApprovalKind, ApprovalRequest } from "../schemas/permissions.ts";
+import type { ApprovalKind, ApprovalRequest, TaintSource } from "../schemas/permissions.ts";
 import type { InputRequest } from "../schemas/tasks.ts";
 import type { RunStatus } from "../schemas/threads.ts";
 import type { ToolSpec } from "../schemas/tools.ts";
@@ -71,6 +71,12 @@ export interface StartTurnInput {
    * matching; the broker decides every call of the turn as that person's.
    */
   requester?: Requester;
+  /**
+   * Untrusted content inside `input` itself (security §3.6): forwarded or quoted third-party text
+   * in an owner's channel message (#275). The turn starts tainted with these sources even though
+   * the owner sent it.
+   */
+  taintSources?: TaintSource[];
   /**
    * Write-ahead hook (architecture §4.5 "Leases"; security §3.11, #63): awaited immediately
    * before each tool call is dispatched, after the broker and any approval let it through. The
