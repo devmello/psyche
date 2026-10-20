@@ -274,6 +274,27 @@ describe("dictation service", () => {
     return { reg, registered };
   }
 
+  it("checks a hotkey before Settings saves it, without keeping it registered", async () => {
+    const values: Record<string, unknown> = { "voice.hotkey": "Control+Alt+D" };
+    const gw = fakeGateway({ "settings.get": () => ({ settings: values }) });
+    const h = harness({ gateway: gw });
+    const sc = shortcuts(["Command+Shift+K"]);
+    const svc = new DictationService({ dictation: h.d, call: gw.call, shortcuts: sc.reg });
+    await svc.load();
+    expect(svc.checkHotkey("Control+Alt+D")).toBe("ok"); // its own hotkey
+    expect(svc.checkHotkey("Command+Shift+K")).toBe("taken");
+    expect(svc.checkHotkey("Control+Alt+J")).toBe("ok");
+    expect([...sc.registered.keys()]).toEqual(["Control+Alt+D"]);
+    const throwing: ShortcutRegistry = {
+      register: () => {
+        throw new Error("bad accelerator");
+      },
+      unregister: () => undefined,
+    };
+    const bad = new DictationService({ dictation: h.d, call: gw.call, shortcuts: throwing });
+    expect(bad.checkHotkey("Nope+Q")).toBe("invalid");
+  });
+
   it("arms the helper watch and the hotkey from settings, and follows changes", async () => {
     const values: Record<string, unknown> = { "voice.hotkey": "Control+Alt+D" };
     const gw = fakeGateway({ "settings.get": () => ({ settings: values }) });

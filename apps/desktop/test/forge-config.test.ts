@@ -32,9 +32,17 @@ afterEach(() => {
 });
 
 describe("forge.config.ts", () => {
-  it("is unsigned when no signing variables are set", async () => {
+  it("signs ad-hoc on macOS hosts (unsigned elsewhere) when no signing variables are set", async () => {
     const config = await loadConfig({});
-    expect(config.packagerConfig.osxSign).toBeUndefined();
+    const sign = config.packagerConfig.osxSign;
+    if (process.platform === "darwin") {
+      if (typeof sign !== "object") throw new Error("osxSign missing");
+      expect(sign.identity).toBe("-");
+      const perFile = sign.optionsForFile?.("/x/Psyche.app", { platform: "darwin" });
+      expect(perFile).toMatchObject({ hardenedRuntime: false, timestamp: "none" });
+    } else {
+      expect(sign).toBeUndefined();
+    }
     expect(config.packagerConfig.osxNotarize).toBeUndefined();
   });
 
@@ -76,6 +84,17 @@ describe("forge.config.ts", () => {
 });
 
 describe("macSigningOptions", () => {
+  it("signs ad-hoc without an identity only when asked, never notarizing", () => {
+    const opts = macSigningOptions(
+      { APPLE_ID: "a@b.c", APPLE_APP_SPECIFIC_PASSWORD: "p", APPLE_TEAM_ID: "T" },
+      { entitlements, adHoc: true, ignore: () => false },
+    );
+    expect(opts.osxNotarize).toBeUndefined();
+    if (typeof opts.osxSign !== "object") throw new Error("osxSign missing");
+    expect(opts.osxSign).toMatchObject({ identity: "-", identityValidation: false });
+    expect(typeof opts.osxSign.ignore).toBe("function");
+  });
+
   it("returns nothing without an identity, even with notarization credentials", () => {
     expect(
       macSigningOptions(

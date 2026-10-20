@@ -7,19 +7,33 @@ import { MakerZIP } from "@electron-forge/maker-zip";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import type { ForgeConfig } from "@electron-forge/shared-types";
-import { macSigningOptions } from "./src/packaging/signing-config.ts";
+import {
+  allowPartial,
+  bundleSources,
+  copyBundleResources,
+  HELPER_APP_NAME,
+  skipOuterSigning,
+  verifyNestedHelper,
+} from "./src/packaging/bundle-resources.ts";
+import { macSigningOptions, signingIdentity } from "./src/packaging/signing-config.ts";
 
 /**
  * Electron Forge 8 config (architecture §5; security §11, §12).
  *
- * Unsigned by default; CI builds unsigned. Developer ID signing (hardened runtime +
+ * Ad-hoc signed on macOS hosts by default (CI included), unsigned elsewhere. Developer ID signing (hardened runtime +
  * entitlements.plist) and notarization switch on only when their environment variables are
  * set: PSYCHE_SIGN_IDENTITY, then APPLE_API_KEY / APPLE_API_KEY_ID / APPLE_API_ISSUER or
  * APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID (src/packaging/signing-config.ts,
  * docs/signing.md). Never commit real values.
+ *
+ * On macOS the bundle carries the Gateway (`Resources/psyched/`), its LaunchAgent template and the
+ * Swift helper (src/packaging/bundle-resources.ts); packaging fails when one is missing unless
+ * PSYCHE_PACKAGE_ALLOW_PARTIAL=1.
  */
 
 const root = dirname(fileURLToPath(import.meta.url));
+const repoRoot = join(root, "..", "..");
+const isMacHost = process.platform === "darwin";
 const resolveFromHere = createRequire(import.meta.url);
 
 /**
@@ -59,7 +73,11 @@ const config: ForgeConfig = {
         "Psyche uses the microphone for dictation when you hold the dictation key or press the mic button.",
       LSUIElement: false,
     },
-    ...macSigningOptions(process.env, { entitlements: join(root, "entitlements.plist") }),
+    ...macSigningOptions(process.env, {
+      entitlements: join(root, "entitlements.plist"),
+      adHoc: isMacHost,
+      ignore: skipOuterSigning,
+    }),
   },
   rebuildConfig: {},
   // TODO(S22/C2): signed DMG and the release pipeline (manifest signed with the release key,
@@ -68,6 +86,15 @@ const config: ForgeConfig = {
   hooks: {
     packageAfterPrune: async (_config, buildPath, _electronVersion, platform, arch) => {
       copyNodePty(buildPath, platform, arch);
+      if (platform !== "darwin") return;
+      // buildPath is Contents/Resources/app; osx-sign runs after this hook and seals the bundle.
+      const resourcesDir = dirname(buildPath);
+      copyBundleResources(bundleSources(process.env, repoRoot, arch), resourcesDir, arch, {
+        allowPartial: allowPartial(process.env),
+        warn: (m) => console.warn(m),
+      });
+      if (isMacHost)
+        verifyNestedHelper(join(resourcesDir, HELPER_APP_NAME), signingIdentity(process.env));
     },
   },
   plugins: [

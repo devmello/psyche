@@ -20,7 +20,21 @@ export interface GatewayPort {
   onEvent(cb: (event: GatewayEvent) => void): Unsubscribe;
   /** Fired after reconnects and `seq` gaps: refetch collections (data model §11). */
   onResync(cb: () => void): Unsubscribe;
+  /** Desktop only: this window's paired device id. */
+  deviceId?(): Promise<string | undefined>;
+  /** Desktop only: the Gateway process the app starts (LaunchAgent or dev child). */
+  getRun?(): Promise<GatewayRunView>;
+  onRun?(cb: (run: GatewayRunView) => void): Unsubscribe;
+  /** Desktop only: opens `$PSYCHE_HOME/logs` (gateway.out.log, gateway.err.log). */
+  showLogs?(): Promise<void>;
 }
+
+/** The desktop supervisor's view of the Gateway process (apps/desktop/src/main/supervisor.ts). */
+export type GatewayRunView =
+  | { kind: "unknown" }
+  | { kind: "starting"; mode: string }
+  | { kind: "running"; mode: string; pid?: number }
+  | { kind: "stopped"; mode: string; reason?: string; logs?: string };
 
 /** CSS-pixel rectangle relative to the window's content area. */
 export interface Rect {
@@ -174,6 +188,22 @@ export interface ShellPlatform {
   dictation?: DictationPort;
   /** Web only, in a secure context: WebAuthn passkeys for presence (issue #79). */
   passkeys?: PasskeyHost;
+  /** Desktop only: macOS privacy permissions for onboarding and Settings (issue #384). */
+  permissions?: PermissionsPort;
+  /** Desktop only: the bundled Mac helper the app launches (docs/status/s14.md "Packaging"). */
+  helper?: HelperPort;
+}
+
+/** The desktop's view of its bundled Mac helper (apps/desktop/src/main/helper-launcher.ts). */
+export type MacHelperState =
+  | { kind: "unbundled" }
+  | { kind: "starting" }
+  | { kind: "paired" }
+  | { kind: "offline"; reason?: string };
+
+export interface HelperPort {
+  getState(): Promise<MacHelperState>;
+  onState(cb: (state: MacHelperState) => void): Unsubscribe;
 }
 
 /**
@@ -187,6 +217,17 @@ export interface SystemDictationStatus {
   hotkeyTaken?: string;
 }
 
+/** Desktop only: macOS privacy permissions (issue #384). */
+export type PermissionKind = "accessibility" | "screenRecording" | "notifications";
+export type PermissionState = "granted" | "denied" | "not_determined" | "unavailable";
+
+export interface PermissionsPort {
+  /** Every permission's state, without prompting. */
+  status(): Promise<Partial<Record<PermissionKind, PermissionState>>>;
+  /** Shows the macOS prompt, or opens the System Settings pane, and answers the new state. */
+  request(kind: PermissionKind): Promise<PermissionState>;
+}
+
 export interface DictationPort {
   getStatus(): Promise<SystemDictationStatus>;
   onStatus(cb: (status: SystemDictationStatus) => void): () => void;
@@ -194,6 +235,8 @@ export interface DictationPort {
   recheck(): Promise<SystemDictationStatus>;
   /** Opens System Settings › Privacy & Security › Accessibility. */
   openAccessibilitySettings(): void;
+  /** Whether another app holds a shortcut, asked before Settings saves the toggle hotkey. */
+  checkHotkey?(accelerator: string): Promise<"ok" | "taken" | "invalid">;
 }
 
 /** localStorage-backed store that degrades to memory (private windows, blocked storage). */

@@ -27,7 +27,15 @@ With Homebrew:
 brew install --cask devmello/psyche/psyche
 ```
 
-Or download it from the [GitHub releases page](https://github.com/devmello/psyche/releases): `Psyche-<version>-arm64.dmg` for Apple silicon, `Psyche-<version>-x64.dmg` for Intel. Download `SHA256SUMS` from the same release into the same folder and check the DMG before you open it:
+Or download it from the [GitHub releases page](https://github.com/devmello/psyche/releases): `Psyche-<version>-arm64.dmg` for Apple silicon, `Psyche-<version>-x64.dmg` for Intel. The app needs nothing else on your Mac: no Node, no pnpm, no source checkout. It carries the Gateway (`psyched`, with its own Node runtime), the `psyche` CLI and Psyche Helper.
+
+Each DMG has a checksum file next to it (`Psyche-<version>-arm64.dmg.sha256`), and the release also has `SHA256SUMS` for every file. Download one of them into the same folder and check the DMG before you open it:
+
+```bash
+shasum -a 256 -c Psyche-<version>-arm64.dmg.sha256
+```
+
+or
 
 ```bash
 shasum -a 256 -c --ignore-missing SHA256SUMS
@@ -35,25 +43,40 @@ shasum -a 256 -c --ignore-missing SHA256SUMS
 
 It must print `Psyche-<version>-arm64.dmg: OK` (or `x64`).
 
-Open the DMG and drag Psyche to Applications.
+Open the DMG and drag Psyche onto the Applications folder next to it.
 
-**Unsigned builds.** Releases are signed and notarized by Apple only when they were built with the project's signing keys. Until the first signed release, the app is unsigned and macOS blocks it the first time you open it. Verify the checksum as above first. Then open Psyche once, go to System Settings › Privacy & Security, and click **Open Anyway**. On older setups, right-click Psyche in Applications and choose Open. If you prefer the terminal, this removes the download quarantine instead:
+**Unsigned builds.** Releases are signed and notarized by Apple only when they were built with the project's signing keys. Until the first signed release, the app is signed ad-hoc, and macOS blocks it the first time you open it ("Psyche can't be opened" or "cannot verify that it is free of malware"). Verify the checksum as above first. Then:
+
+1. Open Psyche from Applications and click **Done** on the warning.
+2. Open System Settings › Privacy & Security, scroll to Security and click **Open Anyway** next to the Psyche message. Confirm with your password.
+
+On macOS 14 and earlier, right-clicking Psyche in Applications and choosing **Open** does the same. From macOS 15 on, right-click Open no longer skips the check, so use the System Settings button. If you prefer the terminal, this removes the download quarantine instead:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/Psyche.app
 ```
 
-Unsigned builds also lose macOS permissions (Accessibility, Screen Recording, Microphone, Automation) each time you install a new build, because macOS ties those grants to the app's signature. You grant them again in System Settings after each upgrade.
+Unsigned builds also lose macOS permissions (Accessibility, Screen Recording, Microphone, Automation) each time you install a new build, because macOS ties those grants to the app's signature. After an upgrade, `psyche doctor` warns about it. The old switches stay visible in System Settings but no longer apply: reset them with `tccutil reset All com.psyche.helper` and grant them again.
 
 ### 2. Open Psyche
 
-The first time you open the app, it installs the LaunchAgent `com.psyche.gateway` and starts the Gateway. The Gateway keeps running when you close the window. Its logs are in `$PSYCHE_HOME/logs/`.
+The first time you open the app, it installs the LaunchAgent `com.psyche.gateway` (pointing at the `psyched` inside the app) and starts the Gateway. It also starts Psyche Helper, which pairs itself with the Gateway, with no code to type. The Gateway keeps running when you close the window. Its logs are in `$PSYCHE_HOME/logs/`.
+
+Psyche asks for no macOS permissions at first launch. Each one is requested when you turn on a feature that needs it (Settings › Permissions lists them all).
+
+If you move Psyche.app after the first launch, open it again from its new place so it rewrites the LaunchAgent.
 
 If the app reports that `psyched` is not bundled, your build does not include the Gateway; install a release build.
 
 ### 3. Install the CLI (recommended)
 
-You need the CLI for backups and upgrades.
+You need the CLI for backups and upgrades. The app already contains one. Put it on your PATH:
+
+```bash
+sudo ln -sf /Applications/Psyche.app/Contents/Resources/psyched/psyche /usr/local/bin/psyche
+```
+
+It runs on the app's own Node runtime and is updated along with the app. Or install it separately with Homebrew:
 
 ```bash
 brew install devmello/psyche/psyche-cli
@@ -78,6 +101,27 @@ The first time, it prints a pairing code and waits. Approve the code on the same
 The first device you approve this way becomes the admin. Later devices can be approved from an admin device with `psyche pairing approve <CODE>`.
 
 ### 5. Check the install
+
+The first-run checklist checks the install in the order you would fix it:
+
+```bash
+psyche doctor --first-run
+```
+
+| # | Item | When it is not ok |
+| --- | --- | --- |
+| 1 | Psyche.app is in /Applications (or ~/Applications) | Drag it there from the DMG |
+| 2 | The LaunchAgent is installed and loaded | Open Psyche.app (or `psyche start`) |
+| 3 | The LaunchAgent runs a `psyched` that exists | You moved or deleted the app: open it from its new place |
+| 4 | The Gateway answers `/healthz` | See the LaunchAgent items, then `$PSYCHE_HOME/logs/` |
+| 5 | This CLI is paired | `psyche onboard`, then approve the code (step 4) |
+| 6 | Psyche Helper is connected | Open Psyche.app, which starts it |
+| 7 | Permissions: the next one to grant | Psyche › Settings › Permissions, or the System Settings link it prints |
+| 8 | Helper signing (unsigned builds only) | A warning: permissions are lost on upgrade (see above) |
+| 9 | A model provider | `psyche vault add …` (or `psyche onboard`) |
+| 10 | The vault is set up and the recovery key confirmed | `psyche onboard` |
+
+It exits 0 when nothing fails. Warnings, such as a permission you have not granted yet, do not fail it unless you add `--strict`. `--json` prints the same items for scripts. The full check, including the sandbox, bind address, disk and file modes:
 
 ```bash
 psyche doctor

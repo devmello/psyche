@@ -18,6 +18,18 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (desktop bundle: first admin without a terminal)
+
+For the desktop bundle session and S01 (the Gateway handler), approved by the architecture session.
+
+- New method `devices.bootstrapAdmin {}` → `{device}`, `operator.write`, side-effecting. Grants `operator.admin` to the calling desktop shell only while no admin device exists (one transaction), audited as `device.bootstrap_admin`. `forbidden` for any caller but the desktop shell's own connection, `conflict` once an admin exists.
+
+### v1 additive — 2026-10-20 (desktop bundle: first run from scratch)
+
+For the desktop bundle session (onboarding's Model & provider step) and S01/S03 (the Gateway's model router reads it).
+
+- New method `models.setKey {providerId, key}` → `{provider: ModelProviderSummary}`, `operator.admin`, side-effecting. Stores a hosted provider's API key in the vault as a Gateway-owned item, so a packaged install answers chat with no environment variables. The key is never logged or returned.
+
 ### v1 additive — 2026-10-20 (#272: pause-when-unwatched signal from the desktop)
 
 For S11 (the desktop reports it), S01 (the Gateway's attention check), and S08 (browser panes).

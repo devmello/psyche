@@ -25,7 +25,9 @@ import {
   type OnboardingShellProps,
   type OnboardingStepId,
   type PermissionAnswer,
+  type PermissionResult,
   type PersonaDraft,
+  type SetupCheck,
   type Workspace,
 } from "./types.ts";
 
@@ -68,6 +70,11 @@ export interface OnboardingFlowProps extends OnboardingShellProps {
   onComplete: (result: OnboardingResult) => void;
 }
 
+/** A request's or read's result as the row's answer. */
+function answerOf(state: PermissionResult): PermissionAnswer {
+  return state === "granted" ? "granted" : state === "unavailable" ? "unavailable" : "denied";
+}
+
 export function OnboardingFlow({
   step,
   defaultStep = "agent",
@@ -76,10 +83,13 @@ export function OnboardingFlow({
   onComplete,
   ramGb,
   onRequestPermission,
+  onReadPermissions,
   onConnect,
   onSaveKey,
   onCheckModel,
   vmAvailable = true,
+  helper,
+  onVerify,
 }: OnboardingFlowProps): ReactElement {
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -108,6 +118,8 @@ export function OnboardingFlow({
   const [connectError, setConnectError] = useState<string | null>(null);
   const [model, setModel] = useState<ModelChoice>(initial.model ?? defaultModelChoice("cloud"));
   const [keyError, setKeyError] = useState<string | null>(null);
+  const [recoveryKey, setRecoveryKey] = useState<string | null>(null);
+  const [checks, setChecks] = useState<SetupCheck[] | "checking" | null>(null);
   const [workspace, setWorkspace] = useState<Workspace>(initial.workspace ?? "local");
 
   const name = persona.name.trim() === "" ? DEFAULT_NAME : persona.name.trim();
@@ -147,17 +159,52 @@ export function OnboardingFlow({
 
   const allow = async (p: TccPermission) => {
     if (!onRequestPermission) {
-      setPermissions((s) => ({ ...s, [p]: "skipped" }));
+      setPermissions((s) => ({ ...s, [p]: "unavailable" }));
       return;
     }
     setAskingPermission(p);
     try {
       const state = await onRequestPermission(p);
-      setPermissions((s) => ({ ...s, [p]: state === "granted" ? "granted" : "denied" }));
+      setPermissions((s) => ({ ...s, [p]: answerOf(state) }));
+    } catch {
+      setPermissions((s) => ({ ...s, [p]: "unavailable" }));
     } finally {
       setAskingPermission(null);
     }
   };
+
+  // The owner flips most switches in System Settings: re-read the real state when this window
+  // gets focus again, and when the Permissions step opens. A row the owner skipped stays skipped
+  // unless macOS now says it is allowed.
+  useEffect(() => {
+    if (!onReadPermissions || current !== "permissions") return;
+    let live = true;
+    const read = () => {
+      void onReadPermissions().then(
+        (states) => {
+          if (!live) return;
+          setPermissions((s) => {
+            const next = { ...s };
+            for (const [p, state] of Object.entries(states) as [
+              TccPermission,
+              PermissionResult,
+            ][]) {
+              if (state === "granted") next[p] = "granted";
+              else if (s[p] === "granted" || s[p] === "denied") next[p] = answerOf(state);
+            }
+            return next;
+          });
+        },
+        () => undefined,
+      );
+    };
+    read();
+    window.addEventListener("focus", read);
+    return () => {
+      live = false;
+      window.removeEventListener("focus", read);
+    };
+  }, [onReadPermissions, current]);
 
   const connect = async (type: string, mode: ScopeMode) => {
     setConnectError(null);
@@ -179,7 +226,9 @@ export function OnboardingFlow({
     ? async (key: string) => {
         setKeyError(null);
         try {
-          const keyRef = await onSaveKey(model.provider, key);
+          const saved = await onSaveKey(model.provider, key);
+          const keyRef = typeof saved === "string" ? saved : saved.keyRef;
+          if (typeof saved !== "string" && saved.recoveryKey) setRecoveryKey(saved.recoveryKey);
           setModel((m) => ({ ...m, keyRef }));
         } catch (err) {
           setKeyError(`Psyche couldn't store the key (${messageOf(err)}).`);
@@ -201,6 +250,24 @@ export function OnboardingFlow({
     : undefined;
 
   const isLast = current === "done";
+
+  // Entering Done applies the model and checks the setup once per visit.
+  const resultRef = useRef(result);
+  resultRef.current = result;
+  useEffect(() => {
+    if (current !== "done" || !onVerify) return;
+    let live = true;
+    setChecks("checking");
+    onVerify(resultRef.current).then(
+      (c) => live && setChecks(c),
+      (err: unknown) =>
+        live &&
+        setChecks([{ id: "setup", label: "Setup check", state: "warn", detail: messageOf(err) }]),
+    );
+    return () => {
+      live = false;
+    };
+  }, [current, onVerify]);
 
   return (
     <div
@@ -283,6 +350,7 @@ export function OnboardingFlow({
             persona={name}
             value={permissions}
             busy={askingPermission}
+            {...(helper ? { helper } : {})}
             onAllow={(p) => void allow(p)}
             onSkip={(p) => setPermissions((s) => ({ ...s, [p]: "skipped" }))}
           />
@@ -301,6 +369,7 @@ export function OnboardingFlow({
             value={model}
             onChange={setModel}
             keyError={keyError}
+            {...(recoveryKey ? { recoveryKey } : {})}
             {...(ramGb === undefined ? {} : { ramGb })}
             {...(saveKey ? { onSaveKey: (k: string) => void saveKey(k) } : {})}
             {...(check ? { onCheck: () => void check() } : {})}
@@ -314,7 +383,9 @@ export function OnboardingFlow({
             vmAvailable={vmAvailable}
           />
         ) : null}
-        {current === "done" ? <DoneStep result={result} /> : null}
+        {current === "done" ? (
+          <DoneStep result={result} {...(checks === null ? {} : { checks })} />
+        ) : null}
       </section>
 
       <div

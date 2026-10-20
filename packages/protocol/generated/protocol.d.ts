@@ -1684,6 +1684,10 @@ export interface DevicesApproveResult {
     device: Device;
 }
 
+export interface DevicesBootstrapAdminResult {
+    device: Device;
+}
+
 export interface DevicesDenyParams {
     pairingRequestId: string;
     reason?:          string;
@@ -2902,6 +2906,15 @@ export interface ModelsProbeParams {
 }
 
 export interface ModelsProbeResult {
+    provider: ModelProviderSummary;
+}
+
+export interface ModelsSetKeyParams {
+    key:        string;
+    providerId: string;
+}
+
+export interface ModelsSetKeyResult {
     provider: ModelProviderSummary;
 }
 

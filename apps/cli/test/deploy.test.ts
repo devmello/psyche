@@ -1,5 +1,13 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -295,4 +303,172 @@ describe("deploy/scripts/release-preflight.mjs (before a tag)", () => {
       }
     }
   });
+});
+
+describe("deploy/macos/make-dmg.sh (no Developer ID)", () => {
+  // Builds and mounts a disk image, so it runs only when asked (PSYCHE_DMG_TEST=1, macOS).
+  it
+    .skipIf(process.platform !== "darwin" || !has("hdiutil") || process.env.PSYCHE_DMG_TEST !== "1")
+    .each([
+      { presigned: false, identifier: "dev.psyche.test" },
+      // The package step's inside-out signature is kept, not replaced by a --deep one.
+      { presigned: true, identifier: "dev.psyche.kept" },
+    ])(
+    "presigned=$presigned: ad-hoc signed app, Applications link and checksum",
+    ({ presigned, identifier }) => {
+      const dir = mkdtempSync(join(tmpdir(), "psyche-dmg-"));
+      try {
+        // A stub app: one Mach-O executable and its Info.plist.
+        const app = join(dir, "Psyche.app");
+        mkdirSync(join(app, "Contents", "MacOS"), { recursive: true });
+        execFileSync("/bin/cp", ["/usr/bin/true", join(app, "Contents", "MacOS", "Psyche")]);
+        writeFileSync(
+          join(app, "Contents", "Info.plist"),
+          `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>Psyche</string>
+<key>CFBundleIdentifier</key><string>dev.psyche.test</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+</dict></plist>
+`,
+        );
+        if (presigned) {
+          execFileSync("/usr/bin/codesign", [
+            "--force",
+            "--sign",
+            "-",
+            "--identifier",
+            identifier,
+            app,
+          ]);
+        }
+        const out = join(dir, "out");
+        const env: NodeJS.ProcessEnv = {
+          ...process.env,
+          PSYCHE_DMG_BACKGROUND: join(dir, "none.png"),
+          PSYCHE_DMG_LAYOUT: "0",
+        };
+        delete env.PSYCHE_SIGN_IDENTITY;
+        // No Finder layout, so the test scripts no app and opens no windows.
+        const dmg = execFileSync(
+          "/bin/bash",
+          [resolve(deploy, "macos/make-dmg.sh"), app, "1.2.3", "arm64", out],
+          { env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+        )
+          .trim()
+          .split("\n")
+          .at(-1);
+        expect(dmg).toBe(join(out, "Psyche-1.2.3-arm64.dmg"));
+        const sum = execFileSync("/usr/bin/shasum", ["-a", "256", "Psyche-1.2.3-arm64.dmg"], {
+          cwd: out,
+          encoding: "utf8",
+        });
+        expect(readFileSync(join(out, "Psyche-1.2.3-arm64.dmg.sha256"), "utf8")).toBe(sum);
+
+        const mnt = join(dir, "mnt");
+        mkdirSync(mnt);
+        execFileSync("/usr/bin/hdiutil", [
+          "attach",
+          "-readonly",
+          "-nobrowse",
+          "-noautoopen",
+          "-mountpoint",
+          mnt,
+          dmg as string,
+        ]);
+        try {
+          expect(existsSync(join(mnt, "Applications"))).toBe(true);
+          const info = spawnSync(
+            "/usr/bin/codesign",
+            ["-dv", "--verbose=2", join(mnt, "Psyche.app")],
+            { encoding: "utf8" },
+          );
+          expect(info.status).toBe(0);
+          expect(info.stderr).toContain("Signature=adhoc");
+          expect(info.stderr).toContain(`Identifier=${identifier}`);
+          expect(
+            spawnSync("/usr/bin/codesign", [
+              "--verify",
+              "--deep",
+              "--strict",
+              join(mnt, "Psyche.app"),
+            ]).status,
+          ).toBe(0);
+        } finally {
+          execFileSync("/usr/bin/hdiutil", ["detach", mnt, "-quiet"]);
+        }
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+    120_000,
+  );
+});
+
+describe("deploy/scripts/build-psyched.mjs launchers", () => {
+  it.skipIf(process.platform === "win32")(
+    "find the bundle through absolute and relative symlinks (`/usr/local/bin/psyche`)",
+    async () => {
+      const { PSYCHE_LAUNCHER, PSYCHED_LAUNCHER } = await import(
+        resolve(deploy, "scripts/build-psyched.mjs")
+      );
+      const dir = mkdtempSync(join(tmpdir(), "psyche-launch-"));
+      try {
+        const bundle = join(dir, "Psyche.app", "Contents", "Resources", "psyched");
+        mkdirSync(join(bundle, "runtime"), { recursive: true });
+        // A stand-in runtime that prints the entry point it was given.
+        writeFileSync(join(bundle, "runtime", "node"), '#!/bin/sh\nprintf "%s\\n" "$2"\n', {
+          mode: 0o755,
+        });
+        writeFileSync(join(bundle, "psyche"), PSYCHE_LAUNCHER, { mode: 0o755 });
+        writeFileSync(join(bundle, "psyched"), PSYCHED_LAUNCHER, { mode: 0o755 });
+        const bin = join(dir, "bin");
+        mkdirSync(bin);
+        symlinkSync(join(bundle, "psyche"), join(bin, "psyche"));
+        symlinkSync("../Psyche.app/Contents/Resources/psyched/psyched", join(bin, "psyched"));
+        symlinkSync(join(bin, "psyche"), join(bin, "psyche2"));
+        const runIt = (p: string) => execFileSync(p, [], { encoding: "utf8" }).trim();
+        expect(runIt(join(bin, "psyche"))).toBe(join(bundle, "app/apps/cli/src/main.ts"));
+        expect(runIt(join(bin, "psyche2"))).toBe(join(bundle, "app/apps/cli/src/main.ts"));
+        expect(runIt(join(bin, "psyched"))).toBe(
+          // Not normalized: the launcher keeps the relative link's `..`.
+          `${bin}/../Psyche.app/Contents/Resources/psyched/app/apps/gateway/src/main.ts`,
+        );
+        expect(runIt(join(bundle, "psyched"))).toBe(join(bundle, "app/apps/gateway/src/main.ts"));
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
+});
+
+describe("deploy/macos/make-dmg.sh refuses to --deep re-sign a bundled helper", () => {
+  it.skipIf(process.platform !== "darwin" || !has("codesign"))(
+    "an unsigned app with PsycheHelper.app fails before any image is built",
+    () => {
+      const dir = mkdtempSync(join(tmpdir(), "psyche-dmg-helper-"));
+      try {
+        const app = join(dir, "Psyche.app");
+        mkdirSync(join(app, "Contents", "MacOS"), { recursive: true });
+        mkdirSync(join(app, "Contents", "Resources", "PsycheHelper.app", "Contents"), {
+          recursive: true,
+        });
+        execFileSync("/bin/cp", ["/usr/bin/true", join(app, "Contents", "MacOS", "Psyche")]);
+        const env: NodeJS.ProcessEnv = { ...process.env, PSYCHE_DMG_LAYOUT: "0" };
+        delete env.PSYCHE_SIGN_IDENTITY;
+        const out = join(dir, "out");
+        const r = spawnSync(
+          "/bin/sh",
+          [resolve(deploy, "macos/make-dmg.sh"), app, "1.2.3", "arm64", out],
+          { env, encoding: "utf8" },
+        );
+        expect(r.status).toBe(1);
+        expect(r.stderr).toContain("bundles PsycheHelper.app");
+        expect(existsSync(join(out, "Psyche-1.2.3-arm64.dmg"))).toBe(false);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
 });

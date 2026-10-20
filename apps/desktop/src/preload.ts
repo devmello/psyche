@@ -70,6 +70,7 @@ const bridge = {
   chrome: chromeFromArgv(process.argv),
   gateway: {
     getStatus: () => invoke(IPC.getStatus),
+    deviceId: () => invoke(IPC.getDeviceId),
     onStatus: (cb: (s: unknown) => void) => listen(IPC.status, cb),
     /**
      * Resolves the raw `{ok, value} | {ok: false, error}` envelope: `contextBridge` copies only
@@ -80,6 +81,9 @@ const bridge = {
       ipcRenderer.invoke(IPC.call, { method, params }) as Promise<Envelope>,
     onEvent: (cb: (e: unknown) => void) => listen(IPC.event, cb),
     onResync: (cb: () => void) => listen(IPC.resync, () => cb()),
+    getRun: () => invoke(IPC.gatewayGetRun),
+    onRun: (cb: (s: unknown) => void) => listen(IPC.gatewayRun, cb),
+    showLogs: () => invoke(IPC.gatewayShowLogs),
   },
   browser: {
     getState: () => invoke(IPC.browserGetState),
@@ -133,7 +137,17 @@ const bridge = {
     getStatus: () => invoke(IPC.dictationGetStatus),
     onStatus: (cb: (s: unknown) => void) => listen(IPC.dictationStatus, cb),
     recheck: () => invoke(IPC.dictationRecheck),
+    checkHotkey: (accelerator: string) => invoke(IPC.dictationCheckHotkey, { accelerator }),
     openAccessibilitySettings: () => ipcRenderer.send(IPC.dictationOpenAccessibility),
+  },
+  /** macOS privacy permissions (onboarding, Settings): prompt or open the pane, and read status. */
+  permissions: {
+    status: () => invoke(IPC.permissionsStatus),
+    request: (kind: string) => invoke(IPC.permissionsRequest, { kind }),
+  },
+  helper: {
+    getState: () => invoke(IPC.helperGetState),
+    onState: (cb: (s: unknown) => void) => listen(IPC.helperState, cb),
   },
 };
 

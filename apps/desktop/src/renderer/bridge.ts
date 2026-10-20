@@ -4,6 +4,10 @@ import {
   type BrowserNav,
   browserStorage,
   type DownloadNotice,
+  type GatewayRunView,
+  type MacHelperState,
+  type PermissionKind,
+  type PermissionState,
   type ShellCommand,
   type ShellPlatform,
   type SystemDictationStatus,
@@ -51,10 +55,14 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
     storage: browserStorage(),
     gateway: {
       getStatus: () => b.gateway.getStatus() as Promise<GatewayStatus>,
+      deviceId: () => b.gateway.deviceId() as Promise<string | undefined>,
       onStatus: (cb) => b.gateway.onStatus((s) => cb(s as GatewayStatus)),
       call: (method, params) => unwrapCall(b.gateway.call(method, params)),
       onEvent: (cb) => b.gateway.onEvent((e) => cb(e as GatewayEvent)),
       onResync: (cb) => b.gateway.onResync(cb),
+      getRun: () => b.gateway.getRun() as Promise<GatewayRunView>,
+      onRun: (cb) => b.gateway.onRun((s) => cb(s as GatewayRunView)),
+      showLogs: async () => void (await b.gateway.showLogs()),
     },
     browser: {
       getState: () => b.browser.getState() as Promise<BrowserHostState>,
@@ -91,10 +99,21 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
     dialogs: {
       pickFolder: (opts) => b.dialogs.pickFolder(opts) as Promise<string | null>,
     },
+    permissions: {
+      status: () =>
+        b.permissions.status() as Promise<Partial<Record<PermissionKind, PermissionState>>>,
+      request: (kind) => b.permissions.request(kind) as Promise<PermissionState>,
+    },
+    helper: {
+      getState: () => b.helper.getState() as Promise<MacHelperState>,
+      onState: (cb) => b.helper.onState((s) => cb(s as MacHelperState)),
+    },
     dictation: {
       getStatus: () => b.dictation.getStatus() as Promise<SystemDictationStatus>,
       onStatus: (cb) => b.dictation.onStatus((s) => cb(s as SystemDictationStatus)),
       recheck: () => b.dictation.recheck() as Promise<SystemDictationStatus>,
+      checkHotkey: (accelerator) =>
+        b.dictation.checkHotkey(accelerator) as Promise<"ok" | "taken" | "invalid">,
       openAccessibilitySettings: () => b.dictation.openAccessibilitySettings(),
     },
   };

@@ -84,6 +84,36 @@ describe("OnboardingFlow", () => {
     expect(screen.getByText("Skipped")).toBeTruthy();
   });
 
+  it("says Unavailable, not Skipped, when this shell can't ask (issue #384)", async () => {
+    setup({ defaultStep: "permissions" });
+    await userEvent.click(screen.getByRole("button", { name: "Allow Accessibility" }));
+    expect(await screen.findByText("Unavailable")).toBeTruthy();
+    expect(screen.queryByText("Skipped")).toBeNull();
+    expect(screen.getByText(/only in the Psyche app on a Mac/)).toBeTruthy();
+  });
+
+  it("shows Asking… during the prompt and re-reads macOS on window focus", async () => {
+    let answer: (s: "denied") => void = () => undefined;
+    const onRequestPermission = vi.fn(() => new Promise<"denied">((resolve) => (answer = resolve)));
+    let screenState: "denied" | "granted" = "denied";
+    const onReadPermissions = vi.fn(async () => ({ screenRecording: screenState }));
+    setup({ defaultStep: "permissions", onRequestPermission, onReadPermissions });
+    await userEvent.click(screen.getByRole("button", { name: "Allow Screen Recording" }));
+    expect(screen.getByRole("button", { name: "Allow Screen Recording" }).textContent).toContain(
+      "Asking…",
+    );
+    answer("denied");
+    expect(await screen.findByText("Denied in macOS")).toBeTruthy();
+    // The owner flips the switch in System Settings and comes back.
+    screenState = "granted";
+    window.dispatchEvent(new Event("focus"));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Allow Screen Recording" }).textContent).toBe(
+        "Allowed",
+      ),
+    );
+  });
+
   it("connects accounts one at a time with read-only vs read-and-act", async () => {
     const onConnect = vi.fn(async () => true);
     setup({ defaultStep: "connectors", onConnect });
@@ -189,6 +219,50 @@ describe("OnboardingFlow", () => {
     expect(document.activeElement).toBe(heading());
     await userEvent.tab();
     expect(document.activeElement?.textContent).toBe("Allow");
+  });
+});
+
+describe("First run from scratch", () => {
+  it("shows the vault recovery key once when saving the key created the vault", async () => {
+    setup({
+      step: "model",
+      onSaveKey: async () => ({ keyRef: "model-anthropic", recoveryKey: "ABCD-EFGH-IJKL" }),
+    });
+    await userEvent.type(screen.getByLabelText("API key"), "sk-ant-x");
+    await userEvent.click(screen.getByRole("button", { name: "Save to vault" }));
+    expect((await screen.findByTestId("vault-recovery-key")).textContent).toContain(
+      "ABCD-EFGH-IJKL",
+    );
+    expect(screen.getByRole("status").textContent).toContain("model-anthropic");
+  });
+
+  it("lists the setup checks on Done", async () => {
+    const onVerify = vi.fn(async () => [
+      { id: "gateway", label: "Gateway", state: "ok" as const, detail: "Running on this Mac." },
+      { id: "model", label: "Model", state: "warn" as const, detail: "None picked." },
+    ]);
+    setup({ step: "done", onVerify });
+    const list = await screen.findByTestId("setup-checks");
+    expect(list.textContent).toContain("Running on this Mac.");
+    expect(list.textContent).toContain("None picked.");
+    expect(onVerify).toHaveBeenCalledOnce();
+  });
+});
+
+describe("Mac helper in onboarding", () => {
+  it("shows the bundled helper's state in Permissions without blocking Next", async () => {
+    setup({ step: "permissions", helper: { kind: "starting" } });
+    const row = screen.getByTestId("mac-helper-status");
+    expect(row.textContent).toContain("Psyche Helper");
+    expect(row.textContent).toContain("Starting…");
+    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+  });
+
+  it("shows nothing for it when the host has no helper (web)", () => {
+    setup({ step: "permissions" });
+    expect(screen.queryByTestId("mac-helper-status")).toBeNull();
   });
 });
 

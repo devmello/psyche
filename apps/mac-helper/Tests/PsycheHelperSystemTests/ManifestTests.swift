@@ -84,3 +84,18 @@ struct AttentionMonitorTests {
         #expect(m.lastOwnerInput == t)
     }
 }
+
+@Suite("permissions.status for onboarding and doctor (packaging)")
+struct PermissionsStatusBundleTests {
+    @Test func reportsEveryPermissionAndTheBundle() async throws {
+        let runtime = HelperRuntime(log: HelperLog(echo: { _ in }), environment: ["PSYCHE_HOME": NSTemporaryDirectory()])
+        let cap = try #require(runtime.registry["permissions.status"])
+        let r = try await cap.invoke(InvocationContext(invocationId: "i", capability: "permissions.status", params: [:], approvalId: nil, emit: { _ in })).result
+        let rows = try #require(r["permissions"]?.arrayValue)
+        #expect(Set(rows.compactMap { $0["permission"]?.stringValue }) == Set(TCCPermission.allCases.map(\.rawValue)))
+        let bundle = try #require(r["bundle"])
+        #expect(bundle["path"]?.stringValue?.isEmpty == false)
+        #expect(["developer_id", "development", "adhoc", "unsigned"].contains(bundle["signing"]?.stringValue ?? ""))
+        #expect(bundle["insideApp"] != nil)
+    }
+}

@@ -65,6 +65,19 @@ describe("models.* methods (B1, B4)", () => {
     expect(methodSpec("models.probe").scope).toBe("operator.admin");
   });
 
+  it("validates models.setKey: admin, side-effecting, bounded key", () => {
+    expect(() =>
+      validateParams("models.setKey", { providerId: "anthropic", key: "sk-test" }),
+    ).not.toThrow();
+    expect(() => validateParams("models.setKey", { providerId: "anthropic", key: "" })).toThrow();
+    expect(() => validateParams("models.setKey", { providerId: "anthropic" })).toThrow();
+    expect(() =>
+      validateParams("models.setKey", { providerId: "anthropic", key: "x".repeat(4097) }),
+    ).toThrow();
+    expect(requiresIdempotencyKey("models.setKey")).toBe(true);
+    expect(methodSpec("models.setKey").scope).toBe("operator.admin");
+  });
+
   it("validates a tool-check verdict", () => {
     const result = {
       ref: "llamacpp/qwen3-8b",

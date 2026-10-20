@@ -11,6 +11,7 @@ import type { GatewayConnection } from "@psyche/web/client";
 import type { ShellCommand } from "@psyche/web/platform";
 import {
   app,
+  desktopCapturer,
   dialog,
   globalShortcut,
   type IpcMainEvent,
@@ -21,6 +22,7 @@ import {
   protocol,
   session,
   shell,
+  systemPreferences,
   type WebContents,
   webContents,
 } from "electron";
@@ -39,16 +41,30 @@ import {
   str,
 } from "./lib/ipc.ts";
 import { NotificationRelay } from "./lib/notify-relay.ts";
+import { pairingEdge } from "./lib/pairing-edge.ts";
 import { realChromeOpenCommand, realChromeProfileDir } from "./lib/real-chrome.ts";
 import { ZoomController } from "./lib/zoom.ts";
+import { bootstrapAdminIfNeeded } from "./main/bootstrap-admin.ts";
 import { BridgeClient } from "./main/bridge/bridge-client.ts";
 import { createAttentionReporter } from "./main/browser/attention.ts";
 import { BrowserHost } from "./main/browser/browser-host.ts";
 import { SystemDictation } from "./main/dictation/controller.ts";
 import { HudWindow } from "./main/dictation/hud.ts";
 import { ACCESSIBILITY_SETTINGS_URL, DictationService } from "./main/dictation/service.ts";
+import { HelperLauncher } from "./main/helper-launcher.ts";
 import { buildAppMenu } from "./main/menu.ts";
-import { chooseMode, GatewaySupervisor } from "./main/supervisor.ts";
+import {
+  createPermissions,
+  notificationStateOf,
+  PERMISSION_KINDS,
+  type PermissionKind,
+} from "./main/permissions/permissions.ts";
+import {
+  chooseMode,
+  desktopVaultKeyFile,
+  execRunner,
+  GatewaySupervisor,
+} from "./main/supervisor.ts";
 import { TerminalHost } from "./main/terminal.ts";
 import { PsycheTray } from "./main/tray.ts";
 import { startUpdater } from "./main/updater.ts";
@@ -97,6 +113,8 @@ let bridge: BridgeClient | undefined;
 let terminal: TerminalHost | undefined;
 let tray: PsycheTray | undefined;
 let supervisor: GatewaySupervisor | undefined;
+let helper: HelperLauncher | undefined;
+let thisDeviceId: string | undefined;
 let hud: HudWindow | undefined;
 let dictation: DictationService | undefined;
 const relay = new NotificationRelay();
@@ -225,6 +243,46 @@ async function refreshApprovals(): Promise<void> {
   });
 }
 
+/** The paired Mac helper's node id, when it is online (for its notify.* capabilities). */
+async function onlineHelper(): Promise<string | null> {
+  const res = (await requireGateway().call("nodes.list", {})) as {
+    nodes?: { id: string; kind: string; status: string }[];
+  };
+  return res.nodes?.find((n) => n.kind === "mac-helper" && n.status === "online")?.id ?? null;
+}
+
+async function invokeHelper(capability: string, params: unknown): Promise<unknown> {
+  const nodeId = await onlineHelper();
+  if (nodeId === null) throw new Error("the Psyche helper is not running");
+  const r = (await requireGateway().call("nodes.invoke", { nodeId, capability, params })) as {
+    ok: boolean;
+    result?: unknown;
+  };
+  if (!r.ok) throw new Error(`${capability} failed`);
+  return r.result;
+}
+
+/** macOS privacy permissions for onboarding and Settings (issue #384). */
+const permissions = createPermissions({
+  platform: process.platform,
+  systemPreferences,
+  desktopCapturer,
+  openExternal: (url) => shell.openExternal(url),
+  helper: {
+    notificationStatus: async () =>
+      notificationStateOf(await invokeHelper("notify.authorization_status", {})),
+    requestNotifications: async () =>
+      notificationStateOf(
+        await invokeHelper("notify.request_authorization", { provisional: false }),
+      ),
+  },
+  showFirstNotification: () => {
+    if (!Notification.isSupported()) return false;
+    new Notification({ title: "Psyche", body: "Notifications are on." }).show();
+    return true;
+  },
+});
+
 function requireGateway(): GatewayConnection {
   if (!gateway)
     throw new PsycheError("unavailable", "Gateway connection not ready", { retryable: true });
@@ -238,6 +296,9 @@ function requireBrowser(): BrowserHost {
 
 function registerIpc(): void {
   handle(IPC.getStatus, () => gateway?.getStatus());
+  handle(IPC.getDeviceId, () => thisDeviceId);
+  handle(IPC.gatewayGetRun, () => supervisor?.getState() ?? { kind: "unknown" });
+  handle(IPC.gatewayShowLogs, () => shell.openPath(join(home, "logs")));
   handle(IPC.call, (_e, arg) => {
     const r = rec(IPC.call, arg);
     const method = checkCallable(r.method, isMethodName);
@@ -379,6 +440,20 @@ function registerIpc(): void {
     await dictation?.recheck();
     return dictation?.status;
   });
+  handle(IPC.permissionsStatus, () => permissions.statusAll());
+  handle(IPC.helperGetState, () => helper?.getState() ?? { kind: "unbundled" });
+  handle(IPC.permissionsRequest, (_event, arg) => {
+    const kind = str(IPC.permissionsRequest, rec(IPC.permissionsRequest, arg).kind, "kind", 32);
+    if (!(PERMISSION_KINDS as readonly string[]).includes(kind)) {
+      throw new Error(`${IPC.permissionsRequest}: unknown permission ${kind}`);
+    }
+    return permissions.request(kind as PermissionKind);
+  });
+  handle(IPC.dictationCheckHotkey, (_event, arg) => {
+    const r = rec(IPC.dictationCheckHotkey, arg);
+    const accelerator = str(IPC.dictationCheckHotkey, r.accelerator, "accelerator", 64);
+    return dictation?.checkHotkey(accelerator) ?? "ok";
+  });
   on(IPC.dictationOpenAccessibility, () => {
     void shell.openExternal(ACCESSIBILITY_SETTINGS_URL);
   });
@@ -456,16 +531,22 @@ function onGatewayEvent(e: {
   if (e.event === "node.updated") void refreshHelperPresence();
 }
 
-async function refreshHelperPresence(): Promise<void> {
+type NodeRow = { kind?: string; status?: string; capabilities?: { name?: string }[] };
+
+async function onlineMacHelpers(): Promise<NodeRow[]> {
   const res = (await gateway?.call("nodes.list", {}).catch(() => undefined)) as
-    | { nodes?: { kind?: string; status?: string; capabilities?: { name?: string }[] }[] }
+    | { nodes?: NodeRow[] }
     | undefined;
-  relay.helperOnline = (res?.nodes ?? []).some(
-    (n) =>
-      n.kind === "mac-helper" &&
-      n.status === "online" &&
-      (n.capabilities ?? []).some((c) => c.name?.startsWith("notify.")),
+  return (res?.nodes ?? []).filter((n) => n.kind === "mac-helper" && n.status === "online");
+}
+
+async function refreshHelperPresence(): Promise<void> {
+  const helpers = await onlineMacHelpers();
+  relay.helperOnline = helpers.some((n) =>
+    (n.capabilities ?? []).some((c) => c.name?.startsWith("notify.")),
   );
+  // Launches the bundled helper the first time and when it went away (packaged macOS only).
+  void helper?.onPresence(helpers.length > 0);
 }
 
 async function serveAppProtocol(): Promise<void> {
@@ -571,8 +652,44 @@ void app.whenReady().then(async () => {
     },
   });
 
+  // The bundled Mac helper (docs/status/s14.md "Packaging"): started through LaunchServices once
+  // this window pairs, i.e. the Gateway answers; dev builds use their own helper install.
+  helper = new HelperLauncher({
+    appPath:
+      app.isPackaged && process.platform === "darwin"
+        ? join(process.resourcesPath, "PsycheHelper.app")
+        : undefined,
+    psycheHome: home,
+    run: execRunner,
+    isPaired: async () => (await onlineMacHelpers()).length > 0,
+    onState: (s) => broadcast(IPC.helperState, s),
+  });
+
   const deviceKey = loadOrCreateDeviceKey(join(app.getPath("userData"), "device-key.json"));
+  thisDeviceId = deviceKey.deviceId;
   const origin = defaultGatewayOrigin();
+  // Pairing work runs once per pairing, not on every 10 s health tick (which re-sent
+  // dictation.watch and failed it as unavailable while the helper was offline).
+  const onPairing = pairingEdge({
+    onPaired: () => {
+      attention.resend();
+      void refreshHelperPresence();
+      void refreshApprovals();
+      void zoom.load();
+      void dictation?.load();
+      void bootstrapAdminIfNeeded({
+        packaged: app.isPackaged,
+        scopes: () => gateway?.getStatus().scopes,
+        call: (m, p, o) => requireGateway().call(m, p, o),
+        reconnect: () => {
+          gateway?.stop();
+          gateway?.start();
+        },
+        warn: (m) => console.warn(`[gateway] ${m}`),
+      });
+    },
+    onUnpaired: () => dictation?.onDisconnected(),
+  });
   gateway = createDesktopGateway({
     deviceKey,
     httpOrigin: origin,
@@ -580,13 +697,7 @@ void app.whenReady().then(async () => {
     onStatus: (s) => {
       broadcast(IPC.status, s);
       tray?.update({ status: s });
-      if (s.phase === "paired") {
-        attention.resend();
-        void refreshHelperPresence();
-        void refreshApprovals();
-        void zoom.load();
-        void dictation?.load();
-      } else dictation?.onDisconnected();
+      onPairing(s);
     },
     onEvent: onGatewayEvent,
     onResync: () => {
@@ -627,7 +738,11 @@ void app.whenReady().then(async () => {
     gatewayDir: resolve(app.getAppPath(), "..", "gateway"),
     bundledProgram: join(process.resourcesPath, "psyched", "psyched"),
     bundledPlist: join(process.resourcesPath, "launchd", "com.psyche.gateway.plist"),
-    onState: (run) => tray?.update({ run }),
+    vaultKeyFile: () => desktopVaultKeyFile(home),
+    onState: (run) => {
+      tray?.update({ run });
+      broadcast(IPC.gatewayRun, run);
+    },
   });
 
   tray = new PsycheTray(

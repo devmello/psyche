@@ -787,6 +787,14 @@
         "sideEffecting": false
       },
       {
+        "description": "First run without a terminal: grants operator.admin to the calling device when the Gateway has no operator.admin device at all, in one transaction, and audits it as device.bootstrap_admin. Only the desktop shell's own connection may call it (loopback, no Origin, deviceFamily desktop, the per-launch handshake secret); forbidden otherwise, conflict once any admin exists. Side-effecting.",
+        "name": "devices.bootstrapAdmin",
+        "params": "#/$defs/DevicesBootstrapAdminParams",
+        "result": "#/$defs/DevicesBootstrapAdminResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Denies a pending pairing request.",
         "name": "devices.deny",
         "params": "#/$defs/DevicesDenyParams",
@@ -1225,6 +1233,14 @@
         "result": "#/$defs/ModelsProbeResult",
         "scope": "operator.admin",
         "sideEffecting": false
+      },
+      {
+        "description": "Stores a hosted provider's API key in the vault as a Gateway-owned item bound to the provider's API origin (replacing an earlier one) and returns the provider with keyConfigured true. The model router reads it per request; agents can never fill it. not_found for an unknown provider id, invalid_params for a keyless (local) provider, unavailable when the vault cannot be opened. Side-effecting; its params are never logged.",
+        "name": "models.setKey",
+        "params": "#/$defs/ModelsSetKeyParams",
+        "result": "#/$defs/ModelsSetKeyResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
       },
       {
         "description": "Binds the primary or utility role to a model and persists it (settings models.primary / models.utility). policy_denied when a chat-only model is picked as primary without override; not_found when no configured provider serves the ref. Side-effecting.",
@@ -7460,6 +7476,21 @@
       ],
       "type": "object"
     },
+    "DevicesBootstrapAdminParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "DevicesBootstrapAdminResult": {
+      "properties": {
+        "device": {
+          "$ref": "#/$defs/Device"
+        }
+      },
+      "required": [
+        "device"
+      ],
+      "type": "object"
+    },
     "DevicesDenyParams": {
       "properties": {
         "pairingRequestId": {
@@ -12103,6 +12134,36 @@
       "type": "object"
     },
     "ModelsProbeResult": {
+      "properties": {
+        "provider": {
+          "$ref": "#/$defs/ModelProviderSummary"
+        }
+      },
+      "required": [
+        "provider"
+      ],
+      "type": "object"
+    },
+    "ModelsSetKeyParams": {
+      "properties": {
+        "providerId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "providerId",
+        "key"
+      ],
+      "type": "object"
+    },
+    "ModelsSetKeyResult": {
       "properties": {
         "provider": {
           "$ref": "#/$defs/ModelProviderSummary"

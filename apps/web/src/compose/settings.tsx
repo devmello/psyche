@@ -15,8 +15,10 @@ import {
 import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from "react";
 import type { DictationPort, ShellPlatform, SystemDictationStatus } from "../shell/platform.ts";
 import { BackupsPanel } from "./backups.tsx";
+import { DesktopDevicesSettings } from "./helper.tsx";
 import { LogViewer } from "./logs.tsx";
 import { PasskeysPanel } from "./passkeys.tsx";
+import { ComputerUseSettings } from "./permissions.tsx";
 import { ZoomSetting } from "./ZoomSetting.tsx";
 
 /**
@@ -186,6 +188,12 @@ export function SystemVoiceSettings({ dictation }: { dictation: DictationPort })
       onRecheck={() => {
         void dictation.recheck().then(setStatus, () => undefined);
       }}
+      {...(dictation.checkHotkey
+        ? {
+            onCheckShortcut: (a: string) =>
+              dictation.checkHotkey?.(a) ?? Promise.resolve("ok" as const),
+          }
+        : {})}
     />
   );
 }
@@ -222,6 +230,7 @@ export function settingsRoute(
             }
           : {})}
         sections={{
+          "computer-use": <ComputerUseSettings platform={platform} />,
           files: <FileAccessSettings platform={platform} />,
           ...(platform.dictation
             ? { voice: <SystemVoiceSettings dictation={platform.dictation} /> }
@@ -235,7 +244,9 @@ export function settingsRoute(
                   </div>
                 ),
               }
-            : {}),
+            : platform.helper
+              ? { devices: <DesktopDevicesSettings platform={platform} /> }
+              : {}),
           appearance: (
             <div className="flex flex-col gap-4">
               <AppearanceSection />

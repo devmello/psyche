@@ -1,5 +1,6 @@
 import { type ChildProcess, execFile, spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { randomBytes } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -9,9 +10,11 @@ import { dirname, join } from "node:path";
  *
  * - `dev`: unpackaged builds spawn `psyched` from `apps/gateway` as a child (stopped on quit),
  *   unless a Gateway already answers `/healthz`.
- * - `launchd`: packaged builds install and start the LaunchAgent `com.psyche.gateway`. The plist
- *   is S22's (`deploy/launchd/com.psyche.gateway.plist`); when the app bundle carries it, that
- *   copy wins, otherwise `renderLaunchAgentPlist` writes the same keys.
+ * - `launchd`: packaged builds install (or update) the LaunchAgent `com.psyche.gateway` for the
+ *   bundled `Resources/psyched/psyched`, start it and wait for `/healthz`. The plist is S22's
+ *   template (`Resources/launchd/com.psyche.gateway.plist`, `{{PSYCHED}}` and `{{PSYCHE_HOME}}`
+ *   rendered here); without it `renderLaunchAgentPlist` writes the same keys. Plain quit leaves
+ *   the agent running; "Quit Psyche entirely" uninstalls it.
  * - `external`: never start anything (tests, a Gateway on another machine via SSH tunnel).
  */
 
@@ -21,8 +24,10 @@ export const LAUNCH_AGENT_LABEL = "com.psyche.gateway";
 
 export type GatewayRunState =
   | { kind: "unknown" }
+  | { kind: "starting"; mode: SupervisorMode }
   | { kind: "running"; mode: SupervisorMode; pid?: number }
-  | { kind: "stopped"; mode: SupervisorMode; reason?: string };
+  /** `logs`: the folder with gateway.{out,err}.log when the failure is worth reading them for. */
+  | { kind: "stopped"; mode: SupervisorMode; reason?: string; logs?: string };
 
 export function chooseMode(env: NodeJS.ProcessEnv, isPackaged: boolean): SupervisorMode {
   const forced = env.PSYCHE_GATEWAY_MODE;
@@ -43,6 +48,61 @@ export interface PlistInput {
   args?: string[];
   psycheHome: string;
   logDir: string;
+}
+
+/** Fills S22's plist template: `{{PSYCHED}}` and `{{PSYCHE_HOME}}`, XML-escaped. */
+export function renderPlistTemplate(
+  template: string,
+  values: { program: string; psycheHome: string },
+): string {
+  return template
+    .replaceAll("{{PSYCHED}}", xml(values.program))
+    .replaceAll("{{PSYCHE_HOME}}", xml(values.psycheHome));
+}
+
+/** Adds variables to the plist's `EnvironmentVariables` dict (values XML-escaped). */
+export function withPlistEnv(plist: string, env: Record<string, string>): string {
+  const entries = Object.entries(env);
+  if (entries.length === 0) return plist;
+  const lines = entries
+    .map(([k, v]) => `    <key>${xml(k)}</key>\n    <string>${xml(v)}</string>`)
+    .join("\n");
+  const anchor = /(<key>EnvironmentVariables<\/key>\s*<dict>)/;
+  if (!anchor.test(plist))
+    throw new Error("the LaunchAgent plist has no EnvironmentVariables dict");
+  return plist.replace(anchor, (m) => `${m}\n${lines}`);
+}
+
+/**
+ * The packaged desktop's vault key slot: a 0600 random key file under `$PSYCHE_HOME/secrets/`,
+ * like server mode, because an ad-hoc helper has no keychain access group (keychain.* answers
+ * missing_entitlement). Created on first use; never when the vault already exists with another
+ * slot (switching would lock the owner out).
+ */
+export function desktopVaultKeyFile(psycheHome: string): string | undefined {
+  const keyFile = join(psycheHome, "secrets", "vault.key");
+  const slotsFile = join(psycheHome, "vault", "slots.json");
+  if (existsSync(slotsFile)) {
+    try {
+      const slots = (JSON.parse(readFileSync(slotsFile, "utf8")) as { slots?: object }).slots;
+      if (!slots || !("key_file" in slots)) return undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  if (!existsSync(keyFile)) {
+    mkdirSync(dirname(keyFile), { recursive: true, mode: 0o700 });
+    writeFileSync(keyFile, randomBytes(32), { mode: 0o600, flag: "wx" });
+  }
+  return keyFile;
+}
+
+/**
+ * macOS runs an app opened straight from a DMG or a quarantined download from a random read-only
+ * path (App Translocation) that disappears on quit: a LaunchAgent must never point there.
+ */
+export function isTranslocated(path: string): boolean {
+  return path.includes("/AppTranslocation/");
 }
 
 /** LaunchAgent plist: KeepAlive, RunAtLoad, logs under `$PSYCHE_HOME/logs`, no secrets. */
@@ -92,11 +152,20 @@ export const launchctl = {
   bootout: (uid: number) => ["bootout", `gui/${uid}/${LAUNCH_AGENT_LABEL}`],
 } as const;
 
-/** Reads `state` and `pid` from `launchctl print` output. */
-export function parseLaunchctlPrint(out: string): { running: boolean; pid?: number } {
+/** Reads `state`, `pid` and `last exit code` from `launchctl print` output. */
+export function parseLaunchctlPrint(out: string): {
+  running: boolean;
+  pid?: number;
+  lastExit?: string;
+} {
   const state = /^\s*state = (\S+)/m.exec(out)?.[1];
   const pid = /^\s*pid = (\d+)/m.exec(out)?.[1];
-  return { running: state === "running", ...(pid ? { pid: Number(pid) } : {}) };
+  const lastExit = /^\s*last exit code = (.+)$/m.exec(out)?.[1]?.trim();
+  return {
+    running: state === "running",
+    ...(pid ? { pid: Number(pid) } : {}),
+    ...(lastExit ? { lastExit } : {}),
+  };
 }
 
 export type Runner = (
@@ -124,10 +193,17 @@ export interface SupervisorOptions {
   uid?: number;
   /** Defaults to `~/Library/LaunchAgents` (tests pass a tmp dir). */
   launchAgentsDir?: string;
+  /** launchd: pass `PSYCHE_VAULT_KEY_FILE` to the Gateway (`desktopVaultKeyFile`). */
+  vaultKeyFile?: () => string | undefined;
+  /** launchd: how long to wait for `/healthz` after starting the agent (default 60 s). */
+  healthTimeoutMs?: number;
   run?: Runner;
   fetch?: typeof fetch;
+  sleep?: (ms: number) => Promise<void>;
   onState?: (s: GatewayRunState) => void;
 }
+
+const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export class GatewaySupervisor {
   private child: ChildProcess | undefined;
@@ -167,13 +243,13 @@ export class GatewaySupervisor {
       this.set((await this.healthy()) ? { kind: "running", mode } : { kind: "stopped", mode });
       return;
     }
+    if (mode === "launchd") return this.startLaunchAgent();
     if (await this.healthy()) {
-      // Something already serves the Gateway (a LaunchAgent, a terminal): attach, never spawn twice.
+      // Something already serves the Gateway (a terminal, a LaunchAgent): attach, never spawn twice.
       this.set({ kind: "running", mode });
       return;
     }
-    if (mode === "dev") this.spawnDev();
-    else await this.startLaunchAgent();
+    this.spawnDev();
   }
 
   private spawnDev(): void {
@@ -182,15 +258,42 @@ export class GatewaySupervisor {
       this.set({ kind: "stopped", mode: "dev", reason: "apps/gateway not found" });
       return;
     }
-    const tsx = join(dir, "node_modules", ".bin", "tsx");
-    // The child gets PSYCHE_HOME and PATH, not the desktop's whole environment.
+    // tsx is a workspace-root devDependency, so pnpm puts it in the root bin, not the Gateway's.
+    const tsx = [
+      join(dir, "node_modules", ".bin", "tsx"),
+      join(dir, "..", "..", "node_modules", ".bin", "tsx"),
+    ].find((candidate) => existsSync(candidate));
+    if (!tsx) {
+      this.set({ kind: "stopped", mode: "dev", reason: "tsx not found (run pnpm install)" });
+      return;
+    }
+    // The child gets PATH, HOME, PSYCHE_HOME and the developer's PSYCHE_* / provider-key variables
+    // (dev mode only; a packaged build never spawns this way), not the desktop's whole environment.
+    const passthrough: Record<string, string> = {};
+    for (const [key, value] of Object.entries(process.env)) {
+      if (value === undefined) continue;
+      if (key.startsWith("PSYCHE_") || /^(ANTHROPIC|OPENAI|GOOGLE|OPENROUTER)_API_KEY$/.test(key)) {
+        passthrough[key] = value;
+      }
+    }
     const child = spawn(tsx, ["src/main.ts"], {
       cwd: dir,
-      env: { PATH: process.env.PATH ?? "", HOME: homedir(), PSYCHE_HOME: this.opts.psycheHome },
+      env: {
+        ...passthrough,
+        PATH: process.env.PATH ?? "",
+        HOME: homedir(),
+        PSYCHE_HOME: this.opts.psycheHome,
+      },
       stdio: ["ignore", "inherit", "inherit"],
     });
     this.child = child;
     this.set({ kind: "running", mode: "dev", ...(child.pid ? { pid: child.pid } : {}) });
+    // A spawn failure (ENOENT, EACCES) is an 'error', not an 'exit'; unhandled it crashes the main process.
+    child.on("error", (err) => {
+      if (this.child !== child) return;
+      this.child = undefined;
+      this.set({ kind: "stopped", mode: "dev", reason: err.message });
+    });
     child.on("exit", (code, signal) => {
       if (this.child !== child) return;
       this.child = undefined;
@@ -202,38 +305,105 @@ export class GatewaySupervisor {
     return this.opts.uid ?? process.getuid?.() ?? 501;
   }
 
-  /** Writes the plist when missing or different, then bootstraps and kickstarts the agent. */
-  async startLaunchAgent(): Promise<void> {
-    const uid = this.uid();
-    const plistPath = this.opts.launchAgentsDir
+  private plistPath(): string {
+    return this.opts.launchAgentsDir
       ? join(this.opts.launchAgentsDir, `${LAUNCH_AGENT_LABEL}.plist`)
       : launchAgentPath();
+  }
+
+  private logDir(): string {
+    return join(this.opts.psycheHome, "logs");
+  }
+
+  /** The plist this build wants installed, or undefined when no Gateway is bundled. */
+  private launchAgentContent(): string | undefined {
     const program = this.opts.bundledProgram;
-    let content: string | undefined;
-    if (this.opts.bundledPlist && existsSync(this.opts.bundledPlist)) {
-      content = readFileSync(this.opts.bundledPlist, "utf8");
-    } else if (program && existsSync(program)) {
-      content = renderLaunchAgentPlist({
-        program,
-        psycheHome: this.opts.psycheHome,
-        logDir: join(this.opts.psycheHome, "logs"),
-      });
+    if (!program || !existsSync(program)) return undefined;
+    const values = { program, psycheHome: this.opts.psycheHome };
+    const plist =
+      this.opts.bundledPlist && existsSync(this.opts.bundledPlist)
+        ? renderPlistTemplate(readFileSync(this.opts.bundledPlist, "utf8"), values)
+        : renderLaunchAgentPlist({ ...values, logDir: this.logDir() });
+    const keyFile = this.opts.vaultKeyFile?.();
+    return keyFile === undefined ? plist : withPlistEnv(plist, { PSYCHE_VAULT_KEY_FILE: keyFile });
+  }
+
+  private async bootstrap(uid: number, plistPath: string): Promise<boolean> {
+    // A bootout just before is asynchronous: bootstrap fails (EIO) until the old job is gone.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const res = await this.run("/bin/launchctl", [...launchctl.bootstrap(uid, plistPath)]);
+      if (res.code === 0) return true;
+      if ((await this.run("/bin/launchctl", [...launchctl.print(uid)])).code === 0) return true;
+      await (this.opts.sleep ?? defaultSleep)(500);
     }
+    return false;
+  }
+
+  private async waitHealthy(): Promise<boolean> {
+    const deadline = Date.now() + (this.opts.healthTimeoutMs ?? 60_000);
+    for (;;) {
+      if (await this.healthy()) return true;
+      if (Date.now() >= deadline) return false;
+      await (this.opts.sleep ?? defaultSleep)(500);
+    }
+  }
+
+  private failed(reason: string): void {
+    this.set({ kind: "stopped", mode: "launchd", reason, logs: this.logDir() });
+  }
+
+  /**
+   * Installs or updates the LaunchAgent for the bundled psyched (a moved or updated app changes
+   * the plist), starts it and waits for `/healthz`. A Gateway that already answers while our agent
+   * is not loaded (a terminal, another install) is attached to, never doubled.
+   */
+  async startLaunchAgent(): Promise<void> {
+    const uid = this.uid();
+    const program = this.opts.bundledProgram ?? "";
+    if (isTranslocated(program)) {
+      this.set({
+        kind: "stopped",
+        mode: "launchd",
+        reason: "Move Psyche to the Applications folder and open it again",
+      });
+      return;
+    }
+    const content = this.launchAgentContent();
     if (content === undefined) {
       this.set({ kind: "stopped", mode: "launchd", reason: "psyched is not bundled" });
       return;
     }
+    const plistPath = this.plistPath();
+    const loaded = (await this.run("/bin/launchctl", [...launchctl.print(uid)])).code === 0;
     const current = existsSync(plistPath) ? readFileSync(plistPath, "utf8") : undefined;
-    if (current !== content) {
+    const changed = current !== content;
+    if (!loaded && (await this.healthy())) {
+      // Someone else serves the Gateway on this port; starting ours would crash-loop on bind.
+      this.set({ kind: "running", mode: "launchd" });
+      return;
+    }
+    if (changed) {
+      if (loaded) await this.run("/bin/launchctl", [...launchctl.bootout(uid)]);
       mkdirSync(dirname(plistPath), { recursive: true });
       writeFileSync(plistPath, content, { mode: 0o644 });
-      await this.run("/bin/launchctl", [...launchctl.bootout(uid)]); // reload a changed plist
+      // launchd refuses quarantined programs; the owner already opened this signed bundle.
+      await this.run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", dirname(program)]);
     }
-    const printed = await this.run("/bin/launchctl", [...launchctl.print(uid)]);
-    if (printed.code !== 0)
-      await this.run("/bin/launchctl", [...launchctl.bootstrap(uid, plistPath)]);
+    mkdirSync(this.opts.psycheHome, { recursive: true, mode: 0o700 });
+    mkdirSync(this.logDir(), { recursive: true, mode: 0o700 });
+    if ((changed || !loaded) && !(await this.bootstrap(uid, plistPath))) {
+      return this.failed("launchctl could not load com.psyche.gateway");
+    }
+    if (loaded && !changed && (await this.healthy())) return this.refresh();
+    this.set({ kind: "starting", mode: "launchd" });
     await this.run("/bin/launchctl", [...launchctl.kickstart(uid)]);
-    await this.refresh();
+    if (await this.waitHealthy()) return this.refresh();
+    const printed = await this.run("/bin/launchctl", [...launchctl.print(uid)]);
+    const exit = parseLaunchctlPrint(printed.stdout).lastExit;
+    const secs = Math.round((this.opts.healthTimeoutMs ?? 60_000) / 1000);
+    this.failed(
+      `The Gateway did not answer within ${secs} s${exit && exit !== "0" ? ` (last exit code ${exit})` : ""}`,
+    );
   }
 
   async refresh(): Promise<void> {
@@ -259,11 +429,16 @@ export class GatewaySupervisor {
     this.child = undefined;
   }
 
-  /** "Quit Psyche entirely": also stops the LaunchAgent so no task keeps running. */
+  /** "Quit Psyche entirely": stops and uninstalls the LaunchAgent so nothing keeps running. */
   async stopEverything(): Promise<void> {
     await this.onAppQuit();
-    if (this.opts.mode === "launchd")
-      await this.run("/bin/launchctl", [...launchctl.bootout(this.uid())]);
+    if (this.opts.mode === "launchd") await this.uninstallLaunchAgent();
     this.set({ kind: "stopped", mode: this.opts.mode, reason: "quit" });
+  }
+
+  /** Boots the agent out and removes its plist; the next launch installs it again. */
+  async uninstallLaunchAgent(): Promise<void> {
+    await this.run("/bin/launchctl", [...launchctl.bootout(this.uid())]);
+    rmSync(this.plistPath(), { force: true });
   }
 }

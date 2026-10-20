@@ -210,6 +210,8 @@
 //   let deviceUpdatedPayload = try? JSONDecoder().decode(DeviceUpdatedPayload.self, from: jsonData)
 //   let devicesApproveParams = try? JSONDecoder().decode(DevicesApproveParams.self, from: jsonData)
 //   let devicesApproveResult = try? JSONDecoder().decode(DevicesApproveResult.self, from: jsonData)
+//   let devicesBootstrapAdminParams = try? JSONDecoder().decode(DevicesBootstrapAdminParams.self, from: jsonData)
+//   let devicesBootstrapAdminResult = try? JSONDecoder().decode(DevicesBootstrapAdminResult.self, from: jsonData)
 //   let devicesDenyParams = try? JSONDecoder().decode(DevicesDenyParams.self, from: jsonData)
 //   let devicesDenyResult = try? JSONDecoder().decode(DevicesDenyResult.self, from: jsonData)
 //   let devicesListParams = try? JSONDecoder().decode(DevicesListParams.self, from: jsonData)
@@ -400,6 +402,8 @@
 //   let modelsListResult = try? JSONDecoder().decode(ModelsListResult.self, from: jsonData)
 //   let modelsProbeParams = try? JSONDecoder().decode(ModelsProbeParams.self, from: jsonData)
 //   let modelsProbeResult = try? JSONDecoder().decode(ModelsProbeResult.self, from: jsonData)
+//   let modelsSetKeyParams = try? JSONDecoder().decode(ModelsSetKeyParams.self, from: jsonData)
+//   let modelsSetKeyResult = try? JSONDecoder().decode(ModelsSetKeyResult.self, from: jsonData)
 //   let modelsSetRoleParams = try? JSONDecoder().decode(ModelsSetRoleParams.self, from: jsonData)
 //   let modelsSetRoleResult = try? JSONDecoder().decode(ModelsSetRoleResult.self, from: jsonData)
 //   let nodeCapability = try? JSONDecoder().decode(NodeCapability.self, from: jsonData)
@@ -5343,6 +5347,19 @@ public struct DevicesApproveResult: Codable, Sendable {
     }
 }
 
+// MARK: - DevicesBootstrapAdminResult
+public struct DevicesBootstrapAdminResult: Codable, Sendable {
+    public let device: Device
+
+    public enum CodingKeys: String, CodingKey {
+        case device = "device"
+    }
+
+    public init(device: Device) {
+        self.device = device
+    }
+}
+
 // MARK: - DevicesDenyParams
 public struct DevicesDenyParams: Codable, Sendable {
     public let pairingRequestID: String
@@ -8918,6 +8935,35 @@ public struct ModelsProbeParams: Codable, Sendable {
 
 // MARK: - ModelsProbeResult
 public struct ModelsProbeResult: Codable, Sendable {
+    public let provider: ModelProviderSummary
+
+    public enum CodingKeys: String, CodingKey {
+        case provider = "provider"
+    }
+
+    public init(provider: ModelProviderSummary) {
+        self.provider = provider
+    }
+}
+
+// MARK: - ModelsSetKeyParams
+public struct ModelsSetKeyParams: Codable, Sendable {
+    public let key: String
+    public let providerID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case key = "key"
+        case providerID = "providerId"
+    }
+
+    public init(key: String, providerID: String) {
+        self.key = key
+        self.providerID = providerID
+    }
+}
+
+// MARK: - ModelsSetKeyResult
+public struct ModelsSetKeyResult: Codable, Sendable {
     public let provider: ModelProviderSummary
 
     public enum CodingKeys: String, CodingKey {
@@ -14124,6 +14170,7 @@ public typealias BrowserRealChromeStatusParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]
+public typealias DevicesBootstrapAdminParams = [String: JSONAny]
 public typealias DevicesPresenceKeyListParams = [String: JSONAny]
 public typealias DictationTargetParams = [String: JSONAny]
 public typealias EmptyParams = [String: JSONAny]

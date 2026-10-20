@@ -27,8 +27,11 @@ import { TitleBar } from "../shell/components/TitleBar.tsx";
 import type { ShellPlatform } from "../shell/platform.ts";
 import { type ChatSlotContext, ShellApp, type ShellSlots } from "../shell/ShellApp.tsx";
 import { chatFileSlots } from "./attachments.tsx";
+import { useMacHelper } from "./helper.tsx";
 import { kitClient } from "./kit-client.ts";
+import { checkModel, saveProviderKey, verifySetup } from "./model-setup.ts";
 import { writeOnboarding } from "./onboarding.ts";
+import { readPermissions, requestPermission } from "./permissions.tsx";
 import { settingsRoute } from "./settings.tsx";
 import { TranscriptModeBar, useTranscriptMode } from "./transcript-mode.tsx";
 import { ComposedFilesPane } from "./viewers.tsx";
@@ -249,8 +252,11 @@ function useWorkspacePersona(platform: ShellPlatform): [Persona | null, () => vo
       (s) => s.phase === "paired" && load(),
       () => undefined,
     );
+    // Status arrives on every health check; read IDENTITY.md again only when pairing begins.
+    let paired = false;
     const offStatus = platform.gateway.onStatus((s) => {
-      if (s.phase === "paired") load();
+      if (s.phase === "paired" && !paired) load();
+      paired = s.phase === "paired";
     });
     const offEvent = platform.gateway.onEvent((e) => {
       if (
@@ -273,6 +279,13 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
   const [gate, setGate] = useState<Gate>("loading");
   const [error, setError] = useState<string | null>(null);
   const [persona, reloadPersona] = useWorkspacePersona(platform);
+  const helper = useMacHelper(platform);
+  const helperRef = useRef(helper);
+  helperRef.current = helper;
+  const verify = useMemo(
+    () => (result: OnboardingResult) => verifySetup(platform, result, helperRef.current),
+    [platform],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -286,8 +299,10 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
     };
     const retry = () => void check().catch(() => undefined);
     retry();
+    let paired = false;
     const off = platform.gateway.onStatus((s) => {
-      if (s.phase === "paired") retry();
+      if (s.phase === "paired" && !paired) retry();
+      paired = s.phase === "paired";
     });
     return () => {
       cancelled = true;
@@ -334,6 +349,12 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
             </p>
           ) : null}
           <OnboardingFlow
+            {...(helper ? { helper } : {})}
+            onRequestPermission={(p) => requestPermission(platform, p)}
+            onReadPermissions={() => readPermissions(platform)}
+            onSaveKey={(provider, key) => saveProviderKey(platform, provider, key)}
+            onCheckModel={(choice) => checkModel(platform, choice)}
+            onVerify={verify}
             onComplete={(result) => {
               completeOnboarding(platform, result).then(
                 () => {

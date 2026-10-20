@@ -6,10 +6,16 @@
 export const IPC = {
   // Gateway connection (main holds the socket and keys).
   getStatus: "psyche:gateway:get-status",
+  /** This window's device id (Settings → Devices marks it; onboarding's admin check). */
+  getDeviceId: "psyche:gateway:get-device-id",
   status: "psyche:gateway:status",
   call: "psyche:gateway:call",
   event: "psyche:gateway:event",
   resync: "psyche:gateway:resync",
+  // The Gateway process the app supervises (LaunchAgent / dev child), for the connection banner.
+  gatewayGetRun: "psyche:gateway:get-run",
+  gatewayRun: "psyche:gateway:run",
+  gatewayShowLogs: "psyche:gateway:show-logs",
   // Embedded agent browser.
   browserGetState: "psyche:browser:get-state",
   browserState: "psyche:browser:state",
@@ -37,6 +43,9 @@ export const IPC = {
   windowClose: "psyche:window:close",
   shellCommand: "psyche:shell:command",
   notifyShow: "psyche:notify:show",
+  // The bundled Mac helper's launch and pairing state (onboarding, Settings → Devices).
+  helperGetState: "psyche:helper:get-state",
+  helperState: "psyche:helper:state",
   // Native dialogs.
   dialogPickFolder: "psyche:dialog:pick-folder",
   // Dictation HUD only (main → HUD state and capture commands, HUD → main audio).
@@ -48,6 +57,9 @@ export const IPC = {
   dictationGetStatus: "psyche:dictation:get-status",
   dictationStatus: "psyche:dictation:status",
   dictationRecheck: "psyche:dictation:recheck",
+  dictationCheckHotkey: "psyche:dictation:check-hotkey",
+  permissionsStatus: "psyche:permissions:status",
+  permissionsRequest: "psyche:permissions:request",
   dictationOpenAccessibility: "psyche:dictation:open-accessibility",
 } as const;
 
@@ -90,7 +102,9 @@ export function checkCallable(method: unknown, isMethodName: (m: unknown) => boo
     method === "connect" ||
     method === "connect.verify" ||
     method.startsWith("node.") ||
-    method.startsWith("dictation.")
+    method.startsWith("dictation.") ||
+    // The first-admin bootstrap runs from main only (approved design, condition 2).
+    method === "devices.bootstrapAdmin"
   )
     throw new IpcPayloadError(IPC.call, `${method} is not callable from the renderer`);
   return method;
