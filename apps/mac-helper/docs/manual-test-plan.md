@@ -211,3 +211,53 @@ Spike 06 restarted a 16 GB host under two guests plus an install. Never run thes
 | 12.7 | `notes.create {title, body: "<b>x</b>"}` and `notes.read` | The note shows the literal `<b>x</b>`; read returns HTML and text |
 | 12.8 | `finder.list` with no granted folders / inside / outside / through a symlink out | `no_granted_folders` / entries / `outside_granted_folders` / refused |
 | 12.9 | `safari.tabs`, `safari.current_tab`, `safari.open_url` | Tabs and URLs; a new tab; `file:` and `javascript:` refused |
+
+## 14. Install from DMG (bundled helper)
+
+The contract is in `docs/status/s14.md` "Packaging". Build a DMG with `deploy/macos/build-helper.sh`, then `electron-forge package`, then `deploy/macos/make-dmg.sh`. Run each row twice:
+
+- **Developer ID:** `PSYCHE_SIGN_IDENTITY` set and notarized.
+- **Ad-hoc:** no identity.
+
+Use a fresh macOS user account, or reset first:
+
+- `tccutil reset All com.psyche.helper`
+- `rm -rf ~/.psyche`
+- quit any running `psyche-helper`
+
+**Resetting TCC for a retest.** `apps/mac-helper/scripts/tcc-reset.sh` resets each service the helper uses. `tccutil reset All com.psyche.helper` resets everything at once. Notifications are not TCC: remove Psyche Helper in System Settings › Notifications. Restart the helper after a reset. A running process keeps TCC answers it has cached.
+
+### Install and first run
+
+| # | Step | Expect |
+| --- | --- | --- |
+| 14.1 | Open the DMG, drag Psyche to Applications, open it | Developer ID: opens without a Gatekeeper warning. Ad-hoc: right-click › Open once. `spctl -a -vv /Applications/Psyche.app` shows the build kind |
+| 14.2 | `codesign -dv --verbose=2 /Applications/Psyche.app/Contents/Resources/PsycheHelper.app` and `codesign -d --entitlements - …` | Identifier `com.psyche.helper`, hardened runtime, the helper's own entitlements (Apple Events, audio input, calendars, contacts, virtualization), not Electron's. Developer ID: your team and a timestamp |
+| 14.3 | First launch of Psyche with no terminal open | Within a few seconds `psyche-helper` runs (`pgrep -lf psyche-helper`). Its parent in Activity Monitor is launchd, not Psyche. No Dock icon, no prompts |
+| 14.4 | Gateway nodes list (desktop › Devices, or `psyche nodes`) | One `mac-helper` node, paired with no approval card (loopback + handshake secret) |
+| 14.5 | No permission prompts appear until the owner acts | Nothing from macOS at first run. `permissions.status` lists every permission as `notDetermined`/`unknown`, with `bundle.insideApp: true` and `bundle.signing` `developer_id` or `adhoc` |
+| 14.6 | Quit and reopen Psyche (twice quickly) | Still exactly one helper process. A second copy logs "already running" and exits 0 |
+| 14.7 | Quit Psyche, wait 1 min, reopen | The helper stayed running and reconnects (≤ 30 s). Same device id, no new pairing |
+
+### Grant flows, one per permission (from onboarding or `permissions.request`)
+
+| # | Permission | Step | Expect |
+| --- | --- | --- | --- |
+| 14.8 | Accessibility | Onboarding "Enable computer use" | Prompt names **Psyche Helper**, not Psyche. After the toggle, `permissions.status` shows `granted` without restarting |
+| 14.9 | Screen Recording | `permissions.request` with `purpose: "vision_fallback"` | Prompt names Psyche Helper. macOS may need the helper restarted; status flips after that |
+| 14.10 | Microphone, Speech Recognition | Start dictation | One prompt each, naming Psyche Helper, with the usage strings from Info.plist |
+| 14.11 | Contacts, Calendars, Reminders | Turn on the connector, run a list call | One prompt each with the Info.plist text; denied → `permission_missing/<perm>` |
+| 14.12 | Automation | A Notes or Mail action | "Psyche Helper wants to control Notes" once per target app |
+| 14.13 | Full Disk Access | `permissions.request {permission: fullDiskAccess}` | System Settings opens at Full Disk Access with no prompt. Psyche Helper is not listed until added with "+" from `/Applications/Psyche.app/Contents/Resources/PsycheHelper.app` (⇧⌘. shows hidden files in the picker) |
+| 14.14 | Notifications | `notify.request_authorization` | The banner prompt names Psyche Helper |
+| 14.15 | Input Monitoring | After Accessibility | Reads `granted` (Accessibility covers the listen-only taps) |
+
+### Upgrade
+
+| # | Step | Expect |
+| --- | --- | --- |
+| 14.16 | With Psyche running and grants given, install a newer DMG over it (quit Psyche, replace in Applications, open) | Within 30 s of the replacement the old helper exits ("bundle replaced"). The new Psyche starts the new helper. The node manifest shows the new version |
+| 14.17 | Developer ID → Developer ID upgrade | Every grant from 14.8–14.15 still applies (`permissions.status` all `granted`; a computer-use snapshot works) |
+| 14.18 | Ad-hoc → ad-hoc upgrade | System Settings still shows the old toggles on, but `permissions.status` reports them missing. `tccutil reset All com.psyche.helper`, restart the helper, grant again → works. Doctor warns about ad-hoc signing |
+| 14.19 | Move Psyche.app to the Trash while it runs | The helper exits within 30 s; nothing relaunches it |
+| 14.20 | Downgrade (older DMG) | Same as 14.16. Developer ID grants are kept |
