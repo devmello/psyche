@@ -18,6 +18,9 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S05 M2: fresh presence on security settings)
+
+For S05 (the Gateway's `settings.set`) and S11 (Settings). `settings.set` gains optional `approvalId`. Once the Gateway has a presence verifier (helper Touch ID, passkeys), a security key (security §10: `permissions.*`, `exec.*`, `vault.*`, `devices.*`, `gateway.*`, `identityLinks.*`, `commands.ownerAllowFrom`, the channel DM / allow policies) fails `approval_required` with `details.approvalId`: a device-only `policy_change` card bound to the key and the value's hash, which needs a presence assertion to approve. The client retries with that `approvalId`; the approval covers that one value, once.
 ### v1 additive — 2026-10-19 (S02/S05: connector rule and taint sources, #71)
 
 For S02 (`agent-core` passes both), S05 (the broker reads `connectorRule` and fills `taintSources`), S11 / S12 (approval cards show `taint.sources`, security §3.11), S18 (the scenario and injection runners drop their glue).

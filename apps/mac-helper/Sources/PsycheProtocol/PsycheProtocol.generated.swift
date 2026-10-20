@@ -8446,15 +8446,18 @@ public struct SettingsGetResult: Codable, Sendable {
 
 // MARK: - SettingsSetParams
 public struct SettingsSetParams: Codable, Sendable {
+    public let approvalID: String?
     public let key: String
     public let value: JSONAny
 
     public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
         case key = "key"
         case value = "value"
     }
 
-    public init(key: String, value: JSONAny) {
+    public init(approvalID: String?, key: String, value: JSONAny) {
+        self.approvalID = approvalID
         self.key = key
         self.value = value
     }

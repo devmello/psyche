@@ -95,6 +95,8 @@ export interface GatewayContext {
    * the composition root wires `PsychePermissionBroker.revokeGrantsByDevice`).
    */
   readonly onDeviceRevoked: ((deviceId: string) => Promise<unknown>) | null;
+  /** True once a presence verifier exists: security settings then need fresh presence. */
+  readonly settingsPresence: () => boolean;
   /** Null without a composition root: a thread can then never be created in `auto`. */
   readonly threadModels: ThreadModelPolicy | null;
   /** Called with a device id when its last paired connection closes (parts register here). */
