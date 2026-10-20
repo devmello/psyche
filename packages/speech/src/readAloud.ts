@@ -1,6 +1,7 @@
 import {
   type AudioFormat,
   type LibraryItem,
+  type Provenance,
   PsycheError,
   type SpeechEngine,
 } from "@psyche/protocol";
@@ -24,14 +25,25 @@ export interface MessageSource {
   get(messageId: string): Promise<{ text: string; threadId: string | null }>;
 }
 
+/** What the Gateway's Library needs to store a clip (read-aloud) or a recording (voice memo). */
+export interface LibrarySaveInput {
+  data: Uint8Array;
+  name: string;
+  mime: string;
+  threadId: string | null;
+  tags: string[];
+  /** Default `audio` (synthesized); voice memos are `recording`. */
+  kind?: "audio" | "recording";
+  /** Default `agent`; a composer memo is `upload`, a channel voice note `channel`. */
+  origin?: LibraryItem["origin"];
+  /** Who produced the content; `untrusted` recordings follow the quarantine rules (data model §9). */
+  provenance?: Provenance;
+  /** Plain text of the audio (a transcript), stored as the item's text extract. */
+  textExtract?: string;
+}
+
 export interface LibraryWriter {
-  saveAudio(file: {
-    data: Uint8Array;
-    name: string;
-    mime: string;
-    threadId: string | null;
-    tags: string[];
-  }): Promise<LibraryItem>;
+  saveAudio(file: LibrarySaveInput): Promise<LibraryItem>;
 }
 
 export type ReadAloudEvent =
@@ -57,6 +69,16 @@ export interface ReadAloudOptions {
   newId?: () => string;
   /** Longer messages are refused (a read-aloud is not an audiobook). */
   maxChars?: number;
+  /**
+   * The persona's voice (IDENTITY.md `voice:`, `<engine>:<voice>`), used when the request names
+   * none (feature Q3: voice selection per persona). Falls back to `speech.tts.voice`.
+   */
+  personaVoice?: () => Promise<string | undefined> | string | undefined;
+  /**
+   * `true` when the voice that will read is an Apple Personal Voice (`VoiceCatalog.isNonCommercial`):
+   * the Library item is tagged `non-commercial` because Apple's terms limit that output.
+   */
+  nonCommercial?: (voiceRef: string | undefined) => Promise<boolean> | boolean;
 }
 
 export const READ_ALOUD_MAX_CHARS = 20_000;
@@ -86,6 +108,15 @@ export function markdownToSpeech(md: string): string {
 export class ReadAloudService {
   readonly #opts: ReadAloudOptions;
   #counter = 0;
+
+  async #nonCommercial(voice: string | undefined): Promise<boolean> {
+    try {
+      return (await this.#opts.nonCommercial?.(voice)) === true;
+    } catch {
+      // Unknown is not an excuse to drop the caveat: a failing check tags the clip.
+      return this.#opts.nonCommercial !== undefined;
+    }
+  }
 
   constructor(options: ReadAloudOptions) {
     this.#opts = options;
@@ -128,8 +159,9 @@ export class ReadAloudService {
     if (text.length > (this.#opts.maxChars ?? READ_ALOUD_MAX_CHARS)) {
       throw new PsycheError("invalid_params", "the message is too long to read aloud");
     }
+    const voice = options.voice ?? (await this.#opts.personaVoice?.());
     const synth: { voice?: string; signal?: AbortSignal } = {};
-    if (options.voice !== undefined) synth.voice = options.voice;
+    if (voice !== undefined && voice !== "") synth.voice = voice;
     if (options.signal !== undefined) synth.signal = options.signal;
     const parts: Uint8Array[] = [];
     let format: AudioFormat | undefined;
@@ -174,7 +206,11 @@ export class ReadAloudService {
       name: `${titleFrom(text)}.${encoded.extension}`,
       mime: encoded.mime,
       threadId: msg.threadId,
-      tags: ["read-aloud", `message:${messageId}`],
+      tags: [
+        "read-aloud",
+        `message:${messageId}`,
+        ...((await this.#nonCommercial(synth.voice)) ? ["non-commercial"] : []),
+      ],
     });
     this.#opts.emit(deviceId, {
       event: "speech.readAloud.completed",

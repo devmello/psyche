@@ -91,7 +91,10 @@ function macNode(opts: { failPush?: boolean } = {}) {
     .handle({
       capability: cap(NODE_SPEECH_CAPABILITIES.voices),
       handle: () => ({
-        voices: [{ id: "com.apple.voice.Ava", name: "Ava", language: "en-US", quality: "premium" }],
+        voices: [
+          { id: "com.apple.voice.Ava", name: "Ava", language: "en-US", quality: "premium" },
+          { id: "personal.1", name: "My voice", language: "en-US", personalVoice: true },
+        ],
         personalVoiceAuthorization: "notDetermined",
       }),
     });
@@ -213,7 +216,9 @@ describe("NodeSpeechEngine (Mac helper speech.* capabilities)", () => {
     expect(out).toHaveLength(3);
     expect(out[0]?.format).toEqual({ encoding: "pcm_s16le", sampleRate: 22_050, channels: 1 });
     expect(out[0]?.data.byteLength).toBe(10);
-    expect(node.invocations[0]?.params).toEqual({
+    // The voice id is checked against `speech.voices` first (Personal Voice opt-in, Q3).
+    expect(node.invocations[0]?.capability).toBe("speech.voices");
+    expect(node.invocations[1]?.params).toEqual({
       text: "hello",
       format: "pcm_s16le",
       voice: "com.apple.voice.Ava",
@@ -227,12 +232,15 @@ describe("NodeSpeechEngine (Mac helper speech.* capabilities)", () => {
       .map((i) => (i.params as { text: string }).text);
     expect(texts.length).toBeGreaterThan(1);
     expect(texts.every((t) => t.length <= 5000)).toBe(true);
-    expect((await engine.voices())[0]).toEqual({
+    const voices = await engine.voices();
+    expect(voices[0]).toEqual({
       id: "com.apple.voice.Ava",
       name: "Ava",
       language: "en-US",
       local: true,
     });
+    // Personal Voice is flagged non-commercial (Apple's terms) for the voice catalog.
+    expect(voices[1]).toMatchObject({ id: "personal.1", local: true, nonCommercial: true });
     expect(await engine.capabilities()).toMatchObject({ streaming: true, synthesis: true });
   });
 });

@@ -38,6 +38,8 @@ export interface Voice {
   name: string;
   language: string;
   local: boolean;
+  /** Apple Personal Voice (the helper's `personalVoice`): non-commercial use only. */
+  nonCommercial?: boolean;
 }
 
 export interface SynthesizeOptions extends CallOptions {

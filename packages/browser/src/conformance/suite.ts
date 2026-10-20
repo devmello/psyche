@@ -202,6 +202,34 @@ export function describeBrowserDriverConformance(
       await d.closeSession(s.id);
     });
 
+    it("reads console and network on a dev-preview session pinned to its port (I12)", async () => {
+      // The owner's dev server: console and network are readable, and loopback is limited to
+      // the approved port.
+      const port = new URL(h.origin("a")).port === "" ? 80 : Number(new URL(h.origin("a")).port);
+      const dev = await d.openSession({
+        taskId: "task_dev",
+        policy: { devPreview: true, loopbackPorts: [port], readWritable: [h.origin("a")] },
+      });
+      const t = await d.openTab(dev.id, h.url("a/dev"));
+      await d.wait(t.id, { kind: "text", text: "Ready" }, { timeoutMs: 5000 });
+      await eventually(() => {
+        expect(d.consoleMessages(t.id).map((m) => m.text)).toContain("hello from the dev server");
+      });
+      expect(d.consoleMessages(t.id)[0]?.level).toBe("log");
+      const net = d.networkLog(t.id);
+      expect(net.some((r) => r.url === h.url("a/dev") && r.method === "GET")).toBe(true);
+      expect(net.find((r) => r.url === h.url("a/dev"))?.status).toBe(200);
+      // Another loopback port is not this task's dev server.
+      const other = `http://localhost:${port + 1}/`;
+      await expect(d.openTab(dev.id, other)).rejects.toMatchObject({
+        code: "policy_denied",
+        details: { reason: "loopback" },
+      });
+      d.policy(dev.id).allowLoopbackPort(port + 1);
+      expect(d.policy(dev.id).evaluateSync(other).action).not.toBe("deny");
+      await d.closeSession(dev.id);
+    });
+
     it("quarantines downloads into the Library with sniffed types", async () => {
       const s = await session({ taskId: "task_dl" });
       const t = await d.openTab(s.id, h.url("a/downloads"));
@@ -343,6 +371,63 @@ export function describeBrowserDriverConformance(
         d.type(t.id, await ref(t.id, "textbox", "Card number"), Array(4).fill("4242").join(" ")),
       ).rejects.toMatchObject({ code: "policy_denied" });
       await d.closeSession(s.id);
+    });
+
+    it("keeps logged-out tabs apart from the owner's profile (I15)", async () => {
+      const policy = { devPreview: true, readWritable: [h.origin("a"), h.origin("b")] };
+      // A task allowed to use the owner's sign-in on site A: its site-A tabs run in the
+      // profile, every other tab in the task's ephemeral partition.
+      const signedIn = await d.openSession({
+        taskId: "task_i15_signed_in",
+        policy,
+        partition: "auto",
+        signedInOrigins: [h.origin("a")],
+      });
+      const t = await d.openTab(signedIn.id, h.url("a/login"));
+      expect(t.partition).toBe("profile");
+      await d.type(t.id, await ref(t.id, "textbox", "Username"), "ada");
+      await d.click(t.id, await ref(t.id, "button", "Sign in"));
+      await d.wait(t.id, { kind: "text", text: "Signed in as ada" }, { timeoutMs: 5000 });
+      const again = await d.openTab(signedIn.id, h.url("a/account"));
+      await d.wait(again.id, { kind: "text", text: "Signed in as ada" }, { timeoutMs: 5000 });
+      const b = await d.openTab(signedIn.id, h.url("b/"));
+      expect(b.partition).toBe("clean");
+      expect((await d.listTabs(signedIn.id)).map((x) => x.partition).sort()).toEqual([
+        "clean",
+        "profile",
+        "profile",
+      ]);
+      expect(
+        events.some(
+          (e) => e.type === "tab_partition" && e.tabId === t.id && e.reason === "signed_in",
+        ),
+      ).toBe(true);
+      expect(
+        events.some(
+          (e) => e.type === "tab_partition" && e.tabId === b.id && e.reason === "not_signed_in",
+        ),
+      ).toBe(true);
+      await d.closeSession(signedIn.id);
+
+      // The default task is logged out: it never sees the profile's session.
+      const loggedOut = await d.openSession({ taskId: "task_i15_out", policy });
+      expect(loggedOut.partition).toBe("clean");
+      const out = await d.openTab(loggedOut.id, h.url("a/account"));
+      expect(out.partition).toBe("clean");
+      await d.wait(out.id, { kind: "text", text: "Not signed in" }, { timeoutMs: 5000 });
+      await d.closeSession(loggedOut.id);
+
+      // A task the owner put on the profile does, and the session says so.
+      const onProfile = await d.openSession({
+        taskId: "task_i15_profile",
+        policy,
+        partition: "profile",
+      });
+      expect(onProfile.partition).toBe("profile");
+      const p = await d.openTab(onProfile.id, h.url("a/account"));
+      expect(p.partition).toBe("profile");
+      await d.wait(p.id, { kind: "text", text: "Signed in as ada" }, { timeoutMs: 5000 });
+      await d.closeSession(onProfile.id);
     });
 
     it("fills vault secrets only on the bound origin and suppresses screenshots after", async () => {

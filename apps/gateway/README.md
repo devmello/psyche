@@ -26,7 +26,7 @@ Precedence: overrides passed to `startGateway` → environment → `$PSYCHE_HOME
 | — | `PSYCHE_NODE_SOCKET` | `run/node.sock` | macOS limits socket paths to 104 bytes |
 | — | `PSYCHE_WEB_ROOT` | `apps/web/dist` | Served at `/` with a strict CSP |
 | `gateway.allowedOrigins`, `gateway.publicOrigin` | `PSYCHE_ALLOWED_ORIGINS` | `[]` | Extra WebSocket `Origin`s besides the Gateway's own |
-| `gateway.trustedProxy.{enabled, trustedProxies}` | — | off | Recorded only; unlocks passkeys later (INT-2). Proxy identity headers never authorize. Enabling needs CIDRs |
+| `gateway.trustedProxy.{enabled, trustedProxies}` | — | off | Tailscale Serve / `cloudflared` in front. From a peer in `trustedProxies` (CIDRs, validated at startup), the first untrusted `X-Forwarded-For` hop from the right is the client address (rate limits, pairing cards) and `Tailscale-User-Login` is shown on the pairing card as a claim. Headers never authorize: every device still pairs. Any request with forwarding headers is never treated as loopback, in either mode. Passkeys come later (INT-2) |
 | — | `PSYCHE_LOG_LEVEL` | `info` | JSON logs on stderr, metadata only (no bodies, params or secrets) |
 
 Settings (`settings.set`) that the Gateway reads: `cleanupPeriodDays` (default 30, admin-only like every non-cosmetic key).
@@ -64,6 +64,8 @@ Events emitted: `chat.message`, `chat.delta`, `chat.block`, `chat.queue.updated`
   ```
 
   The approved device reconnects to pick up its scopes (the Gateway closes its pending connection).
+- Rate limits (security §10): failed challenges 10/minute/address, new pairing requests 5/hour/address, at most 20 pending overall; a pending connection is closed when its request expires. Each paired device gets 600 requests and 120 side-effecting requests per minute across all its connections (`rate_limited`, retryable, `details.scope`); node-protocol frames are exempt. Approval answers (10/minute/identity) are limited by the Permission Broker, inbound chat (30/minute/sender) by channels.
+- Revoking a device (`devices.revoke`) also ends the standing grants it approved: the composition root passes `onDeviceRevoked` → `PsychePermissionBroker.revokeGrantsByDevice` (design-28).
 - Rate limits (security §10): failed challenges 10/minute/address, new pairing requests 5/hour/address, at most 20 pending overall; a pending connection is closed when its request expires.
 - WebSocket `Origin` must be the Gateway's own origin or configured; anything else is 403 before the upgrade. Proxy identity headers are never read.
 

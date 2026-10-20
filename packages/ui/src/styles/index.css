@@ -13,6 +13,9 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 @custom-variant high-contrast (&:where([data-contrast="high"], [data-contrast="high"] *));
 @custom-variant reduced (&:where([data-reduce-motion="true"], [data-reduce-motion="true"] *));
+/* Base UI marks orientation with data-orientation; shadcn base-nova classes use these names. */
+@custom-variant data-horizontal (&[data-orientation="horizontal"]);
+@custom-variant data-vertical (&[data-orientation="vertical"]);
 
 /* An accent change animates in 200 ms (§4.10). */
 @property --accent-9 {
@@ -68,6 +71,7 @@
   --thread-list-width: 260px;
   --chat-min-width: 480px;
   --prose-width: 68ch;
+  --page-width: 880px;
   --ease-psyche: cubic-bezier(0.2, 0.8, 0.2, 1);
   --duration-fast: 120ms;
   --duration-card: 200ms;
@@ -168,17 +172,46 @@
   --color-gray-12: var(--gray-12);
   --color-gray-a3: var(--gray-a3);
   --color-gray-a4: var(--gray-a4);
+  --color-amber-2: var(--amber-2);
   --color-amber-3: var(--amber-3);
+  --color-amber-4: var(--amber-4);
+  --color-amber-6: var(--amber-6);
+  --color-amber-7: var(--amber-7);
+  --color-amber-8: var(--amber-8);
   --color-amber-9: var(--amber-9);
   --color-amber-11: var(--amber-11);
+  --color-amber-12: var(--amber-12);
+  --color-tomato-2: var(--tomato-2);
   --color-tomato-3: var(--tomato-3);
+  --color-tomato-4: var(--tomato-4);
+  --color-tomato-6: var(--tomato-6);
+  --color-tomato-7: var(--tomato-7);
+  --color-tomato-8: var(--tomato-8);
   --color-tomato-9: var(--tomato-9);
   --color-tomato-11: var(--tomato-11);
+  --color-tomato-12: var(--tomato-12);
+  --color-grass-2: var(--grass-2);
   --color-grass-3: var(--grass-3);
+  --color-grass-4: var(--grass-4);
+  --color-grass-6: var(--grass-6);
+  --color-grass-7: var(--grass-7);
+  --color-grass-8: var(--grass-8);
   --color-grass-9: var(--grass-9);
   --color-grass-11: var(--grass-11);
+  --color-grass-12: var(--grass-12);
+  --color-sky-2: var(--sky-2);
   --color-sky-3: var(--sky-3);
+  --color-sky-4: var(--sky-4);
+  --color-sky-6: var(--sky-6);
+  --color-sky-7: var(--sky-7);
+  --color-sky-8: var(--sky-8);
+  --color-sky-9: var(--sky-9);
   --color-sky-11: var(--sky-11);
+  --color-sky-12: var(--sky-12);
+  --color-accent-a2: var(--accent-a2);
+  --color-accent-a5: var(--accent-a5);
+  --color-gray-a2: var(--gray-a2);
+  --color-gray-a5: var(--gray-a5);
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
@@ -198,6 +231,26 @@
   --text-2xl--line-height: 30px;
   --text-label: 11px;
   --text-label--line-height: 14px;
+  /* Named roles (§4.2): headings carry weight 600; type carries hierarchy, color does not. */
+  --text-h1: 24px;
+  --text-h1--line-height: 30px;
+  --text-h1--font-weight: 600;
+  --text-h1--letter-spacing: -0.012em;
+  --text-h2: 20px;
+  --text-h2--line-height: 26px;
+  --text-h2--font-weight: 600;
+  --text-h2--letter-spacing: -0.008em;
+  --text-h3: 16px;
+  --text-h3--line-height: 22px;
+  --text-h3--font-weight: 600;
+  --text-body: 15px;
+  --text-body--line-height: 22px;
+  --text-small: 13px;
+  --text-small--line-height: 18px;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-mono: 13px;
+  --text-mono--line-height: 20px;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -206,6 +259,13 @@
   --radius-2xl: calc(var(--radius) + 6px);
 
   --ease-psyche: var(--ease-psyche);
+  /* Motion (§4.5): every transition utility defaults to 120 ms on the Psyche curve. */
+  --default-transition-duration: 120ms;
+  --default-transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-psy-rise: psy-rise var(--duration-card) var(--ease-psyche) both;
+  --animate-psy-fade: psy-fade var(--duration-card) var(--ease-psyche) both;
+  --animate-psy-breathe: psy-breathe 4s ease-in-out infinite;
+  --animate-psy-pulse-ring: psy-pulse-ring 1.2s ease-in-out infinite;
   --shadow-level-2: var(--shadow-level-2);
   --shadow-level-3: var(--shadow-level-3);
 }
@@ -225,6 +285,57 @@
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
+  ::selection {
+    background: var(--accent-a5);
+  }
+  /* Iconography (§4.6): Lucide at a 1.75 px stroke everywhere. */
+  svg.lucide {
+    stroke-width: 1.75;
+  }
+  /* Quiet scrollbars that match the gray scale (§4.4 level 0 surfaces). */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--gray-7) transparent;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  time,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/*
+  Incognito threads replace the accent with gray (§4.8). Mapped names are recomputed here
+  because custom properties inherit their computed value, not the var() reference.
+*/
+[data-incognito="true"] {
+  --accent-1: var(--gray-1);
+  --accent-2: var(--gray-2);
+  --accent-3: var(--gray-3);
+  --accent-4: var(--gray-4);
+  --accent-5: var(--gray-5);
+  --accent-6: var(--gray-6);
+  --accent-7: var(--gray-7);
+  --accent-8: var(--gray-8);
+  --accent-9: var(--gray-11);
+  --accent-10: var(--gray-12);
+  --accent-11: var(--gray-11);
+  --accent-12: var(--gray-12);
+  --accent-a3: var(--gray-a3);
+  --accent-a4: var(--gray-a4);
+  --accent-a5: var(--gray-a5);
+  --accent-contrast: var(--gray-1);
+  --primary: var(--accent-9);
+  --primary-foreground: var(--accent-contrast);
+  --ring: var(--accent-8);
 }
 
 @layer utilities {

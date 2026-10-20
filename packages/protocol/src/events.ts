@@ -1,6 +1,7 @@
 import { type Static, Type } from "@sinclair/typebox";
 import { Id, Nullable, Provenance, StringEnum } from "./common.ts";
 import { PsycheError } from "./errors.ts";
+import { BrowserRecording } from "./methods/browser.ts";
 import { QueuedMessage } from "./methods/chat.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
 import { SkillChangeEvent } from "./methods/skills.ts";
@@ -26,6 +27,7 @@ import { FeedPost, Goal, Idea, Notification, SettingEntry } from "./schemas/surf
 import { InputRequest, Task, TaskAction } from "./schemas/tasks.ts";
 import { Message, Run, Thread } from "./schemas/threads.ts";
 import { ToolCall } from "./schemas/tools.ts";
+import { VmUpdatedPayload } from "./schemas/vm.ts";
 
 /**
  * Server-pushed events (data model §11; architecture §4.2 step 5). Each arrives in an
@@ -115,6 +117,11 @@ export const Events = {
   "node.updated": defineEvent({
     payload: Type.Object({ node: NodeInfo }),
     description: "A node connected, disconnected or changed capabilities.",
+  }),
+  "vm.updated": defineEvent({
+    payload: VmUpdatedPayload,
+    description:
+      "A sandbox Mac guest changed phase, resources or shares (mac helper vm.* capabilities).",
   }),
   "device.updated": defineEvent({
     payload: Type.Object({ device: Device }),
@@ -211,6 +218,11 @@ export const Events = {
   "goal.updated": defineEvent({
     payload: Type.Object({ goal: Goal }),
     description: "A goal was created, confirmed, changed or archived.",
+  }),
+  "browser.recording.updated": defineEvent({
+    payload: Type.Object({ recording: BrowserRecording }),
+    description:
+      "A browser recording started, grew (coalesced) or ended; Activity re-reads it with browser.recordings.get {sinceSeq}.",
   }),
   "feed.updated": defineEvent({
     payload: Type.Object({ posts: Type.Array(FeedPost), briefingId: Type.Optional(Id) }),

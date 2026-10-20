@@ -496,6 +496,50 @@ export interface AutomationsUpdateParams {
     watch?:    WatchConfig;
 }
 
+export interface BackupCreateParams {
+    passphrase?:  string;
+    recipients?:  string[];
+    unencrypted?: boolean;
+}
+
+export interface BackupCreateResult {
+    backup: BackupInfo;
+    files:  number;
+}
+
+export interface BackupInfo {
+    bytes:       number;
+    createdAt:   string;
+    encrypted:   boolean;
+    file:        string;
+    verifiedAt?: null | string;
+}
+
+export interface BackupDeleteParams {
+    file: string;
+}
+
+export interface BackupDeleteResult {
+    ok: boolean;
+}
+
+export interface BackupListResult {
+    backups: BackupInfo[];
+    dir:     string;
+}
+
+export interface BackupVerifyParams {
+    file:        string;
+    passphrase?: string;
+}
+
+export interface BackupVerifyResult {
+    backup:   BackupInfo;
+    files:    number;
+    ok:       boolean;
+    problems: string[];
+}
+
 export interface BridgeCDPEventPayload {
     method:     string;
     params:     unknown;
@@ -647,6 +691,128 @@ export interface BrowserTab {
 }
 
 export type BrowserDriverKind = "cdp" | "playwright";
+
+export interface BrowserRecordingUpdatedPayload {
+    recording: BrowserRecording;
+}
+
+export interface BrowserRecording {
+    bytes:      number;
+    endedAt?:   null | string;
+    eventCount: number;
+    frameCount: number;
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    id:             string;
+    libraryItemId?: null | string;
+    startedAt:      string;
+    taskId?:        null | string;
+    threadId?:      null | string;
+}
+
+export interface BrowserRecordingsDeleteParams {
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    recordingId: string;
+}
+
+export interface BrowserRecordingsFrameParams {
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    recordingId: string;
+    seq:         number;
+}
+
+export interface BrowserRecordingsFrameResult {
+    /**
+     * Base64 image bytes
+     */
+    data:  string;
+    frame: BrowserRecordingFrame;
+    mime:  BrowserRecordingFrameMIME;
+}
+
+export interface BrowserRecordingFrame {
+    at:    string;
+    seq:   number;
+    tabId: string;
+    /**
+     * Origin and path only
+     */
+    url: string;
+}
+
+export type BrowserRecordingFrameMIME = "image/jpeg" | "image/png";
+
+export interface BrowserRecordingsGetParams {
+    limit?: number;
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    recordingId: string;
+    sinceSeq?:   number;
+}
+
+export interface BrowserRecordingsGetResult {
+    events:    BrowserRecordingEvent[];
+    frames:    BrowserRecordingFrame[];
+    recording: BrowserRecording;
+}
+
+export interface BrowserRecordingEvent {
+    action?:      string;
+    at:           string;
+    detail?:      { [key: string]: unknown };
+    element?:     Element;
+    frameSeq?:    number;
+    kind:         BrowserRecordingEventKind;
+    ref?:         string;
+    seq:          number;
+    snapshotSeq?: number;
+    summary:      string;
+    tabId:        string;
+    url?:         string;
+}
+
+export interface Element {
+    name: string;
+    role: string;
+}
+
+export type BrowserRecordingEventKind = "tab" | "navigation" | "snapshot" | "action" | "fill" | "download" | "blocked" | "control" | "dialog";
+
+export interface BrowserRecordingsListParams {
+    /**
+     * Opaque cursor
+     */
+    cursor?:   string;
+    limit?:    number;
+    taskId?:   string;
+    threadId?: string;
+}
+
+export interface BrowserRecordingsListResult {
+    nextCursor?: null | string;
+    recordings:  BrowserRecording[];
+}
+
+export interface BrowserRecordingsSnapshotParams {
+    /**
+     * Recording id: the task id, or thread:<id> for chat turns
+     */
+    recordingId: string;
+    seq:         number;
+}
+
+export interface BrowserRecordingsSnapshotResult {
+    /**
+     * The snapshot text the model saw (untrusted page content)
+     */
+    text: string;
+}
 
 export interface BrowserSnapshotParams {
     tabId: string;
@@ -1029,10 +1195,11 @@ export interface ChatSendParams {
     /**
      * Library item ids
      */
-    attachments?: string[];
-    content:      string;
-    mode?:        QueueMode;
-    threadId:     string;
+    attachments?:      string[];
+    content:           string;
+    mode?:             QueueMode;
+    replyToMessageId?: string;
+    threadId:          string;
 }
 
 export type QueueMode = "steer" | "followUp" | "interrupt";
@@ -1740,6 +1907,30 @@ export interface LibraryListParams {
 export interface LibraryListResult {
     items:       LibraryItem[];
     nextCursor?: null | string;
+}
+
+export interface LogsTailParams {
+    level?:     LogLevel;
+    lines?:     number;
+    search?:    string;
+    since?:     string;
+    subsystem?: string;
+}
+
+export type LogLevel = "debug" | "info" | "warn" | "error";
+
+export interface LogsTailResult {
+    lines:      LogLine[];
+    subsystems: string[];
+    truncated:  boolean;
+}
+
+export interface LogLine {
+    fields?:    { [key: string]: unknown };
+    level:      LogLevel;
+    msg:        string;
+    subsystem?: string;
+    ts:         string;
 }
 
 export interface MemoryClaimsConfirmParams {
@@ -2776,6 +2967,48 @@ export interface SpeechReadAloudResult {
     streamId: string;
 }
 
+export interface SpeechVoicesParams {
+    /**
+     * The persona's current <engine>:<voice>
+     */
+    personaVoice?: string;
+}
+
+export interface SpeechVoicesResult {
+    default?: null | string;
+    /**
+     * Synthesis engines in order that could not list voices now
+     */
+    unavailable: string[];
+    voices:      SpeechVoice[];
+}
+
+export interface SpeechVoice {
+    /**
+     * The voice the settings or the persona select now
+     */
+    default: boolean;
+    engine:  string;
+    id:      string;
+    /**
+     * BCP 47, or * for any
+     */
+    language: string;
+    local:    boolean;
+    location: SpeechEngineLocation;
+    name:     string;
+    /**
+     * Apple Personal Voice: non-commercial use only
+     */
+    nonCommercial?: boolean;
+    /**
+     * <engine>:<voice>, the form IDENTITY.md voice: takes
+     */
+    ref: string;
+}
+
+export type SpeechEngineLocation = "node" | "gateway" | "client" | "cloud";
+
 export interface TaskActionPayload {
     action: TaskAction;
 }
@@ -3017,8 +3250,9 @@ export interface ThreadsListResult {
 }
 
 export interface ThreadListEntry {
-    activity: ThreadActivity;
-    thread:   Thread;
+    activity:     ThreadActivity;
+    lastMessage?: ThreadPreview;
+    thread:       Thread;
 }
 
 export interface ThreadActivity {
@@ -3026,6 +3260,14 @@ export interface ThreadActivity {
     awaitingInput:    number;
     running:          number;
 }
+
+export interface ThreadPreview {
+    at:   string;
+    role: Role;
+    text: string;
+}
+
+export type Role = "user" | "agent";
 
 export interface ThreadsPinParams {
     pinned:   boolean;
@@ -3035,6 +3277,12 @@ export interface ThreadsPinParams {
 export interface ThreadsRenameParams {
     threadId: string;
     title:    string;
+}
+
+export interface ThreadsUpdateParams {
+    modelRef?:       null | string;
+    permissionMode?: PermissionMode;
+    threadId:        string;
 }
 
 export interface ToolCallBlock {
@@ -3325,6 +3573,100 @@ export interface ViewReportParams {
     layout: ViewLayout;
 }
 
+export interface VMCreateParams {
+    cpus?:     number;
+    diskGB?:   number;
+    download?: boolean;
+    /**
+     * Absolute path to a local IPSW
+     */
+    ipsw?:     string;
+    memoryGB?: number;
+    name?:     string;
+    username?: string;
+}
+
+export interface VMProgressEvent {
+    fraction?: number;
+    /**
+     * started | progress | finished, or a VmPhase for vm.state
+     */
+    phase:    string;
+    type:     VMProgressEventType;
+    version?: string;
+}
+
+export type VMProgressEventType = "vm.download" | "vm.install" | "vm.state";
+
+export interface VMShareAddParams {
+    name?:     string;
+    path:      string;
+    readOnly?: boolean;
+    share:     string;
+}
+
+export interface VMStatus {
+    active:    number;
+    guests:    VMGuest[];
+    maxActive: number;
+    /**
+     * Unattended setup (macOS 27 host and guest)
+     */
+    supportsGuestProvisioning: boolean;
+}
+
+export interface VMGuest {
+    cpus:     number;
+    diskGB:   number;
+    guestOS?: null | string;
+    /**
+     * Machine reason of the last failure
+     */
+    lastError?: string;
+    memoryGB:   number;
+    name:       string;
+    phase:      VMPhase;
+    /**
+     * First (provisioning) boot completed
+     */
+    provisioned: boolean;
+    shares:      VMShare[];
+    username:    string;
+    vsock:       Vsock;
+}
+
+export type VMPhase = "created" | "installing" | "installed" | "provisioning" | "stopped" | "starting" | "running" | "stopping" | "failed";
+
+export interface VMShare {
+    /**
+     * e.g. /Volumes/Psyche Shares/<name>
+     */
+    guestPath: string;
+    /**
+     * Absolute host folder (symlinks resolved)
+     */
+    hostPath: string;
+    name:     string;
+    readOnly: boolean;
+}
+
+export interface Vsock {
+    /**
+     * Guest psyche-node → host Gateway node socket
+     */
+    gatewayNodePort: number;
+    /**
+     * 2: the host as seen from the guest
+     */
+    hostCid: number;
+}
+
+export interface VMUpdatedPayload {
+    at:     string;
+    guest:  VMGuest;
+    nodeId: string;
+}
+
 export interface VoiceCancelParams {
     sessionId: string;
 }
@@ -3336,6 +3678,59 @@ export interface VoiceEndedPayload {
 }
 
 export type VoiceEndReason = "stopped" | "cancelled" | "timeout" | "error";
+
+export interface VoiceMemoSaveParams {
+    sessionId: string;
+    task?:     MemoTaskMode;
+    threadId?: string;
+}
+
+export type MemoTaskMode = "auto" | "always" | "never";
+
+export interface VoiceMemoSaveResult {
+    /**
+     * Quoted transcript, file and task blocks for the message that carries the memo
+     */
+    blocks:     Block[];
+    content:    VoiceMemoContent;
+    durationMs: number;
+    item:       LibraryItem;
+    provenance: Provenance;
+    task?:      Task | null;
+    transcript: Transcript;
+}
+
+export interface VoiceMemoContent {
+    /**
+     * Which patterns matched (override, secrecy, …)
+     */
+    flags: string[];
+    /**
+     * The memo reads like instructions to the agent; shown as a note, not obeyed
+     */
+    instructionLike: boolean;
+    /**
+     * URL-like strings in the memo; never fetched
+     */
+    urls: string[];
+}
+
+export interface Transcript {
+    language?: string;
+    segments:  TranscriptSegment[];
+    text:      string;
+}
+
+export interface TranscriptSegment {
+    confidence?: number;
+    endMs:       number;
+    /**
+     * false = volatile partial a later segment replaces
+     */
+    final:   boolean;
+    startMs: number;
+    text:    string;
+}
 
 export interface VoicePushParams {
     /**
@@ -3354,23 +3749,16 @@ export interface VoiceSegmentPayload {
     sessionId: string;
 }
 
-export interface TranscriptSegment {
-    confidence?: number;
-    endMs:       number;
-    /**
-     * false = volatile partial a later segment replaces
-     */
-    final:   boolean;
-    startMs: number;
-    text:    string;
-}
-
 export interface VoiceStartParams {
     format: AudioFormat;
     /**
      * BCP 47
      */
     language?: string;
+    /**
+     * Keep the audio so voice.memo.save can file the session as a voice memo
+     */
+    memo?:     boolean;
     threadId?: string;
     /**
      * Extra terms; merged with the agent name, contacts and recent topics
@@ -3384,20 +3772,12 @@ export interface VoiceStartResult {
     sessionId: null | string;
 }
 
-export type SpeechEngineLocation = "node" | "gateway" | "client" | "cloud";
-
 export interface VoiceStopParams {
     sessionId: string;
 }
 
 export interface VoiceStopResult {
     transcript: Transcript;
-}
-
-export interface Transcript {
-    language?: string;
-    segments:  TranscriptSegment[];
-    text:      string;
 }
 
 export interface WrapUpBlock {

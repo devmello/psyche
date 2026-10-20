@@ -10,8 +10,11 @@ import {
   type FxPage,
   type FxSite,
   keyFor,
+  loginUser,
   NOT_FOUND_PAGE,
   resolveHref,
+  SESSION_COOKIE,
+  signedInText,
   submissionPage,
 } from "./site.ts";
 
@@ -80,6 +83,8 @@ export class MockBrowser {
   readonly port: number;
   readonly submissions: { path: string; fields: [string, string][] }[] = [];
   readonly tabs = new Map<string, MockTab>();
+  /** Cookie jars per partition, then per host: what `profile` vs `clean` tabs share (I15). */
+  readonly jars = new Map<string, Map<string, Map<string, string>>>();
   hooks: MockBrowserHooks = {};
   /** Per-hop network latency, so stop/commit races look like a real browser's. */
   latencyMs: number;
@@ -108,9 +113,29 @@ export class MockBrowser {
     return `R${this.#nextReq++}`;
   }
 
-  openTab(options: { url?: string; opener?: MockTab } = {}): MockTab {
+  /** The cookie jar of a partition and host (created on first use). */
+  jar(partition: string, host: string): Map<string, string> {
+    let byHost = this.jars.get(partition);
+    if (byHost === undefined) {
+      byHost = new Map();
+      this.jars.set(partition, byHost);
+    }
+    let jar = byHost.get(host);
+    if (jar === undefined) {
+      jar = new Map();
+      byHost.set(host, jar);
+    }
+    return jar;
+  }
+
+  openTab(options: { url?: string; opener?: MockTab; partition?: string } = {}): MockTab {
     const id = `mt${this.#nextTab++}`;
-    const tab = new MockTab(this, id, options.opener);
+    const tab = new MockTab(
+      this,
+      id,
+      options.opener,
+      options.partition ?? options.opener?.partition ?? "persist:agent-default",
+    );
     this.tabs.set(id, tab);
     if (options.url !== undefined) void tab.navigateTo(options.url, "GET");
     return tab;
@@ -157,6 +182,8 @@ export class MockTab implements CdpTarget {
   readonly id: string;
   readonly browser: MockBrowser;
   readonly opener: MockTab | undefined;
+  /** Electron-style partition name; tabs in one partition share cookies. */
+  readonly partition: string;
   closed = false;
   url = "about:blank";
   title = "";
@@ -217,10 +244,16 @@ export class MockTab implements CdpTarget {
   /** Methods received, for assertions about what the driver sent. */
   readonly calls: string[] = [];
 
-  constructor(browser: MockBrowser, id: string, opener: MockTab | undefined) {
+  constructor(
+    browser: MockBrowser,
+    id: string,
+    opener: MockTab | undefined,
+    partition = "persist:agent-default",
+  ) {
     this.browser = browser;
     this.id = id;
     this.opener = opener;
+    this.partition = partition;
     this.#frameId = `F-${id}`;
     this.#doc = this.#build({ title: "", body: [] }, "about:blank", "a", this.#frameId, false);
   }
@@ -286,6 +319,26 @@ export class MockTab implements CdpTarget {
         case "status": {
           const el = mk("P", parent, { fx: n, text: n.text });
           el.attrs.id = n.id;
+          el.attrs.role = "status";
+          leaf(el, 600);
+          return;
+        }
+        case "console_log":
+          // Logged once the document is built, like an inline script on load.
+          setTimeout(() => {
+            if (this.#doc.els === els) {
+              this.#emit("Runtime.consoleAPICalled", {
+                type: "log",
+                args: [{ type: "string", value: n.text }],
+                timestamp: Date.now(),
+              });
+            }
+          }, 0);
+          return;
+        case "signed_in": {
+          const user = b.jar(this.partition, host).get(SESSION_COOKIE);
+          const el = mk("P", parent, { fx: n, text: signedInText(user) });
+          el.attrs.id = "whoami";
           el.attrs.role = "status";
           leaf(el, 600);
           return;
@@ -973,7 +1026,11 @@ export class MockTab implements CdpTarget {
       if (options.downloadOnly === true) return;
       let page = r.page;
       if (options.postFields !== undefined && new URL(current).pathname.startsWith("/submit/")) {
-        page = submissionPage(new URL(current).pathname, options.postFields);
+        const path = new URL(current).pathname;
+        page = submissionPage(path, options.postFields);
+        // A login sets the partition's session cookie, as the fixture server does.
+        const user = loginUser(path, options.postFields);
+        if (user !== undefined) b.jar(this.partition, r.host).set(SESSION_COOKIE, user);
       }
       this.#emit("Network.responseReceived", {
         requestId,

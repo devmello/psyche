@@ -14,6 +14,7 @@ import {
   type WaitCondition,
 } from "@psyche/protocol";
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
+import type { DevPreviewGate } from "../devpreview/gate.ts";
 import { tryOrigin } from "../origin/canonical.ts";
 import { redactUrlsIn } from "../origin/redact-url.ts";
 import type { ActionTarget, BrowserDriverEx, ElementMeta } from "../types.ts";
@@ -25,6 +26,13 @@ import {
   stricter,
 } from "./classify.ts";
 import { ApprovalGate, type CallContext, gateError } from "./gate.ts";
+import {
+  type OrderSummary,
+  orderBinding,
+  orderStillMatches,
+  orderSummary,
+  readOrder,
+} from "./order.ts";
 
 /**
  * The agent's `browser.*` tools (architecture §8; feature I3, I4). Every page-derived output is
@@ -38,11 +46,53 @@ export interface BrowserToolDeps {
   credentials?: CredentialBroker;
   /** Decision context of a running call; the agent loop knows thread, run, task and taint. */
   context(callId: string): CallContext;
-  /** The browser session of the call's task (opened on first use with the task's policy). */
-  session(callId: string): Promise<string>;
+  /**
+   * The browser session of the call's task (opened on first use with the task's policy).
+   * `dev_preview` is the task's second session for its own dev server (feature I12): clean
+   * partition, `devPreview` policy pinned to the approved ports, console and network kept.
+   */
+  session(callId: string, kind?: SessionKind): Promise<string>;
+  /** The task's sessions that already exist (web and dev preview), without opening any. */
+  openSessions?(callId: string): Promise<string[]>;
   /** Library item → local path, for uploads. Paths never come from the model. */
   libraryPath?(libraryItemId: string): Promise<string>;
+  /** Which loopback servers may be previewed (security §3.10); without it none can. */
+  devPreview?: DevPreviewGate;
+  /**
+   * True when text holds a vault value in any tracked form (S23 design-18, page echoes). Every
+   * tool output and error is checked; a hit withholds the content (`secret_echo`). The
+   * composition derives it from `CredentialBroker.redact`.
+   */
+  containsSecret?: (text: string) => boolean;
+  /**
+   * Ask the owner to take a tab over (S20: 2FA codes, personal details, logins): show the
+   * reason in the pane and notify them. Returns a function that withdraws the request. Without
+   * it `browser.request_control` is unavailable (no pane to hand control in).
+   */
+  requestControl?(request: ControlRequest): Promise<(() => Promise<void> | void) | undefined>;
 }
+
+export interface ControlRequest {
+  tabId: string;
+  sessionId: string;
+  /** The model's words, capped; shown to the owner as the agent's request. */
+  reason: string;
+  /** The tab's origin (from the tab, not the page). */
+  origin: string | null;
+  taskId?: string;
+  threadId: string;
+}
+
+/** The error a page echo produces; it carries nothing from the page. */
+function secretEcho(): PsycheError {
+  return new PsycheError(
+    "policy_denied",
+    "the page echoed a vault secret, so its content was withheld; navigate away or let the owner take control",
+    { details: { reason: "secret_echo" } },
+  );
+}
+
+export type SessionKind = "web" | "dev_preview";
 
 const TabId = Type.String({
   minLength: 1,
@@ -80,13 +130,37 @@ function originTarget(url: string): ToolCallDescription {
 
 export function browserToolDefs(deps: BrowserToolDeps) {
   const d = deps.driver;
-  const sessionTab = async (callId: string, tabId: string) => {
-    const sessionId = await deps.session(callId);
-    const tabs = await d.listTabs(sessionId);
-    if (!tabs.some((t) => t.id === tabId)) {
-      throw new PsycheError("not_found", `tab ${tabId} is not one of this task's tabs`);
+  const approvals = new ApprovalGate(deps.broker);
+  /**
+   * The order each purchase card described, per tab and element: the click re-reads the page
+   * and refuses when it no longer matches (the page changed after the owner approved).
+   */
+  const describedOrders = new Map<string, OrderSummary>();
+  const guardOrder = async (tabId: string, ref: string | undefined): Promise<void> => {
+    if (ref === undefined) return;
+    const key = `${tabId}|${ref}`;
+    const approved = describedOrders.get(key);
+    if (approved === undefined) return;
+    describedOrders.delete(key);
+    const fresh = readOrder((await d.snapshot(tabId)).text, d.tabOrigin(tabId) ?? "");
+    if (!orderStillMatches(approved, fresh)) {
+      throw new PsycheError(
+        "conflict",
+        "the order on the page changed after it was approved; read the page again and ask again",
+        { details: { reason: "order_changed" } },
+      );
     }
-    return tabId;
+  };
+  const sessionTab = async (callId: string, tabId: string) => {
+    const sessionIds =
+      deps.openSessions === undefined
+        ? [await deps.session(callId)]
+        : await deps.openSessions(callId);
+    for (const sessionId of sessionIds) {
+      const tabs = await d.listTabs(sessionId).catch(() => []);
+      if (tabs.some((t) => t.id === tabId)) return tabId;
+    }
+    throw new PsycheError("not_found", `tab ${tabId} is not one of this task's tabs`);
   };
   const activation = (
     tabId: string,
@@ -100,6 +174,16 @@ export function browserToolDefs(deps: BrowserToolDeps) {
     const origin = d.tabOrigin(tabId);
     if (origin !== undefined) out.target = { kind: "origin", value: origin };
     if (c.kind !== undefined) out.kind = c.kind;
+    if (c.kind === "purchase" && origin !== undefined) {
+      // The card lists merchant, items and total as the page shows them (INT-2), and the
+      // approval binds to them (data model §4.2): a changed order needs a new approval.
+      const order = readOrder(d.peekSnapshot(tabId)?.text ?? "", origin);
+      describedOrders.set(`${tabId}|${ref}`, order);
+      out.summary = orderSummary(summary, order);
+      out.bindingFields = orderBinding(order, meta?.name ?? ref);
+      out.grantKey = `purchase|${origin}`;
+      return out;
+    }
     if (c.kind === "browser_submit" && meta !== undefined && origin !== undefined) {
       // Data model §4.2 browser_submit: origin, path, submit element (field-value digest: TODO).
       const action = meta.formAction ?? "";
@@ -131,7 +215,8 @@ export function browserToolDefs(deps: BrowserToolDeps) {
   return [
     def({
       name: "browser.tabs",
-      description: "List this task's browser tabs (id, url, title, active).",
+      description:
+        "List this task's browser tabs (id, url, title, active, partition: profile = the owner's sign-ins, clean = logged out).",
       schema: Type.Object({}),
       sideEffect: "none",
       run: async (_p, { callId }) => ({ tabs: await d.listTabs(await deps.session(callId)) }),
@@ -291,6 +376,7 @@ export function browserToolDefs(deps: BrowserToolDeps) {
         const tabId = await sessionTab(callId, p.tabId);
         const action =
           p.button === "right" ? "right_click" : p.double === true ? "double_click" : "click";
+        await guardOrder(tabId, "ref" in p.target ? p.target.ref : undefined);
         await d.pointer(tabId, p.target as ActionTarget, action);
         return pageOut(tabId, { ok: true });
       },
@@ -328,6 +414,7 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       },
       run: async (p, { callId }) => {
         const tabId = await sessionTab(callId, p.tabId);
+        if (p.submit === true) await guardOrder(tabId, p.ref);
         await d.type(tabId, p.ref, p.text, { clear: p.clear ?? true, submit: p.submit ?? false });
         return { ok: true };
       },
@@ -349,7 +436,9 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       run: async (p, { callId }) => {
         const o: { ref?: string } = {};
         if (p.ref !== undefined) o.ref = p.ref;
-        await d.press(await sessionTab(callId, p.tabId), p.keys, o);
+        const tabId = await sessionTab(callId, p.tabId);
+        await guardOrder(tabId, p.ref);
+        await d.press(tabId, p.keys, o);
         return { ok: true };
       },
     }),
@@ -550,6 +639,120 @@ export function browserToolDefs(deps: BrowserToolDeps) {
       run: async (p, { callId, signal }) => fillCredential(deps, callId, signal, p),
     }),
     def({
+      name: "browser.dev_preview",
+      description:
+        "Open the owner's own local dev server (localhost) in a dev-preview tab, where browser.console and browser.network work. Only servers Psyche started, the project's launch config declares or the owner allowlisted; the first open asks.",
+      schema: Type.Object({ url: Url }),
+      sideEffect: "read",
+      describe: (p) => ({
+        ...originTarget(p.url),
+        summary: `Preview the dev server at ${tryOrigin(p.url) ?? p.url}`,
+      }),
+      run: async (p, { callId, signal }) => {
+        const gateCheck = deps.devPreview;
+        if (gateCheck === undefined) {
+          throw new PsycheError("policy_denied", "dev preview is not enabled for this Gateway", {
+            details: { reason: "no_dev_preview" },
+          });
+        }
+        const ctx = deps.context(callId);
+        const verdict = await gateCheck.check(p.url, {
+          ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
+        });
+        if (!verdict.ok) {
+          throw new PsycheError("policy_denied", verdict.message, {
+            details: { reason: verdict.reason },
+          });
+        }
+        // The owner approves the server once per task (`new_origin`, like any first visit);
+        // the loop's own approval for this call, when it got one, counts.
+        if (ctx.approvalId === undefined) {
+          const outcome = await approvals.check(
+            {
+              tool: "browser.dev_preview",
+              kind: "new_origin",
+              sideEffect: "read",
+              target: { kind: "origin", value: verdict.origin },
+              summary: `Preview your dev server at ${verdict.origin}${verdict.server.name === undefined ? "" : ` (${verdict.server.name})`}`,
+              details: {
+                origin: verdict.origin,
+                url: p.url,
+                hop: "initial",
+                devPreview: true,
+                source: verdict.server.source,
+                ...(verdict.server.cwd === undefined ? {} : { cwd: verdict.server.cwd }),
+                taskId: ctx.taskId ?? null,
+              },
+              bindingFields: { origin: verdict.origin, taskId: ctx.taskId ?? null },
+              grantKey: `new_origin|${verdict.origin}`,
+            },
+            ctx,
+            signal,
+          );
+          if (!outcome.ok) throw gateError(outcome);
+        }
+        const sessionId = await deps.session(callId, "dev_preview");
+        const policy = d.policy(sessionId);
+        policy.allowLoopbackPort(verdict.port);
+        policy.grant(verdict.origin, "write");
+        const tab = await d.openTab(sessionId, p.url);
+        await d
+          .wait(tab.id, { kind: "load" }, { signal, timeoutMs: 15_000 })
+          .catch(() => undefined);
+        return {
+          tab,
+          devServer: verdict.server,
+          hint: "browser.console and browser.network read this tab's console and requests",
+        };
+      },
+    }),
+    def({
+      name: "browser.request_control",
+      description:
+        "Ask the owner to take over a tab for a step only they should do: a 2FA code, a login, personal details, a CAPTCHA. They are notified and the pane shows your reason; this waits until they take control and hand it back, or the timeout passes. Afterwards every ref is stale: read the page again.",
+      schema: Type.Object({
+        tabId: TabId,
+        reason: Type.String({ minLength: 1, maxLength: 200 }),
+        timeoutMs: Type.Optional(Type.Integer({ minimum: 1000, maximum: 1_800_000 })),
+      }),
+      sideEffect: "none",
+      describe: (p) => ({ summary: `Ask the owner to take over: ${p.reason.slice(0, 120)}` }),
+      run: async (p, { callId, signal }) => {
+        const tabId = await sessionTab(callId, p.tabId);
+        const sessionId = d.sessionOf(tabId);
+        if (deps.requestControl === undefined || sessionId === undefined) {
+          throw new PsycheError("unavailable", "there is no browser pane to hand control in", {
+            details: { reason: "no_pane" },
+          });
+        }
+        const ctx = deps.context(callId);
+        const timeoutMs = p.timeoutMs ?? 600_000;
+        // Listen before asking, so a quick owner is not missed.
+        const handBack = waitForHandBack(d, sessionId, timeoutMs, signal);
+        const withdraw = await deps.requestControl({
+          tabId,
+          sessionId,
+          reason: p.reason,
+          origin: d.tabOrigin(tabId) ?? null,
+          ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
+          threadId: ctx.threadId,
+        });
+        try {
+          const status = await handBack;
+          return {
+            tabId,
+            status,
+            hint:
+              status === "returned"
+                ? "The owner handed the tab back. Refs are stale: read the page again with browser.snapshot."
+                : `The owner did not take over within ${Math.round(timeoutMs / 60_000) || 1} min. Ask in chat, try later or stop the task.`,
+          };
+        } finally {
+          await withdraw?.();
+        }
+      },
+    }),
+    def({
       name: "browser.console",
       description: "Console messages of a dev-preview (localhost) tab.",
       schema: Type.Object({ tabId: TabId }),
@@ -649,6 +852,42 @@ async function fillCredential(
   return { filled: true, field: p.ref, masked: "•••" };
 }
 
+/**
+ * Resolves when the owner has held the session's tabs and given them back, or on timeout. A
+ * session already held by the owner counts as taken.
+ */
+async function waitForHandBack(
+  d: BrowserDriverEx,
+  sessionId: string,
+  timeoutMs: number,
+  signal: AbortSignal,
+): Promise<"returned" | "timed_out"> {
+  let settle: (r: "returned" | "timed_out" | "cancelled") => void = () => undefined;
+  const done = new Promise<"returned" | "timed_out" | "cancelled">((r) => {
+    settle = r;
+  });
+  let taken = false;
+  const off = d.onEvent((e) => {
+    if (e.type !== "control_state" || e.sessionId !== sessionId) return;
+    if (e.state === "user") taken = true;
+    else if (e.state === "agent" && taken) settle("returned");
+  });
+  const timer = setTimeout(() => settle("timed_out"), timeoutMs);
+  const onAbort = () => settle("cancelled");
+  signal.addEventListener("abort", onAbort, { once: true });
+  try {
+    if ((await d.getControlState(sessionId)) === "user") taken = true;
+    const r = await done;
+    if (r === "cancelled")
+      throw new PsycheError("cancelled", "the request for control was cancelled");
+    return r;
+  } finally {
+    off();
+    clearTimeout(timer);
+    signal.removeEventListener("abort", onAbort);
+  }
+}
+
 /** Register every `browser.*` tool with the agent-core registry. Returns one unregister. */
 export function registerBrowserTools(registry: ToolRegistry, deps: BrowserToolDeps): Unsubscribe {
   const gate = new ApprovalGate(deps.broker);
@@ -668,11 +907,19 @@ export function registerBrowserTools(registry: ToolRegistry, deps: BrowserToolDe
           await gateReadOnlyWrite(deps, gate, t, params, callId, signal);
           return t.run(params as never, { callId, signal });
         };
-        const output = await withOriginApprovals(deps, gate, t, params, callId, signal, run);
-        return { output: redactUrlsIn(output), provenance };
+        const output = redactUrlsIn(
+          await withOriginApprovals(deps, gate, t, params, callId, signal, run),
+        );
+        // Snapshots, text, titles, dialog messages and URLs all end up here (design-18).
+        if (deps.containsSecret?.(JSON.stringify(output)) === true) throw secretEcho();
+        return { output, provenance };
       } catch (err) {
-        const e = PsycheError.from(err);
-        return { output: { error: e.toPayload() }, isError: true, provenance };
+        let payload = PsycheError.from(err).toPayload();
+        // Errors quote page content too (dialog text, URLs): never let one carry a secret.
+        if (deps.containsSecret?.(JSON.stringify(payload)) === true) {
+          payload = secretEcho().toPayload();
+        }
+        return { output: { error: payload }, isError: true, provenance };
       }
     };
     const registration: Parameters<ToolRegistry["register"]>[0] = {

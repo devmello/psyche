@@ -1,3 +1,4 @@
+import { renderQuestionForSurface, sanitizeDisplay } from "@psyche/permissions/cards";
 import type { InputRequest, Question } from "@psyche/protocol";
 import { Check } from "lucide-react";
 import {
@@ -18,6 +19,10 @@ import { cn } from "../lib/utils.ts";
  * Question card from `ask_user` (UI design §3.4, Claude's AskUserQuestion schema): 1–4 questions,
  * 2–4 options each, optional multi-select, an "Other" free-text row. No timeout: background
  * input requests wait indefinitely; Psyche never auto-submits.
+ *
+ * Questions are the model's text and may echo untrusted content, so what is shown is the desktop
+ * rendering from `@psyche/permissions/cards` (`renderQuestionForSurface`, design-12); answers
+ * still carry the original header and option labels back to the agent.
  */
 
 export type Answers = Record<string, string | string[]>;
@@ -93,6 +98,7 @@ export function QuestionCard({
   className,
 }: QuestionCardProps): ReactElement {
   const headingId = useId();
+  const shown = useMemo(() => renderQuestionForSurface("desktop", request).questions, [request]);
   const [drafts, setDrafts] = useState<Draft[]>(() => request.questions.map(initialDraft));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,13 +121,16 @@ export function QuestionCard({
           <p className="text-muted-foreground">No longer needed.</p>
         ) : (
           <ul className="flex flex-col gap-0.5">
-            {request.questions.map((q) => {
+            {request.questions.map((q, i) => {
               const a = request.answer?.[q.header];
+              const text = Array.isArray(a) ? a.join(", ") : (a ?? "—");
               return (
                 <li key={q.header} className="flex gap-2">
                   <Check className="mt-0.5 size-3.5 text-success" aria-hidden="true" />
-                  <span className="text-label text-muted-foreground">{q.header}</span>
-                  <span>{Array.isArray(a) ? a.join(", ") : (a ?? "—")}</span>
+                  <span className="text-label text-muted-foreground">
+                    {shown[i]?.header ?? q.header}
+                  </span>
+                  <span>{sanitizeDisplay(text)}</span>
                 </li>
               );
             })}
@@ -165,7 +174,7 @@ export function QuestionCard({
       aria-labelledby={headingId}
       onKeyDown={onKeyDown}
       className={cn(
-        "my-2 rounded-lg border border-accent-6 bg-gray-2 p-4 text-sm psy-enter",
+        "my-2 rounded-lg border border-gray-6 bg-gray-2 p-4 text-sm psy-enter",
         className,
       )}
     >
@@ -180,6 +189,7 @@ export function QuestionCard({
           <QuestionField
             key={q.header}
             question={q}
+            display={shown[qi] ?? q}
             draft={drafts[qi] ?? { selected: [], other: "" }}
             onChange={(fn) => set(qi, fn)}
             renderPreview={renderPreview}
@@ -211,17 +221,21 @@ export function QuestionCard({
 
 function QuestionField({
   question: q,
+  display,
   draft,
   onChange,
   renderPreview,
 }: {
   question: Question;
+  /** The sanitized copy of `question`, same option order; shown instead of the raw text. */
+  display: Question;
   draft: Draft;
   onChange: (fn: (d: Draft) => Draft) => void;
   renderPreview?: ((preview: string) => ReactNode) | undefined;
 }): ReactElement {
   const id = useId();
   const options = orderedOptions(q);
+  const shownOptions = orderedOptions(display);
   const chips = usesChips(q);
   const values = [...options.map((o) => cleanLabel(o.label)), OTHER];
 
@@ -251,7 +265,7 @@ function QuestionField({
 
   const otherInput = (
     <Input
-      aria-label={`${q.header}: other answer`}
+      aria-label={`${display.header}: other answer`}
       placeholder="Other"
       className="h-7 max-w-64"
       value={draft.other}
@@ -268,8 +282,8 @@ function QuestionField({
   return (
     <fieldset onKeyDown={onKeyDown} aria-describedby={`${id}-hint`}>
       <legend className="mb-1.5 flex items-baseline gap-2">
-        <span className="text-label text-muted-foreground">{q.header}</span>
-        <span className="font-medium text-foreground">{q.question}</span>
+        <span className="text-label text-muted-foreground">{display.header}</span>
+        <span className="font-medium text-foreground">{display.question}</span>
         {q.multiSelect ? <span className="text-xs text-muted-foreground">(pick any)</span> : null}
       </legend>
       <span id={`${id}-hint`} className="sr-only">
@@ -277,7 +291,7 @@ function QuestionField({
       </span>
       {q.multiSelect ? (
         <div className={cn(chips ? "flex flex-wrap gap-x-4 gap-y-1.5" : "flex flex-col gap-1.5")}>
-          {options.map((o) => {
+          {options.map((o, i) => {
             const v = cleanLabel(o.label);
             const cid = `${id}-${o.index}`;
             return (
@@ -287,7 +301,11 @@ function QuestionField({
                   checked={draft.selected.includes(v)}
                   onCheckedChange={() => toggle(v)}
                 />
-                <OptionLabel htmlFor={cid} option={o} renderPreview={renderPreview} />
+                <OptionLabel
+                  htmlFor={cid}
+                  option={shownOptions[i] ?? o}
+                  renderPreview={renderPreview}
+                />
               </div>
             );
           })}
@@ -305,16 +323,20 @@ function QuestionField({
         <RadioGroup
           value={draft.selected[0] ?? ""}
           onValueChange={(v) => toggle(v as string)}
-          aria-label={q.question}
+          aria-label={display.question}
           className={cn(chips ? "flex flex-wrap gap-x-4 gap-y-1.5" : "flex flex-col gap-1.5")}
         >
-          {options.map((o) => {
+          {options.map((o, i) => {
             const v = cleanLabel(o.label);
             const rid = `${id}-${o.index}`;
             return (
               <div key={o.index} className="flex items-start gap-2">
                 <RadioGroupItem value={v} id={rid} />
-                <OptionLabel htmlFor={rid} option={o} renderPreview={renderPreview} />
+                <OptionLabel
+                  htmlFor={rid}
+                  option={shownOptions[i] ?? o}
+                  renderPreview={renderPreview}
+                />
               </div>
             );
           })}

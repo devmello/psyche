@@ -134,6 +134,11 @@
         "payload": "#/$defs/AutomationUpdatedPayload"
       },
       {
+        "description": "A browser recording started, grew (coalesced) or ended; Activity re-reads it with browser.recordings.get {sinceSeq}.",
+        "name": "browser.recording.updated",
+        "payload": "#/$defs/BrowserRecordingUpdatedPayload"
+      },
+      {
         "description": "A channel was configured, connected, disconnected or changed status.",
         "name": "channels.updated",
         "payload": "#/$defs/ChannelsUpdatedPayload"
@@ -319,6 +324,11 @@
         "payload": "#/$defs/ViewCommandPayload"
       },
       {
+        "description": "A sandbox Mac guest changed phase, resources or shares (mac helper vm.* capabilities).",
+        "name": "vm.updated",
+        "payload": "#/$defs/VmUpdatedPayload"
+      },
+      {
         "description": "A dictation session ended (stopped, cancelled, idle timeout or engine error).",
         "name": "voice.ended",
         "payload": "#/$defs/VoiceEndedPayload"
@@ -458,6 +468,38 @@
         "sideEffecting": false
       },
       {
+        "description": "Writes a consistent snapshot of $PSYCHE_HOME to the backups directory (SQLite online backup for the state DB). Refuses without passphrase, recipients or unencrypted: true. Side-effecting.",
+        "name": "backup.create",
+        "params": "#/$defs/BackupCreateParams",
+        "result": "#/$defs/BackupCreateResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Deletes one backup archive. Side-effecting.",
+        "name": "backup.delete",
+        "params": "#/$defs/BackupDeleteParams",
+        "result": "#/$defs/BackupDeleteResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Lists local backup archives, newest first.",
+        "name": "backup.list",
+        "params": "#/$defs/BackupListParams",
+        "result": "#/$defs/BackupListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Decrypts an archive into a scratch directory and checks every manifest hash.",
+        "name": "backup.verify",
+        "params": "#/$defs/BackupVerifyParams",
+        "result": "#/$defs/BackupVerifyResult",
+        "scope": "operator.admin",
+        "sideEffecting": false
+      },
+      {
         "description": "Closes a tab.",
         "name": "browser.close",
         "params": "#/$defs/BrowserCloseParams",
@@ -471,6 +513,46 @@
         "params": "#/$defs/BrowserOpenParams",
         "result": "#/$defs/BrowserOpenResult",
         "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting. Deletes a recording and its files (retention is otherwise 7 days, data model §12).",
+        "name": "browser.recordings.delete",
+        "params": "#/$defs/BrowserRecordingsDeleteParams",
+        "result": "#/$defs/OkResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
+        "description": "Returns one screencast frame of a recording.",
+        "name": "browser.recordings.frame",
+        "params": "#/$defs/BrowserRecordingsFrameParams",
+        "result": "#/$defs/BrowserRecordingsFrameResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Returns a recording's replay index: the event log and the frame list Activity scrubs through.",
+        "name": "browser.recordings.get",
+        "params": "#/$defs/BrowserRecordingsGetParams",
+        "result": "#/$defs/BrowserRecordingsGetResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Lists browser recordings, newest first (feature I10).",
+        "name": "browser.recordings.list",
+        "params": "#/$defs/BrowserRecordingsListParams",
+        "result": "#/$defs/BrowserRecordingsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Returns the page snapshot a `snapshot` event recorded.",
+        "name": "browser.recordings.snapshot",
+        "params": "#/$defs/BrowserRecordingsSnapshotParams",
+        "result": "#/$defs/BrowserRecordingsSnapshotResult",
+        "scope": "operator.read",
         "sideEffecting": false
       },
       {
@@ -866,6 +948,14 @@
         "sideEffecting": false
       },
       {
+        "description": "Returns the newest matching log lines, oldest first, with the subsystems seen. No bodies or secrets.",
+        "name": "logs.tail",
+        "params": "#/$defs/LogsTailParams",
+        "result": "#/$defs/LogsTailResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "The owner confirms an agent or imported claim; it becomes an owner claim that supersedes it. Claims derived from untrusted sources are refused. Side-effecting.",
         "name": "memory.claims.confirm",
         "params": "#/$defs/MemoryClaimsConfirmParams",
@@ -1250,6 +1340,14 @@
         "sideEffecting": true
       },
       {
+        "description": "Lists every synthesis voice the available engines offer as <engine>:<voice> refs, for voice selection per persona.",
+        "name": "speech.voices",
+        "params": "#/$defs/SpeechVoicesParams",
+        "result": "#/$defs/SpeechVoicesResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
         "description": "Pages a task's Activity lines (level 1 and 2; level 3 is fetched by ref).",
         "name": "tasks.actions",
         "params": "#/$defs/TasksActionsParams",
@@ -1373,6 +1471,14 @@
         "description": "Restores an archived thread.",
         "name": "threads.restore",
         "params": "#/$defs/ThreadIdParams",
+        "result": "#/$defs/ThreadResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
+        "description": "Sets a thread's permission mode and/or model (composer /plan, /model, the mode and model pills). auto is refused with forbidden unless the thread's model is on the auto-mode allowlist; picking a model that is not allowed drops an auto thread to balanced.",
+        "name": "threads.update",
+        "params": "#/$defs/ThreadsUpdateParams",
         "result": "#/$defs/ThreadResult",
         "scope": "operator.write",
         "sideEffecting": false
@@ -1520,6 +1626,14 @@
         "result": "#/$defs/OkResult",
         "scope": "operator.write",
         "sideEffecting": false
+      },
+      {
+        "description": "Side-effecting: ends a memo session (voice.start with memo: true), stores the audio as a Library recording with the transcript and creates a Task when asked; the transcript is content, never instructions.",
+        "name": "voice.memo.save",
+        "params": "#/$defs/VoiceMemoSaveParams",
+        "result": "#/$defs/VoiceMemoSaveResult",
+        "scope": "operator.write",
+        "sideEffecting": true
       },
       {
         "description": "Appends one audio chunk to the caller's dictation session.",
@@ -3182,6 +3296,177 @@
       ],
       "type": "object"
     },
+    "BackupCreateParams": {
+      "properties": {
+        "passphrase": {
+          "maxLength": 1024,
+          "minLength": 12,
+          "type": "string"
+        },
+        "recipients": {
+          "items": {
+            "pattern": "^age1[a-z0-9]+$",
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "type": "array"
+        },
+        "unencrypted": {
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "BackupCreateResult": {
+      "properties": {
+        "backup": {
+          "$ref": "#/$defs/BackupInfo"
+        },
+        "files": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "backup",
+        "files"
+      ],
+      "type": "object"
+    },
+    "BackupDeleteParams": {
+      "properties": {
+        "file": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[^/\\\\]+$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "type": "object"
+    },
+    "BackupDeleteResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "type": "object"
+    },
+    "BackupInfo": {
+      "properties": {
+        "file": {
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        },
+        "createdAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "encrypted": {
+          "type": "boolean"
+        },
+        "verifiedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "file",
+        "createdAt",
+        "bytes",
+        "encrypted"
+      ],
+      "type": "object"
+    },
+    "BackupListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "BackupListResult": {
+      "properties": {
+        "backups": {
+          "items": {
+            "$ref": "#/$defs/BackupInfo"
+          },
+          "type": "array"
+        },
+        "dir": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "backups",
+        "dir"
+      ],
+      "type": "object"
+    },
+    "BackupVerifyParams": {
+      "properties": {
+        "file": {
+          "maxLength": 255,
+          "minLength": 1,
+          "pattern": "^[^/\\\\]+$",
+          "type": "string"
+        },
+        "passphrase": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "file"
+      ],
+      "type": "object"
+    },
+    "BackupVerifyResult": {
+      "properties": {
+        "ok": {
+          "type": "boolean"
+        },
+        "files": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "problems": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "backup": {
+          "$ref": "#/$defs/BackupInfo"
+        }
+      },
+      "required": [
+        "ok",
+        "files",
+        "problems",
+        "backup"
+      ],
+      "type": "object"
+    },
     "Block": {
       "anyOf": [
         {
@@ -3684,6 +3969,407 @@
         "clean"
       ],
       "type": "string"
+    },
+    "BrowserRecording": {
+      "properties": {
+        "id": {
+          "description": "Recording id: the task id, or thread:<id> for chat turns",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "taskId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "threadId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "startedAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "endedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "frameCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "eventCount": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "libraryItemId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "startedAt",
+        "frameCount",
+        "eventCount",
+        "bytes"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingEvent": {
+      "properties": {
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "tabId": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/BrowserRecordingEventKind"
+        },
+        "summary": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string"
+        },
+        "element": {
+          "properties": {
+            "role": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "role",
+            "name"
+          ],
+          "type": "object"
+        },
+        "detail": {
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        },
+        "snapshotSeq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "frameSeq": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "tabId",
+        "kind",
+        "summary"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingEventKind": {
+      "enum": [
+        "tab",
+        "navigation",
+        "snapshot",
+        "action",
+        "fill",
+        "download",
+        "blocked",
+        "control",
+        "dialog"
+      ],
+      "type": "string"
+    },
+    "BrowserRecordingFrame": {
+      "properties": {
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "tabId": {
+          "type": "string"
+        },
+        "url": {
+          "description": "Origin and path only",
+          "type": "string"
+        }
+      },
+      "required": [
+        "seq",
+        "at",
+        "tabId",
+        "url"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingFrameMime": {
+      "enum": [
+        "image/jpeg",
+        "image/png"
+      ],
+      "type": "string"
+    },
+    "BrowserRecordingUpdatedPayload": {
+      "properties": {
+        "recording": {
+          "$ref": "#/$defs/BrowserRecording"
+        }
+      },
+      "required": [
+        "recording"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingsDeleteParams": {
+      "properties": {
+        "recordingId": {
+          "description": "Recording id: the task id, or thread:<id> for chat turns",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "recordingId"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingsFrameParams": {
+      "properties": {
+        "recordingId": {
+          "description": "Recording id: the task id, or thread:<id> for chat turns",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "recordingId",
+        "seq"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingsFrameResult": {
+      "properties": {
+        "frame": {
+          "$ref": "#/$defs/BrowserRecordingFrame"
+        },
+        "mime": {
+          "$ref": "#/$defs/BrowserRecordingFrameMime"
+        },
+        "data": {
+          "description": "Base64 image bytes",
+          "type": "string"
+        }
+      },
+      "required": [
+        "frame",
+        "mime",
+        "data"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingsGetParams": {
+      "properties": {
+        "recordingId": {
+          "description": "Recording id: the task id, or thread:<id> for chat turns",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sinceSeq": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "limit": {
+          "maximum": 5000,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "recordingId"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingsGetResult": {
+      "properties": {
+        "recording": {
+          "$ref": "#/$defs/BrowserRecording"
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/BrowserRecordingEvent"
+          },
+          "type": "array"
+        },
+        "frames": {
+          "items": {
+            "$ref": "#/$defs/BrowserRecordingFrame"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "recording",
+        "events",
+        "frames"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingsListParams": {
+      "properties": {
+        "taskId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "cursor": {
+          "description": "Opaque cursor",
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "limit": {
+          "maximum": 500,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "BrowserRecordingsListResult": {
+      "properties": {
+        "recordings": {
+          "items": {
+            "$ref": "#/$defs/BrowserRecording"
+          },
+          "type": "array"
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "description": "Opaque cursor",
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "recordings"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingsSnapshotParams": {
+      "properties": {
+        "recordingId": {
+          "description": "Recording id: the task id, or thread:<id> for chat turns",
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "seq": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "recordingId",
+        "seq"
+      ],
+      "type": "object"
+    },
+    "BrowserRecordingsSnapshotResult": {
+      "properties": {
+        "text": {
+          "description": "The snapshot text the model saw (untrusted page content)",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
     },
     "BrowserSnapshot": {
       "properties": {
@@ -4753,6 +5439,12 @@
         },
         "mode": {
           "$ref": "#/$defs/QueueMode"
+        },
+        "replyToMessageId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
         }
       },
       "required": [
@@ -7837,6 +8529,105 @@
         "items"
       ],
       "type": "object"
+    },
+    "LogLevel": {
+      "enum": [
+        "debug",
+        "info",
+        "warn",
+        "error"
+      ],
+      "type": "string"
+    },
+    "LogLine": {
+      "properties": {
+        "ts": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "level": {
+          "$ref": "#/$defs/LogLevel"
+        },
+        "subsystem": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "msg": {
+          "type": "string"
+        },
+        "fields": {
+          "patternProperties": {
+            "^(.*)$": {}
+          },
+          "type": "object"
+        }
+      },
+      "required": [
+        "ts",
+        "level",
+        "msg"
+      ],
+      "type": "object"
+    },
+    "LogsTailParams": {
+      "properties": {
+        "lines": {
+          "maximum": 2000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "level": {
+          "$ref": "#/$defs/LogLevel"
+        },
+        "subsystem": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "since": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "search": {
+          "maxLength": 256,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "LogsTailResult": {
+      "properties": {
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/LogLine"
+          },
+          "type": "array"
+        },
+        "subsystems": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "lines",
+        "subsystems",
+        "truncated"
+      ],
+      "type": "object"
+    },
+    "MemoTaskMode": {
+      "enum": [
+        "auto",
+        "always",
+        "never"
+      ],
+      "type": "string"
     },
     "MemoryChangeSource": {
       "enum": [
@@ -11947,6 +12738,94 @@
       ],
       "type": "object"
     },
+    "SpeechVoice": {
+      "properties": {
+        "ref": {
+          "description": "<engine>:<voice>, the form IDENTITY.md voice: takes",
+          "type": "string"
+        },
+        "engine": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/SpeechEngineLocation"
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "language": {
+          "description": "BCP 47, or * for any",
+          "type": "string"
+        },
+        "local": {
+          "type": "boolean"
+        },
+        "default": {
+          "description": "The voice the settings or the persona select now",
+          "type": "boolean"
+        },
+        "nonCommercial": {
+          "description": "Apple Personal Voice: non-commercial use only",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ref",
+        "engine",
+        "location",
+        "id",
+        "name",
+        "language",
+        "local",
+        "default"
+      ],
+      "type": "object"
+    },
+    "SpeechVoicesParams": {
+      "properties": {
+        "personaVoice": {
+          "description": "The persona's current <engine>:<voice>",
+          "maxLength": 128,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "SpeechVoicesResult": {
+      "properties": {
+        "voices": {
+          "items": {
+            "$ref": "#/$defs/SpeechVoice"
+          },
+          "type": "array"
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unavailable": {
+          "description": "Synthesis engines in order that could not list voices now",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "voices",
+        "unavailable"
+      ],
+      "type": "object"
+    },
     "SurfaceAnswerToken": {
       "minLength": 1,
       "type": "string"
@@ -12812,11 +13691,40 @@
         },
         "activity": {
           "$ref": "#/$defs/ThreadActivity"
+        },
+        "lastMessage": {
+          "$ref": "#/$defs/ThreadPreview"
         }
       },
       "required": [
         "thread",
         "activity"
+      ],
+      "type": "object"
+    },
+    "ThreadPreview": {
+      "properties": {
+        "role": {
+          "enum": [
+            "user",
+            "agent"
+          ],
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 160,
+          "type": "string"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "text",
+        "at"
       ],
       "type": "object"
     },
@@ -13004,6 +13912,35 @@
       "required": [
         "threadId",
         "title"
+      ],
+      "type": "object"
+    },
+    "ThreadsUpdateParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "permissionMode": {
+          "$ref": "#/$defs/PermissionMode"
+        },
+        "modelRef": {
+          "anyOf": [
+            {
+              "description": "provider/model",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*/.+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "threadId"
       ],
       "type": "object"
     },
@@ -14155,6 +15092,265 @@
       ],
       "type": "object"
     },
+    "VmCreateParams": {
+      "properties": {
+        "name": {
+          "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
+          "type": "string"
+        },
+        "cpus": {
+          "maximum": 32,
+          "minimum": 2,
+          "type": "integer"
+        },
+        "memoryGB": {
+          "maximum": 256,
+          "minimum": 4,
+          "type": "integer"
+        },
+        "diskGB": {
+          "maximum": 2048,
+          "minimum": 40,
+          "type": "integer"
+        },
+        "ipsw": {
+          "description": "Absolute path to a local IPSW",
+          "type": "string"
+        },
+        "download": {
+          "type": "boolean"
+        },
+        "username": {
+          "maxLength": 32,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "VmGuest": {
+      "properties": {
+        "name": {
+          "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
+          "type": "string"
+        },
+        "phase": {
+          "$ref": "#/$defs/VmPhase"
+        },
+        "provisioned": {
+          "description": "First (provisioning) boot completed",
+          "type": "boolean"
+        },
+        "cpus": {
+          "minimum": 2,
+          "type": "integer"
+        },
+        "memoryGB": {
+          "minimum": 4,
+          "type": "integer"
+        },
+        "diskGB": {
+          "minimum": 40,
+          "type": "integer"
+        },
+        "guestOS": {
+          "anyOf": [
+            {
+              "description": "Guest macOS version, e.g. 27.0.1",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "username": {
+          "type": "string"
+        },
+        "shares": {
+          "items": {
+            "$ref": "#/$defs/VmShare"
+          },
+          "type": "array"
+        },
+        "vsock": {
+          "properties": {
+            "hostCid": {
+              "description": "2: the host as seen from the guest",
+              "type": "integer"
+            },
+            "gatewayNodePort": {
+              "description": "Guest psyche-node → host Gateway node socket",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "hostCid",
+            "gatewayNodePort"
+          ],
+          "type": "object"
+        },
+        "lastError": {
+          "description": "Machine reason of the last failure",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "phase",
+        "provisioned",
+        "cpus",
+        "memoryGB",
+        "diskGB",
+        "username",
+        "shares",
+        "vsock"
+      ],
+      "type": "object"
+    },
+    "VmPhase": {
+      "enum": [
+        "created",
+        "installing",
+        "installed",
+        "provisioning",
+        "stopped",
+        "starting",
+        "running",
+        "stopping",
+        "failed"
+      ],
+      "type": "string"
+    },
+    "VmProgressEvent": {
+      "properties": {
+        "type": {
+          "enum": [
+            "vm.download",
+            "vm.install",
+            "vm.state"
+          ],
+          "type": "string"
+        },
+        "phase": {
+          "description": "started | progress | finished, or a VmPhase for vm.state",
+          "type": "string"
+        },
+        "fraction": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "phase"
+      ],
+      "type": "object"
+    },
+    "VmShare": {
+      "properties": {
+        "name": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "hostPath": {
+          "description": "Absolute host folder (symlinks resolved)",
+          "type": "string"
+        },
+        "readOnly": {
+          "type": "boolean"
+        },
+        "guestPath": {
+          "description": "e.g. /Volumes/Psyche Shares/<name>",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "hostPath",
+        "readOnly",
+        "guestPath"
+      ],
+      "type": "object"
+    },
+    "VmShareAddParams": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "share": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "readOnly": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "share",
+        "path"
+      ],
+      "type": "object"
+    },
+    "VmStatus": {
+      "properties": {
+        "guests": {
+          "items": {
+            "$ref": "#/$defs/VmGuest"
+          },
+          "type": "array"
+        },
+        "active": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maxActive": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "supportsGuestProvisioning": {
+          "description": "Unattended setup (macOS 27 host and guest)",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "guests",
+        "active",
+        "maxActive",
+        "supportsGuestProvisioning"
+      ],
+      "type": "object"
+    },
+    "VmUpdatedPayload": {
+      "properties": {
+        "nodeId": {
+          "type": "string"
+        },
+        "guest": {
+          "$ref": "#/$defs/VmGuest"
+        },
+        "at": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "nodeId",
+        "guest",
+        "at"
+      ],
+      "type": "object"
+    },
     "VoiceCancelParams": {
       "properties": {
         "sessionId": {
@@ -14194,6 +15390,102 @@
       "required": [
         "sessionId",
         "reason"
+      ],
+      "type": "object"
+    },
+    "VoiceMemoContent": {
+      "properties": {
+        "urls": {
+          "description": "URL-like strings in the memo; never fetched",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "instructionLike": {
+          "description": "The memo reads like instructions to the agent; shown as a note, not obeyed",
+          "type": "boolean"
+        },
+        "flags": {
+          "description": "Which patterns matched (override, secrecy, …)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "urls",
+        "instructionLike",
+        "flags"
+      ],
+      "type": "object"
+    },
+    "VoiceMemoSaveParams": {
+      "properties": {
+        "sessionId": {
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        },
+        "task": {
+          "$ref": "#/$defs/MemoTaskMode"
+        }
+      },
+      "required": [
+        "sessionId"
+      ],
+      "type": "object"
+    },
+    "VoiceMemoSaveResult": {
+      "properties": {
+        "transcript": {
+          "$ref": "#/$defs/Transcript"
+        },
+        "item": {
+          "$ref": "#/$defs/LibraryItem"
+        },
+        "task": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Task"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "content": {
+          "$ref": "#/$defs/VoiceMemoContent"
+        },
+        "blocks": {
+          "description": "Quoted transcript, file and task blocks for the message that carries the memo",
+          "items": {
+            "$ref": "#/$defs/Block"
+          },
+          "type": "array"
+        },
+        "durationMs": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "transcript",
+        "item",
+        "provenance",
+        "content",
+        "blocks",
+        "durationMs"
       ],
       "type": "object"
     },
@@ -14267,6 +15559,10 @@
           "maxLength": 64,
           "minLength": 1,
           "type": "string"
+        },
+        "memo": {
+          "description": "Keep the audio so voice.memo.save can file the session as a voice memo",
+          "type": "boolean"
         }
       },
       "required": [

@@ -57,6 +57,12 @@ export interface NodeSpeechEngineOptions {
   timeoutMs?: number;
   /** Size of each `speech.audio_push` for files (default and maximum 512 KiB). */
   pushBytes?: number;
+  /**
+   * Owner opt-in for Apple Personal Voice (setting `speech.tts.personalVoice`, feature Q3).
+   * Off by default: a Personal Voice id is refused before the helper is called. When on, the
+   * call carries the helper's `personalVoice: true`; the output is for non-commercial use only.
+   */
+  personalVoice?: () => boolean | Promise<boolean>;
 }
 
 interface HelperEvent {
@@ -80,6 +86,8 @@ interface HelperTranscript {
 
 export class NodeSpeechEngine implements SpeechEngine {
   readonly #opts: NodeSpeechEngineOptions;
+  /** Voice id → is a Personal Voice, from the last `speech.voices` answer. */
+  #known = new Map<string, boolean>();
 
   constructor(options: NodeSpeechEngineOptions) {
     this.#opts = options;
@@ -300,6 +308,13 @@ export class NodeSpeechEngine implements SpeechEngine {
       );
     }
     if (options.signal?.aborted === true) return;
+    const personal = options.voice !== undefined && (await this.isPersonalVoice(options.voice));
+    if (personal && (await this.#opts.personalVoice?.()) !== true) {
+      throw new PsycheError(
+        "policy_denied",
+        "Personal Voice is off; turn it on in Settings → Voice & dictation (personal, non-commercial use only)",
+      );
+    }
     for (const piece of packText(text, NODE_SPEECH_LIMITS.maxSynthesisText)) {
       const chunks = new AsyncQueue<AudioChunk>();
       const abort = new AbortController();
@@ -307,6 +322,7 @@ export class NodeSpeechEngine implements SpeechEngine {
       options.signal?.addEventListener("abort", onAbort, { once: true });
       const params: Record<string, unknown> = { text: piece, format: encoding };
       if (options.voice !== undefined) params.voice = options.voice;
+      if (personal) params.personalVoice = true;
       const done = node
         .invoke(NODE_SPEECH_CAPABILITIES.synthesize, params, {
           ...this.#invokeOptions(abort.signal, SYNTHESIS_TIMEOUT_MS),
@@ -338,15 +354,38 @@ export class NodeSpeechEngine implements SpeechEngine {
     }
   }
 
+  /** `true` when `voiceId` is one of the helper's Personal Voices (asks once, then cached). */
+  async isPersonalVoice(voiceId: string): Promise<boolean> {
+    const cached = this.#known.get(voiceId);
+    if (cached !== undefined) return cached;
+    // Unknown id (first use, or a voice created since): ask the helper once more.
+    await this.voices().catch(() => []);
+    return this.#known.get(voiceId) === true;
+  }
+
   async voices(): Promise<Voice[]> {
+    const list = await this.#listVoices();
+    // An offline node answers []; keep what we knew rather than forgetting every voice.
+    if (list.length > 0) this.#known = new Map(list.map((v) => [v.id, v.nonCommercial === true]));
+    return list;
+  }
+
+  async #listVoices(): Promise<Voice[]> {
     const node = await this.#opts.node();
     if (node === undefined) return [];
     const res = await node.invoke(NODE_SPEECH_CAPABILITIES.voices, {}, this.#invokeOptions());
     if (!res.ok) return [];
     const list = (
-      res.result as { voices?: { id: string; name: string; language: string }[] } | null
+      res.result as {
+        voices?: { id: string; name: string; language: string; personalVoice?: boolean }[];
+      } | null
     )?.voices;
-    return (list ?? []).map((v) => ({ id: v.id, name: v.name, language: v.language, local: true }));
+    return (list ?? []).map((v) => {
+      const voice: Voice = { id: v.id, name: v.name, language: v.language, local: true };
+      // Apple Personal Voice output is for personal, non-commercial use (helper README, Q3).
+      if (v.personalVoice === true) voice.nonCommercial = true;
+      return voice;
+    });
   }
 
   #invokeOptions(

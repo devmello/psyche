@@ -14,11 +14,13 @@ import { createSandboxRunner } from "@psyche/sandbox";
 const runner = createSandboxRunner(); // detects the backend
 const sbx = await runner.ensureSandbox({ kind: "thread", id: threadId }); // network "none"
 const r = await runner.exec({ sandboxId: sbx.id, argv: ["python3", "-c", "print(1)"], cwd: "/workspace", timeoutMs: 60_000 });
-// r: { exitCode, stdout, stderr, durationMs, truncated, filesChanged, timedOut, outcome }
+// r: { exitCode, stdout, stderr, durationMs, truncated, filesChanged, timedOut, outcome, provenance }
 
-await runner.files.writeText(sbx.id, "notes.md", "hello\n");
-await runner.files.edit(sbx.id, "notes.md", { oldText: "hello", newText: "hi" });
-const pdf = await runner.files.exportFile(sbx.id, "out/report.pdf");
+// Every write carries the calling turn's provenance (design-07); absent means untrusted.
+await runner.files.writeText(sbx.id, "notes.md", "hello\n", { provenance: ctx.taint ? "untrusted" : "trusted", sources: ctx.taintSources });
+await runner.files.edit(sbx.id, "notes.md", { oldText: "hello", newText: "hi" }, { provenance: "trusted" });
+const { text, provenance, sources } = await runner.files.readText(sbx.id, "notes.md");
+const { bytes } = await runner.files.exportFile(sbx.id, "out/report.pdf");
 
 const pty = await runner.openPty(sbx.id, { cols: 120, rows: 40 });
 for await (const chunk of pty.output) term.write(chunk); // pty.write(), pty.resize(), pty.close()
@@ -31,7 +33,7 @@ for await (const chunk of pty.output) term.write(chunk); // pty.write(), pty.res
 | `exec(request)` | Runs a bounded command (contract semantics, below). |
 | `stop(id)` / `destroy(id)` | Stop the container (it restarts on next use), or remove it. The volume stays in both cases. |
 | `deleteWorkspace(scope)` | Removes the container **and** the workspace volume. |
-| `files` | `list`, `stat`, `readText` / `writeText` (256 KB), `edit` (exact replace), `importFile` / `exportFile` (10 MB, byte-exact). |
+| `files` | `list`, `stat`, `readText` / `writeText` (256 KB), `edit` (exact replace), `importFile` / `exportFile` (10 MB, byte-exact). Writes take `{ provenance, sources }`; reads, stats and listings return the file's provenance (see "File provenance"). |
 | `openPty(id, opts)` | Interactive terminal; `output` is an async iterator of raw bytes, and `transcript()` keeps the last 128 KB. |
 | `dispose({remove})` | Stops (or removes) every container this runner started. |
 | `receiptOf(request, result)` | The receipt shape for Activity and the audit log. It never includes env. |
@@ -53,6 +55,9 @@ for await (const chunk of pty.output) term.write(chunk); // pty.write(), pty.res
 | `egressProxy` | none | See "Egress proxy interface". |
 | `namePrefix` | `psyche` | Container `<prefix>-sbx-<hash>`, volume `<prefix>-ws-<hash>`; the hash is over the scope. |
 | `appleVolumeSize` | `8G` | Apple volumes are fixed-size ext4 images. |
+| `onDevServer` | unset | Dev-server forwarding (I12): `started` / `stopped` events for servers an exec leaves listening; see "Dev servers". Unset means no probe and no forward. |
+| `devServers` | re-probe at 0.5, 1, 2, 4, 8 s; poll 5 s; 32 connections | Timing and the per-server connection cap for dev-server forwarding. |
+| `provenanceStore` | in memory | Where each scope's file provenance index lives. `new FileProvenanceStore(dir)` keeps it across restarts (one JSON file per scope under `dir`, for example `$PSYCHE_HOME/sandbox/provenance`). |
 
 ## Backends
 
@@ -95,6 +100,25 @@ The runner only ever runs the fixed CLI with argument arrays (`shell: false`). T
 ## File API
 
 Everything runs inside the container as UID 1000 (a fixed Python helper), so the file API sees exactly what commands see. Each path component is opened from a `/workspace` fd with `O_NOFOLLOW`, so a symlink anywhere in the path is rejected with `forbidden`. Leaves must be regular files, so FIFOs, sockets and devices are rejected too. `..` and absolute paths outside `/workspace` are rejected on the host first. Writes are atomic: a temp file in the same directory, then fsync, rename and fsync of the directory. Caps: 256 KB for text, 10 MB for import and export. Imports stream over `exec -i` stdin, because `container cp` silently does nothing on Apple (spike 02).
+
+### File provenance (S23 design-07)
+
+Taint is turn-scoped, so an injected payload only has to land in a workspace file in turn N to be read back as the agent's own text in turn N+1. The runner therefore keeps a **host-side** provenance index per scope (never in the volume: everything under `/workspace` is writable by the agent as UID 1000, so a sidecar there could be edited away by the same payload):
+
+- Every write through the file API records the caller's `{ provenance, sources }` with the sha256 of the bytes (`edit` records no hash). **Absent means `untrusted`**: pass `"trusted"` only from an untainted turn (or for the owner's own file), and pass the turn's `taintSources` with an untrusted write. `importFile` is for downloads and attachments, which are untrusted at birth.
+- `exec` records its `filesChanged` with the request's `provenance` / `taintSources` (again absent means `untrusted`). The result's `provenance` is `untrusted` when the request was, or whenever the workspace already holds an untrusted file, because the command may have copied it; files such a command changes inherit the untrusted files' sources. The `exec` tool should report `result.provenance` as the `ToolResult` provenance so the loop taints the turn. When the change listing is capped (1,000 entries) or fails after an untrusted command, the workspace counts as untrusted until `deleteWorkspace`.
+- `readText`, `exportFile` and `stat` return the latest recorded write's `provenance` and `sources`. A file with no record (written through a PTY, present before tracking, or after a restart without a persistent store) or whose bytes no longer match the recorded hash is `untrusted` with `{ sourceKind: "workspace", origin: "/workspace/<path>" }`: nobody vouches for it. `list` marks each file and returns `provenance: "untrusted"` for a listing that holds any untrusted file, symlink or special file. Names are data from inside the sandbox either way.
+- `deleteWorkspace` clears the index with the volume. There is no "mark trusted" call yet; the owner re-approving a file is a follow-up for the files pane.
+
+## Dev servers (feature I12)
+
+The browser's dev preview opens a loopback server only if Psyche started it (security §3.10). A sandbox has network `none`, so a server on port 5173 **inside** it is not the host's `localhost:5173`; announcing that number would let the preview open whatever host process holds it. With `onDevServer` set, the runner instead:
+
+- **Probes the exec's own session** right after it returns (`LISTENERS`, reading `/proc/net/tcp{,6}` and the session's fds inside the container). Only sockets in `LISTEN` owned by a process of that exec's session count, so a server another exec or a PTY started is not attributed to it. If the command left processes running but nothing listens yet (`npm run dev &`), it re-probes in the background at 0.5, 1, 2, 4 and 8 s.
+- **Forwards each listener** to a `127.0.0.1:<ephemeral>` port it binds on the host and relays every connection into the container over `exec -i` (`PORT_RELAY`, connecting to loopback there). The container keeps network `none`; the forward is inbound from host loopback only, and adds no egress.
+- **Reports** `started` with the host port, the container port, the root pid (the exec's session leader inside the container), the listener's pid, the exec's cwd and argv. A poll every 5 s reports `stopped` (`exited`) when the listener is gone; stopping, removing or disposing the container reports `stopped` (`sandbox`) for all of them. A forwarded server keeps its container from the idle stop.
+
+Each forwarded connection is one `exec -i` (about 60 ms on Docker); browsers reuse connections, so a preview pays it a few times. Servers a PTY starts, servers that call `setsid` themselves, and listeners bound to a non-loopback address are not forwarded. The node agent does not set `onDevServer`: a node's loopback is not the Gateway's.
 
 ## PTY
 
@@ -139,4 +163,6 @@ The smoke test is the OpenMuse one plus PATH-hijack, PTY and concurrency checks 
 - `srt` wrapper for host-side helpers (K5) and `exec_host` (K7) are other sessions' work.
 - Image publishing and signing: `deploy/sandbox-image/publish.sh` is written but has not been run, so `versions.json` digests are `null`.
 - Podman has not been run on a real host (it was not installed on the dev machine); its flags are Docker's.
+- Dev servers: only those an `exec` starts in its own session; PTY-started servers are not detected.
+- File provenance: no xattr on the files themselves (the index is host-side only), no owner "mark trusted" path, and PTY writes are unobserved (they read back as untrusted, which is the safe answer).
 - `strictInlineEval` (security §5.1) applies to allowlist decisions in the Permission Broker, not to this runner, which runs what it is given inside the container.

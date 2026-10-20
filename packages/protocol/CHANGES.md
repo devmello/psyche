@@ -18,6 +18,59 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (S14 M3: VM mode shapes)
+
+For S14 (the mac helper's `vm.*` node capabilities), S11 (Settings → Devices → "Create a sandbox Mac"), S01 (re-broadcasting guest changes).
+
+- New schemas in `schemas/vm.ts` (features L1–L5; spike 06): `VmPhase`, `VmShare`, `VmGuest`, `VmStatus` (the `vm.status` result), `VmCreateParams`, `VmShareAddParams`, `VmProgressEvent` (streamed by `vm.create` / `vm.start`) and `VmUpdatedPayload`.
+- New event `vm.updated` (`{nodeId, guest, at}`) for the Gateway to broadcast when a helper reports a guest change.
+- No new methods: clients call the helper's `vm.*` capabilities through `nodes.invoke`, so the Permission Broker gates them like any node write; read-write shares need an `approvalId`.
+
+### v1 additive — 2026-10-20 (S11 M2: thread list rows)
+
+For S11 (sidebar rows, UI design §2.2) and S01 (`threads.list`). `ThreadListEntry` gains optional `lastMessage: ThreadPreview` (`role` user | agent, `text` up to 160 characters of plain text, `at`), so the thread list can show each thread's last line without fetching its history.
+
+### v1 additive — 2026-10-19 (S11 M2: quote-reply)
+
+For S11 / S12 (chat column), S01 (session controller). `chat.send` gains optional `replyToMessageId` (feature E5): the message this one answers, in the same thread. The Gateway stores it as `Message.replyToMessageId` (already in the schema) and puts the quoted text ahead of the new message in what the agent sees, so replies carry a quote reference the agent reads.
+### v1 additive — 2026-10-19 (S11 M2: backups and logs for Settings)
+
+For S11 (Settings → Data controls and About), S01 / S22 (the Gateway handlers; `psyche backup` and `psyche logs` do the same work locally today).
+
+- New `backup.*` methods (feature U4): `backup.list` (`operator.read`) → `BackupInfo[]` plus the backups directory; `backup.create` (`operator.admin`, side-effecting; `passphrase` sent once, `recipients`, or `unencrypted: true`) writing a consistent snapshot in the `psyche backup` format; `backup.verify` (`operator.admin`) checking every manifest hash; `backup.delete` (`operator.admin`, side-effecting). Restore stays a CLI operation with the Gateway stopped. New schema `BackupInfo` (`file`, `createdAt`, `bytes`, `encrypted`, `verifiedAt`).
+- New `logs.tail` (`operator.read`; feature U5): newest matching lines from the Gateway's structured logs (`lines`, minimum `level`, `subsystem`, `since`, `search`) with the subsystems seen and a `truncated` flag. New schemas `LogLevel` and `LogLine` (`ts`, `level`, `subsystem?`, `msg`, `fields?`); lines carry metadata only, never bodies or secrets (architecture §14).
+### v1 additive — 2026-10-20 (S11 M2: threads.update, per-thread model context)
+
+For S11 (composer `/model` and `/plan`, the mode and model pills), the composition root (handler), S02 (`agent-core` passes the thread to the model), S03 (the router's per-thread pin).
+
+- New `threads.update` (`threadId`, optional `permissionMode`, optional `modelRef` or `null`; `operator.write`) → `ThreadResult`. `auto` is refused with `forbidden` unless the thread's model is on the auto-mode allowlist (security §7.2, architecture §4.4); picking a model that is not allowed drops an `auto` thread to `balanced`. The shell has called this method since M1 and treats `unknown_method` as unavailable.
+- New contract type `ModelCallOptions extends CallOptions` (`threadId?`, `runId?`); `ModelProvider.stream` takes it, so the router can apply a thread's `/model` pin and attribute usage. Providers that ignore the fields need no change. `FakeModelProvider` records them in `callContexts`.
+
+### v1 additive — 2026-10-19 (S08 browser M2: recordings, I10)
+
+For S08 (`packages/browser` recorder), the Gateway composition (handlers) and S12 (the Activity sheet's replay UI).
+
+- New schemas `BrowserRecording`, `BrowserRecordingEvent` (`BrowserRecordingEventKind`: tab, navigation, snapshot, action, fill, download, blocked, control, dialog), `BrowserRecordingFrame`, `BrowserRecordingId`.
+- New methods `browser.recordings.list` (paged, by task or thread), `browser.recordings.get` (the replay index: events and frames, `sinceSeq` for a live recording), `browser.recordings.frame` (one screencast frame, base64), `browser.recordings.snapshot` (the snapshot text a `snapshot` event recorded, untrusted) and `browser.recordings.delete` (`operator.write`, side-effecting).
+- New event `browser.recording.updated {recording}`.
+- No contract or fake change: these are client methods over files the browser package writes.
+### v1 additive — 2026-10-19 (S17 M2: voice memos, speech.voices)
+
+For S17 (`packages/speech`), S01 (Gateway routing), S11/S12 (composer memo button, persona voice picker), S10 (channel voice notes).
+
+- `voice.start` gains optional `memo: boolean`: the session keeps its audio.
+- New `voice.memo.save {sessionId, threadId?, task?: MemoTaskMode}` → `{transcript, item: LibraryItem, task: Task | null, provenance, content: VoiceMemoContent, blocks: Block[], durationMs}` (`operator.write`, side-effecting): files the session as a Library `recording` with the transcript as text extract and creates a Task when the memo asks for one (`auto` = only on a cue such as "remind me to…"). The transcript is content: `VoiceMemoContent` lists URLs (never fetched) and flags instruction-like phrasing; `blocks` quote it under a label (feature Q4).
+- New `speech.voices {personaVoice?}` → `{voices: SpeechVoice[], default, unavailable}`: every synthesis voice as `<engine>:<voice>` for voice selection per persona (feature Q3). `SpeechVoice.nonCommercial` marks Apple Personal Voice.
+- New schemas `MemoTaskMode`, `VoiceMemoContent`, `SpeechVoice`.
+- Contract `Voice` gains optional `nonCommercial` (the helper's `speech.voices` already reports `personalVoice`). `FakeSpeechEngine` is unchanged (the field is optional).
+### v1 additive — 2026-10-20 (S21 sandbox: file provenance, design-07; issue #97)
+
+For S21 (`packages/sandbox`) and the owner of the `exec` / workspace file tools (S01).
+
+- `ExecRequest` gains optional `provenance: ProvenanceOut` and `taintSources: TaintSource[]`: the provenance of what the command writes. Files it creates or changes are recorded with it; absent means `untrusted` (the safe default), so an untainted turn passes `"trusted"`.
+- `ExecResult` gains optional `provenance: ProvenanceOut`: `untrusted` when the request was untrusted or `/workspace` holds any untrusted-provenance file. The `exec` tool reports it as the result's provenance so the loop taints the turn.
+- `FakeSandboxRunner` mirrors the rule (per-sandbox `untrustedFiles(sandboxId)` from `filesChanged`); no other fake change.
+
 ### v1 additive — 2026-10-20 (S05 M2: audit.friction)
 
 - `audit.friction` (`since`, `until`; `operator.read`) returning `AuditFrictionResult` (with `AuditFrictionKind`): approval-friction metrics computed by `@psyche/permissions` `frictionMetrics` from the audit log's decision, approval, grant and classifier entries.

@@ -178,7 +178,10 @@ export const SMOKE_CHECKS: readonly SmokeCheck[] = [
         await ctx.runner.files.writeText(ctx.sandboxId, "smoke/planted.txt", "fine", {
           createParents: true,
         });
-        assert.equal(await ctx.runner.files.readText(ctx.sandboxId, "smoke/planted.txt"), "fine");
+        assert.equal(
+          (await ctx.runner.files.readText(ctx.sandboxId, "smoke/planted.txt")).text,
+          "fine",
+        );
         const slow = await ctx.runner.exec({
           sandboxId: ctx.sandboxId,
           argv: ["/usr/bin/sleep", "30"],
@@ -251,13 +254,17 @@ export const SMOKE_CHECKS: readonly SmokeCheck[] = [
       const { files } = ctx.runner;
       await files.writeText(ctx.sandboxId, "smoke/notes.md", "hello world\n", {
         createParents: true,
+        provenance: "trusted",
       });
       const edit = await files.edit(ctx.sandboxId, "/workspace/smoke/notes.md", {
         oldText: "world",
         newText: "sandbox",
       });
       assert.equal(edit.replacements, 1);
-      assert.equal(await files.readText(ctx.sandboxId, "smoke/notes.md"), "hello sandbox\n");
+      const read = await files.readText(ctx.sandboxId, "smoke/notes.md");
+      assert.equal(read.text, "hello sandbox\n");
+      // The edit was not marked trusted, so the file is untrusted now (design-07).
+      assert.equal(read.provenance, "untrusted");
       await expectCode(
         files.edit(ctx.sandboxId, "smoke/notes.md", { oldText: "absent", newText: "x" }),
         "not_found",
@@ -295,7 +302,8 @@ export const SMOKE_CHECKS: readonly SmokeCheck[] = [
       const pdf = samplePdf();
       await files.importFile(ctx.sandboxId, "smoke/sample.pdf", pdf, { createParents: true });
       const out = await files.exportFile(ctx.sandboxId, "smoke/sample.pdf");
-      assert.ok(Buffer.from(out).equals(pdf), "exported bytes differ");
+      assert.ok(Buffer.from(out.bytes).equals(pdf), "exported bytes differ");
+      assert.equal(out.provenance, "untrusted", "imports are untrusted at birth");
       const sum = await sh(ctx, "sha256sum smoke/sample.pdf | cut -d' ' -f1");
       const expected = createHash("sha256").update(pdf).digest("hex");
       assert.equal(sum.stdout.trim(), expected);

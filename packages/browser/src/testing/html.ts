@@ -1,4 +1,12 @@
-import { type FxAction, type FxHost, type FxNode, type FxPage, resolveHref } from "./site.ts";
+import {
+  type FxAction,
+  type FxHost,
+  type FxNode,
+  type FxPage,
+  resolveHref,
+  SESSION_COOKIE,
+  signedInText,
+} from "./site.ts";
 
 /** Renders a fixture page to plain semantic HTML (with a small action script) for real browsers. */
 
@@ -12,6 +20,10 @@ function esc(s: string): string {
 }
 
 type OriginFn = (h: FxHost) => string;
+
+/** Request cookies, for `signed_in` nodes. */
+export type Cookies = ReadonlyMap<string, string>;
+let cookies: Cookies = new Map();
 
 function resolveAction(a: FxAction, host: FxHost, origin: OriginFn): FxAction {
   switch (a.kind) {
@@ -100,6 +112,10 @@ function node(n: FxNode, host: FxHost, origin: OriginFn): string {
       return `<div class="clickable" style="position:fixed;inset:0;background:rgba(0,0,0,0.02)"${actionAttr(n.onClick, host, origin)}>${esc(n.text)}</div>`;
     case "spacer":
       return `<div style="height:${n.height}px"></div>`;
+    case "signed_in":
+      return `<p id="whoami" role="status">${esc(signedInText(cookies.get(SESSION_COOKIE)))}</p>`;
+    case "console_log":
+      return `<script>console.log(${JSON.stringify(n.text)})</script>`;
   }
 }
 
@@ -123,8 +139,14 @@ window.addEventListener("message", (e) => {
 });
 `;
 
-export function renderHtml(page: FxPage, host: FxHost, origin: OriginFn): string {
+export function renderHtml(
+  page: FxPage,
+  host: FxHost,
+  origin: OriginFn,
+  requestCookies: Cookies = new Map(),
+): string {
   fieldSeq = 0;
+  cookies = requestCookies;
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(page.title)}</title>
 <style>body{font:16px sans-serif;margin:20px} .clickable{cursor:pointer;display:inline-block;padding:4px}</style>
 </head><body>${page.body.map((n) => node(n, host, origin)).join("\n")}<script>${SCRIPT}</script></body></html>`;

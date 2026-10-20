@@ -1,7 +1,8 @@
 import { ShieldCheck } from "lucide-react";
-import { type ReactElement, useState } from "react";
-import { ApprovalCard } from "../blocks/ApprovalCard.tsx";
+import { type ReactElement, useEffect, useState } from "react";
+import { ApprovalCard, FOCUS_APPROVAL_EVENT } from "../blocks/ApprovalCard.tsx";
 import { useApprovals, useStoreState } from "../data/index.ts";
+import { displaySummary } from "../lib/cards.ts";
 import { formatCountdown } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
@@ -27,6 +28,16 @@ export function ApprovalDock({
   const persona = usePersona();
   const tasks = useStoreState((s) => s.tasks);
   const [openId, setOpenId] = useState<string | null>(null);
+  useEffect(() => {
+    const onFocus = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail;
+      setOpenId(id);
+      // Already open: the card stays mounted, so move focus to its heading here.
+      document.querySelector<HTMLElement>(`[data-approval-id="${CSS.escape(id)}"] h3`)?.focus();
+    };
+    window.addEventListener(FOCUS_APPROVAL_EVENT, onFocus);
+    return () => window.removeEventListener(FOCUS_APPROVAL_EVENT, onFocus);
+  }, []);
   const mine = pending
     .filter((v) => v.approval.requestedBy.threadId === threadId)
     .sort((a, b) => a.approval.expiresAt.localeCompare(b.approval.expiresAt));
@@ -35,7 +46,9 @@ export function ApprovalDock({
     <div
       aria-live="polite"
       aria-relevant="additions"
-      className="flex max-h-[55vh] flex-col gap-2 overflow-y-auto"
+      // Compact (§3.3): one open card, the rest one line each. The card is never clipped (its
+      // choices and buttons stay in view); its binding rows scroll instead when they run long.
+      className="flex flex-col gap-1.5"
     >
       {mine.length > 0 ? (
         <p className="sr-only">
@@ -43,7 +56,7 @@ export function ApprovalDock({
         </p>
       ) : null}
       {mine.length > 1 ? (
-        <ul aria-label="Other approvals" className="flex flex-col gap-1">
+        <ul aria-label="Other approvals" className="flex max-h-24 flex-col gap-1 overflow-y-auto">
           {mine
             .filter((v) => v !== open)
             .map((v) => (
@@ -51,13 +64,13 @@ export function ApprovalDock({
                 <button
                   type="button"
                   onClick={() => setOpenId(v.approval.id)}
-                  className="flex w-full items-center gap-2 rounded-lg border border-approval-border bg-approval-surface px-3 py-1.5 text-left text-sm hover:bg-amber-3"
+                  className="elevation-1 flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-small transition-colors hover:bg-gray-3"
                 >
-                  <ShieldCheck className="size-3.5 text-approval-text" aria-hidden="true" />
-                  <span className="min-w-0 flex-1 truncate">{v.approval.summary}</span>
+                  <ShieldCheck className="size-4 text-approval-text" aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate">{displaySummary(v.approval)}</span>
                   <span
                     className={cn(
-                      "text-xs tabular-nums",
+                      "text-caption tabular-nums",
                       Date.parse(v.approval.expiresAt) - now < 60_000
                         ? "text-danger-text"
                         : "text-muted-foreground",
@@ -88,6 +101,7 @@ export function ApprovalDock({
                 onAnswer={(decision, scope) => answer(open.approval.id, decision, scope)}
                 autoFocus
                 now={now}
+                detailsClassName="max-h-[min(9rem,18vh)] overflow-y-auto"
               />
             );
           })()

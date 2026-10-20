@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { composeBackup } from "./backup.ts";
 import { composeBrowser } from "./browser.ts";
 import { channelsSetupFromEnv, composeChannels } from "./channels.ts";
 import { composeConnectors } from "./connectors.ts";
@@ -15,6 +16,8 @@ type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | Compos
  *   server the link goes to the owner as a notification instead, since the daemon has no screen;
  * - channels: WebChat, and Telegram when `PSYCHE_TELEGRAM_BOT_TOKEN_FILE` (a Compose secret) or
  *   `PSYCHE_TELEGRAM_BOT_TOKEN` and `PSYCHE_TELEGRAM_BOT_USERNAME` are set;
+ * - backups and the log viewer (`backup.*`, `logs.tail`); `PSYCHE_BACKUP_IDENTITY_FILE` lets
+ *   `backup.verify` open recipient-encrypted archives;
  * - approvals on the Mac through a connected helper's notifications. No presence key is
  *   registered yet (the helper does not sign, S14 issue), so approvals that need Touch ID
  *   stay refused there; Approve / Deny works for the rest.
@@ -22,7 +25,30 @@ type PartFactory = (services: ComposeServices) => Promise<ComposedPart> | Compos
 export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
   const parts: PartFactory[] = [];
   if (env.PSYCHE_BROWSER !== "off") {
-    parts.push((s) => composeBrowser(s, { record: env.PSYCHE_BROWSER_RECORD === "1" }));
+    // Logged out by default (I15). `PSYCHE_BROWSER_PARTITION=profile|clean|auto` and the
+    // comma-separated `PSYCHE_BROWSER_SIGNED_IN_ORIGINS` (used by `auto`) stand in until
+    // Settings → Browser (S11) holds them.
+    const partition = env.PSYCHE_BROWSER_PARTITION;
+    const signedIn = (env.PSYCHE_BROWSER_SIGNED_IN_ORIGINS ?? "")
+      .split(",")
+      .map((o) => o.trim())
+      .filter((o) => o !== "");
+    // Dev preview (I12): the loopback ports the owner allowlists, until Settings → Browser
+    // and the sandbox's own server registrations exist.
+    const devPorts = (env.PSYCHE_DEV_PREVIEW_PORTS ?? "")
+      .split(",")
+      .map((p) => Number.parseInt(p.trim(), 10))
+      .filter((p) => Number.isInteger(p) && p > 0 && p < 65_536);
+    parts.push((s) =>
+      composeBrowser(s, {
+        record: env.PSYCHE_BROWSER_RECORD === "1",
+        ...(devPorts.length === 0 ? {} : { devPreview: { ownerPorts: devPorts } }),
+        ...(partition === "profile" || partition === "clean" || partition === "auto"
+          ? { partition }
+          : {}),
+        ...(signedIn.length === 0 ? {} : { signedInOrigins: signedIn }),
+      }),
+    );
   }
   parts.push((s) =>
     composeConnectors(s, {
@@ -33,6 +59,11 @@ export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
   const channels = channelsSetupFromEnv(env, (path) => readFileSync(path, "utf8"));
   parts.push((s) => composeChannels(s, channels));
   parts.push((s) => composeHelper(s));
+  parts.push((s) =>
+    composeBackup(s, {
+      ...(env.PSYCHE_BACKUP_IDENTITY_FILE ? { identityFile: env.PSYCHE_BACKUP_IDENTITY_FILE } : {}),
+    }),
+  );
   return parts;
 }
 

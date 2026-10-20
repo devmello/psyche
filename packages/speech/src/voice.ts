@@ -4,7 +4,7 @@ import {
   type Transcript,
   type TranscriptSegment,
 } from "@psyche/protocol";
-import { bytesPerSample, isPcm } from "./audio.ts";
+import { bytesPerSample, concatBytes, isPcm } from "./audio.ts";
 import type { EngineLocation, SpeechCaller, SpeechEngineSelector } from "./policy.ts";
 import { AsyncQueue, fromBase64 } from "./queue.ts";
 import { SegmentSequencer } from "./stream.ts";
@@ -34,6 +34,15 @@ export interface VoiceStartParams {
   language?: string;
   vocabulary?: string[];
   threadId?: string;
+  /** Keep the audio so `stopMemo` (`voice.memo.save`) can file it as a voice memo (Q4). */
+  memo?: boolean;
+}
+
+/** What `stopMemo` returns: the transcript plus the PCM the session received. */
+export interface VoiceMemoCapture {
+  transcript: Transcript;
+  audio: Uint8Array;
+  format: AudioFormat;
 }
 
 export interface VoiceStartResult {
@@ -101,6 +110,8 @@ interface Session {
   linger: ReturnType<typeof setTimeout> | undefined;
   ended: VoiceEndReason | undefined;
   done: Promise<Transcript>;
+  /** Chunks kept for a memo session; `undefined` for plain dictation. */
+  recorded: Uint8Array[] | undefined;
 }
 
 export class VoiceSessionManager {
@@ -175,6 +186,7 @@ export class VoiceSessionManager {
       settled: false,
       linger: undefined,
       done: Promise.resolve({ text: "", segments: [] }),
+      recorded: params.memo === true ? [] : undefined,
     };
     const options: { signal: AbortSignal; language?: string; vocabulary?: string[] } = {
       signal: abort.signal,
@@ -206,6 +218,7 @@ export class VoiceSessionManager {
       this.#finish(s, "timeout");
       throw new PsycheError("invalid_params", "dictation session reached its maximum length");
     }
+    s.recorded?.push(data);
     s.audio.push(data);
     this.#touch(s);
   }
@@ -219,6 +232,18 @@ export class VoiceSessionManager {
     } finally {
       this.#forget(s);
     }
+  }
+
+  /** Ends a memo session (`memo: true`) and returns its transcript with the audio it received. */
+  async stopMemo(sessionId: string, ctx: VoiceCallContext): Promise<VoiceMemoCapture> {
+    const s = this.#own(sessionId, ctx);
+    if (s.recorded === undefined) {
+      throw new PsycheError("invalid_params", "the dictation session was not started as a memo");
+    }
+    const transcript = await this.stop(sessionId, ctx);
+    const audio = concatBytes(s.recorded, s.receivedBytes);
+    s.recorded = undefined;
+    return { transcript, audio, format: s.format };
   }
 
   cancel(sessionId: string, ctx: VoiceCallContext): void {

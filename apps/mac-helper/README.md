@@ -154,6 +154,22 @@ Errors (`details.reason`): `-34018` → `unavailable/missing_entitlement`; `-253
 
 Default categories: approval → Approve / Deny (destructive); input_needed → text reply; task_failed → Open / Retry; reminder → Open / Snooze; others → Open; custom action sets get `psyche.custom.<hash>`. Interruption: approval and input_needed time-sensitive, proactive and briefing passive, others active; quiet hours (overnight ranges work) make everything passive and silent. With `requireBiometry`, a non-destructive action or reply runs `LAContext.evaluatePolicy(.deviceOwnerAuthentication)` before it is forwarded (`authenticated: false` + `authError` on failure, so the Gateway refuses). Without the time-sensitive entitlement, time-sensitive posts as active. `userInfo` and logs carry ids only.
 
+### Contacts (dictation vocabulary, issue #121)
+
+| Capability | Side effect | Params → result |
+| --- | --- | --- |
+| `contacts.list` | read | `limit` (1–2000, default 500), `fields` (`["name"]` only), `query?` (≤ 80, prefix of given or family name; case- and diacritic-insensitive) → `{contacts: [{id, name, nickname?, organization?}], total, truncated}` ordered by family then given name |
+
+Names only (S17's `NodeContactsSource` feeds them to `DictationTranscriber` as contextual strings): the fetch requests name, nickname and organization keys only, so phone numbers, emails and addresses are never read. Contacts without a name are skipped. The capability never prompts: without the Contacts grant it fails with `forbidden/permission_denied` (`details.permission: "contacts"`), which the Gateway treats as "no names"; the prompt comes from `permissions.request {permission: "contacts"}`.
+
+### Presence (Touch ID approvals, issue #84)
+
+Approvals that require authentication (purchase, credential fill, exec_host, pairing, policy change; security §3.7) need proof, not a boolean. When `notify.show` carries `requireBiometry: true` and `presenceChallenge` (hex SHA-256 from the Gateway; the answer token never leaves it), a non-destructive answer runs Touch ID for the presence key's access control (`LAContext.evaluateAccessControl(.useKeySign)`) and signs with that same context, so the owner sees one prompt:
+
+- **Key:** one Secure Enclave P-256 key (`kSecAttrTokenIDSecureEnclave`, permanent, data-protection keychain, non-synchronizable), access control `[.privateKeyUsage, .biometryCurrentSet]`, tag `com.psyche.helper.presence`. Needs the keychain access group (provisioning profile).
+- **Signature:** `ecdsaSignatureMessageX962SHA256` (DER) over the UTF-8 bytes `psyche.presence.helper.v1|<presenceChallenge>`, sent on `notify.response` as `presence: {signature: <base64url DER>, keyId: <hex SHA-256 of the X9.63 public key>}` with `authenticated: true`. Cancel or failed Touch ID → `authenticated: false` + `authError`, no presence. Without a usable key the helper falls back to device-owner authentication and reports `presenceError` (e.g. `missing_entitlement`); the Gateway then refuses the approval.
+- **`presence.public_key`** (read) → `{publicKey: <X9.63 uncompressed, base64url>, keyId}`; created on first use, never prompts. Registering it is an owner action in the Gateway (S01), never something the helper does.
+
 ### Speech (Q1)
 
 All speech runs on the Mac (ADR-014). Engine per stream: macOS 26+ with `vocabulary` → `dictationTranscriber` (SpeechAnalyzer + DictationTranscriber, `AnalysisContext.contextualStrings`); macOS 26+ otherwise → `speechAnalyzer` (SpeechTranscriber, volatile results, audio time ranges); else, or for unsupported locales → `sfSpeech` (on-device `SFSpeechRecognizer`, interim on macOS 15 until spike 03 picks FluidAudio or WhisperKit). Missing models install through `AssetInventory` with `speech.model_download` events.

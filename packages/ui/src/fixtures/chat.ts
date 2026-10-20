@@ -397,11 +397,11 @@ export function messages(): Message[] {
         {
           type: "wrap_up",
           recap:
-            "Tuesday 2:30 with Dr. Ortiz is held on acme.com. acme.com wants your login, and the confirmation to Jane is drafted. Nothing is booked until you approve.",
-          ask: "Fill your acme.com login from the vault?",
+            "Tuesday 2:30 with Dr. Ortiz is held on acme.com and the confirmation to Jane is drafted. Both wait on your approval below; nothing is booked until then.",
+          ask: "Add a reminder the evening before?",
           actions: [
-            { label: "Fill it once", message: "Fill the acme.com login from the vault once." },
-            { label: "I'll type it", message: "I'll type the acme.com login myself." },
+            { label: "Yes, at 18:00", message: "Remind me at 18:00 the evening before." },
+            { label: "No reminder", message: "No reminder for the dentist, thanks." },
           ],
         },
       ],

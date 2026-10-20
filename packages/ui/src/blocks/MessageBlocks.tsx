@@ -1,5 +1,5 @@
 import type { Block, Message } from "@psyche/protocol";
-import { ShieldCheck } from "lucide-react";
+import { ArrowDown, ShieldCheck, ShieldX } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
 import { Avatar } from "../avatar/Avatar.tsx";
 import {
@@ -11,7 +11,9 @@ import {
   useStoreState,
   useTask,
 } from "../data/index.ts";
+import { displaySummary } from "../lib/cards.ts";
 import { usePersona, useSlots } from "../slots.tsx";
+import { focusApproval } from "./ApprovalCard.tsx";
 import { ArtifactCard, FileCard } from "./ArtifactCard.tsx";
 import { Checklist, PlanCard } from "./Checklist.tsx";
 import { Markdown } from "./Markdown.tsx";
@@ -56,17 +58,46 @@ function ToolRunBlock({ blocks }: { blocks: readonly ToolCallBlock[] }): ReactEl
   return <ToolRun items={items} />;
 }
 
+const DECIDED: Record<string, string> = {
+  approved: "Approved",
+  denied: "Denied",
+  expired: "Expired",
+  invalidated: "Voided",
+};
+
+/**
+ * The one inline trace of an approval (§3.2, §3.3): the card itself lives in the dock. Pending, it
+ * is a quiet pointer that opens and focuses the card; answered, a one-line outcome.
+ */
 function ApprovalPointer({ approvalId }: { approvalId: string }): ReactElement {
   const { approval, loading } = useApproval(approvalId);
   if (approval === null)
     return loading ? <Skeleton label="approval" /> : <Missing what="approval" />;
-  const pending = approval.status === "pending";
+  const summary = displaySummary(approval);
+  if (approval.status === "pending")
+    return (
+      <button
+        type="button"
+        onClick={() => focusApproval(approval.id)}
+        className="my-0.5 inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 text-small text-gray-11 transition-colors hover:bg-gray-3 hover:text-foreground"
+        aria-label={`Review approval: ${summary}`}
+        title={summary}
+      >
+        <ShieldCheck className="size-3.5 text-approval-text" aria-hidden="true" />
+        Waiting for your approval
+        <ArrowDown className="size-3.5" aria-hidden="true" />
+      </button>
+    );
+  const ok = approval.status === "approved";
   return (
-    <p className="my-1 inline-flex items-center gap-1.5 rounded-full border border-approval-border bg-approval-surface px-2.5 py-0.5 text-sm">
-      <ShieldCheck className="size-3.5 text-approval-text" aria-hidden="true" />
-      <span className="text-foreground">{approval.summary}</span>
-      <span className="text-muted-foreground">
-        {pending ? "· approval needed, above the composer" : `· ${approval.status}`}
+    <p className="my-0.5 flex items-center gap-1.5 px-1 text-small text-muted-foreground">
+      {ok ? (
+        <ShieldCheck className="size-3.5 text-success" aria-hidden="true" />
+      ) : (
+        <ShieldX className="size-3.5" aria-hidden="true" />
+      )}
+      <span className="min-w-0 truncate">
+        {DECIDED[approval.status] ?? approval.status}: {summary}
       </span>
     </p>
   );
