@@ -265,10 +265,17 @@ public final class EventKitBackend: CalendarBackend, RemindersBackend, @unchecke
 /// Runs a constant AppleScript handler with string/list arguments on the main thread. Inputs are
 /// arguments, never spliced into source, so app content and model text cannot become script.
 enum ScriptHandler {
+    /// The handler's arguments (strings and string lists) crossing to the main queue.
+    final class ArgumentsBox: @unchecked Sendable {
+        let args: [Any]
+        init(_ args: [Any]) { self.args = args }
+    }
+
     static func call(_ source: String, handler: String, _ args: [Any], app bundleId: String) async throws -> String? {
         try await ensureRunning(bundleId)
         try await AutomationPermission.ensure(bundleId: bundleId, ask: true)
-        nonisolated(unsafe) let args = args
+        // Plain strings and string lists, read only on the main queue: safe to hand over.
+        let box = ArgumentsBox(args)
         return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<String?, Error>) in
             DispatchQueue.main.async {
                 guard let lang = OSALanguage(forName: "AppleScript") else {
@@ -277,7 +284,7 @@ enum ScriptHandler {
                 }
                 let script = OSAScript(source: source, language: lang)
                 var error: NSDictionary?
-                let result = script.executeHandler(withName: handler, arguments: args, error: &error)
+                let result = script.executeHandler(withName: handler, arguments: box.args, error: &error)
                 if let error {
                     let number = (error[OSAScriptErrorNumberKey] as? NSNumber)?.intValue ?? 0
                     switch number {
