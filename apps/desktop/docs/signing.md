@@ -109,18 +109,18 @@ Code signing makes Squirrel.Mac accept an update; it does not say which update i
 ## Without a Developer ID: ad-hoc signed DMG
 
 `deploy/macos/make-dmg.sh` builds the installer DMG from a packaged `Psyche.app`. Without
-`PSYCHE_SIGN_IDENTITY` the package step already signs the app ad-hoc, inside out. If the app it is
-given does not pass `codesign --verify --deep --strict` (a build from a host or branch that did not
-sign it), the script signs the copy that goes into the DMG ad-hoc itself:
+`PSYCHE_SIGN_IDENTITY` the package step already signs the app ad-hoc, inside out, and the script
+only checks it with `codesign --verify --deep --strict`. If that fails and the app bundles
+`PsycheHelper.app`, the script stops: `--deep` would re-sign the helper with the app's
+entitlements and drop its own, so re-run the package step on macOS instead. Only an app without
+the helper (a partial dev package) is signed ad-hoc in the DMG copy:
 
 ```sh
 codesign --force --deep --sign - --entitlements apps/desktop/entitlements.plist Psyche.app
 ```
 
 That fallback has no hardened runtime, so library validation does not reject the bundled
-Gateway's Node runtime and native addons (`Contents/Resources/psyched/`), but `--deep` gives
-`Psyche Helper.app` the app's entitlements; the inside-out signing of the package step is the one
-to ship. The DMG also
+Gateway's Node runtime and native addons (`Contents/Resources/psyched/`). The DMG also
 holds an `Applications` link and a background with drag-to-install instructions, and a
 `Psyche-<version>-<arch>.dmg.sha256` file is written next to it. With a Developer ID the app is
 signed and notarized by `electron-forge package` as above, and the DMG is signed, notarized and

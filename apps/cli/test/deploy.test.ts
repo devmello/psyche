@@ -442,3 +442,33 @@ describe("deploy/scripts/build-psyched.mjs launchers", () => {
     },
   );
 });
+
+describe("deploy/macos/make-dmg.sh refuses to --deep re-sign a bundled helper", () => {
+  it.skipIf(process.platform !== "darwin" || !has("codesign"))(
+    "an unsigned app with PsycheHelper.app fails before any image is built",
+    () => {
+      const dir = mkdtempSync(join(tmpdir(), "psyche-dmg-helper-"));
+      try {
+        const app = join(dir, "Psyche.app");
+        mkdirSync(join(app, "Contents", "MacOS"), { recursive: true });
+        mkdirSync(join(app, "Contents", "Resources", "PsycheHelper.app", "Contents"), {
+          recursive: true,
+        });
+        execFileSync("/bin/cp", ["/usr/bin/true", join(app, "Contents", "MacOS", "Psyche")]);
+        const env: NodeJS.ProcessEnv = { ...process.env, PSYCHE_DMG_LAYOUT: "0" };
+        delete env.PSYCHE_SIGN_IDENTITY;
+        const out = join(dir, "out");
+        const r = spawnSync(
+          "/bin/sh",
+          [resolve(deploy, "macos/make-dmg.sh"), app, "1.2.3", "arm64", out],
+          { env, encoding: "utf8" },
+        );
+        expect(r.status).toBe(1);
+        expect(r.stderr).toContain("bundles PsycheHelper.app");
+        expect(existsSync(join(out, "Psyche-1.2.3-arm64.dmg"))).toBe(false);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    },
+  );
+});

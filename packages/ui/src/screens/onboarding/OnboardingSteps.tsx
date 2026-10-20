@@ -24,6 +24,7 @@ import type {
   OnboardingResult,
   PermissionAnswer,
   PersonaDraft,
+  SetupCheck,
   Workspace,
 } from "./types.ts";
 
@@ -487,6 +488,7 @@ export function ModelStep({
   onSaveKey,
   onCheck,
   keyError = null,
+  recoveryKey,
 }: {
   value: ModelChoice;
   onChange: (next: ModelChoice) => void;
@@ -495,6 +497,8 @@ export function ModelStep({
   onSaveKey?: (key: string) => void;
   onCheck?: () => void;
   keyError?: string | null;
+  /** The vault's recovery key, when saving the key just created the vault. Shown once. */
+  recoveryKey?: string;
 }): ReactElement {
   const id = useId();
   const [key, setKey] = useState("");
@@ -639,6 +643,20 @@ export function ModelStep({
             </>
           )}
           {keyError ? <ErrorNotice what={keyError} did="The key was not stored." /> : null}
+          {recoveryKey ? (
+            <div
+              className="mt-2 flex flex-col gap-1 rounded-lg border border-approval/40 bg-gray-2 p-3"
+              data-testid="vault-recovery-key"
+            >
+              <p className="text-sm font-medium">Your vault recovery key</p>
+              <code className="font-mono text-sm break-all select-all">{recoveryKey}</code>
+              <p className="text-xs text-muted-foreground">
+                Psyche just created your vault. Save this key in a password manager or on paper: it
+                is shown only now and is the only way back into the vault after a restore or a lost
+                key slot.
+              </p>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -747,7 +765,16 @@ export function WhereStep({
 
 // --- 6 Done ----------------------------------------------------------------------------------------
 
-export function DoneStep({ result }: { result: OnboardingResult }): ReactElement {
+const CHECK_TONE = { ok: "success", warn: "approval" } as const;
+
+export function DoneStep({
+  result,
+  checks,
+}: {
+  result: OnboardingResult;
+  /** What `onVerify` found; "checking" while it runs. */
+  checks?: SetupCheck[] | "checking";
+}): ReactElement {
   const p = result.persona;
   const granted = (Object.entries(result.permissions) as [TccPermission, PermissionAnswer][])
     .filter(([, a]) => a === "granted")
@@ -789,6 +816,28 @@ export function DoneStep({ result }: { result: OnboardingResult }): ReactElement
           { term: "Works in", value: result.workspace === "vm" ? "VM mode" : "This Mac" },
         ]}
       />
+      {checks === "checking" ? (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+          <Loader className="size-4 motion-safe:animate-spin" aria-hidden="true" /> Checking the
+          setup…
+        </p>
+      ) : checks ? (
+        <ul
+          className="flex w-full flex-col gap-2"
+          aria-label="Setup checks"
+          data-testid="setup-checks"
+        >
+          {checks.map((c) => (
+            <li key={c.id} className="flex flex-wrap items-center gap-2 text-sm">
+              <StatusChip tone={CHECK_TONE[c.state]}>
+                {c.state === "ok" ? "OK" : "Check"}
+              </StatusChip>
+              <span className="font-medium">{c.label}</span>
+              <span className="text-muted-foreground">{c.detail}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }
