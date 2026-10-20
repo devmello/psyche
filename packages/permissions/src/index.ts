@@ -20,6 +20,7 @@ export * from "./kinds.ts";
 export * from "./policy.ts";
 export * from "./prohibitions.ts";
 export * from "./requester.ts";
+export * from "./revocations.ts";
 export * from "./store.ts";
 export * from "./targets.ts";
 export * from "./types.ts";

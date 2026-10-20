@@ -11,6 +11,7 @@ export {
   type Manifest,
   type ManifestFile,
   parseManifest,
+  RESTORE_MARKER,
   restoreBackup,
   verifyBackup,
 } from "./archive.ts";
