@@ -1,6 +1,6 @@
 import { renderForSurface, sanitizeApproval } from "@psyche/permissions/cards";
 import type { ApprovalRequest, GrantScope } from "@psyche/protocol";
-import { Fingerprint, ShieldCheck } from "lucide-react";
+import { ChevronRight, Fingerprint, ShieldCheck } from "lucide-react";
 import {
   type KeyboardEvent,
   type ReactElement,
@@ -12,11 +12,12 @@ import {
 } from "react";
 import { Button } from "../components/ui/button.tsx";
 import { Label } from "../components/ui/label.tsx";
+import { NativeSelect } from "../components/ui/native-select.tsx";
 import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group.tsx";
 import { formatCountdown, formatRelative } from "../lib/format.ts";
 import { useNow } from "../lib/use-now.ts";
 import { cn } from "../lib/utils.ts";
-import { ApprovalDetails } from "./approval-details.tsx";
+import { ApprovalDetails, ApprovalIds } from "./approval-details.tsx";
 
 /**
  * Approval card (UI design §3.3). Host-rendered, fixed structure and button order, never inside a
@@ -28,6 +29,13 @@ import { ApprovalDetails } from "./approval-details.tsx";
  * request whose summary, target and details went through the same value-slot sanitizer every
  * other surface uses, so the desktop card and the chat cards cannot drift.
  */
+
+/** Asks the thread's dock to open (and focus) one approval card; the inline pointer sends it. */
+export const FOCUS_APPROVAL_EVENT = "psyche:focus-approval";
+
+export function focusApproval(approvalId: string): void {
+  window.dispatchEvent(new CustomEvent(FOCUS_APPROVAL_EVENT, { detail: approvalId }));
+}
 
 export type ApprovalChoice = "deny" | "once" | "task" | "site" | "always" | "session";
 
@@ -54,6 +62,16 @@ export interface ApprovalCardProps {
   armDelayMs?: number;
   className?: string;
 }
+
+/**
+ * Expiry choices under Always allow (UI design §3.3), limited to the grant scopes an answer can
+ * carry: `session` ends with this session, `always` lasts until revoked in Settings (the Broker
+ * may still cap it by policy).
+ */
+const UNTIL_LABEL: Record<"session" | "always", string> = {
+  session: "until this session ends",
+  always: "until revoked",
+};
 
 const SCOPE_LABEL: Record<GrantScope, string> = {
   once: "Allow once",
@@ -121,6 +139,7 @@ export function ApprovalCard({
   const [armed, setArmed] = useState(armDelayMs === 0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showIds, setShowIds] = useState(false);
 
   useEffect(() => {
     if (!autoFocus) return;
@@ -202,10 +221,12 @@ export function ApprovalCard({
     <fieldset
       aria-labelledby={headingId}
       onKeyDown={onKeyDown}
+      data-approval-id={approval.id}
       data-status={stale ? "stale" : expiredByClock ? "expired" : approval.status}
       className={cn(
-        "m-0 min-w-0 rounded-lg border bg-approval-surface p-4 text-sm psy-enter-still",
-        pending && !stale ? "border-approval-border" : "border-gray-6 bg-gray-2",
+        // Level 1 (§4.4): gray-2 with a 1 px border, amber while it waits for an answer.
+        "m-0 min-w-0 rounded-lg border bg-gray-2 p-4 text-sm psy-enter-still",
+        pending && !stale ? "border-approval-border" : "border-gray-6",
         className,
       )}
     >
@@ -241,7 +262,7 @@ export function ApprovalCard({
         <ApprovalDetails approval={approval} persona={persona} />
       </div>
 
-      <dl className="mt-2 border-t border-approval-border/40 pt-2">
+      <dl className="mt-2 border-t border-gray-5 pt-2">
         <div className="grid grid-cols-[7rem_1fr] gap-2 py-0.5">
           <dt className="text-muted-foreground">Requested by</dt>
           <dd>
@@ -292,9 +313,9 @@ export function ApprovalCard({
                 <label className="sr-only" htmlFor={`${headingId}-until`}>
                   Always allow until
                 </label>
-                <select
+                <NativeSelect
                   id={`${headingId}-until`}
-                  className="h-7 rounded-md border border-input bg-background px-1 text-xs"
+                  size="sm"
                   value={alwaysScope}
                   onChange={(e) => {
                     setAlwaysScope(e.target.value as "always" | "session");
@@ -302,10 +323,12 @@ export function ApprovalCard({
                   }}
                 >
                   {offered.includes("session") ? (
-                    <option value="session">until this session ends</option>
+                    <option value="session">{UNTIL_LABEL.session}</option>
                   ) : null}
-                  {offered.includes("always") ? <option value="always">for 90 days</option> : null}
-                </select>
+                  {offered.includes("always") ? (
+                    <option value="always">{UNTIL_LABEL.always}</option>
+                  ) : null}
+                </NativeSelect>
               </div>
             ) : null}
             <Choice value="deny" label="Deny" />
@@ -324,8 +347,9 @@ export function ApprovalCard({
         </>
       ) : null}
 
-      <p className="mt-3 truncate font-mono text-xs text-muted-foreground">
-        Binding {approval.bindingHash.slice(0, 15)}… · any change above voids this card
+      <p className="mt-3 truncate text-caption text-muted-foreground">
+        Binding <span className="font-mono">{approval.bindingHash.slice(0, 15)}…</span> · any change
+        above voids this card
       </p>
 
       {error ? (
@@ -334,27 +358,49 @@ export function ApprovalCard({
         </p>
       ) : null}
 
-      {interactive ? (
-        <div className="mt-3 flex justify-end gap-2">
-          <Button
-            variant="outline"
-            disabled={!armed || busy}
-            onClick={() => void submit("deny")}
-            aria-keyshortcuts="Meta+D"
-          >
-            Deny
-          </Button>
-          <Button
-            disabled={!armed || busy || choice === "deny"}
-            onClick={(e) => {
-              // Return and Space on this button never approve; only ⌘Return or a pointer does.
-              if (e.detail === 0) return;
-              void submit("approve");
-            }}
-            aria-keyshortcuts="Meta+Enter"
-          >
-            Allow with scope
-          </Button>
+      <div className="mt-3 flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="xs"
+          className="-ml-1.5 text-muted-foreground"
+          aria-expanded={showIds}
+          aria-controls={`${headingId}-ids`}
+          onClick={() => setShowIds((v) => !v)}
+        >
+          <ChevronRight
+            className={cn("transition-transform", showIds && "rotate-90")}
+            aria-hidden="true"
+          />
+          Details
+        </Button>
+        {interactive ? (
+          <div className="ml-auto flex gap-2">
+            <Button
+              variant="outline"
+              disabled={!armed || busy}
+              onClick={() => void submit("deny")}
+              aria-keyshortcuts="Meta+D"
+            >
+              Deny
+            </Button>
+            <Button
+              disabled={!armed || busy || choice === "deny"}
+              onClick={(e) => {
+                // Return and Space on this button never approve; only ⌘Return or a pointer does.
+                if (e.detail === 0) return;
+                void submit("approve");
+              }}
+              aria-keyshortcuts="Meta+Enter"
+            >
+              Allow with scope
+            </Button>
+          </div>
+        ) : null}
+      </div>
+      {/* Below the buttons, so opening it never moves them (§3.3). */}
+      {showIds ? (
+        <div id={`${headingId}-ids`} className="mt-2 rounded-md bg-gray-3 px-3 py-2">
+          <ApprovalIds approval={approval} />
         </div>
       ) : null}
     </fieldset>
