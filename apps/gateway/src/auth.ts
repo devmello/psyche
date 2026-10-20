@@ -53,6 +53,8 @@ export interface PeerInfo {
   remoteAddress: string;
   /** WebSocket `Origin` header; `null` for native clients and Unix-socket nodes. */
   origin: string | null;
+  /** Identity a trusted proxy claims for the client; shown on the pairing card, never trusted. */
+  claimedIdentity?: string | null;
 }
 
 export interface PendingChallenge {
@@ -307,7 +309,9 @@ export function verifyChallenge(
       kind: "device",
       code: pairingCode(),
       deviceId: params.deviceId,
-      display: `${params.name} (${params.platform}, ${params.deviceFamily}; claimed by the device)`,
+      display: `${params.name} (${params.platform}, ${params.deviceFamily}; claimed by the device)${
+        peer.claimedIdentity ? `; proxy says ${peer.claimedIdentity}` : ""
+      }`,
       expiresAt: new Date(now.getTime() + deps.limits.pairingTtlMs).toISOString(),
       publicKeyFingerprint: keyFingerprint(params.publicKey),
       transport: peer.transport,
