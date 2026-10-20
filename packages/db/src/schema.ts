@@ -194,6 +194,14 @@ export const toolPayloads = sqliteTable("tool_payloads", {
   createdAt: text("created_at").notNull(),
 });
 
+/** The agent loop's per-thread state (issue #52), JSON. */
+export const agentThreadState = sqliteTable("agent_thread_state", {
+  threadId: text("thread_id").primaryKey(),
+  state: text("state").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
 // §11 Idempotency -----------------------------------------------------------------------------
 
 export const gatewayIdempotency = sqliteTable("gateway_idempotency", {
@@ -270,6 +278,7 @@ export const schema = {
   chatQueue,
   toolPayloads,
   gatewayIdempotency,
+  agentThreadState,
   settings,
   usage,
   ...s04Schema,
