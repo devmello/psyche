@@ -30,9 +30,16 @@ export function partsFromEnv(env: NodeJS.ProcessEnv): PartFactory[] {
       .split(",")
       .map((o) => o.trim())
       .filter((o) => o !== "");
+    // Dev preview (I12): the loopback ports the owner allowlists, until Settings → Browser
+    // and the sandbox's own server registrations exist.
+    const devPorts = (env.PSYCHE_DEV_PREVIEW_PORTS ?? "")
+      .split(",")
+      .map((p) => Number.parseInt(p.trim(), 10))
+      .filter((p) => Number.isInteger(p) && p > 0 && p < 65_536);
     parts.push((s) =>
       composeBrowser(s, {
         record: env.PSYCHE_BROWSER_RECORD === "1",
+        ...(devPorts.length === 0 ? {} : { devPreview: { ownerPorts: devPorts } }),
         ...(partition === "profile" || partition === "clean" || partition === "auto"
           ? { partition }
           : {}),
