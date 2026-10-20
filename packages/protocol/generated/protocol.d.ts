@@ -1316,14 +1316,24 @@ export interface ChannelsPairingListResult {
     requests: PairingRequest[];
 }
 
+export interface ChannelsSecretsClearParams {
+    account: string;
+    name:    ChannelSecretName;
+    type:    ChannelType;
+}
+
+export type ChannelSecretName = "bot_token" | "app_token" | "auth_token" | "access_token" | "app_secret" | "verify_token";
+
+export interface ChannelsSecretsClearResult {
+    set: ChannelSecretName[];
+}
+
 export interface ChannelsSecretsSetParams {
     account: string;
     name:    ChannelSecretName;
     type:    ChannelType;
     value:   string;
 }
-
-export type ChannelSecretName = "bot_token" | "app_token" | "auth_token" | "access_token" | "app_secret" | "verify_token";
 
 export interface ChannelsSecretsSetResult {
     set: ChannelSecretName[];
@@ -1961,6 +1971,7 @@ export interface CredentialMeta {
     id:                string;
     kind:              CredentialKind;
     lastUsedAt?:       null | string;
+    managedBy?:        ManagedBy;
     name:              string;
     ownerConnectorId?: null | string;
     slug:              string;
@@ -1977,6 +1988,16 @@ export interface CredentialBinding {
 }
 
 export type CredentialKind = "login" | "api_key" | "oauth_token" | "ssh_key" | "note" | "payment_link" | "signing_key";
+
+export interface ManagedBy {
+    kind:      ManagedByKind;
+    removable: boolean;
+    setting:   Setting;
+}
+
+export type ManagedByKind = "connector" | "model_provider" | "channel" | "external_manager";
+
+export type Setting = "connectors" | "models" | "channels" | "credentials";
 
 export interface CustomConnectorProposalResult {
     approval: ApprovalRequest;
@@ -3191,9 +3212,12 @@ export interface ToolCheckResult {
 
 export type ToolCheckStatus = "untested" | "agent-capable" | "chat-only";
 
-export interface ModelsListResult {
-    providers: ModelProviderSummary[];
-    roles:     ModelRoles;
+export interface ModelsClearKeyParams {
+    providerId: string;
+}
+
+export interface ModelsClearKeyResult {
+    provider: ModelProviderSummary;
 }
 
 export interface ModelProviderSummary {
@@ -3242,6 +3266,11 @@ export interface ProbedModel {
 }
 
 export type EndpointProbeState = "not_probed" | "reachable" | "unreachable" | "auth_failed" | "error";
+
+export interface ModelsListResult {
+    providers: ModelProviderSummary[];
+    roles:     ModelRoles;
+}
 
 export interface ModelRoles {
     primary?: string;

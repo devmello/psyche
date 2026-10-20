@@ -111,6 +111,55 @@ describe("provider keys in the vault (first run without env)", () => {
     expect(after.roles.primary).toBe("anthropic/claude-sonnet-5-5");
   });
 
+  it("removes a key with models.clearKey; vault.delete refuses it and names the setting (#511)", async () => {
+    const gw = await compose();
+    await gw.vault.setup();
+    const c = await client(gw);
+    await c.call("models.setKey", { providerId: "anthropic", key: KEY }, ik());
+    const item = gw.vault.connectorItem(modelKeyOwner("anthropic"));
+    const listed = await c.call<{ credentials: { id: string; managedBy?: unknown }[] }>(
+      "vault.list",
+      {},
+    );
+    expect(listed.credentials.find((m) => m.id === item?.id)?.managedBy).toEqual({
+      kind: "model_provider",
+      setting: "models",
+      removable: false,
+    });
+    const refused = await c.request("vault.delete", { credentialId: item?.id }, ik());
+    expect(refused.ok).toBe(false);
+    expect(refused.error).toMatchObject({
+      code: "forbidden",
+      details: { reason: "gateway_owned", kind: "model_provider", setting: "models" },
+    });
+    expect(hasModelKey(gw.vault, "anthropic")).toBe(true);
+
+    const res = await c.call<{ provider: ModelProviderSummary }>(
+      "models.clearKey",
+      { providerId: "anthropic" },
+      ik(),
+    );
+    expect(res.provider.keyConfigured).toBe(false);
+    expect(hasModelKey(gw.vault, "anthropic")).toBe(false);
+    const audit = await gw.audit.query({ kind: "credential.revoked" });
+    expect(audit.map((e) => e.data)).toEqual([
+      expect.objectContaining({ credentialId: item?.id, reason: "deleted" }),
+    ]);
+    // Clearing again is a no-op; an owner item still deletes over the wire.
+    await c.call("models.clearKey", { providerId: "anthropic" }, ik());
+    const own = await c.call<{ credential: { id: string } }>(
+      "vault.add",
+      { kind: "note", name: "Wifi", bindings: [], secret: { text: "router-pass-91" } },
+      ik(),
+    );
+    expect(await c.call("vault.delete", { credentialId: own.credential.id }, ik())).toEqual({
+      deleted: true,
+    });
+    await expect(c.call("models.clearKey", { providerId: "nope" }, ik())).rejects.toThrow(
+      /no model provider/,
+    );
+  });
+
   it("never offers a provider key to an agent fill", async () => {
     const gw = await compose();
     await gw.vault.setup();
