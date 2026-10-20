@@ -16,6 +16,7 @@ import {
   type ContextUsageView,
   contextTone,
   formatTokens,
+  LIMIT_FROM_LABEL,
 } from "./types.ts";
 
 const TONE = {
@@ -35,6 +36,8 @@ export interface ContextMeterProps {
   usage: ContextUsageView;
   /** Compacts the thread now (`threads.compact`). */
   onCompact?: () => void;
+  /** Opens this chat's own context limits. */
+  onEditLimits?: () => void;
   compacting?: boolean;
 }
 
@@ -46,6 +49,7 @@ export interface ContextMeterProps {
 export function ContextMeter({
   usage,
   onCompact,
+  onEditLimits,
   compacting = false,
 }: ContextMeterProps): ReactElement {
   const tone = contextTone(usage);
@@ -91,6 +95,7 @@ export function ContextMeter({
           <PopoverDescription>
             {usage.used.toLocaleString()} of {usage.limit.toLocaleString()} tokens ({pct}%).{" "}
             {usage.exact ? "Counted by the provider." : "An estimate until the provider counts it."}
+            {usage.limitFrom ? ` The limit is ${LIMIT_FROM_LABEL[usage.limitFrom]}.` : ""}
           </PopoverDescription>
         </PopoverHeader>
         <table className="mt-2 w-full text-sm" aria-label="Where the tokens go">
@@ -115,17 +120,22 @@ export function ContextMeter({
             ? `Past the compaction threshold (${usage.compactAt.toLocaleString()} tokens): earlier turns are summarised before the next reply.`
             : `Earlier turns are summarised at ${usage.compactAt.toLocaleString()} tokens (${percent(usage.compactAt, usage.limit)}% of the limit).`}
         </p>
-        {onCompact ? (
-          <Button
-            type="button"
-            size="sm"
-            className="mt-3"
-            onClick={onCompact}
-            disabled={compacting}
-          >
-            {compacting ? <Loader className="motion-safe:animate-spin" aria-hidden="true" /> : null}
-            {compacting ? "Compacting…" : "Compact now"}
-          </Button>
+        {onCompact || onEditLimits ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {onCompact ? (
+              <Button type="button" size="sm" onClick={onCompact} disabled={compacting}>
+                {compacting ? (
+                  <Loader className="motion-safe:animate-spin" aria-hidden="true" />
+                ) : null}
+                {compacting ? "Compacting…" : "Compact now"}
+              </Button>
+            ) : null}
+            {onEditLimits ? (
+              <Button type="button" size="sm" variant="outline" onClick={onEditLimits}>
+                Limits for this chat…
+              </Button>
+            ) : null}
+          </div>
         ) : null}
       </PopoverContent>
     </Popover>

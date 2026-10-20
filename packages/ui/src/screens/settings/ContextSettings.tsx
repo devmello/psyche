@@ -15,11 +15,12 @@ export const CONTEXT_KEYS = {
   keepRecentTurns: "context.keepRecentTurns",
 } as const;
 
+/** The Gateway's bounds and defaults (`ContextLimits`, docs/status/s02.md). */
 export const CONTEXT_BOUNDS = {
-  maxTokens: { min: 8_000, step: 1_000 },
+  maxTokens: { min: 1_000, step: 1_000 },
   /** Percent of the limit. */
-  compactAt: { min: 50, max: 95, default: 80 },
-  keepRecentTurns: { min: 1, max: 50, default: 6 },
+  compactAt: { min: 20, max: 95, default: 80 },
+  keepRecentTurns: { min: 1, max: 20, default: 4 },
 } as const;
 
 /** A whole-number field that saves on Enter or blur, only inside its bounds. */
@@ -124,7 +125,7 @@ export function ContextSettingsGroup({
     >
       <BoundedNumber
         label="Context limit"
-        description="Tokens a turn may carry. A thread can lower its own limit from its menu."
+        description="Tokens a turn may carry. A chat can set its own limits from its ⋯ menu (Context limits…)."
         value={limit}
         min={CONTEXT_BOUNDS.maxTokens.min}
         max={ceiling}

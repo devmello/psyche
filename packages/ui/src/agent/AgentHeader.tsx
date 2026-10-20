@@ -68,6 +68,12 @@ export interface AgentHeaderProps {
   onExport?: (format: ExportFormat) => void;
   /** Extra items for the ⋯ menu (rename, …). */
   menu?: ReactNode;
+  /** The thread's context meter, before the permission-mode pill. */
+  context?: ReactNode;
+  /** ⋯ → Context limits… (this chat's own limits). */
+  onContextLimits?: () => void;
+  /** ⋯ → Compact now. */
+  onCompact?: () => void;
 }
 
 /**
@@ -86,6 +92,9 @@ export function AgentHeader({
   paused = false,
   onExport,
   menu,
+  context,
+  onContextLimits,
+  onCompact,
 }: AgentHeaderProps): ReactElement {
   const persona = usePersona();
   const status = useAgentStatus({ incognito, paused });
@@ -142,6 +151,7 @@ export function AgentHeader({
           ) : null}
         </p>
       ) : null}
+      {context}
       {mode ? (
         onModeChange ? (
           <DropdownMenu>
@@ -222,6 +232,17 @@ export function AgentHeader({
           </DropdownMenuItem>
           {onOpenModelPicker ? (
             <DropdownMenuItem onClick={onOpenModelPicker}>Change model…</DropdownMenuItem>
+          ) : null}
+          {onContextLimits || onCompact ? (
+            <>
+              <DropdownMenuSeparator />
+              {onContextLimits ? (
+                <DropdownMenuItem onClick={onContextLimits}>Context limits…</DropdownMenuItem>
+              ) : null}
+              {onCompact ? (
+                <DropdownMenuItem onClick={onCompact}>Compact now</DropdownMenuItem>
+              ) : null}
+            </>
           ) : null}
           {onExport ? (
             <>
