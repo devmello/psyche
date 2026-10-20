@@ -704,6 +704,13 @@
 //   let vMSnapshotMethod = try? JSONDecoder().decode(VMSnapshotMethod.self, from: jsonData)
 //   let vMSnapshotParams = try? JSONDecoder().decode(VMSnapshotParams.self, from: jsonData)
 //   let vMSnapshotResult = try? JSONDecoder().decode(VMSnapshotResult.self, from: jsonData)
+//   let vMSnapshotsCreateParams = try? JSONDecoder().decode(VMSnapshotsCreateParams.self, from: jsonData)
+//   let vMSnapshotsDeleteParams = try? JSONDecoder().decode(VMSnapshotsDeleteParams.self, from: jsonData)
+//   let vMSnapshotsDeleteResult = try? JSONDecoder().decode(VMSnapshotsDeleteResult.self, from: jsonData)
+//   let vMSnapshotsListParams = try? JSONDecoder().decode(VMSnapshotsListParams.self, from: jsonData)
+//   let vMSnapshotsListResult = try? JSONDecoder().decode(VMSnapshotsListResult.self, from: jsonData)
+//   let vMSnapshotsResetParams = try? JSONDecoder().decode(VMSnapshotsResetParams.self, from: jsonData)
+//   let vMSnapshotsRestoreParams = try? JSONDecoder().decode(VMSnapshotsRestoreParams.self, from: jsonData)
 //   let vMStatus = try? JSONDecoder().decode(VMStatus.self, from: jsonData)
 //   let vMTransfer = try? JSONDecoder().decode(VMTransfer.self, from: jsonData)
 //   let vMUpdatedPayload = try? JSONDecoder().decode(VMUpdatedPayload.self, from: jsonData)
@@ -14606,6 +14613,79 @@ public struct VMSnapshotResult: Codable, Sendable {
     }
 }
 
+// MARK: - VMSnapshotsCreateParams
+public struct VMSnapshotsCreateParams: Codable, Sendable {
+    /// Make it the reset point (`vm.snapshots.reset` returns here)
+    public let base: Bool?
+    public let label: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case base = "base"
+        case label = "label"
+    }
+
+    public init(base: Bool?, label: String?) {
+        self.base = base
+        self.label = label
+    }
+}
+
+// MARK: - VMSnapshotsDeleteParams
+public struct VMSnapshotsDeleteParams: Codable, Sendable {
+    public let snapshot: String
+
+    public enum CodingKeys: String, CodingKey {
+        case snapshot = "snapshot"
+    }
+
+    public init(snapshot: String) {
+        self.snapshot = snapshot
+    }
+}
+
+// MARK: - VMSnapshotsDeleteResult
+public struct VMSnapshotsDeleteResult: Codable, Sendable {
+    public let deleted: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case deleted = "deleted"
+    }
+
+    public init(deleted: Bool) {
+        self.deleted = deleted
+    }
+}
+
+// MARK: - VMSnapshotsListResult
+public struct VMSnapshotsListResult: Codable, Sendable {
+    public let baseSnapshot: String?
+    /// Newest first
+    public let snapshots: [VMSnapshot]
+
+    public enum CodingKeys: String, CodingKey {
+        case baseSnapshot = "baseSnapshot"
+        case snapshots = "snapshots"
+    }
+
+    public init(baseSnapshot: String?, snapshots: [VMSnapshot]) {
+        self.baseSnapshot = baseSnapshot
+        self.snapshots = snapshots
+    }
+}
+
+// MARK: - VMSnapshotsRestoreParams
+public struct VMSnapshotsRestoreParams: Codable, Sendable {
+    public let snapshot: String
+
+    public enum CodingKeys: String, CodingKey {
+        case snapshot = "snapshot"
+    }
+
+    public init(snapshot: String) {
+        self.snapshot = snapshot
+    }
+}
+
 // MARK: - VMStatus
 public struct VMStatus: Codable, Sendable {
     public let active: Int
@@ -14973,6 +15053,8 @@ public typealias VaultLockParams = [String: JSONAny]
 public typealias VaultPaymentsMethodsParams = [String: JSONAny]
 public typealias VaultStatusParams = [String: JSONAny]
 public typealias ViewLayoutParams = [String: JSONAny]
+public typealias VMSnapshotsListParams = [String: JSONAny]
+public typealias VMSnapshotsResetParams = [String: JSONAny]
 public typealias VoicePushResult = [String: JSONAny]
 
 // MARK: - Encode/decode helpers

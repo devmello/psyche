@@ -1915,6 +1915,46 @@
         "sideEffecting": false
       },
       {
+        "description": "Snapshots the stopped or saved sandbox Mac. Side-effecting.",
+        "name": "vm.snapshots.create",
+        "params": "#/$defs/VmSnapshotsCreateParams",
+        "result": "#/$defs/VmSnapshotResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Deletes a snapshot; deleting the base leaves no reset point. Side-effecting.",
+        "name": "vm.snapshots.delete",
+        "params": "#/$defs/VmSnapshotsDeleteParams",
+        "result": "#/$defs/VmSnapshotsDeleteResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Lists the sandbox Mac's snapshots and its reset point.",
+        "name": "vm.snapshots.list",
+        "params": "#/$defs/VmSnapshotsListParams",
+        "result": "#/$defs/VmSnapshotsListResult",
+        "scope": "operator.read",
+        "sideEffecting": false
+      },
+      {
+        "description": "Resets the sandbox Mac to its base snapshot (\"fresh Mac\"). Side-effecting.",
+        "name": "vm.snapshots.reset",
+        "params": "#/$defs/VmSnapshotsResetParams",
+        "result": "#/$defs/VmRestoreResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
+        "description": "Restores the sandbox Mac to a snapshot; its current disk is discarded. Side-effecting.",
+        "name": "vm.snapshots.restore",
+        "params": "#/$defs/VmSnapshotsRestoreParams",
+        "result": "#/$defs/VmRestoreResult",
+        "scope": "operator.admin",
+        "sideEffecting": true
+      },
+      {
         "description": "Cancels a dictation session without a final transcript.",
         "name": "voice.cancel",
         "params": "#/$defs/VoiceCancelParams",
@@ -19665,6 +19705,88 @@
       "required": [
         "snapshot",
         "guest"
+      ],
+      "type": "object"
+    },
+    "VmSnapshotsCreateParams": {
+      "properties": {
+        "label": {
+          "maxLength": 120,
+          "type": "string"
+        },
+        "base": {
+          "description": "Make it the reset point (`vm.snapshots.reset` returns here)",
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
+    "VmSnapshotsDeleteParams": {
+      "properties": {
+        "snapshot": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "snapshot"
+      ],
+      "type": "object"
+    },
+    "VmSnapshotsDeleteResult": {
+      "properties": {
+        "deleted": {
+          "const": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "deleted"
+      ],
+      "type": "object"
+    },
+    "VmSnapshotsListParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "VmSnapshotsListResult": {
+      "properties": {
+        "snapshots": {
+          "description": "Newest first",
+          "items": {
+            "$ref": "#/$defs/VmSnapshot"
+          },
+          "type": "array"
+        },
+        "baseSnapshot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "snapshots"
+      ],
+      "type": "object"
+    },
+    "VmSnapshotsResetParams": {
+      "properties": {},
+      "type": "object"
+    },
+    "VmSnapshotsRestoreParams": {
+      "properties": {
+        "snapshot": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "snapshot"
       ],
       "type": "object"
     },
