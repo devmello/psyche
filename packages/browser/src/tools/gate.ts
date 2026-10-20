@@ -28,6 +28,8 @@ export interface GateRequest {
   summary: string;
   details: Record<string, unknown>;
   bindingFields: unknown;
+  /** A binding the executor's verifier recomputes in its own way (the vault's fill envelope). */
+  bindingHash?: `sha256:${string}`;
   grantKey: string;
 }
 
@@ -53,7 +55,7 @@ export class ApprovalGate {
    * request is queued and the call fails with `approval_required`.
    */
   async check(req: GateRequest, ctx: CallContext, signal: AbortSignal): Promise<GateOutcome> {
-    const hash = bindingHash(req.kind, req.bindingFields);
+    const hash = req.bindingHash ?? bindingHash(req.kind, req.bindingFields);
     const intent = {
       tool: req.tool,
       sideEffect: req.sideEffect,

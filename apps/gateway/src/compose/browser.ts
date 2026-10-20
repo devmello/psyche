@@ -50,6 +50,10 @@ export interface BrowserSetup {
   socketPath?: string | false;
   /** Download quarantine; `FsQuarantineWriter` until the Library owner ships one (S08 request). */
   library?: LibraryWriter;
+  /**
+   * Fills `{{cred:…}}` and drives post-fill hygiene and page-echo checks. Default: the composed
+   * vault (G4); without one `browser.fill_credential` would fail "the vault is not connected".
+   */
   credentials?: CredentialBroker;
   /** Opt-in screencast recording per session (feature I10, "replay retention"). */
   record?: boolean;
@@ -158,6 +162,7 @@ export function composeBrowser(
   setup: BrowserSetup = {},
 ): ComposedBrowser {
   const library = setup.library ?? new FsQuarantineWriter(join(services.home, "library"));
+  const credentials = setup.credentials ?? services.vault;
   const recordingsDir = join(services.home, "library", "recordings");
   let client: BridgeClient | undefined;
   let driver: CdpBridgeDriver | undefined;
@@ -193,8 +198,7 @@ export function composeBrowser(
     },
   };
   // Post-fill hygiene (security §4.7) and page-echo detection (S23 design-18) from the vault.
-  const creds = setup.credentials;
-  const redact = creds === undefined ? undefined : (text: string) => creds.redact(text);
+  const redact = (text: string) => credentials.redact(text);
   const recordings = new Map<string, FileRecordingSink>();
   /** Recording id → Library item id, once a finished recording was imported. */
   const recordingItems = new Map<string, string>();
@@ -310,9 +314,7 @@ export function composeBrowser(
         recording = new FileRecordingSink(recordingsDir, key, {
           ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
           threadId: ctx.threadId,
-          ...(setup.credentials === undefined
-            ? {}
-            : { redact: (text) => setup.credentials?.redact(text) ?? text }),
+          redact: (text) => credentials.redact(text),
           onChange: () => publishRecording(key),
         });
         recordings.set(key, recording);
@@ -355,7 +357,7 @@ export function composeBrowser(
     setup: realChromeSetup,
     library: recordingLibrary,
     broker: services.broker,
-    ...(redact === undefined ? {} : { redact }),
+    redact,
     keyFor: (callId) => keyFor(callId, "web"),
     policyFor,
   });
@@ -399,7 +401,11 @@ export function composeBrowser(
   const unregister = registerBrowserTools(tools, {
     driver: driverProxy,
     broker: services.broker,
-    ...(setup.credentials === undefined ? {} : { credentials: setup.credentials }),
+    credentials,
+    // The composed vault's items, so a fill's approval binds what the vault re-checks.
+    ...(setup.credentials === undefined
+      ? { credentialMeta: (slug: string) => services.vault.metaBySlug(slug) }
+      : {}),
     context: (callId) => services.calls.context(callId),
     session: sessionFor,
     openSessions: async (callId) => {
@@ -418,7 +424,7 @@ export function composeBrowser(
       return realChromeOn() ? realChrome : undefined;
     },
     devPreview: devServers,
-    ...(redact === undefined ? {} : { containsSecret: (text: string) => redact(text) !== text }),
+    containsSecret: (text: string) => redact(text) !== text,
     // Hand-offs (S20): the pane shows the reason and the owner gets an "input needed" notice.
     async requestControl(req) {
       const host = req.origin === null ? "a page" : new URL(req.origin).host;
@@ -455,7 +461,7 @@ export function composeBrowser(
     driver = new CdpBridgeDriver(next, {
       library: recordingLibrary,
       broker: services.broker,
-      ...(redact === undefined ? {} : { redact }),
+      redact,
     });
     const attached = driver;
     next.onClose((reason) => {
