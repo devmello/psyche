@@ -531,6 +531,7 @@
 //   let taskResult = try? JSONDecoder().decode(TaskResult.self, from: jsonData)
 //   let taskStatus = try? JSONDecoder().decode(TaskStatus.self, from: jsonData)
 //   let taskUpdatedPayload = try? JSONDecoder().decode(TaskUpdatedPayload.self, from: jsonData)
+//   let taskWorkspace = try? JSONDecoder().decode(TaskWorkspace.self, from: jsonData)
 //   let tasksActionsParams = try? JSONDecoder().decode(TasksActionsParams.self, from: jsonData)
 //   let tasksActionsResult = try? JSONDecoder().decode(TasksActionsResult.self, from: jsonData)
 //   let tasksListParams = try? JSONDecoder().decode(TasksListParams.self, from: jsonData)
@@ -604,10 +605,12 @@
 //   let viewPaneState = try? JSONDecoder().decode(ViewPaneState.self, from: jsonData)
 //   let viewPlacement = try? JSONDecoder().decode(ViewPlacement.self, from: jsonData)
 //   let viewReportParams = try? JSONDecoder().decode(ViewReportParams.self, from: jsonData)
+//   let vMClipboardMode = try? JSONDecoder().decode(VMClipboardMode.self, from: jsonData)
 //   let vMCreateParams = try? JSONDecoder().decode(VMCreateParams.self, from: jsonData)
 //   let vMGuest = try? JSONDecoder().decode(VMGuest.self, from: jsonData)
 //   let vMPhase = try? JSONDecoder().decode(VMPhase.self, from: jsonData)
 //   let vMProgressEvent = try? JSONDecoder().decode(VMProgressEvent.self, from: jsonData)
+//   let vMSettings = try? JSONDecoder().decode(VMSettings.self, from: jsonData)
 //   let vMShare = try? JSONDecoder().decode(VMShare.self, from: jsonData)
 //   let vMShareAddParams = try? JSONDecoder().decode(VMShareAddParams.self, from: jsonData)
 //   let vMStatus = try? JSONDecoder().decode(VMStatus.self, from: jsonData)
@@ -10929,6 +10932,7 @@ public struct Task: Codable, Sendable {
     public let threadID: String
     public let title: String
     public let updatedAt: String
+    public let workspace: TaskWorkspace?
 
     public enum CodingKeys: String, CodingKey {
         case attempt = "attempt"
@@ -10952,9 +10956,10 @@ public struct Task: Codable, Sendable {
         case threadID = "threadId"
         case title = "title"
         case updatedAt = "updatedAt"
+        case workspace = "workspace"
     }
 
-    public init(attempt: Int, browserSessionID: String?, checklist: [ChecklistItem], completedAt: String?, createdAt: String, createdFrom: TaskOrigin, currentStepID: String?, goal: String, id: String, leaseOwner: String?, leaseUntil: String?, outcome: [String: JSONAny]?, plan: TaskPlan?, sandboxID: String?, status: TaskStatus, summary: String?, taint: Bool?, taintSources: [TaintSource]?, threadID: String, title: String, updatedAt: String) {
+    public init(attempt: Int, browserSessionID: String?, checklist: [ChecklistItem], completedAt: String?, createdAt: String, createdFrom: TaskOrigin, currentStepID: String?, goal: String, id: String, leaseOwner: String?, leaseUntil: String?, outcome: [String: JSONAny]?, plan: TaskPlan?, sandboxID: String?, status: TaskStatus, summary: String?, taint: Bool?, taintSources: [TaintSource]?, threadID: String, title: String, updatedAt: String, workspace: TaskWorkspace?) {
         self.attempt = attempt
         self.browserSessionID = browserSessionID
         self.checklist = checklist
@@ -10976,6 +10981,7 @@ public struct Task: Codable, Sendable {
         self.threadID = threadID
         self.title = title
         self.updatedAt = updatedAt
+        self.workspace = workspace
     }
 }
 
@@ -11043,6 +11049,11 @@ public enum TaskStatus: String, Codable, Sendable {
     case paused = "paused"
     case queued = "queued"
     case running = "running"
+}
+
+public enum TaskWorkspace: String, Codable, Sendable {
+    case sandbox = "sandbox"
+    case vm = "vm"
 }
 
 // MARK: - TaskUpdatedPayload
@@ -12466,6 +12477,42 @@ public enum VMProgressEventType: String, Codable, Sendable {
     case vmDownload = "vm.download"
     case vmInstall = "vm.install"
     case vmState = "vm.state"
+}
+
+// MARK: - VMSettings
+public struct VMSettings: Codable, Sendable {
+    public let clipboard: VMClipboardMode
+    public let credentials: Credentials
+    public let defaultWorkspace: TaskWorkspace
+    public let enabled: Bool
+    public let guestNodeID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case clipboard = "clipboard"
+        case credentials = "credentials"
+        case defaultWorkspace = "defaultWorkspace"
+        case enabled = "enabled"
+        case guestNodeID = "guestNodeId"
+    }
+
+    public init(clipboard: VMClipboardMode, credentials: Credentials, defaultWorkspace: TaskWorkspace, enabled: Bool, guestNodeID: String?) {
+        self.clipboard = clipboard
+        self.credentials = credentials
+        self.defaultWorkspace = defaultWorkspace
+        self.enabled = enabled
+        self.guestNodeID = guestNodeID
+    }
+}
+
+public enum VMClipboardMode: String, Codable, Sendable {
+    case bidirectional = "bidirectional"
+    case off = "off"
+    case pasteOnly = "paste-only"
+}
+
+public enum Credentials: String, Codable, Sendable {
+    case guest = "guest"
+    case host = "host"
 }
 
 // MARK: - VMShareAddParams

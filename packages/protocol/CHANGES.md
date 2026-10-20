@@ -18,6 +18,15 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (M3 VM mode, Gateway side: Task workspace, L1–L5)
+
+For S01 (the Gateway's `vm` runner and Task mode selection), S04 (tasks persist the workspace), S02 (`task.start` may name it), S11 (Settings → VM mode).
+
+- New `TaskWorkspace` (`sandbox | vm`). `Task.workspace` and `TaskCreateInput.workspace` are optional: absent means the owner's default.
+- `SandboxBackendKind` gains `vm`, the runner that executes in the sandbox Mac guest through its psyche-node. `@psyche/sandbox`'s `ContainerBackendKind` excludes it (one line).
+- `schemas/vm.ts`: `VM_SETTING_KEYS`, which name the admin-only settings `vm.enabled`, `vm.guestNodeId`, `vm.defaultWorkspace`, `vm.clipboard` and `vm.credentials`, plus `VmSettings` and `VmClipboardMode` for typing them.
+- `FakeTaskEngine` keeps `workspace`.
+
 ### v1 additive — 2026-10-19 (M2 computer use: per-app tier keys on the action)
 
 For S02 (the loop passes it through), S05 (the broker's per-app tier check) and the Gateway's computer-use tools (`computer.act`, `apps.open`, `apps.focus`).
