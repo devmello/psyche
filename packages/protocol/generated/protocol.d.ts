@@ -1280,6 +1280,29 @@ export interface ChannelsPairingListResult {
     requests: PairingRequest[];
 }
 
+export interface ChannelsSecretsSetParams {
+    account: string;
+    name:    ChannelSecretName;
+    type:    ChannelType;
+    value:   string;
+}
+
+export type ChannelSecretName = "bot_token" | "app_token" | "auth_token";
+
+export interface ChannelsSecretsSetResult {
+    set: ChannelSecretName[];
+}
+
+export interface ChannelsSecretsStatusParams {
+    account: string;
+    type:    ChannelType;
+}
+
+export interface ChannelsSecretsStatusResult {
+    required: ChannelSecretName[];
+    set:      ChannelSecretName[];
+}
+
 export interface ChannelsUpdatedPayload {
     channel: Channel;
     detail?: string;
@@ -2515,11 +2538,11 @@ export interface MemoryForgetResult {
 export interface MemoryImportParams {
     content?: string;
     dryRun?:  boolean;
-    files?:   File[];
+    files?:   MemoryImportParamsFile[];
     format:   MemoryImportFormat;
 }
 
-export interface File {
+export interface MemoryImportParamsFile {
     content: string;
     path:    string;
 }
@@ -3170,6 +3193,126 @@ export interface PlanBlock {
 
 export type PlanBlockType = "plan";
 
+export interface PluginsGetProposalParams {
+    proposalId: string;
+}
+
+export interface PluginsGetProposalResult {
+    proposal: PluginProposal;
+}
+
+export interface PluginProposal {
+    bindingHash: string;
+    files:       PluginProposalFile[];
+    findings:    ScanFinding[];
+    fromHash?:   string;
+    hash:        string;
+    id:          string;
+    manifest:    PluginManifest;
+    source:      string;
+}
+
+export interface PluginProposalFile {
+    bytes: number;
+    path:  string;
+}
+
+export interface ScanFinding {
+    /**
+     * Path inside the skill folder
+     */
+    file?: string;
+    line?: number;
+    /**
+     * Never quotes the matched text
+     */
+    message:  string;
+    rule:     string;
+    severity: Severity;
+}
+
+export type Severity = "info" | "warn" | "high";
+
+export interface PluginManifest {
+    capabilities: PluginCapability[];
+    description:  string;
+    /**
+     * ES module inside the folder
+     */
+    main:    string;
+    name:    string;
+    version: string;
+}
+
+export type PluginCapability = "context" | "before_tool_call" | "after_tool_call" | "agent_end" | "evaluate";
+
+export interface PluginsInstallParams {
+    approvalId: string;
+    proposalId: string;
+}
+
+export interface PluginsInstallResult {
+    plugin: PluginSummary;
+}
+
+export interface PluginSummary {
+    capabilities: PluginCapability[];
+    description:  string;
+    /**
+     * The owner's switch for this plugin
+     */
+    enabled: boolean;
+    error?:  string;
+    /**
+     * Tree hash pinned at install
+     */
+    hash:        string;
+    installedAt: string;
+    name:        string;
+    /**
+     * Where it was installed from (a local folder)
+     */
+    source:  string;
+    status:  PluginStatus;
+    version: string;
+}
+
+/**
+ * `off`: the owner's switch is on but `plugins.enabled` is off; `failed`: its process did
+ * not start or stopped answering
+ */
+export type PluginStatus = "active" | "disabled" | "off" | "hash_mismatch" | "invalid" | "failed";
+
+export interface PluginsListResult {
+    /**
+     * The admin setting plugins.enabled
+     */
+    enabled: boolean;
+    plugins: PluginSummary[];
+}
+
+export interface PluginsProposeInstallParams {
+    path: string;
+}
+
+export interface PluginsProposeInstallResult {
+    approval: ApprovalRequest;
+    proposal: PluginProposal;
+}
+
+export interface PluginsRemoveParams {
+    name: string;
+}
+
+export interface PluginsSetEnabledParams {
+    enabled: boolean;
+    name:    string;
+}
+
+export interface PluginsSetEnabledResult {
+    plugin: PluginSummary;
+}
+
 export interface PolicyRule {
     createdAt: string;
     effect:    Decision;
@@ -3508,22 +3651,6 @@ export interface SkillProposalFile {
      */
     text?: string;
 }
-
-export interface ScanFinding {
-    /**
-     * Path inside the skill folder
-     */
-    file?: string;
-    line?: number;
-    /**
-     * Never quotes the matched text
-     */
-    message:  string;
-    rule:     string;
-    severity: Severity;
-}
-
-export type Severity = "info" | "warn" | "high";
 
 export interface SkillManifest {
     /**
