@@ -152,3 +152,90 @@ describe("incognito and view modes (E9, E11)", () => {
     expect(levels).toEqual([0]);
   });
 });
+
+describe("slash commands (C9)", () => {
+  const box = () => screen.findByRole("textbox", { name: "Message Wren" });
+
+  it("shows every command while typing / and completes the highlighted one with Return", async () => {
+    renderMain();
+    await userEvent.type(await box(), "/");
+    const menu = await screen.findByRole("listbox", { name: "Commands" });
+    expect(within(menu).getAllByRole("option")).toHaveLength(12);
+    await userEvent.type(await box(), "rem");
+    expect(
+      within(screen.getByRole("listbox", { name: "Commands" })).getAllByRole("option"),
+    ).toHaveLength(1);
+    await userEvent.keyboard("{Enter}");
+    expect(((await box()) as HTMLTextAreaElement).value).toBe("/remember ");
+    expect(screen.queryByRole("listbox", { name: "Commands" })).toBeNull();
+  });
+
+  it("/remember notes the fact in today's memory", async () => {
+    const { gateway } = renderMain();
+    await userEvent.type(await box(), "/remember I prefer aisle seats{Enter}");
+    await waitFor(() =>
+      expect(gateway.calls.find((c) => c.method === "memory.remember")?.params).toEqual({
+        text: "I prefer aisle seats",
+      }),
+    );
+    expect(await screen.findByText(/^Noted in memory\//)).toBeTruthy();
+    expect(gateway.calls.some((c) => c.method === "chat.send")).toBe(false);
+  });
+
+  it("/forget previews what goes and forgets only after confirmation", async () => {
+    const { gateway } = renderMain();
+    const subject = gateway.world.memoryClaims[0]?.text.split(" ").slice(0, 2).join(" ") ?? "x";
+    await userEvent.type(await box(), `/forget ${subject}{Enter}`);
+    const notice = await screen.findByTestId("command-notice");
+    const calls = () => gateway.calls.filter((c) => c.method === "memory.forget");
+    await waitFor(() => expect(calls()).toHaveLength(1));
+    expect(calls()[0]?.params).toEqual({ subject, dryRun: true });
+    await userEvent.click(within(notice).getByRole("button", { name: "Forget" }));
+    await waitFor(() => expect(calls()).toHaveLength(2));
+    expect(calls()[1]?.params).toEqual({ subject });
+    expect(await screen.findByText(`Forgot "${subject}".`)).toBeTruthy();
+  });
+
+  it("/model and /plan update the thread; /status reports it", async () => {
+    const { gateway } = renderMain();
+    await userEvent.type(await box(), "/model anthropic/claude-sonnet-5-5{Enter}");
+    expect(
+      await screen.findByText("This thread now uses anthropic/claude-sonnet-5-5."),
+    ).toBeTruthy();
+    await userEvent.type(await box(), "/plan{Enter}");
+    expect(await screen.findByText(/^Plan mode/)).toBeTruthy();
+    const updates = gateway.calls.filter((c) => c.method === "threads.update").map((c) => c.params);
+    expect(updates).toEqual([
+      { threadId: IDS.threads.main, modelRef: "anthropic/claude-sonnet-5-5" },
+      { threadId: IDS.threads.main, permissionMode: "plan" },
+    ]);
+    await userEvent.type(await box(), "/status{Enter}");
+    const notice = await screen.findByTestId("command-notice");
+    await waitFor(() => expect(notice.textContent).toContain("Mode: plan"));
+    expect(notice.textContent).toContain("Model: anthropic/claude-sonnet-5-5");
+  });
+
+  it("an unknown command explains itself and sends nothing; // sends a literal slash", async () => {
+    const { gateway } = renderMain();
+    await userEvent.type(await box(), "/frobnicate{Escape}{Enter}");
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(gateway.calls.some((c) => c.method === "chat.send")).toBe(false);
+    await userEvent.type(await box(), "//etc/hosts is a file{Enter}");
+    await waitFor(() =>
+      expect(gateway.calls.find((c) => c.method === "chat.send")?.params).toMatchObject({
+        content: "/etc/hosts is a file",
+      }),
+    );
+  });
+
+  it("/new opens a side chat and /stop says when nothing runs", async () => {
+    const { gateway, navigated } = renderMain();
+    await userEvent.type(await box(), "/stop{Enter}");
+    expect(await screen.findByText("Nothing is running in this chat.")).toBeTruthy();
+    await userEvent.type(await box(), "/new{Enter}");
+    await waitFor(() => expect(navigated).toHaveLength(1));
+    expect(gateway.calls.find((c) => c.method === "threads.create")?.params).toEqual({
+      kind: "side",
+    });
+  });
+});
