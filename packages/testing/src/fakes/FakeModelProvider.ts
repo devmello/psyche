@@ -1,6 +1,6 @@
 import type {
-  CallOptions,
   EmbedOptions,
+  ModelCallOptions,
   ModelCapabilities,
   ModelEvent,
   ModelProvider,
@@ -38,6 +38,8 @@ const DEFAULT_TURN: ModelEvent[] = [
 export class FakeModelProvider implements ModelProvider {
   readonly id: string;
   readonly requests: ModelRequest[] = [];
+  /** The thread / run context of each `stream` call, in order (router `/model` pins, usage). */
+  readonly callContexts: { threadId?: string; runId?: string }[] = [];
   #turns: ScriptedTurn[] = [];
   #capabilities: ModelCapabilities;
 
@@ -66,8 +68,12 @@ export class FakeModelProvider implements ModelProvider {
     return this.#turns.length;
   }
 
-  async *stream(request: ModelRequest, options: CallOptions = {}): AsyncIterable<ModelEvent> {
+  async *stream(request: ModelRequest, options: ModelCallOptions = {}): AsyncIterable<ModelEvent> {
     this.requests.push(structuredClone(request));
+    this.callContexts.push({
+      ...(options.threadId === undefined ? {} : { threadId: options.threadId }),
+      ...(options.runId === undefined ? {} : { runId: options.runId }),
+    });
     captureModelVisible("prompt", request, { where: `FakeModelProvider(${this.id}).stream` });
     const turn = this.#turns.shift() ?? DEFAULT_TURN;
     const events = typeof turn === "function" ? turn(request) : turn;
