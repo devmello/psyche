@@ -134,6 +134,7 @@
 //   let channel = try? JSONDecoder().decode(Channel.self, from: jsonData)
 //   let channelIdentity = try? JSONDecoder().decode(ChannelIdentity.self, from: jsonData)
 //   let channelRef = try? JSONDecoder().decode(ChannelRef.self, from: jsonData)
+//   let channelSecretName = try? JSONDecoder().decode(ChannelSecretName.self, from: jsonData)
 //   let channelType = try? JSONDecoder().decode(ChannelType.self, from: jsonData)
 //   let channelsAllowlistUpdateParams = try? JSONDecoder().decode(ChannelsAllowlistUpdateParams.self, from: jsonData)
 //   let channelsAllowlistUpdateResult = try? JSONDecoder().decode(ChannelsAllowlistUpdateResult.self, from: jsonData)
@@ -154,6 +155,10 @@
 //   let channelsPairingDenyResult = try? JSONDecoder().decode(ChannelsPairingDenyResult.self, from: jsonData)
 //   let channelsPairingListParams = try? JSONDecoder().decode(ChannelsPairingListParams.self, from: jsonData)
 //   let channelsPairingListResult = try? JSONDecoder().decode(ChannelsPairingListResult.self, from: jsonData)
+//   let channelsSecretsSetParams = try? JSONDecoder().decode(ChannelsSecretsSetParams.self, from: jsonData)
+//   let channelsSecretsSetResult = try? JSONDecoder().decode(ChannelsSecretsSetResult.self, from: jsonData)
+//   let channelsSecretsStatusParams = try? JSONDecoder().decode(ChannelsSecretsStatusParams.self, from: jsonData)
+//   let channelsSecretsStatusResult = try? JSONDecoder().decode(ChannelsSecretsStatusResult.self, from: jsonData)
 //   let channelsUpdatedPayload = try? JSONDecoder().decode(ChannelsUpdatedPayload.self, from: jsonData)
 //   let chatBlockPayload = try? JSONDecoder().decode(ChatBlockPayload.self, from: jsonData)
 //   let chatCancelParams = try? JSONDecoder().decode(ChatCancelParams.self, from: jsonData)
@@ -4213,6 +4218,79 @@ public struct ChannelsPairingListResult: Codable, Sendable {
 
     public init(requests: [PairingRequest]) {
         self.requests = requests
+    }
+}
+
+// MARK: - ChannelsSecretsSetParams
+public struct ChannelsSecretsSetParams: Codable, Sendable {
+    public let account: String
+    public let name: ChannelSecretName
+    public let type: ChannelType
+    public let value: String
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case name = "name"
+        case type = "type"
+        case value = "value"
+    }
+
+    public init(account: String, name: ChannelSecretName, type: ChannelType, value: String) {
+        self.account = account
+        self.name = name
+        self.type = type
+        self.value = value
+    }
+}
+
+public enum ChannelSecretName: String, Codable, Sendable {
+    case appToken = "app_token"
+    case authToken = "auth_token"
+    case botToken = "bot_token"
+}
+
+// MARK: - ChannelsSecretsSetResult
+public struct ChannelsSecretsSetResult: Codable, Sendable {
+    public let channelsSecretsSetResultSet: [ChannelSecretName]
+
+    public enum CodingKeys: String, CodingKey {
+        case channelsSecretsSetResultSet = "set"
+    }
+
+    public init(channelsSecretsSetResultSet: [ChannelSecretName]) {
+        self.channelsSecretsSetResultSet = channelsSecretsSetResultSet
+    }
+}
+
+// MARK: - ChannelsSecretsStatusParams
+public struct ChannelsSecretsStatusParams: Codable, Sendable {
+    public let account: String
+    public let type: ChannelType
+
+    public enum CodingKeys: String, CodingKey {
+        case account = "account"
+        case type = "type"
+    }
+
+    public init(account: String, type: ChannelType) {
+        self.account = account
+        self.type = type
+    }
+}
+
+// MARK: - ChannelsSecretsStatusResult
+public struct ChannelsSecretsStatusResult: Codable, Sendable {
+    public let channelsSecretsStatusResultRequired: [ChannelSecretName]
+    public let channelsSecretsStatusResultSet: [ChannelSecretName]
+
+    public enum CodingKeys: String, CodingKey {
+        case channelsSecretsStatusResultRequired = "required"
+        case channelsSecretsStatusResultSet = "set"
+    }
+
+    public init(channelsSecretsStatusResultRequired: [ChannelSecretName], channelsSecretsStatusResultSet: [ChannelSecretName]) {
+        self.channelsSecretsStatusResultRequired = channelsSecretsStatusResultRequired
+        self.channelsSecretsStatusResultSet = channelsSecretsStatusResultSet
     }
 }
 

@@ -24,6 +24,9 @@ For S02 (agent-core's plugin seam and `packages/plugins`), S01 (the Gateway's pl
 
 - New methods in `methods/plugins.ts`: `plugins.list` (read), `plugins.getProposal` (read), `plugins.proposeInstall {path}`, `plugins.install {proposalId, approvalId}`, `plugins.setEnabled {name, enabled}`, `plugins.remove {name}` (admin, side-effecting). Installing reuses the device-only `skill_install` approval with `details.kind: "plugin"`; nothing runs while the admin setting `plugins.enabled` is off.
 - New schemas: `PluginName`, `PluginCapability` (`context`, `before_tool_call`, `after_tool_call`, `agent_end`, `evaluate`), `PluginManifest`, `PluginStatus`, `PluginSummary`, `PluginProposal`.
+### v1 additive — 2026-10-20 (S10: channel transport secrets, N8 / N9)
+
+- `channels.secrets.set {type, account, name, value}` → `{set}` (`operator.admin`, side-effecting, params never logged) and `channels.secrets.status {type, account}` → `{required, set}` (names only), with `ChannelSecretName` (`bot_token | app_token | auth_token`). The Gateway stores each as a Gateway-owned vault item (like `models.setKey`), read by the Slack, Discord and SMS adapters per connection or request; never fillable by agents.
 
 ### v1 additive — 2026-10-20 (desktop bundle: first admin without a terminal)
 
