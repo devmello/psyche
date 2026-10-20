@@ -1,6 +1,6 @@
 import type { PermissionMode, ToolResult } from "@psyche/protocol";
 import { describe, expect, it } from "vitest";
-import { SUMMARIZER_SYSTEM } from "../src/index.ts";
+import { STRUCTURED_SUMMARIZER_SYSTEM } from "../src/index.ts";
 import {
   blocks,
   call,
@@ -275,8 +275,17 @@ describe("compaction (B7)", () => {
   it("flushes memory first, then summarizes older turns with the utility model", async () => {
     const pad = "x".repeat(1_600);
     const h = harness({
-      contextWindow: 2_000,
-      script: [say("a"), say("b"), say("Earlier: the owner likes tea."), say("c")],
+      // Compact past 1,500 tokens (as before) under a 4,000-token window, the hard limit.
+      contextWindow: 4_000,
+      script: [
+        say("a"),
+        say("b"),
+        say(
+          '{"facts":["Earlier: the owner likes tea."],"decisions":[],"openTasks":[],"pinnedInstructions":[]}',
+        ),
+        say("c"),
+      ],
+      loop: { contextLimits: () => ({ compactAt: 0.375, keepRecentTurns: 2 }) },
     });
     const order: string[] = [];
     h.loop.hooks.on("before_compaction", ({ messages }) => {
@@ -290,7 +299,7 @@ describe("compaction (B7)", () => {
     expect(h.memory.flushes[0]?.messages).toHaveLength(5);
     const summarizer = h.provider.requests[2];
     expect(summarizer?.model).toBe("fake/utility");
-    expect(summarizer?.system).toBe(SUMMARIZER_SYSTEM);
+    expect(summarizer?.system).toBe(STRUCTURED_SUMMARIZER_SYSTEM);
     const main = h.provider.requests[3];
     expect(main?.system).toContain("Earlier: the owner likes tea.");
     expect(main?.messages.map((m) => m.role)).toEqual(["user", "assistant", "user"]);
@@ -303,9 +312,19 @@ describe("compaction (B7)", () => {
   it("never flushes incognito threads and marks summaries of untrusted content", async () => {
     const pad = "y".repeat(1_600);
     const h = harness({
-      contextWindow: 2_000,
-      script: [call("f1", "web.fetch", {}), say("a"), say("b"), say("summary"), say("c")],
-      loop: { isIncognito: () => true },
+      // Compact past 1,500 tokens (as before) under a 4,000-token window, the hard limit.
+      contextWindow: 4_000,
+      script: [
+        call("f1", "web.fetch", {}),
+        say("a"),
+        say("b"),
+        say('{"facts":["summary"],"decisions":[],"openTasks":[],"pinnedInstructions":[]}'),
+        say("c"),
+      ],
+      loop: {
+        isIncognito: () => true,
+        contextLimits: () => ({ compactAt: 0.375, keepRecentTurns: 2 }),
+      },
     });
     h.loop.registry.register({
       spec: spec("web.fetch", "read", { provenanceOut: "untrusted" }),
@@ -316,7 +335,11 @@ describe("compaction (B7)", () => {
     await runTurn(h, `three ${pad}`);
     expect(h.memory.flushes).toHaveLength(0);
     const state = await h.loop.threadState("thr_1");
-    expect(state.summary).toEqual({ text: "summary", untrusted: true });
+    expect(state.summary).toEqual({
+      text: "Facts:\n- summary",
+      untrusted: true,
+      structured: { facts: ["summary"], decisions: [], openTasks: [], pinnedInstructions: [] },
+    });
     expect(h.provider.requests.at(-1)?.system).toMatch(/provenance="untrusted" title="Earlier/);
   });
 });
