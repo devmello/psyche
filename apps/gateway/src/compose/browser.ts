@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import {
+  assertProfileName,
   type BridgeClient,
   BridgeServer,
   type BrowserDriverEx,
@@ -20,6 +21,7 @@ import {
   type SessionKind,
   systemLoopbackProbes,
 } from "@psyche/browser";
+import { getSetting } from "@psyche/db";
 import { createLocalProjectVerifier, type LocalProjectVerifier } from "@psyche/permissions";
 import {
   type CredentialBroker,
@@ -79,6 +81,29 @@ export interface BrowserSetup {
   realChromeCdpEndpoint?: string;
   /** Real-Chrome mode (feature I13): off unless `enabled`. See `compose/real-chrome.ts`. */
   realChrome?: RealChromeSetup;
+}
+
+/**
+ * Settings → Browser (S11; admin key): `{ enabled, profile? }`. Real-Chrome mode is on when this
+ * says so or `PSYCHE_REAL_CHROME=1`; each task still asks for consent (a device-only
+ * `policy_change` with presence) whatever the switch says.
+ */
+export const REAL_CHROME_SETTING = "browser.realChrome";
+
+/** The stored switch; a malformed value or an invalid profile name counts as off / default. */
+export function realChromeFromSetting(value: unknown): { enabled: boolean; profile?: string } {
+  if (typeof value !== "object" || value === null) return { enabled: false };
+  const v = value as { enabled?: unknown; profile?: unknown };
+  let profile: string | undefined;
+  if (typeof v.profile === "string") {
+    try {
+      assertProfileName(v.profile);
+      profile = v.profile;
+    } catch {
+      profile = undefined;
+    }
+  }
+  return { enabled: v.enabled === true, ...(profile === undefined ? {} : { profile }) };
 }
 
 export interface ComposedBrowser extends ComposedPart {
@@ -313,10 +338,21 @@ export function composeBrowser(
     return session.then((s) => s.id);
   };
 
+  // The switch is read on every use, so turning it on or off in Settings needs no restart.
+  const realChromeSetting = () =>
+    realChromeFromSetting(getSetting(services.db, REAL_CHROME_SETTING)?.value);
+  const realChromeOn = () => setup.realChrome?.enabled === true || realChromeSetting().enabled;
+  const realChromeSetup: RealChromeSetup = {
+    ...(setup.realChrome ?? {}),
+    // Read when Chrome launches: the env's profile, else the one chosen in Settings.
+    get profile() {
+      return setup.realChrome?.profile ?? realChromeSetting().profile;
+    },
+  };
   const realChrome = createRealChromeMode({
     services,
     router,
-    setup: setup.realChrome ?? {},
+    setup: realChromeSetup,
     library: recordingLibrary,
     broker: services.broker,
     ...(redact === undefined ? {} : { redact }),
@@ -377,7 +413,10 @@ export function composeBrowser(
       return ids;
     },
     taskPolicy: (callId) => policyFor(keyFor(callId, "web")),
-    ...(setup.realChrome?.enabled === true ? { realChrome } : {}),
+    // `browser.use_real_chrome` sees the mode only while the switch (or the env) is on.
+    get realChrome() {
+      return realChromeOn() ? realChrome : undefined;
+    },
     devPreview: devServers,
     ...(redact === undefined ? {} : { containsSecret: (text: string) => redact(text) !== text }),
     // Hand-offs (S20): the pane shows the reason and the owner gets an "input needed" notice.
@@ -436,6 +475,10 @@ export function composeBrowser(
     handlers: {
       ...browserHandlers(router, sessionsForClients),
       ...recordingHandlers(recordingStore, publishRecording),
+      // For `psyche security audit` (#169; security §6): the port is flagged while attached.
+      "browser.realChrome.status": {
+        run: () => ({ enabled: setup.realChrome?.enabled === true, ...realChrome.status() }),
+      },
     },
     attach,
     get driver() {

@@ -1,4 +1,5 @@
-import { readFile, realpath } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { mkdir, readFile, realpath } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
   type ApprovalRequest,
@@ -37,6 +38,7 @@ import {
   str,
 } from "./lib/ipc.ts";
 import { NotificationRelay } from "./lib/notify-relay.ts";
+import { realChromeOpenCommand, realChromeProfileDir } from "./lib/real-chrome.ts";
 import { ZoomController } from "./lib/zoom.ts";
 import { BridgeClient } from "./main/bridge/bridge-client.ts";
 import { BrowserHost } from "./main/browser/browser-host.ts";
@@ -286,6 +288,33 @@ function registerIpc(): void {
       str(IPC.browserPopOut, r.tabId, "tabId", 128),
       r.fullScreen === true,
     );
+  });
+  handle(IPC.browserOpenRealChromeProfile, async (_e, arg) => {
+    const dir = realChromeProfileDir(
+      home,
+      str(IPC.browserOpenRealChromeProfile, arg, "profile", 64),
+    );
+    const cmd = realChromeOpenCommand(process.platform, dir);
+    if (cmd === null) {
+      throw new PsycheError(
+        "unavailable",
+        "Opening the Psyche Chrome profile needs macOS or Linux",
+      );
+    }
+    await mkdir(dir, { recursive: true, mode: 0o700 });
+    await new Promise<void>((resolveSpawn, reject) => {
+      const child = spawn(cmd.command, cmd.args, { detached: true, stdio: "ignore" });
+      child.once("error", (err) =>
+        reject(
+          new PsycheError("unavailable", `Google Chrome could not be opened (${err.message})`),
+        ),
+      );
+      child.once("spawn", () => {
+        child.unref();
+        resolveSpawn();
+      });
+    });
+    return { path: dir };
   });
   handle(IPC.browserClearData, (_e, arg) =>
     requireBrowser().clearBrowsingData(arg === "clean" ? "clean" : "logged-in"),

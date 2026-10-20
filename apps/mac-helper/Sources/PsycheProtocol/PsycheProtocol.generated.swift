@@ -87,6 +87,7 @@
 //   let browserOpenParams = try? JSONDecoder().decode(BrowserOpenParams.self, from: jsonData)
 //   let browserOpenResult = try? JSONDecoder().decode(BrowserOpenResult.self, from: jsonData)
 //   let browserProfile = try? JSONDecoder().decode(BrowserProfile.self, from: jsonData)
+//   let browserRealChromeStatusParams = try? JSONDecoder().decode(BrowserRealChromeStatusParams.self, from: jsonData)
 //   let browserRecording = try? JSONDecoder().decode(BrowserRecording.self, from: jsonData)
 //   let browserRecordingEvent = try? JSONDecoder().decode(BrowserRecordingEvent.self, from: jsonData)
 //   let browserRecordingEventKind = try? JSONDecoder().decode(BrowserRecordingEventKind.self, from: jsonData)
@@ -372,6 +373,7 @@
 //   let queueMode = try? JSONDecoder().decode(QueueMode.self, from: jsonData)
 //   let queuedMessage = try? JSONDecoder().decode(QueuedMessage.self, from: jsonData)
 //   let queuedMessageResult = try? JSONDecoder().decode(QueuedMessageResult.self, from: jsonData)
+//   let realChromeStatus = try? JSONDecoder().decode(RealChromeStatus.self, from: jsonData)
 //   let receipt = try? JSONDecoder().decode(Receipt.self, from: jsonData)
 //   let receiptBlock = try? JSONDecoder().decode(ReceiptBlock.self, from: jsonData)
 //   let receiptCreatedPayload = try? JSONDecoder().decode(ReceiptCreatedPayload.self, from: jsonData)
@@ -657,6 +659,7 @@ public struct ApprovalRequest: Codable, Sendable {
     public let summary: String
     public let surfaces: [String]
     public let taint: Bool
+    public let taintSources: [TaintSource]?
     public let target: Target?
     public let targetKind: TargetKind?
 
@@ -682,11 +685,12 @@ public struct ApprovalRequest: Codable, Sendable {
         case summary = "summary"
         case surfaces = "surfaces"
         case taint = "taint"
+        case taintSources = "taintSources"
         case target = "target"
         case targetKind = "targetKind"
     }
 
-    public init(bindingHash: String, decidedAt: String?, decidedBy: DecidedByClass?, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, grantID: String?, grantKey: String, id: String, invalidatedReason: String?, kind: ApprovalKind, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, scopeGranted: GrantScope?, scopesOffered: [GrantScope], sideEffect: SideEffect?, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, target: Target?, targetKind: TargetKind?) {
+    public init(bindingHash: String, decidedAt: String?, decidedBy: DecidedByClass?, details: [String: JSONAny], deviceOnly: Bool, expiresAt: String, grantID: String?, grantKey: String, id: String, invalidatedReason: String?, kind: ApprovalKind, requestedAt: String, requestedBy: RequestedBy, requiresAuthentication: Bool, scopeGranted: GrantScope?, scopesOffered: [GrantScope], sideEffect: SideEffect?, status: ApprovalStatus, summary: String, surfaces: [String], taint: Bool, taintSources: [TaintSource]?, target: Target?, targetKind: TargetKind?) {
         self.bindingHash = bindingHash
         self.decidedAt = decidedAt
         self.decidedBy = decidedBy
@@ -708,6 +712,7 @@ public struct ApprovalRequest: Codable, Sendable {
         self.summary = summary
         self.surfaces = surfaces
         self.taint = taint
+        self.taintSources = taintSources
         self.target = target
         self.targetKind = targetKind
     }
@@ -756,6 +761,7 @@ public enum ApprovalKind: String, Codable, Sendable {
     case purchase = "purchase"
     case sendEmail = "send_email"
     case skillInstall = "skill_install"
+    case taskStart = "task_start"
 }
 
 // MARK: - RequestedBy
@@ -797,6 +803,29 @@ public enum ApprovalStatus: String, Codable, Sendable {
     case expired = "expired"
     case invalidated = "invalidated"
     case pending = "pending"
+}
+
+// MARK: - TaintSource
+public struct TaintSource: Codable, Sendable {
+    public let origin: String?
+    public let sender: String?
+    /// Tool name or source kind (web, email, transcript, task, …)
+    public let sourceKind: String
+    public let toolCallID: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case origin = "origin"
+        case sender = "sender"
+        case sourceKind = "sourceKind"
+        case toolCallID = "toolCallId"
+    }
+
+    public init(origin: String?, sender: String?, sourceKind: String, toolCallID: String?) {
+        self.origin = origin
+        self.sender = sender
+        self.sourceKind = sourceKind
+        self.toolCallID = toolCallID
+    }
 }
 
 // MARK: - Target
@@ -7794,6 +7823,37 @@ public struct QueuedMessageResult: Codable, Sendable {
     }
 }
 
+// MARK: - RealChromeStatus
+public struct RealChromeStatus: Codable, Sendable {
+    public let attached: Bool
+    public let enabled: Bool
+    public let pid: Int?
+    public let port: Int?
+    public let sessions: Int
+    public let since: String?
+    public let userDataDir: String?
+
+    public enum CodingKeys: String, CodingKey {
+        case attached = "attached"
+        case enabled = "enabled"
+        case pid = "pid"
+        case port = "port"
+        case sessions = "sessions"
+        case since = "since"
+        case userDataDir = "userDataDir"
+    }
+
+    public init(attached: Bool, enabled: Bool, pid: Int?, port: Int?, sessions: Int, since: String?, userDataDir: String?) {
+        self.attached = attached
+        self.enabled = enabled
+        self.pid = pid
+        self.port = port
+        self.sessions = sessions
+        self.since = since
+        self.userDataDir = userDataDir
+    }
+}
+
 // MARK: - ReceiptBlock
 public struct ReceiptBlock: Codable, Sendable {
     public let receiptID: String
@@ -8387,15 +8447,18 @@ public struct SettingsGetResult: Codable, Sendable {
 
 // MARK: - SettingsSetParams
 public struct SettingsSetParams: Codable, Sendable {
+    public let approvalID: String?
     public let key: String
     public let value: JSONAny
 
     public enum CodingKeys: String, CodingKey {
+        case approvalID = "approvalId"
         case key = "key"
         case value = "value"
     }
 
-    public init(key: String, value: JSONAny) {
+    public init(approvalID: String?, key: String, value: JSONAny) {
+        self.approvalID = approvalID
         self.key = key
         self.value = value
     }
@@ -9535,29 +9598,6 @@ public enum TaskStatus: String, Codable, Sendable {
     case paused = "paused"
     case queued = "queued"
     case running = "running"
-}
-
-// MARK: - TaintSource
-public struct TaintSource: Codable, Sendable {
-    public let origin: String?
-    public let sender: String?
-    /// Tool name or source kind (web, email, transcript, task, …)
-    public let sourceKind: String
-    public let toolCallID: String?
-
-    public enum CodingKeys: String, CodingKey {
-        case origin = "origin"
-        case sender = "sender"
-        case sourceKind = "sourceKind"
-        case toolCallID = "toolCallId"
-    }
-
-    public init(origin: String?, sender: String?, sourceKind: String, toolCallID: String?) {
-        self.origin = origin
-        self.sender = sender
-        self.sourceKind = sourceKind
-        self.toolCallID = toolCallID
-    }
 }
 
 // MARK: - TaskUpdatedPayload
@@ -11448,6 +11488,7 @@ public enum WrapUpBlockType: String, Codable, Sendable {
 public typealias AuditVerifyParams = [String: JSONAny]
 public typealias BackupListParams = [String: JSONAny]
 public typealias BridgeTabsListParams = [String: JSONAny]
+public typealias BrowserRealChromeStatusParams = [String: JSONAny]
 public typealias ChannelsIdentitiesListParams = [String: JSONAny]
 public typealias ChannelsListParams = [String: JSONAny]
 public typealias ConnectorsListParams = [String: JSONAny]

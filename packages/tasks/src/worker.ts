@@ -381,12 +381,23 @@ export class TaskWorkerPool {
             const status = CHECKPOINT_STATUS[ev.status];
             if (status === undefined) break;
             const replaySafe = this.#replaySafe(ev.tool);
-            await engine.checkpoint(taskId, {
-              stepId: ev.toolCallId,
-              replaySafe,
-              status,
-              ...(ev.status === "blocked" ? { payload: { blocked: true } } : {}),
-            });
+            try {
+              await engine.checkpoint(taskId, {
+                stepId: ev.toolCallId,
+                replaySafe,
+                status,
+                ...(ev.status === "blocked" ? { payload: { blocked: true } } : {}),
+              });
+            } catch (e) {
+              // A settled step keeps its status (a provider reusing tool-call ids, #65); say so
+              // in the Activity instead of failing the turn.
+              if (!(e instanceof PsycheError && e.code === "conflict")) throw e;
+              await engine.addAction(taskId, {
+                toolCallId: ev.toolCallId,
+                level1: `Step ${ev.toolCallId} already settled; ${ev.tool} ${ev.status} not recorded`,
+                level2: { tool: ev.tool, outcome: "conflict" },
+              });
+            }
             if (ev.status === "running") {
               steps += 1;
             } else {

@@ -234,4 +234,50 @@ describe("web_fetch tool", () => {
   it("health is ok", async () => {
     expect(await connector.health()).toMatchObject({ ok: true, status: "connected" });
   });
+
+  describe("redirect hops (#72)", () => {
+    const routes = {
+      "https://example.com/go": { status: 302, headers: { location: "/here" } },
+      "https://example.com/here": {
+        status: 302,
+        headers: { location: "https://docs.example.org/page" },
+      },
+      "https://docs.example.org/page": { headers: { "content-type": "text/plain" }, body: "docs" },
+    };
+    const lookup = fakeLookup({
+      "example.com": "93.184.216.34",
+      "docs.example.org": "93.184.216.35",
+    });
+
+    it("by default stays on the approved origin and refuses a hop elsewhere", async () => {
+      const transport = fakeTransport(routes);
+      const f = createWebFetchFactory({ lookup, transport });
+      const t = only(f.create(record("fetch", {}), context(jsonFetch({}))).tools());
+      await expectPsyche(
+        t.execute({ url: "https://example.com/go" }, run()),
+        "policy_denied",
+        "redirect_not_allowlisted",
+      );
+      expect(transport.calls.map((c) => c.url.href)).toEqual([
+        "https://example.com/go",
+        "https://example.com/here",
+      ]);
+    });
+
+    it("follows a hop into the Task's origin set, asked per call", async () => {
+      const asked: string[] = [];
+      const f = createWebFetchFactory({
+        lookup,
+        transport: fakeTransport(routes),
+        allowedOrigins: (r) => {
+          asked.push(r.callId);
+          return ["https://docs.example.org"];
+        },
+      });
+      const t = only(f.create(record("fetch", {}), context(jsonFetch({}))).tools());
+      const out = await t.execute({ url: "https://example.com/go" }, run());
+      expect(out.output).toMatchObject({ url: "https://docs.example.org/page", markdown: "docs" });
+      expect(asked).toHaveLength(1);
+    });
+  });
 });

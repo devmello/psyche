@@ -234,6 +234,11 @@ interface Gated {
   desc: ToolCallDescription;
   sideEffect: SideEffect;
   target?: Target;
+  /**
+   * The arguments as gated (security §3.5): a private copy taken before hashing, so what the
+   * broker decided, the owner approved and the executor receives are the same bytes (#70).
+   */
+  args: unknown;
   hash: string;
   decision?: DecisionResult;
   approvalKind?: ApprovalKind;
@@ -1027,7 +1032,7 @@ export class PsycheAgentLoop implements AgentLoop {
    */
   #details(g: Gated, provenanceOut: ProvenanceOut, receiptId?: string): ToolCallDetails {
     return {
-      paramsRedacted: structuredClone(g.call.input),
+      paramsRedacted: structuredClone(g.args),
       paramsHash: g.hash,
       sideEffect: g.sideEffect,
       target: g.target ?? null,
@@ -1118,6 +1123,7 @@ export class PsycheAgentLoop implements AgentLoop {
     message: string,
     status: ToolCallStatus = "blocked",
     gated?: Gated,
+    errorCode?: string,
   ): GateOutcome {
     this.#toolEvent(
       run,
@@ -1133,11 +1139,39 @@ export class PsycheAgentLoop implements AgentLoop {
         type: "tool_result",
         callId: call.id,
         name: call.name,
-        output: { error: message },
+        output: errorCode === undefined ? { error: message } : { error: message, errorCode },
         isError: true,
         provenance: "trusted",
       },
     };
+  }
+
+  /**
+   * The binding of the call's arguments as they are now, when they differ from what was gated
+   * (security §3.5, #70); `undefined` when unchanged. Uses the loop's own recipe, which differs
+   * from any approved hash whenever the params hash does.
+   */
+  #changedBinding(g: Gated, kind: ApprovalKind | undefined): string | undefined {
+    let live: unknown;
+    let now: string;
+    try {
+      live = structuredClone(g.call.input);
+      now = paramsHash(live);
+    } catch {
+      now = "unhashable";
+    }
+    if (now === g.hash) return undefined;
+    let fields: unknown;
+    try {
+      fields = g.reg.describeCall?.(live)?.bindingFields;
+    } catch {
+      fields = undefined;
+    }
+    return bindingHash(kind ?? "connector_action", {
+      tool: g.call.name,
+      paramsHash: now,
+      ...(fields === undefined ? {} : { fields }),
+    });
   }
 
   /** `before_tool_call` hooks → `PermissionBroker.decide` → approval (security §3.3). */
@@ -1168,7 +1202,9 @@ export class PsycheAgentLoop implements AgentLoop {
     }
     const sideEffect = stricter(reg.spec.sideEffect, desc.sideEffect);
     const target = desc.target;
-    const hash = paramsHash(call.input);
+    // Freeze the arguments before hashing (#70): nobody else holds a reference to this copy.
+    const args = structuredClone(call.input);
+    const hash = paramsHash(args);
     const taintIn = run.taint;
     const gated: Gated = {
       call,
@@ -1176,6 +1212,7 @@ export class PsycheAgentLoop implements AgentLoop {
       desc,
       sideEffect,
       ...(target === undefined ? {} : { target }),
+      args,
       hash,
       taintIn,
       startedAt,
@@ -1188,7 +1225,7 @@ export class PsycheAgentLoop implements AgentLoop {
           ...runRef(run),
           toolCallId: call.id,
           tool: call.name,
-          params: structuredClone(call.input),
+          params: structuredClone(args),
           spec: structuredClone(reg.spec),
           taint: run.taint,
           permissionMode: run.permissionMode,
@@ -1243,11 +1280,12 @@ export class PsycheAgentLoop implements AgentLoop {
           ? { targetKind: target?.kind ?? reg.spec.targetKind }
           : {}),
         ...(target === undefined ? {} : { target }),
-        params: call.input,
+        params: structuredClone(args),
         paramsHash: hash,
         ...(kind === undefined ? {} : { kind }),
         ...(intentBinding === undefined ? {} : { bindingHash: intentBinding }),
         ...(grantKey === undefined ? {} : { grantKey }),
+        ...(desc.connectorRule === undefined ? {} : { connectorRule: { ...desc.connectorRule } }),
       },
       context,
     );
@@ -1300,8 +1338,9 @@ export class PsycheAgentLoop implements AgentLoop {
         kind: approvalKind,
         summary: desc.summary ?? `${call.name}`,
         details: {
+          ...desc.details,
           tool: call.name,
-          params: call.input as unknown,
+          params: structuredClone(args) as unknown,
           ...(target === undefined ? {} : { target }),
         },
         bindingHash: binding,
@@ -1325,6 +1364,7 @@ export class PsycheAgentLoop implements AgentLoop {
             ? {}
             : { scopesOffered: decision.scopesOffered }),
         taint: run.taint,
+        ...(run.taint ? { taintSources: dedupeSources(run.taintSources) } : {}),
       });
       const approvalId = issued.approval.id;
       gated.approvalId = approvalId;
@@ -1364,10 +1404,15 @@ export class PsycheAgentLoop implements AgentLoop {
       }
       const answer = await this.#await(run, approvalId, call);
       if (answer !== "approved") return this.#finishBlocked(run, gated, `not approved (${answer})`);
-      const verified = await this.#o.broker.verifyBinding(approvalId, binding);
+      // Recompute from the call's arguments as they are now (security §3.5): a change while the
+      // card was open reaches the broker as a different hash, which denies and audits it.
+      const changed = this.#changedBinding(gated, approvalKind);
+      const verified = await this.#o.broker.verifyBinding(approvalId, changed ?? binding);
       this.#checkAbort(run);
-      if (!verified.ok)
-        return this.#finishBlocked(run, gated, `approval check failed (${verified.reason})`);
+      if (!verified.ok || changed !== undefined) {
+        const reason = verified.ok ? "binding_mismatch" : verified.reason;
+        return this.#finishBlocked(run, gated, `approval check failed (${reason})`, reason);
+      }
       // Only targets the owner approved count as known for later calls (security §3.6).
       if (target !== undefined && target.value !== "") run.targets.add(target.value);
       gated.authority = {
@@ -1443,8 +1488,13 @@ export class PsycheAgentLoop implements AgentLoop {
     }
   }
 
-  async #finishBlocked(run: RunState, gated: Gated, message: string): Promise<GateOutcome> {
-    const outcome = this.#blocked(run, gated.call, message, "blocked", gated);
+  async #finishBlocked(
+    run: RunState,
+    gated: Gated,
+    message: string,
+    errorCode?: string,
+  ): Promise<GateOutcome> {
+    const outcome = this.#blocked(run, gated.call, message, "blocked", gated, errorCode);
     await this.#persist(run, gated, "blocked", (outcome as { done: ModelPart }).done, undefined);
     return outcome;
   }
@@ -1456,6 +1506,21 @@ export class PsycheAgentLoop implements AgentLoop {
   async #dispatch(run: RunState, g: Gated): Promise<ModelPart> {
     this.#checkAbort(run);
     const { call, reg } = g;
+    const changed = this.#changedBinding(g, g.approvalKind ?? g.desc.kind);
+    if (changed !== undefined) {
+      // Last check immediately before dispatch (security §3.5): audit through the broker.
+      if (g.approvalId !== undefined)
+        await this.#o.broker.verifyBinding(g.approvalId, changed).catch(() => undefined);
+      const outcome = await this.#finishBlocked(
+        run,
+        g,
+        "approval check failed (binding_mismatch): arguments changed after the decision",
+        "binding_mismatch",
+      );
+      return (outcome as { done: ModelPart }).done;
+    }
+    // The executor gets its own copy of the gated arguments; its mutations stay its own.
+    const args = structuredClone(g.args);
     const level1 = g.desc.summary ?? call.name;
     this.#toolEvent(run, call.id, call.name, "running", level1);
     const ctx: TurnToolContext = {
@@ -1478,8 +1543,8 @@ export class PsycheAgentLoop implements AgentLoop {
     try {
       result =
         reg.run !== undefined
-          ? await reg.run(call.input, ctx)
-          : await reg.execute(call.id, call.input, run.abort.signal, ctx.onUpdate);
+          ? await reg.run(args, ctx)
+          : await reg.execute(call.id, args, run.abort.signal, ctx.onUpdate);
     } catch (err) {
       if (err instanceof RunEnd) throw err;
       if (run.abort.signal.aborted) throw abortReason(run) ?? new RunEnd("cancelled");
@@ -1496,7 +1561,7 @@ export class PsycheAgentLoop implements AgentLoop {
         ...runRef(run),
         toolCallId: call.id,
         tool: call.name,
-        params: structuredClone(call.input),
+        params: structuredClone(g.args),
         spec: structuredClone(reg.spec),
         taint: run.taint,
         permissionMode: run.permissionMode,
@@ -1575,7 +1640,7 @@ export class PsycheAgentLoop implements AgentLoop {
       runId: run.runId,
       messageId: run.messageId,
       tool: g.call.name,
-      paramsRedacted: structuredClone(g.call.input),
+      paramsRedacted: structuredClone(g.args),
       paramsHash: g.hash,
       sideEffect: g.sideEffect,
       target: g.target ?? null,

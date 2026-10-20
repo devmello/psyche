@@ -47,7 +47,7 @@ stateDiagram-v2
   done --> [*]
 ```
 
-Checkpoints (one per step; the worker uses the tool call id) are `pending | running | done | failed | uncertain`. Whenever a task leaves `running` with a step still `running` (lease expired, pause, cancel, park, done, failed, budget stop), a `replaySafe` step goes back to `pending` (`failed` when the task is terminal) and an unsafe one becomes `uncertain`. Nothing ever moves a step out of `uncertain` except `reconcile` (the owner or a receipt says what happened), and `retry({ fromStepId })` resets only failed steps and completed safe ones, never a completed unsafe one. The next turn is told which steps are uncertain and not to repeat them.
+Checkpoints (one per step; the worker uses the tool call id) are `pending | running | done | failed | uncertain`. Whenever a task leaves `running` with a step still `running` (lease expired, pause, cancel, park, done, failed, budget stop), a `replaySafe` step goes back to `pending` (`failed` when the task is terminal) and an unsafe one becomes `uncertain`. `checkpoint()` only moves a step out of the open statuses (`pending`, `running`); a settled step (`done`, `failed`, `uncertain`) accepts the same status again and rejects anything else with `conflict`, checked in code and by a guarded `UPDATE` (`checkpointMayMove`). The worker turns that conflict (a provider reusing tool-call ids) into an Activity line instead of failing the turn. Nothing ever moves a step out of `uncertain` except `reconcile` (the owner or a receipt says what happened), and `retry({ fromStepId })` resets only failed steps and completed safe ones, never a completed unsafe one. The next turn is told which steps are uncertain and not to repeat them.
 
 ## How it maps to the docs
 

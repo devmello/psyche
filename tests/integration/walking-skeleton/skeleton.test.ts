@@ -237,12 +237,13 @@ describe("walking skeleton (scripted model)", () => {
       { threadId, content: "In the background, find the corner shop's hours" },
       true,
     );
-    // The broker floors task.start to `write` (S05), so delegating shows a card too; Allow once.
+    // Delegation is a `write` (design-08, #48): its own `task_start` card; Allow once.
     const card = await c.event<{ approval: Approval & { details: { tool: string } } }>(
       "approval.created",
       (p) => p.approval.details.tool === "task.start",
       from,
     );
+    expect(card.approval).toMatchObject({ kind: "task_start", sideEffect: "write" });
     await approveOnce(c, card.approval.id);
     const started = await c.event<{ task: { id: string } }>("task.updated", () => true, from);
     // Quit the window: the desktop disconnects; the Gateway keeps the task going.

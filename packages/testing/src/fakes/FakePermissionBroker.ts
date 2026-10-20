@@ -124,6 +124,7 @@ export function inferApprovalKind(tool: string): ApprovalKind {
   if (tool.startsWith("mcp__")) return "mcp_tool";
   if (tool.startsWith("computer.")) return "computer_action";
   if (tool === "memory") return "memory_protected_write";
+  if (tool === "task.start" || tool === "task.create") return "task_start";
   return "connector_action";
 }
 
@@ -369,11 +370,12 @@ export class FakePermissionBroker implements PermissionBroker {
         requester.display ?? requester.identityId ?? requester.senderId ?? "unknown"
       }`;
     }
-    const sources = input.context?.taintSources;
+    const sources = input.taintSources ?? input.context?.taintSources;
     if (sources !== undefined && sources.length > 0) {
       approval.details.taintSources = sources.map((s) =>
         [s.sourceKind, s.origin ?? s.sender].filter((x) => x !== undefined).join(":"),
       );
+      if (approval.taint) approval.taintSources = structuredClone(sources);
     }
     const tokens = new Map<string, { surface: Surface; used: boolean }>();
     const answerTokens: Record<Surface, string> = {};

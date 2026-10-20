@@ -1,6 +1,7 @@
 import type {
   Decision,
   GrantScope,
+  JsonObject,
   ModelRef,
   PermissionMode,
   ProvenanceOut,
@@ -14,7 +15,7 @@ import type { InputRequest } from "../schemas/tasks.ts";
 import type { RunStatus } from "../schemas/threads.ts";
 import type { ToolSpec } from "../schemas/tools.ts";
 import type { Unsubscribe } from "./Clock.ts";
-import type { Requester } from "./PermissionBroker.ts";
+import type { ConnectorRule, Requester } from "./PermissionBroker.ts";
 
 /**
  * Agent loop contract (architecture §4.2–§4.3; owner S02). pi-agent-core semantics: one turn
@@ -70,6 +71,24 @@ export interface StartTurnInput {
    * matching; the broker decides every call of the turn as that person's.
    */
   requester?: Requester;
+  /**
+   * Write-ahead hook (architecture §4.5 "Leases"; security §3.11, #63): awaited immediately
+   * before each tool call is dispatched, after the broker and any approval let it through. The
+   * task worker commits the step's `running` checkpoint here, so a crash after a provider applied
+   * an effect always leaves an in-flight step to mark `uncertain` and reconcile, never a silent
+   * re-send. A rejection blocks the call: it is not dispatched.
+   */
+  beforeDispatch?: (call: DispatchIntent) => Promise<void>;
+}
+
+/** A tool call the loop is about to dispatch (`StartTurnInput.beforeDispatch`). */
+export interface DispatchIntent {
+  toolCallId: string;
+  tool: string;
+  /** Effective side-effect class (the stricter of the spec and the call's description). */
+  sideEffect: SideEffect;
+  /** The approval that authorized it, when the broker asked. */
+  approvalId?: string;
 }
 
 export type AgentEvent =
@@ -216,6 +235,13 @@ export interface ToolCallDescription {
   grantKey?: string;
   /** One-line status for the transcript, e.g. `Opened united.com`. */
   summary?: string;
+  /**
+   * What the approval card shows besides the params (e.g. `{path, diff}` for `file_write`).
+   * Display only: never part of the binding, and it cannot override `tool`, `params` or `target`.
+   */
+  details?: JsonObject;
+  /** Connector action-matrix key; the loop passes it to the broker as `ToolCallIntent.connectorRule`. */
+  connectorRule?: ConnectorRule;
 }
 
 /**

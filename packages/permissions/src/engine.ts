@@ -382,7 +382,7 @@ export class PolicyEngine {
       else requesterAllowances.push({ rule: v.rule });
     }
 
-    const connector = call.meta?.connector ?? mcpConnector(call.tool);
+    const connector = call.connectorRule ?? call.meta?.connector ?? mcpConnector(call.tool);
     if (connector !== undefined) {
       const effect = p.config.connectors?.[connector.id]?.[connector.action];
       const rule = `connector:${connector.id}/${connector.action}`;

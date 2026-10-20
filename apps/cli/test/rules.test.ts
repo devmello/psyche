@@ -81,6 +81,7 @@ function baseSnapshot(): Snapshot {
     modeIssues: [],
     homeMode: "700",
     chromeDebugPort: false,
+    realChrome: { ok: true, value: { enabled: true, attached: false, sessions: 0 } },
     localModel: false,
   };
 }
@@ -568,6 +569,36 @@ describe("audit rules", () => {
     ]);
   });
 
+  it("browser.real_chrome_attached while a task holds the owner's Chrome, nothing otherwise", () => {
+    const attached = {
+      ok: true as const,
+      value: {
+        enabled: true,
+        attached: true,
+        port: 53817,
+        pid: 4242,
+        since: "2026-10-20T09:00:00.000Z",
+        sessions: 1,
+        userDataDir: "/Users/o/.psyche/browser/real-chrome/default",
+      },
+    };
+    const f = finding(snap({ realChrome: attached }), "browser.real_chrome_attached");
+    expect(f).toMatchObject([{ severity: "medium" }]);
+    expect(f[0]?.message).toContain("127.0.0.1:53817");
+    expect(f[0]?.message).toContain("pid 4242");
+    expect(f[0]?.message).toContain("/Users/o/.psyche/browser/real-chrome/default");
+    expect(f[0]?.fix).toContain("15 minutes idle");
+    // Off or idle: no finding.
+    expect(auditRules(snap({}), NOW).findings).toEqual([]);
+    // The fixed 9222 probe does not report the same port twice.
+    const on9222 = snap({
+      chromeDebugPort: true,
+      realChrome: { ok: true, value: { ...attached.value, port: 9222 } },
+    });
+    expect(finding(on9222, "browser.chrome_debug_port")).toEqual([]);
+    expect(finding(on9222, "browser.real_chrome_attached")).toHaveLength(1);
+  });
+
   it("unavailable queries land in notChecked, never as passes", () => {
     const r = auditRules(
       snap({
@@ -578,12 +609,14 @@ describe("audit rules", () => {
         sandbox: unavailable,
         vault: unavailable,
         skills: unavailable,
+        realChrome: unavailable,
       }),
       NOW,
     );
     expect(r.findings).toEqual([]);
     expect(r.notChecked.map((n) => n.rule).sort()).toEqual(
       [
+        "browser.realChrome",
         "channels",
         "devices",
         "grants",

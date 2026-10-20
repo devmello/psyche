@@ -49,6 +49,7 @@ export interface ApprovalRequest {
     summary:                string;
     surfaces:               string[];
     taint:                  boolean;
+    taintSources?:          TaintSource[];
     target?:                Target;
     targetKind?:            TargetKind;
 }
@@ -63,7 +64,7 @@ export interface DecidedByClass {
     senderId?: string;
 }
 
-export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change";
+export type ApprovalKind = "exec" | "exec_host" | "send_email" | "calendar_write" | "message_send" | "browser_submit" | "credential_fill" | "purchase" | "file_write" | "connector_action" | "computer_action" | "new_origin" | "plan_exit" | "skill_install" | "mcp_tool" | "archive_thread" | "memory_protected_write" | "pairing" | "policy_change" | "task_start";
 
 export interface RequestedBy {
     agent?:      string;
@@ -76,6 +77,16 @@ export interface RequestedBy {
 export type SideEffect = "none" | "read" | "write" | "destructive" | "financial";
 
 export type ApprovalStatus = "pending" | "approved" | "denied" | "expired" | "invalidated";
+
+export interface TaintSource {
+    origin?: string;
+    sender?: string;
+    /**
+     * Tool name or source kind (web, email, transcript, task, …)
+     */
+    sourceKind:  string;
+    toolCallId?: string;
+}
 
 export interface Target {
     /**
@@ -2476,6 +2487,16 @@ export interface QueuedMessageResult {
     messageId: string;
 }
 
+export interface RealChromeStatus {
+    attached:     boolean;
+    enabled:      boolean;
+    pid?:         number;
+    port?:        number;
+    sessions:     number;
+    since?:       string;
+    userDataDir?: string;
+}
+
 export interface ReceiptBlock {
     receiptId: string;
     type:      ReceiptBlockType;
@@ -2674,8 +2695,9 @@ export interface SettingsGetResult {
 }
 
 export interface SettingsSetParams {
-    key:   string;
-    value: unknown;
+    approvalId?: string;
+    key:         string;
+    value:       unknown;
 }
 
 export interface SettingsSetResult {
@@ -3106,16 +3128,6 @@ export interface PlanStep {
 export type PlanStepStatus = "pending" | "running" | "done" | "failed" | "skipped";
 
 export type TaskStatus = "queued" | "running" | "awaiting_input" | "awaiting_approval" | "paused" | "done" | "failed" | "cancelled";
-
-export interface TaintSource {
-    origin?: string;
-    sender?: string;
-    /**
-     * Tool name or source kind (web, email, transcript, task, …)
-     */
-    sourceKind:  string;
-    toolCallId?: string;
-}
 
 export interface TaskUpdatedPayload {
     task: Task;

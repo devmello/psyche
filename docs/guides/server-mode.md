@@ -178,6 +178,33 @@ Then set `gateway.publicOrigin` with `psyche config set` and restart the Gateway
 
 Use this when you need a hostname a browser can reach without joining a tailnet. `cloudflared` connects out to Cloudflare, and Cloudflare Access decides who may reach the hostname. Put `CLOUDFLARE_TUNNEL_TOKEN` in `deploy/.env` and start the `cloudflare` profile. The steps are in `deploy/cloudflare/README.md`. Access keeps strangers out; it does not authorize the API, so every client still pairs.
 
+The Gateway checks Access's assertion itself. Set `gateway.cloudflareAccess` in `config.json` to your team domain and the application's AUD tag:
+
+```json
+{ "gateway": { "cloudflareAccess": { "teamDomain": "myteam.cloudflareaccess.com", "audience": "<AUD tag>" } } }
+```
+
+Every forwarded or remote connection then needs a `Cf-Access-Jwt-Assertion` that verifies against the team's keys (signature, audience, issuer, expiry), or it gets 401. The verified email is shown on the pairing card.
+
+### Container bind (`PSYCHE_BIND=container`)
+
+Without host networking, the Gateway can listen on its container interface instead of loopback:
+
+- `PSYCHE_BIND=container` binds the container's own address (or `PSYCHE_HOST`, which must be a real interface address; `0.0.0.0`, `::` and loopback are refused).
+- `PSYCHE_GATEWAY_TOKEN_FILE` is required: a Compose secret holding at least 32 characters, mode 0600 or 0400, owned by the Gateway's user. Looser permissions stop the Gateway at startup.
+- Set `gateway.trustedProxy.trustedProxies` to the proxies' addresses on that network, and `gateway.trustedProxy.tailscaleProxies` to the Tailscale container's.
+
+Who gets through:
+
+| Peer | Needs |
+| --- | --- |
+| A trusted proxy (`trustedProxies`) | A verified identity: a valid Cloudflare Access assertion, or the `Tailscale-User-Login` header from a peer in `tailscaleProxies`. A proxy connection with neither is refused. |
+| Anything else (the CLI, a script) | `Authorization: Bearer <token>` |
+
+`/healthz` stays open for the Compose healthcheck. This only gates the transport: every device still pairs, and its scopes still apply. Another container on the same network gets nothing without the token or a proxy identity.
+
+Put the Gateway and the proxies on an internal network (`internal: true`) and pin `PSYCHE_HOST` to the Gateway's address there. The Gateway still needs outbound access for model APIs and connectors, so it also joins an egress network; it never listens on that one. The shipped Compose file still uses host networking until S22 switches it.
+
 ## Pairing clients with a server
 
 ### The first admin device
@@ -283,8 +310,8 @@ node apps/cli/src/main.ts security audit
 ## Not supported yet
 
 - A published container image, release binaries, or a packaged `psyched`.
-- Binding the Gateway to anything but loopback, or a container network with token auth. Compose uses host networking instead.
-- Passkey sign-in for the web client, and Cloudflare Access token verification.
+- The shipped Compose file on the container bind: it still uses host networking (see "Container bind").
+- Passkey sign-in for the web client.
 - Model keys from the vault, and setting the vault up from the app or the CLI.
 - The agent's browser on a server: the headless browser profile is not used.
 - Using a Mac's helper (approval notifications, Touch ID, apps) from a server Gateway.
