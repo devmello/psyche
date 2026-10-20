@@ -281,7 +281,8 @@ describe("Computer use", () => {
       const last = callsOf(gateway(), "settings.set")
         .filter((c) => (c.params as { key: string }).key === "computerUse.apps")
         .at(-1);
-      const apps = (last?.params as { value: { id: string; tier: string }[] }).value;
+      const apps =
+        (last?.params as { value: { id: string; tier: string }[] } | undefined)?.value ?? [];
       expect(apps.find((a) => a.id === "com.apple.Notes")?.tier).toBe("ask");
     });
     expect(screen.getByText("Esc")).toBeTruthy();

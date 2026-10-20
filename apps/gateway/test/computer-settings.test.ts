@@ -109,7 +109,8 @@ describe("Settings → Computer use → computer-use.json and broker tiers (J5, 
     s.noteApp("not a bundle id");
     expect(published).toHaveLength(1);
     expect(published[0]?.event).toBe("settings.changed");
-    const rows = (published[0]?.payload as { entries: { value: unknown }[] }).entries[0]?.value;
+    const rows = (published[0]?.payload as { entries: { value: unknown }[] } | undefined)
+      ?.entries[0]?.value;
     expect(rows).toEqual([
       { id: "com.apple.Notes", name: "Notes", tier: "read" },
       { id: "com.apple.reminders", name: "Reminders", tier: "ask" },
