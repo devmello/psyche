@@ -128,4 +128,6 @@ This pass covers screens added after the polish wave: Credentials, the Files pan
 9. **Voice hotkey.** The field is free text, and a conflicting shortcut is shown only as muted description text. Options: a shortcut recorder, and an approval-tone hint for the conflict.
 10. **Credential detail.** Approval ids appear in the uses table. That's acceptable at level 2, but they could read "Approved" with the id in a tooltip.
 
+**Decision 2 (matrix radios):** done. `settings/RadioTableRow.tsx` makes each matrix row one radio group of kit `RadioGroupItem`s. Each item is labelled "row: column", and the arrow keys move within the row. Computer use and `ActionMatrix` both use it.
+
 **Decision 7 (destructive rows):** Done: `settings/RowMoreMenu.tsx` in Connectors, Devices, Skills and Credentials. Exceptions: revoking a permission grant tightens access, so it stays a row action; removing a passkey already asks for Touch ID.
