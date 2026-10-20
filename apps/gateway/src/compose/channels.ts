@@ -338,6 +338,13 @@ export function composeChannels(
     ...(setup.pairingRandom === undefined ? {} : { pairingRandom: setup.pairingRandom }),
     ...(Array.isArray(storedOwners) ? { ownerAllowFrom: storedOwners.map(String) } : {}),
     onInboundDecision: (event) => services.channelConversations.record(event),
+    // Security §10: 30/minute per sender by default (`gateway.rateLimits.inboundChatPerMinute`).
+    admitInbound: (channel, message) =>
+      services.rateLimits.inboundChat.admit(`${channel.id}|${message.senderId}`, {
+        channelId: channel.id,
+        channelType: channel.type,
+        senderId: message.senderId,
+      }),
   });
 
   // --- the replying turn, for the reply authority (security §3.6) -----------------------------

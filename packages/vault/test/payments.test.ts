@@ -15,8 +15,11 @@ import {
   LinkCliWallet,
   type LinkWallet,
   PaymentBroker,
+  type PaymentMethod,
   type PurchaseInput,
+  parsePaymentMethods,
   parseSpendRequest,
+  purchaseBindingHash,
   SecretRedactor,
   type SpendRequest,
   type SpendRequestInput,
@@ -41,6 +44,20 @@ class FakeLinkWallet implements LinkWallet {
 
   async spendLimits() {
     return { currency: "usd", perTransaction: this.perTransaction, daily: 50_000, thirtyDay: null };
+  }
+
+  methods: PaymentMethod[] = [
+    { id: "csmrpd_visa1881", brand: "visa", last4: "1881", nickname: null, isDefault: true },
+    {
+      id: "csmrpd_mc5100",
+      brand: "mastercard",
+      last4: "5100",
+      nickname: "Work card",
+      isDefault: false,
+    },
+  ];
+  async paymentMethods(): Promise<PaymentMethod[]> {
+    return structuredClone(this.methods);
   }
 
   async create(input: SpendRequestInput): Promise<SpendRequest> {
@@ -204,7 +221,8 @@ describe("Stripe Link payments (G12)", () => {
       requiresAuthentication: true,
       scopesOffered: ["once"],
       surfaces: ["desktop"],
-      summary: "Pay $35.00 to Stripe Press (press.stripe.com) with Stripe Link",
+      summary:
+        "Pay $35.00 to Stripe Press (press.stripe.com) with Stripe Link, funded by Visa •••• 1881",
     });
   });
 
@@ -383,7 +401,7 @@ describe("Stripe Link payments (G12)", () => {
       { domain: "press.stripe.com", outcome: "success", spendRequestId: sr },
     ]);
     expect((await audit.list()).map((e) => e.kind)).toEqual(
-      expect.arrayContaining(["purchase.requested", "purchase.completed"]),
+      expect.arrayContaining(["purchase.requested", "purchase.captured"]),
     );
     // The card can no longer be filled.
     const page = checkout("https://press.stripe.com", { autocomplete: "cc-number" });
@@ -574,5 +592,190 @@ describe("purchases the agent loop already dispatched", () => {
       details: { reason: "approval_pending" },
     });
     expect(wallet.created).toHaveLength(0);
+  });
+});
+
+describe("funding source in the purchase binding", () => {
+  it("shows and binds the Link payment method's brand and last4", async () => {
+    const issued = await broker.requestPurchase(
+      { ...PURCHASE, paymentMethodId: "csmrpd_mc5100" },
+      REQ,
+    );
+    expect(issued.approval.summary).toContain("funded by Mastercard •••• 5100");
+    expect(issued.approval.details).toMatchObject({
+      paymentMethod: { id: "csmrpd_mc5100", last4: "5100" },
+    });
+    expect(
+      purchaseBindingHash(PURCHASE, { id: "csmrpd_mc5100", brand: "mastercard", last4: "5100" }),
+    ).not.toBe(
+      purchaseBindingHash(PURCHASE, { id: "csmrpd_visa1881", brand: "visa", last4: "1881" }),
+    );
+  });
+
+  it("refuses to pay when the default funding card changed after the approval", async () => {
+    const apr = await approve();
+    wallet.methods = wallet.methods.map((m) => ({ ...m, isDefault: m.id === "csmrpd_mc5100" }));
+    await expect(broker.authorize(apr, PURCHASE)).rejects.toMatchObject({
+      details: { reason: "approval_binding_mismatch" },
+    });
+    expect(wallet.created).toHaveLength(0);
+  });
+
+  it("creates the spend request on the approved payment method and records it", async () => {
+    const rec = await broker.authorize(await approve(), PURCHASE);
+    expect(wallet.created[0]?.paymentMethodId).toBe("csmrpd_visa1881");
+    expect(rec.fundingSource).toEqual({ id: "csmrpd_visa1881", brand: "visa", last4: "1881" });
+    expect(rec.payment.state).toBe("none");
+  });
+
+  it("refuses when Link has no payment method", async () => {
+    wallet.methods = [];
+    await expect(broker.requestPurchase(PURCHASE, REQ)).rejects.toMatchObject({
+      details: { reason: "no_payment_method" },
+    });
+  });
+});
+
+describe("payment lifecycle: hold, capture, refund, decline, release", () => {
+  const ready = async () =>
+    (await broker.awaitCard((await broker.authorize(await approve(), PURCHASE)).spendRequestId))
+      .spendRequestId;
+  const kinds = async () => (await audit.list()).map((e) => e.kind);
+
+  it("holds, then captures; the card is shredded at the hold", async () => {
+    const sr = await ready();
+    const hold = await broker.hold(sr, {
+      holdRef: "HOLD-77",
+      expiresAt: "2026-10-21T08:30:00.000Z",
+    });
+    expect(hold).toMatchObject({
+      kind: "purchase.hold",
+      outcome: "ok",
+      externalRefs: { linkSpendRequestId: sr, holdRef: "HOLD-77" },
+    });
+    expect(readdirSync(join(home.home, "vault", "cards"))).toEqual([]);
+    const page = checkout("https://press.stripe.com", { autocomplete: "cc-number" });
+    expect(
+      await broker.fillCard({ cdp: page.cdp, spendRequestId: sr, field: "number" }),
+    ).toMatchObject({ reason: "no_card" });
+    const capture = await broker.capture(sr, {
+      orderNumber: "SP-1",
+      merchantConfirmation: "conf_1",
+    });
+    expect(capture).toMatchObject({
+      kind: "purchase",
+      outcome: "ok",
+      externalRefs: { orderNumber: "SP-1" },
+    });
+    expect(broker.get(sr)?.payment).toMatchObject({
+      state: "captured",
+      held: 3500,
+      captured: 3500,
+    });
+    expect(await kinds()).toEqual(expect.arrayContaining(["purchase.held", "purchase.captured"]));
+    const held = (await audit.list()).find((e) => e.kind === "purchase.held");
+    expect(held?.data).toMatchObject({ receiptId: hold.id, receiptKind: "purchase.hold" });
+    assertNoSecrets([hold, capture, await audit.list()], "lifecycle receipts");
+  });
+
+  it("refuses holds and captures above what was approved or held", async () => {
+    const sr = await ready();
+    await expect(broker.hold(sr, { amount: 3600, holdRef: "H" })).rejects.toMatchObject({
+      details: { reason: "amount_increase" },
+    });
+    await broker.hold(sr, { amount: 3000, holdRef: "H" });
+    await expect(broker.capture(sr, { amount: 3100 })).rejects.toMatchObject({
+      details: { reason: "amount_increase" },
+    });
+    await broker.capture(sr, { amount: 3000, orderNumber: "SP-2" });
+    expect(broker.get(sr)?.payment.captured).toBe(3000);
+  });
+
+  it("refunds partly, then fully, never more than captured", async () => {
+    const sr = await ready();
+    await expect(broker.refund(sr, { refundRef: "re_0" })).rejects.toMatchObject({
+      code: "conflict",
+    });
+    await broker.capture(sr, { orderNumber: "SP-3" });
+    const part = await broker.refund(sr, {
+      amount: 1000,
+      refundRef: "re_1",
+      reason: "one item missing",
+    });
+    expect(part).toMatchObject({ kind: "purchase.refund", externalRefs: { refundRef: "re_1" } });
+    expect(broker.get(sr)?.payment).toMatchObject({ state: "partially_refunded", refunded: 1000 });
+    await expect(broker.refund(sr, { amount: 2600, refundRef: "re_x" })).rejects.toMatchObject({
+      details: { reason: "refund_exceeds_capture" },
+    });
+    await broker.refund(sr, { refundRef: "re_2" });
+    expect(broker.get(sr)?.payment).toMatchObject({ state: "refunded", refunded: 3500 });
+    expect(await kinds()).toContain("purchase.refunded");
+  });
+
+  it("records a decline: nothing charged, Link told, no capture afterwards", async () => {
+    const sr = await ready();
+    const declined = await broker.decline(sr, { code: "card_declined" });
+    expect(declined).toMatchObject({
+      kind: "purchase.declined",
+      outcome: "failed",
+      externalRefs: { declineCode: "card_declined" },
+    });
+    expect(wallet.reports.at(-1)).toMatchObject({ outcome: "blocked", tags: ["payment_declined"] });
+    await expect(broker.capture(sr, { orderNumber: "x" })).rejects.toMatchObject({
+      code: "conflict",
+    });
+    expect(broker.get(sr)?.payment).toMatchObject({ state: "declined", captured: 0 });
+  });
+
+  it("releases a hold without a charge", async () => {
+    const sr = await ready();
+    await broker.hold(sr, { holdRef: "HOLD-9" });
+    const released = await broker.releaseHold(sr, { reason: "owner chose another flight" });
+    expect(released).toMatchObject({ kind: "purchase.hold_released", outcome: "ok" });
+    expect(broker.get(sr)?.payment).toMatchObject({ state: "released", held: 0, captured: 0 });
+    await expect(broker.capture(sr, {})).rejects.toMatchObject({ code: "conflict" });
+  });
+
+  it("complete() maps onto the lifecycle", async () => {
+    const declined = await ready();
+    expect(
+      (await broker.complete(declined, { outcome: "blocked", tags: ["payment_declined"] })).kind,
+    ).toBe("purchase.declined");
+    const held = await ready();
+    await broker.hold(held, { holdRef: "H" });
+    expect((await broker.complete(held, { outcome: "abandoned" })).kind).toBe(
+      "purchase.hold_released",
+    );
+  });
+});
+
+describe("parsePaymentMethods", () => {
+  it("maps the CLI's list (plain or {data}) and keeps only redacted fields", () => {
+    const raw = [
+      {
+        id: "csmrpd_a1",
+        type: "card",
+        card: { brand: "visa", last4: "1881", number: "x" },
+        is_default: true,
+      },
+      {
+        id: "csmrpd_b2",
+        type: "bank_account",
+        bank_account: { last4: "6789" },
+        nickname: "Checking",
+      },
+      { id: "../bad", card: { last4: "0000" } },
+    ];
+    expect(parsePaymentMethods(raw)).toEqual([
+      { id: "csmrpd_a1", brand: "visa", last4: "1881", nickname: null, isDefault: true },
+      {
+        id: "csmrpd_b2",
+        brand: "bank_account",
+        last4: "6789",
+        nickname: "Checking",
+        isDefault: false,
+      },
+    ]);
+    expect(parsePaymentMethods({ data: raw.slice(0, 1) })).toHaveLength(1);
   });
 });

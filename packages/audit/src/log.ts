@@ -29,10 +29,23 @@ export function anchorMessage(seq: number, hash: string): string {
 export interface AnchorSigner {
   readonly keyId: string;
   sign(message: string): string | Promise<string>;
+  /**
+   * Called after each anchor is stored: the signer's own record of the last anchored entry,
+   * kept outside the audit directory, so cutting the log and its anchors together is detected.
+   */
+  anchored?(anchor: AuditAnchor): void;
 }
 
 export interface AnchorVerifier {
   verify(keyId: string, message: string, signature: string): boolean | Promise<boolean>;
+  /**
+   * The first entry seq whose anchors must carry a verified signature: when signing was
+   * enrolled. Earlier anchors (an older key, or none) are checked against the chain only.
+   * Absent: every anchor boundary from seq 0.
+   */
+  signingSinceSeq?(): number | undefined;
+  /** The last anchor the signer recorded outside the audit directory. */
+  head?(): { seq: number; hash: string } | undefined;
 }
 
 export interface AuditQuery {
@@ -56,7 +69,16 @@ export interface AuditQuery {
 }
 
 export type DetailedVerification =
-  | { ok: true; count: number; anchors: number; lastHash: string }
+  | {
+      ok: true;
+      count: number;
+      anchors: number;
+      lastHash: string;
+      /** Anchors whose signature verified (only with a verifier). */
+      signedAnchors?: number;
+      anchorKeyIds?: string[];
+      signingSinceSeq?: number;
+    }
   | {
       ok: false;
       brokenAtSeq: number;
@@ -88,6 +110,11 @@ export interface AuditLogOptions {
   signer?: AnchorSigner;
   verifier?: AnchorVerifier;
   anchorEvery?: number;
+  /**
+   * Also anchor an entry when the last anchor is older than this (ms), so a quiet log's recent
+   * tail is covered too. Off by default; boundaries every `anchorEvery` entries always anchor.
+   */
+  anchorIntervalMs?: number;
 }
 
 const systemClock: Clock = { now: () => Date.now() };
@@ -104,6 +131,8 @@ export class HashChainAuditLog implements AuditLog {
   readonly #signer: AnchorSigner | undefined;
   readonly #verifier: AnchorVerifier | undefined;
   readonly #anchorEvery: number;
+  readonly #anchorIntervalMs: number | undefined;
+  #lastAnchorMs: number | undefined;
   readonly #listeners = new Set<AuditListener>();
   #queue: Promise<unknown> = Promise.resolve();
 
@@ -117,6 +146,22 @@ export class HashChainAuditLog implements AuditLog {
     this.#signer = options.signer;
     this.#verifier = options.verifier;
     this.#anchorEvery = options.anchorEvery ?? ANCHOR_EVERY;
+    this.#anchorIntervalMs = options.anchorIntervalMs;
+  }
+
+  #lastAnchorAt(): number {
+    if (this.#lastAnchorMs === undefined) {
+      let last = Number.NEGATIVE_INFINITY;
+      for (const a of this.store.anchors()) last = Math.max(last, Date.parse(a.ts));
+      this.#lastAnchorMs = last;
+    }
+    return this.#lastAnchorMs;
+  }
+
+  #dueForAnchor(entry: AuditEntry): boolean {
+    if ((entry.seq + 1) % this.#anchorEvery === 0) return true;
+    if (this.#anchorIntervalMs === undefined) return false;
+    return Date.parse(entry.ts) - this.#lastAnchorAt() >= this.#anchorIntervalMs;
   }
 
   /** Appends are serialized so `seq` and `prev` never race, even with an async signer. */
@@ -148,7 +193,7 @@ export class HashChainAuditLog implements AuditLog {
     }
     const entry: AuditEntry = { ...base, hash: auditEntryHash(base) };
     this.store.append(entry);
-    if (this.#signer !== undefined && (entry.seq + 1) % this.#anchorEvery === 0) {
+    if (this.#signer !== undefined && this.#dueForAnchor(entry)) {
       const signature = await this.#signer.sign(anchorMessage(entry.seq, entry.hash));
       const anchor: AuditAnchor = {
         seq: entry.seq,
@@ -158,6 +203,8 @@ export class HashChainAuditLog implements AuditLog {
         signature,
       };
       this.store.appendAnchor(anchor);
+      this.#lastAnchorMs = Date.parse(entry.ts);
+      this.#signer.anchored?.(anchor);
     }
     for (const listener of this.#listeners) {
       try {
@@ -263,29 +310,52 @@ export class HashChainAuditLog implements AuditLog {
       expected += 1;
     }
     let anchors = 0;
+    let signedAnchors = 0;
+    const keyIds = new Set<string>();
     const anchorList = [...this.store.anchors()];
+    const since = this.#verifier?.signingSinceSeq?.() ?? 0;
     if (this.#verifier !== undefined || this.#signer !== undefined) {
       // Every boundary must carry an anchor, or deleting anchors.jsonl hides a truncation.
       const have = new Set(anchorList.map((a) => a.seq));
-      for (let seq = this.#anchorEvery - 1; seq < expected; seq += this.#anchorEvery) {
+      const first = Math.ceil((since + 1) / this.#anchorEvery) * this.#anchorEvery - 1;
+      for (let seq = first; seq < expected; seq += this.#anchorEvery) {
         if (!have.has(seq)) return { ok: false, brokenAtSeq: seq, reason: "anchor_missing" };
       }
+    }
+    // The signer's own record of its last anchor, kept outside the audit directory: cutting the
+    // tail together with the anchors past the cut no longer looks like a shorter log.
+    const head = this.#verifier?.head?.();
+    if (head !== undefined) {
+      const h = hashes.get(head.seq);
+      if (h === undefined) return { ok: false, brokenAtSeq: expected, reason: "truncated" };
+      if (h !== head.hash) return { ok: false, brokenAtSeq: head.seq, reason: "anchor_mismatch" };
     }
     for (const a of anchorList) {
       const h = hashes.get(a.seq);
       if (h === undefined) return { ok: false, brokenAtSeq: expected, reason: "truncated" };
       if (h !== a.hash) return { ok: false, brokenAtSeq: a.seq, reason: "anchor_mismatch" };
-      if (this.#verifier !== undefined) {
+      if (this.#verifier !== undefined && a.seq >= since) {
         const valid = await this.#verifier.verify(
           a.keyId,
           anchorMessage(a.seq, a.hash),
           a.signature,
         );
         if (!valid) return { ok: false, brokenAtSeq: a.seq, reason: "anchor_signature" };
+        signedAnchors += 1;
+        keyIds.add(a.keyId);
       }
       anchors += 1;
     }
-    return { ok: true, count: expected, anchors, lastHash: prev };
+    if (this.#verifier === undefined) return { ok: true, count: expected, anchors, lastHash: prev };
+    return {
+      ok: true,
+      count: expected,
+      anchors,
+      lastHash: prev,
+      signedAnchors,
+      anchorKeyIds: [...keyIds].sort(),
+      signingSinceSeq: since,
+    };
   }
 }
 

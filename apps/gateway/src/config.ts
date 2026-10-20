@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { DEFAULT_GATEWAY_HOST, DEFAULT_GATEWAY_PORT, PsycheError } from "@psyche/protocol";
+import type { RateLimitSettings } from "./compose/rate-limits.ts";
 import { trustedProxyList } from "./proxy.ts";
 
 import { resolveNodeSocketPath } from "./socket-path.ts";
@@ -45,6 +46,11 @@ export interface GatewayConfig {
    * `Cf-Access-Jwt-Assertion` for this team and application. `null` = not configured.
    */
   cloudflareAccess: { teamDomain: string; audience: string } | null;
+  /**
+   * `gateway.rateLimits` (security §10): inbound chat per sender and `web_fetch` per Task, per
+   * minute. Absent keys use the defaults (30 and 60).
+   */
+  rateLimits?: Partial<RateLimitSettings>;
 }
 
 /** The keys `config.json` may set (no secrets; architecture §12). */
@@ -56,6 +62,7 @@ interface ConfigFile {
     publicOrigin?: string;
     trustedProxy?: { enabled?: boolean; trustedProxies?: string[]; tailscaleProxies?: string[] };
     cloudflareAccess?: { teamDomain: string; audience: string };
+    rateLimits?: Partial<RateLimitSettings>;
   };
 }
 
@@ -98,6 +105,7 @@ export function readConfigFile(path: string): ConfigFile {
     "publicOrigin",
     "trustedProxy",
     "cloudflareAccess",
+    "rateLimits",
   ]);
   for (const key of Object.keys(g))
     if (!known.has(key)) bad(`gateway.${key}`, "is not a known key");
@@ -140,7 +148,22 @@ export function readConfigFile(path: string): ConfigFile {
     }
     out.cloudflareAccess = { teamDomain: cf.teamDomain as string, audience: cf.audience as string };
   }
+  if (g.rateLimits !== undefined) out.rateLimits = rateLimitsFrom(g.rateLimits);
   return { gateway: out };
+}
+
+function rateLimitsFrom(value: unknown): Partial<RateLimitSettings> {
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    bad("gateway.rateLimits", "must be an object");
+  const out: Partial<RateLimitSettings> = {};
+  for (const [key, n] of Object.entries(value as Record<string, unknown>)) {
+    if (key !== "inboundChatPerMinute" && key !== "fetchPerMinute")
+      bad(`gateway.rateLimits.${key}`, "is not a known key");
+    if (!Number.isInteger(n) || (n as number) < 1 || (n as number) > 10_000)
+      bad(`gateway.rateLimits.${key}`, "must be an integer 1-10000");
+    out[key] = n as number;
+  }
+  return out;
 }
 
 /** An HTTPS origin (or `http://localhost[:port]` for development), without path. */
@@ -256,5 +279,8 @@ export function resolveConfig(
       overrides.cloudflareAccess !== undefined
         ? overrides.cloudflareAccess
         : (file.cloudflareAccess ?? null),
+    ...((overrides.rateLimits ?? file.rateLimits) === undefined
+      ? {}
+      : { rateLimits: (overrides.rateLimits ?? file.rateLimits) as Partial<RateLimitSettings> }),
   };
 }
