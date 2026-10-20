@@ -830,6 +830,8 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
           : { textSha256: hashCanonical(p.text ?? p.keys ?? "") }),
       },
       grantKey: `${p.app}|${tierFor(p.action)}`,
+      // The broker's per-app tier check keys on the action: a click needs `click`, typing `interact`.
+      meta: { app: p.app, action: p.action },
       summary: `${what} in ${p.app}`,
       details: {
         app: p.app,
@@ -1008,6 +1010,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         target: appTarget(p.app),
         bindingFields: { app: p.app, tierRequired: "click", action: "open_app" },
         grantKey: `${p.app}|click`,
+        meta: { app: p.app, action: "open_app" },
         summary: `Open ${p.app}`,
         ...(p.url === undefined ? {} : { details: { app: p.app, url: p.url } }),
       }),
@@ -1049,6 +1052,7 @@ export function createComputerUse(deps: ComputerDeps): ComputerUse {
         target: appTarget(p.app),
         bindingFields: { app: p.app, tierRequired: "click", action: "focus" },
         grantKey: `${p.app}|click`,
+        meta: { app: p.app, action: "focus" },
         summary: `Focus ${p.app}`,
       }),
       async run(p, callId, signal) {

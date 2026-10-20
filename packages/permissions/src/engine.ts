@@ -446,7 +446,17 @@ export class PolicyEngine {
       floors.push({ rule: "memory:protected_path", reason: "protected memory files always ask" });
     }
 
-    const app = call.meta?.app ?? (call.target?.kind === "app" ? call.target.value : undefined);
+    const targetApp = call.target?.kind === "app" ? call.target.value : undefined;
+    const app = call.meta?.app ?? targetApp;
+    if (
+      kind === "computer_action" &&
+      call.meta?.app !== undefined &&
+      targetApp !== undefined &&
+      call.meta.app.toLowerCase() !== targetApp.toLowerCase()
+    ) {
+      // The tier check must judge the app the call acts on, never a lenient one beside it.
+      return done("deny", "app_tier:mismatch", "the action's app does not match its target");
+    }
     if (kind === "computer_action" && app !== undefined) {
       const { tier, capped, reason } = effectiveTier(
         app,
@@ -454,6 +464,7 @@ export class PolicyEngine {
           ([k]) => k.toLowerCase() === app.toLowerCase(),
         )?.[1],
       );
+      // The action the executor described (`computer.act` → `click` or `type`), else the tool.
       const needed = tierRequired(call.meta?.action ?? call.tool);
       if (tier === "off") return done("deny", "app_tier:off", reason || `${app} is off`);
       const cap = appCap(app);
