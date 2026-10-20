@@ -395,6 +395,14 @@
         "sideEffecting": false
       },
       {
+        "description": "The desktop reports pane visibility and owner input (pause-when-unwatched).",
+        "name": "attention.report",
+        "params": "#/$defs/AttentionReportParams",
+        "result": "#/$defs/AttentionReportResult",
+        "scope": "operator.write",
+        "sideEffecting": false
+      },
+      {
         "description": "Exports entries in a time window (default jsonl). Large logs: export a window at a time or use `psyche audit export`.",
         "name": "audit.export",
         "params": "#/$defs/AuditExportParams",
@@ -3075,6 +3083,45 @@
       },
       "required": [
         "artifact"
+      ],
+      "type": "object"
+    },
+    "AttentionPane": {
+      "enum": [
+        "browser",
+        "computer"
+      ],
+      "type": "string"
+    },
+    "AttentionReportParams": {
+      "properties": {
+        "pane": {
+          "$ref": "#/$defs/AttentionPane"
+        },
+        "visible": {
+          "description": "The pane is on screen in the desktop app",
+          "type": "boolean"
+        },
+        "input": {
+          "description": "The owner gave input in the app just now (key, click)",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "pane",
+        "visible"
+      ],
+      "type": "object"
+    },
+    "AttentionReportResult": {
+      "properties": {
+        "ok": {
+          "const": true,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "ok"
       ],
       "type": "object"
     },

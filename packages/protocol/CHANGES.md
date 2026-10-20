@@ -18,6 +18,13 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (#272: pause-when-unwatched signal from the desktop)
+
+For S11 (the desktop reports it), S01 (the Gateway's attention check), and S08 (browser panes).
+
+- New method `attention.report {pane: "browser" | "computer", visible, input?}` → `{ok: true}`, `operator.write`, desktop shell only. The desktop reports pane visibility and owner input, so actions on sensitive apps and origins need the pane visible and recent input (docs/05 §7.2 item 5).
+- New `AttentionPane`.
+
 ### v1 additive — 2026-10-20 (S09, #281: MCP tool descriptions carry provenance)
 
 For S09 (mcp-host sets it), S02 (the loop may taint a turn whose tools include untrusted descriptions) and the model router (S03, marking).

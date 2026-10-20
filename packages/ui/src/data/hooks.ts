@@ -25,6 +25,7 @@ import type {
   ThreadListEntry,
   ToolCall,
   VaultPayment,
+  VmUpdatedPayload,
 } from "@psyche/protocol";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ConnectionState } from "./client.ts";
@@ -810,6 +811,12 @@ export function useLibraryItem(itemId: string | null): LoadState & { item: Libra
 
 export function useToolCall(toolCallId: string | null): ToolCall | null {
   return useStoreState((s) => (toolCallId === null ? null : (s.toolCalls[toolCallId] ?? null)));
+}
+
+/** Sandbox Mac guests from `vm.updated` (VM mode, L1–L5), most recently changed first. */
+export function useVmGuests(): VmUpdatedPayload[] {
+  const guests = useStoreState((s) => s.vmGuests);
+  return useMemo(() => Object.values(guests).sort((a, b) => b.at.localeCompare(a.at)), [guests]);
 }
 
 export function useLibrary(filter: MethodParams<"library.list"> = {}) {

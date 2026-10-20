@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { renderLaunchAgentPlist, renderSystemdUnit } from "../src/supervisor.ts";
 
@@ -251,5 +252,47 @@ describe("deploy/scripts/node-pins.mjs (#295)", () => {
       `FROM node:24.22.1-bookworm@sha256:${d("c")}\nARG X=node:24.22.1-trixie-slim@sha256:${d("d")}\n`,
     );
     expect(checkPins({ f: findPins(out) }).problems).toEqual([]);
+  });
+});
+
+describe("deploy/scripts/release-preflight.mjs (before a tag)", () => {
+  const script = resolve(deploy, "scripts/release-preflight.mjs");
+  const repo = resolve(deploy, "..");
+
+  it("passes on the repository, with the 24 h dependency cool-down present", () => {
+    const r = spawnSync(process.execPath, [script], { encoding: "utf8" });
+    expect(r.status, r.stdout).toBe(0);
+    expect(r.stdout).toMatch(/^ok\s+cooldown: minimumReleaseAge \d+ minutes$/m);
+    expect(r.stdout).toMatch(/^ok\s+node-pins:/m);
+    expect(r.stdout).toMatch(/^ok\s+compose:/m);
+  });
+
+  it("fails without the cool-down, or with a shorter one", () => {
+    for (const ws of [
+      "packages:\n  - apps/*\n",
+      "packages:\n  - apps/*\nminimumReleaseAge: 60\n",
+    ]) {
+      const root = mkdtempSync(join(tmpdir(), "psyche-preflight-"));
+      try {
+        for (const f of [
+          "deploy/Dockerfile",
+          "deploy/docker-compose.yml",
+          "deploy/update-policy.json",
+          "deploy/sandbox-image/Dockerfile",
+          "deploy/sandbox-image/versions.json",
+          "tests/integration/server-mode/Dockerfile",
+          "apps/desktop/src/main/release-keys.ts",
+        ]) {
+          mkdirSync(dirname(join(root, f)), { recursive: true });
+          writeFileSync(join(root, f), readFileSync(join(repo, f)));
+        }
+        writeFileSync(join(root, "pnpm-workspace.yaml"), ws);
+        const r = spawnSync(process.execPath, [script, "--root", root], { encoding: "utf8" });
+        expect(r.status).toBe(1);
+        expect(r.stdout).toMatch(/^fail\s+cooldown:/m);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
   });
 });
