@@ -4,6 +4,7 @@ export * from "./identity.ts";
 export * from "./integrations.ts";
 export * from "./memory.ts";
 export * from "./messages.ts";
+export * from "./models.ts";
 export * from "./permissions.ts";
 export * from "./surfaces.ts";
 export * from "./tasks.ts";
