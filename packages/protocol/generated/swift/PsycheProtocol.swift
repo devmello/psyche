@@ -4292,9 +4292,12 @@ public struct ChannelsSecretsSetParams: Codable, Sendable {
 }
 
 public enum ChannelSecretName: String, Codable, Sendable {
+    case accessToken = "access_token"
+    case appSecret = "app_secret"
     case appToken = "app_token"
     case authToken = "auth_token"
     case botToken = "bot_token"
+    case verifyToken = "verify_token"
 }
 
 // MARK: - ChannelsSecretsSetResult

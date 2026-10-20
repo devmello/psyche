@@ -18,6 +18,10 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-20 (S10: WhatsApp channel secrets, N6)
+
+- `ChannelSecretName` gains `access_token`, `app_secret` and `verify_token` (appended): the WhatsApp Cloud API's Graph access token, the Meta app secret that signs webhooks (`X-Hub-Signature-256`) and the webhook verify token. Stored by `channels.secrets.set` as Gateway-owned vault items.
+
 ### v1 additive — 2026-10-20 (J8 teach mode)
 
 For S14 (the helper's `teach.start` / `teach.stop` / `teach.cancel` / `teach.status`), S01 (Gateway: owner-only teach tools, review then workspace skill), S11 (recording indicator and review screen).
