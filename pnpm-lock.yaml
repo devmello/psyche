@@ -327,6 +327,9 @@ importers:
       '@psyche/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
+      '@psyche/sandbox':
+        specifier: workspace:*
+        version: link:../../packages/sandbox
       '@psyche/scheduler':
         specifier: workspace:*
         version: link:../../packages/scheduler
