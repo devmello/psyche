@@ -126,34 +126,7 @@ export interface V10World {
  * checked against what was pushed (`check`) instead of the scripted `@COMMIT@`, and the sandbox
  * fake accepts any usual way of running the fixture's check.
  */
-/**
- * `code.git`'s input schema is a top-level `anyOf`, which Anthropic refuses (#414). For a live
- * run that measures the rest of V10 anyway, the harness can offer one object instead: every
- * branch's properties, `op` as an enum, `root` and `op` required. The tool still validates the
- * model's input against its own union. Opt-in and reported (`PSYCHE_LIVE_WORKAROUNDS=414`).
- */
-export function flattenTopLevelUnion(schema: Record<string, unknown>): Record<string, unknown> {
-  const branches = schema.anyOf as
-    | { properties?: Record<string, Record<string, unknown>> }[]
-    | undefined;
-  if (branches === undefined || schema.type !== undefined) return schema;
-  const properties: Record<string, Record<string, unknown>> = {};
-  const ops: unknown[] = [];
-  for (const b of branches)
-    for (const [k, v] of Object.entries(b.properties ?? {})) {
-      if (k === "op" && "const" in v) ops.push(v.const);
-      else properties[k] ??= v;
-    }
-  return {
-    type: "object",
-    properties: { ...properties, op: { type: "string", enum: ops } },
-    required: ["root", "op"],
-  };
-}
-
-export async function v10World(
-  options: { live?: boolean; workarounds?: readonly string[] } = {},
-): Promise<V10World> {
+export async function v10World(options: { live?: boolean } = {}): Promise<V10World> {
   const temps: string[] = [];
   const commit = await expectedCommit(temps);
   const { repo, remote } = await fixtureRepo(temps);
@@ -193,20 +166,13 @@ export async function v10World(
       const files = fileTools({ folders: () => s.broker.policy.folders });
       const pick = (name: string) =>
         files.find((t) => t.spec.name === name) as AgentToolRegistration;
-      const tools = codingTools({
+      return codingTools({
         files: { read: pick("read_file"), write: pick("write_file") },
         folders: () => s.broker.policy.folders,
         runner,
         git,
         broker: s.broker,
       });
-      if (options.workarounds?.includes("414") === true)
-        for (const t of tools)
-          if (t.spec.name === "code.git")
-            Object.assign(t.spec, {
-              inputSchema: flattenTopLevelUnion(t.spec.inputSchema as Record<string, unknown>),
-            });
-      return tools;
     },
   };
   const theStack = () => {

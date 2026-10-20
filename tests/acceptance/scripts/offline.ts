@@ -285,7 +285,6 @@ function scorecard(secrets: { ok: boolean; captures: number } | undefined): stri
     scenario: string;
     ok: boolean;
     summary: { hard: { unchecked: number }; soft: { pass: number; fail: number } };
-    workarounds?: string[];
   };
   const cell = (live: Json | undefined, scenario: string, missing: string) => {
     if (live === undefined) return missing;
@@ -299,12 +298,7 @@ function scorecard(secrets: { ok: boolean; captures: number } | undefined): stri
     const soft = rs.reduce((n, r) => n + r.summary.soft.pass, 0);
     const softAll = rs.reduce((n, r) => n + r.summary.soft.pass + r.summary.soft.fail, 0);
     const unchecked = rs.reduce((n, r) => n + r.summary.hard.unchecked, 0);
-    const ws = [...new Set(rs.flatMap((r) => r.workarounds ?? []))];
-    const with_ =
-      ws.length === 0
-        ? ""
-        : ` with harness workaround ${ws.map((w) => `#${w}`).join(", ")} (not the product as shipped: docs/status/known-red.md)`;
-    return `${ok}/${rs.length} hard-clean${with_}, soft ${soft}/${softAll}${unchecked > 0 ? `, ${unchecked} hard unchecked` : ""}`;
+    return `${ok}/${rs.length} hard-clean, soft ${soft}/${softAll}${unchecked > 0 ? `, ${unchecked} hard unchecked` : ""}`;
   };
   const byModel = new Map(lives.map((l) => [String(l.model), l]));
   const pick = (provider: string) =>

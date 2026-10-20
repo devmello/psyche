@@ -5,7 +5,7 @@ import { createModelRouter } from "@psyche/model-router";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { OUT_DIR, writeReport } from "../src/report.ts";
 import { type LiveReport, runScenarioLive } from "./driver.ts";
-import { LIVE_SCENARIO_IDS, scenarioSetup, WORKAROUNDS } from "./setup.ts";
+import { LIVE_SCENARIO_IDS, scenarioSetup } from "./setup.ts";
 
 /**
  * Live model gates (docs/08 Milestones 1 to 3 "Acceptance"): V1 to V10 on a real model, three
@@ -36,13 +36,6 @@ const SCENARIOS = (process.env.PSYCHE_LIVE_SCENARIOS ?? LIVE_SCENARIO_IDS.join("
   .filter((x) => x !== "");
 
 const runs: LiveReport[] = [];
-/** Harness workarounds for open product defects (issue numbers), applied and reported per run. */
-const WORKAROUND_IDS = (process.env.PSYCHE_LIVE_WORKAROUNDS ?? "")
-  .split(",")
-  .map((x) => x.trim().replace(/^#/, ""))
-  .filter((x) => x !== "");
-const workaroundsFor = (scenario: string) =>
-  WORKAROUND_IDS.filter((w) => WORKAROUNDS[w]?.scenarios.includes(scenario) === true);
 
 /** Error text from a provider may echo a credential; never print anything key-shaped. */
 const redact = (text: string) =>
@@ -63,8 +56,6 @@ interface RunRow {
   texts: LiveReport["texts"];
   runInfo: LiveReport["runs"];
   followUps: LiveReport["followUps"];
-  /** Harness workarounds this run used (issue numbers); absent: the product as shipped. */
-  workarounds?: string[];
 }
 
 /**
@@ -98,7 +89,6 @@ afterAll(() => {
     texts: r.texts,
     runInfo: r.runs,
     followUps: r.followUps,
-    ...(workaroundsFor(r.scenario).length === 0 ? {} : { workarounds: workaroundsFor(r.scenario) }),
   }));
   const all = [...kept, ...fresh].sort((a, b) => a.scenario.localeCompare(b.scenario));
   writeReport(`live-${slug}`, {
@@ -153,10 +143,7 @@ describe.skipIf(!LIVE)(`live gates on ${MODEL || "(no model)"}`, () => {
     for (let run = 1; run <= REPEATS; run += 1) {
       it(`${scenario} run ${run}/${REPEATS} passes every hard assertion`, async () => {
         if (provider === undefined) throw new Error("no model provider");
-        const world = await scenarioSetup(scenario, {
-          live: true,
-          workarounds: workaroundsFor(scenario),
-        });
+        const world = await scenarioSetup(scenario, { live: true });
         try {
           const r = await runScenarioLive(world.dir, {
             ...(world.overrides === undefined ? {} : { overrides: world.overrides }),
