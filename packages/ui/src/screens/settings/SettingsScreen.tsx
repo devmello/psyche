@@ -255,7 +255,7 @@ export function SettingsScreen({
   return (
     <div className="flex min-h-0 flex-col gap-4 md:grid md:grid-cols-[14rem_minmax(0,1fr)] md:gap-6">
       <div className="flex flex-col gap-3">
-        <h1 className="text-2xl font-semibold">Settings</h1>
+        <h1 className="text-h1 text-foreground">Settings</h1>
         <nav aria-label="Settings sections">
           <ul ref={navRef} onKeyDown={onNavKey} className="flex flex-col gap-0.5">
             {SETTINGS_SECTIONS.map((s) => {
@@ -283,7 +283,7 @@ export function SettingsScreen({
           </ul>
         </nav>
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 max-w-[var(--page-width)]">
         <SettingsSectionView section={current} shell={shell} />
       </div>
     </div>

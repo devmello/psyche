@@ -9,6 +9,7 @@ import { type FormEvent, type ReactElement, useId, useState } from "react";
 import { Button } from "../../components/ui/button.tsx";
 import { Input } from "../../components/ui/input.tsx";
 import { Label } from "../../components/ui/label.tsx";
+import { NativeSelect } from "../../components/ui/native-select.tsx";
 import {
   Table,
   TableBody,
@@ -265,9 +266,9 @@ function AddCredentialForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
           <Label htmlFor={`${id}-kind`}>Kind</Label>
-          <select
+          <NativeSelect
             id={`${id}-kind`}
-            className="h-8 rounded-lg border border-input bg-background px-2 text-sm"
+            className="min-w-48"
             value={kind}
             onChange={(e) => setKind(e.target.value as CredentialKind)}
           >
@@ -276,7 +277,7 @@ function AddCredentialForm({
                 {KIND_LABEL[k]}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor={`${id}-name`}>Name</Label>
