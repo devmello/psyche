@@ -41,6 +41,8 @@ export const ChannelsMethods = {
       status: Type.Optional(StringEnum(["active", "paused"])),
       /** Merged into `Channel.config` (groups, contextVisibility, commandsAllowFrom, rate limits). */
       config: Type.Optional(JsonObject),
+      /** Fresh presence: the approved `policy_change` card from a first `approval_required` call. */
+      approvalId: Type.Optional(Id),
     }),
     result: Type.Object({ channel: Channel }),
     scope: "operator.admin",
@@ -53,6 +55,8 @@ export const ChannelsMethods = {
       list: StringEnum(["allowFrom", "groupAllowFrom", "ownerIds"]),
       add: Type.Optional(SenderList),
       remove: Type.Optional(SenderList),
+      /** Fresh presence: the approved `policy_change` card from a first `approval_required` call. */
+      approvalId: Type.Optional(Id),
     }),
     result: Type.Object({ channel: Channel }),
     scope: "operator.admin",
@@ -75,6 +79,8 @@ export const ChannelsMethods = {
       /** Alternative to `requestId`: the code the sender received, on `channelId`. */
       channelId: Type.Optional(Id),
       code: Type.Optional(Type.String({ minLength: 1, maxLength: 16 })),
+      /** Fresh presence: the approved `policy_change` card from a first `approval_required` call. */
+      approvalId: Type.Optional(Id),
     }),
     result: Type.Object({ pairingRequest: PairingRequest }),
     scope: "operator.admin",
@@ -106,6 +112,8 @@ export const ChannelsMethods = {
       links: SenderList,
       delegatedPersona: Type.Optional(Nullable(Type.String({ maxLength: 200 }))),
       toolAllow: Type.Optional(Nullable(Type.Array(Type.String({ maxLength: 200 })))),
+      /** Fresh presence: the approved `policy_change` card from a first `approval_required` call. */
+      approvalId: Type.Optional(Id),
     }),
     result: Type.Object({ identity: ChannelIdentity }),
     scope: "operator.admin",

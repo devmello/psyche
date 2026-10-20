@@ -51,6 +51,30 @@ export interface SkillInstallProposal {
   trust: SkillTrust;
   findings: ScanFinding[];
   approvalKind: "skill_install";
+  /** What the skill declares it needs; covered by the `skill_install` binding. */
+  manifest?: SkillManifestDecl;
+}
+
+/**
+ * Declared needs of a skill (protocol `SkillManifest`): tools (`allowed-tools`, `requires.tools`,
+ * `requires.anyTools`), approval kinds (`permissions`) and prompt files (`prompts`), each sorted.
+ */
+export interface SkillManifestDecl {
+  tools: string[];
+  permissions: string[];
+  prompts: string[];
+}
+
+/** Update detection result (protocol `SkillUpdateStatus`). */
+export interface SkillUpdateCheck {
+  name: string;
+  installedHash: string;
+  availableHash?: string;
+  commit?: string;
+  updateAvailable: boolean;
+  manifestChanged: boolean;
+  error?: string;
+  checkedAt: number;
 }
 
 /** A user-invocable skill as a composer slash command. */
@@ -94,4 +118,6 @@ export interface SkillLoader {
   commands?(): Promise<SkillCommand[]>;
   /** Sets the owner's switch; `source` picks a shadowed copy. Rejects `not_found`. */
   setEnabled?(name: string, enabled: boolean, source?: SkillSource): Promise<SkillSummary>;
+  /** Re-fetches installed skills from their pinned sources and reports which changed. */
+  checkUpdates?(name?: string): Promise<SkillUpdateCheck[]>;
 }

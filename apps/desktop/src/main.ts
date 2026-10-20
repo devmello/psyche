@@ -635,7 +635,7 @@ void app.whenReady().then(async () => {
   windows.showMain();
   openDeepLink(deepLinkFromArgv(process.argv));
   void supervisor.ensureRunning().then(() => gateway?.start());
-  void startUpdater();
+  void startUpdater({ stateFile: join(home, "run", "updater.json") });
 
   app.on("activate", () => windows?.showMain());
 });
