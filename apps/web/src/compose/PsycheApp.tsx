@@ -4,16 +4,27 @@ import {
   AgentSheetBody,
   type AgentTab,
   ChatThread,
+  FeedScreen,
   GatewayProvider,
+  GoalsScreen,
+  IdeasScreen,
+  InboxScreen,
+  LIBRARY_SECTIONS,
+  LibraryScreen,
+  type LibrarySection,
   OnboardingFlow,
   type OnboardingResult,
+  Rail,
+  type RailItem,
+  SearchScreen,
+  ThreadList,
   type UiSlots,
   UiSlotsProvider,
 } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from "react";
 import { TitleBar } from "../shell/components/TitleBar.tsx";
 import type { ShellPlatform } from "../shell/platform.ts";
-import { ShellApp, type ShellSlots } from "../shell/ShellApp.tsx";
+import { type ChatSlotContext, ShellApp, type ShellSlots } from "../shell/ShellApp.tsx";
 import { kitClient } from "./kit-client.ts";
 import { writeOnboarding } from "./onboarding.ts";
 import { settingsRoute } from "./settings.tsx";
@@ -31,7 +42,7 @@ export const ONBOARDED_KEY = "ui.onboarding.completedAt";
 
 const TABS: readonly AgentTab[] = ["activity", "approvals", "upcoming", "soul"];
 
-function KitChat({ threadId }: { threadId: string }): ReactElement {
+function KitChat({ threadId, ctx }: { threadId: string; ctx: ChatSlotContext }): ReactElement {
   const [sheet, setSheet] = useState<{ open: boolean; tab: AgentTab; taskId?: string }>({
     open: false,
     tab: "activity",
@@ -41,6 +52,13 @@ function KitChat({ threadId }: { threadId: string }): ReactElement {
       <AgentHeader
         onOpenSheet={() => setSheet((s) => ({ ...s, open: true }))}
         onOpenTask={(taskId) => setSheet({ open: true, tab: "activity", taskId })}
+        onOpenInbox={() => ctx.navigate("/inbox")}
+        {...(ctx.thread
+          ? { mode: ctx.thread.permissionMode, onModeChange: ctx.setPermissionMode }
+          : {})}
+        {...(ctx.thread?.modelRef
+          ? { model: ctx.thread.modelRef, onOpenModelPicker: ctx.openModelPicker }
+          : {})}
       />
       <ChatThread threadId={threadId} />
       <AgentSheet
@@ -67,6 +85,82 @@ function agentRoute(route: string, navigate: (to: string) => void): ReactNode | 
       />
     </section>
   );
+}
+
+const RAIL_ITEMS: readonly RailItem[] = ["chat", "search", "feed", "ideas", "goals", "library"];
+
+/** The rail item a route belongs to (the agent sheet routes belong to Chat). */
+export function railItemFor(route: string): RailItem | null {
+  const first = route.split(/[/?]/)[1] ?? "";
+  if (first === "agent") return "chat";
+  return RAIL_ITEMS.find((r) => r === first) ?? null;
+}
+
+/**
+ * The rail screens (docs/06 §2.7 routes): Search, Feed, Ideas, Goals, Library and the
+ * notification inbox, each the UI kit's connected screen in a scrolling page.
+ */
+export function screenRoute(route: string, navigate: (to: string) => void): ReactNode | null {
+  const [path = "", query = ""] = route.split("?");
+  const parts = path.split("/").filter(Boolean);
+  const page = (label: string, child: ReactNode) => (
+    <section
+      className="flex min-h-0 flex-1 flex-col overflow-auto"
+      aria-label={label}
+      data-testid={`screen-${parts[0]}`}
+    >
+      {child}
+    </section>
+  );
+  switch (parts[0]) {
+    case "search": {
+      const q = new URLSearchParams(query).get("q") ?? "";
+      return page(
+        "Search",
+        <SearchScreen
+          initialQuery={q}
+          autoFocus
+          onOpen={(hit) => {
+            if (hit.threadId) navigate(`/chat/${hit.threadId}`);
+          }}
+        />,
+      );
+    }
+    case "feed":
+      return page("Feed", <FeedScreen />);
+    case "ideas":
+      return page("Ideas", <IdeasScreen />);
+    case "goals":
+      return page(
+        "Goals",
+        <GoalsScreen
+          selectedGoalId={parts[1] ?? null}
+          onOpenGoal={(goal) => navigate(`/goals/${goal.id}`)}
+        />,
+      );
+    case "library": {
+      const section = (LIBRARY_SECTIONS.find((s) => s.id === parts[1])?.id ??
+        "documents") as LibrarySection;
+      return page(
+        "Library",
+        <LibraryScreen
+          section={section}
+          onSectionChange={(next) => navigate(`/library/${next}`)}
+        />,
+      );
+    }
+    case "inbox":
+      return page(
+        "Inbox",
+        <InboxScreen
+          onOpen={(n) => {
+            if (n.route) navigate(n.route);
+          }}
+        />,
+      );
+    default:
+      return null;
+  }
 }
 
 /** Turns the onboarding answers into workspace writes and remembers that onboarding is done. */
@@ -182,9 +276,17 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
 
   const slots = useMemo<ShellSlots>(
     () => ({
-      chat: (threadId) => <KitChat threadId={threadId} />,
+      chat: (threadId, ctx) => <KitChat threadId={threadId} ctx={ctx} />,
       section: (route, navigate) =>
-        settingsRoute(route, navigate, platform) ?? agentRoute(route, navigate),
+        settingsRoute(route, navigate, platform) ??
+        agentRoute(route, navigate) ??
+        screenRoute(route, navigate),
+      rail: ({ route, compact, navigate }) => (
+        <Rail active={railItemFor(route)} onNavigate={navigate} compact={compact} />
+      ),
+      threadList: ({ threadId, onOpen, onNew }) => (
+        <ThreadList activeThreadId={threadId} onOpen={onOpen} onNewSideChat={onNew} />
+      ),
     }),
     [platform],
   );

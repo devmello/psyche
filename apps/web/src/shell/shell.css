@@ -480,3 +480,19 @@ button {
     animation: none !important;
   }
 }
+/* Host-provided rail and thread list (the UI kit's, in the composed app). */
+.rail-slot {
+  display: flex;
+  min-height: 0;
+}
+.shell[data-compact="true"] > .rail-slot {
+  display: block;
+  order: 3;
+}
+.threads-slot {
+  display: flex;
+  min-height: 0;
+}
+.threads-slot[hidden] {
+  display: none;
+}
