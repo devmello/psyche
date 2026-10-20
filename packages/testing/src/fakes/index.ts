@@ -5,6 +5,7 @@ export * from "./FakeChannelAdapter.ts";
 export * from "./FakeCredentialBroker.ts";
 export * from "./FakeMcpHost.ts";
 export * from "./FakeMemoryStore.ts";
+export * from "./FakeMessagesNode.ts";
 export * from "./FakeModelProvider.ts";
 export * from "./FakeNodeClient.ts";
 export * from "./FakeNotifier.ts";

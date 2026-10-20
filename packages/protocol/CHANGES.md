@@ -18,6 +18,15 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-19 (M2 messages: J7 / N5)
+
+For S14 (the mac helper's `messages.*` capabilities), S10 / N5 (the iMessage channel adapter) and S05 (`message_send` approvals).
+
+- New `schemas/messages.ts`: `MessagesService` (`imessage | sms | rcs | unknown`; `sms` / `rcs` senders are weak identities), `MessagesCursor` (chat.db `message.ROWID`), `MessagesHandle`, `MessagesChat`, `MessagesAttachment` (metadata only, with `isVoiceNote`), `MessagesReaction` / `MessagesReactionKind` (tapbacks), `MessagesMessage`, `MessagesStatus` / `MessagesAutomationStatus`, and params / results for the node capabilities `messages.status`, `messages.chats`, `messages.read`, `messages.send` (`MessagesSendService`) and `messages.watch` (streaming; its `node.event` data is `MessagesWatchEvent`: `messages.new {messages, cursor}` or `messages.watch_error {reason, retryable}`).
+- `MESSAGES_CAPABILITIES`: the manifest entries a Messages node declares. `messages.send` is `destructive` with `targetKind: recipient`, so the existing `message_send` approval kind applies with `once` / `task` scopes only (security §3.4, §3.5). No new approval kind.
+- No Gateway broadcast event: message bodies flow only on the node invocation to the channel adapter, never to every paired client.
+- Fakes: new `FakeMessagesNode` (an in-memory chat.db behind `FakeNodeClient`); `FakeCapabilityHandler.handle` gets the invocation's `AbortSignal` as an optional third argument so streaming handlers can end.
+
 ### v1 additive — 2026-10-21 (S01: web passkeys, #79)
 
 - `passkeys.register.begin | register.finish | reauth.begin | list | remove` and `PasskeyInfo`, `PasskeyReauth`: WebAuthn passkeys per device for the server-mode web client. Options and responses use the WebAuthn JSON forms. A device that already has a passkey re-authenticates with one before adding or removing another.

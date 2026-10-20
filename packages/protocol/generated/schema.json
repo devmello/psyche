@@ -9815,6 +9815,535 @@
       ],
       "type": "string"
     },
+    "MessagesAttachment": {
+      "properties": {
+        "id": {
+          "description": "attachment.guid",
+          "minLength": 1,
+          "type": "string"
+        },
+        "filename": {
+          "anyOf": [
+            {
+              "description": "transfer_name, not a path",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mimeType": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "uti": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "totalBytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "isVoiceNote": {
+          "description": "An audio message bubble (CAF)",
+          "type": "boolean"
+        },
+        "isSticker": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "isVoiceNote",
+        "isSticker"
+      ],
+      "type": "object"
+    },
+    "MessagesAutomationStatus": {
+      "enum": [
+        "granted",
+        "denied",
+        "not_determined"
+      ],
+      "type": "string"
+    },
+    "MessagesChat": {
+      "properties": {
+        "chatId": {
+          "description": "chat.db chat.guid (e.g. iMessage;-;+15551234567, any;-;… on macOS 26+). Opaque; pass back as-is.",
+          "minLength": 1,
+          "type": "string"
+        },
+        "service": {
+          "$ref": "#/$defs/MessagesService"
+        },
+        "displayName": {
+          "anyOf": [
+            {
+              "description": "Group name the participants set",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "isGroup": {
+          "type": "boolean"
+        },
+        "participants": {
+          "items": {
+            "$ref": "#/$defs/MessagesHandle"
+          },
+          "type": "array"
+        },
+        "lastMessageAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastCursor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MessagesCursor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "chatId",
+        "service",
+        "isGroup",
+        "participants"
+      ],
+      "type": "object"
+    },
+    "MessagesChatsParams": {
+      "properties": {
+        "limit": {
+          "default": 50,
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "query": {
+          "description": "Substring of a handle or display name",
+          "maxLength": 128,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "MessagesChatsResult": {
+      "properties": {
+        "chats": {
+          "items": {
+            "$ref": "#/$defs/MessagesChat"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "chats"
+      ],
+      "type": "object"
+    },
+    "MessagesCursor": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "MessagesHandle": {
+      "properties": {
+        "handle": {
+          "maxLength": 320,
+          "minLength": 1,
+          "type": "string"
+        },
+        "service": {
+          "$ref": "#/$defs/MessagesService"
+        }
+      },
+      "required": [
+        "handle",
+        "service"
+      ],
+      "type": "object"
+    },
+    "MessagesMessage": {
+      "properties": {
+        "cursor": {
+          "$ref": "#/$defs/MessagesCursor"
+        },
+        "guid": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "chatId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "service": {
+          "$ref": "#/$defs/MessagesService"
+        },
+        "isFromMe": {
+          "type": "boolean"
+        },
+        "sender": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MessagesHandle"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "text": {
+          "anyOf": [
+            {
+              "description": "message.text, or decoded from attributedBody (typedstream)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sentAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        },
+        "editedAt": {
+          "anyOf": [
+            {
+              "description": "ISO-8601 timestamp (UTC)",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "replyToGuid": {
+          "anyOf": [
+            {
+              "description": "thread_originator_guid (inline reply)",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reaction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MessagesReaction"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "attachments": {
+          "items": {
+            "$ref": "#/$defs/MessagesAttachment"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "cursor",
+        "guid",
+        "chatId",
+        "service",
+        "isFromMe",
+        "sentAt",
+        "attachments"
+      ],
+      "type": "object"
+    },
+    "MessagesReaction": {
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/MessagesReactionKind"
+        },
+        "removed": {
+          "type": "boolean"
+        },
+        "targetGuid": {
+          "description": "The reacted-to message's guid",
+          "minLength": 1,
+          "type": "string"
+        },
+        "emoji": {
+          "description": "For kind emoji",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "removed",
+        "targetGuid"
+      ],
+      "type": "object"
+    },
+    "MessagesReactionKind": {
+      "enum": [
+        "love",
+        "like",
+        "dislike",
+        "laugh",
+        "emphasize",
+        "question",
+        "emoji",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "MessagesReadParams": {
+      "properties": {
+        "chatId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "handle": {
+          "maxLength": 320,
+          "minLength": 1,
+          "type": "string"
+        },
+        "sinceCursor": {
+          "$ref": "#/$defs/MessagesCursor"
+        },
+        "limit": {
+          "default": 20,
+          "maximum": 200,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "MessagesReadResult": {
+      "properties": {
+        "messages": {
+          "items": {
+            "$ref": "#/$defs/MessagesMessage"
+          },
+          "type": "array"
+        },
+        "cursor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MessagesCursor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hasMore": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "messages",
+        "hasMore"
+      ],
+      "type": "object"
+    },
+    "MessagesSendParams": {
+      "properties": {
+        "to": {
+          "maxLength": 320,
+          "minLength": 1,
+          "type": "string"
+        },
+        "chatId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "service": {
+          "$ref": "#/$defs/MessagesSendService"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "type": "object"
+    },
+    "MessagesSendResult": {
+      "properties": {
+        "sent": {
+          "const": true,
+          "type": "boolean"
+        },
+        "recipient": {
+          "description": "The handle or chat id the text went to",
+          "type": "string"
+        },
+        "sentAt": {
+          "description": "ISO-8601 timestamp (UTC)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?(Z|[+-]\\d{2}:\\d{2})$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sent",
+        "recipient",
+        "sentAt"
+      ],
+      "type": "object"
+    },
+    "MessagesSendService": {
+      "enum": [
+        "imessage",
+        "sms"
+      ],
+      "type": "string"
+    },
+    "MessagesService": {
+      "enum": [
+        "imessage",
+        "sms",
+        "rcs",
+        "unknown"
+      ],
+      "type": "string"
+    },
+    "MessagesStatus": {
+      "properties": {
+        "fullDiskAccess": {
+          "description": "chat.db is readable",
+          "type": "boolean"
+        },
+        "automation": {
+          "$ref": "#/$defs/MessagesAutomationStatus"
+        },
+        "databasePresent": {
+          "type": "boolean"
+        },
+        "lastCursor": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MessagesCursor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "fullDiskAccess",
+        "automation",
+        "databasePresent"
+      ],
+      "type": "object"
+    },
+    "MessagesWatchEvent": {
+      "anyOf": [
+        {
+          "properties": {
+            "type": {
+              "const": "messages.new",
+              "type": "string"
+            },
+            "messages": {
+              "items": {
+                "$ref": "#/$defs/MessagesMessage"
+              },
+              "type": "array"
+            },
+            "cursor": {
+              "$ref": "#/$defs/MessagesCursor"
+            }
+          },
+          "required": [
+            "type",
+            "messages",
+            "cursor"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "messages.watch_error",
+              "type": "string"
+            },
+            "reason": {
+              "description": "e.g. full_disk_access_missing, database_locked",
+              "type": "string"
+            },
+            "retryable": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "type",
+            "reason",
+            "retryable"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "MessagesWatchParams": {
+      "properties": {
+        "sinceCursor": {
+          "$ref": "#/$defs/MessagesCursor"
+        },
+        "intervalMs": {
+          "default": 2000,
+          "maximum": 60000,
+          "minimum": 500,
+          "type": "integer"
+        },
+        "includeFromMe": {
+          "default": false,
+          "type": "boolean"
+        }
+      },
+      "type": "object"
+    },
     "NodeCapability": {
       "properties": {
         "name": {
