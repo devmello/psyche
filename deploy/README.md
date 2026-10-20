@@ -15,6 +15,9 @@ Every recipe runs the same `psyched` with the same rules: it binds `127.0.0.1` o
 | `tailscale/` | Tailscale Serve config and guide |
 | `cloudflare/` | Cloudflare Tunnel + Access guide |
 | `backup/` | Backup, restore and verify scripts for Compose deployments |
+| `homebrew/` | Cask (desktop app) and formula (`psyche` CLI) templates for the `devmello/psyche` tap |
+| `macos/make-dmg.sh` | `Psyche-<version>-<arch>.dmg` from a packaged app; signs, notarizes and staples when the signing variables are set |
+| `scripts/` | Release helpers: release notes, the migrations manifest baked into the CLI, the Homebrew renderer |
 | `sandbox-image/` | The sandbox container image (S21) |
 
 ## Recipe 1: Mac, local (topology A)
@@ -89,5 +92,11 @@ deploy/backup/restore.sh /srv/psyche-backups/psyche-<time>.tar.gz.age key.txt
 Schedule it with cron or a systemd timer, e.g. `15 3 * * * /opt/psyche/deploy/backup/backup.sh /srv/psyche-backups age1…`. Restoring on another machine needs the vault **recovery key** (`psyche vault unlock --recovery`): the keychain slot does not travel. Keep the age identity or passphrase and the recovery key outside the backup.
 
 ## Release artifacts
+
+User guides: [docs/guides/](../docs/guides/README.md) (install, backup and restore, upgrade).
+
+`.github/workflows/publish.yml` runs only on `v*` tags (and by hand, as a dry run by default): the signed multi-arch image, the CLI binaries with the version and the database migrations baked in, both DMGs, the GitHub release with `SHA256SUMS`, and the Homebrew tap. Signing and notarization run only when the secrets listed at the top of the workflow exist; otherwise everything ships unsigned and says so.
+
+Before v1.0:
 
 `.github/workflows/release.yml` (tag `v*`): the multi-arch Gateway image on GHCR signed with cosign, `psyche` binaries for macOS arm64/x64 and Linux x64/arm64, the unsigned desktop package, and release notes from changesets. On pull requests that touch `deploy/` or `apps/cli/`, its `deploy-smoke` job builds the image, runs `docker compose up --wait`, and checks `psyche status` inside and outside the container.
