@@ -109,6 +109,11 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
       getState: () => b.helper.getState() as Promise<MacHelperState>,
       onState: (cb) => b.helper.onState((s) => cb(s as MacHelperState)),
     },
+    clipboard: {
+      writeText: async (text) => {
+        await b.clipboard.writeText(text);
+      },
+    },
     locale: {
       get: () => b.locale.get() as Promise<SystemLocale>,
     },
