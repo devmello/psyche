@@ -1285,6 +1285,7 @@ export class PsycheAgentLoop implements AgentLoop {
         ...(kind === undefined ? {} : { kind }),
         ...(intentBinding === undefined ? {} : { bindingHash: intentBinding }),
         ...(grantKey === undefined ? {} : { grantKey }),
+        ...(desc.connectorRule === undefined ? {} : { connectorRule: { ...desc.connectorRule } }),
       },
       context,
     );
@@ -1337,6 +1338,7 @@ export class PsycheAgentLoop implements AgentLoop {
         kind: approvalKind,
         summary: desc.summary ?? `${call.name}`,
         details: {
+          ...desc.details,
           tool: call.name,
           params: structuredClone(args) as unknown,
           ...(target === undefined ? {} : { target }),
@@ -1362,6 +1364,7 @@ export class PsycheAgentLoop implements AgentLoop {
             ? {}
             : { scopesOffered: decision.scopesOffered }),
         taint: run.taint,
+        ...(run.taint ? { taintSources: dedupeSources(run.taintSources) } : {}),
       });
       const approvalId = issued.approval.id;
       gated.approvalId = approvalId;

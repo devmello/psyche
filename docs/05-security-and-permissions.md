@@ -89,7 +89,7 @@ Hostile multi-tenancy (one trusted boundary per Gateway; mutually untrusted user
 
 ### 3.1 Side-effect classes and target kinds
 
-Every tool and node capability declares `sideEffect: none | read | write | destructive | financial` and `targetKind: origin | path | account | command | recipient` (architecture §4.3). `none`: computation or Psyche's own stores. `read`: external or private sources not yet in context. `write`: reversible or private change (drafts, granted-folder writes, calendar events, clicks, typing, form input). `destructive`: irreversible or externally visible (sends to third parties, form submits on read-writable origins, posting, deleting, OAuth consent, accepting terms, account settings, `exec_host`). `financial`: moves money or commits to pay.
+Every tool and node capability declares `sideEffect: none | read | write | destructive | financial` and `targetKind: origin | path | account | command | recipient` (architecture §4.3). `none`: computation or Psyche's own stores, except writes that persist instructions to run later: `task.start`, `schedule`, `idea.*` and `goal.*` are `write` (review design-08), and `task.start` asks with its own `task_start` approval kind. `read`: external or private sources not yet in context. `write`: reversible or private change (drafts, granted-folder writes, calendar events, clicks, typing, form input). `destructive`: irreversible or externally visible (sends to third parties, form submits on read-writable origins, posting, deleting, OAuth consent, accepting terms, account settings, `exec_host`). `financial`: moves money or commits to pay.
 
 ### 3.2 Permission modes
 

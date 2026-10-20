@@ -35,6 +35,7 @@ export const ApprovalKind = StringEnum(
     "memory_protected_write",
     "pairing",
     "policy_change",
+    "task_start",
   ],
   { $id: "ApprovalKind" },
 );

@@ -124,6 +124,7 @@ export function inferApprovalKind(tool: string): ApprovalKind {
   if (tool.startsWith("mcp__")) return "mcp_tool";
   if (tool.startsWith("computer.")) return "computer_action";
   if (tool === "memory") return "memory_protected_write";
+  if (tool === "task.start" || tool === "task.create") return "task_start";
   return "connector_action";
 }
 

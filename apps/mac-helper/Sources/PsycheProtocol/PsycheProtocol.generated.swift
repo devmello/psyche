@@ -761,6 +761,7 @@ public enum ApprovalKind: String, Codable, Sendable {
     case purchase = "purchase"
     case sendEmail = "send_email"
     case skillInstall = "skill_install"
+    case taskStart = "task_start"
 }
 
 // MARK: - RequestedBy
