@@ -16,42 +16,55 @@ export const STATE_DIR = "/tmp/.psyche";
 export const BASH = "/usr/bin/bash";
 export const PYTHON = "/usr/bin/python3";
 
+/** Env var naming the exec that set a secret (issue #290): leftovers carrying it are reaped. */
+export const EXEC_MARK_VAR = "PSYCHE_EXEC_MARK";
+
 /**
  * Env trampoline (issue #289): the last step before the command. Reads the NUL-terminated
- * `KEY=value` pairs from fd 3, closes it, and `execvpe`s the command with them added to its
- * environment. Secrets are therefore in no process's argv (not `setsid`'s, `timeout`'s or this
- * one's, inside the container or in the host's process table) and in the environment of the
- * command alone. `$1…` is the command; 127 / 126 when it cannot be run, as `env` does. No single
- * quotes: `EXEC_WRAPPER` embeds it in a single-quoted bash string.
+ * `KEY=value` pairs from stdin (which the wrapper never reads in this mode), puts `/dev/null`
+ * on stdin, and `execvpe`s the command with the pairs plus `PSYCHE_EXEC_MARK=<exec id>` added
+ * to its environment. Secrets are therefore in no process's argv (not `setsid`'s, `timeout`'s
+ * or this one's, inside the container or in the host's process table), in no shell variable,
+ * and in the environment of the command alone. `$1` is the exec id, `$2…` the command; 127 /
+ * 126 when it cannot be run, as `env` does. No single quotes: `EXEC_WRAPPER` embeds it in a
+ * single-quoted bash string.
  */
 export const ENV_TRAMPOLINE = String.raw`import os, sys
-f = os.fdopen(3, "rb")
-pairs = f.read()
-f.close()
+chunks = []
+while True:
+    b = os.read(0, 65536)
+    if not b:
+        break
+    chunks.append(b)
+pairs = b"".join(chunks)
+chunks = None
+null = os.open("/dev/null", os.O_RDONLY)
+os.dup2(null, 0)
+os.close(null)
 env = dict(os.environ)
 for kv in pairs.split(b"\0"):
     if kv:
         k, _, v = kv.partition(b"=")
         env[k.decode("utf-8", "surrogateescape")] = v.decode("utf-8", "surrogateescape")
 pairs = None
+env["${EXEC_MARK_VAR}"] = sys.argv[1]
 try:
-    os.execvpe(sys.argv[1], sys.argv[1:], env)
+    os.execvpe(sys.argv[2], sys.argv[2:], env)
 except OSError as e:
-    sys.stderr.write("psyche-sandbox: cannot run %s: %s\n" % (sys.argv[1], e.strerror))
+    sys.stderr.write("psyche-sandbox: cannot run %s: %s\n" % (sys.argv[2], e.strerror))
     os._exit(127 if isinstance(e, FileNotFoundError) else 126)`;
 
-/** Env var naming the exec that set a secret (issue #290): leftovers carrying it are reaped. */
-export const EXEC_MARK_VAR = "PSYCHE_EXEC_MARK";
-
 /**
- * Exec wrapper. `$1` = exec id, `$2` = timeout seconds, `$3` = "--", the rest is the argv.
- * stdin carries NUL-terminated `KEY=value` pairs (so env values, including vault-injected
- * secrets, never appear in host `ps` output). They never become arguments either (issue
- * #289): with any pairs, they are written to a pipe on fd 3 by a forked builtin (whose argv is
- * this shell's, without them) and `ENV_TRAMPOLINE` applies them to the command alone, so a
- * name like `PATH` or `secs` cannot disturb the wrapper. A secret-bearing command also gets
- * `PSYCHE_EXEC_MARK=<exec id>`, so whatever it leaves behind can be found and killed (#290).
- * The command gets `/dev/null` as stdin.
+ * Exec wrapper. `$1` = exec id, `$2` = timeout seconds, `$3` = `--` (no env) or `--env`, the
+ * rest is the argv. With `--env`, stdin carries NUL-terminated `KEY=value` pairs (so env values,
+ * including vault-injected secrets, never appear in host `ps` output). The wrapper never reads
+ * them: it `exec`s straight into `setsid`, and `ENV_TRAMPOLINE`, the last step before the
+ * command, reads them from the inherited stdin (issue #289). So they never become arguments or
+ * shell variables, and a name like `PATH` or `secs` cannot disturb the wrapper. The wrapper
+ * must not leave a child of its own behind either: `setsid --wait` waits for the first child to
+ * exit and fails if that is not the one it forked (the #314 regression, a process substitution
+ * feeding fd 3). A secret-bearing command also gets `PSYCHE_EXEC_MARK=<exec id>`, so whatever
+ * it leaves behind can be found and killed (#290). The command gets `/dev/null` as stdin.
  *
  * The command runs in its own session with a pid file so an interrupt can kill the whole
  * process group from a second exec: signalling the host `exec` client does not stop the
@@ -59,21 +72,19 @@ export const EXEC_MARK_VAR = "PSYCHE_EXEC_MARK";
  * The `filesChanged` marker is back-dated 50 ms because ctime uses the coarse kernel clock.
  */
 export const EXEC_WRAPPER = `set -u
-__id=$1; __secs=$2; shift 3
+__id=$1; __secs=$2; __mode=$3; shift 3
 __d=${STATE_DIR}
 /usr/bin/mkdir -p "$__d" 2>/dev/null
 __ts=$(( $(/usr/bin/date +%s%N) - 50000000 ))
 if ! /usr/bin/touch -d "@\${__ts:0:-9}.\${__ts: -9}" "$__d/$__id.mark"; then
   echo "psyche-sandbox: /tmp is not writable" >&2; exit 125
 fi
-__env=()
-while IFS= read -r -d '' __kv; do __env+=("$__kv"); done
 __run='echo $$ > "$1"; shift; exec /usr/bin/timeout --kill-after=2 "$@"'
-if [ \${#__env[@]} -eq 0 ]; then
+if [ "$__mode" != "--env" ]; then
   exec /usr/bin/setsid --wait ${BASH} -c "$__run" psyche-session "$__d/$__id.pid" "$__secs" "$@" </dev/null
 fi
 __tramp='${ENV_TRAMPOLINE}'
-exec /usr/bin/setsid --wait ${BASH} -c "$__run" psyche-session "$__d/$__id.pid" "$__secs" ${PYTHON} -I -S -c "$__tramp" "$@" </dev/null 3< <(printf '%s\\0' "\${__env[@]}" "${EXEC_MARK_VAR}=$__id")`;
+exec /usr/bin/setsid --wait ${BASH} -c "$__run" psyche-session "$__d/$__id.pid" "$__secs" ${PYTHON} -I -S -c "$__tramp" "$__id" "$@"`;
 
 /**
  * Reaps what an exec left running (issues #290, #286): SIGKILL to every process of the exec's
