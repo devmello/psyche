@@ -133,7 +133,12 @@ describe("LaunchAgent plist", () => {
     expect(fake.calls.find((c) => c[0] === "bootstrap")?.[1]).toBe("gui/501");
     expect(fake.calls.find((c) => c[0] === "-dr")).toEqual(["-dr", "com.apple.quarantine", dir]);
     expect(existsSync(join(dir, "home", "logs"))).toBe(true);
-    expect(states.map((s) => s.kind)).toEqual(["starting", "running"]);
+    // Installing the agent, then waiting for /healthz (the splash's lines), then running.
+    expect(states.map((s) => (s.kind === "starting" ? `starting:${s.step}` : s.kind))).toEqual([
+      "starting:installing",
+      "starting:waiting",
+      "running",
+    ]);
     expect(sup.getState()).toEqual({ kind: "running", mode: "launchd", pid: 7 });
 
     // Next launch, same build: nothing is rewritten or reloaded.
