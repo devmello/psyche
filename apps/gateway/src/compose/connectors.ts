@@ -1,4 +1,6 @@
 import {
+  type AppleHelper,
+  appleFactories,
   type CatalogueEntry,
   COMING_SOON,
   type ConnectorEvent,
@@ -33,6 +35,7 @@ import {
 } from "@psyche/protocol";
 import { VaultTokenVault } from "@psyche/vault";
 import type { Call, HandlerDef } from "../context.ts";
+import type { Gateway } from "../server.ts";
 import { fetchLimit, taskOrigins } from "./fetch-origins.ts";
 import { type MailCredentials, mailCredentials } from "./mail-credentials.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
@@ -81,6 +84,8 @@ export interface ConnectorsSetup {
   credentials?: CredentialBroker;
   /** Attachments and Drive downloads (the Library, S13). */
   library?: LibrarySink;
+  /** The paired Mac helper for the Apple app connectors (tests). Default: the newest live one. */
+  appleHelper?: () => AppleHelper | undefined;
   /** Connector records. Default: the `connectors` table in the Gateway's database (#505). */
   store?: ConnectorStore;
   /** Directory rows without a local implementation; default remote MCP presets and coming soon. */
@@ -119,8 +124,11 @@ function defaultFactories(
   setup: ConnectorsSetup,
   services: ComposeServices,
   mail: MailCredentials,
+  helper: () => AppleHelper | undefined,
 ): ConnectorFactory[] {
   const factories = [
+    // Apple Notes, Reminders, Calendar and Mail through the paired Mac helper (#528).
+    ...appleFactories({ helper }),
     googleFactory({
       openBrowser: setup.openBrowser ?? noBrowser,
       ...(setup.oauthTimeoutMs === undefined ? {} : { timeoutMs: setup.oauthTimeoutMs }),
@@ -163,6 +171,8 @@ export function composeConnectors(
 ): ComposedPart & { readonly registry: ConnectorRegistry; readonly mail: MailCredentials } {
   const log = services.logger;
   const mail = mailCredentials(services, () => registry);
+  let gateway: Gateway | undefined;
+  const appleHelper = setup.appleHelper ?? macHelper(() => gateway);
   /** connectors.updated for Settings and onboarding (#505): the record as stored now. */
   const publishUpdate = async (event: ConnectorEvent): Promise<void> => {
     if (event.type !== "status" && event.type !== "matrix_changed") return;
@@ -187,7 +197,7 @@ export function composeConnectors(
     });
   };
   const registry: ConnectorRegistry = new ConnectorRegistry({
-    factories: setup.factories ?? defaultFactories(setup, services, mail),
+    factories: setup.factories ?? defaultFactories(setup, services, mail, appleHelper),
     extraCatalogue: setup.extraCatalogue ?? [...REMOTE_MCP_PRESETS, ...COMING_SOON],
     store: setup.store ?? new SqliteConnectorStore(services.db.sqlite),
     context: {
@@ -367,7 +377,8 @@ export function composeConnectors(
     registry,
     mail,
     handlers,
-    start() {
+    start(gw) {
+      gateway = gw;
       // After a restart: connected records come back (tools registered, tokens from the vault).
       void registry
         .restore()
@@ -385,6 +396,34 @@ export function composeConnectors(
       timer = undefined;
       await registry.close();
     },
+  };
+}
+
+/** The newest live Mac helper node with its advertised capabilities (J6 app adapters). */
+export function macHelper(gateway: () => Gateway | undefined): () => AppleHelper | undefined {
+  return () => {
+    const nodes = gateway()?.context.nodes;
+    if (nodes === undefined) return undefined;
+    const node = nodes
+      .list()
+      .filter((n) => n.kind === "mac-helper" && nodes.isLive(n.id))
+      .at(-1);
+    const client = node === undefined ? undefined : nodes.client(node.id);
+    if (node === undefined || client === undefined) return undefined;
+    return {
+      nodeId: node.id,
+      capabilities: node.capabilities.map((c) => c.name),
+      invoke: async (capability, params, options) => {
+        const res = await client.invoke(capability, params, options);
+        return {
+          ok: res.ok,
+          ...(res.result === undefined ? {} : { result: res.result }),
+          ...(res.error === undefined
+            ? {}
+            : { error: { code: res.error.code, message: res.error.message } }),
+        };
+      },
+    };
   };
 }
 
