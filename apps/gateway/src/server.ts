@@ -24,6 +24,7 @@ import {
   type GatewayContext,
   type GatewayLimits,
   type HandlerDef,
+  type ThreadModelPolicy,
 } from "./context.ts";
 import { LockedPermissionBroker, UnavailableAgentLoop } from "./defaults.ts";
 import { EventBus } from "./event-bus.ts";
@@ -69,6 +70,8 @@ export interface GatewayOptions {
   settingsPresence?: () => boolean;
   /** After a device is revoked (composition root: end the grants it approved). */
   onDeviceRevoked?: (deviceId: string) => Promise<unknown>;
+  /** Which models may run `auto` threads, and the router's per-thread pin (composition root). */
+  threadModels?: ThreadModelPolicy;
   /** Package handlers to mount (composition root); a name the Gateway already handles is refused. */
   handlers?: Readonly<Record<string, HandlerDef>>;
   /** Run the retention sweep on this interval (0 disables the timer; tests call it directly). */
@@ -141,6 +144,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     extraHandlers: checkExtraHandlers(options.handlers ?? {}),
     onDeviceRevoked: options.onDeviceRevoked ?? null,
     settingsPresence: options.settingsPresence ?? (() => false),
+    threadModels: options.threadModels ?? null,
     limits,
     failedChallenges: new RateLimiter(limits.failedChallengesPerMinute, 60_000, () =>
       now().getTime(),

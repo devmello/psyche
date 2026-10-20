@@ -207,8 +207,9 @@ export function OnboardingFlow({
       // A centered column (UI design §4.1: prose width plus the preview column). In a flex
       // parent it is also centred vertically (`my-auto`) with a steady minimum height, so the
       // step body never floats above an empty window and Back / Next keep their place between
-      // steps; taller steps scroll.
-      className="mx-auto my-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-8 sm:px-10 md:min-h-[600px]"
+      // steps; taller steps scroll. `shrink-0`: with an explicit min-height a flex item may
+      // otherwise shrink to the window and let Back / Next overflow below the column.
+      className="mx-auto my-auto flex w-full max-w-4xl shrink-0 flex-col gap-6 px-6 py-8 sm:px-10 md:min-h-[600px]"
       data-testid="onboarding-flow"
     >
       <header className="flex flex-col gap-5">

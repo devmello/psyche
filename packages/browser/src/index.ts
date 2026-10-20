@@ -13,11 +13,13 @@ export * from "./downloads/sniff.ts";
 export { DriverBase, type DriverDeps } from "./drivers/base.ts";
 export { CdpBridgeDriver } from "./drivers/cdp.ts";
 export { PlaywrightDriver, type PlaywrightDriverOptions } from "./drivers/playwright.ts";
+export * from "./drivers/routing.ts";
 export * from "./origin/canonical.ts";
 export * from "./origin/partition.ts";
 export * from "./origin/policy.ts";
 export * from "./origin/reputation.ts";
 export * from "./profiles.ts";
+export * from "./realchrome/launcher.ts";
 export * from "./recording/recorder.ts";
 export * from "./recording/store.ts";
 export { buildSnapshot, extractText, SECURE_MASK } from "./snapshot/builder.ts";
@@ -27,6 +29,8 @@ export { ApprovalGate, type CallContext } from "./tools/gate.ts";
 export {
   type BrowserToolDeps,
   browserToolDefs,
+  type ControlRequest,
+  type RealChromeDeps,
   registerBrowserTools,
   type SessionKind,
 } from "./tools/register.ts";

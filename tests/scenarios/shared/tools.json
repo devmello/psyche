@@ -159,6 +159,16 @@
       "approvalKind": "purchase",
       "receiptKind": "purchase.handoff",
       "note": "Commits to pay once payment exists (G12): financial, once only, device-only. In M2 it re-reads the cart and stops; nothing is paid."
+    },
+    {
+      "name": "shop.pay_with_link",
+      "sideEffect": "financial",
+      "targetKind": "origin",
+      "provenanceOut": "untrusted",
+      "connector": "shopping",
+      "approvalKind": "purchase",
+      "receiptKind": "purchase",
+      "note": "G12: the hand-off's cart check, then Stripe Link pays (test mode in scenarios): the vault's PaymentBroker re-checks the dispatched once-only purchase approval, Link writes a one-time card to a 0600 file, the browser fill core types it into the merchant's card form. The model sees brand / last4 and the order number only."
     }
   ]
 }

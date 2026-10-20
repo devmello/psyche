@@ -43,12 +43,21 @@ export interface SendInput {
   attachments?: string[];
   mode?: QueueMode;
   deviceId: string;
+  /** Quote-reply (E5): a message of the same thread this one answers. */
+  replyToMessageId?: string | null;
   /**
    * Who sent the message when it came through a channel (S10 `RouteContext`; security §9). The
    * loop and the broker decide the turn's calls as this person's. Absent for the owner's own
    * devices. Not kept for durable follow-ups (`chat_queue`), which only paired devices enqueue.
    */
   requester?: Requester;
+  /**
+   * `agent` when another thread's agent sent it (E12 cross-thread awareness); the transcript keeps
+   * that provenance, including through the follow-up queue. Default `owner`.
+   */
+  provenance?: "owner" | "agent";
+  /** The sending thread, for `agent` messages. */
+  fromThreadId?: string;
 }
 
 type Emit = <E extends EventName>(event: E, payload: EventPayload<E>, threadId?: string) => void;
@@ -77,6 +86,40 @@ interface PendingMessage {
 
 /** How long `chat.cancel` waits for the agent to wind down before force-finishing the run. */
 const CANCEL_GRACE_MS = 2_000;
+
+/** What the agent reads for a quote-reply: the quoted message, then the new message. */
+export interface Quote {
+  messageId: string;
+  role: Message["role"];
+  text: string;
+}
+
+const QUOTE_MAX_CHARS = 280;
+
+/** The quoted message's text, whitespace collapsed and cut to `QUOTE_MAX_CHARS`. */
+export function quoteText(message: Pick<Message, "blocks">): string {
+  const text = message.blocks
+    .map((b) => (b.type === "text" ? b.md : ""))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > QUOTE_MAX_CHARS ? `${text.slice(0, QUOTE_MAX_CHARS - 1)}…` : text;
+}
+
+/**
+ * The turn text with the quote ahead of it (feature E5: "replies carry a quote reference the
+ * agent sees"). The quoted text is data the user chose to point at, labelled as such.
+ */
+export function withQuote(quote: Quote | undefined, content: string): string {
+  if (quote === undefined) return content;
+  const whose =
+    quote.role === "user"
+      ? "the user's earlier message"
+      : quote.role === "agent"
+        ? "your earlier message"
+        : `an earlier ${quote.role} message`;
+  return `[Replying to ${whose} ${quote.messageId}]\n> ${quote.text}\n\n${content}`;
+}
 
 function userBlocks(content: string, attachments: readonly string[]): Block[] {
   return [
@@ -126,6 +169,7 @@ export class SessionController {
       throw new PsycheError("not_found", `thread ${input.threadId} not found`);
     }
     const attachments = input.attachments ?? [];
+    const quote = this.#quote(thread.id, input.replyToMessageId ?? null);
     const active = thread.activeWriterRunId ?? null;
     if (active === null) {
       const { messageId, run } = this.#admit(
@@ -136,6 +180,8 @@ export class SessionController {
         hooks,
         undefined,
         input.requester,
+        input.provenance,
+        quote,
       );
       return { messageId, runId: run.id, queued: false };
     }
@@ -145,7 +191,10 @@ export class SessionController {
         threadId: thread.id,
         content: input.content,
         attachments,
-        deviceId: input.deviceId,
+        // An agent-sent follow-up has no device (`deviceId` is empty).
+        deviceId: input.deviceId === "" ? null : input.deviceId,
+        provenance: input.provenance ?? "owner",
+        fromThreadId: input.fromThreadId ?? null,
       });
       this.#bump();
       hooks.emit(
@@ -164,7 +213,9 @@ export class SessionController {
           threadId: thread.id,
           role: "user",
           blocks: userBlocks(input.content, attachments),
-          provenance: messageProvenance(input.requester),
+          // An agent-sent cross-thread message stays `agent`; anything else is the sender's (§3.6).
+          provenance: input.provenance === "agent" ? "agent" : messageProvenance(input.requester),
+          replyToMessageId: quote?.messageId ?? null,
           runId: active,
         },
         { expectedWriterRunId: active },
@@ -173,7 +224,7 @@ export class SessionController {
       hooks.emit("chat.message", { message }, thread.id);
       hooks.afterCommit(() => {
         this.#ctx.agent
-          .steer(active, input.content)
+          .steer(active, withQuote(quote, input.content))
           .catch((err) => this.#warn("steer failed", err));
       });
       return { messageId: message.id, runId: active, queued: true };
@@ -191,8 +242,23 @@ export class SessionController {
       hooks,
       undefined,
       input.requester,
+      input.provenance,
+      quote,
     );
     return { messageId, runId: run.id, queued: false };
+  }
+
+  /** The quoted message of a reply, which must belong to the same thread. */
+  #quote(threadId: string, replyToMessageId: string | null): Quote | undefined {
+    if (replyToMessageId === null) return undefined;
+    const quoted = getMessage(this.#ctx.db, replyToMessageId);
+    if (quoted === undefined || quoted.threadId !== threadId) {
+      throw new PsycheError(
+        "invalid_params",
+        "replyToMessageId must name a message of the same thread",
+      );
+    }
+    return { messageId: quoted.id, role: quoted.role, text: quoteText(quoted) };
   }
 
   /** Creates the run, claims the writer, records the user message, starts the turn after commit. */
@@ -204,8 +270,11 @@ export class SessionController {
     hooks: TxHooks,
     messageId?: string,
     requester?: Requester,
+    provenance: "owner" | "agent" = "owner",
+    quote?: Quote,
   ): { messageId: string; run: Run } {
     const { db } = this.#ctx;
+    const agentContent = withQuote(quote, content);
     if (supersedes === null) {
       // The user message goes in before the run owns the transcript.
       const message = appendMessage(
@@ -215,7 +284,8 @@ export class SessionController {
           threadId: thread.id,
           role: "user",
           blocks: userBlocks(content, attachments),
-          provenance: messageProvenance(requester),
+          provenance: provenance === "agent" ? "agent" : messageProvenance(requester),
+          replyToMessageId: quote?.messageId ?? null,
         },
         { expectedWriterRunId: null },
       );
@@ -227,7 +297,9 @@ export class SessionController {
       claimWriter(db, thread.id, run.id);
       this.#bump();
       hooks.emit("run.updated", { run }, thread.id);
-      hooks.afterCommit(() => this.#startTurn(thread, run.id, content, attachments, requester));
+      hooks.afterCommit(() =>
+        this.#startTurn(thread, run.id, agentContent, attachments, requester),
+      );
       return { messageId: message.id, run };
     }
     const run = createRun(db, {
@@ -241,7 +313,8 @@ export class SessionController {
         threadId: thread.id,
         role: "user",
         blocks: userBlocks(content, attachments),
-        provenance: messageProvenance(requester),
+        provenance: provenance === "agent" ? "agent" : messageProvenance(requester),
+        replyToMessageId: quote?.messageId ?? null,
         runId: run.id,
       },
       { expectedWriterRunId: run.id },
@@ -249,7 +322,7 @@ export class SessionController {
     this.#bump();
     hooks.emit("chat.message", { message }, thread.id);
     hooks.emit("run.updated", { run }, thread.id);
-    hooks.afterCommit(() => this.#startTurn(thread, run.id, content, attachments, requester));
+    hooks.afterCommit(() => this.#startTurn(thread, run.id, agentContent, attachments, requester));
     return { messageId: message.id, run };
   }
 
@@ -334,6 +407,36 @@ export class SessionController {
     }
   }
 
+  /**
+   * E12 cross-thread awareness: a message from another thread's agent. It never interrupts or
+   * steers: it runs now if the thread is idle, or queues as a follow-up, recorded as `agent`.
+   */
+  sendFromAgent(input: { threadId: string; fromThreadId: string; content: string }): SendResult {
+    const { db, bus } = this.#ctx;
+    const events: Array<() => void> = [];
+    const after: Array<() => void> = [];
+    const hooks: TxHooks = {
+      emit: (event, payload, tid) => events.push(() => bus.publish(event, payload, tid)),
+      afterCommit: (fn) => after.push(fn),
+    };
+    const result = db.sqlite.transaction(() =>
+      this.send(
+        {
+          threadId: input.threadId,
+          content: input.content,
+          mode: "followUp",
+          deviceId: "",
+          provenance: "agent",
+          fromThreadId: input.fromThreadId,
+        },
+        hooks,
+      ),
+    )();
+    for (const publish of events) publish();
+    for (const fn of after) fn();
+    return result;
+  }
+
   /** Starts queued follow-ups for every thread that has some (boot). */
   drainAll(): void {
     for (const threadId of threadsWithQueuedMessages(this.#ctx.db)) this.#drain(threadId);
@@ -354,7 +457,16 @@ export class SessionController {
     const started = db.sqlite.transaction(() => {
       const next = takeNextQueued(db, threadId);
       if (!next) return false;
-      this.#admit(thread, next.content, next.attachments, null, hooks, next.messageId);
+      this.#admit(
+        thread,
+        next.content,
+        next.attachments,
+        null,
+        hooks,
+        next.messageId,
+        undefined,
+        next.provenance,
+      );
       hooks.emit("chat.queue.updated", { threadId, items: listQueue(db, threadId) }, threadId);
       return true;
     })();

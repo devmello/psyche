@@ -8,7 +8,7 @@
 
 import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveRegistry } from "../fixtures/secrets/derive.mjs";
 
@@ -21,7 +21,12 @@ const schema = JSON.parse(readFileSync(join(here, "schema.json"), "utf8"));
 const registry = resolveRegistry(
   JSON.parse(readFileSync(join(root, "tests/fixtures/secrets/registry.json"), "utf8")),
 );
-const asJson = process.argv.slice(2).includes("--json");
+const argv = process.argv.slice(2);
+const asJson = argv.includes("--json");
+// `--dir <path>`: validate the scenarios in another folder (INT-3's Milestone 2 scenarios live in
+// tests/acceptance/scenarios-m2); the schema and the secret registry stay this folder's.
+const dirArg = argv.indexOf("--dir");
+const scanRoot = dirArg >= 0 && argv[dirArg + 1] ? resolve(argv[dirArg + 1]) : here;
 
 const MAX_PAGE_BYTES = 4096;
 
@@ -671,13 +676,13 @@ function crossCheck(sc, dir, errors) {
 // ---- run ----
 
 const errors = [];
-const dirs = readdirSync(here)
-  .filter((d) => existsSync(join(here, d, "scenario.json")))
+const dirs = readdirSync(scanRoot)
+  .filter((d) => existsSync(join(scanRoot, d, "scenario.json")))
   .sort();
 const summary = [];
 const byType = {};
 for (const d of dirs) {
-  const dir = join(here, d);
+  const dir = join(scanRoot, d);
   const p = join(dir, "scenario.json");
   let sc;
   try {
@@ -715,7 +720,7 @@ for (const d of dirs) {
 }
 
 // Secret values and CI secret-grep patterns must not appear in any scenario file.
-for (const f of filesUnder(here)) {
+for (const f of filesUnder(scanRoot)) {
   if (f === fileURLToPath(import.meta.url)) continue;
   const text = readFileSync(f, "latin1");
   const rel = relative(root, f);
