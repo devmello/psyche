@@ -129,3 +129,5 @@ This pass covers screens added after the polish wave: Credentials, the Files pan
 10. **Credential detail.** Approval ids appear in the uses table. That's acceptable at level 2, but they could read "Approved" with the id in a tooltip.
 
 **Decision 2 (matrix radios):** done. `settings/RadioTableRow.tsx` makes each matrix row one radio group of kit `RadioGroupItem`s. Each item is labelled "row: column", and the arrow keys move within the row. Computer use and `ActionMatrix` both use it.
+
+**Decision 8 (Skills trust card):** Done: the trust card's commit, content hash and tool names are in a Details disclosure; rows show a tool count, with the names in a row Details.

@@ -42,7 +42,7 @@ describe("Settings → Skills", () => {
     const row = await screen.findByTestId("skill-receipt-filer");
     expect(within(row).getByText("Active")).toBeTruthy();
     expect(within(row).getByText("Update available")).toBeTruthy();
-    expect(within(row).getByText(/Write files · tools email.read, write_file/)).toBeTruthy();
+    expect(within(row).getByText(/Write files · 2 tools/)).toBeTruthy();
     const blocked = screen.getByTestId("skill-crypto-helper");
     expect(within(blocked).getByText("Blocked")).toBeTruthy();
     expect(within(blocked).queryByRole("switch")).toBeNull();
@@ -61,7 +61,12 @@ describe("Settings → Skills", () => {
     expect(within(card).getByRole("heading", { name: /Review “pdf-merge” before installing/ }));
     const asks = within(card).getByRole("region", { name: "What it asks for" });
     expect(within(asks).getByText("Write files")).toBeTruthy();
-    expect(within(asks).getByText("list_dir, read_file, write_file")).toBeTruthy();
+    // Tool names, the hash and the commit are level 2, in Details (audit decision 8).
+    expect(within(asks).getByText("3 tools")).toBeTruthy();
+    expect(within(asks).queryByText("list_dir, read_file, write_file")).toBeNull();
+    const details = within(card).getByText("Content hash").closest("details") as HTMLElement;
+    expect(within(details).getByText("list_dir, read_file, write_file")).toBeTruthy();
+    expect(within(details).getByText("Content hash")).toBeTruthy();
     expect(within(asks).getByText("prompts/naming.md")).toBeTruthy();
     expect(within(card).getByTestId("skill-text").textContent).toContain("# Merge PDFs");
     expect(within(card).getByText("The static scan found nothing to flag.")).toBeTruthy();
