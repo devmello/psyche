@@ -70,13 +70,118 @@ export interface DefineToolInput<T extends TSchema> {
   run: (params: Static<T>, ctx: ToolRunContext) => Promise<ToolResult>;
 }
 
-/** Strip TypeBox's symbol keys so the schema is plain JSON. */
+type JsonSchema = Record<string, unknown>;
+
+const isObjectSchema = (
+  v: unknown,
+): v is JsonSchema & { properties?: Record<string, JsonSchema> } =>
+  typeof v === "object" && v !== null && (v as JsonSchema).type === "object";
+
+/** The property every alternative pins with `const` (`op`, `command`), if there is one. */
+function discriminatorOf(alts: readonly JsonSchema[]): string | undefined {
+  const first = alts[0]?.properties as Record<string, JsonSchema> | undefined;
+  for (const key of Object.keys(first ?? {})) {
+    if (
+      alts.every(
+        (a) => (a.properties as Record<string, JsonSchema> | undefined)?.[key]?.const !== undefined,
+      )
+    )
+      return key;
+  }
+  return undefined;
+}
+
+/**
+ * Providers take a tool's input schema only as one top-level `type: "object"` (Anthropic refuses
+ * the whole request otherwise, OpenAI's function `parameters` too; #414). A union of object
+ * variants (`code.git`'s operations, `memory`'s commands) is advertised as one object: the
+ * discriminator becomes an enum whose description names each value's required fields, every
+ * other field is optional, and a field the variants type differently keeps an `anyOf` inside the
+ * property. Validation still checks the exact variant (`firstSchemaError` on the TypeBox union).
+ */
+export function toObjectSchema(schema: JsonSchema): JsonSchema {
+  if (schema.type === "object") return schema;
+  const alts = (schema.anyOf ?? schema.oneOf) as JsonSchema[] | undefined;
+  if (!Array.isArray(alts) || alts.length === 0 || !alts.every(isObjectSchema)) {
+    // Not a union of objects: wrap nothing, but never send a schema without the object type.
+    return { ...schema, type: "object" };
+  }
+  const key = discriminatorOf(alts);
+  const properties: Record<string, JsonSchema> = {};
+  const seen = new Map<string, JsonSchema[]>();
+  for (const alt of alts) {
+    for (const [name, prop] of Object.entries(
+      (alt.properties ?? {}) as Record<string, JsonSchema>,
+    )) {
+      if (name === key) continue;
+      const list = seen.get(name) ?? [];
+      if (!list.some((p) => JSON.stringify(p) === JSON.stringify(prop))) list.push(prop);
+      seen.set(name, list);
+    }
+  }
+  // Required only where every variant requires it.
+  const required = new Set((alts[0]?.required as string[] | undefined) ?? []);
+  for (const alt of alts.slice(1)) {
+    const r = new Set((alt.required as string[] | undefined) ?? []);
+    for (const k of required) if (!r.has(k)) required.delete(k);
+  }
+  if (key !== undefined) {
+    const values = alts.map((a) => (a.properties as Record<string, JsonSchema>)[key]?.const);
+    const needs = alts.map((a) => {
+      const extra = ((a.required as string[] | undefined) ?? []).filter(
+        (k) => k !== key && !required.has(k),
+      );
+      const value = String((a.properties as Record<string, JsonSchema>)[key]?.const);
+      return extra.length === 0 ? value : `${value} (requires ${extra.join(", ")})`;
+    });
+    properties[key] = {
+      type: "string",
+      enum: values,
+      description: `One of: ${needs.join("; ")}. Other fields apply only where they fit.`,
+    };
+    required.add(key);
+  }
+  for (const [name, list] of seen) {
+    properties[name] = list.length === 1 ? (list[0] as JsonSchema) : { anyOf: list };
+  }
+  const { anyOf: _a, oneOf: _o, ...rest } = schema;
+  return {
+    ...rest,
+    type: "object",
+    properties,
+    required: [...required],
+  };
+}
+
+/** Strip TypeBox's symbol keys so the schema is plain JSON, with the object type providers need. */
 export function toJsonSchema(schema: TSchema): Record<string, unknown> {
-  return JSON.parse(JSON.stringify(schema)) as Record<string, unknown>;
+  return toObjectSchema(JSON.parse(JSON.stringify(schema)) as JsonSchema);
 }
 
 export function firstSchemaError(schema: TSchema, value: unknown): string | undefined {
   if (Value.Check(schema, value)) return undefined;
+  // A union of variants keyed by a constant field: report the chosen variant's own error.
+  const alts = (schema as { anyOf?: TSchema[] }).anyOf;
+  if (Array.isArray(alts) && typeof value === "object" && value !== null) {
+    const key = discriminatorOf(alts as unknown as JsonSchema[]);
+    if (key !== undefined) {
+      const chosen = (value as Record<string, unknown>)[key];
+      const variant = alts.find(
+        (a) =>
+          (a as unknown as { properties?: Record<string, { const?: unknown }> }).properties?.[key]
+            ?.const === chosen,
+      );
+      if (variant === undefined) {
+        const allowed = alts.map(
+          (a) =>
+            (a as unknown as { properties: Record<string, { const?: unknown }> }).properties[key]
+              ?.const,
+        );
+        return `/${key}: must be one of ${allowed.map((v) => JSON.stringify(v)).join(", ")}`;
+      }
+      return firstSchemaError(variant, value);
+    }
+  }
   const first = Value.Errors(schema, value).First();
   if (first === undefined) return "invalid params";
   const at = first.path === "" ? "params" : first.path;

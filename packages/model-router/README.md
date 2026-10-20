@@ -111,6 +111,17 @@ Every row passes the shared conformance suite offline (`describeModelProviderCon
 
 Tool names are mapped per provider family (`toolNameRuleFor`): Anthropic accepts `[a-zA-Z0-9_-]{1,128}`, OpenAI and the servers that copy it 64 characters, Gemini 64 characters starting with a letter or `_`. The map is reversible per request; the loop only sees real names.
 
+### Tool input schemas (#414)
+
+Every provider needs a tool's input schema to be one object at the top level (`{"type": "object", …}`). A top-level union (TypeBox `Type.Union`, so `{"anyOf": [...]}`) would make the provider refuse the whole request.
+
+- `normalizeToolSchema` turns a top-level `anyOf` / `oneOf` / `allOf` of object variants into one object.
+  - Properties are merged. Where the variants disagree on a property, it becomes an `enum` of their constants, or an `anyOf` of their schemas.
+  - `required` is what every variant requires; for `allOf`, what any variant requires.
+  - The variants stay visible to the model as a summary in `description`.
+- The tool's executor still validates against the real union.
+- Any tool still not an object after this fails the request locally with `bad_request: tool "<name>" input schema must be {"type": "object", …}`. Nothing is sent. `toolSchemaProblem(spec)` gives that same message to callers that want to check their own schemas.
+
 ### Local-server quirks (`compat.ts`)
 
 `llamacpp` and `lmstudio` run on `@ai-sdk/openai-compatible` with fixes at the HTTP boundary:
