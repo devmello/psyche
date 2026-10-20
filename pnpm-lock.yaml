@@ -336,6 +336,9 @@ importers:
       '@psyche/scheduler':
         specifier: workspace:*
         version: link:../../packages/scheduler
+      '@psyche/speech':
+        specifier: workspace:*
+        version: link:../../packages/speech
       '@psyche/tasks':
         specifier: workspace:*
         version: link:../../packages/tasks

@@ -58,6 +58,8 @@ export interface LiveConnection {
   readonly peer: PeerInfo;
   readonly identity: PairedIdentity | null;
   readonly pendingDeviceId: string | null;
+  /** Paired and not closed. */
+  readonly open: boolean;
   close(reason: string): void;
   setEventFilter(filter: EventFilter | null): void;
   /** Gateway → peer request (node protocol); resolves with the `res` payload. */
@@ -95,6 +97,8 @@ export interface GatewayContext {
   readonly onDeviceRevoked: ((deviceId: string) => Promise<unknown>) | null;
   /** Null without a composition root: a thread can then never be created in `auto`. */
   readonly threadModels: ThreadModelPolicy | null;
+  /** Called with a device id when its last paired connection closes (parts register here). */
+  readonly deviceDisconnected: Set<(deviceId: string) => void>;
   serverOrigin(): string;
   connections(): Iterable<LiveConnection>;
 }

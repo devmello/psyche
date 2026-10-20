@@ -75,6 +75,7 @@ import {
 } from "./services.ts";
 import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
+import { composeSpeech, type SpeechSetup, speechSetupFromEnv } from "./speech.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
 
 /**
@@ -109,6 +110,11 @@ export interface ComposeOptions
    * part with a `relay` delivers approvals beyond the in-app surfaces (chat, the Mac helper).
    */
   parts?: ReadonlyArray<(services: ComposeServices) => Promise<ComposedPart> | ComposedPart>;
+  /**
+   * Speech (S17: dictation, voice memos, read-aloud, voices) is always mounted; this sets its
+   * process runner prefix (default: `speechSetupFromEnv`).
+   */
+  speech?: SpeechSetup;
   /**
    * Passkey assertions for approvals that require authentication (purchase, credential fill,
    * host exec; security §3.7). Helper (Touch ID) assertions go to the helper part's verifier.
@@ -196,7 +202,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     background = true,
     taskPollMs,
     compaction,
-    parts: partFactories = [],
+    parts: extraParts = [],
+    speech: speechSetup,
     presence = NO_PRESENCE,
     vault: vaultSetup,
     ...gwOptions
@@ -357,6 +364,10 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     ownPorts,
     ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
   };
+  const partFactories = [
+    composeSpeech(speechSetup ?? speechSetupFromEnv(gwOptions.env)),
+    ...extraParts,
+  ];
   let localProjectSupplied = false;
   for (const factory of partFactories) {
     const part = await factory(services);
@@ -585,6 +596,14 @@ export {
 export type { ApprovalRelay, ComposedPart, ComposeServices, OwnPorts } from "./services.ts";
 export { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-tools.ts";
 export { type ModelPins, modelPinsFor, restoreModelPins } from "./threads.ts";
+export {
+  composeSpeech,
+  dbMessageSource,
+  FsAudioLibrary,
+  type SpeechSetup,
+  speechNode,
+  speechSetupFromEnv,
+} from "./speech.ts";
 export {
   type ComposedVault,
   chooseWrapper,
