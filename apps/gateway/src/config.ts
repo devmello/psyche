@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import { DEFAULT_GATEWAY_HOST, DEFAULT_GATEWAY_PORT, PsycheError } from "@psyche/protocol";
 import type { RateLimitSettings } from "./compose/rate-limits.ts";
 import { trustedProxyList } from "./proxy.ts";
@@ -51,7 +51,19 @@ export interface GatewayConfig {
    * minute. Absent keys use the defaults (30 and 60).
    */
   rateLimits?: Partial<RateLimitSettings>;
+  /**
+   * `credentials.onePassword` (feature G10): where the vault reads linked 1Password items. The
+   * service-account or Connect token is never here: it is the vault's connector-owned
+   * `onepassword` item. `null` = not configured (`vault.linkExternal` answers unavailable).
+   */
+  onePassword?: OnePasswordConfig | null;
 }
+
+/**
+ * The `op` CLI (`op`: an absolute path, default the first `op` on PATH) or a Connect server
+ * (`url`: `https://…`, or loopback `http://127.0.0.1:8080`).
+ */
+export type OnePasswordConfig = { kind: "cli"; op?: string } | { kind: "connect"; url: string };
 
 /** The keys `config.json` may set (no secrets; architecture §12). */
 interface ConfigFile {
@@ -64,6 +76,44 @@ interface ConfigFile {
     cloudflareAccess?: { teamDomain: string; audience: string };
     rateLimits?: Partial<RateLimitSettings>;
   };
+  credentials?: { onePassword?: OnePasswordConfig };
+}
+
+/** `credentials` in `config.json`: references to external sources only, never a secret. */
+function credentialsFrom(value: unknown): NonNullable<ConfigFile["credentials"]> {
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    bad("credentials", "must be an object");
+  const c = value as Record<string, unknown>;
+  for (const key of Object.keys(c))
+    if (key !== "onePassword") bad(`credentials.${key}`, "is not a known key");
+  if (c.onePassword === undefined) return {};
+  const op = c.onePassword as Record<string, unknown>;
+  if (op === null || typeof op !== "object" || Array.isArray(op))
+    bad("credentials.onePassword", "must be an object");
+  for (const key of Object.keys(op))
+    if (!["kind", "op", "url"].includes(key))
+      bad(`credentials.onePassword.${key}`, "is not a known key (the token lives in the vault)");
+  if (op.kind === "cli") {
+    if (op.op !== undefined && (typeof op.op !== "string" || !isAbsolute(op.op)))
+      bad("credentials.onePassword.op", "must be an absolute path to the op binary");
+    return {
+      onePassword: { kind: "cli", ...(op.op === undefined ? {} : { op: op.op as string }) },
+    };
+  }
+  if (op.kind === "connect") {
+    let url: URL;
+    try {
+      url = new URL(String(op.url));
+    } catch {
+      return bad("credentials.onePassword.url", "must be the Connect server's URL");
+    }
+    const loopback =
+      url.protocol === "http:" && isLoopbackHost(url.hostname.replace(/^\[|\]$/g, ""));
+    if (url.protocol !== "https:" && !loopback)
+      bad("credentials.onePassword.url", "must be https:// (or a loopback http:// address)");
+    return { onePassword: { kind: "connect", url: url.origin } };
+  }
+  return bad("credentials.onePassword.kind", 'must be "cli" or "connect"');
 }
 
 const LOOPBACK = new Set(["127.0.0.1", "::1", "localhost"]);
@@ -93,8 +143,12 @@ export function readConfigFile(path: string): ConfigFile {
     bad("", `is not valid JSON (${err instanceof Error ? err.message : String(err)})`);
   }
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) bad("", "must be an object");
+  const credentialsRaw = (raw as { credentials?: unknown }).credentials;
+  const credentials = credentialsRaw === undefined ? undefined : credentialsFrom(credentialsRaw);
+  const withCredentials = (file: ConfigFile): ConfigFile =>
+    credentials === undefined ? file : { ...file, credentials };
   const gateway = (raw as { gateway?: unknown }).gateway;
-  if (gateway === undefined) return {};
+  if (gateway === undefined) return withCredentials({});
   if (gateway === null || typeof gateway !== "object" || Array.isArray(gateway))
     bad("gateway", "must be an object");
   const g = gateway as Record<string, unknown>;
@@ -149,7 +203,7 @@ export function readConfigFile(path: string): ConfigFile {
     out.cloudflareAccess = { teamDomain: cf.teamDomain as string, audience: cf.audience as string };
   }
   if (g.rateLimits !== undefined) out.rateLimits = rateLimitsFrom(g.rateLimits);
-  return { gateway: out };
+  return withCredentials({ gateway: out });
 }
 
 function rateLimitsFrom(value: unknown): Partial<RateLimitSettings> {
@@ -196,7 +250,8 @@ export function resolveConfig(
   overrides: Partial<GatewayConfig> = {},
 ): GatewayConfig {
   const home = resolve(overrides.home ?? env.PSYCHE_HOME ?? join(homedir(), ".psyche"));
-  const file = readConfigFile(join(home, "config.json")).gateway ?? {};
+  const configFile = readConfigFile(join(home, "config.json"));
+  const file = configFile.gateway ?? {};
   const bindRaw = overrides.bind ?? env.PSYCHE_BIND ?? "loopback";
   if (bindRaw !== "loopback" && bindRaw !== "container") {
     throw new PsycheError(
@@ -282,5 +337,9 @@ export function resolveConfig(
     ...((overrides.rateLimits ?? file.rateLimits) === undefined
       ? {}
       : { rateLimits: (overrides.rateLimits ?? file.rateLimits) as Partial<RateLimitSettings> }),
+    onePassword:
+      overrides.onePassword !== undefined
+        ? overrides.onePassword
+        : (configFile.credentials?.onePassword ?? null),
   };
 }

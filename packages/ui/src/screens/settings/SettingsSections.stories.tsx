@@ -446,8 +446,51 @@ const credentialProps = {
   onOpen: noop,
   onImport: async () => ({ imported: [], skipped: [] }),
 };
+const paymentsView = {
+  configured: true,
+  methods: world.linkMethods ?? [],
+  payments: world.payments ?? [],
+};
 export const CredentialsPopulated: Story = {
   render: () => <CredentialsPanel {...credentialProps} />,
+};
+/** Stripe Link: payment methods and recent spends (held, charged, refunded). */
+export const CredentialsPayments: Story = {
+  render: () => <CredentialsPanel {...credentialProps} payments={paymentsView} onOpenTask={noop} />,
+};
+export const CredentialsPaymentsNotSetUp: Story = {
+  render: () => (
+    <CredentialsPanel
+      {...credentialProps}
+      payments={{ configured: false, methods: [], payments: [] }}
+    />
+  ),
+};
+/** Linking an item held in 1Password by reference. */
+export const CredentialsLinkOnePassword: Story = {
+  render: () => (
+    <CredentialsPanel
+      {...credentialProps}
+      credentials={[
+        ...world.credentials,
+        {
+          id: "cred_op_fastmail",
+          kind: "login",
+          name: "Fastmail",
+          slug: "fastmail-login",
+          bindings: [{ origin: "https://app.fastmail.com" }],
+          ownerConnectorId: null,
+          lastUsedAt: null,
+          useCount: 0,
+          createdAt: "2026-10-18T09:00:00Z",
+          updatedAt: "2026-10-18T09:00:00Z",
+          backend: "1password",
+        },
+      ]}
+      onLinkOnePassword={async () => {}}
+      defaultLinking
+    />
+  ),
 };
 export const CredentialsAddItem: Story = {
   render: () => <CredentialsPanel {...credentialProps} defaultAdding />,

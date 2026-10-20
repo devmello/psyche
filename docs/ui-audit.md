@@ -137,3 +137,15 @@ The ten items this pass left open were decided as follows. Each is now a rule in
 | 8 | Skills trust card | Hash and commit go in a Details disclosure; tool names show as a count on the row, with the list in Details. | In progress |
 | 9 | Voice hotkey | A shortcut recorder. A conflict shows the approval-tone hint, and the field refuses to save it. | In progress |
 | 10 | Credential detail | "Approved", with the approval id in a tooltip and copy on click. | Done |
+1. **Raw keys in write errors.** `settings/shared.tsx` names the raw setting key, as in "Psyche couldn't save vault.backend". This breaks §4.12 in every section, and fixing it needs a key-to-label map.
+2. **Matrix radios.** Computer use and `ActionMatrix` use raw `<input type="radio">` per cell. Choose a kit `RadioGroupItem` per cell or one `NativeSelect` per row, and apply it to both.
+3. **Model names.** Models & providers shows `m.ref` (the provider/model id) as the label everywhere. Human labels would move the ref to disclosure level 2. Separately, `models.list` errors are swallowed in favour of settings, and the chat-only confirm is a hand-rolled alert outside the frame.
+4. **The Files pane and `Page`.** Decide whether a split-view pane is exempt from `Page`/`PageHeader`. §4.6 names no icon for it; this pass uses `FileText` for the empty preview. Loading in the tree is still plain "Loading…" text, not `LoadingCards`.
+5. **Naming.** It's open whether "Psyche Chrome profile" should carry the persona's name instead.
+6. **Facts value casing.** This pass used sentence case in Credentials and VM mode. Write it into the rules.
+7. **Destructive rows.** Connectors pairs an outline Disconnect with a destructive Remove. Either accept that as the pattern for destructive rows or move Remove under ⋯.
+8. **Skills trust card.** The content hash and commit are at level 1, and tool names appear on row line 3. Both belong in a Details disclosure, with a count on the row.
+9. **Voice hotkey.** The field is free text, and a conflicting shortcut is shown only as muted description text. Options: a shortcut recorder, and an approval-tone hint for the conflict.
+10. **Credential detail.** Approval ids appear in the uses table. That's acceptable at level 2, but they could read "Approved" with the id in a tooltip.
+
+**Decision 2 (matrix radios):** done. `settings/RadioTableRow.tsx` makes each matrix row one radio group of kit `RadioGroupItem`s. Each item is labelled "row: column", and the arrow keys move within the row. Computer use and `ActionMatrix` both use it.

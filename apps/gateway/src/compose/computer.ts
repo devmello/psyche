@@ -18,6 +18,7 @@ import {
 import { type Static, type TSchema, Type } from "@sinclair/typebox";
 import type { Logger } from "../log.ts";
 import type { Gateway } from "../server.ts";
+import { ATTENTION_WINDOW_MS } from "./attention.ts";
 import { COMPUTER_USE_ENABLED, computerUseSettings } from "./computer-settings.ts";
 import { assertOpenAllowed, assertScriptAllowed } from "./script-guard.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
@@ -118,8 +119,7 @@ export const SEND_APPS = [
   "com.superhuman.electron",
 ];
 
-/** How recent owner input must be for agent actions in a sensitive app (§7.2 item 5). */
-export const ATTENTION_WINDOW_MS = 5 * 60_000;
+export { ATTENTION_WINDOW_MS };
 
 export function isSendApp(app: string): boolean {
   const id = app.toLowerCase();
