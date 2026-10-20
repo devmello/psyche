@@ -166,7 +166,8 @@
         "exec",
         "message.send",
         "shop.cart",
-        "purchase.handoff"
+        "purchase.handoff",
+        "purchase"
       ]
     },
     "approvalKind": {
