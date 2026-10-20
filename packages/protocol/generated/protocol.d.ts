@@ -3250,8 +3250,9 @@ export interface ThreadsListResult {
 }
 
 export interface ThreadListEntry {
-    activity: ThreadActivity;
-    thread:   Thread;
+    activity:     ThreadActivity;
+    lastMessage?: ThreadPreview;
+    thread:       Thread;
 }
 
 export interface ThreadActivity {
@@ -3259,6 +3260,14 @@ export interface ThreadActivity {
     awaitingInput:    number;
     running:          number;
 }
+
+export interface ThreadPreview {
+    at:   string;
+    role: Role;
+    text: string;
+}
+
+export type Role = "user" | "agent";
 
 export interface ThreadsPinParams {
     pinned:   boolean;
