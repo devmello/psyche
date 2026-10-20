@@ -21,6 +21,21 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 ### v1 additive — 2026-10-20 (S10: WhatsApp channel secrets, N6)
 
 - `ChannelSecretName` gains `access_token`, `app_secret` and `verify_token` (appended): the WhatsApp Cloud API's Graph access token, the Meta app secret that signs webhooks (`X-Hub-Signature-256`) and the webhook verify token. Stored by `channels.secrets.set` as Gateway-owned vault items.
+### v1 additive — 2026-10-20 (S08, I14: Web Bot Auth)
+
+For S08 (the browser signs document requests), S06 (the vault keeps the key) and S11 / S12 (Settings → Browser).
+
+- `CredentialBroker` gains optional `botAuthKey()` and `rotateBotAuthKey()`, returning a `BotAuthKey` (`keyId` = RFC 7638 JWK thumbprint, `publicJwk`, `createdAt`, `sign(data)`). The private half never leaves the vault. `FakeCredentialBroker` implements both with a real Ed25519 key, and a rotated-away key refuses to sign.
+- Schemas `BotAuthJwk` and `BotAuthStatus` (`enabled`, `keyId`, `publicJwk`, `createdAt`, `signatureAgent`, `directoryPath`, `origins`, `advertised`).
+- Methods `browser.botAuth.status` (`operator.read`) and `browser.botAuth.rotate` (`operator.admin`, side-effecting).
+- The switch itself is the admin setting `browser.botAuth {enabled, signatureAgent?, origins?}` (no protocol change).
+### v1 additive — 2026-10-20 (M3 T3: agent-proposed skills)
+
+For S16 (`packages/skills` draft generator), the Gateway (routine detection over agent-core's in-process hooks) and Settings → Skills (S11 / S12).
+
+- New `SkillDraft {id, threadId, name, description, text, manifest, steps, occurrences, signature, redactions, tainted, edited, status, createdAt, updatedAt, installProposalId?, approvalId?, replay?}`, `SkillDraftStatus` (`open | accepted | installed | dismissed | expired`), `SkillDraftStep {tool, sideEffect, summary}`, `SkillDraftReplay {ok, problems, checkedAt}`.
+- New methods: `skills.drafts.list {status?}` (`operator.read`); `skills.drafts.update {draftId, text}`, `skills.drafts.accept {draftId}` → `{draft, proposal, approval}` (the T2 trust card), `skills.drafts.dismiss {draftId}` (all `operator.admin`, side-effecting).
+- New event `skills.draft.updated {draft}`.
 
 ### v1 additive — 2026-10-20 (J8 teach mode)
 

@@ -81,6 +81,31 @@ export function webhookRoute(
   return Object.assign((request: WebhookRequest) => fn(request), { methods: [...methods] });
 }
 
+/**
+ * An unauthenticated `GET` route a part publishes (the Web Bot Auth key directory, I14): public
+ * data only, served even behind the container bind's gate.
+ */
+export type PublicRoute = () => Promise<{
+  status: number;
+  headers: Record<string, string>;
+  body: string;
+}>;
+
+export async function servePublic(
+  req: IncomingMessage,
+  res: ServerResponse,
+  route: PublicRoute,
+): Promise<void> {
+  try {
+    const out = await route();
+    res.writeHead(out.status, { "x-content-type-options": "nosniff", ...out.headers });
+    res.end(req.method === "HEAD" ? undefined : out.body);
+  } catch {
+    if (!res.headersSent) send(res, 500, JSON.stringify({ ok: false, error: "unavailable" }));
+    else res.destroy();
+  }
+}
+
 /** Webhook bodies past this are refused unread (413). */
 export const WEBHOOK_MAX_BYTES = 64 * 1024;
 

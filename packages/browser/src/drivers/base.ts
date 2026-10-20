@@ -17,6 +17,7 @@ import {
   type Unsubscribe,
   type WaitCondition,
 } from "@psyche/protocol";
+import type { BotAuthSigner } from "../botauth/signer.ts";
 import { type CdpTarget, PageController } from "../cdp/page.ts";
 import { headAndHash, type LibraryWriter } from "../downloads/library.ts";
 import { sniff } from "../downloads/sniff.ts";
@@ -57,6 +58,11 @@ export interface DriverDeps {
    * folder, outside the Library quarantine). Default `quarantine`.
    */
   downloads?: "quarantine" | "deny";
+  /**
+   * Web Bot Auth (I14): signs document requests of `profile`-partition tabs; never logged-out
+   * ones. Without it nothing is signed.
+   */
+  botAuth?: BotAuthSigner;
 }
 
 export interface SessionState {
@@ -121,6 +127,8 @@ export abstract class DriverBase implements BrowserDriverEx {
     partition: TabPartition,
   ): Promise<{ id: string; target: CdpTarget; url: string }>;
   protected abstract destroyTab(t: TabState): Promise<void>;
+  /** Who merges signed headers into a paused request (see `PageControllerOptions`). */
+  protected readonly signedHeaders: "self" | "endpoint" = "self";
   protected async onSessionOpened(_s: SessionState, _o: OpenSessionOptions): Promise<void> {}
   protected async onSessionClosed(_s: SessionState): Promise<void> {}
   protected dialogHandlerFor(
@@ -357,6 +365,13 @@ export abstract class DriverBase implements BrowserDriverEx {
     const dh = this.dialogHandlerFor(id);
     if (dh !== undefined) options.dialogHandler = dh;
     if (s.recording !== undefined) options.recording = s.recording;
+    const botAuth = this.deps.botAuth;
+    if (botAuth !== undefined) {
+      // Logged-out and incognito-like tabs are never signed (I14): only the owner's profile.
+      if (part === "profile") options.signRequest = (url) => botAuth.sign(url, part);
+      options.onAcceptSignature = (origin) => botAuth.noteAcceptSignature(origin);
+      options.signedHeaders = this.signedHeaders;
+    }
     const page = new PageController(options);
     for (const other of s.tabs) {
       const o = this.tabs.get(other);

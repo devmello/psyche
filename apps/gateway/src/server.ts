@@ -37,7 +37,14 @@ import {
   removeHandshakeSecret,
   writeHandshakeSecret,
 } from "./home.ts";
-import { handleHttp, serveWebhook, type WebhookRoute, webhookMethods } from "./http.ts";
+import {
+  handleHttp,
+  type PublicRoute,
+  servePublic,
+  serveWebhook,
+  type WebhookRoute,
+  webhookMethods,
+} from "./http.ts";
 import { Idempotency } from "./idempotency.ts";
 import { createLogger, type Logger } from "./log.ts";
 import { NodeRegistry } from "./nodes/registry.ts";
@@ -93,6 +100,8 @@ export interface GatewayOptions {
    * transport signature), so the container transport gate does not apply to them.
    */
   webhooks?: Readonly<Record<string, WebhookRoute>>;
+  /** Public `GET` routes of composed parts (the Web Bot Auth key directory). */
+  publicRoutes?: Readonly<Record<string, PublicRoute>>;
   /** Run the retention sweep on this interval (0 disables the timer; tests call it directly). */
   retentionIntervalMs?: number;
 }
@@ -200,6 +209,7 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
   }
 
   const webhooks: Readonly<Record<string, WebhookRoute>> = { ...options.webhooks };
+  const publicRoutes: Readonly<Record<string, PublicRoute>> = { ...options.publicRoutes };
   const http: Server = createServer((req, res) => {
     const serve = () => handleHttp(req, res, { webRoot: config.webRoot, version: GATEWAY_VERSION });
     // The container bind gates every route but the bare health check (Compose healthcheck).
@@ -211,6 +221,9 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
         ? route
         : undefined;
     if (webhook !== undefined) return void serveWebhook(req, res, webhook);
+    const pub = req.method === "GET" || req.method === "HEAD" ? publicRoutes[path] : undefined;
+    // Public data meant for anyone (a key directory), so the container gate does not apply.
+    if (pub !== undefined) return void servePublic(req, res, pub);
     if (transportGate.mode !== "container" || path === "/healthz") return serve();
     const resolved = resolvePeer(
       req.socket.remoteAddress,
