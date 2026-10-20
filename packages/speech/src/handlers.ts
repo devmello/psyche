@@ -23,6 +23,7 @@ export type SpeechMethod =
   | "voice.cancel"
   | "voice.memo.save"
   | "speech.readAloud"
+  | "speech.readAloud.cancel"
   | "speech.voices";
 
 export const SPEECH_METHODS: readonly SpeechMethod[] = [
@@ -32,6 +33,7 @@ export const SPEECH_METHODS: readonly SpeechMethod[] = [
   "voice.cancel",
   "voice.memo.save",
   "speech.readAloud",
+  "speech.readAloud.cancel",
   "speech.voices",
 ];
 
@@ -102,12 +104,16 @@ export function createSpeechHandlers(deps: SpeechHandlerDeps): SpeechHandlers {
 
     async "speech.readAloud"(p, ctx) {
       const readAloud = need(deps.readAloud, "read-aloud");
-      const { streamId } = readAloud.start(
-        p.messageId,
-        ctx.deviceId,
-        p.voice === undefined ? {} : { voice: p.voice },
-      );
+      const { streamId } = readAloud.start(p.messageId, ctx.deviceId, {
+        ...(p.voice === undefined ? {} : { voice: p.voice }),
+        ...(p.save === undefined ? {} : { save: p.save }),
+      });
       return { streamId };
+    },
+
+    async "speech.readAloud.cancel"(p, ctx) {
+      need(deps.readAloud, "read-aloud").cancel(p.streamId, ctx.deviceId);
+      return { ok: true };
     },
 
     async "speech.voices"(p) {

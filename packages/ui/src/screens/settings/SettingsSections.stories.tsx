@@ -26,6 +26,7 @@ import { ModelProvidersPanel, providerInfoFromSummary } from "./ModelSection.tsx
 import { PermissionsPanel } from "./PermissionsSection.tsx";
 import { PersonaPanel } from "./PersonaSection.tsx";
 import { ServerPanel } from "./ServerSection.tsx";
+import { SkillSuggestions } from "./SkillDraftCard.tsx";
 import { SkillsPanel, SkillTrustCard } from "./SkillsSection.tsx";
 import {
   sampleAbout,
@@ -487,8 +488,34 @@ export const CredentialsLinkOnePassword: Story = {
           backend: "1password",
         },
       ]}
-      onLinkOnePassword={async () => {}}
+      onLinkExternal={async () => {}}
       defaultLinking
+    />
+  ),
+};
+/** Linking a Bitwarden item by id or unique name; an item held in Bitwarden says so. */
+export const CredentialsLinkBitwarden: Story = {
+  render: () => (
+    <CredentialsPanel
+      {...credentialProps}
+      credentials={[
+        ...world.credentials,
+        {
+          id: "cred_bw_build",
+          kind: "ssh_key",
+          name: "Build box",
+          slug: "build-box",
+          bindings: [{ host: "build.example.com" }],
+          ownerConnectorId: null,
+          lastUsedAt: null,
+          useCount: 0,
+          createdAt: "2026-10-18T09:00:00Z",
+          updatedAt: "2026-10-18T09:00:00Z",
+          backend: "bitwarden",
+        },
+      ]}
+      onLinkExternal={async () => {}}
+      defaultLinking="bitwarden"
     />
   ),
 };
@@ -773,6 +800,38 @@ export const SkillsTrustCardHighFindings: Story = {
           },
         ],
       }}
+    />
+  ),
+};
+
+const draftProps = {
+  persona: PERSONA.name,
+  onSave: async () => {},
+  onAccept: noop,
+  onDismiss: noop,
+};
+export const SkillsWithSuggestion: Story = {
+  render: () => (
+    <SkillsPanel
+      {...skillProps}
+      suggestions={<SkillSuggestions {...draftProps} drafts={world.skillDrafts} />}
+    />
+  ),
+};
+export const SkillSuggestionDoesNotReplay: Story = {
+  render: () => (
+    <SkillSuggestions
+      {...draftProps}
+      drafts={world.skillDrafts.map((d) => ({
+        ...d,
+        edited: true,
+        tainted: true,
+        replay: {
+          ok: false,
+          problems: ["declares tools the routine never used: send_email"],
+          checkedAt: FIXTURE_NOW,
+        },
+      }))}
     />
   ),
 };

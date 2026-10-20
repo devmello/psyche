@@ -38,6 +38,14 @@ export {
 } from "./crypto.ts";
 export { reasonOf } from "./errors.ts";
 export {
+  type BitwardenField,
+  type BitwardenRef,
+  type BitwardenSource,
+  type BwCliOptions,
+  BwCliSource,
+  checkBitwardenRef,
+} from "./external/bitwarden.ts";
+export {
   checkRef,
   type OnePasswordField,
   type OnePasswordRef,
@@ -176,6 +184,7 @@ export {
   type ConnectorTokenRead,
   DEFAULT_AUTO_LOCK_MINUTES,
   type ImportResult,
+  type LinkBitwardenInput,
   type LinkOnePasswordInput,
   type UpdateItemInput,
   Vault,

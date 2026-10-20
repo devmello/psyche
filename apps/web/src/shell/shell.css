@@ -535,3 +535,28 @@ button {
 .threads-slot[hidden] {
   display: none;
 }
+
+/* Voice mode (Q5): the state bar above the composer. */
+.voice-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0 8px;
+  font-size: 13px;
+}
+.voice-mode-state {
+  font-weight: 600;
+}
+.voice-mode[data-phase="listening"] .voice-mode-state {
+  color: var(--shell-accent, currentColor);
+}
+.voice-mode[data-phase="waiting"] .voice-mode-state,
+.voice-mode[data-phase="error"] .voice-mode-state {
+  color: var(--shell-danger, currentColor);
+}
+.voice-mode-heard {
+  color: var(--shell-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

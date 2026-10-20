@@ -43,6 +43,7 @@ import {
   servePublic,
   serveWebhook,
   type WebhookRoute,
+  webhookMethods,
 } from "./http.ts";
 import { Idempotency } from "./idempotency.ts";
 import { createLogger, type Logger } from "./log.ts";
@@ -94,7 +95,8 @@ export interface GatewayOptions {
   /** Package handlers to mount (composition root); a name the Gateway already handles is refused. */
   handlers?: Readonly<Record<string, HandlerDef>>;
   /**
-   * `POST <path>` routes of composed parts (channel webhooks). They authenticate themselves (a
+   * `POST <path>` routes of composed parts (channel webhooks; also `GET` where a route declares
+   * it). They authenticate themselves (a
    * transport signature), so the container transport gate does not apply to them.
    */
   webhooks?: Readonly<Record<string, WebhookRoute>>;
@@ -212,7 +214,12 @@ export async function startGateway(options: GatewayOptions = {}): Promise<Gatewa
     const serve = () => handleHttp(req, res, { webRoot: config.webRoot, version: GATEWAY_VERSION });
     // The container bind gates every route but the bare health check (Compose healthcheck).
     const path = new URL(req.url ?? "/", "http://gateway.invalid").pathname;
-    const webhook = req.method === "POST" ? webhooks[path] : undefined;
+    // POST by default; GET only on a route that declares it (WhatsApp's subscription handshake).
+    const route = Object.hasOwn(webhooks, path) ? webhooks[path] : undefined;
+    const webhook =
+      route !== undefined && webhookMethods(route).some((m) => m === req.method)
+        ? route
+        : undefined;
     if (webhook !== undefined) return void serveWebhook(req, res, webhook);
     const pub = req.method === "GET" || req.method === "HEAD" ? publicRoutes[path] : undefined;
     // Public data meant for anyone (a key directory), so the container gate does not apply.

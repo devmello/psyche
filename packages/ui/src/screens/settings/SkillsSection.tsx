@@ -17,6 +17,7 @@ import { useStore } from "../../data/provider.tsx";
 import { plural } from "../../lib/format.ts";
 import { usePersona } from "../../slots.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
+import { SkillSuggestions } from "./SkillDraftCard.tsx";
 import {
   EmptyNotice,
   ErrorNotice,
@@ -319,6 +320,8 @@ export interface SkillsPanelProps extends LoadProps {
   onRemove?: (skill: SkillDetails) => void;
   onCheckUpdates?: () => void;
   onReviewUpdate?: (skill: SkillDetails) => void;
+  /** Agent-proposed drafts (T3), shown above the installed skills. */
+  suggestions?: ReactNode;
 }
 
 function SkillRow({
@@ -428,6 +431,7 @@ export function SkillsPanel({
   onRemove,
   onCheckUpdates,
   onReviewUpdate,
+  suggestions,
   loading,
   error,
   onRetry,
@@ -531,6 +535,7 @@ export function SkillsPanel({
             </form>
           </Group>
         ) : null}
+        {review === undefined ? (suggestions ?? null) : null}
         <Group title="Installed">
           {installed.length === 0 ? (
             <EmptyNotice text="No skills installed yet. Bundled skills are below." />
@@ -601,10 +606,17 @@ function TrustApproval({
 
 function refusal(what: string, err: unknown): string {
   if (hasCode(err, "policy_denied")) {
-    const v = (err as { details?: { violations?: unknown } }).details?.violations;
-    const list = Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+    const details = (err as { details?: { violations?: unknown; problems?: unknown } }).details;
+    const strings = (v: unknown) =>
+      Array.isArray(v)
+        ? v.filter((x): x is string => typeof x === "string").map((x) => show(x))
+        : [];
+    const problems = strings(details?.problems);
+    if (problems.length > 0)
+      return `Psyche won't install this suggestion; it does not replay: ${problems.join("; ")}.`;
+    const list = strings(details?.violations);
     return list.length > 0
-      ? `Psyche won't install this skill: it ${list.map((x) => show(x)).join("; it ")}.`
+      ? `Psyche won't install this skill: it ${list.join("; it ")}.`
       : `Psyche won't ${what.toLowerCase()} (${messageOf(err)}).`;
   }
   if (hasCode(err, "forbidden")) return `${what} needs a device paired as admin.`;
@@ -621,6 +633,8 @@ export function SkillsSection({
 }): ReactElement {
   const call = useCall();
   const q = useGatewayQuery("skills.list", {});
+  const draftsQ = useGatewayQuery("skills.drafts.list", { status: "open" });
+  const persona = usePersona().name;
   const [review, setReview] = useState<{ proposal: SkillProposal; approvalId: string } | null>(
     null,
   );
@@ -647,6 +661,7 @@ export function SkillsSection({
     p.then(
       () => {
         q.reload();
+        draftsQ.reload();
         if (done) setNotice(done);
       },
       (err: unknown) => setActionError(refusal(what, err)),
@@ -698,6 +713,29 @@ export function SkillsSection({
             ),
           })}
       onReview={(source) => stage("Review the skill", call("skills.proposeInstall", { source }))}
+      suggestions={
+        <SkillSuggestions
+          drafts={draftsQ.data?.drafts ?? []}
+          persona={persona}
+          busy={reviewing}
+          onSave={(d, text) =>
+            call("skills.drafts.update", { draftId: d.id, text }).then(() => draftsQ.reload())
+          }
+          onAccept={(d) =>
+            stage(
+              "Review the proposed skill",
+              call("skills.drafts.accept", { draftId: d.id }).finally(() => draftsQ.reload()),
+            )
+          }
+          onDismiss={(d) =>
+            run(
+              "Dismiss the suggestion",
+              call("skills.drafts.dismiss", { draftId: d.id }),
+              `Dismissed “${show(d.name, 64)}”. ${persona} won't suggest that routine again.`,
+            )
+          }
+        />
+      }
       {...(onPickFolder ? { onPickFolder } : {})}
       onToggle={(s, enabled) =>
         run(

@@ -28,7 +28,7 @@ describe("Voice & dictation: system-wide dictation (J9, Q2)", () => {
     );
     expect(screen.getByText("Needed")).toBeTruthy();
     expect(screen.getAllByText("Right Option").length).toBeGreaterThan(0);
-    await userEvent.click(screen.getByRole("switch"));
+    await userEvent.click(screen.getByRole("switch", { name: /Dictate into any app/ }));
     expect(onChange).toHaveBeenCalledWith("voice.systemWide", false);
     await userEvent.click(screen.getByRole("button", { name: "Open System Settings" }));
     expect(onOpenAccessibility).toHaveBeenCalledOnce();
@@ -47,9 +47,11 @@ describe("Voice & dictation: system-wide dictation (J9, Q2)", () => {
     );
     expect(screen.getByText("Granted")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Open System Settings" })).toBeNull();
-    expect((screen.getByRole("switch") as HTMLButtonElement).getAttribute("aria-checked")).toBe(
-      "true",
-    );
+    expect(
+      (
+        screen.getByRole("switch", { name: /Dictate into any app/ }) as HTMLButtonElement
+      ).getAttribute("aria-checked"),
+    ).toBe("true");
     unmount();
     render(
       <VoicePanel

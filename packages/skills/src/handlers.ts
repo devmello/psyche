@@ -3,12 +3,15 @@ import {
   type ApprovalRequest,
   type PermissionBroker,
   PsycheError,
+  type SkillDraft,
+  type SkillDraftStatus,
   type SkillInstallSource,
   type SkillSource,
   type SkillSummary,
   type SkillUpdateCheck,
   type Surface,
 } from "@psyche/protocol";
+import type { SkillDrafts } from "./drafts.ts";
 import type { FsSkillLoader, SkillDetails, SkillProposal } from "./loader.ts";
 import type { SkillCommand } from "./prompt.ts";
 import { summarizeFindings } from "./scanner.ts";
@@ -42,6 +45,12 @@ export interface SkillsHandlers {
   }) => Promise<{ skill: SkillDetails }>;
   "skills.remove": (p: { name: string }) => Promise<{ ok: true }>;
   "skills.checkUpdates": (p: { name?: string }) => Promise<{ updates: SkillUpdateCheck[] }>;
+  "skills.drafts.list": (p: { status?: SkillDraftStatus }) => Promise<{ drafts: SkillDraft[] }>;
+  "skills.drafts.update": (p: { draftId: string; text: string }) => Promise<{ draft: SkillDraft }>;
+  "skills.drafts.accept": (p: {
+    draftId: string;
+  }) => Promise<ProposalResult & { draft: SkillDraft }>;
+  "skills.drafts.dismiss": (p: { draftId: string }) => Promise<{ draft: SkillDraft }>;
   /** The staged proposal (full text, files, findings, diff) for an approval card on any device. */
   "skills.getProposal": (p: { proposalId: string }) => Promise<{ proposal: SkillProposal }>;
 }
@@ -57,25 +66,33 @@ export interface SkillsHandlerOptions {
   surfaces?: Surface[];
   /** Called for every installed skill whose source has an update (the Gateway's `skills.updated`). */
   onUpdate?: (update: SkillUpdateCheck) => void;
+  /** Agent-proposed skill drafts (T3); without it `skills.drafts.*` answer `unavailable`. */
+  drafts?: SkillDrafts;
 }
 
 export function createSkillsHandlers(
   loader: FsSkillLoader,
   opts: SkillsHandlerOptions,
 ): SkillsHandlers {
-  const requestApproval = async (proposal: SkillProposal): Promise<ProposalResult> => {
+  const requestApproval = async (
+    proposal: SkillProposal,
+    proposedBy?: "agent",
+  ): Promise<ProposalResult> => {
     const counts = summarizeFindings(proposal.findings);
     const verb =
-      proposal.scope === "workspace"
-        ? "Approve workspace skill"
-        : proposal.update !== undefined
-          ? "Update skill"
-          : "Install skill";
+      proposedBy === "agent"
+        ? "Install skill Psyche proposed"
+        : proposal.scope === "workspace"
+          ? "Approve workspace skill"
+          : proposal.update !== undefined
+            ? "Update skill"
+            : "Install skill";
     const issued = await opts.broker.requestApproval({
       kind: "skill_install",
       summary: `${verb} "${proposal.name}"${counts.high > 0 ? ` (${counts.high} high-severity findings: it will stay disabled)` : ""}`,
       details: {
         name: proposal.name,
+        ...(proposedBy === undefined ? {} : { proposedBy }),
         scope: proposal.scope,
         source: proposal.source,
         ...(proposal.commit === undefined ? {} : { commit: proposal.commit }),
@@ -100,6 +117,12 @@ export function createSkillsHandlers(
       taint: false,
     });
     return { proposal, approval: issued.approval };
+  };
+
+  const needDrafts = (): SkillDrafts => {
+    if (opts.drafts === undefined)
+      throw new PsycheError("unavailable", "agent-proposed skills are not set up");
+    return opts.drafts;
   };
 
   return {
@@ -150,6 +173,22 @@ export function createSkillsHandlers(
       const updates = await loader.checkUpdates(p.name);
       for (const u of updates) if (u.updateAvailable) opts.onUpdate?.(u);
       return { updates };
+    },
+    async "skills.drafts.list"(p) {
+      return { drafts: opts.drafts?.list(p.status) ?? [] };
+    },
+    async "skills.drafts.update"(p) {
+      return { draft: needDrafts().update(p.draftId, p.text) };
+    },
+    async "skills.drafts.accept"(p) {
+      const drafts = needDrafts();
+      const { proposal } = await drafts.accept(p.draftId);
+      const result = await requestApproval(proposal, "agent");
+      const draft = drafts.accepted(p.draftId, proposal.id, result.approval.id);
+      return { ...result, draft };
+    },
+    async "skills.drafts.dismiss"(p) {
+      return { draft: needDrafts().dismiss(p.draftId) };
     },
     async "skills.remove"(p) {
       await loader.remove(p.name);
