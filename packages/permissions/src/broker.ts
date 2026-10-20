@@ -1200,13 +1200,20 @@ export class PsychePermissionBroker implements PermissionBroker {
    */
   async authorizeChannelReply(input: ChannelReplyInput): Promise<ApprovalRequest> {
     this.#sweep();
-    const subject = { channel: input.channel, account: input.account };
-    const refuse = async (reason: string, message: string): Promise<never> => {
+    const { turn } = input;
+    const subject = {
+      channel: input.channel,
+      account: input.account,
+      ...(turn === undefined ? {} : { runId: turn.context.runId, threadId: turn.context.threadId }),
+    };
+    const refuse = async (reason: string, message: string, rule?: string): Promise<never> => {
       await this.#log("approval.channel_reply_refused", { type: "system" }, subject, {
         reason,
         purpose: input.purpose,
+        ...(rule === undefined ? {} : { rule }),
+        ...(turn === undefined ? {} : { taint: turn.context.taint }),
       });
-      return fail("forbidden", message, { reason });
+      return fail("forbidden", message, { reason, ...(rule === undefined ? {} : { rule }) });
     };
     const lookup = this.#channelConversations;
     if (lookup === undefined) {
@@ -1230,13 +1237,52 @@ export class PsychePermissionBroker implements PermissionBroker {
         if (age > CHANNEL_REPLY_WINDOW_MS) {
           return refuse("stale_conversation", "the last message there is too old to answer");
         }
+        if (turn !== undefined) {
+          // Only the conversation the request came from is not a new target (security §3.6);
+          // the agent writing anywhere else goes through `decide` and asks.
+          if (turn.requestRecipient !== input.recipient) {
+            return turn.context.taint
+              ? refuse("taint_new_target", "a tainted turn cannot send to a new conversation")
+              : refuse("not_requesting_conversation", "replies go only to the requesting chat");
+          }
+          const { decision } = await this.engine.evaluate(
+            {
+              tool: "channel.reply",
+              kind: "message_send",
+              sideEffect: "destructive",
+              targetKind: "recipient",
+              target: { kind: "recipient", value: input.recipient },
+              params: { channel: input.channel, recipient: input.recipient },
+              paramsHash: input.bodySha256,
+              binding: {
+                channel: input.channel,
+                account: input.account,
+                recipient: input.recipient,
+                bodySha256: input.bodySha256,
+              },
+            },
+            { ...turn.context, newTarget: false },
+          );
+          // Hard prohibitions, deny rules, plan mode and requester limits refuse; the
+          // destructive default `ask` is what this authority answers.
+          if (decision.decision === "deny") {
+            return refuse("policy_denied", decision.reason ?? "denied by policy", decision.rule);
+          }
+          if (decision.rule.startsWith("taint:")) {
+            return refuse("taint_new_target", decision.reason ?? "tainted", decision.rule);
+          }
+        }
         break;
       case "pairing_code":
+        if (turn !== undefined)
+          return refuse("unexpected_turn", "pairing codes are not agent text");
         if (conv.allows !== "pairing_code" || age > CHANNEL_PAIRING_WINDOW_MS) {
           return refuse("not_pairing", "no fresh pairing request in that conversation");
         }
         break;
       case "approval_card":
+        if (turn !== undefined)
+          return refuse("unexpected_turn", "approval cards are not agent text");
         if (!conv.owner || conv.isGroup) {
           return refuse("not_owner_conversation", "approval cards go only to the owner's own chat");
         }
@@ -1270,11 +1316,16 @@ export class PsychePermissionBroker implements PermissionBroker {
       details: { channel: input.channel, account: input.account, purpose: input.purpose },
       bindingHash: binding.bindingHash,
       grantKey: binding.grantKey,
-      requestedBy: { runId: null, taskId: null, threadId: null, agent: `channel:${input.channel}` },
+      requestedBy: {
+        runId: turn?.context.runId ?? null,
+        taskId: turn?.context.taskId ?? null,
+        threadId: turn?.context.threadId ?? null,
+        agent: `channel:${input.channel}`,
+      },
       sideEffect: "write",
       surfaces: ["desktop"],
       scopesOffered: ["once"],
-      taint: false,
+      taint: turn?.context.taint === true,
       ttlMs: CHANNEL_REPLY_TTL_MS,
     });
     const id = issued.approval.id;
@@ -1301,6 +1352,9 @@ export class PsychePermissionBroker implements PermissionBroker {
         purpose: input.purpose,
         senderId: conv.senderId,
         bindingHash: binding.bindingHash,
+        ...(turn === undefined
+          ? {}
+          : { taint: turn.context.taint, mode: turn.context.permissionMode }),
         expiresAt: decided.expiresAt,
       },
     );
