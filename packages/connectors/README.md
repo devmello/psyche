@@ -6,7 +6,7 @@ First-party connectors behind one framework: a `Connector` interface, a `Connect
 
 ## Public API
 
-- **Framework** (`src/framework/`): `ConnectorRegistry` (`catalogue`, `list`, `get`, `connect`, `disconnect`, `remove`, `status`, `setMatrix`, `sync`, `permissionRows`, `instance`), `MemoryConnectorStore`, the types in `types.ts`, `bindingHash` / `canonicalJSON` (security §3.5), `startLoopback` / `createPkce` (installed-app OAuth), `REMOTE_MCP_PRESETS` (Slack, Notion, Linear, GitHub) and `VERIFIED_MCP_HOSTS`, `COMING_SOON`.
+- **Framework** (`src/framework/`): `ConnectorRegistry` (`catalogue`, `list`, `get`, `connect`, `startConnect`, `restore`, `disconnect`, `remove`, `status`, `setMatrix`, `sync`, `permissionRows`, `instance`), `MemoryConnectorStore`, `SqliteConnectorStore` (the `connectors` table), the types in `types.ts`, `bindingHash` / `canonicalJSON` (security §3.5), `startLoopback` / `createPkce` (installed-app OAuth), `REMOTE_MCP_PRESETS` (Slack, Notion, Linear, GitHub) and `VERIFIED_MCP_HOSTS`, `COMING_SOON`.
 - **Gateway API**: `connectorHandlers(registry)` and `CONNECTOR_METHODS` for `connectors.catalogue | list | get | connect | disconnect | status | setMatrix`.
 - **Web** (`src/web/`): `safeFetch`, `vetUrl`, `checkAddress`, `htmlToMarkdown`; search providers `braveProvider`, `exaProvider`, `tavilyProvider`, `searxngProvider`; factories `webSearchFactory` / `webFetchFactory`.
 - **Google** (`src/google/`): `googleFactory({ openBrowser, approveSecret? })`, `GOOGLE_CATALOGUE`, `GOOGLE_ACTIONS`, and the Gmail / Calendar / Drive clients.
@@ -41,7 +41,8 @@ The owner creates their own Desktop OAuth client. The steps and copy are in [doc
 1. Create a Google Cloud project, and enable the Gmail API, the Google Calendar API and the Google Drive API.
 2. Google Auth Platform → Branding: set the audience to **External**. Under Audience, **Publish app** so its status is **In production**. Leaving it in **Testing** makes Google expire refresh tokens 7 days after consent. In production, an unverified app used only by its owner falls under Google's personal-use exemption (fewer than 100 users) and needs no verification or CASA assessment. The owner clicks through the "unverified app" screen once.
 3. Clients → Create client → **Desktop app**. Psyche needs the client id. Store the client secret in the vault and pass it as `{{cred:<slug>}}`; Google desktop secrets are not confidential, but they still never go in config.
-4. Connect with `connectors.connect { catalogueId: "google", scopeMode, config: { clientId, clientSecret?, gmailScopes? } }`. Psyche opens Google's consent page and receives the code on `http://127.0.0.1:<random port>/callback`. It checks `state`, verifies PKCE S256 and requests `access_type=offline`.
+4. Connect with `connectors.connect { catalogueId: "google", scopeMode, config?: { gmailScopes? } }`; the Gateway fills `clientId` / `clientSecret` from its config (owner steps: docs/guides/connectors-google.md). Psyche opens Google's consent page and receives the code on `http://127.0.0.1:<random port>/callback`. It checks `state`, verifies PKCE S256 and requests `access_type=offline`.
+5. The Gateway uses `registry.startConnect`: it resolves as soon as the consent page is pending (`ConnectInput.onAuthorization` → `{ url, expiresAt, opened }`, the record stored as `needs_auth`) and the connect ends in a `status` event. `registry.restore()` re-creates stored `connected` records at boot without a new consent.
 
 Scopes:
 - `read_act`: `gmail.modify` (or `gmail.readonly` + `gmail.send` with `gmailScopes: "readonly_send"`, which drops labelling), `calendar`, `drive.file`.
@@ -114,9 +115,8 @@ A custom connector is a manifest (`CustomConnectorManifest` in `@psyche/protocol
 
 ## Stubbed / not yet
 
-- Persistence: `ConnectorStore` is in memory. The `connectors` table needs a migration plus `schema.ts` from S01 (docs/status/s09.md).
+- Persistence: the Gateway keeps records in the `connectors` table (`SqliteConnectorStore`; its DDL is a copy of `@psyche/db`'s migration, checked by a test). `MemoryConnectorStore` remains for tests.
 - Token storage: `TokenVault` is injected and needs the S06 vault write API.
-- `connectors.*` beyond `list` / `get` are not in packages/protocol yet. `CONNECTOR_METHODS` is the proposal for a `protocol:` PR.
 - Shopping: no payment (G12), no login to store accounts, no quantity other than one per add, no order-email polling (the tool parses an email the agent read).
 - Custom connectors: no OAuth (static keys only), no multipart / form bodies, no header params, no streaming; the drafting tool needs the owner at a device to install.
 - Mail: threads for JMAP (messages carry `threadId`, there is no thread tool yet); attachments on outgoing mail; the Gateway does not compose `jmapFactory` / `imapFactory` yet (INT). IMAP: no STARTTLS, no modified-UTF-7 mailbox names, no `STATUS` counts, no OAuth (XOAUTH2) for Gmail / Outlook over IMAP (use the Google connector).

@@ -244,7 +244,7 @@ export class GoogleConnector implements Connector {
     // Reconnecting (re-auth, mode change): drop the old grant first so a read-only connection
     // cannot keep a refresh token that still carries gmail.send / gmail.modify.
     await this.#auth.revoke(input.signal);
-    const tokens = await this.#auth.authorize(scopes, input.signal);
+    const tokens = await this.#auth.authorize(scopes, input.signal, input.onAuthorization);
     const granted = (tokens.scope ?? "").split(/\s+/).filter((x) => x !== "");
     const profile = await this.#gmail.profile(input.signal);
     if (typeof profile.emailAddress !== "string")

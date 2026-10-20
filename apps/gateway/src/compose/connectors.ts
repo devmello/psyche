@@ -18,8 +18,10 @@ import {
   jmapFactory,
   type LibrarySink,
   REMOTE_MCP_PRESETS,
+  SqliteConnectorStore,
   type StoredTokens,
   type TokenVault,
+  toWire,
   type WebFetchFactoryOptions,
   type WebSearchFactoryOptions,
 } from "@psyche/connectors";
@@ -57,6 +59,12 @@ export interface ConnectorsSetup {
   openBrowser?: (url: URL) => void | Promise<void>;
   /** Loopback wait for the OAuth redirect (default: the package's 5 minutes). */
   oauthTimeoutMs?: number;
+  /**
+   * The owner's Google Cloud OAuth client (Desktop app), docs/guides/connectors-google.md.
+   * `clientSecret` is a `{{cred:slug}}` placeholder, read under a credential approval at connect.
+   * Without a client id, Google shows as not configured and connecting it is refused.
+   */
+  google?: { clientId?: string; clientSecret?: string };
   /** Web search / fetch connectors, only when the owner configured them (M8). */
   web?: { search?: WebSearchFactoryOptions; fetch?: WebFetchFactoryOptions };
   /**
@@ -73,7 +81,7 @@ export interface ConnectorsSetup {
   credentials?: CredentialBroker;
   /** Attachments and Drive downloads (the Library, S13). */
   library?: LibrarySink;
-  /** Connector records (in memory until the `connectors` table exists, docs/status/s09.md). */
+  /** Connector records. Default: the `connectors` table in the Gateway's database (#505). */
   store?: ConnectorStore;
   /** Directory rows without a local implementation; default remote MCP presets and coming soon. */
   extraCatalogue?: CatalogueEntry[];
@@ -116,6 +124,14 @@ function defaultFactories(
     googleFactory({
       openBrowser: setup.openBrowser ?? noBrowser,
       ...(setup.oauthTimeoutMs === undefined ? {} : { timeoutMs: setup.oauthTimeoutMs }),
+      // The Desktop client's secret is a vault item: one credential card, reused while live.
+      approveSecret: (placeholder, target) =>
+        mail.approve({
+          connectorId: "google-oauth-client",
+          placeholder,
+          target,
+          purpose: "connect",
+        }),
     }),
     // Other mail (M7): the app password or token is a vault item bound to the connector, read
     // under a credential_fill approval the owner gives once per mailbox (mail-credentials.ts).
@@ -147,10 +163,33 @@ export function composeConnectors(
 ): ComposedPart & { readonly registry: ConnectorRegistry; readonly mail: MailCredentials } {
   const log = services.logger;
   const mail = mailCredentials(services, () => registry);
+  /** connectors.updated for Settings and onboarding (#505): the record as stored now. */
+  const publishUpdate = async (event: ConnectorEvent): Promise<void> => {
+    if (event.type !== "status" && event.type !== "matrix_changed") return;
+    const connector = await registry.get(event.connectorId).catch(() => undefined);
+    if (connector === undefined) return;
+    const reason =
+      event.type === "matrix_changed"
+        ? "updated"
+        : event.status === "connected"
+          ? "connected"
+          : event.status === "disconnected"
+            ? "disconnected"
+            : event.status === "needs_auth"
+              ? "needs_auth"
+              : "authorization_failed";
+    services.publish("connectors.updated", {
+      connector: toWire(connector),
+      reason,
+      ...(event.type === "status" && event.reason !== undefined && event.status !== "connected"
+        ? { error: event.reason.slice(0, 200) }
+        : {}),
+    });
+  };
   const registry: ConnectorRegistry = new ConnectorRegistry({
     factories: setup.factories ?? defaultFactories(setup, services, mail),
     extraCatalogue: setup.extraCatalogue ?? [...REMOTE_MCP_PRESETS, ...COMING_SOON],
-    ...(setup.store === undefined ? {} : { store: setup.store }),
+    store: setup.store ?? new SqliteConnectorStore(services.db.sqlite),
     context: {
       clock: services.clock,
       fetch: setup.fetch ?? ((input, init) => fetch(input, init)),
@@ -164,6 +203,7 @@ export function composeConnectors(
     authorityFor: (callId) => services.calls.authorityFor(callId),
     onEvent: (event) => {
       onConnectorEvent(services, event);
+      void publishUpdate(event);
       setup.onEvent?.(event);
     },
     ...(setup.newId === undefined ? {} : { newId: setup.newId }),
@@ -176,6 +216,57 @@ export function composeConnectors(
     if (!isMethodName(name)) continue;
     handlers[name] = { run: (_call: Call, params: never) => fn(params) };
   }
+  // #505: connect returns at once; an OAuth sign-in comes back pending with its consent page and
+  // finishes as connectors.updated. The UI never shows Connected before tokens are stored.
+  const googleDefaults = setup.google ?? {};
+  const googleConfigured =
+    typeof googleDefaults.clientId === "string" && googleDefaults.clientId !== "";
+  handlers["connectors.connect"] = {
+    run: async (_call: Call, params: never) => {
+      const p = (params ?? {}) as {
+        catalogueId: string;
+        scopeMode: "read" | "read_act";
+        label?: string;
+        config?: Record<string, unknown>;
+        connectorId?: string;
+      };
+      let config = p.config ?? {};
+      if (p.catalogueId === "google") {
+        config = {
+          ...(googleDefaults.clientId === undefined ? {} : { clientId: googleDefaults.clientId }),
+          ...(googleDefaults.clientSecret === undefined
+            ? {}
+            : { clientSecret: googleDefaults.clientSecret }),
+          ...config,
+        };
+        if (typeof config.clientId !== "string" || config.clientId === "") {
+          throw new PsycheError(
+            "unavailable",
+            "Google is not set up on this Gateway: add your OAuth client id (docs/guides/connectors-google.md)",
+            { details: { reason: "not_configured", guide: "docs/guides/connectors-google.md" } },
+          );
+        }
+      }
+      const { record, authorization } = await registry.startConnect({
+        catalogueId: p.catalogueId,
+        scopeMode: p.scopeMode,
+        config,
+        ...(p.label === undefined ? {} : { label: p.label }),
+        ...(p.connectorId === undefined ? {} : { connectorId: p.connectorId }),
+      });
+      return {
+        connector: toWire(record),
+        ...(authorization === undefined ? {} : { authorization }),
+      };
+    },
+  };
+  handlers["connectors.catalogue"] = {
+    run: async () => ({
+      entries: registry
+        .catalogue()
+        .map((e) => (e.id === "google" ? { ...e, configured: googleConfigured } : e)),
+    }),
+  };
   const custom = new CustomConnectors({
     registry,
     broker: services.rawBroker,
@@ -277,6 +368,12 @@ export function composeConnectors(
     mail,
     handlers,
     start() {
+      // After a restart: connected records come back (tools registered, tokens from the vault).
+      void registry
+        .restore()
+        .catch((err) =>
+          log?.log("warn", "connector restore failed", { code: PsycheError.from(err).code }),
+        );
       if (interval <= 0) return;
       timer = setInterval(() => void syncAll(), interval);
       timer.unref?.();
