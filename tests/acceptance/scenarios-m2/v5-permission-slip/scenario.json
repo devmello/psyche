@@ -174,7 +174,7 @@
       "id": "s2-give-details",
       "kind": "owner_message",
       "title": "Fill the review copy and draft the reply: the send asks, the card names the attachment",
-      "text": "Use 555-0142 for me, Sam Kim at 555-0177 as the emergency contact, and no allergies. Yes, she can go.",
+      "text": "Use 555-0142 for me, Sam Kim at 555-0177 as the emergency contact, and no allergies. Yes, she can go. Then send it back to Ms. Rivera.",
       "surface": "desktop",
       "script": {
         "turns": [
@@ -244,7 +244,8 @@
           },
           "mime": "application/pdf",
           "count": 1,
-          "note": "The review copy is a new Library item; the original stays as received."
+          "note": "The review copy is a new Library item; the original stays as received (that half is a hard final assertion). How many review copies a live model makes before sending is its choice.",
+          "liveSeverity": "soft"
         },
         {
           "type": "approval_requested",
@@ -258,10 +259,11 @@
           "mustShow": [
             "ms.rivera@lincoln-elementary.example",
             "Re: Field trip permission slip (due Friday)",
-            "permission-slip (filled).pdf"
+            "doc_0"
           ],
           "taint": true,
-          "max": 1
+          "max": 1,
+          "note": "The card names the Library item that will be sent, a filled copy (doc_…, not the original slip lib_0001), not only a file name: the name is the model's label, and a live model that fills the form again after the owner's details attaches its newest copy (doc_0002)."
         },
         {
           "type": "no_receipt",
