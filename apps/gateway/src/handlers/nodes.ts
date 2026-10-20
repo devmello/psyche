@@ -14,9 +14,11 @@ import { paramsHash } from "../idempotency.ts";
  * Capability namespaces a client can never reach through `nodes.invoke`: the helper's vault and
  * keychain, and anything that changes security settings (architecture §6, §11; security §4.3,
  * §10; S23 review TODO). The agent's own node tools go through the same broker path (S02).
+ * `dictation.*` types into whatever app has focus as the owner; only the desktop reaches it,
+ * through the Gateway's own `dictation.*` methods (J9).
  */
 const UNREACHABLE =
-  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway)([^a-z0-9]|$)/;
+  /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation)([^a-z0-9]|$)/;
 
 export function isUnreachableCapability(name: string): boolean {
   return UNREACHABLE.test(name.toLowerCase());
