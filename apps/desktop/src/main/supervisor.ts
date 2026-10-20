@@ -191,10 +191,23 @@ export class GatewaySupervisor {
       this.set({ kind: "stopped", mode: "dev", reason: "tsx not found (run pnpm install)" });
       return;
     }
-    // The child gets PSYCHE_HOME and PATH, not the desktop's whole environment.
+    // The child gets PATH, HOME, PSYCHE_HOME and the developer's PSYCHE_* / provider-key variables
+    // (dev mode only; a packaged build never spawns this way), not the desktop's whole environment.
+    const passthrough: Record<string, string> = {};
+    for (const [key, value] of Object.entries(process.env)) {
+      if (value === undefined) continue;
+      if (key.startsWith("PSYCHE_") || /^(ANTHROPIC|OPENAI|GOOGLE|OPENROUTER)_API_KEY$/.test(key)) {
+        passthrough[key] = value;
+      }
+    }
     const child = spawn(tsx, ["src/main.ts"], {
       cwd: dir,
-      env: { PATH: process.env.PATH ?? "", HOME: homedir(), PSYCHE_HOME: this.opts.psycheHome },
+      env: {
+        ...passthrough,
+        PATH: process.env.PATH ?? "",
+        HOME: homedir(),
+        PSYCHE_HOME: this.opts.psycheHome,
+      },
       stdio: ["ignore", "inherit", "inherit"],
     });
     this.child = child;
