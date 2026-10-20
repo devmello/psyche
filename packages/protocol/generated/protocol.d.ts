@@ -3797,6 +3797,95 @@ export interface SkillCommand {
     trust:       SkillTrust;
 }
 
+export interface SkillsDraftUpdatedPayload {
+    draft: SkillDraft;
+}
+
+export interface SkillDraft {
+    approvalId?:        string;
+    createdAt:          string;
+    description:        string;
+    edited:             boolean;
+    id:                 string;
+    installProposalId?: string;
+    manifest:           SkillManifest;
+    name:               string;
+    /**
+     * Runs in the thread with this routine
+     */
+    occurrences: number;
+    /**
+     * Values stripped from the owner's words
+     */
+    redactions: number;
+    replay?:    SkillDraftReplay;
+    signature:  string;
+    status:     SkillDraftStatus;
+    steps:      SkillDraftStep[];
+    /**
+     * A run of the routine had read untrusted content
+     */
+    tainted: boolean;
+    /**
+     * Full SKILL.md, editable by the owner while open
+     */
+    text:      string;
+    threadId:  string;
+    updatedAt: string;
+}
+
+export interface SkillDraftReplay {
+    checkedAt: string;
+    ok:        boolean;
+    problems:  string[];
+}
+
+export type SkillDraftStatus = "open" | "accepted" | "installed" | "dismissed" | "expired";
+
+export interface SkillDraftStep {
+    sideEffect: SideEffect;
+    /**
+     * Input names only, never values
+     */
+    summary: string;
+    tool:    string;
+}
+
+export interface SkillsDraftsAcceptParams {
+    draftId: string;
+}
+
+export interface SkillsDraftsAcceptResult {
+    approval: ApprovalRequest;
+    draft:    SkillDraft;
+    proposal: SkillProposal;
+}
+
+export interface SkillsDraftsDismissParams {
+    draftId: string;
+}
+
+export interface SkillsDraftsDismissResult {
+    draft: SkillDraft;
+}
+
+export interface SkillsDraftsListParams {
+    status?: SkillDraftStatus;
+}
+
+export interface SkillsDraftsListResult {
+    drafts: SkillDraft[];
+}
+
+export interface SkillsDraftsUpdateParams {
+    draftId: string;
+    text:    string;
+}
+
+export interface SkillsDraftsUpdateResult {
+    draft: SkillDraft;
+}
+
 export interface SkillsGetParams {
     name:    string;
     source?: SkillSource;
