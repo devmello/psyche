@@ -44,7 +44,7 @@ export const LOCKED_APPS: readonly ComputerUseApp[] = [
     tier: "read",
     locked: {
       cap: "read",
-      reason: "Browsers are read only; the agent browses in its own browser.",
+      reason: "Browsers are read only; web tasks use their own browser window.",
     },
   },
   {
@@ -53,7 +53,7 @@ export const LOCKED_APPS: readonly ComputerUseApp[] = [
     tier: "read",
     locked: {
       cap: "read",
-      reason: "Browsers are read only; the agent browses in its own browser.",
+      reason: "Browsers are read only; web tasks use their own browser window.",
     },
   },
   {
@@ -85,8 +85,8 @@ export const LOCKED_APPS: readonly ComputerUseApp[] = [
 const CAP_LABEL = { read: "Read only (fixed)", click: "Click only (fixed)", off: "Off (fixed)" };
 
 export const TCC_LABEL: Record<TccPermission, { name: string; why: string }> = {
-  accessibility: { name: "Accessibility", why: "lets the agent click, type and use apps" },
-  screenRecording: { name: "Screen Recording", why: "lets the agent see app windows" },
+  accessibility: { name: "Accessibility", why: "lets {persona} click, type and use apps" },
+  screenRecording: { name: "Screen Recording", why: "lets {persona} see app windows" },
   notifications: {
     name: "Notifications",
     why: "lets Psyche ask for approvals when the window is closed",
@@ -166,7 +166,9 @@ export function ComputerUsePanel({
                 <li key={p} className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{TCC_LABEL[p].name}</span>
                   <StatusChip tone={TCC_STATE[state].tone}>{TCC_STATE[state].text}</StatusChip>
-                  <span className="text-xs text-muted-foreground">{TCC_LABEL[p].why}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {TCC_LABEL[p].why.replace("{persona}", persona)}
+                  </span>
                   {state !== "granted" && onOpenSystemSettings ? (
                     <Button
                       type="button"
@@ -194,62 +196,59 @@ export function ComputerUsePanel({
             onChange={(v) => onChange("computerUse.enabled", v)}
           />
           <SettingHint settingKey="computerUse.apps" />
-          <Table aria-label="App access">
-            <TableHeader>
-              <TableRow>
-                <TableHead scope="col">App</TableHead>
-                {TIERS.map((t) => (
-                  <TableHead key={t.value} scope="col" className="text-center">
-                    {t.label}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {apps.length === 0 ? (
+          {apps.length === 0 ? (
+            <EmptyNotice text="No apps yet. Apps appear here the first time they're used." />
+          ) : (
+            <Table aria-label="App access">
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={TIERS.length + 1}>
-                    <EmptyNotice text="No apps yet. Apps appear here the first time they're used." />
-                  </TableCell>
-                </TableRow>
-              ) : null}
-              {apps.map((a) => (
-                <TableRow key={a.id}>
-                  <th scope="row" className="p-2 text-left font-normal">
-                    {a.name}
-                  </th>
+                  <TableHead scope="col">App</TableHead>
                   {TIERS.map((t) => (
-                    <TableCell key={t.value} className="text-center">
-                      <input
-                        type="radio"
-                        name={`${id}-${a.id}`}
-                        value={t.value}
-                        checked={a.tier === t.value}
-                        disabled={!enabled}
-                        onChange={() => setTier(a, t.value)}
-                        aria-label={`${a.name}: ${t.label}`}
-                        className="size-4 accent-accent-9"
-                      />
-                    </TableCell>
+                    <TableHead key={t.value} scope="col" className="text-center">
+                      {t.label}
+                    </TableHead>
                   ))}
                 </TableRow>
-              ))}
-              {LOCKED_APPS.map((a) => (
-                <TableRow key={a.id} data-locked="true">
-                  <th scope="row" className="p-2 text-left font-normal">
-                    <span className="flex items-center gap-1.5">
-                      <Lock className="size-3.5 text-gray-11" aria-hidden="true" />
+              </TableHeader>
+              <TableBody>
+                {apps.map((a) => (
+                  <TableRow key={a.id}>
+                    <th scope="row" className="p-2 text-left font-normal">
                       {a.name}
-                    </span>
-                  </th>
-                  <TableCell colSpan={TIERS.length} className="whitespace-normal">
-                    <span className="font-medium">{a.locked ? CAP_LABEL[a.locked.cap] : ""}</span>{" "}
-                    <span className="text-xs text-muted-foreground">{a.locked?.reason}</span>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    </th>
+                    {TIERS.map((t) => (
+                      <TableCell key={t.value} className="text-center">
+                        <input
+                          type="radio"
+                          name={`${id}-${a.id}`}
+                          value={t.value}
+                          checked={a.tier === t.value}
+                          disabled={!enabled}
+                          onChange={() => setTier(a, t.value)}
+                          aria-label={`${a.name}: ${t.label}`}
+                          className="size-4 accent-accent-9"
+                        />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+                {LOCKED_APPS.map((a) => (
+                  <TableRow key={a.id} data-locked="true">
+                    <th scope="row" className="p-2 text-left font-normal">
+                      <span className="flex items-center gap-1.5">
+                        <Lock className="size-3.5 text-gray-11" aria-hidden="true" />
+                        {a.name}
+                      </span>
+                    </th>
+                    <TableCell colSpan={TIERS.length} className="whitespace-normal">
+                      <span className="font-medium">{a.locked ? CAP_LABEL[a.locked.cap] : ""}</span>{" "}
+                      <span className="text-xs text-muted-foreground">{a.locked?.reason}</span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </Group>
       </LoadGate>
     </SectionFrame>

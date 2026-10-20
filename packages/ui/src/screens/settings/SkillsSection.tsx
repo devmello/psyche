@@ -111,12 +111,16 @@ export interface SkillTrustCardProps {
 }
 
 /** Everything a skill contains and asks for, shown before the owner approves (security §11). */
+/** Finding severities in words, not the analyzer's enum. */
+const SEVERITY_LABEL: Record<string, string> = { high: "High", warn: "Warning", info: "Note" };
+
 export function SkillTrustCard({
   proposal,
   children,
   onCancel,
 }: SkillTrustCardProps): ReactElement {
   const id = useId();
+  const persona = usePersona().name;
   const m = proposal.manifest ?? { tools: [], permissions: [], prompts: [] };
   const high = proposal.findings.filter((f) => f.severity === "high");
   const verb = proposal.update === undefined ? "installing" : "updating";
@@ -132,12 +136,12 @@ export function SkillTrustCard({
             Review “{show(proposal.name, 64)}” before {verb}
           </h3>
           <p className="mt-0.5 text-small text-muted-foreground">
-            A skill is instructions the agent will follow. It never gets permissions by itself: each
+            A skill is instructions {persona} will follow. It never gets permissions by itself: each
             action it leads to still asks you.
           </p>
         </div>
         {onCancel ? (
-          <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+          <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
             Cancel
           </Button>
         ) : null}
@@ -219,7 +223,7 @@ export function SkillTrustCard({
                     f.severity === "high" ? "danger" : f.severity === "warn" ? "approval" : "info"
                   }
                 >
-                  {f.severity}
+                  {SEVERITY_LABEL[f.severity] ?? f.severity}
                 </StatusChip>
                 <span className="min-w-0 flex-1">
                   {show(f.message)}
@@ -329,7 +333,7 @@ function SkillRow({
         </span>
         <StatusChip tone={status.tone}>{status.label}</StatusChip>
         {skill.update?.updateAvailable ? (
-          <StatusChip tone="accent">
+          <StatusChip tone={skill.update.manifestChanged ? "approval" : "info"}>
             Update available{skill.update.manifestChanged ? " · asks for different things" : ""}
           </StatusChip>
         ) : null}
@@ -346,7 +350,7 @@ function SkillRow({
           {onRemove && skill.source !== "bundled" ? (
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="xs"
               onClick={() => onRemove(skill)}
               aria-label={`Remove ${name}`}
@@ -403,6 +407,7 @@ export function SkillsPanel({
   onRetry,
 }: SkillsPanelProps): ReactElement {
   const inputId = useId();
+  const persona = usePersona().name;
   const [path, setPath] = useState("");
   const [pickError, setPickError] = useState<string | null>(null);
   const installed = skills.filter((s) => s.source !== "bundled");
@@ -418,7 +423,7 @@ export function SkillsPanel({
   return (
     <SectionFrame
       title="Skills"
-      description="Instructions the agent can follow for a kind of task. Skills never grant permissions."
+      description={`Instructions ${persona} can follow for a kind of task. Skills never grant permissions.`}
       actions={
         onCheckUpdates ? (
           <Button

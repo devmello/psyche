@@ -80,3 +80,50 @@ Each group owns disjoint files, so the groups can run in parallel.
 | D. Agent sheet, Settings, Onboarding | `packages/ui/src/agent/**` except `AgentHeader.tsx`, `packages/ui/src/screens/{settings,onboarding}/**` | 14–16, 20, 21, 26 |
 
 Open PRs that touch the same files, to merge or rebase around: #104 (Settings route, `PsycheApp`, `Chrome.tsx`), #126 and #151 (`chat/Thread.tsx`, `MessageView`, `Composer`, the thread list), #131 (`TitleBar`, `OnboardingFlow`, `AgentHeader`, `layout.spec.ts`), #141 (Settings folder grants).
+
+## Consistency pass, 2026-10-20 (S11)
+
+This pass covers screens added after the polish wave: Credentials, the Files pane, Computer use, Voice & dictation, Models & providers, Skills, Browser and VM mode. Library had nothing new to review. Each screen was checked against the cross-cutting rules above, with Permissions, Connectors and Data controls as the baseline.
+
+### Fixed
+
+- **#365 — Credentials, Browser and the Files pane**
+  - Credentials:
+    - Each header has one primary action. Import and the password managers moved under a "More ways to add" menu.
+    - The empty list is an `EmptyState` with one action, and a search with no match offers "Clear search".
+    - Slugs moved off the row and into the item sheet. Values use sentence case, and inline forms follow the Group rhythm.
+  - Browser had its hint rendered twice; the duplicate is gone. The DevTools port and the profile path moved into a Details disclosure.
+  - Files pane: errors read "Psyche couldn't …" with "Try again". The empty preview is an `EmptyState` and the share action is primary.
+- **This PR — Computer use, Voice, Models, Skills and VM mode**
+  - Computer use and Skills: agent actions use the persona's name instead of "the agent".
+  - Computer use: an empty app list shows the notice instead of an empty table under its column headers.
+  - Voice:
+    - Key labels match: "Right Option" and "Right Command", in both the description and the radios.
+    - Spelled "the Psyche helper".
+  - Models:
+    - "Add a provider" is primary and also serves as the empty state's action.
+    - The vault reference left the row text.
+    - Errors read "Psyche couldn't …".
+  - Skills:
+    - Cancel is a ghost button and Remove is a ghost button beside the one "Review update".
+    - Severities are shown in words.
+    - The update chip uses a semantic tone.
+  - VM mode:
+    - Shares say "read only" or "read and write".
+    - The failure notice says what happens next.
+    - Values use sentence case.
+    - Guest cards match Connectors' cards.
+    - `nodes.list` and `devices.list` errors now reach the load gate.
+
+### Still open (needs a decision or a larger change)
+
+1. **Raw keys in write errors.** `settings/shared.tsx` names the raw setting key, as in "Psyche couldn't save vault.backend". This breaks §4.12 in every section, and fixing it needs a key-to-label map.
+2. **Matrix radios.** Computer use and `ActionMatrix` use raw `<input type="radio">` per cell. Choose a kit `RadioGroupItem` per cell or one `NativeSelect` per row, and apply it to both.
+3. **Model names.** Models & providers shows `m.ref` (the provider/model id) as the label everywhere. Human labels would move the ref to disclosure level 2. Separately, `models.list` errors are swallowed in favour of settings, and the chat-only confirm is a hand-rolled alert outside the frame.
+4. **The Files pane and `Page`.** Decide whether a split-view pane is exempt from `Page`/`PageHeader`. §4.6 names no icon for it; this pass uses `FileText` for the empty preview. Loading in the tree is still plain "Loading…" text, not `LoadingCards`.
+5. **Naming.** It's open whether "Psyche Chrome profile" should carry the persona's name instead.
+6. **Facts value casing.** This pass used sentence case in Credentials and VM mode. Write it into the rules.
+7. **Destructive rows.** Connectors pairs an outline Disconnect with a destructive Remove. Either accept that as the pattern for destructive rows or move Remove under ⋯.
+8. **Skills trust card.** The content hash and commit are at level 1, and tool names appear on row line 3. Both belong in a Details disclosure, with a count on the row.
+9. **Voice hotkey.** The field is free text, and a conflicting shortcut is shown only as muted description text. Options: a shortcut recorder, and an approval-tone hint for the conflict.
+10. **Credential detail.** Approval ids appear in the uses table. That's acceptable at level 2, but they could read "Approved" with the id in a tooltip.

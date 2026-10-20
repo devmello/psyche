@@ -647,8 +647,8 @@ describe("VM mode", () => {
     act(() => gateway().emit("vm.updated", { nodeId: "node_mac_helper", guest, at: FIXTURE_NOW }));
     const card = await screen.findByRole("article", { name: "Guest work-mac" });
     expect(within(card).getByText("Running")).toBeTruthy();
-    expect(within(card).getByText("Documents ro")).toBeTruthy();
-    expect(within(card).getByText("connected (0.3.0)")).toBeTruthy();
+    expect(within(card).getByText("Documents (read only)")).toBeTruthy();
+    expect(within(card).getByText("Connected (0.3.0)")).toBeTruthy();
     act(() =>
       gateway().emit("vm.updated", {
         nodeId: "node_mac_helper",
@@ -729,7 +729,8 @@ describe("Model & providers", () => {
         onRunCheck={onRunCheck}
       />,
     );
-    expect(screen.getByText(/Key stored in the vault as vault:anthropic-api-key/)).toBeTruthy();
+    expect(screen.getByText("Key stored in the vault. Psyche never shows it.")).toBeTruthy();
+    expect(document.body.textContent).not.toContain("vault:anthropic-api-key");
     expect(screen.getByText("Chat only: tool-calling check failed")).toBeTruthy();
     await userEvent.click(
       screen.getByRole("button", { name: "Run the tool-calling check on ollama/glm-4.7-flash" }),

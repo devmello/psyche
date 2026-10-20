@@ -14,7 +14,8 @@ No release has been published yet. Until the first one, run Psyche from a source
 | [memory-and-persona.md](memory-and-persona.md) | You want to read or edit the agent's persona and memory files, pause or reset memory, or export. |
 | [connectors.md](connectors.md) | You want Google, other mail, 1Password, Telegram or web search, and which of them work yet. |
 | [server-mode.md](server-mode.md) | You are running the Gateway on a Linux server or a Mac without a screen from source: Docker Compose, systemd, launchd, Tailscale, pairing, logs. |
-| [backup-restore.md](backup-restore.md) | You want encrypted backups, a backup schedule, or to move Psyche to a new machine. |
+| [backup-restore.md](backup-restore.md) | You want encrypted backups, a backup schedule, or to check or restore one. |
+| [migrate.md](migrate.md) | You are moving Psyche to a new Mac, to or from a Linux server, or between Docker Compose and systemd. |
 | [upgrade.md](upgrade.md) | A new version is out, or you need to go back to an older one. |
 
 ## Where your data lives

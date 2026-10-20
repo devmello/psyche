@@ -83,9 +83,9 @@ const PHASE: Record<VmGuest["phase"], { label: string; tone: Tone }> = {
 };
 
 const CLIPBOARD_WORDS: Record<VmClipboard, string> = {
-  "paste-only": "paste into the guest only",
-  bidirectional: "both ways",
-  off: "off",
+  "paste-only": "Paste into the guest only",
+  bidirectional: "Both ways",
+  off: "Off",
 };
 
 function GuestCard({ report, now }: { report: VmUpdatedPayload; now: number }): ReactElement {
@@ -94,7 +94,7 @@ function GuestCard({ report, now }: { report: VmUpdatedPayload; now: number }): 
   return (
     <article
       aria-label={`Guest ${g.name}`}
-      className="flex flex-col gap-3 rounded-md border border-gray-6 bg-background p-3"
+      className="flex flex-col gap-3 rounded-lg border border-gray-6 bg-gray-2 p-4"
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{g.name}</span>
@@ -104,11 +104,14 @@ function GuestCard({ report, now }: { report: VmUpdatedPayload; now: number }): 
         </span>
       </div>
       {g.phase === "failed" && g.lastError ? (
-        <ErrorNotice what={`The guest stopped: ${g.lastError}.`} did="" />
+        <ErrorNotice
+          what={`The guest stopped: ${g.lastError}.`}
+          did="Tasks that need it wait until it runs again."
+        />
       ) : null}
       <Facts
         items={[
-          { term: "macOS", value: g.guestOS ?? "not installed yet" },
+          { term: "macOS", value: g.guestOS ?? "Not installed yet" },
           {
             term: "Resources",
             value: `${g.cpus} CPUs · ${g.memoryGB} GB memory · ${g.diskGB} GB disk`,
@@ -116,19 +119,21 @@ function GuestCard({ report, now }: { report: VmUpdatedPayload; now: number }): 
           {
             term: "Guest helper",
             value: g.agent?.connected
-              ? `connected${g.agent.version ? ` (${g.agent.version})` : ""}`
-              : "not connected",
+              ? `Connected${g.agent.version ? ` (${g.agent.version})` : ""}`
+              : "Not connected",
           },
           {
             term: "Shared folders",
             value:
               g.shares.length === 0
-                ? "none"
-                : g.shares.map((s) => `${s.name} ${s.readOnly ? "ro" : "rw"}`).join(", "),
+                ? "None"
+                : g.shares
+                    .map((s) => `${s.name} (${s.readOnly ? "read only" : "read and write"})`)
+                    .join(", "),
           },
           ...(g.clipboard ? [{ term: "Clipboard", value: CLIPBOARD_WORDS[g.clipboard] }] : []),
           ...(g.vault
-            ? [{ term: "Credentials", value: g.vault === "host" ? "host vault" : "guest vault" }]
+            ? [{ term: "Credentials", value: g.vault === "host" ? "Host vault" : "Guest vault" }]
             : []),
         ]}
       />
@@ -286,8 +291,12 @@ export function VmSection({ now }: { now?: number }): ReactElement {
         guestNodes={guestNodes}
         guests={guests}
         loading={form.loading && Object.keys(form.values).length === 0}
-        error={form.error}
-        onRetry={form.reload}
+        error={form.error ?? nodes.error ?? devices.error}
+        onRetry={() => {
+          form.reload();
+          nodes.reload();
+          devices.reload();
+        }}
         {...(now === undefined ? {} : { now })}
       />
       {form.writeError ? <ErrorNotice what={form.writeError} did="" /> : null}
