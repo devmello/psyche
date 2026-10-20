@@ -6,6 +6,7 @@ import type {
   ExecResult,
   SandboxBackendKind,
   SandboxInstance,
+  SandboxMount,
   SandboxNetwork,
   SandboxRunner,
   SandboxScope,
@@ -97,9 +98,11 @@ import {
 import type { OpenStdioOptions, SandboxStdio, SandboxStdioReceipt } from "./stdio.ts";
 import { Semaphore } from "./sync.ts";
 import {
+  mountsKey,
   validateArgv,
   validateCwd,
   validateEnv,
+  validateMounts,
   validateScope,
   validateTimeout,
 } from "./validate.ts";
@@ -136,6 +139,11 @@ export interface ContainerSandboxRunnerOptions extends DetectOptions {
   image?: string;
   /** Default `"base"`. */
   variant?: ImageVariant;
+  /**
+   * Folders never bind-mounted, besides `/`, the home folder and its ancestors and `~/Library`
+   * (security §13): the Gateway passes `$PSYCHE_HOME`.
+   */
+  protectedMountRoots?: readonly string[];
   limits?: Partial<SandboxLimits>;
   /** Stop a container after this long without work. 0 disables. Default 10 min. */
   idleTimeoutMs?: number;
@@ -309,9 +317,12 @@ export class ContainerSandboxRunner implements SandboxRunner {
 
   async ensureSandbox(
     scope: SandboxScope,
-    options: { network?: SandboxNetwork } = {},
+    options: { network?: SandboxNetwork; mounts?: SandboxMount[] } = {},
   ): Promise<SandboxInstance> {
     validateScope(scope);
+    const mounts = await validateMounts(options.mounts, this.#options.protectedMountRoots);
+    const mountsDiffer = (instance: SandboxInstance) =>
+      mountsKey(instance.mounts ?? []) !== mountsKey(mounts);
     const network = options.network ?? "none";
     if (network !== "none" && network !== "proxy") {
       fail("invalid_params", "network must be none or proxy");
@@ -326,19 +337,23 @@ export class ContainerSandboxRunner implements SandboxRunner {
           `sandbox for ${key} runs with network ${existing.instance.network}; destroy it first`,
         );
       }
+      if (mountsDiffer(existing.instance)) {
+        fail("conflict", `sandbox for ${key} has other mounts; destroy it first`);
+      }
       await this.#ensureRunning(existing);
       this.#idle(existing, false);
       return structuredClone(existing.instance);
     }
     let pending = this.#pending.get(key);
     if (!pending) {
-      pending = this.#create(scope, network).finally(() => this.#pending.delete(key));
+      pending = this.#create(scope, network, mounts).finally(() => this.#pending.delete(key));
       this.#pending.set(key, pending);
     }
     const entry = await pending;
     if (entry.instance.network !== network) {
       fail("conflict", `sandbox for ${key} runs with network ${entry.instance.network}`);
     }
+    if (mountsDiffer(entry.instance)) fail("conflict", `sandbox for ${key} has other mounts`);
     return structuredClone(entry.instance);
   }
 
@@ -652,7 +667,11 @@ export class ContainerSandboxRunner implements SandboxRunner {
     return this.#driver.start(backend.cli, args, options).done;
   }
 
-  async #create(scope: SandboxScope, network: SandboxNetwork): Promise<Entry> {
+  async #create(
+    scope: SandboxScope,
+    network: SandboxNetwork,
+    mounts: SandboxMount[] = [],
+  ): Promise<Entry> {
     const backend = await this.#primary();
     await this.#ensureService(backend);
     const { id, container, volume } = this.#names(scope);
@@ -701,7 +720,15 @@ export class ContainerSandboxRunner implements SandboxRunner {
     }
     const config = createHash("sha256")
       .update(
-        JSON.stringify({ c: CONTRACT_VERSION, image, net: netName, limits: this.#limits, env }),
+        JSON.stringify({
+          c: CONTRACT_VERSION,
+          image,
+          net: netName,
+          limits: this.#limits,
+          env,
+          // A container adopted from an earlier process must have exactly these mounts.
+          ...(mounts.length === 0 ? {} : { mounts: mountsKey(mounts) }),
+        }),
       )
       .digest("hex")
       .slice(0, 16);
@@ -718,6 +745,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
         [CONFIG_LABEL]: config,
       },
       env,
+      ...(mounts.length === 0 ? {} : { mounts }),
     };
     await this.#ensureVolume(backend, volume, image);
     const provenance = await WorkspaceProvenance.load(this.#provenanceStore, scopeKey(scope));
@@ -729,6 +757,7 @@ export class ContainerSandboxRunner implements SandboxRunner {
         network,
         workspacePath: WORKSPACE_PATH,
         status: "stopped",
+        ...(mounts.length === 0 ? {} : { mounts: mounts.map((m) => ({ ...m })) }),
       },
       backend,
       container,
