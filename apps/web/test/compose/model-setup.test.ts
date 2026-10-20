@@ -59,8 +59,9 @@ describe("onboarding model setup", () => {
       "vault.setup",
       "vault.setup",
       "models.setKey",
+      "models.probe",
     ]);
-    const setKey = calls.at(-1);
+    const setKey = calls.find((c) => c.method === "models.setKey");
     expect(setKey?.params).toEqual({ providerId: "anthropic", key: "sk-ant-x" });
     expect(setKey?.key).toBeTruthy();
   });
@@ -72,7 +73,42 @@ describe("onboarding model setup", () => {
       "models.setKey": () => ({ provider: {} }),
     });
     expect(await saveProviderKey(platform, "openai", "sk-x")).toEqual({ keyRef: "model-openai" });
-    expect(calls.map((c) => c.method)).toEqual(["vault.status", "vault.unlock", "models.setKey"]);
+    expect(calls.map((c) => c.method)).toEqual([
+      "vault.status",
+      "vault.unlock",
+      "models.setKey",
+      "models.probe",
+    ]);
+  });
+
+  it("reports a key the provider refuses right after storing it, keeping the recovery key (#504)", async () => {
+    const { platform } = platformWith({
+      "vault.status": () => ({ status: { state: "uninitialized" } }),
+      "vault.setup": () => ({ recoveryKey: "AAAA-BBBB-CCCC", status: { state: "unlocked" } }),
+      "models.setKey": () => ({ provider: { id: "anthropic", keyConfigured: true } }),
+      "models.probe": () => ({
+        provider: {
+          probe: {
+            state: "auth_failed",
+            error: "the endpoint refused the key (HTTP 401: invalid x-api-key)",
+          },
+        },
+      }),
+    });
+    expect(await saveProviderKey(platform, "anthropic", "sk-ant-x")).toEqual({
+      keyRef: "model-anthropic",
+      recoveryKey: "AAAA-BBBB-CCCC",
+      refused: "the endpoint refused the key (HTTP 401: invalid x-api-key)",
+    });
+  });
+
+  it("does not stop on an unreachable endpoint", async () => {
+    const { platform } = platformWith({
+      "vault.status": () => ({ status: { state: "unlocked" } }),
+      "models.setKey": () => ({ provider: {} }),
+      "models.probe": () => ({ provider: { probe: { state: "unreachable", error: "offline" } } }),
+    });
+    expect(await saveProviderKey(platform, "openai", "sk-x")).toEqual({ keyRef: "model-openai" });
   });
 
   it("binds the model on Done and reports Gateway, helper and model", async () => {

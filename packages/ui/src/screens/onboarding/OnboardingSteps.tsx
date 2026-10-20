@@ -604,6 +604,7 @@ export function ModelStep({
   onSaveKey,
   onCheck,
   keyError = null,
+  keyRefused = false,
   recoveryKey,
   recoverySaved = false,
   onRecoverySaved,
@@ -615,6 +616,8 @@ export function ModelStep({
   onSaveKey?: (key: string) => void;
   onCheck?: () => void;
   keyError?: string | null;
+  /** The key was stored but the provider refused it (the error already says what to do). */
+  keyRefused?: boolean;
   /** The vault's recovery key, when saving the key just created the vault. Shown once. */
   recoveryKey?: string;
   /** The owner confirmed saving it; required before leaving the step. */
@@ -771,7 +774,10 @@ export function ModelStep({
             </>
           )}
           {keyError ? (
-            <ErrorNotice what={keyError} did={t("onboarding.model.keyNotStored")} />
+            <ErrorNotice
+              what={keyError}
+              did={keyRefused ? "" : t("onboarding.model.keyNotStored")}
+            />
           ) : null}
           {recoveryKey ? (
             <div

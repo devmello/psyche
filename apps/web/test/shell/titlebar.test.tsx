@@ -1,4 +1,7 @@
 // @vitest-environment happy-dom
+
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -41,5 +44,26 @@ describe("TitleBar", () => {
     expect(sectionTitle("/settings/files")).toBe("Settings");
     expect(sectionTitle("/agent/activity")).toBe("Agent");
     expect(sectionTitle("/")).toBe("Psyche");
+  });
+});
+
+describe("overlays over the title bar (#508)", () => {
+  it("opt every portaled overlay out of the drag region so their buttons take clicks", () => {
+    const css = readFileSync(join(process.cwd(), "src/shell/shell.css"), "utf8");
+    // The rule whose selectors include the sheet's content, up to its declarations.
+    const at = css.indexOf('[data-slot="sheet-content"]');
+    const selectors = css.slice(at, css.indexOf("{", at));
+    expect(css.slice(css.indexOf("{", at), css.indexOf("}", at))).toContain(
+      "-webkit-app-region: no-drag",
+    );
+    for (const slot of [
+      "sheet-content",
+      "dialog-content",
+      "alert-dialog-content",
+      "popover-content",
+      "dropdown-menu-content",
+      "select-content",
+    ])
+      expect(selectors).toContain(`[data-slot="${slot}"]`);
   });
 });

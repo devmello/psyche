@@ -166,7 +166,9 @@ final class EscStopTap: @unchecked Sendable {
             }, userInfo: refcon
         ) else { return false }
         tap = port
-        let t = Thread { [port] in
+        let box = UncheckedSendable(port)
+        let t = Thread { [box] in
+            let port = box.value
             let src = CFMachPortCreateRunLoopSource(nil, port, 0)
             CFRunLoopAddSource(CFRunLoopGetCurrent(), src, .commonModes)
             CGEvent.tapEnable(tap: port, enable: true)

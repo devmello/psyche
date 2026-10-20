@@ -58,7 +58,7 @@ public enum Vsock {
     public static func bridge(cid: UInt32, port: UInt32) throws -> Never {
         let fd = try connect(cid: cid, port: port)
         let done = DispatchSemaphore(value: 0)
-        func pump(_ from: Int32, _ to: Int32) {
+        @Sendable func pump(_ from: Int32, _ to: Int32) {
             var buf = [UInt8](repeating: 0, count: 64 * 1024)
             while true {
                 let n = read(from, &buf, buf.count)

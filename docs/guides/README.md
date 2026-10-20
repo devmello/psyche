@@ -13,6 +13,7 @@ No release has been published yet. Until the first one, run Psyche from a source
 | [approvals.md](approvals.md) | You want to know what an approval card shows, which scopes and modes exist, what only your devices can approve, receipts, revoking grants and untrusted content. |
 | [memory-and-persona.md](memory-and-persona.md) | You want to read or edit the agent's persona and memory files, pause or reset memory, or export. |
 | [connectors.md](connectors.md) | You want Google, other mail, 1Password, Telegram or web search, and which of them work yet. |
+| [connectors-google.md](connectors-google.md) | You are connecting Google: creating your own OAuth client, configuring the Gateway, signing in, disconnecting. |
 | [server-mode.md](server-mode.md) | You are running the Gateway on a Linux server or a Mac without a screen from source: Docker Compose, systemd, launchd, Tailscale, pairing, logs. |
 | [backup-restore.md](backup-restore.md) | You want encrypted backups, a backup schedule, or to check or restore one. |
 | [migrate.md](migrate.md) | You are moving Psyche to a new Mac, to or from a Linux server, or between Docker Compose and systemd. |

@@ -436,3 +436,28 @@ describe("InboxScreen", () => {
     expect(await screen.findByText("Nothing needs you.")).toBeTruthy();
   });
 });
+
+describe("page columns (#512)", () => {
+  /** The page column under a screen's labelled section: its classes and what's inside it. */
+  const column = (name: string) =>
+    screen.getByRole("region", { name }).firstElementChild as HTMLElement;
+
+  it("centres Goals and Ideas in the same prose column as Feed", async () => {
+    render(
+      <StoryWorld>
+        <FeedScreen />
+        <GoalsScreen />
+        <IdeasScreen />
+      </StoryWorld>,
+    );
+    await screen.findByRole("heading", { name: "Goals" });
+    const feed = column("Feed").className;
+    for (const name of ["Goals", "Ideas"]) {
+      const c = column(name);
+      expect(c.className, name).toBe(feed);
+      expect(c.className).toContain("mx-auto");
+      // Nothing inside narrows the content to a left-aligned measure again.
+      expect(c.querySelector('[class*="max-w-[68ch]"]'), name).toBeNull();
+    }
+  });
+});
