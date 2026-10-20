@@ -102,7 +102,15 @@ export const VaultPayment = Type.Object(
     /** Link's spend-request status: created … approved, succeeded, failed, denied, expired, canceled. */
     status: Type.String(),
     payment: Type.Object({
-      state: StringEnum(["none", "held", "captured", "partially_refunded", "refunded", "declined", "released"]),
+      state: StringEnum([
+        "none",
+        "held",
+        "captured",
+        "partially_refunded",
+        "refunded",
+        "declined",
+        "released",
+      ]),
       held: Type.Integer({ minimum: 0 }),
       captured: Type.Integer({ minimum: 0 }),
       refunded: Type.Integer({ minimum: 0 }),
