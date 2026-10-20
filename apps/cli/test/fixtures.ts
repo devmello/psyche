@@ -74,6 +74,15 @@ export const HANDLERS: Record<string, Handler> = {
   }),
   "devices.deny": () => ({ pairingRequest: { ...PAIRING_REQUEST, status: "denied" } }),
   "devices.list": () => ({ devices: [DEVICE] }),
+  "audit.verify": () => ({
+    ok: true,
+    count: 2400,
+    anchors: 3,
+    lastHash: `sha256:${"a".repeat(64)}`,
+    signedAnchors: 2,
+    anchorKeyIds: ["ed25519:0123456789abcdef"],
+    signingSinceSeq: 1000,
+  }),
   "devices.revoke": (params) => ({ device: { ...DEVICE, id: p(params).deviceId, revokedAt: TS } }),
   "automations.list": () => ({ automations: [AUTOMATION] }),
   "automations.run": () => ({

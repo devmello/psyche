@@ -110,6 +110,18 @@ export interface VaultOptions {
   /** Recovery-slot KDF parameters (tests lower them). */
   argon2?: Argon2Params;
   redactor?: SecretRedactor;
+  /**
+   * Removals recorded outside the backup scope (the Gateway's revocation ledger, S23 design-26):
+   * restoring an older backup must not bring a deleted item or a revoked connector token back.
+   * Every removal is recorded; recorded ids are dropped from the mirror when the vault is
+   * created and from the encrypted store at every unlock.
+   */
+  removals?: VaultRemovals;
+}
+
+export interface VaultRemovals {
+  record(credentialId: string): void;
+  ids(): ReadonlySet<string>;
 }
 
 /** Item as added through `vault.add` / import. */
@@ -319,6 +331,8 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     this.#dir = join(options.home, "vault");
     this.#redactor = options.redactor ?? new SecretRedactor();
     this.#newId = options.newId ?? (() => randomUUID().replace(/-/g, ""));
+    // The mirror is in the (restorable) database: drop removed items before anyone lists them.
+    for (const id of options.removals?.ids() ?? []) this.#o.meta.delete(id);
   }
 
   // Paths --------------------------------------------------------------------------------------
@@ -576,6 +590,7 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
       if (previous.dek !== dek) zeroize(previous.dek);
     }
     this.#unlocked = { store, dek };
+    this.#dropRemoved(store);
     for (const item of store.all())
       for (const v of secretValues(item.secret)) this.#redactor.add(v);
     this.#touch();
@@ -862,7 +877,25 @@ export class Vault implements CredentialBroker, ConnectorCredentialStore {
     return true;
   }
 
+  /** Items a restored backup brought back although they were removed after it was taken. */
+  #dropRemoved(store: VaultStore): void {
+    const removed = this.#o.removals?.ids();
+    if (removed === undefined || removed.size === 0) return;
+    let dropped = 0;
+    for (const item of store.all()) {
+      if (!removed.has(item.id)) continue;
+      store.delete(item.id);
+      this.#o.meta.delete(item.id);
+      dropped += 1;
+    }
+    if (dropped === 0) return;
+    store.checkpoint();
+    void this.#audit("vault.restored_items_dropped", { count: dropped });
+  }
+
   async #remove(u: Unlocked, item: ItemRow, change: "deleted" | "revoked"): Promise<void> {
+    // Recorded first: if the rest fails half-way, a restore still cannot resurrect the item.
+    this.#o.removals?.record(item.id);
     if (item.attrs.backend === "keychain") await this.#keychainItems().remove(item.id);
     u.store.delete(item.id);
     u.store.checkpoint();

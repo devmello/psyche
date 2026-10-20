@@ -38,6 +38,8 @@ export const ApprovalKind = StringEnum(
     "task_start",
     "apple_script",
     "shortcut_run",
+    "git_write",
+    "git_push",
   ],
   { $id: "ApprovalKind" },
 );
