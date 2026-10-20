@@ -4,18 +4,9 @@ import type {
   CredentialMeta,
   CredentialSecretInput,
 } from "@psyche/protocol";
-import { CreditCard, Ellipsis, KeyRound, Pencil, Search, Trash2, X } from "lucide-react";
+import { CreditCard, Ellipsis, KeyRound, Pencil, Search, X } from "lucide-react";
 import { type FormEvent, Fragment, type ReactElement, useId, useState } from "react";
 import { EmptyState } from "../../components/page.tsx";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "../../components/ui/alert-dialog.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import {
   DropdownMenu,
@@ -52,6 +43,7 @@ import {
 } from "./CredentialImport.tsx";
 import { PaymentsGroup, type PaymentsView } from "./CredentialPayments.tsx";
 import { bindingLabel, CARD_REFUSAL, KIND_LABEL } from "./credential-labels.ts";
+import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
   EmptyNotice,
   ErrorNotice,
@@ -178,7 +170,6 @@ export function CredentialsPanel({
   const [adding, setAdding] = useState(defaultAdding);
   const [query, setQuery] = useState(defaultQuery);
   const [editingId, setEditingId] = useState<string | null>(defaultEditingId ?? null);
-  const [deleting, setDeleting] = useState<CredentialMeta | null>(null);
   const [importing, setImporting] = useState(defaultImporting);
   const [linking, setLinking] = useState(defaultLinking);
   const shown = credentials.filter((c) => matchesCredential(c, query));
@@ -377,15 +368,21 @@ export function CredentialsPanel({
                                 </Button>
                               ) : null}
                               {onDelete ? (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  aria-label={`Delete ${c.name}`}
-                                  onClick={() => setDeleting(c)}
-                                >
-                                  <Trash2 aria-hidden="true" />
-                                </Button>
+                                <RowMoreMenu
+                                  name={c.name}
+                                  destructive={[
+                                    {
+                                      label: "Delete",
+                                      title: `Delete ${c.name}?`,
+                                      description: deleteDescription(c),
+                                      confirm: "Delete",
+                                      onConfirm: () => {
+                                        if (editingId === c.id) setEditingId(null);
+                                        void Promise.resolve(onDelete(c)).catch(() => undefined);
+                                      },
+                                    },
+                                  ]}
+                                />
                               ) : null}
                             </span>
                           )}
@@ -418,19 +415,6 @@ export function CredentialsPanel({
           <PaymentsGroup view={payments} now={clock} {...(onOpenTask ? { onOpenTask } : {})} />
         ) : null}
       </LoadGate>
-      {onDelete ? (
-        <DeleteCredentialDialog
-          credential={deleting}
-          onOpenChange={(open) => {
-            if (!open) setDeleting(null);
-          }}
-          onConfirm={(c) => {
-            setDeleting(null);
-            if (editingId === c.id) setEditingId(null);
-            void Promise.resolve(onDelete(c)).catch(() => undefined);
-          }}
-        />
-      ) : null}
     </SectionFrame>
   );
 }
@@ -642,41 +626,10 @@ function EditCredentialForm({
   );
 }
 
-function DeleteCredentialDialog({
-  credential,
-  onOpenChange,
-  onConfirm,
-}: {
-  credential: CredentialMeta | null;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: (credential: CredentialMeta) => void;
-}): ReactElement {
-  const sites = credential?.bindings.map(bindingLabel).join(", ") ?? "";
-  return (
-    <AlertDialog open={credential !== null} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete {credential?.name}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Psyche erases the stored value and stops filling it{sites ? ` on ${sites}` : ""}. Tasks
-            that need it will ask you to sign in yourself. This can't be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={() => {
-              if (credential) onConfirm(credential);
-            }}
-          >
-            Delete
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
+/** What deleting a credential loses, for the confirm dialog. */
+function deleteDescription(c: CredentialMeta): string {
+  const sites = c.bindings.map(bindingLabel).join(", ");
+  return `Psyche erases the stored value and stops filling it${sites ? ` on ${sites}` : ""}. Tasks that need it will ask you to sign in yourself. This can't be undone.`;
 }
 
 const ADDABLE: readonly CredentialKind[] = ["login", "api_key", "payment_link", "ssh_key", "note"];

@@ -6,6 +6,7 @@ import { Label } from "../../components/ui/label.tsx";
 import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
+import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
   EmptyNotice,
   ErrorNotice,
@@ -128,16 +129,20 @@ export function DevicesPanel({
                       {PLATFORM[d.platform]} · {d.role === "both" ? "client and node" : d.role}
                     </span>
                     {onRevoke && d.id !== thisDeviceId ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="xs"
-                        className="ml-auto"
-                        onClick={() => onRevoke(d)}
-                        aria-label={`Revoke ${d.name}`}
-                      >
-                        Revoke
-                      </Button>
+                      <span className="ml-auto">
+                        <RowMoreMenu
+                          name={d.name}
+                          destructive={[
+                            {
+                              label: "Revoke",
+                              title: `Revoke ${d.name}?`,
+                              description: `${d.name} is signed out of this Gateway at once and has to pair again to come back.`,
+                              confirm: "Revoke",
+                              onConfirm: () => onRevoke(d),
+                            },
+                          ]}
+                        />
+                      </span>
                     ) : null}
                   </div>
                   <ul className="flex flex-wrap gap-1" aria-label={`${d.name} scopes`}>

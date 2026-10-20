@@ -15,6 +15,7 @@ import { Switch } from "../../components/ui/switch.tsx";
 import { answerApproval, useApproval, useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { useStore } from "../../data/provider.tsx";
 import { usePersona } from "../../slots.tsx";
+import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
   EmptyNotice,
   ErrorNotice,
@@ -348,15 +349,19 @@ function SkillRow({
             </Button>
           ) : null}
           {onRemove && skill.source !== "bundled" ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              onClick={() => onRemove(skill)}
-              aria-label={`Remove ${name}`}
-            >
-              Remove
-            </Button>
+            <RowMoreMenu
+              name={name}
+              destructive={[
+                {
+                  label: "Remove",
+                  title: `Remove ${name}?`,
+                  description:
+                    "Its files are deleted from this Gateway. Installing it again goes through the trust card.",
+                  confirm: "Remove",
+                  onConfirm: () => onRemove(skill),
+                },
+              ]}
+            />
           ) : null}
           {onToggle && toggleable ? (
             <Switch

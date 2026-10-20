@@ -8,6 +8,7 @@ import { useGatewayQuery } from "../../data/hooks.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
+import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
   Group,
   LoadGate,
@@ -206,15 +207,18 @@ export function ConnectorsPanel({
                         </Button>
                       ) : null}
                       {onRemove ? (
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => onRemove(c)}
-                          aria-label={`Remove ${c.label}`}
-                        >
-                          Remove
-                        </Button>
+                        <RowMoreMenu
+                          name={c.label}
+                          destructive={[
+                            {
+                              label: "Remove",
+                              title: `Remove ${c.label}?`,
+                              description: `${c.label} is disconnected and its settings and access rules are deleted. Connecting it again starts over.`,
+                              confirm: "Remove",
+                              onConfirm: () => onRemove(c),
+                            },
+                          ]}
+                        />
                       ) : null}
                     </div>
                   </article>
