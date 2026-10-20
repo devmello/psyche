@@ -5,7 +5,7 @@ import { BrowserRecording } from "./methods/browser.ts";
 import { QueuedMessage } from "./methods/chat.ts";
 import { createValidator, defineEvent, type EventSpec, type Validator } from "./methods/define.ts";
 import { DictationKeyPayload } from "./methods/dictation.ts";
-import { SkillChangeEvent } from "./methods/skills.ts";
+import { SkillChangeEvent, SkillUpdateStatus } from "./methods/skills.ts";
 import {
   ReadAloudCompletedPayload,
   ReadAloudFailedPayload,
@@ -283,6 +283,11 @@ export const Events = {
     payload: SkillChangeEvent,
     description:
       "Skills changed: a reload, an install or removal, or a skill whose files no longer match its approved hash.",
+  }),
+  "skills.updated": defineEvent({
+    payload: SkillUpdateStatus,
+    description:
+      "An installed skill's pinned source now has different content; review it with skills.proposeUpdate (nothing is installed until approved).",
   }),
 } as const;
 

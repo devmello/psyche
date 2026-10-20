@@ -27,6 +27,14 @@ export const TaskOrigin = StringEnum(
 );
 export type TaskOrigin = Static<typeof TaskOrigin>;
 
+/**
+ * Where a Task's commands run (features K1, L1–L5; architecture §9, §10): `sandbox` is the
+ * per-task container on the Gateway host, `vm` the sandbox Mac guest, through its paired
+ * psyche-node. Absent means the owner's default (`vm.defaultWorkspace`, else `sandbox`).
+ */
+export const TaskWorkspace = StringEnum(["sandbox", "vm"], { $id: "TaskWorkspace" });
+export type TaskWorkspace = Static<typeof TaskWorkspace>;
+
 export const PlanStepStatus = StringEnum(["pending", "running", "done", "failed", "skipped"], {
   $id: "PlanStepStatus",
 });
@@ -59,6 +67,7 @@ export const Task = Type.Object(
     leaseUntil: Nullable(IsoDateTime),
     browserSessionId: Nullable(Id),
     sandboxId: Nullable(Id),
+    workspace: Type.Optional(TaskWorkspace),
     summary: Nullable(Type.String()),
     outcome: Nullable(JsonObject),
     taint: Type.Optional(Type.Boolean({ description: "Inherited from a tainted creating turn" })),

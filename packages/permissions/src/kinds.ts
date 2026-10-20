@@ -18,6 +18,8 @@ export const DEVICE_ONLY_KINDS: readonly ApprovalKind[] = [
   "purchase",
   "pairing",
   "policy_change",
+  // A skill is code-adjacent text the agent will follow: installed only from a paired device (T2).
+  "skill_install",
 ];
 
 /** `authenticationRequired` on the Mac (security §3.7). */

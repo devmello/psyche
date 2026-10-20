@@ -24,6 +24,39 @@ For the V10 coding helper (S02 scope: `code.*` tools in `packages/agent-core`), 
 
 - `ApprovalKind` gains `git_write` (commit, branch) and `git_push` (push: repository, remote, remote URL, branch and commit in the binding; `once` only, never forced).
 - New `SandboxMount {source, target, readOnly}`; `SandboxRunner.ensureSandbox(scope, {network?, mounts?})` takes optional bind mounts of host folders, fixed when the scope's sandbox is created (`conflict` on a mismatch, `forbidden` for a source the runner refuses); `SandboxInstance.mounts?` reports them. The fake keeps mounts and refuses targets outside `/workspace/`.
+### v1 additive — 2026-10-19 (M3 gateway hardening, docs/status/s05.md §2)
+
+- Error code `presence_required`: a security change needs fresh presence and no verifier on this Gateway can give one (presence was enrolled, then every passkey and helper key was lost or revoked). The UI tells the owner to add a passkey or register the helper's key.
+- Optional `approvalId` on `devices.approve`, `channels.configure`, `channels.allowlist.update`, `channels.pairing.approve`, `channels.identities.upsert`, `memory.reset`, `backup.delete` and `passkeys.register.finish`: the same fresh-presence round trip `settings.set` already has (the first call fails `approval_required` with `details.approvalId`; retry with it once the device-only `policy_change` card is approved).
+- `AuditVerifyResult` gains optional `signedAnchors`, `anchorKeyIds` and `signingSinceSeq` (signed audit anchors, security §15.1).
+- No fake change: no contract interface changed.
+### v1 additive — 2026-10-19 (M3 model adapters: Settings → Model & providers, B1/B4)
+
+For the model router (S03 M3: endpoint probe), the Gateway (`models.*` handlers) and Settings → Model & providers in `packages/ui` / `apps/web`.
+
+- New methods in `methods/models.ts`:
+  - `models.list {}` → `{providers: ModelProviderSummary[], roles: ModelRoles}` (`operator.read`): configured providers, their known models with tool-check verdicts, and the last endpoint probe (`not_probed` until one runs).
+  - `models.probe {providerId}` → `{provider}` (`operator.admin`): reachability, model list and capability guesses for one configured provider; runs only when the owner asks.
+  - `models.check {ref}` → `{result: ToolCheckResult}` (`operator.admin`): the six-case tool-calling check (B4).
+  - `models.setRole {role: "primary" | "utility", ref, override?}` → `{roles}` (`operator.admin`, side-effecting): binds and persists a role; `policy_denied` for a chat-only primary without `override`.
+- New schemas in `schemas/models.ts`: `ModelFactSource`, `ModelCapabilityGuess`, `ProbedModel`, `EndpointProbeState`, `EndpointProbe`, `ToolCheckStatus`, `ToolCheckResult`, `ProviderModelEntry`, `ModelProviderSummary`, `PickableModelRole`, `ModelRoles`.
+### v1 additive — 2026-10-19 (M3 T2: skills install and trust)
+
+For S16 (`packages/skills`), the Gateway (`skills.*` handlers), S05 (`skill_install` binding) and Settings → Skills (S11 / S12).
+
+- New `SkillManifest {tools, permissions: ApprovalKind[], prompts}`: what a skill declares it needs. Optional `manifest` on `SkillDetails` and `SkillProposal`; optional `manifest` on the contract's `SkillInstallProposal` (`SkillManifestDecl`).
+- New `SkillUpdateStatus {name, installedHash, availableHash?, commit?, updateAvailable, manifestChanged, error?, checkedAt}`; optional `update` on `SkillDetails`.
+- New method `skills.checkUpdates {name?}` → `{updates: SkillUpdateStatus[]}` (`operator.admin`, no install) and event `skills.updated` (payload `SkillUpdateStatus`) for each update found. Optional `SkillLoader.checkUpdates`.
+- `skills.proposeInstall` documents its refusal: `policy_denied` with `details.violations` when the manifest asks for more than the owner's policy allows (no approval card is opened).
+- `@psyche/permissions`: `skill_install` gets a dedicated binding `{name, scope, source, commit?, treeHash, tools, permissions, prompts}` (lists sorted, de-duplicated; grant key `{name, scope}`), joins `DEVICE_ONLY_KINDS`, and its card lists name, source, hash, permissions, tools and prompts first (`none` when empty).
+### v1 additive — 2026-10-19 (M3 VM mode, Gateway side: Task workspace, L1–L5)
+
+For S01 (the Gateway's `vm` runner and Task mode selection), S04 (tasks persist the workspace), S02 (`task.start` may name it), S11 (Settings → VM mode).
+
+- New `TaskWorkspace` (`sandbox | vm`). `Task.workspace` and `TaskCreateInput.workspace` are optional: absent means the owner's default.
+- `SandboxBackendKind` gains `vm`, the runner that executes in the sandbox Mac guest through its psyche-node. `@psyche/sandbox`'s `ContainerBackendKind` excludes it (one line).
+- `schemas/vm.ts`: `VM_SETTING_KEYS`, which name the admin-only settings `vm.enabled`, `vm.guestNodeId`, `vm.defaultWorkspace`, `vm.clipboard` and `vm.credentials`, plus `VmSettings` and `VmClipboardMode` for typing them.
+- `FakeTaskEngine` keeps `workspace`.
 
 ### v1 additive — 2026-10-19 (M2 computer use: per-app tier keys on the action)
 
