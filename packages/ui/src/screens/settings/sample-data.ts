@@ -1,4 +1,9 @@
-import type { ChannelIdentity } from "@psyche/protocol";
+import type {
+  ChannelIdentity,
+  EndpointProbe,
+  ModelProviderSummary,
+  ModelRoles,
+} from "@psyche/protocol";
 import { IDS } from "../../fixtures/index.ts";
 import type {
   AboutInfo,
@@ -151,3 +156,101 @@ export function sampleSettings(): Record<string, unknown> {
 
 /** The Notion connector id, whose tools/list hash change revokes its grants. */
 export const NOTION_ID = IDS.connectors.notion;
+
+/**
+ * `models.list` providers as the Gateway reports them (B1, B4): a hosted provider with a key and
+ * two local servers nobody has probed yet.
+ */
+export function sampleModelProviders(): ModelProviderSummary[] {
+  return [
+    {
+      id: "anthropic",
+      kind: "anthropic",
+      label: "Anthropic",
+      baseURL: "https://api.anthropic.com/v1",
+      local: false,
+      keyConfigured: true,
+      models: [
+        {
+          ref: "anthropic/claude-sonnet-5-5",
+          toolCheck: "agent-capable",
+          capabilities: {
+            toolCalling: true,
+            vision: true,
+            reasoning: true,
+            contextWindow: 1_000_000,
+            source: "catalog",
+          },
+        },
+      ],
+      probe: { state: "not_probed", models: [] },
+    },
+    {
+      id: "lmstudio",
+      kind: "lmstudio",
+      label: "LM Studio",
+      baseURL: "http://127.0.0.1:1234/v1",
+      local: true,
+      keyConfigured: false,
+      models: [],
+      probe: { state: "not_probed", models: [] },
+    },
+    {
+      id: "llamacpp",
+      kind: "llamacpp",
+      label: "llama.cpp",
+      baseURL: "http://127.0.0.1:8080/v1",
+      local: true,
+      keyConfigured: false,
+      models: [{ ref: "llamacpp/tiny-chat", toolCheck: "chat-only" }],
+      probe: { state: "not_probed", models: [] },
+    },
+  ];
+}
+
+export function sampleModelRoles(): ModelRoles {
+  return { primary: "anthropic/claude-sonnet-5-5" };
+}
+
+/** What `models.probe` finds, recorded from LM Studio's `/api/v1/models` answer. */
+export function sampleEndpointProbes(): Record<string, EndpointProbe> {
+  return {
+    lmstudio: {
+      state: "reachable",
+      probedAt: "2026-10-19T20:00:00Z",
+      latencyMs: 12,
+      server: "LM Studio",
+      models: [
+        {
+          ref: "lmstudio/qwen/qwen3.8-27b",
+          id: "qwen/qwen3.8-27b",
+          label: "Qwen3.8 27B",
+          loaded: true,
+          capabilities: {
+            toolCalling: true,
+            vision: false,
+            reasoning: true,
+            contextWindow: 32768,
+            source: "listing",
+          },
+        },
+        {
+          ref: "lmstudio/google/gemma-4-12b",
+          id: "google/gemma-4-12b",
+          loaded: false,
+          capabilities: {
+            toolCalling: true,
+            vision: true,
+            contextWindow: 131072,
+            source: "listing",
+          },
+        },
+        {
+          ref: "lmstudio/text-embedding-nomic-embed-text-v1.5",
+          id: "text-embedding-nomic-embed-text-v1.5",
+          capabilities: { embeddings: true, toolCalling: false, source: "listing" },
+        },
+      ],
+    },
+  };
+}
