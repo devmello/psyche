@@ -234,16 +234,37 @@ export function Toasts(): ReactElement {
   const { store } = useShell();
   const toasts = useShellState((s) => s.toasts);
   return (
-    <div className="toasts" aria-live="polite" data-testid="toasts">
+    // One region per kind (no nested live regions); errors are alerts and say so in words, and
+    // the timers pause while the pointer or focus is here (docs/a11y-audit.md T1–T3).
+    <section
+      aria-label="Notifications"
+      className="toasts"
+      data-testid="toasts"
+      onMouseEnter={() => store.holdToasts(true)}
+      onMouseLeave={() => store.holdToasts(false)}
+      onFocus={() => store.holdToasts(true)}
+      onBlur={() => store.holdToasts(false)}
+    >
       {toasts.map((t) => (
-        <div key={t.id} className="toast" role="status" data-tone={t.tone}>
+        <div
+          key={t.id}
+          className="toast"
+          role={t.tone === "error" ? "alert" : "status"}
+          data-tone={t.tone}
+        >
+          {t.tone === "error" ? <span className="sr-only">Error: </span> : null}
           {t.text}{" "}
-          <button type="button" className="pill" onClick={() => store.dismissToast(t.id)}>
+          <button
+            type="button"
+            className="pill"
+            aria-label={`Dismiss: ${t.text}`}
+            onClick={() => store.dismissToast(t.id)}
+          >
             Dismiss
           </button>
         </div>
       ))}
-    </div>
+    </section>
   );
 }
 

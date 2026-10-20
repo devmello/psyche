@@ -256,6 +256,28 @@ These are typed node capabilities. Their shapes are in `packages/protocol` `sche
 
 The scripting adapters run constant AppleScript handlers (`psyche_search`, `psyche_compose`, …) with the inputs passed as handler arguments, so app content and model text never become script source. The helper launches the target app in the background if needed and asks for Automation per app on first use. Messages (J7) is a separate adapter.
 
+### Teach mode (J8)
+
+The owner demonstrates a flow and the helper turns it into a skill draft. The Gateway offers `teach.*` to the owner's devices only, never to the agent.
+
+| Capability | Side effect | Notes |
+| --- | --- | --- |
+| `teach.start` | write (streaming, receipt `teach`, needs Accessibility) | `{name?, description?, app?, screenshots?, maxSteps? (≤ 200, default 100), maxSeconds? (10–1800, default 600)}`. Streams `teach.started`, then `teach.step` for each step; returns the draft when recording ends. Refused while a computer-use session runs (`computer_busy`) or another recording is active (`teach_busy`) |
+| `teach.stop` | none | `{sessionId}` → the draft (the same one `teach.start` returns) |
+| `teach.cancel` | none | `{sessionId}` → discards everything (`endedBy: cancel`, no steps, no files) |
+| `teach.status` | read | `{active, sessionId?, steps?, startedAt?}` |
+
+- **Recorder:** a listen-only session tap (left and right mouse down, key down), ignoring the helper's own `Input.marker` events. Targets come from the accessibility tree (`AXUIElementCopyElementAtPosition` for clicks, the focused element for keys): role, subrole, title or description, identifier, window title, app. It never reads `AXValue`.
+- **Steps:** typing into one field is coalesced into one `type` step, and backspace edits it. Keys that are not text become `press` steps with `KeyChord` names (`cmd+s`, `return`). A second click becomes `double_click`.
+- **Never recorded:**
+  - text typed into a password field: `secure: true`, no text, and backspace is ignored there;
+  - text typed while Secure Event Input is on (the field counts as secure, and taps get no keys anyway);
+  - text typed into an element whose target cannot be read;
+  - anything in Psyche, password managers, finance apps or system authority prompts: one `skipped` step with no target or text.
+- **Screenshots** (`screenshots: true`, needs Screen Recording): the clicked app's largest window, 300 ms after the click, downscaled, never for apps `computer.screenshot` excludes. The bytes ride on the `teach.step` event, and the draft lists `screens/step-N.jpg` by path.
+- **Draft:** `{sessionId, name, description, startedAt, endedAt, endedBy, steps, files}`. `SKILL.md` has frontmatter (`allowed-tools: ["computer.*", "apps.open", "apps.focus"]`, `metadata.psyche.source: teach`) and numbered steps that name targets by role and JSON-quoted label. App text is single-line, so a label cannot add lines to the skill. It parses with `packages/skills`' `parseSkill` and `manifestOf`.
+- **Nothing is written to disk.** After the owner reviews the draft, the Gateway writes it to `workspace/skills/<name>/`, and T2's `skill_install` trust card makes it active.
+
 ## Entitlements and Info.plist
 
 | Key | Where | Why |

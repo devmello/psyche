@@ -1,5 +1,6 @@
 export * from "./apple-apps.ts";
 export * from "./blocks.ts";
+export * from "./context.ts";
 export * from "./identity.ts";
 export * from "./integrations.ts";
 export * from "./memory.ts";

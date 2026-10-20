@@ -194,6 +194,8 @@ export function ApprovalCard({
     }
   };
 
+  const hintId = useId();
+
   const onKeyDown = (e: KeyboardEvent<HTMLElement>) => {
     if (!(e.metaKey || e.ctrlKey)) {
       // Return alone never approves (OpenClaw's rule; UI design §3.3).
@@ -292,17 +294,23 @@ export function ApprovalCard({
         ) : null}
       </dl>
 
-      {status !== null || expiredByClock || stale || (pending && !canAnswer) ? (
-        <p className="mt-3 rounded-md bg-gray-3 px-3 py-2 text-foreground" aria-live="polite">
-          {stale
-            ? "Psyche restarted, so this card is out of date. It will be re-issued if it is still needed."
-            : expiredByClock
-              ? "Expired. Nothing was done."
-              : pending && !canAnswer
-                ? "Answer this on the device it was sent to."
-                : status}
-        </p>
-      ) : null}
+      {/* Always mounted so screen readers announce the text when it appears (C7). */}
+      <p
+        className={
+          status !== null || expiredByClock || stale || (pending && !canAnswer)
+            ? "mt-3 rounded-md bg-gray-3 px-3 py-2 text-foreground"
+            : "sr-only"
+        }
+        aria-live="polite"
+      >
+        {stale
+          ? "Psyche restarted, so this card is out of date. It will be re-issued if it is still needed."
+          : expiredByClock
+            ? "Expired. Nothing was done."
+            : pending && !canAnswer
+              ? "Answer this on the device it was sent to."
+              : (status ?? "")}
+      </p>
 
       {interactive ? (
         <>
@@ -386,12 +394,17 @@ export function ApprovalCard({
           change above voids this card
         </p>
         {interactive ? (
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <p id={hintId} className="text-caption text-muted-foreground">
+              <kbd className="font-sans">⌘↩</kbd> allows · <kbd className="font-sans">⌘D</kbd>{" "}
+              denies
+            </p>
             <Button
               variant="outline"
               disabled={!armed || busy}
               onClick={() => void submit("deny")}
-              aria-keyshortcuts="Meta+D"
+              aria-keyshortcuts="Meta+D Control+D"
+              aria-describedby={`${hintId}`}
             >
               Deny
             </Button>
@@ -402,7 +415,8 @@ export function ApprovalCard({
                 if (e.detail === 0) return;
                 void submit("approve");
               }}
-              aria-keyshortcuts="Meta+Enter"
+              aria-keyshortcuts="Meta+Enter Control+Enter"
+              aria-describedby={`${hintId}`}
             >
               Allow with scope
             </Button>

@@ -79,6 +79,7 @@ import { bootstrapAdminHandlers } from "./bootstrap-admin.ts";
 import { CallContexts } from "./call-context.ts";
 import { ChannelConversations } from "./channel-conversations.ts";
 import { composeComputer } from "./computer.ts";
+import { createContext } from "./context.ts";
 import { composeConversion } from "./convert.ts";
 import { composeDictation } from "./dictation.ts";
 import { filesHandlers } from "./files.ts";
@@ -633,6 +634,14 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   });
   // E12 "From your other chats": digests of the owner's chats, shared only with threads.otherChats on.
   const otherChats = createOtherChats({ db, audit, now: () => clock.now() });
+  // Context usage, owner-set limits and compaction (B7, C2): the meter and the compaction blocks.
+  const context = createContext({
+    db,
+    audit,
+    broker,
+    publish: (event, payload, threadId) => publish(event, payload as never, threadId),
+    isRunning: (threadId) => loop.isBusy(threadId),
+  });
   const loop = createAgentLoop({
     // Model-side history survives a restart (issue #52); secrets the vault knows are masked.
     state: new SqliteThreadStateStore(db, redactor),
@@ -651,6 +660,9 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     skills: skills.loader,
     ...(compaction === undefined ? {} : { compaction }),
     contextProviders: [otherChats.provider],
+    contextLimits: context.contextLimits,
+    onContextUsage: context.onContextUsage,
+    onCompaction: context.onCompaction,
     // Incognito threads are memory-only (E9, security §8): the loop never flushes them.
     isIncognito: (threadId) => getThread(db, threadId)?.kind === "incognito",
   });
@@ -707,6 +719,13 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   const handlers: Record<string, HandlerDef> = {
     ...mountPermissions(db, createPermissionHandlers(rawBroker, audit), tokens),
     ...mountParamsOnly(createMemoryHandlers(memory) as never),
+    ...mountParamsOnly(
+      context.handlers(
+        () => loop,
+        (threadId) =>
+          loop.effectiveContextLimits(threadId, getThread(db, threadId)?.modelRef ?? undefined),
+      ) as never,
+    ),
     ...mountParamsOnly(createTaskHandlers({ engine: tasks, pool, broker }) as never),
     ...mountParamsOnly(createAutomationHandlers(scheduler) as never),
     ...mountParamsOnly(createNotificationHandlers(notifier) as never),

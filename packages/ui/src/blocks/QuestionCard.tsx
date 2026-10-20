@@ -379,11 +379,12 @@ function OptionLabel({
         <div>
           <button
             type="button"
-            className="text-xs text-accent-11 hover:underline"
+            className="min-h-6 text-xs text-accent-11 hover:underline"
             aria-expanded={open}
             onClick={() => setOpen((o) => !o)}
           >
             {open ? "Hide preview" : "Preview"}
+            <span className="sr-only"> of {cleanLabel(option.label)}</span>
           </button>
           {open ? (
             <div className="mt-1 max-h-48 overflow-auto rounded-md border border-gray-6 bg-background p-2">
