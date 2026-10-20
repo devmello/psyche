@@ -159,3 +159,19 @@ The ten items this pass left open were decided as follows. Each is now a rule in
 10. **Credential detail.** Approval ids appear in the uses table. That's acceptable at level 2, but they could read "Approved" with the id in a tooltip.
 
 Nothing from the 2026-10-20 consistency pass remains open.
+
+## Accessibility rules (WCAG 2.2 AA, v1.0)
+
+From [a11y-audit.md](a11y-audit.md). New screens and components follow these; the stories axe run and the acceptance a11y baseline enforce what tests can.
+
+- **Landmarks and headings.** One `<main>` per window, reached by a skip link that is the first focusable element. Every route has one h1 (sr-only when the design shows none), and headings go down one level at a time.
+- **Names.** Every control has an accessible name that contains its visible label (2.5.3). Icon-only buttons use `aria-label`, never a glyph or `title` alone. Repeated actions name their object ("Preview Lisbon", "Dismiss: Saved").
+- **Focus.** Focus is always visible: a solid 2 px `ring` (accent-9, at least 3:1 against both themes). `outline-none` only with a `focus-visible` replacement. Hover-revealed controls also show on focus, while their menu is open, and on touch (`pointer-coarse`).
+- **Focus moves with the work.** Dialogs trap focus and return it to their trigger. A removed element hands focus to the next sensible target: the next approval card, the composer, or the row's ⋯ trigger.
+- **Keyboard.** Everything works without a pointer. Composite widgets (tabs, menus, radio rows, toolbars, the command palette) use their ARIA pattern with arrow keys, or don't claim the role. Shortcuts are declared in `aria-keyshortcuts` and shown visibly where they matter (the approval card).
+- **Live regions.** Streaming text is not live: the finished reply is announced once. New approvals and questions announce a one-line summary, not the whole card. Status lines stay mounted and change only their text. There is one region per surface, `role="alert"` for errors and `status` otherwise.
+- **Time.** Toasts pause on hover and focus, and error toasts stay until dismissed. Nothing that matters disappears on a timer without another way to find it.
+- **Colour.** Text meets 4.5:1 (3:1 at 18 px+), and icons, borders that identify controls, and focus indicators meet 3:1, in light, dark and high contrast. State is never colour-only: add text or an icon. Semantic text uses the -12 step on tinted surfaces. The theme generator gates these pairs.
+- **Motion.** Every animation and smooth scroll honours the app's Reduce motion setting and the OS preference, through `data-reduce-motion` and `useReducedMotion()`.
+- **Size.** Targets are at least 24 × 24 px (`size-6`; `icon-xs` meets it exactly). Truncated text carries a `title`. Target design: rem-based type and spacing, and minimum heights instead of fixed ones (see the audit's design list).
+- **Custom widgets.** Tree-like lists may use the disclosure pattern (buttons with `aria-expanded` in nested lists). Canvas surfaces (Univer) are `role="application"` with a label, and offer a non-canvas alternative.
