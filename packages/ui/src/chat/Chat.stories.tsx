@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { IDS } from "../fixtures/index.ts";
+import { addLongConversation } from "../fixtures/long-thread.ts";
 import { STORY_NOW, withWorld } from "../stories/harness.tsx";
 import { FollowUpQueue } from "./FollowUpQueue.tsx";
 import { OfflineBanner } from "./OfflineBanner.tsx";
@@ -14,6 +15,16 @@ export const DentistBooking: Story = {
   render: () => (
     <div className="h-[900px]">
       <ChatThread threadId={IDS.threads.dentist} now={STORY_NOW} />
+    </div>
+  ),
+};
+
+/** #548: fifty messages scroll inside the viewport; the composer stays pinned. */
+export const LongThread: Story = {
+  decorators: [withWorld({ edit: (w) => addLongConversation(w, IDS.threads.main, 50) })],
+  render: () => (
+    <div className="flex h-[600px] flex-col">
+      <ChatThread threadId={IDS.threads.main} now={STORY_NOW} />
     </div>
   ),
 };
