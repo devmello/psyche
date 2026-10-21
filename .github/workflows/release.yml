@@ -198,24 +198,31 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # The gateway image builds natively per architecture (amd64 on ubuntu-latest, arm64 on
+  # ubuntu-24.04-arm) and pushes each by digest; image-manifest joins them into one tagged,
+  # signed manifest list. A single QEMU build of both ran past the timeout (release attempt 4).
+  # The gha cache is per architecture (scope gateway-<arch>).
   image:
-    name: gateway image (multi-arch, signed)
+    name: gateway image ${{ matrix.arch }}
     needs: [version, deploy-smoke]
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     permissions:
       contents: read
       packages: write
-      id-token: write # cosign keyless signing
-    outputs:
-      digest: ${{ steps.build.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - name: Set up Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Log in to GHCR
@@ -225,7 +232,72 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Tags and labels
+      - name: Labels
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.IMAGE }}
+      - name: Build (and push by digest on a tag) linux/${{ matrix.arch }}
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: deploy/Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: PSYCHE_VERSION=${{ needs.version.outputs.version }}
+          provenance: mode=max
+          sbom: true
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=${{ env.PUBLISH == 'true' }}
+          cache-from: type=gha,scope=gateway-${{ matrix.arch }}
+          cache-to: type=gha,scope=gateway-${{ matrix.arch }},mode=max
+      - name: Keep the digest
+        if: env.PUBLISH == 'true'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::no digest from the build"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/digests"
+          touch "$RUNNER_TEMP/digests/${DIGEST#sha256:}"
+      - name: Upload the digest
+        if: env.PUBLISH == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gateway-digest-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  image-manifest:
+    name: gateway image (multi-arch, signed)
+    needs: [version, image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # cosign keyless signing
+    outputs:
+      digest: ${{ steps.manifest.outputs.digest }}
+    steps:
+      - name: Download the per-arch digests
+        if: env.PUBLISH == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: gateway-digest-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/digests
+      - name: Set up Buildx
+        if: env.PUBLISH == 'true'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to GHCR
+        if: env.PUBLISH == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Tags
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
@@ -235,46 +307,53 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}},enable=${{ needs.version.outputs.prerelease == 'false' }}
             type=raw,value=latest,enable=${{ needs.version.outputs.prerelease == 'false' }}
-      - name: Build (and push on a tag) linux/amd64 + linux/arm64
-        id: build
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
-        with:
-          context: .
-          file: deploy/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: ${{ env.PUBLISH == 'true' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: PSYCHE_VERSION=${{ needs.version.outputs.version }}
-          provenance: mode=max
-          sbom: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Tagged manifest list from the per-arch digests
+        id: manifest
+        if: env.PUBLISH == 'true'
+        working-directory: ${{ runner.temp }}/digests
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          [ "$(ls | wc -l)" -eq 2 ] || { echo "::error::want 2 per-arch digests, got: $(ls)"; exit 1; }
+          # shellcheck disable=SC2046
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf "${IMAGE}@sha256:%s " *)
+          digest="$(docker buildx imagetools inspect "${IMAGE}:${VERSION}" --format '{{json .Manifest}}' | jq -r .digest)"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::no manifest list digest"; exit 1; }
+          docker buildx imagetools inspect "${IMAGE}@${digest}"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
       - name: Install cosign
         if: env.PUBLISH == 'true'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Sign the image by digest (keyless, GitHub OIDC)
         if: env.PUBLISH == 'true'
         env:
-          DIGEST: ${{ steps.build.outputs.digest }}
+          DIGEST: ${{ steps.manifest.outputs.digest }}
         run: cosign sign --yes "${IMAGE}@${DIGEST}"
 
-  # K8: the sandbox image (owner S21). One job builds core -> base -> full in order so each target
-  # reuses the previous one's layers from the same builder instead of rebuilding them on three
-  # runners, and so a single versions.json collects all three digests. It only publishes on a
-  # v* tag (a manual run on a tag with dry_run unticked counts); otherwise publish.sh --dry-run.
+  # K8: the sandbox image (owner S21). Each architecture builds natively (no QEMU) on its own
+  # runner, core -> base -> full in order so each target reuses the previous one's layers, and
+  # pushes them by digest (publish.sh --platform). sandbox-image-manifest then tags, signs and
+  # records all three in versions.json (publish.sh --merge). It only publishes on a v* tag (a
+  # manual run on a tag with dry_run unticked counts); otherwise publish.sh --dry-run.
   sandbox-image:
-    name: sandbox image (multi-arch, signed)
+    name: sandbox image ${{ matrix.arch }}
     needs: version
     if: inputs.version_pr != true
-    runs-on: ubuntu-latest
-    timeout-minutes: 180 # full (LibreOffice) under QEMU for arm64 is slow
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     permissions:
       contents: read
       packages: write
-      id-token: write # cosign keyless signing
-    outputs:
-      published: ${{ steps.mode.outputs.publish }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -312,9 +391,69 @@ jobs:
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
           df -h /
-      - name: Set up QEMU
+      - name: Set up Buildx
         if: steps.mode.outputs.publish == 'true'
-        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Log in to GHCR
+        if: steps.mode.outputs.publish == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push core, base, full for linux/${{ matrix.arch }} by digest
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          PUBLISH_SANDBOX: ${{ steps.mode.outputs.publish }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          flags=()
+          if [ "$PUBLISH_SANDBOX" != "true" ]; then flags+=(--dry-run); fi
+          deploy/sandbox-image/publish.sh "${flags[@]}" --version "$VERSION" \
+            --platform "linux/$ARCH" --digests-dir "$RUNNER_TEMP/sandbox-digests" core base full
+      - name: Upload the digests
+        if: steps.mode.outputs.publish == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sandbox-digests-${{ matrix.arch }}
+          path: ${{ runner.temp }}/sandbox-digests/
+          if-no-files-found: error
+          retention-days: 1
+
+  sandbox-image-manifest:
+    name: sandbox image (multi-arch, signed)
+    needs: [version, sandbox-image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # cosign keyless signing
+    outputs:
+      published: ${{ steps.mode.outputs.publish }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Publish or dry run
+        id: mode
+        env:
+          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          if [ "$PUBLISH" = "true" ] && [ "$IS_TAG" = "true" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Sandbox image: dry run (publishes only on a v* tag)."
+          fi
+      - name: Download the per-arch digests
+        if: steps.mode.outputs.publish == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: sandbox-digests-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/sandbox-digests
       - name: Set up Buildx
         if: steps.mode.outputs.publish == 'true'
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -328,14 +467,15 @@ jobs:
       - name: Install cosign
         if: steps.mode.outputs.publish == 'true'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-      - name: Build, push and sign core, base, full
+      - name: Tag, sign and record core, base, full (manifest lists)
         env:
           VERSION: ${{ needs.version.outputs.version }}
           PUBLISH_SANDBOX: ${{ steps.mode.outputs.publish }}
         run: |
           flags=()
           if [ "$PUBLISH_SANDBOX" != "true" ]; then flags+=(--dry-run); fi
-          deploy/sandbox-image/publish.sh "${flags[@]}" --version "$VERSION" core base full
+          deploy/sandbox-image/publish.sh "${flags[@]}" --version "$VERSION" \
+            --merge "$RUNNER_TEMP/sandbox-digests" core base full
       - name: Verify the signatures against versions.json
         if: steps.mode.outputs.publish == 'true'
         working-directory: deploy/sandbox-image
@@ -369,8 +509,8 @@ jobs:
   # a PR opened with GITHUB_TOKEN does not trigger CI, so close and reopen it (or push) to run it.
   sandbox-image-pr:
     name: sandbox image digests PR
-    needs: [version, sandbox-image]
-    if: needs.sandbox-image.outputs.published == 'true'
+    needs: [version, sandbox-image-manifest]
+    if: needs.sandbox-image-manifest.outputs.published == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -674,13 +814,13 @@ jobs:
 
   release:
     name: GitHub release
-    needs: [version, image, sandbox-image, cli, dmg]
+    needs: [version, image-manifest, sandbox-image-manifest, cli, dmg]
     # Every needed job must succeed, except the DMG matrix in a pre-release, whose Intel leg may
     # fail (continue-on-error above); the "Desktop DMGs that shipped" step then requires arm64.
     if: >-
       ${{ !cancelled() && inputs.version_pr != true
-      && needs.version.result == 'success' && needs.image.result == 'success'
-      && needs.sandbox-image.result == 'success' && needs.cli.result == 'success'
+      && needs.version.result == 'success' && needs.image-manifest.result == 'success'
+      && needs.sandbox-image-manifest.result == 'success' && needs.cli.result == 'success'
       && (needs.dmg.result == 'success' || needs.version.outputs.prerelease == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -719,7 +859,7 @@ jobs:
           SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
           VERSION: ${{ needs.version.outputs.version }}
           TAG: ${{ github.ref_name }}
-          DIGEST: ${{ needs.image.outputs.digest }}
+          DIGEST: ${{ needs.image-manifest.outputs.digest }}
         run: |
           if [ -z "$SIGNING_KEY" ]; then
             echo "::warning::No RELEASE_SIGNING_KEY: no update manifest. Installed apps will not auto-update to this release."
@@ -737,7 +877,7 @@ jobs:
           cat artifacts/update-manifest.json
       - name: Compose bundle with the Gateway image pinned by digest (#296)
         env:
-          DIGEST: ${{ needs.image.outputs.digest }}
+          DIGEST: ${{ needs.image-manifest.outputs.digest }}
           VERSION: ${{ needs.version.outputs.version }}
         run: |
           if [ -z "$DIGEST" ]; then
@@ -756,7 +896,7 @@ jobs:
           grep -n "image:" "$dir/docker-compose.yml"
       - name: SHA256SUMS and release notes
         env:
-          DIGEST: ${{ needs.image.outputs.digest }}
+          DIGEST: ${{ needs.image-manifest.outputs.digest }}
           TAG: ${{ github.ref_name }}
         run: |
           (cd artifacts && sha256sum -- * > ../SHA256SUMS)

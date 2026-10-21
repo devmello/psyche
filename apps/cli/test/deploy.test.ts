@@ -111,6 +111,55 @@ describe("deploy/backup", () => {
   });
 });
 
+describe("deploy/sandbox-image/publish.sh split build (native per-arch runners, then merge)", () => {
+  const script = () => resolve(deploy, "sandbox-image/publish.sh");
+  const run = (...args: string[]) => spawnSync("bash", [script(), ...args], { encoding: "utf8" });
+
+  it.skipIf(!has("jq"))("--platform builds one platform by digest: no tag, no signature", () => {
+    const before = read("sandbox-image/versions.json");
+    const r = run(
+      "--dry-run",
+      "--version",
+      "1.2.3",
+      "--platform",
+      "linux/arm64",
+      "--digests-dir",
+      "/tmp/d",
+      "core",
+      "full",
+    );
+    expect(r.status, r.stderr).toBe(0);
+    const out = `${r.stdout}${r.stderr}`;
+    expect(out.match(/\+ docker buildx build --platform linux\/arm64 /g)).toHaveLength(2);
+    expect(out).toContain("push-by-digest=true");
+    expect(out).toContain("/tmp/d/core/linux-arm64");
+    expect(out).not.toContain("--tag");
+    expect(out).not.toContain("cosign sign");
+    expect(read("sandbox-image/versions.json")).toBe(before);
+  });
+
+  it.skipIf(!has("jq"))("--merge joins every platform per variant, then signs and records", () => {
+    const r = run("--dry-run", "--version", "1.2.3", "--merge", "/tmp/d", "core", "base", "full");
+    expect(r.status, r.stderr).toBe(0);
+    const out = `${r.stdout}${r.stderr}`;
+    const creates = out.match(/\+ docker buildx imagetools create --tag \S+ .*/g) ?? [];
+    expect(creates).toHaveLength(3);
+    for (const c of creates) expect(c.match(/@sha256:/g)).toHaveLength(2);
+    expect(out).toContain("ghcr.io/devmello/psyche-sandbox:1.2.3-core");
+    expect(out.match(/\+ cosign sign --yes/g)).toHaveLength(3);
+    expect(out).not.toContain("docker buildx build");
+  });
+
+  it.skipIf(!has("jq"))("refuses an unknown platform and a platform without a digests dir", () => {
+    expect(run("--dry-run", "--platform", "linux/s390x", "--digests-dir", "/tmp/d").status).toBe(2);
+    expect(run("--dry-run", "--platform", "linux/arm64").status).toBe(2);
+    expect(
+      run("--dry-run", "--platform", "linux/arm64", "--digests-dir", "/tmp/d", "--merge", "/tmp/d")
+        .status,
+    ).toBe(2);
+  });
+});
+
 describe("deploy/sandbox-image/publish.sh --dry-run (what the release job runs before a tag)", () => {
   it.skipIf(!has("jq"))(
     "prints build, push and sign for every variant and leaves versions.json alone",
