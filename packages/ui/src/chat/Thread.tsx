@@ -6,7 +6,7 @@ import {
 } from "@assistant-ui/react";
 import type { Message, QueueMode } from "@psyche/protocol";
 import { X } from "lucide-react";
-import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
+import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type DisclosureLevel, DisclosureProvider } from "../blocks/disclosure.tsx";
 import { useCall, useConnection, useStoreState, useThread, useThreads } from "../data/index.ts";
 import { t } from "../i18n/core.ts";
@@ -20,6 +20,7 @@ import { FollowUpQueue } from "./FollowUpQueue.tsx";
 import { MessageView } from "./MessageView.tsx";
 import { OfflineBanner } from "./OfflineBanner.tsx";
 import { failureAnchors, RunFailure } from "./RunFailure.tsx";
+import { useRunningTool, WorkingIndicator } from "./WorkingIndicator.tsx";
 
 /** A committed message, or a streaming one that has no committed blocks yet. */
 interface DisplayMessage {
@@ -130,6 +131,11 @@ export function ChatThread({
   const { navigate } = useSlots();
   const { state: connection } = useConnection();
   const tasks = useStoreState((s) => s.tasks);
+  // #548: from a send until the run settles the thread says it is working, even before the
+  // Gateway's first run event or token arrives.
+  const [sentAt, setSentAt] = useState<number | null>(null);
+  const sawRun = useRef(false);
+  const runningTool = useRunningTool(threadId);
   const persona = usePersona();
   const [quoting, setQuoting] = useState<Message | null>(null);
   const [mode, setMode] = useState<QueueMode>("followUp");
@@ -180,6 +186,35 @@ export function ChatThread({
   // The command runner reads this render's thread state; onNew calls the latest one.
   const runCommandRef = useRef<(name: CommandName, arg: string) => Promise<void>>(async () => {});
 
+  const lastAgentAt = useMemo(() => {
+    for (let i = display.length - 1; i >= 0; i--) {
+      const d = display[i];
+      if (d?.message.role === "agent")
+        return d.streamingText ? Infinity : Date.parse(d.message.createdAt);
+    }
+    return 0;
+  }, [display]);
+  useEffect(() => {
+    if (sentAt === null) {
+      sawRun.current = false;
+      return;
+    }
+    if (view.running) {
+      sawRun.current = true;
+      return;
+    }
+    // Settled: the run ran and stopped, or a reply arrived without a run event.
+    if (sawRun.current || lastAgentAt >= sentAt) {
+      setSentAt(null);
+      return;
+    }
+    // No run ever reported: stop claiming work after a while rather than spin forever.
+    const timer = setTimeout(() => setSentAt(null), 30_000);
+    return () => clearTimeout(timer);
+  }, [sentAt, view.running, lastAgentAt]);
+  const streamingNow = view.streaming.some((m) => m.text !== "");
+  const working = (view.running || sentAt !== null) && (runningTool !== null || !streamingNow);
+
   const onNew = useCallback(
     async (append: { content: readonly { type: string; text?: string }[] }) => {
       const text = append.content
@@ -207,7 +242,9 @@ export function ChatThread({
         }
         return;
       }
+      const queued = view.running && mode === "followUp";
       await view.send(parsed.text, { mode, replyToMessageId: quoting?.id ?? null });
+      if (!queued) setSentAt(Date.now());
       setQuoting(null);
       setMode("followUp");
     },
@@ -421,10 +458,17 @@ export function ChatThread({
       {...(onDisclosureChange === undefined ? {} : { onLevelChange: onDisclosureChange })}
     >
       <AssistantRuntimeProvider runtime={runtime}>
-        <ThreadPrimitive.Root className="flex h-full min-w-[min(100%,var(--chat-min-width))] flex-col">
+        {/*
+          #548: only the message viewport scrolls. `min-h-0` lets the root shrink below its
+          content in a flex column (its automatic minimum would otherwise be the whole
+          transcript, which pushed the window out of frame); `flex-1` fills the column when the
+          parent is flex, `h-full` when it is a block.
+        */}
+        <ThreadPrimitive.Root className="flex h-full min-h-0 min-w-[min(100%,var(--chat-min-width))] flex-1 flex-col overflow-hidden">
           {offline ? <OfflineBanner state={connection} /> : null}
           <ThreadPrimitive.Viewport
-            className="flex-1 overflow-y-auto px-4 py-3"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3"
+            data-testid="chat-viewport"
             aria-label={t("chat.thread.conversation")}
             role="log"
           >
@@ -488,9 +532,10 @@ export function ChatThread({
                   );
                 }}
               </ThreadPrimitive.Messages>
+              {working ? <WorkingIndicator persona={persona.name} tool={runningTool} /> : null}
             </div>
           </ThreadPrimitive.Viewport>
-          <div className="mx-auto flex w-full max-w-[calc(var(--prose-width)+3rem)] flex-col gap-2 px-4 pb-3">
+          <div className="mx-auto flex w-full max-w-[calc(var(--prose-width)+3rem)] shrink-0 flex-col gap-2 px-4 pb-3">
             <ApprovalDock
               threadId={threadId}
               {...(view.thread ? { mode: view.thread.thread.permissionMode } : {})}
