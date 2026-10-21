@@ -37,7 +37,7 @@ public enum KeychainStatus {
     public static let laErrorDomain = "com.apple.LocalAuthentication"
 
     public static let missingEntitlementMessage =
-        "The data-protection keychain is unavailable: this Psyche Helper build has no keychain access group entitlement "
+        "The data-protection keychain is unavailable: this Psyche (Helper) build has no keychain access group entitlement "
         + "(errSecMissingEntitlement, -34018). keychain-access-groups is a restricted entitlement, so the helper must be "
         + "signed with an embedded provisioning profile that grants a team-prefixed keychain access group."
 

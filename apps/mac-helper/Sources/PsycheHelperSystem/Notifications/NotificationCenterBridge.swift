@@ -52,7 +52,7 @@ public final class NotificationCenterBridge: NSObject, UNUserNotificationCenterD
     func requireCenter() throws -> UNUserNotificationCenter {
         guard let center else {
             throw CapabilityError.unavailable(
-                "not_bundled", "Notifications need Psyche Helper to run from its signed app bundle (com.psyche.helper)."
+                "not_bundled", "Notifications need Psyche (Helper) to run from its signed app bundle (com.psyche.helper)."
             )
         }
         return center

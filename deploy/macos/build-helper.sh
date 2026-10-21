@@ -63,6 +63,11 @@ for key in CFBundleIdentifier LSUIElement NSAppleEventsUsageDescription NSMicrop
 done
 [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")" = com.psyche.helper ] \
   || { echo "bundle id must be com.psyche.helper" >&2; exit 1; }
+# The name macOS shows in prompts and Privacy & Security (#541; apps/mac-helper/README "Name in macOS").
+[ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$APP/Contents/Info.plist")" = "Psyche (Helper)" ] \
+  && grep -q 'CFBundleDisplayName = "Psyche (Helper)"' "$APP/Contents/Resources/en.lproj/InfoPlist.strings" \
+  || { echo "the helper must be named Psyche (Helper)" >&2; exit 1; }
+grep -q "Psyche Helper" "$APP/Contents/Info.plist" && { echo "Info.plist still says Psyche Helper" >&2; exit 1; }
 codesign -d --entitlements - --xml "$APP" 2>/dev/null | grep -q com.apple.security.automation.apple-events \
   || { echo "the signature lost the helper entitlements" >&2; exit 1; }
 if [ "$PSYCHE_SIGN_IDENTITY" = "-" ]; then

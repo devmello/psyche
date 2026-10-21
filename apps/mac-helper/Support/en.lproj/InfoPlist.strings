@@ -1,0 +1,3 @@
+/* The helper's name in macOS permission prompts, Privacy & Security, Finder and Activity Monitor (#541). */
+CFBundleName = "Psyche (Helper)";
+CFBundleDisplayName = "Psyche (Helper)";

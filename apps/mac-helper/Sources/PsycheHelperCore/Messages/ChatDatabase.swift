@@ -44,7 +44,7 @@ public final class ChatDatabase: @unchecked Sendable {
 
     public static let fullDiskAccessMissing = CapabilityError(
         .forbidden, reason: "full_disk_access_missing",
-        "Psyche Helper needs Full Disk Access to read Messages. Turn it on in System Settings › Privacy & Security › Full Disk Access, then try again.",
+        "Psyche (Helper) needs Full Disk Access to read Messages. Turn it on in System Settings › Privacy & Security › Full Disk Access, then try again.",
         details: ["permission": "fullDiskAccess", "settingsURL": "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"]
     )
 

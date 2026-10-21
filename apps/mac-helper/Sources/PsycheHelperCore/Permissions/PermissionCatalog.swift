@@ -46,7 +46,7 @@ public enum PermissionCatalog {
                   whenRequested: "first Apple Event to each app", settingsURL: privacy + "Privacy_Automation", style: .perTarget)
         case .fullDiskAccess:
             Entry(permission: p, title: "Full Disk Access",
-                  explanation: "Only needed to read your Messages history. macOS does not let apps ask for it: add Psyche Helper in System Settings › Privacy & Security › Full Disk Access.",
+                  explanation: "Only needed to read your Messages history. macOS does not let apps ask for it: add Psyche (Helper) in System Settings › Privacy & Security › Full Disk Access.",
                   whenRequested: "when iMessage reading is turned on", settingsURL: privacy + "Privacy_AllFiles", style: .settingsOnly)
         case .calendars:
             Entry(permission: p, title: "Calendars",
