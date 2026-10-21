@@ -9,9 +9,11 @@
 # apps/gateway/src/main.ts` in a checkout. Workspace packages live outside node_modules (pnpm
 # links them), which is what lets Node strip their types.
 #
-# Stage `web` builds the web UI with dev dependencies. Stage `deps` installs production
-# dependencies of the Gateway and the CLI only, built for the target platform (natives such as
-# better-sqlite3 and sqlite-vec). The runtime is Node 24 slim, uid 10001, files root-owned and
+# Stage `web` builds the web UI with dev dependencies, on the build platform (its dist is plain
+# JS and CSS). Stage `deps` installs production dependencies of the Gateway and the CLI only, built
+# for the target platform (natives such as better-sqlite3 and sqlite-vec). Both fetch packages from
+# the lockfile alone before copying the sources, so a new commit with the same lockfile reuses the
+# download layer from the build cache. The runtime is Node 24 slim, uid 10001, files root-owned and
 # read-only, $PSYCHE_HOME on a volume, and a healthcheck on the bare /healthz.
 #
 # The Gateway binds 127.0.0.1 and refuses anything else, so the sample Compose file runs it with
@@ -30,15 +32,28 @@ ENV CI=1 \
 WORKDIR /src
 RUN corepack enable
 
-FROM base AS web
+# Not `FROM base`: --platform does not apply to a stage reference.
+FROM --platform=$BUILDPLATFORM ${NODE_BUILD_IMAGE} AS web
+ENV CI=1 \
+    ELECTRON_SKIP_BINARY_DOWNLOAD=1 \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    TURBO_TELEMETRY_DISABLED=1 \
+    DO_NOT_TRACK=1
+WORKDIR /src
+RUN corepack enable
+# package.json pins pnpm for corepack; the lockfile alone decides what is fetched.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm fetch
 COPY . .
-RUN pnpm install --frozen-lockfile --filter "@psyche/web..."
+RUN pnpm install --offline --frozen-lockfile --filter "@psyche/web..."
 # Served by the Gateway at /; an empty dir if the web build is unavailable (404 at /).
 RUN pnpm --filter @psyche/web build || mkdir -p apps/web/dist
 
 FROM base AS deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm fetch --prod
 COPY . .
-RUN pnpm install --frozen-lockfile --prod --filter "@psyche/gateway..." --filter "@psyche/cli..." \
+RUN pnpm install --offline --frozen-lockfile --prod --filter "@psyche/gateway..." --filter "@psyche/cli..." \
  && rm -rf apps/desktop apps/mac-helper apps/web/src docs prompts tests spikes research_notes \
       reports .changeset .github /root/.cache /root/.local/share/pnpm
 
