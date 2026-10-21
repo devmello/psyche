@@ -61,7 +61,7 @@ node    → req node.result {invocationId, ok, result?, error?, receipt?}
 | Capability | Side effect | Params → result |
 | --- | --- | --- |
 | `permissions.status` | read | `automationTargets?`, `wanted?` → per permission `{status, title, explanation, whenRequested, settingsURL, requestStyle}`, Automation per target, `next` to ask for, `bundle {path, version, build, signing: developer_id\|development\|adhoc\|unsigned, teamId?, insideApp}` |
-| `permissions.request` | write | `permission`, `purpose?` (`vision_fallback`, required for Screen Recording), `target?` (Automation) → `{status, openedSettings}` |
+| `permissions.request` | write | `permission`, `purpose?` (`vision_fallback`, required for Screen Recording), `target?` (Automation: a bundle id) → `{status, openedSettings, launched}`. For Automation, `status` is `granted`, `denied`, `notDetermined` or `unknown`. A target that is not running is launched hidden first (`launched: true`), because macOS can only ask about a running app. `app_not_installed` when there is no such app (#549). `permissions.status {automationTargets}` reads the same states without prompting |
 | `permissions.open_settings` | none | `permission` → opens the `x-apple.systempreferences:` pane |
 
 ### Computer use (J1, J2, J3, J5)
