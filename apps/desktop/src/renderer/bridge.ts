@@ -64,6 +64,7 @@ export function desktopPlatform(b: PsycheBridge = window.psyche): ShellPlatform 
       getRun: () => b.gateway.getRun() as Promise<GatewayRunView>,
       onRun: (cb) => b.gateway.onRun((s) => cb(s as GatewayRunView)),
       showLogs: async () => void (await b.gateway.showLogs()),
+      retry: async () => void (await b.gateway.retry()),
     },
     browser: {
       getState: () => b.browser.getState() as Promise<BrowserHostState>,

@@ -220,9 +220,15 @@ export function OfflineBanner({
   status,
   run,
   onShowLogs,
+  pairingGrace = false,
 }: {
   status: GatewayStatus;
   run?: GatewayRunView;
+  /**
+   * Desktop: a `pending` handshake is a reconnect in progress, not a pairing request, until it
+   * persists (#539); show "Connecting…" instead of the pairing code meanwhile.
+   */
+  pairingGrace?: boolean;
   onShowLogs?: () => void;
 }): ReactElement | null {
   if (status.phase === "paired") return null;
@@ -241,6 +247,12 @@ export function OfflineBanner({
     return (
       <div className="banner" role="status" data-testid="gateway-starting-banner">
         {t("web.banner.starting")}
+      </div>
+    );
+  if (status.phase === "pending" && pairingGrace)
+    return (
+      <div className="banner" role="status" data-testid="connecting-banner">
+        {t("web.banner.connecting")}
       </div>
     );
   if (status.phase === "pending")

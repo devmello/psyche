@@ -19,6 +19,7 @@ import { type CommandName, parseCommand } from "./commands.ts";
 import { FollowUpQueue } from "./FollowUpQueue.tsx";
 import { MessageView } from "./MessageView.tsx";
 import { OfflineBanner } from "./OfflineBanner.tsx";
+import { failureAnchors, RunFailure } from "./RunFailure.tsx";
 
 /** A committed message, or a streaming one that has no committed blocks yet. */
 interface DisplayMessage {
@@ -390,6 +391,11 @@ export function ChatThread({
   });
 
   const byId = useMemo(() => new Map(view.messages.map((m) => [m.id, m])), [view.messages]);
+  // A failed run says so where its reply would have been (#539).
+  const failures = useMemo(
+    () => failureAnchors(view.messages, view.failedRuns),
+    [view.messages, view.failedRuns],
+  );
 
   /**
    * Edit and resend (E5): a side chat forked just before the edited message (or a fresh side
@@ -453,26 +459,32 @@ export function ChatThread({
                     m.role === "agent" && m.runId === null && lead?.type === "task"
                       ? (tasks[lead.taskId] ?? null)
                       : null;
+                  const failed = failures.get(m.id) ?? [];
                   return (
-                    <MessageView
-                      message={m}
-                      streamingText={d.streamingText}
-                      quoted={m.replyToMessageId ? (byId.get(m.replyToMessageId) ?? null) : null}
-                      fromTask={fromTask}
-                      pinChecklist={m.id === latestChecklistId}
-                      showHeader={
-                        prev?.role !== "agent" || fromTask !== null || prev.runId !== m.runId
-                      }
-                      onReply={setQuoting}
-                      onFork={(msg) => void fork(threadId, msg.id)}
-                      onEdit={(msg, text) => void editAndResend(msg, text)}
-                      onJumpTo={(id) =>
-                        document
-                          .getElementById(`message-${id}`)
-                          ?.scrollIntoView({ block: "center" })
-                      }
-                      onWrapUpAction={(text) => void view.send(text)}
-                    />
+                    <>
+                      <MessageView
+                        message={m}
+                        streamingText={d.streamingText}
+                        quoted={m.replyToMessageId ? (byId.get(m.replyToMessageId) ?? null) : null}
+                        fromTask={fromTask}
+                        pinChecklist={m.id === latestChecklistId}
+                        showHeader={
+                          prev?.role !== "agent" || fromTask !== null || prev.runId !== m.runId
+                        }
+                        onReply={setQuoting}
+                        onFork={(msg) => void fork(threadId, msg.id)}
+                        onEdit={(msg, text) => void editAndResend(msg, text)}
+                        onJumpTo={(id) =>
+                          document
+                            .getElementById(`message-${id}`)
+                            ?.scrollIntoView({ block: "center" })
+                        }
+                        onWrapUpAction={(text) => void view.send(text)}
+                      />
+                      {failed.map((run) => (
+                        <RunFailure key={run.id} run={run} />
+                      ))}
+                    </>
                   );
                 }}
               </ThreadPrimitive.Messages>

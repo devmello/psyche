@@ -41,6 +41,7 @@ import {
 import type { GatewayRunView, ShellPlatform } from "./platform.ts";
 import { ShellStore } from "./store.ts";
 import "./shell.css";
+import type { GatewayStatus } from "../client/status.ts";
 
 /**
  * The shared shell (docs/06 §3.1): rail, thread list, chat column and pane area, with the
@@ -156,11 +157,41 @@ function useGatewayRun(platform: ShellPlatform): GatewayRunView | undefined {
   return run;
 }
 
+/** How long a desktop `pending` reads as a reconnect before the pairing code shows (#539). */
+export const PAIRING_GRACE_MS = 3_000;
+/** Longer for a window that was already paired this session (a restart or a network blip). */
+export const PAIRING_GRACE_AFTER_PAIRED_MS = 10_000;
+
+/**
+ * Desktop only: whether a `pending` handshake is still the reconnect window rather than a real
+ * pairing request. This device is the bootstrapped admin; the Gateway answers `paired` within
+ * milliseconds, so a pending that persists is the only one worth showing a pairing code for.
+ */
+export function usePairingGrace(status: GatewayStatus, desktop: boolean): boolean {
+  const [grace, setGrace] = useState(true);
+  const everPaired = useRef(false);
+  if (status.phase === "paired") everPaired.current = true;
+  const pending = status.phase === "pending";
+  useEffect(() => {
+    if (!desktop || !pending) {
+      setGrace(true);
+      return;
+    }
+    const timer = setTimeout(
+      () => setGrace(false),
+      everPaired.current ? PAIRING_GRACE_AFTER_PAIRED_MS : PAIRING_GRACE_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [desktop, pending]);
+  return desktop && grace;
+}
+
 function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): ReactElement {
   const { platform, store, mac } = useShell();
   const status = useShellState((s) => s.status);
   const threads = useShellState((s) => s.threads);
   const gatewayRun = useGatewayRun(platform);
+  const pairingGrace = usePairingGrace(status, platform.kind === "desktop");
   const [route, setRoute] = useState(initialRoute);
   const [listHidden, setListHidden] = useState(false);
   const [overlay, setOverlay] = useState<Overlay>(null);
@@ -521,6 +552,7 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
           {onChat ? <h1 className="sr-only">{barTitle}</h1> : null}
           <OfflineBanner
             status={status}
+            pairingGrace={pairingGrace}
             {...(gatewayRun ? { run: gatewayRun } : {})}
             {...(platform.gateway.showLogs
               ? { onShowLogs: () => void platform.gateway.showLogs?.() }

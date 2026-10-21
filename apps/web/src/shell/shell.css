@@ -590,3 +590,120 @@ button {
   display: inline-block;
   transform: scaleX(-1);
 }
+
+/* The startup splash (#539): the main window's first content, fading into the app on pairing. */
+.startup-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--shell-bg);
+  color: var(--shell-text);
+  -webkit-app-region: drag;
+  app-region: drag;
+  transition: opacity 220ms ease-out;
+}
+.startup-splash[data-leaving] {
+  opacity: 0;
+  pointer-events: none;
+}
+.startup-splash-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 360px;
+  padding: 24px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 18px;
+}
+.startup-splash-body svg {
+  margin-bottom: 8px;
+}
+.startup-splash-body h1 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.startup-splash-body [role="status"] {
+  margin: 0;
+  min-height: 18px;
+  color: var(--shell-muted);
+}
+.startup-splash-bar {
+  position: relative;
+  width: 120px;
+  height: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 1px;
+  background: var(--shell-border);
+}
+.startup-splash-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 40%;
+  border-radius: 1px;
+  background: var(--shell-accent);
+  animation: startup-slide 1.4s ease-in-out infinite;
+}
+@keyframes startup-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .startup-splash {
+    transition: none;
+  }
+  .startup-splash-bar::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.6;
+  }
+}
+.startup-splash-reason {
+  margin: 0;
+  color: var(--shell-danger);
+  overflow-wrap: anywhere;
+}
+.startup-splash-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+.startup-splash-button {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  padding: 4px 12px;
+  border: 1px solid var(--shell-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--shell-text);
+  font: inherit;
+  cursor: pointer;
+}
+.startup-splash-button.primary {
+  border-color: var(--shell-accent);
+  background: var(--shell-accent);
+  color: var(--accent-contrast, #fff);
+}
+.startup-splash-button.skip {
+  margin-top: 8px;
+  border: 0;
+  color: var(--shell-muted);
+  text-decoration: underline;
+}
+.startup-splash-button:focus-visible {
+  outline: 2px solid var(--shell-accent);
+  outline-offset: 2px;
+}

@@ -63,8 +63,7 @@ import {
   PERMISSION_KINDS,
   type PermissionKind,
 } from "./main/permissions/permissions.ts";
-import { createSplash, type SplashController, shouldShowSplash } from "./main/splash.ts";
-import { openSplashWindow } from "./main/splash-window.ts";
+import { shouldShowSplash } from "./main/splash.ts";
 import { startShell } from "./main/startup.ts";
 import {
   chooseMode,
@@ -126,39 +125,26 @@ let bridge: BridgeClient | undefined;
 let terminal: TerminalHost | undefined;
 let tray: PsycheTray | undefined;
 let supervisor: GatewaySupervisor | undefined;
-/** The startup splash while the Gateway launches; undefined when skipped or closed. */
-let splash: SplashController | undefined;
-
 /**
- * Opens the splash within the first 100 ms unless there is nothing to wait for: dev with
- * PSYCHE_NO_SPLASH=1, the perf probe, an external Gateway, or one already answering (attach).
+ * Whether the main window opens on the startup splash (#539: its first content, not a second
+ * window). Decided once at launch: not in dev with PSYCHE_NO_SPLASH=1, under the perf probe, for
+ * an external Gateway, or when the Gateway already answers (attach mode).
  */
-async function openSplashIfNeeded(): Promise<void> {
-  const mode = chooseMode(process.env, app.isPackaged);
+let splashWanted = false;
+
+async function decideSplash(): Promise<void> {
   const healthyAtLaunch = await fetch(new URL("/healthz", defaultGatewayOrigin()), {
     signal: AbortSignal.timeout(60),
   }).then(
     (r) => r.ok,
     () => false,
   );
-  const show = shouldShowSplash({
+  splashWanted = shouldShowSplash({
     packaged: app.isPackaged,
     env: process.env,
-    mode,
+    mode: chooseMode(process.env, app.isPackaged),
     healthyAtLaunch,
     probing: perfProbe !== undefined,
-  });
-  if (!show) return;
-  splash = createSplash({
-    view: openSplashWindow({
-      iconPath: join(app.getAppPath(), "assets", "icon.png"),
-      devTools: !app.isPackaged,
-    }),
-    retry: () => {
-      const sup = supervisor;
-      if (sup) void sup.ensureRunning().then(() => gateway?.start());
-    },
-    showLogs: () => void shell.openPath(join(defaultPsycheHome(), "logs")),
   });
 }
 let helper: HelperLauncher | undefined;
@@ -354,6 +340,11 @@ function registerIpc(): void {
   handle(IPC.getDeviceId, () => thisDeviceId);
   handle(IPC.gatewayGetRun, () => supervisor?.getState() ?? { kind: "unknown" });
   handle(IPC.gatewayShowLogs, () => shell.openPath(join(home, "logs")));
+  // The splash's Retry after a failed start: run the supervisor again, then connect.
+  handle(IPC.gatewayRetry, async () => {
+    await supervisor?.ensureRunning();
+    gateway?.start();
+  });
   handle(IPC.call, (_e, arg) => {
     const r = rec(IPC.call, arg);
     const method = checkCallable(r.method, isMethodName);
@@ -653,7 +644,7 @@ function lockDownDefaultSession(): void {
 }
 
 void app.whenReady().then(async () => {
-  await openSplashIfNeeded();
+  await decideSplash();
   // Packaged builds get the icon from the bundle (forge.config.ts); dev runs set the Dock icon here.
   if (!app.isPackaged && process.platform === "darwin") {
     app.dock?.setIcon(join(app.getAppPath(), "assets", "icon.png"));
@@ -679,6 +670,7 @@ void app.whenReady().then(async () => {
   windows = createAppWindows({
     rendererUrl,
     preloadPath: preloadPath(),
+    splash: () => splashWanted,
     // The stored zoom wins over Electron's own per-origin memory on every load.
     onViewCreated: (wc) => wc.on("did-finish-load", () => zoom.applyTo(wc)),
     onMainCreated: (win, view) => {
@@ -734,7 +726,6 @@ void app.whenReady().then(async () => {
     isPaired: async () => (await onlineMacHelpers()).length > 0,
     onState: (s) => {
       broadcast(IPC.helperState, s);
-      splash?.update({ helper: s.kind });
     },
   });
 
@@ -771,7 +762,6 @@ void app.whenReady().then(async () => {
       broadcast(IPC.status, s);
       tray?.update({ status: s });
       onPairing(s);
-      splash?.update({ healthy: s.health === "ok" });
     },
     onEvent: onGatewayEvent,
     onResync: () => {
@@ -818,8 +808,8 @@ void app.whenReady().then(async () => {
         buttons: ["Keep the other copy", "Use this copy"],
         defaultId: 0,
         cancelId: 0,
-        message: "Another copy of Psyche runs your Gateway",
-        detail: `It runs from ${other}. Using this copy points the Gateway at this app instead; the other copy then uses this one's Gateway.`,
+        message: "Another copy of Psyche is already running",
+        detail: `It runs from ${other}. Using this copy switches Psyche to this app; the other copy then connects to this one.`,
       };
       const win = windows?.main();
       const res = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts);
@@ -833,7 +823,6 @@ void app.whenReady().then(async () => {
     onState: (run) => {
       tray?.update({ run });
       broadcast(IPC.gatewayRun, run);
-      splash?.update({ run });
     },
   });
 
@@ -876,13 +865,6 @@ void app.whenReady().then(async () => {
     },
     warn: (m) => console.warn(`[startup] ${m}`),
   });
-  // The splash closes once the main window has painted and the Gateway is healthy.
-  const mainContents = windows.mainContents();
-  if (splash && mainContents) {
-    if (mainContents.isLoading())
-      mainContents.once("did-finish-load", () => splash?.update({ painted: true }));
-    else splash.update({ painted: true });
-  }
   const measured = windows.mainContents();
   if (perfProbe !== undefined && measured) {
     watchFirstPaint(measured, perfProbe, () => app.quit(), {
@@ -923,7 +905,6 @@ app.on("will-quit", () => {
 });
 
 app.on("before-quit", () => {
-  splash?.close();
   windows?.setQuitting();
   terminal?.closeAll();
   void bridge?.stop();

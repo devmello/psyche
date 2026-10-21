@@ -1,6 +1,6 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ChatThread } from "../src/chat/Thread.tsx";
 import { GatewayProvider, GatewayStore } from "../src/data/index.ts";
 import { MockGateway } from "../src/data/mock-gateway.ts";
@@ -266,5 +266,67 @@ describe("slash commands (C9)", () => {
     expect(gateway.calls.find((c) => c.method === "threads.create")?.params).toEqual({
       kind: "side",
     });
+  });
+});
+
+describe("a failed run (#539)", () => {
+  it("says so where the reply would be, with the way to Settings → Models for a key problem", async () => {
+    const navigate = vi.fn();
+    const gateway = new MockGateway(createFixtureWorld(), { now: () => FIXTURE_NOW });
+    const store = new GatewayStore(gateway, { now: () => FIXTURE_NOW });
+    render(
+      <GatewayProvider client={gateway} store={store}>
+        <UiSlotsProvider value={{ persona: { name: "Wren", creature: "moth" }, navigate }}>
+          <ChatThread threadId={IDS.threads.dentist} now={NOW} />
+        </UiSlotsProvider>
+      </GatewayProvider>,
+    );
+    await screen.findByText(/dentist/i, undefined, { timeout: 3000 }).catch(() => undefined);
+    const sent = gateway.commitMessage(IDS.threads.dentist, "user", [
+      { type: "text", md: "hello" },
+    ]);
+    act(() =>
+      gateway.setRun({
+        id: "run_failed",
+        threadId: IDS.threads.dentist,
+        status: "failed",
+        modelRef: "anthropic/claude-sonnet-5-5",
+        attempt: 1,
+        startedAt: sent.createdAt,
+        endedAt: sent.createdAt,
+        error:
+          "auth: every model failed (anthropic/claude-sonnet-5-5#vault:model-anthropic: auth): credential unavailable",
+        usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, reasoning: 0, costUsd: 0 },
+      }),
+    );
+    const card = await screen.findByTestId("run-failure");
+    expect(card.getAttribute("role")).toBe("alert");
+    expect(card.textContent).toContain("your model's API key is missing or was refused");
+    await userEvent.click(within(card).getByRole("button", { name: "Open Settings → Models" }));
+    expect(navigate).toHaveBeenCalledWith("/settings/model");
+    await userEvent.click(within(card).getByRole("button", { name: "Details" }));
+    expect(card.textContent).toContain("credential unavailable");
+  });
+
+  it("names a failure in Psyche's words when the key isn't the cause", async () => {
+    const { failureAnchors, isCredentialFailure } = await import("../src/chat/RunFailure.tsx");
+    expect(isCredentialFailure("timeout: provider took too long")).toBe(false);
+    expect(isCredentialFailure("401 Unauthorized")).toBe(true);
+    const m = (id: string, createdAt: string, runId: string | null = null) =>
+      ({ id, createdAt, runId }) as never;
+    const runs = [
+      {
+        id: "r1",
+        status: "failed",
+        startedAt: "2026-10-20T10:00:01Z",
+        endedAt: "2026-10-20T10:00:01Z",
+      },
+      { id: "r2", status: "done", startedAt: "2026-10-20T10:00:05Z", endedAt: null },
+    ] as never;
+    const anchors = failureAnchors(
+      [m("a", "2026-10-20T10:00:00Z"), m("b", "2026-10-20T10:00:03Z")],
+      runs,
+    );
+    expect([...anchors.keys()]).toEqual(["a"]);
   });
 });
