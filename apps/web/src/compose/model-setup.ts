@@ -87,8 +87,27 @@ export async function checkModel(
 }
 
 interface ModelsList {
-  providers: { id: string; keyConfigured: boolean; local: boolean }[];
+  providers: {
+    id: string;
+    keyConfigured: boolean;
+    local: boolean;
+    probe?: { state?: string };
+  }[];
   roles: { primary?: string };
+}
+
+/**
+ * Subscription providers that run through the vendor's CLI signed in on this Mac. They have no
+ * API key; a reachable endpoint probe means the CLI answered (and is logged in), so they count
+ * as keyed (#537).
+ */
+const CLI_PROVIDERS: ReadonlySet<string> = new Set(["claude-code", "codex"]);
+
+/** The provider can authenticate: local, a stored key, or a signed-in CLI subscription. */
+export function providerReady(provider: ModelsList["providers"][number] | undefined): boolean {
+  if (provider === undefined) return false;
+  if (provider.local || provider.keyConfigured) return true;
+  return CLI_PROVIDERS.has(provider.id) && provider.probe?.state === "reachable";
 }
 
 /**
@@ -165,7 +184,7 @@ export async function verifySetup(
       }
       const after = (await call("models.list", {})) as ModelsList;
       const provider = after.providers.find((p) => ref.startsWith(`${p.id}/`));
-      const keyed = provider?.local === true || provider?.keyConfigured === true;
+      const keyed = providerReady(provider);
       modelCheck =
         after.roles.primary === ref && keyed
           ? {
