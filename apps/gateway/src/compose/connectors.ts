@@ -173,6 +173,9 @@ export function composeConnectors(
   const mail = mailCredentials(services, () => registry);
   let gateway: Gateway | undefined;
   const appleHelper = setup.appleHelper ?? macHelper(() => gateway);
+  const factories = setup.factories ?? defaultFactories(setup, services, mail, appleHelper);
+  /** Catalogue ids with an implementation here; the rest (remote MCP presets) show unavailable. */
+  const implemented = new Set(factories.map((f) => f.entry.id));
   /** connectors.updated for Settings and onboarding (#505): the record as stored now. */
   const publishUpdate = async (event: ConnectorEvent): Promise<void> => {
     if (event.type !== "status" && event.type !== "matrix_changed") return;
@@ -197,7 +200,7 @@ export function composeConnectors(
     });
   };
   const registry: ConnectorRegistry = new ConnectorRegistry({
-    factories: setup.factories ?? defaultFactories(setup, services, mail, appleHelper),
+    factories,
     extraCatalogue: setup.extraCatalogue ?? [...REMOTE_MCP_PRESETS, ...COMING_SOON],
     store: setup.store ?? new SqliteConnectorStore(services.db.sqlite),
     context: {
@@ -272,9 +275,12 @@ export function composeConnectors(
   };
   handlers["connectors.catalogue"] = {
     run: async () => ({
-      entries: registry
-        .catalogue()
-        .map((e) => (e.id === "google" ? { ...e, configured: googleConfigured } : e)),
+      // #529: nothing listed as available can fail with "no connector implementation".
+      entries: registry.catalogue().map((e) => ({
+        ...e,
+        available: e.available && implemented.has(e.id),
+        ...(e.id === "google" ? { configured: googleConfigured } : {}),
+      })),
     }),
   };
   const custom = new CustomConnectors({

@@ -29,6 +29,8 @@ import {
   type InputRequest,
   type LibraryItem,
   type LinkPaymentMethod,
+  type McpProposal,
+  type McpServerStatus,
   type MemoryChunk,
   type MemoryClaim,
   type Message,
@@ -230,6 +232,9 @@ export class MockGateway implements GatewayClient {
   private now: () => string;
   private counter = 0;
   private skillProposals = new Map<string, SkillProposal>();
+  /** Settings → MCP (#529): added servers and probes waiting for their trust card. */
+  readonly mcpServers: McpServerStatus[] = [];
+  private mcpProposals = new Map<string, { proposal: McpProposal; approvalId: string }>();
 
   constructor(world: Partial<MockWorld> = {}, options: MockGatewayOptions = {}) {
     this.world = structuredClone({ ...EMPTY_WORLD, ...world });
@@ -1390,6 +1395,94 @@ export class MockGateway implements GatewayClient {
           trust: x.trust,
         })),
     }),
+    "mcp.status": () => ({ launcher: "srt" as const, servers: this.mcpServers }),
+    "mcp.probe": (p) => {
+      if (this.mcpServers.some((x) => x.id === p.server.id))
+        fail("conflict", `an MCP server with id ${p.server.id} exists`);
+      const now = this.now();
+      const stdio = p.server.transport.kind === "stdio";
+      const hosts = stdio
+        ? (p.server.allowedDomains ?? [])
+        : [new URL((p.server.transport as { url: string }).url).host];
+      const proposal: McpProposal = {
+        id: this.id("mcpp"),
+        server: p.server,
+        tools: [
+          {
+            name: "search_files",
+            description: "Search files by name.",
+            sideEffect: "read",
+            warnings: [],
+            blocked: false,
+          },
+          {
+            name: "write_file",
+            description: "Write a file.",
+            sideEffect: "write",
+            warnings: [],
+            blocked: false,
+          },
+        ],
+        toolsListHash: `sha256:${"d".repeat(64)}`,
+        network: { reaches: hosts.length > 0, hosts },
+        isolation: stdio ? "srt" : "remote",
+        expiresAt: Date.parse(now) + 30 * 60_000,
+      };
+      const approval = this.requestApproval({
+        id: this.id("apr"),
+        kind: "skill_install",
+        summary: `Add MCP server "${p.server.name}"`,
+        details: {
+          kind: "mcp_server",
+          id: p.server.id,
+          name: p.server.name,
+          tools: ["read search_files", "write write_file"],
+        },
+        bindingHash: `sha256:${"e".repeat(64)}`,
+        grantKey: `sha256:${"f".repeat(64)}`,
+        requestedBy: { runId: null, taskId: null, threadId: null },
+        sideEffect: "destructive",
+        surfaces: ["desktop", "web"],
+        scopesOffered: ["once"],
+        deviceOnly: true,
+        requiresAuthentication: false,
+        taint: false,
+        status: "pending",
+        scopeGranted: null,
+        decidedBy: null,
+        requestedAt: now,
+        expiresAt: new Date(Date.parse(now) + 30 * 60_000).toISOString(),
+        decidedAt: null,
+        grantId: null,
+      });
+      this.mcpProposals.set(proposal.id, { proposal, approvalId: approval.id });
+      return { proposal, approval };
+    },
+    "mcp.add": (p) => {
+      const staged =
+        this.mcpProposals.get(p.proposalId) ?? fail("approval_expired", "the probe expired");
+      const approval = this.find(this.world.approvals, p.approvalId, "approval");
+      if (approval.id !== staged.approvalId || approval.status !== "approved")
+        fail("approval_required", "adding an MCP server needs its approved trust card");
+      this.mcpProposals.delete(p.proposalId);
+      const s = staged.proposal.server;
+      const server: McpServerStatus = {
+        id: s.id,
+        name: s.name,
+        trust: "unknown",
+        transport: s.transport.kind === "stdio" ? "stdio" : "http",
+        network: staged.proposal.network.reaches,
+        connected: true,
+      };
+      this.mcpServers.push(server);
+      return { server };
+    },
+    "mcp.remove": (p) => {
+      const i = this.mcpServers.findIndex((x) => x.id === p.serverId);
+      if (i < 0) fail("not_found", `no MCP server ${p.serverId}`);
+      this.mcpServers.splice(i, 1);
+      return { ok: true as const };
+    },
     "skills.proposeInstall": (p) => {
       const key = p.source.kind === "git" ? p.source.url : p.source.path;
       return this.stageSkill(this.world.skillSources[key], `nothing to install at ${key}`);

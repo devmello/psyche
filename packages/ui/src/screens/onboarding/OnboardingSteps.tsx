@@ -10,8 +10,8 @@ import { activeI18n, t } from "../../i18n/core.ts";
 import { useCopy } from "../../lib/clipboard.ts";
 import { TCC_LABEL } from "../settings/ComputerUseSection.tsx";
 import {
-  CONNECTOR_CATALOG,
   ConnectAccessChoice,
+  offeredCatalog,
   SCOPE_MODE_LABEL,
   type ScopeMode,
 } from "../settings/ConnectorsSection.tsx";
@@ -299,6 +299,7 @@ export function ConnectorsStep({
   busy = false,
   error = null,
   progress,
+  implemented,
 }: {
   persona: string;
   connected: readonly ConnectedAccount[];
@@ -307,9 +308,14 @@ export function ConnectorsStep({
   error?: string | null;
   /** The sign-in under way (#505), under the Connect button. */
   progress?: ReactNode;
+  /** Connector types the Gateway can connect (its catalogue); undefined offers every row. */
+  implemented?: ReadonlySet<string> | undefined;
 }): ReactElement {
   const id = useId();
-  const available = CONNECTOR_CATALOG.filter((c) => !connected.some((x) => x.type === c.type));
+  // Only real connectors here: MCP servers and Slack are added later in Settings (#529).
+  const available = offeredCatalog(implemented, { navigation: false }).filter(
+    (c) => !connected.some((x) => x.type === c.type),
+  );
   const [type, setType] = useState<string>(available[0]?.type ?? "");
   const [mode, setMode] = useState<ScopeMode>("read");
   const current = available.some((c) => c.type === type) ? type : (available[0]?.type ?? "");
