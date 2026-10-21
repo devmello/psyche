@@ -153,7 +153,7 @@ public enum PermissionsCapabilities {
     static func request(_ preflight: LivePreflight) -> Capability {
         Capability(CapabilitySpec(
             name: "permissions.request",
-            description: "Ask macOS for one permission (shows the system prompt or opens System Settings). Screen Recording needs purpose \"vision_fallback\"; Automation needs a running target app; Full Disk Access can only be granted in System Settings.",
+            description: "Ask macOS for one permission (shows the system prompt or opens System Settings). Screen Recording needs purpose \"vision_fallback\"; Automation launches a target that is not running (hidden) and asks for it (granted, denied, notDetermined, unknown); Full Disk Access can only be granted in System Settings.",
             sideEffect: .write,
             inputSchema: Schema.object([
                 "permission": Schema.string(enum: TCCPermission.allCases.map(\.rawValue)),
@@ -165,6 +165,7 @@ public enum PermissionsCapabilities {
             let p = try ctx.decode(RequestParams.self)
             let state: String
             var openedSettings = false
+            var launched = false
             switch p.permission {
             case .accessibility:
                 let opts = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
@@ -178,10 +179,12 @@ public enum PermissionsCapabilities {
             case .inputMonitoring:
                 state = CGRequestListenEventAccess() ? "granted" : "prompted"
             case .automation:
-                guard let t = p.target else { throw CapabilityError.invalidParams("target is required for Automation", field: "target") }
-                state = await withCheckedContinuation { (cont: CheckedContinuation<String, Never>) in
-                    DispatchQueue.global().async { cont.resume(returning: AutomationPermission.state(bundleId: t, ask: true).rawValue) }
+                guard let t = p.target, !t.isEmpty, t.count <= 255, !t.contains("/") else {
+                    throw CapabilityError.invalidParams("target (a bundle id) is required for Automation", field: "target")
                 }
+                let r = try await AutomationRequest.run(target: t)
+                state = r.state.rawValue
+                launched = r.launched
             case .fullDiskAccess:
                 openedSettings = await open(PermissionCatalog.entry(.fullDiskAccess).settingsURL)
                 state = preflight.state(.fullDiskAccess).rawValue
@@ -201,7 +204,7 @@ public enum PermissionsCapabilities {
                 throw CapabilityError.invalidParams("Use notify.request_authorization (provisional first)", field: "permission")
             }
             return CapabilityOutput(
-                ["permission": .string(p.permission.rawValue), "status": .string(state), "openedSettings": .bool(openedSettings)],
+                ["permission": .string(p.permission.rawValue), "status": .string(state), "openedSettings": .bool(openedSettings), "launched": .bool(launched)],
                 receipt: ReceiptDraft(outcome: .ok, summary: "Requested \(p.permission.rawValue): \(state)")
             )
         }
@@ -236,5 +239,26 @@ enum NotificationAuthorization {
         case "authorized", "provisional": return "granted"
         case let other: return other
         }
+    }
+}
+
+/// Automation for one target app (#549): Apple Events can only ask a running app, so a target
+/// that is not running is launched hidden (as the Mail / Notes adapters do) and asked again.
+enum AutomationRequest {
+    static func run(
+        target: String,
+        ask: @escaping @Sendable (String) -> AutomationPermission.State = { AutomationPermission.state(bundleId: $0, ask: true) },
+        launch: @escaping @Sendable (String) async throws -> Void = { try await ScriptHandler.ensureRunning($0) }
+    ) async throws -> (state: AutomationPermission.State, launched: Bool) {
+        // AEDeterminePermissionToAutomateTarget blocks while the prompt is up: off the main thread.
+        func asked() async -> AutomationPermission.State {
+            await withCheckedContinuation { (cont: CheckedContinuation<AutomationPermission.State, Never>) in
+                DispatchQueue.global(qos: .userInitiated).async { cont.resume(returning: ask(target)) }
+            }
+        }
+        let first = await asked()
+        guard first == .notRunning else { return (first, false) }
+        try await launch(target)
+        return (await asked(), true)
     }
 }
