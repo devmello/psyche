@@ -134,7 +134,7 @@ function AddForm({
               <Input
                 id={`${id}-cmd`}
                 className="font-mono"
-                placeholder="npx -y @modelcontextprotocol/server-everything"
+                placeholder={t("settings.mcp.placeholder.command")}
                 value={d.command}
                 onChange={(e) => setD({ ...d, command: e.target.value })}
               />
@@ -143,7 +143,7 @@ function AddForm({
               <Label htmlFor={`${id}-domains`}>{t("settings.mcp.domains")}</Label>
               <Input
                 id={`${id}-domains`}
-                placeholder="api.example.com"
+                placeholder={t("settings.mcp.placeholder.domains")}
                 value={d.domains}
                 onChange={(e) => setD({ ...d, domains: e.target.value })}
                 aria-describedby={`${id}-domains-hint`}
@@ -159,7 +159,7 @@ function AddForm({
             <Input
               id={`${id}-url`}
               type="url"
-              placeholder="https://mcp.example.com/mcp"
+              placeholder={t("settings.mcp.placeholder.url")}
               value={d.url}
               onChange={(e) => setD({ ...d, url: e.target.value })}
             />
