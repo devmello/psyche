@@ -307,11 +307,14 @@ describe("subscription CLIs in Settings (fake CLI)", () => {
       server: `Claude Code 2.1.286 · ${FAKE} (claude.ai, pro plan)`,
     });
     expect(claude.provider.models.map((m) => m.ref)).toContain("claude-code/sonnet");
+    // Installed and signed in: configured, though it has no key (#538).
+    expect(claude.provider.keyConfigured).toBe(true);
     expect(JSON.stringify(claude)).not.toContain("owner@example.com");
     const codex = await desk.call<{ provider: ModelProviderSummary }>("models.probe", {
       providerId: "codex",
     });
     expect(codex.provider.probe).toMatchObject({ state: "unreachable" });
+    expect(codex.provider.keyConfigured).toBe(false);
     expect(codex.provider.probe.error).toContain("not installed");
     const picked = await desk.call<{ roles: ModelRoles }>(
       "models.setRole",

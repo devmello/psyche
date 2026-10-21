@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GatewayStatus } from "../../src/client/index.ts";
-import { saveProviderKey, verifySetup } from "../../src/compose/model-setup.ts";
+import { providerReady, saveProviderKey, verifySetup } from "../../src/compose/model-setup.ts";
 import type { ShellPlatform } from "../../src/shell/platform.ts";
 
 type Handler = (params: Record<string, unknown>, key?: string) => unknown;
@@ -157,6 +157,46 @@ describe("onboarding model setup", () => {
       ["model", "warn"],
     ]);
     expect(checks.at(-1)?.detail).toMatch(/no key yet/);
+  });
+
+  it("counts a signed-in Claude subscription (claude-code) as ready with no API key (#537)", async () => {
+    let primary: string | undefined;
+    const { platform } = platformWith({
+      "models.list": () => ({
+        providers: [
+          { id: "anthropic", keyConfigured: false, local: false, probe: { state: "not_probed" } },
+          { id: "claude-code", keyConfigured: false, local: false, probe: { state: "reachable" } },
+        ],
+        roles: primary ? { primary } : {},
+      }),
+      "models.setRole": (p) => {
+        if (p.role === "primary") primary = String(p.ref);
+        return { roles: {} };
+      },
+    });
+    const checks = await verifySetup(
+      platform,
+      { model: { modelRef: "claude-code/sonnet", toolCheck: "untested" } } as never,
+      { kind: "paired" },
+    );
+    expect(primary).toBe("claude-code/sonnet");
+    expect(checks.at(-1)).toMatchObject({ id: "model", state: "ok" });
+  });
+
+  it("treats a CLI provider as ready only when its probe is reachable", () => {
+    const cli = (id: string, state: string) => ({
+      id,
+      keyConfigured: false,
+      local: false,
+      probe: { state },
+    });
+    expect(providerReady(cli("claude-code", "reachable"))).toBe(true);
+    expect(providerReady(cli("codex", "reachable"))).toBe(true);
+    expect(providerReady(cli("claude-code", "auth_failed"))).toBe(false);
+    expect(providerReady(cli("claude-code", "not_probed"))).toBe(false);
+    // An API provider still needs a stored key, whatever its probe says.
+    expect(providerReady(cli("anthropic", "reachable"))).toBe(false);
+    expect(providerReady(undefined)).toBe(false);
   });
 
   it("on the desktop, says whether this Mac is the admin device", async () => {

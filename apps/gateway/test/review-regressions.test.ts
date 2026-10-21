@@ -194,7 +194,13 @@ describe("S01 review regressions", () => {
     ]) {
       expect(isUnreachableCapability(name), name).toBe(true);
     }
-    for (const name of ["calendar.list_events", "vaulted.door", "vm.status", "keychainy"]) {
+    for (const name of [
+      "calendar.list_events",
+      "vaulted.door",
+      "vm.status",
+      "keychainy",
+      "notify.authorization_status",
+    ]) {
       expect(isUnreachableCapability(name), name).toBe(false);
     }
   });

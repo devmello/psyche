@@ -33,7 +33,7 @@ public struct NodeHandshakeOptions: Sendable {
     public var capabilities: [JSONValue]
 
     public init(
-        timeout: TimeInterval = 10, verify: Bool = true, handshakeSecret: String? = nil, name: String = "Psyche Helper",
+        timeout: TimeInterval = 10, verify: Bool = true, handshakeSecret: String? = nil, name: String = "Psyche (Helper)",
         capabilities: [JSONValue] = []
     ) {
         self.timeout = timeout

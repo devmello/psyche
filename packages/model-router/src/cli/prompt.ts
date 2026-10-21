@@ -119,8 +119,13 @@ export function cliPrompt(messages: readonly ModelMessage[], providerId: string)
       .flatMap((p) => (p.type === "text" ? [p.text] : []))
       .join("\n\n");
   } else {
-    const before = lastUser >= 0 ? fresh.slice(0, lastUser) : fresh;
-    const latest = lastUser >= 0 ? fresh.slice(lastUser) : [];
+    // Only a trailing run of user messages is "the new message"; everything before it, tool
+    // calls and their results included, goes in the transcript (#538: a history that ends with a
+    // tool result used to lose the tool exchange, so the CLI asked for the tool again).
+    let start = fresh.length;
+    while (start > 0 && fresh[start - 1]?.role === "user") start -= 1;
+    const before = fresh.slice(0, start);
+    const latest = fresh.slice(start);
     const intro =
       resume === undefined
         ? "The conversation so far (earlier turns, for context):"
@@ -129,7 +134,14 @@ export function cliPrompt(messages: readonly ModelMessage[], providerId: string)
       .flatMap((m) => m.parts)
       .flatMap((p) => (p.type === "text" ? [p.text] : []))
       .join("\n\n");
-    text = `${intro}\n\n<transcript>\n${render(before)}\n</transcript>${latestText.length > 0 ? `\n\n${latestText}` : "\n\nContinue."}`;
+    const endsWithResults = before.at(-1)?.role === "tool";
+    const closing =
+      latestText.length > 0
+        ? latestText
+        : endsWithResults
+          ? "The tool calls above already ran and their results are shown. Answer the last request using those results; do not call the tools again for it."
+          : "Continue.";
+    text = `${intro}\n\n<transcript>\n${render(before)}\n</transcript>\n\n${closing}`;
   }
   return {
     ...(resume === undefined ? {} : { resume }),

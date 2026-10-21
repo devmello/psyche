@@ -92,6 +92,7 @@ export class Connection implements LiveConnection {
   /** Handles one inbound frame. Resolves once the response (if any) was sent. */
   async handleRaw(raw: string): Promise<void> {
     let id = "";
+    let method: string | undefined;
     try {
       const frame = parseFrame(raw);
       if (frame.type === "res") {
@@ -103,6 +104,7 @@ export class Connection implements LiveConnection {
         return;
       }
       id = frame.id;
+      method = frame.method;
       const payload = await this.#dispatch(frame);
       this.#send(JSON.stringify(okRes(frame.id, payload)));
       if (this.#closeAfterReply !== null) this.close(this.#closeAfterReply);
@@ -114,8 +116,12 @@ export class Connection implements LiveConnection {
         id =
           typeof details?.id === "string" && details.id.length > 0 ? details.id : UNKNOWN_FRAME_ID;
       }
+      // Which call failed and for whom; never its params (they can carry owner data).
+      const deviceId = this.#identity?.deviceId ?? this.#pendingDeviceId ?? undefined;
       this.#ctx.log.log(e.code === "internal" ? "error" : "info", "request failed", {
         conn: this.id,
+        ...(method === undefined ? {} : { method: method.slice(0, 128) }),
+        ...(deviceId === undefined ? {} : { deviceId }),
         code: e.code,
         ...(e.code === "internal" ? { message: e.message } : {}),
       });

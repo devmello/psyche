@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { chmod, mkdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { getMessage, getSetting } from "@psyche/db";
 import { defaultDenyRead } from "@psyche/mcp-host";
 import type { LibraryItem, NodeClient, NodeInfo } from "@psyche/protocol";
@@ -15,6 +15,7 @@ import {
   LocalProcessRunner,
   type MessageSource,
   NODE_SPEECH_CAPABILITIES,
+  type ProcessRunner,
   ReadAloudService,
   SPEECH_METHODS,
   type SpeechCaller,
@@ -98,13 +99,15 @@ export function speechSrtSettings(
   };
 }
 
-/** The runner prefix: explicit, srt with the speech profile, or none (logged). */
+const UNSANDBOXED_HINT =
+  "set PSYCHE_SRT_PATH so ffmpeg and whisper-cli run under srt (security §5.3)";
+
+/** The runner prefix: explicit, srt with the speech profile, or none. */
 function speechPrefix(setup: SpeechSetup, services: ComposeServices): string[] | undefined {
   if (setup.runnerPrefix !== undefined) return setup.runnerPrefix;
   if (setup.srtPath === undefined) {
-    services.logger?.log("warn", "speech.unsandboxed", {
-      hint: "set PSYCHE_SRT_PATH so ffmpeg and whisper-cli run under srt (security §5.3)",
-    });
+    // The Mac helper does the owner's speech; nothing runs here until a local tool is used (#540).
+    services.logger?.log("debug", "speech.unsandboxed", { hint: UNSANDBOXED_HINT });
     return undefined;
   }
   const dir = join(services.home, "speech");
@@ -115,6 +118,23 @@ function speechPrefix(setup: SpeechSetup, services: ComposeServices): string[] |
     mode: 0o600,
   });
   return [setup.srtPath, "--settings", file, "--"];
+}
+
+/** Warns once, when ffmpeg or whisper-cli first runs on this host without srt (#540). */
+export function warnUnsandboxed(inner: ProcessRunner, services: ComposeServices): ProcessRunner {
+  let warned = false;
+  return {
+    run(request) {
+      if (!warned) {
+        warned = true;
+        services.logger?.log("warn", "speech.unsandboxed", {
+          tool: basename(request.argv[0] ?? ""),
+          hint: UNSANDBOXED_HINT,
+        });
+      }
+      return inner.run(request);
+    },
+  };
 }
 
 /** The newest live mac-helper node that offers speech (it connects after the Gateway boots). */
@@ -218,7 +238,10 @@ export function composeSpeech(setup: SpeechSetup = {}) {
     let gateway: Gateway | null = null;
     const { db } = services;
     const prefix = speechPrefix(setup, services);
-    const runner = new LocalProcessRunner(prefix === undefined ? {} : { prefix });
+    const runner =
+      prefix === undefined
+        ? warnUnsandboxed(new LocalProcessRunner(), services)
+        : new LocalProcessRunner({ prefix });
     const stack = createSpeechStack({
       home: services.home,
       runner,

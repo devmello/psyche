@@ -29,7 +29,7 @@ public enum ContactsCapabilities {
             }
             guard let records else {
                 throw CapabilityError(.forbidden, reason: "permission_denied",
-                                      "Psyche Helper does not have the Contacts permission", details: ["permission": "contacts"])
+                                      "Psyche (Helper) does not have the Contacts permission", details: ["permission": "contacts"])
             }
             return CapabilityOutput(ContactsList.result(records: records, limit: limit, query: query))
         }]

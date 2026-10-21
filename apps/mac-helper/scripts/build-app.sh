@@ -53,6 +53,8 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/psyche-helper"
 cp "$HERE/Support/Info.plist" "$APP/Contents/Info.plist"
+# Localized name ("Psyche (Helper)") for prompts, Privacy & Security and Finder (#541).
+ditto "$HERE/Support/en.lproj" "$APP/Contents/Resources/en.lproj"
 # App icon (deploy/macos/make-icon.mjs writes it); the helper shows up in System Settings and Dock.
 if [ -f "$HERE/dist-assets/PsycheHelper.icns" ]; then
   cp "$HERE/dist-assets/PsycheHelper.icns" "$APP/Contents/Resources/PsycheHelper.icns"

@@ -34,6 +34,11 @@ const HANDLERS: FakeNodeHandler[] = [
     run: () => "should never run",
   },
   { capability: { name: "slow.op", sideEffect: "none" }, hang: true },
+  {
+    capability: { name: "notify.authorization_status", sideEffect: "read" },
+    run: () => ({ authorization: "notDetermined" }),
+  },
+  { capability: { name: "notify.show", sideEffect: "write" }, run: () => "should never run" },
 ];
 
 async function setup(policy: ConstructorParameters<typeof RecordingBroker>[0] = {}) {
@@ -149,6 +154,24 @@ describe("node registry", () => {
     );
     expect(res).toMatchObject({ ok: false, error: { code: "forbidden" } });
     expect(node.invocations).toHaveLength(0);
+  });
+
+  it("lets the desktop read the helper's notification permission, never post one (#540)", async () => {
+    const { desk, node } = await setup({ policy: { default: "allow" } });
+    // Onboarding polls this every few seconds; it was refused as notify.* (#274).
+    const status = await desk.call<{ ok: boolean; result: unknown }>(
+      "nodes.invoke",
+      { nodeId: node.nodeId, capability: "notify.authorization_status", params: {} },
+      ik(),
+    );
+    expect(status).toMatchObject({ ok: true, result: { authorization: "notDetermined" } });
+    const show = await desk.request(
+      "nodes.invoke",
+      { nodeId: node.nodeId, capability: "notify.show", params: { title: "Approve?" } },
+      ik(),
+    );
+    expect(show).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    expect(node.invocations.map((i) => i.capability)).toEqual(["notify.authorization_status"]);
   });
 
   it("never reaches helper-internal capabilities such as vault.unlock", async () => {

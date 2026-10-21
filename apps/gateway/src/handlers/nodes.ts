@@ -26,7 +26,18 @@ import { paramsHash } from "../idempotency.ts";
 const UNREACHABLE =
   /^(vault|keychain|settings|permissions|grants|approvals|devices|gateway|dictation|apps|computer|messages|notify)([^a-z0-9]|$)/;
 
+/**
+ * The helper's own notification permission, which the desktop's onboarding and Settings read and
+ * request (#384, #540). They carry no notification content; `notify.show` and the rest stay
+ * unreachable.
+ */
+const CLIENT_REACHABLE: ReadonlySet<string> = new Set([
+  "notify.authorization_status",
+  "notify.request_authorization",
+]);
+
 export function isUnreachableCapability(name: string): boolean {
+  if (CLIENT_REACHABLE.has(name)) return false;
   return UNREACHABLE.test(name.toLowerCase());
 }
 

@@ -26,7 +26,7 @@ public enum MessagesCapabilities {
         return [
             Capability(CapabilitySpec(
                 name: "messages.status",
-                description: "Whether Psyche Helper can read Messages (Full Disk Access) and send through Messages.app (Automation). Never prompts.",
+                description: "Whether Psyche can read Messages (Full Disk Access) and send through Messages.app (Automation). Never prompts.",
                 sideEffect: .none
             )) { _ in
                 var fda = true
@@ -113,7 +113,7 @@ public enum MessagesCapabilities {
                 case .granted: break
                 case .denied:
                     throw CapabilityError(.forbidden, reason: "automation_denied",
-                                          "Psyche Helper may not control Messages. Allow it in System Settings › Privacy & Security › Automation.",
+                                          "Psyche (Helper) may not control Messages. Allow it in System Settings › Privacy & Security › Automation.",
                                           details: ["permission": "automation", "target": .string(MessagesCore.messagesBundleId)])
                 case .notDetermined:
                     throw CapabilityError(.forbidden, reason: "automation_not_granted", "Automation of Messages was not granted",
