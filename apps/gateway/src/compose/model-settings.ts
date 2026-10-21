@@ -5,6 +5,7 @@ import {
   type EndpointProbeResult,
   type EndpointProbeStore,
   isLocalKind,
+  isSubscriptionKind,
   type KeySource,
   KeyValueEndpointProbeStore,
   type KeyValueStore,
@@ -163,8 +164,11 @@ export function modelSettingsHandlers(setup: ModelSettingsSetup): Record<string,
       label: KIND_LABEL[config.kind] ?? config.id,
       ...(baseURL === undefined ? {} : { baseURL }),
       local: isLocalKind(config.kind),
-      keyConfigured:
-        setup.vaultKeys !== undefined && isHostedModelKind(config.id)
+      // A subscription CLI has no key: it counts as configured once its probe found it installed
+      // and signed in (#538), so setup checks and Settings stop asking for a key.
+      keyConfigured: isSubscriptionKind(config.kind)
+        ? probe.state === "reachable"
+        : setup.vaultKeys !== undefined && isHostedModelKind(config.id)
           ? setup.vaultKeys.has(config.id)
           : (config.profiles ?? []).some((p) => p.credential !== undefined),
       models,
