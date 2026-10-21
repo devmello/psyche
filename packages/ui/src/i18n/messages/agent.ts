@@ -14,7 +14,7 @@ export const agent = {
   "agent.state.offline": "offline",
   "agent.avatar.label": "{name}, {state}{delegated, select, true {, delegated} other {}}",
 
-  "agent.status.offline": "Can't reach the Gateway",
+  "agent.status.offline": "Can't reach Psyche",
   "agent.status.needsYou": "Needs you: {n, plural, one {# item} other {# items}}",
   "agent.status.failed": "{title} failed",
   "agent.status.idle": "Idle",

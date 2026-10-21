@@ -1,8 +1,13 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GatewayStatus } from "../../src/client/status.ts";
 import { OfflineBanner } from "../../src/shell/components/Chrome.tsx";
+import {
+  PAIRING_GRACE_AFTER_PAIRED_MS,
+  PAIRING_GRACE_MS,
+  usePairingGrace,
+} from "../../src/shell/ShellApp.tsx";
 
 afterEach(cleanup);
 
@@ -44,5 +49,38 @@ describe("OfflineBanner with the desktop supervisor's state", () => {
       <OfflineBanner status={offline} run={{ kind: "stopped", mode: "launchd", reason: "quit" }} />,
     );
     expect(container.textContent).toBe("");
+  });
+});
+
+describe("the pairing banner on the desktop (#539)", () => {
+  const pending: GatewayStatus = { health: "ok", phase: "pending", pairingCode: "K7Q", attempt: 0 };
+
+  function Probe({ status, desktop }: { status: GatewayStatus; desktop: boolean }) {
+    const grace = usePairingGrace(status, desktop);
+    return <OfflineBanner status={status} pairingGrace={grace} />;
+  }
+
+  it("says Connecting during the reconnect window and shows the code only if pending persists", () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = render(<Probe status={pending} desktop />);
+      expect(screen.getByTestId("connecting-banner").textContent).toBe("Connecting to Psyche…");
+      expect(screen.queryByTestId("pairing-banner")).toBeNull();
+      // Paired within moments, as the bootstrapped admin always is: no code ever shows.
+      rerender(<Probe status={{ ...pending, phase: "paired" }} desktop />);
+      rerender(<Probe status={pending} desktop />);
+      act(() => vi.advanceTimersByTime(PAIRING_GRACE_MS));
+      // A window that was already paired gets the longer grace.
+      expect(screen.getByTestId("connecting-banner")).toBeTruthy();
+      act(() => vi.advanceTimersByTime(PAIRING_GRACE_AFTER_PAIRED_MS - PAIRING_GRACE_MS));
+      expect(screen.getByTestId("pairing-banner").textContent).toContain("K7Q");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows the code right away on the web, where pairing is the real flow", () => {
+    render(<Probe status={pending} desktop={false} />);
+    expect(screen.getByTestId("pairing-banner").textContent).toContain("K7Q");
   });
 });

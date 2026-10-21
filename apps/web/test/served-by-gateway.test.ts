@@ -50,7 +50,7 @@ describe("web build served by the Gateway", () => {
     const js = await fetch(`${gw.origin}${script}`);
     expect(js.status).toBe(200);
     const code = await js.text();
-    expect(code).toContain("Psyche can't reach the Gateway");
+    expect(code).toContain("Psyche isn't reachable right now");
     // The composed app (A8): the kit's onboarding and chat column ship in the web bundle.
     expect(code).toContain("Open the main chat");
     // The kit's stylesheet is built by Tailwind and linked from index.html.

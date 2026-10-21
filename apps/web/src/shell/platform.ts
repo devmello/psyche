@@ -27,12 +27,14 @@ export interface GatewayPort {
   onRun?(cb: (run: GatewayRunView) => void): Unsubscribe;
   /** Desktop only: opens `$PSYCHE_HOME/logs` (gateway.out.log, gateway.err.log). */
   showLogs?(): Promise<void>;
+  /** Desktop only: starts the Gateway again after a failed start (the splash's Retry). */
+  retry?(): Promise<void>;
 }
 
 /** The desktop supervisor's view of the Gateway process (apps/desktop/src/main/supervisor.ts). */
 export type GatewayRunView =
   | { kind: "unknown" }
-  | { kind: "starting"; mode: string }
+  | { kind: "starting"; mode: string; step?: "installing" | "waiting" }
   | { kind: "running"; mode: string; pid?: number }
   | { kind: "stopped"; mode: string; reason?: string; logs?: string };
 
@@ -162,6 +164,8 @@ export interface NotifyPort {
 export interface WindowChrome {
   titleBar: "inset" | "native";
   trafficLights?: { x: number; y: number };
+  /** The main window opens on the startup splash (#539); main decides at launch. */
+  splash?: boolean;
 }
 
 /** Desktop only: native file dialogs. The web host has none; the shell falls back to typed paths. */

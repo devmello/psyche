@@ -20,6 +20,7 @@ import type {
   Notification,
   QueueMode,
   Receipt,
+  Run,
   SearchHit,
   SearchScope,
   Task,
@@ -316,6 +317,8 @@ export interface ThreadView {
   queue: readonly QueuedFollowUp[];
   /** True while a run in this thread is working. */
   running: boolean;
+  /** Runs of this thread that failed (#539: their error shows in the transcript). */
+  failedRuns: readonly Run[];
   hasMore: boolean;
 }
 
@@ -338,6 +341,7 @@ export function useThread(threadId: string | null) {
         streaming: Object.values(s.streaming).filter((m) => m.threadId === id),
         queue: s.queue.filter((q) => q.threadId === id),
         running,
+        failedRuns: runs.filter((r) => r.status === "failed"),
         hasMore: (s.historyCursor[id] ?? null) !== null,
       };
     },

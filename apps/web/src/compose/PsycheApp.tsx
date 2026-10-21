@@ -32,6 +32,7 @@ import {
   useThread,
 } from "@psyche/ui";
 import { type ReactElement, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { ConnectedStartupSplash } from "../shell/components/StartupSplash.tsx";
 import { TitleBar } from "../shell/components/TitleBar.tsx";
 import type { ShellPlatform } from "../shell/platform.ts";
 import { type ChatSlotContext, ShellApp, type ShellSlots } from "../shell/ShellApp.tsx";
@@ -437,6 +438,8 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
         <UiSlotsProvider value={uiSlots}>
           {body}
           <Toaster />
+          {/* The startup splash is the main window's first content (#539). */}
+          <ConnectedStartupSplash platform={platform} />
         </UiSlotsProvider>
       </AppearanceProvider>
     </GatewayProvider>

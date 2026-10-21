@@ -33,6 +33,8 @@ export interface WindowOptions {
   onMainClosed?: () => void;
   /** Every app renderer as it is made (main, pop-outs, quick entry): zoom and the like. */
   onViewCreated?: (wc: WebContents) => void;
+  /** Whether the main window opens on the startup splash (#539). */
+  splash?: () => boolean;
 }
 
 /**
@@ -45,6 +47,8 @@ export const TRAFFIC_LIGHTS = { x: 18, y: 19 } as const;
 export interface ChromeArg {
   titleBar: "inset" | "native";
   trafficLights?: { x: number; y: number };
+  /** The main window opens on the startup splash (#539). */
+  splash?: boolean;
 }
 
 export const CHROME_ARG_PREFIX = "--psyche-chrome=";
@@ -116,13 +120,12 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
       titleBarStyle: "hiddenInset",
       trafficLightPosition: { ...TRAFFIC_LIGHTS },
     });
-    const view = makeView(
-      win,
-      "/chat",
-      process.platform === "darwin"
-        ? { titleBar: "inset", trafficLights: { ...TRAFFIC_LIGHTS } }
-        : { titleBar: "native" },
-    );
+    const view = makeView(win, "/chat", {
+      ...(process.platform === "darwin"
+        ? { titleBar: "inset" as const, trafficLights: { ...TRAFFIC_LIGHTS } }
+        : { titleBar: "native" as const }),
+      ...(opts.splash?.() ? { splash: true } : {}),
+    });
     mainView = view;
     view.webContents.once("did-finish-load", () => win.show());
     // "Close window" hides it: the agent browser's tab views live in this window and keep

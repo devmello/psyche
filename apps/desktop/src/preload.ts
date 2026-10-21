@@ -39,19 +39,22 @@ async function invoke(channel: string, arg?: unknown): Promise<unknown> {
 function chromeFromArgv(argv: readonly string[]): {
   titleBar: "inset" | "native";
   trafficLights?: { x: number; y: number };
+  splash?: boolean;
 } {
   const raw = argv.find((a) => a.startsWith("--psyche-chrome="))?.slice("--psyche-chrome=".length);
   try {
     const v = raw === undefined ? null : (JSON.parse(raw) as Record<string, unknown>);
     const t = v?.trafficLights as { x?: unknown; y?: unknown } | undefined;
+    const splash = v?.splash === true ? { splash: true } : {};
     return v?.titleBar === "inset"
       ? {
           titleBar: "inset",
           ...(typeof t?.x === "number" && typeof t.y === "number"
             ? { trafficLights: { x: t.x, y: t.y } }
             : {}),
+          ...splash,
         }
-      : { titleBar: "native" };
+      : { titleBar: "native", ...splash };
   } catch {
     return { titleBar: "native" };
   }
@@ -84,6 +87,7 @@ const bridge = {
     getRun: () => invoke(IPC.gatewayGetRun),
     onRun: (cb: (s: unknown) => void) => listen(IPC.gatewayRun, cb),
     showLogs: () => invoke(IPC.gatewayShowLogs),
+    retry: () => invoke(IPC.gatewayRetry),
   },
   browser: {
     getState: () => invoke(IPC.browserGetState),

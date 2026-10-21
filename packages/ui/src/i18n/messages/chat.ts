@@ -2,9 +2,9 @@
 export const chat = {
   "chat.quote.text": '"{text}"',
 
-  "chat.offline.connecting": "Connecting to the Gateway…",
+  "chat.offline.connecting": "Connecting to Psyche…",
   "chat.offline.unreachable":
-    "Psyche can't reach the Gateway. Tasks keep running; this window will reconnect.",
+    "Psyche isn't reachable right now. Tasks keep running; this window reconnects on its own.",
 
   "chat.export.label": "Export thread",
   "chat.export.button": "Export",
@@ -57,7 +57,7 @@ export const chat = {
   "chat.composer.commands": "Commands",
   "chat.composer.quoting": "Quoting:",
   "chat.composer.removeQuote": "Remove quote",
-  "chat.composer.offline": "Psyche can't reach the Gateway",
+  "chat.composer.offline": "Psyche isn't reachable",
   "chat.composer.placeholder": "Message {persona}…",
   "chat.composer.label": "Message {persona}",
   "chat.composer.attach": "Attach files",
@@ -88,7 +88,7 @@ export const chat = {
   "chat.thread.conversation": "Conversation",
   "chat.thread.empty": "Nothing here yet. Ask {name} something below to start.",
   "chat.thread.commandFailed": "/{name} didn't work ({reason}). Nothing was changed.",
-  "chat.thread.needsNewerGateway": "This needs a newer Gateway.",
+  "chat.thread.needsNewerGateway": "This needs a newer version of Psyche.",
   "chat.thread.failed": "That didn't work ({reason}). Nothing was changed.",
   "chat.thread.modelCurrent":
     "This thread uses {model}. Type /model provider/model to pick another.",
@@ -111,4 +111,9 @@ export const chat = {
   "chat.thread.exported": "Exported this thread as {format}.",
   "chat.thread.nothingRunning": "Nothing is running in this chat.",
   "chat.thread.stopped": "Stopped.",
+  "chat.runFailed.credential":
+    "Psyche couldn't reply: your model's API key is missing or was refused. Add or fix it in Settings → Models.",
+  "chat.runFailed.generic": "Psyche couldn't finish this reply.",
+  "chat.runFailed.openModels": "Open Settings → Models",
+  "chat.runFailed.details": "Details",
 } as const;

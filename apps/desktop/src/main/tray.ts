@@ -27,12 +27,15 @@ export interface TrayActions {
   quitEntirely(): void;
 }
 
+/** The tray's status row, in Psyche's name (#539); dev and external runs say so for developers. */
 export function gatewayRowLabel(run: GatewayRunState): string {
   if (run.kind === "running")
-    return `Gateway: running (${run.mode === "launchd" ? "launchd" : run.mode === "dev" ? "dev child" : "external"})`;
-  if (run.kind === "starting") return "Gateway: starting…";
-  if (run.kind === "stopped") return `Gateway: stopped${run.reason ? ` (${run.reason})` : ""}`;
-  return "Gateway: checking…";
+    return run.mode === "launchd"
+      ? "Psyche is running"
+      : `Psyche is running (${run.mode === "dev" ? "dev" : "external"})`;
+  if (run.kind === "starting") return "Psyche is starting…";
+  if (run.kind === "stopped") return `Psyche stopped${run.reason ? ` (${run.reason})` : ""}`;
+  return "Checking Psyche…";
 }
 
 export function trayTemplate(m: TrayModel, a: TrayActions): MenuItemConstructorOptions[] {

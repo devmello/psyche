@@ -16,6 +16,7 @@ export const IPC = {
   gatewayGetRun: "psyche:gateway:get-run",
   gatewayRun: "psyche:gateway:run",
   gatewayShowLogs: "psyche:gateway:show-logs",
+  gatewayRetry: "psyche:gateway:retry",
   // Embedded agent browser.
   browserGetState: "psyche:browser:get-state",
   browserState: "psyche:browser:state",
