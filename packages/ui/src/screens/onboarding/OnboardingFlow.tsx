@@ -421,6 +421,8 @@ export function OnboardingFlow({
                       onOpen={(url) => void flow.open(url)}
                       onCancel={flow.cancel}
                       onRetry={flow.retry}
+                      onOpenSettings={() => void flow.openSettings()}
+                      onRecheck={() => void flow.recheck()}
                     />
                   ),
                 }

@@ -1,5 +1,6 @@
 import {
   type Clock,
+  type JsonObject,
   namespacedGrantKey,
   type PermissionBroker,
   PsycheError,
@@ -28,6 +29,8 @@ import type {
 /** Side-effect classes that never take an `allow` rule (security §3.4: no standing grants). */
 const NO_STANDING: SideEffect[] = ["destructive", "financial"];
 const READ_ONLY: SideEffect[] = ["none", "read"];
+const isObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
 
 export class MemoryConnectorStore implements ConnectorStore {
   readonly #rows = new Map<string, ConnectorRecord>();
@@ -138,6 +141,17 @@ export class ConnectorRegistry {
       throw new PsycheError("invalid_params", "scopeMode must be read or read_act");
     }
     const now = new Date(this.#clock.now()).toISOString();
+    if (req.connectorId === undefined && factory.entry.singleInstance === true) {
+      // One per machine (#549): a live one is refused; a disconnected one is reconnected.
+      const same = (await this.#store.list()).filter((r) => r.type === factory.entry.type);
+      const live = same.find((r) => r.status !== "disconnected");
+      if (live !== undefined) {
+        throw new PsycheError("conflict", `${factory.entry.label} is already connected`, {
+          details: { reason: "already_connected", connectorId: live.id },
+        });
+      }
+      if (same[0] !== undefined) req = { ...req, connectorId: same[0].id };
+    }
     const existing = req.connectorId === undefined ? undefined : await this.get(req.connectorId);
     if (existing !== undefined && existing.type !== factory.entry.type) {
       throw new PsycheError("conflict", "connector type cannot change");
@@ -185,7 +199,7 @@ export class ConnectorRegistry {
       record.scopes = result.scopes;
       if (result.credentialId !== undefined) record.credentialId = result.credentialId;
       if (result.config !== undefined) record.config = { ...record.config, ...result.config };
-      record.status = "connected";
+      record.status = result.status ?? "connected";
     } catch (err) {
       record.status = "error";
       record.updatedAt = new Date(this.#clock.now()).toISOString();
@@ -217,7 +231,7 @@ export class ConnectorRegistry {
       });
     }
     this.#live.set(record.id, { connector, unregister: this.#register(record, connector) });
-    this.#emit({ type: "status", connectorId: record.id, status: "connected" });
+    this.#emit({ type: "status", connectorId: record.id, status: record.status });
     return structuredClone(record);
   }
 
@@ -265,7 +279,9 @@ export class ConnectorRegistry {
   async restore(): Promise<number> {
     let n = 0;
     for (const record of await this.#store.list()) {
-      if (record.status !== "connected" || this.#live.has(record.id)) continue;
+      // Connected ones, and ones waiting only on a macOS permission (re-checked by status, #549).
+      const waiting = record.status === "needs_auth" && isObject(record.config.permission);
+      if ((record.status !== "connected" && !waiting) || this.#live.has(record.id)) continue;
       const factory = [...this.#factories.values()].find((f) => f.entry.type === record.type);
       try {
         if (factory === undefined)
@@ -322,7 +338,57 @@ export class ConnectorRegistry {
     if (live === undefined) {
       return { ok: false, status: record.status, checkedAt: this.#clock.now() };
     }
-    return live.connector.health();
+    const health = await live.connector.health();
+    // A granted (or withdrawn) macOS permission flips the record between connected and
+    // needs_auth on the next status check (#549).
+    const flips =
+      (record.status === "needs_auth" && health.status === "connected") ||
+      (record.status === "connected" && health.status === "needs_auth");
+    if (flips) {
+      record.status = health.status;
+      if (health.config !== undefined) {
+        const next: JsonObject = { ...record.config };
+        for (const [k, v] of Object.entries(health.config)) {
+          if (v === null) delete next[k];
+          else next[k] = v;
+        }
+        record.config = next;
+      }
+      record.updatedAt = new Date(this.#clock.now()).toISOString();
+      await this.#store.put(record);
+      this.#emit({ type: "status", connectorId: id, status: record.status });
+    }
+    const { config: _config, ...out } = health;
+    return out;
+  }
+
+  /**
+   * Removes duplicate instances of single-instance types (#549), keeping the oldest of each.
+   * Returns what it removed, for the audit log.
+   */
+  async dedupe(): Promise<{ removed: ConnectorRecord; kept: string }[]> {
+    const single = new Set(
+      [...this.#factories.values()]
+        .filter((f) => f.entry.singleInstance === true)
+        .map((f) => f.entry.type),
+    );
+    const byType = new Map<string, ConnectorRecord[]>();
+    for (const r of await this.#store.list()) {
+      if (!single.has(r.type)) continue;
+      byType.set(r.type, [...(byType.get(r.type) ?? []), r]);
+    }
+    const out: { removed: ConnectorRecord; kept: string }[] = [];
+    for (const rows of byType.values()) {
+      if (rows.length < 2) continue;
+      const [keep, ...rest] = [...rows].sort(
+        (a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
+      );
+      for (const r of rest) {
+        await this.remove(r.id);
+        out.push({ removed: r, kept: (keep as ConnectorRecord).id });
+      }
+    }
+    return out;
   }
 
   /** Merge rule changes; unknown actions and `allow` on destructive / financial actions are refused. */

@@ -89,6 +89,8 @@ function searchEntry(provider: SearchProviderId): CatalogueEntry {
     actions: SEARCH_ACTIONS,
     setupGuide: "packages/connectors/README.md#web-search",
     available: true,
+    // One search provider per Gateway (#549).
+    singleInstance: true,
   };
 }
 
@@ -291,6 +293,7 @@ const FETCH_ENTRY: CatalogueEntry = {
   actions: FETCH_ACTIONS,
   setupGuide: "packages/connectors/README.md#web-fetch",
   available: true,
+  singleInstance: true,
 };
 
 export interface WebFetchFactoryOptions {
