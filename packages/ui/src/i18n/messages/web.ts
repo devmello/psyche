@@ -136,6 +136,11 @@ export const web = {
   "web.setup.modelOk": "{ref}, key in the vault.",
   "web.setup.modelUnbound": "{ref} is not bound yet.",
   "web.setup.modelNoKey": "{ref} is set but its provider has no key yet.",
+  "web.setup.modelOkCli": "{ref}, signed in through {cli}.",
+  "web.setup.modelCliUnreachable":
+    "{ref} is set, but {cli} did not answer ({error}). Install {cli} and sign in, then check again in Settings → Model & providers.",
+  "web.setup.modelCliNotChecked":
+    "{ref} is set, but Psyche could not check {cli} yet. Make sure it is installed and signed in, then check again in Settings → Model & providers.",
   "web.setup.modelError": "Could not set {ref} ({error}).",
 
   "web.viewers.noSandbox":

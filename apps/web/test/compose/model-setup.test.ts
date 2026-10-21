@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { GatewayStatus } from "../../src/client/index.ts";
-import { providerReady, saveProviderKey, verifySetup } from "../../src/compose/model-setup.ts";
+import {
+  checkModel,
+  providerReady,
+  saveProviderKey,
+  verifySetup,
+} from "../../src/compose/model-setup.ts";
 import type { ShellPlatform } from "../../src/shell/platform.ts";
 
 type Handler = (params: Record<string, unknown>, key?: string) => unknown;
@@ -181,6 +186,87 @@ describe("onboarding model setup", () => {
     );
     expect(primary).toBe("claude-code/sonnet");
     expect(checks.at(-1)).toMatchObject({ id: "model", state: "ok" });
+  });
+
+  it("probes an unprobed subscription CLI on a fresh install, then reports it ok (#547)", async () => {
+    let probe = { state: "not_probed" } as { state: string; error?: string };
+    let primary: string | undefined;
+    const { platform, calls } = platformWith({
+      "models.list": () => ({
+        providers: [{ id: "claude-code", keyConfigured: false, local: false, probe }],
+        roles: primary ? { primary } : {},
+      }),
+      "models.setRole": (p) => {
+        if (p.role === "primary") primary = String(p.ref);
+        return { roles: {} };
+      },
+      "models.probe": (p) => {
+        expect(p.providerId).toBe("claude-code");
+        probe = { state: "reachable" };
+        return { provider: { id: "claude-code", probe } };
+      },
+    });
+    const checks = await verifySetup(
+      platform,
+      { model: { modelRef: "claude-code/haiku", toolCheck: "untested" } } as never,
+      { kind: "paired" },
+    );
+    expect(calls.filter((c) => c.method === "models.probe")).toHaveLength(1);
+    expect(checks.at(-1)).toMatchObject({ id: "model", state: "ok" });
+    expect(checks.at(-1)?.detail).toMatch(/signed in through Claude Code/);
+  });
+
+  it("reports an unreachable CLI with the probe's own error, not 'no key'", async () => {
+    const { platform } = platformWith({
+      "models.list": () => ({
+        providers: [
+          {
+            id: "claude-code",
+            keyConfigured: false,
+            local: false,
+            probe: { state: "unreachable", error: "Claude Code is not installed" },
+          },
+        ],
+        roles: { primary: "claude-code/sonnet" },
+      }),
+      "models.setRole": () => ({ roles: {} }),
+      "models.probe": () => ({
+        provider: { probe: { state: "unreachable", error: "Claude Code is not installed" } },
+      }),
+    });
+    const checks = await verifySetup(
+      platform,
+      { model: { modelRef: "claude-code/sonnet", toolCheck: "untested" } } as never,
+      { kind: "paired" },
+    );
+    expect(checks.at(-1)?.state).toBe("warn");
+    expect(checks.at(-1)?.detail).toMatch(
+      /Claude Code did not answer \(Claude Code is not installed\)/,
+    );
+    expect(checks.at(-1)?.detail).not.toMatch(/no key/);
+  });
+
+  it("probes the CLI before the tool check for a subscription model", async () => {
+    const { platform, calls } = platformWith({
+      "models.probe": () => ({ provider: { probe: { state: "reachable" } } }),
+      "models.check": () => ({ result: { status: "agent-capable" } }),
+    });
+    await expect(
+      checkModel(platform, {
+        kind: "subscription",
+        provider: "codex",
+        modelRef: "codex/default",
+        keyRef: null,
+      } as never),
+    ).resolves.toBe("passed");
+    expect(calls.map((c) => c.method)).toEqual(["models.probe", "models.check"]);
+    await checkModel(platform, {
+      kind: "cloud",
+      provider: "anthropic",
+      modelRef: "anthropic/claude-sonnet-5-5",
+      keyRef: "model-anthropic",
+    } as never);
+    expect(calls.map((c) => c.method)).toEqual(["models.probe", "models.check", "models.check"]);
   });
 
   it("treats a CLI provider as ready only when its probe is reachable", () => {

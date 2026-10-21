@@ -80,7 +80,12 @@ export async function checkModel(
   platform: ShellPlatform,
   choice: Omit<ModelChoice, "toolCheck">,
 ): Promise<"passed" | "failed"> {
-  const res = (await caller(platform)("models.check", { ref: choice.modelRef })) as {
+  const call = caller(platform);
+  // A subscription runs through its CLI, whose endpoint is never probed on a fresh install
+  // (no key step): probe it first so the Gateway knows it answers (#547).
+  const cli = cliProviderOf(choice.modelRef);
+  if (cli !== null) await probeProvider(call, cli);
+  const res = (await call("models.check", { ref: choice.modelRef })) as {
     result: { status: string };
   };
   return res.result.status === "chat-only" ? "failed" : "passed";
@@ -91,7 +96,7 @@ interface ModelsList {
     id: string;
     keyConfigured: boolean;
     local: boolean;
-    probe?: { state?: string };
+    probe?: { state?: string; error?: string };
   }[];
   roles: { primary?: string };
 }
@@ -102,6 +107,30 @@ interface ModelsList {
  * as keyed (#537).
  */
 const CLI_PROVIDERS: ReadonlySet<string> = new Set(["claude-code", "codex"]);
+
+/** Display names for the CLI providers, used in Done-step messages. */
+const CLI_LABEL: Readonly<Record<string, string>> = {
+  "claude-code": "Claude Code",
+  codex: "Codex",
+};
+
+/** The CLI provider id a model ref runs on (`claude-code/sonnet` → `claude-code`), or null. */
+export function cliProviderOf(ref: string): string | null {
+  const id = ref.trim().split("/", 1)[0] ?? "";
+  return CLI_PROVIDERS.has(id) ? id : null;
+}
+
+type Probe = { state?: string; error?: string };
+
+/** Runs `models.probe` for a provider; null when the Gateway could not run it. */
+async function probeProvider(call: Call, providerId: string): Promise<Probe | null> {
+  try {
+    const res = (await call("models.probe", { providerId })) as { provider?: { probe?: Probe } };
+    return res.provider?.probe ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /** The provider can authenticate: local, a stored key, or a signed-in CLI subscription. */
 export function providerReady(provider: ModelsList["providers"][number] | undefined): boolean {
@@ -182,24 +211,43 @@ export async function verifySetup(
       if (before.roles.primary === undefined || before.roles.primary === ref) {
         await call("models.setRole", { role: "utility", ref, override: true }, ik("role-utility"));
       }
-      const after = (await call("models.list", {})) as ModelsList;
-      const provider = after.providers.find((p) => ref.startsWith(`${p.id}/`));
+      let after = (await call("models.list", {})) as ModelsList;
+      let provider = after.providers.find((p) => ref.startsWith(`${p.id}/`));
+      // A subscription CLI is ready only once its endpoint probe is reachable; on a fresh install
+      // nothing has probed it yet, so probe now and read the list again (#547).
+      const cli = cliProviderOf(ref);
+      let cliProbe: Probe | null = null;
+      if (cli !== null && provider?.probe?.state !== "reachable") {
+        cliProbe = await probeProvider(call, cli);
+        after = (await call("models.list", {})) as ModelsList;
+        provider = after.providers.find((p) => ref.startsWith(`${p.id}/`));
+      }
       const keyed = providerReady(provider);
+      const bound = after.roles.primary === ref;
+      const notReady = (): string => {
+        if (cli === null) return t("web.setup.modelNoKey", { ref });
+        const error = provider?.probe?.error ?? cliProbe?.error;
+        const cliName = CLI_LABEL[cli] ?? cli;
+        return error
+          ? t("web.setup.modelCliUnreachable", { ref, cli: cliName, error })
+          : t("web.setup.modelCliNotChecked", { ref, cli: cliName });
+      };
       modelCheck =
-        after.roles.primary === ref && keyed
+        bound && keyed
           ? {
               id: "model",
               label: t("web.setup.model"),
               state: "ok",
-              detail: t("web.setup.modelOk", { ref }),
+              detail:
+                cli === null
+                  ? t("web.setup.modelOk", { ref })
+                  : t("web.setup.modelOkCli", { ref, cli: CLI_LABEL[cli] ?? cli }),
             }
           : {
               id: "model",
               label: t("web.setup.model"),
               state: "warn",
-              detail: keyed
-                ? t("web.setup.modelUnbound", { ref })
-                : t("web.setup.modelNoKey", { ref }),
+              detail: keyed ? t("web.setup.modelUnbound", { ref }) : notReady(),
             };
     } catch (err) {
       modelCheck = {
