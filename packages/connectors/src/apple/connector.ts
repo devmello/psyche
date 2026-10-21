@@ -33,7 +33,11 @@ export interface AppleHelper {
     capability: string,
     params: unknown,
     options: { approvalId?: string; signal?: AbortSignal; timeoutMs?: number },
-  ): Promise<{ ok: boolean; result?: unknown; error?: { code: string; message: string } }>;
+  ): Promise<{
+    ok: boolean;
+    result?: unknown;
+    error?: { code: string; message: string; details?: Record<string, unknown> };
+  }>;
 }
 
 export interface AppleOptions {
@@ -390,6 +394,78 @@ const PROBE: Record<AppleApp, string> = {
   mail: "mail.search",
 };
 
+/**
+ * The macOS grant each app needs (#549): Automation of the app for the scripting adapters,
+ * Calendars / Reminders access for EventKit. `probe` is a benign read whose first run makes the
+ * helper launch the app and show the macOS prompt; `permissions.status` re-checks without one.
+ */
+const PERMISSION: Record<
+  AppleApp,
+  {
+    kind: "automation" | "calendars" | "reminders";
+    /** Bundle id (Automation only). */
+    target?: string;
+    probe: Record<string, unknown>;
+    pane: string;
+    path: string;
+  }
+> = {
+  notes: {
+    kind: "automation",
+    target: "com.apple.Notes",
+    probe: { limit: 1 },
+    pane: "Privacy_Automation",
+    path: "System Settings → Privacy & Security → Automation → Psyche (Helper) → Notes",
+  },
+  mail: {
+    kind: "automation",
+    target: "com.apple.mail",
+    probe: { query: "psyche permission check", limit: 1 },
+    pane: "Privacy_Automation",
+    path: "System Settings → Privacy & Security → Automation → Psyche (Helper) → Mail",
+  },
+  calendar: {
+    kind: "calendars",
+    probe: {},
+    pane: "Privacy_Calendars",
+    path: "System Settings → Privacy & Security → Calendars → Psyche (Helper)",
+  },
+  reminders: {
+    kind: "reminders",
+    probe: {},
+    pane: "Privacy_Reminders",
+    path: "System Settings → Privacy & Security → Reminders → Psyche (Helper)",
+  },
+};
+
+/** What `config.permission` holds while the grant is missing (the UI's "Needs permission"). */
+export function applePermission(app: AppleApp, state: string): Record<string, string> {
+  const p = PERMISSION[app];
+  return {
+    kind: p.kind,
+    ...(p.target === undefined ? {} : { target: p.target }),
+    state,
+    settingsPath: p.path,
+    settingsUrl: `x-apple.systempreferences:com.apple.preference.security?${p.pane}`,
+  };
+}
+
+const PERMISSION_REASONS = new Set([
+  "automation_denied",
+  "automation_not_granted",
+  "permission_missing",
+]);
+
+/** A helper refusal that is a missing macOS grant (not a bug or an offline app). */
+function isPermissionError(e: { code: string; details?: Record<string, unknown> } | undefined) {
+  if (e === undefined) return false;
+  const reason = typeof e.details?.reason === "string" ? e.details.reason : "";
+  return (
+    PERMISSION_REASONS.has(reason) ||
+    (e.code === "forbidden" && e.details?.permission !== undefined)
+  );
+}
+
 export const APPLE_APPS: readonly AppleApp[] = ["notes", "reminders", "calendar", "mail"];
 
 export function appleCatalogueEntry(app: AppleApp): CatalogueEntry {
@@ -410,6 +486,8 @@ export function appleCatalogueEntry(app: AppleApp): CatalogueEntry {
     actions: ACTIONS[app],
     setupGuide: "docs/guides/connectors.md#apple-apps-on-your-mac",
     available: true,
+    // One Mac, one Notes / Mail / …: a second instance would only duplicate the tools (#549).
+    singleInstance: true,
   };
 }
 
@@ -446,12 +524,16 @@ class AppleConnector implements Connector {
   readonly type: string;
   readonly #app: AppleApp;
   readonly #opts: AppleOptions;
+  /** The record is waiting on a macOS grant (`config.permission`). */
+  #waiting: boolean;
 
   constructor(record: ConnectorRecord, app: AppleApp, opts: AppleOptions) {
     this.id = record.id;
     this.type = record.type;
     this.#app = app;
     this.#opts = opts;
+    const permission = (record.config as Record<string, unknown> | undefined)?.permission;
+    this.#waiting = typeof permission === "object" && permission !== null;
   }
 
   /** The live helper offering this app's adapter, or the "needs the helper" error. */
@@ -466,7 +548,66 @@ class AppleConnector implements Connector {
     const entry = appleCatalogueEntry(this.#app);
     // Only what this helper actually offers counts as granted.
     const scopes = entry.scopes[input.scopeMode].filter((c) => h.capabilities.includes(c));
-    return { account: h.name ?? "This Mac", scopes, config: { nodeId: h.nodeId } };
+    const base = { account: h.name ?? "This Mac", scopes };
+    // #549: never "connected" without the macOS grant. The probe's first run launches the app
+    // and shows the prompt (the helper waits while it is up), so allow the owner some time.
+    const p = PERMISSION[this.#app];
+    const res = await h.invoke(PROBE[this.#app], p.probe, { timeoutMs: 180_000 });
+    if (res.ok) {
+      this.#waiting = false;
+      return { ...base, config: { nodeId: h.nodeId, permission: null } };
+    }
+    if (!isPermissionError(res.error)) {
+      throw new PsycheError(
+        "unavailable",
+        `${LABEL[this.#app]}: ${res.error?.message ?? "the helper could not reach the app"}`,
+        { details: { reason: String(res.error?.details?.reason ?? "probe_failed") } },
+      );
+    }
+    // Asking again after a denial cannot show the prompt: macOS only allows it in System
+    // Settings, so a retry from "Open System Settings" opens that pane on the Mac.
+    if (this.#waiting && h.capabilities.includes("permissions.open_settings")) {
+      await h
+        .invoke("permissions.open_settings", { permission: p.kind }, { timeoutMs: 15_000 })
+        .catch(() => undefined);
+    }
+    this.#waiting = true;
+    const reason = String(res.error?.details?.reason ?? "");
+    return {
+      ...base,
+      status: "needs_auth",
+      config: {
+        nodeId: h.nodeId,
+        permission: applePermission(
+          this.#app,
+          reason === "automation_not_granted" ? "notDetermined" : "denied",
+        ),
+      },
+    };
+  }
+
+  /** The grant's state without prompting: `granted`, `denied`, `notDetermined` or `unknown`. */
+  async #grant(h: AppleHelper): Promise<string> {
+    if (!h.capabilities.includes("permissions.status")) return "unknown";
+    const p = PERMISSION[this.#app];
+    const res = await h.invoke(
+      "permissions.status",
+      p.target === undefined ? {} : { automationTargets: [p.target] },
+      { timeoutMs: 15_000 },
+    );
+    if (!res.ok) return "unknown";
+    const r = (res.result ?? {}) as {
+      automation?: Record<string, unknown>;
+      permissions?: { permission?: unknown; status?: unknown }[];
+    };
+    const state =
+      p.target === undefined
+        ? r.permissions?.find((x) => x.permission === p.kind)?.status
+        : r.automation?.[p.target];
+    // `notRunning`: macOS cannot say until the app runs; keep what we knew.
+    return state === "granted" || state === "denied" || state === "notDetermined"
+      ? state
+      : "unknown";
   }
 
   async disconnect(): Promise<void> {}
@@ -530,12 +671,33 @@ class AppleConnector implements Connector {
   async health(): Promise<ConnectorHealth> {
     const h = this.#opts.helper();
     const ok = h !== undefined && h.capabilities.includes(PROBE[this.#app]);
-    return {
-      ok,
-      status: "connected",
-      ...(ok ? {} : { detail: needsHelper(this.#app).message }),
-      checkedAt: Date.now(),
-    };
+    const checkedAt = Date.now();
+    if (!ok) {
+      return {
+        ok,
+        status: this.#waiting ? "needs_auth" : "connected",
+        detail: needsHelper(this.#app).message,
+        checkedAt,
+      };
+    }
+    // Re-checked on every status refresh, so the row flips once the owner allows it (#549).
+    const grant = await this.#grant(h).catch(() => "unknown");
+    if (grant === "granted") {
+      this.#waiting = false;
+      return { ok: true, status: "connected", checkedAt, config: { permission: null } };
+    }
+    if (grant === "denied" || grant === "notDetermined") {
+      this.#waiting = true;
+      const permission = applePermission(this.#app, grant);
+      return {
+        ok: false,
+        status: "needs_auth",
+        detail: `${LABEL[this.#app]} needs permission: ${permission.settingsPath}`,
+        checkedAt,
+        config: { permission },
+      };
+    }
+    return { ok: !this.#waiting, status: this.#waiting ? "needs_auth" : "connected", checkedAt };
   }
 }
 

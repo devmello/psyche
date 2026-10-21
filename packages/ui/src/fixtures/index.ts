@@ -122,6 +122,8 @@ export interface FixtureWorld {
   usage: UsageSummary;
   /** `connectors.connect` behaviour in the mock: "unavailable" answers not_implemented. */
   connectorConnect?: "unavailable" | "not_configured";
+  /** macOS grant for the Apple connectors (#549); default granted. */
+  appleGrant?: "granted" | "denied";
   /** The last turn's context usage by thread id; absent → no turn has reported yet. */
   contextUsage?: Record<string, ContextUsage>;
   /** Each thread's own context limits. */

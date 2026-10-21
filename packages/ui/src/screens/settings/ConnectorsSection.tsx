@@ -4,12 +4,12 @@ import { type ReactElement, type ReactNode, useId, useState } from "react";
 import { EmptyState } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { NativeSelect } from "../../components/ui/native-select.tsx";
-import { useGatewayQuery } from "../../data/hooks.ts";
+import { useCall, useGatewayQuery } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
-import { ConnectProgress, useConnectorConnect } from "./connect-flow.tsx";
+import { ConnectProgress, permissionOf, useConnectorConnect } from "./connect-flow.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
   Group,
@@ -137,6 +137,11 @@ export function offeredCatalog(
   );
 }
 
+/** One per machine (the Gateway's `singleInstance`, #549): offered once, then shown Connected. */
+export function isSingleInstance(type: string): boolean {
+  return type.startsWith("apple:");
+}
+
 /** Connector types the Gateway can connect: its catalogue's available entries. */
 export function useImplementedTypes(): ReadonlySet<string> | undefined {
   const q = useGatewayQuery("connectors.catalogue", {});
@@ -188,6 +193,10 @@ export interface ConnectorsPanelProps extends LoadProps {
   implemented?: ReadonlySet<string> | undefined;
   /** Opens another Settings section (the MCP and Slack rows). */
   onOpenSection?: (section: "mcp" | "channels") => void;
+  /** Re-reads a connector's state (`connectors.status`): a macOS grant given meanwhile (#549). */
+  onCheck?: (connector: Connector) => void;
+  /** "Open System Settings" for a connector waiting on a macOS grant (reconnects it, #549). */
+  onGrant?: (connector: Connector) => void;
 }
 
 export function ConnectorsPanel({
@@ -202,6 +211,8 @@ export function ConnectorsPanel({
   connectProgress,
   implemented,
   onOpenSection,
+  onCheck,
+  onGrant,
   loading,
   error,
   onRetry,
@@ -231,6 +242,9 @@ export function ConnectorsPanel({
           <ConnectForm
             persona={persona}
             implemented={implemented}
+            connectedTypes={
+              new Set(connectors.filter((c) => c.status !== "disconnected").map((c) => c.type))
+            }
             {...(onOpenSection ? { onOpenSection } : {})}
             onCancel={() => setAdding(false)}
             onConnect={(type, mode) => {
@@ -260,6 +274,7 @@ export function ConnectorsPanel({
           <ul className="flex flex-col gap-3">
             {connectors.map((c) => {
               const used = lastUsed(c);
+              const permission = permissionOf(c);
               return (
                 <li key={c.id}>
                   <article
@@ -268,8 +283,10 @@ export function ConnectorsPanel({
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-base font-semibold">{c.label}</h3>
-                      <StatusChip tone={STATUS_TONE[c.status]}>
-                        {t(`settings.connectors.status.${c.status}`)}
+                      <StatusChip tone={permission ? "approval" : STATUS_TONE[c.status]}>
+                        {permission
+                          ? t("settings.connectors.status.needsPermission")
+                          : t(`settings.connectors.status.${c.status}`)}
                       </StatusChip>
                       <StatusChip tone="neutral">{SCOPE_MODE_LABEL[c.scopeMode]}</StatusChip>
                       <StatusChip tone={trustTier(c) === "built-in" ? "info" : "approval"}>
@@ -296,8 +313,32 @@ export function ConnectorsPanel({
                           : formatRelative(used, clock)}
                       </dd>
                     </dl>
+                    {permission && c.status === "needs_auth" ? (
+                      <p className="mt-2">
+                        {t("settings.connect.needsPermission", { name: c.label })}{" "}
+                        <span className="font-medium">{permission.settingsPath}</span>
+                      </p>
+                    ) : null}
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {c.status === "needs_auth" && onReconnect ? (
+                      {permission && c.status === "needs_auth" ? (
+                        <>
+                          {onGrant ? (
+                            <Button type="button" size="sm" onClick={() => onGrant(c)}>
+                              {t("settings.connect.openSystemSettings")}
+                            </Button>
+                          ) : null}
+                          {onCheck ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => onCheck(c)}
+                            >
+                              {t("settings.connect.checkAgain")}
+                            </Button>
+                          ) : null}
+                        </>
+                      ) : c.status === "needs_auth" && onReconnect ? (
                         <Button type="button" size="sm" onClick={() => onReconnect(c)}>
                           {t("settings.connectors.status.needs_auth")}
                         </Button>
@@ -344,20 +385,25 @@ export function ConnectorsPanel({
 function ConnectForm({
   persona,
   implemented,
+  connectedTypes,
   onConnect,
   onCancel,
   onOpenSection,
 }: {
   persona: string;
   implemented: ReadonlySet<string> | undefined;
+  connectedTypes: ReadonlySet<string>;
   onConnect: (type: string, mode: ScopeMode) => void;
   onCancel: () => void;
   onOpenSection?: (section: "mcp" | "channels") => void;
 }): ReactElement {
   const id = useId();
   const rows = offeredCatalog(implemented, { navigation: onOpenSection !== undefined });
-  const [picked, setType] = useState<string>(rows[0]?.type ?? "");
-  const type = rows.some((c) => c.type === picked) ? picked : (rows[0]?.type ?? "");
+  // A one-per-machine connector that is already there is listed as Connected, not offered.
+  const taken = (type: string) => isSingleInstance(type) && connectedTypes.has(type);
+  const open = rows.filter((c) => !taken(c.type));
+  const [picked, setType] = useState<string>(open[0]?.type ?? "");
+  const type = open.some((c) => c.type === picked) ? picked : (open[0]?.type ?? "");
   const opens = rows.find((c) => c.type === type)?.opens;
   const [mode, setMode] = useState<ScopeMode>("read");
   return (
@@ -373,8 +419,10 @@ function ConnectForm({
           onChange={(e) => setType(e.target.value)}
         >
           {rows.map((c) => (
-            <option key={c.type} value={c.type}>
-              {c.label}
+            <option key={c.type} value={c.type} disabled={taken(c.type)}>
+              {taken(c.type)
+                ? t("settings.connectors.catalog.connected", { name: c.label })
+                : c.label}
             </option>
           ))}
         </NativeSelect>
@@ -433,6 +481,25 @@ export function ConnectorsSection({ persona, ...props }: ConnectorsSectionProps)
   const fallback = usePersona();
   const q = useGatewayQuery("connectors.list", {});
   const implemented = useImplementedTypes();
+  const call = useCall();
+  // Built in unless the host supplies them: reconnect (for a macOS grant, the helper opens
+  // System Settings) and re-check (#549).
+  const reconnect = async (c: Connector) => {
+    const catalogueId = await call("connectors.catalogue", {})
+      .then((r) => r.entries.find((e) => e.type === c.type)?.id ?? c.type)
+      .catch(() => c.type);
+    await call("connectors.connect", {
+      catalogueId,
+      scopeMode: c.scopeMode,
+      label: c.label,
+      connectorId: c.id,
+    }).catch(() => undefined);
+    q.reload();
+  };
+  const check = (c: Connector) =>
+    void call("connectors.status", { connectorId: c.id })
+      .catch(() => undefined)
+      .then(() => q.reload());
   // Connect drives the real sign-in unless the host supplies its own (#505).
   const flow = useConnectorConnect();
   const builtIn = props.onConnect === undefined;
@@ -453,10 +520,14 @@ export function ConnectorsSection({ persona, ...props }: ConnectorsSectionProps)
                 onOpen={(url) => void flow.open(url)}
                 onCancel={flow.cancel}
                 onRetry={flow.retry}
+                onOpenSettings={() => void flow.openSettings()}
+                onRecheck={() => void flow.recheck()}
               />
             ),
           }
         : {})}
+      onGrant={(c: Connector) => void reconnect(c)}
+      onCheck={check}
       persona={persona ?? fallback.name}
       implemented={implemented}
       connectors={q.data?.connectors ?? []}

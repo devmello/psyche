@@ -29,7 +29,30 @@ export type ConnectState =
   | { phase: "failed"; type: string; label: string; reason: string }
   | { phase: "unavailable"; type: string; label: string }
   /** The Gateway knows the connector but has no OAuth client for it (#524: Google's guide). */
-  | { phase: "not-configured"; type: string; label: string };
+  | { phase: "not-configured"; type: string; label: string }
+  /** One per machine and already there (#549). */
+  | { phase: "already-connected"; type: string; label: string; connectorId: string }
+  /** Connected to the helper, but macOS has not allowed it yet (#549). */
+  | {
+      phase: "needs-permission";
+      type: string;
+      label: string;
+      connectorId: string;
+      mode: ScopeMode;
+      settingsPath: string;
+      checking?: boolean;
+    };
+
+/** `config.permission` of a connector waiting on a macOS grant (#549), if any. */
+export function permissionOf(c: Connector): { settingsPath: string; state: string } | null {
+  const p = c.config.permission;
+  if (typeof p !== "object" || p === null || Array.isArray(p)) return null;
+  const o = p as Record<string, unknown>;
+  return {
+    settingsPath: typeof o.settingsPath === "string" ? o.settingsPath : "",
+    state: typeof o.state === "string" ? o.state : "denied",
+  };
+}
 
 export function useConnectorConnect() {
   const store = useStore();
@@ -64,6 +87,9 @@ export function useConnectorConnect() {
         if (connector.status === "connected") {
           pending.current = null;
           setState({ phase: "connected", type: p.type, label: p.label, connector });
+        } else if (connector.status === "needs_auth" && permissionOf(connector) !== null) {
+          // Still waiting on macOS: keep the permission card (a re-check answered).
+          setState((s) => (s.phase === "needs-permission" ? { ...s, checking: false } : s));
         } else if (reason === "authorization_failed" || connector.status === "error") {
           pending.current = null;
           setState({
@@ -112,8 +138,19 @@ export function useConnectorConnect() {
           scopeMode: mode,
           label,
         });
+        const permission = permissionOf(res.connector);
         if (res.connector.status === "connected") {
           setState({ phase: "connected", type, label, connector: res.connector });
+        } else if (permission !== null) {
+          pending.current = { connectorId: res.connector.id, type, label };
+          setState({
+            phase: "needs-permission",
+            type,
+            label,
+            connectorId: res.connector.id,
+            mode,
+            settingsPath: permission.settingsPath,
+          });
         } else if (res.authorization) {
           pending.current = { connectorId: res.connector.id, type, label };
           setState({
@@ -130,6 +167,16 @@ export function useConnectorConnect() {
       } catch (err) {
         const code = errorCode(err);
         const reason = (err as { details?: { reason?: unknown } }).details?.reason;
+        if (code === "conflict" && reason === "already_connected") {
+          const existing = (err as { details?: { connectorId?: unknown } }).details?.connectorId;
+          setState({
+            phase: "already-connected",
+            type,
+            label,
+            connectorId: typeof existing === "string" ? existing : "",
+          });
+          return;
+        }
         setState(
           code === "not_implemented" || code === "unknown_method"
             ? { phase: "unavailable", type, label }
@@ -152,7 +199,47 @@ export function useConnectorConnect() {
     if (l) void start(l.type, l.mode, l.label);
   }, [start]);
 
-  return { state, start, cancel, retry, open };
+  /** "Open System Settings": reconnecting while denied makes the helper open the pane. */
+  const openSettings = useCallback(async () => {
+    const s = state;
+    if (s.phase !== "needs-permission") return;
+    setState({ ...s, checking: true });
+    const catalogueId = await store
+      .call("connectors.catalogue", {})
+      .then((r) => r.entries.find((e) => e.type === s.type)?.id ?? s.type)
+      .catch(() => s.type);
+    await store
+      .call("connectors.connect", {
+        catalogueId,
+        scopeMode: s.mode,
+        label: s.label,
+        connectorId: s.connectorId,
+      })
+      .then((res) => {
+        if (res.connector.status === "connected") {
+          pending.current = null;
+          setState({ phase: "connected", type: s.type, label: s.label, connector: res.connector });
+        } else setState({ ...s, checking: false });
+      })
+      .catch((err: unknown) =>
+        setState({ phase: "failed", type: s.type, label: s.label, reason: describeError(err) }),
+      );
+  }, [state, store]);
+
+  /** "Check again": the Gateway re-reads the grant; `connectors.updated` reports a change. */
+  const recheck = useCallback(async () => {
+    const s = state;
+    if (s.phase !== "needs-permission") return;
+    setState({ ...s, checking: true });
+    await store.call("connectors.status", { connectorId: s.connectorId }).then(
+      (r) => {
+        if (r.status !== "connected") setState({ ...s, checking: false });
+      },
+      () => setState({ ...s, checking: false }),
+    );
+  }, [state, store]);
+
+  return { state, start, cancel, retry, open, openSettings, recheck };
 }
 
 /** What the connect flow is doing, under the Connect button. */
@@ -161,11 +248,15 @@ export function ConnectProgress({
   onOpen,
   onCancel,
   onRetry,
+  onOpenSettings,
+  onRecheck,
 }: {
   state: ConnectState;
   onOpen: (url: string) => void;
   onCancel: () => void;
   onRetry?: () => void;
+  onOpenSettings?: () => void;
+  onRecheck?: () => void;
 }): ReactElement | null {
   switch (state.phase) {
     case "idle":
@@ -249,6 +340,52 @@ export function ConnectProgress({
         <p className="text-sm text-muted-foreground" role="status">
           {t("settings.connect.unavailable", { name: state.label })}
         </p>
+      );
+    case "already-connected":
+      return (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+          <Check className="size-4" aria-hidden="true" />
+          {t("settings.connect.alreadyConnected", { name: state.label })}
+        </p>
+      );
+    case "needs-permission":
+      return (
+        <div
+          className="flex flex-col gap-2 rounded-lg border border-approval-border bg-gray-2 p-3 text-sm"
+          data-testid="connect-needs-permission"
+        >
+          <p role="status">
+            {t("settings.connect.needsPermission", { name: state.label })}{" "}
+            <span className="font-medium">{state.settingsPath}</span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {onOpenSettings ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={onOpenSettings}
+                disabled={state.checking === true}
+              >
+                <ExternalLink aria-hidden="true" />
+                {t("settings.connect.openSystemSettings")}
+              </Button>
+            ) : null}
+            {onRecheck ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={onRecheck}
+                disabled={state.checking === true}
+              >
+                {t("settings.connect.checkAgain")}
+              </Button>
+            ) : null}
+            <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
+              {t("common.close")}
+            </Button>
+          </div>
+        </div>
       );
   }
 }

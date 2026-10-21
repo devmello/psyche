@@ -118,6 +118,8 @@ export interface MockWorld {
   modelProbes?: Record<string, EndpointProbe>;
   /** `connectors.connect` behaviour: "unavailable" answers not_implemented (#505). */
   connectorConnect?: "unavailable" | "not_configured";
+  /** macOS grant for the Apple connectors (#549); default granted. */
+  appleGrant?: "granted" | "denied";
   /** The last turn's context usage by thread id (`threads.contextUsage`). */
   contextUsage?: Record<string, ContextUsage>;
   /** Each thread's own context limits (`threads.setContextLimits`). */
@@ -384,6 +386,51 @@ export class MockGateway implements GatewayClient {
   }
 
   /** `skills.propose*`: stages a proposal and opens its device-only `skill_install` card. */
+  /** Apple connectors (#549): one per machine, and needs_auth while macOS has not allowed it. */
+  private connectApple(p: MethodParams<"connectors.connect">, now: string) {
+    const type = p.catalogueId.replace(/^apple-/, "apple:");
+    const live = this.world.connectors.find((c) => c.type === type && c.status !== "disconnected");
+    if (p.connectorId === undefined && live !== undefined) {
+      throw new PsycheError("conflict", `${live.label} is already connected`, {
+        details: { reason: "already_connected", connectorId: live.id },
+      });
+    }
+    const denied = this.world.appleGrant === "denied";
+    const connector: Connector = {
+      id: p.connectorId ?? this.id("con"),
+      type,
+      label: p.label ?? type,
+      account: "This Mac",
+      scopes: [],
+      scopeMode: p.scopeMode,
+      actionMatrix: {},
+      credentialId: null,
+      status: denied ? "needs_auth" : "connected",
+      config: denied
+        ? {
+            permission: {
+              kind: "automation",
+              state: "denied",
+              settingsPath:
+                "System Settings → Privacy & Security → Automation → Psyche (Helper) → Mail",
+            },
+          }
+        : {},
+      lastSync: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.world.connectors = [
+      ...this.world.connectors.filter((c) => c.id !== connector.id),
+      connector,
+    ];
+    this.emit("connectors.updated", {
+      connector,
+      reason: denied ? "needs_auth" : "connected",
+    });
+    return { connector };
+  }
+
   private stageSkill(src: MockSkillSource | undefined, missing: string) {
     if (src === undefined) return fail("not_found", missing);
     if ("violations" in src) {
@@ -1340,6 +1387,7 @@ export class MockGateway implements GatewayClient {
           details: { reason: "not_configured" },
         });
       const now = this.now();
+      if (p.catalogueId.startsWith("apple")) return this.connectApple(p, now);
       const connector: Connector = {
         id: p.connectorId ?? this.id("con"),
         type: p.catalogueId,
@@ -1369,6 +1417,21 @@ export class MockGateway implements GatewayClient {
           opened: false,
         },
       };
+    },
+    "connectors.status": (p) => {
+      const c = this.find(this.world.connectors, p.connectorId, "connector");
+      if (
+        c.status === "needs_auth" &&
+        this.world.appleGrant !== "denied" &&
+        c.type.startsWith("apple")
+      ) {
+        const { permission: _p, ...config } = c.config;
+        const next: Connector = { ...c, status: "connected", config };
+        this.world.connectors = this.world.connectors.map((x) => (x.id === c.id ? next : x));
+        this.emit("connectors.updated", { connector: next, reason: "connected" });
+        return { ok: true, status: "connected" as const, checkedAt: Date.parse(this.now()) };
+      }
+      return { ok: c.status === "connected", status: c.status, checkedAt: Date.parse(this.now()) };
     },
     "channels.list": () => ({ channels: this.world.channels }),
     "devices.list": () => ({ devices: this.world.devices }),

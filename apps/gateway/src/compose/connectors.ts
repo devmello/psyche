@@ -364,6 +364,11 @@ export function composeConnectors(
     syncing = true;
     try {
       for (const record of await registry.list()) {
+        // Waiting on a macOS grant (#549): re-check it, so the row flips once it is allowed.
+        if (record.status === "needs_auth" && typeof record.config.permission === "object") {
+          await registry.status(record.id).catch(() => undefined);
+          continue;
+        }
         if (record.status !== "connected") continue;
         try {
           await registry.sync(record.id);
@@ -385,12 +390,22 @@ export function composeConnectors(
     handlers,
     start(gw) {
       gateway = gw;
-      // After a restart: connected records come back (tools registered, tokens from the vault).
-      void registry
-        .restore()
-        .catch((err) =>
-          log?.log("warn", "connector restore failed", { code: PsycheError.from(err).code }),
-        );
+      // After a restart: duplicates of one-per-machine connectors go (#549, oldest kept), then
+      // connected records come back (tools registered, tokens from the vault).
+      void (async () => {
+        for (const { removed, kept } of await registry.dedupe()) {
+          await services.audit
+            .append({
+              kind: "connector.duplicate_removed",
+              actor: { type: "system" },
+              data: { connectorId: removed.id, type: removed.type, kept } as never,
+            })
+            .catch(() => undefined);
+        }
+        await registry.restore();
+      })().catch((err) =>
+        log?.log("warn", "connector restore failed", { code: PsycheError.from(err).code }),
+      );
       if (interval <= 0) return;
       timer = setInterval(() => void syncAll(), interval);
       timer.unref?.();
@@ -426,7 +441,15 @@ export function macHelper(gateway: () => Gateway | undefined): () => AppleHelper
           ...(res.result === undefined ? {} : { result: res.result }),
           ...(res.error === undefined
             ? {}
-            : { error: { code: res.error.code, message: res.error.message } }),
+            : {
+                error: {
+                  code: res.error.code,
+                  message: res.error.message,
+                  ...(res.error.details === undefined
+                    ? {}
+                    : { details: res.error.details as Record<string, unknown> }),
+                },
+              }),
         };
       },
     };

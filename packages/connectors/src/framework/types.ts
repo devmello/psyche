@@ -53,6 +53,11 @@ export interface CatalogueEntry {
   docsUrl?: string;
   /** False for entries whose implementation is a later milestone (shown as "coming soon"). */
   available: boolean;
+  /**
+   * One per machine (the Apple apps, web search): a second connect is refused with
+   * `conflict` / `details.reason: "already_connected"` (#549). Per-account types stay multi.
+   */
+  singleInstance?: boolean;
 }
 
 /** Durable connector record (data model §8 `connectors`). */
@@ -193,6 +198,11 @@ export interface ConnectResult {
   scopes: string[];
   credentialId?: string | null;
   config?: JsonObject;
+  /**
+   * `needs_auth` when the connection exists but a grant outside the sign-in is missing (macOS
+   * Automation for an Apple app, #549); `config.permission` says which. Default `connected`.
+   */
+  status?: "connected" | "needs_auth";
 }
 
 export interface SyncResult {
@@ -206,6 +216,8 @@ export interface ConnectorHealth {
   status: ConnectorRecord["status"];
   detail?: string;
   checkedAt: number;
+  /** Merged into the record's config when the status is persisted (`permission: null` clears). */
+  config?: JsonObject;
 }
 
 /** One connected instance, created by a `ConnectorFactory` per record. */

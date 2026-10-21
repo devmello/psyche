@@ -1362,6 +1362,13 @@ export const settings = {
   "settings.connect.noSignIn": "the Gateway didn't return a sign-in page",
   "settings.connect.notConfigured":
     "{name} isn't set up on this Gateway yet: it needs your own OAuth client (the Connecting Google guide in Psyche's docs). Set it up later in Settings → Connectors.",
+  "settings.connect.alreadyConnected": "{name} is already connected.",
+  "settings.connect.needsPermission":
+    "{name} is set up, but macOS has not allowed it yet. Allow it in",
+  "settings.connect.openSystemSettings": "Open System Settings",
+  "settings.connect.checkAgain": "Check again",
+  "settings.connectors.status.needsPermission": "Needs permission",
+  "settings.connectors.catalog.connected": "{name} (connected)",
   "settings.connect.unavailable":
     "Signing in to {name} isn't available on this Gateway yet. Set it up later in Settings → Connectors.",
 } as const;
