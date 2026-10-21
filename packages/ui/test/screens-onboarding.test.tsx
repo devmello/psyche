@@ -158,6 +158,32 @@ describe("OnboardingFlow", () => {
     expect(screen.queryByLabelText("API key")).toBeNull();
   });
 
+  it("binds a Claude subscription to the claude-code CLI provider, not the API (#537)", async () => {
+    const onCheckModel = vi.fn(() => "passed" as const);
+    setup({ defaultStep: "model", onCheckModel });
+    await userEvent.click(screen.getByRole("radio", { name: /^Subscription/ }));
+    expect(screen.queryByLabelText("API key")).toBeNull();
+    expect(screen.getByText(/needs no API key and stores none/)).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Run check" }));
+    expect(onCheckModel).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        kind: "subscription",
+        provider: "claude-code",
+        modelRef: "claude-code/sonnet",
+      }),
+    );
+    await userEvent.click(screen.getByRole("radio", { name: /^Claude Opus/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Run check" }));
+    expect(onCheckModel).toHaveBeenLastCalledWith(
+      expect.objectContaining({ modelRef: "claude-code/opus" }),
+    );
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: /Provider/ }), "codex");
+    await userEvent.click(screen.getByRole("button", { name: "Run check" }));
+    expect(onCheckModel).toHaveBeenLastCalledWith(
+      expect.objectContaining({ provider: "codex", modelRef: "codex/default" }),
+    );
+  });
+
   it("keeps the key field open when the provider refuses the saved key (#504)", async () => {
     const onSaveKey = vi.fn(async (provider: string) => ({
       keyRef: `model-${provider}`,

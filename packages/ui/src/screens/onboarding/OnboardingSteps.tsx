@@ -484,42 +484,62 @@ export const PROVIDERS: Record<
       ],
     },
   ],
+  // Subscriptions run through the provider's own CLI, signed in on this Mac (claude-code/*,
+  // codex/*); the anthropic/* and openai/* API refs would need an API key instead (#537).
   subscription: [
     {
-      id: "anthropic",
+      id: "claude-code",
       get label() {
         return t("onboarding.model.claudeSubscription");
       },
-      defaultModel: "anthropic/claude-sonnet-5-5",
+      defaultModel: "claude-code/sonnet",
       models: [
         {
-          ref: "anthropic/claude-sonnet-5-5",
-          label: "Claude Sonnet 5.5",
+          ref: "claude-code/sonnet",
+          label: "Claude Sonnet",
           get hint() {
-            return t("onboarding.model.hint.subscription.anthropicClaudeSonnet55");
+            return t("onboarding.model.hint.subscription.claudeCodeSonnet");
           },
         },
         {
-          ref: "anthropic/claude-opus-5-5",
-          label: "Claude Opus 5.5",
+          ref: "claude-code/opus",
+          label: "Claude Opus",
           get hint() {
-            return t("onboarding.model.hint.subscription.anthropicClaudeOpus55");
+            return t("onboarding.model.hint.subscription.claudeCodeOpus");
+          },
+        },
+        {
+          ref: "claude-code/haiku",
+          label: "Claude Haiku",
+          get hint() {
+            return t("onboarding.model.hint.subscription.claudeCodeHaiku");
+          },
+        },
+        {
+          ref: "claude-code/default",
+          get label() {
+            return t("onboarding.model.cliDefault");
+          },
+          get hint() {
+            return t("onboarding.model.hint.subscription.claudeCodeDefault");
           },
         },
       ],
     },
     {
-      id: "openai",
+      id: "codex",
       get label() {
         return t("onboarding.model.chatgptSubscription");
       },
-      defaultModel: "openai/gpt-5.5",
+      defaultModel: "codex/default",
       models: [
         {
-          ref: "openai/gpt-5.5",
-          label: "GPT-5.5",
+          ref: "codex/default",
+          get label() {
+            return t("onboarding.model.cliDefault");
+          },
           get hint() {
-            return t("onboarding.model.hint.subscription.openaiGpt55");
+            return t("onboarding.model.hint.subscription.codexDefault");
           },
         },
       ],
