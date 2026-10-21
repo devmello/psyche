@@ -9,10 +9,18 @@
 <dict>
   <key>CFBundleIdentifier</key>
   <string>com.psyche.helper</string>
+  <!-- "Psyche (Helper)", not "Psyche": Psyche.app asks for some of the same permissions, and two
+       identical rows in Privacy & Security would make the wrong switch easy to flip (#541,
+       README "Name in macOS"). en.lproj/InfoPlist.strings repeats these with
+       LSHasLocalizedDisplayName so Finder and the privacy lists use them, not the file name. -->
   <key>CFBundleName</key>
-  <string>Psyche Helper</string>
+  <string>Psyche (Helper)</string>
   <key>CFBundleDisplayName</key>
-  <string>Psyche Helper</string>
+  <string>Psyche (Helper)</string>
+  <key>LSHasLocalizedDisplayName</key>
+  <true/>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
   <key>CFBundleExecutable</key>
   <string>psyche-helper</string>
   <key>CFBundlePackageType</key>

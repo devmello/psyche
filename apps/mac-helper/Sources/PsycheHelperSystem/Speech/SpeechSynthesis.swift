@@ -44,7 +44,7 @@ enum SpeechSynthesis {
         if p.personalVoice, AVSpeechSynthesizer.personalVoiceAuthorizationStatus != .authorized {
             throw CapabilityError(
                 .forbidden, reason: "personal_voice_unauthorized",
-                "Personal Voice is not authorized for Psyche Helper. Allow it in System Settings › Accessibility › Personal Voice.",
+                "Personal Voice is not authorized for Psyche (Helper). Allow it in System Settings › Accessibility › Personal Voice.",
                 details: ["status": .string(personalVoiceStatus())])
         }
         if let id = p.voice {

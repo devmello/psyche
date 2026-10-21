@@ -1,5 +1,7 @@
 # Psyche Helper (apps/mac-helper)
 
+Shown to users as **Psyche (Helper)**; see [Name in macOS](#name-in-macos-541).
+
 **Owner:** S14 (`prompts/s14-mac-helper.md`). Feature ids: A9, J1–J5, O10 (OS delivery), Q1 (engines), G1 (keychain), later J6, J7, J9, L1–L5 ([docs/03-feature-spec.md](../../docs/03-feature-spec.md)).
 
 `Psyche Helper.app` (`com.psyche.helper`, ADR-001, ADR-020) is the signed Swift app that holds every macOS permission Psyche uses and offers them to the Gateway as a **node** (architecture §6, §7): Accessibility-driven computer use, screenshots, Apple Events and Shortcuts, the keychain with Touch ID, actionable notifications and on-device speech. It is not a pnpm package (no `package.json`; the root vitest config skips it).
@@ -279,6 +281,22 @@ The owner demonstrates a flow and the helper turns it into a skill draft. The Ga
 - **Screenshots** (`screenshots: true`, needs Screen Recording): the clicked app's largest window, 300 ms after the click, downscaled, never for apps `computer.screenshot` excludes. The bytes ride on the `teach.step` event, and the draft lists `screens/step-N.jpg` by path.
 - **Draft:** `{sessionId, name, description, startedAt, endedAt, endedBy, steps, files}`. `SKILL.md` has frontmatter (`allowed-tools: ["computer.*", "apps.open", "apps.focus"]`, `metadata.psyche.source: teach`) and numbered steps that name targets by role and JSON-quoted label. App text is single-line, so a label cannot add lines to the skill. It parses with `packages/skills`' `parseSkill` and `manifestOf`.
 - **Nothing is written to disk.** After the owner reviews the draft, the Gateway writes it to `workspace/skills/<name>/`, and T2's `skill_install` trust card makes it active.
+
+## Name in macOS (#541)
+
+macOS prompts, System Settings › Privacy & Security, Finder and Activity Monitor show the helper as **Psyche (Helper)**: "“Psyche (Helper)” would like to control this computer using accessibility features". The prompt text below the title starts with "Psyche …", from the usage strings.
+
+- **Why not just "Psyche":** Psyche.app (the desktop) asks for some of the same permissions itself. It asks for Accessibility and Screen Recording during onboarding, and has its own Microphone string. With both named "Psyche" and sharing the icon, Accessibility and Screen Recording would show two identical rows, and switching off the wrong one silently breaks computer use or dictation. "Psyche (Helper)" reads as part of Psyche and stays distinguishable.
+- **What changes:**
+  - `CFBundleName` and `CFBundleDisplayName` in `Support/Info.plist` are "Psyche (Helper)".
+  - `Support/en.lproj/InfoPlist.strings` sets the same two keys, with `LSHasLocalizedDisplayName`. LaunchServices and Finder otherwise fall back to the file name, `PsycheHelper.app`.
+  - The user-facing errors name the same row ("Psyche (Helper) needs Full Disk Access…").
+- **What does not change:**
+  - the bundle id `com.psyche.helper`, so existing grants keep applying;
+  - the file name `PsycheHelper.app`, which the desktop's packaging contract depends on;
+  - the icon (`dist-assets/PsycheHelper.icns`) and `LSUIElement` (no Dock icon).
+- **Check:** `deploy/macos/build-helper.sh` refuses a bundle whose display name is not "Psyche (Helper)", or whose Info.plist still says "Psyche Helper".
+- **Single "Psyche" later:** if Psyche.app stops requesting Accessibility and Screen Recording for itself (onboarding asking through the helper's `permissions.request` instead), only one row remains. The helper could then be named plain "Psyche".
 
 ## Entitlements and Info.plist
 

@@ -95,7 +95,7 @@ public struct CapabilityError: Error, Sendable, Equatable, CustomStringConvertib
     public static func permissionMissing(_ permission: TCCPermission) -> CapabilityError {
         CapabilityError(
             .forbidden, reason: "permission_missing",
-            "Psyche Helper does not have the \(permission.rawValue) permission. Grant it in System Settings › Privacy & Security.",
+            "Psyche (Helper) does not have the \(permission.rawValue) permission. Grant it in System Settings › Privacy & Security.",
             details: ["permission": .string(permission.rawValue)]
         )
     }
