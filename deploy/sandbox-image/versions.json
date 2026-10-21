@@ -2,16 +2,25 @@
   "schema": 1,
   "contract": 1,
   "repository": "ghcr.io/devmello/psyche-sandbox",
-  "version": "0.1.0",
+  "version": "0.3.0-alpha.0",
   "baseImages": {
     "node": "node:24.22.0-trixie-slim@sha256:7f486cabe892bff8fef04c0f7da8dba84a560be3e4e2740b7a86afc57ebec315",
     "uv": "ghcr.io/astral-sh/uv:0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d56d7ef30279f7d64048519ab901ada336"
   },
   "platforms": ["linux/arm64", "linux/amd64"],
   "variants": {
-    "core": { "tag": "0.1.0-core", "digest": null },
-    "base": { "tag": "0.1.0", "digest": null },
-    "full": { "tag": "0.1.0-full", "digest": null }
+    "core": {
+      "tag": "0.3.0-alpha.0-core",
+      "digest": "sha256:af8569563cebede8397dbfb807b88581dff746c890eeab733ac889e56050e72f"
+    },
+    "base": {
+      "tag": "0.3.0-alpha.0",
+      "digest": "sha256:66e1fc825c2b7fd8c6bf10699f10d993b61a0b5b6ee3f0396b931ceac7fa6ac6"
+    },
+    "full": {
+      "tag": "0.3.0-alpha.0-full",
+      "digest": "sha256:45c76d2d4281fc809416eeeb1c0c4b82aab18c59dea5744654a93728a38f0c21"
+    }
   },
   "signing": {
     "tool": "cosign",
