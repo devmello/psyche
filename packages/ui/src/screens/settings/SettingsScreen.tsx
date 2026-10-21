@@ -2,6 +2,7 @@ import type { Connector } from "@psyche/protocol";
 import {
   Activity,
   Bot,
+  Cable,
   FolderLock,
   Globe,
   Info,
@@ -35,6 +36,7 @@ import { CredentialsSection } from "./CredentialsSection.tsx";
 import { DataControlsSection, type ExportFile } from "./DataControlsSection.tsx";
 import { DevicesSection } from "./DevicesSection.tsx";
 import { FileAccessSection } from "./FileAccessSection.tsx";
+import { McpSection } from "./McpSection.tsx";
 import { ModelSection } from "./ModelSection.tsx";
 import { PermissionsSection } from "./PermissionsSection.tsx";
 import { PersonaSection } from "./PersonaSection.tsx";
@@ -59,6 +61,7 @@ export type SettingsSectionId =
   | "model"
   | "persona"
   | "connectors"
+  | "mcp"
   | "skills"
   | "permissions"
   | "computer-use"
@@ -95,6 +98,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSectionEntry[] = [
   entry("model", Bot),
   entry("persona", Sparkles),
   entry("connectors", Plug),
+  entry("mcp", Cable),
   entry("skills", Puzzle),
   entry("permissions", ShieldCheck),
   entry("computer-use", MousePointerClick),
@@ -170,9 +174,12 @@ function opt<K extends string, V>(key: K, value: V | undefined): { [P in K]?: V 
 export function SettingsSectionView({
   section,
   shell,
+  onOpenSection,
 }: {
   section: SettingsSectionId;
   shell: SettingsShellProps;
+  /** Moves to another section (the connector catalog's MCP and Slack rows). */
+  onOpenSection?: (section: SettingsSectionId) => void;
 }): ReactElement {
   const s = shell;
   const override = s.sections?.[section];
@@ -198,6 +205,7 @@ export function SettingsSectionView({
           {...opt("onReconnect", s.onReconnect)}
           {...opt("onDisconnect", s.onDisconnect)}
           {...opt("onRemove", s.onRemove)}
+          {...opt("onOpenSection", onOpenSection)}
         />
       );
     case "skills":
@@ -219,6 +227,8 @@ export function SettingsSectionView({
       return <VmSection {...opt("now", s.now)} />;
     case "devices":
       return <DevicesSection {...opt("now", s.now)} {...opt("thisDeviceId", s.thisDeviceId)} />;
+    case "mcp":
+      return <McpSection {...opt("now", s.now)} />;
     case "channels":
       return <ChannelsSection {...opt("now", s.now)} />;
     case "credentials":
@@ -324,7 +334,7 @@ export function SettingsScreen({
       </div>
       <div className="flex min-w-0 max-w-[var(--page-width)] flex-col gap-4">
         <SettingsApprovalProvider>
-          <SettingsSectionView section={current} shell={shell} />
+          <SettingsSectionView section={current} shell={shell} onOpenSection={select} />
         </SettingsApprovalProvider>
       </div>
     </div>

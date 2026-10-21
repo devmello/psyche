@@ -90,6 +90,9 @@ describe("Google connect flow over the wire (#505)", () => {
       configured: true,
       available: true,
     });
+    // #529: a remote MCP preset has no connector implementation, so it is not offered.
+    expect(entries.find((e) => e.id === "slack")).toMatchObject({ available: false });
+    expect(entries.find((e) => e.id === "apple-notes")).toMatchObject({ available: true });
   });
 
   it("connect answers at once with the consent page; the record lists as signing in", async () => {

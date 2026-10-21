@@ -12,8 +12,9 @@ Connectors give the agent your accounts (mail, calendar, files); channels let yo
 | 1Password | Not available yet |
 | Telegram | The Gateway runs the bot, but the Telegram channel cannot be created from the app or the CLI yet |
 | Web search | Not available yet |
+| MCP servers | Add them in Settings → MCP servers ([below](#mcp-servers)) |
 
-The onboarding Connectors step and Settings → Connectors also list Microsoft (Outlook, Calendar), Other email (IMAP) and MCP server. None of them connect on main. In onboarding, Connect lists the account as connected without connecting anything; use Skip for now.
+Settings → Connectors and the onboarding Connectors step offer only what this Gateway can connect; anything without an implementation, such as Microsoft, is left out. In Settings, two rows are not accounts: **MCP server** opens Settings → MCP servers ([below](#mcp-servers)), and **Slack** opens Settings → Channels, because Slack is a place to chat with Psyche, not an account it reads.
 
 ## Google
 
@@ -65,6 +66,20 @@ What each one can do:
 | Apple Mail | Search by subject or sender, read a message | Save a draft; send a message |
 
 Reading is allowed by default. Every change asks first, and sending mail always asks with the exact recipients, subject and text, even if you set it to allow. Notes, reminders, events and mail are untrusted content (see [approvals.md](approvals.md#untrusted-content)). Deleting notes, reminders or events is not offered.
+
+## MCP servers
+
+MCP servers plug in external tool servers that speak the Model Context Protocol. Each one gives Psyche a set of tools, such as searching a wiki or managing tickets. Add them in Settings → MCP servers:
+
+1. Click **Add MCP server** and give it a name.
+2. Choose how it runs:
+   - **Command**: a program on the Gateway's machine, for example `npx -y @modelcontextprotocol/server-everything`. It always runs in Psyche's sandbox (srt, or its own container on a server), with no access to your files and no network unless you list the websites it may reach. A Gateway without a sandbox cannot run command servers; only URL servers can be added there.
+   - **URL**: a server on the internet over HTTPS.
+3. Click **Check server**. Psyche starts the server in the sandbox, asks it for its tools and stops it again. Nothing is offered to the agent yet.
+4. Review the card: how it runs, what it can reach, and its tools with what each can do (read, change things, destructive). Tool names and descriptions are written by the server; Psyche shows them as data, and a tool whose description reads like instructions to the agent is kept off.
+5. Approve the card on your device. Psyche adds the server and its tools become available. If the server lists different tools by the time it is added, Psyche refuses and asks you to check it again.
+
+Every tool call still follows your permissions: anything that changes something asks first. If a server later changes its tools, the permissions you gave its old tools end and you get a notice. Remove a server from its row's ⋯ menu.
 
 ## 1Password
 

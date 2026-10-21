@@ -7,7 +7,11 @@ import { useGatewayQuery } from "../../data/index.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { cn } from "../../lib/utils.ts";
-import { CONNECTOR_CATALOG, type ScopeMode } from "../settings/ConnectorsSection.tsx";
+import {
+  CONNECTOR_CATALOG,
+  type ScopeMode,
+  useImplementedTypes,
+} from "../settings/ConnectorsSection.tsx";
 import { ConnectProgress, useConnectorConnect } from "../settings/connect-flow.tsx";
 import type { TccPermission } from "../settings/types.ts";
 import {
@@ -121,6 +125,7 @@ export function OnboardingFlow({
   // account shows as connected only once it holds a token (#505), as in Settings → Connectors.
   const builtInConnect = onConnect === undefined;
   const flow = useConnectorConnect();
+  const implemented = useImplementedTypes();
   const live = useGatewayQuery("connectors.list", {}, { enabled: builtInConnect });
   const connectors: ConnectedAccount[] = builtInConnect
     ? (live.data?.connectors ?? [])
@@ -407,6 +412,7 @@ export function OnboardingFlow({
             }
             error={connectError}
             onConnect={(type, mode) => void connect(type, mode)}
+            {...(builtInConnect ? { implemented } : {})}
             {...(builtInConnect
               ? {
                   progress: (

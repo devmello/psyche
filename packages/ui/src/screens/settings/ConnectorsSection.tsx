@@ -77,7 +77,8 @@ type CatalogType =
   | "apple:reminders"
   | "apple:calendar"
   | "apple:mail"
-  | "mcp";
+  | "mcp"
+  | "slack";
 
 /** Message ids for connector types (ids can't hold the type's colon). */
 const CATALOG_ID = {
@@ -89,10 +90,19 @@ const CATALOG_ID = {
   "apple:calendar": "appleCalendar",
   "apple:mail": "appleMail",
   mcp: "mcp",
+  slack: "slack",
 } as const satisfies Record<CatalogType, string>;
+
+/**
+ * Rows that are not connectors: they open the Settings section where that thing is added
+ * (#529). MCP servers have their own section; Slack is a channel, not an account to connect.
+ */
+const OPENS: Partial<Record<CatalogType, "mcp" | "channels">> = { mcp: "mcp", slack: "channels" };
 
 const catalogEntry = <T extends CatalogType>(type: T) => ({
   type,
+  /** Set for rows that open another Settings section instead of connecting. */
+  opens: OPENS[type],
   /** The connector's name, in the active language. */
   get label(): string {
     return t(`settings.connectors.catalog.${CATALOG_ID[type as CatalogType]}`);
@@ -108,7 +118,33 @@ export const CONNECTOR_CATALOG = [
   catalogEntry("apple:calendar"),
   catalogEntry("apple:mail"),
   catalogEntry("mcp"),
+  catalogEntry("slack"),
 ] as const;
+
+/**
+ * The catalog rows to offer: navigation rows always, connectors only when the Gateway's
+ * catalogue has an available entry for the type (#529: nothing offered can fail with "no
+ * connector implementation"). `implemented` undefined (not loaded yet) offers the connectors too.
+ */
+export function offeredCatalog(
+  implemented: ReadonlySet<string> | undefined,
+  options: { navigation?: boolean } = {},
+) {
+  return CONNECTOR_CATALOG.filter((c) =>
+    c.opens !== undefined
+      ? options.navigation !== false
+      : implemented === undefined || implemented.has(c.type),
+  );
+}
+
+/** Connector types the Gateway can connect: its catalogue's available entries. */
+export function useImplementedTypes(): ReadonlySet<string> | undefined {
+  const q = useGatewayQuery("connectors.catalogue", {});
+  const entries = q.data?.entries;
+  return entries === undefined
+    ? undefined
+    : new Set(entries.filter((e) => e.available).map((e) => e.type));
+}
 
 const STATUS_TONE: Record<Connector["status"], Tone> = {
   connected: "success",
@@ -148,6 +184,10 @@ export interface ConnectorsPanelProps extends LoadProps {
   defaultAdding?: boolean;
   /** The sign-in under way, shown above the list (#505). */
   connectProgress?: ReactNode;
+  /** Connector types the Gateway can connect; undefined offers every catalog row. */
+  implemented?: ReadonlySet<string> | undefined;
+  /** Opens another Settings section (the MCP and Slack rows). */
+  onOpenSection?: (section: "mcp" | "channels") => void;
 }
 
 export function ConnectorsPanel({
@@ -160,6 +200,8 @@ export function ConnectorsPanel({
   onRemove,
   defaultAdding = false,
   connectProgress,
+  implemented,
+  onOpenSection,
   loading,
   error,
   onRetry,
@@ -188,6 +230,8 @@ export function ConnectorsPanel({
         {adding && onConnect ? (
           <ConnectForm
             persona={persona}
+            implemented={implemented}
+            {...(onOpenSection ? { onOpenSection } : {})}
             onCancel={() => setAdding(false)}
             onConnect={(type, mode) => {
               onConnect(type, mode);
@@ -299,15 +343,22 @@ export function ConnectorsPanel({
 
 function ConnectForm({
   persona,
+  implemented,
   onConnect,
   onCancel,
+  onOpenSection,
 }: {
   persona: string;
+  implemented: ReadonlySet<string> | undefined;
   onConnect: (type: string, mode: ScopeMode) => void;
   onCancel: () => void;
+  onOpenSection?: (section: "mcp" | "channels") => void;
 }): ReactElement {
   const id = useId();
-  const [type, setType] = useState<string>(CONNECTOR_CATALOG[0].type);
+  const rows = offeredCatalog(implemented, { navigation: onOpenSection !== undefined });
+  const [picked, setType] = useState<string>(rows[0]?.type ?? "");
+  const type = rows.some((c) => c.type === picked) ? picked : (rows[0]?.type ?? "");
+  const opens = rows.find((c) => c.type === type)?.opens;
   const [mode, setMode] = useState<ScopeMode>("read");
   return (
     <Group title={t("settings.connectors.connect")}>
@@ -321,23 +372,44 @@ function ConnectForm({
           value={type}
           onChange={(e) => setType(e.target.value)}
         >
-          {CONNECTOR_CATALOG.map((c) => (
+          {rows.map((c) => (
             <option key={c.type} value={c.type}>
               {c.label}
             </option>
           ))}
         </NativeSelect>
       </div>
-      <ConnectAccessChoice
-        label={t("settings.connectors.whatCan", { persona })}
-        value={mode}
-        onChange={setMode}
-        persona={persona}
-      />
+      {opens !== undefined ? (
+        <p className="text-sm text-muted-foreground">
+          {t(
+            opens === "mcp" ? "settings.connectors.mcpExplain" : "settings.connectors.slackExplain",
+          )}
+        </p>
+      ) : (
+        <ConnectAccessChoice
+          label={t("settings.connectors.whatCan", { persona })}
+          value={mode}
+          onChange={setMode}
+          persona={persona}
+        />
+      )}
       <div className="flex gap-2">
-        <Button type="button" size="sm" onClick={() => onConnect(type, mode)}>
-          {t("settings.connectors.continue")}
-        </Button>
+        {opens !== undefined ? (
+          <Button type="button" size="sm" onClick={() => onOpenSection?.(opens)}>
+            {t(
+              opens === "mcp" ? "settings.connectors.openMcp" : "settings.connectors.openChannels",
+            )}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            disabled={type === ""}
+            onClick={() => onConnect(type, mode)}
+          >
+            {t("settings.connectors.continue")}
+          </Button>
+        )}
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           {t("common.cancel")}
         </Button>
@@ -354,11 +426,13 @@ export interface ConnectorsSectionProps {
   onReconnect?: (connector: Connector) => void;
   onDisconnect?: (connector: Connector) => void;
   onRemove?: (connector: Connector) => void;
+  onOpenSection?: (section: "mcp" | "channels") => void;
 }
 
 export function ConnectorsSection({ persona, ...props }: ConnectorsSectionProps): ReactElement {
   const fallback = usePersona();
   const q = useGatewayQuery("connectors.list", {});
+  const implemented = useImplementedTypes();
   // Connect drives the real sign-in unless the host supplies its own (#505).
   const flow = useConnectorConnect();
   const builtIn = props.onConnect === undefined;
@@ -384,6 +458,7 @@ export function ConnectorsSection({ persona, ...props }: ConnectorsSectionProps)
           }
         : {})}
       persona={persona ?? fallback.name}
+      implemented={implemented}
       connectors={q.data?.connectors ?? []}
       loading={q.loading && q.data === undefined}
       error={q.error}
