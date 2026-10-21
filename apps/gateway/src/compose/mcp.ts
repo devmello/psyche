@@ -24,6 +24,7 @@ import {
   type ToolRegistry,
 } from "@psyche/protocol";
 import type { Gateway } from "../server.ts";
+import { mcpAddHandlers } from "./mcp-add.ts";
 import { mcpGrantRevocation } from "./mcp-grants.ts";
 import type { ComposedPart, ComposeServices } from "./services.ts";
 
@@ -207,28 +208,29 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
   );
   const launcher = launcherFor(services, setup);
   const placeholder = new RegExp(`^${PLACEHOLDER_PATTERN.source}$`);
+  const secrets: McpHostOptions["secrets"] = {
+    credentials: services.vault,
+    // Each secret gets its own device-only card, answered with presence (security §4.6).
+    async approve({ serverId, placeholder: ph, target }) {
+      const slug = placeholder.exec(ph)?.[1];
+      if (slug === undefined) throw new PsycheError("invalid_params", "not a placeholder");
+      const issued = await services.vault.requestFill({
+        slug,
+        target: target.value,
+        executor: "connector",
+        requestedBy: { runId: null, taskId: null, threadId: null, agent: `mcp:${serverId}` },
+        taint: false,
+      });
+      const done = await services.broker.awaitDecision(issued.approval.id);
+      if (done.status !== "approved") {
+        throw new PsycheError("policy_denied", `the secret's approval was ${done.status}`);
+      }
+      return issued.approval.id;
+    },
+  };
   const host = createMcpHost({
     ...(launcher === undefined ? {} : { launcher }),
-    secrets: {
-      credentials: services.vault,
-      // Each secret gets its own device-only card, answered with presence (security §4.6).
-      async approve({ serverId, placeholder: ph, target }) {
-        const slug = placeholder.exec(ph)?.[1];
-        if (slug === undefined) throw new PsycheError("invalid_params", "not a placeholder");
-        const issued = await services.vault.requestFill({
-          slug,
-          target: target.value,
-          executor: "connector",
-          requestedBy: { runId: null, taskId: null, threadId: null, agent: `mcp:${serverId}` },
-          taint: false,
-        });
-        const done = await services.broker.awaitDecision(issued.approval.id);
-        if (done.status !== "approved") {
-          throw new PsycheError("policy_denied", `the secret's approval was ${done.status}`);
-        }
-        return issued.approval.id;
-      },
-    },
+    secrets,
     ...setup.hostOptions,
     onEvent: (event) => {
       grants.onEvent(event);
@@ -319,29 +321,48 @@ export function composeMcp(services: ComposeServices, setup: McpSetup = {}): Com
 
   let unsubscribe: (() => void) | undefined;
   const launcherKind =
-    setup.container !== undefined ? "container" : setup.srtPath !== undefined ? "srt" : "none";
+    setup.container !== undefined
+      ? ("container" as const)
+      : setup.srtPath !== undefined
+        ? ("srt" as const)
+        : ("none" as const);
+  const statusOf = (json: string) => {
+    const c = JSON.parse(json) as PsycheMcpServerConfig;
+    const http = c.transport.kind === "http";
+    return {
+      id: c.id,
+      name: c.name,
+      trust: c.trust,
+      transport: http ? ("http" as const) : ("stdio" as const),
+      network: http || (c.sandbox?.allowedDomains?.length ?? 0) > 0,
+      connected: registrations.has(c.id),
+    };
+  };
   return {
     host,
     idle: () => queue,
     handlers: {
-      // For `psyche security audit` (security §11 "MCP servers").
+      // For `psyche security audit` (security §11 "MCP servers") and Settings → MCP.
       "mcp.status": {
         run: () => ({
           launcher: launcherKind,
-          servers: [...configs.values()].map((json) => {
-            const c = JSON.parse(json) as PsycheMcpServerConfig;
-            const http = c.transport.kind === "http";
-            return {
-              id: c.id,
-              name: c.name,
-              trust: c.trust,
-              transport: http ? ("http" as const) : ("stdio" as const),
-              network: http || (c.sandbox?.allowedDomains?.length ?? 0) > 0,
-              connected: registrations.has(c.id),
-            };
-          }),
+          servers: [...configs.values()].map(statusOf),
         }),
       },
+      // Settings → MCP (#529): probe in the sandbox, trust card, then add.
+      ...mcpAddHandlers({
+        services,
+        settingKey: MCP_SERVERS_SETTING,
+        launcher,
+        secrets,
+        ...(setup.hostOptions === undefined ? {} : { hostOptions: setup.hostOptions }),
+        apply: (value) => enqueue(value),
+        status: (id) => {
+          const json = configs.get(id);
+          return json === undefined ? undefined : statusOf(json);
+        },
+        toolsHash: (id) => (registrations.has(id) ? host.describe(id).toolsListHash : undefined),
+      }),
     },
     start(gateway: Gateway) {
       void enqueue(getSetting(services.db, MCP_SERVERS_SETTING)?.value);

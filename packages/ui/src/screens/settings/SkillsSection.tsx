@@ -592,7 +592,7 @@ export function SkillsPanel({
 // --- Connected -------------------------------------------------------------------------------
 
 /** The `skill_install` card under the trust card; installs once it is approved. */
-function TrustApproval({
+export function TrustApproval({
   approvalId,
   onDecided,
   now,
