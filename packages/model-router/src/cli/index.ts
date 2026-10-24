@@ -5,6 +5,7 @@ import { codexDialect } from "./codex.ts";
 
 export * from "./adapter.ts";
 export * from "./bridge.ts";
+export * from "./catalog.ts";
 export * from "./claude-code.ts";
 export * from "./codex.ts";
 export * from "./probe.ts";

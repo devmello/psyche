@@ -308,6 +308,14 @@ describe("claude-code provider (fake CLI, recorded stream-json)", () => {
     expect(events.at(-1)).toEqual({ type: "finish", reason: "cancelled" });
   });
 
+  it("reports the catalog's context window, the [1m] variants and the owner's override (#558)", async () => {
+    const { adapter } = setup(["text"], { models: { opus: { contextWindow: 500_000 } } });
+    expect((await adapter.capabilities("claude-code/sonnet")).contextWindow).toBe(200_000);
+    expect((await adapter.capabilities("claude-code/default")).contextWindow).toBe(200_000);
+    expect((await adapter.capabilities("claude-code/sonnet[1m]")).contextWindow).toBe(1_000_000);
+    expect((await adapter.capabilities("claude-code/opus")).contextWindow).toBe(500_000);
+  });
+
   it("runs behind the router as `claude-code/<model>`", async () => {
     const log = join(dir, "router.jsonl");
     const router = createModelRouter(

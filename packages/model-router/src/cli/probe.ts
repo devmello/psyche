@@ -6,6 +6,7 @@ import type { ProviderConfig } from "../config.ts";
 import type { EndpointProbeResult, ProbedModel } from "../endpoint-probe.ts";
 import { formatModelRef } from "../refs.ts";
 import { type CliDialect, notInstalled } from "./adapter.ts";
+import { cliContextWindow } from "./catalog.ts";
 import { cliChildPath, type ResolveCliOptions, resolveCli } from "./resolve.ts";
 
 /**
@@ -72,6 +73,12 @@ const CAPS: CapabilityGuess = {
   embeddings: false,
   source: "catalog",
 };
+
+/** The model's context window: the owner's config, else the catalog (#558). */
+function windowOf(config: ProviderConfig, id: string): { contextWindow?: number } {
+  const w = config.models?.[id]?.contextWindow ?? cliContextWindow(config.kind, id);
+  return w === undefined ? {} : { contextWindow: w };
+}
 
 export async function probeCli(
   config: ProviderConfig,
@@ -163,7 +170,10 @@ export async function probeCli(
       ref: formatModelRef(config.id, id),
       id,
       ...(label === undefined ? {} : { label }),
-      capabilities: { ...CAPS },
+      capabilities: {
+        ...CAPS,
+        ...windowOf(config, id),
+      },
     };
   });
   return { state: "reachable", probedAt, latencyMs: elapsed(), server, models };

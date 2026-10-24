@@ -270,6 +270,28 @@ describe("subscription CLIs in Settings (fake CLI)", () => {
     "../../../packages/model-router/test/fake-cli/fake-cli.mjs",
   );
 
+  it("carries the bound CLI model's context window before any probe (#558)", async () => {
+    const desk = await client(
+      await compose({
+        router: {
+          providers: [{ id: "claude-code", kind: "claude-code", command: FAKE }],
+          roles: { primary: { model: "claude-code/haiku" } },
+        },
+        cli: { env: { ...process.env } },
+      }),
+    );
+    const list = await desk.call<{ providers: ModelProviderSummary[] }>("models.list", {});
+    const claude = list.providers.find((p) => p.id === "claude-code");
+    expect(claude?.probe.state).toBe("not_probed");
+    expect(claude?.models).toEqual([
+      {
+        ref: "claude-code/haiku",
+        toolCheck: "untested",
+        capabilities: { source: "catalog", contextWindow: 200_000 },
+      },
+    ]);
+  });
+
   it("lists Claude Code and Codex, probes them on request and binds one as primary", async () => {
     const env = {
       ...process.env,
@@ -322,5 +344,14 @@ describe("subscription CLIs in Settings (fake CLI)", () => {
       ik(),
     );
     expect(picked.roles.primary).toBe("claude-code/sonnet");
+    // #558: the window the chat uses, for the probed list and for the bound model.
+    const after = await desk.call<{ providers: ModelProviderSummary[] }>("models.list", {});
+    const sonnet = after.providers
+      .find((p) => p.id === "claude-code")
+      ?.models.find((m) => m.ref === "claude-code/sonnet");
+    expect(sonnet?.capabilities?.contextWindow).toBe(200_000);
+    expect(await composed?.provider.capabilities("claude-code/sonnet")).toMatchObject({
+      contextWindow: 200_000,
+    });
   });
 });

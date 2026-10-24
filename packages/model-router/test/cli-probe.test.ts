@@ -43,6 +43,10 @@ describe("subscription CLI probe", () => {
       vision: true,
       source: "catalog",
     });
+    // #558: the catalog's context window, so Settings and the chat meter agree.
+    expect(r.models.map((m) => m.capabilities.contextWindow)).toEqual([
+      200_000, 200_000, 200_000, 200_000,
+    ]);
     // Account details never leave the probe.
     expect(JSON.stringify(r)).not.toMatch(/owner@example\.com|org-fixture|Fixture Org/);
   });
@@ -78,6 +82,7 @@ describe("subscription CLI probe", () => {
     });
     expect(r).toMatchObject({ state: "reachable", server: `Codex 0.162.0 · ${FAKE} (ChatGPT)` });
     expect(r.models.map((m) => m.ref)).toEqual(["codex/default"]);
+    expect(r.models[0]?.capabilities.contextWindow).toBe(272_000);
   });
 
   it("says when Codex is not signed in", async () => {
