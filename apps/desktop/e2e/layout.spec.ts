@@ -291,6 +291,8 @@ test.beforeAll(async () => {
       PSYCHE_GATEWAY_ORIGIN: gw.origin,
       PSYCHE_GATEWAY_MODE: "external",
       PSYCHE_DISABLE_GLOBAL_SHORTCUTS: "1",
+      // CI's display is shorter than 900 px; macOS would clamp the window to it (#561).
+      PSYCHE_E2E_ANY_WINDOW_SIZE: "1",
     },
   });
   page = await app.firstWindow();
@@ -318,7 +320,7 @@ for (const [width, height] of [
     const lights = await trafficLights();
     expect(lights.y + lights.height, "traffic lights inside the bar").toBeLessThanOrEqual(52);
     for (const [i, label] of STEPS.entries()) {
-      await expect(page.getByRole("heading", { level: 2, name: new RegExp(label) })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: new RegExp(label) })).toBeVisible();
       const tag = `${label} ${width}x${height}`;
       await expectOnboardingLayout(page, tag, bar.y + bar.height);
       expect(await intruders(page, lights), `${tag}: under the traffic lights`).toEqual([]);
@@ -515,8 +517,13 @@ test("web client at 390 px: no title bar, every onboarding step, main chat", asy
     await p.waitForSelector('[data-testid="onboarding"]');
     expect(await p.evaluate(() => window.innerWidth)).toBe(390);
     await expect(p.getByTestId("titlebar")).toHaveCount(0);
-    for (const [i, label] of STEPS.entries()) {
-      await expect(p.getByRole("heading", { level: 2, name: new RegExp(label) })).toBeVisible();
+    // The web can't ask macOS, so its onboarding may leave Permissions out (#554).
+    const progress = await p.getByRole("navigation", { name: "Onboarding progress" }).textContent();
+    const webSteps = progress?.includes("Permissions")
+      ? STEPS
+      : STEPS.filter((s) => s !== "Permissions");
+    for (const [i, label] of webSteps.entries()) {
+      await expect(p.getByRole("heading", { level: 1, name: new RegExp(label) })).toBeVisible();
       await expectOnboardingLayout(p, `web ${label}`, 0);
       if (i === 0) {
         const form = await box(p, "onboarding-form");
@@ -524,7 +531,7 @@ test("web client at 390 px: no title bar, every onboarding step, main chat", asy
         expect(preview.y, "preview below the form").toBeGreaterThanOrEqual(form.y + form.height);
       }
       await shot(p, `web-onboarding-${i + 1}-390`);
-      if (i < STEPS.length - 1) await p.getByRole("button", { name: "Next" }).click();
+      if (i < webSteps.length - 1) await p.getByRole("button", { name: "Next" }).click();
     }
     webOnboarded = true;
     await p.reload();

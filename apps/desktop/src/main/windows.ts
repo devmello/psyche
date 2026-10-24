@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import { app, BaseWindow, type WebContents, WebContentsView } from "electron";
+import { mainWindowOptions, TRAFFIC_LIGHTS } from "./window-options.ts";
 
 /**
  * Windows hosting the shell (architecture §5): one main `BaseWindow` with the app in a
@@ -35,13 +36,11 @@ export interface WindowOptions {
   onViewCreated?: (wc: WebContents) => void;
   /** Whether the main window opens on the startup splash (#539). */
   splash?: () => boolean;
+  /** The layout e2e sizes the window past CI's small screen (#561). */
+  anySize?: boolean;
 }
 
-/**
- * The main window draws its own title bar (`hiddenInset`); the traffic lights sit at this
- * position, vertically centred in the shell's 52 px bar (`TITLEBAR_HEIGHT` in the web shell).
- */
-export const TRAFFIC_LIGHTS = { x: 18, y: 19 } as const;
+export { TRAFFIC_LIGHTS };
 
 /** What the renderer needs to draw the window chrome (passed as a launch argument). */
 export interface ChromeArg {
@@ -110,16 +109,7 @@ export function createAppWindows(opts: WindowOptions): AppWindows {
   }
 
   function createMain(): BaseWindow {
-    const win = new BaseWindow({
-      width: 1280,
-      height: 860,
-      minWidth: 900,
-      minHeight: 600,
-      title: "Psyche",
-      show: false,
-      titleBarStyle: "hiddenInset",
-      trafficLightPosition: { ...TRAFFIC_LIGHTS },
-    });
+    const win = new BaseWindow(mainWindowOptions({ anySize: opts.anySize === true }));
     const view = makeView(win, "/chat", {
       ...(process.platform === "darwin"
         ? { titleBar: "inset" as const, trafficLights: { ...TRAFFIC_LIGHTS } }
