@@ -36,6 +36,11 @@ type Refresher = () => Promise<void>;
  */
 export class GatewayStore {
   readonly client: GatewayClient;
+  /**
+   * A store with no Gateway behind it, used when a kit component renders outside a
+   * `<GatewayProvider>` (stories, tests, previews): loaders stay idle and calls reject.
+   */
+  readonly detached: boolean;
   private base: UiState;
   private overlays: Overlay[] = [];
   private snapshot: UiState;
@@ -50,8 +55,9 @@ export class GatewayStore {
   private unsubscribe: Array<() => void> = [];
   private readonly now: () => string;
 
-  constructor(client: GatewayClient, options: { now?: () => string } = {}) {
+  constructor(client: GatewayClient, options: { now?: () => string; detached?: boolean } = {}) {
     this.client = client;
+    this.detached = options.detached ?? false;
     this.now = options.now ?? (() => new Date().toISOString());
     this.base = { ...INITIAL_STATE, connection: client.connectionState() };
     this.hasOpened = this.base.connection === "open";
