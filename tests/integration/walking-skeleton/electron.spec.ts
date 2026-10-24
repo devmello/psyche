@@ -211,11 +211,17 @@ test("a delegated task keeps running after the window quits and shows in Activit
 
 test("Soul & Memory shows today's daily note, edits SOUL.md and exports everything", async () => {
   await page.getByRole("tab", { name: "Soul & Memory" }).click();
-  const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local time, like the daily note
-  await expect(page.getByRole("navigation", { name: "Daily notes" })).toContainText(
-    today.slice(5),
-    { timeout: 20_000 },
-  );
+  // The daily note is named by its local date; the list labels it like "Oct 24" (the file's
+  // YYYY-MM-DD read as a UTC date, #561).
+  const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local time
+  const label = new Date(`${today}T00:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+  await expect(page.getByRole("navigation", { name: "Daily notes" })).toContainText(label, {
+    timeout: 20_000,
+  });
   await page.getByRole("tab", { name: "SOUL.md" }).click();
   const editor = page.getByLabel("SOUL.md contents");
   await editor.press("End");
