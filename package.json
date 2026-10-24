@@ -29,7 +29,10 @@
     "check:scenarios": "tsx packages/testing/src/scenarios/cli.ts --out out/security/scenarios-report.json",
     "docs:dev": "pnpm --filter @psyche/site docs:dev",
     "docs:build": "pnpm --filter @psyche/site docs:build",
-    "docs:check": "pnpm --filter @psyche/site docs:check"
+    "docs:check": "pnpm --filter @psyche/site docs:check",
+    "app:build": "sh deploy/macos/build-local.sh",
+    "app:install": "sh deploy/macos/install-local.sh",
+    "app:ship": "sh deploy/macos/build-local.sh && sh deploy/macos/install-local.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
