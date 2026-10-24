@@ -740,6 +740,7 @@ export const settings = {
   "settings.webSearch.searxngHint":
     "Your own SearXNG instance with the JSON format enabled. Leave empty to not use one.",
   "settings.webSearch.searxngInvalid": "Enter an http(s) URL without a user name or password.",
+  "settings.webSearch.searxngPlaceholder": "http://127.0.0.1:8888",
 
   // Settings → Data controls (DataControlsSection.tsx).
   "settings.data.title": "Data controls",

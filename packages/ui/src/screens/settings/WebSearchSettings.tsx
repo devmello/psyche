@@ -136,7 +136,7 @@ export function WebSearchSettingsGroup({
           id={urlId}
           type="url"
           inputMode="url"
-          placeholder="http://127.0.0.1:8888"
+          placeholder={t("settings.webSearch.searxngPlaceholder")}
           value={draft}
           aria-describedby={`${urlId}-desc${error ? ` ${urlId}-error` : ""}`}
           aria-invalid={error}
