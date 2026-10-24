@@ -7,7 +7,7 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
-import type { GatewayClient } from "./client.ts";
+import { type GatewayClient, GatewayRequestError } from "./client.ts";
 import type { UiState } from "./state.ts";
 import { GatewayStore } from "./store.ts";
 
@@ -35,10 +35,34 @@ export function GatewayProvider({ client, children, store }: GatewayProviderProp
   return <StoreContext.Provider value={current}>{children}</StoreContext.Provider>;
 }
 
+/** Client for the detached store: never connects; every request says why (#560). */
+const NO_GATEWAY: GatewayClient = {
+  request: (method) =>
+    Promise.reject(
+      new GatewayRequestError(
+        method,
+        "unavailable",
+        `${method} needs a Gateway: this component is rendered outside <GatewayProvider>`,
+      ),
+    ),
+  subscribe: () => () => {},
+  connectionState: () => "offline",
+  onConnectionState: () => () => {},
+};
+
+let detachedStore: GatewayStore | null = null;
+
+/**
+ * The store from the nearest `<GatewayProvider>`. Outside one (a kit component rendered bare in a
+ * story, test or preview) it is a shared detached store: data hooks stay idle with no data and
+ * no error, and actions reject with "rendered outside <GatewayProvider>" instead of the whole
+ * component throwing on render (#560).
+ */
 export function useStore(): GatewayStore {
   const store = useContext(StoreContext);
-  if (store === null) throw new Error("Psyche UI hooks need a <GatewayProvider>");
-  return store;
+  if (store !== null) return store;
+  detachedStore ??= new GatewayStore(NO_GATEWAY, { detached: true });
+  return detachedStore;
 }
 
 /**

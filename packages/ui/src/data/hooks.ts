@@ -65,7 +65,7 @@ export function useLoader(
   load: (store: GatewayStore) => Promise<void>,
 ): LoadState {
   const store = useStore();
-  const [loading, setLoading] = useState(key !== null);
+  const [loading, setLoading] = useState(key !== null && !store.detached);
   const [error, setError] = useState<string | null>(null);
   const loadRef = useRef(load);
   loadRef.current = load;
@@ -73,7 +73,8 @@ export function useLoader(
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: `tick` forces a reload from `reload()`
   useEffect(() => {
-    if (key === null) {
+    // Without a Gateway (rendered outside a provider) there is nothing to load: stay idle.
+    if (key === null || store.detached) {
       setLoading(false);
       return;
     }
