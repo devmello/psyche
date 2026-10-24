@@ -10,6 +10,25 @@ How it is built and signed: [signing.md](signing.md).
 
 ## Install
 
+### From a checkout, in one command
+
+On a Mac with the repository and `pnpm install` done, you do not have to drag anything:
+
+```bash
+pnpm app:ship          # build the DMG (deploy/macos/build-local.sh) and install it
+pnpm app:install       # install the newest dist/Psyche-*.dmg (or a path you give it)
+```
+
+`deploy/macos/install-local.sh` quits a running Psyche, boots the Gateway LaunchAgent out so nothing
+runs from the old bundle, swaps `/Applications/Psyche.app` atomically, verifies the signature and
+launches the new app, which loads the LaunchAgent again. `~/.psyche` is untouched. The build signs with
+the first Apple Development or Developer ID identity in your keychain, so permission grants survive
+rebuilds; when the signing identity changes the installer prints the `tccutil reset` to run once.
+`--dry-run` shows the steps, `--no-launch` leaves the app closed.
+
+### From a DMG, by hand
+
+
 1. Open `Psyche-<version>-<arch>.dmg` and drag **Psyche** onto **Applications**.
 2. Eject the disk image, then open Psyche from Applications.
    - If you open it straight from the disk image or from Downloads, macOS runs it from a temporary read-only copy (App Translocation). Psyche notices and asks you to move it to Applications first, because the Gateway's LaunchAgent must point at a path that stays put.
