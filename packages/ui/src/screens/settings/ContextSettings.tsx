@@ -16,6 +16,12 @@ export const CONTEXT_KEYS = {
   keepRecentTurns: "context.keepRecentTurns",
 } as const;
 
+/**
+ * The window a chat assumes when the model's is unknown (agent-core `defaultContextWindow`), so
+ * this section and the chat's context meter show the same number (#558).
+ */
+export const DEFAULT_CONTEXT_WINDOW = 128_000;
+
 /** The Gateway's bounds and defaults (`ContextLimits`, docs/status/s02.md). */
 export const CONTEXT_BOUNDS = {
   maxTokens: { min: 1_000, step: 1_000 },
@@ -109,7 +115,7 @@ export function ContextSettingsGroup({
   onChange,
   modelContextLength,
 }: ContextSettingsGroupProps): ReactElement {
-  const ceiling = modelContextLength ?? 2_000_000;
+  const ceiling = modelContextLength ?? DEFAULT_CONTEXT_WINDOW;
   const limit = Math.min(num(values, CONTEXT_KEYS.maxTokens, ceiling), ceiling);
   const compactPct = Math.round(
     num(values, CONTEXT_KEYS.compactAt, CONTEXT_BOUNDS.compactAt.default / 100) * 100,
@@ -124,7 +130,10 @@ export function ContextSettingsGroup({
               n: modelContextLength,
               short: formatTokens(modelContextLength),
             })
-          : t("settings.context.modelUnknown")
+          : t("settings.context.modelUnknown", {
+              n: DEFAULT_CONTEXT_WINDOW,
+              short: formatTokens(DEFAULT_CONTEXT_WINDOW),
+            })
       }
     >
       <BoundedNumber
