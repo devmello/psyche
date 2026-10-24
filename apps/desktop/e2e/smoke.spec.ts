@@ -293,7 +293,9 @@ test("Settings shares a folder through the native picker as a permissions.policy
       filePaths: [folder],
     })) as typeof dialog.showOpenDialog;
   }, picked);
-  await page.getByTestId("rail").getByRole("button", { name: "Settings" }).click();
+  // Settings sits in the rail's bottom menu (the kit rail, #561).
+  await page.getByTestId("rail").getByRole("button", { name: "Menu" }).click();
+  await page.getByRole("menuitem", { name: "Settings" }).click();
   await page
     .getByRole("navigation", { name: "Settings sections" })
     .getByRole("button", { name: "File access" })

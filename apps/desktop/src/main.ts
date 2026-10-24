@@ -74,6 +74,7 @@ import {
 import { TerminalHost } from "./main/terminal.ts";
 import { PsycheTray } from "./main/tray.ts";
 import { startUpdater } from "./main/updater.ts";
+import { wantsAnyWindowSize } from "./main/window-options.ts";
 import { type AppWindows, createAppWindows, preloadPath } from "./main/windows.ts";
 
 /**
@@ -671,6 +672,7 @@ void app.whenReady().then(async () => {
     rendererUrl,
     preloadPath: preloadPath(),
     splash: () => splashWanted,
+    anySize: wantsAnyWindowSize(app.isPackaged, process.env),
     // The stored zoom wins over Electron's own per-origin memory on every load.
     onViewCreated: (wc) => wc.on("did-finish-load", () => zoom.applyTo(wc)),
     onMainCreated: (win, view) => {

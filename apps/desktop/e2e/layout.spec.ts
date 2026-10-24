@@ -291,6 +291,8 @@ test.beforeAll(async () => {
       PSYCHE_GATEWAY_ORIGIN: gw.origin,
       PSYCHE_GATEWAY_MODE: "external",
       PSYCHE_DISABLE_GLOBAL_SHORTCUTS: "1",
+      // CI's display is shorter than 900 px; macOS would clamp the window to it (#561).
+      PSYCHE_E2E_ANY_WINDOW_SIZE: "1",
     },
   });
   page = await app.firstWindow();
