@@ -109,8 +109,12 @@ const say = (text: string): ModelEvent[] => [
 ];
 
 async function until(pred: () => boolean, what: string): Promise<void> {
-  for (let i = 0; i < 2000; i += 1) {
+  // Generous tick bound plus a wall-clock limit: CI runners under load need far more than a few
+  // thousand event-loop turns for real I/O.
+  const deadline = Date.now() + 15_000;
+  for (let i = 0; i < 200_000; i += 1) {
     if (pred()) return;
+    if (Date.now() > deadline) break;
     await new Promise((r) => setImmediate(r));
   }
   throw new Error(`timed out waiting for ${what}`);

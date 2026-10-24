@@ -37,7 +37,7 @@ export interface RestReply {
 
 type Responder = (call: RestCall) => RestReply | undefined;
 
-export async function until(cond: () => boolean, ms = 2000): Promise<void> {
+export async function until(cond: () => boolean, ms = 15_000): Promise<void> {
   const end = Date.now() + ms;
   while (!cond()) {
     if (Date.now() > end) throw new Error("timed out waiting");

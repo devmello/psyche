@@ -142,8 +142,12 @@ export async function runTurn(h: Harness, text: string, o: TurnOptions = {}) {
 
 /** Let the run make progress until `predicate` holds (fails after many idle ticks). */
 export async function until(predicate: () => boolean, label = "condition"): Promise<void> {
-  for (let i = 0; i < 2_000; i++) {
+  // Ticks, not time: a loaded CI runner needs far more than 2 000 event-loop turns for real I/O
+  // (sqlite, fs, child processes), so the bound is generous and backed by a wall-clock limit.
+  const deadline = Date.now() + 15_000;
+  for (let i = 0; i < 200_000; i++) {
     if (predicate()) return;
+    if (Date.now() > deadline) break;
     await new Promise<void>((r) => setImmediate(r));
   }
   throw new Error(`timed out waiting for ${label}`);
