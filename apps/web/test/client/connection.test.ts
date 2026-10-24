@@ -137,6 +137,24 @@ describe("GatewayConnection", () => {
     expect(gw.connects.length).toBe(2);
   });
 
+  it("re-handshakes while pending and pairs once approved elsewhere, keeping the code up (#554)", async () => {
+    gw = await new MockGateway({ pair: { phase: "pending", code: "48-21" } }).start();
+    const { statuses } = connect({ pendingRecheckMs: 50 });
+    await until(() => statuses.at(-1)?.phase === "pending");
+    await until(() => gw.connects.length >= 2);
+    // The recheck is quiet: the banner never leaves the pairing code for "connecting".
+    const sincePending = statuses.slice(statuses.findIndex((s) => s.phase === "pending"));
+    expect(sincePending.every((s) => s.phase === "pending")).toBe(true);
+    expect(sincePending.every((s) => s.attempt === 0)).toBe(true);
+
+    gw.pair = { phase: "paired", scopes: ["operator.read"] };
+    await until(() => conn?.isPaired() === true);
+    expect(statuses.at(-1)?.phase).toBe("paired");
+    const connects = gw.connects.length;
+    await new Promise((r) => setTimeout(r, 150));
+    expect(gw.connects.length).toBe(connects); // no rechecks once paired
+  });
+
   it("stops reconnecting once denied", async () => {
     gw = await new MockGateway({ pair: { phase: "denied", reason: "revoked" } }).start();
     const { statuses } = connect();

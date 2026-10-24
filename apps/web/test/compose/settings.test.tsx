@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 
+import type { Device } from "@psyche/protocol";
 import { GatewayProvider } from "@psyche/ui";
 import { MockGateway } from "@psyche/ui/testing";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   FileAccessSettings,
@@ -11,6 +12,7 @@ import {
   policyWithFolders,
   SystemVoiceSettings,
   settingsSectionOf,
+  WebDevicesSettings,
 } from "../../src/compose/settings.tsx";
 import type {
   DictationPort,
@@ -117,6 +119,50 @@ describe("FileAccessSettings", () => {
       key: POLICY_KEY,
       value: { folders: [{ path: "/srv/docs", mode: "ro" }] },
     });
+  });
+});
+
+describe("Settings → Devices on the web (#554)", () => {
+  const webDevice = (id: string): Device =>
+    ({
+      id,
+      name: "Psyche Web",
+      platform: "web",
+      role: "client",
+      publicKey: "MCowBQYDK2VwAyEAx8x9Qm3h0Tq6vQ3m1gD4k2nqv9c3F0aY0bJ6m1s2t3U=",
+      scopes: ["operator.read", "operator.write", "operator.admin"],
+      pairedAt: "2026-10-20T10:00:00.000Z",
+      lastSeenAt: "2026-10-20T10:00:00.000Z",
+      revokedAt: null,
+    }) as Device;
+
+  it("marks this browser and revokes a stale one, never this one", async () => {
+    const gw = new MockGateway({ devices: [webDevice("dev_me"), webDevice("dev_stale")] });
+    const base = platformWith(undefined);
+    const platform: ShellPlatform = {
+      ...base,
+      gateway: { ...base.gateway, deviceId: async () => "dev_me" },
+    };
+    render(
+      <GatewayProvider client={gw}>
+        <WebDevicesSettings platform={platform} />
+      </GatewayProvider>,
+    );
+    const chip = await screen.findByText("This device");
+    expect(screen.queryByTestId("this-mac-admin")).toBeNull();
+    const menus = await screen.findAllByRole("button", { name: "More for Psyche Web" });
+    expect(menus).toHaveLength(1);
+    expect(chip.closest("li")?.contains(menus[0] as Node)).toBe(false);
+
+    fireEvent.click(menus[0] as HTMLElement);
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Revoke" }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Revoke" }));
+    await waitFor(() =>
+      expect(gw.calls.find((c) => c.method === "devices.revoke")?.params).toEqual({
+        deviceId: "dev_stale",
+      }),
+    );
   });
 });
 

@@ -290,6 +290,30 @@ describe("GoalsScreen", () => {
     });
     expect(await screen.findByText("Tell Wren a goal in chat, or add one here.")).toBeTruthy();
   });
+
+  it("adds a goal from the empty state with goals.create and opens it (#554)", async () => {
+    const { callsTo, navigate, user } = setup(<GoalsScreen />, {
+      edit: (w) => {
+        w.goals = [];
+      },
+    });
+    await user.click(await screen.findByRole("button", { name: "Add a goal" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add a goal" });
+    const add = within(dialog).getByRole("button", { name: "Add a goal" });
+    expect((add as HTMLButtonElement).disabled).toBe(true);
+    await user.type(within(dialog).getByLabelText("Goal"), "Read 20 books");
+    await user.selectOptions(within(dialog).getByLabelText("Category"), "learning");
+    await user.click(add);
+    await waitFor(() =>
+      expect(callsTo("goals.create")[0]?.params).toEqual({
+        title: "Read 20 books",
+        category: "learning",
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(await screen.findByRole("button", { name: "Read 20 books" })).toBeTruthy();
+    expect(navigate).toHaveBeenCalledWith(expect.stringMatching(/^\/goals\//));
+  });
 });
 
 describe("GoalPage", () => {

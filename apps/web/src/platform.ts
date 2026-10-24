@@ -42,6 +42,7 @@ export function createWebPlatform(loc: Pick<Location, "origin"> = window.locatio
     onEvent: (cb) => sub(eventCbs, cb),
     onResync: (cb) => sub(resyncCbs, cb),
     call: (method, params, options) => conn.call(method, params, options),
+    deviceId: async () => (await deviceKey()).deviceId,
   };
   conn.start();
   const authenticator = browserAuthenticator();

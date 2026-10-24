@@ -424,6 +424,8 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
           ) : null}
           <OnboardingFlow
             {...(helper ? { helper } : {})}
+            // Only the desktop can ask macOS; the web skips the step (#554).
+            macPermissions={platform.permissions !== undefined}
             onRequestPermission={(p) => requestPermission(platform, p)}
             onReadPermissions={() => readPermissions(platform)}
             onSaveKey={(provider, key) => saveProviderKey(platform, provider, key)}
