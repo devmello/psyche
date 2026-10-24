@@ -1,13 +1,18 @@
 import { PROTOCOL_VERSION } from "@psyche/protocol";
 import { GatewayConnection, type GatewayConnectionOptions } from "./client/connection.ts";
-import { createEphemeralDeviceKey, type WebDeviceKey } from "./lib/device-key.ts";
+import { loadDeviceKey, type WebDeviceKey } from "./lib/device-key.ts";
 import { gatewayWsUrl, healthzUrl } from "./lib/ws-url.ts";
 
-/** One device key per page, created on first use (the connection and passkeys share it). */
-export function lazyDeviceKey(): () => Promise<WebDeviceKey> {
+/**
+ * One device key per page, loaded (or created and stored) on first use; the connection and
+ * passkeys share it.
+ */
+export function lazyDeviceKey(
+  load: () => Promise<WebDeviceKey> = loadDeviceKey,
+): () => Promise<WebDeviceKey> {
   let key: Promise<WebDeviceKey> | undefined;
   return () => {
-    key ??= createEphemeralDeviceKey();
+    key ??= load();
     return key;
   };
 }

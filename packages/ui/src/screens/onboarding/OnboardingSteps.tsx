@@ -962,8 +962,11 @@ const CHECK_TONE = { ok: "success", warn: "approval" } as const;
 export function DoneStep({
   result,
   checks,
+  permissionsOnMac = false,
 }: {
   result: OnboardingResult;
+  /** This window can't ask macOS: say the permissions are set up in the desktop app (#554). */
+  permissionsOnMac?: boolean;
   /** What `onVerify` found; "checking" while it runs. */
   checks?: SetupCheck[] | "checking";
 }): ReactElement {
@@ -988,7 +991,11 @@ export function DoneStep({
           { term: t("onboarding.done.tagline"), value: p.tagline || t("onboarding.done.none") },
           {
             term: t("onboarding.done.permissions"),
-            value: granted.length > 0 ? activeI18n().list(granted) : t("onboarding.done.noneYet"),
+            value: permissionsOnMac
+              ? t("onboarding.done.permissionsOnMac")
+              : granted.length > 0
+                ? activeI18n().list(granted)
+                : t("onboarding.done.noneYet"),
           },
           {
             term: t("onboarding.done.accounts"),

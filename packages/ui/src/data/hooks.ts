@@ -1049,6 +1049,14 @@ export function useGoals() {
         run: () => store.call("goals.decide", { goalId, decision }),
         commit: (s, r) => put(s, "goals", r.goal),
       }),
+    /** A stated goal, active at once (`goals.create`). */
+    create: (title: string, category: Goal["category"]) =>
+      store
+        .mutate({
+          run: () => store.call("goals.create", { title, category }),
+          commit: (s, r) => put(s, "goals", r.goal),
+        })
+        .then((r) => r.goal),
   };
 }
 

@@ -20,7 +20,7 @@ export interface GatewayPort {
   onEvent(cb: (event: GatewayEvent) => void): Unsubscribe;
   /** Fired after reconnects and `seq` gaps: refetch collections (data model §11). */
   onResync(cb: () => void): Unsubscribe;
-  /** Desktop only: this window's paired device id. */
+  /** This window's device id (the desktop main process's, or this browser's stored key). */
   deviceId?(): Promise<string | undefined>;
   /** Desktop only: the Gateway process the app starts (LaunchAgent or dev child). */
   getRun?(): Promise<GatewayRunView>;

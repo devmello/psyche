@@ -154,6 +154,8 @@ export const onboarding = {
   "onboarding.done.none": "None",
   "onboarding.done.permissions": "Permissions",
   "onboarding.done.noneYet": "None yet",
+  "onboarding.done.permissionsOnMac":
+    "Accessibility, Screen Recording and Notifications are set up in the Psyche app on your Mac",
   "onboarding.done.accounts": "Accounts",
   "onboarding.done.account": "{label} ({mode})",
   "onboarding.done.model": "Model",

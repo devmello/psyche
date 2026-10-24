@@ -158,7 +158,9 @@ export function DevicesPanel({
                       </li>
                     ))}
                   </ul>
-                  {d.id === thisDeviceId && d.scopes.includes("operator.admin") ? (
+                  {d.id === thisDeviceId &&
+                  d.platform === "macos" &&
+                  d.scopes.includes("operator.admin") ? (
                     <p className="text-sm" data-testid="this-mac-admin">
                       {t("settings.devices.thisMacAdmin")}
                     </p>

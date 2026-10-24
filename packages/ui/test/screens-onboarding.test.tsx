@@ -369,6 +369,34 @@ describe("Mac helper in onboarding", () => {
   });
 });
 
+describe("Onboarding where this window can't ask macOS (web, #554)", () => {
+  it("leaves out Permissions and says on Done they are set up in the Mac app", async () => {
+    const { onStepChange } = setup({ macPermissions: false });
+    const items = steps().getAllByRole("listitem");
+    expect(items).toHaveLength(5);
+    expect(steps().queryByText("Permissions")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Allow/ })).toBeNull();
+    await next();
+    expect(heading().textContent).toContain("Connect");
+    expect(onStepChange).toHaveBeenLastCalledWith("connectors");
+    expect(heading().querySelector(".sr-only")?.textContent).toContain("Step 2 of 5");
+  });
+
+  it("a /onboarding/permissions route lands on the next step", () => {
+    setup({ macPermissions: false, step: "permissions" });
+    expect(heading().textContent).toContain("Connect");
+  });
+
+  it("Done says where the permissions are set up", () => {
+    setup({ macPermissions: false, step: "done" });
+    expect(
+      screen.getByText(
+        "Accessibility, Screen Recording and Notifications are set up in the Psyche app on your Mac",
+      ),
+    ).toBeTruthy();
+  });
+});
+
 describe("Onboarding polish (UI design §3.19)", () => {
   it("carries the Psyche mark above the steps", () => {
     setup();

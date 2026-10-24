@@ -17,7 +17,7 @@ import {
 import { type ReactElement, type ReactNode, useEffect, useMemo, useState } from "react";
 import type { DictationPort, ShellPlatform, SystemDictationStatus } from "../shell/platform.ts";
 import { BackupsPanel } from "./backups.tsx";
-import { DesktopDevicesSettings } from "./helper.tsx";
+import { DesktopDevicesSettings, useThisDeviceId } from "./helper.tsx";
 import { LogViewer } from "./logs.tsx";
 import { PasskeysPanel } from "./passkeys.tsx";
 import { ComputerUseSettings } from "./permissions.tsx";
@@ -160,6 +160,17 @@ export function FileAccessSettings({ platform }: { platform: ShellPlatform }): R
 }
 
 /** `/settings/:section`, falling back to the first section for unknown or missing ids. */
+/** Settings → Devices on the web: the Gateway's devices with this browser marked, and its passkeys. */
+export function WebDevicesSettings({ platform }: { platform: ShellPlatform }): ReactElement {
+  const deviceId = useThisDeviceId(platform);
+  return (
+    <div className="flex flex-col gap-4">
+      <DevicesSection {...(deviceId === undefined ? {} : { thisDeviceId: deviceId })} />
+      <PasskeysPanel host={platform.passkeys} />
+    </div>
+  );
+}
+
 export function settingsSectionOf(route: string): SettingsSectionId | null {
   const m = /^\/settings(?:\/([^/?#]+))?/.exec(route);
   if (m === null) return null;
@@ -237,12 +248,7 @@ export function settingsRoute(
             : {}),
           ...(platform.kind === "web"
             ? {
-                devices: (
-                  <div className="flex flex-col gap-4">
-                    <DevicesSection />
-                    <PasskeysPanel host={platform.passkeys} />
-                  </div>
-                ),
+                devices: <WebDevicesSettings platform={platform} />,
               }
             : platform.helper
               ? { devices: <DesktopDevicesSettings platform={platform} /> }

@@ -1,5 +1,5 @@
 import type { Thread } from "@psyche/protocol";
-import { t } from "@psyche/ui";
+import { t, type UiSlots, UiSlotsProvider } from "@psyche/ui";
 import {
   type ReactElement,
   type ReactNode,
@@ -225,6 +225,9 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       // app:// and file:// hosts may refuse; the in-memory route still changes
     }
   }, []);
+
+  // The kit's own links (Goals' Add a goal, a failed run's Settings → Models) use the shell's route.
+  const kitSlots = useMemo<UiSlots>(() => ({ navigate }), [navigate]);
 
   const dispatch = useCallback(
     (action: LayoutAction) => {
@@ -470,17 +473,19 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
 
   if (popOutPane && threadId) {
     return (
-      <div className="shell" style={{ gridTemplateColumns: "1fr" }} data-testid="popout">
-        <PaneArea
-          layout={layout}
-          threadId={threadId}
-          width={width}
-          covered={overlay !== null}
-          dispatch={dispatch}
-          {...(slots.pane ? { renderPane: slots.pane, navigate } : {})}
-        />
-        <Toasts />
-      </div>
+      <UiSlotsProvider value={kitSlots}>
+        <div className="shell" style={{ gridTemplateColumns: "1fr" }} data-testid="popout">
+          <PaneArea
+            layout={layout}
+            threadId={threadId}
+            width={width}
+            covered={overlay !== null}
+            dispatch={dispatch}
+            {...(slots.pane ? { renderPane: slots.pane, navigate } : {})}
+          />
+          <Toasts />
+        </div>
+      </UiSlotsProvider>
     );
   }
 
@@ -492,131 +497,134 @@ function Shell({ layout, slots }: { layout: LayoutStore; slots: ShellSlots }): R
       : thread.title || t("web.threads.sideChat")
     : sectionTitle(route);
   return (
-    <div className="app-frame" data-testid="app-frame">
-      <a className="skip-link" href="#main">
-        {t("web.shell.skipToContent")}
-      </a>
-      <TitleBar chrome={platform.chrome}>
-        <span className="title">{barTitle}</span>
-        {/* Connected is the quiet default; only other states earn a chip (docs/06 §3.0). */}
-        {status.phase === "paired" ? null : (
-          <span data-no-drag="">
-            <GatewayPill status={status} />
-          </span>
-        )}
-      </TitleBar>
-      <div className="shell" data-compact={compact} data-testid="shell">
-        {slots.rail ? (
-          <div className="rail-slot" data-testid="rail">
-            {slots.rail({ route, compact, navigate })}
-          </div>
-        ) : (
-          <Rail
-            route={route}
-            compact={compact}
-            onNavigate={navigate}
-            {...(inset ? {} : { footer: <GatewayPill status={status} /> })}
-          />
-        )}
-        {onChat && !compact && slots.threadList ? (
-          <div className="threads-slot" hidden={listHidden} data-testid="thread-list">
-            {slots.threadList({
-              threadId,
-              onOpen: (id) => navigate(`/chat/${id}`),
-              onNew: newSideChat,
-            })}
-          </div>
-        ) : onChat && !compact ? (
-          <ThreadList
-            hidden={listHidden}
-            currentThreadId={threadId}
-            onOpen={(id) => navigate(`/chat/${id}`)}
-            onNew={newSideChat}
-          />
-        ) : (
-          <span />
-        )}
-        <main
-          id="main"
-          tabIndex={-1}
-          aria-label={barTitle}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            minWidth: 0,
-            minHeight: 0,
-            outline: "none",
-          }}
-        >
-          {/* The chat has no visible page title (docs/a11y-audit.md L2). */}
-          {onChat ? <h1 className="sr-only">{barTitle}</h1> : null}
-          <OfflineBanner
-            status={status}
-            pairingGrace={pairingGrace}
-            {...(gatewayRun ? { run: gatewayRun } : {})}
-            {...(platform.gateway.showLogs
-              ? { onShowLogs: () => void platform.gateway.showLogs?.() }
-              : {})}
-          />
-          {onChat && slots.chat && threadId ? (
-            slots.chat(threadId, {
-              thread,
-              navigate,
-              setPermissionMode,
-              openModelPicker: () => setOverlay("model"),
-              openPane: (pane, target) => dispatch({ type: "open", pane, target: target ?? null }),
-            })
-          ) : onChat ? (
-            <ChatView
-              thread={thread}
-              onModeCycle={cycleMode}
-              onModelPicker={() => setOverlay("model")}
-              focusToken={focusToken}
+    <UiSlotsProvider value={kitSlots}>
+      <div className="app-frame" data-testid="app-frame">
+        <a className="skip-link" href="#main">
+          {t("web.shell.skipToContent")}
+        </a>
+        <TitleBar chrome={platform.chrome}>
+          <span className="title">{barTitle}</span>
+          {/* Connected is the quiet default; only other states earn a chip (docs/06 §3.0). */}
+          {status.phase === "paired" ? null : (
+            <span data-no-drag="">
+              <GatewayPill status={status} />
+            </span>
+          )}
+        </TitleBar>
+        <div className="shell" data-compact={compact} data-testid="shell">
+          {slots.rail ? (
+            <div className="rail-slot" data-testid="rail">
+              {slots.rail({ route, compact, navigate })}
+            </div>
+          ) : (
+            <Rail
+              route={route}
+              compact={compact}
+              onNavigate={navigate}
+              {...(inset ? {} : { footer: <GatewayPill status={status} /> })}
+            />
+          )}
+          {onChat && !compact && slots.threadList ? (
+            <div className="threads-slot" hidden={listHidden} data-testid="thread-list">
+              {slots.threadList({
+                threadId,
+                onOpen: (id) => navigate(`/chat/${id}`),
+                onNew: newSideChat,
+              })}
+            </div>
+          ) : onChat && !compact ? (
+            <ThreadList
+              hidden={listHidden}
+              currentThreadId={threadId}
+              onOpen={(id) => navigate(`/chat/${id}`)}
+              onNew={newSideChat}
             />
           ) : (
-            (slots.section?.(route, navigate) ?? <SectionPlaceholder route={route} />)
+            <span />
           )}
-        </main>
-        {onChat && threadId ? (
-          <PaneArea
-            layout={layout}
-            threadId={threadId}
-            width={width}
-            covered={overlay !== null}
-            dispatch={dispatch}
-            {...(slots.pane ? { renderPane: slots.pane, navigate } : {})}
-          />
-        ) : (
-          <span />
-        )}
-        {overlay === "palette" ? (
-          <CommandPalette
-            actions={actions}
-            onClose={() => setOverlay(null)}
-            onNavigate={navigate}
-          />
-        ) : null}
-        {overlay === "shortcuts" ? <ShortcutSheet onClose={() => setOverlay(null)} /> : null}
-        {overlay === "model" ? (
-          <ModelPicker
-            current={thread?.modelRef ?? null}
-            onClose={() => {
-              setOverlay(null);
-              setFocusToken((n) => n + 1);
+          <main
+            id="main"
+            tabIndex={-1}
+            aria-label={barTitle}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              minWidth: 0,
+              minHeight: 0,
+              outline: "none",
             }}
-            onPick={(modelRef) => {
-              if (!thread) return;
-              void store
-                .call("threads.update", { threadId: thread.id, modelRef })
-                .then(
-                  (r) => r === undefined && store.toast(t("web.toast.modelUnsupported"), "warn"),
-                )
-                .catch(() => store.toast(t("web.toast.modelUnsupported"), "warn"));
-            }}
-          />
-        ) : null}
-        <Toasts />
+          >
+            {/* The chat has no visible page title (docs/a11y-audit.md L2). */}
+            {onChat ? <h1 className="sr-only">{barTitle}</h1> : null}
+            <OfflineBanner
+              status={status}
+              pairingGrace={pairingGrace}
+              {...(gatewayRun ? { run: gatewayRun } : {})}
+              {...(platform.gateway.showLogs
+                ? { onShowLogs: () => void platform.gateway.showLogs?.() }
+                : {})}
+            />
+            {onChat && slots.chat && threadId ? (
+              slots.chat(threadId, {
+                thread,
+                navigate,
+                setPermissionMode,
+                openModelPicker: () => setOverlay("model"),
+                openPane: (pane, target) =>
+                  dispatch({ type: "open", pane, target: target ?? null }),
+              })
+            ) : onChat ? (
+              <ChatView
+                thread={thread}
+                onModeCycle={cycleMode}
+                onModelPicker={() => setOverlay("model")}
+                focusToken={focusToken}
+              />
+            ) : (
+              (slots.section?.(route, navigate) ?? <SectionPlaceholder route={route} />)
+            )}
+          </main>
+          {onChat && threadId ? (
+            <PaneArea
+              layout={layout}
+              threadId={threadId}
+              width={width}
+              covered={overlay !== null}
+              dispatch={dispatch}
+              {...(slots.pane ? { renderPane: slots.pane, navigate } : {})}
+            />
+          ) : (
+            <span />
+          )}
+          {overlay === "palette" ? (
+            <CommandPalette
+              actions={actions}
+              onClose={() => setOverlay(null)}
+              onNavigate={navigate}
+            />
+          ) : null}
+          {overlay === "shortcuts" ? <ShortcutSheet onClose={() => setOverlay(null)} /> : null}
+          {overlay === "model" ? (
+            <ModelPicker
+              current={thread?.modelRef ?? null}
+              onClose={() => {
+                setOverlay(null);
+                setFocusToken((n) => n + 1);
+              }}
+              onPick={(modelRef) => {
+                if (!thread) return;
+                void store
+                  .call("threads.update", { threadId: thread.id, modelRef })
+                  .then(
+                    (r) => r === undefined && store.toast(t("web.toast.modelUnsupported"), "warn"),
+                  )
+                  .catch(() => store.toast(t("web.toast.modelUnsupported"), "warn"));
+              }}
+            />
+          ) : null}
+          <Toasts />
+        </div>
       </div>
-    </div>
+    </UiSlotsProvider>
   );
 }
