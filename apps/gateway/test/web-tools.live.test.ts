@@ -1,7 +1,8 @@
 /**
  * Live gate for #557: a real model (Haiku by default) answers a current-facts question through
  * the built-in `web.search` / `web.fetch` tools against the real web. Skipped unless
- * `PSYCHE_LIVE_TESTS=1` and `ANTHROPIC_API_KEY` are set. With `PSYCHE_SEARCH_BRAVE_KEY` it uses
+ * `PSYCHE_LIVE_TESTS=1` and either `PSYCHE_MODEL` (any model ref the Gateway accepts, e.g.
+ * `claude-code/haiku` on a signed-in claude CLI) or `ANTHROPIC_API_KEY` is set. With `PSYCHE_SEARCH_BRAVE_KEY` it uses
  * Brave; otherwise DuckDuckGo's HTML endpoint (keyless, rate-limited).
  *
  *   set -a; . /path/to/psyche/.env; set +a
@@ -17,10 +18,15 @@ import { AiSdkAdapter, type KeySource } from "@psyche/model-router";
 import { ResolvedSecret } from "@psyche/protocol";
 import { afterAll, describe, expect, it } from "vitest";
 import { type ComposedGateway, composeGateway } from "../src/compose/index.ts";
+import { modelSetupFromEnv } from "../src/compose/models.ts";
 import { silentLogger } from "../src/log.ts";
 import { adminClient, ik, type TestClient } from "./helpers.ts";
 
-const LIVE = process.env.PSYCHE_LIVE_TESTS === "1" && (process.env.ANTHROPIC_API_KEY ?? "") !== "";
+// `PSYCHE_MODEL` (e.g. `claude-code/haiku`, the owner's subscription through the claude CLI)
+// goes through the Gateway's own model setup; otherwise an Anthropic key runs Haiku directly.
+const LIVE =
+  process.env.PSYCHE_LIVE_TESTS === "1" &&
+  ((process.env.PSYCHE_MODEL ?? "") !== "" || (process.env.ANTHROPIC_API_KEY ?? "") !== "");
 const MODEL = process.env.PSYCHE_LIVE_ANTHROPIC_MODEL ?? "claude-haiku-5-5";
 
 const envKeys: KeySource = {
@@ -51,10 +57,18 @@ describe.skipIf(!LIVE)("live: web.search with Haiku (#557)", () => {
     timeout: 240_000,
   }, async () => {
     home = mkdtempSync(join(tmpdir(), "psyche-web-live-"));
-    const provider = new AiSdkAdapter(
-      { id: "anthropic", kind: "anthropic", profiles: [{ id: "env", credential: "{{cred:env}}" }] },
-      { keys: envKeys },
-    );
+    const fromEnv = modelSetupFromEnv(process.env);
+    const model = fromEnv ?? {
+      provider: new AiSdkAdapter(
+        {
+          id: "anthropic",
+          kind: "anthropic",
+          profiles: [{ id: "env", credential: "{{cred:env}}" }],
+        },
+        { keys: envKeys },
+      ),
+      model: `anthropic/${MODEL}`,
+    };
     const env: Record<string, string> = {};
     if (process.env.PSYCHE_SEARCH_BRAVE_KEY)
       env.PSYCHE_SEARCH_BRAVE_KEY = process.env.PSYCHE_SEARCH_BRAVE_KEY;
@@ -65,7 +79,7 @@ describe.skipIf(!LIVE)("live: web.search with Haiku (#557)", () => {
       background: false,
       timeZone: "UTC",
       config: { home, port: 0, dbPath: join(home, "psyche.db"), webRoot: null },
-      model: { provider, model: `anthropic/${MODEL}` },
+      model,
     });
     const owner = await adminClient(composed.gateway);
     clients.push(owner);
