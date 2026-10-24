@@ -156,7 +156,8 @@ describe("Brave provider", () => {
     expect(url.origin).toBe("https://api.search.brave.com");
     expect(url.searchParams.get("count")).toBe("5");
     expect(url.toString()).not.toContain(KEY);
-    expect((f.seen[0]?.init?.headers as Record<string, string>)["x-subscription-token"]).toBe(KEY);
+    const headers = (f.seen[0]?.init?.headers ?? {}) as Record<string, string>;
+    expect(headers["x-subscription-token"]).toBe(KEY);
     expect(JSON.stringify(results)).not.toContain(KEY);
   });
 
