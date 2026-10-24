@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { GatewayEvent, GatewayStatus } from "../../src/client/index.ts";
 import { ONBOARDED_KEY, PsycheApp } from "../../src/compose/PsycheApp.tsx";
@@ -110,5 +110,46 @@ describe("the composed app on the web host (A8)", () => {
       method === "settings.get" ? { settings: {}, stateVersion: 1 } : call(method, params, options);
     render(<PsycheApp platform={platform} />);
     await screen.findByTestId("onboarding");
+    // The web can't ask macOS: no Permissions step (#554).
+    const progress = screen.getByRole("navigation", { name: "Onboarding progress" });
+    expect(progress.textContent).not.toContain("Permissions");
+  });
+
+  it("gives the kit the shell's navigation: Add a goal creates it and opens it (#554)", async () => {
+    window.innerWidth = 1280;
+    window.history.replaceState(null, "", "/goals");
+    const { platform } = webPlatform();
+    const call = platform.gateway.call;
+    let created: unknown;
+    platform.gateway.call = async (method, params, options) => {
+      if (method !== "goals.create") return call(method, params, options);
+      created = params;
+      return {
+        goal: {
+          id: "01JBXY6Q8Z00000000000000G1",
+          title: (params as { title: string }).title,
+          category: (params as { category: string }).category,
+          status: "active",
+          inferred: false,
+          confirmedAt: "2026-10-19T10:00:00.000Z",
+          plan: null,
+          cadence: null,
+          nextCheckinAt: null,
+          archivedAt: null,
+          createdAt: "2026-10-19T10:00:00.000Z",
+          updatedAt: "2026-10-19T10:00:00.000Z",
+        },
+        taskIds: [],
+        milestones: [],
+        links: [],
+      };
+    };
+    render(<PsycheApp platform={platform} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Add a goal" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add a goal" });
+    fireEvent.change(within(dialog).getByLabelText("Goal"), { target: { value: "Learn to swim" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add a goal" }));
+    await waitFor(() => expect(window.location.pathname).toBe("/goals/01JBXY6Q8Z00000000000000G1"));
+    expect(created).toEqual({ title: "Learn to swim", category: "other" });
   });
 });

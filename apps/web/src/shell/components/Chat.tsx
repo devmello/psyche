@@ -22,7 +22,10 @@ import { useVoiceMode, VoiceModeBar } from "./VoiceModeBar.tsx";
 
 export const PERMISSION_MODES: readonly PermissionMode[] = ["manual", "balanced", "auto", "plan"];
 
-/** Slash commands the composer always knows (docs/06 §3.2); the Gateway may add more. */
+/**
+ * The composer's slash commands (docs/06 §3.2). No Gateway method lists more, so the composer
+ * never asks (#554: it used to call `commands.list`, which every Gateway refused).
+ */
 export const BUILTIN_COMMANDS = [
   {
     name: "model",
@@ -190,7 +193,6 @@ export function Composer(props: {
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [queue, setQueue] = useState<QueuedItem[]>([]);
-  const [commands, setCommands] = useState<SlashCommand[]>(() => [...BUILTIN_COMMANDS]);
   const [sel, setSel] = useState(0);
   const [voice, setVoice] = useState<VoiceState>({ phase: "idle" });
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -206,18 +208,6 @@ export function Composer(props: {
       ...(local ? { local } : {}),
       onInterrupted: (said) => setText((prev) => (prev ? `${prev} ${said}` : said)),
     });
-  }, [store]);
-
-  useEffect(() => {
-    void store
-      .call<{ commands: SlashCommand[] }>("commands.list", {})
-      .then((r) => {
-        if (r?.commands) {
-          const names = new Set<string>(BUILTIN_COMMANDS.map((c) => c.name));
-          setCommands([...BUILTIN_COMMANDS, ...r.commands.filter((c) => !names.has(c.name))]);
-        }
-      })
-      .catch(() => undefined);
   }, [store]);
 
   useEffect(() => {
@@ -239,7 +229,7 @@ export function Composer(props: {
     };
   }, [store, capture]);
 
-  const suggestions = matchCommands(text, commands);
+  const suggestions = matchCommands(text, BUILTIN_COMMANDS);
 
   const send = async () => {
     const content = text.trim();

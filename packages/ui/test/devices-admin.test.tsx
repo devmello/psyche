@@ -32,5 +32,18 @@ describe("Settings → Devices: the first admin", () => {
       </StoryWorld>,
     );
     expect(screen.queryByTestId("this-mac-admin")).toBeNull();
+    // A browser that holds admin is not a Mac (#554).
+    rerender(
+      <StoryWorld>
+        <DevicesPanel
+          devices={[{ ...mac, platform: "web" }]}
+          pairing={[]}
+          nodes={[]}
+          thisDeviceId="d1"
+        />
+      </StoryWorld>,
+    );
+    expect(screen.queryByTestId("this-mac-admin")).toBeNull();
+    expect(screen.getByText("This device")).toBeTruthy();
   });
 });

@@ -25,9 +25,8 @@ export function useMacHelper(platform: ShellPlatform): MacHelperStatus | undefin
   return state;
 }
 
-/** Settings → Devices on the desktop: the helper's launch state above the Gateway's nodes. */
-export function DesktopDevicesSettings({ platform }: { platform: ShellPlatform }): ReactElement {
-  const helper = useMacHelper(platform);
+/** This window's device id, so Devices marks "this device" and offers no Revoke for it. */
+export function useThisDeviceId(platform: ShellPlatform): string | undefined {
   const [deviceId, setDeviceId] = useState<string>();
   useEffect(() => {
     void platform.gateway.deviceId?.().then(
@@ -35,6 +34,13 @@ export function DesktopDevicesSettings({ platform }: { platform: ShellPlatform }
       () => undefined,
     );
   }, [platform]);
+  return deviceId;
+}
+
+/** Settings → Devices on the desktop: the helper's launch state above the Gateway's nodes. */
+export function DesktopDevicesSettings({ platform }: { platform: ShellPlatform }): ReactElement {
+  const helper = useMacHelper(platform);
+  const deviceId = useThisDeviceId(platform);
   return (
     <div className="flex flex-col gap-4">
       {helper ? <MacHelperStatusRow state={helper} /> : null}

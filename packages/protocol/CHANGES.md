@@ -18,6 +18,12 @@ CI fails when the generated files are stale (`pnpm protocol:check`).
 
 ## Log
 
+### v1 additive — 2026-10-24 (#555 the first message after onboarding)
+
+For S01 (the Gateway handler and `SessionController.greet`) and S11 (the web client calls it when onboarding completes).
+
+- New method (operator.write, side-effecting): `chat.greet {threadId}` → `{started, runId}`. Starts the agent's first message in an empty thread: a turn with no user message, from a fixed Gateway prompt (BOOTSTRAP.md guides it while it exists). `started: false` when the thread has any message or a run.
+
 ### v1 additive — 2026-10-21 (S09, #529: adding an MCP server from Settings)
 
 For S09 (the Gateway's MCP part) and the Settings → MCP section.

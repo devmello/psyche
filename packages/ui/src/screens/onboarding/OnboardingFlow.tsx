@@ -97,12 +97,19 @@ export function OnboardingFlow({
   vmAvailable = true,
   helper,
   onVerify,
+  macPermissions = true,
 }: OnboardingFlowProps): ReactElement {
   const headingId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [own, setOwn] = useState<OnboardingStepId>(defaultStep);
-  const current = step ?? own;
-  const index = ONBOARDING_STEP_IDS.indexOf(current);
+  const steps = macPermissions
+    ? ONBOARDING_STEP_IDS
+    : ONBOARDING_STEP_IDS.filter((s) => s !== "permissions");
+  const asked = step ?? own;
+  const current = steps.includes(asked)
+    ? asked
+    : (steps[ONBOARDING_STEP_IDS.indexOf(asked)] ?? "agent");
+  const index = steps.indexOf(current);
   const [reached, setReached] = useState(index);
 
   const [persona, setPersona] = useState<PersonaDraft>({
@@ -154,7 +161,7 @@ export function OnboardingFlow({
   const go = (next: OnboardingStepId) => {
     if (recoveryPending) return;
     setOwn(next);
-    setReached((r) => Math.max(r, ONBOARDING_STEP_IDS.indexOf(next)));
+    setReached((r) => Math.max(r, steps.indexOf(next)));
     onStepChange?.(next);
   };
 
@@ -331,7 +338,7 @@ export function OnboardingFlow({
         </span>
         <nav aria-label={t("onboarding.progress")}>
           <ol className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
-            {ONBOARDING_STEP_IDS.map((s, i) => {
+            {steps.map((s, i) => {
               const active = s === current;
               const done = i < index;
               const reachable = i <= reached && !active;
@@ -385,7 +392,7 @@ export function OnboardingFlow({
           className="text-h1 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="sr-only">
-            {t("onboarding.stepOf", { n: index + 1, total: ONBOARDING_STEP_IDS.length })}{" "}
+            {t("onboarding.stepOf", { n: index + 1, total: steps.length })}{" "}
           </span>
           {stepLabel(current, name)}
         </h1>
@@ -452,7 +459,11 @@ export function OnboardingFlow({
           />
         ) : null}
         {current === "done" ? (
-          <DoneStep result={result} {...(checks === null ? {} : { checks })} />
+          <DoneStep
+            result={result}
+            permissionsOnMac={!macPermissions}
+            {...(checks === null ? {} : { checks })}
+          />
         ) : null}
       </section>
 
@@ -465,7 +476,7 @@ export function OnboardingFlow({
           variant="ghost"
           disabled={index === 0}
           onClick={() => {
-            const prev = ONBOARDING_STEP_IDS[index - 1];
+            const prev = steps[index - 1];
             if (prev) go(prev);
           }}
         >
@@ -477,7 +488,7 @@ export function OnboardingFlow({
             variant="ghost"
             className="ms-auto"
             onClick={() => {
-              const next = ONBOARDING_STEP_IDS[index + 1];
+              const next = steps[index + 1];
               if (next) go(next);
             }}
           >
@@ -493,7 +504,7 @@ export function OnboardingFlow({
             type="button"
             disabled={recoveryPending}
             onClick={() => {
-              const next = ONBOARDING_STEP_IDS[index + 1];
+              const next = steps[index + 1];
               if (next) go(next);
             }}
           >

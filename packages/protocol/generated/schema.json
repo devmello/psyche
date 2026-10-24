@@ -762,6 +762,14 @@
         "sideEffecting": true
       },
       {
+        "description": "Starts the agent's first message in an empty thread (the greeting after onboarding; UI design §4.13: the main chat opens with the agent's first message). Runs a turn with no user message, from a fixed Gateway prompt; BOOTSTRAP.md guides it while it exists. Does nothing (started false) when the thread has any message or a run. Side-effecting: requires idempotencyKey.",
+        "name": "chat.greet",
+        "params": "#/$defs/ChatGreetParams",
+        "result": "#/$defs/ChatGreetResult",
+        "scope": "operator.write",
+        "sideEffecting": true
+      },
+      {
         "description": "Pages the transcript backwards from the newest message.",
         "name": "chat.history",
         "params": "#/$defs/ChatHistoryParams",
@@ -6850,6 +6858,44 @@
       "required": [
         "threadId",
         "content"
+      ],
+      "type": "object"
+    },
+    "ChatGreetParams": {
+      "properties": {
+        "threadId": {
+          "description": "ULID in production",
+          "maxLength": 64,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "threadId"
+      ],
+      "type": "object"
+    },
+    "ChatGreetResult": {
+      "properties": {
+        "started": {
+          "type": "boolean"
+        },
+        "runId": {
+          "anyOf": [
+            {
+              "description": "ULID in production",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "started"
       ],
       "type": "object"
     },

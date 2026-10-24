@@ -17,6 +17,7 @@ import { ModelCallError } from "../errors.ts";
 import { parseModelRef } from "../refs.ts";
 import { ToolNameMap, type ToolNameRule } from "../tool-names.ts";
 import { BRIDGE_SCRIPT, type BridgeTool, type McpToolResult, ToolBridge } from "./bridge.ts";
+import { cliContextWindow } from "./catalog.ts";
 import { type CliPrompt, type CliSessionEnvelope, cliPrompt } from "./prompt.ts";
 import {
   cliChildPath,
@@ -203,6 +204,9 @@ export class CliAdapter implements ModelProvider {
       embeddings: false,
       promptCaching: true,
     };
+    // The chat's context meter and compaction read this (#558).
+    const window = modelId === undefined ? undefined : cliContextWindow(this.config.kind, modelId);
+    if (window !== undefined) caps.contextWindow = window;
     const override = modelId === undefined ? undefined : this.config.models?.[modelId];
     return { ...caps, ...override };
   }

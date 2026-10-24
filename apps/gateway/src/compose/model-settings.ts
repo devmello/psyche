@@ -20,6 +20,7 @@ import {
   type Clock,
   type MethodParams,
   type MethodResult,
+  type ModelCapabilityGuess,
   type ModelProviderSummary,
   type ModelRef,
   type ModelRoles,
@@ -133,6 +134,27 @@ export function modelSettingsHandlers(setup: ModelSettingsSetup): Record<string,
   const toolCheck = async (ref: ModelRef): Promise<ToolCheckStatus> =>
     (await router?.probeResult(ref))?.status ?? "untested";
 
+  /**
+   * The context window the chat itself uses (#558): when the probe's facts lack one (not probed
+   * yet, or probed before the catalog knew it), the adapter's own number (price table or CLI
+   * catalog), so Settings and the chat meter read the same value. Only the window is added.
+   */
+  const withContextWindow = async (
+    providerId: string,
+    ref: ModelRef,
+    caps: ModelCapabilityGuess | undefined,
+  ): Promise<ModelCapabilityGuess | undefined> => {
+    if (caps?.contextWindow !== undefined) return caps;
+    let window: number | undefined;
+    try {
+      window = (await router?.provider(providerId)?.capabilities(ref))?.contextWindow;
+    } catch {
+      window = undefined;
+    }
+    if (window === undefined) return caps;
+    return { ...(caps ?? { source: "catalog" as const }), contextWindow: window };
+  };
+
   const summary = async (config: ProviderConfig): Promise<ModelProviderSummary> => {
     const probe: EndpointProbeResult = (await endpoints.get(config.id)) ?? NOT_PROBED;
     const chains = (["primary", "utility"] as const).flatMap((role) => {
@@ -150,7 +172,7 @@ export function modelSettingsHandlers(setup: ModelSettingsSetup): Record<string,
     const facts = new Map(probe.models.map((m) => [m.ref, m.capabilities]));
     const models: ModelProviderSummary["models"] = [];
     for (const ref of refs) {
-      const capabilities = facts.get(ref);
+      const capabilities = await withContextWindow(config.id, ref, facts.get(ref));
       models.push({
         ref,
         toolCheck: await toolCheck(ref),

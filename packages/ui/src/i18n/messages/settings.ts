@@ -709,7 +709,7 @@ export const settings = {
   "settings.context.title": "Context and compaction",
   "settings.context.modelReads": "The primary model reads up to {n, number} tokens ({short}).",
   "settings.context.modelUnknown":
-    "The primary model's context length isn't known yet; run its endpoint check to read it.",
+    "The primary model's context length isn't known, so chats assume {n, number} tokens ({short}). Run its endpoint check to read it.",
   "settings.context.maxTokensHint":
     "Tokens a turn may carry. A chat can set its own limits from its ⋯ menu (Context limits…).",
   "settings.context.tokens": "tokens",

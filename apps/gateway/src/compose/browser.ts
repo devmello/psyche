@@ -8,6 +8,7 @@ import {
   type BridgeClient,
   BridgeServer,
   type BrowserDriverEx,
+  type BrowserToolDeps,
   botAuthDirectory,
   CdpBridgeDriver,
   createBotAuthSigner,
@@ -311,9 +312,12 @@ export function composeBrowser(
 
   const current = (): CdpBridgeDriver => {
     if (driver === undefined) {
-      throw new PsycheError("unavailable", "the browser needs the Psyche desktop app to be open", {
-        retryable: true,
-      });
+      // Fails at once (#556): nothing waits for a desktop that may never connect.
+      throw new PsycheError(
+        "unavailable",
+        "the browser needs the Psyche desktop app: open it on the Mac that runs the Gateway, then try again",
+        { retryable: true, details: { reason: "no_desktop" } },
+      );
     }
     return driver;
   };
@@ -360,7 +364,9 @@ export function composeBrowser(
     return kind === "dev_preview" ? `${base}#dev` : base;
   };
 
-  const sessionFor = (callId: string, kind: SessionKind = "web"): Promise<string> => {
+  const sessionFor = async (callId: string, kind: SessionKind = "web"): Promise<string> => {
+    // No desktop: say so before anything else (#556).
+    const primary = current();
     const ctx = services.calls.context(callId);
     const key = keyFor(callId, kind);
     let session = sessions.get(key);
@@ -377,7 +383,7 @@ export function composeBrowser(
       }
       // The dev-preview session (I12) is logged out and pinned to the approved ports; the
       // tool adds each port and origin after the owner's approval.
-      session = current().openSession({
+      session = primary.openSession({
         ...(ctx.taskId === undefined ? {} : { taskId: ctx.taskId }),
         ...(kind === "dev_preview"
           ? { policy: { devPreview: true, loopbackPorts: [] }, partition: "clean" }
@@ -481,7 +487,7 @@ export function composeBrowser(
     now: () => services.clock.now(),
   };
 
-  const unregister = registerBrowserTools(tools, {
+  const toolDeps: BrowserToolDeps = {
     driver: driverProxy,
     broker: services.broker,
     credentials,
@@ -535,7 +541,26 @@ export function composeBrowser(
         if (note !== undefined) await services.notifier.resolve(note.id).catch(() => undefined);
       };
     },
-  });
+  };
+
+  /**
+   * The `browser.*` tools are offered only while something can run them (#556): a connected
+   * desktop (the bridge), or real-Chrome mode switched on, which needs no desktop. Without
+   * either the model never sees them, so no approval card is shown for a call that could only
+   * fail; a call that races a disconnect still fails at once with `unavailable`.
+   */
+  let unregisterTools: (() => void) | undefined;
+  const syncTools = (): void => {
+    const runnable = driver !== undefined || realChromeOn();
+    if (runnable && unregisterTools === undefined) {
+      unregisterTools = registerBrowserTools(tools, toolDeps);
+    } else if (!runnable && unregisterTools !== undefined) {
+      unregisterTools();
+      unregisterTools = undefined;
+    }
+  };
+  syncTools();
+  let offSettings: (() => void) | undefined;
 
   const attach = (next: BridgeClient): CdpBridgeDriver => {
     driver?.dispose();
@@ -558,8 +583,10 @@ export function composeBrowser(
       client = undefined;
       sessions.clear();
       void endRecordings();
+      syncTools();
     });
     log?.log("info", "browser bridge connected");
+    syncTools();
     return attached;
   };
 
@@ -617,6 +644,19 @@ export function composeBrowser(
     async start(gateway: Gateway) {
       // Retention runs at boot; recordings are opt-in and short-lived (data model §12).
       void recordingStore.prune(RECORDING_RETENTION_MS).catch(() => undefined);
+      // The real-Chrome switch also decides whether the tools are offered without a desktop.
+      offSettings = gateway.bus.subscribe(["operator.read"], (frame) => {
+        const f = JSON.parse(frame) as {
+          event?: string;
+          payload?: { entries?: { key: string }[] };
+        };
+        if (
+          f.event === "settings.changed" &&
+          (f.payload?.entries ?? []).some((e) => e.key === REAL_CHROME_SETTING)
+        ) {
+          syncTools();
+        }
+      });
       if (setup.socketPath === false) return;
       server = new BridgeServer({
         socketPath: setup.socketPath ?? join(services.home, "run", "browser-bridge.sock"),
@@ -627,7 +667,9 @@ export function composeBrowser(
       await server.listen();
     },
     async stop() {
-      unregister();
+      offSettings?.();
+      unregisterTools?.();
+      unregisterTools = undefined;
       await realChrome.stop();
       unregisterCdp();
       driver?.dispose();

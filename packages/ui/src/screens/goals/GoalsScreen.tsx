@@ -20,6 +20,7 @@ import { plural } from "../../lib/format.ts";
 import { cn } from "../../lib/utils.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { EvidenceLine } from "../ideas/evidence.tsx";
+import { AddGoalDialog } from "./AddGoalDialog.tsx";
 import { formatWhen, GoalPage } from "./GoalPage.tsx";
 import {
   GOAL_CATEGORY_LABEL,
@@ -298,7 +299,7 @@ export interface GoalsScreenProps {
   selectedGoalId?: string | null;
   /** Defaults to navigating to `/goals/<id>`. */
   onOpenGoal?: (goal: Goal) => void;
-  /** The empty state's action; defaults to opening the main chat. */
+  /** Add a goal; defaults to the add dialog (`goals.create`). */
   onAddGoal?: () => void;
   /** Passed to the goal page; defaults to `goals.archive`. */
   onDeleteGoal?: (goal: Goal) => Promise<unknown> | undefined;
@@ -316,6 +317,7 @@ export function GoalsScreen({
   const goals = useGoals();
   /** "Later" leaves a candidate as it is; hide it for this visit. */
   const [later, setLater] = useState<ReadonlySet<string>>(new Set());
+  const [adding, setAdding] = useState(false);
 
   const decide = (goal: Goal, decision: "confirm" | "reject" | "later") => {
     if (decision === "later") setLater((s) => new Set(s).add(goal.id));
@@ -332,28 +334,42 @@ export function GoalsScreen({
 
   const empty = goals.goals.length === 0 && goals.candidates.length === 0;
   return (
-    <GoalsView
-      goals={goals.goals}
-      candidates={goals.candidates.filter((g) => !later.has(g.id))}
-      loading={goals.loading && empty}
-      loadingDelayMs={150}
-      error={empty ? goals.error : null}
-      onRetry={goals.reload}
-      selectedGoalId={selectedGoalId}
-      persona={persona.name}
-      onOpenGoal={onOpenGoal ?? ((g) => navigate?.(`/goals/${g.id}`))}
-      onDecide={decide}
-      onOpenRoute={(route) => navigate?.(route)}
-      onAddGoal={onAddGoal ?? (() => navigate?.("/chat"))}
-      detail={
-        selectedGoalId === null ? undefined : (
-          <GoalPage
-            goalId={selectedGoalId}
-            onDeleted={() => navigate?.("/goals")}
-            {...(onDeleteGoal ? { onDelete: onDeleteGoal } : {})}
-          />
-        )
-      }
-    />
+    <>
+      <GoalsView
+        goals={goals.goals}
+        candidates={goals.candidates.filter((g) => !later.has(g.id))}
+        loading={goals.loading && empty}
+        loadingDelayMs={150}
+        error={empty ? goals.error : null}
+        onRetry={goals.reload}
+        selectedGoalId={selectedGoalId}
+        persona={persona.name}
+        onOpenGoal={onOpenGoal ?? ((g) => navigate?.(`/goals/${g.id}`))}
+        onDecide={decide}
+        onOpenRoute={(route) => navigate?.(route)}
+        onAddGoal={onAddGoal ?? (() => setAdding(true))}
+        detail={
+          selectedGoalId === null ? undefined : (
+            <GoalPage
+              goalId={selectedGoalId}
+              onDeleted={() => navigate?.("/goals")}
+              {...(onDeleteGoal ? { onDelete: onDeleteGoal } : {})}
+            />
+          )
+        }
+      />
+      {onAddGoal ? null : (
+        <AddGoalDialog
+          open={adding}
+          onOpenChange={setAdding}
+          onAdd={(title, category) =>
+            goals.create(title, category).then((goal) => {
+              toast(t("screens.goals.added", { title: goal.title }));
+              navigate?.(`/goals/${goal.id}`);
+            })
+          }
+        />
+      )}
+    </>
   );
 }

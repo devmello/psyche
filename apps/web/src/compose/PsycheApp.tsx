@@ -230,6 +230,32 @@ export async function completeOnboarding(
     { key: ONBOARDED_KEY, value: now().toISOString() },
     { idempotencyKey: `onboarding:done:${now().getTime()}` },
   );
+  await greetMainChat(call, now);
+}
+
+/**
+ * The Done step promises "{name}'s first message" (#555): ask the Gateway to start the agent's
+ * greeting in the main chat. The Gateway does nothing when the chat already has messages, and a
+ * failure here (an older Gateway, a model error) never blocks finishing onboarding.
+ */
+export async function greetMainChat(
+  call: (m: string, p: unknown, o?: { idempotencyKey?: string }) => Promise<unknown>,
+  now: () => Date = () => new Date(),
+): Promise<void> {
+  try {
+    const list = (await call("threads.list", { kind: "main" })) as {
+      threads: { thread: { id: string } }[];
+    };
+    const main = list.threads[0]?.thread.id;
+    if (main === undefined) return;
+    await call(
+      "chat.greet",
+      { threadId: main },
+      { idempotencyKey: `onboarding:greet:${main}:${now().getTime()}` },
+    );
+  } catch {
+    // The chat still opens; the owner can say hello first.
+  }
 }
 
 type Gate = "loading" | "onboarding" | "ready";
@@ -398,6 +424,8 @@ export function PsycheApp({ platform }: { platform: ShellPlatform }): ReactEleme
           ) : null}
           <OnboardingFlow
             {...(helper ? { helper } : {})}
+            // Only the desktop can ask macOS; the web skips the step (#554).
+            macPermissions={platform.permissions !== undefined}
             onRequestPermission={(p) => requestPermission(platform, p)}
             onReadPermissions={() => readPermissions(platform)}
             onSaveKey={(provider, key) => saveProviderKey(platform, provider, key)}

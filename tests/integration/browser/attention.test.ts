@@ -1,3 +1,7 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { MockBrowser, MockDesktop } from "@psyche/browser/testing";
 import {
   type ComposedBrowser,
   type ComposeServices,
@@ -11,8 +15,10 @@ import { calls, MAIN, ScriptedModel, say } from "../walking-skeleton/scripted-mo
 /**
  * Pause-when-unwatched (#272) in the composed Gateway: the browser part reads the owner's
  * attention from `ComposeServices.attention` (the Gateway's half, S01) and the bundled
- * sensitive-category list from the broker's policy. No desktop is attached, so allowed calls
- * end `unavailable`; what matters is whether the attention check refused them first.
+ * sensitive-category list from the broker's policy. A mock desktop is attached (the browser tools
+ * are offered only with one, #556), its fixture hosts standing in for a sensitive site
+ * (accounts.google.com) and an ordinary one (example.com). What matters is whether the attention
+ * check refused a call before any page work.
  */
 type Json = Record<string, unknown>;
 
@@ -34,8 +40,11 @@ describe("#272: the browser's sensitive origins in the composed Gateway", () => 
   let c: Client;
   let threadId = "";
   let browser: ComposedBrowser;
+  let desktop: MockDesktop;
+  let dir = "";
 
   beforeAll(async () => {
+    dir = await mkdtemp(join(tmpdir(), "psyche-att-"));
     sk = await startSkeleton({
       model: { provider: model, model: MAIN },
       parts: [
@@ -47,6 +56,15 @@ describe("#272: the browser's sensitive origins in the composed Gateway", () => 
       ],
     });
     c = sk.client;
+    const fixture = new MockBrowser();
+    fixture.origin = (h) =>
+      h === "a"
+        ? "https://accounts.google.com"
+        : h === "b"
+          ? "https://example.com"
+          : "https://evil.example.org";
+    desktop = new MockDesktop({ browser: fixture, quarantineDir: dir });
+    browser.attach(await desktop.connect());
     const { thread } = await c.call<{ thread: { id: string } }>(
       "threads.create",
       { kind: "main" },
@@ -55,7 +73,9 @@ describe("#272: the browser's sensitive origins in the composed Gateway", () => 
     threadId = thread.id;
   }, 30_000);
   afterAll(async () => {
+    desktop?.disconnect();
     await sk?.stop();
+    if (dir) await rm(dir, { recursive: true, force: true });
   });
 
   /** One scripted turn that opens `url`; approves whatever card comes; returns the tool result. */
@@ -113,11 +133,12 @@ describe("#272: the browser's sensitive origins in the composed Gateway", () => 
   it("leaves ordinary sites alone, and sensitive ones once the owner is watching", async () => {
     services.attention.report("browser", false, false);
     const plain = await openTab("https://example.com/");
-    expect((plain.error as Json | undefined)?.code).not.toBe("presence_required");
+    expect(plain.error).toBeUndefined();
+    expect((plain.tab as Json | undefined)?.url).toBe("https://example.com/");
 
     services.attention.report("browser", true, true);
     const watched = await openTab("https://accounts.google.com/");
-    // Past the attention check; it fails only because no desktop is attached here.
-    expect((watched.error as Json | undefined)?.code).not.toBe("presence_required");
+    expect(watched.error).toBeUndefined();
+    expect((watched.tab as Json | undefined)?.url).toBe("https://accounts.google.com/");
   });
 });

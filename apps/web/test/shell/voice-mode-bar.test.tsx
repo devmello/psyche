@@ -35,7 +35,6 @@ function composer(settings: Record<string, unknown>) {
       call: async (m) => {
         calls.push(m);
         if (m === "settings.get") return { settings, stateVersion: 1 };
-        if (m === "commands.list") return { commands: [] };
         if (m === "threads.list") return { threads: [], nextCursor: null };
         if (m === "approvals.list") return { approvals: [] };
         return { notifications: [], nextCursor: null };
@@ -79,6 +78,8 @@ describe("voice mode in the composer (Q5)", () => {
     expect(screen.getByTestId("voice-mode-toggle").textContent).toBe("Voice");
     // Nothing starts on its own.
     expect(calls).not.toContain("voice.start");
+    // No Gateway serves commands.list; the composer uses its built-in list (#554).
+    expect(calls).not.toContain("commands.list");
   });
 
   it("shows the Voice button when the setting is already on", async () => {

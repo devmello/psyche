@@ -65,6 +65,11 @@ export interface GatewayConnectionOptions {
   fetch?: typeof fetch;
   healthIntervalMs?: number;
   requestTimeoutMs?: number;
+  /**
+   * While pairing is pending, re-handshake this often so an approval made elsewhere (the CLI,
+   * another device) applies without a reload; 0 turns it off. Default 5 s.
+   */
+  pendingRecheckMs?: number;
   random?: () => number;
 }
 
@@ -94,6 +99,9 @@ export class GatewayConnection {
   private stopped = true;
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   private healthTimer: ReturnType<typeof setInterval> | undefined;
+  private recheckTimer: ReturnType<typeof setTimeout> | undefined;
+  /** A pending re-handshake: the banner keeps its pairing code until the outcome is known. */
+  private quiet = false;
   private readonly pending = new Map<string, Pending>();
   private nextId = 1;
   private connectSeq = 0;
@@ -131,6 +139,8 @@ export class GatewayConnection {
     this.connectSeq++;
     clearInterval(this.healthTimer);
     clearTimeout(this.reconnectTimer);
+    clearTimeout(this.recheckTimer);
+    this.quiet = false;
     this.ws?.close(1000, "shutdown");
     this.ws = undefined;
     this.paired = false;
@@ -167,6 +177,11 @@ export class GatewayConnection {
   }
 
   private dispatch(action: StatusAction): void {
+    if (
+      this.quiet &&
+      (action.type === "connecting" || action.type === "challenge" || action.type === "verifying")
+    )
+      return;
     this.status = reduceStatus(this.status, action);
     this.opts.onStatus(this.status);
   }
@@ -203,6 +218,7 @@ export class GatewayConnection {
       params = await this.opts.connectParams();
     } catch {
       if (attempt !== this.connectSeq) return;
+      this.quiet = false;
       this.dispatch({ type: "closed" }); // counts as a failed attempt, so backoff grows
       this.scheduleReconnect();
       return;
@@ -238,7 +254,11 @@ export class GatewayConnection {
             ws.send(serializeFrame(step.send));
             this.dispatch({ type: "verifying" });
           }
-          if (step.done) settled = true;
+          if (step.done) {
+            settled = true;
+            this.quiet = false;
+          }
+          if (step.status?.type === "pending") this.scheduleRecheck(ws);
           if (paired) {
             if (this.everPaired) this.opts.onResync?.();
             this.everPaired = true;
@@ -258,6 +278,8 @@ export class GatewayConnection {
       if (this.ws !== ws) return;
       this.ws = undefined;
       this.paired = false;
+      this.quiet = false;
+      clearTimeout(this.recheckTimer);
       this.failPending("closed");
       this.dispatch({ type: "closed" });
       this.scheduleReconnect();
@@ -294,6 +316,23 @@ export class GatewayConnection {
       seq: frame.seq,
       stateVersion: frame.stateVersion,
     });
+  }
+
+  /**
+   * Pairing is pending on `ws`: ask again on a fresh socket in a while (the Gateway takes one
+   * `connect` per connection). The Gateway reuses the live pairing request, so the code stays.
+   */
+  private scheduleRecheck(ws: WebSocketLike): void {
+    const every = this.opts.pendingRecheckMs ?? 5_000;
+    clearTimeout(this.recheckTimer);
+    if (every <= 0) return;
+    this.recheckTimer = setTimeout(() => {
+      if (this.stopped || this.ws !== ws || this.status.phase !== "pending") return;
+      this.quiet = true;
+      this.ws = undefined; // this socket's close is planned: it is not a failed attempt
+      ws.close(1000, "pairing recheck");
+      void this.connect();
+    }, every);
   }
 
   private scheduleReconnect(): void {

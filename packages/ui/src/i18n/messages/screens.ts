@@ -316,6 +316,13 @@ export const screens = {
   "screens.goals.listFailed": "Psyche couldn't load your goals",
   "screens.goals.stillRun": "Check-ins still run on schedule.",
   "screens.goals.add": "Add a goal",
+  "screens.goals.addTitle": "Add a goal",
+  "screens.goals.addBody": "It's tracked at once. Ask in chat for a plan, milestones or check-ins.",
+  "screens.goals.addName": "Goal",
+  "screens.goals.addPlaceholder": "Run a half marathon",
+  "screens.goals.addCategory": "Category",
+  "screens.goals.addFailed": "Psyche couldn't add the goal ({reason}).",
+  "screens.goals.added": 'Tracking "{title}".',
   "screens.goals.empty": "Tell {name} a goal in chat, or add one here.",
   "screens.goals.noConfirmed":
     "No confirmed goals yet. Tell {name} a goal in chat, or confirm one below.",

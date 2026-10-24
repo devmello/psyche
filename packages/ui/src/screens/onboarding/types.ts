@@ -85,6 +85,11 @@ export interface OnboardingShellProps {
   ) => Promise<"passed" | "failed"> | "passed" | "failed";
   /** VM mode needs macOS 15+ on Apple silicon; `false` disables the option with a reason. */
   vmAvailable?: boolean;
+  /**
+   * `false` where this window can't ask macOS (the web, #554): the Permissions step is left out
+   * and Done says they are set up in the desktop app. Default true.
+   */
+  macPermissions?: boolean;
   /** Desktop: the bundled Mac helper's state, shown in Permissions; never blocks a step. */
   helper?: MacHelperStatus;
   /**
