@@ -161,9 +161,10 @@ test("a turn streams, reads a granted file and asks to write it; Allow once writ
   expect(readFileSync(notes, "utf8")).not.toContain("eggs");
   await allowOnce();
   await expect.poll(() => readFileSync(notes, "utf8")).toContain("- eggs");
-  // The receipt line under the write: its short id, R1, then the time (#561).
+  // The receipt line under the write: its summary and time. The receipt id (R1) is disclosure
+  // level 2 since the calm chat column (e4f014f2), so the default view doesn't show it (#561).
   await expect(
-    page.locator("p").filter({ hasText: "Write notes.md" }).filter({ hasText: /\bR1\b/ }),
+    page.locator("p").filter({ hasText: /^Write notes\.md · \d{1,2}:\d{2}/ }),
   ).toBeVisible();
 });
 
