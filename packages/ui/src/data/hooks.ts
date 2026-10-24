@@ -71,6 +71,7 @@ export function useLoader(
   loadRef.current = load;
   const [tick, setTick] = useState(0);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `tick` forces a reload from `reload()`
   useEffect(() => {
     // Without a Gateway (rendered outside a provider) there is nothing to load: stay idle.
     if (key === null || store.detached) {
