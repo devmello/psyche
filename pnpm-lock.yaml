@@ -894,6 +894,9 @@ importers:
 
   packages/search:
     dependencies:
+      '@psyche/connectors':
+        specifier: workspace:*
+        version: link:../connectors
       '@psyche/db':
         specifier: workspace:*
         version: link:../db

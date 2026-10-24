@@ -37,6 +37,7 @@ import {
   useSettingsForm,
 } from "./shared.tsx";
 import type { ProviderInfo, ProviderKind, ToolCheck } from "./types.ts";
+import { WebSearchSettingsGroup } from "./WebSearchSettings.tsx";
 
 /** Model & providers (UI design §3.18; architecture §4.4). */
 
@@ -542,6 +543,7 @@ export function ModelProvidersPanel({
           onChange={onChange}
           {...(primaryContext === undefined ? {} : { modelContextLength: primaryContext })}
         />
+        <WebSearchSettingsGroup values={values} onChange={onChange} />
         <Group title={t("settings.model.local")} description={t("settings.model.localHint")}>
           <RamGuidance {...(ramGb === undefined ? {} : { ramGb })} />
         </Group>

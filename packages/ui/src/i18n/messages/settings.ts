@@ -64,6 +64,8 @@ export const settings = {
   "settings.key.computerUse.enabled": "Allow computer use",
   "settings.key.computerUse.apps": "App access",
   "settings.key.context.maxTokens": "Context limit",
+  "settings.key.search.web.provider": "Web search provider",
+  "settings.key.search.web.searxngUrl": "SearXNG URL",
   "settings.key.context.compactAt": "Compact at",
   "settings.key.context.keepRecentTurns": "Recent turns kept verbatim",
   "settings.key.data.transcriptRecall": "Transcript recall",
@@ -716,6 +718,29 @@ export const settings = {
   "settings.context.percentOfLimit": "% of the limit",
   "settings.context.keepHint": "These are never summarised, however long they are.",
   "settings.context.turns": "turns",
+
+  // Web search for the agent's web.search / web.fetch tools, under Model (WebSearchSettings.tsx).
+  "settings.webSearch.title": "Web search",
+  "settings.webSearch.description":
+    "How the agent looks things up on the web. Results and pages are treated as web content, never as your instructions.",
+  "settings.webSearch.inUse": "In use",
+  "settings.webSearch.unknown": "Not reported yet",
+  "settings.webSearch.braveKey": "Brave Search key",
+  "settings.webSearch.braveFromEnv": "Set (PSYCHE_SEARCH_BRAVE_KEY)",
+  "settings.webSearch.braveNone": "Not set (PSYCHE_SEARCH_BRAVE_KEY)",
+  "settings.webSearch.provider.brave": "Brave Search",
+  "settings.webSearch.provider.searxng": "SearXNG",
+  "settings.webSearch.provider.duckduckgo": "DuckDuckGo (no key, rate-limited)",
+  "settings.webSearch.provider.off": "Off",
+  "settings.webSearch.choice.auto": "Automatic (Brave, then SearXNG, then DuckDuckGo)",
+  "settings.webSearch.choice.brave": "Brave Search",
+  "settings.webSearch.choice.searxng": "SearXNG",
+  "settings.webSearch.choice.duckduckgo": "DuckDuckGo",
+  "settings.webSearch.choice.off": "Off",
+  "settings.webSearch.searxngHint":
+    "Your own SearXNG instance with the JSON format enabled. Leave empty to not use one.",
+  "settings.webSearch.searxngInvalid": "Enter an http(s) URL without a user name or password.",
+  "settings.webSearch.searxngPlaceholder": "http://127.0.0.1:8888",
 
   // Settings → Data controls (DataControlsSection.tsx).
   "settings.data.title": "Data controls",

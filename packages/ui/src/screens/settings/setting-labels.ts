@@ -39,6 +39,8 @@ const LABELLED_KEYS = [
   "persona.emoji",
   "persona.creature",
   "persona.creatureId",
+  "search.web.provider",
+  "search.web.searxngUrl",
   "vault.backend",
   "vault.fillDefault",
   VM_SETTING_KEYS.enabled,

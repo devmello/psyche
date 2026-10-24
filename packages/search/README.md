@@ -58,6 +58,29 @@ Ranking runs in two steps: every match is scored once into a `TEMP` table (colla
 
 The index is derived data in its own file, `$PSYCHE_HOME/state/search.sqlite`, opened with `@psyche/db`'s hardened `openDb` (0700 directory, 0600 file, WAL) and a self-managed schema (`search_meta`, `search_docs`, `search_fts` external-content FTS5 with triggers, `search_flags`). It is not in `psyche.sqlite` because it can be deleted and rebuilt at any time and its frequent writes should not contend with the transcript writer; `docs/02-architecture.md` §12 lists it. Pass `db` to use another connection.
 
+## Web tools: `web.search` and `web.fetch` (#557)
+
+Built-in agent tools, registered by the Gateway on every surface (desktop, web client, channels), so the agent can look up current facts without the desktop browser.
+
+| Tool | Does | Policy |
+| --- | --- | --- |
+| `web.search {query, count?}` | top results: title, URL, snippet (and date when known) | `sideEffect: read`, no target (the provider is fixed by settings, never by the model): allowed in balanced and auto, hidden in plan mode |
+| `web.fetch {url, maxChars?}` | a page's title and readable text (Markdown), 20 000 characters by default, 100 000 at most | `read` with the page's origin as target, so the broker's new-origin and sensitive-host rules apply; redirects must stay on the same origin; no cookies; private, loopback and link-local addresses refused (`safeFetch` from `@psyche/connectors`) |
+
+Both return `untrusted` output: search results and page text taint the turn like any web content (security §7.2).
+
+**Providers** (`search.web.provider`: `auto` default, `brave`, `searxng`, `duckduckgo`, `off`). `auto` uses, in order:
+
+1. **Brave Search API** when `PSYCHE_SEARCH_BRAVE_KEY` is set. The key is masked in Gateway logs and only ever leaves in Brave's `X-Subscription-Token` header.
+2. **SearXNG** at `search.web.searxngUrl` (the owner's instance; a LAN address is allowed for that one host:port; JSON format must be enabled).
+3. **DuckDuckGo's HTML endpoint** (`html.duckduckgo.com/html/`, no key): requests at least 2 s apart, at most 20 per 10 minutes, and a 15-minute pause if DuckDuckGo answers with its bot check. Psyche never solves CAPTCHAs; the error tells the owner to configure Brave or SearXNG.
+
+An explicit choice that is not configured falls back like `auto` and says so. The Gateway writes the read-only `search.web.status` setting (`{preference, active, brave, searxngUrl, note}`), shown in Settings → Model & providers → Web search together with the provider picker and the SearXNG URL field.
+
+API: `createWebTools({provider, offReason?, fetchOptions?, fetchPage?})`, `braveSearch`, `duckDuckGoSearch`, `parseDuckDuckGoHtml`, `RateLimiter`, `webSearchStatus`, `providerFor`, `parsePreference`, `parseSearxngUrl`; Gateway side `composeWebTools` in `apps/gateway/src/compose/web-tools.ts`.
+
+Tests: provider parsing against recorded DuckDuckGo and Brave responses, the rate limiter and bot-check backoff, provider selection, `web.fetch` through the real `safeFetch` with a fake network (same-origin redirects, private addresses, size cap); a Gateway scenario answering "current Node.js LTS" through both tools on recorded pages; a live gate (`apps/gateway/test/web-tools.live.test.ts`, `PSYCHE_LIVE_TESTS=1`, Haiku by default).
+
 ## How this maps to the docs
 
 - Architecture §4.12 (one index, typed filters, results open their pane), §4.10 (designated persons), §4.8 (memory index and provenance), §12 (storage).

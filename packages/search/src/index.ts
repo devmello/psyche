@@ -12,6 +12,7 @@ export * from "./ranking.ts";
 export * from "./schema.ts";
 export * from "./sqlite-index.ts";
 export * from "./types.ts";
+export * from "./web/index.ts";
 
 export interface CreateSearchIndexOptions extends SqliteSearchIndexOptions {
   /**

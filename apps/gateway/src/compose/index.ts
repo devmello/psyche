@@ -69,6 +69,7 @@ import {
   type RunLauncher,
   SqliteScheduler,
 } from "@psyche/scheduler";
+import { WEB_SEARCH_PROVIDER_SETTING, WEB_SEARCH_SEARXNG_SETTING } from "@psyche/search";
 import { createTaskHandlers, SqliteTaskEngine, TaskWorkerPool } from "@psyche/tasks";
 import { SecretRedactor, type Vault } from "@psyche/vault";
 import { resolveConfig } from "../config.ts";
@@ -130,6 +131,7 @@ import { CROSS_THREAD_SETTING, crossThreadToggle, threadTools } from "./thread-t
 import { modelPinsFor, restoreModelPins, threadSettingsHandlers } from "./threads.ts";
 import { createUserProfile } from "./user-profile.ts";
 import { composeVault, maskingLogger, type VaultSetup, vaultSetupFromEnv } from "./vault.ts";
+import { composeWebTools, type WebToolsSetup } from "./web-tools.ts";
 
 /**
  * Composition root for `psyched` (INT-1): the real agent loop, model router, Permission Broker,
@@ -194,6 +196,8 @@ export interface ComposeOptions
    * mode, else the keychain through a connected Mac helper.
    */
   vault?: VaultSetup;
+  /** Built-in `web.search` / `web.fetch` network seams (#557; tests replay fixtures). */
+  web?: WebToolsSetup;
 }
 
 /**
@@ -295,6 +299,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     speech: speechSetup,
     presence = NO_PRESENCE,
     vault: vaultSetup,
+    web: webSetup,
     ...gwOptions
   } = options;
   const clock =
@@ -741,6 +746,18 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
   })) {
     registry.register(tool);
   }
+  // #557: web.search / web.fetch on every surface (read-only, untrusted output).
+  const webTools = composeWebTools(
+    {
+      db,
+      env: gwOptions.env ?? process.env,
+      publish,
+      redactor,
+      ...(gwOptions.logger === undefined ? {} : { logger: gwOptions.logger }),
+    },
+    webSetup,
+  );
+  for (const tool of webTools.tools) registry.register(tool);
   launcher = proactive.launcher(createTaskLauncher({ engine: tasks, pool }), pool);
   scheduler.subscribe((e) => publish(e.event, e.payload as never));
 
@@ -835,6 +852,7 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     threadModels: modelPins,
   });
   bus = gateway.bus;
+  webTools.refresh();
   // approval.created carries each approver's own surface token (issue #50, security §3.7):
   // only to devices that hold operator.approvals, and only their surface's token.
   gateway.bus.setPersonalizer((event, payload, sub) => {
@@ -859,6 +877,8 @@ export async function composeGateway(options: ComposeOptions): Promise<ComposedG
     if (f.event !== "settings.changed") return;
     for (const entry of f.payload?.entries ?? []) {
       if (entry.key === CROSS_THREAD_SETTING) crossThread.sync(entry.value);
+      if (entry.key === WEB_SEARCH_PROVIDER_SETTING || entry.key === WEB_SEARCH_SEARXNG_SETTING)
+        webTools.refresh();
       if (entry.key !== "permissions.policy") continue;
       try {
         rawBroker.setPolicy(hostPolicy((entry.value ?? {}) as PolicyConfig));

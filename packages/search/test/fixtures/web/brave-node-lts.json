@@ -1,0 +1,15 @@
+{
+  "type": "search",
+  "web": {
+    "results": [
+      {
+        "title": "Node.js <strong>Releases</strong>",
+        "url": "https://nodejs.org/en/about/previous-releases",
+        "description": "Node.js 24 is the current <strong>Active LTS</strong> release.",
+        "page_age": "2026-10-01T00:00:00"
+      },
+      { "title": "No URL", "description": "dropped" },
+      { "title": "ftp result", "url": "ftp://example.com/x", "description": "dropped" }
+    ]
+  }
+}
