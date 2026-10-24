@@ -16,6 +16,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@psyche/connectors": "workspace:*",
     "@psyche/db": "workspace:*",
     "@psyche/protocol": "workspace:*",
     "better-sqlite3": "13.0.3"
