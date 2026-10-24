@@ -18,6 +18,7 @@ export const agent = {
   "agent.status.needsYou": "Needs you: {n, plural, one {# item} other {# items}}",
   "agent.status.failed": "{title} failed",
   "agent.status.idle": "Idle",
+  "agent.status.working": "Working…",
 
   "agent.header.openSheet": "Open {name}'s activity, approvals, upcoming and memory",
   "agent.header.stateLead": "{state}:",

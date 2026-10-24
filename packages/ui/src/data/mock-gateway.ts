@@ -787,6 +787,10 @@ export class MockGateway implements GatewayClient {
       const message = this.commitMessage(p.threadId, "user", [{ type: "text", md: p.content }]);
       return { messageId: message.id, runId: null, queued: busy };
     },
+    "chat.greet": (p) => ({
+      started: !this.world.messages.some((m) => m.threadId === p.threadId),
+      runId: null,
+    }),
     "chat.cancel": (p) => {
       const run = this.world.runs.find((r) => r.threadId === p.threadId && r.status === "running");
       if (run === undefined) return { cancelled: false };

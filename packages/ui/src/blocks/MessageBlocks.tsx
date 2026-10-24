@@ -204,6 +204,26 @@ export interface MessageBlocksProps {
   onWrapUpAction?: (message: string) => void;
 }
 
+/**
+ * One approval block per approval (#555): the Gateway can record the same approval twice in a
+ * message (once from the `approval_requested` event, once from the loop's own block), which showed
+ * "Approved: browser.open_tab" twice. Keeps the first; transcripts already stored render right too.
+ */
+export function withoutRepeatedApprovals(blocks: readonly Block[]): readonly Block[] {
+  const seen = new Set<string>();
+  let dropped = false;
+  const out = blocks.filter((b) => {
+    if (b.type !== "approval") return true;
+    if (seen.has(b.approvalId)) {
+      dropped = true;
+      return false;
+    }
+    seen.add(b.approvalId);
+    return true;
+  });
+  return dropped ? out : blocks;
+}
+
 export function MessageBlocks({
   message,
   streamingText,
@@ -211,7 +231,7 @@ export function MessageBlocks({
   onWrapUpAction,
 }: MessageBlocksProps): ReactElement {
   const out: ReactNode[] = [];
-  const blocks = message.blocks;
+  const blocks = withoutRepeatedApprovals(message.blocks);
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i] as Block;
     const key = `${message.id}:${i}`;

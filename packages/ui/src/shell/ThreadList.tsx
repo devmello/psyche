@@ -111,7 +111,7 @@ export function ThreadRow({
               <span className="sr-only">{t("shell.threads.srRunning")}</span>
             ) : null}
             <span className="shrink-0 text-xs text-muted-foreground">
-              {th.lastMessageAt ? formatRelative(th.lastMessageAt, now) : ""}
+              {th.lastMessageAt ? formatPast(th.lastMessageAt, now) : ""}
             </span>
           </span>
           {entry.lastMessage ? (
@@ -208,6 +208,11 @@ export interface ThreadListProps {
  * Thread list (UI design §2.2): one persistent main chat plus side chats; search filter, new side
  * chat (⌘N), rename, pin, archive / restore (the main chat cannot be archived), "Archived (n)".
  */
+/** A last-message time is never in the future: clock skew or a stale tick reads "just now". */
+export function formatPast(iso: string, now: number): string {
+  return formatRelative(new Date(Math.min(Date.parse(iso), now)).toISOString(), now);
+}
+
 export function ThreadList({
   activeThreadId,
   onOpen,
@@ -215,7 +220,10 @@ export function ThreadList({
   onExport,
   now: fixedNow,
 }: ThreadListProps): ReactElement {
-  const now = useNow(60_000, fixedNow);
+  // The minute tick only re-renders; the clock is read at render (#555). A hidden window throttles
+  // the timer, so a new message re-rendered the list against a minutes-old `now` ("in 4 min").
+  const tick = useNow(60_000, fixedNow);
+  const now = fixedNow ?? Math.max(tick, Date.now());
   const threads = useThreads();
   const store = useStore();
   const [limitsFor, setLimitsFor] = useState<string | null>(null);

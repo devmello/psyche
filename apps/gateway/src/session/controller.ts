@@ -7,6 +7,7 @@ import {
   getMessage,
   getRun,
   getThread,
+  listMessagesPage,
   listQueue,
   releaseWriter,
   removeQueued,
@@ -90,6 +91,16 @@ interface PendingMessage {
   /** Index of the trailing text block that deltas append to, or -1. */
   textIndex: number;
 }
+
+/**
+ * The turn input for `chat.greet` (#555). Not stored in the transcript: the owner sees only the
+ * agent's reply. Fixed text, so no client can speak to the agent through it.
+ */
+export const GREETING_PROMPT =
+  "[Psyche: the owner just finished setting you up and opened this chat for the first time. " +
+  "Write your first message: a short, warm hello in your own voice. Mention what you can already " +
+  "reach (the accounts and tools you have) and one or two things you could help with now. If " +
+  "BOOTSTRAP.md is in your context, follow it. Do not call tools that change anything.]";
 
 /** How long `chat.cancel` waits for the agent to wind down before force-finishing the run. */
 const CANCEL_GRACE_MS = 2_000;
@@ -421,6 +432,33 @@ export class SessionController {
     } finally {
       this.#closing.delete(threadId);
     }
+  }
+
+  /**
+   * The agent's first message in an empty thread (#555; UI design §4.13): a turn with no user
+   * message, from a fixed prompt the Gateway owns (never client text). BOOTSTRAP.md, injected
+   * while it exists, carries the first-run ritual. A thread with any message or a run is left
+   * alone, so a repeat call (a second window, a reload) never greets twice.
+   */
+  greet(threadId: string, hooks: TxHooks): { started: boolean; runId: string | null } {
+    const { db } = this.#ctx;
+    const thread = getThread(db, threadId);
+    if (!thread || this.#closing.has(thread.id)) {
+      throw new PsycheError("not_found", `thread ${threadId} not found`);
+    }
+    if ((thread.activeWriterRunId ?? null) !== null) return { started: false, runId: null };
+    if (listMessagesPage(db, thread.id, { limit: 1 }).messages.length > 0) {
+      return { started: false, runId: null };
+    }
+    const run = createRun(db, {
+      threadId: thread.id,
+      modelRef: thread.modelRef ?? DEFAULT_MODEL_REF,
+    });
+    claimWriter(db, thread.id, run.id);
+    this.#bump();
+    hooks.emit("run.updated", { run }, thread.id);
+    hooks.afterCommit(() => this.#startTurn(thread, run.id, GREETING_PROMPT, []));
+    return { started: true, runId: run.id };
   }
 
   /**

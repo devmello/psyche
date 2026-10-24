@@ -127,6 +127,57 @@ describe("chat.send", () => {
   });
 });
 
+describe("chat.greet (#555)", () => {
+  it("starts the agent's first message in an empty thread without a user message", async () => {
+    const c = await setup();
+    const thread = await newThread(c);
+    agent.script([
+      { type: "run.status", status: "running" },
+      { type: "chat.delta", messageId: "g1", delta: "Hi, I'm here." },
+      { type: "end", outcome: "final" },
+    ]);
+    const res = await c.call<{ started: boolean; runId: string | null }>(
+      "chat.greet",
+      { threadId: thread.id },
+      ik(),
+    );
+    expect(res.started).toBe(true);
+    await c.waitForEvent(
+      (e) =>
+        e.event === "run.updated" &&
+        (e.payload as { run: { status: string } }).run.status === "done",
+    );
+    // Only the agent's reply is in the transcript; the prompt is the Gateway's, not stored.
+    expect(transcript(thread.id).map((m) => m.role)).toEqual(["agent"]);
+    expect(texts(thread.id)).toEqual(["Hi, I'm here."]);
+    expect(agent.turns[0]).toMatchObject({ threadId: thread.id, runId: res.runId });
+    expect(JSON.stringify(agent.turns[0]?.input)).toContain("first message");
+  });
+
+  it("does nothing in a thread that already has messages", async () => {
+    const c = await setup();
+    const thread = await newThread(c);
+    agent.script([
+      { type: "run.status", status: "running" },
+      { type: "chat.delta", messageId: "a1", delta: "Hello" },
+      { type: "end", outcome: "final" },
+    ]);
+    await c.call("chat.send", { threadId: thread.id, content: "hi" }, ik());
+    await c.waitForEvent(
+      (e) =>
+        e.event === "run.updated" &&
+        (e.payload as { run: { status: string } }).run.status === "done",
+    );
+    const res = await c.call<{ started: boolean; runId: string | null }>(
+      "chat.greet",
+      { threadId: thread.id },
+      ik(),
+    );
+    expect(res).toEqual({ started: false, runId: null });
+    expect(agent.turns).toHaveLength(1);
+  });
+});
+
 describe("events", () => {
   it("orders events by seq, bumps stateVersion monotonically and supports a refresh after a gap", async () => {
     const c = await setup();

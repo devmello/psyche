@@ -53,6 +53,17 @@ export const ChatMethods = {
     description:
       "Sends a user message. If the agent is mid-turn the message is queued by mode (default followUp). Side-effecting: requires idempotencyKey; duplicates return the original result.",
   }),
+  "chat.greet": defineMethod({
+    params: Type.Object({ threadId: Id }),
+    result: Type.Object({
+      started: Type.Boolean(),
+      runId: Nullable(Id),
+    }),
+    scope: "operator.write",
+    sideEffecting: true,
+    description:
+      "Starts the agent's first message in an empty thread (the greeting after onboarding; UI design §4.13: the main chat opens with the agent's first message). Runs a turn with no user message, from a fixed Gateway prompt; BOOTSTRAP.md guides it while it exists. Does nothing (started false) when the thread has any message or a run. Side-effecting: requires idempotencyKey.",
+  }),
   "chat.history": defineMethod({
     params: Type.Object({ threadId: Id, ...pageParams }),
     result: Type.Object({ messages: Type.Array(Message), ...nextCursor }),

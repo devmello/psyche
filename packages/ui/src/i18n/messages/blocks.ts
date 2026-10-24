@@ -134,8 +134,8 @@ export const blocks = {
   "blocks.toolRun.broker": "Broker: {decision}{hasRule, select, true { ({rule})} other {}}",
   "blocks.toolRun.tainted": "turn tainted",
   "blocks.toolRun.result": "result: {ref}",
-  "blocks.toolRun.runningNote": ", running",
-  "blocks.toolRun.failedNote": ", something failed",
+  "blocks.toolRun.runningNote": " · running",
+  "blocks.toolRun.failedNote": " · {n} failed",
 
   "blocks.disclosure.status": "status",
   "blocks.disclosure.actions": "actions",

@@ -28,6 +28,18 @@ export function useAgentStatus(
   const tasks = useStoreState((s) => s.tasks);
   const approvals = useStoreState((s) => s.approvals);
   const questions = useStoreState((s) => s.inputRequests);
+  // A chat turn in progress counts as work too (#555), not only background Tasks: a run the
+  // store has seen running, or a thread whose transcript writer is still held.
+  const chatRunning = useStoreState(
+    (s) =>
+      Object.values(s.runs).some((r) => r.status === "running") ||
+      Object.values(s.threads).some((th) => {
+        const active = th.thread.activeWriterRunId ?? null;
+        if (active === null) return false;
+        const run = s.runs[active];
+        return run === undefined || run.status === "running";
+      }),
+  );
   const { incognito = false, paused = false } = options;
   return useMemo(() => {
     const list = Object.values(tasks).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -44,7 +56,7 @@ export function useAgentStatus(
     else if (paused) state = "paused";
     else if (needsYou > 0) state = "needs-you";
     else if (latest?.status === "failed") state = "error";
-    else if (running.length > 0) state = "working";
+    else if (running.length > 0 || chatRunning) state = "working";
     else if (incognito) state = "incognito";
 
     const snippet =
@@ -54,9 +66,11 @@ export function useAgentStatus(
           ? t("agent.status.needsYou", { n: needsYou })
           : current
             ? (step ?? current.title)
-            : latest?.status === "failed"
-              ? t("agent.status.failed", { title: latest.title })
-              : t("agent.status.idle");
+            : chatRunning
+              ? t("agent.status.working")
+              : latest?.status === "failed"
+                ? t("agent.status.failed", { title: latest.title })
+                : t("agent.status.idle");
     return {
       state,
       snippet,
@@ -64,5 +78,5 @@ export function useAgentStatus(
       needsYou,
       taskId: current?.id ?? latest?.id ?? null,
     };
-  }, [connection, tasks, approvals, questions, incognito, paused]);
+  }, [connection, tasks, approvals, questions, incognito, paused, chatRunning]);
 }
