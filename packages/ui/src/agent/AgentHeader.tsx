@@ -1,7 +1,7 @@
 import type { PermissionMode } from "@psyche/protocol";
 import { Bell, ChevronDown, Download, Ellipsis, PanelRight, ShieldCheck } from "lucide-react";
 import type { ReactElement, ReactNode } from "react";
-import { AVATAR_STATE_LABEL, Avatar } from "../avatar/Avatar.tsx";
+import { AVATAR_STATE_LABEL, Avatar, type AvatarState } from "../avatar/Avatar.tsx";
 import type { ExportFormat } from "../chat/ExportMenu.tsx";
 import { Button } from "../components/ui/button.tsx";
 import {
@@ -60,6 +60,11 @@ export function modelLabel(ref: string): string {
 /** Pills in the header share one quiet, clearly interactive look (no disabled gray). */
 const PILL =
   "inline-flex h-7 items-center gap-1 rounded-full border border-gray-6 bg-gray-2 px-2.5 text-small font-medium text-foreground transition-colors hover:border-gray-8 hover:bg-gray-3 [&_svg]:size-3.5 [&_svg]:text-gray-11";
+
+/** True when the snippet already starts with the state word ("Idle", "Working…", "Needs you: 2"). */
+function snippetSaysState(snippet: string, state: AvatarState): boolean {
+  return snippet.toLowerCase().startsWith(AVATAR_STATE_LABEL[state].toLowerCase());
+}
 
 export interface AgentHeaderProps {
   /** Opens the agent sheet (avatar click). */
@@ -136,20 +141,27 @@ export function AgentHeader({
       </button>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold">{persona.name}</p>
-        <button
-          type="button"
-          className="block max-w-full truncate text-start text-sm text-muted-foreground hover:text-foreground"
-          onClick={() => (status.taskId && onOpenTask ? onOpenTask(status.taskId) : onOpenSheet())}
-        >
-          <span className="sr-only">
-            {t("agent.header.stateLead", { state: AVATAR_STATE_LABEL[status.state] })}{" "}
-          </span>
-          {snippet}
-        </button>
-        {/* Run status for screen readers, beside the button rather than on it (C13). */}
-        <span className="sr-only" role="status">
-          {AVATAR_STATE_LABEL[status.state]}
-        </span>
+        {/*
+          One polite live region around the snippet (C13: the region holds the button, it is
+          not on it). The state word is said once (#555): as a lead only when the snippet does
+          not already say it ("working: Hold the 2:30 slot", but just "Idle").
+        */}
+        <div role="status" aria-live="polite" data-testid="agent-status">
+          <button
+            type="button"
+            className="block max-w-full truncate text-start text-sm text-muted-foreground hover:text-foreground"
+            onClick={() =>
+              status.taskId && onOpenTask ? onOpenTask(status.taskId) : onOpenSheet()
+            }
+          >
+            {snippetSaysState(snippet, status.state) ? null : (
+              <span className="sr-only">
+                {t("agent.header.stateLead", { state: AVATAR_STATE_LABEL[status.state] })}{" "}
+              </span>
+            )}
+            {snippet}
+          </button>
+        </div>
       </div>
       {status.running > 0 || status.needsYou > 0 ? (
         <p className="hidden items-center gap-2 text-caption text-muted-foreground sm:flex">

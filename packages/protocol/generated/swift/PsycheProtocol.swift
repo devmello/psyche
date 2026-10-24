@@ -177,6 +177,8 @@
 //   let chatExportParams = try? JSONDecoder().decode(ChatExportParams.self, from: jsonData)
 //   let chatExportResult = try? JSONDecoder().decode(ChatExportResult.self, from: jsonData)
 //   let chatFollowUpParams = try? JSONDecoder().decode(ChatFollowUpParams.self, from: jsonData)
+//   let chatGreetParams = try? JSONDecoder().decode(ChatGreetParams.self, from: jsonData)
+//   let chatGreetResult = try? JSONDecoder().decode(ChatGreetResult.self, from: jsonData)
 //   let chatHistoryParams = try? JSONDecoder().decode(ChatHistoryParams.self, from: jsonData)
 //   let chatHistoryResult = try? JSONDecoder().decode(ChatHistoryResult.self, from: jsonData)
 //   let chatMessagePayload = try? JSONDecoder().decode(ChatMessagePayload.self, from: jsonData)
@@ -4900,6 +4902,35 @@ public struct ChatFollowUpParams: Codable, Sendable {
     public init(content: String, threadID: String) {
         self.content = content
         self.threadID = threadID
+    }
+}
+
+// MARK: - ChatGreetParams
+public struct ChatGreetParams: Codable, Sendable {
+    public let threadID: String
+
+    public enum CodingKeys: String, CodingKey {
+        case threadID = "threadId"
+    }
+
+    public init(threadID: String) {
+        self.threadID = threadID
+    }
+}
+
+// MARK: - ChatGreetResult
+public struct ChatGreetResult: Codable, Sendable {
+    public let runID: String?
+    public let started: Bool
+
+    public enum CodingKeys: String, CodingKey {
+        case runID = "runId"
+        case started = "started"
+    }
+
+    public init(runID: String?, started: Bool) {
+        self.runID = runID
+        self.started = started
     }
 }
 

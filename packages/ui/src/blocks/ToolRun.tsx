@@ -197,7 +197,10 @@ export function ToolRun({ items }: { items: readonly ToolCallItem[] }): ReactEle
   const [extra, setExtra] = useState(false);
   const shown = Math.min(2, level + (extra ? 1 : 0));
   const running = items.some((i) => i.block.status === "running");
-  const failed = items.some((i) => i.block.status === "failed" || i.block.status === "uncertain");
+  const failures = items.filter(
+    (i) => i.block.status === "failed" || i.block.status === "uncertain",
+  ).length;
+  const failed = failures > 0;
   return (
     <div className="my-1" data-disclosure={DISCLOSURE_KEY[shown as 0 | 1 | 2]}>
       <button
@@ -218,7 +221,7 @@ export function ToolRun({ items }: { items: readonly ToolCallItem[] }): ReactEle
         {running ? (
           <span className="sr-only">{t("blocks.toolRun.runningNote")}</span>
         ) : failed ? (
-          <span className="sr-only">{t("blocks.toolRun.failedNote")}</span>
+          <span className="sr-only">{t("blocks.toolRun.failedNote", { n: failures })}</span>
         ) : null}
       </button>
       {shown > 0 ? (

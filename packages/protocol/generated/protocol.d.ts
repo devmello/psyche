@@ -1463,6 +1463,15 @@ export interface ChatFollowUpParams {
     threadId: string;
 }
 
+export interface ChatGreetParams {
+    threadId: string;
+}
+
+export interface ChatGreetResult {
+    runId?:  null | string;
+    started: boolean;
+}
+
 export interface ChatHistoryParams {
     /**
      * Opaque cursor
