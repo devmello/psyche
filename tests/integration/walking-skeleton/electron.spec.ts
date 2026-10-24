@@ -161,9 +161,10 @@ test("a turn streams, reads a granted file and asks to write it; Allow once writ
   expect(readFileSync(notes, "utf8")).not.toContain("eggs");
   await allowOnce();
   await expect.poll(() => readFileSync(notes, "utf8")).toContain("- eggs");
-  // The receipt line under the write (its short id, R1).
+  // The receipt line under the write: its summary and time. The receipt id (R1) is disclosure
+  // level 2 since the calm chat column (e4f014f2), so the default view doesn't show it (#561).
   await expect(
-    page.locator("p").filter({ hasText: "Write notes.md" }).filter({ hasText: /R1$/ }),
+    page.locator("p").filter({ hasText: /^Write notes\.md · \d{1,2}:\d{2}/ }),
   ).toBeVisible();
 });
 
@@ -210,11 +211,17 @@ test("a delegated task keeps running after the window quits and shows in Activit
 
 test("Soul & Memory shows today's daily note, edits SOUL.md and exports everything", async () => {
   await page.getByRole("tab", { name: "Soul & Memory" }).click();
-  const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local time, like the daily note
-  await expect(page.getByRole("navigation", { name: "Daily notes" })).toContainText(
-    today.slice(5),
-    { timeout: 20_000 },
-  );
+  // The daily note is named by its local date; the list labels it like "Oct 24" (the file's
+  // YYYY-MM-DD read as a UTC date, #561).
+  const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD in local time
+  const label = new Date(`${today}T00:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+  await expect(page.getByRole("navigation", { name: "Daily notes" })).toContainText(label, {
+    timeout: 20_000,
+  });
   await page.getByRole("tab", { name: "SOUL.md" }).click();
   const editor = page.getByLabel("SOUL.md contents");
   await editor.press("End");
