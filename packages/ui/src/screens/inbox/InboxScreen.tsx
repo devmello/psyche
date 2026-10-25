@@ -461,10 +461,9 @@ export function InboxView({
       .map((g) => ({ id: g, items: notifications.filter((n) => groupOf(n, now) === g) }))
       .filter((g) => g.items.length > 0);
     body = (
-      <div
+      <fieldset
         aria-label={t("screens.inbox.notifications")}
-        role="group"
-        className="flex flex-col gap-5"
+        className="m-0 flex min-w-0 flex-col gap-5 border-0 p-0"
       >
         {groups.map((g) => (
           <section key={g.id} aria-labelledby={`inbox-${g.id}`} className="flex flex-col gap-2">
@@ -480,7 +479,7 @@ export function InboxView({
             </ul>
           </section>
         ))}
-      </div>
+      </fieldset>
     );
   }
 
