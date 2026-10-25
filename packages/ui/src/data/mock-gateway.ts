@@ -119,7 +119,7 @@ export interface MockWorld {
   /** `connectors.connect` behaviour: "unavailable" answers not_implemented (#505). */
   connectorConnect?: "unavailable" | "not_configured";
   /** macOS grant for the Apple connectors (#549); default granted. */
-  appleGrant?: "granted" | "denied";
+  appleGrant?: "granted" | "denied" | "notDetermined";
   /** The last turn's context usage by thread id (`threads.contextUsage`). */
   contextUsage?: Record<string, ContextUsage>;
   /** Each thread's own context limits (`threads.setContextLimits`). */
@@ -395,7 +395,8 @@ export class MockGateway implements GatewayClient {
         details: { reason: "already_connected", connectorId: live.id },
       });
     }
-    const denied = this.world.appleGrant === "denied";
+    const grant = this.world.appleGrant ?? "granted";
+    const denied = grant !== "granted";
     const connector: Connector = {
       id: p.connectorId ?? this.id("con"),
       type,
@@ -410,7 +411,11 @@ export class MockGateway implements GatewayClient {
         ? {
             permission: {
               kind: "automation",
-              state: "denied",
+              state: grant,
+              // #570: asked, and no prompt came of it.
+              ...(grant === "notDetermined"
+                ? { requested: true, reason: 'macOS answered "denied"' }
+                : {}),
               settingsPath:
                 "System Settings → Privacy & Security → Automation → Psyche (Helper) → Mail",
             },
@@ -1426,7 +1431,7 @@ export class MockGateway implements GatewayClient {
       const c = this.find(this.world.connectors, p.connectorId, "connector");
       if (
         c.status === "needs_auth" &&
-        this.world.appleGrant !== "denied" &&
+        (this.world.appleGrant ?? "granted") === "granted" &&
         c.type.startsWith("apple")
       ) {
         const { permission: _p, ...config } = c.config;

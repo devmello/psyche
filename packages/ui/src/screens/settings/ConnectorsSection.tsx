@@ -9,7 +9,12 @@ import { t } from "../../i18n/core.ts";
 import { formatRelative } from "../../lib/format.ts";
 import { useNow } from "../../lib/use-now.ts";
 import { usePersona } from "../../slots.tsx";
-import { ConnectProgress, permissionOf, useConnectorConnect } from "./connect-flow.tsx";
+import {
+  ConnectProgress,
+  PermissionNotice,
+  permissionOf,
+  useConnectorConnect,
+} from "./connect-flow.tsx";
 import { RowMoreMenu } from "./RowMoreMenu.tsx";
 import {
   Group,
@@ -314,15 +319,14 @@ export function ConnectorsPanel({
                       </dd>
                     </dl>
                     {permission && c.status === "needs_auth" ? (
-                      <p className="mt-2">
-                        {t("settings.connect.needsPermission", { name: c.label })}{" "}
-                        <span className="font-medium">{permission.settingsPath}</span>
-                      </p>
+                      <div className="mt-2 flex flex-col gap-1">
+                        <PermissionNotice name={c.label} permission={permission} />
+                      </div>
                     ) : null}
                     <div className="mt-3 flex flex-wrap gap-2">
                       {permission && c.status === "needs_auth" ? (
                         <>
-                          {onGrant ? (
+                          {onGrant && permission.state === "denied" ? (
                             <Button type="button" size="sm" onClick={() => onGrant(c)}>
                               {t("settings.connect.openSystemSettings")}
                             </Button>
@@ -484,7 +488,7 @@ export function ConnectorsSection({ persona, ...props }: ConnectorsSectionProps)
   const call = useCall();
   // Built in unless the host supplies them: reconnect (for a macOS grant, the helper opens
   // System Settings) and re-check (#549).
-  const reconnect = async (c: Connector) => {
+  const reconnect = async (c: Connector, action: "check" | "open_settings") => {
     const catalogueId = await call("connectors.catalogue", {})
       .then((r) => r.entries.find((e) => e.type === c.type)?.id ?? c.type)
       .catch(() => c.type);
@@ -493,13 +497,12 @@ export function ConnectorsSection({ persona, ...props }: ConnectorsSectionProps)
       scopeMode: c.scopeMode,
       label: c.label,
       connectorId: c.id,
+      config: { permissionAction: action },
     }).catch(() => undefined);
     q.reload();
   };
-  const check = (c: Connector) =>
-    void call("connectors.status", { connectorId: c.id })
-      .catch(() => undefined)
-      .then(() => q.reload());
+  // Check again asks macOS when it has not decided yet (#570), not just re-reading the state.
+  const check = (c: Connector) => void reconnect(c, "check");
   // Connect drives the real sign-in unless the host supplies its own (#505).
   const flow = useConnectorConnect();
   const builtIn = props.onConnect === undefined;
@@ -526,7 +529,7 @@ export function ConnectorsSection({ persona, ...props }: ConnectorsSectionProps)
             ),
           }
         : {})}
-      onGrant={(c: Connector) => void reconnect(c)}
+      onGrant={(c: Connector) => void reconnect(c, "open_settings")}
       onCheck={check}
       persona={persona ?? fallback.name}
       implemented={implemented}

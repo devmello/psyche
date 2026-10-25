@@ -1391,6 +1391,9 @@ export const settings = {
   "settings.connect.needsPermission":
     "{name} is set up, but macOS has not allowed it yet. Allow it in",
   "settings.connect.openSystemSettings": "Open System Settings",
+  "settings.connect.notAskedYet":
+    "{name} is set up, but macOS has not asked you yet. Check again shows the macOS prompt on the Mac.",
+  "settings.connect.noPrompt": "macOS did not show a prompt: {reason}",
   "settings.connect.checkAgain": "Check again",
   "settings.connectors.status.needsPermission": "Needs permission",
   "settings.connectors.catalog.connected": "{name} (connected)",

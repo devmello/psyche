@@ -2,6 +2,7 @@ import { PsycheError, type SideEffect, type ToolCallDescription } from "@psyche/
 import { canonicalJSON, sha256 } from "../framework/binding.ts";
 import type {
   CatalogueEntry,
+  ConnectInput,
   Connector,
   ConnectorAction,
   ConnectorFactory,
@@ -439,7 +440,11 @@ const PERMISSION: Record<
 };
 
 /** What `config.permission` holds while the grant is missing (the UI's "Needs permission"). */
-export function applePermission(app: AppleApp, state: string): Record<string, string> {
+export function applePermission(
+  app: AppleApp,
+  state: string,
+  extra: { requested?: boolean; reason?: string } = {},
+): Record<string, string | boolean> {
   const p = PERMISSION[app];
   return {
     kind: p.kind,
@@ -447,8 +452,18 @@ export function applePermission(app: AppleApp, state: string): Record<string, st
     state,
     settingsPath: p.path,
     settingsUrl: `x-apple.systempreferences:com.apple.preference.security?${p.pane}`,
+    // #570: Psyche asked macOS this time, and what the helper said when no grant came of it.
+    ...(extra.requested === true ? { requested: true } : {}),
+    ...(extra.reason ? { reason: extra.reason.slice(0, 300) } : {}),
   };
 }
+
+/**
+ * What the owner asked for when retrying a connector that waits on a grant (#570), passed as
+ * `config.permissionAction` to `connectors.connect` with the connector's id: `check` asks macOS
+ * again when it has not decided yet; `open_settings` also opens System Settings when it denied.
+ */
+export type ApplePermissionAction = "check" | "open_settings";
 
 const PERMISSION_REASONS = new Set([
   "automation_denied",
@@ -543,19 +558,68 @@ class AppleConnector implements Connector {
     return h;
   }
 
-  async connect(input: { scopeMode: "read" | "read_act" }): Promise<ConnectResult> {
+  async connect(input: ConnectInput): Promise<ConnectResult> {
     const h = this.#helper();
     const entry = appleCatalogueEntry(this.#app);
     // Only what this helper actually offers counts as granted.
     const scopes = entry.scopes[input.scopeMode].filter((c) => h.capabilities.includes(c));
     const base = { account: h.name ?? "This Mac", scopes };
-    // #549: never "connected" without the macOS grant. The probe's first run launches the app
-    // and shows the prompt (the helper waits while it is up), so allow the owner some time.
     const p = PERMISSION[this.#app];
+    const action = input.config.permissionAction;
+    const config = (permission: unknown) => ({
+      nodeId: h.nodeId,
+      permission,
+      permissionAction: null,
+    });
+    const waiting = (state: string, extra: { requested?: boolean; reason?: string } = {}) => {
+      this.#waiting = true;
+      return {
+        ...base,
+        status: "needs_auth" as const,
+        config: config(applePermission(this.#app, state, extra)),
+      };
+    };
+    const openSettings = async () => {
+      if (action !== "open_settings" || !h.capabilities.includes("permissions.open_settings"))
+        return;
+      await h
+        .invoke("permissions.open_settings", { permission: p.kind }, { timeoutMs: 15_000 })
+        .catch(() => undefined);
+    };
+
+    // #549 / #570: never "connected" without the macOS grant. Read it first (no prompt).
+    const before = await this.#grant(h).catch(() => "unknown");
+    if (before === "denied") {
+      // macOS asks only once: after a denial the owner allows it in System Settings.
+      await openSettings();
+      return waiting("denied");
+    }
+    // Not decided yet (or unknown): ask, so the prompt appears. EventKit through the helper's
+    // permissions.request; Automation through the probe, whose first Apple Event asks.
+    let requested = false;
+    let reason: string | undefined;
+    if (
+      before !== "granted" &&
+      p.kind !== "automation" &&
+      h.capabilities.includes("permissions.request")
+    ) {
+      requested = true;
+      const r = await h.invoke(
+        "permissions.request",
+        { permission: p.kind },
+        { timeoutMs: 180_000 },
+      );
+      const status = (r.result as { status?: unknown } | undefined)?.status;
+      if (!r.ok) reason = r.error?.message;
+      else if (typeof status === "string" && status !== "granted")
+        reason = `macOS answered "${status}"`;
+    }
+    // The probe verifies (and for Automation is the request): the helper waits while a prompt
+    // is up, so allow the owner some time.
     const res = await h.invoke(PROBE[this.#app], p.probe, { timeoutMs: 180_000 });
     if (res.ok) {
       this.#waiting = false;
-      return { ...base, config: { nodeId: h.nodeId, permission: null } };
+      return { ...base, config: config(null) };
     }
     if (!isPermissionError(res.error)) {
       throw new PsycheError(
@@ -564,26 +628,18 @@ class AppleConnector implements Connector {
         { details: { reason: String(res.error?.details?.reason ?? "probe_failed") } },
       );
     }
-    // Asking again after a denial cannot show the prompt: macOS only allows it in System
-    // Settings, so a retry from "Open System Settings" opens that pane on the Mac.
-    if (this.#waiting && h.capabilities.includes("permissions.open_settings")) {
-      await h
-        .invoke("permissions.open_settings", { permission: p.kind }, { timeoutMs: 15_000 })
-        .catch(() => undefined);
-    }
-    this.#waiting = true;
-    const reason = String(res.error?.details?.reason ?? "");
-    return {
-      ...base,
-      status: "needs_auth",
-      config: {
-        nodeId: h.nodeId,
-        permission: applePermission(
-          this.#app,
-          reason === "automation_not_granted" ? "notDetermined" : "denied",
-        ),
-      },
-    };
+    if (p.kind === "automation" && before !== "granted") requested = true;
+    reason ??= res.error?.message;
+    const after = await this.#grant(h).catch(() => "unknown");
+    const helperReason = String(res.error?.details?.reason ?? "");
+    const state =
+      after === "denied" || after === "notDetermined"
+        ? after
+        : helperReason === "automation_not_granted"
+          ? "notDetermined"
+          : "denied";
+    if (state === "denied") await openSettings();
+    return waiting(state, { requested, ...(reason === undefined ? {} : { reason }) });
   }
 
   /** The grant's state without prompting: `granted`, `denied`, `notDetermined` or `unknown`. */

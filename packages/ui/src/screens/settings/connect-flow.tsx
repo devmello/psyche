@@ -39,19 +39,63 @@ export type ConnectState =
       label: string;
       connectorId: string;
       mode: ScopeMode;
-      settingsPath: string;
+      permission: ConnectorPermission;
       checking?: boolean;
     };
 
-/** `config.permission` of a connector waiting on a macOS grant (#549), if any. */
-export function permissionOf(c: Connector): { settingsPath: string; state: string } | null {
+/** A connector's wait on a macOS grant (#549, #570): `config.permission` as the UI reads it. */
+export interface ConnectorPermission {
+  settingsPath: string;
+  /** `denied` (allow it in System Settings) or `notDetermined` (macOS has not asked yet). */
+  state: string;
+  /** Psyche asked macOS on the last try, and what the helper said when nothing came of it. */
+  requested: boolean;
+  reason: string | null;
+}
+
+/** `config.permission` of a connector waiting on a macOS grant, if any. */
+export function permissionOf(c: Connector): ConnectorPermission | null {
   const p = c.config.permission;
   if (typeof p !== "object" || p === null || Array.isArray(p)) return null;
   const o = p as Record<string, unknown>;
   return {
     settingsPath: typeof o.settingsPath === "string" ? o.settingsPath : "",
     state: typeof o.state === "string" ? o.state : "denied",
+    requested: o.requested === true,
+    reason: typeof o.reason === "string" && o.reason !== "" ? o.reason : null,
   };
+}
+
+/**
+ * What to tell the owner about a missing grant: where to allow a denied one, that macOS has
+ * not asked yet, and the helper's reason when asking showed no prompt (#570).
+ */
+export function PermissionNotice({
+  name,
+  permission,
+}: {
+  name: string;
+  permission: ConnectorPermission;
+}): ReactElement {
+  return (
+    <>
+      <p role="status">
+        {permission.state === "denied" ? (
+          <>
+            {t("settings.connect.needsPermission", { name })}{" "}
+            <span className="font-medium">{permission.settingsPath}</span>
+          </>
+        ) : (
+          t("settings.connect.notAskedYet", { name })
+        )}
+      </p>
+      {permission.requested && permission.reason ? (
+        <p className="text-muted-foreground">
+          {t("settings.connect.noPrompt", { reason: permission.reason })}
+        </p>
+      ) : null}
+    </>
+  );
 }
 
 export function useConnectorConnect() {
@@ -149,7 +193,7 @@ export function useConnectorConnect() {
             label,
             connectorId: res.connector.id,
             mode,
-            settingsPath: permission.settingsPath,
+            permission,
           });
         } else if (res.authorization) {
           pending.current = { connectorId: res.connector.id, type, label };
@@ -199,45 +243,50 @@ export function useConnectorConnect() {
     if (l) void start(l.type, l.mode, l.label);
   }, [start]);
 
-  /** "Open System Settings": reconnecting while denied makes the helper open the pane. */
-  const openSettings = useCallback(async () => {
-    const s = state;
-    if (s.phase !== "needs-permission") return;
-    setState({ ...s, checking: true });
-    const catalogueId = await store
-      .call("connectors.catalogue", {})
-      .then((r) => r.entries.find((e) => e.type === s.type)?.id ?? s.type)
-      .catch(() => s.type);
-    await store
-      .call("connectors.connect", {
-        catalogueId,
-        scopeMode: s.mode,
-        label: s.label,
-        connectorId: s.connectorId,
-      })
-      .then((res) => {
-        if (res.connector.status === "connected") {
-          pending.current = null;
-          setState({ phase: "connected", type: s.type, label: s.label, connector: res.connector });
-        } else setState({ ...s, checking: false });
-      })
-      .catch((err: unknown) =>
-        setState({ phase: "failed", type: s.type, label: s.label, reason: describeError(err) }),
-      );
-  }, [state, store]);
-
-  /** "Check again": the Gateway re-reads the grant; `connectors.updated` reports a change. */
-  const recheck = useCallback(async () => {
-    const s = state;
-    if (s.phase !== "needs-permission") return;
-    setState({ ...s, checking: true });
-    await store.call("connectors.status", { connectorId: s.connectorId }).then(
-      (r) => {
-        if (r.status !== "connected") setState({ ...s, checking: false });
-      },
-      () => setState({ ...s, checking: false }),
-    );
-  }, [state, store]);
+  /**
+   * Retries a connector waiting on a macOS grant (#570): `check` asks macOS again while it has
+   * not decided (the prompt appears on the Mac); `open_settings` opens System Settings when it
+   * denied. Both re-read the grant and show where it stands.
+   */
+  const retryPermission = useCallback(
+    async (action: "check" | "open_settings") => {
+      const s = state;
+      if (s.phase !== "needs-permission") return;
+      setState({ ...s, checking: true });
+      const catalogueId = await store
+        .call("connectors.catalogue", {})
+        .then((r) => r.entries.find((e) => e.type === s.type)?.id ?? s.type)
+        .catch(() => s.type);
+      await store
+        .call("connectors.connect", {
+          catalogueId,
+          scopeMode: s.mode,
+          label: s.label,
+          connectorId: s.connectorId,
+          config: { permissionAction: action },
+        })
+        .then((res) => {
+          if (res.connector.status === "connected") {
+            pending.current = null;
+            setState({
+              phase: "connected",
+              type: s.type,
+              label: s.label,
+              connector: res.connector,
+            });
+          } else {
+            const permission = permissionOf(res.connector) ?? s.permission;
+            setState({ ...s, permission, checking: false });
+          }
+        })
+        .catch((err: unknown) =>
+          setState({ phase: "failed", type: s.type, label: s.label, reason: describeError(err) }),
+        );
+    },
+    [state, store],
+  );
+  const openSettings = useCallback(() => retryPermission("open_settings"), [retryPermission]);
+  const recheck = useCallback(() => retryPermission("check"), [retryPermission]);
 
   return { state, start, cancel, retry, open, openSettings, recheck };
 }
@@ -354,12 +403,10 @@ export function ConnectProgress({
           className="flex flex-col gap-2 rounded-lg border border-approval-border bg-gray-2 p-3 text-sm"
           data-testid="connect-needs-permission"
         >
-          <p role="status">
-            {t("settings.connect.needsPermission", { name: state.label })}{" "}
-            <span className="font-medium">{state.settingsPath}</span>
-          </p>
+          <PermissionNotice name={state.label} permission={state.permission} />
           <div className="flex flex-wrap gap-2">
-            {onOpenSettings ? (
+            {/* macOS asks only once: System Settings is the way only after a denial (#570). */}
+            {onOpenSettings && state.permission.state === "denied" ? (
               <Button
                 type="button"
                 size="sm"
