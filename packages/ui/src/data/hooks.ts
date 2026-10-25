@@ -59,7 +59,11 @@ export interface LoadState {
 /** What a failed load shows: the error through the catalogue (`describeError`). */
 const messageOf = (err: unknown) => describeError(err);
 
-/** Runs `load` on mount and whenever `key` changes; reruns it after gaps and reconnects. */
+/**
+ * Runs `load` on mount and whenever `key` changes; reruns it after gaps and reconnects. Mounted
+ * before the first pairing, it stays loading (skeletons, §5.10) and runs when the connection
+ * settles, so a load only shows an error for a failure after that (#592).
+ */
 export function useLoader(
   key: string | null,
   load: (store: GatewayStore) => Promise<void>,
@@ -91,10 +95,14 @@ export function useLoader(
         if (live) setLoading(false);
       }
     };
-    void run().catch(() => {});
+    // Before the first pairing, wait and run once the connection settles (#592).
+    const start = () => void run().catch(() => {});
+    const unsettled = store.awaitingConnection ? store.onSettled(start) : undefined;
+    if (unsettled === undefined) start();
     const unregister = store.registerRefresher(key, run);
     return () => {
       live = false;
+      unsettled?.();
       unregister();
     };
   }, [key, store, tick]);
