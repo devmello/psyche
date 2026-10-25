@@ -76,3 +76,17 @@ export const Busy: Story = {
     />
   ),
 };
+
+/** The same screen in dark appearance (the visual baseline shoots Screens/* in light only). */
+export const Dark: Story = { globals: { theme: "dark" } };
+
+/** Compact width (web < 720 px, redesign §5.11): 16 px gutters, the same tokens. */
+export const Compact: Story = {
+  decorators: [
+    (S) => (
+      <div className="w-[390px]">
+        <S />
+      </div>
+    ),
+  ],
+};

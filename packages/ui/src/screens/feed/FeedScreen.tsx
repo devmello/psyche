@@ -2,22 +2,17 @@ import type { FeedPost } from "@psyche/protocol";
 import { CalendarClock, CircleAlert, Loader, Newspaper, PenLine } from "lucide-react";
 import { type ReactElement, useState } from "react";
 import { toast } from "sonner";
-import {
-  EmptyState,
-  ErrorState,
-  LoadingCards,
-  Page,
-  PageHeader,
-  useDelayedFlag,
-} from "../../components/page.tsx";
+import { EmptyState, ErrorState, LoadingCards, useDelayedFlag } from "../../components/page.tsx";
 import { Button } from "../../components/ui/button.tsx";
 import { useFeed } from "../../data/hooks.ts";
 import { t } from "../../i18n/core.ts";
 import { describeError } from "../../i18n/errors.ts";
 import { formatTime } from "../../lib/format.ts";
+import { ListItem } from "../../motion/index.ts";
 import { usePersona, useSlots } from "../../slots.tsx";
 import { type FeedFeedbackValue, FeedPostCard } from "./FeedPostCard.tsx";
-import { feedTopic, primarySource } from "./feed-post.ts";
+import { feedKind, feedTopic, primarySource } from "./feed-post.ts";
+import { ScreenColumn, ScreenToolbar, ToolbarLabel } from "./ScreenToolbar.tsx";
 
 /** A source the brief could not read (the protocol has no field for it yet; see the report). */
 export interface FeedSourceFailure {
@@ -69,6 +64,11 @@ export function FeedView({
   const nextAt = nextBriefAt === null ? null : formatTime(nextBriefAt);
   const settled = !loading && error === null;
   const showSkeleton = useDelayedFlag(loading, loadingDelayMs);
+  // The briefing is the hero at the top (§5.6); the rest keep the Gateway's order.
+  const ordered = [
+    ...posts.filter((p) => feedKind(p) === "briefing"),
+    ...posts.filter((p) => feedKind(p) !== "briefing"),
+  ];
 
   let body: ReactElement;
   if (loading) {
@@ -89,8 +89,11 @@ export function FeedView({
   } else if (generating && posts.length === 0) {
     body = (
       <div className="flex flex-col gap-3">
-        <p role="status" className="flex items-center gap-2 text-sm text-gray-11">
-          <Loader className="size-4 text-accent-11 motion-safe:animate-spin" aria-hidden="true" />
+        <p role="status" className="flex items-center gap-2 text-body text-label-secondary">
+          <Loader
+            className="size-4 text-label-secondary animate-spin reduced:animate-none"
+            aria-hidden="true"
+          />
           {t("screens.feed.writingFirst")}
         </p>
         <LoadingCards label={t("screens.feed.generating")} count={2} lines={3} />
@@ -110,72 +113,84 @@ export function FeedView({
   } else {
     body = (
       <>
-        <ul aria-label={t("screens.feed.posts")} className="flex flex-col gap-4">
-          {posts.map((post) => (
-            <li key={post.id}>
+        <ul aria-label={t("screens.feed.posts")} className="flex flex-col gap-3">
+          {ordered.map((post, i) => (
+            <ListItem key={post.id} index={i}>
               <FeedPostCard
                 post={post}
                 persona={persona}
                 {...(onFeedback ? { onFeedback } : {})}
                 {...(onAsk ? { onAsk } : {})}
               />
-            </li>
+            </ListItem>
           ))}
         </ul>
-        <div className="flex items-center gap-3 py-4">
-          <span aria-hidden="true" className="h-px flex-1 bg-gray-6" />
-          <p className="text-small text-gray-11">
-            {t("screens.feed.end", { next: nextAt ?? "", hasNext: Boolean(nextAt) })}
-          </p>
-          <span aria-hidden="true" className="h-px flex-1 bg-gray-6" />
-        </div>
+        {/* The end marker (§5.6): one centred line with 48 px of space above. */}
+        <p className="pt-12 text-center text-callout text-label-secondary">
+          {t("screens.feed.end", { next: nextAt ?? "", hasNext: Boolean(nextAt) })}
+        </p>
       </>
     );
   }
 
   return (
     <section aria-label={t("screens.feed.title")}>
-      <Page width="prose">
-        <PageHeader
-          title={t("screens.feed.title")}
-          meta={
-            settled && posts.length > 0
-              ? t("screens.feed.todayPosts", { n: posts.length })
-              : t("screens.feed.today")
-          }
-          actions={
-            <>
-              {onEditInstructions ? (
-                <Button type="button" size="sm" variant="outline" onClick={onEditInstructions}>
-                  <PenLine aria-hidden="true" />
-                  {t("screens.feed.instructions")}
-                </Button>
-              ) : null}
-              {onSchedule ? (
-                <Button type="button" size="sm" variant="ghost" onClick={onSchedule}>
-                  <CalendarClock aria-hidden="true" />
-                  {t("screens.feed.schedule")}
-                </Button>
-              ) : null}
-            </>
-          }
-        />
+      <ScreenToolbar
+        title={t("screens.feed.title")}
+        meta={
+          settled && posts.length > 0
+            ? t("screens.feed.todayPosts", { n: posts.length })
+            : t("screens.feed.today")
+        }
+        actions={
+          <>
+            {onEditInstructions ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                title={t("screens.feed.instructions")}
+                onClick={onEditInstructions}
+              >
+                <PenLine aria-hidden="true" />
+                <ToolbarLabel>{t("screens.feed.instructions")}</ToolbarLabel>
+              </Button>
+            ) : null}
+            {onSchedule ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                title={t("screens.feed.schedule")}
+                onClick={onSchedule}
+              >
+                <CalendarClock aria-hidden="true" />
+                <ToolbarLabel>{t("screens.feed.schedule")}</ToolbarLabel>
+              </Button>
+            ) : null}
+          </>
+        }
+      />
+      <ScreenColumn width="reading">
         {settled && sourceFailures.length > 0 ? (
-          <ul aria-label={t("screens.feed.skipped")} className="flex flex-col gap-1">
+          <ul
+            aria-label={t("screens.feed.skipped")}
+            className="flex flex-col rounded-lg bg-surface-raised shadow-elevation-1"
+          >
             {sourceFailures.map((f) => (
               <li
                 key={f.source}
-                className="flex flex-wrap items-center gap-2 rounded-lg border border-gray-6 bg-gray-2 px-3 py-2 text-sm"
+                className="relative flex min-h-9 flex-wrap items-center gap-3 px-3 py-1.5 text-body before:absolute before:inset-x-3 before:top-0 before:h-px before:bg-separator first:before:hidden"
               >
                 <CircleAlert className="size-4 shrink-0 text-approval-text" aria-hidden="true" />
-                <span className="min-w-0 flex-1">
+                <span className="min-w-0 flex-1 text-label-primary">
                   {t("screens.feed.sourceFailed", { source: f.source, reason: f.reason })}
                 </span>
                 {f.route !== undefined && onOpenRoute ? (
                   <Button
                     type="button"
                     size="xs"
-                    variant="outline"
+                    variant="plain"
                     onClick={() => onOpenRoute(f.route ?? "")}
                     aria-label={t("screens.feed.fixSource", { source: f.source })}
                   >
@@ -187,7 +202,7 @@ export function FeedView({
           </ul>
         ) : null}
         {body}
-      </Page>
+      </ScreenColumn>
     </section>
   );
 }

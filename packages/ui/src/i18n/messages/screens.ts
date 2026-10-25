@@ -61,6 +61,7 @@ export const screens = {
   "screens.ideas.cadence.monthly": "monthly",
   "screens.ideas.effort": "Effort:",
   "screens.ideas.makeRecurring": "Make recurring",
+  "screens.ideas.count": "{n, plural, one {# idea} other {# ideas}}",
   "screens.ideas.cadence": "Cadence",
   "screens.ideas.repeats": "Repeats on the schedule it proposes; change it later in Upcoming.",
   "screens.ideas.viewSkill": "View SKILL.md",
