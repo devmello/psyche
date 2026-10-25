@@ -327,7 +327,9 @@ export function AgentHeader({
                   {LEVELS.map((level) => (
                     <DropdownMenuRadioItem key={level} value={String(level)}>
                       {t(`chat.toolbar.view.${DISCLOSURE_KEY[level]}`)}
-                      {level === 0 ? <DropdownMenuShortcut>{t("chat.toolbar.keyView")}</DropdownMenuShortcut> : null}
+                      {level === 0 ? (
+                        <DropdownMenuShortcut>{t("chat.toolbar.keyView")}</DropdownMenuShortcut>
+                      ) : null}
                     </DropdownMenuRadioItem>
                   ))}
                 </DropdownMenuRadioGroup>
