@@ -307,12 +307,12 @@ export function AgentHeader({
         <DropdownMenuContent align="end" className="min-w-56">
           <DropdownMenuItem onClick={onOpenSheet}>
             <PanelRight aria-hidden="true" /> {t("agent.header.menuSheet")}
-            <DropdownMenuShortcut>⌘⇧A</DropdownMenuShortcut>
+            <DropdownMenuShortcut>{t("chat.toolbar.keySheet")}</DropdownMenuShortcut>
           </DropdownMenuItem>
           {onOpenModelPicker ? (
             <DropdownMenuItem onClick={onOpenModelPicker}>
               {t("agent.header.changeModel")}
-              <DropdownMenuShortcut>⌘⇧I</DropdownMenuShortcut>
+              <DropdownMenuShortcut>{t("chat.toolbar.keyModel")}</DropdownMenuShortcut>
             </DropdownMenuItem>
           ) : null}
           {disclosure !== undefined && onDisclosureChange ? (
@@ -327,7 +327,7 @@ export function AgentHeader({
                   {LEVELS.map((level) => (
                     <DropdownMenuRadioItem key={level} value={String(level)}>
                       {t(`chat.toolbar.view.${DISCLOSURE_KEY[level]}`)}
-                      {level === 0 ? <DropdownMenuShortcut>⌃O</DropdownMenuShortcut> : null}
+                      {level === 0 ? <DropdownMenuShortcut>{t("chat.toolbar.keyView")}</DropdownMenuShortcut> : null}
                     </DropdownMenuRadioItem>
                   ))}
                 </DropdownMenuRadioGroup>
