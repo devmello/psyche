@@ -71,9 +71,29 @@ const config: ForgeConfig = {
     asar: { unpack: "{*.node,spawn-helper}" },
     // psyche:// deep links (CFBundleURLTypes).
     protocols: [{ name: "Psyche", schemes: ["psyche"] }],
+    // macOS attributes the bundled helper's privacy requests to this outer bundle (the helper lives
+    // in Contents/Resources), so every usage string the helper needs must be here too, or tccd
+    // refuses the request without a prompt (#570). Keep the texts in step with
+    // apps/mac-helper/Support/Info.plist; the legacy keys cover older macOS.
     extendInfo: {
       NSMicrophoneUsageDescription:
         "Psyche uses the microphone for dictation when you hold the dictation key or press the mic button.",
+      NSSpeechRecognitionUsageDescription:
+        "Psyche uses macOS speech recognition on this Mac to turn your dictation into text.",
+      NSRemindersFullAccessUsageDescription:
+        "Psyche reads and adds reminders when you turn on the Reminders connector.",
+      NSRemindersUsageDescription:
+        "Psyche reads and adds reminders when you turn on the Reminders connector.",
+      NSCalendarsFullAccessUsageDescription:
+        "Psyche reads and adds calendar events when you turn on the Calendar connector. macOS has no read-only option.",
+      NSCalendarsUsageDescription:
+        "Psyche reads and adds calendar events when you turn on the Calendar connector. macOS has no read-only option.",
+      NSContactsUsageDescription:
+        "Psyche looks up the people you mention when you turn on the Contacts connector.",
+      NSAppleEventsUsageDescription:
+        "Psyche sends Apple Events to an app only when you ask it to act there, such as reading Notes, drafting Mail or running a Shortcut. macOS asks once for each app.",
+      NSScreenCaptureUsageDescription:
+        "Psyche looks at the screen only when an app's controls cannot be read. Its own windows, terminals and apps you set to Off are never captured.",
       LSUIElement: false,
     },
     ...macSigningOptions(process.env, {

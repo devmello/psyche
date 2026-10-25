@@ -7,6 +7,9 @@
     code-signing exception @electron/osx-sign's defaults give the app and its helpers;
     allow-unsigned-executable-memory is not needed.
   - audio-input: microphone for dictation (paired with NSMicrophoneUsageDescription).
+  - personal-information.calendars / addressbook and automation.apple-events: macOS attributes the
+    bundled helper's Reminders, Calendar, Contacts and Apple Events requests to this outer bundle
+    (#570), so without these the hardened runtime denies them silently and no prompt appears.
   - No disable-library-validation: node-pty's pty.node and spawn-helper are signed with the app.
 -->
 <plist version="1.0">
@@ -14,6 +17,12 @@
     <key>com.apple.security.cs.allow-jit</key>
     <true/>
     <key>com.apple.security.device.audio-input</key>
+    <true/>
+    <key>com.apple.security.personal-information.calendars</key>
+    <true/>
+    <key>com.apple.security.personal-information.addressbook</key>
+    <true/>
+    <key>com.apple.security.automation.apple-events</key>
     <true/>
   </dict>
 </plist>
