@@ -29,7 +29,10 @@ describe("ReceiptLine (§3.2)", () => {
     const r = receipt(IDS.receipts.emailSent);
     const { container, unmount } = render(<ReceiptLine receipt={r} />);
     const text = container.textContent ?? "";
-    expect(text).toMatch(/^Sent to jane\.ortiz@example\.com · .* · Gmail id 18c4… · \d\d:\d\d$/);
+    // The leading status glyph speaks "Done" (redesign §5.3).
+    expect(text).toMatch(
+      /^Done Sent to jane\.ortiz@example\.com · .* · Gmail id 18c4… · \d\d:\d\d$/,
+    );
     expect(text).not.toContain("gmailThreadId");
     expect(text).not.toContain("r-107");
     unmount();

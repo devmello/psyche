@@ -86,6 +86,10 @@ export const chat = {
   "chat.approvals.others": "Other approvals",
 
   "chat.thread.conversation": "Conversation",
+  "chat.question.change": "Change",
+  "chat.question.changeOf": "Change the answer to {header}",
+  "chat.question.otherPlaceholder": "Type an answer",
+  "chat.receipt.ok": "Done",
   "chat.thread.empty": "Nothing here yet. Ask {name} something below to start.",
   "chat.thread.working": "{name} is working…",
   "chat.thread.runningTool": "Running {tool}…",
