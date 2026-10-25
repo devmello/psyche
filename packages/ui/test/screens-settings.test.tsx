@@ -181,9 +181,13 @@ describe("Admin-only settings", () => {
 describe("Permissions", () => {
   it("edits the per-connector matrix with MCP keys as written", async () => {
     const { gateway } = setup({ defaultSection: "permissions" });
-    const table = await screen.findByRole("table", { name: "Notion actions" });
-    expect(within(table).getByRole("rowheader", { name: "mcp__notion__search" })).toBeTruthy();
-    await userEvent.click(within(table).getByRole("radio", { name: "search: Deny" }));
+    const list = await screen.findByRole("list", { name: "Notion actions" });
+    // The raw key appears only from the row's ⋯ → "Show technical name" (redesign §5.8).
+    expect(within(list).queryByText("mcp__notion__search")).toBeNull();
+    await userEvent.click(within(list).getByRole("button", { name: "More for search" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Show technical name" }));
+    expect(await within(list).findByText("mcp__notion__search")).toBeTruthy();
+    await userEvent.click(within(list).getByRole("radio", { name: "search: Deny" }));
     await waitFor(() => {
       const matrix = settingValue(gateway(), `permissions.connectors.${IDS.connectors.notion}`) as
         | Record<string, string>
@@ -911,15 +915,21 @@ describe("File access (folder grants live in permissions.policy)", () => {
 });
 
 describe("Settings polish (UI design §3.18, §4.12)", () => {
-  it("says connector actions in plain words and keeps the raw key beside them", async () => {
+  it("says connector actions in plain words, with one segmented control per action", async () => {
     expect(actionLabel("gmail.read")).toBe("read threads");
     expect(actionLabel("gmail.send")).toBe("send");
     expect(actionLabel("mcp__notion__create_page")).toBe("create page");
     expect(actionLabel("contacts.write")).toBe("change contacts");
     setup({ defaultSection: "permissions" });
-    const table = await screen.findByRole("table", { name: "Gmail actions" });
-    expect(within(table).getByText("read threads")).toBeTruthy();
-    expect(within(table).getByRole("rowheader", { name: "gmail.read" })).toBeTruthy();
+    const list = await screen.findByRole("list", { name: "Gmail actions" });
+    expect(within(list).getByText("read threads")).toBeTruthy();
+    const segmented = within(list).getByRole("radiogroup", { name: "read threads" });
+    expect(
+      within(segmented)
+        .getAllByRole("radio")
+        .map((r) => r.getAttribute("aria-label")),
+    ).toEqual(["read threads: Allow", "read threads: Ask", "read threads: Deny"]);
+    expect(within(list).queryByText("gmail.read")).toBeNull();
   });
 
   it("shows no config keys in Channels labels", async () => {
